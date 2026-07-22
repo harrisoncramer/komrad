@@ -1,0 +1,11 @@
+#!/bin/bash
+# Attach to a Claude agent's session inside the current (popup) client, so the
+# live chat fills the popup. Meant to run as a popup command.
+# Usage: claude-chat <session> <pane-id>
+session="$1"
+pane="$2"
+
+# Unset TMUX so tmux attaches a fresh client from inside the popup instead of
+# refusing as a nested session.
+unset TMUX
+exec tmux -L default attach-session -t "$session" \; select-pane -t "$pane"

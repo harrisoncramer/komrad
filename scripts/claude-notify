@@ -1,0 +1,26 @@
+#!/bin/bash
+# Register this Claude agent as "done" with a message, for the tmux agent panel.
+# Usage: claude-notify "short message about what finished"
+# Fire-and-forget: writes a registry file the tmux plugin reads.
+set -euo pipefail
+
+msg="${*:-Task complete.}"
+reg="${CLAUDE_AGENTS_DIR:-$HOME/.claude/agents}"
+mkdir -p "$reg"
+
+# Key the registry by the owning session. Popup-launched Claudes export
+# MAIN_SESSION; a Claude run directly in a session falls back to that session.
+key="${MAIN_SESSION:-$(tmux display-message -p '#{session_name}' 2>/dev/null || echo unknown)}"
+pane="${TMUX_PANE:-}"
+safe=$(printf '%s' "$key" | tr -c 'A-Za-z0-9._-' '_')
+file="$reg/$safe"
+
+{
+  printf 'SESSION=%s\n' "$key"
+  printf 'PANE=%s\n' "$pane"
+  printf 'STATE=%s\n' "done"
+  printf 'TS=%s\n' "$(date +%s)"
+  printf 'MSG=%s\n' "$msg"
+} > "$file"
+
+echo "registered agent '$key' -> $file"
