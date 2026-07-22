@@ -45,11 +45,18 @@ fi
 
 case "$choice" in
   "$NEW_LABEL")
-    # New session for more background work, rooted at the current terminal's dir.
+    # New named session for more background work, rooted at the current
+    # terminal's dir, with claude launched in it.
+    name="$(gum input --placeholder "new session name" --width 40 || true)"
+    [ -n "$name" ] || exit 0
+    name="${name//[:.]/-}"
     dir="$(tmux -L default display-message -p ${client:+-c "$client"} '#{pane_current_path}' 2>/dev/null)"
     [ -n "$dir" ] || dir="$HOME"
-    sess="$(tmux -L default new-session -d -c "$dir" -P -F '#{session_name}' 2>/dev/null)"
-    [ -n "$sess" ] && tmux -L default switch-client ${client:+-c "$client"} -t "$sess" 2>/dev/null || true
+    if ! tmux -L default has-session -t "$name" 2>/dev/null; then
+      tmux -L default new-session -d -s "$name" -c "$dir" 2>/dev/null || true
+      tmux -L default send-keys -t "$name" "claude" Enter 2>/dev/null || true
+    fi
+    tmux -L default switch-client ${client:+-c "$client"} -t "$name" 2>/dev/null || true
     exit 0
     ;;
   "$LAST_LABEL")
