@@ -1,40 +1,10 @@
 [settings]
 experimental = true # Required for Go backend tools
 
+[task_config]
+includes = ["mise/tasks"]
+
 [tools]
 go = "1.25.1"
 golangci-lint = "v2.7.0"
 "go:gotest.tools/gotestsum" = "v1.13.0"
-
-[tasks."go:build"]
-description = "Build the claude-agents binary."
-dir = "{{config_root}}"
-run = "go build -o bin/claude-agents ."
-
-[tasks."go:fmt"]
-description = "Format Go code."
-dir = "{{config_root}}"
-run = "gofmt -w ."
-
-[tasks."go:tidy"]
-description = "Tidy go.mod."
-dir = "{{config_root}}"
-run = "go mod tidy"
-
-[tasks."go:build-linter"]
-description = "Build the custom golangci-lint binary with this repo's plugins."
-dir = "{{config_root}}"
-run = "rm -f local/custom-gcl && golangci-lint custom"
-
-[tasks."go:lint"]
-description = "Run the custom golangci-lint, building it if needed."
-dir = "{{config_root}}"
-run = """
-if [ ! -x local/custom-gcl ]; then golangci-lint custom; fi
-./local/custom-gcl run --fix --timeout 5m ./...
-"""
-
-[tasks."go:test"]
-description = "Run every Go test."
-dir = "{{config_root}}"
-run = "gotestsum --format pkgname -- ./..."

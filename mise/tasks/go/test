@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Run every Go test."
+set -euo pipefail
+cd "$MISE_CONFIG_ROOT"
+gotestsum --format pkgname -- ./...

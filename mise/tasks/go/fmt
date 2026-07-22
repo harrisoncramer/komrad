@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Format Go code."
+set -euo pipefail
+cd "$MISE_CONFIG_ROOT"
+gofmt -w .

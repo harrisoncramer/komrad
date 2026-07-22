@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Build the custom golangci-lint binary with this repo's plugins."
+set -euo pipefail
+cd "$MISE_CONFIG_ROOT"
+rm -f local/custom-gcl
+golangci-lint custom

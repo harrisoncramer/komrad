@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Tidy go.mod."
+set -euo pipefail
+cd "$MISE_CONFIG_ROOT"
+go mod tidy

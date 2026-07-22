@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Run the custom golangci-lint, building it if needed."
+set -euo pipefail
+cd "$MISE_CONFIG_ROOT"
+if [ ! -x local/custom-gcl ]; then golangci-lint custom; fi
+./local/custom-gcl run --fix --timeout 5m ./...
