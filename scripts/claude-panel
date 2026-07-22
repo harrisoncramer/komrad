@@ -54,6 +54,15 @@ case "$choice" in
     [ -n "$dir" ] || dir="$HOME"
     if ! tmux -L default has-session -t "$name" 2>/dev/null; then
       tmux -L default new-session -d -s "$name" -c "$dir" 2>/dev/null || true
+      # Register it now so it lists in the panel before its claude runs a turn.
+      npane="$(tmux -L default display-message -p -t "$name" '#{pane_id}' 2>/dev/null)"
+      safe="$(printf '%s' "$name" | tr -c 'A-Za-z0-9._-' '_')"
+      {
+        printf 'SESSION=%s\n' "$name"
+        printf 'PANE=%s\n' "$npane"
+        printf 'STATE=%s\n' "new"
+        printf 'MSG=%s\n' ""
+      } > "$reg/$safe"
       tmux -L default send-keys -t "$name" "claude" Enter 2>/dev/null || true
     fi
     tmux -L default switch-client ${client:+-c "$client"} -t "$name" 2>/dev/null || true
