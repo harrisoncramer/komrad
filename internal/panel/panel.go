@@ -301,10 +301,10 @@ func (m model) updateConfirm(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "left", "right", "h", "l", "tab":
 		m.confirmYes = !m.confirmYes
 	case "y":
-		return m.applyDestroy()
+		return m.applyKill()
 	case "enter":
 		if m.confirmYes {
-			return m.applyDestroy()
+			return m.applyKill()
 		}
 
 		m.screen = screenChats
@@ -315,10 +315,10 @@ func (m model) updateConfirm(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// applyDestroy kills the selected agent, reloads, and returns to the chats view
-// (or the top list when none remain).
-func (m model) applyDestroy() (tea.Model, tea.Cmd) {
-	m.manager.Destroy(m.client, m.agent)
+// applyKill stops the selected agent's session, reloads (it stays as dormant),
+// and returns to the chats view (or the top list when none remain).
+func (m model) applyKill() (tea.Model, tea.Cmd) {
+	m.manager.Kill(m.client, m.agent)
 	m.reload()
 
 	if len(m.chats) == 0 {

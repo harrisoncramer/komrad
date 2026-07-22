@@ -46,6 +46,12 @@ table "sessions" {
     type    = text
     default = ""
   }
+  # Soft-delete flag: a deleted record is hidden from the panel but kept.
+  column "is_deleted" {
+    null    = false
+    type    = integer
+    default = 0
+  }
   column "created_at" {
     null    = false
     type    = datetime

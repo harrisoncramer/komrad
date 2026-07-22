@@ -171,6 +171,15 @@ func (s *Store) Delete(ctx context.Context, name string) error {
 	return nil
 }
 
+// SoftDelete hides an agent from listings without dropping the row.
+func (s *Store) SoftDelete(ctx context.Context, name string) error {
+	if err := s.queries.MarkSessionDeleted(ctx, name); err != nil {
+		return fmt.Errorf("failed to soft-delete session %q: %w", name, err)
+	}
+
+	return nil
+}
+
 func fromModel(row *models.Session) Agent {
 	return Agent{
 		ID:              row.ID,

@@ -36,6 +36,15 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.agent = m.chats[m.chatCursor].agent
 		m.confirmYes = false
 		m.screen = screenConfirm
+	case "d":
+		m.manager.Delete(m.client, m.chats[m.chatCursor].agent)
+		m.reload()
+		if m.chatCursor >= len(m.chats) {
+			m.chatCursor = len(m.chats) - 1
+		}
+		if len(m.chats) == 0 {
+			m.screen = screenList
+		}
 	case "ctrl+d":
 		m.preview.HalfPageDown()
 	case "ctrl+u":
@@ -107,7 +116,7 @@ func (m model) chatsView() string {
 		list.WriteString(cursor + icon + " " + name + "\n")
 	}
 
-	list.WriteString("\n" + dimStyle.Render("enter/l open · x kill\nj/k move · C-d/C-u scroll · esc back"))
+	list.WriteString("\n" + dimStyle.Render("enter/l open · x kill · d delete\nj/k move · C-d/C-u scroll · esc back"))
 
 	left := lipgloss.NewStyle().Width(chatListWidth).Render(list.String())
 	right := lipgloss.NewStyle().

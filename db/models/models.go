@@ -19,4 +19,5 @@ type Session struct {
 	ClaudeSessionID string
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+	IsDeleted       int64
 }

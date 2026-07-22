@@ -21,7 +21,7 @@ func (q *Queries) DeleteSession(ctx context.Context, name string) error {
 
 const getSession = `-- name: GetSession :one
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, claude_session_id, created_at, updated_at
+    id, name, cwd, flags, prompt, pane_id, state, claude_session_id, created_at, updated_at, is_deleted
 FROM
     sessions
 WHERE
@@ -43,15 +43,18 @@ func (q *Queries) GetSession(ctx context.Context, name string) (*Session, error)
 		&i.ClaudeSessionID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsDeleted,
 	)
 	return &i, err
 }
 
 const listSessions = `-- name: ListSessions :many
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, claude_session_id, created_at, updated_at
+    id, name, cwd, flags, prompt, pane_id, state, claude_session_id, created_at, updated_at, is_deleted
 FROM
     sessions
+WHERE
+    is_deleted = 0
 ORDER BY
     updated_at DESC
 `
@@ -76,6 +79,7 @@ func (q *Queries) ListSessions(ctx context.Context) ([]*Session, error) {
 			&i.ClaudeSessionID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsDeleted,
 		); err != nil {
 			return nil, err
 		}
@@ -88,6 +92,21 @@ func (q *Queries) ListSessions(ctx context.Context) ([]*Session, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const markSessionDeleted = `-- name: MarkSessionDeleted :exec
+UPDATE
+    sessions
+SET
+    is_deleted = 1,
+    updated_at = CURRENT_TIMESTAMP
+WHERE
+    name = ?1
+`
+
+func (q *Queries) MarkSessionDeleted(ctx context.Context, name string) error {
+	_, err := q.db.ExecContext(ctx, markSessionDeleted, name)
+	return err
 }
 
 const setSessionState = `-- name: SetSessionState :exec
@@ -123,7 +142,7 @@ ON CONFLICT (name)
         claude_session_id = CASE WHEN excluded.claude_session_id != '' THEN excluded.claude_session_id ELSE sessions.claude_session_id END,
         updated_at = CURRENT_TIMESTAMP
     RETURNING
-        id, name, cwd, flags, prompt, pane_id, state, claude_session_id, created_at, updated_at
+        id, name, cwd, flags, prompt, pane_id, state, claude_session_id, created_at, updated_at, is_deleted
 `
 
 type UpsertSessionParams struct {
@@ -160,6 +179,7 @@ func (q *Queries) UpsertSession(ctx context.Context, arg UpsertSessionParams) (*
 		&i.ClaudeSessionID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsDeleted,
 	)
 	return &i, err
 }

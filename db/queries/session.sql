@@ -3,6 +3,8 @@ SELECT
     *
 FROM
     sessions
+WHERE
+    is_deleted = 0
 ORDER BY
     updated_at DESC;
 
@@ -52,4 +54,13 @@ WHERE
 -- name: DeleteSession :exec
 DELETE FROM sessions
 WHERE name = @name;
+
+-- name: MarkSessionDeleted :exec
+UPDATE
+    sessions
+SET
+    is_deleted = 1,
+    updated_at = CURRENT_TIMESTAMP
+WHERE
+    name = @name;
 

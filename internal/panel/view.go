@@ -27,7 +27,7 @@ func (m model) confirmView() string {
 		no = cursorStyle.Render("▸ No ")
 	}
 
-	return headerStyle.Render("destroy") + "\n\n  Kill session '" + m.agent.Name + "'?" +
+	return headerStyle.Render("kill") + "\n\n  Kill session '" + m.agent.Name + "'?" +
 		"\n\n  " + yes + "   " + no + "\n"
 }
 
