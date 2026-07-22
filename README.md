@@ -27,8 +27,10 @@ The done state persists until you send that agent a new prompt, so a finished ag
 With TPM, add to `~/.tmux.conf`:
 
 ```
-set -g @plugin 'harrisoncramer/tmux-claude-agents'
+set -g @plugin 'git@github.com:harrisoncramer/tmux-claude-agents'
 ```
+
+(SSH form because the repo is private; use `harrisoncramer/tmux-claude-agents` if it becomes public.)
 
 Put the status placeholder wherever you want the summary to appear, for example:
 
