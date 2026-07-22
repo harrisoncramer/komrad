@@ -29,11 +29,11 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.refreshPreview()
 		}
 	case "enter", "l", "right":
-		agent := m.chats[m.chatCursor]
+		agent := m.chats[m.chatCursor].agent
 		m.attach = &agent
 		return m, tea.Quit
 	case "x":
-		m.agent = m.chats[m.chatCursor]
+		m.agent = m.chats[m.chatCursor].agent
 		m.confirmYes = false
 		m.screen = screenConfirm
 	case "ctrl+d":
@@ -56,7 +56,7 @@ func (m *model) refreshPreview() {
 	atBottom := m.preview.AtBottom()
 	offset := m.preview.YOffset
 
-	m.preview.SetContent(m.manager.Preview(m.chats[m.chatCursor], m.preview.Width, m.preview.Height))
+	m.preview.SetContent(m.manager.Preview(m.chats[m.chatCursor].agent, m.preview.Width, m.preview.Height))
 
 	if atBottom {
 		m.preview.GotoBottom()
@@ -86,15 +86,24 @@ func (m *model) resizePreview() {
 func (m model) chatsView() string {
 	var list strings.Builder
 	list.WriteString(headerStyle.Render("Chats") + "\n\n")
-	for i, agent := range m.chats {
+	for i, item := range m.chats {
 		cursor := "  "
-		name := agent.Name
+		name := item.agent.Name
 		if i == m.chatCursor {
 			cursor = cursorStyle.Render("› ")
 			name = cursorStyle.Render(name)
 		}
 
-		icon := lipgloss.NewStyle().Foreground(stateColor(agent.State)).Render(stateIcon(agent.State))
+		state := item.agent.State
+		if !item.alive {
+			state = "" // dormant: neutral icon/color
+			name = dimStyle.Render(item.agent.Name) + dimStyle.Render(" (dormant)")
+			if i == m.chatCursor {
+				name = cursorStyle.Render(item.agent.Name) + dimStyle.Render(" (dormant)")
+			}
+		}
+
+		icon := lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
 		list.WriteString(cursor + icon + " " + name + "\n")
 	}
 

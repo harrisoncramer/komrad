@@ -156,6 +156,28 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 	m.runHook(m.hooks.PostCreate, name, dir)
 }
 
+// Restore recreates a dormant agent's tmux session from its stored cwd/flags
+// and returns the new pane id, updating the stored record.
+func (m *AgentManager) Restore(agent store.Agent) (string, error) {
+	dir := agent.Cwd
+	if dir == "" {
+		dir, _ = os.UserHomeDir()
+	}
+
+	m.tmux.NewDetachedSession(agent.Name, dir)
+	pane, _ := m.tmux.PaneID(agent.Name)
+
+	agent.Pane = pane
+	agent.State = store.StateNew
+	if err := m.sessions.Upsert(context.Background(), agent); err != nil {
+		return "", fmt.Errorf("failed to restore session %q: %w", agent.Name, err)
+	}
+
+	m.launchClaude(agent.Name, agent.Flags, "")
+
+	return pane, nil
+}
+
 // uniqueSessionName derives a session name from the title, falling back to a
 // slug of the prompt, then "agent", and appends a suffix until it is free.
 func (m *AgentManager) uniqueSessionName(title, prompt string) string {

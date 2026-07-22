@@ -86,8 +86,20 @@ func NewRootCommand() *cobra.Command {
 
 			// Opening an agent takes over this popup by replacing the process
 			// with a tmux client attached to it — so the base view never changes.
+			// A dormant agent (pane gone, e.g. after a tmux restart) is restored
+			// from its stored state first.
 			if target != nil {
-				return state.manager.AttachChat(target.Name, target.Pane)
+				pane := target.Pane
+				if !state.manager.PaneAlive(pane) {
+					restored, err := state.manager.Restore(*target)
+					if err != nil {
+						return err
+					}
+
+					pane = restored
+				}
+
+				return state.manager.AttachChat(target.Name, pane)
 			}
 
 			return nil

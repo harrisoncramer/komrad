@@ -103,7 +103,7 @@ type model struct {
 	rows   []row
 	cursor int
 
-	chats      []store.Agent
+	chats      []chatItem
 	chatCursor int
 	preview    viewport.Model
 
@@ -129,29 +129,31 @@ func newModel(manager *agents.AgentManager, sessions sessionv1connect.SessionSer
 	return m
 }
 
-// reload lists agents through the service and prunes any whose pane is gone.
-func (m *model) reload() {
-	ctx := context.Background()
+// chatItem is a stored agent plus whether its tmux pane is currently alive. A
+// dormant agent (dead pane) is kept — it can be restored from its stored state.
+type chatItem struct {
+	agent store.Agent
+	alive bool
+}
 
-	resp, err := m.sessions.ListSessions(ctx, connect.NewRequest(&emptypb.Empty{}))
+// reload lists every stored agent through the service, marking which are live.
+// Records are never deleted here, so agents survive tmux restarts.
+func (m *model) reload() {
+	resp, err := m.sessions.ListSessions(context.Background(), connect.NewRequest(&emptypb.Empty{}))
 	if err != nil {
 		m.chats = nil
-		m.rows = buildRows(nil)
+		m.rows = buildRows(0)
 		return
 	}
 
-	live := make([]store.Agent, 0, len(resp.Msg.GetSessions()))
+	items := make([]chatItem, 0, len(resp.Msg.GetSessions()))
 	for _, session := range resp.Msg.GetSessions() {
-		if m.manager.PaneAlive(session.GetPaneId()) {
-			live = append(live, protoToAgent(session))
-			continue
-		}
-
-		_, _ = m.sessions.DeleteSession(ctx, connect.NewRequest(&sessionv1.DeleteSessionRequest{Name: session.GetName()}))
+		agent := protoToAgent(session)
+		items = append(items, chatItem{agent: agent, alive: m.manager.PaneAlive(agent.Pane)})
 	}
 
-	m.chats = live
-	m.rows = buildRows(live)
+	m.chats = items
+	m.rows = buildRows(len(items))
 }
 
 func protoToAgent(s *sessionv1.Session) store.Agent {
@@ -166,10 +168,10 @@ func protoToAgent(s *sessionv1.Session) store.Agent {
 	}
 }
 
-func buildRows(chats []store.Agent) []row {
+func buildRows(count int) []row {
 	return []row{
 		{kind: rowNewChat, label: "+  new chat"},
-		{kind: rowChats, label: fmt.Sprintf("▸  chats (%d)", len(chats))},
+		{kind: rowChats, label: fmt.Sprintf("▸  chats (%d)", count)},
 	}
 }
 
