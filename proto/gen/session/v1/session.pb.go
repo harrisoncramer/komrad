@@ -367,13 +367,13 @@ const file_session_v1_session_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05state\x18\x02 \x01(\tR\x05state\"*\n" +
 	"\x14DeleteSessionRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name2\xb3\x02\n" +
-	"\x0eSessionService\x12H\n" +
-	"\fListSessions\x12\x16.google.protobuf.Empty\x1a .session.v1.ListSessionsResponse\x12K\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name2\xc7\x02\n" +
+	"\x0eSessionService\x12M\n" +
+	"\fListSessions\x12\x16.google.protobuf.Empty\x1a .session.v1.ListSessionsResponse\"\x03\x90\x02\x01\x12P\n" +
 	"\n" +
-	"GetSession\x12\x1d.session.v1.GetSessionRequest\x1a\x1e.session.v1.GetSessionResponse\x12?\n" +
-	"\bSetState\x12\x1b.session.v1.SetStateRequest\x1a\x16.google.protobuf.Empty\x12I\n" +
-	"\rDeleteSession\x12 .session.v1.DeleteSessionRequest\x1a\x16.google.protobuf.EmptyB.Z,claude-agents/proto/gen/session/v1;sessionv1b\x06proto3"
+	"GetSession\x12\x1d.session.v1.GetSessionRequest\x1a\x1e.session.v1.GetSessionResponse\"\x03\x90\x02\x01\x12D\n" +
+	"\bSetState\x12\x1b.session.v1.SetStateRequest\x1a\x16.google.protobuf.Empty\"\x03\x90\x02\x02\x12N\n" +
+	"\rDeleteSession\x12 .session.v1.DeleteSessionRequest\x1a\x16.google.protobuf.Empty\"\x03\x90\x02\x02B.Z,claude-agents/proto/gen/session/v1;sessionv1b\x06proto3"
 
 var (
 	file_session_v1_session_proto_rawDescOnce sync.Once

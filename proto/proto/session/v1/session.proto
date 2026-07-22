@@ -40,8 +40,19 @@ message DeleteSessionRequest {
 
 // SessionService reads and mutates the agent store.
 service SessionService {
-  rpc ListSessions(google.protobuf.Empty) returns (ListSessionsResponse);
-  rpc GetSession(GetSessionRequest) returns (GetSessionResponse);
-  rpc SetState(SetStateRequest) returns (google.protobuf.Empty);
-  rpc DeleteSession(DeleteSessionRequest) returns (google.protobuf.Empty);
+  // Reads: no side effects, safe to cache and issue over GET.
+  rpc ListSessions(google.protobuf.Empty) returns (ListSessionsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc GetSession(GetSessionRequest) returns (GetSessionResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // Mutations key on the unique session name, so repeating them yields the same
+  // state — idempotent, safe for the client to retry.
+  rpc SetState(SetStateRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+  }
+  rpc DeleteSession(DeleteSessionRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+  }
 }

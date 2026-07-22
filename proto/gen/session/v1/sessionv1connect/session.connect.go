@@ -49,8 +49,11 @@ const (
 
 // SessionServiceClient is a client for the session.v1.SessionService service.
 type SessionServiceClient interface {
+	// Reads: no side effects, safe to cache and issue over GET.
 	ListSessions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListSessionsResponse], error)
 	GetSession(context.Context, *connect.Request[v1.GetSessionRequest]) (*connect.Response[v1.GetSessionResponse], error)
+	// Mutations key on the unique session name, so repeating them yields the same
+	// state — idempotent, safe for the client to retry.
 	SetState(context.Context, *connect.Request[v1.SetStateRequest]) (*connect.Response[emptypb.Empty], error)
 	DeleteSession(context.Context, *connect.Request[v1.DeleteSessionRequest]) (*connect.Response[emptypb.Empty], error)
 }
@@ -70,24 +73,28 @@ func NewSessionServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			httpClient,
 			baseURL+SessionServiceListSessionsProcedure,
 			connect.WithSchema(sessionServiceMethods.ByName("ListSessions")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		getSession: connect.NewClient[v1.GetSessionRequest, v1.GetSessionResponse](
 			httpClient,
 			baseURL+SessionServiceGetSessionProcedure,
 			connect.WithSchema(sessionServiceMethods.ByName("GetSession")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		setState: connect.NewClient[v1.SetStateRequest, emptypb.Empty](
 			httpClient,
 			baseURL+SessionServiceSetStateProcedure,
 			connect.WithSchema(sessionServiceMethods.ByName("SetState")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
 		deleteSession: connect.NewClient[v1.DeleteSessionRequest, emptypb.Empty](
 			httpClient,
 			baseURL+SessionServiceDeleteSessionProcedure,
 			connect.WithSchema(sessionServiceMethods.ByName("DeleteSession")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -123,8 +130,11 @@ func (c *sessionServiceClient) DeleteSession(ctx context.Context, req *connect.R
 
 // SessionServiceHandler is an implementation of the session.v1.SessionService service.
 type SessionServiceHandler interface {
+	// Reads: no side effects, safe to cache and issue over GET.
 	ListSessions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListSessionsResponse], error)
 	GetSession(context.Context, *connect.Request[v1.GetSessionRequest]) (*connect.Response[v1.GetSessionResponse], error)
+	// Mutations key on the unique session name, so repeating them yields the same
+	// state — idempotent, safe for the client to retry.
 	SetState(context.Context, *connect.Request[v1.SetStateRequest]) (*connect.Response[emptypb.Empty], error)
 	DeleteSession(context.Context, *connect.Request[v1.DeleteSessionRequest]) (*connect.Response[emptypb.Empty], error)
 }
@@ -140,24 +150,28 @@ func NewSessionServiceHandler(svc SessionServiceHandler, opts ...connect.Handler
 		SessionServiceListSessionsProcedure,
 		svc.ListSessions,
 		connect.WithSchema(sessionServiceMethods.ByName("ListSessions")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	sessionServiceGetSessionHandler := connect.NewUnaryHandler(
 		SessionServiceGetSessionProcedure,
 		svc.GetSession,
 		connect.WithSchema(sessionServiceMethods.ByName("GetSession")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	sessionServiceSetStateHandler := connect.NewUnaryHandler(
 		SessionServiceSetStateProcedure,
 		svc.SetState,
 		connect.WithSchema(sessionServiceMethods.ByName("SetState")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
 	sessionServiceDeleteSessionHandler := connect.NewUnaryHandler(
 		SessionServiceDeleteSessionProcedure,
 		svc.DeleteSession,
 		connect.WithSchema(sessionServiceMethods.ByName("DeleteSession")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/session.v1.SessionService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
