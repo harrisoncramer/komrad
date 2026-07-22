@@ -15,7 +15,7 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch key.String() {
 	case "ctrl+c", "q":
 		return m, tea.Quit
-	case "esc", "left", "h":
+	case "esc", "h":
 		m.screen = screenList
 		return m, nil
 	case "up", "k":
@@ -23,12 +23,12 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.chatCursor--
 			m.refreshPreview()
 		}
-	case "down":
+	case "down", "j":
 		if m.chatCursor < len(m.chats)-1 {
 			m.chatCursor++
 			m.refreshPreview()
 		}
-	case "j", "enter":
+	case "enter", "l", "right":
 		m.manager.Jump(m.client, m.chats[m.chatCursor])
 		return m, tea.Quit
 	case "c":
@@ -88,7 +88,7 @@ func (m model) chatsView() string {
 		list.WriteString(cursor + icon + " " + name + "\n")
 	}
 
-	list.WriteString("\n" + dimStyle.Render("j jump · c chat · x kill\n↑↓ move · C-d/C-u scroll · esc back"))
+	list.WriteString("\n" + dimStyle.Render("enter/l jump · c chat · x kill\nj/k move · C-d/C-u scroll · h/esc back"))
 
 	left := lipgloss.NewStyle().Width(chatListWidth).Render(list.String())
 	right := lipgloss.NewStyle().
