@@ -7,7 +7,7 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN="$CURRENT_DIR/bin/claude-agents"
 
 if [ ! -x "$BIN" ] && command -v go >/dev/null 2>&1; then
-  (cd "$CURRENT_DIR/go" && go build -o "$BIN" .) >/dev/null 2>&1 || true
+  (cd "$CURRENT_DIR" && go build -o "$BIN" .) >/dev/null 2>&1 || true
 fi
 
 get() { tmux show-option -gqv "$1"; }

@@ -84,11 +84,11 @@ Everything is one Go binary, `claude-agents`, with subcommands the plugin and th
 - `hook prompt|stop` — the Claude Code lifecycle hooks
 - `chat` / `chat-open` — the large attach popup
 
-The code is split by domain: `internal/tmux` (a tmux client), `internal/registry` (the agent store), `internal/agents` (the service wiring the two together), `internal/panel` (the UI), `config` (ultra-loaded settings), and `lib/xstr` (generic helpers). The `scripts/` files are thin wrappers over the binary so the plugin and hook paths stay stable.
+The code is split by domain: `internal/tmux` (a tmux client), `internal/registry` (the agent store), `internal/agents` (the AgentManager wiring the two together), `internal/panel` (the UI), `config` (ultra-loaded settings), and `lib/xstr` (generic helpers). The `scripts/` files are thin wrappers over the binary so the plugin and hook paths stay stable.
 
 ## Development
 
-Tooling lives under `go/` and `tools/`, managed with mise.
+The Go module is at the repo root; the custom linter is under `tools/`. Managed with mise.
 
 - `mise run go:build` builds the binary
 - `mise run go:lint` builds the custom golangci-lint (with this repo's plugins) if needed and runs it
