@@ -1,0 +1,46 @@
+# How it works
+
+You run several Claude Code sessions at once, each in its own tmux session, each working on something different. The problem is keeping track of them. Once you switch away from a session you lose sight of whether it is still working or has stopped and is waiting on you. This tool gives you one place to see every agent and reach any of them.
+
+The design is that each Claude session reports its own state into a shared store, and a single panel reads that store and shows you everything. Claude tells the store when it starts thinking and when it stops. The panel never has to guess; it just displays what the agents have already reported.
+
+## The store and the server
+
+State lives in a SQLite database at `~/.claude/claude-agents.db` by default. You can point it elsewhere with `CLAUDE_AGENTS_DB`.
+
+Nothing talks to that database file directly except one process. The `serve` command runs a small ConnectRPC server that owns the database, and everything else, the panel and the hooks, is a client that talks to it over HTTP. This keeps a single writer and avoids several processes fighting over the same SQLite file. The panel spawns that server automatically the first time it needs it, so you never start it by hand.
+
+## How state advances
+
+An agent's state changes through two Claude Code lifecycle hooks. Both are thin calls into the `hook` subcommand.
+
+When you submit a prompt, the prompt hook marks that agent `thinking`, which counts as working, and records Claude's own session id. That recorded id is what lets a dormant agent later relaunch with `--resume` and keep its conversation.
+
+When Claude stops, the stop hook marks that agent `done`, unless it is already done. The done state sticks until you send that agent a new prompt. That is deliberate: a finished agent keeps showing as done so you notice it and come back to it, rather than quietly resetting.
+
+The status bar reads the store and shows a single aggregate across every session, for example `1 working  1 done`.
+
+## Dormant agents
+
+An agent's record in the store outlives its tmux session. That is what lets agents survive a tmux restart. When a tmux session is gone but its record remains, the agent still appears in the panel, marked `(dormant)`.
+
+A dormant agent has no live pane to preview, so the panel shows its stored fields instead: the title, directory, state, flags, and prompt. Opening it restores it. A fresh tmux session is created from the stored directory and flags, and if Claude's session id was recorded, Claude relaunches with `--resume` so the conversation picks up where it left off.
+
+## Where the pieces live
+
+Everything is one Go binary, `claude-agents`, driven by cobra. Running it with no subcommand opens the panel. The subcommands are what the plugin and the Claude Code hooks call. See [commands](commands.md) for what each one is for, and [reference/](reference/claude-agents.md) for the exact flags.
+
+The code is split by domain:
+
+- `internal/cli` is the cobra command tree and dependency wiring
+- `internal/tmux` is a tmux client
+- `internal/store` is the sqlc-backed SQLite session store
+- `internal/rpc` is the ConnectRPC `SessionService` handler over the store
+- `internal/agents` is the AgentManager, the domain logic wiring tmux and the store together
+- `internal/panel` is the bubbletea UI
+- `internal/appconfig` is the TOML app config
+- `config` is the environment configuration, loaded via ultra
+- `proto/` holds the session protobufs and generated Go and ConnectRPC code
+- `db/` holds the SQLite schema, Atlas migrations, and sqlc queries and models
+
+The files under `scripts/` are thin wrappers over the binary, so the paths the plugin and hooks reference stay stable even as the binary changes.
