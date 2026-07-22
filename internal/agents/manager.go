@@ -101,7 +101,9 @@ func (m *AgentManager) List() []registry.Agent {
 // Preview resizes an agent's window to the preview box, then returns a snapshot
 // of its pane so the capture fits the box exactly.
 func (m *AgentManager) Preview(agent registry.Agent, width, height int) string {
-	if width > 0 && height > 0 {
+	// Only resize detached sessions. Resizing a session a client is viewing
+	// would shrink that client's live view.
+	if width > 0 && height > 0 && !m.tmux.SessionAttached(agent.Session) {
 		m.tmux.ResizeWindow(agent.Session, width, height)
 	}
 

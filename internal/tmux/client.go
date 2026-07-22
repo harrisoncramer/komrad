@@ -145,6 +145,12 @@ func (c *Client) CapturePane(pane string) string {
 	return out
 }
 
+// SessionAttached reports whether any client is currently viewing a session.
+func (c *Client) SessionAttached(session string) bool {
+	out, _ := c.query("list-clients", "-t", session, "-F", "#{client_name}")
+	return out != ""
+}
+
 // ResizeWindow sizes a window to fit a preview box. tmux switches the window to
 // manual sizing as a side effect; SetWindowSizeLatest reverses it.
 func (c *Client) ResizeWindow(target string, width, height int) {
