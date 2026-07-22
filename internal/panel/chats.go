@@ -58,7 +58,7 @@ func (m *model) refreshPreview() {
 	atBottom := m.preview.AtBottom()
 	offset := m.preview.YOffset
 
-	m.preview.SetContent(m.manager.Preview(m.chats[m.chatCursor]))
+	m.preview.SetContent(m.manager.Preview(m.chats[m.chatCursor], m.preview.Width, m.preview.Height))
 
 	if atBottom {
 		m.preview.GotoBottom()
@@ -67,21 +67,15 @@ func (m *model) refreshPreview() {
 	}
 }
 
-// resizePreview sizes the preview box to the agents' fixed size so a capture
-// fits exactly, capped to the space the popup actually has.
+// resizePreview sizes the preview box to the popup's available area (minus the
+// sidebar), which the hovered agent is then resized to fill.
 func (m *model) resizePreview() {
-	width := m.agentWidth
-	if avail := m.width - chatListWidth - 4; width > avail {
-		width = avail
-	}
+	width := m.width - chatListWidth - 4
 	if width < 10 {
 		width = 10
 	}
 
-	height := m.agentHeight
-	if avail := m.height - 2; height > avail {
-		height = avail
-	}
+	height := m.height - 2
 	if height < 3 {
 		height = 3
 	}

@@ -94,11 +94,9 @@ type model struct {
 	rows   []row
 	cursor int
 
-	chats       []registry.Agent
-	chatCursor  int
-	preview     viewport.Model
-	agentWidth  int
-	agentHeight int
+	chats      []registry.Agent
+	chatCursor int
+	preview    viewport.Model
 
 	agent      registry.Agent
 	form       *huh.Form
@@ -110,17 +108,14 @@ type model struct {
 
 func newModel(manager *agents.AgentManager, client string) model {
 	chats := manager.List()
-	width, height := manager.PreviewSize()
 
 	return model{
-		manager:     manager,
-		client:      client,
-		screen:      screenList,
-		rows:        buildRows(chats),
-		chats:       chats,
-		preview:     viewport.New(0, 0),
-		agentWidth:  width,
-		agentHeight: height,
+		manager: manager,
+		client:  client,
+		screen:  screenList,
+		rows:    buildRows(chats),
+		chats:   chats,
+		preview: viewport.New(0, 0),
 	}
 }
 
