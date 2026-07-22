@@ -7,6 +7,7 @@ import (
 	"claude-agents/internal/agents"
 	"claude-agents/internal/registry"
 
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
@@ -14,7 +15,7 @@ import (
 
 // Run launches the panel for a tmux client and blocks until it exits.
 func Run(manager *agents.AgentManager, client string) error {
-	if _, err := tea.NewProgram(newModel(manager, client)).Run(); err != nil {
+	if _, err := tea.NewProgram(newModel(manager, client), tea.WithAltScreen()).Run(); err != nil {
 		return fmt.Errorf("failed to run panel: %w", err)
 	}
 
@@ -57,7 +58,7 @@ type screen int
 
 const (
 	screenList screen = iota
-	screenAction
+	screenChats
 	screenForm
 	screenConfirm
 )
@@ -67,13 +68,12 @@ type rowKind int
 const (
 	rowNewChat rowKind = iota
 	rowLast
-	rowAgent
+	rowChats
 )
 
 type row struct {
 	kind  rowKind
 	label string
-	agent registry.Agent
 }
 
 type model struct {
@@ -84,33 +84,37 @@ type model struct {
 	rows   []row
 	cursor int
 
-	agent       registry.Agent
-	actions     []string
-	actionIndex int
+	chats      []registry.Agent
+	chatCursor int
+	preview    viewport.Model
 
+	agent      registry.Agent
 	form       *huh.Form
 	confirmYes bool
+
+	width  int
+	height int
 }
 
 func newModel(manager *agents.AgentManager, client string) model {
+	chats := manager.List()
+
 	return model{
 		manager: manager,
 		client:  client,
 		screen:  screenList,
-		rows:    buildRows(manager.List()),
+		rows:    buildRows(chats),
+		chats:   chats,
+		preview: viewport.New(0, 0),
 	}
 }
 
-func buildRows(list []registry.Agent) []row {
-	rows := []row{
+func buildRows(chats []registry.Agent) []row {
+	return []row{
 		{kind: rowNewChat, label: "+  new chat"},
 		{kind: rowLast, label: "←  last window/session"},
+		{kind: rowChats, label: fmt.Sprintf("▸  chats (%d)", len(chats))},
 	}
-	for _, agent := range list {
-		rows = append(rows, row{kind: rowAgent, agent: agent})
-	}
-
-	return rows
 }
 
 func newSessionForm() *huh.Form {
@@ -126,6 +130,13 @@ func newSessionForm() *huh.Form {
 func (m model) Init() tea.Cmd { return nil }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if size, ok := msg.(tea.WindowSizeMsg); ok {
+		m.width = size.Width
+		m.height = size.Height
+		m.resizePreview()
+		return m, nil
+	}
+
 	if m.screen == screenForm {
 		return m.updateForm(msg)
 	}
@@ -138,8 +149,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.screen {
 	case screenList:
 		return m.updateList(key)
-	case screenAction:
-		return m.updateAction(key)
+	case screenChats:
+		return m.updateChats(key)
 	case screenConfirm:
 		return m.updateConfirm(key)
 	default:
@@ -175,48 +186,14 @@ func (m model) selectRow(selected row) (tea.Model, tea.Cmd) {
 	case rowLast:
 		m.manager.Last(m.client)
 		return m, tea.Quit
-	case rowAgent:
-		m.agent = selected.agent
-		m.actions = []string{"jump", "chat", "destroy"}
-		m.actionIndex = 0
-		m.screen = screenAction
-	}
-
-	return m, nil
-}
-
-func (m model) updateAction(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch key.String() {
-	case "ctrl+c", "q":
-		return m, tea.Quit
-	case "esc", "left", "h":
-		m.screen = screenList
-	case "up", "k":
-		if m.actionIndex > 0 {
-			m.actionIndex--
+	case rowChats:
+		if len(m.chats) == 0 {
+			return m, nil
 		}
-	case "down", "j":
-		if m.actionIndex < len(m.actions)-1 {
-			m.actionIndex++
-		}
-	case "enter":
-		return m.runAction(m.actions[m.actionIndex])
-	}
 
-	return m, nil
-}
-
-func (m model) runAction(action string) (tea.Model, tea.Cmd) {
-	switch action {
-	case "jump":
-		m.manager.Jump(m.client, m.agent)
-		return m, tea.Quit
-	case "chat":
-		m.manager.Chat(m.agent)
-		return m, tea.Quit
-	case "destroy":
-		m.confirmYes = false
-		m.screen = screenConfirm
+		m.screen = screenChats
+		m.chatCursor = 0
+		m.refreshPreview()
 	}
 
 	return m, nil
@@ -247,20 +224,44 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) updateConfirm(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch key.String() {
-	case "ctrl+c", "esc", "n":
+	case "ctrl+c":
 		return m, tea.Quit
+	case "esc", "n":
+		m.screen = screenChats
+		return m, nil
 	case "left", "right", "h", "l", "tab":
 		m.confirmYes = !m.confirmYes
 	case "y":
-		m.manager.Destroy(m.client, m.agent)
-		return m, tea.Quit
+		return m.applyDestroy()
 	case "enter":
 		if m.confirmYes {
-			m.manager.Destroy(m.client, m.agent)
+			return m.applyDestroy()
 		}
 
-		return m, tea.Quit
+		m.screen = screenChats
+		return m, nil
 	}
 
+	return m, nil
+}
+
+// applyDestroy kills the selected agent, reloads, and returns to the chats view
+// (or the top list when none remain).
+func (m model) applyDestroy() (tea.Model, tea.Cmd) {
+	m.manager.Destroy(m.client, m.agent)
+	m.chats = m.manager.List()
+	m.rows = buildRows(m.chats)
+
+	if len(m.chats) == 0 {
+		m.screen = screenList
+		return m, nil
+	}
+
+	if m.chatCursor >= len(m.chats) {
+		m.chatCursor = len(m.chats) - 1
+	}
+
+	m.screen = screenChats
+	m.refreshPreview()
 	return m, nil
 }

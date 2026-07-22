@@ -136,3 +136,10 @@ func (c *Client) RunShellBackground(command string) {
 func (c *Client) DisplayPopup(client, width, height, command string) {
 	c.run("display-popup", "-c", client, "-w", width, "-h", height, "-E", command)
 }
+
+// CapturePane returns the visible content of a pane plus recent scrollback,
+// with colors preserved.
+func (c *Client) CapturePane(pane string) string {
+	out, _ := c.query("capture-pane", "-p", "-e", "-t", pane, "-S", "-200")
+	return out
+}

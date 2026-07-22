@@ -59,6 +59,11 @@ func (m *AgentManager) List() []registry.Agent {
 	return live
 }
 
+// Preview returns a snapshot of an agent's pane for the panel's preview pane.
+func (m *AgentManager) Preview(agent registry.Agent) string {
+	return m.tmux.CapturePane(agent.Pane)
+}
+
 // Jump switches the client to an agent's session and focuses its pane.
 func (m *AgentManager) Jump(client string, agent registry.Agent) {
 	location := m.tmux.PaneLocation(agent.Pane)
