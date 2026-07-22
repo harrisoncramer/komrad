@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+#MISE description="Generate sqlc query bindings from db/queries against the migrations."
+set -euo pipefail
+cd "$MISE_CONFIG_ROOT/db"
+
+# sqlc's SQLite parser rejects Atlas's backtick-quoted identifiers, so feed it a
+# backtick-free concatenation of the migrations (still the single source).
+cat migrations/*.sql | tr -d '`' > gen-schema.sql
+sqlc generate

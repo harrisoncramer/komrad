@@ -1,2 +1,4 @@
 bin/
 local/
+
+db/gen-schema.sql

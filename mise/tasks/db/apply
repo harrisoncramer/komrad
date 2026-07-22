@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Apply Atlas migrations to the local SQLite database."
+set -euo pipefail
+cd "$MISE_CONFIG_ROOT/db"
+mkdir -p "$HOME/.claude"
+DATABASE_URL="sqlite://$HOME/.claude/claude-agents.db" atlas migrate apply --env local
