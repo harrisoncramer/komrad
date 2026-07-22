@@ -1,3 +1,0 @@
-#!/bin/bash
-# Thin wrapper: the logic lives in the claude-agents Go binary.
-exec "$("$(dirname "$0")/_ensure-bin")" chat-open "$@"

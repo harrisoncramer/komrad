@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
-	"time"
 
 	"claude-agents/internal/store"
 	"claude-agents/internal/tmux"
@@ -94,23 +93,6 @@ func (m *AgentManager) Preview(agent store.Agent, width, height int) string {
 	}
 
 	return m.tmux.CapturePane(agent.Pane)
-}
-
-// Jump switches the client to an agent's session and focuses its pane, first
-// restoring client-fit sizing so the agent fills the real terminal.
-func (m *AgentManager) Jump(client string, agent store.Agent) {
-	m.tmux.SetWindowSizeLatest(agent.Name)
-	location := m.tmux.PaneLocation(agent.Pane)
-	m.tmux.SwitchClient(client, agent.Name)
-	if location != "" {
-		m.tmux.SelectWindow(location)
-		m.tmux.SelectPane(agent.Pane)
-	}
-}
-
-// Chat schedules the large chat popup to open once the panel popup has closed.
-func (m *AgentManager) Chat(agent store.Agent) {
-	m.tmux.RunShellBackground(fmt.Sprintf("%s chat-open '%s' '%s'", m.selfPath, agent.Name, agent.Pane))
 }
 
 // Destroy kills an agent's session, bouncing the client away first if it is
@@ -281,19 +263,6 @@ func (m *AgentManager) Status() string {
 	}
 
 	return out + "  "
-}
-
-// OpenChatPopup opens the large chat popup on the attached client. It runs
-// detached from the panel, so it first waits for the panel popup to close.
-func (m *AgentManager) OpenChatPopup(session, pane string) {
-	time.Sleep(200 * time.Millisecond)
-
-	client := m.tmux.FirstClient()
-	if client == "" {
-		return
-	}
-
-	m.tmux.DisplayPopup(client, "90%", "90%", fmt.Sprintf("%s chat '%s' '%s'", m.selfPath, session, pane))
 }
 
 // AttachChat replaces this process with a tmux client attached to the agent's

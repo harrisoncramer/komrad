@@ -7,8 +7,6 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-
-	"claude-agents/lib/xstr"
 )
 
 // Client talks to one tmux server socket.
@@ -63,12 +61,6 @@ func (c *Client) PaneAlive(pane string) bool {
 	return err == nil && id == pane
 }
 
-// PaneLocation returns the "session:window" of a pane, for selecting its window.
-func (c *Client) PaneLocation(pane string) string {
-	loc, _ := c.query("display-message", "-p", "-t", pane, "#{session_name}:#{window_index}")
-	return loc
-}
-
 // ClientSession returns the session a client is currently viewing.
 func (c *Client) ClientSession(client string) string {
 	session, _ := c.query(append([]string{"display-message", "-p"}, append(clientTarget(client), "#{session_name}")...)...)
@@ -81,21 +73,10 @@ func (c *Client) ClientPath(client string) string {
 	return path
 }
 
-// FirstClient returns the first attached client, empty if none.
-func (c *Client) FirstClient() string {
-	out, _ := c.query("list-clients", "-F", "#{client_name}")
-	return xstr.FirstLine(out)
-}
-
 // HasSession reports whether a session with the given name exists.
 func (c *Client) HasSession(name string) bool {
 	_, err := c.query("has-session", "-t", name)
 	return err == nil
-}
-
-// SwitchClient points a client at a target session.
-func (c *Client) SwitchClient(client, session string) {
-	c.run(append(append([]string{"switch-client"}, clientTarget(client)...), "-t", session)...)
 }
 
 // SwitchToLast points a client back at its previous session.
@@ -103,18 +84,8 @@ func (c *Client) SwitchToLast(client string) {
 	c.run(append(append([]string{"switch-client"}, clientTarget(client)...), "-l")...)
 }
 
-// SelectWindow focuses a "session:window" location.
-func (c *Client) SelectWindow(location string) {
-	c.run("select-window", "-t", location)
-}
-
-// SelectPane focuses a pane within its window.
-func (c *Client) SelectPane(pane string) {
-	c.run("select-pane", "-t", pane)
-}
-
 // NewDetachedSession creates a detached session rooted at dir. Sizing is handled
-// per-preview (resize to the box) and restored on jump.
+// per-preview (resize to the box) and restored on attach.
 func (c *Client) NewDetachedSession(name, dir string) {
 	c.run("new-session", "-d", "-s", name, "-c", dir)
 }
@@ -127,16 +98,6 @@ func (c *Client) SendKeys(target string, keys ...string) {
 // KillSession tears down a session by name.
 func (c *Client) KillSession(name string) {
 	c.run("kill-session", "-t", name)
-}
-
-// RunShellBackground runs a shell command on the server, detached.
-func (c *Client) RunShellBackground(command string) {
-	c.run("run-shell", "-b", command)
-}
-
-// DisplayPopup opens a popup on a client running the given shell command.
-func (c *Client) DisplayPopup(client, width, height, command string) {
-	c.run("display-popup", "-c", client, "-w", width, "-h", height, "-E", command)
 }
 
 // CapturePane returns the visible content of a pane plus recent scrollback,

@@ -28,14 +28,21 @@ func tick() tea.Cmd {
 	return tea.Tick(previewInterval, func(time.Time) tea.Msg { return tickMsg{} })
 }
 
-// Run launches the panel for a tmux client and blocks until it exits. Sessions
-// are read through the ConnectRPC client; tmux actions go through the manager.
-func Run(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, client string) error {
-	if _, err := tea.NewProgram(newModel(manager, sessions, client), tea.WithAltScreen()).Run(); err != nil {
-		return fmt.Errorf("failed to run panel: %w", err)
+// Run launches the panel and blocks until it exits. Sessions are read through
+// the ConnectRPC client. If the user opens an agent, Run returns it so the
+// caller can attach in place; otherwise it returns nil.
+func Run(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, client string) (*store.Agent, error) {
+	final, err := tea.NewProgram(newModel(manager, sessions, client), tea.WithAltScreen()).Run()
+	if err != nil {
+		return nil, fmt.Errorf("failed to run panel: %w", err)
 	}
 
-	return nil
+	m, ok := final.(model)
+	if !ok {
+		return nil, nil
+	}
+
+	return m.attach, nil
 }
 
 var (
@@ -101,6 +108,7 @@ type model struct {
 	preview    viewport.Model
 
 	agent      store.Agent
+	attach     *store.Agent
 	form       *huh.Form
 	confirmYes bool
 

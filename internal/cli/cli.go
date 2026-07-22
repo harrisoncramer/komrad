@@ -79,7 +79,18 @@ func NewRootCommand() *cobra.Command {
 			}
 
 			sessions := sessionv1connect.NewSessionServiceClient(http.DefaultClient, "http://"+state.env.Addr)
-			return panel.Run(state.manager, sessions, firstOrEmpty(args))
+			target, err := panel.Run(state.manager, sessions, firstOrEmpty(args))
+			if err != nil {
+				return err
+			}
+
+			// Opening an agent takes over this popup by replacing the process
+			// with a tmux client attached to it — so the base view never changes.
+			if target != nil {
+				return state.manager.AttachChat(target.Name, target.Pane)
+			}
+
+			return nil
 		},
 	}
 
@@ -89,8 +100,6 @@ func NewRootCommand() *cobra.Command {
 		notifyCmd(state),
 		statusCmd(state),
 		hookCmd(state),
-		chatCmd(state),
-		chatOpenCmd(state),
 		serveCmd(state),
 	)
 
@@ -169,29 +178,6 @@ func hookCmd(state *app) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			state.manager.Hook(args[0], state.env.MainSession, state.env.TmuxPane)
-			return nil
-		},
-	}
-}
-
-func chatCmd(state *app) *cobra.Command {
-	return &cobra.Command{
-		Use:   "chat <session> <pane>",
-		Short: "Attach to an agent's session in the current client",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return state.manager.AttachChat(args[0], args[1])
-		},
-	}
-}
-
-func chatOpenCmd(state *app) *cobra.Command {
-	return &cobra.Command{
-		Use:   "chat-open <session> <pane>",
-		Short: "Open the large chat popup for an agent",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
-			state.manager.OpenChatPopup(args[0], args[1])
 			return nil
 		},
 	}
