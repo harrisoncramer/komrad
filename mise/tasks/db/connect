@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#MISE description="Open a sqlite3 shell to the claude-agents database."
+set -euo pipefail
+exec sqlite3 "${CLAUDE_AGENTS_DB:-$HOME/.claude/claude-agents.db}"
