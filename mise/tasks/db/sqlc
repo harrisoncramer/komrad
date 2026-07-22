@@ -3,7 +3,11 @@
 set -euo pipefail
 cd "$MISE_CONFIG_ROOT/db"
 
-# sqlc's SQLite parser rejects Atlas's backtick-quoted identifiers, so feed it a
-# backtick-free concatenation of the migrations (still the single source).
+# Atlas writes SQLite migrations with backtick-quoted identifiers (CREATE TABLE
+# `sessions`). SQLite accepts backticks, so the migrations run fine against the
+# real database, but sqlc's SQLite parser does not understand them and fails to
+# see the tables. sqlc only reads the schema to infer types, so hand it a
+# backtick-free concatenation of the same migrations. The migrations stay the
+# single source of truth; gen-schema.sql is a throwaway build input.
 cat migrations/*.sql | tr -d '`' > gen-schema.sql
 sqlc generate
