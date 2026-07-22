@@ -157,3 +157,30 @@ func (q *Queries) UpsertSession(ctx context.Context, arg UpsertSessionParams) (*
 	)
 	return &i, err
 }
+
+const upsertSessionState = `-- name: UpsertSessionState :exec
+INSERT INTO sessions (id, name, pane_id, state)
+    VALUES (?1, ?2, ?3, ?4)
+ON CONFLICT (name)
+    DO UPDATE SET
+        pane_id = excluded.pane_id,
+        state = excluded.state,
+        updated_at = CURRENT_TIMESTAMP
+`
+
+type UpsertSessionStateParams struct {
+	ID    string
+	Name  string
+	Pane  string
+	State string
+}
+
+func (q *Queries) UpsertSessionState(ctx context.Context, arg UpsertSessionStateParams) error {
+	_, err := q.db.ExecContext(ctx, upsertSessionState,
+		arg.ID,
+		arg.Name,
+		arg.Pane,
+		arg.State,
+	)
+	return err
+}

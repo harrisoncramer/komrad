@@ -113,12 +113,10 @@ func (c *Client) SelectPane(pane string) {
 	c.run("select-pane", "-t", pane)
 }
 
-// NewDetachedSession creates a detached session rooted at dir, locked to a fixed
-// size so its capture always fits the preview box. resize-window sets the size
-// and switches the window to manual sizing so it stays put.
-func (c *Client) NewDetachedSession(name, dir string, width, height int) {
+// NewDetachedSession creates a detached session rooted at dir. Sizing is handled
+// per-preview (resize to the box) and restored on jump.
+func (c *Client) NewDetachedSession(name, dir string) {
 	c.run("new-session", "-d", "-s", name, "-c", dir)
-	c.run("resize-window", "-t", name, "-x", strconv.Itoa(width), "-y", strconv.Itoa(height))
 }
 
 // SendKeys sends literal keys to a target pane or session.

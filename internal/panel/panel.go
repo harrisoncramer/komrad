@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"claude-agents/internal/agents"
-	"claude-agents/internal/registry"
+	"claude-agents/internal/store"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -38,27 +38,23 @@ var (
 	dimStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#727169"))
 )
 
-func stateIcon(state registry.State) string {
+func stateIcon(state string) string {
 	switch state {
-	case registry.StateDone:
+	case store.StateDone:
 		return "✓"
-	case registry.StateThinking:
+	case store.StateThinking:
 		return "…"
-	case registry.StateNew:
-		return "•"
 	default:
 		return "•"
 	}
 }
 
-func stateColor(state registry.State) lipgloss.Color {
+func stateColor(state string) lipgloss.Color {
 	switch state {
-	case registry.StateDone:
+	case store.StateDone:
 		return lipgloss.Color("#E82424")
-	case registry.StateThinking:
+	case store.StateThinking:
 		return lipgloss.Color("#FF9E3B")
-	case registry.StateNew:
-		return lipgloss.Color("#7E9CD8")
 	default:
 		return lipgloss.Color("#7E9CD8")
 	}
@@ -94,11 +90,11 @@ type model struct {
 	rows   []row
 	cursor int
 
-	chats      []registry.Agent
+	chats      []store.Agent
 	chatCursor int
 	preview    viewport.Model
 
-	agent      registry.Agent
+	agent      store.Agent
 	form       *huh.Form
 	confirmYes bool
 
@@ -119,7 +115,7 @@ func newModel(manager *agents.AgentManager, client string) model {
 	}
 }
 
-func buildRows(chats []registry.Agent) []row {
+func buildRows(chats []store.Agent) []row {
 	return []row{
 		{kind: rowNewChat, label: "+  new chat"},
 		{kind: rowLast, label: "←  last window/session"},

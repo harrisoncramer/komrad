@@ -10,7 +10,7 @@ import (
 	"claude-agents/internal/agents"
 	"claude-agents/internal/appconfig"
 	"claude-agents/internal/panel"
-	"claude-agents/internal/registry"
+	"claude-agents/internal/store"
 	"claude-agents/internal/tmux"
 
 	"github.com/spf13/cobra"
@@ -44,14 +44,17 @@ func NewRootCommand() *cobra.Command {
 				return err
 			}
 
+			sessions, err := store.Open(env.DBPath)
+			if err != nil {
+				return err
+			}
+
 			state.env = env
 			state.manager = agents.NewAgentManager(agents.Params{
 				Tmux:        tmux.NewClient(env.TmuxSocket),
-				Store:       registry.NewStore(env.AgentsDir),
+				Store:       sessions,
 				SelfPath:    selfPath(),
 				ClaudeFlags: cfg.ClaudeFlags,
-				AgentWidth:  cfg.AgentWidth,
-				AgentHeight: cfg.AgentHeight,
 				Hooks: agents.Hooks{
 					PreCreate:  cfg.Hooks.PreCreate,
 					PostCreate: cfg.Hooks.PostCreate,

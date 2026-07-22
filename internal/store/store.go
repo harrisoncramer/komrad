@@ -8,12 +8,20 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"claude-agents/db"
 	"claude-agents/db/models"
 
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
+)
+
+// Agent lifecycle states.
+const (
+	StateNew      = "new"
+	StateThinking = "thinking"
+	StateDone     = "done"
 )
 
 // Agent is a persisted background agent.
@@ -25,6 +33,12 @@ type Agent struct {
 	Flags  string
 	Prompt string
 	State  string
+}
+
+// SanitizeName maps a name to the characters tmux allows in a session name,
+// which is also the store key so the two always agree.
+func SanitizeName(name string) string {
+	return strings.NewReplacer(":", "-", ".", "-", " ", "-").Replace(name)
 }
 
 // Store is the SQLite-backed agent store.
@@ -42,6 +56,12 @@ func Open(path string) (*Store, error) {
 	conn, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open db: %w", err)
+	}
+
+	// WAL plus a busy timeout so the frequent, independent opens (hooks, the
+	// once-a-second status render, the panel) don't trip over each other.
+	if _, err := conn.Exec("PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;"); err != nil {
+		return nil, fmt.Errorf("failed to set pragmas: %w", err)
 	}
 
 	if err := db.Migrate(conn); err != nil {
@@ -96,6 +116,38 @@ func (s *Store) Upsert(ctx context.Context, agent Agent) error {
 	}
 
 	return nil
+}
+
+// UpsertState records an agent's state and pane, creating a bare row if none
+// exists yet. It never touches cwd/flags/prompt, so lifecycle hooks don't wipe
+// the metadata captured when a tool-created agent was launched.
+func (s *Store) UpsertState(ctx context.Context, name, pane, state string) error {
+	id, err := uuid.NewV7()
+	if err != nil {
+		return fmt.Errorf("failed to generate id: %w", err)
+	}
+
+	if err := s.queries.UpsertSessionState(ctx, models.UpsertSessionStateParams{
+		ID:    id.String(),
+		Name:  name,
+		Pane:  pane,
+		State: state,
+	}); err != nil {
+		return fmt.Errorf("failed to upsert state for %q: %w", name, err)
+	}
+
+	return nil
+}
+
+// Get returns an agent by name, or nil when none exists.
+func (s *Store) Get(ctx context.Context, name string) (*Agent, error) {
+	row, err := s.queries.GetSession(ctx, name)
+	if err != nil {
+		return nil, nil
+	}
+
+	agent := fromModel(row)
+	return &agent, nil
 }
 
 // SetState updates just an agent's state.

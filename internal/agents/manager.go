@@ -1,8 +1,9 @@
-// Package agents orchestrates the registry and tmux to implement both the panel
+// Package agents orchestrates the store and tmux to implement both the panel
 // actions and the CLI subcommands (notify, status, hook, chat).
 package agents
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"claude-agents/internal/registry"
+	"claude-agents/internal/store"
 	"claude-agents/internal/tmux"
 	"claude-agents/lib/xstr"
 )
@@ -24,25 +25,21 @@ type Hooks struct {
 }
 
 // AgentManager lists, launches, and acts on Claude agents by coordinating a
-// tmux client and the agent store.
+// tmux client and the SQLite-backed store.
 type AgentManager struct {
 	tmux        *tmux.Client
-	store       *registry.Store
+	sessions    *store.Store
 	selfPath    string
 	claudeFlags string
-	agentWidth  int
-	agentHeight int
 	hooks       Hooks
 }
 
 // Params carries the AgentManager's dependencies.
 type Params struct {
 	Tmux        *tmux.Client
-	Store       *registry.Store
+	Store       *store.Store
 	SelfPath    string
 	ClaudeFlags string
-	AgentWidth  int
-	AgentHeight int
 	Hooks       Hooks
 }
 
@@ -50,11 +47,9 @@ type Params struct {
 func NewAgentManager(p Params) *AgentManager {
 	return &AgentManager{
 		tmux:        p.Tmux,
-		store:       p.Store,
+		sessions:    p.Store,
 		selfPath:    p.SelfPath,
 		claudeFlags: p.ClaudeFlags,
-		agentWidth:  p.AgentWidth,
-		agentHeight: p.AgentHeight,
 		hooks:       p.Hooks,
 	}
 }
@@ -85,16 +80,17 @@ func expandHome(path string) string {
 }
 
 // List returns the live agents, pruning any whose pane has gone away.
-func (m *AgentManager) List() []registry.Agent {
-	all, err := m.store.List()
+func (m *AgentManager) List() []store.Agent {
+	ctx := context.Background()
+	all, err := m.sessions.List(ctx)
 	if err != nil {
 		return nil
 	}
 
-	live := make([]registry.Agent, 0, len(all))
+	live := make([]store.Agent, 0, len(all))
 	for _, agent := range all {
 		if !m.tmux.PaneAlive(agent.Pane) {
-			_ = m.store.Remove(agent)
+			_ = m.sessions.Delete(ctx, agent.Name)
 			continue
 		}
 
@@ -107,9 +103,9 @@ func (m *AgentManager) List() []registry.Agent {
 // Preview sizes a detached agent's window to the preview box (so its capture
 // fills the box), then returns a snapshot of its pane. Attached sessions are
 // left alone so a live client's view is never disturbed.
-func (m *AgentManager) Preview(agent registry.Agent, width, height int) string {
-	if width > 0 && height > 0 && !m.tmux.SessionAttached(agent.Session) {
-		m.tmux.ResizeWindow(agent.Session, width, height)
+func (m *AgentManager) Preview(agent store.Agent, width, height int) string {
+	if width > 0 && height > 0 && !m.tmux.SessionAttached(agent.Name) {
+		m.tmux.ResizeWindow(agent.Name, width, height)
 	}
 
 	return m.tmux.CapturePane(agent.Pane)
@@ -117,10 +113,10 @@ func (m *AgentManager) Preview(agent registry.Agent, width, height int) string {
 
 // Jump switches the client to an agent's session and focuses its pane, first
 // restoring client-fit sizing so the agent fills the real terminal.
-func (m *AgentManager) Jump(client string, agent registry.Agent) {
-	m.tmux.SetWindowSizeLatest(agent.Session)
+func (m *AgentManager) Jump(client string, agent store.Agent) {
+	m.tmux.SetWindowSizeLatest(agent.Name)
 	location := m.tmux.PaneLocation(agent.Pane)
-	m.tmux.SwitchClient(client, agent.Session)
+	m.tmux.SwitchClient(client, agent.Name)
 	if location != "" {
 		m.tmux.SelectWindow(location)
 		m.tmux.SelectPane(agent.Pane)
@@ -128,8 +124,8 @@ func (m *AgentManager) Jump(client string, agent registry.Agent) {
 }
 
 // Chat schedules the large chat popup to open once the panel popup has closed.
-func (m *AgentManager) Chat(agent registry.Agent) {
-	m.tmux.RunShellBackground(fmt.Sprintf("%s chat-open '%s' '%s'", m.selfPath, agent.Session, agent.Pane))
+func (m *AgentManager) Chat(agent store.Agent) {
+	m.tmux.RunShellBackground(fmt.Sprintf("%s chat-open '%s' '%s'", m.selfPath, agent.Name, agent.Pane))
 }
 
 // Last bounces the client to its previous session.
@@ -138,15 +134,15 @@ func (m *AgentManager) Last(client string) {
 }
 
 // Destroy kills an agent's session, bouncing the client away first if it is
-// currently viewing it, and drops the registry entry.
-func (m *AgentManager) Destroy(client string, agent registry.Agent) {
-	if m.tmux.ClientSession(client) == agent.Session {
+// currently viewing it, and drops the stored row.
+func (m *AgentManager) Destroy(client string, agent store.Agent) {
+	if m.tmux.ClientSession(client) == agent.Name {
 		m.tmux.SwitchToLast(client)
 	}
 
-	m.tmux.KillSession(agent.Session)
-	_ = m.store.Remove(agent)
-	m.runHook(m.hooks.OnDelete, agent.Session, "")
+	m.tmux.KillSession(agent.Name)
+	_ = m.sessions.Delete(context.Background(), agent.Name)
+	m.runHook(m.hooks.OnDelete, agent.Name, "")
 }
 
 // NewSessionParams configures a background agent to create.
@@ -158,7 +154,7 @@ type NewSessionParams struct {
 	Prompt string
 }
 
-// NewSession creates a background session, registers it so it lists immediately,
+// NewSession creates a background session, records it so it lists immediately,
 // and launches claude with the default plus per-session flags and opening
 // prompt. It does not switch the client to the new session.
 //
@@ -180,13 +176,19 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 		dir = provisioned
 	}
 
-	m.tmux.NewDetachedSession(name, dir, m.agentWidth, m.agentHeight)
+	m.tmux.NewDetachedSession(name, dir)
 
 	pane, _ := m.tmux.PaneID(name)
-	summary := xstr.Truncate(strings.TrimSpace(xstr.FirstLine(p.Prompt)), 60)
-	_ = m.store.Write(registry.Agent{Session: name, Pane: pane, State: registry.StateNew, Msg: summary})
-
 	flags := strings.TrimSpace(m.claudeFlags + " " + p.Flags)
+	_ = m.sessions.Upsert(context.Background(), store.Agent{
+		Name:   name,
+		Pane:   pane,
+		Cwd:    dir,
+		Flags:  flags,
+		Prompt: p.Prompt,
+		State:  store.StateNew,
+	})
+
 	m.launchClaude(name, flags, p.Prompt)
 
 	m.runHook(m.hooks.PostCreate, name, dir)
@@ -195,7 +197,7 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 // uniqueSessionName derives a session name from the title, falling back to a
 // slug of the prompt, then "agent", and appends a suffix until it is free.
 func (m *AgentManager) uniqueSessionName(title, prompt string) string {
-	base := registry.SanitizeSessionName(strings.TrimSpace(title))
+	base := store.SanitizeName(strings.TrimSpace(title))
 	if base == "" {
 		base = xstr.Slug(xstr.FirstLine(prompt), 24)
 	}
@@ -232,18 +234,15 @@ func (m *AgentManager) launchClaude(session, flags, prompt string) {
 	m.tmux.SendKeys(session, command, "Enter")
 }
 
-// Notify records that an agent finished with a custom message.
-func (m *AgentManager) Notify(mainSession, pane, msg string) {
+// Notify records that an agent finished. It upserts state only, so a
+// tool-created agent keeps its captured cwd/flags/prompt.
+func (m *AgentManager) Notify(mainSession, pane, _ string) {
 	key := m.agentKey(mainSession)
 	if key == "" {
 		return
 	}
 
-	if msg == "" {
-		msg = "Task complete."
-	}
-
-	_ = m.store.Write(registry.Agent{Session: key, Pane: pane, State: registry.StateDone, Msg: msg})
+	_ = m.sessions.UpsertState(context.Background(), key, pane, store.StateDone)
 }
 
 // Hook advances an agent's state from a Claude Code lifecycle event.
@@ -253,22 +252,23 @@ func (m *AgentManager) Hook(mode, mainSession, pane string) {
 		return
 	}
 
+	ctx := context.Background()
 	switch mode {
 	case "prompt":
-		_ = m.store.Write(registry.Agent{Session: key, Pane: pane, State: registry.StateThinking})
+		_ = m.sessions.UpsertState(ctx, key, pane, store.StateThinking)
 	case "stop":
-		existing, _ := m.store.Get(key)
-		if existing != nil && existing.State == registry.StateDone {
+		existing, _ := m.sessions.Get(ctx, key)
+		if existing != nil && existing.State == store.StateDone {
 			return
 		}
 
-		_ = m.store.Write(registry.Agent{Session: key, Pane: pane, State: registry.StateDone})
+		_ = m.sessions.UpsertState(ctx, key, pane, store.StateDone)
 	}
 }
 
 // Status renders the global agent summary for the tmux status bar.
 func (m *AgentManager) Status() string {
-	agents, err := m.store.List()
+	agents, err := m.sessions.List(context.Background())
 	if err != nil {
 		return ""
 	}
@@ -276,11 +276,10 @@ func (m *AgentManager) Status() string {
 	working, done := 0, 0
 	for _, agent := range agents {
 		switch agent.State {
-		case registry.StateThinking:
+		case store.StateThinking:
 			working++
-		case registry.StateDone:
+		case store.StateDone:
 			done++
-		case registry.StateNew:
 		}
 	}
 
@@ -328,7 +327,7 @@ func (m *AgentManager) AttachChat(session, pane string) error {
 
 	m.tmux.SetWindowSizeLatest(session)
 
-	argv := []string{"tmux", "-L", m.socket(), "attach-session", "-t", session, ";", "select-pane", "-t", pane}
+	argv := []string{"tmux", "-L", m.tmux.Socket(), "attach-session", "-t", session, ";", "select-pane", "-t", pane}
 	if err := syscall.Exec(path, argv, envWithout("TMUX")); err != nil {
 		return fmt.Errorf("failed to attach to session %q: %w", session, err)
 	}
@@ -343,11 +342,6 @@ func (m *AgentManager) agentKey(mainSession string) string {
 
 	session, _ := m.tmux.CurrentSession()
 	return session
-}
-
-// socket exposes the tmux socket the client uses for the attach exec.
-func (m *AgentManager) socket() string {
-	return m.tmux.Socket()
 }
 
 func envWithout(key string) []string {

@@ -90,7 +90,7 @@ func (m model) chatsView() string {
 	list.WriteString(headerStyle.Render("Chats") + "\n\n")
 	for i, agent := range m.chats {
 		cursor := "  "
-		name := agent.Session
+		name := agent.Name
 		if i == m.chatCursor {
 			cursor = cursorStyle.Render("› ")
 			name = cursorStyle.Render(name)

@@ -13,7 +13,7 @@ import (
 
 // Config holds the panel's runtime configuration.
 type Config struct {
-	AgentsDir  string `env:"CLAUDE_AGENTS_DIR"`
+	DBPath     string `env:"CLAUDE_AGENTS_DB"`
 	TmuxSocket string `env:"CLAUDE_AGENTS_TMUX_SOCKET" envDefault:"default"`
 
 	// MainSession and TmuxPane identify the calling Claude agent. Popup-launched
@@ -23,20 +23,20 @@ type Config struct {
 }
 
 // Load reads the panel's configuration from the environment, defaulting the
-// registry directory to ~/.claude/agents when unset.
+// database to ~/.claude/claude-agents.db when unset.
 func Load() (*Config, error) {
 	cfg, err := ultra.Load(&Config{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	if cfg.AgentsDir == "" {
+	if cfg.DBPath == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve home directory: %w", err)
 		}
 
-		cfg.AgentsDir = filepath.Join(home, ".claude", "agents")
+		cfg.DBPath = filepath.Join(home, ".claude", "claude-agents.db")
 	}
 
 	return cfg, nil

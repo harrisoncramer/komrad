@@ -29,6 +29,15 @@ ON CONFLICT (name)
     RETURNING
         *;
 
+-- name: UpsertSessionState :exec
+INSERT INTO sessions (id, name, pane_id, state)
+    VALUES (@id, @name, @pane, @state)
+ON CONFLICT (name)
+    DO UPDATE SET
+        pane_id = excluded.pane_id,
+        state = excluded.state,
+        updated_at = CURRENT_TIMESTAMP;
+
 -- name: SetSessionState :exec
 UPDATE
     sessions
