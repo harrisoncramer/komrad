@@ -8,16 +8,27 @@ import (
 	"sort"
 	"strings"
 
+	"claude-panel/config"
+
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-const socket = "default"
+var (
+	socket    = "default"
+	agentsDir string
+)
 
 func tmux(args ...string) (string, error) {
 	out, err := exec.Command("tmux", append([]string{"-L", socket}, args...)...).Output()
 	return strings.TrimSpace(string(out)), err
+}
+
+// runTmux executes a best-effort tmux side effect. A failure is not actionable
+// here: the panel closes immediately after, so there is nothing to recover.
+func runTmux(args ...string) {
+	_, _ = tmux(args...)
 }
 
 func clientArgs(client string) []string {
@@ -28,10 +39,7 @@ func clientArgs(client string) []string {
 }
 
 func registryDir() string {
-	if dir := os.Getenv("CLAUDE_AGENTS_DIR"); dir != "" {
-		return dir
-	}
-	return filepath.Join(os.Getenv("HOME"), ".claude", "agents")
+	return agentsDir
 }
 
 type agent struct {
@@ -77,7 +85,7 @@ func loadAgents() []agent {
 			}
 		}
 		if !paneAlive(ag.pane) {
-			os.Remove(path)
+			_ = os.Remove(path)
 			continue
 		}
 		agents = append(agents, ag)
@@ -93,20 +101,20 @@ func sanitizeSessionName(name string) string {
 
 func jump(client string, ag agent) {
 	location, _ := tmux("display-message", "-p", "-t", ag.pane, "#{session_name}:#{window_index}")
-	tmux(append(append([]string{"switch-client"}, clientArgs(client)...), "-t", ag.session)...)
+	runTmux(append(append([]string{"switch-client"}, clientArgs(client)...), "-t", ag.session)...)
 	if location != "" {
-		tmux("select-window", "-t", location)
-		tmux("select-pane", "-t", ag.pane)
+		runTmux("select-window", "-t", location)
+		runTmux("select-pane", "-t", ag.pane)
 	}
 }
 
 func chat(scriptsDir string, ag agent) {
 	open := filepath.Join(scriptsDir, "claude-chat-open")
-	tmux("run-shell", "-b", fmt.Sprintf("%s '%s' '%s'", open, ag.session, ag.pane))
+	runTmux("run-shell", "-b", fmt.Sprintf("%s '%s' '%s'", open, ag.session, ag.pane))
 }
 
 func lastSession(client string) {
-	tmux(append(append([]string{"switch-client"}, clientArgs(client)...), "-l")...)
+	runTmux(append(append([]string{"switch-client"}, clientArgs(client)...), "-l")...)
 }
 
 // destroy kills the agent's session. If the client sits in that session it is
@@ -116,8 +124,9 @@ func destroy(client string, ag agent) {
 	if current == ag.session {
 		lastSession(client)
 	}
-	tmux("kill-session", "-t", ag.session)
-	os.Remove(ag.file)
+
+	runTmux("kill-session", "-t", ag.session)
+	_ = os.Remove(ag.file)
 }
 
 // newChat creates a named session in the current terminal's directory, registers
@@ -126,16 +135,18 @@ func newChat(client, name string) {
 	name = sanitizeSessionName(name)
 	dir, _ := tmux(append([]string{"display-message", "-p"}, append(clientArgs(client), "#{pane_current_path}")...)...)
 	if dir == "" {
-		dir = os.Getenv("HOME")
+		dir, _ = os.UserHomeDir()
 	}
+
 	if _, err := tmux("has-session", "-t", name); err != nil {
-		tmux("new-session", "-d", "-s", name, "-c", dir)
+		runTmux("new-session", "-d", "-s", name, "-c", dir)
 		pane, _ := tmux("display-message", "-p", "-t", name, "#{pane_id}")
 		entry := fmt.Sprintf("SESSION=%s\nPANE=%s\nSTATE=new\nMSG=\n", name, pane)
-		os.WriteFile(filepath.Join(registryDir(), sanitizeSessionName(name)), []byte(entry), 0o644)
-		tmux("send-keys", "-t", name, "claude", "Enter")
+		_ = os.WriteFile(filepath.Join(registryDir(), sanitizeSessionName(name)), []byte(entry), 0o644)
+		runTmux("send-keys", "-t", name, "claude", "Enter")
 	}
-	tmux(append(append([]string{"switch-client"}, clientArgs(client)...), "-t", name)...)
+
+	runTmux(append(append([]string{"switch-client"}, clientArgs(client)...), "-t", name)...)
 }
 
 var (
@@ -402,6 +413,15 @@ func (m model) renderRow(label string, selected bool) string {
 }
 
 func main() {
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	socket = cfg.TmuxSocket
+	agentsDir = cfg.AgentsDir
+
 	client := ""
 	if len(os.Args) > 1 {
 		client = os.Args[1]

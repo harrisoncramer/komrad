@@ -1,0 +1,27 @@
+version: "2"
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+linters:
+  enable:
+    - bodyclose
+    - unparam
+    - exhaustive
+    - agentslinter
+  settings:
+    staticcheck:
+      checks:
+        - all
+        - -ST1000 # package comments not required on main
+    exhaustive:
+      check:
+        - switch
+      default-signifies-exhaustive: true
+    custom:
+      agentslinter:
+        type: module
+        description: Chariot-style checks for this repo; forbids bare os environment access.
+formatters:
+  enable:
+    - gofmt
+    - goimports

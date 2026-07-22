@@ -1,0 +1,5 @@
+version: v2.7.0
+destination: local
+plugins:
+  - module: 'agentslinter'
+    path: ./tools/agentslinter
