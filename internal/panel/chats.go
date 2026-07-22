@@ -34,9 +34,6 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "c":
 		m.manager.Chat(m.chats[m.chatCursor])
 		return m, tea.Quit
-	case "o":
-		m.manager.JoinHere(m.client, m.chats[m.chatCursor])
-		return m, tea.Quit
 	case "x":
 		m.agent = m.chats[m.chatCursor]
 		m.confirmYes = false
@@ -101,7 +98,7 @@ func (m model) chatsView() string {
 		list.WriteString(cursor + icon + " " + name + "\n")
 	}
 
-	list.WriteString("\n" + dimStyle.Render("enter/l jump · o join here · c chat · x kill\nj/k move · C-d/C-u scroll · h/esc back"))
+	list.WriteString("\n" + dimStyle.Render("enter/l jump · c chat · x kill\nj/k move · C-d/C-u scroll · h/esc back"))
 
 	left := lipgloss.NewStyle().Width(chatListWidth).Render(list.String())
 	right := lipgloss.NewStyle().

@@ -113,17 +113,6 @@ func (m *AgentManager) Jump(client string, agent registry.Agent) {
 	}
 }
 
-// JoinHere pulls an agent's pane into the client's current window as a split,
-// so it can be interacted with live in the base view.
-func (m *AgentManager) JoinHere(client string, agent registry.Agent) {
-	dst := m.tmux.ActivePane(client)
-	if dst == "" {
-		return
-	}
-
-	m.tmux.JoinPane(agent.Pane, dst)
-}
-
 // Chat schedules the large chat popup to open once the panel popup has closed.
 func (m *AgentManager) Chat(agent registry.Agent) {
 	m.tmux.RunShellBackground(fmt.Sprintf("%s chat-open '%s' '%s'", m.selfPath, agent.Session, agent.Pane))
