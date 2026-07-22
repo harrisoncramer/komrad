@@ -14,34 +14,27 @@ const chatListWidth = 32
 func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch key.String() {
 	case "ctrl+c", "q":
-		m.closeLive()
 		return m, tea.Quit
 	case "esc", "left", "h":
-		m.closeLive()
 		m.screen = screenList
 		return m, nil
 	case "up", "k":
 		if m.chatCursor > 0 {
 			m.chatCursor--
-			m.ensureLive()
 			m.refreshPreview()
 		}
 	case "down", "j":
 		if m.chatCursor < len(m.chats)-1 {
 			m.chatCursor++
-			m.ensureLive()
 			m.refreshPreview()
 		}
 	case "enter", "l", "right":
-		m.closeLive()
 		m.manager.Jump(m.client, m.chats[m.chatCursor])
 		return m, tea.Quit
 	case "c":
-		m.closeLive()
 		m.manager.Chat(m.chats[m.chatCursor])
 		return m, tea.Quit
 	case "x":
-		m.closeLive()
 		m.agent = m.chats[m.chatCursor]
 		m.confirmYes = false
 		m.screen = screenConfirm
@@ -54,55 +47,41 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// ensureLive attaches a control-mode live view to the hovered agent, replacing
-// any previous one when the selection changes.
-func (m *model) ensureLive() {
-	if m.chatCursor < 0 || m.chatCursor >= len(m.chats) {
-		m.closeLive()
-		return
-	}
-
-	agent := m.chats[m.chatCursor]
-	key := agent.Session + "\x00" + agent.Pane
-	if m.live != nil && key == m.liveKey {
-		return
-	}
-
-	m.closeLive()
-
-	client, err := m.manager.AttachPreview(agent, m.preview.Width, m.preview.Height)
-	if err != nil {
-		return
-	}
-
-	m.live = client
-	m.liveKey = key
-}
-
-func (m *model) closeLive() {
-	if m.live != nil {
-		m.live.Close()
-		m.live = nil
-		m.liveKey = ""
-	}
-}
-
 func (m *model) refreshPreview() {
-	if m.live != nil {
-		m.preview.SetContent(m.live.Render())
+	if m.chatCursor < 0 || m.chatCursor >= len(m.chats) {
+		m.preview.SetContent("")
 		return
 	}
 
-	m.preview.SetContent("")
+	// Follow the tail while pinned to the bottom, but hold position when the
+	// user has scrolled up.
+	atBottom := m.preview.AtBottom()
+	offset := m.preview.YOffset
+
+	m.preview.SetContent(m.manager.Preview(m.chats[m.chatCursor]))
+
+	if atBottom {
+		m.preview.GotoBottom()
+	} else {
+		m.preview.SetYOffset(offset)
+	}
 }
 
+// resizePreview sizes the preview box to the agents' fixed size so a capture
+// fits exactly, capped to the space the popup actually has.
 func (m *model) resizePreview() {
-	width := m.width - chatListWidth - 4
+	width := m.agentWidth
+	if avail := m.width - chatListWidth - 4; width > avail {
+		width = avail
+	}
 	if width < 10 {
 		width = 10
 	}
 
-	height := m.height - 2
+	height := m.agentHeight
+	if avail := m.height - 2; height > avail {
+		height = avail
+	}
 	if height < 3 {
 		height = 3
 	}
@@ -127,7 +106,7 @@ func (m model) chatsView() string {
 		list.WriteString(cursor + icon + " " + name + "\n")
 	}
 
-	list.WriteString("\n" + dimStyle.Render("enter/l jump · c chat · x kill\nj/k move · esc back"))
+	list.WriteString("\n" + dimStyle.Render("enter/l jump · c chat · x kill\nj/k move · C-d/C-u scroll · esc back"))
 
 	left := lipgloss.NewStyle().Width(chatListWidth).Render(list.String())
 	right := lipgloss.NewStyle().

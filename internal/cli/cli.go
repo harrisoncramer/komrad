@@ -50,6 +50,8 @@ func NewRootCommand() *cobra.Command {
 				Store:       registry.NewStore(env.AgentsDir),
 				SelfPath:    selfPath(),
 				ClaudeFlags: cfg.ClaudeFlags,
+				AgentWidth:  cfg.AgentWidth,
+				AgentHeight: cfg.AgentHeight,
 				Hooks: agents.Hooks{
 					PreCreate:  cfg.Hooks.PreCreate,
 					PostCreate: cfg.Hooks.PostCreate,

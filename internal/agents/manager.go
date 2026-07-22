@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"claude-agents/internal/ctrl"
 	"claude-agents/internal/registry"
 	"claude-agents/internal/tmux"
 	"claude-agents/lib/xstr"
@@ -31,6 +30,8 @@ type AgentManager struct {
 	store       *registry.Store
 	selfPath    string
 	claudeFlags string
+	agentWidth  int
+	agentHeight int
 	hooks       Hooks
 }
 
@@ -40,6 +41,8 @@ type Params struct {
 	Store       *registry.Store
 	SelfPath    string
 	ClaudeFlags string
+	AgentWidth  int
+	AgentHeight int
 	Hooks       Hooks
 }
 
@@ -50,6 +53,8 @@ func NewAgentManager(p Params) *AgentManager {
 		store:       p.Store,
 		selfPath:    p.SelfPath,
 		claudeFlags: p.ClaudeFlags,
+		agentWidth:  p.AgentWidth,
+		agentHeight: p.AgentHeight,
 		hooks:       p.Hooks,
 	}
 }
@@ -104,10 +109,10 @@ func (m *AgentManager) Preview(agent registry.Agent) string {
 	return m.tmux.CapturePane(agent.Pane)
 }
 
-// AttachPreview starts a control-mode live view of an agent's pane, sized to the
-// preview box.
-func (m *AgentManager) AttachPreview(agent registry.Agent, width, height int) (*ctrl.Client, error) {
-	return ctrl.Attach(m.tmux.Socket(), agent.Session, agent.Pane, width, height)
+// PreviewSize is the fixed size agents render at, which the preview box matches
+// so a plain capture fits exactly.
+func (m *AgentManager) PreviewSize() (int, int) {
+	return m.agentWidth, m.agentHeight
 }
 
 // Jump switches the client to an agent's session and focuses its pane.
@@ -173,7 +178,7 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 		dir = provisioned
 	}
 
-	m.tmux.NewDetachedSession(name, dir)
+	m.tmux.NewDetachedSession(name, dir, m.agentWidth, m.agentHeight)
 
 	pane, _ := m.tmux.PaneID(name)
 	summary := xstr.Truncate(strings.TrimSpace(xstr.FirstLine(p.Prompt)), 60)

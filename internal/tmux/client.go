@@ -5,6 +5,7 @@ package tmux
 
 import (
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"claude-agents/lib/xstr"
@@ -112,9 +113,11 @@ func (c *Client) SelectPane(pane string) {
 	c.run("select-pane", "-t", pane)
 }
 
-// NewDetachedSession creates a detached session rooted at dir.
-func (c *Client) NewDetachedSession(name, dir string) {
-	c.run("new-session", "-d", "-s", name, "-c", dir)
+// NewDetachedSession creates a detached session rooted at dir, locked to a fixed
+// size so its capture always fits the preview box.
+func (c *Client) NewDetachedSession(name, dir string, width, height int) {
+	c.run("new-session", "-d", "-s", name, "-x", strconv.Itoa(width), "-y", strconv.Itoa(height), "-c", dir)
+	c.run("set-window-option", "-t", name, "window-size", "manual")
 }
 
 // SendKeys sends literal keys to a target pane or session.

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"claude-agents/internal/agents"
-	"claude-agents/internal/ctrl"
 	"claude-agents/internal/registry"
 
 	"github.com/charmbracelet/bubbles/viewport"
@@ -95,11 +94,11 @@ type model struct {
 	rows   []row
 	cursor int
 
-	chats      []registry.Agent
-	chatCursor int
-	preview    viewport.Model
-	live       *ctrl.Client
-	liveKey    string
+	chats       []registry.Agent
+	chatCursor  int
+	preview     viewport.Model
+	agentWidth  int
+	agentHeight int
 
 	agent      registry.Agent
 	form       *huh.Form
@@ -111,14 +110,17 @@ type model struct {
 
 func newModel(manager *agents.AgentManager, client string) model {
 	chats := manager.List()
+	width, height := manager.PreviewSize()
 
 	return model{
-		manager: manager,
-		client:  client,
-		screen:  screenList,
-		rows:    buildRows(chats),
-		chats:   chats,
-		preview: viewport.New(0, 0),
+		manager:     manager,
+		client:      client,
+		screen:      screenList,
+		rows:        buildRows(chats),
+		chats:       chats,
+		preview:     viewport.New(0, 0),
+		agentWidth:  width,
+		agentHeight: height,
 	}
 }
 
@@ -216,7 +218,6 @@ func (m model) selectRow(selected row) (tea.Model, tea.Cmd) {
 
 		m.screen = screenChats
 		m.chatCursor = 0
-		m.ensureLive()
 		m.refreshPreview()
 		return m, tick()
 	}
@@ -254,7 +255,6 @@ func (m model) updateConfirm(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "esc", "n":
 		m.screen = screenChats
-		m.ensureLive()
 		m.refreshPreview()
 		return m, tick()
 	case "left", "right", "h", "l", "tab":
@@ -267,7 +267,6 @@ func (m model) updateConfirm(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 		m.screen = screenChats
-		m.ensureLive()
 		m.refreshPreview()
 		return m, tick()
 	}
@@ -292,7 +291,6 @@ func (m model) applyDestroy() (tea.Model, tea.Cmd) {
 	}
 
 	m.screen = screenChats
-	m.ensureLive()
 	m.refreshPreview()
 	return m, tick()
 }

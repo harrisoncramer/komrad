@@ -22,8 +22,17 @@ type Hooks struct {
 // Config is the user's customization.
 type Config struct {
 	ClaudeFlags string `mapstructure:"claude_flags"`
-	Hooks       Hooks  `mapstructure:"hooks"`
+	// AgentWidth and AgentHeight lock every agent session to a fixed size so its
+	// capture fits the preview box exactly.
+	AgentWidth  int   `mapstructure:"agent_width"`
+	AgentHeight int   `mapstructure:"agent_height"`
+	Hooks       Hooks `mapstructure:"hooks"`
 }
+
+const (
+	defaultAgentWidth  = 120
+	defaultAgentHeight = 40
+)
 
 // Load reads the config from path when given, otherwise from the default
 // location (~/.config/claude-agents/config.toml). A missing file is not an
@@ -45,10 +54,10 @@ func Load(path string) (*Config, error) {
 
 	if err := v.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			return &Config{}, nil
+			return withDefaults(&Config{}), nil
 		}
 		if os.IsNotExist(err) {
-			return &Config{}, nil
+			return withDefaults(&Config{}), nil
 		}
 
 		return nil, fmt.Errorf("failed to read config: %w", err)
@@ -59,5 +68,16 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
-	return &cfg, nil
+	return withDefaults(&cfg), nil
+}
+
+func withDefaults(cfg *Config) *Config {
+	if cfg.AgentWidth <= 0 {
+		cfg.AgentWidth = defaultAgentWidth
+	}
+	if cfg.AgentHeight <= 0 {
+		cfg.AgentHeight = defaultAgentHeight
+	}
+
+	return cfg
 }
