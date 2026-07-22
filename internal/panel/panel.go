@@ -79,7 +79,6 @@ const (
 	screenList screen = iota
 	screenChats
 	screenForm
-	screenConfirm
 )
 
 type rowKind int
@@ -107,10 +106,8 @@ type model struct {
 	chatCursor int
 	preview    viewport.Model
 
-	agent      store.Agent
-	attach     *store.Agent
-	form       *huh.Form
-	confirmYes bool
+	attach *store.Agent
+	form   *huh.Form
 
 	width  int
 	height int
@@ -220,8 +217,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateList(key)
 	case screenChats:
 		return m.updateChats(key)
-	case screenConfirm:
-		return m.updateConfirm(key)
 	default:
 		return m, nil
 	}
@@ -288,49 +283,4 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	default:
 		return m, cmd
 	}
-}
-
-func (m model) updateConfirm(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch key.String() {
-	case "ctrl+c":
-		return m, tea.Quit
-	case "esc", "n":
-		m.screen = screenChats
-		m.refreshPreview()
-		return m, tick()
-	case "left", "right", "h", "l", "tab":
-		m.confirmYes = !m.confirmYes
-	case "y":
-		return m.applyKill()
-	case "enter":
-		if m.confirmYes {
-			return m.applyKill()
-		}
-
-		m.screen = screenChats
-		m.refreshPreview()
-		return m, tick()
-	}
-
-	return m, nil
-}
-
-// applyKill stops the selected agent's session, reloads (it stays as dormant),
-// and returns to the chats view (or the top list when none remain).
-func (m model) applyKill() (tea.Model, tea.Cmd) {
-	m.manager.Kill(m.client, m.agent)
-	m.reload()
-
-	if len(m.chats) == 0 {
-		m.screen = screenList
-		return m, nil
-	}
-
-	if m.chatCursor >= len(m.chats) {
-		m.chatCursor = len(m.chats) - 1
-	}
-
-	m.screen = screenChats
-	m.refreshPreview()
-	return m, tick()
 }

@@ -32,10 +32,6 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		agent := m.chats[m.chatCursor].agent
 		m.attach = &agent
 		return m, tea.Quit
-	case "x":
-		m.agent = m.chats[m.chatCursor].agent
-		m.confirmYes = false
-		m.screen = screenConfirm
 	case "d":
 		m.manager.Delete(m.client, m.chats[m.chatCursor].agent)
 		m.reload()
@@ -116,7 +112,7 @@ func (m model) chatsView() string {
 		list.WriteString(cursor + icon + " " + name + "\n")
 	}
 
-	list.WriteString("\n" + dimStyle.Render("enter/l open · x kill · d delete\nj/k move · C-d/C-u scroll · esc back"))
+	list.WriteString("\n" + dimStyle.Render("enter/l open · d delete\nj/k move · C-d/C-u scroll · esc back"))
 
 	left := lipgloss.NewStyle().Width(chatListWidth).Render(list.String())
 	right := lipgloss.NewStyle().

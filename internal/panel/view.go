@@ -8,8 +8,6 @@ func (m model) View() string {
 	switch m.screen {
 	case screenForm:
 		return m.form.View()
-	case screenConfirm:
-		return m.confirmView()
 	case screenChats:
 		return m.chatsView()
 	case screenList:
@@ -17,18 +15,6 @@ func (m model) View() string {
 	default:
 		return m.listView()
 	}
-}
-
-func (m model) confirmView() string {
-	yes, no := "  Yes  ", "  No  "
-	if m.confirmYes {
-		yes = cursorStyle.Render("▸ Yes ")
-	} else {
-		no = cursorStyle.Render("▸ No ")
-	}
-
-	return headerStyle.Render("kill") + "\n\n  Kill session '" + m.agent.Name + "'?" +
-		"\n\n  " + yes + "   " + no + "\n"
 }
 
 func (m model) listView() string {

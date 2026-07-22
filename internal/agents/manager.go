@@ -95,17 +95,6 @@ func (m *AgentManager) Preview(agent store.Agent, width, height int) string {
 	return m.tmux.CapturePane(agent.Pane)
 }
 
-// Kill stops an agent's tmux session but keeps its record, so it stays listed as
-// dormant and can be resumed later. The client is bounced away first if it is
-// currently viewing that session.
-func (m *AgentManager) Kill(client string, agent store.Agent) {
-	if m.tmux.ClientSession(client) == agent.Name {
-		m.tmux.SwitchToLast(client)
-	}
-
-	m.tmux.KillSession(agent.Name)
-}
-
 // Delete soft-deletes an agent's record (hiding it from the panel), stopping its
 // session first and running the on-delete hook.
 func (m *AgentManager) Delete(client string, agent store.Agent) {
