@@ -98,13 +98,20 @@ func (m *AgentManager) List() []registry.Agent {
 	return live
 }
 
-// Preview returns a snapshot of an agent's pane for the panel's preview pane.
-func (m *AgentManager) Preview(agent registry.Agent) string {
+// Preview resizes an agent's window to the preview box, then returns a snapshot
+// of its pane so the capture fits the box exactly.
+func (m *AgentManager) Preview(agent registry.Agent, width, height int) string {
+	if width > 0 && height > 0 {
+		m.tmux.ResizeWindow(agent.Session, width, height)
+	}
+
 	return m.tmux.CapturePane(agent.Pane)
 }
 
-// Jump switches the client to an agent's session and focuses its pane.
+// Jump switches the client to an agent's session and focuses its pane, first
+// restoring client-fit sizing (the preview may have left it manual).
 func (m *AgentManager) Jump(client string, agent registry.Agent) {
+	m.tmux.SetWindowSizeLatest(agent.Session)
 	location := m.tmux.PaneLocation(agent.Pane)
 	m.tmux.SwitchClient(client, agent.Session)
 	if location != "" {
@@ -311,6 +318,8 @@ func (m *AgentManager) AttachChat(session, pane string) error {
 	if err != nil {
 		return fmt.Errorf("failed to find tmux: %w", err)
 	}
+
+	m.tmux.SetWindowSizeLatest(session)
 
 	argv := []string{"tmux", "-L", m.socket(), "attach-session", "-t", session, ";", "select-pane", "-t", pane}
 	if err := syscall.Exec(path, argv, envWithout("TMUX")); err != nil {

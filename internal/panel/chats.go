@@ -58,7 +58,7 @@ func (m *model) refreshPreview() {
 	atBottom := m.preview.AtBottom()
 	offset := m.preview.YOffset
 
-	m.preview.SetContent(m.manager.Preview(m.chats[m.chatCursor]))
+	m.preview.SetContent(m.manager.Preview(m.chats[m.chatCursor], m.preview.Width, m.preview.Height))
 
 	if atBottom {
 		m.preview.GotoBottom()

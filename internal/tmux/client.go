@@ -5,6 +5,7 @@ package tmux
 
 import (
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"claude-agents/lib/xstr"
@@ -142,4 +143,16 @@ func (c *Client) DisplayPopup(client, width, height, command string) {
 func (c *Client) CapturePane(pane string) string {
 	out, _ := c.query("capture-pane", "-p", "-e", "-t", pane, "-S", "-200")
 	return out
+}
+
+// ResizeWindow sizes a window to fit a preview box. tmux switches the window to
+// manual sizing as a side effect; SetWindowSizeLatest reverses it.
+func (c *Client) ResizeWindow(target string, width, height int) {
+	c.run("resize-window", "-t", target, "-x", strconv.Itoa(width), "-y", strconv.Itoa(height))
+}
+
+// SetWindowSizeLatest returns a window to sizing after the most recent client,
+// so it fits the real terminal once attached.
+func (c *Client) SetWindowSizeLatest(target string) {
+	c.run("set-window-option", "-t", target, "window-size", "latest")
 }
