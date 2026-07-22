@@ -53,8 +53,18 @@ func (m *model) refreshPreview() {
 		return
 	}
 
+	// Follow the tail while pinned to the bottom, but hold position when the
+	// user has scrolled up to read.
+	atBottom := m.preview.AtBottom()
+	offset := m.preview.YOffset
+
 	m.preview.SetContent(m.manager.Preview(m.chats[m.chatCursor]))
-	m.preview.GotoBottom()
+
+	if atBottom {
+		m.preview.GotoBottom()
+	} else {
+		m.preview.SetYOffset(offset)
+	}
 }
 
 func (m *model) resizePreview() {

@@ -3,6 +3,7 @@ package panel
 
 import (
 	"fmt"
+	"time"
 
 	"claude-agents/internal/agents"
 	"claude-agents/internal/registry"
@@ -12,6 +13,15 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 )
+
+// previewInterval is how often the chats preview re-captures the hovered pane.
+const previewInterval = 200 * time.Millisecond
+
+type tickMsg struct{}
+
+func tick() tea.Cmd {
+	return tea.Tick(previewInterval, func(time.Time) tea.Msg { return tickMsg{} })
+}
 
 // Run launches the panel for a tmux client and blocks until it exits.
 func Run(manager *agents.AgentManager, client string) error {
@@ -138,6 +148,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	if _, ok := msg.(tickMsg); ok {
+		if m.screen != screenChats {
+			return m, nil
+		}
+
+		m.refreshPreview()
+		return m, tick()
+	}
+
 	if m.screen == screenForm {
 		return m.updateForm(msg)
 	}
@@ -195,6 +214,7 @@ func (m model) selectRow(selected row) (tea.Model, tea.Cmd) {
 		m.screen = screenChats
 		m.chatCursor = 0
 		m.refreshPreview()
+		return m, tick()
 	}
 
 	return m, nil
