@@ -3,6 +3,8 @@ package panel
 import (
 	"strings"
 
+	"claude-agents/internal/store"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -62,18 +64,58 @@ func (m *model) refreshPreview() {
 		return
 	}
 
+	item := m.chats[m.chatCursor]
+
+	// A dormant agent has no live pane to capture, so show its stored details.
+	if !item.alive {
+		m.preview.SetContent(dormantView(item.agent))
+		m.preview.GotoTop()
+		return
+	}
+
 	// Follow the tail while pinned to the bottom, but hold position when the
 	// user has scrolled up.
 	atBottom := m.preview.AtBottom()
 	offset := m.preview.YOffset
 
-	m.preview.SetContent(m.manager.Preview(m.chats[m.chatCursor].agent, m.preview.Width, m.preview.Height))
+	m.preview.SetContent(m.manager.Preview(item.agent, m.preview.Width, m.preview.Height))
 
 	if atBottom {
 		m.preview.GotoBottom()
 	} else {
 		m.preview.SetYOffset(offset)
 	}
+}
+
+// dormantView renders a dormant agent's stored properties in place of a live
+// capture, since its pane is gone.
+func dormantView(agent store.Agent) string {
+	label := lipgloss.NewStyle().Foreground(lipgloss.Color("#7E9CD8")).Bold(true)
+
+	field := func(name, value string) string {
+		return label.Render(name) + "  " + value + "\n"
+	}
+
+	var b strings.Builder
+	b.WriteString(dimStyle.Render("dormant — not running") + "\n\n")
+	b.WriteString(field("title    ", agent.Name))
+	b.WriteString(field("directory", agent.Cwd))
+	b.WriteString(field("state    ", agent.State))
+	if agent.Flags != "" {
+		b.WriteString(field("flags    ", agent.Flags))
+	}
+	if agent.Prompt != "" {
+		b.WriteString("\n" + label.Render("prompt") + "\n" + agent.Prompt + "\n")
+	}
+
+	resume := "no saved conversation to resume"
+	if agent.ClaudeSessionID != "" {
+		resume = "will resume conversation " + agent.ClaudeSessionID
+	}
+	b.WriteString("\n" + dimStyle.Render(resume))
+	b.WriteString("\n" + dimStyle.Render("enter to restore"))
+
+	return b.String()
 }
 
 // resizePreview sizes the preview box to the popup's available area (minus the
