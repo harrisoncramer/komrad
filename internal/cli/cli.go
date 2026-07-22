@@ -3,22 +3,27 @@ package cli
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"claude-agents/config"
 	"claude-agents/internal/agents"
 	"claude-agents/internal/appconfig"
 	"claude-agents/internal/panel"
+	"claude-agents/internal/rpc"
 	"claude-agents/internal/store"
 	"claude-agents/internal/tmux"
+	"claude-agents/proto/gen/session/v1/sessionv1connect"
 
 	"github.com/spf13/cobra"
 )
 
 type app struct {
-	manager *agents.AgentManager
-	env     *config.Config
+	manager  *agents.AgentManager
+	sessions *store.Store
+	env      *config.Config
 }
 
 // NewRootCommand builds the claude-agents command tree. Running it with no
@@ -50,6 +55,7 @@ func NewRootCommand() *cobra.Command {
 			}
 
 			state.env = env
+			state.sessions = sessions
 			state.manager = agents.NewAgentManager(agents.Params{
 				Tmux:        tmux.NewClient(env.TmuxSocket),
 				Store:       sessions,
@@ -76,9 +82,31 @@ func NewRootCommand() *cobra.Command {
 		hookCmd(state),
 		chatCmd(state),
 		chatOpenCmd(state),
+		serveCmd(state),
 	)
 
 	return root
+}
+
+func serveCmd(state *app) *cobra.Command {
+	var addr string
+
+	cmd := &cobra.Command{
+		Use:   "serve",
+		Short: "Serve the session store over ConnectRPC/HTTP",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			mux := http.NewServeMux()
+			path, handler := sessionv1connect.NewSessionServiceHandler(rpc.NewSessionService(state.sessions))
+			mux.Handle(path, handler)
+
+			server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+			return server.ListenAndServe()
+		},
+	}
+
+	cmd.Flags().StringVar(&addr, "addr", "127.0.0.1:8787", "listen address")
+
+	return cmd
 }
 
 func newCmd(state *app) *cobra.Command {

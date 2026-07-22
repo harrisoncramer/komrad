@@ -3,6 +3,7 @@ module claude-agents
 go 1.25.1
 
 require (
+	connectrpc.com/connect v1.18.1
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/huh v1.0.0
@@ -11,6 +12,7 @@ require (
 	github.com/harrisoncramer/ultra v0.0.31
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
+	google.golang.org/protobuf v1.34.2
 	modernc.org/sqlite v1.54.0
 )
 

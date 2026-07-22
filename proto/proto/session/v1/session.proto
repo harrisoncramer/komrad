@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package session.v1;
+
+import "google/protobuf/empty.proto";
+
+option go_package = "claude-agents/proto/gen/session/v1;sessionv1";
+
+// Session is one background Claude agent, as stored.
+message Session {
+  string id = 1;
+  string name = 2;
+  string cwd = 3;
+  string flags = 4;
+  string prompt = 5;
+  string pane_id = 6;
+  string state = 7;
+}
+
+message ListSessionsResponse {
+  repeated Session sessions = 1;
+}
+
+message GetSessionRequest {
+  string name = 1;
+}
+
+message GetSessionResponse {
+  Session session = 1;
+}
+
+message SetStateRequest {
+  string name = 1;
+  string state = 2;
+}
+
+message DeleteSessionRequest {
+  string name = 1;
+}
+
+// SessionService reads and mutates the agent store.
+service SessionService {
+  rpc ListSessions(google.protobuf.Empty) returns (ListSessionsResponse);
+  rpc GetSession(GetSessionRequest) returns (GetSessionResponse);
+  rpc SetState(SetStateRequest) returns (google.protobuf.Empty);
+  rpc DeleteSession(DeleteSessionRequest) returns (google.protobuf.Empty);
+}
