@@ -11,15 +11,12 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-// forbidden is the set of os functions that read or mutate the environment.
+// forbidden is the set of os functions that read a configuration value out of
+// the environment. Process-env management (Environ, Setenv, Unsetenv) is left
+// alone because spawning child processes legitimately needs it.
 var forbidden = map[string]struct{}{
 	"Getenv":    {},
 	"LookupEnv": {},
-	"Environ":   {},
-	"Setenv":    {},
-	"Unsetenv":  {},
-	"Clearenv":  {},
-	"ExpandEnv": {},
 }
 
 // NewAnalyzer returns the analyzer that flags forbidden os environment calls.

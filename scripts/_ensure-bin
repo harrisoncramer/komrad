@@ -1,0 +1,10 @@
+#!/bin/bash
+# Print the path to the claude-agents binary, building it from source if missing.
+dir="$(cd "$(dirname "$0")/.." && pwd)"
+bin="$dir/bin/claude-agents"
+
+if [ ! -x "$bin" ] && [ -d "$dir/go" ] && command -v go >/dev/null 2>&1; then
+  (cd "$dir/go" && go build -o "$bin" .) >/dev/null 2>&1 || true
+fi
+
+printf '%s' "$bin"

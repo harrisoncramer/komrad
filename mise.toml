@@ -7,9 +7,9 @@ golangci-lint = "v2.7.0"
 "go:gotest.tools/gotestsum" = "v1.13.0"
 
 [tasks."go:build"]
-description = "Build the bubbletea panel binary."
+description = "Build the claude-agents binary."
 dir = "{{config_root}}/go"
-run = "go build -o ../bin/claude-panel ."
+run = "go build -o ../bin/claude-agents ."
 
 [tasks."go:fmt"]
 description = "Format Go code."

@@ -1,17 +1,3 @@
 #!/bin/bash
-# Open a large popup attached to a Claude agent's session. Run detached (via
-# tmux run-shell -b) from the panel so it fires after the small panel popup
-# closes and the terminal client is free again.
-# Usage: claude-chat-open <session> <pane-id>
-DIR="$(cd "$(dirname "$0")" && pwd)"
-session="$1"
-pane="$2"
-
-# Let the panel popup finish closing so its client slot is released.
-sleep 0.2
-
-client="$(tmux -L default list-clients -F '#{client_name}' | head -1)"
-[ -n "$client" ] || exit 0
-
-exec tmux -L default display-popup -c "$client" -w 90% -h 90% \
-  -E "$DIR/claude-chat '$session' '$pane'"
+# Thin wrapper: the logic lives in the claude-agents Go binary.
+exec "$("$(dirname "$0")/_ensure-bin")" chat-open "$@"

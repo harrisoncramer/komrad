@@ -15,6 +15,11 @@ import (
 type Config struct {
 	AgentsDir  string `env:"CLAUDE_AGENTS_DIR"`
 	TmuxSocket string `env:"CLAUDE_AGENTS_TMUX_SOCKET" envDefault:"default"`
+
+	// MainSession and TmuxPane identify the calling Claude agent. Popup-launched
+	// agents export MAIN_SESSION; TMUX_PANE is always set inside tmux.
+	MainSession string `env:"MAIN_SESSION"`
+	TmuxPane    string `env:"TMUX_PANE"`
 }
 
 // Load reads the panel's configuration from the environment, defaulting the

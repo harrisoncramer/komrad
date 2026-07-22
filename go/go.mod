@@ -1,4 +1,4 @@
-module claude-panel
+module claude-agents
 
 go 1.25.1
 

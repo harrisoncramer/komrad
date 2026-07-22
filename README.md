@@ -72,18 +72,28 @@ A Claude Code skill that instructs the agent to do this is a good companion; see
 ## Requirements
 
 - tmux
-- [gum](https://github.com/charmbracelet/gum) for the panel prompts (gum build)
+- Go (to build the binary; the plugin builds it on first load)
+
+## Architecture
+
+Everything is one Go binary, `claude-agents`, with subcommands the plugin and the Claude Code hooks call:
+
+- `panel` — the bubbletea UI (`prefix + g`)
+- `notify` — record a finished agent with a message
+- `status` — the status-bar aggregate
+- `hook prompt|stop` — the Claude Code lifecycle hooks
+- `chat` / `chat-open` — the large attach popup
+
+The code is split by domain: `internal/tmux` (a tmux client), `internal/registry` (the agent store), `internal/agents` (the service wiring the two together), `internal/panel` (the UI), `config` (ultra-loaded settings), and `lib/xstr` (generic helpers). The `scripts/` files are thin wrappers over the binary so the plugin and hook paths stay stable.
 
 ## Development
 
-The bubbletea build and its tooling live under `go/` and `tools/`, managed with mise.
+Tooling lives under `go/` and `tools/`, managed with mise.
 
-- `mise run go:build` builds the panel binary
+- `mise run go:build` builds the binary
 - `mise run go:lint` builds the custom golangci-lint (with this repo's plugins) if needed and runs it
 - `mise run go:build-linter` rebuilds that custom binary
 - `mise run go:test` runs the tests
 - `mise run go:fmt` / `mise run go:tidy`
 
 Configuration is read via ultra in `go/config`; do not call `os.Getenv` directly. The custom linter under `tools/agentslinter` enforces this with a `forbidgetenv` analyzer.
-
-Switch panel implementation with `set -g @claude_agents_impl 'bubbletea'` (or `'gum'`).
