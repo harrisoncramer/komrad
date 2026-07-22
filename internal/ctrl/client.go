@@ -53,8 +53,14 @@ func Attach(socket, session, pane string, width, height int) (*Client, error) {
 
 	c := &Client{cmd: cmd, stdin: stdin, paneID: pane, emu: vt.NewEmulator(width, height)}
 
-	// Size the control client so tmux reflows the pane to the preview box and
-	// redraws it (which seeds the emulator with the current screen).
+	// Control mode only streams output written after attach, so seed the
+	// emulator with the current screen; %output deltas take over from there.
+	if out, err := exec.Command("tmux", "-L", socket, "capture-pane", "-p", "-e", "-t", pane).Output(); err == nil {
+		seed := strings.ReplaceAll(strings.TrimRight(string(out), "\n"), "\n", "\r\n")
+		_, _ = c.emu.WriteString("\x1b[2J\x1b[H" + seed)
+	}
+
+	// Size the control client so tmux reflows the pane to the preview box.
 	_, _ = fmt.Fprintf(stdin, "refresh-client -C %dx%d\n", width, height)
 
 	go c.read(stdout)
