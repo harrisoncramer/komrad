@@ -16,7 +16,7 @@ get() { tmux show-option -gqv "$1"; }
 key="$(get '@claude_agents_key')"
 [ -z "$key" ] && key="g"
 
-tmux bind-key "$key" display-popup -w 95% -h 95% -x C -y C -E "$BIN panel #{client_name}"
+tmux bind-key "$key" display-popup -w 95% -h 95% -x C -y C -E "$BIN #{client_name}"
 
 # Interpolate the #{claude_agents} placeholder in status-left / status-right
 # with the live aggregate, so the plugin never clobbers the user's status line.

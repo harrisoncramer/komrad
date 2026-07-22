@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -15,28 +16,66 @@ import (
 	"claude-agents/lib/xstr"
 )
 
+// Hooks are paths to lifecycle scripts, each optional.
+type Hooks struct {
+	PreCreate  string
+	PostCreate string
+	OnDelete   string
+}
+
 // AgentManager lists, launches, and acts on Claude agents by coordinating a
 // tmux client and the agent store.
 type AgentManager struct {
-	tmux     *tmux.Client
-	store    *registry.Store
-	selfPath string
+	tmux        *tmux.Client
+	store       *registry.Store
+	selfPath    string
+	claudeFlags string
+	hooks       Hooks
 }
 
 // Params carries the AgentManager's dependencies.
 type Params struct {
-	Tmux     *tmux.Client
-	Store    *registry.Store
-	SelfPath string
+	Tmux        *tmux.Client
+	Store       *registry.Store
+	SelfPath    string
+	ClaudeFlags string
+	Hooks       Hooks
 }
 
 // NewAgentManager constructs an AgentManager from its dependencies.
 func NewAgentManager(p Params) *AgentManager {
 	return &AgentManager{
-		tmux:     p.Tmux,
-		store:    p.Store,
-		selfPath: p.SelfPath,
+		tmux:        p.Tmux,
+		store:       p.Store,
+		selfPath:    p.SelfPath,
+		claudeFlags: p.ClaudeFlags,
+		hooks:       p.Hooks,
 	}
+}
+
+// runHook runs a lifecycle hook script (when configured) with the given args
+// and returns its trimmed stdout. A hook is best effort; failures are ignored.
+func (m *AgentManager) runHook(path string, args ...string) string {
+	if path == "" {
+		return ""
+	}
+
+	out, err := exec.Command(expandHome(path), args...).Output()
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(string(out))
+}
+
+func expandHome(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, path[2:])
+		}
+	}
+
+	return path
 }
 
 // List returns the live agents, pruning any whose pane has gone away.
@@ -93,33 +132,50 @@ func (m *AgentManager) Destroy(client string, agent registry.Agent) {
 
 	m.tmux.KillSession(agent.Session)
 	_ = m.store.Remove(agent)
+	m.runHook(m.hooks.OnDelete, agent.Session, "")
 }
 
 // NewSessionParams configures a background agent to create.
 type NewSessionParams struct {
 	Client string
 	Title  string
+	Dir    string
 	Flags  string
 	Prompt string
 }
 
-// NewSession creates a background session in the client's current directory,
-// registers it so it lists immediately, and launches claude with the given
-// flags and opening prompt. It does not switch the client to the new session.
+// NewSession creates a background session, registers it so it lists immediately,
+// and launches claude with the default plus per-session flags and opening
+// prompt. It does not switch the client to the new session.
+//
+// The directory is the given Dir, else the client's current directory. A
+// configured pre-create hook runs first with the session name and directory and
+// may print the directory to actually use (e.g. a freshly created worktree).
 func (m *AgentManager) NewSession(p NewSessionParams) {
-	dir := m.tmux.ClientPath(p.Client)
+	dir := strings.TrimSpace(p.Dir)
+	if dir == "" {
+		dir = m.tmux.ClientPath(p.Client)
+	}
 	if dir == "" {
 		dir, _ = os.UserHomeDir()
 	}
 
 	name := m.uniqueSessionName(p.Title, p.Prompt)
+
+	if provisioned := m.runHook(m.hooks.PreCreate, name, dir); provisioned != "" {
+		dir = provisioned
+	}
+
 	m.tmux.NewDetachedSession(name, dir)
 
 	pane, _ := m.tmux.PaneID(name)
 	summary := xstr.Truncate(strings.TrimSpace(xstr.FirstLine(p.Prompt)), 60)
 	_ = m.store.Write(registry.Agent{Session: name, Pane: pane, State: registry.StateNew, Msg: summary})
 
-	m.launchClaude(name, p.Flags, p.Prompt)
+	flags := strings.TrimSpace(m.claudeFlags + " " + p.Flags)
+	m.launchClaude(name, flags, p.Prompt)
+
+	m.runHook(m.hooks.PostCreate, name, dir)
 }
 
 // uniqueSessionName derives a session name from the title, falling back to a

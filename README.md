@@ -86,6 +86,17 @@ Everything is one Go binary, `claude-agents`, with subcommands the plugin and th
 
 The code is split by domain: `internal/tmux` (a tmux client), `internal/registry` (the agent store), `internal/agents` (the AgentManager wiring the two together), `internal/panel` (the UI), `config` (ultra-loaded settings), and `lib/xstr` (generic helpers). The `scripts/` files are thin wrappers over the binary so the plugin and hook paths stay stable.
 
+## Configuration
+
+Customization is a TOML file loaded via viper, at `~/.config/claude-agents/config.toml` (or `--config <path>`). See `config.example.toml`.
+
+- `claude_flags` — default flags appended to `claude` for every new session (the new-session form can add more).
+- `[hooks]` — paths to lifecycle scripts. `pre_create` runs before launch with the session name and directory, and whatever it prints on stdout becomes the directory claude runs in. This is how a new session can spin up a git worktree (e.g. via a `wtc` script) and launch claude inside it. `post_create` and `on_delete` fire around the rest of the lifecycle.
+
+The new-session form also has a `Directory` field: type a target dir, and the `pre_create` hook receives it along with the session name.
+
+The CLI is cobra-based; `claude-agents --help` lists the subcommands (`new`, `notify`, `status`, `hook`, `chat`, `chat-open`). Running it with no subcommand opens the panel.
+
 ## Development
 
 The Go module is at the repo root; the custom linter is under `tools/`. Managed with mise.

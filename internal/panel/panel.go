@@ -121,6 +121,7 @@ func newSessionForm() *huh.Form {
 	return huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().Key("title").Title("Title").Description("optional; claude names it if blank"),
+			huh.NewInput().Key("dir").Title("Directory").Description("blank = current; a pre-create hook may override"),
 			huh.NewInput().Key("flags").Title("Claude flags").Placeholder("--model opus"),
 			huh.NewText().Key("prompt").Title("Initial prompt").Description("ctrl+e opens $EDITOR"),
 		),
@@ -210,6 +211,7 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.manager.NewSession(agents.NewSessionParams{
 			Client: m.client,
 			Title:  m.form.GetString("title"),
+			Dir:    m.form.GetString("dir"),
 			Flags:  m.form.GetString("flags"),
 			Prompt: m.form.GetString("prompt"),
 		})
