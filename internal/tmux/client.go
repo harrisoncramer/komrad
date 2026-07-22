@@ -143,3 +143,14 @@ func (c *Client) CapturePane(pane string) string {
 	out, _ := c.query("capture-pane", "-p", "-e", "-t", pane, "-S", "-200")
 	return out
 }
+
+// ActivePane returns a client's active pane id.
+func (c *Client) ActivePane(client string) string {
+	pane, _ := c.query(append([]string{"display-message", "-p"}, append(clientTarget(client), "#{pane_id}")...)...)
+	return pane
+}
+
+// JoinPane splits the source pane into the destination pane's window.
+func (c *Client) JoinPane(src, dst string) {
+	c.run("join-pane", "-h", "-s", src, "-t", dst)
+}
