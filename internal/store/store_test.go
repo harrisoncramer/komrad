@@ -12,7 +12,7 @@ func TestStoreRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
-	defer st.Close()
+	defer func() { _ = st.Close() }()
 
 	if err := st.Upsert(ctx, Agent{Name: "alpha", Pane: "%1", Cwd: "/tmp", Flags: "--model opus", Prompt: "do the thing", State: "new"}); err != nil {
 		t.Fatalf("upsert: %v", err)
