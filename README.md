@@ -11,6 +11,9 @@ Each Claude session reports its state (working, done) into a small registry. tmu
 - Pick an agent, then pick an action:
   - jump: switch to that agent's session and pane
   - chat: open the agent's live session in a large 90% popup so you can talk to it without leaving your current view (close it with `prefix + d` to detach)
+  - destroy: kill that agent's session (with a confirm); if you are in it, you get bounced back to the previous session first
+
+The picker also has a `new chat` entry (prompts for a name, opens a session in the current dir and launches claude) and a `last window/session` entry.
 
 ## How state is tracked
 

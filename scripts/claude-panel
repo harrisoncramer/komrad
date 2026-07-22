@@ -76,7 +76,7 @@ file="${files[$idx]}"
 session="$(field SESSION "$file")"
 pane="$(field PANE "$file")"
 
-action="$(printf 'jump\nchat\n' | gum choose --header "$session")" || exit 0
+action="$(printf 'jump\nchat\ndestroy\n' | gum choose --header "$session")" || exit 0
 
 case "$action" in
   jump)
@@ -92,6 +92,16 @@ case "$action" in
     # Reopen as a large popup attached to the agent's session, once this small
     # panel popup has closed and freed the client.
     tmux -L default run-shell -b "$DIR/claude-chat-open '$session' '$pane'"
+    ;;
+  destroy)
+    if gum confirm "Kill session '$session'?"; then
+      # If the client is currently in this session, bounce it back first so it
+      # is not dropped when the session dies.
+      cur="$(tmux -L default display-message -p ${client:+-c "$client"} '#{session_name}' 2>/dev/null)"
+      [ "$cur" = "$session" ] && tmux -L default switch-client ${client:+-c "$client"} -l 2>/dev/null || true
+      tmux -L default kill-session -t "$session" 2>/dev/null || true
+      rm -f "$file"
+    fi
     ;;
   *)
     exit 0
