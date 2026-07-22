@@ -39,6 +39,11 @@ message DeleteSessionRequest {
   string name = 1;
 }
 
+message UpdateSessionRequest {
+  string id = 1;
+  string name = 2;
+}
+
 // SessionService reads and mutates the agent store.
 service SessionService {
   // Reads: no side effects, safe to cache and issue over GET.
@@ -54,6 +59,10 @@ service SessionService {
     option idempotency_level = IDEMPOTENT;
   }
   rpc DeleteSession(DeleteSessionRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+  }
+  // UpdateSession patches a session by id (currently its title/name).
+  rpc UpdateSession(UpdateSessionRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
   }
 }

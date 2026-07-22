@@ -69,6 +69,15 @@ func (s *SessionService) DeleteSession(ctx context.Context, req *connect.Request
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
+// UpdateSession patches a session by id (its title/name).
+func (s *SessionService) UpdateSession(ctx context.Context, req *connect.Request[sessionv1.UpdateSessionRequest]) (*connect.Response[emptypb.Empty], error) {
+	if err := s.store.Rename(ctx, req.Msg.GetId(), req.Msg.GetName()); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update session: %w", err))
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
 func toProto(agent store.Agent) *sessionv1.Session {
 	return &sessionv1.Session{
 		Id:              agent.ID,

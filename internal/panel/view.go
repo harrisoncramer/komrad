@@ -6,7 +6,7 @@ import (
 
 func (m model) View() string {
 	switch m.screen {
-	case screenForm:
+	case screenForm, screenRename:
 		return m.form.View()
 	case screenChats:
 		return m.chatsView()

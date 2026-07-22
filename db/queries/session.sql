@@ -55,6 +55,15 @@ WHERE
 DELETE FROM sessions
 WHERE name = @name;
 
+-- name: RenameSession :exec
+UPDATE
+    sessions
+SET
+    name = @name,
+    updated_at = CURRENT_TIMESTAMP
+WHERE
+    id = @id;
+
 -- name: MarkSessionDeleted :exec
 UPDATE
     sessions

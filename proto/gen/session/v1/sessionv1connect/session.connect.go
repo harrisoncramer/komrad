@@ -45,6 +45,9 @@ const (
 	// SessionServiceDeleteSessionProcedure is the fully-qualified name of the SessionService's
 	// DeleteSession RPC.
 	SessionServiceDeleteSessionProcedure = "/session.v1.SessionService/DeleteSession"
+	// SessionServiceUpdateSessionProcedure is the fully-qualified name of the SessionService's
+	// UpdateSession RPC.
+	SessionServiceUpdateSessionProcedure = "/session.v1.SessionService/UpdateSession"
 )
 
 // SessionServiceClient is a client for the session.v1.SessionService service.
@@ -56,6 +59,8 @@ type SessionServiceClient interface {
 	// state — idempotent, safe for the client to retry.
 	SetState(context.Context, *connect.Request[v1.SetStateRequest]) (*connect.Response[emptypb.Empty], error)
 	DeleteSession(context.Context, *connect.Request[v1.DeleteSessionRequest]) (*connect.Response[emptypb.Empty], error)
+	// UpdateSession patches a session by id (currently its title/name).
+	UpdateSession(context.Context, *connect.Request[v1.UpdateSessionRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewSessionServiceClient constructs a client for the session.v1.SessionService service. By
@@ -97,6 +102,13 @@ func NewSessionServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
+		updateSession: connect.NewClient[v1.UpdateSessionRequest, emptypb.Empty](
+			httpClient,
+			baseURL+SessionServiceUpdateSessionProcedure,
+			connect.WithSchema(sessionServiceMethods.ByName("UpdateSession")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -106,6 +118,7 @@ type sessionServiceClient struct {
 	getSession    *connect.Client[v1.GetSessionRequest, v1.GetSessionResponse]
 	setState      *connect.Client[v1.SetStateRequest, emptypb.Empty]
 	deleteSession *connect.Client[v1.DeleteSessionRequest, emptypb.Empty]
+	updateSession *connect.Client[v1.UpdateSessionRequest, emptypb.Empty]
 }
 
 // ListSessions calls session.v1.SessionService.ListSessions.
@@ -128,6 +141,11 @@ func (c *sessionServiceClient) DeleteSession(ctx context.Context, req *connect.R
 	return c.deleteSession.CallUnary(ctx, req)
 }
 
+// UpdateSession calls session.v1.SessionService.UpdateSession.
+func (c *sessionServiceClient) UpdateSession(ctx context.Context, req *connect.Request[v1.UpdateSessionRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.updateSession.CallUnary(ctx, req)
+}
+
 // SessionServiceHandler is an implementation of the session.v1.SessionService service.
 type SessionServiceHandler interface {
 	// Reads: no side effects, safe to cache and issue over GET.
@@ -137,6 +155,8 @@ type SessionServiceHandler interface {
 	// state — idempotent, safe for the client to retry.
 	SetState(context.Context, *connect.Request[v1.SetStateRequest]) (*connect.Response[emptypb.Empty], error)
 	DeleteSession(context.Context, *connect.Request[v1.DeleteSessionRequest]) (*connect.Response[emptypb.Empty], error)
+	// UpdateSession patches a session by id (currently its title/name).
+	UpdateSession(context.Context, *connect.Request[v1.UpdateSessionRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewSessionServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -174,6 +194,13 @@ func NewSessionServiceHandler(svc SessionServiceHandler, opts ...connect.Handler
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
+	sessionServiceUpdateSessionHandler := connect.NewUnaryHandler(
+		SessionServiceUpdateSessionProcedure,
+		svc.UpdateSession,
+		connect.WithSchema(sessionServiceMethods.ByName("UpdateSession")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/session.v1.SessionService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SessionServiceListSessionsProcedure:
@@ -184,6 +211,8 @@ func NewSessionServiceHandler(svc SessionServiceHandler, opts ...connect.Handler
 			sessionServiceSetStateHandler.ServeHTTP(w, r)
 		case SessionServiceDeleteSessionProcedure:
 			sessionServiceDeleteSessionHandler.ServeHTTP(w, r)
+		case SessionServiceUpdateSessionProcedure:
+			sessionServiceUpdateSessionHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -207,4 +236,8 @@ func (UnimplementedSessionServiceHandler) SetState(context.Context, *connect.Req
 
 func (UnimplementedSessionServiceHandler) DeleteSession(context.Context, *connect.Request[v1.DeleteSessionRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("session.v1.SessionService.DeleteSession is not implemented"))
+}
+
+func (UnimplementedSessionServiceHandler) UpdateSession(context.Context, *connect.Request[v1.UpdateSessionRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("session.v1.SessionService.UpdateSession is not implemented"))
 }

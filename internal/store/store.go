@@ -171,6 +171,15 @@ func (s *Store) Delete(ctx context.Context, name string) error {
 	return nil
 }
 
+// Rename changes an agent's name (title), keyed by id.
+func (s *Store) Rename(ctx context.Context, id, name string) error {
+	if err := s.queries.RenameSession(ctx, models.RenameSessionParams{ID: id, Name: name}); err != nil {
+		return fmt.Errorf("failed to rename session %q: %w", id, err)
+	}
+
+	return nil
+}
+
 // SoftDelete hides an agent from listings without dropping the row.
 func (s *Store) SoftDelete(ctx context.Context, name string) error {
 	if err := s.queries.MarkSessionDeleted(ctx, name); err != nil {

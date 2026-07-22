@@ -79,6 +79,7 @@ const (
 	screenList screen = iota
 	screenChats
 	screenForm
+	screenRename
 )
 
 type rowKind int
@@ -106,8 +107,9 @@ type model struct {
 	chatCursor int
 	preview    viewport.Model
 
-	attach *store.Agent
-	form   *huh.Form
+	attach       *store.Agent
+	form         *huh.Form
+	renameTarget store.Agent
 
 	width  int
 	height int
@@ -173,6 +175,39 @@ func buildRows(count int) []row {
 	}
 }
 
+func renameForm(current string) *huh.Form {
+	return huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().Key("name").Title(fmt.Sprintf("Rename %q to", current)),
+		),
+	).WithShowHelp(true)
+}
+
+func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
+	form, cmd := m.form.Update(msg)
+	if updated, ok := form.(*huh.Form); ok {
+		m.form = updated
+	}
+
+	switch m.form.State {
+	case huh.StateCompleted:
+		m.manager.Rename(m.renameTarget, m.form.GetString("name"))
+		m.reload()
+		if m.chatCursor >= len(m.chats) {
+			m.chatCursor = len(m.chats) - 1
+		}
+		m.screen = screenChats
+		m.refreshPreview()
+		return m, tick()
+	case huh.StateAborted:
+		m.screen = screenChats
+		m.refreshPreview()
+		return m, tick()
+	default:
+		return m, cmd
+	}
+}
+
 func newSessionForm() *huh.Form {
 	return huh.NewForm(
 		huh.NewGroup(
@@ -205,6 +240,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if m.screen == screenForm {
 		return m.updateForm(msg)
+	}
+
+	if m.screen == screenRename {
+		return m.updateRename(msg)
 	}
 
 	key, ok := msg.(tea.KeyMsg)

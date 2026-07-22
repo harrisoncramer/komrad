@@ -109,6 +109,26 @@ func (q *Queries) MarkSessionDeleted(ctx context.Context, name string) error {
 	return err
 }
 
+const renameSession = `-- name: RenameSession :exec
+UPDATE
+    sessions
+SET
+    name = ?1,
+    updated_at = CURRENT_TIMESTAMP
+WHERE
+    id = ?2
+`
+
+type RenameSessionParams struct {
+	Name string
+	ID   string
+}
+
+func (q *Queries) RenameSession(ctx context.Context, arg RenameSessionParams) error {
+	_, err := q.db.ExecContext(ctx, renameSession, arg.Name, arg.ID)
+	return err
+}
+
 const setSessionState = `-- name: SetSessionState :exec
 UPDATE
     sessions

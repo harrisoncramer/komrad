@@ -95,6 +95,18 @@ func (m *AgentManager) Preview(agent store.Agent, width, height int) string {
 	return m.tmux.CapturePane(agent.Pane)
 }
 
+// Rename retitles an agent, renaming both its tmux session (so hooks keep
+// keying to it) and its stored record.
+func (m *AgentManager) Rename(agent store.Agent, name string) {
+	name = store.SanitizeName(strings.TrimSpace(name))
+	if name == "" || name == agent.Name {
+		return
+	}
+
+	m.tmux.RenameSession(agent.Name, name)
+	_ = m.sessions.Rename(context.Background(), agent.ID, name)
+}
+
 // Delete soft-deletes an agent's record (hiding it from the panel), stopping its
 // session first and running the on-delete hook.
 func (m *AgentManager) Delete(client string, agent store.Agent) {

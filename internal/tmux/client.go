@@ -100,6 +100,11 @@ func (c *Client) KillSession(name string) {
 	c.run("kill-session", "-t", name)
 }
 
+// RenameSession renames a session (no-op if it does not exist).
+func (c *Client) RenameSession(oldName, newName string) {
+	c.run("rename-session", "-t", oldName, newName)
+}
+
 // CapturePane returns the visible content of a pane plus recent scrollback,
 // with colors preserved.
 func (c *Client) CapturePane(pane string) string {
