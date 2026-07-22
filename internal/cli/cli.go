@@ -81,16 +81,23 @@ func NewRootCommand() *cobra.Command {
 			}
 
 			sessions := sessionv1connect.NewSessionServiceClient(http.DefaultClient, "http://"+state.env.Addr)
-			target, err := panel.Run(state.manager, sessions, firstOrEmpty(args))
-			if err != nil {
-				return err
-			}
+			client := firstOrEmpty(args)
 
-			// Opening an agent takes over this popup by replacing the process
-			// with a tmux client attached to it — so the base view never changes.
-			// A dormant agent (pane gone, e.g. after a tmux restart) is restored
-			// from its stored state first.
-			if target != nil {
+			state.manager.MarkPanelOpen()
+			defer state.manager.MarkPanelClosed()
+
+			// The popup is a persistent space: show the picker; when the user
+			// opens an agent, attach to it in place; when they detach, loop back
+			// to the picker. The popup closes only when the picker is quit.
+			for {
+				target, err := panel.Run(state.manager, sessions, client)
+				if err != nil {
+					return err
+				}
+				if target == nil {
+					return nil
+				}
+
 				pane := target.Pane
 				if !state.manager.PaneAlive(pane) {
 					restored, err := state.manager.Restore(*target)
@@ -101,10 +108,10 @@ func NewRootCommand() *cobra.Command {
 					pane = restored
 				}
 
-				return state.manager.AttachChat(target.Name, pane)
+				if err := state.manager.AttachSession(target.Name, pane); err != nil {
+					return err
+				}
 			}
-
-			return nil
 		},
 	}
 

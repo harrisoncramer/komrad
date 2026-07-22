@@ -16,7 +16,13 @@ get() { tmux show-option -gqv "$1"; }
 key="$(get '@claude_agents_key')"
 [ -z "$key" ] && key="g"
 
-tmux bind-key "$key" display-popup -w 95% -h 95% -x C -y C -E "$BIN #{client_name}"
+# The manager lives in a named popup. Pressing the key while already inside it
+# (viewing an agent) detaches back to the picker instead of nesting a popup;
+# otherwise it opens the popup.
+tmux set-option -g @claude_manager_open 0
+tmux bind-key "$key" if-shell -F '#{==:#{@claude_manager_open},1}' \
+  detach-client \
+  "display-popup -w 95% -h 95% -x C -y C -T ' claude-manager ' -E \"$BIN #{client_name}\""
 
 # Interpolate the #{claude_agents} placeholder in status-left / status-right
 # with the live aggregate, so the plugin never clobbers the user's status line.

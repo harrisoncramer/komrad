@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"claude-agents/internal/store"
 	"claude-agents/internal/tmux"
@@ -77,6 +76,14 @@ func expandHome(path string) string {
 
 	return path
 }
+
+// managerOpenFlag marks that the manager popup is currently open, so the
+// binding can send prefix+g back to the picker instead of nesting a popup.
+const managerOpenFlag = "@claude_manager_open"
+
+// MarkPanelOpen and MarkPanelClosed toggle the popup-open flag.
+func (m *AgentManager) MarkPanelOpen()   { m.tmux.SetGlobal(managerOpenFlag, "1") }
+func (m *AgentManager) MarkPanelClosed() { m.tmux.SetGlobal(managerOpenFlag, "0") }
 
 // PaneAlive reports whether an agent's tmux pane still exists, for pruning
 // entries the panel lists from the service.
@@ -303,19 +310,20 @@ func (m *AgentManager) Status() string {
 	return out + "  "
 }
 
-// AttachChat replaces this process with a tmux client attached to the agent's
-// session and focused on its pane. TMUX is stripped so tmux does not refuse the
-// attach as nested.
-func (m *AgentManager) AttachChat(session, pane string) error {
-	path, err := exec.LookPath("tmux")
-	if err != nil {
-		return fmt.Errorf("failed to find tmux: %w", err)
-	}
-
+// AttachSession attaches a tmux client to the agent's session, focused on its
+// pane, and blocks until it detaches.
+func (m *AgentManager) AttachSession(session, pane string) error {
 	m.tmux.SetWindowSizeLatest(session)
 
-	argv := []string{"tmux", "-L", m.tmux.Socket(), "attach-session", "-t", session, ";", "select-pane", "-t", pane}
-	if err := syscall.Exec(path, argv, envWithout("TMUX")); err != nil {
+	// Run (not exec) so control returns to the panel loop when the client
+	// detaches. TMUX is stripped so tmux does not refuse the attach as nested.
+	cmd := exec.Command("tmux", "-L", m.tmux.Socket(), "attach-session", "-t", session, ";", "select-pane", "-t", pane)
+	cmd.Env = envWithout("TMUX")
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to attach to session %q: %w", session, err)
 	}
 

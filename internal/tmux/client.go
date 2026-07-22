@@ -105,6 +105,11 @@ func (c *Client) RenameSession(oldName, newName string) {
 	c.run("rename-session", "-t", oldName, newName)
 }
 
+// SetGlobal sets a global tmux option.
+func (c *Client) SetGlobal(name, value string) {
+	c.run("set-option", "-g", name, value)
+}
+
 // CapturePane returns the visible content of a pane plus recent scrollback,
 // with colors preserved.
 func (c *Client) CapturePane(pane string) string {
