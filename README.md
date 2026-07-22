@@ -11,7 +11,6 @@ Each Claude session reports its state (working, done) into a small registry. tmu
 - Pick an agent, then pick an action:
   - jump: switch to that agent's session and pane
   - chat: open the agent's live session in a large 90% popup so you can talk to it without leaving your current view (close it with `prefix + d` to detach)
-  - send message: type a line that gets sent to the agent's prompt
 
 ## How state is tracked
 
