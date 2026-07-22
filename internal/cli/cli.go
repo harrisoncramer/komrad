@@ -70,7 +70,8 @@ func NewRootCommand() *cobra.Command {
 			return nil
 		},
 		RunE: func(_ *cobra.Command, args []string) error {
-			return panel.Run(state.manager, firstOrEmpty(args))
+			sessions := sessionv1connect.NewSessionServiceClient(http.DefaultClient, "http://"+state.env.Addr)
+			return panel.Run(state.manager, sessions, firstOrEmpty(args))
 		},
 	}
 

@@ -79,25 +79,10 @@ func expandHome(path string) string {
 	return path
 }
 
-// List returns the live agents, pruning any whose pane has gone away.
-func (m *AgentManager) List() []store.Agent {
-	ctx := context.Background()
-	all, err := m.sessions.List(ctx)
-	if err != nil {
-		return nil
-	}
-
-	live := make([]store.Agent, 0, len(all))
-	for _, agent := range all {
-		if !m.tmux.PaneAlive(agent.Pane) {
-			_ = m.sessions.Delete(ctx, agent.Name)
-			continue
-		}
-
-		live = append(live, agent)
-	}
-
-	return live
+// PaneAlive reports whether an agent's tmux pane still exists, for pruning
+// entries the panel lists from the service.
+func (m *AgentManager) PaneAlive(pane string) bool {
+	return m.tmux.PaneAlive(pane)
 }
 
 // Preview sizes a detached agent's window to the preview box (so its capture

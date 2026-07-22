@@ -2,16 +2,21 @@
 package panel
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"claude-agents/internal/agents"
 	"claude-agents/internal/store"
+	sessionv1 "claude-agents/proto/gen/session/v1"
+	"claude-agents/proto/gen/session/v1/sessionv1connect"
 
+	"connectrpc.com/connect"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // previewInterval is how often the chats preview re-captures the hovered pane.
@@ -23,9 +28,10 @@ func tick() tea.Cmd {
 	return tea.Tick(previewInterval, func(time.Time) tea.Msg { return tickMsg{} })
 }
 
-// Run launches the panel for a tmux client and blocks until it exits.
-func Run(manager *agents.AgentManager, client string) error {
-	if _, err := tea.NewProgram(newModel(manager, client), tea.WithAltScreen()).Run(); err != nil {
+// Run launches the panel for a tmux client and blocks until it exits. Sessions
+// are read through the ConnectRPC client; tmux actions go through the manager.
+func Run(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, client string) error {
+	if _, err := tea.NewProgram(newModel(manager, sessions, client), tea.WithAltScreen()).Run(); err != nil {
 		return fmt.Errorf("failed to run panel: %w", err)
 	}
 
@@ -83,8 +89,9 @@ type row struct {
 }
 
 type model struct {
-	manager *agents.AgentManager
-	client  string
+	manager  *agents.AgentManager
+	sessions sessionv1connect.SessionServiceClient
+	client   string
 
 	screen screen
 	rows   []row
@@ -102,16 +109,53 @@ type model struct {
 	height int
 }
 
-func newModel(manager *agents.AgentManager, client string) model {
-	chats := manager.List()
+func newModel(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, client string) model {
+	m := model{
+		manager:  manager,
+		sessions: sessions,
+		client:   client,
+		screen:   screenList,
+		preview:  viewport.New(0, 0),
+	}
+	m.reload()
 
-	return model{
-		manager: manager,
-		client:  client,
-		screen:  screenList,
-		rows:    buildRows(chats),
-		chats:   chats,
-		preview: viewport.New(0, 0),
+	return m
+}
+
+// reload lists agents through the service and prunes any whose pane is gone.
+func (m *model) reload() {
+	ctx := context.Background()
+
+	resp, err := m.sessions.ListSessions(ctx, connect.NewRequest(&emptypb.Empty{}))
+	if err != nil {
+		m.chats = nil
+		m.rows = buildRows(nil)
+		return
+	}
+
+	live := make([]store.Agent, 0, len(resp.Msg.GetSessions()))
+	for _, session := range resp.Msg.GetSessions() {
+		if m.manager.PaneAlive(session.GetPaneId()) {
+			live = append(live, protoToAgent(session))
+			continue
+		}
+
+		_, _ = m.sessions.DeleteSession(ctx, connect.NewRequest(&sessionv1.DeleteSessionRequest{Name: session.GetName()}))
+	}
+
+	m.chats = live
+	m.rows = buildRows(live)
+}
+
+func protoToAgent(s *sessionv1.Session) store.Agent {
+	return store.Agent{
+		ID:     s.GetId(),
+		Name:   s.GetName(),
+		Pane:   s.GetPaneId(),
+		Cwd:    s.GetCwd(),
+		Flags:  s.GetFlags(),
+		Prompt: s.GetPrompt(),
+		State:  s.GetState(),
 	}
 }
 
@@ -269,8 +313,7 @@ func (m model) updateConfirm(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 // (or the top list when none remain).
 func (m model) applyDestroy() (tea.Model, tea.Cmd) {
 	m.manager.Destroy(m.client, m.agent)
-	m.chats = m.manager.List()
-	m.rows = buildRows(m.chats)
+	m.reload()
 
 	if len(m.chats) == 0 {
 		m.screen = screenList
