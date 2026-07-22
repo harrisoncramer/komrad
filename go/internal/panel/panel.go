@@ -13,8 +13,8 @@ import (
 )
 
 // Run launches the panel for a tmux client and blocks until it exits.
-func Run(service *agents.Service, client string) error {
-	if _, err := tea.NewProgram(newModel(service, client)).Run(); err != nil {
+func Run(manager *agents.AgentManager, client string) error {
+	if _, err := tea.NewProgram(newModel(manager, client)).Run(); err != nil {
 		return fmt.Errorf("failed to run panel: %w", err)
 	}
 
@@ -77,7 +77,7 @@ type row struct {
 }
 
 type model struct {
-	service *agents.Service
+	manager *agents.AgentManager
 	client  string
 
 	screen screen
@@ -92,17 +92,17 @@ type model struct {
 	confirmYes bool
 }
 
-func newModel(service *agents.Service, client string) model {
+func newModel(manager *agents.AgentManager, client string) model {
 	input := textinput.New()
 	input.Placeholder = "new session name"
 	input.CharLimit = 60
 	input.Width = 40
 
 	return model{
-		service:   service,
+		manager:   manager,
 		client:    client,
 		screen:    screenList,
-		rows:      buildRows(service.List()),
+		rows:      buildRows(manager.List()),
 		nameInput: input,
 	}
 }
@@ -167,7 +167,7 @@ func (m model) selectRow(selected row) (tea.Model, tea.Cmd) {
 		m.nameInput.Focus()
 		return m, textinput.Blink
 	case rowLast:
-		m.service.Last(m.client)
+		m.manager.Last(m.client)
 		return m, tea.Quit
 	case rowAgent:
 		m.agent = selected.agent
@@ -203,10 +203,10 @@ func (m model) updateAction(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) runAction(action string) (tea.Model, tea.Cmd) {
 	switch action {
 	case "jump":
-		m.service.Jump(m.client, m.agent)
+		m.manager.Jump(m.client, m.agent)
 		return m, tea.Quit
 	case "chat":
-		m.service.Chat(m.agent)
+		m.manager.Chat(m.agent)
 		return m, tea.Quit
 	case "destroy":
 		m.confirmYes = false
@@ -229,7 +229,7 @@ func (m model) updateName(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
-		m.service.NewChat(m.client, name)
+		m.manager.NewChat(m.client, name)
 		return m, tea.Quit
 	}
 
@@ -245,11 +245,11 @@ func (m model) updateConfirm(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "left", "right", "h", "l", "tab":
 		m.confirmYes = !m.confirmYes
 	case "y":
-		m.service.Destroy(m.client, m.agent)
+		m.manager.Destroy(m.client, m.agent)
 		return m, tea.Quit
 	case "enter":
 		if m.confirmYes {
-			m.service.Destroy(m.client, m.agent)
+			m.manager.Destroy(m.client, m.agent)
 		}
 
 		return m, tea.Quit

@@ -32,8 +32,8 @@ type Store struct {
 	dir string
 }
 
-// New returns a Store rooted at dir.
-func New(dir string) *Store {
+// NewStore returns a Store rooted at dir.
+func NewStore(dir string) *Store {
 	return &Store{dir: dir}
 }
 

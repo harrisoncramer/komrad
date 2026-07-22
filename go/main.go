@@ -26,35 +26,35 @@ func run() error {
 		return err
 	}
 
-	service := agents.New(agents.Params{
-		Tmux:     tmux.New(cfg.TmuxSocket),
-		Store:    registry.New(cfg.AgentsDir),
+	manager := agents.NewAgentManager(agents.Params{
+		Tmux:     tmux.NewClient(cfg.TmuxSocket),
+		Store:    registry.NewStore(cfg.AgentsDir),
 		SelfPath: selfPath(),
 	})
 
 	command, rest := parseArgs(os.Args[1:])
 	switch command {
 	case "notify":
-		service.Notify(cfg.MainSession, cfg.TmuxPane, strings.Join(rest, " "))
+		manager.Notify(cfg.MainSession, cfg.TmuxPane, strings.Join(rest, " "))
 	case "status":
-		fmt.Print(service.Status())
+		fmt.Print(manager.Status())
 	case "hook":
 		if len(rest) > 0 {
-			service.Hook(rest[0], cfg.MainSession, cfg.TmuxPane)
+			manager.Hook(rest[0], cfg.MainSession, cfg.TmuxPane)
 		}
 	case "chat":
 		if len(rest) >= 2 {
-			return service.AttachChat(rest[0], rest[1])
+			return manager.AttachChat(rest[0], rest[1])
 		}
 	case "chat-open":
 		if len(rest) >= 2 {
-			service.OpenChatPopup(rest[0], rest[1])
+			manager.OpenChatPopup(rest[0], rest[1])
 		}
 	case "panel":
-		return panel.Run(service, firstOrEmpty(rest))
+		return panel.Run(manager, firstOrEmpty(rest))
 	default:
 		// Backward compatible: `claude-agents <client>` opens the panel.
-		return panel.Run(service, command)
+		return panel.Run(manager, command)
 	}
 
 	return nil

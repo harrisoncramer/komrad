@@ -15,8 +15,8 @@ type Client struct {
 	socket string
 }
 
-// New returns a Client bound to the given tmux server socket.
-func New(socket string) *Client {
+// NewClient returns a Client bound to the given tmux server socket.
+func NewClient(socket string) *Client {
 	return &Client{socket: socket}
 }
 
