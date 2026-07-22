@@ -12,6 +12,7 @@ import (
 
 	"claude-agents/internal/registry"
 	"claude-agents/internal/tmux"
+	"claude-agents/lib/xstr"
 )
 
 // AgentManager lists, launches, and acts on Claude agents by coordinating a
@@ -89,23 +90,71 @@ func (m *AgentManager) Destroy(client string, agent registry.Agent) {
 	_ = m.store.Remove(agent)
 }
 
-// NewChat creates a named session in the client's current directory, registers
-// it so it lists immediately, launches claude, and switches to it.
-func (m *AgentManager) NewChat(client, name string) {
-	name = registry.SanitizeSessionName(name)
-	dir := m.tmux.ClientPath(client)
+// NewSessionParams configures a background agent to create.
+type NewSessionParams struct {
+	Client string
+	Title  string
+	Flags  string
+	Prompt string
+}
+
+// NewSession creates a background session in the client's current directory,
+// registers it so it lists immediately, and launches claude with the given
+// flags and opening prompt. It does not switch the client to the new session.
+func (m *AgentManager) NewSession(p NewSessionParams) {
+	dir := m.tmux.ClientPath(p.Client)
 	if dir == "" {
 		dir, _ = os.UserHomeDir()
 	}
 
-	if !m.tmux.HasSession(name) {
-		m.tmux.NewDetachedSession(name, dir)
-		pane, _ := m.tmux.PaneID(name)
-		_ = m.store.Write(registry.Agent{Session: name, Pane: pane, State: registry.StateNew})
-		m.tmux.SendKeys(name, "claude", "Enter")
+	name := m.uniqueSessionName(p.Title, p.Prompt)
+	m.tmux.NewDetachedSession(name, dir)
+
+	pane, _ := m.tmux.PaneID(name)
+	summary := xstr.Truncate(strings.TrimSpace(xstr.FirstLine(p.Prompt)), 60)
+	_ = m.store.Write(registry.Agent{Session: name, Pane: pane, State: registry.StateNew, Msg: summary})
+
+	m.launchClaude(name, p.Flags, p.Prompt)
+}
+
+// uniqueSessionName derives a session name from the title, falling back to a
+// slug of the prompt, then "agent", and appends a suffix until it is free.
+func (m *AgentManager) uniqueSessionName(title, prompt string) string {
+	base := registry.SanitizeSessionName(strings.TrimSpace(title))
+	if base == "" {
+		base = xstr.Slug(xstr.FirstLine(prompt), 24)
+	}
+	if base == "" {
+		base = "agent"
 	}
 
-	m.tmux.SwitchClient(client, name)
+	name := base
+	for i := 2; m.tmux.HasSession(name); i++ {
+		name = fmt.Sprintf("%s-%d", base, i)
+	}
+
+	return name
+}
+
+// launchClaude types the claude command into a session. The prompt is passed
+// through a temp file so multi-line input survives, and the file is removed as
+// the command runs.
+func (m *AgentManager) launchClaude(session, flags, prompt string) {
+	command := "claude"
+	if flags != "" {
+		command += " " + flags
+	}
+
+	if prompt != "" {
+		file, err := os.CreateTemp("", "claude-prompt-*.md")
+		if err == nil {
+			_, _ = file.WriteString(prompt)
+			_ = file.Close()
+			command += fmt.Sprintf(" \"$(cat '%s'; rm '%s')\"", file.Name(), file.Name())
+		}
+	}
+
+	m.tmux.SendKeys(session, command, "Enter")
 }
 
 // Notify records that an agent finished with a custom message.

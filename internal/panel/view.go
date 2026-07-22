@@ -8,8 +8,8 @@ import (
 
 func (m model) View() string {
 	switch m.screen {
-	case screenName:
-		return m.nameView()
+	case screenForm:
+		return m.form.View()
 	case screenConfirm:
 		return m.confirmView()
 	case screenAction:
@@ -19,11 +19,6 @@ func (m model) View() string {
 	default:
 		return m.listView()
 	}
-}
-
-func (m model) nameView() string {
-	return headerStyle.Render("new chat") + "\n\n  " + m.nameInput.View() +
-		"\n\n" + dimStyle.Render("  enter create · esc back")
 }
 
 func (m model) confirmView() string {

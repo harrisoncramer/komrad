@@ -7,8 +7,8 @@ import (
 	"claude-agents/internal/agents"
 	"claude-agents/internal/registry"
 
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -58,7 +58,7 @@ type screen int
 const (
 	screenList screen = iota
 	screenAction
-	screenName
+	screenForm
 	screenConfirm
 )
 
@@ -88,22 +88,16 @@ type model struct {
 	actions     []string
 	actionIndex int
 
-	nameInput  textinput.Model
+	form       *huh.Form
 	confirmYes bool
 }
 
 func newModel(manager *agents.AgentManager, client string) model {
-	input := textinput.New()
-	input.Placeholder = "new session name"
-	input.CharLimit = 60
-	input.Width = 40
-
 	return model{
-		manager:   manager,
-		client:    client,
-		screen:    screenList,
-		rows:      buildRows(manager.List()),
-		nameInput: input,
+		manager: manager,
+		client:  client,
+		screen:  screenList,
+		rows:    buildRows(manager.List()),
 	}
 }
 
@@ -119,9 +113,23 @@ func buildRows(list []registry.Agent) []row {
 	return rows
 }
 
+func newSessionForm() *huh.Form {
+	return huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().Key("title").Title("Title").Description("optional; claude names it if blank"),
+			huh.NewInput().Key("flags").Title("Claude flags").Placeholder("--model opus"),
+			huh.NewText().Key("prompt").Title("Initial prompt").Description("ctrl+e opens $EDITOR"),
+		),
+	).WithShowHelp(true)
+}
+
 func (m model) Init() tea.Cmd { return nil }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.screen == screenForm {
+		return m.updateForm(msg)
+	}
+
 	key, ok := msg.(tea.KeyMsg)
 	if !ok {
 		return m, nil
@@ -132,8 +140,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateList(key)
 	case screenAction:
 		return m.updateAction(key)
-	case screenName:
-		return m.updateName(key)
 	case screenConfirm:
 		return m.updateConfirm(key)
 	default:
@@ -163,9 +169,9 @@ func (m model) updateList(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) selectRow(selected row) (tea.Model, tea.Cmd) {
 	switch selected.kind {
 	case rowNewChat:
-		m.screen = screenName
-		m.nameInput.Focus()
-		return m, textinput.Blink
+		m.form = newSessionForm()
+		m.screen = screenForm
+		return m, m.form.Init()
 	case rowLast:
 		m.manager.Last(m.client)
 		return m, tea.Quit
@@ -216,26 +222,27 @@ func (m model) runAction(action string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) updateName(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch key.String() {
-	case "ctrl+c":
-		return m, tea.Quit
-	case "esc":
-		m.screen = screenList
-		return m, nil
-	case "enter":
-		name := m.nameInput.Value()
-		if name == "" {
-			return m, tea.Quit
-		}
-
-		m.manager.NewChat(m.client, name)
-		return m, tea.Quit
+func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
+	form, cmd := m.form.Update(msg)
+	if updated, ok := form.(*huh.Form); ok {
+		m.form = updated
 	}
 
-	var cmd tea.Cmd
-	m.nameInput, cmd = m.nameInput.Update(key)
-	return m, cmd
+	switch m.form.State {
+	case huh.StateCompleted:
+		m.manager.NewSession(agents.NewSessionParams{
+			Client: m.client,
+			Title:  m.form.GetString("title"),
+			Flags:  m.form.GetString("flags"),
+			Prompt: m.form.GetString("prompt"),
+		})
+		return m, tea.Quit
+	case huh.StateAborted:
+		m.screen = screenList
+		return m, nil
+	default:
+		return m, cmd
+	}
 }
 
 func (m model) updateConfirm(key tea.KeyMsg) (tea.Model, tea.Cmd) {
