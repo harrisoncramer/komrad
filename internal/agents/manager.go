@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"claude-agents/internal/ctrl"
 	"claude-agents/internal/registry"
 	"claude-agents/internal/tmux"
 	"claude-agents/lib/xstr"
@@ -101,6 +102,12 @@ func (m *AgentManager) List() []registry.Agent {
 // Preview returns a snapshot of an agent's pane for the panel's preview pane.
 func (m *AgentManager) Preview(agent registry.Agent) string {
 	return m.tmux.CapturePane(agent.Pane)
+}
+
+// AttachPreview starts a control-mode live view of an agent's pane, sized to the
+// preview box.
+func (m *AgentManager) AttachPreview(agent registry.Agent, width, height int) (*ctrl.Client, error) {
+	return ctrl.Attach(m.tmux.Socket(), agent.Session, agent.Pane, width, height)
 }
 
 // Jump switches the client to an agent's session and focuses its pane.

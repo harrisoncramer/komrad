@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"claude-agents/internal/agents"
+	"claude-agents/internal/ctrl"
 	"claude-agents/internal/registry"
 
 	"github.com/charmbracelet/bubbles/viewport"
@@ -97,6 +98,8 @@ type model struct {
 	chats      []registry.Agent
 	chatCursor int
 	preview    viewport.Model
+	live       *ctrl.Client
+	liveKey    string
 
 	agent      registry.Agent
 	form       *huh.Form
@@ -213,6 +216,7 @@ func (m model) selectRow(selected row) (tea.Model, tea.Cmd) {
 
 		m.screen = screenChats
 		m.chatCursor = 0
+		m.ensureLive()
 		m.refreshPreview()
 		return m, tick()
 	}
@@ -250,7 +254,9 @@ func (m model) updateConfirm(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "esc", "n":
 		m.screen = screenChats
-		return m, nil
+		m.ensureLive()
+		m.refreshPreview()
+		return m, tick()
 	case "left", "right", "h", "l", "tab":
 		m.confirmYes = !m.confirmYes
 	case "y":
@@ -261,7 +267,9 @@ func (m model) updateConfirm(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 		m.screen = screenChats
-		return m, nil
+		m.ensureLive()
+		m.refreshPreview()
+		return m, tick()
 	}
 
 	return m, nil
@@ -284,6 +292,7 @@ func (m model) applyDestroy() (tea.Model, tea.Cmd) {
 	}
 
 	m.screen = screenChats
+	m.ensureLive()
 	m.refreshPreview()
-	return m, nil
+	return m, tick()
 }
