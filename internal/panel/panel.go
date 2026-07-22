@@ -79,7 +79,6 @@ type rowKind int
 
 const (
 	rowNewChat rowKind = iota
-	rowLast
 	rowChats
 )
 
@@ -162,7 +161,6 @@ func protoToAgent(s *sessionv1.Session) store.Agent {
 func buildRows(chats []store.Agent) []row {
 	return []row{
 		{kind: rowNewChat, label: "+  new chat"},
-		{kind: rowLast, label: "←  last window/session"},
 		{kind: rowChats, label: fmt.Sprintf("▸  chats (%d)", len(chats))},
 	}
 }
@@ -243,9 +241,6 @@ func (m model) selectRow(selected row) (tea.Model, tea.Cmd) {
 		m.form = newSessionForm()
 		m.screen = screenForm
 		return m, m.form.Init()
-	case rowLast:
-		m.manager.Last(m.client)
-		return m, tea.Quit
 	case rowChats:
 		if len(m.chats) == 0 {
 			return m, nil

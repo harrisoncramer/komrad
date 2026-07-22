@@ -113,11 +113,6 @@ func (m *AgentManager) Chat(agent store.Agent) {
 	m.tmux.RunShellBackground(fmt.Sprintf("%s chat-open '%s' '%s'", m.selfPath, agent.Name, agent.Pane))
 }
 
-// Last bounces the client to its previous session.
-func (m *AgentManager) Last(client string) {
-	m.tmux.SwitchToLast(client)
-}
-
 // Destroy kills an agent's session, bouncing the client away first if it is
 // currently viewing it, and drops the stored row.
 func (m *AgentManager) Destroy(client string, agent store.Agent) {
