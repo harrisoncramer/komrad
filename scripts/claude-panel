@@ -22,26 +22,41 @@ for f in "$reg"/*; do
   fi
   files+=("$f")
   sess="$(field SESSION "$f")"; st="$(field STATE "$f")"; msg="$(field MSG "$f")"
-  label="$sess"
-  [ -n "$st" ] && label="$label  [$st]"
+  case "$st" in
+    done)     icon="✓" ;;
+    thinking) icon="…" ;;
+    *)        icon="•" ;;
+  esac
+  label="$icon  $sess"
   [ -n "$msg" ] && label="$label  —  $msg"
   labels+=("$label")
 done
 
-LAST_LABEL="↩  last window/session"
+NEW_LABEL="+  new chat"
+LAST_LABEL="←  last window/session"
 
-# The "last" nav entry is always available, even with no agents.
+# The nav entries are always available, even with no agents.
 if [ ${#files[@]} -eq 0 ]; then
-  choice="$(printf '%s\n' "$LAST_LABEL" | gum choose --header 'Claude agents')" || exit 0
+  choice="$(printf '%s\n' "$NEW_LABEL" "$LAST_LABEL" | gum choose --header 'Claude agents')" || exit 0
 else
-  choice="$(printf '%s\n' "$LAST_LABEL" "${labels[@]}" | gum choose --header 'Claude agents')" || exit 0
+  choice="$(printf '%s\n' "$NEW_LABEL" "$LAST_LABEL" "${labels[@]}" | gum choose --header 'Claude agents')" || exit 0
 fi
 [ -n "$choice" ] || exit 0
 
-if [ "$choice" = "$LAST_LABEL" ]; then
-  tmux -L default switch-client ${client:+-c "$client"} -l 2>/dev/null || true
-  exit 0
-fi
+case "$choice" in
+  "$NEW_LABEL")
+    # New session for more background work, rooted at the current terminal's dir.
+    dir="$(tmux -L default display-message -p ${client:+-c "$client"} '#{pane_current_path}' 2>/dev/null)"
+    [ -n "$dir" ] || dir="$HOME"
+    sess="$(tmux -L default new-session -d -c "$dir" -P -F '#{session_name}' 2>/dev/null)"
+    [ -n "$sess" ] && tmux -L default switch-client ${client:+-c "$client"} -t "$sess" 2>/dev/null || true
+    exit 0
+    ;;
+  "$LAST_LABEL")
+    tmux -L default switch-client ${client:+-c "$client"} -l 2>/dev/null || true
+    exit 0
+    ;;
+esac
 
 idx=-1
 for i in "${!labels[@]}"; do
