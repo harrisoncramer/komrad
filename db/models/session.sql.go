@@ -21,7 +21,7 @@ func (q *Queries) DeleteSession(ctx context.Context, name string) error {
 
 const getSession = `-- name: GetSession :one
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, created_at, updated_at
+    id, name, cwd, flags, prompt, pane_id, state, claude_session_id, created_at, updated_at
 FROM
     sessions
 WHERE
@@ -40,6 +40,7 @@ func (q *Queries) GetSession(ctx context.Context, name string) (*Session, error)
 		&i.Prompt,
 		&i.PaneID,
 		&i.State,
+		&i.ClaudeSessionID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -48,7 +49,7 @@ func (q *Queries) GetSession(ctx context.Context, name string) (*Session, error)
 
 const listSessions = `-- name: ListSessions :many
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, created_at, updated_at
+    id, name, cwd, flags, prompt, pane_id, state, claude_session_id, created_at, updated_at
 FROM
     sessions
 ORDER BY
@@ -72,6 +73,7 @@ func (q *Queries) ListSessions(ctx context.Context) ([]*Session, error) {
 			&i.Prompt,
 			&i.PaneID,
 			&i.State,
+			&i.ClaudeSessionID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -109,8 +111,8 @@ func (q *Queries) SetSessionState(ctx context.Context, arg SetSessionStateParams
 }
 
 const upsertSession = `-- name: UpsertSession :one
-INSERT INTO sessions (id, name, cwd, flags, prompt, pane_id, state)
-    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+INSERT INTO sessions (id, name, cwd, flags, prompt, pane_id, state, claude_session_id)
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
 ON CONFLICT (name)
     DO UPDATE SET
         cwd = excluded.cwd,
@@ -118,19 +120,21 @@ ON CONFLICT (name)
         prompt = excluded.prompt,
         pane_id = excluded.pane_id,
         state = excluded.state,
+        claude_session_id = CASE WHEN excluded.claude_session_id != '' THEN excluded.claude_session_id ELSE sessions.claude_session_id END,
         updated_at = CURRENT_TIMESTAMP
     RETURNING
-        id, name, cwd, flags, prompt, pane_id, state, created_at, updated_at
+        id, name, cwd, flags, prompt, pane_id, state, claude_session_id, created_at, updated_at
 `
 
 type UpsertSessionParams struct {
-	ID     string
-	Name   string
-	Cwd    string
-	Flags  string
-	Prompt string
-	PaneID string
-	State  string
+	ID              string
+	Name            string
+	Cwd             string
+	Flags           string
+	Prompt          string
+	PaneID          string
+	State           string
+	ClaudeSessionID string
 }
 
 func (q *Queries) UpsertSession(ctx context.Context, arg UpsertSessionParams) (*Session, error) {
@@ -142,6 +146,7 @@ func (q *Queries) UpsertSession(ctx context.Context, arg UpsertSessionParams) (*
 		arg.Prompt,
 		arg.PaneID,
 		arg.State,
+		arg.ClaudeSessionID,
 	)
 	var i Session
 	err := row.Scan(
@@ -152,6 +157,7 @@ func (q *Queries) UpsertSession(ctx context.Context, arg UpsertSessionParams) (*
 		&i.Prompt,
 		&i.PaneID,
 		&i.State,
+		&i.ClaudeSessionID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -159,20 +165,22 @@ func (q *Queries) UpsertSession(ctx context.Context, arg UpsertSessionParams) (*
 }
 
 const upsertSessionState = `-- name: UpsertSessionState :exec
-INSERT INTO sessions (id, name, pane_id, state)
-    VALUES (?1, ?2, ?3, ?4)
+INSERT INTO sessions (id, name, pane_id, state, claude_session_id)
+    VALUES (?1, ?2, ?3, ?4, ?5)
 ON CONFLICT (name)
     DO UPDATE SET
         pane_id = excluded.pane_id,
         state = excluded.state,
+        claude_session_id = CASE WHEN excluded.claude_session_id != '' THEN excluded.claude_session_id ELSE sessions.claude_session_id END,
         updated_at = CURRENT_TIMESTAMP
 `
 
 type UpsertSessionStateParams struct {
-	ID    string
-	Name  string
-	Pane  string
-	State string
+	ID              string
+	Name            string
+	Pane            string
+	State           string
+	ClaudeSessionID string
 }
 
 func (q *Queries) UpsertSessionState(ctx context.Context, arg UpsertSessionStateParams) error {
@@ -181,6 +189,7 @@ func (q *Queries) UpsertSessionState(ctx context.Context, arg UpsertSessionState
 		arg.Name,
 		arg.Pane,
 		arg.State,
+		arg.ClaudeSessionID,
 	)
 	return err
 }

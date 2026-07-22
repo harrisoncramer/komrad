@@ -71,12 +71,13 @@ func (s *SessionService) DeleteSession(ctx context.Context, req *connect.Request
 
 func toProto(agent store.Agent) *sessionv1.Session {
 	return &sessionv1.Session{
-		Id:     agent.ID,
-		Name:   agent.Name,
-		Cwd:    agent.Cwd,
-		Flags:  agent.Flags,
-		Prompt: agent.Prompt,
-		PaneId: agent.Pane,
-		State:  agent.State,
+		Id:              agent.ID,
+		Name:            agent.Name,
+		Cwd:             agent.Cwd,
+		Flags:           agent.Flags,
+		Prompt:          agent.Prompt,
+		PaneId:          agent.Pane,
+		State:           agent.State,
+		ClaudeSessionId: agent.ClaudeSessionID,
 	}
 }

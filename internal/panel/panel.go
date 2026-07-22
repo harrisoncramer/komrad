@@ -158,13 +158,14 @@ func (m *model) reload() {
 
 func protoToAgent(s *sessionv1.Session) store.Agent {
 	return store.Agent{
-		ID:     s.GetId(),
-		Name:   s.GetName(),
-		Pane:   s.GetPaneId(),
-		Cwd:    s.GetCwd(),
-		Flags:  s.GetFlags(),
-		Prompt: s.GetPrompt(),
-		State:  s.GetState(),
+		ID:              s.GetId(),
+		Name:            s.GetName(),
+		Pane:            s.GetPaneId(),
+		Cwd:             s.GetCwd(),
+		Flags:           s.GetFlags(),
+		Prompt:          s.GetPrompt(),
+		State:           s.GetState(),
+		ClaudeSessionID: s.GetClaudeSessionId(),
 	}
 }
 

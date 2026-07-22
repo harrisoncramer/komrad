@@ -2,7 +2,9 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -188,11 +190,21 @@ func hookCmd(state *app) *cobra.Command {
 		Use:   "hook <prompt|stop>",
 		Short: "Advance agent state from a Claude Code lifecycle event",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			state.manager.Hook(args[0], state.env.MainSession, state.env.TmuxPane)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			state.manager.Hook(args[0], state.env.MainSession, state.env.TmuxPane, hookSessionID(cmd.InOrStdin()))
 			return nil
 		},
 	}
+}
+
+// hookSessionID reads Claude's session_id from the hook JSON payload on stdin.
+func hookSessionID(r io.Reader) string {
+	var payload struct {
+		SessionID string `json:"session_id"`
+	}
+
+	_ = json.NewDecoder(r).Decode(&payload)
+	return payload.SessionID
 }
 
 // ensureServer makes sure a session server is reachable at addr, spawning a

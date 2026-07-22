@@ -15,6 +15,7 @@ message Session {
   string prompt = 5;
   string pane_id = 6;
   string state = 7;
+  string claude_session_id = 8;
 }
 
 message ListSessionsResponse {

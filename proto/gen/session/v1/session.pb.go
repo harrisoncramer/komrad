@@ -24,16 +24,17 @@ const (
 
 // Session is one background Claude agent, as stored.
 type Session struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Cwd           string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	Flags         string                 `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
-	Prompt        string                 `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	PaneId        string                 `protobuf:"bytes,6,opt,name=pane_id,json=paneId,proto3" json:"pane_id,omitempty"`
-	State         string                 `protobuf:"bytes,7,opt,name=state,proto3" json:"state,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name            string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Cwd             string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
+	Flags           string                 `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
+	Prompt          string                 `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	PaneId          string                 `protobuf:"bytes,6,opt,name=pane_id,json=paneId,proto3" json:"pane_id,omitempty"`
+	State           string                 `protobuf:"bytes,7,opt,name=state,proto3" json:"state,omitempty"`
+	ClaudeSessionId string                 `protobuf:"bytes,8,opt,name=claude_session_id,json=claudeSessionId,proto3" json:"claude_session_id,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *Session) Reset() {
@@ -111,6 +112,13 @@ func (x *Session) GetPaneId() string {
 func (x *Session) GetState() string {
 	if x != nil {
 		return x.State
+	}
+	return ""
+}
+
+func (x *Session) GetClaudeSessionId() string {
+	if x != nil {
+		return x.ClaudeSessionId
 	}
 	return ""
 }
@@ -348,7 +356,7 @@ var File_session_v1_session_proto protoreflect.FileDescriptor
 const file_session_v1_session_proto_rawDesc = "" +
 	"\n" +
 	"\x18session/v1/session.proto\x12\n" +
-	"session.v1\x1a\x1bgoogle/protobuf/empty.proto\"\x9c\x01\n" +
+	"session.v1\x1a\x1bgoogle/protobuf/empty.proto\"\xc8\x01\n" +
 	"\aSession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -356,7 +364,8 @@ const file_session_v1_session_proto_rawDesc = "" +
 	"\x05flags\x18\x04 \x01(\tR\x05flags\x12\x16\n" +
 	"\x06prompt\x18\x05 \x01(\tR\x06prompt\x12\x17\n" +
 	"\apane_id\x18\x06 \x01(\tR\x06paneId\x12\x14\n" +
-	"\x05state\x18\a \x01(\tR\x05state\"G\n" +
+	"\x05state\x18\a \x01(\tR\x05state\x12*\n" +
+	"\x11claude_session_id\x18\b \x01(\tR\x0fclaudeSessionId\"G\n" +
 	"\x14ListSessionsResponse\x12/\n" +
 	"\bsessions\x18\x01 \x03(\v2\x13.session.v1.SessionR\bsessions\"'\n" +
 	"\x11GetSessionRequest\x12\x12\n" +

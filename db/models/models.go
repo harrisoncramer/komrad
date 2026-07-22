@@ -9,13 +9,14 @@ import (
 )
 
 type Session struct {
-	ID        string
-	Name      string
-	Cwd       string
-	Flags     string
-	Prompt    string
-	PaneID    string
-	State     string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID              string
+	Name            string
+	Cwd             string
+	Flags           string
+	Prompt          string
+	PaneID          string
+	State           string
+	ClaudeSessionID string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }

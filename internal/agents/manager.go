@@ -151,7 +151,7 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 		State:  store.StateNew,
 	})
 
-	m.launchClaude(name, flags, p.Prompt)
+	m.launchClaude(name, flags, p.Prompt, "")
 
 	m.runHook(m.hooks.PostCreate, name, dir)
 }
@@ -173,7 +173,7 @@ func (m *AgentManager) Restore(agent store.Agent) (string, error) {
 		return "", fmt.Errorf("failed to restore session %q: %w", agent.Name, err)
 	}
 
-	m.launchClaude(agent.Name, agent.Flags, "")
+	m.launchClaude(agent.Name, agent.Flags, "", agent.ClaudeSessionID)
 
 	return pane, nil
 }
@@ -197,16 +197,19 @@ func (m *AgentManager) uniqueSessionName(title, prompt string) string {
 	return name
 }
 
-// launchClaude types the claude command into a session. The prompt is passed
-// through a temp file so multi-line input survives, and the file is removed as
-// the command runs.
-func (m *AgentManager) launchClaude(session, flags, prompt string) {
+// launchClaude types the claude command into a session. A resumeID resumes that
+// prior conversation; otherwise an opening prompt is passed through a temp file
+// (so multi-line input survives), removed as the command runs.
+func (m *AgentManager) launchClaude(session, flags, prompt, resumeID string) {
 	command := "claude"
 	if flags != "" {
 		command += " " + flags
 	}
 
-	if prompt != "" {
+	switch {
+	case resumeID != "":
+		command += " --resume " + resumeID
+	case prompt != "":
 		file, err := os.CreateTemp("", "claude-prompt-*.md")
 		if err == nil {
 			_, _ = file.WriteString(prompt)
@@ -226,11 +229,12 @@ func (m *AgentManager) Notify(mainSession, pane, _ string) {
 		return
 	}
 
-	_ = m.sessions.UpsertState(context.Background(), key, pane, store.StateDone)
+	_ = m.sessions.UpsertState(context.Background(), key, pane, store.StateDone, "")
 }
 
-// Hook advances an agent's state from a Claude Code lifecycle event.
-func (m *AgentManager) Hook(mode, mainSession, pane string) {
+// Hook advances an agent's state from a Claude Code lifecycle event and records
+// Claude's own session id (for --resume on restore).
+func (m *AgentManager) Hook(mode, mainSession, pane, claudeSessionID string) {
 	key := m.agentKey(mainSession)
 	if key == "" {
 		return
@@ -239,14 +243,14 @@ func (m *AgentManager) Hook(mode, mainSession, pane string) {
 	ctx := context.Background()
 	switch mode {
 	case "prompt":
-		_ = m.sessions.UpsertState(ctx, key, pane, store.StateThinking)
+		_ = m.sessions.UpsertState(ctx, key, pane, store.StateThinking, claudeSessionID)
 	case "stop":
 		existing, _ := m.sessions.Get(ctx, key)
 		if existing != nil && existing.State == store.StateDone {
 			return
 		}
 
-		_ = m.sessions.UpsertState(ctx, key, pane, store.StateDone)
+		_ = m.sessions.UpsertState(ctx, key, pane, store.StateDone, claudeSessionID)
 	}
 }
 

@@ -15,8 +15,9 @@ table "sessions" {
     type = text
   }
   column "cwd" {
-    null = false
-    type = text
+    null    = false
+    type    = text
+    default = ""
   }
   column "flags" {
     null    = false
@@ -37,6 +38,13 @@ table "sessions" {
     null    = false
     type    = text
     default = "new"
+  }
+  # Claude Code's own conversation id (from the hook payload), used to relaunch
+  # with `claude --resume <id>` when restoring a dormant agent.
+  column "claude_session_id" {
+    null    = false
+    type    = text
+    default = ""
   }
   column "created_at" {
     null    = false

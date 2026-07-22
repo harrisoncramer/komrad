@@ -26,13 +26,14 @@ const (
 
 // Agent is a persisted background agent.
 type Agent struct {
-	ID     string
-	Name   string
-	Pane   string
-	Cwd    string
-	Flags  string
-	Prompt string
-	State  string
+	ID              string
+	Name            string
+	Pane            string
+	Cwd             string
+	Flags           string
+	Prompt          string
+	State           string
+	ClaudeSessionID string
 }
 
 // SanitizeName maps a name to the characters tmux allows in a session name,
@@ -104,13 +105,14 @@ func (s *Store) Upsert(ctx context.Context, agent Agent) error {
 	}
 
 	if _, err := s.queries.UpsertSession(ctx, models.UpsertSessionParams{
-		ID:     agent.ID,
-		Name:   agent.Name,
-		Cwd:    agent.Cwd,
-		Flags:  agent.Flags,
-		Prompt: agent.Prompt,
-		PaneID: agent.Pane,
-		State:  agent.State,
+		ID:              agent.ID,
+		Name:            agent.Name,
+		Cwd:             agent.Cwd,
+		Flags:           agent.Flags,
+		Prompt:          agent.Prompt,
+		PaneID:          agent.Pane,
+		State:           agent.State,
+		ClaudeSessionID: agent.ClaudeSessionID,
 	}); err != nil {
 		return fmt.Errorf("failed to upsert session %q: %w", agent.Name, err)
 	}
@@ -121,17 +123,18 @@ func (s *Store) Upsert(ctx context.Context, agent Agent) error {
 // UpsertState records an agent's state and pane, creating a bare row if none
 // exists yet. It never touches cwd/flags/prompt, so lifecycle hooks don't wipe
 // the metadata captured when a tool-created agent was launched.
-func (s *Store) UpsertState(ctx context.Context, name, pane, state string) error {
+func (s *Store) UpsertState(ctx context.Context, name, pane, state, claudeSessionID string) error {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return fmt.Errorf("failed to generate id: %w", err)
 	}
 
 	if err := s.queries.UpsertSessionState(ctx, models.UpsertSessionStateParams{
-		ID:    id.String(),
-		Name:  name,
-		Pane:  pane,
-		State: state,
+		ID:              id.String(),
+		Name:            name,
+		Pane:            pane,
+		State:           state,
+		ClaudeSessionID: claudeSessionID,
 	}); err != nil {
 		return fmt.Errorf("failed to upsert state for %q: %w", name, err)
 	}
@@ -170,12 +173,13 @@ func (s *Store) Delete(ctx context.Context, name string) error {
 
 func fromModel(row *models.Session) Agent {
 	return Agent{
-		ID:     row.ID,
-		Name:   row.Name,
-		Pane:   row.PaneID,
-		Cwd:    row.Cwd,
-		Flags:  row.Flags,
-		Prompt: row.Prompt,
-		State:  row.State,
+		ID:              row.ID,
+		Name:            row.Name,
+		Pane:            row.PaneID,
+		Cwd:             row.Cwd,
+		Flags:           row.Flags,
+		Prompt:          row.Prompt,
+		State:           row.State,
+		ClaudeSessionID: row.ClaudeSessionID,
 	}
 }
