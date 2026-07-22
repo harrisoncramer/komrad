@@ -28,14 +28,20 @@ for f in "$reg"/*; do
   labels+=("$label")
 done
 
+LAST_LABEL="↩  last window/session"
+
+# The "last" nav entry is always available, even with no agents.
 if [ ${#files[@]} -eq 0 ]; then
-  gum style --foreground 244 --padding "1 2" "No Claude agents."
-  sleep 1
+  choice="$(printf '%s\n' "$LAST_LABEL" | gum choose --header 'Claude agents')" || exit 0
+else
+  choice="$(printf '%s\n' "$LAST_LABEL" "${labels[@]}" | gum choose --header 'Claude agents')" || exit 0
+fi
+[ -n "$choice" ] || exit 0
+
+if [ "$choice" = "$LAST_LABEL" ]; then
+  tmux -L default switch-client ${client:+-c "$client"} -l 2>/dev/null || true
   exit 0
 fi
-
-choice="$(printf '%s\n' "${labels[@]}" | gum choose --header 'Claude agents')" || exit 0
-[ -n "$choice" ] || exit 0
 
 idx=-1
 for i in "${!labels[@]}"; do
