@@ -100,7 +100,7 @@ func NewRootCommand() *cobra.Command {
 				focus = target
 
 				pane := target.Pane
-				if !state.manager.PaneAlive(pane) {
+				if !state.manager.SessionAlive(target.Name) {
 					restored, err := state.manager.Restore(*target)
 					if err != nil {
 						return err
@@ -195,7 +195,7 @@ func statusCmd(state *app) *cobra.Command {
 
 func hookCmd(state *app) *cobra.Command {
 	return &cobra.Command{
-		Use:   "hook <prompt|stop>",
+		Use:   "hook <prompt|notification|posttooluse|stop>",
 		Short: "Advance agent state from a Claude Code lifecycle event",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

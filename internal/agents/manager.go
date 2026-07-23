@@ -59,6 +59,14 @@ func (m *AgentManager) PaneAlive(pane string) bool {
 	return m.tmux.PaneAlive(pane)
 }
 
+// SessionAlive reports whether a tmux session with the given name still exists.
+// Attaching targets a session by name, so this is what gates restoring it: a
+// dormant chat's stored pane id can be empty or collide with a recycled id after
+// a tmux server restart, both of which make PaneAlive lie.
+func (m *AgentManager) SessionAlive(name string) bool {
+	return m.tmux.HasSession(name)
+}
+
 // Preview sizes a detached agent's window to the preview box (so its capture
 // fills the box), then returns a snapshot of its pane. Attached sessions are
 // left alone so a live client's view is never disturbed.
@@ -255,6 +263,18 @@ func (m *AgentManager) Hook(mode, mainSession, pane, claudeSessionID string) {
 	switch mode {
 	case "prompt":
 		_ = m.sessions.UpsertState(ctx, key, pane, store.StateThinking, claudeSessionID)
+	case "notification":
+		existing, _ := m.sessions.Get(ctx, key)
+		if existing != nil && existing.State == store.StateDone {
+			return
+		}
+
+		_ = m.sessions.UpsertState(ctx, key, pane, store.StateWaiting, claudeSessionID)
+	case "posttooluse":
+		existing, _ := m.sessions.Get(ctx, key)
+		if existing != nil && existing.State == store.StateWaiting {
+			_ = m.sessions.UpsertState(ctx, key, pane, store.StateThinking, claudeSessionID)
+		}
 	case "stop":
 		existing, _ := m.sessions.Get(ctx, key)
 		if existing != nil && existing.State == store.StateDone {
@@ -272,11 +292,13 @@ func (m *AgentManager) Status() string {
 		return ""
 	}
 
-	working, done := 0, 0
+	waiting, working, done := 0, 0, 0
 	for _, agent := range agents {
 		switch agent.State {
 		case store.StateThinking:
 			working++
+		case store.StateWaiting:
+			waiting++
 		case store.StateDone:
 			done++
 		}
@@ -284,22 +306,21 @@ func (m *AgentManager) Status() string {
 
 	const base = "#[fg=#7E9CD8]"
 
-	var out string
+	var segments []string
+	if waiting > 0 {
+		segments = append(segments, fmt.Sprintf("#[fg=#E82424]%d waiting%s", waiting, base))
+	}
 	if working > 0 {
-		out = fmt.Sprintf("#[fg=#FF9E3B]%d working%s", working, base)
+		segments = append(segments, fmt.Sprintf("#[fg=#FF9E3B]%d working%s", working, base))
 	}
 	if done > 0 {
-		if out != "" {
-			out += "  "
-		}
-
-		out += fmt.Sprintf("#[fg=#E82424]%d done%s", done, base)
+		segments = append(segments, fmt.Sprintf("#[fg=#98BB6C]%d done%s", done, base))
 	}
-	if out == "" {
+	if len(segments) == 0 {
 		return ""
 	}
 
-	return out + "  "
+	return strings.Join(segments, "  ") + "  "
 }
 
 // AttachSession attaches a tmux client to the agent's session, focused on its

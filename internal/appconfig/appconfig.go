@@ -24,8 +24,9 @@ type Keybindings struct {
 // both abort the form; the split mirrors the other panels so users can rebind
 // them separately.
 type FormKeys struct {
-	Quit []string `mapstructure:"quit"`
-	Back []string `mapstructure:"back"`
+	Quit   []string `mapstructure:"quit"`
+	Back   []string `mapstructure:"back"`
+	Submit []string `mapstructure:"submit"`
 }
 
 // ListKeys are the bindings for the picker list. New, Chats, and Search jump
@@ -103,8 +104,9 @@ func DefaultKeybindings() Keybindings {
 			Open: []string{"enter"},
 		},
 		Form: FormKeys{
-			Quit: []string{"ctrl+c"},
-			Back: []string{"esc"},
+			Quit:   []string{"ctrl+c"},
+			Back:   []string{"esc"},
+			Submit: []string{"shift+enter"},
 		},
 	}
 }
@@ -148,6 +150,7 @@ func (k Keybindings) withDefaults() Keybindings {
 
 	k.Form.Quit = fillKeys(k.Form.Quit, d.Form.Quit)
 	k.Form.Back = fillKeys(k.Form.Back, d.Form.Back)
+	k.Form.Submit = fillKeys(k.Form.Submit, d.Form.Submit)
 
 	return k
 }

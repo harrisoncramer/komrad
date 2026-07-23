@@ -61,6 +61,8 @@ func stateIcon(state string) string {
 	switch state {
 	case store.StateDone:
 		return "✓"
+	case store.StateWaiting:
+		return "!"
 	case store.StateThinking:
 		return "…"
 	default:
@@ -71,6 +73,8 @@ func stateIcon(state string) string {
 func stateColor(state string) lipgloss.Color {
 	switch state {
 	case store.StateDone:
+		return lipgloss.Color("#98BB6C")
+	case store.StateWaiting:
 		return lipgloss.Color("#E82424")
 	case store.StateThinking:
 		return lipgloss.Color("#FF9E3B")
@@ -247,7 +251,7 @@ func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 func newSessionForm(keys appconfig.FormKeys) *huh.Form {
 	return huh.NewForm(
 		huh.NewGroup(
-			huh.NewText().Key("prompt").Title("Initial prompt").Description("ctrl+e opens $EDITOR"),
+			huh.NewText().Key("prompt").Title("Initial prompt").Description("ctrl+e opens $EDITOR; shift+enter submits"),
 			huh.NewInput().Key("title").Title("Title").Description("optional; claude names it if blank"),
 			huh.NewInput().Key("dir").Title("Directory").Description("blank = current"),
 			huh.NewInput().Key("flags").Title("Claude flags").Placeholder("--model opus"),
@@ -375,6 +379,10 @@ func (m model) selectRow(selected row) (tea.Model, tea.Cmd) {
 }
 
 func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if key, ok := msg.(tea.KeyMsg); ok && bound(key.String(), m.keys.Form.Submit) {
+		return m.submitSession()
+	}
+
 	form, cmd := m.form.Update(msg)
 	if updated, ok := form.(*huh.Form); ok {
 		m.form = updated
@@ -382,20 +390,24 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.form.State {
 	case huh.StateCompleted:
-		m.manager.NewSession(agents.NewSessionParams{
-			Client: m.client,
-			Title:  m.form.GetString("title"),
-			Dir:    m.form.GetString("dir"),
-			Flags:  m.form.GetString("flags"),
-			Prompt: m.form.GetString("prompt"),
-		})
-		m.reload()
-		m.screen = screenList
-		return m, nil
+		return m.submitSession()
 	case huh.StateAborted:
 		m.screen = screenList
 		return m, nil
 	default:
 		return m, cmd
 	}
+}
+
+func (m model) submitSession() (tea.Model, tea.Cmd) {
+	m.manager.NewSession(agents.NewSessionParams{
+		Client: m.client,
+		Title:  m.form.GetString("title"),
+		Dir:    m.form.GetString("dir"),
+		Flags:  m.form.GetString("flags"),
+		Prompt: m.form.GetString("prompt"),
+	})
+	m.reload()
+	m.screen = screenList
+	return m, nil
 }

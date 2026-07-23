@@ -5,6 +5,7 @@ The Go module is at the repo root, module name `claude-agents`. Everything is ma
 ## Tasks
 
 - `mise run go:build` builds the `bin/claude-agents` binary.
+- `mise run go:dev` watches the `.go` files and rebuilds that binary on every save.
 - `mise run go:test` runs every Go test.
 - `mise run go:fmt` formats the code, `mise run go:tidy` tidies `go.mod`.
 - `mise run go:lint` builds the custom golangci-lint with this repo's plugins if needed, then runs it with `--fix`.
@@ -14,6 +15,14 @@ The Go module is at the repo root, module name `claude-agents`. Everything is ma
 - `mise run db:sqlc` regenerates the sqlc query bindings against the migrations.
 - `mise run db:connect` opens a `sqlite3` shell to the database.
 - `mise run gen-docs` regenerates the command reference under `docs/reference`.
+
+## Live rebuild loop
+
+The tmux plugin only builds `bin/claude-agents` when the binary is missing, so a plain code edit never reaches a running tmux. During development, keep `mise run go:dev` running in its own pane so the binary rebuilds on every save.
+
+That task runs air, which watches the `.go` files and runs `go build -o bin/claude-agents .` on each save. Air's own process is a no-op (`bin = /usr/bin/true`), because the real binary is launched by the tmux popup, not by air. Nothing starts the watcher for you, so this is one manual step per dev session; wire it into a tmux pane or a worktrunk enter hook if you want it automatic.
+
+Rebuilding the file is not enough on its own. The panel runs in a popup that is spawned fresh from the binary each time you open it, so reopen the popup (prefix+g) after a save to pick up the new build; a popup that is already open keeps the old process. The status-bar segment shells out to `bin/claude-agents status` on tmux's own status interval, so it refreshes without any reopen.
 
 ## Generated code
 

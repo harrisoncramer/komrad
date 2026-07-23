@@ -12,13 +12,17 @@ Nothing talks to that database file directly except one process. The `serve` com
 
 ## How state advances
 
-An agent's state changes through two Claude Code lifecycle hooks. Both are thin calls into the `hook` subcommand.
+An agent's state changes through four Claude Code lifecycle hooks. All are thin calls into the `hook` subcommand.
 
 When you submit a prompt, the prompt hook marks that agent `thinking`, which counts as working, and records Claude's own session id. That recorded id is what lets a dormant agent later relaunch with `--resume` and keep its conversation.
 
+When Claude needs something from you, a permission it wants granted or any other block, it emits a notification. The notification hook marks that agent `waiting`. This is the state that matters most when you have stepped away: the agent is not grinding and it is not finished, it is stopped and cannot go on until you answer. The panel and status bar show it in red so it stands out from a working agent.
+
+Once you answer and Claude runs its next tool, the post-tool-use hook moves a waiting agent back to `thinking`, so the red clears the moment work resumes rather than waiting for the agent to finish. That hook only touches an agent that was waiting; when the agent is already thinking it does nothing, so the constant stream of tool calls costs a single cheap read each.
+
 When Claude stops, the stop hook marks that agent `done`, unless it is already done. The done state sticks until you send that agent a new prompt. That is deliberate: a finished agent keeps showing as done so you notice it and come back to it, rather than quietly resetting.
 
-The status bar reads the store and shows a single aggregate across every session, for example `1 working  1 done`.
+The status bar reads the store and shows a single aggregate across every session, for example `1 waiting  1 working  1 done`.
 
 ## Dormant agents
 

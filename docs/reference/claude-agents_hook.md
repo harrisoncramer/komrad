@@ -3,7 +3,7 @@
 Advance agent state from a Claude Code lifecycle event
 
 ```
-claude-agents hook <prompt|stop> [flags]
+claude-agents hook <prompt|notification|posttooluse|stop> [flags]
 ```
 
 ### Options

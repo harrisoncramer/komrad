@@ -38,6 +38,12 @@ The status hooks and the notify command ship in `scripts/`. Wire the hooks in Cl
   "UserPromptSubmit": [
     { "matcher": "", "hooks": [ { "type": "command", "command": "$HOME/.tmux/plugins/tmux-claude-agents/scripts/claude-tmux-status.sh prompt" } ] }
   ],
+  "Notification": [
+    { "matcher": "", "hooks": [ { "type": "command", "command": "$HOME/.tmux/plugins/tmux-claude-agents/scripts/claude-tmux-status.sh notification" } ] }
+  ],
+  "PostToolUse": [
+    { "matcher": "", "hooks": [ { "type": "command", "command": "$HOME/.tmux/plugins/tmux-claude-agents/scripts/claude-tmux-status.sh posttooluse" } ] }
+  ],
   "Stop": [
     { "matcher": "", "hooks": [ { "type": "command", "command": "$HOME/.tmux/plugins/tmux-claude-agents/scripts/claude-tmux-status.sh stop" } ] }
   ]

@@ -22,6 +22,12 @@ set -g status-right "#{claude_agents}%I:%M:%S "
   "UserPromptSubmit": [
     { "matcher": "", "hooks": [ { "type": "command", "command": "$HOME/.tmux/plugins/tmux-claude-agents/scripts/claude-tmux-status.sh prompt" } ] }
   ],
+  "Notification": [
+    { "matcher": "", "hooks": [ { "type": "command", "command": "$HOME/.tmux/plugins/tmux-claude-agents/scripts/claude-tmux-status.sh notification" } ] }
+  ],
+  "PostToolUse": [
+    { "matcher": "", "hooks": [ { "type": "command", "command": "$HOME/.tmux/plugins/tmux-claude-agents/scripts/claude-tmux-status.sh posttooluse" } ] }
+  ],
   "Stop": [
     { "matcher": "", "hooks": [ { "type": "command", "command": "$HOME/.tmux/plugins/tmux-claude-agents/scripts/claude-tmux-status.sh stop" } ] }
   ]
@@ -47,7 +53,7 @@ Concepts and guides:
 - [Commands](docs/commands.md): what `serve`, `new`, `notify`, `status`, and `hook` are for
 - [Installation](docs/install.md): the tmux plugin and the Claude Code hooks
 - [Configuration](docs/configuration.md): environment variables and the TOML app config
-- [Development](docs/development.md): mise tasks, generated code, and the custom linter
+- [Development](docs/development.md): mise tasks, the live rebuild loop, generated code, and the custom linter
 
 Command reference, with the usage line and every flag for each command:
 

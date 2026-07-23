@@ -21,6 +21,7 @@ import (
 const (
 	StateNew      = "new"
 	StateThinking = "thinking"
+	StateWaiting  = "waiting"
 	StateDone     = "done"
 )
 

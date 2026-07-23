@@ -6,6 +6,7 @@ includes = ["mise/tasks"]
 
 [tools]
 go = "1.25.1"
+air = "1.61.7"
 golangci-lint = "v2.7.0"
 "go:gotest.tools/gotestsum" = "v1.13.0"
 "aqua:sqlc-dev/sqlc" = "v1.29.0"
