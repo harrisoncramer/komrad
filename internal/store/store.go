@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"claude-agents/db"
 	"claude-agents/db/models"
@@ -41,6 +42,8 @@ type Agent struct {
 	// label.
 	WorkflowID *string
 	Deleted    bool
+	// CreatedAt is when the chat was first recorded, for display.
+	CreatedAt time.Time
 }
 
 // Workflow is a named bucket of related chats. It is pure organization and runs
@@ -421,6 +424,7 @@ func fromModel(row *models.Session) Agent {
 		ClaudeSessionID: row.ClaudeSessionID,
 		WorkflowID:      row.WorkflowID,
 		Deleted:         row.IsDeleted != 0,
+		CreatedAt:       row.CreatedAt,
 	}
 }
 

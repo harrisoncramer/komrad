@@ -397,6 +397,8 @@ func (m model) attachScoped(agent store.Agent) *store.Agent {
 }
 
 func protoToAgent(s *sessionv1.Session) store.Agent {
+	created, _ := time.Parse(time.RFC3339, s.GetCreatedAt())
+
 	return store.Agent{
 		ID:              s.GetId(),
 		Name:            s.GetName(),
@@ -407,6 +409,7 @@ func protoToAgent(s *sessionv1.Session) store.Agent {
 		State:           s.GetState(),
 		ClaudeSessionID: s.GetClaudeSessionId(),
 		WorkflowID:      s.WorkflowId,
+		CreatedAt:       created,
 	}
 }
 

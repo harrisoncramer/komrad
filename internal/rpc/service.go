@@ -5,6 +5,7 @@ package rpc
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"claude-agents/internal/store"
 	sessionv1 "claude-agents/proto/gen/session/v1"
@@ -94,6 +95,11 @@ func (s *SessionService) UpdateSession(ctx context.Context, req *connect.Request
 }
 
 func toProto(agent store.Agent) *sessionv1.Session {
+	created := ""
+	if !agent.CreatedAt.IsZero() {
+		created = agent.CreatedAt.Format(time.RFC3339)
+	}
+
 	return &sessionv1.Session{
 		Id:              agent.ID,
 		Name:            agent.Name,
@@ -104,5 +110,6 @@ func toProto(agent store.Agent) *sessionv1.Session {
 		State:           agent.State,
 		ClaudeSessionId: agent.ClaudeSessionID,
 		WorkflowId:      agent.WorkflowID,
+		CreatedAt:       created,
 	}
 }

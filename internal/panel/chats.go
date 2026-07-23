@@ -189,12 +189,17 @@ func (m model) chatDetails() string {
 		prompt = prompt[:i]
 	}
 
+	started := ""
+	if !agent.CreatedAt.IsZero() {
+		started = agent.CreatedAt.Local().Format("2006-01-02 15:04")
+	}
+
 	lines := []string{
-		field("state ", agent.State) + "   " + field("pane ", agent.Pane),
-		field("dir   ", agent.Cwd),
-		field("flags ", agent.Flags),
-		field("resume", agent.ClaudeSessionID),
-		field("prompt", prompt),
+		field("state  ", agent.State) + "   " + field("started", started),
+		field("dir    ", agent.Cwd),
+		field("flags  ", agent.Flags),
+		field("resume ", agent.ClaudeSessionID),
+		field("prompt ", prompt),
 	}
 
 	width := m.width - 2

@@ -28,7 +28,7 @@ Keys in search: `enter` opens the highlighted chat, `up`/`down` (or `C-p`/`C-n`)
 
 ## The chats browser
 
-The browser is split. An agent list is on the left, and a live preview of the hovered agent's pane is on the right. For a dormant agent, whose pane is gone, the preview shows its stored fields instead of a live capture. Below both, a footer shows the hovered chat's stored record, its state, pane, working directory, claude flags, resume id, and opening prompt, so those details are legible without opening the chat.
+The browser is split. An agent list is on the left, and a live preview of the hovered agent's pane is on the right. For a dormant agent, whose pane is gone, the preview shows its stored fields instead of a live capture. Below both, a footer shows the hovered chat's stored record, its state, when it was started, working directory, claude flags, resume id, and opening prompt, so those details are legible without opening the chat.
 
 Keys in the browser:
 

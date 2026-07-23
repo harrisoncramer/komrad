@@ -19,6 +19,8 @@ message Session {
   // The workflow this chat belongs to. Optional so an unset value means the chat
   // is unassigned, distinct from an empty id.
   optional string workflow_id = 9;
+  // When the chat was first created, as an RFC 3339 timestamp, for display.
+  string created_at = 10;
 }
 
 message ListSessionsResponse {

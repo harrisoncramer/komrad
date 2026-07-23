@@ -35,7 +35,9 @@ type Session struct {
 	ClaudeSessionId string                 `protobuf:"bytes,8,opt,name=claude_session_id,json=claudeSessionId,proto3" json:"claude_session_id,omitempty"`
 	// The workflow this chat belongs to. Optional so an unset value means the chat
 	// is unassigned, distinct from an empty id.
-	WorkflowId    *string `protobuf:"bytes,9,opt,name=workflow_id,json=workflowId,proto3,oneof" json:"workflow_id,omitempty"`
+	WorkflowId *string `protobuf:"bytes,9,opt,name=workflow_id,json=workflowId,proto3,oneof" json:"workflow_id,omitempty"`
+	// When the chat was first created, as an RFC 3339 timestamp, for display.
+	CreatedAt     string `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -129,6 +131,13 @@ func (x *Session) GetClaudeSessionId() string {
 func (x *Session) GetWorkflowId() string {
 	if x != nil && x.WorkflowId != nil {
 		return *x.WorkflowId
+	}
+	return ""
+}
+
+func (x *Session) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
 	}
 	return ""
 }
@@ -462,7 +471,7 @@ var File_session_v1_session_proto protoreflect.FileDescriptor
 const file_session_v1_session_proto_rawDesc = "" +
 	"\n" +
 	"\x18session/v1/session.proto\x12\n" +
-	"session.v1\x1a\x1bgoogle/protobuf/empty.proto\"\xfe\x01\n" +
+	"session.v1\x1a\x1bgoogle/protobuf/empty.proto\"\x9d\x02\n" +
 	"\aSession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -473,7 +482,10 @@ const file_session_v1_session_proto_rawDesc = "" +
 	"\x05state\x18\a \x01(\tR\x05state\x12*\n" +
 	"\x11claude_session_id\x18\b \x01(\tR\x0fclaudeSessionId\x12$\n" +
 	"\vworkflow_id\x18\t \x01(\tH\x00R\n" +
-	"workflowId\x88\x01\x01B\x0e\n" +
+	"workflowId\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\n" +
+	" \x01(\tR\tcreatedAtB\x0e\n" +
 	"\f_workflow_id\"G\n" +
 	"\x14ListSessionsResponse\x12/\n" +
 	"\bsessions\x18\x01 \x03(\v2\x13.session.v1.SessionR\bsessions\">\n" +
