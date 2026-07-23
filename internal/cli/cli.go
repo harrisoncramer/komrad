@@ -69,11 +69,6 @@ func NewRootCommand() *cobra.Command {
 				Store:       sessions,
 				SelfPath:    selfPath(),
 				ClaudeFlags: cfg.ClaudeFlags,
-				Hooks: agents.Hooks{
-					PreCreate:  cfg.Hooks.PreCreate,
-					PostCreate: cfg.Hooks.PostCreate,
-					OnDelete:   cfg.Hooks.OnDelete,
-				},
 			})
 			return nil
 		},

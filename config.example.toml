@@ -4,26 +4,6 @@
 # Default flags appended to `claude` for every new session.
 claude_flags = "--model opus"
 
-# Lifecycle hooks. Each is a path to an executable; ~ is expanded.
-#
-#   pre_create   runs before launch with: <session-name> <requested-dir>
-#                Anything it prints on stdout replaces the directory claude
-#                runs in — e.g. create a git worktree and echo its path.
-#   post_create  runs after launch with:  <session-name> <directory>
-#   on_delete    runs on destroy with:     <session-name>
-[hooks]
-# pre_create = "~/.config/claude-agents/hooks/worktree"
-# on_delete  = "~/.config/claude-agents/hooks/cleanup"
-
-# Example pre_create hook that makes a worktrunk tree named after the session
-# and launches claude inside it (~/.config/claude-agents/hooks/worktree):
-#
-#   #!/bin/bash
-#   name="$1"; dir="$2"
-#   cd "$dir" || exit 0
-#   wtc "$name" >/dev/null 2>&1   # worktrunk create
-#   wt path "$name"               # print the new worktree path on stdout
-
 # Panel keybindings, scoped to the panel each binding acts in. Every action is a
 # list of bubbletea key strings; any action left out keeps its default (the
 # values shown below).

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"claude-agents/internal/store"
@@ -19,13 +18,6 @@ import (
 // keypress moves the agent's view a noticeable amount.
 const previewScrollTicks = 4
 
-// Hooks are paths to lifecycle scripts, each optional.
-type Hooks struct {
-	PreCreate  string
-	PostCreate string
-	OnDelete   string
-}
-
 // AgentManager lists, launches, and acts on Claude agents by coordinating a
 // tmux client and the SQLite-backed store.
 type AgentManager struct {
@@ -33,7 +25,6 @@ type AgentManager struct {
 	sessions    *store.Store
 	selfPath    string
 	claudeFlags string
-	hooks       Hooks
 }
 
 // Params carries the AgentManager's dependencies.
@@ -42,7 +33,6 @@ type Params struct {
 	Store       *store.Store
 	SelfPath    string
 	ClaudeFlags string
-	Hooks       Hooks
 }
 
 // NewAgentManager constructs an AgentManager from its dependencies.
@@ -52,33 +42,7 @@ func NewAgentManager(p Params) *AgentManager {
 		sessions:    p.Store,
 		selfPath:    p.SelfPath,
 		claudeFlags: p.ClaudeFlags,
-		hooks:       p.Hooks,
 	}
-}
-
-// runHook runs a lifecycle hook script (when configured) with the given args
-// and returns its trimmed stdout. A hook is best effort; failures are ignored.
-func (m *AgentManager) runHook(path string, args ...string) string {
-	if path == "" {
-		return ""
-	}
-
-	out, err := exec.Command(expandHome(path), args...).Output()
-	if err != nil {
-		return ""
-	}
-
-	return strings.TrimSpace(string(out))
-}
-
-func expandHome(path string) string {
-	if strings.HasPrefix(path, "~/") {
-		if home, err := os.UserHomeDir(); err == nil {
-			return filepath.Join(home, path[2:])
-		}
-	}
-
-	return path
 }
 
 // managerOpenFlag marks that the manager popup is currently open, so the
@@ -120,8 +84,8 @@ func (m *AgentManager) ScrollPreview(agent store.Agent, width, height int, up bo
 	m.tmux.ScrollPane(agent.Pane, width, height, up, previewScrollTicks)
 }
 
-// Rename retitles an agent, renaming both its tmux session (so hooks keep
-// keying to it) and its stored record.
+// Rename retitles an agent, renaming both its tmux session (so state events
+// keep keying to it) and its stored record.
 func (m *AgentManager) Rename(agent store.Agent, name string) {
 	name = store.SanitizeName(strings.TrimSpace(name))
 	if name == "" || name == agent.Name {
@@ -133,7 +97,7 @@ func (m *AgentManager) Rename(agent store.Agent, name string) {
 }
 
 // Delete soft-deletes an agent's record (hiding it from the panel), stopping its
-// session first and running the on-delete hook.
+// session first.
 func (m *AgentManager) Delete(client string, agent store.Agent) {
 	if m.tmux.ClientSession(client) == agent.Name {
 		m.tmux.SwitchToLast(client)
@@ -141,7 +105,6 @@ func (m *AgentManager) Delete(client string, agent store.Agent) {
 
 	m.tmux.KillSession(agent.Name)
 	_ = m.sessions.SoftDelete(context.Background(), agent.Name)
-	m.runHook(m.hooks.OnDelete, agent.Name, "")
 }
 
 // NewSessionParams configures a background agent to create.
@@ -157,9 +120,7 @@ type NewSessionParams struct {
 // and launches claude with the default plus per-session flags and opening
 // prompt. It does not switch the client to the new session.
 //
-// The directory is the given Dir, else the client's current directory. A
-// configured pre-create hook runs first with the session name and directory and
-// may print the directory to actually use (e.g. a freshly created worktree).
+// The directory is the given Dir, else the client's current directory.
 func (m *AgentManager) NewSession(p NewSessionParams) {
 	dir := strings.TrimSpace(p.Dir)
 	if dir == "" {
@@ -170,10 +131,6 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 	}
 
 	name := m.uniqueSessionName(p.Title, p.Prompt)
-
-	if provisioned := m.runHook(m.hooks.PreCreate, name, dir); provisioned != "" {
-		dir = provisioned
-	}
 
 	m.tmux.NewDetachedSession(name, dir)
 
@@ -189,8 +146,6 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 	})
 
 	m.launchClaude(name, flags, p.Prompt, "")
-
-	m.runHook(m.hooks.PostCreate, name, dir)
 }
 
 // Restore recreates a dormant agent's tmux session from its stored cwd/flags

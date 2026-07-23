@@ -1,5 +1,5 @@
 // Package appconfig loads the user's customization from a TOML file via viper.
-// It covers the default claude flags and the lifecycle hook script paths.
+// It covers the default claude flags and the panel keybindings.
 package appconfig
 
 import (
@@ -9,15 +9,6 @@ import (
 
 	"github.com/spf13/viper"
 )
-
-// Hooks are paths to scripts run around a session's lifecycle. Each is optional.
-// PreCreate runs before launch with the session name and requested directory,
-// and may print the directory to actually use (e.g. a freshly created worktree).
-type Hooks struct {
-	PreCreate  string `mapstructure:"pre_create"`
-	PostCreate string `mapstructure:"post_create"`
-	OnDelete   string `mapstructure:"on_delete"`
-}
 
 // Keybindings scopes bindings to the panel they act in. Each panel's actions
 // are a list of bubbletea key strings (e.g. "enter", "ctrl+d", "esc"), and any
@@ -61,7 +52,6 @@ type ChatsKeys struct {
 // Config is the user's customization.
 type Config struct {
 	ClaudeFlags string      `mapstructure:"claude_flags"`
-	Hooks       Hooks       `mapstructure:"hooks"`
 	Keybindings Keybindings `mapstructure:"keybindings"`
 }
 
