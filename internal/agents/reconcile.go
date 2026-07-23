@@ -51,20 +51,33 @@ const reconcileMisses = 3
 // tight window would miss a genuinely-working agent.
 const liveRegionLines = 30
 
-// liveRegion returns the bottom slice of a frame, where the live UI lives.
-func liveRegion(frame string) string {
+// waitingRegionLines is a much tighter window for the waiting check. The
+// selection footer replaces the input box and is the bottom-most line while a
+// prompt is up, so it needs only the last few lines. Keeping it tight matters:
+// the footer's "esc to cancel" / "enter to select" phrases can appear in
+// ordinary transcript text, and the wide working window would otherwise read
+// that prose as a live prompt.
+const waitingRegionLines = 6
+
+// tailLines returns the last n lines of a frame, where the live UI sits. The
+// conversation transcript scrolls above it, so confining detection here keeps
+// prose in the transcript, which can contain any marker text, from tripping a
+// detector.
+func tailLines(frame string, n int) string {
 	lines := strings.Split(strings.TrimRight(frame, "\n"), "\n")
-	if len(lines) > liveRegionLines {
-		lines = lines[len(lines)-liveRegionLines:]
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
 	}
 
 	return strings.Join(lines, "\n")
 }
 
 // frameShowsWork reports whether the frame's live region shows Claude actively
-// working, as opposed to sitting idle at its input prompt.
+// working, as opposed to sitting idle at its input prompt. It uses the wide
+// window because a live tool block can push the status line well up from the
+// bottom.
 func frameShowsWork(frame string) bool {
-	region := liveRegion(frame)
+	region := tailLines(frame, liveRegionLines)
 	return workingLine.MatchString(region) || workingTimer.MatchString(region) || strings.Contains(region, legacyWorkingMarker)
 }
 
@@ -79,9 +92,11 @@ func frameShowsWork(frame string) bool {
 var waitingFooter = regexp.MustCompile(`(?i)esc to cancel|enter to select`)
 
 // frameShowsWaiting reports whether the frame's live region shows Claude blocked
-// on the user at an interactive prompt.
+// on the user at an interactive prompt. It uses the tight window because the
+// footer is pinned at the very bottom, and a wide window would let transcript
+// prose containing the same phrases read as a live prompt.
 func frameShowsWaiting(frame string) bool {
-	return waitingFooter.MatchString(liveRegion(frame))
+	return waitingFooter.MatchString(tailLines(frame, waitingRegionLines))
 }
 
 // tmuxProbe is the slice of the tmux client the reconciler observes through.

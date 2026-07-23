@@ -65,3 +65,16 @@ func TestFrameShowsWorkThroughToolBlock(t *testing.T) {
 	assert.True(t, frameShowsWork(withTimer), "status line above a tool block, with timer")
 	assert.True(t, frameShowsWork(noTimer), "status line above a tool block, no timer yet (multi-word verb)")
 }
+
+// TestWaitingIgnoresProseInWorkWindow pins the split-window fix: the wide working
+// window must not drag the waiting phrases ("esc to cancel", "enter to select")
+// in from transcript text. Here those phrases sit a dozen lines up (inside the
+// work window, outside the tight waiting window) while the bottom is an idle
+// input box, so the frame is neither working nor waiting.
+func TestWaitingIgnoresProseInWorkWindow(t *testing.T) {
+	prose := "I split it so \"esc to cancel\" and \"Enter to select\" in a message do not read as a prompt."
+	frame := prose + "\n\n\n\n\n\n\n\n\n\n───────\n❯ \n───────\n  -- INSERT --"
+
+	assert.False(t, frameShowsWaiting(frame), "transcript phrases must not read as a live prompt")
+	assert.False(t, frameShowsWork(frame), "an idle box is not working")
+}
