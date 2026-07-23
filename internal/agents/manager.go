@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"claude-agents/internal/store"
-	"claude-agents/internal/tmux"
 	"claude-agents/lib/xstr"
 
 	"github.com/google/uuid"
@@ -20,19 +19,57 @@ import (
 // keypress moves the agent's view a noticeable amount.
 const previewScrollTicks = 4
 
+// tmuxClient is the slice of the tmux client the manager drives. Accepting it as
+// an interface lets tests substitute a recording fake for the real CLI.
+type tmuxClient interface {
+	Socket() string
+	SetGlobal(name, value string)
+	PaneAlive(pane string) bool
+	HasSession(name string) bool
+	SessionAttached(session string) bool
+	ResizeWindow(target string, width, height int)
+	CapturePane(pane string) string
+	ScrollPane(pane string, width, height int, up bool, ticks int)
+	RenameSession(oldName, newName string)
+	ClientSession(client string) string
+	SwitchToLast(client string)
+	KillSession(name string)
+	ClientPath(client string) string
+	NewDetachedSession(name, dir string)
+	PaneID(target string) (string, error)
+	SendKeys(target string, keys ...string)
+	CurrentSession() (string, error)
+	SetWindowSizeLatest(target string)
+}
+
+// agentStore is the slice of the store the manager reads and mutates. Accepting
+// it as an interface keeps the manager's business logic testable against a real
+// store without pulling in a concrete type.
+type agentStore interface {
+	List(ctx context.Context) ([]store.Agent, error)
+	ListAll(ctx context.Context) ([]store.Agent, error)
+	Upsert(ctx context.Context, agent store.Agent) error
+	UpdateState(ctx context.Context, name, pane, state, claudeSessionID string) error
+	SetState(ctx context.Context, name, state string) error
+	Rename(ctx context.Context, id, name string) error
+	SoftDelete(ctx context.Context, name string) error
+	Undelete(ctx context.Context, id string) error
+	ActiveNameExists(ctx context.Context, name string) (bool, error)
+}
+
 // AgentManager lists, launches, and acts on Claude agents by coordinating a
 // tmux client and the SQLite-backed store.
 type AgentManager struct {
-	tmux        *tmux.Client
-	sessions    *store.Store
+	tmux        tmuxClient
+	sessions    agentStore
 	selfPath    string
 	claudeFlags string
 }
 
 // Params carries the AgentManager's dependencies.
 type Params struct {
-	Tmux        *tmux.Client
-	Store       *store.Store
+	Tmux        tmuxClient
+	Store       agentStore
 	SelfPath    string
 	ClaudeFlags string
 }
@@ -189,6 +226,20 @@ func (m *AgentManager) Restore(agent store.Agent) (string, error) {
 	dir := agent.Cwd
 	if dir == "" {
 		dir, _ = os.UserHomeDir()
+	}
+
+	// A deleted agent's original name may have been reused by a live agent while
+	// it sat deleted. Undeleting it under that name would collide on the
+	// unique-name index and fail, so give it a fresh unique name first, renaming
+	// the stored row by id. A non-deleted dormant agent already owns its name (its
+	// own live row holds it), so it is left as is.
+	if agent.Deleted && m.nameTaken(agent.Name) {
+		newName := m.uniqueSessionName(agent.Name, "")
+		if err := m.sessions.Rename(context.Background(), agent.ID, newName); err != nil {
+			return "", fmt.Errorf("failed to rename restored session %q: %w", agent.Name, err)
+		}
+
+		agent.Name = newName
 	}
 
 	m.tmux.NewDetachedSession(agent.Name, dir)
