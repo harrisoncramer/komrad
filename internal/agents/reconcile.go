@@ -15,15 +15,16 @@ import (
 // (1m 50s · ↓ 5.4k tokens)". The trailing timer only appears once tokens start
 // streaming, so early in a turn there is none at all; keying on the timer (the
 // earlier mistake) missed every no-timer frame and left working agents
-// undetected. The stable shape is the leading "<glyph> <verb>…". The glyph is a
-// rotating spinner symbol, never a letter, so requiring a non-letter lead
-// excludes prose that merely ends a word with an ellipsis, and excluding the
-// tool-result "⎿", the "❯" prompt, and box rules keeps that chrome from
-// matching. workingTimer additionally catches the parenthesised elapsed timer on
-// its own. Detection runs only on the bottom live region, so the transcript
-// above cannot trip either.
+// undetected. The stable shape is the leading "<glyph> <phrase>…". The verb can
+// be several words ("✢ Building schema, migration, sqlc…"), so anything up to
+// the ellipsis is allowed after the first letter. The glyph is a rotating
+// spinner symbol, never a letter, so requiring a non-letter lead excludes prose
+// that merely ends a word with an ellipsis, and excluding the tool-result "⎿",
+// the "❯" prompt, and box rules keeps that chrome from matching. workingTimer
+// additionally catches the parenthesised elapsed timer on its own. Detection runs
+// only on the bottom live region, so the transcript above cannot trip either.
 var (
-	workingLine  = regexp.MustCompile(`(?m)^\s*[^\s\p{L}⎿❯│─╭╮╰╯-]\s+\p{L}[\p{L}']*…`)
+	workingLine  = regexp.MustCompile(`(?m)^\s*[^\s\p{L}⎿❯│─╭╮╰╯-]\s+\p{L}.*…`)
 	workingTimer = regexp.MustCompile(`…\s*\(\s*\d+m?\s*\d*\s*s`)
 )
 
@@ -44,9 +45,11 @@ const reconcileMisses = 3
 // conversation transcript scrolls above it. Detection is confined to this region
 // so that prose in the transcript, which can happen to contain any marker text,
 // never trips a detector; only the chrome Claude actually renders at the bottom
-// does. The window is wide enough to include the working status line, which sits
-// a few lines above the input box.
-const liveRegionLines = 12
+// does. It must be wide enough to include the working status line even when a
+// live tool block sits below it: a plan/todo list renders under the status line
+// and above the input box, pushing the status line well up from the bottom, so a
+// tight window would miss a genuinely-working agent.
+const liveRegionLines = 30
 
 // liveRegion returns the bottom slice of a frame, where the live UI lives.
 func liveRegion(frame string) string {

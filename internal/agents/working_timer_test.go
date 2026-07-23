@@ -44,3 +44,24 @@ func TestFrameShowsWorkVariants(t *testing.T) {
 		assert.False(t, frameShowsWork(f), "should not read as working: %q", f)
 	}
 }
+
+// TestFrameShowsWorkThroughToolBlock pins the fix for a real miss: when Claude
+// renders a plan/todo block, it sits below the status line and above the input
+// box, pushing the status line a dozen-plus lines up from the bottom. Detection
+// must still find it, and must find it whether or not the timer has appeared.
+func TestFrameShowsWorkThroughToolBlock(t *testing.T) {
+	block := "\n" +
+		"  ⎿  ◼ Schema + migration + sqlc for workflows\n" +
+		"     ◻ Store layer: Workflow type + WorkflowID + CRUD\n" +
+		"     ◻ Proto + RPC service for workflows\n" +
+		"     ◻ Manager: workflow ops + scoped session/search\n" +
+		"     ◻ Panel: workflow scope, picker, move, back-nav\n" +
+		"      … +1 pending\n\n" +
+		"────────────────\n❯ \n────────────────\n   ~/dir  main\n  -- INSERT --"
+
+	withTimer := "✢ Building schema, migration, sqlc… (4m 18s · ↓ 15.5k tokens · thinking with high effort)" + block
+	noTimer := "✢ Building schema, migration, sqlc…" + block
+
+	assert.True(t, frameShowsWork(withTimer), "status line above a tool block, with timer")
+	assert.True(t, frameShowsWork(noTimer), "status line above a tool block, no timer yet (multi-word verb)")
+}
