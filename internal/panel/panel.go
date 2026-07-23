@@ -24,12 +24,54 @@ import (
 )
 
 // previewInterval is how often the chats preview re-captures the hovered pane.
-const previewInterval = 200 * time.Millisecond
+// It is fast because the capture is a local tmux read. chatsInterval is how
+// often the chats list re-lists over RPC; it is slower and, crucially, runs off
+// the render loop, so a slow serve can never freeze the UI.
+const (
+	previewInterval = 200 * time.Millisecond
+	chatsInterval   = time.Second
+	chatsTimeout    = 2 * time.Second
+)
 
 type tickMsg struct{}
+type chatsTickMsg struct{}
+
+// chatsLoadedMsg carries the result of an async re-list. ok is false when the
+// list failed, so the handler leaves the current chats in place rather than
+// clobbering them to empty.
+type chatsLoadedMsg struct {
+	items []chatItem
+	ok    bool
+}
 
 func tick() tea.Cmd {
 	return tea.Tick(previewInterval, func(time.Time) tea.Msg { return tickMsg{} })
+}
+
+func chatsTick() tea.Cmd {
+	return tea.Tick(chatsInterval, func(time.Time) tea.Msg { return chatsTickMsg{} })
+}
+
+// loadChatsCmd re-lists the sessions off the UI goroutine with a timeout, so the
+// render loop never blocks on the RPC or the per-chat tmux liveness checks.
+func (m model) loadChatsCmd() tea.Cmd {
+	sessions, manager := m.sessions, m.manager
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), chatsTimeout)
+		defer cancel()
+
+		resp, err := sessions.ListSessions(ctx, connect.NewRequest(&emptypb.Empty{}))
+		if err != nil {
+			return chatsLoadedMsg{ok: false}
+		}
+
+		items := make([]chatItem, 0, len(resp.Msg.GetSessions()))
+		for _, session := range resp.Msg.GetSessions() {
+			agent := protoToAgent(session)
+			items = append(items, chatItem{agent: agent, alive: manager.PaneAlive(agent.Pane)})
+		}
+		return chatsLoadedMsg{items: items, ok: true}
+	}
 }
 
 // Run launches the panel and blocks until it exits. Sessions are read through
@@ -194,24 +236,18 @@ func (m *model) reload() {
 	m.rows = buildRows(len(items))
 }
 
-// refreshChatStates re-lists on the tick and updates the state and liveness of
-// the chats already on screen in place, so a reconciler or hook state change
-// shows without reload. It deliberately keeps the current order rather than
-// re-sorting by recency, since reordering under the cursor every tick is jarring
-// and defeats an index-based selection. New chats are appended and vanished ones
-// dropped, and the cursor stays on whichever chat it was on.
-func (m *model) refreshChatStates() {
-	resp, err := m.sessions.ListSessions(context.Background(), connect.NewRequest(&emptypb.Empty{}))
-	if err != nil {
-		return
-	}
-
-	fresh := make(map[string]store.Agent, len(resp.Msg.GetSessions()))
-	order := make([]string, 0, len(resp.Msg.GetSessions()))
-	for _, session := range resp.Msg.GetSessions() {
-		agent := protoToAgent(session)
-		fresh[agent.Name] = agent
-		order = append(order, agent.Name)
+// applyChats merges a freshly-listed set into the on-screen chats. It keeps the
+// current order rather than re-sorting by recency, since reordering under the
+// cursor is jarring and defeats an index-based selection; new chats are appended
+// and vanished ones dropped, and the cursor stays on whichever chat it was on.
+// The fresh items carry updated state and liveness, so a reconciler or hook
+// change shows without a structural reload.
+func (m *model) applyChats(fresh []chatItem) {
+	byName := make(map[string]chatItem, len(fresh))
+	order := make([]string, 0, len(fresh))
+	for _, item := range fresh {
+		byName[item.agent.Name] = item
+		order = append(order, item.agent.Name)
 	}
 
 	selected := ""
@@ -221,18 +257,15 @@ func (m *model) refreshChatStates() {
 
 	seen := make(map[string]bool, len(m.chats))
 	items := make([]chatItem, 0, len(fresh))
-	for _, item := range m.chats {
-		agent, ok := fresh[item.agent.Name]
-		if !ok {
-			continue
+	for _, cur := range m.chats {
+		if item, ok := byName[cur.agent.Name]; ok {
+			seen[cur.agent.Name] = true
+			items = append(items, item)
 		}
-
-		seen[agent.Name] = true
-		items = append(items, chatItem{agent: agent, alive: m.manager.PaneAlive(agent.Pane)})
 	}
 	for _, name := range order {
 		if !seen[name] {
-			items = append(items, chatItem{agent: fresh[name], alive: m.manager.PaneAlive(fresh[name].Pane)})
+			items = append(items, byName[name])
 		}
 	}
 
@@ -342,11 +375,15 @@ func formKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
 }
 
 func (m model) Init() tea.Cmd {
+	// Always drive the async chats refresh, so the root list's count and the
+	// chats screen both stay current; add the preview tick only on the chats
+	// screen, where a hovered pane is shown.
+	cmds := []tea.Cmd{chatsTick(), m.loadChatsCmd()}
 	if m.screen == screenChats {
-		return tick()
+		cmds = append(cmds, tick())
 	}
 
-	return nil
+	return tea.Batch(cmds...)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -362,9 +399,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		m.refreshChatStates()
 		m.refreshPreview()
 		return m, tick()
+	}
+
+	if _, ok := msg.(chatsTickMsg); ok {
+		return m, tea.Batch(m.loadChatsCmd(), chatsTick())
+	}
+
+	if loaded, ok := msg.(chatsLoadedMsg); ok {
+		if loaded.ok {
+			m.applyChats(loaded.items)
+		}
+
+		return m, nil
 	}
 
 	if built, ok := msg.(indexBuiltMsg); ok {

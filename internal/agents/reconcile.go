@@ -3,25 +3,40 @@ package agents
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"claude-agents/internal/store"
 )
 
-// workingMarker is the text Claude Code shows while it is busy generating or
-// running a tool. It stays on screen continuously from the moment a turn starts
-// until Claude returns to its prompt, and it disappears the instant the turn is
-// interrupted, so finding it in a captured frame is the ground truth for "this
-// agent is still working". A long-running tool keeps the marker up via its live
-// timer, which is why the pane is a better signal than transcript activity. If
-// Claude's wording ever changes, this is the one place to update.
-const workingMarker = "esc to interrupt"
+// workingTimer matches Claude Code's live status line, shown only while it is
+// busy generating or running a tool: a spinner, a verb, an ellipsis, then an
+// elapsed timer in parentheses, e.g. "· Cooking… (1m 50s · ↓ 5.4k tokens)". The
+// spinner glyph and verb change frame to frame and across releases, so matching
+// any wording is brittle; the ellipsis-then-timer shape is what stays stable, so
+// that is what we key on. The line is present continuously from the moment a
+// turn starts until Claude returns to its prompt, and a long-running tool keeps
+// it up via the ticking timer, which is why the pane is a better signal than
+// transcript activity.
+var workingTimer = regexp.MustCompile(`…\s*\(\s*\d`)
+
+// legacyWorkingMarker is the wording older builds put on that same line instead
+// of a token count. Accept it too so the detector spans releases.
+const legacyWorkingMarker = "esc to interrupt"
 
 // reconcileMisses is how many consecutive idle observations a thinking agent
-// must show before it is settled to done. Requiring two guards against a single
-// capture landing on a redraw frame between tool calls, where the marker can be
-// momentarily absent even though work is ongoing.
-const reconcileMisses = 2
+// must show before it is settled to done. Requiring several guards against a
+// capture landing on a redraw frame between tool calls, where the line can be
+// momentarily absent even though work is ongoing; erring high matters because
+// wrongly demoting a live agent is far worse than a stale state lingering a few
+// extra seconds.
+const reconcileMisses = 3
+
+// frameShowsWork reports whether a captured pane frame shows Claude actively
+// working, as opposed to sitting idle at its input prompt.
+func frameShowsWork(frame string) bool {
+	return workingTimer.MatchString(frame) || strings.Contains(frame, legacyWorkingMarker)
+}
 
 // tmuxProbe is the slice of the tmux client the reconciler observes through.
 type tmuxProbe interface {
@@ -123,7 +138,7 @@ func (r *Reconciler) working(pane string) bool {
 		return false
 	}
 
-	return strings.Contains(r.tmux.CapturePane(pane), workingMarker)
+	return frameShowsWork(r.tmux.CapturePane(pane))
 }
 
 // settle writes a corrected state and clears the agent's miss count. A no-op

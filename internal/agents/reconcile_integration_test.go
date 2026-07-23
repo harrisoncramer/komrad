@@ -71,10 +71,11 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	ctx := context.Background()
 	rec := NewReconciler(cli, st)
 
-	// A busy agent: the pane keeps the working marker on screen.
-	busyPane := it.spawn("busy", `sh -c 'while true; do printf "\033[Hesc to interrupt\n"; sleep 1; done'`)
+	// A busy agent: the pane keeps a realistic working line on screen, so the
+	// detector is exercised against the same shape the real UI renders.
+	busyPane := it.spawn("busy", `sh -c 'while true; do printf "\033[H· Cooking… (3s · down 1k tokens)\n"; sleep 1; done'`)
 	seed(t, st, "busy", busyPane, store.StateThinking)
-	waitForFrame(t, cli, busyPane, workingMarker)
+	waitForFrame(t, cli, busyPane, "Cooking…")
 
 	// An idle agent: a plain sleep, so the pane never shows the marker.
 	idlePane := it.spawn("idle", "sleep 300")

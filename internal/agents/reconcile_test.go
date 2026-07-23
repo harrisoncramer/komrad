@@ -51,8 +51,36 @@ func stateOf(t *testing.T, st *store.Store, name string) string {
 	return got.State
 }
 
-const busyFrame = "· Cogitating… (12s · esc to interrupt)"
-const idleFrame = "╭───────────╮\n│ >         │\n╰───────────╯"
+// busyFrame is a real Claude Code working line; idleFrame is the input box shown
+// when it sits at the prompt. captured from the live UI.
+const busyFrame = "· Cooking… (1m 50s · ↓ 5.4k tokens)\n───────\n❯ \n───────"
+const idleFrame = "───────────────\n❯ \n───────────────\n  -- INSERT -- ⏵⏵ bypass permissions on"
+
+func TestFrameShowsWork(t *testing.T) {
+	working := []string{
+		"· Cooking… (1m 50s · ↓ 5.4k tokens)",
+		"✽ Cogitating… (12s)",
+		"· Working… (3s · esc to interrupt)",
+		"…(0s",
+	}
+	for _, f := range working {
+		if !frameShowsWork(f) {
+			t.Fatalf("want working for %q", f)
+		}
+	}
+
+	idle := []string{
+		idleFrame,
+		"✻ Brewed for 2m 36s",
+		"❯ \n  -- INSERT --",
+		"",
+	}
+	for _, f := range idle {
+		if frameShowsWork(f) {
+			t.Fatalf("want idle for %q", f)
+		}
+	}
+}
 
 func TestReconcileDeadSessionSettlesDone(t *testing.T) {
 	for _, from := range []string{store.StateThinking, store.StateWaiting} {
