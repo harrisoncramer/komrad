@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"claude-agents/internal/store"
+	"claude-agents/lib/dates"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -14,7 +15,20 @@ const chatListWidth = 32
 // detailsHeight is how many text lines the hovered-chat details footer occupies,
 // below the picker and preview. The preview is shrunk by this plus its border so
 // the whole view still fits the popup.
-const detailsHeight = 5
+const detailsHeight = 6
+
+// workflowName resolves a workflow id to its display name from the loaded
+// workflow list, joining the two resources at display time rather than storing a
+// name on the chat. It returns empty when the id is unknown.
+func (m model) workflowName(id string) string {
+	for _, w := range m.workflows {
+		if w.ID == id {
+			return w.Name
+		}
+	}
+
+	return ""
+}
 
 // updateChats drives the split chats view: arrows move the selection, letter
 // keys act on the hovered chat, and ctrl+d/ctrl+u scroll the preview.
@@ -189,17 +203,18 @@ func (m model) chatDetails() string {
 		prompt = prompt[:i]
 	}
 
-	started := ""
-	if !agent.CreatedAt.IsZero() {
-		started = agent.CreatedAt.Local().Format("2006-01-02 15:04")
+	workflow := ""
+	if agent.WorkflowID != nil {
+		workflow = m.workflowName(*agent.WorkflowID)
 	}
 
 	lines := []string{
-		field("state  ", agent.State) + "   " + field("started", started),
-		field("dir    ", agent.Cwd),
-		field("flags  ", agent.Flags),
-		field("resume ", agent.ClaudeSessionID),
-		field("prompt ", prompt),
+		field("started ", dates.Friendly(agent.CreatedAt)),
+		field("workflow", workflow),
+		field("dir     ", agent.Cwd),
+		field("flags   ", agent.Flags),
+		field("resume  ", agent.ClaudeSessionID),
+		field("prompt  ", prompt),
 	}
 
 	width := m.width - 2
