@@ -3,6 +3,7 @@ package agents
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"claude-agents/internal/store"
@@ -99,6 +100,23 @@ func TestFrameShowsWaiting(t *testing.T) {
 		if frameShowsWaiting(f) {
 			t.Fatalf("non-prompt frame read as waiting: %q", f)
 		}
+	}
+}
+
+// TestDetectorsIgnoreTranscriptProse pins the fix for a real false positive:
+// text high in the transcript that happens to contain a marker (the assistant
+// discussing "Enter to select", "do you want", or a "· Cooking… (1m)" timer)
+// must not be read as a live prompt or live work. Only the bottom UI region
+// counts, and here it is the idle input box.
+func TestDetectorsIgnoreTranscriptProse(t *testing.T) {
+	prose := "I match `Enter to select` and `Do you want`, and the timer `· Cooking… (1m 50s)`."
+	frame := prose + strings.Repeat("\n", liveRegionLines) + idleFrame
+
+	if frameShowsWaiting(frame) {
+		t.Fatal("transcript prose must not read as a live waiting prompt")
+	}
+	if frameShowsWork(frame) {
+		t.Fatal("transcript prose must not read as working")
 	}
 }
 

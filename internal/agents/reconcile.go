@@ -32,26 +32,46 @@ const legacyWorkingMarker = "esc to interrupt"
 // extra seconds.
 const reconcileMisses = 3
 
-// frameShowsWork reports whether a captured pane frame shows Claude actively
-// working, as opposed to sitting idle at its input prompt.
-func frameShowsWork(frame string) bool {
-	return workingTimer.MatchString(frame) || strings.Contains(frame, legacyWorkingMarker)
+// liveRegionLines is how many lines from the bottom of a captured frame count as
+// the live UI, where Claude's status line, prompt footer, and input box sit. The
+// conversation transcript scrolls above it. Detection is confined to this region
+// so that prose in the transcript, which can happen to contain any marker text,
+// never trips a detector; only the chrome Claude actually renders at the bottom
+// does. The window is wide enough to include the working status line, which sits
+// a few lines above the input box.
+const liveRegionLines = 12
+
+// liveRegion returns the bottom slice of a frame, where the live UI lives.
+func liveRegion(frame string) string {
+	lines := strings.Split(strings.TrimRight(frame, "\n"), "\n")
+	if len(lines) > liveRegionLines {
+		lines = lines[len(lines)-liveRegionLines:]
+	}
+
+	return strings.Join(lines, "\n")
 }
 
-// waitingPrompt matches the footer Claude shows under any interactive selection
-// it is blocked on: a permission dialog, a multiple-choice question, a menu. The
-// footer reads "Enter to select · ↑/↓ to navigate · Esc to cancel", and its
-// "Enter to select" is the reliable, wording-independent signal that Claude has
-// paused for the user rather than finished, since a finished agent sits at the
-// plain input box with no such footer. "Do you want" is kept as a fallback for a
-// confirm that renders without the menu footer. A false match here would wrongly
-// flag a working agent as blocked, but the busy timer is checked first, so a
-// working frame never reaches this test.
-var waitingPrompt = regexp.MustCompile(`(?i)enter to select|do you want`)
+// frameShowsWork reports whether the frame's live region shows Claude actively
+// working, as opposed to sitting idle at its input prompt.
+func frameShowsWork(frame string) bool {
+	region := liveRegion(frame)
+	return workingTimer.MatchString(region) || strings.Contains(region, legacyWorkingMarker)
+}
 
-// frameShowsWaiting reports whether a frame shows Claude blocked on the user.
+// waitingFooter matches the footer chrome Claude renders under any interactive
+// selection it is blocked on: a permission dialog, a multiple-choice question, a
+// menu. That footer reads "Enter to select · ↑/↓ to navigate · Esc to cancel",
+// and "esc to cancel" is a reliable, wording-independent signal, distinct from
+// the working line's "esc to interrupt" and absent from the plain input box a
+// finished agent sits at. Keying on this footer rather than the prompt's prose
+// (a question like "do you want …") is what keeps transcript text from being
+// mistaken for a live prompt.
+var waitingFooter = regexp.MustCompile(`(?i)esc to cancel|enter to select`)
+
+// frameShowsWaiting reports whether the frame's live region shows Claude blocked
+// on the user at an interactive prompt.
 func frameShowsWaiting(frame string) bool {
-	return waitingPrompt.MatchString(frame)
+	return waitingFooter.MatchString(liveRegion(frame))
 }
 
 // tmuxProbe is the slice of the tmux client the reconciler observes through.
