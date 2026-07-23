@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+#MISE description="Rebuild the binary and restart the long-lived serve process."
+set -euo pipefail
+cd "$MISE_CONFIG_ROOT"
+
+go build -o bin/claude-agents .
+
+# serve is long-lived and spawned on first panel open, so a fresh binary alone
+# does not reach it. Kill it; the next panel open respawns it from the new build.
+# Reopen the popup (prefix+g) afterward to pick up panel-side changes too.
+pkill -f 'claude-agents serve' 2>/dev/null || true
+
+echo "rebuilt bin/claude-agents and restarted serve; reopen the panel (prefix+g)"

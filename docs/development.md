@@ -6,6 +6,7 @@ The Go module is at the repo root, module name `claude-agents`. Everything is ma
 
 - `mise run go:build` builds the `bin/claude-agents` binary.
 - `mise run go:dev` watches the `.go` files and rebuilds that binary on every save.
+- `mise run go:reload` rebuilds the binary and kills the long-lived `serve` process so the next panel open respawns it; reopen the popup to pick up panel changes too.
 - `mise run go:test` runs every Go test.
 - `mise run go:fmt` formats the code, `mise run go:tidy` tidies `go.mod`.
 - `mise run go:lint` builds the custom golangci-lint with this repo's plugins if needed, then runs it with `--fix`.
