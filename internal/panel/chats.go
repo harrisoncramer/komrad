@@ -17,6 +17,17 @@ const chatListWidth = 32
 // the whole view still fits the popup.
 const detailsHeight = 6
 
+// orNA returns the value, or a dimmed "N/A" when it is blank. Every metadata
+// view uses it so all show the same fields and an irrelevant one reads as N/A
+// rather than vanishing, which would jitter the layout as the selection moves.
+func orNA(v string) string {
+	if strings.TrimSpace(v) == "" {
+		return dimStyle.Render("N/A")
+	}
+
+	return v
+}
+
 // workflowName resolves a workflow id to its display name from the loaded
 // workflow list, joining the two resources at display time rather than storing a
 // name on the chat. It returns empty when the id is unknown.
@@ -123,12 +134,14 @@ func (m *model) scrollPreview(up bool) {
 }
 
 // dormantView renders a dormant agent's stored properties in place of a live
-// capture, since its pane is gone.
+// capture, since its pane is gone. It shows a fixed set of fields, with N/A for
+// any that are blank, so the view has the same shape for every dormant chat and
+// does not jitter as the selection moves.
 func dormantView(agent store.Agent) string {
 	label := lipgloss.NewStyle().Foreground(lipgloss.Color("#7E9CD8")).Bold(true)
 
 	field := func(name, value string) string {
-		return label.Render(name) + "  " + value + "\n"
+		return label.Render(name) + "  " + orNA(value) + "\n"
 	}
 
 	var b strings.Builder
@@ -136,18 +149,9 @@ func dormantView(agent store.Agent) string {
 	b.WriteString(field("title    ", agent.Name))
 	b.WriteString(field("directory", agent.Cwd))
 	b.WriteString(field("state    ", agent.State))
-	if agent.Flags != "" {
-		b.WriteString(field("flags    ", agent.Flags))
-	}
-	if agent.Prompt != "" {
-		b.WriteString("\n" + label.Render("prompt") + "\n" + agent.Prompt + "\n")
-	}
-
-	resume := "no saved conversation to resume"
-	if agent.ClaudeSessionID != "" {
-		resume = "will resume conversation " + agent.ClaudeSessionID
-	}
-	b.WriteString("\n" + dimStyle.Render(resume))
+	b.WriteString(field("flags    ", agent.Flags))
+	b.WriteString(field("resume   ", agent.ClaudeSessionID))
+	b.WriteString("\n" + label.Render("prompt") + "\n" + orNA(agent.Prompt) + "\n")
 	b.WriteString("\n" + dimStyle.Render("enter to restore"))
 
 	return b.String()
@@ -188,14 +192,8 @@ func (m model) chatDetails() string {
 	agent := m.chats[m.chatCursor].agent
 	label := lipgloss.NewStyle().Foreground(lipgloss.Color("#7E9CD8")).Bold(true)
 
-	dash := func(v string) string {
-		if strings.TrimSpace(v) == "" {
-			return dimStyle.Render("—")
-		}
-		return v
-	}
 	field := func(name, value string) string {
-		return label.Render(name) + "  " + dash(value)
+		return label.Render(name) + "  " + orNA(value)
 	}
 
 	prompt := agent.Prompt
