@@ -5,6 +5,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -61,8 +62,9 @@ func Open(path string) (*Store, error) {
 		return nil, fmt.Errorf("failed to open db: %w", err)
 	}
 
-	// WAL plus a busy timeout so the frequent, independent opens (hooks, the
-	// once-a-second status render, the panel) don't trip over each other.
+	// WAL plus a busy timeout so the frequent, independent opens (the once-a-second
+	// status render, notify calls, the panel, the serve process) don't trip over
+	// each other.
 	if _, err := conn.Exec("PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;"); err != nil {
 		return nil, fmt.Errorf("failed to set pragmas: %w", err)
 	}
@@ -139,10 +141,10 @@ func (s *Store) Upsert(ctx context.Context, agent Agent) error {
 }
 
 // UpdateState records an agent's state and pane on an existing row, keyed by
-// name. It never inserts: a lifecycle event for a session the tool did not
-// create finds no row and is a no-op, so external Claude sessions that fire the
-// same global hooks never leak into the store. It also never touches
-// cwd/flags/prompt, so hooks don't wipe the metadata captured at launch.
+// name. It never inserts. A notify call from a session the tool did not create
+// finds no row and is a no-op, so an outside Claude session never leaks into the
+// store. It also never touches cwd/flags/prompt, so a state write does not wipe
+// the metadata captured at launch.
 func (s *Store) UpdateState(ctx context.Context, name, pane, state, claudeSessionID string) error {
 	if err := s.queries.UpdateSessionState(ctx, models.UpdateSessionStateParams{
 		Name:            name,
@@ -156,11 +158,16 @@ func (s *Store) UpdateState(ctx context.Context, name, pane, state, claudeSessio
 	return nil
 }
 
-// Get returns an agent by name, or nil when none exists.
+// Get returns an agent by name, nil when none exists, or an error for a real
+// failure. No-rows is the nil case; every other error is surfaced so a caller
+// does not report a genuine DB failure as "not found".
 func (s *Store) Get(ctx context.Context, name string) (*Agent, error) {
 	row, err := s.queries.GetSession(ctx, name)
-	if err != nil {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get session %q: %w", name, err)
 	}
 
 	agent := fromModel(row)
