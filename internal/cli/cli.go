@@ -102,7 +102,11 @@ func NewRootCommand() *cobra.Command {
 				if !state.manager.SessionAlive(target.Name) {
 					restored, err := state.manager.Restore(*target)
 					if err != nil {
-						return err
+						// A restore failure (for example a name that collided on
+						// restore) must not tear down the whole panel and every other
+						// agent's view. Report it and loop back to the picker.
+						fmt.Fprintf(os.Stderr, "restore %q: %v\n", target.Name, err)
+						continue
 					}
 
 					pane = restored
