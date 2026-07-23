@@ -24,3 +24,7 @@ The `[hooks]` table names paths to lifecycle scripts, each an executable with `~
 - `on_delete` runs on destroy with the session name.
 
 The new-chat form's `Directory` field is what the `pre_create` hook receives as the requested directory, alongside the session name.
+
+## Keybindings
+
+The `[keybindings]` table remaps the panel's keys, scoped to the panel each binding acts in. Each action takes a list of key strings, and any action left out keeps its default. Key names are bubbletea key strings such as `enter`, `esc`, `ctrl+d`, `up`, and `k`.
