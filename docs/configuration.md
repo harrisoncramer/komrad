@@ -13,7 +13,7 @@ The environment configuration is loaded via ultra in the `config` package. Do no
 
 ## App config
 
-The app config is a TOML file loaded via `internal/appconfig`. It lives at `~/.config/claude-agents/config.toml`, or wherever `--config <path>` points. Copy `config.example.toml` to start.
+The app config is a TOML file loaded via `internal/appconfig`. It lives at `~/.config/claude-agents/config.toml`, or wherever `--config <path>` points. The repo's `config.toml` lists every setting at its default value; copy it there to start.
 
 The `claude_flags` field is a string of default flags appended to `claude` for every new session. The new-chat form can add more on top.
 

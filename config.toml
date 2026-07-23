@@ -1,0 +1,49 @@
+# claude-agents configuration (github.com/harrisoncramer/tmux-claude-agents).
+#
+# Every value below is the tool's built-in default, spelled out. Copy this file
+# to ~/.config/claude-agents/config.toml and change what you like; anything you
+# delete falls back to the same default shown here.
+
+# Flags appended to `claude` for every new session.
+claude_flags = ""
+
+# Panel keybindings, scoped to the panel each binding acts in. Each action is a
+# list of bubbletea key strings, such as "enter", "esc", "ctrl+d", "up", "k".
+
+# The picker list. `back` also quits. `new`, `chats`, and `search` jump straight
+# to a section from anywhere in the list.
+[keybindings.list]
+quit   = ["ctrl+c", "q"]
+back   = ["esc", "left", "h"]
+up     = ["up", "k"]
+down   = ["down", "j"]
+select = ["enter"]
+new    = ["n"]
+chats  = ["c"]
+search = ["/"]
+
+# The search screen. The query is a live text field, so navigation avoids letter
+# keys, which are typed into it.
+[keybindings.search]
+quit = ["ctrl+c"]
+back = ["esc"]
+up   = ["up", "ctrl+p"]
+down = ["down", "ctrl+n"]
+open = ["enter"]
+
+# The split chats view.
+[keybindings.chats]
+quit         = ["ctrl+c", "q"]
+back         = ["esc", "left", "h"]
+up           = ["up", "k"]
+down         = ["down", "j"]
+open         = ["enter", "l", "right"]
+rename       = ["r"]
+delete       = ["d"]
+preview_down = ["ctrl+d"]
+preview_up   = ["ctrl+u"]
+
+# The new-chat and rename forms. `back` and `quit` both abort the form.
+[keybindings.form]
+quit = ["ctrl+c"]
+back = ["esc"]

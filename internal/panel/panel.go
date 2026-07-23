@@ -247,10 +247,10 @@ func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 func newSessionForm(keys appconfig.FormKeys) *huh.Form {
 	return huh.NewForm(
 		huh.NewGroup(
+			huh.NewText().Key("prompt").Title("Initial prompt").Description("ctrl+e opens $EDITOR"),
 			huh.NewInput().Key("title").Title("Title").Description("optional; claude names it if blank"),
 			huh.NewInput().Key("dir").Title("Directory").Description("blank = current"),
 			huh.NewInput().Key("flags").Title("Claude flags").Placeholder("--model opus"),
-			huh.NewText().Key("prompt").Title("Initial prompt").Description("ctrl+e opens $EDITOR"),
 		),
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
 }

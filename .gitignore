@@ -2,3 +2,5 @@ bin/
 local/
 
 db/gen-schema.sql
+.air.toml
+.air-tmp/
