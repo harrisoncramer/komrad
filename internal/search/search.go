@@ -14,7 +14,7 @@ import (
 )
 
 // bodyCap bounds how much transcript text is distilled per chat. The whole
-// conversation is never held in memory; this much is plenty to match on and
+// conversation is never held in memory. This much is plenty to match on and
 // keeps building the index over every tracked chat fast.
 const bodyCap = 6000
 
@@ -32,7 +32,7 @@ func DefaultProjectsDir() string {
 }
 
 // Chat is the identity of one tracked chat the caller wants indexed. Name is the
-// stable key the caller maps a result back to; ClaudeSessionID locates the
+// stable key the caller maps a result back to. ClaudeSessionID locates the
 // transcript on disk.
 type Chat struct {
 	Name            string
@@ -262,8 +262,8 @@ func distill(path string, doc *Doc) {
 }
 
 // messageText pulls the plain text out of a user/assistant record, whose content
-// is either a bare string or a list of typed blocks. Only text blocks contribute;
-// thinking, tool calls, and tool results are ignored.
+// is either a bare string or a list of typed blocks. Only text blocks contribute.
+// Thinking, tool calls, and tool results are ignored.
 func messageText(raw json.RawMessage) string {
 	if len(raw) == 0 {
 		return ""

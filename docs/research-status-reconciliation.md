@@ -1,11 +1,12 @@
 # Spike: periodic status reconciliation
 
-Status: implemented. The reconciler runs in the serve process; see the
-Reconciliation section of concepts.md for the shipped behaviour. This document is
-kept as the design rationale. The implementation uses the pane working marker as
-the primary signal rather than the transcript modification time, because a
-long-running tool writes nothing to the transcript for minutes yet keeps its live
-timer on screen, so the pane is the more reliable read of "still working".
+Status: superseded. The reconciler shipped in the serve process, and the design
+then went further than this doc proposed: the Claude Code hooks were removed
+entirely and the reconciler became the sole source of state, reading it from the
+pane every couple of seconds. See the "How state is worked out" section of
+concepts.md for the shipped behaviour. This document is kept only as the record
+of how the reconciler idea started; the hybrid it describes, hooks as the fast
+path plus a reconciler safety net, is not what was built.
 
 ## Problem
 

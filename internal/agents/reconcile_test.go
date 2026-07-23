@@ -51,10 +51,12 @@ func stateOf(t *testing.T, st *store.Store, name string) string {
 	return got.State
 }
 
-// busyFrame is a real Claude Code working line; idleFrame is the input box shown
-// when it sits at the prompt. captured from the live UI.
+// busyFrame is a real Claude Code working line. idleFrame is the input box shown
+// when it sits at the prompt. waitFrame is the confirmation dialog. All shaped
+// after the live UI.
 const busyFrame = "· Cooking… (1m 50s · ↓ 5.4k tokens)\n───────\n❯ \n───────"
 const idleFrame = "───────────────\n❯ \n───────────────\n  -- INSERT -- ⏵⏵ bypass permissions on"
+const waitFrame = "Teleport anywhere for one day. Where?\n❯ 1. Tokyo\n  2. Patagonia\n\nEnter to select · ↑/↓ to navigate · Esc to cancel"
 
 func TestFrameShowsWork(t *testing.T) {
 	working := []string{
@@ -71,6 +73,7 @@ func TestFrameShowsWork(t *testing.T) {
 
 	idle := []string{
 		idleFrame,
+		waitFrame, // a confirmation prompt is not "working"
 		"✻ Brewed for 2m 36s",
 		"❯ \n  -- INSERT --",
 		"",
@@ -78,6 +81,23 @@ func TestFrameShowsWork(t *testing.T) {
 	for _, f := range idle {
 		if frameShowsWork(f) {
 			t.Fatalf("want idle for %q", f)
+		}
+	}
+}
+
+func TestFrameShowsWaiting(t *testing.T) {
+	waiting := []string{
+		waitFrame, // a multiple-choice question menu
+		"Do you want to proceed?\n❯ 1. Yes\n  2. No\nEnter to select · Esc to cancel",
+	}
+	for _, f := range waiting {
+		if !frameShowsWaiting(f) {
+			t.Fatalf("selection prompt should read as waiting: %q", f)
+		}
+	}
+	for _, f := range []string{busyFrame, idleFrame, ""} {
+		if frameShowsWaiting(f) {
+			t.Fatalf("non-prompt frame read as waiting: %q", f)
 		}
 	}
 }
@@ -182,14 +202,62 @@ func TestReconcileEmptyCaptureIsInconclusive(t *testing.T) {
 	}
 }
 
-func TestReconcileLeavesStableStates(t *testing.T) {
+// TestReconcilePromotesOnWork covers the reconciler now being the thing that
+// starts an agent thinking, replacing the old prompt hook: a new or finished
+// agent whose pane shows work is moved to thinking on the next pass.
+func TestReconcilePromotesOnWork(t *testing.T) {
+	for _, from := range []string{store.StateNew, store.StateDone} {
+		st := newStore(t)
+		seed(t, st, "revive", "%1", from)
+		tmux := &fakeTmux{
+			alive:    map[string]bool{"revive": true},
+			captures: map[string]string{"%1": busyFrame},
+		}
+		rec := NewReconciler(tmux, st)
+
+		_ = rec.Reconcile(context.Background())
+		if got := stateOf(t, st, "revive"); got != store.StateThinking {
+			t.Fatalf("from %q with work on pane: want thinking, got %q", from, got)
+		}
+	}
+}
+
+// TestReconcileDetectsWaiting covers the confirmation prompt moving an agent to
+// waiting, and the prompt clearing (answered) letting it settle back to done.
+func TestReconcileDetectsWaiting(t *testing.T) {
 	st := newStore(t)
-	seed(t, st, "waits", "%1", store.StateWaiting)
+	seed(t, st, "ask", "%1", store.StateThinking)
+	tmux := &fakeTmux{
+		alive:    map[string]bool{"ask": true},
+		captures: map[string]string{"%1": waitFrame},
+	}
+	rec := NewReconciler(tmux, st)
+	ctx := context.Background()
+
+	_ = rec.Reconcile(ctx)
+	if got := stateOf(t, st, "ask"); got != store.StateWaiting {
+		t.Fatalf("confirmation prompt: want waiting, got %q", got)
+	}
+
+	// Prompt answered, agent idle: settles to done after the debounce.
+	tmux.captures["%1"] = idleFrame
+	for range reconcileMisses {
+		_ = rec.Reconcile(ctx)
+	}
+	if got := stateOf(t, st, "ask"); got != store.StateDone {
+		t.Fatalf("after the prompt cleared: want done, got %q", got)
+	}
+}
+
+// TestReconcileLeavesIdleNewAndDone confirms the reconciler does not disturb an
+// idle agent that has not started (new) or has finished (done).
+func TestReconcileLeavesIdleNewAndDone(t *testing.T) {
+	st := newStore(t)
 	seed(t, st, "fresh", "%2", store.StateNew)
 	seed(t, st, "fin", "%3", store.StateDone)
 	tmux := &fakeTmux{
-		alive:    map[string]bool{"waits": true, "fresh": true, "fin": true},
-		captures: map[string]string{"%1": idleFrame, "%2": idleFrame, "%3": idleFrame},
+		alive:    map[string]bool{"fresh": true, "fin": true},
+		captures: map[string]string{"%2": idleFrame, "%3": idleFrame},
 	}
 	rec := NewReconciler(tmux, st)
 
@@ -197,14 +265,11 @@ func TestReconcileLeavesStableStates(t *testing.T) {
 		_ = rec.Reconcile(context.Background())
 	}
 
-	if got := stateOf(t, st, "waits"); got != store.StateWaiting {
-		t.Fatalf("waiting should be left to the hooks, got %q", got)
-	}
 	if got := stateOf(t, st, "fresh"); got != store.StateNew {
-		t.Fatalf("new should be untouched, got %q", got)
+		t.Fatalf("idle new should be untouched, got %q", got)
 	}
 	if got := stateOf(t, st, "fin"); got != store.StateDone {
-		t.Fatalf("done should be untouched, got %q", got)
+		t.Fatalf("idle done should be untouched, got %q", got)
 	}
 }
 
@@ -223,7 +288,7 @@ func TestReconcileForgetsVanishedAgents(t *testing.T) {
 		t.Fatal("expected a recorded miss for the idle agent")
 	}
 
-	// The agent leaves the listing; its miss entry must be reaped.
+	// The agent leaves the listing, so its miss entry must be reaped.
 	_ = st.SoftDelete(ctx, "temp")
 	_ = rec.Reconcile(ctx)
 	if len(rec.misses) != 0 {

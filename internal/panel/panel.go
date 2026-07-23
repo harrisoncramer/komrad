@@ -25,7 +25,7 @@ import (
 
 // previewInterval is how often the chats preview re-captures the hovered pane.
 // It is fast because the capture is a local tmux read. chatsInterval is how
-// often the chats list re-lists over RPC; it is slower and, crucially, runs off
+// often the chats list re-lists over RPC. It is slower and, crucially, runs off
 // the render loop, so a slow serve can never freeze the UI.
 const (
 	previewInterval = 200 * time.Millisecond
@@ -65,19 +65,25 @@ func (m model) loadChatsCmd() tea.Cmd {
 			return chatsLoadedMsg{ok: false}
 		}
 
-		items := make([]chatItem, 0, len(resp.Msg.GetSessions()))
-		for _, session := range resp.Msg.GetSessions() {
-			agent := protoToAgent(session)
-			items = append(items, chatItem{agent: agent, alive: manager.PaneAlive(agent.Pane)})
-		}
-		return chatsLoadedMsg{items: items, ok: true}
+		return chatsLoadedMsg{items: chatItemsFrom(resp.Msg.GetSessions(), manager), ok: true}
 	}
+}
+
+// chatItemsFrom maps listed sessions to chat items, marking which panes are live.
+func chatItemsFrom(sessions []*sessionv1.Session, manager *agents.AgentManager) []chatItem {
+	items := make([]chatItem, 0, len(sessions))
+	for _, session := range sessions {
+		agent := protoToAgent(session)
+		items = append(items, chatItem{agent: agent, alive: manager.PaneAlive(agent.Pane)})
+	}
+
+	return items
 }
 
 // Run launches the panel and blocks until it exits. Sessions are read through
 // the ConnectRPC client. If the user opens an agent, Run returns it so the
-// caller can attach in place; otherwise it returns nil. When focus is set (the
-// caller looped back after detaching from an agent), the panel opens on the
+// caller can attach in place, otherwise it returns nil. When the caller loops
+// back after detaching from an agent it sets focus, and the panel opens on the
 // chats picker with that agent selected instead of at the root list.
 func Run(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, client string, keys appconfig.Keybindings, focus *store.Agent) (*store.Agent, error) {
 	final, err := tea.NewProgram(newModel(manager, sessions, client, keys, focus), tea.WithAltScreen()).Run()
@@ -226,19 +232,14 @@ func (m *model) reload() {
 		return
 	}
 
-	items := make([]chatItem, 0, len(resp.Msg.GetSessions()))
-	for _, session := range resp.Msg.GetSessions() {
-		agent := protoToAgent(session)
-		items = append(items, chatItem{agent: agent, alive: m.manager.PaneAlive(agent.Pane)})
-	}
-
+	items := chatItemsFrom(resp.Msg.GetSessions(), m.manager)
 	m.chats = items
 	m.rows = buildRows(len(items))
 }
 
 // applyChats merges a freshly-listed set into the on-screen chats. It keeps the
 // current order rather than re-sorting by recency, since reordering under the
-// cursor is jarring and defeats an index-based selection; new chats are appended
+// cursor is jarring and defeats an index-based selection. New chats are appended
 // and vanished ones dropped, and the cursor stays on whichever chat it was on.
 // The fresh items carry updated state and liveness, so a reconciler or hook
 // change shows without a structural reload.
@@ -376,7 +377,7 @@ func formKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
 
 func (m model) Init() tea.Cmd {
 	// Always drive the async chats refresh, so the root list's count and the
-	// chats screen both stay current; add the preview tick only on the chats
+	// chats screen both stay current. Add the preview tick only on the chats
 	// screen, where a hovered pane is shown.
 	cmds := []tea.Cmd{chatsTick(), m.loadChatsCmd()}
 	if m.screen == screenChats {

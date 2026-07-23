@@ -12,6 +12,8 @@ import (
 	"claude-agents/internal/store"
 	"claude-agents/internal/tmux"
 	"claude-agents/lib/xstr"
+
+	"github.com/google/uuid"
 )
 
 // previewScrollTicks is how many wheel notches one preview scroll sends, so a
@@ -87,7 +89,7 @@ func (m *AgentManager) Preview(agent store.Agent, width, height int) string {
 // ScrollPreview moves a live agent's own view by sending mouse-wheel events to
 // its pane, so the next capture reflects the scroll. Claude keeps its scrollback
 // internally and there is none in tmux to scroll locally. The wheel is aimed at
-// the box center; Preview keeps the window sized to that box on every tick, so no
+// the box center. Preview keeps the window sized to that box on every tick, so no
 // resize is needed here. Attached sessions are left alone so a live client's view
 // is never disturbed.
 func (m *AgentManager) ScrollPreview(agent store.Agent, width, height int, up bool) {
@@ -150,16 +152,22 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 
 	pane, _ := m.tmux.PaneID(name)
 	flags := strings.TrimSpace(m.claudeFlags + " " + p.Flags)
+
+	// Generate Claude's session id ourselves and launch with --session-id, so the
+	// id is known without a hook reporting it, and restoring the agent can resume
+	// that same conversation with --resume.
+	sessionID := uuid.NewString()
 	_ = m.sessions.Upsert(context.Background(), store.Agent{
-		Name:   name,
-		Pane:   pane,
-		Cwd:    dir,
-		Flags:  flags,
-		Prompt: p.Prompt,
-		State:  store.StateNew,
+		Name:            name,
+		Pane:            pane,
+		Cwd:             dir,
+		Flags:           flags,
+		Prompt:          p.Prompt,
+		State:           store.StateNew,
+		ClaudeSessionID: sessionID,
 	})
 
-	m.launchClaude(name, flags, p.Prompt, "")
+	m.launchClaude(name, flags, p.Prompt, sessionID, false)
 }
 
 // SearchCandidates returns every tracked chat, including soft-deleted ones, for
@@ -201,7 +209,7 @@ func (m *AgentManager) Restore(agent store.Agent) (string, error) {
 		return "", fmt.Errorf("failed to restore session %q: %w", agent.Name, err)
 	}
 
-	m.launchClaude(agent.Name, agent.Flags, "", agent.ClaudeSessionID)
+	m.launchClaude(agent.Name, agent.Flags, "", agent.ClaudeSessionID, true)
 
 	return pane, nil
 }
@@ -228,7 +236,7 @@ func (m *AgentManager) uniqueSessionName(title, prompt string) string {
 // nameTaken reports whether a name is unavailable for a new session. A name is
 // taken if a live tmux session already uses it, or if a live agent record still
 // owns it. The store check matters for a dormant agent, whose tmux session is
-// gone yet whose record keeps the name; reusing it would make the upsert clobber
+// gone yet whose record keeps the name. Reusing it would make the upsert clobber
 // that agent's row instead of creating a fresh one.
 func (m *AgentManager) nameTaken(name string) bool {
 	if m.tmux.HasSession(name) {
@@ -239,24 +247,30 @@ func (m *AgentManager) nameTaken(name string) bool {
 	return taken
 }
 
-// launchClaude types the claude command into a session. A resumeID resumes that
-// prior conversation; otherwise an opening prompt is passed through a temp file
-// (so multi-line input survives), removed as the command runs.
-func (m *AgentManager) launchClaude(session, flags, prompt, resumeID string) {
+// launchClaude types the claude command into a session. When resume is set it
+// resumes the prior conversation by session id; otherwise it starts a new
+// conversation pinned to that session id, with the opening prompt passed through
+// a temp file so multi-line input survives, removed as the command runs.
+func (m *AgentManager) launchClaude(session, flags, prompt, sessionID string, resume bool) {
 	command := "claude"
 	if flags != "" {
 		command += " " + flags
 	}
 
 	switch {
-	case resumeID != "":
-		command += " --resume " + resumeID
-	case prompt != "":
-		file, err := os.CreateTemp("", "claude-prompt-*.md")
-		if err == nil {
-			_, _ = file.WriteString(prompt)
-			_ = file.Close()
-			command += fmt.Sprintf(" \"$(cat '%s'; rm '%s')\"", file.Name(), file.Name())
+	case resume && sessionID != "":
+		command += " --resume " + sessionID
+	default:
+		if sessionID != "" {
+			command += " --session-id " + sessionID
+		}
+		if prompt != "" {
+			file, err := os.CreateTemp("", "claude-prompt-*.md")
+			if err == nil {
+				_, _ = file.WriteString(prompt)
+				_ = file.Close()
+				command += fmt.Sprintf(" \"$(cat '%s'; rm '%s')\"", file.Name(), file.Name())
+			}
 		}
 	}
 
@@ -272,40 +286,6 @@ func (m *AgentManager) Notify(mainSession, pane, _ string) {
 	}
 
 	_ = m.sessions.UpdateState(context.Background(), key, pane, store.StateDone, "")
-}
-
-// Hook advances an agent's state from a Claude Code lifecycle event and records
-// Claude's own session id (for --resume on restore).
-func (m *AgentManager) Hook(mode, mainSession, pane, claudeSessionID string) {
-	key := m.agentKey(mainSession)
-	if key == "" {
-		return
-	}
-
-	ctx := context.Background()
-	switch mode {
-	case "prompt":
-		_ = m.sessions.UpdateState(ctx, key, pane, store.StateThinking, claudeSessionID)
-	case "notification":
-		existing, _ := m.sessions.Get(ctx, key)
-		if existing != nil && existing.State == store.StateDone {
-			return
-		}
-
-		_ = m.sessions.UpdateState(ctx, key, pane, store.StateWaiting, claudeSessionID)
-	case "posttooluse":
-		existing, _ := m.sessions.Get(ctx, key)
-		if existing != nil && existing.State == store.StateWaiting {
-			_ = m.sessions.UpdateState(ctx, key, pane, store.StateThinking, claudeSessionID)
-		}
-	case "stop":
-		existing, _ := m.sessions.Get(ctx, key)
-		if existing != nil && existing.State == store.StateDone {
-			return
-		}
-
-		_ = m.sessions.UpdateState(ctx, key, pane, store.StateDone, claudeSessionID)
-	}
 }
 
 // Status renders the global agent summary for the tmux status bar.

@@ -1,6 +1,6 @@
 # Commands
 
-The binary is `claude-agents`. Running it with no subcommand opens the [panel](panel.md). The subcommands exist for the plugin and the Claude Code hooks to call, though you can run them by hand. This page says what each is for; for the exact usage line and every flag, see [reference/](reference/claude-agents.md) or run `claude-agents <command> --help`.
+The binary is `claude-agents`. Running it with no subcommand opens the [panel](panel.md). The subcommands exist for the plugin to call, though you can run them by hand. This page says what each is for; for the exact usage line and every flag, see [reference/](reference/claude-agents.md) or run `claude-agents <command> --help`.
 
 ## serve
 
@@ -17,7 +17,3 @@ The `notify` command records the calling agent as done with a one-line message. 
 ## status
 
 The `status` command prints the status-bar aggregate, the single count across every session, for example `1 working  1 done`. The tmux status line calls it to render the `#{claude_agents}` placeholder.
-
-## hook
-
-The `hook` command advances an agent's state from a Claude Code lifecycle event. It takes one argument, `prompt`, `notification`, `posttooluse`, or `stop`. On `prompt` the agent is marked thinking and Claude's session id is recorded off the hook's stdin JSON; on `notification` the agent is marked waiting, which is the state Claude reports when it needs a permission or is otherwise blocked on you; on `posttooluse` a waiting agent is moved back to thinking, so the block clears the moment work resumes after you answer; on `stop` the agent is marked done. These are wired into Claude Code's `UserPromptSubmit`, `Notification`, `PostToolUse`, and `Stop` hooks. See [installation](install.md) for the settings.

@@ -3,9 +3,7 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -84,8 +82,8 @@ func NewRootCommand() *cobra.Command {
 			state.manager.MarkPanelOpen()
 			defer state.manager.MarkPanelClosed()
 
-			// The popup is a persistent space: show the picker; when the user
-			// opens an agent, attach to it in place; when they detach, loop back
+			// The popup is a persistent space. Show the picker, and when the user
+			// opens an agent, attach to it in place. When they detach, loop back
 			// to the picker with that agent selected. The popup closes only when
 			// the picker is quit.
 			var focus *store.Agent
@@ -122,18 +120,17 @@ func NewRootCommand() *cobra.Command {
 		newCmd(state),
 		notifyCmd(state),
 		statusCmd(state),
-		hookCmd(state),
 		serveCmd(state),
 	)
 
 	return root
 }
 
-// reconcileInterval is how often the serve process re-observes every agent to
-// correct states the edge-triggered hooks left stranded (an interrupt, a crash,
-// a killed session). Frequent enough that a stuck "working" clears within a few
-// seconds, cheap enough that the tmux captures are negligible.
-const reconcileInterval = 5 * time.Second
+// reconcileInterval is how often the serve process re-observes every agent and
+// writes its state. It is the only thing that moves an agent's state, so it is
+// brisk enough that starting or finishing work shows within a couple seconds,
+// while the tmux captures stay cheap.
+const reconcileInterval = 2 * time.Second
 
 func serveCmd(state *app) *cobra.Command {
 	var addr string
@@ -147,7 +144,7 @@ func serveCmd(state *app) *cobra.Command {
 			mux.Handle(path, handler)
 
 			// The reconciler runs here rather than in the panel because serve is
-			// the always-on process that owns the store; the counts must stay
+			// the always-on process that owns the store. The counts must stay
 			// correct even when no panel is open.
 			go runReconcileLoop(cmd.Context(), state.manager.Reconciler(), reconcileInterval)
 
@@ -222,28 +219,6 @@ func statusCmd(state *app) *cobra.Command {
 			return nil
 		},
 	}
-}
-
-func hookCmd(state *app) *cobra.Command {
-	return &cobra.Command{
-		Use:   "hook <prompt|notification|posttooluse|stop>",
-		Short: "Advance agent state from a Claude Code lifecycle event",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			state.manager.Hook(args[0], state.env.MainSession, state.env.TmuxPane, hookSessionID(cmd.InOrStdin()))
-			return nil
-		},
-	}
-}
-
-// hookSessionID reads Claude's session_id from the hook JSON payload on stdin.
-func hookSessionID(r io.Reader) string {
-	var payload struct {
-		SessionID string `json:"session_id"`
-	}
-
-	_ = json.NewDecoder(r).Decode(&payload)
-	return payload.SessionID
 }
 
 // ensureServer makes sure a session server is reachable at addr, spawning a

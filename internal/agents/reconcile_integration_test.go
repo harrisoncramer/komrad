@@ -71,10 +71,10 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	ctx := context.Background()
 	rec := NewReconciler(cli, st)
 
-	// A busy agent: the pane keeps a realistic working line on screen, so the
-	// detector is exercised against the same shape the real UI renders.
+	// A busy agent, seeded new: the pane keeps a realistic working line on screen,
+	// so the reconciler must promote it to thinking (the old prompt hook's job).
 	busyPane := it.spawn("busy", `sh -c 'while true; do printf "\033[H· Cooking… (3s · down 1k tokens)\n"; sleep 1; done'`)
-	seed(t, st, "busy", busyPane, store.StateThinking)
+	seed(t, st, "busy", busyPane, store.StateNew)
 	waitForFrame(t, cli, busyPane, "Cooking…")
 
 	// An idle agent: it renders a Claude-like input box with no timer, the way a
@@ -83,6 +83,12 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	idlePane := it.spawn("idle", `sh -c 'printf "\033[H❯ \n-- INSERT --\n"; sleep 300'`)
 	seed(t, st, "idle", idlePane, store.StateThinking)
 	waitForFrame(t, cli, idlePane, "INSERT")
+
+	// A waiting agent: the pane shows an interactive selection with its footer,
+	// the general signal for any prompt Claude is blocked on.
+	waitPane := it.spawn("wait", `sh -c 'printf "\033[HPick one\n❯ 1. A\n  2. B\nEnter to select · Esc to cancel\n"; sleep 300'`)
+	seed(t, st, "wait", waitPane, store.StateThinking)
+	waitForFrame(t, cli, waitPane, "Enter to select")
 
 	// A killed agent: seed it, then tear the session down so has-session is false.
 	deadPane := it.spawn("dead", "sleep 300")
@@ -100,6 +106,9 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	}
 	if got := stateOf(t, st, "idle"); got != store.StateDone {
 		t.Fatalf("idle agent: want done, got %q", got)
+	}
+	if got := stateOf(t, st, "wait"); got != store.StateWaiting {
+		t.Fatalf("waiting agent: want waiting, got %q", got)
 	}
 	if got := stateOf(t, st, "dead"); got != store.StateDone {
 		t.Fatalf("dead agent: want done, got %q", got)

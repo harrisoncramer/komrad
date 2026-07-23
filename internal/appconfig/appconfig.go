@@ -21,7 +21,7 @@ type Keybindings struct {
 }
 
 // FormKeys are the bindings for the new-chat and rename forms. Back and Quit
-// both abort the form; the split mirrors the other panels so users can rebind
+// both abort the form. The split mirrors the other panels so users can rebind
 // them separately.
 type FormKeys struct {
 	Quit   []string `mapstructure:"quit"`
@@ -157,7 +157,7 @@ func (k Keybindings) withDefaults() Keybindings {
 
 // Load reads the config from path when given, otherwise from the default
 // location (~/.config/claude-agents/config.toml). A missing file is not an
-// error; it yields a zero-value Config.
+// error. It yields a zero-value Config.
 func Load(path string) (*Config, error) {
 	v := viper.New()
 	v.SetConfigType("toml")

@@ -1,5 +1,5 @@
 // Package tmux wraps the tmux CLI for a single tmux server socket. Query methods
-// return output and an error; side-effect methods are best effort, since the
+// return output and an error. Side-effect methods are best effort, since the
 // panel closes right after and a failure is not recoverable.
 package tmux
 
@@ -13,7 +13,7 @@ import (
 
 // wheelEventGap paces mouse-wheel events sent to a pane. Claude coalesces events
 // that land within one render frame into a single scroll notch, so a burst with
-// no gap barely moves; spaced out, each notch registers.
+// no gap barely moves. Spaced out, each notch registers.
 const wheelEventGap = 40 * time.Millisecond
 
 // Client talks to one tmux server socket.
@@ -121,7 +121,7 @@ func (c *Client) SetGlobal(name, value string) {
 }
 
 // CapturePane returns the visible content of a pane with colors preserved.
-// Claude runs on the alternate screen, so tmux holds no scrollback for it; the
+// Claude runs on the alternate screen, so tmux holds no scrollback for it. The
 // visible frame is all there is to capture, and its own view is moved with
 // ScrollPane.
 func (c *Client) CapturePane(pane string) string {

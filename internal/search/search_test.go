@@ -105,7 +105,7 @@ func TestSearch(t *testing.T) {
 
 func TestSearchRanksNameOverBody(t *testing.T) {
 	projectsDir := t.TempDir()
-	// One chat is named "hooks"; another only mentions hooks deep in its body.
+	// One chat is named "hooks", another only mentions hooks deep in its body.
 	writeTranscript(t, projectsDir, "p1", "cid-named", []string{
 		`{"type":"user","message":{"role":"user","content":"help me here"}}`,
 	})

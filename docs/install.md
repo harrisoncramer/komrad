@@ -1,6 +1,6 @@
 # Installation
 
-There are two sides to install: the tmux plugin, which draws the status bar and the panel, and the Claude Code hooks, which report each agent's state.
+Install is just the tmux plugin, which draws the status bar and the panel. Agent state is worked out by the tool itself, so there are no Claude Code hooks to wire.
 
 ## Requirements
 
@@ -29,26 +29,11 @@ Then press `prefix + I` to install. The panel key defaults to `g`; change it wit
 set -g @claude_agents_key 'g'
 ```
 
-## Claude Code side
+## Agent state
 
-The status hooks and the notify command ship in `scripts/`. Wire the hooks in Claude Code `settings.json`, pointing at the plugin path:
+There is nothing to configure. The `serve` process watches every agent it launched and works out each one's state by reading its tmux pane, so state stays correct on its own. This only covers agents created through the tool; a Claude session you start yourself is never tracked.
 
-```
-"hooks": {
-  "UserPromptSubmit": [
-    { "matcher": "", "hooks": [ { "type": "command", "command": "$HOME/.tmux/plugins/tmux-claude-agents/scripts/claude-tmux-status.sh prompt" } ] }
-  ],
-  "Notification": [
-    { "matcher": "", "hooks": [ { "type": "command", "command": "$HOME/.tmux/plugins/tmux-claude-agents/scripts/claude-tmux-status.sh notification" } ] }
-  ],
-  "PostToolUse": [
-    { "matcher": "", "hooks": [ { "type": "command", "command": "$HOME/.tmux/plugins/tmux-claude-agents/scripts/claude-tmux-status.sh posttooluse" } ] }
-  ],
-  "Stop": [
-    { "matcher": "", "hooks": [ { "type": "command", "command": "$HOME/.tmux/plugins/tmux-claude-agents/scripts/claude-tmux-status.sh stop" } ] }
-  ]
-}
-```
+## Notify (optional)
 
 To mark an agent done from within a turn, have it run this as its final step:
 
