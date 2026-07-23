@@ -23,3 +23,32 @@ claude_flags = "--model opus"
 #   cd "$dir" || exit 0
 #   wtc "$name" >/dev/null 2>&1   # worktrunk create
 #   wt path "$name"               # print the new worktree path on stdout
+
+# Panel keybindings, scoped to the panel each binding acts in. Every action is a
+# list of bubbletea key strings; any action left out keeps its default (the
+# values shown below).
+
+# The picker list. `back` also quits.
+[keybindings.list]
+# quit   = ["ctrl+c", "q"]
+# back   = ["esc", "left", "h"]
+# up     = ["up", "k"]
+# down   = ["down", "j"]
+# select = ["enter"]
+
+# The split chats view.
+[keybindings.chats]
+# quit         = ["ctrl+c", "q"]
+# back         = ["esc", "left", "h"]
+# up           = ["up", "k"]
+# down         = ["down", "j"]
+# open         = ["enter", "l", "right"]
+# rename       = ["r"]
+# delete       = ["d"]
+# preview_down = ["ctrl+d"]
+# preview_up   = ["ctrl+u"]
+
+# The new-chat and rename forms. `back` and `quit` both abort the form.
+[keybindings.form]
+# quit = ["ctrl+c"]
+# back = ["esc"]

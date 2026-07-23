@@ -30,6 +30,7 @@ type app struct {
 	manager  *agents.AgentManager
 	sessions *store.Store
 	env      *config.Config
+	keys     appconfig.Keybindings
 }
 
 // NewRootCommand builds the claude-agents command tree. Running it with no
@@ -61,6 +62,7 @@ func NewRootCommand() *cobra.Command {
 			}
 
 			state.env = env
+			state.keys = cfg.Keybindings
 			state.sessions = sessions
 			state.manager = agents.NewAgentManager(agents.Params{
 				Tmux:        tmux.NewClient(env.TmuxSocket),
@@ -90,7 +92,7 @@ func NewRootCommand() *cobra.Command {
 			// opens an agent, attach to it in place; when they detach, loop back
 			// to the picker. The popup closes only when the picker is quit.
 			for {
-				target, err := panel.Run(state.manager, sessions, client)
+				target, err := panel.Run(state.manager, sessions, client, state.keys)
 				if err != nil {
 					return err
 				}

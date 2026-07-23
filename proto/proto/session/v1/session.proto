@@ -54,7 +54,7 @@ service SessionService {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
   // Mutations key on the unique session name, so repeating them yields the same
-  // state — idempotent, safe for the client to retry.
+  // state. They are idempotent and safe for the client to retry.
   rpc SetState(SetStateRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
   }

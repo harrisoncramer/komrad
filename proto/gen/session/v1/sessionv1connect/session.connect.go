@@ -56,7 +56,7 @@ type SessionServiceClient interface {
 	ListSessions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListSessionsResponse], error)
 	GetSession(context.Context, *connect.Request[v1.GetSessionRequest]) (*connect.Response[v1.GetSessionResponse], error)
 	// Mutations key on the unique session name, so repeating them yields the same
-	// state — idempotent, safe for the client to retry.
+	// state. They are idempotent and safe for the client to retry.
 	SetState(context.Context, *connect.Request[v1.SetStateRequest]) (*connect.Response[emptypb.Empty], error)
 	DeleteSession(context.Context, *connect.Request[v1.DeleteSessionRequest]) (*connect.Response[emptypb.Empty], error)
 	// UpdateSession patches a session by id (currently its title/name).
@@ -152,7 +152,7 @@ type SessionServiceHandler interface {
 	ListSessions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListSessionsResponse], error)
 	GetSession(context.Context, *connect.Request[v1.GetSessionRequest]) (*connect.Response[v1.GetSessionResponse], error)
 	// Mutations key on the unique session name, so repeating them yields the same
-	// state — idempotent, safe for the client to retry.
+	// state. They are idempotent and safe for the client to retry.
 	SetState(context.Context, *connect.Request[v1.SetStateRequest]) (*connect.Response[emptypb.Empty], error)
 	DeleteSession(context.Context, *connect.Request[v1.DeleteSessionRequest]) (*connect.Response[emptypb.Empty], error)
 	// UpdateSession patches a session by id (currently its title/name).

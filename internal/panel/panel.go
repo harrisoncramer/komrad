@@ -7,11 +7,13 @@ import (
 	"time"
 
 	"claude-agents/internal/agents"
+	"claude-agents/internal/appconfig"
 	"claude-agents/internal/store"
 	sessionv1 "claude-agents/proto/gen/session/v1"
 	"claude-agents/proto/gen/session/v1/sessionv1connect"
 
 	"connectrpc.com/connect"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -30,9 +32,11 @@ func tick() tea.Cmd {
 
 // Run launches the panel and blocks until it exits. Sessions are read through
 // the ConnectRPC client. If the user opens an agent, Run returns it so the
-// caller can attach in place; otherwise it returns nil.
-func Run(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, client string) (*store.Agent, error) {
-	final, err := tea.NewProgram(newModel(manager, sessions, client), tea.WithAltScreen()).Run()
+// caller can attach in place; otherwise it returns nil. When focus is set (the
+// caller looped back after detaching from an agent), the panel opens on the
+// chats picker with that agent selected instead of at the root list.
+func Run(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, client string, keys appconfig.Keybindings, focus *store.Agent) (*store.Agent, error) {
+	final, err := tea.NewProgram(newModel(manager, sessions, client, keys, focus), tea.WithAltScreen()).Run()
 	if err != nil {
 		return nil, fmt.Errorf("failed to run panel: %w", err)
 	}
@@ -111,15 +115,18 @@ type model struct {
 	form         *huh.Form
 	renameTarget store.Agent
 
+	keys appconfig.Keybindings
+
 	width  int
 	height int
 }
 
-func newModel(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, client string) model {
+func newModel(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, client string, keys appconfig.Keybindings) model {
 	m := model{
 		manager:  manager,
 		sessions: sessions,
 		client:   client,
+		keys:     keys,
 		screen:   screenList,
 		preview:  viewport.New(0, 0),
 	}
@@ -129,7 +136,7 @@ func newModel(manager *agents.AgentManager, sessions sessionv1connect.SessionSer
 }
 
 // chatItem is a stored agent plus whether its tmux pane is currently alive. A
-// dormant agent (dead pane) is kept — it can be restored from its stored state.
+// dormant agent has a dead pane but is kept, since it can be restored from its stored state.
 type chatItem struct {
 	agent store.Agent
 	alive bool
@@ -175,12 +182,12 @@ func buildRows(count int) []row {
 	}
 }
 
-func renameForm(current string) *huh.Form {
+func renameForm(current string, keys appconfig.FormKeys) *huh.Form {
 	return huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().Key("name").Title(fmt.Sprintf("Rename %q to", current)),
 		),
-	).WithShowHelp(true)
+	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
 }
 
 func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -208,7 +215,7 @@ func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-func newSessionForm() *huh.Form {
+func newSessionForm(keys appconfig.FormKeys) *huh.Form {
 	return huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().Key("title").Title("Title").Description("optional; claude names it if blank"),
@@ -216,7 +223,18 @@ func newSessionForm() *huh.Form {
 			huh.NewInput().Key("flags").Title("Claude flags").Placeholder("--model opus"),
 			huh.NewText().Key("prompt").Title("Initial prompt").Description("ctrl+e opens $EDITOR"),
 		),
-	).WithShowHelp(true)
+	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
+}
+
+// formKeyMap is the default form keymap with the configured back and quit keys
+// bound to abort, so esc backs out of a form the same way it leaves other
+// screens.
+func formKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
+	quit := append(append([]string{}, keys.Back...), keys.Quit...)
+
+	km := huh.NewDefaultKeyMap()
+	km.Quit = key.NewBinding(key.WithKeys(quit...), key.WithHelp(hintKeys(keys.Back), "back"))
+	return km
 }
 
 func (m model) Init() tea.Cmd { return nil }
@@ -262,18 +280,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) updateList(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch key.String() {
-	case "ctrl+c", "q", "esc":
+	k := key.String()
+	switch {
+	case bound(k, m.keys.List.Quit), bound(k, m.keys.List.Back):
 		return m, tea.Quit
-	case "up", "k":
+	case bound(k, m.keys.List.Up):
 		if m.cursor > 0 {
 			m.cursor--
 		}
-	case "down", "j":
+	case bound(k, m.keys.List.Down):
 		if m.cursor < len(m.rows)-1 {
 			m.cursor++
 		}
-	case "enter":
+	case bound(k, m.keys.List.Select):
 		return m.selectRow(m.rows[m.cursor])
 	}
 
@@ -283,7 +302,7 @@ func (m model) updateList(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) selectRow(selected row) (tea.Model, tea.Cmd) {
 	switch selected.kind {
 	case rowNewChat:
-		m.form = newSessionForm()
+		m.form = newSessionForm(m.keys.Form)
 		m.screen = screenForm
 		return m, m.form.Init()
 	case rowChats:
@@ -315,7 +334,9 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Flags:  m.form.GetString("flags"),
 			Prompt: m.form.GetString("prompt"),
 		})
-		return m, tea.Quit
+		m.reload()
+		m.screen = screenList
+		return m, nil
 	case huh.StateAborted:
 		m.screen = screenList
 		return m, nil

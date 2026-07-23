@@ -14,33 +14,34 @@ const chatListWidth = 32
 // updateChats drives the split chats view: arrows move the selection, letter
 // keys act on the hovered chat, and ctrl+d/ctrl+u scroll the preview.
 func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch key.String() {
-	case "ctrl+c", "q":
+	k := key.String()
+	switch {
+	case bound(k, m.keys.Chats.Quit):
 		return m, tea.Quit
-	case "esc", "left", "h":
+	case bound(k, m.keys.Chats.Back):
 		m.screen = screenList
 		return m, nil
-	case "up", "k":
+	case bound(k, m.keys.Chats.Up):
 		if m.chatCursor > 0 {
 			m.chatCursor--
 			m.refreshPreview()
 		}
-	case "down", "j":
+	case bound(k, m.keys.Chats.Down):
 		if m.chatCursor < len(m.chats)-1 {
 			m.chatCursor++
 			m.refreshPreview()
 		}
-	case "enter", "l", "right":
+	case bound(k, m.keys.Chats.Open):
 		agent := m.chats[m.chatCursor].agent
 		m.attach = &agent
 		return m, tea.Quit
-	case "r":
+	case bound(k, m.keys.Chats.Rename):
 		agent := m.chats[m.chatCursor].agent
 		m.renameTarget = agent
-		m.form = renameForm(agent.Name)
+		m.form = renameForm(agent.Name, m.keys.Form)
 		m.screen = screenRename
 		return m, m.form.Init()
-	case "d":
+	case bound(k, m.keys.Chats.Delete):
 		m.manager.Delete(m.client, m.chats[m.chatCursor].agent)
 		m.reload()
 		if m.chatCursor >= len(m.chats) {
@@ -49,10 +50,10 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if len(m.chats) == 0 {
 			m.screen = screenList
 		}
-	case "ctrl+d":
-		m.preview.HalfPageDown()
-	case "ctrl+u":
-		m.preview.HalfPageUp()
+	case bound(k, m.keys.Chats.PreviewDown):
+		m.scrollPreview(false)
+	case bound(k, m.keys.Chats.PreviewUp):
+		m.scrollPreview(true)
 	}
 
 	return m, nil
@@ -73,18 +74,28 @@ func (m *model) refreshPreview() {
 		return
 	}
 
-	// Follow the tail while pinned to the bottom, but hold position when the
-	// user has scrolled up.
-	atBottom := m.preview.AtBottom()
-	offset := m.preview.YOffset
-
+	// The capture is the agent's current frame, sized to fill the box, so it is
+	// shown as-is. Scrolling is driven into the agent itself via scrollPreview,
+	// and the next capture reflects it.
 	m.preview.SetContent(m.manager.Preview(item.agent, m.preview.Width, m.preview.Height))
+	m.preview.GotoTop()
+}
 
-	if atBottom {
-		m.preview.GotoBottom()
-	} else {
-		m.preview.SetYOffset(offset)
+// scrollPreview drives the hovered agent's own view with mouse-wheel events, then
+// re-captures so the scroll shows in the box. Dormant agents have no pane to
+// scroll.
+func (m *model) scrollPreview(up bool) {
+	if m.chatCursor < 0 || m.chatCursor >= len(m.chats) {
+		return
 	}
+
+	item := m.chats[m.chatCursor]
+	if !item.alive {
+		return
+	}
+
+	m.manager.ScrollPreview(item.agent, m.preview.Width, m.preview.Height, up)
+	m.refreshPreview()
 }
 
 // dormantView renders a dormant agent's stored properties in place of a live
@@ -136,6 +147,35 @@ func (m *model) resizePreview() {
 	m.refreshPreview()
 }
 
+// actionHints renders the chat key bindings one per line with an aligned key
+// column, so they fit inside the sidebar instead of overflowing its width.
+func (m model) actionHints() string {
+	hints := []struct{ key, desc string }{
+		{hintKeys(m.keys.Chats.Open), "open"},
+		{hintKeys(m.keys.Chats.Rename), "rename"},
+		{hintKeys(m.keys.Chats.Delete), "delete"},
+		{hintKeys(m.keys.Chats.Up) + "/" + hintKeys(m.keys.Chats.Down), "move"},
+		{hintKeys(m.keys.Chats.PreviewDown) + "/" + hintKeys(m.keys.Chats.PreviewUp), "scroll"},
+		{hintKeys(m.keys.Chats.Back), "back"},
+	}
+
+	keyWidth := 0
+	for _, h := range hints {
+		if w := lipgloss.Width(h.key); w > keyWidth {
+			keyWidth = w
+		}
+	}
+	keyStyle := lipgloss.NewStyle().Width(keyWidth + 1)
+
+	var b strings.Builder
+	for _, h := range hints {
+		b.WriteString(dimStyle.Render(keyStyle.Render(h.key) + h.desc))
+		b.WriteString("\n")
+	}
+
+	return b.String()
+}
+
 func (m model) chatsView() string {
 	var list strings.Builder
 	list.WriteString(headerStyle.Render("Chats") + "\n\n")
@@ -160,7 +200,7 @@ func (m model) chatsView() string {
 		list.WriteString(cursor + icon + " " + name + "\n")
 	}
 
-	list.WriteString("\n" + dimStyle.Render("enter/l open · r rename · d delete\nj/k move · C-d/C-u scroll · esc back"))
+	list.WriteString("\n" + m.actionHints())
 
 	left := lipgloss.NewStyle().Width(chatListWidth).Render(list.String())
 	right := lipgloss.NewStyle().

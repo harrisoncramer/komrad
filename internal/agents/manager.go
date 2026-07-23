@@ -15,6 +15,10 @@ import (
 	"claude-agents/lib/xstr"
 )
 
+// previewScrollTicks is how many wheel notches one preview scroll sends, so a
+// keypress moves the agent's view a noticeable amount.
+const previewScrollTicks = 4
+
 // Hooks are paths to lifecycle scripts, each optional.
 type Hooks struct {
 	PreCreate  string
@@ -100,6 +104,20 @@ func (m *AgentManager) Preview(agent store.Agent, width, height int) string {
 	}
 
 	return m.tmux.CapturePane(agent.Pane)
+}
+
+// ScrollPreview moves a live agent's own view by sending mouse-wheel events to
+// its pane, so the next capture reflects the scroll. Claude keeps its scrollback
+// internally and there is none in tmux to scroll locally. The wheel is aimed at
+// the box center; Preview keeps the window sized to that box on every tick, so no
+// resize is needed here. Attached sessions are left alone so a live client's view
+// is never disturbed.
+func (m *AgentManager) ScrollPreview(agent store.Agent, width, height int, up bool) {
+	if agent.Pane == "" || width <= 0 || height <= 0 || m.tmux.SessionAttached(agent.Name) {
+		return
+	}
+
+	m.tmux.ScrollPane(agent.Pane, width, height, up, previewScrollTicks)
 }
 
 // Rename retitles an agent, renaming both its tmux session (so hooks keep

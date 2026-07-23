@@ -24,7 +24,7 @@ func (m model) listView() string {
 		out.WriteString(renderRow(r.label, i == m.cursor))
 	}
 
-	out.WriteString("\n" + dimStyle.Render("enter select · q quit"))
+	out.WriteString("\n" + dimStyle.Render(hintKeys(m.keys.List.Select)+" select · "+hintKeys(m.keys.List.Quit)+" quit"))
 	return out.String()
 }
 
