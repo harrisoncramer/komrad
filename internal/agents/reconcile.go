@@ -14,11 +14,13 @@ import (
 // elapsed timer in parentheses, e.g. "· Cooking… (1m 50s · ↓ 5.4k tokens)". The
 // spinner glyph and verb change frame to frame and across releases, so matching
 // any wording is brittle. The ellipsis-then-timer shape is what stays stable, so
-// that is what we key on. The line is present continuously from the moment a
-// turn starts until Claude returns to its prompt, and a long-running tool keeps
-// it up via the ticking timer, which is why the pane is a better signal than
+// that is what we key on. The timer must end in a seconds unit (e.g. "(12s",
+// "(1m 50s"), which keeps an incidental "…(3 files)" in nearby output from
+// reading as work. The line is present continuously from the moment a turn
+// starts until Claude returns to its prompt, and a long-running tool keeps it up
+// via the ticking timer, which is why the pane is a better signal than
 // transcript activity.
-var workingTimer = regexp.MustCompile(`…\s*\(\s*\d`)
+var workingTimer = regexp.MustCompile(`…\s*\(\s*\d+m?\s*\d*\s*s`)
 
 // legacyWorkingMarker is the wording older builds put on that same line instead
 // of a token count. Accept it too so the detector spans releases.
