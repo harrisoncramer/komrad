@@ -8,12 +8,14 @@ import (
 
 	"claude-agents/internal/agents"
 	"claude-agents/internal/appconfig"
+	"claude-agents/internal/search"
 	"claude-agents/internal/store"
 	sessionv1 "claude-agents/proto/gen/session/v1"
 	"claude-agents/proto/gen/session/v1/sessionv1connect"
 
 	"connectrpc.com/connect"
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -82,6 +84,7 @@ type screen int
 const (
 	screenList screen = iota
 	screenChats
+	screenSearch
 	screenForm
 	screenRename
 )
@@ -91,6 +94,7 @@ type rowKind int
 const (
 	rowNewChat rowKind = iota
 	rowChats
+	rowSearch
 )
 
 type row struct {
@@ -111,6 +115,13 @@ type model struct {
 	chatCursor int
 	preview    viewport.Model
 
+	searchInput   textinput.Model
+	searchIndex   search.Index
+	searchAgents  map[string]store.Agent
+	searchResults []search.Result
+	searchCursor  int
+	searching     bool
+
 	attach       *store.Agent
 	form         *huh.Form
 	renameTarget store.Agent
@@ -121,16 +132,33 @@ type model struct {
 	height int
 }
 
-func newModel(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, client string, keys appconfig.Keybindings) model {
+func newModel(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, client string, keys appconfig.Keybindings, focus *store.Agent) model {
+	input := textinput.New()
+	input.Placeholder = "search chats by content"
+	input.Prompt = "› "
+
 	m := model{
-		manager:  manager,
-		sessions: sessions,
-		client:   client,
-		keys:     keys,
-		screen:   screenList,
-		preview:  viewport.New(0, 0),
+		manager:     manager,
+		sessions:    sessions,
+		client:      client,
+		keys:        keys,
+		screen:      screenList,
+		preview:     viewport.New(0, 0),
+		searchInput: input,
 	}
 	m.reload()
+
+	// When the caller loops back after detaching from an agent, open on the chats
+	// picker with that agent selected instead of at the root list.
+	if focus != nil {
+		for i, item := range m.chats {
+			if item.agent.Name == focus.Name {
+				m.screen = screenChats
+				m.chatCursor = i
+				break
+			}
+		}
+	}
 
 	return m
 }
@@ -179,6 +207,7 @@ func buildRows(count int) []row {
 	return []row{
 		{kind: rowNewChat, label: "+  new chat"},
 		{kind: rowChats, label: fmt.Sprintf("▸  chats (%d)", count)},
+		{kind: rowSearch, label: "/  search"},
 	}
 }
 
@@ -237,7 +266,13 @@ func formKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
 	return km
 }
 
-func (m model) Init() tea.Cmd { return nil }
+func (m model) Init() tea.Cmd {
+	if m.screen == screenChats {
+		return tick()
+	}
+
+	return nil
+}
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if size, ok := msg.(tea.WindowSizeMsg); ok {
@@ -256,12 +291,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tick()
 	}
 
+	if built, ok := msg.(indexBuiltMsg); ok {
+		m.searchIndex = built.index
+		m.searchAgents = built.agents
+		m.searching = false
+		m.runSearch()
+		return m, nil
+	}
+
 	if m.screen == screenForm {
 		return m.updateForm(msg)
 	}
 
 	if m.screen == screenRename {
 		return m.updateRename(msg)
+	}
+
+	if m.screen == screenSearch {
+		return m.updateSearch(msg)
 	}
 
 	key, ok := msg.(tea.KeyMsg)
@@ -294,6 +341,12 @@ func (m model) updateList(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case bound(k, m.keys.List.Select):
 		return m.selectRow(m.rows[m.cursor])
+	case bound(k, m.keys.List.New):
+		return m.selectRow(row{kind: rowNewChat})
+	case bound(k, m.keys.List.Chats):
+		return m.selectRow(row{kind: rowChats})
+	case bound(k, m.keys.List.Search):
+		return m.enterSearch()
 	}
 
 	return m, nil
@@ -314,6 +367,8 @@ func (m model) selectRow(selected row) (tea.Model, tea.Cmd) {
 		m.chatCursor = 0
 		m.refreshPreview()
 		return m, tick()
+	case rowSearch:
+		return m.enterSearch()
 	}
 
 	return m, nil

@@ -85,15 +85,19 @@ func NewRootCommand() *cobra.Command {
 
 			// The popup is a persistent space: show the picker; when the user
 			// opens an agent, attach to it in place; when they detach, loop back
-			// to the picker. The popup closes only when the picker is quit.
+			// to the picker with that agent selected. The popup closes only when
+			// the picker is quit.
+			var focus *store.Agent
 			for {
-				target, err := panel.Run(state.manager, sessions, client, state.keys)
+				target, err := panel.Run(state.manager, sessions, client, state.keys, focus)
 				if err != nil {
 					return err
 				}
 				if target == nil {
 					return nil
 				}
+
+				focus = target
 
 				pane := target.Pane
 				if !state.manager.PaneAlive(pane) {

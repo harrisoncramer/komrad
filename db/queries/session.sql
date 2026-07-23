@@ -8,6 +8,14 @@ WHERE
 ORDER BY
     updated_at DESC;
 
+-- name: ListAllSessions :many
+SELECT
+    *
+FROM
+    sessions
+ORDER BY
+    updated_at DESC;
+
 -- name: GetSession :one
 SELECT
     *
@@ -27,7 +35,11 @@ ON CONFLICT (name)
         prompt = excluded.prompt,
         pane_id = excluded.pane_id,
         state = excluded.state,
-        claude_session_id = CASE WHEN excluded.claude_session_id != '' THEN excluded.claude_session_id ELSE sessions.claude_session_id END,
+        claude_session_id = CASE WHEN excluded.claude_session_id != '' THEN
+            excluded.claude_session_id
+        ELSE
+            sessions.claude_session_id
+        END,
         updated_at = CURRENT_TIMESTAMP
     RETURNING
         *;
@@ -39,7 +51,11 @@ ON CONFLICT (name)
     DO UPDATE SET
         pane_id = excluded.pane_id,
         state = excluded.state,
-        claude_session_id = CASE WHEN excluded.claude_session_id != '' THEN excluded.claude_session_id ELSE sessions.claude_session_id END,
+        claude_session_id = CASE WHEN excluded.claude_session_id != '' THEN
+            excluded.claude_session_id
+        ELSE
+            sessions.claude_session_id
+        END,
         updated_at = CURRENT_TIMESTAMP;
 
 -- name: SetSessionState :exec
@@ -69,6 +85,15 @@ UPDATE
     sessions
 SET
     is_deleted = 1,
+    updated_at = CURRENT_TIMESTAMP
+WHERE
+    name = @name;
+
+-- name: RestoreSession :exec
+UPDATE
+    sessions
+SET
+    is_deleted = 0,
     updated_at = CURRENT_TIMESTAMP
 WHERE
     name = @name;

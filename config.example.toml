@@ -8,13 +8,26 @@ claude_flags = "--model opus"
 # list of bubbletea key strings; any action left out keeps its default (the
 # values shown below).
 
-# The picker list. `back` also quits.
+# The picker list. `back` also quits. `new`, `chats`, and `search` jump straight
+# to a section from anywhere in the list.
 [keybindings.list]
 # quit   = ["ctrl+c", "q"]
 # back   = ["esc", "left", "h"]
 # up     = ["up", "k"]
 # down   = ["down", "j"]
 # select = ["enter"]
+# new    = ["n"]
+# chats  = ["c"]
+# search = ["/"]
+
+# The search screen. The query is a live text field, so navigation avoids letter
+# keys, which are typed into it.
+[keybindings.search]
+# quit = ["ctrl+c"]
+# back = ["esc"]
+# up   = ["up", "ctrl+p"]
+# down = ["down", "ctrl+n"]
+# open = ["enter"]
 
 # The split chats view.
 [keybindings.chats]

@@ -4,11 +4,25 @@ The panel is where you browse and reach your agents. Open it with `prefix + g`. 
 
 ## The picker
 
-The picker is the first screen. It has two rows.
+The picker is the first screen. It has three rows.
 
 The `new chat` row prompts you for a title, a directory, extra flags, and an opening prompt, then launches a background Claude session with them.
 
 The `chats (N)` row opens the browser, where N is how many agents exist.
+
+The `search` row opens search.
+
+Move with `j`/`k` and choose with `enter`, or jump straight to a row: `n` for new, `c` for chats, `/` for search.
+
+## Search
+
+Search finds a past chat by what was said in it. Press `/` from the picker to open it, type to filter, and the matches rank underneath with a snippet of the transcript around your terms.
+
+Search spans every tracked chat, including deleted ones, which are tagged so you can tell them apart. It matches on the chat's name and title as well as its transcript, and a term found in the name or title ranks that chat first. A query matches only when every term appears, so adding words narrows the results.
+
+The transcript text comes from Claude Code's own session files, which this tool reads but does not store. Opening a result attaches to it, restoring the session if its pane is gone and undeleting it if it was deleted.
+
+Keys in search: `enter` opens the highlighted chat, `up`/`down` (or `C-p`/`C-n`) move, and `esc` goes back to the picker.
 
 ## The chats browser
 

@@ -48,6 +48,50 @@ func (q *Queries) GetSession(ctx context.Context, name string) (*Session, error)
 	return &i, err
 }
 
+const listAllSessions = `-- name: ListAllSessions :many
+SELECT
+    id, name, cwd, flags, prompt, pane_id, state, claude_session_id, created_at, updated_at, is_deleted
+FROM
+    sessions
+ORDER BY
+    updated_at DESC
+`
+
+func (q *Queries) ListAllSessions(ctx context.Context) ([]*Session, error) {
+	rows, err := q.db.QueryContext(ctx, listAllSessions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Session
+	for rows.Next() {
+		var i Session
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Cwd,
+			&i.Flags,
+			&i.Prompt,
+			&i.PaneID,
+			&i.State,
+			&i.ClaudeSessionID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.IsDeleted,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSessions = `-- name: ListSessions :many
 SELECT
     id, name, cwd, flags, prompt, pane_id, state, claude_session_id, created_at, updated_at, is_deleted
@@ -129,6 +173,21 @@ func (q *Queries) RenameSession(ctx context.Context, arg RenameSessionParams) er
 	return err
 }
 
+const restoreSession = `-- name: RestoreSession :exec
+UPDATE
+    sessions
+SET
+    is_deleted = 0,
+    updated_at = CURRENT_TIMESTAMP
+WHERE
+    name = ?1
+`
+
+func (q *Queries) RestoreSession(ctx context.Context, name string) error {
+	_, err := q.db.ExecContext(ctx, restoreSession, name)
+	return err
+}
+
 const setSessionState = `-- name: SetSessionState :exec
 UPDATE
     sessions
@@ -159,7 +218,11 @@ ON CONFLICT (name)
         prompt = excluded.prompt,
         pane_id = excluded.pane_id,
         state = excluded.state,
-        claude_session_id = CASE WHEN excluded.claude_session_id != '' THEN excluded.claude_session_id ELSE sessions.claude_session_id END,
+        claude_session_id = CASE WHEN excluded.claude_session_id != '' THEN
+            excluded.claude_session_id
+        ELSE
+            sessions.claude_session_id
+        END,
         updated_at = CURRENT_TIMESTAMP
     RETURNING
         id, name, cwd, flags, prompt, pane_id, state, claude_session_id, created_at, updated_at, is_deleted
@@ -211,7 +274,11 @@ ON CONFLICT (name)
     DO UPDATE SET
         pane_id = excluded.pane_id,
         state = excluded.state,
-        claude_session_id = CASE WHEN excluded.claude_session_id != '' THEN excluded.claude_session_id ELSE sessions.claude_session_id END,
+        claude_session_id = CASE WHEN excluded.claude_session_id != '' THEN
+            excluded.claude_session_id
+        ELSE
+            sessions.claude_session_id
+        END,
         updated_at = CURRENT_TIMESTAMP
 `
 

@@ -148,8 +148,21 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 	m.launchClaude(name, flags, p.Prompt, "")
 }
 
+// SearchCandidates returns every tracked chat, including soft-deleted ones, for
+// the search screen to index and match against.
+func (m *AgentManager) SearchCandidates() ([]store.Agent, error) {
+	agents, err := m.sessions.ListAll(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to load search candidates: %w", err)
+	}
+
+	return agents, nil
+}
+
 // Restore recreates a dormant agent's tmux session from its stored cwd/flags
-// and returns the new pane id, updating the stored record.
+// and returns the new pane id, updating the stored record. A chat restored from
+// search may be soft-deleted, so its deleted flag is cleared to return it to the
+// normal listing.
 func (m *AgentManager) Restore(agent store.Agent) (string, error) {
 	dir := agent.Cwd
 	if dir == "" {
@@ -163,6 +176,12 @@ func (m *AgentManager) Restore(agent store.Agent) (string, error) {
 	agent.State = store.StateNew
 	if err := m.sessions.Upsert(context.Background(), agent); err != nil {
 		return "", fmt.Errorf("failed to restore session %q: %w", agent.Name, err)
+	}
+
+	if agent.Deleted {
+		if err := m.sessions.Undelete(context.Background(), agent.Name); err != nil {
+			return "", fmt.Errorf("failed to undelete session %q: %w", agent.Name, err)
+		}
 	}
 
 	m.launchClaude(agent.Name, agent.Flags, "", agent.ClaudeSessionID)

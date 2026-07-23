@@ -34,6 +34,7 @@ type Agent struct {
 	Prompt          string
 	State           string
 	ClaudeSessionID string
+	Deleted         bool
 }
 
 // SanitizeName maps a name to the characters tmux allows in a session name,
@@ -82,6 +83,22 @@ func (s *Store) List(ctx context.Context) ([]Agent, error) {
 	rows, err := s.queries.ListSessions(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list sessions: %w", err)
+	}
+
+	agents := make([]Agent, 0, len(rows))
+	for _, row := range rows {
+		agents = append(agents, fromModel(row))
+	}
+
+	return agents, nil
+}
+
+// ListAll returns every agent including soft-deleted ones, most recently
+// updated first. It backs search, which spans active and deleted chats.
+func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
+	rows, err := s.queries.ListAllSessions(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list all sessions: %w", err)
 	}
 
 	agents := make([]Agent, 0, len(rows))
@@ -189,6 +206,16 @@ func (s *Store) SoftDelete(ctx context.Context, name string) error {
 	return nil
 }
 
+// Undelete clears an agent's soft-deleted flag, so restoring a chat found in
+// search returns it to the normal listing.
+func (s *Store) Undelete(ctx context.Context, name string) error {
+	if err := s.queries.RestoreSession(ctx, name); err != nil {
+		return fmt.Errorf("failed to undelete session %q: %w", name, err)
+	}
+
+	return nil
+}
+
 func fromModel(row *models.Session) Agent {
 	return Agent{
 		ID:              row.ID,
@@ -199,5 +226,6 @@ func fromModel(row *models.Session) Agent {
 		Prompt:          row.Prompt,
 		State:           row.State,
 		ClaudeSessionID: row.ClaudeSessionID,
+		Deleted:         row.IsDeleted != 0,
 	}
 }

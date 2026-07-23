@@ -10,6 +10,8 @@ func (m model) View() string {
 		return m.form.View()
 	case screenChats:
 		return m.chatsView()
+	case screenSearch:
+		return m.searchView()
 	case screenList:
 		return m.listView()
 	default:
@@ -24,7 +26,12 @@ func (m model) listView() string {
 		out.WriteString(renderRow(r.label, i == m.cursor))
 	}
 
-	out.WriteString("\n" + dimStyle.Render(hintKeys(m.keys.List.Select)+" select · "+hintKeys(m.keys.List.Quit)+" quit"))
+	out.WriteString("\n" + dimStyle.Render(
+		hintKeys(m.keys.List.New)+" new · "+
+			hintKeys(m.keys.List.Chats)+" chats · "+
+			hintKeys(m.keys.List.Search)+" search · "+
+			hintKeys(m.keys.List.Select)+" select · "+
+			hintKeys(m.keys.List.Quit)+" quit"))
 	return out.String()
 }
 

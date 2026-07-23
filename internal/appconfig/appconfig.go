@@ -14,9 +14,10 @@ import (
 // are a list of bubbletea key strings (e.g. "enter", "ctrl+d", "esc"), and any
 // action left unset falls back to its built-in default.
 type Keybindings struct {
-	List  ListKeys  `mapstructure:"list"`
-	Chats ChatsKeys `mapstructure:"chats"`
-	Form  FormKeys  `mapstructure:"form"`
+	List   ListKeys   `mapstructure:"list"`
+	Chats  ChatsKeys  `mapstructure:"chats"`
+	Search SearchKeys `mapstructure:"search"`
+	Form   FormKeys   `mapstructure:"form"`
 }
 
 // FormKeys are the bindings for the new-chat and rename forms. Back and Quit
@@ -27,13 +28,28 @@ type FormKeys struct {
 	Back []string `mapstructure:"back"`
 }
 
-// ListKeys are the bindings for the picker list.
+// ListKeys are the bindings for the picker list. New, Chats, and Search jump
+// straight to a section from anywhere in the list, in addition to moving the
+// cursor and selecting it.
 type ListKeys struct {
 	Quit   []string `mapstructure:"quit"`
 	Back   []string `mapstructure:"back"`
 	Up     []string `mapstructure:"up"`
 	Down   []string `mapstructure:"down"`
 	Select []string `mapstructure:"select"`
+	New    []string `mapstructure:"new"`
+	Chats  []string `mapstructure:"chats"`
+	Search []string `mapstructure:"search"`
+}
+
+// SearchKeys are the bindings for the search screen. The query is a live text
+// input, so navigation avoids letter keys, which are typed into the query.
+type SearchKeys struct {
+	Quit []string `mapstructure:"quit"`
+	Back []string `mapstructure:"back"`
+	Up   []string `mapstructure:"up"`
+	Down []string `mapstructure:"down"`
+	Open []string `mapstructure:"open"`
 }
 
 // ChatsKeys are the bindings for the split chats view.
@@ -64,6 +80,9 @@ func DefaultKeybindings() Keybindings {
 			Up:     []string{"up", "k"},
 			Down:   []string{"down", "j"},
 			Select: []string{"enter"},
+			New:    []string{"n"},
+			Chats:  []string{"c"},
+			Search: []string{"/"},
 		},
 		Chats: ChatsKeys{
 			Quit:        []string{"ctrl+c", "q"},
@@ -75,6 +94,13 @@ func DefaultKeybindings() Keybindings {
 			Delete:      []string{"d"},
 			PreviewDown: []string{"ctrl+d"},
 			PreviewUp:   []string{"ctrl+u"},
+		},
+		Search: SearchKeys{
+			Quit: []string{"ctrl+c"},
+			Back: []string{"esc"},
+			Up:   []string{"up", "ctrl+p"},
+			Down: []string{"down", "ctrl+n"},
+			Open: []string{"enter"},
 		},
 		Form: FormKeys{
 			Quit: []string{"ctrl+c"},
@@ -100,6 +126,15 @@ func (k Keybindings) withDefaults() Keybindings {
 	k.List.Up = fillKeys(k.List.Up, d.List.Up)
 	k.List.Down = fillKeys(k.List.Down, d.List.Down)
 	k.List.Select = fillKeys(k.List.Select, d.List.Select)
+	k.List.New = fillKeys(k.List.New, d.List.New)
+	k.List.Chats = fillKeys(k.List.Chats, d.List.Chats)
+	k.List.Search = fillKeys(k.List.Search, d.List.Search)
+
+	k.Search.Quit = fillKeys(k.Search.Quit, d.Search.Quit)
+	k.Search.Back = fillKeys(k.Search.Back, d.Search.Back)
+	k.Search.Up = fillKeys(k.Search.Up, d.Search.Up)
+	k.Search.Down = fillKeys(k.Search.Down, d.Search.Down)
+	k.Search.Open = fillKeys(k.Search.Open, d.Search.Open)
 
 	k.Chats.Quit = fillKeys(k.Chats.Quit, d.Chats.Quit)
 	k.Chats.Back = fillKeys(k.Chats.Back, d.Chats.Back)
