@@ -271,7 +271,7 @@ func (m *AgentManager) Notify(mainSession, pane, _ string) {
 		return
 	}
 
-	_ = m.sessions.UpsertState(context.Background(), key, pane, store.StateDone, "")
+	_ = m.sessions.UpdateState(context.Background(), key, pane, store.StateDone, "")
 }
 
 // Hook advances an agent's state from a Claude Code lifecycle event and records
@@ -285,18 +285,18 @@ func (m *AgentManager) Hook(mode, mainSession, pane, claudeSessionID string) {
 	ctx := context.Background()
 	switch mode {
 	case "prompt":
-		_ = m.sessions.UpsertState(ctx, key, pane, store.StateThinking, claudeSessionID)
+		_ = m.sessions.UpdateState(ctx, key, pane, store.StateThinking, claudeSessionID)
 	case "notification":
 		existing, _ := m.sessions.Get(ctx, key)
 		if existing != nil && existing.State == store.StateDone {
 			return
 		}
 
-		_ = m.sessions.UpsertState(ctx, key, pane, store.StateWaiting, claudeSessionID)
+		_ = m.sessions.UpdateState(ctx, key, pane, store.StateWaiting, claudeSessionID)
 	case "posttooluse":
 		existing, _ := m.sessions.Get(ctx, key)
 		if existing != nil && existing.State == store.StateWaiting {
-			_ = m.sessions.UpsertState(ctx, key, pane, store.StateThinking, claudeSessionID)
+			_ = m.sessions.UpdateState(ctx, key, pane, store.StateThinking, claudeSessionID)
 		}
 	case "stop":
 		existing, _ := m.sessions.Get(ctx, key)
@@ -304,7 +304,7 @@ func (m *AgentManager) Hook(mode, mainSession, pane, claudeSessionID string) {
 			return
 		}
 
-		_ = m.sessions.UpsertState(ctx, key, pane, store.StateDone, claudeSessionID)
+		_ = m.sessions.UpdateState(ctx, key, pane, store.StateDone, claudeSessionID)
 	}
 }
 

@@ -138,23 +138,19 @@ func (s *Store) Upsert(ctx context.Context, agent Agent) error {
 	return nil
 }
 
-// UpsertState records an agent's state and pane, creating a bare row if none
-// exists yet. It never touches cwd/flags/prompt, so lifecycle hooks don't wipe
-// the metadata captured when a tool-created agent was launched.
-func (s *Store) UpsertState(ctx context.Context, name, pane, state, claudeSessionID string) error {
-	id, err := uuid.NewV7()
-	if err != nil {
-		return fmt.Errorf("failed to generate id: %w", err)
-	}
-
-	if err := s.queries.UpsertSessionState(ctx, models.UpsertSessionStateParams{
-		ID:              id.String(),
+// UpdateState records an agent's state and pane on an existing row, keyed by
+// name. It never inserts: a lifecycle event for a session the tool did not
+// create finds no row and is a no-op, so external Claude sessions that fire the
+// same global hooks never leak into the store. It also never touches
+// cwd/flags/prompt, so hooks don't wipe the metadata captured at launch.
+func (s *Store) UpdateState(ctx context.Context, name, pane, state, claudeSessionID string) error {
+	if err := s.queries.UpdateSessionState(ctx, models.UpdateSessionStateParams{
 		Name:            name,
 		Pane:            pane,
 		State:           state,
 		ClaudeSessionID: claudeSessionID,
 	}); err != nil {
-		return fmt.Errorf("failed to upsert state for %q: %w", name, err)
+		return fmt.Errorf("failed to update state for %q: %w", name, err)
 	}
 
 	return nil

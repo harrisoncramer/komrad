@@ -230,6 +230,40 @@ func (q *Queries) SetSessionState(ctx context.Context, arg SetSessionStateParams
 	return err
 }
 
+const updateSessionState = `-- name: UpdateSessionState :exec
+UPDATE
+    sessions
+SET
+    pane_id = ?1,
+    state = ?2,
+    claude_session_id = CASE WHEN ?3 != '' THEN
+        ?3
+    ELSE
+        claude_session_id
+    END,
+    updated_at = CURRENT_TIMESTAMP
+WHERE
+    name = ?4
+    AND is_deleted = 0
+`
+
+type UpdateSessionStateParams struct {
+	Pane            string
+	State           string
+	ClaudeSessionID interface{}
+	Name            string
+}
+
+func (q *Queries) UpdateSessionState(ctx context.Context, arg UpdateSessionStateParams) error {
+	_, err := q.db.ExecContext(ctx, updateSessionState,
+		arg.Pane,
+		arg.State,
+		arg.ClaudeSessionID,
+		arg.Name,
+	)
+	return err
+}
+
 const upsertSession = `-- name: UpsertSession :one
 INSERT INTO sessions (id, name, cwd, flags, prompt, pane_id, state, claude_session_id)
     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
@@ -287,38 +321,4 @@ func (q *Queries) UpsertSession(ctx context.Context, arg UpsertSessionParams) (*
 		&i.IsDeleted,
 	)
 	return &i, err
-}
-
-const upsertSessionState = `-- name: UpsertSessionState :exec
-INSERT INTO sessions (id, name, pane_id, state, claude_session_id)
-    VALUES (?1, ?2, ?3, ?4, ?5)
-ON CONFLICT (name) WHERE is_deleted = 0
-    DO UPDATE SET
-        pane_id = excluded.pane_id,
-        state = excluded.state,
-        claude_session_id = CASE WHEN excluded.claude_session_id != '' THEN
-            excluded.claude_session_id
-        ELSE
-            sessions.claude_session_id
-        END,
-        updated_at = CURRENT_TIMESTAMP
-`
-
-type UpsertSessionStateParams struct {
-	ID              string
-	Name            string
-	Pane            string
-	State           string
-	ClaudeSessionID string
-}
-
-func (q *Queries) UpsertSessionState(ctx context.Context, arg UpsertSessionStateParams) error {
-	_, err := q.db.ExecContext(ctx, upsertSessionState,
-		arg.ID,
-		arg.Name,
-		arg.Pane,
-		arg.State,
-		arg.ClaudeSessionID,
-	)
-	return err
 }

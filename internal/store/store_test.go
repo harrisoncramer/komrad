@@ -64,7 +64,7 @@ func TestReuseNameAfterSoftDelete(t *testing.T) {
 
 	// A state event keyed by name must update the live row, leaving the deleted
 	// row's state frozen at what it was when deleted.
-	if err := st.UpsertState(ctx, "agent", "%2", StateWaiting, ""); err != nil {
+	if err := st.UpdateState(ctx, "agent", "%2", StateWaiting, ""); err != nil {
 		t.Fatalf("upsert state: %v", err)
 	}
 	if got, _ := st.Get(ctx, "agent"); got == nil || got.ID != second.ID || got.State != StateWaiting {
@@ -74,6 +74,21 @@ func TestReuseNameAfterSoftDelete(t *testing.T) {
 		if a.ID == first.ID && a.State != StateThinking {
 			t.Fatalf("deleted row was mutated: %+v", a)
 		}
+	}
+}
+
+// TestUpdateStateDoesNotInsert guards the rule that hooks never create rows: a
+// lifecycle event for a session the tool did not create finds no row and is a
+// no-op, so external Claude sessions firing the same global hooks never leak in.
+func TestUpdateStateDoesNotInsert(t *testing.T) {
+	ctx := context.Background()
+	st := open(t)
+
+	if err := st.UpdateState(ctx, "external", "%5", StateThinking, "sess"); err != nil {
+		t.Fatalf("update state: %v", err)
+	}
+	if all, _ := st.ListAll(ctx); len(all) != 0 {
+		t.Fatalf("update must not insert a row; got %d", len(all))
 	}
 }
 

@@ -56,19 +56,21 @@ ON CONFLICT (name) WHERE is_deleted = 0
     RETURNING
         *;
 
--- name: UpsertSessionState :exec
-INSERT INTO sessions (id, name, pane_id, state, claude_session_id)
-    VALUES (@id, @name, @pane, @state, @claude_session_id)
-ON CONFLICT (name) WHERE is_deleted = 0
-    DO UPDATE SET
-        pane_id = excluded.pane_id,
-        state = excluded.state,
-        claude_session_id = CASE WHEN excluded.claude_session_id != '' THEN
-            excluded.claude_session_id
-        ELSE
-            sessions.claude_session_id
-        END,
-        updated_at = CURRENT_TIMESTAMP;
+-- name: UpdateSessionState :exec
+UPDATE
+    sessions
+SET
+    pane_id = @pane,
+    state = @state,
+    claude_session_id = CASE WHEN @claude_session_id != '' THEN
+        @claude_session_id
+    ELSE
+        claude_session_id
+    END,
+    updated_at = CURRENT_TIMESTAMP
+WHERE
+    name = @name
+    AND is_deleted = 0;
 
 -- name: SetSessionState :exec
 UPDATE
