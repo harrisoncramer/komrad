@@ -80,10 +80,12 @@ type tmuxProbe interface {
 	CapturePane(pane string) string
 }
 
-// stateStore is the slice of the store the reconciler reads and corrects.
+// stateStore is the slice of the store the reconciler reads and corrects. Writes
+// are keyed by id, not name, so a state decided from a List snapshot always
+// lands on the exact row observed even if its name was reused meanwhile.
 type stateStore interface {
 	List(ctx context.Context) ([]store.Agent, error)
-	SetState(ctx context.Context, name, state string) error
+	SetStateByID(ctx context.Context, id, state string) error
 }
 
 // Reconciler is the single source of truth for agent state. Rather than react to
@@ -186,5 +188,5 @@ func (r *Reconciler) apply(ctx context.Context, agent store.Agent, state string)
 		return
 	}
 
-	_ = r.store.SetState(ctx, agent.Name, state)
+	_ = r.store.SetStateByID(ctx, agent.ID, state)
 }

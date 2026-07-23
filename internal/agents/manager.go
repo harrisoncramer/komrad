@@ -51,6 +51,7 @@ type agentStore interface {
 	Upsert(ctx context.Context, agent store.Agent) error
 	UpdateState(ctx context.Context, name, pane, state, claudeSessionID string) error
 	SetState(ctx context.Context, name, state string) error
+	SetStateByID(ctx context.Context, id, state string) error
 	Rename(ctx context.Context, id, name string) error
 	SoftDelete(ctx context.Context, name string) error
 	Undelete(ctx context.Context, id string) error

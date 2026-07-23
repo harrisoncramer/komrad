@@ -82,6 +82,15 @@ WHERE
     name = @name
     AND is_deleted = 0;
 
+-- name: SetSessionStateByID :exec
+UPDATE
+    sessions
+SET
+    state = @state,
+    updated_at = CURRENT_TIMESTAMP
+WHERE
+    id = @id;
+
 -- name: DeleteSession :exec
 DELETE FROM sessions
 WHERE name = @name;

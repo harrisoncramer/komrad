@@ -167,10 +167,22 @@ func (s *Store) Get(ctx context.Context, name string) (*Agent, error) {
 	return &agent, nil
 }
 
-// SetState updates just an agent's state.
+// SetState updates just an agent's state, keyed by name.
 func (s *Store) SetState(ctx context.Context, name, state string) error {
 	if err := s.queries.SetSessionState(ctx, models.SetSessionStateParams{Name: name, State: state}); err != nil {
 		return fmt.Errorf("failed to set state for %q: %w", name, err)
+	}
+
+	return nil
+}
+
+// SetStateByID updates just an agent's state, keyed by its stable id. The
+// reconciler uses this so a write decided from a snapshot always lands on the
+// exact row it observed, even if that row's name was reused by another agent in
+// the meantime.
+func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
+	if err := s.queries.SetSessionStateByID(ctx, models.SetSessionStateByIDParams{ID: id, State: state}); err != nil {
+		return fmt.Errorf("failed to set state for id %q: %w", id, err)
 	}
 
 	return nil

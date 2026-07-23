@@ -230,6 +230,26 @@ func (q *Queries) SetSessionState(ctx context.Context, arg SetSessionStateParams
 	return err
 }
 
+const setSessionStateByID = `-- name: SetSessionStateByID :exec
+UPDATE
+    sessions
+SET
+    state = ?1,
+    updated_at = CURRENT_TIMESTAMP
+WHERE
+    id = ?2
+`
+
+type SetSessionStateByIDParams struct {
+	State string
+	ID    string
+}
+
+func (q *Queries) SetSessionStateByID(ctx context.Context, arg SetSessionStateByIDParams) error {
+	_, err := q.db.ExecContext(ctx, setSessionStateByID, arg.State, arg.ID)
+	return err
+}
+
 const updateSessionState = `-- name: UpdateSessionState :exec
 UPDATE
     sessions
