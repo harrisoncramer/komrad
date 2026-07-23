@@ -164,6 +164,24 @@ func TestReconcileBusyResetsMissCount(t *testing.T) {
 	}
 }
 
+// TestReconcileEmptyCaptureIsInconclusive guards a live agent against a flaky
+// pane read: an empty capture must never be counted as idle, or a working agent
+// could be demoted while tmux momentarily fails to return its frame.
+func TestReconcileEmptyCaptureIsInconclusive(t *testing.T) {
+	st := newStore(t)
+	seed(t, st, "flaky", "%1", store.StateThinking)
+	// alive, but the pane capture comes back empty every time.
+	tmux := &fakeTmux{alive: map[string]bool{"flaky": true}, captures: map[string]string{}}
+	rec := NewReconciler(tmux, st)
+
+	for range reconcileMisses + 3 {
+		_ = rec.Reconcile(context.Background())
+	}
+	if got := stateOf(t, st, "flaky"); got != store.StateThinking {
+		t.Fatalf("empty capture must not demote; got %q", got)
+	}
+}
+
 func TestReconcileLeavesStableStates(t *testing.T) {
 	st := newStore(t)
 	seed(t, st, "waits", "%1", store.StateWaiting)

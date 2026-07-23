@@ -119,26 +119,31 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent store.Agent) {
 		return
 	}
 
-	if r.working(agent.Pane) {
+	var frame string
+	if agent.Pane != "" {
+		frame = r.tmux.CapturePane(agent.Pane)
+	}
+
+	// An empty capture means the pane could not be read, not that Claude went
+	// idle: a live agent always shows at least its input box. Treat it as
+	// inconclusive and neither demote nor reset, so a flaky read never settles a
+	// working agent to done. Wrongly demoting a live agent is the worst outcome,
+	// so every uncertain case leaves the state alone.
+	if frame == "" {
+		return
+	}
+
+	if frameShowsWork(frame) {
 		delete(r.misses, agent.ID)
 		return
 	}
 
-	// Thinking, but the pane shows no work in flight. Demote only after enough
-	// consecutive idle observations to rule out a transient redraw frame.
+	// A real frame with no work in flight. Demote only after enough consecutive
+	// idle observations to rule out a transient redraw between tool calls.
 	r.misses[agent.ID]++
 	if r.misses[agent.ID] >= reconcileMisses {
 		r.settle(ctx, agent, store.StateDone)
 	}
-}
-
-// working reports whether the pane's current frame shows Claude actively working.
-func (r *Reconciler) working(pane string) bool {
-	if pane == "" {
-		return false
-	}
-
-	return frameShowsWork(r.tmux.CapturePane(pane))
 }
 
 // settle writes a corrected state and clears the agent's miss count. A no-op

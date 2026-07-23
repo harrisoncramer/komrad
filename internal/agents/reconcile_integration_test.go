@@ -77,9 +77,12 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	seed(t, st, "busy", busyPane, store.StateThinking)
 	waitForFrame(t, cli, busyPane, "Cooking…")
 
-	// An idle agent: a plain sleep, so the pane never shows the marker.
-	idlePane := it.spawn("idle", "sleep 300")
+	// An idle agent: it renders a Claude-like input box with no timer, the way a
+	// real agent sits when interrupted. A bare sleep would capture empty, which
+	// the reconciler treats as inconclusive rather than idle.
+	idlePane := it.spawn("idle", `sh -c 'printf "\033[H❯ \n-- INSERT --\n"; sleep 300'`)
 	seed(t, st, "idle", idlePane, store.StateThinking)
+	waitForFrame(t, cli, idlePane, "INSERT")
 
 	// A killed agent: seed it, then tear the session down so has-session is false.
 	deadPane := it.spawn("dead", "sleep 300")
