@@ -9,6 +9,25 @@ import (
 	"context"
 )
 
+const activeNameExists = `-- name: ActiveNameExists :one
+SELECT
+    EXISTS (
+        SELECT
+            1
+        FROM
+            sessions
+        WHERE
+            name = ?1
+            AND is_deleted = 0)
+`
+
+func (q *Queries) ActiveNameExists(ctx context.Context, name string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, activeNameExists, name)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const deleteSession = `-- name: DeleteSession :exec
 DELETE FROM sessions
 WHERE name = ?1
@@ -26,6 +45,7 @@ FROM
     sessions
 WHERE
     name = ?1
+    AND is_deleted = 0
 LIMIT 1
 `
 
@@ -146,6 +166,7 @@ SET
     updated_at = CURRENT_TIMESTAMP
 WHERE
     name = ?1
+    AND is_deleted = 0
 `
 
 func (q *Queries) MarkSessionDeleted(ctx context.Context, name string) error {
@@ -180,11 +201,11 @@ SET
     is_deleted = 0,
     updated_at = CURRENT_TIMESTAMP
 WHERE
-    name = ?1
+    id = ?1
 `
 
-func (q *Queries) RestoreSession(ctx context.Context, name string) error {
-	_, err := q.db.ExecContext(ctx, restoreSession, name)
+func (q *Queries) RestoreSession(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, restoreSession, id)
 	return err
 }
 
@@ -196,6 +217,7 @@ SET
     updated_at = CURRENT_TIMESTAMP
 WHERE
     name = ?2
+    AND is_deleted = 0
 `
 
 type SetSessionStateParams struct {
@@ -211,7 +233,7 @@ func (q *Queries) SetSessionState(ctx context.Context, arg SetSessionStateParams
 const upsertSession = `-- name: UpsertSession :one
 INSERT INTO sessions (id, name, cwd, flags, prompt, pane_id, state, claude_session_id)
     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-ON CONFLICT (name)
+ON CONFLICT (name) WHERE is_deleted = 0
     DO UPDATE SET
         cwd = excluded.cwd,
         flags = excluded.flags,
@@ -270,7 +292,7 @@ func (q *Queries) UpsertSession(ctx context.Context, arg UpsertSessionParams) (*
 const upsertSessionState = `-- name: UpsertSessionState :exec
 INSERT INTO sessions (id, name, pane_id, state, claude_session_id)
     VALUES (?1, ?2, ?3, ?4, ?5)
-ON CONFLICT (name)
+ON CONFLICT (name) WHERE is_deleted = 0
     DO UPDATE SET
         pane_id = excluded.pane_id,
         state = excluded.state,

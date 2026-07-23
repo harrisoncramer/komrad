@@ -65,8 +65,15 @@ table "sessions" {
   primary_key {
     columns = [column.id]
   }
-  index "sessions_name" {
+  # Unique on name only among live records. A soft-deleted row keeps its name,
+  # so without the predicate a deleted agent would block ever reusing its name
+  # and the upsert-by-name path would resurrect the dead row instead of creating
+  # a fresh one. Scoping the constraint to is_deleted = 0 lets deleted rows
+  # retain their name harmlessly while every name-keyed lookup still resolves to
+  # at most one live agent.
+  index "sessions_name_active" {
     unique  = true
     columns = [column.name]
+    where   = "is_deleted = 0"
   }
 }

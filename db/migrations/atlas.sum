@@ -1,5 +1,6 @@
-h1:Ml9te+HlRl/vZyE64/nF9+Og2cixXwI5rTJ6jfGExJY=
+h1:B2/hbbrIAIj9DtgxoegQROlTfceK/QUJinYQ0GC9n4Q=
 20260722191514_initial.sql h1:Ay9afj8BTKHZi2wisJDGIBanHOhAkVISF6QcYvs/RTw=
 20260722202312_add_claude_session_id.sql h1:O98BAs0rDk+2Ru7x51NHM5RIpGLdQ0alF64IhIcmgDU=
 20260722202941_add_cwd_default.sql h1:QYXbEGKOe0gZRjDKhCq81A428MhSBLE+2eZq3pwOHUI=
 20260722203352_add_is_deleted.sql h1:QskyVI3fDstdnwq/HTkOrlPuVObmRcxmtCsfNMDUgFE=
+20260723050120_partial_unique_name.sql h1:Tj+JFyak6n6w2d3n+jIaCeEpRlB4Y/xI2qPZW2CwIxc=

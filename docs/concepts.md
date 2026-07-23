@@ -24,6 +24,14 @@ When Claude stops, the stop hook marks that agent `done`, unless it is already d
 
 The status bar reads the store and shows a single aggregate across every session, for example `1 waiting  1 working  1 done`.
 
+## Reconciliation
+
+The hooks only advance state when an event fires. Some things that end an agent's work fire no event: interrupting Claude with escape, a crash, or a tmux session killed from outside the panel. Any of these leaves the last recorded state frozen, most often an agent stuck working forever because the prompt hook set thinking and no later hook ever ran.
+
+To catch that, the serve process runs a reconciler on a timer. Every few seconds it looks at every agent and asks whether the stored state still matches reality. If an agent's tmux session is gone, it is dormant and cannot be working, so it is settled to done. If an agent is marked thinking but its pane shows no work in flight, it is settled to done as well, after a couple of consecutive idle observations so a brief pause between tool calls is not mistaken for a stop. Waiting is left alone, since the notification and post-tool-use hooks set and clear it on events that do fire.
+
+The reconciler lives in serve rather than the panel because serve is always running and owns the store, so the counts stay correct even when no panel is open. It only ever corrects a state that drifted; an agent that already matches reality is left untouched.
+
 ## Dormant agents
 
 An agent's record in the store outlives its tmux session. That is what lets agents survive a tmux restart. When a tmux session is gone but its record remains, the agent still appears in the panel, marked `(dormant)`.

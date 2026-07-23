@@ -23,12 +23,24 @@ FROM
     sessions
 WHERE
     name = @name
+    AND is_deleted = 0
 LIMIT 1;
+
+-- name: ActiveNameExists :one
+SELECT
+    EXISTS (
+        SELECT
+            1
+        FROM
+            sessions
+        WHERE
+            name = @name
+            AND is_deleted = 0);
 
 -- name: UpsertSession :one
 INSERT INTO sessions (id, name, cwd, flags, prompt, pane_id, state, claude_session_id)
     VALUES (@id, @name, @cwd, @flags, @prompt, @pane_id, @state, @claude_session_id)
-ON CONFLICT (name)
+ON CONFLICT (name) WHERE is_deleted = 0
     DO UPDATE SET
         cwd = excluded.cwd,
         flags = excluded.flags,
@@ -47,7 +59,7 @@ ON CONFLICT (name)
 -- name: UpsertSessionState :exec
 INSERT INTO sessions (id, name, pane_id, state, claude_session_id)
     VALUES (@id, @name, @pane, @state, @claude_session_id)
-ON CONFLICT (name)
+ON CONFLICT (name) WHERE is_deleted = 0
     DO UPDATE SET
         pane_id = excluded.pane_id,
         state = excluded.state,
@@ -65,7 +77,8 @@ SET
     state = @state,
     updated_at = CURRENT_TIMESTAMP
 WHERE
-    name = @name;
+    name = @name
+    AND is_deleted = 0;
 
 -- name: DeleteSession :exec
 DELETE FROM sessions
@@ -87,7 +100,8 @@ SET
     is_deleted = 1,
     updated_at = CURRENT_TIMESTAMP
 WHERE
-    name = @name;
+    name = @name
+    AND is_deleted = 0;
 
 -- name: RestoreSession :exec
 UPDATE
@@ -96,5 +110,4 @@ SET
     is_deleted = 0,
     updated_at = CURRENT_TIMESTAMP
 WHERE
-    name = @name;
-
+    id = @id;

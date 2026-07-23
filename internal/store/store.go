@@ -207,14 +207,29 @@ func (s *Store) SoftDelete(ctx context.Context, name string) error {
 	return nil
 }
 
-// Undelete clears an agent's soft-deleted flag, so restoring a chat found in
-// search returns it to the normal listing.
-func (s *Store) Undelete(ctx context.Context, name string) error {
-	if err := s.queries.RestoreSession(ctx, name); err != nil {
-		return fmt.Errorf("failed to undelete session %q: %w", name, err)
+// Undelete clears an agent's soft-deleted flag by id, so restoring a chat found
+// in search returns it to the normal listing. It is keyed by id, not name,
+// because a soft-deleted row can share a name with a live agent, so the id is
+// the only unambiguous handle to the exact row to restore.
+func (s *Store) Undelete(ctx context.Context, id string) error {
+	if err := s.queries.RestoreSession(ctx, id); err != nil {
+		return fmt.Errorf("failed to undelete session %q: %w", id, err)
 	}
 
 	return nil
+}
+
+// ActiveNameExists reports whether a live (non-deleted) agent already holds the
+// name. New sessions consult this so an auto-generated name never collides with
+// an agent whose row still owns the name, including a dormant one whose tmux
+// session is gone but whose record survives.
+func (s *Store) ActiveNameExists(ctx context.Context, name string) (bool, error) {
+	exists, err := s.queries.ActiveNameExists(ctx, name)
+	if err != nil {
+		return false, fmt.Errorf("failed to check active name %q: %w", name, err)
+	}
+
+	return exists != 0, nil
 }
 
 func fromModel(row *models.Session) Agent {

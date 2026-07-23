@@ -59,6 +59,12 @@ func (m *AgentManager) PaneAlive(pane string) bool {
 	return m.tmux.PaneAlive(pane)
 }
 
+// Reconciler builds the level-triggered reconciler over this manager's tmux
+// client and store, for the serve process to run on a timer.
+func (m *AgentManager) Reconciler() *Reconciler {
+	return NewReconciler(m.tmux, m.sessions)
+}
+
 // SessionAlive reports whether a tmux session with the given name still exists.
 // Attaching targets a session by name, so this is what gates restoring it: a
 // dormant chat's stored pane id can be empty or collide with a recycled id after
@@ -180,16 +186,19 @@ func (m *AgentManager) Restore(agent store.Agent) (string, error) {
 	m.tmux.NewDetachedSession(agent.Name, dir)
 	pane, _ := m.tmux.PaneID(agent.Name)
 
+	// Clear the soft-delete flag first, so the row re-enters the unique-name
+	// index before the upsert below keys off it. Upserting a still-deleted row
+	// would collide on the id primary key rather than resolve as a name conflict.
+	if agent.Deleted {
+		if err := m.sessions.Undelete(context.Background(), agent.ID); err != nil {
+			return "", fmt.Errorf("failed to undelete session %q: %w", agent.Name, err)
+		}
+	}
+
 	agent.Pane = pane
 	agent.State = store.StateNew
 	if err := m.sessions.Upsert(context.Background(), agent); err != nil {
 		return "", fmt.Errorf("failed to restore session %q: %w", agent.Name, err)
-	}
-
-	if agent.Deleted {
-		if err := m.sessions.Undelete(context.Background(), agent.Name); err != nil {
-			return "", fmt.Errorf("failed to undelete session %q: %w", agent.Name, err)
-		}
 	}
 
 	m.launchClaude(agent.Name, agent.Flags, "", agent.ClaudeSessionID)
@@ -209,11 +218,25 @@ func (m *AgentManager) uniqueSessionName(title, prompt string) string {
 	}
 
 	name := base
-	for i := 2; m.tmux.HasSession(name); i++ {
+	for i := 2; m.nameTaken(name); i++ {
 		name = fmt.Sprintf("%s-%d", base, i)
 	}
 
 	return name
+}
+
+// nameTaken reports whether a name is unavailable for a new session. A name is
+// taken if a live tmux session already uses it, or if a live agent record still
+// owns it. The store check matters for a dormant agent, whose tmux session is
+// gone yet whose record keeps the name; reusing it would make the upsert clobber
+// that agent's row instead of creating a fresh one.
+func (m *AgentManager) nameTaken(name string) bool {
+	if m.tmux.HasSession(name) {
+		return true
+	}
+
+	taken, _ := m.sessions.ActiveNameExists(context.Background(), name)
+	return taken
 }
 
 // launchClaude types the claude command into a session. A resumeID resumes that

@@ -2,6 +2,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -128,16 +129,27 @@ func NewRootCommand() *cobra.Command {
 	return root
 }
 
+// reconcileInterval is how often the serve process re-observes every agent to
+// correct states the edge-triggered hooks left stranded (an interrupt, a crash,
+// a killed session). Frequent enough that a stuck "working" clears within a few
+// seconds, cheap enough that the tmux captures are negligible.
+const reconcileInterval = 5 * time.Second
+
 func serveCmd(state *app) *cobra.Command {
 	var addr string
 
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Serve the session store over ConnectRPC/HTTP",
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			mux := http.NewServeMux()
 			path, handler := sessionv1connect.NewSessionServiceHandler(rpc.NewSessionService(state.sessions))
 			mux.Handle(path, handler)
+
+			// The reconciler runs here rather than in the panel because serve is
+			// the always-on process that owns the store; the counts must stay
+			// correct even when no panel is open.
+			go runReconcileLoop(cmd.Context(), state.manager.Reconciler(), reconcileInterval)
 
 			server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 			return server.ListenAndServe()
@@ -147,6 +159,25 @@ func serveCmd(state *app) *cobra.Command {
 	cmd.Flags().StringVar(&addr, "addr", "127.0.0.1:8787", "listen address")
 
 	return cmd
+}
+
+// runReconcileLoop reconciles every agent on a fixed interval until the context
+// is cancelled. Errors are logged and the loop continues, since a single failed
+// pass is corrected by the next one.
+func runReconcileLoop(ctx context.Context, rec *agents.Reconciler, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := rec.Reconcile(ctx); err != nil {
+				fmt.Fprintf(os.Stderr, "reconcile: %v\n", err)
+			}
+		}
+	}
 }
 
 func newCmd(state *app) *cobra.Command {
