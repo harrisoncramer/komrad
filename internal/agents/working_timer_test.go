@@ -78,3 +78,19 @@ func TestWaitingIgnoresProseInWorkWindow(t *testing.T) {
 	assert.False(t, frameShowsWaiting(frame), "transcript phrases must not read as a live prompt")
 	assert.False(t, frameShowsWork(frame), "an idle box is not working")
 }
+
+// TestFrameShowsWorkStripsANSI pins the root-cause fix: the pane is captured with
+// colors, so the status line arrives shredded by SGR escapes — the verb split
+// across color runs, codes wedged between the ellipsis and the timer. Detection
+// must strip them first or it matches nothing. These are real captures.
+func TestFrameShowsWorkStripsANSI(t *testing.T) {
+	work := []string{
+		// "✽ Flambéing… (3m 30s · ↓ 11.6k tokens)" as captured with -e
+		"\x1b[38;5;174m✽\x1b[39m \x1b[38;5;174mFl\x1b[38;5;216mamb\x1b[38;5;174méing…\x1b[39m \x1b[38;5;246m(3m 30s · ↓\x1b[39m \x1b[38;5;246m11.6k tokens)\x1b[39m",
+		// a multi-word verb split across color runs, no timer
+		"\x1b[38;5;174m✢\x1b[39m \x1b[1mBuild\x1b[22ming panel\x1b[38;5;246m…\x1b[39m",
+	}
+	for _, f := range work {
+		assert.True(t, frameShowsWork(f), "ANSI-wrapped status line should read as working")
+	}
+}

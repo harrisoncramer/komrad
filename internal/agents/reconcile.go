@@ -59,11 +59,18 @@ const liveRegionLines = 30
 // that prose as a live prompt.
 const waitingRegionLines = 6
 
-// tailLines returns the last n lines of a frame, where the live UI sits. The
-// conversation transcript scrolls above it, so confining detection here keeps
-// prose in the transcript, which can contain any marker text, from tripping a
-// detector.
+// ansiSeq matches an ANSI escape sequence. The pane is captured with colors (-e),
+// so the status line comes back shredded by SGR codes — the verb split across
+// color runs, codes wedged between the ellipsis and the timer — which breaks any
+// text match. Detection strips these first so it sees the plain glyphs and words.
+var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
+
+// tailLines returns the last n lines of a frame with ANSI escapes stripped, the
+// region where the live UI sits. The conversation transcript scrolls above it,
+// so confining detection here keeps prose in the transcript, which can contain
+// any marker text, from tripping a detector.
 func tailLines(frame string, n int) string {
+	frame = ansiSeq.ReplaceAllString(frame, "")
 	lines := strings.Split(strings.TrimRight(frame, "\n"), "\n")
 	if len(lines) > n {
 		lines = lines[len(lines)-n:]
