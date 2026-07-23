@@ -1,50 +1,65 @@
 -- name: ListSessions :many
 SELECT
-    *
+    s.*,
+    sc.cwd,
+    sc.flags
 FROM
-    sessions
+    sessions s
+    JOIN session_configs sc ON sc.id = s.session_config_id
 WHERE
-    is_deleted = 0
+    s.is_deleted = 0
 ORDER BY
-    updated_at DESC;
+    s.updated_at DESC;
 
 -- name: ListAllSessions :many
 SELECT
-    *
+    s.*,
+    sc.cwd,
+    sc.flags
 FROM
-    sessions
+    sessions s
+    JOIN session_configs sc ON sc.id = s.session_config_id
 ORDER BY
-    updated_at DESC;
+    s.updated_at DESC;
 
 -- name: ListSessionsByWorkflow :many
 SELECT
-    *
+    s.*,
+    sc.cwd,
+    sc.flags
 FROM
-    sessions
+    sessions s
+    JOIN session_configs sc ON sc.id = s.session_config_id
 WHERE
-    is_deleted = 0
-    AND workflow_id = @workflow_id
+    s.is_deleted = 0
+    AND s.workflow_id = @workflow_id
 ORDER BY
-    updated_at DESC;
+    s.updated_at DESC;
 
 -- name: ListAllSessionsByWorkflow :many
 SELECT
-    *
+    s.*,
+    sc.cwd,
+    sc.flags
 FROM
-    sessions
+    sessions s
+    JOIN session_configs sc ON sc.id = s.session_config_id
 WHERE
-    workflow_id = @workflow_id
+    s.workflow_id = @workflow_id
 ORDER BY
-    updated_at DESC;
+    s.updated_at DESC;
 
 -- name: GetSession :one
 SELECT
-    *
+    s.*,
+    sc.cwd,
+    sc.flags
 FROM
-    sessions
+    sessions s
+    JOIN session_configs sc ON sc.id = s.session_config_id
 WHERE
-    name = @name
-    AND is_deleted = 0
+    s.name = @name
+    AND s.is_deleted = 0
 LIMIT 1;
 
 -- name: ActiveNameExists :one
@@ -58,31 +73,46 @@ SELECT
             name = @name
             AND is_deleted = 0);
 
--- name: UpsertSession :one
-INSERT INTO sessions (id, name, cwd, flags, prompt, pane_id, state, claude_session_id, workflow_id)
-    VALUES (@id, @name, @cwd, @flags, @prompt, @pane_id, @state, @claude_session_id, sqlc.narg('workflow_id'))
-ON CONFLICT (name) WHERE is_deleted = 0
-    DO UPDATE SET
-        cwd = excluded.cwd,
-        flags = excluded.flags,
-        prompt = excluded.prompt,
-        pane_id = excluded.pane_id,
-        state = excluded.state,
-        claude_session_id = CASE WHEN excluded.claude_session_id != '' THEN
-            excluded.claude_session_id
-        ELSE
-            sessions.claude_session_id
-        END,
-        workflow_id = excluded.workflow_id,
-        updated_at = CURRENT_TIMESTAMP
-    RETURNING
-        *;
+-- name: InsertSessionConfig :exec
+INSERT INTO session_configs (id, cwd, flags)
+    VALUES (@id, @cwd, @flags);
+
+-- name: InsertSession :exec
+INSERT INTO sessions (id, name, session_config_id, prompt, pane_id, state, claude_session_id, workflow_id)
+    VALUES (@id, @name, @session_config_id, @prompt, @pane_id, @state, @claude_session_id, sqlc.narg ('workflow_id'));
+
+-- name: UpdateSessionConfig :exec
+UPDATE
+    session_configs
+SET
+    cwd = @cwd,
+    flags = @flags,
+    updated_at = CURRENT_TIMESTAMP
+WHERE
+    id = @id;
+
+-- name: UpdateSession :exec
+UPDATE
+    sessions
+SET
+    prompt = @prompt,
+    pane_id = @pane_id,
+    state = @state,
+    claude_session_id = CASE WHEN @claude_session_id != '' THEN
+        @claude_session_id
+    ELSE
+        claude_session_id
+    END,
+    workflow_id = sqlc.narg ('workflow_id'),
+    updated_at = CURRENT_TIMESTAMP
+WHERE
+    id = @id;
 
 -- name: SetSessionWorkflow :exec
 UPDATE
     sessions
 SET
-    workflow_id = sqlc.narg('workflow_id'),
+    workflow_id = sqlc.narg ('workflow_id'),
     updated_at = CURRENT_TIMESTAMP
 WHERE
     id = @id;
@@ -172,3 +202,4 @@ SET
     updated_at = CURRENT_TIMESTAMP
 WHERE
     id = @id;
+

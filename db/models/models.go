@@ -11,8 +11,7 @@ import (
 type Session struct {
 	ID              string
 	Name            string
-	Cwd             string
-	Flags           string
+	SessionConfigID string
 	Prompt          string
 	PaneID          string
 	State           string
@@ -23,10 +22,27 @@ type Session struct {
 	UpdatedAt       time.Time
 }
 
-type Workflow struct {
+type SessionConfig struct {
 	ID        string
-	Name      string
-	IsDeleted int64
+	Cwd       string
+	Flags     string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type Workflow struct {
+	ID               string
+	Name             string
+	WorkflowConfigID string
+	IsDeleted        int64
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+type WorkflowConfig struct {
+	ID        string
+	Cwd       string
+	Flags     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

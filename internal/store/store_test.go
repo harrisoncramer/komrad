@@ -180,12 +180,12 @@ func TestWorkflowCRUD(t *testing.T) {
 	ctx := context.Background()
 	st := open(t)
 
-	first, err := st.CreateWorkflow(ctx, "backend")
+	first, err := st.CreateWorkflow(ctx, "backend", "", "")
 	require.NoError(t, err)
 	require.NotNil(t, first)
 	assert.NotEmpty(t, first.ID, "an id is generated on create")
 
-	second, err := st.CreateWorkflow(ctx, "frontend")
+	second, err := st.CreateWorkflow(ctx, "frontend", "", "")
 	require.NoError(t, err)
 	require.NotNil(t, second)
 
@@ -217,6 +217,60 @@ func TestWorkflowCRUD(t *testing.T) {
 	assert.Equal(t, second.ID, workflows[0].ID)
 }
 
+// TestSessionConfigRoundTrip checks that a session's cwd/flags survive the split
+// into session_configs: an insert creates the owned config row, a read joins it
+// back, and an id-keyed update rewrites the same config row rather than orphaning
+// it.
+func TestSessionConfigRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	st := open(t)
+
+	require.NoError(t, st.Upsert(ctx, Agent{Name: "chat", Cwd: "/work/api", Flags: "--model opus", State: StateNew}))
+
+	got, err := st.Get(ctx, "chat")
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, "/work/api", got.Cwd)
+	assert.Equal(t, "--model opus", got.Flags)
+	assert.NotEmpty(t, got.SessionConfigID, "a session owns its config row")
+
+	got.Cwd = "/work/web"
+	got.Pane = "%3"
+	require.NoError(t, st.Upsert(ctx, *got))
+
+	again, err := st.Get(ctx, "chat")
+	require.NoError(t, err)
+	require.NotNil(t, again)
+	assert.Equal(t, got.SessionConfigID, again.SessionConfigID, "the config id is stable across updates")
+	assert.Equal(t, "/work/web", again.Cwd, "the linked config is updated in place")
+	assert.Equal(t, "%3", again.Pane)
+}
+
+// TestWorkflowConfigRoundTrip checks that a workflow's default cwd/flags are
+// stored in workflow_configs and joined back on both the create result and the
+// later reads.
+func TestWorkflowConfigRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	st := open(t)
+
+	wf, err := st.CreateWorkflow(ctx, "backend", "/work/api", "--model opus")
+	require.NoError(t, err)
+	assert.Equal(t, "/work/api", wf.Cwd)
+	assert.Equal(t, "--model opus", wf.Flags)
+
+	got, err := st.GetWorkflow(ctx, wf.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, "/work/api", got.Cwd)
+	assert.Equal(t, "--model opus", got.Flags)
+
+	list, err := st.ListWorkflows(ctx)
+	require.NoError(t, err)
+	require.Len(t, list, 1)
+	assert.Equal(t, "/work/api", list[0].Cwd)
+	assert.Equal(t, "--model opus", list[0].Flags)
+}
+
 // TestMoveChatBetweenWorkflows checks that assigning a chat to a workflow scopes
 // it to that workflow's listing, and that a nil target unassigns it back to the
 // root.
@@ -224,7 +278,7 @@ func TestMoveChatBetweenWorkflows(t *testing.T) {
 	ctx := context.Background()
 	st := open(t)
 
-	workflow, err := st.CreateWorkflow(ctx, "backend")
+	workflow, err := st.CreateWorkflow(ctx, "backend", "", "")
 	require.NoError(t, err)
 	require.NoError(t, st.Upsert(ctx, Agent{Name: "scoped", State: StateNew}))
 	require.NoError(t, st.Upsert(ctx, Agent{Name: "unscoped", State: StateNew}))
@@ -260,7 +314,7 @@ func TestDeleteWorkflowOrphansChats(t *testing.T) {
 	ctx := context.Background()
 	st := open(t)
 
-	workflow, err := st.CreateWorkflow(ctx, "backend")
+	workflow, err := st.CreateWorkflow(ctx, "backend", "", "")
 	require.NoError(t, err)
 	require.NoError(t, st.Upsert(ctx, Agent{Name: "chat", State: StateNew, WorkflowID: &workflow.ID}))
 
@@ -283,7 +337,7 @@ func TestDeleteWorkflowWithChats(t *testing.T) {
 	ctx := context.Background()
 	st := open(t)
 
-	workflow, err := st.CreateWorkflow(ctx, "backend")
+	workflow, err := st.CreateWorkflow(ctx, "backend", "", "")
 	require.NoError(t, err)
 	require.NoError(t, st.Upsert(ctx, Agent{Name: "chat", State: StateNew, WorkflowID: &workflow.ID}))
 
@@ -312,7 +366,7 @@ func TestUpsertPreservesWorkflow(t *testing.T) {
 	ctx := context.Background()
 	st := open(t)
 
-	workflow, err := st.CreateWorkflow(ctx, "backend")
+	workflow, err := st.CreateWorkflow(ctx, "backend", "", "")
 	require.NoError(t, err)
 	require.NoError(t, st.Upsert(ctx, Agent{Name: "chat", State: StateThinking, WorkflowID: &workflow.ID}))
 

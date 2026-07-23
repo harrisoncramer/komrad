@@ -1,26 +1,36 @@
 -- name: ListWorkflows :many
 SELECT
-    *
+    w.*,
+    wc.cwd,
+    wc.flags
 FROM
-    workflows
+    workflows w
+    JOIN workflow_configs wc ON wc.id = w.workflow_config_id
 WHERE
-    is_deleted = 0
+    w.is_deleted = 0
 ORDER BY
-    updated_at DESC;
+    w.updated_at DESC;
 
 -- name: GetWorkflow :one
 SELECT
-    *
+    w.*,
+    wc.cwd,
+    wc.flags
 FROM
-    workflows
+    workflows w
+    JOIN workflow_configs wc ON wc.id = w.workflow_config_id
 WHERE
-    id = @id
-    AND is_deleted = 0
+    w.id = @id
+    AND w.is_deleted = 0
 LIMIT 1;
 
+-- name: InsertWorkflowConfig :exec
+INSERT INTO workflow_configs (id, cwd, flags)
+    VALUES (@id, @cwd, @flags);
+
 -- name: InsertWorkflow :one
-INSERT INTO workflows (id, name)
-    VALUES (@id, @name)
+INSERT INTO workflows (id, name, workflow_config_id)
+    VALUES (@id, @name, @workflow_config_id)
 RETURNING
     *;
 
@@ -41,3 +51,4 @@ SET
     updated_at = CURRENT_TIMESTAMP
 WHERE
     id = @id;
+

@@ -29,8 +29,12 @@ const (
 
 // Agent is a persisted background agent.
 type Agent struct {
-	ID              string
-	Name            string
+	ID   string
+	Name string
+	// SessionConfigID is the id of this agent's own config row, which holds its
+	// cwd and flags. Every agent owns exactly one. Cwd and Flags below are the
+	// flattened view of that row, joined in on read.
+	SessionConfigID string
 	Pane            string
 	Cwd             string
 	Flags           string
@@ -46,11 +50,14 @@ type Agent struct {
 	CreatedAt time.Time
 }
 
-// Workflow is a named bucket of related chats. It is pure organization and runs
-// nothing, so unlike an agent it has no pane, state, or working directory.
+// Workflow is a named bucket of related chats. It runs nothing, but it carries
+// a default config (Cwd, Flags) used as the blueprint prefilled into the
+// new-chat form for chats created inside it.
 type Workflow struct {
-	ID   string
-	Name string
+	ID    string
+	Name  string
+	Cwd   string
+	Flags string
 }
 
 // SanitizeName maps a name to the characters tmux allows in a session name,
@@ -104,7 +111,7 @@ func (s *Store) List(ctx context.Context) ([]Agent, error) {
 
 	agents := make([]Agent, 0, len(rows))
 	for _, row := range rows {
-		agents = append(agents, fromModel(row))
+		agents = append(agents, agentFromRow(row.ID, row.Name, row.SessionConfigID, row.PaneID, row.Cwd, row.Flags, row.Prompt, row.State, row.ClaudeSessionID, row.WorkflowID, row.IsDeleted, row.CreatedAt))
 	}
 
 	return agents, nil
@@ -120,7 +127,7 @@ func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
 
 	agents := make([]Agent, 0, len(rows))
 	for _, row := range rows {
-		agents = append(agents, fromModel(row))
+		agents = append(agents, agentFromRow(row.ID, row.Name, row.SessionConfigID, row.PaneID, row.Cwd, row.Flags, row.Prompt, row.State, row.ClaudeSessionID, row.WorkflowID, row.IsDeleted, row.CreatedAt))
 	}
 
 	return agents, nil
@@ -136,7 +143,7 @@ func (s *Store) ListByWorkflow(ctx context.Context, workflowID string) ([]Agent,
 
 	agents := make([]Agent, 0, len(rows))
 	for _, row := range rows {
-		agents = append(agents, fromModel(row))
+		agents = append(agents, agentFromRow(row.ID, row.Name, row.SessionConfigID, row.PaneID, row.Cwd, row.Flags, row.Prompt, row.State, row.ClaudeSessionID, row.WorkflowID, row.IsDeleted, row.CreatedAt))
 	}
 
 	return agents, nil
@@ -152,36 +159,104 @@ func (s *Store) ListAllByWorkflow(ctx context.Context, workflowID string) ([]Age
 
 	agents := make([]Agent, 0, len(rows))
 	for _, row := range rows {
-		agents = append(agents, fromModel(row))
+		agents = append(agents, agentFromRow(row.ID, row.Name, row.SessionConfigID, row.PaneID, row.Cwd, row.Flags, row.Prompt, row.State, row.ClaudeSessionID, row.WorkflowID, row.IsDeleted, row.CreatedAt))
 	}
 
 	return agents, nil
 }
 
-// Upsert inserts or updates an agent keyed by name, assigning a uuidv7 id on
-// first insert.
+// Upsert inserts a new agent or updates an existing one. A blank id means a
+// fresh agent: a session id and a separate config id are generated, and the
+// config row is inserted alongside the session in one transaction. A set id
+// means an existing agent (the restore path): its linked config and runtime
+// fields are updated in place, never inserting a second config row.
 func (s *Store) Upsert(ctx context.Context, agent Agent) error {
 	if agent.ID == "" {
-		id, err := uuid.NewV7()
-		if err != nil {
-			return fmt.Errorf("failed to generate id: %w", err)
-		}
-
-		agent.ID = id.String()
+		return s.insertAgent(ctx, agent)
 	}
 
-	if _, err := s.queries.UpsertSession(ctx, models.UpsertSessionParams{
-		ID:              agent.ID,
+	return s.updateAgent(ctx, agent)
+}
+
+// insertAgent creates a fresh agent and its own config row in one transaction.
+func (s *Store) insertAgent(ctx context.Context, agent Agent) error {
+	sessionID, err := uuid.NewV7()
+	if err != nil {
+		return fmt.Errorf("failed to generate session id: %w", err)
+	}
+	configID, err := uuid.NewV7()
+	if err != nil {
+		return fmt.Errorf("failed to generate config id: %w", err)
+	}
+
+	tx, err := s.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin insert-session tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	queries := s.queries.WithTx(tx)
+	if err := queries.InsertSessionConfig(ctx, models.InsertSessionConfigParams{
+		ID:    configID.String(),
+		Cwd:   agent.Cwd,
+		Flags: agent.Flags,
+	}); err != nil {
+		return fmt.Errorf("failed to insert config for %q: %w", agent.Name, err)
+	}
+
+	if err := queries.InsertSession(ctx, models.InsertSessionParams{
+		ID:              sessionID.String(),
 		Name:            agent.Name,
-		Cwd:             agent.Cwd,
-		Flags:           agent.Flags,
+		SessionConfigID: configID.String(),
 		Prompt:          agent.Prompt,
 		PaneID:          agent.Pane,
 		State:           agent.State,
 		ClaudeSessionID: agent.ClaudeSessionID,
 		WorkflowID:      agent.WorkflowID,
 	}); err != nil {
-		return fmt.Errorf("failed to upsert session %q: %w", agent.Name, err)
+		return fmt.Errorf("failed to insert session %q: %w", agent.Name, err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit insert of session %q: %w", agent.Name, err)
+	}
+
+	return nil
+}
+
+// updateAgent updates an existing agent's linked config and runtime fields in
+// one transaction, keyed by its stable id.
+func (s *Store) updateAgent(ctx context.Context, agent Agent) error {
+	tx, err := s.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin update-session tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	queries := s.queries.WithTx(tx)
+	if agent.SessionConfigID != "" {
+		if err := queries.UpdateSessionConfig(ctx, models.UpdateSessionConfigParams{
+			ID:    agent.SessionConfigID,
+			Cwd:   agent.Cwd,
+			Flags: agent.Flags,
+		}); err != nil {
+			return fmt.Errorf("failed to update config for %q: %w", agent.Name, err)
+		}
+	}
+
+	if err := queries.UpdateSession(ctx, models.UpdateSessionParams{
+		ID:              agent.ID,
+		Prompt:          agent.Prompt,
+		PaneID:          agent.Pane,
+		State:           agent.State,
+		ClaudeSessionID: agent.ClaudeSessionID,
+		WorkflowID:      agent.WorkflowID,
+	}); err != nil {
+		return fmt.Errorf("failed to update session %q: %w", agent.Name, err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit update of session %q: %w", agent.Name, err)
 	}
 
 	return nil
@@ -217,7 +292,7 @@ func (s *Store) Get(ctx context.Context, name string) (*Agent, error) {
 		return nil, fmt.Errorf("failed to get session %q: %w", name, err)
 	}
 
-	agent := fromModel(row)
+	agent := agentFromRow(row.ID, row.Name, row.SessionConfigID, row.PaneID, row.Cwd, row.Flags, row.Prompt, row.State, row.ClaudeSessionID, row.WorkflowID, row.IsDeleted, row.CreatedAt)
 	return &agent, nil
 }
 
@@ -313,7 +388,7 @@ func (s *Store) ListWorkflows(ctx context.Context) ([]Workflow, error) {
 
 	workflows := make([]Workflow, 0, len(rows))
 	for _, row := range rows {
-		workflows = append(workflows, fromWorkflowModel(row))
+		workflows = append(workflows, workflowFromRow(row.ID, row.Name, row.Cwd, row.Flags))
 	}
 
 	return workflows, nil
@@ -330,23 +405,52 @@ func (s *Store) GetWorkflow(ctx context.Context, id string) (*Workflow, error) {
 		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
 	}
 
-	workflow := fromWorkflowModel(row)
+	workflow := workflowFromRow(row.ID, row.Name, row.Cwd, row.Flags)
 	return &workflow, nil
 }
 
-// CreateWorkflow inserts a workflow with a fresh uuidv7 id and returns it.
-func (s *Store) CreateWorkflow(ctx context.Context, name string) (*Workflow, error) {
-	id, err := uuid.NewV7()
+// CreateWorkflow inserts a workflow with a fresh uuidv7 id, together with its
+// own config row holding the given cwd and flags, and returns it. The config is
+// the blueprint prefilled into new chats created inside the workflow.
+func (s *Store) CreateWorkflow(ctx context.Context, name, cwd, flags string) (*Workflow, error) {
+	workflowID, err := uuid.NewV7()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate workflow id: %w", err)
 	}
+	configID, err := uuid.NewV7()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate workflow config id: %w", err)
+	}
 
-	row, err := s.queries.InsertWorkflow(ctx, models.InsertWorkflowParams{ID: id.String(), Name: name})
+	tx, err := s.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin create-workflow tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	queries := s.queries.WithTx(tx)
+	if err := queries.InsertWorkflowConfig(ctx, models.InsertWorkflowConfigParams{
+		ID:    configID.String(),
+		Cwd:   cwd,
+		Flags: flags,
+	}); err != nil {
+		return nil, fmt.Errorf("failed to insert config for workflow %q: %w", name, err)
+	}
+
+	row, err := queries.InsertWorkflow(ctx, models.InsertWorkflowParams{
+		ID:               workflowID.String(),
+		Name:             name,
+		WorkflowConfigID: configID.String(),
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workflow %q: %w", name, err)
 	}
 
-	workflow := fromWorkflowModel(row)
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit create of workflow %q: %w", name, err)
+	}
+
+	workflow := workflowFromRow(row.ID, row.Name, cwd, flags)
 	return &workflow, nil
 }
 
@@ -412,25 +516,31 @@ func (s *Store) DeleteWorkflowWithChats(ctx context.Context, id string) error {
 	return nil
 }
 
-func fromModel(row *models.Session) Agent {
+// agentFromRow builds an Agent from the columns every session read returns.
+// The joined reads produce distinct sqlc row types with identical fields, so
+// the caller passes the fields explicitly rather than one row type.
+func agentFromRow(id, name, sessionConfigID, pane, cwd, flags, prompt, state, claudeSessionID string, workflowID *string, isDeleted int64, createdAt time.Time) Agent {
 	return Agent{
-		ID:              row.ID,
-		Name:            row.Name,
-		Pane:            row.PaneID,
-		Cwd:             row.Cwd,
-		Flags:           row.Flags,
-		Prompt:          row.Prompt,
-		State:           row.State,
-		ClaudeSessionID: row.ClaudeSessionID,
-		WorkflowID:      row.WorkflowID,
-		Deleted:         row.IsDeleted != 0,
-		CreatedAt:       row.CreatedAt,
+		ID:              id,
+		Name:            name,
+		SessionConfigID: sessionConfigID,
+		Pane:            pane,
+		Cwd:             cwd,
+		Flags:           flags,
+		Prompt:          prompt,
+		State:           state,
+		ClaudeSessionID: claudeSessionID,
+		WorkflowID:      workflowID,
+		Deleted:         isDeleted != 0,
+		CreatedAt:       createdAt,
 	}
 }
 
-func fromWorkflowModel(row *models.Workflow) Workflow {
+func workflowFromRow(id, name, cwd, flags string) Workflow {
 	return Workflow{
-		ID:   row.ID,
-		Name: row.Name,
+		ID:    id,
+		Name:  name,
+		Cwd:   cwd,
+		Flags: flags,
 	}
 }

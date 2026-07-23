@@ -81,7 +81,7 @@ type agentStore interface {
 	MoveToWorkflow(ctx context.Context, id string, workflowID *string) error
 	ListWorkflows(ctx context.Context) ([]store.Workflow, error)
 	GetWorkflow(ctx context.Context, id string) (*store.Workflow, error)
-	CreateWorkflow(ctx context.Context, name string) (*store.Workflow, error)
+	CreateWorkflow(ctx context.Context, name, cwd, flags string) (*store.Workflow, error)
 	RenameWorkflow(ctx context.Context, id, name string) error
 	DeleteWorkflow(ctx context.Context, id string) error
 	DeleteWorkflowWithChats(ctx context.Context, id string) error
@@ -284,15 +284,20 @@ func (m *AgentManager) GetWorkflow(id string) (*store.Workflow, error) {
 	return workflow, nil
 }
 
-// NewWorkflow creates a workflow, defaulting a blank name so the picker always
-// has a label to show. The name is a display label only; nothing keys on it.
-func (m *AgentManager) NewWorkflow(name string) (*store.Workflow, error) {
+// NewWorkflow creates a workflow with its default config (cwd, flags),
+// defaulting a blank name so the picker always has a label to show. The name is
+// a display label only; nothing keys on it. The cwd is home-expanded so the
+// stored blueprint matches what a session launch would use.
+func (m *AgentManager) NewWorkflow(name, cwd, flags string) (*store.Workflow, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		name = "workflow"
 	}
 
-	workflow, err := m.sessions.CreateWorkflow(context.Background(), name)
+	cwd = expandHome(strings.TrimSpace(cwd))
+	flags = strings.TrimSpace(flags)
+
+	workflow, err := m.sessions.CreateWorkflow(context.Background(), name, cwd, flags)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workflow %q: %w", name, err)
 	}

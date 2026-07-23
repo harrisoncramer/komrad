@@ -7,50 +7,70 @@ package models
 
 import (
 	"context"
+	"time"
 )
 
 const getWorkflow = `-- name: GetWorkflow :one
 SELECT
-    id, name, is_deleted, created_at, updated_at
+    w.id, w.name, w.workflow_config_id, w.is_deleted, w.created_at, w.updated_at,
+    wc.cwd,
+    wc.flags
 FROM
-    workflows
+    workflows w
+    JOIN workflow_configs wc ON wc.id = w.workflow_config_id
 WHERE
-    id = ?1
-    AND is_deleted = 0
+    w.id = ?1
+    AND w.is_deleted = 0
 LIMIT 1
 `
 
-func (q *Queries) GetWorkflow(ctx context.Context, id string) (*Workflow, error) {
+type GetWorkflowRow struct {
+	ID               string
+	Name             string
+	WorkflowConfigID string
+	IsDeleted        int64
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	Cwd              string
+	Flags            string
+}
+
+func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, error) {
 	row := q.db.QueryRowContext(ctx, getWorkflow, id)
-	var i Workflow
+	var i GetWorkflowRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
+		&i.WorkflowConfigID,
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Cwd,
+		&i.Flags,
 	)
 	return &i, err
 }
 
 const insertWorkflow = `-- name: InsertWorkflow :one
-INSERT INTO workflows (id, name)
-    VALUES (?1, ?2)
+INSERT INTO workflows (id, name, workflow_config_id)
+    VALUES (?1, ?2, ?3)
 RETURNING
-    id, name, is_deleted, created_at, updated_at
+    id, name, workflow_config_id, is_deleted, created_at, updated_at
 `
 
 type InsertWorkflowParams struct {
-	ID   string
-	Name string
+	ID               string
+	Name             string
+	WorkflowConfigID string
 }
 
 func (q *Queries) InsertWorkflow(ctx context.Context, arg InsertWorkflowParams) (*Workflow, error) {
-	row := q.db.QueryRowContext(ctx, insertWorkflow, arg.ID, arg.Name)
+	row := q.db.QueryRowContext(ctx, insertWorkflow, arg.ID, arg.Name, arg.WorkflowConfigID)
 	var i Workflow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
+		&i.WorkflowConfigID,
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -58,32 +78,65 @@ func (q *Queries) InsertWorkflow(ctx context.Context, arg InsertWorkflowParams) 
 	return &i, err
 }
 
-const listWorkflows = `-- name: ListWorkflows :many
-SELECT
-    id, name, is_deleted, created_at, updated_at
-FROM
-    workflows
-WHERE
-    is_deleted = 0
-ORDER BY
-    updated_at DESC
+const insertWorkflowConfig = `-- name: InsertWorkflowConfig :exec
+INSERT INTO workflow_configs (id, cwd, flags)
+    VALUES (?1, ?2, ?3)
 `
 
-func (q *Queries) ListWorkflows(ctx context.Context) ([]*Workflow, error) {
+type InsertWorkflowConfigParams struct {
+	ID    string
+	Cwd   string
+	Flags string
+}
+
+func (q *Queries) InsertWorkflowConfig(ctx context.Context, arg InsertWorkflowConfigParams) error {
+	_, err := q.db.ExecContext(ctx, insertWorkflowConfig, arg.ID, arg.Cwd, arg.Flags)
+	return err
+}
+
+const listWorkflows = `-- name: ListWorkflows :many
+SELECT
+    w.id, w.name, w.workflow_config_id, w.is_deleted, w.created_at, w.updated_at,
+    wc.cwd,
+    wc.flags
+FROM
+    workflows w
+    JOIN workflow_configs wc ON wc.id = w.workflow_config_id
+WHERE
+    w.is_deleted = 0
+ORDER BY
+    w.updated_at DESC
+`
+
+type ListWorkflowsRow struct {
+	ID               string
+	Name             string
+	WorkflowConfigID string
+	IsDeleted        int64
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	Cwd              string
+	Flags            string
+}
+
+func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listWorkflows)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*Workflow
+	var items []*ListWorkflowsRow
 	for rows.Next() {
-		var i Workflow
+		var i ListWorkflowsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
+			&i.WorkflowConfigID,
 			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Cwd,
+			&i.Flags,
 		); err != nil {
 			return nil, err
 		}

@@ -7,6 +7,7 @@ package models
 
 import (
 	"context"
+	"time"
 )
 
 const activeNameExists = `-- name: ActiveNameExists :one
@@ -55,23 +56,41 @@ func (q *Queries) DeleteSession(ctx context.Context, name string) error {
 
 const getSession = `-- name: GetSession :one
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, claude_session_id, workflow_id, is_deleted, created_at, updated_at
+    s.id, s.name, s.session_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at,
+    sc.cwd,
+    sc.flags
 FROM
-    sessions
+    sessions s
+    JOIN session_configs sc ON sc.id = s.session_config_id
 WHERE
-    name = ?1
-    AND is_deleted = 0
+    s.name = ?1
+    AND s.is_deleted = 0
 LIMIT 1
 `
 
-func (q *Queries) GetSession(ctx context.Context, name string) (*Session, error) {
+type GetSessionRow struct {
+	ID              string
+	Name            string
+	SessionConfigID string
+	Prompt          string
+	PaneID          string
+	State           string
+	ClaudeSessionID string
+	WorkflowID      *string
+	IsDeleted       int64
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	Cwd             string
+	Flags           string
+}
+
+func (q *Queries) GetSession(ctx context.Context, name string) (*GetSessionRow, error) {
 	row := q.db.QueryRowContext(ctx, getSession, name)
-	var i Session
+	var i GetSessionRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Cwd,
-		&i.Flags,
+		&i.SessionConfigID,
 		&i.Prompt,
 		&i.PaneID,
 		&i.State,
@@ -80,33 +99,99 @@ func (q *Queries) GetSession(ctx context.Context, name string) (*Session, error)
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Cwd,
+		&i.Flags,
 	)
 	return &i, err
 }
 
-const listAllSessions = `-- name: ListAllSessions :many
-SELECT
-    id, name, cwd, flags, prompt, pane_id, state, claude_session_id, workflow_id, is_deleted, created_at, updated_at
-FROM
-    sessions
-ORDER BY
-    updated_at DESC
+const insertSession = `-- name: InsertSession :exec
+INSERT INTO sessions (id, name, session_config_id, prompt, pane_id, state, claude_session_id, workflow_id)
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
 `
 
-func (q *Queries) ListAllSessions(ctx context.Context) ([]*Session, error) {
+type InsertSessionParams struct {
+	ID              string
+	Name            string
+	SessionConfigID string
+	Prompt          string
+	PaneID          string
+	State           string
+	ClaudeSessionID string
+	WorkflowID      *string
+}
+
+func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) error {
+	_, err := q.db.ExecContext(ctx, insertSession,
+		arg.ID,
+		arg.Name,
+		arg.SessionConfigID,
+		arg.Prompt,
+		arg.PaneID,
+		arg.State,
+		arg.ClaudeSessionID,
+		arg.WorkflowID,
+	)
+	return err
+}
+
+const insertSessionConfig = `-- name: InsertSessionConfig :exec
+INSERT INTO session_configs (id, cwd, flags)
+    VALUES (?1, ?2, ?3)
+`
+
+type InsertSessionConfigParams struct {
+	ID    string
+	Cwd   string
+	Flags string
+}
+
+func (q *Queries) InsertSessionConfig(ctx context.Context, arg InsertSessionConfigParams) error {
+	_, err := q.db.ExecContext(ctx, insertSessionConfig, arg.ID, arg.Cwd, arg.Flags)
+	return err
+}
+
+const listAllSessions = `-- name: ListAllSessions :many
+SELECT
+    s.id, s.name, s.session_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at,
+    sc.cwd,
+    sc.flags
+FROM
+    sessions s
+    JOIN session_configs sc ON sc.id = s.session_config_id
+ORDER BY
+    s.updated_at DESC
+`
+
+type ListAllSessionsRow struct {
+	ID              string
+	Name            string
+	SessionConfigID string
+	Prompt          string
+	PaneID          string
+	State           string
+	ClaudeSessionID string
+	WorkflowID      *string
+	IsDeleted       int64
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	Cwd             string
+	Flags           string
+}
+
+func (q *Queries) ListAllSessions(ctx context.Context) ([]*ListAllSessionsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listAllSessions)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*Session
+	var items []*ListAllSessionsRow
 	for rows.Next() {
-		var i Session
+		var i ListAllSessionsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
-			&i.Cwd,
-			&i.Flags,
+			&i.SessionConfigID,
 			&i.Prompt,
 			&i.PaneID,
 			&i.State,
@@ -115,6 +200,8 @@ func (q *Queries) ListAllSessions(ctx context.Context) ([]*Session, error) {
 			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Cwd,
+			&i.Flags,
 		); err != nil {
 			return nil, err
 		}
@@ -131,29 +218,47 @@ func (q *Queries) ListAllSessions(ctx context.Context) ([]*Session, error) {
 
 const listAllSessionsByWorkflow = `-- name: ListAllSessionsByWorkflow :many
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, claude_session_id, workflow_id, is_deleted, created_at, updated_at
+    s.id, s.name, s.session_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at,
+    sc.cwd,
+    sc.flags
 FROM
-    sessions
+    sessions s
+    JOIN session_configs sc ON sc.id = s.session_config_id
 WHERE
-    workflow_id = ?1
+    s.workflow_id = ?1
 ORDER BY
-    updated_at DESC
+    s.updated_at DESC
 `
 
-func (q *Queries) ListAllSessionsByWorkflow(ctx context.Context, workflowID *string) ([]*Session, error) {
+type ListAllSessionsByWorkflowRow struct {
+	ID              string
+	Name            string
+	SessionConfigID string
+	Prompt          string
+	PaneID          string
+	State           string
+	ClaudeSessionID string
+	WorkflowID      *string
+	IsDeleted       int64
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	Cwd             string
+	Flags           string
+}
+
+func (q *Queries) ListAllSessionsByWorkflow(ctx context.Context, workflowID *string) ([]*ListAllSessionsByWorkflowRow, error) {
 	rows, err := q.db.QueryContext(ctx, listAllSessionsByWorkflow, workflowID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*Session
+	var items []*ListAllSessionsByWorkflowRow
 	for rows.Next() {
-		var i Session
+		var i ListAllSessionsByWorkflowRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
-			&i.Cwd,
-			&i.Flags,
+			&i.SessionConfigID,
 			&i.Prompt,
 			&i.PaneID,
 			&i.State,
@@ -162,6 +267,8 @@ func (q *Queries) ListAllSessionsByWorkflow(ctx context.Context, workflowID *str
 			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Cwd,
+			&i.Flags,
 		); err != nil {
 			return nil, err
 		}
@@ -178,29 +285,47 @@ func (q *Queries) ListAllSessionsByWorkflow(ctx context.Context, workflowID *str
 
 const listSessions = `-- name: ListSessions :many
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, claude_session_id, workflow_id, is_deleted, created_at, updated_at
+    s.id, s.name, s.session_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at,
+    sc.cwd,
+    sc.flags
 FROM
-    sessions
+    sessions s
+    JOIN session_configs sc ON sc.id = s.session_config_id
 WHERE
-    is_deleted = 0
+    s.is_deleted = 0
 ORDER BY
-    updated_at DESC
+    s.updated_at DESC
 `
 
-func (q *Queries) ListSessions(ctx context.Context) ([]*Session, error) {
+type ListSessionsRow struct {
+	ID              string
+	Name            string
+	SessionConfigID string
+	Prompt          string
+	PaneID          string
+	State           string
+	ClaudeSessionID string
+	WorkflowID      *string
+	IsDeleted       int64
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	Cwd             string
+	Flags           string
+}
+
+func (q *Queries) ListSessions(ctx context.Context) ([]*ListSessionsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listSessions)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*Session
+	var items []*ListSessionsRow
 	for rows.Next() {
-		var i Session
+		var i ListSessionsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
-			&i.Cwd,
-			&i.Flags,
+			&i.SessionConfigID,
 			&i.Prompt,
 			&i.PaneID,
 			&i.State,
@@ -209,6 +334,8 @@ func (q *Queries) ListSessions(ctx context.Context) ([]*Session, error) {
 			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Cwd,
+			&i.Flags,
 		); err != nil {
 			return nil, err
 		}
@@ -225,30 +352,48 @@ func (q *Queries) ListSessions(ctx context.Context) ([]*Session, error) {
 
 const listSessionsByWorkflow = `-- name: ListSessionsByWorkflow :many
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, claude_session_id, workflow_id, is_deleted, created_at, updated_at
+    s.id, s.name, s.session_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at,
+    sc.cwd,
+    sc.flags
 FROM
-    sessions
+    sessions s
+    JOIN session_configs sc ON sc.id = s.session_config_id
 WHERE
-    is_deleted = 0
-    AND workflow_id = ?1
+    s.is_deleted = 0
+    AND s.workflow_id = ?1
 ORDER BY
-    updated_at DESC
+    s.updated_at DESC
 `
 
-func (q *Queries) ListSessionsByWorkflow(ctx context.Context, workflowID *string) ([]*Session, error) {
+type ListSessionsByWorkflowRow struct {
+	ID              string
+	Name            string
+	SessionConfigID string
+	Prompt          string
+	PaneID          string
+	State           string
+	ClaudeSessionID string
+	WorkflowID      *string
+	IsDeleted       int64
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	Cwd             string
+	Flags           string
+}
+
+func (q *Queries) ListSessionsByWorkflow(ctx context.Context, workflowID *string) ([]*ListSessionsByWorkflowRow, error) {
 	rows, err := q.db.QueryContext(ctx, listSessionsByWorkflow, workflowID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*Session
+	var items []*ListSessionsByWorkflowRow
 	for rows.Next() {
-		var i Session
+		var i ListSessionsByWorkflowRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
-			&i.Cwd,
-			&i.Flags,
+			&i.SessionConfigID,
 			&i.Prompt,
 			&i.PaneID,
 			&i.State,
@@ -257,6 +402,8 @@ func (q *Queries) ListSessionsByWorkflow(ctx context.Context, workflowID *string
 			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Cwd,
+			&i.Flags,
 		); err != nil {
 			return nil, err
 		}
@@ -399,6 +546,67 @@ func (q *Queries) SetSessionWorkflow(ctx context.Context, arg SetSessionWorkflow
 	return err
 }
 
+const updateSession = `-- name: UpdateSession :exec
+UPDATE
+    sessions
+SET
+    prompt = ?1,
+    pane_id = ?2,
+    state = ?3,
+    claude_session_id = CASE WHEN ?4 != '' THEN
+        ?4
+    ELSE
+        claude_session_id
+    END,
+    workflow_id = ?5,
+    updated_at = CURRENT_TIMESTAMP
+WHERE
+    id = ?6
+`
+
+type UpdateSessionParams struct {
+	Prompt          string
+	PaneID          string
+	State           string
+	ClaudeSessionID interface{}
+	WorkflowID      *string
+	ID              string
+}
+
+func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) error {
+	_, err := q.db.ExecContext(ctx, updateSession,
+		arg.Prompt,
+		arg.PaneID,
+		arg.State,
+		arg.ClaudeSessionID,
+		arg.WorkflowID,
+		arg.ID,
+	)
+	return err
+}
+
+const updateSessionConfig = `-- name: UpdateSessionConfig :exec
+UPDATE
+    session_configs
+SET
+    cwd = ?1,
+    flags = ?2,
+    updated_at = CURRENT_TIMESTAMP
+WHERE
+    id = ?3
+`
+
+type UpdateSessionConfigParams struct {
+	Cwd   string
+	Flags string
+	ID    string
+}
+
+func (q *Queries) UpdateSessionConfig(ctx context.Context, arg UpdateSessionConfigParams) error {
+	_, err := q.db.ExecContext(ctx, updateSessionConfig, arg.Cwd, arg.Flags, arg.ID)
+	return err
+}
+
 const updateSessionState = `-- name: UpdateSessionState :exec
 UPDATE
     sessions
@@ -431,67 +639,4 @@ func (q *Queries) UpdateSessionState(ctx context.Context, arg UpdateSessionState
 		arg.Name,
 	)
 	return err
-}
-
-const upsertSession = `-- name: UpsertSession :one
-INSERT INTO sessions (id, name, cwd, flags, prompt, pane_id, state, claude_session_id, workflow_id)
-    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
-ON CONFLICT (name) WHERE is_deleted = 0
-    DO UPDATE SET
-        cwd = excluded.cwd,
-        flags = excluded.flags,
-        prompt = excluded.prompt,
-        pane_id = excluded.pane_id,
-        state = excluded.state,
-        claude_session_id = CASE WHEN excluded.claude_session_id != '' THEN
-            excluded.claude_session_id
-        ELSE
-            sessions.claude_session_id
-        END,
-        workflow_id = excluded.workflow_id,
-        updated_at = CURRENT_TIMESTAMP
-    RETURNING
-        id, name, cwd, flags, prompt, pane_id, state, claude_session_id, workflow_id, is_deleted, created_at, updated_at
-`
-
-type UpsertSessionParams struct {
-	ID              string
-	Name            string
-	Cwd             string
-	Flags           string
-	Prompt          string
-	PaneID          string
-	State           string
-	ClaudeSessionID string
-	WorkflowID      *string
-}
-
-func (q *Queries) UpsertSession(ctx context.Context, arg UpsertSessionParams) (*Session, error) {
-	row := q.db.QueryRowContext(ctx, upsertSession,
-		arg.ID,
-		arg.Name,
-		arg.Cwd,
-		arg.Flags,
-		arg.Prompt,
-		arg.PaneID,
-		arg.State,
-		arg.ClaudeSessionID,
-		arg.WorkflowID,
-	)
-	var i Session
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Cwd,
-		&i.Flags,
-		&i.Prompt,
-		&i.PaneID,
-		&i.State,
-		&i.ClaudeSessionID,
-		&i.WorkflowID,
-		&i.IsDeleted,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return &i, err
 }

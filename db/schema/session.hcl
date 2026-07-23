@@ -1,6 +1,75 @@
 schema "main" {
 }
 
+# A session's editable configuration, split out of sessions so it is a
+# first-class record. Strict 1:1 with a session; never shared between sessions.
+table "session_configs" {
+  schema  = schema.main
+  comment = "Editable config (cwd, flags) owned by exactly one session."
+  column "id" {
+    null = false
+    type = text
+  }
+  column "cwd" {
+    null    = false
+    type    = text
+    default = ""
+  }
+  column "flags" {
+    null    = false
+    type    = text
+    default = ""
+  }
+  column "created_at" {
+    null    = false
+    type    = datetime
+    default = sql("CURRENT_TIMESTAMP")
+  }
+  column "updated_at" {
+    null    = false
+    type    = datetime
+    default = sql("CURRENT_TIMESTAMP")
+  }
+  primary_key {
+    columns = [column.id]
+  }
+}
+
+# A workflow's default configuration, used only as the blueprint prefilled into
+# the new-chat form. Sessions copy it into their own config; they never
+# reference it at rest.
+table "workflow_configs" {
+  schema  = schema.main
+  comment = "Default config (cwd, flags) seeded into new chats of a workflow."
+  column "id" {
+    null = false
+    type = text
+  }
+  column "cwd" {
+    null    = false
+    type    = text
+    default = ""
+  }
+  column "flags" {
+    null    = false
+    type    = text
+    default = ""
+  }
+  column "created_at" {
+    null    = false
+    type    = datetime
+    default = sql("CURRENT_TIMESTAMP")
+  }
+  column "updated_at" {
+    null    = false
+    type    = datetime
+    default = sql("CURRENT_TIMESTAMP")
+  }
+  primary_key {
+    columns = [column.id]
+  }
+}
+
 table "workflows" {
   schema  = schema.main
   comment = "A named bucket of related chats. Pure organization; runs nothing."
@@ -11,6 +80,11 @@ table "workflows" {
     type = text
   }
   column "name" {
+    null = false
+    type = text
+  }
+  # The workflow's default config. References workflow_configs.id.
+  column "workflow_config_id" {
     null = false
     type = text
   }
@@ -48,15 +122,11 @@ table "sessions" {
     null = false
     type = text
   }
-  column "cwd" {
-    null    = false
-    type    = text
-    default = ""
-  }
-  column "flags" {
-    null    = false
-    type    = text
-    default = ""
+  # This session's own config. References session_configs.id. Set on insert and
+  # never null: a session always owns exactly one config row.
+  column "session_config_id" {
+    null = false
+    type = text
   }
   column "prompt" {
     null    = false

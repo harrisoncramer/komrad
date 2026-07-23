@@ -462,13 +462,20 @@ func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-func newSessionForm(keys appconfig.FormKeys) *huh.Form {
+// newSessionForm builds the new-chat form. defaultDir and defaultFlags prefill
+// the directory and flags fields, seeded from the enclosing workflow's config
+// so a chat created inside a workflow starts from its blueprint; both are blank
+// at the root. The user can edit them before submit.
+func newSessionForm(keys appconfig.FormKeys, defaultDir, defaultFlags string) *huh.Form {
+	dir := defaultDir
+	flags := defaultFlags
+
 	return huh.NewForm(
 		huh.NewGroup(
 			huh.NewText().Key("prompt").Title("Initial prompt").Description("ctrl+e opens $EDITOR; shift+enter submits"),
 			huh.NewInput().Key("title").Title("Title").Description("optional; claude names it if blank"),
-			huh.NewInput().Key("dir").Title("Directory").Description("blank = current"),
-			huh.NewInput().Key("flags").Title("Claude flags").Placeholder("--model opus"),
+			huh.NewInput().Key("dir").Title("Directory").Description("blank = current").Value(&dir),
+			huh.NewInput().Key("flags").Title("Claude flags").Placeholder("--model opus").Value(&flags),
 		),
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
 }
@@ -611,7 +618,12 @@ func (m model) updateList(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) selectRow(selected row) (tea.Model, tea.Cmd) {
 	switch selected.kind {
 	case rowNewChat:
-		m.form = newSessionForm(m.keys.Form)
+		dir, flags := "", ""
+		if m.workflow != nil {
+			dir = m.workflow.Cwd
+			flags = m.workflow.Flags
+		}
+		m.form = newSessionForm(m.keys.Form, dir, flags)
 		m.screen = screenForm
 		return m, m.form.Init()
 	case rowChats:

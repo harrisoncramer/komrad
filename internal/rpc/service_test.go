@@ -50,7 +50,7 @@ func TestListWorkflowSessionsScopesByWorkflow(t *testing.T) {
 	svc, st := service(t)
 	ctx := context.Background()
 
-	workflow, err := st.CreateWorkflow(ctx, "backend")
+	workflow, err := st.CreateWorkflow(ctx, "backend", "", "")
 	require.NoError(t, err)
 	require.NoError(t, st.Upsert(ctx, store.Agent{Name: "scoped", State: store.StateNew, WorkflowID: &workflow.ID}))
 	require.NoError(t, st.Upsert(ctx, store.Agent{Name: "unscoped", State: store.StateNew}))

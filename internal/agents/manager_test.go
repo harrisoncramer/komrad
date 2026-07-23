@@ -259,7 +259,7 @@ func TestNewSessionScopesToWorkflow(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
-	workflow, err := manager.NewWorkflow("backend")
+	workflow, err := manager.NewWorkflow("backend", "", "")
 	require.NoError(t, err)
 
 	manager.NewSession(NewSessionParams{Title: "scoped", WorkflowID: &workflow.ID})
@@ -274,7 +274,7 @@ func TestNewSessionScopesToWorkflow(t *testing.T) {
 func TestNewWorkflowDefaultsBlankName(t *testing.T) {
 	manager := newManager(newFakeTmux(), newStore(t), "")
 
-	workflow, err := manager.NewWorkflow("   ")
+	workflow, err := manager.NewWorkflow("   ", "", "")
 	require.NoError(t, err)
 	require.NotNil(t, workflow)
 	assert.Equal(t, "workflow", workflow.Name, "a blank name falls back to a default label")
@@ -284,7 +284,7 @@ func TestRenameWorkflow(t *testing.T) {
 	t.Run("renames by id", func(t *testing.T) {
 		st := newStore(t)
 		manager := newManager(newFakeTmux(), st, "")
-		workflow, err := manager.NewWorkflow("backend")
+		workflow, err := manager.NewWorkflow("backend", "", "")
 		require.NoError(t, err)
 
 		manager.RenameWorkflow(*workflow, "platform")
@@ -298,7 +298,7 @@ func TestRenameWorkflow(t *testing.T) {
 	t.Run("a blank or unchanged name is a no-op", func(t *testing.T) {
 		st := newStore(t)
 		manager := newManager(newFakeTmux(), st, "")
-		workflow, err := manager.NewWorkflow("backend")
+		workflow, err := manager.NewWorkflow("backend", "", "")
 		require.NoError(t, err)
 
 		manager.RenameWorkflow(*workflow, "   ")
@@ -316,7 +316,7 @@ func TestRenameWorkflow(t *testing.T) {
 func TestMoveChat(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(newFakeTmux(), st, "")
-	workflow, err := manager.NewWorkflow("backend")
+	workflow, err := manager.NewWorkflow("backend", "", "")
 	require.NoError(t, err)
 	agent := seed(t, st, "chat", "%1", store.StateNew)
 
@@ -340,7 +340,7 @@ func TestMoveChat(t *testing.T) {
 func TestDeleteWorkflowOrphansThroughManager(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(newFakeTmux(), st, "")
-	workflow, err := manager.NewWorkflow("backend")
+	workflow, err := manager.NewWorkflow("backend", "", "")
 	require.NoError(t, err)
 	manager.NewSession(NewSessionParams{Title: "chat", WorkflowID: &workflow.ID})
 
@@ -362,7 +362,7 @@ func TestDeleteWorkflowOrphansThroughManager(t *testing.T) {
 func TestDeleteWorkflowWithChatsThroughManager(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(newFakeTmux(), st, "")
-	workflow, err := manager.NewWorkflow("backend")
+	workflow, err := manager.NewWorkflow("backend", "", "")
 	require.NoError(t, err)
 	manager.NewSession(NewSessionParams{Title: "chat", WorkflowID: &workflow.ID})
 
@@ -381,7 +381,7 @@ func TestDeleteWorkflowWithChatsThroughManager(t *testing.T) {
 func TestWorkflowSearchCandidatesScoped(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(newFakeTmux(), st, "")
-	workflow, err := manager.NewWorkflow("backend")
+	workflow, err := manager.NewWorkflow("backend", "", "")
 	require.NoError(t, err)
 	require.NoError(t, st.Upsert(context.Background(), store.Agent{Name: "scoped", State: store.StateNew, WorkflowID: &workflow.ID}))
 	require.NoError(t, st.Upsert(context.Background(), store.Agent{Name: "unscoped", State: store.StateNew}))

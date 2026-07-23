@@ -15,7 +15,7 @@ const chatListWidth = 32
 // detailsHeight is how many text lines the hovered-chat details footer occupies,
 // below the picker and preview. The preview is shrunk by this plus its border so
 // the whole view still fits the popup.
-const detailsHeight = 6
+const detailsHeight = 5
 
 // orNA returns the value, or a dimmed "N/A" when it is blank. Every metadata
 // view uses it so all show the same fields and an irrelevant one reads as N/A
@@ -151,7 +151,6 @@ func dormantView(agent store.Agent) string {
 	b.WriteString(field("state    ", agent.State))
 	b.WriteString(field("flags    ", agent.Flags))
 	b.WriteString(field("resume   ", agent.ClaudeSessionID))
-	b.WriteString("\n" + label.Render("prompt") + "\n" + orNA(agent.Prompt) + "\n")
 	b.WriteString("\n" + dimStyle.Render("enter to restore"))
 
 	return b.String()
@@ -183,7 +182,8 @@ func (m *model) resizePreview() {
 
 // chatDetails renders the hovered chat's stored record as a full-width footer
 // below the picker and preview, so the fields the panel otherwise hides (working
-// directory, flags, the opening prompt, the resume id) are legible at a glance.
+// directory, flags, the resume id) are legible at a glance. The opening prompt
+// is omitted: it is variable-length and wraps, which would jitter the footer.
 func (m model) chatDetails() string {
 	if m.chatCursor < 0 || m.chatCursor >= len(m.chats) {
 		return ""
@@ -194,11 +194,6 @@ func (m model) chatDetails() string {
 
 	field := func(name, value string) string {
 		return label.Render(name) + "  " + orNA(value)
-	}
-
-	prompt := agent.Prompt
-	if i := strings.IndexByte(prompt, '\n'); i >= 0 {
-		prompt = prompt[:i]
 	}
 
 	workflow := ""
@@ -212,7 +207,6 @@ func (m model) chatDetails() string {
 		field("dir     ", agent.Cwd),
 		field("flags   ", agent.Flags),
 		field("resume  ", agent.ClaudeSessionID),
-		field("prompt  ", prompt),
 	}
 
 	width := m.width - 2

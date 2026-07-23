@@ -165,10 +165,11 @@ func (m model) jumpToWorkflow() (tea.Model, tea.Cmd) {
 	return m, tick()
 }
 
-// newWorkflowForm opens the single-input form to create a workflow.
+// newWorkflowForm opens the form to create a workflow: a name plus the default
+// cwd and flags that seed new chats created inside it.
 func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
 	m.workflowRenameTarget = nil
-	m.form = workflowForm("New workflow name", m.keys.Form)
+	m.form = workflowCreateForm(m.keys.Form)
 	m.screen = screenWorkflowForm
 
 	return m, m.form.Init()
@@ -257,7 +258,7 @@ func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 	if m.workflowRenameTarget != nil {
 		m.manager.RenameWorkflow(*m.workflowRenameTarget, name)
 	} else {
-		_, _ = m.manager.NewWorkflow(name)
+		_, _ = m.manager.NewWorkflow(name, m.form.GetString("dir"), m.form.GetString("flags"))
 	}
 
 	m.workflowRenameTarget = nil
@@ -284,6 +285,19 @@ func workflowForm(title string, keys appconfig.FormKeys) *huh.Form {
 	return huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().Key("name").Title(title),
+		),
+	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
+}
+
+// workflowCreateForm collects a new workflow's name and its default config.
+// The dir and flags become the blueprint prefilled into the new-chat form for
+// chats created inside the workflow.
+func workflowCreateForm(keys appconfig.FormKeys) *huh.Form {
+	return huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().Key("name").Title("New workflow name"),
+			huh.NewInput().Key("dir").Title("Default directory").Description("blank = current"),
+			huh.NewInput().Key("flags").Title("Default claude flags").Placeholder("--model opus"),
 		),
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
 }
