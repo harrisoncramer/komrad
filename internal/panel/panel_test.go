@@ -29,6 +29,39 @@ func TestIndexOfChat(t *testing.T) {
 	}
 }
 
+// TestApplyChatsEmptyLeavesChatsScreen pins a crash fix: when an async refresh
+// empties the chats list while the chats screen is open, the screen must fall
+// back to the root list. Otherwise the Open/Rename/Delete key handlers index an
+// empty m.chats and panic, since clampCursor yields 0 for an empty list.
+func TestApplyChatsEmptyLeavesChatsScreen(t *testing.T) {
+	m := model{screen: screenChats, chats: items("a"), chatCursor: 0}
+	m.applyChats(nil)
+
+	if m.screen != screenList {
+		t.Fatalf("want screenList after chats emptied, got %v", m.screen)
+	}
+	if len(m.chats) != 0 {
+		t.Fatalf("want empty chats, got %d", len(m.chats))
+	}
+}
+
+// TestApplyChatsPreservesSelection confirms a refresh keeps the cursor on the
+// same chat by name and does not reorder the surviving rows.
+func TestApplyChatsPreservesSelection(t *testing.T) {
+	m := model{screen: screenChats, chats: items("a", "b", "c"), chatCursor: 1}
+	m.applyChats(items("c", "b", "a"))
+
+	if m.screen != screenChats {
+		t.Fatalf("want to stay on chats screen, got %v", m.screen)
+	}
+	if got := m.chats[m.chatCursor].agent.Name; got != "b" {
+		t.Fatalf("cursor should stay on b, got %q", got)
+	}
+	if m.chats[0].agent.Name != "a" || m.chats[2].agent.Name != "c" {
+		t.Fatalf("existing order should be preserved, got %v", []string{m.chats[0].agent.Name, m.chats[1].agent.Name, m.chats[2].agent.Name})
+	}
+}
+
 func TestClampCursor(t *testing.T) {
 	cases := []struct{ idx, length, want int }{
 		{2, 5, 2},

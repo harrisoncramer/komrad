@@ -273,6 +273,14 @@ func (m *model) applyChats(fresh []chatItem) {
 	m.chats = items
 	m.rows = buildRows(len(items))
 	m.chatCursor = clampCursor(indexOfChat(items, selected), len(items))
+
+	// The chats screen has no valid selection with an empty list, and its key
+	// handlers index m.chats directly. If an async refresh empties the list while
+	// it is open (every agent vanished server-side), fall back to the root list
+	// so a keypress cannot index out of range.
+	if len(items) == 0 && m.screen == screenChats {
+		m.screen = screenList
+	}
 }
 
 // indexOfChat returns the position of the named chat, or 0 when it is not found
