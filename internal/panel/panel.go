@@ -194,6 +194,77 @@ func (m *model) reload() {
 	m.rows = buildRows(len(items))
 }
 
+// refreshChatStates re-lists on the tick and updates the state and liveness of
+// the chats already on screen in place, so a reconciler or hook state change
+// shows without reload. It deliberately keeps the current order rather than
+// re-sorting by recency, since reordering under the cursor every tick is jarring
+// and defeats an index-based selection. New chats are appended and vanished ones
+// dropped, and the cursor stays on whichever chat it was on.
+func (m *model) refreshChatStates() {
+	resp, err := m.sessions.ListSessions(context.Background(), connect.NewRequest(&emptypb.Empty{}))
+	if err != nil {
+		return
+	}
+
+	fresh := make(map[string]store.Agent, len(resp.Msg.GetSessions()))
+	order := make([]string, 0, len(resp.Msg.GetSessions()))
+	for _, session := range resp.Msg.GetSessions() {
+		agent := protoToAgent(session)
+		fresh[agent.Name] = agent
+		order = append(order, agent.Name)
+	}
+
+	selected := ""
+	if m.chatCursor >= 0 && m.chatCursor < len(m.chats) {
+		selected = m.chats[m.chatCursor].agent.Name
+	}
+
+	seen := make(map[string]bool, len(m.chats))
+	items := make([]chatItem, 0, len(fresh))
+	for _, item := range m.chats {
+		agent, ok := fresh[item.agent.Name]
+		if !ok {
+			continue
+		}
+
+		seen[agent.Name] = true
+		items = append(items, chatItem{agent: agent, alive: m.manager.PaneAlive(agent.Pane)})
+	}
+	for _, name := range order {
+		if !seen[name] {
+			items = append(items, chatItem{agent: fresh[name], alive: m.manager.PaneAlive(fresh[name].Pane)})
+		}
+	}
+
+	m.chats = items
+	m.rows = buildRows(len(items))
+	m.chatCursor = clampCursor(indexOfChat(items, selected), len(items))
+}
+
+// indexOfChat returns the position of the named chat, or 0 when it is not found
+// (for example the selection was deleted), so the cursor lands on the first row.
+func indexOfChat(items []chatItem, name string) int {
+	for i, item := range items {
+		if item.agent.Name == name {
+			return i
+		}
+	}
+
+	return 0
+}
+
+// clampCursor keeps an index within a list of the given length.
+func clampCursor(idx, length int) int {
+	if idx >= length {
+		idx = length - 1
+	}
+	if idx < 0 {
+		idx = 0
+	}
+
+	return idx
+}
+
 func protoToAgent(s *sessionv1.Session) store.Agent {
 	return store.Agent{
 		ID:              s.GetId(),
@@ -291,6 +362,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		m.refreshChatStates()
 		m.refreshPreview()
 		return m, tick()
 	}
