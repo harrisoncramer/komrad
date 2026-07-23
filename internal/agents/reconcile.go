@@ -9,18 +9,23 @@ import (
 	"claude-agents/internal/store"
 )
 
-// workingTimer matches Claude Code's live status line, shown only while it is
-// busy generating or running a tool: a spinner, a verb, an ellipsis, then an
-// elapsed timer in parentheses, e.g. "· Cooking… (1m 50s · ↓ 5.4k tokens)". The
-// spinner glyph and verb change frame to frame and across releases, so matching
-// any wording is brittle. The ellipsis-then-timer shape is what stays stable, so
-// that is what we key on. The timer must end in a seconds unit (e.g. "(12s",
-// "(1m 50s"), which keeps an incidental "…(3 files)" in nearby output from
-// reading as work. The line is present continuously from the moment a turn
-// starts until Claude returns to its prompt, and a long-running tool keeps it up
-// via the ticking timer, which is why the pane is a better signal than
-// transcript activity.
-var workingTimer = regexp.MustCompile(`…\s*\(\s*\d+m?\s*\d*\s*s`)
+// workingLine matches Claude Code's live status line, shown only while it is
+// busy generating or running a tool. It is a spinner glyph, a space, a verb, and
+// an ellipsis: "✽ Beboppin'…", "✢ Composing… (32s · thinking more)", "· Cooking…
+// (1m 50s · ↓ 5.4k tokens)". The trailing timer only appears once tokens start
+// streaming, so early in a turn there is none at all; keying on the timer (the
+// earlier mistake) missed every no-timer frame and left working agents
+// undetected. The stable shape is the leading "<glyph> <verb>…". The glyph is a
+// rotating spinner symbol, never a letter, so requiring a non-letter lead
+// excludes prose that merely ends a word with an ellipsis, and excluding the
+// tool-result "⎿", the "❯" prompt, and box rules keeps that chrome from
+// matching. workingTimer additionally catches the parenthesised elapsed timer on
+// its own. Detection runs only on the bottom live region, so the transcript
+// above cannot trip either.
+var (
+	workingLine  = regexp.MustCompile(`(?m)^\s*[^\s\p{L}⎿❯│─╭╮╰╯-]\s+\p{L}[\p{L}']*…`)
+	workingTimer = regexp.MustCompile(`…\s*\(\s*\d+m?\s*\d*\s*s`)
+)
 
 // legacyWorkingMarker is the wording older builds put on that same line instead
 // of a token count. Accept it too so the detector spans releases.
@@ -57,7 +62,7 @@ func liveRegion(frame string) string {
 // working, as opposed to sitting idle at its input prompt.
 func frameShowsWork(frame string) bool {
 	region := liveRegion(frame)
-	return workingTimer.MatchString(region) || strings.Contains(region, legacyWorkingMarker)
+	return workingLine.MatchString(region) || workingTimer.MatchString(region) || strings.Contains(region, legacyWorkingMarker)
 }
 
 // waitingFooter matches the footer chrome Claude renders under any interactive
