@@ -1,5 +1,5 @@
 // Package agents orchestrates the store and tmux to implement both the panel
-// actions and the CLI subcommands (notify, status, hook, chat).
+// actions and the CLI subcommands (new, notify, status, serve).
 package agents
 
 import (
@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"claude-agents/internal/store"
@@ -14,6 +15,26 @@ import (
 
 	"github.com/google/uuid"
 )
+
+// expandHome expands a leading ~ or ~/ in a directory to the user's home. tmux's
+// new-session -c takes the start directory literally and does no shell tilde
+// expansion, so a path like "~/chariot" would fail to chdir and silently fall
+// back to the default directory. Expanding here keeps the stored cwd absolute.
+func expandHome(dir string) string {
+	if dir != "~" && !strings.HasPrefix(dir, "~/") {
+		return dir
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return dir
+	}
+	if dir == "~" {
+		return home
+	}
+
+	return filepath.Join(home, dir[len("~/"):])
+}
 
 // previewScrollTicks is how many wheel notches one preview scroll sends, so a
 // keypress moves the agent's view a noticeable amount.
@@ -56,6 +77,14 @@ type agentStore interface {
 	SoftDelete(ctx context.Context, name string) error
 	Undelete(ctx context.Context, id string) error
 	ActiveNameExists(ctx context.Context, name string) (bool, error)
+	ListAllByWorkflow(ctx context.Context, workflowID string) ([]store.Agent, error)
+	MoveToWorkflow(ctx context.Context, id string, workflowID *string) error
+	ListWorkflows(ctx context.Context) ([]store.Workflow, error)
+	GetWorkflow(ctx context.Context, id string) (*store.Workflow, error)
+	CreateWorkflow(ctx context.Context, name string) (*store.Workflow, error)
+	RenameWorkflow(ctx context.Context, id, name string) error
+	DeleteWorkflow(ctx context.Context, id string) error
+	DeleteWorkflowWithChats(ctx context.Context, id string) error
 }
 
 // AgentManager lists, launches, and acts on Claude agents by coordinating a
@@ -168,6 +197,9 @@ type NewSessionParams struct {
 	Dir    string
 	Flags  string
 	Prompt string
+	// WorkflowID scopes the new chat to a workflow, or is nil when it is created
+	// from the root and belongs to no workflow.
+	WorkflowID *string
 }
 
 // NewSession creates a background session, records it so it lists immediately,
@@ -176,7 +208,7 @@ type NewSessionParams struct {
 //
 // The directory is the given Dir, else the client's current directory.
 func (m *AgentManager) NewSession(p NewSessionParams) {
-	dir := strings.TrimSpace(p.Dir)
+	dir := expandHome(strings.TrimSpace(p.Dir))
 	if dir == "" {
 		dir = m.tmux.ClientPath(p.Client)
 	}
@@ -192,8 +224,8 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 	flags := strings.TrimSpace(m.claudeFlags + " " + p.Flags)
 
 	// Generate Claude's session id ourselves and launch with --session-id, so the
-	// id is known without a hook reporting it, and restoring the agent can resume
-	// that same conversation with --resume.
+	// id is known up front, and restoring the agent can resume that same
+	// conversation with --resume.
 	sessionID := uuid.NewString()
 	_ = m.sessions.Upsert(context.Background(), store.Agent{
 		Name:            name,
@@ -203,6 +235,7 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 		Prompt:          p.Prompt,
 		State:           store.StateNew,
 		ClaudeSessionID: sessionID,
+		WorkflowID:      p.WorkflowID,
 	})
 
 	m.launchClaude(name, flags, p.Prompt, sessionID, false)
@@ -219,12 +252,88 @@ func (m *AgentManager) SearchCandidates() ([]store.Agent, error) {
 	return agents, nil
 }
 
+// WorkflowSearchCandidates returns the chats in one workflow, including
+// soft-deleted ones, so search inside a workflow stays scoped to it.
+func (m *AgentManager) WorkflowSearchCandidates(workflowID string) ([]store.Agent, error) {
+	agents, err := m.sessions.ListAllByWorkflow(context.Background(), workflowID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load workflow search candidates: %w", err)
+	}
+
+	return agents, nil
+}
+
+// ListWorkflows returns every live workflow for the workflow picker.
+func (m *AgentManager) ListWorkflows() ([]store.Workflow, error) {
+	workflows, err := m.sessions.ListWorkflows(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to list workflows: %w", err)
+	}
+
+	return workflows, nil
+}
+
+// GetWorkflow returns a workflow by id, or nil when it does not exist. The panel
+// uses it to restore the workflow scope when looping back after an attach.
+func (m *AgentManager) GetWorkflow(id string) (*store.Workflow, error) {
+	workflow, err := m.sessions.GetWorkflow(context.Background(), id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
+	}
+
+	return workflow, nil
+}
+
+// NewWorkflow creates a workflow, defaulting a blank name so the picker always
+// has a label to show. The name is a display label only; nothing keys on it.
+func (m *AgentManager) NewWorkflow(name string) (*store.Workflow, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = "workflow"
+	}
+
+	workflow, err := m.sessions.CreateWorkflow(context.Background(), name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create workflow %q: %w", name, err)
+	}
+
+	return workflow, nil
+}
+
+// RenameWorkflow retitles a workflow by id. A blank or unchanged name is a no-op.
+func (m *AgentManager) RenameWorkflow(workflow store.Workflow, name string) {
+	name = strings.TrimSpace(name)
+	if name == "" || name == workflow.Name {
+		return
+	}
+
+	_ = m.sessions.RenameWorkflow(context.Background(), workflow.ID, name)
+}
+
+// DeleteWorkflow soft-deletes a workflow, orphaning its chats back to
+// unassigned so none are stranded behind it.
+func (m *AgentManager) DeleteWorkflow(workflow store.Workflow) {
+	_ = m.sessions.DeleteWorkflow(context.Background(), workflow.ID)
+}
+
+// DeleteWorkflowWithChats soft-deletes a workflow together with its chats, so
+// the whole bucket is removed at once rather than orphaning its chats.
+func (m *AgentManager) DeleteWorkflowWithChats(workflow store.Workflow) {
+	_ = m.sessions.DeleteWorkflowWithChats(context.Background(), workflow.ID)
+}
+
+// MoveChat reassigns a chat to a workflow, or unassigns it when workflowID is
+// nil, keyed by the chat's stable id.
+func (m *AgentManager) MoveChat(agent store.Agent, workflowID *string) {
+	_ = m.sessions.MoveToWorkflow(context.Background(), agent.ID, workflowID)
+}
+
 // Restore recreates a dormant agent's tmux session from its stored cwd/flags
 // and returns the new pane id, updating the stored record. A chat restored from
 // search may be soft-deleted, so its deleted flag is cleared to return it to the
 // normal listing.
 func (m *AgentManager) Restore(agent store.Agent) (string, error) {
-	dir := agent.Cwd
+	dir := expandHome(agent.Cwd)
 	if dir == "" {
 		dir, _ = os.UserHomeDir()
 	}

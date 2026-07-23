@@ -23,7 +23,9 @@ type indexBuiltMsg struct {
 }
 
 // enterSearch opens the search screen and kicks off building the index in the
-// background, so reading transcripts never blocks the first paint.
+// background, so reading transcripts never blocks the first paint. The index is
+// scoped to the current workflow, so search inside a workflow matches only its
+// chats.
 func (m model) enterSearch() (tea.Model, tea.Cmd) {
 	m.screen = screenSearch
 	m.searching = true
@@ -32,14 +34,15 @@ func (m model) enterSearch() (tea.Model, tea.Cmd) {
 	m.searchInput.SetValue("")
 	m.searchInput.Focus()
 
-	return m, buildIndexCmd(m.manager)
+	return m, buildIndexCmd(m.manager, m.workflow)
 }
 
-// buildIndexCmd loads every tracked chat, active and deleted, and distills its
-// transcript into the searchable index off the main loop.
-func buildIndexCmd(manager *agents.AgentManager) tea.Cmd {
+// buildIndexCmd loads the in-scope chats, active and deleted, and distills each
+// transcript into the searchable index off the main loop. With a workflow in
+// scope it loads only that workflow's chats, otherwise every chat.
+func buildIndexCmd(manager *agents.AgentManager, workflow *store.Workflow) tea.Cmd {
 	return func() tea.Msg {
-		candidates, err := manager.SearchCandidates()
+		candidates, err := searchCandidates(manager, workflow)
 		if err != nil {
 			return indexBuiltMsg{agents: map[string]store.Agent{}}
 		}
@@ -62,6 +65,16 @@ func buildIndexCmd(manager *agents.AgentManager) tea.Cmd {
 	}
 }
 
+// searchCandidates returns the chats the search index should cover: only the
+// workflow's chats when one is in scope, every chat otherwise.
+func searchCandidates(manager *agents.AgentManager, workflow *store.Workflow) ([]store.Agent, error) {
+	if workflow != nil {
+		return manager.WorkflowSearchCandidates(workflow.ID)
+	}
+
+	return manager.SearchCandidates()
+}
+
 // updateSearch drives the search screen: control keys navigate and select, and
 // everything else edits the live query, re-ranking the results on each change.
 func (m model) updateSearch(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -77,13 +90,13 @@ func (m model) updateSearch(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case bound(k, m.keys.Search.Back):
 		m.screen = screenList
 		return m, nil
-	case bound(k, m.keys.Search.Up):
+	case bound(k, m.keys.Nav.Up):
 		if m.searchCursor > 0 {
 			m.searchCursor--
 		}
 
 		return m, nil
-	case bound(k, m.keys.Search.Down):
+	case bound(k, m.keys.Nav.Down):
 		if m.searchCursor < len(m.searchResults)-1 {
 			m.searchCursor++
 		}
@@ -129,7 +142,7 @@ func (m model) openSearchResult() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.attach = &agent
+	m.attach = m.attachScoped(agent)
 	return m, tea.Quit
 }
 
@@ -149,7 +162,7 @@ func (m model) searchView() string {
 
 	out.WriteString("\n\n" + dimStyle.Render(
 		hintKeys(m.keys.Search.Open)+" open · "+
-			hintKeys(m.keys.Search.Up)+"/"+hintKeys(m.keys.Search.Down)+" move · "+
+			hintKeys(m.keys.Nav.Up)+"/"+hintKeys(m.keys.Nav.Down)+" move · "+
 			hintKeys(m.keys.Search.Back)+" back"))
 
 	return out.String()

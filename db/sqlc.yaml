@@ -9,3 +9,8 @@ sql:
         out: "models"
         emit_pointers_for_null_types: true
         emit_result_struct_pointers: true
+        overrides:
+          - column: "sessions.workflow_id"
+            go_type:
+              type: "string"
+              pointer: true

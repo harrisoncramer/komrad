@@ -33,8 +33,11 @@ type Session struct {
 	PaneId          string                 `protobuf:"bytes,6,opt,name=pane_id,json=paneId,proto3" json:"pane_id,omitempty"`
 	State           string                 `protobuf:"bytes,7,opt,name=state,proto3" json:"state,omitempty"`
 	ClaudeSessionId string                 `protobuf:"bytes,8,opt,name=claude_session_id,json=claudeSessionId,proto3" json:"claude_session_id,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// The workflow this chat belongs to. Optional so an unset value means the chat
+	// is unassigned, distinct from an empty id.
+	WorkflowId    *string `protobuf:"bytes,9,opt,name=workflow_id,json=workflowId,proto3,oneof" json:"workflow_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Session) Reset() {
@@ -123,6 +126,13 @@ func (x *Session) GetClaudeSessionId() string {
 	return ""
 }
 
+func (x *Session) GetWorkflowId() string {
+	if x != nil && x.WorkflowId != nil {
+		return *x.WorkflowId
+	}
+	return ""
+}
+
 type ListSessionsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Sessions      []*Session             `protobuf:"bytes,1,rep,name=sessions,proto3" json:"sessions,omitempty"`
@@ -167,6 +177,50 @@ func (x *ListSessionsResponse) GetSessions() []*Session {
 	return nil
 }
 
+type ListWorkflowSessionsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WorkflowId    string                 `protobuf:"bytes,1,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWorkflowSessionsRequest) Reset() {
+	*x = ListWorkflowSessionsRequest{}
+	mi := &file_session_v1_session_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWorkflowSessionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWorkflowSessionsRequest) ProtoMessage() {}
+
+func (x *ListWorkflowSessionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_session_v1_session_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWorkflowSessionsRequest.ProtoReflect.Descriptor instead.
+func (*ListWorkflowSessionsRequest) Descriptor() ([]byte, []int) {
+	return file_session_v1_session_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ListWorkflowSessionsRequest) GetWorkflowId() string {
+	if x != nil {
+		return x.WorkflowId
+	}
+	return ""
+}
+
 type GetSessionRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -176,7 +230,7 @@ type GetSessionRequest struct {
 
 func (x *GetSessionRequest) Reset() {
 	*x = GetSessionRequest{}
-	mi := &file_session_v1_session_proto_msgTypes[2]
+	mi := &file_session_v1_session_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -188,7 +242,7 @@ func (x *GetSessionRequest) String() string {
 func (*GetSessionRequest) ProtoMessage() {}
 
 func (x *GetSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[2]
+	mi := &file_session_v1_session_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -201,7 +255,7 @@ func (x *GetSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSessionRequest.ProtoReflect.Descriptor instead.
 func (*GetSessionRequest) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{2}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GetSessionRequest) GetName() string {
@@ -220,7 +274,7 @@ type GetSessionResponse struct {
 
 func (x *GetSessionResponse) Reset() {
 	*x = GetSessionResponse{}
-	mi := &file_session_v1_session_proto_msgTypes[3]
+	mi := &file_session_v1_session_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -232,7 +286,7 @@ func (x *GetSessionResponse) String() string {
 func (*GetSessionResponse) ProtoMessage() {}
 
 func (x *GetSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[3]
+	mi := &file_session_v1_session_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -245,7 +299,7 @@ func (x *GetSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSessionResponse.ProtoReflect.Descriptor instead.
 func (*GetSessionResponse) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{3}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetSessionResponse) GetSession() *Session {
@@ -265,7 +319,7 @@ type SetStateRequest struct {
 
 func (x *SetStateRequest) Reset() {
 	*x = SetStateRequest{}
-	mi := &file_session_v1_session_proto_msgTypes[4]
+	mi := &file_session_v1_session_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -277,7 +331,7 @@ func (x *SetStateRequest) String() string {
 func (*SetStateRequest) ProtoMessage() {}
 
 func (x *SetStateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[4]
+	mi := &file_session_v1_session_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -290,7 +344,7 @@ func (x *SetStateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetStateRequest.ProtoReflect.Descriptor instead.
 func (*SetStateRequest) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{4}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *SetStateRequest) GetName() string {
@@ -316,7 +370,7 @@ type DeleteSessionRequest struct {
 
 func (x *DeleteSessionRequest) Reset() {
 	*x = DeleteSessionRequest{}
-	mi := &file_session_v1_session_proto_msgTypes[5]
+	mi := &file_session_v1_session_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -328,7 +382,7 @@ func (x *DeleteSessionRequest) String() string {
 func (*DeleteSessionRequest) ProtoMessage() {}
 
 func (x *DeleteSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[5]
+	mi := &file_session_v1_session_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -341,7 +395,7 @@ func (x *DeleteSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSessionRequest.ProtoReflect.Descriptor instead.
 func (*DeleteSessionRequest) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{5}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *DeleteSessionRequest) GetName() string {
@@ -361,7 +415,7 @@ type UpdateSessionRequest struct {
 
 func (x *UpdateSessionRequest) Reset() {
 	*x = UpdateSessionRequest{}
-	mi := &file_session_v1_session_proto_msgTypes[6]
+	mi := &file_session_v1_session_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -373,7 +427,7 @@ func (x *UpdateSessionRequest) String() string {
 func (*UpdateSessionRequest) ProtoMessage() {}
 
 func (x *UpdateSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[6]
+	mi := &file_session_v1_session_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -386,7 +440,7 @@ func (x *UpdateSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSessionRequest.ProtoReflect.Descriptor instead.
 func (*UpdateSessionRequest) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{6}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *UpdateSessionRequest) GetId() string {
@@ -408,7 +462,7 @@ var File_session_v1_session_proto protoreflect.FileDescriptor
 const file_session_v1_session_proto_rawDesc = "" +
 	"\n" +
 	"\x18session/v1/session.proto\x12\n" +
-	"session.v1\x1a\x1bgoogle/protobuf/empty.proto\"\xc8\x01\n" +
+	"session.v1\x1a\x1bgoogle/protobuf/empty.proto\"\xfe\x01\n" +
 	"\aSession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -417,9 +471,15 @@ const file_session_v1_session_proto_rawDesc = "" +
 	"\x06prompt\x18\x05 \x01(\tR\x06prompt\x12\x17\n" +
 	"\apane_id\x18\x06 \x01(\tR\x06paneId\x12\x14\n" +
 	"\x05state\x18\a \x01(\tR\x05state\x12*\n" +
-	"\x11claude_session_id\x18\b \x01(\tR\x0fclaudeSessionId\"G\n" +
+	"\x11claude_session_id\x18\b \x01(\tR\x0fclaudeSessionId\x12$\n" +
+	"\vworkflow_id\x18\t \x01(\tH\x00R\n" +
+	"workflowId\x88\x01\x01B\x0e\n" +
+	"\f_workflow_id\"G\n" +
 	"\x14ListSessionsResponse\x12/\n" +
-	"\bsessions\x18\x01 \x03(\v2\x13.session.v1.SessionR\bsessions\"'\n" +
+	"\bsessions\x18\x01 \x03(\v2\x13.session.v1.SessionR\bsessions\">\n" +
+	"\x1bListWorkflowSessionsRequest\x12\x1f\n" +
+	"\vworkflow_id\x18\x01 \x01(\tR\n" +
+	"workflowId\"'\n" +
 	"\x11GetSessionRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"C\n" +
 	"\x12GetSessionResponse\x12-\n" +
@@ -431,9 +491,10 @@ const file_session_v1_session_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\":\n" +
 	"\x14UpdateSessionRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name2\x97\x03\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name2\xff\x03\n" +
 	"\x0eSessionService\x12M\n" +
-	"\fListSessions\x12\x16.google.protobuf.Empty\x1a .session.v1.ListSessionsResponse\"\x03\x90\x02\x01\x12P\n" +
+	"\fListSessions\x12\x16.google.protobuf.Empty\x1a .session.v1.ListSessionsResponse\"\x03\x90\x02\x01\x12f\n" +
+	"\x14ListWorkflowSessions\x12'.session.v1.ListWorkflowSessionsRequest\x1a .session.v1.ListSessionsResponse\"\x03\x90\x02\x01\x12P\n" +
 	"\n" +
 	"GetSession\x12\x1d.session.v1.GetSessionRequest\x1a\x1e.session.v1.GetSessionResponse\"\x03\x90\x02\x01\x12D\n" +
 	"\bSetState\x12\x1b.session.v1.SetStateRequest\x1a\x16.google.protobuf.Empty\"\x03\x90\x02\x02\x12N\n" +
@@ -452,32 +513,35 @@ func file_session_v1_session_proto_rawDescGZIP() []byte {
 	return file_session_v1_session_proto_rawDescData
 }
 
-var file_session_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_session_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_session_v1_session_proto_goTypes = []any{
-	(*Session)(nil),              // 0: session.v1.Session
-	(*ListSessionsResponse)(nil), // 1: session.v1.ListSessionsResponse
-	(*GetSessionRequest)(nil),    // 2: session.v1.GetSessionRequest
-	(*GetSessionResponse)(nil),   // 3: session.v1.GetSessionResponse
-	(*SetStateRequest)(nil),      // 4: session.v1.SetStateRequest
-	(*DeleteSessionRequest)(nil), // 5: session.v1.DeleteSessionRequest
-	(*UpdateSessionRequest)(nil), // 6: session.v1.UpdateSessionRequest
-	(*emptypb.Empty)(nil),        // 7: google.protobuf.Empty
+	(*Session)(nil),                     // 0: session.v1.Session
+	(*ListSessionsResponse)(nil),        // 1: session.v1.ListSessionsResponse
+	(*ListWorkflowSessionsRequest)(nil), // 2: session.v1.ListWorkflowSessionsRequest
+	(*GetSessionRequest)(nil),           // 3: session.v1.GetSessionRequest
+	(*GetSessionResponse)(nil),          // 4: session.v1.GetSessionResponse
+	(*SetStateRequest)(nil),             // 5: session.v1.SetStateRequest
+	(*DeleteSessionRequest)(nil),        // 6: session.v1.DeleteSessionRequest
+	(*UpdateSessionRequest)(nil),        // 7: session.v1.UpdateSessionRequest
+	(*emptypb.Empty)(nil),               // 8: google.protobuf.Empty
 }
 var file_session_v1_session_proto_depIdxs = []int32{
 	0, // 0: session.v1.ListSessionsResponse.sessions:type_name -> session.v1.Session
 	0, // 1: session.v1.GetSessionResponse.session:type_name -> session.v1.Session
-	7, // 2: session.v1.SessionService.ListSessions:input_type -> google.protobuf.Empty
-	2, // 3: session.v1.SessionService.GetSession:input_type -> session.v1.GetSessionRequest
-	4, // 4: session.v1.SessionService.SetState:input_type -> session.v1.SetStateRequest
-	5, // 5: session.v1.SessionService.DeleteSession:input_type -> session.v1.DeleteSessionRequest
-	6, // 6: session.v1.SessionService.UpdateSession:input_type -> session.v1.UpdateSessionRequest
-	1, // 7: session.v1.SessionService.ListSessions:output_type -> session.v1.ListSessionsResponse
-	3, // 8: session.v1.SessionService.GetSession:output_type -> session.v1.GetSessionResponse
-	7, // 9: session.v1.SessionService.SetState:output_type -> google.protobuf.Empty
-	7, // 10: session.v1.SessionService.DeleteSession:output_type -> google.protobuf.Empty
-	7, // 11: session.v1.SessionService.UpdateSession:output_type -> google.protobuf.Empty
-	7, // [7:12] is the sub-list for method output_type
-	2, // [2:7] is the sub-list for method input_type
+	8, // 2: session.v1.SessionService.ListSessions:input_type -> google.protobuf.Empty
+	2, // 3: session.v1.SessionService.ListWorkflowSessions:input_type -> session.v1.ListWorkflowSessionsRequest
+	3, // 4: session.v1.SessionService.GetSession:input_type -> session.v1.GetSessionRequest
+	5, // 5: session.v1.SessionService.SetState:input_type -> session.v1.SetStateRequest
+	6, // 6: session.v1.SessionService.DeleteSession:input_type -> session.v1.DeleteSessionRequest
+	7, // 7: session.v1.SessionService.UpdateSession:input_type -> session.v1.UpdateSessionRequest
+	1, // 8: session.v1.SessionService.ListSessions:output_type -> session.v1.ListSessionsResponse
+	1, // 9: session.v1.SessionService.ListWorkflowSessions:output_type -> session.v1.ListSessionsResponse
+	4, // 10: session.v1.SessionService.GetSession:output_type -> session.v1.GetSessionResponse
+	8, // 11: session.v1.SessionService.SetState:output_type -> google.protobuf.Empty
+	8, // 12: session.v1.SessionService.DeleteSession:output_type -> google.protobuf.Empty
+	8, // 13: session.v1.SessionService.UpdateSession:output_type -> google.protobuf.Empty
+	8, // [8:14] is the sub-list for method output_type
+	2, // [2:8] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
 	2, // [2:2] is the sub-list for extension extendee
 	0, // [0:2] is the sub-list for field type_name
@@ -488,13 +552,14 @@ func file_session_v1_session_proto_init() {
 	if File_session_v1_session_proto != nil {
 		return
 	}
+	file_session_v1_session_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_session_v1_session_proto_rawDesc), len(file_session_v1_session_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

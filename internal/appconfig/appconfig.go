@@ -14,10 +14,24 @@ import (
 // are a list of bubbletea key strings (e.g. "enter", "ctrl+d", "esc"), and any
 // action left unset falls back to its built-in default.
 type Keybindings struct {
-	List   ListKeys   `mapstructure:"list"`
-	Chats  ChatsKeys  `mapstructure:"chats"`
-	Search SearchKeys `mapstructure:"search"`
-	Form   FormKeys   `mapstructure:"form"`
+	Nav       NavKeys       `mapstructure:"nav"`
+	List      ListKeys      `mapstructure:"list"`
+	Chats     ChatsKeys     `mapstructure:"chats"`
+	Search    SearchKeys    `mapstructure:"search"`
+	Form      FormKeys      `mapstructure:"form"`
+	Workflows WorkflowsKeys `mapstructure:"workflows"`
+}
+
+// NavKeys are the shared navigation bindings used by every menu, so scrolling is
+// the same everywhere rather than configured per menu. Up and Down move the
+// cursor; PreviewUp and PreviewDown scroll a preview pane where one is shown.
+// They avoid letter keys so they work unchanged in the search screen's live text
+// field.
+type NavKeys struct {
+	Up          []string `mapstructure:"up"`
+	Down        []string `mapstructure:"down"`
+	PreviewUp   []string `mapstructure:"preview_up"`
+	PreviewDown []string `mapstructure:"preview_down"`
 }
 
 // FormKeys are the bindings for the new-chat and rename forms. Back and Quit
@@ -33,14 +47,13 @@ type FormKeys struct {
 // straight to a section from anywhere in the list, in addition to moving the
 // cursor and selecting it.
 type ListKeys struct {
-	Quit   []string `mapstructure:"quit"`
-	Back   []string `mapstructure:"back"`
-	Up     []string `mapstructure:"up"`
-	Down   []string `mapstructure:"down"`
-	Select []string `mapstructure:"select"`
-	New    []string `mapstructure:"new"`
-	Chats  []string `mapstructure:"chats"`
-	Search []string `mapstructure:"search"`
+	Quit      []string `mapstructure:"quit"`
+	Back      []string `mapstructure:"back"`
+	Select    []string `mapstructure:"select"`
+	New       []string `mapstructure:"new"`
+	Chats     []string `mapstructure:"chats"`
+	Workflows []string `mapstructure:"workflows"`
+	Search    []string `mapstructure:"search"`
 }
 
 // SearchKeys are the bindings for the search screen. The query is a live text
@@ -48,22 +61,29 @@ type ListKeys struct {
 type SearchKeys struct {
 	Quit []string `mapstructure:"quit"`
 	Back []string `mapstructure:"back"`
-	Up   []string `mapstructure:"up"`
-	Down []string `mapstructure:"down"`
 	Open []string `mapstructure:"open"`
 }
 
 // ChatsKeys are the bindings for the split chats view.
 type ChatsKeys struct {
-	Quit        []string `mapstructure:"quit"`
-	Back        []string `mapstructure:"back"`
-	Up          []string `mapstructure:"up"`
-	Down        []string `mapstructure:"down"`
-	Open        []string `mapstructure:"open"`
-	Rename      []string `mapstructure:"rename"`
-	Delete      []string `mapstructure:"delete"`
-	PreviewDown []string `mapstructure:"preview_down"`
-	PreviewUp   []string `mapstructure:"preview_up"`
+	Quit     []string `mapstructure:"quit"`
+	Back     []string `mapstructure:"back"`
+	Open     []string `mapstructure:"open"`
+	Rename   []string `mapstructure:"rename"`
+	Delete   []string `mapstructure:"delete"`
+	Move     []string `mapstructure:"move"`
+	Workflow []string `mapstructure:"workflow"`
+}
+
+// WorkflowsKeys are the bindings for the workflow picker. It mirrors the chats
+// view, since it is the top-level view scoped to one bucket of work.
+type WorkflowsKeys struct {
+	Quit   []string `mapstructure:"quit"`
+	Back   []string `mapstructure:"back"`
+	Open   []string `mapstructure:"open"`
+	New    []string `mapstructure:"new"`
+	Rename []string `mapstructure:"rename"`
+	Delete []string `mapstructure:"delete"`
 }
 
 // Config is the user's customization.
@@ -75,32 +95,41 @@ type Config struct {
 // DefaultKeybindings are the bindings used when the config omits them.
 func DefaultKeybindings() Keybindings {
 	return Keybindings{
+		Nav: NavKeys{
+			Up:          []string{"up", "ctrl+p"},
+			Down:        []string{"down", "ctrl+n"},
+			PreviewUp:   []string{"ctrl+u"},
+			PreviewDown: []string{"ctrl+d"},
+		},
 		List: ListKeys{
-			Quit:   []string{"ctrl+c", "q"},
-			Back:   []string{"esc", "left", "h"},
-			Up:     []string{"up", "k"},
-			Down:   []string{"down", "j"},
-			Select: []string{"enter"},
-			New:    []string{"n"},
-			Chats:  []string{"c"},
-			Search: []string{"/"},
+			Quit:      []string{"ctrl+c", "q"},
+			Back:      []string{"esc", "left", "h"},
+			Select:    []string{"enter"},
+			New:       []string{"n"},
+			Chats:     []string{"c"},
+			Workflows: []string{"w"},
+			Search:    []string{"/"},
 		},
 		Chats: ChatsKeys{
-			Quit:        []string{"ctrl+c", "q"},
-			Back:        []string{"esc", "left", "h"},
-			Up:          []string{"up", "k"},
-			Down:        []string{"down", "j"},
-			Open:        []string{"enter", "l", "right"},
-			Rename:      []string{"r"},
-			Delete:      []string{"d"},
-			PreviewDown: []string{"ctrl+d"},
-			PreviewUp:   []string{"ctrl+u"},
+			Quit:     []string{"ctrl+c", "q"},
+			Back:     []string{"esc", "left", "h"},
+			Open:     []string{"enter", "l", "right"},
+			Rename:   []string{"r"},
+			Delete:   []string{"d"},
+			Move:     []string{"m"},
+			Workflow: []string{"w"},
+		},
+		Workflows: WorkflowsKeys{
+			Quit:   []string{"ctrl+c", "q"},
+			Back:   []string{"esc", "left", "h"},
+			Open:   []string{"enter", "l", "right"},
+			New:    []string{"n"},
+			Rename: []string{"r"},
+			Delete: []string{"d"},
 		},
 		Search: SearchKeys{
 			Quit: []string{"ctrl+c"},
 			Back: []string{"esc"},
-			Up:   []string{"up", "ctrl+p"},
-			Down: []string{"down", "ctrl+n"},
 			Open: []string{"enter"},
 		},
 		Form: FormKeys{
@@ -123,30 +152,37 @@ func fillKeys(v, def []string) []string {
 func (k Keybindings) withDefaults() Keybindings {
 	d := DefaultKeybindings()
 
+	k.Nav.Up = fillKeys(k.Nav.Up, d.Nav.Up)
+	k.Nav.Down = fillKeys(k.Nav.Down, d.Nav.Down)
+	k.Nav.PreviewUp = fillKeys(k.Nav.PreviewUp, d.Nav.PreviewUp)
+	k.Nav.PreviewDown = fillKeys(k.Nav.PreviewDown, d.Nav.PreviewDown)
+
 	k.List.Quit = fillKeys(k.List.Quit, d.List.Quit)
 	k.List.Back = fillKeys(k.List.Back, d.List.Back)
-	k.List.Up = fillKeys(k.List.Up, d.List.Up)
-	k.List.Down = fillKeys(k.List.Down, d.List.Down)
 	k.List.Select = fillKeys(k.List.Select, d.List.Select)
 	k.List.New = fillKeys(k.List.New, d.List.New)
 	k.List.Chats = fillKeys(k.List.Chats, d.List.Chats)
+	k.List.Workflows = fillKeys(k.List.Workflows, d.List.Workflows)
 	k.List.Search = fillKeys(k.List.Search, d.List.Search)
 
 	k.Search.Quit = fillKeys(k.Search.Quit, d.Search.Quit)
 	k.Search.Back = fillKeys(k.Search.Back, d.Search.Back)
-	k.Search.Up = fillKeys(k.Search.Up, d.Search.Up)
-	k.Search.Down = fillKeys(k.Search.Down, d.Search.Down)
 	k.Search.Open = fillKeys(k.Search.Open, d.Search.Open)
 
 	k.Chats.Quit = fillKeys(k.Chats.Quit, d.Chats.Quit)
 	k.Chats.Back = fillKeys(k.Chats.Back, d.Chats.Back)
-	k.Chats.Up = fillKeys(k.Chats.Up, d.Chats.Up)
-	k.Chats.Down = fillKeys(k.Chats.Down, d.Chats.Down)
 	k.Chats.Open = fillKeys(k.Chats.Open, d.Chats.Open)
 	k.Chats.Rename = fillKeys(k.Chats.Rename, d.Chats.Rename)
 	k.Chats.Delete = fillKeys(k.Chats.Delete, d.Chats.Delete)
-	k.Chats.PreviewDown = fillKeys(k.Chats.PreviewDown, d.Chats.PreviewDown)
-	k.Chats.PreviewUp = fillKeys(k.Chats.PreviewUp, d.Chats.PreviewUp)
+	k.Chats.Move = fillKeys(k.Chats.Move, d.Chats.Move)
+	k.Chats.Workflow = fillKeys(k.Chats.Workflow, d.Chats.Workflow)
+
+	k.Workflows.Quit = fillKeys(k.Workflows.Quit, d.Workflows.Quit)
+	k.Workflows.Back = fillKeys(k.Workflows.Back, d.Workflows.Back)
+	k.Workflows.Open = fillKeys(k.Workflows.Open, d.Workflows.Open)
+	k.Workflows.New = fillKeys(k.Workflows.New, d.Workflows.New)
+	k.Workflows.Rename = fillKeys(k.Workflows.Rename, d.Workflows.Rename)
+	k.Workflows.Delete = fillKeys(k.Workflows.Delete, d.Workflows.Delete)
 
 	k.Form.Quit = fillKeys(k.Form.Quit, d.Form.Quit)
 	k.Form.Back = fillKeys(k.Form.Back, d.Form.Back)

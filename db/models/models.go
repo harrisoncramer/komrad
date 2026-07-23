@@ -17,7 +17,16 @@ type Session struct {
 	PaneID          string
 	State           string
 	ClaudeSessionID string
+	WorkflowID      *string
+	IsDeleted       int64
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
-	IsDeleted       int64
+}
+
+type Workflow struct {
+	ID        string
+	Name      string
+	IsDeleted int64
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }

@@ -38,6 +38,21 @@ func (s *SessionService) ListSessions(ctx context.Context, _ *connect.Request[em
 	return connect.NewResponse(resp), nil
 }
 
+// ListWorkflowSessions returns the stored agents in one workflow.
+func (s *SessionService) ListWorkflowSessions(ctx context.Context, req *connect.Request[sessionv1.ListWorkflowSessionsRequest]) (*connect.Response[sessionv1.ListSessionsResponse], error) {
+	agents, err := s.store.ListByWorkflow(ctx, req.Msg.GetWorkflowId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list workflow sessions: %w", err))
+	}
+
+	resp := &sessionv1.ListSessionsResponse{}
+	for _, agent := range agents {
+		resp.Sessions = append(resp.Sessions, toProto(agent))
+	}
+
+	return connect.NewResponse(resp), nil
+}
+
 // GetSession returns one agent by name.
 func (s *SessionService) GetSession(ctx context.Context, req *connect.Request[sessionv1.GetSessionRequest]) (*connect.Response[sessionv1.GetSessionResponse], error) {
 	agent, err := s.store.Get(ctx, req.Msg.GetName())
@@ -88,5 +103,6 @@ func toProto(agent store.Agent) *sessionv1.Session {
 		PaneId:          agent.Pane,
 		State:           agent.State,
 		ClaudeSessionId: agent.ClaudeSessionID,
+		WorkflowId:      agent.WorkflowID,
 	}
 }

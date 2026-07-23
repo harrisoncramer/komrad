@@ -36,7 +36,18 @@ type Agent struct {
 	Prompt          string
 	State           string
 	ClaudeSessionID string
-	Deleted         bool
+	// WorkflowID is the workflow this chat belongs to, or nil when unassigned.
+	// It is the workflow's stable id; the workflow's name is only a display
+	// label.
+	WorkflowID *string
+	Deleted    bool
+}
+
+// Workflow is a named bucket of related chats. It is pure organization and runs
+// nothing, so unlike an agent it has no pane, state, or working directory.
+type Workflow struct {
+	ID   string
+	Name string
 }
 
 // SanitizeName maps a name to the characters tmux allows in a session name,
@@ -112,6 +123,38 @@ func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
 	return agents, nil
 }
 
+// ListByWorkflow returns the live agents in one workflow, most recently updated
+// first. It backs the workflow-scoped chats view.
+func (s *Store) ListByWorkflow(ctx context.Context, workflowID string) ([]Agent, error) {
+	rows, err := s.queries.ListSessionsByWorkflow(ctx, &workflowID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sessions for workflow %q: %w", workflowID, err)
+	}
+
+	agents := make([]Agent, 0, len(rows))
+	for _, row := range rows {
+		agents = append(agents, fromModel(row))
+	}
+
+	return agents, nil
+}
+
+// ListAllByWorkflow returns every agent in one workflow including soft-deleted
+// ones. It backs workflow-scoped search, which spans active and deleted chats.
+func (s *Store) ListAllByWorkflow(ctx context.Context, workflowID string) ([]Agent, error) {
+	rows, err := s.queries.ListAllSessionsByWorkflow(ctx, &workflowID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list all sessions for workflow %q: %w", workflowID, err)
+	}
+
+	agents := make([]Agent, 0, len(rows))
+	for _, row := range rows {
+		agents = append(agents, fromModel(row))
+	}
+
+	return agents, nil
+}
+
 // Upsert inserts or updates an agent keyed by name, assigning a uuidv7 id on
 // first insert.
 func (s *Store) Upsert(ctx context.Context, agent Agent) error {
@@ -133,6 +176,7 @@ func (s *Store) Upsert(ctx context.Context, agent Agent) error {
 		PaneID:          agent.Pane,
 		State:           agent.State,
 		ClaudeSessionID: agent.ClaudeSessionID,
+		WorkflowID:      agent.WorkflowID,
 	}); err != nil {
 		return fmt.Errorf("failed to upsert session %q: %w", agent.Name, err)
 	}
@@ -247,6 +291,124 @@ func (s *Store) ActiveNameExists(ctx context.Context, name string) (bool, error)
 	return exists != 0, nil
 }
 
+// MoveToWorkflow reassigns a chat to a workflow, keyed by the chat's id. A nil
+// workflowID unassigns the chat, returning it to the root listing.
+func (s *Store) MoveToWorkflow(ctx context.Context, id string, workflowID *string) error {
+	if err := s.queries.SetSessionWorkflow(ctx, models.SetSessionWorkflowParams{ID: id, WorkflowID: workflowID}); err != nil {
+		return fmt.Errorf("failed to move session %q to workflow: %w", id, err)
+	}
+
+	return nil
+}
+
+// ListWorkflows returns every live workflow, most recently updated first.
+func (s *Store) ListWorkflows(ctx context.Context) ([]Workflow, error) {
+	rows, err := s.queries.ListWorkflows(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list workflows: %w", err)
+	}
+
+	workflows := make([]Workflow, 0, len(rows))
+	for _, row := range rows {
+		workflows = append(workflows, fromWorkflowModel(row))
+	}
+
+	return workflows, nil
+}
+
+// GetWorkflow returns a workflow by id, nil when none exists, or an error for a
+// real failure. No-rows is the nil case; every other error is surfaced.
+func (s *Store) GetWorkflow(ctx context.Context, id string) (*Workflow, error) {
+	row, err := s.queries.GetWorkflow(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
+	}
+
+	workflow := fromWorkflowModel(row)
+	return &workflow, nil
+}
+
+// CreateWorkflow inserts a workflow with a fresh uuidv7 id and returns it.
+func (s *Store) CreateWorkflow(ctx context.Context, name string) (*Workflow, error) {
+	id, err := uuid.NewV7()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate workflow id: %w", err)
+	}
+
+	row, err := s.queries.InsertWorkflow(ctx, models.InsertWorkflowParams{ID: id.String(), Name: name})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create workflow %q: %w", name, err)
+	}
+
+	workflow := fromWorkflowModel(row)
+	return &workflow, nil
+}
+
+// RenameWorkflow changes a workflow's display name, keyed by id. Nothing keys on
+// the name, so this cannot collide.
+func (s *Store) RenameWorkflow(ctx context.Context, id, name string) error {
+	if err := s.queries.RenameWorkflow(ctx, models.RenameWorkflowParams{ID: id, Name: name}); err != nil {
+		return fmt.Errorf("failed to rename workflow %q: %w", id, err)
+	}
+
+	return nil
+}
+
+// DeleteWorkflow soft-deletes a workflow and orphans its chats back to
+// unassigned in one transaction, so no chat is ever stranded behind a hidden
+// workflow. The two writes commit together or not at all.
+func (s *Store) DeleteWorkflow(ctx context.Context, id string) error {
+	tx, err := s.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin delete-workflow tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	queries := s.queries.WithTx(tx)
+	if err := queries.MarkWorkflowDeleted(ctx, id); err != nil {
+		return fmt.Errorf("failed to soft-delete workflow %q: %w", id, err)
+	}
+
+	if err := queries.ClearWorkflowSessions(ctx, &id); err != nil {
+		return fmt.Errorf("failed to orphan chats of workflow %q: %w", id, err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit delete of workflow %q: %w", id, err)
+	}
+
+	return nil
+}
+
+// DeleteWorkflowWithChats soft-deletes a workflow together with its chats in one
+// transaction. The chats keep their workflow_id, so they still list under the
+// workflow's id in search, tagged deleted alongside it.
+func (s *Store) DeleteWorkflowWithChats(ctx context.Context, id string) error {
+	tx, err := s.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin delete-workflow-with-chats tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	queries := s.queries.WithTx(tx)
+	if err := queries.MarkWorkflowDeleted(ctx, id); err != nil {
+		return fmt.Errorf("failed to soft-delete workflow %q: %w", id, err)
+	}
+
+	if err := queries.MarkWorkflowSessionsDeleted(ctx, &id); err != nil {
+		return fmt.Errorf("failed to soft-delete chats of workflow %q: %w", id, err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit delete of workflow %q with chats: %w", id, err)
+	}
+
+	return nil
+}
+
 func fromModel(row *models.Session) Agent {
 	return Agent{
 		ID:              row.ID,
@@ -257,6 +419,14 @@ func fromModel(row *models.Session) Agent {
 		Prompt:          row.Prompt,
 		State:           row.State,
 		ClaudeSessionID: row.ClaudeSessionID,
+		WorkflowID:      row.WorkflowID,
 		Deleted:         row.IsDeleted != 0,
+	}
+}
+
+func fromWorkflowModel(row *models.Workflow) Workflow {
+	return Workflow{
+		ID:   row.ID,
+		Name: row.Name,
 	}
 }

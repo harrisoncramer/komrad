@@ -38,9 +38,19 @@ func TestSearch(t *testing.T) {
 	})
 
 	chats := []Chat{
-		{Name: "hooks", ClaudeSessionID: "cid-hooks"},
-		{Name: "db-work", ClaudeSessionID: "cid-sql", Deleted: true},
-		{Name: "no-transcript", ClaudeSessionID: "cid-missing"},
+		{
+			Name:            "hooks",
+			ClaudeSessionID: "cid-hooks",
+		},
+		{
+			Name:            "db-work",
+			ClaudeSessionID: "cid-sql",
+			Deleted:         true,
+		},
+		{
+			Name:            "no-transcript",
+			ClaudeSessionID: "cid-missing",
+		},
 	}
 
 	idx := BuildIndex(chats, projectsDir)
@@ -114,8 +124,14 @@ func TestSearchRanksNameOverBody(t *testing.T) {
 	})
 
 	idx := BuildIndex([]Chat{
-		{Name: "body-mention", ClaudeSessionID: "cid-body"},
-		{Name: "hooks", ClaudeSessionID: "cid-named"},
+		{
+			Name:            "body-mention",
+			ClaudeSessionID: "cid-body",
+		},
+		{
+			Name:            "hooks",
+			ClaudeSessionID: "cid-named",
+		},
 	}, projectsDir)
 
 	results := idx.Search("hooks")

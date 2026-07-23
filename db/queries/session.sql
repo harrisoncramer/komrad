@@ -16,6 +16,27 @@ FROM
 ORDER BY
     updated_at DESC;
 
+-- name: ListSessionsByWorkflow :many
+SELECT
+    *
+FROM
+    sessions
+WHERE
+    is_deleted = 0
+    AND workflow_id = @workflow_id
+ORDER BY
+    updated_at DESC;
+
+-- name: ListAllSessionsByWorkflow :many
+SELECT
+    *
+FROM
+    sessions
+WHERE
+    workflow_id = @workflow_id
+ORDER BY
+    updated_at DESC;
+
 -- name: GetSession :one
 SELECT
     *
@@ -38,8 +59,8 @@ SELECT
             AND is_deleted = 0);
 
 -- name: UpsertSession :one
-INSERT INTO sessions (id, name, cwd, flags, prompt, pane_id, state, claude_session_id)
-    VALUES (@id, @name, @cwd, @flags, @prompt, @pane_id, @state, @claude_session_id)
+INSERT INTO sessions (id, name, cwd, flags, prompt, pane_id, state, claude_session_id, workflow_id)
+    VALUES (@id, @name, @cwd, @flags, @prompt, @pane_id, @state, @claude_session_id, sqlc.narg('workflow_id'))
 ON CONFLICT (name) WHERE is_deleted = 0
     DO UPDATE SET
         cwd = excluded.cwd,
@@ -52,9 +73,38 @@ ON CONFLICT (name) WHERE is_deleted = 0
         ELSE
             sessions.claude_session_id
         END,
+        workflow_id = excluded.workflow_id,
         updated_at = CURRENT_TIMESTAMP
     RETURNING
         *;
+
+-- name: SetSessionWorkflow :exec
+UPDATE
+    sessions
+SET
+    workflow_id = sqlc.narg('workflow_id'),
+    updated_at = CURRENT_TIMESTAMP
+WHERE
+    id = @id;
+
+-- name: ClearWorkflowSessions :exec
+UPDATE
+    sessions
+SET
+    workflow_id = NULL,
+    updated_at = CURRENT_TIMESTAMP
+WHERE
+    workflow_id = @workflow_id;
+
+-- name: MarkWorkflowSessionsDeleted :exec
+UPDATE
+    sessions
+SET
+    is_deleted = 1,
+    updated_at = CURRENT_TIMESTAMP
+WHERE
+    workflow_id = @workflow_id
+    AND is_deleted = 0;
 
 -- name: UpdateSessionState :exec
 UPDATE

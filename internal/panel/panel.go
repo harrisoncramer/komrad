@@ -53,20 +53,46 @@ func chatsTick() tea.Cmd {
 }
 
 // loadChatsCmd re-lists the sessions off the UI goroutine with a timeout, so the
-// render loop never blocks on the RPC or the per-chat tmux liveness checks.
+// render loop never blocks on the RPC or the per-chat tmux liveness checks. When
+// a workflow is in scope it lists only that workflow's chats.
 func (m model) loadChatsCmd() tea.Cmd {
 	sessions, manager := m.sessions, m.manager
+	workflowID := ""
+	if m.workflow != nil {
+		workflowID = m.workflow.ID
+	}
+
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), chatsTimeout)
 		defer cancel()
 
-		resp, err := sessions.ListSessions(ctx, connect.NewRequest(&emptypb.Empty{}))
+		listed, err := listSessions(ctx, sessions, workflowID)
 		if err != nil {
 			return chatsLoadedMsg{ok: false}
 		}
 
-		return chatsLoadedMsg{items: chatItemsFrom(resp.Msg.GetSessions(), manager), ok: true}
+		return chatsLoadedMsg{items: chatItemsFrom(listed, manager), ok: true}
 	}
+}
+
+// listSessions lists chats through the service, scoped to a workflow when
+// workflowID is set and every chat otherwise.
+func listSessions(ctx context.Context, sessions sessionv1connect.SessionServiceClient, workflowID string) ([]*sessionv1.Session, error) {
+	if workflowID != "" {
+		resp, err := sessions.ListWorkflowSessions(ctx, connect.NewRequest(&sessionv1.ListWorkflowSessionsRequest{WorkflowId: workflowID}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to list workflow sessions: %w", err)
+		}
+
+		return resp.Msg.GetSessions(), nil
+	}
+
+	resp, err := sessions.ListSessions(ctx, connect.NewRequest(&emptypb.Empty{}))
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sessions: %w", err)
+	}
+
+	return resp.Msg.GetSessions(), nil
 }
 
 // chatItemsFrom maps listed sessions to chat items, marking which panes are live.
@@ -139,6 +165,9 @@ const (
 	screenSearch
 	screenForm
 	screenRename
+	screenWorkflows
+	screenWorkflowForm
+	screenWorkflowDelete
 )
 
 type rowKind int
@@ -146,6 +175,7 @@ type rowKind int
 const (
 	rowNewChat rowKind = iota
 	rowChats
+	rowWorkflows
 	rowSearch
 )
 
@@ -166,6 +196,18 @@ type model struct {
 	chats      []chatItem
 	chatCursor int
 	preview    viewport.Model
+
+	// workflow is the current scope: nil at the root, or the workflow whose
+	// chats, new-chat, and search are all filtered to it. workflows backs the
+	// picker, and moveTarget is the chat being reassigned when the picker is
+	// opened in move mode. workflowRenameTarget is the workflow being renamed
+	// when the workflow form is open, nil when creating one.
+	workflow             *store.Workflow
+	workflows            []store.Workflow
+	workflowCursor       int
+	moveTarget           *store.Agent
+	workflowRenameTarget *store.Workflow
+	workflowDeleteTarget *store.Workflow
 
 	searchInput   textinput.Model
 	searchIndex   search.Index
@@ -201,8 +243,17 @@ func newModel(manager *agents.AgentManager, sessions sessionv1connect.SessionSer
 	m.reload()
 
 	// When the caller loops back after detaching from an agent, open on the chats
-	// picker with that agent selected instead of at the root list.
+	// picker with that agent selected instead of at the root list. If the agent
+	// belongs to a workflow, restore that workflow scope first, so exiting the
+	// chat lands back in its workflow's chats rather than the root list.
 	if focus != nil {
+		if focus.WorkflowID != nil {
+			if workflow, err := manager.GetWorkflow(*focus.WorkflowID); err == nil && workflow != nil {
+				m.workflow = workflow
+				m.reload()
+			}
+		}
+
 		for i, item := range m.chats {
 			if item.agent.Name == focus.Name {
 				m.screen = screenChats
@@ -222,27 +273,48 @@ type chatItem struct {
 	alive bool
 }
 
-// reload lists every stored agent through the service, marking which are live.
-// Records are never deleted here, so agents survive tmux restarts.
+// reload lists the in-scope agents through the service, marking which are live,
+// and refreshes the workflow list. Records are never deleted here, so agents
+// survive tmux restarts.
 func (m *model) reload() {
-	resp, err := m.sessions.ListSessions(context.Background(), connect.NewRequest(&emptypb.Empty{}))
+	m.reloadWorkflows()
+
+	workflowID := ""
+	if m.workflow != nil {
+		workflowID = m.workflow.ID
+	}
+
+	listed, err := listSessions(context.Background(), m.sessions, workflowID)
 	if err != nil {
 		m.chats = nil
-		m.rows = buildRows(0)
+		m.rows = m.makeRows()
 		return
 	}
 
-	items := chatItemsFrom(resp.Msg.GetSessions(), m.manager)
-	m.chats = items
-	m.rows = buildRows(len(items))
+	m.chats = chatItemsFrom(listed, m.manager)
+	m.rows = m.makeRows()
+}
+
+// reloadWorkflows refreshes the workflow list backing the picker and the root
+// row count, clamping the cursor into the new length.
+func (m *model) reloadWorkflows() {
+	workflows, err := m.manager.ListWorkflows()
+	if err != nil {
+		m.workflows = nil
+		m.workflowCursor = 0
+		return
+	}
+
+	m.workflows = workflows
+	m.workflowCursor = clampCursor(m.workflowCursor, len(workflows))
 }
 
 // applyChats merges a freshly-listed set into the on-screen chats. It keeps the
 // current order rather than re-sorting by recency, since reordering under the
 // cursor is jarring and defeats an index-based selection. New chats are appended
 // and vanished ones dropped, and the cursor stays on whichever chat it was on.
-// The fresh items carry updated state and liveness, so a reconciler or hook
-// change shows without a structural reload.
+// The fresh items carry updated state and liveness, so a reconciler change
+// shows without a structural reload.
 func (m *model) applyChats(fresh []chatItem) {
 	byName := make(map[string]chatItem, len(fresh))
 	order := make([]string, 0, len(fresh))
@@ -271,7 +343,7 @@ func (m *model) applyChats(fresh []chatItem) {
 	}
 
 	m.chats = items
-	m.rows = buildRows(len(items))
+	m.rows = m.makeRows()
 	m.chatCursor = clampCursor(indexOfChat(items, selected), len(items))
 
 	// The chats screen has no valid selection with an empty list, and its key
@@ -307,6 +379,23 @@ func clampCursor(idx, length int) int {
 	return idx
 }
 
+// attachScoped returns the agent to attach to, with its workflow set to the
+// view's current scope rather than the chat's stored workflow. This is what the
+// caller loops back with, so back-navigation returns to the workflow the user
+// was actually browsing: a chat opened from inside a workflow returns there,
+// while one opened from the root list or a global search returns to the root,
+// even if that chat happens to belong to a workflow.
+func (m model) attachScoped(agent store.Agent) *store.Agent {
+	if m.workflow != nil {
+		id := m.workflow.ID
+		agent.WorkflowID = &id
+	} else {
+		agent.WorkflowID = nil
+	}
+
+	return &agent
+}
+
 func protoToAgent(s *sessionv1.Session) store.Agent {
 	return store.Agent{
 		ID:              s.GetId(),
@@ -317,15 +406,24 @@ func protoToAgent(s *sessionv1.Session) store.Agent {
 		Prompt:          s.GetPrompt(),
 		State:           s.GetState(),
 		ClaudeSessionID: s.GetClaudeSessionId(),
+		WorkflowID:      s.WorkflowId,
 	}
 }
 
-func buildRows(count int) []row {
-	return []row{
+// makeRows builds the picker rows for the current scope. The workflows row shows
+// only at the root, since the scoped view is itself inside one workflow and does
+// not nest another workflow list.
+func (m model) makeRows() []row {
+	rows := []row{
 		{kind: rowNewChat, label: "+  new chat"},
-		{kind: rowChats, label: fmt.Sprintf("▸  chats (%d)", count)},
-		{kind: rowSearch, label: "/  search"},
+		{kind: rowChats, label: fmt.Sprintf("▸  chats (%d)", len(m.chats))},
 	}
+	if m.workflow == nil {
+		rows = append(rows, row{kind: rowWorkflows, label: fmt.Sprintf("⧉  workflows (%d)", len(m.workflows))})
+	}
+	rows = append(rows, row{kind: rowSearch, label: "/  search"})
+
+	return rows
 }
 
 func renameForm(current string, keys appconfig.FormKeys) *huh.Form {
@@ -440,6 +538,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateRename(msg)
 	}
 
+	if m.screen == screenWorkflowForm {
+		return m.updateWorkflowForm(msg)
+	}
+
+	if m.screen == screenWorkflowDelete {
+		return m.updateWorkflowDelete(msg)
+	}
+
 	if m.screen == screenSearch {
 		return m.updateSearch(msg)
 	}
@@ -454,6 +560,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateList(key)
 	case screenChats:
 		return m.updateChats(key)
+	case screenWorkflows:
+		return m.updateWorkflows(key)
 	default:
 		return m, nil
 	}
@@ -462,13 +570,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) updateList(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 	switch {
-	case bound(k, m.keys.List.Quit), bound(k, m.keys.List.Back):
+	case bound(k, m.keys.List.Quit):
 		return m, tea.Quit
-	case bound(k, m.keys.List.Up):
+	case bound(k, m.keys.List.Back):
+		// From a scoped list, back returns to the workflow picker rather than
+		// quitting, so the workflow is a place the user steps in and out of.
+		if m.workflow != nil {
+			return m.exitWorkflowScope()
+		}
+
+		return m, tea.Quit
+	case bound(k, m.keys.Nav.Up):
 		if m.cursor > 0 {
 			m.cursor--
 		}
-	case bound(k, m.keys.List.Down):
+	case bound(k, m.keys.Nav.Down):
 		if m.cursor < len(m.rows)-1 {
 			m.cursor++
 		}
@@ -478,6 +594,10 @@ func (m model) updateList(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.selectRow(row{kind: rowNewChat})
 	case bound(k, m.keys.List.Chats):
 		return m.selectRow(row{kind: rowChats})
+	case bound(k, m.keys.List.Workflows):
+		if m.workflow == nil {
+			return m.selectRow(row{kind: rowWorkflows})
+		}
 	case bound(k, m.keys.List.Search):
 		return m.enterSearch()
 	}
@@ -500,6 +620,9 @@ func (m model) selectRow(selected row) (tea.Model, tea.Cmd) {
 		m.chatCursor = 0
 		m.refreshPreview()
 		return m, tick()
+	case rowWorkflows:
+		m.moveTarget = nil
+		return m.enterWorkflows()
 	case rowSearch:
 		return m.enterSearch()
 	}
@@ -529,12 +652,19 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) submitSession() (tea.Model, tea.Cmd) {
+	var workflowID *string
+	if m.workflow != nil {
+		id := m.workflow.ID
+		workflowID = &id
+	}
+
 	m.manager.NewSession(agents.NewSessionParams{
-		Client: m.client,
-		Title:  m.form.GetString("title"),
-		Dir:    m.form.GetString("dir"),
-		Flags:  m.form.GetString("flags"),
-		Prompt: m.form.GetString("prompt"),
+		Client:     m.client,
+		Title:      m.form.GetString("title"),
+		Dir:        m.form.GetString("dir"),
+		Flags:      m.form.GetString("flags"),
+		Prompt:     m.form.GetString("prompt"),
+		WorkflowID: workflowID,
 	})
 	m.reload()
 	m.screen = screenList

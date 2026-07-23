@@ -17,7 +17,7 @@ set -g status-right "#{claude_agents}%I:%M:%S "
 
 2. Press `prefix + g` to open the panel. Use `new chat` to launch a background agent, or `chats (N)` to browse the ones you have.
 
-There is nothing else to configure; state is worked out by the tool, with no Claude Code hooks to wire.
+There is nothing else to configure. The tool works out each agent's state on its own.
 
 See [installation](docs/install.md) for the full setup, including the panel key and the notify command.
 
@@ -25,7 +25,7 @@ See [installation](docs/install.md) for the full setup, including the panel key 
 
 Running several Claude Code sessions at once is easy. Keeping track of them is not. Once you switch away from a session you lose sight of whether it is still working or has stopped and is waiting on you, and getting back to the right one means cycling through tmux sessions by hand.
 
-This tool gives you one place for all of it. The tool works out each agent's state by watching its tmux pane, so there are no hooks to set up and nothing to report; it just observes. The status bar keeps a running count across every session, and the popup lets you preview and jump into any agent without leaving where you are. Agent records outlive their tmux sessions, so a finished or restarted agent still lists, and opening it relaunches Claude with `--resume` so the conversation continues.
+This tool gives you one place for all of it. It works out each agent's state by watching its tmux pane, so there is nothing to set up and nothing to report, it just observes. The status bar keeps a running count across every session, and the popup lets you preview and jump into any agent without leaving where you are. Agent records outlive their tmux sessions, so a finished or restarted agent still lists, and opening it relaunches Claude with `--resume` so the conversation continues.
 
 ## Documentation
 

@@ -72,7 +72,7 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	rec := NewReconciler(cli, st)
 
 	// A busy agent, seeded new: the pane keeps a realistic working line on screen,
-	// so the reconciler must promote it to thinking (the old prompt hook's job).
+	// so the reconciler must promote it to thinking.
 	busyPane := it.spawn("busy", `sh -c 'while true; do printf "\033[H· Cooking… (3s · down 1k tokens)\n"; sleep 1; done'`)
 	seed(t, st, "busy", busyPane, store.StateNew)
 	waitForFrame(t, cli, busyPane, "Cooking…")

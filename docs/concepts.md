@@ -12,7 +12,7 @@ The `serve` command runs a small ConnectRPC server that owns the database and re
 
 ## How state is worked out
 
-There are no Claude Code hooks. Instead the serve process runs a reconciler on a short timer, and every couple of seconds it looks at each agent and writes the state that observation implies. Because it reads the ground truth every pass, a wrong state cannot last longer than one tick, and there is no event for it to miss.
+The serve process runs a reconciler on a short timer, and every couple of seconds it looks at each agent and writes the state that observation implies. Because it reads the ground truth every pass, a wrong state cannot last longer than one tick, and there is no event for it to miss.
 
 For each agent, the reconciler captures its tmux pane and reads it:
 
@@ -32,9 +32,15 @@ An agent's record in the store outlives its tmux session. That is what lets agen
 
 A dormant agent has no live pane to preview, so the panel shows its stored fields instead: the title, directory, state, flags, and prompt. Opening it restores it. A fresh tmux session is created from the stored directory and flags, and Claude relaunches with `--resume` on the agent's session id so the conversation picks up where it left off. That id is chosen by the tool when it first launches the agent, with `--session-id`, so it is always known without anything having to report it.
 
+## Workflows
+
+A workflow is a named bucket of related chats, stored as its own row alongside the sessions. It runs nothing, so unlike an agent it has no pane or state. A chat points at its workflow through a nullable `workflow_id`, where null means the chat belongs to no workflow. Everything keys on the workflow's id; its name is only a display label you can rename freely.
+
+The panel scopes to a workflow when you open one, filtering the chats list, new chat, and search to it, while the root view still lists every chat. Back-navigation follows the scope you were browsing, not the chat's stored workflow: a chat opened inside a workflow returns there on detach, while one opened from the root returns to the root. Deleting a workflow prompts for what happens to its chats: keep them, which orphans them back to unassigned, or delete them, which soft-deletes the chats alongside the workflow while keeping them in search.
+
 ## Where the pieces live
 
-Everything is one Go binary, `claude-agents`, driven by cobra. Running it with no subcommand opens the panel. The subcommands are what the plugin and the Claude Code hooks call. See [commands](commands.md) for what each one is for, and [reference/](reference/claude-agents.md) for the exact flags.
+Everything is one Go binary, `claude-agents`, driven by cobra. Running it with no subcommand opens the panel. The subcommands are what the plugin's scripts call. See [commands](commands.md) for what each one is for, and [reference/](reference/claude-agents.md) for the exact flags.
 
 The code is split by domain:
 

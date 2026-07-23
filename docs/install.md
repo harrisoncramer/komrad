@@ -1,6 +1,6 @@
 # Installation
 
-Install is just the tmux plugin, which draws the status bar and the panel. Agent state is worked out by the tool itself, so there are no Claude Code hooks to wire.
+Install is just the tmux plugin, which draws the status bar and the panel. Agent state is worked out by the tool itself, so there is nothing to wire into Claude.
 
 ## Requirements
 
@@ -31,7 +31,7 @@ set -g @claude_agents_key 'g'
 
 ## Agent state
 
-There is nothing to configure. The `serve` process watches every agent it launched and works out each one's state by reading its tmux pane, so state stays correct on its own. This only covers agents created through the tool; a Claude session you start yourself is never tracked.
+There is nothing to configure. The `serve` process watches every agent it launched and works out each one's state by reading its tmux pane, so state stays correct on its own. This only covers agents created through the tool. A Claude session you start yourself is never tracked.
 
 ## Notify (optional)
 

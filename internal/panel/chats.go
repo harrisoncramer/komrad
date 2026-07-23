@@ -11,6 +11,11 @@ import (
 
 const chatListWidth = 32
 
+// detailsHeight is how many text lines the hovered-chat details footer occupies,
+// below the picker and preview. The preview is shrunk by this plus its border so
+// the whole view still fits the popup.
+const detailsHeight = 5
+
 // updateChats drives the split chats view: arrows move the selection, letter
 // keys act on the hovered chat, and ctrl+d/ctrl+u scroll the preview.
 func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -21,19 +26,18 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case bound(k, m.keys.Chats.Back):
 		m.screen = screenList
 		return m, nil
-	case bound(k, m.keys.Chats.Up):
+	case bound(k, m.keys.Nav.Up):
 		if m.chatCursor > 0 {
 			m.chatCursor--
 			m.refreshPreview()
 		}
-	case bound(k, m.keys.Chats.Down):
+	case bound(k, m.keys.Nav.Down):
 		if m.chatCursor < len(m.chats)-1 {
 			m.chatCursor++
 			m.refreshPreview()
 		}
 	case bound(k, m.keys.Chats.Open):
-		agent := m.chats[m.chatCursor].agent
-		m.attach = &agent
+		m.attach = m.attachScoped(m.chats[m.chatCursor].agent)
 		return m, tea.Quit
 	case bound(k, m.keys.Chats.Rename):
 		agent := m.chats[m.chatCursor].agent
@@ -50,9 +54,15 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if len(m.chats) == 0 {
 			m.screen = screenList
 		}
-	case bound(k, m.keys.Chats.PreviewDown):
+	case bound(k, m.keys.Chats.Move):
+		agent := m.chats[m.chatCursor].agent
+		m.moveTarget = &agent
+		return m.enterWorkflows()
+	case bound(k, m.keys.Chats.Workflow):
+		return m.jumpToWorkflow()
+	case bound(k, m.keys.Nav.PreviewDown):
 		m.scrollPreview(false)
-	case bound(k, m.keys.Chats.PreviewUp):
+	case bound(k, m.keys.Nav.PreviewUp):
 		m.scrollPreview(true)
 	}
 
@@ -142,9 +152,62 @@ func (m *model) resizePreview() {
 		height = 3
 	}
 
+	// Leave room below the preview for the details footer (its text plus border).
+	height -= detailsHeight + 2
+	if height < 3 {
+		height = 3
+	}
+
 	m.preview.Width = width
 	m.preview.Height = height
 	m.refreshPreview()
+}
+
+// chatDetails renders the hovered chat's stored record as a full-width footer
+// below the picker and preview, so the fields the panel otherwise hides (working
+// directory, flags, the opening prompt, the resume id) are legible at a glance.
+func (m model) chatDetails() string {
+	if m.chatCursor < 0 || m.chatCursor >= len(m.chats) {
+		return ""
+	}
+
+	agent := m.chats[m.chatCursor].agent
+	label := lipgloss.NewStyle().Foreground(lipgloss.Color("#7E9CD8")).Bold(true)
+
+	dash := func(v string) string {
+		if strings.TrimSpace(v) == "" {
+			return dimStyle.Render("—")
+		}
+		return v
+	}
+	field := func(name, value string) string {
+		return label.Render(name) + "  " + dash(value)
+	}
+
+	prompt := agent.Prompt
+	if i := strings.IndexByte(prompt, '\n'); i >= 0 {
+		prompt = prompt[:i]
+	}
+
+	lines := []string{
+		field("state ", agent.State) + "   " + field("pane ", agent.Pane),
+		field("dir   ", agent.Cwd),
+		field("flags ", agent.Flags),
+		field("resume", agent.ClaudeSessionID),
+		field("prompt", prompt),
+	}
+
+	width := m.width - 2
+	if width < 10 {
+		width = 10
+	}
+
+	return lipgloss.NewStyle().
+		Width(width).
+		Height(detailsHeight).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#54546D")).
+		Render(strings.Join(lines, "\n"))
 }
 
 // actionHints renders the chat key bindings one per line with an aligned key
@@ -154,8 +217,10 @@ func (m model) actionHints() string {
 		{hintKeys(m.keys.Chats.Open), "open"},
 		{hintKeys(m.keys.Chats.Rename), "rename"},
 		{hintKeys(m.keys.Chats.Delete), "delete"},
-		{hintKeys(m.keys.Chats.Up) + "/" + hintKeys(m.keys.Chats.Down), "move"},
-		{hintKeys(m.keys.Chats.PreviewDown) + "/" + hintKeys(m.keys.Chats.PreviewUp), "scroll"},
+		{hintKeys(m.keys.Chats.Move), "move"},
+		{hintKeys(m.keys.Chats.Workflow), "workflow"},
+		{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
+		{hintKeys(m.keys.Nav.PreviewDown) + "/" + hintKeys(m.keys.Nav.PreviewUp), "scroll"},
 		{hintKeys(m.keys.Chats.Back), "back"},
 	}
 
@@ -197,7 +262,16 @@ func (m model) chatsView() string {
 		}
 
 		icon := lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
-		list.WriteString(cursor + icon + " " + name + "\n")
+
+		// In the root list, mark chats that belong to a workflow, so they are
+		// distinguishable from unassigned ones. The scoped list omits it, since
+		// there every chat shares the one workflow.
+		marker := ""
+		if m.workflow == nil && item.agent.WorkflowID != nil {
+			marker = " " + dimStyle.Render("⧉")
+		}
+
+		list.WriteString(cursor + icon + " " + name + marker + "\n")
 	}
 
 	list.WriteString("\n" + m.actionHints())
@@ -208,5 +282,6 @@ func (m model) chatsView() string {
 		BorderForeground(lipgloss.Color("#54546D")).
 		Render(m.preview.View())
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+	top := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+	return lipgloss.JoinVertical(lipgloss.Left, top, m.chatDetails())
 }

@@ -1,10 +1,10 @@
 # Commands
 
-The binary is `claude-agents`. Running it with no subcommand opens the [panel](panel.md). The subcommands exist for the plugin to call, though you can run them by hand. This page says what each is for; for the exact usage line and every flag, see [reference/](reference/claude-agents.md) or run `claude-agents <command> --help`.
+The binary is `claude-agents`. Running it with no subcommand opens the [panel](panel.md). The subcommands exist for the plugin to call, though you can run them by hand. This page says what each is for. For the exact usage line and every flag, see [reference/](reference/claude-agents.md) or run `claude-agents <command> --help`.
 
 ## serve
 
-The `serve` command runs the ConnectRPC/HTTP server that owns the SQLite store. Everything else is a client that talks to it. You do not normally run this yourself: the panel spawns a detached `serve` process the first time it needs one and waits for it to become reachable.
+The `serve` command runs the ConnectRPC/HTTP server that owns the SQLite store. Everything else is a client that talks to it. You do not normally run this yourself. The panel spawns a detached `serve` process the first time it needs one and waits for it to become reachable.
 
 ## new
 
