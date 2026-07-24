@@ -134,18 +134,18 @@ func TestLaunchClaude(t *testing.T) {
 			name:        "resume pins the prior conversation by id",
 			sessionID:   "sess-1",
 			resume:      true,
-			wantCommand: "claude --resume sess-1",
+			wantCommand: "claude --resume 'sess-1'",
 		},
 		{
 			name:        "new conversation pins a fresh session id",
 			sessionID:   "sess-2",
-			wantCommand: "claude --session-id sess-2",
+			wantCommand: "claude --session-id 'sess-2'",
 		},
 		{
 			name:        "flags precede the session id",
 			flags:       "--model opus",
 			sessionID:   "sess-3",
-			wantCommand: "claude --model opus --session-id sess-3",
+			wantCommand: "claude '--model' 'opus' --session-id 'sess-3'",
 		},
 	}
 
@@ -187,7 +187,7 @@ func TestLaunchClaudePassesPromptThroughTempFile(t *testing.T) {
 	})
 
 	command := tmux.lastKeys("session")[0]
-	assert.Contains(t, command, "--session-id sess")
+	assert.Contains(t, command, "--session-id 'sess'")
 	assert.Contains(t, command, "$(cat ")
 	assert.Contains(t, command, "; rm ")
 	// The prompt is positional and --mcp-config is variadic, so the two must not

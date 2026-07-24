@@ -715,8 +715,14 @@ type launchClaudeParams struct {
 // a temp file so multi-line input survives, removed as the command runs.
 func (m *AgentManager) launchClaude(params launchClaudeParams) {
 	command := "claude"
-	if params.Flags != "" {
-		command += " " + params.Flags
+
+	// Flags are data, not shell. They are split into arguments and quoted, so a
+	// flag carrying $(...), a backtick, or a semicolon reaches claude as a
+	// literal argument instead of running in the pane's shell. Flags can arrive
+	// over RPC, which makes this the boundary between a request and the
+	// user's machine.
+	if quoted := quoteFlags(params.Flags); quoted != "" {
+		command += " " + quoted
 	}
 
 	// Both paths get the MCP config: the briefing does not survive a resume, but
@@ -726,12 +732,14 @@ func (m *AgentManager) launchClaude(params launchClaudeParams) {
 		command += fmt.Sprintf(" --mcp-config '%s'", path)
 	}
 
+	// The session id is generated here, but a restored agent's comes back out of
+	// the store, so it is quoted like anything else that was not built inline.
 	switch {
 	case params.Resume && params.SessionID != "":
-		command += " --resume " + params.SessionID
+		command += " --resume " + quoteArg(params.SessionID)
 	default:
 		if params.SessionID != "" {
-			command += " --session-id " + params.SessionID
+			command += " --session-id " + quoteArg(params.SessionID)
 		}
 		// Pass the MCP briefing and any workflow context as an appended system
 		// prompt, sourced through a temp file the shell cats in place so arbitrary

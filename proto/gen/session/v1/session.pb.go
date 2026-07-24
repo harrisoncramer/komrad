@@ -199,7 +199,11 @@ type CreateSessionRequest struct {
 	Prompt string                 `protobuf:"bytes,1,opt,name=prompt,proto3" json:"prompt,omitempty"`
 	Title  string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
 	Dir    string                 `protobuf:"bytes,3,opt,name=dir,proto3" json:"dir,omitempty"`
-	Flags  string                 `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
+	// Flags are quoted before they reach the pane's shell, so this rule is the
+	// second lock rather than the only one: it refuses the characters that would
+	// mean anything to a shell, so a request carrying them is rejected outright
+	// instead of being neutralised and run.
+	Flags string `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
 	// The workflow to place the chat in. Unset leaves it unassigned, which is
 	// distinct from an empty id: that would name a workflow that cannot exist.
 	WorkflowId    *string `protobuf:"bytes,5,opt,name=workflow_id,json=workflowId,proto3,oneof" json:"workflow_id,omitempty"`
@@ -847,13 +851,14 @@ const file_session_v1_session_proto_rawDesc = "" +
 	" \x01(\tR\tcreatedAtB\x0e\n" +
 	"\f_workflow_id\"G\n" +
 	"\x14ListSessionsResponse\x12/\n" +
-	"\bsessions\x18\x01 \x03(\v2\x13.session.v1.SessionR\bsessions\"\xc6\x02\n" +
+	"\bsessions\x18\x01 \x03(\v2\x13.session.v1.SessionR\bsessions\"\xb6\x03\n" +
 	"\x14CreateSessionRequest\x12#\n" +
 	"\x06prompt\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12\x1e\n" +
 	"\x05title\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\xc8\x01R\x05title\x12\x89\x01\n" +
 	"\x03dir\x18\x03 \x01(\tBw\xbaHt\xba\x01j\n" +
-	"\fdir.absolute\x12,dir must be an absolute path or start with ~\x1a,this.startsWith('/') || this.startsWith('~')r\x05\x10\x01\x18\x80 R\x03dir\x12\x1e\n" +
-	"\x05flags\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\xf4\x03R\x05flags\x12-\n" +
+	"\fdir.absolute\x12,dir must be an absolute path or start with ~\x1a,this.startsWith('/') || this.startsWith('~')r\x05\x10\x01\x18\x80 R\x03dir\x12\x8d\x01\n" +
+	"\x05flags\x18\x04 \x01(\tBw\xbaHt\xba\x01l\n" +
+	"\x1dflags.no_shell_metacharacters\x12+flags must not contain shell metacharacters\x1a\x1e!this.matches('[;&|<>`$\\\\\\n]')r\x03\x18\xf4\x03R\x05flags\x12-\n" +
 	"\vworkflow_id\x18\x05 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\n" +
 	"workflowId\x88\x01\x01B\x0e\n" +
 	"\f_workflow_id\"F\n" +

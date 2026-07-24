@@ -52,7 +52,18 @@ message CreateSessionRequest {
       expression: "this.startsWith('/') || this.startsWith('~')"
     }
   ];
-  string flags = 4 [(buf.validate.field).string.max_len = 500];
+  // Flags are quoted before they reach the pane's shell, so this rule is the
+  // second lock rather than the only one: it refuses the characters that would
+  // mean anything to a shell, so a request carrying them is rejected outright
+  // instead of being neutralised and run.
+  string flags = 4 [
+    (buf.validate.field).string.max_len = 500,
+    (buf.validate.field).cel = {
+      id: "flags.no_shell_metacharacters",
+      message: "flags must not contain shell metacharacters",
+      expression: "!this.matches('[;&|<>`$\\\\\\n]')"
+    }
+  ];
   // The workflow to place the chat in. Unset leaves it unassigned, which is
   // distinct from an empty id: that would name a workflow that cannot exist.
   optional string workflow_id = 5 [(buf.validate.field).string.min_len = 1];
