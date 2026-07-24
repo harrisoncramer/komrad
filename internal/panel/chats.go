@@ -42,7 +42,7 @@ func (m model) workflowName(id string) string {
 }
 
 // noWorkflowLabel heads the trailing group of chats that belong to no workflow.
-const noWorkflowLabel = "(no workflow)"
+const noWorkflowLabel = "No Workflow"
 
 // chatRow is one line of the chats list: either a workflow header (a folder) or
 // a chat nested under one. The cursor moves over both, but actions apply only to
@@ -88,11 +88,9 @@ func (m model) chatRows() []chatRow {
 	for _, leftover := range byWorkflow {
 		unassigned = append(unassigned, leftover...)
 	}
-	if len(unassigned) > 0 {
-		rows = append(rows, chatRow{header: true, label: noWorkflowLabel, workflowIndex: -1})
-		for _, it := range unassigned {
-			rows = append(rows, chatRow{item: it})
-		}
+	rows = append(rows, chatRow{header: true, label: noWorkflowLabel, workflowIndex: -1})
+	for _, it := range unassigned {
+		rows = append(rows, chatRow{item: it})
 	}
 
 	return rows
@@ -124,6 +122,18 @@ func (m model) hoveredWorkflow() (int, bool) {
 	}
 
 	return r.workflowIndex, true
+}
+
+// onNoWorkflowHeader reports whether the cursor sits on the no-workflow header,
+// which has no workflow record behind it and so cannot be renamed or deleted.
+func (m model) onNoWorkflowHeader() bool {
+	rows := m.chatRows()
+	if m.chatCursor < 0 || m.chatCursor >= len(rows) {
+		return false
+	}
+
+	r := rows[m.chatCursor]
+	return r.header && r.workflowIndex < 0
 }
 
 // firstChatRowIndex returns the index of the first chat row, skipping a leading
@@ -345,6 +355,13 @@ func (m model) actionHints() string {
 			{hintKeys(m.keys.Workflows.Edit), "edit"},
 			{hintKeys(m.keys.Workflows.Delete), "delete"},
 			{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
+		}
+	} else if m.onNoWorkflowHeader() {
+		hints = []struct{ key, desc string }{
+			{hintKeys(m.keys.Chats.New), "new chat"},
+			{hintKeys(m.keys.Workflows.New), "new workflow"},
+			{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
+			{hintKeys(m.keys.Chats.Back), "back"},
 		}
 	}
 
