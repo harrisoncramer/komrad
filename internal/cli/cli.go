@@ -108,6 +108,13 @@ func NewRootCommand() *cobra.Command {
 // while the tmux captures stay cheap.
 const reconcileInterval = 2 * time.Second
 
+// transcriptSyncInterval is how often the serve process folds new transcript
+// text into the search index. It is far slower than the state reconcile because
+// a stale search corpus is harmless where a stale state count is not, and each
+// pass reads and re-indexes potentially large logs, so it is kept off the hot
+// path.
+const transcriptSyncInterval = 15 * time.Second
+
 func serveCmd(state *app) *cobra.Command {
 	var addr string
 
@@ -123,6 +130,11 @@ func serveCmd(state *app) *cobra.Command {
 			// the always-on process that owns the store. The counts must stay
 			// correct even when no panel is open.
 			go runReconcileLoop(cmd.Context(), state.manager.Reconciler(), reconcileInterval)
+
+			// The transcript syncer runs alongside the reconciler for the same
+			// reason: serve is the always-on owner of the store, so the search
+			// index stays current whether or not a panel is open.
+			go runTranscriptSyncLoop(cmd.Context(), state.manager.TranscriptSyncer(), transcriptSyncInterval)
 
 			server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 			return server.ListenAndServe()
@@ -148,6 +160,25 @@ func runReconcileLoop(ctx context.Context, rec *agents.Reconciler, interval time
 		case <-ticker.C:
 			if err := rec.Reconcile(ctx); err != nil {
 				fmt.Fprintf(os.Stderr, "reconcile: %v\n", err)
+			}
+		}
+	}
+}
+
+// runTranscriptSyncLoop folds new transcript text into the search index on a
+// fixed interval until the context is cancelled. Errors are logged and the loop
+// continues, since a single failed pass is corrected by the next one.
+func runTranscriptSyncLoop(ctx context.Context, syncer *agents.TranscriptSyncer, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := syncer.Sync(ctx); err != nil {
+				fmt.Fprintf(os.Stderr, "transcript sync: %v\n", err)
 			}
 		}
 	}

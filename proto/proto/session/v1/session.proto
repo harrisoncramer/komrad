@@ -49,6 +49,25 @@ message UpdateSessionRequest {
   string name = 2;
 }
 
+message SearchTranscriptsRequest {
+  string query = 1;
+  // Cap on results returned. Zero lets the server pick a default.
+  int32 limit = 2;
+}
+
+// SearchHit is one transcript matched by a search: the session it belongs to, a
+// snippet of the matching text with the matched terms wrapped in markers, and
+// the relevance rank (lower is a better match).
+message SearchHit {
+  string session_id = 1;
+  string snippet = 2;
+  double rank = 3;
+}
+
+message SearchTranscriptsResponse {
+  repeated SearchHit hits = 1;
+}
+
 // SessionService reads and mutates the agent store.
 service SessionService {
   // Reads: no side effects, safe to cache and issue over GET.
@@ -69,5 +88,9 @@ service SessionService {
   // UpdateSession patches a session by id (currently its title/name).
   rpc UpdateSession(UpdateSessionRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
+  }
+  // SearchTranscripts runs a full-text search over stored transcripts.
+  rpc SearchTranscripts(SearchTranscriptsRequest) returns (SearchTranscriptsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
   }
 }

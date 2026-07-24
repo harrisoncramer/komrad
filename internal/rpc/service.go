@@ -79,6 +79,26 @@ func (s *SessionService) UpdateSession(ctx context.Context, req *connect.Request
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
+// SearchTranscripts runs a full-text search over stored transcripts, returning
+// the matching sessions with a marked snippet, best match first.
+func (s *SessionService) SearchTranscripts(ctx context.Context, req *connect.Request[sessionv1.SearchTranscriptsRequest]) (*connect.Response[sessionv1.SearchTranscriptsResponse], error) {
+	hits, err := s.store.SearchTranscripts(ctx, req.Msg.GetQuery(), int(req.Msg.GetLimit()))
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to search transcripts: %w", err))
+	}
+
+	resp := &sessionv1.SearchTranscriptsResponse{}
+	for _, hit := range hits {
+		resp.Hits = append(resp.Hits, &sessionv1.SearchHit{
+			SessionId: hit.SessionID,
+			Snippet:   hit.Snippet,
+			Rank:      hit.Rank,
+		})
+	}
+
+	return connect.NewResponse(resp), nil
+}
+
 func toProto(agent store.Agent) *sessionv1.Session {
 	created := ""
 	if !agent.CreatedAt.IsZero() {

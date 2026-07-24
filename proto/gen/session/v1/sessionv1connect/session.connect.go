@@ -48,6 +48,9 @@ const (
 	// SessionServiceUpdateSessionProcedure is the fully-qualified name of the SessionService's
 	// UpdateSession RPC.
 	SessionServiceUpdateSessionProcedure = "/session.v1.SessionService/UpdateSession"
+	// SessionServiceSearchTranscriptsProcedure is the fully-qualified name of the SessionService's
+	// SearchTranscripts RPC.
+	SessionServiceSearchTranscriptsProcedure = "/session.v1.SessionService/SearchTranscripts"
 )
 
 // SessionServiceClient is a client for the session.v1.SessionService service.
@@ -61,6 +64,8 @@ type SessionServiceClient interface {
 	DeleteSession(context.Context, *connect.Request[v1.DeleteSessionRequest]) (*connect.Response[emptypb.Empty], error)
 	// UpdateSession patches a session by id (currently its title/name).
 	UpdateSession(context.Context, *connect.Request[v1.UpdateSessionRequest]) (*connect.Response[emptypb.Empty], error)
+	// SearchTranscripts runs a full-text search over stored transcripts.
+	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)
 }
 
 // NewSessionServiceClient constructs a client for the session.v1.SessionService service. By
@@ -109,16 +114,24 @@ func NewSessionServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
+		searchTranscripts: connect.NewClient[v1.SearchTranscriptsRequest, v1.SearchTranscriptsResponse](
+			httpClient,
+			baseURL+SessionServiceSearchTranscriptsProcedure,
+			connect.WithSchema(sessionServiceMethods.ByName("SearchTranscripts")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // sessionServiceClient implements SessionServiceClient.
 type sessionServiceClient struct {
-	listSessions  *connect.Client[emptypb.Empty, v1.ListSessionsResponse]
-	getSession    *connect.Client[v1.GetSessionRequest, v1.GetSessionResponse]
-	setState      *connect.Client[v1.SetStateRequest, emptypb.Empty]
-	deleteSession *connect.Client[v1.DeleteSessionRequest, emptypb.Empty]
-	updateSession *connect.Client[v1.UpdateSessionRequest, emptypb.Empty]
+	listSessions      *connect.Client[emptypb.Empty, v1.ListSessionsResponse]
+	getSession        *connect.Client[v1.GetSessionRequest, v1.GetSessionResponse]
+	setState          *connect.Client[v1.SetStateRequest, emptypb.Empty]
+	deleteSession     *connect.Client[v1.DeleteSessionRequest, emptypb.Empty]
+	updateSession     *connect.Client[v1.UpdateSessionRequest, emptypb.Empty]
+	searchTranscripts *connect.Client[v1.SearchTranscriptsRequest, v1.SearchTranscriptsResponse]
 }
 
 // ListSessions calls session.v1.SessionService.ListSessions.
@@ -146,6 +159,11 @@ func (c *sessionServiceClient) UpdateSession(ctx context.Context, req *connect.R
 	return c.updateSession.CallUnary(ctx, req)
 }
 
+// SearchTranscripts calls session.v1.SessionService.SearchTranscripts.
+func (c *sessionServiceClient) SearchTranscripts(ctx context.Context, req *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error) {
+	return c.searchTranscripts.CallUnary(ctx, req)
+}
+
 // SessionServiceHandler is an implementation of the session.v1.SessionService service.
 type SessionServiceHandler interface {
 	// Reads: no side effects, safe to cache and issue over GET.
@@ -157,6 +175,8 @@ type SessionServiceHandler interface {
 	DeleteSession(context.Context, *connect.Request[v1.DeleteSessionRequest]) (*connect.Response[emptypb.Empty], error)
 	// UpdateSession patches a session by id (currently its title/name).
 	UpdateSession(context.Context, *connect.Request[v1.UpdateSessionRequest]) (*connect.Response[emptypb.Empty], error)
+	// SearchTranscripts runs a full-text search over stored transcripts.
+	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)
 }
 
 // NewSessionServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -201,6 +221,13 @@ func NewSessionServiceHandler(svc SessionServiceHandler, opts ...connect.Handler
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
+	sessionServiceSearchTranscriptsHandler := connect.NewUnaryHandler(
+		SessionServiceSearchTranscriptsProcedure,
+		svc.SearchTranscripts,
+		connect.WithSchema(sessionServiceMethods.ByName("SearchTranscripts")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/session.v1.SessionService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SessionServiceListSessionsProcedure:
@@ -213,6 +240,8 @@ func NewSessionServiceHandler(svc SessionServiceHandler, opts ...connect.Handler
 			sessionServiceDeleteSessionHandler.ServeHTTP(w, r)
 		case SessionServiceUpdateSessionProcedure:
 			sessionServiceUpdateSessionHandler.ServeHTTP(w, r)
+		case SessionServiceSearchTranscriptsProcedure:
+			sessionServiceSearchTranscriptsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -240,4 +269,8 @@ func (UnimplementedSessionServiceHandler) DeleteSession(context.Context, *connec
 
 func (UnimplementedSessionServiceHandler) UpdateSession(context.Context, *connect.Request[v1.UpdateSessionRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("session.v1.SessionService.UpdateSession is not implemented"))
+}
+
+func (UnimplementedSessionServiceHandler) SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("session.v1.SessionService.SearchTranscripts is not implemented"))
 }
