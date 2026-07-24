@@ -19,9 +19,19 @@ import (
 // fakeLauncher records the launch a request asked for and hands back a stored
 // chat, so the service can be exercised without a tmux server.
 type fakeLauncher struct {
-	got     agents.NewSessionParams
-	created *store.Agent
-	err     error
+	got       agents.NewSessionParams
+	created   *store.Agent
+	err       error
+	deleted   []string
+	deleteErr error
+}
+
+// deleted records the names DeleteSession was asked to remove, and deleteErr
+// makes it fail, standing in for a chat that is not there.
+func (f *fakeLauncher) DeleteSession(_ context.Context, name string) error {
+	f.deleted = append(f.deleted, name)
+
+	return f.deleteErr
 }
 
 func (f *fakeLauncher) NewSession(p agents.NewSessionParams) (*store.Agent, error) {
@@ -151,17 +161,15 @@ func TestUpdateSessionRenamesByID(t *testing.T) {
 	assert.Nil(t, stale, "the old name no longer resolves")
 }
 
-func TestDeleteSessionThroughService(t *testing.T) {
-	svc, st := service(t)
-	ctx := context.Background()
-	require.NoError(t, st.Upsert(ctx, store.Agent{Name: "alpha", State: store.StateNew}))
+// TestDeleteSessionStopsTheAgent confirms the delete goes through the manager,
+// which kills the pane, rather than straight to the store, which would leave the
+// agent running with nothing able to name it.
+func TestDeleteSessionStopsTheAgent(t *testing.T) {
+	svc, _, launcher := serviceWithLauncher(t)
 
-	_, err := svc.DeleteSession(ctx, connect.NewRequest(&sessionv1.DeleteSessionRequest{Name: "alpha"}))
+	_, err := svc.DeleteSession(context.Background(), connect.NewRequest(&sessionv1.DeleteSessionRequest{Name: "alpha"}))
 	require.NoError(t, err)
-
-	got, err := st.Get(ctx, "alpha")
-	require.NoError(t, err)
-	assert.Nil(t, got, "the row is gone after a hard delete")
+	assert.Equal(t, []string{"alpha"}, launcher.deleted)
 }
 
 // TestMutationsOnMissingTargetsAreNotFound is the regression test for silent
@@ -169,7 +177,8 @@ func TestDeleteSessionThroughService(t *testing.T) {
 // return an empty success, so a caller who mistyped a name was told the work was
 // done.
 func TestMutationsOnMissingTargetsAreNotFound(t *testing.T) {
-	svc, _ := service(t)
+	svc, _, launcher := serviceWithLauncher(t)
+	launcher.deleteErr = agents.ErrSessionNotFound
 	ctx := context.Background()
 
 	_, err := svc.DeleteSession(ctx, connect.NewRequest(&sessionv1.DeleteSessionRequest{Name: "ghost"}))

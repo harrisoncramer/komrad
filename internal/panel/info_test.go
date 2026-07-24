@@ -25,14 +25,16 @@ func (t *stageTmux) ShowGlobal(string) string                { return "" }
 func (t *stageTmux) SetSessionOption(string, string, string) {}
 func (t *stageTmux) DetachSession(string)                    {}
 func (t *stageTmux) ClientPath(string) string                { return "" }
-func (t *stageTmux) SendKeys(string, ...string)              {}
+func (t *stageTmux) SendKeys(string, ...string) error        { return nil }
 func (t *stageTmux) PaneAlive(string) bool                   { return true }
 func (t *stageTmux) CapturePane(string) string               { return "" }
 func (t *stageTmux) CurrentPane() (string, error)            { return "%0", nil }
 func (t *stageTmux) SplitRight(string, string) string        { return "%1" }
-func (t *stageTmux) NewWindow(string, string, string) string { return "%2" }
-func (t *stageTmux) SwapPanes(string, string)                { t.swaps++ }
-func (t *stageTmux) KillPane(string)                         {}
+func (t *stageTmux) NewWindow(string, string, string) (string, error) {
+	return "%2", nil
+}
+func (t *stageTmux) SwapPanes(string, string) { t.swaps++ }
+func (t *stageTmux) KillPane(string)          {}
 
 func (t *stageTmux) RespawnPane(_, _ string, argv ...string) {
 	t.respawns = append(t.respawns, strings.Join(argv, " "))

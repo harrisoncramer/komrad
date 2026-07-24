@@ -4,6 +4,8 @@
 package tmux
 
 import (
+	"errors"
+	"fmt"
 	"os/exec"
 	"strings"
 )
@@ -43,7 +45,7 @@ func (c *Client) PaneID(target string) (string, error) {
 // PaneAlive reports whether the given pane still exists.
 func (c *Client) PaneAlive(pane string) bool {
 	if pane == "" {
-		return true
+		return false
 	}
 
 	id, err := c.PaneID(pane)
@@ -56,9 +58,20 @@ func (c *Client) ClientPath(client string) string {
 	return path
 }
 
-// SendKeys sends literal keys to a target pane or session.
-func (c *Client) SendKeys(target string, keys ...string) {
-	c.run(append([]string{"send-keys", "-t", target}, keys...)...)
+// SendKeys sends literal keys to a target pane or session. An empty target is
+// refused: tmux resolves one to the active pane, so a caller holding a pane id
+// that was never created would type its command into whatever the user is
+// looking at.
+func (c *Client) SendKeys(target string, keys ...string) error {
+	if target == "" {
+		return errors.New("refusing to send keys to an empty target")
+	}
+
+	if _, err := c.query(append([]string{"send-keys", "-t", target}, keys...)...); err != nil {
+		return fmt.Errorf("failed to send keys to %q: %w", target, err)
+	}
+
+	return nil
 }
 
 // CurrentPane returns the id of the pane the calling process runs in. The panel
@@ -78,9 +91,19 @@ func (c *Client) SplitRight(anchorPane, dir string) string {
 // NewWindow creates a detached window in a session, rooted at dir and titled
 // name, and returns its pane id. Agents live in these background windows. The
 // pane id is their stable handle regardless of where the pane is later moved.
-func (c *Client) NewWindow(session, name, dir string) string {
-	pane, _ := c.query("new-window", "-d", "-t", session, "-n", name, "-c", dir, "-P", "-F", "#{pane_id}")
-	return pane
+// An error is returned rather than an empty id: every caller needs a real pane
+// to drive, and the empty string is a target tmux happily resolves to the active
+// pane.
+func (c *Client) NewWindow(session, name, dir string) (string, error) {
+	pane, err := c.query("new-window", "-d", "-t", session, "-n", name, "-c", dir, "-P", "-F", "#{pane_id}")
+	if err != nil {
+		return "", fmt.Errorf("failed to create window %q: %w", name, err)
+	}
+	if pane == "" {
+		return "", fmt.Errorf("tmux created no pane for window %q", name)
+	}
+
+	return pane, nil
 }
 
 // SwapPanes exchanges two panes' positions, keeping the active pane unchanged.
@@ -96,9 +119,15 @@ func (c *Client) RespawnPane(pane, dir string, argv ...string) {
 	c.run(append([]string{"respawn-pane", "-k", "-t", pane, "-c", dir}, argv...)...)
 }
 
-// KillPane tears down a single pane. When it is the only pane in its window the
-// window closes too, but the session (which always holds the panel) survives.
+// KillPane tears down a single pane. An empty target is refused for the same
+// reason SendKeys refuses one: tmux would kill the active pane instead. When the
+// pane is the only one in its window the window closes too, but the session
+// (which always holds the panel) survives.
 func (c *Client) KillPane(pane string) {
+	if pane == "" {
+		return
+	}
+
 	c.run("kill-pane", "-t", pane)
 }
 

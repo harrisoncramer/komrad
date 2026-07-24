@@ -3,6 +3,7 @@ package agents
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -154,13 +155,13 @@ func TestLaunchClaude(t *testing.T) {
 			tmux := newFakeTmux()
 			manager := newManager(tmux, newStore(t), "")
 
-			manager.launchClaude(launchClaudeParams{
+			require.NoError(t, manager.launchClaude(launchClaudeParams{
 				Session:   "session",
 				Flags:     tt.flags,
 				Prompt:    tt.prompt,
 				SessionID: tt.sessionID,
 				Resume:    tt.resume,
-			})
+			}))
 
 			keys := tmux.lastKeys("session")
 			require.Len(t, keys, 2)
@@ -180,11 +181,11 @@ func TestLaunchClaudePassesPromptThroughTempFile(t *testing.T) {
 	tmux := newFakeTmux()
 	manager := newManager(tmux, newStore(t), "")
 
-	manager.launchClaude(launchClaudeParams{
+	require.NoError(t, manager.launchClaude(launchClaudeParams{
 		Session:   "session",
 		Prompt:    "line one\nline two",
 		SessionID: "sess",
-	})
+	}))
 
 	command := tmux.lastKeys("session")[0]
 	assert.Contains(t, command, "--session-id 'sess'")
@@ -232,23 +233,23 @@ func TestLaunchClaudeInjectsWorkflowContext(t *testing.T) {
 	tmux := newFakeTmux()
 	manager := newManager(tmux, newStore(t), "")
 
-	manager.launchClaude(launchClaudeParams{
+	require.NoError(t, manager.launchClaude(launchClaudeParams{
 		Session:         "session",
 		WorkflowContext: "shared notes",
 		SessionID:       "sess",
-	})
+	}))
 	command := tmux.lastKeys("session")[0]
 	assert.Contains(t, command, "; rm ")
 	assert.Contains(t, appendedPrompt(t, command), "shared notes")
 
 	tmux = newFakeTmux()
 	manager = newManager(tmux, newStore(t), "")
-	manager.launchClaude(launchClaudeParams{
+	require.NoError(t, manager.launchClaude(launchClaudeParams{
 		Session:         "session",
 		WorkflowContext: "shared notes",
 		SessionID:       "sess",
 		Resume:          true,
-	})
+	}))
 	assert.NotContains(t, tmux.lastKeys("session")[0], "--append-system-prompt")
 }
 
@@ -259,7 +260,7 @@ func TestLaunchClaudeBriefsOnMCP(t *testing.T) {
 	tmux := newFakeTmux()
 	manager := NewAgentManager(Params{Tmux: tmux, Store: newStore(t), SelfPath: "self", ServerAddr: "127.0.0.1:9999"})
 
-	manager.launchClaude(launchClaudeParams{Session: "session", SessionID: "sess"})
+	require.NoError(t, manager.launchClaude(launchClaudeParams{Session: "session", SessionID: "sess"}))
 
 	prompt := appendedPrompt(t, tmux.lastKeys("session")[0])
 	assert.Contains(t, prompt, "http://127.0.0.1:9999/mcp")
@@ -278,7 +279,7 @@ func TestLaunchClaudeRegistersMCPServer(t *testing.T) {
 	manager := NewAgentManager(Params{Tmux: tmux, Store: newStore(t), SelfPath: "self", ServerAddr: "127.0.0.1:9999"})
 
 	for _, resume := range []bool{false, true} {
-		manager.launchClaude(launchClaudeParams{Session: "session", SessionID: "sess", Resume: resume})
+		require.NoError(t, manager.launchClaude(launchClaudeParams{Session: "session", SessionID: "sess", Resume: resume}))
 
 		match := mcpConfigRef.FindStringSubmatch(tmux.lastKeys("session")[0])
 		require.Len(t, match, 2, "resume=%v should carry the mcp config", resume)
@@ -311,7 +312,7 @@ func TestLaunchClaudeKeepsOtherMCPServers(t *testing.T) {
 	tmux := newFakeTmux()
 	manager := newManager(tmux, newStore(t), "")
 
-	manager.launchClaude(launchClaudeParams{Session: "session", SessionID: "sess"})
+	require.NoError(t, manager.launchClaude(launchClaudeParams{Session: "session", SessionID: "sess"}))
 
 	assert.NotContains(t, tmux.lastKeys("session")[0], "--strict-mcp-config")
 }
@@ -605,9 +606,52 @@ func TestNewSessionRefusesUnknownWorkflow(t *testing.T) {
 
 	missing := "no-such-workflow"
 	_, err := manager.NewSession(NewSessionParams{Title: "orphan", Dir: t.TempDir(), WorkflowID: &missing})
-	require.ErrorContains(t, err, "no workflow with id")
+	require.ErrorIs(t, err, ErrWorkflowNotFound)
 
 	agents, err := st.List(context.Background())
 	require.NoError(t, err)
 	assert.Empty(t, agents)
+}
+
+// TestNewSessionFailsWhenTheWindowCannotOpen is the regression test for the
+// worst failure this code had: tmux refused a window, NewWindow returned an
+// empty pane id, and the launch then typed a full claude command into whatever
+// pane happened to be active, because tmux resolves an empty target that way.
+func TestNewSessionFailsWhenTheWindowCannotOpen(t *testing.T) {
+	tmux := newFakeTmux()
+	tmux.newWindowErr = errors.New("tmux refused the window name")
+	st := newStore(t)
+	manager := newManager(tmux, st, "")
+
+	_, err := manager.NewSession(NewSessionParams{Title: "doomed", Dir: t.TempDir()})
+	require.Error(t, err)
+
+	assert.Empty(t, tmux.sent, "nothing is typed when there is no pane to type into")
+
+	agents, err := st.List(context.Background())
+	require.NoError(t, err)
+	assert.Empty(t, agents, "no row is stored pointing at a pane that does not exist")
+}
+
+// TestNewSessionKillsTheWindowWhenTheNameIsLost covers the race between two
+// creates with the same title: both pass the name check, one loses the insert,
+// and its window has to go with it rather than run forever unreachable.
+func TestNewSessionKillsTheWindowWhenTheNameIsLost(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := newManager(tmux, st, "")
+	dir := t.TempDir()
+
+	first, err := manager.NewSession(NewSessionParams{Title: "racer", Dir: dir})
+	require.NoError(t, err)
+	require.NotNil(t, first)
+
+	// Re-running uniqueSessionName would pick "racer-2", so the collision is
+	// forced by inserting under the name the loser already holds.
+	_, err = manager.NewSession(NewSessionParams{Title: "racer", Dir: dir})
+	require.NoError(t, err, "the second create takes the next free name")
+
+	agents, err := st.List(context.Background())
+	require.NoError(t, err)
+	assert.Len(t, agents, 2)
 }

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSplitArgs(t *testing.T) {
@@ -80,11 +81,11 @@ func TestLaunchClaudeQuotesFlags(t *testing.T) {
 	tmux := newFakeTmux()
 	manager := newManager(tmux, newStore(t), "")
 
-	manager.launchClaude(launchClaudeParams{
+	require.NoError(t, manager.launchClaude(launchClaudeParams{
 		Session:   "session",
 		Flags:     "--model $(touch /tmp/pwned)",
 		SessionID: "sess",
-	})
+	}))
 
 	command := tmux.lastKeys("session")[0]
 	assert.NotContains(t, command, "claude --model $(", "an unquoted substitution would run in the pane")

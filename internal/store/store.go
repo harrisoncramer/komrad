@@ -88,14 +88,24 @@ func Open(path string) (*Store, error) {
 		return nil, fmt.Errorf("failed to create db dir: %w", err)
 	}
 
-	conn, err := sql.Open("sqlite", path)
+	// The busy timeout rides on the DSN rather than an Exec: database/sql pools
+	// connections, and a pragma set through Exec lands on whichever single
+	// connection served it, leaving every other one with no timeout at all. That
+	// showed up as "database is locked" under ordinary concurrent use.
+	dsn := url.URL{
+		Scheme:   "file",
+		Path:     path,
+		RawQuery: "_pragma=busy_timeout(5000)",
+	}
+
+	conn, err := sql.Open("sqlite", dsn.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to open db: %w", err)
 	}
 
-	// WAL and a busy timeout so the frequent independent opens do not trip over
-	// each other.
-	if _, err := conn.Exec("PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;"); err != nil {
+	// WAL is a property of the database file, not the connection, so it holds for
+	// every connection the pool opens.
+	if _, err := conn.Exec("PRAGMA journal_mode=WAL;"); err != nil {
 		return nil, fmt.Errorf("failed to set pragmas: %w", err)
 	}
 
@@ -366,6 +376,32 @@ func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
 // It all commits together or not at all: a session removed without its
 // transcript is the half-state this is here to prevent.
 func (s *Store) Delete(ctx context.Context, name string) (bool, error) {
+	// A deferred transaction that reads and then writes can be refused outright
+	// with SQLITE_BUSY_SNAPSHOT when another writer commits in between. The busy
+	// timeout does not apply to that: the snapshot is stale, so the only remedy
+	// is to start over on a fresh one.
+	for attempt := range busyRetries {
+		deleted, err := s.deleteOnce(ctx, name)
+		if err == nil || !isBusySnapshot(err) || attempt == busyRetries-1 {
+			return deleted, err
+		}
+	}
+
+	return false, nil
+}
+
+// busyRetries bounds how many times a write restarts after losing its snapshot.
+// Contention here is between a handful of local callers, so a few attempts is
+// the difference between a spurious error and none.
+const busyRetries = 5
+
+// isBusySnapshot reports whether an error is SQLite refusing to upgrade a stale
+// read snapshot to a write.
+func isBusySnapshot(err error) bool {
+	return strings.Contains(err.Error(), "database is locked")
+}
+
+func (s *Store) deleteOnce(ctx context.Context, name string) (bool, error) {
 	tx, err := s.conn.BeginTx(ctx, nil)
 	if err != nil {
 		return false, fmt.Errorf("failed to begin delete tx: %w", err)

@@ -4,6 +4,7 @@ package agents
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -42,12 +43,12 @@ type tmuxClient interface {
 	SetSessionOption(target, name, value string)
 	DetachSession(name string)
 	ClientPath(client string) string
-	SendKeys(target string, keys ...string)
+	SendKeys(target string, keys ...string) error
 	PaneAlive(pane string) bool
 	CapturePane(pane string) string
 	CurrentPane() (string, error)
 	SplitRight(anchorPane, dir string) string
-	NewWindow(session, name, dir string) string
+	NewWindow(session, name, dir string) (string, error)
 	SwapPanes(src, dst string)
 	RespawnPane(pane, dir string, argv ...string)
 	KillPane(pane string)
@@ -64,6 +65,7 @@ type agentStore interface {
 	Upsert(ctx context.Context, agent store.Agent) error
 	SetStateByID(ctx context.Context, id, state string) error
 	Rename(ctx context.Context, id, name string) (bool, error)
+	Delete(ctx context.Context, name string) (bool, error)
 	SoftDelete(ctx context.Context, name string) error
 	Undelete(ctx context.Context, id string) error
 	ActiveNameExists(ctx context.Context, name string) (bool, error)
@@ -352,6 +354,40 @@ func (m *AgentManager) Delete(agent store.Agent) {
 	_ = m.sessions.SoftDelete(context.Background(), agent.Name)
 }
 
+// ErrSessionNotFound reports that no chat answers to the given name.
+var ErrSessionNotFound = errors.New("session not found")
+
+// ErrWorkflowNotFound reports that a chat named a workflow that does not exist.
+var ErrWorkflowNotFound = errors.New("workflow not found")
+
+// ErrBadDirectory reports a working directory the agent could not be started in.
+var ErrBadDirectory = errors.New("unusable working directory")
+
+// DeleteSession stops a chat and removes it. Killing the pane first is the part
+// the store cannot do: deleting the row alone left the agent running, with
+// nothing left that could name it or reach it.
+func (m *AgentManager) DeleteSession(ctx context.Context, name string) error {
+	agent, err := m.sessions.Get(ctx, name)
+	if err != nil {
+		return fmt.Errorf("failed to look up session %q: %w", name, err)
+	}
+	if agent == nil {
+		return ErrSessionNotFound
+	}
+
+	m.tmux.KillPane(agent.Pane)
+
+	deleted, err := m.sessions.Delete(ctx, name)
+	if err != nil {
+		return fmt.Errorf("failed to delete session %q: %w", name, err)
+	}
+	if !deleted {
+		return ErrSessionNotFound
+	}
+
+	return nil
+}
+
 // NewSessionParams configures a background agent to create.
 type NewSessionParams struct {
 	Client string
@@ -362,6 +398,29 @@ type NewSessionParams struct {
 	// WorkflowID scopes the new chat to a workflow, or is nil when it is created
 	// from the root and belongs to no workflow.
 	WorkflowID *string
+}
+
+// usableDir reports whether an agent can actually be started in dir. Existence
+// is not enough: tmux falls back to its own default directory when it cannot
+// enter the one given to -c, and it does that silently, so a directory that
+// cannot be opened would produce a chat running somewhere other than the cwd
+// stored against it.
+func usableDir(dir string) error {
+	info, err := os.Stat(dir)
+	if err != nil {
+		return fmt.Errorf("%w %q: %w", ErrBadDirectory, dir, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("%w: %q is not a directory", ErrBadDirectory, dir)
+	}
+
+	handle, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("%w %q: %w", ErrBadDirectory, dir, err)
+	}
+	_ = handle.Close()
+
+	return nil
 }
 
 // NewSession creates a background session, records it so it lists immediately,
@@ -384,12 +443,8 @@ func (m *AgentManager) NewSession(p NewSessionParams) (*store.Agent, error) {
 	// something it cannot enter, so an unusable directory produced a chat running
 	// somewhere other than the cwd stored against it. Checking first means the
 	// launch fails instead of recording a location that is not true.
-	info, err := os.Stat(dir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to use %q as the working directory: %w", dir, err)
-	}
-	if !info.IsDir() {
-		return nil, fmt.Errorf("working directory %q is not a directory", dir)
+	if err := usableDir(dir); err != nil {
+		return nil, err
 	}
 
 	// A chat created inside a workflow inherits the workflow's shared context,
@@ -404,7 +459,7 @@ func (m *AgentManager) NewSession(p NewSessionParams) (*store.Agent, error) {
 			return nil, fmt.Errorf("failed to look up workflow %q: %w", *p.WorkflowID, err)
 		}
 		if wf == nil {
-			return nil, fmt.Errorf("no workflow with id %q", *p.WorkflowID)
+			return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, *p.WorkflowID)
 		}
 
 		workflowContext = wf.Context
@@ -412,7 +467,10 @@ func (m *AgentManager) NewSession(p NewSessionParams) (*store.Agent, error) {
 
 	name := m.uniqueSessionName(p.Title, p.Prompt)
 
-	pane := m.tmux.NewWindow(ManagerSession, name, dir)
+	pane, err := m.tmux.NewWindow(ManagerSession, name, dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open a window for %q: %w", name, err)
+	}
 	flags := strings.TrimSpace(m.claudeFlags + " " + p.Flags)
 
 	// Generate Claude's session id ourselves and launch with --session-id, so the
@@ -429,16 +487,24 @@ func (m *AgentManager) NewSession(p NewSessionParams) (*store.Agent, error) {
 		ClaudeSessionID: sessionID,
 		WorkflowID:      p.WorkflowID,
 	}); err != nil {
+		// uniqueSessionName checks before inserting, so two calls racing on the
+		// same title both pass that check and one loses here. The window is
+		// already open, and nothing else knows about it: without this kill it
+		// would run forever, invisible to every listing.
+		m.tmux.KillPane(pane)
+
 		return nil, fmt.Errorf("failed to record session %q: %w", name, err)
 	}
 
-	m.launchClaude(launchClaudeParams{
+	if err := m.launchClaude(launchClaudeParams{
 		Session:         pane,
 		Flags:           flags,
 		Prompt:          p.Prompt,
 		WorkflowContext: workflowContext,
 		SessionID:       sessionID,
-	})
+	}); err != nil {
+		return nil, fmt.Errorf("failed to launch claude for %q: %w", name, err)
+	}
 
 	// Read the row back rather than returning what was written: the store owns
 	// the generated id and the created timestamp.
@@ -563,7 +629,10 @@ func (m *AgentManager) Restore(agent store.Agent) (string, error) {
 		agent.Name = newName
 	}
 
-	pane := m.tmux.NewWindow(ManagerSession, agent.Name, dir)
+	pane, err := m.tmux.NewWindow(ManagerSession, agent.Name, dir)
+	if err != nil {
+		return "", fmt.Errorf("failed to open a window for %q: %w", agent.Name, err)
+	}
 
 	// Clear the soft-delete flag first, so the row re-enters the unique-name
 	// index before the upsert below keys off it. Upserting a still-deleted row
@@ -580,12 +649,14 @@ func (m *AgentManager) Restore(agent store.Agent) (string, error) {
 		return "", fmt.Errorf("failed to restore session %q: %w", agent.Name, err)
 	}
 
-	m.launchClaude(launchClaudeParams{
+	if err := m.launchClaude(launchClaudeParams{
 		Session:   pane,
 		Flags:     agent.Flags,
 		SessionID: agent.ClaudeSessionID,
 		Resume:    true,
-	})
+	}); err != nil {
+		return "", fmt.Errorf("failed to relaunch claude for %q: %w", agent.Name, err)
+	}
 
 	return pane, nil
 }
@@ -733,7 +804,7 @@ type launchClaudeParams struct {
 // resumes the prior conversation by session id. Otherwise it starts a new
 // conversation pinned to that session id, with the opening prompt passed through
 // a temp file so multi-line input survives, removed as the command runs.
-func (m *AgentManager) launchClaude(params launchClaudeParams) {
+func (m *AgentManager) launchClaude(params launchClaudeParams) error {
 	command := "claude"
 
 	// Flags are data, not shell. They are split into arguments and quoted, so a
@@ -784,7 +855,11 @@ func (m *AgentManager) launchClaude(params launchClaudeParams) {
 		}
 	}
 
-	m.tmux.SendKeys(params.Session, command, "Enter")
+	if err := m.tmux.SendKeys(params.Session, command, "Enter"); err != nil {
+		return fmt.Errorf("failed to type the launch command: %w", err)
+	}
+
+	return nil
 }
 
 // Status renders the global agent summary for the tmux status bar.

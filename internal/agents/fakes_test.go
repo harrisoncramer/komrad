@@ -2,6 +2,7 @@ package agents
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 
@@ -27,6 +28,9 @@ type fakeTmux struct {
 	killedPanes    []string
 	detached       []string
 	sessionOptions map[string]string
+	// newWindowErr makes NewWindow fail, standing in for tmux refusing to open
+	// a window.
+	newWindowErr error
 }
 
 func newFakeTmux() *fakeTmux {
@@ -51,8 +55,13 @@ func (f *fakeTmux) SetSessionOption(target, name, value string) {
 	f.sessionOptions[target+"/"+name] = value
 }
 
-func (f *fakeTmux) SendKeys(target string, keys ...string) {
+func (f *fakeTmux) SendKeys(target string, keys ...string) error {
+	if target == "" {
+		return errors.New("refusing to send keys to an empty target")
+	}
 	f.sent[target] = append(f.sent[target], keys)
+
+	return nil
 }
 
 // CurrentPane returns a fixed nav pane id for the panel's own pane.
@@ -62,12 +71,18 @@ func (f *fakeTmux) CurrentPane() (string, error) { return "%nav", nil }
 func (f *fakeTmux) SplitRight(anchorPane, dir string) string { return "%stage" }
 
 // NewWindow records the window and returns a synthetic pane id, marking it alive
-// so pane-keyed liveness sees it.
-func (f *fakeTmux) NewWindow(session, name, dir string) string {
+// so pane-keyed liveness sees it. Setting newWindowErr makes it fail, standing in
+// for tmux refusing a name it cannot use.
+func (f *fakeTmux) NewWindow(session, name, dir string) (string, error) {
+	if f.newWindowErr != nil {
+		return "", f.newWindowErr
+	}
+
 	f.newWindows[name] = dir
 	pane := "%" + name
 	f.alive[pane] = true
-	return pane
+
+	return pane, nil
 }
 
 func (f *fakeTmux) SwapPanes(src, dst string) { f.swaps = append(f.swaps, [2]string{src, dst}) }
@@ -76,7 +91,10 @@ func (f *fakeTmux) RespawnPane(pane, dir string, argv ...string) {
 	f.respawns = append(f.respawns, append([]string{pane}, argv...))
 }
 
-func (f *fakeTmux) KillPane(pane string) { f.killedPanes = append(f.killedPanes, pane) }
+func (f *fakeTmux) KillPane(pane string) {
+	f.killedPanes = append(f.killedPanes, pane)
+	delete(f.alive, pane)
+}
 
 // lastKeys returns the most recent SendKeys payload sent to target.
 func (f *fakeTmux) lastKeys(target string) []string {

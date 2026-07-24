@@ -20,6 +20,7 @@ import (
 // the service delegates rather than writing the record itself.
 type sessionLauncher interface {
 	NewSession(p agents.NewSessionParams) (*store.Agent, error)
+	DeleteSession(ctx context.Context, name string) error
 }
 
 // SessionService implements sessionv1connect.SessionServiceHandler over the store.
@@ -45,7 +46,12 @@ func (s *SessionService) CreateSession(_ context.Context, req *connect.Request[s
 		Prompt:     req.Msg.GetPrompt(),
 		WorkflowID: req.Msg.WorkflowId,
 	})
-	if err != nil {
+	switch {
+	case errors.Is(err, agents.ErrWorkflowNotFound):
+		return nil, connect.NewError(connect.CodeNotFound, err)
+	case errors.Is(err, agents.ErrBadDirectory):
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create session: %w", err))
 	}
 
@@ -95,14 +101,16 @@ func (s *SessionService) SetState(ctx context.Context, req *connect.Request[sess
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// DeleteSession removes an agent by name, along with its config and transcript.
+// DeleteSession stops an agent and removes it, along with its config and
+// transcript. The manager owns this rather than the store, since stopping the
+// agent means killing its pane.
 func (s *SessionService) DeleteSession(ctx context.Context, req *connect.Request[sessionv1.DeleteSessionRequest]) (*connect.Response[emptypb.Empty], error) {
-	deleted, err := s.store.Delete(ctx, req.Msg.GetName())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete session: %w", err))
-	}
-	if !deleted {
+	err := s.launcher.DeleteSession(ctx, req.Msg.GetName())
+	switch {
+	case errors.Is(err, agents.ErrSessionNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("session %q not found", req.Msg.GetName()))
+	case err != nil:
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete session: %w", err))
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
