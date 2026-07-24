@@ -334,12 +334,16 @@ func TestNewSession(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(tmux, st, "--default-flag")
 
-	manager.NewSession(NewSessionParams{
+	created, err := manager.NewSession(NewSessionParams{
 		Client: "client",
 		Title:  "My Agent",
 		Flags:  "--extra",
 		Prompt: "do the thing",
 	})
+	require.NoError(t, err)
+	require.NotNil(t, created)
+	assert.Equal(t, "My-Agent", created.Name, "the caller learns the generated name")
+	assert.NotEmpty(t, created.ID, "the caller learns the stored id")
 
 	got, err := st.Get(context.Background(), "My-Agent")
 	require.NoError(t, err)
@@ -366,7 +370,8 @@ func TestNewSessionExpandsTildeDir(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
-	manager.NewSession(NewSessionParams{Title: "scoped", Dir: "~/chariot/chariot"})
+	_, err := manager.NewSession(NewSessionParams{Title: "scoped", Dir: "~/chariot/chariot"})
+	require.NoError(t, err)
 
 	want := filepath.Join(home, "chariot", "chariot")
 	assert.Equal(t, want, tmux.newWindows["scoped"], "tmux is given the expanded path")
@@ -386,7 +391,8 @@ func TestNewSessionScopesToWorkflow(t *testing.T) {
 	workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "backend"})
 	require.NoError(t, err)
 
-	manager.NewSession(NewSessionParams{Title: "scoped", WorkflowID: &workflow.ID})
+	_, err = manager.NewSession(NewSessionParams{Title: "scoped", WorkflowID: &workflow.ID})
+	require.NoError(t, err)
 
 	got, err := st.Get(context.Background(), "scoped")
 	require.NoError(t, err)
@@ -406,10 +412,12 @@ func TestNewSessionInjectsWorkflowContext(t *testing.T) {
 	workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "backend", Context: "shared notes"})
 	require.NoError(t, err)
 
-	manager.NewSession(NewSessionParams{Title: "scoped", WorkflowID: &workflow.ID})
+	_, err = manager.NewSession(NewSessionParams{Title: "scoped", WorkflowID: &workflow.ID})
+	require.NoError(t, err)
 	assert.Contains(t, appendedPrompt(t, tmux.lastKeys("%scoped")[0]), "shared notes")
 
-	manager.NewSession(NewSessionParams{Title: "rootless"})
+	_, err = manager.NewSession(NewSessionParams{Title: "rootless"})
+	require.NoError(t, err)
 	rootless := appendedPrompt(t, tmux.lastKeys("%rootless")[0])
 	assert.NotContains(t, rootless, "shared notes")
 	assert.Contains(t, rootless, "/mcp")
@@ -486,7 +494,8 @@ func TestDeleteWorkflowOrphansThroughManager(t *testing.T) {
 	manager := newManager(newFakeTmux(), st, "")
 	workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "backend"})
 	require.NoError(t, err)
-	manager.NewSession(NewSessionParams{Title: "chat", WorkflowID: &workflow.ID})
+	_, err = manager.NewSession(NewSessionParams{Title: "chat", WorkflowID: &workflow.ID})
+	require.NoError(t, err)
 
 	manager.DeleteWorkflow(*workflow)
 
@@ -508,7 +517,8 @@ func TestDeleteWorkflowWithChatsThroughManager(t *testing.T) {
 	manager := newManager(newFakeTmux(), st, "")
 	workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "backend"})
 	require.NoError(t, err)
-	manager.NewSession(NewSessionParams{Title: "chat", WorkflowID: &workflow.ID})
+	_, err = manager.NewSession(NewSessionParams{Title: "chat", WorkflowID: &workflow.ID})
+	require.NoError(t, err)
 
 	manager.DeleteWorkflowWithChats(*workflow)
 

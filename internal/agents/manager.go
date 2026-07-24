@@ -58,6 +58,7 @@ type tmuxClient interface {
 type agentStore interface {
 	List(ctx context.Context) ([]store.Agent, error)
 	ListAll(ctx context.Context) ([]store.Agent, error)
+	Get(ctx context.Context, name string) (*store.Agent, error)
 	GetTranscript(ctx context.Context, sessionID string) (store.Transcript, error)
 	UpsertTranscript(ctx context.Context, sessionID, content string, offset int64) error
 	Upsert(ctx context.Context, agent store.Agent) error
@@ -365,10 +366,12 @@ type NewSessionParams struct {
 
 // NewSession creates a background session, records it so it lists immediately,
 // and launches claude with the default plus per-session flags and opening
-// prompt. It does not switch the client to the new session.
+// prompt. It does not switch the client to the new session. The stored record is
+// returned so a caller that did not watch the list, such as an RPC client, still
+// learns the chat's generated name and id.
 //
 // The directory is the given Dir, else the client's current directory.
-func (m *AgentManager) NewSession(p NewSessionParams) {
+func (m *AgentManager) NewSession(p NewSessionParams) (*store.Agent, error) {
 	dir := expandHome(strings.TrimSpace(p.Dir))
 	if dir == "" {
 		dir = m.tmux.ClientPath(p.Client)
@@ -396,7 +399,7 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 	// id is known up front and restoring the agent can resume that same
 	// conversation with --resume.
 	sessionID := uuid.NewString()
-	_ = m.sessions.Upsert(context.Background(), store.Agent{
+	if err := m.sessions.Upsert(context.Background(), store.Agent{
 		Name:            name,
 		Pane:            pane,
 		Cwd:             dir,
@@ -405,7 +408,9 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 		State:           store.StateNew,
 		ClaudeSessionID: sessionID,
 		WorkflowID:      p.WorkflowID,
-	})
+	}); err != nil {
+		return nil, fmt.Errorf("failed to record session %q: %w", name, err)
+	}
 
 	m.launchClaude(launchClaudeParams{
 		Session:         pane,
@@ -414,6 +419,18 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 		WorkflowContext: workflowContext,
 		SessionID:       sessionID,
 	})
+
+	// Read the row back rather than returning what was written: the store owns
+	// the generated id and the created timestamp.
+	created, err := m.sessions.Get(context.Background(), name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read back session %q: %w", name, err)
+	}
+	if created == nil {
+		return nil, fmt.Errorf("session %q vanished after being recorded", name)
+	}
+
+	return created, nil
 }
 
 // ListWorkflows returns every live workflow for the tree's folder headers.

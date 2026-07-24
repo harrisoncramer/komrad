@@ -40,6 +40,9 @@ const (
 	// SessionServiceGetSessionProcedure is the fully-qualified name of the SessionService's GetSession
 	// RPC.
 	SessionServiceGetSessionProcedure = "/session.v1.SessionService/GetSession"
+	// SessionServiceCreateSessionProcedure is the fully-qualified name of the SessionService's
+	// CreateSession RPC.
+	SessionServiceCreateSessionProcedure = "/session.v1.SessionService/CreateSession"
 	// SessionServiceSetStateProcedure is the fully-qualified name of the SessionService's SetState RPC.
 	SessionServiceSetStateProcedure = "/session.v1.SessionService/SetState"
 	// SessionServiceDeleteSessionProcedure is the fully-qualified name of the SessionService's
@@ -61,6 +64,10 @@ type SessionServiceClient interface {
 	// Reads: no side effects, safe to cache and issue over GET.
 	ListSessions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListSessionsResponse], error)
 	GetSession(context.Context, *connect.Request[v1.GetSessionRequest]) (*connect.Response[v1.GetSessionResponse], error)
+	// CreateSession launches a background agent and returns it as stored. It is
+	// not idempotent: each call spawns another chat, since two chats may
+	// legitimately run the same prompt.
+	CreateSession(context.Context, *connect.Request[v1.CreateSessionRequest]) (*connect.Response[v1.CreateSessionResponse], error)
 	// Mutations key on the unique session name, so repeating them yields the same
 	// state. They are idempotent and safe for the client to retry.
 	SetState(context.Context, *connect.Request[v1.SetStateRequest]) (*connect.Response[emptypb.Empty], error)
@@ -96,6 +103,12 @@ func NewSessionServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			baseURL+SessionServiceGetSessionProcedure,
 			connect.WithSchema(sessionServiceMethods.ByName("GetSession")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		createSession: connect.NewClient[v1.CreateSessionRequest, v1.CreateSessionResponse](
+			httpClient,
+			baseURL+SessionServiceCreateSessionProcedure,
+			connect.WithSchema(sessionServiceMethods.ByName("CreateSession")),
 			connect.WithClientOptions(opts...),
 		),
 		setState: connect.NewClient[v1.SetStateRequest, emptypb.Empty](
@@ -140,6 +153,7 @@ func NewSessionServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 type sessionServiceClient struct {
 	listSessions      *connect.Client[emptypb.Empty, v1.ListSessionsResponse]
 	getSession        *connect.Client[v1.GetSessionRequest, v1.GetSessionResponse]
+	createSession     *connect.Client[v1.CreateSessionRequest, v1.CreateSessionResponse]
 	setState          *connect.Client[v1.SetStateRequest, emptypb.Empty]
 	deleteSession     *connect.Client[v1.DeleteSessionRequest, emptypb.Empty]
 	updateSession     *connect.Client[v1.UpdateSessionRequest, emptypb.Empty]
@@ -155,6 +169,11 @@ func (c *sessionServiceClient) ListSessions(ctx context.Context, req *connect.Re
 // GetSession calls session.v1.SessionService.GetSession.
 func (c *sessionServiceClient) GetSession(ctx context.Context, req *connect.Request[v1.GetSessionRequest]) (*connect.Response[v1.GetSessionResponse], error) {
 	return c.getSession.CallUnary(ctx, req)
+}
+
+// CreateSession calls session.v1.SessionService.CreateSession.
+func (c *sessionServiceClient) CreateSession(ctx context.Context, req *connect.Request[v1.CreateSessionRequest]) (*connect.Response[v1.CreateSessionResponse], error) {
+	return c.createSession.CallUnary(ctx, req)
 }
 
 // SetState calls session.v1.SessionService.SetState.
@@ -187,6 +206,10 @@ type SessionServiceHandler interface {
 	// Reads: no side effects, safe to cache and issue over GET.
 	ListSessions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListSessionsResponse], error)
 	GetSession(context.Context, *connect.Request[v1.GetSessionRequest]) (*connect.Response[v1.GetSessionResponse], error)
+	// CreateSession launches a background agent and returns it as stored. It is
+	// not idempotent: each call spawns another chat, since two chats may
+	// legitimately run the same prompt.
+	CreateSession(context.Context, *connect.Request[v1.CreateSessionRequest]) (*connect.Response[v1.CreateSessionResponse], error)
 	// Mutations key on the unique session name, so repeating them yields the same
 	// state. They are idempotent and safe for the client to retry.
 	SetState(context.Context, *connect.Request[v1.SetStateRequest]) (*connect.Response[emptypb.Empty], error)
@@ -218,6 +241,12 @@ func NewSessionServiceHandler(svc SessionServiceHandler, opts ...connect.Handler
 		svc.GetSession,
 		connect.WithSchema(sessionServiceMethods.ByName("GetSession")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	sessionServiceCreateSessionHandler := connect.NewUnaryHandler(
+		SessionServiceCreateSessionProcedure,
+		svc.CreateSession,
+		connect.WithSchema(sessionServiceMethods.ByName("CreateSession")),
 		connect.WithHandlerOptions(opts...),
 	)
 	sessionServiceSetStateHandler := connect.NewUnaryHandler(
@@ -261,6 +290,8 @@ func NewSessionServiceHandler(svc SessionServiceHandler, opts ...connect.Handler
 			sessionServiceListSessionsHandler.ServeHTTP(w, r)
 		case SessionServiceGetSessionProcedure:
 			sessionServiceGetSessionHandler.ServeHTTP(w, r)
+		case SessionServiceCreateSessionProcedure:
+			sessionServiceCreateSessionHandler.ServeHTTP(w, r)
 		case SessionServiceSetStateProcedure:
 			sessionServiceSetStateHandler.ServeHTTP(w, r)
 		case SessionServiceDeleteSessionProcedure:
@@ -286,6 +317,10 @@ func (UnimplementedSessionServiceHandler) ListSessions(context.Context, *connect
 
 func (UnimplementedSessionServiceHandler) GetSession(context.Context, *connect.Request[v1.GetSessionRequest]) (*connect.Response[v1.GetSessionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("session.v1.SessionService.GetSession is not implemented"))
+}
+
+func (UnimplementedSessionServiceHandler) CreateSession(context.Context, *connect.Request[v1.CreateSessionRequest]) (*connect.Response[v1.CreateSessionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("session.v1.SessionService.CreateSession is not implemented"))
 }
 
 func (UnimplementedSessionServiceHandler) SetState(context.Context, *connect.Request[v1.SetStateRequest]) (*connect.Response[emptypb.Empty], error) {

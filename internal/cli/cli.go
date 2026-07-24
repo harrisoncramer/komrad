@@ -23,6 +23,7 @@ import (
 	"claude-agents/internal/tmux"
 	"claude-agents/proto/gen/session/v1/sessionv1connect"
 
+	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
 )
 
@@ -122,8 +123,19 @@ func serveCmd(state *app) *cobra.Command {
 		Use:   "serve",
 		Short: "Serve the session store over ConnectRPC/HTTP",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			// Requests are checked against the constraints declared in the proto
+			// before any handler sees them, so a malformed payload is rejected in
+			// one place rather than at the top of each method.
+			validation, err := rpc.NewValidationInterceptor()
+			if err != nil {
+				return err
+			}
+
 			mux := http.NewServeMux()
-			path, handler := sessionv1connect.NewSessionServiceHandler(rpc.NewSessionService(state.sessions))
+			path, handler := sessionv1connect.NewSessionServiceHandler(
+				rpc.NewSessionService(state.sessions, state.manager),
+				connect.WithInterceptors(validation),
+			)
 			mux.Handle(path, handler)
 
 			// The MCP endpoint reads through its own read-only handle rather than
@@ -265,7 +277,12 @@ func newCmd(state *app) *cobra.Command {
 		Use:   "new",
 		Short: "Create a background agent session non-interactively",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			state.manager.NewSession(params)
+			created, err := state.manager.NewSession(params)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println(created.Name)
 			return nil
 		},
 	}

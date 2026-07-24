@@ -2,9 +2,11 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 
+	"claude-agents/internal/agents"
 	"claude-agents/internal/store"
 	sessionv1 "claude-agents/proto/gen/session/v1"
 
@@ -14,13 +16,81 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+// fakeLauncher records the launch a request asked for and hands back a stored
+// chat, so the service can be exercised without a tmux server.
+type fakeLauncher struct {
+	got     agents.NewSessionParams
+	created *store.Agent
+	err     error
+}
+
+func (f *fakeLauncher) NewSession(p agents.NewSessionParams) (*store.Agent, error) {
+	f.got = p
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return f.created, nil
+}
+
 func service(t *testing.T) (*SessionService, *store.Store) {
+	t.Helper()
+	svc, st, _ := serviceWithLauncher(t)
+
+	return svc, st
+}
+
+func serviceWithLauncher(t *testing.T) (*SessionService, *store.Store, *fakeLauncher) {
 	t.Helper()
 	st, err := store.Open(filepath.Join(t.TempDir(), "agents.db"))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 
-	return NewSessionService(st), st
+	launcher := &fakeLauncher{created: &store.Agent{ID: "id-1", Name: "spawned", Cwd: "/repo", State: store.StateNew}}
+
+	return NewSessionService(st, launcher), st, launcher
+}
+
+func TestCreateSession(t *testing.T) {
+	svc, _, launcher := serviceWithLauncher(t)
+	workflow := "wf-1"
+
+	res, err := svc.CreateSession(t.Context(), connect.NewRequest(&sessionv1.CreateSessionRequest{
+		Prompt:     "audit the migrations",
+		Title:      "audit",
+		Dir:        "/repo",
+		Flags:      "--model opus",
+		WorkflowId: &workflow,
+	}))
+	require.NoError(t, err)
+
+	assert.Equal(t, "audit the migrations", launcher.got.Prompt)
+	assert.Equal(t, "audit", launcher.got.Title)
+	assert.Equal(t, "/repo", launcher.got.Dir)
+	assert.Equal(t, "--model opus", launcher.got.Flags)
+	require.NotNil(t, launcher.got.WorkflowID)
+	assert.Equal(t, workflow, *launcher.got.WorkflowID)
+
+	assert.Equal(t, "id-1", res.Msg.GetSession().GetId())
+	assert.Equal(t, "spawned", res.Msg.GetSession().GetName())
+}
+
+// TestCreateSessionUnassignedWorkflow confirms an omitted workflow stays nil
+// rather than becoming an empty id, which the store treats as a real workflow.
+func TestCreateSessionUnassignedWorkflow(t *testing.T) {
+	svc, _, launcher := serviceWithLauncher(t)
+
+	_, err := svc.CreateSession(context.Background(), connect.NewRequest(&sessionv1.CreateSessionRequest{Prompt: "go"}))
+	require.NoError(t, err)
+	assert.Nil(t, launcher.got.WorkflowID)
+}
+
+func TestCreateSessionSurfacesLaunchFailure(t *testing.T) {
+	svc, _, launcher := serviceWithLauncher(t)
+	launcher.err = errors.New("tmux is not running")
+
+	_, err := svc.CreateSession(context.Background(), connect.NewRequest(&sessionv1.CreateSessionRequest{Prompt: "go"}))
+	assert.Equal(t, connect.CodeInternal, connect.CodeOf(err))
 }
 
 func TestGetMissingSessionIsNotFound(t *testing.T) {

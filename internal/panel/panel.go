@@ -494,7 +494,9 @@ func (m model) submitSession() (tea.Model, tea.Cmd) {
 		workflowID = &id
 	}
 
-	m.manager.NewSession(agents.NewSessionParams{
+	// A launch failure leaves the list unchanged; the next refresh is the panel's
+	// own report of what exists.
+	_, _ = m.manager.NewSession(agents.NewSessionParams{
 		Client:     m.manager.InvokingClient(),
 		Title:      m.form.GetString("title"),
 		Dir:        m.form.GetString("dir"),

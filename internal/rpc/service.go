@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"claude-agents/internal/agents"
 	"claude-agents/internal/store"
 	sessionv1 "claude-agents/proto/gen/session/v1"
 
@@ -13,14 +14,41 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// SessionService implements sessionv1connect.SessionServiceHandler over the store.
-type SessionService struct {
-	store *store.Store
+// sessionLauncher is the part of the agent manager the service drives. Creating
+// a chat is more than a row: it opens a tmux window and types claude into it, so
+// the service delegates rather than writing the record itself.
+type sessionLauncher interface {
+	NewSession(p agents.NewSessionParams) (*store.Agent, error)
 }
 
-// NewSessionService constructs the service from the agent store.
-func NewSessionService(s *store.Store) *SessionService {
-	return &SessionService{store: s}
+// SessionService implements sessionv1connect.SessionServiceHandler over the store.
+type SessionService struct {
+	store    *store.Store
+	launcher sessionLauncher
+}
+
+// NewSessionService constructs the service from the agent store and the manager
+// that launches chats.
+func NewSessionService(s *store.Store, launcher sessionLauncher) *SessionService {
+	return &SessionService{store: s, launcher: launcher}
+}
+
+// CreateSession launches a background agent and returns it as stored. The
+// request's own constraints decide what is well-formed; by the time a request
+// reaches here it has already passed them.
+func (s *SessionService) CreateSession(_ context.Context, req *connect.Request[sessionv1.CreateSessionRequest]) (*connect.Response[sessionv1.CreateSessionResponse], error) {
+	created, err := s.launcher.NewSession(agents.NewSessionParams{
+		Title:      req.Msg.GetTitle(),
+		Dir:        req.Msg.GetDir(),
+		Flags:      req.Msg.GetFlags(),
+		Prompt:     req.Msg.GetPrompt(),
+		WorkflowID: req.Msg.WorkflowId,
+	})
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create session: %w", err))
+	}
+
+	return connect.NewResponse(&sessionv1.CreateSessionResponse{Session: toProto(*created)}), nil
 }
 
 // ListSessions returns every stored agent.

@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package session.v1;
 
+import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
 
 option go_package = "claude-agents/proto/gen/session/v1;sessionv1";
@@ -27,32 +28,101 @@ message ListSessionsResponse {
   repeated Session sessions = 1;
 }
 
+// CreateSessionRequest launches a background agent. The prompt and directory
+// are required: a chat created over RPC has nobody at the keyboard, so one with
+// no prompt would sit idle forever, and the tmux fallback for a blank directory
+// resolves against whichever client happens to be current, which would let the
+// same request start in a different repository each time it ran. A blank title
+// is auto-named and blank flags mean the configured defaults alone.
+message CreateSessionRequest {
+  string prompt = 1 [(buf.validate.field).string = {
+    min_len: 1,
+    max_len: 50000
+  }];
+  string title = 2 [(buf.validate.field).string.max_len = 200];
+  string dir = 3 [
+    (buf.validate.field).string.max_len = 4096,
+    (buf.validate.field).cel = {
+      id: "dir.absolute",
+      message: "dir must be an absolute path or start with ~",
+      expression: "this.startsWith('/') || this.startsWith('~')"
+    }
+  ];
+  string flags = 4 [(buf.validate.field).string.max_len = 500];
+  // The workflow to place the chat in. Unset leaves it unassigned, which is
+  // distinct from an empty id: that would name a workflow that cannot exist.
+  optional string workflow_id = 5 [(buf.validate.field).string.min_len = 1];
+}
+
+message CreateSessionResponse {
+  Session session = 1;
+}
+
 message GetSessionRequest {
-  string name = 1;
+  string name = 1 [(buf.validate.field).string = {
+    min_len: 1,
+    max_len: 200
+  }];
 }
 
 message GetSessionResponse {
   Session session = 1;
 }
 
+// SetStateRequest moves a chat between lifecycle states. The state is closed:
+// the store treats an unknown value as a state nothing renders, so a typo would
+// make a chat vanish from every count rather than fail.
 message SetStateRequest {
-  string name = 1;
-  string state = 2;
+  string name = 1 [(buf.validate.field).string = {
+    min_len: 1,
+    max_len: 200
+  }];
+  string state = 2 [(buf.validate.field).string = {
+    in: [
+      "new",
+      "thinking",
+      "waiting",
+      "done"
+    ]
+  }];
 }
 
 message DeleteSessionRequest {
-  string name = 1;
+  string name = 1 [(buf.validate.field).string = {
+    min_len: 1,
+    max_len: 200
+  }];
 }
 
+// UpdateSessionRequest renames a chat by id. The name is what tmux and the
+// store agree on, so the characters the store would rewrite are rejected here
+// rather than silently changed underneath the caller.
 message UpdateSessionRequest {
-  string id = 1;
-  string name = 2;
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string name = 2 [
+    (buf.validate.field).string = {
+      min_len: 1,
+      max_len: 200
+    },
+    (buf.validate.field).cel = {
+      id: "name.tmux_safe",
+      message: "name must not contain spaces, colons, or dots",
+      expression: "!this.contains(' ') && !this.contains(':') && !this.contains('.')"
+    }
+  ];
 }
 
 message SearchTranscriptsRequest {
-  string query = 1;
-  // Cap on results returned. Zero lets the server pick a default.
-  int32 limit = 2;
+  string query = 1 [(buf.validate.field).string = {
+    min_len: 1,
+    max_len: 500
+  }];
+  // Cap on results returned. Zero lets the server pick a default. The ceiling
+  // keeps one query from pulling the whole corpus into a response.
+  int32 limit = 2 [(buf.validate.field).int32 = {
+    gte: 0,
+    lte: 500
+  }];
 }
 
 // SearchHit is one transcript matched by a search: the session it belongs to,
@@ -72,7 +142,7 @@ message SearchTranscriptsResponse {
 }
 
 message GetTranscriptRequest {
-  string session_id = 1;
+  string session_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message GetTranscriptResponse {
@@ -89,6 +159,10 @@ service SessionService {
   rpc GetSession(GetSessionRequest) returns (GetSessionResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
+  // CreateSession launches a background agent and returns it as stored. It is
+  // not idempotent: each call spawns another chat, since two chats may
+  // legitimately run the same prompt.
+  rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse);
   // Mutations key on the unique session name, so repeating them yields the same
   // state. They are idempotent and safe for the client to retry.
   rpc SetState(SetStateRequest) returns (google.protobuf.Empty) {
