@@ -1,5 +1,6 @@
 bin/
 local/
+docs/
 
 db/gen-schema.sql
 .air.toml

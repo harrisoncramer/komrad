@@ -3,7 +3,10 @@ package panel
 import (
 	"testing"
 
+	"claude-agents/internal/appconfig"
 	"claude-agents/internal/store"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func items(names ...string) []chatItem {
@@ -29,19 +32,24 @@ func TestIndexOfChat(t *testing.T) {
 	}
 }
 
-// TestApplyChatsEmptyLeavesChatsScreen pins a crash fix: when an async refresh
-// empties the chats list while the chats screen is open, the screen must fall
-// back to the root list. Otherwise the Open/Rename/Delete key handlers index an
-// empty m.chats and panic, since clampCursor yields 0 for an empty list.
-func TestApplyChatsEmptyLeavesChatsScreen(t *testing.T) {
-	m := model{screen: screenChats, chats: items("a"), chatCursor: 0}
+// TestApplyChatsEmptyStaysOnChatsScreen confirms an async refresh that empties
+// the chats list leaves the chats screen open, so a chat can be created from
+// there. The action handlers must stay panic-safe on the empty list, since they
+// resolve the selection through selectedChat rather than indexing m.chats.
+func TestApplyChatsEmptyStaysOnChatsScreen(t *testing.T) {
+	m := model{screen: screenChats, chats: items("a"), chatCursor: 0, keys: appconfig.DefaultKeybindings()}
 	m.applyChats(nil)
 
-	if m.screen != screenList {
-		t.Fatalf("want screenList after chats emptied, got %v", m.screen)
+	if m.screen != screenChats {
+		t.Fatalf("want screenChats after chats emptied, got %v", m.screen)
 	}
 	if len(m.chats) != 0 {
 		t.Fatalf("want empty chats, got %d", len(m.chats))
+	}
+
+	// Open on the empty list must be a safe no-op, not an index panic.
+	if _, _ = m.updateChats(tea.KeyMsg{Type: tea.KeyEnter}); m.screen != screenChats {
+		t.Fatalf("open on empty list changed screen to %v", m.screen)
 	}
 }
 

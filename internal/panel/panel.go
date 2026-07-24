@@ -8,14 +8,12 @@ import (
 
 	"claude-agents/internal/agents"
 	"claude-agents/internal/appconfig"
-	"claude-agents/internal/search"
 	"claude-agents/internal/store"
 	sessionv1 "claude-agents/proto/gen/session/v1"
 	"claude-agents/proto/gen/session/v1/sessionv1connect"
 
 	"connectrpc.com/connect"
 	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -53,20 +51,15 @@ func chatsTick() tea.Cmd {
 }
 
 // loadChatsCmd re-lists the sessions off the UI goroutine with a timeout, so the
-// render loop never blocks on the RPC or the per-chat tmux liveness checks. When
-// a workflow is in scope it lists only that workflow's chats.
+// render loop never blocks on the RPC or the per-chat tmux liveness checks.
 func (m model) loadChatsCmd() tea.Cmd {
 	sessions, manager := m.sessions, m.manager
-	workflowID := ""
-	if m.workflow != nil {
-		workflowID = m.workflow.ID
-	}
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), chatsTimeout)
 		defer cancel()
 
-		listed, err := listSessions(ctx, sessions, workflowID)
+		listed, err := listSessions(ctx, sessions)
 		if err != nil {
 			return chatsLoadedMsg{ok: false}
 		}
@@ -75,18 +68,8 @@ func (m model) loadChatsCmd() tea.Cmd {
 	}
 }
 
-// listSessions lists chats through the service, scoped to a workflow when
-// workflowID is set and every chat otherwise.
-func listSessions(ctx context.Context, sessions sessionv1connect.SessionServiceClient, workflowID string) ([]*sessionv1.Session, error) {
-	if workflowID != "" {
-		resp, err := sessions.ListWorkflowSessions(ctx, connect.NewRequest(&sessionv1.ListWorkflowSessionsRequest{WorkflowId: workflowID}))
-		if err != nil {
-			return nil, fmt.Errorf("failed to list workflow sessions: %w", err)
-		}
-
-		return resp.Msg.GetSessions(), nil
-	}
-
+// listSessions lists every chat through the service.
+func listSessions(ctx context.Context, sessions sessionv1connect.SessionServiceClient) ([]*sessionv1.Session, error) {
 	resp, err := sessions.ListSessions(ctx, connect.NewRequest(&emptypb.Empty{}))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list sessions: %w", err)
@@ -164,62 +147,38 @@ func stateColor(state string) lipgloss.Color {
 type screen int
 
 const (
-	screenList screen = iota
-	screenChats
-	screenSearch
+	screenChats screen = iota
 	screenForm
 	screenRename
-	screenWorkflows
 	screenWorkflowForm
 	screenWorkflowDelete
 )
-
-type rowKind int
-
-const (
-	rowNewChat rowKind = iota
-	rowChats
-	rowWorkflows
-	rowSearch
-)
-
-type row struct {
-	kind  rowKind
-	label string
-}
 
 type model struct {
 	manager  *agents.AgentManager
 	sessions sessionv1connect.SessionServiceClient
 
 	screen screen
-	rows   []row
-	cursor int
 
 	chats      []chatItem
 	chatCursor int
 	preview    viewport.Model
 
-	// workflow is the current scope: nil at the root, or the workflow whose
-	// chats, new-chat, and search are all filtered to it. workflows backs the
-	// picker, and moveTarget is the chat being reassigned when the picker is
-	// opened in move mode. workflowRenameTarget is the workflow being renamed and
-	// workflowEditTarget the one being edited when the workflow form is open; both
-	// nil when creating one.
-	workflow             *store.Workflow
+	// workflows backs the tree's folder headers. workflowCursor is which workflow a
+	// header-hover action targets. workflowRenameTarget is the workflow being
+	// renamed and workflowEditTarget the one being edited when the workflow form is
+	// open; both nil when creating one; workflowDeleteTarget is the one the delete
+	// prompt is confirming.
 	workflows            []store.Workflow
 	workflowCursor       int
-	moveTarget           *store.Agent
 	workflowRenameTarget *store.Workflow
 	workflowEditTarget   *store.Workflow
 	workflowDeleteTarget *store.Workflow
 
-	searchInput   textinput.Model
-	searchIndex   search.Index
-	searchAgents  map[string]store.Agent
-	searchResults []search.Result
-	searchCursor  int
-	searching     bool
+	// newChatWorkflow is the workflow a pending new-chat form will place its chat
+	// in, or nil for a chat that belongs to no workflow. Set when the form opens
+	// and consumed on submit.
+	newChatWorkflow *store.Workflow
 
 	form         *huh.Form
 	renameTarget store.Agent
@@ -231,19 +190,15 @@ type model struct {
 }
 
 func newModel(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, keys appconfig.Keybindings) model {
-	input := textinput.New()
-	input.Placeholder = "search chats by content"
-	input.Prompt = "› "
-
 	m := model{
-		manager:     manager,
-		sessions:    sessions,
-		keys:        keys,
-		screen:      screenList,
-		preview:     viewport.New(0, 0),
-		searchInput: input,
+		manager:  manager,
+		sessions: sessions,
+		keys:     keys,
+		screen:   screenChats,
+		preview:  viewport.New(0, 0),
 	}
 	m.reload()
+	m.chatCursor = firstChatRowIndex(m.chatRows())
 
 	return m
 }
@@ -255,30 +210,23 @@ type chatItem struct {
 	alive bool
 }
 
-// reload lists the in-scope agents through the service, marking which are live,
-// and refreshes the workflow list. Records are never deleted here, so agents
+// reload lists the agents through the service, marking which are live, and
+// refreshes the workflow list. Records are never deleted here, so agents
 // survive tmux restarts.
 func (m *model) reload() {
 	m.reloadWorkflows()
 
-	workflowID := ""
-	if m.workflow != nil {
-		workflowID = m.workflow.ID
-	}
-
-	listed, err := listSessions(context.Background(), m.sessions, workflowID)
+	listed, err := listSessions(context.Background(), m.sessions)
 	if err != nil {
 		m.chats = nil
-		m.rows = m.makeRows()
 		return
 	}
 
 	m.chats = chatItemsFrom(listed, m.manager)
-	m.rows = m.makeRows()
 }
 
-// reloadWorkflows refreshes the workflow list backing the picker and the root
-// row count, clamping the cursor into the new length.
+// reloadWorkflows refreshes the workflow list backing the tree's folder headers,
+// clamping the cursor into the new length.
 func (m *model) reloadWorkflows() {
 	workflows, err := m.manager.ListWorkflows()
 	if err != nil {
@@ -306,8 +254,8 @@ func (m *model) applyChats(fresh []chatItem) {
 	}
 
 	selected := ""
-	if m.chatCursor >= 0 && m.chatCursor < len(m.chats) {
-		selected = m.chats[m.chatCursor].agent.Name
+	if item, ok := m.selectedChat(); ok {
+		selected = item.agent.Name
 	}
 
 	seen := make(map[string]bool, len(m.chats))
@@ -325,15 +273,15 @@ func (m *model) applyChats(fresh []chatItem) {
 	}
 
 	m.chats = items
-	m.rows = m.makeRows()
-	m.chatCursor = clampCursor(indexOfChat(items, selected), len(items))
 
-	// The chats screen has no valid selection with an empty list, and its key
-	// handlers index m.chats directly. If an async refresh empties the list while
-	// it is open (every agent vanished server-side), fall back to the root list
-	// so a keypress cannot index out of range.
-	if len(items) == 0 && m.screen == screenChats {
-		m.screen = screenList
+	// The cursor indexes the tree of headers and chats, so keep it on the same
+	// chat across the rebuild, or clamp it into the new tree when that chat is
+	// gone.
+	rows := m.chatRows()
+	if idx := rowIndexOfChatName(rows, selected); idx >= 0 {
+		m.chatCursor = idx
+	} else {
+		m.chatCursor = clampCursor(m.chatCursor, len(rows))
 	}
 }
 
@@ -409,20 +357,20 @@ func protoToAgent(s *sessionv1.Session) store.Agent {
 	}
 }
 
-// makeRows builds the picker rows for the current scope. The workflows row shows
-// only at the root, since the scoped view is itself inside one workflow and does
-// not nest another workflow list.
-func (m model) makeRows() []row {
-	rows := []row{
-		{kind: rowNewChat, label: "+  new chat"},
-		{kind: rowChats, label: fmt.Sprintf("▸  chats (%d)", len(m.chats))},
+// openNewSession opens the new-chat form, seeded from the given workflow's
+// blueprint when one is passed, and records that workflow so the created chat is
+// placed in it. A nil workflow creates a chat that belongs to none.
+func (m model) openNewSession(workflow *store.Workflow) (tea.Model, tea.Cmd) {
+	dir, flags := "", ""
+	if workflow != nil {
+		dir = workflow.Cwd
+		flags = workflow.Flags
 	}
-	if m.workflow == nil {
-		rows = append(rows, row{kind: rowWorkflows, label: fmt.Sprintf("⧉  workflows (%d)", len(m.workflows))})
-	}
-	rows = append(rows, row{kind: rowSearch, label: "/  search"})
+	m.newChatWorkflow = workflow
+	m.form = newSessionForm(m.keys.Form, dir, flags)
+	m.screen = screenForm
 
-	return rows
+	return m, m.form.Init()
 }
 
 func renameForm(current string, keys appconfig.FormKeys) *huh.Form {
@@ -443,9 +391,7 @@ func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case huh.StateCompleted:
 		m.manager.Rename(m.renameTarget, m.form.GetString("name"))
 		m.reload()
-		if m.chatCursor >= len(m.chats) {
-			m.chatCursor = len(m.chats) - 1
-		}
+		m.chatCursor = clampCursor(m.chatCursor, len(m.chatRows()))
 		m.screen = screenChats
 		m.refreshPreview()
 		return m, tick()
@@ -513,7 +459,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// preview resumes only on the chats screen, where a hovered pane is shown.
 		m.manager.ClearAttachedAgent()
 		m.reload()
-		m.chatCursor = clampCursor(m.chatCursor, len(m.chats))
+		m.chatCursor = clampCursor(m.chatCursor, len(m.chatRows()))
 		if m.screen == screenChats {
 			m.refreshPreview()
 			return m, tick()
@@ -543,14 +489,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if built, ok := msg.(indexBuiltMsg); ok {
-		m.searchIndex = built.index
-		m.searchAgents = built.agents
-		m.searching = false
-		m.runSearch()
-		return m, nil
-	}
-
 	if m.screen == screenForm {
 		return m.updateForm(msg)
 	}
@@ -567,90 +505,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateWorkflowDelete(msg)
 	}
 
-	if m.screen == screenSearch {
-		return m.updateSearch(msg)
-	}
-
 	key, ok := msg.(tea.KeyMsg)
 	if !ok {
 		return m, nil
 	}
 
-	switch m.screen {
-	case screenList:
-		return m.updateList(key)
-	case screenChats:
+	if m.screen == screenChats {
 		return m.updateChats(key)
-	case screenWorkflows:
-		return m.updateWorkflows(key)
-	default:
-		return m, nil
-	}
-}
-
-func (m model) updateList(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	k := key.String()
-	switch {
-	case bound(k, m.keys.List.Quit):
-		return m, m.hide()
-	case bound(k, m.keys.List.Back):
-		// From a scoped list, back returns to the workflow picker rather than
-		// hiding, so the workflow is a place the user steps in and out of.
-		if m.workflow != nil {
-			return m.exitWorkflowScope()
-		}
-
-		return m, m.hide()
-	case bound(k, m.keys.Nav.Up):
-		if m.cursor > 0 {
-			m.cursor--
-		}
-	case bound(k, m.keys.Nav.Down):
-		if m.cursor < len(m.rows)-1 {
-			m.cursor++
-		}
-	case bound(k, m.keys.List.Select):
-		return m.selectRow(m.rows[m.cursor])
-	case bound(k, m.keys.List.New):
-		return m.selectRow(row{kind: rowNewChat})
-	case bound(k, m.keys.List.Chats):
-		return m.selectRow(row{kind: rowChats})
-	case bound(k, m.keys.List.Workflows):
-		if m.workflow == nil {
-			return m.selectRow(row{kind: rowWorkflows})
-		}
-	case bound(k, m.keys.List.Search):
-		return m.enterSearch()
-	}
-
-	return m, nil
-}
-
-func (m model) selectRow(selected row) (tea.Model, tea.Cmd) {
-	switch selected.kind {
-	case rowNewChat:
-		dir, flags := "", ""
-		if m.workflow != nil {
-			dir = m.workflow.Cwd
-			flags = m.workflow.Flags
-		}
-		m.form = newSessionForm(m.keys.Form, dir, flags)
-		m.screen = screenForm
-		return m, m.form.Init()
-	case rowChats:
-		if len(m.chats) == 0 {
-			return m, nil
-		}
-
-		m.screen = screenChats
-		m.chatCursor = 0
-		m.refreshPreview()
-		return m, tick()
-	case rowWorkflows:
-		m.moveTarget = nil
-		return m.enterWorkflows()
-	case rowSearch:
-		return m.enterSearch()
 	}
 
 	return m, nil
@@ -670,8 +531,11 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case huh.StateCompleted:
 		return m.submitSession()
 	case huh.StateAborted:
-		m.screen = screenList
-		return m, nil
+		m.newChatWorkflow = nil
+		m.screen = screenChats
+		m.chatCursor = clampCursor(m.chatCursor, len(m.chatRows()))
+		m.refreshPreview()
+		return m, tick()
 	default:
 		return m, cmd
 	}
@@ -679,8 +543,8 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) submitSession() (tea.Model, tea.Cmd) {
 	var workflowID *string
-	if m.workflow != nil {
-		id := m.workflow.ID
+	if m.newChatWorkflow != nil {
+		id := m.newChatWorkflow.ID
 		workflowID = &id
 	}
 
@@ -692,7 +556,10 @@ func (m model) submitSession() (tea.Model, tea.Cmd) {
 		Prompt:     m.form.GetString("prompt"),
 		WorkflowID: workflowID,
 	})
+	m.newChatWorkflow = nil
 	m.reload()
-	m.screen = screenList
-	return m, nil
+	m.screen = screenChats
+	m.chatCursor = clampCursor(m.chatCursor, len(m.chatRows()))
+	m.refreshPreview()
+	return m, tick()
 }

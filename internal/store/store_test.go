@@ -299,21 +299,19 @@ func TestMoveChatBetweenWorkflows(t *testing.T) {
 
 	require.NoError(t, st.MoveToWorkflow(ctx, scoped.ID, &workflow.ID))
 
-	inWorkflow, err := st.ListByWorkflow(ctx, workflow.ID)
+	moved, err := st.Get(ctx, "scoped")
 	require.NoError(t, err)
-	require.Len(t, inWorkflow, 1)
-	assert.Equal(t, "scoped", inWorkflow[0].Name)
-	require.NotNil(t, inWorkflow[0].WorkflowID)
-	assert.Equal(t, workflow.ID, *inWorkflow[0].WorkflowID)
+	require.NotNil(t, moved.WorkflowID)
+	assert.Equal(t, workflow.ID, *moved.WorkflowID)
 
 	all, err := st.List(ctx)
 	require.NoError(t, err)
 	assert.Len(t, all, 2, "the root list still shows every chat regardless of workflow")
 
 	require.NoError(t, st.MoveToWorkflow(ctx, scoped.ID, nil))
-	inWorkflow, err = st.ListByWorkflow(ctx, workflow.ID)
+	unassigned, err := st.Get(ctx, "scoped")
 	require.NoError(t, err)
-	assert.Empty(t, inWorkflow, "a nil target unassigns the chat")
+	assert.Nil(t, unassigned.WorkflowID, "a nil target unassigns the chat")
 }
 
 // TestDeleteWorkflowOrphansChats is the orphan-on-delete guarantee: deleting a
@@ -333,10 +331,6 @@ func TestDeleteWorkflowOrphansChats(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, got, "the chat survives its workflow's deletion")
 	assert.Nil(t, got.WorkflowID, "the chat is orphaned back to unassigned")
-
-	inWorkflow, err := st.ListByWorkflow(ctx, workflow.ID)
-	require.NoError(t, err)
-	assert.Empty(t, inWorkflow)
 }
 
 // TestDeleteWorkflowWithChats is the purge path: the workflow and its chats are

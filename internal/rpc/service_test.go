@@ -46,26 +46,6 @@ func TestListAndGetSession(t *testing.T) {
 	assert.Equal(t, store.StateThinking, got.Msg.GetSession().GetState())
 }
 
-func TestListWorkflowSessionsScopesByWorkflow(t *testing.T) {
-	svc, st := service(t)
-	ctx := context.Background()
-
-	workflow, err := st.CreateWorkflow(ctx, store.WorkflowConfig{Name: "backend"})
-	require.NoError(t, err)
-	require.NoError(t, st.Upsert(ctx, store.Agent{Name: "scoped", State: store.StateNew, WorkflowID: &workflow.ID}))
-	require.NoError(t, st.Upsert(ctx, store.Agent{Name: "unscoped", State: store.StateNew}))
-
-	scoped, err := svc.ListWorkflowSessions(ctx, connect.NewRequest(&sessionv1.ListWorkflowSessionsRequest{WorkflowId: workflow.ID}))
-	require.NoError(t, err)
-	require.Len(t, scoped.Msg.GetSessions(), 1)
-	assert.Equal(t, "scoped", scoped.Msg.GetSessions()[0].GetName())
-	assert.Equal(t, workflow.ID, scoped.Msg.GetSessions()[0].GetWorkflowId())
-
-	all, err := svc.ListSessions(ctx, connect.NewRequest(&emptypb.Empty{}))
-	require.NoError(t, err)
-	assert.Len(t, all.Msg.GetSessions(), 2, "the unscoped list still returns every chat")
-}
-
 func TestSetStateThroughService(t *testing.T) {
 	svc, st := service(t)
 	ctx := context.Background()

@@ -27,10 +27,6 @@ message ListSessionsResponse {
   repeated Session sessions = 1;
 }
 
-message ListWorkflowSessionsRequest {
-  string workflow_id = 1;
-}
-
 message GetSessionRequest {
   string name = 1;
 }
@@ -57,11 +53,6 @@ message UpdateSessionRequest {
 service SessionService {
   // Reads: no side effects, safe to cache and issue over GET.
   rpc ListSessions(google.protobuf.Empty) returns (ListSessionsResponse) {
-    option idempotency_level = NO_SIDE_EFFECTS;
-  }
-  // ListWorkflowSessions returns only the chats in the given workflow, backing
-  // the workflow-scoped chats view.
-  rpc ListWorkflowSessions(ListWorkflowSessionsRequest) returns (ListSessionsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
   rpc GetSession(GetSessionRequest) returns (GetSessionResponse) {

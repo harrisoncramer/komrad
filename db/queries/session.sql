@@ -22,33 +22,6 @@ FROM
 ORDER BY
     s.updated_at DESC;
 
--- name: ListSessionsByWorkflow :many
-SELECT
-    s.*,
-    sc.cwd,
-    sc.flags
-FROM
-    sessions s
-    JOIN session_configs sc ON sc.id = s.session_config_id
-WHERE
-    s.is_deleted = 0
-    AND s.workflow_id = @workflow_id
-ORDER BY
-    s.updated_at DESC;
-
--- name: ListAllSessionsByWorkflow :many
-SELECT
-    s.*,
-    sc.cwd,
-    sc.flags
-FROM
-    sessions s
-    JOIN session_configs sc ON sc.id = s.session_config_id
-WHERE
-    s.workflow_id = @workflow_id
-ORDER BY
-    s.updated_at DESC;
-
 -- name: GetSession :one
 SELECT
     s.*,

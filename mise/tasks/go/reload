@@ -1,13 +1,41 @@
 #!/usr/bin/env bash
-#MISE description="Rebuild the binary and restart the long-lived serve process."
+#MISE description="Restart serve and the panel so they pick up air's latest binary."
 set -euo pipefail
 cd "$MISE_CONFIG_ROOT"
 
-go build -o bin/claude-agents .
+# air (mise run go:dev) owns rebuilding bin/claude-agents on save. Reload does
+# not build; it restarts the long-lived processes still running the old binary.
+# Warn when air is not watching, since then the binary is whatever was last
+# built by hand and reload alone will not reflect new code.
+if ! pgrep -x air >/dev/null 2>&1; then
+  echo "warning: air is not running; start it with 'mise run go:dev' so saves rebuild the binary"
+fi
+
+if [ ! -x bin/claude-agents ]; then
+  echo "bin/claude-agents missing; building once (start air to keep it fresh)"
+  go build -o bin/claude-agents .
+fi
 
 # serve is long-lived and spawned on first panel open, so a fresh binary alone
-# does not reach it. Kill it; the next panel open respawns it from the new build.
-# Reopen the popup (prefix+g) afterward to pick up panel-side changes too.
+# does not reach it. Kill it and confirm it died, escalating to SIGKILL, so the
+# next panel open respawns it from the new build rather than leaving the stale
+# process bound to the port.
 pkill -f 'claude-agents serve' 2>/dev/null || true
+for _ in $(seq 1 15); do
+  pgrep -f 'claude-agents serve' >/dev/null 2>&1 || break
+  sleep 0.2
+done
+if pgrep -f 'claude-agents serve' >/dev/null 2>&1; then
+  pkill -9 -f 'claude-agents serve' 2>/dev/null || true
+  sleep 0.5
+fi
+if pgrep -f 'claude-agents serve' >/dev/null 2>&1; then
+  echo "error: serve process would not die; kill it by hand" >&2
+  exit 1
+fi
 
-echo "rebuilt bin/claude-agents and restarted serve; reopen the panel (prefix+g)"
+# The panel TUI runs inside the persistent claude-manager session, also holding
+# the old binary. Kill the session so the next open respawns the panel too.
+tmux kill-session -t claude-manager 2>/dev/null || true
+
+echo "stopped stale serve and panel; reopen the panel (prefix+g) to respawn from the current binary"

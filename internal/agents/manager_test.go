@@ -162,7 +162,7 @@ func TestLaunchClaude(t *testing.T) {
 			tmux := newFakeTmux()
 			manager := newManager(tmux, newStore(t), "")
 
-			manager.launchClaude("session", tt.flags, tt.prompt, tt.sessionID, tt.resume)
+			manager.launchClaude("session", tt.flags, tt.prompt, "", tt.sessionID, tt.resume)
 
 			keys := tmux.lastKeys("session")
 			require.Len(t, keys, 2)
@@ -179,12 +179,30 @@ func TestLaunchClaudePassesPromptThroughTempFile(t *testing.T) {
 	tmux := newFakeTmux()
 	manager := newManager(tmux, newStore(t), "")
 
-	manager.launchClaude("session", "", "line one\nline two", "sess", false)
+	manager.launchClaude("session", "", "line one\nline two", "", "sess", false)
 
 	command := tmux.lastKeys("session")[0]
 	assert.Contains(t, command, "--session-id sess")
 	assert.Contains(t, command, "$(cat ")
 	assert.Contains(t, command, "; rm ")
+}
+
+// TestLaunchClaudeInjectsWorkflowContext confirms a non-empty workflow context
+// is appended as a system prompt through the same temp-file trick, and that
+// resuming a session skips it since --append-system-prompt does not persist.
+func TestLaunchClaudeInjectsWorkflowContext(t *testing.T) {
+	tmux := newFakeTmux()
+	manager := newManager(tmux, newStore(t), "")
+
+	manager.launchClaude("session", "", "", "shared notes", "sess", false)
+	command := tmux.lastKeys("session")[0]
+	assert.Contains(t, command, "--append-system-prompt \"$(cat ")
+	assert.Contains(t, command, "; rm ")
+
+	tmux = newFakeTmux()
+	manager = newManager(tmux, newStore(t), "")
+	manager.launchClaude("session", "", "", "shared notes", "sess", true)
+	assert.NotContains(t, tmux.lastKeys("session")[0], "--append-system-prompt")
 }
 
 func TestEnvWithout(t *testing.T) {
@@ -271,6 +289,24 @@ func TestNewSessionScopesToWorkflow(t *testing.T) {
 	assert.Equal(t, workflow.ID, *got.WorkflowID)
 }
 
+// TestNewSessionInjectsWorkflowContext confirms a chat spawned inside a
+// workflow launches with the workflow's context appended as a system prompt,
+// while one created outside any workflow does not.
+func TestNewSessionInjectsWorkflowContext(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := newManager(tmux, st, "")
+
+	workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "backend", Context: "shared notes"})
+	require.NoError(t, err)
+
+	manager.NewSession(NewSessionParams{Title: "scoped", WorkflowID: &workflow.ID})
+	assert.Contains(t, tmux.lastKeys("scoped")[0], "--append-system-prompt")
+
+	manager.NewSession(NewSessionParams{Title: "rootless"})
+	assert.NotContains(t, tmux.lastKeys("rootless")[0], "--append-system-prompt")
+}
+
 func TestNewWorkflowDefaultsBlankName(t *testing.T) {
 	manager := newManager(newFakeTmux(), newStore(t), "")
 
@@ -324,15 +360,15 @@ func TestMoveChat(t *testing.T) {
 	scoped, err := manager.ListWorkflows()
 	require.NoError(t, err)
 	require.Len(t, scoped, 1)
-	inWorkflow, err := st.ListByWorkflow(context.Background(), workflow.ID)
+	moved, err := st.Get(context.Background(), "chat")
 	require.NoError(t, err)
-	require.Len(t, inWorkflow, 1)
-	assert.Equal(t, "chat", inWorkflow[0].Name)
+	require.NotNil(t, moved.WorkflowID)
+	assert.Equal(t, workflow.ID, *moved.WorkflowID)
 
 	manager.MoveChat(agent, nil)
-	inWorkflow, err = st.ListByWorkflow(context.Background(), workflow.ID)
+	unassigned, err := st.Get(context.Background(), "chat")
 	require.NoError(t, err)
-	assert.Empty(t, inWorkflow, "a nil target unassigns the chat")
+	assert.Nil(t, unassigned.WorkflowID, "a nil target unassigns the chat")
 }
 
 // TestDeleteWorkflowOrphansThroughManager confirms the manager wrapper preserves
@@ -376,24 +412,6 @@ func TestDeleteWorkflowWithChatsThroughManager(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, all, 1)
 	assert.True(t, all[0].Deleted, "the chat is soft-deleted, not orphaned")
-}
-
-func TestWorkflowSearchCandidatesScoped(t *testing.T) {
-	st := newStore(t)
-	manager := newManager(newFakeTmux(), st, "")
-	workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "backend"})
-	require.NoError(t, err)
-	require.NoError(t, st.Upsert(context.Background(), store.Agent{Name: "scoped", State: store.StateNew, WorkflowID: &workflow.ID}))
-	require.NoError(t, st.Upsert(context.Background(), store.Agent{Name: "unscoped", State: store.StateNew}))
-
-	scoped, err := manager.WorkflowSearchCandidates(workflow.ID)
-	require.NoError(t, err)
-	require.Len(t, scoped, 1)
-	assert.Equal(t, "scoped", scoped[0].Name)
-
-	all, err := manager.SearchCandidates()
-	require.NoError(t, err)
-	assert.Len(t, all, 2, "the global candidates span every chat")
 }
 
 func TestNotify(t *testing.T) {

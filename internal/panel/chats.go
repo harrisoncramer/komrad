@@ -41,61 +41,183 @@ func (m model) workflowName(id string) string {
 	return ""
 }
 
+// noWorkflowLabel heads the trailing group of chats that belong to no workflow.
+const noWorkflowLabel = "(no workflow)"
+
+// chatRow is one line of the chats list: either a workflow header (a folder) or
+// a chat nested under one. The cursor moves over both, but actions apply only to
+// chat rows, so a header is a passive label.
+type chatRow struct {
+	header bool
+	label  string   // workflow name, or noWorkflowLabel, when header is true
+	item   chatItem // the chat, when header is false
+	// workflowIndex points a workflow header at its entry in m.workflows, so the
+	// workflow actions can target it. It is -1 for the no-workflow header and
+	// unused for chat rows.
+	workflowIndex int
+}
+
+// chatRows arranges the chats into the displayed tree. Every workflow is a
+// header (shown even when empty, so a new one can be hovered to add its first
+// chat) followed by its chats, then a trailing group of chats that belong to no
+// workflow.
+func (m model) chatRows() []chatRow {
+	byWorkflow := make(map[string][]chatItem)
+	var unassigned []chatItem
+	for _, it := range m.chats {
+		if it.agent.WorkflowID != nil {
+			id := *it.agent.WorkflowID
+			byWorkflow[id] = append(byWorkflow[id], it)
+		} else {
+			unassigned = append(unassigned, it)
+		}
+	}
+
+	var rows []chatRow
+	for wi, w := range m.workflows {
+		chats := byWorkflow[w.ID]
+		delete(byWorkflow, w.ID)
+		rows = append(rows, chatRow{header: true, label: w.Name, workflowIndex: wi})
+		for _, it := range chats {
+			rows = append(rows, chatRow{item: it})
+		}
+	}
+
+	// Chats whose workflow is unknown (e.g. it was just deleted) fall in with the
+	// unassigned group rather than vanishing from the list.
+	for _, leftover := range byWorkflow {
+		unassigned = append(unassigned, leftover...)
+	}
+	if len(unassigned) > 0 {
+		rows = append(rows, chatRow{header: true, label: noWorkflowLabel, workflowIndex: -1})
+		for _, it := range unassigned {
+			rows = append(rows, chatRow{item: it})
+		}
+	}
+
+	return rows
+}
+
+// selectedChat returns the chat under the cursor and true, or false when the
+// cursor is on a workflow header or the list is empty, so actions no-op there.
+func (m model) selectedChat() (chatItem, bool) {
+	rows := m.chatRows()
+	if m.chatCursor < 0 || m.chatCursor >= len(rows) || rows[m.chatCursor].header {
+		return chatItem{}, false
+	}
+
+	return rows[m.chatCursor].item, true
+}
+
+// hoveredWorkflow returns the m.workflows index of the workflow header under the
+// cursor and true, or false when the cursor is not on a real workflow header
+// (a chat, the no-workflow group, or an empty list).
+func (m model) hoveredWorkflow() (int, bool) {
+	rows := m.chatRows()
+	if m.chatCursor < 0 || m.chatCursor >= len(rows) {
+		return 0, false
+	}
+
+	r := rows[m.chatCursor]
+	if !r.header || r.workflowIndex < 0 {
+		return 0, false
+	}
+
+	return r.workflowIndex, true
+}
+
+// firstChatRowIndex returns the index of the first chat row, skipping a leading
+// header, so entering the list lands on a chat rather than a folder label.
+func firstChatRowIndex(rows []chatRow) int {
+	for i, r := range rows {
+		if !r.header {
+			return i
+		}
+	}
+
+	return 0
+}
+
+// rowIndexOfChatName finds the row of the named chat, or -1 when it is gone, so a
+// refresh can keep the cursor on the same chat as the tree is rebuilt.
+func rowIndexOfChatName(rows []chatRow, name string) int {
+	for i, r := range rows {
+		if !r.header && r.item.agent.Name == name {
+			return i
+		}
+	}
+
+	return -1
+}
+
 // updateChats drives the split chats view: arrows move the selection and letter
 // keys act on the hovered chat.
 func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
+
+	// New workflow is global to the chats view, regardless of what the cursor is
+	// on, so it never collides with the per-row new-chat key.
+	if bound(k, m.keys.Workflows.New) {
+		return m.newWorkflowForm()
+	}
+
+	// Hovering a workflow header lets the workflow bindings act on that folder's
+	// workflow.
+	if wfIdx, ok := m.hoveredWorkflow(); ok {
+		return m.updateHoveredWorkflow(key, wfIdx)
+	}
+
 	switch {
 	case bound(k, m.keys.Chats.Quit):
 		return m, m.hide()
 	case bound(k, m.keys.Chats.Back):
-		m.screen = screenList
-		return m, nil
+		return m, m.hide()
+	case bound(k, m.keys.Chats.New):
+		return m.openNewSession(nil)
 	case bound(k, m.keys.Nav.Up):
 		if m.chatCursor > 0 {
 			m.chatCursor--
 			m.refreshPreview()
 		}
 	case bound(k, m.keys.Nav.Down):
-		if m.chatCursor < len(m.chats)-1 {
+		if m.chatCursor < len(m.chatRows())-1 {
 			m.chatCursor++
 			m.refreshPreview()
 		}
 	case bound(k, m.keys.Chats.Open):
-		return m.openAgent(m.chats[m.chatCursor].agent)
+		item, ok := m.selectedChat()
+		if !ok {
+			return m, nil
+		}
+		return m.openAgent(item.agent)
 	case bound(k, m.keys.Chats.Rename):
-		agent := m.chats[m.chatCursor].agent
-		m.renameTarget = agent
-		m.form = renameForm(agent.Name, m.keys.Form)
+		item, ok := m.selectedChat()
+		if !ok {
+			return m, nil
+		}
+		m.renameTarget = item.agent
+		m.form = renameForm(item.agent.Name, m.keys.Form)
 		m.screen = screenRename
 		return m, m.form.Init()
 	case bound(k, m.keys.Chats.Delete):
-		m.manager.Delete(m.chats[m.chatCursor].agent)
+		item, ok := m.selectedChat()
+		if !ok {
+			return m, nil
+		}
+		m.manager.Delete(item.agent)
 		m.reload()
-		if m.chatCursor >= len(m.chats) {
-			m.chatCursor = len(m.chats) - 1
-		}
-		if len(m.chats) == 0 {
-			m.screen = screenList
-		}
-	case bound(k, m.keys.Chats.Move):
-		agent := m.chats[m.chatCursor].agent
-		m.moveTarget = &agent
-		return m.enterWorkflows()
-	case bound(k, m.keys.Chats.Workflow):
-		return m.jumpToWorkflow()
+		m.chatCursor = clampCursor(m.chatCursor, len(m.chatRows()))
 	}
 
 	return m, nil
 }
 
 func (m *model) refreshPreview() {
-	if m.chatCursor < 0 || m.chatCursor >= len(m.chats) {
+	item, ok := m.selectedChat()
+	if !ok {
 		m.preview.SetContent("")
 		return
 	}
-
-	item := m.chats[m.chatCursor]
 
 	// A dormant agent has no live pane to capture, so show its stored details.
 	if !item.alive {
@@ -162,11 +284,25 @@ func (m *model) resizePreview() {
 // directory, flags, the resume id) are legible at a glance. The opening prompt
 // is omitted: it is variable-length and wraps, which would jitter the footer.
 func (m model) chatDetails() string {
-	if m.chatCursor < 0 || m.chatCursor >= len(m.chats) {
-		return ""
+	width := m.width - 2
+	if width < 10 {
+		width = 10
 	}
 
-	agent := m.chats[m.chatCursor].agent
+	box := lipgloss.NewStyle().
+		Width(width).
+		Height(detailsHeight).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#54546D"))
+
+	// On a workflow header the footer is empty, but the box keeps its height so
+	// the layout does not jitter as the cursor crosses folders.
+	item, ok := m.selectedChat()
+	if !ok {
+		return box.Render("")
+	}
+
+	agent := item.agent
 	label := lipgloss.NewStyle().Foreground(lipgloss.Color("#7E9CD8")).Bold(true)
 
 	field := func(name, value string) string {
@@ -186,17 +322,7 @@ func (m model) chatDetails() string {
 		field("resume  ", agent.ClaudeSessionID),
 	}
 
-	width := m.width - 2
-	if width < 10 {
-		width = 10
-	}
-
-	return lipgloss.NewStyle().
-		Width(width).
-		Height(detailsHeight).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#54546D")).
-		Render(strings.Join(lines, "\n"))
+	return box.Render(strings.Join(lines, "\n"))
 }
 
 // actionHints renders the chat key bindings one per line with an aligned key
@@ -204,12 +330,22 @@ func (m model) chatDetails() string {
 func (m model) actionHints() string {
 	hints := []struct{ key, desc string }{
 		{hintKeys(m.keys.Chats.Open), "open"},
+		{hintKeys(m.keys.Chats.New), "new chat"},
+		{hintKeys(m.keys.Workflows.New), "new workflow"},
 		{hintKeys(m.keys.Chats.Rename), "rename"},
 		{hintKeys(m.keys.Chats.Delete), "delete"},
-		{hintKeys(m.keys.Chats.Move), "move"},
-		{hintKeys(m.keys.Chats.Workflow), "workflow"},
 		{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
 		{hintKeys(m.keys.Chats.Back), "back"},
+	}
+	if _, hoveringWorkflow := m.hoveredWorkflow(); hoveringWorkflow {
+		hints = []struct{ key, desc string }{
+			{hintKeys(m.keys.Chats.New), "new chat"},
+			{hintKeys(m.keys.Workflows.New), "new workflow"},
+			{hintKeys(m.keys.Workflows.Rename), "rename"},
+			{hintKeys(m.keys.Workflows.Edit), "edit"},
+			{hintKeys(m.keys.Workflows.Delete), "delete"},
+			{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
+		}
 	}
 
 	keyWidth := 0
@@ -232,11 +368,29 @@ func (m model) actionHints() string {
 func (m model) chatsView() string {
 	var list strings.Builder
 	list.WriteString(headerStyle.Render("Chats") + "\n\n")
-	for i, item := range m.chats {
-		cursor := "  "
+
+	// The list is a tree: each workflow is a folder header and its chats are
+	// nested beneath it, so a chat's parent is shown by position rather than a
+	// per-row marker.
+	for i, r := range m.chatRows() {
+		selected := i == m.chatCursor
+		prefix := "  "
+		if selected {
+			prefix = cursorStyle.Render("› ")
+		}
+
+		if r.header {
+			label := r.label
+			if selected {
+				label = cursorStyle.Render(label)
+			}
+			list.WriteString(prefix + dimStyle.Render("⧉") + " " + label + "\n")
+			continue
+		}
+
+		item := r.item
 		name := item.agent.Name
-		if i == m.chatCursor {
-			cursor = cursorStyle.Render("› ")
+		if selected {
 			name = cursorStyle.Render(name)
 		}
 
@@ -244,22 +398,13 @@ func (m model) chatsView() string {
 		if !item.alive {
 			state = "" // dormant: neutral icon/color
 			name = dimStyle.Render(item.agent.Name) + dimStyle.Render(" (dormant)")
-			if i == m.chatCursor {
+			if selected {
 				name = cursorStyle.Render(item.agent.Name) + dimStyle.Render(" (dormant)")
 			}
 		}
 
 		icon := lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
-
-		// In the root list, mark chats that belong to a workflow, so they are
-		// distinguishable from unassigned ones. The scoped list omits it, since
-		// there every chat shares the one workflow.
-		marker := ""
-		if m.workflow == nil && item.agent.WorkflowID != nil {
-			marker = " " + dimStyle.Render("⧉")
-		}
-
-		list.WriteString(cursor + icon + " " + name + marker + "\n")
+		list.WriteString(prefix + "  " + icon + " " + name + "\n")
 	}
 
 	list.WriteString("\n" + m.actionHints())

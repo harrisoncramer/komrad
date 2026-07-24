@@ -37,9 +37,6 @@ const (
 	// SessionServiceListSessionsProcedure is the fully-qualified name of the SessionService's
 	// ListSessions RPC.
 	SessionServiceListSessionsProcedure = "/session.v1.SessionService/ListSessions"
-	// SessionServiceListWorkflowSessionsProcedure is the fully-qualified name of the SessionService's
-	// ListWorkflowSessions RPC.
-	SessionServiceListWorkflowSessionsProcedure = "/session.v1.SessionService/ListWorkflowSessions"
 	// SessionServiceGetSessionProcedure is the fully-qualified name of the SessionService's GetSession
 	// RPC.
 	SessionServiceGetSessionProcedure = "/session.v1.SessionService/GetSession"
@@ -57,9 +54,6 @@ const (
 type SessionServiceClient interface {
 	// Reads: no side effects, safe to cache and issue over GET.
 	ListSessions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListSessionsResponse], error)
-	// ListWorkflowSessions returns only the chats in the given workflow, backing
-	// the workflow-scoped chats view.
-	ListWorkflowSessions(context.Context, *connect.Request[v1.ListWorkflowSessionsRequest]) (*connect.Response[v1.ListSessionsResponse], error)
 	GetSession(context.Context, *connect.Request[v1.GetSessionRequest]) (*connect.Response[v1.GetSessionResponse], error)
 	// Mutations key on the unique session name, so repeating them yields the same
 	// state. They are idempotent and safe for the client to retry.
@@ -84,13 +78,6 @@ func NewSessionServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			httpClient,
 			baseURL+SessionServiceListSessionsProcedure,
 			connect.WithSchema(sessionServiceMethods.ByName("ListSessions")),
-			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
-			connect.WithClientOptions(opts...),
-		),
-		listWorkflowSessions: connect.NewClient[v1.ListWorkflowSessionsRequest, v1.ListSessionsResponse](
-			httpClient,
-			baseURL+SessionServiceListWorkflowSessionsProcedure,
-			connect.WithSchema(sessionServiceMethods.ByName("ListWorkflowSessions")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
@@ -127,22 +114,16 @@ func NewSessionServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 
 // sessionServiceClient implements SessionServiceClient.
 type sessionServiceClient struct {
-	listSessions         *connect.Client[emptypb.Empty, v1.ListSessionsResponse]
-	listWorkflowSessions *connect.Client[v1.ListWorkflowSessionsRequest, v1.ListSessionsResponse]
-	getSession           *connect.Client[v1.GetSessionRequest, v1.GetSessionResponse]
-	setState             *connect.Client[v1.SetStateRequest, emptypb.Empty]
-	deleteSession        *connect.Client[v1.DeleteSessionRequest, emptypb.Empty]
-	updateSession        *connect.Client[v1.UpdateSessionRequest, emptypb.Empty]
+	listSessions  *connect.Client[emptypb.Empty, v1.ListSessionsResponse]
+	getSession    *connect.Client[v1.GetSessionRequest, v1.GetSessionResponse]
+	setState      *connect.Client[v1.SetStateRequest, emptypb.Empty]
+	deleteSession *connect.Client[v1.DeleteSessionRequest, emptypb.Empty]
+	updateSession *connect.Client[v1.UpdateSessionRequest, emptypb.Empty]
 }
 
 // ListSessions calls session.v1.SessionService.ListSessions.
 func (c *sessionServiceClient) ListSessions(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListSessionsResponse], error) {
 	return c.listSessions.CallUnary(ctx, req)
-}
-
-// ListWorkflowSessions calls session.v1.SessionService.ListWorkflowSessions.
-func (c *sessionServiceClient) ListWorkflowSessions(ctx context.Context, req *connect.Request[v1.ListWorkflowSessionsRequest]) (*connect.Response[v1.ListSessionsResponse], error) {
-	return c.listWorkflowSessions.CallUnary(ctx, req)
 }
 
 // GetSession calls session.v1.SessionService.GetSession.
@@ -169,9 +150,6 @@ func (c *sessionServiceClient) UpdateSession(ctx context.Context, req *connect.R
 type SessionServiceHandler interface {
 	// Reads: no side effects, safe to cache and issue over GET.
 	ListSessions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListSessionsResponse], error)
-	// ListWorkflowSessions returns only the chats in the given workflow, backing
-	// the workflow-scoped chats view.
-	ListWorkflowSessions(context.Context, *connect.Request[v1.ListWorkflowSessionsRequest]) (*connect.Response[v1.ListSessionsResponse], error)
 	GetSession(context.Context, *connect.Request[v1.GetSessionRequest]) (*connect.Response[v1.GetSessionResponse], error)
 	// Mutations key on the unique session name, so repeating them yields the same
 	// state. They are idempotent and safe for the client to retry.
@@ -192,13 +170,6 @@ func NewSessionServiceHandler(svc SessionServiceHandler, opts ...connect.Handler
 		SessionServiceListSessionsProcedure,
 		svc.ListSessions,
 		connect.WithSchema(sessionServiceMethods.ByName("ListSessions")),
-		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
-		connect.WithHandlerOptions(opts...),
-	)
-	sessionServiceListWorkflowSessionsHandler := connect.NewUnaryHandler(
-		SessionServiceListWorkflowSessionsProcedure,
-		svc.ListWorkflowSessions,
-		connect.WithSchema(sessionServiceMethods.ByName("ListWorkflowSessions")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
@@ -234,8 +205,6 @@ func NewSessionServiceHandler(svc SessionServiceHandler, opts ...connect.Handler
 		switch r.URL.Path {
 		case SessionServiceListSessionsProcedure:
 			sessionServiceListSessionsHandler.ServeHTTP(w, r)
-		case SessionServiceListWorkflowSessionsProcedure:
-			sessionServiceListWorkflowSessionsHandler.ServeHTTP(w, r)
 		case SessionServiceGetSessionProcedure:
 			sessionServiceGetSessionHandler.ServeHTTP(w, r)
 		case SessionServiceSetStateProcedure:
@@ -255,10 +224,6 @@ type UnimplementedSessionServiceHandler struct{}
 
 func (UnimplementedSessionServiceHandler) ListSessions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListSessionsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("session.v1.SessionService.ListSessions is not implemented"))
-}
-
-func (UnimplementedSessionServiceHandler) ListWorkflowSessions(context.Context, *connect.Request[v1.ListWorkflowSessionsRequest]) (*connect.Response[v1.ListSessionsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("session.v1.SessionService.ListWorkflowSessions is not implemented"))
 }
 
 func (UnimplementedSessionServiceHandler) GetSession(context.Context, *connect.Request[v1.GetSessionRequest]) (*connect.Response[v1.GetSessionResponse], error) {

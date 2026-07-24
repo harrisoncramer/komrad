@@ -75,7 +75,6 @@ type agentStore interface {
 	SoftDelete(ctx context.Context, name string) error
 	Undelete(ctx context.Context, id string) error
 	ActiveNameExists(ctx context.Context, name string) (bool, error)
-	ListAllByWorkflow(ctx context.Context, workflowID string) ([]store.Agent, error)
 	MoveToWorkflow(ctx context.Context, id string, workflowID *string) error
 	ListWorkflows(ctx context.Context) ([]store.Workflow, error)
 	GetWorkflow(ctx context.Context, id string) (*store.Workflow, error)
@@ -253,6 +252,16 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 	pane, _ := m.tmux.PaneID(name)
 	flags := strings.TrimSpace(m.claudeFlags + " " + p.Flags)
 
+	// A chat created inside a workflow inherits the workflow's shared context,
+	// injected as an appended system prompt at launch. It is a snapshot: later
+	// edits to the workflow context reach only sessions spawned after them.
+	var workflowContext string
+	if p.WorkflowID != nil {
+		if wf, err := m.sessions.GetWorkflow(context.Background(), *p.WorkflowID); err == nil && wf != nil {
+			workflowContext = wf.Context
+		}
+	}
+
 	// Generate Claude's session id ourselves and launch with --session-id, so the
 	// id is known up front, and restoring the agent can resume that same
 	// conversation with --resume.
@@ -268,29 +277,7 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 		WorkflowID:      p.WorkflowID,
 	})
 
-	m.launchClaude(name, flags, p.Prompt, sessionID, false)
-}
-
-// SearchCandidates returns every tracked chat, including soft-deleted ones, for
-// the search screen to index and match against.
-func (m *AgentManager) SearchCandidates() ([]store.Agent, error) {
-	agents, err := m.sessions.ListAll(context.Background())
-	if err != nil {
-		return nil, fmt.Errorf("failed to load search candidates: %w", err)
-	}
-
-	return agents, nil
-}
-
-// WorkflowSearchCandidates returns the chats in one workflow, including
-// soft-deleted ones, so search inside a workflow stays scoped to it.
-func (m *AgentManager) WorkflowSearchCandidates(workflowID string) ([]store.Agent, error) {
-	agents, err := m.sessions.ListAllByWorkflow(context.Background(), workflowID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load workflow search candidates: %w", err)
-	}
-
-	return agents, nil
+	m.launchClaude(name, flags, p.Prompt, workflowContext, sessionID, false)
 }
 
 // ListWorkflows returns every live workflow for the workflow picker.
@@ -422,7 +409,7 @@ func (m *AgentManager) Restore(agent store.Agent) (string, error) {
 		return "", fmt.Errorf("failed to restore session %q: %w", agent.Name, err)
 	}
 
-	m.launchClaude(agent.Name, agent.Flags, "", agent.ClaudeSessionID, true)
+	m.launchClaude(agent.Name, agent.Flags, "", "", agent.ClaudeSessionID, true)
 
 	return pane, nil
 }
@@ -464,7 +451,7 @@ func (m *AgentManager) nameTaken(name string) bool {
 // resumes the prior conversation by session id; otherwise it starts a new
 // conversation pinned to that session id, with the opening prompt passed through
 // a temp file so multi-line input survives, removed as the command runs.
-func (m *AgentManager) launchClaude(session, flags, prompt, sessionID string, resume bool) {
+func (m *AgentManager) launchClaude(session, flags, prompt, workflowContext, sessionID string, resume bool) {
 	command := "claude"
 	if flags != "" {
 		command += " " + flags
@@ -476,6 +463,18 @@ func (m *AgentManager) launchClaude(session, flags, prompt, sessionID string, re
 	default:
 		if sessionID != "" {
 			command += " --session-id " + sessionID
+		}
+		// Pass the workflow context as an appended system prompt, sourced through a
+		// temp file the shell cats in place so arbitrary markdown needs no escaping,
+		// mirroring the prompt below. --append-system-prompt does not survive
+		// --resume, matching the snapshot-at-spawn behavior.
+		if workflowContext != "" {
+			file, err := os.CreateTemp("", "claude-context-*.md")
+			if err == nil {
+				_, _ = file.WriteString(workflowContext)
+				_ = file.Close()
+				command += fmt.Sprintf(" --append-system-prompt \"$(cat '%s'; rm '%s')\"", file.Name(), file.Name())
+			}
 		}
 		if prompt != "" {
 			file, err := os.CreateTemp("", "claude-prompt-*.md")

@@ -144,38 +144,6 @@ func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
 	return agents, nil
 }
 
-// ListByWorkflow returns the live agents in one workflow, most recently updated
-// first. It backs the workflow-scoped chats view.
-func (s *Store) ListByWorkflow(ctx context.Context, workflowID string) ([]Agent, error) {
-	rows, err := s.queries.ListSessionsByWorkflow(ctx, &workflowID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list sessions for workflow %q: %w", workflowID, err)
-	}
-
-	agents := make([]Agent, 0, len(rows))
-	for _, row := range rows {
-		agents = append(agents, agentFromRow(row.ID, row.Name, row.SessionConfigID, row.PaneID, row.Cwd, row.Flags, row.Prompt, row.State, row.ClaudeSessionID, row.WorkflowID, row.IsDeleted, row.CreatedAt))
-	}
-
-	return agents, nil
-}
-
-// ListAllByWorkflow returns every agent in one workflow including soft-deleted
-// ones. It backs workflow-scoped search, which spans active and deleted chats.
-func (s *Store) ListAllByWorkflow(ctx context.Context, workflowID string) ([]Agent, error) {
-	rows, err := s.queries.ListAllSessionsByWorkflow(ctx, &workflowID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list all sessions for workflow %q: %w", workflowID, err)
-	}
-
-	agents := make([]Agent, 0, len(rows))
-	for _, row := range rows {
-		agents = append(agents, agentFromRow(row.ID, row.Name, row.SessionConfigID, row.PaneID, row.Cwd, row.Flags, row.Prompt, row.State, row.ClaudeSessionID, row.WorkflowID, row.IsDeleted, row.CreatedAt))
-	}
-
-	return agents, nil
-}
-
 // Upsert inserts a new agent or updates an existing one. A blank id means a
 // fresh agent: a session id and a separate config id are generated, and the
 // config row is inserted alongside the session in one transaction. A set id

@@ -3,96 +3,71 @@ package panel
 import (
 	"testing"
 
-	"claude-agents/internal/appconfig"
 	"claude-agents/internal/store"
-
-	tea "github.com/charmbracelet/bubbletea"
 )
 
-// TestMakeRowsScope checks the workflows row shows only at the root, and the
-// scoped view drops it so it does not nest another workflow list.
-func TestMakeRowsScope(t *testing.T) {
-	tests := []struct {
-		name       string
-		workflow   *store.Workflow
-		wantKinds  []rowKind
-		wantChatsN string
-	}{
-		{
-			name:       "root shows the workflows row",
-			workflow:   nil,
-			wantKinds:  []rowKind{rowNewChat, rowChats, rowWorkflows, rowSearch},
-			wantChatsN: "▸  chats (2)",
-		},
-		{
-			name:       "scoped hides the workflows row",
-			workflow:   &store.Workflow{ID: "w1", Name: "backend"},
-			wantKinds:  []rowKind{rowNewChat, rowChats, rowSearch},
-			wantChatsN: "▸  chats (2)",
-		},
-	}
+func ptr(s string) *string { return &s }
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := model{
-				workflow:  tt.workflow,
-				chats:     items("a", "b"),
-				workflows: []store.Workflow{{ID: "w1", Name: "backend"}, {ID: "w2", Name: "frontend"}},
-			}
-
-			rows := m.makeRows()
-			if len(rows) != len(tt.wantKinds) {
-				t.Fatalf("want %d rows, got %d", len(tt.wantKinds), len(rows))
-			}
-			for i, want := range tt.wantKinds {
-				if rows[i].kind != want {
-					t.Fatalf("row %d: want kind %d, got %d", i, want, rows[i].kind)
-				}
-			}
-			if rows[1].label != tt.wantChatsN {
-				t.Fatalf("chats label: want %q, got %q", tt.wantChatsN, rows[1].label)
-			}
-		})
-	}
-}
-
-// TestWorkflowRowsMoveMode confirms the picker gains a leading unassign row when
-// reassigning a chat, and shows only the workflow names when browsing.
-func TestWorkflowRowsMoveMode(t *testing.T) {
-	workflows := []store.Workflow{{ID: "w1", Name: "backend"}, {ID: "w2", Name: "frontend"}}
-
-	browse := model{workflows: workflows}
-	if got := browse.workflowRows(); len(got) != 2 || got[0] != "backend" || got[1] != "frontend" {
-		t.Fatalf("browse rows: got %v", got)
-	}
-
-	move := model{workflows: workflows, moveTarget: &store.Agent{Name: "chat"}}
-	got := move.workflowRows()
-	if len(got) != 3 || got[0] != unassignLabel || got[1] != "backend" {
-		t.Fatalf("move rows: got %v", got)
-	}
-}
-
-// TestWorkflowCursorClampsToMoveRows drives the picker's down key in move mode,
-// where the list length includes the leading unassign row, and confirms the
-// cursor stops at the last row rather than running past it.
-func TestWorkflowCursorClampsToMoveRows(t *testing.T) {
+// TestChatRowsGrouping checks chats nest under their workflow header, empty
+// workflows still show a header, and unassigned chats trail under a no-workflow
+// header.
+func TestChatRowsGrouping(t *testing.T) {
 	m := model{
-		screen:     screenWorkflows,
-		keys:       appconfig.DefaultKeybindings(),
-		workflows:  []store.Workflow{{ID: "w1", Name: "backend"}, {ID: "w2", Name: "frontend"}},
-		moveTarget: &store.Agent{Name: "chat"},
+		workflows: []store.Workflow{{ID: "w1", Name: "backend"}, {ID: "w2", Name: "frontend"}},
+		chats: []chatItem{
+			{agent: store.Agent{Name: "auth", WorkflowID: ptr("w1")}},
+			{agent: store.Agent{Name: "loose"}},
+		},
 	}
 
-	down := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")}
-	var current tea.Model = m
-	for range 5 {
-		next, _ := current.(model).updateWorkflows(down)
-		current = next
+	rows := m.chatRows()
+	if len(rows) != 5 {
+		t.Fatalf("want 5 rows, got %d: %+v", len(rows), rows)
+	}
+	if !rows[0].header || rows[0].label != "backend" || rows[0].workflowIndex != 0 {
+		t.Fatalf("row 0: want backend header at index 0, got %+v", rows[0])
+	}
+	if rows[1].header || rows[1].item.agent.Name != "auth" {
+		t.Fatalf("row 1: want chat auth, got %+v", rows[1])
+	}
+	if !rows[2].header || rows[2].label != "frontend" || rows[2].workflowIndex != 1 {
+		t.Fatalf("row 2: want empty frontend header at index 1, got %+v", rows[2])
+	}
+	if !rows[3].header || rows[3].label != noWorkflowLabel || rows[3].workflowIndex != -1 {
+		t.Fatalf("row 3: want no-workflow header, got %+v", rows[3])
+	}
+	if rows[4].header || rows[4].item.agent.Name != "loose" {
+		t.Fatalf("row 4: want chat loose, got %+v", rows[4])
+	}
+}
+
+// TestHoveredWorkflow checks the cursor reports a real workflow only when it is
+// on that workflow's header, not on a chat or the no-workflow header.
+func TestHoveredWorkflow(t *testing.T) {
+	m := model{
+		workflows: []store.Workflow{{ID: "w1", Name: "backend"}},
+		chats: []chatItem{
+			{agent: store.Agent{Name: "auth", WorkflowID: ptr("w1")}},
+			{agent: store.Agent{Name: "loose"}},
+		},
 	}
 
-	// Three rows in move mode (unassign + two workflows), so the last index is 2.
-	if got := current.(model).workflowCursor; got != 2 {
-		t.Fatalf("want cursor clamped to 2, got %d", got)
+	// rows: 0 backend header, 1 auth, 2 (no workflow) header, 3 loose.
+	cases := []struct {
+		cursor  int
+		wantIdx int
+		wantOK  bool
+	}{
+		{0, 0, true},
+		{1, 0, false},
+		{2, 0, false},
+		{3, 0, false},
+	}
+	for _, c := range cases {
+		m.chatCursor = c.cursor
+		idx, ok := m.hoveredWorkflow()
+		if ok != c.wantOK || (ok && idx != c.wantIdx) {
+			t.Fatalf("cursor %d: want (%d,%v), got (%d,%v)", c.cursor, c.wantIdx, c.wantOK, idx, ok)
+		}
 	}
 }

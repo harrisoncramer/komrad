@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Regenerate the command reference under docs/reference."
-set -euo pipefail
-cd "$MISE_CONFIG_ROOT/docs"
-
-go run ./cmd/gen-docs reference
