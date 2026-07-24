@@ -4,17 +4,10 @@
 package tmux
 
 import (
-	"fmt"
 	"os/exec"
 	"strconv"
 	"strings"
-	"time"
 )
-
-// wheelEventGap paces mouse-wheel events sent to a pane. Claude coalesces events
-// that land within one render frame into a single scroll notch, so a burst with
-// no gap barely moves. Spaced out, each notch registers.
-const wheelEventGap = 40 * time.Millisecond
 
 // Client talks to one tmux server socket.
 type Client struct {
@@ -120,34 +113,31 @@ func (c *Client) SetGlobal(name, value string) {
 	c.run("set-option", "-g", name, value)
 }
 
+// SetSessionOption sets a session-scoped tmux option.
+func (c *Client) SetSessionOption(target, name, value string) {
+	c.run("set-option", "-t", target, name, value)
+}
+
+// ShowGlobal returns a global tmux option's value, empty if it is unset.
+func (c *Client) ShowGlobal(name string) string {
+	value, _ := c.query("show-option", "-gqv", name)
+	return value
+}
+
+// DetachSession detaches every client attached to the named session, leaving the
+// session and its pane processes running. It is how the manager popup is hidden:
+// the client viewing the persistent manager session drops away while the session
+// stays alive, so reopening restores it exactly.
+func (c *Client) DetachSession(name string) {
+	c.run("detach-client", "-s", name)
+}
+
 // CapturePane returns the visible content of a pane with colors preserved.
 // Claude runs on the alternate screen, so tmux holds no scrollback for it. The
-// visible frame is all there is to capture, and its own view is moved with
-// ScrollPane.
+// visible frame is all there is to capture.
 func (c *Client) CapturePane(pane string) string {
 	out, _ := c.query("capture-pane", "-p", "-e", "-t", pane)
 	return out
-}
-
-// ScrollPane scrolls a full-screen app in a pane by sending SGR mouse-wheel
-// events aimed at the pane's center. Claude keeps its scrollback internally and
-// moves it on the wheel, not on PageUp/PageDown, so this is the only way to
-// drive its view from outside. up scrolls toward older output.
-func (c *Client) ScrollPane(pane string, width, height int, up bool, ticks int) {
-	button := 65 // SGR wheel down
-	if up {
-		button = 64 // SGR wheel up
-	}
-
-	x, y := max(width/2, 1), max(height/2, 1)
-	seq := fmt.Sprintf("\x1b[<%d;%d;%dM", button, x, y)
-	for i := range ticks {
-		if i > 0 {
-			time.Sleep(wheelEventGap)
-		}
-
-		c.run("send-keys", "-t", pane, "-l", "--", seq)
-	}
 }
 
 // SessionAttached reports whether any client is currently viewing a session.

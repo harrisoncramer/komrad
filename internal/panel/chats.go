@@ -41,13 +41,13 @@ func (m model) workflowName(id string) string {
 	return ""
 }
 
-// updateChats drives the split chats view: arrows move the selection, letter
-// keys act on the hovered chat, and ctrl+d/ctrl+u scroll the preview.
+// updateChats drives the split chats view: arrows move the selection and letter
+// keys act on the hovered chat.
 func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 	switch {
 	case bound(k, m.keys.Chats.Quit):
-		return m, tea.Quit
+		return m, m.hide()
 	case bound(k, m.keys.Chats.Back):
 		m.screen = screenList
 		return m, nil
@@ -62,8 +62,7 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.refreshPreview()
 		}
 	case bound(k, m.keys.Chats.Open):
-		m.attach = m.attachScoped(m.chats[m.chatCursor].agent)
-		return m, tea.Quit
+		return m.openAgent(m.chats[m.chatCursor].agent)
 	case bound(k, m.keys.Chats.Rename):
 		agent := m.chats[m.chatCursor].agent
 		m.renameTarget = agent
@@ -71,7 +70,7 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.screen = screenRename
 		return m, m.form.Init()
 	case bound(k, m.keys.Chats.Delete):
-		m.manager.Delete(m.client, m.chats[m.chatCursor].agent)
+		m.manager.Delete(m.chats[m.chatCursor].agent)
 		m.reload()
 		if m.chatCursor >= len(m.chats) {
 			m.chatCursor = len(m.chats) - 1
@@ -85,10 +84,6 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.enterWorkflows()
 	case bound(k, m.keys.Chats.Workflow):
 		return m.jumpToWorkflow()
-	case bound(k, m.keys.Nav.PreviewDown):
-		m.scrollPreview(false)
-	case bound(k, m.keys.Nav.PreviewUp):
-		m.scrollPreview(true)
 	}
 
 	return m, nil
@@ -110,27 +105,9 @@ func (m *model) refreshPreview() {
 	}
 
 	// The capture is the agent's current frame, sized to fill the box, so it is
-	// shown as-is. Scrolling is driven into the agent itself via scrollPreview,
-	// and the next capture reflects it.
+	// shown as-is.
 	m.preview.SetContent(m.manager.Preview(item.agent, m.preview.Width, m.preview.Height))
 	m.preview.GotoTop()
-}
-
-// scrollPreview drives the hovered agent's own view with mouse-wheel events, then
-// re-captures so the scroll shows in the box. Dormant agents have no pane to
-// scroll.
-func (m *model) scrollPreview(up bool) {
-	if m.chatCursor < 0 || m.chatCursor >= len(m.chats) {
-		return
-	}
-
-	item := m.chats[m.chatCursor]
-	if !item.alive {
-		return
-	}
-
-	m.manager.ScrollPreview(item.agent, m.preview.Width, m.preview.Height, up)
-	m.refreshPreview()
 }
 
 // dormantView renders a dormant agent's stored properties in place of a live
@@ -232,7 +209,6 @@ func (m model) actionHints() string {
 		{hintKeys(m.keys.Chats.Move), "move"},
 		{hintKeys(m.keys.Chats.Workflow), "workflow"},
 		{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
-		{hintKeys(m.keys.Nav.PreviewDown) + "/" + hintKeys(m.keys.Nav.PreviewUp), "scroll"},
 		{hintKeys(m.keys.Chats.Back), "back"},
 	}
 

@@ -54,10 +54,21 @@ type Agent struct {
 // a default config (Cwd, Flags) used as the blueprint prefilled into the
 // new-chat form for chats created inside it.
 type Workflow struct {
-	ID    string
-	Name  string
-	Cwd   string
-	Flags string
+	ID   string
+	Name string
+	// Context is free-text durable state for the workflow, edited by the user.
+	Context string
+	Cwd     string
+	Flags   string
+}
+
+// WorkflowConfig is the editable blueprint of a workflow: its display label, its
+// free-text context, and the cwd and flags seeded into chats created inside it.
+type WorkflowConfig struct {
+	Name    string
+	Context string
+	Cwd     string
+	Flags   string
 }
 
 // SanitizeName maps a name to the characters tmux allows in a session name,
@@ -388,7 +399,7 @@ func (s *Store) ListWorkflows(ctx context.Context) ([]Workflow, error) {
 
 	workflows := make([]Workflow, 0, len(rows))
 	for _, row := range rows {
-		workflows = append(workflows, workflowFromRow(row.ID, row.Name, row.Cwd, row.Flags))
+		workflows = append(workflows, workflowFromRow(row.ID, row.Name, row.Context, row.Cwd, row.Flags))
 	}
 
 	return workflows, nil
@@ -405,14 +416,14 @@ func (s *Store) GetWorkflow(ctx context.Context, id string) (*Workflow, error) {
 		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
 	}
 
-	workflow := workflowFromRow(row.ID, row.Name, row.Cwd, row.Flags)
+	workflow := workflowFromRow(row.ID, row.Name, row.Context, row.Cwd, row.Flags)
 	return &workflow, nil
 }
 
 // CreateWorkflow inserts a workflow with a fresh uuidv7 id, together with its
 // own config row holding the given cwd and flags, and returns it. The config is
 // the blueprint prefilled into new chats created inside the workflow.
-func (s *Store) CreateWorkflow(ctx context.Context, name, cwd, flags string) (*Workflow, error) {
+func (s *Store) CreateWorkflow(ctx context.Context, cfg WorkflowConfig) (*Workflow, error) {
 	workflowID, err := uuid.NewV7()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate workflow id: %w", err)
@@ -431,26 +442,27 @@ func (s *Store) CreateWorkflow(ctx context.Context, name, cwd, flags string) (*W
 	queries := s.queries.WithTx(tx)
 	if err := queries.InsertWorkflowConfig(ctx, models.InsertWorkflowConfigParams{
 		ID:    configID.String(),
-		Cwd:   cwd,
-		Flags: flags,
+		Cwd:   cfg.Cwd,
+		Flags: cfg.Flags,
 	}); err != nil {
-		return nil, fmt.Errorf("failed to insert config for workflow %q: %w", name, err)
+		return nil, fmt.Errorf("failed to insert config for workflow %q: %w", cfg.Name, err)
 	}
 
 	row, err := queries.InsertWorkflow(ctx, models.InsertWorkflowParams{
 		ID:               workflowID.String(),
-		Name:             name,
+		Name:             cfg.Name,
+		Context:          cfg.Context,
 		WorkflowConfigID: configID.String(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create workflow %q: %w", name, err)
+		return nil, fmt.Errorf("failed to create workflow %q: %w", cfg.Name, err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("failed to commit create of workflow %q: %w", name, err)
+		return nil, fmt.Errorf("failed to commit create of workflow %q: %w", cfg.Name, err)
 	}
 
-	workflow := workflowFromRow(row.ID, row.Name, cwd, flags)
+	workflow := workflowFromRow(row.ID, row.Name, row.Context, cfg.Cwd, cfg.Flags)
 	return &workflow, nil
 }
 
@@ -459,6 +471,37 @@ func (s *Store) CreateWorkflow(ctx context.Context, name, cwd, flags string) (*W
 func (s *Store) RenameWorkflow(ctx context.Context, id, name string) error {
 	if err := s.queries.RenameWorkflow(ctx, models.RenameWorkflowParams{ID: id, Name: name}); err != nil {
 		return fmt.Errorf("failed to rename workflow %q: %w", id, err)
+	}
+
+	return nil
+}
+
+// UpdateWorkflow patches a workflow's display name, its free-text context, and
+// its linked config (cwd, flags) in one transaction, keyed by id. Nothing keys
+// on the name, so the rename cannot collide. The writes commit together or not
+// at all.
+func (s *Store) UpdateWorkflow(ctx context.Context, id string, cfg WorkflowConfig) error {
+	tx, err := s.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin update-workflow tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	queries := s.queries.WithTx(tx)
+	if err := queries.RenameWorkflow(ctx, models.RenameWorkflowParams{ID: id, Name: cfg.Name}); err != nil {
+		return fmt.Errorf("failed to rename workflow %q: %w", id, err)
+	}
+
+	if err := queries.SetWorkflowContext(ctx, models.SetWorkflowContextParams{ID: id, Context: cfg.Context}); err != nil {
+		return fmt.Errorf("failed to update context for workflow %q: %w", id, err)
+	}
+
+	if err := queries.UpdateWorkflowConfig(ctx, models.UpdateWorkflowConfigParams{WorkflowID: id, Cwd: cfg.Cwd, Flags: cfg.Flags}); err != nil {
+		return fmt.Errorf("failed to update config for workflow %q: %w", id, err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit update of workflow %q: %w", id, err)
 	}
 
 	return nil
@@ -536,11 +579,12 @@ func agentFromRow(id, name, sessionConfigID, pane, cwd, flags, prompt, state, cl
 	}
 }
 
-func workflowFromRow(id, name, cwd, flags string) Workflow {
+func workflowFromRow(id, name, workflowContext, cwd, flags string) Workflow {
 	return Workflow{
-		ID:    id,
-		Name:  name,
-		Cwd:   cwd,
-		Flags: flags,
+		ID:      id,
+		Name:    name,
+		Context: workflowContext,
+		Cwd:     cwd,
+		Flags:   flags,
 	}
 }

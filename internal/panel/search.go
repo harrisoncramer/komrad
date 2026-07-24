@@ -86,7 +86,7 @@ func (m model) updateSearch(msg tea.Msg) (tea.Model, tea.Cmd) {
 	k := key.String()
 	switch {
 	case bound(k, m.keys.Search.Quit):
-		return m, tea.Quit
+		return m, m.hide()
 	case bound(k, m.keys.Search.Back):
 		m.screen = screenList
 		return m, nil
@@ -130,8 +130,8 @@ func (m *model) runSearch() {
 	}
 }
 
-// openSearchResult attaches to the chat under the cursor. The cli loop restores
-// it if its pane is gone and un-deletes it if it was soft-deleted.
+// openSearchResult attaches to the chat under the cursor. openAgent restores it
+// if its pane is gone and un-deletes it if it was soft-deleted.
 func (m model) openSearchResult() (tea.Model, tea.Cmd) {
 	if m.searchCursor < 0 || m.searchCursor >= len(m.searchResults) {
 		return m, nil
@@ -142,8 +142,7 @@ func (m model) openSearchResult() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.attach = m.attachScoped(agent)
-	return m, tea.Quit
+	return m.openAgent(agent)
 }
 
 func (m model) searchView() string {

@@ -15,7 +15,7 @@ set -g @plugin 'git@github.com:harrisoncramer/tmux-claude-agents'
 set -g status-right "#{claude_agents}%I:%M:%S "
 ```
 
-2. Press `prefix + g` to open the panel. Use `new chat` to launch a background agent, or `chats (N)` to browse the ones you have.
+2. Press `prefix + g` to toggle the panel. Use `new chat` to launch a background agent, or `chats (N)` to browse the ones you have. `prefix + g` hides the panel again from any view and brings it back exactly as you left it.
 
 There is nothing else to configure. The tool works out each agent's state on its own.
 

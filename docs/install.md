@@ -23,10 +23,11 @@ Put the status placeholder wherever you want the summary to show, for example:
 set -g status-right "#{claude_agents}%I:%M:%S "
 ```
 
-Then press `prefix + I` to install. The panel key defaults to `g`; change it with:
+Then press `prefix + I` to install. The panel key defaults to `g`, and the key that steps back out of a focused chat defaults to `Escape`. Change either with:
 
 ```
 set -g @claude_agents_key 'g'
+set -g @claude_agents_back_key 'Escape'
 ```
 
 ## Agent state

@@ -259,7 +259,7 @@ func TestNewSessionScopesToWorkflow(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
-	workflow, err := manager.NewWorkflow("backend", "", "")
+	workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "backend"})
 	require.NoError(t, err)
 
 	manager.NewSession(NewSessionParams{Title: "scoped", WorkflowID: &workflow.ID})
@@ -274,7 +274,7 @@ func TestNewSessionScopesToWorkflow(t *testing.T) {
 func TestNewWorkflowDefaultsBlankName(t *testing.T) {
 	manager := newManager(newFakeTmux(), newStore(t), "")
 
-	workflow, err := manager.NewWorkflow("   ", "", "")
+	workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "   "})
 	require.NoError(t, err)
 	require.NotNil(t, workflow)
 	assert.Equal(t, "workflow", workflow.Name, "a blank name falls back to a default label")
@@ -284,7 +284,7 @@ func TestRenameWorkflow(t *testing.T) {
 	t.Run("renames by id", func(t *testing.T) {
 		st := newStore(t)
 		manager := newManager(newFakeTmux(), st, "")
-		workflow, err := manager.NewWorkflow("backend", "", "")
+		workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "backend"})
 		require.NoError(t, err)
 
 		manager.RenameWorkflow(*workflow, "platform")
@@ -298,7 +298,7 @@ func TestRenameWorkflow(t *testing.T) {
 	t.Run("a blank or unchanged name is a no-op", func(t *testing.T) {
 		st := newStore(t)
 		manager := newManager(newFakeTmux(), st, "")
-		workflow, err := manager.NewWorkflow("backend", "", "")
+		workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "backend"})
 		require.NoError(t, err)
 
 		manager.RenameWorkflow(*workflow, "   ")
@@ -316,7 +316,7 @@ func TestRenameWorkflow(t *testing.T) {
 func TestMoveChat(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(newFakeTmux(), st, "")
-	workflow, err := manager.NewWorkflow("backend", "", "")
+	workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "backend"})
 	require.NoError(t, err)
 	agent := seed(t, st, "chat", "%1", store.StateNew)
 
@@ -340,7 +340,7 @@ func TestMoveChat(t *testing.T) {
 func TestDeleteWorkflowOrphansThroughManager(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(newFakeTmux(), st, "")
-	workflow, err := manager.NewWorkflow("backend", "", "")
+	workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "backend"})
 	require.NoError(t, err)
 	manager.NewSession(NewSessionParams{Title: "chat", WorkflowID: &workflow.ID})
 
@@ -362,7 +362,7 @@ func TestDeleteWorkflowOrphansThroughManager(t *testing.T) {
 func TestDeleteWorkflowWithChatsThroughManager(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(newFakeTmux(), st, "")
-	workflow, err := manager.NewWorkflow("backend", "", "")
+	workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "backend"})
 	require.NoError(t, err)
 	manager.NewSession(NewSessionParams{Title: "chat", WorkflowID: &workflow.ID})
 
@@ -381,7 +381,7 @@ func TestDeleteWorkflowWithChatsThroughManager(t *testing.T) {
 func TestWorkflowSearchCandidatesScoped(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(newFakeTmux(), st, "")
-	workflow, err := manager.NewWorkflow("backend", "", "")
+	workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "backend"})
 	require.NoError(t, err)
 	require.NoError(t, st.Upsert(context.Background(), store.Agent{Name: "scoped", State: store.StateNew, WorkflowID: &workflow.ID}))
 	require.NoError(t, st.Upsert(context.Background(), store.Agent{Name: "unscoped", State: store.StateNew}))
@@ -455,8 +455,9 @@ func TestDelete(t *testing.T) {
 		tmux := newFakeTmux()
 		tmux.clientSes = "target"
 		manager := newManager(tmux, st, "")
+		manager.SetInvokingClient("client")
 
-		manager.Delete("client", agent)
+		manager.Delete(agent)
 
 		assert.Contains(t, tmux.killed, "target")
 		assert.Contains(t, tmux.switched, "client", "a client viewing the target is bounced away first")
@@ -470,8 +471,9 @@ func TestDelete(t *testing.T) {
 		tmux := newFakeTmux()
 		tmux.clientSes = "somewhere-else"
 		manager := newManager(tmux, st, "")
+		manager.SetInvokingClient("client")
 
-		manager.Delete("client", agent)
+		manager.Delete(agent)
 		assert.Empty(t, tmux.switched)
 	})
 }
@@ -498,55 +500,4 @@ func TestPreviewResizesOnlyDetached(t *testing.T) {
 		manager.Preview(store.Agent{Name: "a", Pane: "%1"}, 80, 24)
 		assert.NotContains(t, tmux.resized, "a")
 	})
-}
-
-// TestScrollPreviewGuards confirms scrolling is a no-op without a pane or box,
-// and for an attached session, and otherwise sends wheel events to the pane.
-func TestScrollPreviewGuards(t *testing.T) {
-	tests := []struct {
-		name       string
-		agent      store.Agent
-		width      int
-		height     int
-		attached   bool
-		wantScroll bool
-	}{
-		{
-			name:   "no pane does not scroll",
-			agent:  store.Agent{Name: "a"},
-			width:  80,
-			height: 24,
-		},
-		{
-			name:   "zero box does not scroll",
-			agent:  store.Agent{Name: "a", Pane: "%1"},
-			width:  0,
-			height: 24,
-		},
-		{
-			name:     "attached session does not scroll",
-			agent:    store.Agent{Name: "a", Pane: "%1"},
-			width:    80,
-			height:   24,
-			attached: true,
-		},
-		{
-			name:       "detached agent with a box scrolls",
-			agent:      store.Agent{Name: "a", Pane: "%1"},
-			width:      80,
-			height:     24,
-			wantScroll: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmux := newFakeTmux()
-			tmux.attached["a"] = tt.attached
-			manager := newManager(tmux, newStore(t), "")
-
-			manager.ScrollPreview(tt.agent, tt.width, tt.height, true)
-			assert.Equal(t, tt.wantScroll, len(tmux.scrolls) == 1)
-		})
-	}
 }

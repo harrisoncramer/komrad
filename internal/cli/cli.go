@@ -39,9 +39,9 @@ func NewRootCommand() *cobra.Command {
 	var configPath string
 
 	root := &cobra.Command{
-		Use:           "claude-agents [client]",
+		Use:           "claude-agents",
 		Short:         "tmux panel and CLI for background Claude agents",
-		Args:          cobra.MaximumNArgs(1),
+		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
@@ -71,56 +71,30 @@ func NewRootCommand() *cobra.Command {
 			})
 			return nil
 		},
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			if err := ensureServer(state.env.Addr, selfPath()); err != nil {
 				return err
 			}
 
 			sessions := sessionv1connect.NewSessionServiceClient(http.DefaultClient, "http://"+state.env.Addr)
-			client := firstOrEmpty(args)
 
-			state.manager.MarkPanelOpen()
-			defer state.manager.MarkPanelClosed()
+			// Drop this session's status bar so the panel and the agents it opens
+			// fill the popup without a tmux footer beneath them.
+			state.manager.SilenceStatus(agents.ManagerSession)
 
-			// The popup is a persistent space. Show the picker, and when the user
-			// opens an agent, attach to it in place. When they detach, loop back
-			// to the picker with that agent selected. The popup closes only when
-			// the picker is quit.
-			var focus *store.Agent
-			for {
-				target, err := panel.Run(state.manager, sessions, client, state.keys, focus)
-				if err != nil {
-					return err
-				}
-				if target == nil {
-					return nil
-				}
-
-				focus = target
-
-				pane := target.Pane
-				if !state.manager.SessionAlive(target.Name) {
-					restored, err := state.manager.Restore(*target)
-					if err != nil {
-						// A restore failure (for example a name that collided on
-						// restore) must not tear down the whole panel and every other
-						// agent's view. Report it and loop back to the picker.
-						fmt.Fprintf(os.Stderr, "restore %q: %v\n", target.Name, err)
-						continue
-					}
-
-					pane = restored
-				}
-
-				if err := state.manager.AttachSession(target.Name, pane); err != nil {
-					return err
-				}
-			}
+			// This process runs inside the persistent manager session and never
+			// exits on its own: the picker's close and quit keys detach the popup
+			// (hiding it) rather than quitting, and opening an agent attaches in
+			// place through ExecProcess without leaving the program. So the panel
+			// stays a single long-lived program with its state preserved between
+			// opens. Run only returns on a real error.
+			return panel.Run(state.manager, sessions, state.keys)
 		},
 	}
 
 	root.PersistentFlags().StringVar(&configPath, "config", "", "path to config TOML")
 	root.AddCommand(
+		openCmd(state),
 		newCmd(state),
 		notifyCmd(state),
 		statusCmd(state),
@@ -179,6 +153,70 @@ func runReconcileLoop(ctx context.Context, rec *agents.Reconciler, interval time
 			}
 		}
 	}
+}
+
+// openCmd is the popup entrypoint. It creates the persistent manager session if
+// it does not exist and attaches to it, otherwise attaches to the running one.
+// The tmux plugin runs this as the popup's -E command, so it blocks until the
+// client detaches (the popup is hidden or an agent is left) and then returns,
+// which closes the popup. TMUX is stripped so tmux does not refuse the attach as
+// nested, since the popup itself lives inside the user's tmux client.
+func openCmd(state *app) *cobra.Command {
+	return &cobra.Command{
+		Use:           "open [client]",
+		Short:         "Open the manager popup (create or attach its persistent session)",
+		Args:          cobra.MaximumNArgs(1),
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(_ *cobra.Command, args []string) error {
+			// Record the client that opened this popup so panel actions resolve the
+			// right directory and client, and mark the popup shown so the binding
+			// hides it on the next press. The mark is cleared when the attach below
+			// returns (the popup was hidden or an agent left).
+			state.manager.SetInvokingClient(firstOrEmpty(args))
+			state.manager.MarkOpen()
+			defer state.manager.MarkClosed()
+
+			// The panel runs as this session's command, so it inherits the tmux
+			// server's environment rather than the popup's. Forward the resolved
+			// config with -e so the panel reads the same values this process did,
+			// including any shell overrides. -e applies only when the session is
+			// first created; on later opens new-session -A just attaches.
+			tmuxArgs := []string{
+				"-L", state.env.TmuxSocket, "new-session", "-A", "-s", agents.ManagerSession,
+				"-e", "CLAUDE_AGENTS_TMUX_SOCKET=" + state.env.TmuxSocket,
+				"-e", "CLAUDE_AGENTS_DB=" + state.env.DBPath,
+				"-e", "CLAUDE_AGENTS_ADDR=" + state.env.Addr,
+				"--", selfPath(),
+			}
+
+			cmd := exec.Command("tmux", tmuxArgs...)
+			cmd.Env = envWithoutTmux()
+			cmd.Stdin = os.Stdin
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+
+			if err := cmd.Run(); err != nil {
+				return fmt.Errorf("failed to open manager popup: %w", err)
+			}
+
+			return nil
+		},
+	}
+}
+
+// envWithoutTmux returns the current environment with TMUX removed, so a tmux
+// command run from inside a tmux client is not refused as a nested session.
+func envWithoutTmux() []string {
+	full := os.Environ()
+	filtered := make([]string, 0, len(full))
+	for _, entry := range full {
+		if !strings.HasPrefix(entry, "TMUX=") {
+			filtered = append(filtered, entry)
+		}
+	}
+
+	return filtered
 }
 
 func newCmd(state *app) *cobra.Command {

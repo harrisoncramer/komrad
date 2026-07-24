@@ -180,12 +180,12 @@ func TestWorkflowCRUD(t *testing.T) {
 	ctx := context.Background()
 	st := open(t)
 
-	first, err := st.CreateWorkflow(ctx, "backend", "", "")
+	first, err := st.CreateWorkflow(ctx, WorkflowConfig{Name: "backend"})
 	require.NoError(t, err)
 	require.NotNil(t, first)
 	assert.NotEmpty(t, first.ID, "an id is generated on create")
 
-	second, err := st.CreateWorkflow(ctx, "frontend", "", "")
+	second, err := st.CreateWorkflow(ctx, WorkflowConfig{Name: "frontend"})
 	require.NoError(t, err)
 	require.NotNil(t, second)
 
@@ -253,22 +253,31 @@ func TestWorkflowConfigRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	st := open(t)
 
-	wf, err := st.CreateWorkflow(ctx, "backend", "/work/api", "--model opus")
+	wf, err := st.CreateWorkflow(ctx, WorkflowConfig{Name: "backend", Context: "shared notes", Cwd: "/work/api", Flags: "--model opus"})
 	require.NoError(t, err)
+	assert.Equal(t, "shared notes", wf.Context)
 	assert.Equal(t, "/work/api", wf.Cwd)
 	assert.Equal(t, "--model opus", wf.Flags)
 
 	got, err := st.GetWorkflow(ctx, wf.ID)
 	require.NoError(t, err)
 	require.NotNil(t, got)
+	assert.Equal(t, "shared notes", got.Context)
 	assert.Equal(t, "/work/api", got.Cwd)
 	assert.Equal(t, "--model opus", got.Flags)
 
 	list, err := st.ListWorkflows(ctx)
 	require.NoError(t, err)
 	require.Len(t, list, 1)
+	assert.Equal(t, "shared notes", list[0].Context)
 	assert.Equal(t, "/work/api", list[0].Cwd)
 	assert.Equal(t, "--model opus", list[0].Flags)
+
+	require.NoError(t, st.UpdateWorkflow(ctx, wf.ID, WorkflowConfig{Name: "backend", Context: "revised notes", Cwd: "/work/api", Flags: "--model opus"}))
+	after, err := st.GetWorkflow(ctx, wf.ID)
+	require.NoError(t, err)
+	require.NotNil(t, after)
+	assert.Equal(t, "revised notes", after.Context)
 }
 
 // TestMoveChatBetweenWorkflows checks that assigning a chat to a workflow scopes
@@ -278,7 +287,7 @@ func TestMoveChatBetweenWorkflows(t *testing.T) {
 	ctx := context.Background()
 	st := open(t)
 
-	workflow, err := st.CreateWorkflow(ctx, "backend", "", "")
+	workflow, err := st.CreateWorkflow(ctx, WorkflowConfig{Name: "backend"})
 	require.NoError(t, err)
 	require.NoError(t, st.Upsert(ctx, Agent{Name: "scoped", State: StateNew}))
 	require.NoError(t, st.Upsert(ctx, Agent{Name: "unscoped", State: StateNew}))
@@ -314,7 +323,7 @@ func TestDeleteWorkflowOrphansChats(t *testing.T) {
 	ctx := context.Background()
 	st := open(t)
 
-	workflow, err := st.CreateWorkflow(ctx, "backend", "", "")
+	workflow, err := st.CreateWorkflow(ctx, WorkflowConfig{Name: "backend"})
 	require.NoError(t, err)
 	require.NoError(t, st.Upsert(ctx, Agent{Name: "chat", State: StateNew, WorkflowID: &workflow.ID}))
 
@@ -337,7 +346,7 @@ func TestDeleteWorkflowWithChats(t *testing.T) {
 	ctx := context.Background()
 	st := open(t)
 
-	workflow, err := st.CreateWorkflow(ctx, "backend", "", "")
+	workflow, err := st.CreateWorkflow(ctx, WorkflowConfig{Name: "backend"})
 	require.NoError(t, err)
 	require.NoError(t, st.Upsert(ctx, Agent{Name: "chat", State: StateNew, WorkflowID: &workflow.ID}))
 
@@ -366,7 +375,7 @@ func TestUpsertPreservesWorkflow(t *testing.T) {
 	ctx := context.Background()
 	st := open(t)
 
-	workflow, err := st.CreateWorkflow(ctx, "backend", "", "")
+	workflow, err := st.CreateWorkflow(ctx, WorkflowConfig{Name: "backend"})
 	require.NoError(t, err)
 	require.NoError(t, st.Upsert(ctx, Agent{Name: "chat", State: StateThinking, WorkflowID: &workflow.ID}))
 

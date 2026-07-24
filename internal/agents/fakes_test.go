@@ -10,15 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// scrollCall records one ScrollPane invocation for assertions.
-type scrollCall struct {
-	pane   string
-	width  int
-	height int
-	up     bool
-	ticks  int
-}
-
 // fakeTmux is a scripted, recording tmux client. Reads are served from the
 // alive/captures/attached maps; writes are appended to the recording slices so a
 // test can assert what the manager sent. It implements the full tmuxClient
@@ -39,19 +30,22 @@ type fakeTmux struct {
 	switched    []string
 	resized     map[string][2]int
 	newSessions map[string]string
-	scrolls     []scrollCall
+
+	detached       []string
+	sessionOptions map[string]string
 }
 
 func newFakeTmux() *fakeTmux {
 	return &fakeTmux{
-		alive:       map[string]bool{},
-		captures:    map[string]string{},
-		attached:    map[string]bool{},
-		paneIDs:     map[string]string{},
-		sent:        map[string][][]string{},
-		globals:     map[string]string{},
-		resized:     map[string][2]int{},
-		newSessions: map[string]string{},
+		alive:          map[string]bool{},
+		captures:       map[string]string{},
+		attached:       map[string]bool{},
+		paneIDs:        map[string]string{},
+		sent:           map[string][][]string{},
+		globals:        map[string]string{},
+		resized:        map[string][2]int{},
+		newSessions:    map[string]string{},
+		sessionOptions: map[string]string{},
 	}
 }
 
@@ -66,10 +60,6 @@ func (f *fakeTmux) CapturePane(pane string) string {
 
 func (f *fakeTmux) ResizeWindow(target string, width, height int) {
 	f.resized[target] = [2]int{width, height}
-}
-
-func (f *fakeTmux) ScrollPane(pane string, width, height int, up bool, ticks int) {
-	f.scrolls = append(f.scrolls, scrollCall{pane, width, height, up, ticks})
 }
 
 func (f *fakeTmux) RenameSession(oldName, newName string) {
@@ -102,6 +92,11 @@ func (f *fakeTmux) SendKeys(target string, keys ...string) {
 
 func (f *fakeTmux) CurrentSession() (string, error) { return f.current, nil }
 func (f *fakeTmux) SetWindowSizeLatest(string)      {}
+func (f *fakeTmux) ShowGlobal(name string) string   { return f.globals[name] }
+func (f *fakeTmux) DetachSession(name string)       { f.detached = append(f.detached, name) }
+func (f *fakeTmux) SetSessionOption(target, name, value string) {
+	f.sessionOptions[target+"/"+name] = value
+}
 
 // lastKeys returns the most recent SendKeys payload sent to target.
 func (f *fakeTmux) lastKeys(target string) []string {

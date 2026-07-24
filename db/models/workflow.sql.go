@@ -12,7 +12,7 @@ import (
 
 const getWorkflow = `-- name: GetWorkflow :one
 SELECT
-    w.id, w.name, w.workflow_config_id, w.is_deleted, w.created_at, w.updated_at,
+    w.id, w.name, w.workflow_config_id, w.is_deleted, w.created_at, w.updated_at, w.context,
     wc.cwd,
     wc.flags
 FROM
@@ -31,6 +31,7 @@ type GetWorkflowRow struct {
 	IsDeleted        int64
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	Context          string
 	Cwd              string
 	Flags            string
 }
@@ -45,6 +46,7 @@ func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, 
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Context,
 		&i.Cwd,
 		&i.Flags,
 	)
@@ -52,20 +54,26 @@ func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, 
 }
 
 const insertWorkflow = `-- name: InsertWorkflow :one
-INSERT INTO workflows (id, name, workflow_config_id)
-    VALUES (?1, ?2, ?3)
+INSERT INTO workflows (id, name, context, workflow_config_id)
+    VALUES (?1, ?2, ?3, ?4)
 RETURNING
-    id, name, workflow_config_id, is_deleted, created_at, updated_at
+    id, name, workflow_config_id, is_deleted, created_at, updated_at, context
 `
 
 type InsertWorkflowParams struct {
 	ID               string
 	Name             string
+	Context          string
 	WorkflowConfigID string
 }
 
 func (q *Queries) InsertWorkflow(ctx context.Context, arg InsertWorkflowParams) (*Workflow, error) {
-	row := q.db.QueryRowContext(ctx, insertWorkflow, arg.ID, arg.Name, arg.WorkflowConfigID)
+	row := q.db.QueryRowContext(ctx, insertWorkflow,
+		arg.ID,
+		arg.Name,
+		arg.Context,
+		arg.WorkflowConfigID,
+	)
 	var i Workflow
 	err := row.Scan(
 		&i.ID,
@@ -74,6 +82,7 @@ func (q *Queries) InsertWorkflow(ctx context.Context, arg InsertWorkflowParams) 
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Context,
 	)
 	return &i, err
 }
@@ -96,7 +105,7 @@ func (q *Queries) InsertWorkflowConfig(ctx context.Context, arg InsertWorkflowCo
 
 const listWorkflows = `-- name: ListWorkflows :many
 SELECT
-    w.id, w.name, w.workflow_config_id, w.is_deleted, w.created_at, w.updated_at,
+    w.id, w.name, w.workflow_config_id, w.is_deleted, w.created_at, w.updated_at, w.context,
     wc.cwd,
     wc.flags
 FROM
@@ -115,6 +124,7 @@ type ListWorkflowsRow struct {
 	IsDeleted        int64
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	Context          string
 	Cwd              string
 	Flags            string
 }
@@ -135,6 +145,7 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Context,
 			&i.Cwd,
 			&i.Flags,
 		); err != nil {
@@ -183,5 +194,53 @@ type RenameWorkflowParams struct {
 
 func (q *Queries) RenameWorkflow(ctx context.Context, arg RenameWorkflowParams) error {
 	_, err := q.db.ExecContext(ctx, renameWorkflow, arg.Name, arg.ID)
+	return err
+}
+
+const setWorkflowContext = `-- name: SetWorkflowContext :exec
+UPDATE
+    workflows
+SET
+    context = ?1,
+    updated_at = CURRENT_TIMESTAMP
+WHERE
+    id = ?2
+`
+
+type SetWorkflowContextParams struct {
+	Context string
+	ID      string
+}
+
+func (q *Queries) SetWorkflowContext(ctx context.Context, arg SetWorkflowContextParams) error {
+	_, err := q.db.ExecContext(ctx, setWorkflowContext, arg.Context, arg.ID)
+	return err
+}
+
+const updateWorkflowConfig = `-- name: UpdateWorkflowConfig :exec
+UPDATE
+    workflow_configs
+SET
+    cwd = ?1,
+    flags = ?2,
+    updated_at = CURRENT_TIMESTAMP
+WHERE
+    id = (
+        SELECT
+            workflow_config_id
+        FROM
+            workflows
+        WHERE
+            workflows.id = ?3)
+`
+
+type UpdateWorkflowConfigParams struct {
+	Cwd        string
+	Flags      string
+	WorkflowID string
+}
+
+func (q *Queries) UpdateWorkflowConfig(ctx context.Context, arg UpdateWorkflowConfigParams) error {
+	_, err := q.db.ExecContext(ctx, updateWorkflowConfig, arg.Cwd, arg.Flags, arg.WorkflowID)
 	return err
 }

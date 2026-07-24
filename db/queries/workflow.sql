@@ -29,8 +29,8 @@ INSERT INTO workflow_configs (id, cwd, flags)
     VALUES (@id, @cwd, @flags);
 
 -- name: InsertWorkflow :one
-INSERT INTO workflows (id, name, workflow_config_id)
-    VALUES (@id, @name, @workflow_config_id)
+INSERT INTO workflows (id, name, context, workflow_config_id)
+    VALUES (@id, @name, @context, @workflow_config_id)
 RETURNING
     *;
 
@@ -42,6 +42,31 @@ SET
     updated_at = CURRENT_TIMESTAMP
 WHERE
     id = @id;
+
+-- name: SetWorkflowContext :exec
+UPDATE
+    workflows
+SET
+    context = @context,
+    updated_at = CURRENT_TIMESTAMP
+WHERE
+    id = @id;
+
+-- name: UpdateWorkflowConfig :exec
+UPDATE
+    workflow_configs
+SET
+    cwd = @cwd,
+    flags = @flags,
+    updated_at = CURRENT_TIMESTAMP
+WHERE
+    id = (
+        SELECT
+            workflow_config_id
+        FROM
+            workflows
+        WHERE
+            workflows.id = @workflow_id);
 
 -- name: MarkWorkflowDeleted :exec
 UPDATE

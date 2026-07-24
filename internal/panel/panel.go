@@ -106,23 +106,27 @@ func chatItemsFrom(sessions []*sessionv1.Session, manager *agents.AgentManager) 
 	return items
 }
 
-// Run launches the panel and blocks until it exits. Sessions are read through
-// the ConnectRPC client. If the user opens an agent, Run returns it so the
-// caller can attach in place, otherwise it returns nil. When the caller loops
-// back after detaching from an agent it sets focus, and the panel opens on the
-// chats picker with that agent selected instead of at the root list.
-func Run(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, client string, keys appconfig.Keybindings, focus *store.Agent) (*store.Agent, error) {
-	final, err := tea.NewProgram(newModel(manager, sessions, client, keys, focus), tea.WithAltScreen()).Run()
-	if err != nil {
-		return nil, fmt.Errorf("failed to run panel: %w", err)
+// Run launches the panel and blocks for the life of the persistent manager
+// session. Sessions are read through the ConnectRPC client. Opening an agent
+// attaches in place through ExecProcess without leaving the program, so the
+// panel is one long-lived bubbletea program rather than one rebuilt per attach.
+func Run(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, keys appconfig.Keybindings) error {
+	if _, err := tea.NewProgram(newModel(manager, sessions, keys), tea.WithAltScreen()).Run(); err != nil {
+		return fmt.Errorf("failed to run panel: %w", err)
 	}
 
-	m, ok := final.(model)
-	if !ok {
-		return nil, nil
-	}
+	return nil
+}
 
-	return m.attach, nil
+// hide detaches the popup's client from the persistent manager session without
+// stopping the panel. The bubbletea program keeps running with its state intact,
+// so reopening the popup restores the exact screen. This is what the close and
+// quit keys do now: they no longer tear the panel down, they only hide it.
+func (m model) hide() tea.Cmd {
+	return func() tea.Msg {
+		m.manager.HideManager()
+		return nil
+	}
 }
 
 var (
@@ -187,7 +191,6 @@ type row struct {
 type model struct {
 	manager  *agents.AgentManager
 	sessions sessionv1connect.SessionServiceClient
-	client   string
 
 	screen screen
 	rows   []row
@@ -200,13 +203,15 @@ type model struct {
 	// workflow is the current scope: nil at the root, or the workflow whose
 	// chats, new-chat, and search are all filtered to it. workflows backs the
 	// picker, and moveTarget is the chat being reassigned when the picker is
-	// opened in move mode. workflowRenameTarget is the workflow being renamed
-	// when the workflow form is open, nil when creating one.
+	// opened in move mode. workflowRenameTarget is the workflow being renamed and
+	// workflowEditTarget the one being edited when the workflow form is open; both
+	// nil when creating one.
 	workflow             *store.Workflow
 	workflows            []store.Workflow
 	workflowCursor       int
 	moveTarget           *store.Agent
 	workflowRenameTarget *store.Workflow
+	workflowEditTarget   *store.Workflow
 	workflowDeleteTarget *store.Workflow
 
 	searchInput   textinput.Model
@@ -216,7 +221,6 @@ type model struct {
 	searchCursor  int
 	searching     bool
 
-	attach       *store.Agent
 	form         *huh.Form
 	renameTarget store.Agent
 
@@ -226,7 +230,7 @@ type model struct {
 	height int
 }
 
-func newModel(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, client string, keys appconfig.Keybindings, focus *store.Agent) model {
+func newModel(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, keys appconfig.Keybindings) model {
 	input := textinput.New()
 	input.Placeholder = "search chats by content"
 	input.Prompt = "› "
@@ -234,34 +238,12 @@ func newModel(manager *agents.AgentManager, sessions sessionv1connect.SessionSer
 	m := model{
 		manager:     manager,
 		sessions:    sessions,
-		client:      client,
 		keys:        keys,
 		screen:      screenList,
 		preview:     viewport.New(0, 0),
 		searchInput: input,
 	}
 	m.reload()
-
-	// When the caller loops back after detaching from an agent, open on the chats
-	// picker with that agent selected instead of at the root list. If the agent
-	// belongs to a workflow, restore that workflow scope first, so exiting the
-	// chat lands back in its workflow's chats rather than the root list.
-	if focus != nil {
-		if focus.WorkflowID != nil {
-			if workflow, err := manager.GetWorkflow(*focus.WorkflowID); err == nil && workflow != nil {
-				m.workflow = workflow
-				m.reload()
-			}
-		}
-
-		for i, item := range m.chats {
-			if item.agent.Name == focus.Name {
-				m.screen = screenChats
-				m.chatCursor = i
-				break
-			}
-		}
-	}
 
 	return m
 }
@@ -379,21 +361,35 @@ func clampCursor(idx, length int) int {
 	return idx
 }
 
-// attachScoped returns the agent to attach to, with its workflow set to the
-// view's current scope rather than the chat's stored workflow. This is what the
-// caller loops back with, so back-navigation returns to the workflow the user
-// was actually browsing: a chat opened from inside a workflow returns there,
-// while one opened from the root list or a global search returns to the root,
-// even if that chat happens to belong to a workflow.
-func (m model) attachScoped(agent store.Agent) *store.Agent {
-	if m.workflow != nil {
-		id := m.workflow.ID
-		agent.WorkflowID = &id
-	} else {
-		agent.WorkflowID = nil
+// agentDetachedMsg is delivered when the ExecProcess attach returns, i.e. the
+// user detached from an agent back to the picker. The program was paused, not
+// torn down, so its scope and cursor are intact on resume.
+type agentDetachedMsg struct{ err error }
+
+// openAgent attaches to the given agent without leaving the panel. A dormant
+// session is restored first, then the attached agent is recorded so the tmux
+// back binding can detach just its client. The blocking tmux attach runs through
+// ExecProcess, which pauses and resumes this same program rather than tearing it
+// down: a teardown per attach cost a fixed ~500ms in bubbletea's read-loop
+// shutdown, so keeping one program alive removes that lag.
+func (m model) openAgent(agent store.Agent) (tea.Model, tea.Cmd) {
+	pane := agent.Pane
+	if !m.manager.SessionAlive(agent.Name) {
+		restored, err := m.manager.Restore(agent)
+		if err != nil {
+			// A restore failure must not disturb the picker; stay put.
+			return m, nil
+		}
+
+		pane = restored
 	}
 
-	return &agent
+	m.manager.SetAttachedAgent(agent.Name)
+	cmd := m.manager.AttachCommand(agent.Name, pane)
+
+	return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
+		return agentDetachedMsg{err: err}
+	})
 }
 
 func protoToAgent(s *sessionv1.Session) store.Agent {
@@ -511,6 +507,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	if _, ok := msg.(agentDetachedMsg); ok {
+		// Returned from a chat. Clear the attached-agent marker and refresh the
+		// scope the user is still browsing, keeping the same chat selected. The
+		// preview resumes only on the chats screen, where a hovered pane is shown.
+		m.manager.ClearAttachedAgent()
+		m.reload()
+		m.chatCursor = clampCursor(m.chatCursor, len(m.chats))
+		if m.screen == screenChats {
+			m.refreshPreview()
+			return m, tick()
+		}
+
+		return m, nil
+	}
+
 	if _, ok := msg.(tickMsg); ok {
 		if m.screen != screenChats {
 			return m, nil
@@ -581,15 +592,15 @@ func (m model) updateList(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 	switch {
 	case bound(k, m.keys.List.Quit):
-		return m, tea.Quit
+		return m, m.hide()
 	case bound(k, m.keys.List.Back):
 		// From a scoped list, back returns to the workflow picker rather than
-		// quitting, so the workflow is a place the user steps in and out of.
+		// hiding, so the workflow is a place the user steps in and out of.
 		if m.workflow != nil {
 			return m.exitWorkflowScope()
 		}
 
-		return m, tea.Quit
+		return m, m.hide()
 	case bound(k, m.keys.Nav.Up):
 		if m.cursor > 0 {
 			m.cursor--
@@ -674,7 +685,7 @@ func (m model) submitSession() (tea.Model, tea.Cmd) {
 	}
 
 	m.manager.NewSession(agents.NewSessionParams{
-		Client:     m.client,
+		Client:     m.manager.InvokingClient(),
 		Title:      m.form.GetString("title"),
 		Dir:        m.form.GetString("dir"),
 		Flags:      m.form.GetString("flags"),

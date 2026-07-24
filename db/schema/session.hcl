@@ -83,6 +83,13 @@ table "workflows" {
     null = false
     type = text
   }
+  # Free-text durable state for the workflow, edited by the user. Holds shared
+  # context that agents in the workflow can read; empty until filled in.
+  column "context" {
+    null    = false
+    type    = text
+    default = ""
+  }
   # The workflow's default config. References workflow_configs.id.
   column "workflow_config_id" {
     null = false

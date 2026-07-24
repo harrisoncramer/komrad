@@ -37,6 +37,7 @@ type Workflow struct {
 	IsDeleted        int64
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	Context          string
 }
 
 type WorkflowConfig struct {

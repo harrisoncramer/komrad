@@ -22,16 +22,13 @@ type Keybindings struct {
 	Workflows WorkflowsKeys `mapstructure:"workflows"`
 }
 
-// NavKeys are the shared navigation bindings used by every menu, so scrolling is
+// NavKeys are the shared navigation bindings used by every menu, so movement is
 // the same everywhere rather than configured per menu. Up and Down move the
-// cursor; PreviewUp and PreviewDown scroll a preview pane where one is shown.
-// They avoid letter keys so they work unchanged in the search screen's live text
-// field.
+// cursor. They avoid letter keys so they work unchanged in the search screen's
+// live text field.
 type NavKeys struct {
-	Up          []string `mapstructure:"up"`
-	Down        []string `mapstructure:"down"`
-	PreviewUp   []string `mapstructure:"preview_up"`
-	PreviewDown []string `mapstructure:"preview_down"`
+	Up   []string `mapstructure:"up"`
+	Down []string `mapstructure:"down"`
 }
 
 // FormKeys are the bindings for the new-chat and rename forms. Back and Quit
@@ -83,6 +80,7 @@ type WorkflowsKeys struct {
 	Open   []string `mapstructure:"open"`
 	New    []string `mapstructure:"new"`
 	Rename []string `mapstructure:"rename"`
+	Edit   []string `mapstructure:"edit"`
 	Delete []string `mapstructure:"delete"`
 }
 
@@ -96,10 +94,8 @@ type Config struct {
 func DefaultKeybindings() Keybindings {
 	return Keybindings{
 		Nav: NavKeys{
-			Up:          []string{"up", "ctrl+p"},
-			Down:        []string{"down", "ctrl+n"},
-			PreviewUp:   []string{"ctrl+u"},
-			PreviewDown: []string{"ctrl+d"},
+			Up:   []string{"up", "ctrl+p"},
+			Down: []string{"down", "ctrl+n"},
 		},
 		List: ListKeys{
 			Quit:      []string{"ctrl+c", "q"},
@@ -125,6 +121,7 @@ func DefaultKeybindings() Keybindings {
 			Open:   []string{"enter", "l", "right"},
 			New:    []string{"n"},
 			Rename: []string{"r"},
+			Edit:   []string{"e"},
 			Delete: []string{"d"},
 		},
 		Search: SearchKeys{
@@ -154,8 +151,6 @@ func (k Keybindings) withDefaults() Keybindings {
 
 	k.Nav.Up = fillKeys(k.Nav.Up, d.Nav.Up)
 	k.Nav.Down = fillKeys(k.Nav.Down, d.Nav.Down)
-	k.Nav.PreviewUp = fillKeys(k.Nav.PreviewUp, d.Nav.PreviewUp)
-	k.Nav.PreviewDown = fillKeys(k.Nav.PreviewDown, d.Nav.PreviewDown)
 
 	k.List.Quit = fillKeys(k.List.Quit, d.List.Quit)
 	k.List.Back = fillKeys(k.List.Back, d.List.Back)
@@ -182,6 +177,7 @@ func (k Keybindings) withDefaults() Keybindings {
 	k.Workflows.Open = fillKeys(k.Workflows.Open, d.Workflows.Open)
 	k.Workflows.New = fillKeys(k.Workflows.New, d.Workflows.New)
 	k.Workflows.Rename = fillKeys(k.Workflows.Rename, d.Workflows.Rename)
+	k.Workflows.Edit = fillKeys(k.Workflows.Edit, d.Workflows.Edit)
 	k.Workflows.Delete = fillKeys(k.Workflows.Delete, d.Workflows.Delete)
 
 	k.Form.Quit = fillKeys(k.Form.Quit, d.Form.Quit)

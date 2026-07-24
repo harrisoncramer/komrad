@@ -73,30 +73,6 @@ func TestWorkflowRowsMoveMode(t *testing.T) {
 	}
 }
 
-// TestAttachScopedFollowsView confirms the attach target carries the view's
-// scope, not the chat's stored workflow: opening from inside a workflow returns
-// there, and opening from the root returns to the root even for an assigned chat.
-func TestAttachScopedFollowsView(t *testing.T) {
-	stored := "w-stored"
-	scope := store.Workflow{ID: "w-scope"}
-
-	t.Run("scoped view stamps the scope's id", func(t *testing.T) {
-		m := model{workflow: &scope}
-		got := m.attachScoped(store.Agent{Name: "chat", WorkflowID: &stored})
-		if got.WorkflowID == nil || *got.WorkflowID != "w-scope" {
-			t.Fatalf("want scope id, got %v", got.WorkflowID)
-		}
-	})
-
-	t.Run("root view clears the stored workflow", func(t *testing.T) {
-		m := model{workflow: nil}
-		got := m.attachScoped(store.Agent{Name: "chat", WorkflowID: &stored})
-		if got.WorkflowID != nil {
-			t.Fatalf("want nil at root, got %v", *got.WorkflowID)
-		}
-	})
-}
-
 // TestWorkflowCursorClampsToMoveRows drives the picker's down key in move mode,
 // where the list length includes the leading unassign row, and confirms the
 // cursor stops at the last row rather than running past it.

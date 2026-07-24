@@ -36,10 +36,6 @@ func expandHome(dir string) string {
 	return filepath.Join(home, dir[len("~/"):])
 }
 
-// previewScrollTicks is how many wheel notches one preview scroll sends, so a
-// keypress moves the agent's view a noticeable amount.
-const previewScrollTicks = 4
-
 // tmuxClient is the slice of the tmux client the manager drives. Accepting it as
 // an interface lets tests substitute a recording fake for the real CLI.
 type tmuxClient interface {
@@ -50,7 +46,6 @@ type tmuxClient interface {
 	SessionAttached(session string) bool
 	ResizeWindow(target string, width, height int)
 	CapturePane(pane string) string
-	ScrollPane(pane string, width, height int, up bool, ticks int)
 	RenameSession(oldName, newName string)
 	ClientSession(client string) string
 	SwitchToLast(client string)
@@ -61,6 +56,9 @@ type tmuxClient interface {
 	SendKeys(target string, keys ...string)
 	CurrentSession() (string, error)
 	SetWindowSizeLatest(target string)
+	ShowGlobal(name string) string
+	DetachSession(name string)
+	SetSessionOption(target, name, value string)
 }
 
 // agentStore is the slice of the store the manager reads and mutates. Accepting
@@ -81,8 +79,9 @@ type agentStore interface {
 	MoveToWorkflow(ctx context.Context, id string, workflowID *string) error
 	ListWorkflows(ctx context.Context) ([]store.Workflow, error)
 	GetWorkflow(ctx context.Context, id string) (*store.Workflow, error)
-	CreateWorkflow(ctx context.Context, name, cwd, flags string) (*store.Workflow, error)
+	CreateWorkflow(ctx context.Context, cfg store.WorkflowConfig) (*store.Workflow, error)
 	RenameWorkflow(ctx context.Context, id, name string) error
+	UpdateWorkflow(ctx context.Context, id string, cfg store.WorkflowConfig) error
 	DeleteWorkflow(ctx context.Context, id string) error
 	DeleteWorkflowWithChats(ctx context.Context, id string) error
 }
@@ -114,13 +113,57 @@ func NewAgentManager(p Params) *AgentManager {
 	}
 }
 
-// managerOpenFlag marks that the manager popup is currently open, so the
-// binding can send prefix+g back to the picker instead of nesting a popup.
+// ManagerSession is the name of the persistent tmux session the manager panel
+// runs in. The popup attaches to it rather than launching the panel fresh, so
+// hiding the popup (detaching this session's client) leaves the panel running
+// and reopening restores it exactly. The tmux plugin uses the same literal.
+const ManagerSession = "claude-manager"
+
+// managerOpenFlag marks that the popup is currently shown, so the binding hides
+// it (detaches) rather than opening a second one. The open command sets it while
+// the popup is up and clears it when the popup closes. The tmux plugin reads it.
 const managerOpenFlag = "@claude_manager_open"
 
-// MarkPanelOpen and MarkPanelClosed toggle the popup-open flag.
-func (m *AgentManager) MarkPanelOpen()   { m.tmux.SetGlobal(managerOpenFlag, "1") }
-func (m *AgentManager) MarkPanelClosed() { m.tmux.SetGlobal(managerOpenFlag, "0") }
+// managerClientFlag holds the tmux client that opened the current popup. The
+// open command writes it on each open, and the manager reads it live so actions
+// that need the invoking client (a new chat's default directory, switching a
+// client off a chat being deleted) use the client that is actually viewing the
+// popup, not one fixed when the persistent panel first started.
+const managerClientFlag = "@claude_manager_client"
+
+// MarkOpen and MarkClosed toggle the popup-shown flag around the open command's
+// blocking attach.
+func (m *AgentManager) MarkOpen()   { m.tmux.SetGlobal(managerOpenFlag, "1") }
+func (m *AgentManager) MarkClosed() { m.tmux.SetGlobal(managerOpenFlag, "0") }
+
+// SetInvokingClient records the tmux client that opened the current popup.
+func (m *AgentManager) SetInvokingClient(client string) {
+	m.tmux.SetGlobal(managerClientFlag, client)
+}
+
+// managerAgentFlag holds the agent session currently attached inside the popup,
+// or is empty when the picker is showing. The back binding reads it to detach
+// just that agent's client, dropping back to the picker without closing the
+// popup. esc cannot do this from inside a chat, since there it belongs to Claude.
+const managerAgentFlag = "@claude_manager_agent"
+
+// SetAttachedAgent and ClearAttachedAgent track which agent the popup is inside,
+// around the blocking attach.
+func (m *AgentManager) SetAttachedAgent(session string) { m.tmux.SetGlobal(managerAgentFlag, session) }
+func (m *AgentManager) ClearAttachedAgent()             { m.tmux.SetGlobal(managerAgentFlag, "") }
+
+// HideManager hides the popup by detaching the client viewing the persistent
+// manager session. The session stays alive, so the next open restores it.
+func (m *AgentManager) HideManager() { m.tmux.DetachSession(ManagerSession) }
+
+// SilenceStatus turns off a session's tmux status bar, so the manager panel and
+// the agents it opens fill the popup without a tmux footer under them.
+func (m *AgentManager) SilenceStatus(session string) {
+	m.tmux.SetSessionOption(session, "status", "off")
+}
+
+// InvokingClient returns the tmux client that opened the current popup.
+func (m *AgentManager) InvokingClient() string { return m.tmux.ShowGlobal(managerClientFlag) }
 
 // PaneAlive reports whether an agent's tmux pane still exists, for pruning
 // entries the panel lists from the service.
@@ -153,20 +196,6 @@ func (m *AgentManager) Preview(agent store.Agent, width, height int) string {
 	return m.tmux.CapturePane(agent.Pane)
 }
 
-// ScrollPreview moves a live agent's own view by sending mouse-wheel events to
-// its pane, so the next capture reflects the scroll. Claude keeps its scrollback
-// internally and there is none in tmux to scroll locally. The wheel is aimed at
-// the box center. Preview keeps the window sized to that box on every tick, so no
-// resize is needed here. Attached sessions are left alone so a live client's view
-// is never disturbed.
-func (m *AgentManager) ScrollPreview(agent store.Agent, width, height int, up bool) {
-	if agent.Pane == "" || width <= 0 || height <= 0 || m.tmux.SessionAttached(agent.Name) {
-		return
-	}
-
-	m.tmux.ScrollPane(agent.Pane, width, height, up, previewScrollTicks)
-}
-
 // Rename retitles an agent, renaming both its tmux session (so state events
 // keep keying to it) and its stored record.
 func (m *AgentManager) Rename(agent store.Agent, name string) {
@@ -181,7 +210,8 @@ func (m *AgentManager) Rename(agent store.Agent, name string) {
 
 // Delete soft-deletes an agent's record (hiding it from the panel), stopping its
 // session first.
-func (m *AgentManager) Delete(client string, agent store.Agent) {
+func (m *AgentManager) Delete(agent store.Agent) {
+	client := m.InvokingClient()
 	if m.tmux.ClientSession(client) == agent.Name {
 		m.tmux.SwitchToLast(client)
 	}
@@ -284,22 +314,22 @@ func (m *AgentManager) GetWorkflow(id string) (*store.Workflow, error) {
 	return workflow, nil
 }
 
-// NewWorkflow creates a workflow with its default config (cwd, flags),
-// defaulting a blank name so the picker always has a label to show. The name is
-// a display label only; nothing keys on it. The cwd is home-expanded so the
-// stored blueprint matches what a session launch would use.
-func (m *AgentManager) NewWorkflow(name, cwd, flags string) (*store.Workflow, error) {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		name = "workflow"
+// NewWorkflow creates a workflow with its free-text context and default config
+// (cwd, flags), defaulting a blank name so the picker always has a label to
+// show. The name is a display label only; nothing keys on it. The cwd is
+// home-expanded so the stored blueprint matches what a session launch would use.
+func (m *AgentManager) NewWorkflow(cfg store.WorkflowConfig) (*store.Workflow, error) {
+	cfg.Name = strings.TrimSpace(cfg.Name)
+	if cfg.Name == "" {
+		cfg.Name = "workflow"
 	}
 
-	cwd = expandHome(strings.TrimSpace(cwd))
-	flags = strings.TrimSpace(flags)
+	cfg.Cwd = expandHome(strings.TrimSpace(cfg.Cwd))
+	cfg.Flags = strings.TrimSpace(cfg.Flags)
 
-	workflow, err := m.sessions.CreateWorkflow(context.Background(), name, cwd, flags)
+	workflow, err := m.sessions.CreateWorkflow(context.Background(), cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create workflow %q: %w", name, err)
+		return nil, fmt.Errorf("failed to create workflow %q: %w", cfg.Name, err)
 	}
 
 	return workflow, nil
@@ -313,6 +343,23 @@ func (m *AgentManager) RenameWorkflow(workflow store.Workflow, name string) {
 	}
 
 	_ = m.sessions.RenameWorkflow(context.Background(), workflow.ID, name)
+}
+
+// UpdateWorkflow patches a workflow's display name, free-text context, and
+// default config (cwd, flags) in place, keyed by id. A blank name falls back to
+// the existing name so the picker always has a label. The cwd is home-expanded
+// so the stored blueprint matches what a session launch would use, mirroring
+// NewWorkflow.
+func (m *AgentManager) UpdateWorkflow(workflow store.Workflow, cfg store.WorkflowConfig) {
+	cfg.Name = strings.TrimSpace(cfg.Name)
+	if cfg.Name == "" {
+		cfg.Name = workflow.Name
+	}
+
+	cfg.Cwd = expandHome(strings.TrimSpace(cfg.Cwd))
+	cfg.Flags = strings.TrimSpace(cfg.Flags)
+
+	_ = m.sessions.UpdateWorkflow(context.Background(), workflow.ID, cfg)
 }
 
 // DeleteWorkflow soft-deletes a workflow, orphaning its chats back to
@@ -492,24 +539,22 @@ func (m *AgentManager) Status() string {
 	return strings.Join(segments, "  ") + "  "
 }
 
-// AttachSession attaches a tmux client to the agent's session, focused on its
-// pane, and blocks until it detaches.
-func (m *AgentManager) AttachSession(session, pane string) error {
+// AttachCommand builds the tmux command that attaches a client to the agent's
+// session, focused on its pane. The panel runs it through bubbletea's
+// ExecProcess, which releases the terminal, blocks until the client detaches,
+// then restores and resumes the same program. Keeping one long-lived program
+// (rather than quitting and rebuilding it per attach) avoids the fixed ~500ms
+// bubbletea spends waiting on its input read loop during a program teardown.
+//
+// Stdio is left unset so ExecProcess wires the program's own terminal. TMUX is
+// stripped from the environment so tmux does not refuse the attach as nested.
+func (m *AgentManager) AttachCommand(session, pane string) *exec.Cmd {
 	m.tmux.SetWindowSizeLatest(session)
 
-	// Run (not exec) so control returns to the panel loop when the client
-	// detaches. TMUX is stripped so tmux does not refuse the attach as nested.
 	cmd := exec.Command("tmux", "-L", m.tmux.Socket(), "attach-session", "-t", session, ";", "select-pane", "-t", pane)
 	cmd.Env = envWithout("TMUX")
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
 
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to attach to session %q: %w", session, err)
-	}
-
-	return nil
+	return cmd
 }
 
 func (m *AgentManager) agentKey(mainSession string) string {

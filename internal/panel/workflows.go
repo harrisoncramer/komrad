@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"claude-agents/internal/appconfig"
+	"claude-agents/internal/store"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -45,7 +46,7 @@ func (m model) updateWorkflows(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch {
 	case bound(k, m.keys.Workflows.Quit):
-		return m, tea.Quit
+		return m, m.hide()
 	case bound(k, m.keys.Workflows.Back):
 		if moving {
 			m.moveTarget = nil
@@ -73,6 +74,10 @@ func (m model) updateWorkflows(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case bound(k, m.keys.Workflows.Rename):
 		if !moving && len(m.workflows) > 0 {
 			return m.renameWorkflowForm()
+		}
+	case bound(k, m.keys.Workflows.Edit):
+		if !moving && len(m.workflows) > 0 {
+			return m.editWorkflowForm()
 		}
 	case bound(k, m.keys.Workflows.Delete):
 		if !moving && len(m.workflows) > 0 {
@@ -169,7 +174,8 @@ func (m model) jumpToWorkflow() (tea.Model, tea.Cmd) {
 // cwd and flags that seed new chats created inside it.
 func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
 	m.workflowRenameTarget = nil
-	m.form = workflowCreateForm(m.keys.Form)
+	m.workflowEditTarget = nil
+	m.form = workflowConfigForm("New workflow name", store.WorkflowConfig{}, m.keys.Form)
 	m.screen = screenWorkflowForm
 
 	return m, m.form.Init()
@@ -180,7 +186,31 @@ func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
 func (m model) renameWorkflowForm() (tea.Model, tea.Cmd) {
 	workflow := m.workflows[m.workflowCursor]
 	m.workflowRenameTarget = &workflow
+	m.workflowEditTarget = nil
 	m.form = workflowForm(fmt.Sprintf("Rename %q to", workflow.Name), m.keys.Form)
+	m.screen = screenWorkflowForm
+
+	return m, m.form.Init()
+}
+
+// editWorkflowForm reopens the create form for the highlighted workflow,
+// prefilled with its current name, context, and default config, so its
+// properties can be patched in place. It refetches the workflow so the form
+// reflects the latest stored values, falling back to the listed row if the
+// fetch fails.
+func (m model) editWorkflowForm() (tea.Model, tea.Cmd) {
+	workflow := m.workflows[m.workflowCursor]
+	if fresh, err := m.manager.GetWorkflow(workflow.ID); err == nil && fresh != nil {
+		workflow = *fresh
+	}
+	m.workflowEditTarget = &workflow
+	m.workflowRenameTarget = nil
+	m.form = workflowConfigForm("Workflow name", store.WorkflowConfig{
+		Name:    workflow.Name,
+		Context: workflow.Context,
+		Cwd:     workflow.Cwd,
+		Flags:   workflow.Flags,
+	}, m.keys.Form)
 	m.screen = screenWorkflowForm
 
 	return m, m.form.Init()
@@ -244,6 +274,8 @@ func (m model) updateWorkflowForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case huh.StateCompleted:
 		return m.submitWorkflowForm()
 	case huh.StateAborted:
+		m.workflowRenameTarget = nil
+		m.workflowEditTarget = nil
 		m.screen = screenWorkflows
 		return m, nil
 	default:
@@ -251,17 +283,32 @@ func (m model) updateWorkflowForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// submitWorkflowForm applies the form: renaming the target workflow, or creating
-// a new one, then returns to the picker with the list refreshed.
+// submitWorkflowForm applies the form: renaming the target workflow, editing an
+// existing one's config, or creating a new one, then returns to the picker with
+// the list refreshed.
 func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 	name := m.form.GetString("name")
-	if m.workflowRenameTarget != nil {
+	switch {
+	case m.workflowRenameTarget != nil:
 		m.manager.RenameWorkflow(*m.workflowRenameTarget, name)
-	} else {
-		_, _ = m.manager.NewWorkflow(name, m.form.GetString("dir"), m.form.GetString("flags"))
+	case m.workflowEditTarget != nil:
+		m.manager.UpdateWorkflow(*m.workflowEditTarget, store.WorkflowConfig{
+			Name:    name,
+			Context: m.form.GetString("context"),
+			Cwd:     m.form.GetString("dir"),
+			Flags:   m.form.GetString("flags"),
+		})
+	default:
+		_, _ = m.manager.NewWorkflow(store.WorkflowConfig{
+			Name:    name,
+			Context: m.form.GetString("context"),
+			Cwd:     m.form.GetString("dir"),
+			Flags:   m.form.GetString("flags"),
+		})
 	}
 
 	m.workflowRenameTarget = nil
+	m.workflowEditTarget = nil
 	m.reloadWorkflows()
 	m.screen = screenWorkflows
 	return m, nil
@@ -289,15 +336,19 @@ func workflowForm(title string, keys appconfig.FormKeys) *huh.Form {
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
 }
 
-// workflowCreateForm collects a new workflow's name and its default config.
-// The dir and flags become the blueprint prefilled into the new-chat form for
-// chats created inside the workflow.
-func workflowCreateForm(keys appconfig.FormKeys) *huh.Form {
+// workflowConfigForm collects a workflow's name, its free-text context, and its
+// default config. The dir and flags become the blueprint prefilled into the
+// new-chat form for chats created inside the workflow. Every field prefills, so
+// it serves both creating a workflow (blank) and editing one (its current
+// values).
+func workflowConfigForm(nameTitle string, cfg store.WorkflowConfig, keys appconfig.FormKeys) *huh.Form {
+	name, workflowContext, dir, flags := cfg.Name, cfg.Context, cfg.Cwd, cfg.Flags
 	return huh.NewForm(
 		huh.NewGroup(
-			huh.NewInput().Key("name").Title("New workflow name"),
-			huh.NewInput().Key("dir").Title("Default directory").Description("blank = current"),
-			huh.NewInput().Key("flags").Title("Default claude flags").Placeholder("--model opus"),
+			huh.NewInput().Key("name").Title(nameTitle).Value(&name),
+			huh.NewText().Key("context").Title("Context").Description("shared notes for this workflow; ctrl+e opens $EDITOR").Value(&workflowContext),
+			huh.NewInput().Key("dir").Title("Default directory").Description("blank = current").Value(&dir),
+			huh.NewInput().Key("flags").Title("Default claude flags").Placeholder("--model opus").Value(&flags),
 		),
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
 }
@@ -359,6 +410,7 @@ func (m model) workflowHints() string {
 		hintKeys(m.keys.Workflows.Open) + " open · " +
 			hintKeys(m.keys.Workflows.New) + " new · " +
 			hintKeys(m.keys.Workflows.Rename) + " rename · " +
+			hintKeys(m.keys.Workflows.Edit) + " edit · " +
 			hintKeys(m.keys.Workflows.Delete) + " delete · " +
 			hintKeys(m.keys.Workflows.Back) + " back")
 }
