@@ -326,12 +326,22 @@ func (s *Store) Get(ctx context.Context, name string) (*Agent, error) {
 }
 
 // SetState updates just an agent's state, keyed by name.
-func (s *Store) SetState(ctx context.Context, name, state string) error {
-	if err := s.queries.SetSessionState(ctx, models.SetSessionStateParams{Name: name, State: state}); err != nil {
-		return fmt.Errorf("failed to set state for %q: %w", name, err)
+// It reports whether a row was updated, so naming a chat that does not exist is
+// distinguishable from setting a state it already had.
+func (s *Store) SetState(ctx context.Context, name, state string) (bool, error) {
+	result, err := s.conn.ExecContext(ctx,
+		"UPDATE sessions SET state = ?, updated_at = CURRENT_TIMESTAMP WHERE name = ? AND is_deleted = 0",
+		state, name)
+	if err != nil {
+		return false, fmt.Errorf("failed to set state for %q: %w", name, err)
 	}
 
-	return nil
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("failed to count the state update for %q: %w", name, err)
+	}
+
+	return affected > 0, nil
 }
 
 // SetStateByID updates just an agent's state, keyed by its stable id. The
@@ -346,22 +356,83 @@ func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
 	return nil
 }
 
-// Delete removes an agent by name.
-func (s *Store) Delete(ctx context.Context, name string) error {
-	if err := s.queries.DeleteSession(ctx, name); err != nil {
-		return fmt.Errorf("failed to delete session %q: %w", name, err)
+// Delete removes an agent by name, together with everything keyed to it: its
+// config row, its transcript, and that transcript's index entry. The schema
+// declares no foreign keys, so nothing cascades on its own, and deleting the
+// session alone left the text still readable through the transcript and the SQL
+// tools while search no longer found it. It reports whether a row was there to
+// delete, so a caller can tell a real delete from a no-op.
+//
+// It all commits together or not at all: a session removed without its
+// transcript is the half-state this is here to prevent.
+func (s *Store) Delete(ctx context.Context, name string) (bool, error) {
+	tx, err := s.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return false, fmt.Errorf("failed to begin delete tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var (
+		id       string
+		configID string
+	)
+	err = tx.QueryRowContext(ctx, "SELECT id, session_config_id FROM sessions WHERE name = ?", name).Scan(&id, &configID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to find session %q to delete: %w", name, err)
 	}
 
-	return nil
+	statements := []struct {
+		what string
+		stmt string
+		arg  string
+	}{
+		{what: "session", stmt: "DELETE FROM sessions WHERE id = ?", arg: id},
+		{what: "config", stmt: "DELETE FROM session_configs WHERE id = ?", arg: configID},
+		{what: "transcript", stmt: "DELETE FROM session_transcripts WHERE session_id = ?", arg: id},
+		{what: "transcript index", stmt: fmt.Sprintf("DELETE FROM %s WHERE session_id = ?", transcriptFTS), arg: id},
+	}
+	for _, s := range statements {
+		if _, err := tx.ExecContext(ctx, s.stmt, s.arg); err != nil {
+			return false, fmt.Errorf("failed to delete %s for %q: %w", s.what, name, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return false, fmt.Errorf("failed to commit delete of %q: %w", name, err)
+	}
+
+	return true, nil
 }
 
-// Rename changes an agent's name (title), keyed by id.
-func (s *Store) Rename(ctx context.Context, id, name string) error {
-	if err := s.queries.RenameSession(ctx, models.RenameSessionParams{ID: id, Name: name}); err != nil {
-		return fmt.Errorf("failed to rename session %q: %w", id, err)
+// ErrNameTaken reports that a rename collided with a live chat's name. The
+// unique index is scoped to live rows, so this only ever means a chat currently
+// listed already answers to that name.
+var ErrNameTaken = errors.New("name already taken")
+
+// Rename changes an agent's name (title), keyed by id. It reports whether a row
+// was renamed, so an id that matches nothing is distinguishable from a rename
+// to the name a chat already had.
+func (s *Store) Rename(ctx context.Context, id, name string) (bool, error) {
+	result, err := s.conn.ExecContext(ctx,
+		"UPDATE sessions SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+		name, id)
+	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed: sessions.name") {
+			return false, ErrNameTaken
+		}
+
+		return false, fmt.Errorf("failed to rename session %q: %w", id, err)
 	}
 
-	return nil
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("failed to count the rename of %q: %w", id, err)
+	}
+
+	return affected > 0, nil
 }
 
 // SoftDelete hides an agent from listings without dropping the row.

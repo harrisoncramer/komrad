@@ -3,6 +3,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -79,28 +80,47 @@ func (s *SessionService) GetSession(ctx context.Context, req *connect.Request[se
 	return connect.NewResponse(&sessionv1.GetSessionResponse{Session: toProto(*agent)}), nil
 }
 
-// SetState updates an agent's state.
+// SetState updates an agent's state. Naming a chat that does not exist is an
+// error rather than a quiet success, so a caller that mistyped a name learns it
+// here instead of wondering why nothing changed.
 func (s *SessionService) SetState(ctx context.Context, req *connect.Request[sessionv1.SetStateRequest]) (*connect.Response[emptypb.Empty], error) {
-	if err := s.store.SetState(ctx, req.Msg.GetName(), req.Msg.GetState()); err != nil {
+	changed, err := s.store.SetState(ctx, req.Msg.GetName(), req.Msg.GetState())
+	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set state: %w", err))
 	}
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
-// DeleteSession removes an agent by name.
-func (s *SessionService) DeleteSession(ctx context.Context, req *connect.Request[sessionv1.DeleteSessionRequest]) (*connect.Response[emptypb.Empty], error) {
-	if err := s.store.Delete(ctx, req.Msg.GetName()); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete session: %w", err))
+	if !changed {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("session %q not found", req.Msg.GetName()))
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// UpdateSession renames the session with the given id.
+// DeleteSession removes an agent by name, along with its config and transcript.
+func (s *SessionService) DeleteSession(ctx context.Context, req *connect.Request[sessionv1.DeleteSessionRequest]) (*connect.Response[emptypb.Empty], error) {
+	deleted, err := s.store.Delete(ctx, req.Msg.GetName())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete session: %w", err))
+	}
+	if !deleted {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("session %q not found", req.Msg.GetName()))
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// UpdateSession renames the session with the given id. A name already taken by
+// a live chat is a conflict, not a server fault: the store's unique index is
+// what refuses it, and reporting that as internal would leak a SQLite message
+// to a caller who simply picked a taken name.
 func (s *SessionService) UpdateSession(ctx context.Context, req *connect.Request[sessionv1.UpdateSessionRequest]) (*connect.Response[emptypb.Empty], error) {
-	if err := s.store.Rename(ctx, req.Msg.GetId(), req.Msg.GetName()); err != nil {
+	renamed, err := s.store.Rename(ctx, req.Msg.GetId(), req.Msg.GetName())
+	switch {
+	case errors.Is(err, store.ErrNameTaken):
+		return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("a chat named %q already exists", req.Msg.GetName()))
+	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update session: %w", err))
+	case !renamed:
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no chat with id %q", req.Msg.GetId()))
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

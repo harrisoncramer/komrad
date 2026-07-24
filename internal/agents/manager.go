@@ -63,7 +63,7 @@ type agentStore interface {
 	UpsertTranscript(ctx context.Context, sessionID, content string, offset int64) error
 	Upsert(ctx context.Context, agent store.Agent) error
 	SetStateByID(ctx context.Context, id, state string) error
-	Rename(ctx context.Context, id, name string) error
+	Rename(ctx context.Context, id, name string) (bool, error)
 	SoftDelete(ctx context.Context, name string) error
 	Undelete(ctx context.Context, id string) error
 	ActiveNameExists(ctx context.Context, name string) (bool, error)
@@ -337,7 +337,7 @@ func (m *AgentManager) Rename(agent store.Agent, name string) {
 		return
 	}
 
-	_ = m.sessions.Rename(context.Background(), agent.ID, name)
+	_, _ = m.sessions.Rename(context.Background(), agent.ID, name)
 }
 
 // Delete soft-deletes an agent's record and kills its pane first. If the agent is
@@ -536,7 +536,7 @@ func (m *AgentManager) Restore(agent store.Agent) (string, error) {
 	// it is left as is.
 	if agent.Deleted && m.nameTaken(agent.Name) {
 		newName := m.uniqueSessionName(agent.Name, "")
-		if err := m.sessions.Rename(context.Background(), agent.ID, newName); err != nil {
+		if _, err := m.sessions.Rename(context.Background(), agent.ID, newName); err != nil {
 			return "", fmt.Errorf("failed to rename restored session %q: %w", agent.Name, err)
 		}
 

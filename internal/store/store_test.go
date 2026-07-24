@@ -409,8 +409,13 @@ func TestStoreRoundTrip(t *testing.T) {
 	assert.Equal(t, "/tmp", agents[0].Cwd)
 	assert.Equal(t, "--model opus", agents[0].Flags)
 
-	require.NoError(t, st.SetState(ctx, "alpha", StateDone))
-	require.NoError(t, st.Delete(ctx, "alpha"))
+	changed, err := st.SetState(ctx, "alpha", StateDone)
+	require.NoError(t, err)
+	assert.True(t, changed)
+
+	deleted, err := st.Delete(ctx, "alpha")
+	require.NoError(t, err)
+	assert.True(t, deleted)
 
 	agents, err = st.List(ctx)
 	require.NoError(t, err)

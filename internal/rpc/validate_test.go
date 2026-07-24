@@ -20,7 +20,11 @@ import (
 func validatedClient(t *testing.T) (sessionv1connect.SessionServiceClient, *fakeLauncher) {
 	t.Helper()
 
-	svc, _, launcher := serviceWithLauncher(t)
+	svc, st, launcher := serviceWithLauncher(t)
+
+	// The mutating methods now report not_found for a chat that does not exist,
+	// so the validation cases need a real one to aim at.
+	require.NoError(t, st.Upsert(t.Context(), store.Agent{Name: "alpha", State: store.StateNew}))
 
 	validation, err := NewValidationInterceptor()
 	require.NoError(t, err)

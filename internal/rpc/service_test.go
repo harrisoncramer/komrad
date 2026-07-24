@@ -163,3 +163,38 @@ func TestDeleteSessionThroughService(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, got, "the row is gone after a hard delete")
 }
+
+// TestMutationsOnMissingTargetsAreNotFound is the regression test for silent
+// success: deleting, renaming, or restating a chat that does not exist used to
+// return an empty success, so a caller who mistyped a name was told the work was
+// done.
+func TestMutationsOnMissingTargetsAreNotFound(t *testing.T) {
+	svc, _ := service(t)
+	ctx := context.Background()
+
+	_, err := svc.DeleteSession(ctx, connect.NewRequest(&sessionv1.DeleteSessionRequest{Name: "ghost"}))
+	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
+
+	_, err = svc.SetState(ctx, connect.NewRequest(&sessionv1.SetStateRequest{Name: "ghost", State: store.StateDone}))
+	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
+
+	_, err = svc.UpdateSession(ctx, connect.NewRequest(&sessionv1.UpdateSessionRequest{Id: "ghost", Name: "whatever"}))
+	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
+}
+
+// TestRenameOntoTakenNameIsAConflict confirms a collision reads as a conflict
+// rather than an internal error carrying a raw SQLite constraint message.
+func TestRenameOntoTakenNameIsAConflict(t *testing.T) {
+	svc, st := service(t)
+	ctx := context.Background()
+	require.NoError(t, st.Upsert(ctx, store.Agent{Name: "alpha"}))
+	require.NoError(t, st.Upsert(ctx, store.Agent{Name: "beta"}))
+
+	beta, err := st.Get(ctx, "beta")
+	require.NoError(t, err)
+	require.NotNil(t, beta)
+
+	_, err = svc.UpdateSession(ctx, connect.NewRequest(&sessionv1.UpdateSessionRequest{Id: beta.ID, Name: "alpha"}))
+	assert.Equal(t, connect.CodeAlreadyExists, connect.CodeOf(err))
+	assert.NotContains(t, err.Error(), "UNIQUE constraint", "the driver's message stays server-side")
+}

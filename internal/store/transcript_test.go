@@ -129,3 +129,45 @@ func TestSearchTranscriptsQueryWithOperators(t *testing.T) {
 	assert.Equal(t, one, hits[0].SessionID)
 	assert.True(t, strings.Contains(hits[0].Snippet, SnippetOpen), "the literal phrase is found and marked")
 }
+
+// TestDeleteRemovesEverythingKeyedToTheSession is the regression test for a
+// half-delete: the session row went, but the transcript, its search index entry,
+// and the config row stayed. The text remained readable through the transcript
+// and the SQL tools while search no longer found it.
+func TestDeleteRemovesEverythingKeyedToTheSession(t *testing.T) {
+	st := open(t)
+	ctx := context.Background()
+
+	require.NoError(t, st.Upsert(ctx, Agent{Name: "doomed", Cwd: "/tmp"}))
+	agent, err := st.Get(ctx, "doomed")
+	require.NoError(t, err)
+	require.NotNil(t, agent)
+	require.NoError(t, st.UpsertTranscript(ctx, agent.ID, "the text that should not survive", 0))
+
+	deleted, err := st.Delete(ctx, "doomed")
+	require.NoError(t, err)
+	assert.True(t, deleted)
+
+	transcript, err := st.GetTranscript(ctx, agent.ID)
+	require.NoError(t, err)
+	assert.Empty(t, transcript.Content, "the transcript goes with the session")
+
+	hits, err := st.SearchTranscripts(ctx, "should not survive", 10)
+	require.NoError(t, err)
+	assert.Empty(t, hits, "the search index goes with it too")
+
+	var configs int
+	require.NoError(t, st.conn.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM session_configs WHERE id = ?", agent.SessionConfigID).Scan(&configs))
+	assert.Zero(t, configs, "the config row is not left orphaned")
+}
+
+// TestDeleteReportsWhetherAnythingWasThere confirms a delete of a name nobody
+// has is distinguishable from a real one, so the RPC can answer not_found.
+func TestDeleteReportsWhetherAnythingWasThere(t *testing.T) {
+	st := open(t)
+
+	deleted, err := st.Delete(context.Background(), "never-existed")
+	require.NoError(t, err)
+	assert.False(t, deleted)
+}
