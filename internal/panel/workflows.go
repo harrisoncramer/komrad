@@ -26,12 +26,12 @@ func (m model) updateHoveredWorkflow(key tea.KeyMsg, wfIdx int) (tea.Model, tea.
 	case bound(k, m.keys.Nav.Up):
 		if m.chatCursor > 0 {
 			m.chatCursor--
-			m.refreshPreview()
+			m.stageSelection()
 		}
 	case bound(k, m.keys.Nav.Down):
 		if m.chatCursor < len(m.chatRows())-1 {
 			m.chatCursor++
-			m.refreshPreview()
+			m.stageSelection()
 		}
 	case bound(k, m.keys.Chats.New):
 		workflow := m.workflows[wfIdx]
@@ -48,13 +48,13 @@ func (m model) updateHoveredWorkflow(key tea.KeyMsg, wfIdx int) (tea.Model, tea.
 }
 
 // returnFromWorkflow sends the user back to the chats view after a workflow form
-// or dialog closes, re-priming the preview and resuming the tick.
+// or dialog closes, restaging for the current selection.
 func (m model) returnFromWorkflow() (tea.Model, tea.Cmd) {
 	m.screen = screenChats
 	m.chatCursor = clampCursor(m.chatCursor, len(m.chatRows()))
-	m.refreshPreview()
+	m.stageSelection()
 
-	return m, tick()
+	return m, nil
 }
 
 // newWorkflowForm opens the form to create a workflow: a name plus the default

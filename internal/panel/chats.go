@@ -1,45 +1,14 @@
 package panel
 
 import (
+	"fmt"
 	"strings"
 
 	"claude-agents/internal/store"
-	"claude-agents/lib/dates"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
-
-const chatListWidth = 32
-
-// detailsHeight is how many text lines the hovered-chat details footer occupies,
-// below the picker and preview. The preview is shrunk by this plus its border so
-// the whole view still fits the popup.
-const detailsHeight = 5
-
-// orNA returns the value, or a dimmed "N/A" when it is blank. Every metadata
-// view uses it so all show the same fields and an irrelevant one reads as N/A
-// rather than vanishing, which would jitter the layout as the selection moves.
-func orNA(v string) string {
-	if strings.TrimSpace(v) == "" {
-		return dimStyle.Render("N/A")
-	}
-
-	return v
-}
-
-// workflowName resolves a workflow id to its display name from the loaded
-// workflow list, joining the two resources at display time rather than storing a
-// name on the chat. It returns empty when the id is unknown.
-func (m model) workflowName(id string) string {
-	for _, w := range m.workflows {
-		if w.ID == id {
-			return w.Name
-		}
-	}
-
-	return ""
-}
 
 // noWorkflowLabel heads the trailing group of chats that belong to no workflow.
 const noWorkflowLabel = "No Workflow"
@@ -160,8 +129,8 @@ func rowIndexOfChatName(rows []chatRow, name string) int {
 	return -1
 }
 
-// updateChats drives the split chats view: arrows move the selection and letter
-// keys act on the hovered chat.
+// updateChats drives the nav list: arrows move the selection (restaging the
+// stage pane), and letter keys act on the hovered chat or workflow.
 func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -187,19 +156,15 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case bound(k, m.keys.Nav.Up):
 		if m.chatCursor > 0 {
 			m.chatCursor--
-			m.refreshPreview()
+			m.stageSelection()
 		}
 	case bound(k, m.keys.Nav.Down):
 		if m.chatCursor < len(m.chatRows())-1 {
 			m.chatCursor++
-			m.refreshPreview()
+			m.stageSelection()
 		}
 	case bound(k, m.keys.Chats.Open):
-		item, ok := m.selectedChat()
-		if !ok {
-			return m, nil
-		}
-		return m.openAgent(item.agent)
+		return m.openChat()
 	case bound(k, m.keys.Chats.Rename):
 		item, ok := m.selectedChat()
 		if !ok {
@@ -217,126 +182,112 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.manager.Delete(item.agent)
 		m.reload()
 		m.chatCursor = clampCursor(m.chatCursor, len(m.chatRows()))
+		m.stageSelection()
 	}
 
 	return m, nil
 }
 
-func (m *model) refreshPreview() {
+// openChat acts on the hovered chat. A dormant chat is restored (its pane and
+// claude session recreated) and then staged live; a live chat is already on the
+// stage from hovering, so opening it is a no-op — moving focus onto it is a
+// plain tmux pane move the user drives.
+func (m model) openChat() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedChat()
 	if !ok {
-		m.preview.SetContent("")
-		return
+		return m, nil
+	}
+	if item.alive {
+		return m, nil
 	}
 
-	// A dormant agent has no live pane to capture, so show its stored details.
-	if !item.alive {
-		m.preview.SetContent(dormantView(item.agent))
-		m.preview.GotoTop()
-		return
+	pane, err := m.manager.Restore(item.agent)
+	if err != nil {
+		return m, nil
 	}
+	m.reload()
+	m.chatCursor = clampCursor(rowIndexOfChatName(m.chatRows(), item.agent.Name), len(m.chatRows()))
+	m.manager.StageChat(pane)
 
-	// The capture is the agent's current frame, sized to fill the box, so it is
-	// shown as-is.
-	m.preview.SetContent(m.manager.Preview(item.agent, m.preview.Width, m.preview.Height))
-	m.preview.GotoTop()
+	return m, nil
 }
 
-// dormantView renders a dormant agent's stored properties in place of a live
-// capture, since its pane is gone. It shows a fixed set of fields, with N/A for
-// any that are blank, so the view has the same shape for every dormant chat and
-// does not jitter as the selection moves.
-func dormantView(agent store.Agent) string {
-	label := lipgloss.NewStyle().Foreground(lipgloss.Color("#7E9CD8")).Bold(true)
-
-	field := func(name, value string) string {
-		return label.Render(name) + "  " + orNA(value) + "\n"
+// stageSelection updates the stage pane to reflect what the cursor is on: a live
+// chat's pane is swapped in, a dormant chat and a workflow header show markdown
+// via bat, and anything else blanks the stage.
+func (m model) stageSelection() {
+	rows := m.chatRows()
+	if m.chatCursor < 0 || m.chatCursor >= len(rows) {
+		m.manager.StageBlank()
+		return
 	}
 
+	r := rows[m.chatCursor]
+	switch {
+	case r.header && r.workflowIndex >= 0:
+		m.manager.StageText(workflowMarkdown(m.workflows[r.workflowIndex], m.chatCount(m.workflows[r.workflowIndex].ID)))
+	case r.header:
+		m.manager.StageBlank()
+	case r.item.alive:
+		m.manager.StageChat(r.item.agent.Pane)
+	default:
+		m.manager.StageText(dormantMarkdown(r.item.agent))
+	}
+}
+
+// chatCount returns how many listed chats belong to the given workflow id.
+func (m model) chatCount(workflowID string) int {
+	n := 0
+	for _, it := range m.chats {
+		if it.agent.WorkflowID != nil && *it.agent.WorkflowID == workflowID {
+			n++
+		}
+	}
+
+	return n
+}
+
+func orDash(v string) string {
+	if strings.TrimSpace(v) == "" {
+		return "—"
+	}
+
+	return v
+}
+
+// workflowMarkdown renders a workflow's info for the stage: its name, shared
+// context, and config, shown through bat.
+func workflowMarkdown(w store.Workflow, chats int) string {
 	var b strings.Builder
-	b.WriteString(dimStyle.Render("dormant — not running") + "\n\n")
-	b.WriteString(field("title    ", agent.Name))
-	b.WriteString(field("directory", agent.Cwd))
-	b.WriteString(field("state    ", agent.State))
-	b.WriteString(field("flags    ", agent.Flags))
-	b.WriteString(field("resume   ", agent.ClaudeSessionID))
-	b.WriteString("\n" + dimStyle.Render("enter to restore"))
+	fmt.Fprintf(&b, "# %s\n\n", w.Name)
+	if strings.TrimSpace(w.Context) != "" {
+		b.WriteString(w.Context + "\n\n")
+	} else {
+		b.WriteString("_no shared context set_\n\n")
+	}
+	b.WriteString("---\n\n")
+	fmt.Fprintf(&b, "- chats: %d\n", chats)
+	fmt.Fprintf(&b, "- directory: %s\n", orDash(w.Cwd))
+	fmt.Fprintf(&b, "- flags: %s\n", orDash(w.Flags))
 
 	return b.String()
 }
 
-// resizePreview sizes the preview box to the popup's available area (minus the
-// sidebar), which the hovered agent is then resized to fill.
-func (m *model) resizePreview() {
-	width := m.width - chatListWidth - 4
-	if width < 10 {
-		width = 10
-	}
+// dormantMarkdown renders a dormant chat's stored record for the stage, since it
+// has no live pane to show.
+func dormantMarkdown(a store.Agent) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "# %s\n\n_dormant — not running_\n\n", a.Name)
+	b.WriteString("---\n\n")
+	fmt.Fprintf(&b, "- directory: %s\n", orDash(a.Cwd))
+	fmt.Fprintf(&b, "- flags: %s\n", orDash(a.Flags))
+	fmt.Fprintf(&b, "- resume: %s\n\n", orDash(a.ClaudeSessionID))
+	b.WriteString("Press open to restore.\n")
 
-	height := m.height - 2
-	if height < 3 {
-		height = 3
-	}
-
-	// Leave room below the preview for the details footer (its text plus border).
-	height -= detailsHeight + 2
-	if height < 3 {
-		height = 3
-	}
-
-	m.preview.Width = width
-	m.preview.Height = height
-	m.refreshPreview()
+	return b.String()
 }
 
-// chatDetails renders the hovered chat's stored record as a full-width footer
-// below the picker and preview, so the fields the panel otherwise hides (working
-// directory, flags, the resume id) are legible at a glance. The opening prompt
-// is omitted: it is variable-length and wraps, which would jitter the footer.
-func (m model) chatDetails() string {
-	width := m.width - 2
-	if width < 10 {
-		width = 10
-	}
-
-	box := lipgloss.NewStyle().
-		Width(width).
-		Height(detailsHeight).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#54546D"))
-
-	// On a workflow header the footer is empty, but the box keeps its height so
-	// the layout does not jitter as the cursor crosses folders.
-	item, ok := m.selectedChat()
-	if !ok {
-		return box.Render("")
-	}
-
-	agent := item.agent
-	label := lipgloss.NewStyle().Foreground(lipgloss.Color("#7E9CD8")).Bold(true)
-
-	field := func(name, value string) string {
-		return label.Render(name) + "  " + orNA(value)
-	}
-
-	workflow := ""
-	if agent.WorkflowID != nil {
-		workflow = m.workflowName(*agent.WorkflowID)
-	}
-
-	lines := []string{
-		field("started ", dates.Friendly(agent.CreatedAt)),
-		field("workflow", workflow),
-		field("dir     ", agent.Cwd),
-		field("flags   ", agent.Flags),
-		field("resume  ", agent.ClaudeSessionID),
-	}
-
-	return box.Render(strings.Join(lines, "\n"))
-}
-
-// actionHints renders the chat key bindings one per line with an aligned key
-// column, so they fit inside the sidebar instead of overflowing its width.
+// actionHints renders the key bindings one per line with an aligned key column.
 func (m model) actionHints() string {
 	hints := []struct{ key, desc string }{
 		{hintKeys(m.keys.Chats.Open), "open"},
@@ -382,6 +333,8 @@ func (m model) actionHints() string {
 	return b.String()
 }
 
+// chatsView renders the nav list — the panel's own pane. The hovered resource is
+// shown in the separate stage pane, not here.
 func (m model) chatsView() string {
 	var list strings.Builder
 	list.WriteString(headerStyle.Render("Chats") + "\n\n")
@@ -426,12 +379,5 @@ func (m model) chatsView() string {
 
 	list.WriteString("\n" + m.actionHints())
 
-	left := lipgloss.NewStyle().Width(chatListWidth).Render(list.String())
-	right := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#54546D")).
-		Render(m.preview.View())
-
-	top := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
-	return lipgloss.JoinVertical(lipgloss.Left, top, m.chatDetails())
+	return list.String()
 }

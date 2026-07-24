@@ -70,7 +70,7 @@ func TestUniqueSessionName(t *testing.T) {
 		name     string
 		title    string
 		prompt   string
-		taken    []string // names already alive in tmux
+		taken    []string // names already owned by a live store row
 		wantName string
 	}{
 		{
@@ -97,36 +97,26 @@ func TestUniqueSessionName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := newFakeTmux()
+			st := newStore(t)
 			for _, name := range tt.taken {
-				tmux.alive[name] = true
+				seed(t, st, name, "%1", store.StateNew)
 			}
-			manager := newManager(tmux, newStore(t), "")
+			manager := newManager(newFakeTmux(), st, "")
 
 			assert.Equal(t, tt.wantName, manager.uniqueSessionName(tt.title, tt.prompt))
 		})
 	}
 }
 
-// TestNameTaken covers both handles that reserve a name: a live tmux session and
-// a live (non-deleted) store row whose tmux session is already gone.
+// TestNameTaken covers name reservation: a live (non-deleted) store row owns its
+// name, since the name is a store-only label now.
 func TestNameTaken(t *testing.T) {
-	t.Run("a live tmux session reserves the name", func(t *testing.T) {
-		tmux := newFakeTmux()
-		tmux.alive["taken"] = true
-		manager := newManager(tmux, newStore(t), "")
+	st := newStore(t)
+	seed(t, st, "taken", "%1", store.StateDone)
+	manager := newManager(newFakeTmux(), st, "")
 
-		assert.True(t, manager.nameTaken("taken"))
-		assert.False(t, manager.nameTaken("free"))
-	})
-
-	t.Run("a dormant store row still reserves the name", func(t *testing.T) {
-		st := newStore(t)
-		seed(t, st, "dormant", "%1", store.StateDone)
-		manager := newManager(newFakeTmux(), st, "")
-
-		assert.True(t, manager.nameTaken("dormant"))
-	})
+	assert.True(t, manager.nameTaken("taken"))
+	assert.False(t, manager.nameTaken("free"))
 }
 
 func TestLaunchClaude(t *testing.T) {
@@ -224,7 +214,6 @@ func TestEnvWithout(t *testing.T) {
 func TestNewSession(t *testing.T) {
 	tmux := newFakeTmux()
 	tmux.clientDir = "/work"
-	tmux.paneIDs["My-Agent"] = "%42"
 	st := newStore(t)
 	manager := newManager(tmux, st, "--default-flag")
 
@@ -239,14 +228,14 @@ func TestNewSession(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, got)
 
-	assert.Equal(t, "%42", got.Pane)
+	assert.Equal(t, "%My-Agent", got.Pane, "the new window's pane is the agent's handle")
 	assert.Equal(t, "/work", got.Cwd)
 	assert.Equal(t, "--default-flag --extra", got.Flags)
 	assert.Equal(t, "do the thing", got.Prompt)
 	assert.Equal(t, store.StateNew, got.State)
 	assert.NotEmpty(t, got.ClaudeSessionID, "a session id is generated at launch")
-	assert.Equal(t, "/work", tmux.newSessions["My-Agent"])
-	assert.NotEmpty(t, tmux.lastKeys("My-Agent"), "claude is launched into the new session")
+	assert.Equal(t, "/work", tmux.newWindows["My-Agent"])
+	assert.NotEmpty(t, tmux.lastKeys("%My-Agent"), "claude is launched into the new pane")
 }
 
 // TestNewSessionExpandsTildeDir pins the fix for a `~`-prefixed directory: tmux
@@ -263,7 +252,7 @@ func TestNewSessionExpandsTildeDir(t *testing.T) {
 	manager.NewSession(NewSessionParams{Title: "scoped", Dir: "~/chariot/chariot"})
 
 	want := filepath.Join(home, "chariot", "chariot")
-	assert.Equal(t, want, tmux.newSessions["scoped"], "tmux is given the expanded path")
+	assert.Equal(t, want, tmux.newWindows["scoped"], "tmux is given the expanded path")
 
 	got, err := st.Get(context.Background(), "scoped")
 	require.NoError(t, err)
@@ -301,10 +290,10 @@ func TestNewSessionInjectsWorkflowContext(t *testing.T) {
 	require.NoError(t, err)
 
 	manager.NewSession(NewSessionParams{Title: "scoped", WorkflowID: &workflow.ID})
-	assert.Contains(t, tmux.lastKeys("scoped")[0], "--append-system-prompt")
+	assert.Contains(t, tmux.lastKeys("%scoped")[0], "--append-system-prompt")
 
 	manager.NewSession(NewSessionParams{Title: "rootless"})
-	assert.NotContains(t, tmux.lastKeys("rootless")[0], "--append-system-prompt")
+	assert.NotContains(t, tmux.lastKeys("%rootless")[0], "--append-system-prompt")
 }
 
 func TestNewWorkflowDefaultsBlankName(t *testing.T) {
@@ -439,7 +428,7 @@ func TestNotify(t *testing.T) {
 }
 
 func TestRename(t *testing.T) {
-	t.Run("renames the tmux session and store row", func(t *testing.T) {
+	t.Run("renames the store row only", func(t *testing.T) {
 		st := newStore(t)
 		agent := seed(t, st, "old", "%1", store.StateNew)
 		tmux := newFakeTmux()
@@ -447,8 +436,7 @@ func TestRename(t *testing.T) {
 
 		manager.Rename(agent, "New Name")
 
-		require.Len(t, tmux.renamed, 1)
-		assert.Equal(t, [2]string{"old", "New-Name"}, tmux.renamed[0])
+		assert.Empty(t, tmux.renamed, "the name is a store-only label; no tmux object is renamed")
 		got, _ := st.Get(context.Background(), "New-Name")
 		require.NotNil(t, got)
 		assert.Equal(t, agent.ID, got.ID)
@@ -462,60 +450,20 @@ func TestRename(t *testing.T) {
 
 		manager.Rename(agent, "   ")
 		manager.Rename(agent, "same")
-		assert.Empty(t, tmux.renamed)
+		got, _ := st.Get(context.Background(), "same")
+		require.NotNil(t, got, "the row keeps its name")
 	})
 }
 
 func TestDelete(t *testing.T) {
-	t.Run("kills the session and soft-deletes the row", func(t *testing.T) {
-		st := newStore(t)
-		agent := seed(t, st, "target", "%1", store.StateThinking)
-		tmux := newFakeTmux()
-		tmux.clientSes = "target"
-		manager := newManager(tmux, st, "")
-		manager.SetInvokingClient("client")
+	st := newStore(t)
+	agent := seed(t, st, "target", "%1", store.StateThinking)
+	tmux := newFakeTmux()
+	manager := newManager(tmux, st, "")
 
-		manager.Delete(agent)
+	manager.Delete(agent)
 
-		assert.Contains(t, tmux.killed, "target")
-		assert.Contains(t, tmux.switched, "client", "a client viewing the target is bounced away first")
-		got, _ := st.Get(context.Background(), "target")
-		assert.Nil(t, got, "the row is hidden from listings")
-	})
-
-	t.Run("does not switch a client that is elsewhere", func(t *testing.T) {
-		st := newStore(t)
-		agent := seed(t, st, "target", "%1", store.StateThinking)
-		tmux := newFakeTmux()
-		tmux.clientSes = "somewhere-else"
-		manager := newManager(tmux, st, "")
-		manager.SetInvokingClient("client")
-
-		manager.Delete(agent)
-		assert.Empty(t, tmux.switched)
-	})
-}
-
-// TestPreviewResizesOnlyDetached confirms a preview capture resizes a detached
-// agent's window to fill the box, but leaves an attached session alone so a live
-// client's view is never disturbed.
-func TestPreviewResizesOnlyDetached(t *testing.T) {
-	t.Run("detached agent is resized before capture", func(t *testing.T) {
-		tmux := newFakeTmux()
-		tmux.captures["%1"] = "frame"
-		manager := newManager(tmux, newStore(t), "")
-
-		got := manager.Preview(store.Agent{Name: "a", Pane: "%1"}, 80, 24)
-		assert.Equal(t, "frame", got)
-		assert.Equal(t, [2]int{80, 24}, tmux.resized["a"])
-	})
-
-	t.Run("attached session is left alone", func(t *testing.T) {
-		tmux := newFakeTmux()
-		tmux.attached["a"] = true
-		manager := newManager(tmux, newStore(t), "")
-
-		manager.Preview(store.Agent{Name: "a", Pane: "%1"}, 80, 24)
-		assert.NotContains(t, tmux.resized, "a")
-	})
+	assert.Contains(t, tmux.killedPanes, "%1", "the agent's pane is killed")
+	got, _ := st.Get(context.Background(), "target")
+	assert.Nil(t, got, "the row is hidden from listings")
 }

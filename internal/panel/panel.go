@@ -14,24 +14,19 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// previewInterval is how often the chats preview re-captures the hovered pane.
-// It is fast because the capture is a local tmux read. chatsInterval is how
-// often the chats list re-lists over RPC. It is slower and, crucially, runs off
-// the render loop, so a slow serve can never freeze the UI.
+// chatsInterval is how often the chats list re-lists over RPC. It runs off the
+// render loop, so a slow serve can never freeze the UI.
 const (
-	previewInterval = 200 * time.Millisecond
-	chatsInterval   = time.Second
-	chatsTimeout    = 2 * time.Second
+	chatsInterval = time.Second
+	chatsTimeout  = 2 * time.Second
 )
 
-type tickMsg struct{}
 type chatsTickMsg struct{}
 
 // chatsLoadedMsg carries the result of an async re-list. ok is false when the
@@ -40,10 +35,6 @@ type chatsTickMsg struct{}
 type chatsLoadedMsg struct {
 	items []chatItem
 	ok    bool
-}
-
-func tick() tea.Cmd {
-	return tea.Tick(previewInterval, func(time.Time) tea.Msg { return tickMsg{} })
 }
 
 func chatsTick() tea.Cmd {
@@ -162,7 +153,6 @@ type model struct {
 
 	chats      []chatItem
 	chatCursor int
-	preview    viewport.Model
 
 	// workflows backs the tree's folder headers. workflowCursor is which workflow a
 	// header-hover action targets. workflowRenameTarget is the workflow being
@@ -184,9 +174,6 @@ type model struct {
 	renameTarget store.Agent
 
 	keys appconfig.Keybindings
-
-	width  int
-	height int
 }
 
 func newModel(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, keys appconfig.Keybindings) model {
@@ -195,10 +182,13 @@ func newModel(manager *agents.AgentManager, sessions sessionv1connect.SessionSer
 		sessions: sessions,
 		keys:     keys,
 		screen:   screenChats,
-		preview:  viewport.New(0, 0),
 	}
+	// Split off the stage pane beside the panel, then show whatever the initial
+	// selection lands on.
+	m.manager.InitStage()
 	m.reload()
 	m.chatCursor = firstChatRowIndex(m.chatRows())
+	m.stageSelection()
 
 	return m
 }
@@ -309,37 +299,6 @@ func clampCursor(idx, length int) int {
 	return idx
 }
 
-// agentDetachedMsg is delivered when the ExecProcess attach returns, i.e. the
-// user detached from an agent back to the picker. The program was paused, not
-// torn down, so its scope and cursor are intact on resume.
-type agentDetachedMsg struct{ err error }
-
-// openAgent attaches to the given agent without leaving the panel. A dormant
-// session is restored first, then the attached agent is recorded so the tmux
-// back binding can detach just its client. The blocking tmux attach runs through
-// ExecProcess, which pauses and resumes this same program rather than tearing it
-// down: a teardown per attach cost a fixed ~500ms in bubbletea's read-loop
-// shutdown, so keeping one program alive removes that lag.
-func (m model) openAgent(agent store.Agent) (tea.Model, tea.Cmd) {
-	pane := agent.Pane
-	if !m.manager.SessionAlive(agent.Name) {
-		restored, err := m.manager.Restore(agent)
-		if err != nil {
-			// A restore failure must not disturb the picker; stay put.
-			return m, nil
-		}
-
-		pane = restored
-	}
-
-	m.manager.SetAttachedAgent(agent.Name)
-	cmd := m.manager.AttachCommand(agent.Name, pane)
-
-	return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
-		return agentDetachedMsg{err: err}
-	})
-}
-
 func protoToAgent(s *sessionv1.Session) store.Agent {
 	created, _ := time.Parse(time.RFC3339, s.GetCreatedAt())
 
@@ -393,12 +352,12 @@ func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.reload()
 		m.chatCursor = clampCursor(m.chatCursor, len(m.chatRows()))
 		m.screen = screenChats
-		m.refreshPreview()
-		return m, tick()
+		m.stageSelection()
+		return m, nil
 	case huh.StateAborted:
 		m.screen = screenChats
-		m.refreshPreview()
-		return m, tick()
+		m.stageSelection()
+		return m, nil
 	default:
 		return m, cmd
 	}
@@ -434,49 +393,11 @@ func formKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
 }
 
 func (m model) Init() tea.Cmd {
-	// Always drive the async chats refresh, so the root list's count and the
-	// chats screen both stay current. Add the preview tick only on the chats
-	// screen, where a hovered pane is shown.
-	cmds := []tea.Cmd{chatsTick(), m.loadChatsCmd()}
-	if m.screen == screenChats {
-		cmds = append(cmds, tick())
-	}
-
-	return tea.Batch(cmds...)
+	// Drive the async chats refresh so the list's counts and states stay current.
+	return tea.Batch(chatsTick(), m.loadChatsCmd())
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if size, ok := msg.(tea.WindowSizeMsg); ok {
-		m.width = size.Width
-		m.height = size.Height
-		m.resizePreview()
-		return m, nil
-	}
-
-	if _, ok := msg.(agentDetachedMsg); ok {
-		// Returned from a chat. Clear the attached-agent marker and refresh the
-		// scope the user is still browsing, keeping the same chat selected. The
-		// preview resumes only on the chats screen, where a hovered pane is shown.
-		m.manager.ClearAttachedAgent()
-		m.reload()
-		m.chatCursor = clampCursor(m.chatCursor, len(m.chatRows()))
-		if m.screen == screenChats {
-			m.refreshPreview()
-			return m, tick()
-		}
-
-		return m, nil
-	}
-
-	if _, ok := msg.(tickMsg); ok {
-		if m.screen != screenChats {
-			return m, nil
-		}
-
-		m.refreshPreview()
-		return m, tick()
-	}
-
 	if _, ok := msg.(chatsTickMsg); ok {
 		return m, tea.Batch(m.loadChatsCmd(), chatsTick())
 	}
@@ -534,8 +455,8 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.newChatWorkflow = nil
 		m.screen = screenChats
 		m.chatCursor = clampCursor(m.chatCursor, len(m.chatRows()))
-		m.refreshPreview()
-		return m, tick()
+		m.stageSelection()
+		return m, nil
 	default:
 		return m, cmd
 	}
@@ -560,6 +481,6 @@ func (m model) submitSession() (tea.Model, tea.Cmd) {
 	m.reload()
 	m.screen = screenChats
 	m.chatCursor = clampCursor(m.chatCursor, len(m.chatRows()))
-	m.refreshPreview()
-	return m, tick()
+	m.stageSelection()
+	return m, nil
 }

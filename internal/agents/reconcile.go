@@ -107,8 +107,10 @@ func frameShowsWaiting(frame string) bool {
 }
 
 // tmuxProbe is the slice of the tmux client the reconciler observes through.
+// Liveness keys on the pane id, not a session name, so an agent stays observable
+// no matter which window or session its pane currently sits in.
 type tmuxProbe interface {
-	HasSession(name string) bool
+	PaneAlive(pane string) bool
 	CapturePane(pane string) string
 }
 
@@ -125,7 +127,7 @@ type stateStore interface {
 // escape interrupt, it observes each agent directly from tmux on a timer and
 // writes the state that observation implies: a working timer on the pane means
 // thinking, a confirmation prompt means waiting, an idle prompt means done, and
-// a vanished tmux session means done. Because it reads ground truth every pass,
+// a vanished pane means done. Because it reads ground truth every pass,
 // a wrong state cannot persist longer than the interval, and there are no edges
 // to miss.
 type Reconciler struct {
@@ -167,10 +169,10 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 
 // reconcileAgent writes the single agent's state to match what tmux shows.
 func (r *Reconciler) reconcileAgent(ctx context.Context, agent store.Agent) {
-	// The tmux session is gone: the agent is dormant and cannot be working. An
-	// active state settles to done so the counts stop treating it as running; a
-	// new agent that never launched, or one already done, is left as is.
-	if !r.tmux.HasSession(agent.Name) {
+	// The pane is gone: the agent is dormant and cannot be working. An active
+	// state settles to done so the counts stop treating it as running; a new agent
+	// that never launched, or one already done, is left as is.
+	if !r.tmux.PaneAlive(agent.Pane) {
 		if agent.State == store.StateThinking || agent.State == store.StateWaiting {
 			r.apply(ctx, agent, store.StateDone)
 		} else {

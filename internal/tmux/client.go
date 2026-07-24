@@ -98,6 +98,47 @@ func (c *Client) SendKeys(target string, keys ...string) {
 	c.run(append([]string{"send-keys", "-t", target}, keys...)...)
 }
 
+// CurrentPane returns the id of the pane the calling process runs in. The panel
+// uses it as the stable anchor for the stage split.
+func (c *Client) CurrentPane() (string, error) {
+	return c.query("display-message", "-p", "#{pane_id}")
+}
+
+// SplitRight splits the anchor pane horizontally, adding a pane to its right
+// rooted at dir, and returns the new pane's id. The split stays detached (-d) so
+// focus remains on the anchor. This is the stage the panel drives.
+func (c *Client) SplitRight(anchorPane, dir string) string {
+	pane, _ := c.query("split-window", "-h", "-d", "-t", anchorPane, "-c", dir, "-P", "-F", "#{pane_id}")
+	return pane
+}
+
+// NewWindow creates a detached window in a session, rooted at dir and titled
+// name, and returns its pane id. Agents live in these background windows; the
+// pane id is their stable handle regardless of where the pane is later moved.
+func (c *Client) NewWindow(session, name, dir string) string {
+	pane, _ := c.query("new-window", "-d", "-t", session, "-n", name, "-c", dir, "-P", "-F", "#{pane_id}")
+	return pane
+}
+
+// SwapPanes exchanges two panes' positions, keeping the active pane unchanged
+// (-d). Pane ids travel with their processes, so this moves a pane into or out of
+// the stage slot without disturbing which pane has focus.
+func (c *Client) SwapPanes(src, dst string) {
+	c.run("swap-pane", "-d", "-s", src, "-t", dst)
+}
+
+// RespawnPane replaces a pane's process with the given command (argv), rooted at
+// dir. With no command it re-runs the default shell, blanking the pane.
+func (c *Client) RespawnPane(pane, dir string, argv ...string) {
+	c.run(append([]string{"respawn-pane", "-k", "-t", pane, "-c", dir}, argv...)...)
+}
+
+// KillPane tears down a single pane. When it is the only pane in its window the
+// window closes too, but the session (which always holds the panel) survives.
+func (c *Client) KillPane(pane string) {
+	c.run("kill-pane", "-t", pane)
+}
+
 // KillSession tears down a session by name.
 func (c *Client) KillSession(name string) {
 	c.run("kill-session", "-t", name)

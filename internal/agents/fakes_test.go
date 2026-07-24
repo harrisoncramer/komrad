@@ -31,6 +31,11 @@ type fakeTmux struct {
 	resized     map[string][2]int
 	newSessions map[string]string
 
+	newWindows  map[string]string // window name -> dir
+	swaps       [][2]string       // {src, dst}
+	respawns    [][]string        // pane + argv per respawn
+	killedPanes []string
+
 	detached       []string
 	sessionOptions map[string]string
 }
@@ -45,9 +50,33 @@ func newFakeTmux() *fakeTmux {
 		globals:        map[string]string{},
 		resized:        map[string][2]int{},
 		newSessions:    map[string]string{},
+		newWindows:     map[string]string{},
 		sessionOptions: map[string]string{},
 	}
 }
+
+// CurrentPane returns a fixed nav pane id for the panel's own pane.
+func (f *fakeTmux) CurrentPane() (string, error) { return "%nav", nil }
+
+// SplitRight records the anchor and returns a fixed stage pane id.
+func (f *fakeTmux) SplitRight(anchorPane, dir string) string { return "%stage" }
+
+// NewWindow records the window and returns a synthetic pane id, marking it alive
+// so pane-keyed liveness sees it.
+func (f *fakeTmux) NewWindow(session, name, dir string) string {
+	f.newWindows[name] = dir
+	pane := "%" + name
+	f.alive[pane] = true
+	return pane
+}
+
+func (f *fakeTmux) SwapPanes(src, dst string) { f.swaps = append(f.swaps, [2]string{src, dst}) }
+
+func (f *fakeTmux) RespawnPane(pane, dir string, argv ...string) {
+	f.respawns = append(f.respawns, append([]string{pane}, argv...))
+}
+
+func (f *fakeTmux) KillPane(pane string) { f.killedPanes = append(f.killedPanes, pane) }
 
 func (f *fakeTmux) Socket() string                { return "test" }
 func (f *fakeTmux) SetGlobal(name, value string)  { f.globals[name] = value }

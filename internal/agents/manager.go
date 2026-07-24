@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -59,6 +58,12 @@ type tmuxClient interface {
 	ShowGlobal(name string) string
 	DetachSession(name string)
 	SetSessionOption(target, name, value string)
+	CurrentPane() (string, error)
+	SplitRight(anchorPane, dir string) string
+	NewWindow(session, name, dir string) string
+	SwapPanes(src, dst string)
+	RespawnPane(pane, dir string, argv ...string)
+	KillPane(pane string)
 }
 
 // agentStore is the slice of the store the manager reads and mutates. Accepting
@@ -92,6 +97,15 @@ type AgentManager struct {
 	sessions    agentStore
 	selfPath    string
 	claudeFlags string
+
+	// The stage is the pane beside the panel that shows the hovered resource.
+	// navPane anchors the split; stagePane is the pane the panel drives (bat, or a
+	// blank shell); stagedChatPane is the agent pane currently swapped into the
+	// slot, or empty when the stage shows the stagePane itself. Set up by InitStage
+	// once the panel knows its own pane.
+	navPane        string
+	stagePane      string
+	stagedChatPane string
 }
 
 // Params carries the AgentManager's dependencies.
@@ -176,46 +190,115 @@ func (m *AgentManager) Reconciler() *Reconciler {
 	return NewReconciler(m.tmux, m.sessions)
 }
 
-// SessionAlive reports whether a tmux session with the given name still exists.
-// Attaching targets a session by name, so this is what gates restoring it: a
-// dormant chat's stored pane id can be empty or collide with a recycled id after
-// a tmux server restart, both of which make PaneAlive lie.
-func (m *AgentManager) SessionAlive(name string) bool {
-	return m.tmux.HasSession(name)
+// InitStage records the panel's own pane as the anchor and splits a stage pane
+// to its right, rooted at home. The panel calls it once on startup. It is a
+// no-op split if a live stage already exists, so a panel restart does not stack
+// splits.
+func (m *AgentManager) InitStage() {
+	if pane, err := m.tmux.CurrentPane(); err == nil && pane != "" {
+		m.navPane = pane
+	}
+	m.ensureStage()
 }
 
-// Preview sizes a detached agent's window to the preview box (so its capture
-// fills the box), then returns a snapshot of its pane. Attached sessions are
-// left alone so a live client's view is never disturbed.
-func (m *AgentManager) Preview(agent store.Agent, width, height int) string {
-	if width > 0 && height > 0 && !m.tmux.SessionAttached(agent.Name) {
-		m.tmux.ResizeWindow(agent.Name, width, height)
+// ensureStage guarantees a live stage pane beside the panel, splitting a fresh
+// one when the stage is missing or has died — e.g. a one-shot preview process
+// (bat) exited and tmux closed its pane. This self-heals the stage without a
+// panel restart. A stage pane swapped out to hold a chat is still alive, so it
+// is left as is.
+func (m *AgentManager) ensureStage() {
+	if m.navPane == "" {
+		return
+	}
+	if m.stagePane != "" && m.tmux.PaneAlive(m.stagePane) {
+		return
 	}
 
-	return m.tmux.CapturePane(agent.Pane)
+	home, _ := os.UserHomeDir()
+	m.stagePane = m.tmux.SplitRight(m.navPane, home)
+	m.stagedChatPane = ""
 }
 
-// Rename retitles an agent, renaming both its tmux session (so state events
-// keep keying to it) and its stored record.
+// restoreStage swaps any staged chat pane back to its own window, leaving the
+// panel's own stagePane sitting in the slot again. A no-op when nothing is
+// staged.
+func (m *AgentManager) restoreStage() {
+	if m.stagedChatPane == "" {
+		return
+	}
+
+	m.tmux.SwapPanes(m.stagePane, m.stagedChatPane)
+	m.stagedChatPane = ""
+}
+
+// StageChat swaps a live agent's pane into the stage slot, so its running claude
+// shows beside the panel. Focus stays on the panel; moving to the chat is a
+// plain tmux pane move the user drives. A no-op when that chat is already staged.
+func (m *AgentManager) StageChat(pane string) {
+	m.ensureStage()
+	if m.stagePane == "" || pane == "" || pane == m.stagedChatPane {
+		return
+	}
+
+	m.restoreStage()
+	m.tmux.SwapPanes(pane, m.stagePane)
+	m.stagedChatPane = pane
+}
+
+// StageText shows markdown in the stage by writing it to a temp file and running
+// bat there. Used for a workflow's info and for a dormant chat's placeholder.
+// bat is one-shot, so it is wrapped in a shell that holds the pane open after it
+// prints — otherwise the process would exit and tmux would close the stage pane.
+func (m *AgentManager) StageText(markdown string) {
+	m.ensureStage()
+	if m.stagePane == "" {
+		return
+	}
+
+	m.restoreStage()
+
+	home, _ := os.UserHomeDir()
+	path := filepath.Join(os.TempDir(), "claude-agents-stage.md")
+	if err := os.WriteFile(path, []byte(markdown), 0o644); err != nil {
+		return
+	}
+
+	cmd := fmt.Sprintf("bat --language=markdown --style=plain --paging=never '%s'; while :; do sleep 3600; done", path)
+	m.tmux.RespawnPane(m.stagePane, home, "sh", "-c", cmd)
+}
+
+// StageBlank clears the stage back to an empty shell.
+func (m *AgentManager) StageBlank() {
+	m.ensureStage()
+	if m.stagePane == "" {
+		return
+	}
+
+	m.restoreStage()
+	home, _ := os.UserHomeDir()
+	m.tmux.RespawnPane(m.stagePane, home)
+}
+
+// Rename retitles an agent. The name is now a store-only display label; nothing
+// in tmux keys on it, so no tmux object is renamed.
 func (m *AgentManager) Rename(agent store.Agent, name string) {
 	name = store.SanitizeName(strings.TrimSpace(name))
 	if name == "" || name == agent.Name {
 		return
 	}
 
-	m.tmux.RenameSession(agent.Name, name)
 	_ = m.sessions.Rename(context.Background(), agent.ID, name)
 }
 
-// Delete soft-deletes an agent's record (hiding it from the panel), stopping its
-// session first.
+// Delete soft-deletes an agent's record (hiding it from the panel), killing its
+// pane first. If the agent is currently staged, it is swapped back out so the
+// kill does not take the stage pane down with it.
 func (m *AgentManager) Delete(agent store.Agent) {
-	client := m.InvokingClient()
-	if m.tmux.ClientSession(client) == agent.Name {
-		m.tmux.SwitchToLast(client)
+	if m.stagedChatPane == agent.Pane {
+		m.restoreStage()
 	}
 
-	m.tmux.KillSession(agent.Name)
+	m.tmux.KillPane(agent.Pane)
 	_ = m.sessions.SoftDelete(context.Background(), agent.Name)
 }
 
@@ -247,9 +330,7 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 
 	name := m.uniqueSessionName(p.Title, p.Prompt)
 
-	m.tmux.NewDetachedSession(name, dir)
-
-	pane, _ := m.tmux.PaneID(name)
+	pane := m.tmux.NewWindow(ManagerSession, name, dir)
 	flags := strings.TrimSpace(m.claudeFlags + " " + p.Flags)
 
 	// A chat created inside a workflow inherits the workflow's shared context,
@@ -277,7 +358,7 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 		WorkflowID:      p.WorkflowID,
 	})
 
-	m.launchClaude(name, flags, p.Prompt, workflowContext, sessionID, false)
+	m.launchClaude(pane, flags, p.Prompt, workflowContext, sessionID, false)
 }
 
 // ListWorkflows returns every live workflow for the workflow picker.
@@ -391,8 +472,7 @@ func (m *AgentManager) Restore(agent store.Agent) (string, error) {
 		agent.Name = newName
 	}
 
-	m.tmux.NewDetachedSession(agent.Name, dir)
-	pane, _ := m.tmux.PaneID(agent.Name)
+	pane := m.tmux.NewWindow(ManagerSession, agent.Name, dir)
 
 	// Clear the soft-delete flag first, so the row re-enters the unique-name
 	// index before the upsert below keys off it. Upserting a still-deleted row
@@ -409,7 +489,7 @@ func (m *AgentManager) Restore(agent store.Agent) (string, error) {
 		return "", fmt.Errorf("failed to restore session %q: %w", agent.Name, err)
 	}
 
-	m.launchClaude(agent.Name, agent.Flags, "", "", agent.ClaudeSessionID, true)
+	m.launchClaude(pane, agent.Flags, "", "", agent.ClaudeSessionID, true)
 
 	return pane, nil
 }
@@ -433,16 +513,11 @@ func (m *AgentManager) uniqueSessionName(title, prompt string) string {
 	return name
 }
 
-// nameTaken reports whether a name is unavailable for a new session. A name is
-// taken if a live tmux session already uses it, or if a live agent record still
-// owns it. The store check matters for a dormant agent, whose tmux session is
-// gone yet whose record keeps the name. Reusing it would make the upsert clobber
-// that agent's row instead of creating a fresh one.
+// nameTaken reports whether a name is unavailable for a new agent: a live agent
+// record already owns it. The name is a store-only label now, so the store's
+// unique-name index is the single authority; reusing a name would make the
+// upsert clobber that agent's row instead of creating a fresh one.
 func (m *AgentManager) nameTaken(name string) bool {
-	if m.tmux.HasSession(name) {
-		return true
-	}
-
 	taken, _ := m.sessions.ActiveNameExists(context.Background(), name)
 	return taken
 }
@@ -536,24 +611,6 @@ func (m *AgentManager) Status() string {
 	}
 
 	return strings.Join(segments, "  ") + "  "
-}
-
-// AttachCommand builds the tmux command that attaches a client to the agent's
-// session, focused on its pane. The panel runs it through bubbletea's
-// ExecProcess, which releases the terminal, blocks until the client detaches,
-// then restores and resumes the same program. Keeping one long-lived program
-// (rather than quitting and rebuilding it per attach) avoids the fixed ~500ms
-// bubbletea spends waiting on its input read loop during a program teardown.
-//
-// Stdio is left unset so ExecProcess wires the program's own terminal. TMUX is
-// stripped from the environment so tmux does not refuse the attach as nested.
-func (m *AgentManager) AttachCommand(session, pane string) *exec.Cmd {
-	m.tmux.SetWindowSizeLatest(session)
-
-	cmd := exec.Command("tmux", "-L", m.tmux.Socket(), "attach-session", "-t", session, ";", "select-pane", "-t", pane)
-	cmd.Env = envWithout("TMUX")
-
-	return cmd
 }
 
 func (m *AgentManager) agentKey(mainSession string) string {

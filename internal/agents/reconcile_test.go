@@ -227,7 +227,7 @@ func TestReconcileSinglePass(t *testing.T) {
 			seed(t, st, "agent", "%1", tt.fromState)
 
 			tmux := newFakeTmux()
-			tmux.alive["agent"] = tt.alive
+			tmux.alive["%1"] = tt.alive
 			tmux.captures["%1"] = tt.frame
 
 			rec := NewReconciler(tmux, st)
@@ -245,13 +245,13 @@ func TestReconcileIdleDebounce(t *testing.T) {
 	seed(t, st, "stuck", "%1", store.StateThinking)
 
 	tmux := newFakeTmux()
-	tmux.alive["stuck"] = true
+	tmux.alive["%1"] = true
 	tmux.captures["%1"] = idleFrame
 
 	rec := NewReconciler(tmux, st)
 	ctx := context.Background()
 
-	for i := 0; i < reconcileMisses-1; i++ {
+	for i := range reconcileMisses - 1 {
 		require.NoError(t, rec.Reconcile(ctx))
 		assert.Equal(t, store.StateThinking, stateOf(t, st, "stuck"), "must survive idle pass %d", i)
 	}
@@ -267,7 +267,7 @@ func TestReconcileBusyResetsMissCount(t *testing.T) {
 	agent := seed(t, st, "flap", "%1", store.StateThinking)
 
 	tmux := newFakeTmux()
-	tmux.alive["flap"] = true
+	tmux.alive["%1"] = true
 	rec := NewReconciler(tmux, st)
 	ctx := context.Background()
 
@@ -289,7 +289,7 @@ func TestReconcileWaitingThenAnswered(t *testing.T) {
 	seed(t, st, "ask", "%1", store.StateThinking)
 
 	tmux := newFakeTmux()
-	tmux.alive["ask"] = true
+	tmux.alive["%1"] = true
 	tmux.captures["%1"] = waitFrame
 
 	rec := NewReconciler(tmux, st)
@@ -312,7 +312,7 @@ func TestReconcileForgetsVanishedAgents(t *testing.T) {
 	agent := seed(t, st, "temp", "%1", store.StateThinking)
 
 	tmux := newFakeTmux()
-	tmux.alive["temp"] = true
+	tmux.alive["%1"] = true
 	tmux.captures["%1"] = idleFrame
 
 	rec := NewReconciler(tmux, st)
