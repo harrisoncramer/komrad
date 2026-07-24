@@ -147,7 +147,14 @@ func serveCmd(state *app) *cobra.Command {
 			}
 			defer func() { _ = readOnly.Close() }()
 
-			mux.Handle("/mcp", mcp.NewHandler(mcp.NewHandlerParams{DB: readOnly}))
+			// The RPC-backed tools call back into this same server, so they are
+			// pointed at the address it is about to listen on.
+			mcpHandler, err := mcp.NewHandler(mcp.NewHandlerParams{DB: readOnly, BaseURL: "http://" + addr})
+			if err != nil {
+				return err
+			}
+
+			mux.Handle("/mcp", mcpHandler)
 
 			// The reconciler runs here rather than in the panel because serve is
 			// the always-on process that owns the store. The counts must stay

@@ -8,6 +8,7 @@ package sessionv1
 
 import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
+	_ "claude-agents/proto/gen/annotation/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -829,7 +830,7 @@ var File_session_v1_session_proto protoreflect.FileDescriptor
 const file_session_v1_session_proto_rawDesc = "" +
 	"\n" +
 	"\x18session/v1/session.proto\x12\n" +
-	"session.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\"\x9d\x02\n" +
+	"session.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\"\x9d\x02\n" +
 	"\aSession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -846,12 +847,12 @@ const file_session_v1_session_proto_rawDesc = "" +
 	" \x01(\tR\tcreatedAtB\x0e\n" +
 	"\f_workflow_id\"G\n" +
 	"\x14ListSessionsResponse\x12/\n" +
-	"\bsessions\x18\x01 \x03(\v2\x13.session.v1.SessionR\bsessions\"\xc4\x02\n" +
+	"\bsessions\x18\x01 \x03(\v2\x13.session.v1.SessionR\bsessions\"\xc6\x02\n" +
 	"\x14CreateSessionRequest\x12#\n" +
 	"\x06prompt\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12\x1e\n" +
-	"\x05title\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\xc8\x01R\x05title\x12\x87\x01\n" +
-	"\x03dir\x18\x03 \x01(\tBu\xbaHr\xba\x01j\n" +
-	"\fdir.absolute\x12,dir must be an absolute path or start with ~\x1a,this.startsWith('/') || this.startsWith('~')r\x03\x18\x80 R\x03dir\x12\x1e\n" +
+	"\x05title\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\xc8\x01R\x05title\x12\x89\x01\n" +
+	"\x03dir\x18\x03 \x01(\tBw\xbaHt\xba\x01j\n" +
+	"\fdir.absolute\x12,dir must be an absolute path or start with ~\x1a,this.startsWith('/') || this.startsWith('~')r\x05\x10\x01\x18\x80 R\x03dir\x12\x1e\n" +
 	"\x05flags\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\xf4\x03R\x05flags\x12-\n" +
 	"\vworkflow_id\x18\x05 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\n" +
 	"workflowId\x88\x01\x01B\x0e\n" +
@@ -892,17 +893,25 @@ const file_session_v1_session_proto_rawDesc = "" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\tsessionId\"1\n" +
 	"\x15GetTranscriptResponse\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontent2\xaf\x05\n" +
-	"\x0eSessionService\x12M\n" +
-	"\fListSessions\x12\x16.google.protobuf.Empty\x1a .session.v1.ListSessionsResponse\"\x03\x90\x02\x01\x12P\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent2\x87\x13\n" +
+	"\x0eSessionService\x12\x8c\x02\n" +
+	"\fListSessions\x12\x16.google.protobuf.Empty\x1a .session.v1.ListSessionsResponse\"\xc1\x01\x9a\xb5\x18\xb9\x01\n" +
+	"\rlist_sessions\x12\xa7\x01List every chat the panel tracks, live and dormant, with its name, state, working directory, flags, and workflow. Start here to find the id or name another tool needs.\x90\x02\x01\x12\xd4\x01\n" +
 	"\n" +
-	"GetSession\x12\x1d.session.v1.GetSessionRequest\x1a\x1e.session.v1.GetSessionResponse\"\x03\x90\x02\x01\x12T\n" +
-	"\rCreateSession\x12 .session.v1.CreateSessionRequest\x1a!.session.v1.CreateSessionResponse\x12D\n" +
-	"\bSetState\x12\x1b.session.v1.SetStateRequest\x1a\x16.google.protobuf.Empty\"\x03\x90\x02\x02\x12N\n" +
-	"\rDeleteSession\x12 .session.v1.DeleteSessionRequest\x1a\x16.google.protobuf.Empty\"\x03\x90\x02\x02\x12N\n" +
-	"\rUpdateSession\x12 .session.v1.UpdateSessionRequest\x1a\x16.google.protobuf.Empty\"\x03\x90\x02\x02\x12e\n" +
-	"\x11SearchTranscripts\x12$.session.v1.SearchTranscriptsRequest\x1a%.session.v1.SearchTranscriptsResponse\"\x03\x90\x02\x01\x12Y\n" +
-	"\rGetTranscript\x12 .session.v1.GetTranscriptRequest\x1a!.session.v1.GetTranscriptResponse\"\x03\x90\x02\x01B.Z,claude-agents/proto/gen/session/v1;sessionv1b\x06proto3"
+	"GetSession\x12\x1d.session.v1.GetSessionRequest\x1a\x1e.session.v1.GetSessionResponse\"\x86\x01\x9a\xb5\x18\x7f\n" +
+	"\vget_session\x12pFetch one chat by its exact name. Names are unique among live chats. Returns not_found if no chat has that name.\x90\x02\x01\x12\x90\x03\n" +
+	"\rCreateSession\x12 .session.v1.CreateSessionRequest\x1a!.session.v1.CreateSessionResponse\"\xb9\x02\x9a\xb5\x18\xb4\x02\n" +
+	"\x0ecreate_session\x12\x9f\x02Launch a background Claude chat with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would resolve somewhere unpredictable. Each call spawns another chat, so do not retry a call that may have succeeded. \x00\x12\xae\x02\n" +
+	"\bSetState\x12\x1b.session.v1.SetStateRequest\x1a\x16.google.protobuf.Empty\"\xec\x01\x9a\xb5\x18\xe4\x01\n" +
+	"\x11set_session_state\x12\xcc\x01Move a chat to one of new, thinking, waiting, or done. The reconciler derives state from the live pane every couple of seconds, so a value set here is overwritten shortly after unless the chat is dormant. \x00\x90\x02\x02\x12\xa4\x02\n" +
+	"\rDeleteSession\x12 .session.v1.DeleteSessionRequest\x1a\x16.google.protobuf.Empty\"\xd8\x01\x9a\xb5\x18\xd0\x01\n" +
+	"\x0edelete_session\x12\xbb\x01Permanently remove a chat's record by name. This is a hard delete, not the panel's soft delete, and the transcript row goes with it. Prefer leaving chats alone unless asked to remove one. \x01\x90\x02\x02\x12\x85\x02\n" +
+	"\rUpdateSession\x12 .session.v1.UpdateSessionRequest\x1a\x16.google.protobuf.Empty\"\xb9\x01\x9a\xb5\x18\xb1\x01\n" +
+	"\x0erename_session\x12\x9c\x01Rename a chat, keyed by its id rather than its current name. The name is a display label that tmux also uses, so it may not contain spaces, colons, or dots. \x00\x90\x02\x02\x12\x8c\x03\n" +
+	"\x11SearchTranscripts\x12$.session.v1.SearchTranscriptsRequest\x1a%.session.v1.SearchTranscriptsResponse\"\xa9\x02\x9a\xb5\x18\xa1\x02\n" +
+	"\x12search_transcripts\x12\x8a\x02Full-text search across every chat's conversation, including deleted ones, returning a ranked snippet per hit with the matched text marked. Substring matching, so partial words work. Use this to answer what was discussed; use query for the SQL view of the same data.\x90\x02\x01\x12\x8c\x02\n" +
+	"\rGetTranscript\x12 .session.v1.GetTranscriptRequest\x1a!.session.v1.GetTranscriptResponse\"\xb5\x01\x9a\xb5\x18\xad\x01\n" +
+	"\x0eget_transcript\x12\x9a\x01Fetch one chat's full transcript by session id, not by name. Transcripts can be very large; prefer search_transcripts when looking for something specific.\x90\x02\x01B.Z,claude-agents/proto/gen/session/v1;sessionv1b\x06proto3"
 
 var (
 	file_session_v1_session_proto_rawDescOnce sync.Once
