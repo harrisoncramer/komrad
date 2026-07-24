@@ -367,9 +367,9 @@ func (m model) chatsView() string {
 		state := item.agent.State
 		if !item.alive {
 			state = "" // dormant: neutral icon/color
-			name = dimStyle.Render(item.agent.Name) + dimStyle.Render(" (dormant)")
+			name = dimStyle.Render(item.agent.Name)
 			if selected {
-				name = cursorStyle.Render(item.agent.Name) + dimStyle.Render(" (dormant)")
+				name = cursorStyle.Render(item.agent.Name)
 			}
 		}
 
