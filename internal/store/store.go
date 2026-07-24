@@ -105,7 +105,34 @@ func Open(path string) (*Store, error) {
 		return nil, fmt.Errorf("failed to migrate db: %w", err)
 	}
 
+	if err := ensureTranscriptIndex(conn); err != nil {
+		return nil, fmt.Errorf("failed to create transcript index: %w", err)
+	}
+
 	return &Store{conn: conn, queries: models.New(conn)}, nil
+}
+
+// transcriptFTS is the FTS5 index over transcript text. It lives outside the
+// Atlas migrations and sqlc: neither models a virtual table, and sqlc's SQLite
+// parser cannot parse fts5 or the MATCH/bm25/snippet the search reads with. The
+// store owns both writes instead, so the index is derived state kept in step
+// with session_transcripts by UpsertTranscript, never edited on its own.
+const transcriptFTS = "session_transcripts_fts"
+
+// ensureTranscriptIndex creates the FTS5 index if absent. The trigram tokenizer
+// indexes every three-character run, so a query matches on any substring rather
+// than whole words only. session_id is carried UNINDEXED so a hit maps back to
+// its chat without a join.
+func ensureTranscriptIndex(conn *sql.DB) error {
+	stmt := fmt.Sprintf(
+		"CREATE VIRTUAL TABLE IF NOT EXISTS %s USING fts5(content, session_id UNINDEXED, tokenize='trigram')",
+		transcriptFTS,
+	)
+	if _, err := conn.Exec(stmt); err != nil {
+		return fmt.Errorf("failed to create %s: %w", transcriptFTS, err)
+	}
+
+	return nil
 }
 
 // Close releases the database connection.
@@ -525,6 +552,127 @@ func (s *Store) DeleteWorkflowWithChats(ctx context.Context, id string) error {
 	}
 
 	return nil
+}
+
+// Transcript is a session's stored transcript: the flattened text and how far
+// into the source JSONL the sync has consumed.
+type Transcript struct {
+	Content      string
+	SyncedOffset int64
+}
+
+// SearchHit is one transcript matched by a search: the session it belongs to, a
+// snippet of the matching text with the hit marked, and the FTS relevance rank
+// (a bm25 score, lower is a better match).
+type SearchHit struct {
+	SessionID string
+	Snippet   string
+	Rank      float64
+}
+
+// SnippetOpen and SnippetClose wrap the matched terms inside a hit's snippet, so
+// the caller can find and style the match without re-running the query. They are
+// plain text markers passed to FTS5's snippet(), chosen not to occur in ordinary
+// transcript prose.
+const (
+	SnippetOpen  = "\x02"
+	SnippetClose = "\x03"
+)
+
+// GetTranscript returns a session's stored transcript, or a zero Transcript when
+// none has been synced yet. No-rows is the zero case, so a first sync sees an
+// offset of 0 and indexes the whole file; every other error is surfaced.
+func (s *Store) GetTranscript(ctx context.Context, sessionID string) (Transcript, error) {
+	row, err := s.queries.GetTranscript(ctx, sessionID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Transcript{}, nil
+	}
+	if err != nil {
+		return Transcript{}, fmt.Errorf("failed to get transcript for %q: %w", sessionID, err)
+	}
+
+	return Transcript{Content: row.Content, SyncedOffset: row.SyncedOffset}, nil
+}
+
+// UpsertTranscript writes a session's transcript and re-indexes it in one
+// transaction, so the FTS index never drifts from the stored text. The index row
+// is deleted and reinserted rather than updated, since the content column is the
+// indexed one and there is at most one row per session.
+func (s *Store) UpsertTranscript(ctx context.Context, sessionID, content string, offset int64) error {
+	tx, err := s.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin upsert-transcript tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	queries := s.queries.WithTx(tx)
+	if err := queries.UpsertTranscript(ctx, models.UpsertTranscriptParams{
+		SessionID:    sessionID,
+		Content:      content,
+		SyncedOffset: offset,
+	}); err != nil {
+		return fmt.Errorf("failed to upsert transcript for %q: %w", sessionID, err)
+	}
+
+	if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM %s WHERE session_id = ?", transcriptFTS), sessionID); err != nil {
+		return fmt.Errorf("failed to clear transcript index for %q: %w", sessionID, err)
+	}
+	if _, err := tx.ExecContext(ctx, fmt.Sprintf("INSERT INTO %s (content, session_id) VALUES (?, ?)", transcriptFTS), content, sessionID); err != nil {
+		return fmt.Errorf("failed to index transcript for %q: %w", sessionID, err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transcript for %q: %w", sessionID, err)
+	}
+
+	return nil
+}
+
+// SearchTranscripts returns the transcripts matching query, best match first.
+// The query is passed to FTS5 as a single quoted string so its contents are
+// treated as a literal phrase rather than FTS operator syntax; with the trigram
+// tokenizer that yields a substring match. A blank query returns no hits rather
+// than every transcript.
+func (s *Store) SearchTranscripts(ctx context.Context, query string, limit int) ([]SearchHit, error) {
+	if strings.TrimSpace(query) == "" {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+
+	stmt := fmt.Sprintf(
+		"SELECT session_id, snippet(%s, 0, ?, ?, '…', 20), bm25(%s) AS rank "+
+			"FROM %s WHERE content MATCH ? ORDER BY rank LIMIT ?",
+		transcriptFTS, transcriptFTS, transcriptFTS,
+	)
+	rows, err := s.conn.QueryContext(ctx, stmt, SnippetOpen, SnippetClose, ftsPhrase(query), limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search transcripts for %q: %w", query, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var hits []SearchHit
+	for rows.Next() {
+		var h SearchHit
+		if err := rows.Scan(&h.SessionID, &h.Snippet, &h.Rank); err != nil {
+			return nil, fmt.Errorf("failed to scan search hit: %w", err)
+		}
+		hits = append(hits, h)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to read search hits: %w", err)
+	}
+
+	return hits, nil
+}
+
+// ftsPhrase wraps a user query as a double-quoted FTS5 string literal, escaping
+// embedded double quotes by doubling them. This makes FTS5 read the whole query
+// as one phrase, so punctuation and spaces in it are matched literally instead
+// of parsed as query syntax.
+func ftsPhrase(query string) string {
+	return `"` + strings.ReplaceAll(query, `"`, `""`) + `"`
 }
 
 // agentFromRow builds an Agent from the columns every session read returns.

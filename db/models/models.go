@@ -30,6 +30,13 @@ type SessionConfig struct {
 	UpdatedAt time.Time
 }
 
+type SessionTranscript struct {
+	SessionID    string
+	Content      string
+	SyncedOffset int64
+	SyncedAt     time.Time
+}
+
 type Workflow struct {
 	ID               string
 	Name             string

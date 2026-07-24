@@ -3,7 +3,6 @@ package agents
 import (
 	"context"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"claude-agents/internal/store"
@@ -193,22 +192,6 @@ func TestLaunchClaudeInjectsWorkflowContext(t *testing.T) {
 	manager = newManager(tmux, newStore(t), "")
 	manager.launchClaude("session", "", "", "shared notes", "sess", true)
 	assert.NotContains(t, tmux.lastKeys("session")[0], "--append-system-prompt")
-}
-
-func TestEnvWithout(t *testing.T) {
-	t.Setenv("CLAUDE_AGENTS_DROP_ME", "1")
-	t.Setenv("CLAUDE_AGENTS_KEEP_ME", "2")
-
-	env := envWithout("CLAUDE_AGENTS_DROP_ME")
-
-	var kept bool
-	for _, entry := range env {
-		assert.False(t, strings.HasPrefix(entry, "CLAUDE_AGENTS_DROP_ME="), "dropped key must not survive")
-		if entry == "CLAUDE_AGENTS_KEEP_ME=2" {
-			kept = true
-		}
-	}
-	assert.True(t, kept, "unrelated entries must be preserved")
 }
 
 func TestNewSession(t *testing.T) {
@@ -403,30 +386,6 @@ func TestDeleteWorkflowWithChatsThroughManager(t *testing.T) {
 	assert.True(t, all[0].Deleted, "the chat is soft-deleted, not orphaned")
 }
 
-func TestNotify(t *testing.T) {
-	t.Run("marks the current session done when no session is given", func(t *testing.T) {
-		st := newStore(t)
-		seed(t, st, "current", "%1", store.StateThinking)
-		tmux := newFakeTmux()
-		tmux.current = "current"
-		manager := newManager(tmux, st, "")
-
-		manager.Notify("", "%1", "message")
-		assert.Equal(t, store.StateDone, stateOf(t, st, "current"))
-	})
-
-	t.Run("an explicit main session takes precedence", func(t *testing.T) {
-		st := newStore(t)
-		seed(t, st, "main", "%1", store.StateThinking)
-		tmux := newFakeTmux()
-		tmux.current = "other"
-		manager := newManager(tmux, st, "")
-
-		manager.Notify("main", "%1", "")
-		assert.Equal(t, store.StateDone, stateOf(t, st, "main"))
-	})
-}
-
 func TestRename(t *testing.T) {
 	t.Run("renames the store row only", func(t *testing.T) {
 		st := newStore(t)
@@ -436,7 +395,6 @@ func TestRename(t *testing.T) {
 
 		manager.Rename(agent, "New Name")
 
-		assert.Empty(t, tmux.renamed, "the name is a store-only label; no tmux object is renamed")
 		got, _ := st.Get(context.Background(), "New-Name")
 		require.NotNil(t, got)
 		assert.Equal(t, agent.ID, got.ID)

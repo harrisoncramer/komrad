@@ -11,31 +11,20 @@ import (
 )
 
 // fakeTmux is a scripted, recording tmux client. Reads are served from the
-// alive/captures/attached maps; writes are appended to the recording slices so a
-// test can assert what the manager sent. It implements the full tmuxClient
-// interface and also satisfies the reconciler's narrower tmuxProbe.
+// alive/captures maps; writes are appended to the recording slices so a test can
+// assert what the manager sent. It implements the tmuxClient interface and also
+// satisfies the reconciler's narrower tmuxProbe.
 type fakeTmux struct {
 	alive     map[string]bool
 	captures  map[string]string
-	attached  map[string]bool
-	paneIDs   map[string]string
 	clientDir string
-	clientSes string
-	current   string
 
-	sent        map[string][][]string
-	globals     map[string]string
-	renamed     [][2]string
-	killed      []string
-	switched    []string
-	resized     map[string][2]int
-	newSessions map[string]string
-
-	newWindows  map[string]string // window name -> dir
-	swaps       [][2]string       // {src, dst}
-	respawns    [][]string        // pane + argv per respawn
-	killedPanes []string
-
+	sent           map[string][][]string
+	globals        map[string]string
+	newWindows     map[string]string // window name -> dir
+	swaps          [][2]string       // {src, dst}
+	respawns       [][]string        // pane + argv per respawn
+	killedPanes    []string
 	detached       []string
 	sessionOptions map[string]string
 }
@@ -44,15 +33,26 @@ func newFakeTmux() *fakeTmux {
 	return &fakeTmux{
 		alive:          map[string]bool{},
 		captures:       map[string]string{},
-		attached:       map[string]bool{},
-		paneIDs:        map[string]string{},
 		sent:           map[string][][]string{},
 		globals:        map[string]string{},
-		resized:        map[string][2]int{},
-		newSessions:    map[string]string{},
 		newWindows:     map[string]string{},
 		sessionOptions: map[string]string{},
 	}
+}
+
+func (f *fakeTmux) SetGlobal(name, value string)   { f.globals[name] = value }
+func (f *fakeTmux) ShowGlobal(name string) string  { return f.globals[name] }
+func (f *fakeTmux) PaneAlive(pane string) bool     { return f.alive[pane] }
+func (f *fakeTmux) CapturePane(pane string) string { return f.captures[pane] }
+func (f *fakeTmux) ClientPath(string) string       { return f.clientDir }
+func (f *fakeTmux) DetachSession(name string)      { f.detached = append(f.detached, name) }
+
+func (f *fakeTmux) SetSessionOption(target, name, value string) {
+	f.sessionOptions[target+"/"+name] = value
+}
+
+func (f *fakeTmux) SendKeys(target string, keys ...string) {
+	f.sent[target] = append(f.sent[target], keys)
 }
 
 // CurrentPane returns a fixed nav pane id for the panel's own pane.
@@ -77,55 +77,6 @@ func (f *fakeTmux) RespawnPane(pane, dir string, argv ...string) {
 }
 
 func (f *fakeTmux) KillPane(pane string) { f.killedPanes = append(f.killedPanes, pane) }
-
-func (f *fakeTmux) Socket() string                { return "test" }
-func (f *fakeTmux) SetGlobal(name, value string)  { f.globals[name] = value }
-func (f *fakeTmux) PaneAlive(pane string) bool    { return f.alive[pane] }
-func (f *fakeTmux) HasSession(name string) bool   { return f.alive[name] }
-func (f *fakeTmux) SessionAttached(s string) bool { return f.attached[s] }
-func (f *fakeTmux) CapturePane(pane string) string {
-	return f.captures[pane]
-}
-
-func (f *fakeTmux) ResizeWindow(target string, width, height int) {
-	f.resized[target] = [2]int{width, height}
-}
-
-func (f *fakeTmux) RenameSession(oldName, newName string) {
-	f.renamed = append(f.renamed, [2]string{oldName, newName})
-}
-
-func (f *fakeTmux) ClientSession(string) string { return f.clientSes }
-func (f *fakeTmux) SwitchToLast(client string)  { f.switched = append(f.switched, client) }
-func (f *fakeTmux) KillSession(name string)     { f.killed = append(f.killed, name) }
-func (f *fakeTmux) ClientPath(string) string    { return f.clientDir }
-
-func (f *fakeTmux) NewDetachedSession(name, dir string) {
-	f.newSessions[name] = dir
-	f.alive[name] = true
-}
-
-// PaneID returns a scripted pane id for the session, defaulting to a synthetic
-// id so a freshly created session always resolves to something non-empty.
-func (f *fakeTmux) PaneID(target string) (string, error) {
-	if pane, ok := f.paneIDs[target]; ok {
-		return pane, nil
-	}
-
-	return "%" + target, nil
-}
-
-func (f *fakeTmux) SendKeys(target string, keys ...string) {
-	f.sent[target] = append(f.sent[target], keys)
-}
-
-func (f *fakeTmux) CurrentSession() (string, error) { return f.current, nil }
-func (f *fakeTmux) SetWindowSizeLatest(string)      {}
-func (f *fakeTmux) ShowGlobal(name string) string   { return f.globals[name] }
-func (f *fakeTmux) DetachSession(name string)       { f.detached = append(f.detached, name) }
-func (f *fakeTmux) SetSessionOption(target, name, value string) {
-	f.sessionOptions[target+"/"+name] = value
-}
 
 // lastKeys returns the most recent SendKeys payload sent to target.
 func (f *fakeTmux) lastKeys(target string) []string {

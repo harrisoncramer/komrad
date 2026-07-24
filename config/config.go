@@ -16,11 +16,6 @@ type Config struct {
 	DBPath     string `env:"CLAUDE_AGENTS_DB"`
 	Addr       string `env:"CLAUDE_AGENTS_ADDR" envDefault:"127.0.0.1:8787"`
 	TmuxSocket string `env:"CLAUDE_AGENTS_TMUX_SOCKET" envDefault:"default"`
-
-	// MainSession and TmuxPane identify the calling Claude agent. Popup-launched
-	// agents export MAIN_SESSION. TMUX_PANE is always set inside tmux.
-	MainSession string `env:"MAIN_SESSION"`
-	TmuxPane    string `env:"TMUX_PANE"`
 }
 
 // Load reads the panel's configuration from the environment, defaulting the

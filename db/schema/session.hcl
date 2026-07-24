@@ -116,6 +116,42 @@ table "workflows" {
   }
 }
 
+table "session_transcripts" {
+  schema  = schema.main
+  comment = "Flattened chat transcript for a session, synced from Claude's on-disk JSONL and indexed for search. Strict 1:1 with a session."
+  # Equals sessions.id. Not a generated id: the session owns exactly one
+  # transcript, so reusing its id makes the 1:1 link implicit and keyless.
+  column "session_id" {
+    null = false
+    type = text
+  }
+  # The user and assistant turns flattened to plain text, the corpus search runs
+  # over. Tool calls, tool results, and thinking are dropped so the index stays
+  # lean and matches read as conversation.
+  column "content" {
+    null    = false
+    type    = text
+    default = ""
+  }
+  # How many bytes of the source JSONL have been folded into content already.
+  # The syncer seeks here and reads only the appended tail, so a large transcript
+  # is not re-parsed every pass. The JSONL is append-only, so the offset only
+  # grows unless the file is rewritten, which the syncer detects and reindexes.
+  column "synced_offset" {
+    null    = false
+    type    = integer
+    default = 0
+  }
+  column "synced_at" {
+    null    = false
+    type    = datetime
+    default = sql("CURRENT_TIMESTAMP")
+  }
+  primary_key {
+    columns = [column.session_id]
+  }
+}
+
 table "sessions" {
   schema  = schema.main
   comment = "One background Claude agent, everything needed to restore it."

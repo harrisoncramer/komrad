@@ -78,16 +78,15 @@ func NewRootCommand() *cobra.Command {
 
 			sessions := sessionv1connect.NewSessionServiceClient(http.DefaultClient, "http://"+state.env.Addr)
 
-			// Drop this session's status bar so the panel and the agents it opens
-			// fill the popup without a tmux footer beneath them.
+			// Drop this session's status bar so the panel and its stage pane fill
+			// the popup without a tmux footer beneath them.
 			state.manager.SilenceStatus(agents.ManagerSession)
 
 			// This process runs inside the persistent manager session and never
-			// exits on its own: the picker's close and quit keys detach the popup
-			// (hiding it) rather than quitting, and opening an agent attaches in
-			// place through ExecProcess without leaving the program. So the panel
-			// stays a single long-lived program with its state preserved between
-			// opens. Run only returns on a real error.
+			// exits on its own: the close and quit keys detach the popup (hiding it)
+			// rather than quitting, so the panel stays a single long-lived program
+			// with its state preserved between opens. Run only returns on a real
+			// error.
 			return panel.Run(state.manager, sessions, state.keys)
 		},
 	}
@@ -96,7 +95,6 @@ func NewRootCommand() *cobra.Command {
 	root.AddCommand(
 		openCmd(state),
 		newCmd(state),
-		notifyCmd(state),
 		statusCmd(state),
 		serveCmd(state),
 	)
@@ -239,17 +237,6 @@ func newCmd(state *app) *cobra.Command {
 	flags.StringVar(&params.Client, "client", "", "invoking tmux client")
 
 	return cmd
-}
-
-func notifyCmd(state *app) *cobra.Command {
-	return &cobra.Command{
-		Use:   "notify [message...]",
-		Short: "Record this agent as done with a message",
-		RunE: func(_ *cobra.Command, args []string) error {
-			state.manager.Notify(state.env.MainSession, state.env.TmuxPane, strings.Join(args, " "))
-			return nil
-		},
-	}
 }
 
 func statusCmd(state *app) *cobra.Command {

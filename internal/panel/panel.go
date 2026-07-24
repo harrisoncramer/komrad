@@ -81,9 +81,9 @@ func chatItemsFrom(sessions []*sessionv1.Session, manager *agents.AgentManager) 
 }
 
 // Run launches the panel and blocks for the life of the persistent manager
-// session. Sessions are read through the ConnectRPC client. Opening an agent
-// attaches in place through ExecProcess without leaving the program, so the
-// panel is one long-lived bubbletea program rather than one rebuilt per attach.
+// session. Sessions are read through the ConnectRPC client. The panel is the
+// nav pane; the resource it hovers is shown in a sibling stage pane, and focus
+// moves between the two with the user's own tmux bindings.
 func Run(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, keys appconfig.Keybindings) error {
 	if _, err := tea.NewProgram(newModel(manager, sessions, keys), tea.WithAltScreen()).Run(); err != nil {
 		return fmt.Errorf("failed to run panel: %w", err)
@@ -95,7 +95,7 @@ func Run(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceC
 // hide detaches the popup's client from the persistent manager session without
 // stopping the panel. The bubbletea program keeps running with its state intact,
 // so reopening the popup restores the exact screen. This is what the close and
-// quit keys do now: they no longer tear the panel down, they only hide it.
+// quit keys do: they hide the popup rather than tear the panel down.
 func (m model) hide() tea.Cmd {
 	return func() tea.Msg {
 		m.manager.HideManager()

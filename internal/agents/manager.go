@@ -38,26 +38,14 @@ func expandHome(dir string) string {
 // tmuxClient is the slice of the tmux client the manager drives. Accepting it as
 // an interface lets tests substitute a recording fake for the real CLI.
 type tmuxClient interface {
-	Socket() string
 	SetGlobal(name, value string)
-	PaneAlive(pane string) bool
-	HasSession(name string) bool
-	SessionAttached(session string) bool
-	ResizeWindow(target string, width, height int)
-	CapturePane(pane string) string
-	RenameSession(oldName, newName string)
-	ClientSession(client string) string
-	SwitchToLast(client string)
-	KillSession(name string)
-	ClientPath(client string) string
-	NewDetachedSession(name, dir string)
-	PaneID(target string) (string, error)
-	SendKeys(target string, keys ...string)
-	CurrentSession() (string, error)
-	SetWindowSizeLatest(target string)
 	ShowGlobal(name string) string
-	DetachSession(name string)
 	SetSessionOption(target, name, value string)
+	DetachSession(name string)
+	ClientPath(client string) string
+	SendKeys(target string, keys ...string)
+	PaneAlive(pane string) bool
+	CapturePane(pane string) string
 	CurrentPane() (string, error)
 	SplitRight(anchorPane, dir string) string
 	NewWindow(session, name, dir string) string
@@ -72,9 +60,9 @@ type tmuxClient interface {
 type agentStore interface {
 	List(ctx context.Context) ([]store.Agent, error)
 	ListAll(ctx context.Context) ([]store.Agent, error)
+	GetTranscript(ctx context.Context, sessionID string) (store.Transcript, error)
+	UpsertTranscript(ctx context.Context, sessionID, content string, offset int64) error
 	Upsert(ctx context.Context, agent store.Agent) error
-	UpdateState(ctx context.Context, name, pane, state, claudeSessionID string) error
-	SetState(ctx context.Context, name, state string) error
 	SetStateByID(ctx context.Context, id, state string) error
 	Rename(ctx context.Context, id, name string) error
 	SoftDelete(ctx context.Context, name string) error
@@ -154,17 +142,6 @@ func (m *AgentManager) SetInvokingClient(client string) {
 	m.tmux.SetGlobal(managerClientFlag, client)
 }
 
-// managerAgentFlag holds the agent session currently attached inside the popup,
-// or is empty when the picker is showing. The back binding reads it to detach
-// just that agent's client, dropping back to the picker without closing the
-// popup. esc cannot do this from inside a chat, since there it belongs to Claude.
-const managerAgentFlag = "@claude_manager_agent"
-
-// SetAttachedAgent and ClearAttachedAgent track which agent the popup is inside,
-// around the blocking attach.
-func (m *AgentManager) SetAttachedAgent(session string) { m.tmux.SetGlobal(managerAgentFlag, session) }
-func (m *AgentManager) ClearAttachedAgent()             { m.tmux.SetGlobal(managerAgentFlag, "") }
-
 // HideManager hides the popup by detaching the client viewing the persistent
 // manager session. The session stays alive, so the next open restores it.
 func (m *AgentManager) HideManager() { m.tmux.DetachSession(ManagerSession) }
@@ -188,6 +165,19 @@ func (m *AgentManager) PaneAlive(pane string) bool {
 // client and store, for the serve process to run on a timer.
 func (m *AgentManager) Reconciler() *Reconciler {
 	return NewReconciler(m.tmux, m.sessions)
+}
+
+// TranscriptSyncer builds the transcript syncer over this manager's store,
+// reading Claude's logs from ~/.claude/projects, for the serve process to run on
+// a timer. An unresolvable home falls back to a relative path, which simply
+// matches no logs rather than erroring.
+func (m *AgentManager) TranscriptSyncer() *TranscriptSyncer {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = ""
+	}
+
+	return NewTranscriptSyncer(m.sessions, filepath.Join(home, ".claude", "projects"))
 }
 
 // InitStage records the panel's own pane as the anchor and splits a stage pane
@@ -361,7 +351,7 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 	m.launchClaude(pane, flags, p.Prompt, workflowContext, sessionID, false)
 }
 
-// ListWorkflows returns every live workflow for the workflow picker.
+// ListWorkflows returns every live workflow for the tree's folder headers.
 func (m *AgentManager) ListWorkflows() ([]store.Workflow, error) {
 	workflows, err := m.sessions.ListWorkflows(context.Background())
 	if err != nil {
@@ -383,9 +373,9 @@ func (m *AgentManager) GetWorkflow(id string) (*store.Workflow, error) {
 }
 
 // NewWorkflow creates a workflow with its free-text context and default config
-// (cwd, flags), defaulting a blank name so the picker always has a label to
-// show. The name is a display label only; nothing keys on it. The cwd is
-// home-expanded so the stored blueprint matches what a session launch would use.
+// (cwd, flags), defaulting a blank name so the list always has a label to show.
+// The name is a display label only; nothing keys on it. The cwd is home-expanded
+// so the stored blueprint matches what a session launch would use.
 func (m *AgentManager) NewWorkflow(cfg store.WorkflowConfig) (*store.Workflow, error) {
 	cfg.Name = strings.TrimSpace(cfg.Name)
 	if cfg.Name == "" {
@@ -415,8 +405,8 @@ func (m *AgentManager) RenameWorkflow(workflow store.Workflow, name string) {
 
 // UpdateWorkflow patches a workflow's display name, free-text context, and
 // default config (cwd, flags) in place, keyed by id. A blank name falls back to
-// the existing name so the picker always has a label. The cwd is home-expanded
-// so the stored blueprint matches what a session launch would use, mirroring
+// the existing name so the list always has a label. The cwd is home-expanded so
+// the stored blueprint matches what a session launch would use, mirroring
 // NewWorkflow.
 func (m *AgentManager) UpdateWorkflow(workflow store.Workflow, cfg store.WorkflowConfig) {
 	cfg.Name = strings.TrimSpace(cfg.Name)
@@ -564,17 +554,6 @@ func (m *AgentManager) launchClaude(session, flags, prompt, workflowContext, ses
 	m.tmux.SendKeys(session, command, "Enter")
 }
 
-// Notify records that an agent finished. It upserts state only, so a
-// tool-created agent keeps its captured cwd/flags/prompt.
-func (m *AgentManager) Notify(mainSession, pane, _ string) {
-	key := m.agentKey(mainSession)
-	if key == "" {
-		return
-	}
-
-	_ = m.sessions.UpdateState(context.Background(), key, pane, store.StateDone, "")
-}
-
 // Status renders the global agent summary for the tmux status bar.
 func (m *AgentManager) Status() string {
 	agents, err := m.sessions.List(context.Background())
@@ -611,26 +590,4 @@ func (m *AgentManager) Status() string {
 	}
 
 	return strings.Join(segments, "  ") + "  "
-}
-
-func (m *AgentManager) agentKey(mainSession string) string {
-	if mainSession != "" {
-		return mainSession
-	}
-
-	session, _ := m.tmux.CurrentSession()
-	return session
-}
-
-func envWithout(key string) []string {
-	prefix := key + "="
-	full := os.Environ()
-	filtered := make([]string, 0, len(full))
-	for _, entry := range full {
-		if !strings.HasPrefix(entry, prefix) {
-			filtered = append(filtered, entry)
-		}
-	}
-
-	return filtered
 }

@@ -105,6 +105,28 @@ func (q *Queries) GetSession(ctx context.Context, name string) (*GetSessionRow, 
 	return &i, err
 }
 
+const getTranscript = `-- name: GetTranscript :one
+SELECT
+    content,
+    synced_offset
+FROM
+    session_transcripts
+WHERE
+    session_id = ?1
+`
+
+type GetTranscriptRow struct {
+	Content      string
+	SyncedOffset int64
+}
+
+func (q *Queries) GetTranscript(ctx context.Context, sessionID string) (*GetTranscriptRow, error) {
+	row := q.db.QueryRowContext(ctx, getTranscript, sessionID)
+	var i GetTranscriptRow
+	err := row.Scan(&i.Content, &i.SyncedOffset)
+	return &i, err
+}
+
 const insertSession = `-- name: InsertSession :exec
 INSERT INTO sessions (id, name, session_config_id, prompt, pane_id, state, claude_session_id, workflow_id)
     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
@@ -503,5 +525,26 @@ func (q *Queries) UpdateSessionState(ctx context.Context, arg UpdateSessionState
 		arg.ClaudeSessionID,
 		arg.Name,
 	)
+	return err
+}
+
+const upsertTranscript = `-- name: UpsertTranscript :exec
+INSERT INTO session_transcripts (session_id, content, synced_offset, synced_at)
+    VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)
+ON CONFLICT (session_id)
+    DO UPDATE SET
+        content = excluded.content,
+        synced_offset = excluded.synced_offset,
+        synced_at = CURRENT_TIMESTAMP
+`
+
+type UpsertTranscriptParams struct {
+	SessionID    string
+	Content      string
+	SyncedOffset int64
+}
+
+func (q *Queries) UpsertTranscript(ctx context.Context, arg UpsertTranscriptParams) error {
+	_, err := q.db.ExecContext(ctx, upsertTranscript, arg.SessionID, arg.Content, arg.SyncedOffset)
 	return err
 }

@@ -176,3 +176,21 @@ SET
 WHERE
     id = @id;
 
+-- name: GetTranscript :one
+SELECT
+    content,
+    synced_offset
+FROM
+    session_transcripts
+WHERE
+    session_id = @session_id;
+
+-- name: UpsertTranscript :exec
+INSERT INTO session_transcripts (session_id, content, synced_offset, synced_at)
+    VALUES (@session_id, @content, @synced_offset, CURRENT_TIMESTAMP)
+ON CONFLICT (session_id)
+    DO UPDATE SET
+        content = excluded.content,
+        synced_offset = excluded.synced_offset,
+        synced_at = CURRENT_TIMESTAMP;
+

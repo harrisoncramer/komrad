@@ -16,30 +16,16 @@ get() { tmux show-option -gqv "$1"; }
 key="$(get '@claude_agents_key')"
 [ -z "$key" ] && key="g"
 
-# Configurable prefix key to step back from a focused chat to the picker
-# (default: Escape). Inside a chat esc belongs to Claude, so this is the tmux-
-# level way back out.
-back_key="$(get '@claude_agents_back_key')"
-[ -z "$back_key" ] && back_key="Escape"
-
 # The manager lives in a persistent tmux session shown through a popup. Pressing
 # the key while the popup is up hides it by detaching that session's client,
-# which leaves the panel (and any agent open inside it) running so reopening
-# restores the exact view. Pressing it while hidden opens the popup, attaching to
-# the persistent session. The open command owns the @claude_manager_open flag:
-# it sets it while the popup is up and clears it when the popup closes.
+# which leaves the panel running so reopening restores the exact view. Pressing
+# it while hidden opens the popup, attaching to the persistent session. The open
+# command owns the @claude_manager_open flag: it sets it while the popup is up
+# and clears it when the popup closes.
 tmux set-option -g @claude_manager_open 0
 tmux bind-key "$key" if-shell -F '#{==:#{@claude_manager_open},1}' \
   "detach-client -s claude-manager" \
   "display-popup -w 95% -h 95% -x C -y C -T ' claude-manager ' -E '$BIN open #{client_name}'"
-
-# Back: while a chat is focused inside the popup, detach just that agent's client
-# so the picker shows again, leaving the popup open. The panel records the agent
-# session in @claude_manager_agent; run-shell is used because it expands the
-# option, and -S #{socket_path} keeps the command on this server. When no chat is
-# focused the option is empty and the key does nothing.
-tmux bind-key "$back_key" if-shell -F '#{!=:#{@claude_manager_agent},}' \
-  "run-shell 'tmux -S #{socket_path} detach-client -s \"#{@claude_manager_agent}\"'"
 
 # Interpolate the #{claude_agents} placeholder in status-left / status-right
 # with the live aggregate, so the plugin never clobbers the user's status line.

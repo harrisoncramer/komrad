@@ -37,7 +37,7 @@ type FormKeys struct {
 	Submit []string `mapstructure:"submit"`
 }
 
-// ChatsKeys are the bindings for the split chats view.
+// ChatsKeys are the bindings for the chats list — the panel's only view.
 type ChatsKeys struct {
 	Quit   []string `mapstructure:"quit"`
 	Back   []string `mapstructure:"back"`
@@ -45,15 +45,11 @@ type ChatsKeys struct {
 	New    []string `mapstructure:"new"`
 	Rename []string `mapstructure:"rename"`
 	Delete []string `mapstructure:"delete"`
-	Move   []string `mapstructure:"move"`
 }
 
-// WorkflowsKeys are the bindings for the workflow picker. It mirrors the chats
-// view, since it is the top-level view scoped to one bucket of work.
+// WorkflowsKeys are the bindings that act on a workflow: new (global), and the
+// rename/edit/delete that apply while the cursor is on a workflow header.
 type WorkflowsKeys struct {
-	Quit   []string `mapstructure:"quit"`
-	Back   []string `mapstructure:"back"`
-	Open   []string `mapstructure:"open"`
 	New    []string `mapstructure:"new"`
 	Rename []string `mapstructure:"rename"`
 	Edit   []string `mapstructure:"edit"`
@@ -80,12 +76,8 @@ func DefaultKeybindings() Keybindings {
 			New:    []string{"n"},
 			Rename: []string{"r"},
 			Delete: []string{"d"},
-			Move:   []string{"m"},
 		},
 		Workflows: WorkflowsKeys{
-			Quit:   []string{"ctrl+c", "q"},
-			Back:   []string{"esc", "left", "h"},
-			Open:   []string{"enter", "l", "right"},
 			New:    []string{"W"},
 			Rename: []string{"r"},
 			Edit:   []string{"e"},
@@ -120,11 +112,7 @@ func (k Keybindings) withDefaults() Keybindings {
 	k.Chats.New = fillKeys(k.Chats.New, d.Chats.New)
 	k.Chats.Rename = fillKeys(k.Chats.Rename, d.Chats.Rename)
 	k.Chats.Delete = fillKeys(k.Chats.Delete, d.Chats.Delete)
-	k.Chats.Move = fillKeys(k.Chats.Move, d.Chats.Move)
 
-	k.Workflows.Quit = fillKeys(k.Workflows.Quit, d.Workflows.Quit)
-	k.Workflows.Back = fillKeys(k.Workflows.Back, d.Workflows.Back)
-	k.Workflows.Open = fillKeys(k.Workflows.Open, d.Workflows.Open)
 	k.Workflows.New = fillKeys(k.Workflows.New, d.Workflows.New)
 	k.Workflows.Rename = fillKeys(k.Workflows.Rename, d.Workflows.Rename)
 	k.Workflows.Edit = fillKeys(k.Workflows.Edit, d.Workflows.Edit)

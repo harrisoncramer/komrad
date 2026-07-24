@@ -5,7 +5,6 @@ package tmux
 
 import (
 	"os/exec"
-	"strconv"
 	"strings"
 )
 
@@ -17,11 +16,6 @@ type Client struct {
 // NewClient returns a Client bound to the given tmux server socket.
 func NewClient(socket string) *Client {
 	return &Client{socket: socket}
-}
-
-// Socket returns the tmux server socket this client targets.
-func (c *Client) Socket() string {
-	return c.socket
 }
 
 func (c *Client) query(args ...string) (string, error) {
@@ -41,11 +35,6 @@ func clientTarget(client string) []string {
 	return []string{"-c", client}
 }
 
-// CurrentSession returns the session the calling pane lives in.
-func (c *Client) CurrentSession() (string, error) {
-	return c.query("display-message", "-p", "#{session_name}")
-}
-
 // PaneID resolves a pane target to its canonical id, empty if it no longer exists.
 func (c *Client) PaneID(target string) (string, error) {
 	return c.query("display-message", "-p", "-t", target, "#{pane_id}")
@@ -61,36 +50,10 @@ func (c *Client) PaneAlive(pane string) bool {
 	return err == nil && id == pane
 }
 
-// ClientSession returns the session a client is currently viewing.
-func (c *Client) ClientSession(client string) string {
-	session, _ := c.query(append([]string{"display-message", "-p"}, append(clientTarget(client), "#{session_name}")...)...)
-	return session
-}
-
 // ClientPath returns a client's active pane working directory.
 func (c *Client) ClientPath(client string) string {
 	path, _ := c.query(append([]string{"display-message", "-p"}, append(clientTarget(client), "#{pane_current_path}")...)...)
 	return path
-}
-
-// HasSession reports whether a session with the given name exists.
-func (c *Client) HasSession(name string) bool {
-	_, err := c.query("has-session", "-t", name)
-	return err == nil
-}
-
-// SwitchToLast points a client back at its previous session.
-func (c *Client) SwitchToLast(client string) {
-	c.run(append(append([]string{"switch-client"}, clientTarget(client)...), "-l")...)
-}
-
-// NewDetachedSession creates a detached session rooted at dir. Sizing is handled
-// per-preview (resize to the box) and restored on attach. The status bar is
-// disabled for the session so the agent's chat view fills the popup without the
-// plugin's own tmux footer.
-func (c *Client) NewDetachedSession(name, dir string) {
-	c.run("new-session", "-d", "-s", name, "-c", dir)
-	c.run("set-option", "-t", name, "status", "off")
 }
 
 // SendKeys sends literal keys to a target pane or session.
@@ -139,16 +102,6 @@ func (c *Client) KillPane(pane string) {
 	c.run("kill-pane", "-t", pane)
 }
 
-// KillSession tears down a session by name.
-func (c *Client) KillSession(name string) {
-	c.run("kill-session", "-t", name)
-}
-
-// RenameSession renames a session (no-op if it does not exist).
-func (c *Client) RenameSession(oldName, newName string) {
-	c.run("rename-session", "-t", oldName, newName)
-}
-
 // SetGlobal sets a global tmux option.
 func (c *Client) SetGlobal(name, value string) {
 	c.run("set-option", "-g", name, value)
@@ -179,21 +132,4 @@ func (c *Client) DetachSession(name string) {
 func (c *Client) CapturePane(pane string) string {
 	out, _ := c.query("capture-pane", "-p", "-e", "-t", pane)
 	return out
-}
-
-// SessionAttached reports whether any client is currently viewing a session.
-func (c *Client) SessionAttached(session string) bool {
-	out, _ := c.query("list-clients", "-t", session, "-F", "#{client_name}")
-	return out != ""
-}
-
-// ResizeWindow sizes a window (switching it to manual sizing).
-func (c *Client) ResizeWindow(target string, width, height int) {
-	c.run("resize-window", "-t", target, "-x", strconv.Itoa(width), "-y", strconv.Itoa(height))
-}
-
-// SetWindowSizeLatest returns a window to sizing after the most recent client,
-// so it fills the real terminal once attached.
-func (c *Client) SetWindowSizeLatest(target string) {
-	c.run("set-window-option", "-t", target, "window-size", "latest")
 }
