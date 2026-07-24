@@ -650,10 +650,10 @@ func (s *Store) SearchTranscripts(ctx context.Context, query string, limit int) 
 	// The bm25 and snippet auxiliary functions take the FTS table by name, so it
 	// is referenced unaliased while sessions is aliased.
 	stmt := fmt.Sprintf(
-		"SELECT %s.session_id, s.name, s.is_deleted, snippet(%s, 0, ?, ?, '…', 20), bm25(%s) AS rank "+
-			"FROM %s JOIN sessions s ON s.id = %s.session_id "+
-			"WHERE %s MATCH ? ORDER BY rank LIMIT ?",
-		transcriptFTS, transcriptFTS, transcriptFTS, transcriptFTS, transcriptFTS, transcriptFTS,
+		"SELECT %[1]s.session_id, s.name, s.is_deleted, snippet(%[1]s, 0, ?, ?, '…', 20), bm25(%[1]s) AS rank "+
+			"FROM %[1]s JOIN sessions s ON s.id = %[1]s.session_id "+
+			"WHERE %[1]s MATCH ? ORDER BY rank LIMIT ?",
+		transcriptFTS,
 	)
 	rows, err := s.conn.QueryContext(ctx, stmt, SnippetOpen, SnippetClose, ftsPhrase(query), limit)
 	if err != nil {
