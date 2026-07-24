@@ -69,6 +69,7 @@ func NewRootCommand() *cobra.Command {
 				Store:       sessions,
 				SelfPath:    selfPath(),
 				ClaudeFlags: cfg.ClaudeFlags,
+				ServerAddr:  env.Addr,
 			})
 			return nil
 		},

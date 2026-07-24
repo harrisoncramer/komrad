@@ -2,7 +2,11 @@ package agents
 
 import (
 	"context"
+	"encoding/json"
+	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 
 	"claude-agents/internal/store"
@@ -160,7 +164,10 @@ func TestLaunchClaude(t *testing.T) {
 
 			keys := tmux.lastKeys("session")
 			require.Len(t, keys, 2)
-			assert.Equal(t, tt.wantCommand, keys[0])
+			// Every launch also carries the MCP config, and a fresh one appends a
+			// system prompt, so the expectation covers the rest of the line.
+			command := stripMCPConfig(keys[0])
+			assert.True(t, strings.HasPrefix(command, tt.wantCommand), "want %q to start with %q", command, tt.wantCommand)
 			assert.Equal(t, "Enter", keys[1])
 		})
 	}
@@ -183,11 +190,44 @@ func TestLaunchClaudePassesPromptThroughTempFile(t *testing.T) {
 	assert.Contains(t, command, "--session-id sess")
 	assert.Contains(t, command, "$(cat ")
 	assert.Contains(t, command, "; rm ")
+	// The prompt is positional and --mcp-config is variadic, so the two must not
+	// be able to run together.
+	assert.Contains(t, command, " -- \"$(cat ")
+}
+
+// mcpConfigRef matches the --mcp-config flag and the path it points at.
+var mcpConfigRef = regexp.MustCompile(` --mcp-config '([^']+)'`)
+
+// stripMCPConfig removes the MCP config flag from a launch command, so the
+// assertions about the rest of the line are not written around a path that
+// varies by machine.
+func stripMCPConfig(command string) string {
+	return mcpConfigRef.ReplaceAllString(command, "")
+}
+
+// appendedPromptRef matches the temp file the launch command sources its
+// appended system prompt from.
+var appendedPromptRef = regexp.MustCompile(`--append-system-prompt "\$\(cat '([^']+)'`)
+
+// appendedPrompt returns the system prompt text the command appends. The shell
+// removes the file as the command runs, but a test never runs it, so the file is
+// still on disk to read.
+func appendedPrompt(t *testing.T, command string) string {
+	t.Helper()
+
+	match := appendedPromptRef.FindStringSubmatch(command)
+	require.Len(t, match, 2, "command should append a system prompt: %s", command)
+
+	text, err := os.ReadFile(match[1])
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.Remove(match[1]) })
+
+	return string(text)
 }
 
 // TestLaunchClaudeInjectsWorkflowContext confirms a non-empty workflow context
-// is appended as a system prompt through the same temp-file trick, and that
-// resuming a session skips it since --append-system-prompt does not persist.
+// is appended as a system prompt through the temp-file trick, and that resuming
+// a session skips it since --append-system-prompt does not persist.
 func TestLaunchClaudeInjectsWorkflowContext(t *testing.T) {
 	tmux := newFakeTmux()
 	manager := newManager(tmux, newStore(t), "")
@@ -198,8 +238,8 @@ func TestLaunchClaudeInjectsWorkflowContext(t *testing.T) {
 		SessionID:       "sess",
 	})
 	command := tmux.lastKeys("session")[0]
-	assert.Contains(t, command, "--append-system-prompt \"$(cat ")
 	assert.Contains(t, command, "; rm ")
+	assert.Contains(t, appendedPrompt(t, command), "shared notes")
 
 	tmux = newFakeTmux()
 	manager = newManager(tmux, newStore(t), "")
@@ -210,6 +250,82 @@ func TestLaunchClaudeInjectsWorkflowContext(t *testing.T) {
 		Resume:          true,
 	})
 	assert.NotContains(t, tmux.lastKeys("session")[0], "--append-system-prompt")
+}
+
+// TestLaunchClaudeBriefsOnMCP confirms every fresh launch tells the agent where
+// the MCP endpoint is, whether or not it belongs to a workflow, and that the
+// address comes from the configured listen address rather than a fixed one.
+func TestLaunchClaudeBriefsOnMCP(t *testing.T) {
+	tmux := newFakeTmux()
+	manager := NewAgentManager(Params{Tmux: tmux, Store: newStore(t), SelfPath: "self", ServerAddr: "127.0.0.1:9999"})
+
+	manager.launchClaude(launchClaudeParams{Session: "session", SessionID: "sess"})
+
+	prompt := appendedPrompt(t, tmux.lastKeys("session")[0])
+	assert.Contains(t, prompt, "http://127.0.0.1:9999/mcp")
+	assert.Contains(t, prompt, "list_tables")
+	assert.Contains(t, prompt, "session_transcripts")
+}
+
+// TestLaunchClaudeRegistersMCPServer confirms every launch, resumed or fresh,
+// points claude at a config file registering the panel's endpoint, and that the
+// file says what it should.
+func TestLaunchClaudeRegistersMCPServer(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	tmux := newFakeTmux()
+	manager := NewAgentManager(Params{Tmux: tmux, Store: newStore(t), SelfPath: "self", ServerAddr: "127.0.0.1:9999"})
+
+	for _, resume := range []bool{false, true} {
+		manager.launchClaude(launchClaudeParams{Session: "session", SessionID: "sess", Resume: resume})
+
+		match := mcpConfigRef.FindStringSubmatch(tmux.lastKeys("session")[0])
+		require.Len(t, match, 2, "resume=%v should carry the mcp config", resume)
+		assert.Equal(t, filepath.Join(home, ".claude", "claude-agents-mcp.json"), match[1])
+
+		raw, err := os.ReadFile(match[1])
+		require.NoError(t, err)
+
+		var config struct {
+			MCPServers map[string]struct {
+				Type string `json:"type"`
+				URL  string `json:"url"`
+			} `json:"mcpServers"`
+		}
+		require.NoError(t, json.Unmarshal(raw, &config))
+
+		server, ok := config.MCPServers["claude-agents"]
+		require.True(t, ok, "the panel's own server should be registered")
+		assert.Equal(t, "http", server.Type)
+		assert.Equal(t, "http://127.0.0.1:9999/mcp", server.URL)
+	}
+}
+
+// TestLaunchClaudeKeepsOtherMCPServers confirms the launch does not pass
+// --strict-mcp-config, which would trade the user's own registered servers for
+// this one instead of adding to them.
+func TestLaunchClaudeKeepsOtherMCPServers(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	tmux := newFakeTmux()
+	manager := newManager(tmux, newStore(t), "")
+
+	manager.launchClaude(launchClaudeParams{Session: "session", SessionID: "sess"})
+
+	assert.NotContains(t, tmux.lastKeys("session")[0], "--strict-mcp-config")
+}
+
+// TestAppendedSystemPromptOrdersBriefingFirst confirms the workflow's own
+// context follows the briefing rather than being buried in it.
+func TestAppendedSystemPromptOrdersBriefingFirst(t *testing.T) {
+	manager := newManager(newFakeTmux(), newStore(t), "")
+
+	prompt := manager.appendedSystemPrompt("shared notes")
+	assert.Less(t, strings.Index(prompt, "claude-agents"), strings.Index(prompt, "shared notes"))
+
+	// A chat outside any workflow gets the briefing alone, with no trailing blank.
+	assert.Equal(t, manager.appendedSystemPrompt(""), strings.TrimSpace(manager.appendedSystemPrompt("   ")))
 }
 
 func TestNewSession(t *testing.T) {
@@ -280,8 +396,8 @@ func TestNewSessionScopesToWorkflow(t *testing.T) {
 }
 
 // TestNewSessionInjectsWorkflowContext confirms a chat spawned inside a
-// workflow launches with the workflow's context appended as a system prompt,
-// while one created outside any workflow does not.
+// workflow launches with the workflow's context appended to its system prompt,
+// while one created outside any workflow gets the MCP briefing only.
 func TestNewSessionInjectsWorkflowContext(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -291,10 +407,12 @@ func TestNewSessionInjectsWorkflowContext(t *testing.T) {
 	require.NoError(t, err)
 
 	manager.NewSession(NewSessionParams{Title: "scoped", WorkflowID: &workflow.ID})
-	assert.Contains(t, tmux.lastKeys("%scoped")[0], "--append-system-prompt")
+	assert.Contains(t, appendedPrompt(t, tmux.lastKeys("%scoped")[0]), "shared notes")
 
 	manager.NewSession(NewSessionParams{Title: "rootless"})
-	assert.NotContains(t, tmux.lastKeys("%rootless")[0], "--append-system-prompt")
+	rootless := appendedPrompt(t, tmux.lastKeys("%rootless")[0])
+	assert.NotContains(t, rootless, "shared notes")
+	assert.Contains(t, rootless, "/mcp")
 }
 
 func TestNewWorkflowDefaultsBlankName(t *testing.T) {
