@@ -150,7 +150,18 @@ func (s *SessionService) SearchTranscripts(ctx context.Context, req *connect.Req
 
 // GetTranscript returns a session's full stored transcript by id, so the search
 // preview can show a match in its surrounding conversation.
+// An id that matches no chat is not_found rather than empty content: the two
+// were indistinguishable, and since a listed chat carries both an id and a
+// claudeSessionId, reaching for the wrong one failed silently.
 func (s *SessionService) GetTranscript(ctx context.Context, req *connect.Request[sessionv1.GetTranscriptRequest]) (*connect.Response[sessionv1.GetTranscriptResponse], error) {
+	exists, err := s.store.SessionExists(ctx, req.Msg.GetSessionId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to look up session: %w", err))
+	}
+	if !exists {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no chat with id %q", req.Msg.GetSessionId()))
+	}
+
 	tr, err := s.store.GetTranscript(ctx, req.Msg.GetSessionId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get transcript: %w", err))

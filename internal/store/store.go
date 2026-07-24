@@ -691,6 +691,19 @@ func (s *Store) GetTranscript(ctx context.Context, sessionID string) (Transcript
 	return Transcript{Content: row.Content, SyncedOffset: row.SyncedOffset}, nil
 }
 
+// SessionExists reports whether any chat holds the given id, including
+// soft-deleted ones, so a caller can tell an unknown id from a chat that simply
+// has nothing stored yet.
+func (s *Store) SessionExists(ctx context.Context, id string) (bool, error) {
+	var exists bool
+	if err := s.conn.QueryRowContext(ctx,
+		"SELECT EXISTS(SELECT 1 FROM sessions WHERE id = ?)", id).Scan(&exists); err != nil {
+		return false, fmt.Errorf("failed to check for session %q: %w", id, err)
+	}
+
+	return exists, nil
+}
+
 // UpsertTranscript writes a session's transcript and re-indexes it in one
 // transaction, so the FTS index never drifts from the stored text. The index row
 // is deleted and reinserted rather than updated, since the content column is the

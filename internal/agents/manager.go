@@ -380,20 +380,40 @@ func (m *AgentManager) NewSession(p NewSessionParams) (*store.Agent, error) {
 		dir, _ = os.UserHomeDir()
 	}
 
+	// tmux silently falls back to its own default directory when -c names
+	// something it cannot enter, so an unusable directory produced a chat running
+	// somewhere other than the cwd stored against it. Checking first means the
+	// launch fails instead of recording a location that is not true.
+	info, err := os.Stat(dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to use %q as the working directory: %w", dir, err)
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("working directory %q is not a directory", dir)
+	}
+
+	// A chat created inside a workflow inherits the workflow's shared context,
+	// injected as an appended system prompt at launch. It is a snapshot. Later
+	// edits to the workflow context reach only sessions spawned after them. An
+	// unknown workflow is refused rather than filed under an id that renders
+	// nowhere.
+	var workflowContext string
+	if p.WorkflowID != nil {
+		wf, err := m.sessions.GetWorkflow(context.Background(), *p.WorkflowID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to look up workflow %q: %w", *p.WorkflowID, err)
+		}
+		if wf == nil {
+			return nil, fmt.Errorf("no workflow with id %q", *p.WorkflowID)
+		}
+
+		workflowContext = wf.Context
+	}
+
 	name := m.uniqueSessionName(p.Title, p.Prompt)
 
 	pane := m.tmux.NewWindow(ManagerSession, name, dir)
 	flags := strings.TrimSpace(m.claudeFlags + " " + p.Flags)
-
-	// A chat created inside a workflow inherits the workflow's shared context,
-	// injected as an appended system prompt at launch. It is a snapshot. Later
-	// edits to the workflow context reach only sessions spawned after them.
-	var workflowContext string
-	if p.WorkflowID != nil {
-		if wf, err := m.sessions.GetWorkflow(context.Background(), *p.WorkflowID); err == nil && wf != nil {
-			workflowContext = wf.Context
-		}
-	}
 
 	// Generate Claude's session id ourselves and launch with --session-id, so the
 	// id is known up front and restoring the agent can resume that same

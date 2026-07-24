@@ -128,8 +128,11 @@ message UpdateSessionRequest {
 }
 
 message SearchTranscriptsRequest {
+  // Three characters is the floor, not a stylistic minimum: the index uses a
+  // trigram tokenizer, so a shorter query can never match anything and would
+  // come back as a confident empty result.
   string query = 1 [(buf.validate.field).string = {
-    min_len: 1,
+    min_len: 3,
     max_len: 500
   }];
   // Cap on results returned. Zero lets the server pick a default. The ceiling

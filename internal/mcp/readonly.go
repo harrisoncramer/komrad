@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 const (
@@ -27,7 +28,13 @@ const (
 // the statement's executable text only, with literals, quoted identifiers, and
 // comments blanked out first, so searching transcripts for the word "update" is
 // a search and not a rejected write.
-var forbiddenPattern = regexp.MustCompile(`(?i)\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|REPLACE|GRANT|REVOKE|EXECUTE|CALL|MERGE|VACUUM|REINDEX|ANALYZE|ATTACH|DETACH|PRAGMA|BEGIN|COMMIT|ROLLBACK|SET)\b`)
+var forbiddenPattern = regexp.MustCompile(`(?i)\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE|EXECUTE|CALL|MERGE|VACUUM|REINDEX|ATTACH|DETACH|PRAGMA|BEGIN|COMMIT|ROLLBACK|SET)\b`)
+
+// replaceStatement matches REPLACE only where it begins a statement, which is
+// the write form (REPLACE INTO). SQLite also has a replace() scalar function,
+// and rejecting every use of the word turned an ordinary string substitution
+// into a refused write.
+var replaceStatement = regexp.MustCompile(`(?i)(\A|[(;])\s*REPLACE\s+INTO\b`)
 
 // queryResult is the JSON shape returned by the query tool.
 type queryResult struct {
@@ -67,7 +74,7 @@ func validateReadOnly(sql string) (string, error) {
 	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
 		return "", fmt.Errorf("query must start with SELECT or WITH")
 	}
-	if forbiddenPattern.MatchString(code) {
+	if forbiddenPattern.MatchString(code) || replaceStatement.MatchString(code) {
 		return "", fmt.Errorf("query contains a forbidden keyword; only read-only SELECT statements are allowed")
 	}
 
@@ -154,7 +161,10 @@ func (d *dbTools) query(ctx context.Context, statement string) (*queryResult, er
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	wrapped := fmt.Sprintf("SELECT * FROM (%s) AS _mcp_q LIMIT %d", trimmed, maxRows+1)
+	// The statement goes on its own line: a query ending in a -- comment would
+	// otherwise swallow the closing paren and fail as incomplete input, which is
+	// an error pointing nowhere near the cause.
+	wrapped := fmt.Sprintf("SELECT * FROM (\n%s\n) AS _mcp_q LIMIT %d", trimmed, maxRows+1)
 	rows, err := d.db.QueryContext(ctx, wrapped)
 	if err != nil {
 		return nil, fmt.Errorf("query failed: %w", err)
@@ -224,7 +234,14 @@ func capString(s string) string {
 		return s
 	}
 
-	return s[:maxCellChars] + "…(truncated)"
+	// Cut on a rune boundary: slicing raw bytes split a multi-byte character in
+	// half and produced a replacement character at the seam.
+	cut := maxCellChars
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+
+	return s[:cut] + "…(truncated)"
 }
 
 // scanStrings collects a single-column result into a slice, for the

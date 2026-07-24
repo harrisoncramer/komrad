@@ -564,7 +564,10 @@ func (x *UpdateSessionRequest) GetName() string {
 
 type SearchTranscriptsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Query string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	// Three characters is the floor, not a stylistic minimum: the index uses a
+	// trigram tokenizer, so a shorter query can never match anything and would
+	// come back as a confident empty result.
+	Query string `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
 	// Cap on results returned. Zero lets the server pick a default. The ceiling
 	// keeps one query from pulling the whole corpus into a response.
 	Limit         int32 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
@@ -882,7 +885,7 @@ const file_session_v1_session_proto_rawDesc = "" +
 	"\x0ename.tmux_safe\x12-name must not contain spaces, colons, or dots\x1aA!this.contains(' ') && !this.contains(':') && !this.contains('.')r\x05\x10\x01\x18\xc8\x01R\x04name\"^\n" +
 	"\x18SearchTranscriptsRequest\x12 \n" +
 	"\x05query\x18\x01 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xf4\x03R\x05query\x12 \n" +
+	"\xbaH\ar\x05\x10\x03\x18\xf4\x03R\x05query\x12 \n" +
 	"\x05limit\x18\x02 \x01(\x05B\n" +
 	"\xbaH\a\x1a\x05\x18\xf4\x03(\x00R\x05limit\"\x86\x01\n" +
 	"\tSearchHit\x12\x1d\n" +

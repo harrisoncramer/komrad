@@ -329,8 +329,9 @@ func TestAppendedSystemPromptOrdersBriefingFirst(t *testing.T) {
 }
 
 func TestNewSession(t *testing.T) {
+	work := t.TempDir()
 	tmux := newFakeTmux()
-	tmux.clientDir = "/work"
+	tmux.clientDir = work
 	st := newStore(t)
 	manager := newManager(tmux, st, "--default-flag")
 
@@ -350,12 +351,12 @@ func TestNewSession(t *testing.T) {
 	require.NotNil(t, got)
 
 	assert.Equal(t, "%My-Agent", got.Pane, "the new window's pane is the agent's handle")
-	assert.Equal(t, "/work", got.Cwd)
+	assert.Equal(t, work, got.Cwd)
 	assert.Equal(t, "--default-flag --extra", got.Flags)
 	assert.Equal(t, "do the thing", got.Prompt)
 	assert.Equal(t, store.StateNew, got.State)
 	assert.NotEmpty(t, got.ClaudeSessionID, "a session id is generated at launch")
-	assert.Equal(t, "/work", tmux.newWindows["My-Agent"])
+	assert.Equal(t, work, tmux.newWindows["My-Agent"])
 	assert.NotEmpty(t, tmux.lastKeys("%My-Agent"), "claude is launched into the new pane")
 }
 
@@ -370,10 +371,12 @@ func TestNewSessionExpandsTildeDir(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
+	want := filepath.Join(home, "chariot", "chariot")
+	require.NoError(t, os.MkdirAll(want, 0o755))
+
 	_, err := manager.NewSession(NewSessionParams{Title: "scoped", Dir: "~/chariot/chariot"})
 	require.NoError(t, err)
 
-	want := filepath.Join(home, "chariot", "chariot")
 	assert.Equal(t, want, tmux.newWindows["scoped"], "tmux is given the expanded path")
 
 	got, err := st.Get(context.Background(), "scoped")
@@ -384,7 +387,7 @@ func TestNewSessionExpandsTildeDir(t *testing.T) {
 
 func TestNewSessionScopesToWorkflow(t *testing.T) {
 	tmux := newFakeTmux()
-	tmux.clientDir = "/work"
+	tmux.clientDir = t.TempDir()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
@@ -570,4 +573,41 @@ func TestDelete(t *testing.T) {
 	assert.Contains(t, tmux.killedPanes, "%1", "the agent's pane is killed")
 	got, _ := st.Get(context.Background(), "target")
 	assert.Nil(t, got, "the row is hidden from listings")
+}
+
+// TestNewSessionRefusesUnusableDirectory is the regression test for a stored
+// cwd that was not true: tmux quietly falls back to its own default directory
+// when -c names something it cannot enter, so the chat ran in one place while
+// the record claimed another.
+func TestNewSessionRefusesUnusableDirectory(t *testing.T) {
+	st := newStore(t)
+	manager := newManager(newFakeTmux(), st, "")
+
+	file := filepath.Join(t.TempDir(), "a-file")
+	require.NoError(t, os.WriteFile(file, []byte("not a directory"), 0o644))
+
+	_, err := manager.NewSession(NewSessionParams{Title: "nowhere", Dir: "/no/such/directory"})
+	require.Error(t, err)
+
+	_, err = manager.NewSession(NewSessionParams{Title: "a-file", Dir: file})
+	require.ErrorContains(t, err, "not a directory")
+
+	agents, err := st.List(context.Background())
+	require.NoError(t, err)
+	assert.Empty(t, agents, "a refused launch records nothing")
+}
+
+// TestNewSessionRefusesUnknownWorkflow confirms a chat cannot be filed under a
+// workflow that does not exist, where it would render nowhere in the panel.
+func TestNewSessionRefusesUnknownWorkflow(t *testing.T) {
+	st := newStore(t)
+	manager := newManager(newFakeTmux(), st, "")
+
+	missing := "no-such-workflow"
+	_, err := manager.NewSession(NewSessionParams{Title: "orphan", Dir: t.TempDir(), WorkflowID: &missing})
+	require.ErrorContains(t, err, "no workflow with id")
+
+	agents, err := st.List(context.Background())
+	require.NoError(t, err)
+	assert.Empty(t, agents)
 }
