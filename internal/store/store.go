@@ -828,6 +828,11 @@ func (s *Store) SearchTranscripts(ctx context.Context, query string, limit int) 
 // as one phrase, so punctuation and spaces in it are matched literally instead
 // of parsed as query syntax.
 func ftsPhrase(query string) string {
+	// FTS5 re-parses this phrase, and it reads a NUL as the end of the string, so
+	// one embedded in the query would hide the closing quote and fail as an
+	// unterminated literal. Dropping it makes the search find nothing rather than
+	// error, which is what a query for an unmatchable byte should do.
+	query = strings.ReplaceAll(query, "\x00", "")
 	return `"` + strings.ReplaceAll(query, `"`, `""`) + `"`
 }
 

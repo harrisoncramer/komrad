@@ -40,7 +40,17 @@ message CreateSessionRequest {
     min_len: 1,
     max_len: 50000
   }];
-  string title = 2 [(buf.validate.field).string.max_len = 200];
+  // Control characters are refused here rather than sanitised: the title
+  // becomes the tmux window name, and tmux rejects a name containing one, which
+  // used to fail the launch in a way nothing checked.
+  string title = 2 [
+    (buf.validate.field).string.max_len = 200,
+    (buf.validate.field).cel = {
+      id: "title.printable",
+      message: "title must not contain control characters",
+      expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
+    }
+  ];
   string dir = 3 [
     (buf.validate.field).string = {
       min_len: 1,
@@ -120,9 +130,9 @@ message UpdateSessionRequest {
       max_len: 200
     },
     (buf.validate.field).cel = {
-      id: "name.tmux_safe",
-      message: "name must not contain spaces, colons, or dots",
-      expression: "!this.contains(' ') && !this.contains(':') && !this.contains('.')"
+      id: "name.storable",
+      message: "name must not contain spaces, colons, dots, slashes, or control characters",
+      expression: "!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')"
     }
   ];
 }
@@ -177,7 +187,7 @@ service SessionService {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "list_sessions"
-      description: "List every chat the panel tracks, live and dormant, with its name, state, working directory, flags, and workflow. Start here to find the id or name another tool needs."
+      description: "List the chats the panel tracks, live and dormant, with each one\'s name, state, working directory, flags, and workflow. Chats soft-deleted from the panel are excluded, though search_transcripts still returns them. Start here to find the id or name another tool needs."
     };
   }
   rpc GetSession(GetSessionRequest) returns (GetSessionResponse) {
@@ -220,7 +230,7 @@ service SessionService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "rename_session"
-      description: "Rename a chat, keyed by its id rather than its current name. The name is a display label that tmux also uses, so it may not contain spaces, colons, or dots."
+      description: "Rename a chat, keyed by its id rather than its current name. The name is a display label the store keys on; the running tmux window keeps whatever it was called at launch. It may not contain spaces, colons, dots, slashes, or control characters."
       destructive: false
     };
   }

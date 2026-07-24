@@ -197,8 +197,11 @@ func (x *ListSessionsResponse) GetSessions() []*Session {
 type CreateSessionRequest struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	Prompt string                 `protobuf:"bytes,1,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	Title  string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	Dir    string                 `protobuf:"bytes,3,opt,name=dir,proto3" json:"dir,omitempty"`
+	// Control characters are refused here rather than sanitised: the title
+	// becomes the tmux window name, and tmux rejects a name containing one, which
+	// used to fail the launch in a way nothing checked.
+	Title string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Dir   string `protobuf:"bytes,3,opt,name=dir,proto3" json:"dir,omitempty"`
 	// Flags are quoted before they reach the pane's shell, so this rule is the
 	// second lock rather than the only one: it refuses the characters that would
 	// mean anything to a shell, so a request carrying them is rejected outright
@@ -854,10 +857,11 @@ const file_session_v1_session_proto_rawDesc = "" +
 	" \x01(\tR\tcreatedAtB\x0e\n" +
 	"\f_workflow_id\"G\n" +
 	"\x14ListSessionsResponse\x12/\n" +
-	"\bsessions\x18\x01 \x03(\v2\x13.session.v1.SessionR\bsessions\"\xb6\x03\n" +
+	"\bsessions\x18\x01 \x03(\v2\x13.session.v1.SessionR\bsessions\"\x97\x04\n" +
 	"\x14CreateSessionRequest\x12#\n" +
-	"\x06prompt\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12\x1e\n" +
-	"\x05title\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\xc8\x01R\x05title\x12\x89\x01\n" +
+	"\x06prompt\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12\x7f\n" +
+	"\x05title\x18\x02 \x01(\tBi\xbaHf\xba\x01^\n" +
+	"\x0ftitle.printable\x12)title must not contain control characters\x1a !this.matches('[\\x00-\\x1f\\x7f]')r\x03\x18\xc8\x01R\x05title\x12\x89\x01\n" +
 	"\x03dir\x18\x03 \x01(\tBw\xbaHt\xba\x01j\n" +
 	"\fdir.absolute\x12,dir must be an absolute path or start with ~\x1a,this.startsWith('/') || this.startsWith('~')r\x05\x10\x01\x18\x80 R\x03dir\x12\x8d\x01\n" +
 	"\x05flags\x18\x04 \x01(\tBw\xbaHt\xba\x01l\n" +
@@ -878,11 +882,11 @@ const file_session_v1_session_proto_rawDesc = "" +
 	"\x05state\x18\x02 \x01(\tB#\xbaH r\x1eR\x03newR\bthinkingR\awaitingR\x04doneR\x05state\"6\n" +
 	"\x14DeleteSessionRequest\x12\x1e\n" +
 	"\x04name\x18\x01 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\"\xd8\x01\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\"\xaf\x02\n" +
 	"\x14UpdateSessionRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xa6\x01\n" +
-	"\x04name\x18\x02 \x01(\tB\x91\x01\xbaH\x8d\x01\xba\x01\x82\x01\n" +
-	"\x0ename.tmux_safe\x12-name must not contain spaces, colons, or dots\x1aA!this.contains(' ') && !this.contains(':') && !this.contains('.')r\x05\x10\x01\x18\xc8\x01R\x04name\"^\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xfd\x01\n" +
+	"\x04name\x18\x02 \x01(\tB\xe8\x01\xbaH\xe4\x01\xba\x01\xd9\x01\n" +
+	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name\"^\n" +
 	"\x18SearchTranscriptsRequest\x12 \n" +
 	"\x05query\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x03\x18\xf4\x03R\x05query\x12 \n" +
@@ -901,10 +905,10 @@ const file_session_v1_session_proto_rawDesc = "" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\tsessionId\"1\n" +
 	"\x15GetTranscriptResponse\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontent2\x87\x13\n" +
-	"\x0eSessionService\x12\x8c\x02\n" +
-	"\fListSessions\x12\x16.google.protobuf.Empty\x1a .session.v1.ListSessionsResponse\"\xc1\x01\x9a\xb5\x18\xb9\x01\n" +
-	"\rlist_sessions\x12\xa7\x01List every chat the panel tracks, live and dormant, with its name, state, working directory, flags, and workflow. Start here to find the id or name another tool needs.\x90\x02\x01\x12\xd4\x01\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent2\xc3\x14\n" +
+	"\x0eSessionService\x12\xf0\x02\n" +
+	"\fListSessions\x12\x16.google.protobuf.Empty\x1a .session.v1.ListSessionsResponse\"\xa5\x02\x9a\xb5\x18\x9d\x02\n" +
+	"\rlist_sessions\x12\x8b\x02List the chats the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow. Chats soft-deleted from the panel are excluded, though search_transcripts still returns them. Start here to find the id or name another tool needs.\x90\x02\x01\x12\xd4\x01\n" +
 	"\n" +
 	"GetSession\x12\x1d.session.v1.GetSessionRequest\x1a\x1e.session.v1.GetSessionResponse\"\x86\x01\x9a\xb5\x18\x7f\n" +
 	"\vget_session\x12pFetch one chat by its exact name. Names are unique among live chats. Returns not_found if no chat has that name.\x90\x02\x01\x12\x90\x03\n" +
@@ -913,9 +917,9 @@ const file_session_v1_session_proto_rawDesc = "" +
 	"\bSetState\x12\x1b.session.v1.SetStateRequest\x1a\x16.google.protobuf.Empty\"\xec\x01\x9a\xb5\x18\xe4\x01\n" +
 	"\x11set_session_state\x12\xcc\x01Move a chat to one of new, thinking, waiting, or done. The reconciler derives state from the live pane every couple of seconds, so a value set here is overwritten shortly after unless the chat is dormant. \x00\x90\x02\x02\x12\xa4\x02\n" +
 	"\rDeleteSession\x12 .session.v1.DeleteSessionRequest\x1a\x16.google.protobuf.Empty\"\xd8\x01\x9a\xb5\x18\xd0\x01\n" +
-	"\x0edelete_session\x12\xbb\x01Permanently remove a chat's record by name. This is a hard delete, not the panel's soft delete, and the transcript row goes with it. Prefer leaving chats alone unless asked to remove one. \x01\x90\x02\x02\x12\x85\x02\n" +
-	"\rUpdateSession\x12 .session.v1.UpdateSessionRequest\x1a\x16.google.protobuf.Empty\"\xb9\x01\x9a\xb5\x18\xb1\x01\n" +
-	"\x0erename_session\x12\x9c\x01Rename a chat, keyed by its id rather than its current name. The name is a display label that tmux also uses, so it may not contain spaces, colons, or dots. \x00\x90\x02\x02\x12\x8c\x03\n" +
+	"\x0edelete_session\x12\xbb\x01Permanently remove a chat's record by name. This is a hard delete, not the panel's soft delete, and the transcript row goes with it. Prefer leaving chats alone unless asked to remove one. \x01\x90\x02\x02\x12\xdd\x02\n" +
+	"\rUpdateSession\x12 .session.v1.UpdateSessionRequest\x1a\x16.google.protobuf.Empty\"\x91\x02\x9a\xb5\x18\x89\x02\n" +
+	"\x0erename_session\x12\xf4\x01Rename a chat, keyed by its id rather than its current name. The name is a display label the store keys on; the running tmux window keeps whatever it was called at launch. It may not contain spaces, colons, dots, slashes, or control characters. \x00\x90\x02\x02\x12\x8c\x03\n" +
 	"\x11SearchTranscripts\x12$.session.v1.SearchTranscriptsRequest\x1a%.session.v1.SearchTranscriptsResponse\"\xa9\x02\x9a\xb5\x18\xa1\x02\n" +
 	"\x12search_transcripts\x12\x8a\x02Full-text search across every chat's conversation, including deleted ones, returning a ranked snippet per hit with the matched text marked. Substring matching, so partial words work. Use this to answer what was discussed; use query for the SQL view of the same data.\x90\x02\x01\x12\x8c\x02\n" +
 	"\rGetTranscript\x12 .session.v1.GetTranscriptRequest\x1a!.session.v1.GetTranscriptResponse\"\xb5\x01\x9a\xb5\x18\xad\x01\n" +

@@ -171,3 +171,21 @@ func TestDeleteReportsWhetherAnythingWasThere(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, deleted)
 }
+
+// TestSearchToleratesControlCharacters is the regression test for a NUL byte in
+// a query: FTS5 re-parses the phrase and reads the NUL as the end of the string,
+// so the closing quote vanished and an ordinary search became a 500.
+func TestSearchToleratesControlCharacters(t *testing.T) {
+	st := open(t)
+	ctx := context.Background()
+
+	require.NoError(t, st.Upsert(ctx, Agent{Name: "chat"}))
+	agent, err := st.Get(ctx, "chat")
+	require.NoError(t, err)
+	require.NotNil(t, agent)
+	require.NoError(t, st.UpsertTranscript(ctx, agent.ID, "findable text", 0))
+
+	hits, err := st.SearchTranscripts(ctx, "find\x00able", 10)
+	require.NoError(t, err, "a NUL in the query is not an error")
+	assert.Len(t, hits, 1, "the NUL is dropped rather than truncating the phrase")
+}

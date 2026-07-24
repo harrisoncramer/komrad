@@ -503,6 +503,13 @@ func (m *AgentManager) NewSession(p NewSessionParams) (*store.Agent, error) {
 		WorkflowContext: workflowContext,
 		SessionID:       sessionID,
 	}); err != nil {
+		// The row is already stored, and the pane is open with nothing useful in
+		// it. Left alone it would list as a live chat forever, so both go.
+		m.tmux.KillPane(pane)
+		if _, deleteErr := m.sessions.Delete(context.Background(), name); deleteErr != nil {
+			return nil, fmt.Errorf("failed to launch claude for %q (%w), and failed to clean up: %w", name, err, deleteErr)
+		}
+
 		return nil, fmt.Errorf("failed to launch claude for %q: %w", name, err)
 	}
 
