@@ -155,6 +155,12 @@ type model struct {
 	chats      []chatItem
 	chatCursor int
 
+	// infoPinned shows the hovered chat's stored record in the stage instead of the
+	// chat itself. A live chat otherwise occupies the stage with its own pane, so
+	// its cwd and flags have nowhere else to show. Moving the cursor or opening a
+	// chat clears it, so the pinned record never outlives the row it describes.
+	infoPinned bool
+
 	// workflows backs the tree's folder headers. workflowCursor is which workflow a
 	// header-hover action targets. workflowRenameTarget and workflowEditTarget are
 	// the workflows being renamed or edited while the workflow form is open, both

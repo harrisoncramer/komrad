@@ -16,6 +16,7 @@ import (
 	"claude-agents/config"
 	"claude-agents/internal/agents"
 	"claude-agents/internal/appconfig"
+	"claude-agents/internal/mcp"
 	"claude-agents/internal/panel"
 	"claude-agents/internal/rpc"
 	"claude-agents/internal/store"
@@ -123,6 +124,17 @@ func serveCmd(state *app) *cobra.Command {
 			mux := http.NewServeMux()
 			path, handler := sessionv1connect.NewSessionServiceHandler(rpc.NewSessionService(state.sessions))
 			mux.Handle(path, handler)
+
+			// The MCP endpoint reads through its own read-only handle rather than
+			// the store's, so nothing reachable from a model can write, whatever
+			// the tools do.
+			readOnly, err := store.OpenReadOnly(state.env.DBPath)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = readOnly.Close() }()
+
+			mux.Handle("/mcp", mcp.NewHandler(mcp.NewHandlerParams{DB: readOnly}))
 
 			// The reconciler runs here rather than in the panel because serve is
 			// the always-on process that owns the store. The counts must stay

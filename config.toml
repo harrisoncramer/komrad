@@ -39,11 +39,13 @@ back = ["esc"]
 open = ["enter"]
 
 # The split chats view. `move` reassigns the chat to a workflow, and `workflow`
-# jumps into the workflow the hovered chat belongs to.
+# jumps into the workflow the hovered chat belongs to. `info` swaps the hovered
+# chat's stored record into the preview in place of the chat itself.
 [keybindings.chats]
 quit     = ["ctrl+c", "q"]
 back     = ["esc", "left", "h"]
 open     = ["enter", "l", "right"]
+info     = ["i"]
 rename   = ["r"]
 delete   = ["d"]
 move     = ["m"]

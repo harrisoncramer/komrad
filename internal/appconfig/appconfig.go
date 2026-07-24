@@ -37,7 +37,9 @@ type FormKeys struct {
 	Submit []string `mapstructure:"submit"`
 }
 
-// ChatsKeys are the bindings for the chats list, the panel's only view.
+// ChatsKeys are the bindings for the chats list, the panel's only view. Info
+// toggles the hovered chat's stored record into the stage in place of the chat
+// itself.
 type ChatsKeys struct {
 	Quit   []string `mapstructure:"quit"`
 	Back   []string `mapstructure:"back"`
@@ -46,6 +48,7 @@ type ChatsKeys struct {
 	Rename []string `mapstructure:"rename"`
 	Delete []string `mapstructure:"delete"`
 	Search []string `mapstructure:"search"`
+	Info   []string `mapstructure:"info"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow. New is global. Rename,
@@ -78,6 +81,7 @@ func DefaultKeybindings() Keybindings {
 			Rename: []string{"r"},
 			Delete: []string{"d"},
 			Search: []string{"/"},
+			Info:   []string{"i"},
 		},
 		Workflows: WorkflowsKeys{
 			New:    []string{"W"},
@@ -115,6 +119,7 @@ func (k Keybindings) withDefaults() Keybindings {
 	k.Chats.Rename = fillKeys(k.Chats.Rename, def.Chats.Rename)
 	k.Chats.Delete = fillKeys(k.Chats.Delete, def.Chats.Delete)
 	k.Chats.Search = fillKeys(k.Chats.Search, def.Chats.Search)
+	k.Chats.Info = fillKeys(k.Chats.Info, def.Chats.Info)
 
 	k.Workflows.New = fillKeys(k.Workflows.New, def.Workflows.New)
 	k.Workflows.Rename = fillKeys(k.Workflows.Rename, def.Workflows.Rename)

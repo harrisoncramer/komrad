@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -107,6 +108,32 @@ func Open(path string) (*Store, error) {
 	}
 
 	return &Store{conn: conn, queries: models.New(conn)}, nil
+}
+
+// OpenReadOnly opens the database at path for reading only, for surfaces that
+// hand the schema to something that must never write, such as the MCP endpoint.
+// Both guards ride on the DSN rather than a pragma statement, since database/sql
+// pools connections and a pragma set on one of them would not hold for the rest.
+// mode=ro makes SQLite refuse to open the file writable at all, and query_only
+// rejects a write attempt on top of that.
+func OpenReadOnly(path string) (*sql.DB, error) {
+	dsn := url.URL{
+		Scheme:   "file",
+		Path:     path,
+		RawQuery: "mode=ro&_pragma=busy_timeout(5000)&_pragma=query_only(1)",
+	}
+
+	conn, err := sql.Open("sqlite", dsn.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to open db read-only: %w", err)
+	}
+
+	if err := conn.Ping(); err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("failed to reach db read-only: %w", err)
+	}
+
+	return conn, nil
 }
 
 // transcriptFTS is the FTS5 index over transcript text. It lives outside the

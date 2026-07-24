@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"claude-agents/internal/store"
+	"claude-agents/lib/dates"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -159,13 +160,21 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case bound(k, m.keys.Nav.Up):
 		if m.chatCursor > 0 {
 			m.chatCursor--
+			m.infoPinned = false
 			m.stageSelection()
 		}
 	case bound(k, m.keys.Nav.Down):
 		if m.chatCursor < len(m.chatRows())-1 {
 			m.chatCursor++
+			m.infoPinned = false
 			m.stageSelection()
 		}
+	case bound(k, m.keys.Chats.Info):
+		if _, ok := m.selectedChat(); !ok {
+			return m, nil
+		}
+		m.infoPinned = !m.infoPinned
+		m.stageSelection()
 	case bound(k, m.keys.Chats.Open):
 		return m.openChat()
 	case bound(k, m.keys.Chats.Rename):
@@ -192,14 +201,19 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // openChat acts on the hovered chat. A dormant chat is restored and staged live.
-// A live chat is already staged from hovering, so opening it is a no-op. Moving
-// focus onto it is a plain tmux pane move the user drives.
+// A live chat is already staged from hovering, so opening it only unpins the
+// info view to bring the chat back. Moving focus onto it is a plain tmux pane
+// move the user drives.
 func (m model) openChat() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedChat()
 	if !ok {
 		return m, nil
 	}
 	if item.alive {
+		if m.infoPinned {
+			m.infoPinned = false
+			m.stageSelection()
+		}
 		return m, nil
 	}
 
@@ -207,6 +221,7 @@ func (m model) openChat() (tea.Model, tea.Cmd) {
 	if err != nil {
 		return m, nil
 	}
+	m.infoPinned = false
 	m.reload()
 	m.chatCursor = clampCursor(rowIndexOfChatName(m.chatRows(), item.agent.Name), len(m.chatRows()))
 	m.manager.StageChat(pane)
@@ -216,7 +231,8 @@ func (m model) openChat() (tea.Model, tea.Cmd) {
 
 // stageSelection updates the stage pane to reflect what the cursor is on. A live
 // chat's pane is swapped in, a dormant chat and a workflow header show markdown
-// via bat, and anything else blanks the stage.
+// via bat, and anything else blanks the stage. With info pinned, a chat shows its
+// stored record instead of itself.
 func (m model) stageSelection() {
 	rows := m.chatRows()
 	if m.chatCursor < 0 || m.chatCursor >= len(rows) {
@@ -230,10 +246,12 @@ func (m model) stageSelection() {
 		m.manager.StageText(workflowMarkdown(m.workflows[r.workflowIndex], m.chatCount(m.workflows[r.workflowIndex].ID)))
 	case r.header:
 		m.manager.StageBlank()
+	case m.infoPinned:
+		m.manager.StageText(chatMarkdown(r.item.agent, r.item.alive))
 	case r.item.alive:
 		m.manager.StageChat(r.item.agent.Pane)
 	default:
-		m.manager.StageText(dormantMarkdown(r.item.agent))
+		m.manager.StageText(chatMarkdown(r.item.agent, false))
 	}
 }
 
@@ -275,24 +293,43 @@ func workflowMarkdown(w store.Workflow, chats int) string {
 	return b.String()
 }
 
-// dormantMarkdown renders a dormant chat's stored record for the stage, since it
-// has no live pane to show.
-func dormantMarkdown(a store.Agent) string {
+// chatMarkdown renders a chat's stored record for the stage. A dormant chat has
+// no live pane to show, so this is all there is of it. A live one shows the same
+// record on demand, since its running pane occupies the stage and hides the cwd
+// and flags it was launched with. The values are the record as stored at launch,
+// not what the running agent has done since.
+func chatMarkdown(a store.Agent, alive bool) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "# %s\n\n_dormant — not running_\n\n", a.Name)
+	fmt.Fprintf(&b, "# %s\n\n", a.Name)
+	if alive {
+		fmt.Fprintf(&b, "_running in %s_\n\n", orDash(a.Pane))
+	} else {
+		b.WriteString("_dormant — not running_\n\n")
+	}
 	b.WriteString("---\n\n")
 	fmt.Fprintf(&b, "- directory: %s\n", orDash(a.Cwd))
 	fmt.Fprintf(&b, "- flags: %s\n", orDash(a.Flags))
-	fmt.Fprintf(&b, "- resume: %s\n\n", orDash(a.ClaudeSessionID))
-	b.WriteString("Press open to restore.\n")
+	fmt.Fprintf(&b, "- resume: %s\n", orDash(a.ClaudeSessionID))
+	if created := dates.Friendly(a.CreatedAt); created != "" {
+		fmt.Fprintf(&b, "- created: %s\n", created)
+	}
+	if !alive {
+		b.WriteString("\nPress open to restore.\n")
+	}
 
 	return b.String()
 }
 
 // actionHints renders the key bindings one per line with an aligned key column.
 func (m model) actionHints() string {
+	infoDesc := "info"
+	if m.infoPinned {
+		infoDesc = "hide info"
+	}
+
 	hints := []struct{ key, desc string }{
 		{hintKeys(m.keys.Chats.Open), "open"},
+		{hintKeys(m.keys.Chats.Info), infoDesc},
 		{hintKeys(m.keys.Chats.New), "new chat"},
 		{hintKeys(m.keys.Workflows.New), "new workflow"},
 		{hintKeys(m.keys.Chats.Rename), "rename"},
