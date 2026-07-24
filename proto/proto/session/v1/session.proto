@@ -55,17 +55,29 @@ message SearchTranscriptsRequest {
   int32 limit = 2;
 }
 
-// SearchHit is one transcript matched by a search: the session it belongs to, a
-// snippet of the matching text with the matched terms wrapped in markers, and
-// the relevance rank (lower is a better match).
+// SearchHit is one transcript matched by a search: the session it belongs to,
+// its display name and whether it is soft-deleted, a snippet of the matching
+// text with the matched terms wrapped in markers, and the relevance rank (lower
+// is a better match).
 message SearchHit {
   string session_id = 1;
   string snippet = 2;
   double rank = 3;
+  string name = 4;
+  bool deleted = 5;
 }
 
 message SearchTranscriptsResponse {
   repeated SearchHit hits = 1;
+}
+
+message GetTranscriptRequest {
+  string session_id = 1;
+}
+
+message GetTranscriptResponse {
+  // The full flattened transcript, empty when the session has none synced yet.
+  string content = 1;
 }
 
 // SessionService reads and mutates the agent store.
@@ -91,6 +103,10 @@ service SessionService {
   }
   // SearchTranscripts runs a full-text search over stored transcripts.
   rpc SearchTranscripts(SearchTranscriptsRequest) returns (SearchTranscriptsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // GetTranscript returns a session's full stored transcript by id.
+  rpc GetTranscript(GetTranscriptRequest) returns (GetTranscriptResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
 }

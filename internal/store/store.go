@@ -561,11 +561,14 @@ type Transcript struct {
 	SyncedOffset int64
 }
 
-// SearchHit is one transcript matched by a search: the session it belongs to, a
-// snippet of the matching text with the hit marked, and the FTS relevance rank
-// (a bm25 score, lower is a better match).
+// SearchHit is one transcript matched by a search: the session it belongs to,
+// its display name, whether that session is soft-deleted, a snippet of the
+// matching text with the hit marked, and the FTS relevance rank (a bm25 score,
+// lower is a better match).
 type SearchHit struct {
 	SessionID string
+	Name      string
+	Deleted   bool
 	Snippet   string
 	Rank      float64
 }
@@ -641,10 +644,16 @@ func (s *Store) SearchTranscripts(ctx context.Context, query string, limit int) 
 		limit = 50
 	}
 
+	// The join carries the chat's name and deleted flag onto each hit so a result
+	// row is self-describing. It is an inner join, so a transcript with no session
+	// row (an orphan that should not occur) is dropped rather than shown nameless.
+	// The bm25 and snippet auxiliary functions take the FTS table by name, so it
+	// is referenced unaliased while sessions is aliased.
 	stmt := fmt.Sprintf(
-		"SELECT session_id, snippet(%s, 0, ?, ?, '…', 20), bm25(%s) AS rank "+
-			"FROM %s WHERE content MATCH ? ORDER BY rank LIMIT ?",
-		transcriptFTS, transcriptFTS, transcriptFTS,
+		"SELECT %s.session_id, s.name, s.is_deleted, snippet(%s, 0, ?, ?, '…', 20), bm25(%s) AS rank "+
+			"FROM %s JOIN sessions s ON s.id = %s.session_id "+
+			"WHERE %s MATCH ? ORDER BY rank LIMIT ?",
+		transcriptFTS, transcriptFTS, transcriptFTS, transcriptFTS, transcriptFTS, transcriptFTS,
 	)
 	rows, err := s.conn.QueryContext(ctx, stmt, SnippetOpen, SnippetClose, ftsPhrase(query), limit)
 	if err != nil {
@@ -654,10 +663,14 @@ func (s *Store) SearchTranscripts(ctx context.Context, query string, limit int) 
 
 	var hits []SearchHit
 	for rows.Next() {
-		var h SearchHit
-		if err := rows.Scan(&h.SessionID, &h.Snippet, &h.Rank); err != nil {
+		var (
+			h       SearchHit
+			deleted int64
+		)
+		if err := rows.Scan(&h.SessionID, &h.Name, &deleted, &h.Snippet, &h.Rank); err != nil {
 			return nil, fmt.Errorf("failed to scan search hit: %w", err)
 		}
+		h.Deleted = deleted != 0
 		hits = append(hits, h)
 	}
 	if err := rows.Err(); err != nil {

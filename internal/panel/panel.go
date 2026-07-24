@@ -143,6 +143,7 @@ const (
 	screenRename
 	screenWorkflowForm
 	screenWorkflowDelete
+	screenSearch
 )
 
 type model struct {
@@ -172,6 +173,11 @@ type model struct {
 
 	form         *huh.Form
 	renameTarget store.Agent
+
+	// Search screen state: the live query, its hits, and which hit is hovered.
+	searchQuery  string
+	searchHits   []searchHit
+	searchCursor int
 
 	keys appconfig.Keybindings
 }
@@ -410,6 +416,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	if results, ok := msg.(searchResultsMsg); ok {
+		return m, m.applySearchResults(results)
+	}
+
+	if loaded, ok := msg.(transcriptLoadedMsg); ok {
+		m.applyTranscript(loaded)
+		return m, nil
+	}
+
 	if m.screen == screenForm {
 		return m.updateForm(msg)
 	}
@@ -429,6 +444,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	key, ok := msg.(tea.KeyMsg)
 	if !ok {
 		return m, nil
+	}
+
+	if m.screen == screenSearch {
+		return m.updateSearch(key)
 	}
 
 	if m.screen == screenChats {

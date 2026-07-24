@@ -45,6 +45,7 @@ type ChatsKeys struct {
 	New    []string `mapstructure:"new"`
 	Rename []string `mapstructure:"rename"`
 	Delete []string `mapstructure:"delete"`
+	Search []string `mapstructure:"search"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow: new (global), and the
@@ -76,6 +77,7 @@ func DefaultKeybindings() Keybindings {
 			New:    []string{"n"},
 			Rename: []string{"r"},
 			Delete: []string{"d"},
+			Search: []string{"/"},
 		},
 		Workflows: WorkflowsKeys{
 			New:    []string{"W"},
@@ -112,6 +114,7 @@ func (k Keybindings) withDefaults() Keybindings {
 	k.Chats.New = fillKeys(k.Chats.New, d.Chats.New)
 	k.Chats.Rename = fillKeys(k.Chats.Rename, d.Chats.Rename)
 	k.Chats.Delete = fillKeys(k.Chats.Delete, d.Chats.Delete)
+	k.Chats.Search = fillKeys(k.Chats.Search, d.Chats.Search)
 
 	k.Workflows.New = fillKeys(k.Workflows.New, d.Workflows.New)
 	k.Workflows.Rename = fillKeys(k.Workflows.Rename, d.Workflows.Rename)

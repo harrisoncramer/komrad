@@ -140,6 +140,12 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.newWorkflowForm()
 	}
 
+	// Search is likewise global to the chats view: it opens over the whole corpus,
+	// not the hovered row.
+	if bound(k, m.keys.Chats.Search) {
+		return m.enterSearch()
+	}
+
 	// Hovering a workflow header lets the workflow bindings act on that folder's
 	// workflow.
 	if wfIdx, ok := m.hoveredWorkflow(); ok {
@@ -295,6 +301,7 @@ func (m model) actionHints() string {
 		{hintKeys(m.keys.Workflows.New), "new workflow"},
 		{hintKeys(m.keys.Chats.Rename), "rename"},
 		{hintKeys(m.keys.Chats.Delete), "delete"},
+		{hintKeys(m.keys.Chats.Search), "search"},
 		{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
 		{hintKeys(m.keys.Chats.Back), "back"},
 	}

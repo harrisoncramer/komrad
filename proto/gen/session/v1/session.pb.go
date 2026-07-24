@@ -475,14 +475,17 @@ func (x *SearchTranscriptsRequest) GetLimit() int32 {
 	return 0
 }
 
-// SearchHit is one transcript matched by a search: the session it belongs to, a
-// snippet of the matching text with the matched terms wrapped in markers, and
-// the relevance rank (lower is a better match).
+// SearchHit is one transcript matched by a search: the session it belongs to,
+// its display name and whether it is soft-deleted, a snippet of the matching
+// text with the matched terms wrapped in markers, and the relevance rank (lower
+// is a better match).
 type SearchHit struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	Snippet       string                 `protobuf:"bytes,2,opt,name=snippet,proto3" json:"snippet,omitempty"`
 	Rank          float64                `protobuf:"fixed64,3,opt,name=rank,proto3" json:"rank,omitempty"`
+	Name          string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	Deleted       bool                   `protobuf:"varint,5,opt,name=deleted,proto3" json:"deleted,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -538,6 +541,20 @@ func (x *SearchHit) GetRank() float64 {
 	return 0
 }
 
+func (x *SearchHit) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *SearchHit) GetDeleted() bool {
+	if x != nil {
+		return x.Deleted
+	}
+	return false
+}
+
 type SearchTranscriptsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Hits          []*SearchHit           `protobuf:"bytes,1,rep,name=hits,proto3" json:"hits,omitempty"`
@@ -582,6 +599,95 @@ func (x *SearchTranscriptsResponse) GetHits() []*SearchHit {
 	return nil
 }
 
+type GetTranscriptRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTranscriptRequest) Reset() {
+	*x = GetTranscriptRequest{}
+	mi := &file_session_v1_session_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTranscriptRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTranscriptRequest) ProtoMessage() {}
+
+func (x *GetTranscriptRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_session_v1_session_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTranscriptRequest.ProtoReflect.Descriptor instead.
+func (*GetTranscriptRequest) Descriptor() ([]byte, []int) {
+	return file_session_v1_session_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *GetTranscriptRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+type GetTranscriptResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The full flattened transcript, empty when the session has none synced yet.
+	Content       string `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTranscriptResponse) Reset() {
+	*x = GetTranscriptResponse{}
+	mi := &file_session_v1_session_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTranscriptResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTranscriptResponse) ProtoMessage() {}
+
+func (x *GetTranscriptResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_session_v1_session_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTranscriptResponse.ProtoReflect.Descriptor instead.
+func (*GetTranscriptResponse) Descriptor() ([]byte, []int) {
+	return file_session_v1_session_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *GetTranscriptResponse) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
 var File_session_v1_session_proto protoreflect.FileDescriptor
 
 const file_session_v1_session_proto_rawDesc = "" +
@@ -619,14 +725,21 @@ const file_session_v1_session_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"F\n" +
 	"\x18SearchTranscriptsRequest\x12\x14\n" +
 	"\x05query\x18\x01 \x01(\tR\x05query\x12\x14\n" +
-	"\x05limit\x18\x02 \x01(\x05R\x05limit\"X\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\"\x86\x01\n" +
 	"\tSearchHit\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x18\n" +
 	"\asnippet\x18\x02 \x01(\tR\asnippet\x12\x12\n" +
-	"\x04rank\x18\x03 \x01(\x01R\x04rank\"F\n" +
+	"\x04rank\x18\x03 \x01(\x01R\x04rank\x12\x12\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\x12\x18\n" +
+	"\adeleted\x18\x05 \x01(\bR\adeleted\"F\n" +
 	"\x19SearchTranscriptsResponse\x12)\n" +
-	"\x04hits\x18\x01 \x03(\v2\x15.session.v1.SearchHitR\x04hits2\xfe\x03\n" +
+	"\x04hits\x18\x01 \x03(\v2\x15.session.v1.SearchHitR\x04hits\"5\n" +
+	"\x14GetTranscriptRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\"1\n" +
+	"\x15GetTranscriptResponse\x12\x18\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent2\xd9\x04\n" +
 	"\x0eSessionService\x12M\n" +
 	"\fListSessions\x12\x16.google.protobuf.Empty\x1a .session.v1.ListSessionsResponse\"\x03\x90\x02\x01\x12P\n" +
 	"\n" +
@@ -634,7 +747,8 @@ const file_session_v1_session_proto_rawDesc = "" +
 	"\bSetState\x12\x1b.session.v1.SetStateRequest\x1a\x16.google.protobuf.Empty\"\x03\x90\x02\x02\x12N\n" +
 	"\rDeleteSession\x12 .session.v1.DeleteSessionRequest\x1a\x16.google.protobuf.Empty\"\x03\x90\x02\x02\x12N\n" +
 	"\rUpdateSession\x12 .session.v1.UpdateSessionRequest\x1a\x16.google.protobuf.Empty\"\x03\x90\x02\x02\x12e\n" +
-	"\x11SearchTranscripts\x12$.session.v1.SearchTranscriptsRequest\x1a%.session.v1.SearchTranscriptsResponse\"\x03\x90\x02\x01B.Z,claude-agents/proto/gen/session/v1;sessionv1b\x06proto3"
+	"\x11SearchTranscripts\x12$.session.v1.SearchTranscriptsRequest\x1a%.session.v1.SearchTranscriptsResponse\"\x03\x90\x02\x01\x12Y\n" +
+	"\rGetTranscript\x12 .session.v1.GetTranscriptRequest\x1a!.session.v1.GetTranscriptResponse\"\x03\x90\x02\x01B.Z,claude-agents/proto/gen/session/v1;sessionv1b\x06proto3"
 
 var (
 	file_session_v1_session_proto_rawDescOnce sync.Once
@@ -648,7 +762,7 @@ func file_session_v1_session_proto_rawDescGZIP() []byte {
 	return file_session_v1_session_proto_rawDescData
 }
 
-var file_session_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_session_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_session_v1_session_proto_goTypes = []any{
 	(*Session)(nil),                   // 0: session.v1.Session
 	(*ListSessionsResponse)(nil),      // 1: session.v1.ListSessionsResponse
@@ -660,26 +774,30 @@ var file_session_v1_session_proto_goTypes = []any{
 	(*SearchTranscriptsRequest)(nil),  // 7: session.v1.SearchTranscriptsRequest
 	(*SearchHit)(nil),                 // 8: session.v1.SearchHit
 	(*SearchTranscriptsResponse)(nil), // 9: session.v1.SearchTranscriptsResponse
-	(*emptypb.Empty)(nil),             // 10: google.protobuf.Empty
+	(*GetTranscriptRequest)(nil),      // 10: session.v1.GetTranscriptRequest
+	(*GetTranscriptResponse)(nil),     // 11: session.v1.GetTranscriptResponse
+	(*emptypb.Empty)(nil),             // 12: google.protobuf.Empty
 }
 var file_session_v1_session_proto_depIdxs = []int32{
 	0,  // 0: session.v1.ListSessionsResponse.sessions:type_name -> session.v1.Session
 	0,  // 1: session.v1.GetSessionResponse.session:type_name -> session.v1.Session
 	8,  // 2: session.v1.SearchTranscriptsResponse.hits:type_name -> session.v1.SearchHit
-	10, // 3: session.v1.SessionService.ListSessions:input_type -> google.protobuf.Empty
+	12, // 3: session.v1.SessionService.ListSessions:input_type -> google.protobuf.Empty
 	2,  // 4: session.v1.SessionService.GetSession:input_type -> session.v1.GetSessionRequest
 	4,  // 5: session.v1.SessionService.SetState:input_type -> session.v1.SetStateRequest
 	5,  // 6: session.v1.SessionService.DeleteSession:input_type -> session.v1.DeleteSessionRequest
 	6,  // 7: session.v1.SessionService.UpdateSession:input_type -> session.v1.UpdateSessionRequest
 	7,  // 8: session.v1.SessionService.SearchTranscripts:input_type -> session.v1.SearchTranscriptsRequest
-	1,  // 9: session.v1.SessionService.ListSessions:output_type -> session.v1.ListSessionsResponse
-	3,  // 10: session.v1.SessionService.GetSession:output_type -> session.v1.GetSessionResponse
-	10, // 11: session.v1.SessionService.SetState:output_type -> google.protobuf.Empty
-	10, // 12: session.v1.SessionService.DeleteSession:output_type -> google.protobuf.Empty
-	10, // 13: session.v1.SessionService.UpdateSession:output_type -> google.protobuf.Empty
-	9,  // 14: session.v1.SessionService.SearchTranscripts:output_type -> session.v1.SearchTranscriptsResponse
-	9,  // [9:15] is the sub-list for method output_type
-	3,  // [3:9] is the sub-list for method input_type
+	10, // 9: session.v1.SessionService.GetTranscript:input_type -> session.v1.GetTranscriptRequest
+	1,  // 10: session.v1.SessionService.ListSessions:output_type -> session.v1.ListSessionsResponse
+	3,  // 11: session.v1.SessionService.GetSession:output_type -> session.v1.GetSessionResponse
+	12, // 12: session.v1.SessionService.SetState:output_type -> google.protobuf.Empty
+	12, // 13: session.v1.SessionService.DeleteSession:output_type -> google.protobuf.Empty
+	12, // 14: session.v1.SessionService.UpdateSession:output_type -> google.protobuf.Empty
+	9,  // 15: session.v1.SessionService.SearchTranscripts:output_type -> session.v1.SearchTranscriptsResponse
+	11, // 16: session.v1.SessionService.GetTranscript:output_type -> session.v1.GetTranscriptResponse
+	10, // [10:17] is the sub-list for method output_type
+	3,  // [3:10] is the sub-list for method input_type
 	3,  // [3:3] is the sub-list for extension type_name
 	3,  // [3:3] is the sub-list for extension extendee
 	0,  // [0:3] is the sub-list for field type_name
@@ -697,7 +815,7 @@ func file_session_v1_session_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_session_v1_session_proto_rawDesc), len(file_session_v1_session_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

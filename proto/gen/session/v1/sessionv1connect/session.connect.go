@@ -51,6 +51,9 @@ const (
 	// SessionServiceSearchTranscriptsProcedure is the fully-qualified name of the SessionService's
 	// SearchTranscripts RPC.
 	SessionServiceSearchTranscriptsProcedure = "/session.v1.SessionService/SearchTranscripts"
+	// SessionServiceGetTranscriptProcedure is the fully-qualified name of the SessionService's
+	// GetTranscript RPC.
+	SessionServiceGetTranscriptProcedure = "/session.v1.SessionService/GetTranscript"
 )
 
 // SessionServiceClient is a client for the session.v1.SessionService service.
@@ -66,6 +69,8 @@ type SessionServiceClient interface {
 	UpdateSession(context.Context, *connect.Request[v1.UpdateSessionRequest]) (*connect.Response[emptypb.Empty], error)
 	// SearchTranscripts runs a full-text search over stored transcripts.
 	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)
+	// GetTranscript returns a session's full stored transcript by id.
+	GetTranscript(context.Context, *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error)
 }
 
 // NewSessionServiceClient constructs a client for the session.v1.SessionService service. By
@@ -121,6 +126,13 @@ func NewSessionServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		getTranscript: connect.NewClient[v1.GetTranscriptRequest, v1.GetTranscriptResponse](
+			httpClient,
+			baseURL+SessionServiceGetTranscriptProcedure,
+			connect.WithSchema(sessionServiceMethods.ByName("GetTranscript")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -132,6 +144,7 @@ type sessionServiceClient struct {
 	deleteSession     *connect.Client[v1.DeleteSessionRequest, emptypb.Empty]
 	updateSession     *connect.Client[v1.UpdateSessionRequest, emptypb.Empty]
 	searchTranscripts *connect.Client[v1.SearchTranscriptsRequest, v1.SearchTranscriptsResponse]
+	getTranscript     *connect.Client[v1.GetTranscriptRequest, v1.GetTranscriptResponse]
 }
 
 // ListSessions calls session.v1.SessionService.ListSessions.
@@ -164,6 +177,11 @@ func (c *sessionServiceClient) SearchTranscripts(ctx context.Context, req *conne
 	return c.searchTranscripts.CallUnary(ctx, req)
 }
 
+// GetTranscript calls session.v1.SessionService.GetTranscript.
+func (c *sessionServiceClient) GetTranscript(ctx context.Context, req *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error) {
+	return c.getTranscript.CallUnary(ctx, req)
+}
+
 // SessionServiceHandler is an implementation of the session.v1.SessionService service.
 type SessionServiceHandler interface {
 	// Reads: no side effects, safe to cache and issue over GET.
@@ -177,6 +195,8 @@ type SessionServiceHandler interface {
 	UpdateSession(context.Context, *connect.Request[v1.UpdateSessionRequest]) (*connect.Response[emptypb.Empty], error)
 	// SearchTranscripts runs a full-text search over stored transcripts.
 	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)
+	// GetTranscript returns a session's full stored transcript by id.
+	GetTranscript(context.Context, *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error)
 }
 
 // NewSessionServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -228,6 +248,13 @@ func NewSessionServiceHandler(svc SessionServiceHandler, opts ...connect.Handler
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	sessionServiceGetTranscriptHandler := connect.NewUnaryHandler(
+		SessionServiceGetTranscriptProcedure,
+		svc.GetTranscript,
+		connect.WithSchema(sessionServiceMethods.ByName("GetTranscript")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/session.v1.SessionService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SessionServiceListSessionsProcedure:
@@ -242,6 +269,8 @@ func NewSessionServiceHandler(svc SessionServiceHandler, opts ...connect.Handler
 			sessionServiceUpdateSessionHandler.ServeHTTP(w, r)
 		case SessionServiceSearchTranscriptsProcedure:
 			sessionServiceSearchTranscriptsHandler.ServeHTTP(w, r)
+		case SessionServiceGetTranscriptProcedure:
+			sessionServiceGetTranscriptHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -273,4 +302,8 @@ func (UnimplementedSessionServiceHandler) UpdateSession(context.Context, *connec
 
 func (UnimplementedSessionServiceHandler) SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("session.v1.SessionService.SearchTranscripts is not implemented"))
+}
+
+func (UnimplementedSessionServiceHandler) GetTranscript(context.Context, *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("session.v1.SessionService.GetTranscript is not implemented"))
 }

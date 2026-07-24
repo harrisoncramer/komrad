@@ -91,12 +91,25 @@ func (s *SessionService) SearchTranscripts(ctx context.Context, req *connect.Req
 	for _, hit := range hits {
 		resp.Hits = append(resp.Hits, &sessionv1.SearchHit{
 			SessionId: hit.SessionID,
+			Name:      hit.Name,
+			Deleted:   hit.Deleted,
 			Snippet:   hit.Snippet,
 			Rank:      hit.Rank,
 		})
 	}
 
 	return connect.NewResponse(resp), nil
+}
+
+// GetTranscript returns a session's full stored transcript by id, for the search
+// preview to show the match in its surrounding conversation.
+func (s *SessionService) GetTranscript(ctx context.Context, req *connect.Request[sessionv1.GetTranscriptRequest]) (*connect.Response[sessionv1.GetTranscriptResponse], error) {
+	tr, err := s.store.GetTranscript(ctx, req.Msg.GetSessionId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get transcript: %w", err))
+	}
+
+	return connect.NewResponse(&sessionv1.GetTranscriptResponse{Content: tr.Content}), nil
 }
 
 func toProto(agent store.Agent) *sessionv1.Session {

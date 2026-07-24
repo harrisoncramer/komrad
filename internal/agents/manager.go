@@ -257,6 +257,52 @@ func (m *AgentManager) StageText(markdown string) {
 	m.tmux.RespawnPane(m.stagePane, home, "sh", "-c", cmd)
 }
 
+// transcriptPreviewContext is how many lines of transcript to show above and
+// below the matched line in a search preview. It is wide enough that the match
+// reads inside its surrounding conversation rather than in isolation, while
+// staying a window into a large transcript rather than the whole thing, which
+// bat renders from the top and would push the match off-screen.
+const (
+	transcriptPreviewBefore = 12
+	transcriptPreviewAfter  = 80
+)
+
+// StageTranscript shows a transcript in the stage centered on a matched line,
+// with that line highlighted, so a search hit is read in the context of the
+// chat around it. A highlightLine of zero (no located match) shows the
+// transcript from the top. An empty transcript shows a placeholder.
+func (m *AgentManager) StageTranscript(content string, highlightLine int) {
+	if strings.TrimSpace(content) == "" {
+		m.StageText("_no transcript yet_")
+		return
+	}
+
+	m.ensureStage()
+	if m.stagePane == "" {
+		return
+	}
+
+	m.restoreStage()
+
+	home, _ := os.UserHomeDir()
+	path := filepath.Join(os.TempDir(), "claude-agents-stage.txt")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		return
+	}
+
+	args := "--language=markdown --style=plain --paging=never"
+	if highlightLine > 0 {
+		start := highlightLine - transcriptPreviewBefore
+		if start < 1 {
+			start = 1
+		}
+		args += fmt.Sprintf(" --line-range %d:%d --highlight-line %d", start, highlightLine+transcriptPreviewAfter, highlightLine)
+	}
+
+	cmd := fmt.Sprintf("bat %s '%s'; while :; do sleep 3600; done", args, path)
+	m.tmux.RespawnPane(m.stagePane, home, "sh", "-c", cmd)
+}
+
 // StageBlank clears the stage back to an empty shell.
 func (m *AgentManager) StageBlank() {
 	m.ensureStage()
@@ -482,6 +528,57 @@ func (m *AgentManager) Restore(agent store.Agent) (string, error) {
 	m.launchClaude(pane, agent.Flags, "", "", agent.ClaudeSessionID, true)
 
 	return pane, nil
+}
+
+// OpenSearchHit opens the chat a search hit points at, keyed by its stable id,
+// and returns the live pane and the chat's (possibly newly-assigned) name. It
+// spans every chat, including soft-deleted ones, so a result found in search can
+// be opened directly: an already-live chat is returned as is, and a dormant or
+// deleted one is restored first, which relaunches Claude on its saved session and
+// clears the deleted flag. An unknown id is an error.
+func (m *AgentManager) OpenSearchHit(id string) (string, string, error) {
+	agents, err := m.sessions.ListAll(context.Background())
+	if err != nil {
+		return "", "", fmt.Errorf("failed to list agents to open search hit: %w", err)
+	}
+
+	for _, agent := range agents {
+		if agent.ID != id {
+			continue
+		}
+		if m.tmux.PaneAlive(agent.Pane) {
+			return agent.Pane, agent.Name, nil
+		}
+
+		pane, err := m.Restore(agent)
+		if err != nil {
+			return "", "", err
+		}
+
+		// Restore may rename a deleted chat whose name was reused while it sat
+		// deleted, so re-resolve the name by id rather than trusting the stale one.
+		return pane, m.nameByID(context.Background(), id, agent.Name), nil
+	}
+
+	return "", "", fmt.Errorf("no chat with id %q", id)
+}
+
+// nameByID returns the current name of the chat with the given id, falling back
+// to fallback when the lookup fails, so a caller can position on a chat whose
+// name may have just changed.
+func (m *AgentManager) nameByID(ctx context.Context, id, fallback string) string {
+	agents, err := m.sessions.ListAll(ctx)
+	if err != nil {
+		return fallback
+	}
+
+	for _, agent := range agents {
+		if agent.ID == id {
+			return agent.Name
+		}
+	}
+
+	return fallback
 }
 
 // uniqueSessionName derives a session name from the title, falling back to a
