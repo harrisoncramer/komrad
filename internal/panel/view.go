@@ -1,5 +1,6 @@
 package panel
 
+// View renders the active screen.
 func (m model) View() string {
 	switch m.screen {
 	case screenForm, screenRename, screenWorkflowForm, screenWorkflowDelete:

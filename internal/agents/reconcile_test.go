@@ -115,11 +115,10 @@ func TestFrameShowsWaiting(t *testing.T) {
 	}
 }
 
-// TestDetectorsIgnoreTranscriptProse pins the fix for a real false positive:
-// text high in the transcript that happens to contain a marker (the assistant
-// discussing "Enter to select", "do you want", or a "· Cooking… (1m)" timer)
-// must not be read as a live prompt or live work. Only the bottom UI region
-// counts, and here it is the idle input box.
+// TestDetectorsIgnoreTranscriptProse checks that transcript text containing a
+// marker phrase, like the assistant discussing "Enter to select" or a "· Cooking…
+// (1m)" timer, is not read as a live prompt or live work. Only the bottom UI
+// region counts, and here it is the idle input box.
 func TestDetectorsIgnoreTranscriptProse(t *testing.T) {
 	prose := "I match `Enter to select` and `Do you want`, and the timer `· Cooking… (1m 50s)`."
 	frame := prose + strings.Repeat("\n", liveRegionLines) + idleFrame
@@ -130,7 +129,7 @@ func TestDetectorsIgnoreTranscriptProse(t *testing.T) {
 
 // TestReconcileSinglePass covers the state a single reconcile pass settles on for
 // one agent, given its prior state and what its pane shows. Multi-pass behaviour
-// (the idle debounce) is covered separately.
+// like the idle debounce is covered separately.
 func TestReconcileSinglePass(t *testing.T) {
 	tests := []struct {
 		name      string

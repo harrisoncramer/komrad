@@ -57,8 +57,8 @@ func (m model) returnFromWorkflow() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// newWorkflowForm opens the form to create a workflow: a name plus the default
-// cwd and flags that seed new chats created inside it.
+// newWorkflowForm opens the form to create a workflow with a name plus the
+// default cwd and flags that seed new chats created inside it.
 func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
 	m.workflowRenameTarget = nil
 	m.workflowEditTarget = nil
@@ -207,9 +207,9 @@ func workflowForm(title string, keys appconfig.FormKeys) *huh.Form {
 
 // workflowConfigForm collects a workflow's name, its free-text context, and its
 // default config. The dir and flags become the blueprint prefilled into the
-// new-chat form for chats created inside the workflow. Every field prefills, so
-// it serves both creating a workflow (blank) and editing one (its current
-// values).
+// new-chat form for chats created inside the workflow. Every field prefills, so it
+// serves both creating a workflow with blank values and editing one with its
+// current values.
 func workflowConfigForm(nameTitle string, cfg store.WorkflowConfig, keys appconfig.FormKeys) *huh.Form {
 	name, workflowContext, dir, flags := cfg.Name, cfg.Context, cfg.Cwd, cfg.Flags
 	return huh.NewForm(

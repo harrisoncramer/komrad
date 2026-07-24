@@ -83,10 +83,9 @@ func NewRootCommand() *cobra.Command {
 			state.manager.SilenceStatus(agents.ManagerSession)
 
 			// This process runs inside the persistent manager session and never
-			// exits on its own: the close and quit keys detach the popup (hiding it)
-			// rather than quitting, so the panel stays a single long-lived program
-			// with its state preserved between opens. Run only returns on a real
-			// error.
+			// exits on its own. The close and quit keys detach the popup rather
+			// than quit, so the panel stays one long-lived program with its state
+			// preserved between opens. Run returns only on a real error.
 			return panel.Run(state.manager, sessions, state.keys)
 		},
 	}
@@ -102,17 +101,16 @@ func NewRootCommand() *cobra.Command {
 	return root
 }
 
-// reconcileInterval is how often the serve process re-observes every agent and
-// writes its state. It is the only thing that moves an agent's state, so it is
-// brisk enough that starting or finishing work shows within a couple seconds,
-// while the tmux captures stay cheap.
+// reconcileInterval is how often serve re-observes every agent and writes its
+// state. It is the only thing that moves an agent's state, so it stays brisk
+// enough that starting or finishing work shows within a couple seconds while
+// the tmux captures stay cheap.
 const reconcileInterval = 2 * time.Second
 
-// transcriptSyncInterval is how often the serve process folds new transcript
-// text into the search index. It is far slower than the state reconcile because
-// a stale search corpus is harmless where a stale state count is not, and each
-// pass reads and re-indexes potentially large logs, so it is kept off the hot
-// path.
+// transcriptSyncInterval is how often serve folds new transcript text into the
+// search index. It runs far slower than the state reconcile. A stale search
+// corpus is harmless where a stale state count is not, and each pass re-indexes
+// potentially large logs, so it stays off the hot path.
 const transcriptSyncInterval = 15 * time.Second
 
 func serveCmd(state *app) *cobra.Command {
@@ -132,8 +130,8 @@ func serveCmd(state *app) *cobra.Command {
 			go runReconcileLoop(cmd.Context(), state.manager.Reconciler(), reconcileInterval)
 
 			// The transcript syncer runs alongside the reconciler for the same
-			// reason: serve is the always-on owner of the store, so the search
-			// index stays current whether or not a panel is open.
+			// reason. Serve owns the store and is always on, so the search index
+			// stays current whether or not a panel is open.
 			go runTranscriptSyncLoop(cmd.Context(), state.manager.TranscriptSyncer(), transcriptSyncInterval)
 
 			server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
@@ -185,11 +183,11 @@ func runTranscriptSyncLoop(ctx context.Context, syncer *agents.TranscriptSyncer,
 }
 
 // openCmd is the popup entrypoint. It creates the persistent manager session if
-// it does not exist and attaches to it, otherwise attaches to the running one.
-// The tmux plugin runs this as the popup's -E command, so it blocks until the
-// client detaches (the popup is hidden or an agent is left) and then returns,
-// which closes the popup. TMUX is stripped so tmux does not refuse the attach as
-// nested, since the popup itself lives inside the user's tmux client.
+// it does not exist and attaches, otherwise attaches to the running one. The
+// tmux plugin runs this as the popup's -E command, so it blocks until the client
+// detaches and then returns, which closes the popup. TMUX is stripped so tmux
+// does not refuse the attach as nested, since the popup itself lives inside the
+// user's tmux client.
 func openCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:           "open [client]",
@@ -199,9 +197,8 @@ func openCmd(state *app) *cobra.Command {
 		SilenceErrors: true,
 		RunE: func(_ *cobra.Command, args []string) error {
 			// Record the client that opened this popup so panel actions resolve the
-			// right directory and client, and mark the popup shown so the binding
-			// hides it on the next press. The mark is cleared when the attach below
-			// returns (the popup was hidden or an agent left).
+			// right directory and client. Mark the popup shown so the binding hides
+			// it on the next press. The mark clears when the attach below returns.
 			state.manager.SetInvokingClient(firstOrEmpty(args))
 			state.manager.MarkOpen()
 			defer state.manager.MarkClosed()
@@ -210,7 +207,7 @@ func openCmd(state *app) *cobra.Command {
 			// server's environment rather than the popup's. Forward the resolved
 			// config with -e so the panel reads the same values this process did,
 			// including any shell overrides. -e applies only when the session is
-			// first created; on later opens new-session -A just attaches.
+			// first created. On later opens new-session -A just attaches.
 			tmuxArgs := []string{
 				"-L", state.env.TmuxSocket, "new-session", "-A", "-s", agents.ManagerSession,
 				"-e", "CLAUDE_AGENTS_TMUX_SOCKET=" + state.env.TmuxSocket,
@@ -282,8 +279,8 @@ func statusCmd(state *app) *cobra.Command {
 }
 
 // ensureServer makes sure a session server is reachable at addr, spawning a
-// detached `serve` process if not. It returns an error (crashing the caller) if
-// the server never becomes reachable.
+// detached serve process if not. It returns an error if the server never
+// becomes reachable.
 func ensureServer(addr, self string) error {
 	if serverReachable(addr) {
 		return nil

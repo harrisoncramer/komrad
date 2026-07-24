@@ -68,7 +68,7 @@ func (c *Client) CurrentPane() (string, error) {
 }
 
 // SplitRight splits the anchor pane horizontally, adding a pane to its right
-// rooted at dir, and returns the new pane's id. The split stays detached (-d) so
+// rooted at dir, and returns the new pane's id. The split stays detached so
 // focus remains on the anchor. This is the stage the panel drives.
 func (c *Client) SplitRight(anchorPane, dir string) string {
 	pane, _ := c.query("split-window", "-h", "-d", "-t", anchorPane, "-c", dir, "-P", "-F", "#{pane_id}")
@@ -76,22 +76,22 @@ func (c *Client) SplitRight(anchorPane, dir string) string {
 }
 
 // NewWindow creates a detached window in a session, rooted at dir and titled
-// name, and returns its pane id. Agents live in these background windows; the
+// name, and returns its pane id. Agents live in these background windows. The
 // pane id is their stable handle regardless of where the pane is later moved.
 func (c *Client) NewWindow(session, name, dir string) string {
 	pane, _ := c.query("new-window", "-d", "-t", session, "-n", name, "-c", dir, "-P", "-F", "#{pane_id}")
 	return pane
 }
 
-// SwapPanes exchanges two panes' positions, keeping the active pane unchanged
-// (-d). Pane ids travel with their processes, so this moves a pane into or out of
-// the stage slot without disturbing which pane has focus.
+// SwapPanes exchanges two panes' positions, keeping the active pane unchanged.
+// Pane ids travel with their processes, so this moves a pane into or out of the
+// stage slot without disturbing which pane has focus.
 func (c *Client) SwapPanes(src, dst string) {
 	c.run("swap-pane", "-d", "-s", src, "-t", dst)
 }
 
-// RespawnPane replaces a pane's process with the given command (argv), rooted at
-// dir. With no command it re-runs the default shell, blanking the pane.
+// RespawnPane replaces a pane's process with argv, rooted at dir. With no
+// command it re-runs the default shell, blanking the pane.
 func (c *Client) RespawnPane(pane, dir string, argv ...string) {
 	c.run(append([]string{"respawn-pane", "-k", "-t", pane, "-c", dir}, argv...)...)
 }
@@ -119,8 +119,8 @@ func (c *Client) ShowGlobal(name string) string {
 }
 
 // DetachSession detaches every client attached to the named session, leaving the
-// session and its pane processes running. It is how the manager popup is hidden:
-// the client viewing the persistent manager session drops away while the session
+// session and its pane processes running. It is how the manager popup is hidden.
+// The client viewing the persistent manager session drops away while the session
 // stays alive, so reopening restores it exactly.
 func (c *Client) DetachSession(name string) {
 	c.run("detach-client", "-s", name)

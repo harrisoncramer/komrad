@@ -71,26 +71,26 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	ctx := context.Background()
 	rec := NewReconciler(cli, st)
 
-	// A busy agent, seeded new: the pane keeps a realistic working line on screen,
-	// so the reconciler must promote it to thinking.
+	// A busy agent seeded new. The pane keeps a realistic working line, so the
+	// reconciler must promote it to thinking.
 	busyPane := it.spawn("busy", `sh -c 'while true; do printf "\033[H· Cooking… (3s · down 1k tokens)\n"; sleep 1; done'`)
 	seed(t, st, "busy", busyPane, store.StateNew)
 	waitForFrame(t, cli, busyPane, "Cooking…")
 
-	// An idle agent: it renders a Claude-like input box with no timer, the way a
-	// real agent sits when interrupted. A bare sleep would capture empty, which
-	// the reconciler treats as inconclusive rather than idle.
+	// An idle agent renders a Claude-like input box with no timer, the way a real
+	// agent sits when interrupted. A bare sleep would capture empty, which the
+	// reconciler treats as inconclusive rather than idle.
 	idlePane := it.spawn("idle", `sh -c 'printf "\033[H❯ \n-- INSERT --\n"; sleep 300'`)
 	seed(t, st, "idle", idlePane, store.StateThinking)
 	waitForFrame(t, cli, idlePane, "INSERT")
 
-	// A waiting agent: the pane shows an interactive selection with its footer,
-	// the general signal for any prompt Claude is blocked on.
+	// A waiting agent shows an interactive selection with its footer, the general
+	// signal for any prompt Claude is blocked on.
 	waitPane := it.spawn("wait", `sh -c 'printf "\033[HPick one\n❯ 1. A\n  2. B\nEnter to select · Esc to cancel\n"; sleep 300'`)
 	seed(t, st, "wait", waitPane, store.StateThinking)
 	waitForFrame(t, cli, waitPane, "Enter to select")
 
-	// A killed agent: seed it, then tear the session down so has-session is false.
+	// A killed agent. Seed it, then tear the session down so has-session is false.
 	deadPane := it.spawn("dead", "sleep 300")
 	seed(t, st, "dead", deadPane, store.StateThinking)
 	it.kill("dead")

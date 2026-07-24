@@ -15,7 +15,7 @@ var migrationsFS embed.FS
 
 // Migrate applies any migrations not yet recorded, in filename order. Atlas
 // quotes identifiers with backticks, which SQLite accepts, so the raw files run
-// as-is; each is recorded in schema_migrations so it runs once.
+// as-is. Each is recorded in schema_migrations so it runs once.
 func Migrate(conn *sql.DB) error {
 	if _, err := conn.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY)`); err != nil {
 		return fmt.Errorf("failed to create schema_migrations: %w", err)

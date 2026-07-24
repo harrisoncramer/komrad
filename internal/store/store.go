@@ -31,9 +31,8 @@ const (
 type Agent struct {
 	ID   string
 	Name string
-	// SessionConfigID is the id of this agent's own config row, which holds its
-	// cwd and flags. Every agent owns exactly one. Cwd and Flags below are the
-	// flattened view of that row, joined in on read.
+	// SessionConfigID is this agent's own config row, holding its cwd and flags.
+	// Every agent owns exactly one. Cwd and Flags are that row flattened on read.
 	SessionConfigID string
 	Pane            string
 	Cwd             string
@@ -41,18 +40,17 @@ type Agent struct {
 	Prompt          string
 	State           string
 	ClaudeSessionID string
-	// WorkflowID is the workflow this chat belongs to, or nil when unassigned.
-	// It is the workflow's stable id; the workflow's name is only a display
-	// label.
+	// WorkflowID is the workflow this chat belongs to, or nil when unassigned. It
+	// holds the workflow's stable id, not its display name.
 	WorkflowID *string
 	Deleted    bool
 	// CreatedAt is when the chat was first recorded, for display.
 	CreatedAt time.Time
 }
 
-// Workflow is a named bucket of related chats. It runs nothing, but it carries
-// a default config (Cwd, Flags) used as the blueprint prefilled into the
-// new-chat form for chats created inside it.
+// Workflow is a named bucket of related chats. It runs nothing. Its default cwd
+// and flags are the blueprint prefilled into the new-chat form for chats created
+// inside it.
 type Workflow struct {
 	ID   string
 	Name string
@@ -94,8 +92,7 @@ func Open(path string) (*Store, error) {
 		return nil, fmt.Errorf("failed to open db: %w", err)
 	}
 
-	// WAL plus a busy timeout so the frequent, independent opens (the once-a-second
-	// status render, notify calls, the panel, the serve process) don't trip over
+	// WAL and a busy timeout so the frequent independent opens do not trip over
 	// each other.
 	if _, err := conn.Exec("PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;"); err != nil {
 		return nil, fmt.Errorf("failed to set pragmas: %w", err)
@@ -113,10 +110,9 @@ func Open(path string) (*Store, error) {
 }
 
 // transcriptFTS is the FTS5 index over transcript text. It lives outside the
-// Atlas migrations and sqlc: neither models a virtual table, and sqlc's SQLite
-// parser cannot parse fts5 or the MATCH/bm25/snippet the search reads with. The
-// store owns both writes instead, so the index is derived state kept in step
-// with session_transcripts by UpsertTranscript, never edited on its own.
+// Atlas migrations and sqlc because neither models a virtual table and sqlc
+// cannot parse fts5 or its MATCH/bm25/snippet functions. The store owns its
+// writes, keeping it in step with session_transcripts through UpsertTranscript.
 const transcriptFTS = "session_transcripts_fts"
 
 // ensureTranscriptIndex creates the FTS5 index if absent. The trigram tokenizer
@@ -172,10 +168,10 @@ func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
 }
 
 // Upsert inserts a new agent or updates an existing one. A blank id means a
-// fresh agent: a session id and a separate config id are generated, and the
+// fresh agent, so a session id and a separate config id are generated and the
 // config row is inserted alongside the session in one transaction. A set id
-// means an existing agent (the restore path): its linked config and runtime
-// fields are updated in place, never inserting a second config row.
+// means an existing agent whose linked config and runtime fields are updated in
+// place, never inserting a second config row.
 func (s *Store) Upsert(ctx context.Context, agent Agent) error {
 	if agent.ID == "" {
 		return s.insertAgent(ctx, agent)
@@ -287,8 +283,8 @@ func (s *Store) UpdateState(ctx context.Context, name, pane, state, claudeSessio
 }
 
 // Get returns an agent by name, nil when none exists, or an error for a real
-// failure. No-rows is the nil case; every other error is surfaced so a caller
-// does not report a genuine DB failure as "not found".
+// failure. No-rows is the nil case. Every other error is surfaced so a caller
+// does not report a genuine DB failure as not found.
 func (s *Store) Get(ctx context.Context, name string) (*Agent, error) {
 	row, err := s.queries.GetSession(ctx, name)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -362,7 +358,7 @@ func (s *Store) Undelete(ctx context.Context, id string) error {
 	return nil
 }
 
-// ActiveNameExists reports whether a live (non-deleted) agent already holds the
+// ActiveNameExists reports whether a live, non-deleted agent already holds the
 // name. New sessions consult this so an auto-generated name never collides with
 // an agent whose row still owns the name, including a dormant one whose tmux
 // session is gone but whose record survives.
@@ -401,7 +397,7 @@ func (s *Store) ListWorkflows(ctx context.Context) ([]Workflow, error) {
 }
 
 // GetWorkflow returns a workflow by id, nil when none exists, or an error for a
-// real failure. No-rows is the nil case; every other error is surfaced.
+// real failure. No-rows is the nil case. Every other error is surfaced.
 func (s *Store) GetWorkflow(ctx context.Context, id string) (*Workflow, error) {
 	row, err := s.queries.GetWorkflow(ctx, id)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -472,9 +468,9 @@ func (s *Store) RenameWorkflow(ctx context.Context, id, name string) error {
 }
 
 // UpdateWorkflow patches a workflow's display name, its free-text context, and
-// its linked config (cwd, flags) in one transaction, keyed by id. Nothing keys
-// on the name, so the rename cannot collide. The writes commit together or not
-// at all.
+// its linked config of cwd and flags in one transaction, keyed by id. Nothing
+// keys on the name, so the rename cannot collide. The writes commit together or
+// not at all.
 func (s *Store) UpdateWorkflow(ctx context.Context, id string, cfg WorkflowConfig) error {
 	tx, err := s.conn.BeginTx(ctx, nil)
 	if err != nil {
@@ -563,8 +559,8 @@ type Transcript struct {
 
 // SearchHit is one transcript matched by a search: the session it belongs to,
 // its display name, whether that session is soft-deleted, a snippet of the
-// matching text with the hit marked, and the FTS relevance rank (a bm25 score,
-// lower is a better match).
+// matching text with the hit marked, and the FTS relevance rank. The rank is a
+// bm25 score where lower is a better match.
 type SearchHit struct {
 	SessionID string
 	Name      string
@@ -584,7 +580,7 @@ const (
 
 // GetTranscript returns a session's stored transcript, or a zero Transcript when
 // none has been synced yet. No-rows is the zero case, so a first sync sees an
-// offset of 0 and indexes the whole file; every other error is surfaced.
+// offset of 0 and indexes the whole file. Every other error is surfaced.
 func (s *Store) GetTranscript(ctx context.Context, sessionID string) (Transcript, error) {
 	row, err := s.queries.GetTranscript(ctx, sessionID)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -633,7 +629,7 @@ func (s *Store) UpsertTranscript(ctx context.Context, sessionID, content string,
 
 // SearchTranscripts returns the transcripts matching query, best match first.
 // The query is passed to FTS5 as a single quoted string so its contents are
-// treated as a literal phrase rather than FTS operator syntax; with the trigram
+// treated as a literal phrase rather than FTS operator syntax. With the trigram
 // tokenizer that yields a substring match. A blank query returns no hits rather
 // than every transcript.
 func (s *Store) SearchTranscripts(ctx context.Context, query string, limit int) ([]SearchHit, error) {
@@ -646,9 +642,9 @@ func (s *Store) SearchTranscripts(ctx context.Context, query string, limit int) 
 
 	// The join carries the chat's name and deleted flag onto each hit so a result
 	// row is self-describing. It is an inner join, so a transcript with no session
-	// row (an orphan that should not occur) is dropped rather than shown nameless.
-	// The bm25 and snippet auxiliary functions take the FTS table by name, so it
-	// is referenced unaliased while sessions is aliased.
+	// row is dropped rather than shown nameless. The bm25 and snippet auxiliary
+	// functions take the FTS table by name, so it is referenced unaliased while
+	// sessions is aliased.
 	stmt := fmt.Sprintf(
 		"SELECT %[1]s.session_id, s.name, s.is_deleted, snippet(%[1]s, 0, ?, ?, '…', 20), bm25(%[1]s) AS rank "+
 			"FROM %[1]s JOIN sessions s ON s.id = %[1]s.session_id "+
@@ -664,14 +660,14 @@ func (s *Store) SearchTranscripts(ctx context.Context, query string, limit int) 
 	var hits []SearchHit
 	for rows.Next() {
 		var (
-			h       SearchHit
+			hit     SearchHit
 			deleted int64
 		)
-		if err := rows.Scan(&h.SessionID, &h.Name, &deleted, &h.Snippet, &h.Rank); err != nil {
+		if err := rows.Scan(&hit.SessionID, &hit.Name, &deleted, &hit.Snippet, &hit.Rank); err != nil {
 			return nil, fmt.Errorf("failed to scan search hit: %w", err)
 		}
-		h.Deleted = deleted != 0
-		hits = append(hits, h)
+		hit.Deleted = deleted != 0
+		hits = append(hits, hit)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("failed to read search hits: %w", err)

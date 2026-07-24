@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeTmux is a scripted, recording tmux client. Reads are served from the
-// alive/captures maps; writes are appended to the recording slices so a test can
-// assert what the manager sent. It implements the tmuxClient interface and also
-// satisfies the reconciler's narrower tmuxProbe.
+// fakeTmux is a scripted, recording tmux client. Reads are served from the alive
+// and captures maps. Writes are appended to the recording slices so a test can
+// assert what the manager sent. It implements tmuxClient and also satisfies the
+// reconciler's narrower tmuxProbe.
 type fakeTmux struct {
 	alive     map[string]bool
 	captures  map[string]string
@@ -21,7 +21,7 @@ type fakeTmux struct {
 
 	sent           map[string][][]string
 	globals        map[string]string
-	newWindows     map[string]string // window name -> dir
+	newWindows     map[string]string // window name to dir
 	swaps          [][2]string       // {src, dst}
 	respawns       [][]string        // pane + argv per respawn
 	killedPanes    []string

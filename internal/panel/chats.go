@@ -13,23 +13,22 @@ import (
 // noWorkflowLabel heads the trailing group of chats that belong to no workflow.
 const noWorkflowLabel = "No Workflow"
 
-// chatRow is one line of the chats list: either a workflow header (a folder) or
-// a chat nested under one. The cursor moves over both, but actions apply only to
-// chat rows, so a header is a passive label.
+// chatRow is one line of the chats list. It is either a workflow header or a
+// chat nested beneath one. The cursor moves over both but actions apply only to
+// chat rows.
 type chatRow struct {
 	header bool
-	label  string   // workflow name, or noWorkflowLabel, when header is true
-	item   chatItem // the chat, when header is false
-	// workflowIndex points a workflow header at its entry in m.workflows, so the
-	// workflow actions can target it. It is -1 for the no-workflow header and
-	// unused for chat rows.
+	label  string   // workflow name or noWorkflowLabel when header is true
+	item   chatItem // the chat when header is false
+	// workflowIndex is the header's index in m.workflows so workflow actions can
+	// target it. It is -1 for the no-workflow header and unused for chat rows.
 	workflowIndex int
 }
 
 // chatRows arranges the chats into the displayed tree. Every workflow is a
-// header (shown even when empty, so a new one can be hovered to add its first
-// chat) followed by its chats, then a trailing group of chats that belong to no
-// workflow.
+// header followed by its chats, then a trailing group of chats that belong to no
+// workflow. Empty workflows still get a header so a new one can be hovered to add
+// its first chat.
 func (m model) chatRows() []chatRow {
 	byWorkflow := make(map[string][]chatItem)
 	var unassigned []chatItem
@@ -52,8 +51,8 @@ func (m model) chatRows() []chatRow {
 		}
 	}
 
-	// Chats whose workflow is unknown (e.g. it was just deleted) fall in with the
-	// unassigned group rather than vanishing from the list.
+	// Chats whose workflow is unknown, for example one just deleted, fall into the
+	// unassigned group rather than vanishing.
 	for _, leftover := range byWorkflow {
 		unassigned = append(unassigned, leftover...)
 	}
@@ -65,8 +64,8 @@ func (m model) chatRows() []chatRow {
 	return rows
 }
 
-// selectedChat returns the chat under the cursor and true, or false when the
-// cursor is on a workflow header or the list is empty, so actions no-op there.
+// selectedChat returns the chat under the cursor, or false when the cursor is on
+// a workflow header or the list is empty.
 func (m model) selectedChat() (chatItem, bool) {
 	rows := m.chatRows()
 	if m.chatCursor < 0 || m.chatCursor >= len(rows) || rows[m.chatCursor].header {
@@ -77,8 +76,7 @@ func (m model) selectedChat() (chatItem, bool) {
 }
 
 // hoveredWorkflow returns the m.workflows index of the workflow header under the
-// cursor and true, or false when the cursor is not on a real workflow header
-// (a chat, the no-workflow group, or an empty list).
+// cursor and true, or false when the cursor is not on a real workflow header.
 func (m model) hoveredWorkflow() (int, bool) {
 	rows := m.chatRows()
 	if m.chatCursor < 0 || m.chatCursor >= len(rows) {
@@ -106,7 +104,7 @@ func (m model) onNoWorkflowHeader() bool {
 }
 
 // firstChatRowIndex returns the index of the first chat row, skipping a leading
-// header, so entering the list lands on a chat rather than a folder label.
+// header so entering the list lands on a chat rather than a folder label.
 func firstChatRowIndex(rows []chatRow) int {
 	for i, r := range rows {
 		if !r.header {
@@ -117,8 +115,8 @@ func firstChatRowIndex(rows []chatRow) int {
 	return 0
 }
 
-// rowIndexOfChatName finds the row of the named chat, or -1 when it is gone, so a
-// refresh can keep the cursor on the same chat as the tree is rebuilt.
+// rowIndexOfChatName returns the row of the named chat, or -1 when it is gone, so
+// a refresh can keep the cursor on the same chat as the tree is rebuilt.
 func rowIndexOfChatName(rows []chatRow, name string) int {
 	for i, r := range rows {
 		if !r.header && r.item.agent.Name == name {
@@ -129,25 +127,24 @@ func rowIndexOfChatName(rows []chatRow, name string) int {
 	return -1
 }
 
-// updateChats drives the nav list: arrows move the selection (restaging the
-// stage pane), and letter keys act on the hovered chat or workflow.
+// updateChats drives the nav list. Arrows move the selection and restage, and
+// letter keys act on the hovered chat or workflow.
 func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
-	// New workflow is global to the chats view, regardless of what the cursor is
-	// on, so it never collides with the per-row new-chat key.
+	// New workflow is global to the chats view regardless of cursor position, so it
+	// never collides with the per-row new-chat key.
 	if bound(k, m.keys.Workflows.New) {
 		return m.newWorkflowForm()
 	}
 
-	// Search is likewise global to the chats view: it opens over the whole corpus,
+	// Search is likewise global to the chats view. It opens over the whole corpus,
 	// not the hovered row.
 	if bound(k, m.keys.Chats.Search) {
 		return m.enterSearch()
 	}
 
-	// Hovering a workflow header lets the workflow bindings act on that folder's
-	// workflow.
+	// On a workflow header the workflow bindings act on that folder's workflow.
 	if wfIdx, ok := m.hoveredWorkflow(); ok {
 		return m.updateHoveredWorkflow(key, wfIdx)
 	}
@@ -194,10 +191,9 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// openChat acts on the hovered chat. A dormant chat is restored (its pane and
-// claude session recreated) and then staged live; a live chat is already on the
-// stage from hovering, so opening it is a no-op — moving focus onto it is a
-// plain tmux pane move the user drives.
+// openChat acts on the hovered chat. A dormant chat is restored and staged live.
+// A live chat is already staged from hovering, so opening it is a no-op. Moving
+// focus onto it is a plain tmux pane move the user drives.
 func (m model) openChat() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedChat()
 	if !ok {
@@ -218,7 +214,7 @@ func (m model) openChat() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// stageSelection updates the stage pane to reflect what the cursor is on: a live
+// stageSelection updates the stage pane to reflect what the cursor is on. A live
 // chat's pane is swapped in, a dormant chat and a workflow header show markdown
 // via bat, and anything else blanks the stage.
 func (m model) stageSelection() {
@@ -261,8 +257,8 @@ func orDash(v string) string {
 	return v
 }
 
-// workflowMarkdown renders a workflow's info for the stage: its name, shared
-// context, and config, shown through bat.
+// workflowMarkdown renders a workflow's info for the stage. It shows the name,
+// shared context, and config through bat.
 func workflowMarkdown(w store.Workflow, chats int) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", w.Name)
@@ -340,15 +336,15 @@ func (m model) actionHints() string {
 	return b.String()
 }
 
-// chatsView renders the nav list — the panel's own pane. The hovered resource is
+// chatsView renders the nav list, the panel's own pane. The hovered resource is
 // shown in the separate stage pane, not here.
 func (m model) chatsView() string {
 	var list strings.Builder
 	list.WriteString(headerStyle.Render("Chats") + "\n\n")
 
-	// The list is a tree: each workflow is a folder header and its chats are
-	// nested beneath it, so a chat's parent is shown by position rather than a
-	// per-row marker.
+	// The list is a tree. Each workflow is a folder header with its chats nested
+	// beneath it, so a chat's parent is shown by position rather than a per-row
+	// marker.
 	for i, r := range m.chatRows() {
 		selected := i == m.chatCursor
 		prefix := "  "
@@ -373,7 +369,7 @@ func (m model) chatsView() string {
 
 		state := item.agent.State
 		if !item.alive {
-			state = "" // dormant: neutral icon/color
+			state = "" // dormant, neutral icon and color
 			name = dimStyle.Render(item.agent.Name)
 			if selected {
 				name = cursorStyle.Render(item.agent.Name)

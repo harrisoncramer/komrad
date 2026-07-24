@@ -81,9 +81,9 @@ func chatItemsFrom(sessions []*sessionv1.Session, manager *agents.AgentManager) 
 }
 
 // Run launches the panel and blocks for the life of the persistent manager
-// session. Sessions are read through the ConnectRPC client. The panel is the
-// nav pane; the resource it hovers is shown in a sibling stage pane, and focus
-// moves between the two with the user's own tmux bindings.
+// session. Sessions are read through the ConnectRPC client. The panel is the nav
+// pane. The resource it hovers is shown in a sibling stage pane, and focus moves
+// between the two with the user's own tmux bindings.
 func Run(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, keys appconfig.Keybindings) error {
 	if _, err := tea.NewProgram(newModel(manager, sessions, keys), tea.WithAltScreen()).Run(); err != nil {
 		return fmt.Errorf("failed to run panel: %w", err)
@@ -94,8 +94,8 @@ func Run(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceC
 
 // hide detaches the popup's client from the persistent manager session without
 // stopping the panel. The bubbletea program keeps running with its state intact,
-// so reopening the popup restores the exact screen. This is what the close and
-// quit keys do: they hide the popup rather than tear the panel down.
+// so reopening the popup restores the exact screen. The close and quit keys hide
+// the popup rather than tear the panel down.
 func (m model) hide() tea.Cmd {
 	return func() tea.Msg {
 		m.manager.HideManager()
@@ -156,10 +156,10 @@ type model struct {
 	chatCursor int
 
 	// workflows backs the tree's folder headers. workflowCursor is which workflow a
-	// header-hover action targets. workflowRenameTarget is the workflow being
-	// renamed and workflowEditTarget the one being edited when the workflow form is
-	// open; both nil when creating one; workflowDeleteTarget is the one the delete
-	// prompt is confirming.
+	// header-hover action targets. workflowRenameTarget and workflowEditTarget are
+	// the workflows being renamed or edited while the workflow form is open, both
+	// nil when creating one. workflowDeleteTarget is the one the delete prompt is
+	// confirming.
 	workflows            []store.Workflow
 	workflowCursor       int
 	workflowRenameTarget *store.Workflow
@@ -174,7 +174,7 @@ type model struct {
 	form         *huh.Form
 	renameTarget store.Agent
 
-	// Search screen state: the live query, its hits, and which hit is hovered.
+	// Search screen state. The live query, its hits, and which hit is hovered.
 	searchQuery  string
 	searchHits   []searchHit
 	searchCursor int
@@ -281,8 +281,8 @@ func (m *model) applyChats(fresh []chatItem) {
 	}
 }
 
-// indexOfChat returns the position of the named chat, or 0 when it is not found
-// (for example the selection was deleted), so the cursor lands on the first row.
+// indexOfChat returns the position of the named chat, or 0 when it is not found,
+// so the cursor lands on the first row.
 func indexOfChat(items []chatItem, name string) int {
 	for i, item := range items {
 		if item.agent.Name == name {
@@ -370,9 +370,8 @@ func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // newSessionForm builds the new-chat form. defaultDir and defaultFlags prefill
-// the directory and flags fields, seeded from the enclosing workflow's config
-// so a chat created inside a workflow starts from its blueprint; both are blank
-// at the root. The user can edit them before submit.
+// the directory and flags fields from the enclosing workflow's config so a chat
+// created inside a workflow starts from its blueprint. Both are blank at the root.
 func newSessionForm(keys appconfig.FormKeys, defaultDir, defaultFlags string) *huh.Form {
 	dir := defaultDir
 	flags := defaultFlags
@@ -398,11 +397,12 @@ func formKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
 	return km
 }
 
+// Init starts the async chats refresh so the list's counts and states stay current.
 func (m model) Init() tea.Cmd {
-	// Drive the async chats refresh so the list's counts and states stay current.
 	return tea.Batch(chatsTick(), m.loadChatsCmd())
 }
 
+// Update routes messages and key input to the active screen.
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if _, ok := msg.(chatsTickMsg); ok {
 		return m, tea.Batch(m.loadChatsCmd(), chatsTick())

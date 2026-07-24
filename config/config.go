@@ -1,6 +1,5 @@
-// Package config defines the panel's configuration, loaded from the environment
-// via ultra so secrets and overrides resolve the same way as the rest of the
-// toolchain.
+// Package config defines the panel's runtime configuration, loaded from the
+// environment via ultra.
 package config
 
 import (

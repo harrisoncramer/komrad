@@ -94,10 +94,9 @@ func (m model) searchCmd(query string) tea.Cmd {
 	}
 }
 
-// applySearchResults installs hits for the current query and returns a command
-// to load the hovered hit's transcript preview. A result for a stale query (the
-// input moved on before the response arrived) is ignored so the list never shows
-// hits for text the user has already changed.
+// applySearchResults installs hits for the current query and returns a command to
+// load the hovered hit's transcript preview. A result for a stale query is ignored
+// so the list never shows hits for text the user has already changed.
 func (m *model) applySearchResults(msg searchResultsMsg) tea.Cmd {
 	if msg.query != m.searchQuery {
 		return nil
@@ -168,11 +167,10 @@ func firstMatchLine(content, query string) int {
 	return 1 + strings.Count(content[:idx], "\n")
 }
 
-// updateSearch drives the search screen: printable keys edit the query and
-// re-run the search, the nav keys move over the results, enter opens the hovered
-// chat, and esc returns to the list. Movement and exit use fixed keys rather than
-// the configurable chat bindings, whose letters would otherwise type into the
-// query.
+// updateSearch drives the search screen. Printable keys edit the query and re-run
+// the search, the nav keys move over the results, enter opens the hovered chat,
+// and esc returns to the list. Movement and exit use fixed keys rather than the
+// configurable chat bindings, whose letters would otherwise type into the query.
 func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -235,8 +233,8 @@ func (m model) openSearchHit() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// searchView renders the search screen's own pane: the query line above the list
-// of matching chats, each with a one-line snippet of its match.
+// searchView renders the search screen's own pane. The query line sits above the
+// list of matching chats, each with a one-line snippet of its match.
 func (m model) searchView() string {
 	var b strings.Builder
 	b.WriteString(headerStyle.Render("Search") + "\n\n")

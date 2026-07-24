@@ -1,5 +1,4 @@
 // Package rpc serves the SessionService over ConnectRPC, backed by the store.
-// Every read and mutation flows through here to the SQLite state.
 package rpc
 
 import (
@@ -31,12 +30,12 @@ func (s *SessionService) ListSessions(ctx context.Context, _ *connect.Request[em
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list sessions: %w", err))
 	}
 
-	resp := &sessionv1.ListSessionsResponse{}
+	response := &sessionv1.ListSessionsResponse{}
 	for _, agent := range agents {
-		resp.Sessions = append(resp.Sessions, toProto(agent))
+		response.Sessions = append(response.Sessions, toProto(agent))
 	}
 
-	return connect.NewResponse(resp), nil
+	return connect.NewResponse(response), nil
 }
 
 // GetSession returns one agent by name.
@@ -70,7 +69,7 @@ func (s *SessionService) DeleteSession(ctx context.Context, req *connect.Request
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// UpdateSession patches a session by id (its title/name).
+// UpdateSession renames the session with the given id.
 func (s *SessionService) UpdateSession(ctx context.Context, req *connect.Request[sessionv1.UpdateSessionRequest]) (*connect.Response[emptypb.Empty], error) {
 	if err := s.store.Rename(ctx, req.Msg.GetId(), req.Msg.GetName()); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update session: %w", err))
@@ -79,7 +78,7 @@ func (s *SessionService) UpdateSession(ctx context.Context, req *connect.Request
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// SearchTranscripts runs a full-text search over stored transcripts, returning
+// SearchTranscripts runs a full-text search over stored transcripts and returns
 // the matching sessions with a marked snippet, best match first.
 func (s *SessionService) SearchTranscripts(ctx context.Context, req *connect.Request[sessionv1.SearchTranscriptsRequest]) (*connect.Response[sessionv1.SearchTranscriptsResponse], error) {
 	hits, err := s.store.SearchTranscripts(ctx, req.Msg.GetQuery(), int(req.Msg.GetLimit()))
@@ -87,9 +86,9 @@ func (s *SessionService) SearchTranscripts(ctx context.Context, req *connect.Req
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to search transcripts: %w", err))
 	}
 
-	resp := &sessionv1.SearchTranscriptsResponse{}
+	response := &sessionv1.SearchTranscriptsResponse{}
 	for _, hit := range hits {
-		resp.Hits = append(resp.Hits, &sessionv1.SearchHit{
+		response.Hits = append(response.Hits, &sessionv1.SearchHit{
 			SessionId: hit.SessionID,
 			Name:      hit.Name,
 			Deleted:   hit.Deleted,
@@ -98,11 +97,11 @@ func (s *SessionService) SearchTranscripts(ctx context.Context, req *connect.Req
 		})
 	}
 
-	return connect.NewResponse(resp), nil
+	return connect.NewResponse(response), nil
 }
 
-// GetTranscript returns a session's full stored transcript by id, for the search
-// preview to show the match in its surrounding conversation.
+// GetTranscript returns a session's full stored transcript by id, so the search
+// preview can show a match in its surrounding conversation.
 func (s *SessionService) GetTranscript(ctx context.Context, req *connect.Request[sessionv1.GetTranscriptRequest]) (*connect.Response[sessionv1.GetTranscriptResponse], error) {
 	tr, err := s.store.GetTranscript(ctx, req.Msg.GetSessionId())
 	if err != nil {

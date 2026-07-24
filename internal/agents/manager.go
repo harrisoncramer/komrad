@@ -1,5 +1,5 @@
-// Package agents orchestrates the store and tmux to implement both the panel
-// actions and the CLI subcommands (new, notify, status, serve).
+// Package agents orchestrates the store and tmux to implement the panel actions
+// and the CLI subcommands.
 package agents
 
 import (
@@ -15,10 +15,9 @@ import (
 	"github.com/google/uuid"
 )
 
-// expandHome expands a leading ~ or ~/ in a directory to the user's home. tmux's
-// new-session -c takes the start directory literally and does no shell tilde
-// expansion, so a path like "~/chariot" would fail to chdir and silently fall
-// back to the default directory. Expanding here keeps the stored cwd absolute.
+// expandHome expands a leading ~ or ~/ to the user's home. tmux's new-session -c
+// does no shell tilde expansion, so a stored ~ path would fail to chdir.
+// Expanding here keeps the cwd absolute.
 func expandHome(dir string) string {
 	if dir != "~" && !strings.HasPrefix(dir, "~/") {
 		return dir
@@ -35,8 +34,8 @@ func expandHome(dir string) string {
 	return filepath.Join(home, dir[len("~/"):])
 }
 
-// tmuxClient is the slice of the tmux client the manager drives. Accepting it as
-// an interface lets tests substitute a recording fake for the real CLI.
+// tmuxClient is the part of the tmux client the manager drives. It is an
+// interface so tests can substitute a recording fake for the real CLI.
 type tmuxClient interface {
 	SetGlobal(name, value string)
 	ShowGlobal(name string) string
@@ -54,9 +53,8 @@ type tmuxClient interface {
 	KillPane(pane string)
 }
 
-// agentStore is the slice of the store the manager reads and mutates. Accepting
-// it as an interface keeps the manager's business logic testable against a real
-// store without pulling in a concrete type.
+// agentStore is the part of the store the manager reads and mutates. It is an
+// interface so the manager's logic stays testable against a real store.
 type agentStore interface {
 	List(ctx context.Context) ([]store.Agent, error)
 	ListAll(ctx context.Context) ([]store.Agent, error)
@@ -87,9 +85,9 @@ type AgentManager struct {
 	claudeFlags string
 
 	// The stage is the pane beside the panel that shows the hovered resource.
-	// navPane anchors the split; stagePane is the pane the panel drives (bat, or a
-	// blank shell); stagedChatPane is the agent pane currently swapped into the
-	// slot, or empty when the stage shows the stagePane itself. Set up by InitStage
+	// navPane anchors the split. stagePane is the pane the panel drives, either bat
+	// or a blank shell. stagedChatPane is the agent pane currently swapped into the
+	// slot, empty when the stage shows stagePane itself. InitStage sets these up
 	// once the panel knows its own pane.
 	navPane        string
 	stagePane      string
@@ -114,27 +112,27 @@ func NewAgentManager(p Params) *AgentManager {
 	}
 }
 
-// ManagerSession is the name of the persistent tmux session the manager panel
-// runs in. The popup attaches to it rather than launching the panel fresh, so
-// hiding the popup (detaching this session's client) leaves the panel running
-// and reopening restores it exactly. The tmux plugin uses the same literal.
+// ManagerSession is the persistent tmux session the panel runs in. The popup
+// attaches to it rather than launching the panel fresh, so hiding the popup
+// leaves the panel running and reopening restores it. The tmux plugin uses the
+// same literal.
 const ManagerSession = "claude-manager"
 
 // managerOpenFlag marks that the popup is currently shown, so the binding hides
-// it (detaches) rather than opening a second one. The open command sets it while
-// the popup is up and clears it when the popup closes. The tmux plugin reads it.
+// it rather than opening a second one. The open command sets it while the popup
+// is up and clears it on close. The tmux plugin reads it.
 const managerOpenFlag = "@claude_manager_open"
 
-// managerClientFlag holds the tmux client that opened the current popup. The
-// open command writes it on each open, and the manager reads it live so actions
-// that need the invoking client (a new chat's default directory, switching a
-// client off a chat being deleted) use the client that is actually viewing the
-// popup, not one fixed when the persistent panel first started.
+// managerClientFlag holds the tmux client that opened the current popup. The open
+// command writes it on each open, and the manager reads it live, so actions that
+// need the invoking client use the one actually viewing the popup rather than one
+// fixed when the persistent panel first started.
 const managerClientFlag = "@claude_manager_client"
 
-// MarkOpen and MarkClosed toggle the popup-shown flag around the open command's
-// blocking attach.
-func (m *AgentManager) MarkOpen()   { m.tmux.SetGlobal(managerOpenFlag, "1") }
+// MarkOpen records that the popup is shown.
+func (m *AgentManager) MarkOpen() { m.tmux.SetGlobal(managerOpenFlag, "1") }
+
+// MarkClosed records that the popup is hidden.
 func (m *AgentManager) MarkClosed() { m.tmux.SetGlobal(managerOpenFlag, "0") }
 
 // SetInvokingClient records the tmux client that opened the current popup.
@@ -169,8 +167,8 @@ func (m *AgentManager) Reconciler() *Reconciler {
 
 // TranscriptSyncer builds the transcript syncer over this manager's store,
 // reading Claude's logs from ~/.claude/projects, for the serve process to run on
-// a timer. An unresolvable home falls back to a relative path, which simply
-// matches no logs rather than erroring.
+// a timer. An unresolvable home falls back to a relative path, which matches no
+// logs rather than erroring.
 func (m *AgentManager) TranscriptSyncer() *TranscriptSyncer {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -192,10 +190,10 @@ func (m *AgentManager) InitStage() {
 }
 
 // ensureStage guarantees a live stage pane beside the panel, splitting a fresh
-// one when the stage is missing or has died — e.g. a one-shot preview process
-// (bat) exited and tmux closed its pane. This self-heals the stage without a
-// panel restart. A stage pane swapped out to hold a chat is still alive, so it
-// is left as is.
+// one when the stage is missing or has died. A one-shot preview process like bat
+// can exit and take its pane down with it. This self-heals without a panel
+// restart. A stage pane swapped out to hold a chat is still alive, so it is left
+// as is.
 func (m *AgentManager) ensureStage() {
 	if m.navPane == "" {
 		return
@@ -222,8 +220,8 @@ func (m *AgentManager) restoreStage() {
 }
 
 // StageChat swaps a live agent's pane into the stage slot, so its running claude
-// shows beside the panel. Focus stays on the panel; moving to the chat is a
-// plain tmux pane move the user drives. A no-op when that chat is already staged.
+// shows beside the panel. Focus stays on the panel. Moving to the chat is a plain
+// tmux pane move the user drives. A no-op when that chat is already staged.
 func (m *AgentManager) StageChat(pane string) {
 	m.ensureStage()
 	if m.stagePane == "" || pane == "" || pane == m.stagedChatPane {
@@ -236,9 +234,9 @@ func (m *AgentManager) StageChat(pane string) {
 }
 
 // StageText shows markdown in the stage by writing it to a temp file and running
-// bat there. Used for a workflow's info and for a dormant chat's placeholder.
-// bat is one-shot, so it is wrapped in a shell that holds the pane open after it
-// prints — otherwise the process would exit and tmux would close the stage pane.
+// bat there. Used for a workflow's info and for a dormant chat's placeholder. bat
+// is one-shot, so it runs inside a shell that holds the pane open after it
+// prints. Otherwise the process would exit and tmux would close the stage pane.
 func (m *AgentManager) StageText(markdown string) {
 	m.ensureStage()
 	if m.stagePane == "" {
@@ -257,20 +255,20 @@ func (m *AgentManager) StageText(markdown string) {
 	m.tmux.RespawnPane(m.stagePane, home, "sh", "-c", cmd)
 }
 
-// transcriptPreviewContext is how many lines of transcript to show above and
-// below the matched line in a search preview. It is wide enough that the match
-// reads inside its surrounding conversation rather than in isolation, while
-// staying a window into a large transcript rather than the whole thing, which
-// bat renders from the top and would push the match off-screen.
+// transcriptPreviewBefore and transcriptPreviewAfter bound how many lines show
+// around a matched line in a search preview. Wide enough to read the match in its
+// surrounding conversation, but still a window into a large transcript. bat
+// renders from the top, so showing the whole thing would push the match
+// off-screen.
 const (
 	transcriptPreviewBefore = 12
 	transcriptPreviewAfter  = 80
 )
 
 // StageTranscript shows a transcript in the stage centered on a matched line,
-// with that line highlighted, so a search hit is read in the context of the
-// chat around it. A highlightLine of zero (no located match) shows the
-// transcript from the top. An empty transcript shows a placeholder.
+// with that line highlighted, so a search hit reads in the context around it. A
+// highlightLine of zero shows the transcript from the top. An empty transcript
+// shows a placeholder.
 func (m *AgentManager) StageTranscript(content string, highlightLine int) {
 	if strings.TrimSpace(content) == "" {
 		m.StageText("_no transcript yet_")
@@ -315,8 +313,8 @@ func (m *AgentManager) StageBlank() {
 	m.tmux.RespawnPane(m.stagePane, home)
 }
 
-// Rename retitles an agent. The name is now a store-only display label; nothing
-// in tmux keys on it, so no tmux object is renamed.
+// Rename retitles an agent. The name is a store-only display label and nothing in
+// tmux keys on it, so no tmux object is renamed.
 func (m *AgentManager) Rename(agent store.Agent, name string) {
 	name = store.SanitizeName(strings.TrimSpace(name))
 	if name == "" || name == agent.Name {
@@ -326,9 +324,9 @@ func (m *AgentManager) Rename(agent store.Agent, name string) {
 	_ = m.sessions.Rename(context.Background(), agent.ID, name)
 }
 
-// Delete soft-deletes an agent's record (hiding it from the panel), killing its
-// pane first. If the agent is currently staged, it is swapped back out so the
-// kill does not take the stage pane down with it.
+// Delete soft-deletes an agent's record and kills its pane first. If the agent is
+// currently staged, it is swapped back out so the kill does not take the stage
+// pane down with it.
 func (m *AgentManager) Delete(agent store.Agent) {
 	if m.stagedChatPane == agent.Pane {
 		m.restoreStage()
@@ -370,7 +368,7 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 	flags := strings.TrimSpace(m.claudeFlags + " " + p.Flags)
 
 	// A chat created inside a workflow inherits the workflow's shared context,
-	// injected as an appended system prompt at launch. It is a snapshot: later
+	// injected as an appended system prompt at launch. It is a snapshot. Later
 	// edits to the workflow context reach only sessions spawned after them.
 	var workflowContext string
 	if p.WorkflowID != nil {
@@ -380,7 +378,7 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 	}
 
 	// Generate Claude's session id ourselves and launch with --session-id, so the
-	// id is known up front, and restoring the agent can resume that same
+	// id is known up front and restoring the agent can resume that same
 	// conversation with --resume.
 	sessionID := uuid.NewString()
 	_ = m.sessions.Upsert(context.Background(), store.Agent{
@@ -394,7 +392,13 @@ func (m *AgentManager) NewSession(p NewSessionParams) {
 		WorkflowID:      p.WorkflowID,
 	})
 
-	m.launchClaude(pane, flags, p.Prompt, workflowContext, sessionID, false)
+	m.launchClaude(launchClaudeParams{
+		Session:         pane,
+		Flags:           flags,
+		Prompt:          p.Prompt,
+		WorkflowContext: workflowContext,
+		SessionID:       sessionID,
+	})
 }
 
 // ListWorkflows returns every live workflow for the tree's folder headers.
@@ -418,10 +422,10 @@ func (m *AgentManager) GetWorkflow(id string) (*store.Workflow, error) {
 	return workflow, nil
 }
 
-// NewWorkflow creates a workflow with its free-text context and default config
-// (cwd, flags), defaulting a blank name so the list always has a label to show.
-// The name is a display label only; nothing keys on it. The cwd is home-expanded
-// so the stored blueprint matches what a session launch would use.
+// NewWorkflow creates a workflow with its free-text context and default config,
+// defaulting a blank name so the list always has a label. The name is a display
+// label only and nothing keys on it. The cwd is home-expanded so the stored
+// blueprint matches what a session launch would use.
 func (m *AgentManager) NewWorkflow(cfg store.WorkflowConfig) (*store.Workflow, error) {
 	cfg.Name = strings.TrimSpace(cfg.Name)
 	if cfg.Name == "" {
@@ -450,10 +454,9 @@ func (m *AgentManager) RenameWorkflow(workflow store.Workflow, name string) {
 }
 
 // UpdateWorkflow patches a workflow's display name, free-text context, and
-// default config (cwd, flags) in place, keyed by id. A blank name falls back to
-// the existing name so the list always has a label. The cwd is home-expanded so
-// the stored blueprint matches what a session launch would use, mirroring
-// NewWorkflow.
+// default config in place, keyed by id. A blank name falls back to the existing
+// name so the list always has a label. The cwd is home-expanded so the stored
+// blueprint matches what a session launch would use.
 func (m *AgentManager) UpdateWorkflow(workflow store.Workflow, cfg store.WorkflowConfig) {
 	cfg.Name = strings.TrimSpace(cfg.Name)
 	if cfg.Name == "" {
@@ -497,8 +500,8 @@ func (m *AgentManager) Restore(agent store.Agent) (string, error) {
 	// A deleted agent's original name may have been reused by a live agent while
 	// it sat deleted. Undeleting it under that name would collide on the
 	// unique-name index and fail, so give it a fresh unique name first, renaming
-	// the stored row by id. A non-deleted dormant agent already owns its name (its
-	// own live row holds it), so it is left as is.
+	// the stored row by id. A non-deleted dormant agent already owns its name, so
+	// it is left as is.
 	if agent.Deleted && m.nameTaken(agent.Name) {
 		newName := m.uniqueSessionName(agent.Name, "")
 		if err := m.sessions.Rename(context.Background(), agent.ID, newName); err != nil {
@@ -525,17 +528,21 @@ func (m *AgentManager) Restore(agent store.Agent) (string, error) {
 		return "", fmt.Errorf("failed to restore session %q: %w", agent.Name, err)
 	}
 
-	m.launchClaude(pane, agent.Flags, "", "", agent.ClaudeSessionID, true)
+	m.launchClaude(launchClaudeParams{
+		Session:   pane,
+		Flags:     agent.Flags,
+		SessionID: agent.ClaudeSessionID,
+		Resume:    true,
+	})
 
 	return pane, nil
 }
 
 // OpenSearchHit opens the chat a search hit points at, keyed by its stable id,
-// and returns the live pane and the chat's (possibly newly-assigned) name. It
-// spans every chat, including soft-deleted ones, so a result found in search can
-// be opened directly: an already-live chat is returned as is, and a dormant or
-// deleted one is restored first, which relaunches Claude on its saved session and
-// clears the deleted flag. An unknown id is an error.
+// and returns the live pane and the chat's current name. It spans every chat,
+// including soft-deleted ones. An already-live chat is returned as is. A dormant
+// or deleted one is restored first, which relaunches Claude on its saved session
+// and clears the deleted flag. An unknown id is an error.
 func (m *AgentManager) OpenSearchHit(id string) (string, string, error) {
 	agents, err := m.sessions.ListAll(context.Background())
 	if err != nil {
@@ -600,55 +607,64 @@ func (m *AgentManager) uniqueSessionName(title, prompt string) string {
 	return name
 }
 
-// nameTaken reports whether a name is unavailable for a new agent: a live agent
-// record already owns it. The name is a store-only label now, so the store's
-// unique-name index is the single authority; reusing a name would make the
-// upsert clobber that agent's row instead of creating a fresh one.
+// nameTaken reports whether a name is already owned by a live agent record. The
+// store's unique-name index is the single authority. Reusing a name would make
+// the upsert clobber that agent's row instead of creating a fresh one.
 func (m *AgentManager) nameTaken(name string) bool {
 	taken, _ := m.sessions.ActiveNameExists(context.Background(), name)
 	return taken
 }
 
-// launchClaude types the claude command into a session. When resume is set it
-// resumes the prior conversation by session id; otherwise it starts a new
+// launchClaudeParams configures a single claude launch.
+type launchClaudeParams struct {
+	Session         string
+	Flags           string
+	Prompt          string
+	WorkflowContext string
+	SessionID       string
+	Resume          bool
+}
+
+// launchClaude types the claude command into a session. When Resume is set it
+// resumes the prior conversation by session id. Otherwise it starts a new
 // conversation pinned to that session id, with the opening prompt passed through
 // a temp file so multi-line input survives, removed as the command runs.
-func (m *AgentManager) launchClaude(session, flags, prompt, workflowContext, sessionID string, resume bool) {
+func (m *AgentManager) launchClaude(params launchClaudeParams) {
 	command := "claude"
-	if flags != "" {
-		command += " " + flags
+	if params.Flags != "" {
+		command += " " + params.Flags
 	}
 
 	switch {
-	case resume && sessionID != "":
-		command += " --resume " + sessionID
+	case params.Resume && params.SessionID != "":
+		command += " --resume " + params.SessionID
 	default:
-		if sessionID != "" {
-			command += " --session-id " + sessionID
+		if params.SessionID != "" {
+			command += " --session-id " + params.SessionID
 		}
 		// Pass the workflow context as an appended system prompt, sourced through a
-		// temp file the shell cats in place so arbitrary markdown needs no escaping,
-		// mirroring the prompt below. --append-system-prompt does not survive
-		// --resume, matching the snapshot-at-spawn behavior.
-		if workflowContext != "" {
+		// temp file the shell cats in place so arbitrary markdown needs no escaping.
+		// --append-system-prompt does not survive --resume, matching the
+		// snapshot-at-spawn behavior.
+		if params.WorkflowContext != "" {
 			file, err := os.CreateTemp("", "claude-context-*.md")
 			if err == nil {
-				_, _ = file.WriteString(workflowContext)
+				_, _ = file.WriteString(params.WorkflowContext)
 				_ = file.Close()
 				command += fmt.Sprintf(" --append-system-prompt \"$(cat '%s'; rm '%s')\"", file.Name(), file.Name())
 			}
 		}
-		if prompt != "" {
+		if params.Prompt != "" {
 			file, err := os.CreateTemp("", "claude-prompt-*.md")
 			if err == nil {
-				_, _ = file.WriteString(prompt)
+				_, _ = file.WriteString(params.Prompt)
 				_ = file.Close()
 				command += fmt.Sprintf(" \"$(cat '%s'; rm '%s')\"", file.Name(), file.Name())
 			}
 		}
 	}
 
-	m.tmux.SendKeys(session, command, "Enter")
+	m.tmux.SendKeys(params.Session, command, "Enter")
 }
 
 // Status renders the global agent summary for the tmux status bar.

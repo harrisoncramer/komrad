@@ -1,5 +1,5 @@
 // Package forbidgetenv flags direct process-environment access so configuration
-// flows through the config package (backed by ultra) instead of bare os calls.
+// flows through the config package instead of bare os calls.
 package forbidgetenv
 
 import (

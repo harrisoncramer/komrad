@@ -13,8 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestCreatedAtIsEmitted confirms the chat's creation time surfaces over the RPC
-// as a parseable RFC 3339 timestamp, so the panel can show when a chat started.
+// TestCreatedAtIsEmitted checks the creation time is emitted over the RPC as RFC 3339.
 func TestCreatedAtIsEmitted(t *testing.T) {
 	svc, st := service(t)
 	ctx := context.Background()

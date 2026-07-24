@@ -69,7 +69,7 @@ func TestFlattenTranscript(t *testing.T) {
 	}
 }
 
-// testClaudeID is the claude session id every test log is keyed to; the store id
+// testClaudeID is the claude session id every test log is keyed to. The store id
 // is generated on insert, so this only needs to be stable within a test.
 const testClaudeID = "claude-abc"
 
@@ -165,7 +165,7 @@ func TestTranscriptSyncerLeavesPartialLine(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "complete", tr.Content, "the partial line is not parsed yet")
 
-	// Finish the partial line; the next sync picks it up.
+	// Finish the partial line, and the next sync picks it up.
 	require.NoError(t, os.WriteFile(path,
 		[]byte(`{"type":"user","message":{"content":"complete"}}`+"\n"+`{"type":"user","message":{"content":"rest"}}`+"\n"), 0o644))
 	require.NoError(t, syncer.Sync(ctx))

@@ -7,10 +7,9 @@ import (
 )
 
 // TestFrameShowsWorkVariants pins the working detector against real status-line
-// shapes. The critical case is a working line with no timer yet ("✽ Beboppin'…"),
-// which appears at the start of every turn before tokens stream: requiring the
-// timer used to miss it and leave working agents undetected. It also guards
-// against chrome and prose being read as work.
+// shapes. The critical case is a working line with no timer yet, "✽ Beboppin'…",
+// which appears at the start of every turn before tokens stream. The detector
+// must catch it without the timer, and must not read chrome or prose as work.
 func TestFrameShowsWorkVariants(t *testing.T) {
 	// The detector keys on the "<glyph> <verb>…" shape, not a fixed glyph set, so
 	// every spinner Claude rotates through reads as working regardless of glyph.
@@ -25,8 +24,8 @@ func TestFrameShowsWorkVariants(t *testing.T) {
 		"* Working…",
 		"· Working… (3s · esc to interrupt)",
 	}
-	for _, f := range work {
-		assert.True(t, frameShowsWork(f), "should read as working: %q", f)
+	for _, frame := range work {
+		assert.True(t, frameShowsWork(frame), "should read as working: %q", frame)
 	}
 
 	notWork := []string{
@@ -40,15 +39,15 @@ func TestFrameShowsWorkVariants(t *testing.T) {
 		"❯ ",
 		"",
 	}
-	for _, f := range notWork {
-		assert.False(t, frameShowsWork(f), "should not read as working: %q", f)
+	for _, frame := range notWork {
+		assert.False(t, frameShowsWork(frame), "should not read as working: %q", frame)
 	}
 }
 
-// TestFrameShowsWorkThroughToolBlock pins the fix for a real miss: when Claude
-// renders a plan/todo block, it sits below the status line and above the input
-// box, pushing the status line a dozen-plus lines up from the bottom. Detection
-// must still find it, and must find it whether or not the timer has appeared.
+// TestFrameShowsWorkThroughToolBlock checks a plan or todo block rendered below
+// the status line and above the input box, which pushes the status line a
+// dozen-plus lines up from the bottom. Detection must still find it, with or
+// without the timer.
 func TestFrameShowsWorkThroughToolBlock(t *testing.T) {
 	block := "\n" +
 		"  ⎿  ◼ Schema + migration + sqlc for workflows\n" +
@@ -66,11 +65,11 @@ func TestFrameShowsWorkThroughToolBlock(t *testing.T) {
 	assert.True(t, frameShowsWork(noTimer), "status line above a tool block, no timer yet (multi-word verb)")
 }
 
-// TestWaitingIgnoresProseInWorkWindow pins the split-window fix: the wide working
-// window must not drag the waiting phrases ("esc to cancel", "enter to select")
-// in from transcript text. Here those phrases sit a dozen lines up (inside the
-// work window, outside the tight waiting window) while the bottom is an idle
-// input box, so the frame is neither working nor waiting.
+// TestWaitingIgnoresProseInWorkWindow checks that the wide working window does not
+// drag the waiting phrases "esc to cancel" and "enter to select" in from
+// transcript text. Those phrases sit a dozen lines up, inside the work window but
+// outside the tight waiting window, while the bottom is an idle input box, so the
+// frame is neither working nor waiting.
 func TestWaitingIgnoresProseInWorkWindow(t *testing.T) {
 	prose := "I split it so \"esc to cancel\" and \"Enter to select\" in a message do not read as a prompt."
 	frame := prose + "\n\n\n\n\n\n\n\n\n\n───────\n❯ \n───────\n  -- INSERT --"
@@ -79,10 +78,10 @@ func TestWaitingIgnoresProseInWorkWindow(t *testing.T) {
 	assert.False(t, frameShowsWork(frame), "an idle box is not working")
 }
 
-// TestFrameShowsWorkStripsANSI pins the root-cause fix: the pane is captured with
-// colors, so the status line arrives shredded by SGR escapes — the verb split
-// across color runs, codes wedged between the ellipsis and the timer. Detection
-// must strip them first or it matches nothing. These are real captures.
+// TestFrameShowsWorkStripsANSI checks detection against real color captures. The
+// pane is captured with colors, so the status line arrives shredded by SGR
+// escapes, with the verb split across color runs and codes wedged between the
+// ellipsis and the timer. Detection must strip them first or it matches nothing.
 func TestFrameShowsWorkStripsANSI(t *testing.T) {
 	work := []string{
 		// "✽ Flambéing… (3m 30s · ↓ 11.6k tokens)" as captured with -e
@@ -90,7 +89,7 @@ func TestFrameShowsWorkStripsANSI(t *testing.T) {
 		// a multi-word verb split across color runs, no timer
 		"\x1b[38;5;174m✢\x1b[39m \x1b[1mBuild\x1b[22ming panel\x1b[38;5;246m…\x1b[39m",
 	}
-	for _, f := range work {
-		assert.True(t, frameShowsWork(f), "ANSI-wrapped status line should read as working")
+	for _, frame := range work {
+		assert.True(t, frameShowsWork(frame), "ANSI-wrapped status line should read as working")
 	}
 }

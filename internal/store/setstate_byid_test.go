@@ -26,7 +26,7 @@ func TestSetStateByIDTargetsExactRow(t *testing.T) {
 	ctx := context.Background()
 	st := openForByID(t)
 
-	// Original "dup", then deleted; a fresh live "dup" reuses the name.
+	// Original "dup" is deleted, then a fresh live "dup" reuses the name.
 	require.NoError(t, st.Upsert(ctx, Agent{Name: "dup", State: StateThinking}))
 	deleted, err := st.Get(ctx, "dup")
 	require.NoError(t, err)
@@ -40,12 +40,12 @@ func TestSetStateByIDTargetsExactRow(t *testing.T) {
 
 	all, err := st.ListAll(ctx)
 	require.NoError(t, err)
-	for _, a := range all {
-		switch a.ID {
+	for _, agent := range all {
+		switch agent.ID {
 		case deleted.ID:
-			assert.Equal(t, StateDone, a.State, "the id'd row is updated")
+			assert.Equal(t, StateDone, agent.State, "the id'd row is updated")
 		case live.ID:
-			assert.Equal(t, StateNew, a.State, "the live namesake is untouched")
+			assert.Equal(t, StateNew, agent.State, "the live namesake is untouched")
 		}
 	}
 }

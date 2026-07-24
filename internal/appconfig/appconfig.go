@@ -37,7 +37,7 @@ type FormKeys struct {
 	Submit []string `mapstructure:"submit"`
 }
 
-// ChatsKeys are the bindings for the chats list — the panel's only view.
+// ChatsKeys are the bindings for the chats list, the panel's only view.
 type ChatsKeys struct {
 	Quit   []string `mapstructure:"quit"`
 	Back   []string `mapstructure:"back"`
@@ -48,8 +48,8 @@ type ChatsKeys struct {
 	Search []string `mapstructure:"search"`
 }
 
-// WorkflowsKeys are the bindings that act on a workflow: new (global), and the
-// rename/edit/delete that apply while the cursor is on a workflow header.
+// WorkflowsKeys are the bindings that act on a workflow. New is global. Rename,
+// edit, and delete apply while the cursor is on a workflow header.
 type WorkflowsKeys struct {
 	New    []string `mapstructure:"new"`
 	Rename []string `mapstructure:"rename"`
@@ -93,60 +93,60 @@ func DefaultKeybindings() Keybindings {
 	}
 }
 
-func fillKeys(v, def []string) []string {
-	if len(v) == 0 {
+func fillKeys(configured, def []string) []string {
+	if len(configured) == 0 {
 		return def
 	}
-	return v
+	return configured
 }
 
 // withDefaults fills any unset binding from the defaults, so a user who sets
 // only some keys keeps the built-ins for the rest.
 func (k Keybindings) withDefaults() Keybindings {
-	d := DefaultKeybindings()
+	def := DefaultKeybindings()
 
-	k.Nav.Up = fillKeys(k.Nav.Up, d.Nav.Up)
-	k.Nav.Down = fillKeys(k.Nav.Down, d.Nav.Down)
+	k.Nav.Up = fillKeys(k.Nav.Up, def.Nav.Up)
+	k.Nav.Down = fillKeys(k.Nav.Down, def.Nav.Down)
 
-	k.Chats.Quit = fillKeys(k.Chats.Quit, d.Chats.Quit)
-	k.Chats.Back = fillKeys(k.Chats.Back, d.Chats.Back)
-	k.Chats.Open = fillKeys(k.Chats.Open, d.Chats.Open)
-	k.Chats.New = fillKeys(k.Chats.New, d.Chats.New)
-	k.Chats.Rename = fillKeys(k.Chats.Rename, d.Chats.Rename)
-	k.Chats.Delete = fillKeys(k.Chats.Delete, d.Chats.Delete)
-	k.Chats.Search = fillKeys(k.Chats.Search, d.Chats.Search)
+	k.Chats.Quit = fillKeys(k.Chats.Quit, def.Chats.Quit)
+	k.Chats.Back = fillKeys(k.Chats.Back, def.Chats.Back)
+	k.Chats.Open = fillKeys(k.Chats.Open, def.Chats.Open)
+	k.Chats.New = fillKeys(k.Chats.New, def.Chats.New)
+	k.Chats.Rename = fillKeys(k.Chats.Rename, def.Chats.Rename)
+	k.Chats.Delete = fillKeys(k.Chats.Delete, def.Chats.Delete)
+	k.Chats.Search = fillKeys(k.Chats.Search, def.Chats.Search)
 
-	k.Workflows.New = fillKeys(k.Workflows.New, d.Workflows.New)
-	k.Workflows.Rename = fillKeys(k.Workflows.Rename, d.Workflows.Rename)
-	k.Workflows.Edit = fillKeys(k.Workflows.Edit, d.Workflows.Edit)
-	k.Workflows.Delete = fillKeys(k.Workflows.Delete, d.Workflows.Delete)
+	k.Workflows.New = fillKeys(k.Workflows.New, def.Workflows.New)
+	k.Workflows.Rename = fillKeys(k.Workflows.Rename, def.Workflows.Rename)
+	k.Workflows.Edit = fillKeys(k.Workflows.Edit, def.Workflows.Edit)
+	k.Workflows.Delete = fillKeys(k.Workflows.Delete, def.Workflows.Delete)
 
-	k.Form.Quit = fillKeys(k.Form.Quit, d.Form.Quit)
-	k.Form.Back = fillKeys(k.Form.Back, d.Form.Back)
-	k.Form.Submit = fillKeys(k.Form.Submit, d.Form.Submit)
+	k.Form.Quit = fillKeys(k.Form.Quit, def.Form.Quit)
+	k.Form.Back = fillKeys(k.Form.Back, def.Form.Back)
+	k.Form.Submit = fillKeys(k.Form.Submit, def.Form.Submit)
 
 	return k
 }
 
 // Load reads the config from path when given, otherwise from the default
-// location (~/.config/claude-agents/config.toml). A missing file is not an
-// error. It yields a zero-value Config.
+// location ~/.config/claude-agents/config.toml. A missing file is not an error
+// and yields the default keybindings.
 func Load(path string) (*Config, error) {
-	v := viper.New()
-	v.SetConfigType("toml")
+	viperCfg := viper.New()
+	viperCfg.SetConfigType("toml")
 
 	if path != "" {
-		v.SetConfigFile(path)
+		viperCfg.SetConfigFile(path)
 	} else {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve home directory: %w", err)
 		}
 
-		v.SetConfigFile(filepath.Join(home, ".config", "claude-agents", "config.toml"))
+		viperCfg.SetConfigFile(filepath.Join(home, ".config", "claude-agents", "config.toml"))
 	}
 
-	if err := v.ReadInConfig(); err != nil {
+	if err := viperCfg.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
 			return &Config{Keybindings: DefaultKeybindings()}, nil
 		}
@@ -158,7 +158,7 @@ func Load(path string) (*Config, error) {
 	}
 
 	var cfg Config
-	if err := v.Unmarshal(&cfg); err != nil {
+	if err := viperCfg.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 

@@ -9,10 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestGetDistinguishesMissingFromError pins the fix that Get no longer reports a
-// real DB failure as "not found": a missing row is (nil, nil), but an actual
-// failure (here, a closed database) surfaces as an error rather than being
-// swallowed into a false not-found.
+// TestGetDistinguishesMissingFromError checks that Get separates a missing row
+// from a real failure. A missing row is (nil, nil), and an actual failure such
+// as a closed database surfaces as an error.
 func TestGetDistinguishesMissingFromError(t *testing.T) {
 	st, err := Open(filepath.Join(t.TempDir(), "agents.db"))
 	require.NoError(t, err)

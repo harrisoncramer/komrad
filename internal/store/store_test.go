@@ -58,9 +58,9 @@ func TestSanitizeName(t *testing.T) {
 	}
 }
 
-// TestReuseNameAfterSoftDelete is the core of the identity fix: a soft-deleted
-// row keeps its name, and reusing that name must create a fresh row rather than
-// resurrect the dead one. State events keyed by name must land on the live row.
+// TestReuseNameAfterSoftDelete checks that a soft-deleted row keeps its name and
+// reusing that name creates a fresh row rather than resurrecting the dead one.
+// State events keyed by name must land on the live row.
 func TestReuseNameAfterSoftDelete(t *testing.T) {
 	ctx := context.Background()
 	st := open(t)
@@ -217,10 +217,9 @@ func TestWorkflowCRUD(t *testing.T) {
 	assert.Equal(t, second.ID, workflows[0].ID)
 }
 
-// TestSessionConfigRoundTrip checks that a session's cwd/flags survive the split
-// into session_configs: an insert creates the owned config row, a read joins it
-// back, and an id-keyed update rewrites the same config row rather than orphaning
-// it.
+// TestSessionConfigRoundTrip checks that a session's cwd and flags round-trip
+// through session_configs. An insert creates the owned config row, a read joins
+// it back, and an id-keyed update rewrites the same row rather than orphaning it.
 func TestSessionConfigRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	st := open(t)

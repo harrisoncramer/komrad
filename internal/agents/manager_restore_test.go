@@ -14,20 +14,19 @@ func agentByID(t *testing.T, st *store.Store, id string) store.Agent {
 	t.Helper()
 	all, err := st.ListAll(context.Background())
 	require.NoError(t, err)
-	for _, a := range all {
-		if a.ID == id {
-			return a
+	for _, agent := range all {
+		if agent.ID == id {
+			return agent
 		}
 	}
 	t.Fatalf("no agent with id %q", id)
 	return store.Agent{}
 }
 
-// TestRestoreRenamesOnNameCollision pins the fix for a deterministic crash:
-// restoring a soft-deleted agent whose name was reused by a live agent used to
-// undelete it into a duplicate live name, violating the unique-name index and
-// erroring out. The restore must instead take a fresh unique name and leave the
-// live namesake untouched.
+// TestRestoreRenamesOnNameCollision covers restoring a soft-deleted agent whose
+// name was reused by a live agent. The restore must take a fresh unique name and
+// leave the live namesake untouched, rather than colliding on the unique-name
+// index.
 func TestRestoreRenamesOnNameCollision(t *testing.T) {
 	ctx := context.Background()
 	st := newStore(t)

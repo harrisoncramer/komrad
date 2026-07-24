@@ -107,8 +107,7 @@ func TestUniqueSessionName(t *testing.T) {
 	}
 }
 
-// TestNameTaken covers name reservation: a live (non-deleted) store row owns its
-// name, since the name is a store-only label now.
+// TestNameTaken covers name reservation. A live store row owns its name.
 func TestNameTaken(t *testing.T) {
 	st := newStore(t)
 	seed(t, st, "taken", "%1", store.StateDone)
@@ -151,7 +150,13 @@ func TestLaunchClaude(t *testing.T) {
 			tmux := newFakeTmux()
 			manager := newManager(tmux, newStore(t), "")
 
-			manager.launchClaude("session", tt.flags, tt.prompt, "", tt.sessionID, tt.resume)
+			manager.launchClaude(launchClaudeParams{
+				Session:   "session",
+				Flags:     tt.flags,
+				Prompt:    tt.prompt,
+				SessionID: tt.sessionID,
+				Resume:    tt.resume,
+			})
 
 			keys := tmux.lastKeys("session")
 			require.Len(t, keys, 2)
@@ -168,7 +173,11 @@ func TestLaunchClaudePassesPromptThroughTempFile(t *testing.T) {
 	tmux := newFakeTmux()
 	manager := newManager(tmux, newStore(t), "")
 
-	manager.launchClaude("session", "", "line one\nline two", "", "sess", false)
+	manager.launchClaude(launchClaudeParams{
+		Session:   "session",
+		Prompt:    "line one\nline two",
+		SessionID: "sess",
+	})
 
 	command := tmux.lastKeys("session")[0]
 	assert.Contains(t, command, "--session-id sess")
@@ -183,14 +192,23 @@ func TestLaunchClaudeInjectsWorkflowContext(t *testing.T) {
 	tmux := newFakeTmux()
 	manager := newManager(tmux, newStore(t), "")
 
-	manager.launchClaude("session", "", "", "shared notes", "sess", false)
+	manager.launchClaude(launchClaudeParams{
+		Session:         "session",
+		WorkflowContext: "shared notes",
+		SessionID:       "sess",
+	})
 	command := tmux.lastKeys("session")[0]
 	assert.Contains(t, command, "--append-system-prompt \"$(cat ")
 	assert.Contains(t, command, "; rm ")
 
 	tmux = newFakeTmux()
 	manager = newManager(tmux, newStore(t), "")
-	manager.launchClaude("session", "", "", "shared notes", "sess", true)
+	manager.launchClaude(launchClaudeParams{
+		Session:         "session",
+		WorkflowContext: "shared notes",
+		SessionID:       "sess",
+		Resume:          true,
+	})
 	assert.NotContains(t, tmux.lastKeys("session")[0], "--append-system-prompt")
 }
 
@@ -221,9 +239,9 @@ func TestNewSession(t *testing.T) {
 	assert.NotEmpty(t, tmux.lastKeys("%My-Agent"), "claude is launched into the new pane")
 }
 
-// TestNewSessionExpandsTildeDir pins the fix for a `~`-prefixed directory: tmux
-// does no tilde expansion, so the manager must resolve it to an absolute path
-// before creating the session, and store that absolute path.
+// TestNewSessionExpandsTildeDir checks a ~-prefixed directory. tmux does no tilde
+// expansion, so the manager must resolve it to an absolute path before creating
+// the session, and store that absolute path.
 func TestNewSessionExpandsTildeDir(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
