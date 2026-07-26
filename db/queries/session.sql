@@ -137,21 +137,6 @@ WHERE
     workflow_id = @workflow_id
     AND is_deleted = FALSE;
 
--- name: UpdateSessionState :exec
-UPDATE
-    sessions
-SET
-    pane_id = @pane,
-    state = @state,
-    claude_session_id = CASE WHEN @claude_session_id != '' THEN
-        @claude_session_id
-    ELSE
-        claude_session_id
-    END
-WHERE
-    name = @name
-    AND is_deleted = FALSE;
-
 -- SetSessionState returns the row it touched so the caller can tell a chat that
 -- does not exist from one that already held the state.
 -- name: SetSessionState :many

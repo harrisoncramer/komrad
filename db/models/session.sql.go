@@ -709,39 +709,6 @@ func (q *Queries) UpdateSessionConfig(ctx context.Context, arg UpdateSessionConf
 	return err
 }
 
-const updateSessionState = `-- name: UpdateSessionState :exec
-UPDATE
-    sessions
-SET
-    pane_id = $1,
-    state = $2,
-    claude_session_id = CASE WHEN $3 != '' THEN
-        $3
-    ELSE
-        claude_session_id
-    END
-WHERE
-    name = $4
-    AND is_deleted = FALSE
-`
-
-type UpdateSessionStateParams struct {
-	Pane            string
-	State           string
-	ClaudeSessionID interface{}
-	Name            string
-}
-
-func (q *Queries) UpdateSessionState(ctx context.Context, arg UpdateSessionStateParams) error {
-	_, err := q.db.Exec(ctx, updateSessionState,
-		arg.Pane,
-		arg.State,
-		arg.ClaudeSessionID,
-		arg.Name,
-	)
-	return err
-}
-
 const upsertTranscript = `-- name: UpsertTranscript :exec
 INSERT INTO session_transcripts (session_id, content, synced_offset, synced_at)
     VALUES ($1, $2, $3, now())

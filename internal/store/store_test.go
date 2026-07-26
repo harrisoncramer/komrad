@@ -95,7 +95,10 @@ func TestReuseNameAfterSoftDelete(t *testing.T) {
 
 	// A state event keyed by name updates the live row, leaving the deleted row's
 	// state frozen at what it was when deleted.
-	require.NoError(t, st.UpdateState(ctx, "agent", "%2", StateWaiting, ""))
+	changed, err := st.SetState(ctx, "agent", StateWaiting)
+	require.NoError(t, err)
+	require.True(t, changed)
+
 	got, err = st.Get(ctx, "agent")
 	require.NoError(t, err)
 	require.NotNil(t, got)
@@ -109,18 +112,20 @@ func TestReuseNameAfterSoftDelete(t *testing.T) {
 	}
 }
 
-// TestUpdateStateDoesNotInsert guards the rule that UpdateState never creates a
-// row. A state write for a session the tool did not create finds no row and is a
+// TestSetStateDoesNotInsert guards the rule that a state write never creates a
+// row. A write for a session the tool did not create finds nothing and is a
 // no-op, so an outside Claude session never leaks into the store.
-func TestUpdateStateDoesNotInsert(t *testing.T) {
+func TestSetStateDoesNotInsert(t *testing.T) {
 	ctx := context.Background()
 	st := open(t)
 
-	require.NoError(t, st.UpdateState(ctx, "external", "%5", StateThinking, "sess"))
+	changed, err := st.SetState(ctx, "external", StateThinking)
+	require.NoError(t, err)
+	assert.False(t, changed, "there was no row to change")
 
 	all, err := st.ListAll(ctx)
 	require.NoError(t, err)
-	assert.Empty(t, all, "an update for an unknown session must not insert a row")
+	assert.Empty(t, all, "a write for an unknown session must not insert a row")
 }
 
 func TestActiveNameExists(t *testing.T) {

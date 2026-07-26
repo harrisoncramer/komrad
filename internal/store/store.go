@@ -305,24 +305,6 @@ func (s *Store) updateAgent(ctx context.Context, agent Agent) error {
 	return nil
 }
 
-// UpdateState records an agent's state and pane on an existing row, keyed by
-// name. It never inserts. A notify call from a session the tool did not create
-// finds no row and is a no-op, so an outside Claude session never leaks into the
-// store. It also never touches cwd/flags/prompt, so a state write does not wipe
-// the metadata captured at launch.
-func (s *Store) UpdateState(ctx context.Context, name, pane, state, claudeSessionID string) error {
-	if err := s.queries.UpdateSessionState(ctx, models.UpdateSessionStateParams{
-		Name:            name,
-		Pane:            pane,
-		State:           state,
-		ClaudeSessionID: claudeSessionID,
-	}); err != nil {
-		return fmt.Errorf("failed to update state for %q: %w", name, err)
-	}
-
-	return nil
-}
-
 // Get returns an agent by name, nil when none exists, or an error for a real
 // failure. No-rows is the nil case. Every other error is surfaced so a caller
 // does not report a genuine DB failure as not found.

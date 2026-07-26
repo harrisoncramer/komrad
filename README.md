@@ -27,7 +27,7 @@ set -g status-right "#{claude_agents}%I:%M:%S "
 
 There is nothing else to configure. The tool works out each agent's state on its own.
 
-See [installation](docs/install.md) for the full setup, including the panel key and the notify command.
+See [installation](docs/install.md) for the full setup, including the panel key.
 
 ## Why
 
@@ -41,7 +41,7 @@ Concepts and guides:
 
 - [How it works](docs/concepts.md): the state model, the store and server, the reconciler, and dormant agents
 - [The panel](docs/panel.md): the popup, the picker, and the chats browser
-- [Commands](docs/commands.md): what `serve`, `new`, `notify`, and `status` are for
+- [Commands](docs/commands.md): what `serve`, `status`, and `migrate` are for
 - [Installation](docs/install.md): the tmux plugin setup
 - [Configuration](docs/configuration.md): environment variables and the TOML app config
 - [Development](docs/development.md): mise tasks, the live rebuild loop, generated code, and the custom linter

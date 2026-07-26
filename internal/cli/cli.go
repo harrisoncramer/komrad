@@ -82,7 +82,6 @@ func NewRootCommand() *cobra.Command {
 	root.PersistentFlags().StringVar(&configPath, "config", "", "path to config TOML")
 	root.AddCommand(
 		openCmd(state),
-		newCmd(state),
 		statusCmd(state),
 		serveCmd(state),
 		migrateCmd(state),
