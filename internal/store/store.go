@@ -2,9 +2,7 @@
 // domain stores run inside.
 //
 // It holds no tables of its own. Each domain owns its own package beneath this
-// one for sessions, workflows, and transcripts, so a caller constructs only the ones it
-// needs, so what a service can reach is visible in how it was built rather than
-// hidden behind one object that can touch everything.
+// one: for sessions, workflows, etc.
 //
 // A write that spans domains runs through InTx, which hands the same handle to
 // each store so they commit together. That is why the stores are built over a
