@@ -1,8 +1,8 @@
 package store
 
 import (
+	"claude-agents/internal/pgtest"
 	"context"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +13,7 @@ import (
 // from a real failure. A missing row is (nil, nil), and an actual failure such
 // as a closed database surfaces as an error.
 func TestGetDistinguishesMissingFromError(t *testing.T) {
-	st, err := Open(filepath.Join(t.TempDir(), "agents.db"))
+	st, err := Open(t.Context(), pgtest.URL(t))
 	require.NoError(t, err)
 	ctx := context.Background()
 

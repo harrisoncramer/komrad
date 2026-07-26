@@ -3,9 +3,9 @@ package agents
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"testing"
 
+	"claude-agents/internal/pgtest"
 	"claude-agents/internal/store"
 
 	"github.com/stretchr/testify/require"
@@ -108,7 +108,7 @@ func (f *fakeTmux) lastKeys(target string) []string {
 
 func newStore(t *testing.T) *store.Store {
 	t.Helper()
-	st, err := store.Open(filepath.Join(t.TempDir(), "agents.db"))
+	st, err := store.Open(t.Context(), pgtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 

@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// One background Claude agent, everything needed to restore it.
 type Session struct {
 	ID              string
 	Name            string
@@ -17,11 +18,12 @@ type Session struct {
 	State           string
 	ClaudeSessionID string
 	WorkflowID      *string
-	IsDeleted       int64
+	IsDeleted       bool
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }
 
+// Editable config (cwd, flags) owned by exactly one session.
 type SessionConfig struct {
 	ID        string
 	Cwd       string
@@ -30,6 +32,7 @@ type SessionConfig struct {
 	UpdatedAt time.Time
 }
 
+// Flattened chat transcript for a session, synced from Claude's on-disk JSONL and indexed for search. Strict 1:1 with a session.
 type SessionTranscript struct {
 	SessionID    string
 	Content      string
@@ -37,16 +40,18 @@ type SessionTranscript struct {
 	SyncedAt     time.Time
 }
 
+// A named bucket of related chats. Pure organization; runs nothing.
 type Workflow struct {
 	ID               string
 	Name             string
+	Context          string
 	WorkflowConfigID string
-	IsDeleted        int64
+	IsDeleted        bool
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
-	Context          string
 }
 
+// Default config (cwd, flags) seeded into new chats of a workflow.
 type WorkflowConfig struct {
 	ID        string
 	Cwd       string

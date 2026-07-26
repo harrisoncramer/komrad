@@ -1,8 +1,8 @@
 package store
 
 import (
+	"claude-agents/internal/pgtest"
 	"context"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -11,7 +11,7 @@ import (
 
 func open(t *testing.T) *Store {
 	t.Helper()
-	st, err := Open(filepath.Join(t.TempDir(), "agents.db"))
+	st, err := Open(t.Context(), pgtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 

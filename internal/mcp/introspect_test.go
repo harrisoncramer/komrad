@@ -9,8 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestListTables confirms the app's tables are listed with their counts and that
-// SQLite's own bookkeeping and the FTS index's shadow tables stay out of it.
+// TestListTables confirms the app's tables are listed with their counts.
 func TestListTables(t *testing.T) {
 	tables, err := openTools(t).listTables(context.Background())
 	require.NoError(t, err)
@@ -23,14 +22,8 @@ func TestListTables(t *testing.T) {
 	assert.Contains(t, byName, "sessions")
 	assert.Contains(t, byName, "session_configs")
 	assert.Contains(t, byName, "workflows")
+	assert.Contains(t, byName, "session_transcripts")
 	assert.Equal(t, int64(1), byName["sessions"])
-
-	for name := range byName {
-		assert.False(t, strings.HasPrefix(name, "sqlite_"), "internal table %q should not be listed", name)
-		assert.False(t, strings.HasPrefix(name, "session_transcripts_fts_"), "fts shadow table %q should not be listed", name)
-	}
-	// The virtual table itself is real and queryable, so it stays.
-	assert.Contains(t, byName, "session_transcripts_fts")
 }
 
 func TestDescribeTable(t *testing.T) {
@@ -50,7 +43,8 @@ func TestDescribeTable(t *testing.T) {
 	assert.True(t, byName["workflow_id"].Nullable)
 
 	require.Contains(t, byName, "state")
-	assert.Equal(t, "'new'", byName["state"].Default)
+	assert.Equal(t, "'new'::text", byName["state"].Default,
+		"Postgres reports a default with the type it is coerced to")
 
 	assert.NotEmpty(t, desc.Indexes, "the partial unique name index should be reported")
 }
@@ -65,10 +59,23 @@ func TestDescribeTableRejectsUnknownAndMalformedNames(t *testing.T) {
 	require.ErrorContains(t, err, "not found")
 }
 
-func TestIsShadowTable(t *testing.T) {
-	virtual := []string{"session_transcripts_fts"}
+// TestListTablesExcludesSystemCatalogs confirms the listing shows the schema a
+// caller cares about and not Postgres's own bookkeeping, which lives in other
+// schemas and would bury it.
+func TestListTablesExcludesSystemCatalogs(t *testing.T) {
+	tools := openTools(t)
 
-	assert.True(t, isShadowTable("session_transcripts_fts_data", virtual))
-	assert.False(t, isShadowTable("session_transcripts_fts", virtual))
-	assert.False(t, isShadowTable("session_transcripts", virtual))
+	tables, err := tools.listTables(context.Background())
+	require.NoError(t, err)
+
+	names := make([]string, 0, len(tables))
+	for _, table := range tables {
+		names = append(names, table.Name)
+	}
+
+	assert.Contains(t, names, "sessions")
+	assert.Contains(t, names, "session_transcripts")
+	for _, name := range names {
+		assert.False(t, strings.HasPrefix(name, "pg_"), "system catalog %q should not be listed", name)
+	}
 }

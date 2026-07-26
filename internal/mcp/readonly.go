@@ -2,13 +2,14 @@ package mcp
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/jackc/pgx/v5"
 )
 
 const (
@@ -18,8 +19,10 @@ const (
 	// maxCellChars truncates any single stringified cell so one wide column
 	// cannot blow up the response. Transcripts are stored whole, so this matters.
 	maxCellChars = 2000
-	// queryTimeout caps how long a query may run. SQLite has no server-side
-	// statement timeout, so the deadline rides on the context instead.
+	// queryTimeout caps how long a query may run. It is set both as the context
+	// deadline and as the session's statement_timeout, so a query that stops
+	// responding is cut off by the server rather than left running behind a
+	// caller who has already given up.
 	queryTimeout = 15 * time.Second
 )
 
@@ -152,6 +155,11 @@ func skipQuoted(statement string, start int, quote byte) (int, bool) {
 
 // query validates that sql is a single read-only statement, then runs it under a
 // deadline with a row cap.
+//
+// The statement runs inside an explicitly read-only transaction. That is the
+// guarantee; the parsing above it is defense in depth, and the pool this borrows
+// from already defaults every session to read-only, so a write has to get past
+// three separate refusals.
 func (d *dbTools) query(ctx context.Context, statement string) (*queryResult, error) {
 	trimmed, err := validateReadOnly(statement)
 	if err != nil {
@@ -161,19 +169,31 @@ func (d *dbTools) query(ctx context.Context, statement string) (*queryResult, er
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
+	tx, err := d.db.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return nil, fmt.Errorf("begin read-only transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := tx.Exec(ctx, fmt.Sprintf("SET LOCAL statement_timeout = %d", queryTimeout.Milliseconds())); err != nil {
+		return nil, fmt.Errorf("set statement timeout: %w", err)
+	}
+
 	// The statement goes on its own line: a query ending in a -- comment would
 	// otherwise swallow the closing paren and fail as incomplete input, which is
 	// an error pointing nowhere near the cause.
 	wrapped := fmt.Sprintf("SELECT * FROM (\n%s\n) AS _mcp_q LIMIT %d", trimmed, maxRows+1)
-	rows, err := d.db.QueryContext(ctx, wrapped)
+
+	rows, err := tx.Query(ctx, wrapped)
 	if err != nil {
 		return nil, fmt.Errorf("query failed: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer rows.Close()
 
-	cols, err := rows.Columns()
-	if err != nil {
-		return nil, fmt.Errorf("read columns: %w", err)
+	fields := rows.FieldDescriptions()
+	cols := make([]string, len(fields))
+	for i, f := range fields {
+		cols[i] = f.Name
 	}
 
 	out := make([]map[string]any, 0)
@@ -184,12 +204,8 @@ func (d *dbTools) query(ctx context.Context, statement string) (*queryResult, er
 			break
 		}
 
-		vals := make([]any, len(cols))
-		ptrs := make([]any, len(cols))
-		for i := range vals {
-			ptrs[i] = &vals[i]
-		}
-		if err := rows.Scan(ptrs...); err != nil {
+		vals, err := rows.Values()
+		if err != nil {
 			return nil, fmt.Errorf("read row: %w", err)
 		}
 
@@ -246,8 +262,8 @@ func capString(s string) string {
 
 // scanStrings collects a single-column result into a slice, for the
 // introspection queries that return one text column per row.
-func scanStrings(rows *sql.Rows) ([]string, error) {
-	defer func() { _ = rows.Close() }()
+func scanStrings(rows pgx.Rows) ([]string, error) {
+	defer rows.Close()
 
 	out := make([]string, 0)
 	for rows.Next() {

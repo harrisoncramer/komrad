@@ -7,7 +7,7 @@ FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
 WHERE
-    w.is_deleted = 0
+    w.is_deleted = FALSE
 ORDER BY
     w.updated_at DESC;
 
@@ -21,16 +21,18 @@ FROM
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
 WHERE
     w.id = @id
-    AND w.is_deleted = 0
+    AND w.is_deleted = FALSE
 LIMIT 1;
 
--- name: InsertWorkflowConfig :exec
-INSERT INTO workflow_configs (id, cwd, flags)
-    VALUES (@id, @cwd, @flags);
+-- name: InsertWorkflowConfig :one
+INSERT INTO workflow_configs (cwd, flags)
+    VALUES (@cwd, @flags)
+RETURNING
+    id;
 
 -- name: InsertWorkflow :one
-INSERT INTO workflows (id, name, context, workflow_config_id)
-    VALUES (@id, @name, @context, @workflow_config_id)
+INSERT INTO workflows (name, context, workflow_config_id)
+    VALUES (@name, @context, @workflow_config_id)
 RETURNING
     *;
 
@@ -38,8 +40,7 @@ RETURNING
 UPDATE
     workflows
 SET
-    name = @name,
-    updated_at = CURRENT_TIMESTAMP
+    name = @name
 WHERE
     id = @id;
 
@@ -47,8 +48,7 @@ WHERE
 UPDATE
     workflows
 SET
-    context = @context,
-    updated_at = CURRENT_TIMESTAMP
+    context = @context
 WHERE
     id = @id;
 
@@ -57,8 +57,7 @@ UPDATE
     workflow_configs
 SET
     cwd = @cwd,
-    flags = @flags,
-    updated_at = CURRENT_TIMESTAMP
+    flags = @flags
 WHERE
     id = (
         SELECT
@@ -72,8 +71,6 @@ WHERE
 UPDATE
     workflows
 SET
-    is_deleted = 1,
-    updated_at = CURRENT_TIMESTAMP
+    is_deleted = TRUE
 WHERE
     id = @id;
-

@@ -1,10 +1,4 @@
-h1:e4/jl4p+wixfRD+SXDfMNjnT7CJlAZJxAwyHivEWVWw=
-20260722191514_initial.sql h1:Ay9afj8BTKHZi2wisJDGIBanHOhAkVISF6QcYvs/RTw=
-20260722202312_add_claude_session_id.sql h1:O98BAs0rDk+2Ru7x51NHM5RIpGLdQ0alF64IhIcmgDU=
-20260722202941_add_cwd_default.sql h1:QYXbEGKOe0gZRjDKhCq81A428MhSBLE+2eZq3pwOHUI=
-20260722203352_add_is_deleted.sql h1:QskyVI3fDstdnwq/HTkOrlPuVObmRcxmtCsfNMDUgFE=
-20260723050120_partial_unique_name.sql h1:Tj+JFyak6n6w2d3n+jIaCeEpRlB4Y/xI2qPZW2CwIxc=
-20260723133124_add_workflows.sql h1:XN7SEgA+h4vAjsbgFnvYhldYF78KqxHCnIxdnIrhGWE=
-20260723140000_split_config.sql h1:e3QaGOPqZoZKkqe7StDqdCgEaiGYo1+K9EVftpcK+sc=
-20260724032318_add_workflow_context.sql h1:56o5UseCyOLHapyYUD9QfWhV96nGB+9uQgtiAFxSsLs=
-20260724152453_add_session_transcripts.sql h1:fjbYHGDRk+zH+ItNsEuCN6+4tFJRMvsNX5ZSOjwVMu0=
+h1:jcL+VKDaRrBmZfXpOlInQOWMCgPLAcsrZlktHnB9xN8=
+20260726215550_create_pg_trgm.sql h1:++g7l1rIRV0wm2RjnKVI+DoyXCwP/LDLssN/cguKXKU=
+20260726215849_initial.sql h1:7fmrl1rjOoNjBVdUJWPApkmVubiVzbm5JwUgxZElm0k=
+20260726215902_set_updated_at.sql h1:Ea5H0/XCu09GhjNxRX7rdK2egWAS1YVAiV1Fiao8iOo=

@@ -2,10 +2,10 @@ package mcp
 
 import (
 	"context"
-	"path/filepath"
 	"strings"
 	"testing"
 
+	"claude-agents/internal/pgtest"
 	"claude-agents/internal/store"
 
 	"github.com/stretchr/testify/assert"
@@ -17,8 +17,8 @@ import (
 func openTools(t *testing.T) *dbTools {
 	t.Helper()
 
-	path := filepath.Join(t.TempDir(), "agents.db")
-	writable, err := store.Open(path)
+	url := pgtest.URL(t)
+	writable, err := store.Open(t.Context(), url)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = writable.Close() })
 
@@ -34,9 +34,9 @@ func openTools(t *testing.T) *dbTools {
 	require.Len(t, agents, 1)
 	require.NoError(t, writable.UpsertTranscript(context.Background(), agents[0].ID, "we should update the parser", 0))
 
-	readOnly, err := store.OpenReadOnly(path)
+	readOnly, err := store.OpenReadOnly(t.Context(), url)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = readOnly.Close() })
+	t.Cleanup(readOnly.Close)
 
 	return &dbTools{db: readOnly}
 }
@@ -149,14 +149,16 @@ SELECT i FROM n`
 
 // TestQueryRejectsWrite confirms the connection itself refuses a write, so the
 // keyword check is not the only thing standing between a model and the database.
+// The pool defaults every session to a read-only transaction, so this fails in
+// Postgres rather than in the parsing above it.
 func TestQueryRejectsWrite(t *testing.T) {
 	tools := openTools(t)
 
-	_, err := tools.db.ExecContext(context.Background(), "DELETE FROM sessions")
-	require.Error(t, err)
+	_, err := tools.db.Exec(context.Background(), "DELETE FROM sessions")
+	require.ErrorContains(t, err, "read-only transaction")
 
 	var count int
-	require.NoError(t, tools.db.QueryRowContext(context.Background(), "SELECT COUNT(*) FROM sessions").Scan(&count))
+	require.NoError(t, tools.db.QueryRow(context.Background(), "SELECT COUNT(*) FROM sessions").Scan(&count))
 	assert.Equal(t, 1, count)
 }
 

@@ -18,39 +18,58 @@ SELECT
         FROM
             sessions
         WHERE
-            name = ?1
-            AND is_deleted = 0)
+            name = $1
+            AND is_deleted = FALSE)
 `
 
-func (q *Queries) ActiveNameExists(ctx context.Context, name string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, activeNameExists, name)
-	var column_1 int64
-	err := row.Scan(&column_1)
-	return column_1, err
+func (q *Queries) ActiveNameExists(ctx context.Context, name string) (bool, error) {
+	row := q.db.QueryRow(ctx, activeNameExists, name)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const clearWorkflowSessions = `-- name: ClearWorkflowSessions :exec
 UPDATE
     sessions
 SET
-    workflow_id = NULL,
-    updated_at = CURRENT_TIMESTAMP
+    workflow_id = NULL
 WHERE
-    workflow_id = ?1
+    workflow_id = $1
 `
 
 func (q *Queries) ClearWorkflowSessions(ctx context.Context, workflowID *string) error {
-	_, err := q.db.ExecContext(ctx, clearWorkflowSessions, workflowID)
+	_, err := q.db.Exec(ctx, clearWorkflowSessions, workflowID)
 	return err
 }
 
-const deleteSession = `-- name: DeleteSession :exec
+const deleteSessionByID = `-- name: DeleteSessionByID :exec
 DELETE FROM sessions
-WHERE name = ?1
+WHERE id = $1
 `
 
-func (q *Queries) DeleteSession(ctx context.Context, name string) error {
-	_, err := q.db.ExecContext(ctx, deleteSession, name)
+func (q *Queries) DeleteSessionByID(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, deleteSessionByID, id)
+	return err
+}
+
+const deleteSessionConfig = `-- name: DeleteSessionConfig :exec
+DELETE FROM session_configs
+WHERE id = $1
+`
+
+func (q *Queries) DeleteSessionConfig(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, deleteSessionConfig, id)
+	return err
+}
+
+const deleteSessionTranscript = `-- name: DeleteSessionTranscript :exec
+DELETE FROM session_transcripts
+WHERE session_id = $1
+`
+
+func (q *Queries) DeleteSessionTranscript(ctx context.Context, sessionID string) error {
+	_, err := q.db.Exec(ctx, deleteSessionTranscript, sessionID)
 	return err
 }
 
@@ -63,8 +82,8 @@ FROM
     sessions s
     JOIN session_configs sc ON sc.id = s.session_config_id
 WHERE
-    s.name = ?1
-    AND s.is_deleted = 0
+    s.name = $1
+    AND s.is_deleted = FALSE
 LIMIT 1
 `
 
@@ -77,7 +96,7 @@ type GetSessionRow struct {
 	State           string
 	ClaudeSessionID string
 	WorkflowID      *string
-	IsDeleted       int64
+	IsDeleted       bool
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 	Cwd             string
@@ -85,7 +104,7 @@ type GetSessionRow struct {
 }
 
 func (q *Queries) GetSession(ctx context.Context, name string) (*GetSessionRow, error) {
-	row := q.db.QueryRowContext(ctx, getSession, name)
+	row := q.db.QueryRow(ctx, getSession, name)
 	var i GetSessionRow
 	err := row.Scan(
 		&i.ID,
@@ -105,6 +124,29 @@ func (q *Queries) GetSession(ctx context.Context, name string) (*GetSessionRow, 
 	return &i, err
 }
 
+const getSessionForDelete = `-- name: GetSessionForDelete :one
+SELECT
+    id,
+    session_config_id
+FROM
+    sessions
+WHERE
+    name = $1
+`
+
+type GetSessionForDeleteRow struct {
+	ID              string
+	SessionConfigID string
+}
+
+// GetSessionForDelete resolves the two ids a hard delete has to remove rows by.
+func (q *Queries) GetSessionForDelete(ctx context.Context, name string) (*GetSessionForDeleteRow, error) {
+	row := q.db.QueryRow(ctx, getSessionForDelete, name)
+	var i GetSessionForDeleteRow
+	err := row.Scan(&i.ID, &i.SessionConfigID)
+	return &i, err
+}
+
 const getTranscript = `-- name: GetTranscript :one
 SELECT
     content,
@@ -112,7 +154,7 @@ SELECT
 FROM
     session_transcripts
 WHERE
-    session_id = ?1
+    session_id = $1
 `
 
 type GetTranscriptRow struct {
@@ -121,19 +163,20 @@ type GetTranscriptRow struct {
 }
 
 func (q *Queries) GetTranscript(ctx context.Context, sessionID string) (*GetTranscriptRow, error) {
-	row := q.db.QueryRowContext(ctx, getTranscript, sessionID)
+	row := q.db.QueryRow(ctx, getTranscript, sessionID)
 	var i GetTranscriptRow
 	err := row.Scan(&i.Content, &i.SyncedOffset)
 	return &i, err
 }
 
-const insertSession = `-- name: InsertSession :exec
-INSERT INTO sessions (id, name, session_config_id, prompt, pane_id, state, claude_session_id, workflow_id)
-    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+const insertSession = `-- name: InsertSession :one
+INSERT INTO sessions (name, session_config_id, prompt, pane_id, state, claude_session_id, workflow_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING
+    id
 `
 
 type InsertSessionParams struct {
-	ID              string
 	Name            string
 	SessionConfigID string
 	Prompt          string
@@ -143,9 +186,8 @@ type InsertSessionParams struct {
 	WorkflowID      *string
 }
 
-func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) error {
-	_, err := q.db.ExecContext(ctx, insertSession,
-		arg.ID,
+func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) (string, error) {
+	row := q.db.QueryRow(ctx, insertSession,
 		arg.Name,
 		arg.SessionConfigID,
 		arg.Prompt,
@@ -154,23 +196,28 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) er
 		arg.ClaudeSessionID,
 		arg.WorkflowID,
 	)
-	return err
+	var id string
+	err := row.Scan(&id)
+	return id, err
 }
 
-const insertSessionConfig = `-- name: InsertSessionConfig :exec
-INSERT INTO session_configs (id, cwd, flags)
-    VALUES (?1, ?2, ?3)
+const insertSessionConfig = `-- name: InsertSessionConfig :one
+INSERT INTO session_configs (cwd, flags)
+    VALUES ($1, $2)
+RETURNING
+    id
 `
 
 type InsertSessionConfigParams struct {
-	ID    string
 	Cwd   string
 	Flags string
 }
 
-func (q *Queries) InsertSessionConfig(ctx context.Context, arg InsertSessionConfigParams) error {
-	_, err := q.db.ExecContext(ctx, insertSessionConfig, arg.ID, arg.Cwd, arg.Flags)
-	return err
+func (q *Queries) InsertSessionConfig(ctx context.Context, arg InsertSessionConfigParams) (string, error) {
+	row := q.db.QueryRow(ctx, insertSessionConfig, arg.Cwd, arg.Flags)
+	var id string
+	err := row.Scan(&id)
+	return id, err
 }
 
 const listAllSessions = `-- name: ListAllSessions :many
@@ -194,7 +241,7 @@ type ListAllSessionsRow struct {
 	State           string
 	ClaudeSessionID string
 	WorkflowID      *string
-	IsDeleted       int64
+	IsDeleted       bool
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 	Cwd             string
@@ -202,7 +249,7 @@ type ListAllSessionsRow struct {
 }
 
 func (q *Queries) ListAllSessions(ctx context.Context) ([]*ListAllSessionsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listAllSessions)
+	rows, err := q.db.Query(ctx, listAllSessions)
 	if err != nil {
 		return nil, err
 	}
@@ -229,9 +276,6 @@ func (q *Queries) ListAllSessions(ctx context.Context) ([]*ListAllSessionsRow, e
 		}
 		items = append(items, &i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -247,7 +291,7 @@ FROM
     sessions s
     JOIN session_configs sc ON sc.id = s.session_config_id
 WHERE
-    s.is_deleted = 0
+    s.is_deleted = FALSE
 ORDER BY
     s.updated_at DESC
 `
@@ -261,7 +305,7 @@ type ListSessionsRow struct {
 	State           string
 	ClaudeSessionID string
 	WorkflowID      *string
-	IsDeleted       int64
+	IsDeleted       bool
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 	Cwd             string
@@ -269,7 +313,7 @@ type ListSessionsRow struct {
 }
 
 func (q *Queries) ListSessions(ctx context.Context) ([]*ListSessionsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listSessions)
+	rows, err := q.db.Query(ctx, listSessions)
 	if err != nil {
 		return nil, err
 	}
@@ -296,9 +340,6 @@ func (q *Queries) ListSessions(ctx context.Context) ([]*ListSessionsRow, error) 
 		}
 		items = append(items, &i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -314,21 +355,21 @@ FROM
     sessions s
     JOIN session_configs sc ON sc.id = s.session_config_id
 WHERE
-    s.is_deleted = 0
-    AND (?1 IS NULL
-        OR s.updated_at < ?1
-        OR (s.updated_at = ?1
-            AND s.id < ?2))
+    s.is_deleted = FALSE
+    AND ($1::timestamptz IS NULL
+        OR s.updated_at < $1
+        OR (s.updated_at = $1
+            AND s.id < $2))
 ORDER BY
     s.updated_at DESC,
     s.id DESC
-LIMIT ?3
+LIMIT $3
 `
 
 type ListSessionsPageParams struct {
-	CursorUpdatedAt interface{}
+	CursorUpdatedAt *time.Time
 	CursorID        *string
-	Lim             int64
+	Lim             int32
 }
 
 type ListSessionsPageRow struct {
@@ -340,7 +381,7 @@ type ListSessionsPageRow struct {
 	State           string
 	ClaudeSessionID string
 	WorkflowID      *string
-	IsDeleted       int64
+	IsDeleted       bool
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 	Cwd             string
@@ -348,7 +389,7 @@ type ListSessionsPageRow struct {
 }
 
 func (q *Queries) ListSessionsPage(ctx context.Context, arg ListSessionsPageParams) ([]*ListSessionsPageRow, error) {
-	rows, err := q.db.QueryContext(ctx, listSessionsPage, arg.CursorUpdatedAt, arg.CursorID, arg.Lim)
+	rows, err := q.db.Query(ctx, listSessionsPage, arg.CursorUpdatedAt, arg.CursorID, arg.Lim)
 	if err != nil {
 		return nil, err
 	}
@@ -375,9 +416,6 @@ func (q *Queries) ListSessionsPage(ctx context.Context, arg ListSessionsPagePara
 		}
 		items = append(items, &i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -388,15 +426,14 @@ const markSessionDeleted = `-- name: MarkSessionDeleted :exec
 UPDATE
     sessions
 SET
-    is_deleted = 1,
-    updated_at = CURRENT_TIMESTAMP
+    is_deleted = TRUE
 WHERE
-    name = ?1
-    AND is_deleted = 0
+    name = $1
+    AND is_deleted = FALSE
 `
 
 func (q *Queries) MarkSessionDeleted(ctx context.Context, name string) error {
-	_, err := q.db.ExecContext(ctx, markSessionDeleted, name)
+	_, err := q.db.Exec(ctx, markSessionDeleted, name)
 	return err
 }
 
@@ -404,26 +441,26 @@ const markWorkflowSessionsDeleted = `-- name: MarkWorkflowSessionsDeleted :exec
 UPDATE
     sessions
 SET
-    is_deleted = 1,
-    updated_at = CURRENT_TIMESTAMP
+    is_deleted = TRUE
 WHERE
-    workflow_id = ?1
-    AND is_deleted = 0
+    workflow_id = $1
+    AND is_deleted = FALSE
 `
 
 func (q *Queries) MarkWorkflowSessionsDeleted(ctx context.Context, workflowID *string) error {
-	_, err := q.db.ExecContext(ctx, markWorkflowSessionsDeleted, workflowID)
+	_, err := q.db.Exec(ctx, markWorkflowSessionsDeleted, workflowID)
 	return err
 }
 
-const renameSession = `-- name: RenameSession :exec
+const renameSession = `-- name: RenameSession :many
 UPDATE
     sessions
 SET
-    name = ?1,
-    updated_at = CURRENT_TIMESTAMP
+    name = $1
 WHERE
-    id = ?2
+    id = $2
+RETURNING
+    id
 `
 
 type RenameSessionParams struct {
@@ -431,35 +468,161 @@ type RenameSessionParams struct {
 	ID   string
 }
 
-func (q *Queries) RenameSession(ctx context.Context, arg RenameSessionParams) error {
-	_, err := q.db.ExecContext(ctx, renameSession, arg.Name, arg.ID)
-	return err
+// RenameSession returns the row it touched so the caller can tell an id that
+// matches nothing from a rename to the name the chat already had.
+func (q *Queries) RenameSession(ctx context.Context, arg RenameSessionParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, renameSession, arg.Name, arg.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const restoreSession = `-- name: RestoreSession :exec
 UPDATE
     sessions
 SET
-    is_deleted = 0,
-    updated_at = CURRENT_TIMESTAMP
+    is_deleted = FALSE
 WHERE
-    id = ?1
+    id = $1
 `
 
 func (q *Queries) RestoreSession(ctx context.Context, id string) error {
-	_, err := q.db.ExecContext(ctx, restoreSession, id)
+	_, err := q.db.Exec(ctx, restoreSession, id)
 	return err
 }
 
-const setSessionState = `-- name: SetSessionState :exec
+const searchTranscripts = `-- name: SearchTranscripts :many
+WITH matches AS (
+    SELECT
+        t.session_id,
+        substring(t.content FROM greatest (1, position(lower($4) IN lower(t.content)) - $5::int)
+            FOR $6::int)::text AS snippet,
+        (length(t.content) - length(replace(lower(t.content), lower($4), ''))) / length($4) AS rank
+    FROM
+        session_transcripts t
+    WHERE
+        t.content ILIKE $7
+)
+SELECT
+    matches.session_id,
+    s.name,
+    s.is_deleted,
+    matches.snippet,
+    matches.rank
+FROM
+    matches
+    JOIN sessions s ON s.id = matches.session_id
+WHERE ($1::int IS NULL
+    OR rank < $1
+    OR (rank = $1
+        AND session_id > $2))
+ORDER BY
+    matches.rank DESC,
+    matches.session_id ASC
+LIMIT $3
+`
+
+type SearchTranscriptsParams struct {
+	CursorRank      *int32
+	CursorSessionID *string
+	Lim             int32
+	Query           string
+	Lead            int32
+	Width           int32
+	Pattern         string
+}
+
+type SearchTranscriptsRow struct {
+	SessionID string
+	Name      string
+	IsDeleted bool
+	Snippet   string
+	Rank      int32
+}
+
+// SearchTranscripts finds the transcripts containing the query as a substring,
+// best match first. The ILIKE is the form the trigram index can answer, so the
+// pattern arrives already escaped and wrapped in wildcards, while the raw query
+// is passed alongside it for the position and the count, which have to match
+// literally. Rank is how many times the query occurs in a transcript, so a chat
+// that discussed something at length outranks one that mentioned it once. The
+// snippet is a plain window of the text around the first occurrence; the caller
+// marks the match within it.
+func (q *Queries) SearchTranscripts(ctx context.Context, arg SearchTranscriptsParams) ([]*SearchTranscriptsRow, error) {
+	rows, err := q.db.Query(ctx, searchTranscripts,
+		arg.CursorRank,
+		arg.CursorSessionID,
+		arg.Lim,
+		arg.Query,
+		arg.Lead,
+		arg.Width,
+		arg.Pattern,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*SearchTranscriptsRow
+	for rows.Next() {
+		var i SearchTranscriptsRow
+		if err := rows.Scan(
+			&i.SessionID,
+			&i.Name,
+			&i.IsDeleted,
+			&i.Snippet,
+			&i.Rank,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const sessionExists = `-- name: SessionExists :one
+SELECT
+    EXISTS (
+        SELECT
+            1
+        FROM
+            sessions
+        WHERE
+            id = $1)
+`
+
+func (q *Queries) SessionExists(ctx context.Context, id string) (bool, error) {
+	row := q.db.QueryRow(ctx, sessionExists, id)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const setSessionState = `-- name: SetSessionState :many
 UPDATE
     sessions
 SET
-    state = ?1,
-    updated_at = CURRENT_TIMESTAMP
+    state = $1
 WHERE
-    name = ?2
-    AND is_deleted = 0
+    name = $2
+    AND is_deleted = FALSE
+RETURNING
+    id
 `
 
 type SetSessionStateParams struct {
@@ -467,19 +630,35 @@ type SetSessionStateParams struct {
 	Name  string
 }
 
-func (q *Queries) SetSessionState(ctx context.Context, arg SetSessionStateParams) error {
-	_, err := q.db.ExecContext(ctx, setSessionState, arg.State, arg.Name)
-	return err
+// SetSessionState returns the row it touched so the caller can tell a chat that
+// does not exist from one that already held the state.
+func (q *Queries) SetSessionState(ctx context.Context, arg SetSessionStateParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, setSessionState, arg.State, arg.Name)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const setSessionStateByID = `-- name: SetSessionStateByID :exec
 UPDATE
     sessions
 SET
-    state = ?1,
-    updated_at = CURRENT_TIMESTAMP
+    state = $1
 WHERE
-    id = ?2
+    id = $2
 `
 
 type SetSessionStateByIDParams struct {
@@ -488,7 +667,7 @@ type SetSessionStateByIDParams struct {
 }
 
 func (q *Queries) SetSessionStateByID(ctx context.Context, arg SetSessionStateByIDParams) error {
-	_, err := q.db.ExecContext(ctx, setSessionStateByID, arg.State, arg.ID)
+	_, err := q.db.Exec(ctx, setSessionStateByID, arg.State, arg.ID)
 	return err
 }
 
@@ -496,10 +675,9 @@ const setSessionWorkflow = `-- name: SetSessionWorkflow :exec
 UPDATE
     sessions
 SET
-    workflow_id = ?1,
-    updated_at = CURRENT_TIMESTAMP
+    workflow_id = $1
 WHERE
-    id = ?2
+    id = $2
 `
 
 type SetSessionWorkflowParams struct {
@@ -508,7 +686,7 @@ type SetSessionWorkflowParams struct {
 }
 
 func (q *Queries) SetSessionWorkflow(ctx context.Context, arg SetSessionWorkflowParams) error {
-	_, err := q.db.ExecContext(ctx, setSessionWorkflow, arg.WorkflowID, arg.ID)
+	_, err := q.db.Exec(ctx, setSessionWorkflow, arg.WorkflowID, arg.ID)
 	return err
 }
 
@@ -516,18 +694,17 @@ const updateSession = `-- name: UpdateSession :exec
 UPDATE
     sessions
 SET
-    prompt = ?1,
-    pane_id = ?2,
-    state = ?3,
-    claude_session_id = CASE WHEN ?4 != '' THEN
-        ?4
+    prompt = $1,
+    pane_id = $2,
+    state = $3,
+    claude_session_id = CASE WHEN $4 != '' THEN
+        $4
     ELSE
         claude_session_id
     END,
-    workflow_id = ?5,
-    updated_at = CURRENT_TIMESTAMP
+    workflow_id = $5
 WHERE
-    id = ?6
+    id = $6
 `
 
 type UpdateSessionParams struct {
@@ -540,7 +717,7 @@ type UpdateSessionParams struct {
 }
 
 func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) error {
-	_, err := q.db.ExecContext(ctx, updateSession,
+	_, err := q.db.Exec(ctx, updateSession,
 		arg.Prompt,
 		arg.PaneID,
 		arg.State,
@@ -555,11 +732,10 @@ const updateSessionConfig = `-- name: UpdateSessionConfig :exec
 UPDATE
     session_configs
 SET
-    cwd = ?1,
-    flags = ?2,
-    updated_at = CURRENT_TIMESTAMP
+    cwd = $1,
+    flags = $2
 WHERE
-    id = ?3
+    id = $3
 `
 
 type UpdateSessionConfigParams struct {
@@ -569,7 +745,7 @@ type UpdateSessionConfigParams struct {
 }
 
 func (q *Queries) UpdateSessionConfig(ctx context.Context, arg UpdateSessionConfigParams) error {
-	_, err := q.db.ExecContext(ctx, updateSessionConfig, arg.Cwd, arg.Flags, arg.ID)
+	_, err := q.db.Exec(ctx, updateSessionConfig, arg.Cwd, arg.Flags, arg.ID)
 	return err
 }
 
@@ -577,17 +753,16 @@ const updateSessionState = `-- name: UpdateSessionState :exec
 UPDATE
     sessions
 SET
-    pane_id = ?1,
-    state = ?2,
-    claude_session_id = CASE WHEN ?3 != '' THEN
-        ?3
+    pane_id = $1,
+    state = $2,
+    claude_session_id = CASE WHEN $3 != '' THEN
+        $3
     ELSE
         claude_session_id
-    END,
-    updated_at = CURRENT_TIMESTAMP
+    END
 WHERE
-    name = ?4
-    AND is_deleted = 0
+    name = $4
+    AND is_deleted = FALSE
 `
 
 type UpdateSessionStateParams struct {
@@ -598,7 +773,7 @@ type UpdateSessionStateParams struct {
 }
 
 func (q *Queries) UpdateSessionState(ctx context.Context, arg UpdateSessionStateParams) error {
-	_, err := q.db.ExecContext(ctx, updateSessionState,
+	_, err := q.db.Exec(ctx, updateSessionState,
 		arg.Pane,
 		arg.State,
 		arg.ClaudeSessionID,
@@ -609,12 +784,12 @@ func (q *Queries) UpdateSessionState(ctx context.Context, arg UpdateSessionState
 
 const upsertTranscript = `-- name: UpsertTranscript :exec
 INSERT INTO session_transcripts (session_id, content, synced_offset, synced_at)
-    VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)
+    VALUES ($1, $2, $3, now())
 ON CONFLICT (session_id)
     DO UPDATE SET
         content = excluded.content,
         synced_offset = excluded.synced_offset,
-        synced_at = CURRENT_TIMESTAMP
+        synced_at = now()
 `
 
 type UpsertTranscriptParams struct {
@@ -624,6 +799,6 @@ type UpsertTranscriptParams struct {
 }
 
 func (q *Queries) UpsertTranscript(ctx context.Context, arg UpsertTranscriptParams) error {
-	_, err := q.db.ExecContext(ctx, upsertTranscript, arg.SessionID, arg.Content, arg.SyncedOffset)
+	_, err := q.db.Exec(ctx, upsertTranscript, arg.SessionID, arg.Content, arg.SyncedOffset)
 	return err
 }

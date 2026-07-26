@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Stop the local Postgres. Pass -v to drop its volume too."
+set -euo pipefail
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+
+cd "$MISE_CONFIG_ROOT"
+exec docker compose down "$@"

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Author an Atlas migration by diffing db/schema (pass a name)."
 set -euo pipefail
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+
 cd "$MISE_CONFIG_ROOT/db"
-DATABASE_URL="sqlite://$HOME/.claude/claude-agents.db" atlas migrate diff "${1:-change}" --env local
+atlas migrate diff "${1:-change}" --env local

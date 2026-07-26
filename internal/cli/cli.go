@@ -53,7 +53,7 @@ func NewRootCommand() *cobra.Command {
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			env, err := config.Load()
 			if err != nil {
 				return err
@@ -64,7 +64,7 @@ func NewRootCommand() *cobra.Command {
 				return err
 			}
 
-			sessions, err := store.Open(env.DBPath)
+			sessions, err := store.Open(cmd.Context(), env.DatabaseURL)
 			if err != nil {
 				return err
 			}
@@ -115,9 +115,32 @@ func NewRootCommand() *cobra.Command {
 		newCmd(state),
 		statusCmd(state),
 		serveCmd(state),
+		migrateCmd(),
 	)
 
 	return root
+}
+
+// migrateCmd brings the database schema up to date and exits.
+//
+// Opening the store migrates already, so every command does this on the way in
+// and a deployment that just starts the binary is up to date. This exists to do
+// it on its own, as a step that can run before anything is serving, and to give
+// the result an exit code of its own rather than folding a schema failure into
+// whatever command happened to be first.
+func migrateCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:           "migrate",
+		Short:         "apply any pending database migrations",
+		Args:          cobra.NoArgs,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			// The store was opened, and so migrated, before this ran.
+			cmd.Println("database schema is up to date")
+			return nil
+		},
+	}
 }
 
 // reconcileInterval is how often serve re-observes every agent and writes its
@@ -157,11 +180,11 @@ func serveCmd(state *app) *cobra.Command {
 			// The MCP endpoint reads through its own read-only handle rather than
 			// the store's, so nothing reachable from a model can write, whatever
 			// the tools do.
-			readOnly, err := store.OpenReadOnly(state.env.DBPath)
+			readOnly, err := store.OpenReadOnly(cmd.Context(), state.env.DatabaseURL)
 			if err != nil {
 				return err
 			}
-			defer func() { _ = readOnly.Close() }()
+			defer readOnly.Close()
 
 			// The RPC-backed tools call back into this same server, so they are
 			// pointed at the address it is about to listen on.
@@ -259,7 +282,7 @@ func openCmd(state *app) *cobra.Command {
 			tmuxArgs := []string{
 				"-L", state.env.TmuxSocket, "new-session", "-A", "-s", agents.ManagerSession,
 				"-e", "CLAUDE_AGENTS_TMUX_SOCKET=" + state.env.TmuxSocket,
-				"-e", "CLAUDE_AGENTS_DB=" + state.env.DBPath,
+				"-e", "DATABASE_URL=" + state.env.DatabaseURL,
 				"-e", "CLAUDE_AGENTS_ADDR=" + state.env.Addr,
 				"--", selfPath(),
 			}

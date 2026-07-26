@@ -1,16 +1,33 @@
 version: "2"
 sql:
-  - engine: "sqlite"
-    schema: "gen-schema.sql"
+  - engine: "postgresql"
+    schema: "migrations"
     queries: "queries"
     gen:
       go:
         package: "models"
         out: "models"
+        sql_package: "pgx/v5"
         emit_pointers_for_null_types: true
         emit_result_struct_pointers: true
         overrides:
-          - column: "sessions.workflow_id"
+          # Ids are uuid in the database but string in Go. The application
+          # generates them as uuidv7 text, the proto carries them as strings, and
+          # tmux window names and hook payloads pass them around as strings, so a
+          # uuid.UUID here would be converted back to a string at every boundary
+          # it reaches. pgx parses the string on the way in and renders it on the
+          # way out, so the database still rejects anything that is not a uuid.
+          - db_type: "uuid"
+            go_type: "string"
+          - db_type: "uuid"
+            nullable: true
             go_type:
               type: "string"
+              pointer: true
+          - db_type: "timestamptz"
+            go_type: "time.Time"
+          - db_type: "timestamptz"
+            nullable: true
+            go_type:
+              type: "time.Time"
               pointer: true

@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
-#MISE description="Open a sqlite3 shell to the claude-agents database."
+#MISE description="Open a psql shell to the local development database."
 set -euo pipefail
-exec sqlite3 "${CLAUDE_AGENTS_DB:-$HOME/.claude/claude-agents.db}"
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+
+# psql runs inside the compose container so a local client install is not a
+# prerequisite. This reaches the development database only; a remote
+# DATABASE_URL is not what this container can see.
+cd "$MISE_CONFIG_ROOT"
+exec docker compose exec db psql -U claude_agents -d claude_agents

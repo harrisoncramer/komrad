@@ -3,10 +3,10 @@ package rpc
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"testing"
 
 	"claude-agents/internal/agents"
+	"claude-agents/internal/pgtest"
 	"claude-agents/internal/store"
 	sessionv1 "claude-agents/proto/gen/session/v1"
 
@@ -51,7 +51,7 @@ func service(t *testing.T) (*SessionService, *store.Store) {
 
 func serviceWithLauncher(t *testing.T) (*SessionService, *store.Store, *fakeLauncher) {
 	t.Helper()
-	st, err := store.Open(filepath.Join(t.TempDir(), "agents.db"))
+	st, err := store.Open(t.Context(), pgtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 

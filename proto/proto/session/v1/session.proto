@@ -162,14 +162,21 @@ message SearchTranscriptsRequest {
 
 // SearchHit is one transcript matched by a search: the session it belongs to,
 // its display name and whether it is soft-deleted, a snippet of the matching
-// text with the matched terms wrapped in markers, and the relevance rank (lower
-// is a better match).
+// text with the matched terms wrapped in markers, and the relevance rank.
 message SearchHit {
+  // Field 3 was a bm25 score, where a lower number meant a better match. It is
+  // now a count, where a higher number does, so the field was renumbered rather
+  // than left to be read the wrong way round by a caller that did not notice.
+  reserved 3;
+  reserved "rank";
   string session_id = 1;
   string snippet = 2;
-  double rank = 3;
   string name = 4;
   bool deleted = 5;
+  // How many times the query occurs in the transcript. Results come back in
+  // descending order of this, so a chat that discussed something at length
+  // outranks one that mentioned it once.
+  int64 occurrences = 6;
 }
 
 message SearchTranscriptsResponse {

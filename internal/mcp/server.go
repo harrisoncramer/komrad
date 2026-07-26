@@ -6,10 +6,10 @@
 package mcp
 
 import (
-	"database/sql"
 	"fmt"
 	"net/http"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -17,7 +17,7 @@ import (
 // the query tools use. BaseURL is where this process serves its own Connect
 // endpoint, which the RPC-backed tools call back into.
 type NewHandlerParams struct {
-	DB      *sql.DB
+	DB      *pgxpool.Pool
 	BaseURL string
 }
 

@@ -42,8 +42,8 @@ func (p *Popup) SetInvokingClient(client string) {
 	p.tmux.SetGlobal(managerClientFlag, client)
 }
 
-// HideManager hides the popup by detaching the client viewing the persistent
-// manager session. The session stays alive, so the next open restores it.
+// Hide closes the popup by detaching the client viewing the persistent manager
+// session. The session stays alive, so the next open restores it.
 func (p *Popup) Hide() { p.tmux.DetachSession(ManagerSession) }
 
 // SilenceStatus turns off a session's tmux status bar, so the manager panel and

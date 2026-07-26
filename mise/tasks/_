@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Shared helpers for mise tasks. Sourced, not run directly.
+#
+# Host-side tasks that reach the database (Atlas, sqlc's dev container, psql)
+# read DATABASE_URL from the environment. When it is not set they fall back to
+# the local docker-compose Postgres, so a plain checkout works after
+# `mise run docker:up` with nothing else exported. A deployed environment sets
+# DATABASE_URL to its own instance and never uses the fallback.
+: "${DB_PORT:=5460}"
+export DB_PORT
+export DATABASE_URL="${DATABASE_URL:-postgres://claude_agents:claude_agents@localhost:${DB_PORT}/claude_agents?sslmode=disable}"
+
+# adminURL rewrites DATABASE_URL to point at the server's default database,
+# which is where a throwaway test database has to be created from since you
+# cannot create a database while connected to the one being replaced.
+adminURL() {
+	echo "${DATABASE_URL%/*}/postgres?sslmode=disable"
+}

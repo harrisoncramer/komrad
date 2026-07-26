@@ -1,0 +1,23 @@
+# Local development database. The app itself is not containerised: it runs on
+# the host because it drives tmux, which lives on the host. Only Postgres is in
+# Docker, and in a deployed environment DATABASE_URL points at a managed
+# instance instead and none of this is used.
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: claude_agents
+      POSTGRES_PASSWORD: claude_agents
+      POSTGRES_DB: claude_agents
+    ports:
+      - "${DB_PORT:-5460}:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "claude_agents"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+    volumes:
+      - claude-agents-db:/var/lib/postgresql
+
+volumes:
+  claude-agents-db:

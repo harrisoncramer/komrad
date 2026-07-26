@@ -8,6 +8,14 @@ NOTE: This project is still under development. Expect breaking changes.
 
 ## Quickstart
 
+The store is Postgres. In development it runs in Docker:
+
+```
+mise run docker:up
+```
+
+That starts the database and applies the migrations. Anywhere else, point `DATABASE_URL` at your own instance and the tool migrates it on first run.
+
 1. Install the tmux plugin. With TPM, add to `~/.tmux.conf`, then press `prefix + I`:
 
 ```

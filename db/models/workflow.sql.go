@@ -12,41 +12,41 @@ import (
 
 const getWorkflow = `-- name: GetWorkflow :one
 SELECT
-    w.id, w.name, w.workflow_config_id, w.is_deleted, w.created_at, w.updated_at, w.context,
+    w.id, w.name, w.context, w.workflow_config_id, w.is_deleted, w.created_at, w.updated_at,
     wc.cwd,
     wc.flags
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
 WHERE
-    w.id = ?1
-    AND w.is_deleted = 0
+    w.id = $1
+    AND w.is_deleted = FALSE
 LIMIT 1
 `
 
 type GetWorkflowRow struct {
 	ID               string
 	Name             string
+	Context          string
 	WorkflowConfigID string
-	IsDeleted        int64
+	IsDeleted        bool
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
-	Context          string
 	Cwd              string
 	Flags            string
 }
 
 func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, error) {
-	row := q.db.QueryRowContext(ctx, getWorkflow, id)
+	row := q.db.QueryRow(ctx, getWorkflow, id)
 	var i GetWorkflowRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
+		&i.Context,
 		&i.WorkflowConfigID,
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.Context,
 		&i.Cwd,
 		&i.Flags,
 	)
@@ -54,65 +54,62 @@ func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, 
 }
 
 const insertWorkflow = `-- name: InsertWorkflow :one
-INSERT INTO workflows (id, name, context, workflow_config_id)
-    VALUES (?1, ?2, ?3, ?4)
+INSERT INTO workflows (name, context, workflow_config_id)
+    VALUES ($1, $2, $3)
 RETURNING
-    id, name, workflow_config_id, is_deleted, created_at, updated_at, context
+    id, name, context, workflow_config_id, is_deleted, created_at, updated_at
 `
 
 type InsertWorkflowParams struct {
-	ID               string
 	Name             string
 	Context          string
 	WorkflowConfigID string
 }
 
 func (q *Queries) InsertWorkflow(ctx context.Context, arg InsertWorkflowParams) (*Workflow, error) {
-	row := q.db.QueryRowContext(ctx, insertWorkflow,
-		arg.ID,
-		arg.Name,
-		arg.Context,
-		arg.WorkflowConfigID,
-	)
+	row := q.db.QueryRow(ctx, insertWorkflow, arg.Name, arg.Context, arg.WorkflowConfigID)
 	var i Workflow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
+		&i.Context,
 		&i.WorkflowConfigID,
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.Context,
 	)
 	return &i, err
 }
 
-const insertWorkflowConfig = `-- name: InsertWorkflowConfig :exec
-INSERT INTO workflow_configs (id, cwd, flags)
-    VALUES (?1, ?2, ?3)
+const insertWorkflowConfig = `-- name: InsertWorkflowConfig :one
+INSERT INTO workflow_configs (cwd, flags)
+    VALUES ($1, $2)
+RETURNING
+    id
 `
 
 type InsertWorkflowConfigParams struct {
-	ID    string
 	Cwd   string
 	Flags string
 }
 
-func (q *Queries) InsertWorkflowConfig(ctx context.Context, arg InsertWorkflowConfigParams) error {
-	_, err := q.db.ExecContext(ctx, insertWorkflowConfig, arg.ID, arg.Cwd, arg.Flags)
-	return err
+func (q *Queries) InsertWorkflowConfig(ctx context.Context, arg InsertWorkflowConfigParams) (string, error) {
+	row := q.db.QueryRow(ctx, insertWorkflowConfig, arg.Cwd, arg.Flags)
+	var id string
+	err := row.Scan(&id)
+	return id, err
 }
 
 const listWorkflows = `-- name: ListWorkflows :many
 SELECT
-    w.id, w.name, w.workflow_config_id, w.is_deleted, w.created_at, w.updated_at, w.context,
+    w.id, w.name, w.context, w.workflow_config_id, w.is_deleted, w.created_at, w.updated_at,
     wc.cwd,
     wc.flags
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
 WHERE
-    w.is_deleted = 0
+    w.is_deleted = FALSE
 ORDER BY
     w.updated_at DESC
 `
@@ -120,17 +117,17 @@ ORDER BY
 type ListWorkflowsRow struct {
 	ID               string
 	Name             string
+	Context          string
 	WorkflowConfigID string
-	IsDeleted        int64
+	IsDeleted        bool
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
-	Context          string
 	Cwd              string
 	Flags            string
 }
 
 func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listWorkflows)
+	rows, err := q.db.Query(ctx, listWorkflows)
 	if err != nil {
 		return nil, err
 	}
@@ -141,20 +138,17 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
+			&i.Context,
 			&i.WorkflowConfigID,
 			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.Context,
 			&i.Cwd,
 			&i.Flags,
 		); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -166,14 +160,13 @@ const markWorkflowDeleted = `-- name: MarkWorkflowDeleted :exec
 UPDATE
     workflows
 SET
-    is_deleted = 1,
-    updated_at = CURRENT_TIMESTAMP
+    is_deleted = TRUE
 WHERE
-    id = ?1
+    id = $1
 `
 
 func (q *Queries) MarkWorkflowDeleted(ctx context.Context, id string) error {
-	_, err := q.db.ExecContext(ctx, markWorkflowDeleted, id)
+	_, err := q.db.Exec(ctx, markWorkflowDeleted, id)
 	return err
 }
 
@@ -181,10 +174,9 @@ const renameWorkflow = `-- name: RenameWorkflow :exec
 UPDATE
     workflows
 SET
-    name = ?1,
-    updated_at = CURRENT_TIMESTAMP
+    name = $1
 WHERE
-    id = ?2
+    id = $2
 `
 
 type RenameWorkflowParams struct {
@@ -193,7 +185,7 @@ type RenameWorkflowParams struct {
 }
 
 func (q *Queries) RenameWorkflow(ctx context.Context, arg RenameWorkflowParams) error {
-	_, err := q.db.ExecContext(ctx, renameWorkflow, arg.Name, arg.ID)
+	_, err := q.db.Exec(ctx, renameWorkflow, arg.Name, arg.ID)
 	return err
 }
 
@@ -201,10 +193,9 @@ const setWorkflowContext = `-- name: SetWorkflowContext :exec
 UPDATE
     workflows
 SET
-    context = ?1,
-    updated_at = CURRENT_TIMESTAMP
+    context = $1
 WHERE
-    id = ?2
+    id = $2
 `
 
 type SetWorkflowContextParams struct {
@@ -213,7 +204,7 @@ type SetWorkflowContextParams struct {
 }
 
 func (q *Queries) SetWorkflowContext(ctx context.Context, arg SetWorkflowContextParams) error {
-	_, err := q.db.ExecContext(ctx, setWorkflowContext, arg.Context, arg.ID)
+	_, err := q.db.Exec(ctx, setWorkflowContext, arg.Context, arg.ID)
 	return err
 }
 
@@ -221,9 +212,8 @@ const updateWorkflowConfig = `-- name: UpdateWorkflowConfig :exec
 UPDATE
     workflow_configs
 SET
-    cwd = ?1,
-    flags = ?2,
-    updated_at = CURRENT_TIMESTAMP
+    cwd = $1,
+    flags = $2
 WHERE
     id = (
         SELECT
@@ -231,7 +221,7 @@ WHERE
         FROM
             workflows
         WHERE
-            workflows.id = ?3)
+            workflows.id = $3)
 `
 
 type UpdateWorkflowConfigParams struct {
@@ -241,6 +231,6 @@ type UpdateWorkflowConfigParams struct {
 }
 
 func (q *Queries) UpdateWorkflowConfig(ctx context.Context, arg UpdateWorkflowConfigParams) error {
-	_, err := q.db.ExecContext(ctx, updateWorkflowConfig, arg.Cwd, arg.Flags, arg.WorkflowID)
+	_, err := q.db.Exec(ctx, updateWorkflowConfig, arg.Cwd, arg.Flags, arg.WorkflowID)
 	return err
 }

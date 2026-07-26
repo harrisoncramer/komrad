@@ -1,9 +1,9 @@
 package cli
 
 import (
-	"path/filepath"
 	"testing"
 
+	"claude-agents/internal/pgtest"
 	"claude-agents/internal/store"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +13,7 @@ import (
 // newStore opens a throwaway store for the status summary to read.
 func newStore(t *testing.T) *store.Store {
 	t.Helper()
-	st, err := store.Open(filepath.Join(t.TempDir(), "agents.db"))
+	st, err := store.Open(t.Context(), pgtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 

@@ -65,11 +65,11 @@ func (h searchHit) Cursor() (store.TranscriptCursor, error) {
 func renderSearchHit(hit store.SearchHit) searchHit {
 	return searchHit{
 		SearchHit: &sessionv1.SearchHit{
-			SessionId: hit.SessionID,
-			Name:      hit.Name,
-			Deleted:   hit.Deleted,
-			Snippet:   hit.Snippet,
-			Rank:      hit.Rank,
+			SessionId:   hit.SessionID,
+			Name:        hit.Name,
+			Deleted:     hit.Deleted,
+			Snippet:     hit.Snippet,
+			Occurrences: int64(hit.Rank),
 		},
 		cursor: store.TranscriptCursor{Rank: hit.Rank, SessionID: hit.SessionID},
 	}

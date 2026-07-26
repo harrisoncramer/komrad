@@ -12,22 +12,54 @@ import (
 func TestUpsertAndGetTranscript(t *testing.T) {
 	st := open(t)
 	ctx := context.Background()
+	id := seedSession(t, st, "chat")
 
-	got, err := st.GetTranscript(ctx, "missing")
+	got, err := st.GetTranscript(ctx, id)
 	require.NoError(t, err)
 	assert.Equal(t, Transcript{}, got, "an unsynced session reads as the zero transcript")
 
-	require.NoError(t, st.UpsertTranscript(ctx, "sid", "hello world", 11))
-	got, err = st.GetTranscript(ctx, "sid")
+	require.NoError(t, st.UpsertTranscript(ctx, id, "hello world", 11))
+	got, err = st.GetTranscript(ctx, id)
 	require.NoError(t, err)
 	assert.Equal(t, "hello world", got.Content)
 	assert.Equal(t, int64(11), got.SyncedOffset)
 
-	require.NoError(t, st.UpsertTranscript(ctx, "sid", "hello world again", 17))
-	got, err = st.GetTranscript(ctx, "sid")
+	require.NoError(t, st.UpsertTranscript(ctx, id, "hello world again", 17))
+	got, err = st.GetTranscript(ctx, id)
 	require.NoError(t, err)
 	assert.Equal(t, "hello world again", got.Content, "upsert replaces content in place")
 	assert.Equal(t, int64(17), got.SyncedOffset)
+}
+
+// TestGetTranscriptOfUnknownIDIsEmpty covers the two ways an id can fail to name
+// a chat: one that is well-formed but unused, and one that is not an id at all.
+// Both read as the zero transcript rather than an error, so a caller that
+// mistyped an id gets an empty result instead of a failure.
+func TestGetTranscriptOfUnknownIDIsEmpty(t *testing.T) {
+	st := open(t)
+	ctx := context.Background()
+
+	tests := []struct {
+		name string
+		id   string
+	}{
+		{
+			name: "a malformed id is not a chat",
+			id:   "missing",
+		},
+		{
+			name: "a well-formed id nothing holds",
+			id:   "00000000-0000-7000-8000-000000000000",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := st.GetTranscript(ctx, tt.id)
+			require.NoError(t, err)
+			assert.Equal(t, Transcript{}, got)
+		})
+	}
 }
 
 // seedSession inserts a session and returns its generated id, so a transcript
@@ -110,9 +142,120 @@ func TestSearchTranscriptsReindexOnUpsert(t *testing.T) {
 	assert.Equal(t, one, hits[0].SessionID)
 }
 
-func TestFTSPhrase(t *testing.T) {
-	assert.Equal(t, `"plain"`, ftsPhrase("plain"))
-	assert.Equal(t, `"say ""hi"""`, ftsPhrase(`say "hi"`), "embedded quotes are doubled")
+func TestLikePattern(t *testing.T) {
+	tests := []struct {
+		name  string
+		query string
+		want  string
+	}{
+		{
+			name:  "a wildcard is escaped so it cannot widen the search",
+			query: "100%",
+			want:  `%100\%%`,
+		},
+		{
+			name:  "an underscore is escaped, since LIKE reads it as any character",
+			query: "session_id",
+			want:  `%session\_id%`,
+		},
+		{
+			name:  "a backslash is escaped, since it is the escape character itself",
+			query: `a\b`,
+			want:  `%a\\b%`,
+		},
+		{
+			name:  "ordinary text is only wrapped",
+			query: "plain",
+			want:  "%plain%",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, likePattern(tt.query))
+		})
+	}
+}
+
+// TestSearchTranscriptsTreatsWildcardsLiterally is the behaviour the escaping
+// above exists for: a query containing a LIKE wildcard must match that character
+// and not stand in for any run of text.
+func TestSearchTranscriptsTreatsWildcardsLiterally(t *testing.T) {
+	st := open(t)
+	ctx := context.Background()
+	literal := seedSession(t, st, "literal")
+	other := seedSession(t, st, "other")
+	require.NoError(t, st.UpsertTranscript(ctx, literal, "the coverage hit 100% today", 1))
+	require.NoError(t, st.UpsertTranscript(ctx, other, "the coverage hit 100 of them today", 1))
+
+	hits, err := st.SearchTranscripts(ctx, SearchTranscriptsParams{Query: "100%", Limit: 10})
+	require.NoError(t, err)
+	require.Len(t, hits, 1, "the percent matches itself rather than any text")
+	assert.Equal(t, literal, hits[0].SessionID)
+}
+
+// TestSearchTranscriptsRanksByOccurrences checks the ordering the page cursor
+// depends on: the transcript mentioning the query most comes first.
+func TestSearchTranscriptsRanksByOccurrences(t *testing.T) {
+	st := open(t)
+	ctx := context.Background()
+	once := seedSession(t, st, "once")
+	thrice := seedSession(t, st, "thrice")
+	require.NoError(t, st.UpsertTranscript(ctx, once, "we mentioned pgx here", 1))
+	require.NoError(t, st.UpsertTranscript(ctx, thrice, "pgx, and pgx again, and pgx once more", 1))
+
+	hits, err := st.SearchTranscripts(ctx, SearchTranscriptsParams{Query: "pgx", Limit: 10})
+	require.NoError(t, err)
+	require.Len(t, hits, 2)
+	assert.Equal(t, thrice, hits[0].SessionID)
+	assert.EqualValues(t, 3, hits[0].Rank)
+	assert.Equal(t, once, hits[1].SessionID)
+	assert.EqualValues(t, 1, hits[1].Rank)
+}
+
+// TestSearchTranscriptsPagesByCursor walks a result set one hit at a time, which
+// is what the RPC does when a caller follows the page tokens.
+func TestSearchTranscriptsPagesByCursor(t *testing.T) {
+	st := open(t)
+	ctx := context.Background()
+	for _, name := range []string{"a", "b", "c"} {
+		id := seedSession(t, st, name)
+		require.NoError(t, st.UpsertTranscript(ctx, id, "shared term here", 1))
+	}
+
+	var (
+		seen   []string
+		cursor *TranscriptCursor
+	)
+	for range 3 {
+		hits, err := st.SearchTranscripts(ctx, SearchTranscriptsParams{Query: "shared", Limit: 1, Cursor: cursor})
+		require.NoError(t, err)
+		require.Len(t, hits, 1)
+
+		seen = append(seen, hits[0].SessionID)
+		cursor = &TranscriptCursor{Rank: hits[0].Rank, SessionID: hits[0].SessionID}
+	}
+
+	assert.Len(t, seen, 3)
+	assert.Len(t, uniqueStrings(seen), 3, "each page returns a hit the previous pages did not")
+
+	hits, err := st.SearchTranscripts(ctx, SearchTranscriptsParams{Query: "shared", Limit: 1, Cursor: cursor})
+	require.NoError(t, err)
+	assert.Empty(t, hits, "the cursor past the last hit returns nothing")
+}
+
+func uniqueStrings(in []string) []string {
+	seen := make(map[string]bool, len(in))
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if seen[s] {
+			continue
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+
+	return out
 }
 
 func TestSearchTranscriptsQueryWithOperators(t *testing.T) {
@@ -157,8 +300,8 @@ func TestDeleteRemovesEverythingKeyedToTheSession(t *testing.T) {
 	assert.Empty(t, hits, "the search index goes with it too")
 
 	var configs int
-	require.NoError(t, st.conn.QueryRowContext(ctx,
-		"SELECT COUNT(*) FROM session_configs WHERE id = ?", agent.SessionConfigID).Scan(&configs))
+	require.NoError(t, st.pool.QueryRow(ctx,
+		"SELECT COUNT(*) FROM session_configs WHERE id = $1", agent.SessionConfigID).Scan(&configs))
 	assert.Zero(t, configs, "the config row is not left orphaned")
 }
 
