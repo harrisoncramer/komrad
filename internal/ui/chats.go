@@ -1,11 +1,16 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"claude-agents/internal/store"
+	sessionv1 "claude-agents/proto/gen/session/v1"
+
 	"claude-agents/lib/dates"
+
+	"connectrpc.com/connect"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -194,7 +199,7 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Killing a pane while it sits in the stage slot would take the stage down
 		// with it, so it is swapped back out first.
 		m.stage.Release(item.agent.Pane)
-		m.sessionService.Delete(item.agent)
+		m.archiveChat(item.agent)
 		m.reload()
 		m.chatCursor = clampCursor(m.chatCursor, len(m.chatRows()))
 		m.stageSelection()
@@ -220,16 +225,40 @@ func (m model) openChat() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	pane, err := m.sessionService.Restore(item.agent)
+	restored, err := m.restoreChat(item.agent.ID)
 	if err != nil {
 		return m, nil
 	}
 	m.infoPinned = false
 	m.reload()
-	m.chatCursor = clampCursor(rowIndexOfChatName(m.chatRows(), item.agent.Name), len(m.chatRows()))
-	m.stage.Chat(pane)
+	// Restoring may rename a chat whose name was taken while it sat archived, so
+	// the cursor follows the name that came back rather than the one it had.
+	m.chatCursor = clampCursor(rowIndexOfChatName(m.chatRows(), restored.GetName()), len(m.chatRows()))
+	m.stage.Chat(restored.GetPaneId())
 
 	return m, nil
+}
+
+// archiveChat stops a chat and hides it, which is what the delete key has always
+// done: the record and transcript stay, so search still reaches it.
+func (m model) archiveChat(agent store.Agent) {
+	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	defer cancel()
+
+	_, _ = m.api.sessions.ArchiveSession(ctx, connect.NewRequest(&sessionv1.ArchiveSessionRequest{Name: agent.Name}))
+}
+
+// restoreChat brings a chat back and returns it as the service now holds it.
+func (m model) restoreChat(id string) (*sessionv1.Session, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	defer cancel()
+
+	resp, err := m.api.sessions.RestoreSession(ctx, connect.NewRequest(&sessionv1.RestoreSessionRequest{Id: id}))
+	if err != nil {
+		return nil, fmt.Errorf("failed to restore chat %q: %w", id, err)
+	}
+
+	return resp.Msg.GetSession(), nil
 }
 
 // stageSelection updates the stage pane to reflect what the cursor is on. A live

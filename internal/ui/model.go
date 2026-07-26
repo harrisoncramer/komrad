@@ -4,14 +4,17 @@ package ui
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
-	"claude-agents/internal/agents"
 	"claude-agents/internal/appconfig"
 	"claude-agents/internal/store"
 	paginationv1 "claude-agents/proto/gen/pagination/v1"
 	sessionv1 "claude-agents/proto/gen/session/v1"
 	"claude-agents/proto/gen/session/v1/sessionv1connect"
+	workflowv1 "claude-agents/proto/gen/workflow/v1"
+	"claude-agents/proto/gen/workflow/v1/workflowv1connect"
 
 	"connectrpc.com/connect"
 	"github.com/charmbracelet/bubbles/key"
@@ -30,12 +33,13 @@ const (
 
 type chatsTickMsg struct{}
 
-// chatsLoadedMsg carries the result of an async re-list. ok is false when the
-// list failed, so the handler leaves the current chats in place rather than
-// clobbering them to empty.
+// chatsLoadedMsg carries the result of an async re-list. A non-nil err means the
+// service could not be reached, which the panel shows rather than absorbs: the
+// rows it is holding are from the last successful poll, and left on screen they
+// read as the current truth when they are not.
 type chatsLoadedMsg struct {
 	items []chatItem
-	ok    bool
+	err   error
 }
 
 func chatsTick() tea.Cmd {
@@ -45,7 +49,7 @@ func chatsTick() tea.Cmd {
 // loadChatsCmd re-lists the sessions off the UI goroutine with a timeout, so the
 // render loop never blocks on the RPC or the per-chat tmux liveness checks.
 func (m model) loadChatsCmd() tea.Cmd {
-	client, panes := m.client, m.panes
+	client := m.api.sessions
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), chatsTimeout)
@@ -53,10 +57,10 @@ func (m model) loadChatsCmd() tea.Cmd {
 
 		listed, err := listSessions(ctx, client)
 		if err != nil {
-			return chatsLoadedMsg{ok: false}
+			return chatsLoadedMsg{err: err}
 		}
 
-		return chatsLoadedMsg{items: chatItemsFrom(listed, panes), ok: true}
+		return chatsLoadedMsg{items: chatItemsFrom(listed)}
 	}
 }
 
@@ -99,11 +103,10 @@ func listSessions(ctx context.Context, sessions sessionv1connect.SessionServiceC
 }
 
 // chatItemsFrom maps listed sessions to chat items, marking which panes are live.
-func chatItemsFrom(sessions []*sessionv1.Session, panes paneChecker) []chatItem {
+func chatItemsFrom(sessions []*sessionv1.Session) []chatItem {
 	items := make([]chatItem, 0, len(sessions))
 	for _, session := range sessions {
-		agent := protoToAgent(session)
-		items = append(items, chatItem{agent: agent, alive: panes.PaneAlive(agent.Pane)})
+		items = append(items, chatItem{agent: protoToAgent(session), alive: session.GetAlive()})
 	}
 
 	return items
@@ -175,34 +178,60 @@ const (
 	screenSearch
 )
 
-// paneChecker answers whether a chat's pane is still running, which is what
-// separates a live chat from a dormant one in the list.
-type paneChecker interface {
-	PaneAlive(pane string) bool
+// actionTimeout bounds a single call made in response to a keypress. It is
+// generous because creating a chat opens a tmux window on the far side, and it
+// exists so a wedged server leaves the panel usable rather than frozen.
+const actionTimeout = 10 * time.Second
+
+// uiTmux is what the panel needs from tmux: enough to lay out its own panes, and
+// the working directory of the client looking at it.
+type uiTmux interface {
+	stageTmux
+	ClientPath(client string) string
+}
+
+// api holds the service clients the panel acts through. Every change to a chat
+// or a workflow goes over these, the same way the MCP tools and the CLI reach
+// them, so what the panel may do and what a model may do cannot drift apart.
+type api struct {
+	sessions  sessionv1connect.SessionServiceClient
+	workflows workflowv1connect.WorkflowServiceClient
 }
 
 // Deps are what the panel needs to run: the two services it acts through, the
 // popup chrome it hides itself with, a tmux client for its own layout, and the
 // RPC client it lists through.
 type Deps struct {
-	Sessions  *agents.SessionService
-	Workflows *agents.WorkflowService
 	Popup     *Popup
-	Tmux      stageTmux
-	Client    sessionv1connect.SessionServiceClient
+	Tmux      uiTmux
+	Sessions  sessionv1connect.SessionServiceClient
+	Workflows workflowv1connect.WorkflowServiceClient
 	Keys      appconfig.Keybindings
+	// Addr is where Client points, shown on the error screen when the service
+	// stops answering so the address to go looking at is on screen.
+	Addr string
 }
 
 type model struct {
-	sessionService  *agents.SessionService
-	workflowService *agents.WorkflowService
-	popup           *Popup
-	client          sessionv1connect.SessionServiceClient
+	popup *Popup
+	// api is how the panel reads and changes anything. It is grouped so the
+	// clients do not collide with the lists they populate.
+	api api
+	// tmux lays out the panel's own panes and answers which directory the user is
+	// looking at, which is the one thing about a new chat the service cannot work
+	// out for itself.
+	tmux uiTmux
 	// stage is the preview pane beside the list. It is the panel's own layout, so
-	// it drives tmux directly rather than going through the session API. panes is
-	// the same client, asked only whether a pane is still alive.
+	// it drives tmux directly: it fires on every cursor move, and a round trip per
+	// keypress would be felt.
 	stage *Stage
-	panes paneChecker
+
+	// addr is where the service is expected to answer, shown when it does not.
+	addr string
+	// unreachable is the error from the last failed poll, nil while the service is
+	// answering. The poll keeps running while it is set, so the panel recovers on
+	// its own once the service is back.
+	unreachable error
 
 	screen screen
 
@@ -244,14 +273,12 @@ type model struct {
 
 func newModel(deps Deps) model {
 	m := model{
-		sessionService:  deps.Sessions,
-		workflowService: deps.Workflows,
-		popup:           deps.Popup,
-		client:          deps.Client,
-		stage:           NewStage(deps.Tmux),
-		panes:           deps.Tmux,
-		keys:            deps.Keys,
-		screen:          screenChats,
+		api:    api{sessions: deps.Sessions, workflows: deps.Workflows},
+		popup:  deps.Popup,
+		stage:  NewStage(deps.Tmux),
+		addr:   deps.Addr,
+		keys:   deps.Keys,
+		screen: screenChats,
 	}
 	// Split off the stage pane beside the panel, then show whatever the initial
 	// selection lands on.
@@ -276,19 +303,94 @@ type chatItem struct {
 func (m *model) reload() {
 	m.reloadWorkflows()
 
-	listed, err := listSessions(context.Background(), m.client)
+	listed, err := listSessions(context.Background(), m.api.sessions)
 	if err != nil {
 		m.chats = nil
 		return
 	}
 
-	m.chats = chatItemsFrom(listed, m.panes)
+	m.chats = chatItemsFrom(listed)
+}
+
+// currentDir fills in the directory a new chat starts in. The form allows a
+// blank, meaning "where I am", and only the panel can answer that: it is the
+// invoking tmux client's path. The API refuses a blank directory precisely
+// because a server has no way to know which pane the user is looking at.
+func (m model) currentDir(dir string) string {
+	if trimmed := strings.TrimSpace(dir); trimmed != "" {
+		return trimmed
+	}
+	if path := m.tmux.ClientPath(m.popup.InvokingClient()); path != "" {
+		return path
+	}
+
+	home, _ := os.UserHomeDir()
+
+	return home
+}
+
+// renameChat renames a chat by id. A blank or unchanged name is a no-op, which
+// keeps the form's empty submit from asking the service to do nothing.
+func (m model) renameChat(agent store.Agent, name string) {
+	name = strings.TrimSpace(name)
+	if name == "" || name == agent.Name {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	defer cancel()
+
+	_, _ = m.api.sessions.UpdateSession(ctx, connect.NewRequest(&sessionv1.UpdateSessionRequest{
+		Id:   agent.ID,
+		Name: name,
+	}))
+}
+
+// listWorkflows walks every page of workflows, the same way the chat list does,
+// and renders them into the store type the tree is written against.
+func (m model) listWorkflows() ([]store.Workflow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), chatsTimeout)
+	defer cancel()
+
+	var (
+		all    []store.Workflow
+		cursor string
+	)
+
+	for range listMaxPages {
+		page := &paginationv1.Pagination{Limit: proto.Int32(listPageSize)}
+		if cursor != "" {
+			page.Cursor = proto.String(cursor)
+		}
+
+		resp, err := m.api.workflows.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{Pagination: page}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to list workflows: %w", err)
+		}
+
+		for _, w := range resp.Msg.GetWorkflows() {
+			all = append(all, store.Workflow{
+				ID:      w.GetId(),
+				Name:    w.GetName(),
+				Context: w.GetContext(),
+				Cwd:     w.GetCwd(),
+				Flags:   w.GetFlags(),
+			})
+		}
+
+		cursor = resp.Msg.GetNextPageToken()
+		if cursor == "" {
+			return all, nil
+		}
+	}
+
+	return all, nil
 }
 
 // reloadWorkflows refreshes the workflow list backing the tree's folder headers,
 // clamping the cursor into the new length.
 func (m *model) reloadWorkflows() {
-	workflows, err := m.workflowService.ListWorkflows()
+	workflows, err := m.listWorkflows()
 	if err != nil {
 		m.workflows = nil
 		m.workflowCursor = 0
@@ -418,7 +520,7 @@ func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.form.State {
 	case huh.StateCompleted:
-		m.sessionService.Rename(m.renameTarget, m.form.GetString("name"))
+		m.renameChat(m.renameTarget, m.form.GetString("name"))
 		m.reload()
 		m.chatCursor = clampCursor(m.chatCursor, len(m.chatRows()))
 		m.screen = screenChats
@@ -473,7 +575,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if loaded, ok := msg.(chatsLoadedMsg); ok {
-		if loaded.ok {
+		m.unreachable = loaded.err
+		if loaded.err == nil {
 			m.applyChats(loaded.items)
 		}
 
@@ -552,16 +655,18 @@ func (m model) submitSession() (tea.Model, tea.Cmd) {
 		workflowID = &id
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	defer cancel()
+
 	// A launch failure leaves the list unchanged; the next refresh is the panel's
 	// own report of what exists.
-	_, _ = m.sessionService.NewSession(agents.NewSessionParams{
-		Client:     m.popup.InvokingClient(),
-		Title:      m.form.GetString("title"),
-		Dir:        m.form.GetString("dir"),
-		Flags:      m.form.GetString("flags"),
+	_, _ = m.api.sessions.CreateSession(ctx, connect.NewRequest(&sessionv1.CreateSessionRequest{
 		Prompt:     m.form.GetString("prompt"),
-		WorkflowID: workflowID,
-	})
+		Title:      m.form.GetString("title"),
+		Dir:        m.currentDir(m.form.GetString("dir")),
+		Flags:      m.form.GetString("flags"),
+		WorkflowId: workflowID,
+	}))
 	m.newChatWorkflow = nil
 	m.reload()
 	m.screen = screenChats

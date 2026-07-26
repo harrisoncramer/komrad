@@ -27,6 +27,10 @@ func statusCmd(state *app) *cobra.Command {
 		Use:   "status",
 		Short: "Print the status-bar aggregate",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := state.openStore(cmd.Context()); err != nil {
+				return err
+			}
+
 			fmt.Print(renderStatus(cmd.Context(), state.store))
 			return nil
 		},

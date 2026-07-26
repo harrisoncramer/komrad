@@ -1,6 +1,6 @@
 -- name: ListWorkflowsPage :many
 SELECT
-    w.*,
+    sqlc.embed(w),
     wc.cwd,
     wc.flags
 FROM
@@ -19,7 +19,7 @@ LIMIT @lim;
 
 -- name: ListWorkflows :many
 SELECT
-    w.*,
+    sqlc.embed(w),
     wc.cwd,
     wc.flags
 FROM
@@ -32,7 +32,7 @@ ORDER BY
 
 -- name: GetWorkflow :one
 SELECT
-    w.*,
+    sqlc.embed(w),
     wc.cwd,
     wc.flags
 FROM

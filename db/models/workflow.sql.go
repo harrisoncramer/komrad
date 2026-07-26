@@ -25,28 +25,22 @@ LIMIT 1
 `
 
 type GetWorkflowRow struct {
-	ID               string
-	Name             string
-	Context          string
-	WorkflowConfigID string
-	IsDeleted        bool
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-	Cwd              string
-	Flags            string
+	Workflow Workflow
+	Cwd      string
+	Flags    string
 }
 
 func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, error) {
 	row := q.db.QueryRow(ctx, getWorkflow, id)
 	var i GetWorkflowRow
 	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Context,
-		&i.WorkflowConfigID,
-		&i.IsDeleted,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+		&i.Workflow.ID,
+		&i.Workflow.Name,
+		&i.Workflow.Context,
+		&i.Workflow.WorkflowConfigID,
+		&i.Workflow.IsDeleted,
+		&i.Workflow.CreatedAt,
+		&i.Workflow.UpdatedAt,
 		&i.Cwd,
 		&i.Flags,
 	)
@@ -115,15 +109,9 @@ ORDER BY
 `
 
 type ListWorkflowsRow struct {
-	ID               string
-	Name             string
-	Context          string
-	WorkflowConfigID string
-	IsDeleted        bool
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-	Cwd              string
-	Flags            string
+	Workflow Workflow
+	Cwd      string
+	Flags    string
 }
 
 func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error) {
@@ -136,13 +124,13 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 	for rows.Next() {
 		var i ListWorkflowsRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Context,
-			&i.WorkflowConfigID,
-			&i.IsDeleted,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.Workflow.ID,
+			&i.Workflow.Name,
+			&i.Workflow.Context,
+			&i.Workflow.WorkflowConfigID,
+			&i.Workflow.IsDeleted,
+			&i.Workflow.CreatedAt,
+			&i.Workflow.UpdatedAt,
 			&i.Cwd,
 			&i.Flags,
 		); err != nil {
@@ -183,15 +171,9 @@ type ListWorkflowsPageParams struct {
 }
 
 type ListWorkflowsPageRow struct {
-	ID               string
-	Name             string
-	Context          string
-	WorkflowConfigID string
-	IsDeleted        bool
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-	Cwd              string
-	Flags            string
+	Workflow Workflow
+	Cwd      string
+	Flags    string
 }
 
 func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPageParams) ([]*ListWorkflowsPageRow, error) {
@@ -204,13 +186,13 @@ func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPagePa
 	for rows.Next() {
 		var i ListWorkflowsPageRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Context,
-			&i.WorkflowConfigID,
-			&i.IsDeleted,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.Workflow.ID,
+			&i.Workflow.Name,
+			&i.Workflow.Context,
+			&i.Workflow.WorkflowConfigID,
+			&i.Workflow.IsDeleted,
+			&i.Workflow.CreatedAt,
+			&i.Workflow.UpdatedAt,
 			&i.Cwd,
 			&i.Flags,
 		); err != nil {

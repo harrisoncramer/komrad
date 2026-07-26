@@ -31,15 +31,46 @@ import (
 // app is what every subcommand is wired from. The services are separate rather
 // than one object, so each command holds only the part it drives.
 type app struct {
+	// The services and the store they run over are built on demand by
+	// openStore, since only the commands that serve or write need them. The
+	// panel does not: it is a client of the service, and opening a connection
+	// pool it never queries would put a second writer back on the database.
 	sessions  *agents.SessionService
 	workflows *agents.WorkflowService
-	popup     *ui.Popup
 	store     *store.Store
-	env       *config.Config
-	keys      appconfig.Keybindings
+
+	popup       *ui.Popup
+	env         *config.Config
+	keys        appconfig.Keybindings
+	claudeFlags string
 	// tmux is shared with the services. The UI needs it directly for the stage,
 	// which is its own layout rather than anything the session API owns.
 	tmux *tmux.Client
+}
+
+// openStore connects to the database and builds the services over it. Calling it
+// twice is harmless, so a command can ask without knowing whether something
+// already did.
+func (a *app) openStore(ctx context.Context) error {
+	if a.store != nil {
+		return nil
+	}
+
+	st, err := store.Open(ctx, a.env.DatabaseURL)
+	if err != nil {
+		return err
+	}
+
+	a.store = st
+	a.workflows = agents.NewWorkflowService(st)
+	a.sessions = agents.NewSessionService(agents.SessionParams{
+		Tmux:        a.tmux,
+		Store:       st,
+		Launcher:    agents.NewLauncher(a.tmux, a.env.Addr),
+		ClaudeFlags: a.claudeFlags,
+	})
+
+	return nil
 }
 
 // NewRootCommand builds the claude-agents command tree. Running it with no
@@ -54,7 +85,7 @@ func NewRootCommand() *cobra.Command {
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 			env, err := config.Load()
 			if err != nil {
 				return err
@@ -65,23 +96,12 @@ func NewRootCommand() *cobra.Command {
 				return err
 			}
 
-			sessions, err := store.Open(cmd.Context(), env.DatabaseURL)
-			if err != nil {
-				return err
-			}
-
 			state.env = env
 			state.keys = cfg.Keybindings
-			state.store = sessions
+			state.claudeFlags = cfg.ClaudeFlags
 			state.tmux = tmux.NewClient(env.TmuxSocket)
 			state.popup = ui.NewPopup(state.tmux, agents.ManagerSession)
-			state.workflows = agents.NewWorkflowService(sessions)
-			state.sessions = agents.NewSessionService(agents.SessionParams{
-				Tmux:        state.tmux,
-				Store:       sessions,
-				Launcher:    agents.NewLauncher(state.tmux, env.Addr),
-				ClaudeFlags: cfg.ClaudeFlags,
-			})
+
 			return nil
 		},
 		RunE: func(_ *cobra.Command, _ []string) error {
@@ -89,7 +109,9 @@ func NewRootCommand() *cobra.Command {
 				return err
 			}
 
-			sessions := sessionv1connect.NewSessionServiceClient(http.DefaultClient, "http://"+state.env.Addr)
+			base := "http://" + state.env.Addr
+			sessions := sessionv1connect.NewSessionServiceClient(http.DefaultClient, base)
+			workflows := workflowv1connect.NewWorkflowServiceClient(http.DefaultClient, base)
 
 			// Drop this session's status bar so the panel and its stage pane fill
 			// the popup without a tmux footer beneath them.
@@ -100,12 +122,12 @@ func NewRootCommand() *cobra.Command {
 			// than quit, so the panel stays one long-lived program with its state
 			// preserved between opens. Run returns only on a real error.
 			return ui.Run(ui.Deps{
-				Sessions:  state.sessions,
-				Workflows: state.workflows,
 				Popup:     state.popup,
 				Tmux:      state.tmux,
-				Client:    sessions,
+				Sessions:  sessions,
+				Workflows: workflows,
 				Keys:      state.keys,
+				Addr:      state.env.Addr,
 			})
 		},
 	}
@@ -116,7 +138,7 @@ func NewRootCommand() *cobra.Command {
 		newCmd(state),
 		statusCmd(state),
 		serveCmd(state),
-		migrateCmd(),
+		migrateCmd(state),
 	)
 
 	return root
@@ -129,7 +151,7 @@ func NewRootCommand() *cobra.Command {
 // it on its own, as a step that can run before anything is serving, and to give
 // the result an exit code of its own rather than folding a schema failure into
 // whatever command happened to be first.
-func migrateCmd() *cobra.Command {
+func migrateCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:           "migrate",
 		Short:         "apply any pending database migrations",
@@ -137,8 +159,13 @@ func migrateCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// The store was opened, and so migrated, before this ran.
+			if err := state.openStore(cmd.Context()); err != nil {
+				return err
+			}
+
+			// Opening the store migrates it, so reaching here is the success.
 			cmd.Println("database schema is up to date")
+
 			return nil
 		},
 	}
@@ -163,6 +190,10 @@ func serveCmd(state *app) *cobra.Command {
 		Use:   "serve",
 		Short: "Serve the session store over ConnectRPC/HTTP",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := state.openStore(cmd.Context()); err != nil {
+				return err
+			}
+
 			// Requests are checked against the constraints declared in the proto
 			// before any handler sees them, so a malformed payload is rejected in
 			// one place rather than at the top of each method.
@@ -329,7 +360,11 @@ func newCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "new",
 		Short: "Create a background agent session non-interactively",
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := state.openStore(cmd.Context()); err != nil {
+				return err
+			}
+
 			created, err := state.sessions.NewSession(params)
 			if err != nil {
 				return err

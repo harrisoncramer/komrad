@@ -55,7 +55,6 @@ func (s *SessionService) Delete(agent store.Agent) {
 	_ = s.store.SoftDelete(context.Background(), agent.Name)
 }
 
-// ErrSessionNotFound reports that no chat answers to the given name.
 // sessionStore is the part of the store the session service reads and mutates.
 // GetWorkflow is here only because a chat spawned inside a workflow snapshots
 // that workflow's shared context at launch.
@@ -117,6 +116,7 @@ func (s *SessionService) PaneAlive(pane string) bool {
 	return s.tmux.PaneAlive(pane)
 }
 
+// ErrSessionNotFound reports that no chat answers to the given name or id.
 var ErrSessionNotFound = errors.New("session not found")
 
 // ErrWorkflowNotFound reports that a chat named a workflow that does not exist.
@@ -148,6 +148,78 @@ func (s *SessionService) DeleteSession(ctx context.Context, name string) error {
 	}
 
 	return nil
+}
+
+// ArchiveSession stops a chat and hides it from the panel, keyed by name. The
+// record and its transcript stay, so search still reaches it and it can be
+// restored later. This is what the panel's delete key does, as distinct from
+// DeleteSession, which removes the chat for good.
+func (s *SessionService) ArchiveSession(ctx context.Context, name string) error {
+	agent, err := s.store.Get(ctx, name)
+	if err != nil {
+		return fmt.Errorf("failed to look up session %q: %w", name, err)
+	}
+	if agent == nil {
+		return ErrSessionNotFound
+	}
+
+	s.Delete(*agent)
+
+	return nil
+}
+
+// RestoreSession brings a chat back by id, relaunching claude on the same
+// conversation, and returns it as stored. It spans archived chats, since
+// restoring one is the point. An id that matches nothing is ErrSessionNotFound.
+func (s *SessionService) RestoreSession(ctx context.Context, id string) (*store.Agent, error) {
+	agents, err := s.store.ListAll(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sessions to restore %q: %w", id, err)
+	}
+
+	for _, agent := range agents {
+		if agent.ID != id {
+			continue
+		}
+
+		// A chat whose pane is still alive is already running; returning it as it
+		// stands keeps the call idempotent rather than spawning a second window
+		// for the same conversation.
+		if s.tmux.PaneAlive(agent.Pane) {
+			return &agent, nil
+		}
+
+		if _, err := s.Restore(agent); err != nil {
+			return nil, err
+		}
+
+		// Restore may rename a chat whose name was taken while it sat archived, so
+		// the row is read back rather than returned from the stale copy.
+		restored, err := s.byID(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+
+		return restored, nil
+	}
+
+	return nil, ErrSessionNotFound
+}
+
+// byID returns the chat with the given id, spanning archived ones.
+func (s *SessionService) byID(ctx context.Context, id string) (*store.Agent, error) {
+	agents, err := s.store.ListAll(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sessions: %w", err)
+	}
+
+	for _, agent := range agents {
+		if agent.ID == id {
+			return &agent, nil
+		}
+	}
+
+	return nil, ErrSessionNotFound
 }
 
 // NewSessionParams configures a background agent to create.
@@ -430,8 +502,3 @@ func (s *SessionService) nameTaken(name string) bool {
 	taken, _ := s.store.ActiveNameExists(context.Background(), name)
 	return taken
 }
-
-// mcpBriefing tells a spawned agent that the panel's own database is queryable,
-// so a question about the other chats is something it can look up rather than
-// guess at. The closing line matters as much as the rest: an agent whose client
-// has not registered the server must say so instead of inventing an answer.

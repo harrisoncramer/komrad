@@ -88,36 +88,26 @@ LIMIT 1
 `
 
 type GetSessionRow struct {
-	ID              string
-	Name            string
-	SessionConfigID string
-	Prompt          string
-	PaneID          string
-	State           string
-	ClaudeSessionID string
-	WorkflowID      *string
-	IsDeleted       bool
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	Cwd             string
-	Flags           string
+	Session Session
+	Cwd     string
+	Flags   string
 }
 
 func (q *Queries) GetSession(ctx context.Context, name string) (*GetSessionRow, error) {
 	row := q.db.QueryRow(ctx, getSession, name)
 	var i GetSessionRow
 	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.SessionConfigID,
-		&i.Prompt,
-		&i.PaneID,
-		&i.State,
-		&i.ClaudeSessionID,
-		&i.WorkflowID,
-		&i.IsDeleted,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+		&i.Session.ID,
+		&i.Session.Name,
+		&i.Session.SessionConfigID,
+		&i.Session.Prompt,
+		&i.Session.PaneID,
+		&i.Session.State,
+		&i.Session.ClaudeSessionID,
+		&i.Session.WorkflowID,
+		&i.Session.IsDeleted,
+		&i.Session.CreatedAt,
+		&i.Session.UpdatedAt,
 		&i.Cwd,
 		&i.Flags,
 	)
@@ -233,19 +223,9 @@ ORDER BY
 `
 
 type ListAllSessionsRow struct {
-	ID              string
-	Name            string
-	SessionConfigID string
-	Prompt          string
-	PaneID          string
-	State           string
-	ClaudeSessionID string
-	WorkflowID      *string
-	IsDeleted       bool
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	Cwd             string
-	Flags           string
+	Session Session
+	Cwd     string
+	Flags   string
 }
 
 func (q *Queries) ListAllSessions(ctx context.Context) ([]*ListAllSessionsRow, error) {
@@ -258,17 +238,17 @@ func (q *Queries) ListAllSessions(ctx context.Context) ([]*ListAllSessionsRow, e
 	for rows.Next() {
 		var i ListAllSessionsRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.SessionConfigID,
-			&i.Prompt,
-			&i.PaneID,
-			&i.State,
-			&i.ClaudeSessionID,
-			&i.WorkflowID,
-			&i.IsDeleted,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.Session.ID,
+			&i.Session.Name,
+			&i.Session.SessionConfigID,
+			&i.Session.Prompt,
+			&i.Session.PaneID,
+			&i.Session.State,
+			&i.Session.ClaudeSessionID,
+			&i.Session.WorkflowID,
+			&i.Session.IsDeleted,
+			&i.Session.CreatedAt,
+			&i.Session.UpdatedAt,
 			&i.Cwd,
 			&i.Flags,
 		); err != nil {
@@ -297,19 +277,9 @@ ORDER BY
 `
 
 type ListSessionsRow struct {
-	ID              string
-	Name            string
-	SessionConfigID string
-	Prompt          string
-	PaneID          string
-	State           string
-	ClaudeSessionID string
-	WorkflowID      *string
-	IsDeleted       bool
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	Cwd             string
-	Flags           string
+	Session Session
+	Cwd     string
+	Flags   string
 }
 
 func (q *Queries) ListSessions(ctx context.Context) ([]*ListSessionsRow, error) {
@@ -322,17 +292,17 @@ func (q *Queries) ListSessions(ctx context.Context) ([]*ListSessionsRow, error) 
 	for rows.Next() {
 		var i ListSessionsRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.SessionConfigID,
-			&i.Prompt,
-			&i.PaneID,
-			&i.State,
-			&i.ClaudeSessionID,
-			&i.WorkflowID,
-			&i.IsDeleted,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.Session.ID,
+			&i.Session.Name,
+			&i.Session.SessionConfigID,
+			&i.Session.Prompt,
+			&i.Session.PaneID,
+			&i.Session.State,
+			&i.Session.ClaudeSessionID,
+			&i.Session.WorkflowID,
+			&i.Session.IsDeleted,
+			&i.Session.CreatedAt,
+			&i.Session.UpdatedAt,
 			&i.Cwd,
 			&i.Flags,
 		); err != nil {
@@ -373,19 +343,9 @@ type ListSessionsPageParams struct {
 }
 
 type ListSessionsPageRow struct {
-	ID              string
-	Name            string
-	SessionConfigID string
-	Prompt          string
-	PaneID          string
-	State           string
-	ClaudeSessionID string
-	WorkflowID      *string
-	IsDeleted       bool
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	Cwd             string
-	Flags           string
+	Session Session
+	Cwd     string
+	Flags   string
 }
 
 func (q *Queries) ListSessionsPage(ctx context.Context, arg ListSessionsPageParams) ([]*ListSessionsPageRow, error) {
@@ -398,17 +358,17 @@ func (q *Queries) ListSessionsPage(ctx context.Context, arg ListSessionsPagePara
 	for rows.Next() {
 		var i ListSessionsPageRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.SessionConfigID,
-			&i.Prompt,
-			&i.PaneID,
-			&i.State,
-			&i.ClaudeSessionID,
-			&i.WorkflowID,
-			&i.IsDeleted,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.Session.ID,
+			&i.Session.Name,
+			&i.Session.SessionConfigID,
+			&i.Session.Prompt,
+			&i.Session.PaneID,
+			&i.Session.State,
+			&i.Session.ClaudeSessionID,
+			&i.Session.WorkflowID,
+			&i.Session.IsDeleted,
+			&i.Session.CreatedAt,
+			&i.Session.UpdatedAt,
 			&i.Cwd,
 			&i.Flags,
 		); err != nil {

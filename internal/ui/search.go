@@ -65,7 +65,7 @@ func (m model) enterSearch() (tea.Model, tea.Cmd) {
 // searchCmd runs the query over the service off the UI goroutine, so typing
 // never blocks on the RPC. A blank query resolves to no hits without a call.
 func (m model) searchCmd(query string) tea.Cmd {
-	client := m.client
+	client := m.api.sessions
 
 	return func() tea.Msg {
 		if strings.TrimSpace(query) == "" {
@@ -118,7 +118,7 @@ func (m *model) applySearchResults(msg searchResultsMsg) tea.Cmd {
 // previewCmd loads a hit's full transcript off the UI goroutine, so hovering a
 // result never blocks the render loop on the fetch.
 func (m model) previewCmd(hit searchHit) tea.Cmd {
-	client := m.client
+	client := m.api.sessions
 	query := m.searchQuery
 
 	return func() tea.Msg {
@@ -223,15 +223,18 @@ func (m model) openSearchHit() (tea.Model, tea.Cmd) {
 	}
 
 	hit := m.searchHits[m.searchCursor]
-	pane, name, err := m.sessionService.OpenSearchHit(hit.sessionID)
+
+	// Opening a hit is a restore: the chat behind it may be archived or dormant,
+	// and a live one comes back as it stands rather than being started twice.
+	restored, err := m.restoreChat(hit.sessionID)
 	if err != nil {
 		return m, nil
 	}
 
 	m.screen = screenChats
 	m.reload()
-	m.chatCursor = clampCursor(rowIndexOfChatName(m.chatRows(), name), len(m.chatRows()))
-	m.stage.Chat(pane)
+	m.chatCursor = clampCursor(rowIndexOfChatName(m.chatRows(), restored.GetName()), len(m.chatRows()))
+	m.stage.Chat(restored.GetPaneId())
 
 	return m, nil
 }

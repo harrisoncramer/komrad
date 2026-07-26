@@ -1,10 +1,15 @@
 package ui
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"claude-agents/internal/appconfig"
 	"claude-agents/internal/store"
+	workflowv1 "claude-agents/proto/gen/workflow/v1"
+
+	"connectrpc.com/connect"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -87,7 +92,7 @@ func (m model) renameWorkflowForm() (tea.Model, tea.Cmd) {
 // fetch fails.
 func (m model) editWorkflowForm() (tea.Model, tea.Cmd) {
 	workflow := m.workflows[m.workflowCursor]
-	if fresh, err := m.workflowService.GetWorkflow(workflow.ID); err == nil && fresh != nil {
+	if fresh, err := m.getWorkflow(workflow.ID); err == nil && fresh != nil {
 		workflow = *fresh
 	}
 	m.workflowEditTarget = &workflow
@@ -126,11 +131,7 @@ func (m model) updateWorkflowDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.form.State {
 	case huh.StateCompleted:
 		if m.workflowDeleteTarget != nil {
-			if m.form.GetBool("purge") {
-				m.workflowService.DeleteWorkflowWithChats(*m.workflowDeleteTarget)
-			} else {
-				m.workflowService.DeleteWorkflow(*m.workflowDeleteTarget)
-			}
+			m.deleteWorkflow(m.workflowDeleteTarget.ID, m.form.GetBool("purge"))
 		}
 		m.workflowDeleteTarget = nil
 		m.reloadWorkflows()
@@ -174,16 +175,23 @@ func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 	name := m.form.GetString("name")
 	switch {
 	case m.workflowRenameTarget != nil:
-		m.workflowService.RenameWorkflow(*m.workflowRenameTarget, name)
+		// A rename is an update carrying the fields it is not changing, since the
+		// service replaces all of them.
+		target := *m.workflowRenameTarget
+		if trimmed := strings.TrimSpace(name); trimmed != "" && trimmed != target.Name {
+			target.Name = trimmed
+			m.updateWorkflow(target)
+		}
 	case m.workflowEditTarget != nil:
-		m.workflowService.UpdateWorkflow(*m.workflowEditTarget, store.WorkflowConfig{
+		m.updateWorkflow(store.Workflow{
+			ID:      m.workflowEditTarget.ID,
 			Name:    name,
 			Context: m.form.GetString("context"),
 			Cwd:     m.form.GetString("dir"),
 			Flags:   m.form.GetString("flags"),
 		})
 	default:
-		_, _ = m.workflowService.NewWorkflow(store.WorkflowConfig{
+		m.createWorkflow(store.WorkflowConfig{
 			Name:    name,
 			Context: m.form.GetString("context"),
 			Cwd:     m.form.GetString("dir"),
@@ -236,4 +244,81 @@ func deleteWorkflowForm(name string, keys appconfig.FormKeys) *huh.Form {
 				Negative("Keep chats"),
 		),
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
+}
+
+// The workflow screens act through the service like everything else. Each call
+// carries its own short deadline so a wedged server costs a keypress rather than
+// the panel.
+
+// getWorkflow refetches one workflow, so an edit form opens on what is stored
+// rather than on the row the listing happened to carry.
+func (m model) getWorkflow(id string) (*store.Workflow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	defer cancel()
+
+	resp, err := m.api.workflows.GetWorkflow(ctx, connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: id}))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
+	}
+
+	w := resp.Msg.GetWorkflow()
+
+	return &store.Workflow{
+		ID:      w.GetId(),
+		Name:    w.GetName(),
+		Context: w.GetContext(),
+		Cwd:     w.GetCwd(),
+		Flags:   w.GetFlags(),
+	}, nil
+}
+
+// createWorkflow adds a workflow, defaulting a blank name so the list always has
+// a label to render.
+func (m model) createWorkflow(cfg store.WorkflowConfig) {
+	name := strings.TrimSpace(cfg.Name)
+	if name == "" {
+		name = "workflow"
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	defer cancel()
+
+	_, _ = m.api.workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+		Name:    name,
+		Context: cfg.Context,
+		Cwd:     cfg.Cwd,
+		Flags:   cfg.Flags,
+	}))
+}
+
+// updateWorkflow writes every field back, which is what the service expects: it
+// replaces rather than patches, so the caller sends the whole workflow.
+func (m model) updateWorkflow(w store.Workflow) {
+	name := strings.TrimSpace(w.Name)
+	if name == "" {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	defer cancel()
+
+	_, _ = m.api.workflows.UpdateWorkflow(ctx, connect.NewRequest(&workflowv1.UpdateWorkflowRequest{
+		Id:      w.ID,
+		Name:    name,
+		Context: w.Context,
+		Cwd:     w.Cwd,
+		Flags:   w.Flags,
+	}))
+}
+
+// deleteWorkflow removes a workflow, archiving its chats alongside it when the
+// form asked for that and orphaning them back to unassigned otherwise.
+func (m model) deleteWorkflow(id string, archiveChats bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	defer cancel()
+
+	_, _ = m.api.workflows.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{
+		Id:           id,
+		ArchiveChats: archiveChats,
+	}))
 }

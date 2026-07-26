@@ -1,6 +1,6 @@
 -- name: ListSessions :many
 SELECT
-    s.*,
+    sqlc.embed(s),
     sc.cwd,
     sc.flags
 FROM
@@ -13,7 +13,7 @@ ORDER BY
 
 -- name: ListSessionsPage :many
 SELECT
-    s.*,
+    sqlc.embed(s),
     sc.cwd,
     sc.flags
 FROM
@@ -32,7 +32,7 @@ LIMIT @lim;
 
 -- name: ListAllSessions :many
 SELECT
-    s.*,
+    sqlc.embed(s),
     sc.cwd,
     sc.flags
 FROM
@@ -43,7 +43,7 @@ ORDER BY
 
 -- name: GetSession :one
 SELECT
-    s.*,
+    sqlc.embed(s),
     sc.cwd,
     sc.flags
 FROM

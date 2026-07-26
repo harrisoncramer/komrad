@@ -47,7 +47,6 @@ func infoModel(tmux *recordingTmux) model {
 
 	return model{
 		stage:      stage,
-		panes:      tmux,
 		keys:       appconfig.DefaultKeybindings(),
 		screen:     screenChats,
 		chats:      []chatItem{{agent: store.Agent{Name: "auth", Pane: "%9", Cwd: "/repo"}, alive: true}},

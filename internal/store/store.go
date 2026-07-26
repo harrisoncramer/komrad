@@ -160,7 +160,7 @@ func (s *Store) List(ctx context.Context) ([]Agent, error) {
 
 	agents := make([]Agent, 0, len(rows))
 	for _, row := range rows {
-		agents = append(agents, agentFromRow(row.ID, row.Name, row.SessionConfigID, row.PaneID, row.Cwd, row.Flags, row.Prompt, row.State, row.ClaudeSessionID, row.WorkflowID, row.IsDeleted, row.CreatedAt, row.UpdatedAt))
+		agents = append(agents, agentFromRow(row.Session, row.Cwd, row.Flags))
 	}
 
 	return agents, nil
@@ -194,7 +194,7 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *SessionCursor
 
 	agents := make([]Agent, 0, len(rows))
 	for _, row := range rows {
-		agents = append(agents, agentFromRow(row.ID, row.Name, row.SessionConfigID, row.PaneID, row.Cwd, row.Flags, row.Prompt, row.State, row.ClaudeSessionID, row.WorkflowID, row.IsDeleted, row.CreatedAt, row.UpdatedAt))
+		agents = append(agents, agentFromRow(row.Session, row.Cwd, row.Flags))
 	}
 
 	return agents, nil
@@ -210,7 +210,7 @@ func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
 
 	agents := make([]Agent, 0, len(rows))
 	for _, row := range rows {
-		agents = append(agents, agentFromRow(row.ID, row.Name, row.SessionConfigID, row.PaneID, row.Cwd, row.Flags, row.Prompt, row.State, row.ClaudeSessionID, row.WorkflowID, row.IsDeleted, row.CreatedAt, row.UpdatedAt))
+		agents = append(agents, agentFromRow(row.Session, row.Cwd, row.Flags))
 	}
 
 	return agents, nil
@@ -335,7 +335,7 @@ func (s *Store) Get(ctx context.Context, name string) (*Agent, error) {
 		return nil, fmt.Errorf("failed to get session %q: %w", name, err)
 	}
 
-	agent := agentFromRow(row.ID, row.Name, row.SessionConfigID, row.PaneID, row.Cwd, row.Flags, row.Prompt, row.State, row.ClaudeSessionID, row.WorkflowID, row.IsDeleted, row.CreatedAt, row.UpdatedAt)
+	agent := agentFromRow(row.Session, row.Cwd, row.Flags)
 	return &agent, nil
 }
 
@@ -502,7 +502,7 @@ func (s *Store) ListWorkflows(ctx context.Context) ([]Workflow, error) {
 
 	workflows := make([]Workflow, 0, len(rows))
 	for _, row := range rows {
-		workflows = append(workflows, workflowFromRow(row.ID, row.Name, row.Context, row.Cwd, row.Flags, row.UpdatedAt))
+		workflows = append(workflows, workflowFromRow(row.Workflow, row.Cwd, row.Flags))
 	}
 
 	return workflows, nil
@@ -532,7 +532,7 @@ func (s *Store) ListWorkflowsPage(ctx context.Context, limit int64, cursor *Work
 
 	workflows := make([]Workflow, 0, len(rows))
 	for _, row := range rows {
-		workflows = append(workflows, workflowFromRow(row.ID, row.Name, row.Context, row.Cwd, row.Flags, row.UpdatedAt))
+		workflows = append(workflows, workflowFromRow(row.Workflow, row.Cwd, row.Flags))
 	}
 
 	return workflows, nil
@@ -553,7 +553,7 @@ func (s *Store) GetWorkflow(ctx context.Context, id string) (*Workflow, error) {
 		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
 	}
 
-	workflow := workflowFromRow(row.ID, row.Name, row.Context, row.Cwd, row.Flags, row.UpdatedAt)
+	workflow := workflowFromRow(row.Workflow, row.Cwd, row.Flags)
 	return &workflow, nil
 }
 
@@ -590,7 +590,7 @@ func (s *Store) CreateWorkflow(ctx context.Context, cfg WorkflowConfig) (*Workfl
 		return nil, fmt.Errorf("failed to commit create of workflow %q: %w", cfg.Name, err)
 	}
 
-	workflow := workflowFromRow(row.ID, row.Name, row.Context, cfg.Cwd, cfg.Flags, row.UpdatedAt)
+	workflow := workflowFromRow(*row, cfg.Cwd, cfg.Flags)
 	return &workflow, nil
 }
 
@@ -886,34 +886,37 @@ func markMatches(snippet, query string) string {
 	}
 }
 
-// agentFromRow builds an Agent from the columns every session read returns.
-// The joined reads produce distinct sqlc row types with identical fields, so
-// the caller passes the fields explicitly rather than one row type.
-func agentFromRow(id, name, sessionConfigID, pane, cwd, flags, prompt, state, claudeSessionID string, workflowID *string, isDeleted bool, createdAt, updatedAt time.Time) Agent {
+// agentFromRow builds an Agent from a session row and the config joined onto it.
+// Every session read selects sqlc.embed(s), so they all carry the same
+// models.Session whatever else their row type holds, and the cwd and flags are
+// the only loose columns left to pass.
+func agentFromRow(session models.Session, cwd, flags string) Agent {
 	return Agent{
-		ID:              id,
-		Name:            name,
-		SessionConfigID: sessionConfigID,
-		Pane:            pane,
+		ID:              session.ID,
+		Name:            session.Name,
+		SessionConfigID: session.SessionConfigID,
+		Pane:            session.PaneID,
 		Cwd:             cwd,
 		Flags:           flags,
-		Prompt:          prompt,
-		State:           state,
-		ClaudeSessionID: claudeSessionID,
-		WorkflowID:      workflowID,
-		Deleted:         isDeleted,
-		CreatedAt:       createdAt,
-		UpdatedAt:       updatedAt,
+		Prompt:          session.Prompt,
+		State:           session.State,
+		ClaudeSessionID: session.ClaudeSessionID,
+		WorkflowID:      session.WorkflowID,
+		Deleted:         session.IsDeleted,
+		CreatedAt:       session.CreatedAt,
+		UpdatedAt:       session.UpdatedAt,
 	}
 }
 
-func workflowFromRow(id, name, workflowContext, cwd, flags string, updatedAt time.Time) Workflow {
+// workflowFromRow builds a Workflow from a workflow row and its joined config,
+// the same shape as agentFromRow and for the same reason.
+func workflowFromRow(w models.Workflow, cwd, flags string) Workflow {
 	return Workflow{
-		ID:        id,
-		Name:      name,
-		Context:   workflowContext,
+		ID:        w.ID,
+		Name:      w.Name,
+		Context:   w.Context,
 		Cwd:       cwd,
 		Flags:     flags,
-		UpdatedAt: updatedAt,
+		UpdatedAt: w.UpdatedAt,
 	}
 }
