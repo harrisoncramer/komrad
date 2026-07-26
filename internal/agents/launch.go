@@ -7,6 +7,32 @@ import (
 	"strings"
 )
 
+// launchTmux is all a launch needs from tmux: somewhere to type. The command is
+// not executed directly, it is typed into a pane and parsed by the shell running
+// there, which is why everything interpolated into it is either generated here
+// or quoted.
+type launchTmux interface {
+	SendKeys(target string, keys ...string) error
+}
+
+// Launcher turns a chat into a running claude process. It owns the command line
+// and nothing else: no store, no lifecycle, no knowledge of what a session is.
+type Launcher struct {
+	tmux launchTmux
+	// serverAddr is where serve listens, which is also where the MCP endpoint
+	// lives. Agents are told about it at launch.
+	serverAddr string
+}
+
+// NewLauncher builds a launcher that points spawned agents at serverAddr.
+func NewLauncher(tmux launchTmux, serverAddr string) *Launcher {
+	if serverAddr == "" {
+		serverAddr = defaultServerAddr
+	}
+
+	return &Launcher{tmux: tmux, serverAddr: serverAddr}
+}
+
 // mcpBriefing tells a spawned agent that the panel's own database is queryable,
 // so a question about the other chats is something it can look up rather than
 // guess at. The closing line matters as much as the rest: an agent whose client
@@ -28,7 +54,7 @@ const mcpConfigJSON = `{"mcpServers":{"claude-agents":{"type":"http","url":"http
 // takes effect without a stale file lingering, and unlike the prompt temp files
 // it is not removed as the command runs: a resumed agent re-reads it at every
 // relaunch.
-func (m *AgentManager) writeMCPConfig() (string, error) {
+func (l *Launcher) writeMCPConfig() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve home directory: %w", err)
@@ -40,7 +66,7 @@ func (m *AgentManager) writeMCPConfig() (string, error) {
 	}
 
 	path := filepath.Join(dir, "claude-agents-mcp.json")
-	if err := os.WriteFile(path, []byte(fmt.Sprintf(mcpConfigJSON, m.serverAddr)), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(fmt.Sprintf(mcpConfigJSON, l.serverAddr)), 0o644); err != nil {
 		return "", fmt.Errorf("failed to write mcp config: %w", err)
 	}
 
@@ -50,8 +76,8 @@ func (m *AgentManager) writeMCPConfig() (string, error) {
 // appendedSystemPrompt is the text a fresh launch appends to the system prompt:
 // the standing MCP briefing, followed by the workflow's shared context when the
 // chat belongs to one.
-func (m *AgentManager) appendedSystemPrompt(workflowContext string) string {
-	briefing := fmt.Sprintf(mcpBriefing, m.serverAddr)
+func (l *Launcher) appendedSystemPrompt(workflowContext string) string {
+	briefing := fmt.Sprintf(mcpBriefing, l.serverAddr)
 	if strings.TrimSpace(workflowContext) == "" {
 		return briefing
 	}
@@ -73,7 +99,7 @@ type launchClaudeParams struct {
 // resumes the prior conversation by session id. Otherwise it starts a new
 // conversation pinned to that session id, with the opening prompt passed through
 // a temp file so multi-line input survives, removed as the command runs.
-func (m *AgentManager) launchClaude(params launchClaudeParams) error {
+func (l *Launcher) launch(params launchClaudeParams) error {
 	command := "claude"
 
 	// Flags are data, not shell. They are split into arguments and quoted, so a
@@ -88,7 +114,7 @@ func (m *AgentManager) launchClaude(params launchClaudeParams) error {
 	// Both paths get the MCP config: the briefing does not survive a resume, but
 	// the tools it describes should. A failure to write it drops the flag rather
 	// than the launch, leaving an agent that runs without the server.
-	if path, err := m.writeMCPConfig(); err == nil {
+	if path, err := l.writeMCPConfig(); err == nil {
 		command += fmt.Sprintf(" --mcp-config '%s'", path)
 	}
 
@@ -107,7 +133,7 @@ func (m *AgentManager) launchClaude(params launchClaudeParams) error {
 		// --resume, matching the snapshot-at-spawn behavior.
 		file, err := os.CreateTemp("", "claude-context-*.md")
 		if err == nil {
-			_, _ = file.WriteString(m.appendedSystemPrompt(params.WorkflowContext))
+			_, _ = file.WriteString(l.appendedSystemPrompt(params.WorkflowContext))
 			_ = file.Close()
 			command += fmt.Sprintf(" --append-system-prompt \"$(cat '%s'; rm '%s')\"", file.Name(), file.Name())
 		}
@@ -124,7 +150,7 @@ func (m *AgentManager) launchClaude(params launchClaudeParams) error {
 		}
 	}
 
-	if err := m.tmux.SendKeys(params.Session, command, "Enter"); err != nil {
+	if err := l.tmux.SendKeys(params.Session, command, "Enter"); err != nil {
 		return fmt.Errorf("failed to type the launch command: %w", err)
 	}
 

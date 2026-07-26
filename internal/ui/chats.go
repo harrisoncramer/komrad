@@ -194,7 +194,7 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Killing a pane while it sits in the stage slot would take the stage down
 		// with it, so it is swapped back out first.
 		m.stage.Release(item.agent.Pane)
-		m.manager.Delete(item.agent)
+		m.sessionService.Delete(item.agent)
 		m.reload()
 		m.chatCursor = clampCursor(m.chatCursor, len(m.chatRows()))
 		m.stageSelection()
@@ -220,7 +220,7 @@ func (m model) openChat() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	pane, err := m.manager.Restore(item.agent)
+	pane, err := m.sessionService.Restore(item.agent)
 	if err != nil {
 		return m, nil
 	}

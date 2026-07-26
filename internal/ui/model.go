@@ -45,18 +45,18 @@ func chatsTick() tea.Cmd {
 // loadChatsCmd re-lists the sessions off the UI goroutine with a timeout, so the
 // render loop never blocks on the RPC or the per-chat tmux liveness checks.
 func (m model) loadChatsCmd() tea.Cmd {
-	sessions, manager := m.sessions, m.manager
+	client, panes := m.client, m.panes
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), chatsTimeout)
 		defer cancel()
 
-		listed, err := listSessions(ctx, sessions)
+		listed, err := listSessions(ctx, client)
 		if err != nil {
 			return chatsLoadedMsg{ok: false}
 		}
 
-		return chatsLoadedMsg{items: chatItemsFrom(listed, manager), ok: true}
+		return chatsLoadedMsg{items: chatItemsFrom(listed, panes), ok: true}
 	}
 }
 
@@ -99,11 +99,11 @@ func listSessions(ctx context.Context, sessions sessionv1connect.SessionServiceC
 }
 
 // chatItemsFrom maps listed sessions to chat items, marking which panes are live.
-func chatItemsFrom(sessions []*sessionv1.Session, manager *agents.AgentManager) []chatItem {
+func chatItemsFrom(sessions []*sessionv1.Session, panes paneChecker) []chatItem {
 	items := make([]chatItem, 0, len(sessions))
 	for _, session := range sessions {
 		agent := protoToAgent(session)
-		items = append(items, chatItem{agent: agent, alive: manager.PaneAlive(agent.Pane)})
+		items = append(items, chatItem{agent: agent, alive: panes.PaneAlive(agent.Pane)})
 	}
 
 	return items
@@ -113,8 +113,8 @@ func chatItemsFrom(sessions []*sessionv1.Session, manager *agents.AgentManager) 
 // session. Sessions are read through the ConnectRPC client. The panel is the nav
 // pane. The resource it hovers is shown in a sibling stage pane, and focus moves
 // between the two with the user's own tmux bindings.
-func Run(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, stage *Stage, keys appconfig.Keybindings) error {
-	if _, err := tea.NewProgram(newModel(manager, sessions, stage, keys), tea.WithAltScreen()).Run(); err != nil {
+func Run(deps Deps) error {
+	if _, err := tea.NewProgram(newModel(deps), tea.WithAltScreen()).Run(); err != nil {
 		return fmt.Errorf("failed to run panel: %w", err)
 	}
 
@@ -127,7 +127,7 @@ func Run(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceC
 // the popup rather than tear the panel down.
 func (m model) hide() tea.Cmd {
 	return func() tea.Msg {
-		m.manager.HideManager()
+		m.popup.Hide()
 		return nil
 	}
 }
@@ -175,12 +175,34 @@ const (
 	screenSearch
 )
 
+// paneChecker answers whether a chat's pane is still running, which is what
+// separates a live chat from a dormant one in the list.
+type paneChecker interface {
+	PaneAlive(pane string) bool
+}
+
+// Deps are what the panel needs to run: the two services it acts through, the
+// popup chrome it hides itself with, a tmux client for its own layout, and the
+// RPC client it lists through.
+type Deps struct {
+	Sessions  *agents.SessionService
+	Workflows *agents.WorkflowService
+	Popup     *agents.Popup
+	Tmux      stageTmux
+	Client    sessionv1connect.SessionServiceClient
+	Keys      appconfig.Keybindings
+}
+
 type model struct {
-	manager  *agents.AgentManager
-	sessions sessionv1connect.SessionServiceClient
+	sessionService  *agents.SessionService
+	workflowService *agents.WorkflowService
+	popup           *agents.Popup
+	client          sessionv1connect.SessionServiceClient
 	// stage is the preview pane beside the list. It is the panel's own layout, so
-	// it drives tmux directly rather than going through the session API.
+	// it drives tmux directly rather than going through the session API. panes is
+	// the same client, asked only whether a pane is still alive.
 	stage *Stage
+	panes paneChecker
 
 	screen screen
 
@@ -220,13 +242,16 @@ type model struct {
 	keys appconfig.Keybindings
 }
 
-func newModel(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, stage *Stage, keys appconfig.Keybindings) model {
+func newModel(deps Deps) model {
 	m := model{
-		manager:  manager,
-		sessions: sessions,
-		stage:    stage,
-		keys:     keys,
-		screen:   screenChats,
+		sessionService:  deps.Sessions,
+		workflowService: deps.Workflows,
+		popup:           deps.Popup,
+		client:          deps.Client,
+		stage:           NewStage(deps.Tmux),
+		panes:           deps.Tmux,
+		keys:            deps.Keys,
+		screen:          screenChats,
 	}
 	// Split off the stage pane beside the panel, then show whatever the initial
 	// selection lands on.
@@ -251,19 +276,19 @@ type chatItem struct {
 func (m *model) reload() {
 	m.reloadWorkflows()
 
-	listed, err := listSessions(context.Background(), m.sessions)
+	listed, err := listSessions(context.Background(), m.client)
 	if err != nil {
 		m.chats = nil
 		return
 	}
 
-	m.chats = chatItemsFrom(listed, m.manager)
+	m.chats = chatItemsFrom(listed, m.panes)
 }
 
 // reloadWorkflows refreshes the workflow list backing the tree's folder headers,
 // clamping the cursor into the new length.
 func (m *model) reloadWorkflows() {
-	workflows, err := m.manager.ListWorkflows()
+	workflows, err := m.workflowService.ListWorkflows()
 	if err != nil {
 		m.workflows = nil
 		m.workflowCursor = 0
@@ -393,7 +418,7 @@ func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.form.State {
 	case huh.StateCompleted:
-		m.manager.Rename(m.renameTarget, m.form.GetString("name"))
+		m.sessionService.Rename(m.renameTarget, m.form.GetString("name"))
 		m.reload()
 		m.chatCursor = clampCursor(m.chatCursor, len(m.chatRows()))
 		m.screen = screenChats
@@ -529,8 +554,8 @@ func (m model) submitSession() (tea.Model, tea.Cmd) {
 
 	// A launch failure leaves the list unchanged; the next refresh is the panel's
 	// own report of what exists.
-	_, _ = m.manager.NewSession(agents.NewSessionParams{
-		Client:     m.manager.InvokingClient(),
+	_, _ = m.sessionService.NewSession(agents.NewSessionParams{
+		Client:     m.popup.InvokingClient(),
 		Title:      m.form.GetString("title"),
 		Dir:        m.form.GetString("dir"),
 		Flags:      m.form.GetString("flags"),

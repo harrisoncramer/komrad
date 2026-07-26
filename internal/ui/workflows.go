@@ -87,7 +87,7 @@ func (m model) renameWorkflowForm() (tea.Model, tea.Cmd) {
 // fetch fails.
 func (m model) editWorkflowForm() (tea.Model, tea.Cmd) {
 	workflow := m.workflows[m.workflowCursor]
-	if fresh, err := m.manager.GetWorkflow(workflow.ID); err == nil && fresh != nil {
+	if fresh, err := m.workflowService.GetWorkflow(workflow.ID); err == nil && fresh != nil {
 		workflow = *fresh
 	}
 	m.workflowEditTarget = &workflow
@@ -127,9 +127,9 @@ func (m model) updateWorkflowDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case huh.StateCompleted:
 		if m.workflowDeleteTarget != nil {
 			if m.form.GetBool("purge") {
-				m.manager.DeleteWorkflowWithChats(*m.workflowDeleteTarget)
+				m.workflowService.DeleteWorkflowWithChats(*m.workflowDeleteTarget)
 			} else {
-				m.manager.DeleteWorkflow(*m.workflowDeleteTarget)
+				m.workflowService.DeleteWorkflow(*m.workflowDeleteTarget)
 			}
 		}
 		m.workflowDeleteTarget = nil
@@ -174,16 +174,16 @@ func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 	name := m.form.GetString("name")
 	switch {
 	case m.workflowRenameTarget != nil:
-		m.manager.RenameWorkflow(*m.workflowRenameTarget, name)
+		m.workflowService.RenameWorkflow(*m.workflowRenameTarget, name)
 	case m.workflowEditTarget != nil:
-		m.manager.UpdateWorkflow(*m.workflowEditTarget, store.WorkflowConfig{
+		m.workflowService.UpdateWorkflow(*m.workflowEditTarget, store.WorkflowConfig{
 			Name:    name,
 			Context: m.form.GetString("context"),
 			Cwd:     m.form.GetString("dir"),
 			Flags:   m.form.GetString("flags"),
 		})
 	default:
-		_, _ = m.manager.NewWorkflow(store.WorkflowConfig{
+		_, _ = m.workflowService.NewWorkflow(store.WorkflowConfig{
 			Name:    name,
 			Context: m.form.GetString("context"),
 			Cwd:     m.form.GetString("dir"),

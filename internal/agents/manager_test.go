@@ -16,8 +16,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newManager(tmux *fakeTmux, st *store.Store, flags string) *AgentManager {
-	return NewAgentManager(Params{Tmux: tmux, Store: st, SelfPath: "self", ClaudeFlags: flags})
+// newManager builds a session service over the fake tmux and a real store, which
+// is what most of these tests drive.
+func newManager(tmux *fakeTmux, st *store.Store, flags string) *SessionService {
+	return newSessions(tmux, st, flags, "")
+}
+
+// workflowsFor builds the workflow service over the same store, for the tests
+// that set a chat's workflow up before acting on the chat.
+func workflowsFor(st *store.Store) *WorkflowService {
+	return NewWorkflowService(st)
+}
+
+// newSessions is the same, with the launcher pointed at a specific address so a
+// test can assert on what a spawned agent is told.
+func newSessions(tmux *fakeTmux, st *store.Store, flags, addr string) *SessionService {
+	return NewSessionService(SessionParams{
+		Tmux:        tmux,
+		Store:       st,
+		Launcher:    NewLauncher(tmux, addr),
+		ClaudeFlags: flags,
+	})
 }
 
 func TestUniqueSessionName(t *testing.T) {
@@ -106,7 +125,7 @@ func TestLaunchClaude(t *testing.T) {
 			tmux := newFakeTmux()
 			manager := newManager(tmux, newStore(t), "")
 
-			require.NoError(t, manager.launchClaude(launchClaudeParams{
+			require.NoError(t, manager.launcher.launch(launchClaudeParams{
 				Session:   "session",
 				Flags:     tt.flags,
 				Prompt:    tt.prompt,
@@ -132,7 +151,7 @@ func TestLaunchClaudePassesPromptThroughTempFile(t *testing.T) {
 	tmux := newFakeTmux()
 	manager := newManager(tmux, newStore(t), "")
 
-	require.NoError(t, manager.launchClaude(launchClaudeParams{
+	require.NoError(t, manager.launcher.launch(launchClaudeParams{
 		Session:   "session",
 		Prompt:    "line one\nline two",
 		SessionID: "sess",
@@ -184,7 +203,7 @@ func TestLaunchClaudeInjectsWorkflowContext(t *testing.T) {
 	tmux := newFakeTmux()
 	manager := newManager(tmux, newStore(t), "")
 
-	require.NoError(t, manager.launchClaude(launchClaudeParams{
+	require.NoError(t, manager.launcher.launch(launchClaudeParams{
 		Session:         "session",
 		WorkflowContext: "shared notes",
 		SessionID:       "sess",
@@ -195,7 +214,7 @@ func TestLaunchClaudeInjectsWorkflowContext(t *testing.T) {
 
 	tmux = newFakeTmux()
 	manager = newManager(tmux, newStore(t), "")
-	require.NoError(t, manager.launchClaude(launchClaudeParams{
+	require.NoError(t, manager.launcher.launch(launchClaudeParams{
 		Session:         "session",
 		WorkflowContext: "shared notes",
 		SessionID:       "sess",
@@ -209,9 +228,9 @@ func TestLaunchClaudeInjectsWorkflowContext(t *testing.T) {
 // address comes from the configured listen address rather than a fixed one.
 func TestLaunchClaudeBriefsOnMCP(t *testing.T) {
 	tmux := newFakeTmux()
-	manager := NewAgentManager(Params{Tmux: tmux, Store: newStore(t), SelfPath: "self", ServerAddr: "127.0.0.1:9999"})
+	manager := newSessions(tmux, newStore(t), "", "127.0.0.1:9999")
 
-	require.NoError(t, manager.launchClaude(launchClaudeParams{Session: "session", SessionID: "sess"}))
+	require.NoError(t, manager.launcher.launch(launchClaudeParams{Session: "session", SessionID: "sess"}))
 
 	prompt := appendedPrompt(t, tmux.lastKeys("session")[0])
 	assert.Contains(t, prompt, "http://127.0.0.1:9999/mcp")
@@ -227,10 +246,10 @@ func TestLaunchClaudeRegistersMCPServer(t *testing.T) {
 	t.Setenv("HOME", home)
 
 	tmux := newFakeTmux()
-	manager := NewAgentManager(Params{Tmux: tmux, Store: newStore(t), SelfPath: "self", ServerAddr: "127.0.0.1:9999"})
+	manager := newSessions(tmux, newStore(t), "", "127.0.0.1:9999")
 
 	for _, resume := range []bool{false, true} {
-		require.NoError(t, manager.launchClaude(launchClaudeParams{Session: "session", SessionID: "sess", Resume: resume}))
+		require.NoError(t, manager.launcher.launch(launchClaudeParams{Session: "session", SessionID: "sess", Resume: resume}))
 
 		match := mcpConfigRef.FindStringSubmatch(tmux.lastKeys("session")[0])
 		require.Len(t, match, 2, "resume=%v should carry the mcp config", resume)
@@ -263,7 +282,7 @@ func TestLaunchClaudeKeepsOtherMCPServers(t *testing.T) {
 	tmux := newFakeTmux()
 	manager := newManager(tmux, newStore(t), "")
 
-	require.NoError(t, manager.launchClaude(launchClaudeParams{Session: "session", SessionID: "sess"}))
+	require.NoError(t, manager.launcher.launch(launchClaudeParams{Session: "session", SessionID: "sess"}))
 
 	assert.NotContains(t, tmux.lastKeys("session")[0], "--strict-mcp-config")
 }
@@ -273,11 +292,11 @@ func TestLaunchClaudeKeepsOtherMCPServers(t *testing.T) {
 func TestAppendedSystemPromptOrdersBriefingFirst(t *testing.T) {
 	manager := newManager(newFakeTmux(), newStore(t), "")
 
-	prompt := manager.appendedSystemPrompt("shared notes")
+	prompt := manager.launcher.appendedSystemPrompt("shared notes")
 	assert.Less(t, strings.Index(prompt, "claude-agents"), strings.Index(prompt, "shared notes"))
 
 	// A chat outside any workflow gets the briefing alone, with no trailing blank.
-	assert.Equal(t, manager.appendedSystemPrompt(""), strings.TrimSpace(manager.appendedSystemPrompt("   ")))
+	assert.Equal(t, manager.launcher.appendedSystemPrompt(""), strings.TrimSpace(manager.launcher.appendedSystemPrompt("   ")))
 }
 
 func TestNewSession(t *testing.T) {
@@ -343,7 +362,7 @@ func TestNewSessionScopesToWorkflow(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
-	workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "backend"})
+	workflow, err := workflowsFor(st).NewWorkflow(store.WorkflowConfig{Name: "backend"})
 	require.NoError(t, err)
 
 	_, err = manager.NewSession(NewSessionParams{Title: "scoped", WorkflowID: &workflow.ID})
@@ -364,7 +383,7 @@ func TestNewSessionInjectsWorkflowContext(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
-	workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "backend", Context: "shared notes"})
+	workflow, err := workflowsFor(st).NewWorkflow(store.WorkflowConfig{Name: "backend", Context: "shared notes"})
 	require.NoError(t, err)
 
 	_, err = manager.NewSession(NewSessionParams{Title: "scoped", WorkflowID: &workflow.ID})
@@ -379,9 +398,7 @@ func TestNewSessionInjectsWorkflowContext(t *testing.T) {
 }
 
 func TestNewWorkflowDefaultsBlankName(t *testing.T) {
-	manager := newManager(newFakeTmux(), newStore(t), "")
-
-	workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "   "})
+	workflow, err := workflowsFor(newStore(t)).NewWorkflow(store.WorkflowConfig{Name: "   "})
 	require.NoError(t, err)
 	require.NotNil(t, workflow)
 	assert.Equal(t, "workflow", workflow.Name, "a blank name falls back to a default label")
@@ -390,11 +407,10 @@ func TestNewWorkflowDefaultsBlankName(t *testing.T) {
 func TestRenameWorkflow(t *testing.T) {
 	t.Run("renames by id", func(t *testing.T) {
 		st := newStore(t)
-		manager := newManager(newFakeTmux(), st, "")
-		workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "backend"})
+		workflow, err := workflowsFor(st).NewWorkflow(store.WorkflowConfig{Name: "backend"})
 		require.NoError(t, err)
 
-		manager.RenameWorkflow(*workflow, "platform")
+		workflowsFor(st).RenameWorkflow(*workflow, "platform")
 
 		got, err := st.GetWorkflow(context.Background(), workflow.ID)
 		require.NoError(t, err)
@@ -404,12 +420,11 @@ func TestRenameWorkflow(t *testing.T) {
 
 	t.Run("a blank or unchanged name is a no-op", func(t *testing.T) {
 		st := newStore(t)
-		manager := newManager(newFakeTmux(), st, "")
-		workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "backend"})
+		workflow, err := workflowsFor(st).NewWorkflow(store.WorkflowConfig{Name: "backend"})
 		require.NoError(t, err)
 
-		manager.RenameWorkflow(*workflow, "   ")
-		manager.RenameWorkflow(*workflow, "backend")
+		workflowsFor(st).RenameWorkflow(*workflow, "   ")
+		workflowsFor(st).RenameWorkflow(*workflow, "backend")
 
 		got, err := st.GetWorkflow(context.Background(), workflow.ID)
 		require.NoError(t, err)
@@ -423,12 +438,12 @@ func TestRenameWorkflow(t *testing.T) {
 func TestMoveChat(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(newFakeTmux(), st, "")
-	workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "backend"})
+	workflow, err := workflowsFor(st).NewWorkflow(store.WorkflowConfig{Name: "backend"})
 	require.NoError(t, err)
 	agent := seed(t, st, "chat", "%1", store.StateNew)
 
 	manager.MoveChat(agent, &workflow.ID)
-	scoped, err := manager.ListWorkflows()
+	scoped, err := workflowsFor(st).ListWorkflows()
 	require.NoError(t, err)
 	require.Len(t, scoped, 1)
 	moved, err := st.Get(context.Background(), "chat")
@@ -447,14 +462,14 @@ func TestMoveChat(t *testing.T) {
 func TestDeleteWorkflowOrphansThroughManager(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(newFakeTmux(), st, "")
-	workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "backend"})
+	workflow, err := workflowsFor(st).NewWorkflow(store.WorkflowConfig{Name: "backend"})
 	require.NoError(t, err)
 	_, err = manager.NewSession(NewSessionParams{Title: "chat", WorkflowID: &workflow.ID})
 	require.NoError(t, err)
 
-	manager.DeleteWorkflow(*workflow)
+	workflowsFor(st).DeleteWorkflow(*workflow)
 
-	workflows, err := manager.ListWorkflows()
+	workflows, err := workflowsFor(st).ListWorkflows()
 	require.NoError(t, err)
 	assert.Empty(t, workflows, "the workflow is hidden after deletion")
 
@@ -470,12 +485,12 @@ func TestDeleteWorkflowOrphansThroughManager(t *testing.T) {
 func TestDeleteWorkflowWithChatsThroughManager(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(newFakeTmux(), st, "")
-	workflow, err := manager.NewWorkflow(store.WorkflowConfig{Name: "backend"})
+	workflow, err := workflowsFor(st).NewWorkflow(store.WorkflowConfig{Name: "backend"})
 	require.NoError(t, err)
 	_, err = manager.NewSession(NewSessionParams{Title: "chat", WorkflowID: &workflow.ID})
 	require.NoError(t, err)
 
-	manager.DeleteWorkflowWithChats(*workflow)
+	workflowsFor(st).DeleteWorkflowWithChats(*workflow)
 
 	got, err := st.Get(context.Background(), "chat")
 	require.NoError(t, err)

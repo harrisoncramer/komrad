@@ -1,5 +1,25 @@
 package agents
 
+// popupTmux is what the popup needs from tmux: the global options it uses as
+// flags, and the ability to detach a client.
+type popupTmux interface {
+	SetGlobal(name, value string)
+	ShowGlobal(name string) string
+	SetSessionOption(target, name, value string)
+	DetachSession(name string)
+}
+
+// Popup is the chrome around the manager popup: whether it is showing, which
+// tmux client opened it, and how it hides. It holds no application state.
+type Popup struct {
+	tmux popupTmux
+}
+
+// NewPopup builds the popup chrome over a tmux client.
+func NewPopup(tmux popupTmux) *Popup {
+	return &Popup{tmux: tmux}
+}
+
 // managerOpenFlag marks that the popup is currently shown, so the binding hides
 // it rather than opening a second one. The open command sets it while the popup
 // is up and clears it on close. The tmux plugin reads it.
@@ -12,28 +32,28 @@ const managerOpenFlag = "@claude_manager_open"
 const managerClientFlag = "@claude_manager_client"
 
 // MarkOpen records that the popup is shown.
-func (m *AgentManager) MarkOpen() { m.tmux.SetGlobal(managerOpenFlag, "1") }
+func (p *Popup) MarkOpen() { p.tmux.SetGlobal(managerOpenFlag, "1") }
 
 // MarkClosed records that the popup is hidden.
-func (m *AgentManager) MarkClosed() { m.tmux.SetGlobal(managerOpenFlag, "0") }
+func (p *Popup) MarkClosed() { p.tmux.SetGlobal(managerOpenFlag, "0") }
 
 // SetInvokingClient records the tmux client that opened the current popup.
-func (m *AgentManager) SetInvokingClient(client string) {
-	m.tmux.SetGlobal(managerClientFlag, client)
+func (p *Popup) SetInvokingClient(client string) {
+	p.tmux.SetGlobal(managerClientFlag, client)
 }
 
 // HideManager hides the popup by detaching the client viewing the persistent
 // manager session. The session stays alive, so the next open restores it.
-func (m *AgentManager) HideManager() { m.tmux.DetachSession(ManagerSession) }
+func (p *Popup) Hide() { p.tmux.DetachSession(ManagerSession) }
 
 // SilenceStatus turns off a session's tmux status bar, so the manager panel and
 // the agents it opens fill the popup without a tmux footer under them.
-func (m *AgentManager) SilenceStatus(session string) {
-	m.tmux.SetSessionOption(session, "status", "off")
+func (p *Popup) SilenceStatus(session string) {
+	p.tmux.SetSessionOption(session, "status", "off")
 }
 
 // InvokingClient returns the tmux client that opened the current popup.
-func (m *AgentManager) InvokingClient() string { return m.tmux.ShowGlobal(managerClientFlag) }
+func (p *Popup) InvokingClient() string { return p.tmux.ShowGlobal(managerClientFlag) }
 
 // PaneAlive reports whether an agent's tmux pane still exists, for pruning
 // entries the panel lists from the service.

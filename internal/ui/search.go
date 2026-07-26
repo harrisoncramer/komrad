@@ -65,7 +65,7 @@ func (m model) enterSearch() (tea.Model, tea.Cmd) {
 // searchCmd runs the query over the service off the UI goroutine, so typing
 // never blocks on the RPC. A blank query resolves to no hits without a call.
 func (m model) searchCmd(query string) tea.Cmd {
-	sessions := m.sessions
+	client := m.client
 
 	return func() tea.Msg {
 		if strings.TrimSpace(query) == "" {
@@ -75,7 +75,7 @@ func (m model) searchCmd(query string) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), chatsTimeout)
 		defer cancel()
 
-		resp, err := sessions.SearchTranscripts(ctx, connect.NewRequest(&sessionv1.SearchTranscriptsRequest{
+		resp, err := client.SearchTranscripts(ctx, connect.NewRequest(&sessionv1.SearchTranscriptsRequest{
 			Query:      query,
 			Pagination: &paginationv1.Pagination{Limit: proto.Int32(searchLimit)},
 		}))
@@ -118,14 +118,14 @@ func (m *model) applySearchResults(msg searchResultsMsg) tea.Cmd {
 // previewCmd loads a hit's full transcript off the UI goroutine, so hovering a
 // result never blocks the render loop on the fetch.
 func (m model) previewCmd(hit searchHit) tea.Cmd {
-	sessions := m.sessions
+	client := m.client
 	query := m.searchQuery
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), chatsTimeout)
 		defer cancel()
 
-		resp, err := sessions.GetTranscript(ctx, connect.NewRequest(&sessionv1.GetTranscriptRequest{
+		resp, err := client.GetTranscript(ctx, connect.NewRequest(&sessionv1.GetTranscriptRequest{
 			SessionId: hit.sessionID,
 		}))
 		if err != nil {
@@ -223,7 +223,7 @@ func (m model) openSearchHit() (tea.Model, tea.Cmd) {
 	}
 
 	hit := m.searchHits[m.searchCursor]
-	pane, name, err := m.manager.OpenSearchHit(hit.sessionID)
+	pane, name, err := m.sessionService.OpenSearchHit(hit.sessionID)
 	if err != nil {
 		return m, nil
 	}

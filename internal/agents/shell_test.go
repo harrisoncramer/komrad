@@ -81,7 +81,7 @@ func TestLaunchClaudeQuotesFlags(t *testing.T) {
 	tmux := newFakeTmux()
 	manager := newManager(tmux, newStore(t), "")
 
-	require.NoError(t, manager.launchClaude(launchClaudeParams{
+	require.NoError(t, manager.launcher.launch(launchClaudeParams{
 		Session:   "session",
 		Flags:     "--model $(touch /tmp/pwned)",
 		SessionID: "sess",

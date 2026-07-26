@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"claude-agents/internal/agents"
 	"claude-agents/internal/appconfig"
 	"claude-agents/internal/store"
 
@@ -47,8 +46,8 @@ func infoModel(tmux *recordingTmux) model {
 	stage.Init()
 
 	return model{
-		manager:    agents.NewAgentManager(agents.Params{Tmux: tmux}),
 		stage:      stage,
+		panes:      tmux,
 		keys:       appconfig.DefaultKeybindings(),
 		screen:     screenChats,
 		chats:      []chatItem{{agent: store.Agent{Name: "auth", Pane: "%9", Cwd: "/repo"}, alive: true}},

@@ -27,7 +27,7 @@ func statusCmd(state *app) *cobra.Command {
 		Use:   "status",
 		Short: "Print the status-bar aggregate",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			fmt.Print(renderStatus(cmd.Context(), state.sessions))
+			fmt.Print(renderStatus(cmd.Context(), state.store))
 			return nil
 		},
 	}

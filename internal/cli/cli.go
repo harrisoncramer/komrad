@@ -27,12 +27,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// app is what every subcommand is wired from. The services are separate rather
+// than one object, so each command holds only the part it drives.
 type app struct {
-	manager  *agents.AgentManager
-	sessions *store.Store
-	env      *config.Config
-	keys     appconfig.Keybindings
-	// tmux is shared with the manager. The UI needs it directly for the stage,
+	sessions  *agents.SessionService
+	workflows *agents.WorkflowService
+	popup     *agents.Popup
+	store     *store.Store
+	env       *config.Config
+	keys      appconfig.Keybindings
+	// tmux is shared with the services. The UI needs it directly for the stage,
 	// which is its own layout rather than anything the session API owns.
 	tmux *tmux.Client
 }
@@ -67,14 +71,15 @@ func NewRootCommand() *cobra.Command {
 
 			state.env = env
 			state.keys = cfg.Keybindings
-			state.sessions = sessions
+			state.store = sessions
 			state.tmux = tmux.NewClient(env.TmuxSocket)
-			state.manager = agents.NewAgentManager(agents.Params{
+			state.popup = agents.NewPopup(state.tmux)
+			state.workflows = agents.NewWorkflowService(sessions)
+			state.sessions = agents.NewSessionService(agents.SessionParams{
 				Tmux:        state.tmux,
 				Store:       sessions,
-				SelfPath:    selfPath(),
+				Launcher:    agents.NewLauncher(state.tmux, env.Addr),
 				ClaudeFlags: cfg.ClaudeFlags,
-				ServerAddr:  env.Addr,
 			})
 			return nil
 		},
@@ -87,13 +92,20 @@ func NewRootCommand() *cobra.Command {
 
 			// Drop this session's status bar so the panel and its stage pane fill
 			// the popup without a tmux footer beneath them.
-			state.manager.SilenceStatus(agents.ManagerSession)
+			state.popup.SilenceStatus(agents.ManagerSession)
 
 			// This process runs inside the persistent manager session and never
 			// exits on its own. The close and quit keys detach the popup rather
 			// than quit, so the panel stays one long-lived program with its state
 			// preserved between opens. Run returns only on a real error.
-			return ui.Run(state.manager, sessions, ui.NewStage(state.tmux), state.keys)
+			return ui.Run(ui.Deps{
+				Sessions:  state.sessions,
+				Workflows: state.workflows,
+				Popup:     state.popup,
+				Tmux:      state.tmux,
+				Client:    sessions,
+				Keys:      state.keys,
+			})
 		},
 	}
 
@@ -137,7 +149,7 @@ func serveCmd(state *app) *cobra.Command {
 
 			mux := http.NewServeMux()
 			path, handler := sessionv1connect.NewSessionServiceHandler(
-				rpc.NewSessionService(state.sessions, state.manager),
+				rpc.NewSessionService(state.store, state.sessions),
 				connect.WithInterceptors(validation),
 			)
 			mux.Handle(path, handler)
@@ -163,12 +175,12 @@ func serveCmd(state *app) *cobra.Command {
 			// The reconciler runs here rather than in the panel because serve is
 			// the always-on process that owns the store. The counts must stay
 			// correct even when no panel is open.
-			go runReconcileLoop(cmd.Context(), state.manager.Reconciler(), reconcileInterval)
+			go runReconcileLoop(cmd.Context(), agents.NewReconciler(state.tmux, state.store), reconcileInterval)
 
 			// The transcript syncer runs alongside the reconciler for the same
 			// reason. Serve owns the store and is always on, so the search index
 			// stays current whether or not a panel is open.
-			go runTranscriptSyncLoop(cmd.Context(), state.manager.TranscriptSyncer(), transcriptSyncInterval)
+			go runTranscriptSyncLoop(cmd.Context(), agents.NewTranscriptSyncer(state.store, agents.DefaultTranscriptsDir()), transcriptSyncInterval)
 
 			server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 			return server.ListenAndServe()
@@ -235,9 +247,9 @@ func openCmd(state *app) *cobra.Command {
 			// Record the client that opened this popup so panel actions resolve the
 			// right directory and client. Mark the popup shown so the binding hides
 			// it on the next press. The mark clears when the attach below returns.
-			state.manager.SetInvokingClient(firstOrEmpty(args))
-			state.manager.MarkOpen()
-			defer state.manager.MarkClosed()
+			state.popup.SetInvokingClient(firstOrEmpty(args))
+			state.popup.MarkOpen()
+			defer state.popup.MarkClosed()
 
 			// The panel runs as this session's command, so it inherits the tmux
 			// server's environment rather than the popup's. Forward the resolved
@@ -288,7 +300,7 @@ func newCmd(state *app) *cobra.Command {
 		Use:   "new",
 		Short: "Create a background agent session non-interactively",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			created, err := state.manager.NewSession(params)
+			created, err := state.sessions.NewSession(params)
 			if err != nil {
 				return err
 			}
