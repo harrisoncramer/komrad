@@ -1,4 +1,4 @@
-package rpc
+package session
 
 import (
 	"context"
@@ -68,14 +68,14 @@ func (f *fakeLauncher) NewSession(p agents.NewSessionParams) (*store.Agent, erro
 	return f.created, nil
 }
 
-func service(t *testing.T) (*SessionService, *store.Store) {
+func service(t *testing.T) (*Service, *store.Store) {
 	t.Helper()
 	svc, st, _ := serviceWithLauncher(t)
 
 	return svc, st
 }
 
-func serviceWithLauncher(t *testing.T) (*SessionService, *store.Store, *fakeLauncher) {
+func serviceWithLauncher(t *testing.T) (*Service, *store.Store, *fakeLauncher) {
 	t.Helper()
 	st, err := store.Open(t.Context(), pgtest.URL(t))
 	require.NoError(t, err)
@@ -83,7 +83,7 @@ func serviceWithLauncher(t *testing.T) (*SessionService, *store.Store, *fakeLaun
 
 	launcher := &fakeLauncher{created: &store.Agent{ID: "id-1", Name: "spawned", Cwd: "/repo", State: store.StateNew}}
 
-	return NewSessionService(st, launcher), st, launcher
+	return NewService(st, launcher), st, launcher
 }
 
 func TestCreateSession(t *testing.T) {

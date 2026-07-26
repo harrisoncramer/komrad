@@ -1,4 +1,5 @@
-package rpc
+// Package workflow serves WorkflowService over ConnectRPC.
+package workflow
 
 import (
 	"context"
@@ -30,20 +31,20 @@ type workflowLister interface {
 	ListWorkflowsPage(ctx context.Context, limit int64, cursor *store.WorkflowCursor) ([]store.Workflow, error)
 }
 
-// WorkflowService implements workflowv1connect.WorkflowServiceHandler.
-type WorkflowService struct {
+// Service implements workflowv1connect.WorkflowServiceHandler.
+type Service struct {
 	store     workflowLister
 	workflows workflowManager
 }
 
-// NewWorkflowService constructs the handler from the store it lists through and
-// the service that owns the rules.
-func NewWorkflowService(s workflowLister, workflows workflowManager) *WorkflowService {
-	return &WorkflowService{store: s, workflows: workflows}
+// NewService constructs the handler from the store it lists through and the
+// service that owns the rules.
+func NewService(s workflowLister, workflows workflowManager) *Service {
+	return &Service{store: s, workflows: workflows}
 }
 
 // ListWorkflows returns one page of workflows, most recently updated first.
-func (s *WorkflowService) ListWorkflows(ctx context.Context, req *connect.Request[workflowv1.ListWorkflowsRequest]) (*connect.Response[workflowv1.ListWorkflowsResponse], error) {
+func (s *Service) ListWorkflows(ctx context.Context, req *connect.Request[workflowv1.ListWorkflowsRequest]) (*connect.Response[workflowv1.ListWorkflowsResponse], error) {
 	paginator, err := pagination.New[store.WorkflowCursor, workflow](req.Msg.GetPagination())
 	if err != nil {
 		return nil, err
@@ -73,7 +74,7 @@ func (s *WorkflowService) ListWorkflows(ctx context.Context, req *connect.Reques
 }
 
 // GetWorkflow returns one workflow by id.
-func (s *WorkflowService) GetWorkflow(_ context.Context, req *connect.Request[workflowv1.GetWorkflowRequest]) (*connect.Response[workflowv1.GetWorkflowResponse], error) {
+func (s *Service) GetWorkflow(_ context.Context, req *connect.Request[workflowv1.GetWorkflowRequest]) (*connect.Response[workflowv1.GetWorkflowResponse], error) {
 	found, err := s.workflows.GetWorkflow(req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get workflow: %w", err))
@@ -86,7 +87,7 @@ func (s *WorkflowService) GetWorkflow(_ context.Context, req *connect.Request[wo
 }
 
 // CreateWorkflow adds a workflow and returns it as stored.
-func (s *WorkflowService) CreateWorkflow(_ context.Context, req *connect.Request[workflowv1.CreateWorkflowRequest]) (*connect.Response[workflowv1.CreateWorkflowResponse], error) {
+func (s *Service) CreateWorkflow(_ context.Context, req *connect.Request[workflowv1.CreateWorkflowRequest]) (*connect.Response[workflowv1.CreateWorkflowResponse], error) {
 	created, err := s.workflows.NewWorkflow(store.WorkflowConfig{
 		Name:    req.Msg.GetName(),
 		Context: req.Msg.GetContext(),
@@ -101,7 +102,7 @@ func (s *WorkflowService) CreateWorkflow(_ context.Context, req *connect.Request
 }
 
 // UpdateWorkflow replaces a workflow's editable fields.
-func (s *WorkflowService) UpdateWorkflow(_ context.Context, req *connect.Request[workflowv1.UpdateWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
+func (s *Service) UpdateWorkflow(_ context.Context, req *connect.Request[workflowv1.UpdateWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
 	err := s.workflows.UpdateWorkflowByID(req.Msg.GetId(), store.WorkflowConfig{
 		Name:    req.Msg.GetName(),
 		Context: req.Msg.GetContext(),
@@ -119,7 +120,7 @@ func (s *WorkflowService) UpdateWorkflow(_ context.Context, req *connect.Request
 }
 
 // DeleteWorkflow removes a workflow, orphaning or archiving its chats.
-func (s *WorkflowService) DeleteWorkflow(_ context.Context, req *connect.Request[workflowv1.DeleteWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
+func (s *Service) DeleteWorkflow(_ context.Context, req *connect.Request[workflowv1.DeleteWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
 	err := s.workflows.DeleteWorkflowByID(req.Msg.GetId(), req.Msg.GetArchiveChats())
 	switch {
 	case errors.Is(err, agents.ErrWorkflowNotFound):

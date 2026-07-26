@@ -1,10 +1,11 @@
-package rpc
+package session
 
 import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"claude-agents/internal/interceptors"
 	"claude-agents/internal/store"
 	paginationv1 "claude-agents/proto/gen/pagination/v1"
 	sessionv1 "claude-agents/proto/gen/session/v1"
@@ -28,7 +29,7 @@ func validatedClient(t *testing.T) (sessionv1connect.SessionServiceClient, *fake
 	// so the validation cases need a real one to aim at.
 	require.NoError(t, st.Upsert(t.Context(), store.Agent{Name: "alpha", State: store.StateNew}))
 
-	validation, err := NewValidationInterceptor()
+	validation, err := interceptors.NewValidation()
 	require.NoError(t, err)
 
 	mux := http.NewServeMux()

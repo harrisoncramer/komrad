@@ -1,4 +1,4 @@
-package rpc
+package workflow
 
 import (
 	"testing"
@@ -15,18 +15,18 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func workflowService(t *testing.T) (*WorkflowService, *store.Store) {
+func service(t *testing.T) (*Service, *store.Store) {
 	t.Helper()
 
 	st, err := store.Open(t.Context(), pgtest.URL(t))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 
-	return NewWorkflowService(st, agents.NewWorkflowService(st)), st
+	return NewService(st, agents.NewWorkflowService(st)), st
 }
 
 func TestCreateAndGetWorkflow(t *testing.T) {
-	svc, _ := workflowService(t)
+	svc, _ := service(t)
 
 	created, err := svc.CreateWorkflow(t.Context(), connect.NewRequest(&workflowv1.CreateWorkflowRequest{
 		Name:    "backend",
@@ -48,7 +48,7 @@ func TestCreateAndGetWorkflow(t *testing.T) {
 }
 
 func TestGetMissingWorkflowIsNotFound(t *testing.T) {
-	svc, _ := workflowService(t)
+	svc, _ := service(t)
 
 	_, err := svc.GetWorkflow(t.Context(), connect.NewRequest(&workflowv1.GetWorkflowRequest{
 		Id: "00000000-0000-0000-0000-000000000000",
@@ -60,7 +60,7 @@ func TestGetMissingWorkflowIsNotFound(t *testing.T) {
 // is what the request says it does, and that an unknown id is not_found rather
 // than a silent success.
 func TestUpdateWorkflowReplacesFields(t *testing.T) {
-	svc, st := workflowService(t)
+	svc, st := service(t)
 
 	created, err := svc.CreateWorkflow(t.Context(), connect.NewRequest(&workflowv1.CreateWorkflowRequest{
 		Name:    "backend",
@@ -94,7 +94,7 @@ func TestUpdateWorkflowReplacesFields(t *testing.T) {
 // TestDeleteWorkflowOrphansOrArchives covers the one decision the request
 // carries: whether the chats inside go with the workflow or outlive it.
 func TestDeleteWorkflowOrphansOrArchives(t *testing.T) {
-	svc, st := workflowService(t)
+	svc, st := service(t)
 	ctx := t.Context()
 
 	created, err := svc.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{Name: "backend"}))
@@ -116,7 +116,7 @@ func TestDeleteWorkflowOrphansOrArchives(t *testing.T) {
 }
 
 func TestListWorkflowsPages(t *testing.T) {
-	svc, _ := workflowService(t)
+	svc, _ := service(t)
 	ctx := t.Context()
 
 	for _, name := range []string{"one", "two", "three"} {

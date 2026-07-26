@@ -1,5 +1,6 @@
-// Package rpc serves the SessionService over ConnectRPC, backed by the store.
-package rpc
+// Package session serves SessionService over ConnectRPC, backed by the store and
+// the service that launches chats.
+package session
 
 import (
 	"context"
@@ -28,22 +29,22 @@ type sessionLauncher interface {
 	RestoreSession(ctx context.Context, id string) (*store.Agent, error)
 }
 
-// SessionService implements sessionv1connect.SessionServiceHandler over the store.
-type SessionService struct {
+// Service implements sessionv1connect.SessionServiceHandler over the store.
+type Service struct {
 	store    *store.Store
 	launcher sessionLauncher
 }
 
-// NewSessionService constructs the service from the agent store and the manager
-// that launches chats.
-func NewSessionService(s *store.Store, launcher sessionLauncher) *SessionService {
-	return &SessionService{store: s, launcher: launcher}
+// NewService constructs the handler from the agent store and the manager that
+// launches chats.
+func NewService(s *store.Store, launcher sessionLauncher) *Service {
+	return &Service{store: s, launcher: launcher}
 }
 
 // CreateSession launches a background agent and returns it as stored. The
 // request's own constraints decide what is well-formed; by the time a request
 // reaches here it has already passed them.
-func (s *SessionService) CreateSession(_ context.Context, req *connect.Request[sessionv1.CreateSessionRequest]) (*connect.Response[sessionv1.CreateSessionResponse], error) {
+func (s *Service) CreateSession(_ context.Context, req *connect.Request[sessionv1.CreateSessionRequest]) (*connect.Response[sessionv1.CreateSessionResponse], error) {
 	created, err := s.launcher.NewSession(agents.NewSessionParams{
 		Title:      req.Msg.GetTitle(),
 		Dir:        req.Msg.GetDir(),
@@ -64,7 +65,7 @@ func (s *SessionService) CreateSession(_ context.Context, req *connect.Request[s
 }
 
 // ListSessions returns one page of stored agents, most recently updated first.
-func (s *SessionService) ListSessions(ctx context.Context, req *connect.Request[sessionv1.ListSessionsRequest]) (*connect.Response[sessionv1.ListSessionsResponse], error) {
+func (s *Service) ListSessions(ctx context.Context, req *connect.Request[sessionv1.ListSessionsRequest]) (*connect.Response[sessionv1.ListSessionsResponse], error) {
 	paginator, err := pagination.New[store.SessionCursor, session](req.Msg.GetPagination())
 	if err != nil {
 		return nil, err
@@ -94,7 +95,7 @@ func (s *SessionService) ListSessions(ctx context.Context, req *connect.Request[
 }
 
 // GetSession returns one agent by name.
-func (s *SessionService) GetSession(ctx context.Context, req *connect.Request[sessionv1.GetSessionRequest]) (*connect.Response[sessionv1.GetSessionResponse], error) {
+func (s *Service) GetSession(ctx context.Context, req *connect.Request[sessionv1.GetSessionRequest]) (*connect.Response[sessionv1.GetSessionResponse], error) {
 	agent, err := s.store.Get(ctx, req.Msg.GetName())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get session: %w", err))
@@ -109,7 +110,7 @@ func (s *SessionService) GetSession(ctx context.Context, req *connect.Request[se
 // SetState updates an agent's state. Naming a chat that does not exist is an
 // error rather than a quiet success, so a caller that mistyped a name learns it
 // here instead of wondering why nothing changed.
-func (s *SessionService) SetState(ctx context.Context, req *connect.Request[sessionv1.SetStateRequest]) (*connect.Response[emptypb.Empty], error) {
+func (s *Service) SetState(ctx context.Context, req *connect.Request[sessionv1.SetStateRequest]) (*connect.Response[emptypb.Empty], error) {
 	changed, err := s.store.SetState(ctx, req.Msg.GetName(), req.Msg.GetState())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set state: %w", err))
@@ -124,7 +125,7 @@ func (s *SessionService) SetState(ctx context.Context, req *connect.Request[sess
 // DeleteSession stops an agent and removes it, along with its config and
 // transcript. The manager owns this rather than the store, since stopping the
 // agent means killing its pane.
-func (s *SessionService) DeleteSession(ctx context.Context, req *connect.Request[sessionv1.DeleteSessionRequest]) (*connect.Response[emptypb.Empty], error) {
+func (s *Service) DeleteSession(ctx context.Context, req *connect.Request[sessionv1.DeleteSessionRequest]) (*connect.Response[emptypb.Empty], error) {
 	err := s.launcher.DeleteSession(ctx, req.Msg.GetName())
 	switch {
 	case errors.Is(err, agents.ErrSessionNotFound):
@@ -138,7 +139,7 @@ func (s *SessionService) DeleteSession(ctx context.Context, req *connect.Request
 
 // ArchiveSession stops a chat and hides it, keeping the record and transcript.
 // This is the reversible half of removing a chat; DeleteSession is the other.
-func (s *SessionService) ArchiveSession(ctx context.Context, req *connect.Request[sessionv1.ArchiveSessionRequest]) (*connect.Response[emptypb.Empty], error) {
+func (s *Service) ArchiveSession(ctx context.Context, req *connect.Request[sessionv1.ArchiveSessionRequest]) (*connect.Response[emptypb.Empty], error) {
 	err := s.launcher.ArchiveSession(ctx, req.Msg.GetName())
 	switch {
 	case errors.Is(err, agents.ErrSessionNotFound):
@@ -151,7 +152,7 @@ func (s *SessionService) ArchiveSession(ctx context.Context, req *connect.Reques
 }
 
 // RestoreSession brings a chat back and returns it as stored.
-func (s *SessionService) RestoreSession(ctx context.Context, req *connect.Request[sessionv1.RestoreSessionRequest]) (*connect.Response[sessionv1.RestoreSessionResponse], error) {
+func (s *Service) RestoreSession(ctx context.Context, req *connect.Request[sessionv1.RestoreSessionRequest]) (*connect.Response[sessionv1.RestoreSessionResponse], error) {
 	restored, err := s.launcher.RestoreSession(ctx, req.Msg.GetId())
 	switch {
 	case errors.Is(err, agents.ErrSessionNotFound):
@@ -167,7 +168,7 @@ func (s *SessionService) RestoreSession(ctx context.Context, req *connect.Reques
 // a live chat is a conflict, not a server fault: the store's unique index is
 // what refuses it, and reporting that as internal would leak a SQLite message
 // to a caller who simply picked a taken name.
-func (s *SessionService) UpdateSession(ctx context.Context, req *connect.Request[sessionv1.UpdateSessionRequest]) (*connect.Response[emptypb.Empty], error) {
+func (s *Service) UpdateSession(ctx context.Context, req *connect.Request[sessionv1.UpdateSessionRequest]) (*connect.Response[emptypb.Empty], error) {
 	renamed, err := s.store.Rename(ctx, req.Msg.GetId(), req.Msg.GetName())
 	switch {
 	case errors.Is(err, store.ErrNameTaken):
@@ -185,7 +186,7 @@ func (s *SessionService) UpdateSession(ctx context.Context, req *connect.Request
 // one page of matching sessions with a marked snippet, best match first. The
 // page token encodes a position in this query's ranking, so replaying it against
 // a different query resumes from a rank that means nothing there.
-func (s *SessionService) SearchTranscripts(ctx context.Context, req *connect.Request[sessionv1.SearchTranscriptsRequest]) (*connect.Response[sessionv1.SearchTranscriptsResponse], error) {
+func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[sessionv1.SearchTranscriptsRequest]) (*connect.Response[sessionv1.SearchTranscriptsResponse], error) {
 	paginator, err := pagination.New[store.TranscriptCursor, searchHit](req.Msg.GetPagination())
 	if err != nil {
 		return nil, err
@@ -223,7 +224,7 @@ func (s *SessionService) SearchTranscripts(ctx context.Context, req *connect.Req
 // An id that matches no chat is not_found rather than empty content: the two
 // were indistinguishable, and since a listed chat carries both an id and a
 // claudeSessionId, reaching for the wrong one failed silently.
-func (s *SessionService) GetTranscript(ctx context.Context, req *connect.Request[sessionv1.GetTranscriptRequest]) (*connect.Response[sessionv1.GetTranscriptResponse], error) {
+func (s *Service) GetTranscript(ctx context.Context, req *connect.Request[sessionv1.GetTranscriptRequest]) (*connect.Response[sessionv1.GetTranscriptResponse], error) {
 	exists, err := s.store.SessionExists(ctx, req.Msg.GetSessionId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to look up session: %w", err))

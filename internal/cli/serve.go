@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"claude-agents/internal/agents"
+	"claude-agents/internal/interceptors"
 	"claude-agents/internal/mcp"
-	"claude-agents/internal/rpc"
+	rpcsession "claude-agents/internal/rpc/session"
+	rpcworkflow "claude-agents/internal/rpc/workflow"
 	"claude-agents/internal/store"
 	"claude-agents/proto/gen/session/v1/sessionv1connect"
 	"claude-agents/proto/gen/workflow/v1/workflowv1connect"
@@ -44,20 +46,20 @@ func serveCmd(state *app) *cobra.Command {
 			// Requests are checked against the constraints declared in the proto
 			// before any handler sees them, so a malformed payload is rejected in
 			// one place rather than at the top of each method.
-			validation, err := rpc.NewValidationInterceptor()
+			validation, err := interceptors.NewValidation()
 			if err != nil {
 				return err
 			}
 
 			mux := http.NewServeMux()
 			path, handler := sessionv1connect.NewSessionServiceHandler(
-				rpc.NewSessionService(state.store, state.sessions),
+				rpcsession.NewService(state.store, state.sessions),
 				connect.WithInterceptors(validation),
 			)
 			mux.Handle(path, handler)
 
 			workflowPath, workflowHandler := workflowv1connect.NewWorkflowServiceHandler(
-				rpc.NewWorkflowService(state.store, state.workflows),
+				rpcworkflow.NewService(state.store, state.workflows),
 				connect.WithInterceptors(validation),
 			)
 			mux.Handle(workflowPath, workflowHandler)

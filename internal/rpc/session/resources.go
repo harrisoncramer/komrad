@@ -1,11 +1,10 @@
-package rpc
+package session
 
 import (
 	"time"
 
 	"claude-agents/internal/store"
 	sessionv1 "claude-agents/proto/gen/session/v1"
-	workflowv1 "claude-agents/proto/gen/workflow/v1"
 )
 
 // Every resource the service lists is paged the same way: the handler renders
@@ -76,31 +75,5 @@ func renderSearchHit(hit store.SearchHit) searchHit {
 			Occurrences: int64(hit.Rank),
 		},
 		cursor: store.TranscriptCursor{Rank: hit.Rank, SessionID: hit.SessionID},
-	}
-}
-
-// workflow is a rendered workflow: the proto sent to the caller and the cursor
-// that finds it again in the listing.
-type workflow struct {
-	*workflowv1.Workflow
-	cursor store.WorkflowCursor
-}
-
-// Cursor returns the keyset cursor locating this workflow.
-func (w workflow) Cursor() (store.WorkflowCursor, error) {
-	return w.cursor, nil
-}
-
-// renderWorkflow renders a stored workflow into a workflow resource.
-func renderWorkflow(w store.Workflow) workflow {
-	return workflow{
-		Workflow: &workflowv1.Workflow{
-			Id:      w.ID,
-			Name:    w.Name,
-			Context: w.Context,
-			Cwd:     w.Cwd,
-			Flags:   w.Flags,
-		},
-		cursor: store.WorkflowCursor{UpdatedAt: w.UpdatedAt, ID: w.ID},
 	}
 }

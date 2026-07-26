@@ -1,4 +1,6 @@
-package rpc
+// Package interceptors holds the ConnectRPC middleware every service is served
+// behind, so a cross-cutting rule is written once rather than per resource.
+package interceptors
 
 import (
 	"context"
@@ -18,11 +20,11 @@ type validationInterceptor struct {
 	validator protovalidate.Validator
 }
 
-// NewValidationInterceptor builds the interceptor, failing if the validator
+// NewValidation builds the interceptor, failing if the validator
 // cannot be constructed. That only happens when a compiled-in constraint is
 // malformed, which is a programming error rather than a runtime condition, so
 // the caller cannot usefully continue without it.
-func NewValidationInterceptor() (connect.Interceptor, error) {
+func NewValidation() (connect.Interceptor, error) {
 	validator, err := protovalidate.New()
 	if err != nil {
 		return nil, fmt.Errorf("failed to build request validator: %w", err)
