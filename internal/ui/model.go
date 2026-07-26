@@ -9,11 +9,10 @@ import (
 	"time"
 
 	"claude-agents/internal/appconfig"
+	"claude-agents/internal/client"
 	"claude-agents/internal/store"
-	paginationv1 "claude-agents/proto/gen/pagination/v1"
 	sessionv1 "claude-agents/proto/gen/session/v1"
 	"claude-agents/proto/gen/session/v1/sessionv1connect"
-	workflowv1 "claude-agents/proto/gen/workflow/v1"
 	"claude-agents/proto/gen/workflow/v1/workflowv1connect"
 
 	"connectrpc.com/connect"
@@ -21,7 +20,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
-	"google.golang.org/protobuf/proto"
 )
 
 // chatsInterval is how often the chats list re-lists over RPC. It runs off the
@@ -49,57 +47,19 @@ func chatsTick() tea.Cmd {
 // loadChatsCmd re-lists the sessions off the UI goroutine with a timeout, so the
 // render loop never blocks on the RPC or the per-chat tmux liveness checks.
 func (m model) loadChatsCmd() tea.Cmd {
-	client := m.api.sessions
+	sessions := m.api.sessions
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), chatsTimeout)
 		defer cancel()
 
-		listed, err := listSessions(ctx, client)
+		listed, err := client.ListAllSessions(ctx, sessions)
 		if err != nil {
 			return chatsLoadedMsg{err: err}
 		}
 
 		return chatsLoadedMsg{items: chatItemsFrom(listed)}
 	}
-}
-
-// The panel shows the whole tree at once, so it walks the pages rather than
-// showing a first page. The page is large because a chat list this size is one
-// or two round trips, and the cap on pages is a stop for a token the server
-// somehow never retires, so a bug there cannot spin the list forever.
-const (
-	listPageSize = 200
-	listMaxPages = 50
-)
-
-// listSessions lists every chat through the service, following the page tokens
-// until the listing is exhausted.
-func listSessions(ctx context.Context, sessions sessionv1connect.SessionServiceClient) ([]*sessionv1.Session, error) {
-	var (
-		all    []*sessionv1.Session
-		cursor string
-	)
-
-	for range listMaxPages {
-		page := &paginationv1.Pagination{Limit: proto.Int32(listPageSize)}
-		if cursor != "" {
-			page.Cursor = proto.String(cursor)
-		}
-
-		resp, err := sessions.ListSessions(ctx, connect.NewRequest(&sessionv1.ListSessionsRequest{Pagination: page}))
-		if err != nil {
-			return nil, fmt.Errorf("failed to list sessions: %w", err)
-		}
-
-		all = append(all, resp.Msg.GetSessions()...)
-		cursor = resp.Msg.GetNextPageToken()
-		if cursor == "" {
-			return all, nil
-		}
-	}
-
-	return all, nil
 }
 
 // chatItemsFrom maps listed sessions to chat items, marking which panes are live.
@@ -303,7 +263,7 @@ type chatItem struct {
 func (m *model) reload() {
 	m.reloadWorkflows()
 
-	listed, err := listSessions(context.Background(), m.api.sessions)
+	listed, err := client.ListAllSessions(context.Background(), m.api.sessions)
 	if err != nil {
 		m.chats = nil
 		return
@@ -346,45 +306,29 @@ func (m model) renameChat(agent store.Agent, name string) {
 	}))
 }
 
-// listWorkflows walks every page of workflows, the same way the chat list does,
-// and renders them into the store type the tree is written against.
+// listWorkflows fetches every workflow and renders them into the store type the
+// tree is written against.
 func (m model) listWorkflows() ([]store.Workflow, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), chatsTimeout)
 	defer cancel()
 
-	var (
-		all    []store.Workflow
-		cursor string
-	)
-
-	for range listMaxPages {
-		page := &paginationv1.Pagination{Limit: proto.Int32(listPageSize)}
-		if cursor != "" {
-			page.Cursor = proto.String(cursor)
-		}
-
-		resp, err := m.api.workflows.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{Pagination: page}))
-		if err != nil {
-			return nil, fmt.Errorf("failed to list workflows: %w", err)
-		}
-
-		for _, w := range resp.Msg.GetWorkflows() {
-			all = append(all, store.Workflow{
-				ID:      w.GetId(),
-				Name:    w.GetName(),
-				Context: w.GetContext(),
-				Cwd:     w.GetCwd(),
-				Flags:   w.GetFlags(),
-			})
-		}
-
-		cursor = resp.Msg.GetNextPageToken()
-		if cursor == "" {
-			return all, nil
-		}
+	listed, err := client.ListAllWorkflows(ctx, m.api.workflows)
+	if err != nil {
+		return nil, err
 	}
 
-	return all, nil
+	workflows := make([]store.Workflow, 0, len(listed))
+	for _, w := range listed {
+		workflows = append(workflows, store.Workflow{
+			ID:      w.GetId(),
+			Name:    w.GetName(),
+			Context: w.GetContext(),
+			Cwd:     w.GetCwd(),
+			Flags:   w.GetFlags(),
+		})
+	}
+
+	return workflows, nil
 }
 
 // reloadWorkflows refreshes the workflow list backing the tree's folder headers,

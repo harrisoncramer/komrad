@@ -3,27 +3,21 @@ package cli
 import (
 	"testing"
 
-	"claude-agents/internal/pgtest"
 	"claude-agents/internal/store"
+	sessionv1 "claude-agents/proto/gen/session/v1"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-// newStore opens a throwaway store for the status summary to read.
-func newStore(t *testing.T) *store.Store {
-	t.Helper()
-	st, err := store.Open(t.Context(), pgtest.URL(t))
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = st.Close() })
+// sessions builds the listing the summary renders from. It is what the service
+// would return, so the test needs no database of its own.
+func sessions(states ...string) []*sessionv1.Session {
+	out := make([]*sessionv1.Session, 0, len(states))
+	for i, state := range states {
+		out = append(out, &sessionv1.Session{Name: string(rune('a' + i)), State: state})
+	}
 
-	return st
-}
-
-// seed records one agent in the given state.
-func seed(t *testing.T, st *store.Store, name, state string) {
-	t.Helper()
-	require.NoError(t, st.Upsert(t.Context(), store.Agent{Name: name, State: state}))
+	return out
 }
 
 func TestRenderStatus(t *testing.T) {
@@ -57,11 +51,7 @@ func TestRenderStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st := newStore(t)
-			for i, state := range tt.states {
-				seed(t, st, string(rune('a'+i)), state)
-			}
-			got := renderStatus(t.Context(), st)
+			got := renderStatus(sessions(tt.states...))
 			if tt.wantEmpty {
 				assert.Empty(t, got)
 				return

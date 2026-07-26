@@ -3,9 +3,14 @@ package cli
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
+	"time"
 
+	"claude-agents/internal/client"
 	"claude-agents/internal/store"
+	sessionv1 "claude-agents/proto/gen/session/v1"
+	"claude-agents/proto/gen/session/v1/sessionv1connect"
 
 	"github.com/spf13/cobra"
 )
@@ -19,40 +24,46 @@ const (
 	statusDone    = "#[fg=#98BB6C]"
 )
 
-// statusCmd prints the global agent summary for the tmux status bar. The
-// rendering lives here rather than in the session layer because tmux's colour
-// markup is presentation, and nothing else needs it.
+// statusTimeout bounds the read behind one status-bar refresh. tmux redraws the
+// bar on a timer, so a slow or missing server has to cost a frame rather than
+// hold the bar up.
+const statusTimeout = 2 * time.Second
+
+// statusCmd prints the global agent summary for the tmux status bar. It reads
+// through the service like everything else, and renders here because tmux's
+// colour markup is presentation that nothing else needs.
+//
+// It does not start the server. A status bar that spawned a daemon on a redraw
+// would be a surprise, and with nothing serving there is nothing to report: no
+// reconciler is moving any chat's state, so the honest summary is an empty one.
 func statusCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Print the status-bar aggregate",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := state.openStore(cmd.Context()); err != nil {
-				return err
+			ctx, cancel := context.WithTimeout(cmd.Context(), statusTimeout)
+			defer cancel()
+
+			sessions := sessionv1connect.NewSessionServiceClient(http.DefaultClient, "http://"+state.env.Addr)
+
+			listed, err := client.ListAllSessions(ctx, sessions)
+			if err != nil {
+				// Nothing to say, and nowhere useful to say it.
+				return nil
 			}
 
-			fmt.Print(renderStatus(cmd.Context(), state.store))
+			fmt.Print(renderStatus(listed))
+
 			return nil
 		},
 	}
 }
 
-// statusLister is the part of the store the summary reads. A failed listing
-// renders as nothing at all, since a status bar is not the place to report an
-// error the user cannot act on.
-type statusLister interface {
-	List(ctx context.Context) ([]store.Agent, error)
-}
-
-func renderStatus(ctx context.Context, sessions statusLister) string {
-	agents, err := sessions.List(ctx)
-	if err != nil {
-		return ""
-	}
-
+// renderStatus counts the chats worth reporting and renders them as tmux markup.
+func renderStatus(sessions []*sessionv1.Session) string {
 	waiting, working, done := 0, 0, 0
-	for _, agent := range agents {
-		switch agent.State {
+	for _, session := range sessions {
+		switch session.GetState() {
 		case store.StateThinking:
 			working++
 		case store.StateWaiting:
