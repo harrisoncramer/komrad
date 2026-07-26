@@ -33,10 +33,9 @@ const (
 // a search and not a rejected write.
 var forbiddenPattern = regexp.MustCompile(`(?i)\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE|EXECUTE|CALL|MERGE|VACUUM|REINDEX|ATTACH|DETACH|PRAGMA|BEGIN|COMMIT|ROLLBACK|SET)\b`)
 
-// replaceStatement matches REPLACE only where it begins a statement, which is
-// the write form (REPLACE INTO). SQLite also has a replace() scalar function,
-// and rejecting every use of the word turned an ordinary string substitution
-// into a refused write.
+// replaceStatement matches REPLACE only where it begins a statement. Postgres
+// has a replace() scalar function, so rejecting every use of the word would turn
+// an ordinary string substitution into a refused write.
 var replaceStatement = regexp.MustCompile(`(?i)(\A|[(;])\s*REPLACE\s+INTO\b`)
 
 // queryResult is the JSON shape returned by the query tool.

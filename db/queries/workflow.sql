@@ -1,3 +1,22 @@
+-- name: ListWorkflowsPage :many
+SELECT
+    w.*,
+    wc.cwd,
+    wc.flags
+FROM
+    workflows w
+    JOIN workflow_configs wc ON wc.id = w.workflow_config_id
+WHERE
+    w.is_deleted = FALSE
+    AND (sqlc.narg ('cursor_updated_at')::timestamptz IS NULL
+        OR w.updated_at < sqlc.narg ('cursor_updated_at')
+        OR (w.updated_at = sqlc.narg ('cursor_updated_at')
+            AND w.id < sqlc.narg ('cursor_id')))
+ORDER BY
+    w.updated_at DESC,
+    w.id DESC
+LIMIT @lim;
+
 -- name: ListWorkflows :many
 SELECT
     w.*,

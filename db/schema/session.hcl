@@ -3,10 +3,9 @@ schema "public" {
 
 # pg_trgm backs the transcript search: it indexes every three-character run of
 # the text, which is what makes a search match on any substring rather than on
-# whole words only, the same property SQLite's fts5 trigram tokenizer gave. The
-# extension is not declared here because this Atlas edition does not manage
-# extensions; it is created by the first migration, which the diff replays into
-# its dev database before reaching the index that needs it.
+# whole words only. The extension is not declared here because this Atlas edition
+# does not manage extensions; it is created by the first migration, which the
+# diff replays into its dev database before reaching the index that needs it.
 
 # A session's editable configuration, split out of sessions so it is a
 # first-class record. Strict 1:1 with a session; never shared between sessions.
@@ -163,9 +162,7 @@ table "session_transcripts" {
   }
   # The search index. A GIN index over trigrams is what makes a substring match
   # across the whole corpus cheap; without it every search is a sequential scan
-  # of every transcript. It replaces the fts5 virtual table, so the index now
-  # lives in the schema with everything else instead of being created by the
-  # application at startup.
+  # of every transcript.
   index "session_transcripts_content_trgm" {
     type = GIN
     on {

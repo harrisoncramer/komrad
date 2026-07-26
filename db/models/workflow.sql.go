@@ -156,6 +156,74 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 	return items, nil
 }
 
+const listWorkflowsPage = `-- name: ListWorkflowsPage :many
+SELECT
+    w.id, w.name, w.context, w.workflow_config_id, w.is_deleted, w.created_at, w.updated_at,
+    wc.cwd,
+    wc.flags
+FROM
+    workflows w
+    JOIN workflow_configs wc ON wc.id = w.workflow_config_id
+WHERE
+    w.is_deleted = FALSE
+    AND ($1::timestamptz IS NULL
+        OR w.updated_at < $1
+        OR (w.updated_at = $1
+            AND w.id < $2))
+ORDER BY
+    w.updated_at DESC,
+    w.id DESC
+LIMIT $3
+`
+
+type ListWorkflowsPageParams struct {
+	CursorUpdatedAt *time.Time
+	CursorID        *string
+	Lim             int32
+}
+
+type ListWorkflowsPageRow struct {
+	ID               string
+	Name             string
+	Context          string
+	WorkflowConfigID string
+	IsDeleted        bool
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	Cwd              string
+	Flags            string
+}
+
+func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPageParams) ([]*ListWorkflowsPageRow, error) {
+	rows, err := q.db.Query(ctx, listWorkflowsPage, arg.CursorUpdatedAt, arg.CursorID, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListWorkflowsPageRow
+	for rows.Next() {
+		var i ListWorkflowsPageRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Context,
+			&i.WorkflowConfigID,
+			&i.IsDeleted,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Cwd,
+			&i.Flags,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markWorkflowDeleted = `-- name: MarkWorkflowDeleted :exec
 UPDATE
     workflows

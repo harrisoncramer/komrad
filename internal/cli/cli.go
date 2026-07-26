@@ -22,6 +22,7 @@ import (
 	"claude-agents/internal/tmux"
 	"claude-agents/internal/ui"
 	"claude-agents/proto/gen/session/v1/sessionv1connect"
+	"claude-agents/proto/gen/workflow/v1/workflowv1connect"
 
 	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
@@ -176,6 +177,12 @@ func serveCmd(state *app) *cobra.Command {
 				connect.WithInterceptors(validation),
 			)
 			mux.Handle(path, handler)
+
+			workflowPath, workflowHandler := workflowv1connect.NewWorkflowServiceHandler(
+				rpc.NewWorkflowService(state.store, state.workflows),
+				connect.WithInterceptors(validation),
+			)
+			mux.Handle(workflowPath, workflowHandler)
 
 			// The MCP endpoint reads through its own read-only handle rather than
 			// the store's, so nothing reachable from a model can write, whatever

@@ -114,3 +114,42 @@ func (w *WorkflowService) DeleteWorkflowWithChats(workflow store.Workflow) {
 
 // MoveChat reassigns a chat to a workflow, or unassigns it when workflowID is
 // nil, keyed by the chat's stable id.
+
+// UpdateWorkflowByID replaces a workflow's editable fields, keyed by id. It
+// exists alongside UpdateWorkflow because a caller off the wire holds an id
+// rather than a record, and the id may name nothing.
+func (w *WorkflowService) UpdateWorkflowByID(id string, cfg store.WorkflowConfig) error {
+	existing, err := w.GetWorkflow(id)
+	if err != nil {
+		return err
+	}
+	if existing == nil {
+		return fmt.Errorf("%w: %q", ErrWorkflowNotFound, id)
+	}
+
+	w.UpdateWorkflow(*existing, cfg)
+
+	return nil
+}
+
+// DeleteWorkflowByID removes a workflow, keyed by id. With archiveChats set the
+// chats inside it are hidden alongside it; otherwise they are orphaned back to
+// unassigned and keep running.
+func (w *WorkflowService) DeleteWorkflowByID(id string, archiveChats bool) error {
+	existing, err := w.GetWorkflow(id)
+	if err != nil {
+		return err
+	}
+	if existing == nil {
+		return fmt.Errorf("%w: %q", ErrWorkflowNotFound, id)
+	}
+
+	if archiveChats {
+		w.DeleteWorkflowWithChats(*existing)
+		return nil
+	}
+
+	w.DeleteWorkflow(*existing)
+
+	return nil
+}

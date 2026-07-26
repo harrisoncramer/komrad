@@ -12,6 +12,7 @@ import (
 
 	annotationv1 "claude-agents/proto/gen/annotation/v1"
 	sessionv1 "claude-agents/proto/gen/session/v1"
+	workflowv1 "claude-agents/proto/gen/workflow/v1"
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -34,8 +35,8 @@ type rpcTools struct {
 	client  *http.Client
 }
 
-// registerRPCTools adds one MCP tool per annotated method on SessionService.
-// The annotation is the gate: a method without one is not registered, so
+// registerRPCTools adds one MCP tool per annotated method across every service
+// the server exposes. The annotation is the gate: a method without one is not registered, so
 // widening the tool surface is an edit to the proto rather than a side effect of
 // adding an RPC.
 func registerRPCTools(server *mcpsdk.Server, baseURL string) error {
@@ -44,7 +45,26 @@ func registerRPCTools(server *mcpsdk.Server, baseURL string) error {
 		client:  &http.Client{Timeout: callTimeout},
 	}
 
-	service := sessionv1.File_session_v1_session_proto.Services().Get(0)
+	// Every service the server exposes is listed here. A new one is a line in
+	// this slice, and its methods appear as tools only if they are annotated.
+	files := []protoreflect.FileDescriptor{
+		sessionv1.File_session_v1_session_proto,
+		workflowv1.File_workflow_v1_workflow_proto,
+	}
+
+	for _, file := range files {
+		for s := range file.Services().Len() {
+			if err := tools.registerService(server, file.Services().Get(s)); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// registerService adds one tool per annotated method on a service.
+func (r *rpcTools) registerService(server *mcpsdk.Server, service protoreflect.ServiceDescriptor) error {
 	for i := range service.Methods().Len() {
 		method := service.Methods().Get(i)
 
@@ -63,7 +83,7 @@ func registerRPCTools(server *mcpsdk.Server, baseURL string) error {
 			Description: annotation.GetDescription(),
 			InputSchema: schema,
 			Annotations: toolHints(method, annotation),
-		}, tools.handler(string(service.FullName()), string(method.Name())))
+		}, r.handler(string(service.FullName()), string(method.Name())))
 	}
 
 	return nil

@@ -626,7 +626,7 @@ type SearchTranscriptsRequest struct {
 	// trigram tokenizer, so a shorter query can never match anything and would
 	// come back as a confident empty result.
 	Query         string         `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
-	Pagination    *v1.Pagination `protobuf:"bytes,3,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+	Pagination    *v1.Pagination `protobuf:"bytes,2,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -682,12 +682,12 @@ type SearchHit struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	SessionId string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	Snippet   string                 `protobuf:"bytes,2,opt,name=snippet,proto3" json:"snippet,omitempty"`
-	Name      string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
-	Deleted   bool                   `protobuf:"varint,5,opt,name=deleted,proto3" json:"deleted,omitempty"`
 	// How many times the query occurs in the transcript. Results come back in
 	// descending order of this, so a chat that discussed something at length
 	// outranks one that mentioned it once.
-	Occurrences   int64 `protobuf:"varint,6,opt,name=occurrences,proto3" json:"occurrences,omitempty"`
+	Occurrences   int64  `protobuf:"varint,3,opt,name=occurrences,proto3" json:"occurrences,omitempty"`
+	Name          string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	Deleted       bool   `protobuf:"varint,5,opt,name=deleted,proto3" json:"deleted,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -736,6 +736,13 @@ func (x *SearchHit) GetSnippet() string {
 	return ""
 }
 
+func (x *SearchHit) GetOccurrences() int64 {
+	if x != nil {
+		return x.Occurrences
+	}
+	return 0
+}
+
 func (x *SearchHit) GetName() string {
 	if x != nil {
 		return x.Name
@@ -748,13 +755,6 @@ func (x *SearchHit) GetDeleted() bool {
 		return x.Deleted
 	}
 	return false
-}
-
-func (x *SearchHit) GetOccurrences() int64 {
-	if x != nil {
-		return x.Occurrences
-	}
-	return 0
 }
 
 type SearchTranscriptsResponse struct {
@@ -959,21 +959,21 @@ const file_session_v1_session_proto_rawDesc = "" +
 	"\x14UpdateSessionRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xfd\x01\n" +
 	"\x04name\x18\x02 \x01(\tB\xe8\x01\xbaH\xe4\x01\xba\x01\xd9\x01\n" +
-	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name\"\x98\x01\n" +
+	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name\"\x8b\x01\n" +
 	"\x18SearchTranscriptsRequest\x12 \n" +
 	"\x05query\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x03\x18\xf4\x03R\x05query\x12>\n" +
 	"\n" +
-	"pagination\x18\x03 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
+	"pagination\x18\x02 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
 	"pagination\x88\x01\x01B\r\n" +
-	"\v_paginationJ\x04\b\x02\x10\x03R\x05limit\"\xa0\x01\n" +
+	"\v_pagination\"\x94\x01\n" +
 	"\tSearchHit\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x18\n" +
-	"\asnippet\x18\x02 \x01(\tR\asnippet\x12\x12\n" +
+	"\asnippet\x18\x02 \x01(\tR\asnippet\x12 \n" +
+	"\voccurrences\x18\x03 \x01(\x03R\voccurrences\x12\x12\n" +
 	"\x04name\x18\x04 \x01(\tR\x04name\x12\x18\n" +
-	"\adeleted\x18\x05 \x01(\bR\adeleted\x12 \n" +
-	"\voccurrences\x18\x06 \x01(\x03R\voccurrencesJ\x04\b\x03\x10\x04R\x04rank\"\x87\x01\n" +
+	"\adeleted\x18\x05 \x01(\bR\adeleted\"\x87\x01\n" +
 	"\x19SearchTranscriptsResponse\x12)\n" +
 	"\x04hits\x18\x01 \x03(\v2\x15.session.v1.SearchHitR\x04hits\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +

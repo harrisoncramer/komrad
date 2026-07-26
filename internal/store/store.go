@@ -60,6 +60,8 @@ type Workflow struct {
 	Context string
 	Cwd     string
 	Flags   string
+	// UpdatedAt is what the listing sorts by, and half of the paging cursor.
+	UpdatedAt time.Time
 }
 
 // WorkflowConfig is the editable blueprint of a workflow: its display label, its
@@ -500,7 +502,37 @@ func (s *Store) ListWorkflows(ctx context.Context) ([]Workflow, error) {
 
 	workflows := make([]Workflow, 0, len(rows))
 	for _, row := range rows {
-		workflows = append(workflows, workflowFromRow(row.ID, row.Name, row.Context, row.Cwd, row.Flags))
+		workflows = append(workflows, workflowFromRow(row.ID, row.Name, row.Context, row.Cwd, row.Flags, row.UpdatedAt))
+	}
+
+	return workflows, nil
+}
+
+// WorkflowCursor locates a workflow within a listing. Workflows sort by update
+// time, which several rows can share, so the id breaks the tie and makes the
+// order total.
+type WorkflowCursor struct {
+	UpdatedAt time.Time `json:"u"`
+	ID        string    `json:"i"`
+}
+
+// ListWorkflowsPage returns one page of live workflows, most recently updated
+// first, resuming after cursor when one is given.
+func (s *Store) ListWorkflowsPage(ctx context.Context, limit int64, cursor *WorkflowCursor) ([]Workflow, error) {
+	params := models.ListWorkflowsPageParams{Lim: int32(limit)}
+	if cursor != nil {
+		params.CursorUpdatedAt = &cursor.UpdatedAt
+		params.CursorID = &cursor.ID
+	}
+
+	rows, err := s.queries.ListWorkflowsPage(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list a page of workflows: %w", err)
+	}
+
+	workflows := make([]Workflow, 0, len(rows))
+	for _, row := range rows {
+		workflows = append(workflows, workflowFromRow(row.ID, row.Name, row.Context, row.Cwd, row.Flags, row.UpdatedAt))
 	}
 
 	return workflows, nil
@@ -521,7 +553,7 @@ func (s *Store) GetWorkflow(ctx context.Context, id string) (*Workflow, error) {
 		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
 	}
 
-	workflow := workflowFromRow(row.ID, row.Name, row.Context, row.Cwd, row.Flags)
+	workflow := workflowFromRow(row.ID, row.Name, row.Context, row.Cwd, row.Flags, row.UpdatedAt)
 	return &workflow, nil
 }
 
@@ -558,7 +590,7 @@ func (s *Store) CreateWorkflow(ctx context.Context, cfg WorkflowConfig) (*Workfl
 		return nil, fmt.Errorf("failed to commit create of workflow %q: %w", cfg.Name, err)
 	}
 
-	workflow := workflowFromRow(row.ID, row.Name, row.Context, cfg.Cwd, cfg.Flags)
+	workflow := workflowFromRow(row.ID, row.Name, row.Context, cfg.Cwd, cfg.Flags, row.UpdatedAt)
 	return &workflow, nil
 }
 
@@ -875,12 +907,13 @@ func agentFromRow(id, name, sessionConfigID, pane, cwd, flags, prompt, state, cl
 	}
 }
 
-func workflowFromRow(id, name, workflowContext, cwd, flags string) Workflow {
+func workflowFromRow(id, name, workflowContext, cwd, flags string, updatedAt time.Time) Workflow {
 	return Workflow{
-		ID:      id,
-		Name:    name,
-		Context: workflowContext,
-		Cwd:     cwd,
-		Flags:   flags,
+		ID:        id,
+		Name:      name,
+		Context:   workflowContext,
+		Cwd:       cwd,
+		Flags:     flags,
+		UpdatedAt: updatedAt,
 	}
 }

@@ -146,10 +146,6 @@ message UpdateSessionRequest {
 }
 
 message SearchTranscriptsRequest {
-  // Field 2 was a bare limit, replaced by the shared pagination message so a
-  // search pages the same way every other listing does.
-  reserved 2;
-  reserved "limit";
   // Three characters is the floor, not a stylistic minimum: the index uses a
   // trigram tokenizer, so a shorter query can never match anything and would
   // come back as a confident empty result.
@@ -157,26 +153,21 @@ message SearchTranscriptsRequest {
     min_len: 3,
     max_len: 500
   }];
-  optional pagination.v1.Pagination pagination = 3;
+  optional pagination.v1.Pagination pagination = 2;
 }
 
 // SearchHit is one transcript matched by a search: the session it belongs to,
 // its display name and whether it is soft-deleted, a snippet of the matching
 // text with the matched terms wrapped in markers, and the relevance rank.
 message SearchHit {
-  // Field 3 was a bm25 score, where a lower number meant a better match. It is
-  // now a count, where a higher number does, so the field was renumbered rather
-  // than left to be read the wrong way round by a caller that did not notice.
-  reserved 3;
-  reserved "rank";
   string session_id = 1;
   string snippet = 2;
-  string name = 4;
-  bool deleted = 5;
   // How many times the query occurs in the transcript. Results come back in
   // descending order of this, so a chat that discussed something at length
   // outranks one that mentioned it once.
-  int64 occurrences = 6;
+  int64 occurrences = 3;
+  string name = 4;
+  bool deleted = 5;
 }
 
 message SearchTranscriptsResponse {
