@@ -10,6 +10,9 @@ import (
 	"claude-agents/internal/store"
 	sessionv1 "claude-agents/proto/gen/session/v1"
 
+	sessionstore "claude-agents/internal/store/session"
+	transcriptstore "claude-agents/internal/store/transcript"
+
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,7 +22,7 @@ import (
 // chat, so the service can be exercised without a tmux server.
 type fakeLauncher struct {
 	got        agents.NewSessionParams
-	created    *store.Agent
+	created    *sessionstore.Agent
 	err        error
 	alive      bool
 	deleted    []string
@@ -38,8 +41,8 @@ func (f *fakeLauncher) DeleteSession(_ context.Context, name string) error {
 	return f.deleteErr
 }
 
-// PaneAlive answers for the fake's chats; nothing in these tests runs tmux, so
-// a chat is live exactly when the test says it is.
+// PaneAlive answers for the fake's chats. Nothing here runs tmux, so a chat is
+// live exactly when the test says it is.
 func (f *fakeLauncher) PaneAlive(string) bool { return f.alive }
 
 // ArchiveSession and RestoreSession record what they were asked to do, standing
@@ -50,7 +53,7 @@ func (f *fakeLauncher) ArchiveSession(_ context.Context, name string) error {
 	return f.archiveErr
 }
 
-func (f *fakeLauncher) RestoreSession(_ context.Context, id string) (*store.Agent, error) {
+func (f *fakeLauncher) RestoreSession(_ context.Context, id string) (*sessionstore.Agent, error) {
 	f.restored = append(f.restored, id)
 	if f.restoreErr != nil {
 		return nil, f.restoreErr
@@ -59,7 +62,7 @@ func (f *fakeLauncher) RestoreSession(_ context.Context, id string) (*store.Agen
 	return f.created, nil
 }
 
-func (f *fakeLauncher) NewSession(p agents.NewSessionParams) (*store.Agent, error) {
+func (f *fakeLauncher) NewSession(_ context.Context, p agents.NewSessionParams) (*sessionstore.Agent, error) {
 	f.got = p
 	if f.err != nil {
 		return nil, f.err
@@ -68,22 +71,35 @@ func (f *fakeLauncher) NewSession(p agents.NewSessionParams) (*store.Agent, erro
 	return f.created, nil
 }
 
-func service(t *testing.T) (*Service, *store.Store) {
+// stores is what a test arranges rows through: the two domain stores this
+// handler reads, built over one pool. The handler itself still receives them
+// separately, exactly as the composition root passes them.
+type stores struct {
+	chats       *sessionstore.Store
+	transcripts *transcriptstore.Store
+}
+
+func service(t *testing.T) (*Service, *stores) {
 	t.Helper()
 	svc, st, _ := serviceWithLauncher(t)
 
 	return svc, st
 }
 
-func serviceWithLauncher(t *testing.T) (*Service, *store.Store, *fakeLauncher) {
+func serviceWithLauncher(t *testing.T) (*Service, *stores, *fakeLauncher) {
 	t.Helper()
-	st, err := store.Open(t.Context(), pgtest.URL(t))
+	pool, err := store.Open(t.Context(), pgtest.URL(t))
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = st.Close() })
+	t.Cleanup(func() { _ = pool.Close() })
 
-	launcher := &fakeLauncher{created: &store.Agent{ID: "id-1", Name: "spawned", Cwd: "/repo", State: store.StateNew}}
+	st := &stores{
+		chats:       sessionstore.New(pool.DB()),
+		transcripts: transcriptstore.New(pool.DB()),
+	}
 
-	return NewService(st, launcher), st, launcher
+	launcher := &fakeLauncher{created: &sessionstore.Agent{ID: "id-1", Name: "spawned", Cwd: "/repo", State: sessionstore.StateNew}}
+
+	return NewService(st.chats, st.transcripts, launcher), st, launcher
 }
 
 func TestCreateSession(t *testing.T) {
@@ -138,7 +154,7 @@ func TestGetMissingSessionIsNotFound(t *testing.T) {
 func TestListAndGetSession(t *testing.T) {
 	svc, st := service(t)
 	ctx := context.Background()
-	require.NoError(t, st.Upsert(ctx, store.Agent{Name: "alpha", Cwd: "/tmp", State: store.StateThinking}))
+	require.NoError(t, st.chats.Upsert(ctx, sessionstore.Agent{Name: "alpha", Cwd: "/tmp", State: sessionstore.StateThinking}))
 
 	list, err := svc.ListSessions(ctx, connect.NewRequest(&sessionv1.ListSessionsRequest{}))
 	require.NoError(t, err)
@@ -148,40 +164,40 @@ func TestListAndGetSession(t *testing.T) {
 	got, err := svc.GetSession(ctx, connect.NewRequest(&sessionv1.GetSessionRequest{Name: "alpha"}))
 	require.NoError(t, err)
 	assert.Equal(t, "/tmp", got.Msg.GetSession().GetCwd())
-	assert.Equal(t, store.StateThinking, got.Msg.GetSession().GetState())
+	assert.Equal(t, sessionstore.StateThinking, got.Msg.GetSession().GetState())
 }
 
 func TestSetStateThroughService(t *testing.T) {
 	svc, st := service(t)
 	ctx := context.Background()
-	require.NoError(t, st.Upsert(ctx, store.Agent{Name: "alpha", State: store.StateThinking}))
+	require.NoError(t, st.chats.Upsert(ctx, sessionstore.Agent{Name: "alpha", State: sessionstore.StateThinking}))
 
-	_, err := svc.SetState(ctx, connect.NewRequest(&sessionv1.SetStateRequest{Name: "alpha", State: store.StateDone}))
+	_, err := svc.SetState(ctx, connect.NewRequest(&sessionv1.SetStateRequest{Name: "alpha", State: sessionstore.StateDone}))
 	require.NoError(t, err)
 
-	got, err := st.Get(ctx, "alpha")
+	got, err := st.chats.Get(ctx, "alpha")
 	require.NoError(t, err)
 	require.NotNil(t, got)
-	assert.Equal(t, store.StateDone, got.State)
+	assert.Equal(t, sessionstore.StateDone, got.State)
 }
 
 func TestUpdateSessionRenamesByID(t *testing.T) {
 	svc, st := service(t)
 	ctx := context.Background()
-	require.NoError(t, st.Upsert(ctx, store.Agent{Name: "alpha", State: store.StateNew}))
-	original, err := st.Get(ctx, "alpha")
+	require.NoError(t, st.chats.Upsert(ctx, sessionstore.Agent{Name: "alpha", State: sessionstore.StateNew}))
+	original, err := st.chats.Get(ctx, "alpha")
 	require.NoError(t, err)
 	require.NotNil(t, original)
 
 	_, err = svc.UpdateSession(ctx, connect.NewRequest(&sessionv1.UpdateSessionRequest{Id: original.ID, Name: "renamed"}))
 	require.NoError(t, err)
 
-	got, err := st.Get(ctx, "renamed")
+	got, err := st.chats.Get(ctx, "renamed")
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	assert.Equal(t, original.ID, got.ID, "rename preserves the id")
 
-	stale, err := st.Get(ctx, "alpha")
+	stale, err := st.chats.Get(ctx, "alpha")
 	require.NoError(t, err)
 	assert.Nil(t, stale, "the old name no longer resolves")
 }
@@ -197,10 +213,9 @@ func TestDeleteSessionStopsTheAgent(t *testing.T) {
 	assert.Equal(t, []string{"alpha"}, launcher.deleted)
 }
 
-// TestMutationsOnMissingTargetsAreNotFound is the regression test for silent
-// success: deleting, renaming, or restating a chat that does not exist used to
-// return an empty success, so a caller who mistyped a name was told the work was
-// done.
+// TestMutationsOnMissingTargetsAreNotFound confirms deleting, renaming, or
+// restating a chat nobody holds reports not_found. An empty success would tell a
+// caller who mistyped a name that the work was done.
 func TestMutationsOnMissingTargetsAreNotFound(t *testing.T) {
 	svc, _, launcher := serviceWithLauncher(t)
 	launcher.deleteErr = agents.ErrSessionNotFound
@@ -209,7 +224,7 @@ func TestMutationsOnMissingTargetsAreNotFound(t *testing.T) {
 	_, err := svc.DeleteSession(ctx, connect.NewRequest(&sessionv1.DeleteSessionRequest{Name: "ghost"}))
 	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
 
-	_, err = svc.SetState(ctx, connect.NewRequest(&sessionv1.SetStateRequest{Name: "ghost", State: store.StateDone}))
+	_, err = svc.SetState(ctx, connect.NewRequest(&sessionv1.SetStateRequest{Name: "ghost", State: sessionstore.StateDone}))
 	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
 
 	_, err = svc.UpdateSession(ctx, connect.NewRequest(&sessionv1.UpdateSessionRequest{Id: "ghost", Name: "whatever"}))
@@ -217,14 +232,14 @@ func TestMutationsOnMissingTargetsAreNotFound(t *testing.T) {
 }
 
 // TestRenameOntoTakenNameIsAConflict confirms a collision reads as a conflict
-// rather than an internal error carrying a raw SQLite constraint message.
+// rather than an internal error carrying a raw constraint message.
 func TestRenameOntoTakenNameIsAConflict(t *testing.T) {
 	svc, st := service(t)
 	ctx := context.Background()
-	require.NoError(t, st.Upsert(ctx, store.Agent{Name: "alpha"}))
-	require.NoError(t, st.Upsert(ctx, store.Agent{Name: "beta"}))
+	require.NoError(t, st.chats.Upsert(ctx, sessionstore.Agent{Name: "alpha"}))
+	require.NoError(t, st.chats.Upsert(ctx, sessionstore.Agent{Name: "beta"}))
 
-	beta, err := st.Get(ctx, "beta")
+	beta, err := st.chats.Get(ctx, "beta")
 	require.NoError(t, err)
 	require.NotNil(t, beta)
 
@@ -264,7 +279,7 @@ func TestArchiveAndRestoreGoThroughTheService(t *testing.T) {
 func TestListReportsLiveness(t *testing.T) {
 	svc, st, launcher := serviceWithLauncher(t)
 	ctx := t.Context()
-	require.NoError(t, st.Upsert(ctx, store.Agent{Name: "alpha", Pane: "%1", State: store.StateThinking}))
+	require.NoError(t, st.chats.Upsert(ctx, sessionstore.Agent{Name: "alpha", Pane: "%1", State: sessionstore.StateThinking}))
 
 	launcher.alive = true
 	live, err := svc.ListSessions(ctx, connect.NewRequest(&sessionv1.ListSessionsRequest{}))

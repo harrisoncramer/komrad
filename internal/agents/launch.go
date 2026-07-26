@@ -37,7 +37,7 @@ func NewLauncher(tmux launchTmux, serverAddr string) *Launcher {
 // so a question about the other chats is something it can look up rather than
 // guess at. The closing line matters as much as the rest: an agent whose client
 // has not registered the server must say so instead of inventing an answer.
-const mcpBriefing = `You are a background chat run by claude-agents, a tmux panel that spawns and tracks Claude sessions. The panel serves its own SQLite database read-only over MCP as a server named "claude-agents" at http://%s/mcp.
+const mcpBriefing = `You are a background chat run by claude-agents, a tmux panel that spawns and tracks Claude sessions. The panel serves its own Postgres database read-only over MCP as a server named "claude-agents" at http://%s/mcp.
 
 That server's tools are list_tables, describe_table, and query, which runs a single SELECT. Between them they cover every chat the panel knows about: sessions holds each chat's name, state, and pane, session_configs its working directory and flags, workflows the groups chats belong to, and session_transcripts the text of their conversations. Writes are rejected. Reach for these when the question is about the other chats rather than the code in front of you.
 

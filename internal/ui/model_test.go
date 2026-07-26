@@ -4,7 +4,8 @@ import (
 	"testing"
 
 	"claude-agents/internal/appconfig"
-	"claude-agents/internal/store"
+
+	"claude-agents/internal/store/session"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -12,7 +13,7 @@ import (
 func items(names ...string) []chatItem {
 	out := make([]chatItem, 0, len(names))
 	for _, n := range names {
-		out = append(out, chatItem{agent: store.Agent{Name: n}})
+		out = append(out, chatItem{agent: session.Agent{Name: n}})
 	}
 	return out
 }

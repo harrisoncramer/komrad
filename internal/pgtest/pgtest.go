@@ -30,7 +30,7 @@ import (
 var created atomic.Int64
 
 // URL creates an empty database and returns a connection string for it, dropping
-// it when the test ends. The schema is not applied here; the caller opens the
+// it when the test ends. The schema is not applied here. The caller opens the
 // store against this url and the store migrates it, so the tests exercise the
 // same migration path a real start does.
 func URL(t *testing.T) string {
@@ -39,7 +39,7 @@ func URL(t *testing.T) string {
 	// The server to create the test database on is the one the application would
 	// have connected to, read through the same config, so `mise run docker:up` is
 	// the only setup a test run needs and a CI runner redirects both at once by
-	// setting DATABASE_URL. Only the server is borrowed; the database named in it
+	// setting DATABASE_URL. Only the server is borrowed, and the database named in it
 	// is never touched.
 	cfg, err := config.Load()
 	if err != nil {

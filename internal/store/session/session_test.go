@@ -1,21 +1,46 @@
-package store
+package session
 
 import (
-	"claude-agents/internal/pgtest"
 	"context"
 	"testing"
+
+	"claude-agents/internal/pgtest"
+	"claude-agents/internal/store"
+	workflowstore "claude-agents/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// open builds a chat store over a throwaway database. The tests run against real
+// Postgres because most of what this package does is SQL: the partial unique
+// index on live names, the keyset page, the generated ids.
 func open(t *testing.T) *Store {
 	t.Helper()
-	st, err := Open(t.Context(), pgtest.URL(t))
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = st.Close() })
 
-	return st
+	return New(pool(t).DB())
+}
+
+// openWithWorkflows builds the chat store alongside a workflow store over the
+// same database, for the tests that need a workflow to exist before a chat can
+// point at it. The two are separate stores even here: this package never reaches
+// into the workflows table itself.
+func openWithWorkflows(t *testing.T) (*Store, *workflowstore.Store) {
+	t.Helper()
+	p := pool(t)
+
+	return New(p.DB()), workflowstore.New(p.DB())
+}
+
+// pool opens the database itself, for the few tests that also need another
+// domain's store or a transaction.
+func pool(t *testing.T) *store.Pool {
+	t.Helper()
+	p, err := store.Open(t.Context(), pgtest.URL(t))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = p.Close() })
+
+	return p
 }
 
 func TestSanitizeName(t *testing.T) {
@@ -70,7 +95,7 @@ func TestReuseNameAfterSoftDelete(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, first)
 
-	require.NoError(t, st.SoftDelete(ctx, "agent"))
+	require.NoError(t, st.Archive(ctx, "agent"))
 	got, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	assert.Nil(t, got, "a soft-deleted row is hidden from Get")
@@ -141,7 +166,7 @@ func TestActiveNameExists(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, exists, "a live agent holds the name")
 
-	require.NoError(t, st.SoftDelete(ctx, "agent"))
+	require.NoError(t, st.Archive(ctx, "agent"))
 	exists, err = st.ActiveNameExists(ctx, "agent")
 	require.NoError(t, err)
 	assert.False(t, exists, "only a deleted agent holds the name")
@@ -159,9 +184,9 @@ func TestDeleteThenRestore(t *testing.T) {
 	original, err := st.Get(ctx, "beta")
 	require.NoError(t, err)
 	require.NotNil(t, original)
-	require.NoError(t, st.SoftDelete(ctx, "beta"))
+	require.NoError(t, st.Archive(ctx, "beta"))
 
-	require.NoError(t, st.Undelete(ctx, original.ID))
+	require.NoError(t, st.Restore(ctx, original.ID))
 	restored := *original
 	restored.State = StateNew
 	restored.Pane = "%9"
@@ -177,49 +202,6 @@ func TestDeleteThenRestore(t *testing.T) {
 	all, err := st.ListAll(ctx)
 	require.NoError(t, err)
 	assert.Len(t, all, 1, "a single row after restore")
-}
-
-// TestWorkflowCRUD covers the workflow lifecycle: create, list newest-first, get
-// by id, rename by id, and soft-delete hiding it from both list and get.
-func TestWorkflowCRUD(t *testing.T) {
-	ctx := context.Background()
-	st := open(t)
-
-	first, err := st.CreateWorkflow(ctx, WorkflowConfig{Name: "backend"})
-	require.NoError(t, err)
-	require.NotNil(t, first)
-	assert.NotEmpty(t, first.ID, "an id is generated on create")
-
-	second, err := st.CreateWorkflow(ctx, WorkflowConfig{Name: "frontend"})
-	require.NoError(t, err)
-	require.NotNil(t, second)
-
-	workflows, err := st.ListWorkflows(ctx)
-	require.NoError(t, err)
-	require.Len(t, workflows, 2)
-	names := []string{workflows[0].Name, workflows[1].Name}
-	assert.ElementsMatch(t, []string{"backend", "frontend"}, names)
-
-	got, err := st.GetWorkflow(ctx, first.ID)
-	require.NoError(t, err)
-	require.NotNil(t, got)
-	assert.Equal(t, "backend", got.Name)
-
-	require.NoError(t, st.RenameWorkflow(ctx, first.ID, "platform"))
-	got, err = st.GetWorkflow(ctx, first.ID)
-	require.NoError(t, err)
-	require.NotNil(t, got)
-	assert.Equal(t, "platform", got.Name)
-
-	require.NoError(t, st.DeleteWorkflow(ctx, first.ID))
-	got, err = st.GetWorkflow(ctx, first.ID)
-	require.NoError(t, err)
-	assert.Nil(t, got, "a deleted workflow is hidden from Get")
-
-	workflows, err = st.ListWorkflows(ctx)
-	require.NoError(t, err)
-	require.Len(t, workflows, 1)
-	assert.Equal(t, second.ID, workflows[0].ID)
 }
 
 // TestSessionConfigRoundTrip checks that a session's cwd and flags round-trip
@@ -250,139 +232,23 @@ func TestSessionConfigRoundTrip(t *testing.T) {
 	assert.Equal(t, "%3", again.Pane)
 }
 
-// TestWorkflowConfigRoundTrip checks that a workflow's default cwd/flags are
-// stored in workflow_configs and joined back on both the create result and the
-// later reads.
-func TestWorkflowConfigRoundTrip(t *testing.T) {
-	ctx := context.Background()
-	st := open(t)
-
-	wf, err := st.CreateWorkflow(ctx, WorkflowConfig{Name: "backend", Context: "shared notes", Cwd: "/work/api", Flags: "--model opus"})
-	require.NoError(t, err)
-	assert.Equal(t, "shared notes", wf.Context)
-	assert.Equal(t, "/work/api", wf.Cwd)
-	assert.Equal(t, "--model opus", wf.Flags)
-
-	got, err := st.GetWorkflow(ctx, wf.ID)
-	require.NoError(t, err)
-	require.NotNil(t, got)
-	assert.Equal(t, "shared notes", got.Context)
-	assert.Equal(t, "/work/api", got.Cwd)
-	assert.Equal(t, "--model opus", got.Flags)
-
-	list, err := st.ListWorkflows(ctx)
-	require.NoError(t, err)
-	require.Len(t, list, 1)
-	assert.Equal(t, "shared notes", list[0].Context)
-	assert.Equal(t, "/work/api", list[0].Cwd)
-	assert.Equal(t, "--model opus", list[0].Flags)
-
-	require.NoError(t, st.UpdateWorkflow(ctx, wf.ID, WorkflowConfig{Name: "backend", Context: "revised notes", Cwd: "/work/api", Flags: "--model opus"}))
-	after, err := st.GetWorkflow(ctx, wf.ID)
-	require.NoError(t, err)
-	require.NotNil(t, after)
-	assert.Equal(t, "revised notes", after.Context)
-}
-
-// TestMoveChatBetweenWorkflows checks that assigning a chat to a workflow scopes
-// it to that workflow's listing, and that a nil target unassigns it back to the
-// root.
-func TestMoveChatBetweenWorkflows(t *testing.T) {
-	ctx := context.Background()
-	st := open(t)
-
-	workflow, err := st.CreateWorkflow(ctx, WorkflowConfig{Name: "backend"})
-	require.NoError(t, err)
-	require.NoError(t, st.Upsert(ctx, Agent{Name: "scoped", State: StateNew}))
-	require.NoError(t, st.Upsert(ctx, Agent{Name: "unscoped", State: StateNew}))
-
-	scoped, err := st.Get(ctx, "scoped")
-	require.NoError(t, err)
-	require.NotNil(t, scoped)
-	assert.Nil(t, scoped.WorkflowID, "a new chat is unassigned")
-
-	require.NoError(t, st.MoveToWorkflow(ctx, scoped.ID, &workflow.ID))
-
-	moved, err := st.Get(ctx, "scoped")
-	require.NoError(t, err)
-	require.NotNil(t, moved.WorkflowID)
-	assert.Equal(t, workflow.ID, *moved.WorkflowID)
-
-	all, err := st.List(ctx)
-	require.NoError(t, err)
-	assert.Len(t, all, 2, "the root list still shows every chat regardless of workflow")
-
-	require.NoError(t, st.MoveToWorkflow(ctx, scoped.ID, nil))
-	unassigned, err := st.Get(ctx, "scoped")
-	require.NoError(t, err)
-	assert.Nil(t, unassigned.WorkflowID, "a nil target unassigns the chat")
-}
-
-// TestDeleteWorkflowOrphansChats is the orphan-on-delete guarantee: deleting a
-// workflow returns its chats to unassigned rather than stranding them behind a
-// hidden workflow.
-func TestDeleteWorkflowOrphansChats(t *testing.T) {
-	ctx := context.Background()
-	st := open(t)
-
-	workflow, err := st.CreateWorkflow(ctx, WorkflowConfig{Name: "backend"})
-	require.NoError(t, err)
-	require.NoError(t, st.Upsert(ctx, Agent{Name: "chat", State: StateNew, WorkflowID: &workflow.ID}))
-
-	require.NoError(t, st.DeleteWorkflow(ctx, workflow.ID))
-
-	got, err := st.Get(ctx, "chat")
-	require.NoError(t, err)
-	require.NotNil(t, got, "the chat survives its workflow's deletion")
-	assert.Nil(t, got.WorkflowID, "the chat is orphaned back to unassigned")
-}
-
-// TestDeleteWorkflowWithChats is the purge path: the workflow and its chats are
-// soft-deleted together, so they leave the live listing but remain findable in
-// the all-inclusive search listing.
-func TestDeleteWorkflowWithChats(t *testing.T) {
-	ctx := context.Background()
-	st := open(t)
-
-	workflow, err := st.CreateWorkflow(ctx, WorkflowConfig{Name: "backend"})
-	require.NoError(t, err)
-	require.NoError(t, st.Upsert(ctx, Agent{Name: "chat", State: StateNew, WorkflowID: &workflow.ID}))
-
-	require.NoError(t, st.DeleteWorkflowWithChats(ctx, workflow.ID))
-
-	got, err := st.Get(ctx, "chat")
-	require.NoError(t, err)
-	assert.Nil(t, got, "the chat is hidden from the live listing")
-
-	all, err := st.ListAll(ctx)
-	require.NoError(t, err)
-	require.Len(t, all, 1, "the soft-deleted chat is retained for search")
-	assert.True(t, all[0].Deleted)
-	require.NotNil(t, all[0].WorkflowID, "the chat keeps its workflow id while deleted")
-	assert.Equal(t, workflow.ID, *all[0].WorkflowID)
-
-	workflows, err := st.ListWorkflows(ctx)
-	require.NoError(t, err)
-	assert.Empty(t, workflows, "the workflow is hidden too")
-}
-
 // TestUpsertPreservesWorkflow mirrors the manager's restore, which round-trips
 // the whole agent through Upsert. A restored chat must keep the workflow it
 // belonged to.
 func TestUpsertPreservesWorkflow(t *testing.T) {
 	ctx := context.Background()
-	st := open(t)
+	st, buckets := openWithWorkflows(t)
 
-	workflow, err := st.CreateWorkflow(ctx, WorkflowConfig{Name: "backend"})
+	workflow, err := buckets.Create(ctx, workflowstore.Config{Name: "backend"})
 	require.NoError(t, err)
 	require.NoError(t, st.Upsert(ctx, Agent{Name: "chat", State: StateThinking, WorkflowID: &workflow.ID}))
 
 	original, err := st.Get(ctx, "chat")
 	require.NoError(t, err)
 	require.NotNil(t, original)
-	require.NoError(t, st.SoftDelete(ctx, "chat"))
+	require.NoError(t, st.Archive(ctx, "chat"))
 
-	require.NoError(t, st.Undelete(ctx, original.ID))
+	require.NoError(t, st.Restore(ctx, original.ID))
 	restored := *original
 	restored.State = StateNew
 	require.NoError(t, st.Upsert(ctx, restored))
@@ -418,11 +284,46 @@ func TestStoreRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, changed)
 
-	deleted, err := st.Delete(ctx, "alpha")
+	target, err := st.Find(ctx, "alpha")
 	require.NoError(t, err)
-	assert.True(t, deleted)
+	require.NotNil(t, target)
+	require.NoError(t, st.Delete(ctx, *target))
 
 	agents, err = st.List(ctx)
 	require.NoError(t, err)
 	assert.Empty(t, agents, "a hard delete drops the row")
+}
+
+// TestMoveChatBetweenWorkflows checks that assigning a chat to a workflow scopes
+// it to that workflow's listing, and that a nil target unassigns it back to the
+// root.
+func TestMoveChatBetweenWorkflows(t *testing.T) {
+	ctx := context.Background()
+	st, buckets := openWithWorkflows(t)
+
+	workflow, err := buckets.Create(ctx, workflowstore.Config{Name: "backend"})
+	require.NoError(t, err)
+	require.NoError(t, st.Upsert(ctx, Agent{Name: "scoped", State: StateNew}))
+	require.NoError(t, st.Upsert(ctx, Agent{Name: "unscoped", State: StateNew}))
+
+	scoped, err := st.Get(ctx, "scoped")
+	require.NoError(t, err)
+	require.NotNil(t, scoped)
+	assert.Nil(t, scoped.WorkflowID, "a new chat is unassigned")
+
+	require.NoError(t, st.MoveToWorkflow(ctx, scoped.ID, &workflow.ID))
+
+	moved, err := st.Get(ctx, "scoped")
+	require.NoError(t, err)
+	require.NotNil(t, moved.WorkflowID)
+	assert.Equal(t, workflow.ID, *moved.WorkflowID)
+
+	all, err := st.List(ctx)
+	require.NoError(t, err)
+	assert.Len(t, all, 2, "the root list still shows every chat regardless of workflow")
+
+	require.NoError(t, st.MoveToWorkflow(ctx, scoped.ID, nil))
+	unassigned, err := st.Get(ctx, "scoped")
+	require.NoError(t, err)
+	assert.Nil(t, unassigned.WorkflowID, "a nil target unassigns the chat")
 }

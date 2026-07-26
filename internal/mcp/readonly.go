@@ -156,7 +156,7 @@ func skipQuoted(statement string, start int, quote byte) (int, bool) {
 // deadline with a row cap.
 //
 // The statement runs inside an explicitly read-only transaction. That is the
-// guarantee; the parsing above it is defense in depth, and the pool this borrows
+// guarantee. The parsing above it is defense in depth, and the pool this borrows
 // from already defaults every session to read-only, so a write has to get past
 // three separate refusals.
 func (d *dbTools) query(ctx context.Context, statement string) (*queryResult, error) {

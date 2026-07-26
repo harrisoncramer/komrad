@@ -9,7 +9,7 @@
 // its own token format.
 //
 // The token is an opaque base64 of the JSON-encoded cursor. Callers hand it back
-// verbatim; the shape inside it is the server's business and may change.
+// verbatim, and the shape inside it is the server's business that may change.
 package pagination
 
 import (
@@ -39,7 +39,7 @@ type Paginator[C any, M Cursorable[C]] struct {
 // New builds a Paginator from a request's pagination. A nil pagination is the
 // first page at the default size, so a caller that omits the field entirely is
 // served rather than refused. A malformed cursor is the caller's mistake and
-// comes back as InvalidArgument; a limit past the ceiling is clamped, since a
+// comes back as InvalidArgument. A limit past the ceiling is clamped, since a
 // caller asking for too much still wants a page.
 func New[C any, M Cursorable[C]](p *paginationv1.Pagination, opts ...Option) (*Paginator[C, M], error) {
 	cfg := &options{defaultLimit: defaultLimit, maxLimit: maxLimit}

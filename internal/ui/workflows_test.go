@@ -3,7 +3,8 @@ package ui
 import (
 	"testing"
 
-	"claude-agents/internal/store"
+	"claude-agents/internal/store/session"
+	workflowstore "claude-agents/internal/store/workflow"
 )
 
 func ptr(s string) *string { return &s }
@@ -13,10 +14,10 @@ func ptr(s string) *string { return &s }
 // header.
 func TestChatRowsGrouping(t *testing.T) {
 	m := model{
-		workflows: []store.Workflow{{ID: "w1", Name: "backend"}, {ID: "w2", Name: "frontend"}},
+		workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}, {ID: "w2", Name: "frontend"}},
 		chats: []chatItem{
-			{agent: store.Agent{Name: "auth", WorkflowID: ptr("w1")}},
-			{agent: store.Agent{Name: "loose"}},
+			{agent: session.Agent{Name: "auth", WorkflowID: ptr("w1")}},
+			{agent: session.Agent{Name: "loose"}},
 		},
 	}
 
@@ -45,10 +46,10 @@ func TestChatRowsGrouping(t *testing.T) {
 // on that workflow's header, not on a chat or the no-workflow header.
 func TestHoveredWorkflow(t *testing.T) {
 	m := model{
-		workflows: []store.Workflow{{ID: "w1", Name: "backend"}},
+		workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
 		chats: []chatItem{
-			{agent: store.Agent{Name: "auth", WorkflowID: ptr("w1")}},
-			{agent: store.Agent{Name: "loose"}},
+			{agent: session.Agent{Name: "auth", WorkflowID: ptr("w1")}},
+			{agent: session.Agent{Name: "loose"}},
 		},
 	}
 

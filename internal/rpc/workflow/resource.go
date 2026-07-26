@@ -1,7 +1,7 @@
 package workflow
 
 import (
-	"claude-agents/internal/store"
+	workflowstore "claude-agents/internal/store/workflow"
 	workflowv1 "claude-agents/proto/gen/workflow/v1"
 )
 
@@ -15,16 +15,16 @@ import (
 // that finds it again in the listing.
 type workflow struct {
 	*workflowv1.Workflow
-	cursor store.WorkflowCursor
+	cursor workflowstore.Cursor
 }
 
 // Cursor returns the keyset cursor locating this workflow.
-func (w workflow) Cursor() (store.WorkflowCursor, error) {
+func (w workflow) Cursor() (workflowstore.Cursor, error) {
 	return w.cursor, nil
 }
 
 // renderWorkflow renders a stored workflow into a workflow resource.
-func renderWorkflow(w store.Workflow) workflow {
+func renderWorkflow(w workflowstore.Workflow) workflow {
 	return workflow{
 		Workflow: &workflowv1.Workflow{
 			Id:      w.ID,
@@ -33,6 +33,6 @@ func renderWorkflow(w store.Workflow) workflow {
 			Cwd:     w.Cwd,
 			Flags:   w.Flags,
 		},
-		cursor: store.WorkflowCursor{UpdatedAt: w.UpdatedAt, ID: w.ID},
+		cursor: workflowstore.Cursor{UpdatedAt: w.UpdatedAt, ID: w.ID},
 	}
 }

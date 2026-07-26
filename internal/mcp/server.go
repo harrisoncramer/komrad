@@ -21,14 +21,14 @@ type NewHandlerParams struct {
 	BaseURL string
 }
 
-// NewHandler builds the MCP server and returns an HTTP handler for it. Mount it
-// at a route such as /mcp. It exposes two surfaces: read-only SQL over the
-// database, and the annotated RPCs, which can write.
+// NewHandler builds the MCP server and returns an HTTP handler for it, to mount
+// at a route such as /mcp. It exposes read-only SQL over the database alongside
+// the annotated RPCs, which can write.
 //
 // There is no auth on it. The server listens on loopback, and the reads were
-// already available to anyone who can open the database file. The writes are
-// not: from here a caller can spawn and delete chats, so binding the server to a
-// non-loopback address would be a real change in exposure, not a cosmetic one.
+// already available to anyone who can open the database file. The writes were
+// not. A caller here can spawn and delete chats, so binding the server to a
+// non-loopback address would be a real change in exposure.
 func NewHandler(params NewHandlerParams) (http.Handler, error) {
 	server := mcpsdk.NewServer(&mcpsdk.Implementation{
 		Name:    "claude-agents-db",
@@ -36,7 +36,7 @@ func NewHandler(params NewHandlerParams) (http.Handler, error) {
 		Version: "0.1.0",
 	}, &mcpsdk.ServerOptions{
 		Instructions: "Access to claude-agents, a tmux panel that runs background Claude chats. " +
-			"Two ways in: list_tables, describe_table, and query read the panel's SQLite database " +
+			"Two ways in. list_tables, describe_table, and query read the panel's Postgres database " +
 			"directly, which is best for aggregates and joins; the session tools read and change " +
 			"the chats themselves, and are the only way to spawn, rename, or remove one.",
 	})

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"claude-agents/internal/store"
+	"claude-agents/internal/store/session"
 	"claude-agents/internal/tmux"
 )
 
@@ -69,30 +69,30 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	cli := tmux.NewClient(it.socket)
 	st := newStore(t)
 	ctx := context.Background()
-	rec := NewReconciler(cli, st)
+	rec := NewReconciler(cli, st.chats)
 
 	// A busy agent seeded new. The pane keeps a realistic working line, so the
 	// reconciler must promote it to thinking.
 	busyPane := it.spawn("busy", `sh -c 'while true; do printf "\033[H· Cooking… (3s · down 1k tokens)\n"; sleep 1; done'`)
-	seed(t, st, "busy", busyPane, store.StateNew)
+	seed(t, st, "busy", busyPane, session.StateNew)
 	waitForFrame(t, cli, busyPane, "Cooking…")
 
 	// An idle agent renders a Claude-like input box with no timer, the way a real
 	// agent sits when interrupted. A bare sleep would capture empty, which the
 	// reconciler treats as inconclusive rather than idle.
 	idlePane := it.spawn("idle", `sh -c 'printf "\033[H❯ \n-- INSERT --\n"; sleep 300'`)
-	seed(t, st, "idle", idlePane, store.StateThinking)
+	seed(t, st, "idle", idlePane, session.StateThinking)
 	waitForFrame(t, cli, idlePane, "INSERT")
 
 	// A waiting agent shows an interactive selection with its footer, the general
 	// signal for any prompt Claude is blocked on.
 	waitPane := it.spawn("wait", `sh -c 'printf "\033[HPick one\n❯ 1. A\n  2. B\nEnter to select · Esc to cancel\n"; sleep 300'`)
-	seed(t, st, "wait", waitPane, store.StateThinking)
+	seed(t, st, "wait", waitPane, session.StateThinking)
 	waitForFrame(t, cli, waitPane, "Enter to select")
 
 	// A killed agent. Seed it, then tear the session down so has-session is false.
 	deadPane := it.spawn("dead", "sleep 300")
-	seed(t, st, "dead", deadPane, store.StateThinking)
+	seed(t, st, "dead", deadPane, session.StateThinking)
 	it.kill("dead")
 
 	for range reconcileMisses {
@@ -101,16 +101,16 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 		}
 	}
 
-	if got := stateOf(t, st, "busy"); got != store.StateThinking {
+	if got := stateOf(t, st, "busy"); got != session.StateThinking {
 		t.Fatalf("busy agent: want thinking, got %q", got)
 	}
-	if got := stateOf(t, st, "idle"); got != store.StateDone {
+	if got := stateOf(t, st, "idle"); got != session.StateDone {
 		t.Fatalf("idle agent: want done, got %q", got)
 	}
-	if got := stateOf(t, st, "wait"); got != store.StateWaiting {
+	if got := stateOf(t, st, "wait"); got != session.StateWaiting {
 		t.Fatalf("waiting agent: want waiting, got %q", got)
 	}
-	if got := stateOf(t, st, "dead"); got != store.StateDone {
+	if got := stateOf(t, st, "dead"); got != session.StateDone {
 		t.Fatalf("dead agent: want done, got %q", got)
 	}
 }

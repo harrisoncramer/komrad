@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"claude-agents/internal/store"
+	"claude-agents/internal/store/session"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,7 +18,7 @@ import (
 func TestUnreachableTakesOverTheView(t *testing.T) {
 	m := model{
 		addr:  "127.0.0.1:8787",
-		chats: []chatItem{{agent: store.Agent{Name: "still-here", State: store.StateDone}}},
+		chats: []chatItem{{agent: session.Agent{Name: "still-here", State: session.StateDone}}},
 	}
 
 	// While the service answers, the list renders as usual.
@@ -40,7 +40,7 @@ func TestUnreachableTakesOverTheView(t *testing.T) {
 func TestUnreachableClearsOnceTheServiceAnswers(t *testing.T) {
 	m := model{addr: "127.0.0.1:8787", unreachable: errors.New("connection refused")}
 
-	updated, _ := m.Update(chatsLoadedMsg{items: []chatItem{{agent: store.Agent{Name: "back", State: store.StateNew}}}})
+	updated, _ := m.Update(chatsLoadedMsg{items: []chatItem{{agent: session.Agent{Name: "back", State: session.StateNew}}}})
 	m, ok := updated.(model)
 	require.True(t, ok)
 

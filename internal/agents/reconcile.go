@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"claude-agents/internal/store"
+	"claude-agents/internal/store/session"
 )
 
 // workingLine matches Claude Code's live status line, shown only while it is busy
@@ -115,7 +115,7 @@ type tmuxProbe interface {
 // are keyed by id, not name, so a state decided from a List snapshot always lands
 // on the exact row observed even if its name was reused meanwhile.
 type stateStore interface {
-	List(ctx context.Context) ([]store.Agent, error)
+	List(ctx context.Context) ([]session.Agent, error)
 	SetStateByID(ctx context.Context, id, state string) error
 }
 
@@ -164,13 +164,13 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 }
 
 // reconcileAgent writes the single agent's state to match what tmux shows.
-func (r *Reconciler) reconcileAgent(ctx context.Context, agent store.Agent) {
+func (r *Reconciler) reconcileAgent(ctx context.Context, agent session.Agent) {
 	// The pane is gone, so the agent is dormant and cannot be working. An active
 	// state settles to done so the counts stop treating it as running. A new agent
 	// that never launched, or one already done, is left as is.
 	if !r.tmux.PaneAlive(agent.Pane) {
-		if agent.State == store.StateThinking || agent.State == store.StateWaiting {
-			r.apply(ctx, agent, store.StateDone)
+		if agent.State == session.StateThinking || agent.State == session.StateWaiting {
+			r.apply(ctx, agent, session.StateDone)
 		} else {
 			delete(r.misses, agent.ID)
 		}
@@ -194,15 +194,15 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent store.Agent) {
 	switch {
 	case frameShowsWork(frame):
 		// Promotion is immediate. The moment work appears, the agent is thinking.
-		r.apply(ctx, agent, store.StateThinking)
+		r.apply(ctx, agent, session.StateThinking)
 	case frameShowsWaiting(frame):
-		r.apply(ctx, agent, store.StateWaiting)
-	case agent.State == store.StateThinking || agent.State == store.StateWaiting:
+		r.apply(ctx, agent, session.StateWaiting)
+	case agent.State == session.StateThinking || agent.State == session.StateWaiting:
 		// Idle, but was active. Demote to done only after enough consecutive idle
 		// observations to rule out a transient redraw between tool calls.
 		r.misses[agent.ID]++
 		if r.misses[agent.ID] >= reconcileMisses {
-			r.apply(ctx, agent, store.StateDone)
+			r.apply(ctx, agent, session.StateDone)
 		}
 	default:
 		// Idle and new or already done, so nothing to change.
@@ -212,7 +212,7 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent store.Agent) {
 
 // apply writes a state and clears the agent's miss count. A no-op when the
 // stored state already matches, so an unchanged agent never touches the store.
-func (r *Reconciler) apply(ctx context.Context, agent store.Agent, state string) {
+func (r *Reconciler) apply(ctx context.Context, agent session.Agent, state string) {
 	delete(r.misses, agent.ID)
 	if agent.State == state {
 		return

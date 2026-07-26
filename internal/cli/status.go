@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"claude-agents/internal/client"
-	"claude-agents/internal/store"
 	sessionv1 "claude-agents/proto/gen/session/v1"
 	"claude-agents/proto/gen/session/v1/sessionv1connect"
+
+	"claude-agents/internal/store/session"
 
 	"github.com/spf13/cobra"
 )
@@ -62,13 +63,13 @@ func statusCmd(state *app) *cobra.Command {
 // renderStatus counts the chats worth reporting and renders them as tmux markup.
 func renderStatus(sessions []*sessionv1.Session) string {
 	waiting, working, done := 0, 0, 0
-	for _, session := range sessions {
-		switch session.GetState() {
-		case store.StateThinking:
+	for _, chat := range sessions {
+		switch chat.GetState() {
+		case session.StateThinking:
 			working++
-		case store.StateWaiting:
+		case session.StateWaiting:
 			waiting++
-		case store.StateDone:
+		case session.StateDone:
 			done++
 		}
 	}

@@ -6,7 +6,8 @@ import (
 	"time"
 
 	"claude-agents/internal/appconfig"
-	"claude-agents/internal/store"
+
+	"claude-agents/internal/store/session"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -49,7 +50,7 @@ func infoModel(tmux *recordingTmux) model {
 		stage:      stage,
 		keys:       appconfig.DefaultKeybindings(),
 		screen:     screenChats,
-		chats:      []chatItem{{agent: store.Agent{Name: "auth", Pane: "%9", Cwd: "/repo"}, alive: true}},
+		chats:      []chatItem{{agent: session.Agent{Name: "auth", Pane: "%9", Cwd: "/repo"}, alive: true}},
 		chatCursor: 1,
 	}
 }
@@ -122,7 +123,7 @@ func TestInfoIgnoredOnHeader(t *testing.T) {
 }
 
 func TestChatMarkdown(t *testing.T) {
-	agent := store.Agent{
+	agent := session.Agent{
 		Name:            "auth",
 		Pane:            "%9",
 		Cwd:             "/repo",

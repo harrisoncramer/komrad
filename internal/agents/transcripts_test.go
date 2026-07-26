@@ -6,7 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"claude-agents/internal/store"
+	"claude-agents/internal/store/session"
+	"claude-agents/internal/store/transcript"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -75,10 +76,10 @@ const testClaudeID = "claude-abc"
 
 // seedWithClaudeID inserts an agent carrying testClaudeID and returns it with its
 // generated store id, so a transcript can be keyed to the right row.
-func seedWithClaudeID(t *testing.T, st *store.Store, claudeID string) store.Agent {
+func seedWithClaudeID(t *testing.T, st *testStore, claudeID string) session.Agent {
 	t.Helper()
 	ctx := context.Background()
-	require.NoError(t, st.Upsert(ctx, store.Agent{Name: "chat", State: store.StateNew, ClaudeSessionID: claudeID}))
+	require.NoError(t, st.Upsert(ctx, session.Agent{Name: "chat", State: session.StateNew, ClaudeSessionID: claudeID}))
 	got, err := st.Get(ctx, "chat")
 	require.NoError(t, err)
 	require.NotNil(t, got)
@@ -108,7 +109,7 @@ func TestTranscriptSyncerIndexesLog(t *testing.T) {
 		`{"type":"user","message":{"content":"how do I use trigram search"}}`+"\n"+
 			`{"type":"assistant","message":{"content":[{"type":"text","text":"use fts5"}]}}`+"\n")
 
-	syncer := NewTranscriptSyncer(st, projects)
+	syncer := NewTranscriptSyncer(st.chats, st.transcripts, projects)
 	require.NoError(t, syncer.Sync(ctx))
 
 	tr, err := st.GetTranscript(ctx, agent.ID)
@@ -116,7 +117,7 @@ func TestTranscriptSyncerIndexesLog(t *testing.T) {
 	assert.Equal(t, "how do I use trigram search\n\nuse fts5", tr.Content)
 	assert.Positive(t, tr.SyncedOffset)
 
-	hits, err := st.SearchTranscripts(ctx, store.SearchTranscriptsParams{Query: "trigram", Limit: 10})
+	hits, err := st.transcripts.Search(ctx, transcript.SearchParams{Query: "trigram", Limit: 10})
 	require.NoError(t, err)
 	require.Len(t, hits, 1)
 	assert.Equal(t, agent.ID, hits[0].SessionID)
@@ -130,7 +131,7 @@ func TestTranscriptSyncerIsIncremental(t *testing.T) {
 	agent := seedWithClaudeID(t, st, testClaudeID)
 	path := writeLog(t, projects, `{"type":"user","message":{"content":"first turn"}}`+"\n")
 
-	syncer := NewTranscriptSyncer(st, projects)
+	syncer := NewTranscriptSyncer(st.chats, st.transcripts, projects)
 	require.NoError(t, syncer.Sync(ctx))
 	first, err := st.GetTranscript(ctx, agent.ID)
 	require.NoError(t, err)
@@ -159,7 +160,7 @@ func TestTranscriptSyncerLeavesPartialLine(t *testing.T) {
 	path := writeLog(t, projects,
 		`{"type":"user","message":{"content":"complete"}}`+"\n"+`{"type":"user","message":{"conte`)
 
-	syncer := NewTranscriptSyncer(st, projects)
+	syncer := NewTranscriptSyncer(st.chats, st.transcripts, projects)
 	require.NoError(t, syncer.Sync(ctx))
 	tr, err := st.GetTranscript(ctx, agent.ID)
 	require.NoError(t, err)
@@ -183,7 +184,7 @@ func TestTranscriptSyncerReindexesOnShrink(t *testing.T) {
 	path := writeLog(t, projects,
 		`{"type":"user","message":{"content":"original long conversation here"}}`+"\n")
 
-	syncer := NewTranscriptSyncer(st, projects)
+	syncer := NewTranscriptSyncer(st.chats, st.transcripts, projects)
 	require.NoError(t, syncer.Sync(ctx))
 
 	// Rewrite the log shorter than the synced offset, as a --resume rewrite would.
@@ -201,10 +202,10 @@ func TestTranscriptSyncerSkipsMissingLog(t *testing.T) {
 	projects := t.TempDir()
 
 	agent := seedWithClaudeID(t, st, "claude-nolog")
-	syncer := NewTranscriptSyncer(st, projects)
+	syncer := NewTranscriptSyncer(st.chats, st.transcripts, projects)
 	require.NoError(t, syncer.Sync(ctx), "a session whose log is not on disk is skipped, not an error")
 
 	tr, err := st.GetTranscript(ctx, agent.ID)
 	require.NoError(t, err)
-	assert.Equal(t, store.Transcript{}, tr)
+	assert.Equal(t, transcript.Transcript{}, tr)
 }

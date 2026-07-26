@@ -11,6 +11,10 @@ import (
 	"claude-agents/internal/store"
 	"claude-agents/lib/xstr"
 
+	"claude-agents/internal/store/session"
+	"claude-agents/internal/store/transcript"
+	"claude-agents/internal/store/workflow"
+
 	"github.com/google/uuid"
 )
 
@@ -33,43 +37,34 @@ func expandHome(dir string) string {
 	return filepath.Join(home, dir[len("~/"):])
 }
 
-// XXKEEP of the tmux client the manager drives. It is an
-// interface so tests can substitute a recording fake for the real CLI.
-
-// Rename retitles an agent. The name is a store-only display label and nothing in
-// tmux keys on it, so no tmux object is renamed.
-func (s *SessionService) Rename(agent store.Agent, name string) {
-	name = store.SanitizeName(strings.TrimSpace(name))
-	if name == "" || name == agent.Name {
-		return
-	}
-
-	_, _ = s.store.Rename(context.Background(), agent.ID, name)
-}
-
-// Delete soft-deletes an agent's record and kills its pane first. A caller
-// showing that pane somewhere must stop showing it before calling, since killing
-// it would take the containing layout down too.
-func (s *SessionService) Delete(agent store.Agent) {
-	s.tmux.KillPane(agent.Pane)
-	_ = s.store.SoftDelete(context.Background(), agent.Name)
-}
-
-// sessionStore is the part of the store the session service reads and mutates.
-// GetWorkflow is here only because a chat spawned inside a workflow snapshots
-// that workflow's shared context at launch.
+// sessionStore is the part of the chat store this service reads and mutates.
 type sessionStore interface {
-	List(ctx context.Context) ([]store.Agent, error)
-	ListAll(ctx context.Context) ([]store.Agent, error)
-	Get(ctx context.Context, name string) (*store.Agent, error)
-	Upsert(ctx context.Context, agent store.Agent) error
+	List(ctx context.Context) ([]session.Agent, error)
+	ListAll(ctx context.Context) ([]session.Agent, error)
+	Get(ctx context.Context, name string) (*session.Agent, error)
+	Find(ctx context.Context, name string) (*session.Target, error)
+	Upsert(ctx context.Context, agent session.Agent) error
 	Rename(ctx context.Context, id, name string) (bool, error)
-	Delete(ctx context.Context, name string) (bool, error)
-	SoftDelete(ctx context.Context, name string) error
-	Undelete(ctx context.Context, id string) error
+	Archive(ctx context.Context, name string) error
+	Restore(ctx context.Context, id string) error
 	ActiveNameExists(ctx context.Context, name string) (bool, error)
 	MoveToWorkflow(ctx context.Context, id string, workflowID *string) error
-	GetWorkflow(ctx context.Context, id string) (*store.Workflow, error)
+}
+
+// workflowReader is the one thing this service needs from the workflow domain: a
+// chat spawned inside a workflow snapshots that workflow's shared context at
+// launch. It reads and never writes, which is why it is a single method rather
+// than the whole workflow store.
+type workflowReader interface {
+	Get(ctx context.Context, id string) (*workflow.Workflow, error)
+}
+
+// txRunner opens the transaction a write spanning two domains needs. Removing a
+// chat has to remove its transcript, which lives in another package, so the two
+// stores are rebound onto one transaction rather than either reaching into the
+// other's tables.
+type txRunner interface {
+	InTx(ctx context.Context, fn func(store.DBTX) error) error
 }
 
 // sessionTmux is the part of tmux a chat's lifecycle needs: a window to live in,
@@ -85,9 +80,11 @@ type sessionTmux interface {
 // back, renaming, archiving, and removing it. It coordinates the store with tmux
 // and delegates the command line to the launcher.
 type SessionService struct {
-	tmux     sessionTmux
-	store    sessionStore
-	launcher *Launcher
+	tmux      sessionTmux
+	sessions  sessionStore
+	workflows workflowReader
+	tx        txRunner
+	launcher  *Launcher
 	// claudeFlags are the configured defaults every chat launches with, recorded
 	// on the row alongside whatever the caller added.
 	claudeFlags string
@@ -96,7 +93,9 @@ type SessionService struct {
 // SessionParams carries the session service's dependencies.
 type SessionParams struct {
 	Tmux        sessionTmux
-	Store       sessionStore
+	Sessions    sessionStore
+	Workflows   workflowReader
+	Tx          txRunner
 	Launcher    *Launcher
 	ClaudeFlags string
 }
@@ -105,7 +104,9 @@ type SessionParams struct {
 func NewSessionService(p SessionParams) *SessionService {
 	return &SessionService{
 		tmux:        p.Tmux,
-		store:       p.Store,
+		sessions:    p.Sessions,
+		workflows:   p.Workflows,
+		tx:          p.Tx,
 		launcher:    p.Launcher,
 		claudeFlags: p.ClaudeFlags,
 	}
@@ -129,7 +130,7 @@ var ErrBadDirectory = errors.New("unusable working directory")
 // the store cannot do: deleting the row alone left the agent running, with
 // nothing left that could name it or reach it.
 func (s *SessionService) DeleteSession(ctx context.Context, name string) error {
-	agent, err := s.store.Get(ctx, name)
+	agent, err := s.sessions.Get(ctx, name)
 	if err != nil {
 		return fmt.Errorf("failed to look up session %q: %w", name, err)
 	}
@@ -139,15 +140,30 @@ func (s *SessionService) DeleteSession(ctx context.Context, name string) error {
 
 	s.tmux.KillPane(agent.Pane)
 
-	deleted, err := s.store.Delete(ctx, name)
+	return s.removeChat(ctx, name)
+}
+
+// removeChat deletes a chat, the config it owns, and the transcript keyed to its
+// id, in one transaction. The transcript is the transcript package's table, so
+// the two stores are rebound onto the same transaction and commit together: a
+// chat removed without its text leaves the conversation readable through the SQL
+// tools, which is the half-state this avoids.
+func (s *SessionService) removeChat(ctx context.Context, name string) error {
+	target, err := s.sessions.Find(ctx, name)
 	if err != nil {
-		return fmt.Errorf("failed to delete session %q: %w", name, err)
+		return fmt.Errorf("failed to find session %q to delete: %w", name, err)
 	}
-	if !deleted {
+	if target == nil {
 		return ErrSessionNotFound
 	}
 
-	return nil
+	return s.tx.InTx(ctx, func(db store.DBTX) error {
+		if err := session.New(db).Delete(ctx, *target); err != nil {
+			return err
+		}
+
+		return transcript.New(db).Delete(ctx, target.ID)
+	})
 }
 
 // ArchiveSession stops a chat and hides it from the panel, keyed by name. The
@@ -155,7 +171,7 @@ func (s *SessionService) DeleteSession(ctx context.Context, name string) error {
 // restored later. This is what the panel's delete key does, as distinct from
 // DeleteSession, which removes the chat for good.
 func (s *SessionService) ArchiveSession(ctx context.Context, name string) error {
-	agent, err := s.store.Get(ctx, name)
+	agent, err := s.sessions.Get(ctx, name)
 	if err != nil {
 		return fmt.Errorf("failed to look up session %q: %w", name, err)
 	}
@@ -163,7 +179,11 @@ func (s *SessionService) ArchiveSession(ctx context.Context, name string) error 
 		return ErrSessionNotFound
 	}
 
-	s.Delete(*agent)
+	s.tmux.KillPane(agent.Pane)
+
+	if err := s.sessions.Archive(ctx, name); err != nil {
+		return fmt.Errorf("failed to archive session %q: %w", name, err)
+	}
 
 	return nil
 }
@@ -171,8 +191,8 @@ func (s *SessionService) ArchiveSession(ctx context.Context, name string) error 
 // RestoreSession brings a chat back by id, relaunching claude on the same
 // conversation, and returns it as stored. It spans archived chats, since
 // restoring one is the point. An id that matches nothing is ErrSessionNotFound.
-func (s *SessionService) RestoreSession(ctx context.Context, id string) (*store.Agent, error) {
-	agents, err := s.store.ListAll(ctx)
+func (s *SessionService) RestoreSession(ctx context.Context, id string) (*session.Agent, error) {
+	agents, err := s.sessions.ListAll(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list sessions to restore %q: %w", id, err)
 	}
@@ -182,14 +202,14 @@ func (s *SessionService) RestoreSession(ctx context.Context, id string) (*store.
 			continue
 		}
 
-		// A chat whose pane is still alive is already running; returning it as it
+		// A chat whose pane is still alive is already running. Returning it as it
 		// stands keeps the call idempotent rather than spawning a second window
 		// for the same conversation.
 		if s.tmux.PaneAlive(agent.Pane) {
 			return &agent, nil
 		}
 
-		if _, err := s.Restore(agent); err != nil {
+		if err := s.restore(ctx, agent); err != nil {
 			return nil, err
 		}
 
@@ -207,8 +227,8 @@ func (s *SessionService) RestoreSession(ctx context.Context, id string) (*store.
 }
 
 // byID returns the chat with the given id, spanning archived ones.
-func (s *SessionService) byID(ctx context.Context, id string) (*store.Agent, error) {
-	agents, err := s.store.ListAll(ctx)
+func (s *SessionService) byID(ctx context.Context, id string) (*session.Agent, error) {
+	agents, err := s.sessions.ListAll(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list sessions: %w", err)
 	}
@@ -221,8 +241,6 @@ func (s *SessionService) byID(ctx context.Context, id string) (*store.Agent, err
 
 	return nil, ErrSessionNotFound
 }
-
-// NewSessionParams configures a background agent to create.
 
 // NewSessionParams configures a background agent to create.
 type NewSessionParams struct {
@@ -266,7 +284,7 @@ func usableDir(dir string) error {
 // learns the chat's generated name and id.
 //
 // The directory is the given Dir, else the client's current directory.
-func (s *SessionService) NewSession(p NewSessionParams) (*store.Agent, error) {
+func (s *SessionService) NewSession(ctx context.Context, p NewSessionParams) (*session.Agent, error) {
 	dir := expandHome(strings.TrimSpace(p.Dir))
 	if dir == "" {
 		dir = s.tmux.ClientPath(p.Client)
@@ -290,7 +308,7 @@ func (s *SessionService) NewSession(p NewSessionParams) (*store.Agent, error) {
 	// nowhere.
 	var workflowContext string
 	if p.WorkflowID != nil {
-		wf, err := s.store.GetWorkflow(context.Background(), *p.WorkflowID)
+		wf, err := s.workflows.Get(ctx, *p.WorkflowID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to look up workflow %q: %w", *p.WorkflowID, err)
 		}
@@ -301,7 +319,7 @@ func (s *SessionService) NewSession(p NewSessionParams) (*store.Agent, error) {
 		workflowContext = wf.Context
 	}
 
-	name := s.uniqueSessionName(p.Title, p.Prompt)
+	name := s.uniqueSessionName(ctx, p.Title, p.Prompt)
 
 	pane, err := s.tmux.NewWindow(ManagerSession, name, dir)
 	if err != nil {
@@ -313,13 +331,13 @@ func (s *SessionService) NewSession(p NewSessionParams) (*store.Agent, error) {
 	// id is known up front and restoring the agent can resume that same
 	// conversation with --resume.
 	sessionID := uuid.NewString()
-	if err := s.store.Upsert(context.Background(), store.Agent{
+	if err := s.sessions.Upsert(ctx, session.Agent{
 		Name:            name,
 		Pane:            pane,
 		Cwd:             dir,
 		Flags:           flags,
 		Prompt:          p.Prompt,
-		State:           store.StateNew,
+		State:           session.StateNew,
 		ClaudeSessionID: sessionID,
 		WorkflowID:      p.WorkflowID,
 	}); err != nil {
@@ -342,7 +360,7 @@ func (s *SessionService) NewSession(p NewSessionParams) (*store.Agent, error) {
 		// The row is already stored, and the pane is open with nothing useful in
 		// it. Left alone it would list as a live chat forever, so both go.
 		s.tmux.KillPane(pane)
-		if _, deleteErr := s.store.Delete(context.Background(), name); deleteErr != nil {
+		if deleteErr := s.removeChat(ctx, name); deleteErr != nil {
 			return nil, fmt.Errorf("failed to launch claude for %q (%w), and failed to clean up: %w", name, err, deleteErr)
 		}
 
@@ -351,7 +369,7 @@ func (s *SessionService) NewSession(p NewSessionParams) (*store.Agent, error) {
 
 	// Read the row back rather than returning what was written: the store owns
 	// the generated id and the created timestamp.
-	created, err := s.store.Get(context.Background(), name)
+	created, err := s.sessions.Get(ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read back session %q: %w", name, err)
 	}
@@ -362,19 +380,10 @@ func (s *SessionService) NewSession(p NewSessionParams) (*store.Agent, error) {
 	return created, nil
 }
 
-// ListWorkflows returns every live workflow for the tree's folder headers.
-
-// MoveChat reassigns a chat to a workflow, or unassigns it when workflowID is
-// nil, keyed by the chat's stable id.
-func (s *SessionService) MoveChat(agent store.Agent, workflowID *string) {
-	_ = s.store.MoveToWorkflow(context.Background(), agent.ID, workflowID)
-}
-
-// Restore recreates a dormant agent's tmux session from its stored cwd/flags
-// and returns the new pane id, updating the stored record. A chat restored from
-// search may be soft-deleted, so its deleted flag is cleared to return it to the
-// normal listing.
-func (s *SessionService) Restore(agent store.Agent) (string, error) {
+// restore recreates a dormant agent's tmux window from its stored cwd and flags,
+// updating the record. An archived chat has its hidden flag cleared, which is
+// what returns it to the normal listing.
+func (s *SessionService) restore(ctx context.Context, agent session.Agent) error {
 	dir := expandHome(agent.Cwd)
 	if dir == "" {
 		dir, _ = os.UserHomeDir()
@@ -385,10 +394,10 @@ func (s *SessionService) Restore(agent store.Agent) (string, error) {
 	// unique-name index and fail, so give it a fresh unique name first, renaming
 	// the stored row by id. A non-deleted dormant agent already owns its name, so
 	// it is left as is.
-	if agent.Deleted && s.nameTaken(agent.Name) {
-		newName := s.uniqueSessionName(agent.Name, "")
-		if _, err := s.store.Rename(context.Background(), agent.ID, newName); err != nil {
-			return "", fmt.Errorf("failed to rename restored session %q: %w", agent.Name, err)
+	if agent.Deleted && s.nameTaken(ctx, agent.Name) {
+		newName := s.uniqueSessionName(ctx, agent.Name, "")
+		if _, err := s.sessions.Rename(ctx, agent.ID, newName); err != nil {
+			return fmt.Errorf("failed to rename restored session %q: %w", agent.Name, err)
 		}
 
 		agent.Name = newName
@@ -396,22 +405,22 @@ func (s *SessionService) Restore(agent store.Agent) (string, error) {
 
 	pane, err := s.tmux.NewWindow(ManagerSession, agent.Name, dir)
 	if err != nil {
-		return "", fmt.Errorf("failed to open a window for %q: %w", agent.Name, err)
+		return fmt.Errorf("failed to open a window for %q: %w", agent.Name, err)
 	}
 
 	// Clear the soft-delete flag first, so the row re-enters the unique-name
 	// index before the upsert below keys off it. Upserting a still-deleted row
 	// would collide on the id primary key rather than resolve as a name conflict.
 	if agent.Deleted {
-		if err := s.store.Undelete(context.Background(), agent.ID); err != nil {
-			return "", fmt.Errorf("failed to undelete session %q: %w", agent.Name, err)
+		if err := s.sessions.Restore(ctx, agent.ID); err != nil {
+			return fmt.Errorf("failed to unarchive session %q: %w", agent.Name, err)
 		}
 	}
 
 	agent.Pane = pane
-	agent.State = store.StateNew
-	if err := s.store.Upsert(context.Background(), agent); err != nil {
-		return "", fmt.Errorf("failed to restore session %q: %w", agent.Name, err)
+	agent.State = session.StateNew
+	if err := s.sessions.Upsert(ctx, agent); err != nil {
+		return fmt.Errorf("failed to restore session %q: %w", agent.Name, err)
 	}
 
 	if err := s.launcher.launch(launchClaudeParams{
@@ -420,66 +429,16 @@ func (s *SessionService) Restore(agent store.Agent) (string, error) {
 		SessionID: agent.ClaudeSessionID,
 		Resume:    true,
 	}); err != nil {
-		return "", fmt.Errorf("failed to relaunch claude for %q: %w", agent.Name, err)
+		return fmt.Errorf("failed to relaunch claude for %q: %w", agent.Name, err)
 	}
 
-	return pane, nil
-}
-
-// OpenSearchHit opens the chat a search hit points at, keyed by its stable id,
-// and returns the live pane and the chat's current name. It spans every chat,
-// including soft-deleted ones. An already-live chat is returned as is. A dormant
-// or deleted one is restored first, which relaunches Claude on its saved session
-// and clears the deleted flag. An unknown id is an error.
-func (s *SessionService) OpenSearchHit(id string) (string, string, error) {
-	agents, err := s.store.ListAll(context.Background())
-	if err != nil {
-		return "", "", fmt.Errorf("failed to list agents to open search hit: %w", err)
-	}
-
-	for _, agent := range agents {
-		if agent.ID != id {
-			continue
-		}
-		if s.tmux.PaneAlive(agent.Pane) {
-			return agent.Pane, agent.Name, nil
-		}
-
-		pane, err := s.Restore(agent)
-		if err != nil {
-			return "", "", err
-		}
-
-		// Restore may rename a deleted chat whose name was reused while it sat
-		// deleted, so re-resolve the name by id rather than trusting the stale one.
-		return pane, s.nameByID(context.Background(), id, agent.Name), nil
-	}
-
-	return "", "", fmt.Errorf("no chat with id %q", id)
-}
-
-// nameByID returns the current name of the chat with the given id, falling back
-// to fallback when the lookup fails, so a caller can position on a chat whose
-// name may have just changed.
-func (s *SessionService) nameByID(ctx context.Context, id, fallback string) string {
-	agents, err := s.store.ListAll(ctx)
-	if err != nil {
-		return fallback
-	}
-
-	for _, agent := range agents {
-		if agent.ID == id {
-			return agent.Name
-		}
-	}
-
-	return fallback
+	return nil
 }
 
 // uniqueSessionName derives a session name from the title, falling back to a
 // slug of the prompt, then "agent", and appends a suffix until it is free.
-func (s *SessionService) uniqueSessionName(title, prompt string) string {
-	base := store.SanitizeName(strings.TrimSpace(title))
+func (s *SessionService) uniqueSessionName(ctx context.Context, title, prompt string) string {
+	base := session.SanitizeName(strings.TrimSpace(title))
 	if base == "" {
 		base = xstr.Slug(xstr.FirstLine(prompt), 24)
 	}
@@ -488,7 +447,7 @@ func (s *SessionService) uniqueSessionName(title, prompt string) string {
 	}
 
 	name := base
-	for i := 2; s.nameTaken(name); i++ {
+	for i := 2; s.nameTaken(ctx, name); i++ {
 		name = fmt.Sprintf("%s-%d", base, i)
 	}
 
@@ -498,7 +457,7 @@ func (s *SessionService) uniqueSessionName(title, prompt string) string {
 // nameTaken reports whether a name is already owned by a live agent record. The
 // store's unique-name index is the single authority. Reusing a name would make
 // the upsert clobber that agent's row instead of creating a fresh one.
-func (s *SessionService) nameTaken(name string) bool {
-	taken, _ := s.store.ActiveNameExists(context.Background(), name)
+func (s *SessionService) nameTaken(ctx context.Context, name string) bool {
+	taken, _ := s.sessions.ActiveNameExists(ctx, name)
 	return taken
 }

@@ -8,9 +8,11 @@ import (
 	"fmt"
 
 	"claude-agents/internal/agents"
-	"claude-agents/internal/store"
 	"claude-agents/lib/pagination"
 	sessionv1 "claude-agents/proto/gen/session/v1"
+
+	sessionstore "claude-agents/internal/store/session"
+	transcriptstore "claude-agents/internal/store/transcript"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -20,32 +22,50 @@ import (
 // a chat is more than a row: it opens a tmux window and types claude into it, so
 // the service delegates rather than writing the record itself.
 type sessionLauncher interface {
-	NewSession(p agents.NewSessionParams) (*store.Agent, error)
+	NewSession(ctx context.Context, p agents.NewSessionParams) (*sessionstore.Agent, error)
 	// PaneAlive answers whether a chat is still running, which is read at
 	// response time rather than stored so a client needs no tmux of its own.
 	PaneAlive(pane string) bool
 	DeleteSession(ctx context.Context, name string) error
 	ArchiveSession(ctx context.Context, name string) error
-	RestoreSession(ctx context.Context, id string) (*store.Agent, error)
+	RestoreSession(ctx context.Context, id string) (*sessionstore.Agent, error)
 }
 
-// Service implements sessionv1connect.SessionServiceHandler over the store.
+// chatStore is the part of the chat store this handler reads.
+type chatStore interface {
+	ListPage(ctx context.Context, limit int64, cursor *sessionstore.Cursor) ([]sessionstore.Agent, error)
+	Get(ctx context.Context, name string) (*sessionstore.Agent, error)
+	Exists(ctx context.Context, id string) (bool, error)
+	SetState(ctx context.Context, name, state string) (bool, error)
+	Rename(ctx context.Context, id, name string) (bool, error)
+}
+
+// transcriptStore is the part of the transcript store this handler reads. The
+// handler serves both domains because one RPC surface covers them, but it holds
+// each separately rather than one object reaching across both.
+type transcriptStore interface {
+	Get(ctx context.Context, sessionID string) (transcriptstore.Transcript, error)
+	Search(ctx context.Context, params transcriptstore.SearchParams) ([]transcriptstore.SearchHit, error)
+}
+
+// Service implements sessionv1connect.SessionServiceHandler.
 type Service struct {
-	store    *store.Store
-	launcher sessionLauncher
+	sessions    chatStore
+	transcripts transcriptStore
+	launcher    sessionLauncher
 }
 
-// NewService constructs the handler from the agent store and the manager that
-// launches chats.
-func NewService(s *store.Store, launcher sessionLauncher) *Service {
-	return &Service{store: s, launcher: launcher}
+// NewService constructs the handler from the stores it reads and the manager
+// that launches chats.
+func NewService(sessions chatStore, transcripts transcriptStore, launcher sessionLauncher) *Service {
+	return &Service{sessions: sessions, transcripts: transcripts, launcher: launcher}
 }
 
 // CreateSession launches a background agent and returns it as stored. The
-// request's own constraints decide what is well-formed; by the time a request
-// reaches here it has already passed them.
-func (s *Service) CreateSession(_ context.Context, req *connect.Request[sessionv1.CreateSessionRequest]) (*connect.Response[sessionv1.CreateSessionResponse], error) {
-	created, err := s.launcher.NewSession(agents.NewSessionParams{
+// request's own constraints decide what is well-formed, and by the time a
+// request reaches here it has already passed them.
+func (s *Service) CreateSession(ctx context.Context, req *connect.Request[sessionv1.CreateSessionRequest]) (*connect.Response[sessionv1.CreateSessionResponse], error) {
+	created, err := s.launcher.NewSession(ctx, agents.NewSessionParams{
 		Title:      req.Msg.GetTitle(),
 		Dir:        req.Msg.GetDir(),
 		Flags:      req.Msg.GetFlags(),
@@ -66,12 +86,12 @@ func (s *Service) CreateSession(_ context.Context, req *connect.Request[sessionv
 
 // ListSessions returns one page of stored agents, most recently updated first.
 func (s *Service) ListSessions(ctx context.Context, req *connect.Request[sessionv1.ListSessionsRequest]) (*connect.Response[sessionv1.ListSessionsResponse], error) {
-	paginator, err := pagination.New[store.SessionCursor, session](req.Msg.GetPagination())
+	paginator, err := pagination.New[sessionstore.Cursor, session](req.Msg.GetPagination())
 	if err != nil {
 		return nil, err
 	}
 
-	agents, err := s.store.ListPage(ctx, paginator.Limit(), paginator.Cursor())
+	agents, err := s.sessions.ListPage(ctx, paginator.Limit(), paginator.Cursor())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list sessions: %w", err))
 	}
@@ -96,7 +116,7 @@ func (s *Service) ListSessions(ctx context.Context, req *connect.Request[session
 
 // GetSession returns one agent by name.
 func (s *Service) GetSession(ctx context.Context, req *connect.Request[sessionv1.GetSessionRequest]) (*connect.Response[sessionv1.GetSessionResponse], error) {
-	agent, err := s.store.Get(ctx, req.Msg.GetName())
+	agent, err := s.sessions.Get(ctx, req.Msg.GetName())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get session: %w", err))
 	}
@@ -111,7 +131,7 @@ func (s *Service) GetSession(ctx context.Context, req *connect.Request[sessionv1
 // error rather than a quiet success, so a caller that mistyped a name learns it
 // here instead of wondering why nothing changed.
 func (s *Service) SetState(ctx context.Context, req *connect.Request[sessionv1.SetStateRequest]) (*connect.Response[emptypb.Empty], error) {
-	changed, err := s.store.SetState(ctx, req.Msg.GetName(), req.Msg.GetState())
+	changed, err := s.sessions.SetState(ctx, req.Msg.GetName(), req.Msg.GetState())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set state: %w", err))
 	}
@@ -138,7 +158,7 @@ func (s *Service) DeleteSession(ctx context.Context, req *connect.Request[sessio
 }
 
 // ArchiveSession stops a chat and hides it, keeping the record and transcript.
-// This is the reversible half of removing a chat; DeleteSession is the other.
+// This is the reversible half of removing a chat. DeleteSession is the other.
 func (s *Service) ArchiveSession(ctx context.Context, req *connect.Request[sessionv1.ArchiveSessionRequest]) (*connect.Response[emptypb.Empty], error) {
 	err := s.launcher.ArchiveSession(ctx, req.Msg.GetName())
 	switch {
@@ -166,12 +186,12 @@ func (s *Service) RestoreSession(ctx context.Context, req *connect.Request[sessi
 
 // UpdateSession renames the session with the given id. A name already taken by
 // a live chat is a conflict, not a server fault: the store's unique index is
-// what refuses it, and reporting that as internal would leak a SQLite message
+// what refuses it, and reporting that as internal would leak a database message
 // to a caller who simply picked a taken name.
 func (s *Service) UpdateSession(ctx context.Context, req *connect.Request[sessionv1.UpdateSessionRequest]) (*connect.Response[emptypb.Empty], error) {
-	renamed, err := s.store.Rename(ctx, req.Msg.GetId(), req.Msg.GetName())
+	renamed, err := s.sessions.Rename(ctx, req.Msg.GetId(), req.Msg.GetName())
 	switch {
-	case errors.Is(err, store.ErrNameTaken):
+	case errors.Is(err, sessionstore.ErrNameTaken):
 		return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("a chat named %q already exists", req.Msg.GetName()))
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update session: %w", err))
@@ -187,12 +207,12 @@ func (s *Service) UpdateSession(ctx context.Context, req *connect.Request[sessio
 // page token encodes a position in this query's ranking, so replaying it against
 // a different query resumes from a rank that means nothing there.
 func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[sessionv1.SearchTranscriptsRequest]) (*connect.Response[sessionv1.SearchTranscriptsResponse], error) {
-	paginator, err := pagination.New[store.TranscriptCursor, searchHit](req.Msg.GetPagination())
+	paginator, err := pagination.New[transcriptstore.Cursor, searchHit](req.Msg.GetPagination())
 	if err != nil {
 		return nil, err
 	}
 
-	hits, err := s.store.SearchTranscripts(ctx, store.SearchTranscriptsParams{
+	hits, err := s.transcripts.Search(ctx, transcriptstore.SearchParams{
 		Query:  req.Msg.GetQuery(),
 		Limit:  paginator.Limit(),
 		Cursor: paginator.Cursor(),
@@ -225,7 +245,7 @@ func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[se
 // were indistinguishable, and since a listed chat carries both an id and a
 // claudeSessionId, reaching for the wrong one failed silently.
 func (s *Service) GetTranscript(ctx context.Context, req *connect.Request[sessionv1.GetTranscriptRequest]) (*connect.Response[sessionv1.GetTranscriptResponse], error) {
-	exists, err := s.store.SessionExists(ctx, req.Msg.GetSessionId())
+	exists, err := s.sessions.Exists(ctx, req.Msg.GetSessionId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to look up session: %w", err))
 	}
@@ -233,7 +253,7 @@ func (s *Service) GetTranscript(ctx context.Context, req *connect.Request[sessio
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no chat with id %q", req.Msg.GetSessionId()))
 	}
 
-	tr, err := s.store.GetTranscript(ctx, req.Msg.GetSessionId())
+	tr, err := s.transcripts.Get(ctx, req.Msg.GetSessionId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get transcript: %w", err))
 	}

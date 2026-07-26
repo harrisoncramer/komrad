@@ -6,10 +6,11 @@ import (
 	"strings"
 
 	"claude-agents/internal/appconfig"
-	"claude-agents/internal/store"
 	workflowv1 "claude-agents/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
+
+	workflowstore "claude-agents/internal/store/workflow"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -67,7 +68,7 @@ func (m model) returnFromWorkflow() (tea.Model, tea.Cmd) {
 func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
 	m.workflowRenameTarget = nil
 	m.workflowEditTarget = nil
-	m.form = workflowConfigForm("New workflow name", store.WorkflowConfig{}, m.keys.Form)
+	m.form = workflowConfigForm("New workflow name", workflowstore.Config{}, m.keys.Form)
 	m.screen = screenWorkflowForm
 
 	return m, m.form.Init()
@@ -97,7 +98,7 @@ func (m model) editWorkflowForm() (tea.Model, tea.Cmd) {
 	}
 	m.workflowEditTarget = &workflow
 	m.workflowRenameTarget = nil
-	m.form = workflowConfigForm("Workflow name", store.WorkflowConfig{
+	m.form = workflowConfigForm("Workflow name", workflowstore.Config{
 		Name:    workflow.Name,
 		Context: workflow.Context,
 		Cwd:     workflow.Cwd,
@@ -183,7 +184,7 @@ func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 			m.updateWorkflow(target)
 		}
 	case m.workflowEditTarget != nil:
-		m.updateWorkflow(store.Workflow{
+		m.updateWorkflow(workflowstore.Workflow{
 			ID:      m.workflowEditTarget.ID,
 			Name:    name,
 			Context: m.form.GetString("context"),
@@ -191,7 +192,7 @@ func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 			Flags:   m.form.GetString("flags"),
 		})
 	default:
-		m.createWorkflow(store.WorkflowConfig{
+		m.createWorkflow(workflowstore.Config{
 			Name:    name,
 			Context: m.form.GetString("context"),
 			Cwd:     m.form.GetString("dir"),
@@ -218,7 +219,7 @@ func workflowForm(title string, keys appconfig.FormKeys) *huh.Form {
 // new-chat form for chats created inside the workflow. Every field prefills, so it
 // serves both creating a workflow with blank values and editing one with its
 // current values.
-func workflowConfigForm(nameTitle string, cfg store.WorkflowConfig, keys appconfig.FormKeys) *huh.Form {
+func workflowConfigForm(nameTitle string, cfg workflowstore.Config, keys appconfig.FormKeys) *huh.Form {
 	name, workflowContext, dir, flags := cfg.Name, cfg.Context, cfg.Cwd, cfg.Flags
 	return huh.NewForm(
 		huh.NewGroup(
@@ -252,7 +253,7 @@ func deleteWorkflowForm(name string, keys appconfig.FormKeys) *huh.Form {
 
 // getWorkflow refetches one workflow, so an edit form opens on what is stored
 // rather than on the row the listing happened to carry.
-func (m model) getWorkflow(id string) (*store.Workflow, error) {
+func (m model) getWorkflow(id string) (*workflowstore.Workflow, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
@@ -263,7 +264,7 @@ func (m model) getWorkflow(id string) (*store.Workflow, error) {
 
 	w := resp.Msg.GetWorkflow()
 
-	return &store.Workflow{
+	return &workflowstore.Workflow{
 		ID:      w.GetId(),
 		Name:    w.GetName(),
 		Context: w.GetContext(),
@@ -274,7 +275,7 @@ func (m model) getWorkflow(id string) (*store.Workflow, error) {
 
 // createWorkflow adds a workflow, defaulting a blank name so the list always has
 // a label to render.
-func (m model) createWorkflow(cfg store.WorkflowConfig) {
+func (m model) createWorkflow(cfg workflowstore.Config) {
 	name := strings.TrimSpace(cfg.Name)
 	if name == "" {
 		name = "workflow"
@@ -293,7 +294,7 @@ func (m model) createWorkflow(cfg store.WorkflowConfig) {
 
 // updateWorkflow writes every field back, which is what the service expects: it
 // replaces rather than patches, so the caller sends the whole workflow.
-func (m model) updateWorkflow(w store.Workflow) {
+func (m model) updateWorkflow(w workflowstore.Workflow) {
 	name := strings.TrimSpace(w.Name)
 	if name == "" {
 		return

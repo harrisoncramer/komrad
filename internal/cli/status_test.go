@@ -3,8 +3,9 @@ package cli
 import (
 	"testing"
 
-	"claude-agents/internal/store"
 	sessionv1 "claude-agents/proto/gen/session/v1"
+
+	"claude-agents/internal/store/session"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -34,17 +35,17 @@ func TestRenderStatus(t *testing.T) {
 		},
 		{
 			name:      "only new agents render nothing",
-			states:    []string{store.StateNew, store.StateNew},
+			states:    []string{session.StateNew, session.StateNew},
 			wantEmpty: true,
 		},
 		{
 			name:         "done agents alone render a done segment",
-			states:       []string{store.StateDone},
+			states:       []string{session.StateDone},
 			wantContains: []string{"1 done"},
 		},
 		{
 			name:         "a mix renders every non-empty segment",
-			states:       []string{store.StateWaiting, store.StateThinking, store.StateThinking, store.StateDone, store.StateNew},
+			states:       []string{session.StateWaiting, session.StateThinking, session.StateThinking, session.StateDone, session.StateNew},
 			wantContains: []string{"1 waiting", "2 working", "1 done"},
 		},
 	}

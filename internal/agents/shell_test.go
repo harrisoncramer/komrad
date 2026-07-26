@@ -13,9 +13,21 @@ func TestSplitArgs(t *testing.T) {
 		flags string
 		want  []string
 	}{
-		{name: "empty", flags: "   ", want: nil},
-		{name: "plain flags", flags: "--model opus", want: []string{"--model", "opus"}},
-		{name: "extra whitespace collapses", flags: "  --model   opus  ", want: []string{"--model", "opus"}},
+		{
+			name:  "empty",
+			flags: "   ",
+			want:  nil,
+		},
+		{
+			name:  "plain flags",
+			flags: "--model opus",
+			want:  []string{"--model", "opus"},
+		},
+		{
+			name:  "extra whitespace collapses",
+			flags: "  --model   opus  ",
+			want:  []string{"--model", "opus"},
+		},
 		{
 			name:  "a double-quoted value stays one argument",
 			flags: `--append-system-prompt "be terse and precise"`,
@@ -35,9 +47,9 @@ func TestSplitArgs(t *testing.T) {
 	}
 }
 
-// TestQuoteFlagsNeutralisesShellSyntax is the regression test for the injection:
-// flags reach the pane through send-keys, so anything a shell would act on has
-// to come out the far side as a literal argument.
+// TestQuoteFlagsNeutralisesShellSyntax covers the injection this quoting exists
+// to stop. Flags reach the pane through send-keys, so anything a shell would act
+// on has to come out the far side as a literal argument.
 func TestQuoteFlagsNeutralisesShellSyntax(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -60,7 +72,7 @@ func TestQuoteFlagsNeutralisesShellSyntax(t *testing.T) {
 			want:  "'--model' '`whoami`'",
 		},
 		{
-			// A shell would treat this unterminated quote as a syntax error; the
+			// A shell would treat this unterminated quote as a syntax error. The
 			// splitter simply consumes it, which yields one plain argument.
 			name:  "an unterminated quote is consumed as a delimiter",
 			flags: `--model o'pus`,

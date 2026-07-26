@@ -8,6 +8,9 @@ import (
 	"claude-agents/internal/pgtest"
 	"claude-agents/internal/store"
 
+	"claude-agents/internal/store/session"
+	"claude-agents/internal/store/transcript"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,21 +21,24 @@ func openTools(t *testing.T) *dbTools {
 	t.Helper()
 
 	url := pgtest.URL(t)
-	writable, err := store.Open(t.Context(), url)
+	pool, err := store.Open(t.Context(), url)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = writable.Close() })
+	t.Cleanup(func() { _ = pool.Close() })
 
-	require.NoError(t, writable.Upsert(context.Background(), store.Agent{
+	chats := session.New(pool.DB())
+	transcripts := transcript.New(pool.DB())
+
+	require.NoError(t, chats.Upsert(context.Background(), session.Agent{
 		Name:  "auth",
 		Pane:  "%9",
 		Cwd:   "/repo",
-		State: store.StateWaiting,
+		State: session.StateWaiting,
 	}))
 
-	agents, err := writable.List(context.Background())
+	agents, err := chats.List(context.Background())
 	require.NoError(t, err)
 	require.Len(t, agents, 1)
-	require.NoError(t, writable.UpsertTranscript(context.Background(), agents[0].ID, "we should update the parser", 0))
+	require.NoError(t, transcripts.Upsert(context.Background(), transcript.UpsertParams{SessionID: agents[0].ID, Content: "we should update the parser", Offset: 0}))
 
 	readOnly, err := store.OpenReadOnly(t.Context(), url)
 	require.NoError(t, err)
@@ -48,21 +54,81 @@ func TestValidateReadOnly(t *testing.T) {
 		wantErr bool
 		want    string
 	}{
-		{name: "empty", sql: "   ", wantErr: true},
-		{name: "insert", sql: "INSERT INTO sessions (name) VALUES ('a')", wantErr: true},
-		{name: "update", sql: "UPDATE sessions SET state = 'done'", wantErr: true},
-		{name: "delete", sql: "DELETE FROM sessions", wantErr: true},
-		{name: "drop", sql: "DROP TABLE sessions", wantErr: true},
-		{name: "pragma", sql: "PRAGMA table_info(sessions)", wantErr: true},
-		{name: "attach", sql: "SELECT 1 FROM sessions; ATTACH DATABASE 'x' AS y", wantErr: true},
-		{name: "multi statement", sql: "SELECT 1; SELECT 2", wantErr: true},
-		{name: "writing cte", sql: "WITH x AS (UPDATE sessions SET state = 'z' RETURNING id) SELECT * FROM x", wantErr: true},
-		{name: "not a select", sql: "EXPLAIN SELECT 1", wantErr: true},
-		{name: "statement hidden behind a line comment", sql: "SELECT 1 -- ok\n; DROP TABLE sessions", wantErr: true},
-		{name: "write after a literal that looks like it swallows it", sql: "SELECT 'a' UNION SELECT 1; DELETE FROM sessions", wantErr: true},
-		{name: "unterminated literal", sql: "SELECT * FROM sessions WHERE name = 'auth", wantErr: true},
-		{name: "unterminated block comment", sql: "SELECT 1 /* DELETE FROM sessions", wantErr: true},
-		{name: "select", sql: "SELECT name FROM sessions", want: "SELECT name FROM sessions"},
+		{
+			name:    "empty",
+			sql:     "   ",
+			wantErr: true,
+		},
+		{
+			name:    "insert",
+			sql:     "INSERT INTO sessions (name) VALUES ('a')",
+			wantErr: true,
+		},
+		{
+			name:    "update",
+			sql:     "UPDATE sessions SET state = 'done'",
+			wantErr: true,
+		},
+		{
+			name:    "delete",
+			sql:     "DELETE FROM sessions",
+			wantErr: true,
+		},
+		{
+			name:    "drop",
+			sql:     "DROP TABLE sessions",
+			wantErr: true,
+		},
+		{
+			name:    "pragma",
+			sql:     "PRAGMA table_info(sessions)",
+			wantErr: true,
+		},
+		{
+			name:    "attach",
+			sql:     "SELECT 1 FROM sessions; ATTACH DATABASE 'x' AS y",
+			wantErr: true,
+		},
+		{
+			name:    "multi statement",
+			sql:     "SELECT 1; SELECT 2",
+			wantErr: true,
+		},
+		{
+			name:    "writing cte",
+			sql:     "WITH x AS (UPDATE sessions SET state = 'z' RETURNING id) SELECT * FROM x",
+			wantErr: true,
+		},
+		{
+			name:    "not a select",
+			sql:     "EXPLAIN SELECT 1",
+			wantErr: true,
+		},
+		{
+			name:    "statement hidden behind a line comment",
+			sql:     "SELECT 1 -- ok\n; DROP TABLE sessions",
+			wantErr: true,
+		},
+		{
+			name:    "write after a literal that looks like it swallows it",
+			sql:     "SELECT 'a' UNION SELECT 1; DELETE FROM sessions",
+			wantErr: true,
+		},
+		{
+			name:    "unterminated literal",
+			sql:     "SELECT * FROM sessions WHERE name = 'auth",
+			wantErr: true,
+		},
+		{
+			name:    "unterminated block comment",
+			sql:     "SELECT 1 /* DELETE FROM sessions",
+			wantErr: true,
+		},
+		{
+			name: "select",
+			sql:  "SELECT name FROM sessions",
+			want: "SELECT name FROM sessions",
+		},
 		{
 			name: "keyword inside a literal is a search, not a write",
 			sql:  "SELECT session_id FROM session_transcripts WHERE content LIKE '%update%'",
@@ -93,9 +159,21 @@ func TestValidateReadOnly(t *testing.T) {
 			sql:  "SELECT name FROM sessions -- drop the rest",
 			want: "SELECT name FROM sessions -- drop the rest",
 		},
-		{name: "trailing semicolon trimmed", sql: "SELECT 1;", want: "SELECT 1"},
-		{name: "with cte read only", sql: "WITH x AS (SELECT 1 AS n) SELECT n FROM x", want: "WITH x AS (SELECT 1 AS n) SELECT n FROM x"},
-		{name: "lowercase select", sql: "select 1", want: "select 1"},
+		{
+			name: "trailing semicolon trimmed",
+			sql:  "SELECT 1;",
+			want: "SELECT 1",
+		},
+		{
+			name: "with cte read only",
+			sql:  "WITH x AS (SELECT 1 AS n) SELECT n FROM x",
+			want: "WITH x AS (SELECT 1 AS n) SELECT n FROM x",
+		},
+		{
+			name: "lowercase select",
+			sql:  "select 1",
+			want: "select 1",
+		},
 	}
 
 	for _, tt := range tests {
@@ -118,7 +196,7 @@ func TestQueryReturnsRows(t *testing.T) {
 	assert.Equal(t, []string{"name", "state"}, res.Columns)
 	require.Len(t, res.Rows, 1)
 	assert.Equal(t, "auth", res.Rows[0]["name"])
-	assert.Equal(t, store.StateWaiting, res.Rows[0]["state"])
+	assert.Equal(t, session.StateWaiting, res.Rows[0]["state"])
 	assert.False(t, res.Truncated)
 }
 

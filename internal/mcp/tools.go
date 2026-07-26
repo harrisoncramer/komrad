@@ -13,7 +13,7 @@ type dbTools struct {
 	db *pgxpool.Pool
 }
 
-// listTablesInput carries no arguments; list_tables takes none.
+// listTablesInput carries no arguments, since list_tables takes none.
 type listTablesInput struct{}
 
 // listTablesResult wraps the tables in an object so the tool's structured output

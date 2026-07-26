@@ -4,9 +4,10 @@ import (
 	"context"
 	"strings"
 
-	"claude-agents/internal/store"
 	paginationv1 "claude-agents/proto/gen/pagination/v1"
 	sessionv1 "claude-agents/proto/gen/session/v1"
+
+	"claude-agents/internal/store/transcript"
 
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
@@ -306,21 +307,21 @@ func renderSnippet(s string) string {
 
 	var b strings.Builder
 	for {
-		i := strings.Index(s, store.SnippetOpen)
+		i := strings.Index(s, transcript.SnippetOpen)
 		if i < 0 {
 			b.WriteString(s)
 			break
 		}
 		b.WriteString(s[:i])
 
-		rest := s[i+len(store.SnippetOpen):]
-		j := strings.Index(rest, store.SnippetClose)
+		rest := s[i+len(transcript.SnippetOpen):]
+		j := strings.Index(rest, transcript.SnippetClose)
 		if j < 0 {
 			b.WriteString(rest)
 			break
 		}
 		b.WriteString(matchStyle.Render(rest[:j]))
-		s = rest[j+len(store.SnippetClose):]
+		s = rest[j+len(transcript.SnippetClose):]
 	}
 
 	return b.String()

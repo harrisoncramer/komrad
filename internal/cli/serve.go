@@ -53,13 +53,13 @@ func serveCmd(state *app) *cobra.Command {
 
 			mux := http.NewServeMux()
 			path, handler := sessionv1connect.NewSessionServiceHandler(
-				rpcsession.NewService(state.store, state.sessions),
+				rpcsession.NewService(state.chats, state.transcripts, state.sessions),
 				connect.WithInterceptors(validation),
 			)
 			mux.Handle(path, handler)
 
 			workflowPath, workflowHandler := workflowv1connect.NewWorkflowServiceHandler(
-				rpcworkflow.NewService(state.store, state.workflows),
+				rpcworkflow.NewService(state.buckets, state.workflows),
 				connect.WithInterceptors(validation),
 			)
 			mux.Handle(workflowPath, workflowHandler)
@@ -85,12 +85,12 @@ func serveCmd(state *app) *cobra.Command {
 			// The reconciler runs here rather than in the panel because serve is
 			// the always-on process that owns the store. The counts must stay
 			// correct even when no panel is open.
-			go runReconcileLoop(cmd.Context(), agents.NewReconciler(state.tmux, state.store), reconcileInterval)
+			go runReconcileLoop(cmd.Context(), agents.NewReconciler(state.tmux, state.chats), reconcileInterval)
 
 			// The transcript syncer runs alongside the reconciler for the same
 			// reason. Serve owns the store and is always on, so the search index
 			// stays current whether or not a panel is open.
-			go runTranscriptSyncLoop(cmd.Context(), agents.NewTranscriptSyncer(state.store, agents.DefaultTranscriptsDir()), transcriptSyncInterval)
+			go runTranscriptSyncLoop(cmd.Context(), agents.NewTranscriptSyncer(state.chats, state.transcripts, agents.DefaultTranscriptsDir()), transcriptSyncInterval)
 
 			server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 			return server.ListenAndServe()

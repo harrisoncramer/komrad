@@ -10,7 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"claude-agents/internal/store"
+	"claude-agents/internal/store/session"
+	"claude-agents/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,25 +19,20 @@ import (
 
 // newManager builds a session service over the fake tmux and a real store, which
 // is what most of these tests drive.
-func newManager(tmux *fakeTmux, st *store.Store, flags string) *SessionService {
+func newManager(tmux *fakeTmux, st *testStore, flags string) *SessionService {
 	return newSessions(tmux, st, flags, "")
 }
 
 // workflowsFor builds the workflow service over the same store, for the tests
 // that set a chat's workflow up before acting on the chat.
-func workflowsFor(st *store.Store) *WorkflowService {
-	return NewWorkflowService(st)
+func workflowsFor(st *testStore) *WorkflowService {
+	return st.workflowService()
 }
 
 // newSessions is the same, with the launcher pointed at a specific address so a
 // test can assert on what a spawned agent is told.
-func newSessions(tmux *fakeTmux, st *store.Store, flags, addr string) *SessionService {
-	return NewSessionService(SessionParams{
-		Tmux:        tmux,
-		Store:       st,
-		Launcher:    NewLauncher(tmux, addr),
-		ClaudeFlags: flags,
-	})
+func newSessions(tmux *fakeTmux, st *testStore, flags, addr string) *SessionService {
+	return st.sessionService(tmux, NewLauncher(tmux, addr), flags)
 }
 
 func TestUniqueSessionName(t *testing.T) {
@@ -73,11 +69,11 @@ func TestUniqueSessionName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			for _, name := range tt.taken {
-				seed(t, st, name, "%1", store.StateNew)
+				seed(t, st, name, "%1", session.StateNew)
 			}
 			manager := newManager(newFakeTmux(), st, "")
 
-			assert.Equal(t, tt.wantName, manager.uniqueSessionName(tt.title, tt.prompt))
+			assert.Equal(t, tt.wantName, manager.uniqueSessionName(t.Context(), tt.title, tt.prompt))
 		})
 	}
 }
@@ -85,11 +81,11 @@ func TestUniqueSessionName(t *testing.T) {
 // TestNameTaken covers name reservation. A live store row owns its name.
 func TestNameTaken(t *testing.T) {
 	st := newStore(t)
-	seed(t, st, "taken", "%1", store.StateDone)
+	seed(t, st, "taken", "%1", session.StateDone)
 	manager := newManager(newFakeTmux(), st, "")
 
-	assert.True(t, manager.nameTaken("taken"))
-	assert.False(t, manager.nameTaken("free"))
+	assert.True(t, manager.nameTaken(t.Context(), "taken"))
+	assert.False(t, manager.nameTaken(t.Context(), "free"))
 }
 
 func TestLaunchClaude(t *testing.T) {
@@ -306,7 +302,7 @@ func TestNewSession(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(tmux, st, "--default-flag")
 
-	created, err := manager.NewSession(NewSessionParams{
+	created, err := manager.NewSession(t.Context(), NewSessionParams{
 		Client: "client",
 		Title:  "My Agent",
 		Flags:  "--extra",
@@ -325,7 +321,7 @@ func TestNewSession(t *testing.T) {
 	assert.Equal(t, work, got.Cwd)
 	assert.Equal(t, "--default-flag --extra", got.Flags)
 	assert.Equal(t, "do the thing", got.Prompt)
-	assert.Equal(t, store.StateNew, got.State)
+	assert.Equal(t, session.StateNew, got.State)
 	assert.NotEmpty(t, got.ClaudeSessionID, "a session id is generated at launch")
 	assert.Equal(t, work, tmux.newWindows["My-Agent"])
 	assert.NotEmpty(t, tmux.lastKeys("%My-Agent"), "claude is launched into the new pane")
@@ -345,7 +341,7 @@ func TestNewSessionExpandsTildeDir(t *testing.T) {
 	want := filepath.Join(home, "chariot", "chariot")
 	require.NoError(t, os.MkdirAll(want, 0o755))
 
-	_, err := manager.NewSession(NewSessionParams{Title: "scoped", Dir: "~/chariot/chariot"})
+	_, err := manager.NewSession(t.Context(), NewSessionParams{Title: "scoped", Dir: "~/chariot/chariot"})
 	require.NoError(t, err)
 
 	assert.Equal(t, want, tmux.newWindows["scoped"], "tmux is given the expanded path")
@@ -362,10 +358,10 @@ func TestNewSessionScopesToWorkflow(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
-	workflow, err := workflowsFor(st).NewWorkflow(store.WorkflowConfig{Name: "backend"})
+	workflow, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{Name: "backend"})
 	require.NoError(t, err)
 
-	_, err = manager.NewSession(NewSessionParams{Title: "scoped", WorkflowID: &workflow.ID})
+	_, err = manager.NewSession(t.Context(), NewSessionParams{Title: "scoped", WorkflowID: &workflow.ID})
 	require.NoError(t, err)
 
 	got, err := st.Get(context.Background(), "scoped")
@@ -383,14 +379,14 @@ func TestNewSessionInjectsWorkflowContext(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
-	workflow, err := workflowsFor(st).NewWorkflow(store.WorkflowConfig{Name: "backend", Context: "shared notes"})
+	workflow, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{Name: "backend", Context: "shared notes"})
 	require.NoError(t, err)
 
-	_, err = manager.NewSession(NewSessionParams{Title: "scoped", WorkflowID: &workflow.ID})
+	_, err = manager.NewSession(t.Context(), NewSessionParams{Title: "scoped", WorkflowID: &workflow.ID})
 	require.NoError(t, err)
 	assert.Contains(t, appendedPrompt(t, tmux.lastKeys("%scoped")[0]), "shared notes")
 
-	_, err = manager.NewSession(NewSessionParams{Title: "rootless"})
+	_, err = manager.NewSession(t.Context(), NewSessionParams{Title: "rootless"})
 	require.NoError(t, err)
 	rootless := appendedPrompt(t, tmux.lastKeys("%rootless")[0])
 	assert.NotContains(t, rootless, "shared notes")
@@ -398,7 +394,7 @@ func TestNewSessionInjectsWorkflowContext(t *testing.T) {
 }
 
 func TestNewWorkflowDefaultsBlankName(t *testing.T) {
-	workflow, err := workflowsFor(newStore(t)).NewWorkflow(store.WorkflowConfig{Name: "   "})
+	workflow, err := workflowsFor(newStore(t)).NewWorkflow(t.Context(), workflow.Config{Name: "   "})
 	require.NoError(t, err)
 	require.NotNil(t, workflow)
 	assert.Equal(t, "workflow", workflow.Name, "a blank name falls back to a default label")
@@ -407,54 +403,29 @@ func TestNewWorkflowDefaultsBlankName(t *testing.T) {
 func TestRenameWorkflow(t *testing.T) {
 	t.Run("renames by id", func(t *testing.T) {
 		st := newStore(t)
-		workflow, err := workflowsFor(st).NewWorkflow(store.WorkflowConfig{Name: "backend"})
+		wf, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{Name: "backend"})
 		require.NoError(t, err)
 
-		workflowsFor(st).RenameWorkflow(*workflow, "platform")
+		require.NoError(t, workflowsFor(st).UpdateWorkflow(t.Context(), wf.ID, workflow.Config{Name: "platform"}))
 
-		got, err := st.GetWorkflow(context.Background(), workflow.ID)
+		got, err := st.GetWorkflow(context.Background(), wf.ID)
 		require.NoError(t, err)
 		require.NotNil(t, got)
 		assert.Equal(t, "platform", got.Name)
 	})
 
-	t.Run("a blank or unchanged name is a no-op", func(t *testing.T) {
+	t.Run("a blank name keeps the one it had", func(t *testing.T) {
 		st := newStore(t)
-		workflow, err := workflowsFor(st).NewWorkflow(store.WorkflowConfig{Name: "backend"})
+		wf, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{Name: "backend"})
 		require.NoError(t, err)
 
-		workflowsFor(st).RenameWorkflow(*workflow, "   ")
-		workflowsFor(st).RenameWorkflow(*workflow, "backend")
+		require.NoError(t, workflowsFor(st).UpdateWorkflow(t.Context(), wf.ID, workflow.Config{Name: "   "}))
 
-		got, err := st.GetWorkflow(context.Background(), workflow.ID)
+		got, err := st.GetWorkflow(context.Background(), wf.ID)
 		require.NoError(t, err)
 		require.NotNil(t, got)
-		assert.Equal(t, "backend", got.Name)
+		assert.Equal(t, "backend", got.Name, "the list always has a label")
 	})
-}
-
-// TestMoveChat covers reassigning a chat into a workflow and unassigning it back
-// to the root with a nil target.
-func TestMoveChat(t *testing.T) {
-	st := newStore(t)
-	manager := newManager(newFakeTmux(), st, "")
-	workflow, err := workflowsFor(st).NewWorkflow(store.WorkflowConfig{Name: "backend"})
-	require.NoError(t, err)
-	agent := seed(t, st, "chat", "%1", store.StateNew)
-
-	manager.MoveChat(agent, &workflow.ID)
-	scoped, err := workflowsFor(st).ListWorkflows()
-	require.NoError(t, err)
-	require.Len(t, scoped, 1)
-	moved, err := st.Get(context.Background(), "chat")
-	require.NoError(t, err)
-	require.NotNil(t, moved.WorkflowID)
-	assert.Equal(t, workflow.ID, *moved.WorkflowID)
-
-	manager.MoveChat(agent, nil)
-	unassigned, err := st.Get(context.Background(), "chat")
-	require.NoError(t, err)
-	assert.Nil(t, unassigned.WorkflowID, "a nil target unassigns the chat")
 }
 
 // TestDeleteWorkflowOrphansThroughManager confirms the manager wrapper preserves
@@ -462,14 +433,14 @@ func TestMoveChat(t *testing.T) {
 func TestDeleteWorkflowOrphansThroughManager(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(newFakeTmux(), st, "")
-	workflow, err := workflowsFor(st).NewWorkflow(store.WorkflowConfig{Name: "backend"})
+	workflow, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{Name: "backend"})
 	require.NoError(t, err)
-	_, err = manager.NewSession(NewSessionParams{Title: "chat", WorkflowID: &workflow.ID})
+	_, err = manager.NewSession(t.Context(), NewSessionParams{Title: "chat", WorkflowID: &workflow.ID})
 	require.NoError(t, err)
 
-	workflowsFor(st).DeleteWorkflow(*workflow)
+	require.NoError(t, workflowsFor(st).DeleteWorkflow(t.Context(), workflow.ID, false))
 
-	workflows, err := workflowsFor(st).ListWorkflows()
+	workflows, err := st.workflows.List(context.Background())
 	require.NoError(t, err)
 	assert.Empty(t, workflows, "the workflow is hidden after deletion")
 
@@ -485,12 +456,12 @@ func TestDeleteWorkflowOrphansThroughManager(t *testing.T) {
 func TestDeleteWorkflowWithChatsThroughManager(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(newFakeTmux(), st, "")
-	workflow, err := workflowsFor(st).NewWorkflow(store.WorkflowConfig{Name: "backend"})
+	workflow, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{Name: "backend"})
 	require.NoError(t, err)
-	_, err = manager.NewSession(NewSessionParams{Title: "chat", WorkflowID: &workflow.ID})
+	_, err = manager.NewSession(t.Context(), NewSessionParams{Title: "chat", WorkflowID: &workflow.ID})
 	require.NoError(t, err)
 
-	workflowsFor(st).DeleteWorkflowWithChats(*workflow)
+	require.NoError(t, workflowsFor(st).DeleteWorkflow(t.Context(), workflow.ID, true))
 
 	got, err := st.Get(context.Background(), "chat")
 	require.NoError(t, err)
@@ -502,50 +473,35 @@ func TestDeleteWorkflowWithChatsThroughManager(t *testing.T) {
 	assert.True(t, all[0].Deleted, "the chat is soft-deleted, not orphaned")
 }
 
-func TestRename(t *testing.T) {
-	t.Run("renames the store row only", func(t *testing.T) {
-		st := newStore(t)
-		agent := seed(t, st, "old", "%1", store.StateNew)
-		tmux := newFakeTmux()
-		manager := newManager(tmux, st, "")
-
-		manager.Rename(agent, "New Name")
-
-		got, _ := st.Get(context.Background(), "New-Name")
-		require.NotNil(t, got)
-		assert.Equal(t, agent.ID, got.ID)
-	})
-
-	t.Run("a blank or unchanged name is a no-op", func(t *testing.T) {
-		st := newStore(t)
-		agent := seed(t, st, "same", "%1", store.StateNew)
-		tmux := newFakeTmux()
-		manager := newManager(tmux, st, "")
-
-		manager.Rename(agent, "   ")
-		manager.Rename(agent, "same")
-		got, _ := st.Get(context.Background(), "same")
-		require.NotNil(t, got, "the row keeps its name")
-	})
-}
-
-func TestDelete(t *testing.T) {
+// TestArchiveSession confirms archiving stops the agent and hides the chat,
+// leaving the row in place so search can still reach it.
+func TestArchiveSession(t *testing.T) {
 	st := newStore(t)
-	agent := seed(t, st, "target", "%1", store.StateThinking)
+	seed(t, st, "target", "%1", session.StateThinking)
 	tmux := newFakeTmux()
 	manager := newManager(tmux, st, "")
 
-	manager.Delete(agent)
+	require.NoError(t, manager.ArchiveSession(t.Context(), "target"))
 
 	assert.Contains(t, tmux.killedPanes, "%1", "the agent's pane is killed")
-	got, _ := st.Get(context.Background(), "target")
-	assert.Nil(t, got, "the row is hidden from listings")
+
+	got, err := st.Get(t.Context(), "target")
+	require.NoError(t, err)
+	assert.Nil(t, got, "the chat is hidden from listings")
 }
 
-// TestNewSessionRefusesUnusableDirectory is the regression test for a stored
-// cwd that was not true: tmux quietly falls back to its own default directory
-// when -c names something it cannot enter, so the chat ran in one place while
-// the record claimed another.
+// TestArchiveMissingSessionIsNotFound confirms archiving a name nobody holds is
+// an error rather than a quiet success.
+func TestArchiveMissingSessionIsNotFound(t *testing.T) {
+	manager := newManager(newFakeTmux(), newStore(t), "")
+
+	require.ErrorIs(t, manager.ArchiveSession(t.Context(), "ghost"), ErrSessionNotFound)
+}
+
+// TestNewSessionRefusesUnusableDirectory confirms a launch fails rather than
+// storing a cwd that is not true. tmux quietly falls back to its own default
+// directory when -c names something it cannot enter, which would leave the chat
+// running in one place and the record claiming another.
 func TestNewSessionRefusesUnusableDirectory(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(newFakeTmux(), st, "")
@@ -553,10 +509,10 @@ func TestNewSessionRefusesUnusableDirectory(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "a-file")
 	require.NoError(t, os.WriteFile(file, []byte("not a directory"), 0o644))
 
-	_, err := manager.NewSession(NewSessionParams{Title: "nowhere", Dir: "/no/such/directory"})
+	_, err := manager.NewSession(t.Context(), NewSessionParams{Title: "nowhere", Dir: "/no/such/directory"})
 	require.Error(t, err)
 
-	_, err = manager.NewSession(NewSessionParams{Title: "a-file", Dir: file})
+	_, err = manager.NewSession(t.Context(), NewSessionParams{Title: "a-file", Dir: file})
 	require.ErrorContains(t, err, "not a directory")
 
 	agents, err := st.List(context.Background())
@@ -571,7 +527,7 @@ func TestNewSessionRefusesUnknownWorkflow(t *testing.T) {
 	manager := newManager(newFakeTmux(), st, "")
 
 	missing := "no-such-workflow"
-	_, err := manager.NewSession(NewSessionParams{Title: "orphan", Dir: t.TempDir(), WorkflowID: &missing})
+	_, err := manager.NewSession(t.Context(), NewSessionParams{Title: "orphan", Dir: t.TempDir(), WorkflowID: &missing})
 	require.ErrorIs(t, err, ErrWorkflowNotFound)
 
 	agents, err := st.List(context.Background())
@@ -579,17 +535,17 @@ func TestNewSessionRefusesUnknownWorkflow(t *testing.T) {
 	assert.Empty(t, agents)
 }
 
-// TestNewSessionFailsWhenTheWindowCannotOpen is the regression test for the
-// worst failure this code had: tmux refused a window, NewWindow returned an
-// empty pane id, and the launch then typed a full claude command into whatever
-// pane happened to be active, because tmux resolves an empty target that way.
+// TestNewSessionFailsWhenTheWindowCannotOpen confirms a refused window fails the
+// launch. tmux resolves an empty target to the active pane, so a launch that
+// carried on would type a full claude command into whatever the user was
+// looking at.
 func TestNewSessionFailsWhenTheWindowCannotOpen(t *testing.T) {
 	tmux := newFakeTmux()
 	tmux.newWindowErr = errors.New("tmux refused the window name")
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
-	_, err := manager.NewSession(NewSessionParams{Title: "doomed", Dir: t.TempDir()})
+	_, err := manager.NewSession(t.Context(), NewSessionParams{Title: "doomed", Dir: t.TempDir()})
 	require.Error(t, err)
 
 	assert.Empty(t, tmux.sent, "nothing is typed when there is no pane to type into")
@@ -608,13 +564,13 @@ func TestNewSessionKillsTheWindowWhenTheNameIsLost(t *testing.T) {
 	manager := newManager(tmux, st, "")
 	dir := t.TempDir()
 
-	first, err := manager.NewSession(NewSessionParams{Title: "racer", Dir: dir})
+	first, err := manager.NewSession(t.Context(), NewSessionParams{Title: "racer", Dir: dir})
 	require.NoError(t, err)
 	require.NotNil(t, first)
 
 	// Re-running uniqueSessionName would pick "racer-2", so the collision is
 	// forced by inserting under the name the loser already holds.
-	_, err = manager.NewSession(NewSessionParams{Title: "racer", Dir: dir})
+	_, err = manager.NewSession(t.Context(), NewSessionParams{Title: "racer", Dir: dir})
 	require.NoError(t, err, "the second create takes the next free name")
 
 	agents, err := st.List(context.Background())

@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"strings"
 
-	"claude-agents/internal/store"
 	sessionv1 "claude-agents/proto/gen/session/v1"
 
 	"claude-agents/lib/dates"
 
 	"connectrpc.com/connect"
+
+	"claude-agents/internal/store/session"
+	workflowstore "claude-agents/internal/store/workflow"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -241,7 +243,7 @@ func (m model) openChat() (tea.Model, tea.Cmd) {
 
 // archiveChat stops a chat and hides it, which is what the delete key has always
 // done: the record and transcript stay, so search still reaches it.
-func (m model) archiveChat(agent store.Agent) {
+func (m model) archiveChat(agent session.Agent) {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
@@ -309,7 +311,7 @@ func orDash(v string) string {
 
 // workflowMarkdown renders a workflow's info for the stage. It shows the name,
 // shared context, and config through bat.
-func workflowMarkdown(w store.Workflow, chats int) string {
+func workflowMarkdown(w workflowstore.Workflow, chats int) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", w.Name)
 	if strings.TrimSpace(w.Context) != "" {
@@ -330,7 +332,7 @@ func workflowMarkdown(w store.Workflow, chats int) string {
 // record on demand, since its running pane occupies the stage and hides the cwd
 // and flags it was launched with. The values are the record as stored at launch,
 // not what the running agent has done since.
-func chatMarkdown(a store.Agent, alive bool) string {
+func chatMarkdown(a session.Agent, alive bool) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", a.Name)
 	if alive {

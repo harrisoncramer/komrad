@@ -5,7 +5,8 @@ import (
 	"testing"
 
 	"claude-agents/internal/appconfig"
-	"claude-agents/internal/store"
+
+	"claude-agents/internal/store/transcript"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -68,10 +69,10 @@ func TestTrimLastRune(t *testing.T) {
 }
 
 func TestRenderSnippetHighlightsMatch(t *testing.T) {
-	in := "before " + store.SnippetOpen + "match" + store.SnippetClose + " after\nnext"
+	in := "before " + transcript.SnippetOpen + "match" + transcript.SnippetClose + " after\nnext"
 	out := renderSnippet(in)
 
-	if strings.Contains(out, store.SnippetOpen) || strings.Contains(out, store.SnippetClose) {
+	if strings.Contains(out, transcript.SnippetOpen) || strings.Contains(out, transcript.SnippetClose) {
 		t.Fatalf("markers should be consumed, got %q", out)
 	}
 	if !strings.Contains(out, "match") {

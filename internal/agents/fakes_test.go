@@ -7,6 +7,9 @@ import (
 
 	"claude-agents/internal/pgtest"
 	"claude-agents/internal/store"
+	sessionstore "claude-agents/internal/store/session"
+	transcriptstore "claude-agents/internal/store/transcript"
+	workflowstore "claude-agents/internal/store/workflow"
 
 	"github.com/stretchr/testify/require"
 )
@@ -106,20 +109,84 @@ func (f *fakeTmux) lastKeys(target string) []string {
 	return sends[len(sends)-1]
 }
 
-func newStore(t *testing.T) *store.Store {
-	t.Helper()
-	st, err := store.Open(t.Context(), pgtest.URL(t))
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = st.Close() })
+// testStore gathers the domain stores a test needs behind one handle, built over
+// one pool. Nothing in production holds this: each service is still constructed
+// with only the store it depends on. It exists so a test can arrange rows across
+// domains without threading three handles through every helper.
+type testStore struct {
+	pool        *store.Pool
+	chats       *sessionstore.Store
+	workflows   *workflowstore.Store
+	transcripts *transcriptstore.Store
+}
 
-	return st
+func newStore(t *testing.T) *testStore {
+	t.Helper()
+	pool, err := store.Open(t.Context(), pgtest.URL(t))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = pool.Close() })
+
+	return &testStore{
+		pool:        pool,
+		chats:       sessionstore.New(pool.DB()),
+		workflows:   workflowstore.New(pool.DB()),
+		transcripts: transcriptstore.New(pool.DB()),
+	}
+}
+
+func (s *testStore) Close() error { return s.pool.Close() }
+
+func (s *testStore) Get(ctx context.Context, name string) (*sessionstore.Agent, error) {
+	return s.chats.Get(ctx, name)
+}
+
+func (s *testStore) Upsert(ctx context.Context, agent sessionstore.Agent) error {
+	return s.chats.Upsert(ctx, agent)
+}
+
+func (s *testStore) List(ctx context.Context) ([]sessionstore.Agent, error) {
+	return s.chats.List(ctx)
+}
+
+func (s *testStore) ListAll(ctx context.Context) ([]sessionstore.Agent, error) {
+	return s.chats.ListAll(ctx)
+}
+
+func (s *testStore) SoftDelete(ctx context.Context, name string) error {
+	return s.chats.Archive(ctx, name)
+}
+
+func (s *testStore) GetWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error) {
+	return s.workflows.Get(ctx, id)
+}
+
+func (s *testStore) GetTranscript(ctx context.Context, sessionID string) (transcriptstore.Transcript, error) {
+	return s.transcripts.Get(ctx, sessionID)
+}
+
+// sessionService builds the service under test over these stores, the same way
+// the composition root does.
+func (s *testStore) sessionService(tmux sessionTmux, launcher *Launcher, flags string) *SessionService {
+	return NewSessionService(SessionParams{
+		Tmux:        tmux,
+		Sessions:    s.chats,
+		Workflows:   s.workflows,
+		Tx:          s.pool,
+		Launcher:    launcher,
+		ClaudeFlags: flags,
+	})
+}
+
+// workflowService builds the workflow service over these stores.
+func (s *testStore) workflowService() *WorkflowService {
+	return NewWorkflowService(WorkflowParams{Workflows: s.workflows, Tx: s.pool})
 }
 
 // seed inserts an agent in a given state and returns it with its generated id.
-func seed(t *testing.T, st *store.Store, name, pane, state string) store.Agent {
+func seed(t *testing.T, st *testStore, name, pane, state string) sessionstore.Agent {
 	t.Helper()
 	ctx := context.Background()
-	require.NoError(t, st.Upsert(ctx, store.Agent{Name: name, Pane: pane, State: state}))
+	require.NoError(t, st.Upsert(ctx, sessionstore.Agent{Name: name, Pane: pane, State: state}))
 
 	got, err := st.Get(ctx, name)
 	require.NoError(t, err)
@@ -128,7 +195,7 @@ func seed(t *testing.T, st *store.Store, name, pane, state string) store.Agent {
 	return *got
 }
 
-func stateOf(t *testing.T, st *store.Store, name string) string {
+func stateOf(t *testing.T, st *testStore, name string) string {
 	t.Helper()
 	got, err := st.Get(context.Background(), name)
 	require.NoError(t, err)

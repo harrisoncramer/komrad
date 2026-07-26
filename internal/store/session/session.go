@@ -1,0 +1,430 @@
+// Package session persists the chats themselves: the sessions table and the
+// per-session config row that hangs off it.
+//
+// It owns no other domain's tables. A chat's transcript belongs to the
+// transcript package and the workflow a chat sits in belongs to the workflow
+// package, so an operation touching both is composed by a caller inside one
+// transaction rather than reached for from here.
+package session
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"claude-agents/db/models"
+	"claude-agents/internal/store"
+
+	"github.com/jackc/pgx/v5/pgconn"
+)
+
+// Chat lifecycle states.
+const (
+	StateNew      = "new"
+	StateThinking = "thinking"
+	StateWaiting  = "waiting"
+	StateDone     = "done"
+)
+
+// Agent is a persisted background agent.
+type Agent struct {
+	ID   string
+	Name string
+	// SessionConfigID is this agent's own config row, holding its cwd and flags.
+	// Every agent owns exactly one. Cwd and Flags are that row flattened on read.
+	SessionConfigID string
+	Pane            string
+	Cwd             string
+	Flags           string
+	Prompt          string
+	State           string
+	ClaudeSessionID string
+	// WorkflowID is the workflow this chat belongs to, or nil when unassigned. It
+	// holds the workflow's stable id, not its display name.
+	WorkflowID *string
+	Deleted    bool
+	// CreatedAt is when the chat was first recorded, for display.
+	CreatedAt time.Time
+	// UpdatedAt is when the row last changed. Listings sort by it, so it is also
+	// the key a page of agents resumes from.
+	UpdatedAt time.Time
+}
+
+// SanitizeName maps a name to the characters tmux allows in a session name,
+// which is also the store key so the two always agree.
+func SanitizeName(name string) string {
+	return strings.NewReplacer(":", "-", ".", "-", " ", "-").Replace(name)
+}
+
+// Store reads and writes chats.
+type Store struct {
+	queries *models.Queries
+}
+
+// New builds a chat store over db, which is either the pool or a transaction. A
+// caller composing this with another domain passes the transaction, so both land
+// together.
+func New(db store.DBTX) *Store {
+	return &Store{queries: models.New(db)}
+}
+
+// List returns every persisted agent, most recently updated first.
+func (s *Store) List(ctx context.Context) ([]Agent, error) {
+	rows, err := s.queries.ListSessions(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sessions: %w", err)
+	}
+
+	agents := make([]Agent, 0, len(rows))
+	for _, row := range rows {
+		agents = append(agents, agentFromRow(row.Session, row.Cwd, row.Flags))
+	}
+
+	return agents, nil
+}
+
+// Cursor locates an agent within a listing. Agents sort by update time, which
+// several rows can share, so the id breaks the tie and makes the order total.
+// Without it a page boundary landing mid-tie would skip or repeat rows.
+type Cursor struct {
+	UpdatedAt time.Time `json:"u"`
+	ID        string    `json:"i"`
+}
+
+// ListPage returns one page of live agents, most recently updated first,
+// resuming after cursor when one is given. Update time is a moving key: a chat
+// the reconciler touches mid-scan sorts ahead of where the caller already is, so
+// it can be seen twice or missed. That is inherent to keying a page on the
+// column the listing sorts by, and the alternative, holding a snapshot open
+// across requests, costs more than the duplicate is worth here.
+func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Agent, error) {
+	params := models.ListSessionsPageParams{Lim: int32(limit)}
+	if cursor != nil {
+		params.CursorUpdatedAt = &cursor.UpdatedAt
+		params.CursorID = &cursor.ID
+	}
+
+	rows, err := s.queries.ListSessionsPage(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list a page of sessions: %w", err)
+	}
+
+	agents := make([]Agent, 0, len(rows))
+	for _, row := range rows {
+		agents = append(agents, agentFromRow(row.Session, row.Cwd, row.Flags))
+	}
+
+	return agents, nil
+}
+
+// ListAll returns every agent including soft-deleted ones, most recently
+// updated first. It backs search, which spans active and deleted chats.
+func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
+	rows, err := s.queries.ListAllSessions(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list all sessions: %w", err)
+	}
+
+	agents := make([]Agent, 0, len(rows))
+	for _, row := range rows {
+		agents = append(agents, agentFromRow(row.Session, row.Cwd, row.Flags))
+	}
+
+	return agents, nil
+}
+
+// Get returns an agent by name, nil when none exists, or an error for a real
+// failure. No-rows is the nil case. Every other error is surfaced so a caller
+// does not report a genuine DB failure as not found.
+func (s *Store) Get(ctx context.Context, name string) (*Agent, error) {
+	row, err := s.queries.GetSession(ctx, name)
+	if store.NoRows(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get session %q: %w", name, err)
+	}
+
+	agent := agentFromRow(row.Session, row.Cwd, row.Flags)
+	return &agent, nil
+}
+
+// Exists reports whether any chat holds the given id, including soft-deleted
+// ones, so a caller can tell an unknown id from a chat that simply has nothing
+// stored yet.
+func (s *Store) Exists(ctx context.Context, id string) (bool, error) {
+	if !store.IsID(id) {
+		return false, nil
+	}
+
+	exists, err := s.queries.SessionExists(ctx, id)
+	if err != nil {
+		return false, fmt.Errorf("failed to check for session %q: %w", id, err)
+	}
+
+	return exists, nil
+}
+
+// ActiveNameExists reports whether a live, non-deleted agent already holds the
+// name. New sessions consult this so an auto-generated name never collides with
+// an agent whose row still owns the name, including a dormant one whose tmux
+// session is gone but whose record survives.
+func (s *Store) ActiveNameExists(ctx context.Context, name string) (bool, error) {
+	exists, err := s.queries.ActiveNameExists(ctx, name)
+	if err != nil {
+		return false, fmt.Errorf("failed to check active name %q: %w", name, err)
+	}
+
+	return exists, nil
+}
+
+// Upsert inserts a new agent or updates an existing one. A blank id means a
+// fresh agent, whose config row is inserted alongside the session. A set id
+// means an existing agent whose linked config and runtime fields are updated in
+// place, never inserting a second config row.
+//
+// Both halves must land together, so a caller outside a transaction gets one
+// through InTx. Inside one, this joins whatever is already open.
+func (s *Store) Upsert(ctx context.Context, agent Agent) error {
+	if agent.ID == "" {
+		return s.insert(ctx, agent)
+	}
+
+	return s.update(ctx, agent)
+}
+
+// insert creates a fresh agent and its own config row. Both ids come back from
+// the database, which generates them, so the config is inserted first and the
+// session points at what it returned.
+func (s *Store) insert(ctx context.Context, agent Agent) error {
+	configID, err := s.queries.InsertSessionConfig(ctx, models.InsertSessionConfigParams{
+		Cwd:   agent.Cwd,
+		Flags: agent.Flags,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to insert config for %q: %w", agent.Name, err)
+	}
+
+	if _, err := s.queries.InsertSession(ctx, models.InsertSessionParams{
+		Name:            agent.Name,
+		SessionConfigID: configID,
+		Prompt:          agent.Prompt,
+		PaneID:          agent.Pane,
+		State:           agent.State,
+		ClaudeSessionID: agent.ClaudeSessionID,
+		WorkflowID:      agent.WorkflowID,
+	}); err != nil {
+		return fmt.Errorf("failed to insert session %q: %w", agent.Name, err)
+	}
+
+	return nil
+}
+
+// update rewrites an existing agent's linked config and runtime fields, keyed by
+// its stable id.
+func (s *Store) update(ctx context.Context, agent Agent) error {
+	if agent.SessionConfigID != "" {
+		if err := s.queries.UpdateSessionConfig(ctx, models.UpdateSessionConfigParams{
+			ID:    agent.SessionConfigID,
+			Cwd:   agent.Cwd,
+			Flags: agent.Flags,
+		}); err != nil {
+			return fmt.Errorf("failed to update config for %q: %w", agent.Name, err)
+		}
+	}
+
+	if err := s.queries.UpdateSession(ctx, models.UpdateSessionParams{
+		ID:              agent.ID,
+		Prompt:          agent.Prompt,
+		PaneID:          agent.Pane,
+		State:           agent.State,
+		ClaudeSessionID: agent.ClaudeSessionID,
+		WorkflowID:      agent.WorkflowID,
+	}); err != nil {
+		return fmt.Errorf("failed to update session %q: %w", agent.Name, err)
+	}
+
+	return nil
+}
+
+// SetState updates just an agent's state, keyed by name. It reports whether a
+// row was updated, so naming a chat that does not exist is distinguishable from
+// setting a state it already had. The query returns the ids it touched, which is
+// how the count is known without a second read.
+func (s *Store) SetState(ctx context.Context, name, state string) (bool, error) {
+	updated, err := s.queries.SetSessionState(ctx, models.SetSessionStateParams{Name: name, State: state})
+	if err != nil {
+		return false, fmt.Errorf("failed to set state for %q: %w", name, err)
+	}
+
+	return len(updated) > 0, nil
+}
+
+// SetStateByID updates just an agent's state, keyed by its stable id. The
+// reconciler uses this so a write decided from a snapshot always lands on the
+// exact row it observed, even if that row's name was reused by another agent in
+// the meantime.
+func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
+	if !store.IsID(id) {
+		return nil
+	}
+
+	if err := s.queries.SetSessionStateByID(ctx, models.SetSessionStateByIDParams{ID: id, State: state}); err != nil {
+		return fmt.Errorf("failed to set state for id %q: %w", id, err)
+	}
+
+	return nil
+}
+
+// Target names the rows a hard delete has to remove: the chat itself, the config
+// it owns, and the transcript keyed to its id. The transcript is another
+// package's table, so this reports the id rather than deleting it.
+type Target struct {
+	ID              string
+	SessionConfigID string
+}
+
+// Find resolves a chat by name to the ids a delete needs, nil when no chat has
+// that name.
+func (s *Store) Find(ctx context.Context, name string) (*Target, error) {
+	row, err := s.queries.GetSessionForDelete(ctx, name)
+	if store.NoRows(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find session %q: %w", name, err)
+	}
+
+	return &Target{ID: row.ID, SessionConfigID: row.SessionConfigID}, nil
+}
+
+// Delete removes a chat and the config it owns. The transcript keyed to the same
+// id is the transcript package's to remove, in the same transaction, since a
+// chat deleted without its transcript is the half-state worth avoiding.
+func (s *Store) Delete(ctx context.Context, target Target) error {
+	if err := s.queries.DeleteSessionByID(ctx, target.ID); err != nil {
+		return fmt.Errorf("failed to delete session %q: %w", target.ID, err)
+	}
+
+	if err := s.queries.DeleteSessionConfig(ctx, target.SessionConfigID); err != nil {
+		return fmt.Errorf("failed to delete config for %q: %w", target.ID, err)
+	}
+
+	return nil
+}
+
+// ErrNameTaken reports that a rename collided with a live chat's name. The
+// unique index is scoped to live rows, so this only ever means a chat currently
+// listed already answers to that name.
+var ErrNameTaken = errors.New("name already taken")
+
+// uniqueViolation is the SQLSTATE Postgres raises for a broken unique
+// constraint, which is how a taken name is told apart from a real failure
+// without reading the driver's message text.
+const uniqueViolation = "23505"
+
+// Rename changes an agent's name (title), keyed by id. It reports whether a row
+// was renamed, so an id that matches nothing is distinguishable from a rename
+// to the name a chat already had.
+func (s *Store) Rename(ctx context.Context, id, name string) (bool, error) {
+	if !store.IsID(id) {
+		return false, nil
+	}
+
+	renamed, err := s.queries.RenameSession(ctx, models.RenameSessionParams{ID: id, Name: name})
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
+			return false, ErrNameTaken
+		}
+
+		return false, fmt.Errorf("failed to rename session %q: %w", id, err)
+	}
+
+	return len(renamed) > 0, nil
+}
+
+// Archive hides an agent from listings without dropping the row.
+func (s *Store) Archive(ctx context.Context, name string) error {
+	if err := s.queries.MarkSessionDeleted(ctx, name); err != nil {
+		return fmt.Errorf("failed to archive session %q: %w", name, err)
+	}
+
+	return nil
+}
+
+// Restore clears an agent's archived flag by id, so a chat found in search
+// returns to the normal listing. It is keyed by id, not name, because an
+// archived row can share a name with a live agent, so the id is the only
+// unambiguous handle to the exact row to restore.
+func (s *Store) Restore(ctx context.Context, id string) error {
+	if !store.IsID(id) {
+		return nil
+	}
+
+	if err := s.queries.RestoreSession(ctx, id); err != nil {
+		return fmt.Errorf("failed to restore session %q: %w", id, err)
+	}
+
+	return nil
+}
+
+// MoveToWorkflow reassigns a chat to a workflow, keyed by the chat's id. A nil
+// workflowID unassigns the chat, returning it to the root listing. The id names
+// a workflow but the column is this table's, so the write belongs here.
+func (s *Store) MoveToWorkflow(ctx context.Context, id string, workflowID *string) error {
+	if !store.IsID(id) {
+		return nil
+	}
+
+	if err := s.queries.SetSessionWorkflow(ctx, models.SetSessionWorkflowParams{ID: id, WorkflowID: workflowID}); err != nil {
+		return fmt.Errorf("failed to move session %q to workflow: %w", id, err)
+	}
+
+	return nil
+}
+
+// ClearWorkflow unassigns every chat in a workflow, returning them to the root
+// listing. It is called when a workflow is deleted, from inside that
+// transaction.
+func (s *Store) ClearWorkflow(ctx context.Context, workflowID string) error {
+	if err := s.queries.ClearWorkflowSessions(ctx, &workflowID); err != nil {
+		return fmt.Errorf("failed to unassign chats of workflow %q: %w", workflowID, err)
+	}
+
+	return nil
+}
+
+// ArchiveWorkflowChats archives every live chat in a workflow, keeping their
+// workflow id so they still list under it in search.
+func (s *Store) ArchiveWorkflowChats(ctx context.Context, workflowID string) error {
+	if err := s.queries.MarkWorkflowSessionsDeleted(ctx, &workflowID); err != nil {
+		return fmt.Errorf("failed to archive chats of workflow %q: %w", workflowID, err)
+	}
+
+	return nil
+}
+
+// agentFromRow builds an Agent from a session row and the config joined onto it.
+// Every session read selects sqlc.embed(s), so they all carry the same
+// models.Session whatever else their row type holds, and the cwd and flags are
+// the only loose columns left to pass.
+func agentFromRow(session models.Session, cwd, flags string) Agent {
+	return Agent{
+		ID:              session.ID,
+		Name:            session.Name,
+		SessionConfigID: session.SessionConfigID,
+		Pane:            session.PaneID,
+		Cwd:             cwd,
+		Flags:           flags,
+		Prompt:          session.Prompt,
+		State:           session.State,
+		ClaudeSessionID: session.ClaudeSessionID,
+		WorkflowID:      session.WorkflowID,
+		Deleted:         session.IsDeleted,
+		CreatedAt:       session.CreatedAt,
+		UpdatedAt:       session.UpdatedAt,
+	}
+}

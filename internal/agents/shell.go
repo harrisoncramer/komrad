@@ -3,15 +3,14 @@ package agents
 import "strings"
 
 // A launch command is typed into a pane with send-keys, so the shell in that
-// pane parses whatever we assemble. Flags reach us as one configured string and
-// must survive that trip as data: without quoting, a flag containing $(...), a
-// backtick, or a semicolon would run as a command in the user's shell, and those
-// flags can arrive over RPC.
+// pane parses whatever we assemble. Flags arrive as one configured string and
+// have to survive that trip as data. Unquoted, a flag holding $(...), a
+// backtick, or a semicolon would run as a command in the user's shell, and flags
+// can arrive over RPC.
 //
 // splitArgs breaks a flag string into arguments the way a shell would, honoring
 // single and double quotes so a flag whose value contains a space stays one
-// argument. Quoting rules inside the quotes are not interpreted any further:
-// these are argument boundaries, not an expansion pass.
+// argument. It finds argument boundaries and does not expand anything.
 func splitArgs(flags string) []string {
 	var (
 		args    []string

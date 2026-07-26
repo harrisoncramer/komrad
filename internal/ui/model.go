@@ -10,10 +10,12 @@ import (
 
 	"claude-agents/internal/appconfig"
 	"claude-agents/internal/client"
-	"claude-agents/internal/store"
 	sessionv1 "claude-agents/proto/gen/session/v1"
 	"claude-agents/proto/gen/session/v1/sessionv1connect"
 	"claude-agents/proto/gen/workflow/v1/workflowv1connect"
+
+	"claude-agents/internal/store/session"
+	workflowstore "claude-agents/internal/store/workflow"
 
 	"connectrpc.com/connect"
 	"github.com/charmbracelet/bubbles/key"
@@ -103,11 +105,11 @@ var (
 
 func stateIcon(state string) string {
 	switch state {
-	case store.StateDone:
+	case session.StateDone:
 		return "✓"
-	case store.StateWaiting:
+	case session.StateWaiting:
 		return "!"
-	case store.StateThinking:
+	case session.StateThinking:
 		return "…"
 	default:
 		return "•"
@@ -116,11 +118,11 @@ func stateIcon(state string) string {
 
 func stateColor(state string) lipgloss.Color {
 	switch state {
-	case store.StateDone:
+	case session.StateDone:
 		return lipgloss.Color("#98BB6C")
-	case store.StateWaiting:
+	case session.StateWaiting:
 		return lipgloss.Color("#E82424")
-	case store.StateThinking:
+	case session.StateThinking:
 		return lipgloss.Color("#FF9E3B")
 	default:
 		return lipgloss.Color("#7E9CD8")
@@ -209,19 +211,19 @@ type model struct {
 	// the workflows being renamed or edited while the workflow form is open, both
 	// nil when creating one. workflowDeleteTarget is the one the delete prompt is
 	// confirming.
-	workflows            []store.Workflow
+	workflows            []workflowstore.Workflow
 	workflowCursor       int
-	workflowRenameTarget *store.Workflow
-	workflowEditTarget   *store.Workflow
-	workflowDeleteTarget *store.Workflow
+	workflowRenameTarget *workflowstore.Workflow
+	workflowEditTarget   *workflowstore.Workflow
+	workflowDeleteTarget *workflowstore.Workflow
 
 	// newChatWorkflow is the workflow a pending new-chat form will place its chat
 	// in, or nil for a chat that belongs to no workflow. Set when the form opens
 	// and consumed on submit.
-	newChatWorkflow *store.Workflow
+	newChatWorkflow *workflowstore.Workflow
 
 	form         *huh.Form
-	renameTarget store.Agent
+	renameTarget session.Agent
 
 	// Search screen state. The live query, its hits, and which hit is hovered.
 	searchQuery  string
@@ -253,7 +255,7 @@ func newModel(deps Deps) model {
 // chatItem is a stored agent plus whether its tmux pane is currently alive. A
 // dormant agent has a dead pane but is kept, since it can be restored from its stored state.
 type chatItem struct {
-	agent store.Agent
+	agent session.Agent
 	alive bool
 }
 
@@ -291,7 +293,7 @@ func (m model) currentDir(dir string) string {
 
 // renameChat renames a chat by id. A blank or unchanged name is a no-op, which
 // keeps the form's empty submit from asking the service to do nothing.
-func (m model) renameChat(agent store.Agent, name string) {
+func (m model) renameChat(agent session.Agent, name string) {
 	name = strings.TrimSpace(name)
 	if name == "" || name == agent.Name {
 		return
@@ -308,7 +310,7 @@ func (m model) renameChat(agent store.Agent, name string) {
 
 // listWorkflows fetches every workflow and renders them into the store type the
 // tree is written against.
-func (m model) listWorkflows() ([]store.Workflow, error) {
+func (m model) listWorkflows() ([]workflowstore.Workflow, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), chatsTimeout)
 	defer cancel()
 
@@ -317,9 +319,9 @@ func (m model) listWorkflows() ([]store.Workflow, error) {
 		return nil, err
 	}
 
-	workflows := make([]store.Workflow, 0, len(listed))
+	workflows := make([]workflowstore.Workflow, 0, len(listed))
 	for _, w := range listed {
-		workflows = append(workflows, store.Workflow{
+		workflows = append(workflows, workflowstore.Workflow{
 			ID:      w.GetId(),
 			Name:    w.GetName(),
 			Context: w.GetContext(),
@@ -415,10 +417,10 @@ func clampCursor(idx, length int) int {
 	return idx
 }
 
-func protoToAgent(s *sessionv1.Session) store.Agent {
+func protoToAgent(s *sessionv1.Session) session.Agent {
 	created, _ := time.Parse(time.RFC3339, s.GetCreatedAt())
 
-	return store.Agent{
+	return session.Agent{
 		ID:              s.GetId(),
 		Name:            s.GetName(),
 		Pane:            s.GetPaneId(),
@@ -435,7 +437,7 @@ func protoToAgent(s *sessionv1.Session) store.Agent {
 // openNewSession opens the new-chat form, seeded from the given workflow's
 // blueprint when one is passed, and records that workflow so the created chat is
 // placed in it. A nil workflow creates a chat that belongs to none.
-func (m model) openNewSession(workflow *store.Workflow) (tea.Model, tea.Cmd) {
+func (m model) openNewSession(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	dir, flags := "", ""
 	if workflow != nil {
 		dir = workflow.Cwd
@@ -602,7 +604,7 @@ func (m model) submitSession() (tea.Model, tea.Cmd) {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	// A launch failure leaves the list unchanged; the next refresh is the panel's
+	// A launch failure leaves the list unchanged. The next refresh is the panel's
 	// own report of what exists.
 	_, _ = m.api.sessions.CreateSession(ctx, connect.NewRequest(&sessionv1.CreateSessionRequest{
 		Prompt:     m.form.GetString("prompt"),

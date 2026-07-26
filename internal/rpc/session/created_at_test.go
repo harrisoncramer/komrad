@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"claude-agents/internal/store"
 	sessionv1 "claude-agents/proto/gen/session/v1"
+
+	sessionstore "claude-agents/internal/store/session"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -17,7 +18,7 @@ import (
 func TestCreatedAtIsEmitted(t *testing.T) {
 	svc, st := service(t)
 	ctx := context.Background()
-	require.NoError(t, st.Upsert(ctx, store.Agent{Name: "alpha", State: store.StateNew}))
+	require.NoError(t, st.chats.Upsert(ctx, sessionstore.Agent{Name: "alpha", State: sessionstore.StateNew}))
 
 	got, err := svc.GetSession(ctx, connect.NewRequest(&sessionv1.GetSessionRequest{Name: "alpha"}))
 	require.NoError(t, err)

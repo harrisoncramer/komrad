@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"claude-agents/internal/store"
+	"claude-agents/internal/store/session"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -140,83 +140,83 @@ func TestReconcileSinglePass(t *testing.T) {
 	}{
 		{
 			name:      "dead session settles thinking to done",
-			fromState: store.StateThinking,
+			fromState: session.StateThinking,
 			alive:     false,
-			want:      store.StateDone,
+			want:      session.StateDone,
 		},
 		{
 			name:      "dead session settles waiting to done",
-			fromState: store.StateWaiting,
+			fromState: session.StateWaiting,
 			alive:     false,
-			want:      store.StateDone,
+			want:      session.StateDone,
 		},
 		{
 			name:      "dead session leaves new untouched",
-			fromState: store.StateNew,
+			fromState: session.StateNew,
 			alive:     false,
-			want:      store.StateNew,
+			want:      session.StateNew,
 		},
 		{
 			name:      "dead session leaves done untouched",
-			fromState: store.StateDone,
+			fromState: session.StateDone,
 			alive:     false,
-			want:      store.StateDone,
+			want:      session.StateDone,
 		},
 		{
 			name:      "empty capture is inconclusive",
-			fromState: store.StateThinking,
+			fromState: session.StateThinking,
 			alive:     true,
 			frame:     "",
-			want:      store.StateThinking,
+			want:      session.StateThinking,
 		},
 		{
 			name:      "idle frame does not demote in one pass",
-			fromState: store.StateThinking,
+			fromState: session.StateThinking,
 			alive:     true,
 			frame:     idleFrame,
-			want:      store.StateThinking,
+			want:      session.StateThinking,
 		},
 		{
 			name:      "idle frame leaves new untouched",
-			fromState: store.StateNew,
+			fromState: session.StateNew,
 			alive:     true,
 			frame:     idleFrame,
-			want:      store.StateNew,
+			want:      session.StateNew,
 		},
 		{
 			name:      "idle frame leaves done untouched",
-			fromState: store.StateDone,
+			fromState: session.StateDone,
 			alive:     true,
 			frame:     idleFrame,
-			want:      store.StateDone,
+			want:      session.StateDone,
 		},
 		{
 			name:      "waiting frame moves thinking to waiting",
-			fromState: store.StateThinking,
+			fromState: session.StateThinking,
 			alive:     true,
 			frame:     waitFrame,
-			want:      store.StateWaiting,
+			want:      session.StateWaiting,
 		},
 		{
 			name:      "work promotes new to thinking",
-			fromState: store.StateNew,
+			fromState: session.StateNew,
 			alive:     true,
 			frame:     busyFrame,
-			want:      store.StateThinking,
+			want:      session.StateThinking,
 		},
 		{
 			name:      "work promotes done to thinking",
-			fromState: store.StateDone,
+			fromState: session.StateDone,
 			alive:     true,
 			frame:     busyFrame,
-			want:      store.StateThinking,
+			want:      session.StateThinking,
 		},
 		{
 			name:      "work keeps thinking",
-			fromState: store.StateThinking,
+			fromState: session.StateThinking,
 			alive:     true,
 			frame:     busyFrame,
-			want:      store.StateThinking,
+			want:      session.StateThinking,
 		},
 	}
 
@@ -229,7 +229,7 @@ func TestReconcileSinglePass(t *testing.T) {
 			tmux.alive["%1"] = tt.alive
 			tmux.captures["%1"] = tt.frame
 
-			rec := NewReconciler(tmux, st)
+			rec := NewReconciler(tmux, st.chats)
 			require.NoError(t, rec.Reconcile(context.Background()))
 			assert.Equal(t, tt.want, stateOf(t, st, "agent"))
 		})
@@ -241,33 +241,33 @@ func TestReconcileSinglePass(t *testing.T) {
 // calls never demotes genuinely-working work.
 func TestReconcileIdleDebounce(t *testing.T) {
 	st := newStore(t)
-	seed(t, st, "stuck", "%1", store.StateThinking)
+	seed(t, st, "stuck", "%1", session.StateThinking)
 
 	tmux := newFakeTmux()
 	tmux.alive["%1"] = true
 	tmux.captures["%1"] = idleFrame
 
-	rec := NewReconciler(tmux, st)
+	rec := NewReconciler(tmux, st.chats)
 	ctx := context.Background()
 
 	for i := range reconcileMisses - 1 {
 		require.NoError(t, rec.Reconcile(ctx))
-		assert.Equal(t, store.StateThinking, stateOf(t, st, "stuck"), "must survive idle pass %d", i)
+		assert.Equal(t, session.StateThinking, stateOf(t, st, "stuck"), "must survive idle pass %d", i)
 	}
 
 	require.NoError(t, rec.Reconcile(ctx))
-	assert.Equal(t, store.StateDone, stateOf(t, st, "stuck"))
+	assert.Equal(t, session.StateDone, stateOf(t, st, "stuck"))
 }
 
 // TestReconcileBusyResetsMissCount confirms an intervening busy pass clears the
 // accrued idle misses, so a single trailing idle pass cannot demote.
 func TestReconcileBusyResetsMissCount(t *testing.T) {
 	st := newStore(t)
-	agent := seed(t, st, "flap", "%1", store.StateThinking)
+	agent := seed(t, st, "flap", "%1", session.StateThinking)
 
 	tmux := newFakeTmux()
 	tmux.alive["%1"] = true
-	rec := NewReconciler(tmux, st)
+	rec := NewReconciler(tmux, st.chats)
 	ctx := context.Background()
 
 	tmux.captures["%1"] = idleFrame
@@ -277,7 +277,7 @@ func TestReconcileBusyResetsMissCount(t *testing.T) {
 	tmux.captures["%1"] = idleFrame
 	require.NoError(t, rec.Reconcile(ctx))
 
-	assert.Equal(t, store.StateThinking, stateOf(t, st, "flap"))
+	assert.Equal(t, session.StateThinking, stateOf(t, st, "flap"))
 	assert.Equal(t, 1, rec.misses[agent.ID], "one trailing idle pass after a busy reset")
 }
 
@@ -285,36 +285,36 @@ func TestReconcileBusyResetsMissCount(t *testing.T) {
 // to waiting, and the prompt clearing letting it settle back to done.
 func TestReconcileWaitingThenAnswered(t *testing.T) {
 	st := newStore(t)
-	seed(t, st, "ask", "%1", store.StateThinking)
+	seed(t, st, "ask", "%1", session.StateThinking)
 
 	tmux := newFakeTmux()
 	tmux.alive["%1"] = true
 	tmux.captures["%1"] = waitFrame
 
-	rec := NewReconciler(tmux, st)
+	rec := NewReconciler(tmux, st.chats)
 	ctx := context.Background()
 
 	require.NoError(t, rec.Reconcile(ctx))
-	assert.Equal(t, store.StateWaiting, stateOf(t, st, "ask"))
+	assert.Equal(t, session.StateWaiting, stateOf(t, st, "ask"))
 
 	tmux.captures["%1"] = idleFrame
 	for range reconcileMisses {
 		require.NoError(t, rec.Reconcile(ctx))
 	}
-	assert.Equal(t, store.StateDone, stateOf(t, st, "ask"))
+	assert.Equal(t, session.StateDone, stateOf(t, st, "ask"))
 }
 
 // TestReconcileForgetsVanishedAgents confirms an agent's accrued miss count is
 // reaped once it leaves the listing, so the map cannot grow without bound.
 func TestReconcileForgetsVanishedAgents(t *testing.T) {
 	st := newStore(t)
-	agent := seed(t, st, "temp", "%1", store.StateThinking)
+	agent := seed(t, st, "temp", "%1", session.StateThinking)
 
 	tmux := newFakeTmux()
 	tmux.alive["%1"] = true
 	tmux.captures["%1"] = idleFrame
 
-	rec := NewReconciler(tmux, st)
+	rec := NewReconciler(tmux, st.chats)
 	ctx := context.Background()
 
 	require.NoError(t, rec.Reconcile(ctx))

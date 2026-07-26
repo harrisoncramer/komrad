@@ -7,50 +7,51 @@ import (
 	"fmt"
 
 	"claude-agents/internal/agents"
-	"claude-agents/internal/store"
 	"claude-agents/lib/pagination"
 	workflowv1 "claude-agents/proto/gen/workflow/v1"
+
+	workflowstore "claude-agents/internal/store/workflow"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // workflowManager is the part of the workflow service the handlers drive. The
-// handlers translate and nothing more; what a workflow is allowed to be lives
+// handlers translate and nothing more. What a workflow is allowed to be lives
 // behind this.
 type workflowManager interface {
-	NewWorkflow(cfg store.WorkflowConfig) (*store.Workflow, error)
-	GetWorkflow(id string) (*store.Workflow, error)
-	UpdateWorkflowByID(id string, cfg store.WorkflowConfig) error
-	DeleteWorkflowByID(id string, archiveChats bool) error
+	NewWorkflow(ctx context.Context, cfg workflowstore.Config) (*workflowstore.Workflow, error)
+	GetWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error)
+	UpdateWorkflow(ctx context.Context, id string, cfg workflowstore.Config) error
+	DeleteWorkflow(ctx context.Context, id string, archiveChats bool) error
 }
 
 // workflowLister is the read side, kept separate because listing pages straight
 // out of the store rather than through the service.
 type workflowLister interface {
-	ListWorkflowsPage(ctx context.Context, limit int64, cursor *store.WorkflowCursor) ([]store.Workflow, error)
+	ListPage(ctx context.Context, limit int64, cursor *workflowstore.Cursor) ([]workflowstore.Workflow, error)
 }
 
 // Service implements workflowv1connect.WorkflowServiceHandler.
 type Service struct {
-	store     workflowLister
+	lister    workflowLister
 	workflows workflowManager
 }
 
 // NewService constructs the handler from the store it lists through and the
 // service that owns the rules.
-func NewService(s workflowLister, workflows workflowManager) *Service {
-	return &Service{store: s, workflows: workflows}
+func NewService(lister workflowLister, workflows workflowManager) *Service {
+	return &Service{lister: lister, workflows: workflows}
 }
 
 // ListWorkflows returns one page of workflows, most recently updated first.
 func (s *Service) ListWorkflows(ctx context.Context, req *connect.Request[workflowv1.ListWorkflowsRequest]) (*connect.Response[workflowv1.ListWorkflowsResponse], error) {
-	paginator, err := pagination.New[store.WorkflowCursor, workflow](req.Msg.GetPagination())
+	paginator, err := pagination.New[workflowstore.Cursor, workflow](req.Msg.GetPagination())
 	if err != nil {
 		return nil, err
 	}
 
-	stored, err := s.store.ListWorkflowsPage(ctx, paginator.Limit(), paginator.Cursor())
+	stored, err := s.lister.ListPage(ctx, paginator.Limit(), paginator.Cursor())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list workflows: %w", err))
 	}
@@ -74,8 +75,8 @@ func (s *Service) ListWorkflows(ctx context.Context, req *connect.Request[workfl
 }
 
 // GetWorkflow returns one workflow by id.
-func (s *Service) GetWorkflow(_ context.Context, req *connect.Request[workflowv1.GetWorkflowRequest]) (*connect.Response[workflowv1.GetWorkflowResponse], error) {
-	found, err := s.workflows.GetWorkflow(req.Msg.GetId())
+func (s *Service) GetWorkflow(ctx context.Context, req *connect.Request[workflowv1.GetWorkflowRequest]) (*connect.Response[workflowv1.GetWorkflowResponse], error) {
+	found, err := s.workflows.GetWorkflow(ctx, req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get workflow: %w", err))
 	}
@@ -87,8 +88,8 @@ func (s *Service) GetWorkflow(_ context.Context, req *connect.Request[workflowv1
 }
 
 // CreateWorkflow adds a workflow and returns it as stored.
-func (s *Service) CreateWorkflow(_ context.Context, req *connect.Request[workflowv1.CreateWorkflowRequest]) (*connect.Response[workflowv1.CreateWorkflowResponse], error) {
-	created, err := s.workflows.NewWorkflow(store.WorkflowConfig{
+func (s *Service) CreateWorkflow(ctx context.Context, req *connect.Request[workflowv1.CreateWorkflowRequest]) (*connect.Response[workflowv1.CreateWorkflowResponse], error) {
+	created, err := s.workflows.NewWorkflow(ctx, workflowstore.Config{
 		Name:    req.Msg.GetName(),
 		Context: req.Msg.GetContext(),
 		Cwd:     req.Msg.GetCwd(),
@@ -102,8 +103,8 @@ func (s *Service) CreateWorkflow(_ context.Context, req *connect.Request[workflo
 }
 
 // UpdateWorkflow replaces a workflow's editable fields.
-func (s *Service) UpdateWorkflow(_ context.Context, req *connect.Request[workflowv1.UpdateWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
-	err := s.workflows.UpdateWorkflowByID(req.Msg.GetId(), store.WorkflowConfig{
+func (s *Service) UpdateWorkflow(ctx context.Context, req *connect.Request[workflowv1.UpdateWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
+	err := s.workflows.UpdateWorkflow(ctx, req.Msg.GetId(), workflowstore.Config{
 		Name:    req.Msg.GetName(),
 		Context: req.Msg.GetContext(),
 		Cwd:     req.Msg.GetCwd(),
@@ -120,8 +121,8 @@ func (s *Service) UpdateWorkflow(_ context.Context, req *connect.Request[workflo
 }
 
 // DeleteWorkflow removes a workflow, orphaning or archiving its chats.
-func (s *Service) DeleteWorkflow(_ context.Context, req *connect.Request[workflowv1.DeleteWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
-	err := s.workflows.DeleteWorkflowByID(req.Msg.GetId(), req.Msg.GetArchiveChats())
+func (s *Service) DeleteWorkflow(ctx context.Context, req *connect.Request[workflowv1.DeleteWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
+	err := s.workflows.DeleteWorkflow(ctx, req.Msg.GetId(), req.Msg.GetArchiveChats())
 	switch {
 	case errors.Is(err, agents.ErrWorkflowNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no workflow with id %q", req.Msg.GetId()))

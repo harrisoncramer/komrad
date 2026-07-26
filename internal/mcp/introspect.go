@@ -156,7 +156,7 @@ ORDER BY c.ordinal_position`
 }
 
 // describeForeignKeys lists the table's outbound foreign keys as "column ->
-// target.column". This schema declares none, so the result is usually empty; it
+// target.column". This schema declares none, so the result is usually empty. It
 // is reported anyway so adding one shows up here without further work.
 func (d *dbTools) describeForeignKeys(ctx context.Context, table string) ([]string, error) {
 	const stmt = `

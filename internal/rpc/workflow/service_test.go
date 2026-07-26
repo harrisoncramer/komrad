@@ -9,20 +9,37 @@ import (
 	paginationv1 "claude-agents/proto/gen/pagination/v1"
 	workflowv1 "claude-agents/proto/gen/workflow/v1"
 
+	sessionstore "claude-agents/internal/store/session"
+	workflowstore "claude-agents/internal/store/workflow"
+
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
 
-func service(t *testing.T) (*Service, *store.Store) {
+// stores is what a test arranges rows through. Deleting a workflow settles the
+// chats inside it, so a test of that needs the chat store too even though the
+// handler itself never sees one.
+type stores struct {
+	buckets *workflowstore.Store
+	chats   *sessionstore.Store
+}
+
+func service(t *testing.T) (*Service, *stores) {
 	t.Helper()
 
-	st, err := store.Open(t.Context(), pgtest.URL(t))
+	pool, err := store.Open(t.Context(), pgtest.URL(t))
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = st.Close() })
+	t.Cleanup(func() { _ = pool.Close() })
 
-	return NewService(st, agents.NewWorkflowService(st)), st
+	st := &stores{
+		buckets: workflowstore.New(pool.DB()),
+		chats:   sessionstore.New(pool.DB()),
+	}
+	manager := agents.NewWorkflowService(agents.WorkflowParams{Workflows: st.buckets, Tx: pool})
+
+	return NewService(st.buckets, manager), st
 }
 
 func TestCreateAndGetWorkflow(t *testing.T) {
@@ -77,7 +94,7 @@ func TestUpdateWorkflowReplacesFields(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	stored, err := st.GetWorkflow(t.Context(), id)
+	stored, err := st.buckets.Get(t.Context(), id)
 	require.NoError(t, err)
 	require.NotNil(t, stored)
 	assert.Equal(t, "platform", stored.Name)
@@ -101,12 +118,12 @@ func TestDeleteWorkflowOrphansOrArchives(t *testing.T) {
 	require.NoError(t, err)
 	id := created.Msg.GetWorkflow().GetId()
 
-	require.NoError(t, st.Upsert(ctx, store.Agent{Name: "chat", WorkflowID: &id}))
+	require.NoError(t, st.chats.Upsert(ctx, sessionstore.Agent{Name: "chat", WorkflowID: &id}))
 
 	_, err = svc.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id}))
 	require.NoError(t, err)
 
-	orphan, err := st.Get(ctx, "chat")
+	orphan, err := st.chats.Get(ctx, "chat")
 	require.NoError(t, err)
 	require.NotNil(t, orphan, "the chat outlives its workflow")
 	assert.Nil(t, orphan.WorkflowID, "and is unassigned rather than pointing at a workflow that is gone")

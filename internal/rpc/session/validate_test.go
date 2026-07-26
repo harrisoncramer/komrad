@@ -6,10 +6,11 @@ import (
 	"testing"
 
 	"claude-agents/internal/interceptors"
-	"claude-agents/internal/store"
 	paginationv1 "claude-agents/proto/gen/pagination/v1"
 	sessionv1 "claude-agents/proto/gen/session/v1"
 	"claude-agents/proto/gen/session/v1/sessionv1connect"
+
+	sessionstore "claude-agents/internal/store/session"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -27,7 +28,7 @@ func validatedClient(t *testing.T) (sessionv1connect.SessionServiceClient, *fake
 
 	// The mutating methods now report not_found for a chat that does not exist,
 	// so the validation cases need a real one to aim at.
-	require.NoError(t, st.Upsert(t.Context(), store.Agent{Name: "alpha", State: store.StateNew}))
+	require.NoError(t, st.chats.Upsert(t.Context(), sessionstore.Agent{Name: "alpha", State: sessionstore.StateNew}))
 
 	validation, err := interceptors.NewValidation()
 	require.NoError(t, err)
@@ -99,7 +100,7 @@ func TestCreateSessionValidation(t *testing.T) {
 func TestSetStateValidation(t *testing.T) {
 	client, _ := validatedClient(t)
 
-	for _, state := range []string{store.StateNew, store.StateThinking, store.StateWaiting, store.StateDone} {
+	for _, state := range []string{sessionstore.StateNew, sessionstore.StateThinking, sessionstore.StateWaiting, sessionstore.StateDone} {
 		_, err := client.SetState(t.Context(), connect.NewRequest(&sessionv1.SetStateRequest{Name: "alpha", State: state}))
 		assert.NoError(t, err, "state %q should be accepted", state)
 	}
@@ -107,7 +108,7 @@ func TestSetStateValidation(t *testing.T) {
 	_, err := client.SetState(t.Context(), connect.NewRequest(&sessionv1.SetStateRequest{Name: "alpha", State: "pondering"}))
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 
-	_, err = client.SetState(t.Context(), connect.NewRequest(&sessionv1.SetStateRequest{Name: "", State: store.StateDone}))
+	_, err = client.SetState(t.Context(), connect.NewRequest(&sessionv1.SetStateRequest{Name: "", State: sessionstore.StateDone}))
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err), "an empty name matches no chat")
 }
 
