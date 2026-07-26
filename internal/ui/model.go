@@ -187,7 +187,7 @@ type paneChecker interface {
 type Deps struct {
 	Sessions  *agents.SessionService
 	Workflows *agents.WorkflowService
-	Popup     *agents.Popup
+	Popup     *Popup
 	Tmux      stageTmux
 	Client    sessionv1connect.SessionServiceClient
 	Keys      appconfig.Keybindings
@@ -196,7 +196,7 @@ type Deps struct {
 type model struct {
 	sessionService  *agents.SessionService
 	workflowService *agents.WorkflowService
-	popup           *agents.Popup
+	popup           *Popup
 	client          sessionv1connect.SessionServiceClient
 	// stage is the preview pane beside the list. It is the panel's own layout, so
 	// it drives tmux directly rather than going through the session API. panes is

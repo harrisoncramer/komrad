@@ -32,7 +32,7 @@ import (
 type app struct {
 	sessions  *agents.SessionService
 	workflows *agents.WorkflowService
-	popup     *agents.Popup
+	popup     *ui.Popup
 	store     *store.Store
 	env       *config.Config
 	keys      appconfig.Keybindings
@@ -73,7 +73,7 @@ func NewRootCommand() *cobra.Command {
 			state.keys = cfg.Keybindings
 			state.store = sessions
 			state.tmux = tmux.NewClient(env.TmuxSocket)
-			state.popup = agents.NewPopup(state.tmux)
+			state.popup = ui.NewPopup(state.tmux, agents.ManagerSession)
 			state.workflows = agents.NewWorkflowService(sessions)
 			state.sessions = agents.NewSessionService(agents.SessionParams{
 				Tmux:        state.tmux,

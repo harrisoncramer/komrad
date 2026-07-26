@@ -1,4 +1,4 @@
-package agents
+package ui
 
 // popupTmux is what the popup needs from tmux: the global options it uses as
 // flags, and the ability to detach a client.
@@ -10,14 +10,18 @@ type popupTmux interface {
 }
 
 // Popup is the chrome around the manager popup: whether it is showing, which
-// tmux client opened it, and how it hides. It holds no application state.
+// tmux client opened it, and how it hides. It is the panel's own window rather
+// than anything about agents, and it holds no application state.
 type Popup struct {
 	tmux popupTmux
+	// session is the tmux session the panel runs in, the one Hide detaches from.
+	session string
 }
 
-// NewPopup builds the popup chrome over a tmux client.
-func NewPopup(tmux popupTmux) *Popup {
-	return &Popup{tmux: tmux}
+// NewPopup builds the popup chrome over a tmux client, for the panel running in
+// the named tmux session.
+func NewPopup(tmux popupTmux, session string) *Popup {
+	return &Popup{tmux: tmux, session: session}
 }
 
 // managerOpenFlag marks that the popup is currently shown, so the binding hides
@@ -44,7 +48,7 @@ func (p *Popup) SetInvokingClient(client string) {
 
 // Hide closes the popup by detaching the client viewing the persistent manager
 // session. The session stays alive, so the next open restores it.
-func (p *Popup) Hide() { p.tmux.DetachSession(ManagerSession) }
+func (p *Popup) Hide() { p.tmux.DetachSession(p.session) }
 
 // SilenceStatus turns off a session's tmux status bar, so the manager panel and
 // the agents it opens fill the popup without a tmux footer under them.
@@ -54,6 +58,3 @@ func (p *Popup) SilenceStatus(session string) {
 
 // InvokingClient returns the tmux client that opened the current popup.
 func (p *Popup) InvokingClient() string { return p.tmux.ShowGlobal(managerClientFlag) }
-
-// PaneAlive reports whether an agent's tmux pane still exists, for pruning
-// entries the panel lists from the service.
