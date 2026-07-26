@@ -1,4 +1,4 @@
-package panel
+package ui
 
 // View renders the active screen.
 func (m model) View() string {

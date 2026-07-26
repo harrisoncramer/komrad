@@ -116,7 +116,7 @@ func TestTranscriptSyncerIndexesLog(t *testing.T) {
 	assert.Equal(t, "how do I use trigram search\n\nuse fts5", tr.Content)
 	assert.Positive(t, tr.SyncedOffset)
 
-	hits, err := st.SearchTranscripts(ctx, "trigram", 10)
+	hits, err := st.SearchTranscripts(ctx, store.SearchTranscriptsParams{Query: "trigram", Limit: 10})
 	require.NoError(t, err)
 	require.Len(t, hits, 1)
 	assert.Equal(t, agent.ID, hits[0].SessionID)

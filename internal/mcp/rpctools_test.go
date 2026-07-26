@@ -89,19 +89,30 @@ func TestInputSchema(t *testing.T) {
 		"only the fields the service rejects empty are required; a blank title or flags is fine")
 }
 
-// TestInputSchemaForEmptyRequest confirms a method taking no arguments still
-// advertises an object, rather than a schema a client cannot match.
-func TestInputSchemaForEmptyRequest(t *testing.T) {
+// TestInputSchemaForPagedRequest confirms a listing describes its pagination as
+// a nested object and demands none of it, so a first call needs no cursor and no
+// limit.
+func TestInputSchemaForPagedRequest(t *testing.T) {
 	service := sessionv1.File_session_v1_session_proto.Services().Get(0)
 	method := service.Methods().ByName("ListSessions")
 	require.NotNil(t, method)
 
 	schema, err := inputSchema(method.Input())
 	require.NoError(t, err)
-
 	assert.Equal(t, "object", schema["type"])
-	assert.Empty(t, schema["properties"])
-	assert.NotContains(t, schema, "required")
+	assert.NotContains(t, schema, "required", "a listing can be called with no arguments at all")
+
+	properties, ok := schema["properties"].(map[string]any)
+	require.True(t, ok)
+
+	page, ok := properties["pagination"].(map[string]any)
+	require.True(t, ok, "pagination is described rather than omitted")
+	assert.Equal(t, "object", page["type"])
+
+	fields, ok := page["properties"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, map[string]any{"type": "integer"}, fields["limit"])
+	assert.Equal(t, map[string]any{"type": "string"}, fields["cursor"])
 }
 
 func boolPtr(b bool) *bool { return &b }

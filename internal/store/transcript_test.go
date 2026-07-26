@@ -52,7 +52,7 @@ func TestSearchTranscripts(t *testing.T) {
 	require.NoError(t, st.UpsertTranscript(ctx, one, "the quick brown fox discusses postgres indexing", 1))
 	require.NoError(t, st.UpsertTranscript(ctx, two, "an unrelated chat about breakfast cereal", 1))
 
-	hits, err := st.SearchTranscripts(ctx, "postgres", 10)
+	hits, err := st.SearchTranscripts(ctx, SearchTranscriptsParams{Query: "postgres", Limit: 10})
 	require.NoError(t, err)
 	require.Len(t, hits, 1, "only the matching transcript is returned")
 	assert.Equal(t, one, hits[0].SessionID)
@@ -60,7 +60,7 @@ func TestSearchTranscripts(t *testing.T) {
 	assert.False(t, hits[0].Deleted)
 	assert.Contains(t, hits[0].Snippet, SnippetOpen+"postgres"+SnippetClose, "the match is marked in the snippet")
 
-	hits, err = st.SearchTranscripts(ctx, "ostgr", 10)
+	hits, err = st.SearchTranscripts(ctx, SearchTranscriptsParams{Query: "ostgr", Limit: 10})
 	require.NoError(t, err)
 	require.Len(t, hits, 1, "trigram tokenizer matches on a substring, not just whole words")
 	assert.Equal(t, one, hits[0].SessionID)
@@ -74,7 +74,7 @@ func TestSearchTranscriptsSpansDeleted(t *testing.T) {
 	require.NoError(t, st.UpsertTranscript(ctx, one, "a chat that mentions postgres then is deleted", 1))
 	require.NoError(t, st.SoftDelete(ctx, "one"))
 
-	hits, err := st.SearchTranscripts(ctx, "postgres", 10)
+	hits, err := st.SearchTranscripts(ctx, SearchTranscriptsParams{Query: "postgres", Limit: 10})
 	require.NoError(t, err)
 	require.Len(t, hits, 1, "a soft-deleted chat still turns up in search")
 	assert.Equal(t, one, hits[0].SessionID)
@@ -87,7 +87,7 @@ func TestSearchTranscriptsBlankQuery(t *testing.T) {
 	one := seedSession(t, st, "one")
 	require.NoError(t, st.UpsertTranscript(ctx, one, "anything at all", 1))
 
-	hits, err := st.SearchTranscripts(ctx, "   ", 10)
+	hits, err := st.SearchTranscripts(ctx, SearchTranscriptsParams{Query: "   ", Limit: 10})
 	require.NoError(t, err)
 	assert.Empty(t, hits, "a blank query returns nothing rather than every transcript")
 }
@@ -100,11 +100,11 @@ func TestSearchTranscriptsReindexOnUpsert(t *testing.T) {
 	require.NoError(t, st.UpsertTranscript(ctx, one, "talking about postgres", 1))
 	require.NoError(t, st.UpsertTranscript(ctx, one, "now talking about sqlite instead", 2))
 
-	hits, err := st.SearchTranscripts(ctx, "postgres", 10)
+	hits, err := st.SearchTranscripts(ctx, SearchTranscriptsParams{Query: "postgres", Limit: 10})
 	require.NoError(t, err)
 	assert.Empty(t, hits, "the old content is dropped from the index on re-upsert")
 
-	hits, err = st.SearchTranscripts(ctx, "sqlite", 10)
+	hits, err = st.SearchTranscripts(ctx, SearchTranscriptsParams{Query: "sqlite", Limit: 10})
 	require.NoError(t, err)
 	require.Len(t, hits, 1)
 	assert.Equal(t, one, hits[0].SessionID)
@@ -123,7 +123,7 @@ func TestSearchTranscriptsQueryWithOperators(t *testing.T) {
 
 	// A query carrying FTS operator syntax and quotes must be matched literally,
 	// not parsed, so it neither errors nor mis-matches.
-	hits, err := st.SearchTranscripts(ctx, `"flags" field`, 10)
+	hits, err := st.SearchTranscripts(ctx, SearchTranscriptsParams{Query: `"flags" field`, Limit: 10})
 	require.NoError(t, err)
 	require.Len(t, hits, 1)
 	assert.Equal(t, one, hits[0].SessionID)
@@ -152,7 +152,7 @@ func TestDeleteRemovesEverythingKeyedToTheSession(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, transcript.Content, "the transcript goes with the session")
 
-	hits, err := st.SearchTranscripts(ctx, "should not survive", 10)
+	hits, err := st.SearchTranscripts(ctx, SearchTranscriptsParams{Query: "should not survive", Limit: 10})
 	require.NoError(t, err)
 	assert.Empty(t, hits, "the search index goes with it too")
 
@@ -185,7 +185,7 @@ func TestSearchToleratesControlCharacters(t *testing.T) {
 	require.NotNil(t, agent)
 	require.NoError(t, st.UpsertTranscript(ctx, agent.ID, "findable text", 0))
 
-	hits, err := st.SearchTranscripts(ctx, "find\x00able", 10)
+	hits, err := st.SearchTranscripts(ctx, SearchTranscriptsParams{Query: "find\x00able", Limit: 10})
 	require.NoError(t, err, "a NUL in the query is not an error")
 	assert.Len(t, hits, 1, "the NUL is dropped rather than truncating the phrase")
 }

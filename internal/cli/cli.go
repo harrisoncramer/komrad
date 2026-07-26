@@ -17,10 +17,10 @@ import (
 	"claude-agents/internal/agents"
 	"claude-agents/internal/appconfig"
 	"claude-agents/internal/mcp"
-	"claude-agents/internal/panel"
 	"claude-agents/internal/rpc"
 	"claude-agents/internal/store"
 	"claude-agents/internal/tmux"
+	"claude-agents/internal/ui"
 	"claude-agents/proto/gen/session/v1/sessionv1connect"
 
 	"connectrpc.com/connect"
@@ -32,6 +32,9 @@ type app struct {
 	sessions *store.Store
 	env      *config.Config
 	keys     appconfig.Keybindings
+	// tmux is shared with the manager. The UI needs it directly for the stage,
+	// which is its own layout rather than anything the session API owns.
+	tmux *tmux.Client
 }
 
 // NewRootCommand builds the claude-agents command tree. Running it with no
@@ -65,8 +68,9 @@ func NewRootCommand() *cobra.Command {
 			state.env = env
 			state.keys = cfg.Keybindings
 			state.sessions = sessions
+			state.tmux = tmux.NewClient(env.TmuxSocket)
 			state.manager = agents.NewAgentManager(agents.Params{
-				Tmux:        tmux.NewClient(env.TmuxSocket),
+				Tmux:        state.tmux,
 				Store:       sessions,
 				SelfPath:    selfPath(),
 				ClaudeFlags: cfg.ClaudeFlags,
@@ -89,7 +93,7 @@ func NewRootCommand() *cobra.Command {
 			// exits on its own. The close and quit keys detach the popup rather
 			// than quit, so the panel stays one long-lived program with its state
 			// preserved between opens. Run returns only on a real error.
-			return panel.Run(state.manager, sessions, state.keys)
+			return ui.Run(state.manager, sessions, ui.NewStage(state.tmux), state.keys)
 		},
 	}
 
@@ -302,17 +306,6 @@ func newCmd(state *app) *cobra.Command {
 	flags.StringVar(&params.Client, "client", "", "invoking tmux client")
 
 	return cmd
-}
-
-func statusCmd(state *app) *cobra.Command {
-	return &cobra.Command{
-		Use:   "status",
-		Short: "Print the status-bar aggregate",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			fmt.Print(state.manager.Status())
-			return nil
-		},
-	}
 }
 
 // ensureServer makes sure a session server is reachable at addr, spawning a

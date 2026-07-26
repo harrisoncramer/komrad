@@ -6,12 +6,14 @@ import (
 	"testing"
 
 	"claude-agents/internal/store"
+	paginationv1 "claude-agents/proto/gen/pagination/v1"
 	sessionv1 "claude-agents/proto/gen/session/v1"
 	"claude-agents/proto/gen/session/v1/sessionv1connect"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 // validatedClient serves the session service behind the validation interceptor
@@ -129,8 +131,16 @@ func TestSearchTranscriptsValidation(t *testing.T) {
 	_, err := client.SearchTranscripts(t.Context(), connect.NewRequest(&sessionv1.SearchTranscriptsRequest{Query: ""}))
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err), "an empty query matches everything")
 
-	_, err = client.SearchTranscripts(t.Context(), connect.NewRequest(&sessionv1.SearchTranscriptsRequest{Query: "mcp", Limit: 5000}))
-	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err), "the limit is capped")
+	_, err = client.SearchTranscripts(t.Context(), connect.NewRequest(&sessionv1.SearchTranscriptsRequest{Query: "ab"}))
+	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err), "the trigram index cannot match under three characters")
+
+	// A limit past the ceiling is clamped rather than refused, so a caller asking
+	// for more than the server will serve still gets a page.
+	_, err = client.SearchTranscripts(t.Context(), connect.NewRequest(&sessionv1.SearchTranscriptsRequest{
+		Query:      "mcp",
+		Pagination: &paginationv1.Pagination{Limit: proto.Int32(5000)},
+	}))
+	assert.NoError(t, err, "an oversized limit is clamped")
 
 	_, err = client.SearchTranscripts(t.Context(), connect.NewRequest(&sessionv1.SearchTranscriptsRequest{Query: "mcp"}))
 	assert.NoError(t, err, "an unset limit still means the server default")

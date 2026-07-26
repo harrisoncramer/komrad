@@ -1,4 +1,4 @@
-package panel
+package ui
 
 import (
 	"strings"
@@ -12,42 +12,43 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// stageTmux is a tmux client that records only what the stage does, so a test
-// can tell a swapped-in chat pane from a respawned bat preview. Every other call
-// is an inert stub.
-type stageTmux struct {
+// recordingTmux records only what the stage does, so a test can tell a
+// swapped-in chat pane from a respawned bat preview. Every other call is an
+// inert stub.
+type recordingTmux struct {
 	swaps    int
 	respawns []string
 }
 
-func (t *stageTmux) SetGlobal(string, string)                {}
-func (t *stageTmux) ShowGlobal(string) string                { return "" }
-func (t *stageTmux) SetSessionOption(string, string, string) {}
-func (t *stageTmux) DetachSession(string)                    {}
-func (t *stageTmux) ClientPath(string) string                { return "" }
-func (t *stageTmux) SendKeys(string, ...string) error        { return nil }
-func (t *stageTmux) PaneAlive(string) bool                   { return true }
-func (t *stageTmux) CapturePane(string) string               { return "" }
-func (t *stageTmux) CurrentPane() (string, error)            { return "%0", nil }
-func (t *stageTmux) SplitRight(string, string) string        { return "%1" }
-func (t *stageTmux) NewWindow(string, string, string) (string, error) {
+func (t *recordingTmux) SetGlobal(string, string)                {}
+func (t *recordingTmux) ShowGlobal(string) string                { return "" }
+func (t *recordingTmux) SetSessionOption(string, string, string) {}
+func (t *recordingTmux) DetachSession(string)                    {}
+func (t *recordingTmux) ClientPath(string) string                { return "" }
+func (t *recordingTmux) SendKeys(string, ...string) error        { return nil }
+func (t *recordingTmux) PaneAlive(string) bool                   { return true }
+func (t *recordingTmux) CapturePane(string) string               { return "" }
+func (t *recordingTmux) CurrentPane() (string, error)            { return "%0", nil }
+func (t *recordingTmux) SplitRight(string, string) string        { return "%1" }
+func (t *recordingTmux) NewWindow(string, string, string) (string, error) {
 	return "%2", nil
 }
-func (t *stageTmux) SwapPanes(string, string) { t.swaps++ }
-func (t *stageTmux) KillPane(string)          {}
+func (t *recordingTmux) SwapPanes(string, string) { t.swaps++ }
+func (t *recordingTmux) KillPane(string)          {}
 
-func (t *stageTmux) RespawnPane(_, _ string, argv ...string) {
+func (t *recordingTmux) RespawnPane(_, _ string, argv ...string) {
 	t.respawns = append(t.respawns, strings.Join(argv, " "))
 }
 
 // infoModel builds a chats model holding one live chat, with the cursor on it.
 // Row 0 is the no-workflow header, so the chat is row 1.
-func infoModel(tmux *stageTmux) model {
-	manager := agents.NewAgentManager(agents.Params{Tmux: tmux})
-	manager.InitStage()
+func infoModel(tmux *recordingTmux) model {
+	stage := NewStage(tmux)
+	stage.Init()
 
 	return model{
-		manager:    manager,
+		manager:    agents.NewAgentManager(agents.Params{Tmux: tmux}),
+		stage:      stage,
 		keys:       appconfig.DefaultKeybindings(),
 		screen:     screenChats,
 		chats:      []chatItem{{agent: store.Agent{Name: "auth", Pane: "%9", Cwd: "/repo"}, alive: true}},
@@ -71,7 +72,7 @@ func pressInfo(t *testing.T, m model) model {
 // stored record in place of its running pane, and that pressing it again swaps
 // the pane back.
 func TestInfoTogglesLiveChatRecord(t *testing.T) {
-	tmux := &stageTmux{}
+	tmux := &recordingTmux{}
 	m := infoModel(tmux)
 
 	m = pressInfo(t, m)
@@ -97,7 +98,7 @@ func TestInfoTogglesLiveChatRecord(t *testing.T) {
 // TestInfoUnpinsOnCursorMove confirms the pinned record does not outlive the row
 // it describes.
 func TestInfoUnpinsOnCursorMove(t *testing.T) {
-	tmux := &stageTmux{}
+	tmux := &recordingTmux{}
 	m := pressInfo(t, infoModel(tmux))
 
 	next, _ := m.updateChats(tea.KeyMsg{Type: tea.KeyUp})
@@ -113,7 +114,7 @@ func TestInfoUnpinsOnCursorMove(t *testing.T) {
 // TestInfoIgnoredOnHeader confirms the info key does nothing on a workflow
 // header, which has no record to show.
 func TestInfoIgnoredOnHeader(t *testing.T) {
-	tmux := &stageTmux{}
+	tmux := &recordingTmux{}
 	m := infoModel(tmux)
 	m.chatCursor = 0
 

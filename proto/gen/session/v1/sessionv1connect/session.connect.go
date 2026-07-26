@@ -62,7 +62,7 @@ const (
 // SessionServiceClient is a client for the session.v1.SessionService service.
 type SessionServiceClient interface {
 	// Reads: no side effects, safe to cache and issue over GET.
-	ListSessions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListSessionsResponse], error)
+	ListSessions(context.Context, *connect.Request[v1.ListSessionsRequest]) (*connect.Response[v1.ListSessionsResponse], error)
 	GetSession(context.Context, *connect.Request[v1.GetSessionRequest]) (*connect.Response[v1.GetSessionResponse], error)
 	// CreateSession launches a background agent and returns it as stored. It is
 	// not idempotent: each call spawns another chat, since two chats may
@@ -91,7 +91,7 @@ func NewSessionServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 	baseURL = strings.TrimRight(baseURL, "/")
 	sessionServiceMethods := v1.File_session_v1_session_proto.Services().ByName("SessionService").Methods()
 	return &sessionServiceClient{
-		listSessions: connect.NewClient[emptypb.Empty, v1.ListSessionsResponse](
+		listSessions: connect.NewClient[v1.ListSessionsRequest, v1.ListSessionsResponse](
 			httpClient,
 			baseURL+SessionServiceListSessionsProcedure,
 			connect.WithSchema(sessionServiceMethods.ByName("ListSessions")),
@@ -151,7 +151,7 @@ func NewSessionServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 
 // sessionServiceClient implements SessionServiceClient.
 type sessionServiceClient struct {
-	listSessions      *connect.Client[emptypb.Empty, v1.ListSessionsResponse]
+	listSessions      *connect.Client[v1.ListSessionsRequest, v1.ListSessionsResponse]
 	getSession        *connect.Client[v1.GetSessionRequest, v1.GetSessionResponse]
 	createSession     *connect.Client[v1.CreateSessionRequest, v1.CreateSessionResponse]
 	setState          *connect.Client[v1.SetStateRequest, emptypb.Empty]
@@ -162,7 +162,7 @@ type sessionServiceClient struct {
 }
 
 // ListSessions calls session.v1.SessionService.ListSessions.
-func (c *sessionServiceClient) ListSessions(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListSessionsResponse], error) {
+func (c *sessionServiceClient) ListSessions(ctx context.Context, req *connect.Request[v1.ListSessionsRequest]) (*connect.Response[v1.ListSessionsResponse], error) {
 	return c.listSessions.CallUnary(ctx, req)
 }
 
@@ -204,7 +204,7 @@ func (c *sessionServiceClient) GetTranscript(ctx context.Context, req *connect.R
 // SessionServiceHandler is an implementation of the session.v1.SessionService service.
 type SessionServiceHandler interface {
 	// Reads: no side effects, safe to cache and issue over GET.
-	ListSessions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListSessionsResponse], error)
+	ListSessions(context.Context, *connect.Request[v1.ListSessionsRequest]) (*connect.Response[v1.ListSessionsResponse], error)
 	GetSession(context.Context, *connect.Request[v1.GetSessionRequest]) (*connect.Response[v1.GetSessionResponse], error)
 	// CreateSession launches a background agent and returns it as stored. It is
 	// not idempotent: each call spawns another chat, since two chats may
@@ -311,7 +311,7 @@ func NewSessionServiceHandler(svc SessionServiceHandler, opts ...connect.Handler
 // UnimplementedSessionServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedSessionServiceHandler struct{}
 
-func (UnimplementedSessionServiceHandler) ListSessions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListSessionsResponse], error) {
+func (UnimplementedSessionServiceHandler) ListSessions(context.Context, *connect.Request[v1.ListSessionsRequest]) (*connect.Response[v1.ListSessionsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("session.v1.SessionService.ListSessions is not implemented"))
 }
 

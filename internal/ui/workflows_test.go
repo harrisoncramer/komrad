@@ -1,4 +1,4 @@
-package panel
+package ui
 
 import (
 	"testing"

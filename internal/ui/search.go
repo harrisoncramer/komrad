@@ -1,19 +1,22 @@
-package panel
+package ui
 
 import (
 	"context"
 	"strings"
 
 	"claude-agents/internal/store"
+	paginationv1 "claude-agents/proto/gen/pagination/v1"
 	sessionv1 "claude-agents/proto/gen/session/v1"
 
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"google.golang.org/protobuf/proto"
 )
 
 // searchLimit caps how many hits a query returns, keeping the result list short
-// enough to scan at a glance.
+// enough to scan at a glance. The screen shows one page and offers no way to ask
+// for another, so the returned page token is ignored.
 const searchLimit = 10
 
 // matchStyle highlights the matched terms inside a result row's snippet, the
@@ -54,7 +57,7 @@ func (m model) enterSearch() (tea.Model, tea.Cmd) {
 	m.searchQuery = ""
 	m.searchHits = nil
 	m.searchCursor = 0
-	m.manager.StageBlank()
+	m.stage.Blank()
 
 	return m, nil
 }
@@ -73,8 +76,8 @@ func (m model) searchCmd(query string) tea.Cmd {
 		defer cancel()
 
 		resp, err := sessions.SearchTranscripts(ctx, connect.NewRequest(&sessionv1.SearchTranscriptsRequest{
-			Query: query,
-			Limit: searchLimit,
+			Query:      query,
+			Pagination: &paginationv1.Pagination{Limit: proto.Int32(searchLimit)},
 		}))
 		if err != nil {
 			return searchResultsMsg{query: query}
@@ -105,7 +108,7 @@ func (m *model) applySearchResults(msg searchResultsMsg) tea.Cmd {
 	m.searchHits = msg.hits
 	m.searchCursor = clampCursor(m.searchCursor, len(m.searchHits))
 	if len(m.searchHits) == 0 {
-		m.manager.StageBlank()
+		m.stage.Blank()
 		return nil
 	}
 
@@ -146,7 +149,7 @@ func (m *model) applyTranscript(msg transcriptLoadedMsg) {
 		return
 	}
 
-	m.manager.StageTranscript(msg.content, firstMatchLine(msg.content, m.searchQuery))
+	m.stage.Transcript(msg.content, firstMatchLine(msg.content, m.searchQuery))
 }
 
 // firstMatchLine returns the 1-based line of the first case-insensitive
@@ -228,7 +231,7 @@ func (m model) openSearchHit() (tea.Model, tea.Cmd) {
 	m.screen = screenChats
 	m.reload()
 	m.chatCursor = clampCursor(rowIndexOfChatName(m.chatRows(), name), len(m.chatRows()))
-	m.manager.StageChat(pane)
+	m.stage.Chat(pane)
 
 	return m, nil
 }

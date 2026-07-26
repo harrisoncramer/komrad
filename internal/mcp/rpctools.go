@@ -122,13 +122,26 @@ func toolHints(method protoreflect.MethodDescriptor, annotation *annotationv1.To
 // field presence says: a blank title or flags is perfectly acceptable, and
 // demanding them would make a client send empty strings to satisfy a schema.
 func inputSchema(message protoreflect.MessageDescriptor) (map[string]any, error) {
+	return messageSchema(message, map[protoreflect.FullName]bool{})
+}
+
+// messageSchema describes one message as a JSON Schema object. enclosing holds
+// the messages already being described further up, so a message that contains
+// itself is refused rather than expanded until the schema runs out of memory.
+func messageSchema(message protoreflect.MessageDescriptor, enclosing map[protoreflect.FullName]bool) (map[string]any, error) {
+	if enclosing[message.FullName()] {
+		return nil, fmt.Errorf("message %q contains itself, which the tool schema cannot describe", message.FullName())
+	}
+	enclosing[message.FullName()] = true
+	defer delete(enclosing, message.FullName())
+
 	properties := map[string]any{}
 	var required []string
 
 	for i := range message.Fields().Len() {
 		field := message.Fields().Get(i)
 
-		property, err := fieldSchema(field)
+		property, err := fieldSchema(field, enclosing)
 		if err != nil {
 			return nil, err
 		}
@@ -177,15 +190,18 @@ func rejectsEmpty(field protoreflect.FieldDescriptor) bool {
 	return rules.GetString().GetMinLen() > 0
 }
 
-// fieldSchema maps one field to its JSON Schema type. The service's requests are
-// flat scalars today; anything else is refused loudly at startup rather than
-// advertised to a model as a type it cannot satisfy.
-func fieldSchema(field protoreflect.FieldDescriptor) (map[string]any, error) {
+// fieldSchema maps one field to its JSON Schema type. A message field becomes a
+// nested object, which is how a request carrying pagination is described.
+// Anything else is refused loudly at startup rather than advertised to a model
+// as a type it cannot satisfy.
+func fieldSchema(field protoreflect.FieldDescriptor, enclosing map[protoreflect.FullName]bool) (map[string]any, error) {
 	if field.IsList() || field.IsMap() {
 		return nil, fmt.Errorf("field %q is a list or map, which the tool schema does not describe yet", field.Name())
 	}
 
 	switch field.Kind() {
+	case protoreflect.MessageKind:
+		return messageSchema(field.Message(), enclosing)
 	case protoreflect.StringKind:
 		return map[string]any{"type": "string"}, nil
 	case protoreflect.BoolKind:

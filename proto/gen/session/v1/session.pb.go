@@ -9,6 +9,7 @@ package sessionv1
 import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	_ "claude-agents/proto/gen/annotation/v1"
+	v1 "claude-agents/proto/gen/pagination/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -144,16 +145,63 @@ func (x *Session) GetCreatedAt() string {
 	return ""
 }
 
-type ListSessionsResponse struct {
+type ListSessionsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Sessions      []*Session             `protobuf:"bytes,1,rep,name=sessions,proto3" json:"sessions,omitempty"`
+	Pagination    *v1.Pagination         `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSessionsRequest) Reset() {
+	*x = ListSessionsRequest{}
+	mi := &file_session_v1_session_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSessionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSessionsRequest) ProtoMessage() {}
+
+func (x *ListSessionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_session_v1_session_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSessionsRequest.ProtoReflect.Descriptor instead.
+func (*ListSessionsRequest) Descriptor() ([]byte, []int) {
+	return file_session_v1_session_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *ListSessionsRequest) GetPagination() *v1.Pagination {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
+type ListSessionsResponse struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Sessions []*Session             `protobuf:"bytes,1,rep,name=sessions,proto3" json:"sessions,omitempty"`
+	// The token that fetches the page after this one, unset once the listing is
+	// exhausted. A caller wanting every chat keeps calling until it is absent.
+	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListSessionsResponse) Reset() {
 	*x = ListSessionsResponse{}
-	mi := &file_session_v1_session_proto_msgTypes[1]
+	mi := &file_session_v1_session_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -165,7 +213,7 @@ func (x *ListSessionsResponse) String() string {
 func (*ListSessionsResponse) ProtoMessage() {}
 
 func (x *ListSessionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[1]
+	mi := &file_session_v1_session_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -178,7 +226,7 @@ func (x *ListSessionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSessionsResponse.ProtoReflect.Descriptor instead.
 func (*ListSessionsResponse) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{1}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ListSessionsResponse) GetSessions() []*Session {
@@ -186,6 +234,13 @@ func (x *ListSessionsResponse) GetSessions() []*Session {
 		return x.Sessions
 	}
 	return nil
+}
+
+func (x *ListSessionsResponse) GetNextPageToken() string {
+	if x != nil && x.NextPageToken != nil {
+		return *x.NextPageToken
+	}
+	return ""
 }
 
 // CreateSessionRequest launches a background agent. The prompt and directory
@@ -216,7 +271,7 @@ type CreateSessionRequest struct {
 
 func (x *CreateSessionRequest) Reset() {
 	*x = CreateSessionRequest{}
-	mi := &file_session_v1_session_proto_msgTypes[2]
+	mi := &file_session_v1_session_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -228,7 +283,7 @@ func (x *CreateSessionRequest) String() string {
 func (*CreateSessionRequest) ProtoMessage() {}
 
 func (x *CreateSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[2]
+	mi := &file_session_v1_session_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -241,7 +296,7 @@ func (x *CreateSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSessionRequest.ProtoReflect.Descriptor instead.
 func (*CreateSessionRequest) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{2}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *CreateSessionRequest) GetPrompt() string {
@@ -288,7 +343,7 @@ type CreateSessionResponse struct {
 
 func (x *CreateSessionResponse) Reset() {
 	*x = CreateSessionResponse{}
-	mi := &file_session_v1_session_proto_msgTypes[3]
+	mi := &file_session_v1_session_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -300,7 +355,7 @@ func (x *CreateSessionResponse) String() string {
 func (*CreateSessionResponse) ProtoMessage() {}
 
 func (x *CreateSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[3]
+	mi := &file_session_v1_session_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -313,7 +368,7 @@ func (x *CreateSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSessionResponse.ProtoReflect.Descriptor instead.
 func (*CreateSessionResponse) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{3}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *CreateSessionResponse) GetSession() *Session {
@@ -332,7 +387,7 @@ type GetSessionRequest struct {
 
 func (x *GetSessionRequest) Reset() {
 	*x = GetSessionRequest{}
-	mi := &file_session_v1_session_proto_msgTypes[4]
+	mi := &file_session_v1_session_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -344,7 +399,7 @@ func (x *GetSessionRequest) String() string {
 func (*GetSessionRequest) ProtoMessage() {}
 
 func (x *GetSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[4]
+	mi := &file_session_v1_session_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -357,7 +412,7 @@ func (x *GetSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSessionRequest.ProtoReflect.Descriptor instead.
 func (*GetSessionRequest) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{4}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetSessionRequest) GetName() string {
@@ -376,7 +431,7 @@ type GetSessionResponse struct {
 
 func (x *GetSessionResponse) Reset() {
 	*x = GetSessionResponse{}
-	mi := &file_session_v1_session_proto_msgTypes[5]
+	mi := &file_session_v1_session_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -388,7 +443,7 @@ func (x *GetSessionResponse) String() string {
 func (*GetSessionResponse) ProtoMessage() {}
 
 func (x *GetSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[5]
+	mi := &file_session_v1_session_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -401,7 +456,7 @@ func (x *GetSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSessionResponse.ProtoReflect.Descriptor instead.
 func (*GetSessionResponse) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{5}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetSessionResponse) GetSession() *Session {
@@ -424,7 +479,7 @@ type SetStateRequest struct {
 
 func (x *SetStateRequest) Reset() {
 	*x = SetStateRequest{}
-	mi := &file_session_v1_session_proto_msgTypes[6]
+	mi := &file_session_v1_session_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -436,7 +491,7 @@ func (x *SetStateRequest) String() string {
 func (*SetStateRequest) ProtoMessage() {}
 
 func (x *SetStateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[6]
+	mi := &file_session_v1_session_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -449,7 +504,7 @@ func (x *SetStateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetStateRequest.ProtoReflect.Descriptor instead.
 func (*SetStateRequest) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{6}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *SetStateRequest) GetName() string {
@@ -475,7 +530,7 @@ type DeleteSessionRequest struct {
 
 func (x *DeleteSessionRequest) Reset() {
 	*x = DeleteSessionRequest{}
-	mi := &file_session_v1_session_proto_msgTypes[7]
+	mi := &file_session_v1_session_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -487,7 +542,7 @@ func (x *DeleteSessionRequest) String() string {
 func (*DeleteSessionRequest) ProtoMessage() {}
 
 func (x *DeleteSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[7]
+	mi := &file_session_v1_session_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -500,7 +555,7 @@ func (x *DeleteSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSessionRequest.ProtoReflect.Descriptor instead.
 func (*DeleteSessionRequest) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{7}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *DeleteSessionRequest) GetName() string {
@@ -523,7 +578,7 @@ type UpdateSessionRequest struct {
 
 func (x *UpdateSessionRequest) Reset() {
 	*x = UpdateSessionRequest{}
-	mi := &file_session_v1_session_proto_msgTypes[8]
+	mi := &file_session_v1_session_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -535,7 +590,7 @@ func (x *UpdateSessionRequest) String() string {
 func (*UpdateSessionRequest) ProtoMessage() {}
 
 func (x *UpdateSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[8]
+	mi := &file_session_v1_session_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -548,7 +603,7 @@ func (x *UpdateSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSessionRequest.ProtoReflect.Descriptor instead.
 func (*UpdateSessionRequest) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{8}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *UpdateSessionRequest) GetId() string {
@@ -570,17 +625,15 @@ type SearchTranscriptsRequest struct {
 	// Three characters is the floor, not a stylistic minimum: the index uses a
 	// trigram tokenizer, so a shorter query can never match anything and would
 	// come back as a confident empty result.
-	Query string `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
-	// Cap on results returned. Zero lets the server pick a default. The ceiling
-	// keeps one query from pulling the whole corpus into a response.
-	Limit         int32 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	Query         string         `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	Pagination    *v1.Pagination `protobuf:"bytes,3,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SearchTranscriptsRequest) Reset() {
 	*x = SearchTranscriptsRequest{}
-	mi := &file_session_v1_session_proto_msgTypes[9]
+	mi := &file_session_v1_session_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -592,7 +645,7 @@ func (x *SearchTranscriptsRequest) String() string {
 func (*SearchTranscriptsRequest) ProtoMessage() {}
 
 func (x *SearchTranscriptsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[9]
+	mi := &file_session_v1_session_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -605,7 +658,7 @@ func (x *SearchTranscriptsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchTranscriptsRequest.ProtoReflect.Descriptor instead.
 func (*SearchTranscriptsRequest) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{9}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *SearchTranscriptsRequest) GetQuery() string {
@@ -615,11 +668,11 @@ func (x *SearchTranscriptsRequest) GetQuery() string {
 	return ""
 }
 
-func (x *SearchTranscriptsRequest) GetLimit() int32 {
+func (x *SearchTranscriptsRequest) GetPagination() *v1.Pagination {
 	if x != nil {
-		return x.Limit
+		return x.Pagination
 	}
-	return 0
+	return nil
 }
 
 // SearchHit is one transcript matched by a search: the session it belongs to,
@@ -639,7 +692,7 @@ type SearchHit struct {
 
 func (x *SearchHit) Reset() {
 	*x = SearchHit{}
-	mi := &file_session_v1_session_proto_msgTypes[10]
+	mi := &file_session_v1_session_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -651,7 +704,7 @@ func (x *SearchHit) String() string {
 func (*SearchHit) ProtoMessage() {}
 
 func (x *SearchHit) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[10]
+	mi := &file_session_v1_session_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -664,7 +717,7 @@ func (x *SearchHit) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchHit.ProtoReflect.Descriptor instead.
 func (*SearchHit) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{10}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *SearchHit) GetSessionId() string {
@@ -703,15 +756,19 @@ func (x *SearchHit) GetDeleted() bool {
 }
 
 type SearchTranscriptsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Hits          []*SearchHit           `protobuf:"bytes,1,rep,name=hits,proto3" json:"hits,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Hits  []*SearchHit           `protobuf:"bytes,1,rep,name=hits,proto3" json:"hits,omitempty"`
+	// The token that fetches the page after this one, unset once the matches are
+	// exhausted. It is tied to the query that produced it, so it is only ever sent
+	// back alongside that same query.
+	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SearchTranscriptsResponse) Reset() {
 	*x = SearchTranscriptsResponse{}
-	mi := &file_session_v1_session_proto_msgTypes[11]
+	mi := &file_session_v1_session_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -723,7 +780,7 @@ func (x *SearchTranscriptsResponse) String() string {
 func (*SearchTranscriptsResponse) ProtoMessage() {}
 
 func (x *SearchTranscriptsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[11]
+	mi := &file_session_v1_session_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -736,7 +793,7 @@ func (x *SearchTranscriptsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchTranscriptsResponse.ProtoReflect.Descriptor instead.
 func (*SearchTranscriptsResponse) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{11}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *SearchTranscriptsResponse) GetHits() []*SearchHit {
@@ -744,6 +801,13 @@ func (x *SearchTranscriptsResponse) GetHits() []*SearchHit {
 		return x.Hits
 	}
 	return nil
+}
+
+func (x *SearchTranscriptsResponse) GetNextPageToken() string {
+	if x != nil && x.NextPageToken != nil {
+		return *x.NextPageToken
+	}
+	return ""
 }
 
 type GetTranscriptRequest struct {
@@ -755,7 +819,7 @@ type GetTranscriptRequest struct {
 
 func (x *GetTranscriptRequest) Reset() {
 	*x = GetTranscriptRequest{}
-	mi := &file_session_v1_session_proto_msgTypes[12]
+	mi := &file_session_v1_session_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -767,7 +831,7 @@ func (x *GetTranscriptRequest) String() string {
 func (*GetTranscriptRequest) ProtoMessage() {}
 
 func (x *GetTranscriptRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[12]
+	mi := &file_session_v1_session_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -780,7 +844,7 @@ func (x *GetTranscriptRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTranscriptRequest.ProtoReflect.Descriptor instead.
 func (*GetTranscriptRequest) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{12}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetTranscriptRequest) GetSessionId() string {
@@ -800,7 +864,7 @@ type GetTranscriptResponse struct {
 
 func (x *GetTranscriptResponse) Reset() {
 	*x = GetTranscriptResponse{}
-	mi := &file_session_v1_session_proto_msgTypes[13]
+	mi := &file_session_v1_session_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -812,7 +876,7 @@ func (x *GetTranscriptResponse) String() string {
 func (*GetTranscriptResponse) ProtoMessage() {}
 
 func (x *GetTranscriptResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[13]
+	mi := &file_session_v1_session_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -825,7 +889,7 @@ func (x *GetTranscriptResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTranscriptResponse.ProtoReflect.Descriptor instead.
 func (*GetTranscriptResponse) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{13}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *GetTranscriptResponse) GetContent() string {
@@ -840,7 +904,7 @@ var File_session_v1_session_proto protoreflect.FileDescriptor
 const file_session_v1_session_proto_rawDesc = "" +
 	"\n" +
 	"\x18session/v1/session.proto\x12\n" +
-	"session.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\"\x9d\x02\n" +
+	"session.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\"\x9d\x02\n" +
 	"\aSession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -855,9 +919,16 @@ const file_session_v1_session_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\n" +
 	" \x01(\tR\tcreatedAtB\x0e\n" +
-	"\f_workflow_id\"G\n" +
+	"\f_workflow_id\"d\n" +
+	"\x13ListSessionsRequest\x12>\n" +
+	"\n" +
+	"pagination\x18\x01 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
+	"pagination\x88\x01\x01B\r\n" +
+	"\v_pagination\"\x88\x01\n" +
 	"\x14ListSessionsResponse\x12/\n" +
-	"\bsessions\x18\x01 \x03(\v2\x13.session.v1.SessionR\bsessions\"\x97\x04\n" +
+	"\bsessions\x18\x01 \x03(\v2\x13.session.v1.SessionR\bsessions\x12+\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
+	"\x10_next_page_token\"\x97\x04\n" +
 	"\x14CreateSessionRequest\x12#\n" +
 	"\x06prompt\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12\x7f\n" +
 	"\x05title\x18\x02 \x01(\tBi\xbaHf\xba\x01^\n" +
@@ -886,29 +957,33 @@ const file_session_v1_session_proto_rawDesc = "" +
 	"\x14UpdateSessionRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xfd\x01\n" +
 	"\x04name\x18\x02 \x01(\tB\xe8\x01\xbaH\xe4\x01\xba\x01\xd9\x01\n" +
-	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name\"^\n" +
+	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name\"\x98\x01\n" +
 	"\x18SearchTranscriptsRequest\x12 \n" +
 	"\x05query\x18\x01 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x03\x18\xf4\x03R\x05query\x12 \n" +
-	"\x05limit\x18\x02 \x01(\x05B\n" +
-	"\xbaH\a\x1a\x05\x18\xf4\x03(\x00R\x05limit\"\x86\x01\n" +
+	"\xbaH\ar\x05\x10\x03\x18\xf4\x03R\x05query\x12>\n" +
+	"\n" +
+	"pagination\x18\x03 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
+	"pagination\x88\x01\x01B\r\n" +
+	"\v_paginationJ\x04\b\x02\x10\x03R\x05limit\"\x86\x01\n" +
 	"\tSearchHit\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x18\n" +
 	"\asnippet\x18\x02 \x01(\tR\asnippet\x12\x12\n" +
 	"\x04rank\x18\x03 \x01(\x01R\x04rank\x12\x12\n" +
 	"\x04name\x18\x04 \x01(\tR\x04name\x12\x18\n" +
-	"\adeleted\x18\x05 \x01(\bR\adeleted\"F\n" +
+	"\adeleted\x18\x05 \x01(\bR\adeleted\"\x87\x01\n" +
 	"\x19SearchTranscriptsResponse\x12)\n" +
-	"\x04hits\x18\x01 \x03(\v2\x15.session.v1.SearchHitR\x04hits\">\n" +
+	"\x04hits\x18\x01 \x03(\v2\x15.session.v1.SearchHitR\x04hits\x12+\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
+	"\x10_next_page_token\">\n" +
 	"\x14GetTranscriptRequest\x12&\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\tsessionId\"1\n" +
 	"\x15GetTranscriptResponse\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontent2\xc3\x14\n" +
-	"\x0eSessionService\x12\xf0\x02\n" +
-	"\fListSessions\x12\x16.google.protobuf.Empty\x1a .session.v1.ListSessionsResponse\"\xa5\x02\x9a\xb5\x18\x9d\x02\n" +
-	"\rlist_sessions\x12\x8b\x02List the chats the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow. Chats soft-deleted from the panel are excluded, though search_transcripts still returns them. Start here to find the id or name another tool needs.\x90\x02\x01\x12\xd4\x01\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent2\xd4\x16\n" +
+	"\x0eSessionService\x12\xf6\x03\n" +
+	"\fListSessions\x12\x1f.session.v1.ListSessionsRequest\x1a .session.v1.ListSessionsResponse\"\xa2\x03\x9a\xb5\x18\x9a\x03\n" +
+	"\rlist_sessions\x12\x88\x03List the chats the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow. Chats soft-deleted from the panel are excluded, though search_transcripts still returns them. Returns one page, most recently updated first; pass the response's nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs.\x90\x02\x01\x12\xd4\x01\n" +
 	"\n" +
 	"GetSession\x12\x1d.session.v1.GetSessionRequest\x1a\x1e.session.v1.GetSessionResponse\"\x86\x01\x9a\xb5\x18\x7f\n" +
 	"\vget_session\x12pFetch one chat by its exact name. Names are unique among live chats. Returns not_found if no chat has that name.\x90\x02\x01\x12\x90\x03\n" +
@@ -919,9 +994,9 @@ const file_session_v1_session_proto_rawDesc = "" +
 	"\rDeleteSession\x12 .session.v1.DeleteSessionRequest\x1a\x16.google.protobuf.Empty\"\xd8\x01\x9a\xb5\x18\xd0\x01\n" +
 	"\x0edelete_session\x12\xbb\x01Permanently remove a chat's record by name. This is a hard delete, not the panel's soft delete, and the transcript row goes with it. Prefer leaving chats alone unless asked to remove one. \x01\x90\x02\x02\x12\xdd\x02\n" +
 	"\rUpdateSession\x12 .session.v1.UpdateSessionRequest\x1a\x16.google.protobuf.Empty\"\x91\x02\x9a\xb5\x18\x89\x02\n" +
-	"\x0erename_session\x12\xf4\x01Rename a chat, keyed by its id rather than its current name. The name is a display label the store keys on; the running tmux window keeps whatever it was called at launch. It may not contain spaces, colons, dots, slashes, or control characters. \x00\x90\x02\x02\x12\x8c\x03\n" +
-	"\x11SearchTranscripts\x12$.session.v1.SearchTranscriptsRequest\x1a%.session.v1.SearchTranscriptsResponse\"\xa9\x02\x9a\xb5\x18\xa1\x02\n" +
-	"\x12search_transcripts\x12\x8a\x02Full-text search across every chat's conversation, including deleted ones, returning a ranked snippet per hit with the matched text marked. Substring matching, so partial words work. Use this to answer what was discussed; use query for the SQL view of the same data.\x90\x02\x01\x12\x8c\x02\n" +
+	"\x0erename_session\x12\xf4\x01Rename a chat, keyed by its id rather than its current name. The name is a display label the store keys on; the running tmux window keeps whatever it was called at launch. It may not contain spaces, colons, dots, slashes, or control characters. \x00\x90\x02\x02\x12\x97\x04\n" +
+	"\x11SearchTranscripts\x12$.session.v1.SearchTranscriptsRequest\x1a%.session.v1.SearchTranscriptsResponse\"\xb4\x03\x9a\xb5\x18\xac\x03\n" +
+	"\x12search_transcripts\x12\x95\x03Full-text search across every chat's conversation, including deleted ones, returning a ranked snippet per hit with the matched text marked. Substring matching, so partial words work. Returns one page, best match first; pass the response's nextPageToken back as pagination.cursor alongside the same query for the next one. Use this to answer what was discussed; use query for the SQL view of the same data.\x90\x02\x01\x12\x8c\x02\n" +
 	"\rGetTranscript\x12 .session.v1.GetTranscriptRequest\x1a!.session.v1.GetTranscriptResponse\"\xb5\x01\x9a\xb5\x18\xad\x01\n" +
 	"\x0eget_transcript\x12\x9a\x01Fetch one chat's full transcript by session id, not by name. Transcripts can be very large; prefer search_transcripts when looking for something specific.\x90\x02\x01B.Z,claude-agents/proto/gen/session/v1;sessionv1b\x06proto3"
 
@@ -937,50 +1012,54 @@ func file_session_v1_session_proto_rawDescGZIP() []byte {
 	return file_session_v1_session_proto_rawDescData
 }
 
-var file_session_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_session_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_session_v1_session_proto_goTypes = []any{
 	(*Session)(nil),                   // 0: session.v1.Session
-	(*ListSessionsResponse)(nil),      // 1: session.v1.ListSessionsResponse
-	(*CreateSessionRequest)(nil),      // 2: session.v1.CreateSessionRequest
-	(*CreateSessionResponse)(nil),     // 3: session.v1.CreateSessionResponse
-	(*GetSessionRequest)(nil),         // 4: session.v1.GetSessionRequest
-	(*GetSessionResponse)(nil),        // 5: session.v1.GetSessionResponse
-	(*SetStateRequest)(nil),           // 6: session.v1.SetStateRequest
-	(*DeleteSessionRequest)(nil),      // 7: session.v1.DeleteSessionRequest
-	(*UpdateSessionRequest)(nil),      // 8: session.v1.UpdateSessionRequest
-	(*SearchTranscriptsRequest)(nil),  // 9: session.v1.SearchTranscriptsRequest
-	(*SearchHit)(nil),                 // 10: session.v1.SearchHit
-	(*SearchTranscriptsResponse)(nil), // 11: session.v1.SearchTranscriptsResponse
-	(*GetTranscriptRequest)(nil),      // 12: session.v1.GetTranscriptRequest
-	(*GetTranscriptResponse)(nil),     // 13: session.v1.GetTranscriptResponse
-	(*emptypb.Empty)(nil),             // 14: google.protobuf.Empty
+	(*ListSessionsRequest)(nil),       // 1: session.v1.ListSessionsRequest
+	(*ListSessionsResponse)(nil),      // 2: session.v1.ListSessionsResponse
+	(*CreateSessionRequest)(nil),      // 3: session.v1.CreateSessionRequest
+	(*CreateSessionResponse)(nil),     // 4: session.v1.CreateSessionResponse
+	(*GetSessionRequest)(nil),         // 5: session.v1.GetSessionRequest
+	(*GetSessionResponse)(nil),        // 6: session.v1.GetSessionResponse
+	(*SetStateRequest)(nil),           // 7: session.v1.SetStateRequest
+	(*DeleteSessionRequest)(nil),      // 8: session.v1.DeleteSessionRequest
+	(*UpdateSessionRequest)(nil),      // 9: session.v1.UpdateSessionRequest
+	(*SearchTranscriptsRequest)(nil),  // 10: session.v1.SearchTranscriptsRequest
+	(*SearchHit)(nil),                 // 11: session.v1.SearchHit
+	(*SearchTranscriptsResponse)(nil), // 12: session.v1.SearchTranscriptsResponse
+	(*GetTranscriptRequest)(nil),      // 13: session.v1.GetTranscriptRequest
+	(*GetTranscriptResponse)(nil),     // 14: session.v1.GetTranscriptResponse
+	(*v1.Pagination)(nil),             // 15: pagination.v1.Pagination
+	(*emptypb.Empty)(nil),             // 16: google.protobuf.Empty
 }
 var file_session_v1_session_proto_depIdxs = []int32{
-	0,  // 0: session.v1.ListSessionsResponse.sessions:type_name -> session.v1.Session
-	0,  // 1: session.v1.CreateSessionResponse.session:type_name -> session.v1.Session
-	0,  // 2: session.v1.GetSessionResponse.session:type_name -> session.v1.Session
-	10, // 3: session.v1.SearchTranscriptsResponse.hits:type_name -> session.v1.SearchHit
-	14, // 4: session.v1.SessionService.ListSessions:input_type -> google.protobuf.Empty
-	4,  // 5: session.v1.SessionService.GetSession:input_type -> session.v1.GetSessionRequest
-	2,  // 6: session.v1.SessionService.CreateSession:input_type -> session.v1.CreateSessionRequest
-	6,  // 7: session.v1.SessionService.SetState:input_type -> session.v1.SetStateRequest
-	7,  // 8: session.v1.SessionService.DeleteSession:input_type -> session.v1.DeleteSessionRequest
-	8,  // 9: session.v1.SessionService.UpdateSession:input_type -> session.v1.UpdateSessionRequest
-	9,  // 10: session.v1.SessionService.SearchTranscripts:input_type -> session.v1.SearchTranscriptsRequest
-	12, // 11: session.v1.SessionService.GetTranscript:input_type -> session.v1.GetTranscriptRequest
-	1,  // 12: session.v1.SessionService.ListSessions:output_type -> session.v1.ListSessionsResponse
-	5,  // 13: session.v1.SessionService.GetSession:output_type -> session.v1.GetSessionResponse
-	3,  // 14: session.v1.SessionService.CreateSession:output_type -> session.v1.CreateSessionResponse
-	14, // 15: session.v1.SessionService.SetState:output_type -> google.protobuf.Empty
-	14, // 16: session.v1.SessionService.DeleteSession:output_type -> google.protobuf.Empty
-	14, // 17: session.v1.SessionService.UpdateSession:output_type -> google.protobuf.Empty
-	11, // 18: session.v1.SessionService.SearchTranscripts:output_type -> session.v1.SearchTranscriptsResponse
-	13, // 19: session.v1.SessionService.GetTranscript:output_type -> session.v1.GetTranscriptResponse
-	12, // [12:20] is the sub-list for method output_type
-	4,  // [4:12] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	15, // 0: session.v1.ListSessionsRequest.pagination:type_name -> pagination.v1.Pagination
+	0,  // 1: session.v1.ListSessionsResponse.sessions:type_name -> session.v1.Session
+	0,  // 2: session.v1.CreateSessionResponse.session:type_name -> session.v1.Session
+	0,  // 3: session.v1.GetSessionResponse.session:type_name -> session.v1.Session
+	15, // 4: session.v1.SearchTranscriptsRequest.pagination:type_name -> pagination.v1.Pagination
+	11, // 5: session.v1.SearchTranscriptsResponse.hits:type_name -> session.v1.SearchHit
+	1,  // 6: session.v1.SessionService.ListSessions:input_type -> session.v1.ListSessionsRequest
+	5,  // 7: session.v1.SessionService.GetSession:input_type -> session.v1.GetSessionRequest
+	3,  // 8: session.v1.SessionService.CreateSession:input_type -> session.v1.CreateSessionRequest
+	7,  // 9: session.v1.SessionService.SetState:input_type -> session.v1.SetStateRequest
+	8,  // 10: session.v1.SessionService.DeleteSession:input_type -> session.v1.DeleteSessionRequest
+	9,  // 11: session.v1.SessionService.UpdateSession:input_type -> session.v1.UpdateSessionRequest
+	10, // 12: session.v1.SessionService.SearchTranscripts:input_type -> session.v1.SearchTranscriptsRequest
+	13, // 13: session.v1.SessionService.GetTranscript:input_type -> session.v1.GetTranscriptRequest
+	2,  // 14: session.v1.SessionService.ListSessions:output_type -> session.v1.ListSessionsResponse
+	6,  // 15: session.v1.SessionService.GetSession:output_type -> session.v1.GetSessionResponse
+	4,  // 16: session.v1.SessionService.CreateSession:output_type -> session.v1.CreateSessionResponse
+	16, // 17: session.v1.SessionService.SetState:output_type -> google.protobuf.Empty
+	16, // 18: session.v1.SessionService.DeleteSession:output_type -> google.protobuf.Empty
+	16, // 19: session.v1.SessionService.UpdateSession:output_type -> google.protobuf.Empty
+	12, // 20: session.v1.SessionService.SearchTranscripts:output_type -> session.v1.SearchTranscriptsResponse
+	14, // 21: session.v1.SessionService.GetTranscript:output_type -> session.v1.GetTranscriptResponse
+	14, // [14:22] is the sub-list for method output_type
+	6,  // [6:14] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_session_v1_session_proto_init() }
@@ -989,14 +1068,18 @@ func file_session_v1_session_proto_init() {
 		return
 	}
 	file_session_v1_session_proto_msgTypes[0].OneofWrappers = []any{}
+	file_session_v1_session_proto_msgTypes[1].OneofWrappers = []any{}
 	file_session_v1_session_proto_msgTypes[2].OneofWrappers = []any{}
+	file_session_v1_session_proto_msgTypes[3].OneofWrappers = []any{}
+	file_session_v1_session_proto_msgTypes[10].OneofWrappers = []any{}
+	file_session_v1_session_proto_msgTypes[12].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_session_v1_session_proto_rawDesc), len(file_session_v1_session_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   14,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

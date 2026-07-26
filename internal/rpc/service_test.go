@@ -13,7 +13,6 @@ import (
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // fakeLauncher records the launch a request asked for and hands back a stored
@@ -115,7 +114,7 @@ func TestListAndGetSession(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, st.Upsert(ctx, store.Agent{Name: "alpha", Cwd: "/tmp", State: store.StateThinking}))
 
-	list, err := svc.ListSessions(ctx, connect.NewRequest(&emptypb.Empty{}))
+	list, err := svc.ListSessions(ctx, connect.NewRequest(&sessionv1.ListSessionsRequest{}))
 	require.NoError(t, err)
 	require.Len(t, list.Msg.GetSessions(), 1)
 	assert.Equal(t, "alpha", list.Msg.GetSessions()[0].GetName())

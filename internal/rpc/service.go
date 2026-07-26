@@ -5,10 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"claude-agents/internal/agents"
 	"claude-agents/internal/store"
+	"claude-agents/lib/pagination"
 	sessionv1 "claude-agents/proto/gen/session/v1"
 
 	"connectrpc.com/connect"
@@ -55,19 +55,34 @@ func (s *SessionService) CreateSession(_ context.Context, req *connect.Request[s
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create session: %w", err))
 	}
 
-	return connect.NewResponse(&sessionv1.CreateSessionResponse{Session: toProto(*created)}), nil
+	return connect.NewResponse(&sessionv1.CreateSessionResponse{Session: renderSession(*created).Session}), nil
 }
 
-// ListSessions returns every stored agent.
-func (s *SessionService) ListSessions(ctx context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[sessionv1.ListSessionsResponse], error) {
-	agents, err := s.store.List(ctx)
+// ListSessions returns one page of stored agents, most recently updated first.
+func (s *SessionService) ListSessions(ctx context.Context, req *connect.Request[sessionv1.ListSessionsRequest]) (*connect.Response[sessionv1.ListSessionsResponse], error) {
+	paginator, err := pagination.New[store.SessionCursor, session](req.Msg.GetPagination())
+	if err != nil {
+		return nil, err
+	}
+
+	agents, err := s.store.ListPage(ctx, paginator.Limit(), paginator.Cursor())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list sessions: %w", err))
 	}
 
-	response := &sessionv1.ListSessionsResponse{}
+	resources := make([]session, 0, len(agents))
 	for _, agent := range agents {
-		response.Sessions = append(response.Sessions, toProto(agent))
+		resources = append(resources, renderSession(agent))
+	}
+
+	next, err := paginator.NextToken(resources)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to build the next page token: %w", err))
+	}
+
+	response := &sessionv1.ListSessionsResponse{NextPageToken: next}
+	for _, resource := range resources {
+		response.Sessions = append(response.Sessions, resource.Session)
 	}
 
 	return connect.NewResponse(response), nil
@@ -83,7 +98,7 @@ func (s *SessionService) GetSession(ctx context.Context, req *connect.Request[se
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("session %q not found", req.Msg.GetName()))
 	}
 
-	return connect.NewResponse(&sessionv1.GetSessionResponse{Session: toProto(*agent)}), nil
+	return connect.NewResponse(&sessionv1.GetSessionResponse{Session: renderSession(*agent).Session}), nil
 }
 
 // SetState updates an agent's state. Naming a chat that does not exist is an
@@ -135,22 +150,37 @@ func (s *SessionService) UpdateSession(ctx context.Context, req *connect.Request
 }
 
 // SearchTranscripts runs a full-text search over stored transcripts and returns
-// the matching sessions with a marked snippet, best match first.
+// one page of matching sessions with a marked snippet, best match first. The
+// page token encodes a position in this query's ranking, so replaying it against
+// a different query resumes from a rank that means nothing there.
 func (s *SessionService) SearchTranscripts(ctx context.Context, req *connect.Request[sessionv1.SearchTranscriptsRequest]) (*connect.Response[sessionv1.SearchTranscriptsResponse], error) {
-	hits, err := s.store.SearchTranscripts(ctx, req.Msg.GetQuery(), int(req.Msg.GetLimit()))
+	paginator, err := pagination.New[store.TranscriptCursor, searchHit](req.Msg.GetPagination())
+	if err != nil {
+		return nil, err
+	}
+
+	hits, err := s.store.SearchTranscripts(ctx, store.SearchTranscriptsParams{
+		Query:  req.Msg.GetQuery(),
+		Limit:  paginator.Limit(),
+		Cursor: paginator.Cursor(),
+	})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to search transcripts: %w", err))
 	}
 
-	response := &sessionv1.SearchTranscriptsResponse{}
+	resources := make([]searchHit, 0, len(hits))
 	for _, hit := range hits {
-		response.Hits = append(response.Hits, &sessionv1.SearchHit{
-			SessionId: hit.SessionID,
-			Name:      hit.Name,
-			Deleted:   hit.Deleted,
-			Snippet:   hit.Snippet,
-			Rank:      hit.Rank,
-		})
+		resources = append(resources, renderSearchHit(hit))
+	}
+
+	next, err := paginator.NextToken(resources)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to build the next page token: %w", err))
+	}
+
+	response := &sessionv1.SearchTranscriptsResponse{NextPageToken: next}
+	for _, resource := range resources {
+		response.Hits = append(response.Hits, resource.SearchHit)
 	}
 
 	return connect.NewResponse(response), nil
@@ -176,24 +206,4 @@ func (s *SessionService) GetTranscript(ctx context.Context, req *connect.Request
 	}
 
 	return connect.NewResponse(&sessionv1.GetTranscriptResponse{Content: tr.Content}), nil
-}
-
-func toProto(agent store.Agent) *sessionv1.Session {
-	created := ""
-	if !agent.CreatedAt.IsZero() {
-		created = agent.CreatedAt.Format(time.RFC3339)
-	}
-
-	return &sessionv1.Session{
-		Id:              agent.ID,
-		Name:            agent.Name,
-		Cwd:             agent.Cwd,
-		Flags:           agent.Flags,
-		Prompt:          agent.Prompt,
-		PaneId:          agent.Pane,
-		State:           agent.State,
-		ClaudeSessionId: agent.ClaudeSessionID,
-		WorkflowId:      agent.WorkflowID,
-		CreatedAt:       created,
-	}
 }

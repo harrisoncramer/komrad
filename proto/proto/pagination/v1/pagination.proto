@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package pagination.v1;
+
+import "buf/validate/validate.proto";
+
+option go_package = "claude-agents/proto/gen/pagination/v1;paginationv1";
+
+// Pagination is the request half of a keyset page. Every list call embeds this
+// same message rather than declaring its own limit and token fields, so paging
+// works identically whatever is being listed and adding it to a new list call is
+// one field. Both members are optional: a request carrying neither asks for the
+// first page at the server's default size.
+message Pagination {
+  // How many records to return. Unset or zero takes the server's default. A
+  // limit above the ceiling is clamped rather than refused, so a caller asking
+  // for more than the server will serve still gets a page back.
+  optional int32 limit = 1 [(buf.validate.field).int32.gte = 0];
+  // The opaque token a previous response returned as next_page_token. It encodes
+  // the position of the last record on that page, so it is handed back verbatim
+  // rather than built by the caller. An unset cursor starts at the first page.
+  optional string cursor = 2 [(buf.validate.field).string.max_len = 2048];
+}

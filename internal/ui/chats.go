@@ -1,4 +1,4 @@
-package panel
+package ui
 
 import (
 	"fmt"
@@ -191,6 +191,9 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if !ok {
 			return m, nil
 		}
+		// Killing a pane while it sits in the stage slot would take the stage down
+		// with it, so it is swapped back out first.
+		m.stage.Release(item.agent.Pane)
 		m.manager.Delete(item.agent)
 		m.reload()
 		m.chatCursor = clampCursor(m.chatCursor, len(m.chatRows()))
@@ -224,7 +227,7 @@ func (m model) openChat() (tea.Model, tea.Cmd) {
 	m.infoPinned = false
 	m.reload()
 	m.chatCursor = clampCursor(rowIndexOfChatName(m.chatRows(), item.agent.Name), len(m.chatRows()))
-	m.manager.StageChat(pane)
+	m.stage.Chat(pane)
 
 	return m, nil
 }
@@ -236,22 +239,22 @@ func (m model) openChat() (tea.Model, tea.Cmd) {
 func (m model) stageSelection() {
 	rows := m.chatRows()
 	if m.chatCursor < 0 || m.chatCursor >= len(rows) {
-		m.manager.StageBlank()
+		m.stage.Blank()
 		return
 	}
 
 	r := rows[m.chatCursor]
 	switch {
 	case r.header && r.workflowIndex >= 0:
-		m.manager.StageText(workflowMarkdown(m.workflows[r.workflowIndex], m.chatCount(m.workflows[r.workflowIndex].ID)))
+		m.stage.Text(workflowMarkdown(m.workflows[r.workflowIndex], m.chatCount(m.workflows[r.workflowIndex].ID)))
 	case r.header:
-		m.manager.StageBlank()
+		m.stage.Blank()
 	case m.infoPinned:
-		m.manager.StageText(chatMarkdown(r.item.agent, r.item.alive))
+		m.stage.Text(chatMarkdown(r.item.agent, r.item.alive))
 	case r.item.alive:
-		m.manager.StageChat(r.item.agent.Pane)
+		m.stage.Chat(r.item.agent.Pane)
 	default:
-		m.manager.StageText(chatMarkdown(r.item.agent, false))
+		m.stage.Text(chatMarkdown(r.item.agent, false))
 	}
 }
 

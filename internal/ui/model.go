@@ -1,5 +1,5 @@
 // Package panel is the bubbletea UI for browsing and acting on Claude agents.
-package panel
+package ui
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"claude-agents/internal/agents"
 	"claude-agents/internal/appconfig"
 	"claude-agents/internal/store"
+	paginationv1 "claude-agents/proto/gen/pagination/v1"
 	sessionv1 "claude-agents/proto/gen/session/v1"
 	"claude-agents/proto/gen/session/v1/sessionv1connect"
 
@@ -17,7 +18,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
-	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/proto"
 )
 
 // chatsInterval is how often the chats list re-lists over RPC. It runs off the
@@ -59,14 +60,42 @@ func (m model) loadChatsCmd() tea.Cmd {
 	}
 }
 
-// listSessions lists every chat through the service.
+// The panel shows the whole tree at once, so it walks the pages rather than
+// showing a first page. The page is large because a chat list this size is one
+// or two round trips, and the cap on pages is a stop for a token the server
+// somehow never retires, so a bug there cannot spin the list forever.
+const (
+	listPageSize = 200
+	listMaxPages = 50
+)
+
+// listSessions lists every chat through the service, following the page tokens
+// until the listing is exhausted.
 func listSessions(ctx context.Context, sessions sessionv1connect.SessionServiceClient) ([]*sessionv1.Session, error) {
-	resp, err := sessions.ListSessions(ctx, connect.NewRequest(&emptypb.Empty{}))
-	if err != nil {
-		return nil, fmt.Errorf("failed to list sessions: %w", err)
+	var (
+		all    []*sessionv1.Session
+		cursor string
+	)
+
+	for range listMaxPages {
+		page := &paginationv1.Pagination{Limit: proto.Int32(listPageSize)}
+		if cursor != "" {
+			page.Cursor = proto.String(cursor)
+		}
+
+		resp, err := sessions.ListSessions(ctx, connect.NewRequest(&sessionv1.ListSessionsRequest{Pagination: page}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to list sessions: %w", err)
+		}
+
+		all = append(all, resp.Msg.GetSessions()...)
+		cursor = resp.Msg.GetNextPageToken()
+		if cursor == "" {
+			return all, nil
+		}
 	}
 
-	return resp.Msg.GetSessions(), nil
+	return all, nil
 }
 
 // chatItemsFrom maps listed sessions to chat items, marking which panes are live.
@@ -84,8 +113,8 @@ func chatItemsFrom(sessions []*sessionv1.Session, manager *agents.AgentManager) 
 // session. Sessions are read through the ConnectRPC client. The panel is the nav
 // pane. The resource it hovers is shown in a sibling stage pane, and focus moves
 // between the two with the user's own tmux bindings.
-func Run(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, keys appconfig.Keybindings) error {
-	if _, err := tea.NewProgram(newModel(manager, sessions, keys), tea.WithAltScreen()).Run(); err != nil {
+func Run(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, stage *Stage, keys appconfig.Keybindings) error {
+	if _, err := tea.NewProgram(newModel(manager, sessions, stage, keys), tea.WithAltScreen()).Run(); err != nil {
 		return fmt.Errorf("failed to run panel: %w", err)
 	}
 
@@ -149,6 +178,9 @@ const (
 type model struct {
 	manager  *agents.AgentManager
 	sessions sessionv1connect.SessionServiceClient
+	// stage is the preview pane beside the list. It is the panel's own layout, so
+	// it drives tmux directly rather than going through the session API.
+	stage *Stage
 
 	screen screen
 
@@ -188,16 +220,17 @@ type model struct {
 	keys appconfig.Keybindings
 }
 
-func newModel(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, keys appconfig.Keybindings) model {
+func newModel(manager *agents.AgentManager, sessions sessionv1connect.SessionServiceClient, stage *Stage, keys appconfig.Keybindings) model {
 	m := model{
 		manager:  manager,
 		sessions: sessions,
+		stage:    stage,
 		keys:     keys,
 		screen:   screenChats,
 	}
 	// Split off the stage pane beside the panel, then show whatever the initial
 	// selection lands on.
-	m.manager.InitStage()
+	m.stage.Init()
 	m.reload()
 	m.chatCursor = firstChatRowIndex(m.chatRows())
 	m.stageSelection()

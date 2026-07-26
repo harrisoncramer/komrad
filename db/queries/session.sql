@@ -11,6 +11,25 @@ WHERE
 ORDER BY
     s.updated_at DESC;
 
+-- name: ListSessionsPage :many
+SELECT
+    s.*,
+    sc.cwd,
+    sc.flags
+FROM
+    sessions s
+    JOIN session_configs sc ON sc.id = s.session_config_id
+WHERE
+    s.is_deleted = 0
+    AND (sqlc.narg ('cursor_updated_at') IS NULL
+        OR s.updated_at < sqlc.narg ('cursor_updated_at')
+        OR (s.updated_at = sqlc.narg ('cursor_updated_at')
+            AND s.id < sqlc.narg ('cursor_id')))
+ORDER BY
+    s.updated_at DESC,
+    s.id DESC
+LIMIT @lim;
+
 -- name: ListAllSessions :many
 SELECT
     s.*,

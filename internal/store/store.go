@@ -47,6 +47,9 @@ type Agent struct {
 	Deleted    bool
 	// CreatedAt is when the chat was first recorded, for display.
 	CreatedAt time.Time
+	// UpdatedAt is when the row last changed. Listings sort by it, so it is also
+	// the key a page of agents resumes from.
+	UpdatedAt time.Time
 }
 
 // Workflow is a named bucket of related chats. It runs nothing. Its default cwd
@@ -92,10 +95,18 @@ func Open(path string) (*Store, error) {
 	// connections, and a pragma set through Exec lands on whichever single
 	// connection served it, leaving every other one with no timeout at all. That
 	// showed up as "database is locked" under ordinary concurrent use.
+	//
+	// The time settings are what make a time.Time parameter comparable to a stored
+	// timestamp. The driver's default is to bind a time as Go's own String form,
+	// "2026-07-26 21:33:30 +0000 UTC", while CURRENT_TIMESTAMP writes
+	// "2026-07-26 21:33:30", so the two never match and a keyset page over
+	// updated_at silently returns the wrong rows. datetime binds in the column's
+	// own format and UTC pins the zone the value is rendered in, so the comparison
+	// is against the same text SQLite wrote.
 	dsn := url.URL{
 		Scheme:   "file",
 		Path:     path,
-		RawQuery: "_pragma=busy_timeout(5000)",
+		RawQuery: "_pragma=busy_timeout(5000)&_time_format=datetime&_timezone=UTC",
 	}
 
 	conn, err := sql.Open("sqlite", dsn.String())
@@ -182,7 +193,42 @@ func (s *Store) List(ctx context.Context) ([]Agent, error) {
 
 	agents := make([]Agent, 0, len(rows))
 	for _, row := range rows {
-		agents = append(agents, agentFromRow(row.ID, row.Name, row.SessionConfigID, row.PaneID, row.Cwd, row.Flags, row.Prompt, row.State, row.ClaudeSessionID, row.WorkflowID, row.IsDeleted, row.CreatedAt))
+		agents = append(agents, agentFromRow(row.ID, row.Name, row.SessionConfigID, row.PaneID, row.Cwd, row.Flags, row.Prompt, row.State, row.ClaudeSessionID, row.WorkflowID, row.IsDeleted, row.CreatedAt, row.UpdatedAt))
+	}
+
+	return agents, nil
+}
+
+// SessionCursor locates an agent within a listing. Agents sort by update time,
+// which several rows can share down to the second the column stores, so the id
+// breaks the tie and makes the order total. Without it a page boundary landing
+// mid-tie would skip or repeat rows.
+type SessionCursor struct {
+	UpdatedAt time.Time `json:"u"`
+	ID        string    `json:"i"`
+}
+
+// ListPage returns one page of live agents, most recently updated first,
+// resuming after cursor when one is given. Update time is a moving key: a chat
+// the reconciler touches mid-scan sorts ahead of where the caller already is, so
+// it can be seen twice or missed. That is inherent to keying a page on the
+// column the listing sorts by, and the alternative, holding a snapshot open
+// across requests, costs more than the duplicate is worth here.
+func (s *Store) ListPage(ctx context.Context, limit int64, cursor *SessionCursor) ([]Agent, error) {
+	params := models.ListSessionsPageParams{Lim: limit}
+	if cursor != nil {
+		params.CursorUpdatedAt = cursor.UpdatedAt
+		params.CursorID = &cursor.ID
+	}
+
+	rows, err := s.queries.ListSessionsPage(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list a page of sessions: %w", err)
+	}
+
+	agents := make([]Agent, 0, len(rows))
+	for _, row := range rows {
+		agents = append(agents, agentFromRow(row.ID, row.Name, row.SessionConfigID, row.PaneID, row.Cwd, row.Flags, row.Prompt, row.State, row.ClaudeSessionID, row.WorkflowID, row.IsDeleted, row.CreatedAt, row.UpdatedAt))
 	}
 
 	return agents, nil
@@ -198,7 +244,7 @@ func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
 
 	agents := make([]Agent, 0, len(rows))
 	for _, row := range rows {
-		agents = append(agents, agentFromRow(row.ID, row.Name, row.SessionConfigID, row.PaneID, row.Cwd, row.Flags, row.Prompt, row.State, row.ClaudeSessionID, row.WorkflowID, row.IsDeleted, row.CreatedAt))
+		agents = append(agents, agentFromRow(row.ID, row.Name, row.SessionConfigID, row.PaneID, row.Cwd, row.Flags, row.Prompt, row.State, row.ClaudeSessionID, row.WorkflowID, row.IsDeleted, row.CreatedAt, row.UpdatedAt))
 	}
 
 	return agents, nil
@@ -331,7 +377,7 @@ func (s *Store) Get(ctx context.Context, name string) (*Agent, error) {
 		return nil, fmt.Errorf("failed to get session %q: %w", name, err)
 	}
 
-	agent := agentFromRow(row.ID, row.Name, row.SessionConfigID, row.PaneID, row.Cwd, row.Flags, row.Prompt, row.State, row.ClaudeSessionID, row.WorkflowID, row.IsDeleted, row.CreatedAt)
+	agent := agentFromRow(row.ID, row.Name, row.SessionConfigID, row.PaneID, row.Cwd, row.Flags, row.Prompt, row.State, row.ClaudeSessionID, row.WorkflowID, row.IsDeleted, row.CreatedAt, row.UpdatedAt)
 	return &agent, nil
 }
 
@@ -712,6 +758,10 @@ const (
 	SnippetClose = "\x03"
 )
 
+// defaultSearchLimit bounds a search that asks for no limit of its own, so a
+// direct store caller never pulls the whole corpus by omission.
+const defaultSearchLimit = 50
+
 // GetTranscript returns a session's stored transcript, or a zero Transcript when
 // none has been synced yet. No-rows is the zero case, so a first sync sees an
 // offset of 0 and indexes the whole file. Every other error is surfaced.
@@ -774,33 +824,99 @@ func (s *Store) UpsertTranscript(ctx context.Context, sessionID, content string,
 	return nil
 }
 
-// SearchTranscripts returns the transcripts matching query, best match first.
-// The query is passed to FTS5 as a single quoted string so its contents are
-// treated as a literal phrase rather than FTS operator syntax. With the trigram
-// tokenizer that yields a substring match. A blank query returns no hits rather
-// than every transcript.
-func (s *Store) SearchTranscripts(ctx context.Context, query string, limit int) ([]SearchHit, error) {
-	if strings.TrimSpace(query) == "" {
+// searchTranscripts is the one query that cannot live in db/queries. sqlc's
+// SQLite parser rejects MATCH outright and reads rank as a keyword, so an fts5
+// search will not generate, which is the same reason the index itself is created
+// outside the migrations. It is written the way a generated query would be: one
+// fixed statement, every value a placeholder, assembled once here rather than
+// per call.
+//
+// The match and its score are computed in a CTE so the page can filter on the
+// rank. bm25 is an auxiliary function over the FTS table, which SQLite will not
+// accept in a WHERE clause, and the alias it is given is not visible there
+// either, so the score has to be materialised before it can be compared. The
+// bm25 and snippet functions take the FTS table by name, so it is referenced
+// unaliased while sessions is aliased.
+//
+// The join carries the chat's name and deleted flag onto each hit so a result
+// row is self-describing. It is an inner join, so a transcript with no session
+// row is dropped rather than shown nameless. A null cursor means the first page,
+// which is why the cursor rank is compared to null before it is compared to a
+// row.
+var searchTranscripts = fmt.Sprintf(`
+SELECT
+    hits.session_id,
+    s.name,
+    s.is_deleted,
+    hits.snippet,
+    hits.rank
+FROM (
+    SELECT
+        session_id,
+        snippet(%[1]s, 0, ?, ?, '…', 20) AS snippet,
+        bm25(%[1]s) AS rank
+    FROM
+        %[1]s
+    WHERE
+        %[1]s MATCH ?) hits
+    JOIN sessions s ON s.id = hits.session_id
+WHERE (? IS NULL
+    OR hits.rank > ?
+    OR (hits.rank = ?
+        AND hits.session_id > ?))
+ORDER BY
+    hits.rank,
+    hits.session_id
+LIMIT ?`, transcriptFTS)
+
+// TranscriptCursor locates a hit within one query's results. Hits sort by bm25
+// relevance, which two transcripts can score identically, so the session id
+// breaks the tie. The rank is only meaningful for the query that produced it, so
+// a cursor is only ever replayed against that same query.
+type TranscriptCursor struct {
+	Rank      float64 `json:"r"`
+	SessionID string  `json:"i"`
+}
+
+// SearchTranscriptsParams is one page of a transcript search: the text to match,
+// how many hits to return, and where in the previous page to resume.
+type SearchTranscriptsParams struct {
+	Query  string
+	Limit  int64
+	Cursor *TranscriptCursor
+}
+
+// SearchTranscripts returns one page of the transcripts matching the query, best
+// match first, resuming after the cursor when one is given. The query is passed
+// to FTS5 as a single quoted string so its contents are treated as a literal
+// phrase rather than FTS operator syntax. With the trigram tokenizer that yields
+// a substring match. A blank query returns no hits rather than every transcript.
+func (s *Store) SearchTranscripts(ctx context.Context, params SearchTranscriptsParams) ([]SearchHit, error) {
+	if strings.TrimSpace(params.Query) == "" {
 		return nil, nil
 	}
+
+	limit := params.Limit
 	if limit <= 0 {
-		limit = 50
+		limit = defaultSearchLimit
 	}
 
-	// The join carries the chat's name and deleted flag onto each hit so a result
-	// row is self-describing. It is an inner join, so a transcript with no session
-	// row is dropped rather than shown nameless. The bm25 and snippet auxiliary
-	// functions take the FTS table by name, so it is referenced unaliased while
-	// sessions is aliased.
-	stmt := fmt.Sprintf(
-		"SELECT %[1]s.session_id, s.name, s.is_deleted, snippet(%[1]s, 0, ?, ?, '…', 20), bm25(%[1]s) AS rank "+
-			"FROM %[1]s JOIN sessions s ON s.id = %[1]s.session_id "+
-			"WHERE %[1]s MATCH ? ORDER BY rank LIMIT ?",
-		transcriptFTS,
+	var (
+		cursorRank      *float64
+		cursorSessionID *string
 	)
-	rows, err := s.conn.QueryContext(ctx, stmt, SnippetOpen, SnippetClose, ftsPhrase(query), limit)
+	if params.Cursor != nil {
+		cursorRank = &params.Cursor.Rank
+		cursorSessionID = &params.Cursor.SessionID
+	}
+
+	rows, err := s.conn.QueryContext(ctx, searchTranscripts,
+		SnippetOpen, SnippetClose, ftsPhrase(params.Query),
+		cursorRank, cursorRank, cursorRank, cursorSessionID,
+		limit,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to search transcripts for %q: %w", query, err)
+		return nil, fmt.Errorf("failed to search transcripts for %q: %w", params.Query, err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -839,7 +955,7 @@ func ftsPhrase(query string) string {
 // agentFromRow builds an Agent from the columns every session read returns.
 // The joined reads produce distinct sqlc row types with identical fields, so
 // the caller passes the fields explicitly rather than one row type.
-func agentFromRow(id, name, sessionConfigID, pane, cwd, flags, prompt, state, claudeSessionID string, workflowID *string, isDeleted int64, createdAt time.Time) Agent {
+func agentFromRow(id, name, sessionConfigID, pane, cwd, flags, prompt, state, claudeSessionID string, workflowID *string, isDeleted int64, createdAt, updatedAt time.Time) Agent {
 	return Agent{
 		ID:              id,
 		Name:            name,
@@ -853,6 +969,7 @@ func agentFromRow(id, name, sessionConfigID, pane, cwd, flags, prompt, state, cl
 		WorkflowID:      workflowID,
 		Deleted:         isDeleted != 0,
 		CreatedAt:       createdAt,
+		UpdatedAt:       updatedAt,
 	}
 }
 

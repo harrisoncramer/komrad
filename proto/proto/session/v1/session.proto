@@ -5,6 +5,7 @@ package session.v1;
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
+import "pagination/v1/pagination.proto";
 
 option go_package = "claude-agents/proto/gen/session/v1;sessionv1";
 
@@ -25,8 +26,15 @@ message Session {
   string created_at = 10;
 }
 
+message ListSessionsRequest {
+  optional pagination.v1.Pagination pagination = 1;
+}
+
 message ListSessionsResponse {
   repeated Session sessions = 1;
+  // The token that fetches the page after this one, unset once the listing is
+  // exhausted. A caller wanting every chat keeps calling until it is absent.
+  optional string next_page_token = 2;
 }
 
 // CreateSessionRequest launches a background agent. The prompt and directory
@@ -138,6 +146,10 @@ message UpdateSessionRequest {
 }
 
 message SearchTranscriptsRequest {
+  // Field 2 was a bare limit, replaced by the shared pagination message so a
+  // search pages the same way every other listing does.
+  reserved 2;
+  reserved "limit";
   // Three characters is the floor, not a stylistic minimum: the index uses a
   // trigram tokenizer, so a shorter query can never match anything and would
   // come back as a confident empty result.
@@ -145,12 +157,7 @@ message SearchTranscriptsRequest {
     min_len: 3,
     max_len: 500
   }];
-  // Cap on results returned. Zero lets the server pick a default. The ceiling
-  // keeps one query from pulling the whole corpus into a response.
-  int32 limit = 2 [(buf.validate.field).int32 = {
-    gte: 0,
-    lte: 500
-  }];
+  optional pagination.v1.Pagination pagination = 3;
 }
 
 // SearchHit is one transcript matched by a search: the session it belongs to,
@@ -167,6 +174,10 @@ message SearchHit {
 
 message SearchTranscriptsResponse {
   repeated SearchHit hits = 1;
+  // The token that fetches the page after this one, unset once the matches are
+  // exhausted. It is tied to the query that produced it, so it is only ever sent
+  // back alongside that same query.
+  optional string next_page_token = 2;
 }
 
 message GetTranscriptRequest {
@@ -183,11 +194,11 @@ message GetTranscriptResponse {
 // not reachable from a model at all.
 service SessionService {
   // Reads: no side effects, safe to cache and issue over GET.
-  rpc ListSessions(google.protobuf.Empty) returns (ListSessionsResponse) {
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "list_sessions"
-      description: "List the chats the panel tracks, live and dormant, with each one\'s name, state, working directory, flags, and workflow. Chats soft-deleted from the panel are excluded, though search_transcripts still returns them. Start here to find the id or name another tool needs."
+      description: "List the chats the panel tracks, live and dormant, with each one\'s name, state, working directory, flags, and workflow. Chats soft-deleted from the panel are excluded, though search_transcripts still returns them. Returns one page, most recently updated first; pass the response\'s nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs."
     };
   }
   rpc GetSession(GetSessionRequest) returns (GetSessionResponse) {
@@ -239,7 +250,7 @@ service SessionService {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "search_transcripts"
-      description: "Full-text search across every chat's conversation, including deleted ones, returning a ranked snippet per hit with the matched text marked. Substring matching, so partial words work. Use this to answer what was discussed; use query for the SQL view of the same data."
+      description: "Full-text search across every chat's conversation, including deleted ones, returning a ranked snippet per hit with the matched text marked. Substring matching, so partial words work. Returns one page, best match first; pass the response's nextPageToken back as pagination.cursor alongside the same query for the next one. Use this to answer what was discussed; use query for the SQL view of the same data."
     };
   }
   // GetTranscript returns a session's full stored transcript by id.

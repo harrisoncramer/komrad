@@ -305,6 +305,85 @@ func (q *Queries) ListSessions(ctx context.Context) ([]*ListSessionsRow, error) 
 	return items, nil
 }
 
+const listSessionsPage = `-- name: ListSessionsPage :many
+SELECT
+    s.id, s.name, s.session_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at,
+    sc.cwd,
+    sc.flags
+FROM
+    sessions s
+    JOIN session_configs sc ON sc.id = s.session_config_id
+WHERE
+    s.is_deleted = 0
+    AND (?1 IS NULL
+        OR s.updated_at < ?1
+        OR (s.updated_at = ?1
+            AND s.id < ?2))
+ORDER BY
+    s.updated_at DESC,
+    s.id DESC
+LIMIT ?3
+`
+
+type ListSessionsPageParams struct {
+	CursorUpdatedAt interface{}
+	CursorID        *string
+	Lim             int64
+}
+
+type ListSessionsPageRow struct {
+	ID              string
+	Name            string
+	SessionConfigID string
+	Prompt          string
+	PaneID          string
+	State           string
+	ClaudeSessionID string
+	WorkflowID      *string
+	IsDeleted       int64
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	Cwd             string
+	Flags           string
+}
+
+func (q *Queries) ListSessionsPage(ctx context.Context, arg ListSessionsPageParams) ([]*ListSessionsPageRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSessionsPage, arg.CursorUpdatedAt, arg.CursorID, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListSessionsPageRow
+	for rows.Next() {
+		var i ListSessionsPageRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.SessionConfigID,
+			&i.Prompt,
+			&i.PaneID,
+			&i.State,
+			&i.ClaudeSessionID,
+			&i.WorkflowID,
+			&i.IsDeleted,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Cwd,
+			&i.Flags,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markSessionDeleted = `-- name: MarkSessionDeleted :exec
 UPDATE
     sessions

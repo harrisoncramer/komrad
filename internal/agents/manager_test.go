@@ -20,55 +20,6 @@ func newManager(tmux *fakeTmux, st *store.Store, flags string) *AgentManager {
 	return NewAgentManager(Params{Tmux: tmux, Store: st, SelfPath: "self", ClaudeFlags: flags})
 }
 
-func TestStatus(t *testing.T) {
-	tests := []struct {
-		name         string
-		states       []string
-		wantEmpty    bool
-		wantContains []string
-	}{
-		{
-			name:      "no agents renders nothing",
-			states:    nil,
-			wantEmpty: true,
-		},
-		{
-			name:      "only new agents render nothing",
-			states:    []string{store.StateNew, store.StateNew},
-			wantEmpty: true,
-		},
-		{
-			name:         "done agents alone render a done segment",
-			states:       []string{store.StateDone},
-			wantContains: []string{"1 done"},
-		},
-		{
-			name:         "a mix renders every non-empty segment",
-			states:       []string{store.StateWaiting, store.StateThinking, store.StateThinking, store.StateDone, store.StateNew},
-			wantContains: []string{"1 waiting", "2 working", "1 done"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := newStore(t)
-			for i, state := range tt.states {
-				seed(t, st, string(rune('a'+i)), "%1", state)
-			}
-			manager := newManager(newFakeTmux(), st, "")
-
-			got := manager.Status()
-			if tt.wantEmpty {
-				assert.Empty(t, got)
-				return
-			}
-			for _, want := range tt.wantContains {
-				assert.Contains(t, got, want)
-			}
-		})
-	}
-}
-
 func TestUniqueSessionName(t *testing.T) {
 	tests := []struct {
 		name     string
