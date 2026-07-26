@@ -40,7 +40,11 @@ type Session struct {
 	// is unassigned, distinct from an empty id.
 	WorkflowId *string `protobuf:"bytes,9,opt,name=workflow_id,json=workflowId,proto3,oneof" json:"workflow_id,omitempty"`
 	// When the chat was first created, as an RFC 3339 timestamp, for display.
-	CreatedAt     string `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	CreatedAt string `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// Whether the chat's tmux pane is still running. It is observed at read time
+	// rather than stored, so a caller does not need tmux of its own to tell a live
+	// chat from a dormant one.
+	Alive         bool `protobuf:"varint,11,opt,name=alive,proto3" json:"alive,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -143,6 +147,13 @@ func (x *Session) GetCreatedAt() string {
 		return x.CreatedAt
 	}
 	return ""
+}
+
+func (x *Session) GetAlive() bool {
+	if x != nil {
+		return x.Alive
+	}
+	return false
 }
 
 type ListSessionsRequest struct {
@@ -521,6 +532,144 @@ func (x *SetStateRequest) GetState() string {
 	return ""
 }
 
+// ArchiveSessionRequest hides a chat without destroying it. This is what the
+// panel's delete key does: the agent is stopped and the chat drops out of the
+// listing, but its transcript stays searchable and it can be restored.
+type ArchiveSessionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ArchiveSessionRequest) Reset() {
+	*x = ArchiveSessionRequest{}
+	mi := &file_session_v1_session_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ArchiveSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ArchiveSessionRequest) ProtoMessage() {}
+
+func (x *ArchiveSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_session_v1_session_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ArchiveSessionRequest.ProtoReflect.Descriptor instead.
+func (*ArchiveSessionRequest) Descriptor() ([]byte, []int) {
+	return file_session_v1_session_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ArchiveSessionRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+// RestoreSessionRequest brings a chat back, keyed by id rather than name: an
+// archived chat's name may have been taken by a live one since, in which case
+// restoring renames it.
+type RestoreSessionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RestoreSessionRequest) Reset() {
+	*x = RestoreSessionRequest{}
+	mi := &file_session_v1_session_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RestoreSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RestoreSessionRequest) ProtoMessage() {}
+
+func (x *RestoreSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_session_v1_session_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RestoreSessionRequest.ProtoReflect.Descriptor instead.
+func (*RestoreSessionRequest) Descriptor() ([]byte, []int) {
+	return file_session_v1_session_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *RestoreSessionRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type RestoreSessionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Session       *Session               `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RestoreSessionResponse) Reset() {
+	*x = RestoreSessionResponse{}
+	mi := &file_session_v1_session_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RestoreSessionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RestoreSessionResponse) ProtoMessage() {}
+
+func (x *RestoreSessionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_session_v1_session_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RestoreSessionResponse.ProtoReflect.Descriptor instead.
+func (*RestoreSessionResponse) Descriptor() ([]byte, []int) {
+	return file_session_v1_session_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *RestoreSessionResponse) GetSession() *Session {
+	if x != nil {
+		return x.Session
+	}
+	return nil
+}
+
 type DeleteSessionRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -530,7 +679,7 @@ type DeleteSessionRequest struct {
 
 func (x *DeleteSessionRequest) Reset() {
 	*x = DeleteSessionRequest{}
-	mi := &file_session_v1_session_proto_msgTypes[8]
+	mi := &file_session_v1_session_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -542,7 +691,7 @@ func (x *DeleteSessionRequest) String() string {
 func (*DeleteSessionRequest) ProtoMessage() {}
 
 func (x *DeleteSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[8]
+	mi := &file_session_v1_session_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -555,7 +704,7 @@ func (x *DeleteSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSessionRequest.ProtoReflect.Descriptor instead.
 func (*DeleteSessionRequest) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{8}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *DeleteSessionRequest) GetName() string {
@@ -578,7 +727,7 @@ type UpdateSessionRequest struct {
 
 func (x *UpdateSessionRequest) Reset() {
 	*x = UpdateSessionRequest{}
-	mi := &file_session_v1_session_proto_msgTypes[9]
+	mi := &file_session_v1_session_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -590,7 +739,7 @@ func (x *UpdateSessionRequest) String() string {
 func (*UpdateSessionRequest) ProtoMessage() {}
 
 func (x *UpdateSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[9]
+	mi := &file_session_v1_session_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -603,7 +752,7 @@ func (x *UpdateSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSessionRequest.ProtoReflect.Descriptor instead.
 func (*UpdateSessionRequest) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{9}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *UpdateSessionRequest) GetId() string {
@@ -633,7 +782,7 @@ type SearchTranscriptsRequest struct {
 
 func (x *SearchTranscriptsRequest) Reset() {
 	*x = SearchTranscriptsRequest{}
-	mi := &file_session_v1_session_proto_msgTypes[10]
+	mi := &file_session_v1_session_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -645,7 +794,7 @@ func (x *SearchTranscriptsRequest) String() string {
 func (*SearchTranscriptsRequest) ProtoMessage() {}
 
 func (x *SearchTranscriptsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[10]
+	mi := &file_session_v1_session_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -658,7 +807,7 @@ func (x *SearchTranscriptsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchTranscriptsRequest.ProtoReflect.Descriptor instead.
 func (*SearchTranscriptsRequest) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{10}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *SearchTranscriptsRequest) GetQuery() string {
@@ -694,7 +843,7 @@ type SearchHit struct {
 
 func (x *SearchHit) Reset() {
 	*x = SearchHit{}
-	mi := &file_session_v1_session_proto_msgTypes[11]
+	mi := &file_session_v1_session_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -706,7 +855,7 @@ func (x *SearchHit) String() string {
 func (*SearchHit) ProtoMessage() {}
 
 func (x *SearchHit) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[11]
+	mi := &file_session_v1_session_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -719,7 +868,7 @@ func (x *SearchHit) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchHit.ProtoReflect.Descriptor instead.
 func (*SearchHit) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{11}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *SearchHit) GetSessionId() string {
@@ -770,7 +919,7 @@ type SearchTranscriptsResponse struct {
 
 func (x *SearchTranscriptsResponse) Reset() {
 	*x = SearchTranscriptsResponse{}
-	mi := &file_session_v1_session_proto_msgTypes[12]
+	mi := &file_session_v1_session_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -782,7 +931,7 @@ func (x *SearchTranscriptsResponse) String() string {
 func (*SearchTranscriptsResponse) ProtoMessage() {}
 
 func (x *SearchTranscriptsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[12]
+	mi := &file_session_v1_session_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -795,7 +944,7 @@ func (x *SearchTranscriptsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchTranscriptsResponse.ProtoReflect.Descriptor instead.
 func (*SearchTranscriptsResponse) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{12}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *SearchTranscriptsResponse) GetHits() []*SearchHit {
@@ -821,7 +970,7 @@ type GetTranscriptRequest struct {
 
 func (x *GetTranscriptRequest) Reset() {
 	*x = GetTranscriptRequest{}
-	mi := &file_session_v1_session_proto_msgTypes[13]
+	mi := &file_session_v1_session_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -833,7 +982,7 @@ func (x *GetTranscriptRequest) String() string {
 func (*GetTranscriptRequest) ProtoMessage() {}
 
 func (x *GetTranscriptRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[13]
+	mi := &file_session_v1_session_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -846,7 +995,7 @@ func (x *GetTranscriptRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTranscriptRequest.ProtoReflect.Descriptor instead.
 func (*GetTranscriptRequest) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{13}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetTranscriptRequest) GetSessionId() string {
@@ -866,7 +1015,7 @@ type GetTranscriptResponse struct {
 
 func (x *GetTranscriptResponse) Reset() {
 	*x = GetTranscriptResponse{}
-	mi := &file_session_v1_session_proto_msgTypes[14]
+	mi := &file_session_v1_session_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -878,7 +1027,7 @@ func (x *GetTranscriptResponse) String() string {
 func (*GetTranscriptResponse) ProtoMessage() {}
 
 func (x *GetTranscriptResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_session_v1_session_proto_msgTypes[14]
+	mi := &file_session_v1_session_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -891,7 +1040,7 @@ func (x *GetTranscriptResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTranscriptResponse.ProtoReflect.Descriptor instead.
 func (*GetTranscriptResponse) Descriptor() ([]byte, []int) {
-	return file_session_v1_session_proto_rawDescGZIP(), []int{14}
+	return file_session_v1_session_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GetTranscriptResponse) GetContent() string {
@@ -906,7 +1055,7 @@ var File_session_v1_session_proto protoreflect.FileDescriptor
 const file_session_v1_session_proto_rawDesc = "" +
 	"\n" +
 	"\x18session/v1/session.proto\x12\n" +
-	"session.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\"\x9d\x02\n" +
+	"session.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\"\xb3\x02\n" +
 	"\aSession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -920,7 +1069,8 @@ const file_session_v1_session_proto_rawDesc = "" +
 	"workflowId\x88\x01\x01\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\n" +
-	" \x01(\tR\tcreatedAtB\x0e\n" +
+	" \x01(\tR\tcreatedAt\x12\x14\n" +
+	"\x05alive\x18\v \x01(\bR\x05aliveB\x0e\n" +
 	"\f_workflow_id\"d\n" +
 	"\x13ListSessionsRequest\x12>\n" +
 	"\n" +
@@ -952,7 +1102,14 @@ const file_session_v1_session_proto_rawDesc = "" +
 	"\x0fSetStateRequest\x12\x1e\n" +
 	"\x04name\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x129\n" +
-	"\x05state\x18\x02 \x01(\tB#\xbaH r\x1eR\x03newR\bthinkingR\awaitingR\x04doneR\x05state\"6\n" +
+	"\x05state\x18\x02 \x01(\tB#\xbaH r\x1eR\x03newR\bthinkingR\awaitingR\x04doneR\x05state\"7\n" +
+	"\x15ArchiveSessionRequest\x12\x1e\n" +
+	"\x04name\x18\x01 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\"0\n" +
+	"\x15RestoreSessionRequest\x12\x17\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"G\n" +
+	"\x16RestoreSessionResponse\x12-\n" +
+	"\asession\x18\x01 \x01(\v2\x13.session.v1.SessionR\asession\"6\n" +
 	"\x14DeleteSessionRequest\x12\x1e\n" +
 	"\x04name\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\"\xaf\x02\n" +
@@ -982,7 +1139,7 @@ const file_session_v1_session_proto_rawDesc = "" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\tsessionId\"1\n" +
 	"\x15GetTranscriptResponse\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontent2\xd4\x16\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent2\xd7\x1c\n" +
 	"\x0eSessionService\x12\xf6\x03\n" +
 	"\fListSessions\x12\x1f.session.v1.ListSessionsRequest\x1a .session.v1.ListSessionsResponse\"\xa2\x03\x9a\xb5\x18\x9a\x03\n" +
 	"\rlist_sessions\x12\x88\x03List the chats the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow. Chats soft-deleted from the panel are excluded, though search_transcripts still returns them. Returns one page, most recently updated first; pass the response's nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs.\x90\x02\x01\x12\xd4\x01\n" +
@@ -992,7 +1149,11 @@ const file_session_v1_session_proto_rawDesc = "" +
 	"\rCreateSession\x12 .session.v1.CreateSessionRequest\x1a!.session.v1.CreateSessionResponse\"\xb9\x02\x9a\xb5\x18\xb4\x02\n" +
 	"\x0ecreate_session\x12\x9f\x02Launch a background Claude chat with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would resolve somewhere unpredictable. Each call spawns another chat, so do not retry a call that may have succeeded. \x00\x12\xae\x02\n" +
 	"\bSetState\x12\x1b.session.v1.SetStateRequest\x1a\x16.google.protobuf.Empty\"\xec\x01\x9a\xb5\x18\xe4\x01\n" +
-	"\x11set_session_state\x12\xcc\x01Move a chat to one of new, thinking, waiting, or done. The reconciler derives state from the live pane every couple of seconds, so a value set here is overwritten shortly after unless the chat is dormant. \x00\x90\x02\x02\x12\xa4\x02\n" +
+	"\x11set_session_state\x12\xcc\x01Move a chat to one of new, thinking, waiting, or done. The reconciler derives state from the live pane every couple of seconds, so a value set here is overwritten shortly after unless the chat is dormant. \x00\x90\x02\x02\x12\xdd\x02\n" +
+	"\x0eArchiveSession\x12!.session.v1.ArchiveSessionRequest\x1a\x16.google.protobuf.Empty\"\x8f\x02\x9a\xb5\x18\x87\x02\n" +
+	"\x0farchive_session\x12\xf1\x01Stop a chat and hide it from the panel, keeping its record and transcript. Prefer this to delete_session: it is reversible with restore_session, and search_transcripts still finds the conversation. Returns not_found if no chat has that name. \x00\x90\x02\x02\x12\xa0\x03\n" +
+	"\x0eRestoreSession\x12!.session.v1.RestoreSessionRequest\x1a\".session.v1.RestoreSessionResponse\"\xc6\x02\x9a\xb5\x18\xbe\x02\n" +
+	"\x0frestore_session\x12\xa8\x02Bring a chat back and relaunch claude on the same conversation, keyed by id. Works on archived chats and on ones whose pane has since died. A chat that is already running is returned as it stands rather than started twice. The chat may come back under a new name if another has taken its old one. \x00\x90\x02\x02\x12\xa4\x02\n" +
 	"\rDeleteSession\x12 .session.v1.DeleteSessionRequest\x1a\x16.google.protobuf.Empty\"\xd8\x01\x9a\xb5\x18\xd0\x01\n" +
 	"\x0edelete_session\x12\xbb\x01Permanently remove a chat's record by name. This is a hard delete, not the panel's soft delete, and the transcript row goes with it. Prefer leaving chats alone unless asked to remove one. \x01\x90\x02\x02\x12\xdd\x02\n" +
 	"\rUpdateSession\x12 .session.v1.UpdateSessionRequest\x1a\x16.google.protobuf.Empty\"\x91\x02\x9a\xb5\x18\x89\x02\n" +
@@ -1014,7 +1175,7 @@ func file_session_v1_session_proto_rawDescGZIP() []byte {
 	return file_session_v1_session_proto_rawDescData
 }
 
-var file_session_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_session_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_session_v1_session_proto_goTypes = []any{
 	(*Session)(nil),                   // 0: session.v1.Session
 	(*ListSessionsRequest)(nil),       // 1: session.v1.ListSessionsRequest
@@ -1024,44 +1185,52 @@ var file_session_v1_session_proto_goTypes = []any{
 	(*GetSessionRequest)(nil),         // 5: session.v1.GetSessionRequest
 	(*GetSessionResponse)(nil),        // 6: session.v1.GetSessionResponse
 	(*SetStateRequest)(nil),           // 7: session.v1.SetStateRequest
-	(*DeleteSessionRequest)(nil),      // 8: session.v1.DeleteSessionRequest
-	(*UpdateSessionRequest)(nil),      // 9: session.v1.UpdateSessionRequest
-	(*SearchTranscriptsRequest)(nil),  // 10: session.v1.SearchTranscriptsRequest
-	(*SearchHit)(nil),                 // 11: session.v1.SearchHit
-	(*SearchTranscriptsResponse)(nil), // 12: session.v1.SearchTranscriptsResponse
-	(*GetTranscriptRequest)(nil),      // 13: session.v1.GetTranscriptRequest
-	(*GetTranscriptResponse)(nil),     // 14: session.v1.GetTranscriptResponse
-	(*v1.Pagination)(nil),             // 15: pagination.v1.Pagination
-	(*emptypb.Empty)(nil),             // 16: google.protobuf.Empty
+	(*ArchiveSessionRequest)(nil),     // 8: session.v1.ArchiveSessionRequest
+	(*RestoreSessionRequest)(nil),     // 9: session.v1.RestoreSessionRequest
+	(*RestoreSessionResponse)(nil),    // 10: session.v1.RestoreSessionResponse
+	(*DeleteSessionRequest)(nil),      // 11: session.v1.DeleteSessionRequest
+	(*UpdateSessionRequest)(nil),      // 12: session.v1.UpdateSessionRequest
+	(*SearchTranscriptsRequest)(nil),  // 13: session.v1.SearchTranscriptsRequest
+	(*SearchHit)(nil),                 // 14: session.v1.SearchHit
+	(*SearchTranscriptsResponse)(nil), // 15: session.v1.SearchTranscriptsResponse
+	(*GetTranscriptRequest)(nil),      // 16: session.v1.GetTranscriptRequest
+	(*GetTranscriptResponse)(nil),     // 17: session.v1.GetTranscriptResponse
+	(*v1.Pagination)(nil),             // 18: pagination.v1.Pagination
+	(*emptypb.Empty)(nil),             // 19: google.protobuf.Empty
 }
 var file_session_v1_session_proto_depIdxs = []int32{
-	15, // 0: session.v1.ListSessionsRequest.pagination:type_name -> pagination.v1.Pagination
+	18, // 0: session.v1.ListSessionsRequest.pagination:type_name -> pagination.v1.Pagination
 	0,  // 1: session.v1.ListSessionsResponse.sessions:type_name -> session.v1.Session
 	0,  // 2: session.v1.CreateSessionResponse.session:type_name -> session.v1.Session
 	0,  // 3: session.v1.GetSessionResponse.session:type_name -> session.v1.Session
-	15, // 4: session.v1.SearchTranscriptsRequest.pagination:type_name -> pagination.v1.Pagination
-	11, // 5: session.v1.SearchTranscriptsResponse.hits:type_name -> session.v1.SearchHit
-	1,  // 6: session.v1.SessionService.ListSessions:input_type -> session.v1.ListSessionsRequest
-	5,  // 7: session.v1.SessionService.GetSession:input_type -> session.v1.GetSessionRequest
-	3,  // 8: session.v1.SessionService.CreateSession:input_type -> session.v1.CreateSessionRequest
-	7,  // 9: session.v1.SessionService.SetState:input_type -> session.v1.SetStateRequest
-	8,  // 10: session.v1.SessionService.DeleteSession:input_type -> session.v1.DeleteSessionRequest
-	9,  // 11: session.v1.SessionService.UpdateSession:input_type -> session.v1.UpdateSessionRequest
-	10, // 12: session.v1.SessionService.SearchTranscripts:input_type -> session.v1.SearchTranscriptsRequest
-	13, // 13: session.v1.SessionService.GetTranscript:input_type -> session.v1.GetTranscriptRequest
-	2,  // 14: session.v1.SessionService.ListSessions:output_type -> session.v1.ListSessionsResponse
-	6,  // 15: session.v1.SessionService.GetSession:output_type -> session.v1.GetSessionResponse
-	4,  // 16: session.v1.SessionService.CreateSession:output_type -> session.v1.CreateSessionResponse
-	16, // 17: session.v1.SessionService.SetState:output_type -> google.protobuf.Empty
-	16, // 18: session.v1.SessionService.DeleteSession:output_type -> google.protobuf.Empty
-	16, // 19: session.v1.SessionService.UpdateSession:output_type -> google.protobuf.Empty
-	12, // 20: session.v1.SessionService.SearchTranscripts:output_type -> session.v1.SearchTranscriptsResponse
-	14, // 21: session.v1.SessionService.GetTranscript:output_type -> session.v1.GetTranscriptResponse
-	14, // [14:22] is the sub-list for method output_type
-	6,  // [6:14] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	0,  // 4: session.v1.RestoreSessionResponse.session:type_name -> session.v1.Session
+	18, // 5: session.v1.SearchTranscriptsRequest.pagination:type_name -> pagination.v1.Pagination
+	14, // 6: session.v1.SearchTranscriptsResponse.hits:type_name -> session.v1.SearchHit
+	1,  // 7: session.v1.SessionService.ListSessions:input_type -> session.v1.ListSessionsRequest
+	5,  // 8: session.v1.SessionService.GetSession:input_type -> session.v1.GetSessionRequest
+	3,  // 9: session.v1.SessionService.CreateSession:input_type -> session.v1.CreateSessionRequest
+	7,  // 10: session.v1.SessionService.SetState:input_type -> session.v1.SetStateRequest
+	8,  // 11: session.v1.SessionService.ArchiveSession:input_type -> session.v1.ArchiveSessionRequest
+	9,  // 12: session.v1.SessionService.RestoreSession:input_type -> session.v1.RestoreSessionRequest
+	11, // 13: session.v1.SessionService.DeleteSession:input_type -> session.v1.DeleteSessionRequest
+	12, // 14: session.v1.SessionService.UpdateSession:input_type -> session.v1.UpdateSessionRequest
+	13, // 15: session.v1.SessionService.SearchTranscripts:input_type -> session.v1.SearchTranscriptsRequest
+	16, // 16: session.v1.SessionService.GetTranscript:input_type -> session.v1.GetTranscriptRequest
+	2,  // 17: session.v1.SessionService.ListSessions:output_type -> session.v1.ListSessionsResponse
+	6,  // 18: session.v1.SessionService.GetSession:output_type -> session.v1.GetSessionResponse
+	4,  // 19: session.v1.SessionService.CreateSession:output_type -> session.v1.CreateSessionResponse
+	19, // 20: session.v1.SessionService.SetState:output_type -> google.protobuf.Empty
+	19, // 21: session.v1.SessionService.ArchiveSession:output_type -> google.protobuf.Empty
+	10, // 22: session.v1.SessionService.RestoreSession:output_type -> session.v1.RestoreSessionResponse
+	19, // 23: session.v1.SessionService.DeleteSession:output_type -> google.protobuf.Empty
+	19, // 24: session.v1.SessionService.UpdateSession:output_type -> google.protobuf.Empty
+	15, // 25: session.v1.SessionService.SearchTranscripts:output_type -> session.v1.SearchTranscriptsResponse
+	17, // 26: session.v1.SessionService.GetTranscript:output_type -> session.v1.GetTranscriptResponse
+	17, // [17:27] is the sub-list for method output_type
+	7,  // [7:17] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_session_v1_session_proto_init() }
@@ -1073,15 +1242,15 @@ func file_session_v1_session_proto_init() {
 	file_session_v1_session_proto_msgTypes[1].OneofWrappers = []any{}
 	file_session_v1_session_proto_msgTypes[2].OneofWrappers = []any{}
 	file_session_v1_session_proto_msgTypes[3].OneofWrappers = []any{}
-	file_session_v1_session_proto_msgTypes[10].OneofWrappers = []any{}
-	file_session_v1_session_proto_msgTypes[12].OneofWrappers = []any{}
+	file_session_v1_session_proto_msgTypes[13].OneofWrappers = []any{}
+	file_session_v1_session_proto_msgTypes[15].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_session_v1_session_proto_rawDesc), len(file_session_v1_session_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   15,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

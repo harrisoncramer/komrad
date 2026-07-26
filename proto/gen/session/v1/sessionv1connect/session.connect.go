@@ -45,6 +45,12 @@ const (
 	SessionServiceCreateSessionProcedure = "/session.v1.SessionService/CreateSession"
 	// SessionServiceSetStateProcedure is the fully-qualified name of the SessionService's SetState RPC.
 	SessionServiceSetStateProcedure = "/session.v1.SessionService/SetState"
+	// SessionServiceArchiveSessionProcedure is the fully-qualified name of the SessionService's
+	// ArchiveSession RPC.
+	SessionServiceArchiveSessionProcedure = "/session.v1.SessionService/ArchiveSession"
+	// SessionServiceRestoreSessionProcedure is the fully-qualified name of the SessionService's
+	// RestoreSession RPC.
+	SessionServiceRestoreSessionProcedure = "/session.v1.SessionService/RestoreSession"
 	// SessionServiceDeleteSessionProcedure is the fully-qualified name of the SessionService's
 	// DeleteSession RPC.
 	SessionServiceDeleteSessionProcedure = "/session.v1.SessionService/DeleteSession"
@@ -71,6 +77,8 @@ type SessionServiceClient interface {
 	// Mutations key on the unique session name, so repeating them yields the same
 	// state. They are idempotent and safe for the client to retry.
 	SetState(context.Context, *connect.Request[v1.SetStateRequest]) (*connect.Response[emptypb.Empty], error)
+	ArchiveSession(context.Context, *connect.Request[v1.ArchiveSessionRequest]) (*connect.Response[emptypb.Empty], error)
+	RestoreSession(context.Context, *connect.Request[v1.RestoreSessionRequest]) (*connect.Response[v1.RestoreSessionResponse], error)
 	DeleteSession(context.Context, *connect.Request[v1.DeleteSessionRequest]) (*connect.Response[emptypb.Empty], error)
 	// UpdateSession patches a session by id (currently its title/name).
 	UpdateSession(context.Context, *connect.Request[v1.UpdateSessionRequest]) (*connect.Response[emptypb.Empty], error)
@@ -118,6 +126,20 @@ func NewSessionServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
+		archiveSession: connect.NewClient[v1.ArchiveSessionRequest, emptypb.Empty](
+			httpClient,
+			baseURL+SessionServiceArchiveSessionProcedure,
+			connect.WithSchema(sessionServiceMethods.ByName("ArchiveSession")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
+		restoreSession: connect.NewClient[v1.RestoreSessionRequest, v1.RestoreSessionResponse](
+			httpClient,
+			baseURL+SessionServiceRestoreSessionProcedure,
+			connect.WithSchema(sessionServiceMethods.ByName("RestoreSession")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
 		deleteSession: connect.NewClient[v1.DeleteSessionRequest, emptypb.Empty](
 			httpClient,
 			baseURL+SessionServiceDeleteSessionProcedure,
@@ -155,6 +177,8 @@ type sessionServiceClient struct {
 	getSession        *connect.Client[v1.GetSessionRequest, v1.GetSessionResponse]
 	createSession     *connect.Client[v1.CreateSessionRequest, v1.CreateSessionResponse]
 	setState          *connect.Client[v1.SetStateRequest, emptypb.Empty]
+	archiveSession    *connect.Client[v1.ArchiveSessionRequest, emptypb.Empty]
+	restoreSession    *connect.Client[v1.RestoreSessionRequest, v1.RestoreSessionResponse]
 	deleteSession     *connect.Client[v1.DeleteSessionRequest, emptypb.Empty]
 	updateSession     *connect.Client[v1.UpdateSessionRequest, emptypb.Empty]
 	searchTranscripts *connect.Client[v1.SearchTranscriptsRequest, v1.SearchTranscriptsResponse]
@@ -179,6 +203,16 @@ func (c *sessionServiceClient) CreateSession(ctx context.Context, req *connect.R
 // SetState calls session.v1.SessionService.SetState.
 func (c *sessionServiceClient) SetState(ctx context.Context, req *connect.Request[v1.SetStateRequest]) (*connect.Response[emptypb.Empty], error) {
 	return c.setState.CallUnary(ctx, req)
+}
+
+// ArchiveSession calls session.v1.SessionService.ArchiveSession.
+func (c *sessionServiceClient) ArchiveSession(ctx context.Context, req *connect.Request[v1.ArchiveSessionRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.archiveSession.CallUnary(ctx, req)
+}
+
+// RestoreSession calls session.v1.SessionService.RestoreSession.
+func (c *sessionServiceClient) RestoreSession(ctx context.Context, req *connect.Request[v1.RestoreSessionRequest]) (*connect.Response[v1.RestoreSessionResponse], error) {
+	return c.restoreSession.CallUnary(ctx, req)
 }
 
 // DeleteSession calls session.v1.SessionService.DeleteSession.
@@ -213,6 +247,8 @@ type SessionServiceHandler interface {
 	// Mutations key on the unique session name, so repeating them yields the same
 	// state. They are idempotent and safe for the client to retry.
 	SetState(context.Context, *connect.Request[v1.SetStateRequest]) (*connect.Response[emptypb.Empty], error)
+	ArchiveSession(context.Context, *connect.Request[v1.ArchiveSessionRequest]) (*connect.Response[emptypb.Empty], error)
+	RestoreSession(context.Context, *connect.Request[v1.RestoreSessionRequest]) (*connect.Response[v1.RestoreSessionResponse], error)
 	DeleteSession(context.Context, *connect.Request[v1.DeleteSessionRequest]) (*connect.Response[emptypb.Empty], error)
 	// UpdateSession patches a session by id (currently its title/name).
 	UpdateSession(context.Context, *connect.Request[v1.UpdateSessionRequest]) (*connect.Response[emptypb.Empty], error)
@@ -256,6 +292,20 @@ func NewSessionServiceHandler(svc SessionServiceHandler, opts ...connect.Handler
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
+	sessionServiceArchiveSessionHandler := connect.NewUnaryHandler(
+		SessionServiceArchiveSessionProcedure,
+		svc.ArchiveSession,
+		connect.WithSchema(sessionServiceMethods.ByName("ArchiveSession")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
+	sessionServiceRestoreSessionHandler := connect.NewUnaryHandler(
+		SessionServiceRestoreSessionProcedure,
+		svc.RestoreSession,
+		connect.WithSchema(sessionServiceMethods.ByName("RestoreSession")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
 	sessionServiceDeleteSessionHandler := connect.NewUnaryHandler(
 		SessionServiceDeleteSessionProcedure,
 		svc.DeleteSession,
@@ -294,6 +344,10 @@ func NewSessionServiceHandler(svc SessionServiceHandler, opts ...connect.Handler
 			sessionServiceCreateSessionHandler.ServeHTTP(w, r)
 		case SessionServiceSetStateProcedure:
 			sessionServiceSetStateHandler.ServeHTTP(w, r)
+		case SessionServiceArchiveSessionProcedure:
+			sessionServiceArchiveSessionHandler.ServeHTTP(w, r)
+		case SessionServiceRestoreSessionProcedure:
+			sessionServiceRestoreSessionHandler.ServeHTTP(w, r)
 		case SessionServiceDeleteSessionProcedure:
 			sessionServiceDeleteSessionHandler.ServeHTTP(w, r)
 		case SessionServiceUpdateSessionProcedure:
@@ -325,6 +379,14 @@ func (UnimplementedSessionServiceHandler) CreateSession(context.Context, *connec
 
 func (UnimplementedSessionServiceHandler) SetState(context.Context, *connect.Request[v1.SetStateRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("session.v1.SessionService.SetState is not implemented"))
+}
+
+func (UnimplementedSessionServiceHandler) ArchiveSession(context.Context, *connect.Request[v1.ArchiveSessionRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("session.v1.SessionService.ArchiveSession is not implemented"))
+}
+
+func (UnimplementedSessionServiceHandler) RestoreSession(context.Context, *connect.Request[v1.RestoreSessionRequest]) (*connect.Response[v1.RestoreSessionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("session.v1.SessionService.RestoreSession is not implemented"))
 }
 
 func (UnimplementedSessionServiceHandler) DeleteSession(context.Context, *connect.Request[v1.DeleteSessionRequest]) (*connect.Response[emptypb.Empty], error) {

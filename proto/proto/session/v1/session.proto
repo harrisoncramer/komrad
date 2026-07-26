@@ -24,6 +24,10 @@ message Session {
   optional string workflow_id = 9;
   // When the chat was first created, as an RFC 3339 timestamp, for display.
   string created_at = 10;
+  // Whether the chat's tmux pane is still running. It is observed at read time
+  // rather than stored, so a caller does not need tmux of its own to tell a live
+  // chat from a dormant one.
+  bool alive = 11;
 }
 
 message ListSessionsRequest {
@@ -118,6 +122,27 @@ message SetStateRequest {
       "done"
     ]
   }];
+}
+
+// ArchiveSessionRequest hides a chat without destroying it. This is what the
+// panel's delete key does: the agent is stopped and the chat drops out of the
+// listing, but its transcript stays searchable and it can be restored.
+message ArchiveSessionRequest {
+  string name = 1 [(buf.validate.field).string = {
+    min_len: 1,
+    max_len: 200
+  }];
+}
+
+// RestoreSessionRequest brings a chat back, keyed by id rather than name: an
+// archived chat's name may have been taken by a live one since, in which case
+// restoring renames it.
+message RestoreSessionRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message RestoreSessionResponse {
+  Session session = 1;
 }
 
 message DeleteSessionRequest {
@@ -223,6 +248,22 @@ service SessionService {
     option (annotation.v1.tool) = {
       tool_name: "set_session_state"
       description: "Move a chat to one of new, thinking, waiting, or done. The reconciler derives state from the live pane every couple of seconds, so a value set here is overwritten shortly after unless the chat is dormant."
+      destructive: false
+    };
+  }
+  rpc ArchiveSession(ArchiveSessionRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.tool) = {
+      tool_name: "archive_session"
+      description: "Stop a chat and hide it from the panel, keeping its record and transcript. Prefer this to delete_session: it is reversible with restore_session, and search_transcripts still finds the conversation. Returns not_found if no chat has that name."
+      destructive: false
+    };
+  }
+  rpc RestoreSession(RestoreSessionRequest) returns (RestoreSessionResponse) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.tool) = {
+      tool_name: "restore_session"
+      description: "Bring a chat back and relaunch claude on the same conversation, keyed by id. Works on archived chats and on ones whose pane has since died. A chat that is already running is returned as it stands rather than started twice. The chat may come back under a new name if another has taken its old one."
       destructive: false
     };
   }

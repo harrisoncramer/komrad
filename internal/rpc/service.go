@@ -20,7 +20,12 @@ import (
 // the service delegates rather than writing the record itself.
 type sessionLauncher interface {
 	NewSession(p agents.NewSessionParams) (*store.Agent, error)
+	// PaneAlive answers whether a chat is still running, which is read at
+	// response time rather than stored so a client needs no tmux of its own.
+	PaneAlive(pane string) bool
 	DeleteSession(ctx context.Context, name string) error
+	ArchiveSession(ctx context.Context, name string) error
+	RestoreSession(ctx context.Context, id string) (*store.Agent, error)
 }
 
 // SessionService implements sessionv1connect.SessionServiceHandler over the store.
@@ -55,7 +60,7 @@ func (s *SessionService) CreateSession(_ context.Context, req *connect.Request[s
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create session: %w", err))
 	}
 
-	return connect.NewResponse(&sessionv1.CreateSessionResponse{Session: renderSession(*created).Session}), nil
+	return connect.NewResponse(&sessionv1.CreateSessionResponse{Session: renderSession(*created, s.launcher.PaneAlive(created.Pane)).Session}), nil
 }
 
 // ListSessions returns one page of stored agents, most recently updated first.
@@ -72,7 +77,7 @@ func (s *SessionService) ListSessions(ctx context.Context, req *connect.Request[
 
 	resources := make([]session, 0, len(agents))
 	for _, agent := range agents {
-		resources = append(resources, renderSession(agent))
+		resources = append(resources, renderSession(agent, s.launcher.PaneAlive(agent.Pane)))
 	}
 
 	next, err := paginator.NextToken(resources)
@@ -98,7 +103,7 @@ func (s *SessionService) GetSession(ctx context.Context, req *connect.Request[se
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("session %q not found", req.Msg.GetName()))
 	}
 
-	return connect.NewResponse(&sessionv1.GetSessionResponse{Session: renderSession(*agent).Session}), nil
+	return connect.NewResponse(&sessionv1.GetSessionResponse{Session: renderSession(*agent, s.launcher.PaneAlive(agent.Pane)).Session}), nil
 }
 
 // SetState updates an agent's state. Naming a chat that does not exist is an
@@ -129,6 +134,33 @@ func (s *SessionService) DeleteSession(ctx context.Context, req *connect.Request
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// ArchiveSession stops a chat and hides it, keeping the record and transcript.
+// This is the reversible half of removing a chat; DeleteSession is the other.
+func (s *SessionService) ArchiveSession(ctx context.Context, req *connect.Request[sessionv1.ArchiveSessionRequest]) (*connect.Response[emptypb.Empty], error) {
+	err := s.launcher.ArchiveSession(ctx, req.Msg.GetName())
+	switch {
+	case errors.Is(err, agents.ErrSessionNotFound):
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("session %q not found", req.Msg.GetName()))
+	case err != nil:
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to archive session: %w", err))
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// RestoreSession brings a chat back and returns it as stored.
+func (s *SessionService) RestoreSession(ctx context.Context, req *connect.Request[sessionv1.RestoreSessionRequest]) (*connect.Response[sessionv1.RestoreSessionResponse], error) {
+	restored, err := s.launcher.RestoreSession(ctx, req.Msg.GetId())
+	switch {
+	case errors.Is(err, agents.ErrSessionNotFound):
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no chat with id %q", req.Msg.GetId()))
+	case err != nil:
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to restore session: %w", err))
+	}
+
+	return connect.NewResponse(&sessionv1.RestoreSessionResponse{Session: renderSession(*restored, s.launcher.PaneAlive(restored.Pane)).Session}), nil
 }
 
 // UpdateSession renames the session with the given id. A name already taken by

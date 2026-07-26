@@ -26,8 +26,10 @@ func (s session) Cursor() (store.SessionCursor, error) {
 	return s.cursor, nil
 }
 
-// renderSession renders a stored agent into a session resource.
-func renderSession(agent store.Agent) session {
+// renderSession renders a stored agent into a session resource. Liveness is
+// observed rather than stored, so it is passed in by whoever can ask tmux: the
+// row itself cannot know whether its pane is still there.
+func renderSession(agent store.Agent, alive bool) session {
 	created := ""
 	if !agent.CreatedAt.IsZero() {
 		created = agent.CreatedAt.Format(time.RFC3339)
@@ -45,6 +47,7 @@ func renderSession(agent store.Agent) session {
 			ClaudeSessionId: agent.ClaudeSessionID,
 			WorkflowId:      agent.WorkflowID,
 			CreatedAt:       created,
+			Alive:           alive,
 		},
 		cursor: store.SessionCursor{UpdatedAt: agent.UpdatedAt, ID: agent.ID},
 	}

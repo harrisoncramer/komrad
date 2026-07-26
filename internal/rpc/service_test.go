@@ -18,11 +18,16 @@ import (
 // fakeLauncher records the launch a request asked for and hands back a stored
 // chat, so the service can be exercised without a tmux server.
 type fakeLauncher struct {
-	got       agents.NewSessionParams
-	created   *store.Agent
-	err       error
-	deleted   []string
-	deleteErr error
+	got        agents.NewSessionParams
+	created    *store.Agent
+	err        error
+	alive      bool
+	deleted    []string
+	deleteErr  error
+	archived   []string
+	archiveErr error
+	restored   []string
+	restoreErr error
 }
 
 // deleted records the names DeleteSession was asked to remove, and deleteErr
@@ -31,6 +36,27 @@ func (f *fakeLauncher) DeleteSession(_ context.Context, name string) error {
 	f.deleted = append(f.deleted, name)
 
 	return f.deleteErr
+}
+
+// PaneAlive answers for the fake's chats; nothing in these tests runs tmux, so
+// a chat is live exactly when the test says it is.
+func (f *fakeLauncher) PaneAlive(string) bool { return f.alive }
+
+// ArchiveSession and RestoreSession record what they were asked to do, standing
+// in for the service that would stop or relaunch a real agent.
+func (f *fakeLauncher) ArchiveSession(_ context.Context, name string) error {
+	f.archived = append(f.archived, name)
+
+	return f.archiveErr
+}
+
+func (f *fakeLauncher) RestoreSession(_ context.Context, id string) (*store.Agent, error) {
+	f.restored = append(f.restored, id)
+	if f.restoreErr != nil {
+		return nil, f.restoreErr
+	}
+
+	return f.created, nil
 }
 
 func (f *fakeLauncher) NewSession(p agents.NewSessionParams) (*store.Agent, error) {
@@ -205,4 +231,50 @@ func TestRenameOntoTakenNameIsAConflict(t *testing.T) {
 	_, err = svc.UpdateSession(ctx, connect.NewRequest(&sessionv1.UpdateSessionRequest{Id: beta.ID, Name: "alpha"}))
 	assert.Equal(t, connect.CodeAlreadyExists, connect.CodeOf(err))
 	assert.NotContains(t, err.Error(), "UNIQUE constraint", "the driver's message stays server-side")
+}
+
+// TestArchiveAndRestoreGoThroughTheService confirms both hand off to the thing
+// that can actually stop and relaunch an agent, rather than editing rows behind
+// its back, and that a missing chat is not_found on either.
+func TestArchiveAndRestoreGoThroughTheService(t *testing.T) {
+	svc, _, launcher := serviceWithLauncher(t)
+	ctx := t.Context()
+
+	_, err := svc.ArchiveSession(ctx, connect.NewRequest(&sessionv1.ArchiveSessionRequest{Name: "alpha"}))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"alpha"}, launcher.archived)
+
+	restored, err := svc.RestoreSession(ctx, connect.NewRequest(&sessionv1.RestoreSessionRequest{Id: "id-1"}))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"id-1"}, launcher.restored)
+	assert.Equal(t, "spawned", restored.Msg.GetSession().GetName())
+
+	launcher.archiveErr = agents.ErrSessionNotFound
+	launcher.restoreErr = agents.ErrSessionNotFound
+
+	_, err = svc.ArchiveSession(ctx, connect.NewRequest(&sessionv1.ArchiveSessionRequest{Name: "ghost"}))
+	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
+
+	_, err = svc.RestoreSession(ctx, connect.NewRequest(&sessionv1.RestoreSessionRequest{Id: "ghost"}))
+	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
+}
+
+// TestListReportsLiveness confirms the alive flag is observed at read time, so a
+// client can tell a running chat from a dormant one without tmux of its own.
+func TestListReportsLiveness(t *testing.T) {
+	svc, st, launcher := serviceWithLauncher(t)
+	ctx := t.Context()
+	require.NoError(t, st.Upsert(ctx, store.Agent{Name: "alpha", Pane: "%1", State: store.StateThinking}))
+
+	launcher.alive = true
+	live, err := svc.ListSessions(ctx, connect.NewRequest(&sessionv1.ListSessionsRequest{}))
+	require.NoError(t, err)
+	require.Len(t, live.Msg.GetSessions(), 1)
+	assert.True(t, live.Msg.GetSessions()[0].GetAlive())
+
+	launcher.alive = false
+	dormant, err := svc.ListSessions(ctx, connect.NewRequest(&sessionv1.ListSessionsRequest{}))
+	require.NoError(t, err)
+	require.Len(t, dormant.Msg.GetSessions(), 1)
+	assert.False(t, dormant.Msg.GetSessions()[0].GetAlive())
 }
