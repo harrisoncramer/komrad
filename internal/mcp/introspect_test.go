@@ -1,7 +1,6 @@
 package mcp
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -9,73 +8,132 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestListTables confirms the app's tables are listed with their counts.
+// TestListTables covers what the schema looks like to a model. Postgres keeps
+// its own catalogs in other schemas, so the listing is the app's tables and
+// nothing else.
 func TestListTables(t *testing.T) {
-	tables, err := openTools(t).listTables(context.Background())
+	tests := []struct {
+		name     string
+		want     string
+		wantRows int64
+	}{
+		{
+			name:     "the chats themselves, counted",
+			want:     "sessions",
+			wantRows: 1,
+		},
+		{
+			name: "the config each chat owns",
+			want: "session_configs",
+		},
+		{
+			name: "the buckets chats group into",
+			want: "workflows",
+		},
+		{
+			name:     "the transcripts search reads",
+			want:     "session_transcripts",
+			wantRows: 1,
+		},
+	}
+
+	tables, err := openTools(t).listTables(t.Context())
 	require.NoError(t, err)
 
 	byName := make(map[string]int64, len(tables))
 	for _, table := range tables {
 		byName[table.Name] = table.Rows
+		assert.False(t, strings.HasPrefix(table.Name, "pg_"), "a system catalog would bury the real schema")
 	}
 
-	assert.Contains(t, byName, "sessions")
-	assert.Contains(t, byName, "session_configs")
-	assert.Contains(t, byName, "workflows")
-	assert.Contains(t, byName, "session_transcripts")
-	assert.Equal(t, int64(1), byName["sessions"])
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Contains(t, byName, tt.want)
+			if tt.wantRows > 0 {
+				assert.Equal(t, tt.wantRows, byName[tt.want])
+			}
+		})
+	}
 }
 
+// TestDescribeTable covers the shape a model is given before it writes a query.
 func TestDescribeTable(t *testing.T) {
-	desc, err := openTools(t).describeTable(context.Background(), "sessions")
+	tests := []struct {
+		name        string
+		column      string
+		wantNull    bool
+		wantPrimary bool
+		wantDefault string
+	}{
+		{
+			name:        "the primary key is flagged and never null",
+			column:      "id",
+			wantPrimary: true,
+		},
+		{
+			name:     "an unassigned chat has a null workflow",
+			column:   "workflow_id",
+			wantNull: true,
+		},
+		{
+			name:        "a default is reported with the type it is coerced to",
+			column:      "state",
+			wantDefault: "'new'::text",
+		},
+	}
+
+	desc, err := openTools(t).describeTable(t.Context(), "sessions")
 	require.NoError(t, err)
+	assert.NotEmpty(t, desc.Indexes, "the partial unique name index is reported")
 
 	byName := make(map[string]columnInfo, len(desc.Columns))
 	for _, col := range desc.Columns {
 		byName[col.Name] = col
 	}
 
-	require.Contains(t, byName, "id")
-	assert.True(t, byName["id"].PrimaryKey)
-	assert.False(t, byName["id"].Nullable)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			col, ok := byName[tt.column]
+			require.True(t, ok)
 
-	require.Contains(t, byName, "workflow_id")
-	assert.True(t, byName["workflow_id"].Nullable)
-
-	require.Contains(t, byName, "state")
-	assert.Equal(t, "'new'::text", byName["state"].Default,
-		"Postgres reports a default with the type it is coerced to")
-
-	assert.NotEmpty(t, desc.Indexes, "the partial unique name index should be reported")
+			assert.Equal(t, tt.wantNull, col.Nullable)
+			assert.Equal(t, tt.wantPrimary, col.PrimaryKey)
+			if tt.wantDefault != "" {
+				assert.Equal(t, tt.wantDefault, col.Default)
+			}
+		})
+	}
 }
 
-func TestDescribeTableRejectsUnknownAndMalformedNames(t *testing.T) {
-	tools := openTools(t)
-
-	_, err := tools.describeTable(context.Background(), "sessions; DROP TABLE sessions")
-	require.ErrorContains(t, err, "invalid table name")
-
-	_, err = tools.describeTable(context.Background(), "nope")
-	require.ErrorContains(t, err, "not found")
-}
-
-// TestListTablesExcludesSystemCatalogs confirms the listing shows the schema a
-// caller cares about and not Postgres's own bookkeeping, which lives in other
-// schemas and would bury it.
-func TestListTablesExcludesSystemCatalogs(t *testing.T) {
-	tools := openTools(t)
-
-	tables, err := tools.listTables(context.Background())
-	require.NoError(t, err)
-
-	names := make([]string, 0, len(tables))
-	for _, table := range tables {
-		names = append(names, table.Name)
+func TestDescribeTableRejectsBadNames(t *testing.T) {
+	tests := []struct {
+		name    string
+		table   string
+		wantErr string
+	}{
+		{
+			name:    "a name carrying a second statement",
+			table:   "sessions; DROP TABLE sessions",
+			wantErr: "invalid table name",
+		},
+		{
+			name:    "a name that is not an identifier at all",
+			table:   "no spaces allowed",
+			wantErr: "invalid table name",
+		},
+		{
+			name:    "a well-formed name for a table nobody has",
+			table:   "nope",
+			wantErr: "not found",
+		},
 	}
 
-	assert.Contains(t, names, "sessions")
-	assert.Contains(t, names, "session_transcripts")
-	for _, name := range names {
-		assert.False(t, strings.HasPrefix(name, "pg_"), "system catalog %q should not be listed", name)
+	tools := openTools(t)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := tools.describeTable(t.Context(), tt.table)
+			require.ErrorContains(t, err, tt.wantErr)
+		})
 	}
 }

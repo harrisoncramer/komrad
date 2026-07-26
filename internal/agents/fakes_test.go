@@ -203,3 +203,40 @@ func stateOf(t *testing.T, st *testStore, name string) string {
 
 	return got.State
 }
+
+// newManager builds a session service over the fake tmux and a real store, which
+// is what most of these tests drive.
+func newManager(tmux *fakeTmux, st *testStore, flags string) *SessionService {
+	return newSessions(tmux, st, flags, "")
+}
+
+// workflowsFor builds the workflow service over the same store, for the tests
+// that set a chat's workflow up before acting on the chat.
+func workflowsFor(st *testStore) *WorkflowService {
+	return st.workflowService()
+}
+
+// newSessions is the same, with the launcher pointed at a specific address so a
+// test can assert on what a spawned agent is told.
+func newSessions(tmux *fakeTmux, st *testStore, flags, addr string) *SessionService {
+	return st.sessionService(tmux, NewLauncher(tmux, addr), flags)
+}
+
+// agentByID finds a chat among every row, archived ones included, since a test
+// that restores one holds its id rather than its current name.
+func agentByID(t *testing.T, st *testStore, id string) sessionstore.Agent {
+	t.Helper()
+
+	all, err := st.ListAll(t.Context())
+	require.NoError(t, err)
+
+	for _, agent := range all {
+		if agent.ID == id {
+			return agent
+		}
+	}
+
+	t.Fatalf("no agent with id %q", id)
+
+	return sessionstore.Agent{}
+}

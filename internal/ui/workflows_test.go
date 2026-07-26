@@ -5,46 +5,102 @@ import (
 
 	"claude-agents/internal/store/session"
 	workflowstore "claude-agents/internal/store/workflow"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func ptr(s string) *string { return &s }
-
-// TestChatRowsGrouping checks chats nest under their workflow header, empty
-// workflows still show a header, and unassigned chats trail under a no-workflow
-// header.
-func TestChatRowsGrouping(t *testing.T) {
-	m := model{
-		workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}, {ID: "w2", Name: "frontend"}},
-		chats: []chatItem{
-			{agent: session.Agent{Name: "auth", WorkflowID: ptr("w1")}},
-			{agent: session.Agent{Name: "loose"}},
+// TestChatRows checks the tree the list renders: every workflow is a header with
+// its chats beneath it, and chats belonging to none trail under a header of
+// their own.
+func TestChatRows(t *testing.T) {
+	tests := []struct {
+		name      string
+		workflows []workflowstore.Workflow
+		chats     []chatItem
+		wantRows  []string
+	}{
+		{
+			name:     "an empty store still shows the no-workflow header",
+			wantRows: []string{"header:" + noWorkflowLabel},
+		},
+		{
+			name:      "an empty workflow keeps its header, so a chat can be added to it",
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			wantRows: []string{
+				"header:backend",
+				"header:" + noWorkflowLabel,
+			},
+		},
+		{
+			name: "chats nest under their workflow and unassigned ones trail",
+			workflows: []workflowstore.Workflow{
+				{ID: "w1", Name: "backend"},
+				{ID: "w2", Name: "frontend"},
+			},
+			chats: []chatItem{
+				{agent: session.Agent{Name: "auth", WorkflowID: ptr("w1")}},
+				{agent: session.Agent{Name: "loose"}},
+			},
+			wantRows: []string{
+				"header:backend",
+				"chat:auth",
+				"header:frontend",
+				"header:" + noWorkflowLabel,
+				"chat:loose",
+			},
+		},
+		{
+			name: "a chat whose workflow is gone falls in with the unassigned",
+			chats: []chatItem{
+				{agent: session.Agent{Name: "orphan", WorkflowID: ptr("vanished")}},
+			},
+			wantRows: []string{
+				"header:" + noWorkflowLabel,
+				"chat:orphan",
+			},
 		},
 	}
 
-	rows := m.chatRows()
-	if len(rows) != 5 {
-		t.Fatalf("want 5 rows, got %d: %+v", len(rows), rows)
-	}
-	if !rows[0].header || rows[0].label != "backend" || rows[0].workflowIndex != 0 {
-		t.Fatalf("row 0: want backend header at index 0, got %+v", rows[0])
-	}
-	if rows[1].header || rows[1].item.agent.Name != "auth" {
-		t.Fatalf("row 1: want chat auth, got %+v", rows[1])
-	}
-	if !rows[2].header || rows[2].label != "frontend" || rows[2].workflowIndex != 1 {
-		t.Fatalf("row 2: want empty frontend header at index 1, got %+v", rows[2])
-	}
-	if !rows[3].header || rows[3].label != noWorkflowLabel || rows[3].workflowIndex != -1 {
-		t.Fatalf("row 3: want no-workflow header, got %+v", rows[3])
-	}
-	if rows[4].header || rows[4].item.agent.Name != "loose" {
-		t.Fatalf("row 4: want chat loose, got %+v", rows[4])
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := model{workflows: tt.workflows, chats: tt.chats}
+
+			assert.Equal(t, tt.wantRows, describeRows(m.chatRows()))
+		})
 	}
 }
 
-// TestHoveredWorkflow checks the cursor reports a real workflow only when it is
-// on that workflow's header, not on a chat or the no-workflow header.
+// TestHoveredWorkflow checks the cursor reports a real workflow only when it
+// sits on that workflow's header, since the workflow keys act on what is hovered.
 func TestHoveredWorkflow(t *testing.T) {
+	tests := []struct {
+		name    string
+		cursor  int
+		wantIdx int
+		wantOK  bool
+	}{
+		{
+			name:   "on a chat",
+			cursor: 1,
+		},
+		{
+			name:   "on the no-workflow header, which has no record behind it",
+			cursor: 2,
+		},
+		{
+			name:   "on a chat belonging to no workflow",
+			cursor: 3,
+		},
+		{
+			name:    "on a workflow header",
+			cursor:  0,
+			wantIdx: 0,
+			wantOK:  true,
+		},
+	}
+
+	// rows: 0 backend header, 1 auth, 2 no-workflow header, 3 loose.
 	m := model{
 		workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
 		chats: []chatItem{
@@ -53,22 +109,33 @@ func TestHoveredWorkflow(t *testing.T) {
 		},
 	}
 
-	// rows: 0 backend header, 1 auth, 2 (no workflow) header, 3 loose.
-	cases := []struct {
-		cursor  int
-		wantIdx int
-		wantOK  bool
-	}{
-		{0, 0, true},
-		{1, 0, false},
-		{2, 0, false},
-		{3, 0, false},
-	}
-	for _, c := range cases {
-		m.chatCursor = c.cursor
-		idx, ok := m.hoveredWorkflow()
-		if ok != c.wantOK || (ok && idx != c.wantIdx) {
-			t.Fatalf("cursor %d: want (%d,%v), got (%d,%v)", c.cursor, c.wantIdx, c.wantOK, idx, ok)
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m.chatCursor = tt.cursor
+
+			idx, ok := m.hoveredWorkflow()
+			require.Equal(t, tt.wantOK, ok)
+			if ok {
+				assert.Equal(t, tt.wantIdx, idx)
+			}
+		})
 	}
 }
+
+// describeRows flattens the tree into strings, so a case states the shape it
+// expects rather than asserting field by field.
+func describeRows(rows []chatRow) []string {
+	out := make([]string, 0, len(rows))
+	for _, row := range rows {
+		if row.header {
+			out = append(out, "header:"+row.label)
+			continue
+		}
+
+		out = append(out, "chat:"+row.item.agent.Name)
+	}
+
+	return out
+}
+
+func ptr(s string) *string { return &s }

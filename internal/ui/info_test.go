@@ -10,7 +10,129 @@ import (
 	"claude-agents/internal/store/session"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+// TestInfoKey covers the info toggle. A live chat's pane occupies the stage, so
+// showing its stored record means putting the record there instead and putting
+// the pane back afterwards.
+func TestInfoKey(t *testing.T) {
+	tests := []struct {
+		name       string
+		cursor     int
+		presses    int
+		thenMove   bool
+		wantPinned bool
+		wantBat    int
+		wantSwaps  int
+	}{
+		{
+			name:    "on a workflow header there is no record to show",
+			cursor:  0,
+			presses: 1,
+		},
+		{
+			name:       "one press puts the record in the stage",
+			cursor:     1,
+			presses:    1,
+			wantPinned: true,
+			wantBat:    1,
+		},
+		{
+			name:      "a second press swaps the chat's pane back in",
+			cursor:    1,
+			presses:   2,
+			wantBat:   1,
+			wantSwaps: 1,
+		},
+		{
+			name:     "moving the cursor unpins, so the record never outlives its row",
+			cursor:   1,
+			presses:  1,
+			thenMove: true,
+			wantBat:  1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := &recordingTmux{}
+			m := infoModel(tmux)
+			m.chatCursor = tt.cursor
+
+			for range tt.presses {
+				m = pressKey(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("i")})
+			}
+			if tt.thenMove {
+				m = pressKey(t, m, tea.KeyMsg{Type: tea.KeyUp})
+			}
+
+			assert.Equal(t, tt.wantPinned, m.infoPinned)
+			assert.Equal(t, tt.wantSwaps, tmux.swaps, "swaps move the chat's own pane")
+
+			bat := 0
+			for _, respawn := range tmux.respawns {
+				if strings.Contains(respawn, "bat") {
+					bat++
+				}
+			}
+			assert.Equal(t, tt.wantBat, bat, "the record is rendered through bat")
+		})
+	}
+}
+
+// TestChatMarkdown covers the record the stage shows for a chat. A dormant one
+// has no pane to display, so this is all there is of it.
+func TestChatMarkdown(t *testing.T) {
+	agent := session.Agent{
+		Name:            "auth",
+		Pane:            "%9",
+		Cwd:             "/repo",
+		ClaudeSessionID: "abc",
+		CreatedAt:       time.Date(2026, 7, 24, 15, 4, 0, 0, time.UTC),
+	}
+
+	tests := []struct {
+		name        string
+		alive       bool
+		wantContain []string
+		wantAbsent  []string
+	}{
+		{
+			name:  "a dormant chat says so and offers the way back",
+			alive: false,
+			wantContain: []string{
+				"_dormant — not running_",
+				"Press open to restore",
+			},
+		},
+		{
+			name:  "a live chat says where it runs",
+			alive: true,
+			wantContain: []string{
+				"_running in %9_",
+				"- directory: /repo",
+				"- resume: abc",
+				"- flags: —",
+			},
+			wantAbsent: []string{"Press open to restore"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := chatMarkdown(agent, tt.alive)
+
+			for _, want := range tt.wantContain {
+				assert.Contains(t, got, want)
+			}
+			for _, absent := range tt.wantAbsent {
+				assert.NotContains(t, got, absent)
+			}
+		})
+	}
+}
 
 // recordingTmux records only what the stage does, so a test can tell a
 // swapped-in chat pane from a respawned bat preview. Every other call is an
@@ -30,11 +152,12 @@ func (t *recordingTmux) PaneAlive(string) bool                   { return true }
 func (t *recordingTmux) CapturePane(string) string               { return "" }
 func (t *recordingTmux) CurrentPane() (string, error)            { return "%0", nil }
 func (t *recordingTmux) SplitRight(string, string) string        { return "%1" }
+func (t *recordingTmux) SwapPanes(string, string)                { t.swaps++ }
+func (t *recordingTmux) KillPane(string)                         {}
+
 func (t *recordingTmux) NewWindow(string, string, string) (string, error) {
 	return "%2", nil
 }
-func (t *recordingTmux) SwapPanes(string, string) { t.swaps++ }
-func (t *recordingTmux) KillPane(string)          {}
 
 func (t *recordingTmux) RespawnPane(_, _ string, argv ...string) {
 	t.respawns = append(t.respawns, strings.Join(argv, " "))
@@ -55,102 +178,13 @@ func infoModel(tmux *recordingTmux) model {
 	}
 }
 
-func pressInfo(t *testing.T, m model) model {
+// pressKey feeds one key to the chats screen and returns the model it produced.
+func pressKey(t *testing.T, m model, key tea.KeyMsg) model {
 	t.Helper()
 
-	next, _ := m.updateChats(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("i")})
+	next, _ := m.updateChats(key)
 	updated, ok := next.(model)
-	if !ok {
-		t.Fatalf("want a panel model back, got %T", next)
-	}
+	require.True(t, ok, "want a panel model back, got %T", next)
 
 	return updated
-}
-
-// TestInfoTogglesLiveChatRecord confirms the info key stages a live chat's
-// stored record in place of its running pane, and that pressing it again swaps
-// the pane back.
-func TestInfoTogglesLiveChatRecord(t *testing.T) {
-	tmux := &recordingTmux{}
-	m := infoModel(tmux)
-
-	m = pressInfo(t, m)
-	if !m.infoPinned {
-		t.Fatal("info key should pin the record")
-	}
-	if len(tmux.respawns) != 1 || !strings.Contains(tmux.respawns[0], "bat") {
-		t.Fatalf("want the record rendered through bat, got %v", tmux.respawns)
-	}
-	if tmux.swaps != 0 {
-		t.Fatalf("pinning info should not swap the chat pane in, got %d swaps", tmux.swaps)
-	}
-
-	m = pressInfo(t, m)
-	if m.infoPinned {
-		t.Fatal("second press should unpin the record")
-	}
-	if tmux.swaps != 1 {
-		t.Fatalf("want the chat pane swapped back in, got %d swaps", tmux.swaps)
-	}
-}
-
-// TestInfoUnpinsOnCursorMove confirms the pinned record does not outlive the row
-// it describes.
-func TestInfoUnpinsOnCursorMove(t *testing.T) {
-	tmux := &recordingTmux{}
-	m := pressInfo(t, infoModel(tmux))
-
-	next, _ := m.updateChats(tea.KeyMsg{Type: tea.KeyUp})
-	moved, ok := next.(model)
-	if !ok {
-		t.Fatalf("want a panel model back, got %T", next)
-	}
-	if moved.infoPinned {
-		t.Fatal("moving the cursor should unpin the record")
-	}
-}
-
-// TestInfoIgnoredOnHeader confirms the info key does nothing on a workflow
-// header, which has no record to show.
-func TestInfoIgnoredOnHeader(t *testing.T) {
-	tmux := &recordingTmux{}
-	m := infoModel(tmux)
-	m.chatCursor = 0
-
-	if pressInfo(t, m).infoPinned {
-		t.Fatal("info key on a header should not pin anything")
-	}
-}
-
-func TestChatMarkdown(t *testing.T) {
-	agent := session.Agent{
-		Name:            "auth",
-		Pane:            "%9",
-		Cwd:             "/repo",
-		ClaudeSessionID: "abc",
-		CreatedAt:       time.Date(2026, 7, 24, 15, 4, 0, 0, time.UTC),
-	}
-
-	live := chatMarkdown(agent, true)
-	if !strings.Contains(live, "_running in %9_") {
-		t.Fatalf("live record should say where it runs, got:\n%s", live)
-	}
-	if strings.Contains(live, "Press open to restore") {
-		t.Fatalf("live record should not offer a restore, got:\n%s", live)
-	}
-	// Flags are unset here, so the record shows a dash rather than an empty field.
-	if !strings.Contains(live, "- directory: /repo") || !strings.Contains(live, "- flags: —") {
-		t.Fatalf("live record should carry the launch config, got:\n%s", live)
-	}
-	if !strings.Contains(live, "- resume: abc") {
-		t.Fatalf("live record should carry the resume id, got:\n%s", live)
-	}
-
-	dormant := chatMarkdown(agent, false)
-	if !strings.Contains(dormant, "_dormant — not running_") {
-		t.Fatalf("dormant record should say it is not running, got:\n%s", dormant)
-	}
-	if !strings.Contains(dormant, "Press open to restore") {
-		t.Fatalf("dormant record should offer a restore, got:\n%s", dormant)
-	}
 }

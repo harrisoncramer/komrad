@@ -18,6 +18,312 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// missingID is a well-formed uuid no workflow holds, for the not-found rows. A
+// malformed one would be refused before the lookup and prove something else.
+const missingID = "00000000-0000-0000-0000-000000000000"
+
+func TestCreateWorkflow(t *testing.T) {
+	tests := []struct {
+		name  string
+		req   *workflowv1.CreateWorkflowRequest
+		check func(t *testing.T, created *workflowv1.Workflow)
+	}{
+		{
+			name: "a blank name falls back to a label, so the list never renders an empty row",
+			req:  &workflowv1.CreateWorkflowRequest{Name: "   "},
+			check: func(t *testing.T, created *workflowv1.Workflow) {
+				assert.Equal(t, "workflow", created.GetName())
+			},
+		},
+		{
+			name: "a name alone is enough",
+			req:  &workflowv1.CreateWorkflowRequest{Name: "backend"},
+			check: func(t *testing.T, created *workflowv1.Workflow) {
+				assert.NotEmpty(t, created.GetId())
+				assert.Equal(t, "backend", created.GetName())
+			},
+		},
+		{
+			name: "a home-relative directory is expanded before it is stored",
+			req: &workflowv1.CreateWorkflowRequest{
+				Name:    "platform",
+				Context: "shared notes",
+				Cwd:     "~/repo",
+				Flags:   "--model opus",
+			},
+			check: func(t *testing.T, created *workflowv1.Workflow) {
+				assert.Equal(t, "shared notes", created.GetContext())
+				assert.NotEqual(t, "~/repo", created.GetCwd())
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, _ := service(t)
+
+			created, err := svc.CreateWorkflow(t.Context(), connect.NewRequest(tt.req))
+			require.NoError(t, err)
+			tt.check(t, created.Msg.GetWorkflow())
+		})
+	}
+}
+
+func TestGetWorkflow(t *testing.T) {
+	tests := []struct {
+		name     string
+		create   bool
+		id       string
+		wantCode connect.Code
+	}{
+		{
+			name:     "an id nobody holds",
+			id:       missingID,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "a malformed id is refused rather than looked up",
+			id:       "not-a-uuid",
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:   "a workflow that exists",
+			create: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, _ := service(t)
+
+			id := tt.id
+			if tt.create {
+				id = createWorkflow(t, svc, "backend")
+			}
+
+			got, err := svc.GetWorkflow(t.Context(), connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: id}))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, "backend", got.Msg.GetWorkflow().GetName())
+		})
+	}
+}
+
+// TestUpdateWorkflow covers that an update writes every field, which is what the
+// request says it does.
+func TestUpdateWorkflow(t *testing.T) {
+	tests := []struct {
+		name     string
+		create   bool
+		req      *workflowv1.UpdateWorkflowRequest
+		wantCode connect.Code
+		wantName string
+		wantCwd  string
+	}{
+		{
+			name: "an id nobody holds",
+			req: &workflowv1.UpdateWorkflowRequest{
+				Id:   missingID,
+				Name: "ghost",
+			},
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:   "every field is replaced",
+			create: true,
+			req: &workflowv1.UpdateWorkflowRequest{
+				Name:    "platform",
+				Context: "rewritten",
+				Cwd:     "/repo",
+			},
+			wantName: "platform",
+			wantCwd:  "/repo",
+		},
+		{
+			name:   "a blank name keeps the one it has",
+			create: true,
+			req: &workflowv1.UpdateWorkflowRequest{
+				Context: "rewritten",
+			},
+			wantName: "backend",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, st := service(t)
+
+			req := tt.req
+			if tt.create {
+				req.Id = createWorkflow(t, svc, "backend")
+			}
+
+			_, err := svc.UpdateWorkflow(t.Context(), connect.NewRequest(req))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+				return
+			}
+
+			require.NoError(t, err)
+
+			stored, err := st.buckets.Get(t.Context(), req.GetId())
+			require.NoError(t, err)
+			require.NotNil(t, stored)
+			assert.Equal(t, tt.wantName, stored.Name)
+			assert.Equal(t, "rewritten", stored.Context)
+			if tt.wantCwd != "" {
+				assert.Equal(t, tt.wantCwd, stored.Cwd)
+			}
+		})
+	}
+}
+
+// TestDeleteWorkflow covers the one decision the request carries, which is
+// whether the chats inside go with the workflow or outlive it.
+func TestDeleteWorkflow(t *testing.T) {
+	tests := []struct {
+		name         string
+		create       bool
+		archiveChats bool
+		twice        bool
+		wantCode     connect.Code
+		wantChat     bool
+	}{
+		{
+			name:     "an id nobody holds",
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "deleting it twice is not a silent success",
+			create:   true,
+			twice:    true,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "the chats inside are orphaned back to unassigned",
+			create:   true,
+			wantChat: true,
+		},
+		{
+			name:         "archiveChats hides them alongside the workflow",
+			create:       true,
+			archiveChats: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, st := service(t)
+			ctx := t.Context()
+
+			id := missingID
+			if tt.create {
+				id = createWorkflow(t, svc, "backend")
+				require.NoError(t, st.chats.Upsert(ctx, sessionstore.Agent{Name: "chat", WorkflowID: &id}))
+			}
+
+			req := connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id, ArchiveChats: tt.archiveChats})
+
+			_, err := svc.DeleteWorkflow(ctx, req)
+			if tt.twice {
+				require.NoError(t, err)
+				_, err = svc.DeleteWorkflow(ctx, req)
+			}
+
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+				return
+			}
+
+			require.NoError(t, err)
+
+			chat, err := st.chats.Get(ctx, "chat")
+			require.NoError(t, err)
+			if !tt.wantChat {
+				assert.Nil(t, chat, "the chat is hidden alongside its workflow")
+				return
+			}
+
+			require.NotNil(t, chat, "the chat outlives its workflow")
+			assert.Nil(t, chat.WorkflowID, "and points at no workflow rather than a missing one")
+		})
+	}
+}
+
+func TestListWorkflows(t *testing.T) {
+	tests := []struct {
+		name      string
+		seed      []string
+		limit     int32
+		wantFirst int
+		wantMore  bool
+	}{
+		{
+			name:      "an empty store offers no next page",
+			wantFirst: 0,
+		},
+		{
+			name:      "a partial page is the last one",
+			seed:      []string{"one", "two"},
+			limit:     10,
+			wantFirst: 2,
+		},
+		{
+			name:      "a full page offers the next",
+			seed:      []string{"one", "two", "three"},
+			limit:     2,
+			wantFirst: 2,
+			wantMore:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, _ := service(t)
+			ctx := t.Context()
+
+			for _, name := range tt.seed {
+				createWorkflow(t, svc, name)
+			}
+
+			page := &paginationv1.Pagination{}
+			if tt.limit > 0 {
+				page.Limit = proto.Int32(tt.limit)
+			}
+
+			first, err := svc.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{Pagination: page}))
+			require.NoError(t, err)
+			require.Len(t, first.Msg.GetWorkflows(), tt.wantFirst)
+
+			if !tt.wantMore {
+				assert.Empty(t, first.Msg.GetNextPageToken())
+				return
+			}
+
+			require.NotEmpty(t, first.Msg.GetNextPageToken())
+
+			second, err := svc.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{
+				Pagination: &paginationv1.Pagination{
+					Limit:  proto.Int32(tt.limit),
+					Cursor: proto.String(first.Msg.GetNextPageToken()),
+				},
+			}))
+			require.NoError(t, err)
+
+			seen := map[string]bool{}
+			for _, w := range append(first.Msg.GetWorkflows(), second.Msg.GetWorkflows()...) {
+				assert.False(t, seen[w.GetId()], "a workflow appears on one page only")
+				seen[w.GetId()] = true
+			}
+			assert.Len(t, seen, len(tt.seed))
+		})
+	}
+}
+
 // stores is what a test arranges rows through. Deleting a workflow settles the
 // chats inside it, so a test of that needs the chat store too even though the
 // handler itself never sees one.
@@ -42,122 +348,13 @@ func service(t *testing.T) (*Service, *stores) {
 	return NewService(st.buckets, manager), st
 }
 
-func TestCreateAndGetWorkflow(t *testing.T) {
-	svc, _ := service(t)
+// createWorkflow adds a workflow through the handler and returns its id, since
+// most rows here exist only to be acted on.
+func createWorkflow(t *testing.T, svc *Service, name string) string {
+	t.Helper()
 
-	created, err := svc.CreateWorkflow(t.Context(), connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-		Name:    "backend",
-		Context: "shared notes",
-		Cwd:     "~/repo",
-		Flags:   "--model opus",
-	}))
+	created, err := svc.CreateWorkflow(t.Context(), connect.NewRequest(&workflowv1.CreateWorkflowRequest{Name: name}))
 	require.NoError(t, err)
 
-	id := created.Msg.GetWorkflow().GetId()
-	require.NotEmpty(t, id)
-	assert.Equal(t, "backend", created.Msg.GetWorkflow().GetName())
-	assert.Equal(t, "shared notes", created.Msg.GetWorkflow().GetContext())
-	assert.NotEqual(t, "~/repo", created.Msg.GetWorkflow().GetCwd(), "the service expands ~ before storing")
-
-	got, err := svc.GetWorkflow(t.Context(), connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: id}))
-	require.NoError(t, err)
-	assert.Equal(t, "backend", got.Msg.GetWorkflow().GetName())
-}
-
-func TestGetMissingWorkflowIsNotFound(t *testing.T) {
-	svc, _ := service(t)
-
-	_, err := svc.GetWorkflow(t.Context(), connect.NewRequest(&workflowv1.GetWorkflowRequest{
-		Id: "00000000-0000-0000-0000-000000000000",
-	}))
-	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
-}
-
-// TestUpdateWorkflowReplacesFields confirms an update writes every field, which
-// is what the request says it does, and that an unknown id is not_found rather
-// than a silent success.
-func TestUpdateWorkflowReplacesFields(t *testing.T) {
-	svc, st := service(t)
-
-	created, err := svc.CreateWorkflow(t.Context(), connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-		Name:    "backend",
-		Context: "original",
-	}))
-	require.NoError(t, err)
-	id := created.Msg.GetWorkflow().GetId()
-
-	_, err = svc.UpdateWorkflow(t.Context(), connect.NewRequest(&workflowv1.UpdateWorkflowRequest{
-		Id:      id,
-		Name:    "platform",
-		Context: "rewritten",
-		Cwd:     "/repo",
-	}))
-	require.NoError(t, err)
-
-	stored, err := st.buckets.Get(t.Context(), id)
-	require.NoError(t, err)
-	require.NotNil(t, stored)
-	assert.Equal(t, "platform", stored.Name)
-	assert.Equal(t, "rewritten", stored.Context)
-	assert.Equal(t, "/repo", stored.Cwd)
-
-	_, err = svc.UpdateWorkflow(t.Context(), connect.NewRequest(&workflowv1.UpdateWorkflowRequest{
-		Id:   "00000000-0000-0000-0000-000000000000",
-		Name: "ghost",
-	}))
-	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
-}
-
-// TestDeleteWorkflowOrphansOrArchives covers the one decision the request
-// carries: whether the chats inside go with the workflow or outlive it.
-func TestDeleteWorkflowOrphansOrArchives(t *testing.T) {
-	svc, st := service(t)
-	ctx := t.Context()
-
-	created, err := svc.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{Name: "backend"}))
-	require.NoError(t, err)
-	id := created.Msg.GetWorkflow().GetId()
-
-	require.NoError(t, st.chats.Upsert(ctx, sessionstore.Agent{Name: "chat", WorkflowID: &id}))
-
-	_, err = svc.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id}))
-	require.NoError(t, err)
-
-	orphan, err := st.chats.Get(ctx, "chat")
-	require.NoError(t, err)
-	require.NotNil(t, orphan, "the chat outlives its workflow")
-	assert.Nil(t, orphan.WorkflowID, "and is unassigned rather than pointing at a workflow that is gone")
-
-	_, err = svc.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id}))
-	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err), "deleting it twice is not a silent success")
-}
-
-func TestListWorkflowsPages(t *testing.T) {
-	svc, _ := service(t)
-	ctx := t.Context()
-
-	for _, name := range []string{"one", "two", "three"} {
-		_, err := svc.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{Name: name}))
-		require.NoError(t, err)
-	}
-
-	first, err := svc.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{
-		Pagination: &paginationv1.Pagination{Limit: proto.Int32(2)},
-	}))
-	require.NoError(t, err)
-	require.Len(t, first.Msg.GetWorkflows(), 2)
-	require.NotEmpty(t, first.Msg.GetNextPageToken(), "a full page offers the next one")
-
-	second, err := svc.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{
-		Pagination: &paginationv1.Pagination{Limit: proto.Int32(2), Cursor: proto.String(first.Msg.GetNextPageToken())},
-	}))
-	require.NoError(t, err)
-	require.Len(t, second.Msg.GetWorkflows(), 1)
-
-	seen := map[string]bool{}
-	for _, w := range append(first.Msg.GetWorkflows(), second.Msg.GetWorkflows()...) {
-		assert.False(t, seen[w.GetId()], "a workflow appears on one page only")
-		seen[w.GetId()] = true
-	}
-	assert.Len(t, seen, 3)
+	return created.Msg.GetWorkflow().GetId()
 }

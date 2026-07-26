@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"strings"
 	"testing"
 
 	"claude-agents/internal/appconfig"
@@ -9,95 +8,236 @@ import (
 	"claude-agents/internal/store/transcript"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func hits(names ...string) []searchHit {
-	out := make([]searchHit, 0, len(names))
-	for _, n := range names {
-		out = append(out, searchHit{sessionID: n, name: n, snippet: n})
+// TestApplySearchResults confirms a response is shown only when it answers the
+// query the input still holds, so the list never shows hits for text the user
+// has already changed.
+func TestApplySearchResults(t *testing.T) {
+	tests := []struct {
+		name     string
+		query    string
+		msg      searchResultsMsg
+		wantHits int
+	}{
+		{
+			name:  "a response for a query the input has moved past",
+			query: "current",
+			msg: searchResultsMsg{
+				query: "stale",
+				hits:  hits("a", "b"),
+			},
+			wantHits: 0,
+		},
+		{
+			name:  "a response for the query on screen",
+			query: "current",
+			msg: searchResultsMsg{
+				query: "current",
+				hits:  hits("a", "b"),
+			},
+			wantHits: 2,
+		},
+		{
+			name:  "a query that matched nothing clears the list",
+			query: "current",
+			msg: searchResultsMsg{
+				query: "current",
+			},
+			wantHits: 0,
+		},
 	}
-	return out
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// An empty result blanks the preview, so the model needs its stage even
+			// though nothing here draws.
+			m := model{
+				screen:      screenSearch,
+				searchQuery: tt.query,
+				stage:       NewStage(&recordingTmux{}),
+			}
+
+			m.applySearchResults(tt.msg)
+
+			assert.Len(t, m.searchHits, tt.wantHits)
+		})
+	}
 }
 
-// TestApplySearchResultsDiscardsStale confirms a response for a query the input
-// has since moved past is ignored, so the list never shows hits for text the
-// user already changed.
-func TestApplySearchResultsDiscardsStale(t *testing.T) {
-	m := model{screen: screenSearch, searchQuery: "current"}
-	m.applySearchResults(searchResultsMsg{query: "stale", hits: hits("a", "b")})
-
-	if m.searchHits != nil {
-		t.Fatalf("stale results should be discarded, got %d hits", len(m.searchHits))
-	}
-}
-
-// TestUpdateSearchEditsQuery confirms printable keys, space, and backspace edit
-// the query. It avoids the nav and open keys, which stage a preview through the
-// manager.
+// TestUpdateSearchEditsQuery covers the keys that type into the query. It avoids
+// the nav and open keys, which stage a preview and so need tmux.
 func TestUpdateSearchEditsQuery(t *testing.T) {
-	m := model{screen: screenSearch, keys: appconfig.DefaultKeybindings()}
-
-	mi, _ := m.updateSearch(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("po")})
-	m = mi.(model)
-	mi, _ = m.updateSearch(tea.KeyMsg{Type: tea.KeySpace})
-	m = mi.(model)
-	mi, _ = m.updateSearch(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("gr")})
-	m = mi.(model)
-
-	if m.searchQuery != "po gr" {
-		t.Fatalf("want query %q, got %q", "po gr", m.searchQuery)
+	tests := []struct {
+		name string
+		keys []tea.KeyMsg
+		want string
+	}{
+		{
+			name: "backspace on an empty query is harmless",
+			keys: []tea.KeyMsg{
+				{Type: tea.KeyBackspace},
+			},
+			want: "",
+		},
+		{
+			name: "printable runes accumulate",
+			keys: []tea.KeyMsg{
+				{Type: tea.KeyRunes, Runes: []rune("po")},
+				{Type: tea.KeyRunes, Runes: []rune("gr")},
+			},
+			want: "pogr",
+		},
+		{
+			name: "space is part of the query rather than a command",
+			keys: []tea.KeyMsg{
+				{Type: tea.KeyRunes, Runes: []rune("po")},
+				{Type: tea.KeySpace},
+				{Type: tea.KeyRunes, Runes: []rune("gr")},
+			},
+			want: "po gr",
+		},
+		{
+			name: "backspace drops the last character",
+			keys: []tea.KeyMsg{
+				{Type: tea.KeyRunes, Runes: []rune("post")},
+				{Type: tea.KeyBackspace},
+			},
+			want: "pos",
+		},
 	}
 
-	mi, _ = m.updateSearch(tea.KeyMsg{Type: tea.KeyBackspace})
-	m = mi.(model)
-	if m.searchQuery != "po g" {
-		t.Fatalf("backspace: want %q, got %q", "po g", m.searchQuery)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := model{screen: screenSearch, keys: appconfig.DefaultKeybindings()}
+
+			for _, key := range tt.keys {
+				next, _ := m.updateSearch(key)
+				updated, ok := next.(model)
+				require.True(t, ok)
+				m = updated
+			}
+
+			assert.Equal(t, tt.want, m.searchQuery)
+		})
 	}
 }
 
 func TestTrimLastRune(t *testing.T) {
-	if got := trimLastRune("abc"); got != "ab" {
-		t.Fatalf("want ab, got %q", got)
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "an empty string",
+			in:   "",
+			want: "",
+		},
+		{
+			name: "a multi-byte rune is dropped whole rather than half-deleted",
+			in:   "aé",
+			want: "a",
+		},
+		{
+			name: "an ascii string",
+			in:   "abc",
+			want: "ab",
+		},
 	}
-	// A multi-byte rune is dropped whole, not left half-deleted.
-	if got := trimLastRune("aé"); got != "a" {
-		t.Fatalf("want a, got %q", got)
-	}
-	if got := trimLastRune(""); got != "" {
-		t.Fatalf("want empty, got %q", got)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, trimLastRune(tt.in))
+		})
 	}
 }
 
-func TestRenderSnippetHighlightsMatch(t *testing.T) {
-	in := "before " + transcript.SnippetOpen + "match" + transcript.SnippetClose + " after\nnext"
-	out := renderSnippet(in)
+// TestRenderSnippet confirms the store's match markers are consumed into styling
+// and the snippet stays on one line, since the list gives it one row.
+func TestRenderSnippet(t *testing.T) {
+	tests := []struct {
+		name        string
+		in          string
+		wantContain string
+	}{
+		{
+			name:        "text with no markers is passed through",
+			in:          "nothing marked here",
+			wantContain: "nothing marked here",
+		},
+		{
+			name:        "a marked match survives as text",
+			in:          "before " + transcript.SnippetOpen + "match" + transcript.SnippetClose + " after",
+			wantContain: "match",
+		},
+		{
+			name:        "newlines are collapsed",
+			in:          "first" + transcript.SnippetOpen + "match" + transcript.SnippetClose + "\nsecond",
+			wantContain: "second",
+		},
+	}
 
-	if strings.Contains(out, transcript.SnippetOpen) || strings.Contains(out, transcript.SnippetClose) {
-		t.Fatalf("markers should be consumed, got %q", out)
-	}
-	if !strings.Contains(out, "match") {
-		t.Fatalf("matched text should survive, got %q", out)
-	}
-	if strings.Contains(out, "\n") {
-		t.Fatalf("newlines should be collapsed to keep the snippet on one line, got %q", out)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := renderSnippet(tt.in)
+
+			assert.Contains(t, out, tt.wantContain)
+			assert.NotContains(t, out, transcript.SnippetOpen, "the markers are consumed")
+			assert.NotContains(t, out, transcript.SnippetClose)
+			assert.NotContains(t, out, "\n", "the snippet occupies one row")
+		})
 	}
 }
 
+// TestFirstMatchLine covers where the transcript preview is anchored. Line zero
+// means the top, which is where a preview with nothing to centre on belongs.
 func TestFirstMatchLine(t *testing.T) {
-	content := "line one\nline two has postgres in it\nline three"
+	const content = "line one\nline two has postgres in it\nline three"
 
-	if got := firstMatchLine(content, "postgres"); got != 2 {
-		t.Fatalf("want match on line 2, got %d", got)
+	tests := []struct {
+		name  string
+		query string
+		want  int
+	}{
+		{
+			name:  "a blank query anchors at the top",
+			query: "  ",
+			want:  0,
+		},
+		{
+			name:  "a query that never occurs anchors at the top",
+			query: "sqlite",
+			want:  0,
+		},
+		{
+			name:  "a match reports its line",
+			query: "postgres",
+			want:  2,
+		},
+		{
+			name:  "matching ignores case, since the search does",
+			query: "POSTGRES",
+			want:  2,
+		},
 	}
-	// Case-insensitive, since the search itself is.
-	if got := firstMatchLine(content, "POSTGRES"); got != 2 {
-		t.Fatalf("case-insensitive: want 2, got %d", got)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, firstMatchLine(content, tt.query))
+		})
 	}
-	// No occurrence anchors the preview at the top.
-	if got := firstMatchLine(content, "sqlite"); got != 0 {
-		t.Fatalf("want 0 for no match, got %d", got)
+}
+
+// hits builds search results from names alone, for the cases that only care
+// which results survive.
+func hits(names ...string) []searchHit {
+	out := make([]searchHit, 0, len(names))
+	for _, name := range names {
+		out = append(out, searchHit{sessionID: name, name: name, snippet: name})
 	}
-	if got := firstMatchLine(content, "  "); got != 0 {
-		t.Fatalf("want 0 for blank query, got %d", got)
-	}
+
+	return out
 }
