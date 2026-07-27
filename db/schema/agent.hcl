@@ -222,6 +222,19 @@ table "agents" {
     null = true
     type = uuid
   }
+  # The schedule that launched this agent, or null for one a person started.
+  column "schedule_id" {
+    null = true
+    type = uuid
+  }
+  # A caller-supplied key that makes a create idempotent. A retried launch, from
+  # a background job or a tool call, passes the same key and gets the agent that
+  # already exists rather than a second Claude process on the same prompt. Null
+  # for a create that makes no such claim, which is every create from the panel.
+  column "idempotency_key" {
+    null = true
+    type = text
+  }
   # Soft-delete flag: a deleted record is hidden from the panel but kept.
   column "is_deleted" {
     null    = false
@@ -255,6 +268,20 @@ table "agents" {
   # Scoped listings filter by workflow, so index the foreign key.
   index "agents_workflow_id" {
     columns = [column.workflow_id]
+  }
+  # A schedule's detail view lists what it has launched, so index that key too.
+  index "agents_schedule_id" {
+    columns = [column.schedule_id]
+  }
+  # One agent per key, across live and deleted rows alike. Unlike the name
+  # index this is not scoped to live records: a retry must find the agent it
+  # already created even if that agent has since been archived, or it would
+  # spawn a duplicate. Partial on non-null so the ordinary create, which claims
+  # no key, is unconstrained.
+  index "agents_idempotency_key" {
+    unique  = true
+    columns = [column.idempotency_key]
+    where   = "idempotency_key IS NOT NULL"
   }
   # The listing pages on (updated_at, id) descending, so the index carries both
   # in that order and a page is a range scan rather than a sort of the table.

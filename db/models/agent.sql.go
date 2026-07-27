@@ -93,7 +93,7 @@ func (q *Queries) DeleteAgentTranscript(ctx context.Context, agentID string) err
 
 const getAgent = `-- name: GetAgent :one
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at,
+    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at, s.schedule_id, s.idempotency_key,
     sc.cwd,
     sc.flags
 FROM
@@ -126,6 +126,8 @@ func (q *Queries) GetAgent(ctx context.Context, name string) (*GetAgentRow, erro
 		&i.Agent.IsDeleted,
 		&i.Agent.CreatedAt,
 		&i.Agent.UpdatedAt,
+		&i.Agent.ScheduleID,
+		&i.Agent.IdempotencyKey,
 		&i.Cwd,
 		&i.Flags,
 	)
@@ -230,7 +232,7 @@ func (q *Queries) InsertAgentConfig(ctx context.Context, arg InsertAgentConfigPa
 
 const listAgents = `-- name: ListAgents :many
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at,
+    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at, s.schedule_id, s.idempotency_key,
     sc.cwd,
     sc.flags
 FROM
@@ -269,6 +271,8 @@ func (q *Queries) ListAgents(ctx context.Context) ([]*ListAgentsRow, error) {
 			&i.Agent.IsDeleted,
 			&i.Agent.CreatedAt,
 			&i.Agent.UpdatedAt,
+			&i.Agent.ScheduleID,
+			&i.Agent.IdempotencyKey,
 			&i.Cwd,
 			&i.Flags,
 		); err != nil {
@@ -284,7 +288,7 @@ func (q *Queries) ListAgents(ctx context.Context) ([]*ListAgentsRow, error) {
 
 const listAgentsPage = `-- name: ListAgentsPage :many
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at,
+    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at, s.schedule_id, s.idempotency_key,
     sc.cwd,
     sc.flags
 FROM
@@ -335,6 +339,8 @@ func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) 
 			&i.Agent.IsDeleted,
 			&i.Agent.CreatedAt,
 			&i.Agent.UpdatedAt,
+			&i.Agent.ScheduleID,
+			&i.Agent.IdempotencyKey,
 			&i.Cwd,
 			&i.Flags,
 		); err != nil {
@@ -350,7 +356,7 @@ func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) 
 
 const listAllAgents = `-- name: ListAllAgents :many
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at,
+    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at, s.schedule_id, s.idempotency_key,
     sc.cwd,
     sc.flags
 FROM
@@ -387,6 +393,8 @@ func (q *Queries) ListAllAgents(ctx context.Context) ([]*ListAllAgentsRow, error
 			&i.Agent.IsDeleted,
 			&i.Agent.CreatedAt,
 			&i.Agent.UpdatedAt,
+			&i.Agent.ScheduleID,
+			&i.Agent.IdempotencyKey,
 			&i.Cwd,
 			&i.Flags,
 		); err != nil {

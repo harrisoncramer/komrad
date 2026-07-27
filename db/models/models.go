@@ -21,6 +21,8 @@ type Agent struct {
 	IsDeleted       bool
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+	ScheduleID      *string
+	IdempotencyKey  *string
 }
 
 // Editable config (cwd, flags) owned by exactly one agent.
@@ -38,6 +40,30 @@ type AgentTranscript struct {
 	Content      string
 	SyncedOffset int64
 	SyncedAt     time.Time
+}
+
+// A cron-driven agent launch: what to run, where, and how often.
+type Schedule struct {
+	ID               string
+	Name             string
+	Cron             string
+	Timezone         string
+	Enabled          bool
+	Prompt           string
+	WorkflowID       *string
+	ScheduleConfigID string
+	IsDeleted        bool
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+// Launch config (cwd, flags) owned by exactly one schedule.
+type ScheduleConfig struct {
+	ID        string
+	Cwd       string
+	Flags     string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // A named bucket of related agents. Pure organization; runs nothing.
