@@ -1,0 +1,59 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    # The store tests run against a real Postgres rather than a fake, and
+    # internal/pgtest creates a database per test off the server DATABASE_URL
+    # points at. Credentials match docker-compose so nothing else has to change.
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: claude_agents
+          POSTGRES_PASSWORD: claude_agents
+          POSTGRES_DB: claude_agents
+        ports:
+          - 5460:5432
+        options: >-
+          --health-cmd "pg_isready -U claude_agents"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+
+    env:
+      DATABASE_URL: postgres://claude_agents:claude_agents@localhost:5460/claude_agents?sslmode=disable
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # gen:check compares regenerated output against what is committed, so it
+      # needs the working tree to start clean, which a plain checkout gives.
+      - uses: jdx/mise-action@v2
+        with:
+          install: true
+          cache: true
+
+      # The agents reconciler drives a real tmux server instead of a fake, and
+      # those tests skip themselves when tmux is missing rather than failing, so
+      # without this they would quietly not run.
+      - name: Install tmux
+        run: sudo apt-get update && sudo apt-get install -y tmux
+
+      # go:lint builds golangci-lint from source to bundle the repo's plugin,
+      # which dominates the job. The binary only changes when the plugin or its
+      # pin does, so it is cached against those rather than rebuilt every run.
+      - name: Cache the custom linter
+        uses: actions/cache@v4
+        with:
+          path: local/custom-gcl
+          key: custom-gcl-${{ runner.os }}-${{ hashFiles('.custom-gcl.yml', 'tools/agentslinter/**') }}
+
+      - name: Check
+        run: mise run check

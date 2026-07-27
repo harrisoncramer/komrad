@@ -1,6 +1,60 @@
 #!/usr/bin/env bash
-#MISE description="Run the custom golangci-lint, building it if needed."
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
 set -euo pipefail
+#MISE description="Run the custom golangci-lint over every Go module."
+
+usage() {
+	echo "Usage: mise run go:lint [--fix]"
+	echo
+	echo "Runs the custom golangci-lint against every module using .golangci.yaml,"
+	echo "building the custom binary first if it is missing. Pass --fix to apply"
+	echo "autofixes; without it the run only reports, so the check task can call it"
+	echo "without rewriting the tree it is checking."
+}
+
+FIX_ARGS=()
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	--fix)
+		FIX_ARGS+=(--fix)
+		;;
+	esac
+done
+
 cd "$MISE_CONFIG_ROOT"
-if [ ! -x local/custom-gcl ]; then golangci-lint custom; fi
-./local/custom-gcl run --fix --timeout 5m ./...
+
+# The linter plugin lives in its own module, so it is not reached by the root
+# module's ./... and has to be listed separately.
+MODULES=(. tools/agentslinter)
+
+CONFIG="$MISE_CONFIG_ROOT/.golangci.yaml"
+BIN_PATH="$MISE_CONFIG_ROOT/local/custom-gcl"
+
+# The custom binary bundles this repo's linter plugin. Build it on demand so a
+# fresh checkout still lints with the custom analyzers enabled.
+if [ ! -x "$BIN_PATH" ]; then
+	echo "==> custom-gcl missing, building it"
+	golangci-lint custom
+fi
+
+failed=()
+for MODULE in "${MODULES[@]}"; do
+	echo "==> linting $MODULE"
+	if ! (
+		cd "$MISE_CONFIG_ROOT/$MODULE" &&
+			"$BIN_PATH" run ${FIX_ARGS[@]+"${FIX_ARGS[@]}"} --config "$CONFIG" --timeout 5m ./...
+	); then
+		failed+=("$MODULE")
+	fi
+done
+
+if ((${#failed[@]} > 0)); then
+	echo "lint failed for: ${failed[*]}" >&2
+	exit 1
+fi
+
+echo "lint clean"

@@ -61,7 +61,8 @@ func startsWithWord(text, word string) bool {
 		return true
 	}
 	r := rune(rest[0])
-	return !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_')
+
+	return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_'
 }
 
 // funcKind returns "method" when the declaration has a receiver, otherwise "function".

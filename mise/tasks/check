@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Run every check: shell, formatting, lint, and tests."
+
+usage() {
+	echo "Usage: mise run check"
+	echo
+	echo "Runs the whole suite and reports which steps failed rather than stopping at"
+	echo "the first, so one run tells you everything that is wrong. Nothing here"
+	echo "rewrites the tree; the formatters are called in their reporting mode."
+	echo
+	echo "The tests need Postgres, so run 'mise run docker:up' first. Drift in"
+	echo "config.toml is caught by the appconfig tests, which regenerate it in memory"
+	echo "and compare, so a stale file fails here without needing a clean git tree."
+	echo "gen:check covers the sqlc and buf output too, but only when those paths"
+	echo "have no uncommitted edits."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+STEPS=(
+	"bash:check"
+	"bash:fmt --check"
+	"go:fmt --check"
+	"go:lint"
+	"go:test"
+	"gen:check"
+)
+
+failed=()
+for STEP in "${STEPS[@]}"; do
+	gum log --level info "running $STEP"
+
+	# Unquoted on purpose: a step carries its own flags and has to word-split.
+	# shellcheck disable=SC2086
+	if ! mise run $STEP; then
+		failed+=("$STEP")
+	fi
+done
+
+if ((${#failed[@]} > 0)); then
+	gum log --level error "failed: ${failed[*]}"
+	exit 1
+fi
+
+gum log --level info "all checks passed"

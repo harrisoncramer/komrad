@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/viper"
 )
 
@@ -14,52 +15,77 @@ import (
 // bubbletea key strings such as "enter", "ctrl+d", or "esc". An action left unset
 // falls back to its built-in default.
 type Keybindings struct {
-	Nav       NavKeys       `mapstructure:"nav"`
-	Agents    AgentsKeys    `mapstructure:"agents"`
-	Form      FormKeys      `mapstructure:"form"`
+	// Navigation, shared by every menu so movement is the same everywhere. These
+	// avoid letter keys so they still work in the search text field.
+	Nav NavKeys `mapstructure:"nav"`
+	// The agents list, the panel's main screen.
+	Agents AgentsKeys `mapstructure:"agents"`
+	// The new-agent, rename, and workflow forms.
+	Form FormKeys `mapstructure:"form"`
+	// The actions that create and change workflows, from the agents list.
 	Workflows WorkflowsKeys `mapstructure:"workflows"`
 }
 
 // NavKeys are the shared navigation bindings every menu uses, so movement is the
 // same everywhere rather than configured per menu.
 type NavKeys struct {
-	Up   []string `mapstructure:"up"`
+	// Move the cursor up.
+	Up []string `mapstructure:"up"`
+	// Move the cursor down.
 	Down []string `mapstructure:"down"`
 }
 
 // FormKeys are the bindings for the new-agent and rename forms. Back and Quit both
 // abort the form, split apart so they can be rebound separately.
 type FormKeys struct {
-	Quit   []string `mapstructure:"quit"`
-	Back   []string `mapstructure:"back"`
+	// Abort the form and quit the panel.
+	Quit []string `mapstructure:"quit"`
+	// Abort the form without quitting the panel.
+	Back []string `mapstructure:"back"`
+	// Submit the form. Plain enter belongs to the text inputs, so this is
+	// deliberately something else.
 	Submit []string `mapstructure:"submit"`
 }
 
 // AgentsKeys are the bindings for the agents list. Info toggles the hovered agent's
 // stored record into the stage in place of the agent itself.
 type AgentsKeys struct {
-	Quit   []string `mapstructure:"quit"`
-	Back   []string `mapstructure:"back"`
-	Open   []string `mapstructure:"open"`
-	New    []string `mapstructure:"new"`
+	// Quit the panel.
+	Quit []string `mapstructure:"quit"`
+	// Step out of a workflow scope, or quit at the root.
+	Back []string `mapstructure:"back"`
+	// Attach to the hovered agent.
+	Open []string `mapstructure:"open"`
+	// Start a new agent.
+	New []string `mapstructure:"new"`
+	// Rename the hovered agent.
 	Rename []string `mapstructure:"rename"`
+	// Delete the hovered agent.
 	Delete []string `mapstructure:"delete"`
+	// Filter the list by name.
 	Search []string `mapstructure:"search"`
-	Info   []string `mapstructure:"info"`
+	// Swap the hovered agent's stored record into the stage in place of the agent.
+	Info []string `mapstructure:"info"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow. New is global. Rename,
 // edit, and delete apply while the cursor is on a workflow header.
 type WorkflowsKeys struct {
-	New    []string `mapstructure:"new"`
+	// Create a workflow. Works from anywhere in the list.
+	New []string `mapstructure:"new"`
+	// Rename the workflow under the cursor.
 	Rename []string `mapstructure:"rename"`
-	Edit   []string `mapstructure:"edit"`
+	// Edit the workflow under the cursor.
+	Edit []string `mapstructure:"edit"`
+	// Delete the workflow under the cursor.
 	Delete []string `mapstructure:"delete"`
 }
 
 // Config is the user's customization.
 type Config struct {
-	ClaudeFlags string      `mapstructure:"claude_flags"`
+	// Flags appended to the claude command for every new session.
+	ClaudeFlags string `mapstructure:"claude_flags"`
+	// Panel keybindings, scoped to the screen each action acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`
 }
 
@@ -133,6 +159,10 @@ func (k Keybindings) withDefaults() Keybindings {
 // Load reads the config from path when given, otherwise from the default
 // location ~/.config/claude-agents/config.toml. A missing file is not an error
 // and yields the default keybindings.
+//
+// A key the Config struct does not know about is an error rather than something
+// silently dropped, so a typo or a binding left behind by an older version says
+// so instead of quietly doing nothing.
 func Load(path string) (*Config, error) {
 	viperCfg := viper.New()
 	viperCfg.SetConfigType("toml")
@@ -160,7 +190,9 @@ func Load(path string) (*Config, error) {
 	}
 
 	var cfg Config
-	if err := viperCfg.Unmarshal(&cfg); err != nil {
+	if err := viperCfg.Unmarshal(&cfg, func(dc *mapstructure.DecoderConfig) {
+		dc.ErrorUnused = true
+	}); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Run shellcheck over every shell script in the repo."
+#MISE alias="bash:check"
+
+usage() {
+	echo "Usage: mise run bash:check"
+	echo
+	echo "Finds every shell script under mise/tasks and scripts, plus the tmux entry"
+	echo "point, and runs shellcheck -x over them."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+scripts=()
+while IFS= read -r script; do
+	scripts+=("$script")
+done < <(shell_scripts)
+
+if ((${#scripts[@]} == 0)); then
+	echo "no shell scripts found"
+	exit 0
+fi
+
+shellcheck -x "${scripts[@]}"
+echo "shellcheck clean"

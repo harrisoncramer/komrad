@@ -114,6 +114,37 @@ func TestLoad(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsUnknownKeys(t *testing.T) {
+	tests := []struct {
+		name string
+		file string
+	}{
+		{
+			name: "a misspelled top-level key",
+			file: "claude_flgas = \"--model opus\"\n",
+		},
+		{
+			name: "an action the panel does not have",
+			file: "[keybindings.nav]\npreview_up = [\"ctrl+u\"]\n",
+		},
+		{
+			name: "a section the panel does not have",
+			file: "[keybindings.list]\nselect = [\"enter\"]\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.toml")
+			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
+
+			_, err := Load(path)
+			require.Error(t, err, "an unknown key is rejected rather than silently dropped")
+			assert.Contains(t, err.Error(), "failed to parse config")
+		})
+	}
+}
+
 // withNavUp is the defaults with one navigation binding replaced, which is what
 // a config that overrides only that binding should come out as.
 func withNavUp(k Keybindings, keys ...string) Keybindings {

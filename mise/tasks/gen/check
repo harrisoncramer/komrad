@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Rerun every generator and fail if the checked-in output moved."
+
+usage() {
+	echo "Usage: mise run gen:check"
+	echo
+	echo "Reruns the sqlc, buf, and config generators, then fails if any of their"
+	echo "committed output changed. Skips the comparison when those paths already"
+	echo "have uncommitted edits, since then a difference says nothing about"
+	echo "whether the generators are in sync."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+GENERATED=(config.toml db/models proto/gen)
+
+if ! git diff --quiet -- "${GENERATED[@]}"; then
+	echo "warning: generated paths already have uncommitted edits; skipping the drift check"
+	echo "         (${GENERATED[*]})"
+	exit 0
+fi
+
+mise run db:sqlc
+mise run proto:generate
+mise run gen:config
+
+if ! git diff --quiet -- "${GENERATED[@]}"; then
+	echo "generated files are out of date; commit the regenerated output:" >&2
+	git --no-pager diff --stat -- "${GENERATED[@]}" >&2
+	exit 1
+fi
+
+echo "generated files up to date"

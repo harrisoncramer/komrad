@@ -1,5 +1,41 @@
 #!/usr/bin/env bash
-#MISE description="Format Go code."
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
 set -euo pipefail
+#MISE description="Format Go code, or report what is unformatted."
+
+usage() {
+	echo "Usage: mise run go:fmt [--check]"
+	echo
+	echo "Rewrites every Go file with gofmt. Pass --check to list the files that"
+	echo "would change and exit non-zero instead, which is what the check task"
+	echo "wants: a verdict, not an edit."
+}
+
+CHECK=false
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	--check)
+		CHECK=true
+		;;
+	esac
+done
+
 cd "$MISE_CONFIG_ROOT"
+
+if [ "$CHECK" = true ]; then
+	unformatted=$(gofmt -l .)
+	if [ -n "$unformatted" ]; then
+		echo "these files are not gofmt clean; run 'mise run go:fmt'" >&2
+		echo "$unformatted" >&2
+		exit 1
+	fi
+
+	echo "gofmt clean"
+	exit 0
+fi
+
 gofmt -w .

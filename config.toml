@@ -1,67 +1,63 @@
 # claude-agents configuration (github.com/harrisoncramer/tmux-claude-agents).
 #
+# Generated from the Config struct in internal/appconfig. Do not edit by hand;
+# change the struct's doc comments or DefaultKeybindings and run
+# 'mise run gen:config'.
+#
 # Every value below is the tool's built-in default, spelled out. Copy this file
 # to ~/.config/claude-agents/config.toml and change what you like; anything you
-# delete falls back to the same default shown here.
+# delete falls back to the same default shown here. An unknown key is an error,
+# so nothing outside this file is configurable.
 
-# Flags appended to `claude` for every new agent.
+# Flags appended to the claude command for every new session.
 claude_flags = ""
 
-# Panel keybindings. Each action is a list of bubbletea key strings, such as
-# "enter", "esc", "ctrl+d", "up". Scrolling is shared across every menu via the
-# `nav` section below; the per-menu sections cover only that menu's own actions.
+# Panel keybindings, scoped to the screen each action acts in.
 
-# Navigation, shared by every menu so scrolling is the same everywhere. `up` and
-# `down` move the cursor; `preview_up` and `preview_down` scroll the agents
-# preview. These avoid letter keys so they work in the search text field too.
+# Navigation, shared by every menu so movement is the same everywhere. These
+# avoid letter keys so they still work in the search text field.
 [keybindings.nav]
-up           = ["up", "ctrl+p"]
-down         = ["down", "ctrl+n"]
-preview_up   = ["ctrl+u"]
-preview_down = ["ctrl+d"]
+# Move the cursor up.
+up   = ["up", "ctrl+p"]
+# Move the cursor down.
+down = ["down", "ctrl+n"]
 
-# The picker list. `back` quits at the root and steps out of a workflow scope.
-# `new`, `agents`, `workflows`, and `search` jump straight to a section from
-# anywhere in the list.
-[keybindings.list]
-quit      = ["ctrl+c", "q"]
-back      = ["esc", "left", "h"]
-select    = ["enter"]
-new       = ["n"]
-agents     = ["c"]
-workflows = ["w"]
-search    = ["/"]
-
-# The search screen.
-[keybindings.search]
-quit = ["ctrl+c"]
-back = ["esc"]
-open = ["enter"]
-
-# The split agents view. `move` reassigns the agent to a workflow, and `workflow`
-# jumps into the workflow the hovered agent belongs to. `info` swaps the hovered
-# agent's stored record into the preview in place of the agent itself.
+# The agents list, the panel's main screen.
 [keybindings.agents]
-quit     = ["ctrl+c", "q"]
-back     = ["esc", "left", "h"]
-open     = ["enter", "l", "right"]
-info     = ["i"]
-rename   = ["r"]
-delete   = ["d"]
-move     = ["m"]
-workflow = ["w"]
-
-# The workflow picker. It mirrors the agents view: `open` scopes into a workflow,
-# and `new`, `rename`, and `delete` manage them.
-[keybindings.workflows]
+# Quit the panel.
 quit   = ["ctrl+c", "q"]
+# Step out of a workflow scope, or quit at the root.
 back   = ["esc", "left", "h"]
+# Attach to the hovered agent.
 open   = ["enter", "l", "right"]
+# Start a new agent.
 new    = ["n"]
+# Rename the hovered agent.
 rename = ["r"]
+# Delete the hovered agent.
 delete = ["d"]
+# Filter the list by name.
+search = ["/"]
+# Swap the hovered agent's stored record into the stage in place of the agent.
+info   = ["i"]
 
-# The new-agent, rename, and workflow forms. `back` and `quit` both abort the form.
+# The new-agent, rename, and workflow forms.
 [keybindings.form]
-quit = ["ctrl+c"]
-back = ["esc"]
+# Abort the form and quit the panel.
+quit   = ["ctrl+c"]
+# Abort the form without quitting the panel.
+back   = ["esc"]
+# Submit the form. Plain enter belongs to the text inputs, so this is
+# deliberately something else.
+submit = ["shift+enter"]
+
+# The actions that create and change workflows, from the agents list.
+[keybindings.workflows]
+# Create a workflow. Works from anywhere in the list.
+new    = ["W"]
+# Rename the workflow under the cursor.
+rename = ["r"]
+# Edit the workflow under the cursor.
+edit   = ["e"]
+# Delete the workflow under the cursor.
+delete = ["d"]

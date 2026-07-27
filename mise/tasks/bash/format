@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Format every shell script in the repo."
+#MISE alias="bash:fmt"
+
+usage() {
+	echo "Usage: mise run bash:fmt [--check]"
+	echo
+	echo "Rewrites every shell script with shfmt. Pass --check to report what would"
+	echo "change and exit non-zero instead."
+}
+
+CHECK=false
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	--check)
+		CHECK=true
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+scripts=()
+while IFS= read -r script; do
+	scripts+=("$script")
+done < <(shell_scripts)
+
+if ((${#scripts[@]} == 0)); then
+	echo "no shell scripts found"
+	exit 0
+fi
+
+if [ "$CHECK" = true ]; then
+	if ! shfmt -d "${scripts[@]}"; then
+		echo "these scripts are not shfmt clean; run 'mise run bash:fmt'" >&2
+		exit 1
+	fi
+
+	echo "shfmt clean"
+	exit 0
+fi
+
+shfmt -w "${scripts[@]}"

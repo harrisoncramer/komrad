@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Regenerate config.toml from the Config struct."
+
+usage() {
+	echo "Usage: mise run gen:config"
+	echo
+	echo "Rewrites config.toml from the Config struct in internal/appconfig, taking"
+	echo "each key's documentation from its Go doc comment and each default from"
+	echo "DefaultKeybindings. The struct is the source of truth; config.toml is"
+	echo "output, so edit the struct and run this rather than the other way around."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+go generate ./internal/appconfig/...
