@@ -23,7 +23,7 @@ set -g @plugin 'git@github.com:harrisoncramer/tmux-claude-agents'
 set -g status-right "#{claude_agents}%I:%M:%S "
 ```
 
-2. Press `prefix + g` to toggle the panel. Use `new chat` to launch a background agent, or `chats (N)` to browse the ones you have. `prefix + g` hides the panel again from any view and brings it back exactly as you left it.
+2. Press `prefix + g` to toggle the panel. Use `new agent` to launch a background agent, or `agents (N)` to browse the ones you have. `prefix + g` hides the panel again from any view and brings it back exactly as you left it.
 
 There is nothing else to configure. The tool works out each agent's state on its own.
 
@@ -40,7 +40,7 @@ This tool gives you one place for all of it. It works out each agent's state by 
 Concepts and guides:
 
 - [How it works](docs/concepts.md): the state model, the store and server, the reconciler, and dormant agents
-- [The panel](docs/panel.md): the popup, the picker, and the chats browser
+- [The panel](docs/panel.md): the popup, the picker, and the agents browser
 - [Commands](docs/commands.md): what `serve`, `status`, and `migrate` are for
 - [Installation](docs/install.md): the tmux plugin setup
 - [Configuration](docs/configuration.md): environment variables and the TOML app config

@@ -12,7 +12,7 @@ claude_flags = ""
 # `nav` section below; the per-menu sections cover only that menu's own actions.
 
 # Navigation, shared by every menu so scrolling is the same everywhere. `up` and
-# `down` move the cursor; `preview_up` and `preview_down` scroll the chats
+# `down` move the cursor; `preview_up` and `preview_down` scroll the agents
 # preview. These avoid letter keys so they work in the search text field too.
 [keybindings.nav]
 up           = ["up", "ctrl+p"]
@@ -21,14 +21,14 @@ preview_up   = ["ctrl+u"]
 preview_down = ["ctrl+d"]
 
 # The picker list. `back` quits at the root and steps out of a workflow scope.
-# `new`, `chats`, `workflows`, and `search` jump straight to a section from
+# `new`, `agents`, `workflows`, and `search` jump straight to a section from
 # anywhere in the list.
 [keybindings.list]
 quit      = ["ctrl+c", "q"]
 back      = ["esc", "left", "h"]
 select    = ["enter"]
 new       = ["n"]
-chats     = ["c"]
+agents     = ["c"]
 workflows = ["w"]
 search    = ["/"]
 
@@ -38,10 +38,10 @@ quit = ["ctrl+c"]
 back = ["esc"]
 open = ["enter"]
 
-# The split chats view. `move` reassigns the chat to a workflow, and `workflow`
-# jumps into the workflow the hovered chat belongs to. `info` swaps the hovered
-# chat's stored record into the preview in place of the chat itself.
-[keybindings.chats]
+# The split agents view. `move` reassigns the agent to a workflow, and `workflow`
+# jumps into the workflow the hovered agent belongs to. `info` swaps the hovered
+# agent's stored record into the preview in place of the agent itself.
+[keybindings.agents]
 quit     = ["ctrl+c", "q"]
 back     = ["esc", "left", "h"]
 open     = ["enter", "l", "right"]
@@ -51,7 +51,7 @@ delete   = ["d"]
 move     = ["m"]
 workflow = ["w"]
 
-# The workflow picker. It mirrors the chats view: `open` scopes into a workflow,
+# The workflow picker. It mirrors the agents view: `open` scopes into a workflow,
 # and `new`, `rename`, and `delete` manage them.
 [keybindings.workflows]
 quit   = ["ctrl+c", "q"]
@@ -61,7 +61,7 @@ new    = ["n"]
 rename = ["r"]
 delete = ["d"]
 
-# The new-chat, rename, and workflow forms. `back` and `quit` both abort the form.
+# The new-agent, rename, and workflow forms. `back` and `quit` both abort the form.
 [keybindings.form]
 quit = ["ctrl+c"]
 back = ["esc"]

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"claude-agents/internal/store"
-	"claude-agents/internal/store/session"
+	agentstore "claude-agents/internal/store/agent"
 	"claude-agents/internal/store/workflow"
 )
 
@@ -19,11 +19,11 @@ type workflowStore interface {
 	Update(ctx context.Context, id string, cfg workflow.Config) error
 }
 
-// WorkflowService manages the named buckets chats are grouped into. A workflow
-// runs nothing. It holds a display name, shared context injected into the chats
-// spawned inside it, and the cwd and flags those chats start from.
+// WorkflowService manages the named buckets agents are grouped into. A workflow
+// runs nothing. It holds a display name, shared context injected into the agents
+// spawned inside it, and the cwd and flags those agents start from.
 //
-// Deleting one has to say what becomes of the chats inside it, and those are the
+// Deleting one has to say what becomes of the agents inside it, and those are the
 // session domain's rows, so that write runs through a transaction the two stores
 // share rather than either reaching into the other.
 type WorkflowService struct {
@@ -98,15 +98,15 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	return nil
 }
 
-// DeleteWorkflow archives a workflow. With archiveChats the chats inside it are
+// DeleteWorkflow archives a workflow. With archiveAgents the agents inside it are
 // hidden alongside it, otherwise they are orphaned back to unassigned and keep
 // running.
 //
-// The workflow row and the chat rows belong to different domains, so both stores
-// are rebound onto one transaction: either the bucket and its chats agree
-// afterwards, or nothing moved. Half of it landing is what would strand a chat
+// The workflow row and the agent rows belong to different domains, so both stores
+// are rebound onto one transaction: either the bucket and its agents agree
+// afterwards, or nothing moved. Half of it landing is what would strand an agent
 // behind a workflow nothing lists.
-func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string, archiveChats bool) error {
+func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string, archiveAgents bool) error {
 	existing, err := w.GetWorkflow(ctx, id)
 	if err != nil {
 		return err
@@ -120,12 +120,12 @@ func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string, archive
 			return err
 		}
 
-		chats := session.New(db)
-		if archiveChats {
-			return chats.ArchiveWorkflowChats(ctx, id)
+		agents := agentstore.New(db)
+		if archiveAgents {
+			return agents.ArchiveWorkflowAgents(ctx, id)
 		}
 
-		return chats.ClearWorkflow(ctx, id)
+		return agents.ClearWorkflow(ctx, id)
 	})
 	if err != nil {
 		return fmt.Errorf("failed to delete workflow %q: %w", id, err)

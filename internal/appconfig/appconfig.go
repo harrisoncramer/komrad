@@ -15,7 +15,7 @@ import (
 // action left unset falls back to its built-in default.
 type Keybindings struct {
 	Nav       NavKeys       `mapstructure:"nav"`
-	Chats     ChatsKeys     `mapstructure:"chats"`
+	Agents    AgentsKeys    `mapstructure:"agents"`
 	Form      FormKeys      `mapstructure:"form"`
 	Workflows WorkflowsKeys `mapstructure:"workflows"`
 }
@@ -28,7 +28,7 @@ type NavKeys struct {
 	Down []string `mapstructure:"down"`
 }
 
-// FormKeys are the bindings for the new-chat and rename forms. Back and Quit
+// FormKeys are the bindings for the new-agent and rename forms. Back and Quit
 // both abort the form. The split mirrors the other panels so users can rebind
 // them separately.
 type FormKeys struct {
@@ -37,10 +37,10 @@ type FormKeys struct {
 	Submit []string `mapstructure:"submit"`
 }
 
-// ChatsKeys are the bindings for the chats list, the panel's only view. Info
-// toggles the hovered chat's stored record into the stage in place of the chat
+// AgentsKeys are the bindings for the agents list, the panel's only view. Info
+// toggles the hovered agent's stored record into the stage in place of the agent
 // itself.
-type ChatsKeys struct {
+type AgentsKeys struct {
 	Quit   []string `mapstructure:"quit"`
 	Back   []string `mapstructure:"back"`
 	Open   []string `mapstructure:"open"`
@@ -73,7 +73,7 @@ func DefaultKeybindings() Keybindings {
 			Up:   []string{"up", "ctrl+p"},
 			Down: []string{"down", "ctrl+n"},
 		},
-		Chats: ChatsKeys{
+		Agents: AgentsKeys{
 			Quit:   []string{"ctrl+c", "q"},
 			Back:   []string{"esc", "left", "h"},
 			Open:   []string{"enter", "l", "right"},
@@ -112,14 +112,14 @@ func (k Keybindings) withDefaults() Keybindings {
 	k.Nav.Up = fillKeys(k.Nav.Up, def.Nav.Up)
 	k.Nav.Down = fillKeys(k.Nav.Down, def.Nav.Down)
 
-	k.Chats.Quit = fillKeys(k.Chats.Quit, def.Chats.Quit)
-	k.Chats.Back = fillKeys(k.Chats.Back, def.Chats.Back)
-	k.Chats.Open = fillKeys(k.Chats.Open, def.Chats.Open)
-	k.Chats.New = fillKeys(k.Chats.New, def.Chats.New)
-	k.Chats.Rename = fillKeys(k.Chats.Rename, def.Chats.Rename)
-	k.Chats.Delete = fillKeys(k.Chats.Delete, def.Chats.Delete)
-	k.Chats.Search = fillKeys(k.Chats.Search, def.Chats.Search)
-	k.Chats.Info = fillKeys(k.Chats.Info, def.Chats.Info)
+	k.Agents.Quit = fillKeys(k.Agents.Quit, def.Agents.Quit)
+	k.Agents.Back = fillKeys(k.Agents.Back, def.Agents.Back)
+	k.Agents.Open = fillKeys(k.Agents.Open, def.Agents.Open)
+	k.Agents.New = fillKeys(k.Agents.New, def.Agents.New)
+	k.Agents.Rename = fillKeys(k.Agents.Rename, def.Agents.Rename)
+	k.Agents.Delete = fillKeys(k.Agents.Delete, def.Agents.Delete)
+	k.Agents.Search = fillKeys(k.Agents.Search, def.Agents.Search)
+	k.Agents.Info = fillKeys(k.Agents.Info, def.Agents.Info)
 
 	k.Workflows.New = fillKeys(k.Workflows.New, def.Workflows.New)
 	k.Workflows.Rename = fillKeys(k.Workflows.Rename, def.Workflows.Rename)

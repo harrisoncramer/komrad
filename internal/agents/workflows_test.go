@@ -92,29 +92,29 @@ func TestUpdateWorkflow(t *testing.T) {
 	}
 }
 
-// TestDeleteWorkflow covers what becomes of the chats inside. Both halves commit
-// together, so a chat is never left pointing at a workflow nothing lists.
+// TestDeleteWorkflow covers what becomes of the agents inside. Both halves commit
+// together, so an agent is never left pointing at a workflow nothing lists.
 func TestDeleteWorkflow(t *testing.T) {
 	tests := []struct {
-		name         string
-		create       bool
-		archiveChats bool
-		wantErrIs    error
-		wantChatLive bool
+		name          string
+		create        bool
+		archiveAgents bool
+		wantErrIs     error
+		wantAgentLive bool
 	}{
 		{
 			name:      "an id nobody holds",
 			wantErrIs: ErrWorkflowNotFound,
 		},
 		{
-			name:         "by default the chats are orphaned back to unassigned",
-			create:       true,
-			wantChatLive: true,
+			name:          "by default the agents are orphaned back to unassigned",
+			create:        true,
+			wantAgentLive: true,
 		},
 		{
-			name:         "archiveChats hides them alongside it, still findable in search",
-			create:       true,
-			archiveChats: true,
+			name:          "archiveAgents hides them alongside it, still findable in search",
+			create:        true,
+			archiveAgents: true,
 		},
 	}
 
@@ -131,15 +131,15 @@ func TestDeleteWorkflow(t *testing.T) {
 				require.NoError(t, err)
 				id = created.ID
 
-				_, err = manager.NewSession(ctx, NewSessionParams{
-					Title:      "chat",
+				_, err = manager.NewAgent(ctx, NewAgentParams{
+					Title:      "agent",
 					Dir:        t.TempDir(),
 					WorkflowID: &id,
 				})
 				require.NoError(t, err)
 			}
 
-			err := workflows.DeleteWorkflow(ctx, id, tt.archiveChats)
+			err := workflows.DeleteWorkflow(ctx, id, tt.archiveAgents)
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
 				return
@@ -147,15 +147,15 @@ func TestDeleteWorkflow(t *testing.T) {
 
 			require.NoError(t, err)
 
-			listed, err := st.workflows.List(ctx)
+			listed, err := st.Workflows.List(ctx)
 			require.NoError(t, err)
 			assert.Empty(t, listed, "the workflow is hidden")
 
-			chat, err := st.Get(ctx, "chat")
+			agent, err := st.Get(ctx, "agent")
 			require.NoError(t, err)
 
-			if !tt.wantChatLive {
-				assert.Nil(t, chat, "the chat is hidden from the live listing")
+			if !tt.wantAgentLive {
+				assert.Nil(t, agent, "the agent is hidden from the live listing")
 
 				all, err := st.ListAll(ctx)
 				require.NoError(t, err)
@@ -165,8 +165,8 @@ func TestDeleteWorkflow(t *testing.T) {
 				return
 			}
 
-			require.NotNil(t, chat, "the chat survives its workflow")
-			assert.Nil(t, chat.WorkflowID, "pointing at no workflow rather than a missing one")
+			require.NotNil(t, agent, "the agent survives its workflow")
+			assert.Nil(t, agent.WorkflowID, "pointing at no workflow rather than a missing one")
 		})
 	}
 }

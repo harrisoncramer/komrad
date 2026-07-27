@@ -1,7 +1,7 @@
 // Package mcp exposes the panel over MCP. It serves two surfaces: read-only SQL
 // over the agent store, so an orchestrator can ask its own questions without a
 // bespoke RPC for each one, and the session RPCs that carry a tool annotation,
-// which is how a model spawns or changes a chat rather than only reading about
+// which is how a model spawns or changes an agent rather than only reading about
 // one.
 package mcp
 
@@ -27,7 +27,7 @@ type NewHandlerParams struct {
 //
 // There is no auth on it. The server listens on loopback, and the reads were
 // already available to anyone who can open the database file. The writes were
-// not. A caller here can spawn and delete chats, so binding the server to a
+// not. A caller here can spawn and delete agents, so binding the server to a
 // non-loopback address would be a real change in exposure.
 func NewHandler(params NewHandlerParams) (http.Handler, error) {
 	server := mcpsdk.NewServer(&mcpsdk.Implementation{
@@ -35,10 +35,10 @@ func NewHandler(params NewHandlerParams) (http.Handler, error) {
 		Title:   "Claude Agents Database",
 		Version: "0.1.0",
 	}, &mcpsdk.ServerOptions{
-		Instructions: "Access to claude-agents, a tmux panel that runs background Claude chats. " +
+		Instructions: "Access to claude-agents, a tmux panel that runs background Claude agents. " +
 			"Two ways in. list_tables, describe_table, and query read the panel's Postgres database " +
 			"directly, which is best for aggregates and joins; the session tools read and change " +
-			"the chats themselves, and are the only way to spawn, rename, or remove one.",
+			"the agents themselves, and are the only way to spawn, rename, or remove one.",
 	})
 
 	tools := &dbTools{db: params.DB}

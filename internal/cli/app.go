@@ -7,30 +7,29 @@ import (
 	"claude-agents/internal/agents"
 	"claude-agents/internal/appconfig"
 	"claude-agents/internal/store"
-	sessionstore "claude-agents/internal/store/session"
+	agentstore "claude-agents/internal/store/agent"
 	transcriptstore "claude-agents/internal/store/transcript"
 	workflowstore "claude-agents/internal/store/workflow"
 	"claude-agents/internal/tmux"
 	"claude-agents/internal/ui"
 )
 
-// app is what every subcommand is wired from. The services are separate rather
-// than one object, so each command holds only the part it drives.
+// app is what every subcommand is wired from. Each command holds only the part
+// it drives.
 type app struct {
-	// The services and the stores they run over are built on demand by
-	// openStore, since only the commands that serve or write need them. The
-	// panel does not: it is a client of the service, and opening a connection
-	// pool it never queries would put a second writer back on the database.
-	sessions  *agents.SessionService
-	workflows *agents.WorkflowService
+	// The services and their stores are built on demand by openStore, since only
+	// the commands that serve or write need them. The panel is a client of the
+	// service, so opening a pool it never queries would put a second writer on
+	// the database.
+	agentService    *agents.AgentService
+	workflowService *agents.WorkflowService
 
-	// This is the composition root: the pool is opened once and each domain gets
-	// its own small store over it, so what a service can reach is decided here
-	// and visible in how it was built. The pool itself is handed on only as the
-	// transaction boundary, for the writes that span two domains.
+	// The composition root. The pool is opened once and each domain gets its own
+	// store over it, so what a service can reach is decided here. The pool is
+	// handed on only as the transaction boundary for writes spanning two domains.
 	pool        *store.Pool
-	chats       *sessionstore.Store
-	buckets     *workflowstore.Store
+	agents      *agentstore.Store
+	workflows   *workflowstore.Store
 	transcripts *transcriptstore.Store
 
 	popup       *ui.Popup
@@ -38,7 +37,7 @@ type app struct {
 	keys        appconfig.Keybindings
 	claudeFlags string
 	// tmux is shared with the services. The UI needs it directly for the stage,
-	// which is its own layout rather than anything the session API owns.
+	// which is its own layout rather than anything the agent API owns.
 	tmux *tmux.Client
 }
 
@@ -56,18 +55,18 @@ func (a *app) openStore(ctx context.Context) error {
 	}
 
 	a.pool = pool
-	a.chats = sessionstore.New(pool.DB())
-	a.buckets = workflowstore.New(pool.DB())
+	a.agents = agentstore.New(pool.DB())
+	a.workflows = workflowstore.New(pool.DB())
 	a.transcripts = transcriptstore.New(pool.DB())
 
-	a.workflows = agents.NewWorkflowService(agents.WorkflowParams{
-		Workflows: a.buckets,
+	a.workflowService = agents.NewWorkflowService(agents.WorkflowParams{
+		Workflows: a.workflows,
 		Tx:        pool,
 	})
-	a.sessions = agents.NewSessionService(agents.SessionParams{
+	a.agentService = agents.NewAgentService(agents.AgentParams{
 		Tmux:        a.tmux,
-		Sessions:    a.chats,
-		Workflows:   a.buckets,
+		Agents:      a.agents,
+		Workflows:   a.workflows,
 		Tx:          pool,
 		Launcher:    agents.NewLauncher(a.tmux, a.env.Addr),
 		ClaudeFlags: a.claudeFlags,

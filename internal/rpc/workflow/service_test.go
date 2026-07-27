@@ -4,13 +4,11 @@ import (
 	"testing"
 
 	"claude-agents/internal/agents"
-	"claude-agents/internal/pgtest"
-	"claude-agents/internal/store"
+	"claude-agents/internal/storetest"
 	paginationv1 "claude-agents/proto/gen/pagination/v1"
 	workflowv1 "claude-agents/proto/gen/workflow/v1"
 
-	sessionstore "claude-agents/internal/store/session"
-	workflowstore "claude-agents/internal/store/workflow"
+	agentstore "claude-agents/internal/store/agent"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -170,7 +168,7 @@ func TestUpdateWorkflow(t *testing.T) {
 
 			require.NoError(t, err)
 
-			stored, err := st.buckets.Get(t.Context(), req.GetId())
+			stored, err := st.Workflows.Get(t.Context(), req.GetId())
 			require.NoError(t, err)
 			require.NotNil(t, stored)
 			assert.Equal(t, tt.wantName, stored.Name)
@@ -183,15 +181,15 @@ func TestUpdateWorkflow(t *testing.T) {
 }
 
 // TestDeleteWorkflow covers the one decision the request carries, which is
-// whether the chats inside go with the workflow or outlive it.
+// whether the agents inside go with the workflow or outlive it.
 func TestDeleteWorkflow(t *testing.T) {
 	tests := []struct {
-		name         string
-		create       bool
-		archiveChats bool
-		twice        bool
-		wantCode     connect.Code
-		wantChat     bool
+		name          string
+		create        bool
+		archiveAgents bool
+		twice         bool
+		wantCode      connect.Code
+		wantAgent     bool
 	}{
 		{
 			name:     "an id nobody holds",
@@ -204,14 +202,14 @@ func TestDeleteWorkflow(t *testing.T) {
 			wantCode: connect.CodeNotFound,
 		},
 		{
-			name:     "the chats inside are orphaned back to unassigned",
-			create:   true,
-			wantChat: true,
+			name:      "the agents inside are orphaned back to unassigned",
+			create:    true,
+			wantAgent: true,
 		},
 		{
-			name:         "archiveChats hides them alongside the workflow",
-			create:       true,
-			archiveChats: true,
+			name:          "archiveAgents hides them alongside the workflow",
+			create:        true,
+			archiveAgents: true,
 		},
 	}
 
@@ -223,10 +221,10 @@ func TestDeleteWorkflow(t *testing.T) {
 			id := missingID
 			if tt.create {
 				id = createWorkflow(t, svc, "backend")
-				require.NoError(t, st.chats.Upsert(ctx, sessionstore.Agent{Name: "chat", WorkflowID: &id}))
+				require.NoError(t, st.Agents.Upsert(ctx, agentstore.Agent{Name: "agent", WorkflowID: &id}))
 			}
 
-			req := connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id, ArchiveChats: tt.archiveChats})
+			req := connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id, ArchiveAgents: tt.archiveAgents})
 
 			_, err := svc.DeleteWorkflow(ctx, req)
 			if tt.twice {
@@ -241,15 +239,15 @@ func TestDeleteWorkflow(t *testing.T) {
 
 			require.NoError(t, err)
 
-			chat, err := st.chats.Get(ctx, "chat")
+			agent, err := st.Agents.Get(ctx, "agent")
 			require.NoError(t, err)
-			if !tt.wantChat {
-				assert.Nil(t, chat, "the chat is hidden alongside its workflow")
+			if !tt.wantAgent {
+				assert.Nil(t, agent, "the agent is hidden alongside its workflow")
 				return
 			}
 
-			require.NotNil(t, chat, "the chat outlives its workflow")
-			assert.Nil(t, chat.WorkflowID, "and points at no workflow rather than a missing one")
+			require.NotNil(t, agent, "the agent outlives its workflow")
+			assert.Nil(t, agent.WorkflowID, "and points at no workflow rather than a missing one")
 		})
 	}
 }
@@ -324,28 +322,15 @@ func TestListWorkflows(t *testing.T) {
 	}
 }
 
-// stores is what a test arranges rows through. Deleting a workflow settles the
-// chats inside it, so a test of that needs the chat store too even though the
-// handler itself never sees one.
-type stores struct {
-	buckets *workflowstore.Store
-	chats   *sessionstore.Store
-}
-
-func service(t *testing.T) (*Service, *stores) {
+// The handler never sees an agent store, but deleting a workflow settles the
+// agents inside it, so those cases reach for one.
+func service(t *testing.T) (*Service, *storetest.Stores) {
 	t.Helper()
 
-	pool, err := store.Open(t.Context(), pgtest.URL(t))
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = pool.Close() })
+	st := storetest.Open(t)
+	manager := agents.NewWorkflowService(agents.WorkflowParams{Workflows: st.Workflows, Tx: st.Pool})
 
-	st := &stores{
-		buckets: workflowstore.New(pool.DB()),
-		chats:   sessionstore.New(pool.DB()),
-	}
-	manager := agents.NewWorkflowService(agents.WorkflowParams{Workflows: st.buckets, Tx: pool})
-
-	return NewService(st.buckets, manager), st
+	return NewService(st.Workflows, manager), st
 }
 
 // createWorkflow adds a workflow through the handler and returns its id, since

@@ -38,41 +38,94 @@ func TestFillKeys(t *testing.T) {
 }
 
 func TestWithDefaults(t *testing.T) {
-	t.Run("an empty config becomes the full defaults", func(t *testing.T) {
-		assert.Equal(t, DefaultKeybindings(), Keybindings{}.withDefaults())
-	})
+	tests := []struct {
+		name string
+		in   Keybindings
+		want Keybindings
+	}{
+		{
+			name: "an empty config becomes the full defaults",
+			in:   Keybindings{},
+			want: DefaultKeybindings(),
+		},
+		{
+			name: "a set binding is kept while the rest fill in",
+			in:   Keybindings{Nav: NavKeys{Up: []string{"w"}}},
+			want: withNavUp(DefaultKeybindings(), "w"),
+		},
+		{
+			name: "an override in one panel leaves the other panels alone",
+			in:   Keybindings{Workflows: WorkflowsKeys{Delete: []string{"x"}}},
+			want: withWorkflowDelete(DefaultKeybindings(), "x"),
+		},
+	}
 
-	t.Run("a set binding is kept while the rest fill in", func(t *testing.T) {
-		partial := Keybindings{Nav: NavKeys{Up: []string{"w"}}}
-
-		got := partial.withDefaults()
-		assert.Equal(t, []string{"w"}, got.Nav.Up, "the overridden binding is kept")
-		assert.Equal(t, DefaultKeybindings().Nav.Down, got.Nav.Down, "an unset binding falls back to default")
-		assert.Equal(t, DefaultKeybindings().Chats.Open, got.Chats.Open, "an unset panel falls back to default")
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.in.withDefaults())
+		})
+	}
 }
 
-func TestLoadMissingFileYieldsDefaults(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+func TestLoad(t *testing.T) {
+	tests := []struct {
+		name string
+		// file is written to a temp path and passed to Load. Empty means no file is
+		// written and Load falls back to the default location under a bare HOME.
+		file      string
+		wantFlags string
+		wantNavUp []string
+	}{
+		{
+			name:      "a missing file is not an error and yields the defaults",
+			wantNavUp: DefaultKeybindings().Nav.Up,
+		},
+		{
+			name: "what the file sets wins, and the rest still defaults",
+			file: "claude_flags = \"--model opus\"\n\n[keybindings.nav]\nup = [\"w\"]\n",
 
-	cfg, err := Load("")
-	require.NoError(t, err)
-	assert.Empty(t, cfg.ClaudeFlags)
-	assert.Equal(t, DefaultKeybindings(), cfg.Keybindings)
+			wantFlags: "--model opus",
+			wantNavUp: []string{"w"},
+		},
+		{
+			name:      "a file that sets nothing leaves every default in place",
+			file:      "\n",
+			wantNavUp: DefaultKeybindings().Nav.Up,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var path string
+			if tt.file != "" {
+				path = filepath.Join(t.TempDir(), "config.toml")
+				require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
+			} else {
+				t.Setenv("HOME", t.TempDir())
+			}
+
+			cfg, err := Load(path)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantFlags, cfg.ClaudeFlags)
+			assert.Equal(t, tt.wantNavUp, cfg.Keybindings.Nav.Up)
+			assert.Equal(t, DefaultKeybindings().Nav.Down, cfg.Keybindings.Nav.Down, "unset bindings still default")
+			assert.Equal(t, DefaultKeybindings().Agents.Open, cfg.Keybindings.Agents.Open, "an untouched panel still defaults")
+		})
+	}
 }
 
-func TestLoadMergesFileOverDefaults(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.toml")
-	require.NoError(t, os.WriteFile(path, []byte(`
-claude_flags = "--model opus"
+// withNavUp is the defaults with one navigation binding replaced, which is what
+// a config that overrides only that binding should come out as.
+func withNavUp(k Keybindings, keys ...string) Keybindings {
+	k.Nav.Up = keys
 
-[keybindings.nav]
-up = ["w"]
-`), 0o644))
+	return k
+}
 
-	cfg, err := Load(path)
-	require.NoError(t, err)
-	assert.Equal(t, "--model opus", cfg.ClaudeFlags)
-	assert.Equal(t, []string{"w"}, cfg.Keybindings.Nav.Up, "the file override wins")
-	assert.Equal(t, DefaultKeybindings().Nav.Down, cfg.Keybindings.Nav.Down, "unset bindings still default")
+// withWorkflowDelete is the same idea for a binding in another panel, so a case
+// can show that overriding one panel does not disturb the others.
+func withWorkflowDelete(k Keybindings, keys ...string) Keybindings {
+	k.Workflows.Delete = keys
+
+	return k
 }

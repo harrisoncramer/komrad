@@ -23,7 +23,7 @@ type workflowManager interface {
 	NewWorkflow(ctx context.Context, cfg workflowstore.Config) (*workflowstore.Workflow, error)
 	GetWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error)
 	UpdateWorkflow(ctx context.Context, id string, cfg workflowstore.Config) error
-	DeleteWorkflow(ctx context.Context, id string, archiveChats bool) error
+	DeleteWorkflow(ctx context.Context, id string, archiveAgents bool) error
 }
 
 // workflowLister is the read side, kept separate because listing pages straight
@@ -120,9 +120,9 @@ func (s *Service) UpdateWorkflow(ctx context.Context, req *connect.Request[workf
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// DeleteWorkflow removes a workflow, orphaning or archiving its chats.
+// DeleteWorkflow removes a workflow, orphaning or archiving its agents.
 func (s *Service) DeleteWorkflow(ctx context.Context, req *connect.Request[workflowv1.DeleteWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
-	err := s.workflows.DeleteWorkflow(ctx, req.Msg.GetId(), req.Msg.GetArchiveChats())
+	err := s.workflows.DeleteWorkflow(ctx, req.Msg.GetId(), req.Msg.GetArchiveAgents())
 	switch {
 	case errors.Is(err, agents.ErrWorkflowNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no workflow with id %q", req.Msg.GetId()))

@@ -7,14 +7,14 @@ import (
 
 	"claude-agents/internal/appconfig"
 
-	"claude-agents/internal/store/session"
+	agentstore "claude-agents/internal/store/agent"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestInfoKey covers the info toggle. A live chat's pane occupies the stage, so
+// TestInfoKey covers the info toggle. A live agent's pane occupies the stage, so
 // showing its stored record means putting the record there instead and putting
 // the pane back afterwards.
 func TestInfoKey(t *testing.T) {
@@ -40,7 +40,7 @@ func TestInfoKey(t *testing.T) {
 			wantBat:    1,
 		},
 		{
-			name:      "a second press swaps the chat's pane back in",
+			name:      "a second press swaps the agent's pane back in",
 			cursor:    1,
 			presses:   2,
 			wantBat:   1,
@@ -59,7 +59,7 @@ func TestInfoKey(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := &recordingTmux{}
 			m := infoModel(tmux)
-			m.chatCursor = tt.cursor
+			m.agentCursor = tt.cursor
 
 			for range tt.presses {
 				m = pressKey(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("i")})
@@ -69,7 +69,7 @@ func TestInfoKey(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.wantPinned, m.infoPinned)
-			assert.Equal(t, tt.wantSwaps, tmux.swaps, "swaps move the chat's own pane")
+			assert.Equal(t, tt.wantSwaps, tmux.swaps, "swaps move the agent's own pane")
 
 			bat := 0
 			for _, respawn := range tmux.respawns {
@@ -82,10 +82,10 @@ func TestInfoKey(t *testing.T) {
 	}
 }
 
-// TestChatMarkdown covers the record the stage shows for a chat. A dormant one
+// TestAgentMarkdown covers the record the stage shows for an agent. A dormant one
 // has no pane to display, so this is all there is of it.
-func TestChatMarkdown(t *testing.T) {
-	agent := session.Agent{
+func TestAgentMarkdown(t *testing.T) {
+	agent := agentstore.Agent{
 		Name:            "auth",
 		Pane:            "%9",
 		Cwd:             "/repo",
@@ -100,7 +100,7 @@ func TestChatMarkdown(t *testing.T) {
 		wantAbsent  []string
 	}{
 		{
-			name:  "a dormant chat says so and offers the way back",
+			name:  "a dormant agent says so and offers the way back",
 			alive: false,
 			wantContain: []string{
 				"_dormant — not running_",
@@ -108,7 +108,7 @@ func TestChatMarkdown(t *testing.T) {
 			},
 		},
 		{
-			name:  "a live chat says where it runs",
+			name:  "a live agent says where it runs",
 			alive: true,
 			wantContain: []string{
 				"_running in %9_",
@@ -122,7 +122,7 @@ func TestChatMarkdown(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := chatMarkdown(agent, tt.alive)
+			got := agentMarkdown(agent, tt.alive)
 
 			for _, want := range tt.wantContain {
 				assert.Contains(t, got, want)
@@ -135,7 +135,7 @@ func TestChatMarkdown(t *testing.T) {
 }
 
 // recordingTmux records only what the stage does, so a test can tell a
-// swapped-in chat pane from a respawned bat preview. Every other call is an
+// swapped-in agent pane from a respawned bat preview. Every other call is an
 // inert stub.
 type recordingTmux struct {
 	swaps    int
@@ -163,26 +163,26 @@ func (t *recordingTmux) RespawnPane(_, _ string, argv ...string) {
 	t.respawns = append(t.respawns, strings.Join(argv, " "))
 }
 
-// infoModel builds a chats model holding one live chat, with the cursor on it.
-// Row 0 is the no-workflow header, so the chat is row 1.
+// infoModel builds an agents model holding one live agent, with the cursor on it.
+// Row 0 is the no-workflow header, so the agent is row 1.
 func infoModel(tmux *recordingTmux) model {
 	stage := NewStage(tmux)
 	stage.Init()
 
 	return model{
-		stage:      stage,
-		keys:       appconfig.DefaultKeybindings(),
-		screen:     screenChats,
-		chats:      []chatItem{{agent: session.Agent{Name: "auth", Pane: "%9", Cwd: "/repo"}, alive: true}},
-		chatCursor: 1,
+		stage:       stage,
+		keys:        appconfig.DefaultKeybindings(),
+		screen:      screenAgents,
+		agents:      []agentItem{{agent: agentstore.Agent{Name: "auth", Pane: "%9", Cwd: "/repo"}, alive: true}},
+		agentCursor: 1,
 	}
 }
 
-// pressKey feeds one key to the chats screen and returns the model it produced.
+// pressKey feeds one key to the agents screen and returns the model it produced.
 func pressKey(t *testing.T, m model, key tea.KeyMsg) model {
 	t.Helper()
 
-	next, _ := m.updateChats(key)
+	next, _ := m.updateAgents(key)
 	updated, ok := next.(model)
 	require.True(t, ok, "want a panel model back, got %T", next)
 

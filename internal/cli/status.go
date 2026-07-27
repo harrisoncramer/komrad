@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"claude-agents/internal/client"
-	sessionv1 "claude-agents/proto/gen/session/v1"
-	"claude-agents/proto/gen/session/v1/sessionv1connect"
+	agentv1 "claude-agents/proto/gen/agent/v1"
+	"claude-agents/proto/gen/agent/v1/agentv1connect"
 
-	"claude-agents/internal/store/session"
+	agentstore "claude-agents/internal/store/agent"
 
 	"github.com/spf13/cobra"
 )
@@ -36,7 +36,7 @@ const statusTimeout = 2 * time.Second
 //
 // It does not start the server. A status bar that spawned a daemon on a redraw
 // would be a surprise, and with nothing serving there is nothing to report: no
-// reconciler is moving any chat's state, so the honest summary is an empty one.
+// reconciler is moving any agent's state, so the honest summary is an empty one.
 func statusCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
@@ -45,9 +45,9 @@ func statusCmd(state *app) *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), statusTimeout)
 			defer cancel()
 
-			sessions := sessionv1connect.NewSessionServiceClient(http.DefaultClient, "http://"+state.env.Addr)
+			agents := agentv1connect.NewAgentServiceClient(http.DefaultClient, "http://"+state.env.Addr)
 
-			listed, err := client.ListAllSessions(ctx, sessions)
+			listed, err := client.ListAllAgents(ctx, agents)
 			if err != nil {
 				// Nothing to say, and nowhere useful to say it.
 				return nil
@@ -60,16 +60,16 @@ func statusCmd(state *app) *cobra.Command {
 	}
 }
 
-// renderStatus counts the chats worth reporting and renders them as tmux markup.
-func renderStatus(sessions []*sessionv1.Session) string {
+// renderStatus counts the agents worth reporting and renders them as tmux markup.
+func renderStatus(agents []*agentv1.Agent) string {
 	waiting, working, done := 0, 0, 0
-	for _, chat := range sessions {
-		switch chat.GetState() {
-		case session.StateThinking:
+	for _, agent := range agents {
+		switch agent.GetState() {
+		case agentstore.StateThinking:
 			working++
-		case session.StateWaiting:
+		case agentstore.StateWaiting:
 			waiting++
-		case session.StateDone:
+		case agentstore.StateDone:
 			done++
 		}
 	}

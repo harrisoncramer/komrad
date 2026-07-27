@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
+	agentv1 "claude-agents/proto/gen/agent/v1"
 	paginationv1 "claude-agents/proto/gen/pagination/v1"
-	sessionv1 "claude-agents/proto/gen/session/v1"
 
 	"claude-agents/internal/store/transcript"
 
@@ -24,7 +24,7 @@ const searchLimit = 10
 // panel-side rendering of the markers the store wraps hits in.
 var matchStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF9E3B")).Bold(true)
 
-// searchHit is one result of a transcript search: the chat it points at and a
+// searchHit is one result of a transcript search: the agent it points at and a
 // snippet of the matching text with the match wrapped in the store's markers.
 type searchHit struct {
 	sessionID string
@@ -66,17 +66,17 @@ func (m model) enterSearch() (tea.Model, tea.Cmd) {
 // searchCmd runs the query over the service off the UI goroutine, so typing
 // never blocks on the RPC. A blank query resolves to no hits without a call.
 func (m model) searchCmd(query string) tea.Cmd {
-	client := m.api.sessions
+	client := m.api.agents
 
 	return func() tea.Msg {
 		if strings.TrimSpace(query) == "" {
 			return searchResultsMsg{query: query}
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), chatsTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
 		defer cancel()
 
-		resp, err := client.SearchTranscripts(ctx, connect.NewRequest(&sessionv1.SearchTranscriptsRequest{
+		resp, err := client.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
 			Query:      query,
 			Pagination: &paginationv1.Pagination{Limit: proto.Int32(searchLimit)},
 		}))
@@ -87,7 +87,7 @@ func (m model) searchCmd(query string) tea.Cmd {
 		hits := make([]searchHit, 0, len(resp.Msg.GetHits()))
 		for _, h := range resp.Msg.GetHits() {
 			hits = append(hits, searchHit{
-				sessionID: h.GetSessionId(),
+				sessionID: h.GetAgentId(),
 				name:      h.GetName(),
 				deleted:   h.GetDeleted(),
 				snippet:   h.GetSnippet(),
@@ -119,15 +119,15 @@ func (m *model) applySearchResults(msg searchResultsMsg) tea.Cmd {
 // previewCmd loads a hit's full transcript off the UI goroutine, so hovering a
 // result never blocks the render loop on the fetch.
 func (m model) previewCmd(hit searchHit) tea.Cmd {
-	client := m.api.sessions
+	client := m.api.agents
 	query := m.searchQuery
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), chatsTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
 		defer cancel()
 
-		resp, err := client.GetTranscript(ctx, connect.NewRequest(&sessionv1.GetTranscriptRequest{
-			SessionId: hit.sessionID,
+		resp, err := client.GetTranscript(ctx, connect.NewRequest(&agentv1.GetTranscriptRequest{
+			AgentId: hit.sessionID,
 		}))
 		if err != nil {
 			return transcriptLoadedMsg{sessionID: hit.sessionID, query: query}
@@ -172,15 +172,15 @@ func firstMatchLine(content, query string) int {
 }
 
 // updateSearch drives the search screen. Printable keys edit the query and re-run
-// the search, the nav keys move over the results, enter opens the hovered chat,
+// the search, the nav keys move over the results, enter opens the hovered agent,
 // and esc returns to the list. Movement and exit use fixed keys rather than the
-// configurable chat bindings, whose letters would otherwise type into the query.
+// configurable agent bindings, whose letters would otherwise type into the query.
 func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
 	switch {
 	case k == "esc":
-		m.screen = screenChats
+		m.screen = screenAgents
 		m.stageSelection()
 		return m, nil
 	case k == "ctrl+c":
@@ -215,8 +215,8 @@ func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// openSearchHit opens the hovered result's chat and returns to the list focused
-// on it. Restoring a dormant or deleted chat happens in the manager, so this
+// openSearchHit opens the hovered result's agent and returns to the list focused
+// on it. Restoring a dormant or deleted agent happens in the manager, so this
 // just stages the resulting pane.
 func (m model) openSearchHit() (tea.Model, tea.Cmd) {
 	if m.searchCursor < 0 || m.searchCursor >= len(m.searchHits) {
@@ -225,23 +225,23 @@ func (m model) openSearchHit() (tea.Model, tea.Cmd) {
 
 	hit := m.searchHits[m.searchCursor]
 
-	// Opening a hit is a restore: the chat behind it may be archived or dormant,
+	// Opening a hit is a restore: the agent behind it may be archived or dormant,
 	// and a live one comes back as it stands rather than being started twice.
-	restored, err := m.restoreChat(hit.sessionID)
+	restored, err := m.restoreAgent(hit.sessionID)
 	if err != nil {
 		return m, nil
 	}
 
-	m.screen = screenChats
+	m.screen = screenAgents
 	m.reload()
-	m.chatCursor = clampCursor(rowIndexOfChatName(m.chatRows(), restored.GetName()), len(m.chatRows()))
-	m.stage.Chat(restored.GetPaneId())
+	m.agentCursor = clampCursor(rowIndexOfAgentName(m.agentRows(), restored.GetName()), len(m.agentRows()))
+	m.stage.Agent(restored.GetPaneId())
 
 	return m, nil
 }
 
 // searchView renders the search screen's own pane. The query line sits above the
-// list of matching chats, each with a one-line snippet of its match.
+// list of matching agents, each with a one-line snippet of its match.
 func (m model) searchView() string {
 	var b strings.Builder
 	b.WriteString(headerStyle.Render("Search") + "\n\n")

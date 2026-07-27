@@ -1,72 +1,77 @@
 package transcript
 
 import (
-	"context"
-	"strings"
 	"testing"
 
 	"claude-agents/internal/pgtest"
 	"claude-agents/internal/store"
-	sessionstore "claude-agents/internal/store/session"
+	agentstore "claude-agents/internal/store/agent"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// fixture is the transcript store under test plus the chat store the tests seed
-// through. A transcript is keyed to a chat, and search joins the chats table for
-// the name and archived flag, so a hit needs a real chat behind it. The two stay
-// separate stores: this package never writes that table itself.
-type fixture struct {
-	*Store
-	chats *sessionstore.Store
+// TestUpsertAndGet covers what a transcript reads back as, including before
+// anything has been synced for the agent at all.
+func TestUpsertAndGet(t *testing.T) {
+	tests := []struct {
+		name string
+		// writes are applied in order, so a case can show a later write landing on
+		// top of an earlier one rather than beside it.
+		writes      []UpsertParams
+		wantContent string
+		wantOffset  int64
+	}{
+		{
+			name: "an unsynced agent reads as the zero transcript",
+		},
+		{
+			name:        "content and offset round-trip",
+			writes:      []UpsertParams{{Content: "hello world", Offset: 11}},
+			wantContent: "hello world",
+			wantOffset:  11,
+		},
+		{
+			name: "a later write replaces the content in place",
+			writes: []UpsertParams{
+				{Content: "hello world", Offset: 11},
+				{Content: "hello world again", Offset: 17},
+			},
+			wantContent: "hello world again",
+			wantOffset:  17,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+			id := seedAgent(t, st, "agent")
+
+			for _, write := range tt.writes {
+				write.AgentID = id
+				require.NoError(t, st.Upsert(ctx, write))
+			}
+
+			got, err := st.Get(ctx, id)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantContent, got.Content)
+			assert.Equal(t, tt.wantOffset, got.SyncedOffset)
+		})
+	}
 }
 
-func open(t *testing.T) *fixture {
-	t.Helper()
-	p, err := store.Open(t.Context(), pgtest.URL(t))
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = p.Close() })
-
-	return &fixture{Store: New(p.DB()), chats: sessionstore.New(p.DB())}
-}
-
-func TestUpsertAndGetTranscript(t *testing.T) {
-	st := open(t)
-	ctx := context.Background()
-	id := seedSession(t, st, "chat")
-
-	got, err := st.Get(ctx, id)
-	require.NoError(t, err)
-	assert.Equal(t, Transcript{}, got, "an unsynced session reads as the zero transcript")
-
-	require.NoError(t, st.Upsert(ctx, UpsertParams{SessionID: id, Content: "hello world", Offset: 11}))
-	got, err = st.Get(ctx, id)
-	require.NoError(t, err)
-	assert.Equal(t, "hello world", got.Content)
-	assert.Equal(t, int64(11), got.SyncedOffset)
-
-	require.NoError(t, st.Upsert(ctx, UpsertParams{SessionID: id, Content: "hello world again", Offset: 17}))
-	got, err = st.Get(ctx, id)
-	require.NoError(t, err)
-	assert.Equal(t, "hello world again", got.Content, "upsert replaces content in place")
-	assert.Equal(t, int64(17), got.SyncedOffset)
-}
-
-// TestGetTranscriptOfUnknownIDIsEmpty covers the two ways an id can fail to name
-// a chat: one that is well-formed but unused, and one that is not an id at all.
-// Both read as the zero transcript rather than an error, so a caller that
-// mistyped an id gets an empty result instead of a failure.
-func TestGetTranscriptOfUnknownIDIsEmpty(t *testing.T) {
-	st := open(t)
-	ctx := context.Background()
-
+// TestGetOfUnknownID covers the two ways an id can fail to name an agent: one
+// that is well-formed but unused, and one that is not an id at all. Both read as
+// the zero transcript rather than an error, so a caller that mistyped an id gets
+// an empty result instead of a failure.
+func TestGetOfUnknownID(t *testing.T) {
 	tests := []struct {
 		name string
 		id   string
 	}{
 		{
-			name: "a malformed id is not a chat",
+			name: "a malformed id is not an agent",
 			id:   "missing",
 		},
 		{
@@ -77,91 +82,221 @@ func TestGetTranscriptOfUnknownIDIsEmpty(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := st.Get(ctx, tt.id)
+			st := open(t)
+
+			got, err := st.Get(t.Context(), tt.id)
 			require.NoError(t, err)
 			assert.Equal(t, Transcript{}, got)
 		})
 	}
 }
 
-// seedSession inserts a session and returns its generated id, so a transcript
-// can be keyed to a real chat the search join can resolve.
-func seedSession(t *testing.T, st *fixture, name string) string {
-	t.Helper()
-	ctx := context.Background()
-	require.NoError(t, st.chats.Upsert(ctx, sessionstore.Agent{Name: name, State: sessionstore.StateNew}))
-	got, err := st.chats.Get(ctx, name)
-	require.NoError(t, err)
-	require.NotNil(t, got)
+// TestSearch covers what a query matches and what a hit carries. Search spans
+// archived agents, since finding a conversation is the reason to look for one,
+// and each hit says whether the agent behind it is still listed.
+func TestSearch(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		// reindexTo replaces the content with a second write before the search.
+		reindexTo string
+		archive   bool
+		// other is a second agent's transcript, for the cases that only mean
+		// something when there is something to leave out.
+		other       string
+		query       string
+		wantHits    int
+		wantDeleted bool
+	}{
+		{
+			name:     "a blank query matches nothing rather than everything",
+			content:  "anything at all",
+			query:    "   ",
+			wantHits: 0,
+		},
+		{
+			name:      "content replaced by a later write is no longer indexed",
+			content:   "talking about postgres",
+			reindexTo: "now talking about something else",
+			query:     "postgres",
+			wantHits:  0,
+		},
+		{
+			name:     "a whole word",
+			content:  "the quick brown fox discusses postgres indexing",
+			query:    "postgres",
+			wantHits: 1,
+		},
+		{
+			name:     "a substring, since the index is trigram",
+			content:  "the quick brown fox discusses postgres indexing",
+			query:    "ostgr",
+			wantHits: 1,
+		},
+		{
+			name:        "an archived agent is still findable",
+			content:     "an agent that mentions postgres then is archived",
+			archive:     true,
+			query:       "postgres",
+			wantHits:    1,
+			wantDeleted: true,
+		},
+		{
+			name:     "an unrelated transcript is left out",
+			content:  "the quick brown fox discusses postgres indexing",
+			other:    "an unrelated agent about breakfast cereal",
+			query:    "postgres",
+			wantHits: 1,
+		},
+		{
+			// The behaviour the LIKE escaping exists for: the percent matches itself
+			// rather than standing in for any run of text.
+			name:     "a wildcard in the query is matched literally",
+			content:  "the coverage hit 100% today",
+			other:    "the coverage hit 100 of them today",
+			query:    "100%",
+			wantHits: 1,
+		},
+		{
+			name:     "operator syntax and quotes are matched rather than parsed",
+			content:  `the config uses a "flags" field and an OR clause`,
+			query:    `"flags" field`,
+			wantHits: 1,
+		},
+		{
+			// Postgres refuses a NUL in a text value outright, so it is dropped
+			// before the query is sent rather than failing the request.
+			name:     "a NUL byte is dropped rather than failing the search",
+			content:  "findable text",
+			query:    "find\x00able",
+			wantHits: 1,
+		},
+	}
 
-	return got.ID
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			id := seedAgent(t, st, "one")
+			require.NoError(t, st.Upsert(ctx, UpsertParams{AgentID: id, Content: tt.content, Offset: 1}))
+
+			if tt.other != "" {
+				second := seedAgent(t, st, "two")
+				require.NoError(t, st.Upsert(ctx, UpsertParams{AgentID: second, Content: tt.other, Offset: 1}))
+			}
+			if tt.reindexTo != "" {
+				require.NoError(t, st.Upsert(ctx, UpsertParams{AgentID: id, Content: tt.reindexTo, Offset: 2}))
+			}
+			if tt.archive {
+				require.NoError(t, st.agents.Archive(ctx, "one"))
+			}
+
+			hits, err := st.Search(ctx, SearchParams{Query: tt.query, Limit: 10})
+			require.NoError(t, err)
+			require.Len(t, hits, tt.wantHits)
+
+			if tt.wantHits == 0 {
+				return
+			}
+
+			assert.Equal(t, id, hits[0].AgentID)
+			assert.Equal(t, "one", hits[0].Name, "the hit carries the agent's name")
+			assert.Equal(t, tt.wantDeleted, hits[0].Deleted)
+			assert.Contains(t, hits[0].Snippet, SnippetOpen, "the match is marked in the snippet")
+		})
+	}
 }
 
-func TestSearchTranscripts(t *testing.T) {
-	st := open(t)
-	ctx := context.Background()
+// TestSearchPages walks a result set the way the RPC does, following the cursor
+// until it runs dry. That covers both the ordering the cursor depends on and the
+// paging built on top of it.
+func TestSearchPages(t *testing.T) {
+	type seed struct {
+		name    string
+		content string
+	}
 
-	one := seedSession(t, st, "one")
-	two := seedSession(t, st, "two")
-	require.NoError(t, st.Upsert(ctx, UpsertParams{SessionID: one, Content: "the quick brown fox discusses postgres indexing", Offset: 1}))
-	require.NoError(t, st.Upsert(ctx, UpsertParams{SessionID: two, Content: "an unrelated chat about breakfast cereal", Offset: 1}))
+	tests := []struct {
+		name  string
+		seeds []seed
+		query string
+		limit int64
+		// wantNames, when set, is the order the hits must come back in. Cases whose
+		// hits all rank equally leave it unset, since the tiebreak is by id.
+		wantNames []string
+		wantRanks []int32
+		wantCount int
+	}{
+		{
+			name: "hits are ordered by how often the query appears",
+			seeds: []seed{
+				{name: "once", content: "we mentioned pgx here"},
+				{name: "thrice", content: "pgx, and pgx again, and pgx once more"},
+			},
+			query:     "pgx",
+			limit:     10,
+			wantNames: []string{"thrice", "once"},
+			wantRanks: []int32{3, 1},
+			wantCount: 2,
+		},
+		{
+			name: "a cursor walks the whole set one hit at a time",
+			seeds: []seed{
+				{name: "a", content: "shared term here"},
+				{name: "b", content: "shared term here"},
+				{name: "c", content: "shared term here"},
+			},
+			query:     "shared",
+			limit:     1,
+			wantCount: 3,
+		},
+	}
 
-	hits, err := st.Search(ctx, SearchParams{Query: "postgres", Limit: 10})
-	require.NoError(t, err)
-	require.Len(t, hits, 1, "only the matching transcript is returned")
-	assert.Equal(t, one, hits[0].SessionID)
-	assert.Equal(t, "one", hits[0].Name, "the hit carries the chat name")
-	assert.False(t, hits[0].Deleted)
-	assert.Contains(t, hits[0].Snippet, SnippetOpen+"postgres"+SnippetClose, "the match is marked in the snippet")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
 
-	hits, err = st.Search(ctx, SearchParams{Query: "ostgr", Limit: 10})
-	require.NoError(t, err)
-	require.Len(t, hits, 1, "trigram tokenizer matches on a substring, not just whole words")
-	assert.Equal(t, one, hits[0].SessionID)
-}
+			for _, s := range tt.seeds {
+				id := seedAgent(t, st, s.name)
+				require.NoError(t, st.Upsert(ctx, UpsertParams{AgentID: id, Content: s.content, Offset: 1}))
+			}
 
-func TestSearchTranscriptsSpansDeleted(t *testing.T) {
-	st := open(t)
-	ctx := context.Background()
+			var (
+				names  []string
+				ids    []string
+				ranks  []int32
+				cursor *Cursor
+			)
+			for range len(tt.seeds) + 1 {
+				hits, err := st.Search(ctx, SearchParams{Query: tt.query, Limit: tt.limit, Cursor: cursor})
+				require.NoError(t, err)
+				if len(hits) == 0 {
+					break
+				}
 
-	one := seedSession(t, st, "one")
-	require.NoError(t, st.Upsert(ctx, UpsertParams{SessionID: one, Content: "a chat that mentions postgres then is deleted", Offset: 1}))
-	require.NoError(t, st.chats.Archive(ctx, "one"))
+				for _, hit := range hits {
+					names = append(names, hit.Name)
+					ids = append(ids, hit.AgentID)
+					ranks = append(ranks, hit.Rank)
+				}
 
-	hits, err := st.Search(ctx, SearchParams{Query: "postgres", Limit: 10})
-	require.NoError(t, err)
-	require.Len(t, hits, 1, "a soft-deleted chat still turns up in search")
-	assert.Equal(t, one, hits[0].SessionID)
-	assert.True(t, hits[0].Deleted, "the hit is flagged deleted")
-}
+				last := hits[len(hits)-1]
+				cursor = &Cursor{Rank: last.Rank, AgentID: last.AgentID}
+			}
 
-func TestSearchTranscriptsBlankQuery(t *testing.T) {
-	st := open(t)
-	ctx := context.Background()
-	one := seedSession(t, st, "one")
-	require.NoError(t, st.Upsert(ctx, UpsertParams{SessionID: one, Content: "anything at all", Offset: 1}))
+			assert.Len(t, names, tt.wantCount)
+			assert.Len(t, uniqueStrings(ids), tt.wantCount, "each page returns hits the previous pages did not")
 
-	hits, err := st.Search(ctx, SearchParams{Query: "   ", Limit: 10})
-	require.NoError(t, err)
-	assert.Empty(t, hits, "a blank query returns nothing rather than every transcript")
-}
-
-func TestSearchTranscriptsReindexOnUpsert(t *testing.T) {
-	st := open(t)
-	ctx := context.Background()
-
-	one := seedSession(t, st, "one")
-	require.NoError(t, st.Upsert(ctx, UpsertParams{SessionID: one, Content: "talking about postgres", Offset: 1}))
-	require.NoError(t, st.Upsert(ctx, UpsertParams{SessionID: one, Content: "now talking about sqlite instead", Offset: 2}))
-
-	hits, err := st.Search(ctx, SearchParams{Query: "postgres", Limit: 10})
-	require.NoError(t, err)
-	assert.Empty(t, hits, "the old content is dropped from the index on re-upsert")
-
-	hits, err = st.Search(ctx, SearchParams{Query: "sqlite", Limit: 10})
-	require.NoError(t, err)
-	require.Len(t, hits, 1)
-	assert.Equal(t, one, hits[0].SessionID)
+			if tt.wantNames != nil {
+				assert.Equal(t, tt.wantNames, names)
+			}
+			if tt.wantRanks != nil {
+				assert.Equal(t, tt.wantRanks, ranks)
+			}
+		})
+	}
 }
 
 func TestLikePattern(t *testing.T) {
@@ -199,71 +334,35 @@ func TestLikePattern(t *testing.T) {
 	}
 }
 
-// TestSearchTranscriptsTreatsWildcardsLiterally is the behaviour the escaping
-// above exists for: a query containing a LIKE wildcard must match that character
-// and not stand in for any run of text.
-func TestSearchTranscriptsTreatsWildcardsLiterally(t *testing.T) {
-	st := open(t)
-	ctx := context.Background()
-	literal := seedSession(t, st, "literal")
-	other := seedSession(t, st, "other")
-	require.NoError(t, st.Upsert(ctx, UpsertParams{SessionID: literal, Content: "the coverage hit 100% today", Offset: 1}))
-	require.NoError(t, st.Upsert(ctx, UpsertParams{SessionID: other, Content: "the coverage hit 100 of them today", Offset: 1}))
-
-	hits, err := st.Search(ctx, SearchParams{Query: "100%", Limit: 10})
-	require.NoError(t, err)
-	require.Len(t, hits, 1, "the percent matches itself rather than any text")
-	assert.Equal(t, literal, hits[0].SessionID)
+// fixture is the transcript store under test plus the agent store the tests seed
+// through. A transcript is keyed to an agent, and search joins the agents table
+// for the name and archived flag, so a hit needs a real agent behind it. The two
+// stay separate stores: this package never writes that table itself.
+type fixture struct {
+	*Store
+	agents *agentstore.Store
 }
 
-// TestSearchTranscriptsRanksByOccurrences checks the ordering the page cursor
-// depends on: the transcript mentioning the query most comes first.
-func TestSearchTranscriptsRanksByOccurrences(t *testing.T) {
-	st := open(t)
-	ctx := context.Background()
-	once := seedSession(t, st, "once")
-	thrice := seedSession(t, st, "thrice")
-	require.NoError(t, st.Upsert(ctx, UpsertParams{SessionID: once, Content: "we mentioned pgx here", Offset: 1}))
-	require.NoError(t, st.Upsert(ctx, UpsertParams{SessionID: thrice, Content: "pgx, and pgx again, and pgx once more", Offset: 1}))
-
-	hits, err := st.Search(ctx, SearchParams{Query: "pgx", Limit: 10})
+func open(t *testing.T) *fixture {
+	t.Helper()
+	p, err := store.Open(t.Context(), pgtest.URL(t))
 	require.NoError(t, err)
-	require.Len(t, hits, 2)
-	assert.Equal(t, thrice, hits[0].SessionID)
-	assert.EqualValues(t, 3, hits[0].Rank)
-	assert.Equal(t, once, hits[1].SessionID)
-	assert.EqualValues(t, 1, hits[1].Rank)
+	t.Cleanup(func() { _ = p.Close() })
+
+	return &fixture{Store: New(p.DB()), agents: agentstore.New(p.DB())}
 }
 
-// TestSearchTranscriptsPagesByCursor walks a result set one hit at a time, which
-// is what the RPC does when a caller follows the page tokens.
-func TestSearchTranscriptsPagesByCursor(t *testing.T) {
-	st := open(t)
-	ctx := context.Background()
-	for _, name := range []string{"a", "b", "c"} {
-		id := seedSession(t, st, name)
-		require.NoError(t, st.Upsert(ctx, UpsertParams{SessionID: id, Content: "shared term here", Offset: 1}))
-	}
-
-	var (
-		seen   []string
-		cursor *Cursor
-	)
-	for range 3 {
-		hits, err := st.Search(ctx, SearchParams{Query: "shared", Limit: 1, Cursor: cursor})
-		require.NoError(t, err)
-		require.Len(t, hits, 1)
-
-		seen = append(seen, hits[0].SessionID)
-		cursor = &Cursor{Rank: hits[0].Rank, SessionID: hits[0].SessionID}
-	}
-
-	assert.Len(t, seen, 3)
-	assert.Len(t, uniqueStrings(seen), 3, "each page returns a hit the previous pages did not")
-
-	hits, err := st.Search(ctx, SearchParams{Query: "shared", Limit: 1, Cursor: cursor})
+// seedAgent inserts an agent and returns its generated id, so a transcript can
+// be keyed to a real row the search join can resolve.
+func seedAgent(t *testing.T, st *fixture, name string) string {
+	t.Helper()
+	ctx := t.Context()
+	require.NoError(t, st.agents.Upsert(ctx, agentstore.Agent{Name: name, State: agentstore.StateNew}))
+	got, err := st.agents.Get(ctx, name)
 	require.NoError(t, err)
-	assert.Empty(t, hits, "the cursor past the last hit returns nothing")
+	require.NotNil(t, got)
+
+	return got.ID
 }
 
 func uniqueStrings(in []string) []string {
@@ -278,34 +377,4 @@ func uniqueStrings(in []string) []string {
 	}
 
 	return out
-}
-
-func TestSearchTranscriptsQueryWithOperators(t *testing.T) {
-	st := open(t)
-	ctx := context.Background()
-	one := seedSession(t, st, "one")
-	require.NoError(t, st.Upsert(ctx, UpsertParams{SessionID: one, Content: `the config uses a "flags" field and an OR clause`, Offset: 1}))
-
-	// A query carrying FTS operator syntax and quotes must be matched literally,
-	// not parsed, so it neither errors nor mis-matches.
-	hits, err := st.Search(ctx, SearchParams{Query: `"flags" field`, Limit: 10})
-	require.NoError(t, err)
-	require.Len(t, hits, 1)
-	assert.Equal(t, one, hits[0].SessionID)
-	assert.True(t, strings.Contains(hits[0].Snippet, SnippetOpen), "the literal phrase is found and marked")
-}
-
-// TestSearchToleratesControlCharacters covers a NUL byte in a query. Postgres
-// refuses one in a text value outright, so it is dropped before the query is
-// sent and the search finds nothing rather than failing the request.
-func TestSearchToleratesControlCharacters(t *testing.T) {
-	st := open(t)
-	ctx := context.Background()
-
-	id := seedSession(t, st, "chat")
-	require.NoError(t, st.Upsert(ctx, UpsertParams{SessionID: id, Content: "findable text", Offset: 0}))
-
-	hits, err := st.Search(ctx, SearchParams{Query: "find\x00able", Limit: 10})
-	require.NoError(t, err, "a NUL in the query is not an error")
-	assert.Len(t, hits, 1, "the NUL is dropped rather than truncating the phrase")
 }

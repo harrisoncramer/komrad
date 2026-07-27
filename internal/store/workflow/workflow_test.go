@@ -118,7 +118,7 @@ func TestList(t *testing.T) {
 }
 
 // TestRename covers renaming by id. Nothing keys on the name, so a rename cannot
-// collide the way a chat's can.
+// collide the way an agent's can.
 func TestRename(t *testing.T) {
 	tests := []struct {
 		name   string

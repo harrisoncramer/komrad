@@ -1,24 +1,24 @@
--- name: ListSessions :many
+-- name: ListAgents :many
 SELECT
     sqlc.embed(s),
     sc.cwd,
     sc.flags
 FROM
-    sessions s
-    JOIN session_configs sc ON sc.id = s.session_config_id
+    agents s
+    JOIN agent_configs sc ON sc.id = s.agent_config_id
 WHERE
     s.is_deleted = FALSE
 ORDER BY
     s.updated_at DESC;
 
--- name: ListSessionsPage :many
+-- name: ListAgentsPage :many
 SELECT
     sqlc.embed(s),
     sc.cwd,
     sc.flags
 FROM
-    sessions s
-    JOIN session_configs sc ON sc.id = s.session_config_id
+    agents s
+    JOIN agent_configs sc ON sc.id = s.agent_config_id
 WHERE
     s.is_deleted = FALSE
     AND (sqlc.narg ('cursor_updated_at')::timestamptz IS NULL
@@ -30,25 +30,25 @@ ORDER BY
     s.id DESC
 LIMIT @lim;
 
--- name: ListAllSessions :many
+-- name: ListAllAgents :many
 SELECT
     sqlc.embed(s),
     sc.cwd,
     sc.flags
 FROM
-    sessions s
-    JOIN session_configs sc ON sc.id = s.session_config_id
+    agents s
+    JOIN agent_configs sc ON sc.id = s.agent_config_id
 ORDER BY
     s.updated_at DESC;
 
--- name: GetSession :one
+-- name: GetAgent :one
 SELECT
     sqlc.embed(s),
     sc.cwd,
     sc.flags
 FROM
-    sessions s
-    JOIN session_configs sc ON sc.id = s.session_config_id
+    agents s
+    JOIN agent_configs sc ON sc.id = s.agent_config_id
 WHERE
     s.name = @name
     AND s.is_deleted = FALSE
@@ -60,45 +60,45 @@ SELECT
         SELECT
             1
         FROM
-            sessions
+            agents
         WHERE
             name = @name
             AND is_deleted = FALSE);
 
--- name: SessionExists :one
+-- name: AgentExists :one
 SELECT
     EXISTS (
         SELECT
             1
         FROM
-            sessions
+            agents
         WHERE
             id = @id);
 
--- name: InsertSessionConfig :one
-INSERT INTO session_configs (cwd, flags)
+-- name: InsertAgentConfig :one
+INSERT INTO agent_configs (cwd, flags)
     VALUES (@cwd, @flags)
 RETURNING
     id;
 
--- name: InsertSession :one
-INSERT INTO sessions (name, session_config_id, prompt, pane_id, state, claude_session_id, workflow_id)
-    VALUES (@name, @session_config_id, @prompt, @pane_id, @state, @claude_session_id, sqlc.narg ('workflow_id'))
+-- name: InsertAgent :one
+INSERT INTO agents (name, agent_config_id, prompt, pane_id, state, claude_session_id, workflow_id)
+    VALUES (@name, @agent_config_id, @prompt, @pane_id, @state, @claude_session_id, sqlc.narg ('workflow_id'))
 RETURNING
     id;
 
--- name: UpdateSessionConfig :exec
+-- name: UpdateAgentConfig :exec
 UPDATE
-    session_configs
+    agent_configs
 SET
     cwd = @cwd,
     flags = @flags
 WHERE
     id = @id;
 
--- name: UpdateSession :exec
+-- name: UpdateAgent :exec
 UPDATE
-    sessions
+    agents
 SET
     prompt = @prompt,
     pane_id = @pane_id,
@@ -112,36 +112,36 @@ SET
 WHERE
     id = @id;
 
--- name: SetSessionWorkflow :exec
+-- name: SetAgentWorkflow :exec
 UPDATE
-    sessions
+    agents
 SET
     workflow_id = sqlc.narg ('workflow_id')
 WHERE
     id = @id;
 
--- name: ClearWorkflowSessions :exec
+-- name: ClearWorkflowAgents :exec
 UPDATE
-    sessions
+    agents
 SET
     workflow_id = NULL
 WHERE
     workflow_id = @workflow_id;
 
--- name: MarkWorkflowSessionsDeleted :exec
+-- name: MarkWorkflowAgentsDeleted :exec
 UPDATE
-    sessions
+    agents
 SET
     is_deleted = TRUE
 WHERE
     workflow_id = @workflow_id
     AND is_deleted = FALSE;
 
--- SetSessionState returns the row it touched so the caller can tell a chat that
+-- SetAgentState returns the row it touched so the caller can tell an agent that
 -- does not exist from one that already held the state.
--- name: SetSessionState :many
+-- name: SetAgentState :many
 UPDATE
-    sessions
+    agents
 SET
     state = @state
 WHERE
@@ -150,41 +150,41 @@ WHERE
 RETURNING
     id;
 
--- name: SetSessionStateByID :exec
+-- name: SetAgentStateByID :exec
 UPDATE
-    sessions
+    agents
 SET
     state = @state
 WHERE
     id = @id;
 
--- GetSessionForDelete resolves the two ids a hard delete has to remove rows by.
--- name: GetSessionForDelete :one
+-- GetAgentForDelete resolves the two ids a hard delete has to remove rows by.
+-- name: GetAgentForDelete :one
 SELECT
     id,
-    session_config_id
+    agent_config_id
 FROM
-    sessions
+    agents
 WHERE
     name = @name;
 
--- name: DeleteSessionByID :exec
-DELETE FROM sessions
+-- name: DeleteAgentByID :exec
+DELETE FROM agents
 WHERE id = @id;
 
--- name: DeleteSessionConfig :exec
-DELETE FROM session_configs
+-- name: DeleteAgentConfig :exec
+DELETE FROM agent_configs
 WHERE id = @id;
 
--- name: DeleteSessionTranscript :exec
-DELETE FROM session_transcripts
-WHERE session_id = @session_id;
+-- name: DeleteAgentTranscript :exec
+DELETE FROM agent_transcripts
+WHERE agent_id = @agent_id;
 
--- RenameSession returns the row it touched so the caller can tell an id that
--- matches nothing from a rename to the name the chat already had.
--- name: RenameSession :many
+-- RenameAgent returns the row it touched so the caller can tell an id that
+-- matches nothing from a rename to the name the agent already had.
+-- name: RenameAgent :many
 UPDATE
-    sessions
+    agents
 SET
     name = @name
 WHERE
@@ -192,18 +192,18 @@ WHERE
 RETURNING
     id;
 
--- name: MarkSessionDeleted :exec
+-- name: MarkAgentDeleted :exec
 UPDATE
-    sessions
+    agents
 SET
     is_deleted = TRUE
 WHERE
     name = @name
     AND is_deleted = FALSE;
 
--- name: RestoreSession :exec
+-- name: RestoreAgent :exec
 UPDATE
-    sessions
+    agents
 SET
     is_deleted = FALSE
 WHERE
@@ -214,14 +214,14 @@ SELECT
     content,
     synced_offset
 FROM
-    session_transcripts
+    agent_transcripts
 WHERE
-    session_id = @session_id;
+    agent_id = @agent_id;
 
 -- name: UpsertTranscript :exec
-INSERT INTO session_transcripts (session_id, content, synced_offset, synced_at)
-    VALUES (@session_id, @content, @synced_offset, now())
-ON CONFLICT (session_id)
+INSERT INTO agent_transcripts (agent_id, content, synced_offset, synced_at)
+    VALUES (@agent_id, @content, @synced_offset, now())
+ON CONFLICT (agent_id)
     DO UPDATE SET
         content = excluded.content,
         synced_offset = excluded.synced_offset,
@@ -231,36 +231,36 @@ ON CONFLICT (session_id)
 -- best match first. The ILIKE is the form the trigram index can answer, so the
 -- pattern arrives already escaped and wrapped in wildcards, while the raw query
 -- is passed alongside it for the position and the count, which have to match
--- literally. Rank is how many times the query occurs in a transcript, so a chat
+-- literally. Rank is how many times the query occurs in a transcript, so an agent
 -- that discussed something at length outranks one that mentioned it once. The
 -- snippet is a plain window of the text around the first occurrence; the caller
 -- marks the match within it.
 -- name: SearchTranscripts :many
 WITH matches AS (
     SELECT
-        t.session_id,
+        t.agent_id,
         substring(t.content FROM greatest (1, position(lower(@query) IN lower(t.content)) - @lead::int)
             FOR @width::int)::text AS snippet,
         (length(t.content) - length(replace(lower(t.content), lower(@query), ''))) / length(@query) AS rank
     FROM
-        session_transcripts t
+        agent_transcripts t
     WHERE
         t.content ILIKE @pattern
 )
 SELECT
-    matches.session_id,
+    matches.agent_id,
     s.name,
     s.is_deleted,
     matches.snippet,
     matches.rank
 FROM
     matches
-    JOIN sessions s ON s.id = matches.session_id
+    JOIN agents s ON s.id = matches.agent_id
 WHERE (sqlc.narg ('cursor_rank')::int IS NULL
     OR rank < sqlc.narg ('cursor_rank')
     OR (rank = sqlc.narg ('cursor_rank')
-        AND session_id > sqlc.narg ('cursor_session_id')))
+        AND agent_id > sqlc.narg ('cursor_agent_id')))
 ORDER BY
     matches.rank DESC,
-    matches.session_id ASC
+    matches.agent_id ASC
 LIMIT @lim;

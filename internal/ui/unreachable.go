@@ -7,15 +7,15 @@ import (
 )
 
 // errorStyle colours the header of the unreachable screen, using the same red
-// the list uses for a chat that needs attention.
+// the list uses for an agent that needs attention.
 var errorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#E82424")).Bold(true)
 
 // unreachableView is shown in place of every other screen while the service is
 // not answering.
 //
 // It takes over rather than sitting in a corner because the panel is a view onto
-// the service: with the service gone the chat list is a stale snapshot, the
-// counts are wrong, and every key that acts on a chat fails. Leaving the list on
+// the service: with the service gone the agent list is a stale snapshot, the
+// counts are wrong, and every key that acts on an agent fails. Leaving the list on
 // screen made a dead service look like an empty store, which is what an unlucky
 // press of the delete key looked like.
 //
@@ -25,14 +25,14 @@ func (m model) unreachableView() string {
 	var b strings.Builder
 
 	b.WriteString(errorStyle.Render("Cannot reach the server") + "\n\n")
-	b.WriteString("The panel could not list your chats, so what it was showing is\n")
+	b.WriteString("The panel could not list your agents, so what it was showing is\n")
 	b.WriteString("out of date. Nothing has been deleted.\n\n")
 
 	if m.addr != "" {
 		b.WriteString(dimStyle.Render("address  ") + m.addr + "\n")
 	}
 	if m.unreachable != nil {
-		b.WriteString(dimStyle.Render("error    ") + truncateError(m.unreachable.Error()) + "\n")
+		b.WriteString(dimStyle.Render("error    ") + wrapError(m.unreachable.Error()) + "\n")
 	}
 
 	b.WriteString("\n" + dimStyle.Render("Start it with: claude-agents serve") + "\n")
@@ -41,17 +41,29 @@ func (m model) unreachableView() string {
 	return b.String()
 }
 
-// errorWidth bounds the reported error. A failed dial carries the whole address
-// and syscall chain, which wraps into a wall of text that buries the line above
-// it explaining what to do.
+// errorWidth is how wide the reported error is allowed to run before it wraps.
+// A failed dial carries the whole address and syscall chain, and the part that
+// says what actually went wrong is usually at the end of it, so the error is
+// wrapped whole rather than cut.
 const errorWidth = 120
 
-// truncateError shortens a long error to one readable line.
-func truncateError(msg string) string {
-	msg = strings.ReplaceAll(msg, "\n", " ")
-	if len(msg) <= errorWidth {
-		return msg
+// errorIndent lines wrapped error text up under the first line, so the wrapped
+// lines read as part of the error rather than as a new field.
+const errorIndent = "         "
+
+// wrapError folds a long error onto as many lines as it needs.
+func wrapError(msg string) string {
+	lines := strings.Split(errorTextStyle.Render(msg), "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimRight(line, " ")
+		if i > 0 {
+			lines[i] = errorIndent + lines[i]
+		}
 	}
 
-	return msg[:errorWidth] + "…"
+	return strings.Join(lines, "\n")
 }
+
+// errorTextStyle only carries the wrap width; the error is left uncoloured so it
+// reads as the detail under the header.
+var errorTextStyle = lipgloss.NewStyle().Width(errorWidth)

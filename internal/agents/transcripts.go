@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"claude-agents/internal/store/session"
+	agentstore "claude-agents/internal/store/agent"
 	"claude-agents/internal/store/transcript"
 )
 
@@ -21,11 +21,11 @@ type transcriptStore interface {
 	Upsert(ctx context.Context, params transcript.UpsertParams) error
 }
 
-// chatLister is the one thing the syncer needs from the chat domain: which chats
+// agentLister is the one thing the syncer needs from the agent domain: which agents
 // exist to sync, archived ones included, since their transcripts stay
 // searchable.
-type chatLister interface {
-	ListAll(ctx context.Context) ([]session.Agent, error)
+type agentLister interface {
+	ListAll(ctx context.Context) ([]agentstore.Agent, error)
 }
 
 // TranscriptSyncer keeps each session's searchable transcript in step with the
@@ -35,15 +35,15 @@ type chatLister interface {
 // path is known without any cooperation from Claude. Missing a pass loses
 // nothing, since the next pass reads whatever the file now holds.
 type TranscriptSyncer struct {
-	chats       chatLister
+	agents      agentLister
 	store       transcriptStore
 	projectsDir string
 }
 
 // NewTranscriptSyncer builds a syncer over the store, reading logs from
 // projectsDir, which is Claude's ~/.claude/projects.
-func NewTranscriptSyncer(chats chatLister, transcripts transcriptStore, projectsDir string) *TranscriptSyncer {
-	return &TranscriptSyncer{chats: chats, store: transcripts, projectsDir: projectsDir}
+func NewTranscriptSyncer(agents agentLister, transcripts transcriptStore, projectsDir string) *TranscriptSyncer {
+	return &TranscriptSyncer{agents: agents, store: transcripts, projectsDir: projectsDir}
 }
 
 // Sync folds any new transcript text for every tracked session into the store. It
@@ -51,7 +51,7 @@ func NewTranscriptSyncer(chats chatLister, transcripts transcriptStore, projects
 // since its last sync, so a pass is cheap even over a large corpus, and a session
 // whose log is unchanged is skipped entirely.
 func (ts *TranscriptSyncer) Sync(ctx context.Context) error {
-	agents, err := ts.chats.ListAll(ctx)
+	agents, err := ts.agents.ListAll(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list agents for transcript sync: %w", err)
 	}
@@ -71,7 +71,7 @@ func (ts *TranscriptSyncer) Sync(ctx context.Context) error {
 // syncOne reads the tail of one session's log and appends its flattened text to
 // the stored transcript. A missing log is a no-op, as is a log with no new
 // complete lines.
-func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent session.Agent) error {
+func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent) error {
 	path := ts.logPath(agent.ClaudeSessionID)
 	if path == "" {
 		return nil
@@ -111,9 +111,9 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent session.Agent) er
 	}
 
 	return ts.store.Upsert(ctx, transcript.UpsertParams{
-		SessionID: agent.ID,
-		Content:   content,
-		Offset:    offset + consumed,
+		AgentID: agent.ID,
+		Content: content,
+		Offset:  offset + consumed,
 	})
 }
 

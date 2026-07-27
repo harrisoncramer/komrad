@@ -1,16 +1,16 @@
 syntax = "proto3";
 
-package session.v1;
+package agent.v1;
 
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
 import "pagination/v1/pagination.proto";
 
-option go_package = "claude-agents/proto/gen/session/v1;sessionv1";
+option go_package = "claude-agents/proto/gen/agent/v1;agentv1";
 
 // Session is one background Claude agent, as stored.
-message Session {
+message Agent {
   string id = 1;
   string name = 2;
   string cwd = 3;
@@ -19,35 +19,35 @@ message Session {
   string pane_id = 6;
   string state = 7;
   string claude_session_id = 8;
-  // The workflow this chat belongs to. Optional so an unset value means the chat
+  // The workflow this agent belongs to. Optional so an unset value means the agent
   // is unassigned, distinct from an empty id.
   optional string workflow_id = 9;
-  // When the chat was first created, as an RFC 3339 timestamp, for display.
+  // When the agent was first created, as an RFC 3339 timestamp, for display.
   string created_at = 10;
-  // Whether the chat's tmux pane is still running. It is observed at read time
+  // Whether the agent's tmux pane is still running. It is observed at read time
   // rather than stored, so a caller does not need tmux of its own to tell a live
-  // chat from a dormant one.
+  // agent from a dormant one.
   bool alive = 11;
 }
 
-message ListSessionsRequest {
+message ListAgentsRequest {
   optional pagination.v1.Pagination pagination = 1;
 }
 
-message ListSessionsResponse {
-  repeated Session sessions = 1;
+message ListAgentsResponse {
+  repeated Agent agents = 1;
   // The token that fetches the page after this one, unset once the listing is
-  // exhausted. A caller wanting every chat keeps calling until it is absent.
+  // exhausted. A caller wanting every agent keeps calling until it is absent.
   optional string next_page_token = 2;
 }
 
-// CreateSessionRequest launches a background agent. The prompt and directory
-// are required: a chat created over RPC has nobody at the keyboard, so one with
+// CreateAgentRequest launches a background agent. The prompt and directory
+// are required: an agent created over RPC has nobody at the keyboard, so one with
 // no prompt would sit idle forever, and the tmux fallback for a blank directory
 // resolves against whichever client happens to be current, which would let the
 // same request start in a different repository each time it ran. A blank title
 // is auto-named and blank flags mean the configured defaults alone.
-message CreateSessionRequest {
+message CreateAgentRequest {
   string prompt = 1 [(buf.validate.field).string = {
     min_len: 1,
     max_len: 50000
@@ -86,29 +86,29 @@ message CreateSessionRequest {
       expression: "!this.matches('[;&|<>`$\\\\\\n]')"
     }
   ];
-  // The workflow to place the chat in. Unset leaves it unassigned, which is
+  // The workflow to place the agent in. Unset leaves it unassigned, which is
   // distinct from an empty id: that would name a workflow that cannot exist.
   optional string workflow_id = 5 [(buf.validate.field).string.min_len = 1];
 }
 
-message CreateSessionResponse {
-  Session session = 1;
+message CreateAgentResponse {
+  Agent agent = 1;
 }
 
-message GetSessionRequest {
+message GetAgentRequest {
   string name = 1 [(buf.validate.field).string = {
     min_len: 1,
     max_len: 200
   }];
 }
 
-message GetSessionResponse {
-  Session session = 1;
+message GetAgentResponse {
+  Agent agent = 1;
 }
 
-// SetStateRequest moves a chat between lifecycle states. The state is closed:
+// SetStateRequest moves an agent between lifecycle states. The state is closed:
 // the store treats an unknown value as a state nothing renders, so a typo would
-// make a chat vanish from every count rather than fail.
+// make an agent vanish from every count rather than fail.
 message SetStateRequest {
   string name = 1 [(buf.validate.field).string = {
     min_len: 1,
@@ -124,38 +124,38 @@ message SetStateRequest {
   }];
 }
 
-// ArchiveSessionRequest hides a chat without destroying it. This is what the
-// panel's delete key does: the agent is stopped and the chat drops out of the
+// ArchiveAgentRequest hides an agent without destroying it. This is what the
+// panel's delete key does: the agent is stopped and the agent drops out of the
 // listing, but its transcript stays searchable and it can be restored.
-message ArchiveSessionRequest {
+message ArchiveAgentRequest {
   string name = 1 [(buf.validate.field).string = {
     min_len: 1,
     max_len: 200
   }];
 }
 
-// RestoreSessionRequest brings a chat back, keyed by id rather than name: an
-// archived chat's name may have been taken by a live one since, in which case
+// RestoreAgentRequest brings an agent back, keyed by id rather than name: an
+// archived agent's name may have been taken by a live one since, in which case
 // restoring renames it.
-message RestoreSessionRequest {
+message RestoreAgentRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
-message RestoreSessionResponse {
-  Session session = 1;
+message RestoreAgentResponse {
+  Agent agent = 1;
 }
 
-message DeleteSessionRequest {
+message DeleteAgentRequest {
   string name = 1 [(buf.validate.field).string = {
     min_len: 1,
     max_len: 200
   }];
 }
 
-// UpdateSessionRequest renames a chat by id. The name is what tmux and the
+// UpdateAgentRequest renames an agent by id. The name is what tmux and the
 // store agree on, so the characters the store would rewrite are rejected here
 // rather than silently changed underneath the caller.
-message UpdateSessionRequest {
+message UpdateAgentRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
   string name = 2 [
     (buf.validate.field).string = {
@@ -181,14 +181,14 @@ message SearchTranscriptsRequest {
   optional pagination.v1.Pagination pagination = 2;
 }
 
-// SearchHit is one transcript matched by a search: the session it belongs to,
+// SearchHit is one transcript matched by a search: the agent it belongs to,
 // its display name and whether it is soft-deleted, a snippet of the matching
 // text with the matched terms wrapped in markers, and the relevance rank.
 message SearchHit {
-  string session_id = 1;
+  string agent_id = 1;
   string snippet = 2;
   // How many times the query occurs in the transcript. Results come back in
-  // descending order of this, so a chat that discussed something at length
+  // descending order of this, so an agent that discussed something at length
   // outranks one that mentioned it once.
   int64 occurrences = 3;
   string name = 4;
@@ -204,83 +204,83 @@ message SearchTranscriptsResponse {
 }
 
 message GetTranscriptRequest {
-  string session_id = 1 [(buf.validate.field).string.min_len = 1];
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message GetTranscriptResponse {
-  // The full flattened transcript, empty when the session has none synced yet.
+  // The full flattened transcript, empty when the agent has none synced yet.
   string content = 1;
 }
 
-// SessionService reads and mutates the agent store. Every method carries a tool
+// AgentService reads and mutates the agent store. Every method carries a tool
 // annotation, which is what puts it on the MCP surface: a method without one is
 // not reachable from a model at all.
-service SessionService {
+service AgentService {
   // Reads: no side effects, safe to cache and issue over GET.
-  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse) {
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
-      tool_name: "list_sessions"
-      description: "List the chats the panel tracks, live and dormant, with each one\'s name, state, working directory, flags, and workflow. Chats soft-deleted from the panel are excluded, though search_transcripts still returns them. Returns one page, most recently updated first; pass the response\'s nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs."
+      tool_name: "list_agents"
+      description: "List the agents the panel tracks, live and dormant, with each one\'s name, state, working directory, flags, and workflow. Agents soft-deleted from the panel are excluded, though search_transcripts still returns them. Returns one page, most recently updated first; pass the response\'s nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs."
     };
   }
-  rpc GetSession(GetSessionRequest) returns (GetSessionResponse) {
+  rpc GetAgent(GetAgentRequest) returns (GetAgentResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
-      tool_name: "get_session"
-      description: "Fetch one chat by its exact name. Names are unique among live chats. Returns not_found if no chat has that name."
+      tool_name: "get_agent"
+      description: "Fetch one agent by its exact name. Names are unique among live agents. Returns not_found if no agent has that name."
     };
   }
-  // CreateSession launches a background agent and returns it as stored. It is
-  // not idempotent: each call spawns another chat, since two chats may
+  // CreateAgent launches a background agent and returns it as stored. It is
+  // not idempotent: each call spawns another agent, since two agents may
   // legitimately run the same prompt.
-  rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse) {
+  rpc CreateAgent(CreateAgentRequest) returns (CreateAgentResponse) {
     option (annotation.v1.tool) = {
-      tool_name: "create_session"
-      description: "Launch a background Claude chat with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would resolve somewhere unpredictable. Each call spawns another chat, so do not retry a call that may have succeeded."
+      tool_name: "create_agent"
+      description: "Launch a background Claude agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would resolve somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded."
       destructive: false
     };
   }
-  // Mutations key on the unique session name, so repeating them yields the same
+  // Mutations key on the unique agent name, so repeating them yields the same
   // state. They are idempotent and safe for the client to retry.
   rpc SetState(SetStateRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
-      tool_name: "set_session_state"
-      description: "Move a chat to one of new, thinking, waiting, or done. The reconciler derives state from the live pane every couple of seconds, so a value set here is overwritten shortly after unless the chat is dormant."
+      tool_name: "set_agent_state"
+      description: "Move an agent to one of new, thinking, waiting, or done. The reconciler derives state from the live pane every couple of seconds, so a value set here is overwritten shortly after unless the agent is dormant."
       destructive: false
     };
   }
-  rpc ArchiveSession(ArchiveSessionRequest) returns (google.protobuf.Empty) {
+  rpc ArchiveAgent(ArchiveAgentRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
-      tool_name: "archive_session"
-      description: "Stop a chat and hide it from the panel, keeping its record and transcript. Prefer this to delete_session: it is reversible with restore_session, and search_transcripts still finds the conversation. Returns not_found if no chat has that name."
+      tool_name: "archive_agent"
+      description: "Stop an agent and hide it from the panel, keeping its record and transcript. Prefer this to delete_agent: it is reversible with restore_agent, and search_transcripts still finds the conversation. Returns not_found if no agent has that name."
       destructive: false
     };
   }
-  rpc RestoreSession(RestoreSessionRequest) returns (RestoreSessionResponse) {
+  rpc RestoreAgent(RestoreAgentRequest) returns (RestoreAgentResponse) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
-      tool_name: "restore_session"
-      description: "Bring a chat back and relaunch claude on the same conversation, keyed by id. Works on archived chats and on ones whose pane has since died. A chat that is already running is returned as it stands rather than started twice. The chat may come back under a new name if another has taken its old one."
+      tool_name: "restore_agent"
+      description: "Bring an agent back and relaunch claude on the same conversation, keyed by id. Works on archived agents and on ones whose pane has since died. An agent that is already running is returned as it stands rather than started twice. The agent may come back under a new name if another has taken its old one."
       destructive: false
     };
   }
-  rpc DeleteSession(DeleteSessionRequest) returns (google.protobuf.Empty) {
+  rpc DeleteAgent(DeleteAgentRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
-      tool_name: "delete_session"
-      description: "Permanently remove a chat's record by name. This is a hard delete, not the panel's soft delete, and the transcript row goes with it. Prefer leaving chats alone unless asked to remove one."
+      tool_name: "delete_agent"
+      description: "Permanently remove an agent's record by name. This is a hard delete, not the panel's soft delete, and the transcript row goes with it. Prefer leaving agents alone unless asked to remove one."
       destructive: true
     };
   }
-  // UpdateSession patches a session by id (currently its title/name).
-  rpc UpdateSession(UpdateSessionRequest) returns (google.protobuf.Empty) {
+  // UpdateAgent patches an agent by id (currently its title/name).
+  rpc UpdateAgent(UpdateAgentRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
-      tool_name: "rename_session"
-      description: "Rename a chat, keyed by its id rather than its current name. The name is a display label the store keys on; the running tmux window keeps whatever it was called at launch. It may not contain spaces, colons, dots, slashes, or control characters."
+      tool_name: "rename_agent"
+      description: "Rename an agent, keyed by its id rather than its current name. The name is a display label the store keys on; the running tmux window keeps whatever it was called at launch. It may not contain spaces, colons, dots, slashes, or control characters."
       destructive: false
     };
   }
@@ -289,15 +289,15 @@ service SessionService {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "search_transcripts"
-      description: "Full-text search across every chat's conversation, including deleted ones, returning a ranked snippet per hit with the matched text marked. Substring matching, so partial words work. Returns one page, best match first; pass the response's nextPageToken back as pagination.cursor alongside the same query for the next one. Use this to answer what was discussed; use query for the SQL view of the same data."
+      description: "Full-text search across every agent's conversation, including deleted ones, returning a ranked snippet per hit with the matched text marked. Substring matching, so partial words work. Returns one page, best match first; pass the response's nextPageToken back as pagination.cursor alongside the same query for the next one. Use this to answer what was discussed; use query for the SQL view of the same data."
     };
   }
-  // GetTranscript returns a session's full stored transcript by id.
+  // GetTranscript returns an agent's full stored transcript by id.
   rpc GetTranscript(GetTranscriptRequest) returns (GetTranscriptResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "get_transcript"
-      description: "Fetch one chat's full transcript by session id, not by name. Transcripts can be very large; prefer search_transcripts when looking for something specific."
+      description: "Fetch one agent's full transcript by agent id, not by name. Transcripts can be very large; prefer search_transcripts when looking for something specific."
     };
   }
 }

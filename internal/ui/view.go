@@ -14,6 +14,6 @@ func (m model) View() string {
 	case screenSearch:
 		return m.searchView()
 	default:
-		return m.chatsView()
+		return m.agentsView()
 	}
 }

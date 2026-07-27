@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	agentv1 "claude-agents/proto/gen/agent/v1"
 	annotationv1 "claude-agents/proto/gen/annotation/v1"
-	sessionv1 "claude-agents/proto/gen/session/v1"
 	workflowv1 "claude-agents/proto/gen/workflow/v1"
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
@@ -21,7 +21,7 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-// callTimeout bounds a single RPC invoked through a tool. Creating a chat opens
+// callTimeout bounds a single RPC invoked through a tool. Creating an agent opens
 // a tmux window and types into it, which is the slowest thing here and still
 // well inside this.
 const callTimeout = 30 * time.Second
@@ -48,7 +48,7 @@ func registerRPCTools(server *mcpsdk.Server, baseURL string) error {
 	// Every service the server exposes is listed here. A new one is a line in
 	// this slice, and its methods appear as tools only if they are annotated.
 	files := []protoreflect.FileDescriptor{
-		sessionv1.File_session_v1_session_proto,
+		agentv1.File_agent_v1_agent_proto,
 		workflowv1.File_workflow_v1_workflow_proto,
 	}
 

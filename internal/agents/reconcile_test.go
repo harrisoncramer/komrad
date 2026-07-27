@@ -5,7 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"claude-agents/internal/store/session"
+	agentstore "claude-agents/internal/store/agent"
+	"claude-agents/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,6 +20,15 @@ const (
 	idleFrame = "───────────────\n❯ \n───────────────\n  -- INSERT -- ⏵⏵ bypass permissions on"
 	waitFrame = "Teleport anywhere for one day. Where?\n❯ 1. Tokyo\n  2. Patagonia\n\nEnter to select · ↑/↓ to navigate · Esc to cancel"
 )
+
+// toolBlock is a plan or todo list rendered below the status line and above the
+// input box, which pushes the status line a dozen lines up from the bottom.
+const toolBlock = "\n" +
+	"  ⎿  ◼ Schema + migration + sqlc for workflows\n" +
+	"     ◻ Store layer: Workflow type + WorkflowID + CRUD\n" +
+	"     ◻ Panel: workflow scope, picker, move, back-nav\n" +
+	"      … +1 pending\n\n" +
+	"────────────────\n❯ \n────────────────\n   ~/dir  main\n  -- INSERT --"
 
 func TestFrameShowsWork(t *testing.T) {
 	tests := []struct {
@@ -45,6 +55,54 @@ func TestFrameShowsWork(t *testing.T) {
 			name:  "empty frame is not working",
 			frame: "",
 			want:  false,
+		},
+		{
+			name:  "a tool-result line rather than the spinner",
+			frame: "⎿ Found… (3 files)",
+			want:  false,
+		},
+		{
+			name:  "prose that happens to end in an ellipsis",
+			frame: "wait… (2 more)",
+			want:  false,
+		},
+		{
+			name:  "the input prompt echoing typed text",
+			frame: "❯ my message ends in…",
+			want:  false,
+		},
+		{
+			name:  "a box rule",
+			frame: "───────────────",
+			want:  false,
+		},
+		{
+			name:  "a verb with no timer yet, which is every turn's first frame",
+			frame: "✽ Beboppin'…",
+			want:  true,
+		},
+		{
+			name:  "a braille spinner",
+			frame: "⠋ Thinking…",
+			want:  true,
+		},
+		{
+			name:  "a status line above a tool block, with a timer",
+			frame: "✢ Building schema, migration, sqlc… (4m 18s · ↓ 15.5k tokens)" + toolBlock,
+			want:  true,
+		},
+		{
+			name:  "a multi-word verb above a tool block, no timer yet",
+			frame: "✢ Building schema, migration, sqlc…" + toolBlock,
+			want:  true,
+		},
+		{
+			// Captured with -e, so the verb is split across colour runs and codes sit
+			// between the ellipsis and the timer. Detection strips them or matches
+			// nothing.
+			name:  "a line shredded by ANSI colour codes",
+			frame: "\x1b[38;5;174m✽\x1b[39m \x1b[38;5;174mFl\x1b[38;5;216mamb\x1b[38;5;174méing…\x1b[39m \x1b[38;5;246m(3m 30s · ↓\x1b[39m \x1b[38;5;246m11.6k tokens)\x1b[39m",
+			want:  true,
 		},
 		{
 			name:  "token-count timer reads as working",
@@ -115,16 +173,32 @@ func TestFrameShowsWaiting(t *testing.T) {
 	}
 }
 
-// TestDetectorsIgnoreTranscriptProse checks that transcript text containing a
-// marker phrase, like the assistant discussing "Enter to select" or a "· Cooking…
-// (1m)" timer, is not read as a live prompt or live work. Only the bottom UI
-// region counts, and here it is the idle input box.
+// TestDetectorsIgnoreTranscriptProse checks that transcript text carrying a
+// marker phrase is not read as a live prompt or live work. Only the bottom of
+// the frame counts, and in both cases below it is an idle input box.
 func TestDetectorsIgnoreTranscriptProse(t *testing.T) {
-	prose := "I match `Enter to select` and `Do you want`, and the timer `· Cooking… (1m 50s)`."
-	frame := prose + strings.Repeat("\n", liveRegionLines) + idleFrame
+	tests := []struct {
+		name  string
+		frame string
+	}{
+		{
+			name:  "prose well above the live region",
+			frame: "I match `Enter to select` and `Do you want`, and the timer `· Cooking… (1m 50s)`." + strings.Repeat("\n", liveRegionLines) + idleFrame,
+		},
+		{
+			// Inside the wide work window but outside the tight waiting one, which is
+			// why the two windows are sized differently.
+			name:  "waiting phrases a dozen lines up",
+			frame: `I split it so "esc to cancel" and "Enter to select" in a message do not read as a prompt.` + "\n\n\n\n\n\n\n\n\n\n───────\n❯ \n───────\n  -- INSERT --",
+		},
+	}
 
-	assert.False(t, frameShowsWaiting(frame), "transcript prose must not read as a live waiting prompt")
-	assert.False(t, frameShowsWork(frame), "transcript prose must not read as working")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.False(t, frameShowsWaiting(tt.frame), "prose must not read as a live prompt")
+			assert.False(t, frameShowsWork(tt.frame), "prose must not read as working")
+		})
+	}
 }
 
 // TestReconcileSinglePass covers the state a single reconcile pass settles on for
@@ -140,83 +214,83 @@ func TestReconcileSinglePass(t *testing.T) {
 	}{
 		{
 			name:      "dead session settles thinking to done",
-			fromState: session.StateThinking,
+			fromState: agentstore.StateThinking,
 			alive:     false,
-			want:      session.StateDone,
+			want:      agentstore.StateDone,
 		},
 		{
 			name:      "dead session settles waiting to done",
-			fromState: session.StateWaiting,
+			fromState: agentstore.StateWaiting,
 			alive:     false,
-			want:      session.StateDone,
+			want:      agentstore.StateDone,
 		},
 		{
 			name:      "dead session leaves new untouched",
-			fromState: session.StateNew,
+			fromState: agentstore.StateNew,
 			alive:     false,
-			want:      session.StateNew,
+			want:      agentstore.StateNew,
 		},
 		{
 			name:      "dead session leaves done untouched",
-			fromState: session.StateDone,
+			fromState: agentstore.StateDone,
 			alive:     false,
-			want:      session.StateDone,
+			want:      agentstore.StateDone,
 		},
 		{
 			name:      "empty capture is inconclusive",
-			fromState: session.StateThinking,
+			fromState: agentstore.StateThinking,
 			alive:     true,
 			frame:     "",
-			want:      session.StateThinking,
+			want:      agentstore.StateThinking,
 		},
 		{
 			name:      "idle frame does not demote in one pass",
-			fromState: session.StateThinking,
+			fromState: agentstore.StateThinking,
 			alive:     true,
 			frame:     idleFrame,
-			want:      session.StateThinking,
+			want:      agentstore.StateThinking,
 		},
 		{
 			name:      "idle frame leaves new untouched",
-			fromState: session.StateNew,
+			fromState: agentstore.StateNew,
 			alive:     true,
 			frame:     idleFrame,
-			want:      session.StateNew,
+			want:      agentstore.StateNew,
 		},
 		{
 			name:      "idle frame leaves done untouched",
-			fromState: session.StateDone,
+			fromState: agentstore.StateDone,
 			alive:     true,
 			frame:     idleFrame,
-			want:      session.StateDone,
+			want:      agentstore.StateDone,
 		},
 		{
 			name:      "waiting frame moves thinking to waiting",
-			fromState: session.StateThinking,
+			fromState: agentstore.StateThinking,
 			alive:     true,
 			frame:     waitFrame,
-			want:      session.StateWaiting,
+			want:      agentstore.StateWaiting,
 		},
 		{
 			name:      "work promotes new to thinking",
-			fromState: session.StateNew,
+			fromState: agentstore.StateNew,
 			alive:     true,
 			frame:     busyFrame,
-			want:      session.StateThinking,
+			want:      agentstore.StateThinking,
 		},
 		{
 			name:      "work promotes done to thinking",
-			fromState: session.StateDone,
+			fromState: agentstore.StateDone,
 			alive:     true,
 			frame:     busyFrame,
-			want:      session.StateThinking,
+			want:      agentstore.StateThinking,
 		},
 		{
 			name:      "work keeps thinking",
-			fromState: session.StateThinking,
+			fromState: agentstore.StateThinking,
 			alive:     true,
 			frame:     busyFrame,
-			want:      session.StateThinking,
+			want:      agentstore.StateThinking,
 		},
 	}
 
@@ -229,98 +303,111 @@ func TestReconcileSinglePass(t *testing.T) {
 			tmux.alive["%1"] = tt.alive
 			tmux.captures["%1"] = tt.frame
 
-			rec := NewReconciler(tmux, st.chats)
+			rec := NewReconciler(tmux, st.Agents)
 			require.NoError(t, rec.Reconcile(context.Background()))
 			assert.Equal(t, tt.want, stateOf(t, st, "agent"))
 		})
 	}
 }
 
-// TestReconcileIdleDebounce checks a thinking agent whose pane goes idle is only
-// demoted after enough consecutive idle passes, so a brief lull between tool
-// calls never demotes genuinely-working work.
-func TestReconcileIdleDebounce(t *testing.T) {
-	st := newStore(t)
-	seed(t, st, "stuck", "%1", session.StateThinking)
-
-	tmux := newFakeTmux()
-	tmux.alive["%1"] = true
-	tmux.captures["%1"] = idleFrame
-
-	rec := NewReconciler(tmux, st.chats)
-	ctx := context.Background()
-
-	for i := range reconcileMisses - 1 {
-		require.NoError(t, rec.Reconcile(ctx))
-		assert.Equal(t, session.StateThinking, stateOf(t, st, "stuck"), "must survive idle pass %d", i)
+// TestReconcileOverPasses covers what only shows up across several passes: the
+// idle debounce that keeps a lull between tool calls from demoting live work,
+// and the miss count that debounce is built on.
+func TestReconcileOverPasses(t *testing.T) {
+	tests := []struct {
+		name string
+		// passes is the frame the pane shows on each reconcile pass, one entry per
+		// pass.
+		passes []string
+		// archiveBeforeLast removes the agent from the listing before the final
+		// pass, standing in for one deleted while the reconciler is running.
+		archiveBeforeLast bool
+		// wantAfterFirst and wantBeforeLast, when set, are the states expected after
+		// the first pass and after every pass but the last.
+		wantAfterFirst string
+		wantBeforeLast string
+		want           string
+		// wantMisses, when set, is the miss count the agent should be left holding.
+		wantMisses *int
+	}{
+		{
+			name:           "an idle pane only demotes once the misses run out",
+			passes:         repeatFrame(idleFrame, reconcileMisses),
+			wantBeforeLast: agentstore.StateThinking,
+			want:           agentstore.StateDone,
+		},
+		{
+			name:       "a busy pass clears the accrued misses, so a trailing idle one cannot demote",
+			passes:     []string{idleFrame, busyFrame, idleFrame},
+			want:       agentstore.StateThinking,
+			wantMisses: xptr.Ptr(1),
+		},
+		{
+			name:           "a prompt moves it to waiting, and answering lets it settle to done",
+			passes:         append([]string{waitFrame}, repeatFrame(idleFrame, reconcileMisses)...),
+			wantAfterFirst: agentstore.StateWaiting,
+			want:           agentstore.StateDone,
+		},
+		{
+			name:              "an agent that leaves the listing has its misses reaped",
+			passes:            []string{idleFrame, idleFrame},
+			archiveBeforeLast: true,
+			wantMisses:        xptr.Ptr(0),
+		},
 	}
 
-	require.NoError(t, rec.Reconcile(ctx))
-	assert.Equal(t, session.StateDone, stateOf(t, st, "stuck"))
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
 
-// TestReconcileBusyResetsMissCount confirms an intervening busy pass clears the
-// accrued idle misses, so a single trailing idle pass cannot demote.
-func TestReconcileBusyResetsMissCount(t *testing.T) {
-	st := newStore(t)
-	agent := seed(t, st, "flap", "%1", session.StateThinking)
+			tmux := newFakeTmux()
+			tmux.alive["%1"] = true
 
-	tmux := newFakeTmux()
-	tmux.alive["%1"] = true
-	rec := NewReconciler(tmux, st.chats)
-	ctx := context.Background()
+			rec := NewReconciler(tmux, st.Agents)
+			ctx := context.Background()
 
-	tmux.captures["%1"] = idleFrame
-	require.NoError(t, rec.Reconcile(ctx))
-	tmux.captures["%1"] = busyFrame
-	require.NoError(t, rec.Reconcile(ctx))
-	tmux.captures["%1"] = idleFrame
-	require.NoError(t, rec.Reconcile(ctx))
+			for i, frame := range tt.passes {
+				last := i == len(tt.passes)-1
+				if last && tt.archiveBeforeLast {
+					require.NoError(t, st.SoftDelete(ctx, "agent"))
+					assert.NotZero(t, rec.misses[agent.ID], "the earlier idle pass should have recorded a miss")
+				}
 
-	assert.Equal(t, session.StateThinking, stateOf(t, st, "flap"))
-	assert.Equal(t, 1, rec.misses[agent.ID], "one trailing idle pass after a busy reset")
-}
+				tmux.captures["%1"] = frame
+				require.NoError(t, rec.Reconcile(ctx))
 
-// TestReconcileWaitingThenAnswered covers a confirmation prompt moving an agent
-// to waiting, and the prompt clearing letting it settle back to done.
-func TestReconcileWaitingThenAnswered(t *testing.T) {
-	st := newStore(t)
-	seed(t, st, "ask", "%1", session.StateThinking)
+				if tt.archiveBeforeLast && last {
+					break
+				}
+				if i == 0 && tt.wantAfterFirst != "" {
+					assert.Equal(t, tt.wantAfterFirst, stateOf(t, st, "agent"))
+				}
+				if !last && tt.wantBeforeLast != "" {
+					assert.Equal(t, tt.wantBeforeLast, stateOf(t, st, "agent"), "must survive pass %d", i)
+				}
+			}
 
-	tmux := newFakeTmux()
-	tmux.alive["%1"] = true
-	tmux.captures["%1"] = waitFrame
+			if !tt.archiveBeforeLast {
+				assert.Equal(t, tt.want, stateOf(t, st, "agent"))
+			} else {
+				assert.Empty(t, rec.misses, "the miss map is reaped once the agent is gone")
+			}
 
-	rec := NewReconciler(tmux, st.chats)
-	ctx := context.Background()
-
-	require.NoError(t, rec.Reconcile(ctx))
-	assert.Equal(t, session.StateWaiting, stateOf(t, st, "ask"))
-
-	tmux.captures["%1"] = idleFrame
-	for range reconcileMisses {
-		require.NoError(t, rec.Reconcile(ctx))
+			if tt.wantMisses != nil {
+				assert.Equal(t, *tt.wantMisses, rec.misses[agent.ID])
+			}
+		})
 	}
-	assert.Equal(t, session.StateDone, stateOf(t, st, "ask"))
 }
 
-// TestReconcileForgetsVanishedAgents confirms an agent's accrued miss count is
-// reaped once it leaves the listing, so the map cannot grow without bound.
-func TestReconcileForgetsVanishedAgents(t *testing.T) {
-	st := newStore(t)
-	agent := seed(t, st, "temp", "%1", session.StateThinking)
+// repeatFrame is n passes all showing the same frame, for the cases that only
+// care how many consecutive passes it takes to settle.
+func repeatFrame(frame string, n int) []string {
+	frames := make([]string, n)
+	for i := range frames {
+		frames[i] = frame
+	}
 
-	tmux := newFakeTmux()
-	tmux.alive["%1"] = true
-	tmux.captures["%1"] = idleFrame
-
-	rec := NewReconciler(tmux, st.chats)
-	ctx := context.Background()
-
-	require.NoError(t, rec.Reconcile(ctx))
-	assert.NotZero(t, rec.misses[agent.ID], "an idle pass should record a miss")
-
-	require.NoError(t, st.SoftDelete(ctx, "temp"))
-	require.NoError(t, rec.Reconcile(ctx))
-	assert.Empty(t, rec.misses, "miss map should be reaped after the agent vanished")
+	return frames
 }

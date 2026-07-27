@@ -5,42 +5,42 @@ import (
 	"fmt"
 	"strings"
 
-	sessionv1 "claude-agents/proto/gen/session/v1"
+	agentv1 "claude-agents/proto/gen/agent/v1"
 
 	"claude-agents/lib/dates"
 
 	"connectrpc.com/connect"
 
-	"claude-agents/internal/store/session"
+	agentstore "claude-agents/internal/store/agent"
 	workflowstore "claude-agents/internal/store/workflow"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-// noWorkflowLabel heads the trailing group of chats that belong to no workflow.
+// noWorkflowLabel heads the trailing group of agents that belong to no workflow.
 const noWorkflowLabel = "No Workflow"
 
-// chatRow is one line of the chats list. It is either a workflow header or a
-// chat nested beneath one. The cursor moves over both but actions apply only to
-// chat rows.
-type chatRow struct {
+// agentRow is one line of the agents list. It is either a workflow header or an
+// agent nested beneath one. The cursor moves over both but actions apply only to
+// agent rows.
+type agentRow struct {
 	header bool
-	label  string   // workflow name or noWorkflowLabel when header is true
-	item   chatItem // the chat when header is false
+	label  string    // workflow name or noWorkflowLabel when header is true
+	item   agentItem // the agent when header is false
 	// workflowIndex is the header's index in m.workflows so workflow actions can
-	// target it. It is -1 for the no-workflow header and unused for chat rows.
+	// target it. It is -1 for the no-workflow header and unused for agent rows.
 	workflowIndex int
 }
 
-// chatRows arranges the chats into the displayed tree. Every workflow is a
-// header followed by its chats, then a trailing group of chats that belong to no
+// agentRows arranges the agents into the displayed tree. Every workflow is a
+// header followed by its agents, then a trailing group of agents that belong to no
 // workflow. Empty workflows still get a header so a new one can be hovered to add
-// its first chat.
-func (m model) chatRows() []chatRow {
-	byWorkflow := make(map[string][]chatItem)
-	var unassigned []chatItem
-	for _, it := range m.chats {
+// its first agent.
+func (m model) agentRows() []agentRow {
+	byWorkflow := make(map[string][]agentItem)
+	var unassigned []agentItem
+	for _, it := range m.agents {
 		if it.agent.WorkflowID != nil {
 			id := *it.agent.WorkflowID
 			byWorkflow[id] = append(byWorkflow[id], it)
@@ -49,49 +49,49 @@ func (m model) chatRows() []chatRow {
 		}
 	}
 
-	var rows []chatRow
+	var rows []agentRow
 	for wi, w := range m.workflows {
-		chats := byWorkflow[w.ID]
+		agents := byWorkflow[w.ID]
 		delete(byWorkflow, w.ID)
-		rows = append(rows, chatRow{header: true, label: w.Name, workflowIndex: wi})
-		for _, it := range chats {
-			rows = append(rows, chatRow{item: it})
+		rows = append(rows, agentRow{header: true, label: w.Name, workflowIndex: wi})
+		for _, it := range agents {
+			rows = append(rows, agentRow{item: it})
 		}
 	}
 
-	// Chats whose workflow is unknown, for example one just deleted, fall into the
+	// Agents whose workflow is unknown, for example one just deleted, fall into the
 	// unassigned group rather than vanishing.
 	for _, leftover := range byWorkflow {
 		unassigned = append(unassigned, leftover...)
 	}
-	rows = append(rows, chatRow{header: true, label: noWorkflowLabel, workflowIndex: -1})
+	rows = append(rows, agentRow{header: true, label: noWorkflowLabel, workflowIndex: -1})
 	for _, it := range unassigned {
-		rows = append(rows, chatRow{item: it})
+		rows = append(rows, agentRow{item: it})
 	}
 
 	return rows
 }
 
-// selectedChat returns the chat under the cursor, or false when the cursor is on
+// selectedAgent returns the agent under the cursor, or false when the cursor is on
 // a workflow header or the list is empty.
-func (m model) selectedChat() (chatItem, bool) {
-	rows := m.chatRows()
-	if m.chatCursor < 0 || m.chatCursor >= len(rows) || rows[m.chatCursor].header {
-		return chatItem{}, false
+func (m model) selectedAgent() (agentItem, bool) {
+	rows := m.agentRows()
+	if m.agentCursor < 0 || m.agentCursor >= len(rows) || rows[m.agentCursor].header {
+		return agentItem{}, false
 	}
 
-	return rows[m.chatCursor].item, true
+	return rows[m.agentCursor].item, true
 }
 
 // hoveredWorkflow returns the m.workflows index of the workflow header under the
 // cursor and true, or false when the cursor is not on a real workflow header.
 func (m model) hoveredWorkflow() (int, bool) {
-	rows := m.chatRows()
-	if m.chatCursor < 0 || m.chatCursor >= len(rows) {
+	rows := m.agentRows()
+	if m.agentCursor < 0 || m.agentCursor >= len(rows) {
 		return 0, false
 	}
 
-	r := rows[m.chatCursor]
+	r := rows[m.agentCursor]
 	if !r.header || r.workflowIndex < 0 {
 		return 0, false
 	}
@@ -102,18 +102,18 @@ func (m model) hoveredWorkflow() (int, bool) {
 // onNoWorkflowHeader reports whether the cursor sits on the no-workflow header,
 // which has no workflow record behind it and so cannot be renamed or deleted.
 func (m model) onNoWorkflowHeader() bool {
-	rows := m.chatRows()
-	if m.chatCursor < 0 || m.chatCursor >= len(rows) {
+	rows := m.agentRows()
+	if m.agentCursor < 0 || m.agentCursor >= len(rows) {
 		return false
 	}
 
-	r := rows[m.chatCursor]
+	r := rows[m.agentCursor]
 	return r.header && r.workflowIndex < 0
 }
 
-// firstChatRowIndex returns the index of the first chat row, skipping a leading
-// header so entering the list lands on a chat rather than a folder label.
-func firstChatRowIndex(rows []chatRow) int {
+// firstAgentRowIndex returns the index of the first agent row, skipping a leading
+// header so entering the list lands on an agent rather than a folder label.
+func firstAgentRowIndex(rows []agentRow) int {
 	for i, r := range rows {
 		if !r.header {
 			return i
@@ -123,9 +123,9 @@ func firstChatRowIndex(rows []chatRow) int {
 	return 0
 }
 
-// rowIndexOfChatName returns the row of the named chat, or -1 when it is gone, so
-// a refresh can keep the cursor on the same chat as the tree is rebuilt.
-func rowIndexOfChatName(rows []chatRow, name string) int {
+// rowIndexOfAgentName returns the row of the named agent, or -1 when it is gone, so
+// a refresh can keep the cursor on the same agent as the tree is rebuilt.
+func rowIndexOfAgentName(rows []agentRow, name string) int {
 	for i, r := range rows {
 		if !r.header && r.item.agent.Name == name {
 			return i
@@ -135,20 +135,20 @@ func rowIndexOfChatName(rows []chatRow, name string) int {
 	return -1
 }
 
-// updateChats drives the nav list. Arrows move the selection and restage, and
-// letter keys act on the hovered chat or workflow.
-func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+// updateAgents drives the nav list. Arrows move the selection and restage, and
+// letter keys act on the hovered agent or workflow.
+func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
-	// New workflow is global to the chats view regardless of cursor position, so it
-	// never collides with the per-row new-chat key.
+	// New workflow is global to the agents view regardless of cursor position, so it
+	// never collides with the per-row new-agent key.
 	if bound(k, m.keys.Workflows.New) {
 		return m.newWorkflowForm()
 	}
 
-	// Search is likewise global to the chats view. It opens over the whole corpus,
+	// Search is likewise global to the agents view. It opens over the whole corpus,
 	// not the hovered row.
-	if bound(k, m.keys.Chats.Search) {
+	if bound(k, m.keys.Agents.Search) {
 		return m.enterSearch()
 	}
 
@@ -158,34 +158,34 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch {
-	case bound(k, m.keys.Chats.Quit):
+	case bound(k, m.keys.Agents.Quit):
 		return m, m.hide()
-	case bound(k, m.keys.Chats.Back):
+	case bound(k, m.keys.Agents.Back):
 		return m, m.hide()
-	case bound(k, m.keys.Chats.New):
-		return m.openNewSession(nil)
+	case bound(k, m.keys.Agents.New):
+		return m.openNewAgent(nil)
 	case bound(k, m.keys.Nav.Up):
-		if m.chatCursor > 0 {
-			m.chatCursor--
+		if m.agentCursor > 0 {
+			m.agentCursor--
 			m.infoPinned = false
 			m.stageSelection()
 		}
 	case bound(k, m.keys.Nav.Down):
-		if m.chatCursor < len(m.chatRows())-1 {
-			m.chatCursor++
+		if m.agentCursor < len(m.agentRows())-1 {
+			m.agentCursor++
 			m.infoPinned = false
 			m.stageSelection()
 		}
-	case bound(k, m.keys.Chats.Info):
-		if _, ok := m.selectedChat(); !ok {
+	case bound(k, m.keys.Agents.Info):
+		if _, ok := m.selectedAgent(); !ok {
 			return m, nil
 		}
 		m.infoPinned = !m.infoPinned
 		m.stageSelection()
-	case bound(k, m.keys.Chats.Open):
-		return m.openChat()
-	case bound(k, m.keys.Chats.Rename):
-		item, ok := m.selectedChat()
+	case bound(k, m.keys.Agents.Open):
+		return m.openAgent()
+	case bound(k, m.keys.Agents.Rename):
+		item, ok := m.selectedAgent()
 		if !ok {
 			return m, nil
 		}
@@ -193,29 +193,29 @@ func (m model) updateChats(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.form = renameForm(item.agent.Name, m.keys.Form)
 		m.screen = screenRename
 		return m, m.form.Init()
-	case bound(k, m.keys.Chats.Delete):
-		item, ok := m.selectedChat()
+	case bound(k, m.keys.Agents.Delete):
+		item, ok := m.selectedAgent()
 		if !ok {
 			return m, nil
 		}
 		// Killing a pane while it sits in the stage slot would take the stage down
 		// with it, so it is swapped back out first.
 		m.stage.Release(item.agent.Pane)
-		m.archiveChat(item.agent)
+		m.archiveAgent(item.agent)
 		m.reload()
-		m.chatCursor = clampCursor(m.chatCursor, len(m.chatRows()))
+		m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
 		m.stageSelection()
 	}
 
 	return m, nil
 }
 
-// openChat acts on the hovered chat. A dormant chat is restored and staged live.
-// A live chat is already staged from hovering, so opening it only unpins the
-// info view to bring the chat back. Moving focus onto it is a plain tmux pane
+// openAgent acts on the hovered agent. A dormant agent is restored and staged live.
+// A live agent is already staged from hovering, so opening it only unpins the
+// info view to bring the agent back. Moving focus onto it is a plain tmux pane
 // move the user drives.
-func (m model) openChat() (tea.Model, tea.Cmd) {
-	item, ok := m.selectedChat()
+func (m model) openAgent() (tea.Model, tea.Cmd) {
+	item, ok := m.selectedAgent()
 	if !ok {
 		return m, nil
 	}
@@ -227,72 +227,72 @@ func (m model) openChat() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	restored, err := m.restoreChat(item.agent.ID)
+	restored, err := m.restoreAgent(item.agent.ID)
 	if err != nil {
 		return m, nil
 	}
 	m.infoPinned = false
 	m.reload()
-	// Restoring may rename a chat whose name was taken while it sat archived, so
+	// Restoring may rename an agent whose name was taken while it sat archived, so
 	// the cursor follows the name that came back rather than the one it had.
-	m.chatCursor = clampCursor(rowIndexOfChatName(m.chatRows(), restored.GetName()), len(m.chatRows()))
-	m.stage.Chat(restored.GetPaneId())
+	m.agentCursor = clampCursor(rowIndexOfAgentName(m.agentRows(), restored.GetName()), len(m.agentRows()))
+	m.stage.Agent(restored.GetPaneId())
 
 	return m, nil
 }
 
-// archiveChat stops a chat and hides it, which is what the delete key has always
+// archiveAgent stops an agent and hides it, which is what the delete key has always
 // done: the record and transcript stay, so search still reaches it.
-func (m model) archiveChat(agent session.Agent) {
+func (m model) archiveAgent(agent agentstore.Agent) {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	_, _ = m.api.sessions.ArchiveSession(ctx, connect.NewRequest(&sessionv1.ArchiveSessionRequest{Name: agent.Name}))
+	_, _ = m.api.agents.ArchiveAgent(ctx, connect.NewRequest(&agentv1.ArchiveAgentRequest{Name: agent.Name}))
 }
 
-// restoreChat brings a chat back and returns it as the service now holds it.
-func (m model) restoreChat(id string) (*sessionv1.Session, error) {
+// restoreAgent brings an agent back and returns it as the service now holds it.
+func (m model) restoreAgent(id string) (*agentv1.Agent, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	resp, err := m.api.sessions.RestoreSession(ctx, connect.NewRequest(&sessionv1.RestoreSessionRequest{Id: id}))
+	resp, err := m.api.agents.RestoreAgent(ctx, connect.NewRequest(&agentv1.RestoreAgentRequest{Id: id}))
 	if err != nil {
-		return nil, fmt.Errorf("failed to restore chat %q: %w", id, err)
+		return nil, fmt.Errorf("failed to restore agent %q: %w", id, err)
 	}
 
-	return resp.Msg.GetSession(), nil
+	return resp.Msg.GetAgent(), nil
 }
 
 // stageSelection updates the stage pane to reflect what the cursor is on. A live
-// chat's pane is swapped in, a dormant chat and a workflow header show markdown
-// via bat, and anything else blanks the stage. With info pinned, a chat shows its
+// agent's pane is swapped in, a dormant agent and a workflow header show markdown
+// via bat, and anything else blanks the stage. With info pinned, an agent shows its
 // stored record instead of itself.
 func (m model) stageSelection() {
-	rows := m.chatRows()
-	if m.chatCursor < 0 || m.chatCursor >= len(rows) {
+	rows := m.agentRows()
+	if m.agentCursor < 0 || m.agentCursor >= len(rows) {
 		m.stage.Blank()
 		return
 	}
 
-	r := rows[m.chatCursor]
+	r := rows[m.agentCursor]
 	switch {
 	case r.header && r.workflowIndex >= 0:
-		m.stage.Text(workflowMarkdown(m.workflows[r.workflowIndex], m.chatCount(m.workflows[r.workflowIndex].ID)))
+		m.stage.Text(workflowMarkdown(m.workflows[r.workflowIndex], m.agentCount(m.workflows[r.workflowIndex].ID)))
 	case r.header:
 		m.stage.Blank()
 	case m.infoPinned:
-		m.stage.Text(chatMarkdown(r.item.agent, r.item.alive))
+		m.stage.Text(agentMarkdown(r.item.agent, r.item.alive))
 	case r.item.alive:
-		m.stage.Chat(r.item.agent.Pane)
+		m.stage.Agent(r.item.agent.Pane)
 	default:
-		m.stage.Text(chatMarkdown(r.item.agent, false))
+		m.stage.Text(agentMarkdown(r.item.agent, false))
 	}
 }
 
-// chatCount returns how many listed chats belong to the given workflow id.
-func (m model) chatCount(workflowID string) int {
+// agentCount returns how many listed agents belong to the given workflow id.
+func (m model) agentCount(workflowID string) int {
 	n := 0
-	for _, it := range m.chats {
+	for _, it := range m.agents {
 		if it.agent.WorkflowID != nil && *it.agent.WorkflowID == workflowID {
 			n++
 		}
@@ -311,7 +311,7 @@ func orDash(v string) string {
 
 // workflowMarkdown renders a workflow's info for the stage. It shows the name,
 // shared context, and config through bat.
-func workflowMarkdown(w workflowstore.Workflow, chats int) string {
+func workflowMarkdown(w workflowstore.Workflow, agents int) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", w.Name)
 	if strings.TrimSpace(w.Context) != "" {
@@ -320,19 +320,19 @@ func workflowMarkdown(w workflowstore.Workflow, chats int) string {
 		b.WriteString("_no shared context set_\n\n")
 	}
 	b.WriteString("---\n\n")
-	fmt.Fprintf(&b, "- chats: %d\n", chats)
+	fmt.Fprintf(&b, "- agents: %d\n", agents)
 	fmt.Fprintf(&b, "- directory: %s\n", orDash(w.Cwd))
 	fmt.Fprintf(&b, "- flags: %s\n", orDash(w.Flags))
 
 	return b.String()
 }
 
-// chatMarkdown renders a chat's stored record for the stage. A dormant chat has
+// agentMarkdown renders an agent's stored record for the stage. A dormant agent has
 // no live pane to show, so this is all there is of it. A live one shows the same
 // record on demand, since its running pane occupies the stage and hides the cwd
 // and flags it was launched with. The values are the record as stored at launch,
 // not what the running agent has done since.
-func chatMarkdown(a session.Agent, alive bool) string {
+func agentMarkdown(an agentstore.Agent, alive bool) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", a.Name)
 	if alive {
@@ -362,19 +362,19 @@ func (m model) actionHints() string {
 	}
 
 	hints := []struct{ key, desc string }{
-		{hintKeys(m.keys.Chats.Open), "open"},
-		{hintKeys(m.keys.Chats.Info), infoDesc},
-		{hintKeys(m.keys.Chats.New), "new chat"},
+		{hintKeys(m.keys.Agents.Open), "open"},
+		{hintKeys(m.keys.Agents.Info), infoDesc},
+		{hintKeys(m.keys.Agents.New), "new agent"},
 		{hintKeys(m.keys.Workflows.New), "new workflow"},
-		{hintKeys(m.keys.Chats.Rename), "rename"},
-		{hintKeys(m.keys.Chats.Delete), "delete"},
-		{hintKeys(m.keys.Chats.Search), "search"},
+		{hintKeys(m.keys.Agents.Rename), "rename"},
+		{hintKeys(m.keys.Agents.Delete), "delete"},
+		{hintKeys(m.keys.Agents.Search), "search"},
 		{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
-		{hintKeys(m.keys.Chats.Back), "back"},
+		{hintKeys(m.keys.Agents.Back), "back"},
 	}
 	if _, hoveringWorkflow := m.hoveredWorkflow(); hoveringWorkflow {
 		hints = []struct{ key, desc string }{
-			{hintKeys(m.keys.Chats.New), "new chat"},
+			{hintKeys(m.keys.Agents.New), "new agent"},
 			{hintKeys(m.keys.Workflows.New), "new workflow"},
 			{hintKeys(m.keys.Workflows.Rename), "rename"},
 			{hintKeys(m.keys.Workflows.Edit), "edit"},
@@ -383,10 +383,10 @@ func (m model) actionHints() string {
 		}
 	} else if m.onNoWorkflowHeader() {
 		hints = []struct{ key, desc string }{
-			{hintKeys(m.keys.Chats.New), "new chat"},
+			{hintKeys(m.keys.Agents.New), "new agent"},
 			{hintKeys(m.keys.Workflows.New), "new workflow"},
 			{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
-			{hintKeys(m.keys.Chats.Back), "back"},
+			{hintKeys(m.keys.Agents.Back), "back"},
 		}
 	}
 
@@ -407,17 +407,17 @@ func (m model) actionHints() string {
 	return b.String()
 }
 
-// chatsView renders the nav list, the panel's own pane. The hovered resource is
+// agentsView renders the nav list, the panel's own pane. The hovered resource is
 // shown in the separate stage pane, not here.
-func (m model) chatsView() string {
+func (m model) agentsView() string {
 	var list strings.Builder
-	list.WriteString(headerStyle.Render("Chats") + "\n\n")
+	list.WriteString(headerStyle.Render("Agents") + "\n\n")
 
-	// The list is a tree. Each workflow is a folder header with its chats nested
-	// beneath it, so a chat's parent is shown by position rather than a per-row
+	// The list is a tree. Each workflow is a folder header with its agents nested
+	// beneath it, so an agent's parent is shown by position rather than a per-row
 	// marker.
-	for i, r := range m.chatRows() {
-		selected := i == m.chatCursor
+	for i, r := range m.agentRows() {
+		selected := i == m.agentCursor
 		prefix := "  "
 		if selected {
 			prefix = cursorStyle.Render("› ")

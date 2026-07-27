@@ -3,19 +3,19 @@ package cli
 import (
 	"testing"
 
-	sessionv1 "claude-agents/proto/gen/session/v1"
+	agentv1 "claude-agents/proto/gen/agent/v1"
 
-	"claude-agents/internal/store/session"
+	agentstore "claude-agents/internal/store/agent"
 
 	"github.com/stretchr/testify/assert"
 )
 
 // sessions builds the listing the summary renders from. It is what the service
 // would return, so the test needs no database of its own.
-func sessions(states ...string) []*sessionv1.Session {
-	out := make([]*sessionv1.Session, 0, len(states))
+func sessions(states ...string) []*agentv1.Agent {
+	out := make([]*agentv1.Agent, 0, len(states))
 	for i, state := range states {
-		out = append(out, &sessionv1.Session{Name: string(rune('a' + i)), State: state})
+		out = append(out, &agentv1.Agent{Name: string(rune('a' + i)), State: state})
 	}
 
 	return out
@@ -35,17 +35,17 @@ func TestRenderStatus(t *testing.T) {
 		},
 		{
 			name:      "only new agents render nothing",
-			states:    []string{session.StateNew, session.StateNew},
+			states:    []string{agentstore.StateNew, agentstore.StateNew},
 			wantEmpty: true,
 		},
 		{
 			name:         "done agents alone render a done segment",
-			states:       []string{session.StateDone},
+			states:       []string{agentstore.StateDone},
 			wantContains: []string{"1 done"},
 		},
 		{
 			name:         "a mix renders every non-empty segment",
-			states:       []string{session.StateWaiting, session.StateThinking, session.StateThinking, session.StateDone, session.StateNew},
+			states:       []string{agentstore.StateWaiting, agentstore.StateThinking, agentstore.StateThinking, agentstore.StateDone, agentstore.StateNew},
 			wantContains: []string{"1 waiting", "2 working", "1 done"},
 		},
 	}

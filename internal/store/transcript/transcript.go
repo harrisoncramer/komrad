@@ -1,8 +1,8 @@
-// Package transcript persists the flattened text of each chat and searches it.
+// Package transcript persists the flattened text of each agent and searches it.
 //
-// A transcript is keyed by the id of the chat it belongs to, so removing a chat
+// A transcript is keyed by the id of the agent it belongs to, so removing an agent
 // has to remove its transcript too. That is composed by the caller inside one
-// transaction: the session package deletes the chat, this one deletes the text.
+// transaction: the session package deletes the agent, this one deletes the text.
 package transcript
 
 import (
@@ -26,11 +26,11 @@ type Transcript struct {
 // text with the hit marked, and how many times the query occurs in the
 // transcript, which is what the results are ranked by.
 type SearchHit struct {
-	SessionID string
-	Name      string
-	Deleted   bool
-	Snippet   string
-	Rank      int32
+	AgentID string
+	Name    string
+	Deleted bool
+	Snippet string
+	Rank    int32
 }
 
 // SnippetOpen and SnippetClose wrap the matched terms inside a hit's snippet, so
@@ -66,28 +66,28 @@ func New(db store.DBTX) *Store {
 // Get returns a session's stored transcript, or a zero Transcript when none has
 // been synced yet. No-rows is the zero case, so a first sync sees an offset of 0
 // and indexes the whole file. Every other error is surfaced.
-func (s *Store) Get(ctx context.Context, sessionID string) (Transcript, error) {
-	if !store.IsID(sessionID) {
+func (s *Store) Get(ctx context.Context, agentID string) (Transcript, error) {
+	if !store.IsID(agentID) {
 		return Transcript{}, nil
 	}
 
-	row, err := s.queries.GetTranscript(ctx, sessionID)
+	row, err := s.queries.GetTranscript(ctx, agentID)
 	if store.NoRows(err) {
 		return Transcript{}, nil
 	}
 	if err != nil {
-		return Transcript{}, fmt.Errorf("failed to get transcript for %q: %w", sessionID, err)
+		return Transcript{}, fmt.Errorf("failed to get transcript for %q: %w", agentID, err)
 	}
 
 	return Transcript{Content: row.Content, SyncedOffset: row.SyncedOffset}, nil
 }
 
-// UpsertParams is one transcript write. It carries the chat the text belongs to,
+// UpsertParams is one transcript write. It carries the agent the text belongs to,
 // the flattened text, and how far into the source log it was read from.
 type UpsertParams struct {
-	SessionID string
-	Content   string
-	Offset    int64
+	AgentID string
+	Content string
+	Offset  int64
 }
 
 // Upsert writes a session's transcript. The search index is a trigram index on
@@ -95,11 +95,11 @@ type UpsertParams struct {
 // nothing separate to reindex.
 func (s *Store) Upsert(ctx context.Context, params UpsertParams) error {
 	if err := s.queries.UpsertTranscript(ctx, models.UpsertTranscriptParams{
-		SessionID:    params.SessionID,
+		AgentID:      params.AgentID,
 		Content:      params.Content,
 		SyncedOffset: params.Offset,
 	}); err != nil {
-		return fmt.Errorf("failed to upsert transcript for %q: %w", params.SessionID, err)
+		return fmt.Errorf("failed to upsert transcript for %q: %w", params.AgentID, err)
 	}
 
 	return nil
@@ -107,10 +107,10 @@ func (s *Store) Upsert(ctx context.Context, params UpsertParams) error {
 
 // Delete removes the transcript belonging to a session. It runs alongside the
 // session's own delete, in the same transaction, since text left behind by a
-// removed chat stays readable through the SQL tools.
-func (s *Store) Delete(ctx context.Context, sessionID string) error {
-	if err := s.queries.DeleteSessionTranscript(ctx, sessionID); err != nil {
-		return fmt.Errorf("failed to delete transcript for %q: %w", sessionID, err)
+// removed agent stays readable through the SQL tools.
+func (s *Store) Delete(ctx context.Context, agentID string) error {
+	if err := s.queries.DeleteAgentTranscript(ctx, agentID); err != nil {
+		return fmt.Errorf("failed to delete transcript for %q: %w", agentID, err)
 	}
 
 	return nil
@@ -121,8 +121,8 @@ func (s *Store) Delete(ctx context.Context, sessionID string) error {
 // the tie. The rank only means anything for the query that produced it, so a
 // cursor is only ever replayed against that same query.
 type Cursor struct {
-	Rank      int32  `json:"r"`
-	SessionID string `json:"i"`
+	Rank    int32  `json:"r"`
+	AgentID string `json:"i"`
 }
 
 // SearchParams is one page of a transcript search: the text to match, how many
@@ -163,7 +163,7 @@ func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, e
 	}
 	if params.Cursor != nil {
 		args.CursorRank = &params.Cursor.Rank
-		args.CursorSessionID = &params.Cursor.SessionID
+		args.CursorAgentID = &params.Cursor.AgentID
 	}
 
 	rows, err := s.queries.SearchTranscripts(ctx, args)
@@ -174,11 +174,11 @@ func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, e
 	hits := make([]SearchHit, 0, len(rows))
 	for _, row := range rows {
 		hits = append(hits, SearchHit{
-			SessionID: row.SessionID,
-			Name:      row.Name,
-			Deleted:   row.IsDeleted,
-			Snippet:   markMatches(row.Snippet, query),
-			Rank:      row.Rank,
+			AgentID: row.AgentID,
+			Name:    row.Name,
+			Deleted: row.IsDeleted,
+			Snippet: markMatches(row.Snippet, query),
+			Rank:    row.Rank,
 		})
 	}
 

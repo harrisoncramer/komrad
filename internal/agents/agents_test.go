@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"claude-agents/internal/store/session"
+	agentstore "claude-agents/internal/store/agent"
 	"claude-agents/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
@@ -14,7 +14,7 @@ import (
 )
 
 // TestNewSession covers a launch end to end. A refused launch has to record
-// nothing: a row pointing at a pane that does not exist reads as a live chat
+// nothing: a row pointing at a pane that does not exist reads as a live agent
 // forever, and tmux resolves an empty pane target to whatever the user is
 // looking at.
 func TestNewSession(t *testing.T) {
@@ -72,7 +72,7 @@ func TestNewSession(t *testing.T) {
 			st := newStore(t)
 			manager := newManager(tmux, st, "--default-flag")
 
-			params := NewSessionParams{
+			params := NewAgentParams{
 				Title:  tt.title,
 				Dir:    tt.dir(t),
 				Flags:  "--extra",
@@ -83,7 +83,7 @@ func TestNewSession(t *testing.T) {
 				params.WorkflowID = &missing
 			}
 
-			created, err := manager.NewSession(t.Context(), params)
+			created, err := manager.NewAgent(t.Context(), params)
 
 			if tt.wantErrIs != nil || tt.wantErr != "" {
 				require.Error(t, err)
@@ -111,20 +111,20 @@ func TestNewSession(t *testing.T) {
 			stored, err := st.Get(t.Context(), "My-Agent")
 			require.NoError(t, err)
 			require.NotNil(t, stored)
-			assert.Equal(t, "%My-Agent", stored.Pane, "the new window's pane is the chat's handle")
+			assert.Equal(t, "%My-Agent", stored.Pane, "the new window's pane is the agent's handle")
 			assert.Equal(t, params.Dir, stored.Cwd)
 			assert.Equal(t, "--default-flag --extra", stored.Flags, "the configured flags come first")
 			assert.Equal(t, "do the thing", stored.Prompt)
-			assert.Equal(t, session.StateNew, stored.State)
+			assert.Equal(t, agentstore.StateNew, stored.State)
 			assert.NotEmpty(t, stored.ClaudeSessionID, "a conversation id is pinned at launch")
 			assert.NotEmpty(t, tmux.lastKeys("%My-Agent"), "claude is launched into the new pane")
 		})
 	}
 }
 
-// TestNewSessionResolvesDirectory covers where a chat starts. tmux does no tilde
+// TestNewSessionResolvesDirectory covers where an agent starts. tmux does no tilde
 // expansion, so a ~ path has to be absolute before the window is opened or the
-// stored cwd would not be where the chat is running.
+// stored cwd would not be where the agent is running.
 func TestNewSessionResolvesDirectory(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -157,7 +157,7 @@ func TestNewSessionResolvesDirectory(t *testing.T) {
 			st := newStore(t)
 			manager := newManager(tmux, st, "")
 
-			_, err := manager.NewSession(t.Context(), NewSessionParams{Title: "scoped", Dir: tt.dir})
+			_, err := manager.NewAgent(t.Context(), NewAgentParams{Title: "scoped", Dir: tt.dir})
 			require.NoError(t, err)
 
 			assert.Equal(t, want, tmux.newWindows["scoped"], "tmux is given an absolute path")
@@ -170,9 +170,9 @@ func TestNewSessionResolvesDirectory(t *testing.T) {
 	}
 }
 
-// TestNewSessionInsideWorkflow covers what a chat inherits from the bucket it is
+// TestNewSessionInsideWorkflow covers what an agent inherits from the bucket it is
 // created in. The context is a snapshot taken at launch, so a later edit reaches
-// only chats spawned after it.
+// only agents spawned after it.
 func TestNewSessionInsideWorkflow(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -181,7 +181,7 @@ func TestNewSessionInsideWorkflow(t *testing.T) {
 		wantContext bool
 	}{
 		{
-			name:   "a chat created outside every workflow carries none",
+			name:   "an agent created outside every workflow carries none",
 			scoped: false,
 		},
 		{
@@ -202,7 +202,7 @@ func TestNewSessionInsideWorkflow(t *testing.T) {
 			st := newStore(t)
 			manager := newManager(tmux, st, "")
 
-			params := NewSessionParams{Title: "chat", Dir: t.TempDir()}
+			params := NewAgentParams{Title: "agent", Dir: t.TempDir()}
 			if tt.scoped {
 				created, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{
 					Name:    "backend",
@@ -212,22 +212,22 @@ func TestNewSessionInsideWorkflow(t *testing.T) {
 				params.WorkflowID = &created.ID
 			}
 
-			_, err := manager.NewSession(t.Context(), params)
+			_, err := manager.NewAgent(t.Context(), params)
 			require.NoError(t, err)
 
-			stored, err := st.Get(t.Context(), "chat")
+			stored, err := st.Get(t.Context(), "agent")
 			require.NoError(t, err)
 			require.NotNil(t, stored)
 
 			if tt.scoped {
-				require.NotNil(t, stored.WorkflowID, "the chat carries its workflow's id")
+				require.NotNil(t, stored.WorkflowID, "the agent carries its workflow's id")
 				assert.Equal(t, *params.WorkflowID, *stored.WorkflowID)
 			} else {
 				assert.Nil(t, stored.WorkflowID)
 			}
 
-			prompt := appendedPrompt(t, tmux.lastKeys("%chat")[0])
-			assert.Contains(t, prompt, "/mcp", "every chat is told about the endpoint")
+			prompt := appendedPrompt(t, tmux.lastKeys("%agent")[0])
+			assert.Contains(t, prompt, "/mcp", "every agent is told about the endpoint")
 			if tt.wantContext {
 				assert.Contains(t, prompt, "shared notes")
 				return
@@ -238,9 +238,9 @@ func TestNewSessionInsideWorkflow(t *testing.T) {
 	}
 }
 
-// TestUniqueSessionName covers the name a chat ends up with. The store's unique
+// TestUniqueSessionName covers the name an agent ends up with. The store's unique
 // index is the authority, so a taken name has to be stepped past rather than
-// reused, which would clobber the chat holding it.
+// reused, which would clobber the agent holding it.
 func TestUniqueSessionName(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -275,12 +275,12 @@ func TestUniqueSessionName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			for _, name := range tt.taken {
-				seed(t, st, name, "%1", session.StateNew)
+				seed(t, st, name, "%1", agentstore.StateNew)
 			}
 
 			manager := newManager(newFakeTmux(), st, "")
 
-			assert.Equal(t, tt.wantName, manager.uniqueSessionName(t.Context(), tt.title, tt.prompt))
+			assert.Equal(t, tt.wantName, manager.uniqueAgentName(t.Context(), tt.title, tt.prompt))
 		})
 	}
 }
@@ -297,14 +297,14 @@ func TestNameTaken(t *testing.T) {
 			want:  false,
 		},
 		{
-			name:  "a name a live chat holds",
+			name:  "a name a live agent holds",
 			check: "taken",
 			want:  true,
 		},
 	}
 
 	st := newStore(t)
-	seed(t, st, "taken", "%1", session.StateDone)
+	seed(t, st, "taken", "%1", agentstore.StateDone)
 	manager := newManager(newFakeTmux(), st, "")
 
 	for _, tt := range tests {
@@ -314,7 +314,7 @@ func TestNameTaken(t *testing.T) {
 	}
 }
 
-// TestArchiveSession covers hiding a chat. The record and its transcript stay,
+// TestArchiveSession covers hiding an agent. The record and its transcript stay,
 // so search still reaches it, but the agent is stopped.
 func TestArchiveSession(t *testing.T) {
 	tests := []struct {
@@ -326,10 +326,10 @@ func TestArchiveSession(t *testing.T) {
 		{
 			name:      "a name nobody holds is not a quiet success",
 			target:    "ghost",
-			wantErrIs: ErrSessionNotFound,
+			wantErrIs: ErrAgentNotFound,
 		},
 		{
-			name:   "a live chat is stopped and hidden",
+			name:   "a live agent is stopped and hidden",
 			seed:   "target",
 			target: "target",
 		},
@@ -342,10 +342,10 @@ func TestArchiveSession(t *testing.T) {
 			manager := newManager(tmux, st, "")
 
 			if tt.seed != "" {
-				seed(t, st, tt.seed, "%1", session.StateThinking)
+				seed(t, st, tt.seed, "%1", agentstore.StateThinking)
 			}
 
-			err := manager.ArchiveSession(t.Context(), tt.target)
+			err := manager.ArchiveAgent(t.Context(), tt.target)
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
 				return
@@ -356,12 +356,12 @@ func TestArchiveSession(t *testing.T) {
 
 			stored, err := st.Get(t.Context(), tt.target)
 			require.NoError(t, err)
-			assert.Nil(t, stored, "the chat is hidden from listings")
+			assert.Nil(t, stored, "the agent is hidden from listings")
 		})
 	}
 }
 
-// TestRestore covers bringing an archived chat back. Its name may have been
+// TestRestore covers bringing an archived agent back. Its name may have been
 // taken while it sat hidden, in which case restoring under that name would
 // collide on the unique index.
 func TestRestore(t *testing.T) {
@@ -387,9 +387,9 @@ func TestRestore(t *testing.T) {
 			manager := newManager(newFakeTmux(), st, "")
 			ctx := t.Context()
 
-			require.NoError(t, st.Upsert(ctx, session.Agent{
+			require.NoError(t, st.Upsert(ctx, agentstore.Agent{
 				Name:            "foo",
-				State:           session.StateDone,
+				State:           agentstore.StateDone,
 				ClaudeSessionID: "sess-old",
 			}))
 			original, err := st.Get(ctx, "foo")
@@ -397,7 +397,7 @@ func TestRestore(t *testing.T) {
 			require.NoError(t, st.SoftDelete(ctx, "foo"))
 
 			if tt.reuseName {
-				require.NoError(t, st.Upsert(ctx, session.Agent{Name: "foo", State: session.StateNew}))
+				require.NoError(t, st.Upsert(ctx, agentstore.Agent{Name: "foo", State: agentstore.StateNew}))
 			}
 
 			archived := *original
@@ -405,8 +405,8 @@ func TestRestore(t *testing.T) {
 			require.NoError(t, manager.restore(ctx, archived))
 
 			restored := agentByID(t, st, original.ID)
-			assert.False(t, restored.Deleted, "the chat is back in the listing")
-			assert.Equal(t, session.StateNew, restored.State)
+			assert.False(t, restored.Deleted, "the agent is back in the listing")
+			assert.Equal(t, agentstore.StateNew, restored.State)
 			assert.Equal(t, "sess-old", restored.ClaudeSessionID, "the conversation is preserved")
 
 			if tt.wantSameName {
@@ -414,7 +414,7 @@ func TestRestore(t *testing.T) {
 				return
 			}
 
-			assert.NotEqual(t, "foo", restored.Name, "the restored chat takes a fresh name")
+			assert.NotEqual(t, "foo", restored.Name, "the restored agent takes a fresh name")
 
 			live, err := st.Get(ctx, "foo")
 			require.NoError(t, err)

@@ -28,6 +28,11 @@ func TestFriendly(t *testing.T) {
 			in:   time.Date(2024, time.December, 15, 9, 5, 0, 0, time.Local),
 			want: "Dec 15 at 9:05am",
 		},
+		{
+			name: "a UTC instant is rendered in local time, not left in UTC",
+			in:   utcAfternoon,
+			want: utcAfternoon.Local().Format(friendlyLayout),
+		},
 	}
 
 	for _, tt := range tests {
@@ -37,10 +42,6 @@ func TestFriendly(t *testing.T) {
 	}
 }
 
-// TestFriendlyConvertsToLocal confirms a UTC instant is rendered in local time,
-// not left in UTC.
-func TestFriendlyConvertsToLocal(t *testing.T) {
-	utc := time.Date(2024, time.July, 2, 14, 30, 0, 0, time.UTC)
-
-	assert.Equal(t, utc.Local().Format(friendlyLayout), Friendly(utc))
-}
+// utcAfternoon is an instant fixed in UTC, so the case built on it says
+// something about the conversion rather than about the machine's zone.
+var utcAfternoon = time.Date(2024, time.July, 2, 14, 30, 0, 0, time.UTC)

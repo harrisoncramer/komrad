@@ -3,7 +3,10 @@ package mcp
 import (
 	"testing"
 
-	sessionv1 "claude-agents/proto/gen/session/v1"
+	agentv1 "claude-agents/proto/gen/agent/v1"
+	workflowv1 "claude-agents/proto/gen/workflow/v1"
+
+	"claude-agents/lib/xptr"
 
 	"google.golang.org/protobuf/reflect/protoreflect"
 
@@ -12,18 +15,31 @@ import (
 )
 
 // TestEveryMethodIsAnnotated confirms the tool surface keeps up with the
-// service. A new RPC added without a tool annotation is invisible to a model,
+// services. A new RPC added without a tool annotation is invisible to a model,
 // which is the safe default but is easy to do by accident, so this fails loudly
 // enough to be a decision rather than an oversight.
 func TestEveryMethodIsAnnotated(t *testing.T) {
-	service := sessionv1.File_session_v1_session_proto.Services().Get(0)
+	tests := []struct {
+		name string
+		file protoreflect.FileDescriptor
+	}{
+		{name: "agent service", file: agentv1.File_agent_v1_agent_proto},
+		{name: "workflow service", file: workflowv1.File_workflow_v1_workflow_proto},
+	}
 
-	for i := range service.Methods().Len() {
-		method := service.Methods().Get(i)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := tt.file.Services().Get(0)
+			require.Positive(t, service.Methods().Len())
 
-		annotation := toolAnnotation(method)
-		require.NotNil(t, annotation, "method %s has no tool annotation", method.Name())
-		assert.NotEmpty(t, annotation.GetDescription(), "tool %s needs a description", annotation.GetToolName())
+			for i := range service.Methods().Len() {
+				method := service.Methods().Get(i)
+
+				annotation := toolAnnotation(method)
+				require.NotNil(t, annotation, "method %s has no tool annotation", method.Name())
+				assert.NotEmpty(t, annotation.GetDescription(), "tool %s needs a description", annotation.GetToolName())
+			}
+		})
 	}
 }
 
@@ -37,17 +53,17 @@ func TestToolHints(t *testing.T) {
 		idempotent      bool
 		wantDestructive *bool
 	}{
-		{method: "ListSessions", readOnly: true, idempotent: true},
-		{method: "GetSession", readOnly: true, idempotent: true},
+		{method: "ListAgents", readOnly: true, idempotent: true},
+		{method: "GetAgent", readOnly: true, idempotent: true},
 		{method: "SearchTranscripts", readOnly: true, idempotent: true},
 		{method: "GetTranscript", readOnly: true, idempotent: true},
-		{method: "CreateSession", readOnly: false, idempotent: false, wantDestructive: boolPtr(false)},
-		{method: "SetState", readOnly: false, idempotent: true, wantDestructive: boolPtr(false)},
-		{method: "UpdateSession", readOnly: false, idempotent: true, wantDestructive: boolPtr(false)},
-		{method: "DeleteSession", readOnly: false, idempotent: true, wantDestructive: boolPtr(true)},
+		{method: "CreateAgent", readOnly: false, idempotent: false, wantDestructive: xptr.Ptr(false)},
+		{method: "SetState", readOnly: false, idempotent: true, wantDestructive: xptr.Ptr(false)},
+		{method: "UpdateAgent", readOnly: false, idempotent: true, wantDestructive: xptr.Ptr(false)},
+		{method: "DeleteAgent", readOnly: false, idempotent: true, wantDestructive: xptr.Ptr(true)},
 	}
 
-	service := sessionv1.File_session_v1_session_proto.Services().Get(0)
+	service := agentv1.File_agent_v1_agent_proto.Services().Get(0)
 	for _, tt := range tests {
 		t.Run(tt.method, func(t *testing.T) {
 			method := service.Methods().ByName(protoreflect.Name(tt.method))
@@ -68,51 +84,80 @@ func TestToolHints(t *testing.T) {
 }
 
 // TestInputSchema confirms a request message is described in terms a client can
-// satisfy: proto3 optional fields are optional, everything else is required.
+// satisfy: what the service rejects empty is required, and everything else can
+// be left out.
 func TestInputSchema(t *testing.T) {
-	service := sessionv1.File_session_v1_session_proto.Services().Get(0)
-	method := service.Methods().ByName("CreateSession")
-	require.NotNil(t, method)
+	tests := []struct {
+		method string
+		// wantFields is the exact schema expected for each named top-level field.
+		wantFields map[string]map[string]any
+		// wantNested is the same for the fields of a nested message field, keyed by
+		// the field holding it.
+		wantNested map[string]map[string]map[string]any
+		// wantRequired is what the schema must demand. Nil means it must demand
+		// nothing, so the tool can be called with no arguments.
+		wantRequired []string
+	}{
+		{
+			method:       "CreateAgent",
+			wantFields:   map[string]map[string]any{"prompt": {"type": "string"}, "workflowId": {"type": "string"}},
+			wantRequired: []string{"prompt", "dir"},
+		},
+		{
+			method:     "ListAgents",
+			wantFields: map[string]map[string]any{"pagination": nil},
+			wantNested: map[string]map[string]map[string]any{
+				"pagination": {"limit": {"type": "integer"}, "cursor": {"type": "string"}},
+			},
+		},
+		{
+			method:       "GetAgent",
+			wantFields:   map[string]map[string]any{"name": {"type": "string"}},
+			wantRequired: []string{"name"},
+		},
+	}
 
-	schema, err := inputSchema(method.Input())
-	require.NoError(t, err)
+	service := agentv1.File_agent_v1_agent_proto.Services().Get(0)
+	for _, tt := range tests {
+		t.Run(tt.method, func(t *testing.T) {
+			method := service.Methods().ByName(protoreflect.Name(tt.method))
+			require.NotNil(t, method)
 
-	properties, ok := schema["properties"].(map[string]any)
-	require.True(t, ok)
-	assert.Contains(t, properties, "prompt")
-	assert.Contains(t, properties, "workflowId")
-	assert.Equal(t, map[string]any{"type": "string"}, properties["prompt"])
+			schema, err := inputSchema(method.Input())
+			require.NoError(t, err)
+			assert.Equal(t, "object", schema["type"])
 
-	required, ok := schema["required"].([]string)
-	require.True(t, ok)
-	assert.ElementsMatch(t, []string{"prompt", "dir"}, required,
-		"only the fields the service rejects empty are required; a blank title or flags is fine")
+			properties, ok := schema["properties"].(map[string]any)
+			require.True(t, ok)
+
+			for name, want := range tt.wantFields {
+				require.Contains(t, properties, name)
+				if want != nil {
+					assert.Equal(t, want, properties[name])
+				}
+			}
+
+			for name, wantFields := range tt.wantNested {
+				nested, ok := properties[name].(map[string]any)
+				require.True(t, ok, "%s is described rather than omitted", name)
+				assert.Equal(t, "object", nested["type"])
+
+				fields, ok := nested["properties"].(map[string]any)
+				require.True(t, ok)
+				for field, want := range wantFields {
+					assert.Equal(t, want, fields[field])
+				}
+			}
+
+			if tt.wantRequired == nil {
+				assert.NotContains(t, schema, "required", "this tool can be called with no arguments at all")
+				return
+			}
+
+			required, ok := schema["required"].([]string)
+			require.True(t, ok)
+			assert.ElementsMatch(t, tt.wantRequired, required,
+				"only the fields the service rejects empty are required")
+		})
+	}
 }
-
-// TestInputSchemaForPagedRequest confirms a listing describes its pagination as
-// a nested object and demands none of it, so a first call needs no cursor and no
-// limit.
-func TestInputSchemaForPagedRequest(t *testing.T) {
-	service := sessionv1.File_session_v1_session_proto.Services().Get(0)
-	method := service.Methods().ByName("ListSessions")
-	require.NotNil(t, method)
-
-	schema, err := inputSchema(method.Input())
-	require.NoError(t, err)
-	assert.Equal(t, "object", schema["type"])
-	assert.NotContains(t, schema, "required", "a listing can be called with no arguments at all")
-
-	properties, ok := schema["properties"].(map[string]any)
-	require.True(t, ok)
-
-	page, ok := properties["pagination"].(map[string]any)
-	require.True(t, ok, "pagination is described rather than omitted")
-	assert.Equal(t, "object", page["type"])
-
-	fields, ok := page["properties"].(map[string]any)
-	require.True(t, ok)
-	assert.Equal(t, map[string]any{"type": "integer"}, fields["limit"])
-	assert.Equal(t, map[string]any{"type": "string"}, fields["cursor"])
-}
-
-func boolPtr(b bool) *bool { return &b }

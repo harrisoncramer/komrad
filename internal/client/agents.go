@@ -7,15 +7,15 @@ import (
 	"context"
 	"fmt"
 
+	agentv1 "claude-agents/proto/gen/agent/v1"
+	"claude-agents/proto/gen/agent/v1/agentv1connect"
 	paginationv1 "claude-agents/proto/gen/pagination/v1"
-	sessionv1 "claude-agents/proto/gen/session/v1"
-	"claude-agents/proto/gen/session/v1/sessionv1connect"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
 )
 
-// A caller wanting every chat asks for large pages rather than a first page: a
+// A caller wanting every agent asks for large pages rather than a first page: a
 // list this size is one or two round trips. The cap on pages is a stop for a
 // token the server somehow never retires, so a bug there cannot spin forever.
 const (
@@ -23,11 +23,11 @@ const (
 	maxPages = 50
 )
 
-// ListAllSessions returns every chat, following the page tokens until the
+// ListAllAgents returns every agent, following the page tokens until the
 // listing is exhausted.
-func ListAllSessions(ctx context.Context, sessions sessionv1connect.SessionServiceClient) ([]*sessionv1.Session, error) {
+func ListAllAgents(ctx context.Context, sessions agentv1connect.AgentServiceClient) ([]*agentv1.Agent, error) {
 	var (
-		all    []*sessionv1.Session
+		all    []*agentv1.Agent
 		cursor string
 	)
 
@@ -37,12 +37,12 @@ func ListAllSessions(ctx context.Context, sessions sessionv1connect.SessionServi
 			page.Cursor = proto.String(cursor)
 		}
 
-		resp, err := sessions.ListSessions(ctx, connect.NewRequest(&sessionv1.ListSessionsRequest{Pagination: page}))
+		resp, err := sessions.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{Pagination: page}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to list sessions: %w", err)
 		}
 
-		all = append(all, resp.Msg.GetSessions()...)
+		all = append(all, resp.Msg.GetAgents()...)
 
 		cursor = resp.Msg.GetNextPageToken()
 		if cursor == "" {

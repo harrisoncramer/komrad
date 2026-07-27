@@ -16,32 +16,32 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-// updateHoveredWorkflow handles keys while the chats-tree cursor is on a workflow
+// updateHoveredWorkflow handles keys while the agents-tree cursor is on a workflow
 // header. The workflow bindings act on that folder's workflow, while nav still
-// moves the tree cursor and any form it opens returns to the chats view. wfIdx is
+// moves the tree cursor and any form it opens returns to the agents view. wfIdx is
 // the header's index in m.workflows.
 func (m model) updateHoveredWorkflow(key tea.KeyMsg, wfIdx int) (tea.Model, tea.Cmd) {
 	k := key.String()
 	m.workflowCursor = wfIdx
 
 	switch {
-	case bound(k, m.keys.Chats.Quit):
+	case bound(k, m.keys.Agents.Quit):
 		return m, m.hide()
-	case bound(k, m.keys.Chats.Back):
+	case bound(k, m.keys.Agents.Back):
 		return m, m.hide()
 	case bound(k, m.keys.Nav.Up):
-		if m.chatCursor > 0 {
-			m.chatCursor--
+		if m.agentCursor > 0 {
+			m.agentCursor--
 			m.stageSelection()
 		}
 	case bound(k, m.keys.Nav.Down):
-		if m.chatCursor < len(m.chatRows())-1 {
-			m.chatCursor++
+		if m.agentCursor < len(m.agentRows())-1 {
+			m.agentCursor++
 			m.stageSelection()
 		}
-	case bound(k, m.keys.Chats.New):
+	case bound(k, m.keys.Agents.New):
 		workflow := m.workflows[wfIdx]
-		return m.openNewSession(&workflow)
+		return m.openNewAgent(&workflow)
 	case bound(k, m.keys.Workflows.Rename):
 		return m.renameWorkflowForm()
 	case bound(k, m.keys.Workflows.Edit):
@@ -53,18 +53,18 @@ func (m model) updateHoveredWorkflow(key tea.KeyMsg, wfIdx int) (tea.Model, tea.
 	return m, nil
 }
 
-// returnFromWorkflow sends the user back to the chats view after a workflow form
+// returnFromWorkflow sends the user back to the agents view after a workflow form
 // or dialog closes, restaging for the current selection.
 func (m model) returnFromWorkflow() (tea.Model, tea.Cmd) {
-	m.screen = screenChats
-	m.chatCursor = clampCursor(m.chatCursor, len(m.chatRows()))
+	m.screen = screenAgents
+	m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
 	m.stageSelection()
 
 	return m, nil
 }
 
 // newWorkflowForm opens the form to create a workflow with a name plus the
-// default cwd and flags that seed new chats created inside it.
+// default cwd and flags that seed new agents created inside it.
 func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
 	m.workflowRenameTarget = nil
 	m.workflowEditTarget = nil
@@ -110,7 +110,7 @@ func (m model) editWorkflowForm() (tea.Model, tea.Cmd) {
 }
 
 // deleteWorkflowConfirm opens the delete prompt for the highlighted workflow,
-// asking whether its chats should be removed with it.
+// asking whether its agents should be removed with it.
 func (m model) deleteWorkflowConfirm() (tea.Model, tea.Cmd) {
 	workflow := m.workflows[m.workflowCursor]
 	m.workflowDeleteTarget = &workflow
@@ -121,8 +121,8 @@ func (m model) deleteWorkflowConfirm() (tea.Model, tea.Cmd) {
 }
 
 // updateWorkflowDelete drives the delete prompt. Confirming purges the workflow
-// with its chats, declining orphans the chats back to unassigned, and aborting
-// leaves everything untouched. All three return to the chats view.
+// with its agents, declining orphans the agents back to unassigned, and aborting
+// leaves everything untouched. All three return to the agents view.
 func (m model) updateWorkflowDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 	form, cmd := m.form.Update(msg)
 	if updated, ok := form.(*huh.Form); ok {
@@ -146,7 +146,7 @@ func (m model) updateWorkflowDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // updateWorkflowForm drives the create/rename form, submitting on the configured
-// submit key or on completion and aborting back to the chats view.
+// submit key or on completion and aborting back to the agents view.
 func (m model) updateWorkflowForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if key, ok := msg.(tea.KeyMsg); ok && bound(key.String(), m.keys.Form.Submit) {
 		return m.submitWorkflowForm()
@@ -170,7 +170,7 @@ func (m model) updateWorkflowForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // submitWorkflowForm applies the form: renaming the target workflow, editing an
-// existing one's config, or creating a new one, then returns to the chats view
+// existing one's config, or creating a new one, then returns to the agents view
 // with the list refreshed.
 func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 	name := m.form.GetString("name")
@@ -216,7 +216,7 @@ func workflowForm(title string, keys appconfig.FormKeys) *huh.Form {
 
 // workflowConfigForm collects a workflow's name, its free-text context, and its
 // default config. The dir and flags become the blueprint prefilled into the
-// new-chat form for chats created inside the workflow. Every field prefills, so it
+// new-agent form for agents created inside the workflow. Every field prefills, so it
 // serves both creating a workflow with blank values and editing one with its
 // current values.
 func workflowConfigForm(nameTitle string, cfg workflowstore.Config, keys appconfig.FormKeys) *huh.Form {
@@ -231,7 +231,7 @@ func workflowConfigForm(nameTitle string, cfg workflowstore.Config, keys appconf
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
 }
 
-// deleteWorkflowForm asks whether a workflow's chats should be deleted with it.
+// deleteWorkflowForm asks whether a workflow's agents should be deleted with it.
 // Confirming purges them, declining orphans them back to unassigned, and the
 // abort key cancels the delete entirely.
 func deleteWorkflowForm(name string, keys appconfig.FormKeys) *huh.Form {
@@ -239,10 +239,10 @@ func deleteWorkflowForm(name string, keys appconfig.FormKeys) *huh.Form {
 		huh.NewGroup(
 			huh.NewConfirm().
 				Key("purge").
-				Title(fmt.Sprintf("Delete workflow %q — also delete its chats?", name)).
-				Description("No keeps the chats and unassigns them.").
-				Affirmative("Delete chats too").
-				Negative("Keep chats"),
+				Title(fmt.Sprintf("Delete workflow %q — also delete its agents?", name)).
+				Description("No keeps the agents and unassigns them.").
+				Affirmative("Delete agents too").
+				Negative("Keep agents"),
 		),
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
 }
@@ -312,14 +312,14 @@ func (m model) updateWorkflow(w workflowstore.Workflow) {
 	}))
 }
 
-// deleteWorkflow removes a workflow, archiving its chats alongside it when the
+// deleteWorkflow removes a workflow, archiving its agents alongside it when the
 // form asked for that and orphaning them back to unassigned otherwise.
-func (m model) deleteWorkflow(id string, archiveChats bool) {
+func (m model) deleteWorkflow(id string, archiveAgents bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
 	_, _ = m.api.workflows.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{
-		Id:           id,
-		ArchiveChats: archiveChats,
+		Id:            id,
+		ArchiveAgents: archiveAgents,
 	}))
 }

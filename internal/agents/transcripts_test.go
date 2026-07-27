@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"claude-agents/internal/store/session"
+	agentstore "claude-agents/internal/store/agent"
 	"claude-agents/internal/store/transcript"
 
 	"github.com/stretchr/testify/assert"
@@ -70,17 +70,127 @@ func TestFlattenTranscript(t *testing.T) {
 	}
 }
 
+// TestTranscriptSyncer covers a sync pass end to end: what lands in the store,
+// and how a second pass treats a log that has moved on since the first.
+func TestTranscriptSyncer(t *testing.T) {
+	tests := []struct {
+		name string
+		// log is the JSONL on disk before the first sync. Empty writes no file at
+		// all, standing in for an agent whose log has not appeared yet.
+		log string
+		// wantFirst, when set, is the content expected after the first sync, before
+		// the log changes underneath it.
+		wantFirst string
+		// appended and rewritten change the log between the two syncs. Setting
+		// either runs a second sync; leaving both empty means one sync.
+		appended  string
+		rewritten string
+		want      string
+		// searchFor, when set, must find this agent's transcript by trigram.
+		searchFor string
+	}{
+		{
+			name: "a log is flattened into a transcript and indexed for search",
+			log: `{"type":"user","message":{"content":"how do I use trigram search"}}` + "\n" +
+				`{"type":"assistant","message":{"content":[{"type":"text","text":"use fts5"}]}}` + "\n",
+			want:      "how do I use trigram search\n\nuse fts5",
+			searchFor: "trigram",
+		},
+		{
+			name:      "a second pass folds in only what was appended",
+			log:       `{"type":"user","message":{"content":"first turn"}}` + "\n",
+			wantFirst: "first turn",
+			appended:  `{"type":"user","message":{"content":"second turn"}}` + "\n",
+			want:      "first turn\n\nsecond turn",
+		},
+		{
+			name: "a half-written line waits for its newline",
+			log: `{"type":"user","message":{"content":"complete"}}` + "\n" +
+				`{"type":"user","message":{"conte`,
+			wantFirst: "complete",
+			rewritten: `{"type":"user","message":{"content":"complete"}}` + "\n" +
+				`{"type":"user","message":{"content":"rest"}}` + "\n",
+			want: "complete\n\nrest",
+		},
+		{
+			name:      "a log that shrank is reindexed from scratch, not appended to",
+			log:       `{"type":"user","message":{"content":"original long conversation here"}}` + "\n",
+			rewritten: `{"type":"user","message":{"content":"new"}}` + "\n",
+			want:      "new",
+		},
+		{
+			name: "an agent whose log is not on disk is skipped, not an error",
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			ctx := context.Background()
+			projects := t.TempDir()
+
+			agent := seedWithClaudeID(t, st, testClaudeID)
+
+			var path string
+			if tt.log != "" {
+				path = writeLog(t, projects, tt.log)
+			}
+
+			syncer := NewTranscriptSyncer(st.Agents, st.Transcripts, projects)
+			require.NoError(t, syncer.Sync(ctx))
+
+			first, err := st.GetTranscript(ctx, agent.ID)
+			require.NoError(t, err)
+			if tt.wantFirst != "" {
+				assert.Equal(t, tt.wantFirst, first.Content)
+			}
+
+			if tt.appended != "" {
+				appendToLog(t, path, tt.appended)
+			}
+			if tt.rewritten != "" {
+				require.NoError(t, os.WriteFile(path, []byte(tt.rewritten), 0o644))
+			}
+			if tt.appended != "" || tt.rewritten != "" {
+				require.NoError(t, syncer.Sync(ctx))
+			}
+
+			tr, err := st.GetTranscript(ctx, agent.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, tr.Content)
+
+			if tt.want == "" {
+				assert.Equal(t, transcript.Transcript{}, tr)
+				return
+			}
+			assert.Positive(t, tr.SyncedOffset)
+
+			if tt.appended != "" {
+				assert.Greater(t, tr.SyncedOffset, first.SyncedOffset, "the offset advances with the log")
+			}
+
+			if tt.searchFor != "" {
+				hits, err := st.Transcripts.Search(ctx, transcript.SearchParams{Query: tt.searchFor, Limit: 10})
+				require.NoError(t, err)
+				require.Len(t, hits, 1)
+				assert.Equal(t, agent.ID, hits[0].AgentID)
+			}
+		})
+	}
+}
+
 // testClaudeID is the claude session id every test log is keyed to. The store id
 // is generated on insert, so this only needs to be stable within a test.
 const testClaudeID = "claude-abc"
 
 // seedWithClaudeID inserts an agent carrying testClaudeID and returns it with its
 // generated store id, so a transcript can be keyed to the right row.
-func seedWithClaudeID(t *testing.T, st *testStore, claudeID string) session.Agent {
+func seedWithClaudeID(t *testing.T, st *testStore, claudeID string) agentstore.Agent {
 	t.Helper()
 	ctx := context.Background()
-	require.NoError(t, st.Upsert(ctx, session.Agent{Name: "chat", State: session.StateNew, ClaudeSessionID: claudeID}))
-	got, err := st.Get(ctx, "chat")
+	require.NoError(t, st.Upsert(ctx, agentstore.Agent{Name: "agent", State: agentstore.StateNew, ClaudeSessionID: claudeID}))
+	got, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	require.NotNil(t, got)
 
@@ -99,113 +209,13 @@ func writeLog(t *testing.T, projectsDir, body string) string {
 	return path
 }
 
-func TestTranscriptSyncerIndexesLog(t *testing.T) {
-	st := newStore(t)
-	ctx := context.Background()
-	projects := t.TempDir()
-
-	agent := seedWithClaudeID(t, st, testClaudeID)
-	writeLog(t, projects,
-		`{"type":"user","message":{"content":"how do I use trigram search"}}`+"\n"+
-			`{"type":"assistant","message":{"content":[{"type":"text","text":"use fts5"}]}}`+"\n")
-
-	syncer := NewTranscriptSyncer(st.chats, st.transcripts, projects)
-	require.NoError(t, syncer.Sync(ctx))
-
-	tr, err := st.GetTranscript(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "how do I use trigram search\n\nuse fts5", tr.Content)
-	assert.Positive(t, tr.SyncedOffset)
-
-	hits, err := st.transcripts.Search(ctx, transcript.SearchParams{Query: "trigram", Limit: 10})
-	require.NoError(t, err)
-	require.Len(t, hits, 1)
-	assert.Equal(t, agent.ID, hits[0].SessionID)
-}
-
-func TestTranscriptSyncerIsIncremental(t *testing.T) {
-	st := newStore(t)
-	ctx := context.Background()
-	projects := t.TempDir()
-
-	agent := seedWithClaudeID(t, st, testClaudeID)
-	path := writeLog(t, projects, `{"type":"user","message":{"content":"first turn"}}`+"\n")
-
-	syncer := NewTranscriptSyncer(st.chats, st.transcripts, projects)
-	require.NoError(t, syncer.Sync(ctx))
-	first, err := st.GetTranscript(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "first turn", first.Content)
-
+// appendToLog adds to an existing log the way a running session does, leaving
+// what is already there byte for byte.
+func appendToLog(t *testing.T, path, body string) {
+	t.Helper()
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
 	require.NoError(t, err)
-	_, err = f.WriteString(`{"type":"user","message":{"content":"second turn"}}` + "\n")
+	_, err = f.WriteString(body)
 	require.NoError(t, err)
 	require.NoError(t, f.Close())
-
-	require.NoError(t, syncer.Sync(ctx))
-	second, err := st.GetTranscript(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "first turn\n\nsecond turn", second.Content, "only the appended turn is folded in")
-	assert.Greater(t, second.SyncedOffset, first.SyncedOffset)
-}
-
-func TestTranscriptSyncerLeavesPartialLine(t *testing.T) {
-	st := newStore(t)
-	ctx := context.Background()
-	projects := t.TempDir()
-
-	agent := seedWithClaudeID(t, st, testClaudeID)
-	// A complete line followed by a half-written one with no trailing newline.
-	path := writeLog(t, projects,
-		`{"type":"user","message":{"content":"complete"}}`+"\n"+`{"type":"user","message":{"conte`)
-
-	syncer := NewTranscriptSyncer(st.chats, st.transcripts, projects)
-	require.NoError(t, syncer.Sync(ctx))
-	tr, err := st.GetTranscript(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "complete", tr.Content, "the partial line is not parsed yet")
-
-	// Finish the partial line, and the next sync picks it up.
-	require.NoError(t, os.WriteFile(path,
-		[]byte(`{"type":"user","message":{"content":"complete"}}`+"\n"+`{"type":"user","message":{"content":"rest"}}`+"\n"), 0o644))
-	require.NoError(t, syncer.Sync(ctx))
-	tr, err = st.GetTranscript(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "complete\n\nrest", tr.Content)
-}
-
-func TestTranscriptSyncerReindexesOnShrink(t *testing.T) {
-	st := newStore(t)
-	ctx := context.Background()
-	projects := t.TempDir()
-
-	agent := seedWithClaudeID(t, st, testClaudeID)
-	path := writeLog(t, projects,
-		`{"type":"user","message":{"content":"original long conversation here"}}`+"\n")
-
-	syncer := NewTranscriptSyncer(st.chats, st.transcripts, projects)
-	require.NoError(t, syncer.Sync(ctx))
-
-	// Rewrite the log shorter than the synced offset, as a --resume rewrite would.
-	require.NoError(t, os.WriteFile(path, []byte(`{"type":"user","message":{"content":"new"}}`+"\n"), 0o644))
-	require.NoError(t, syncer.Sync(ctx))
-
-	tr, err := st.GetTranscript(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "new", tr.Content, "a shrunk log is reindexed from scratch, not appended to")
-}
-
-func TestTranscriptSyncerSkipsMissingLog(t *testing.T) {
-	st := newStore(t)
-	ctx := context.Background()
-	projects := t.TempDir()
-
-	agent := seedWithClaudeID(t, st, "claude-nolog")
-	syncer := NewTranscriptSyncer(st.chats, st.transcripts, projects)
-	require.NoError(t, syncer.Sync(ctx), "a session whose log is not on disk is skipped, not an error")
-
-	tr, err := st.GetTranscript(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, transcript.Transcript{}, tr)
 }

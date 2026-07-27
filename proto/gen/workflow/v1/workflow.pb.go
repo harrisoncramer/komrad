@@ -25,16 +25,16 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Workflow is a named bucket of related chats. It runs nothing itself: it holds
-// a label, shared context injected into the chats spawned inside it, and the
-// working directory and flags those chats start from.
+// Workflow is a named bucket of related agents. It runs nothing itself: it holds
+// a label, shared context injected into the agents spawned inside it, and the
+// working directory and flags those agents start from.
 type Workflow struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Name  string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// Free-text durable state the user edits. Chats created inside the workflow
+	// Free-text durable state the user edits. Agents created inside the workflow
 	// get it appended to their system prompt as a snapshot at launch, so editing
-	// it reaches only chats spawned afterwards.
+	// it reaches only agents spawned afterwards.
 	Context       string `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
 	Cwd           string `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
 	Flags         string `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
@@ -300,8 +300,8 @@ type CreateWorkflowRequest struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Name    string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Context string                 `protobuf:"bytes,2,opt,name=context,proto3" json:"context,omitempty"`
-	// Blank means chats inside this workflow choose their own directory. When set
-	// it must be absolute or ~-prefixed, matching what creating a chat demands,
+	// Blank means agents inside this workflow choose their own directory. When set
+	// it must be absolute or ~-prefixed, matching what creating a agent demands,
 	// since this is the value prefilled into that form.
 	Cwd           string `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
 	Flags         string `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
@@ -490,16 +490,16 @@ func (x *UpdateWorkflowRequest) GetFlags() string {
 	return ""
 }
 
-// DeleteWorkflowRequest removes a workflow. What happens to the chats inside it
+// DeleteWorkflowRequest removes a workflow. What happens to the agents inside it
 // is the caller's choice, and it is the whole of the decision: the workflow goes
 // either way.
 type DeleteWorkflowRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Leave false to orphan the chats back to unassigned, which loses nothing.
+	// Leave false to orphan the agents back to unassigned, which loses nothing.
 	// Set true to archive them alongside the workflow, hiding them from the panel
 	// while search can still reach them.
-	ArchiveChats  bool `protobuf:"varint,2,opt,name=archive_chats,json=archiveChats,proto3" json:"archive_chats,omitempty"`
+	ArchiveAgents bool `protobuf:"varint,2,opt,name=archive_agents,json=archiveAgents,proto3" json:"archive_agents,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -541,9 +541,9 @@ func (x *DeleteWorkflowRequest) GetId() string {
 	return ""
 }
 
-func (x *DeleteWorkflowRequest) GetArchiveChats() bool {
+func (x *DeleteWorkflowRequest) GetArchiveAgents() bool {
 	if x != nil {
-		return x.ArchiveChats
+		return x.ArchiveAgents
 	}
 	return false
 }
@@ -590,21 +590,21 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x03cwd\x18\x04 \x01(\tB\x8e\x01\xbaH\x8a\x01\xba\x01\x81\x01\n" +
 	"\x15cwd.absolute_or_blank\x12,cwd must be blank, absolute, or start with ~\x1a:this == '' || this.startsWith('/') || this.startsWith('~')r\x03\x18\x80 R\x03cwd\x12\x8d\x01\n" +
 	"\x05flags\x18\x05 \x01(\tBw\xbaHt\xba\x01l\n" +
-	"\x1dflags.no_shell_metacharacters\x12+flags must not contain shell metacharacters\x1a\x1e!this.matches('[;&|<>`$\\\\\\n]')r\x03\x18\xf4\x03R\x05flags\"U\n" +
+	"\x1dflags.no_shell_metacharacters\x12+flags must not contain shell metacharacters\x1a\x1e!this.matches('[;&|<>`$\\\\\\n]')r\x03\x18\xf4\x03R\x05flags\"W\n" +
 	"\x15DeleteWorkflowRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12#\n" +
-	"\rarchive_chats\x18\x02 \x01(\bR\farchiveChats2\xd9\f\n" +
-	"\x0fWorkflowService\x12\xf0\x02\n" +
-	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\x97\x02\x9a\xb5\x18\x8f\x02\n" +
-	"\x0elist_workflows\x12\xfc\x01List the workflows chats are grouped into, most recently updated first, with each one's shared context and the working directory and flags its chats start from. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12%\n" +
+	"\x0earchive_agents\x18\x02 \x01(\bR\rarchiveAgents2\xe2\f\n" +
+	"\x0fWorkflowService\x12\xf2\x02\n" +
+	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\x99\x02\x9a\xb5\x18\x91\x02\n" +
+	"\x0elist_workflows\x12\xfe\x01List the workflows agents are grouped into, most recently updated first, with each one's shared context and the working directory and flags its agents start from. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
 	"\vGetWorkflow\x12\x1f.workflow.v1.GetWorkflowRequest\x1a .workflow.v1.GetWorkflowResponse\"^\x9a\xb5\x18W\n" +
-	"\fget_workflow\x12GFetch one workflow by id. Returns not_found if no workflow has that id.\x90\x02\x01\x12\xdc\x02\n" +
-	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\x80\x02\x9a\xb5\x18\xfb\x01\n" +
-	"\x0fcreate_workflow\x12\xe5\x01Create a workflow to group chats under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when a chat is created inside it, and the context is appended to those chats' system prompts. \x00\x12\xf1\x02\n" +
-	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xa2\x02\x9a\xb5\x18\x9a\x02\n" +
-	"\x0fupdate_workflow\x12\x84\x02Replace a workflow's name, context, directory, and flags. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context reaches only chats spawned afterwards, since existing chats took a snapshot at launch. \x00\x90\x02\x02\x12\xcc\x02\n" +
-	"\x0eDeleteWorkflow\x12\".workflow.v1.DeleteWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xfd\x01\x9a\xb5\x18\xf5\x01\n" +
-	"\x0fdelete_workflow\x12\xdf\x01Remove a workflow. By default its chats are orphaned back to unassigned and keep running. Set archiveChats to hide them alongside it, which leaves them findable through search_transcripts. Neither form deletes a transcript. \x01\x90\x02\x02B0Z.claude-agents/proto/gen/workflow/v1;workflowv1b\x06proto3"
+	"\fget_workflow\x12GFetch one workflow by id. Returns not_found if no workflow has that id.\x90\x02\x01\x12\xdf\x02\n" +
+	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\x83\x02\x9a\xb5\x18\xfe\x01\n" +
+	"\x0fcreate_workflow\x12\xe8\x01Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when a agent is created inside it, and the context is appended to those agents' system prompts. \x00\x12\xf3\x02\n" +
+	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xa4\x02\x9a\xb5\x18\x9c\x02\n" +
+	"\x0fupdate_workflow\x12\x86\x02Replace a workflow's name, context, directory, and flags. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch. \x00\x90\x02\x02\x12\xce\x02\n" +
+	"\x0eDeleteWorkflow\x12\".workflow.v1.DeleteWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xff\x01\x9a\xb5\x18\xf7\x01\n" +
+	"\x0fdelete_workflow\x12\xe1\x01Remove a workflow. By default its agents are orphaned back to unassigned and keep running. Set archiveAgents to hide them alongside it, which leaves them findable through search_transcripts. Neither form deletes a transcript. \x01\x90\x02\x02B0Z.claude-agents/proto/gen/workflow/v1;workflowv1b\x06proto3"
 
 var (
 	file_workflow_v1_workflow_proto_rawDescOnce sync.Once

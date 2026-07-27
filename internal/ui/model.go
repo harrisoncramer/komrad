@@ -10,11 +10,11 @@ import (
 
 	"claude-agents/internal/appconfig"
 	"claude-agents/internal/client"
-	sessionv1 "claude-agents/proto/gen/session/v1"
-	"claude-agents/proto/gen/session/v1/sessionv1connect"
+	agentv1 "claude-agents/proto/gen/agent/v1"
+	"claude-agents/proto/gen/agent/v1/agentv1connect"
 	"claude-agents/proto/gen/workflow/v1/workflowv1connect"
 
-	"claude-agents/internal/store/session"
+	agentstore "claude-agents/internal/store/agent"
 	workflowstore "claude-agents/internal/store/workflow"
 
 	"connectrpc.com/connect"
@@ -24,51 +24,51 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// chatsInterval is how often the chats list re-lists over RPC. It runs off the
+// agentsInterval is how often the agents list re-lists over RPC. It runs off the
 // render loop, so a slow serve can never freeze the UI.
 const (
-	chatsInterval = time.Second
-	chatsTimeout  = 2 * time.Second
+	agentsInterval = time.Second
+	agentsTimeout  = 2 * time.Second
 )
 
-type chatsTickMsg struct{}
+type agentsTickMsg struct{}
 
-// chatsLoadedMsg carries the result of an async re-list. A non-nil err means the
+// agentsLoadedMsg carries the result of an async re-list. A non-nil err means the
 // service could not be reached, which the panel shows rather than absorbs: the
 // rows it is holding are from the last successful poll, and left on screen they
 // read as the current truth when they are not.
-type chatsLoadedMsg struct {
-	items []chatItem
+type agentsLoadedMsg struct {
+	items []agentItem
 	err   error
 }
 
-func chatsTick() tea.Cmd {
-	return tea.Tick(chatsInterval, func(time.Time) tea.Msg { return chatsTickMsg{} })
+func agentsTick() tea.Cmd {
+	return tea.Tick(agentsInterval, func(time.Time) tea.Msg { return agentsTickMsg{} })
 }
 
-// loadChatsCmd re-lists the sessions off the UI goroutine with a timeout, so the
-// render loop never blocks on the RPC or the per-chat tmux liveness checks.
-func (m model) loadChatsCmd() tea.Cmd {
-	sessions := m.api.sessions
+// loadAgentsCmd re-lists the sessions off the UI goroutine with a timeout, so the
+// render loop never blocks on the RPC or the per-agent tmux liveness checks.
+func (m model) loadAgentsCmd() tea.Cmd {
+	sessions := m.api.agents
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), chatsTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
 		defer cancel()
 
-		listed, err := client.ListAllSessions(ctx, sessions)
+		listed, err := client.ListAllAgents(ctx, sessions)
 		if err != nil {
-			return chatsLoadedMsg{err: err}
+			return agentsLoadedMsg{err: err}
 		}
 
-		return chatsLoadedMsg{items: chatItemsFrom(listed)}
+		return agentsLoadedMsg{items: agentItemsFrom(listed)}
 	}
 }
 
-// chatItemsFrom maps listed sessions to chat items, marking which panes are live.
-func chatItemsFrom(sessions []*sessionv1.Session) []chatItem {
-	items := make([]chatItem, 0, len(sessions))
+// agentItemsFrom maps listed sessions to agent items, marking which panes are live.
+func agentItemsFrom(sessions []*agentv1.Agent) []agentItem {
+	items := make([]agentItem, 0, len(sessions))
 	for _, session := range sessions {
-		items = append(items, chatItem{agent: protoToAgent(session), alive: session.GetAlive()})
+		items = append(items, agentItem{agent: protoToAgent(session), alive: session.GetAlive()})
 	}
 
 	return items
@@ -105,11 +105,11 @@ var (
 
 func stateIcon(state string) string {
 	switch state {
-	case session.StateDone:
+	case agentstore.StateDone:
 		return "✓"
-	case session.StateWaiting:
+	case agentstore.StateWaiting:
 		return "!"
-	case session.StateThinking:
+	case agentstore.StateThinking:
 		return "…"
 	default:
 		return "•"
@@ -118,11 +118,11 @@ func stateIcon(state string) string {
 
 func stateColor(state string) lipgloss.Color {
 	switch state {
-	case session.StateDone:
+	case agentstore.StateDone:
 		return lipgloss.Color("#98BB6C")
-	case session.StateWaiting:
+	case agentstore.StateWaiting:
 		return lipgloss.Color("#E82424")
-	case session.StateThinking:
+	case agentstore.StateThinking:
 		return lipgloss.Color("#FF9E3B")
 	default:
 		return lipgloss.Color("#7E9CD8")
@@ -132,7 +132,7 @@ func stateColor(state string) lipgloss.Color {
 type screen int
 
 const (
-	screenChats screen = iota
+	screenAgents screen = iota
 	screenForm
 	screenRename
 	screenWorkflowForm
@@ -141,7 +141,7 @@ const (
 )
 
 // actionTimeout bounds a single call made in response to a keypress. It is
-// generous because creating a chat opens a tmux window on the far side, and it
+// generous because creating an agent opens a tmux window on the far side, and it
 // exists so a wedged server leaves the panel usable rather than frozen.
 const actionTimeout = 10 * time.Second
 
@@ -152,11 +152,11 @@ type uiTmux interface {
 	ClientPath(client string) string
 }
 
-// api holds the service clients the panel acts through. Every change to a chat
+// api holds the service clients the panel acts through. Every change to an agent
 // or a workflow goes over these, the same way the MCP tools and the CLI reach
 // them, so what the panel may do and what a model may do cannot drift apart.
 type api struct {
-	sessions  sessionv1connect.SessionServiceClient
+	agents    agentv1connect.AgentServiceClient
 	workflows workflowv1connect.WorkflowServiceClient
 }
 
@@ -166,7 +166,7 @@ type api struct {
 type Deps struct {
 	Popup     *Popup
 	Tmux      uiTmux
-	Sessions  sessionv1connect.SessionServiceClient
+	Agents    agentv1connect.AgentServiceClient
 	Workflows workflowv1connect.WorkflowServiceClient
 	Keys      appconfig.Keybindings
 	// Addr is where Client points, shown on the error screen when the service
@@ -180,7 +180,7 @@ type model struct {
 	// clients do not collide with the lists they populate.
 	api api
 	// tmux lays out the panel's own panes and answers which directory the user is
-	// looking at, which is the one thing about a new chat the service cannot work
+	// looking at, which is the one thing about a new agent the service cannot work
 	// out for itself.
 	tmux uiTmux
 	// stage is the preview pane beside the list. It is the panel's own layout, so
@@ -197,13 +197,13 @@ type model struct {
 
 	screen screen
 
-	chats      []chatItem
-	chatCursor int
+	agents      []agentItem
+	agentCursor int
 
-	// infoPinned shows the hovered chat's stored record in the stage instead of the
-	// chat itself. A live chat otherwise occupies the stage with its own pane, so
-	// its cwd and flags have nowhere else to show. Moving the cursor or opening a
-	// chat clears it, so the pinned record never outlives the row it describes.
+	// infoPinned shows the hovered agent's stored record in the stage instead of the
+	// agent itself. A live agent otherwise occupies the stage with its own pane, so
+	// its cwd and flags have nowhere else to show. Moving the cursor or opening an
+	// agent clears it, so the pinned record never outlives the row it describes.
 	infoPinned bool
 
 	// workflows backs the tree's folder headers. workflowCursor is which workflow a
@@ -217,13 +217,13 @@ type model struct {
 	workflowEditTarget   *workflowstore.Workflow
 	workflowDeleteTarget *workflowstore.Workflow
 
-	// newChatWorkflow is the workflow a pending new-chat form will place its chat
-	// in, or nil for a chat that belongs to no workflow. Set when the form opens
+	// newAgentWorkflow is the workflow a pending new-agent form will place its agent
+	// in, or nil for an agent that belongs to no workflow. Set when the form opens
 	// and consumed on submit.
-	newChatWorkflow *workflowstore.Workflow
+	newAgentWorkflow *workflowstore.Workflow
 
 	form         *huh.Form
-	renameTarget session.Agent
+	renameTarget agentstore.Agent
 
 	// Search screen state. The live query, its hits, and which hit is hovered.
 	searchQuery  string
@@ -235,27 +235,27 @@ type model struct {
 
 func newModel(deps Deps) model {
 	m := model{
-		api:    api{sessions: deps.Sessions, workflows: deps.Workflows},
+		api:    api{agents: deps.Agents, workflows: deps.Workflows},
 		popup:  deps.Popup,
 		stage:  NewStage(deps.Tmux),
 		addr:   deps.Addr,
 		keys:   deps.Keys,
-		screen: screenChats,
+		screen: screenAgents,
 	}
 	// Split off the stage pane beside the panel, then show whatever the initial
 	// selection lands on.
 	m.stage.Init()
 	m.reload()
-	m.chatCursor = firstChatRowIndex(m.chatRows())
+	m.agentCursor = firstAgentRowIndex(m.agentRows())
 	m.stageSelection()
 
 	return m
 }
 
-// chatItem is a stored agent plus whether its tmux pane is currently alive. A
+// agentItem is a stored agent plus whether its tmux pane is currently alive. A
 // dormant agent has a dead pane but is kept, since it can be restored from its stored state.
-type chatItem struct {
-	agent session.Agent
+type agentItem struct {
+	agent agentstore.Agent
 	alive bool
 }
 
@@ -265,16 +265,16 @@ type chatItem struct {
 func (m *model) reload() {
 	m.reloadWorkflows()
 
-	listed, err := client.ListAllSessions(context.Background(), m.api.sessions)
+	listed, err := client.ListAllAgents(context.Background(), m.api.agents)
 	if err != nil {
-		m.chats = nil
+		m.agents = nil
 		return
 	}
 
-	m.chats = chatItemsFrom(listed)
+	m.agents = agentItemsFrom(listed)
 }
 
-// currentDir fills in the directory a new chat starts in. The form allows a
+// currentDir fills in the directory a new agent starts in. The form allows a
 // blank, meaning "where I am", and only the panel can answer that: it is the
 // invoking tmux client's path. The API refuses a blank directory precisely
 // because a server has no way to know which pane the user is looking at.
@@ -291,9 +291,9 @@ func (m model) currentDir(dir string) string {
 	return home
 }
 
-// renameChat renames a chat by id. A blank or unchanged name is a no-op, which
+// renameAgent renames an agent by id. A blank or unchanged name is a no-op, which
 // keeps the form's empty submit from asking the service to do nothing.
-func (m model) renameChat(agent session.Agent, name string) {
+func (m model) renameAgent(agent agentstore.Agent, name string) {
 	name = strings.TrimSpace(name)
 	if name == "" || name == agent.Name {
 		return
@@ -302,7 +302,7 @@ func (m model) renameChat(agent session.Agent, name string) {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	_, _ = m.api.sessions.UpdateSession(ctx, connect.NewRequest(&sessionv1.UpdateSessionRequest{
+	_, _ = m.api.agents.UpdateAgent(ctx, connect.NewRequest(&agentv1.UpdateAgentRequest{
 		Id:   agent.ID,
 		Name: name,
 	}))
@@ -311,7 +311,7 @@ func (m model) renameChat(agent session.Agent, name string) {
 // listWorkflows fetches every workflow and renders them into the store type the
 // tree is written against.
 func (m model) listWorkflows() ([]workflowstore.Workflow, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), chatsTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
 	defer cancel()
 
 	listed, err := client.ListAllWorkflows(ctx, m.api.workflows)
@@ -347,14 +347,14 @@ func (m *model) reloadWorkflows() {
 	m.workflowCursor = clampCursor(m.workflowCursor, len(workflows))
 }
 
-// applyChats merges a freshly-listed set into the on-screen chats. It keeps the
+// applyAgents merges a freshly-listed set into the on-screen agents. It keeps the
 // current order rather than re-sorting by recency, since reordering under the
-// cursor is jarring and defeats an index-based selection. New chats are appended
-// and vanished ones dropped, and the cursor stays on whichever chat it was on.
+// cursor is jarring and defeats an index-based selection. New agents are appended
+// and vanished ones dropped, and the cursor stays on whichever agent it was on.
 // The fresh items carry updated state and liveness, so a reconciler change
 // shows without a structural reload.
-func (m *model) applyChats(fresh []chatItem) {
-	byName := make(map[string]chatItem, len(fresh))
+func (m *model) applyAgents(fresh []agentItem) {
+	byName := make(map[string]agentItem, len(fresh))
 	order := make([]string, 0, len(fresh))
 	for _, item := range fresh {
 		byName[item.agent.Name] = item
@@ -362,13 +362,13 @@ func (m *model) applyChats(fresh []chatItem) {
 	}
 
 	selected := ""
-	if item, ok := m.selectedChat(); ok {
+	if item, ok := m.selectedAgent(); ok {
 		selected = item.agent.Name
 	}
 
-	seen := make(map[string]bool, len(m.chats))
-	items := make([]chatItem, 0, len(fresh))
-	for _, cur := range m.chats {
+	seen := make(map[string]bool, len(m.agents))
+	items := make([]agentItem, 0, len(fresh))
+	for _, cur := range m.agents {
 		if item, ok := byName[cur.agent.Name]; ok {
 			seen[cur.agent.Name] = true
 			items = append(items, item)
@@ -380,22 +380,22 @@ func (m *model) applyChats(fresh []chatItem) {
 		}
 	}
 
-	m.chats = items
+	m.agents = items
 
-	// The cursor indexes the tree of headers and chats, so keep it on the same
-	// chat across the rebuild, or clamp it into the new tree when that chat is
+	// The cursor indexes the tree of headers and agents, so keep it on the same
+	// agent across the rebuild, or clamp it into the new tree when that agent is
 	// gone.
-	rows := m.chatRows()
-	if idx := rowIndexOfChatName(rows, selected); idx >= 0 {
-		m.chatCursor = idx
+	rows := m.agentRows()
+	if idx := rowIndexOfAgentName(rows, selected); idx >= 0 {
+		m.agentCursor = idx
 	} else {
-		m.chatCursor = clampCursor(m.chatCursor, len(rows))
+		m.agentCursor = clampCursor(m.agentCursor, len(rows))
 	}
 }
 
-// indexOfChat returns the position of the named chat, or 0 when it is not found,
+// indexOfAgent returns the position of the named agent, or 0 when it is not found,
 // so the cursor lands on the first row.
-func indexOfChat(items []chatItem, name string) int {
+func indexOfAgent(items []agentItem, name string) int {
 	for i, item := range items {
 		if item.agent.Name == name {
 			return i
@@ -417,10 +417,10 @@ func clampCursor(idx, length int) int {
 	return idx
 }
 
-func protoToAgent(s *sessionv1.Session) session.Agent {
+func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 	created, _ := time.Parse(time.RFC3339, s.GetCreatedAt())
 
-	return session.Agent{
+	return agentstore.Agent{
 		ID:              s.GetId(),
 		Name:            s.GetName(),
 		Pane:            s.GetPaneId(),
@@ -434,17 +434,17 @@ func protoToAgent(s *sessionv1.Session) session.Agent {
 	}
 }
 
-// openNewSession opens the new-chat form, seeded from the given workflow's
-// blueprint when one is passed, and records that workflow so the created chat is
-// placed in it. A nil workflow creates a chat that belongs to none.
-func (m model) openNewSession(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
+// openNewAgent opens the new-agent form, seeded from the given workflow's
+// blueprint when one is passed, and records that workflow so the created agent is
+// placed in it. A nil workflow creates an agent that belongs to none.
+func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	dir, flags := "", ""
 	if workflow != nil {
 		dir = workflow.Cwd
 		flags = workflow.Flags
 	}
-	m.newChatWorkflow = workflow
-	m.form = newSessionForm(m.keys.Form, dir, flags)
+	m.newAgentWorkflow = workflow
+	m.form = newAgentForm(m.keys.Form, dir, flags)
 	m.screen = screenForm
 
 	return m, m.form.Init()
@@ -466,14 +466,14 @@ func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.form.State {
 	case huh.StateCompleted:
-		m.renameChat(m.renameTarget, m.form.GetString("name"))
+		m.renameAgent(m.renameTarget, m.form.GetString("name"))
 		m.reload()
-		m.chatCursor = clampCursor(m.chatCursor, len(m.chatRows()))
-		m.screen = screenChats
+		m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
+		m.screen = screenAgents
 		m.stageSelection()
 		return m, nil
 	case huh.StateAborted:
-		m.screen = screenChats
+		m.screen = screenAgents
 		m.stageSelection()
 		return m, nil
 	default:
@@ -481,10 +481,10 @@ func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// newSessionForm builds the new-chat form. defaultDir and defaultFlags prefill
-// the directory and flags fields from the enclosing workflow's config so a chat
+// newAgentForm builds the new-agent form. defaultDir and defaultFlags prefill
+// the directory and flags fields from the enclosing workflow's config so an agent
 // created inside a workflow starts from its blueprint. Both are blank at the root.
-func newSessionForm(keys appconfig.FormKeys, defaultDir, defaultFlags string) *huh.Form {
+func newAgentForm(keys appconfig.FormKeys, defaultDir, defaultFlags string) *huh.Form {
 	dir := defaultDir
 	flags := defaultFlags
 
@@ -509,21 +509,21 @@ func formKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
 	return km
 }
 
-// Init starts the async chats refresh so the list's counts and states stay current.
+// Init starts the async agents refresh so the list's counts and states stay current.
 func (m model) Init() tea.Cmd {
-	return tea.Batch(chatsTick(), m.loadChatsCmd())
+	return tea.Batch(agentsTick(), m.loadAgentsCmd())
 }
 
 // Update routes messages and key input to the active screen.
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if _, ok := msg.(chatsTickMsg); ok {
-		return m, tea.Batch(m.loadChatsCmd(), chatsTick())
+	if _, ok := msg.(agentsTickMsg); ok {
+		return m, tea.Batch(m.loadAgentsCmd(), agentsTick())
 	}
 
-	if loaded, ok := msg.(chatsLoadedMsg); ok {
+	if loaded, ok := msg.(agentsLoadedMsg); ok {
 		m.unreachable = loaded.err
 		if loaded.err == nil {
-			m.applyChats(loaded.items)
+			m.applyAgents(loaded.items)
 		}
 
 		return m, nil
@@ -563,8 +563,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateSearch(key)
 	}
 
-	if m.screen == screenChats {
-		return m.updateChats(key)
+	if m.screen == screenAgents {
+		return m.updateAgents(key)
 	}
 
 	return m, nil
@@ -572,7 +572,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if key, ok := msg.(tea.KeyMsg); ok && bound(key.String(), m.keys.Form.Submit) {
-		return m.submitSession()
+		return m.submitAgent()
 	}
 
 	form, cmd := m.form.Update(msg)
@@ -582,11 +582,11 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.form.State {
 	case huh.StateCompleted:
-		return m.submitSession()
+		return m.submitAgent()
 	case huh.StateAborted:
-		m.newChatWorkflow = nil
-		m.screen = screenChats
-		m.chatCursor = clampCursor(m.chatCursor, len(m.chatRows()))
+		m.newAgentWorkflow = nil
+		m.screen = screenAgents
+		m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
 		m.stageSelection()
 		return m, nil
 	default:
@@ -594,10 +594,10 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-func (m model) submitSession() (tea.Model, tea.Cmd) {
+func (m model) submitAgent() (tea.Model, tea.Cmd) {
 	var workflowID *string
-	if m.newChatWorkflow != nil {
-		id := m.newChatWorkflow.ID
+	if m.newAgentWorkflow != nil {
+		id := m.newAgentWorkflow.ID
 		workflowID = &id
 	}
 
@@ -606,17 +606,17 @@ func (m model) submitSession() (tea.Model, tea.Cmd) {
 
 	// A launch failure leaves the list unchanged. The next refresh is the panel's
 	// own report of what exists.
-	_, _ = m.api.sessions.CreateSession(ctx, connect.NewRequest(&sessionv1.CreateSessionRequest{
+	_, _ = m.api.agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
 		Prompt:     m.form.GetString("prompt"),
 		Title:      m.form.GetString("title"),
 		Dir:        m.currentDir(m.form.GetString("dir")),
 		Flags:      m.form.GetString("flags"),
 		WorkflowId: workflowID,
 	}))
-	m.newChatWorkflow = nil
+	m.newAgentWorkflow = nil
 	m.reload()
-	m.screen = screenChats
-	m.chatCursor = clampCursor(m.chatCursor, len(m.chatRows()))
+	m.screen = screenAgents
+	m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
 	m.stageSelection()
 	return m, nil
 }

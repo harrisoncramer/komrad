@@ -1,11 +1,11 @@
-// Package session persists the chats themselves: the sessions table and the
+// Package session persists the agents themselves: the sessions table and the
 // per-session config row that hangs off it.
 //
-// It owns no other domain's tables. A chat's transcript belongs to the
-// transcript package and the workflow a chat sits in belongs to the workflow
+// It owns no other domain's tables. An agent's transcript belongs to the
+// transcript package and the workflow an agent sits in belongs to the workflow
 // package, so an operation touching both is composed by a caller inside one
 // transaction rather than reached for from here.
-package session
+package agent
 
 import (
 	"context"
@@ -20,7 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// Chat lifecycle states.
+// Agent lifecycle states.
 const (
 	StateNew      = "new"
 	StateThinking = "thinking"
@@ -34,18 +34,18 @@ type Agent struct {
 	Name string
 	// SessionConfigID is this agent's own config row, holding its cwd and flags.
 	// Every agent owns exactly one. Cwd and Flags are that row flattened on read.
-	SessionConfigID string
+	AgentConfigID   string
 	Pane            string
 	Cwd             string
 	Flags           string
 	Prompt          string
 	State           string
 	ClaudeSessionID string
-	// WorkflowID is the workflow this chat belongs to, or nil when unassigned. It
+	// WorkflowID is the workflow this agent belongs to, or nil when unassigned. It
 	// holds the workflow's stable id, not its display name.
 	WorkflowID *string
 	Deleted    bool
-	// CreatedAt is when the chat was first recorded, for display.
+	// CreatedAt is when the agent was first recorded, for display.
 	CreatedAt time.Time
 	// UpdatedAt is when the row last changed. Listings sort by it, so it is also
 	// the key a page of agents resumes from.
@@ -58,12 +58,12 @@ func SanitizeName(name string) string {
 	return strings.NewReplacer(":", "-", ".", "-", " ", "-").Replace(name)
 }
 
-// Store reads and writes chats.
+// Store reads and writes agents.
 type Store struct {
 	queries *models.Queries
 }
 
-// New builds a chat store over db, which is either the pool or a transaction. A
+// New builds an agent store over db, which is either the pool or a transaction. A
 // caller composing this with another domain passes the transaction, so both land
 // together.
 func New(db store.DBTX) *Store {
@@ -72,14 +72,14 @@ func New(db store.DBTX) *Store {
 
 // List returns every persisted agent, most recently updated first.
 func (s *Store) List(ctx context.Context) ([]Agent, error) {
-	rows, err := s.queries.ListSessions(ctx)
+	rows, err := s.queries.ListAgents(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list sessions: %w", err)
 	}
 
 	agents := make([]Agent, 0, len(rows))
 	for _, row := range rows {
-		agents = append(agents, agentFromRow(row.Session, row.Cwd, row.Flags))
+		agents = append(agents, agentFromRow(row.Agent, row.Cwd, row.Flags))
 	}
 
 	return agents, nil
@@ -94,42 +94,42 @@ type Cursor struct {
 }
 
 // ListPage returns one page of live agents, most recently updated first,
-// resuming after cursor when one is given. Update time is a moving key: a chat
+// resuming after cursor when one is given. Update time is a moving key: an agent
 // the reconciler touches mid-scan sorts ahead of where the caller already is, so
 // it can be seen twice or missed. That is inherent to keying a page on the
 // column the listing sorts by, and the alternative, holding a snapshot open
 // across requests, costs more than the duplicate is worth here.
 func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Agent, error) {
-	params := models.ListSessionsPageParams{Lim: int32(limit)}
+	params := models.ListAgentsPageParams{Lim: int32(limit)}
 	if cursor != nil {
 		params.CursorUpdatedAt = &cursor.UpdatedAt
 		params.CursorID = &cursor.ID
 	}
 
-	rows, err := s.queries.ListSessionsPage(ctx, params)
+	rows, err := s.queries.ListAgentsPage(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list a page of sessions: %w", err)
 	}
 
 	agents := make([]Agent, 0, len(rows))
 	for _, row := range rows {
-		agents = append(agents, agentFromRow(row.Session, row.Cwd, row.Flags))
+		agents = append(agents, agentFromRow(row.Agent, row.Cwd, row.Flags))
 	}
 
 	return agents, nil
 }
 
 // ListAll returns every agent including soft-deleted ones, most recently
-// updated first. It backs search, which spans active and deleted chats.
+// updated first. It backs search, which spans active and deleted agents.
 func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
-	rows, err := s.queries.ListAllSessions(ctx)
+	rows, err := s.queries.ListAllAgents(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list all sessions: %w", err)
 	}
 
 	agents := make([]Agent, 0, len(rows))
 	for _, row := range rows {
-		agents = append(agents, agentFromRow(row.Session, row.Cwd, row.Flags))
+		agents = append(agents, agentFromRow(row.Agent, row.Cwd, row.Flags))
 	}
 
 	return agents, nil
@@ -139,7 +139,7 @@ func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
 // failure. No-rows is the nil case. Every other error is surfaced so a caller
 // does not report a genuine DB failure as not found.
 func (s *Store) Get(ctx context.Context, name string) (*Agent, error) {
-	row, err := s.queries.GetSession(ctx, name)
+	row, err := s.queries.GetAgent(ctx, name)
 	if store.NoRows(err) {
 		return nil, nil
 	}
@@ -147,19 +147,19 @@ func (s *Store) Get(ctx context.Context, name string) (*Agent, error) {
 		return nil, fmt.Errorf("failed to get session %q: %w", name, err)
 	}
 
-	agent := agentFromRow(row.Session, row.Cwd, row.Flags)
+	agent := agentFromRow(row.Agent, row.Cwd, row.Flags)
 	return &agent, nil
 }
 
-// Exists reports whether any chat holds the given id, including soft-deleted
-// ones, so a caller can tell an unknown id from a chat that simply has nothing
+// Exists reports whether any agent holds the given id, including soft-deleted
+// ones, so a caller can tell an unknown id from an agent that simply has nothing
 // stored yet.
 func (s *Store) Exists(ctx context.Context, id string) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
 	}
 
-	exists, err := s.queries.SessionExists(ctx, id)
+	exists, err := s.queries.AgentExists(ctx, id)
 	if err != nil {
 		return false, fmt.Errorf("failed to check for session %q: %w", id, err)
 	}
@@ -199,7 +199,7 @@ func (s *Store) Upsert(ctx context.Context, agent Agent) error {
 // the database, which generates them, so the config is inserted first and the
 // session points at what it returned.
 func (s *Store) insert(ctx context.Context, agent Agent) error {
-	configID, err := s.queries.InsertSessionConfig(ctx, models.InsertSessionConfigParams{
+	configID, err := s.queries.InsertAgentConfig(ctx, models.InsertAgentConfigParams{
 		Cwd:   agent.Cwd,
 		Flags: agent.Flags,
 	})
@@ -207,9 +207,9 @@ func (s *Store) insert(ctx context.Context, agent Agent) error {
 		return fmt.Errorf("failed to insert config for %q: %w", agent.Name, err)
 	}
 
-	if _, err := s.queries.InsertSession(ctx, models.InsertSessionParams{
+	if _, err := s.queries.InsertAgent(ctx, models.InsertAgentParams{
 		Name:            agent.Name,
-		SessionConfigID: configID,
+		AgentConfigID:   configID,
 		Prompt:          agent.Prompt,
 		PaneID:          agent.Pane,
 		State:           agent.State,
@@ -225,9 +225,9 @@ func (s *Store) insert(ctx context.Context, agent Agent) error {
 // update rewrites an existing agent's linked config and runtime fields, keyed by
 // its stable id.
 func (s *Store) update(ctx context.Context, agent Agent) error {
-	if agent.SessionConfigID != "" {
-		if err := s.queries.UpdateSessionConfig(ctx, models.UpdateSessionConfigParams{
-			ID:    agent.SessionConfigID,
+	if agent.AgentConfigID != "" {
+		if err := s.queries.UpdateAgentConfig(ctx, models.UpdateAgentConfigParams{
+			ID:    agent.AgentConfigID,
 			Cwd:   agent.Cwd,
 			Flags: agent.Flags,
 		}); err != nil {
@@ -235,7 +235,7 @@ func (s *Store) update(ctx context.Context, agent Agent) error {
 		}
 	}
 
-	if err := s.queries.UpdateSession(ctx, models.UpdateSessionParams{
+	if err := s.queries.UpdateAgent(ctx, models.UpdateAgentParams{
 		ID:              agent.ID,
 		Prompt:          agent.Prompt,
 		PaneID:          agent.Pane,
@@ -250,11 +250,11 @@ func (s *Store) update(ctx context.Context, agent Agent) error {
 }
 
 // SetState updates just an agent's state, keyed by name. It reports whether a
-// row was updated, so naming a chat that does not exist is distinguishable from
+// row was updated, so naming an agent that does not exist is distinguishable from
 // setting a state it already had. The query returns the ids it touched, which is
 // how the count is known without a second read.
 func (s *Store) SetState(ctx context.Context, name, state string) (bool, error) {
-	updated, err := s.queries.SetSessionState(ctx, models.SetSessionStateParams{Name: name, State: state})
+	updated, err := s.queries.SetAgentState(ctx, models.SetAgentStateParams{Name: name, State: state})
 	if err != nil {
 		return false, fmt.Errorf("failed to set state for %q: %w", name, err)
 	}
@@ -271,25 +271,25 @@ func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
 		return nil
 	}
 
-	if err := s.queries.SetSessionStateByID(ctx, models.SetSessionStateByIDParams{ID: id, State: state}); err != nil {
+	if err := s.queries.SetAgentStateByID(ctx, models.SetAgentStateByIDParams{ID: id, State: state}); err != nil {
 		return fmt.Errorf("failed to set state for id %q: %w", id, err)
 	}
 
 	return nil
 }
 
-// Target names the rows a hard delete has to remove: the chat itself, the config
+// Target names the rows a hard delete has to remove: the agent itself, the config
 // it owns, and the transcript keyed to its id. The transcript is another
 // package's table, so this reports the id rather than deleting it.
 type Target struct {
-	ID              string
-	SessionConfigID string
+	ID            string
+	AgentConfigID string
 }
 
-// Find resolves a chat by name to the ids a delete needs, nil when no chat has
+// Find resolves an agent by name to the ids a delete needs, nil when no agent has
 // that name.
 func (s *Store) Find(ctx context.Context, name string) (*Target, error) {
-	row, err := s.queries.GetSessionForDelete(ctx, name)
+	row, err := s.queries.GetAgentForDelete(ctx, name)
 	if store.NoRows(err) {
 		return nil, nil
 	}
@@ -297,26 +297,26 @@ func (s *Store) Find(ctx context.Context, name string) (*Target, error) {
 		return nil, fmt.Errorf("failed to find session %q: %w", name, err)
 	}
 
-	return &Target{ID: row.ID, SessionConfigID: row.SessionConfigID}, nil
+	return &Target{ID: row.ID, AgentConfigID: row.AgentConfigID}, nil
 }
 
-// Delete removes a chat and the config it owns. The transcript keyed to the same
-// id is the transcript package's to remove, in the same transaction, since a
-// chat deleted without its transcript is the half-state worth avoiding.
+// Delete removes an agent and the config it owns. The transcript keyed to the same
+// id is the transcript package's to remove, in the same transaction, since an
+// agent deleted without its transcript is the half-state worth avoiding.
 func (s *Store) Delete(ctx context.Context, target Target) error {
-	if err := s.queries.DeleteSessionByID(ctx, target.ID); err != nil {
+	if err := s.queries.DeleteAgentByID(ctx, target.ID); err != nil {
 		return fmt.Errorf("failed to delete session %q: %w", target.ID, err)
 	}
 
-	if err := s.queries.DeleteSessionConfig(ctx, target.SessionConfigID); err != nil {
+	if err := s.queries.DeleteAgentConfig(ctx, target.AgentConfigID); err != nil {
 		return fmt.Errorf("failed to delete config for %q: %w", target.ID, err)
 	}
 
 	return nil
 }
 
-// ErrNameTaken reports that a rename collided with a live chat's name. The
-// unique index is scoped to live rows, so this only ever means a chat currently
+// ErrNameTaken reports that a rename collided with a live agent's name. The
+// unique index is scoped to live rows, so this only ever means an agent currently
 // listed already answers to that name.
 var ErrNameTaken = errors.New("name already taken")
 
@@ -327,13 +327,13 @@ const uniqueViolation = "23505"
 
 // Rename changes an agent's name (title), keyed by id. It reports whether a row
 // was renamed, so an id that matches nothing is distinguishable from a rename
-// to the name a chat already had.
+// to the name an agent already had.
 func (s *Store) Rename(ctx context.Context, id, name string) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
 	}
 
-	renamed, err := s.queries.RenameSession(ctx, models.RenameSessionParams{ID: id, Name: name})
+	renamed, err := s.queries.RenameAgent(ctx, models.RenameAgentParams{ID: id, Name: name})
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
@@ -348,14 +348,14 @@ func (s *Store) Rename(ctx context.Context, id, name string) (bool, error) {
 
 // Archive hides an agent from listings without dropping the row.
 func (s *Store) Archive(ctx context.Context, name string) error {
-	if err := s.queries.MarkSessionDeleted(ctx, name); err != nil {
+	if err := s.queries.MarkAgentDeleted(ctx, name); err != nil {
 		return fmt.Errorf("failed to archive session %q: %w", name, err)
 	}
 
 	return nil
 }
 
-// Restore clears an agent's archived flag by id, so a chat found in search
+// Restore clears an agent's archived flag by id, so an agent found in search
 // returns to the normal listing. It is keyed by id, not name, because an
 // archived row can share a name with a live agent, so the id is the only
 // unambiguous handle to the exact row to restore.
@@ -364,67 +364,67 @@ func (s *Store) Restore(ctx context.Context, id string) error {
 		return nil
 	}
 
-	if err := s.queries.RestoreSession(ctx, id); err != nil {
+	if err := s.queries.RestoreAgent(ctx, id); err != nil {
 		return fmt.Errorf("failed to restore session %q: %w", id, err)
 	}
 
 	return nil
 }
 
-// MoveToWorkflow reassigns a chat to a workflow, keyed by the chat's id. A nil
-// workflowID unassigns the chat, returning it to the root listing. The id names
+// MoveToWorkflow reassigns an agent to a workflow, keyed by the agent's id. A nil
+// workflowID unassigns the agent, returning it to the root listing. The id names
 // a workflow but the column is this table's, so the write belongs here.
 func (s *Store) MoveToWorkflow(ctx context.Context, id string, workflowID *string) error {
 	if !store.IsID(id) {
 		return nil
 	}
 
-	if err := s.queries.SetSessionWorkflow(ctx, models.SetSessionWorkflowParams{ID: id, WorkflowID: workflowID}); err != nil {
+	if err := s.queries.SetAgentWorkflow(ctx, models.SetAgentWorkflowParams{ID: id, WorkflowID: workflowID}); err != nil {
 		return fmt.Errorf("failed to move session %q to workflow: %w", id, err)
 	}
 
 	return nil
 }
 
-// ClearWorkflow unassigns every chat in a workflow, returning them to the root
+// ClearWorkflow unassigns every agent in a workflow, returning them to the root
 // listing. It is called when a workflow is deleted, from inside that
 // transaction.
 func (s *Store) ClearWorkflow(ctx context.Context, workflowID string) error {
-	if err := s.queries.ClearWorkflowSessions(ctx, &workflowID); err != nil {
-		return fmt.Errorf("failed to unassign chats of workflow %q: %w", workflowID, err)
+	if err := s.queries.ClearWorkflowAgents(ctx, &workflowID); err != nil {
+		return fmt.Errorf("failed to unassign agents of workflow %q: %w", workflowID, err)
 	}
 
 	return nil
 }
 
-// ArchiveWorkflowChats archives every live chat in a workflow, keeping their
+// ArchiveWorkflowAgents archives every live agent in a workflow, keeping their
 // workflow id so they still list under it in search.
-func (s *Store) ArchiveWorkflowChats(ctx context.Context, workflowID string) error {
-	if err := s.queries.MarkWorkflowSessionsDeleted(ctx, &workflowID); err != nil {
-		return fmt.Errorf("failed to archive chats of workflow %q: %w", workflowID, err)
+func (s *Store) ArchiveWorkflowAgents(ctx context.Context, workflowID string) error {
+	if err := s.queries.MarkWorkflowAgentsDeleted(ctx, &workflowID); err != nil {
+		return fmt.Errorf("failed to archive agents of workflow %q: %w", workflowID, err)
 	}
 
 	return nil
 }
 
-// agentFromRow builds an Agent from a session row and the config joined onto it.
-// Every session read selects sqlc.embed(s), so they all carry the same
-// models.Session whatever else their row type holds, and the cwd and flags are
+// agentFromRow builds an Agent from an agent row and the config joined onto it.
+// Every agent read selects sqlc.embed(a), so they all carry the same
+// models.Agent whatever else their row type holds, and the cwd and flags are
 // the only loose columns left to pass.
-func agentFromRow(session models.Session, cwd, flags string) Agent {
+func agentFromRow(agent models.Agent, cwd, flags string) Agent {
 	return Agent{
-		ID:              session.ID,
-		Name:            session.Name,
-		SessionConfigID: session.SessionConfigID,
-		Pane:            session.PaneID,
+		ID:              agent.ID,
+		Name:            agent.Name,
+		AgentConfigID:   agent.AgentConfigID,
+		Pane:            agent.PaneID,
 		Cwd:             cwd,
 		Flags:           flags,
-		Prompt:          session.Prompt,
-		State:           session.State,
-		ClaudeSessionID: session.ClaudeSessionID,
-		WorkflowID:      session.WorkflowID,
-		Deleted:         session.IsDeleted,
-		CreatedAt:       session.CreatedAt,
-		UpdatedAt:       session.UpdatedAt,
+		Prompt:          agent.Prompt,
+		State:           agent.State,
+		ClaudeSessionID: agent.ClaudeSessionID,
+		WorkflowID:      agent.WorkflowID,
+		Deleted:         agent.IsDeleted,
+		CreatedAt:       agent.CreatedAt,
+		UpdatedAt:       agent.UpdatedAt,
 	}
 }

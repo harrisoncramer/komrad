@@ -125,12 +125,12 @@ func TestAppendedSystemPrompt(t *testing.T) {
 		wantAbsent  []string
 	}{
 		{
-			name:        "a chat outside any workflow gets the briefing alone",
+			name:        "an agent outside any workflow gets the briefing alone",
 			wantContain: []string{"http://127.0.0.1:9999/mcp", "list_tables", "session_transcripts"},
 			wantAbsent:  []string{"shared notes"},
 		},
 		{
-			name:        "a chat inside one gets the workflow's context after it",
+			name:        "an agent inside one gets the workflow's context after it",
 			context:     "shared notes",
 			wantContain: []string{"http://127.0.0.1:9999/mcp", "shared notes"},
 		},

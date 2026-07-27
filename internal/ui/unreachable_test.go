@@ -5,74 +5,108 @@ import (
 	"strings"
 	"testing"
 
-	"claude-agents/internal/store/session"
+	agentstore "claude-agents/internal/store/agent"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestUnreachableTakesOverTheView is the regression test for a dead server
-// reading as an empty store. A failed poll used to be swallowed, leaving the
-// last good list on screen, so a server that had stopped answering looked like a
-// panel whose chats had all been deleted.
-func TestUnreachableTakesOverTheView(t *testing.T) {
-	m := model{
-		addr:  "127.0.0.1:8787",
-		chats: []chatItem{{agent: session.Agent{Name: "still-here", State: session.StateDone}}},
-	}
-
-	// While the service answers, the list renders as usual.
-	require.NotContains(t, m.View(), "Cannot reach the server")
-
-	updated, _ := m.Update(chatsLoadedMsg{err: errors.New("dial tcp 127.0.0.1:8787: connect: connection refused")})
-	m, ok := updated.(model)
-	require.True(t, ok)
-
-	view := m.View()
-	assert.Contains(t, view, "Cannot reach the server")
-	assert.Contains(t, view, "127.0.0.1:8787", "the address to go looking at is on screen")
-	assert.Contains(t, view, "Nothing has been deleted.")
-	assert.NotContains(t, view, "still-here", "the stale list is not shown as if it were current")
-}
-
-// TestUnreachableClearsOnceTheServiceAnswers confirms the panel heals on its own
-// rather than needing to be reopened, since the poll keeps running underneath.
-func TestUnreachableClearsOnceTheServiceAnswers(t *testing.T) {
-	m := model{addr: "127.0.0.1:8787", unreachable: errors.New("connection refused")}
-
-	updated, _ := m.Update(chatsLoadedMsg{items: []chatItem{{agent: session.Agent{Name: "back", State: session.StateNew}}}})
-	m, ok := updated.(model)
-	require.True(t, ok)
-
-	assert.NoError(t, m.unreachable)
-	assert.NotContains(t, m.View(), "Cannot reach the server")
-}
-
-func TestTruncateError(t *testing.T) {
+// TestUnreachableView covers what the panel shows when the service stops
+// answering. A swallowed poll would leave the last good list on screen, so a
+// dead server would read as a panel whose agents had all been deleted.
+func TestUnreachableView(t *testing.T) {
 	tests := []struct {
-		name string
-		msg  string
-		want string
+		name         string
+		start        error
+		msg          agentsLoadedMsg
+		wantTakeover bool
 	}{
 		{
-			name: "a newline would break the single-line layout",
-			msg:  "dial failed:\nconnection refused",
-			want: "dial failed: connection refused",
+			name: "while the service answers, the list renders as usual",
+			msg:  agentsLoadedMsg{items: []agentItem{{agent: agentstore.Agent{Name: "still-here", State: agentstore.StateNew}}}},
 		},
 		{
-			name: "a short error is left alone",
-			msg:  "connection refused",
-			want: "connection refused",
+			name:         "a failed poll takes the screen over",
+			msg:          agentsLoadedMsg{err: errors.New("dial tcp 127.0.0.1:8787: connect: connection refused")},
+			wantTakeover: true,
+		},
+		{
+			name:  "and it clears itself once the service answers again",
+			start: errors.New("connection refused"),
+			msg:   agentsLoadedMsg{items: []agentItem{{agent: agentstore.Agent{Name: "back", State: agentstore.StateNew}}}},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, truncateError(tt.msg))
+			m := model{
+				addr:        "127.0.0.1:8787",
+				unreachable: tt.start,
+				agents:      []agentItem{{agent: agentstore.Agent{Name: "still-here", State: agentstore.StateDone}}},
+			}
+
+			updated, _ := m.Update(tt.msg)
+			m, ok := updated.(model)
+			require.True(t, ok)
+
+			view := m.View()
+			if !tt.wantTakeover {
+				assert.NoError(t, m.unreachable)
+				assert.NotContains(t, view, "Cannot reach the server")
+
+				return
+			}
+
+			assert.Contains(t, view, "Cannot reach the server")
+			assert.Contains(t, view, "127.0.0.1:8787", "the address to go looking at is on screen")
+			assert.Contains(t, view, "Nothing has been deleted.")
+			assert.NotContains(t, view, "still-here", "the stale list is not shown as if it were current")
 		})
 	}
+}
 
-	long := truncateError(strings.Repeat("x", errorWidth+50))
-	assert.True(t, strings.HasSuffix(long, "…"), "an overlong error is cut rather than wrapped into a wall")
-	assert.Len(t, long, errorWidth+len("…"))
+// TestWrapError covers the error shown on that screen. It wraps rather than
+// truncating, since the useful part of a dial error is at the end.
+func TestWrapError(t *testing.T) {
+	longWords := strings.Split(strings.TrimSpace(strings.Repeat("refused ", 60)), " ")
+
+	tests := []struct {
+		name      string
+		words     []string
+		wantLines bool
+	}{
+		{
+			name:  "a short error stays on one line",
+			words: []string{"connection", "refused"},
+		},
+		{
+			name:      "a long one wraps and keeps every word",
+			words:     longWords,
+			wantLines: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wrapped := wrapError(strings.Join(tt.words, " "))
+
+			assert.NotContains(t, wrapped, "…", "the text is wrapped rather than cut")
+			assert.Equal(t, tt.words, strings.Fields(wrapped), "every word survives")
+
+			lines := strings.Split(wrapped, "\n")
+			if !tt.wantLines {
+				assert.Len(t, lines, 1)
+				return
+			}
+
+			require.Greater(t, len(lines), 1)
+			for i, line := range lines {
+				assert.LessOrEqual(t, len(strings.TrimRight(line, " ")), errorWidth+len(errorIndent),
+					"line %d stays within the width", i)
+				if i > 0 {
+					assert.True(t, strings.HasPrefix(line, errorIndent), "line %d is indented under the first", i)
+				}
+			}
+		})
+	}
 }

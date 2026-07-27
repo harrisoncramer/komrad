@@ -87,25 +87,75 @@ func TestQuoteFlagsNeutralisesShellSyntax(t *testing.T) {
 	}
 }
 
+func TestQuoteArg(t *testing.T) {
+	tests := []struct {
+		name string
+		arg  string
+		want string
+	}{
+		{
+			name: "a plain argument is wrapped as it stands",
+			arg:  "opus",
+			want: `'opus'`,
+		},
+		{
+			// The one case single quoting cannot nest: the argument's own quote has
+			// to close, escape, and reopen.
+			name: "an embedded quote closes, escapes, and reopens",
+			arg:  `o'pus`,
+			want: `'o'\''pus'`,
+		},
+		{
+			name: "shell syntax inside the argument is inert once wrapped",
+			arg:  "$(whoami)",
+			want: `'$(whoami)'`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, quoteArg(tt.arg))
+		})
+	}
+}
+
 // TestLaunchClaudeQuotesFlags confirms the quoting is actually applied on the
 // path that types into the pane, not just available to it.
 func TestLaunchClaudeQuotesFlags(t *testing.T) {
-	tmux := newFakeTmux()
-	manager := newManager(tmux, newStore(t), "")
+	tests := []struct {
+		name        string
+		flags       string
+		wantAbsent  string
+		wantPresent string
+	}{
+		{
+			name:        "a command substitution reaches the pane as a literal",
+			flags:       "--model $(touch /tmp/pwned)",
+			wantAbsent:  "claude --model $(",
+			wantPresent: `'$(touch'`,
+		},
+		{
+			name:        "a chained command reaches the pane as a literal",
+			flags:       "--model opus; touch /tmp/pwned",
+			wantAbsent:  "; touch /tmp/pwned",
+			wantPresent: `'opus;'`,
+		},
+	}
 
-	require.NoError(t, manager.launcher.launch(launchClaudeParams{
-		Session:   "session",
-		Flags:     "--model $(touch /tmp/pwned)",
-		SessionID: "sess",
-	}))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := newFakeTmux()
+			manager := newManager(tmux, newStore(t), "")
 
-	command := tmux.lastKeys("session")[0]
-	assert.NotContains(t, command, "claude --model $(", "an unquoted substitution would run in the pane")
-	assert.Contains(t, command, `'$(touch'`, "the substitution survives only as a literal argument")
-}
+			require.NoError(t, manager.launcher.launch(launchClaudeParams{
+				Session:   "session",
+				Flags:     tt.flags,
+				SessionID: "sess",
+			}))
 
-// TestQuoteArgEscapesEmbeddedQuote covers the one case single quoting cannot
-// nest: the argument's own quote has to close, escape, and reopen.
-func TestQuoteArgEscapesEmbeddedQuote(t *testing.T) {
-	assert.Equal(t, `'o'\''pus'`, quoteArg(`o'pus`))
+			command := tmux.lastKeys("session")[0]
+			assert.NotContains(t, command, tt.wantAbsent, "an unquoted flag would run in the pane")
+			assert.Contains(t, command, tt.wantPresent, "the flag survives only as a literal argument")
+		})
+	}
 }

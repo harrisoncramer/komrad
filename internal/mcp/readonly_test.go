@@ -1,14 +1,13 @@
 package mcp
 
 import (
-	"context"
 	"strings"
 	"testing"
 
-	"claude-agents/internal/pgtest"
 	"claude-agents/internal/store"
+	"claude-agents/internal/storetest"
 
-	"claude-agents/internal/store/session"
+	agentstore "claude-agents/internal/store/agent"
 	"claude-agents/internal/store/transcript"
 
 	"github.com/stretchr/testify/assert"
@@ -20,27 +19,21 @@ import (
 func openTools(t *testing.T) *dbTools {
 	t.Helper()
 
-	url := pgtest.URL(t)
-	pool, err := store.Open(t.Context(), url)
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = pool.Close() })
+	st := storetest.Open(t)
 
-	chats := session.New(pool.DB())
-	transcripts := transcript.New(pool.DB())
-
-	require.NoError(t, chats.Upsert(context.Background(), session.Agent{
+	agent := st.SeedAgent(t, agentstore.Agent{
 		Name:  "auth",
 		Pane:  "%9",
 		Cwd:   "/repo",
-		State: session.StateWaiting,
+		State: agentstore.StateWaiting,
+	})
+	require.NoError(t, st.Transcripts.Upsert(t.Context(), transcript.UpsertParams{
+		AgentID: agent.ID,
+		Content: "we should update the parser",
+		Offset:  0,
 	}))
 
-	agents, err := chats.List(context.Background())
-	require.NoError(t, err)
-	require.Len(t, agents, 1)
-	require.NoError(t, transcripts.Upsert(context.Background(), transcript.UpsertParams{SessionID: agents[0].ID, Content: "we should update the parser", Offset: 0}))
-
-	readOnly, err := store.OpenReadOnly(t.Context(), url)
+	readOnly, err := store.OpenReadOnly(t.Context(), st.URL)
 	require.NoError(t, err)
 	t.Cleanup(readOnly.Close)
 
@@ -61,22 +54,22 @@ func TestValidateReadOnly(t *testing.T) {
 		},
 		{
 			name:    "insert",
-			sql:     "INSERT INTO sessions (name) VALUES ('a')",
+			sql:     "INSERT INTO agents (name) VALUES ('a')",
 			wantErr: true,
 		},
 		{
 			name:    "update",
-			sql:     "UPDATE sessions SET state = 'done'",
+			sql:     "UPDATE agents SET state = 'done'",
 			wantErr: true,
 		},
 		{
 			name:    "delete",
-			sql:     "DELETE FROM sessions",
+			sql:     "DELETE FROM agents",
 			wantErr: true,
 		},
 		{
 			name:    "drop",
-			sql:     "DROP TABLE sessions",
+			sql:     "DROP TABLE agents",
 			wantErr: true,
 		},
 		{
@@ -86,7 +79,7 @@ func TestValidateReadOnly(t *testing.T) {
 		},
 		{
 			name:    "attach",
-			sql:     "SELECT 1 FROM sessions; ATTACH DATABASE 'x' AS y",
+			sql:     "SELECT 1 FROM agents; ATTACH DATABASE 'x' AS y",
 			wantErr: true,
 		},
 		{
@@ -96,7 +89,7 @@ func TestValidateReadOnly(t *testing.T) {
 		},
 		{
 			name:    "writing cte",
-			sql:     "WITH x AS (UPDATE sessions SET state = 'z' RETURNING id) SELECT * FROM x",
+			sql:     "WITH x AS (UPDATE agents SET state = 'z' RETURNING id) SELECT * FROM x",
 			wantErr: true,
 		},
 		{
@@ -106,58 +99,58 @@ func TestValidateReadOnly(t *testing.T) {
 		},
 		{
 			name:    "statement hidden behind a line comment",
-			sql:     "SELECT 1 -- ok\n; DROP TABLE sessions",
+			sql:     "SELECT 1 -- ok\n; DROP TABLE agents",
 			wantErr: true,
 		},
 		{
 			name:    "write after a literal that looks like it swallows it",
-			sql:     "SELECT 'a' UNION SELECT 1; DELETE FROM sessions",
+			sql:     "SELECT 'a' UNION SELECT 1; DELETE FROM agents",
 			wantErr: true,
 		},
 		{
 			name:    "unterminated literal",
-			sql:     "SELECT * FROM sessions WHERE name = 'auth",
+			sql:     "SELECT * FROM agents WHERE name = 'auth",
 			wantErr: true,
 		},
 		{
 			name:    "unterminated block comment",
-			sql:     "SELECT 1 /* DELETE FROM sessions",
+			sql:     "SELECT 1 /* DELETE FROM agents",
 			wantErr: true,
 		},
 		{
 			name: "select",
-			sql:  "SELECT name FROM sessions",
-			want: "SELECT name FROM sessions",
+			sql:  "SELECT name FROM agents",
+			want: "SELECT name FROM agents",
 		},
 		{
 			name: "keyword inside a literal is a search, not a write",
-			sql:  "SELECT session_id FROM session_transcripts WHERE content LIKE '%update%'",
-			want: "SELECT session_id FROM session_transcripts WHERE content LIKE '%update%'",
+			sql:  "SELECT agent_id FROM agent_transcripts WHERE content LIKE '%update%'",
+			want: "SELECT agent_id FROM agent_transcripts WHERE content LIKE '%update%'",
 		},
 		{
 			name: "escaped quote inside a literal does not end it",
-			sql:  "SELECT session_id FROM session_transcripts WHERE content LIKE '%don''t drop it%'",
-			want: "SELECT session_id FROM session_transcripts WHERE content LIKE '%don''t drop it%'",
+			sql:  "SELECT agent_id FROM agent_transcripts WHERE content LIKE '%don''t drop it%'",
+			want: "SELECT agent_id FROM agent_transcripts WHERE content LIKE '%don''t drop it%'",
 		},
 		{
 			name: "semicolon inside a literal is not a second statement",
-			sql:  "SELECT session_id FROM session_transcripts WHERE content LIKE '%a; b%'",
-			want: "SELECT session_id FROM session_transcripts WHERE content LIKE '%a; b%'",
+			sql:  "SELECT agent_id FROM agent_transcripts WHERE content LIKE '%a; b%'",
+			want: "SELECT agent_id FROM agent_transcripts WHERE content LIKE '%a; b%'",
 		},
 		{
 			name: "keyword as a quoted identifier",
-			sql:  `SELECT "update" FROM sessions`,
-			want: `SELECT "update" FROM sessions`,
+			sql:  `SELECT "update" FROM agents`,
+			want: `SELECT "update" FROM agents`,
 		},
 		{
 			name: "leading comment before the select",
-			sql:  "/* which chats are waiting */ SELECT name FROM sessions",
-			want: "/* which chats are waiting */ SELECT name FROM sessions",
+			sql:  "/* which agents are waiting */ SELECT name FROM agents",
+			want: "/* which agents are waiting */ SELECT name FROM agents",
 		},
 		{
 			name: "trailing line comment",
-			sql:  "SELECT name FROM sessions -- drop the rest",
-			want: "SELECT name FROM sessions -- drop the rest",
+			sql:  "SELECT name FROM agents -- drop the rest",
+			want: "SELECT name FROM agents -- drop the rest",
 		},
 		{
 			name: "trailing semicolon trimmed",
@@ -189,40 +182,70 @@ func TestValidateReadOnly(t *testing.T) {
 	}
 }
 
-func TestQueryReturnsRows(t *testing.T) {
-	res, err := openTools(t).query(context.Background(), "SELECT name, state FROM sessions")
-	require.NoError(t, err)
-
-	assert.Equal(t, []string{"name", "state"}, res.Columns)
-	require.Len(t, res.Rows, 1)
-	assert.Equal(t, "auth", res.Rows[0]["name"])
-	assert.Equal(t, session.StateWaiting, res.Rows[0]["state"])
-	assert.False(t, res.Truncated)
-}
-
-// TestQuerySearchesTranscripts confirms a transcript search for a word that is
-// also a write verb runs and returns its rows, which is the whole point of
-// scanning only the executable text.
-func TestQuerySearchesTranscripts(t *testing.T) {
-	const search = `SELECT session_id FROM session_transcripts WHERE content LIKE '%update%'`
-
-	res, err := openTools(t).query(context.Background(), search)
-	require.NoError(t, err)
-	assert.Equal(t, 1, res.RowCount)
-}
-
-// TestQueryCapsRows confirms a result larger than the cap is cut off and flagged
-// rather than returned whole.
-func TestQueryCapsRows(t *testing.T) {
-	const generate = `
+// TestQuery covers what a statement returns once it has passed validation. The
+// row cap is the one thing a caller cannot see coming, so a truncated result
+// says so rather than reading as the whole answer.
+func TestQuery(t *testing.T) {
+	// A recursive generator is the only way to exceed the cap without seeding a
+	// thousand rows.
+	const overCap = `
 WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 1500)
 SELECT i FROM n`
 
-	res, err := openTools(t).query(context.Background(), generate)
-	require.NoError(t, err)
+	tests := []struct {
+		name          string
+		sql           string
+		wantCols      []string
+		wantRows      int
+		wantTruncated bool
+		check         func(t *testing.T, res *queryResult)
+	}{
+		{
+			name:     "a query matching nothing returns no rows rather than an error",
+			sql:      "SELECT name FROM agents WHERE name = 'nobody'",
+			wantCols: []string{"name"},
+			wantRows: 0,
+		},
+		{
+			name:     "the columns asked for come back in order",
+			sql:      "SELECT name, state FROM agents",
+			wantCols: []string{"name", "state"},
+			wantRows: 1,
+			check: func(t *testing.T, res *queryResult) {
+				assert.Equal(t, "auth", res.Rows[0]["name"])
+				assert.Equal(t, agentstore.StateWaiting, res.Rows[0]["state"])
+			},
+		},
+		{
+			name:     "a word that is also a write verb searches rather than being refused",
+			sql:      `SELECT agent_id FROM agent_transcripts WHERE content LIKE '%update%'`,
+			wantCols: []string{"agent_id"},
+			wantRows: 1,
+		},
+		{
+			name:          "a result past the cap is cut off and flagged",
+			sql:           overCap,
+			wantCols:      []string{"i"},
+			wantRows:      maxRows,
+			wantTruncated: true,
+		},
+	}
 
-	assert.Equal(t, maxRows, res.RowCount)
-	assert.True(t, res.Truncated)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res, err := openTools(t).query(t.Context(), tt.sql)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.wantCols, res.Columns)
+			assert.Equal(t, tt.wantRows, res.RowCount)
+			require.Len(t, res.Rows, tt.wantRows)
+			assert.Equal(t, tt.wantTruncated, res.Truncated)
+
+			if tt.check != nil {
+				tt.check(t, res)
+			}
+		})
+	}
 }
 
 // TestQueryRejectsWrite confirms the connection itself refuses a write, so the
@@ -230,26 +253,96 @@ SELECT i FROM n`
 // The pool defaults every session to a read-only transaction, so this fails in
 // Postgres rather than in the parsing above it.
 func TestQueryRejectsWrite(t *testing.T) {
+	tests := []struct {
+		name string
+		sql  string
+	}{
+		{
+			name: "a delete",
+			sql:  "DELETE FROM agents",
+		},
+		{
+			name: "an update",
+			sql:  "UPDATE agents SET state = 'done'",
+		},
+	}
+
 	tools := openTools(t)
 
-	_, err := tools.db.Exec(context.Background(), "DELETE FROM sessions")
-	require.ErrorContains(t, err, "read-only transaction")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := tools.db.Exec(t.Context(), tt.sql)
+			require.ErrorContains(t, err, "read-only transaction")
 
-	var count int
-	require.NoError(t, tools.db.QueryRow(context.Background(), "SELECT COUNT(*) FROM sessions").Scan(&count))
-	assert.Equal(t, 1, count)
+			var count int
+			require.NoError(t, tools.db.QueryRow(t.Context(), "SELECT COUNT(*) FROM agents").Scan(&count))
+			assert.Equal(t, 1, count, "the row is still there")
+		})
+	}
 }
 
+// TestCapString covers the per-cell limit, which keeps one wide column from
+// filling a response on its own.
 func TestCapString(t *testing.T) {
-	assert.Equal(t, "short", capString("short"))
+	tests := []struct {
+		name          string
+		in            string
+		wantTruncated bool
+	}{
+		{
+			name: "a short value is passed through",
+			in:   "short",
+		},
+		{
+			name:          "an oversized value is cut and marked",
+			in:            strings.Repeat("x", maxCellChars+10),
+			wantTruncated: true,
+		},
+	}
 
-	long := capString(strings.Repeat("x", maxCellChars+10))
-	assert.True(t, strings.HasSuffix(long, "…(truncated)"))
-	assert.Len(t, long, maxCellChars+len("…(truncated)"))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := capString(tt.in)
+
+			if !tt.wantTruncated {
+				assert.Equal(t, tt.in, got)
+				return
+			}
+
+			assert.True(t, strings.HasSuffix(got, "…(truncated)"))
+			assert.Len(t, got, maxCellChars+len("…(truncated)"))
+		})
+	}
 }
 
+// TestNormalizeValue covers the driver values that are not JSON-friendly as
+// they come back.
 func TestNormalizeValue(t *testing.T) {
-	assert.Nil(t, normalizeValue(nil))
-	assert.Equal(t, "blob", normalizeValue([]byte("blob")))
-	assert.Equal(t, int64(7), normalizeValue(int64(7)))
+	tests := []struct {
+		name string
+		in   any
+		want any
+	}{
+		{
+			name: "a null column",
+			in:   nil,
+			want: nil,
+		},
+		{
+			name: "a blob becomes text",
+			in:   []byte("blob"),
+			want: "blob",
+		},
+		{
+			name: "a number is left alone",
+			in:   int64(7),
+			want: int64(7),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, normalizeValue(tt.in))
+		})
+	}
 }

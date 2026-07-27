@@ -9,10 +9,10 @@ import (
 )
 
 // One background Claude agent, everything needed to restore it.
-type Session struct {
+type Agent struct {
 	ID              string
 	Name            string
-	SessionConfigID string
+	AgentConfigID   string
 	Prompt          string
 	PaneID          string
 	State           string
@@ -23,8 +23,8 @@ type Session struct {
 	UpdatedAt       time.Time
 }
 
-// Editable config (cwd, flags) owned by exactly one session.
-type SessionConfig struct {
+// Editable config (cwd, flags) owned by exactly one agent.
+type AgentConfig struct {
 	ID        string
 	Cwd       string
 	Flags     string
@@ -32,15 +32,15 @@ type SessionConfig struct {
 	UpdatedAt time.Time
 }
 
-// Flattened chat transcript for a session, synced from Claude's on-disk JSONL and indexed for search. Strict 1:1 with a session.
-type SessionTranscript struct {
-	SessionID    string
+// Flattened transcript for an agent, synced from Claude's on-disk JSONL and indexed for search. Strict 1:1 with an agent.
+type AgentTranscript struct {
+	AgentID      string
 	Content      string
 	SyncedOffset int64
 	SyncedAt     time.Time
 }
 
-// A named bucket of related chats. Pure organization; runs nothing.
+// A named bucket of related agents. Pure organization; runs nothing.
 type Workflow struct {
 	ID               string
 	Name             string
@@ -51,7 +51,7 @@ type Workflow struct {
 	UpdatedAt        time.Time
 }
 
-// Default config (cwd, flags) seeded into new chats of a workflow.
+// Default config (cwd, flags) seeded into new agents of a workflow.
 type WorkflowConfig struct {
 	ID        string
 	Cwd       string

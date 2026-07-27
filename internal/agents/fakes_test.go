@@ -5,11 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	"claude-agents/internal/pgtest"
-	"claude-agents/internal/store"
-	sessionstore "claude-agents/internal/store/session"
+	agentstore "claude-agents/internal/store/agent"
 	transcriptstore "claude-agents/internal/store/transcript"
 	workflowstore "claude-agents/internal/store/workflow"
+	"claude-agents/internal/storetest"
 
 	"github.com/stretchr/testify/require"
 )
@@ -114,64 +113,55 @@ func (f *fakeTmux) lastKeys(target string) []string {
 // with only the store it depends on. It exists so a test can arrange rows across
 // domains without threading three handles through every helper.
 type testStore struct {
-	pool        *store.Pool
-	chats       *sessionstore.Store
-	workflows   *workflowstore.Store
-	transcripts *transcriptstore.Store
+	*storetest.Stores
 }
 
 func newStore(t *testing.T) *testStore {
 	t.Helper()
-	pool, err := store.Open(t.Context(), pgtest.URL(t))
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = pool.Close() })
 
-	return &testStore{
-		pool:        pool,
-		chats:       sessionstore.New(pool.DB()),
-		workflows:   workflowstore.New(pool.DB()),
-		transcripts: transcriptstore.New(pool.DB()),
-	}
+	return &testStore{Stores: storetest.Open(t)}
 }
 
-func (s *testStore) Close() error { return s.pool.Close() }
-
-func (s *testStore) Get(ctx context.Context, name string) (*sessionstore.Agent, error) {
-	return s.chats.Get(ctx, name)
+func (s *testStore) Close() error {
+	return s.Pool.Close()
 }
 
-func (s *testStore) Upsert(ctx context.Context, agent sessionstore.Agent) error {
-	return s.chats.Upsert(ctx, agent)
+func (s *testStore) Get(ctx context.Context, name string) (*agentstore.Agent, error) {
+	return s.Agents.Get(ctx, name)
 }
 
-func (s *testStore) List(ctx context.Context) ([]sessionstore.Agent, error) {
-	return s.chats.List(ctx)
+func (s *testStore) Upsert(ctx context.Context, agent agentstore.Agent) error {
+	return s.Agents.Upsert(ctx, agent)
 }
 
-func (s *testStore) ListAll(ctx context.Context) ([]sessionstore.Agent, error) {
-	return s.chats.ListAll(ctx)
+func (s *testStore) List(ctx context.Context) ([]agentstore.Agent, error) {
+	return s.Agents.List(ctx)
+}
+
+func (s *testStore) ListAll(ctx context.Context) ([]agentstore.Agent, error) {
+	return s.Agents.ListAll(ctx)
 }
 
 func (s *testStore) SoftDelete(ctx context.Context, name string) error {
-	return s.chats.Archive(ctx, name)
+	return s.Agents.Archive(ctx, name)
 }
 
 func (s *testStore) GetWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error) {
-	return s.workflows.Get(ctx, id)
+	return s.Workflows.Get(ctx, id)
 }
 
 func (s *testStore) GetTranscript(ctx context.Context, sessionID string) (transcriptstore.Transcript, error) {
-	return s.transcripts.Get(ctx, sessionID)
+	return s.Transcripts.Get(ctx, sessionID)
 }
 
 // sessionService builds the service under test over these stores, the same way
 // the composition root does.
-func (s *testStore) sessionService(tmux sessionTmux, launcher *Launcher, flags string) *SessionService {
-	return NewSessionService(SessionParams{
+func (s *testStore) sessionService(tmux agentTmux, launcher *Launcher, flags string) *AgentService {
+	return NewAgentService(AgentParams{
 		Tmux:        tmux,
-		Sessions:    s.chats,
-		Workflows:   s.workflows,
-		Tx:          s.pool,
+		Sessions:    s.Agents,
+		Workflows:   s.Workflows,
+		Tx:          s.Pool,
 		Launcher:    launcher,
 		ClaudeFlags: flags,
 	})
@@ -179,14 +169,14 @@ func (s *testStore) sessionService(tmux sessionTmux, launcher *Launcher, flags s
 
 // workflowService builds the workflow service over these stores.
 func (s *testStore) workflowService() *WorkflowService {
-	return NewWorkflowService(WorkflowParams{Workflows: s.workflows, Tx: s.pool})
+	return NewWorkflowService(WorkflowParams{Workflows: s.Workflows, Tx: s.Pool})
 }
 
 // seed inserts an agent in a given state and returns it with its generated id.
-func seed(t *testing.T, st *testStore, name, pane, state string) sessionstore.Agent {
+func seed(t *testing.T, st *testStore, name, pane, state string) agentstore.Agent {
 	t.Helper()
 	ctx := context.Background()
-	require.NoError(t, st.Upsert(ctx, sessionstore.Agent{Name: name, Pane: pane, State: state}))
+	require.NoError(t, st.Upsert(ctx, agentstore.Agent{Name: name, Pane: pane, State: state}))
 
 	got, err := st.Get(ctx, name)
 	require.NoError(t, err)
@@ -206,25 +196,25 @@ func stateOf(t *testing.T, st *testStore, name string) string {
 
 // newManager builds a session service over the fake tmux and a real store, which
 // is what most of these tests drive.
-func newManager(tmux *fakeTmux, st *testStore, flags string) *SessionService {
+func newManager(tmux *fakeTmux, st *testStore, flags string) *AgentService {
 	return newSessions(tmux, st, flags, "")
 }
 
 // workflowsFor builds the workflow service over the same store, for the tests
-// that set a chat's workflow up before acting on the chat.
+// that set an agent's workflow up before acting on the agent.
 func workflowsFor(st *testStore) *WorkflowService {
 	return st.workflowService()
 }
 
 // newSessions is the same, with the launcher pointed at a specific address so a
 // test can assert on what a spawned agent is told.
-func newSessions(tmux *fakeTmux, st *testStore, flags, addr string) *SessionService {
+func newSessions(tmux *fakeTmux, st *testStore, flags, addr string) *AgentService {
 	return st.sessionService(tmux, NewLauncher(tmux, addr), flags)
 }
 
-// agentByID finds a chat among every row, archived ones included, since a test
+// agentByID finds an agent among every row, archived ones included, since a test
 // that restores one holds its id rather than its current name.
-func agentByID(t *testing.T, st *testStore, id string) sessionstore.Agent {
+func agentByID(t *testing.T, st *testStore, id string) agentstore.Agent {
 	t.Helper()
 
 	all, err := st.ListAll(t.Context())
@@ -238,5 +228,5 @@ func agentByID(t *testing.T, st *testStore, id string) sessionstore.Agent {
 
 	t.Fatalf("no agent with id %q", id)
 
-	return sessionstore.Agent{}
+	return agentstore.Agent{}
 }

@@ -18,21 +18,21 @@ func TestListTables(t *testing.T) {
 		wantRows int64
 	}{
 		{
-			name:     "the chats themselves, counted",
-			want:     "sessions",
+			name:     "the agents themselves, counted",
+			want:     "agents",
 			wantRows: 1,
 		},
 		{
-			name: "the config each chat owns",
-			want: "session_configs",
+			name: "the config each agent owns",
+			want: "agent_configs",
 		},
 		{
-			name: "the buckets chats group into",
+			name: "the buckets agents group into",
 			want: "workflows",
 		},
 		{
 			name:     "the transcripts search reads",
-			want:     "session_transcripts",
+			want:     "agent_transcripts",
 			wantRows: 1,
 		},
 	}
@@ -71,7 +71,7 @@ func TestDescribeTable(t *testing.T) {
 			wantPrimary: true,
 		},
 		{
-			name:     "an unassigned chat has a null workflow",
+			name:     "an unassigned agent has a null workflow",
 			column:   "workflow_id",
 			wantNull: true,
 		},
@@ -82,7 +82,7 @@ func TestDescribeTable(t *testing.T) {
 		},
 	}
 
-	desc, err := openTools(t).describeTable(t.Context(), "sessions")
+	desc, err := openTools(t).describeTable(t.Context(), "agents")
 	require.NoError(t, err)
 	assert.NotEmpty(t, desc.Indexes, "the partial unique name index is reported")
 
@@ -113,7 +113,7 @@ func TestDescribeTableRejectsBadNames(t *testing.T) {
 	}{
 		{
 			name:    "a name carrying a second statement",
-			table:   "sessions; DROP TABLE sessions",
+			table:   "agents; DROP TABLE agents",
 			wantErr: "invalid table name",
 		},
 		{

@@ -5,42 +5,42 @@ import (
 
 	"claude-agents/internal/appconfig"
 
-	"claude-agents/internal/store/session"
+	agentstore "claude-agents/internal/store/agent"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIndexOfChat(t *testing.T) {
+func TestIndexOfAgent(t *testing.T) {
 	tests := []struct {
-		name  string
-		chats []chatItem
-		find  string
-		want  int
+		name   string
+		agents []agentItem
+		find   string
+		want   int
 	}{
 		{
-			name:  "an empty list",
-			chats: nil,
-			find:  "a",
-			want:  0,
+			name:   "an empty list",
+			agents: nil,
+			find:   "a",
+			want:   0,
 		},
 		{
-			name:  "a name nobody holds falls back to the first row",
-			chats: items("a", "b", "c"),
-			find:  "gone",
-			want:  0,
+			name:   "a name nobody holds falls back to the first row",
+			agents: items("a", "b", "c"),
+			find:   "gone",
+			want:   0,
 		},
 		{
-			name:  "a chat in the middle",
-			chats: items("a", "b", "c"),
-			find:  "b",
-			want:  1,
+			name:   "an agent in the middle",
+			agents: items("a", "b", "c"),
+			find:   "b",
+			want:   1,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, indexOfChat(tt.chats, tt.find))
+			assert.Equal(t, tt.want, indexOfAgent(tt.agents, tt.find))
 		})
 	}
 }
@@ -85,27 +85,27 @@ func TestClampCursor(t *testing.T) {
 	}
 }
 
-// TestApplyChats covers what a refresh does to the on-screen list. It keeps the
-// cursor on the chat it was on and does not reorder surviving rows, since
+// TestApplyAgents covers what a refresh does to the on-screen list. It keeps the
+// cursor on the agent it was on and does not reorder surviving rows, since
 // reordering under the cursor defeats an index-based selection.
-func TestApplyChats(t *testing.T) {
+func TestApplyAgents(t *testing.T) {
 	tests := []struct {
 		name       string
-		start      []chatItem
+		start      []agentItem
 		cursor     int
-		fresh      []chatItem
+		fresh      []agentItem
 		wantLen    int
 		wantCursor string
 		wantOrder  []string
 	}{
 		{
-			name:    "a refresh that empties the list stays on the chats screen",
+			name:    "a refresh that empties the list stays on the agents screen",
 			start:   items("a"),
 			fresh:   nil,
 			wantLen: 0,
 		},
 		{
-			name:       "the cursor follows its chat rather than its index",
+			name:       "the cursor follows its agent rather than its index",
 			start:      items("a", "b", "c"),
 			cursor:     1,
 			fresh:      items("c", "b", "a"),
@@ -114,7 +114,7 @@ func TestApplyChats(t *testing.T) {
 			wantOrder:  []string{"a", "b", "c"},
 		},
 		{
-			name:       "a new chat is appended rather than sorted in",
+			name:       "a new agent is appended rather than sorted in",
 			start:      items("a"),
 			cursor:     0,
 			fresh:      items("b", "a"),
@@ -127,43 +127,43 @@ func TestApplyChats(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{
-				screen:     screenChats,
-				chats:      tt.start,
-				chatCursor: tt.cursor,
-				keys:       appconfig.DefaultKeybindings(),
+				screen:      screenAgents,
+				agents:      tt.start,
+				agentCursor: tt.cursor,
+				keys:        appconfig.DefaultKeybindings(),
 			}
 
-			m.applyChats(tt.fresh)
+			m.applyAgents(tt.fresh)
 
-			assert.Equal(t, screenChats, m.screen, "the panel stays where it was")
-			assert.Len(t, m.chats, tt.wantLen)
+			assert.Equal(t, screenAgents, m.screen, "the panel stays where it was")
+			assert.Len(t, m.agents, tt.wantLen)
 
 			if tt.wantLen == 0 {
 				// Acting on the empty list must be a safe no-op rather than an index
-				// panic, since the handlers resolve a selection through selectedChat.
-				_, _ = m.updateChats(tea.KeyMsg{Type: tea.KeyEnter})
-				assert.Equal(t, screenChats, m.screen)
+				// panic, since the handlers resolve a selection through selectedAgent.
+				_, _ = m.updateAgents(tea.KeyMsg{Type: tea.KeyEnter})
+				assert.Equal(t, screenAgents, m.screen)
 
 				return
 			}
 
-			assert.Equal(t, tt.wantCursor, m.chats[m.chatCursor].agent.Name)
+			assert.Equal(t, tt.wantCursor, m.agents[m.agentCursor].agent.Name)
 
-			names := make([]string, 0, len(m.chats))
-			for _, chat := range m.chats {
-				names = append(names, chat.agent.Name)
+			names := make([]string, 0, len(m.agents))
+			for _, agent := range m.agents {
+				names = append(names, agent.agent.Name)
 			}
 			assert.Equal(t, tt.wantOrder, names)
 		})
 	}
 }
 
-// items builds a list of chats from names alone, for the cases that only care
+// items builds a list of agents from names alone, for the cases that only care
 // about ordering and selection.
-func items(names ...string) []chatItem {
-	out := make([]chatItem, 0, len(names))
+func items(names ...string) []agentItem {
+	out := make([]agentItem, 0, len(names))
 	for _, name := range names {
-		out = append(out, chatItem{agent: session.Agent{Name: name}})
+		out = append(out, agentItem{agent: agentstore.Agent{Name: name}})
 	}
 
 	return out

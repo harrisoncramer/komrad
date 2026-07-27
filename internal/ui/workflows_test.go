@@ -3,21 +3,21 @@ package ui
 import (
 	"testing"
 
-	"claude-agents/internal/store/session"
+	agentstore "claude-agents/internal/store/agent"
 	workflowstore "claude-agents/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestChatRows checks the tree the list renders: every workflow is a header with
-// its chats beneath it, and chats belonging to none trail under a header of
+// TestAgentRows checks the tree the list renders: every workflow is a header with
+// its agents beneath it, and agents belonging to none trail under a header of
 // their own.
-func TestChatRows(t *testing.T) {
+func TestAgentRows(t *testing.T) {
 	tests := []struct {
 		name      string
 		workflows []workflowstore.Workflow
-		chats     []chatItem
+		agents    []agentItem
 		wantRows  []string
 	}{
 		{
@@ -25,7 +25,7 @@ func TestChatRows(t *testing.T) {
 			wantRows: []string{"header:" + noWorkflowLabel},
 		},
 		{
-			name:      "an empty workflow keeps its header, so a chat can be added to it",
+			name:      "an empty workflow keeps its header, so an agent can be added to it",
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
 			wantRows: []string{
 				"header:backend",
@@ -33,40 +33,40 @@ func TestChatRows(t *testing.T) {
 			},
 		},
 		{
-			name: "chats nest under their workflow and unassigned ones trail",
+			name: "agents nest under their workflow and unassigned ones trail",
 			workflows: []workflowstore.Workflow{
 				{ID: "w1", Name: "backend"},
 				{ID: "w2", Name: "frontend"},
 			},
-			chats: []chatItem{
-				{agent: session.Agent{Name: "auth", WorkflowID: ptr("w1")}},
-				{agent: session.Agent{Name: "loose"}},
+			agents: []agentItem{
+				{agent: agentstore.Agent{Name: "auth", WorkflowID: ptr("w1")}},
+				{agent: agentstore.Agent{Name: "loose"}},
 			},
 			wantRows: []string{
 				"header:backend",
-				"chat:auth",
+				"agent:auth",
 				"header:frontend",
 				"header:" + noWorkflowLabel,
-				"chat:loose",
+				"agent:loose",
 			},
 		},
 		{
-			name: "a chat whose workflow is gone falls in with the unassigned",
-			chats: []chatItem{
-				{agent: session.Agent{Name: "orphan", WorkflowID: ptr("vanished")}},
+			name: "an agent whose workflow is gone falls in with the unassigned",
+			agents: []agentItem{
+				{agent: agentstore.Agent{Name: "orphan", WorkflowID: ptr("vanished")}},
 			},
 			wantRows: []string{
 				"header:" + noWorkflowLabel,
-				"chat:orphan",
+				"agent:orphan",
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := model{workflows: tt.workflows, chats: tt.chats}
+			m := model{workflows: tt.workflows, agents: tt.agents}
 
-			assert.Equal(t, tt.wantRows, describeRows(m.chatRows()))
+			assert.Equal(t, tt.wantRows, describeRows(m.agentRows()))
 		})
 	}
 }
@@ -81,7 +81,7 @@ func TestHoveredWorkflow(t *testing.T) {
 		wantOK  bool
 	}{
 		{
-			name:   "on a chat",
+			name:   "on an agent",
 			cursor: 1,
 		},
 		{
@@ -89,7 +89,7 @@ func TestHoveredWorkflow(t *testing.T) {
 			cursor: 2,
 		},
 		{
-			name:   "on a chat belonging to no workflow",
+			name:   "on an agent belonging to no workflow",
 			cursor: 3,
 		},
 		{
@@ -103,15 +103,15 @@ func TestHoveredWorkflow(t *testing.T) {
 	// rows: 0 backend header, 1 auth, 2 no-workflow header, 3 loose.
 	m := model{
 		workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-		chats: []chatItem{
-			{agent: session.Agent{Name: "auth", WorkflowID: ptr("w1")}},
-			{agent: session.Agent{Name: "loose"}},
+		agents: []agentItem{
+			{agent: agentstore.Agent{Name: "auth", WorkflowID: ptr("w1")}},
+			{agent: agentstore.Agent{Name: "loose"}},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m.chatCursor = tt.cursor
+			m.agentCursor = tt.cursor
 
 			idx, ok := m.hoveredWorkflow()
 			require.Equal(t, tt.wantOK, ok)
@@ -124,7 +124,7 @@ func TestHoveredWorkflow(t *testing.T) {
 
 // describeRows flattens the tree into strings, so a case states the shape it
 // expects rather than asserting field by field.
-func describeRows(rows []chatRow) []string {
+func describeRows(rows []agentRow) []string {
 	out := make([]string, 0, len(rows))
 	for _, row := range rows {
 		if row.header {
@@ -132,7 +132,7 @@ func describeRows(rows []chatRow) []string {
 			continue
 		}
 
-		out = append(out, "chat:"+row.item.agent.Name)
+		out = append(out, "agent:"+row.item.agent.Name)
 	}
 
 	return out
