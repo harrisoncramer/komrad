@@ -3,8 +3,11 @@ package ui
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"claude-agents/internal/appconfig"
 	"claude-agents/internal/errui"
 	agentstore "claude-agents/internal/store/agent"
 	workflowstore "claude-agents/internal/store/workflow"
@@ -232,6 +235,93 @@ func TestFailedWorkflowListKeepsTheTree(t *testing.T) {
 	assert.Equal(t, 1, m.workflowCursor, "and the cursor stays where the user left it")
 	require.NotNil(t, m.actionErr)
 	assert.Equal(t, "Could not list workflows", m.actionErr.Summary)
+}
+
+// TestApplyWorkflows covers the merge the refresh runs. The listing comes back
+// sorted by recency, so the merge has to hold the tree still while still taking
+// the fresh values.
+func TestApplyWorkflows(t *testing.T) {
+	tests := []struct {
+		name      string
+		current   []workflowstore.Workflow
+		fresh     []workflowstore.Workflow
+		wantNames []string
+	}{
+		{
+			name:      "an edit lands on the workflow without moving it",
+			current:   []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}},
+			fresh:     []workflowstore.Workflow{{ID: "w2", Name: "web", Context: "notes"}, {ID: "w1", Name: "api"}},
+			wantNames: []string{"api", "web"},
+		},
+		{
+			name:      "a workflow created elsewhere is appended",
+			current:   []workflowstore.Workflow{{ID: "w1", Name: "api"}},
+			fresh:     []workflowstore.Workflow{{ID: "w2", Name: "web"}, {ID: "w1", Name: "api"}},
+			wantNames: []string{"api", "web"},
+		},
+		{
+			name:      "a workflow deleted elsewhere drops out",
+			current:   []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}},
+			fresh:     []workflowstore.Workflow{{ID: "w2", Name: "web"}},
+			wantNames: []string{"web"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := model{workflows: tt.current, workflowCursor: len(tt.current) - 1}
+
+			m.applyWorkflows(tt.fresh)
+
+			names := make([]string, 0, len(m.workflows))
+			for _, w := range m.workflows {
+				names = append(names, w.Name)
+			}
+			assert.Equal(t, tt.wantNames, names)
+			assert.Less(t, m.workflowCursor, len(m.workflows), "the cursor stays inside the list")
+		})
+	}
+}
+
+// TestRefreshRestagesWorkflowContext covers the reason the refresh carries
+// workflows at all. A context edited through the MCP tools or another panel only
+// reaches this one through the listing, and the stage has to redraw for it to be
+// seen. Restaging identical text would respawn the pane every tick, so that is
+// checked not to happen.
+func TestRefreshRestagesWorkflowContext(t *testing.T) {
+	tmux := &recordingTmux{}
+	stage := NewStage(tmux)
+	stage.Init()
+
+	// The cursor sits on the workflow's header, which is row 0.
+	m := model{
+		stage:       stage,
+		keys:        appconfig.DefaultKeybindings(),
+		screen:      screenAgents,
+		workflows:   []workflowstore.Workflow{{ID: "w1", Name: "api", Context: "old notes"}},
+		agentCursor: 0,
+	}
+	m.stageSelection()
+	staged := len(tmux.respawns)
+
+	fresh := listsLoadedMsg{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Context: "new notes"}}}
+	updated, _ := m.Update(fresh)
+	m, ok := updated.(model)
+	require.True(t, ok)
+
+	assert.Equal(t, "new notes", m.workflows[0].Context)
+	require.Greater(t, len(tmux.respawns), staged, "the edit is restaged without the cursor moving")
+
+	shown, err := os.ReadFile(filepath.Join(os.TempDir(), "claude-agents-stage.md"))
+	require.NoError(t, err)
+	assert.Contains(t, string(shown), "new notes")
+
+	staged = len(tmux.respawns)
+	updated, _ = m.Update(fresh)
+	_, ok = updated.(model)
+	require.True(t, ok)
+
+	assert.Equal(t, staged, len(tmux.respawns), "an unchanged refresh leaves the stage pane alone")
 }
 
 // describeRows flattens the tree into strings, so a case states the shape it

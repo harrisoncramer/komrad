@@ -13,6 +13,7 @@ import (
 	"claude-agents/internal/errui"
 	agentv1 "claude-agents/proto/gen/agent/v1"
 	"claude-agents/proto/gen/agent/v1/agentv1connect"
+	workflowv1 "claude-agents/proto/gen/workflow/v1"
 	"claude-agents/proto/gen/workflow/v1/workflowv1connect"
 
 	agentstore "claude-agents/internal/store/agent"
@@ -25,32 +26,36 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// agentsInterval is how often the agents list re-lists over RPC. It runs off the
+// refreshInterval is how often the panel re-lists over RPC. It runs off the
 // render loop, so a slow serve can never freeze the UI.
 const (
-	agentsInterval = time.Second
-	agentsTimeout  = 2 * time.Second
+	refreshInterval = time.Second
+	agentsTimeout   = 2 * time.Second
 )
 
-type agentsTickMsg struct{}
+type refreshTickMsg struct{}
 
-// agentsLoadedMsg carries the result of an async re-list. A non-nil err means the
-// service could not be reached, which the panel shows rather than absorbs. The
-// rows it is holding are from the last successful poll, and left on screen they
-// would read as the current truth.
-type agentsLoadedMsg struct {
-	items []agentItem
-	err   error
+// listsLoadedMsg carries the result of an async re-list. Both lists come back
+// together, since a workflow edited anywhere other than this panel's own form is
+// invisible until the listing is read again. A non-nil err means the service could
+// not be reached, which the panel shows rather than absorbs. The rows it is holding
+// are from the last successful poll, and left on screen they would read as the
+// current truth.
+type listsLoadedMsg struct {
+	agents    []agentItem
+	workflows []workflowstore.Workflow
+	err       error
 }
 
-func agentsTick() tea.Cmd {
-	return tea.Tick(agentsInterval, func(time.Time) tea.Msg { return agentsTickMsg{} })
+func refreshTick() tea.Cmd {
+	return tea.Tick(refreshInterval, func(time.Time) tea.Msg { return refreshTickMsg{} })
 }
 
-// loadAgentsCmd re-lists the agents off the UI goroutine with a timeout, so the
-// render loop never blocks on the RPC or the per-agent tmux liveness checks.
-func (m model) loadAgentsCmd() tea.Cmd {
-	agents := m.api.agents
+// loadListsCmd re-lists the agents and the workflows off the UI goroutine with a
+// timeout, so the render loop never blocks on the RPCs or the per-agent tmux
+// liveness checks. Both share one deadline, since together they are one refresh.
+func (m model) loadListsCmd() tea.Cmd {
+	agents, workflows := m.api.agents, m.api.workflows
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
@@ -58,10 +63,15 @@ func (m model) loadAgentsCmd() tea.Cmd {
 
 		listed, err := client.ListAllAgents(ctx, agents)
 		if err != nil {
-			return agentsLoadedMsg{err: err}
+			return listsLoadedMsg{err: err}
 		}
 
-		return agentsLoadedMsg{items: agentItemsFrom(listed)}
+		listedWorkflows, err := client.ListAllWorkflows(ctx, workflows)
+		if err != nil {
+			return listsLoadedMsg{err: err}
+		}
+
+		return listsLoadedMsg{agents: agentItemsFrom(listed), workflows: workflowsFrom(listedWorkflows)}
 	}
 }
 
@@ -345,6 +355,12 @@ func (m model) listWorkflows() ([]workflowstore.Workflow, error) {
 		return nil, err
 	}
 
+	return workflowsFrom(listed), nil
+}
+
+// workflowsFrom renders listed workflows into the store type the tree is written
+// against.
+func workflowsFrom(listed []*workflowv1.Workflow) []workflowstore.Workflow {
 	workflows := make([]workflowstore.Workflow, 0, len(listed))
 	for _, w := range listed {
 		workflows = append(workflows, workflowstore.Workflow{
@@ -356,7 +372,7 @@ func (m model) listWorkflows() ([]workflowstore.Workflow, error) {
 		})
 	}
 
-	return workflows, nil
+	return workflows
 }
 
 // reloadWorkflows refreshes the workflow list backing the tree's folder headers,
@@ -369,6 +385,36 @@ func (m *model) reloadWorkflows() {
 		m.failAction("Could not list workflows", err)
 
 		return
+	}
+
+	m.workflows = workflows
+	m.workflowCursor = clampCursor(m.workflowCursor, len(workflows))
+}
+
+// applyWorkflows merges a freshly-listed set into the on-screen workflows. The
+// listing sorts by recency, so taking it wholesale on every refresh would reshuffle
+// the tree's folders under the cursor the moment any workflow was touched. The
+// current order is kept, new workflows are appended, vanished ones are dropped, and
+// the ones that remain take their fresh fields, so a context edited through the MCP
+// tools or another panel shows here without anything moving.
+func (m *model) applyWorkflows(fresh []workflowstore.Workflow) {
+	byID := make(map[string]workflowstore.Workflow, len(fresh))
+	for _, w := range fresh {
+		byID[w.ID] = w
+	}
+
+	seen := make(map[string]bool, len(m.workflows))
+	workflows := make([]workflowstore.Workflow, 0, len(fresh))
+	for _, cur := range m.workflows {
+		if w, ok := byID[cur.ID]; ok {
+			seen[cur.ID] = true
+			workflows = append(workflows, w)
+		}
+	}
+	for _, w := range fresh {
+		if !seen[w.ID] {
+			workflows = append(workflows, w)
+		}
 	}
 
 	m.workflows = workflows
@@ -547,7 +593,7 @@ func (m model) Init() tea.Cmd {
 		return nil
 	}
 
-	return tea.Batch(agentsTick(), m.loadAgentsCmd())
+	return tea.Batch(refreshTick(), m.loadListsCmd())
 }
 
 // Update routes messages and key input to the active screen.
@@ -575,14 +621,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if _, ok := msg.(agentsTickMsg); ok {
-		return m, tea.Batch(m.loadAgentsCmd(), agentsTick())
+	if _, ok := msg.(refreshTickMsg); ok {
+		return m, tea.Batch(m.loadListsCmd(), refreshTick())
 	}
 
-	if loaded, ok := msg.(agentsLoadedMsg); ok {
+	if loaded, ok := msg.(listsLoadedMsg); ok {
 		m.unreachable = loaded.err
 		if loaded.err == nil {
-			m.applyAgents(loaded.items)
+			// Workflows first, since the tree's rows and so the cursor the agents are
+			// reapplied against are built over them.
+			m.applyWorkflows(loaded.workflows)
+			m.applyAgents(loaded.agents)
+
+			// A refresh can change what the cursor is sitting on without the cursor
+			// moving, so the stage is redrawn from the merged lists. The stage is a
+			// no-op when what it already shows has not changed, which is what keeps
+			// this from respawning its pane every tick. Only the agents screen owns
+			// the stage: a search preview or a form's stage is not the tree's to
+			// take back while it is up.
+			if m.screen == screenAgents {
+				m.stageSelection()
+			}
 		}
 
 		return m, nil

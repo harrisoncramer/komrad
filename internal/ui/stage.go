@@ -18,15 +18,29 @@ type stageTmux interface {
 	RespawnPane(pane, dir string, argv ...string)
 }
 
+// shownBlank and shownOther are what the stage records for content that is not
+// markdown it could compare against: an empty shell and a transcript or a staged
+// agent. Neither can collide with rendered markdown, so a redraw of either always
+// goes through.
+const (
+	shownBlank = "\x00blank"
+	shownOther = "\x00other"
+)
+
 // Stage is the pane beside the nav list that shows whatever the cursor is on.
 // navPane anchors the split. pane is the one the stage drives, running either
 // bat or a blank shell. agentPane is the agent pane currently swapped into the
 // slot, empty when the stage is showing its own pane.
+//
+// shown is what the stage's own pane currently displays. The panel restages on
+// every refresh tick, and redrawing means respawning the pane, so the stage
+// compares against what is already there and does nothing when they match.
 type Stage struct {
 	tmux      stageTmux
 	navPane   string
 	pane      string
 	agentPane string
+	shown     string
 }
 
 // NewStage builds a stage over a tmux client. It claims no panes until Init.
@@ -59,6 +73,7 @@ func (s *Stage) ensure() {
 	home, _ := os.UserHomeDir()
 	s.pane = s.tmux.SplitRight(s.navPane, home)
 	s.agentPane = ""
+	s.shown = ""
 }
 
 // restore swaps any staged agent pane back to its own window, leaving the stage's
@@ -93,6 +108,7 @@ func (s *Stage) Agent(pane string) {
 	s.restore()
 	s.tmux.SwapPanes(pane, s.pane)
 	s.agentPane = pane
+	s.shown = shownOther
 }
 
 // Text shows markdown in the stage by writing it to a temp file and running bat
@@ -102,6 +118,9 @@ func (s *Stage) Agent(pane string) {
 func (s *Stage) Text(markdown string) {
 	s.ensure()
 	if s.pane == "" {
+		return
+	}
+	if s.agentPane == "" && s.shown == markdown {
 		return
 	}
 
@@ -115,6 +134,7 @@ func (s *Stage) Text(markdown string) {
 
 	cmd := fmt.Sprintf("bat --language=markdown --style=plain --paging=never '%s'; while :; do sleep 3600; done", path)
 	s.tmux.RespawnPane(s.pane, home, "sh", "-c", cmd)
+	s.shown = markdown
 }
 
 // transcriptPreviewBefore and transcriptPreviewAfter bound how many lines show
@@ -160,6 +180,7 @@ func (s *Stage) Transcript(content string, highlightLine int) {
 
 	cmd := fmt.Sprintf("bat %s '%s'; while :; do sleep 3600; done", args, path)
 	s.tmux.RespawnPane(s.pane, home, "sh", "-c", cmd)
+	s.shown = shownOther
 }
 
 // Blank clears the stage back to an empty shell.
@@ -168,8 +189,12 @@ func (s *Stage) Blank() {
 	if s.pane == "" {
 		return
 	}
+	if s.agentPane == "" && s.shown == shownBlank {
+		return
+	}
 
 	s.restore()
 	home, _ := os.UserHomeDir()
 	s.tmux.RespawnPane(s.pane, home)
+	s.shown = shownBlank
 }

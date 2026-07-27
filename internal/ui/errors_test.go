@@ -334,22 +334,22 @@ func TestUnreachableView(t *testing.T) {
 	tests := []struct {
 		name         string
 		start        error
-		msg          agentsLoadedMsg
+		msg          listsLoadedMsg
 		wantTakeover bool
 	}{
 		{
 			name: "while the service answers, the list renders as usual",
-			msg:  agentsLoadedMsg{items: []agentItem{{agent: agentstore.Agent{Name: "still-here", State: agentstore.StateNew}}}},
+			msg:  listsLoadedMsg{agents: []agentItem{{agent: agentstore.Agent{Name: "still-here", State: agentstore.StateNew}}}},
 		},
 		{
 			name:         "a failed poll takes the screen over",
-			msg:          agentsLoadedMsg{err: errors.New("dial tcp 127.0.0.1:8787: connect: connection refused")},
+			msg:          listsLoadedMsg{err: errors.New("dial tcp 127.0.0.1:8787: connect: connection refused")},
 			wantTakeover: true,
 		},
 		{
 			name:  "and it clears itself once the service answers again",
 			start: errors.New("connection refused"),
-			msg:   agentsLoadedMsg{items: []agentItem{{agent: agentstore.Agent{Name: "back", State: agentstore.StateNew}}}},
+			msg:   listsLoadedMsg{agents: []agentItem{{agent: agentstore.Agent{Name: "back", State: agentstore.StateNew}}}},
 		},
 	}
 
@@ -359,6 +359,7 @@ func TestUnreachableView(t *testing.T) {
 				addr:        "127.0.0.1:8787",
 				unreachable: tt.start,
 				agents:      []agentItem{{agent: agentstore.Agent{Name: "still-here", State: agentstore.StateDone}}},
+				stage:       NewStage(&recordingTmux{}),
 			}
 
 			updated, _ := m.Update(tt.msg)
