@@ -207,6 +207,11 @@ type Deps struct {
 	// than written to a popup that closes on top of it. Keys fall back to the
 	// built-in defaults, which is what the panel would have used anyway.
 	ConfigErr error
+	// StartupErr is set when the server the panel talks through could not be
+	// started, most often because its database is not up. It is shown on the error
+	// screen for the same reason ConfigErr is: this process is the command of the
+	// tmux session behind the popup, so exiting takes the message down with it.
+	StartupErr error
 }
 
 type model struct {
@@ -233,6 +238,10 @@ type model struct {
 	// never clears, since the file is read once at startup, so the screen it shows
 	// is the whole life of the process.
 	configErr error
+	// startupErr is set when the server could not be started. It never clears
+	// either: nothing tries a second time, so a panel that came up without a server
+	// has none for as long as it runs.
+	startupErr error
 	// actionErr is the last write the service refused, shown as a banner over the
 	// screen it happened on. It is cleared when the next action is attempted and by
 	// esc, never by a poll: a refused delete is still worth reading a second later.
@@ -286,20 +295,21 @@ type model struct {
 
 func newModel(deps Deps) model {
 	m := model{
-		api:       api{agents: deps.Agents, workflows: deps.Workflows, schedules: deps.Schedules},
-		popup:     deps.Popup,
-		tmux:      deps.Tmux,
-		stage:     NewStage(deps.Tmux),
-		addr:      deps.Addr,
-		keys:      deps.Keys,
-		configErr: deps.ConfigErr,
-		screen:    screenAgents,
+		api:        api{agents: deps.Agents, workflows: deps.Workflows, schedules: deps.Schedules},
+		popup:      deps.Popup,
+		tmux:       deps.Tmux,
+		stage:      NewStage(deps.Tmux),
+		addr:       deps.Addr,
+		keys:       deps.Keys,
+		configErr:  deps.ConfigErr,
+		startupErr: deps.StartupErr,
+		screen:     screenAgents,
 	}
 
-	// A config that would not parse shows its error in place of the panel, so none
-	// of the panel's setup runs: no stage pane is split and nothing is listed. The
-	// screen is all this process does.
-	if m.configErr != nil {
+	// A failure that came up with the process shows its error in place of the panel,
+	// so none of the panel's setup runs: no stage pane is split and nothing is
+	// listed. The screen is all this process does.
+	if m.fatal() != nil {
 		return m
 	}
 
@@ -621,10 +631,23 @@ func (m model) onFormScreen() bool {
 	}
 }
 
-// Init starts the async agents refresh so the list's counts and states stay current.
-// A config error means there is no list to refresh, so nothing is started.
-func (m model) Init() tea.Cmd {
+// fatal is the failure that replaces the panel, or nil when there is none. Both
+// are settled before the panel starts and neither can clear itself, so either one
+// means there is no panel behind the screen it shows. A config that would not parse
+// comes first: a panel that never read its keybindings never got as far as trying
+// to start a server.
+func (m model) fatal() error {
 	if m.configErr != nil {
+		return m.configErr
+	}
+
+	return m.startupErr
+}
+
+// Init starts the async agents refresh so the list's counts and states stay current.
+// A startup failure means there is no list to refresh, so nothing is started.
+func (m model) Init() tea.Cmd {
+	if m.fatal() != nil {
 		return nil
 	}
 
@@ -633,10 +656,10 @@ func (m model) Init() tea.Cmd {
 
 // Update routes messages and key input to the active screen.
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// The config error screen is terminal: there is nothing to act on, so any key
+	// A startup failure screen is terminal: there is nothing to act on, so any key
 	// dismisses it. Quitting exits zero, which is what lets the popup close on the
 	// keypress rather than lingering.
-	if m.configErr != nil {
+	if m.fatal() != nil {
 		if _, ok := msg.(tea.KeyMsg); ok {
 			return m, tea.Quit
 		}

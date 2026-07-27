@@ -338,6 +338,77 @@ func TestConfigErrorScreenIsTerminal(t *testing.T) {
 	assert.Equal(t, tea.Quit(), cmd(), "and dismissing quits")
 }
 
+// TestStartupErrorView covers the screen shown when the server could not be
+// started. The panel is the only thing on screen at that point, so a failure it does
+// not render is a failure nobody sees: the process is the command of the tmux
+// session behind the popup, and exiting takes the pane the message was on with it.
+func TestStartupErrorView(t *testing.T) {
+	tests := []struct {
+		name        string
+		configErr   error
+		unreachable error
+		wantContain []string
+		wantAbsent  []string
+	}{
+		{
+			name: "the reason the server gave reaches the screen",
+			wantContain: []string{
+				"The agent server could not be started",
+				"connection refused",
+			},
+			wantAbsent: []string{"should-not-render"},
+		},
+		{
+			name:        "it outranks an unreachable service, which is what it caused",
+			unreachable: errors.New("dial tcp: connection refused"),
+			wantContain: []string{"The agent server could not be started"},
+			wantAbsent:  []string{"Cannot reach the server"},
+		},
+		{
+			name:        "a config error outranks it, having happened first",
+			configErr:   errors.New("failed to parse config: bad"),
+			wantContain: []string{"Your configuration could not be read"},
+			wantAbsent:  []string{"The agent server could not be started"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := model{
+				configErr:   tt.configErr,
+				startupErr:  errors.New("the agent server stopped during startup: failed to reach db: connection refused"),
+				unreachable: tt.unreachable,
+				addr:        "127.0.0.1:8787",
+				agents:      []agentItem{{agent: agentstore.Agent{Name: "should-not-render", State: agentstore.StateDone}}},
+			}
+
+			// The error wraps at the screen width, so the text is compared with its
+			// line breaks flattened away.
+			view := strings.Join(strings.Fields(m.View()), " ")
+
+			for _, want := range tt.wantContain {
+				assert.Contains(t, view, want)
+			}
+			for _, absent := range tt.wantAbsent {
+				assert.NotContains(t, view, absent)
+			}
+		})
+	}
+}
+
+// TestStartupErrorScreenIsTerminal covers that nothing runs behind the screen and
+// that any key ends the process. A panel whose server never started has nothing to
+// poll: the server is started once, so there is nothing coming back to wait for.
+func TestStartupErrorScreenIsTerminal(t *testing.T) {
+	m := model{startupErr: errors.New("the agent server stopped during startup")}
+
+	assert.Nil(t, m.Init(), "no poll is started behind the error screen")
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	require.NotNil(t, cmd, "any key dismisses the screen")
+	assert.Equal(t, tea.Quit(), cmd(), "and dismissing quits")
+}
+
 // TestUnreachableView covers what the panel shows when the service stops
 // answering. A swallowed poll would leave the last good list on screen, so a
 // dead server would read as a panel whose agents had all been deleted.

@@ -115,6 +115,21 @@ func TestConfig(t *testing.T) {
 	assert.Contains(t, rendered, "config.toml", "the file to go and fix is named")
 }
 
+// TestStartup covers the screen shown when the server would not start. The reason
+// it gave came out of its log and is the only thing on screen saying what to fix, so
+// it has to survive the render whole.
+func TestStartup(t *testing.T) {
+	err := errors.New("the agent server stopped during startup: failed to reach db: dial tcp 127.0.0.1:5460: connect: connection refused")
+
+	// The error wraps at the screen width, so the text is compared with its line
+	// breaks flattened away.
+	rendered := strings.Join(strings.Fields(Startup(err)), " ")
+
+	assert.Contains(t, rendered, "The agent server could not be started")
+	assert.Contains(t, rendered, "connect: connection refused")
+	assert.Contains(t, rendered, "mise run docker:up", "the way to bring the database up is named")
+}
+
 // TestUnreachable covers that the address is shown when there is one and left out
 // when there is not, rather than rendering an empty labelled row.
 func TestUnreachable(t *testing.T) {

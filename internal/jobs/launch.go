@@ -39,12 +39,13 @@ type LaunchAgentWorker struct {
 	river.WorkerDefaults[LaunchAgentArgs]
 	schedules ScheduleReader
 	agents    AgentLauncher
+	running   RunningAgents
 }
 
 // NewLaunchAgentWorker builds the worker over the schedules it reads and the
 // service that launches an agent.
-func NewLaunchAgentWorker(schedules ScheduleReader, launcher AgentLauncher) *LaunchAgentWorker {
-	return &LaunchAgentWorker{schedules: schedules, agents: launcher}
+func NewLaunchAgentWorker(schedules ScheduleReader, launcher AgentLauncher, running RunningAgents) *LaunchAgentWorker {
+	return &LaunchAgentWorker{schedules: schedules, agents: launcher, running: running}
 }
 
 // Work launches the agent the schedule describes.
@@ -64,6 +65,22 @@ func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgent
 	}
 	if !schedule.Enabled {
 		return river.JobCancel(fmt.Errorf("schedule %q is paused", job.Args.ScheduleID))
+	}
+
+	// A schedule runs one agent at a time. A run that outlives its interval would
+	// otherwise be lapped by the next tick, and an hourly job that takes ninety
+	// minutes would pile up a new Claude beside the last one forever.
+	//
+	// The tick is skipped rather than deferred: the work is a sweep of whatever is
+	// outstanding, so the run already going will pick up anything this one would
+	// have, and queueing a duplicate to start the moment it finishes only moves
+	// the pile-up.
+	running, err := w.running.CountLiveForSchedule(ctx, schedule.ID)
+	if err != nil {
+		return fmt.Errorf("failed to check what schedule %q is already running: %w", schedule.Name, err)
+	}
+	if running > 0 {
+		return river.JobCancel(fmt.Errorf("schedule %q still has %d agent(s) running", schedule.Name, running))
 	}
 
 	// Only the prompt and the provenance come from the schedule. Where and how the

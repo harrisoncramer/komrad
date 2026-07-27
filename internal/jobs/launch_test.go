@@ -32,6 +32,8 @@ func TestLaunchAgentWorker(t *testing.T) {
 		// wantCancel says the job should stop rather than be retried.
 		wantCancel bool
 		wantErr    bool
+		// running is how many agents this schedule already has unfinished.
+		running int64
 		// wantLaunched says the agent service should have been asked at all.
 		wantLaunched bool
 	}{
@@ -59,6 +61,14 @@ func TestLaunchAgentWorker(t *testing.T) {
 			wantLaunched: true,
 		},
 		{
+			// One at a time. A run that outlived its interval would otherwise be
+			// lapped by the next tick, and the pile would never drain.
+			name:       "a schedule whose last agent is still running skips this tick",
+			schedule:   &schedulestore.Schedule{ID: "s1", Name: "morning-ci", Prompt: "go", WorkflowID: "w1", Enabled: true},
+			running:    1,
+			wantCancel: true,
+		},
+		{
 			// A tmux server that is briefly gone is the common case, and it comes
 			// back, so this is left for River to retry.
 			name:         "any other failure is retried",
@@ -73,7 +83,7 @@ func TestLaunchAgentWorker(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			schedules := &fakeSchedules{schedule: tt.schedule}
 			launcher := &fakeLauncher{err: tt.launchErr}
-			worker := NewLaunchAgentWorker(schedules, launcher)
+			worker := NewLaunchAgentWorker(schedules, launcher, &fakeRunning{count: tt.running})
 
 			err := worker.Work(t.Context(), &river.Job[LaunchAgentArgs]{
 				Args: LaunchAgentArgs{ScheduleID: "s1", ScheduledFor: occurrence},
@@ -133,7 +143,7 @@ func TestLaunchAgentParams(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			launcher := &fakeLauncher{}
-			worker := NewLaunchAgentWorker(&fakeSchedules{schedule: &tt.schedule}, launcher)
+			worker := NewLaunchAgentWorker(&fakeSchedules{schedule: &tt.schedule}, launcher, &fakeRunning{})
 
 			require.NoError(t, worker.Work(t.Context(), &river.Job[LaunchAgentArgs]{
 				Args: LaunchAgentArgs{ScheduleID: tt.schedule.ID, ScheduledFor: occurrence},
@@ -249,4 +259,15 @@ func (f *fakeLauncher) NewAgent(_ context.Context, p agents.NewAgentParams) (*ag
 	}
 
 	return &agentstore.Agent{ID: "a1", Name: p.Title}, nil
+}
+
+// fakeRunning stands in for the count of a schedule's unfinished agents, which
+// is what decides whether a tick launches or is skipped.
+type fakeRunning struct {
+	count int64
+	err   error
+}
+
+func (f *fakeRunning) CountLiveForSchedule(context.Context, string) (int64, error) {
+	return f.count, f.err
 }

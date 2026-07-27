@@ -317,6 +317,25 @@ func (s *Store) GetByIdempotencyKey(ctx context.Context, key string) (*Agent, er
 	return &agent, nil
 }
 
+// CountLiveForSchedule reports how many agents a schedule has that have not
+// finished, which is what tells a firing that the last one is still going.
+//
+// Anything not done counts, including an agent sitting on a confirmation prompt:
+// it is unfinished work someone still has to answer, and starting a second run
+// beside it would only add another.
+func (s *Store) CountLiveForSchedule(ctx context.Context, scheduleID string) (int64, error) {
+	if !store.IsID(scheduleID) {
+		return 0, nil
+	}
+
+	count, err := s.queries.CountLiveScheduleAgents(ctx, &scheduleID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count the live agents of schedule %q: %w", scheduleID, err)
+	}
+
+	return count, nil
+}
+
 // Find resolves an agent by name to the ids a delete needs, nil when no agent has
 // that name.
 func (s *Store) Find(ctx context.Context, name string) (*Target, error) {

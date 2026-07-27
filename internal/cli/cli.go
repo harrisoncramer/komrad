@@ -59,9 +59,13 @@ func NewRootCommand() *cobra.Command {
 			return nil
 		},
 		RunE: func(_ *cobra.Command, _ []string) error {
-			if err := ensureServer(state.env.Addr, selfPath()); err != nil {
-				return err
-			}
+			// A server that will not start is carried into the panel and shown on its
+			// error screen for the same reason a bad config is. This process is the
+			// command of the tmux session behind the popup, so returning here ends that
+			// session, and tmux tears its pane down with the message still on it. The
+			// popup then closes on a success it never had, leaving nothing on screen to
+			// say a database was unreachable.
+			startupErr := ensureServer(state.env.Addr, selfPath(), serveLogPath())
 
 			base := "http://" + state.env.Addr
 			agentClient := agentv1connect.NewAgentServiceClient(http.DefaultClient, base)
@@ -77,14 +81,15 @@ func NewRootCommand() *cobra.Command {
 			// quit, so the panel stays one long-lived program with its state
 			// preserved between opens. Run returns only on a real error.
 			return ui.Run(ui.Deps{
-				Popup:     state.popup,
-				Tmux:      state.tmux,
-				Agents:    agentClient,
-				Workflows: workflowClient,
-				Schedules: scheduleClient,
-				Keys:      state.keys,
-				Addr:      state.env.Addr,
-				ConfigErr: state.configErr,
+				Popup:      state.popup,
+				Tmux:       state.tmux,
+				Agents:     agentClient,
+				Workflows:  workflowClient,
+				Schedules:  scheduleClient,
+				Keys:       state.keys,
+				Addr:       state.env.Addr,
+				ConfigErr:  state.configErr,
+				StartupErr: startupErr,
 			})
 		},
 	}

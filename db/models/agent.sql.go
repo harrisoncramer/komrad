@@ -47,6 +47,24 @@ func (q *Queries) AgentExists(ctx context.Context, id string) (bool, error) {
 	return exists, err
 }
 
+const countLiveScheduleAgents = `-- name: CountLiveScheduleAgents :one
+SELECT
+    count(*)
+FROM
+    agents
+WHERE
+    schedule_id = $1
+    AND is_deleted = FALSE
+    AND state <> 'done'
+`
+
+func (q *Queries) CountLiveScheduleAgents(ctx context.Context, scheduleID *string) (int64, error) {
+	row := q.db.QueryRow(ctx, countLiveScheduleAgents, scheduleID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteAgentByID = `-- name: DeleteAgentByID :exec
 DELETE FROM agents
 WHERE id = $1

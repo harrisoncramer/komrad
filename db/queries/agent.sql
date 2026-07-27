@@ -268,3 +268,13 @@ ORDER BY
     matches.rank DESC,
     matches.agent_id ASC
 LIMIT @lim;
+
+-- name: CountLiveScheduleAgents :one
+SELECT
+    count(*)
+FROM
+    agents
+WHERE
+    schedule_id = @schedule_id
+    AND is_deleted = FALSE
+    AND state <> 'done';

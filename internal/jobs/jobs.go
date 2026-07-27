@@ -65,6 +65,9 @@ type ClientParams struct {
 	Pool      *pgxpool.Pool
 	Schedules ScheduleReader
 	Agents    AgentLauncher
+	// Running answers whether a schedule's last agent is still going, which is
+	// what stops a slow run being lapped by the next tick.
+	Running RunningAgents
 }
 
 // NewClient builds the River client with the launch worker registered. It starts
@@ -72,7 +75,7 @@ type ClientParams struct {
 // since which ones exist is a question only the database can answer.
 func NewClient(p ClientParams) (*river.Client[pgx.Tx], error) {
 	workers := river.NewWorkers()
-	river.AddWorker(workers, NewLaunchAgentWorker(p.Schedules, p.Agents))
+	river.AddWorker(workers, NewLaunchAgentWorker(p.Schedules, p.Agents, p.Running))
 
 	client, err := river.NewClient(riverpgxv5.New(p.Pool), &river.Config{
 		Schema:      schema,
@@ -104,4 +107,11 @@ type ScheduleReader interface {
 // the same code under the same rules.
 type AgentLauncher interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
+}
+
+// RunningAgents answers whether a schedule already has work in flight. It is
+// the agent store rather than the agent service, since this is a count of rows
+// rather than anything about launching.
+type RunningAgents interface {
+	CountLiveForSchedule(ctx context.Context, scheduleID string) (int64, error)
 }

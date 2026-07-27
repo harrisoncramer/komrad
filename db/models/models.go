@@ -42,7 +42,7 @@ type AgentTranscript struct {
 	SyncedAt     time.Time
 }
 
-// A cron-driven agent launch: what to run, where, and how often.
+// A cron-driven agent launch: when to fire and what to ask for.
 type Schedule struct {
 	ID         string
 	Name       string

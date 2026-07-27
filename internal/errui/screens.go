@@ -23,6 +23,29 @@ func Config(err error) string {
 	}.Render()
 }
 
+// Startup is shown instead of the panel when the server it works through could not
+// be started. Its most common cause by far is a Postgres that is not up, so the
+// hints name the way to bring it up rather than leaving a refused connection as the
+// last word on screen.
+//
+// It is a takeover rather than the unreachable screen because that one waits for a
+// server that is coming back. This one has nothing to wait for: the panel starts a
+// server once, and if that attempt failed nothing tries again.
+func Startup(err error) string {
+	return Screen{
+		Title: "The agent server could not be started",
+		Body: []string{
+			"The panel did not start. Nothing about your agents has changed, and none",
+			"of them were stopped: the server is only how the panel reads and changes them.",
+		},
+		Details: []Detail{{Label: "error", Value: err.Error()}},
+		Hints: []string{
+			"A refused connection usually means the database is not running: mise run docker:up",
+			"Press any key to close.",
+		},
+	}.Render()
+}
+
 // Unreachable is shown in place of every other screen while the service is not
 // answering.
 //

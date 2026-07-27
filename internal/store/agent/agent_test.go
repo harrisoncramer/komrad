@@ -2,12 +2,16 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"claude-agents/internal/pgtest"
 	"claude-agents/internal/store"
+	schedulestore "claude-agents/internal/store/schedule"
 	workflowstore "claude-agents/internal/store/workflow"
 	"claude-agents/lib/xptr"
+
+	"github.com/google/uuid"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -589,12 +593,95 @@ func TestIdempotencyKeyIsUnique(t *testing.T) {
 	}
 }
 
+// TestCountLiveForSchedule covers the count that stops a schedule lapping
+// itself. Anything unfinished counts, including an agent waiting on a
+// confirmation, since that is work still owed rather than work done.
+func TestCountLiveForSchedule(t *testing.T) {
+	tests := []struct {
+		name string
+		// states are the agents the schedule has already produced.
+		states []string
+		// archive hides every one of them, as deleting from the panel would.
+		archive bool
+		// lookElsewhere counts against a schedule that produced none of them.
+		lookElsewhere bool
+		want          int64
+	}{
+		{
+			name: "a schedule that has produced nothing has nothing running",
+		},
+		{
+			name:   "an agent still thinking counts",
+			states: []string{StateThinking},
+			want:   1,
+		},
+		{
+			name:   "so does one waiting on a prompt, which is unfinished work",
+			states: []string{StateWaiting},
+			want:   1,
+		},
+		{
+			name:   "and one that has not started yet",
+			states: []string{StateNew},
+			want:   1,
+		},
+		{
+			name:   "a finished one does not",
+			states: []string{StateDone},
+			want:   0,
+		},
+		{
+			name:   "several unfinished agents are all counted",
+			states: []string{StateThinking, StateWaiting, StateDone},
+			want:   2,
+		},
+		{
+			name:    "an archived agent is not running, whatever state it stopped in",
+			states:  []string{StateThinking},
+			archive: true,
+			want:    0,
+		},
+		{
+			name:          "another schedule's agents are not this one's",
+			states:        []string{StateThinking},
+			lookElsewhere: true,
+			want:          0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			schedule := seedSchedule(t, st)
+			for i, state := range tt.states {
+				name := fmt.Sprintf("agent-%d", i)
+				require.NoError(t, st.Upsert(ctx, Agent{Name: name, State: state, ScheduleID: &schedule}))
+				if tt.archive {
+					require.NoError(t, st.Archive(ctx, name))
+				}
+			}
+
+			target := schedule
+			if tt.lookElsewhere {
+				target = seedSchedule(t, st)
+			}
+
+			count, err := st.CountLiveForSchedule(ctx, target)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, count)
+		})
+	}
+}
+
 // fixture is the agent store under test plus the workflow store the tests seed
 // through. Every agent belongs to a workflow, so one has to exist before an
 // agent can be written. The two stay separate stores, since this package never
 // reaches into the workflows table itself.
 type fixture struct {
 	*Store
+	db        store.DBTX
 	workflows *workflowstore.Store
 	// defaultWorkflow holds any agent a test writes without naming one, which is
 	// most of them: they are about names, states, and pages rather than about
@@ -623,7 +710,7 @@ func open(t *testing.T) *fixture {
 	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default"})
 	require.NoError(t, err)
 
-	return &fixture{Store: New(p.DB()), workflows: workflows, defaultWorkflow: created.ID}
+	return &fixture{Store: New(p.DB()), db: p.DB(), workflows: workflows, defaultWorkflow: created.ID}
 }
 
 // pool opens the database itself, for the few tests that also need another
@@ -635,4 +722,20 @@ func pool(t *testing.T) *store.Pool {
 	t.Cleanup(func() { _ = p.Close() })
 
 	return p
+}
+
+// seedSchedule inserts a schedule and returns its id, for the counts that are
+// about which schedule produced an agent rather than about the schedule itself.
+func seedSchedule(t *testing.T, st *fixture) string {
+	t.Helper()
+
+	created, err := schedulestore.New(st.db).Create(t.Context(), schedulestore.Config{
+		Name:       "schedule-" + uuid.NewString(),
+		Cron:       "0 9 * * *",
+		Prompt:     "go",
+		WorkflowID: st.defaultWorkflow,
+	})
+	require.NoError(t, err)
+
+	return created.ID
 }

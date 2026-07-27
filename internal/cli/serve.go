@@ -109,6 +109,7 @@ func serveCmd(state *app) *cobra.Command {
 				Pool:      state.pool.Raw(),
 				Schedules: state.schedules,
 				Agents:    state.agentService,
+				Running:   state.agents,
 			})
 			if err != nil {
 				return err
