@@ -414,7 +414,7 @@ func (m model) actionHints() string {
 // shown in the separate stage pane, not here.
 func (m model) agentsView() string {
 	var list strings.Builder
-	list.WriteString(headerStyle.Render("Agents") + "\n\n")
+	list.WriteString(headerStyle.Render("Agents and Workflows") + "\n\n")
 
 	// The list is a tree. Each workflow is a folder header with its agents nested
 	// beneath it, so an agent's parent shows by position rather than a per-row
