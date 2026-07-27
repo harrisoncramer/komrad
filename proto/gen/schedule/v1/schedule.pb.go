@@ -10,6 +10,7 @@ import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	_ "claude-agents/proto/gen/annotation/v1"
 	v1 "claude-agents/proto/gen/pagination/v1"
+	_ "claude-agents/proto/gen/rules/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -41,11 +42,9 @@ type Schedule struct {
 	// False pauses the schedule. It keeps its record and stops firing.
 	Enabled bool   `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	Prompt  string `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	// The workflow launched agents are filed under, unset to leave them at the
-	// root.
-	WorkflowId *string `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3,oneof" json:"workflow_id,omitempty"`
-	Cwd        string  `protobuf:"bytes,8,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	Flags      string  `protobuf:"bytes,9,opt,name=flags,proto3" json:"flags,omitempty"`
+	// The workflow this schedule launches into, and where each launched agent takes
+	// its directory, flags, and shared context from.
+	WorkflowId string `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
 	// When this schedule next fires, derived from the cron expression rather than
 	// stored. Unset when the schedule is paused, since a paused one has no next
 	// run.
@@ -127,22 +126,8 @@ func (x *Schedule) GetPrompt() string {
 }
 
 func (x *Schedule) GetWorkflowId() string {
-	if x != nil && x.WorkflowId != nil {
-		return *x.WorkflowId
-	}
-	return ""
-}
-
-func (x *Schedule) GetCwd() string {
 	if x != nil {
-		return x.Cwd
-	}
-	return ""
-}
-
-func (x *Schedule) GetFlags() string {
-	if x != nil {
-		return x.Flags
+		return x.WorkflowId
 	}
 	return ""
 }
@@ -360,14 +345,10 @@ type CreateScheduleRequest struct {
 	// What each launched agent is asked to do. Required, since a schedule that
 	// launches an agent with nothing to do is never what the caller meant.
 	Prompt string `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	// The workflow launched agents are filed under. Omit to leave them at the root.
-	// An empty string names a workflow that cannot exist.
-	WorkflowId *string `protobuf:"bytes,6,opt,name=workflow_id,json=workflowId,proto3,oneof" json:"workflow_id,omitempty"`
-	// Where the launched agent starts. Required and absolute or ~-prefixed, the
-	// same rule creating an agent follows, since nothing interactive is present
-	// at launch to fall back to a current directory.
-	Cwd           string `protobuf:"bytes,7,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	Flags         string `protobuf:"bytes,8,opt,name=flags,proto3" json:"flags,omitempty"`
+	// The workflow this schedule launches into, and the reason a schedule carries no
+	// directory or flags of its own. It reads them off the workflow as it fires, so a
+	// workflow that moves takes its schedules with it.
+	WorkflowId    string `protobuf:"bytes,6,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -438,22 +419,8 @@ func (x *CreateScheduleRequest) GetPrompt() string {
 }
 
 func (x *CreateScheduleRequest) GetWorkflowId() string {
-	if x != nil && x.WorkflowId != nil {
-		return *x.WorkflowId
-	}
-	return ""
-}
-
-func (x *CreateScheduleRequest) GetCwd() string {
 	if x != nil {
-		return x.Cwd
-	}
-	return ""
-}
-
-func (x *CreateScheduleRequest) GetFlags() string {
-	if x != nil {
-		return x.Flags
+		return x.WorkflowId
 	}
 	return ""
 }
@@ -513,9 +480,7 @@ type UpdateScheduleRequest struct {
 	Timezone      string                 `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
 	Enabled       bool                   `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	Prompt        string                 `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	WorkflowId    *string                `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3,oneof" json:"workflow_id,omitempty"`
-	Cwd           string                 `protobuf:"bytes,8,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	Flags         string                 `protobuf:"bytes,9,opt,name=flags,proto3" json:"flags,omitempty"`
+	WorkflowId    string                 `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -593,22 +558,8 @@ func (x *UpdateScheduleRequest) GetPrompt() string {
 }
 
 func (x *UpdateScheduleRequest) GetWorkflowId() string {
-	if x != nil && x.WorkflowId != nil {
-		return *x.WorkflowId
-	}
-	return ""
-}
-
-func (x *UpdateScheduleRequest) GetCwd() string {
 	if x != nil {
-		return x.Cwd
-	}
-	return ""
-}
-
-func (x *UpdateScheduleRequest) GetFlags() string {
-	if x != nil {
-		return x.Flags
+		return x.WorkflowId
 	}
 	return ""
 }
@@ -715,21 +666,18 @@ var File_schedule_v1_schedule_proto protoreflect.FileDescriptor
 
 const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\n" +
-	"\x1aschedule/v1/schedule.proto\x12\vschedule.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\"\xbf\x02\n" +
+	"\x1aschedule/v1/schedule.proto\x12\vschedule.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\x82\x02\n" +
 	"\bSchedule\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
 	"\x04cron\x18\x03 \x01(\tR\x04cron\x12\x1a\n" +
 	"\btimezone\x18\x04 \x01(\tR\btimezone\x12\x18\n" +
 	"\aenabled\x18\x05 \x01(\bR\aenabled\x12\x16\n" +
-	"\x06prompt\x18\x06 \x01(\tR\x06prompt\x12$\n" +
-	"\vworkflow_id\x18\a \x01(\tH\x00R\n" +
-	"workflowId\x88\x01\x01\x12\x10\n" +
-	"\x03cwd\x18\b \x01(\tR\x03cwd\x12\x14\n" +
-	"\x05flags\x18\t \x01(\tR\x05flags\x12?\n" +
+	"\x06prompt\x18\x06 \x01(\tR\x06prompt\x12\x1f\n" +
+	"\vworkflow_id\x18\a \x01(\tR\n" +
+	"workflowId\x12?\n" +
 	"\vnext_run_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampH\x01R\tnextRunAt\x88\x01\x01B\x0e\n" +
-	"\f_workflow_idB\x0e\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampH\x00R\tnextRunAt\x88\x01\x01B\x0e\n" +
 	"\f_next_run_at\"e\n" +
 	"\x14ListSchedulesRequest\x12>\n" +
 	"\n" +
@@ -743,54 +691,42 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x12GetScheduleRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"H\n" +
 	"\x13GetScheduleResponse\x121\n" +
-	"\bschedule\x18\x01 \x01(\v2\x15.schedule.v1.ScheduleR\bschedule\"\x9a\x05\n" +
+	"\bschedule\x18\x01 \x01(\v2\x15.schedule.v1.ScheduleR\bschedule\"\xe6\x01\n" +
 	"\x15CreateScheduleRequest\x12\x1e\n" +
 	"\x04name\x18\x01 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x12\xa9\x01\n" +
-	"\x04cron\x18\x02 \x01(\tB\x94\x01\xbaH\x90\x01\xba\x01\x88\x01\n" +
-	"\x10cron.five_fields\x12Dcron must be five whitespace-separated fields, such as '0 9 * * 1-5'\x1a.this.split(' ').filter(f, f != '').size() == 5r\x02\x10\x01R\x04cron\x12#\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x12\x1f\n" +
+	"\x04cron\x18\x02 \x01(\tB\v\xbaH\br\x06\xb8\xbb\x18\x01\x10\x01R\x04cron\x12#\n" +
 	"\btimezone\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x18dR\btimezone\x12\x18\n" +
 	"\aenabled\x18\x04 \x01(\bR\aenabled\x12#\n" +
-	"\x06prompt\x18\x05 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12-\n" +
-	"\vworkflow_id\x18\x06 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\n" +
-	"workflowId\x88\x01\x01\x12\x81\x01\n" +
-	"\x03cwd\x18\a \x01(\tBo\xbaHl\xba\x01b\n" +
-	"\fcwd.absolute\x12$cwd must be absolute or start with ~\x1a,this.startsWith('/') || this.startsWith('~')r\x05\x10\x01\x18\x80 R\x03cwd\x12\x8d\x01\n" +
-	"\x05flags\x18\b \x01(\tBw\xbaHt\xba\x01l\n" +
-	"\x1dflags.no_shell_metacharacters\x12+flags must not contain shell metacharacters\x1a\x1e!this.matches('[;&|<>`$\\\\\\n]')r\x03\x18\xf4\x03R\x05flagsB\x0e\n" +
-	"\f_workflow_id\"K\n" +
+	"\x06prompt\x18\x05 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12(\n" +
+	"\vworkflow_id\x18\x06 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
+	"workflowId\"K\n" +
 	"\x16CreateScheduleResponse\x121\n" +
-	"\bschedule\x18\x01 \x01(\v2\x15.schedule.v1.ScheduleR\bschedule\"\xb3\x05\n" +
+	"\bschedule\x18\x01 \x01(\v2\x15.schedule.v1.ScheduleR\bschedule\"\xff\x01\n" +
 	"\x15UpdateScheduleRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x12\xa9\x01\n" +
-	"\x04cron\x18\x03 \x01(\tB\x94\x01\xbaH\x90\x01\xba\x01\x88\x01\n" +
-	"\x10cron.five_fields\x12Dcron must be five whitespace-separated fields, such as '0 9 * * 1-5'\x1a.this.split(' ').filter(f, f != '').size() == 5r\x02\x10\x01R\x04cron\x12#\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x12\x1f\n" +
+	"\x04cron\x18\x03 \x01(\tB\v\xbaH\br\x06\xb8\xbb\x18\x01\x10\x01R\x04cron\x12#\n" +
 	"\btimezone\x18\x04 \x01(\tB\a\xbaH\x04r\x02\x18dR\btimezone\x12\x18\n" +
 	"\aenabled\x18\x05 \x01(\bR\aenabled\x12#\n" +
-	"\x06prompt\x18\x06 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12-\n" +
-	"\vworkflow_id\x18\a \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\n" +
-	"workflowId\x88\x01\x01\x12\x81\x01\n" +
-	"\x03cwd\x18\b \x01(\tBo\xbaHl\xba\x01b\n" +
-	"\fcwd.absolute\x12$cwd must be absolute or start with ~\x1a,this.startsWith('/') || this.startsWith('~')r\x05\x10\x01\x18\x80 R\x03cwd\x12\x8d\x01\n" +
-	"\x05flags\x18\t \x01(\tBw\xbaHt\xba\x01l\n" +
-	"\x1dflags.no_shell_metacharacters\x12+flags must not contain shell metacharacters\x1a\x1e!this.matches('[;&|<>`$\\\\\\n]')r\x03\x18\xf4\x03R\x05flagsB\x0e\n" +
-	"\f_workflow_id\"N\n" +
+	"\x06prompt\x18\x06 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12(\n" +
+	"\vworkflow_id\x18\a \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
+	"workflowId\"N\n" +
 	"\x19SetScheduleEnabledRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x18\n" +
 	"\aenabled\x18\x02 \x01(\bR\aenabled\"0\n" +
 	"\x15DeleteScheduleRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xc4\r\n" +
-	"\x0fScheduleService\x12\xcb\x02\n" +
-	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\xf2\x01\x9a\xb5\x18\xea\x01\n" +
-	"\x0elist_schedules\x12\xd7\x01List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, and next run time. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xcf\x0e\n" +
+	"\x0fScheduleService\x12\xd5\x02\n" +
+	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\xfc\x01\x9a\xb5\x18\xf4\x01\n" +
+	"\x0elist_schedules\x12\xe1\x01List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, and next run time. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
 	"\vGetSchedule\x12\x1f.schedule.v1.GetScheduleRequest\x1a .schedule.v1.GetScheduleResponse\"^\x9a\xb5\x18W\n" +
-	"\fget_schedule\x12GFetch one schedule by id. Returns not_found if no schedule has that id.\x90\x02\x01\x12\xd6\x02\n" +
-	"\x0eCreateSchedule\x12\".schedule.v1.CreateScheduleRequest\x1a#.schedule.v1.CreateScheduleResponse\"\xfa\x01\x9a\xb5\x18\xf5\x01\n" +
-	"\x0fcreate_schedule\x12\xdf\x01Create a recurring agent launch. Nothing runs at create time; the agent is spawned when the cron expression next matches, and again on every match after that. Create it with enabled false to write it down without arming it. \x00\x12\xd1\x02\n" +
-	"\x0eUpdateSchedule\x12\".schedule.v1.UpdateScheduleRequest\x1a\x16.google.protobuf.Empty\"\x82\x02\x9a\xb5\x18\xfa\x01\n" +
-	"\x0fupdate_schedule\x12\xe4\x01Replace a schedule's name, cron expression, timezone, prompt, workflow, directory, and flags. Every field is written, so read the schedule first and send back the ones you are not changing. Agents already launched are untouched. \x00\x90\x02\x02\x12\xfa\x01\n" +
+	"\fget_schedule\x12GFetch one schedule by id. Returns not_found if no schedule has that id.\x90\x02\x01\x12\xe9\x03\n" +
+	"\x0eCreateSchedule\x12\".schedule.v1.CreateScheduleRequest\x1a#.schedule.v1.CreateScheduleResponse\"\x8d\x03\x9a\xb5\x18\x88\x03\n" +
+	"\x0fcreate_schedule\x12\xf2\x02Create a recurring agent launch inside a workflow. Nothing runs at create time; the agent is spawned when the cron expression next matches, and again on every match after that. The workflow supplies the directory, flags, and shared context each launch uses, so only the prompt and the timing are set here. Create it with enabled false to write it down without arming it. \x00\x12\xbf\x02\n" +
+	"\x0eUpdateSchedule\x12\".schedule.v1.UpdateScheduleRequest\x1a\x16.google.protobuf.Empty\"\xf0\x01\x9a\xb5\x18\xe8\x01\n" +
+	"\x0fupdate_schedule\x12\xd2\x01Replace a schedule's name, cron expression, timezone, prompt, and workflow. Every field is written, so read the schedule first and send back the ones you are not changing. Agents already launched are untouched. \x00\x90\x02\x02\x12\xfa\x01\n" +
 	"\x12SetScheduleEnabled\x12&.schedule.v1.SetScheduleEnabledRequest\x1a\x16.google.protobuf.Empty\"\xa3\x01\x9a\xb5\x18\x9b\x01\n" +
 	"\x14set_schedule_enabled\x12\x80\x01Pause or resume one schedule without editing anything else. A paused schedule keeps its record and its history and stops firing. \x00\x90\x02\x02\x12\x85\x02\n" +
 	"\x0eDeleteSchedule\x12\".schedule.v1.DeleteScheduleRequest\x1a\x16.google.protobuf.Empty\"\xb6\x01\x9a\xb5\x18\xae\x01\n" +
@@ -857,8 +793,6 @@ func file_schedule_v1_schedule_proto_init() {
 	file_schedule_v1_schedule_proto_msgTypes[0].OneofWrappers = []any{}
 	file_schedule_v1_schedule_proto_msgTypes[1].OneofWrappers = []any{}
 	file_schedule_v1_schedule_proto_msgTypes[2].OneofWrappers = []any{}
-	file_schedule_v1_schedule_proto_msgTypes[5].OneofWrappers = []any{}
-	file_schedule_v1_schedule_proto_msgTypes[7].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

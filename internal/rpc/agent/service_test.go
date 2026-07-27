@@ -35,7 +35,7 @@ func TestCreateAgent(t *testing.T) {
 		},
 		{
 			name:     "an unknown workflow is the caller's mistake",
-			req:      &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: &workflow},
+			req:      &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflow},
 			launchEr: agents.ErrWorkflowNotFound,
 			wantCode: connect.CodeNotFound,
 		},
@@ -46,10 +46,13 @@ func TestCreateAgent(t *testing.T) {
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
-			name: "an omitted workflow stays unassigned rather than becoming an empty id",
-			req:  &agentv1.CreateAgentRequest{Prompt: "go"},
+			// The workflow supplies the directory, so a request that names one and
+			// nothing else is complete.
+			name: "an omitted directory reaches the launcher empty, for the workflow to fill",
+			req:  &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflow},
 			check: func(t *testing.T, got agents.NewAgentParams) {
-				assert.Nil(t, got.WorkflowID)
+				assert.Empty(t, got.Dir)
+				assert.Equal(t, workflow, got.WorkflowID)
 			},
 		},
 		{
@@ -59,15 +62,14 @@ func TestCreateAgent(t *testing.T) {
 				Title:      "audit",
 				Dir:        "/repo",
 				Flags:      "--model opus",
-				WorkflowId: &workflow,
+				WorkflowId: workflow,
 			},
 			check: func(t *testing.T, got agents.NewAgentParams) {
 				assert.Equal(t, "audit the migrations", got.Prompt)
 				assert.Equal(t, "audit", got.Title)
 				assert.Equal(t, "/repo", got.Dir)
 				assert.Equal(t, "--model opus", got.Flags)
-				require.NotNil(t, got.WorkflowID)
-				assert.Equal(t, workflow, *got.WorkflowID)
+				assert.Equal(t, workflow, got.WorkflowID)
 			},
 		},
 	}

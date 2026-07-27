@@ -58,9 +58,15 @@ func Open(t *testing.T) *Stores {
 }
 
 // SeedAgent records an agent and returns it as stored, since a test usually
-// needs the generated id rather than the fields it just wrote.
+// needs the generated id rather than the fields it just wrote. An agent with no
+// workflow set is filed under one created for it, since every agent belongs to
+// a workflow and most tests do not care which.
 func (s *Stores) SeedAgent(t *testing.T, agent agentstore.Agent) *agentstore.Agent {
 	t.Helper()
+
+	if agent.WorkflowID == "" {
+		agent.WorkflowID = s.SeedWorkflow(t, workflowstore.Config{Name: "workflow-for-" + agent.Name}).ID
+	}
 
 	require.NoError(t, s.Agents.Upsert(t.Context(), agent))
 
@@ -84,9 +90,15 @@ func (s *Stores) SeedWorkflow(t *testing.T, cfg workflowstore.Config) *workflows
 }
 
 // SeedSchedule records a schedule and returns it, for the tests that need one
-// to aim at rather than one to inspect.
+// to aim at rather than one to inspect. A schedule with no workflow set is filed
+// under one created for it, since a schedule launches into a workflow and most
+// tests do not care which.
 func (s *Stores) SeedSchedule(t *testing.T, cfg schedulestore.Config) *schedulestore.Schedule {
 	t.Helper()
+
+	if cfg.WorkflowID == "" {
+		cfg.WorkflowID = s.SeedWorkflow(t, workflowstore.Config{Name: "workflow-for-" + cfg.Name}).ID
+	}
 
 	created, err := s.Schedules.Create(t.Context(), cfg)
 	require.NoError(t, err)

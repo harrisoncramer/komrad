@@ -66,11 +66,12 @@ func NewService(agents agentStore, transcripts transcriptStore, launcher agentLa
 // already passed them.
 func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.CreateAgentRequest]) (*connect.Response[agentv1.CreateAgentResponse], error) {
 	created, err := s.launcher.NewAgent(ctx, agents.NewAgentParams{
-		Title:      req.Msg.GetTitle(),
-		Dir:        req.Msg.GetDir(),
-		Flags:      req.Msg.GetFlags(),
-		Prompt:     req.Msg.GetPrompt(),
-		WorkflowID: req.Msg.WorkflowId,
+		Title:          req.Msg.GetTitle(),
+		Dir:            req.Msg.GetDir(),
+		Flags:          req.Msg.GetFlags(),
+		Prompt:         req.Msg.GetPrompt(),
+		WorkflowID:     req.Msg.GetWorkflowId(),
+		IdempotencyKey: req.Msg.GetIdempotencyKey(),
 	})
 	switch {
 	case errors.Is(err, agents.ErrWorkflowNotFound):

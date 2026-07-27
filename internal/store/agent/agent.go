@@ -41,13 +41,18 @@ type Agent struct {
 	Prompt          string
 	State           string
 	ClaudeSessionID string
-	// WorkflowID is the workflow this agent belongs to, or nil when unassigned. It
-	// holds the workflow's stable id, not its display name.
-	WorkflowID *string
+	// WorkflowID is the workflow this agent belongs to, and every agent has one,
+	// since the workflow is where the directory, flags, and shared context it starts
+	// from come from. It holds the workflow's stable id, not its display name.
+	WorkflowID string
 	// ScheduleID is the schedule that launched this agent, or nil for one a person
 	// started. It is provenance only, and nothing about the agent depends on it.
 	ScheduleID *string
-	Deleted    bool
+	// IdempotencyKey is the caller's claim that this agent is the one identified by
+	// that key, nil for a create that makes no such claim. A retried launch passing
+	// the same key finds this agent rather than spawning a second one.
+	IdempotencyKey *string
+	Deleted        bool
 	// CreatedAt is when the agent was first recorded, for display.
 	CreatedAt time.Time
 	// UpdatedAt is when the row last changed. Listings sort by it, so it is also
@@ -217,6 +222,8 @@ func (s *Store) insert(ctx context.Context, agent Agent) error {
 		State:           agent.State,
 		ClaudeSessionID: agent.ClaudeSessionID,
 		WorkflowID:      agent.WorkflowID,
+		ScheduleID:      agent.ScheduleID,
+		IdempotencyKey:  agent.IdempotencyKey,
 	}); err != nil {
 		return fmt.Errorf("failed to insert agent %q: %w", agent.Name, err)
 	}
@@ -286,6 +293,28 @@ func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
 type Target struct {
 	ID            string
 	AgentConfigID string
+}
+
+// GetByIdempotencyKey returns the agent recorded under a caller's key, or nil
+// when none is. It spans archived agents deliberately. The key exists so a retry
+// finds what it already created, and an agent archived since is still that agent,
+// so returning nil here would spawn a duplicate.
+func (s *Store) GetByIdempotencyKey(ctx context.Context, key string) (*Agent, error) {
+	if key == "" {
+		return nil, nil
+	}
+
+	row, err := s.queries.GetAgentByIdempotencyKey(ctx, &key)
+	if store.NoRows(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the agent for idempotency key %q: %w", key, err)
+	}
+
+	agent := agentFromRow(row.Agent, row.Cwd, row.Flags)
+
+	return &agent, nil
 }
 
 // Find resolves an agent by name to the ids a delete needs, nil when no agent has
@@ -373,9 +402,10 @@ func (s *Store) Restore(ctx context.Context, id string) error {
 	return nil
 }
 
-// MoveToWorkflow reassigns an agent to a workflow, keyed by the agent's id. A nil
-// workflowID unassigns the agent, returning it to the root listing.
-func (s *Store) MoveToWorkflow(ctx context.Context, id string, workflowID *string) error {
+// MoveToWorkflow reassigns an agent to another workflow, keyed by the agent's
+// id. There is nowhere to move an agent to but a workflow, so this replaces one
+// with another rather than being able to clear it.
+func (s *Store) MoveToWorkflow(ctx context.Context, id, workflowID string) error {
 	if !store.IsID(id) {
 		return nil
 	}
@@ -387,21 +417,10 @@ func (s *Store) MoveToWorkflow(ctx context.Context, id string, workflowID *strin
 	return nil
 }
 
-// ClearWorkflow unassigns every agent in a workflow, returning them to the root
-// listing. It is called when a workflow is deleted, from inside that
-// transaction.
-func (s *Store) ClearWorkflow(ctx context.Context, workflowID string) error {
-	if err := s.queries.ClearWorkflowAgents(ctx, &workflowID); err != nil {
-		return fmt.Errorf("failed to unassign agents of workflow %q: %w", workflowID, err)
-	}
-
-	return nil
-}
-
 // ArchiveWorkflowAgents archives every live agent in a workflow, keeping their
 // workflow id so they still list under it in search.
 func (s *Store) ArchiveWorkflowAgents(ctx context.Context, workflowID string) error {
-	if err := s.queries.MarkWorkflowAgentsDeleted(ctx, &workflowID); err != nil {
+	if err := s.queries.MarkWorkflowAgentsDeleted(ctx, workflowID); err != nil {
 		return fmt.Errorf("failed to archive agents of workflow %q: %w", workflowID, err)
 	}
 
@@ -425,6 +444,7 @@ func agentFromRow(agent models.Agent, cwd, flags string) Agent {
 		ClaudeSessionID: agent.ClaudeSessionID,
 		WorkflowID:      agent.WorkflowID,
 		ScheduleID:      agent.ScheduleID,
+		IdempotencyKey:  agent.IdempotencyKey,
 		Deleted:         agent.IsDeleted,
 		CreatedAt:       agent.CreatedAt,
 		UpdatedAt:       agent.UpdatedAt,

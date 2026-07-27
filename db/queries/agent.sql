@@ -82,10 +82,22 @@ RETURNING
     id;
 
 -- name: InsertAgent :one
-INSERT INTO agents (name, agent_config_id, prompt, pane_id, state, claude_session_id, workflow_id)
-    VALUES (@name, @agent_config_id, @prompt, @pane_id, @state, @claude_session_id, sqlc.narg ('workflow_id'))
+INSERT INTO agents (name, agent_config_id, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key)
+    VALUES (@name, @agent_config_id, @prompt, @pane_id, @state, @claude_session_id, @workflow_id, sqlc.narg ('schedule_id'), sqlc.narg ('idempotency_key'))
 RETURNING
     id;
+
+-- name: GetAgentByIdempotencyKey :one
+SELECT
+    sqlc.embed(s),
+    sc.cwd,
+    sc.flags
+FROM
+    agents s
+    JOIN agent_configs sc ON sc.id = s.agent_config_id
+WHERE
+    s.idempotency_key = @idempotency_key
+LIMIT 1;
 
 -- name: UpdateAgentConfig :exec
 UPDATE
@@ -108,7 +120,7 @@ SET
     ELSE
         claude_session_id
     END,
-    workflow_id = sqlc.narg ('workflow_id')
+    workflow_id = @workflow_id
 WHERE
     id = @id;
 
@@ -116,17 +128,9 @@ WHERE
 UPDATE
     agents
 SET
-    workflow_id = sqlc.narg ('workflow_id')
+    workflow_id = @workflow_id
 WHERE
     id = @id;
-
--- name: ClearWorkflowAgents :exec
-UPDATE
-    agents
-SET
-    workflow_id = NULL
-WHERE
-    workflow_id = @workflow_id;
 
 -- name: MarkWorkflowAgentsDeleted :exec
 UPDATE

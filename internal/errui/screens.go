@@ -37,8 +37,7 @@ func Unreachable(addr string, err error) string {
 	screen := Screen{
 		Title: "Cannot reach the server",
 		Body: []string{
-			"The panel could not list your agents, so what it was showing is",
-			"out of date. Nothing has been deleted.",
+			"The panel could not list your agents.",
 		},
 		Hints: []string{
 			"Start it with: claude-agents serve",

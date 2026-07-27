@@ -146,8 +146,6 @@ func normalize(cfg schedule.Config) (schedule.Config, error) {
 	cfg.Cron = strings.TrimSpace(cfg.Cron)
 	cfg.Timezone = strings.TrimSpace(cfg.Timezone)
 	cfg.Prompt = strings.TrimSpace(cfg.Prompt)
-	cfg.Cwd = expandHome(strings.TrimSpace(cfg.Cwd))
-	cfg.Flags = strings.TrimSpace(cfg.Flags)
 
 	if _, err := ParseCron(cfg.Cron, cfg.Timezone); err != nil {
 		return schedule.Config{}, err

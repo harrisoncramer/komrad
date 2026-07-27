@@ -1,11 +1,13 @@
 package agent
 
 import (
+	"context"
 	"testing"
 
 	"claude-agents/internal/pgtest"
 	"claude-agents/internal/store"
 	workflowstore "claude-agents/internal/store/workflow"
+	"claude-agents/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -336,14 +338,15 @@ func TestRestore(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st, workflows := openWithWorkflows(t)
+			st := open(t)
+			workflows := st.workflows
 			ctx := t.Context()
 
 			agent := Agent{Name: "beta", State: StateThinking, ClaudeSessionID: "sess-1"}
 			if tt.withWorkflow {
 				workflow, err := workflows.Create(ctx, workflowstore.Config{Name: "backend"})
 				require.NoError(t, err)
-				agent.WorkflowID = &workflow.ID
+				agent.WorkflowID = workflow.ID
 			}
 
 			require.NoError(t, st.Upsert(ctx, agent))
@@ -369,12 +372,7 @@ func TestRestore(t *testing.T) {
 			require.NoError(t, err)
 			assert.Len(t, all, 1, "a single row after restore")
 
-			if !tt.withWorkflow {
-				assert.Nil(t, got.WorkflowID)
-				return
-			}
-			require.NotNil(t, got.WorkflowID, "restore preserves the workflow")
-			assert.Equal(t, *original.WorkflowID, *got.WorkflowID)
+			assert.Equal(t, original.WorkflowID, got.WorkflowID, "restore preserves the workflow")
 		})
 	}
 }
@@ -427,62 +425,56 @@ func TestDelete(t *testing.T) {
 	}
 }
 
-// TestMoveToWorkflow covers filing an agent under a workflow and taking it back
-// out. The root listing is unscoped either way, so a move changes what the agent
-// belongs to without changing what the panel shows at the top level.
+// TestMoveToWorkflow covers filing an agent under a different workflow. There is
+// nowhere to move an agent to but a workflow, so this replaces one with another
+// rather than being able to clear it.
 func TestMoveToWorkflow(t *testing.T) {
 	tests := []struct {
-		name         string
-		assign       bool
-		thenUnassign bool
-		wantAssigned bool
+		name string
+		// move says whether the agent is reassigned at all, so a case can show what
+		// an untouched agent still reports.
+		move bool
 	}{
 		{
-			name: "a new agent belongs to no workflow",
+			name: "an agent stays in the workflow it was created in",
 		},
 		{
-			name:         "assigning files it under the workflow",
-			assign:       true,
-			wantAssigned: true,
-		},
-		{
-			name:         "a nil target takes it back out",
-			assign:       true,
-			thenUnassign: true,
+			name: "and moves when it is reassigned",
+			move: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			st, workflows := openWithWorkflows(t)
+			st := open(t)
 			ctx := t.Context()
 
-			workflow, err := workflows.Create(ctx, workflowstore.Config{Name: "backend"})
+			elsewhere, err := st.workflows.Create(ctx, workflowstore.Config{Name: "elsewhere"})
 			require.NoError(t, err)
+
 			require.NoError(t, st.Upsert(ctx, Agent{Name: "scoped", State: StateNew}))
-			require.NoError(t, st.Upsert(ctx, Agent{Name: "unscoped", State: StateNew}))
+			require.NoError(t, st.Upsert(ctx, Agent{Name: "untouched", State: StateNew}))
 
 			scoped, err := st.Get(ctx, "scoped")
 			require.NoError(t, err)
 			require.NotNil(t, scoped)
-			assert.Nil(t, scoped.WorkflowID, "a new agent is unassigned")
+			assert.Equal(t, st.defaultWorkflow, scoped.WorkflowID)
 
-			if tt.assign {
-				require.NoError(t, st.MoveToWorkflow(ctx, scoped.ID, &workflow.ID))
-			}
-			if tt.thenUnassign {
-				require.NoError(t, st.MoveToWorkflow(ctx, scoped.ID, nil))
+			want := st.defaultWorkflow
+			if tt.move {
+				require.NoError(t, st.MoveToWorkflow(ctx, scoped.ID, elsewhere.ID))
+				want = elsewhere.ID
 			}
 
 			got, err := st.Get(ctx, "scoped")
 			require.NoError(t, err)
 			require.NotNil(t, got)
-			if tt.wantAssigned {
-				require.NotNil(t, got.WorkflowID)
-				assert.Equal(t, workflow.ID, *got.WorkflowID)
-			} else {
-				assert.Nil(t, got.WorkflowID)
-			}
+			assert.Equal(t, want, got.WorkflowID)
+
+			other, err := st.Get(ctx, "untouched")
+			require.NoError(t, err)
+			require.NotNil(t, other)
+			assert.Equal(t, st.defaultWorkflow, other.WorkflowID, "moving one agent leaves the others alone")
 
 			all, err := st.List(ctx)
 			require.NoError(t, err)
@@ -491,24 +483,147 @@ func TestMoveToWorkflow(t *testing.T) {
 	}
 }
 
-// open builds an agent store over a throwaway database. The tests run against
-// real Postgres because most of what this package does is SQL: the partial
-// unique index on live names, the keyset page, the generated ids.
-func open(t *testing.T) *Store {
-	t.Helper()
+// TestGetByIdempotencyKey covers the lookup a retried launch makes. It spans
+// archived agents on purpose: the key exists so a retry finds what it already
+// created, and an agent archived since is still that agent.
+func TestGetByIdempotencyKey(t *testing.T) {
+	tests := []struct {
+		name    string
+		key     string
+		archive bool
+		lookFor string
+		wantHit bool
+	}{
+		{
+			name:    "the key an agent holds finds it",
+			key:     "schedule:s1:2026-07-28T09:00:00Z",
+			lookFor: "schedule:s1:2026-07-28T09:00:00Z",
+			wantHit: true,
+		},
+		{
+			name:    "and still finds it after the agent is archived",
+			key:     "schedule:s1:2026-07-28T09:00:00Z",
+			archive: true,
+			lookFor: "schedule:s1:2026-07-28T09:00:00Z",
+			wantHit: true,
+		},
+		{
+			name:    "a key nobody holds finds nothing",
+			key:     "schedule:s1:2026-07-28T09:00:00Z",
+			lookFor: "schedule:s1:2026-07-29T09:00:00Z",
+		},
+		{
+			name:    "an empty key is not a claim, so it matches nothing",
+			key:     "schedule:s1:2026-07-28T09:00:00Z",
+			lookFor: "",
+		},
+	}
 
-	return New(pool(t).DB())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			require.NoError(t, st.Upsert(ctx, Agent{Name: "agent", State: StateNew, IdempotencyKey: &tt.key}))
+			if tt.archive {
+				require.NoError(t, st.Archive(ctx, "agent"))
+			}
+
+			got, err := st.GetByIdempotencyKey(ctx, tt.lookFor)
+			require.NoError(t, err)
+
+			if !tt.wantHit {
+				assert.Nil(t, got)
+				return
+			}
+
+			require.NotNil(t, got)
+			assert.Equal(t, "agent", got.Name)
+			require.NotNil(t, got.IdempotencyKey)
+			assert.Equal(t, tt.key, *got.IdempotencyKey)
+		})
+	}
 }
 
-// openWithWorkflows builds the agent store alongside a workflow store over the
-// same database, for the tests that need a workflow to exist before an agent can
-// point at it. The two are separate stores even here, so this package never reaches
-// into the workflows table itself.
-func openWithWorkflows(t *testing.T) (*Store, *workflowstore.Store) {
+// TestIdempotencyKeyIsUnique covers the index behind the lookup. Two agents
+// claiming one key is the duplicate the whole mechanism exists to stop, while
+// any number of agents claiming none is the ordinary case.
+func TestIdempotencyKeyIsUnique(t *testing.T) {
+	tests := []struct {
+		name     string
+		first    *string
+		second   *string
+		wantFail bool
+	}{
+		{
+			name:     "the same key twice is refused",
+			first:    xptr.Ptr("launch-1"),
+			second:   xptr.Ptr("launch-1"),
+			wantFail: true,
+		},
+		{
+			name:   "two different keys are fine",
+			first:  xptr.Ptr("launch-1"),
+			second: xptr.Ptr("launch-2"),
+		},
+		{
+			name: "so are two agents claiming no key at all",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			require.NoError(t, st.Upsert(ctx, Agent{Name: "first", State: StateNew, IdempotencyKey: tt.first}))
+
+			err := st.Upsert(ctx, Agent{Name: "second", State: StateNew, IdempotencyKey: tt.second})
+			if tt.wantFail {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
+// fixture is the agent store under test plus the workflow store the tests seed
+// through. Every agent belongs to a workflow, so one has to exist before an
+// agent can be written. The two stay separate stores, since this package never
+// reaches into the workflows table itself.
+type fixture struct {
+	*Store
+	workflows *workflowstore.Store
+	// defaultWorkflow holds any agent a test writes without naming one, which is
+	// most of them: they are about names, states, and pages rather than about
+	// where an agent belongs.
+	defaultWorkflow string
+}
+
+// Upsert fills in the default workflow when the test did not name one.
+func (f *fixture) Upsert(ctx context.Context, agent Agent) error {
+	if agent.WorkflowID == "" {
+		agent.WorkflowID = f.defaultWorkflow
+	}
+
+	return f.Store.Upsert(ctx, agent)
+}
+
+// open builds the stores over a throwaway database, with one workflow ready to
+// hold whatever the test writes. The tests run against real Postgres because
+// most of what this package does is SQL: the partial unique index on live names,
+// the keyset page, the generated ids.
+func open(t *testing.T) *fixture {
 	t.Helper()
 	p := pool(t)
 
-	return New(p.DB()), workflowstore.New(p.DB())
+	workflows := workflowstore.New(p.DB())
+	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default"})
+	require.NoError(t, err)
+
+	return &fixture{Store: New(p.DB()), workflows: workflows, defaultWorkflow: created.ID}
 }
 
 // pool opens the database itself, for the few tests that also need another

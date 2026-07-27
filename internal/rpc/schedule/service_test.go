@@ -15,6 +15,11 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// workflowID is the workflow every schedule in these tests launches into. The
+// handler stores it and never resolves it, so it needs to be well-formed and
+// nothing more.
+const workflowID = "019fa434-e7a7-7ac9-bab5-718681da797d"
+
 // missingID is a well-formed uuid no schedule holds, for the not-found rows. A
 // malformed one would be refused before the lookup and prove something else.
 const missingID = "00000000-0000-0000-0000-000000000000"
@@ -29,8 +34,7 @@ func TestCreateSchedule(t *testing.T) {
 		{
 			name: "a schedule is stored as written",
 			req: &schedulev1.CreateScheduleRequest{
-				Name: "morning-ci", Cron: "0 9 * * 1-5", Prompt: "check CI",
-				Cwd: "/work/api", Flags: "--model opus", Enabled: true,
+				Name: "morning-ci", Cron: "0 9 * * 1-5", WorkflowId: workflowID, Prompt: "check CI", Enabled: true,
 			},
 			check: func(t *testing.T, created *schedulev1.Schedule) {
 				assert.NotEmpty(t, created.GetId())
@@ -40,18 +44,20 @@ func TestCreateSchedule(t *testing.T) {
 			},
 		},
 		{
-			name: "a home-relative directory is expanded before it is stored",
+			// A schedule carries no directory of its own. The workflow it names is
+			// what says where its agents run.
+			name: "the workflow it launches into is what it stores",
 			req: &schedulev1.CreateScheduleRequest{
-				Name: "nightly", Cron: "0 2 * * *", Prompt: "sweep", Cwd: "~/repo", Enabled: true,
+				Name: "nightly", Cron: "0 2 * * *", WorkflowId: workflowID, Prompt: "sweep", Enabled: true,
 			},
 			check: func(t *testing.T, created *schedulev1.Schedule) {
-				assert.NotEqual(t, "~/repo", created.GetCwd())
+				assert.Equal(t, workflowID, created.GetWorkflowId())
 			},
 		},
 		{
 			name: "an armed schedule reports when it next fires",
 			req: &schedulev1.CreateScheduleRequest{
-				Name: "hourly", Cron: "0 * * * *", Prompt: "poll", Cwd: "/work/api", Enabled: true,
+				Name: "hourly", Cron: "0 * * * *", WorkflowId: workflowID, Prompt: "poll", Enabled: true,
 			},
 			check: func(t *testing.T, created *schedulev1.Schedule) {
 				require.NotNil(t, created.GetNextRunAt())
@@ -61,7 +67,7 @@ func TestCreateSchedule(t *testing.T) {
 		{
 			name: "a paused schedule has no next run to report",
 			req: &schedulev1.CreateScheduleRequest{
-				Name: "draft", Cron: "0 9 * * *", Prompt: "later", Cwd: "/work/api",
+				Name: "draft", Cron: "0 9 * * *", WorkflowId: workflowID, Prompt: "later",
 			},
 			check: func(t *testing.T, created *schedulev1.Schedule) {
 				assert.False(t, created.GetEnabled())
@@ -73,14 +79,14 @@ func TestCreateSchedule(t *testing.T) {
 			// This one is well-shaped and still meaningless.
 			name: "an unparseable expression is refused",
 			req: &schedulev1.CreateScheduleRequest{
-				Name: "broken", Cron: "99 9 * * *", Prompt: "go", Cwd: "/work/api",
+				Name: "broken", Cron: "99 9 * * *", WorkflowId: workflowID, Prompt: "go",
 			},
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
 			name: "an unknown timezone is refused",
 			req: &schedulev1.CreateScheduleRequest{
-				Name: "elsewhere", Cron: "0 9 * * *", Timezone: "Mars/Olympus", Prompt: "go", Cwd: "/work/api",
+				Name: "elsewhere", Cron: "0 9 * * *", WorkflowId: workflowID, Timezone: "Mars/Olympus", Prompt: "go",
 			},
 			wantCode: connect.CodeInvalidArgument,
 		},
@@ -127,7 +133,7 @@ func TestCreateScheduleNameConflict(t *testing.T) {
 			createSchedule(t, svc, "morning-ci")
 
 			_, err := svc.CreateSchedule(t.Context(), connect.NewRequest(&schedulev1.CreateScheduleRequest{
-				Name: tt.second, Cron: "0 9 * * *", Prompt: "go", Cwd: "/work/api",
+				Name: tt.second, Cron: "0 9 * * *", Prompt: "go", WorkflowId: workflowID,
 			}))
 			if tt.wantCode != 0 {
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
@@ -201,18 +207,18 @@ func TestUpdateSchedule(t *testing.T) {
 		{
 			name:     "an id nobody holds",
 			target:   missingID,
-			req:      &schedulev1.UpdateScheduleRequest{Name: "renamed", Cron: "0 9 * * *", Prompt: "go", Cwd: "/work/api"},
+			req:      &schedulev1.UpdateScheduleRequest{Name: "renamed", Cron: "0 9 * * *", Prompt: "go", WorkflowId: workflowID},
 			wantCode: connect.CodeNotFound,
 		},
 		{
 			name:     "the editable fields are replaced",
-			req:      &schedulev1.UpdateScheduleRequest{Name: "renamed", Cron: "0 17 * * 5", Prompt: "weekly", Cwd: "/work/web"},
+			req:      &schedulev1.UpdateScheduleRequest{Name: "renamed", Cron: "0 17 * * 5", Prompt: "weekly", WorkflowId: workflowID},
 			wantName: "renamed",
 			wantCron: "0 17 * * 5",
 		},
 		{
 			name:     "an unparseable expression leaves the record alone",
-			req:      &schedulev1.UpdateScheduleRequest{Name: "renamed", Cron: "0 99 * * *", Prompt: "go", Cwd: "/work/api"},
+			req:      &schedulev1.UpdateScheduleRequest{Name: "renamed", Cron: "0 99 * * *", Prompt: "go", WorkflowId: workflowID},
 			wantCode: connect.CodeInvalidArgument,
 			wantName: "morning-ci",
 			wantCron: "0 9 * * 1-5",
@@ -433,7 +439,7 @@ func createSchedule(t *testing.T, svc *Service, name string) string {
 	t.Helper()
 
 	created, err := svc.CreateSchedule(t.Context(), connect.NewRequest(&schedulev1.CreateScheduleRequest{
-		Name: name, Cron: "0 9 * * 1-5", Prompt: "check CI", Cwd: "/work/api", Enabled: true,
+		Name: name, Cron: "0 9 * * 1-5", Prompt: "check CI", Enabled: true, WorkflowId: workflowID,
 	}))
 	require.NoError(t, err)
 

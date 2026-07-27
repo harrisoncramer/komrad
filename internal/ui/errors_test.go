@@ -9,6 +9,7 @@ import (
 	"claude-agents/internal/appconfig"
 	"claude-agents/internal/errui"
 	agentstore "claude-agents/internal/store/agent"
+	workflowstore "claude-agents/internal/store/workflow"
 	agentv1 "claude-agents/proto/gen/agent/v1"
 	"claude-agents/proto/gen/agent/v1/agentv1connect"
 	workflowv1 "claude-agents/proto/gen/workflow/v1"
@@ -54,18 +55,19 @@ func (emptyWorkflows) ListWorkflows(context.Context, *connect.Request[workflowv1
 // write discarded its error, and since the list reloads straight after, a refused
 // delete looked exactly like a keypress that never registered.
 func TestRefusedActionIsReported(t *testing.T) {
-	agent := agentstore.Agent{Name: "api-refactor", State: agentstore.StateDone}
+	agent := agentstore.Agent{Name: "api-refactor", State: agentstore.StateDone, WorkflowID: "w1"}
 
 	m := model{
 		api: api{
 			agents:    refusingAgents{err: connect.NewError(connect.CodeFailedPrecondition, errors.New("already archived"))},
 			workflows: emptyWorkflows{},
 		},
-		tmux:   &recordingTmux{},
-		stage:  NewStage(&recordingTmux{}),
-		keys:   appconfig.DefaultKeybindings(),
-		screen: screenAgents,
-		agents: []agentItem{{agent: agent, alive: false}},
+		tmux:      &recordingTmux{},
+		stage:     NewStage(&recordingTmux{}),
+		keys:      appconfig.DefaultKeybindings(),
+		screen:    screenAgents,
+		workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+		agents:    []agentItem{{agent: agent, alive: false}},
 	}
 	m.agentCursor = firstAgentRowIndex(m.agentRows())
 
@@ -88,11 +90,14 @@ func TestRefusedRestoreIsReported(t *testing.T) {
 			agents:    refusingAgents{err: connect.NewError(connect.CodeNotFound, errors.New("no such agent"))},
 			workflows: emptyWorkflows{},
 		},
-		tmux:   &recordingTmux{},
-		stage:  NewStage(&recordingTmux{}),
-		keys:   appconfig.DefaultKeybindings(),
-		screen: screenAgents,
-		agents: []agentItem{{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateDone}, alive: false}},
+		tmux:      &recordingTmux{},
+		stage:     NewStage(&recordingTmux{}),
+		keys:      appconfig.DefaultKeybindings(),
+		screen:    screenAgents,
+		workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+		agents: []agentItem{
+			{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateDone, WorkflowID: "w1"}, alive: false},
+		},
 	}
 	m.agentCursor = firstAgentRowIndex(m.agentRows())
 
@@ -148,7 +153,10 @@ func TestSuccessfulActionClearsTheBanner(t *testing.T) {
 		stage:     NewStage(&recordingTmux{}),
 		keys:      appconfig.DefaultKeybindings(),
 		screen:    screenAgents,
-		agents:    []agentItem{{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateDone}}},
+		workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+		agents: []agentItem{
+			{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateDone, WorkflowID: "w1"}},
+		},
 		actionErr: &errui.Banner{Summary: "Could not delete agent \"gone\"", Detail: "stale"},
 	}
 	m.agentCursor = firstAgentRowIndex(m.agentRows())
@@ -168,7 +176,10 @@ func TestActionErrorBannersOverTheList(t *testing.T) {
 		actionErr: &errui.Banner{Summary: `Could not delete agent "api-refactor"`, Detail: "already archived"},
 		screen:    screenAgents,
 		keys:      appconfig.DefaultKeybindings(),
-		agents:    []agentItem{{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateDone}}},
+		workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+		agents: []agentItem{
+			{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateDone, WorkflowID: "w1"}},
+		},
 	}
 
 	view := m.View()
@@ -376,7 +387,6 @@ func TestUnreachableView(t *testing.T) {
 
 			assert.Contains(t, view, "Cannot reach the server")
 			assert.Contains(t, view, "127.0.0.1:8787", "the address to go looking at is on screen")
-			assert.Contains(t, view, "Nothing has been deleted.")
 			assert.NotContains(t, view, "still-here", "the stale list is not shown as if it were current")
 		})
 	}

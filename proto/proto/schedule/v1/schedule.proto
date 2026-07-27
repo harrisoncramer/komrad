@@ -7,6 +7,7 @@ import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "pagination/v1/pagination.proto";
+import "rules/v1/rules.proto";
 
 option go_package = "claude-agents/proto/gen/schedule/v1;schedulev1";
 
@@ -24,11 +25,9 @@ message Schedule {
   // False pauses the schedule. It keeps its record and stops firing.
   bool enabled = 5;
   string prompt = 6;
-  // The workflow launched agents are filed under, unset to leave them at the
-  // root.
-  optional string workflow_id = 7;
-  string cwd = 8;
-  string flags = 9;
+  // The workflow this schedule launches into, and where each launched agent takes
+  // its directory, flags, and shared context from.
+  string workflow_id = 7;
   // When this schedule next fires, derived from the cron expression rather than
   // stored. Unset when the schedule is paused, since a paused one has no next
   // run.
@@ -65,14 +64,10 @@ message CreateScheduleRequest {
   // Five whitespace-separated fields. The shape is checked here and the
   // expression is parsed by the service, which rejects one that is well-shaped
   // but meaningless.
-  string cron = 2 [
-    (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).cel = {
-      id: "cron.five_fields",
-      message: "cron must be five whitespace-separated fields, such as '0 9 * * 1-5'",
-      expression: "this.split(' ').filter(f, f != '').size() == 5"
-    }
-  ];
+  string cron = 2 [(buf.validate.field).string = {
+    min_len: 1,
+    [rules.v1.cron_expression]: true
+  }];
   // An IANA zone such as America/New_York, or blank for the machine's local
   // zone. A zone rather than an offset, so a 9am schedule stays at 9am across a
   // daylight saving change.
@@ -86,31 +81,10 @@ message CreateScheduleRequest {
     min_len: 1,
     max_len: 50000
   }];
-  // The workflow launched agents are filed under. Omit to leave them at the root.
-  // An empty string names a workflow that cannot exist.
-  optional string workflow_id = 6 [(buf.validate.field).string.min_len = 1];
-  // Where the launched agent starts. Required and absolute or ~-prefixed, the
-  // same rule creating an agent follows, since nothing interactive is present
-  // at launch to fall back to a current directory.
-  string cwd = 7 [
-    (buf.validate.field).string = {
-      min_len: 1,
-      max_len: 4096
-    },
-    (buf.validate.field).cel = {
-      id: "cwd.absolute",
-      message: "cwd must be absolute or start with ~",
-      expression: "this.startsWith('/') || this.startsWith('~')"
-    }
-  ];
-  string flags = 8 [
-    (buf.validate.field).string.max_len = 500,
-    (buf.validate.field).cel = {
-      id: "flags.no_shell_metacharacters",
-      message: "flags must not contain shell metacharacters",
-      expression: "!this.matches('[;&|<>`$\\\\\\n]')"
-    }
-  ];
+  // The workflow this schedule launches into, and the reason a schedule carries no
+  // directory or flags of its own. It reads them off the workflow as it fires, so a
+  // workflow that moves takes its schedules with it.
+  string workflow_id = 6 [(buf.validate.field).string.min_len = 1];
 }
 
 message CreateScheduleResponse {
@@ -126,40 +100,17 @@ message UpdateScheduleRequest {
     min_len: 1,
     max_len: 200
   }];
-  string cron = 3 [
-    (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).cel = {
-      id: "cron.five_fields",
-      message: "cron must be five whitespace-separated fields, such as '0 9 * * 1-5'",
-      expression: "this.split(' ').filter(f, f != '').size() == 5"
-    }
-  ];
+  string cron = 3 [(buf.validate.field).string = {
+    min_len: 1,
+    [rules.v1.cron_expression]: true
+  }];
   string timezone = 4 [(buf.validate.field).string.max_len = 100];
   bool enabled = 5;
   string prompt = 6 [(buf.validate.field).string = {
     min_len: 1,
     max_len: 50000
   }];
-  optional string workflow_id = 7 [(buf.validate.field).string.min_len = 1];
-  string cwd = 8 [
-    (buf.validate.field).string = {
-      min_len: 1,
-      max_len: 4096
-    },
-    (buf.validate.field).cel = {
-      id: "cwd.absolute",
-      message: "cwd must be absolute or start with ~",
-      expression: "this.startsWith('/') || this.startsWith('~')"
-    }
-  ];
-  string flags = 9 [
-    (buf.validate.field).string.max_len = 500,
-    (buf.validate.field).cel = {
-      id: "flags.no_shell_metacharacters",
-      message: "flags must not contain shell metacharacters",
-      expression: "!this.matches('[;&|<>`$\\\\\\n]')"
-    }
-  ];
+  string workflow_id = 7 [(buf.validate.field).string.min_len = 1];
 }
 
 // SetScheduleEnabledRequest pauses or resumes one schedule, the single edit the
@@ -180,7 +131,7 @@ service ScheduleService {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "list_schedules"
-      description: "List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, and next run time. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next."
+      description: "List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, and next run time. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next."
     };
   }
   rpc GetSchedule(GetScheduleRequest) returns (GetScheduleResponse) {
@@ -193,7 +144,7 @@ service ScheduleService {
   rpc CreateSchedule(CreateScheduleRequest) returns (CreateScheduleResponse) {
     option (annotation.v1.tool) = {
       tool_name: "create_schedule"
-      description: "Create a recurring agent launch. Nothing runs at create time; the agent is spawned when the cron expression next matches, and again on every match after that. Create it with enabled false to write it down without arming it."
+      description: "Create a recurring agent launch inside a workflow. Nothing runs at create time; the agent is spawned when the cron expression next matches, and again on every match after that. The workflow supplies the directory, flags, and shared context each launch uses, so only the prompt and the timing are set here. Create it with enabled false to write it down without arming it."
       destructive: false
     };
   }
@@ -201,7 +152,7 @@ service ScheduleService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "update_schedule"
-      description: "Replace a schedule's name, cron expression, timezone, prompt, workflow, directory, and flags. Every field is written, so read the schedule first and send back the ones you are not changing. Agents already launched are untouched."
+      description: "Replace a schedule's name, cron expression, timezone, prompt, and workflow. Every field is written, so read the schedule first and send back the ones you are not changing. Agents already launched are untouched."
       destructive: false
     };
   }

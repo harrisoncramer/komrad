@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"claude-agents/internal/store/schedule"
+	"claude-agents/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -122,28 +123,25 @@ func TestNewSchedule(t *testing.T) {
 		cfg      schedule.Config
 		wantErr  error
 		wantName string
-		wantCwd  string
 	}{
 		{
 			name:     "a schedule is stored as written",
-			cfg:      schedule.Config{Name: "morning-ci", Cron: "0 9 * * 1-5", Prompt: "check CI", Cwd: "/work/api"},
+			cfg:      schedule.Config{Name: "morning-ci", Cron: "0 9 * * 1-5", Prompt: "check CI"},
 			wantName: "morning-ci",
-			wantCwd:  "/work/api",
 		},
 		{
 			name:     "surrounding whitespace is trimmed",
-			cfg:      schedule.Config{Name: "  spaced  ", Cron: "  0 9 * * *  ", Prompt: " go ", Cwd: "/work/api"},
+			cfg:      schedule.Config{Name: "  spaced  ", Cron: "  0 9 * * *  ", Prompt: " go "},
 			wantName: "spaced",
-			wantCwd:  "/work/api",
 		},
 		{
 			name:    "an unparseable expression never reaches the store",
-			cfg:     schedule.Config{Name: "broken", Cron: "0 99 * * *", Prompt: "go", Cwd: "/work/api"},
+			cfg:     schedule.Config{Name: "broken", Cron: "0 99 * * *", Prompt: "go"},
 			wantErr: ErrBadCron,
 		},
 		{
 			name:    "nor does an unknown timezone",
-			cfg:     schedule.Config{Name: "elsewhere", Cron: "0 9 * * *", Timezone: "Mars/Olympus", Prompt: "go", Cwd: "/work/api"},
+			cfg:     schedule.Config{Name: "elsewhere", Cron: "0 9 * * *", Timezone: "Mars/Olympus", Prompt: "go"},
 			wantErr: ErrBadCron,
 		},
 	}
@@ -153,7 +151,11 @@ func TestNewSchedule(t *testing.T) {
 			st := newStore(t)
 			svc := NewScheduleService(ScheduleParams{Schedules: st.Schedules})
 
-			created, err := svc.NewSchedule(t.Context(), tt.cfg)
+			workflowID := st.SeedWorkflow(t, workflow.Config{Name: "backend"}).ID
+			cfg := tt.cfg
+			cfg.WorkflowID = workflowID
+
+			created, err := svc.NewSchedule(t.Context(), cfg)
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 
@@ -166,7 +168,7 @@ func TestNewSchedule(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, created)
 			assert.Equal(t, tt.wantName, created.Name)
-			assert.Equal(t, tt.wantCwd, created.Cwd)
+			assert.Equal(t, workflowID, created.WorkflowID, "a schedule always names the workflow it launches into")
 		})
 	}
 }
@@ -183,7 +185,7 @@ func TestScheduleNotFound(t *testing.T) {
 			name: "updating",
 			call: func(t *testing.T, svc *ScheduleService) error {
 				return svc.UpdateSchedule(t.Context(), missingScheduleID,
-					schedule.Config{Name: "x", Cron: "0 9 * * *", Prompt: "go", Cwd: "/work/api"})
+					schedule.Config{Name: "x", Cron: "0 9 * * *", Prompt: "go", WorkflowID: "w1"})
 			},
 		},
 		{

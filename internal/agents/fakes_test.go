@@ -10,6 +10,7 @@ import (
 	workflowstore "claude-agents/internal/store/workflow"
 	"claude-agents/internal/storetest"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -130,7 +131,19 @@ func (s *testStore) Get(ctx context.Context, name string) (*agentstore.Agent, er
 	return s.Agents.Get(ctx, name)
 }
 
+// Upsert records an agent, filing it under a workflow of its own when the test
+// did not name one. Every agent belongs to a workflow, and most tests here are
+// about something else entirely.
 func (s *testStore) Upsert(ctx context.Context, agent agentstore.Agent) error {
+	if agent.WorkflowID == "" {
+		created, err := s.Workflows.Create(ctx, workflowstore.Config{Name: "workflow-" + uuid.NewString()})
+		if err != nil {
+			return err
+		}
+
+		agent.WorkflowID = created.ID
+	}
+
 	return s.Agents.Upsert(ctx, agent)
 }
 
@@ -169,7 +182,7 @@ func (s *testStore) agentService(tmux agentTmux, launcher *Launcher, flags strin
 
 // workflowService builds the workflow service over these stores.
 func (s *testStore) workflowService() *WorkflowService {
-	return NewWorkflowService(WorkflowParams{Workflows: s.Workflows, Tx: s.Pool})
+	return NewWorkflowService(WorkflowParams{Workflows: s.Workflows, Schedules: s.Schedules, Tx: s.Pool})
 }
 
 // seed inserts an agent in a given state and returns it with its generated id.
@@ -229,4 +242,17 @@ func agentByID(t *testing.T, st *testStore, id string) agentstore.Agent {
 	t.Fatalf("no agent with id %q", id)
 
 	return agentstore.Agent{}
+}
+
+// seedWorkflow creates a workflow and returns its id. Every agent belongs to
+// one, so a test launching an agent needs somewhere to put it even when the
+// workflow itself is beside the point.
+func seedWorkflow(t *testing.T, st *testStore) string {
+	t.Helper()
+
+	created, err := st.Workflows.Create(t.Context(), workflowstore.Config{Name: "workflow-" + uuid.NewString()})
+	require.NoError(t, err)
+	require.NotNil(t, created)
+
+	return created.ID
 }

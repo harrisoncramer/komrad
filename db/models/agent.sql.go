@@ -47,20 +47,6 @@ func (q *Queries) AgentExists(ctx context.Context, id string) (bool, error) {
 	return exists, err
 }
 
-const clearWorkflowAgents = `-- name: ClearWorkflowAgents :exec
-UPDATE
-    agents
-SET
-    workflow_id = NULL
-WHERE
-    workflow_id = $1
-`
-
-func (q *Queries) ClearWorkflowAgents(ctx context.Context, workflowID *string) error {
-	_, err := q.db.Exec(ctx, clearWorkflowAgents, workflowID)
-	return err
-}
-
 const deleteAgentByID = `-- name: DeleteAgentByID :exec
 DELETE FROM agents
 WHERE id = $1
@@ -134,6 +120,48 @@ func (q *Queries) GetAgent(ctx context.Context, name string) (*GetAgentRow, erro
 	return &i, err
 }
 
+const getAgentByIdempotencyKey = `-- name: GetAgentByIdempotencyKey :one
+SELECT
+    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at, s.schedule_id, s.idempotency_key,
+    sc.cwd,
+    sc.flags
+FROM
+    agents s
+    JOIN agent_configs sc ON sc.id = s.agent_config_id
+WHERE
+    s.idempotency_key = $1
+LIMIT 1
+`
+
+type GetAgentByIdempotencyKeyRow struct {
+	Agent Agent
+	Cwd   string
+	Flags string
+}
+
+func (q *Queries) GetAgentByIdempotencyKey(ctx context.Context, idempotencyKey *string) (*GetAgentByIdempotencyKeyRow, error) {
+	row := q.db.QueryRow(ctx, getAgentByIdempotencyKey, idempotencyKey)
+	var i GetAgentByIdempotencyKeyRow
+	err := row.Scan(
+		&i.Agent.ID,
+		&i.Agent.Name,
+		&i.Agent.AgentConfigID,
+		&i.Agent.Prompt,
+		&i.Agent.PaneID,
+		&i.Agent.State,
+		&i.Agent.ClaudeSessionID,
+		&i.Agent.WorkflowID,
+		&i.Agent.IsDeleted,
+		&i.Agent.CreatedAt,
+		&i.Agent.UpdatedAt,
+		&i.Agent.ScheduleID,
+		&i.Agent.IdempotencyKey,
+		&i.Cwd,
+		&i.Flags,
+	)
+	return &i, err
+}
+
 const getAgentForDelete = `-- name: GetAgentForDelete :one
 SELECT
     id,
@@ -180,8 +208,8 @@ func (q *Queries) GetTranscript(ctx context.Context, agentID string) (*GetTransc
 }
 
 const insertAgent = `-- name: InsertAgent :one
-INSERT INTO agents (name, agent_config_id, prompt, pane_id, state, claude_session_id, workflow_id)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO agents (name, agent_config_id, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING
     id
 `
@@ -193,7 +221,9 @@ type InsertAgentParams struct {
 	PaneID          string
 	State           string
 	ClaudeSessionID string
-	WorkflowID      *string
+	WorkflowID      string
+	ScheduleID      *string
+	IdempotencyKey  *string
 }
 
 func (q *Queries) InsertAgent(ctx context.Context, arg InsertAgentParams) (string, error) {
@@ -205,6 +235,8 @@ func (q *Queries) InsertAgent(ctx context.Context, arg InsertAgentParams) (strin
 		arg.State,
 		arg.ClaudeSessionID,
 		arg.WorkflowID,
+		arg.ScheduleID,
+		arg.IdempotencyKey,
 	)
 	var id string
 	err := row.Scan(&id)
@@ -433,7 +465,7 @@ WHERE
     AND is_deleted = FALSE
 `
 
-func (q *Queries) MarkWorkflowAgentsDeleted(ctx context.Context, workflowID *string) error {
+func (q *Queries) MarkWorkflowAgentsDeleted(ctx context.Context, workflowID string) error {
 	_, err := q.db.Exec(ctx, markWorkflowAgentsDeleted, workflowID)
 	return err
 }
@@ -649,7 +681,7 @@ WHERE
 `
 
 type SetAgentWorkflowParams struct {
-	WorkflowID *string
+	WorkflowID string
 	ID         string
 }
 
@@ -680,7 +712,7 @@ type UpdateAgentParams struct {
 	PaneID          string
 	State           string
 	ClaudeSessionID interface{}
-	WorkflowID      *string
+	WorkflowID      string
 	ID              string
 }
 

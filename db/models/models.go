@@ -17,7 +17,7 @@ type Agent struct {
 	PaneID          string
 	State           string
 	ClaudeSessionID string
-	WorkflowID      *string
+	WorkflowID      string
 	IsDeleted       bool
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
@@ -44,26 +44,16 @@ type AgentTranscript struct {
 
 // A cron-driven agent launch: what to run, where, and how often.
 type Schedule struct {
-	ID               string
-	Name             string
-	Cron             string
-	Timezone         string
-	Enabled          bool
-	Prompt           string
-	WorkflowID       *string
-	ScheduleConfigID string
-	IsDeleted        bool
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-}
-
-// Launch config (cwd, flags) owned by exactly one schedule.
-type ScheduleConfig struct {
-	ID        string
-	Cwd       string
-	Flags     string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID         string
+	Name       string
+	Cron       string
+	Timezone   string
+	Enabled    bool
+	Prompt     string
+	WorkflowID string
+	IsDeleted  bool
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 // A named bucket of related agents. Pure organization; runs nothing.

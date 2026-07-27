@@ -71,8 +71,14 @@ func TestDescribeTable(t *testing.T) {
 			wantPrimary: true,
 		},
 		{
-			name:     "an unassigned agent has a null workflow",
-			column:   "workflow_id",
+			// Every agent belongs to a workflow, so this is one of the columns a
+			// model can count on being there.
+			name:   "the workflow an agent belongs to is never null",
+			column: "workflow_id",
+		},
+		{
+			name:     "the schedule that launched it is, since most agents have none",
+			column:   "schedule_id",
 			wantNull: true,
 		},
 		{

@@ -6,6 +6,7 @@ import (
 	"claude-agents/internal/pgtest"
 	"claude-agents/internal/store"
 	agentstore "claude-agents/internal/store/agent"
+	workflowstore "claude-agents/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -341,6 +342,9 @@ func TestLikePattern(t *testing.T) {
 type fixture struct {
 	*Store
 	agents *agentstore.Store
+	// workflow holds the agents these tests seed. Every agent belongs to one, and
+	// none of these cases are about which.
+	workflow string
 }
 
 func open(t *testing.T) *fixture {
@@ -349,7 +353,11 @@ func open(t *testing.T) *fixture {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = p.Close() })
 
-	return &fixture{Store: New(p.DB()), agents: agentstore.New(p.DB())}
+	workflows := workflowstore.New(p.DB())
+	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default"})
+	require.NoError(t, err)
+
+	return &fixture{Store: New(p.DB()), agents: agentstore.New(p.DB()), workflow: created.ID}
 }
 
 // seedAgent inserts an agent and returns its generated id, so a transcript can
@@ -357,7 +365,9 @@ func open(t *testing.T) *fixture {
 func seedAgent(t *testing.T, st *fixture, name string) string {
 	t.Helper()
 	ctx := t.Context()
-	require.NoError(t, st.agents.Upsert(ctx, agentstore.Agent{Name: name, State: agentstore.StateNew}))
+	require.NoError(t, st.agents.Upsert(ctx, agentstore.Agent{
+		Name: name, State: agentstore.StateNew, WorkflowID: st.workflow,
+	}))
 	got, err := st.agents.Get(ctx, name)
 	require.NoError(t, err)
 	require.NotNil(t, got)

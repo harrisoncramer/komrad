@@ -18,55 +18,39 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// noWorkflowLabel heads the trailing group of agents that belong to no workflow.
-const noWorkflowLabel = "No Workflow"
-
 // agentRow is one line of the agents list, either a workflow header or an agent
 // nested beneath one. The cursor moves over both but actions apply only to agent
 // rows.
 type agentRow struct {
 	header bool
-	label  string    // workflow name or noWorkflowLabel when header is true
+	label  string    // the workflow's name when header is true
 	item   agentItem // the agent when header is false
 	// workflowIndex is the header's index in m.workflows so workflow actions can
-	// target it. It is -1 for the no-workflow header and unused for agent rows.
+	// target it, and the index of the enclosing workflow for an agent row, so a new
+	// agent started from one lands in the same place.
 	workflowIndex int
 }
 
 // agentRows arranges the agents into the displayed tree. Every workflow is a
-// header followed by its agents, then a trailing group of agents that belong to no
-// workflow. Empty workflows still get a header so a new one can be hovered to add
-// its first agent.
+// header followed by its agents, and an empty workflow still gets a header so a
+// new one can be hovered to add its first agent.
+//
+// Every agent belongs to a workflow, so there is no trailing group for ones that
+// do not. An agent whose workflow is not in the listing, which means the
+// workflow was deleted, is left out rather than shown under a header that is not
+// there.
 func (m model) agentRows() []agentRow {
 	byWorkflow := make(map[string][]agentItem)
-	var unassigned []agentItem
 	for _, it := range m.agents {
-		if it.agent.WorkflowID != nil {
-			id := *it.agent.WorkflowID
-			byWorkflow[id] = append(byWorkflow[id], it)
-		} else {
-			unassigned = append(unassigned, it)
-		}
+		byWorkflow[it.agent.WorkflowID] = append(byWorkflow[it.agent.WorkflowID], it)
 	}
 
 	var rows []agentRow
 	for wi, w := range m.workflows {
-		agents := byWorkflow[w.ID]
-		delete(byWorkflow, w.ID)
 		rows = append(rows, agentRow{header: true, label: w.Name, workflowIndex: wi})
-		for _, it := range agents {
-			rows = append(rows, agentRow{item: it})
+		for _, it := range byWorkflow[w.ID] {
+			rows = append(rows, agentRow{item: it, workflowIndex: wi})
 		}
-	}
-
-	// Agents whose workflow is unknown, for example one just deleted, fall into the
-	// unassigned group rather than vanishing.
-	for _, leftover := range byWorkflow {
-		unassigned = append(unassigned, leftover...)
-	}
-	rows = append(rows, agentRow{header: true, label: noWorkflowLabel, workflowIndex: -1})
-	for _, it := range unassigned {
-		rows = append(rows, agentRow{item: it})
 	}
 
 	return rows
@@ -92,23 +76,31 @@ func (m model) hoveredWorkflow() (int, bool) {
 	}
 
 	r := rows[m.agentCursor]
-	if !r.header || r.workflowIndex < 0 {
+	if !r.header {
 		return 0, false
 	}
 
 	return r.workflowIndex, true
 }
 
-// onNoWorkflowHeader reports whether the cursor sits on the no-workflow header,
-// which has no workflow record behind it and so cannot be renamed or deleted.
-func (m model) onNoWorkflowHeader() bool {
+// hoveredWorkflowRecord is the workflow the cursor is inside, whether it sits on
+// the header or on one of the agents under it, so a new agent started from
+// anywhere in the tree lands in the workflow it was started from. It is nil when
+// the tree is empty, which means no workflow exists to start one in.
+func (m model) hoveredWorkflowRecord() *workflowstore.Workflow {
 	rows := m.agentRows()
 	if m.agentCursor < 0 || m.agentCursor >= len(rows) {
-		return false
+		return nil
 	}
 
-	r := rows[m.agentCursor]
-	return r.header && r.workflowIndex < 0
+	idx := rows[m.agentCursor].workflowIndex
+	if idx < 0 || idx >= len(m.workflows) {
+		return nil
+	}
+
+	workflow := m.workflows[idx]
+
+	return &workflow
 }
 
 // firstAgentRowIndex returns the index of the first agent row, skipping a leading
@@ -169,7 +161,7 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case bound(k, m.keys.Agents.Back):
 		return m, m.hide()
 	case bound(k, m.keys.Agents.New):
-		return m.openNewAgent(nil)
+		return m.openNewAgent(m.hoveredWorkflowRecord())
 	case bound(k, m.keys.Nav.Up):
 		if m.agentCursor > 0 {
 			m.agentCursor--
@@ -302,7 +294,7 @@ func (m model) stageSelection() {
 func (m model) agentCount(workflowID string) int {
 	n := 0
 	for _, it := range m.agents {
-		if it.agent.WorkflowID != nil && *it.agent.WorkflowID == workflowID {
+		if it.agent.WorkflowID == workflowID {
 			n++
 		}
 	}
@@ -426,13 +418,6 @@ func (m model) actionHints() string {
 			{hintKeys(m.keys.Workflows.Edit), "edit"},
 			{hintKeys(m.keys.Workflows.Delete), "delete"},
 			{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
-		}
-	} else if m.onNoWorkflowHeader() {
-		hints = []hint{
-			{hintKeys(m.keys.Agents.New), "new agent"},
-			{hintKeys(m.keys.Workflows.New), "new workflow"},
-			{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
-			{hintKeys(m.keys.Agents.Back), "back"},
 		}
 	}
 

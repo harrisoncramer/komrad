@@ -50,11 +50,11 @@ type Schedule struct {
 	// simply stops firing.
 	Enabled bool
 	Prompt  string
-	// WorkflowID is the workflow launched agents are filed under, nil to leave
-	// them at the root.
-	WorkflowID *string
-	Cwd        string
-	Flags      string
+	// WorkflowID is the workflow this schedule launches into. It is where the
+	// directory, flags, and shared context each launch uses come from, read when
+	// the schedule fires rather than copied here, so a workflow that moves takes
+	// its schedules with it.
+	WorkflowID string
 	// UpdatedAt is what the listing sorts by, and half of the paging cursor.
 	UpdatedAt time.Time
 }
@@ -66,9 +66,7 @@ type Config struct {
 	Timezone   string
 	Enabled    bool
 	Prompt     string
-	WorkflowID *string
-	Cwd        string
-	Flags      string
+	WorkflowID string
 }
 
 // Store reads and writes schedules.
@@ -91,7 +89,7 @@ func (s *Store) List(ctx context.Context) ([]Schedule, error) {
 
 	schedules := make([]Schedule, 0, len(rows))
 	for _, row := range rows {
-		schedules = append(schedules, scheduleFromRow(row.Schedule, row.Cwd, row.Flags))
+		schedules = append(schedules, scheduleFromRow(row.Schedule))
 	}
 
 	return schedules, nil
@@ -120,7 +118,7 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Sc
 
 	schedules := make([]Schedule, 0, len(rows))
 	for _, row := range rows {
-		schedules = append(schedules, scheduleFromRow(row.Schedule, row.Cwd, row.Flags))
+		schedules = append(schedules, scheduleFromRow(row.Schedule))
 	}
 
 	return schedules, nil
@@ -141,30 +139,20 @@ func (s *Store) Get(ctx context.Context, id string) (*Schedule, error) {
 		return nil, fmt.Errorf("failed to get schedule %q: %w", id, err)
 	}
 
-	schedule := scheduleFromRow(row.Schedule, row.Cwd, row.Flags)
+	schedule := scheduleFromRow(row.Schedule)
+
 	return &schedule, nil
 }
 
-// Create inserts a schedule together with the config row holding the cwd and
-// flags its launches start from, and returns it. Both rows must land together,
-// so a caller outside a transaction gets one through InTx.
+// Create inserts a schedule and returns it.
 func (s *Store) Create(ctx context.Context, cfg Config) (*Schedule, error) {
-	configID, err := s.queries.InsertScheduleConfig(ctx, models.InsertScheduleConfigParams{
-		Cwd:   cfg.Cwd,
-		Flags: cfg.Flags,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to insert config for schedule %q: %w", cfg.Name, err)
-	}
-
 	row, err := s.queries.InsertSchedule(ctx, models.InsertScheduleParams{
-		Name:             cfg.Name,
-		Cron:             cfg.Cron,
-		Timezone:         cfg.Timezone,
-		Enabled:          cfg.Enabled,
-		Prompt:           cfg.Prompt,
-		WorkflowID:       cfg.WorkflowID,
-		ScheduleConfigID: configID,
+		Name:       cfg.Name,
+		Cron:       cfg.Cron,
+		Timezone:   cfg.Timezone,
+		Enabled:    cfg.Enabled,
+		Prompt:     cfg.Prompt,
+		WorkflowID: cfg.WorkflowID,
 	})
 	if nameTaken(err) {
 		return nil, fmt.Errorf("%w: %q", ErrNameTaken, cfg.Name)
@@ -173,13 +161,12 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Schedule, error) {
 		return nil, fmt.Errorf("failed to create schedule %q: %w", cfg.Name, err)
 	}
 
-	schedule := scheduleFromRow(*row, cfg.Cwd, cfg.Flags)
+	schedule := scheduleFromRow(*row)
+
 	return &schedule, nil
 }
 
-// Update replaces a schedule's editable fields and its linked config, keyed by
-// id. The two writes must land together, so a caller outside a transaction gets
-// one through InTx.
+// Update replaces a schedule's editable fields, keyed by id.
 func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 	if !store.IsID(id) {
 		return nil
@@ -199,14 +186,6 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 	}
 	if err != nil {
 		return fmt.Errorf("failed to update schedule %q: %w", id, err)
-	}
-
-	if err := s.queries.UpdateScheduleConfig(ctx, models.UpdateScheduleConfigParams{
-		ScheduleID: id,
-		Cwd:        cfg.Cwd,
-		Flags:      cfg.Flags,
-	}); err != nil {
-		return fmt.Errorf("failed to update config for schedule %q: %w", id, err)
 	}
 
 	return nil
@@ -240,8 +219,24 @@ func (s *Store) Archive(ctx context.Context, id string) error {
 	return nil
 }
 
-// scheduleFromRow builds a Schedule from a schedule row and its joined config.
-func scheduleFromRow(s models.Schedule, cwd, flags string) Schedule {
+// CountLive reports how many live schedules launch into a workflow. Deleting a
+// workflow while any do would leave them with nowhere to run, so the caller
+// checks here first rather than discovering it when one next fires.
+func (s *Store) CountLive(ctx context.Context, workflowID string) (int64, error) {
+	if !store.IsID(workflowID) {
+		return 0, nil
+	}
+
+	count, err := s.queries.CountLiveWorkflowSchedules(ctx, workflowID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count the schedules of workflow %q: %w", workflowID, err)
+	}
+
+	return count, nil
+}
+
+// scheduleFromRow builds a Schedule from its row.
+func scheduleFromRow(s models.Schedule) Schedule {
 	return Schedule{
 		ID:         s.ID,
 		Name:       s.Name,
@@ -250,8 +245,6 @@ func scheduleFromRow(s models.Schedule, cwd, flags string) Schedule {
 		Enabled:    s.Enabled,
 		Prompt:     s.Prompt,
 		WorkflowID: s.WorkflowID,
-		Cwd:        cwd,
-		Flags:      flags,
 		UpdatedAt:  s.UpdatedAt,
 	}
 }

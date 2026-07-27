@@ -14,6 +14,7 @@ import (
 	"connectrpc.com/connect"
 
 	schedulestore "claude-agents/internal/store/schedule"
+	workflowstore "claude-agents/internal/store/workflow"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -95,7 +96,19 @@ func (m model) stageSchedule() {
 		return
 	}
 
-	m.stage.Text(scheduleMarkdown(item))
+	m.stage.Text(scheduleMarkdown(item, m.workflowByID(item.schedule.WorkflowID)))
+}
+
+// workflowByID finds a workflow in the list the panel already polls, nil when
+// none holds that id, which means it was deleted.
+func (m model) workflowByID(id string) *workflowstore.Workflow {
+	for _, w := range m.workflows {
+		if w.ID == id {
+			return &w
+		}
+	}
+
+	return nil
 }
 
 // toggleSchedule pauses or resumes the hovered schedule.
@@ -115,10 +128,19 @@ func (m model) toggleSchedule() (tea.Model, tea.Cmd) {
 }
 
 // newScheduleForm opens the form to create a schedule, blank except for the
-// directory the user is looking at, which is the likeliest answer.
+// workflow, which starts on the first in the list since one has to be chosen.
 func (m model) newScheduleForm() (tea.Model, tea.Cmd) {
+	if len(m.workflows) == 0 {
+		m.failAction("Could not create a schedule", errNoWorkflow)
+
+		return m, nil
+	}
+
 	m.scheduleEditTarget = nil
-	m.form = scheduleForm(schedulestore.Config{Cwd: m.currentDir(""), Enabled: true}, m.keys.Form)
+	m.form = scheduleForm(schedulestore.Config{
+		Enabled:    true,
+		WorkflowID: m.workflows[0].ID,
+	}, m.workflows, m.keys.Form)
 	m.screen = screenScheduleForm
 
 	return m, m.form.Init()
@@ -146,9 +168,7 @@ func (m model) editScheduleForm() (tea.Model, tea.Cmd) {
 		Enabled:    target.Enabled,
 		Prompt:     target.Prompt,
 		WorkflowID: target.WorkflowID,
-		Cwd:        target.Cwd,
-		Flags:      target.Flags,
-	}, m.keys.Form)
+	}, m.workflows, m.keys.Form)
 	m.screen = screenScheduleForm
 
 	return m, m.form.Init()
@@ -198,19 +218,15 @@ func (m model) updateScheduleForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 // looking unchanged is exactly what a failed submit looks like otherwise.
 func (m model) submitScheduleForm() (tea.Model, tea.Cmd) {
 	cfg := schedulestore.Config{
-		Name:     m.form.GetString("name"),
-		Cron:     m.form.GetString("cron"),
-		Timezone: m.form.GetString("timezone"),
-		Enabled:  m.form.GetBool("enabled"),
-		Prompt:   m.form.GetString("prompt"),
-		Cwd:      m.form.GetString("dir"),
-		Flags:    m.form.GetString("flags"),
+		Name:       m.form.GetString("name"),
+		Cron:       m.form.GetString("cron"),
+		Timezone:   m.form.GetString("timezone"),
+		Enabled:    m.form.GetBool("enabled"),
+		Prompt:     m.form.GetString("prompt"),
+		WorkflowID: m.form.GetString("workflow"),
 	}
 
 	if target := m.scheduleEditTarget; target != nil {
-		// The workflow a schedule files its agents under is not on the form, so it
-		// is carried through rather than cleared by an edit that never saw it.
-		cfg.WorkflowID = target.WorkflowID
 		m.report(fmt.Sprintf("Could not save schedule %q", target.Name), m.updateSchedule(target.ID, cfg))
 	} else {
 		m.report("Could not create the schedule", m.createSchedule(cfg))
@@ -329,7 +345,7 @@ const noSchedulesMarkdown = "# Schedules\n\n" +
 	"Press the new key to write one.\n"
 
 // scheduleMarkdown renders a schedule's record for the stage.
-func scheduleMarkdown(item scheduleItem) string {
+func scheduleMarkdown(item scheduleItem, workflow *workflowstore.Workflow) string {
 	sched := item.schedule
 
 	var b strings.Builder
@@ -349,18 +365,38 @@ func scheduleMarkdown(item scheduleItem) string {
 	b.WriteString("---\n\n")
 	fmt.Fprintf(&b, "- cron: %s\n", orDash(sched.Cron))
 	fmt.Fprintf(&b, "- timezone: %s\n", orDash(sched.Timezone))
-	fmt.Fprintf(&b, "- directory: %s\n", orDash(sched.Cwd))
-	fmt.Fprintf(&b, "- flags: %s\n", orDash(sched.Flags))
+
+	// The directory and flags belong to the workflow and are read as the schedule
+	// fires, so they are shown under the workflow that supplies them rather than as
+	// settings of the schedule itself.
+	if workflow == nil {
+		b.WriteString("- workflow: — (deleted)\n")
+
+		return b.String()
+	}
+
+	fmt.Fprintf(&b, "- workflow: %s\n", workflow.Name)
+	fmt.Fprintf(&b, "- directory: %s\n", orDash(workflow.Cwd))
+	fmt.Fprintf(&b, "- flags: %s\n", orDash(workflow.Flags))
 
 	return b.String()
 }
 
 // scheduleForm collects everything a schedule holds. Every field prefills, so
 // it serves both creating one and editing one in place.
-func scheduleForm(cfg schedulestore.Config, keys appconfig.FormKeys) *huh.Form {
+//
+// There is no directory or flags field: those come off the workflow when the
+// schedule fires, which is why picking the workflow is picking where and how the
+// agent runs.
+func scheduleForm(cfg schedulestore.Config, workflows []workflowstore.Workflow, keys appconfig.FormKeys) *huh.Form {
 	name, cron, timezone := cfg.Name, cfg.Cron, cfg.Timezone
-	prompt, dir, flags := cfg.Prompt, cfg.Cwd, cfg.Flags
+	prompt, workflow := cfg.Prompt, cfg.WorkflowID
 	enabled := cfg.Enabled
+
+	options := make([]huh.Option[string], 0, len(workflows))
+	for _, w := range workflows {
+		options = append(options, huh.NewOption(w.Name+"  "+orDash(w.Cwd), w.ID))
+	}
 
 	return huh.NewForm(
 		huh.NewGroup(
@@ -368,8 +404,7 @@ func scheduleForm(cfg schedulestore.Config, keys appconfig.FormKeys) *huh.Form {
 			huh.NewInput().Key("cron").Title("Cron").Placeholder("0 9 * * 1-5").Description("minute hour day month weekday").Value(&cron),
 			huh.NewInput().Key("timezone").Title("Timezone").Placeholder("America/New_York").Description("blank = this machine's zone").Value(&timezone),
 			huh.NewText().Key("prompt").Title("Prompt").Description("what each launched agent is asked to do").Value(&prompt),
-			huh.NewInput().Key("dir").Title("Directory").Description("absolute or ~-prefixed").Value(&dir),
-			huh.NewInput().Key("flags").Title("Claude flags").Placeholder("--model opus").Value(&flags),
+			huh.NewSelect[string]().Key("workflow").Title("Workflow").Description("supplies the directory, flags, and context").Options(options...).Value(&workflow),
 			huh.NewConfirm().Key("enabled").Title("Armed?").Affirmative("Armed").Negative("Paused").Value(&enabled),
 		),
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
@@ -453,8 +488,6 @@ func (m model) createSchedule(cfg schedulestore.Config) error {
 		Enabled:    cfg.Enabled,
 		Prompt:     cfg.Prompt,
 		WorkflowId: cfg.WorkflowID,
-		Cwd:        cfg.Cwd,
-		Flags:      cfg.Flags,
 	}))
 
 	return err
@@ -474,8 +507,6 @@ func (m model) updateSchedule(id string, cfg schedulestore.Config) error {
 		Enabled:    cfg.Enabled,
 		Prompt:     cfg.Prompt,
 		WorkflowId: cfg.WorkflowID,
-		Cwd:        cfg.Cwd,
-		Flags:      cfg.Flags,
 	}))
 
 	return err
@@ -530,9 +561,7 @@ func scheduleFromProto(s *schedulev1.Schedule) schedulestore.Schedule {
 		Timezone:   s.GetTimezone(),
 		Enabled:    s.GetEnabled(),
 		Prompt:     s.GetPrompt(),
-		WorkflowID: s.WorkflowId,
-		Cwd:        s.GetCwd(),
-		Flags:      s.GetFlags(),
+		WorkflowID: s.GetWorkflowId(),
 	}
 }
 

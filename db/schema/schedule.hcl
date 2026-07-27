@@ -1,44 +1,12 @@
-# A schedule's launch configuration, split out of schedules so it is a
-# first-class record. Strict 1:1 with a schedule.
-table "schedule_configs" {
-  schema  = schema.public
-  comment = "Launch config (cwd, flags) owned by exactly one schedule."
-  column "id" {
-    null    = false
-    type    = uuid
-    default = sql("uuidv7()")
-  }
-  column "cwd" {
-    null    = false
-    type    = text
-    default = ""
-  }
-  column "flags" {
-    null    = false
-    type    = text
-    default = ""
-  }
-  column "created_at" {
-    null    = false
-    type    = timestamptz
-    default = sql("now()")
-  }
-  column "updated_at" {
-    null    = false
-    type    = timestamptz
-    default = sql("now()")
-  }
-  primary_key {
-    columns = [column.id]
-  }
-}
-
-# A recurring agent launch. The row is the blueprint: what to run, where, and
-# how often. It holds no pointer to the agents it has produced, since a schedule
-# fires many times over its life; each agent records the schedule it came from.
+# A recurring agent launch, holding when to fire and what to ask for. Where and
+# how the agent runs is the workflow's to say, so nothing about the environment is
+# repeated here.
+#
+# The row holds no pointer to the agents it has produced, since a schedule fires
+# many times over its life. Each agent records the schedule it came from.
 table "schedules" {
   schema  = schema.public
-  comment = "A cron-driven agent launch: what to run, where, and how often."
+  comment = "A cron-driven agent launch: when to fire and what to ask for."
   column "id" {
     null    = false
     type    = uuid
@@ -78,15 +46,10 @@ table "schedules" {
     type    = text
     default = ""
   }
-  # The workflow launched agents are filed under, or null to leave them at the
-  # root. Null, not an empty sentinel, matching agents.workflow_id. References
-  # workflows.id.
+  # The workflow this schedule launches into, and the reason a schedule holds no
+  # directory or flags of its own. It reads them off the workflow when it fires, so
+  # a workflow that moves takes its schedules with it. References workflows.id.
   column "workflow_id" {
-    null = true
-    type = uuid
-  }
-  # This schedule's own config. Set on insert and never null: a schedule always owns exactly one config row.
-  column "schedule_config_id" {
     null = false
     type = uuid
   }

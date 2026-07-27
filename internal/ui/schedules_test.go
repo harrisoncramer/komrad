@@ -10,6 +10,7 @@ import (
 	"claude-agents/internal/appconfig"
 	agentstore "claude-agents/internal/store/agent"
 	schedulestore "claude-agents/internal/store/schedule"
+	workflowstore "claude-agents/internal/store/workflow"
 	"claude-agents/lib/xptr"
 	schedulev1 "claude-agents/proto/gen/schedule/v1"
 	"claude-agents/proto/gen/schedule/v1/schedulev1connect"
@@ -31,10 +32,13 @@ func TestScheduleKeys(t *testing.T) {
 	tests := []struct {
 		name string
 		// empty starts the screen with no schedules, for the keys that need a row.
-		empty      bool
-		key        string
-		wantScreen screen
-		wantWrites int
+		empty bool
+		// noWorkflows starts it with nowhere to put a new schedule.
+		noWorkflows  bool
+		key          string
+		wantScreen   screen
+		wantWrites   int
+		wantReported bool
 	}{
 		{
 			name:       "back returns to the agents tree",
@@ -80,6 +84,15 @@ func TestScheduleKeys(t *testing.T) {
 			key:        " ",
 			wantScreen: screenSchedules,
 		},
+		{
+			// A schedule launches into a workflow, so there is nothing to create
+			// against and the form would have nowhere to submit to.
+			name:         "new with no workflows reports rather than opening the form",
+			noWorkflows:  true,
+			key:          "n",
+			wantScreen:   screenSchedules,
+			wantReported: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -89,6 +102,9 @@ func TestScheduleKeys(t *testing.T) {
 			if tt.empty {
 				m.schedules = nil
 			}
+			if tt.noWorkflows {
+				m.workflows = nil
+			}
 
 			updated, _ := m.updateSchedules(keyMsg(tt.key))
 			got, ok := updated.(model)
@@ -96,6 +112,7 @@ func TestScheduleKeys(t *testing.T) {
 
 			assert.Equal(t, tt.wantScreen, got.screen)
 			assert.Equal(t, tt.wantWrites, client.writes)
+			assert.Equal(t, tt.wantReported, got.actionErr != nil, "whether the panel had something to say")
 		})
 	}
 }
@@ -153,8 +170,11 @@ func TestScheduleMarkdown(t *testing.T) {
 	next := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.Local)
 
 	tests := []struct {
-		name     string
-		item     scheduleItem
+		name string
+		item scheduleItem
+		// workflow is what the schedule launches into, nil for one whose workflow
+		// has been deleted.
+		workflow *workflowstore.Workflow
 		wants    []string
 		notWants []string
 	}{
@@ -163,11 +183,12 @@ func TestScheduleMarkdown(t *testing.T) {
 			item: scheduleItem{
 				schedule: schedulestore.Schedule{
 					Name: "morning-ci", Cron: "0 9 * * 1-5", Timezone: "America/New_York",
-					Enabled: true, Prompt: "check CI", Cwd: "/work/api",
+					Enabled: true, Prompt: "check CI",
 				},
 				nextRun: next,
 			},
-			wants:    []string{"morning-ci", "next run", "check CI", "0 9 * * 1-5", "America/New_York", "/work/api"},
+			workflow: &workflowstore.Workflow{Name: "api", Cwd: "/work/api"},
+			wants:    []string{"morning-ci", "next run", "check CI", "0 9 * * 1-5", "America/New_York", "api", "/work/api"},
 			notWants: []string{"paused"},
 		},
 		{
@@ -175,23 +196,32 @@ func TestScheduleMarkdown(t *testing.T) {
 			item: scheduleItem{
 				schedule: schedulestore.Schedule{Name: "draft", Cron: "0 9 * * *", Prompt: "later"},
 			},
+			workflow: &workflowstore.Workflow{Name: "api", Cwd: "/work/api"},
 			wants:    []string{"draft", "paused"},
 			notWants: []string{"next run"},
 		},
 		{
-			name: "a schedule with nothing filled in still renders",
-			item: scheduleItem{schedule: schedulestore.Schedule{Name: "bare", Enabled: true}},
+			name:     "a schedule with nothing filled in still renders",
+			item:     scheduleItem{schedule: schedulestore.Schedule{Name: "bare", Enabled: true}},
+			workflow: &workflowstore.Workflow{Name: "api"},
 			wants: []string{
 				"bare",
 				"no prompt set",
 				"—", // the dash the empty fields fall back to
 			},
 		},
+		{
+			// The schedule keeps its workflow id after the workflow is deleted, so
+			// this has to read as gone rather than render a blank directory.
+			name:  "a schedule whose workflow was deleted says so",
+			item:  scheduleItem{schedule: schedulestore.Schedule{Name: "orphan", Cron: "0 9 * * *", Enabled: true}},
+			wants: []string{"orphan", "deleted"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rendered := scheduleMarkdown(tt.item)
+			rendered := scheduleMarkdown(tt.item, tt.workflow)
 
 			for _, want := range tt.wants {
 				assert.Contains(t, rendered, want)
@@ -273,7 +303,7 @@ func TestScheduleWriteFailure(t *testing.T) {
 			name: "a refused create",
 			act: func(m model) (model, bool) {
 				m.scheduleEditTarget = nil
-				m.form = scheduleForm(schedulestore.Config{Name: "x", Cron: "0 9 * * *"}, appconfig.DefaultKeybindings().Form)
+				m.form = scheduleForm(schedulestore.Config{Name: "x", Cron: "0 9 * * *"}, nil, appconfig.DefaultKeybindings().Form)
 				updated, _ := m.submitScheduleForm()
 				got, ok := updated.(model)
 
@@ -338,6 +368,8 @@ func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys appconfi
 	return model{
 		api:  api{schedules: client},
 		tmux: tmux,
+		// A schedule launches into a workflow, so the form has one to select.
+		workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Cwd: "/work/api"}},
 		// The new-schedule form asks the popup which client opened it, to prefill
 		// the directory, so the panel needs one even though nothing here reads it.
 		popup:  NewPopup(tmux, "test-session"),

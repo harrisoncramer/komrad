@@ -69,6 +69,7 @@ func (a *app) openStore(ctx context.Context) error {
 
 	a.workflowService = agents.NewWorkflowService(agents.WorkflowParams{
 		Workflows: a.workflows,
+		Schedules: a.schedules,
 		Tx:        pool,
 	})
 	a.scheduleService = agents.NewScheduleService(agents.ScheduleParams{

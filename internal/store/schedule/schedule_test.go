@@ -3,6 +3,8 @@ package schedule
 import (
 	"testing"
 
+	"github.com/google/uuid"
+
 	"claude-agents/internal/pgtest"
 	"claude-agents/internal/store"
 	workflowstore "claude-agents/internal/store/workflow"
@@ -74,39 +76,27 @@ func TestGet(t *testing.T) {
 	}
 }
 
-// TestCreate covers what a new schedule carries, including the config row it
-// owns and the fields a caller may leave out.
+// TestCreate covers what a new schedule carries and the fields a caller may
+// leave out. Nothing about where or how an agent runs is stored here: that lives
+// on the workflow the schedule points at.
 func TestCreate(t *testing.T) {
 	tests := []struct {
-		name         string
-		cfg          Config
-		wantCwd      string
-		wantFlags    string
-		wantEnabled  bool
-		wantWorkflow bool
+		name        string
+		cfg         Config
+		wantEnabled bool
 	}{
 		{
 			name: "the fields a schedule was given are read back",
 			cfg: Config{
 				Name: "morning-ci", Cron: "0 9 * * 1-5", Timezone: "America/New_York",
-				Enabled: true, Prompt: "check CI", Cwd: "/work/api", Flags: "--model opus",
+				Enabled: true, Prompt: "check CI",
 			},
-			wantCwd:     "/work/api",
-			wantFlags:   "--model opus",
 			wantEnabled: true,
 		},
 		{
 			name:        "a paused schedule is stored paused",
 			cfg:         Config{Name: "draft", Cron: "0 9 * * *", Prompt: "later"},
 			wantEnabled: false,
-		},
-		{
-			name: "a schedule filed under a workflow keeps the link",
-			cfg: Config{
-				Name: "scoped", Cron: "0 9 * * *", Prompt: "go", Enabled: true,
-			},
-			wantEnabled:  true,
-			wantWorkflow: true,
 		},
 	}
 
@@ -116,11 +106,7 @@ func TestCreate(t *testing.T) {
 			ctx := t.Context()
 
 			cfg := tt.cfg
-			var workflowID string
-			if tt.wantWorkflow {
-				workflowID = seedWorkflow(t, st)
-				cfg.WorkflowID = &workflowID
-			}
+			cfg.WorkflowID = seedWorkflow(t, st)
 
 			created, err := st.Create(ctx, cfg)
 			require.NoError(t, err)
@@ -134,15 +120,7 @@ func TestCreate(t *testing.T) {
 			assert.Equal(t, cfg.Cron, got.Cron)
 			assert.Equal(t, cfg.Timezone, got.Timezone)
 			assert.Equal(t, tt.wantEnabled, got.Enabled)
-			assert.Equal(t, tt.wantCwd, got.Cwd)
-			assert.Equal(t, tt.wantFlags, got.Flags)
-
-			if !tt.wantWorkflow {
-				assert.Nil(t, got.WorkflowID)
-				return
-			}
-			require.NotNil(t, got.WorkflowID)
-			assert.Equal(t, workflowID, *got.WorkflowID)
+			assert.Equal(t, cfg.WorkflowID, got.WorkflowID, "a schedule always names the workflow it launches into")
 		})
 	}
 }
@@ -175,7 +153,7 @@ func TestNameTaken(t *testing.T) {
 				require.NoError(t, st.Archive(ctx, first.ID))
 			}
 
-			_, err := st.Create(ctx, Config{Name: "morning-ci", Cron: "0 9 * * *", Prompt: "again"})
+			_, err := st.Create(ctx, Config{Name: "morning-ci", Cron: "0 9 * * *", Prompt: "again", WorkflowID: seedWorkflow(t, st)})
 			if tt.wantTake {
 				require.ErrorIs(t, err, ErrNameTaken)
 				return
@@ -186,45 +164,34 @@ func TestNameTaken(t *testing.T) {
 	}
 }
 
-// TestUpdate covers replacing a schedule's fields, including the config row it
-// owns and the workflow link, which is the one field that can be cleared.
+// TestUpdate covers replacing a schedule's fields, including moving it to
+// another workflow, which is how a schedule is retargeted at a different
+// directory now that it holds none of its own.
 func TestUpdate(t *testing.T) {
 	tests := []struct {
-		name         string
-		startScoped  bool
-		endScoped    bool
-		update       Config
-		wantName     string
+		name string
+		// update is what replaces the schedule, with the workflow filled in by the
+		// case body since the ids are generated.
+		update Config
+		// moveWorkflow points the schedule at a second workflow rather than leaving
+		// it where it was created.
+		moveWorkflow bool
 		wantEnabled  bool
-		wantCwd      string
-		wantWorkflow bool
 	}{
 		{
 			name:        "the editable fields are replaced",
-			update:      Config{Name: "renamed", Cron: "0 17 * * 5", Timezone: "UTC", Prompt: "weekly", Cwd: "/work/web"},
-			wantName:    "renamed",
+			update:      Config{Name: "renamed", Cron: "0 17 * * 5", Timezone: "UTC", Prompt: "weekly"},
 			wantEnabled: false,
-			wantCwd:     "/work/web",
 		},
 		{
 			name:        "a paused schedule can be resumed through an update",
-			update:      Config{Name: "morning-ci", Cron: "0 9 * * *", Enabled: true, Prompt: "go", Cwd: "/work/api"},
-			wantName:    "morning-ci",
+			update:      Config{Name: "morning-ci", Cron: "0 9 * * *", Enabled: true, Prompt: "go"},
 			wantEnabled: true,
-			wantCwd:     "/work/api",
 		},
 		{
-			name:         "a workflow can be attached",
-			endScoped:    true,
+			name:         "a schedule can be moved to another workflow",
 			update:       Config{Name: "morning-ci", Cron: "0 9 * * *", Prompt: "go"},
-			wantName:     "morning-ci",
-			wantWorkflow: true,
-		},
-		{
-			name:        "and cleared again",
-			startScoped: true,
-			update:      Config{Name: "morning-ci", Cron: "0 9 * * *", Prompt: "go"},
-			wantName:    "morning-ci",
+			moveWorkflow: true,
 		},
 	}
 
@@ -233,18 +200,15 @@ func TestUpdate(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			initial := Config{Name: "morning-ci", Cron: "0 9 * * 1-5", Prompt: "check CI", Cwd: "/work/api"}
-			if tt.startScoped {
-				id := seedWorkflow(t, st)
-				initial.WorkflowID = &id
-			}
-			created := seed(t, st, initial)
+			original := seedWorkflow(t, st)
+			created := seed(t, st, Config{
+				Name: "morning-ci", Cron: "0 9 * * 1-5", Prompt: "check CI", WorkflowID: original,
+			})
 
 			update := tt.update
-			var workflowID string
-			if tt.endScoped {
-				workflowID = seedWorkflow(t, st)
-				update.WorkflowID = &workflowID
+			update.WorkflowID = original
+			if tt.moveWorkflow {
+				update.WorkflowID = seedWorkflow(t, st)
 			}
 
 			require.NoError(t, st.Update(ctx, created.ID, update))
@@ -252,17 +216,14 @@ func TestUpdate(t *testing.T) {
 			got, err := st.Get(ctx, created.ID)
 			require.NoError(t, err)
 			require.NotNil(t, got)
-			assert.Equal(t, tt.wantName, got.Name)
+			assert.Equal(t, update.Name, got.Name)
 			assert.Equal(t, update.Cron, got.Cron)
 			assert.Equal(t, tt.wantEnabled, got.Enabled)
-			assert.Equal(t, tt.wantCwd, got.Cwd)
+			assert.Equal(t, update.WorkflowID, got.WorkflowID)
 
-			if !tt.wantWorkflow {
-				assert.Nil(t, got.WorkflowID, "an omitted workflow clears the link")
-				return
+			if tt.moveWorkflow {
+				assert.NotEqual(t, original, got.WorkflowID, "the schedule moved")
 			}
-			require.NotNil(t, got.WorkflowID)
-			assert.Equal(t, workflowID, *got.WorkflowID)
 		})
 	}
 }
@@ -456,6 +417,10 @@ func open(t *testing.T) *fixture {
 func seed(t *testing.T, st *fixture, cfg Config) *Schedule {
 	t.Helper()
 
+	if cfg.WorkflowID == "" {
+		cfg.WorkflowID = seedWorkflow(t, st)
+	}
+
 	created, err := st.Create(t.Context(), cfg)
 	require.NoError(t, err)
 	require.NotNil(t, created)
@@ -468,7 +433,7 @@ func seed(t *testing.T, st *fixture, cfg Config) *Schedule {
 func seedWorkflow(t *testing.T, st *fixture) string {
 	t.Helper()
 
-	created, err := st.workflows.Create(t.Context(), workflowstore.Config{Name: "backend"})
+	created, err := st.workflows.Create(t.Context(), workflowstore.Config{Name: "backend-" + uuid.NewString()})
 	require.NoError(t, err)
 	require.NotNil(t, created)
 

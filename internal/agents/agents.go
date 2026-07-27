@@ -42,6 +42,7 @@ type agentStore interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	ListAll(ctx context.Context) ([]agentstore.Agent, error)
 	Get(ctx context.Context, name string) (*agentstore.Agent, error)
+	GetByIdempotencyKey(ctx context.Context, key string) (*agentstore.Agent, error)
 	Find(ctx context.Context, name string) (*agentstore.Target, error)
 	Upsert(ctx context.Context, agent agentstore.Agent) error
 	Rename(ctx context.Context, id, name string) (bool, error)
@@ -247,9 +248,18 @@ type NewAgentParams struct {
 	Dir    string
 	Flags  string
 	Prompt string
-	// WorkflowID scopes the new agent to a workflow, or is nil when it is created
-	// from the root and belongs to no workflow.
-	WorkflowID *string
+	// WorkflowID is the workflow the agent belongs to, and is required. It supplies
+	// the directory and flags when Dir and Flags are left empty, and the shared
+	// context appended to the agent's system prompt.
+	WorkflowID string
+	// ScheduleID records the schedule that launched this agent, nil for one a
+	// person started. Provenance only.
+	ScheduleID *string
+	// IdempotencyKey makes the create repeatable. A second call carrying a key an
+	// agent already holds returns that agent untouched rather than spawning a
+	// second Claude process, which is what makes a retried background launch safe.
+	// Empty makes no claim, which is every create from the panel.
+	IdempotencyKey string
 }
 
 // usableDir reports whether an agent can actually be started in dir. Existence
@@ -282,7 +292,36 @@ func usableDir(dir string) error {
 //
 // The directory is the given Dir, else the client's current directory.
 func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentstore.Agent, error) {
+	// The key is checked before anything is opened or written, so a retry costs a
+	// lookup rather than a second tmux window that has to be cleaned up after.
+	if p.IdempotencyKey != "" {
+		existing, err := s.agents.GetByIdempotencyKey(ctx, p.IdempotencyKey)
+		if err != nil {
+			return nil, err
+		}
+		if existing != nil {
+			return existing, nil
+		}
+	}
+
+	// The workflow comes first, since it supplies the defaults everything below
+	// falls back to. An unknown one is refused rather than filed under an id that
+	// renders nowhere.
+	wf, err := s.workflows.Get(ctx, p.WorkflowID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to look up workflow %q: %w", p.WorkflowID, err)
+	}
+	if wf == nil {
+		return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, p.WorkflowID)
+	}
+
+	// What the caller asked for wins, then the workflow's default, then where the
+	// user is looking. A scheduled launch supplies neither of the first two, which
+	// is the point of the workflow holding them.
 	dir := expandHome(strings.TrimSpace(p.Dir))
+	if dir == "" {
+		dir = expandHome(strings.TrimSpace(wf.Cwd))
+	}
 	if dir == "" {
 		dir = s.tmux.ClientPath(p.Client)
 	}
@@ -296,22 +335,12 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		return nil, err
 	}
 
-	// An agent created inside a workflow inherits the workflow's shared context,
-	// injected as an appended system prompt at launch. It is a snapshot, so later
-	// edits to the workflow context reach only agents spawned after them. An
-	// unknown workflow is refused rather than filed under an id that renders
-	// nowhere.
-	var workflowContext string
-	if p.WorkflowID != nil {
-		wf, err := s.workflows.Get(ctx, *p.WorkflowID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to look up workflow %q: %w", *p.WorkflowID, err)
-		}
-		if wf == nil {
-			return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, *p.WorkflowID)
-		}
-
-		workflowContext = wf.Context
+	// Flags follow the same rule. The panel prefills its form from the workflow, so
+	// an interactive create arrives with them already set and this changes nothing.
+	// A scheduled one arrives empty and takes them here.
+	agentFlags := strings.TrimSpace(p.Flags)
+	if agentFlags == "" {
+		agentFlags = strings.TrimSpace(wf.Flags)
 	}
 
 	name := s.uniqueAgentName(ctx, p.Title, p.Prompt)
@@ -320,7 +349,7 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 	if err != nil {
 		return nil, fmt.Errorf("failed to open a window for %q: %w", name, err)
 	}
-	flags := strings.TrimSpace(s.claudeFlags + " " + p.Flags)
+	flags := strings.TrimSpace(s.claudeFlags + " " + agentFlags)
 
 	// Generate Claude's session id here and launch with --session-id, so the id is
 	// known up front and restoring the agent can resume that same conversation
@@ -335,6 +364,8 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		State:           agentstore.StateNew,
 		ClaudeSessionID: claudeSessionID,
 		WorkflowID:      p.WorkflowID,
+		ScheduleID:      p.ScheduleID,
+		IdempotencyKey:  idempotencyKey(p.IdempotencyKey),
 	}); err != nil {
 		// uniqueAgentName checks before inserting, so two calls racing on the same
 		// title both pass that check and one loses here. The window is already open
@@ -346,10 +377,13 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 	}
 
 	if err := s.launcher.launch(launchClaudeParams{
-		Pane:            pane,
-		Flags:           flags,
-		Prompt:          p.Prompt,
-		WorkflowContext: workflowContext,
+		Pane:   pane,
+		Flags:  flags,
+		Prompt: p.Prompt,
+		// The workflow's shared context is appended to the system prompt at launch.
+		// It is a snapshot, so later edits to the workflow reach only agents spawned
+		// after them.
+		WorkflowContext: wf.Context,
 		ClaudeSessionID: claudeSessionID,
 	}); err != nil {
 		// The row is stored and the pane is open with nothing useful in it. Left
@@ -373,6 +407,17 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 	}
 
 	return created, nil
+}
+
+// idempotencyKey renders a caller's key for storage. The column is unique across
+// every row, so an unclaimed create stores null rather than an empty string,
+// which only the first of them could hold.
+func idempotencyKey(key string) *string {
+	if key == "" {
+		return nil
+	}
+
+	return &key
 }
 
 // restore recreates a dormant agent's tmux window from its stored cwd and flags,

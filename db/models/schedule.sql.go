@@ -10,14 +10,28 @@ import (
 	"time"
 )
 
+const countLiveWorkflowSchedules = `-- name: CountLiveWorkflowSchedules :one
+SELECT
+    count(*)
+FROM
+    schedules
+WHERE
+    workflow_id = $1
+    AND is_deleted = FALSE
+`
+
+func (q *Queries) CountLiveWorkflowSchedules(ctx context.Context, workflowID string) (int64, error) {
+	row := q.db.QueryRow(ctx, countLiveWorkflowSchedules, workflowID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getSchedule = `-- name: GetSchedule :one
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.prompt, s.workflow_id, s.schedule_config_id, s.is_deleted, s.created_at, s.updated_at,
-    sc.cwd,
-    sc.flags
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.prompt, s.workflow_id, s.is_deleted, s.created_at, s.updated_at
 FROM
     schedules s
-    JOIN schedule_configs sc ON sc.id = s.schedule_config_id
 WHERE
     s.id = $1
     AND s.is_deleted = FALSE
@@ -26,8 +40,6 @@ LIMIT 1
 
 type GetScheduleRow struct {
 	Schedule Schedule
-	Cwd      string
-	Flags    string
 }
 
 func (q *Queries) GetSchedule(ctx context.Context, id string) (*GetScheduleRow, error) {
@@ -41,31 +53,27 @@ func (q *Queries) GetSchedule(ctx context.Context, id string) (*GetScheduleRow, 
 		&i.Schedule.Enabled,
 		&i.Schedule.Prompt,
 		&i.Schedule.WorkflowID,
-		&i.Schedule.ScheduleConfigID,
 		&i.Schedule.IsDeleted,
 		&i.Schedule.CreatedAt,
 		&i.Schedule.UpdatedAt,
-		&i.Cwd,
-		&i.Flags,
 	)
 	return &i, err
 }
 
 const insertSchedule = `-- name: InsertSchedule :one
-INSERT INTO schedules (name, cron, timezone, enabled, prompt, workflow_id, schedule_config_id)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO schedules (name, cron, timezone, enabled, prompt, workflow_id)
+    VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING
-    id, name, cron, timezone, enabled, prompt, workflow_id, schedule_config_id, is_deleted, created_at, updated_at
+    id, name, cron, timezone, enabled, prompt, workflow_id, is_deleted, created_at, updated_at
 `
 
 type InsertScheduleParams struct {
-	Name             string
-	Cron             string
-	Timezone         string
-	Enabled          bool
-	Prompt           string
-	WorkflowID       *string
-	ScheduleConfigID string
+	Name       string
+	Cron       string
+	Timezone   string
+	Enabled    bool
+	Prompt     string
+	WorkflowID string
 }
 
 func (q *Queries) InsertSchedule(ctx context.Context, arg InsertScheduleParams) (*Schedule, error) {
@@ -76,7 +84,6 @@ func (q *Queries) InsertSchedule(ctx context.Context, arg InsertScheduleParams) 
 		arg.Enabled,
 		arg.Prompt,
 		arg.WorkflowID,
-		arg.ScheduleConfigID,
 	)
 	var i Schedule
 	err := row.Scan(
@@ -87,7 +94,6 @@ func (q *Queries) InsertSchedule(ctx context.Context, arg InsertScheduleParams) 
 		&i.Enabled,
 		&i.Prompt,
 		&i.WorkflowID,
-		&i.ScheduleConfigID,
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -95,33 +101,11 @@ func (q *Queries) InsertSchedule(ctx context.Context, arg InsertScheduleParams) 
 	return &i, err
 }
 
-const insertScheduleConfig = `-- name: InsertScheduleConfig :one
-INSERT INTO schedule_configs (cwd, flags)
-    VALUES ($1, $2)
-RETURNING
-    id
-`
-
-type InsertScheduleConfigParams struct {
-	Cwd   string
-	Flags string
-}
-
-func (q *Queries) InsertScheduleConfig(ctx context.Context, arg InsertScheduleConfigParams) (string, error) {
-	row := q.db.QueryRow(ctx, insertScheduleConfig, arg.Cwd, arg.Flags)
-	var id string
-	err := row.Scan(&id)
-	return id, err
-}
-
 const listSchedules = `-- name: ListSchedules :many
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.prompt, s.workflow_id, s.schedule_config_id, s.is_deleted, s.created_at, s.updated_at,
-    sc.cwd,
-    sc.flags
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.prompt, s.workflow_id, s.is_deleted, s.created_at, s.updated_at
 FROM
     schedules s
-    JOIN schedule_configs sc ON sc.id = s.schedule_config_id
 WHERE
     s.is_deleted = FALSE
 ORDER BY
@@ -130,8 +114,6 @@ ORDER BY
 
 type ListSchedulesRow struct {
 	Schedule Schedule
-	Cwd      string
-	Flags    string
 }
 
 func (q *Queries) ListSchedules(ctx context.Context) ([]*ListSchedulesRow, error) {
@@ -151,12 +133,9 @@ func (q *Queries) ListSchedules(ctx context.Context) ([]*ListSchedulesRow, error
 			&i.Schedule.Enabled,
 			&i.Schedule.Prompt,
 			&i.Schedule.WorkflowID,
-			&i.Schedule.ScheduleConfigID,
 			&i.Schedule.IsDeleted,
 			&i.Schedule.CreatedAt,
 			&i.Schedule.UpdatedAt,
-			&i.Cwd,
-			&i.Flags,
 		); err != nil {
 			return nil, err
 		}
@@ -170,12 +149,9 @@ func (q *Queries) ListSchedules(ctx context.Context) ([]*ListSchedulesRow, error
 
 const listSchedulesPage = `-- name: ListSchedulesPage :many
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.prompt, s.workflow_id, s.schedule_config_id, s.is_deleted, s.created_at, s.updated_at,
-    sc.cwd,
-    sc.flags
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.prompt, s.workflow_id, s.is_deleted, s.created_at, s.updated_at
 FROM
     schedules s
-    JOIN schedule_configs sc ON sc.id = s.schedule_config_id
 WHERE
     s.is_deleted = FALSE
     AND ($1::timestamptz IS NULL
@@ -196,8 +172,6 @@ type ListSchedulesPageParams struct {
 
 type ListSchedulesPageRow struct {
 	Schedule Schedule
-	Cwd      string
-	Flags    string
 }
 
 func (q *Queries) ListSchedulesPage(ctx context.Context, arg ListSchedulesPageParams) ([]*ListSchedulesPageRow, error) {
@@ -217,12 +191,9 @@ func (q *Queries) ListSchedulesPage(ctx context.Context, arg ListSchedulesPagePa
 			&i.Schedule.Enabled,
 			&i.Schedule.Prompt,
 			&i.Schedule.WorkflowID,
-			&i.Schedule.ScheduleConfigID,
 			&i.Schedule.IsDeleted,
 			&i.Schedule.CreatedAt,
 			&i.Schedule.UpdatedAt,
-			&i.Cwd,
-			&i.Flags,
 		); err != nil {
 			return nil, err
 		}
@@ -289,7 +260,7 @@ type UpdateScheduleParams struct {
 	Timezone   string
 	Enabled    bool
 	Prompt     string
-	WorkflowID *string
+	WorkflowID string
 	ID         string
 }
 
@@ -303,32 +274,5 @@ func (q *Queries) UpdateSchedule(ctx context.Context, arg UpdateScheduleParams) 
 		arg.WorkflowID,
 		arg.ID,
 	)
-	return err
-}
-
-const updateScheduleConfig = `-- name: UpdateScheduleConfig :exec
-UPDATE
-    schedule_configs
-SET
-    cwd = $1,
-    flags = $2
-WHERE
-    id = (
-        SELECT
-            schedule_config_id
-        FROM
-            schedules
-        WHERE
-            schedules.id = $3)
-`
-
-type UpdateScheduleConfigParams struct {
-	Cwd        string
-	Flags      string
-	ScheduleID string
-}
-
-func (q *Queries) UpdateScheduleConfig(ctx context.Context, arg UpdateScheduleConfigParams) error {
-	_, err := q.db.Exec(ctx, updateScheduleConfig, arg.Cwd, arg.Flags, arg.ScheduleID)
 	return err
 }

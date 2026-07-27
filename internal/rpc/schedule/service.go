@@ -120,9 +120,7 @@ func (s *Service) UpdateSchedule(ctx context.Context, req *connect.Request[sched
 		Timezone:   req.Msg.GetTimezone(),
 		Enabled:    req.Msg.GetEnabled(),
 		Prompt:     req.Msg.GetPrompt(),
-		WorkflowID: req.Msg.WorkflowId,
-		Cwd:        req.Msg.GetCwd(),
-		Flags:      req.Msg.GetFlags(),
+		WorkflowID: req.Msg.GetWorkflowId(),
 	})
 	switch {
 	case errors.Is(err, agents.ErrScheduleNotFound):
@@ -174,8 +172,6 @@ func configFrom(req *schedulev1.CreateScheduleRequest) schedulestore.Config {
 		Timezone:   req.GetTimezone(),
 		Enabled:    req.GetEnabled(),
 		Prompt:     req.GetPrompt(),
-		WorkflowID: req.WorkflowId,
-		Cwd:        req.GetCwd(),
-		Flags:      req.GetFlags(),
+		WorkflowID: req.GetWorkflowId(),
 	}
 }

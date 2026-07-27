@@ -73,14 +73,14 @@ func TestNewAgent(t *testing.T) {
 			manager := newManager(tmux, st, "--default-flag")
 
 			params := NewAgentParams{
-				Title:  tt.title,
-				Dir:    tt.dir(t),
-				Flags:  "--extra",
-				Prompt: "do the thing",
+				Title:      tt.title,
+				Dir:        tt.dir(t),
+				Flags:      "--extra",
+				Prompt:     "do the thing",
+				WorkflowID: seedWorkflow(t, st),
 			}
 			if tt.badWorkflow {
-				missing := "no-such-workflow"
-				params.WorkflowID = &missing
+				params.WorkflowID = "no-such-workflow"
 			}
 
 			created, err := manager.NewAgent(t.Context(), params)
@@ -122,17 +122,99 @@ func TestNewAgent(t *testing.T) {
 	}
 }
 
+// TestNewAgentIdempotency covers the key that makes a launch repeatable. A
+// background job that retries after a launch half-succeeded has to find the
+// agent it already made, or the same prompt runs twice in two tmux windows.
+func TestNewAgentIdempotency(t *testing.T) {
+	tests := []struct {
+		name string
+		// first and second are the keys the two calls claim.
+		first  string
+		second string
+		// wantSame says the second call should return the first call's agent
+		// rather than create another.
+		wantSame bool
+	}{
+		{
+			name:     "the same key returns the agent already created",
+			first:    "schedule:s1:2026-07-28T09:00:00Z",
+			second:   "schedule:s1:2026-07-28T09:00:00Z",
+			wantSame: true,
+		},
+		{
+			name:   "the next occurrence is a different agent",
+			first:  "schedule:s1:2026-07-28T09:00:00Z",
+			second: "schedule:s1:2026-07-29T09:00:00Z",
+		},
+		{
+			// Two interactive creates claim nothing, so neither is the other, and
+			// the unique index has to tolerate both.
+			name: "two creates claiming no key are two agents",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := newFakeTmux()
+			st := newStore(t)
+			manager := newManager(tmux, st, "")
+			dir := t.TempDir()
+
+			params := NewAgentParams{
+				Title: "morning-ci", Dir: dir, Prompt: "check CI",
+				WorkflowID: seedWorkflow(t, st), IdempotencyKey: tt.first,
+			}
+			first, err := manager.NewAgent(t.Context(), params)
+			require.NoError(t, err)
+			require.NotNil(t, first)
+
+			params.IdempotencyKey = tt.second
+			second, err := manager.NewAgent(t.Context(), params)
+			require.NoError(t, err)
+			require.NotNil(t, second)
+
+			agents, err := st.List(t.Context())
+			require.NoError(t, err)
+
+			if tt.wantSame {
+				assert.Equal(t, first.ID, second.ID, "the retry finds the agent it already created")
+				assert.Len(t, agents, 1, "and no second agent is recorded")
+				assert.Len(t, tmux.sent, 1, "nor is a second claude started")
+
+				return
+			}
+
+			assert.NotEqual(t, first.ID, second.ID)
+			assert.Len(t, agents, 2)
+		})
+	}
+}
+
 // TestNewAgentResolvesDirectory covers where an agent starts. tmux does no tilde
 // expansion, so a ~ path has to be absolute before the window is opened or the
 // stored cwd would not be where the agent is running.
 func TestNewAgentResolvesDirectory(t *testing.T) {
 	tests := []struct {
-		name      string
-		dir       string
-		useClient bool
+		name string
+		dir  string
+		// workflowCwd is the directory the enclosing workflow supplies, which is
+		// what a launch with no directory of its own takes.
+		workflowCwd string
+		useClient   bool
 	}{
 		{
-			name:      "a blank directory falls back to the invoking client's",
+			name:        "a blank directory takes the workflow's",
+			workflowCwd: "~/chariot/chariot",
+		},
+		{
+			name: "what the caller asked for wins over the workflow's",
+			dir:  "~/chariot/chariot",
+			// Somewhere the test never creates, so taking it would fail rather than
+			// pass quietly.
+			workflowCwd: "/no/such/directory",
+		},
+		{
+			name:      "with neither, the invoking client's directory answers",
 			useClient: true,
 		},
 		{
@@ -157,7 +239,12 @@ func TestNewAgentResolvesDirectory(t *testing.T) {
 			st := newStore(t)
 			manager := newManager(tmux, st, "")
 
-			_, err := manager.NewAgent(t.Context(), NewAgentParams{Title: "scoped", Dir: tt.dir})
+			created, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{Name: "backend", Cwd: tt.workflowCwd})
+			require.NoError(t, err)
+
+			_, err = manager.NewAgent(t.Context(), NewAgentParams{
+				Title: "scoped", Dir: tt.dir, WorkflowID: created.ID,
+			})
 			require.NoError(t, err)
 
 			assert.Equal(t, want, tmux.newWindows["scoped"], "tmux is given an absolute path")
@@ -202,29 +289,21 @@ func TestNewAgentInsideWorkflow(t *testing.T) {
 			st := newStore(t)
 			manager := newManager(tmux, st, "")
 
-			params := NewAgentParams{Title: "agent", Dir: t.TempDir()}
-			if tt.scoped {
-				created, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{
-					Name:    "backend",
-					Context: tt.context,
-				})
-				require.NoError(t, err)
-				params.WorkflowID = &created.ID
-			}
+			created, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{
+				Name:    "backend",
+				Context: tt.context,
+			})
+			require.NoError(t, err)
 
-			_, err := manager.NewAgent(t.Context(), params)
+			params := NewAgentParams{Title: "agent", Dir: t.TempDir(), WorkflowID: created.ID}
+
+			_, err = manager.NewAgent(t.Context(), params)
 			require.NoError(t, err)
 
 			stored, err := st.Get(t.Context(), "agent")
 			require.NoError(t, err)
 			require.NotNil(t, stored)
-
-			if tt.scoped {
-				require.NotNil(t, stored.WorkflowID, "the agent carries its workflow's id")
-				assert.Equal(t, *params.WorkflowID, *stored.WorkflowID)
-			} else {
-				assert.Nil(t, stored.WorkflowID)
-			}
+			assert.Equal(t, params.WorkflowID, stored.WorkflowID, "the agent carries its workflow's id")
 
 			prompt := appendedPrompt(t, tmux.lastKeys("%agent")[0])
 			assert.Contains(t, prompt, "/mcp", "every agent is told about the endpoint")

@@ -6,6 +6,7 @@ import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
 import "pagination/v1/pagination.proto";
+import "rules/v1/rules.proto";
 
 option go_package = "claude-agents/proto/gen/workflow/v1;workflowv1";
 
@@ -53,22 +54,14 @@ message CreateWorkflowRequest {
   // Blank means agents inside this workflow choose their own directory. When set
   // it must be absolute or ~-prefixed, matching what creating an agent demands,
   // since this is the value prefilled into that form.
-  string cwd = 3 [
-    (buf.validate.field).string.max_len = 4096,
-    (buf.validate.field).cel = {
-      id: "cwd.absolute_or_blank",
-      message: "cwd must be blank, absolute, or start with ~",
-      expression: "this == '' || this.startsWith('/') || this.startsWith('~')"
-    }
-  ];
-  string flags = 4 [
-    (buf.validate.field).string.max_len = 500,
-    (buf.validate.field).cel = {
-      id: "flags.no_shell_metacharacters",
-      message: "flags must not contain shell metacharacters",
-      expression: "!this.matches('[;&|<>`$\\\\\\n]')"
-    }
-  ];
+  string cwd = 3 [(buf.validate.field).string = {
+    max_len: 4096,
+    [rules.v1.absolute_path_or_blank]: true
+  }];
+  string flags = 4 [(buf.validate.field).string = {
+    max_len: 500,
+    [rules.v1.shell_safe]: true
+  }];
 }
 
 message CreateWorkflowResponse {
@@ -85,32 +78,19 @@ message UpdateWorkflowRequest {
     max_len: 200
   }];
   string context = 3 [(buf.validate.field).string.max_len = 50000];
-  string cwd = 4 [
-    (buf.validate.field).string.max_len = 4096,
-    (buf.validate.field).cel = {
-      id: "cwd.absolute_or_blank",
-      message: "cwd must be blank, absolute, or start with ~",
-      expression: "this == '' || this.startsWith('/') || this.startsWith('~')"
-    }
-  ];
-  string flags = 5 [
-    (buf.validate.field).string.max_len = 500,
-    (buf.validate.field).cel = {
-      id: "flags.no_shell_metacharacters",
-      message: "flags must not contain shell metacharacters",
-      expression: "!this.matches('[;&|<>`$\\\\\\n]')"
-    }
-  ];
+  string cwd = 4 [(buf.validate.field).string = {
+    max_len: 4096,
+    [rules.v1.absolute_path_or_blank]: true
+  }];
+  string flags = 5 [(buf.validate.field).string = {
+    max_len: 500,
+    [rules.v1.shell_safe]: true
+  }];
 }
 
-// DeleteWorkflowRequest removes a workflow. What happens to the agents inside it
-// is the caller's only choice. The workflow goes either way.
+// DeleteWorkflowRequest removes a workflow and the agents inside it.
 message DeleteWorkflowRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
-  // Leave false to orphan the agents back to unassigned, which loses nothing.
-  // Set true to archive them alongside the workflow, hiding them from the panel
-  // while search can still reach them.
-  bool archive_agents = 2;
 }
 
 // WorkflowService manages the buckets agents are grouped into. Every method
@@ -149,7 +129,7 @@ service WorkflowService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "delete_workflow"
-      description: "Remove a workflow. By default its agents are orphaned back to unassigned and keep running. Set archiveAgents to hide them alongside it, which leaves them findable through search_transcripts. Neither form deletes a transcript."
+      description: "Remove a workflow. Its agents are archived alongside it, which leaves them findable through search_transcripts and deletes no transcript. Refused while any schedule still launches into the workflow, since those would have nowhere to run."
       destructive: true
     };
   }

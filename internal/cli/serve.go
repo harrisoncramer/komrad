@@ -9,6 +9,7 @@ import (
 
 	"claude-agents/internal/agents"
 	"claude-agents/internal/interceptors"
+	"claude-agents/internal/jobs"
 	"claude-agents/internal/mcp"
 	rpcagent "claude-agents/internal/rpc/agent"
 	rpcschedule "claude-agents/internal/rpc/schedule"
@@ -27,6 +28,13 @@ import (
 // that starting or finishing work shows within a couple of seconds while the tmux
 // captures stay cheap.
 const reconcileInterval = 2 * time.Second
+
+// scheduleReconcileInterval is how often serve re-reads the schedules table and
+// makes River's periodic jobs match it. River holds those in memory, so this is
+// what carries a schedule someone just created into the thing that fires it. It is
+// slow because a schedule is a record of future work. A few seconds late to notice
+// a new one costs nothing, where the same lag on agent state would show.
+const scheduleReconcileInterval = 10 * time.Second
 
 // transcriptSyncInterval is how often serve folds new transcript text into the
 // search index. It runs far slower than the state reconcile. A stale search
@@ -90,6 +98,30 @@ func serveCmd(state *app) *cobra.Command {
 
 			mux.Handle("/mcp", mcpHandler)
 
+			// River runs the schedules. It keeps its own tables in their own schema,
+			// one worker that launches an agent, and a reconciler that keeps its
+			// periodic jobs matching the schedules table.
+			if err := jobs.Migrate(cmd.Context(), state.pool.Raw()); err != nil {
+				return err
+			}
+
+			jobRunner, err := jobs.NewClient(jobs.ClientParams{
+				Pool:      state.pool.Raw(),
+				Schedules: state.schedules,
+				Agents:    state.agentService,
+			})
+			if err != nil {
+				return err
+			}
+
+			if err := jobRunner.Start(cmd.Context()); err != nil {
+				return fmt.Errorf("failed to start the job runner: %w", err)
+			}
+			defer func() { _ = jobRunner.Stop(context.Background()) }()
+
+			periodic := jobs.NewRiverPeriodic(jobRunner.PeriodicJobs())
+			go runScheduleLoop(cmd.Context(), jobs.NewScheduler(state.schedules, periodic), scheduleReconcileInterval)
+
 			// The reconciler runs here rather than in the panel because serve is
 			// the always-on process that owns the store. The counts must stay
 			// correct even when no panel is open.
@@ -144,6 +176,28 @@ func runTranscriptSyncLoop(ctx context.Context, syncer *agents.TranscriptSyncer,
 			if err := syncer.Sync(ctx); err != nil {
 				fmt.Fprintf(os.Stderr, "transcript sync: %v\n", err)
 			}
+		}
+	}
+}
+
+// runScheduleLoop reconciles River's periodic jobs against the schedules table
+// on a fixed interval until the context is cancelled. It runs once immediately,
+// so a restart picks the schedules back up rather than waiting out an interval
+// with nothing armed. Errors are logged and the loop continues, since a single
+// failed pass is corrected by the next one.
+func runScheduleLoop(ctx context.Context, scheduler *jobs.Scheduler, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		if err := scheduler.Reconcile(ctx); err != nil {
+			fmt.Fprintf(os.Stderr, "schedule reconcile: %v\n", err)
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
 		}
 	}
 }

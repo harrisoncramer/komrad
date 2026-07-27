@@ -10,6 +10,7 @@ import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	_ "claude-agents/proto/gen/annotation/v1"
 	v1 "claude-agents/proto/gen/pagination/v1"
+	_ "claude-agents/proto/gen/rules/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -489,15 +490,10 @@ func (x *UpdateWorkflowRequest) GetFlags() string {
 	return ""
 }
 
-// DeleteWorkflowRequest removes a workflow. What happens to the agents inside it
-// is the caller's only choice. The workflow goes either way.
+// DeleteWorkflowRequest removes a workflow and the agents inside it.
 type DeleteWorkflowRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Leave false to orphan the agents back to unassigned, which loses nothing.
-	// Set true to archive them alongside the workflow, hiding them from the panel
-	// while search can still reach them.
-	ArchiveAgents bool `protobuf:"varint,2,opt,name=archive_agents,json=archiveAgents,proto3" json:"archive_agents,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -539,18 +535,11 @@ func (x *DeleteWorkflowRequest) GetId() string {
 	return ""
 }
 
-func (x *DeleteWorkflowRequest) GetArchiveAgents() bool {
-	if x != nil {
-		return x.ArchiveAgents
-	}
-	return false
-}
-
 var File_workflow_v1_workflow_proto protoreflect.FileDescriptor
 
 const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\n" +
-	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\"p\n" +
+	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"p\n" +
 	"\bWorkflow\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
@@ -569,29 +558,24 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x12GetWorkflowRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"H\n" +
 	"\x13GetWorkflowResponse\x121\n" +
-	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\x90\x03\n" +
+	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xa0\x01\n" +
 	"\x15CreateWorkflowRequest\x12\x1e\n" +
 	"\x04name\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x12#\n" +
-	"\acontext\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\acontext\x12\xa1\x01\n" +
-	"\x03cwd\x18\x03 \x01(\tB\x8e\x01\xbaH\x8a\x01\xba\x01\x81\x01\n" +
-	"\x15cwd.absolute_or_blank\x12,cwd must be blank, absolute, or start with ~\x1a:this == '' || this.startsWith('/') || this.startsWith('~')r\x03\x18\x80 R\x03cwd\x12\x8d\x01\n" +
-	"\x05flags\x18\x04 \x01(\tBw\xbaHt\xba\x01l\n" +
-	"\x1dflags.no_shell_metacharacters\x12+flags must not contain shell metacharacters\x1a\x1e!this.matches('[;&|<>`$\\\\\\n]')r\x03\x18\xf4\x03R\x05flags\"K\n" +
+	"\acontext\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\acontext\x12\x1e\n" +
+	"\x03cwd\x18\x03 \x01(\tB\f\xbaH\tr\a\xb0\xbb\x18\x01\x18\x80 R\x03cwd\x12\"\n" +
+	"\x05flags\x18\x04 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\"K\n" +
 	"\x16CreateWorkflowResponse\x121\n" +
-	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xa9\x03\n" +
+	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xb9\x01\n" +
 	"\x15UpdateWorkflowRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x12#\n" +
-	"\acontext\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\acontext\x12\xa1\x01\n" +
-	"\x03cwd\x18\x04 \x01(\tB\x8e\x01\xbaH\x8a\x01\xba\x01\x81\x01\n" +
-	"\x15cwd.absolute_or_blank\x12,cwd must be blank, absolute, or start with ~\x1a:this == '' || this.startsWith('/') || this.startsWith('~')r\x03\x18\x80 R\x03cwd\x12\x8d\x01\n" +
-	"\x05flags\x18\x05 \x01(\tBw\xbaHt\xba\x01l\n" +
-	"\x1dflags.no_shell_metacharacters\x12+flags must not contain shell metacharacters\x1a\x1e!this.matches('[;&|<>`$\\\\\\n]')r\x03\x18\xf4\x03R\x05flags\"W\n" +
+	"\acontext\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\acontext\x12\x1e\n" +
+	"\x03cwd\x18\x04 \x01(\tB\f\xbaH\tr\a\xb0\xbb\x18\x01\x18\x80 R\x03cwd\x12\"\n" +
+	"\x05flags\x18\x05 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\"0\n" +
 	"\x15DeleteWorkflowRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12%\n" +
-	"\x0earchive_agents\x18\x02 \x01(\bR\rarchiveAgents2\xe3\f\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xef\f\n" +
 	"\x0fWorkflowService\x12\xf2\x02\n" +
 	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\x99\x02\x9a\xb5\x18\x91\x02\n" +
 	"\x0elist_workflows\x12\xfe\x01List the workflows agents are grouped into, most recently updated first, with each one's shared context and the working directory and flags its agents start from. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
@@ -600,9 +584,9 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\x84\x02\x9a\xb5\x18\xff\x01\n" +
 	"\x0fcreate_workflow\x12\xe9\x01Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. \x00\x12\xf3\x02\n" +
 	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xa4\x02\x9a\xb5\x18\x9c\x02\n" +
-	"\x0fupdate_workflow\x12\x86\x02Replace a workflow's name, context, directory, and flags. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch. \x00\x90\x02\x02\x12\xce\x02\n" +
-	"\x0eDeleteWorkflow\x12\".workflow.v1.DeleteWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xff\x01\x9a\xb5\x18\xf7\x01\n" +
-	"\x0fdelete_workflow\x12\xe1\x01Remove a workflow. By default its agents are orphaned back to unassigned and keep running. Set archiveAgents to hide them alongside it, which leaves them findable through search_transcripts. Neither form deletes a transcript. \x01\x90\x02\x02B0Z.claude-agents/proto/gen/workflow/v1;workflowv1b\x06proto3"
+	"\x0fupdate_workflow\x12\x86\x02Replace a workflow's name, context, directory, and flags. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch. \x00\x90\x02\x02\x12\xda\x02\n" +
+	"\x0eDeleteWorkflow\x12\".workflow.v1.DeleteWorkflowRequest\x1a\x16.google.protobuf.Empty\"\x8b\x02\x9a\xb5\x18\x83\x02\n" +
+	"\x0fdelete_workflow\x12\xed\x01Remove a workflow. Its agents are archived alongside it, which leaves them findable through search_transcripts and deletes no transcript. Refused while any schedule still launches into the workflow, since those would have nowhere to run. \x01\x90\x02\x02B0Z.claude-agents/proto/gen/workflow/v1;workflowv1b\x06proto3"
 
 var (
 	file_workflow_v1_workflow_proto_rawDescOnce sync.Once

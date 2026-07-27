@@ -86,6 +86,14 @@ func (p *Pool) DB() DBTX {
 	return p.pool
 }
 
+// Raw returns the underlying pgx pool. It exists for River, whose driver takes
+// the concrete pool rather than an interface. Nothing in the application's own
+// layers should reach for it, since a domain store takes DBTX so a transaction
+// can be swapped in underneath it, and this cannot be.
+func (p *Pool) Raw() *pgxpool.Pool {
+	return p.pool
+}
+
 // Close releases the connection pool.
 func (p *Pool) Close() error {
 	p.pool.Close()

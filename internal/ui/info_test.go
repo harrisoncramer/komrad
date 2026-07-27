@@ -8,6 +8,7 @@ import (
 	"claude-agents/internal/appconfig"
 
 	agentstore "claude-agents/internal/store/agent"
+	workflowstore "claude-agents/internal/store/workflow"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
@@ -47,11 +48,13 @@ func TestInfoKey(t *testing.T) {
 			wantSwaps: 1,
 		},
 		{
+			// Two renders: the pinned record, then the workflow header the cursor
+			// lands on, which stages a record of its own.
 			name:     "moving the cursor unpins, so the record never outlives its row",
 			cursor:   1,
 			presses:  1,
 			thenMove: true,
-			wantBat:  1,
+			wantBat:  2,
 		},
 	}
 
@@ -180,17 +183,20 @@ func (t *recordingTmux) RespawnPane(_, _ string, argv ...string) {
 	t.respawns = append(t.respawns, strings.Join(argv, " "))
 }
 
-// infoModel builds an agents model holding one live agent, with the cursor on it.
-// Row 0 is the no-workflow header, so the agent is row 1.
+// infoModel builds an agents model holding one live agent, with the cursor on
+// it. Row 0 is the workflow header the agent sits under, so the agent is row 1.
 func infoModel(tmux *recordingTmux) model {
 	stage := NewStage(tmux)
 	stage.Init()
 
 	return model{
-		stage:       stage,
-		keys:        appconfig.DefaultKeybindings(),
-		screen:      screenAgents,
-		agents:      []agentItem{{agent: agentstore.Agent{Name: "auth", Pane: "%9", Cwd: "/repo"}, alive: true}},
+		stage:     stage,
+		keys:      appconfig.DefaultKeybindings(),
+		screen:    screenAgents,
+		workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+		agents: []agentItem{
+			{agent: agentstore.Agent{Name: "auth", Pane: "%9", Cwd: "/repo", WorkflowID: "w1"}, alive: true},
+		},
 		agentCursor: 1,
 	}
 }

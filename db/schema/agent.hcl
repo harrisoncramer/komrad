@@ -215,11 +215,12 @@ table "agents" {
     type    = text
     default = ""
   }
-  # The workflow this agent belongs to, or null when unassigned. Null, not an
-  # empty sentinel, so unassigned reads as the genuine absence of a workflow and
-  # needs no backfill. References workflows.id.
+  # The workflow this agent belongs to, and every agent has one. A workflow is
+  # where the directory, flags, and shared context an agent starts from live, so an
+  # agent outside one would have no defaults to inherit and nowhere to be listed.
+  # References workflows.id.
   column "workflow_id" {
-    null = true
+    null = false
     type = uuid
   }
   # The schedule that launched this agent, or null for one a person started.

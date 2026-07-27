@@ -1,11 +1,8 @@
 -- name: ListSchedulesPage :many
 SELECT
-    sqlc.embed(s),
-    sc.cwd,
-    sc.flags
+    sqlc.embed(s)
 FROM
     schedules s
-    JOIN schedule_configs sc ON sc.id = s.schedule_config_id
 WHERE
     s.is_deleted = FALSE
     AND (sqlc.narg ('cursor_updated_at')::timestamptz IS NULL
@@ -19,12 +16,9 @@ LIMIT @lim;
 
 -- name: ListSchedules :many
 SELECT
-    sqlc.embed(s),
-    sc.cwd,
-    sc.flags
+    sqlc.embed(s)
 FROM
     schedules s
-    JOIN schedule_configs sc ON sc.id = s.schedule_config_id
 WHERE
     s.is_deleted = FALSE
 ORDER BY
@@ -32,26 +26,17 @@ ORDER BY
 
 -- name: GetSchedule :one
 SELECT
-    sqlc.embed(s),
-    sc.cwd,
-    sc.flags
+    sqlc.embed(s)
 FROM
     schedules s
-    JOIN schedule_configs sc ON sc.id = s.schedule_config_id
 WHERE
     s.id = @id
     AND s.is_deleted = FALSE
 LIMIT 1;
 
--- name: InsertScheduleConfig :one
-INSERT INTO schedule_configs (cwd, flags)
-    VALUES (@cwd, @flags)
-RETURNING
-    id;
-
 -- name: InsertSchedule :one
-INSERT INTO schedules (name, cron, timezone, enabled, prompt, workflow_id, schedule_config_id)
-    VALUES (@name, @cron, @timezone, @enabled, @prompt, sqlc.narg ('workflow_id'), @schedule_config_id)
+INSERT INTO schedules (name, cron, timezone, enabled, prompt, workflow_id)
+    VALUES (@name, @cron, @timezone, @enabled, @prompt, @workflow_id)
 RETURNING
     *;
 
@@ -64,7 +49,7 @@ SET
     timezone = @timezone,
     enabled = @enabled,
     prompt = @prompt,
-    workflow_id = sqlc.narg ('workflow_id')
+    workflow_id = @workflow_id
 WHERE
     id = @id
     AND is_deleted = FALSE;
@@ -78,21 +63,6 @@ WHERE
     id = @id
     AND is_deleted = FALSE;
 
--- name: UpdateScheduleConfig :exec
-UPDATE
-    schedule_configs
-SET
-    cwd = @cwd,
-    flags = @flags
-WHERE
-    id = (
-        SELECT
-            schedule_config_id
-        FROM
-            schedules
-        WHERE
-            schedules.id = @schedule_id);
-
 -- name: MarkScheduleDeleted :exec
 UPDATE
     schedules
@@ -100,3 +70,12 @@ SET
     is_deleted = TRUE
 WHERE
     id = @id;
+
+-- name: CountLiveWorkflowSchedules :one
+SELECT
+    count(*)
+FROM
+    schedules
+WHERE
+    workflow_id = @workflow_id
+    AND is_deleted = FALSE;

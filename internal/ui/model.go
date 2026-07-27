@@ -3,6 +3,7 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -517,23 +518,29 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 		Prompt:          s.GetPrompt(),
 		State:           s.GetState(),
 		ClaudeSessionID: s.GetClaudeSessionId(),
-		WorkflowID:      s.WorkflowId,
+		WorkflowID:      s.GetWorkflowId(),
 		ScheduleID:      s.ScheduleId,
 		CreatedAt:       created,
 	}
 }
 
-// openNewAgent opens the new-agent form, seeded from the given workflow's blueprint
-// when one is passed, and records that workflow so the created agent is placed in
-// it. A nil workflow creates an agent that belongs to none.
+// errNoWorkflow is what the panel reports when a create is attempted with no
+// workflow to put the agent in, which only happens when none exist at all.
+var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one first")
+
+// openNewAgent opens the new-agent form, seeded from the given workflow's
+// blueprint, and records that workflow so the created agent is placed in it. A
+// nil workflow means there are none to create an agent in, which is reported
+// rather than opening a form whose submit could not go anywhere.
 func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
-	dir, flags := "", ""
-	if workflow != nil {
-		dir = workflow.Cwd
-		flags = workflow.Flags
+	if workflow == nil {
+		m.failAction("Could not start an agent", errNoWorkflow)
+
+		return m, nil
 	}
+
 	m.newAgentWorkflow = workflow
-	m.form = newAgentForm(m.keys.Form, dir, flags)
+	m.form = newAgentForm(m.keys.Form, workflow.Cwd, workflow.Flags)
 	m.screen = screenForm
 
 	return m, m.form.Init()
@@ -757,10 +764,16 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) submitAgent() (tea.Model, tea.Cmd) {
-	var workflowID *string
-	if m.newAgentWorkflow != nil {
-		id := m.newAgentWorkflow.ID
-		workflowID = &id
+	// The form is only reachable from inside a workflow, so this holds one by the
+	// time a submit happens. It is checked rather than dereferenced because a
+	// create with no workflow would be refused by the service anyway, and saying
+	// so here costs a round trip less.
+	if m.newAgentWorkflow == nil {
+		m.failAction("Could not start the agent", errNoWorkflow)
+		m.screen = screenAgents
+		m.stageSelection()
+
+		return m, nil
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
@@ -774,7 +787,7 @@ func (m model) submitAgent() (tea.Model, tea.Cmd) {
 		Title:      m.form.GetString("title"),
 		Dir:        m.currentDir(m.form.GetString("dir")),
 		Flags:      m.form.GetString("flags"),
-		WorkflowId: workflowID,
+		WorkflowId: m.newAgentWorkflow.ID,
 	}))
 	m.report("Could not start the agent", err)
 	m.newAgentWorkflow = nil

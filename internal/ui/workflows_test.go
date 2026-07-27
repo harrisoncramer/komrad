@@ -20,9 +20,9 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestAgentRows checks the tree the list renders. Every workflow is a header with
-// its agents beneath it, and agents belonging to none trail under a header of
-// their own.
+// / TestAgentRows checks the tree the list renders. Every workflow is a header
+// with its agents beneath it, and every agent has a workflow, so nothing trails
+// underneath outside one.
 func TestAgentRows(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -31,43 +31,45 @@ func TestAgentRows(t *testing.T) {
 		wantRows  []string
 	}{
 		{
-			name:     "an empty store still shows the no-workflow header",
-			wantRows: []string{"header:" + noWorkflowLabel},
+			name:     "an empty store renders nothing at all",
+			wantRows: []string{},
 		},
 		{
 			name:      "an empty workflow keeps its header, so an agent can be added to it",
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-			wantRows: []string{
-				"header:backend",
-				"header:" + noWorkflowLabel,
-			},
+			wantRows:  []string{"header:backend"},
 		},
 		{
-			name: "agents nest under their workflow and unassigned ones trail",
+			name: "agents nest under the workflow they belong to",
 			workflows: []workflowstore.Workflow{
 				{ID: "w1", Name: "backend"},
 				{ID: "w2", Name: "frontend"},
 			},
 			agents: []agentItem{
-				{agent: agentstore.Agent{Name: "auth", WorkflowID: ptr("w1")}},
-				{agent: agentstore.Agent{Name: "loose"}},
+				{agent: agentstore.Agent{Name: "auth", WorkflowID: "w1"}},
+				{agent: agentstore.Agent{Name: "ui", WorkflowID: "w2"}},
 			},
 			wantRows: []string{
 				"header:backend",
 				"agent:auth",
 				"header:frontend",
-				"header:" + noWorkflowLabel,
-				"agent:loose",
+				"agent:ui",
 			},
 		},
 		{
-			name: "an agent whose workflow is gone falls in with the unassigned",
+			// The workflow was deleted and the agent still points at it. There is no
+			// header to nest it under, so it is left out rather than rendered loose.
+			name: "an agent whose workflow is gone is not rendered",
+			workflows: []workflowstore.Workflow{
+				{ID: "w1", Name: "backend"},
+			},
 			agents: []agentItem{
-				{agent: agentstore.Agent{Name: "orphan", WorkflowID: ptr("vanished")}},
+				{agent: agentstore.Agent{Name: "auth", WorkflowID: "w1"}},
+				{agent: agentstore.Agent{Name: "orphan", WorkflowID: "vanished"}},
 			},
 			wantRows: []string{
-				"header:" + noWorkflowLabel,
-				"agent:orphan",
+				"header:backend",
+				"agent:auth",
 			},
 		},
 	}
@@ -114,7 +116,7 @@ func TestHoveredWorkflow(t *testing.T) {
 	m := model{
 		workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
 		agents: []agentItem{
-			{agent: agentstore.Agent{Name: "auth", WorkflowID: ptr("w1")}},
+			{agent: agentstore.Agent{Name: "auth", WorkflowID: "w1"}},
 			{agent: agentstore.Agent{Name: "loose"}},
 		},
 	}
@@ -189,7 +191,7 @@ func TestWorkflowWrites(t *testing.T) {
 		},
 		{
 			name:       "a refused delete",
-			call:       func(m model) error { return m.deleteWorkflow("w1", true) },
+			call:       func(m model) error { return m.deleteWorkflow("w1") },
 			wantWrites: 1,
 			wantReason: "quota reached",
 		},
@@ -339,5 +341,3 @@ func describeRows(rows []agentRow) []string {
 
 	return out
 }
-
-func ptr(s string) *string { return &s }

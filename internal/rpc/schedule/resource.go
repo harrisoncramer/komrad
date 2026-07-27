@@ -41,8 +41,6 @@ func renderSchedule(s schedulestore.Schedule, now time.Time) schedule {
 		Enabled:    s.Enabled,
 		Prompt:     s.Prompt,
 		WorkflowId: s.WorkflowID,
-		Cwd:        s.Cwd,
-		Flags:      s.Flags,
 	}
 
 	if next := agents.NextRun(s, now); !next.IsZero() {

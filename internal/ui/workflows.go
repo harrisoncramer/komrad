@@ -131,10 +131,10 @@ func (m model) updateWorkflowDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.form.State {
 	case huh.StateCompleted:
-		if m.workflowDeleteTarget != nil {
+		if m.workflowDeleteTarget != nil && m.form.GetBool("confirm") {
 			m.report(
 				fmt.Sprintf("Could not delete workflow %q", m.workflowDeleteTarget.Name),
-				m.deleteWorkflow(m.workflowDeleteTarget.ID, m.form.GetBool("purge")),
+				m.deleteWorkflow(m.workflowDeleteTarget.ID),
 			)
 		}
 		m.workflowDeleteTarget = nil
@@ -240,18 +240,17 @@ func workflowConfigForm(nameTitle string, cfg workflowstore.Config, keys appconf
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
 }
 
-// deleteWorkflowForm asks whether a workflow's agents should be deleted with it.
-// Confirming purges them, declining orphans them back to unassigned, and the
-// abort key cancels the delete entirely.
+// deleteWorkflowForm confirms a delete. The agents inside go with it, since
+// every agent belongs to a workflow and there is nowhere to leave one.
 func deleteWorkflowForm(name string, keys appconfig.FormKeys) *huh.Form {
 	return huh.NewForm(
 		huh.NewGroup(
 			huh.NewConfirm().
-				Key("purge").
-				Title(fmt.Sprintf("Delete workflow %q — also delete its agents?", name)).
-				Description("No keeps the agents and unassigns them.").
-				Affirmative("Delete agents too").
-				Negative("Keep agents"),
+				Key("confirm").
+				Title(fmt.Sprintf("Delete workflow %q and its agents?", name)).
+				Description("Their transcripts are kept and stay searchable.").
+				Affirmative("Delete").
+				Negative("Cancel"),
 		),
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
 }
@@ -325,16 +324,13 @@ func (m model) updateWorkflow(w workflowstore.Workflow) error {
 	return err
 }
 
-// deleteWorkflow removes a workflow, archiving its agents alongside it when the
-// form asked for that and orphaning them back to unassigned otherwise.
-func (m model) deleteWorkflow(id string, archiveAgents bool) error {
+// deleteWorkflow removes a workflow, archiving the agents inside it alongside
+// it. The service refuses while any schedule still launches into it.
+func (m model) deleteWorkflow(id string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	_, err := m.api.workflows.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{
-		Id:            id,
-		ArchiveAgents: archiveAgents,
-	}))
+	_, err := m.api.workflows.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id}))
 
 	return err
 }

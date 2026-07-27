@@ -12,8 +12,6 @@ import (
 
 	agentstore "claude-agents/internal/store/agent"
 
-	"claude-agents/lib/xptr"
-
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -27,31 +25,37 @@ func TestCreateAgentValidation(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "a prompt and an absolute directory are enough",
-			req:  &agentv1.CreateAgentRequest{Prompt: "audit the migrations", Dir: "/repo"},
+			name: "a prompt, a workflow, and an absolute directory are enough",
+			req:  &agentv1.CreateAgentRequest{Prompt: "audit the migrations", Dir: "/repo", WorkflowId: "wf-1"},
 		},
 		{
 			name: "a home-relative directory is allowed, since the manager expands it",
-			req:  &agentv1.CreateAgentRequest{Prompt: "go", Dir: "~/repo"},
+			req:  &agentv1.CreateAgentRequest{Prompt: "go", Dir: "~/repo", WorkflowId: "wf-1"},
+		},
+		{
+			// The workflow supplies the directory, which is what a caller with no
+			// view of the filesystem relies on.
+			name: "no directory is allowed, since the workflow has one",
+			req:  &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: "wf-1"},
 		},
 		{
 			name:    "no prompt",
-			req:     &agentv1.CreateAgentRequest{Dir: "/repo"},
+			req:     &agentv1.CreateAgentRequest{Dir: "/repo", WorkflowId: "wf-1"},
 			wantErr: true,
 		},
 		{
-			name:    "no directory",
-			req:     &agentv1.CreateAgentRequest{Prompt: "go"},
+			name:    "no workflow, which every agent needs",
+			req:     &agentv1.CreateAgentRequest{Prompt: "go", Dir: "/repo"},
 			wantErr: true,
 		},
 		{
 			name:    "a relative directory would resolve against whichever pane is current",
-			req:     &agentv1.CreateAgentRequest{Prompt: "go", Dir: "repo"},
+			req:     &agentv1.CreateAgentRequest{Prompt: "go", Dir: "repo", WorkflowId: "wf-1"},
 			wantErr: true,
 		},
 		{
-			name:    "an empty workflow id names a workflow that cannot exist",
-			req:     &agentv1.CreateAgentRequest{Prompt: "go", Dir: "/repo", WorkflowId: xptr.Ptr("")},
+			name:    "flags carrying a shell metacharacter are refused rather than quoted and run",
+			req:     &agentv1.CreateAgentRequest{Prompt: "go", Dir: "/repo", WorkflowId: "wf-1", Flags: "--model opus; rm -rf /"},
 			wantErr: true,
 		},
 	}
@@ -243,7 +247,7 @@ func validatedClient(t *testing.T) (agentv1connect.AgentServiceClient, *fakeLaun
 
 	// The mutating methods report not_found for an agent that does not exist, so
 	// the validation cases need a real one to aim at.
-	require.NoError(t, st.Agents.Upsert(t.Context(), agentstore.Agent{Name: "alpha", State: agentstore.StateNew}))
+	st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateNew})
 
 	validation, err := interceptors.NewValidation()
 	require.NoError(t, err)

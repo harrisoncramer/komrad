@@ -6,6 +6,7 @@ import (
 	"claude-agents/internal/appconfig"
 
 	agentstore "claude-agents/internal/store/agent"
+	workflowstore "claude-agents/internal/store/workflow"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
@@ -95,6 +96,7 @@ func TestApplyAgents(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{
 				screen:      screenAgents,
+				workflows:   []workflowstore.Workflow{{ID: testWorkflowID, Name: "backend"}},
 				agents:      tt.start,
 				agentCursor: tt.cursor,
 				keys:        appconfig.DefaultKeybindings(),
@@ -125,12 +127,17 @@ func TestApplyAgents(t *testing.T) {
 	}
 }
 
-// items builds a list of agents from names alone, for the cases that only care
-// about ordering and selection.
+// testWorkflowID is the workflow the agents in these cases belong to. Every
+// agent has one, and the tree only renders agents whose workflow is listed, so
+// the cases that care about ordering still need somewhere to hang them.
+const testWorkflowID = "w1"
+
+// items builds a list of agents from names alone, all in one workflow, for the
+// cases that only care about ordering and selection.
 func items(names ...string) []agentItem {
 	out := make([]agentItem, 0, len(names))
 	for _, name := range names {
-		out = append(out, agentItem{agent: agentstore.Agent{Name: name}})
+		out = append(out, agentItem{agent: agentstore.Agent{Name: name, WorkflowID: testWorkflowID}})
 	}
 
 	return out
