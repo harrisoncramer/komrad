@@ -167,16 +167,20 @@ func Load(path string) (*Config, error) {
 	viperCfg := viper.New()
 	viperCfg.SetConfigType("toml")
 
-	if path != "" {
-		viperCfg.SetConfigFile(path)
-	} else {
+	// The resolved path is named in the errors below. What went wrong is not
+	// actionable without knowing which file to go and edit, and the default
+	// location is not something the reader has necessarily seen written down.
+	file := path
+	if file == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve home directory: %w", err)
 		}
 
-		viperCfg.SetConfigFile(filepath.Join(home, ".config", "claude-agents", "config.toml"))
+		file = filepath.Join(home, ".config", "claude-agents", "config.toml")
 	}
+
+	viperCfg.SetConfigFile(file)
 
 	if err := viperCfg.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
@@ -186,14 +190,14 @@ func Load(path string) (*Config, error) {
 			return &Config{Keybindings: DefaultKeybindings()}, nil
 		}
 
-		return nil, fmt.Errorf("failed to read config: %w", err)
+		return nil, fmt.Errorf("failed to read config %s: %w", file, err)
 	}
 
 	var cfg Config
 	if err := viperCfg.Unmarshal(&cfg, func(dc *mapstructure.DecoderConfig) {
 		dc.ErrorUnused = true
 	}); err != nil {
-		return nil, fmt.Errorf("failed to parse config: %w", err)
+		return nil, fmt.Errorf("failed to parse config %s: %w", file, err)
 	}
 
 	cfg.Keybindings = cfg.Keybindings.withDefaults()

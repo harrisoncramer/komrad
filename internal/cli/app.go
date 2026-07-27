@@ -36,6 +36,10 @@ type app struct {
 	env         *config.Config
 	keys        appconfig.Keybindings
 	claudeFlags string
+	// configErr is set when the user's config file would not parse. The panel shows
+	// it on its error screen; every other command ignores it, since none of them
+	// read keybindings.
+	configErr error
 	// tmux is shared with the services. The UI needs it directly for the stage,
 	// which is its own layout rather than anything the agent API owns.
 	tmux *tmux.Client

@@ -10,6 +10,7 @@ import (
 
 	"claude-agents/internal/appconfig"
 	"claude-agents/internal/client"
+	"claude-agents/internal/errui"
 	agentv1 "claude-agents/proto/gen/agent/v1"
 	"claude-agents/proto/gen/agent/v1/agentv1connect"
 	"claude-agents/proto/gen/workflow/v1/workflowv1connect"
@@ -100,7 +101,9 @@ func (m model) hide() tea.Cmd {
 var (
 	headerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#7E9CD8")).Bold(true)
 	cursorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#7E9CD8")).Bold(true)
-	dimStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#727169"))
+	// dimStyle is shared with the error screens rather than restated here, so the
+	// panel's secondary text and theirs cannot drift to different greys.
+	dimStyle = errui.Dim
 )
 
 func stateIcon(state string) string {
@@ -171,6 +174,11 @@ type Deps struct {
 	// Addr is where Client points, shown on the error screen when the service
 	// stops answering so the address to go looking at is on screen.
 	Addr string
+	// ConfigErr is set when the user's config file would not parse. The panel shows
+	// it on its error screen instead of starting, so the message is readable rather
+	// than written to a popup that closes on top of it. Keys fall back to the
+	// built-in defaults, which is what the panel would have used anyway.
+	ConfigErr error
 }
 
 type model struct {
@@ -193,6 +201,14 @@ type model struct {
 	// answering. The poll keeps running while it is set, so the panel recovers on
 	// its own once the service is back.
 	unreachable error
+	// configErr is set when the config file would not parse. Unlike unreachable it
+	// never clears, since the file is read once at startup, so the screen it shows
+	// is the whole life of the process.
+	configErr error
+	// actionErr is the last write the service refused, shown as a banner over the
+	// screen it happened on. It is cleared when the next action is attempted and by
+	// esc, never by a poll: a refused delete is still worth reading a second later.
+	actionErr *errui.Banner
 
 	screen screen
 
@@ -234,13 +250,22 @@ type model struct {
 
 func newModel(deps Deps) model {
 	m := model{
-		api:    api{agents: deps.Agents, workflows: deps.Workflows},
-		popup:  deps.Popup,
-		stage:  NewStage(deps.Tmux),
-		addr:   deps.Addr,
-		keys:   deps.Keys,
-		screen: screenAgents,
+		api:       api{agents: deps.Agents, workflows: deps.Workflows},
+		popup:     deps.Popup,
+		stage:     NewStage(deps.Tmux),
+		addr:      deps.Addr,
+		keys:      deps.Keys,
+		configErr: deps.ConfigErr,
+		screen:    screenAgents,
 	}
+
+	// A config that would not parse shows its error in place of the panel, so none
+	// of the panel's setup runs: no stage pane is split and nothing is listed. The
+	// screen is all this process does.
+	if m.configErr != nil {
+		return m
+	}
+
 	// Split off the stage pane beside the panel, then show whatever the initial
 	// selection lands on.
 	m.stage.Init()
@@ -292,19 +317,21 @@ func (m model) currentDir(dir string) string {
 
 // renameAgent renames an agent by id. A blank or unchanged name is a no-op, which
 // keeps the form's empty submit from asking the service to do nothing.
-func (m model) renameAgent(agent agentstore.Agent, name string) {
+func (m model) renameAgent(agent agentstore.Agent, name string) error {
 	name = strings.TrimSpace(name)
 	if name == "" || name == agent.Name {
-		return
+		return nil
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	_, _ = m.api.agents.UpdateAgent(ctx, connect.NewRequest(&agentv1.UpdateAgentRequest{
+	_, err := m.api.agents.UpdateAgent(ctx, connect.NewRequest(&agentv1.UpdateAgentRequest{
 		Id:   agent.ID,
 		Name: name,
 	}))
+
+	return err
 }
 
 // listWorkflows fetches every workflow and renders them into the store type the
@@ -337,8 +364,10 @@ func (m model) listWorkflows() ([]workflowstore.Workflow, error) {
 func (m *model) reloadWorkflows() {
 	workflows, err := m.listWorkflows()
 	if err != nil {
-		m.workflows = nil
-		m.workflowCursor = 0
+		// The tree already on screen is kept. Blanking it would say every workflow
+		// had been deleted, which is not what a list that failed to answer means.
+		m.failAction("Could not list workflows", err)
+
 		return
 	}
 
@@ -453,7 +482,10 @@ func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.form.State {
 	case huh.StateCompleted:
-		m.renameAgent(m.renameTarget, m.form.GetString("name"))
+		m.report(
+			fmt.Sprintf("Could not rename agent %q", m.renameTarget.Name),
+			m.renameAgent(m.renameTarget, m.form.GetString("name")),
+		)
 		m.reload()
 		m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
 		m.screen = screenAgents
@@ -497,13 +529,52 @@ func formKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
 	return km
 }
 
+// onFormScreen reports whether a form owns the input, which decides whether a key
+// belongs to the form or to the panel's own chrome.
+func (m model) onFormScreen() bool {
+	switch m.screen {
+	case screenForm, screenRename, screenWorkflowForm, screenWorkflowDelete:
+		return true
+	default:
+		return false
+	}
+}
+
 // Init starts the async agents refresh so the list's counts and states stay current.
+// A config error means there is no list to refresh, so nothing is started.
 func (m model) Init() tea.Cmd {
+	if m.configErr != nil {
+		return nil
+	}
+
 	return tea.Batch(agentsTick(), m.loadAgentsCmd())
 }
 
 // Update routes messages and key input to the active screen.
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// The config error screen is terminal: there is nothing to act on, so any key
+	// dismisses it. Quitting exits zero, which is what lets the popup close on the
+	// keypress rather than lingering.
+	if m.configErr != nil {
+		if _, ok := msg.(tea.KeyMsg); ok {
+			return m, tea.Quit
+		}
+
+		return m, nil
+	}
+
+	// The banner is chrome rather than a screen, so it is dismissed with esc as a
+	// literal rather than through the rebindable back binding: back also carries
+	// left and h, and navigation keys should move the cursor, not clear an error.
+	// Form screens keep their own esc, which aborts the form.
+	if m.actionErr != nil && !m.onFormScreen() {
+		if key, ok := msg.(tea.KeyMsg); ok && key.String() == "esc" {
+			m.actionErr = nil
+
+			return m, nil
+		}
+	}
+
 	if _, ok := msg.(agentsTickMsg); ok {
 		return m, tea.Batch(m.loadAgentsCmd(), agentsTick())
 	}
@@ -592,15 +663,17 @@ func (m model) submitAgent() (tea.Model, tea.Cmd) {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	// A launch failure leaves the list unchanged. The next refresh is the panel's
-	// own report of what exists.
-	_, _ = m.api.agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
+	// A launch failure leaves the list unchanged, so it has to be reported. The
+	// refresh below would otherwise be the only signal, and a list that comes back
+	// without the new agent reads the same as a form that never submitted.
+	_, err := m.api.agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
 		Prompt:     m.form.GetString("prompt"),
 		Title:      m.form.GetString("title"),
 		Dir:        m.currentDir(m.form.GetString("dir")),
 		Flags:      m.form.GetString("flags"),
 		WorkflowId: workflowID,
 	}))
+	m.report("Could not start the agent", err)
 	m.newAgentWorkflow = nil
 	m.reload()
 	m.screen = screenAgents

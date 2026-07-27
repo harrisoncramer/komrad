@@ -38,9 +38,15 @@ func NewRootCommand() *cobra.Command {
 				return err
 			}
 
+			// A config that will not parse is carried into the panel and shown on its
+			// error screen rather than ending the process here. Exiting wrote the
+			// message to a popup tmux tore down in the same instant, so the only way
+			// to read it was to run the binary by hand. The panel runs on the built-in
+			// keybindings meanwhile, which is what it would have used anyway.
 			cfg, err := appconfig.Load(configPath)
 			if err != nil {
-				return err
+				state.configErr = err
+				cfg = &appconfig.Config{Keybindings: appconfig.DefaultKeybindings()}
 			}
 
 			state.env = env
@@ -75,6 +81,7 @@ func NewRootCommand() *cobra.Command {
 				Workflows: workflowClient,
 				Keys:      state.keys,
 				Addr:      state.env.Addr,
+				ConfigErr: state.configErr,
 			})
 		},
 	}

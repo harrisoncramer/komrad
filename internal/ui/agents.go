@@ -201,7 +201,7 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Killing a pane while it sits in the stage slot would take the stage down
 		// with it, so it is swapped back out first.
 		m.stage.Release(item.agent.Pane)
-		m.archiveAgent(item.agent)
+		m.report(fmt.Sprintf("Could not delete agent %q", item.agent.Name), m.archiveAgent(item.agent))
 		m.reload()
 		m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
 		m.stageSelection()
@@ -228,6 +228,7 @@ func (m model) openAgent() (tea.Model, tea.Cmd) {
 	}
 
 	restored, err := m.restoreAgent(item.agent.ID)
+	m.report(fmt.Sprintf("Could not restore agent %q", item.agent.Name), err)
 	if err != nil {
 		return m, nil
 	}
@@ -243,11 +244,13 @@ func (m model) openAgent() (tea.Model, tea.Cmd) {
 
 // archiveAgent stops an agent and hides it. The record and transcript stay, so
 // search still reaches it.
-func (m model) archiveAgent(agent agentstore.Agent) {
+func (m model) archiveAgent(agent agentstore.Agent) error {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	_, _ = m.api.agents.ArchiveAgent(ctx, connect.NewRequest(&agentv1.ArchiveAgentRequest{Name: agent.Name}))
+	_, err := m.api.agents.ArchiveAgent(ctx, connect.NewRequest(&agentv1.ArchiveAgentRequest{Name: agent.Name}))
+
+	return err
 }
 
 // restoreAgent brings an agent back and returns it as the service now holds it.

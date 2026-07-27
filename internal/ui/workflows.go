@@ -132,7 +132,10 @@ func (m model) updateWorkflowDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.form.State {
 	case huh.StateCompleted:
 		if m.workflowDeleteTarget != nil {
-			m.deleteWorkflow(m.workflowDeleteTarget.ID, m.form.GetBool("purge"))
+			m.report(
+				fmt.Sprintf("Could not delete workflow %q", m.workflowDeleteTarget.Name),
+				m.deleteWorkflow(m.workflowDeleteTarget.ID, m.form.GetBool("purge")),
+			)
 		}
 		m.workflowDeleteTarget = nil
 		m.reloadWorkflows()
@@ -181,23 +184,29 @@ func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 		target := *m.workflowRenameTarget
 		if trimmed := strings.TrimSpace(name); trimmed != "" && trimmed != target.Name {
 			target.Name = trimmed
-			m.updateWorkflow(target)
+			m.report(
+				fmt.Sprintf("Could not rename workflow %q", m.workflowRenameTarget.Name),
+				m.updateWorkflow(target),
+			)
 		}
 	case m.workflowEditTarget != nil:
-		m.updateWorkflow(workflowstore.Workflow{
-			ID:      m.workflowEditTarget.ID,
-			Name:    name,
-			Context: m.form.GetString("context"),
-			Cwd:     m.form.GetString("dir"),
-			Flags:   m.form.GetString("flags"),
-		})
+		m.report(
+			fmt.Sprintf("Could not save workflow %q", m.workflowEditTarget.Name),
+			m.updateWorkflow(workflowstore.Workflow{
+				ID:      m.workflowEditTarget.ID,
+				Name:    name,
+				Context: m.form.GetString("context"),
+				Cwd:     m.form.GetString("dir"),
+				Flags:   m.form.GetString("flags"),
+			}),
+		)
 	default:
-		m.createWorkflow(workflowstore.Config{
+		m.report("Could not create the workflow", m.createWorkflow(workflowstore.Config{
 			Name:    name,
 			Context: m.form.GetString("context"),
 			Cwd:     m.form.GetString("dir"),
 			Flags:   m.form.GetString("flags"),
-		})
+		}))
 	}
 
 	m.workflowRenameTarget = nil
@@ -275,7 +284,7 @@ func (m model) getWorkflow(id string) (*workflowstore.Workflow, error) {
 
 // createWorkflow adds a workflow, defaulting a blank name so the list always has
 // a label to render.
-func (m model) createWorkflow(cfg workflowstore.Config) {
+func (m model) createWorkflow(cfg workflowstore.Config) error {
 	name := strings.TrimSpace(cfg.Name)
 	if name == "" {
 		name = "workflow"
@@ -284,42 +293,48 @@ func (m model) createWorkflow(cfg workflowstore.Config) {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	_, _ = m.api.workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+	_, err := m.api.workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
 		Name:    name,
 		Context: cfg.Context,
 		Cwd:     cfg.Cwd,
 		Flags:   cfg.Flags,
 	}))
+
+	return err
 }
 
 // updateWorkflow writes every field back, which is what the service expects. It
 // replaces rather than patches, so the caller sends the whole workflow.
-func (m model) updateWorkflow(w workflowstore.Workflow) {
+func (m model) updateWorkflow(w workflowstore.Workflow) error {
 	name := strings.TrimSpace(w.Name)
 	if name == "" {
-		return
+		return nil
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	_, _ = m.api.workflows.UpdateWorkflow(ctx, connect.NewRequest(&workflowv1.UpdateWorkflowRequest{
+	_, err := m.api.workflows.UpdateWorkflow(ctx, connect.NewRequest(&workflowv1.UpdateWorkflowRequest{
 		Id:      w.ID,
 		Name:    name,
 		Context: w.Context,
 		Cwd:     w.Cwd,
 		Flags:   w.Flags,
 	}))
+
+	return err
 }
 
 // deleteWorkflow removes a workflow, archiving its agents alongside it when the
 // form asked for that and orphaning them back to unassigned otherwise.
-func (m model) deleteWorkflow(id string, archiveAgents bool) {
+func (m model) deleteWorkflow(id string, archiveAgents bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	_, _ = m.api.workflows.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{
+	_, err := m.api.workflows.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{
 		Id:            id,
 		ArchiveAgents: archiveAgents,
 	}))
+
+	return err
 }

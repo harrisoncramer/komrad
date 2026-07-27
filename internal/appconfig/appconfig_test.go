@@ -145,6 +145,41 @@ func TestLoadRejectsUnknownKeys(t *testing.T) {
 	}
 }
 
+// TestLoadErrorNamesTheFile covers the path being carried in the error. The panel
+// shows that error and nothing else, so an error saying only that the config would
+// not parse leaves the reader with no file to go and open.
+func TestLoadErrorNamesTheFile(t *testing.T) {
+	tests := []struct {
+		name string
+		file string
+		want string
+	}{
+		{
+			name: "a file that is not toml at all",
+			file: "keybindings = [\n",
+			want: "failed to read config",
+		},
+		{
+			name: "a file that parses but sets a key the panel does not have",
+			file: "claude_flgas = \"--model opus\"\n",
+			want: "failed to parse config",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.toml")
+			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
+
+			_, err := Load(path)
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.want)
+			assert.Contains(t, err.Error(), path, "the file to go and edit is named")
+		})
+	}
+}
+
 // withNavUp is the defaults with one navigation binding replaced, which is what
 // a config that overrides only that binding should come out as.
 func withNavUp(k Keybindings, keys ...string) Keybindings {
