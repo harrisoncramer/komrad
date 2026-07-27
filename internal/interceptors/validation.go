@@ -11,19 +11,19 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// validationInterceptor enforces the constraints declared on the request
-// messages in session.proto, so what counts as a well-formed request lives with
-// the schema rather than being re-litigated at the top of every handler. A
-// violation is an invalid_argument, carrying protovalidate's own description of
-// which field failed and why.
+// validationInterceptor enforces the constraints declared on the request messages
+// in the protos, so what counts as a well-formed request lives with the schema
+// rather than being restated at the top of every handler. A violation is an
+// invalid_argument carrying protovalidate's own description of which field failed
+// and why.
 type validationInterceptor struct {
 	validator protovalidate.Validator
 }
 
-// NewValidation builds the interceptor, failing if the validator
-// cannot be constructed. That only happens when a compiled-in constraint is
-// malformed, which is a programming error rather than a runtime condition, so
-// the caller cannot usefully continue without it.
+// NewValidation builds the interceptor, failing if the validator cannot be
+// constructed. That only happens when a compiled-in constraint is malformed, which
+// is a programming error rather than a runtime condition, so the caller cannot
+// usefully continue without it.
 func NewValidation() (connect.Interceptor, error) {
 	validator, err := protovalidate.New()
 	if err != nil {

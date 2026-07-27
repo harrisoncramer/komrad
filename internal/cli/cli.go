@@ -1,9 +1,9 @@
 // Package cli builds the claude-agents command tree and wires its dependencies.
 //
-// This file holds the root command and nothing else. Each subcommand lives in
-// its own file named for it, holding that command and only the helpers it uses.
-// What more than one command needs sits apart: app.go for the shared state they
-// are wired from, process.go for finding this binary and starting the server.
+// This file holds the root command and nothing else. Each subcommand lives in its
+// own file named for it, holding that command and only the helpers it uses. What
+// more than one command needs sits apart, in app.go for the shared state they are
+// wired from and process.go for finding this binary and starting the server.
 package cli
 
 import (
@@ -57,22 +57,22 @@ func NewRootCommand() *cobra.Command {
 			}
 
 			base := "http://" + state.env.Addr
-			agents := agentv1connect.NewAgentServiceClient(http.DefaultClient, base)
-			workflows := workflowv1connect.NewWorkflowServiceClient(http.DefaultClient, base)
+			agentClient := agentv1connect.NewAgentServiceClient(http.DefaultClient, base)
+			workflowClient := workflowv1connect.NewWorkflowServiceClient(http.DefaultClient, base)
 
-			// Drop this session's status bar so the panel and its stage pane fill
-			// the popup without a tmux footer beneath them.
+			// Drop this tmux session's status bar so the panel and its stage pane
+			// fill the popup without a footer beneath them.
 			state.popup.SilenceStatus(agents.ManagerSession)
 
-			// This process runs inside the persistent manager session and never
-			// exits on its own. The close and quit keys detach the popup rather
-			// than quit, so the panel stays one long-lived program with its state
+			// This process runs inside the persistent manager tmux session and never
+			// exits on its own. The close and quit keys detach the popup rather than
+			// quit, so the panel stays one long-lived program with its state
 			// preserved between opens. Run returns only on a real error.
 			return ui.Run(ui.Deps{
 				Popup:     state.popup,
 				Tmux:      state.tmux,
-				Agents:    agents,
-				Workflows: workflows,
+				Agents:    agentClient,
+				Workflows: workflowClient,
 				Keys:      state.keys,
 				Addr:      state.env.Addr,
 			})

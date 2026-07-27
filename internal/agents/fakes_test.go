@@ -109,7 +109,7 @@ func (f *fakeTmux) lastKeys(target string) []string {
 }
 
 // testStore gathers the domain stores a test needs behind one handle, built over
-// one pool. Nothing in production holds this: each service is still constructed
+// one pool. Nothing in production holds this, since each service is still constructed
 // with only the store it depends on. It exists so a test can arrange rows across
 // domains without threading three handles through every helper.
 type testStore struct {
@@ -150,16 +150,16 @@ func (s *testStore) GetWorkflow(ctx context.Context, id string) (*workflowstore.
 	return s.Workflows.Get(ctx, id)
 }
 
-func (s *testStore) GetTranscript(ctx context.Context, sessionID string) (transcriptstore.Transcript, error) {
-	return s.Transcripts.Get(ctx, sessionID)
+func (s *testStore) GetTranscript(ctx context.Context, agentID string) (transcriptstore.Transcript, error) {
+	return s.Transcripts.Get(ctx, agentID)
 }
 
-// sessionService builds the service under test over these stores, the same way
+// agentService builds the service under test over these stores, the same way
 // the composition root does.
-func (s *testStore) sessionService(tmux agentTmux, launcher *Launcher, flags string) *AgentService {
+func (s *testStore) agentService(tmux agentTmux, launcher *Launcher, flags string) *AgentService {
 	return NewAgentService(AgentParams{
 		Tmux:        tmux,
-		Sessions:    s.Agents,
+		Agents:      s.Agents,
 		Workflows:   s.Workflows,
 		Tx:          s.Pool,
 		Launcher:    launcher,
@@ -194,10 +194,10 @@ func stateOf(t *testing.T, st *testStore, name string) string {
 	return got.State
 }
 
-// newManager builds a session service over the fake tmux and a real store, which
+// newManager builds an agent service over the fake tmux and a real store, which
 // is what most of these tests drive.
 func newManager(tmux *fakeTmux, st *testStore, flags string) *AgentService {
-	return newSessions(tmux, st, flags, "")
+	return newAgentService(tmux, st, flags, "")
 }
 
 // workflowsFor builds the workflow service over the same store, for the tests
@@ -206,10 +206,10 @@ func workflowsFor(st *testStore) *WorkflowService {
 	return st.workflowService()
 }
 
-// newSessions is the same, with the launcher pointed at a specific address so a
+// newAgentService is the same, with the launcher pointed at a specific address so a
 // test can assert on what a spawned agent is told.
-func newSessions(tmux *fakeTmux, st *testStore, flags, addr string) *AgentService {
-	return st.sessionService(tmux, NewLauncher(tmux, addr), flags)
+func newAgentService(tmux *fakeTmux, st *testStore, flags, addr string) *AgentService {
+	return st.agentService(tmux, NewLauncher(tmux, addr), flags)
 }
 
 // agentByID finds an agent among every row, archived ones included, since a test

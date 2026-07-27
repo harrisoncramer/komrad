@@ -26,7 +26,8 @@ type columnInfo struct {
 	PrimaryKey bool   `json:"primary_key,omitempty"`
 }
 
-// tableDescription is the describe_table result: columns, foreign keys, indexes.
+// tableDescription is the describe_table result, its columns, foreign keys, and
+// indexes.
 type tableDescription struct {
 	Table       string       `json:"table"`
 	Columns     []columnInfo `json:"columns"`
@@ -156,8 +157,7 @@ ORDER BY c.ordinal_position`
 }
 
 // describeForeignKeys lists the table's outbound foreign keys as "column ->
-// target.column". This schema declares none, so the result is usually empty. It
-// is reported anyway so adding one shows up here without further work.
+// target.column".
 func (d *dbTools) describeForeignKeys(ctx context.Context, table string) ([]string, error) {
 	const stmt = `
 SELECT

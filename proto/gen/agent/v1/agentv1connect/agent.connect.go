@@ -65,12 +65,12 @@ const (
 
 // AgentServiceClient is a client for the agent.v1.AgentService service.
 type AgentServiceClient interface {
-	// Reads: no side effects, safe to cache and issue over GET.
+	// Reads have no side effects and are safe to cache and issue over GET.
 	ListAgents(context.Context, *connect.Request[v1.ListAgentsRequest]) (*connect.Response[v1.ListAgentsResponse], error)
 	GetAgent(context.Context, *connect.Request[v1.GetAgentRequest]) (*connect.Response[v1.GetAgentResponse], error)
-	// CreateAgent launches a background agent and returns it as stored. It is
-	// not idempotent: each call spawns another agent, since two agents may
-	// legitimately run the same prompt.
+	// CreateAgent launches a background agent and returns it as stored. It is not
+	// idempotent. Each call spawns another agent, since two agents may legitimately
+	// run the same prompt.
 	CreateAgent(context.Context, *connect.Request[v1.CreateAgentRequest]) (*connect.Response[v1.CreateAgentResponse], error)
 	// Mutations key on the unique agent name, so repeating them yields the same
 	// state. They are idempotent and safe for the client to retry.
@@ -78,7 +78,7 @@ type AgentServiceClient interface {
 	ArchiveAgent(context.Context, *connect.Request[v1.ArchiveAgentRequest]) (*connect.Response[emptypb.Empty], error)
 	RestoreAgent(context.Context, *connect.Request[v1.RestoreAgentRequest]) (*connect.Response[v1.RestoreAgentResponse], error)
 	DeleteAgent(context.Context, *connect.Request[v1.DeleteAgentRequest]) (*connect.Response[emptypb.Empty], error)
-	// UpdateAgent patches an agent by id (currently its title/name).
+	// UpdateAgent renames an agent by id.
 	UpdateAgent(context.Context, *connect.Request[v1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error)
 	// SearchTranscripts runs a full-text search over stored transcripts.
 	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)
@@ -235,12 +235,12 @@ func (c *agentServiceClient) GetTranscript(ctx context.Context, req *connect.Req
 
 // AgentServiceHandler is an implementation of the agent.v1.AgentService service.
 type AgentServiceHandler interface {
-	// Reads: no side effects, safe to cache and issue over GET.
+	// Reads have no side effects and are safe to cache and issue over GET.
 	ListAgents(context.Context, *connect.Request[v1.ListAgentsRequest]) (*connect.Response[v1.ListAgentsResponse], error)
 	GetAgent(context.Context, *connect.Request[v1.GetAgentRequest]) (*connect.Response[v1.GetAgentResponse], error)
-	// CreateAgent launches a background agent and returns it as stored. It is
-	// not idempotent: each call spawns another agent, since two agents may
-	// legitimately run the same prompt.
+	// CreateAgent launches a background agent and returns it as stored. It is not
+	// idempotent. Each call spawns another agent, since two agents may legitimately
+	// run the same prompt.
 	CreateAgent(context.Context, *connect.Request[v1.CreateAgentRequest]) (*connect.Response[v1.CreateAgentResponse], error)
 	// Mutations key on the unique agent name, so repeating them yields the same
 	// state. They are idempotent and safe for the client to retry.
@@ -248,7 +248,7 @@ type AgentServiceHandler interface {
 	ArchiveAgent(context.Context, *connect.Request[v1.ArchiveAgentRequest]) (*connect.Response[emptypb.Empty], error)
 	RestoreAgent(context.Context, *connect.Request[v1.RestoreAgentRequest]) (*connect.Response[v1.RestoreAgentResponse], error)
 	DeleteAgent(context.Context, *connect.Request[v1.DeleteAgentRequest]) (*connect.Response[emptypb.Empty], error)
-	// UpdateAgent patches an agent by id (currently its title/name).
+	// UpdateAgent renames an agent by id.
 	UpdateAgent(context.Context, *connect.Request[v1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error)
 	// SearchTranscripts runs a full-text search over stored transcripts.
 	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)

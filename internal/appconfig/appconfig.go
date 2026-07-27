@@ -10,9 +10,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Keybindings scopes bindings to the panel they act in. Each panel's actions
-// are a list of bubbletea key strings (e.g. "enter", "ctrl+d", "esc"), and any
-// action left unset falls back to its built-in default.
+// Keybindings scopes bindings to the screen they act in. Each action is a list of
+// bubbletea key strings such as "enter", "ctrl+d", or "esc". An action left unset
+// falls back to its built-in default.
 type Keybindings struct {
 	Nav       NavKeys       `mapstructure:"nav"`
 	Agents    AgentsKeys    `mapstructure:"agents"`
@@ -20,26 +20,23 @@ type Keybindings struct {
 	Workflows WorkflowsKeys `mapstructure:"workflows"`
 }
 
-// NavKeys are the shared navigation bindings used by every menu, so movement is
-// the same everywhere rather than configured per menu. Up and Down move the
-// cursor.
+// NavKeys are the shared navigation bindings every menu uses, so movement is the
+// same everywhere rather than configured per menu.
 type NavKeys struct {
 	Up   []string `mapstructure:"up"`
 	Down []string `mapstructure:"down"`
 }
 
-// FormKeys are the bindings for the new-agent and rename forms. Back and Quit
-// both abort the form. The split mirrors the other panels so users can rebind
-// them separately.
+// FormKeys are the bindings for the new-agent and rename forms. Back and Quit both
+// abort the form, split apart so they can be rebound separately.
 type FormKeys struct {
 	Quit   []string `mapstructure:"quit"`
 	Back   []string `mapstructure:"back"`
 	Submit []string `mapstructure:"submit"`
 }
 
-// AgentsKeys are the bindings for the agents list, the panel's only view. Info
-// toggles the hovered agent's stored record into the stage in place of the agent
-// itself.
+// AgentsKeys are the bindings for the agents list. Info toggles the hovered agent's
+// stored record into the stage in place of the agent itself.
 type AgentsKeys struct {
 	Quit   []string `mapstructure:"quit"`
 	Back   []string `mapstructure:"back"`

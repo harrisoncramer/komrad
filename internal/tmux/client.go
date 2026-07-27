@@ -1,6 +1,6 @@
 // Package tmux wraps the tmux CLI for a single tmux server socket. Query methods
-// return output and an error. Side-effect methods are best effort, since the
-// panel closes right after and a failure is not recoverable.
+// return output and an error. Side-effect methods are best effort, since the panel
+// closes right after and a failure is not recoverable.
 package tmux
 
 import (
@@ -37,8 +37,8 @@ func clientTarget(client string) []string {
 	return []string{"-c", client}
 }
 
-// PaneID resolves a pane target to its canonical id, empty if it no longer exists.
-func (c *Client) PaneID(target string) (string, error) {
+// paneID resolves a pane target to its canonical id, empty if it no longer exists.
+func (c *Client) paneID(target string) (string, error) {
 	return c.query("display-message", "-p", "-t", target, "#{pane_id}")
 }
 
@@ -48,7 +48,7 @@ func (c *Client) PaneAlive(pane string) bool {
 		return false
 	}
 
-	id, err := c.PaneID(pane)
+	id, err := c.paneID(pane)
 	return err == nil && id == pane
 }
 
@@ -59,8 +59,8 @@ func (c *Client) ClientPath(client string) string {
 }
 
 // SendKeys sends literal keys to a target pane or session. An empty target is
-// refused: tmux resolves one to the active pane, so a caller holding a pane id
-// that was never created would type its command into whatever the user is
+// refused, since tmux resolves one to the active pane and a caller holding a pane
+// id that was never created would type its command into whatever the user is
 // looking at.
 func (c *Client) SendKeys(target string, keys ...string) error {
 	if target == "" {
@@ -88,12 +88,11 @@ func (c *Client) SplitRight(anchorPane, dir string) string {
 	return pane
 }
 
-// NewWindow creates a detached window in a session, rooted at dir and titled
-// name, and returns its pane id. Agents live in these background windows. The
-// pane id is their stable handle regardless of where the pane is later moved.
-// An error is returned rather than an empty id: every caller needs a real pane
-// to drive, and the empty string is a target tmux happily resolves to the active
-// pane.
+// NewWindow creates a detached window in a session, rooted at dir and titled name,
+// and returns its pane id. Agents live in these background windows, and the pane id
+// is their stable handle regardless of where the pane is later moved. An error is
+// returned rather than an empty id, since every caller needs a real pane to drive
+// and tmux resolves an empty target to the active pane.
 func (c *Client) NewWindow(session, name, dir string) (string, error) {
 	pane, err := c.query("new-window", "-d", "-t", session, "-n", name, "-c", dir, "-P", "-F", "#{pane_id}")
 	if err != nil {
@@ -119,10 +118,10 @@ func (c *Client) RespawnPane(pane, dir string, argv ...string) {
 	c.run(append([]string{"respawn-pane", "-k", "-t", pane, "-c", dir}, argv...)...)
 }
 
-// KillPane tears down a single pane. An empty target is refused for the same
-// reason SendKeys refuses one: tmux would kill the active pane instead. When the
-// pane is the only one in its window the window closes too, but the session
-// (which always holds the panel) survives.
+// KillPane tears down a single pane. An empty target is refused for the same reason
+// SendKeys refuses one, that tmux would kill the active pane instead. When the pane
+// is the only one in its window the window closes too, while the session holding
+// the panel survives.
 func (c *Client) KillPane(pane string) {
 	if pane == "" {
 		return

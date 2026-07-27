@@ -9,7 +9,7 @@ import "pagination/v1/pagination.proto";
 
 option go_package = "claude-agents/proto/gen/agent/v1;agentv1";
 
-// Session is one background Claude agent, as stored.
+// Agent is one background Claude agent, as stored.
 message Agent {
   string id = 1;
   string name = 2;
@@ -41,20 +41,20 @@ message ListAgentsResponse {
   optional string next_page_token = 2;
 }
 
-// CreateAgentRequest launches a background agent. The prompt and directory
-// are required: an agent created over RPC has nobody at the keyboard, so one with
-// no prompt would sit idle forever, and the tmux fallback for a blank directory
-// resolves against whichever client happens to be current, which would let the
-// same request start in a different repository each time it ran. A blank title
-// is auto-named and blank flags mean the configured defaults alone.
+// CreateAgentRequest launches a background agent. The prompt and directory are
+// both required. An agent created over RPC has nobody at the keyboard, so one
+// with no prompt would sit idle forever, and the tmux fallback for a blank
+// directory resolves against whichever client happens to be current, which would
+// let the same request start in a different repository each time it ran. A blank
+// title is auto-named and blank flags mean the configured defaults alone.
 message CreateAgentRequest {
   string prompt = 1 [(buf.validate.field).string = {
     min_len: 1,
     max_len: 50000
   }];
-  // Control characters are refused here rather than sanitised: the title
-  // becomes the tmux window name, and tmux rejects a name containing one, which
-  // used to fail the launch in a way nothing checked.
+  // Control characters are refused rather than sanitised. The title becomes the
+  // tmux window name and tmux rejects a name containing one, so accepting it
+  // here would fail the launch instead.
   string title = 2 [
     (buf.validate.field).string.max_len = 200,
     (buf.validate.field).cel = {
@@ -75,7 +75,7 @@ message CreateAgentRequest {
     }
   ];
   // Flags are quoted before they reach the pane's shell, so this rule is the
-  // second lock rather than the only one: it refuses the characters that would
+  // second lock rather than the only one. It refuses the characters that would
   // mean anything to a shell, so a request carrying them is rejected outright
   // instead of being neutralised and run.
   string flags = 4 [
@@ -87,7 +87,7 @@ message CreateAgentRequest {
     }
   ];
   // The workflow to place the agent in. Unset leaves it unassigned, which is
-  // distinct from an empty id: that would name a workflow that cannot exist.
+  // distinct from an empty id naming a workflow that cannot exist.
   optional string workflow_id = 5 [(buf.validate.field).string.min_len = 1];
 }
 
@@ -106,9 +106,9 @@ message GetAgentResponse {
   Agent agent = 1;
 }
 
-// SetStateRequest moves an agent between lifecycle states. The state is closed:
-// the store treats an unknown value as a state nothing renders, so a typo would
-// make an agent vanish from every count rather than fail.
+// SetStateRequest moves an agent between lifecycle states. The set of states is
+// closed. The store treats an unknown value as a state nothing renders, so a typo
+// would make an agent vanish from every count rather than fail.
 message SetStateRequest {
   string name = 1 [(buf.validate.field).string = {
     min_len: 1,
@@ -125,8 +125,8 @@ message SetStateRequest {
 }
 
 // ArchiveAgentRequest hides an agent without destroying it. This is what the
-// panel's delete key does: the agent is stopped and the agent drops out of the
-// listing, but its transcript stays searchable and it can be restored.
+// panel's delete key does. The agent is stopped and drops out of the listing,
+// while its transcript stays searchable and it can be restored.
 message ArchiveAgentRequest {
   string name = 1 [(buf.validate.field).string = {
     min_len: 1,
@@ -134,7 +134,7 @@ message ArchiveAgentRequest {
   }];
 }
 
-// RestoreAgentRequest brings an agent back, keyed by id rather than name: an
+// RestoreAgentRequest brings an agent back, keyed by id rather than name. An
 // archived agent's name may have been taken by a live one since, in which case
 // restoring renames it.
 message RestoreAgentRequest {
@@ -171,8 +171,8 @@ message UpdateAgentRequest {
 }
 
 message SearchTranscriptsRequest {
-  // Three characters is the floor, not a stylistic minimum: the index uses a
-  // trigram tokenizer, so a shorter query can never match anything and would
+  // Three characters is the floor rather than a stylistic minimum. The index uses
+  // a trigram tokenizer, so a shorter query can never match anything and would
   // come back as a confident empty result.
   string query = 1 [(buf.validate.field).string = {
     min_len: 3,
@@ -181,9 +181,9 @@ message SearchTranscriptsRequest {
   optional pagination.v1.Pagination pagination = 2;
 }
 
-// SearchHit is one transcript matched by a search: the agent it belongs to,
-// its display name and whether it is soft-deleted, a snippet of the matching
-// text with the matched terms wrapped in markers, and the relevance rank.
+// SearchHit is one transcript matched by a search. The agent it belongs to, its
+// display name and whether it is soft-deleted, a snippet of the matching text
+// with the matched terms wrapped in markers, and the relevance rank.
 message SearchHit {
   string agent_id = 1;
   string snippet = 2;
@@ -213,10 +213,10 @@ message GetTranscriptResponse {
 }
 
 // AgentService reads and mutates the agent store. Every method carries a tool
-// annotation, which is what puts it on the MCP surface: a method without one is
+// annotation, which is what puts it on the MCP surface. A method without one is
 // not reachable from a model at all.
 service AgentService {
-  // Reads: no side effects, safe to cache and issue over GET.
+  // Reads have no side effects and are safe to cache and issue over GET.
   rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
@@ -231,9 +231,9 @@ service AgentService {
       description: "Fetch one agent by its exact name. Names are unique among live agents. Returns not_found if no agent has that name."
     };
   }
-  // CreateAgent launches a background agent and returns it as stored. It is
-  // not idempotent: each call spawns another agent, since two agents may
-  // legitimately run the same prompt.
+  // CreateAgent launches a background agent and returns it as stored. It is not
+  // idempotent. Each call spawns another agent, since two agents may legitimately
+  // run the same prompt.
   rpc CreateAgent(CreateAgentRequest) returns (CreateAgentResponse) {
     option (annotation.v1.tool) = {
       tool_name: "create_agent"
@@ -275,7 +275,7 @@ service AgentService {
       destructive: true
     };
   }
-  // UpdateAgent patches an agent by id (currently its title/name).
+  // UpdateAgent renames an agent by id.
   rpc UpdateAgent(UpdateAgentRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {

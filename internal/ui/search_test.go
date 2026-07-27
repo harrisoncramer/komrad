@@ -236,7 +236,7 @@ func TestFirstMatchLine(t *testing.T) {
 func hits(names ...string) []searchHit {
 	out := make([]searchHit, 0, len(names))
 	for _, name := range names {
-		out = append(out, searchHit{sessionID: name, name: name, snippet: name})
+		out = append(out, searchHit{agentID: name, name: name, snippet: name})
 	}
 
 	return out

@@ -1,6 +1,6 @@
-// Package client holds the small pieces every caller of the service needs, so
-// the panel, the CLI, and anything else added later read the API the same way
-// rather than each writing its own paging loop.
+// Package client holds the small pieces every caller of the service needs, so the
+// panel and the CLI read the API the same way rather than each writing its own
+// paging loop.
 package client
 
 import (
@@ -15,17 +15,17 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// A caller wanting every agent asks for large pages rather than a first page: a
-// list this size is one or two round trips. The cap on pages is a stop for a
-// token the server somehow never retires, so a bug there cannot spin forever.
+// A caller wanting every agent asks for large pages rather than a first page,
+// since a list this size is one or two round trips. The cap on pages is a stop for
+// a token the server never retires, so a bug there cannot spin forever.
 const (
 	pageSize = 200
 	maxPages = 50
 )
 
-// ListAllAgents returns every agent, following the page tokens until the
-// listing is exhausted.
-func ListAllAgents(ctx context.Context, sessions agentv1connect.AgentServiceClient) ([]*agentv1.Agent, error) {
+// ListAllAgents returns every agent, following the page tokens until the listing
+// is exhausted.
+func ListAllAgents(ctx context.Context, agents agentv1connect.AgentServiceClient) ([]*agentv1.Agent, error) {
 	var (
 		all    []*agentv1.Agent
 		cursor string
@@ -37,9 +37,9 @@ func ListAllAgents(ctx context.Context, sessions agentv1connect.AgentServiceClie
 			page.Cursor = proto.String(cursor)
 		}
 
-		resp, err := sessions.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{Pagination: page}))
+		resp, err := agents.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{Pagination: page}))
 		if err != nil {
-			return nil, fmt.Errorf("failed to list sessions: %w", err)
+			return nil, fmt.Errorf("failed to list agents: %w", err)
 		}
 
 		all = append(all, resp.Msg.GetAgents()...)

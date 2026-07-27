@@ -12,16 +12,14 @@ import (
 // workingLine matches Claude Code's live status line, shown only while it is busy
 // generating or running a tool. The shape is a spinner glyph, a space, a verb,
 // and an ellipsis, like "✽ Beboppin'…" or "· Cooking… (1m 50s · ↓ 5.4k tokens)".
-// The trailing timer only appears once tokens start streaming, so early in a turn
-// there is none at all. Keying on the timer would miss every no-timer frame and
-// leave working agents undetected. The stable shape is the leading "<glyph>
-// <phrase>…". The verb can be several words, so anything up to the ellipsis is
-// allowed after the first letter. The glyph is a spinner symbol, never a letter,
-// so requiring a non-letter lead excludes prose that merely ends a word with an
-// ellipsis. Excluding the tool-result "⎿", the "❯" prompt, and box rules keeps
-// that chrome from matching. workingTimer additionally catches the parenthesised
-// elapsed timer on its own. Detection runs only on the bottom live region, so the
-// transcript above cannot trip either.
+// The trailing timer appears only once tokens start streaming, so keying on it
+// would miss every no-timer frame and leave working agents undetected. The stable
+// shape is the leading glyph, phrase, and ellipsis. The verb can be several words,
+// so anything up to the ellipsis is allowed after the first letter. The glyph is
+// never a letter, so requiring a non-letter lead excludes prose that merely ends a
+// word with an ellipsis, and excluding the tool-result "⎿", the "❯" prompt, and
+// box rules keeps that chrome from matching. workingTimer catches the
+// parenthesised elapsed timer on its own.
 var (
 	workingLine  = regexp.MustCompile(`(?m)^\s*[^\s\p{L}⎿❯│─╭╮╰╯-]\s+\p{L}.*…`)
 	workingTimer = regexp.MustCompile(`…\s*\(\s*\d+m?\s*\d*\s*s`)
@@ -31,42 +29,39 @@ var (
 // of a token count. Accept it too so the detector spans releases.
 const legacyWorkingMarker = "esc to interrupt"
 
-// reconcileMisses is how many consecutive idle observations a thinking agent
-// must show before it is settled to done. Requiring several guards against a
-// capture landing on a redraw frame between tool calls, where the line can be
-// momentarily absent even though work is ongoing. Erring high matters because
-// wrongly demoting a live agent is far worse than a stale state lingering a few
-// extra seconds.
+// reconcileMisses is how many consecutive idle observations a thinking agent must
+// show before it settles to done. Requiring several guards against a capture
+// landing on a redraw frame between tool calls, where the line can be momentarily
+// absent even though work is ongoing. Erring high matters because wrongly
+// demoting a live agent is far worse than a stale state lingering a few seconds.
 const reconcileMisses = 3
 
 // liveRegionLines is how many lines from the bottom of a captured frame count as
 // the live UI, where Claude's status line, prompt footer, and input box sit. The
-// transcript scrolls above it. Detection is confined here so prose in the
-// transcript never trips a detector, only the chrome Claude renders at the
-// bottom. It must be wide enough to include the working status line even when a
-// live tool block sits below it. A plan or todo list renders under the status
-// line and above the input box, pushing the status line well up from the bottom,
-// so a tight window would miss a genuinely-working agent.
+// transcript scrolls above it, so confining detection here keeps transcript prose
+// from tripping a detector. It has to be wide enough to include the working status
+// line even when a live tool block sits below it. A plan or todo list renders
+// under the status line and above the input box, pushing the status line well up
+// from the bottom, so a tight window would miss a working agent.
 const liveRegionLines = 30
 
-// waitingRegionLines is a much tighter window for the waiting check. The selection
-// footer replaces the input box and is the bottom-most line while a prompt is up,
-// so it needs only the last few lines. Keeping it tight matters because the
-// footer's "esc to cancel" and "enter to select" phrases can appear in ordinary
-// transcript text, and the wide working window would otherwise read that prose as
-// a live prompt.
+// waitingRegionLines is a much tighter window for the waiting check. The
+// selection footer replaces the input box and is the bottom-most line while a
+// prompt is up, so only the last few lines matter. Keeping it tight matters
+// because the footer's "esc to cancel" and "enter to select" phrases can appear in
+// ordinary transcript text, which the wide working window would read as a live
+// prompt.
 const waitingRegionLines = 6
 
 // ansiSeq matches an ANSI escape sequence. The pane is captured with colors via
 // -e, so the status line comes back shredded by SGR codes, the verb split across
-// color runs and codes wedged between the ellipsis and the timer, which breaks
-// any text match. Detection strips these first so it sees plain glyphs and words.
+// color runs and codes wedged between the ellipsis and the timer. Detection strips
+// these first so it sees plain glyphs and words.
 var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 
 // tailLines returns the last n lines of a frame with ANSI escapes stripped, the
-// region where the live UI sits. The conversation transcript scrolls above it,
-// so confining detection here keeps prose in the transcript, which can contain
-// any marker text, from tripping a detector.
+// region where the live UI sits. Transcript prose scrolls above it and can contain
+// any marker text, so detection stays inside this window.
 func tailLines(frame string, n int) string {
 	frame = ansiSeq.ReplaceAllString(frame, "")
 	lines := strings.Split(strings.TrimRight(frame, "\n"), "\n")
@@ -90,9 +85,9 @@ func frameShowsWork(frame string) bool {
 // selection it is blocked on, such as a permission dialog, a multiple-choice
 // question, or a menu. That footer reads "Enter to select · ↑/↓ to navigate · Esc
 // to cancel". "esc to cancel" is a reliable, wording-independent signal, distinct
-// from the working line's "esc to interrupt" and absent from the plain input box
-// a finished agent sits at. Keying on this footer rather than the prompt's prose
-// is what keeps transcript text from being mistaken for a live prompt.
+// from the working line's "esc to interrupt" and absent from the plain input box a
+// finished agent sits at. Keying on the footer rather than the prompt's own prose
+// keeps transcript text from being mistaken for a live prompt.
 var waitingFooter = regexp.MustCompile(`(?i)esc to cancel|enter to select`)
 
 // frameShowsWaiting reports whether the frame's live region shows Claude blocked
@@ -104,16 +99,16 @@ func frameShowsWaiting(frame string) bool {
 }
 
 // tmuxProbe is the part of the tmux client the reconciler observes through.
-// Liveness keys on the pane id, not a session name, so an agent stays observable
-// no matter which window or session its pane currently sits in.
+// Liveness keys on the pane id rather than a session name, so an agent stays
+// observable no matter which window or session its pane sits in.
 type tmuxProbe interface {
 	PaneAlive(pane string) bool
 	CapturePane(pane string) string
 }
 
 // stateStore is the part of the store the reconciler reads and corrects. Writes
-// are keyed by id, not name, so a state decided from a List snapshot always lands
-// on the exact row observed even if its name was reused meanwhile.
+// are keyed by id rather than name, so a state decided from a List snapshot always
+// lands on the exact row observed even if its name was reused meanwhile.
 type stateStore interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	SetStateByID(ctx context.Context, id, state string) error
@@ -124,8 +119,8 @@ type stateStore interface {
 // escape interrupt, it observes each agent directly from tmux on a timer and
 // writes the state that observation implies. A working line means thinking, a
 // confirmation prompt means waiting, and an idle or vanished pane means done.
-// Because it reads ground truth every pass, a wrong state cannot persist longer
-// than the interval, and there are no edges to miss.
+// Because it reads ground truth every pass, a wrong state cannot outlive the
+// interval and there are no edges to miss.
 type Reconciler struct {
 	tmux   tmuxProbe
 	store  stateStore
@@ -183,10 +178,9 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent)
 	}
 
 	// An empty capture means the pane could not be read, not that Claude went idle.
-	// A live agent always shows at least its input box. Treat it as inconclusive
-	// and leave the state alone, so a flaky read never moves an agent. Wrongly
-	// demoting a live agent is the worst outcome, so every uncertain case is a
-	// no-op.
+	// A live agent always shows at least its input box, so this is inconclusive and
+	// the state is left alone. Wrongly demoting a live agent is the worst outcome,
+	// so every uncertain case is a no-op.
 	if frame == "" {
 		return
 	}

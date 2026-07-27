@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCreateSession(t *testing.T) {
+func TestCreateAgent(t *testing.T) {
 	workflow := "wf-1"
 
 	tests := []struct {
@@ -90,7 +90,7 @@ func TestCreateSession(t *testing.T) {
 	}
 }
 
-func TestGetSession(t *testing.T) {
+func TestGetAgent(t *testing.T) {
 	tests := []struct {
 		name     string
 		seed     string
@@ -142,10 +142,10 @@ func TestGetSession(t *testing.T) {
 	}
 }
 
-// TestListSessions covers the listing and the liveness flag on it, which is
+// TestListAgents covers the listing and the liveness flag on it, which is
 // observed at read time so a client can tell a running agent from a dormant one
 // without tmux of its own.
-func TestListSessions(t *testing.T) {
+func TestListAgents(t *testing.T) {
 	tests := []struct {
 		name  string
 		seed  []string
@@ -186,10 +186,10 @@ func TestListSessions(t *testing.T) {
 	}
 }
 
-// TestUpdateSession covers renaming by id. A name a live agent already holds is a
+// TestUpdateAgent covers renaming by id. A name a live agent already holds is a
 // conflict rather than a server fault, and the driver's own message stays
 // server-side.
-func TestUpdateSession(t *testing.T) {
+func TestUpdateAgent(t *testing.T) {
 	tests := []struct {
 		name     string
 		seed     []string
@@ -304,11 +304,11 @@ func TestSetState(t *testing.T) {
 	}
 }
 
-// TestSessionLifecycleGoesThroughTheService covers delete, archive, and restore.
+// TestAgentLifecycleGoesThroughTheService covers delete, archive, and restore.
 // All three hand off to the thing that can stop or relaunch an agent rather than
 // editing rows behind its back, which is what leaves an agent running with
 // nothing able to name it.
-func TestSessionLifecycleGoesThroughTheService(t *testing.T) {
+func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 	tests := []struct {
 		name       string
 		call       func(t *testing.T, svc *Service) error

@@ -16,8 +16,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Status-bar colours, matching the panel's own palette so the summary reads as
-// part of the same tool.
+// Status-bar colours, matching the panel's palette so the summary reads as part of
+// the same tool.
 const (
 	statusBase    = "#[fg=#7E9CD8]"
 	statusWaiting = "#[fg=#E82424]"
@@ -31,12 +31,12 @@ const (
 const statusTimeout = 2 * time.Second
 
 // statusCmd prints the global agent summary for the tmux status bar. It reads
-// through the service like everything else, and renders here because tmux's
-// colour markup is presentation that nothing else needs.
+// through the service like everything else, and renders here because tmux's colour
+// markup is presentation nothing else needs.
 //
 // It does not start the server. A status bar that spawned a daemon on a redraw
-// would be a surprise, and with nothing serving there is nothing to report: no
-// reconciler is moving any agent's state, so the honest summary is an empty one.
+// would be a surprise, and with nothing serving there is nothing to report. No
+// reconciler is moving any agent's state, so an empty summary is the honest one.
 func statusCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",

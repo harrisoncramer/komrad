@@ -42,7 +42,7 @@ func (it *itmux) tmux(args ...string) string {
 	return strings.TrimSpace(string(out))
 }
 
-// spawn starts a detached session running command and returns its pane id.
+// spawn starts a detached tmux session running command and returns its pane id.
 func (it *itmux) spawn(name, command string) string {
 	it.t.Helper()
 	it.tmux("new-session", "-d", "-s", name, "-c", it.t.TempDir(), command)

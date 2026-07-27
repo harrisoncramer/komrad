@@ -21,9 +21,9 @@ import (
 )
 
 // reconcileInterval is how often serve re-observes every agent and writes its
-// state. It is the only thing that moves an agent's state, so it stays brisk
-// enough that starting or finishing work shows within a couple seconds while
-// the tmux captures stay cheap.
+// state. It is the only thing that moves an agent's state, so it stays brisk enough
+// that starting or finishing work shows within a couple of seconds while the tmux
+// captures stay cheap.
 const reconcileInterval = 2 * time.Second
 
 // transcriptSyncInterval is how often serve folds new transcript text into the
@@ -37,7 +37,7 @@ func serveCmd(state *app) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "serve",
-		Short: "Serve the session store over ConnectRPC/HTTP",
+		Short: "Serve the agent store over ConnectRPC/HTTP",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := state.openStore(cmd.Context()); err != nil {
 				return err

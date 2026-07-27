@@ -12,8 +12,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// ListAllWorkflows returns every workflow, following the page tokens the same
-// way.
+// ListAllWorkflows returns every workflow, following the page tokens the same way
+// ListAllAgents does.
 func ListAllWorkflows(ctx context.Context, workflows workflowv1connect.WorkflowServiceClient) ([]*workflowv1.Workflow, error) {
 	var (
 		all    []*workflowv1.Workflow

@@ -25,8 +25,8 @@ const (
 // Pagination is the request half of a keyset page. Every list call embeds this
 // same message rather than declaring its own limit and token fields, so paging
 // works identically whatever is being listed and adding it to a new list call is
-// one field. Both members are optional: a request carrying neither asks for the
-// first page at the server's default size.
+// one field. Both members are optional, and a request carrying neither asks for
+// the first page at the server's default size.
 type Pagination struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// How many records to return. Unset or zero takes the server's default. A

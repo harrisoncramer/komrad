@@ -1,4 +1,4 @@
-// Package panel is the bubbletea UI for browsing and acting on Claude agents.
+// Package ui is the bubbletea panel for browsing and acting on Claude agents.
 package ui
 
 import (
@@ -34,9 +34,9 @@ const (
 type agentsTickMsg struct{}
 
 // agentsLoadedMsg carries the result of an async re-list. A non-nil err means the
-// service could not be reached, which the panel shows rather than absorbs: the
+// service could not be reached, which the panel shows rather than absorbs. The
 // rows it is holding are from the last successful poll, and left on screen they
-// read as the current truth when they are not.
+// would read as the current truth.
 type agentsLoadedMsg struct {
 	items []agentItem
 	err   error
@@ -46,16 +46,16 @@ func agentsTick() tea.Cmd {
 	return tea.Tick(agentsInterval, func(time.Time) tea.Msg { return agentsTickMsg{} })
 }
 
-// loadAgentsCmd re-lists the sessions off the UI goroutine with a timeout, so the
+// loadAgentsCmd re-lists the agents off the UI goroutine with a timeout, so the
 // render loop never blocks on the RPC or the per-agent tmux liveness checks.
 func (m model) loadAgentsCmd() tea.Cmd {
-	sessions := m.api.agents
+	agents := m.api.agents
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
 		defer cancel()
 
-		listed, err := client.ListAllAgents(ctx, sessions)
+		listed, err := client.ListAllAgents(ctx, agents)
 		if err != nil {
 			return agentsLoadedMsg{err: err}
 		}
@@ -64,19 +64,19 @@ func (m model) loadAgentsCmd() tea.Cmd {
 	}
 }
 
-// agentItemsFrom maps listed sessions to agent items, marking which panes are live.
-func agentItemsFrom(sessions []*agentv1.Agent) []agentItem {
-	items := make([]agentItem, 0, len(sessions))
-	for _, session := range sessions {
-		items = append(items, agentItem{agent: protoToAgent(session), alive: session.GetAlive()})
+// agentItemsFrom maps listed agents to agent items, marking which panes are live.
+func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
+	items := make([]agentItem, 0, len(listed))
+	for _, agent := range listed {
+		items = append(items, agentItem{agent: protoToAgent(agent), alive: agent.GetAlive()})
 	}
 
 	return items
 }
 
-// Run launches the panel and blocks for the life of the persistent manager
-// session. Sessions are read through the ConnectRPC client. The panel is the nav
-// pane. The resource it hovers is shown in a sibling stage pane, and focus moves
+// Run launches the panel and blocks for the life of the persistent manager tmux
+// session. Agents are read through the ConnectRPC client. The panel is the nav
+// pane, the resource it hovers is shown in a sibling stage pane, and focus moves
 // between the two with the user's own tmux bindings.
 func Run(deps Deps) error {
 	if _, err := tea.NewProgram(newModel(deps), tea.WithAltScreen()).Run(); err != nil {
@@ -145,24 +145,23 @@ const (
 // exists so a wedged server leaves the panel usable rather than frozen.
 const actionTimeout = 10 * time.Second
 
-// uiTmux is what the panel needs from tmux: enough to lay out its own panes, and
+// uiTmux is what the panel needs from tmux, enough to lay out its own panes plus
 // the working directory of the client looking at it.
 type uiTmux interface {
 	stageTmux
 	ClientPath(client string) string
 }
 
-// api holds the service clients the panel acts through. Every change to an agent
-// or a workflow goes over these, the same way the MCP tools and the CLI reach
-// them, so what the panel may do and what a model may do cannot drift apart.
+// api holds the service clients the panel acts through. Every change to an agent or
+// a workflow goes over these, the same way the MCP tools and the CLI reach them, so
+// what the panel may do and what a model may do cannot drift apart.
 type api struct {
 	agents    agentv1connect.AgentServiceClient
 	workflows workflowv1connect.WorkflowServiceClient
 }
 
-// Deps are what the panel needs to run: the two services it acts through, the
-// popup chrome it hides itself with, a tmux client for its own layout, and the
-// RPC client it lists through.
+// Deps are what the panel needs to run. The two services it acts through, the
+// popup chrome it hides itself with, and a tmux client for its own layout.
 type Deps struct {
 	Popup     *Popup
 	Tmux      uiTmux
@@ -183,8 +182,8 @@ type model struct {
 	// looking at, which is the one thing about a new agent the service cannot work
 	// out for itself.
 	tmux uiTmux
-	// stage is the preview pane beside the list. It is the panel's own layout, so
-	// it drives tmux directly: it fires on every cursor move, and a round trip per
+	// stage is the preview pane beside the list. It is the panel's own layout, so it
+	// drives tmux directly. It fires on every cursor move, and a round trip per
 	// keypress would be felt.
 	stage *Stage
 
@@ -275,9 +274,9 @@ func (m *model) reload() {
 }
 
 // currentDir fills in the directory a new agent starts in. The form allows a
-// blank, meaning "where I am", and only the panel can answer that: it is the
-// invoking tmux client's path. The API refuses a blank directory precisely
-// because a server has no way to know which pane the user is looking at.
+// blank, meaning "where I am", and only the panel can answer that, since it is the
+// invoking tmux client's path. The API refuses a blank directory because a server
+// has no way to know which pane the user is looking at.
 func (m model) currentDir(dir string) string {
 	if trimmed := strings.TrimSpace(dir); trimmed != "" {
 		return trimmed
@@ -350,9 +349,9 @@ func (m *model) reloadWorkflows() {
 // applyAgents merges a freshly-listed set into the on-screen agents. It keeps the
 // current order rather than re-sorting by recency, since reordering under the
 // cursor is jarring and defeats an index-based selection. New agents are appended
-// and vanished ones dropped, and the cursor stays on whichever agent it was on.
-// The fresh items carry updated state and liveness, so a reconciler change
-// shows without a structural reload.
+// and vanished ones dropped, and the cursor stays on whichever agent it was on. The
+// fresh items carry updated state and liveness, so a reconciler change shows
+// without a structural reload.
 func (m *model) applyAgents(fresh []agentItem) {
 	byName := make(map[string]agentItem, len(fresh))
 	order := make([]string, 0, len(fresh))
@@ -393,18 +392,6 @@ func (m *model) applyAgents(fresh []agentItem) {
 	}
 }
 
-// indexOfAgent returns the position of the named agent, or 0 when it is not found,
-// so the cursor lands on the first row.
-func indexOfAgent(items []agentItem, name string) int {
-	for i, item := range items {
-		if item.agent.Name == name {
-			return i
-		}
-	}
-
-	return 0
-}
-
 // clampCursor keeps an index within a list of the given length.
 func clampCursor(idx, length int) int {
 	if idx >= length {
@@ -434,9 +421,9 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 	}
 }
 
-// openNewAgent opens the new-agent form, seeded from the given workflow's
-// blueprint when one is passed, and records that workflow so the created agent is
-// placed in it. A nil workflow creates an agent that belongs to none.
+// openNewAgent opens the new-agent form, seeded from the given workflow's blueprint
+// when one is passed, and records that workflow so the created agent is placed in
+// it. A nil workflow creates an agent that belongs to none.
 func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	dir, flags := "", ""
 	if workflow != nil {
@@ -481,9 +468,10 @@ func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// newAgentForm builds the new-agent form. defaultDir and defaultFlags prefill
-// the directory and flags fields from the enclosing workflow's config so an agent
-// created inside a workflow starts from its blueprint. Both are blank at the root.
+// newAgentForm builds the new-agent form. defaultDir and defaultFlags prefill the
+// directory and flags fields from the enclosing workflow's config, so an agent
+// created inside a workflow starts from its blueprint. Both are blank at the
+// root.
 func newAgentForm(keys appconfig.FormKeys, defaultDir, defaultFlags string) *huh.Form {
 	dir := defaultDir
 	flags := defaultFlags

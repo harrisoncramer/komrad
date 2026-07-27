@@ -21,9 +21,9 @@ import (
 // noWorkflowLabel heads the trailing group of agents that belong to no workflow.
 const noWorkflowLabel = "No Workflow"
 
-// agentRow is one line of the agents list. It is either a workflow header or an
-// agent nested beneath one. The cursor moves over both but actions apply only to
-// agent rows.
+// agentRow is one line of the agents list, either a workflow header or an agent
+// nested beneath one. The cursor moves over both but actions apply only to agent
+// rows.
 type agentRow struct {
 	header bool
 	label  string    // workflow name or noWorkflowLabel when header is true
@@ -135,8 +135,8 @@ func rowIndexOfAgentName(rows []agentRow, name string) int {
 	return -1
 }
 
-// updateAgents drives the nav list. Arrows move the selection and restage, and
-// letter keys act on the hovered agent or workflow.
+// updateAgents drives the nav list. The nav keys move the selection and restage,
+// and letter keys act on the hovered agent or workflow.
 func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -210,10 +210,10 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// openAgent acts on the hovered agent. A dormant agent is restored and staged live.
-// A live agent is already staged from hovering, so opening it only unpins the
-// info view to bring the agent back. Moving focus onto it is a plain tmux pane
-// move the user drives.
+// openAgent acts on the hovered agent. A dormant agent is restored and staged
+// live. A live agent is already staged from hovering, so opening it only unpins the
+// info view to bring the agent back. Moving focus onto it is a plain tmux pane move
+// the user drives.
 func (m model) openAgent() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedAgent()
 	if !ok {
@@ -241,8 +241,8 @@ func (m model) openAgent() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// archiveAgent stops an agent and hides it, which is what the delete key has always
-// done: the record and transcript stay, so search still reaches it.
+// archiveAgent stops an agent and hides it. The record and transcript stay, so
+// search still reaches it.
 func (m model) archiveAgent(agent agentstore.Agent) {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
@@ -265,8 +265,8 @@ func (m model) restoreAgent(id string) (*agentv1.Agent, error) {
 
 // stageSelection updates the stage pane to reflect what the cursor is on. A live
 // agent's pane is swapped in, a dormant agent and a workflow header show markdown
-// via bat, and anything else blanks the stage. With info pinned, an agent shows its
-// stored record instead of itself.
+// through bat, and anything else blanks the stage. With info pinned, an agent shows
+// its stored record instead of itself.
 func (m model) stageSelection() {
 	rows := m.agentRows()
 	if m.agentCursor < 0 || m.agentCursor >= len(rows) {
@@ -309,8 +309,8 @@ func orDash(v string) string {
 	return v
 }
 
-// workflowMarkdown renders a workflow's info for the stage. It shows the name,
-// shared context, and config through bat.
+// workflowMarkdown renders a workflow's name, shared context, and config for the
+// stage.
 func workflowMarkdown(w workflowstore.Workflow, agents int) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", w.Name)
@@ -329,22 +329,22 @@ func workflowMarkdown(w workflowstore.Workflow, agents int) string {
 
 // agentMarkdown renders an agent's stored record for the stage. A dormant agent has
 // no live pane to show, so this is all there is of it. A live one shows the same
-// record on demand, since its running pane occupies the stage and hides the cwd
-// and flags it was launched with. The values are the record as stored at launch,
-// not what the running agent has done since.
-func agentMarkdown(an agentstore.Agent, alive bool) string {
+// record on demand, since its running pane occupies the stage and hides the cwd and
+// flags it was launched with. The values are the record as stored at launch rather
+// than what the running agent has done since.
+func agentMarkdown(agent agentstore.Agent, alive bool) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "# %s\n\n", a.Name)
+	fmt.Fprintf(&b, "# %s\n\n", agent.Name)
 	if alive {
-		fmt.Fprintf(&b, "_running in %s_\n\n", orDash(a.Pane))
+		fmt.Fprintf(&b, "_running in %s_\n\n", orDash(agent.Pane))
 	} else {
 		b.WriteString("_dormant — not running_\n\n")
 	}
 	b.WriteString("---\n\n")
-	fmt.Fprintf(&b, "- directory: %s\n", orDash(a.Cwd))
-	fmt.Fprintf(&b, "- flags: %s\n", orDash(a.Flags))
-	fmt.Fprintf(&b, "- resume: %s\n", orDash(a.ClaudeSessionID))
-	if created := dates.Friendly(a.CreatedAt); created != "" {
+	fmt.Fprintf(&b, "- directory: %s\n", orDash(agent.Cwd))
+	fmt.Fprintf(&b, "- flags: %s\n", orDash(agent.Flags))
+	fmt.Fprintf(&b, "- resume: %s\n", orDash(agent.ClaudeSessionID))
+	if created := dates.Friendly(agent.CreatedAt); created != "" {
 		fmt.Fprintf(&b, "- created: %s\n", created)
 	}
 	if !alive {
@@ -414,7 +414,7 @@ func (m model) agentsView() string {
 	list.WriteString(headerStyle.Render("Agents") + "\n\n")
 
 	// The list is a tree. Each workflow is a folder header with its agents nested
-	// beneath it, so an agent's parent is shown by position rather than a per-row
+	// beneath it, so an agent's parent shows by position rather than a per-row
 	// marker.
 	for i, r := range m.agentRows() {
 		selected := i == m.agentCursor

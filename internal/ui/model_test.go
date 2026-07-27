@@ -11,40 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIndexOfAgent(t *testing.T) {
-	tests := []struct {
-		name   string
-		agents []agentItem
-		find   string
-		want   int
-	}{
-		{
-			name:   "an empty list",
-			agents: nil,
-			find:   "a",
-			want:   0,
-		},
-		{
-			name:   "a name nobody holds falls back to the first row",
-			agents: items("a", "b", "c"),
-			find:   "gone",
-			want:   0,
-		},
-		{
-			name:   "an agent in the middle",
-			agents: items("a", "b", "c"),
-			find:   "b",
-			want:   1,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, indexOfAgent(tt.agents, tt.find))
-		})
-	}
-}
-
 func TestClampCursor(t *testing.T) {
 	tests := []struct {
 		name   string

@@ -4,7 +4,7 @@
 # to ~/.config/claude-agents/config.toml and change what you like; anything you
 # delete falls back to the same default shown here.
 
-# Flags appended to `claude` for every new session.
+# Flags appended to `claude` for every new agent.
 claude_flags = ""
 
 # Panel keybindings. Each action is a list of bubbletea key strings, such as

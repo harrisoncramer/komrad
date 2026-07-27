@@ -1,7 +1,7 @@
 package ui
 
-// popupTmux is what the popup needs from tmux: the global options it uses as
-// flags, and the ability to detach a client.
+// popupTmux is what the popup needs from tmux, the global options it uses as flags
+// plus the ability to detach a client.
 type popupTmux interface {
 	SetGlobal(name, value string)
 	ShowGlobal(name string) string
@@ -9,9 +9,9 @@ type popupTmux interface {
 	DetachSession(name string)
 }
 
-// Popup is the chrome around the manager popup: whether it is showing, which
-// tmux client opened it, and how it hides. It is the panel's own window rather
-// than anything about agents, and it holds no application state.
+// Popup is the chrome around the manager popup. Whether it is showing, which tmux
+// client opened it, and how it hides. It is the panel's own window rather than
+// anything about agents, and it holds no application state.
 type Popup struct {
 	tmux popupTmux
 	// session is the tmux session the panel runs in, the one Hide detaches from.

@@ -5,9 +5,9 @@
 // per domain over it. This is that, once.
 //
 // The store packages' own tests cannot use it. Their tests live in the package
-// being tested, and this imports those packages, so taking it would be an import
-// cycle. They keep their own opener, which is small because it builds one store
-// rather than all of them.
+// being tested and this imports those packages, so taking it would be an import
+// cycle. They keep their own opener, which builds one store rather than all of
+// them.
 package storetest
 
 import (

@@ -213,25 +213,25 @@ func TestReconcileSinglePass(t *testing.T) {
 		want      string
 	}{
 		{
-			name:      "dead session settles thinking to done",
+			name:      "dead pane settles thinking to done",
 			fromState: agentstore.StateThinking,
 			alive:     false,
 			want:      agentstore.StateDone,
 		},
 		{
-			name:      "dead session settles waiting to done",
+			name:      "dead pane settles waiting to done",
 			fromState: agentstore.StateWaiting,
 			alive:     false,
 			want:      agentstore.StateDone,
 		},
 		{
-			name:      "dead session leaves new untouched",
+			name:      "dead pane leaves new untouched",
 			fromState: agentstore.StateNew,
 			alive:     false,
 			want:      agentstore.StateNew,
 		},
 		{
-			name:      "dead session leaves done untouched",
+			name:      "dead pane leaves done untouched",
 			fromState: agentstore.StateDone,
 			alive:     false,
 			want:      agentstore.StateDone,
@@ -310,7 +310,7 @@ func TestReconcileSinglePass(t *testing.T) {
 	}
 }
 
-// TestReconcileOverPasses covers what only shows up across several passes: the
+// TestReconcileOverPasses covers what only shows up across several passes, the
 // idle debounce that keeps a lull between tool calls from demoting live work,
 // and the miss count that debounce is built on.
 func TestReconcileOverPasses(t *testing.T) {

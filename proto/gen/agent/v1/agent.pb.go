@@ -25,7 +25,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Session is one background Claude agent, as stored.
+// Agent is one background Claude agent, as stored.
 type Agent struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -254,27 +254,27 @@ func (x *ListAgentsResponse) GetNextPageToken() string {
 	return ""
 }
 
-// CreateAgentRequest launches a background agent. The prompt and directory
-// are required: a agent created over RPC has nobody at the keyboard, so one with
-// no prompt would sit idle forever, and the tmux fallback for a blank directory
-// resolves against whichever client happens to be current, which would let the
-// same request start in a different repository each time it ran. A blank title
-// is auto-named and blank flags mean the configured defaults alone.
+// CreateAgentRequest launches a background agent. The prompt and directory are
+// both required. An agent created over RPC has nobody at the keyboard, so one
+// with no prompt would sit idle forever, and the tmux fallback for a blank
+// directory resolves against whichever client happens to be current, which would
+// let the same request start in a different repository each time it ran. A blank
+// title is auto-named and blank flags mean the configured defaults alone.
 type CreateAgentRequest struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	Prompt string                 `protobuf:"bytes,1,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	// Control characters are refused here rather than sanitised: the title
-	// becomes the tmux window name, and tmux rejects a name containing one, which
-	// used to fail the launch in a way nothing checked.
+	// Control characters are refused rather than sanitised. The title becomes the
+	// tmux window name and tmux rejects a name containing one, so accepting it
+	// here would fail the launch instead.
 	Title string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
 	Dir   string `protobuf:"bytes,3,opt,name=dir,proto3" json:"dir,omitempty"`
 	// Flags are quoted before they reach the pane's shell, so this rule is the
-	// second lock rather than the only one: it refuses the characters that would
+	// second lock rather than the only one. It refuses the characters that would
 	// mean anything to a shell, so a request carrying them is rejected outright
 	// instead of being neutralised and run.
 	Flags string `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
 	// The workflow to place the agent in. Unset leaves it unassigned, which is
-	// distinct from an empty id: that would name a workflow that cannot exist.
+	// distinct from an empty id naming a workflow that cannot exist.
 	WorkflowId    *string `protobuf:"bytes,5,opt,name=workflow_id,json=workflowId,proto3,oneof" json:"workflow_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -477,9 +477,9 @@ func (x *GetAgentResponse) GetAgent() *Agent {
 	return nil
 }
 
-// SetStateRequest moves a agent between lifecycle states. The state is closed:
-// the store treats an unknown value as a state nothing renders, so a typo would
-// make a agent vanish from every count rather than fail.
+// SetStateRequest moves an agent between lifecycle states. The set of states is
+// closed. The store treats an unknown value as a state nothing renders, so a typo
+// would make an agent vanish from every count rather than fail.
 type SetStateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -532,9 +532,9 @@ func (x *SetStateRequest) GetState() string {
 	return ""
 }
 
-// ArchiveAgentRequest hides a agent without destroying it. This is what the
-// panel's delete key does: the agent is stopped and the agent drops out of the
-// listing, but its transcript stays searchable and it can be restored.
+// ArchiveAgentRequest hides an agent without destroying it. This is what the
+// panel's delete key does. The agent is stopped and drops out of the listing,
+// while its transcript stays searchable and it can be restored.
 type ArchiveAgentRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -579,7 +579,7 @@ func (x *ArchiveAgentRequest) GetName() string {
 	return ""
 }
 
-// RestoreAgentRequest brings a agent back, keyed by id rather than name: an
+// RestoreAgentRequest brings an agent back, keyed by id rather than name. An
 // archived agent's name may have been taken by a live one since, in which case
 // restoring renames it.
 type RestoreAgentRequest struct {
@@ -714,7 +714,7 @@ func (x *DeleteAgentRequest) GetName() string {
 	return ""
 }
 
-// UpdateAgentRequest renames a agent by id. The name is what tmux and the
+// UpdateAgentRequest renames an agent by id. The name is what tmux and the
 // store agree on, so the characters the store would rewrite are rejected here
 // rather than silently changed underneath the caller.
 type UpdateAgentRequest struct {
@@ -771,8 +771,8 @@ func (x *UpdateAgentRequest) GetName() string {
 
 type SearchTranscriptsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Three characters is the floor, not a stylistic minimum: the index uses a
-	// trigram tokenizer, so a shorter query can never match anything and would
+	// Three characters is the floor rather than a stylistic minimum. The index uses
+	// a trigram tokenizer, so a shorter query can never match anything and would
 	// come back as a confident empty result.
 	Query         string         `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
 	Pagination    *v1.Pagination `protobuf:"bytes,2,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
@@ -824,15 +824,15 @@ func (x *SearchTranscriptsRequest) GetPagination() *v1.Pagination {
 	return nil
 }
 
-// SearchHit is one transcript matched by a search: the agent it belongs to,
-// its display name and whether it is soft-deleted, a snippet of the matching
-// text with the matched terms wrapped in markers, and the relevance rank.
+// SearchHit is one transcript matched by a search. The agent it belongs to, its
+// display name and whether it is soft-deleted, a snippet of the matching text
+// with the matched terms wrapped in markers, and the relevance rank.
 type SearchHit struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	AgentId string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	Snippet string                 `protobuf:"bytes,2,opt,name=snippet,proto3" json:"snippet,omitempty"`
 	// How many times the query occurs in the transcript. Results come back in
-	// descending order of this, so a agent that discussed something at length
+	// descending order of this, so an agent that discussed something at length
 	// outranks one that mentioned it once.
 	Occurrences   int64  `protobuf:"varint,3,opt,name=occurrences,proto3" json:"occurrences,omitempty"`
 	Name          string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
@@ -1136,7 +1136,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14GetTranscriptRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"1\n" +
 	"\x15GetTranscriptResponse\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontent2\x90\x1c\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent2\x96\x1c\n" +
 	"\fAgentService\x12\xec\x03\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xa2\x03\x9a\xb5\x18\x9a\x03\n" +
@@ -1144,17 +1144,17 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"\x88\x01\x9a\xb5\x18\x80\x01\n" +
 	"\tget_agent\x12sFetch one agent by its exact name. Names are unique among live agents. Returns not_found if no agent has that name.\x90\x02\x01\x12\x86\x03\n" +
 	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\xb9\x02\x9a\xb5\x18\xb4\x02\n" +
-	"\fcreate_agent\x12\xa1\x02Launch a background Claude agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would resolve somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. \x00\x12\xac\x02\n" +
-	"\bSetState\x12\x19.agent.v1.SetStateRequest\x1a\x16.google.protobuf.Empty\"\xec\x01\x9a\xb5\x18\xe4\x01\n" +
-	"\x0fset_agent_state\x12\xce\x01Move a agent to one of new, thinking, waiting, or done. The reconciler derives state from the live pane every couple of seconds, so a value set here is overwritten shortly after unless the agent is dormant. \x00\x90\x02\x02\x12\xd3\x02\n" +
-	"\fArchiveAgent\x12\x1d.agent.v1.ArchiveAgentRequest\x1a\x16.google.protobuf.Empty\"\x8b\x02\x9a\xb5\x18\x83\x02\n" +
-	"\rarchive_agent\x12\xef\x01Stop a agent and hide it from the panel, keeping its record and transcript. Prefer this to delete_agent: it is reversible with restore_agent, and search_transcripts still finds the conversation. Returns not_found if no agent has that name. \x00\x90\x02\x02\x12\x98\x03\n" +
-	"\fRestoreAgent\x12\x1d.agent.v1.RestoreAgentRequest\x1a\x1e.agent.v1.RestoreAgentResponse\"\xc8\x02\x9a\xb5\x18\xc0\x02\n" +
-	"\rrestore_agent\x12\xac\x02Bring a agent back and relaunch claude on the same conversation, keyed by id. Works on archived agents and on ones whose pane has since died. A agent that is already running is returned as it stands rather than started twice. The agent may come back under a new name if another has taken its old one. \x00\x90\x02\x02\x12\x9e\x02\n" +
-	"\vDeleteAgent\x12\x1c.agent.v1.DeleteAgentRequest\x1a\x16.google.protobuf.Empty\"\xd8\x01\x9a\xb5\x18\xd0\x01\n" +
-	"\fdelete_agent\x12\xbd\x01Permanently remove a agent's record by name. This is a hard delete, not the panel's soft delete, and the transcript row goes with it. Prefer leaving agents alone unless asked to remove one. \x01\x90\x02\x02\x12\xd6\x02\n" +
-	"\vUpdateAgent\x12\x1c.agent.v1.UpdateAgentRequest\x1a\x16.google.protobuf.Empty\"\x90\x02\x9a\xb5\x18\x88\x02\n" +
-	"\frename_agent\x12\xf5\x01Rename a agent, keyed by its id rather than its current name. The name is a display label the store keys on; the running tmux window keeps whatever it was called at launch. It may not contain spaces, colons, dots, slashes, or control characters. \x00\x90\x02\x02\x12\x94\x04\n" +
+	"\fcreate_agent\x12\xa1\x02Launch a background Claude agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would resolve somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. \x00\x12\xad\x02\n" +
+	"\bSetState\x12\x19.agent.v1.SetStateRequest\x1a\x16.google.protobuf.Empty\"\xed\x01\x9a\xb5\x18\xe5\x01\n" +
+	"\x0fset_agent_state\x12\xcf\x01Move an agent to one of new, thinking, waiting, or done. The reconciler derives state from the live pane every couple of seconds, so a value set here is overwritten shortly after unless the agent is dormant. \x00\x90\x02\x02\x12\xd4\x02\n" +
+	"\fArchiveAgent\x12\x1d.agent.v1.ArchiveAgentRequest\x1a\x16.google.protobuf.Empty\"\x8c\x02\x9a\xb5\x18\x84\x02\n" +
+	"\rarchive_agent\x12\xf0\x01Stop an agent and hide it from the panel, keeping its record and transcript. Prefer this to delete_agent: it is reversible with restore_agent, and search_transcripts still finds the conversation. Returns not_found if no agent has that name. \x00\x90\x02\x02\x12\x9a\x03\n" +
+	"\fRestoreAgent\x12\x1d.agent.v1.RestoreAgentRequest\x1a\x1e.agent.v1.RestoreAgentResponse\"\xca\x02\x9a\xb5\x18\xc2\x02\n" +
+	"\rrestore_agent\x12\xae\x02Bring an agent back and relaunch claude on the same conversation, keyed by id. Works on archived agents and on ones whose pane has since died. An agent that is already running is returned as it stands rather than started twice. The agent may come back under a new name if another has taken its old one. \x00\x90\x02\x02\x12\x9f\x02\n" +
+	"\vDeleteAgent\x12\x1c.agent.v1.DeleteAgentRequest\x1a\x16.google.protobuf.Empty\"\xd9\x01\x9a\xb5\x18\xd1\x01\n" +
+	"\fdelete_agent\x12\xbe\x01Permanently remove an agent's record by name. This is a hard delete, not the panel's soft delete, and the transcript row goes with it. Prefer leaving agents alone unless asked to remove one. \x01\x90\x02\x02\x12\xd7\x02\n" +
+	"\vUpdateAgent\x12\x1c.agent.v1.UpdateAgentRequest\x1a\x16.google.protobuf.Empty\"\x91\x02\x9a\xb5\x18\x89\x02\n" +
+	"\frename_agent\x12\xf6\x01Rename an agent, keyed by its id rather than its current name. The name is a display label the store keys on; the running tmux window keeps whatever it was called at launch. It may not contain spaces, colons, dots, slashes, or control characters. \x00\x90\x02\x02\x12\x94\x04\n" +
 	"\x11SearchTranscripts\x12\".agent.v1.SearchTranscriptsRequest\x1a#.agent.v1.SearchTranscriptsResponse\"\xb5\x03\x9a\xb5\x18\xad\x03\n" +
 	"\x12search_transcripts\x12\x96\x03Full-text search across every agent's conversation, including deleted ones, returning a ranked snippet per hit with the matched text marked. Substring matching, so partial words work. Returns one page, best match first; pass the response's nextPageToken back as pagination.cursor alongside the same query for the next one. Use this to answer what was discussed; use query for the SQL view of the same data.\x90\x02\x01\x12\x87\x02\n" +
 	"\rGetTranscript\x12\x1e.agent.v1.GetTranscriptRequest\x1a\x1f.agent.v1.GetTranscriptResponse\"\xb4\x01\x9a\xb5\x18\xac\x01\n" +

@@ -148,12 +148,12 @@ func TestLaunchClaudeQuotesFlags(t *testing.T) {
 			manager := newManager(tmux, newStore(t), "")
 
 			require.NoError(t, manager.launcher.launch(launchClaudeParams{
-				Session:   "session",
-				Flags:     tt.flags,
-				SessionID: "sess",
+				Pane:            "pane",
+				Flags:           tt.flags,
+				ClaudeSessionID: "sess",
 			}))
 
-			command := tmux.lastKeys("session")[0]
+			command := tmux.lastKeys("pane")[0]
 			assert.NotContains(t, command, tt.wantAbsent, "an unquoted flag would run in the pane")
 			assert.Contains(t, command, tt.wantPresent, "the flag survives only as a literal argument")
 		})

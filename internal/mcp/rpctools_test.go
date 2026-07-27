@@ -84,7 +84,7 @@ func TestToolHints(t *testing.T) {
 }
 
 // TestInputSchema confirms a request message is described in terms a client can
-// satisfy: what the service rejects empty is required, and everything else can
+// satisfy. What the service rejects empty is required, and everything else can
 // be left out.
 func TestInputSchema(t *testing.T) {
 	tests := []struct {

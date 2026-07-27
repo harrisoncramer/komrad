@@ -2,11 +2,11 @@
 // domain stores run inside.
 //
 // It holds no tables of its own. Each domain owns its own package beneath this
-// one: for sessions, workflows, etc.
+// one, for agents, workflows, and transcripts.
 //
 // A write that spans domains runs through InTx, which hands the same handle to
 // each store so they commit together. That is why the stores are built over a
-// DBTX rather than a pool: the same code path serves a plain query and a
+// DBTX rather than a pool. The same code path serves a plain query and a
 // transaction, and no store has to reach into another's tables to stay atomic.
 package store
 
@@ -23,7 +23,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// DBTX is what a domain store runs its queries against: either the pool or a
+// DBTX is what a domain store runs its queries against, either the pool or a
 // transaction, which is what lets one be rebound onto the other.
 type DBTX = models.DBTX
 
@@ -55,11 +55,11 @@ func Open(ctx context.Context, url string) (*Pool, error) {
 	return &Pool{pool: pool}, nil
 }
 
-// OpenReadOnly opens a pool for reading only, for surfaces that hand the
-// database to something that must never write, such as the MCP endpoint. The
-// guard rides on the connection rather than on each statement: every session
-// the pool hands out defaults to read-only transactions, so a write is refused
-// by Postgres itself even if it slips past the statement checks above it.
+// OpenReadOnly opens a pool for reading only, for surfaces that hand the database
+// to something that must never write, such as the MCP endpoint. The guard rides on
+// the connection rather than on each statement. Every session the pool hands out
+// defaults to read-only transactions, so a write is refused by Postgres itself
+// even if it slips past the statement checks above it.
 func OpenReadOnly(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
@@ -117,11 +117,11 @@ func (p *Pool) InTx(ctx context.Context, fn func(DBTX) error) error {
 
 // IsID reports whether a string could be one of the ids these stores hand out.
 //
-// Ids reach the stores from outside: hook payloads, tool arguments, a name typed
-// into the panel. The columns are uuid, so a value that is not one is refused by
-// Postgres with a parse error rather than simply matching nothing, which turns a
-// caller's typo into a failure instead of a miss. Checking first keeps the
-// answer the caller expects: an id that cannot exist is one that is not there.
+// Ids reach the stores from outside, as tool arguments or a name typed into the
+// panel. The columns are uuid, so a value that is not one is refused by Postgres
+// with a parse error rather than matching nothing, which turns a caller's typo
+// into a failure instead of a miss. Checking first keeps the answer the caller
+// expects, that an id which cannot exist is one that is not there.
 func IsID(id string) bool {
 	_, err := uuid.Parse(id)
 	return err == nil

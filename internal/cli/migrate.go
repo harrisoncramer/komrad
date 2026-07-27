@@ -6,11 +6,10 @@ import (
 
 // migrateCmd brings the database schema up to date and exits.
 //
-// Opening the store migrates already, so every command does this on the way in
-// and a deployment that just starts the binary is up to date. This exists to do
-// it on its own, as a step that can run before anything is serving, and to give
-// the result an exit code of its own rather than folding a schema failure into
-// whatever command happened to be first.
+// Opening the store migrates already, so every command does this on the way in.
+// This exists to do it on its own, as a step that can run before anything is
+// serving, and to give the result its own exit code rather than folding a schema
+// failure into whatever command happened to be first.
 func migrateCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:           "migrate",

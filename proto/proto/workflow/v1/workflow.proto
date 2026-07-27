@@ -9,7 +9,7 @@ import "pagination/v1/pagination.proto";
 
 option go_package = "claude-agents/proto/gen/workflow/v1;workflowv1";
 
-// Workflow is a named bucket of related agents. It runs nothing itself: it holds
+// Workflow is a named bucket of related agents. It runs nothing itself. It holds
 // a label, shared context injected into the agents spawned inside it, and the
 // working directory and flags those agents start from.
 message Workflow {
@@ -42,9 +42,8 @@ message GetWorkflowResponse {
   Workflow workflow = 1;
 }
 
-// CreateWorkflowRequest describes a new bucket. Only the name is required; a
-// workflow with no context, directory, or flags is a plain folder, which is a
-// perfectly ordinary thing to want.
+// CreateWorkflowRequest describes a new bucket. Only the name is required. A
+// workflow with no context, directory, or flags is a plain folder.
 message CreateWorkflowRequest {
   string name = 1 [(buf.validate.field).string = {
     min_len: 1,
@@ -77,7 +76,7 @@ message CreateWorkflowResponse {
 }
 
 // UpdateWorkflowRequest replaces a workflow's editable fields. Every field is
-// sent, so an omitted one reads as cleared rather than unchanged: fetch the
+// sent, so an omitted one reads as cleared rather than unchanged. Fetch the
 // workflow, change what you mean to, and send it back.
 message UpdateWorkflowRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
@@ -105,8 +104,7 @@ message UpdateWorkflowRequest {
 }
 
 // DeleteWorkflowRequest removes a workflow. What happens to the agents inside it
-// is the caller's choice, and it is the whole of the decision: the workflow goes
-// either way.
+// is the caller's only choice. The workflow goes either way.
 message DeleteWorkflowRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
   // Leave false to orphan the agents back to unassigned, which loses nothing.

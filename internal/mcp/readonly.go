@@ -20,9 +20,9 @@ const (
 	// cannot blow up the response. Transcripts are stored whole, so this matters.
 	maxCellChars = 2000
 	// queryTimeout caps how long a query may run. It is set both as the context
-	// deadline and as the session's statement_timeout, so a query that stops
-	// responding is cut off by the server rather than left running behind a
-	// caller who has already given up.
+	// deadline and as the connection's statement_timeout, so a query that stops
+	// responding is cut off by the server rather than left running behind a caller
+	// who has already given up.
 	queryTimeout = 15 * time.Second
 )
 
@@ -46,11 +46,11 @@ type queryResult struct {
 	Truncated bool             `json:"truncated"`
 }
 
-// validateReadOnly checks that sql is a single SELECT/WITH statement with no
+// validateReadOnly checks that sql is a single SELECT or WITH statement with no
 // write or DDL verbs, returning the cleaned statement. Every check runs against
 // the statement's executable text, with quoted runs and comments blanked out, so
 // what a keyword sits inside decides whether it counts. This is defense in depth
-// on top of the read-only connection, not the sole guarantee.
+// on top of the read-only connection rather than the sole guarantee.
 func validateReadOnly(sql string) (string, error) {
 	trimmed := strings.TrimSpace(sql)
 	trimmed = strings.TrimSuffix(trimmed, ";")
@@ -84,9 +84,9 @@ func validateReadOnly(sql string) (string, error) {
 }
 
 // stripQuoted blanks out the parts of a statement that are data rather than
-// instruction: string literals, quoted identifiers, and comments. Each is
-// replaced by a single space so the tokens around it stay apart. An unclosed
-// quote or comment is an error, since the rest of the statement would otherwise
+// instruction, meaning string literals, quoted identifiers, and comments. Each is
+// replaced by a single space so the tokens around it stay apart. An unclosed quote
+// or comment is an error, since the rest of the statement would otherwise
 // disappear into it and pass every check unread.
 func stripQuoted(statement string) (string, error) {
 	var b strings.Builder
@@ -178,9 +178,9 @@ func (d *dbTools) query(ctx context.Context, statement string) (*queryResult, er
 		return nil, fmt.Errorf("set statement timeout: %w", err)
 	}
 
-	// The statement goes on its own line: a query ending in a -- comment would
-	// otherwise swallow the closing paren and fail as incomplete input, which is
-	// an error pointing nowhere near the cause.
+	// The statement goes on its own line. A query ending in a -- comment would
+	// otherwise swallow the closing paren and fail as incomplete input, an error
+	// pointing nowhere near the cause.
 	wrapped := fmt.Sprintf("SELECT * FROM (\n%s\n) AS _mcp_q LIMIT %d", trimmed, maxRows+1)
 
 	rows, err := tx.Query(ctx, wrapped)
@@ -226,8 +226,8 @@ func (d *dbTools) query(ctx context.Context, statement string) (*queryResult, er
 	}, nil
 }
 
-// normalizeValue converts the driver's raw scan values into JSON-friendly forms:
-// blobs become strings, timestamps render in RFC 3339, and oversized strings are
+// normalizeValue converts the driver's raw scan values into JSON-friendly forms.
+// Blobs become strings, timestamps render in RFC 3339, and oversized strings are
 // truncated.
 func normalizeValue(v any) any {
 	switch t := v.(type) {
@@ -249,8 +249,8 @@ func capString(s string) string {
 		return s
 	}
 
-	// Cut on a rune boundary: slicing raw bytes split a multi-byte character in
-	// half and produced a replacement character at the seam.
+	// Cut on a rune boundary. Slicing raw bytes would split a multi-byte character
+	// in half and leave a replacement character at the seam.
 	cut := maxCellChars
 	for cut > 0 && !utf8.RuneStart(s[cut]) {
 		cut--

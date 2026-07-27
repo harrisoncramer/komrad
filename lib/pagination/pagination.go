@@ -9,7 +9,7 @@
 // its own token format.
 //
 // The token is an opaque base64 of the JSON-encoded cursor. Callers hand it back
-// verbatim, and the shape inside it is the server's business that may change.
+// verbatim, and the shape inside it is the server's business and may change.
 package pagination
 
 import (
@@ -22,9 +22,9 @@ import (
 	"connectrpc.com/connect"
 )
 
-// Cursorable is a resource that can say where it sits in a listing. C is the
-// cursor type: whatever the query orders by, which is a sort key plus an id for
-// anything whose sort key can tie.
+// Cursorable is a resource that can say where it sits in a listing. C is the cursor
+// type, whatever the query orders by, which is a sort key plus an id for anything
+// whose sort key can tie.
 type Cursorable[C any] interface {
 	Cursor() (C, error)
 }
@@ -36,17 +36,20 @@ type Paginator[C any, M Cursorable[C]] struct {
 	cursor *C
 }
 
+// The limits a Paginator applies. The default is small enough that a caller who
+// asks for nothing gets a page it can read rather than the whole store, and the
+// ceiling is what one request may pull however large a limit it sends.
+const (
+	defaultLimit int64 = 50
+	maxLimit     int64 = 500
+)
+
 // New builds a Paginator from a request's pagination. A nil pagination is the
 // first page at the default size, so a caller that omits the field entirely is
-// served rather than refused. A malformed cursor is the caller's mistake and
-// comes back as InvalidArgument. A limit past the ceiling is clamped, since a
-// caller asking for too much still wants a page.
-func New[C any, M Cursorable[C]](p *paginationv1.Pagination, opts ...Option) (*Paginator[C, M], error) {
-	cfg := &options{defaultLimit: defaultLimit, maxLimit: maxLimit}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-
+// served rather than refused. A malformed cursor is the caller's mistake and comes
+// back as InvalidArgument. A limit past the ceiling is clamped, since a caller
+// asking for too much still wants a page.
+func New[C any, M Cursorable[C]](p *paginationv1.Pagination) (*Paginator[C, M], error) {
 	cursor, err := decode[C](p.GetCursor())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid pagination cursor: %w", err))
@@ -55,9 +58,9 @@ func New[C any, M Cursorable[C]](p *paginationv1.Pagination, opts ...Option) (*P
 	limit := int64(p.GetLimit())
 	switch {
 	case limit <= 0:
-		limit = cfg.defaultLimit
-	case limit > cfg.maxLimit:
-		limit = cfg.maxLimit
+		limit = defaultLimit
+	case limit > maxLimit:
+		limit = maxLimit
 	}
 
 	return &Paginator[C, M]{limit: limit, cursor: cursor}, nil

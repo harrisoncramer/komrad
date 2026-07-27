@@ -17,8 +17,7 @@ import (
 )
 
 // workflowManager is the part of the workflow service the handlers drive. The
-// handlers translate and nothing more. What a workflow is allowed to be lives
-// behind this.
+// handlers translate and nothing more. What a workflow may be lives behind this.
 type workflowManager interface {
 	NewWorkflow(ctx context.Context, cfg workflowstore.Config) (*workflowstore.Workflow, error)
 	GetWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error)

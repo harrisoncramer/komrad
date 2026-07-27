@@ -11,8 +11,8 @@ import (
 // same literal.
 const ManagerSession = "claude-manager"
 
-// defaultServerAddr matches the config package's default listen address, used
-// when a caller does not pass one so a launched agent is still told a usable
+// defaultServerAddr matches the config package's default listen address. It is
+// used when a caller passes none, so a launched agent is still told a usable
 // endpoint rather than a malformed URL.
 const defaultServerAddr = "127.0.0.1:8787"
 

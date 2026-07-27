@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestAgentRows checks the tree the list renders: every workflow is a header with
+// TestAgentRows checks the tree the list renders. Every workflow is a header with
 // its agents beneath it, and agents belonging to none trail under a header of
 // their own.
 func TestAgentRows(t *testing.T) {

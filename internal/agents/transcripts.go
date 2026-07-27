@@ -14,26 +14,24 @@ import (
 )
 
 // transcriptStore is the part of the store the transcript syncer reads and
-// writes. It lists every agent, including deleted ones, so search spans the full
-// history, and it reads and writes the per-session transcript.
+// writes.
 type transcriptStore interface {
-	Get(ctx context.Context, sessionID string) (transcript.Transcript, error)
+	Get(ctx context.Context, agentID string) (transcript.Transcript, error)
 	Upsert(ctx context.Context, params transcript.UpsertParams) error
 }
 
-// agentLister is the one thing the syncer needs from the agent domain: which agents
-// exist to sync, archived ones included, since their transcripts stay
-// searchable.
+// agentLister is all the syncer needs from the agent domain, which agents exist
+// to sync. Archived ones are included, since their transcripts stay searchable.
 type agentLister interface {
 	ListAll(ctx context.Context) ([]agentstore.Agent, error)
 }
 
-// TranscriptSyncer keeps each session's searchable transcript in step with the
+// TranscriptSyncer keeps each agent's searchable transcript in step with the
 // JSONL Claude Code writes to disk. Rather than hook into Claude's lifecycle,
 // which fires unreliably, it reads the on-disk log directly on a timer. The file
-// is named for the session's claude id, which the tool assigns at launch, so the
-// path is known without any cooperation from Claude. Missing a pass loses
-// nothing, since the next pass reads whatever the file now holds.
+// is named for the agent's claude session id, so the path is known without any
+// cooperation from Claude. Missing a pass loses nothing, since the next pass
+// reads whatever the file now holds.
 type TranscriptSyncer struct {
 	agents      agentLister
 	store       transcriptStore
@@ -46,10 +44,10 @@ func NewTranscriptSyncer(agents agentLister, transcripts transcriptStore, projec
 	return &TranscriptSyncer{agents: agents, store: transcripts, projectsDir: projectsDir}
 }
 
-// Sync folds any new transcript text for every tracked session into the store. It
-// is idempotent and self-limiting. Each session reads only the bytes appended
-// since its last sync, so a pass is cheap even over a large corpus, and a session
-// whose log is unchanged is skipped entirely.
+// Sync folds any new transcript text for every tracked agent into the store. It
+// is idempotent and self-limiting. Each agent reads only the bytes appended since
+// its last sync, so a pass is cheap even over a large corpus, and an agent whose
+// log is unchanged is skipped entirely.
 func (ts *TranscriptSyncer) Sync(ctx context.Context) error {
 	agents, err := ts.agents.ListAll(ctx)
 	if err != nil {
@@ -68,9 +66,9 @@ func (ts *TranscriptSyncer) Sync(ctx context.Context) error {
 	return nil
 }
 
-// syncOne reads the tail of one session's log and appends its flattened text to
-// the stored transcript. A missing log is a no-op, as is a log with no new
-// complete lines.
+// syncOne reads the tail of one agent's log and appends its flattened text to the
+// stored transcript. A missing log is a no-op, as is a log with no new complete
+// lines.
 func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent) error {
 	path := ts.logPath(agent.ClaudeSessionID)
 	if path == "" {
@@ -118,9 +116,9 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 }
 
 // logPath resolves a claude session id to its JSONL log, or "" when no log
-// exists. The file is named for the session id under a per-directory folder, so
-// a glob on the id finds it without reproducing Claude's directory-name encoding,
-// which is version-specific.
+// exists. The file is named for the session id under a per-directory folder, so a
+// glob on the id finds it without reproducing Claude's version-specific
+// directory-name encoding.
 func (ts *TranscriptSyncer) logPath(claudeSessionID string) string {
 	matches, err := filepath.Glob(filepath.Join(ts.projectsDir, "*", claudeSessionID+".jsonl"))
 	if err != nil || len(matches) == 0 {
@@ -179,8 +177,8 @@ type contentBlock struct {
 
 // flattenTranscript turns raw JSONL bytes into the plain conversation text worth
 // searching, the user's prompts and the assistant's prose in order. Tool calls,
-// tool results, thinking, and all non-conversation entries are left out so the
-// index stays lean and a match reads as something actually said.
+// tool results, thinking, and non-conversation entries are left out so the index
+// stays lean and a match reads as something actually said.
 func flattenTranscript(data []byte) string {
 	var turns []string
 	for _, raw := range strings.Split(string(data), "\n") {
@@ -209,7 +207,7 @@ func flattenTranscript(data []byte) string {
 }
 
 // blockText extracts the prose from a message's content, which is either a plain
-// string or an array of typed blocks. Only text survives.
+// string or an array of typed blocks. Only text blocks survive.
 func blockText(content json.RawMessage) string {
 	var plain string
 	if err := json.Unmarshal(content, &plain); err == nil {

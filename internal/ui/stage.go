@@ -8,8 +8,8 @@ import (
 )
 
 // stageTmux is the part of the tmux client the stage drives. The stage is
-// presentation: it lays out the panel's own two panes and fires on every cursor
-// move, so it talks to tmux directly rather than through the session API.
+// presentation. It lays out the panel's own two panes and fires on every cursor
+// move, so it talks to tmux directly rather than through the agent API.
 type stageTmux interface {
 	CurrentPane() (string, error)
 	PaneAlive(pane string) bool
@@ -44,10 +44,10 @@ func (s *Stage) Init() {
 	s.ensure()
 }
 
-// ensure guarantees a live stage pane beside the panel, splitting a fresh one
-// when the stage is missing or has died. A one-shot preview process like bat can
-// exit and take its pane down with it. This self-heals without a panel restart. A
-// stage pane swapped out to hold an agent is still alive, so it is left as is.
+// ensure guarantees a live stage pane beside the panel, splitting a fresh one when
+// the stage is missing or has died. A one-shot preview process like bat can exit
+// and take its pane down with it, so this self-heals without a panel restart. A
+// stage pane swapped out to hold an agent is still alive and is left as is.
 func (s *Stage) ensure() {
 	if s.navPane == "" {
 		return
@@ -82,8 +82,8 @@ func (s *Stage) Release(pane string) {
 }
 
 // Agent swaps a live agent's pane into the stage slot, so its running claude shows
-// beside the panel. Focus stays on the panel. Moving to the agent is a plain tmux
-// pane move the user drives. A no-op when that agent is already staged.
+// beside the panel. Focus stays on the panel, and moving to the agent is a plain
+// tmux pane move the user drives. A no-op when that agent is already staged.
 func (s *Stage) Agent(pane string) {
 	s.ensure()
 	if s.pane == "" || pane == "" || pane == s.agentPane {
@@ -96,9 +96,9 @@ func (s *Stage) Agent(pane string) {
 }
 
 // Text shows markdown in the stage by writing it to a temp file and running bat
-// there. Used for a workflow's info and for a dormant agent's placeholder. bat is
-// one-shot, so it runs inside a shell that holds the pane open after it prints.
-// Otherwise the process would exit and tmux would close the stage pane.
+// there, which is how a workflow's info and a dormant agent's placeholder render.
+// bat is one-shot, so it runs inside a shell that holds the pane open after it
+// prints. Otherwise the process would exit and tmux would close the stage pane.
 func (s *Stage) Text(markdown string) {
 	s.ensure()
 	if s.pane == "" {
@@ -119,9 +119,8 @@ func (s *Stage) Text(markdown string) {
 
 // transcriptPreviewBefore and transcriptPreviewAfter bound how many lines show
 // around a matched line in a search preview. Wide enough to read the match in its
-// surrounding conversation, but still a window into a large transcript. bat
-// renders from the top, so showing the whole thing would push the match
-// off-screen.
+// surrounding conversation, but still a window into a large transcript. bat renders
+// from the top, so showing the whole thing would push the match off-screen.
 const (
 	transcriptPreviewBefore = 12
 	transcriptPreviewAfter  = 80

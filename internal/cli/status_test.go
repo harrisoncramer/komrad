@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// sessions builds the listing the summary renders from. It is what the service
+// listing builds the agents the summary renders from. It is what the service
 // would return, so the test needs no database of its own.
-func sessions(states ...string) []*agentv1.Agent {
+func listing(states ...string) []*agentv1.Agent {
 	out := make([]*agentv1.Agent, 0, len(states))
 	for i, state := range states {
 		out = append(out, &agentv1.Agent{Name: string(rune('a' + i)), State: state})
@@ -52,7 +52,7 @@ func TestRenderStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := renderStatus(sessions(tt.states...))
+			got := renderStatus(listing(tt.states...))
 			if tt.wantEmpty {
 				assert.Empty(t, got)
 				return

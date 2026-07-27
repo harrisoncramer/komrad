@@ -169,7 +169,7 @@ func (m model) updateWorkflowForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// submitWorkflowForm applies the form: renaming the target workflow, editing an
+// submitWorkflowForm applies the form, renaming the target workflow, editing an
 // existing one's config, or creating a new one, then returns to the agents view
 // with the list refreshed.
 func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
@@ -216,8 +216,8 @@ func workflowForm(title string, keys appconfig.FormKeys) *huh.Form {
 
 // workflowConfigForm collects a workflow's name, its free-text context, and its
 // default config. The dir and flags become the blueprint prefilled into the
-// new-agent form for agents created inside the workflow. Every field prefills, so it
-// serves both creating a workflow with blank values and editing one with its
+// new-agent form for agents created inside the workflow. Every field prefills, so
+// it serves both creating a workflow with blank values and editing one with its
 // current values.
 func workflowConfigForm(nameTitle string, cfg workflowstore.Config, keys appconfig.FormKeys) *huh.Form {
 	name, workflowContext, dir, flags := cfg.Name, cfg.Context, cfg.Cwd, cfg.Flags
@@ -292,7 +292,7 @@ func (m model) createWorkflow(cfg workflowstore.Config) {
 	}))
 }
 
-// updateWorkflow writes every field back, which is what the service expects: it
+// updateWorkflow writes every field back, which is what the service expects. It
 // replaces rather than patches, so the caller sends the whole workflow.
 func (m model) updateWorkflow(w workflowstore.Workflow) {
 	name := strings.TrimSpace(w.Name)

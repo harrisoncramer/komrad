@@ -61,7 +61,7 @@ func TestUpsertAndGet(t *testing.T) {
 	}
 }
 
-// TestGetOfUnknownID covers the two ways an id can fail to name an agent: one
+// TestGetOfUnknownID covers the two ways an id can fail to name an agent. One
 // that is well-formed but unused, and one that is not an id at all. Both read as
 // the zero transcript rather than an error, so a caller that mistyped an id gets
 // an empty result instead of a failure.
@@ -337,7 +337,7 @@ func TestLikePattern(t *testing.T) {
 // fixture is the transcript store under test plus the agent store the tests seed
 // through. A transcript is keyed to an agent, and search joins the agents table
 // for the name and archived flag, so a hit needs a real agent behind it. The two
-// stay separate stores: this package never writes that table itself.
+// stay separate stores, so this package never writes that table itself.
 type fixture struct {
 	*Store
 	agents *agentstore.Store

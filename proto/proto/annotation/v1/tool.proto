@@ -21,13 +21,13 @@ message ToolAnnotation {
   // use it correctly. This is the only guidance a model gets.
   string description = 2;
 
-  // MCP behavior hints surfaced to clients (see modelcontextprotocol.io tool
-  // annotations). All three are optional overrides; unset, they are derived
-  // from the method's idempotency_level:
-  //   - read_only: NO_SIDE_EFFECTS
-  //   - idempotent: IDEMPOTENT or NO_SIDE_EFFECTS
-  //   - destructive: defaults to true for write tools, per the MCP spec, and is
-  //     meaningful only when read_only is false. Set false for tools that only
+  // MCP behavior hints surfaced to clients, described at modelcontextprotocol.io
+  // under tool annotations. All three are optional overrides. Left unset they are
+  // derived from the method's idempotency_level.
+  //   - read_only is NO_SIDE_EFFECTS
+  //   - idempotent is IDEMPOTENT or NO_SIDE_EFFECTS
+  //   - destructive defaults to true for write tools, per the MCP spec, and is
+  //     meaningful only when read_only is false. Set it false for tools that only
   //     add or amend, so a client does not warn about work that destroys
   //     nothing.
   optional bool read_only = 3;

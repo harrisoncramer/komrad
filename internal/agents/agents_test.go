@@ -13,11 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestNewSession covers a launch end to end. A refused launch has to record
-// nothing: a row pointing at a pane that does not exist reads as a live agent
+// TestNewAgent covers a launch end to end. A refused launch has to record
+// nothing. A row pointing at a pane that does not exist reads as a live agent
 // forever, and tmux resolves an empty pane target to whatever the user is
 // looking at.
-func TestNewSession(t *testing.T) {
+func TestNewAgent(t *testing.T) {
 	tests := []struct {
 		name        string
 		dir         func(t *testing.T) string
@@ -122,10 +122,10 @@ func TestNewSession(t *testing.T) {
 	}
 }
 
-// TestNewSessionResolvesDirectory covers where an agent starts. tmux does no tilde
+// TestNewAgentResolvesDirectory covers where an agent starts. tmux does no tilde
 // expansion, so a ~ path has to be absolute before the window is opened or the
 // stored cwd would not be where the agent is running.
-func TestNewSessionResolvesDirectory(t *testing.T) {
+func TestNewAgentResolvesDirectory(t *testing.T) {
 	tests := []struct {
 		name      string
 		dir       string
@@ -170,10 +170,10 @@ func TestNewSessionResolvesDirectory(t *testing.T) {
 	}
 }
 
-// TestNewSessionInsideWorkflow covers what an agent inherits from the bucket it is
+// TestNewAgentInsideWorkflow covers what an agent inherits from the bucket it is
 // created in. The context is a snapshot taken at launch, so a later edit reaches
 // only agents spawned after it.
-func TestNewSessionInsideWorkflow(t *testing.T) {
+func TestNewAgentInsideWorkflow(t *testing.T) {
 	tests := []struct {
 		name        string
 		context     string
@@ -238,10 +238,10 @@ func TestNewSessionInsideWorkflow(t *testing.T) {
 	}
 }
 
-// TestUniqueSessionName covers the name an agent ends up with. The store's unique
+// TestUniqueAgentName covers the name an agent ends up with. The store's unique
 // index is the authority, so a taken name has to be stepped past rather than
 // reused, which would clobber the agent holding it.
-func TestUniqueSessionName(t *testing.T) {
+func TestUniqueAgentName(t *testing.T) {
 	tests := []struct {
 		name     string
 		title    string
@@ -314,9 +314,9 @@ func TestNameTaken(t *testing.T) {
 	}
 }
 
-// TestArchiveSession covers hiding an agent. The record and its transcript stay,
+// TestArchiveAgent covers hiding an agent. The record and its transcript stay,
 // so search still reaches it, but the agent is stopped.
-func TestArchiveSession(t *testing.T) {
+func TestArchiveAgent(t *testing.T) {
 	tests := []struct {
 		name      string
 		seed      string

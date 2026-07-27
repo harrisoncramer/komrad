@@ -10,14 +10,12 @@ import (
 	"time"
 )
 
-// The commands that talk to the service over HTTP share these: locating this
-// binary so it can respawn itself, and making sure something is listening
-// before a request is sent. They live apart from any one command because the
-// root command and new both need them, and open needs the path alone.
+// The commands that talk to the service over HTTP share these, locating this binary
+// so it can respawn itself and making sure something is listening before a request
+// is sent.
 
-// ensureServer makes sure a session server is reachable at addr, spawning a
-// detached serve process if not. It returns an error if the server never
-// becomes reachable.
+// ensureServer makes sure a server is reachable at addr, spawning a detached serve
+// process if not. It returns an error if the server never becomes reachable.
 func ensureServer(addr, self string) error {
 	if serverReachable(addr) {
 		return nil
@@ -31,7 +29,7 @@ func ensureServer(addr, self string) error {
 	}
 
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start session server: %w", err)
+		return fmt.Errorf("failed to start the agent server: %w", err)
 	}
 
 	for range 50 {
@@ -42,7 +40,7 @@ func ensureServer(addr, self string) error {
 		time.Sleep(40 * time.Millisecond)
 	}
 
-	return fmt.Errorf("session server did not become reachable at %s", addr)
+	return fmt.Errorf("the agent server did not become reachable at %s", addr)
 }
 
 func serverReachable(addr string) bool {

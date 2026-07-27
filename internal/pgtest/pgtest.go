@@ -1,10 +1,9 @@
 // Package pgtest hands each test its own Postgres database.
 //
 // The tests run against a real database rather than a fake because most of what
-// the store does is SQL: the partial unique index on live names, the keyset
-// page, the trigram search, the triggers that stamp updated_at. A double would
-// assert that the Go around those works and say nothing about the parts that
-// actually break.
+// the store does is SQL. The partial unique index on live names, the keyset page,
+// the trigram search, the triggers that stamp updated_at. A double would assert
+// that the Go around those works and say nothing about the parts that break.
 //
 // One database per test rather than one shared with truncation between them, so
 // a test that leaves a row behind cannot change what the next one sees, and the
@@ -26,7 +25,7 @@ import (
 
 // created counts the databases this process has made, so their names cannot
 // collide within a run. The pid keeps them apart between concurrent runs, which
-// is how `go test ./...` behaves: one process per package, all at once.
+// is how `go test ./...` behaves, one process per package, all at once.
 var created atomic.Int64
 
 // URL creates an empty database and returns a connection string for it, dropping
@@ -36,11 +35,11 @@ var created atomic.Int64
 func URL(t *testing.T) string {
 	t.Helper()
 
-	// The server to create the test database on is the one the application would
-	// have connected to, read through the same config, so `mise run docker:up` is
-	// the only setup a test run needs and a CI runner redirects both at once by
-	// setting DATABASE_URL. Only the server is borrowed, and the database named in it
-	// is never touched.
+	// The test database is created on the server the application would have
+	// connected to, read through the same config, so `mise run docker:up` is the only
+	// setup a test run needs and a CI runner redirects both at once by setting
+	// DATABASE_URL. Only the server is borrowed. The database named in the url is
+	// never touched.
 	cfg, err := config.Load()
 	if err != nil {
 		t.Fatalf("failed to load config for the test database: %v", err)
@@ -57,16 +56,16 @@ func URL(t *testing.T) string {
 	}
 	defer func() { _ = admin.Close(ctx) }()
 
-	// The name is generated above from a pid and a counter, never from input, so
+	// The name is generated above from a pid and a counter rather than from input, so
 	// interpolating it is safe. CREATE DATABASE takes no bound parameters anyway.
 	if _, err := admin.Exec(ctx, fmt.Sprintf("CREATE DATABASE %q", name)); err != nil {
 		t.Fatalf("failed to create test database %q: %v", name, err)
 	}
 
 	t.Cleanup(func() {
-		// A fresh context: the test's own is already cancelled by the time cleanup
-		// runs, and the drop still has to reach the server. WITH (FORCE) evicts any
-		// connection the test left open, which a pool that was not closed will have.
+		// A fresh context, since the test's own is already cancelled by the time
+		// cleanup runs and the drop still has to reach the server. WITH (FORCE) evicts
+		// any connection the test left open.
 		dropCtx := context.Background()
 
 		conn, err := pgx.Connect(dropCtx, replaceDatabase(baseURL, "postgres"))

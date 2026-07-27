@@ -10,14 +10,13 @@ import (
 // the list uses for an agent that needs attention.
 var errorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#E82424")).Bold(true)
 
-// unreachableView is shown in place of every other screen while the service is
-// not answering.
+// unreachableView is shown in place of every other screen while the service is not
+// answering.
 //
 // It takes over rather than sitting in a corner because the panel is a view onto
-// the service: with the service gone the agent list is a stale snapshot, the
-// counts are wrong, and every key that acts on an agent fails. Leaving the list on
-// screen made a dead service look like an empty store, which is what an unlucky
-// press of the delete key looked like.
+// the service. With the service gone the agent list is a stale snapshot, the counts
+// are wrong, and every key that acts on an agent fails. Left on screen, a dead
+// service reads as an empty store.
 //
 // There is nothing to press. The list keeps polling underneath, so the panel
 // returns to itself within a poll of the service coming back.
@@ -41,10 +40,10 @@ func (m model) unreachableView() string {
 	return b.String()
 }
 
-// errorWidth is how wide the reported error is allowed to run before it wraps.
-// A failed dial carries the whole address and syscall chain, and the part that
-// says what actually went wrong is usually at the end of it, so the error is
-// wrapped whole rather than cut.
+// errorWidth is how wide the reported error is allowed to run before it wraps. A
+// failed dial carries the whole address and syscall chain, and the part saying what
+// went wrong is usually at the end, so the error is wrapped whole rather than
+// cut.
 const errorWidth = 120
 
 // errorIndent lines wrapped error text up under the first line, so the wrapped
@@ -64,6 +63,6 @@ func wrapError(msg string) string {
 	return strings.Join(lines, "\n")
 }
 
-// errorTextStyle only carries the wrap width; the error is left uncoloured so it
+// errorTextStyle carries only the wrap width. The error is left uncoloured so it
 // reads as the detail under the header.
 var errorTextStyle = lipgloss.NewStyle().Width(errorWidth)

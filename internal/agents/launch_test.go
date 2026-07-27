@@ -24,26 +24,26 @@ func TestLaunchCommand(t *testing.T) {
 		{
 			name: "a resume pins the prior conversation by id",
 			params: launchClaudeParams{
-				Session:   "session",
-				SessionID: "sess-1",
-				Resume:    true,
+				Pane:            "pane",
+				ClaudeSessionID: "sess-1",
+				Resume:          true,
 			},
 			wantCommand: "claude --resume 'sess-1'",
 		},
 		{
 			name: "a fresh launch pins the id it was given",
 			params: launchClaudeParams{
-				Session:   "session",
-				SessionID: "sess-2",
+				Pane:            "pane",
+				ClaudeSessionID: "sess-2",
 			},
 			wantCommand: "claude --session-id 'sess-2'",
 		},
 		{
 			name: "flags precede the session id",
 			params: launchClaudeParams{
-				Session:   "session",
-				Flags:     "--model opus",
-				SessionID: "sess-3",
+				Pane:            "pane",
+				Flags:           "--model opus",
+				ClaudeSessionID: "sess-3",
 			},
 			wantCommand: "claude '--model' 'opus' --session-id 'sess-3'",
 		},
@@ -56,7 +56,7 @@ func TestLaunchCommand(t *testing.T) {
 
 			require.NoError(t, manager.launcher.launch(tt.params))
 
-			keys := tmux.lastKeys("session")
+			keys := tmux.lastKeys("pane")
 			require.Len(t, keys, 2)
 			assert.True(t, strings.HasPrefix(stripMCPConfig(keys[0]), tt.wantCommand),
 				"want %q to start with %q", stripMCPConfig(keys[0]), tt.wantCommand)
@@ -78,8 +78,8 @@ func TestLaunchPassesTextThroughTempFiles(t *testing.T) {
 		{
 			name: "a resume appends no system prompt, since it would not persist",
 			params: launchClaudeParams{
-				Session:         "session",
-				SessionID:       "sess",
+				Pane:            "pane",
+				ClaudeSessionID: "sess",
 				WorkflowContext: "shared notes",
 				Resume:          true,
 			},
@@ -88,9 +88,9 @@ func TestLaunchPassesTextThroughTempFiles(t *testing.T) {
 		{
 			name: "a multi-line prompt is fenced off from the variadic config flag",
 			params: launchClaudeParams{
-				Session:   "session",
-				SessionID: "sess",
-				Prompt:    "line one\nline two",
+				Pane:            "pane",
+				ClaudeSessionID: "sess",
+				Prompt:          "line one\nline two",
 			},
 			wantContain: []string{"--session-id 'sess'", "$(cat ", "; rm ", ` -- "$(cat `},
 		},
@@ -103,7 +103,7 @@ func TestLaunchPassesTextThroughTempFiles(t *testing.T) {
 
 			require.NoError(t, manager.launcher.launch(tt.params))
 
-			command := tmux.lastKeys("session")[0]
+			command := tmux.lastKeys("pane")[0]
 			for _, want := range tt.wantContain {
 				assert.Contains(t, command, want)
 			}
@@ -126,7 +126,7 @@ func TestAppendedSystemPrompt(t *testing.T) {
 	}{
 		{
 			name:        "an agent outside any workflow gets the briefing alone",
-			wantContain: []string{"http://127.0.0.1:9999/mcp", "list_tables", "session_transcripts"},
+			wantContain: []string{"http://127.0.0.1:9999/mcp", "list_tables", "agent_transcripts"},
 			wantAbsent:  []string{"shared notes"},
 		},
 		{
@@ -139,15 +139,15 @@ func TestAppendedSystemPrompt(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := newFakeTmux()
-			manager := newSessions(tmux, newStore(t), "", "127.0.0.1:9999")
+			manager := newAgentService(tmux, newStore(t), "", "127.0.0.1:9999")
 
 			require.NoError(t, manager.launcher.launch(launchClaudeParams{
-				Session:         "session",
-				SessionID:       "sess",
+				Pane:            "pane",
+				ClaudeSessionID: "sess",
 				WorkflowContext: tt.context,
 			}))
 
-			prompt := appendedPrompt(t, tmux.lastKeys("session")[0])
+			prompt := appendedPrompt(t, tmux.lastKeys("pane")[0])
 			for _, want := range tt.wantContain {
 				assert.Contains(t, prompt, want)
 			}
@@ -186,15 +186,15 @@ func TestLaunchRegistersMCPServer(t *testing.T) {
 			t.Setenv("HOME", home)
 
 			tmux := newFakeTmux()
-			manager := newSessions(tmux, newStore(t), "", "127.0.0.1:9999")
+			manager := newAgentService(tmux, newStore(t), "", "127.0.0.1:9999")
 
 			require.NoError(t, manager.launcher.launch(launchClaudeParams{
-				Session:   "session",
-				SessionID: "sess",
-				Resume:    tt.resume,
+				Pane:            "pane",
+				ClaudeSessionID: "sess",
+				Resume:          tt.resume,
 			}))
 
-			command := tmux.lastKeys("session")[0]
+			command := tmux.lastKeys("pane")[0]
 			assert.NotContains(t, command, "--strict-mcp-config", "the user's own servers survive")
 
 			match := mcpConfigRef.FindStringSubmatch(command)

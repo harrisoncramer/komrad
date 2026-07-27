@@ -1,9 +1,9 @@
-// Package workflow persists the named buckets agents are grouped into: the
+// Package workflow persists the named buckets agents are grouped into, the
 // workflows table and the config row holding the defaults new agents inherit.
 //
-// Deleting a workflow also has to do something about the agents inside it, but
-// those live in the session package. The caller composes both inside one
-// transaction rather than this package reaching across.
+// Deleting a workflow also has to do something about the agents inside it, and
+// those live in the agent package. The caller composes both inside one transaction
+// rather than this package reaching across.
 package workflow
 
 import (
@@ -29,8 +29,8 @@ type Workflow struct {
 	UpdatedAt time.Time
 }
 
-// Config is the editable blueprint of a workflow: its display label, its
-// free-text context, and the cwd and flags seeded into agents created inside it.
+// Config is the editable blueprint of a workflow. Its display label, its free-text
+// context, and the cwd and flags seeded into agents created inside it.
 type Config struct {
 	Name    string
 	Context string
@@ -64,8 +64,8 @@ func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 	return workflows, nil
 }
 
-// Cursor locates a workflow within a listing, the sort key plus the id that
-// breaks a tie on it.
+// Cursor locates a workflow within a listing, the sort key plus the id that breaks
+// a tie on it.
 type Cursor struct {
 	UpdatedAt time.Time `json:"u"`
 	ID        string    `json:"i"`
@@ -175,9 +175,9 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 }
 
 // Archive hides a workflow from the panel without dropping the row. What becomes
-// of the agents inside it is the caller's to decide, in the same transaction:
-// they are either unassigned or archived alongside it, and either way no agent is
-// left stranded behind a hidden workflow.
+// of the agents inside it is the caller's to decide, in the same transaction. They
+// are either unassigned or archived alongside it, so no agent is left stranded
+// behind a hidden workflow.
 func (s *Store) Archive(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil

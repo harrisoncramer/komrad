@@ -24,13 +24,13 @@ const searchLimit = 10
 // panel-side rendering of the markers the store wraps hits in.
 var matchStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF9E3B")).Bold(true)
 
-// searchHit is one result of a transcript search: the agent it points at and a
+// searchHit is one result of a transcript search, the agent it points at plus a
 // snippet of the matching text with the match wrapped in the store's markers.
 type searchHit struct {
-	sessionID string
-	name      string
-	deleted   bool
-	snippet   string
+	agentID string
+	name    string
+	deleted bool
+	snippet string
 }
 
 // searchResultsMsg carries the hits for a query back to the update loop. The
@@ -42,13 +42,12 @@ type searchResultsMsg struct {
 }
 
 // transcriptLoadedMsg carries a hovered hit's full transcript back for the
-// preview. The session id and query are echoed so a response that arrives after
-// the hover or the query moved on is discarded rather than staged over the wrong
-// hit.
+// preview. The agent id and query are echoed so a response arriving after the
+// hover or the query moved on is discarded rather than staged over the wrong hit.
 type transcriptLoadedMsg struct {
-	sessionID string
-	query     string
-	content   string
+	agentID string
+	query   string
+	content string
 }
 
 // enterSearch switches to the search screen with an empty query, blanking the
@@ -87,10 +86,10 @@ func (m model) searchCmd(query string) tea.Cmd {
 		hits := make([]searchHit, 0, len(resp.Msg.GetHits()))
 		for _, h := range resp.Msg.GetHits() {
 			hits = append(hits, searchHit{
-				sessionID: h.GetAgentId(),
-				name:      h.GetName(),
-				deleted:   h.GetDeleted(),
-				snippet:   h.GetSnippet(),
+				agentID: h.GetAgentId(),
+				name:    h.GetName(),
+				deleted: h.GetDeleted(),
+				snippet: h.GetSnippet(),
 			})
 		}
 
@@ -127,13 +126,13 @@ func (m model) previewCmd(hit searchHit) tea.Cmd {
 		defer cancel()
 
 		resp, err := client.GetTranscript(ctx, connect.NewRequest(&agentv1.GetTranscriptRequest{
-			AgentId: hit.sessionID,
+			AgentId: hit.agentID,
 		}))
 		if err != nil {
-			return transcriptLoadedMsg{sessionID: hit.sessionID, query: query}
+			return transcriptLoadedMsg{agentID: hit.agentID, query: query}
 		}
 
-		return transcriptLoadedMsg{sessionID: hit.sessionID, query: query, content: resp.Msg.GetContent()}
+		return transcriptLoadedMsg{agentID: hit.agentID, query: query, content: resp.Msg.GetContent()}
 	}
 }
 
@@ -146,17 +145,17 @@ func (m *model) applyTranscript(msg transcriptLoadedMsg) {
 	if m.searchCursor < 0 || m.searchCursor >= len(m.searchHits) {
 		return
 	}
-	if m.searchHits[m.searchCursor].sessionID != msg.sessionID {
+	if m.searchHits[m.searchCursor].agentID != msg.agentID {
 		return
 	}
 
 	m.stage.Transcript(msg.content, firstMatchLine(msg.content, m.searchQuery))
 }
 
-// firstMatchLine returns the 1-based line of the first case-insensitive
-// occurrence of query in content, or 0 when it does not occur, so the preview
-// can center on the match. The store search is a substring match, so the query
-// text itself appears in the content it matched.
+// firstMatchLine returns the 1-based line of the first case-insensitive occurrence
+// of query in content, or 0 when it does not occur, so the preview can center on
+// the match. The store search is a substring match, so the query text itself
+// appears in the content it matched.
 func firstMatchLine(content, query string) int {
 	query = strings.TrimSpace(query)
 	if query == "" {
@@ -173,8 +172,8 @@ func firstMatchLine(content, query string) int {
 
 // updateSearch drives the search screen. Printable keys edit the query and re-run
 // the search, the nav keys move over the results, enter opens the hovered agent,
-// and esc returns to the list. Movement and exit use fixed keys rather than the
-// configurable agent bindings, whose letters would otherwise type into the query.
+// and esc returns to the list. Exit uses fixed keys rather than the configurable
+// agent bindings, whose letters would otherwise type into the query.
 func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -225,9 +224,9 @@ func (m model) openSearchHit() (tea.Model, tea.Cmd) {
 
 	hit := m.searchHits[m.searchCursor]
 
-	// Opening a hit is a restore: the agent behind it may be archived or dormant,
+	// Opening a hit is a restore. The agent behind it may be archived or dormant,
 	// and a live one comes back as it stands rather than being started twice.
-	restored, err := m.restoreAgent(hit.sessionID)
+	restored, err := m.restoreAgent(hit.agentID)
 	if err != nil {
 		return m, nil
 	}

@@ -11,7 +11,7 @@ import (
 )
 
 // workflowStore is the part of the workflow store this service reads and writes.
-// Workflows are pure organisation, so this touches no tmux at all.
+// Workflows are pure organisation, so this touches no tmux.
 type workflowStore interface {
 	List(ctx context.Context) ([]workflow.Workflow, error)
 	Get(ctx context.Context, id string) (*workflow.Workflow, error)
@@ -23,9 +23,9 @@ type workflowStore interface {
 // runs nothing. It holds a display name, shared context injected into the agents
 // spawned inside it, and the cwd and flags those agents start from.
 //
-// Deleting one has to say what becomes of the agents inside it, and those are the
-// session domain's rows, so that write runs through a transaction the two stores
-// share rather than either reaching into the other.
+// Deleting one has to say what becomes of the agents inside it, and those rows
+// belong to the agent domain, so that write runs through a transaction the two
+// stores share.
 type WorkflowService struct {
 	store workflowStore
 	tx    txRunner
@@ -54,7 +54,7 @@ func (w *WorkflowService) GetWorkflow(ctx context.Context, id string) (*workflow
 
 // NewWorkflow creates a workflow, defaulting a blank name so the list always has
 // a label to render. The cwd is home-expanded so the stored blueprint matches
-// what a session launch would use.
+// what an agent launch would use.
 func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflow.Config) (*workflow.Workflow, error) {
 	cfg.Name = strings.TrimSpace(cfg.Name)
 	if cfg.Name == "" {
@@ -103,8 +103,8 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 // running.
 //
 // The workflow row and the agent rows belong to different domains, so both stores
-// are rebound onto one transaction: either the bucket and its agents agree
-// afterwards, or nothing moved. Half of it landing is what would strand an agent
+// are rebound onto one transaction. Either the bucket and its agents agree
+// afterwards or nothing moved, since half of it landing would strand an agent
 // behind a workflow nothing lists.
 func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string, archiveAgents bool) error {
 	existing, err := w.GetWorkflow(ctx, id)

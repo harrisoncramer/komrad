@@ -1,5 +1,5 @@
-// Package session persists the agents themselves: the sessions table and the
-// per-session config row that hangs off it.
+// Package agent persists the agents themselves, the agents table and the
+// per-agent config row that hangs off it.
 //
 // It owns no other domain's tables. An agent's transcript belongs to the
 // transcript package and the workflow an agent sits in belongs to the workflow
@@ -32,7 +32,7 @@ const (
 type Agent struct {
 	ID   string
 	Name string
-	// SessionConfigID is this agent's own config row, holding its cwd and flags.
+	// AgentConfigID is this agent's own config row, holding its cwd and flags.
 	// Every agent owns exactly one. Cwd and Flags are that row flattened on read.
 	AgentConfigID   string
 	Pane            string
@@ -74,7 +74,7 @@ func New(db store.DBTX) *Store {
 func (s *Store) List(ctx context.Context) ([]Agent, error) {
 	rows, err := s.queries.ListAgents(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list sessions: %w", err)
+		return nil, fmt.Errorf("failed to list agents: %w", err)
 	}
 
 	agents := make([]Agent, 0, len(rows))
@@ -93,12 +93,12 @@ type Cursor struct {
 	ID        string    `json:"i"`
 }
 
-// ListPage returns one page of live agents, most recently updated first,
-// resuming after cursor when one is given. Update time is a moving key: an agent
-// the reconciler touches mid-scan sorts ahead of where the caller already is, so
-// it can be seen twice or missed. That is inherent to keying a page on the
-// column the listing sorts by, and the alternative, holding a snapshot open
-// across requests, costs more than the duplicate is worth here.
+// ListPage returns one page of live agents, most recently updated first, resuming
+// after cursor when one is given. Update time is a moving key. An agent the
+// reconciler touches mid-scan sorts ahead of where the caller already is, so it
+// can be seen twice or missed. That is inherent to keying a page on the column the
+// listing sorts by, and holding a snapshot open across requests would cost more
+// than the duplicate is worth.
 func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Agent, error) {
 	params := models.ListAgentsPageParams{Lim: int32(limit)}
 	if cursor != nil {
@@ -108,7 +108,7 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Ag
 
 	rows, err := s.queries.ListAgentsPage(ctx, params)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list a page of sessions: %w", err)
+		return nil, fmt.Errorf("failed to list a page of agents: %w", err)
 	}
 
 	agents := make([]Agent, 0, len(rows))
@@ -124,7 +124,7 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Ag
 func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
 	rows, err := s.queries.ListAllAgents(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list all sessions: %w", err)
+		return nil, fmt.Errorf("failed to list all agents: %w", err)
 	}
 
 	agents := make([]Agent, 0, len(rows))
@@ -136,15 +136,15 @@ func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
 }
 
 // Get returns an agent by name, nil when none exists, or an error for a real
-// failure. No-rows is the nil case. Every other error is surfaced so a caller
-// does not report a genuine DB failure as not found.
+// failure. No-rows is the nil case. Every other error is surfaced so a caller does
+// not report a genuine DB failure as not found.
 func (s *Store) Get(ctx context.Context, name string) (*Agent, error) {
 	row, err := s.queries.GetAgent(ctx, name)
 	if store.NoRows(err) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get session %q: %w", name, err)
+		return nil, fmt.Errorf("failed to get agent %q: %w", name, err)
 	}
 
 	agent := agentFromRow(row.Agent, row.Cwd, row.Flags)
@@ -152,8 +152,8 @@ func (s *Store) Get(ctx context.Context, name string) (*Agent, error) {
 }
 
 // Exists reports whether any agent holds the given id, including soft-deleted
-// ones, so a caller can tell an unknown id from an agent that simply has nothing
-// stored yet.
+// ones, so a caller can tell an unknown id from an agent that has nothing stored
+// yet.
 func (s *Store) Exists(ctx context.Context, id string) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
@@ -161,16 +161,16 @@ func (s *Store) Exists(ctx context.Context, id string) (bool, error) {
 
 	exists, err := s.queries.AgentExists(ctx, id)
 	if err != nil {
-		return false, fmt.Errorf("failed to check for session %q: %w", id, err)
+		return false, fmt.Errorf("failed to check for agent %q: %w", id, err)
 	}
 
 	return exists, nil
 }
 
 // ActiveNameExists reports whether a live, non-deleted agent already holds the
-// name. New sessions consult this so an auto-generated name never collides with
-// an agent whose row still owns the name, including a dormant one whose tmux
-// session is gone but whose record survives.
+// name. New agents consult this so an auto-generated name never collides with an
+// agent whose row still owns it, including a dormant one whose tmux session is
+// gone but whose record survives.
 func (s *Store) ActiveNameExists(ctx context.Context, name string) (bool, error) {
 	exists, err := s.queries.ActiveNameExists(ctx, name)
 	if err != nil {
@@ -180,10 +180,10 @@ func (s *Store) ActiveNameExists(ctx context.Context, name string) (bool, error)
 	return exists, nil
 }
 
-// Upsert inserts a new agent or updates an existing one. A blank id means a
-// fresh agent, whose config row is inserted alongside the session. A set id
-// means an existing agent whose linked config and runtime fields are updated in
-// place, never inserting a second config row.
+// Upsert inserts a new agent or updates an existing one. A blank id means a fresh
+// agent, whose config row is inserted alongside it. A set id means an existing
+// agent whose linked config and runtime fields are updated in place, never
+// inserting a second config row.
 //
 // Both halves must land together, so a caller outside a transaction gets one
 // through InTx. Inside one, this joins whatever is already open.
@@ -195,9 +195,8 @@ func (s *Store) Upsert(ctx context.Context, agent Agent) error {
 	return s.update(ctx, agent)
 }
 
-// insert creates a fresh agent and its own config row. Both ids come back from
-// the database, which generates them, so the config is inserted first and the
-// session points at what it returned.
+// insert creates a fresh agent and its own config row. The database generates both
+// ids, so the config is inserted first and the agent points at what it returned.
 func (s *Store) insert(ctx context.Context, agent Agent) error {
 	configID, err := s.queries.InsertAgentConfig(ctx, models.InsertAgentConfigParams{
 		Cwd:   agent.Cwd,
@@ -216,7 +215,7 @@ func (s *Store) insert(ctx context.Context, agent Agent) error {
 		ClaudeSessionID: agent.ClaudeSessionID,
 		WorkflowID:      agent.WorkflowID,
 	}); err != nil {
-		return fmt.Errorf("failed to insert session %q: %w", agent.Name, err)
+		return fmt.Errorf("failed to insert agent %q: %w", agent.Name, err)
 	}
 
 	return nil
@@ -243,16 +242,16 @@ func (s *Store) update(ctx context.Context, agent Agent) error {
 		ClaudeSessionID: agent.ClaudeSessionID,
 		WorkflowID:      agent.WorkflowID,
 	}); err != nil {
-		return fmt.Errorf("failed to update session %q: %w", agent.Name, err)
+		return fmt.Errorf("failed to update agent %q: %w", agent.Name, err)
 	}
 
 	return nil
 }
 
-// SetState updates just an agent's state, keyed by name. It reports whether a
-// row was updated, so naming an agent that does not exist is distinguishable from
-// setting a state it already had. The query returns the ids it touched, which is
-// how the count is known without a second read.
+// SetState updates just an agent's state, keyed by name. It reports whether a row
+// was updated, so naming an agent that does not exist is distinguishable from
+// setting a state it already had. The query returns the ids it touched, so the
+// count is known without a second read.
 func (s *Store) SetState(ctx context.Context, name, state string) (bool, error) {
 	updated, err := s.queries.SetAgentState(ctx, models.SetAgentStateParams{Name: name, State: state})
 	if err != nil {
@@ -278,9 +277,9 @@ func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
 	return nil
 }
 
-// Target names the rows a hard delete has to remove: the agent itself, the config
-// it owns, and the transcript keyed to its id. The transcript is another
-// package's table, so this reports the id rather than deleting it.
+// Target names the rows a hard delete has to remove. The agent itself, the config
+// it owns, and the transcript keyed to its id. The transcript is another package's
+// table, so this reports the id rather than deleting it.
 type Target struct {
 	ID            string
 	AgentConfigID string
@@ -294,7 +293,7 @@ func (s *Store) Find(ctx context.Context, name string) (*Target, error) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to find session %q: %w", name, err)
+		return nil, fmt.Errorf("failed to find agent %q: %w", name, err)
 	}
 
 	return &Target{ID: row.ID, AgentConfigID: row.AgentConfigID}, nil
@@ -302,10 +301,10 @@ func (s *Store) Find(ctx context.Context, name string) (*Target, error) {
 
 // Delete removes an agent and the config it owns. The transcript keyed to the same
 // id is the transcript package's to remove, in the same transaction, since an
-// agent deleted without its transcript is the half-state worth avoiding.
+// agent deleted without its transcript is a half-state worth avoiding.
 func (s *Store) Delete(ctx context.Context, target Target) error {
 	if err := s.queries.DeleteAgentByID(ctx, target.ID); err != nil {
-		return fmt.Errorf("failed to delete session %q: %w", target.ID, err)
+		return fmt.Errorf("failed to delete agent %q: %w", target.ID, err)
 	}
 
 	if err := s.queries.DeleteAgentConfig(ctx, target.AgentConfigID); err != nil {
@@ -317,17 +316,17 @@ func (s *Store) Delete(ctx context.Context, target Target) error {
 
 // ErrNameTaken reports that a rename collided with a live agent's name. The
 // unique index is scoped to live rows, so this only ever means an agent currently
-// listed already answers to that name.
+// listed answers to that name.
 var ErrNameTaken = errors.New("name already taken")
 
-// uniqueViolation is the SQLSTATE Postgres raises for a broken unique
-// constraint, which is how a taken name is told apart from a real failure
-// without reading the driver's message text.
+// uniqueViolation is the SQLSTATE Postgres raises for a broken unique constraint,
+// which is how a taken name is told apart from a real failure without reading the
+// driver's message text.
 const uniqueViolation = "23505"
 
-// Rename changes an agent's name (title), keyed by id. It reports whether a row
-// was renamed, so an id that matches nothing is distinguishable from a rename
-// to the name an agent already had.
+// Rename changes an agent's display name, keyed by id. It reports whether a row
+// was renamed, so an id that matches nothing is distinguishable from a rename to
+// the name an agent already had.
 func (s *Store) Rename(ctx context.Context, id, name string) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
@@ -340,7 +339,7 @@ func (s *Store) Rename(ctx context.Context, id, name string) (bool, error) {
 			return false, ErrNameTaken
 		}
 
-		return false, fmt.Errorf("failed to rename session %q: %w", id, err)
+		return false, fmt.Errorf("failed to rename agent %q: %w", id, err)
 	}
 
 	return len(renamed) > 0, nil
@@ -349,7 +348,7 @@ func (s *Store) Rename(ctx context.Context, id, name string) (bool, error) {
 // Archive hides an agent from listings without dropping the row.
 func (s *Store) Archive(ctx context.Context, name string) error {
 	if err := s.queries.MarkAgentDeleted(ctx, name); err != nil {
-		return fmt.Errorf("failed to archive session %q: %w", name, err)
+		return fmt.Errorf("failed to archive agent %q: %w", name, err)
 	}
 
 	return nil
@@ -365,22 +364,21 @@ func (s *Store) Restore(ctx context.Context, id string) error {
 	}
 
 	if err := s.queries.RestoreAgent(ctx, id); err != nil {
-		return fmt.Errorf("failed to restore session %q: %w", id, err)
+		return fmt.Errorf("failed to restore agent %q: %w", id, err)
 	}
 
 	return nil
 }
 
 // MoveToWorkflow reassigns an agent to a workflow, keyed by the agent's id. A nil
-// workflowID unassigns the agent, returning it to the root listing. The id names
-// a workflow but the column is this table's, so the write belongs here.
+// workflowID unassigns the agent, returning it to the root listing.
 func (s *Store) MoveToWorkflow(ctx context.Context, id string, workflowID *string) error {
 	if !store.IsID(id) {
 		return nil
 	}
 
 	if err := s.queries.SetAgentWorkflow(ctx, models.SetAgentWorkflowParams{ID: id, WorkflowID: workflowID}); err != nil {
-		return fmt.Errorf("failed to move session %q to workflow: %w", id, err)
+		return fmt.Errorf("failed to move agent %q to workflow: %w", id, err)
 	}
 
 	return nil
@@ -408,9 +406,9 @@ func (s *Store) ArchiveWorkflowAgents(ctx context.Context, workflowID string) er
 }
 
 // agentFromRow builds an Agent from an agent row and the config joined onto it.
-// Every agent read selects sqlc.embed(a), so they all carry the same
-// models.Agent whatever else their row type holds, and the cwd and flags are
-// the only loose columns left to pass.
+// Every agent read selects sqlc.embed(a), so they all carry the same models.Agent
+// whatever else their row type holds, leaving the cwd and flags as the only loose
+// columns to pass.
 func agentFromRow(agent models.Agent, cwd, flags string) Agent {
 	return Agent{
 		ID:              agent.ID,

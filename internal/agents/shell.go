@@ -10,7 +10,7 @@ import "strings"
 //
 // splitArgs breaks a flag string into arguments the way a shell would, honoring
 // single and double quotes so a flag whose value contains a space stays one
-// argument. It finds argument boundaries and does not expand anything.
+// argument. It finds argument boundaries and expands nothing.
 func splitArgs(flags string) []string {
 	var (
 		args    []string
@@ -51,7 +51,7 @@ func splitArgs(flags string) []string {
 
 // quoteArg wraps an argument in single quotes so the shell takes it literally. A
 // single quote inside the argument closes the quoting, escapes itself, and
-// reopens, which is the only way to represent one inside a single-quoted string.
+// reopens, the only way to represent one inside a single-quoted string.
 func quoteArg(arg string) string {
 	return "'" + strings.ReplaceAll(arg, "'", `'\''`) + "'"
 }

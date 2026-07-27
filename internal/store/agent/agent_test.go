@@ -502,7 +502,7 @@ func open(t *testing.T) *Store {
 
 // openWithWorkflows builds the agent store alongside a workflow store over the
 // same database, for the tests that need a workflow to exist before an agent can
-// point at it. The two are separate stores even here: this package never reaches
+// point at it. The two are separate stores even here, so this package never reaches
 // into the workflows table itself.
 func openWithWorkflows(t *testing.T) (*Store, *workflowstore.Store) {
 	t.Helper()

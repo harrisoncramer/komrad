@@ -36,7 +36,7 @@ func NewLauncher(tmux launchTmux, serverAddr string) *Launcher {
 
 // mcpBriefing tells a spawned agent that the panel's own database is queryable,
 // so a question about the other agents is something it can look up rather than
-// guess at. The closing line matters as much as the rest: an agent whose client
+// guess at. The closing line matters as much as the rest. An agent whose client
 // has not registered the server must say so instead of inventing an answer.
 const mcpBriefing = `You are a background agent run by claude-agents, a tmux panel that spawns and tracks Claude sessions. The panel serves its own Postgres database read-only over MCP as a server named "claude-agents" at http://%s/mcp.
 
@@ -112,7 +112,7 @@ func (l *Launcher) launch(params launchClaudeParams) error {
 		command += " " + quoted
 	}
 
-	// Both paths get the MCP config: the briefing does not survive a resume, but
+	// Both paths get the MCP config. The briefing does not survive a resume, but
 	// the tools it describes should. A failure to write it drops the flag rather
 	// than the launch, leaving an agent that runs without the server.
 	if path, err := l.writeMCPConfig(); err == nil {

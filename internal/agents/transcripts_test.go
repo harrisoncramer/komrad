@@ -70,7 +70,7 @@ func TestFlattenTranscript(t *testing.T) {
 	}
 }
 
-// TestTranscriptSyncer covers a sync pass end to end: what lands in the store,
+// TestTranscriptSyncer covers a sync pass end to end. What lands in the store,
 // and how a second pass treats a log that has moved on since the first.
 func TestTranscriptSyncer(t *testing.T) {
 	tests := []struct {
@@ -82,7 +82,7 @@ func TestTranscriptSyncer(t *testing.T) {
 		// the log changes underneath it.
 		wantFirst string
 		// appended and rewritten change the log between the two syncs. Setting
-		// either runs a second sync; leaving both empty means one sync.
+		// either runs a second sync. Leaving both empty means one sync.
 		appended  string
 		rewritten string
 		want      string
@@ -197,7 +197,7 @@ func seedWithClaudeID(t *testing.T, st *testStore, claudeID string) agentstore.A
 	return *got
 }
 
-// writeLog writes a session's JSONL log under a project subdirectory of the
+// writeLog writes an agent's JSONL log under a project subdirectory of the
 // given projects dir, the way Claude Code lays them out.
 func writeLog(t *testing.T, projectsDir, body string) string {
 	t.Helper()
@@ -209,7 +209,7 @@ func writeLog(t *testing.T, projectsDir, body string) string {
 	return path
 }
 
-// appendToLog adds to an existing log the way a running session does, leaving
+// appendToLog adds to an existing log the way a running agent does, leaving
 // what is already there byte for byte.
 func appendToLog(t *testing.T, path, body string) {
 	t.Helper()

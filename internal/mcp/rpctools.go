@@ -27,18 +27,18 @@ import (
 const callTimeout = 30 * time.Second
 
 // rpcTools invokes the service's own Connect endpoint over loopback. Going back
-// through HTTP rather than calling the handler directly means a tool call takes
-// exactly the path a real client takes, validation interceptor included, so the
-// tool surface cannot drift into accepting what the API rejects.
+// through HTTP rather than calling the handler directly means a tool call takes the
+// same path a real client takes, validation interceptor included, so the tool
+// surface cannot drift into accepting what the API rejects.
 type rpcTools struct {
 	baseURL string
 	client  *http.Client
 }
 
-// registerRPCTools adds one MCP tool per annotated method across every service
-// the server exposes. The annotation is the gate: a method without one is not registered, so
-// widening the tool surface is an edit to the proto rather than a side effect of
-// adding an RPC.
+// registerRPCTools adds one MCP tool per annotated method across every service the
+// server exposes. The annotation is the gate. A method without one is not
+// registered, so widening the tool surface is an edit to the proto rather than a
+// side effect of adding an RPC.
 func registerRPCTools(server *mcpsdk.Server, baseURL string) error {
 	tools := &rpcTools{
 		baseURL: strings.TrimSuffix(baseURL, "/"),
@@ -136,11 +136,11 @@ func toolHints(method protoreflect.MethodDescriptor, annotation *annotationv1.To
 	return hints
 }
 
-// inputSchema describes a request message as JSON Schema, so a client knows
-// which arguments a tool takes. A field is required when the service would
-// reject it empty, which is what the validation rules say and not what proto3
-// field presence says: a blank title or flags is perfectly acceptable, and
-// demanding them would make a client send empty strings to satisfy a schema.
+// inputSchema describes a request message as JSON Schema, so a client knows which
+// arguments a tool takes. A field is required when the service would reject it
+// empty, which is what the validation rules say rather than what proto3 field
+// presence says. A blank title or flags is acceptable, and demanding them would
+// make a client send empty strings to satisfy a schema.
 func inputSchema(message protoreflect.MessageDescriptor) (map[string]any, error) {
 	return messageSchema(message, map[protoreflect.FullName]bool{})
 }
@@ -183,8 +183,8 @@ func messageSchema(message protoreflect.MessageDescriptor, enclosing map[protore
 
 // rejectsEmpty reports whether the validation rules on a field would refuse an
 // empty value, which is what makes it required from a caller's point of view. A
-// field the proto marks optional is never required: leaving it out is the whole
-// point of the keyword, and its rules apply only once it is present.
+// field the proto marks optional is never required, since leaving it out is the
+// point of the keyword and its rules apply only once it is present.
 func rejectsEmpty(field protoreflect.FieldDescriptor) bool {
 	if field.HasOptionalKeyword() {
 		return false
@@ -203,8 +203,8 @@ func rejectsEmpty(field protoreflect.FieldDescriptor) bool {
 		return true
 	}
 
-	// A minimum length is the usual way a string says it cannot be blank. CEL
-	// rules are not read: what they accept is only knowable by running them, so a
+	// A minimum length is the usual way a string says it cannot be blank. CEL rules
+	// are not read, since what they accept is only knowable by running them, so a
 	// field guarded solely by CEL is advertised as optional and refused by the
 	// server if it is genuinely needed.
 	return rules.GetString().GetMinLen() > 0
@@ -235,7 +235,7 @@ func fieldSchema(field protoreflect.FieldDescriptor, enclosing map[protoreflect.
 	}
 }
 
-// handler builds the tool's invoker: it posts the arguments to the service's own
+// handler builds the tool's invoker. It posts the arguments to the service's own
 // Connect endpoint and hands the response back as text. A non-200 is returned as
 // a tool error carrying the server's own message, so a model reads why its call
 // was refused rather than a bare status.
@@ -260,7 +260,7 @@ func (r *rpcTools) handler(service, method string) func(context.Context, *mcpsdk
 
 		resp, err := r.client.Do(req)
 		if err != nil {
-			return errorResult(fmt.Errorf("failed to reach the session service: %w", err)), nil, nil
+			return errorResult(fmt.Errorf("failed to reach the agent service: %w", err)), nil, nil
 		}
 		defer func() { _ = resp.Body.Close() }()
 

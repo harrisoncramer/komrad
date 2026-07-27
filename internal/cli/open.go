@@ -11,12 +11,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// openCmd is the popup entrypoint. It creates the persistent manager session if
-// it does not exist and attaches, otherwise attaches to the running one. The
+// openCmd is the popup entrypoint. It creates the persistent manager tmux session
+// if it does not exist and attaches, otherwise attaches to the running one. The
 // tmux plugin runs this as the popup's -E command, so it blocks until the client
-// detaches and then returns, which closes the popup. TMUX is stripped so tmux
-// does not refuse the attach as nested, since the popup itself lives inside the
-// user's tmux client.
+// detaches and then returns, which closes the popup. TMUX is stripped so tmux does
+// not refuse the attach as nested, since the popup itself lives inside the user's
+// tmux client.
 func openCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:           "open [client]",

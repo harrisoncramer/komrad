@@ -1,8 +1,8 @@
 package ui
 
-// View renders the active screen, or the unreachable screen over all of them
-// while the service is not answering: every screen below reads or writes through
-// it, so none of them can show anything true until it is back.
+// View renders the active screen, or the unreachable screen over all of them while
+// the service is not answering. Every screen below reads or writes through the
+// service, so none can show anything true until it is back.
 func (m model) View() string {
 	if m.unreachable != nil {
 		return m.unreachableView()
