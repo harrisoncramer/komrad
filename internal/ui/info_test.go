@@ -94,8 +94,11 @@ func TestAgentMarkdown(t *testing.T) {
 	}
 
 	tests := []struct {
-		name        string
-		alive       bool
+		name  string
+		alive bool
+		// schedule is the name of the schedule that launched the agent, empty for
+		// one a person started.
+		schedule    string
 		wantContain []string
 		wantAbsent  []string
 	}{
@@ -118,11 +121,22 @@ func TestAgentMarkdown(t *testing.T) {
 			},
 			wantAbsent: []string{"Press open to restore"},
 		},
+		{
+			name:        "an agent a schedule launched names the schedule",
+			alive:       true,
+			schedule:    "morning-ci",
+			wantContain: []string{"- launched by: morning-ci"},
+		},
+		{
+			name:       "one a person started claims no schedule",
+			alive:      true,
+			wantAbsent: []string{"launched by"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := agentMarkdown(agent, tt.alive)
+			got := agentMarkdown(agent, tt.alive, tt.schedule)
 
 			for _, want := range tt.wantContain {
 				assert.Contains(t, got, want)
@@ -138,6 +152,9 @@ func TestAgentMarkdown(t *testing.T) {
 // swapped-in agent pane from a respawned bat preview. Every other call is an
 // inert stub.
 type recordingTmux struct {
+	// path is what ClientPath reports, the directory the panel falls back to for
+	// a form left blank.
+	path     string
 	swaps    int
 	respawns []string
 }
@@ -146,7 +163,7 @@ func (t *recordingTmux) SetGlobal(string, string)                {}
 func (t *recordingTmux) ShowGlobal(string) string                { return "" }
 func (t *recordingTmux) SetSessionOption(string, string, string) {}
 func (t *recordingTmux) DetachSession(string)                    {}
-func (t *recordingTmux) ClientPath(string) string                { return "" }
+func (t *recordingTmux) ClientPath(string) string                { return t.path }
 func (t *recordingTmux) SendKeys(string, ...string) error        { return nil }
 func (t *recordingTmux) PaneAlive(string) bool                   { return true }
 func (t *recordingTmux) CapturePane(string) string               { return "" }

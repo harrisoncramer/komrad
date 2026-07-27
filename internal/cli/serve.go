@@ -11,9 +11,11 @@ import (
 	"claude-agents/internal/interceptors"
 	"claude-agents/internal/mcp"
 	rpcagent "claude-agents/internal/rpc/agent"
+	rpcschedule "claude-agents/internal/rpc/schedule"
 	rpcworkflow "claude-agents/internal/rpc/workflow"
 	"claude-agents/internal/store"
 	"claude-agents/proto/gen/agent/v1/agentv1connect"
+	"claude-agents/proto/gen/schedule/v1/schedulev1connect"
 	"claude-agents/proto/gen/workflow/v1/workflowv1connect"
 
 	"connectrpc.com/connect"
@@ -63,6 +65,12 @@ func serveCmd(state *app) *cobra.Command {
 				connect.WithInterceptors(validation),
 			)
 			mux.Handle(workflowPath, workflowHandler)
+
+			schedulePath, scheduleHandler := schedulev1connect.NewScheduleServiceHandler(
+				rpcschedule.NewService(state.schedules, state.scheduleService),
+				connect.WithInterceptors(validation),
+			)
+			mux.Handle(schedulePath, scheduleHandler)
 
 			// The MCP endpoint reads through its own read-only handle rather than
 			// the store's, so nothing reachable from a model can write, whatever

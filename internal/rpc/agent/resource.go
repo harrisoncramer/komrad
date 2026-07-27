@@ -46,6 +46,7 @@ func renderAgent(stored agentstore.Agent, alive bool) agent {
 			State:           stored.State,
 			ClaudeSessionId: stored.ClaudeSessionID,
 			WorkflowId:      stored.WorkflowID,
+			ScheduleId:      stored.ScheduleID,
 			CreatedAt:       created,
 			Alive:           alive,
 		},

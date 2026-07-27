@@ -8,6 +8,7 @@ import (
 	"claude-agents/internal/appconfig"
 	"claude-agents/internal/store"
 	agentstore "claude-agents/internal/store/agent"
+	schedulestore "claude-agents/internal/store/schedule"
 	transcriptstore "claude-agents/internal/store/transcript"
 	workflowstore "claude-agents/internal/store/workflow"
 	"claude-agents/internal/tmux"
@@ -23,6 +24,7 @@ type app struct {
 	// the database.
 	agentService    *agents.AgentService
 	workflowService *agents.WorkflowService
+	scheduleService *agents.ScheduleService
 
 	// The composition root. The pool is opened once and each domain gets its own
 	// store over it, so what a service can reach is decided here. The pool is
@@ -30,6 +32,7 @@ type app struct {
 	pool        *store.Pool
 	agents      *agentstore.Store
 	workflows   *workflowstore.Store
+	schedules   *schedulestore.Store
 	transcripts *transcriptstore.Store
 
 	popup       *ui.Popup
@@ -61,11 +64,15 @@ func (a *app) openStore(ctx context.Context) error {
 	a.pool = pool
 	a.agents = agentstore.New(pool.DB())
 	a.workflows = workflowstore.New(pool.DB())
+	a.schedules = schedulestore.New(pool.DB())
 	a.transcripts = transcriptstore.New(pool.DB())
 
 	a.workflowService = agents.NewWorkflowService(agents.WorkflowParams{
 		Workflows: a.workflows,
 		Tx:        pool,
+	})
+	a.scheduleService = agents.NewScheduleService(agents.ScheduleParams{
+		Schedules: a.schedules,
 	})
 	a.agentService = agents.NewAgentService(agents.AgentParams{
 		Tmux:        a.tmux,

@@ -44,6 +44,9 @@ type Agent struct {
 	// WorkflowID is the workflow this agent belongs to, or nil when unassigned. It
 	// holds the workflow's stable id, not its display name.
 	WorkflowID *string
+	// ScheduleID is the schedule that launched this agent, or nil for one a person
+	// started. It is provenance only, and nothing about the agent depends on it.
+	ScheduleID *string
 	Deleted    bool
 	// CreatedAt is when the agent was first recorded, for display.
 	CreatedAt time.Time
@@ -421,6 +424,7 @@ func agentFromRow(agent models.Agent, cwd, flags string) Agent {
 		State:           agent.State,
 		ClaudeSessionID: agent.ClaudeSessionID,
 		WorkflowID:      agent.WorkflowID,
+		ScheduleID:      agent.ScheduleID,
 		Deleted:         agent.IsDeleted,
 		CreatedAt:       agent.CreatedAt,
 		UpdatedAt:       agent.UpdatedAt,

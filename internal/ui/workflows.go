@@ -53,9 +53,9 @@ func (m model) updateHoveredWorkflow(key tea.KeyMsg, wfIdx int) (tea.Model, tea.
 	return m, nil
 }
 
-// returnFromWorkflow sends the user back to the agents view after a workflow form
-// or dialog closes, restaging for the current selection.
-func (m model) returnFromWorkflow() (tea.Model, tea.Cmd) {
+// returnToAgents sends the user back to the agents view after a form, a dialog, or
+// another screen closes, restaging for the current selection.
+func (m model) returnToAgents() (tea.Model, tea.Cmd) {
 	m.screen = screenAgents
 	m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
 	m.stageSelection()
@@ -139,10 +139,10 @@ func (m model) updateWorkflowDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.workflowDeleteTarget = nil
 		m.reloadWorkflows()
-		return m.returnFromWorkflow()
+		return m.returnToAgents()
 	case huh.StateAborted:
 		m.workflowDeleteTarget = nil
-		return m.returnFromWorkflow()
+		return m.returnToAgents()
 	default:
 		return m, cmd
 	}
@@ -166,7 +166,7 @@ func (m model) updateWorkflowForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case huh.StateAborted:
 		m.workflowRenameTarget = nil
 		m.workflowEditTarget = nil
-		return m.returnFromWorkflow()
+		return m.returnToAgents()
 	default:
 		return m, cmd
 	}
@@ -212,7 +212,7 @@ func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 	m.workflowRenameTarget = nil
 	m.workflowEditTarget = nil
 	m.reloadWorkflows()
-	return m.returnFromWorkflow()
+	return m.returnToAgents()
 }
 
 func workflowForm(title string, keys appconfig.FormKeys) *huh.Form {

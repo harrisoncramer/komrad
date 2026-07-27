@@ -13,10 +13,12 @@ import (
 	"claude-agents/internal/errui"
 	agentv1 "claude-agents/proto/gen/agent/v1"
 	"claude-agents/proto/gen/agent/v1/agentv1connect"
+	schedulev1connect "claude-agents/proto/gen/schedule/v1/schedulev1connect"
 	workflowv1 "claude-agents/proto/gen/workflow/v1"
 	"claude-agents/proto/gen/workflow/v1/workflowv1connect"
 
 	agentstore "claude-agents/internal/store/agent"
+	schedulestore "claude-agents/internal/store/schedule"
 	workflowstore "claude-agents/internal/store/workflow"
 
 	"connectrpc.com/connect"
@@ -44,6 +46,7 @@ type refreshTickMsg struct{}
 type listsLoadedMsg struct {
 	agents    []agentItem
 	workflows []workflowstore.Workflow
+	schedules []scheduleItem
 	err       error
 }
 
@@ -55,7 +58,7 @@ func refreshTick() tea.Cmd {
 // timeout, so the render loop never blocks on the RPCs or the per-agent tmux
 // liveness checks. Both share one deadline, since together they are one refresh.
 func (m model) loadListsCmd() tea.Cmd {
-	agents, workflows := m.api.agents, m.api.workflows
+	agents, workflows, schedules := m.api.agents, m.api.workflows, m.api.schedules
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
@@ -71,7 +74,16 @@ func (m model) loadListsCmd() tea.Cmd {
 			return listsLoadedMsg{err: err}
 		}
 
-		return listsLoadedMsg{agents: agentItemsFrom(listed), workflows: workflowsFrom(listedWorkflows)}
+		listedSchedules, err := client.ListAllSchedules(ctx, schedules)
+		if err != nil {
+			return listsLoadedMsg{err: err}
+		}
+
+		return listsLoadedMsg{
+			agents:    agentItemsFrom(listed),
+			workflows: workflowsFrom(listedWorkflows),
+			schedules: scheduleItemsFrom(listedSchedules),
+		}
 	}
 }
 
@@ -151,6 +163,9 @@ const (
 	screenWorkflowForm
 	screenWorkflowDelete
 	screenSearch
+	screenSchedules
+	screenScheduleForm
+	screenScheduleDelete
 )
 
 // actionTimeout bounds a single call made in response to a keypress. It is
@@ -171,6 +186,7 @@ type uiTmux interface {
 type api struct {
 	agents    agentv1connect.AgentServiceClient
 	workflows workflowv1connect.WorkflowServiceClient
+	schedules schedulev1connect.ScheduleServiceClient
 }
 
 // Deps are what the panel needs to run. The two services it acts through, the
@@ -180,6 +196,7 @@ type Deps struct {
 	Tmux      uiTmux
 	Agents    agentv1connect.AgentServiceClient
 	Workflows workflowv1connect.WorkflowServiceClient
+	Schedules schedulev1connect.ScheduleServiceClient
 	Keys      appconfig.Keybindings
 	// Addr is where Client points, shown on the error screen when the service
 	// stops answering so the address to go looking at is on screen.
@@ -250,6 +267,14 @@ type model struct {
 	form         *huh.Form
 	renameTarget agentstore.Agent
 
+	// Schedules screen state. The list, which row is hovered, and the schedules
+	// the form and the delete prompt are working on, both nil when creating one or
+	// when neither is open.
+	schedules            []scheduleItem
+	scheduleCursor       int
+	scheduleEditTarget   *schedulestore.Schedule
+	scheduleDeleteTarget *schedulestore.Schedule
+
 	// Search screen state. The live query, its hits, and which hit is hovered.
 	searchQuery  string
 	searchHits   []searchHit
@@ -260,8 +285,9 @@ type model struct {
 
 func newModel(deps Deps) model {
 	m := model{
-		api:       api{agents: deps.Agents, workflows: deps.Workflows},
+		api:       api{agents: deps.Agents, workflows: deps.Workflows, schedules: deps.Schedules},
 		popup:     deps.Popup,
+		tmux:      deps.Tmux,
 		stage:     NewStage(deps.Tmux),
 		addr:      deps.Addr,
 		keys:      deps.Keys,
@@ -492,6 +518,7 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 		State:           s.GetState(),
 		ClaudeSessionID: s.GetClaudeSessionId(),
 		WorkflowID:      s.WorkflowId,
+		ScheduleID:      s.ScheduleId,
 		CreatedAt:       created,
 	}
 }
@@ -579,7 +606,8 @@ func formKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
 // belongs to the form or to the panel's own chrome.
 func (m model) onFormScreen() bool {
 	switch m.screen {
-	case screenForm, screenRename, screenWorkflowForm, screenWorkflowDelete:
+	case screenForm, screenRename, screenWorkflowForm, screenWorkflowDelete,
+		screenScheduleForm, screenScheduleDelete:
 		return true
 	default:
 		return false
@@ -632,6 +660,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// reapplied against are built over them.
 			m.applyWorkflows(loaded.workflows)
 			m.applyAgents(loaded.agents)
+			m.applySchedules(loaded.schedules)
 
 			// A refresh can change what the cursor is sitting on without the cursor
 			// moving, so the stage is redrawn from the merged lists. The stage is a
@@ -641,6 +670,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// take back while it is up.
 			if m.screen == screenAgents {
 				m.stageSelection()
+			}
+			if m.screen == screenSchedules {
+				m.stageSchedule()
 			}
 		}
 
@@ -672,6 +704,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateWorkflowDelete(msg)
 	}
 
+	if m.screen == screenScheduleForm {
+		return m.updateScheduleForm(msg)
+	}
+
+	if m.screen == screenScheduleDelete {
+		return m.updateScheduleDelete(msg)
+	}
+
 	key, ok := msg.(tea.KeyMsg)
 	if !ok {
 		return m, nil
@@ -679,6 +719,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if m.screen == screenSearch {
 		return m.updateSearch(key)
+	}
+
+	if m.screen == screenSchedules {
+		return m.updateSchedules(key)
 	}
 
 	if m.screen == screenAgents {

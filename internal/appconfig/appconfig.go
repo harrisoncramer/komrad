@@ -24,6 +24,8 @@ type Keybindings struct {
 	Form FormKeys `mapstructure:"form"`
 	// The actions that create and change workflows, from the agents list.
 	Workflows WorkflowsKeys `mapstructure:"workflows"`
+	// The schedules screen, and the key that opens it from the agents list.
+	Schedules SchedulesKeys `mapstructure:"schedules"`
 }
 
 // NavKeys are the shared navigation bindings every menu uses, so movement is the
@@ -81,6 +83,26 @@ type WorkflowsKeys struct {
 	Delete []string `mapstructure:"delete"`
 }
 
+// SchedulesKeys are the bindings for the schedules screen, which is its own view
+// rather than part of the agents tree. Open enters it from the agents list, and
+// the rest act on the hovered schedule once inside.
+type SchedulesKeys struct {
+	// Open the schedules screen from the agents list.
+	Open []string `mapstructure:"open"`
+	// Quit the panel.
+	Quit []string `mapstructure:"quit"`
+	// Leave the schedules screen for the agents list.
+	Back []string `mapstructure:"back"`
+	// Write a new schedule.
+	New []string `mapstructure:"new"`
+	// Edit the schedule under the cursor.
+	Edit []string `mapstructure:"edit"`
+	// Pause or resume the schedule under the cursor.
+	Toggle []string `mapstructure:"toggle"`
+	// Delete the schedule under the cursor. The agents it launched are kept.
+	Delete []string `mapstructure:"delete"`
+}
+
 // Config is the user's customization.
 type Config struct {
 	// Flags appended to the claude command for every new session.
@@ -110,6 +132,15 @@ func DefaultKeybindings() Keybindings {
 			New:    []string{"W"},
 			Rename: []string{"r"},
 			Edit:   []string{"e"},
+			Delete: []string{"d"},
+		},
+		Schedules: SchedulesKeys{
+			Open:   []string{"s"},
+			Quit:   []string{"ctrl+c", "q"},
+			Back:   []string{"esc", "left", "h"},
+			New:    []string{"n"},
+			Edit:   []string{"e", "enter"},
+			Toggle: []string{" "},
 			Delete: []string{"d"},
 		},
 		Form: FormKeys{
@@ -148,6 +179,14 @@ func (k Keybindings) withDefaults() Keybindings {
 	k.Workflows.Rename = fillKeys(k.Workflows.Rename, def.Workflows.Rename)
 	k.Workflows.Edit = fillKeys(k.Workflows.Edit, def.Workflows.Edit)
 	k.Workflows.Delete = fillKeys(k.Workflows.Delete, def.Workflows.Delete)
+
+	k.Schedules.Open = fillKeys(k.Schedules.Open, def.Schedules.Open)
+	k.Schedules.Quit = fillKeys(k.Schedules.Quit, def.Schedules.Quit)
+	k.Schedules.Back = fillKeys(k.Schedules.Back, def.Schedules.Back)
+	k.Schedules.New = fillKeys(k.Schedules.New, def.Schedules.New)
+	k.Schedules.Edit = fillKeys(k.Schedules.Edit, def.Schedules.Edit)
+	k.Schedules.Toggle = fillKeys(k.Schedules.Toggle, def.Schedules.Toggle)
+	k.Schedules.Delete = fillKeys(k.Schedules.Delete, def.Schedules.Delete)
 
 	k.Form.Quit = fillKeys(k.Form.Quit, def.Form.Quit)
 	k.Form.Back = fillKeys(k.Form.Back, def.Form.Back)

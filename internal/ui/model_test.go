@@ -9,6 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClampCursor(t *testing.T) {
@@ -134,3 +135,47 @@ func items(names ...string) []agentItem {
 
 	return out
 }
+
+// TestNewModelWiresTmux covers the wiring the panel cannot run without. The model
+// reaches for tmux only when a form opens with a blank directory, so a dependency
+// left unassigned here shows up as a panic on a keypress rather than as anything at
+// startup.
+func TestNewModelWiresTmux(t *testing.T) {
+	tests := []struct {
+		name string
+		dir  string
+		want string
+	}{
+		{
+			name: "a blank directory is answered by the invoking client",
+			want: clientPath,
+		},
+		{
+			name: "a directory the caller gave is kept",
+			dir:  "/work/api",
+			want: "/work/api",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := &recordingTmux{path: clientPath}
+			m := newModel(Deps{
+				Popup:     NewPopup(tmux, "manager"),
+				Tmux:      tmux,
+				Agents:    refusingAgents{},
+				Workflows: emptyWorkflows{},
+				Schedules: &fakeSchedules{},
+				Keys:      appconfig.DefaultKeybindings(),
+				Addr:      "127.0.0.1:8787",
+			})
+
+			require.NotNil(t, m.tmux, "the panel cannot answer a blank directory without tmux")
+			assert.Equal(t, tt.want, m.currentDir(tt.dir))
+		})
+	}
+}
+
+// clientPath is what the fake tmux reports as the invoking client's directory,
+// which is the answer a blank directory field falls back to.
+const clientPath = "/work/from-tmux"

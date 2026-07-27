@@ -31,10 +31,13 @@ func (m model) View() string {
 // screenView renders whichever screen the panel is on, without the chrome above it.
 func (m model) screenView() string {
 	switch m.screen {
-	case screenForm, screenRename, screenWorkflowForm, screenWorkflowDelete:
+	case screenForm, screenRename, screenWorkflowForm, screenWorkflowDelete,
+		screenScheduleForm, screenScheduleDelete:
 		return m.form.View()
 	case screenSearch:
 		return m.searchView()
+	case screenSchedules:
+		return m.schedulesView()
 	default:
 		return m.agentsView()
 	}

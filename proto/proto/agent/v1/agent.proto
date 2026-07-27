@@ -24,6 +24,9 @@ message Agent {
   optional string workflow_id = 9;
   // When the agent was first created, as an RFC 3339 timestamp, for display.
   string created_at = 10;
+  // The schedule that launched this agent. Unset for one a person started, so a
+  // caller can tell scheduled work from work someone asked for.
+  optional string schedule_id = 12;
   // Whether the agent's tmux pane is still running. It is observed at read time
   // rather than stored, so a caller does not need tmux of its own to tell a live
   // agent from a dormant one.

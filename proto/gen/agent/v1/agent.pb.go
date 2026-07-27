@@ -41,6 +41,9 @@ type Agent struct {
 	WorkflowId *string `protobuf:"bytes,9,opt,name=workflow_id,json=workflowId,proto3,oneof" json:"workflow_id,omitempty"`
 	// When the agent was first created, as an RFC 3339 timestamp, for display.
 	CreatedAt string `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// The schedule that launched this agent. Unset for one a person started, so a
+	// caller can tell scheduled work from work someone asked for.
+	ScheduleId *string `protobuf:"bytes,12,opt,name=schedule_id,json=scheduleId,proto3,oneof" json:"schedule_id,omitempty"`
 	// Whether the agent's tmux pane is still running. It is observed at read time
 	// rather than stored, so a caller does not need tmux of its own to tell a live
 	// agent from a dormant one.
@@ -145,6 +148,13 @@ func (x *Agent) GetWorkflowId() string {
 func (x *Agent) GetCreatedAt() string {
 	if x != nil {
 		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *Agent) GetScheduleId() string {
+	if x != nil && x.ScheduleId != nil {
+		return *x.ScheduleId
 	}
 	return ""
 }
@@ -1054,7 +1064,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\"\xb1\x02\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\"\xe7\x02\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -1068,9 +1078,12 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"workflowId\x88\x01\x01\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\n" +
-	" \x01(\tR\tcreatedAt\x12\x14\n" +
+	" \x01(\tR\tcreatedAt\x12$\n" +
+	"\vschedule_id\x18\f \x01(\tH\x01R\n" +
+	"scheduleId\x88\x01\x01\x12\x14\n" +
 	"\x05alive\x18\v \x01(\bR\x05aliveB\x0e\n" +
-	"\f_workflow_id\"b\n" +
+	"\f_workflow_idB\x0e\n" +
+	"\f_schedule_id\"b\n" +
 	"\x11ListAgentsRequest\x12>\n" +
 	"\n" +
 	"pagination\x18\x01 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +

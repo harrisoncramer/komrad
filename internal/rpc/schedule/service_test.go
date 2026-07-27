@@ -1,0 +1,441 @@
+package schedule
+
+import (
+	"testing"
+	"time"
+
+	"claude-agents/internal/agents"
+	"claude-agents/internal/storetest"
+	paginationv1 "claude-agents/proto/gen/pagination/v1"
+	schedulev1 "claude-agents/proto/gen/schedule/v1"
+
+	"connectrpc.com/connect"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+)
+
+// missingID is a well-formed uuid no schedule holds, for the not-found rows. A
+// malformed one would be refused before the lookup and prove something else.
+const missingID = "00000000-0000-0000-0000-000000000000"
+
+func TestCreateSchedule(t *testing.T) {
+	tests := []struct {
+		name     string
+		req      *schedulev1.CreateScheduleRequest
+		wantCode connect.Code
+		check    func(t *testing.T, created *schedulev1.Schedule)
+	}{
+		{
+			name: "a schedule is stored as written",
+			req: &schedulev1.CreateScheduleRequest{
+				Name: "morning-ci", Cron: "0 9 * * 1-5", Prompt: "check CI",
+				Cwd: "/work/api", Flags: "--model opus", Enabled: true,
+			},
+			check: func(t *testing.T, created *schedulev1.Schedule) {
+				assert.NotEmpty(t, created.GetId())
+				assert.Equal(t, "0 9 * * 1-5", created.GetCron())
+				assert.Equal(t, "check CI", created.GetPrompt())
+				assert.True(t, created.GetEnabled())
+			},
+		},
+		{
+			name: "a home-relative directory is expanded before it is stored",
+			req: &schedulev1.CreateScheduleRequest{
+				Name: "nightly", Cron: "0 2 * * *", Prompt: "sweep", Cwd: "~/repo", Enabled: true,
+			},
+			check: func(t *testing.T, created *schedulev1.Schedule) {
+				assert.NotEqual(t, "~/repo", created.GetCwd())
+			},
+		},
+		{
+			name: "an armed schedule reports when it next fires",
+			req: &schedulev1.CreateScheduleRequest{
+				Name: "hourly", Cron: "0 * * * *", Prompt: "poll", Cwd: "/work/api", Enabled: true,
+			},
+			check: func(t *testing.T, created *schedulev1.Schedule) {
+				require.NotNil(t, created.GetNextRunAt())
+				assert.True(t, created.GetNextRunAt().AsTime().After(time.Now()))
+			},
+		},
+		{
+			name: "a paused schedule has no next run to report",
+			req: &schedulev1.CreateScheduleRequest{
+				Name: "draft", Cron: "0 9 * * *", Prompt: "later", Cwd: "/work/api",
+			},
+			check: func(t *testing.T, created *schedulev1.Schedule) {
+				assert.False(t, created.GetEnabled())
+				assert.Nil(t, created.GetNextRunAt())
+			},
+		},
+		{
+			// The proto checks the shape, five fields, and the service parses it.
+			// This one is well-shaped and still meaningless.
+			name: "an unparseable expression is refused",
+			req: &schedulev1.CreateScheduleRequest{
+				Name: "broken", Cron: "99 9 * * *", Prompt: "go", Cwd: "/work/api",
+			},
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name: "an unknown timezone is refused",
+			req: &schedulev1.CreateScheduleRequest{
+				Name: "elsewhere", Cron: "0 9 * * *", Timezone: "Mars/Olympus", Prompt: "go", Cwd: "/work/api",
+			},
+			wantCode: connect.CodeInvalidArgument,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := service(t)
+
+			created, err := svc.CreateSchedule(t.Context(), connect.NewRequest(tt.req))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+				return
+			}
+
+			require.NoError(t, err)
+			tt.check(t, created.Msg.GetSchedule())
+		})
+	}
+}
+
+// TestCreateScheduleNameConflict covers the unique index surfacing as
+// already_exists rather than as a server fault.
+func TestCreateScheduleNameConflict(t *testing.T) {
+	tests := []struct {
+		name     string
+		second   string
+		wantCode connect.Code
+	}{
+		{
+			name:     "a name a live schedule holds",
+			second:   "morning-ci",
+			wantCode: connect.CodeAlreadyExists,
+		},
+		{
+			name:   "a free name",
+			second: "evening-ci",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := service(t)
+			createSchedule(t, svc, "morning-ci")
+
+			_, err := svc.CreateSchedule(t.Context(), connect.NewRequest(&schedulev1.CreateScheduleRequest{
+				Name: tt.second, Cron: "0 9 * * *", Prompt: "go", Cwd: "/work/api",
+			}))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestGetSchedule(t *testing.T) {
+	tests := []struct {
+		name     string
+		create   bool
+		id       string
+		wantCode connect.Code
+	}{
+		{
+			name:     "an id nobody holds",
+			id:       missingID,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "a deleted schedule is gone from the read side",
+			create:   true,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:   "a schedule that exists",
+			create: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := service(t)
+			ctx := t.Context()
+
+			id := tt.id
+			if tt.create {
+				id = createSchedule(t, svc, "morning-ci")
+			}
+			if tt.create && tt.wantCode == connect.CodeNotFound {
+				_, err := svc.DeleteSchedule(ctx, connect.NewRequest(&schedulev1.DeleteScheduleRequest{Id: id}))
+				require.NoError(t, err)
+			}
+
+			got, err := svc.GetSchedule(ctx, connect.NewRequest(&schedulev1.GetScheduleRequest{Id: id}))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, id, got.Msg.GetSchedule().GetId())
+			assert.Equal(t, "morning-ci", got.Msg.GetSchedule().GetName())
+		})
+	}
+}
+
+func TestUpdateSchedule(t *testing.T) {
+	tests := []struct {
+		name     string
+		target   string
+		req      *schedulev1.UpdateScheduleRequest
+		wantCode connect.Code
+		wantName string
+		wantCron string
+	}{
+		{
+			name:     "an id nobody holds",
+			target:   missingID,
+			req:      &schedulev1.UpdateScheduleRequest{Name: "renamed", Cron: "0 9 * * *", Prompt: "go", Cwd: "/work/api"},
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "the editable fields are replaced",
+			req:      &schedulev1.UpdateScheduleRequest{Name: "renamed", Cron: "0 17 * * 5", Prompt: "weekly", Cwd: "/work/web"},
+			wantName: "renamed",
+			wantCron: "0 17 * * 5",
+		},
+		{
+			name:     "an unparseable expression leaves the record alone",
+			req:      &schedulev1.UpdateScheduleRequest{Name: "renamed", Cron: "0 99 * * *", Prompt: "go", Cwd: "/work/api"},
+			wantCode: connect.CodeInvalidArgument,
+			wantName: "morning-ci",
+			wantCron: "0 9 * * 1-5",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := service(t)
+			ctx := t.Context()
+
+			id := createSchedule(t, svc, "morning-ci")
+			target := tt.target
+			if target == "" {
+				target = id
+			}
+
+			req := tt.req
+			req.Id = target
+			_, err := svc.UpdateSchedule(ctx, connect.NewRequest(req))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+			} else {
+				require.NoError(t, err)
+			}
+
+			if tt.wantName == "" {
+				return
+			}
+
+			got, err := svc.GetSchedule(ctx, connect.NewRequest(&schedulev1.GetScheduleRequest{Id: id}))
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantName, got.Msg.GetSchedule().GetName())
+			assert.Equal(t, tt.wantCron, got.Msg.GetSchedule().GetCron())
+		})
+	}
+}
+
+// TestSetScheduleEnabled covers the pause toggle, which is the edit the panel
+// makes with one keystroke.
+func TestSetScheduleEnabled(t *testing.T) {
+	tests := []struct {
+		name        string
+		target      string
+		enabled     bool
+		wantCode    connect.Code
+		wantEnabled bool
+		wantNextRun bool
+	}{
+		{
+			name:     "an id nobody holds",
+			target:   missingID,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:        "pausing drops the next run",
+			enabled:     false,
+			wantEnabled: false,
+		},
+		{
+			name:        "resuming brings it back",
+			enabled:     true,
+			wantEnabled: true,
+			wantNextRun: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := service(t)
+			ctx := t.Context()
+
+			id := createSchedule(t, svc, "morning-ci")
+			target := tt.target
+			if target == "" {
+				target = id
+			}
+
+			_, err := svc.SetScheduleEnabled(ctx, connect.NewRequest(&schedulev1.SetScheduleEnabledRequest{
+				Id: target, Enabled: tt.enabled,
+			}))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+				return
+			}
+			require.NoError(t, err)
+
+			got, err := svc.GetSchedule(ctx, connect.NewRequest(&schedulev1.GetScheduleRequest{Id: id}))
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantEnabled, got.Msg.GetSchedule().GetEnabled())
+			assert.Equal(t, tt.wantNextRun, got.Msg.GetSchedule().GetNextRunAt() != nil,
+				"only an armed schedule reports a next run")
+		})
+	}
+}
+
+func TestDeleteSchedule(t *testing.T) {
+	tests := []struct {
+		name     string
+		target   string
+		wantCode connect.Code
+	}{
+		{
+			name:     "an id nobody holds",
+			target:   missingID,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name: "a schedule that exists",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := service(t)
+			ctx := t.Context()
+
+			id := createSchedule(t, svc, "morning-ci")
+			target := tt.target
+			if target == "" {
+				target = id
+			}
+
+			_, err := svc.DeleteSchedule(ctx, connect.NewRequest(&schedulev1.DeleteScheduleRequest{Id: target}))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+				return
+			}
+			require.NoError(t, err)
+
+			listed, err := svc.ListSchedules(ctx, connect.NewRequest(&schedulev1.ListSchedulesRequest{}))
+			require.NoError(t, err)
+			assert.Empty(t, listed.Msg.GetSchedules(), "a deleted schedule leaves the listing")
+		})
+	}
+}
+
+func TestListSchedules(t *testing.T) {
+	tests := []struct {
+		name     string
+		seed     []string
+		limit    int32
+		wantMore bool
+	}{
+		{
+			name: "an empty store lists nothing",
+		},
+		{
+			name:  "everything fits on one page",
+			seed:  []string{"a", "b"},
+			limit: 10,
+		},
+		{
+			name:     "a small limit hands back a token",
+			seed:     []string{"a", "b", "c"},
+			limit:    2,
+			wantMore: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := service(t)
+			ctx := t.Context()
+
+			for _, name := range tt.seed {
+				createSchedule(t, svc, name)
+			}
+
+			req := &schedulev1.ListSchedulesRequest{}
+			if tt.limit > 0 {
+				req.Pagination = &paginationv1.Pagination{Limit: proto.Int32(tt.limit)}
+			}
+
+			first, err := svc.ListSchedules(ctx, connect.NewRequest(req))
+			require.NoError(t, err)
+
+			if !tt.wantMore {
+				assert.Len(t, first.Msg.GetSchedules(), len(tt.seed))
+				assert.Empty(t, first.Msg.GetNextPageToken())
+				return
+			}
+
+			require.NotEmpty(t, first.Msg.GetNextPageToken())
+
+			second, err := svc.ListSchedules(ctx, connect.NewRequest(&schedulev1.ListSchedulesRequest{
+				Pagination: &paginationv1.Pagination{
+					Limit:  proto.Int32(tt.limit),
+					Cursor: proto.String(first.Msg.GetNextPageToken()),
+				},
+			}))
+			require.NoError(t, err)
+
+			seen := map[string]bool{}
+			for _, s := range append(first.Msg.GetSchedules(), second.Msg.GetSchedules()...) {
+				assert.False(t, seen[s.GetId()], "a schedule appears on one page only")
+				seen[s.GetId()] = true
+			}
+			assert.Len(t, seen, len(tt.seed))
+		})
+	}
+}
+
+// service builds the handler over a throwaway database, the same way the
+// composition root does.
+func service(t *testing.T) *Service {
+	t.Helper()
+
+	st := storetest.Open(t)
+	manager := agents.NewScheduleService(agents.ScheduleParams{Schedules: st.Schedules})
+
+	return NewService(st.Schedules, manager)
+}
+
+// createSchedule adds an armed schedule through the handler and returns its id,
+// since most rows here exist only to be acted on.
+func createSchedule(t *testing.T, svc *Service, name string) string {
+	t.Helper()
+
+	created, err := svc.CreateSchedule(t.Context(), connect.NewRequest(&schedulev1.CreateScheduleRequest{
+		Name: name, Cron: "0 9 * * 1-5", Prompt: "check CI", Cwd: "/work/api", Enabled: true,
+	}))
+	require.NoError(t, err)
+
+	return created.Msg.GetSchedule().GetId()
+}

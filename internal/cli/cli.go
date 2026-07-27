@@ -15,6 +15,7 @@ import (
 	"claude-agents/internal/tmux"
 	"claude-agents/internal/ui"
 	"claude-agents/proto/gen/agent/v1/agentv1connect"
+	"claude-agents/proto/gen/schedule/v1/schedulev1connect"
 	"claude-agents/proto/gen/workflow/v1/workflowv1connect"
 
 	"github.com/spf13/cobra"
@@ -65,6 +66,7 @@ func NewRootCommand() *cobra.Command {
 			base := "http://" + state.env.Addr
 			agentClient := agentv1connect.NewAgentServiceClient(http.DefaultClient, base)
 			workflowClient := workflowv1connect.NewWorkflowServiceClient(http.DefaultClient, base)
+			scheduleClient := schedulev1connect.NewScheduleServiceClient(http.DefaultClient, base)
 
 			// Drop this tmux session's status bar so the panel and its stage pane
 			// fill the popup without a footer beneath them.
@@ -79,6 +81,7 @@ func NewRootCommand() *cobra.Command {
 				Tmux:      state.tmux,
 				Agents:    agentClient,
 				Workflows: workflowClient,
+				Schedules: scheduleClient,
 				Keys:      state.keys,
 				Addr:      state.env.Addr,
 				ConfigErr: state.configErr,

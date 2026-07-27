@@ -16,6 +16,7 @@ import (
 	"claude-agents/internal/pgtest"
 	"claude-agents/internal/store"
 	agentstore "claude-agents/internal/store/agent"
+	schedulestore "claude-agents/internal/store/schedule"
 	transcriptstore "claude-agents/internal/store/transcript"
 	workflowstore "claude-agents/internal/store/workflow"
 
@@ -31,6 +32,7 @@ type Stores struct {
 	Pool        *store.Pool
 	Agents      *agentstore.Store
 	Workflows   *workflowstore.Store
+	Schedules   *schedulestore.Store
 	Transcripts *transcriptstore.Store
 }
 
@@ -50,6 +52,7 @@ func Open(t *testing.T) *Stores {
 		Pool:        pool,
 		Agents:      agentstore.New(pool.DB()),
 		Workflows:   workflowstore.New(pool.DB()),
+		Schedules:   schedulestore.New(pool.DB()),
 		Transcripts: transcriptstore.New(pool.DB()),
 	}
 }
@@ -74,6 +77,18 @@ func (s *Stores) SeedWorkflow(t *testing.T, cfg workflowstore.Config) *workflows
 	t.Helper()
 
 	created, err := s.Workflows.Create(t.Context(), cfg)
+	require.NoError(t, err)
+	require.NotNil(t, created)
+
+	return created
+}
+
+// SeedSchedule records a schedule and returns it, for the tests that need one
+// to aim at rather than one to inspect.
+func (s *Stores) SeedSchedule(t *testing.T, cfg schedulestore.Config) *schedulestore.Schedule {
+	t.Helper()
+
+	created, err := s.Schedules.Create(t.Context(), cfg)
 	require.NoError(t, err)
 	require.NotNil(t, created)
 

@@ -152,6 +152,12 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.enterSearch()
 	}
 
+	// So is the schedules screen, which is a view of its own rather than a row in
+	// this tree.
+	if bound(k, m.keys.Schedules.Open) {
+		return m.enterSchedules()
+	}
+
 	// On a workflow header the workflow bindings act on that folder's workflow.
 	if wfIdx, ok := m.hoveredWorkflow(); ok {
 		return m.updateHoveredWorkflow(key, wfIdx)
@@ -284,11 +290,11 @@ func (m model) stageSelection() {
 	case r.header:
 		m.stage.Blank()
 	case m.infoPinned:
-		m.stage.Text(agentMarkdown(r.item.agent, r.item.alive))
+		m.stage.Text(agentMarkdown(r.item.agent, r.item.alive, m.scheduleName(r.item.agent)))
 	case r.item.alive:
 		m.stage.Agent(r.item.agent.Pane)
 	default:
-		m.stage.Text(agentMarkdown(r.item.agent, false))
+		m.stage.Text(agentMarkdown(r.item.agent, false, m.scheduleName(r.item.agent)))
 	}
 }
 
@@ -302,6 +308,39 @@ func (m model) agentCount(workflowID string) int {
 	}
 
 	return n
+}
+
+// scheduledIcon is a clock face rather than an emoji one, which would render
+// double-width in some terminals and push the column out of line.
+const scheduledIcon = "◷"
+
+// scheduledMark is the clock rendered after a scheduled agent's name. One a person
+// launched carries nothing, since that is the ordinary case and a marker on every
+// row would say nothing.
+func scheduledMark(agent agentstore.Agent) string {
+	if agent.ScheduleID == nil {
+		return ""
+	}
+
+	return " " + dimStyle.Render(scheduledIcon)
+}
+
+// scheduleName is the display name of the schedule that launched an agent, or
+// empty for one a person started. It reads from the list the panel already
+// polls, so a schedule deleted since the agent ran resolves to nothing rather
+// than to a stale name.
+func (m model) scheduleName(agent agentstore.Agent) string {
+	if agent.ScheduleID == nil {
+		return ""
+	}
+
+	for _, item := range m.schedules {
+		if item.schedule.ID == *agent.ScheduleID {
+			return item.schedule.Name
+		}
+	}
+
+	return ""
 }
 
 func orDash(v string) string {
@@ -335,7 +374,7 @@ func workflowMarkdown(w workflowstore.Workflow, agents int) string {
 // record on demand, since its running pane occupies the stage and hides the cwd and
 // flags it was launched with. The values are the record as stored at launch rather
 // than what the running agent has done since.
-func agentMarkdown(agent agentstore.Agent, alive bool) string {
+func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", agent.Name)
 	if alive {
@@ -347,6 +386,9 @@ func agentMarkdown(agent agentstore.Agent, alive bool) string {
 	fmt.Fprintf(&b, "- directory: %s\n", orDash(agent.Cwd))
 	fmt.Fprintf(&b, "- flags: %s\n", orDash(agent.Flags))
 	fmt.Fprintf(&b, "- resume: %s\n", orDash(agent.ClaudeSessionID))
+	if schedule != "" {
+		fmt.Fprintf(&b, "- launched by: %s\n", schedule)
+	}
 	if created := dates.Friendly(agent.CreatedAt); created != "" {
 		fmt.Fprintf(&b, "- created: %s\n", created)
 	}
@@ -364,7 +406,7 @@ func (m model) actionHints() string {
 		infoDesc = "hide info"
 	}
 
-	hints := []struct{ key, desc string }{
+	hints := []hint{
 		{hintKeys(m.keys.Agents.Open), "open"},
 		{hintKeys(m.keys.Agents.Info), infoDesc},
 		{hintKeys(m.keys.Agents.New), "new agent"},
@@ -372,11 +414,12 @@ func (m model) actionHints() string {
 		{hintKeys(m.keys.Agents.Rename), "rename"},
 		{hintKeys(m.keys.Agents.Delete), "delete"},
 		{hintKeys(m.keys.Agents.Search), "search"},
+		{hintKeys(m.keys.Schedules.Open), "schedules"},
 		{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
 		{hintKeys(m.keys.Agents.Back), "back"},
 	}
 	if _, hoveringWorkflow := m.hoveredWorkflow(); hoveringWorkflow {
-		hints = []struct{ key, desc string }{
+		hints = []hint{
 			{hintKeys(m.keys.Agents.New), "new agent"},
 			{hintKeys(m.keys.Workflows.New), "new workflow"},
 			{hintKeys(m.keys.Workflows.Rename), "rename"},
@@ -385,7 +428,7 @@ func (m model) actionHints() string {
 			{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
 		}
 	} else if m.onNoWorkflowHeader() {
-		hints = []struct{ key, desc string }{
+		hints = []hint{
 			{hintKeys(m.keys.Agents.New), "new agent"},
 			{hintKeys(m.keys.Workflows.New), "new workflow"},
 			{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
@@ -393,6 +436,15 @@ func (m model) actionHints() string {
 		}
 	}
 
+	return renderHints(hints)
+}
+
+// hint is one line of the key legend under a list, a binding and what it does.
+type hint struct{ key, desc string }
+
+// renderHints lays the legend out as two columns, the keys padded to the widest
+// so the descriptions line up.
+func renderHints(hints []hint) string {
 	keyWidth := 0
 	for _, h := range hints {
 		if w := lipgloss.Width(h.key); w > keyWidth {
@@ -451,7 +503,7 @@ func (m model) agentsView() string {
 		}
 
 		icon := lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
-		list.WriteString(prefix + "  " + icon + " " + name + "\n")
+		list.WriteString(prefix + "  " + icon + " " + name + scheduledMark(item.agent) + "\n")
 	}
 
 	list.WriteString("\n" + m.actionHints())
