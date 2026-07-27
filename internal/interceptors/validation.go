@@ -48,8 +48,8 @@ func (v *validationInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryF
 	}
 }
 
-// The service is unary only. The streaming halves pass through so the
-// interceptor still satisfies the interface.
+// WrapStreamingClient passes through. The service is unary only, and the
+// streaming halves exist so the interceptor still satisfies the interface.
 func (v *validationInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
 	return next
 }

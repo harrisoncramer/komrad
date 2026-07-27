@@ -20,7 +20,12 @@ linters:
     custom:
       agentslinter:
         type: module
-        description: Chariot-style checks for this repo; forbids bare os environment access.
+        description: Chariot-style checks for this repo; forbids bare os environment access and keeps exported doc comments prefixed with the identifier name.
+        settings:
+          forbid_getenv:
+            skip: false
+          comment_prefix:
+            skip: false
 formatters:
   enable:
     - gofmt

@@ -8,6 +8,8 @@ import (
 	"go/types"
 	"strings"
 
+	"agentslinter/config"
+
 	"golang.org/x/tools/go/analysis"
 )
 
@@ -20,7 +22,7 @@ var forbidden = map[string]struct{}{
 }
 
 // NewAnalyzer returns the analyzer that flags forbidden os environment calls.
-func NewAnalyzer() *analysis.Analyzer {
+func NewAnalyzer(_ config.ForbidGetenvConfig) *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name:             "forbidgetenv",
 		Doc:              "forbid direct os environment access; read configuration through the config package",
