@@ -8,8 +8,8 @@ usage() {
 	echo
 	echo "Reruns the sqlc, buf, and config generators, then fails if any of their"
 	echo "committed output changed. Skips the comparison when those paths already"
-	echo "have uncommitted edits, since then a difference says nothing about"
-	echo "whether the generators are in sync."
+	echo "differ from HEAD, since then a difference says nothing about whether the"
+	echo "generators are in sync."
 }
 
 for arg in "$@"; do
@@ -25,8 +25,15 @@ cd "$MISE_CONFIG_ROOT"
 
 GENERATED=(config.toml db/models proto/gen)
 
-if ! git diff --quiet -- "${GENERATED[@]}"; then
-	echo "warning: generated paths already have uncommitted edits; skipping the drift check"
+# Staged and untracked changes count, not just unstaged ones: `git diff` alone
+# would call a staged difference clean and let real drift through on the way into
+# a commit, which is exactly when this runs.
+generated_changes() {
+	git status --porcelain -- "${GENERATED[@]}"
+}
+
+if [ -n "$(generated_changes)" ]; then
+	echo "warning: generated paths already differ from HEAD; skipping the drift check"
 	echo "         (${GENERATED[*]})"
 	exit 0
 fi
@@ -35,9 +42,9 @@ mise run db:sqlc
 mise run proto:generate
 mise run gen:config
 
-if ! git diff --quiet -- "${GENERATED[@]}"; then
+if [ -n "$(generated_changes)" ]; then
 	echo "generated files are out of date; commit the regenerated output:" >&2
-	git --no-pager diff --stat -- "${GENERATED[@]}" >&2
+	generated_changes >&2
 	exit 1
 fi
 
