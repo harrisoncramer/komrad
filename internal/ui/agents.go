@@ -182,6 +182,17 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.stageSelection()
 	case bound(k, m.keys.Agents.Open):
 		return m.openAgent()
+	case bound(k, m.keys.Agents.Mark):
+		item, ok := m.selectedAgent()
+		if !ok {
+			return m, nil
+		}
+		// One key both marks and clears, so it means the opposite of what the row
+		// currently carries.
+		marked := item.agent.MarkedAt == nil
+		m.report(fmt.Sprintf("Could not mark agent %q", item.agent.Name), m.setMarked(item.agent, marked))
+		m.reload()
+		m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
 	case bound(k, m.keys.Agents.Rename):
 		item, ok := m.selectedAgent()
 		if !ok {
@@ -247,6 +258,17 @@ func (m model) archiveAgent(agent agentstore.Agent) error {
 	defer cancel()
 
 	_, err := m.api.agents.ArchiveAgent(ctx, connect.NewRequest(&agentv1.ArchiveAgentRequest{Name: agent.Name}))
+
+	return err
+}
+
+// setMarked marks or unmarks an agent. The service writes the stamp, so the panel
+// sends only which way it should go.
+func (m model) setMarked(agent agentstore.Agent, marked bool) error {
+	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	defer cancel()
+
+	_, err := m.api.agents.SetMarked(ctx, connect.NewRequest(&agentv1.SetMarkedRequest{Id: agent.ID, Marked: marked}))
 
 	return err
 }
@@ -317,6 +339,20 @@ func scheduledMark(agent agentstore.Agent) string {
 	return " " + dimStyle.Render(scheduledIcon)
 }
 
+// markedIcon is drawn after the row rather than in the state column, so it reads as
+// the user's own mark and not another lifecycle state.
+const markedIcon = "●"
+
+// markedMark is the dot on an agent the user has marked. An unmarked agent carries
+// nothing.
+func markedMark(agent agentstore.Agent) string {
+	if agent.MarkedAt == nil {
+		return ""
+	}
+
+	return " " + lipgloss.NewStyle().Foreground(markedColor).Render(markedIcon)
+}
+
 // scheduleName is the display name of the schedule that launched an agent, or
 // empty for one a person started. It reads from the list the panel already
 // polls, so a schedule deleted since the agent ran resolves to nothing rather
@@ -384,6 +420,11 @@ func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) string {
 	if created := dates.Friendly(agent.CreatedAt); created != "" {
 		fmt.Fprintf(&b, "- created: %s\n", created)
 	}
+	if agent.MarkedAt != nil {
+		if marked := dates.Friendly(*agent.MarkedAt); marked != "" {
+			fmt.Fprintf(&b, "- marked: %s\n", marked)
+		}
+	}
 	if !alive {
 		b.WriteString("\nPress open to restore.\n")
 	}
@@ -398,9 +439,17 @@ func (m model) actionHints() string {
 		infoDesc = "hide info"
 	}
 
+	// The mark key toggles, so the legend names what pressing it would do to the row
+	// under the cursor.
+	markDesc := "mark"
+	if item, ok := m.selectedAgent(); ok && item.agent.MarkedAt != nil {
+		markDesc = "unmark"
+	}
+
 	hints := []hint{
 		{hintKeys(m.keys.Agents.Open), "open"},
 		{hintKeys(m.keys.Agents.Info), infoDesc},
+		{hintKeys(m.keys.Agents.Mark), markDesc},
 		{hintKeys(m.keys.Agents.New), "new agent"},
 		{hintKeys(m.keys.Workflows.New), "new workflow"},
 		{hintKeys(m.keys.Agents.Rename), "rename"},
@@ -488,7 +537,7 @@ func (m model) agentsView() string {
 		}
 
 		icon := lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
-		list.WriteString(prefix + "  " + icon + " " + name + scheduledMark(item.agent) + "\n")
+		list.WriteString(prefix + "  " + icon + " " + name + scheduledMark(item.agent) + markedMark(item.agent) + "\n")
 	}
 
 	list.WriteString("\n" + m.actionHints())

@@ -7,7 +7,6 @@ package models
 
 import (
 	"context"
-	"time"
 )
 
 const activeNameExists = `-- name: ActiveNameExists :one
@@ -97,7 +96,7 @@ func (q *Queries) DeleteAgentTranscript(ctx context.Context, agentID string) err
 
 const getAgent = `-- name: GetAgent :one
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at, s.schedule_id, s.idempotency_key,
+    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at, s.schedule_id, s.idempotency_key, s.marked_at,
     sc.cwd,
     sc.flags
 FROM
@@ -132,6 +131,7 @@ func (q *Queries) GetAgent(ctx context.Context, name string) (*GetAgentRow, erro
 		&i.Agent.UpdatedAt,
 		&i.Agent.ScheduleID,
 		&i.Agent.IdempotencyKey,
+		&i.Agent.MarkedAt,
 		&i.Cwd,
 		&i.Flags,
 	)
@@ -140,7 +140,7 @@ func (q *Queries) GetAgent(ctx context.Context, name string) (*GetAgentRow, erro
 
 const getAgentByIdempotencyKey = `-- name: GetAgentByIdempotencyKey :one
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at, s.schedule_id, s.idempotency_key,
+    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at, s.schedule_id, s.idempotency_key, s.marked_at,
     sc.cwd,
     sc.flags
 FROM
@@ -174,6 +174,7 @@ func (q *Queries) GetAgentByIdempotencyKey(ctx context.Context, idempotencyKey *
 		&i.Agent.UpdatedAt,
 		&i.Agent.ScheduleID,
 		&i.Agent.IdempotencyKey,
+		&i.Agent.MarkedAt,
 		&i.Cwd,
 		&i.Flags,
 	)
@@ -282,7 +283,7 @@ func (q *Queries) InsertAgentConfig(ctx context.Context, arg InsertAgentConfigPa
 
 const listAgents = `-- name: ListAgents :many
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at, s.schedule_id, s.idempotency_key,
+    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at, s.schedule_id, s.idempotency_key, s.marked_at,
     sc.cwd,
     sc.flags
 FROM
@@ -291,7 +292,7 @@ FROM
 WHERE
     s.is_deleted = FALSE
 ORDER BY
-    s.updated_at DESC
+    s.id DESC
 `
 
 type ListAgentsRow struct {
@@ -323,6 +324,7 @@ func (q *Queries) ListAgents(ctx context.Context) ([]*ListAgentsRow, error) {
 			&i.Agent.UpdatedAt,
 			&i.Agent.ScheduleID,
 			&i.Agent.IdempotencyKey,
+			&i.Agent.MarkedAt,
 			&i.Cwd,
 			&i.Flags,
 		); err != nil {
@@ -338,7 +340,7 @@ func (q *Queries) ListAgents(ctx context.Context) ([]*ListAgentsRow, error) {
 
 const listAgentsPage = `-- name: ListAgentsPage :many
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at, s.schedule_id, s.idempotency_key,
+    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at, s.schedule_id, s.idempotency_key, s.marked_at,
     sc.cwd,
     sc.flags
 FROM
@@ -346,20 +348,16 @@ FROM
     JOIN agent_configs sc ON sc.id = s.agent_config_id
 WHERE
     s.is_deleted = FALSE
-    AND ($1::timestamptz IS NULL
-        OR s.updated_at < $1
-        OR (s.updated_at = $1
-            AND s.id < $2))
+    AND ($1::uuid IS NULL
+        OR s.id < $1)
 ORDER BY
-    s.updated_at DESC,
     s.id DESC
-LIMIT $3
+LIMIT $2
 `
 
 type ListAgentsPageParams struct {
-	CursorUpdatedAt *time.Time
-	CursorID        *string
-	Lim             int32
+	CursorID *string
+	Lim      int32
 }
 
 type ListAgentsPageRow struct {
@@ -369,7 +367,7 @@ type ListAgentsPageRow struct {
 }
 
 func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) ([]*ListAgentsPageRow, error) {
-	rows, err := q.db.Query(ctx, listAgentsPage, arg.CursorUpdatedAt, arg.CursorID, arg.Lim)
+	rows, err := q.db.Query(ctx, listAgentsPage, arg.CursorID, arg.Lim)
 	if err != nil {
 		return nil, err
 	}
@@ -391,6 +389,7 @@ func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) 
 			&i.Agent.UpdatedAt,
 			&i.Agent.ScheduleID,
 			&i.Agent.IdempotencyKey,
+			&i.Agent.MarkedAt,
 			&i.Cwd,
 			&i.Flags,
 		); err != nil {
@@ -406,14 +405,14 @@ func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) 
 
 const listAllAgents = `-- name: ListAllAgents :many
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at, s.schedule_id, s.idempotency_key,
+    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at, s.schedule_id, s.idempotency_key, s.marked_at,
     sc.cwd,
     sc.flags
 FROM
     agents s
     JOIN agent_configs sc ON sc.id = s.agent_config_id
 ORDER BY
-    s.updated_at DESC
+    s.id DESC
 `
 
 type ListAllAgentsRow struct {
@@ -445,6 +444,7 @@ func (q *Queries) ListAllAgents(ctx context.Context) ([]*ListAllAgentsRow, error
 			&i.Agent.UpdatedAt,
 			&i.Agent.ScheduleID,
 			&i.Agent.IdempotencyKey,
+			&i.Agent.MarkedAt,
 			&i.Cwd,
 			&i.Flags,
 		); err != nil {
@@ -624,6 +624,47 @@ func (q *Queries) SearchTranscripts(ctx context.Context, arg SearchTranscriptsPa
 			return nil, err
 		}
 		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setAgentMarked = `-- name: SetAgentMarked :many
+UPDATE
+    agents
+SET
+    marked_at = CASE WHEN $1::boolean THEN
+        now()
+    ELSE
+        NULL
+    END
+WHERE
+    id = $2
+    AND is_deleted = FALSE
+RETURNING
+    id
+`
+
+type SetAgentMarkedParams struct {
+	Marked bool
+	ID     string
+}
+
+func (q *Queries) SetAgentMarked(ctx context.Context, arg SetAgentMarkedParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, setAgentMarked, arg.Marked, arg.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

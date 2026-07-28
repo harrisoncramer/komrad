@@ -5,12 +5,9 @@ FROM
     schedules s
 WHERE
     s.is_deleted = FALSE
-    AND (sqlc.narg ('cursor_updated_at')::timestamptz IS NULL
-        OR s.updated_at < sqlc.narg ('cursor_updated_at')
-        OR (s.updated_at = sqlc.narg ('cursor_updated_at')
-            AND s.id < sqlc.narg ('cursor_id')))
+    AND (sqlc.narg ('cursor_id')::uuid IS NULL
+        OR s.id < sqlc.narg ('cursor_id'))
 ORDER BY
-    s.updated_at DESC,
     s.id DESC
 LIMIT @lim;
 
@@ -22,7 +19,7 @@ FROM
 WHERE
     s.is_deleted = FALSE
 ORDER BY
-    s.updated_at DESC;
+    s.id DESC;
 
 -- name: GetSchedule :one
 SELECT

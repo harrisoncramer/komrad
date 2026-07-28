@@ -242,6 +242,14 @@ table "agents" {
     type    = boolean
     default = false
   }
+  # When the user marked this agent, null when they have not. What the mark means
+  # is theirs to decide. Only the person writes it, never the reconciler, since
+  # what an agent is doing is already in state. It is a timestamp rather than a
+  # flag so the moment is kept too.
+  column "marked_at" {
+    null = true
+    type = timestamptz
+  }
   column "created_at" {
     null    = false
     type    = timestamptz
@@ -283,17 +291,5 @@ table "agents" {
     unique  = true
     columns = [column.idempotency_key]
     where   = "idempotency_key IS NOT NULL"
-  }
-  # The listing pages on (updated_at, id) descending, so the index carries both
-  # in that order and a page is a range scan rather than a sort of the table.
-  index "agents_updated_at_id" {
-    on {
-      column = column.updated_at
-      desc   = true
-    }
-    on {
-      column = column.id
-      desc   = true
-    }
   }
 }

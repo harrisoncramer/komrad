@@ -13,6 +13,7 @@ import (
 	agentstore "claude-agents/internal/store/agent"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -302,6 +303,66 @@ func TestSetState(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, got)
 			assert.Equal(t, tt.state, got.State)
+		})
+	}
+}
+
+// TestSetMarked covers the mark over the wire. The server writes the stamp, so the
+// request carries only a direction, and an id that matches nothing is refused rather
+// than reported as a mark that never landed.
+func TestSetMarked(t *testing.T) {
+	tests := []struct {
+		name string
+		seed bool
+		// markFirst marks the agent before the call, so clearing has something to
+		// clear.
+		markFirst bool
+		marked    bool
+		wantCode  connect.Code
+	}{
+		{
+			name:     "an id nobody holds is not a quiet success",
+			marked:   true,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:   "an agent is marked",
+			seed:   true,
+			marked: true,
+		},
+		{
+			name:      "and the mark is cleared again",
+			seed:      true,
+			markFirst: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, st := service(t)
+			ctx := t.Context()
+
+			id := uuid.NewString()
+			if tt.seed {
+				id = st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking}).ID
+			}
+			if tt.markFirst {
+				changed, err := st.Agents.SetMarked(ctx, id, true)
+				require.NoError(t, err)
+				require.True(t, changed)
+			}
+
+			_, err := svc.SetMarked(ctx, connect.NewRequest(&agentv1.SetMarkedRequest{Id: id, Marked: tt.marked}))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+				return
+			}
+
+			require.NoError(t, err)
+
+			got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Name: "alpha"}))
+			require.NoError(t, err)
+			assert.Equal(t, tt.marked, got.Msg.GetAgent().MarkedAt != nil)
 		})
 	}
 }

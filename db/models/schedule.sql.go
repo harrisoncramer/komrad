@@ -7,7 +7,6 @@ package models
 
 import (
 	"context"
-	"time"
 )
 
 const countLiveWorkflowSchedules = `-- name: CountLiveWorkflowSchedules :one
@@ -109,7 +108,7 @@ FROM
 WHERE
     s.is_deleted = FALSE
 ORDER BY
-    s.updated_at DESC
+    s.id DESC
 `
 
 type ListSchedulesRow struct {
@@ -154,20 +153,16 @@ FROM
     schedules s
 WHERE
     s.is_deleted = FALSE
-    AND ($1::timestamptz IS NULL
-        OR s.updated_at < $1
-        OR (s.updated_at = $1
-            AND s.id < $2))
+    AND ($1::uuid IS NULL
+        OR s.id < $1)
 ORDER BY
-    s.updated_at DESC,
     s.id DESC
-LIMIT $3
+LIMIT $2
 `
 
 type ListSchedulesPageParams struct {
-	CursorUpdatedAt *time.Time
-	CursorID        *string
-	Lim             int32
+	CursorID *string
+	Lim      int32
 }
 
 type ListSchedulesPageRow struct {
@@ -175,7 +170,7 @@ type ListSchedulesPageRow struct {
 }
 
 func (q *Queries) ListSchedulesPage(ctx context.Context, arg ListSchedulesPageParams) ([]*ListSchedulesPageRow, error) {
-	rows, err := q.db.Query(ctx, listSchedulesPage, arg.CursorUpdatedAt, arg.CursorID, arg.Lim)
+	rows, err := q.db.Query(ctx, listSchedulesPage, arg.CursorID, arg.Lim)
 	if err != nil {
 		return nil, err
 	}

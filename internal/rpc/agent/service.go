@@ -37,6 +37,7 @@ type agentStore interface {
 	Get(ctx context.Context, name string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
 	SetState(ctx context.Context, name, state string) (bool, error)
+	SetMarked(ctx context.Context, id string, marked bool) (bool, error)
 	Rename(ctx context.Context, id, name string) (bool, error)
 }
 
@@ -85,7 +86,7 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, s.launcher.PaneAlive(created.Pane)).Agent}), nil
 }
 
-// ListAgents returns one page of stored agents, most recently updated first.
+// ListAgents returns one page of stored agents, newest first.
 func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
 	paginator, err := pagination.New[agentstore.Cursor, agent](req.Msg.GetPagination())
 	if err != nil {
@@ -138,6 +139,21 @@ func (s *Service) SetState(ctx context.Context, req *connect.Request[agentv1.Set
 	}
 	if !changed {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("agent %q not found", req.Msg.GetName()))
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// SetMarked marks or unmarks an agent. An id matching nothing is an error rather
+// than a quiet success, which would leave the caller believing in a mark it never
+// made.
+func (s *Service) SetMarked(ctx context.Context, req *connect.Request[agentv1.SetMarkedRequest]) (*connect.Response[emptypb.Empty], error) {
+	changed, err := s.agents.SetMarked(ctx, req.Msg.GetId(), req.Msg.GetMarked())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set the mark: %w", err))
+	}
+	if !changed {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

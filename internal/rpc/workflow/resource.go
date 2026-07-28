@@ -33,6 +33,6 @@ func renderWorkflow(w workflowstore.Workflow) workflow {
 			Cwd:     w.Cwd,
 			Flags:   w.Flags,
 		},
-		cursor: workflowstore.Cursor{UpdatedAt: w.UpdatedAt, ID: w.ID},
+		cursor: workflowstore.Cursor{ID: w.ID},
 	}
 }

@@ -239,9 +239,8 @@ func TestFailedWorkflowListKeepsTheTree(t *testing.T) {
 	assert.Equal(t, "Could not list workflows", m.actionErr.Summary)
 }
 
-// TestApplyWorkflows covers the merge the refresh runs. The listing comes back
-// sorted by recency, so the merge has to hold the tree still while still taking
-// the fresh values.
+// TestApplyWorkflows covers what the refresh does to the tree's folders. The
+// listing comes back newest first, so the fresh values are taken as they come.
 func TestApplyWorkflows(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -252,14 +251,14 @@ func TestApplyWorkflows(t *testing.T) {
 		{
 			name:      "an edit lands on the workflow without moving it",
 			current:   []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}},
-			fresh:     []workflowstore.Workflow{{ID: "w2", Name: "web", Context: "notes"}, {ID: "w1", Name: "api"}},
+			fresh:     []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web", Context: "notes"}},
 			wantNames: []string{"api", "web"},
 		},
 		{
-			name:      "a workflow created elsewhere is appended",
+			name:      "a workflow created elsewhere lands where the listing put it",
 			current:   []workflowstore.Workflow{{ID: "w1", Name: "api"}},
 			fresh:     []workflowstore.Workflow{{ID: "w2", Name: "web"}, {ID: "w1", Name: "api"}},
-			wantNames: []string{"api", "web"},
+			wantNames: []string{"web", "api"},
 		},
 		{
 			name:      "a workflow deleted elsewhere drops out",

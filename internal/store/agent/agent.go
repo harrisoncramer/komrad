@@ -53,10 +53,13 @@ type Agent struct {
 	// the same key finds this agent rather than spawning a second one.
 	IdempotencyKey *string
 	Deleted        bool
+	// MarkedAt is when the user marked this agent, nil when they have not. Only the
+	// user sets and clears it, so it says nothing about the agent's lifecycle.
+	MarkedAt *time.Time
 	// CreatedAt is when the agent was first recorded, for display.
 	CreatedAt time.Time
-	// UpdatedAt is when the row last changed. Listings sort by it, so it is also
-	// the key a page of agents resumes from.
+	// UpdatedAt is when the row last changed, for display. No listing orders by it,
+	// since a key that every write moves reshuffles the list under the reader.
 	UpdatedAt time.Time
 }
 
@@ -78,7 +81,7 @@ func New(db store.DBTX) *Store {
 	return &Store{queries: models.New(db)}
 }
 
-// List returns every persisted agent, most recently updated first.
+// List returns every persisted agent, newest first.
 func (s *Store) List(ctx context.Context) ([]Agent, error) {
 	rows, err := s.queries.ListAgents(ctx)
 	if err != nil {
@@ -93,24 +96,22 @@ func (s *Store) List(ctx context.Context) ([]Agent, error) {
 	return agents, nil
 }
 
-// Cursor locates an agent within a listing. Agents sort by update time, which
-// several rows can share, so the id breaks the tie and makes the order total.
-// Without it a page boundary landing mid-tie would skip or repeat rows.
+// Cursor locates an agent within a listing. The id alone is enough, since it is
+// unique and never changes, so the order it gives is total and a page resumes
+// exactly where the last one ended.
 type Cursor struct {
-	UpdatedAt time.Time `json:"u"`
-	ID        string    `json:"i"`
+	ID string `json:"i"`
 }
 
-// ListPage returns one page of live agents, most recently updated first, resuming
-// after cursor when one is given. Update time is a moving key. An agent the
-// reconciler touches mid-scan sorts ahead of where the caller already is, so it
-// can be seen twice or missed. That is inherent to keying a page on the column the
-// listing sorts by, and holding a snapshot open across requests would cost more
-// than the duplicate is worth.
+// ListPage returns one page of live agents, newest first, resuming after cursor
+// when one is given. The key is the id rather than anything the agent can change.
+// A uuidv7 is assigned once and sorts by the moment it was assigned, so the newest
+// agent goes to the top and stays there. Keying on update time would move an agent
+// the reconciler touched mid-scan ahead of where the caller already is, and it
+// would be seen twice or missed.
 func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Agent, error) {
 	params := models.ListAgentsPageParams{Lim: int32(limit)}
 	if cursor != nil {
-		params.CursorUpdatedAt = &cursor.UpdatedAt
 		params.CursorID = &cursor.ID
 	}
 
@@ -127,8 +128,8 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Ag
 	return agents, nil
 }
 
-// ListAll returns every agent including soft-deleted ones, most recently
-// updated first. It backs search, which spans active and deleted agents.
+// ListAll returns every agent including soft-deleted ones, newest first. It
+// backs search, which spans active and deleted agents.
 func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
 	rows, err := s.queries.ListAllAgents(ctx)
 	if err != nil {
@@ -285,6 +286,23 @@ func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
 	}
 
 	return nil
+}
+
+// SetMarked marks or unmarks an agent, keyed by id. Marking stamps the moment it
+// happened and unmarking clears the stamp. The database supplies the clock so two
+// writers cannot disagree about now. It reports whether a row was touched, which is
+// how a caller tells an id that matches nothing from one that does.
+func (s *Store) SetMarked(ctx context.Context, id string, marked bool) (bool, error) {
+	if !store.IsID(id) {
+		return false, nil
+	}
+
+	updated, err := s.queries.SetAgentMarked(ctx, models.SetAgentMarkedParams{ID: id, Marked: marked})
+	if err != nil {
+		return false, fmt.Errorf("failed to mark agent %q: %w", id, err)
+	}
+
+	return len(updated) > 0, nil
 }
 
 // Target names the rows a hard delete has to remove. The agent itself, the config
@@ -465,6 +483,7 @@ func agentFromRow(agent models.Agent, cwd, flags string) Agent {
 		ScheduleID:      agent.ScheduleID,
 		IdempotencyKey:  agent.IdempotencyKey,
 		Deleted:         agent.IsDeleted,
+		MarkedAt:        agent.MarkedAt,
 		CreatedAt:       agent.CreatedAt,
 		UpdatedAt:       agent.UpdatedAt,
 	}

@@ -68,6 +68,9 @@ type AgentsKeys struct {
 	Search []string `mapstructure:"search"`
 	// Swap the hovered agent's stored record into the stage in place of the agent.
 	Info []string `mapstructure:"info"`
+	// Mark the hovered agent, or clear the mark when it already carries one. The
+	// mark means whatever you decide, and nothing else ever sets it.
+	Mark []string `mapstructure:"mark"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow. New is global. Rename,
@@ -127,6 +130,7 @@ func DefaultKeybindings() Keybindings {
 			Delete: []string{"d"},
 			Search: []string{"/"},
 			Info:   []string{"i"},
+			Mark:   []string{"m"},
 		},
 		Workflows: WorkflowsKeys{
 			New:    []string{"W"},
@@ -174,6 +178,7 @@ func (k Keybindings) withDefaults() Keybindings {
 	k.Agents.Delete = fillKeys(k.Agents.Delete, def.Agents.Delete)
 	k.Agents.Search = fillKeys(k.Agents.Search, def.Agents.Search)
 	k.Agents.Info = fillKeys(k.Agents.Info, def.Agents.Info)
+	k.Agents.Mark = fillKeys(k.Agents.Mark, def.Agents.Mark)
 
 	k.Workflows.New = fillKeys(k.Workflows.New, def.Workflows.New)
 	k.Workflows.Rename = fillKeys(k.Workflows.Rename, def.Workflows.Rename)

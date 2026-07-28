@@ -233,9 +233,9 @@ func TestScheduleMarkdown(t *testing.T) {
 	}
 }
 
-// TestApplySchedules covers what a refresh does to the cursor. The listing
-// sorts by recency, so the cursor has to follow the schedule it was on rather
-// than the index it happened to be at.
+// TestApplySchedules covers what a refresh does to the cursor. A schedule
+// deleted from elsewhere shifts the rows below it up, so the cursor has to
+// follow the schedule it was on rather than the index it happened to be at.
 func TestApplySchedules(t *testing.T) {
 	tests := []struct {
 		name       string

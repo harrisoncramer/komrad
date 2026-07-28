@@ -1,3 +1,6 @@
-h1:fGEB7DOueGjJFxssAGWzVXLgLZ+J9Q/UNhlg+jii2ZI=
+h1:VZFcznQ8Aj1Wc5U0f0cxD6n3xw2dI43808bHmo9W2hg=
 20260727000000_initial.sql h1:CdgxvQFLAEw6nF5oJ5Bo0+wa1mri1JS/eN6P9K3lRV8=
 20260727131156_add_schedules.sql h1:JbwefIVTSMkQO0F037a93wmG7ENVnpV06M5Nza88Flc=
+20260728012545_add_agent_seen_at.sql h1:CId29zmDVREFSYE9/CZMKIbWnRnxTSTVIMMrYRG2gKY=
+20260728015759_rename_seen_at_to_marked_at.sql h1:K/w3EC8sOG8AeZpErG15OTgaRztBBikP6AF8oGamhE4=
+20260728020031_sort_by_id.sql h1:UWtr2WfBofxiHMoJV3x3AEkfxngVba1MyvJ+pil+OzY=

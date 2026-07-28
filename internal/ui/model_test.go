@@ -53,9 +53,10 @@ func TestClampCursor(t *testing.T) {
 	}
 }
 
-// TestApplyAgents covers what a refresh does to the on-screen list. It keeps the
-// cursor on the agent it was on and does not reorder surviving rows, since
-// reordering under the cursor defeats an index-based selection.
+// TestApplyAgents covers what a refresh does to the on-screen list. It takes the
+// listed order as it comes, since that order is by id and nothing an agent does
+// moves it. The cursor stays on the agent it was on rather than on an index, which a
+// newer agent arriving above it would shift.
 func TestApplyAgents(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -76,19 +77,19 @@ func TestApplyAgents(t *testing.T) {
 			name:       "the cursor follows its agent rather than its index",
 			start:      items("a", "b", "c"),
 			cursor:     1,
-			fresh:      items("c", "b", "a"),
+			fresh:      items("b", "c", "a"),
 			wantLen:    3,
-			wantCursor: "b",
-			wantOrder:  []string{"a", "b", "c"},
+			wantCursor: "a",
+			wantOrder:  []string{"b", "c", "a"},
 		},
 		{
-			name:       "a new agent is appended rather than sorted in",
+			name:       "an agent created elsewhere lands where the listing put it",
 			start:      items("a"),
-			cursor:     0,
+			cursor:     1,
 			fresh:      items("b", "a"),
 			wantLen:    2,
 			wantCursor: "a",
-			wantOrder:  []string{"a", "b"},
+			wantOrder:  []string{"b", "a"},
 		},
 	}
 
@@ -116,7 +117,9 @@ func TestApplyAgents(t *testing.T) {
 				return
 			}
 
-			assert.Equal(t, tt.wantCursor, m.agents[m.agentCursor].agent.Name)
+			selected, ok := m.selectedAgent()
+			require.True(t, ok, "the cursor is on an agent")
+			assert.Equal(t, tt.wantCursor, selected.agent.Name)
 
 			names := make([]string, 0, len(m.agents))
 			for _, agent := range m.agents {

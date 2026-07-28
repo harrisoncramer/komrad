@@ -9,7 +9,7 @@ FROM
 WHERE
     s.is_deleted = FALSE
 ORDER BY
-    s.updated_at DESC;
+    s.id DESC;
 
 -- name: ListAgentsPage :many
 SELECT
@@ -21,12 +21,9 @@ FROM
     JOIN agent_configs sc ON sc.id = s.agent_config_id
 WHERE
     s.is_deleted = FALSE
-    AND (sqlc.narg ('cursor_updated_at')::timestamptz IS NULL
-        OR s.updated_at < sqlc.narg ('cursor_updated_at')
-        OR (s.updated_at = sqlc.narg ('cursor_updated_at')
-            AND s.id < sqlc.narg ('cursor_id')))
+    AND (sqlc.narg ('cursor_id')::uuid IS NULL
+        OR s.id < sqlc.narg ('cursor_id'))
 ORDER BY
-    s.updated_at DESC,
     s.id DESC
 LIMIT @lim;
 
@@ -39,7 +36,7 @@ FROM
     agents s
     JOIN agent_configs sc ON sc.id = s.agent_config_id
 ORDER BY
-    s.updated_at DESC;
+    s.id DESC;
 
 -- name: GetAgent :one
 SELECT
@@ -161,6 +158,21 @@ SET
     state = @state
 WHERE
     id = @id;
+
+-- name: SetAgentMarked :many
+UPDATE
+    agents
+SET
+    marked_at = CASE WHEN @marked::boolean THEN
+        now()
+    ELSE
+        NULL
+    END
+WHERE
+    id = @id
+    AND is_deleted = FALSE
+RETURNING
+    id;
 
 -- GetAgentForDelete resolves the two ids a hard delete has to remove rows by.
 -- name: GetAgentForDelete :one

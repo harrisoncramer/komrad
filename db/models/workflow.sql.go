@@ -7,7 +7,6 @@ package models
 
 import (
 	"context"
-	"time"
 )
 
 const getWorkflow = `-- name: GetWorkflow :one
@@ -105,7 +104,7 @@ FROM
 WHERE
     w.is_deleted = FALSE
 ORDER BY
-    w.updated_at DESC
+    w.id DESC
 `
 
 type ListWorkflowsRow struct {
@@ -154,20 +153,16 @@ FROM
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
 WHERE
     w.is_deleted = FALSE
-    AND ($1::timestamptz IS NULL
-        OR w.updated_at < $1
-        OR (w.updated_at = $1
-            AND w.id < $2))
+    AND ($1::uuid IS NULL
+        OR w.id < $1)
 ORDER BY
-    w.updated_at DESC,
     w.id DESC
-LIMIT $3
+LIMIT $2
 `
 
 type ListWorkflowsPageParams struct {
-	CursorUpdatedAt *time.Time
-	CursorID        *string
-	Lim             int32
+	CursorID *string
+	Lim      int32
 }
 
 type ListWorkflowsPageRow struct {
@@ -177,7 +172,7 @@ type ListWorkflowsPageRow struct {
 }
 
 func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPageParams) ([]*ListWorkflowsPageRow, error) {
-	rows, err := q.db.Query(ctx, listWorkflowsPage, arg.CursorUpdatedAt, arg.CursorID, arg.Lim)
+	rows, err := q.db.Query(ctx, listWorkflowsPage, arg.CursorID, arg.Lim)
 	if err != nil {
 		return nil, err
 	}

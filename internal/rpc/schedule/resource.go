@@ -49,6 +49,6 @@ func renderSchedule(s schedulestore.Schedule, now time.Time) schedule {
 
 	return schedule{
 		Schedule: rendered,
-		cursor:   schedulestore.Cursor{UpdatedAt: s.UpdatedAt, ID: s.ID},
+		cursor:   schedulestore.Cursor{ID: s.ID},
 	}
 }

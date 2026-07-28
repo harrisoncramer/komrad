@@ -25,7 +25,8 @@ type Workflow struct {
 	Context string
 	Cwd     string
 	Flags   string
-	// UpdatedAt is what the listing sorts by, and half of the paging cursor.
+	// UpdatedAt is when the row last changed, for display. The listing sorts by
+	// id instead, so an edit never moves a workflow out from under the reader.
 	UpdatedAt time.Time
 }
 
@@ -49,7 +50,7 @@ func New(db store.DBTX) *Store {
 	return &Store{queries: models.New(db)}
 }
 
-// List returns every live workflow, most recently updated first.
+// List returns every live workflow, newest first.
 func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 	rows, err := s.queries.ListWorkflows(ctx)
 	if err != nil {
@@ -64,19 +65,17 @@ func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 	return workflows, nil
 }
 
-// Cursor locates a workflow within a listing, the sort key plus the id that breaks
-// a tie on it.
+// Cursor locates a workflow within a listing. The id is the sort key and is unique,
+// so it is the whole cursor.
 type Cursor struct {
-	UpdatedAt time.Time `json:"u"`
-	ID        string    `json:"i"`
+	ID string `json:"i"`
 }
 
-// ListPage returns one page of live workflows, most recently updated first,
-// resuming after cursor when one is given.
+// ListPage returns one page of live workflows, newest first, resuming after
+// cursor when one is given.
 func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Workflow, error) {
 	params := models.ListWorkflowsPageParams{Lim: int32(limit)}
 	if cursor != nil {
-		params.CursorUpdatedAt = &cursor.UpdatedAt
 		params.CursorID = &cursor.ID
 	}
 

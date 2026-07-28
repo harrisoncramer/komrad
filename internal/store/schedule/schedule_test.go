@@ -381,11 +381,12 @@ func TestListPage(t *testing.T) {
 				}
 
 				last := page[len(page)-1]
-				cursor = &Cursor{UpdatedAt: last.UpdatedAt, ID: last.ID}
+				cursor = &Cursor{ID: last.ID}
 			}
 
 			assert.Equal(t, tt.wantPages, pages)
 			assert.Len(t, seen, tt.seeds, "every schedule is returned exactly once")
+			assert.IsDecreasing(t, seen, "the listing is newest first, which is descending id order")
 		})
 	}
 }

@@ -565,10 +565,10 @@ func scheduleFromProto(s *schedulev1.Schedule) schedulestore.Schedule {
 	}
 }
 
-// applySchedules merges a freshly-listed set into the on-screen schedules,
-// keeping the cursor on the schedule it was on rather than on an index that now
-// means a different row. The listing sorts by recency, so an edit anywhere
-// would otherwise move rows under the cursor.
+// applySchedules takes a freshly-listed set as the on-screen schedules. It keeps the
+// cursor on the schedule it was on rather than on an index that now means a
+// different row, since a schedule deleted from another panel shifts everything below
+// it up.
 func (m *model) applySchedules(fresh []scheduleItem) {
 	selected := ""
 	if item, ok := m.selectedSchedule(); ok {

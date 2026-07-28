@@ -46,7 +46,7 @@ func NewService(lister scheduleLister, schedules scheduleManager) *Service {
 	return &Service{lister: lister, schedules: schedules}
 }
 
-// ListSchedules returns one page of schedules, most recently updated first.
+// ListSchedules returns one page of schedules, newest first.
 func (s *Service) ListSchedules(ctx context.Context, req *connect.Request[schedulev1.ListSchedulesRequest]) (*connect.Response[schedulev1.ListSchedulesResponse], error) {
 	paginator, err := pagination.New[schedulestore.Cursor, schedule](req.Msg.GetPagination())
 	if err != nil {

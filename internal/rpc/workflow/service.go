@@ -43,7 +43,7 @@ func NewService(lister workflowLister, workflows workflowManager) *Service {
 	return &Service{lister: lister, workflows: workflows}
 }
 
-// ListWorkflows returns one page of workflows, most recently updated first.
+// ListWorkflows returns one page of workflows, newest first.
 func (s *Service) ListWorkflows(ctx context.Context, req *connect.Request[workflowv1.ListWorkflowsRequest]) (*connect.Response[workflowv1.ListWorkflowsResponse], error) {
 	paginator, err := pagination.New[workflowstore.Cursor, workflow](req.Msg.GetPagination())
 	if err != nil {

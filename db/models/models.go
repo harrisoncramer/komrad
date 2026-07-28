@@ -23,6 +23,7 @@ type Agent struct {
 	UpdatedAt       time.Time
 	ScheduleID      *string
 	IdempotencyKey  *string
+	MarkedAt        *time.Time
 }
 
 // Editable config (cwd, flags) owned by exactly one agent.

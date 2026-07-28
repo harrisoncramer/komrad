@@ -32,6 +32,9 @@ message Agent {
   // rather than stored, so a caller does not need tmux of its own to tell a live
   // agent from a dormant one.
   bool alive = 11;
+  // When the user marked this agent, as an RFC 3339 timestamp, unset when they
+  // have not. What the mark means is theirs to decide, and only they ever set it.
+  optional string marked_at = 13;
 }
 
 message ListAgentsRequest {
@@ -127,6 +130,15 @@ message SetStateRequest {
       "done"
     ]
   }];
+}
+
+// SetMarkedRequest marks or unmarks an agent. It is keyed by id rather than name
+// because the mark outlives a rename, and the panel already holds the id of the row
+// it is looking at. Marking carries no timestamp. The server stamps the moment, so a
+// caller with a skewed clock cannot record a mark in the future.
+message SetMarkedRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+  bool marked = 2;
 }
 
 // ArchiveAgentRequest hides an agent without destroying it. This is what the
@@ -253,6 +265,14 @@ service AgentService {
     option (annotation.v1.tool) = {
       tool_name: "set_agent_state"
       description: "Move an agent to one of new, thinking, waiting, or done. The reconciler derives state from the live pane every couple of seconds, so a value set here is overwritten shortly after unless the agent is dormant."
+      destructive: false
+    };
+  }
+  rpc SetMarked(SetMarkedRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.tool) = {
+      tool_name: "set_agent_marked"
+      description: "Mark or unmark an agent, keyed by its id. The mark is the user's own flag on an agent and means whatever they decide, such as dealt with or worth coming back to. Nothing sets it automatically, so do not mark an agent unless asked to. What an agent is currently doing is already in its state."
       destructive: false
     };
   }

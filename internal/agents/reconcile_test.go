@@ -310,6 +310,32 @@ func TestReconcileSinglePass(t *testing.T) {
 	}
 }
 
+// TestReconcileLeavesTheMark pins who the mark belongs to. The reconciler writes
+// what it observes, and a mark is not something it can observe. The user sets it and
+// only the user clears it, so a pass that moves an agent's state leaves it standing.
+func TestReconcileLeavesTheMark(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	agent := seed(t, st, "agent", "%1", agentstore.StateNew)
+
+	marked, err := st.Agents.SetMarked(ctx, agent.ID, true)
+	require.NoError(t, err)
+	require.True(t, marked)
+
+	tmux := newFakeTmux()
+	tmux.alive["%1"] = true
+	tmux.captures["%1"] = busyFrame
+
+	rec := NewReconciler(tmux, st.Agents)
+	require.NoError(t, rec.Reconcile(ctx))
+
+	after, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, after)
+	assert.Equal(t, agentstore.StateThinking, after.State, "the pass wrote a state")
+	assert.NotNil(t, after.MarkedAt, "the user's mark survives a state write")
+}
+
 // TestReconcileOverPasses covers what only shows up across several passes, the
 // idle debounce that keeps a lull between tool calls from demoting live work,
 // and the miss count that debounce is built on.

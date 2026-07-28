@@ -55,7 +55,8 @@ type Schedule struct {
 	// the schedule fires rather than copied here, so a workflow that moves takes
 	// its schedules with it.
 	WorkflowID string
-	// UpdatedAt is what the listing sorts by, and half of the paging cursor.
+	// UpdatedAt is when the row last changed, for display. The listing sorts by
+	// id instead, so an edit never moves a schedule out from under the reader.
 	UpdatedAt time.Time
 }
 
@@ -80,7 +81,7 @@ func New(db store.DBTX) *Store {
 	return &Store{queries: models.New(db)}
 }
 
-// List returns every live schedule, most recently updated first.
+// List returns every live schedule, newest first.
 func (s *Store) List(ctx context.Context) ([]Schedule, error) {
 	rows, err := s.queries.ListSchedules(ctx)
 	if err != nil {
@@ -95,19 +96,17 @@ func (s *Store) List(ctx context.Context) ([]Schedule, error) {
 	return schedules, nil
 }
 
-// Cursor locates a schedule within a listing, the sort key plus the id that
-// breaks a tie on it.
+// Cursor locates a schedule within a listing. The id is the sort key and is unique,
+// so it is the whole cursor.
 type Cursor struct {
-	UpdatedAt time.Time `json:"u"`
-	ID        string    `json:"i"`
+	ID string `json:"i"`
 }
 
-// ListPage returns one page of live schedules, most recently updated first,
-// resuming after cursor when one is given.
+// ListPage returns one page of live schedules, newest first, resuming after
+// cursor when one is given.
 func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Schedule, error) {
 	params := models.ListSchedulesPageParams{Lim: int32(limit)}
 	if cursor != nil {
-		params.CursorUpdatedAt = &cursor.UpdatedAt
 		params.CursorID = &cursor.ID
 	}
 

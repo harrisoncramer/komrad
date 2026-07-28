@@ -278,6 +278,112 @@ func TestSetState(t *testing.T) {
 	}
 }
 
+// TestSetMarked covers the mark in both directions and who may carry one. A write
+// that silently landed on nothing would leave the caller believing they had marked
+// an agent that shows no mark.
+func TestSetMarked(t *testing.T) {
+	tests := []struct {
+		name        string
+		create      bool
+		archive     bool
+		id          func(created Agent) string
+		marked      bool
+		wantChanged bool
+	}{
+		{
+			name:   "an id no agent holds",
+			id:     func(Agent) string { return uuid.NewString() },
+			marked: true,
+		},
+		{
+			name:   "a value that is not an id at all",
+			id:     func(Agent) string { return "not-an-id" },
+			marked: true,
+		},
+		{
+			name:    "an archived agent, which has no listing to be marked in",
+			create:  true,
+			archive: true,
+			id:      func(created Agent) string { return created.ID },
+			marked:  true,
+		},
+		{
+			name:        "marking a live agent",
+			create:      true,
+			id:          func(created Agent) string { return created.ID },
+			marked:      true,
+			wantChanged: true,
+		},
+		{
+			name:        "clearing a live agent's mark",
+			create:      true,
+			id:          func(created Agent) string { return created.ID },
+			wantChanged: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			var created Agent
+			if tt.create {
+				require.NoError(t, st.Upsert(ctx, Agent{Name: "agent", State: StateNew}))
+				got, err := st.Get(ctx, "agent")
+				require.NoError(t, err)
+				require.NotNil(t, got)
+				created = *got
+			}
+			if tt.archive {
+				require.NoError(t, st.Archive(ctx, "agent"))
+			}
+
+			changed, err := st.SetMarked(ctx, tt.id(created), tt.marked)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantChanged, changed)
+
+			if !tt.wantChanged {
+				return
+			}
+
+			after, err := st.Get(ctx, "agent")
+			require.NoError(t, err)
+			require.NotNil(t, after)
+			if tt.marked {
+				assert.NotNil(t, after.MarkedAt, "a marked agent carries when it was marked")
+			} else {
+				assert.Nil(t, after.MarkedAt, "an unmarked agent carries no stamp")
+			}
+		})
+	}
+}
+
+// TestSetStateByIDKeepsTheMark pins that a state write is only a state write. The
+// mark belongs to the user and the reconciler writes state constantly, so the two
+// share a row without touching each other.
+func TestSetStateByIDKeepsTheMark(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Upsert(ctx, Agent{Name: "agent", State: StateNew}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, created)
+
+	changed, err := st.SetMarked(ctx, created.ID, true)
+	require.NoError(t, err)
+	require.True(t, changed)
+
+	require.NoError(t, st.SetStateByID(ctx, created.ID, StateWaiting))
+
+	after, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, after)
+	assert.Equal(t, StateWaiting, after.State)
+	assert.NotNil(t, after.MarkedAt, "a state write leaves the user's mark standing")
+}
+
 // TestActiveNameExists covers who owns a name. The unique index is scoped to
 // live rows, so an archived agent keeps its name without blocking a new one.
 func TestActiveNameExists(t *testing.T) {

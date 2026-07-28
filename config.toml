@@ -40,6 +40,9 @@ delete = ["d"]
 search = ["/"]
 # Swap the hovered agent's stored record into the stage in place of the agent.
 info   = ["i"]
+# Mark the hovered agent, or clear the mark when it already carries one. The
+# mark means whatever you decide; nothing else ever sets it.
+mark   = ["m"]
 
 # The new-agent, rename, and workflow forms.
 [keybindings.form]

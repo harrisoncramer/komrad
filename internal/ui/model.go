@@ -129,6 +129,10 @@ var (
 	dimStyle = errui.Dim
 )
 
+// markedColor is a yellow the panel uses for nothing else, so the mark cannot be
+// mistaken for a state.
+const markedColor = lipgloss.Color("#DCA561")
+
 func stateIcon(state string) string {
 	switch state {
 	case agentstore.StateDone:
@@ -428,70 +432,26 @@ func (m *model) reloadWorkflows() {
 	m.workflowCursor = clampCursor(m.workflowCursor, len(workflows))
 }
 
-// applyWorkflows merges a freshly-listed set into the on-screen workflows. The
-// listing sorts by recency, so taking it wholesale on every refresh would reshuffle
-// the tree's folders under the cursor the moment any workflow was touched. The
-// current order is kept, new workflows are appended, vanished ones are dropped, and
-// the ones that remain take their fresh fields, so a context edited through the MCP
-// tools or another panel shows here without anything moving.
+// applyWorkflows takes a freshly-listed set as the on-screen workflows. The listing
+// sorts by id, which is fixed at creation, so it reads newest first and no edit can
+// move a folder under the cursor. Only a create or a delete changes the tree.
 func (m *model) applyWorkflows(fresh []workflowstore.Workflow) {
-	byID := make(map[string]workflowstore.Workflow, len(fresh))
-	for _, w := range fresh {
-		byID[w.ID] = w
-	}
-
-	seen := make(map[string]bool, len(m.workflows))
-	workflows := make([]workflowstore.Workflow, 0, len(fresh))
-	for _, cur := range m.workflows {
-		if w, ok := byID[cur.ID]; ok {
-			seen[cur.ID] = true
-			workflows = append(workflows, w)
-		}
-	}
-	for _, w := range fresh {
-		if !seen[w.ID] {
-			workflows = append(workflows, w)
-		}
-	}
-
-	m.workflows = workflows
-	m.workflowCursor = clampCursor(m.workflowCursor, len(workflows))
+	m.workflows = fresh
+	m.workflowCursor = clampCursor(m.workflowCursor, len(fresh))
 }
 
-// applyAgents merges a freshly-listed set into the on-screen agents. It keeps the
-// current order rather than re-sorting by recency, since reordering under the
-// cursor is jarring and defeats an index-based selection. New agents are appended
-// and vanished ones dropped, and the cursor stays on whichever agent it was on. The
-// fresh items carry updated state and liveness, so a reconciler change shows
-// without a structural reload.
+// applyAgents takes a freshly-listed set as the on-screen agents. The listing is
+// newest first and holds still while an agent is worked on, so a row only moves when
+// an agent above it is created or goes away. The cursor is kept on the agent it was
+// on rather than on its index for that reason. The fresh items carry updated state
+// and liveness, so a reconciler change shows without a structural reload.
 func (m *model) applyAgents(fresh []agentItem) {
-	byName := make(map[string]agentItem, len(fresh))
-	order := make([]string, 0, len(fresh))
-	for _, item := range fresh {
-		byName[item.agent.Name] = item
-		order = append(order, item.agent.Name)
-	}
-
 	selected := ""
 	if item, ok := m.selectedAgent(); ok {
 		selected = item.agent.Name
 	}
 
-	seen := make(map[string]bool, len(m.agents))
-	items := make([]agentItem, 0, len(fresh))
-	for _, cur := range m.agents {
-		if item, ok := byName[cur.agent.Name]; ok {
-			seen[cur.agent.Name] = true
-			items = append(items, item)
-		}
-	}
-	for _, name := range order {
-		if !seen[name] {
-			items = append(items, byName[name])
-		}
-	}
-
-	m.agents = items
+	m.agents = fresh
 
 	// The cursor indexes the tree of headers and agents, so keep it on the same
 	// agent across the rebuild, or clamp it into the new tree when that agent is
@@ -519,6 +479,13 @@ func clampCursor(idx, length int) int {
 func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 	created, _ := time.Parse(time.RFC3339, s.GetCreatedAt())
 
+	// A stamp the panel cannot read is treated as no mark, since there is no time it
+	// could show for one.
+	var marked *time.Time
+	if parsed, err := time.Parse(time.RFC3339, s.GetMarkedAt()); err == nil {
+		marked = &parsed
+	}
+
 	return agentstore.Agent{
 		ID:              s.GetId(),
 		Name:            s.GetName(),
@@ -531,6 +498,7 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 		WorkflowID:      s.GetWorkflowId(),
 		ScheduleID:      s.ScheduleId,
 		CreatedAt:       created,
+		MarkedAt:        marked,
 	}
 }
 
