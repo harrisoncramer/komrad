@@ -50,8 +50,12 @@ type app struct {
 	// file again per request.
 	configPath string
 	// tmux is shared with the services. The UI needs it directly for the stage,
-	// which is its own layout rather than anything the agent API owns.
-	tmux *tmux.Client
+	// which is its own layout rather than anything the agent API owns. It covers
+	// both tmux servers, sending each call to the one that can answer it.
+	tmux *tmux.Servers
+	// host is the user's tmux server, kept alongside so the open command can record
+	// which one opened the popup. Every other use of it goes through tmux.
+	host *tmux.Host
 }
 
 // openStore connects to the database and builds the services over it. Calling it

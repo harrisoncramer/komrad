@@ -1,11 +1,14 @@
 package ui
 
 // popupTmux is what the popup needs from tmux, the global options it uses as flags
-// plus the ability to detach a client.
+// plus the ability to bind a key and detach a client. The client behind it spans two
+// tmux servers. Options are the user's, since the plugin's key binding reads them
+// there, while the session and the key bound inside the popup are the manager's.
 type popupTmux interface {
 	SetGlobal(name, value string)
 	ShowGlobal(name string) string
 	SetSessionOption(target, name, value string)
+	BindKey(key string, command ...string)
 	DetachSession(name string)
 }
 
@@ -34,6 +37,29 @@ const managerOpenFlag = "@claude_manager_open"
 // need the invoking client use the one actually viewing the popup rather than one
 // fixed when the persistent panel first started.
 const managerClientFlag = "@claude_manager_client"
+
+// managerKeyOption holds the user's chosen panel key. The tmux plugin reads it on
+// the user's server to bind the key there, and the popup reads the same option to
+// bind its own meaning for it inside the popup.
+const managerKeyOption = "@claude_agents_key"
+
+// defaultPanelKey is the panel key when the user has chosen none. The plugin script
+// carries the same default, since it binds the key on the user's server.
+const defaultPanelKey = "g"
+
+// BindHide binds the panel key on the manager's own tmux server to hiding the
+// popup. The popup's client is attached to that server, so a keypress inside the
+// popup is resolved by its bindings rather than the user's. That server sources the
+// user's tmux config as any new server does, which binds the key to opening the
+// popup, and inside the popup that would stack a second one on top of itself.
+func (p *Popup) BindHide() {
+	key := p.tmux.ShowGlobal(managerKeyOption)
+	if key == "" {
+		key = defaultPanelKey
+	}
+
+	p.tmux.BindKey(key, "detach-client", "-s", p.session)
+}
 
 // MarkOpen records that the popup is shown.
 func (p *Popup) MarkOpen() { p.tmux.SetGlobal(managerOpenFlag, "1") }

@@ -27,6 +27,10 @@ set -g status-right "#{claude_agents}%I:%M:%S "
 
 There is nothing else to configure. The tool works out each agent's state on its own.
 
+The panel and its agents live on a tmux server of their own, not the one your own sessions are on. A tmux server only lists its own sessions, so the panel's session stays out of your session list and out of the switcher, and the only way to it is the popup, which is the only place it is meant to be seen. Point `CLAUDE_AGENTS_TMUX_SOCKET` somewhere else if you want that server on a different socket.
+
+Upgrading from a version before that split leaves a `claude-manager` session and a `serve` process behind on your own tmux server. Kill both once and reopen the panel. Left running, the old server keeps answering, and agents you create land on it rather than the panel's.
+
 See [installation](docs/install.md) for the full setup, including the panel key.
 
 ## Why

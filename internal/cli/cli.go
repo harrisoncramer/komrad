@@ -55,7 +55,14 @@ func NewRootCommand() *cobra.Command {
 			state.claudeFlags = cfg.ClaudeFlags
 			state.marks = cfg.Marks
 			state.configPath = configPath
-			state.tmux = tmux.NewClient(env.TmuxSocket)
+			// Two tmux servers, held as one client. The manager's own server owns the
+			// session, its windows, and its panes. The user's server answers where the
+			// client viewing the popup is sitting and holds the options the plugin's
+			// key binding reads, and is found through a socket path the manager server
+			// records on every open.
+			manager := tmux.NewClient(env.TmuxSocket)
+			state.host = tmux.NewHost(manager)
+			state.tmux = tmux.NewServers(manager, state.host)
 			state.popup = ui.NewPopup(state.tmux, agents.ManagerSession)
 
 			return nil
@@ -100,6 +107,7 @@ func NewRootCommand() *cobra.Command {
 	root.PersistentFlags().StringVar(&configPath, "config", "", "path to config TOML")
 	root.AddCommand(
 		openCmd(state),
+		hideCmd(state),
 		statusCmd(state),
 		serveCmd(state),
 		migrateCmd(state),

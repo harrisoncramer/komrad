@@ -10,18 +10,29 @@ import (
 	"strings"
 )
 
-// Client talks to one tmux server socket.
+// Client talks to one tmux server, addressed either by socket name or by socket
+// path. The server flags are held whole rather than the socket alone, since the
+// two forms differ in flag as well as value.
 type Client struct {
-	socket string
+	server []string
 }
 
-// NewClient returns a Client bound to the given tmux server socket.
+// NewClient returns a Client bound to a tmux server by socket name, which tmux
+// resolves under its own socket directory. The manager's server is reached this
+// way, since its name is configuration.
 func NewClient(socket string) *Client {
-	return &Client{socket: socket}
+	return &Client{server: []string{"-L", socket}}
+}
+
+// NewClientAtPath returns a Client bound to a tmux server by socket path. The
+// user's server is reached this way, since a popup is told the path of the server
+// that opened it and cannot assume the name it was started under.
+func NewClientAtPath(path string) *Client {
+	return &Client{server: []string{"-S", path}}
 }
 
 func (c *Client) query(args ...string) (string, error) {
-	out, err := exec.Command("tmux", append([]string{"-L", c.socket}, args...)...).Output()
+	out, err := exec.Command("tmux", append(append([]string{}, c.server...), args...)...).Output()
 	return strings.TrimSpace(string(out)), err
 }
 
@@ -128,6 +139,12 @@ func (c *Client) KillPane(pane string) {
 	}
 
 	c.run("kill-pane", "-t", pane)
+}
+
+// BindKey binds a key in the prefix table to a tmux command, replacing whatever
+// it was bound to.
+func (c *Client) BindKey(key string, command ...string) {
+	c.run(append([]string{"bind-key", key}, command...)...)
 }
 
 // SetGlobal sets a global tmux option.

@@ -166,6 +166,7 @@ func (t *recordingTmux) SetGlobal(string, string)                {}
 func (t *recordingTmux) ShowGlobal(string) string                { return "" }
 func (t *recordingTmux) SetSessionOption(string, string, string) {}
 func (t *recordingTmux) DetachSession(string)                    {}
+func (t *recordingTmux) BindKey(string, ...string)               {}
 func (t *recordingTmux) ClientPath(string) string                { return t.path }
 func (t *recordingTmux) SendKeys(string, ...string) error        { return nil }
 func (t *recordingTmux) PaneAlive(string) bool                   { return true }

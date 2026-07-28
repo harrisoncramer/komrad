@@ -13,11 +13,14 @@ import (
 // instance sets DATABASE_URL to its own database and never falls back here.
 const defaultDatabaseURL = "postgres://claude_agents:claude_agents@localhost:5460/claude_agents?sslmode=disable"
 
-// Config holds the panel's runtime configuration.
+// Config holds the panel's runtime configuration. TmuxSocket names the manager's
+// own tmux server, which is deliberately not the user's. A server only lists its
+// own sessions, so the manager session stays out of the user's session list and
+// cannot be attached to outside the popup, which is the only place it behaves.
 type Config struct {
 	DatabaseURL string `env:"DATABASE_URL"`
 	Addr        string `env:"CLAUDE_AGENTS_ADDR" envDefault:"127.0.0.1:8787"`
-	TmuxSocket  string `env:"CLAUDE_AGENTS_TMUX_SOCKET" envDefault:"default"`
+	TmuxSocket  string `env:"CLAUDE_AGENTS_TMUX_SOCKET" envDefault:"claude-agents"`
 }
 
 // Load reads the panel's configuration from the environment, defaulting to the
