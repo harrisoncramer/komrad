@@ -123,6 +123,17 @@ table "workflows" {
   primary_key {
     columns = [column.id]
   }
+  # A workflow always owns exactly one config, so the reference is never null and
+  # the config is never removed out from under it.
+  foreign_key "workflows_workflow_config_id_fkey" {
+    columns     = [column.workflow_config_id]
+    ref_columns = [table.workflow_configs.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
+  }
+  index "workflows_workflow_config_id" {
+    columns = [column.workflow_config_id]
+  }
 }
 
 table "agent_transcripts" {
@@ -159,6 +170,12 @@ table "agent_transcripts" {
   }
   primary_key {
     columns = [column.agent_id]
+  }
+  foreign_key "agent_transcripts_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
   }
   # The search index. A GIN index over trigrams is what makes a substring match
   # across the whole corpus cheap; without it every search is a sequential scan
@@ -263,6 +280,24 @@ table "agents" {
   primary_key {
     columns = [column.id]
   }
+  foreign_key "agents_agent_config_id_fkey" {
+    columns     = [column.agent_config_id]
+    ref_columns = [table.agent_configs.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
+  }
+  foreign_key "agents_workflow_id_fkey" {
+    columns     = [column.workflow_id]
+    ref_columns = [table.workflows.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
+  }
+  foreign_key "agents_schedule_id_fkey" {
+    columns     = [column.schedule_id]
+    ref_columns = [table.schedules.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
+  }
   # Unique on name only among live records. A soft-deleted row keeps its name,
   # so without the predicate a deleted agent would block ever reusing its name
   # and the upsert-by-name path would resurrect the dead row instead of creating
@@ -273,6 +308,9 @@ table "agents" {
     unique  = true
     columns = [column.name]
     where   = "is_deleted = false"
+  }
+  index "agents_agent_config_id" {
+    columns = [column.agent_config_id]
   }
   # Scoped listings filter by workflow, so index the foreign key.
   index "agents_workflow_id" {

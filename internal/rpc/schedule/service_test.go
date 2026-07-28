@@ -9,16 +9,13 @@ import (
 	paginationv1 "claude-agents/proto/gen/pagination/v1"
 	schedulev1 "claude-agents/proto/gen/schedule/v1"
 
+	workflowstore "claude-agents/internal/store/workflow"
+
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
-
-// workflowID is the workflow every schedule in these tests launches into. The
-// handler stores it and never resolves it, so it needs to be well-formed and
-// nothing more.
-const workflowID = "019fa434-e7a7-7ac9-bab5-718681da797d"
 
 // missingID is a well-formed uuid no schedule holds, for the not-found rows. A
 // malformed one would be refused before the lookup and prove something else.
@@ -29,14 +26,14 @@ func TestCreateSchedule(t *testing.T) {
 		name     string
 		req      *schedulev1.CreateScheduleRequest
 		wantCode connect.Code
-		check    func(t *testing.T, created *schedulev1.Schedule)
+		check    func(t *testing.T, created *schedulev1.Schedule, workflow string)
 	}{
 		{
 			name: "a schedule is stored as written",
 			req: &schedulev1.CreateScheduleRequest{
-				Name: "morning-ci", Cron: "0 9 * * 1-5", WorkflowId: workflowID, Prompt: "check CI", Enabled: true,
+				Name: "morning-ci", Cron: "0 9 * * 1-5", Prompt: "check CI", Enabled: true,
 			},
-			check: func(t *testing.T, created *schedulev1.Schedule) {
+			check: func(t *testing.T, created *schedulev1.Schedule, _ string) {
 				assert.NotEmpty(t, created.GetId())
 				assert.Equal(t, "0 9 * * 1-5", created.GetCron())
 				assert.Equal(t, "check CI", created.GetPrompt())
@@ -48,18 +45,18 @@ func TestCreateSchedule(t *testing.T) {
 			// what says where its agents run.
 			name: "the workflow it launches into is what it stores",
 			req: &schedulev1.CreateScheduleRequest{
-				Name: "nightly", Cron: "0 2 * * *", WorkflowId: workflowID, Prompt: "sweep", Enabled: true,
+				Name: "nightly", Cron: "0 2 * * *", Prompt: "sweep", Enabled: true,
 			},
-			check: func(t *testing.T, created *schedulev1.Schedule) {
-				assert.Equal(t, workflowID, created.GetWorkflowId())
+			check: func(t *testing.T, created *schedulev1.Schedule, workflow string) {
+				assert.Equal(t, workflow, created.GetWorkflowId())
 			},
 		},
 		{
 			name: "an armed schedule reports when it next fires",
 			req: &schedulev1.CreateScheduleRequest{
-				Name: "hourly", Cron: "0 * * * *", WorkflowId: workflowID, Prompt: "poll", Enabled: true,
+				Name: "hourly", Cron: "0 * * * *", Prompt: "poll", Enabled: true,
 			},
-			check: func(t *testing.T, created *schedulev1.Schedule) {
+			check: func(t *testing.T, created *schedulev1.Schedule, _ string) {
 				require.NotNil(t, created.GetNextRunAt())
 				assert.True(t, created.GetNextRunAt().AsTime().After(time.Now()))
 			},
@@ -67,9 +64,9 @@ func TestCreateSchedule(t *testing.T) {
 		{
 			name: "a paused schedule has no next run to report",
 			req: &schedulev1.CreateScheduleRequest{
-				Name: "draft", Cron: "0 9 * * *", WorkflowId: workflowID, Prompt: "later",
+				Name: "draft", Cron: "0 9 * * *", Prompt: "later",
 			},
-			check: func(t *testing.T, created *schedulev1.Schedule) {
+			check: func(t *testing.T, created *schedulev1.Schedule, _ string) {
 				assert.False(t, created.GetEnabled())
 				assert.Nil(t, created.GetNextRunAt())
 			},
@@ -79,14 +76,14 @@ func TestCreateSchedule(t *testing.T) {
 			// This one is well-shaped and still meaningless.
 			name: "an unparseable expression is refused",
 			req: &schedulev1.CreateScheduleRequest{
-				Name: "broken", Cron: "99 9 * * *", WorkflowId: workflowID, Prompt: "go",
+				Name: "broken", Cron: "99 9 * * *", Prompt: "go",
 			},
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
 			name: "an unknown timezone is refused",
 			req: &schedulev1.CreateScheduleRequest{
-				Name: "elsewhere", Cron: "0 9 * * *", WorkflowId: workflowID, Timezone: "Mars/Olympus", Prompt: "go",
+				Name: "elsewhere", Cron: "0 9 * * *", Timezone: "Mars/Olympus", Prompt: "go",
 			},
 			wantCode: connect.CodeInvalidArgument,
 		},
@@ -94,8 +91,9 @@ func TestCreateSchedule(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := service(t)
+			svc, workflow := service(t)
 
+			tt.req.WorkflowId = workflow
 			created, err := svc.CreateSchedule(t.Context(), connect.NewRequest(tt.req))
 			if tt.wantCode != 0 {
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
@@ -103,7 +101,7 @@ func TestCreateSchedule(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			tt.check(t, created.Msg.GetSchedule())
+			tt.check(t, created.Msg.GetSchedule(), workflow)
 		})
 	}
 }
@@ -129,11 +127,11 @@ func TestCreateScheduleNameConflict(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := service(t)
-			createSchedule(t, svc, "morning-ci")
+			svc, workflow := service(t)
+			createSchedule(t, svc, workflow, "morning-ci")
 
 			_, err := svc.CreateSchedule(t.Context(), connect.NewRequest(&schedulev1.CreateScheduleRequest{
-				Name: tt.second, Cron: "0 9 * * *", Prompt: "go", WorkflowId: workflowID,
+				Name: tt.second, Cron: "0 9 * * *", Prompt: "go", WorkflowId: workflow,
 			}))
 			if tt.wantCode != 0 {
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
@@ -170,12 +168,12 @@ func TestGetSchedule(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := service(t)
+			svc, workflow := service(t)
 			ctx := t.Context()
 
 			id := tt.id
 			if tt.create {
-				id = createSchedule(t, svc, "morning-ci")
+				id = createSchedule(t, svc, workflow, "morning-ci")
 			}
 			if tt.create && tt.wantCode == connect.CodeNotFound {
 				_, err := svc.DeleteSchedule(ctx, connect.NewRequest(&schedulev1.DeleteScheduleRequest{Id: id}))
@@ -207,18 +205,18 @@ func TestUpdateSchedule(t *testing.T) {
 		{
 			name:     "an id nobody holds",
 			target:   missingID,
-			req:      &schedulev1.UpdateScheduleRequest{Name: "renamed", Cron: "0 9 * * *", Prompt: "go", WorkflowId: workflowID},
+			req:      &schedulev1.UpdateScheduleRequest{Name: "renamed", Cron: "0 9 * * *", Prompt: "go"},
 			wantCode: connect.CodeNotFound,
 		},
 		{
 			name:     "the editable fields are replaced",
-			req:      &schedulev1.UpdateScheduleRequest{Name: "renamed", Cron: "0 17 * * 5", Prompt: "weekly", WorkflowId: workflowID},
+			req:      &schedulev1.UpdateScheduleRequest{Name: "renamed", Cron: "0 17 * * 5", Prompt: "weekly"},
 			wantName: "renamed",
 			wantCron: "0 17 * * 5",
 		},
 		{
 			name:     "an unparseable expression leaves the record alone",
-			req:      &schedulev1.UpdateScheduleRequest{Name: "renamed", Cron: "0 99 * * *", Prompt: "go", WorkflowId: workflowID},
+			req:      &schedulev1.UpdateScheduleRequest{Name: "renamed", Cron: "0 99 * * *", Prompt: "go"},
 			wantCode: connect.CodeInvalidArgument,
 			wantName: "morning-ci",
 			wantCron: "0 9 * * 1-5",
@@ -227,10 +225,10 @@ func TestUpdateSchedule(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := service(t)
+			svc, workflow := service(t)
 			ctx := t.Context()
 
-			id := createSchedule(t, svc, "morning-ci")
+			id := createSchedule(t, svc, workflow, "morning-ci")
 			target := tt.target
 			if target == "" {
 				target = id
@@ -238,6 +236,7 @@ func TestUpdateSchedule(t *testing.T) {
 
 			req := tt.req
 			req.Id = target
+			req.WorkflowId = workflow
 			_, err := svc.UpdateSchedule(ctx, connect.NewRequest(req))
 			if tt.wantCode != 0 {
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
@@ -288,10 +287,10 @@ func TestSetScheduleEnabled(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := service(t)
+			svc, workflow := service(t)
 			ctx := t.Context()
 
-			id := createSchedule(t, svc, "morning-ci")
+			id := createSchedule(t, svc, workflow, "morning-ci")
 			target := tt.target
 			if target == "" {
 				target = id
@@ -333,10 +332,10 @@ func TestDeleteSchedule(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := service(t)
+			svc, workflow := service(t)
 			ctx := t.Context()
 
-			id := createSchedule(t, svc, "morning-ci")
+			id := createSchedule(t, svc, workflow, "morning-ci")
 			target := tt.target
 			if target == "" {
 				target = id
@@ -381,11 +380,11 @@ func TestListSchedules(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := service(t)
+			svc, workflow := service(t)
 			ctx := t.Context()
 
 			for _, name := range tt.seed {
-				createSchedule(t, svc, name)
+				createSchedule(t, svc, workflow, name)
 			}
 
 			req := &schedulev1.ListSchedulesRequest{}
@@ -423,23 +422,26 @@ func TestListSchedules(t *testing.T) {
 }
 
 // service builds the handler over a throwaway database, the same way the
-// composition root does.
-func service(t *testing.T) *Service {
+// composition root does, and returns the workflow every schedule in the test
+// launches into. The handler stores that id without resolving it, but the
+// foreign key means the row has to be there, so it is seeded rather than
+// invented.
+func service(t *testing.T) (*Service, string) {
 	t.Helper()
 
 	st := storetest.Open(t)
 	manager := agents.NewScheduleService(agents.ScheduleParams{Schedules: st.Schedules})
 
-	return NewService(st.Schedules, manager)
+	return NewService(st.Schedules, manager), st.SeedWorkflow(t, workflowstore.Config{Name: "schedules"}).ID
 }
 
 // createSchedule adds an armed schedule through the handler and returns its id,
 // since most rows here exist only to be acted on.
-func createSchedule(t *testing.T, svc *Service, name string) string {
+func createSchedule(t *testing.T, svc *Service, workflow, name string) string {
 	t.Helper()
 
 	created, err := svc.CreateSchedule(t.Context(), connect.NewRequest(&schedulev1.CreateScheduleRequest{
-		Name: name, Cron: "0 9 * * 1-5", Prompt: "check CI", Enabled: true, WorkflowId: workflowID,
+		Name: name, Cron: "0 9 * * 1-5", Prompt: "check CI", Enabled: true, WorkflowId: workflow,
 	}))
 	require.NoError(t, err)
 

@@ -18,12 +18,12 @@ type Agent struct {
 	State           string
 	ClaudeSessionID string
 	WorkflowID      string
-	IsDeleted       bool
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
 	ScheduleID      *string
 	IdempotencyKey  *string
+	IsDeleted       bool
 	MarkedAt        *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 // Editable config (cwd, flags) owned by exactly one agent.

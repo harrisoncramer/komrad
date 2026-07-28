@@ -14,50 +14,6 @@ CREATE TABLE "agent_configs" (
 -- Set comment to table: "agent_configs"
 COMMENT ON TABLE "agent_configs" IS 'Editable config (cwd, flags) owned by exactly one agent.';
 
--- Create "agent_transcripts" table
-CREATE TABLE "agent_transcripts" (
-    "agent_id" uuid NOT NULL,
-    "content" text NOT NULL DEFAULT '',
-    "synced_offset" bigint NOT NULL DEFAULT 0,
-    "synced_at" timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY ("agent_id")
-);
-
--- Create index "agent_transcripts_content_trgm" to table: "agent_transcripts"
-CREATE INDEX "agent_transcripts_content_trgm" ON "agent_transcripts" USING GIN ("content" gin_trgm_ops);
-
--- Set comment to table: "agent_transcripts"
-COMMENT ON TABLE "agent_transcripts" IS 'Flattened transcript for an agent, synced from Claude''s on-disk JSONL and indexed for search. Strict 1:1 with an agent.';
-
--- Create "agents" table
-CREATE TABLE "agents" (
-    "id" uuid NOT NULL DEFAULT uuidv7 (),
-    "name" text NOT NULL,
-    "agent_config_id" uuid NOT NULL,
-    "prompt" text NOT NULL DEFAULT '',
-    "pane_id" text NOT NULL DEFAULT '',
-    "state" text NOT NULL DEFAULT 'new',
-    "claude_session_id" text NOT NULL DEFAULT '',
-    "workflow_id" uuid NULL,
-    "is_deleted" boolean NOT NULL DEFAULT FALSE,
-    "created_at" timestamptz NOT NULL DEFAULT now(),
-    "updated_at" timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY ("id")
-);
-
--- Create index "agents_name_active" to table: "agents"
-CREATE UNIQUE INDEX "agents_name_active" ON "agents" ("name")
-WHERE (is_deleted = FALSE);
-
--- Create index "agents_updated_at_id" to table: "agents"
-CREATE INDEX "agents_updated_at_id" ON "agents" ("updated_at" DESC, "id" DESC);
-
--- Create index "agents_workflow_id" to table: "agents"
-CREATE INDEX "agents_workflow_id" ON "agents" ("workflow_id");
-
--- Set comment to table: "agents"
-COMMENT ON TABLE "agents" IS 'One background Claude agent, everything needed to restore it.';
-
 -- Create "workflow_configs" table
 CREATE TABLE "workflow_configs" (
     "id" uuid NOT NULL DEFAULT uuidv7 (),
@@ -80,42 +36,96 @@ CREATE TABLE "workflows" (
     "is_deleted" boolean NOT NULL DEFAULT FALSE,
     "created_at" timestamptz NOT NULL DEFAULT now(),
     "updated_at" timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY ("id")
+    PRIMARY KEY ("id"),
+    CONSTRAINT "workflows_workflow_config_id_fkey" FOREIGN KEY ("workflow_config_id") REFERENCES "workflow_configs" ("id") ON UPDATE NO ACTION ON DELETE RESTRICT
 );
+
+-- Create index "workflows_workflow_config_id" to table: "workflows"
+CREATE INDEX "workflows_workflow_config_id" ON "workflows" ("workflow_config_id");
 
 -- Set comment to table: "workflows"
 COMMENT ON TABLE "workflows" IS 'A named bucket of related agents. Pure organization; runs nothing.';
 
--- Maintain updated_at in the database rather than in each statement, so a row's
--- timestamp is correct no matter which query wrote it, including the statements
--- the store issues directly rather than through sqlc.
-CREATE OR REPLACE FUNCTION set_updated_at ()
-    RETURNS TRIGGER
-    AS $$
-BEGIN
-    NEW.updated_at := now();
-    RETURN NEW;
-END;
-$$
-LANGUAGE plpgsql;
+-- Create "schedules" table
+CREATE TABLE "schedules" (
+    "id" uuid NOT NULL DEFAULT uuidv7 (),
+    "name" text NOT NULL,
+    "cron" text NOT NULL,
+    "timezone" text NOT NULL DEFAULT '',
+    "enabled" boolean NOT NULL DEFAULT TRUE,
+    "prompt" text NOT NULL DEFAULT '',
+    "workflow_id" uuid NOT NULL,
+    "is_deleted" boolean NOT NULL DEFAULT FALSE,
+    "created_at" timestamptz NOT NULL DEFAULT now(),
+    "updated_at" timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("id"),
+    CONSTRAINT "schedules_workflow_id_fkey" FOREIGN KEY ("workflow_id") REFERENCES "workflows" ("id") ON UPDATE NO ACTION ON DELETE RESTRICT
+);
 
-CREATE TRIGGER trg_agents_updated_at
-    BEFORE UPDATE ON "agents"
-    FOR EACH ROW
-    EXECUTE FUNCTION set_updated_at ();
+-- Create index "schedules_name_active" to table: "schedules"
+CREATE UNIQUE INDEX "schedules_name_active" ON "schedules" ("name")
+WHERE (is_deleted = FALSE);
 
-CREATE TRIGGER trg_agent_configs_updated_at
-    BEFORE UPDATE ON "agent_configs"
-    FOR EACH ROW
-    EXECUTE FUNCTION set_updated_at ();
+-- Create index "schedules_workflow_id" to table: "schedules"
+CREATE INDEX "schedules_workflow_id" ON "schedules" ("workflow_id");
 
-CREATE TRIGGER trg_workflows_updated_at
-    BEFORE UPDATE ON "workflows"
-    FOR EACH ROW
-    EXECUTE FUNCTION set_updated_at ();
+-- Set comment to table: "schedules"
+COMMENT ON TABLE "schedules" IS 'A cron-driven agent launch: when to fire and what to ask for.';
 
-CREATE TRIGGER trg_workflow_configs_updated_at
-    BEFORE UPDATE ON "workflow_configs"
-    FOR EACH ROW
-    EXECUTE FUNCTION set_updated_at ();
+-- Create "agents" table
+CREATE TABLE "agents" (
+    "id" uuid NOT NULL DEFAULT uuidv7 (),
+    "name" text NOT NULL,
+    "agent_config_id" uuid NOT NULL,
+    "prompt" text NOT NULL DEFAULT '',
+    "pane_id" text NOT NULL DEFAULT '',
+    "state" text NOT NULL DEFAULT 'new',
+    "claude_session_id" text NOT NULL DEFAULT '',
+    "workflow_id" uuid NOT NULL,
+    "schedule_id" uuid NULL,
+    "idempotency_key" text NULL,
+    "is_deleted" boolean NOT NULL DEFAULT FALSE,
+    "marked_at" timestamptz NULL,
+    "created_at" timestamptz NOT NULL DEFAULT now(),
+    "updated_at" timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("id"),
+    CONSTRAINT "agents_agent_config_id_fkey" FOREIGN KEY ("agent_config_id") REFERENCES "agent_configs" ("id") ON UPDATE NO ACTION ON DELETE RESTRICT,
+    CONSTRAINT "agents_schedule_id_fkey" FOREIGN KEY ("schedule_id") REFERENCES "schedules" ("id") ON UPDATE NO ACTION ON DELETE RESTRICT,
+    CONSTRAINT "agents_workflow_id_fkey" FOREIGN KEY ("workflow_id") REFERENCES "workflows" ("id") ON UPDATE NO ACTION ON DELETE RESTRICT
+);
 
+-- Create index "agents_agent_config_id" to table: "agents"
+CREATE INDEX "agents_agent_config_id" ON "agents" ("agent_config_id");
+
+-- Create index "agents_idempotency_key" to table: "agents"
+CREATE UNIQUE INDEX "agents_idempotency_key" ON "agents" ("idempotency_key")
+WHERE (idempotency_key IS NOT NULL);
+
+-- Create index "agents_name_active" to table: "agents"
+CREATE UNIQUE INDEX "agents_name_active" ON "agents" ("name")
+WHERE (is_deleted = FALSE);
+
+-- Create index "agents_schedule_id" to table: "agents"
+CREATE INDEX "agents_schedule_id" ON "agents" ("schedule_id");
+
+-- Create index "agents_workflow_id" to table: "agents"
+CREATE INDEX "agents_workflow_id" ON "agents" ("workflow_id");
+
+-- Set comment to table: "agents"
+COMMENT ON TABLE "agents" IS 'One background Claude agent, everything needed to restore it.';
+
+-- Create "agent_transcripts" table
+CREATE TABLE "agent_transcripts" (
+    "agent_id" uuid NOT NULL,
+    "content" text NOT NULL DEFAULT '',
+    "synced_offset" bigint NOT NULL DEFAULT 0,
+    "synced_at" timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("agent_id"),
+    CONSTRAINT "agent_transcripts_agent_id_fkey" FOREIGN KEY ("agent_id") REFERENCES "agents" ("id") ON UPDATE NO ACTION ON DELETE CASCADE
+);
+
+-- Create index "agent_transcripts_content_trgm" to table: "agent_transcripts"
+CREATE INDEX "agent_transcripts_content_trgm" ON "agent_transcripts" USING GIN ("content" gin_trgm_ops);
+
+-- Set comment to table: "agent_transcripts"
+COMMENT ON TABLE "agent_transcripts" IS 'Flattened transcript for an agent, synced from Claude''s on-disk JSONL and indexed for search. Strict 1:1 with an agent.';

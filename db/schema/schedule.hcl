@@ -73,6 +73,15 @@ table "schedules" {
   primary_key {
     columns = [column.id]
   }
+  # A schedule reads its directory and flags off the workflow every time it
+  # fires, so one pointing at a workflow that does not exist could never launch
+  # anything. Workflows are only soft-deleted, so this never blocks a delete.
+  foreign_key "schedules_workflow_id_fkey" {
+    columns     = [column.workflow_id]
+    ref_columns = [table.workflows.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
+  }
   # Unique on name only among live records, the same predicate agents use. A
   # schedule's name seeds the names of the agents it launches.
   index "schedules_name_active" {
