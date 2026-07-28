@@ -549,13 +549,15 @@ func renderHints(hints []hint) string {
 // agentsView renders the nav list, the panel's own pane. The hovered resource is
 // shown in the separate stage pane, not here.
 func (m model) agentsView() string {
-	var list strings.Builder
-	list.WriteString(headerStyle.Render("Agents and Workflows") + "\n\n")
+	header := headerStyle.Render("Agents and Workflows") + "\n\n"
+	hints := "\n" + m.actionHints()
 
 	// The list is a tree. Each workflow is a folder header with its agents nested
 	// beneath it, so an agent's parent shows by position rather than a per-row
 	// marker.
-	for i, r := range m.agentRows() {
+	all := m.agentRows()
+	rows := make([]string, 0, len(all))
+	for i, r := range all {
 		selected := i == m.agentCursor
 		prefix := "  "
 		if selected {
@@ -567,7 +569,7 @@ func (m model) agentsView() string {
 			if selected {
 				label = cursorStyle.Render(label)
 			}
-			list.WriteString(prefix + dimStyle.Render("⧉") + " " + label + "\n")
+			rows = append(rows, prefix+dimStyle.Render("⧉")+" "+label)
 			continue
 		}
 
@@ -587,10 +589,8 @@ func (m model) agentsView() string {
 		}
 
 		icon := lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
-		list.WriteString(prefix + "  " + icon + " " + name + scheduledMark(item.agent) + markedMark(item.agent, m.marks) + "\n")
+		rows = append(rows, prefix+"  "+icon+" "+name+scheduledMark(item.agent)+markedMark(item.agent, m.marks))
 	}
 
-	list.WriteString("\n" + m.actionHints())
-
-	return list.String()
+	return header + renderList(rows, m.agentCursor, m.listLines(header, hints)) + hints
 }

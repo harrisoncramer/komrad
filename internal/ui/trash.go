@@ -266,13 +266,14 @@ func trashMarkdown(agent agentstore.Agent, schedule string) string {
 
 // trashView renders the trash's own pane, the list of deleted agents.
 func (m model) trashView() string {
-	var b strings.Builder
-	b.WriteString(headerStyle.Render("Trash") + "\n\n")
+	header := headerStyle.Render("Trash") + "\n\n"
+	hints := "\n" + m.trashHints()
 
 	if len(m.trash) == 0 {
-		b.WriteString(dimStyle.Render("nothing deleted") + "\n")
+		return header + dimStyle.Render("nothing deleted") + "\n" + hints
 	}
 
+	rows := make([]string, 0, len(m.trash))
 	for i, agent := range m.trash {
 		prefix := "  "
 		name := dimStyle.Render(agent.Name)
@@ -281,12 +282,10 @@ func (m model) trashView() string {
 			name = cursorStyle.Render(agent.Name)
 		}
 
-		b.WriteString(prefix + name + scheduledMark(agent) + markedMark(agent, m.marks) + "\n")
+		rows = append(rows, prefix+name+scheduledMark(agent)+markedMark(agent, m.marks))
 	}
 
-	b.WriteString("\n" + m.trashHints())
-
-	return b.String()
+	return header + renderList(rows, m.trashCursor, m.listLines(header, hints)) + hints
 }
 
 // trashHints lists the trash screen's bindings.

@@ -271,13 +271,14 @@ func (m model) updateScheduleDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 // expression and when it next fires, since those two are what a person checks a
 // schedule for.
 func (m model) schedulesView() string {
-	var list strings.Builder
-	list.WriteString(headerStyle.Render("Schedules") + "\n\n")
+	header := headerStyle.Render("Schedules") + "\n\n"
+	hints := "\n" + m.scheduleHints()
 
 	if len(m.schedules) == 0 {
-		list.WriteString(dimStyle.Render("  no schedules yet") + "\n")
+		return header + dimStyle.Render("  no schedules yet") + "\n" + hints
 	}
 
+	rows := make([]string, 0, len(m.schedules))
 	for i, item := range m.schedules {
 		selected := i == m.scheduleCursor
 		prefix := "  "
@@ -294,12 +295,10 @@ func (m model) schedulesView() string {
 		}
 
 		icon := lipgloss.NewStyle().Foreground(scheduleColor(item.schedule.Enabled)).Render(scheduleIcon(item.schedule.Enabled))
-		list.WriteString(prefix + "  " + icon + " " + name + "  " + dimStyle.Render(item.schedule.Cron) + "\n")
+		rows = append(rows, prefix+"  "+icon+" "+name+"  "+dimStyle.Render(item.schedule.Cron))
 	}
 
-	list.WriteString("\n" + m.scheduleHints())
-
-	return list.String()
+	return header + renderList(rows, m.scheduleCursor, m.listLines(header, hints)) + hints
 }
 
 // scheduleHints renders the key hints for the schedules screen, in the same

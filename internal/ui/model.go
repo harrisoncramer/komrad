@@ -275,6 +275,11 @@ type model struct {
 
 	screen screen
 
+	// height is how tall the panel's own pane is, from the last resize. It is zero
+	// until the first one arrives, which the lists read as unbounded rather than
+	// clipping themselves against a height nothing measured.
+	height int
+
 	agents      []agentItem
 	agentCursor int
 
@@ -657,6 +662,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
+	}
+
+	// A resize is recorded and then falls through rather than being consumed, since
+	// an open form lays itself out from the same message.
+	if size, ok := msg.(tea.WindowSizeMsg); ok {
+		m.height = size.Height
 	}
 
 	// The banner is chrome rather than a screen, so it is dismissed with esc as a
