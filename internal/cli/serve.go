@@ -8,14 +8,17 @@ import (
 	"time"
 
 	"claude-agents/internal/agents"
+	"claude-agents/internal/appconfig"
 	"claude-agents/internal/interceptors"
 	"claude-agents/internal/jobs"
 	"claude-agents/internal/mcp"
 	rpcagent "claude-agents/internal/rpc/agent"
+	rpcconfig "claude-agents/internal/rpc/config"
 	rpcschedule "claude-agents/internal/rpc/schedule"
 	rpcworkflow "claude-agents/internal/rpc/workflow"
 	"claude-agents/internal/store"
 	"claude-agents/proto/gen/agent/v1/agentv1connect"
+	"claude-agents/proto/gen/config/v1/configv1connect"
 	"claude-agents/proto/gen/schedule/v1/schedulev1connect"
 	"claude-agents/proto/gen/workflow/v1/workflowv1connect"
 
@@ -79,6 +82,14 @@ func serveCmd(state *app) *cobra.Command {
 				connect.WithInterceptors(validation),
 			)
 			mux.Handle(schedulePath, scheduleHandler)
+
+			// The config service reads the file per call, so it takes the path
+			// rather than the config this process parsed at startup.
+			configPath, configHandler := configv1connect.NewConfigServiceHandler(
+				rpcconfig.NewService(func() (*appconfig.Config, error) { return appconfig.Load(state.configPath) }),
+				connect.WithInterceptors(validation),
+			)
+			mux.Handle(configPath, configHandler)
 
 			// The MCP endpoint reads through its own read-only handle rather than
 			// the store's, so nothing reachable from a model can write, whatever

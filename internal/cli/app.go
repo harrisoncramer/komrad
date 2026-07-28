@@ -43,6 +43,10 @@ type app struct {
 	// it on its error screen; every other command ignores it, since none of them
 	// read keybindings.
 	configErr error
+	// configPath is the file the user pointed at, empty for the default location.
+	// Serve keeps the path rather than the config parsed from it, since it reads the
+	// file again per request.
+	configPath string
 	// tmux is shared with the services. The UI needs it directly for the stage,
 	// which is its own layout rather than anything the agent API owns.
 	tmux *tmux.Client

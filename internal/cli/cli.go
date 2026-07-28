@@ -53,6 +53,7 @@ func NewRootCommand() *cobra.Command {
 			state.env = env
 			state.keys = cfg.Keybindings
 			state.claudeFlags = cfg.ClaudeFlags
+			state.configPath = configPath
 			state.tmux = tmux.NewClient(env.TmuxSocket)
 			state.popup = ui.NewPopup(state.tmux, agents.ManagerSession)
 
