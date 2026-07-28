@@ -372,6 +372,92 @@ func TestSetMark(t *testing.T) {
 	}
 }
 
+// TestSetHidden covers hiding an agent, bringing it back, and who may be hidden at
+// all. A write that landed on nothing would leave the panel drawing a row the caller
+// believes it took away.
+func TestSetHidden(t *testing.T) {
+	tests := []struct {
+		name    string
+		create  bool
+		archive bool
+		id      func(created Agent) string
+		// before is written ahead of the call, so unhiding has something to undo.
+		before      bool
+		hidden      bool
+		wantChanged bool
+	}{
+		{
+			name:   "an id no agent holds",
+			id:     func(Agent) string { return uuid.NewString() },
+			hidden: true,
+		},
+		{
+			name:   "a value that is not an id at all",
+			id:     func(Agent) string { return "not-an-id" },
+			hidden: true,
+		},
+		{
+			name:    "an archived agent, which has no listing to be hidden from",
+			create:  true,
+			archive: true,
+			id:      func(created Agent) string { return created.ID },
+			hidden:  true,
+		},
+		{
+			name:        "hiding a live agent",
+			create:      true,
+			id:          func(created Agent) string { return created.ID },
+			hidden:      true,
+			wantChanged: true,
+		},
+		{
+			name:        "bringing a hidden agent back",
+			create:      true,
+			id:          func(created Agent) string { return created.ID },
+			before:      true,
+			wantChanged: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			var created Agent
+			if tt.create {
+				require.NoError(t, st.Upsert(ctx, Agent{Name: "agent", State: StateNew}))
+				got, err := st.Get(ctx, "agent")
+				require.NoError(t, err)
+				require.NotNil(t, got)
+				created = *got
+				assert.False(t, got.Hidden, "an agent starts out listed")
+			}
+			if tt.before {
+				changed, err := st.SetHidden(ctx, created.ID, true)
+				require.NoError(t, err)
+				require.True(t, changed)
+			}
+			if tt.archive {
+				require.NoError(t, st.Archive(ctx, "agent"))
+			}
+
+			changed, err := st.SetHidden(ctx, tt.id(created), tt.hidden)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantChanged, changed)
+
+			if !tt.wantChanged {
+				return
+			}
+
+			after, err := st.Get(ctx, "agent")
+			require.NoError(t, err)
+			require.NotNil(t, after)
+			assert.Equal(t, tt.hidden, after.Hidden)
+		})
+	}
+}
+
 // TestSetStateByIDKeepsTheMark pins that a state write is only a state write. The
 // mark belongs to the user and the reconciler writes state constantly, so the two
 // share a row without touching each other.
@@ -449,6 +535,9 @@ func TestRestore(t *testing.T) {
 		// withWorkflow files the agent under a workflow first, since a restore that
 		// dropped the assignment would strand it at the root.
 		withWorkflow bool
+		// hidden takes the agent out of the list before it is archived, so the restore
+		// has a flag to clear.
+		hidden bool
 	}{
 		{
 			name: "a restored agent keeps its id and its conversation",
@@ -456,6 +545,10 @@ func TestRestore(t *testing.T) {
 		{
 			name:         "and the workflow it belonged to",
 			withWorkflow: true,
+		},
+		{
+			name:   "one hidden before it was archived comes back listed",
+			hidden: true,
 		},
 	}
 
@@ -476,6 +569,11 @@ func TestRestore(t *testing.T) {
 			original, err := st.Get(ctx, "beta")
 			require.NoError(t, err)
 			require.NotNil(t, original)
+			if tt.hidden {
+				changed, err := st.SetHidden(ctx, original.ID, true)
+				require.NoError(t, err)
+				require.True(t, changed)
+			}
 			require.NoError(t, st.Archive(ctx, "beta"))
 
 			require.NoError(t, st.Restore(ctx, original.ID))
@@ -490,6 +588,7 @@ func TestRestore(t *testing.T) {
 			assert.Equal(t, original.ID, got.ID, "a restored row keeps its id")
 			assert.Equal(t, StateNew, got.State)
 			assert.Equal(t, "sess-1", got.ClaudeSessionID, "restore preserves the conversation")
+			assert.False(t, got.Hidden, "a restored agent comes back to a row")
 
 			all, err := st.ListAll(ctx)
 			require.NoError(t, err)

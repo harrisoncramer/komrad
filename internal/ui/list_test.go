@@ -171,20 +171,24 @@ func TestScreensFitThePane(t *testing.T) {
 	m.scheduleCursor = total - 1
 
 	tests := []struct {
-		name   string
-		screen screen
+		name      string
+		screen    screen
+		wantTitle string
 	}{
 		{
-			name:   "the agents tree",
-			screen: screenAgents,
+			name:      "the agents tree",
+			screen:    screenAgents,
+			wantTitle: "Agents and Workflows",
 		},
 		{
-			name:   "the trash",
-			screen: screenTrash,
+			name:      "the trash",
+			screen:    screenTrash,
+			wantTitle: "Trash",
 		},
 		{
-			name:   "the schedules",
-			screen: screenSchedules,
+			name:      "the schedules",
+			screen:    screenSchedules,
+			wantTitle: "Schedules",
 		},
 	}
 
@@ -194,9 +198,13 @@ func TestScreensFitThePane(t *testing.T) {
 			shown.screen = tt.screen
 			view := shown.View()
 
-			assert.LessOrEqual(t, strings.Count(view, "\n"), height)
+			// The renderer draws what follows the last newline as a line of its own, so
+			// a view ending in one is a line taller than it reads and scrolls the pane.
+			assert.NotEqual(t, "\n", view[len(view)-1:], "the view ends without a trailing newline")
+			assert.LessOrEqual(t, len(lines(view)), height)
 			assert.Contains(t, view, "agent39", "the hovered row is on screen")
 			assert.Contains(t, view, "back", "the legend is on screen")
+			assert.Contains(t, view, tt.wantTitle, "the title is on screen")
 		})
 	}
 }

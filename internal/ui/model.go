@@ -283,6 +283,11 @@ type model struct {
 	agents      []agentItem
 	agentCursor int
 
+	// showHidden draws the hidden agents alongside the rest. It is the panel's own
+	// state rather than anything stored, so it lasts as long as this process and every
+	// panel starts with the hidden ones away.
+	showHidden bool
+
 	// infoPinned shows the hovered agent's stored record in the stage instead of the
 	// agent itself. A live agent otherwise occupies the stage with its own pane, so
 	// its cwd and flags have nowhere else to show. Moving the cursor or opening an
@@ -528,6 +533,7 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 		ScheduleID:      s.ScheduleId,
 		CreatedAt:       created,
 		Mark:            s.Mark,
+		Hidden:          s.GetHidden(),
 	}
 }
 

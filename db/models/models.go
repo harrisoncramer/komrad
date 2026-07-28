@@ -24,6 +24,7 @@ type Agent struct {
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 	Mark            *string
+	IsHidden        bool
 }
 
 // Editable config (cwd, flags) owned by exactly one agent.

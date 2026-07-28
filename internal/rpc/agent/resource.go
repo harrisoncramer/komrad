@@ -50,6 +50,7 @@ func renderAgent(stored agentstore.Agent, alive bool) agent {
 			CreatedAt:       created,
 			Alive:           alive,
 			Mark:            stored.Mark,
+			Hidden:          stored.Hidden,
 		},
 		cursor: agentstore.Cursor{ID: stored.ID},
 	}

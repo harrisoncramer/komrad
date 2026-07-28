@@ -30,6 +30,10 @@ type agentRow struct {
 	// target it, and the index of the enclosing workflow for an agent row, so a new
 	// agent started from one lands in the same place.
 	workflowIndex int
+	// hiddenCount is how many of a header's agents are hidden, so the folder can say
+	// how much of itself it is not showing. It is always the full count, whether or
+	// not the hidden ones are on screen.
+	hiddenCount int
 }
 
 // agentRows arranges the agents into the displayed tree. Every workflow is a
@@ -40,15 +44,28 @@ type agentRow struct {
 // do not. An agent whose workflow is not in the listing, which means the
 // workflow was deleted, is left out rather than shown under a header that is not
 // there.
+//
+// A hidden agent gives up its row and is counted against its workflow's header
+// instead, unless the panel is showing the hidden ones. The filtering happens here
+// rather than at the listing, so every other screen and every count still sees the
+// whole set.
 func (m model) agentRows() []agentRow {
 	byWorkflow := make(map[string][]agentItem)
+	hiddenCounts := make(map[string]int)
 	for _, it := range m.agents {
+		if it.agent.Hidden {
+			hiddenCounts[it.agent.WorkflowID]++
+			if !m.showHidden {
+				continue
+			}
+		}
+
 		byWorkflow[it.agent.WorkflowID] = append(byWorkflow[it.agent.WorkflowID], it)
 	}
 
 	var rows []agentRow
 	for wi, w := range m.workflows {
-		rows = append(rows, agentRow{header: true, label: w.Name, workflowIndex: wi})
+		rows = append(rows, agentRow{header: true, label: w.Name, workflowIndex: wi, hiddenCount: hiddenCounts[w.ID]})
 		for _, it := range byWorkflow[w.ID] {
 			rows = append(rows, agentRow{item: it, workflowIndex: wi})
 		}
@@ -157,6 +174,13 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.enterTrash()
 	}
 
+	// Whether the hidden agents are drawn is a property of the whole list rather than
+	// of the row under the cursor, so it works from a workflow header as much as from
+	// an agent.
+	if bound(k, m.keys.Agents.ShowHidden) {
+		return m.toggleShowHidden()
+	}
+
 	// On a workflow header the workflow bindings act on that folder's workflow.
 	if wfIdx, ok := m.hoveredWorkflow(); ok {
 		return m.updateHoveredWorkflow(key, wfIdx)
@@ -198,6 +222,12 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.report(fmt.Sprintf("Could not mark agent %q", item.agent.Name), m.setMark(item.agent, next))
 		m.reload()
 		m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
+	case bound(k, m.keys.Agents.Hide):
+		item, ok := m.selectedAgent()
+		if !ok {
+			return m, nil
+		}
+		return m.hideAgent(item.agent)
 	case bound(k, m.keys.Agents.Rename):
 		item, ok := m.selectedAgent()
 		if !ok {
@@ -263,6 +293,58 @@ func (m model) archiveAgent(agent agentstore.Agent) error {
 	defer cancel()
 
 	_, err := m.api.agents.ArchiveAgent(ctx, connect.NewRequest(&agentv1.ArchiveAgentRequest{Name: agent.Name}))
+
+	return err
+}
+
+// toggleShowHidden draws the hidden agents alongside the rest, or puts them away
+// again. Rows appear and vanish above the cursor either way, so it follows the agent
+// it was on rather than the index it held, the same way a refresh does.
+func (m model) toggleShowHidden() (tea.Model, tea.Cmd) {
+	selected := ""
+	if item, ok := m.selectedAgent(); ok {
+		selected = item.agent.Name
+	}
+
+	m.showHidden = !m.showHidden
+
+	rows := m.agentRows()
+	if idx := rowIndexOfAgentName(rows, selected); idx >= 0 {
+		m.agentCursor = idx
+	} else {
+		m.agentCursor = clampCursor(m.agentCursor, len(rows))
+	}
+	m.stageSelection()
+
+	return m, nil
+}
+
+// hideAgent takes the hovered agent out of the list, or puts a revealed one back.
+// The row leaves the tree as soon as the write lands unless the hidden agents are
+// being shown, so the cursor is clamped into whatever tree is left. One key does
+// both directions, so which way it went has to come from the row for the failure to
+// name it.
+func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
+	failure := fmt.Sprintf("Could not hide agent %q", agent.Name)
+	if agent.Hidden {
+		failure = fmt.Sprintf("Could not unhide agent %q", agent.Name)
+	}
+
+	m.report(failure, m.setHidden(agent, !agent.Hidden))
+	m.reload()
+	m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
+	m.stageSelection()
+
+	return m, nil
+}
+
+// setHidden takes an agent out of the list or puts it back. Nothing about the agent
+// changes: it keeps running and every other view still holds it.
+func (m model) setHidden(agent agentstore.Agent, hidden bool) error {
+	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	defer cancel()
+
+	_, err := m.api.agents.SetHidden(ctx, connect.NewRequest(&agentv1.SetHiddenRequest{Id: agent.ID, Hidden: hidden}))
 
 	return err
 }
@@ -341,6 +423,31 @@ func scheduledMark(agent agentstore.Agent) string {
 	}
 
 	return " " + dimStyle.Render(scheduledIcon)
+}
+
+// hiddenIcon is a dotted circle, single-width for the same reason the clock is.
+const hiddenIcon = "◌"
+
+// hiddenMark is drawn after a hidden agent's name, which is only on screen at all
+// while the hidden ones are being shown. Without it a revealed row is
+// indistinguishable from the rest and the hide key reads as doing nothing.
+func hiddenMark(agent agentstore.Agent) string {
+	if !agent.Hidden {
+		return ""
+	}
+
+	return " " + dimStyle.Render(hiddenIcon)
+}
+
+// hiddenTally is the count of hidden agents drawn after a workflow's name, so a
+// folder says how much of itself it is not showing. It is dropped once they are on
+// screen, where they are rows of their own and the count would only say it twice.
+func hiddenTally(count int, showing bool) string {
+	if count == 0 || showing {
+		return ""
+	}
+
+	return " " + dimStyle.Render(fmt.Sprintf("+%d", count))
 }
 
 // markedMark is the glyph the user marked an agent with, drawn after the row rather
@@ -458,6 +565,9 @@ func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) string {
 	if agent.Mark != nil {
 		fmt.Fprintf(&b, "- mark: %s\n", *agent.Mark)
 	}
+	if agent.Hidden {
+		b.WriteString("- hidden from the list\n")
+	}
 	if !alive {
 		b.WriteString("\nPress open to restore.\n")
 	}
@@ -483,10 +593,24 @@ func (m model) actionHints() string {
 		}
 	}
 
+	// The hide key toggles too, so the legend names the direction the row under the
+	// cursor would go rather than the action in the abstract. So does the key that
+	// draws the hidden agents.
+	hideDesc := "hide"
+	if item, ok := m.selectedAgent(); ok && item.agent.Hidden {
+		hideDesc = "unhide"
+	}
+
+	showHiddenDesc := "show hidden"
+	if m.showHidden {
+		showHiddenDesc = "put hidden away"
+	}
+
 	hints := []hint{
 		{hintKeys(m.keys.Agents.Open), "open"},
 		{hintKeys(m.keys.Agents.Info), infoDesc},
 		{hintKeys(m.keys.Agents.Mark), markDesc},
+		{hintKeys(m.keys.Agents.Hide), hideDesc},
 		{hintKeys(m.keys.Agents.New), "new agent"},
 		{hintKeys(m.keys.Workflows.New), "new workflow"},
 		{hintKeys(m.keys.Agents.Rename), "rename"},
@@ -503,6 +627,7 @@ func (m model) actionHints() string {
 	}
 
 	hints = append(hints, m.screenHints()...)
+	hints = append(hints, hint{hintKeys(m.keys.Agents.ShowHidden), showHiddenDesc})
 	hints = append(hints,
 		hint{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
 		hint{hintKeys(m.keys.Agents.Back), "back"},
@@ -569,7 +694,7 @@ func (m model) agentsView() string {
 			if selected {
 				label = cursorStyle.Render(label)
 			}
-			rows = append(rows, prefix+dimStyle.Render("⧉")+" "+label)
+			rows = append(rows, prefix+dimStyle.Render("⧉")+" "+label+hiddenTally(r.hiddenCount, m.showHidden))
 			continue
 		}
 
@@ -589,7 +714,7 @@ func (m model) agentsView() string {
 		}
 
 		icon := lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
-		rows = append(rows, prefix+"  "+icon+" "+name+scheduledMark(item.agent)+markedMark(item.agent, m.marks))
+		rows = append(rows, prefix+"  "+icon+" "+name+scheduledMark(item.agent)+hiddenMark(item.agent)+markedMark(item.agent, m.marks))
 	}
 
 	return header + renderList(rows, m.agentCursor, m.listLines(header, hints)) + hints

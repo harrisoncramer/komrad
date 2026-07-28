@@ -78,6 +78,15 @@ type AgentsKeys struct {
 	// Move the hovered agent to the next mark in the marks list, and past the last
 	// one back to unmarked. Nothing but you ever sets a mark.
 	Mark []string `mapstructure:"mark"`
+	// Hide the hovered agent from this list, or unhide one while the hidden agents
+	// are shown. Hiding stops nothing: the agent keeps running and every other view
+	// still holds it. This holds h, which is why back on this screen is esc and left
+	// alone.
+	Hide []string `mapstructure:"hide"`
+	// Show the hidden agents alongside the rest, and press it again to put them
+	// away. While they are away each workflow header carries the count of what it is
+	// not showing.
+	ShowHidden []string `mapstructure:"show_hidden"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow. New is global. Rename,
@@ -193,15 +202,17 @@ func DefaultKeybindings() Keybindings {
 			Down: []string{"down", "ctrl+n"},
 		},
 		Agents: AgentsKeys{
-			Quit:   []string{"ctrl+c", "q"},
-			Back:   []string{"esc", "left", "h"},
-			Open:   []string{"enter", "l", "right"},
-			New:    []string{"n"},
-			Rename: []string{"r"},
-			Delete: []string{"d"},
-			Search: []string{"/"},
-			Info:   []string{"i"},
-			Mark:   []string{"m"},
+			Quit:       []string{"ctrl+c", "q"},
+			Back:       []string{"esc", "left"},
+			Open:       []string{"enter", "l", "right"},
+			New:        []string{"n"},
+			Rename:     []string{"r"},
+			Delete:     []string{"d"},
+			Search:     []string{"/"},
+			Info:       []string{"i"},
+			Mark:       []string{"m"},
+			Hide:       []string{"h"},
+			ShowHidden: []string{"H"},
 		},
 		Workflows: WorkflowsKeys{
 			New:    []string{"W"},
@@ -294,6 +305,8 @@ func (k Keybindings) withDefaults() Keybindings {
 	k.Agents.Search = fillKeys(k.Agents.Search, def.Agents.Search)
 	k.Agents.Info = fillKeys(k.Agents.Info, def.Agents.Info)
 	k.Agents.Mark = fillKeys(k.Agents.Mark, def.Agents.Mark)
+	k.Agents.Hide = fillKeys(k.Agents.Hide, def.Agents.Hide)
+	k.Agents.ShowHidden = fillKeys(k.Agents.ShowHidden, def.Agents.ShowHidden)
 
 	k.Workflows.New = fillKeys(k.Workflows.New, def.Workflows.New)
 	k.Workflows.Rename = fillKeys(k.Workflows.Rename, def.Workflows.Rename)

@@ -113,8 +113,14 @@ func (s *Stage) Agent(pane string) {
 
 // Text shows markdown in the stage by writing it to a temp file and running bat
 // there, which is how a workflow's info and a dormant agent's placeholder render.
-// bat is one-shot, so it runs inside a shell that holds the pane open after it
-// prints. Otherwise the process would exit and tmux would close the stage pane.
+// bat pages through less, so a record taller than the pane sits at its heading
+// and scrolls from there rather than dumping past the top of the pane and leaving
+// whatever slice of the middle happened to land last. less also holds the pane
+// open, which a one-shot print does not: the process would exit and tmux would
+// close the stage pane under it. Its flags are only -R and -X: bat's own pager
+// arguments quit on anything that fits a single screen and every short record
+// would take the pane with it, and -X keeps less out of the alternate screen,
+// where its first paint is lost when the popup holding the panel is detached.
 func (s *Stage) Text(markdown string) {
 	s.ensure()
 	if s.pane == "" {
@@ -132,7 +138,7 @@ func (s *Stage) Text(markdown string) {
 		return
 	}
 
-	cmd := fmt.Sprintf("bat --language=markdown --style=plain --paging=never '%s'; while :; do sleep 3600; done", path)
+	cmd := fmt.Sprintf("bat --language=markdown --style=plain --paging=always --pager='less -RX' '%s'", path)
 	s.tmux.RespawnPane(s.pane, home, "sh", "-c", cmd)
 	s.shown = markdown
 }

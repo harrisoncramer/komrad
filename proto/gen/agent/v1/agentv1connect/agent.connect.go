@@ -45,6 +45,8 @@ const (
 	AgentServiceSetStateProcedure = "/agent.v1.AgentService/SetState"
 	// AgentServiceSetMarkProcedure is the fully-qualified name of the AgentService's SetMark RPC.
 	AgentServiceSetMarkProcedure = "/agent.v1.AgentService/SetMark"
+	// AgentServiceSetHiddenProcedure is the fully-qualified name of the AgentService's SetHidden RPC.
+	AgentServiceSetHiddenProcedure = "/agent.v1.AgentService/SetHidden"
 	// AgentServiceArchiveAgentProcedure is the fully-qualified name of the AgentService's ArchiveAgent
 	// RPC.
 	AgentServiceArchiveAgentProcedure = "/agent.v1.AgentService/ArchiveAgent"
@@ -78,6 +80,7 @@ type AgentServiceClient interface {
 	// state. They are idempotent and safe for the client to retry.
 	SetState(context.Context, *connect.Request[v1.SetStateRequest]) (*connect.Response[emptypb.Empty], error)
 	SetMark(context.Context, *connect.Request[v1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error)
+	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	ArchiveAgent(context.Context, *connect.Request[v1.ArchiveAgentRequest]) (*connect.Response[emptypb.Empty], error)
 	RestoreAgent(context.Context, *connect.Request[v1.RestoreAgentRequest]) (*connect.Response[v1.RestoreAgentResponse], error)
 	DeleteAgent(context.Context, *connect.Request[v1.DeleteAgentRequest]) (*connect.Response[emptypb.Empty], error)
@@ -134,6 +137,13 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
+		setHidden: connect.NewClient[v1.SetHiddenRequest, emptypb.Empty](
+			httpClient,
+			baseURL+AgentServiceSetHiddenProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("SetHidden")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
 		archiveAgent: connect.NewClient[v1.ArchiveAgentRequest, emptypb.Empty](
 			httpClient,
 			baseURL+AgentServiceArchiveAgentProcedure,
@@ -186,6 +196,7 @@ type agentServiceClient struct {
 	createAgent       *connect.Client[v1.CreateAgentRequest, v1.CreateAgentResponse]
 	setState          *connect.Client[v1.SetStateRequest, emptypb.Empty]
 	setMark           *connect.Client[v1.SetMarkRequest, emptypb.Empty]
+	setHidden         *connect.Client[v1.SetHiddenRequest, emptypb.Empty]
 	archiveAgent      *connect.Client[v1.ArchiveAgentRequest, emptypb.Empty]
 	restoreAgent      *connect.Client[v1.RestoreAgentRequest, v1.RestoreAgentResponse]
 	deleteAgent       *connect.Client[v1.DeleteAgentRequest, emptypb.Empty]
@@ -217,6 +228,11 @@ func (c *agentServiceClient) SetState(ctx context.Context, req *connect.Request[
 // SetMark calls agent.v1.AgentService.SetMark.
 func (c *agentServiceClient) SetMark(ctx context.Context, req *connect.Request[v1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error) {
 	return c.setMark.CallUnary(ctx, req)
+}
+
+// SetHidden calls agent.v1.AgentService.SetHidden.
+func (c *agentServiceClient) SetHidden(ctx context.Context, req *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.setHidden.CallUnary(ctx, req)
 }
 
 // ArchiveAgent calls agent.v1.AgentService.ArchiveAgent.
@@ -262,6 +278,7 @@ type AgentServiceHandler interface {
 	// state. They are idempotent and safe for the client to retry.
 	SetState(context.Context, *connect.Request[v1.SetStateRequest]) (*connect.Response[emptypb.Empty], error)
 	SetMark(context.Context, *connect.Request[v1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error)
+	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	ArchiveAgent(context.Context, *connect.Request[v1.ArchiveAgentRequest]) (*connect.Response[emptypb.Empty], error)
 	RestoreAgent(context.Context, *connect.Request[v1.RestoreAgentRequest]) (*connect.Response[v1.RestoreAgentResponse], error)
 	DeleteAgent(context.Context, *connect.Request[v1.DeleteAgentRequest]) (*connect.Response[emptypb.Empty], error)
@@ -311,6 +328,13 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		AgentServiceSetMarkProcedure,
 		svc.SetMark,
 		connect.WithSchema(agentServiceMethods.ByName("SetMark")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceSetHiddenHandler := connect.NewUnaryHandler(
+		AgentServiceSetHiddenProcedure,
+		svc.SetHidden,
+		connect.WithSchema(agentServiceMethods.ByName("SetHidden")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
@@ -368,6 +392,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceSetStateHandler.ServeHTTP(w, r)
 		case AgentServiceSetMarkProcedure:
 			agentServiceSetMarkHandler.ServeHTTP(w, r)
+		case AgentServiceSetHiddenProcedure:
+			agentServiceSetHiddenHandler.ServeHTTP(w, r)
 		case AgentServiceArchiveAgentProcedure:
 			agentServiceArchiveAgentHandler.ServeHTTP(w, r)
 		case AgentServiceRestoreAgentProcedure:
@@ -407,6 +433,10 @@ func (UnimplementedAgentServiceHandler) SetState(context.Context, *connect.Reque
 
 func (UnimplementedAgentServiceHandler) SetMark(context.Context, *connect.Request[v1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.SetMark is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.SetHidden is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) ArchiveAgent(context.Context, *connect.Request[v1.ArchiveAgentRequest]) (*connect.Response[emptypb.Empty], error) {

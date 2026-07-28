@@ -53,6 +53,10 @@ type Agent struct {
 	// the same key finds this agent rather than spawning a second one.
 	IdempotencyKey *string
 	Deleted        bool
+	// Hidden keeps this agent out of the panel's list without stopping it. It is the
+	// user's own flag, like Mark, and the agent runs and is reconciled the same
+	// whichever way it is set.
+	Hidden bool
 	// Mark is the glyph the user put on this agent, nil when it carries none. Only
 	// the user sets and clears it, so it says nothing about the agent's lifecycle.
 	Mark *string
@@ -306,6 +310,23 @@ func (s *Store) SetMark(ctx context.Context, id string, mark *string) (bool, err
 	return len(updated) > 0, nil
 }
 
+// SetHidden hides an agent from the panel's list or brings it back, keyed by id.
+// It reports whether a row was touched, so an id that matches nothing is
+// distinguishable from a flag that already held the value. An archived agent has no
+// listing to be hidden from, so it is not a row this writes.
+func (s *Store) SetHidden(ctx context.Context, id string, hidden bool) (bool, error) {
+	if !store.IsID(id) {
+		return false, nil
+	}
+
+	updated, err := s.queries.SetAgentHidden(ctx, models.SetAgentHiddenParams{ID: id, Hidden: hidden})
+	if err != nil {
+		return false, fmt.Errorf("failed to hide agent %q: %w", id, err)
+	}
+
+	return len(updated) > 0, nil
+}
+
 // Target names the rows a hard delete has to remove. The agent itself, the config
 // it owns, and the transcript keyed to its id. The transcript is another package's
 // table, so this reports the id rather than deleting it.
@@ -444,6 +465,10 @@ func (s *Store) Archive(ctx context.Context, name string) error {
 // returns to the normal listing. It is keyed by id, not name, because an
 // archived row can share a name with a live agent, so the id is the only
 // unambiguous handle to the exact row to restore.
+//
+// It clears the hidden flag with it. Restoring is a request for the agent to be back
+// in the list, and one that came back still hidden would take no row, which reads as
+// a restore that did nothing.
 func (s *Store) Restore(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil
@@ -500,6 +525,7 @@ func agentFromRow(agent models.Agent, cwd, flags string) Agent {
 		ScheduleID:      agent.ScheduleID,
 		IdempotencyKey:  agent.IdempotencyKey,
 		Deleted:         agent.IsDeleted,
+		Hidden:          agent.IsHidden,
 		Mark:            agent.Mark,
 		CreatedAt:       agent.CreatedAt,
 		UpdatedAt:       agent.UpdatedAt,

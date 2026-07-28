@@ -350,6 +350,66 @@ func TestSetState(t *testing.T) {
 	}
 }
 
+// TestSetHidden covers hiding over the wire. Hiding is the panel's own view of an
+// agent rather than anything about the agent, so what matters is that the flag comes
+// back on the agent the caller named and that naming nobody is refused.
+func TestSetHidden(t *testing.T) {
+	tests := []struct {
+		name string
+		seed bool
+		// hideFirst is written before the call, so bringing an agent back has something
+		// to bring back.
+		hideFirst bool
+		hidden    bool
+		wantCode  connect.Code
+	}{
+		{
+			name:     "an id nobody holds is not a quiet success",
+			hidden:   true,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:   "an agent is hidden",
+			seed:   true,
+			hidden: true,
+		},
+		{
+			name:      "and brought back again",
+			seed:      true,
+			hideFirst: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, st := service(t)
+			ctx := t.Context()
+
+			id := uuid.NewString()
+			if tt.seed {
+				id = st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking}).ID
+			}
+			if tt.hideFirst {
+				changed, err := st.Agents.SetHidden(ctx, id, true)
+				require.NoError(t, err)
+				require.True(t, changed)
+			}
+
+			_, err := svc.SetHidden(ctx, connect.NewRequest(&agentv1.SetHiddenRequest{Id: id, Hidden: tt.hidden}))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+				return
+			}
+
+			require.NoError(t, err)
+
+			got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Name: "alpha"}))
+			require.NoError(t, err)
+			assert.Equal(t, tt.hidden, got.Msg.GetAgent().GetHidden())
+		})
+	}
+}
+
 // TestSetMarked covers the mark over the wire. The server writes the stamp, so the
 // request carries only a direction, and an id that matches nothing is refused rather
 // than reported as a mark that never landed.

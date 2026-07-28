@@ -96,7 +96,7 @@ func (q *Queries) DeleteAgentTranscript(ctx context.Context, agentID string) err
 
 const getAgent = `-- name: GetAgent :one
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.schedule_id, s.idempotency_key, s.is_deleted, s.created_at, s.updated_at, s.mark,
+    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.schedule_id, s.idempotency_key, s.is_deleted, s.created_at, s.updated_at, s.mark, s.is_hidden,
     sc.cwd,
     sc.flags
 FROM
@@ -132,6 +132,7 @@ func (q *Queries) GetAgent(ctx context.Context, name string) (*GetAgentRow, erro
 		&i.Agent.CreatedAt,
 		&i.Agent.UpdatedAt,
 		&i.Agent.Mark,
+		&i.Agent.IsHidden,
 		&i.Cwd,
 		&i.Flags,
 	)
@@ -140,7 +141,7 @@ func (q *Queries) GetAgent(ctx context.Context, name string) (*GetAgentRow, erro
 
 const getAgentByIdempotencyKey = `-- name: GetAgentByIdempotencyKey :one
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.schedule_id, s.idempotency_key, s.is_deleted, s.created_at, s.updated_at, s.mark,
+    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.schedule_id, s.idempotency_key, s.is_deleted, s.created_at, s.updated_at, s.mark, s.is_hidden,
     sc.cwd,
     sc.flags
 FROM
@@ -175,6 +176,7 @@ func (q *Queries) GetAgentByIdempotencyKey(ctx context.Context, idempotencyKey *
 		&i.Agent.CreatedAt,
 		&i.Agent.UpdatedAt,
 		&i.Agent.Mark,
+		&i.Agent.IsHidden,
 		&i.Cwd,
 		&i.Flags,
 	)
@@ -305,7 +307,7 @@ func (q *Queries) InsertAgentConfig(ctx context.Context, arg InsertAgentConfigPa
 
 const listAgents = `-- name: ListAgents :many
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.schedule_id, s.idempotency_key, s.is_deleted, s.created_at, s.updated_at, s.mark,
+    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.schedule_id, s.idempotency_key, s.is_deleted, s.created_at, s.updated_at, s.mark, s.is_hidden,
     sc.cwd,
     sc.flags
 FROM
@@ -347,6 +349,7 @@ func (q *Queries) ListAgents(ctx context.Context) ([]*ListAgentsRow, error) {
 			&i.Agent.CreatedAt,
 			&i.Agent.UpdatedAt,
 			&i.Agent.Mark,
+			&i.Agent.IsHidden,
 			&i.Cwd,
 			&i.Flags,
 		); err != nil {
@@ -362,7 +365,7 @@ func (q *Queries) ListAgents(ctx context.Context) ([]*ListAgentsRow, error) {
 
 const listAgentsPage = `-- name: ListAgentsPage :many
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.schedule_id, s.idempotency_key, s.is_deleted, s.created_at, s.updated_at, s.mark,
+    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.schedule_id, s.idempotency_key, s.is_deleted, s.created_at, s.updated_at, s.mark, s.is_hidden,
     sc.cwd,
     sc.flags
 FROM
@@ -413,6 +416,7 @@ func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) 
 			&i.Agent.CreatedAt,
 			&i.Agent.UpdatedAt,
 			&i.Agent.Mark,
+			&i.Agent.IsHidden,
 			&i.Cwd,
 			&i.Flags,
 		); err != nil {
@@ -428,7 +432,7 @@ func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) 
 
 const listAllAgents = `-- name: ListAllAgents :many
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.schedule_id, s.idempotency_key, s.is_deleted, s.created_at, s.updated_at, s.mark,
+    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.schedule_id, s.idempotency_key, s.is_deleted, s.created_at, s.updated_at, s.mark, s.is_hidden,
     sc.cwd,
     sc.flags
 FROM
@@ -468,6 +472,7 @@ func (q *Queries) ListAllAgents(ctx context.Context) ([]*ListAllAgentsRow, error
 			&i.Agent.CreatedAt,
 			&i.Agent.UpdatedAt,
 			&i.Agent.Mark,
+			&i.Agent.IsHidden,
 			&i.Cwd,
 			&i.Flags,
 		); err != nil {
@@ -553,7 +558,8 @@ const restoreAgent = `-- name: RestoreAgent :exec
 UPDATE
     agents
 SET
-    is_deleted = FALSE
+    is_deleted = FALSE,
+    is_hidden = FALSE
 WHERE
     id = $1
 `
@@ -647,6 +653,43 @@ func (q *Queries) SearchTranscripts(ctx context.Context, arg SearchTranscriptsPa
 			return nil, err
 		}
 		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setAgentHidden = `-- name: SetAgentHidden :many
+UPDATE
+    agents
+SET
+    is_hidden = $1
+WHERE
+    id = $2
+    AND is_deleted = FALSE
+RETURNING
+    id
+`
+
+type SetAgentHiddenParams struct {
+	Hidden bool
+	ID     string
+}
+
+func (q *Queries) SetAgentHidden(ctx context.Context, arg SetAgentHiddenParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, setAgentHidden, arg.Hidden, arg.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

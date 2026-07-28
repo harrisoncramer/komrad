@@ -38,6 +38,7 @@ type agentStore interface {
 	Exists(ctx context.Context, id string) (bool, error)
 	SetState(ctx context.Context, name, state string) (bool, error)
 	SetMark(ctx context.Context, id string, mark *string) (bool, error)
+	SetHidden(ctx context.Context, id string, hidden bool) (bool, error)
 	Rename(ctx context.Context, id, name string) (bool, error)
 }
 
@@ -152,6 +153,21 @@ func (s *Service) SetMark(ctx context.Context, req *connect.Request[agentv1.SetM
 	changed, err := s.agents.SetMark(ctx, req.Msg.GetId(), req.Msg.Mark)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set the mark: %w", err))
+	}
+	if !changed {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// SetHidden hides an agent from the panel's list or brings it back. An id matching
+// nothing is an error rather than a quiet success, for the same reason it is on a
+// mark: the caller would otherwise believe in a change it never made.
+func (s *Service) SetHidden(ctx context.Context, req *connect.Request[agentv1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error) {
+	changed, err := s.agents.SetHidden(ctx, req.Msg.GetId(), req.Msg.GetHidden())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to hide the agent: %w", err))
 	}
 	if !changed {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))

@@ -259,6 +259,15 @@ table "agents" {
     type    = boolean
     default = false
   }
+  # Hidden keeps an agent out of the panel's list while leaving it running. It is
+  # not a second soft delete: the agent is live, still reconciled, and still
+  # counted, it just does not take a row until the panel is asked to show the
+  # hidden ones. It is the user's own flag, so nothing but they ever sets it.
+  column "is_hidden" {
+    null    = false
+    type    = boolean
+    default = false
+  }
   # The mark the user put on this agent, null when it carries none. It holds the
   # glyph itself, since which glyphs exist is their config and the glyph is the
   # whole meaning. Only the person writes it, never the reconciler, since what an

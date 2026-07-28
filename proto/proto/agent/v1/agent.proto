@@ -37,6 +37,11 @@ message Agent {
   // it means is theirs to decide, and the glyphs they cycle through are their
   // config, which get_config returns.
   optional string mark = 14;
+  // Whether the user has hidden this agent from the panel's list. It is not a
+  // deletion and says nothing about the agent, which runs and is reconciled the
+  // same either way. Listings return hidden agents like any other, since only the
+  // panel suppresses them.
+  bool hidden = 15;
 }
 
 message ListAgentsRequest {
@@ -153,6 +158,14 @@ message SetMarkRequest {
     message: "a mark must be a short glyph carrying no whitespace or control characters"
     expression: "this.size() <= 16 && !this.matches('[[:space:]]|[[:cntrl:]]')"
   }];
+}
+
+// SetHiddenRequest hides an agent from the panel's list or brings it back. It is
+// keyed by id rather than name for the same reason a mark is: the flag outlives a
+// rename, and the panel already holds the id of the row it is looking at.
+message SetHiddenRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+  bool hidden = 2;
 }
 
 // ArchiveAgentRequest hides an agent without destroying it. This is what the
@@ -288,6 +301,14 @@ service AgentService {
     option (annotation.v1.tool) = {
       tool_name: "set_agent_mark"
       description: "Put a mark on an agent, keyed by its id, or clear the one it carries by omitting the mark. A mark is a glyph the user reads off the row, meaning whatever they decided it means, such as needs review or dealt with. Use only the glyphs get_config returns under marks, since the panel's mark key cycles through those and can only clear anything else. What an agent is currently doing is already in its state, so do not mark that."
+      destructive: false
+    };
+  }
+  rpc SetHidden(SetHiddenRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.tool) = {
+      tool_name: "set_agent_hidden"
+      description: "Hide an agent from the panel's list, keyed by its id, or unhide it by passing hidden false. This changes nothing about the agent: it keeps running, the reconciler keeps moving its state, and every tool still returns it. It only decides whether the person watching the panel sees a row for it, which is theirs to decide, so do not hide work you were not asked to hide."
       destructive: false
     };
   }

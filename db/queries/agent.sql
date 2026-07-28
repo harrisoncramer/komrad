@@ -170,6 +170,17 @@ WHERE
 RETURNING
     id;
 
+-- name: SetAgentHidden :many
+UPDATE
+    agents
+SET
+    is_hidden = @hidden
+WHERE
+    id = @id
+    AND is_deleted = FALSE
+RETURNING
+    id;
+
 -- GetAgentForDelete resolves the two ids a hard delete has to remove rows by.
 -- name: GetAgentForDelete :one
 SELECT
@@ -226,7 +237,8 @@ WHERE
 UPDATE
     agents
 SET
-    is_deleted = FALSE
+    is_deleted = FALSE,
+    is_hidden = FALSE
 WHERE
     id = @id;
 
