@@ -189,6 +189,48 @@ func TestListAgents(t *testing.T) {
 	}
 }
 
+// TestListAgentsDeleted covers the flag that swaps which set is listed. The
+// panel reads the live agents and its trash reads the deleted ones through the
+// same call, so a request that ignored the flag would show one of them the
+// other's rows.
+func TestListAgentsDeleted(t *testing.T) {
+	tests := []struct {
+		name      string
+		deleted   bool
+		wantNames []string
+	}{
+		{
+			name:      "the default listing is the live agents",
+			wantNames: []string{"live"},
+		},
+		{
+			name:      "asking for the deleted ones excludes the live",
+			deleted:   true,
+			wantNames: []string{"archived"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, st, _ := serviceWithLauncher(t)
+			ctx := t.Context()
+
+			st.SeedAgent(t, agentstore.Agent{Name: "archived", Pane: "%1", State: agentstore.StateThinking})
+			require.NoError(t, st.Agents.Archive(ctx, "archived"))
+			st.SeedAgent(t, agentstore.Agent{Name: "live", Pane: "%2", State: agentstore.StateThinking})
+
+			listed, err := svc.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{Deleted: tt.deleted}))
+			require.NoError(t, err)
+
+			names := make([]string, 0, len(listed.Msg.GetAgents()))
+			for _, agent := range listed.Msg.GetAgents() {
+				names = append(names, agent.GetName())
+			}
+			assert.Equal(t, tt.wantNames, names)
+		})
+	}
+}
+
 // TestUpdateAgent covers renaming by id. A name a live agent already holds is a
 // conflict rather than a server fault, and the driver's own message stays
 // server-side.
@@ -382,7 +424,7 @@ func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 		{
 			name: "deleting an agent nobody holds",
 			call: func(t *testing.T, svc *Service) error {
-				_, err := svc.DeleteAgent(t.Context(), connect.NewRequest(&agentv1.DeleteAgentRequest{Name: "ghost"}))
+				_, err := svc.DeleteAgent(t.Context(), connect.NewRequest(&agentv1.DeleteAgentRequest{Id: "ghost"}))
 				return err
 			},
 			fail:     func(l *fakeLauncher) { l.deleteErr = agents.ErrAgentNotFound },
@@ -409,7 +451,7 @@ func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 		{
 			name: "deleting stops the agent",
 			call: func(t *testing.T, svc *Service) error {
-				_, err := svc.DeleteAgent(t.Context(), connect.NewRequest(&agentv1.DeleteAgentRequest{Name: "alpha"}))
+				_, err := svc.DeleteAgent(t.Context(), connect.NewRequest(&agentv1.DeleteAgentRequest{Id: "alpha"}))
 				return err
 			},
 			wantCalled: func(t *testing.T, l *fakeLauncher) {
@@ -485,8 +527,8 @@ func (f *fakeLauncher) NewAgent(_ context.Context, p agents.NewAgentParams) (*ag
 // live exactly when the test says it is.
 func (f *fakeLauncher) PaneAlive(string) bool { return f.alive }
 
-func (f *fakeLauncher) DeleteAgent(_ context.Context, name string) error {
-	f.deleted = append(f.deleted, name)
+func (f *fakeLauncher) DeleteAgent(_ context.Context, id string) error {
+	f.deleted = append(f.deleted, id)
 
 	return f.deleteErr
 }

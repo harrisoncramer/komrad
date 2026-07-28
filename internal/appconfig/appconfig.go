@@ -26,6 +26,8 @@ type Keybindings struct {
 	Workflows WorkflowsKeys `mapstructure:"workflows"`
 	// The schedules screen, and the key that opens it from the agents list.
 	Schedules SchedulesKeys `mapstructure:"schedules"`
+	// The trash screen, and the key that opens it from the agents list.
+	Trash TrashKeys `mapstructure:"trash"`
 }
 
 // NavKeys are the shared navigation bindings every menu uses, so movement is the
@@ -106,6 +108,23 @@ type SchedulesKeys struct {
 	Delete []string `mapstructure:"delete"`
 }
 
+// TrashKeys are the bindings for the trash screen, which lists the agents
+// deleted from the panel. Open enters it from the agents list, and the rest act
+// on the hovered agent once inside.
+type TrashKeys struct {
+	// Open the trash from the agents list.
+	Open []string `mapstructure:"open"`
+	// Quit the panel.
+	Quit []string `mapstructure:"quit"`
+	// Leave the trash for the agents list.
+	Back []string `mapstructure:"back"`
+	// Put the agent under the cursor back in the panel.
+	Restore []string `mapstructure:"restore"`
+	// Destroy the agent under the cursor for good, with its transcript. This is
+	// the one action in the panel nothing undoes, so it asks first.
+	Delete []string `mapstructure:"delete"`
+}
+
 // Config is the user's customization.
 type Config struct {
 	// Flags appended to the claude command for every new session.
@@ -146,6 +165,13 @@ func DefaultKeybindings() Keybindings {
 			Edit:   []string{"e", "enter"},
 			Toggle: []string{" "},
 			Delete: []string{"d"},
+		},
+		Trash: TrashKeys{
+			Open:    []string{"t"},
+			Quit:    []string{"ctrl+c", "q"},
+			Back:    []string{"esc", "left", "h"},
+			Restore: []string{"r"},
+			Delete:  []string{"d"},
 		},
 		Form: FormKeys{
 			Quit:   []string{"ctrl+c"},
@@ -192,6 +218,12 @@ func (k Keybindings) withDefaults() Keybindings {
 	k.Schedules.Edit = fillKeys(k.Schedules.Edit, def.Schedules.Edit)
 	k.Schedules.Toggle = fillKeys(k.Schedules.Toggle, def.Schedules.Toggle)
 	k.Schedules.Delete = fillKeys(k.Schedules.Delete, def.Schedules.Delete)
+
+	k.Trash.Open = fillKeys(k.Trash.Open, def.Trash.Open)
+	k.Trash.Quit = fillKeys(k.Trash.Quit, def.Trash.Quit)
+	k.Trash.Back = fillKeys(k.Trash.Back, def.Trash.Back)
+	k.Trash.Restore = fillKeys(k.Trash.Restore, def.Trash.Restore)
+	k.Trash.Delete = fillKeys(k.Trash.Delete, def.Trash.Delete)
 
 	k.Form.Quit = fillKeys(k.Form.Quit, def.Form.Quit)
 	k.Form.Back = fillKeys(k.Form.Back, def.Form.Back)

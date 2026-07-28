@@ -204,6 +204,28 @@ func (q *Queries) GetAgentForDelete(ctx context.Context, name string) (*GetAgent
 	return &i, err
 }
 
+const getAgentForDeleteByID = `-- name: GetAgentForDeleteByID :one
+SELECT
+    id,
+    agent_config_id
+FROM
+    agents
+WHERE
+    id = $1
+`
+
+type GetAgentForDeleteByIDRow struct {
+	ID            string
+	AgentConfigID string
+}
+
+func (q *Queries) GetAgentForDeleteByID(ctx context.Context, id string) (*GetAgentForDeleteByIDRow, error) {
+	row := q.db.QueryRow(ctx, getAgentForDeleteByID, id)
+	var i GetAgentForDeleteByIDRow
+	err := row.Scan(&i.ID, &i.AgentConfigID)
+	return &i, err
+}
+
 const getTranscript = `-- name: GetTranscript :one
 SELECT
     content,
@@ -347,15 +369,16 @@ FROM
     agents s
     JOIN agent_configs sc ON sc.id = s.agent_config_id
 WHERE
-    s.is_deleted = FALSE
-    AND ($1::uuid IS NULL
-        OR s.id < $1)
+    s.is_deleted = $1
+    AND ($2::uuid IS NULL
+        OR s.id < $2)
 ORDER BY
     s.id DESC
-LIMIT $2
+LIMIT $3
 `
 
 type ListAgentsPageParams struct {
+	Deleted  bool
 	CursorID *string
 	Lim      int32
 }
@@ -367,7 +390,7 @@ type ListAgentsPageRow struct {
 }
 
 func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) ([]*ListAgentsPageRow, error) {
-	rows, err := q.db.Query(ctx, listAgentsPage, arg.CursorID, arg.Lim)
+	rows, err := q.db.Query(ctx, listAgentsPage, arg.Deleted, arg.CursorID, arg.Lim)
 	if err != nil {
 		return nil, err
 	}

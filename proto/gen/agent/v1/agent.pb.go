@@ -178,8 +178,13 @@ func (x *Agent) GetMarkedAt() string {
 }
 
 type ListAgentsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Pagination    *v1.Pagination         `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Pagination *v1.Pagination         `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+	// Lists the soft-deleted agents instead of the live ones, which is the trash
+	// the panel shows on its own screen. The two sets never mix in one listing: a
+	// deleted agent is not something to act on alongside live work, and its name
+	// may be one a live agent has since taken.
+	Deleted       bool `protobuf:"varint,2,opt,name=deleted,proto3" json:"deleted,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -219,6 +224,13 @@ func (x *ListAgentsRequest) GetPagination() *v1.Pagination {
 		return x.Pagination
 	}
 	return nil
+}
+
+func (x *ListAgentsRequest) GetDeleted() bool {
+	if x != nil {
+		return x.Deleted
+	}
+	return false
 }
 
 type ListAgentsResponse struct {
@@ -763,9 +775,13 @@ func (x *RestoreAgentResponse) GetAgent() *Agent {
 	return nil
 }
 
+// DeleteAgentRequest removes an agent for good, keyed by id rather than name
+// for the same reason restoring is: the name index only holds among live rows,
+// so a deleted agent may share its name with a live one and with other deleted
+// ones. A name would not say which of them to destroy.
 type DeleteAgentRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -800,9 +816,9 @@ func (*DeleteAgentRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{12}
 }
 
-func (x *DeleteAgentRequest) GetName() string {
+func (x *DeleteAgentRequest) GetId() string {
 	if x != nil {
-		return x.Name
+		return x.Id
 	}
 	return ""
 }
@@ -1168,11 +1184,12 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\tmarked_at\x18\r \x01(\tH\x01R\bmarkedAt\x88\x01\x01B\x0e\n" +
 	"\f_schedule_idB\f\n" +
 	"\n" +
-	"_marked_at\"b\n" +
+	"_marked_at\"|\n" +
 	"\x11ListAgentsRequest\x12>\n" +
 	"\n" +
 	"pagination\x18\x01 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
-	"pagination\x88\x01\x01B\r\n" +
+	"pagination\x88\x01\x01\x12\x18\n" +
+	"\adeleted\x18\x02 \x01(\bR\adeletedB\r\n" +
 	"\v_pagination\"~\n" +
 	"\x12ListAgentsResponse\x12'\n" +
 	"\x06agents\x18\x01 \x03(\v2\x0f.agent.v1.AgentR\x06agents\x12+\n" +
@@ -1209,10 +1226,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x13RestoreAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"=\n" +
 	"\x14RestoreAgentResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"4\n" +
-	"\x12DeleteAgentRequest\x12\x1e\n" +
-	"\x04name\x18\x01 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\"\xad\x02\n" +
+	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"-\n" +
+	"\x12DeleteAgentRequest\x12\x17\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"\xad\x02\n" +
 	"\x12UpdateAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xfd\x01\n" +
 	"\x04name\x18\x02 \x01(\tB\xe8\x01\xbaH\xe4\x01\xba\x01\xd9\x01\n" +
@@ -1237,11 +1253,11 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14GetTranscriptRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"1\n" +
 	"\x15GetTranscriptResponse\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontent2\x9d\x1f\n" +
-	"\fAgentService\x12\xec\x03\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent2\xee\x1f\n" +
+	"\fAgentService\x12\xe7\x03\n" +
 	"\n" +
-	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xa2\x03\x9a\xb5\x18\x9a\x03\n" +
-	"\vlist_agents\x12\x8a\x03List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow. Agents soft-deleted from the panel are excluded, though search_transcripts still returns them. Returns one page, most recently updated first; pass the response's nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs.\x90\x02\x01\x12\xcc\x01\n" +
+	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x9d\x03\x9a\xb5\x18\x95\x03\n" +
+	"\vlist_agents\x12\x85\x03List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow. Soft-deleted agents are excluded unless deleted is set, which lists those and only those. Returns one page, most recently updated first; pass the response's nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs.\x90\x02\x01\x12\xcc\x01\n" +
 	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"\x88\x01\x9a\xb5\x18\x80\x01\n" +
 	"\tget_agent\x12sFetch one agent by its exact name. Names are unique among live agents. Returns not_found if no agent has that name.\x90\x02\x01\x12\x86\x03\n" +
 	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\xb9\x02\x9a\xb5\x18\xb4\x02\n" +
@@ -1253,9 +1269,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\fArchiveAgent\x12\x1d.agent.v1.ArchiveAgentRequest\x1a\x16.google.protobuf.Empty\"\x8c\x02\x9a\xb5\x18\x84\x02\n" +
 	"\rarchive_agent\x12\xf0\x01Stop an agent and hide it from the panel, keeping its record and transcript. Prefer this to delete_agent: it is reversible with restore_agent, and search_transcripts still finds the conversation. Returns not_found if no agent has that name. \x00\x90\x02\x02\x12\x9a\x03\n" +
 	"\fRestoreAgent\x12\x1d.agent.v1.RestoreAgentRequest\x1a\x1e.agent.v1.RestoreAgentResponse\"\xca\x02\x9a\xb5\x18\xc2\x02\n" +
-	"\rrestore_agent\x12\xae\x02Bring an agent back and relaunch claude on the same conversation, keyed by id. Works on archived agents and on ones whose pane has since died. An agent that is already running is returned as it stands rather than started twice. The agent may come back under a new name if another has taken its old one. \x00\x90\x02\x02\x12\x9f\x02\n" +
-	"\vDeleteAgent\x12\x1c.agent.v1.DeleteAgentRequest\x1a\x16.google.protobuf.Empty\"\xd9\x01\x9a\xb5\x18\xd1\x01\n" +
-	"\fdelete_agent\x12\xbe\x01Permanently remove an agent's record by name. This is a hard delete, not the panel's soft delete, and the transcript row goes with it. Prefer leaving agents alone unless asked to remove one. \x01\x90\x02\x02\x12\xd7\x02\n" +
+	"\rrestore_agent\x12\xae\x02Bring an agent back and relaunch claude on the same conversation, keyed by id. Works on archived agents and on ones whose pane has since died. An agent that is already running is returned as it stands rather than started twice. The agent may come back under a new name if another has taken its old one. \x00\x90\x02\x02\x12\xf5\x02\n" +
+	"\vDeleteAgent\x12\x1c.agent.v1.DeleteAgentRequest\x1a\x16.google.protobuf.Empty\"\xaf\x02\x9a\xb5\x18\xa7\x02\n" +
+	"\fdelete_agent\x12\x94\x02Permanently remove an agent's record, keyed by id. This is a hard delete, not the panel's soft delete: the config and the transcript go with it and search will never find the conversation again. Prefer archive_agent, and prefer leaving agents alone unless asked to remove one. \x01\x90\x02\x02\x12\xd7\x02\n" +
 	"\vUpdateAgent\x12\x1c.agent.v1.UpdateAgentRequest\x1a\x16.google.protobuf.Empty\"\x91\x02\x9a\xb5\x18\x89\x02\n" +
 	"\frename_agent\x12\xf6\x01Rename an agent, keyed by its id rather than its current name. The name is a display label the store keys on; the running tmux window keeps whatever it was called at launch. It may not contain spaces, colons, dots, slashes, or control characters. \x00\x90\x02\x02\x12\x94\x04\n" +
 	"\x11SearchTranscripts\x12\".agent.v1.SearchTranscriptsRequest\x1a#.agent.v1.SearchTranscriptsResponse\"\xb5\x03\x9a\xb5\x18\xad\x03\n" +

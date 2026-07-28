@@ -81,3 +81,17 @@ edit   = ["e", "enter"]
 toggle = [" "]
 # Delete the schedule under the cursor. The agents it launched are kept.
 delete = ["d"]
+
+# The trash screen, and the key that opens it from the agents list.
+[keybindings.trash]
+# Open the trash from the agents list.
+open    = ["t"]
+# Quit the panel.
+quit    = ["ctrl+c", "q"]
+# Leave the trash for the agents list.
+back    = ["esc", "left", "h"]
+# Put the agent under the cursor back in the panel.
+restore = ["r"]
+# Destroy the agent under the cursor for good, with its transcript. This is
+# the one action in the panel nothing undoes, so it asks first.
+delete  = ["d"]

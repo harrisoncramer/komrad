@@ -39,6 +39,11 @@ message Agent {
 
 message ListAgentsRequest {
   optional pagination.v1.Pagination pagination = 1;
+  // Lists the soft-deleted agents instead of the live ones, which is the trash
+  // the panel shows on its own screen. The two sets never mix in one listing: a
+  // deleted agent is not something to act on alongside live work, and its name
+  // may be one a live agent has since taken.
+  bool deleted = 2;
 }
 
 message ListAgentsResponse {
@@ -162,11 +167,12 @@ message RestoreAgentResponse {
   Agent agent = 1;
 }
 
+// DeleteAgentRequest removes an agent for good, keyed by id rather than name
+// for the same reason restoring is: the name index only holds among live rows,
+// so a deleted agent may share its name with a live one and with other deleted
+// ones. A name would not say which of them to destroy.
 message DeleteAgentRequest {
-  string name = 1 [(buf.validate.field).string = {
-    min_len: 1,
-    max_len: 200
-  }];
+  string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 // UpdateAgentRequest renames an agent by id. The name is what tmux and the
@@ -238,7 +244,7 @@ service AgentService {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "list_agents"
-      description: "List the agents the panel tracks, live and dormant, with each one\'s name, state, working directory, flags, and workflow. Agents soft-deleted from the panel are excluded, though search_transcripts still returns them. Returns one page, most recently updated first; pass the response\'s nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs."
+      description: "List the agents the panel tracks, live and dormant, with each one\'s name, state, working directory, flags, and workflow. Soft-deleted agents are excluded unless deleted is set, which lists those and only those. Returns one page, most recently updated first; pass the response\'s nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs."
     };
   }
   rpc GetAgent(GetAgentRequest) returns (GetAgentResponse) {
@@ -296,7 +302,7 @@ service AgentService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "delete_agent"
-      description: "Permanently remove an agent's record by name. This is a hard delete, not the panel's soft delete, and the transcript row goes with it. Prefer leaving agents alone unless asked to remove one."
+      description: "Permanently remove an agent's record, keyed by id. This is a hard delete, not the panel's soft delete: the config and the transcript go with it and search will never find the conversation again. Prefer archive_agent, and prefer leaving agents alone unless asked to remove one."
       destructive: true
     };
   }

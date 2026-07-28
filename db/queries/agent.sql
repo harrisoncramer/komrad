@@ -20,7 +20,7 @@ FROM
     agents s
     JOIN agent_configs sc ON sc.id = s.agent_config_id
 WHERE
-    s.is_deleted = FALSE
+    s.is_deleted = @deleted
     AND (sqlc.narg ('cursor_id')::uuid IS NULL
         OR s.id < sqlc.narg ('cursor_id'))
 ORDER BY
@@ -183,6 +183,15 @@ FROM
     agents
 WHERE
     name = @name;
+
+-- name: GetAgentForDeleteByID :one
+SELECT
+    id,
+    agent_config_id
+FROM
+    agents
+WHERE
+    id = @id;
 
 -- name: DeleteAgentByID :exec
 DELETE FROM agents

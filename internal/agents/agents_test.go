@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	agentstore "claude-agents/internal/store/agent"
+	transcriptstore "claude-agents/internal/store/transcript"
 	"claude-agents/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
@@ -436,6 +437,76 @@ func TestArchiveAgent(t *testing.T) {
 			stored, err := st.Get(t.Context(), tt.target)
 			require.NoError(t, err)
 			assert.Nil(t, stored, "the agent is hidden from listings")
+		})
+	}
+}
+
+// TestDeleteAgent covers destroying an agent for good, which is what emptying
+// the trash does. It is keyed by id rather than by name because the agents it
+// runs against are archived, and an archived name is not unique: the index that
+// makes a name identify one agent holds among live rows only.
+func TestDeleteAgent(t *testing.T) {
+	tests := []struct {
+		name      string
+		archive   bool
+		target    func(seeded agentstore.Agent) string
+		wantErrIs error
+	}{
+		{
+			name:      "an id nobody holds is not a quiet success",
+			target:    func(agentstore.Agent) string { return "019fa434-e7a7-7ac9-bab5-718681da797d" },
+			wantErrIs: ErrAgentNotFound,
+		},
+		{
+			name:   "a live agent is stopped and destroyed",
+			target: func(seeded agentstore.Agent) string { return seeded.ID },
+		},
+		{
+			// The panel's delete archives, so everything reaching this path has been
+			// archived already. A delete that could not see those rows would report
+			// every agent in the trash as missing.
+			name:    "an archived agent is destroyed too",
+			archive: true,
+			target:  func(seeded agentstore.Agent) string { return seeded.ID },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			tmux := newFakeTmux()
+			manager := newManager(tmux, st, "")
+			ctx := t.Context()
+
+			seeded := seed(t, st, "target", "%1", agentstore.StateThinking)
+			require.NoError(t, st.Transcripts.Upsert(ctx, transcriptstore.UpsertParams{
+				AgentID: seeded.ID, Content: "something it said", Offset: 1,
+			}))
+			if tt.archive {
+				require.NoError(t, st.SoftDelete(ctx, seeded.Name))
+			}
+
+			err := manager.DeleteAgent(ctx, tt.target(seeded))
+			if tt.wantErrIs != nil {
+				require.ErrorIs(t, err, tt.wantErrIs)
+
+				all, listErr := st.ListAll(ctx)
+				require.NoError(t, listErr)
+				assert.Len(t, all, 1, "a delete that matched nothing removes nothing")
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Contains(t, tmux.killedPanes, "%1", "the agent's pane is killed")
+
+			all, err := st.ListAll(ctx)
+			require.NoError(t, err)
+			assert.Empty(t, all, "the row is gone from every listing, not hidden from one")
+
+			tr, err := st.GetTranscript(ctx, seeded.ID)
+			require.NoError(t, err)
+			assert.Empty(t, tr.Content, "the transcript goes with the agent")
 		})
 	}
 }

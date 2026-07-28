@@ -204,9 +204,9 @@ func TestRequestValidation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "a delete with no name is refused",
+			name: "a delete with no id is refused",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.DeleteAgent(t.Context(), connect.NewRequest(&agentv1.DeleteAgentRequest{Name: ""}))
+				_, err := c.DeleteAgent(t.Context(), connect.NewRequest(&agentv1.DeleteAgentRequest{Id: ""}))
 
 				return err
 			},

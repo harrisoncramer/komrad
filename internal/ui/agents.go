@@ -150,6 +150,12 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.enterSchedules()
 	}
 
+	// The trash is the same: a screen of its own, holding what this tree no longer
+	// shows, so the key that opens it cannot belong to a row.
+	if bound(k, m.keys.Trash.Open) {
+		return m.enterTrash()
+	}
+
 	// On a workflow header the workflow bindings act on that folder's workflow.
 	if wfIdx, ok := m.hoveredWorkflow(); ok {
 		return m.updateHoveredWorkflow(key, wfIdx)
@@ -454,10 +460,6 @@ func (m model) actionHints() string {
 		{hintKeys(m.keys.Workflows.New), "new workflow"},
 		{hintKeys(m.keys.Agents.Rename), "rename"},
 		{hintKeys(m.keys.Agents.Delete), "delete"},
-		{hintKeys(m.keys.Agents.Search), "search"},
-		{hintKeys(m.keys.Schedules.Open), "schedules"},
-		{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
-		{hintKeys(m.keys.Agents.Back), "back"},
 	}
 	if _, hoveringWorkflow := m.hoveredWorkflow(); hoveringWorkflow {
 		hints = []hint{
@@ -466,11 +468,28 @@ func (m model) actionHints() string {
 			{hintKeys(m.keys.Workflows.Rename), "rename"},
 			{hintKeys(m.keys.Workflows.Edit), "edit"},
 			{hintKeys(m.keys.Workflows.Delete), "delete"},
-			{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
 		}
 	}
 
+	hints = append(hints, m.screenHints()...)
+	hints = append(hints,
+		hint{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
+		hint{hintKeys(m.keys.Agents.Back), "back"},
+	)
+
 	return renderHints(hints)
+}
+
+// screenHints are the screens reachable from anywhere in the tree. They are
+// appended to whichever legend is showing, since none of them act on the row
+// under the cursor and all of them work from a workflow header as much as from
+// an agent.
+func (m model) screenHints() []hint {
+	return []hint{
+		{hintKeys(m.keys.Agents.Search), "search"},
+		{hintKeys(m.keys.Schedules.Open), "schedules"},
+		{hintKeys(m.keys.Trash.Open), "trash"},
+	}
 }
 
 // hint is one line of the key legend under a list, a binding and what it does.

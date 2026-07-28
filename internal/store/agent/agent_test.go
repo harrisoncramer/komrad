@@ -535,6 +535,75 @@ func TestDelete(t *testing.T) {
 	}
 }
 
+// TestListPageDeleted covers the two sets a listing can ask for. They are what
+// the panel and its trash each show, and an agent in one must never appear in
+// the other: the tree would offer actions on a row that is gone, and the trash
+// would offer to destroy one that is running.
+func TestListPageDeleted(t *testing.T) {
+	tests := []struct {
+		name      string
+		deleted   bool
+		wantNames []string
+	}{
+		{
+			name:      "the live listing leaves out what was deleted",
+			wantNames: []string{"live"},
+		},
+		{
+			name:      "the trash listing is the deleted rows and only those",
+			deleted:   true,
+			wantNames: []string{"archived"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			require.NoError(t, st.Upsert(ctx, Agent{Name: "archived", Pane: "%1", State: StateNew}))
+			require.NoError(t, st.Archive(ctx, "archived"))
+			require.NoError(t, st.Upsert(ctx, Agent{Name: "live", Pane: "%2", State: StateNew}))
+
+			page, err := st.ListPage(ctx, 10, nil, tt.deleted)
+			require.NoError(t, err)
+
+			names := make([]string, 0, len(page))
+			for _, agent := range page {
+				names = append(names, agent.Name)
+			}
+			assert.Equal(t, tt.wantNames, names)
+		})
+	}
+}
+
+// TestFindByID covers resolving the ids a hard delete needs from an id rather
+// than a name. The trash deletes through this, and the rows there are exactly
+// the ones a name cannot tell apart: the unique index holds among live rows
+// only, so two archived agents may answer to the same name.
+func TestFindByID(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Upsert(ctx, Agent{Name: "shared", Pane: "%1", State: StateNew}))
+	first, err := st.Get(ctx, "shared")
+	require.NoError(t, err)
+	require.NotNil(t, first)
+
+	require.NoError(t, st.Archive(ctx, "shared"))
+	require.NoError(t, st.Upsert(ctx, Agent{Name: "shared", Pane: "%2", State: StateNew}))
+
+	target, err := st.FindByID(ctx, first.ID)
+	require.NoError(t, err)
+	require.NotNil(t, target)
+	assert.Equal(t, first.ID, target.ID, "the id picks the archived agent out from the live one holding its name")
+	assert.Equal(t, first.AgentConfigID, target.AgentConfigID, "the config to remove with it comes back too")
+
+	missing, err := st.FindByID(ctx, "019fa434-e7a7-7ac9-bab5-718681da797d")
+	require.NoError(t, err)
+	assert.Nil(t, missing, "an id nobody holds is nil rather than an error")
+}
+
 // TestMoveToWorkflow covers filing an agent under a different workflow. There is
 // nowhere to move an agent to but a workflow, so this replaces one with another
 // rather than being able to clear it.

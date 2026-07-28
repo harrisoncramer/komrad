@@ -44,6 +44,7 @@ type agentStore interface {
 	Get(ctx context.Context, name string) (*agentstore.Agent, error)
 	GetByIdempotencyKey(ctx context.Context, key string) (*agentstore.Agent, error)
 	Find(ctx context.Context, name string) (*agentstore.Target, error)
+	FindByID(ctx context.Context, id string) (*agentstore.Target, error)
 	Upsert(ctx context.Context, agent agentstore.Agent) error
 	Rename(ctx context.Context, id, name string) (bool, error)
 	Archive(ctx context.Context, name string) error
@@ -125,21 +126,19 @@ var ErrWorkflowNotFound = errors.New("workflow not found")
 // ErrBadDirectory reports a working directory the agent could not be started in.
 var ErrBadDirectory = errors.New("unusable working directory")
 
-// DeleteAgent stops an agent and removes it. The pane is killed first, which the
-// store cannot do. Dropping the row alone leaves the agent running with nothing
-// left that can name it or reach it.
-func (s *AgentService) DeleteAgent(ctx context.Context, name string) error {
-	agent, err := s.agents.Get(ctx, name)
+// DeleteAgent stops an agent and removes it, keyed by id so it reaches the
+// archived agents too, which is what emptying the trash means. The pane is
+// killed first, which the store cannot do. Dropping the row alone leaves the
+// agent running with nothing left that can name it or reach it.
+func (s *AgentService) DeleteAgent(ctx context.Context, id string) error {
+	agent, err := s.byID(ctx, id)
 	if err != nil {
-		return fmt.Errorf("failed to look up agent %q: %w", name, err)
-	}
-	if agent == nil {
-		return ErrAgentNotFound
+		return err
 	}
 
 	s.tmux.KillPane(agent.Pane)
 
-	return s.removeAgent(ctx, name)
+	return s.removeAgent(ctx, id)
 }
 
 // removeAgent deletes an agent, the config it owns, and the transcript keyed to
@@ -147,10 +146,10 @@ func (s *AgentService) DeleteAgent(ctx context.Context, name string) error {
 // so the two stores are rebound onto the same transaction and commit together.
 // An agent removed without its text would leave the conversation readable
 // through the SQL tools.
-func (s *AgentService) removeAgent(ctx context.Context, name string) error {
-	target, err := s.agents.Find(ctx, name)
+func (s *AgentService) removeAgent(ctx context.Context, id string) error {
+	target, err := s.agents.FindByID(ctx, id)
 	if err != nil {
-		return fmt.Errorf("failed to find agent %q to delete: %w", name, err)
+		return fmt.Errorf("failed to find agent %q to delete: %w", id, err)
 	}
 	if target == nil {
 		return ErrAgentNotFound

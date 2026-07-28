@@ -103,14 +103,16 @@ type Cursor struct {
 	ID string `json:"i"`
 }
 
-// ListPage returns one page of live agents, newest first, resuming after cursor
-// when one is given. The key is the id rather than anything the agent can change.
-// A uuidv7 is assigned once and sorts by the moment it was assigned, so the newest
-// agent goes to the top and stays there. Keying on update time would move an agent
-// the reconciler touched mid-scan ahead of where the caller already is, and it
-// would be seen twice or missed.
-func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Agent, error) {
-	params := models.ListAgentsPageParams{Lim: int32(limit)}
+// ListPage returns one page of agents, newest first, resuming after cursor when
+// one is given. deleted picks which set is listed, the live agents or the
+// soft-deleted ones, and never both: the trash is its own view, and a deleted
+// agent may share a name with a live one. The key is the id rather than anything
+// the agent can change. A uuidv7 is assigned once and sorts by the moment it was
+// assigned, so the newest agent goes to the top and stays there. Keying on update
+// time would move an agent the reconciler touched mid-scan ahead of where the
+// caller already is, and it would be seen twice or missed.
+func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, deleted bool) ([]Agent, error) {
+	params := models.ListAgentsPageParams{Lim: int32(limit), Deleted: deleted}
 	if cursor != nil {
 		params.CursorID = &cursor.ID
 	}
@@ -363,6 +365,22 @@ func (s *Store) Find(ctx context.Context, name string) (*Target, error) {
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to find agent %q: %w", name, err)
+	}
+
+	return &Target{ID: row.ID, AgentConfigID: row.AgentConfigID}, nil
+}
+
+// FindByID resolves an agent by id to the ids a delete needs, nil when no agent
+// holds it. This is what the trash deletes through: a name identifies at most
+// one live agent, but the deleted rows it may collide with are exactly the ones
+// being destroyed there.
+func (s *Store) FindByID(ctx context.Context, id string) (*Target, error) {
+	row, err := s.queries.GetAgentForDeleteByID(ctx, id)
+	if store.NoRows(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find agent %q: %w", id, err)
 	}
 
 	return &Target{ID: row.ID, AgentConfigID: row.AgentConfigID}, nil

@@ -23,9 +23,20 @@ const (
 	maxPages = 50
 )
 
-// ListAllAgents returns every agent, following the page tokens until the listing
-// is exhausted.
+// ListAllAgents returns every live agent, following the page tokens until the
+// listing is exhausted.
 func ListAllAgents(ctx context.Context, agents agentv1connect.AgentServiceClient) ([]*agentv1.Agent, error) {
+	return listAllAgents(ctx, agents, false)
+}
+
+// ListAllDeletedAgents returns every soft-deleted agent, which is the trash. The
+// two listings never mix, so this is a call of its own rather than a flag the
+// caller has to remember to read back off the rows.
+func ListAllDeletedAgents(ctx context.Context, agents agentv1connect.AgentServiceClient) ([]*agentv1.Agent, error) {
+	return listAllAgents(ctx, agents, true)
+}
+
+func listAllAgents(ctx context.Context, agents agentv1connect.AgentServiceClient, deleted bool) ([]*agentv1.Agent, error) {
 	var (
 		all    []*agentv1.Agent
 		cursor string
@@ -37,7 +48,7 @@ func ListAllAgents(ctx context.Context, agents agentv1connect.AgentServiceClient
 			page.Cursor = proto.String(cursor)
 		}
 
-		resp, err := agents.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{Pagination: page}))
+		resp, err := agents.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{Pagination: page, Deleted: deleted}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to list agents: %w", err)
 		}

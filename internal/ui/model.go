@@ -48,7 +48,13 @@ type listsLoadedMsg struct {
 	agents    []agentItem
 	workflows []workflowstore.Workflow
 	schedules []scheduleItem
-	err       error
+	// trash is only listed while the trash screen is up, since nothing else reads
+	// it and a deleted agent changes only when someone acts on it. trashListed
+	// says the listing was asked for, so an empty one reads as an empty trash
+	// rather than as a poll that skipped it.
+	trash       []agentstore.Agent
+	trashListed bool
+	err         error
 }
 
 func refreshTick() tea.Cmd {
@@ -60,6 +66,7 @@ func refreshTick() tea.Cmd {
 // liveness checks. Both share one deadline, since together they are one refresh.
 func (m model) loadListsCmd() tea.Cmd {
 	agents, workflows, schedules := m.api.agents, m.api.workflows, m.api.schedules
+	withTrash := m.screen == screenTrash
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
@@ -80,11 +87,23 @@ func (m model) loadListsCmd() tea.Cmd {
 			return listsLoadedMsg{err: err}
 		}
 
-		return listsLoadedMsg{
+		loaded := listsLoadedMsg{
 			agents:    agentItemsFrom(listed),
 			workflows: workflowsFrom(listedWorkflows),
 			schedules: scheduleItemsFrom(listedSchedules),
 		}
+
+		if withTrash {
+			listedTrash, err := client.ListAllDeletedAgents(ctx, agents)
+			if err != nil {
+				return listsLoadedMsg{err: err}
+			}
+
+			loaded.trash = deletedAgentsFrom(listedTrash)
+			loaded.trashListed = true
+		}
+
+		return loaded
 	}
 }
 
@@ -171,6 +190,8 @@ const (
 	screenSchedules
 	screenScheduleForm
 	screenScheduleDelete
+	screenTrash
+	screenTrashDelete
 )
 
 // actionTimeout bounds a single call made in response to a keypress. It is
@@ -293,6 +314,13 @@ type model struct {
 	searchQuery  string
 	searchHits   []searchHit
 	searchCursor int
+
+	// Trash screen state. The deleted agents, which one is hovered, and the one
+	// the delete prompt is confirming. The list is its own poll rather than a
+	// filter over m.agents, which holds the live agents only.
+	trash             []agentstore.Agent
+	trashCursor       int
+	trashDeleteTarget *agentstore.Agent
 
 	keys appconfig.Keybindings
 }
@@ -592,7 +620,7 @@ func formKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
 func (m model) onFormScreen() bool {
 	switch m.screen {
 	case screenForm, screenRename, screenWorkflowForm, screenWorkflowDelete,
-		screenScheduleForm, screenScheduleDelete:
+		screenScheduleForm, screenScheduleDelete, screenTrashDelete:
 		return true
 	default:
 		return false
@@ -672,6 +700,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.screen == screenSchedules {
 				m.stageSchedule()
 			}
+			if loaded.trashListed {
+				m.applyTrash(loaded.trash)
+			}
+			if m.screen == screenTrash {
+				m.stageTrash()
+			}
 		}
 
 		return m, nil
@@ -710,6 +744,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateScheduleDelete(msg)
 	}
 
+	if m.screen == screenTrashDelete {
+		return m.updateTrashDelete(msg)
+	}
+
 	key, ok := msg.(tea.KeyMsg)
 	if !ok {
 		return m, nil
@@ -721,6 +759,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if m.screen == screenSchedules {
 		return m.updateSchedules(key)
+	}
+
+	if m.screen == screenTrash {
+		return m.updateTrash(key)
 	}
 
 	if m.screen == screenAgents {

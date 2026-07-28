@@ -26,14 +26,14 @@ type agentLauncher interface {
 	// PaneAlive answers whether an agent is still running, which is read at
 	// response time rather than stored so a client needs no tmux of its own.
 	PaneAlive(pane string) bool
-	DeleteAgent(ctx context.Context, name string) error
+	DeleteAgent(ctx context.Context, id string) error
 	ArchiveAgent(ctx context.Context, name string) error
 	RestoreAgent(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
 // agentStore is the part of the agent store this handler reads.
 type agentStore interface {
-	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor) ([]agentstore.Agent, error)
+	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, deleted bool) ([]agentstore.Agent, error)
 	Get(ctx context.Context, name string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
 	SetState(ctx context.Context, name, state string) (bool, error)
@@ -86,14 +86,15 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, s.launcher.PaneAlive(created.Pane)).Agent}), nil
 }
 
-// ListAgents returns one page of stored agents, newest first.
+// ListAgents returns one page of stored agents, newest first. The request picks
+// which set is listed, the live agents or the soft-deleted ones.
 func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
 	paginator, err := pagination.New[agentstore.Cursor, agent](req.Msg.GetPagination())
 	if err != nil {
 		return nil, err
 	}
 
-	agents, err := s.agents.ListPage(ctx, paginator.Limit(), paginator.Cursor())
+	agents, err := s.agents.ListPage(ctx, paginator.Limit(), paginator.Cursor(), req.Msg.GetDeleted())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list agents: %w", err))
 	}
@@ -163,10 +164,10 @@ func (s *Service) SetMarked(ctx context.Context, req *connect.Request[agentv1.Se
 // The manager owns this rather than the store, since stopping the agent means
 // killing its pane.
 func (s *Service) DeleteAgent(ctx context.Context, req *connect.Request[agentv1.DeleteAgentRequest]) (*connect.Response[emptypb.Empty], error) {
-	err := s.launcher.DeleteAgent(ctx, req.Msg.GetName())
+	err := s.launcher.DeleteAgent(ctx, req.Msg.GetId())
 	switch {
 	case errors.Is(err, agents.ErrAgentNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("agent %q not found", req.Msg.GetName()))
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete agent: %w", err))
 	}

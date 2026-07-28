@@ -37,12 +37,14 @@ func (m model) View() string {
 func (m model) screenView() string {
 	switch m.screen {
 	case screenForm, screenRename, screenWorkflowForm, screenWorkflowDelete,
-		screenScheduleForm, screenScheduleDelete:
+		screenScheduleForm, screenScheduleDelete, screenTrashDelete:
 		return m.form.View()
 	case screenSearch:
 		return m.searchView()
 	case screenSchedules:
 		return m.schedulesView()
+	case screenTrash:
+		return m.trashView()
 	default:
 		return m.agentsView()
 	}
