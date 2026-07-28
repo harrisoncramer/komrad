@@ -137,7 +137,7 @@ func (m model) newScheduleForm() (tea.Model, tea.Cmd) {
 	}
 
 	m.scheduleEditTarget = nil
-	m.form = scheduleForm(schedulestore.Config{
+	m.form, m.scheduleValues = scheduleForm(schedulestore.Config{
 		Enabled:    true,
 		WorkflowID: m.workflows[0].ID,
 	}, m.workflows, m.keys.Form)
@@ -161,11 +161,12 @@ func (m model) editScheduleForm() (tea.Model, tea.Cmd) {
 	}
 
 	m.scheduleEditTarget = &target
-	m.form = scheduleForm(schedulestore.Config{
+	m.form, m.scheduleValues = scheduleForm(schedulestore.Config{
 		Name:       target.Name,
 		Cron:       target.Cron,
 		Timezone:   target.Timezone,
 		Enabled:    target.Enabled,
+		HideAgents: target.HideAgents,
 		Prompt:     target.Prompt,
 		WorkflowID: target.WorkflowID,
 	}, m.workflows, m.keys.Form)
@@ -183,7 +184,7 @@ func (m model) deleteScheduleConfirm() (tea.Model, tea.Cmd) {
 
 	target := item.schedule
 	m.scheduleDeleteTarget = &target
-	m.form = deleteScheduleForm(target.Name, m.keys.Form)
+	m.form, m.confirmed = deleteScheduleForm(target.Name, m.keys.Form)
 	m.screen = screenScheduleDelete
 
 	return m, m.form.Init()
@@ -206,6 +207,7 @@ func (m model) updateScheduleForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.submitScheduleForm()
 	case huh.StateAborted:
 		m.scheduleEditTarget = nil
+		m.scheduleValues = nil
 		return m.enterSchedules()
 	default:
 		return m, cmd
@@ -217,14 +219,13 @@ func (m model) updateScheduleForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 // comes back as a banner rather than silently doing nothing, since the list
 // looking unchanged is exactly what a failed submit looks like otherwise.
 func (m model) submitScheduleForm() (tea.Model, tea.Cmd) {
-	cfg := schedulestore.Config{
-		Name:       m.form.GetString("name"),
-		Cron:       m.form.GetString("cron"),
-		Timezone:   m.form.GetString("timezone"),
-		Enabled:    m.form.GetBool("enabled"),
-		Prompt:     m.form.GetString("prompt"),
-		WorkflowID: m.form.GetString("workflow"),
+	// The form owns nothing the panel has not been handed a pointer to, so a submit
+	// with no bound values is a submit for a form that was never opened.
+	if m.scheduleValues == nil {
+		return m.enterSchedules()
 	}
+
+	cfg := *m.scheduleValues
 
 	if target := m.scheduleEditTarget; target != nil {
 		m.report(fmt.Sprintf("Could not save schedule %q", target.Name), m.updateSchedule(target.ID, cfg))
@@ -233,6 +234,7 @@ func (m model) submitScheduleForm() (tea.Model, tea.Cmd) {
 	}
 
 	m.scheduleEditTarget = nil
+	m.scheduleValues = nil
 	m.reloadSchedules()
 
 	return m.enterSchedules()
@@ -248,18 +250,20 @@ func (m model) updateScheduleDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.form.State {
 	case huh.StateCompleted:
-		if target := m.scheduleDeleteTarget; target != nil && m.form.GetBool("confirm") {
+		if target := m.scheduleDeleteTarget; target != nil && m.wasConfirmed() {
 			m.report(
 				fmt.Sprintf("Could not delete schedule %q", target.Name),
 				m.deleteSchedule(target.ID),
 			)
 		}
 		m.scheduleDeleteTarget = nil
+		m.confirmed = nil
 		m.reloadSchedules()
 
 		return m.enterSchedules()
 	case huh.StateAborted:
 		m.scheduleDeleteTarget = nil
+		m.confirmed = nil
 
 		return m.enterSchedules()
 	default:
@@ -364,6 +368,9 @@ func scheduleMarkdown(item scheduleItem, workflow *workflowstore.Workflow) strin
 	b.WriteString("---\n\n")
 	fmt.Fprintf(&b, "- cron: %s\n", orDash(sched.Cron))
 	fmt.Fprintf(&b, "- timezone: %s\n", orDash(sched.Timezone))
+	if sched.HideAgents {
+		b.WriteString("- its runs start hidden\n")
+	}
 
 	// The directory and flags belong to the workflow and are read as the schedule
 	// fires, so they are shown under the workflow that supplies them rather than as
@@ -387,42 +394,57 @@ func scheduleMarkdown(item scheduleItem, workflow *workflowstore.Workflow) strin
 // There is no directory or flags field: those come off the workflow when the
 // schedule fires, which is why picking the workflow is picking where and how the
 // agent runs.
-func scheduleForm(cfg schedulestore.Config, workflows []workflowstore.Workflow, keys appconfig.FormKeys) *huh.Form {
-	name, cron, timezone := cfg.Name, cfg.Cron, cfg.Timezone
-	prompt, workflow := cfg.Prompt, cfg.WorkflowID
-	enabled := cfg.Enabled
+// It returns the config its fields write into alongside the form. huh records a field
+// into the form's own results only as the cursor leaves it, so reading the results
+// after a submit from halfway down would take every field below the cursor as blank.
+// The bound config is written through on each change instead, so a submit reads what
+// is on screen however it was reached.
+func scheduleForm(cfg schedulestore.Config, workflows []workflowstore.Workflow, keys appconfig.FormKeys) (*huh.Form, *schedulestore.Config) {
+	values := cfg
 
 	options := make([]huh.Option[string], 0, len(workflows))
 	for _, w := range workflows {
 		options = append(options, huh.NewOption(w.Name+"  "+orDash(w.Cwd), w.ID))
 	}
 
-	return huh.NewForm(
+	form := huh.NewForm(
 		huh.NewGroup(
-			huh.NewInput().Key("name").Title("Name").Description("also names the agents it launches").Value(&name),
-			huh.NewInput().Key("cron").Title("Cron").Placeholder("0 9 * * 1-5").Description("minute hour day month weekday").Value(&cron),
-			huh.NewInput().Key("timezone").Title("Timezone").Placeholder("America/New_York").Description("blank = this machine's zone").Value(&timezone),
-			huh.NewText().Key("prompt").Title("Prompt").Description("what each launched agent is asked to do").Value(&prompt),
-			huh.NewSelect[string]().Key("workflow").Title("Workflow").Description("supplies the directory, flags, and context").Options(options...).Value(&workflow),
-			huh.NewConfirm().Key("enabled").Title("Armed?").Affirmative("Armed").Negative("Paused").Value(&enabled),
+			huh.NewInput().Key("name").Title("Name").Description("also names the agents it launches").Value(&values.Name),
+			huh.NewInput().Key("cron").Title("Cron").Placeholder("0 9 * * 1-5").Description("minute hour day month weekday").Value(&values.Cron),
+			huh.NewInput().Key("timezone").Title("Timezone").Placeholder("America/New_York").Description("blank = this machine's zone").Value(&values.Timezone),
+			huh.NewText().Key("prompt").Title("Prompt").Description("what each launched agent is asked to do").Value(&values.Prompt),
+			huh.NewSelect[string]().Key("workflow").Title("Workflow").Description("supplies the directory, flags, and context").Options(options...).Value(&values.WorkflowID),
+			// The buttons are pinned left rather than left where huh puts them, which is
+			// centred under the field's own prompt. A field with a description is as wide
+			// as that description, so its buttons would sit indented from the ones above
+			// by however long the sentence happens to be.
+			huh.NewConfirm().Key("enabled").Title("Armed?").Affirmative("Armed").Negative("Paused").Value(&values.Enabled).WithButtonAlignment(lipgloss.Left),
+			huh.NewConfirm().Key("hide_agents").Title("Hide its runs?").Description("they still run, they just take no row").Affirmative("Hidden").Negative("Listed").Value(&values.HideAgents).WithButtonAlignment(lipgloss.Left),
 		),
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
+
+	return form, &values
 }
 
 // deleteScheduleForm confirms a delete. The agents the schedule already
 // launched are not touched either way, which the prompt says so the choice is
 // not read as bigger than it is.
-func deleteScheduleForm(name string, keys appconfig.FormKeys) *huh.Form {
-	return huh.NewForm(
+func deleteScheduleForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool) {
+	var confirmed bool
+
+	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewConfirm().
 				Key("confirm").
 				Title(fmt.Sprintf("Delete schedule %q?", name)).
 				Description("The agents it already launched are kept.").
 				Affirmative("Delete").
-				Negative("Cancel"),
+				Negative("Cancel").
+				Value(&confirmed),
 		),
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
+
+	return form, &confirmed
 }
 
 // The schedule screens act through the service like everything else. Each call
@@ -485,6 +507,7 @@ func (m model) createSchedule(cfg schedulestore.Config) error {
 		Cron:       cfg.Cron,
 		Timezone:   cfg.Timezone,
 		Enabled:    cfg.Enabled,
+		HideAgents: cfg.HideAgents,
 		Prompt:     cfg.Prompt,
 		WorkflowId: cfg.WorkflowID,
 	}))
@@ -504,6 +527,7 @@ func (m model) updateSchedule(id string, cfg schedulestore.Config) error {
 		Cron:       cfg.Cron,
 		Timezone:   cfg.Timezone,
 		Enabled:    cfg.Enabled,
+		HideAgents: cfg.HideAgents,
 		Prompt:     cfg.Prompt,
 		WorkflowId: cfg.WorkflowID,
 	}))
@@ -559,6 +583,7 @@ func scheduleFromProto(s *schedulev1.Schedule) schedulestore.Schedule {
 		Cron:       s.GetCron(),
 		Timezone:   s.GetTimezone(),
 		Enabled:    s.GetEnabled(),
+		HideAgents: s.GetHideAgents(),
 		Prompt:     s.GetPrompt(),
 		WorkflowID: s.GetWorkflowId(),
 	}

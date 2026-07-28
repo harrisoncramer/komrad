@@ -28,7 +28,7 @@ func (q *Queries) CountLiveWorkflowSchedules(ctx context.Context, workflowID str
 
 const getSchedule = `-- name: GetSchedule :one
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.prompt, s.workflow_id, s.is_deleted, s.created_at, s.updated_at
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.prompt, s.workflow_id, s.is_deleted, s.created_at, s.updated_at, s.hide_agents
 FROM
     schedules s
 WHERE
@@ -55,15 +55,16 @@ func (q *Queries) GetSchedule(ctx context.Context, id string) (*GetScheduleRow, 
 		&i.Schedule.IsDeleted,
 		&i.Schedule.CreatedAt,
 		&i.Schedule.UpdatedAt,
+		&i.Schedule.HideAgents,
 	)
 	return &i, err
 }
 
 const insertSchedule = `-- name: InsertSchedule :one
-INSERT INTO schedules (name, cron, timezone, enabled, prompt, workflow_id)
-    VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO schedules (name, cron, timezone, enabled, hide_agents, prompt, workflow_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING
-    id, name, cron, timezone, enabled, prompt, workflow_id, is_deleted, created_at, updated_at
+    id, name, cron, timezone, enabled, prompt, workflow_id, is_deleted, created_at, updated_at, hide_agents
 `
 
 type InsertScheduleParams struct {
@@ -71,6 +72,7 @@ type InsertScheduleParams struct {
 	Cron       string
 	Timezone   string
 	Enabled    bool
+	HideAgents bool
 	Prompt     string
 	WorkflowID string
 }
@@ -81,6 +83,7 @@ func (q *Queries) InsertSchedule(ctx context.Context, arg InsertScheduleParams) 
 		arg.Cron,
 		arg.Timezone,
 		arg.Enabled,
+		arg.HideAgents,
 		arg.Prompt,
 		arg.WorkflowID,
 	)
@@ -96,13 +99,14 @@ func (q *Queries) InsertSchedule(ctx context.Context, arg InsertScheduleParams) 
 		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.HideAgents,
 	)
 	return &i, err
 }
 
 const listSchedules = `-- name: ListSchedules :many
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.prompt, s.workflow_id, s.is_deleted, s.created_at, s.updated_at
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.prompt, s.workflow_id, s.is_deleted, s.created_at, s.updated_at, s.hide_agents
 FROM
     schedules s
 WHERE
@@ -135,6 +139,7 @@ func (q *Queries) ListSchedules(ctx context.Context) ([]*ListSchedulesRow, error
 			&i.Schedule.IsDeleted,
 			&i.Schedule.CreatedAt,
 			&i.Schedule.UpdatedAt,
+			&i.Schedule.HideAgents,
 		); err != nil {
 			return nil, err
 		}
@@ -148,7 +153,7 @@ func (q *Queries) ListSchedules(ctx context.Context) ([]*ListSchedulesRow, error
 
 const listSchedulesPage = `-- name: ListSchedulesPage :many
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.prompt, s.workflow_id, s.is_deleted, s.created_at, s.updated_at
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.prompt, s.workflow_id, s.is_deleted, s.created_at, s.updated_at, s.hide_agents
 FROM
     schedules s
 WHERE
@@ -189,6 +194,7 @@ func (q *Queries) ListSchedulesPage(ctx context.Context, arg ListSchedulesPagePa
 			&i.Schedule.IsDeleted,
 			&i.Schedule.CreatedAt,
 			&i.Schedule.UpdatedAt,
+			&i.Schedule.HideAgents,
 		); err != nil {
 			return nil, err
 		}
@@ -242,10 +248,11 @@ SET
     cron = $2,
     timezone = $3,
     enabled = $4,
-    prompt = $5,
-    workflow_id = $6
+    hide_agents = $5,
+    prompt = $6,
+    workflow_id = $7
 WHERE
-    id = $7
+    id = $8
     AND is_deleted = FALSE
 `
 
@@ -254,6 +261,7 @@ type UpdateScheduleParams struct {
 	Cron       string
 	Timezone   string
 	Enabled    bool
+	HideAgents bool
 	Prompt     string
 	WorkflowID string
 	ID         string
@@ -265,6 +273,7 @@ func (q *Queries) UpdateSchedule(ctx context.Context, arg UpdateScheduleParams) 
 		arg.Cron,
 		arg.Timezone,
 		arg.Enabled,
+		arg.HideAgents,
 		arg.Prompt,
 		arg.WorkflowID,
 		arg.ID,

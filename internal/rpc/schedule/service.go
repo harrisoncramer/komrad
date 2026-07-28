@@ -119,6 +119,7 @@ func (s *Service) UpdateSchedule(ctx context.Context, req *connect.Request[sched
 		Cron:       req.Msg.GetCron(),
 		Timezone:   req.Msg.GetTimezone(),
 		Enabled:    req.Msg.GetEnabled(),
+		HideAgents: req.Msg.GetHideAgents(),
 		Prompt:     req.Msg.GetPrompt(),
 		WorkflowID: req.Msg.GetWorkflowId(),
 	})
@@ -171,6 +172,7 @@ func configFrom(req *schedulev1.CreateScheduleRequest) schedulestore.Config {
 		Cron:       req.GetCron(),
 		Timezone:   req.GetTimezone(),
 		Enabled:    req.GetEnabled(),
+		HideAgents: req.GetHideAgents(),
 		Prompt:     req.GetPrompt(),
 		WorkflowID: req.GetWorkflowId(),
 	}

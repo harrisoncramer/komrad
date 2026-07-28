@@ -79,8 +79,8 @@ RETURNING
     id;
 
 -- name: InsertAgent :one
-INSERT INTO agents (name, agent_config_id, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key)
-    VALUES (@name, @agent_config_id, @prompt, @pane_id, @state, @claude_session_id, @workflow_id, sqlc.narg ('schedule_id'), sqlc.narg ('idempotency_key'))
+INSERT INTO agents (name, agent_config_id, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key, is_hidden)
+    VALUES (@name, @agent_config_id, @prompt, @pane_id, @state, @claude_session_id, @workflow_id, sqlc.narg ('schedule_id'), sqlc.narg ('idempotency_key'), @is_hidden)
 RETURNING
     id;
 
@@ -260,42 +260,71 @@ ON CONFLICT (agent_id)
         synced_offset = excluded.synced_offset,
         synced_at = now();
 
--- SearchTranscripts finds the transcripts containing the query as a substring,
--- best match first. The ILIKE is the form the trigram index can answer, so the
--- pattern arrives already escaped and wrapped in wildcards, while the raw query
--- is passed alongside it for the position and the count, which have to match
--- literally. Rank is how many times the query occurs in a transcript, so an agent
--- that discussed something at length outranks one that mentioned it once. The
--- snippet is a plain window of the text around the first occurrence; the caller
--- marks the match within it.
+-- name: DeleteAgentTranscriptChunks :exec
+DELETE FROM agent_transcript_chunks
+WHERE agent_id = @agent_id;
+
+-- NextTranscriptChunkSeq is the position the next appended turn takes, which is
+-- one past the highest already stored, or zero for an agent with no turns yet.
+-- name: NextTranscriptChunkSeq :one
+SELECT
+    coalesce(max(seq) + 1, 0)::int AS next
+FROM
+    agent_transcript_chunks
+WHERE
+    agent_id = @agent_id;
+
+-- InsertTranscriptChunks appends turns for one agent. Copy rather than insert, so
+-- a sync that folded in several turns writes them in one stream instead of a round
+-- trip each.
+-- name: InsertTranscriptChunks :copyfrom
+INSERT INTO agent_transcript_chunks (agent_id, seq, role, content, content_offset)
+    VALUES (@agent_id, @seq, @role, @content, @content_offset);
+
+-- SearchTranscripts finds the turns matching the query, best match first. Two
+-- matchers run together because they fail in opposite places. The tsquery matches
+-- whole stemmed words, so it finds a turn that phrased something differently but
+-- cannot match a word still being typed. The ILIKE matches any substring, so it
+-- covers the half-typed word but knows nothing about word boundaries. Rank is the
+-- cover density of the word match, which rewards the query's terms appearing close
+-- together, and is zero for a turn only the substring found, sorting those last.
+-- A word match takes its snippet from ts_headline, which marks the lexemes it
+-- matched rather than a literal run, so a stemmed hit is still highlighted. A
+-- substring-only match has no lexemes to mark and takes a plain window around the
+-- literal occurrence, which the caller marks instead.
 -- name: SearchTranscripts :many
-WITH matches AS (
+WITH q AS (
     SELECT
-        t.agent_id,
-        substring(t.content FROM greatest (1, position(lower(@query) IN lower(t.content)) - @lead::int)
-            FOR @width::int)::text AS snippet,
-        (length(t.content) - length(replace(lower(t.content), lower(@query), ''))) / length(@query) AS rank
-    FROM
-        agent_transcripts t
-    WHERE
-        t.content ILIKE @pattern
+        websearch_to_tsquery('english', @query) AS query
 )
 SELECT
-    matches.agent_id,
-    s.name,
-    s.is_deleted,
-    matches.snippet,
-    matches.rank
+    c.agent_id,
+    c.seq,
+    c.role,
+    c.content_offset,
+    a.name,
+    a.is_deleted,
+    CASE WHEN c.tsv @@ q.query THEN
+        ts_headline('english', c.content, q.query, @headline)
+    ELSE
+        substring(c.content FROM greatest (1, position(lower(@query) IN lower(c.content)) - @lead::int)
+            FOR @width::int)
+    END::text AS snippet,
+    ts_rank_cd(c.tsv, q.query)::float8 AS rank
 FROM
-    matches
-    JOIN agents s ON s.id = matches.agent_id
-WHERE (sqlc.narg ('cursor_rank')::int IS NULL
-    OR rank < sqlc.narg ('cursor_rank')
-    OR (rank = sqlc.narg ('cursor_rank')
-        AND agent_id > sqlc.narg ('cursor_agent_id')))
+    agent_transcript_chunks c
+    CROSS JOIN q
+    JOIN agents a ON a.id = c.agent_id
+WHERE (c.tsv @@ q.query
+    OR c.content ILIKE @pattern)
+AND (sqlc.narg ('cursor_rank')::float8 IS NULL
+    OR ts_rank_cd(c.tsv, q.query) < sqlc.narg ('cursor_rank')
+    OR (ts_rank_cd(c.tsv, q.query) = sqlc.narg ('cursor_rank')
+        AND (c.agent_id, c.seq) > (sqlc.narg ('cursor_agent_id')::uuid, sqlc.narg ('cursor_seq')::int)))
 ORDER BY
-    matches.rank DESC,
-    matches.agent_id ASC
+    rank DESC,
+    c.agent_id ASC,
+    c.seq ASC
 LIMIT @lim;
 
 -- name: CountLiveScheduleAgents :one

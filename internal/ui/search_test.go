@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 
 	"claude-agents/internal/appconfig"
@@ -192,41 +193,46 @@ func TestRenderSnippet(t *testing.T) {
 	}
 }
 
-// TestFirstMatchLine covers where the transcript preview is anchored. Line zero
-// means the top, which is where a preview with nothing to centre on belongs.
-func TestFirstMatchLine(t *testing.T) {
+// TestLineAtOffset covers where the transcript preview is anchored. Line zero means
+// the top, which is where a preview with nothing to centre on belongs.
+func TestLineAtOffset(t *testing.T) {
 	const content = "line one\nline two has postgres in it\nline three"
 
 	tests := []struct {
-		name  string
-		query string
-		want  int
+		name   string
+		offset int64
+		want   int
 	}{
 		{
-			name:  "a blank query anchors at the top",
-			query: "  ",
-			want:  0,
+			name:   "a negative offset anchors at the top",
+			offset: -1,
+			want:   0,
 		},
 		{
-			name:  "a query that never occurs anchors at the top",
-			query: "sqlite",
-			want:  0,
+			name:   "an offset past the end anchors at the top",
+			offset: int64(len(content) + 1),
+			want:   0,
 		},
 		{
-			name:  "a match reports its line",
-			query: "postgres",
-			want:  2,
+			name:   "the start of the transcript is its first line",
+			offset: 0,
+			want:   1,
 		},
 		{
-			name:  "matching ignores case, since the search does",
-			query: "POSTGRES",
-			want:  2,
+			name:   "an offset partway through reports the line it falls on",
+			offset: int64(strings.Index(content, "postgres")),
+			want:   2,
+		},
+		{
+			name:   "the last line is reached like any other",
+			offset: int64(strings.Index(content, "line three")),
+			want:   3,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, firstMatchLine(content, tt.query))
+			assert.Equal(t, tt.want, lineAtOffset(content, tt.offset))
 		})
 	}
 }

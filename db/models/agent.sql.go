@@ -94,6 +94,16 @@ func (q *Queries) DeleteAgentTranscript(ctx context.Context, agentID string) err
 	return err
 }
 
+const deleteAgentTranscriptChunks = `-- name: DeleteAgentTranscriptChunks :exec
+DELETE FROM agent_transcript_chunks
+WHERE agent_id = $1
+`
+
+func (q *Queries) DeleteAgentTranscriptChunks(ctx context.Context, agentID string) error {
+	_, err := q.db.Exec(ctx, deleteAgentTranscriptChunks, agentID)
+	return err
+}
+
 const getAgent = `-- name: GetAgent :one
 SELECT
     s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.schedule_id, s.idempotency_key, s.is_deleted, s.created_at, s.updated_at, s.mark, s.is_hidden,
@@ -251,8 +261,8 @@ func (q *Queries) GetTranscript(ctx context.Context, agentID string) (*GetTransc
 }
 
 const insertAgent = `-- name: InsertAgent :one
-INSERT INTO agents (name, agent_config_id, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO agents (name, agent_config_id, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key, is_hidden)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING
     id
 `
@@ -267,6 +277,7 @@ type InsertAgentParams struct {
 	WorkflowID      string
 	ScheduleID      *string
 	IdempotencyKey  *string
+	IsHidden        bool
 }
 
 func (q *Queries) InsertAgent(ctx context.Context, arg InsertAgentParams) (string, error) {
@@ -280,6 +291,7 @@ func (q *Queries) InsertAgent(ctx context.Context, arg InsertAgentParams) (strin
 		arg.WorkflowID,
 		arg.ScheduleID,
 		arg.IdempotencyKey,
+		arg.IsHidden,
 	)
 	var id string
 	err := row.Scan(&id)
@@ -303,6 +315,14 @@ func (q *Queries) InsertAgentConfig(ctx context.Context, arg InsertAgentConfigPa
 	var id string
 	err := row.Scan(&id)
 	return id, err
+}
+
+type InsertTranscriptChunksParams struct {
+	AgentID       string
+	Seq           int32
+	Role          string
+	Content       string
+	ContentOffset int64
 }
 
 const listAgents = `-- name: ListAgents :many
@@ -516,6 +536,24 @@ func (q *Queries) MarkWorkflowAgentsDeleted(ctx context.Context, workflowID stri
 	return err
 }
 
+const nextTranscriptChunkSeq = `-- name: NextTranscriptChunkSeq :one
+SELECT
+    coalesce(max(seq) + 1, 0)::int AS next
+FROM
+    agent_transcript_chunks
+WHERE
+    agent_id = $1
+`
+
+// NextTranscriptChunkSeq is the position the next appended turn takes, which is
+// one past the highest already stored, or zero for an agent with no turns yet.
+func (q *Queries) NextTranscriptChunkSeq(ctx context.Context, agentID string) (int32, error) {
+	row := q.db.QueryRow(ctx, nextTranscriptChunkSeq, agentID)
+	var next int32
+	err := row.Scan(&next)
+	return next, err
+}
+
 const renameAgent = `-- name: RenameAgent :many
 UPDATE
     agents
@@ -570,71 +608,86 @@ func (q *Queries) RestoreAgent(ctx context.Context, id string) error {
 }
 
 const searchTranscripts = `-- name: SearchTranscripts :many
-WITH matches AS (
+WITH q AS (
     SELECT
-        t.agent_id,
-        substring(t.content FROM greatest (1, position(lower($4) IN lower(t.content)) - $5::int)
-            FOR $6::int)::text AS snippet,
-        (length(t.content) - length(replace(lower(t.content), lower($4), ''))) / length($4) AS rank
-    FROM
-        agent_transcripts t
-    WHERE
-        t.content ILIKE $7
+        websearch_to_tsquery('english', $2) AS query
 )
 SELECT
-    matches.agent_id,
-    s.name,
-    s.is_deleted,
-    matches.snippet,
-    matches.rank
+    c.agent_id,
+    c.seq,
+    c.role,
+    c.content_offset,
+    a.name,
+    a.is_deleted,
+    CASE WHEN c.tsv @@ q.query THEN
+        ts_headline('english', c.content, q.query, $1)
+    ELSE
+        substring(c.content FROM greatest (1, position(lower($2) IN lower(c.content)) - $3::int)
+            FOR $4::int)
+    END::text AS snippet,
+    ts_rank_cd(c.tsv, q.query)::float8 AS rank
 FROM
-    matches
-    JOIN agents s ON s.id = matches.agent_id
-WHERE ($1::int IS NULL
-    OR rank < $1
-    OR (rank = $1
-        AND agent_id > $2))
+    agent_transcript_chunks c
+    CROSS JOIN q
+    JOIN agents a ON a.id = c.agent_id
+WHERE (c.tsv @@ q.query
+    OR c.content ILIKE $5)
+AND ($6::float8 IS NULL
+    OR ts_rank_cd(c.tsv, q.query) < $6
+    OR (ts_rank_cd(c.tsv, q.query) = $6
+        AND (c.agent_id, c.seq) > ($7::uuid, $8::int)))
 ORDER BY
-    matches.rank DESC,
-    matches.agent_id ASC
-LIMIT $3
+    rank DESC,
+    c.agent_id ASC,
+    c.seq ASC
+LIMIT $9
 `
 
 type SearchTranscriptsParams struct {
-	CursorRank    *int32
-	CursorAgentID *string
-	Lim           int32
+	Headline      string
 	Query         string
 	Lead          int32
 	Width         int32
 	Pattern       string
+	CursorRank    *float64
+	CursorAgentID *string
+	CursorSeq     *int32
+	Lim           int32
 }
 
 type SearchTranscriptsRow struct {
-	AgentID   string
-	Name      string
-	IsDeleted bool
-	Snippet   string
-	Rank      int32
+	AgentID       string
+	Seq           int32
+	Role          string
+	ContentOffset int64
+	Name          string
+	IsDeleted     bool
+	Snippet       string
+	Rank          float64
 }
 
-// SearchTranscripts finds the transcripts containing the query as a substring,
-// best match first. The ILIKE is the form the trigram index can answer, so the
-// pattern arrives already escaped and wrapped in wildcards, while the raw query
-// is passed alongside it for the position and the count, which have to match
-// literally. Rank is how many times the query occurs in a transcript, so an agent
-// that discussed something at length outranks one that mentioned it once. The
-// snippet is a plain window of the text around the first occurrence; the caller
-// marks the match within it.
+// SearchTranscripts finds the turns matching the query, best match first. Two
+// matchers run together because they fail in opposite places. The tsquery matches
+// whole stemmed words, so it finds a turn that phrased something differently but
+// cannot match a word still being typed. The ILIKE matches any substring, so it
+// covers the half-typed word but knows nothing about word boundaries. Rank is the
+// cover density of the word match, which rewards the query's terms appearing close
+// together, and is zero for a turn only the substring found, sorting those last.
+// A word match takes its snippet from ts_headline, which marks the lexemes it
+// matched rather than a literal run, so a stemmed hit is still highlighted. A
+// substring-only match has no lexemes to mark and takes a plain window around the
+// literal occurrence, which the caller marks instead.
 func (q *Queries) SearchTranscripts(ctx context.Context, arg SearchTranscriptsParams) ([]*SearchTranscriptsRow, error) {
 	rows, err := q.db.Query(ctx, searchTranscripts,
-		arg.CursorRank,
-		arg.CursorAgentID,
-		arg.Lim,
+		arg.Headline,
 		arg.Query,
 		arg.Lead,
 		arg.Width,
 		arg.Pattern,
+		arg.CursorRank,
+		arg.CursorAgentID,
+		arg.CursorSeq,
+		arg.Lim,
 	)
 	if err != nil {
 		return nil, err
@@ -645,6 +698,9 @@ func (q *Queries) SearchTranscripts(ctx context.Context, arg SearchTranscriptsPa
 		var i SearchTranscriptsRow
 		if err := rows.Scan(
 			&i.AgentID,
+			&i.Seq,
+			&i.Role,
+			&i.ContentOffset,
 			&i.Name,
 			&i.IsDeleted,
 			&i.Snippet,

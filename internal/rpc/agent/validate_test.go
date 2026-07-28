@@ -167,13 +167,16 @@ func TestRequestValidation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "the trigram index cannot match under three characters",
+			// Word matching has no floor of its own, and the trigram fallback covers
+			// what is too short for it, so a query this brief is served rather than
+			// refused.
+			name: "a query of two characters is accepted",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.SearchTranscripts(t.Context(), connect.NewRequest(&agentv1.SearchTranscriptsRequest{Query: "ab"}))
 
 				return err
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			// A limit past the ceiling is clamped rather than refused, so a caller

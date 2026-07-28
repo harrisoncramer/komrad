@@ -155,7 +155,7 @@ func (m model) deleteFromTrashConfirm() (tea.Model, tea.Cmd) {
 	}
 
 	m.trashDeleteTarget = &agent
-	m.form = deleteAgentForm(agent.Name, m.keys.Form)
+	m.form, m.confirmed = deleteAgentForm(agent.Name, m.keys.Form)
 	m.screen = screenTrashDelete
 
 	return m, m.form.Init()
@@ -172,16 +172,18 @@ func (m model) updateTrashDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.form.State {
 	case huh.StateCompleted:
-		if m.trashDeleteTarget != nil && m.form.GetBool("confirm") {
+		if m.trashDeleteTarget != nil && m.wasConfirmed() {
 			m.report(
 				fmt.Sprintf("Could not delete agent %q", m.trashDeleteTarget.Name),
 				m.deleteAgent(m.trashDeleteTarget.ID),
 			)
 		}
 		m.trashDeleteTarget = nil
+		m.confirmed = nil
 		return m.returnToTrash()
 	case huh.StateAborted:
 		m.trashDeleteTarget = nil
+		m.confirmed = nil
 		return m.returnToTrash()
 	default:
 		return m, cmd
@@ -213,17 +215,22 @@ func (m model) deleteAgent(id string) error {
 // deleteAgentForm confirms destroying an agent. It names what goes with it,
 // since the reversible delete on the agents list uses the same key and this one
 // cannot be taken back.
-func deleteAgentForm(name string, keys appconfig.FormKeys) *huh.Form {
-	return huh.NewForm(
+func deleteAgentForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool) {
+	var confirmed bool
+
+	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewConfirm().
 				Key("confirm").
 				Title(fmt.Sprintf("Permanently delete agent %q?", name)).
 				Description("Its transcript goes with it and search will not find the conversation again.").
 				Affirmative("Delete").
-				Negative("Cancel"),
+				Negative("Cancel").
+				Value(&confirmed),
 		),
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
+
+	return form, &confirmed
 }
 
 // stageTrash shows the hovered agent's stored record in the stage. Nothing in

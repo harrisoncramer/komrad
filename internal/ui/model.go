@@ -283,9 +283,10 @@ type model struct {
 	agents      []agentItem
 	agentCursor int
 
-	// showHidden draws the hidden agents alongside the rest. It is the panel's own
-	// state rather than anything stored, so it lasts as long as this process and every
-	// panel starts with the hidden ones away.
+	// showHidden draws the hidden agents and the hidden schedules alongside the rest.
+	// One flag covers both screens, since it is one question the person watching is
+	// answering. It is the panel's own state rather than anything stored, so it lasts
+	// as long as this process and every panel starts with the hidden ones away.
 	showHidden bool
 
 	// infoPinned shows the hovered agent's stored record in the stage instead of the
@@ -310,7 +311,17 @@ type model struct {
 	// and consumed on submit.
 	newAgentWorkflow *workflowstore.Workflow
 
-	form         *huh.Form
+	form *huh.Form
+	// The values the open form writes into, each nil while no form of that shape is
+	// up. huh records a field into its own results only as the cursor leaves it, so a
+	// submit from partway down a form would read every field below as blank. Each form
+	// binds its fields to one of these instead, which they write through on every
+	// change, so a submit reads what is on screen however it was reached.
+	agentValues    *agentFormValues
+	renameValue    *string
+	workflowValues *workflowstore.Config
+	confirmed      *bool
+
 	renameTarget agentstore.Agent
 
 	// Schedules screen state. The list, which row is hovered, and the schedules
@@ -320,6 +331,7 @@ type model struct {
 	scheduleCursor       int
 	scheduleEditTarget   *schedulestore.Schedule
 	scheduleDeleteTarget *schedulestore.Schedule
+	scheduleValues       *schedulestore.Config
 
 	// Search screen state. The live query, its hits, and which hit is hovered.
 	searchQuery  string
@@ -553,18 +565,25 @@ func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cm
 	}
 
 	m.newAgentWorkflow = workflow
-	m.form = newAgentForm(m.keys.Form, workflow.Cwd, workflow.Flags)
+	m.form, m.agentValues = newAgentForm(m.keys.Form, workflow.Cwd, workflow.Flags)
 	m.screen = screenForm
 
 	return m, m.form.Init()
 }
 
-func renameForm(current string, keys appconfig.FormKeys) *huh.Form {
-	return huh.NewForm(
+// renameForm asks for a new name, starting blank rather than on the current one so
+// the old name is there to read while the new one is typed. It returns the name its
+// input writes into alongside the form.
+func renameForm(current string, keys appconfig.FormKeys) (*huh.Form, *string) {
+	var name string
+
+	form := huh.NewForm(
 		huh.NewGroup(
-			huh.NewInput().Key("name").Title(fmt.Sprintf("Rename %q to", current)),
+			huh.NewInput().Key("name").Title(fmt.Sprintf("Rename %q to", current)).Value(&name),
 		),
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
+
+	return form, &name
 }
 
 func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -575,16 +594,22 @@ func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.form.State {
 	case huh.StateCompleted:
+		name := ""
+		if m.renameValue != nil {
+			name = *m.renameValue
+		}
 		m.report(
 			fmt.Sprintf("Could not rename agent %q", m.renameTarget.Name),
-			m.renameAgent(m.renameTarget, m.form.GetString("name")),
+			m.renameAgent(m.renameTarget, name),
 		)
+		m.renameValue = nil
 		m.reload()
 		m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
 		m.screen = screenAgents
 		m.stageSelection()
 		return m, nil
 	case huh.StateAborted:
+		m.renameValue = nil
 		m.screen = screenAgents
 		m.stageSelection()
 		return m, nil
@@ -593,22 +618,31 @@ func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// newAgentForm builds the new-agent form. defaultDir and defaultFlags prefill the
-// directory and flags fields from the enclosing workflow's config, so an agent
-// created inside a workflow starts from its blueprint. Both are blank at the
-// root.
-func newAgentForm(keys appconfig.FormKeys, defaultDir, defaultFlags string) *huh.Form {
-	dir := defaultDir
-	flags := defaultFlags
+// agentFormValues are the fields the new-agent form writes into.
+type agentFormValues struct {
+	Prompt string
+	Title  string
+	Dir    string
+	Flags  string
+}
 
-	return huh.NewForm(
+// newAgentForm builds the new-agent form and returns the values its fields write
+// into. defaultDir and defaultFlags prefill the directory and flags fields from the
+// enclosing workflow's config, so an agent created inside a workflow starts from its
+// blueprint. Both are blank at the root.
+func newAgentForm(keys appconfig.FormKeys, defaultDir, defaultFlags string) (*huh.Form, *agentFormValues) {
+	values := &agentFormValues{Dir: defaultDir, Flags: defaultFlags}
+
+	form := huh.NewForm(
 		huh.NewGroup(
-			huh.NewText().Key("prompt").Title("Initial prompt").Description("ctrl+e opens $EDITOR; shift+enter submits"),
-			huh.NewInput().Key("title").Title("Title").Description("optional; claude names it if blank"),
-			huh.NewInput().Key("dir").Title("Directory").Description("blank = current").Value(&dir),
-			huh.NewInput().Key("flags").Title("Claude flags").Placeholder("--model opus").Value(&flags),
+			huh.NewText().Key("prompt").Title("Initial prompt").Description("ctrl+e opens $EDITOR; shift+enter submits").Value(&values.Prompt),
+			huh.NewInput().Key("title").Title("Title").Description("optional; claude names it if blank").Value(&values.Title),
+			huh.NewInput().Key("dir").Title("Directory").Description("blank = current").Value(&values.Dir),
+			huh.NewInput().Key("flags").Title("Claude flags").Placeholder("--model opus").Value(&values.Flags),
 		),
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
+
+	return form, values
 }
 
 // formKeyMap is the default form keymap with the configured back and quit keys
@@ -620,6 +654,13 @@ func formKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
 	km := huh.NewDefaultKeyMap()
 	km.Quit = key.NewBinding(key.WithKeys(quit...), key.WithHelp(hintKeys(keys.Back), "back"))
 	return km
+}
+
+// wasConfirmed reports whether the open prompt was answered yes. A prompt that is not
+// open reads as no, so the destructive half of a confirm can only ever run off an
+// answer somebody gave.
+func (m model) wasConfirmed() bool {
+	return m.confirmed != nil && *m.confirmed
 }
 
 // onFormScreen reports whether a form owns the input, which decides whether a key
@@ -724,6 +765,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	if settled, ok := msg.(searchSettledMsg); ok {
+		return m, m.runSettledSearch(settled)
+	}
+
 	if results, ok := msg.(searchResultsMsg); ok {
 		return m, m.applySearchResults(results)
 	}
@@ -800,6 +845,7 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.submitAgent()
 	case huh.StateAborted:
 		m.newAgentWorkflow = nil
+		m.agentValues = nil
 		m.screen = screenAgents
 		m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
 		m.stageSelection()
@@ -814,7 +860,7 @@ func (m model) submitAgent() (tea.Model, tea.Cmd) {
 	// time a submit happens. It is checked rather than dereferenced because a
 	// create with no workflow would be refused by the service anyway, and saying
 	// so here costs a round trip less.
-	if m.newAgentWorkflow == nil {
+	if m.newAgentWorkflow == nil || m.agentValues == nil {
 		m.failAction("Could not start the agent", errNoWorkflow)
 		m.screen = screenAgents
 		m.stageSelection()
@@ -829,14 +875,15 @@ func (m model) submitAgent() (tea.Model, tea.Cmd) {
 	// refresh below would otherwise be the only signal, and a list that comes back
 	// without the new agent reads the same as a form that never submitted.
 	_, err := m.api.agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
-		Prompt:     m.form.GetString("prompt"),
-		Title:      m.form.GetString("title"),
-		Dir:        m.currentDir(m.form.GetString("dir")),
-		Flags:      m.form.GetString("flags"),
+		Prompt:     m.agentValues.Prompt,
+		Title:      m.agentValues.Title,
+		Dir:        m.currentDir(m.agentValues.Dir),
+		Flags:      m.agentValues.Flags,
 		WorkflowId: m.newAgentWorkflow.ID,
 	}))
 	m.report("Could not start the agent", err)
 	m.newAgentWorkflow = nil
+	m.agentValues = nil
 	m.reload()
 	m.screen = screenAgents
 	m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))

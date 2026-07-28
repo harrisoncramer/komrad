@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"errors"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -164,6 +165,42 @@ func TestSchedulesView(t *testing.T) {
 	}
 }
 
+// TestScheduleFormButtonsLineUp covers where the form draws its confirm buttons. huh
+// centres them under the field's own prompt, so a field carrying a description is as
+// wide as that sentence and its buttons come out indented from the ones above it by
+// however long it happens to be. The form pins them left instead, and this is what says
+// so, since nothing else in the panel reads a rendered column.
+func TestScheduleFormButtonsLineUp(t *testing.T) {
+	form, _ := scheduleForm(schedulestore.Config{
+		Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep", Enabled: true, WorkflowID: "w1",
+	}, []workflowstore.Workflow{{ID: "w1", Name: "api", Cwd: "/work/api"}}, appconfig.DefaultKeybindings().Form)
+	form.Init()
+	form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
+
+	var indents []int
+	for _, line := range strings.Split(plain(form.View()), "\n") {
+		buttons := strings.TrimLeft(line, " ")
+		if !strings.HasPrefix(buttons, "Armed ") && !strings.HasPrefix(buttons, "Hidden ") {
+			continue
+		}
+
+		indents = append(indents, len(line)-len(buttons))
+	}
+
+	require.Len(t, indents, 2, "one row of buttons per confirm")
+	for _, indent := range indents {
+		assert.Equal(t, indents[0], indent, "every confirm draws its buttons in the same column")
+	}
+}
+
+// plain drops the colour escapes lipgloss writes, so a case can measure where on a line
+// something was drawn rather than how many bytes of styling preceded it.
+func plain(rendered string) string {
+	return colourEscape.ReplaceAllString(rendered, "")
+}
+
+var colourEscape = regexp.MustCompile("\x1b\\[[0-9;]*m")
+
 // TestScheduleMarkdown covers the record shown in the stage beside the list.
 // Nothing runs for a schedule, so the record is all there is to see.
 func TestScheduleMarkdown(t *testing.T) {
@@ -303,7 +340,7 @@ func TestScheduleWriteFailure(t *testing.T) {
 			name: "a refused create",
 			act: func(m model) (model, bool) {
 				m.scheduleEditTarget = nil
-				m.form = scheduleForm(schedulestore.Config{Name: "x", Cron: "0 9 * * *"}, nil, appconfig.DefaultKeybindings().Form)
+				m.form, m.scheduleValues = scheduleForm(schedulestore.Config{Name: "x", Cron: "0 9 * * *"}, nil, appconfig.DefaultKeybindings().Form)
 				updated, _ := m.submitScheduleForm()
 				got, ok := updated.(model)
 
@@ -462,7 +499,7 @@ func keyMsg(key string) tea.KeyMsg {
 		return tea.KeyMsg{Type: named}
 	}
 
-	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(strings.ToLower(key))}
+	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
 }
 
 // namedKeys are the non-rune keys the cases press.

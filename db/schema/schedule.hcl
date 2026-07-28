@@ -39,6 +39,16 @@ table "schedules" {
     type    = boolean
     default = true
   }
+  # Whether the agents this schedule launches start hidden from the panel's list.
+  # It is the schedule's answer for the runs it produces rather than a flag on the
+  # schedule itself, which is what makes a noisy hourly job something you can leave
+  # armed without it filling the list. Each agent gets its own is_hidden copied
+  # from here at launch, so hiding or showing one afterwards is that agent's own.
+  column "hide_agents" {
+    null    = false
+    type    = boolean
+    default = false
+  }
   # The prompt each launched agent starts with. This is the whole point of the
   # schedule, so unlike an agent's prompt it is expected to be set.
   column "prompt" {

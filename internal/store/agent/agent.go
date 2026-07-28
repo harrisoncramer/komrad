@@ -53,9 +53,10 @@ type Agent struct {
 	// the same key finds this agent rather than spawning a second one.
 	IdempotencyKey *string
 	Deleted        bool
-	// Hidden keeps this agent out of the panel's list without stopping it. It is the
-	// user's own flag, like Mark, and the agent runs and is reconciled the same
-	// whichever way it is set.
+	// Hidden keeps this agent out of the panel's list without stopping it. It runs and
+	// is reconciled the same whichever way it is set. It is written on insert, from the
+	// launching schedule's HideAgents, and by the user afterwards. Nothing else touches
+	// it, so an update never carries it and a reconciler pass cannot undo a hide.
 	Hidden bool
 	// Mark is the glyph the user put on this agent, nil when it carries none. Only
 	// the user sets and clears it, so it says nothing about the agent's lifecycle.
@@ -231,6 +232,7 @@ func (s *Store) insert(ctx context.Context, agent Agent) error {
 		WorkflowID:      agent.WorkflowID,
 		ScheduleID:      agent.ScheduleID,
 		IdempotencyKey:  agent.IdempotencyKey,
+		IsHidden:        agent.Hidden,
 	}); err != nil {
 		return fmt.Errorf("failed to insert agent %q: %w", agent.Name, err)
 	}

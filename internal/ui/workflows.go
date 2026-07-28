@@ -68,7 +68,7 @@ func (m model) returnToAgents() (tea.Model, tea.Cmd) {
 func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
 	m.workflowRenameTarget = nil
 	m.workflowEditTarget = nil
-	m.form = workflowConfigForm("New workflow name", workflowstore.Config{}, m.keys.Form)
+	m.form, m.workflowValues = workflowConfigForm("New workflow name", workflowstore.Config{}, m.keys.Form)
 	m.screen = screenWorkflowForm
 
 	return m, m.form.Init()
@@ -80,7 +80,7 @@ func (m model) renameWorkflowForm() (tea.Model, tea.Cmd) {
 	workflow := m.workflows[m.workflowCursor]
 	m.workflowRenameTarget = &workflow
 	m.workflowEditTarget = nil
-	m.form = workflowForm(fmt.Sprintf("Rename %q to", workflow.Name), m.keys.Form)
+	m.form, m.workflowValues = workflowForm(fmt.Sprintf("Rename %q to", workflow.Name), m.keys.Form)
 	m.screen = screenWorkflowForm
 
 	return m, m.form.Init()
@@ -98,7 +98,7 @@ func (m model) editWorkflowForm() (tea.Model, tea.Cmd) {
 	}
 	m.workflowEditTarget = &workflow
 	m.workflowRenameTarget = nil
-	m.form = workflowConfigForm("Workflow name", workflowstore.Config{
+	m.form, m.workflowValues = workflowConfigForm("Workflow name", workflowstore.Config{
 		Name:    workflow.Name,
 		Context: workflow.Context,
 		Cwd:     workflow.Cwd,
@@ -114,7 +114,7 @@ func (m model) editWorkflowForm() (tea.Model, tea.Cmd) {
 func (m model) deleteWorkflowConfirm() (tea.Model, tea.Cmd) {
 	workflow := m.workflows[m.workflowCursor]
 	m.workflowDeleteTarget = &workflow
-	m.form = deleteWorkflowForm(workflow.Name, m.keys.Form)
+	m.form, m.confirmed = deleteWorkflowForm(workflow.Name, m.keys.Form)
 	m.screen = screenWorkflowDelete
 
 	return m, m.form.Init()
@@ -131,17 +131,19 @@ func (m model) updateWorkflowDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.form.State {
 	case huh.StateCompleted:
-		if m.workflowDeleteTarget != nil && m.form.GetBool("confirm") {
+		if m.workflowDeleteTarget != nil && m.wasConfirmed() {
 			m.report(
 				fmt.Sprintf("Could not delete workflow %q", m.workflowDeleteTarget.Name),
 				m.deleteWorkflow(m.workflowDeleteTarget.ID),
 			)
 		}
 		m.workflowDeleteTarget = nil
+		m.confirmed = nil
 		m.reloadWorkflows()
 		return m.returnToAgents()
 	case huh.StateAborted:
 		m.workflowDeleteTarget = nil
+		m.confirmed = nil
 		return m.returnToAgents()
 	default:
 		return m, cmd
@@ -166,6 +168,7 @@ func (m model) updateWorkflowForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case huh.StateAborted:
 		m.workflowRenameTarget = nil
 		m.workflowEditTarget = nil
+		m.workflowValues = nil
 		return m.returnToAgents()
 	default:
 		return m, cmd
@@ -176,13 +179,19 @@ func (m model) updateWorkflowForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 // existing one's config, or creating a new one, then returns to the agents view
 // with the list refreshed.
 func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
-	name := m.form.GetString("name")
+	// The form writes into values the panel handed it, so a submit without them is a
+	// submit for a form that was never opened.
+	if m.workflowValues == nil {
+		return m.returnToAgents()
+	}
+
+	values := *m.workflowValues
 	switch {
 	case m.workflowRenameTarget != nil:
 		// A rename is an update carrying the fields it is not changing, since the
 		// service replaces all of them.
 		target := *m.workflowRenameTarget
-		if trimmed := strings.TrimSpace(name); trimmed != "" && trimmed != target.Name {
+		if trimmed := strings.TrimSpace(values.Name); trimmed != "" && trimmed != target.Name {
 			target.Name = trimmed
 			m.report(
 				fmt.Sprintf("Could not rename workflow %q", m.workflowRenameTarget.Name),
@@ -194,65 +203,76 @@ func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 			fmt.Sprintf("Could not save workflow %q", m.workflowEditTarget.Name),
 			m.updateWorkflow(workflowstore.Workflow{
 				ID:      m.workflowEditTarget.ID,
-				Name:    name,
-				Context: m.form.GetString("context"),
-				Cwd:     m.form.GetString("dir"),
-				Flags:   m.form.GetString("flags"),
+				Name:    values.Name,
+				Context: values.Context,
+				Cwd:     values.Cwd,
+				Flags:   values.Flags,
 			}),
 		)
 	default:
-		m.report("Could not create the workflow", m.createWorkflow(workflowstore.Config{
-			Name:    name,
-			Context: m.form.GetString("context"),
-			Cwd:     m.form.GetString("dir"),
-			Flags:   m.form.GetString("flags"),
-		}))
+		m.report("Could not create the workflow", m.createWorkflow(values))
 	}
 
 	m.workflowRenameTarget = nil
 	m.workflowEditTarget = nil
+	m.workflowValues = nil
 	m.reloadWorkflows()
 	return m.returnToAgents()
 }
 
-func workflowForm(title string, keys appconfig.FormKeys) *huh.Form {
-	return huh.NewForm(
+// workflowForm asks for a name alone, which is what a rename is. It returns the
+// config its input writes into, the same shape the fuller form binds, so a submit
+// reads either through one path.
+func workflowForm(title string, keys appconfig.FormKeys) (*huh.Form, *workflowstore.Config) {
+	var values workflowstore.Config
+
+	form := huh.NewForm(
 		huh.NewGroup(
-			huh.NewInput().Key("name").Title(title),
+			huh.NewInput().Key("name").Title(title).Value(&values.Name),
 		),
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
+
+	return form, &values
 }
 
 // workflowConfigForm collects a workflow's name, its free-text context, and its
-// default config. The dir and flags become the blueprint prefilled into the
-// new-agent form for agents created inside the workflow. Every field prefills, so
-// it serves both creating a workflow with blank values and editing one with its
-// current values.
-func workflowConfigForm(nameTitle string, cfg workflowstore.Config, keys appconfig.FormKeys) *huh.Form {
-	name, workflowContext, dir, flags := cfg.Name, cfg.Context, cfg.Cwd, cfg.Flags
-	return huh.NewForm(
+// default config, and returns the config its fields write into. The dir and flags
+// become the blueprint prefilled into the new-agent form for agents created inside the
+// workflow. Every field prefills, so it serves both creating a workflow with blank
+// values and editing one with its current values.
+func workflowConfigForm(nameTitle string, cfg workflowstore.Config, keys appconfig.FormKeys) (*huh.Form, *workflowstore.Config) {
+	values := cfg
+
+	form := huh.NewForm(
 		huh.NewGroup(
-			huh.NewInput().Key("name").Title(nameTitle).Value(&name),
-			huh.NewText().Key("context").Title("Context").Description("shared notes for this workflow; ctrl+e opens $EDITOR").Value(&workflowContext),
-			huh.NewInput().Key("dir").Title("Default directory").Description("blank = current").Value(&dir),
-			huh.NewInput().Key("flags").Title("Default claude flags").Placeholder("--model opus").Value(&flags),
+			huh.NewInput().Key("name").Title(nameTitle).Value(&values.Name),
+			huh.NewText().Key("context").Title("Context").Description("shared notes for this workflow; ctrl+e opens $EDITOR").Value(&values.Context),
+			huh.NewInput().Key("dir").Title("Default directory").Description("blank = current").Value(&values.Cwd),
+			huh.NewInput().Key("flags").Title("Default claude flags").Placeholder("--model opus").Value(&values.Flags),
 		),
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
+
+	return form, &values
 }
 
 // deleteWorkflowForm confirms a delete. The agents inside go with it, since
 // every agent belongs to a workflow and there is nowhere to leave one.
-func deleteWorkflowForm(name string, keys appconfig.FormKeys) *huh.Form {
-	return huh.NewForm(
+func deleteWorkflowForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool) {
+	var confirmed bool
+
+	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewConfirm().
 				Key("confirm").
 				Title(fmt.Sprintf("Delete workflow %q and its agents?", name)).
 				Description("Their transcripts are kept and stay searchable.").
 				Affirmative("Delete").
-				Negative("Cancel"),
+				Negative("Cancel").
+				Value(&confirmed),
 		),
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
+
+	return form, &confirmed
 }
 
 // The workflow screens act through the service like everything else. Each call

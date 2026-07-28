@@ -216,28 +216,36 @@ message UpdateAgentRequest {
 }
 
 message SearchTranscriptsRequest {
-  // Three characters is the floor rather than a stylistic minimum. The index uses
-  // a trigram tokenizer, so a shorter query can never match anything and would
-  // come back as a confident empty result.
   string query = 1 [(buf.validate.field).string = {
-    min_len: 3,
+    min_len: 1,
     max_len: 500
   }];
   optional pagination.v1.Pagination pagination = 2;
 }
 
-// SearchHit is one transcript matched by a search. The agent it belongs to, its
-// display name and whether it is soft-deleted, a snippet of the matching text
-// with the matched terms wrapped in markers, and the relevance rank.
+// SearchHit is one turn of a transcript matched by a search. The agent it belongs
+// to, its display name and whether it is soft-deleted, which turn matched and who
+// spoke it, a snippet of the matching text with the matched terms wrapped in
+// markers, and the relevance the results are ordered by.
 message SearchHit {
   string agent_id = 1;
   string snippet = 2;
-  // How many times the query occurs in the transcript. Results come back in
-  // descending order of this, so an agent that discussed something at length
-  // outranks one that mentioned it once.
-  int64 occurrences = 3;
+  // Held by the occurrence count results were once ordered by, which relevance
+  // replaced.
+  reserved 3;
   string name = 4;
   bool deleted = 5;
+  // Cover density of the matched turn, higher being a better match. It compares
+  // only against the other hits for the same query and carries no meaning of its
+  // own.
+  double score = 6;
+  // Position of the matched turn within the transcript, counting from zero.
+  int32 seq = 7;
+  // Who spoke the matched turn, user or assistant.
+  string role = 8;
+  // Byte offset where the matched turn begins in the full transcript, so a caller
+  // holding that text can scroll to the hit without searching for it again.
+  int64 content_offset = 9;
 }
 
 message SearchTranscriptsResponse {
@@ -350,7 +358,7 @@ service AgentService {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "search_transcripts"
-      description: "Full-text search across every agent's conversation, including deleted ones, returning a ranked snippet per hit with the matched text marked. Substring matching, so partial words work. Returns one page, best match first; pass the response's nextPageToken back as pagination.cursor alongside the same query for the next one. Use this to answer what was discussed; use query for the SQL view of the same data."
+      description: "Full-text search across every agent's conversation, including deleted ones, returning one hit per matching turn with the matched text marked. Matches whole words, stemmed, so a query finds turns that phrased it differently; quote a phrase to require it verbatim, prefix a word with - to exclude it. Partial words also match as substrings, and rank below whole-word hits. One agent can appear several times, once per turn that matched. Returns one page, best match first; pass the response's nextPageToken back as pagination.cursor alongside the same query for the next one. Use this to answer what was discussed; use query for the SQL view of the same data."
     };
   }
   // GetTranscript returns an agent's full stored transcript by id.

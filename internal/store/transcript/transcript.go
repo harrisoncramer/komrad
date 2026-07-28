@@ -21,16 +21,20 @@ type Transcript struct {
 	SyncedOffset int64
 }
 
-// SearchHit is one transcript matched by a search. The agent it belongs to, its
-// display name, whether that agent is archived, a snippet of the matching text
-// with the hit marked, and how many times the query occurs in the transcript,
-// which is what the results are ranked by.
+// SearchHit is one turn matched by a search. The agent it belongs to, its display
+// name, whether that agent is archived, which turn matched and who spoke it, where
+// that turn begins in the full transcript so the caller can scroll to it, a snippet
+// of the matching text with the hit marked, and the relevance the results are
+// ranked by.
 type SearchHit struct {
-	AgentID string
-	Name    string
-	Deleted bool
-	Snippet string
-	Rank    int32
+	AgentID       string
+	Name          string
+	Deleted       bool
+	Seq           int32
+	Role          string
+	ContentOffset int64
+	Snippet       string
+	Rank          float64
 }
 
 // SnippetOpen and SnippetClose wrap the matched terms inside a hit's snippet, so
@@ -41,11 +45,17 @@ const (
 	SnippetClose = "\x03"
 )
 
-// The shape of a search hit's snippet. How much text to keep before the match so
-// it reads in context, and how much of the transcript to return in total.
+// The shape of a search hit's snippet. Lead and width cut the plain window a
+// substring-only match falls back to, how much text to keep before the match so it
+// reads in context and how much to return in total. headlineOptions shapes the
+// window a word match gets instead, in the comma-separated form ts_headline parses.
+// It carries the same markers, so both kinds of snippet reach the caller alike.
 const (
 	snippetLead  = 60
 	snippetWidth = 200
+
+	headlineOptions = "StartSel=" + SnippetOpen + ",StopSel=" + SnippetClose +
+		",MaxWords=35,MinWords=15,MaxFragments=1"
 )
 
 // defaultSearchLimit bounds a search that asks for no limit of its own, so a
@@ -90,9 +100,9 @@ type UpsertParams struct {
 	Offset  int64
 }
 
-// Upsert writes an agent's transcript. The search index is a trigram index on the
-// column itself, so Postgres keeps it in step with the write and there is nothing
-// separate to reindex.
+// Upsert writes an agent's transcript. This is the copy the panel previews, held
+// whole because that is how it is read. What search matches is the turns, written
+// separately by AppendTurns.
 func (s *Store) Upsert(ctx context.Context, params UpsertParams) error {
 	if err := s.queries.UpsertTranscript(ctx, models.UpsertTranscriptParams{
 		AgentID:      params.AgentID,
@@ -105,24 +115,80 @@ func (s *Store) Upsert(ctx context.Context, params UpsertParams) error {
 	return nil
 }
 
-// Delete removes the transcript belonging to an agent. It runs alongside the
-// agent's own delete, in the same transaction, since text left behind by a removed
-// agent would stay readable through the SQL tools.
-func (s *Store) Delete(ctx context.Context, agentID string) error {
-	if err := s.queries.DeleteAgentTranscript(ctx, agentID); err != nil {
-		return fmt.Errorf("failed to delete transcript for %q: %w", agentID, err)
+// Turn is one turn of a transcript as the syncer hands it over, ready to be
+// indexed. Offset is where the turn begins in the transcript text it was appended
+// to, which is what lets a hit be scrolled to without searching for it again.
+type Turn struct {
+	Role    string
+	Content string
+	Offset  int64
+}
+
+// AppendTurns indexes newly-synced turns for an agent, numbering them after the
+// turns already stored. The search index lives on a generated column, so Postgres
+// builds it as part of this write and there is nothing separate to reindex.
+func (s *Store) AppendTurns(ctx context.Context, agentID string, turns []Turn) error {
+	if len(turns) == 0 {
+		return nil
+	}
+
+	next, err := s.queries.NextTranscriptChunkSeq(ctx, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to read the next transcript chunk seq for %q: %w", agentID, err)
+	}
+
+	rows := make([]models.InsertTranscriptChunksParams, 0, len(turns))
+	for i, turn := range turns {
+		rows = append(rows, models.InsertTranscriptChunksParams{
+			AgentID:       agentID,
+			Seq:           next + int32(i),
+			Role:          turn.Role,
+			Content:       turn.Content,
+			ContentOffset: turn.Offset,
+		})
+	}
+
+	if _, err := s.queries.InsertTranscriptChunks(ctx, rows); err != nil {
+		return fmt.Errorf("failed to insert transcript chunks for %q: %w", agentID, err)
 	}
 
 	return nil
 }
 
-// Cursor locates a hit within one query's results. Hits sort by how many times the
-// query occurs, which two transcripts can tie on, so the agent id breaks the tie.
-// The rank means nothing outside the query that produced it, so a cursor is only
-// ever replayed against that same query.
+// DeleteTurns drops every indexed turn for an agent. The syncer calls this when a
+// log has been rewritten shorter than what was already read, which means the stored
+// turns no longer correspond to the file and the whole transcript is read again.
+func (s *Store) DeleteTurns(ctx context.Context, agentID string) error {
+	if err := s.queries.DeleteAgentTranscriptChunks(ctx, agentID); err != nil {
+		return fmt.Errorf("failed to delete transcript chunks for %q: %w", agentID, err)
+	}
+
+	return nil
+}
+
+// Delete removes the transcript belonging to an agent, both the whole copy and the
+// indexed turns. It runs alongside the agent's own delete, in the same transaction,
+// since text left behind by a removed agent would stay readable through the SQL
+// tools.
+func (s *Store) Delete(ctx context.Context, agentID string) error {
+	if err := s.queries.DeleteAgentTranscript(ctx, agentID); err != nil {
+		return fmt.Errorf("failed to delete transcript for %q: %w", agentID, err)
+	}
+	if err := s.queries.DeleteAgentTranscriptChunks(ctx, agentID); err != nil {
+		return fmt.Errorf("failed to delete transcript chunks for %q: %w", agentID, err)
+	}
+
+	return nil
+}
+
+// Cursor locates a hit within one query's results. Hits sort by relevance, which
+// two turns can tie on, so the agent id and the turn's position break the tie. The
+// rank means nothing outside the query that produced it, so a cursor is only ever
+// replayed against that same query.
 type Cursor struct {
-	Rank    int32  `json:"r"`
-	AgentID string `json:"i"`
+	Rank    float64 `json:"r"`
+	AgentID string  `json:"i"`
+	Seq     int32   `json:"s"`
 }
 
 // SearchParams is one page of a transcript search. The text to match, how many
@@ -133,12 +199,15 @@ type SearchParams struct {
 	Cursor *Cursor
 }
 
-// Search returns one page of the transcripts containing the query as a
-// substring, the transcripts that mention it most first, resuming after the
-// cursor when one is given. A blank query returns no hits rather than every
-// transcript. The database returns a plain window of the text around each match
-// and the markers are added here, so what wraps a hit is decided in one place
-// rather than in SQL.
+// Search returns one page of the turns matching the query, most relevant first,
+// resuming after the cursor when one is given. A blank query returns no hits rather
+// than every turn. One agent can appear more than once, since a conversation that
+// came back to something matches on each turn that did.
+//
+// A turn the word query matched arrives with its snippet already marked, since only
+// the database knows which lexemes it matched. A turn only the substring fallback
+// found ranks zero and arrives as a plain window, so the literal match is marked
+// here.
 func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, error) {
 	// Postgres refuses a NUL in a text value outright, so a query carrying one would
 	// fail the request rather than match nothing. Dropping it makes the search find
@@ -155,15 +224,17 @@ func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, e
 	}
 
 	args := models.SearchTranscriptsParams{
-		Query:   query,
-		Pattern: likePattern(query),
-		Lead:    snippetLead,
-		Width:   snippetWidth,
-		Lim:     int32(limit),
+		Query:    query,
+		Headline: headlineOptions,
+		Pattern:  likePattern(query),
+		Lead:     snippetLead,
+		Width:    snippetWidth,
+		Lim:      int32(limit),
 	}
 	if params.Cursor != nil {
 		args.CursorRank = &params.Cursor.Rank
 		args.CursorAgentID = &params.Cursor.AgentID
+		args.CursorSeq = &params.Cursor.Seq
 	}
 
 	rows, err := s.queries.SearchTranscripts(ctx, args)
@@ -173,12 +244,20 @@ func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, e
 
 	hits := make([]SearchHit, 0, len(rows))
 	for _, row := range rows {
+		snippet := row.Snippet
+		if row.Rank == 0 {
+			snippet = markMatches(snippet, query)
+		}
+
 		hits = append(hits, SearchHit{
-			AgentID: row.AgentID,
-			Name:    row.Name,
-			Deleted: row.IsDeleted,
-			Snippet: markMatches(row.Snippet, query),
-			Rank:    row.Rank,
+			AgentID:       row.AgentID,
+			Name:          row.Name,
+			Deleted:       row.IsDeleted,
+			Seq:           row.Seq,
+			Role:          row.Role,
+			ContentOffset: row.ContentOffset,
+			Snippet:       snippet,
+			Rank:          row.Rank,
 		})
 	}
 
@@ -196,9 +275,10 @@ func likePattern(query string) string {
 
 // markMatches wraps every case-insensitive occurrence of query inside a snippet
 // with the markers, so the caller can style the match without searching the text
-// again. The window the database returns is centred on a match, so there is
-// normally at least one. A window cut mid-match is returned unchanged rather than
-// marked wrongly.
+// again. Only a substring-only hit needs this, since a word match arrives already
+// marked. The window the database returns for one is centred on the occurrence, so
+// there is normally at least one to wrap. A window cut mid-match is returned
+// unchanged rather than marked wrongly.
 func markMatches(snippet, query string) string {
 	if query == "" {
 		return snippet

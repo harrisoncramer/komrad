@@ -18,6 +18,8 @@ import (
 type transcriptStore interface {
 	Get(ctx context.Context, agentID string) (transcript.Transcript, error)
 	Upsert(ctx context.Context, params transcript.UpsertParams) error
+	AppendTurns(ctx context.Context, agentID string, turns []transcript.Turn) error
+	DeleteTurns(ctx context.Context, agentID string) error
 }
 
 // agentLister is all the syncer needs from the agent domain, which agents exist
@@ -66,9 +68,9 @@ func (ts *TranscriptSyncer) Sync(ctx context.Context) error {
 	return nil
 }
 
-// syncOne reads the tail of one agent's log and appends its flattened text to the
-// stored transcript. A missing log is a no-op, as is a log with no new complete
-// lines.
+// syncOne reads the tail of one agent's log, appends its flattened text to the
+// stored transcript, and indexes the turns it found. A missing log is a no-op, as
+// is a log with no new complete lines.
 func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent) error {
 	path := ts.logPath(agent.ClaudeSessionID)
 	if path == "" {
@@ -85,11 +87,12 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 		return err
 	}
 
-	offset, content := tr.SyncedOffset, tr.Content
 	// The log shrank, so Claude rewrote it, which a --resume can do. The stored
-	// offset no longer points into the same content, so reindex from the start to
-	// match the file again.
-	if info.Size() < offset {
+	// offset no longer points into the same content, so read from the start to match
+	// the file again.
+	offset, content := tr.SyncedOffset, tr.Content
+	reindex := info.Size() < offset
+	if reindex {
 		offset, content = 0, ""
 	}
 	if info.Size() == offset {
@@ -104,15 +107,25 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 		return nil
 	}
 
-	if text := flattenTranscript(appended); text != "" {
-		content = appendTurn(content, text)
+	// The indexed turns describe text that is about to be replaced, so they go
+	// before this pass numbers the turns it read.
+	if reindex {
+		if err := ts.store.DeleteTurns(ctx, agent.ID); err != nil {
+			return err
+		}
 	}
 
-	return ts.store.Upsert(ctx, transcript.UpsertParams{
+	content, turns := appendTurns(content, flattenTranscript(appended))
+
+	if err := ts.store.Upsert(ctx, transcript.UpsertParams{
 		AgentID: agent.ID,
 		Content: content,
 		Offset:  offset + consumed,
-	})
+	}); err != nil {
+		return err
+	}
+
+	return ts.store.AppendTurns(ctx, agent.ID, turns)
 }
 
 // logPath resolves a claude session id to its JSONL log, or "" when no log
@@ -175,12 +188,19 @@ type contentBlock struct {
 	Text string `json:"text"`
 }
 
-// flattenTranscript turns raw JSONL bytes into the plain conversation text worth
-// searching, the user's prompts and the assistant's prose in order. Tool calls,
-// tool results, thinking, and non-conversation entries are left out so the index
-// stays lean and a match reads as something actually said.
-func flattenTranscript(data []byte) string {
-	var turns []string
+// turn is one turn of conversation pulled out of a log, who spoke and what they
+// said.
+type turn struct {
+	role string
+	text string
+}
+
+// flattenTranscript turns raw JSONL bytes into the turns worth searching, the
+// user's prompts and the assistant's prose in order. Tool calls, tool results,
+// thinking, and non-conversation entries are left out so the index stays lean and a
+// match reads as something actually said.
+func flattenTranscript(data []byte) []turn {
+	var turns []turn
 	for _, raw := range strings.Split(string(data), "\n") {
 		raw = strings.TrimSpace(raw)
 		if raw == "" {
@@ -199,11 +219,11 @@ func flattenTranscript(data []byte) string {
 		}
 
 		if text := blockText(line.Message.Content); text != "" {
-			turns = append(turns, text)
+			turns = append(turns, turn{role: line.Type, text: text})
 		}
 	}
 
-	return strings.Join(turns, "\n\n")
+	return turns
 }
 
 // blockText extracts the prose from a message's content, which is either a plain
@@ -229,12 +249,28 @@ func blockText(content json.RawMessage) string {
 	return strings.Join(parts, "\n\n")
 }
 
-// appendTurn joins newly-synced text onto the transcript so far, blank-line
-// separated, so appended turns stay readable in a snippet.
-func appendTurn(existing, added string) string {
-	if existing == "" {
-		return added
+// appendTurns joins newly-synced turns onto the transcript so far, blank-line
+// separated so they stay readable, and returns the grown text alongside the turns
+// ready to index. Each turn carries where it landed in that text. This is the only
+// place that knows, and the panel reads it back to scroll a hit into view rather
+// than hunt for the words again.
+func appendTurns(existing string, turns []turn) (string, []transcript.Turn) {
+	var content strings.Builder
+	content.WriteString(existing)
+
+	indexed := make([]transcript.Turn, 0, len(turns))
+	for _, t := range turns {
+		if content.Len() > 0 {
+			content.WriteString("\n\n")
+		}
+
+		indexed = append(indexed, transcript.Turn{
+			Role:    t.role,
+			Content: t.text,
+			Offset:  int64(content.Len()),
+		})
+		content.WriteString(t.text)
 	}
 
-	return existing + "\n\n" + added
+	return content.String(), indexed
 }

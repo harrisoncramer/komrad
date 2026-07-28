@@ -17,12 +17,12 @@ func TestFlattenTranscript(t *testing.T) {
 	tests := []struct {
 		name string
 		in   string
-		want string
+		want []turn
 	}{
 		{
 			name: "string user prompt is kept",
 			in:   `{"type":"user","message":{"content":"hello there"}}`,
-			want: "hello there",
+			want: []turn{{role: "user", text: "hello there"}},
 		},
 		{
 			name: "assistant text blocks are kept, thinking and tool_use dropped",
@@ -31,41 +31,88 @@ func TestFlattenTranscript(t *testing.T) {
 				`{"type":"text","text":"visible answer"},` +
 				`{"type":"tool_use","name":"Bash","input":{}}` +
 				`]}}`,
-			want: "visible answer",
+			want: []turn{{role: "assistant", text: "visible answer"}},
 		},
 		{
 			name: "user tool_result blocks are dropped",
 			in:   `{"type":"user","message":{"content":[{"type":"tool_result","content":"exit 0"}]}}`,
-			want: "",
+			want: nil,
 		},
 		{
 			name: "meta lines are skipped",
 			in:   `{"type":"user","isMeta":true,"message":{"content":"injected context"}}`,
-			want: "",
+			want: nil,
 		},
 		{
 			name: "non-conversation types are skipped",
 			in: `{"type":"mode","mode":"normal"}` + "\n" +
 				`{"type":"file-history-snapshot"}` + "\n" +
 				`{"type":"system","content":"hook fired"}`,
-			want: "",
+			want: nil,
 		},
 		{
 			name: "malformed lines are ignored",
 			in:   "not json\n" + `{"type":"user","message":{"content":"survives"}}`,
-			want: "survives",
+			want: []turn{{role: "user", text: "survives"}},
 		},
 		{
-			name: "turns are joined in order, blank-line separated",
+			name: "turns come back in order, each tagged with who spoke",
 			in: `{"type":"user","message":{"content":"question"}}` + "\n" +
 				`{"type":"assistant","message":{"content":[{"type":"text","text":"answer"}]}}`,
-			want: "question\n\nanswer",
+			want: []turn{
+				{role: "user", text: "question"},
+				{role: "assistant", text: "answer"},
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, flattenTranscript([]byte(tt.in)))
+		})
+	}
+}
+
+// TestAppendTurns covers the join and the offsets together, since the offset a turn
+// records is only right if it points at that turn inside the text the same call
+// built.
+func TestAppendTurns(t *testing.T) {
+	tests := []struct {
+		name     string
+		existing string
+		turns    []turn
+		want     string
+	}{
+		{
+			name:     "nothing new leaves the transcript alone",
+			existing: "earlier",
+			want:     "earlier",
+		},
+		{
+			name:  "the first turns start the transcript",
+			turns: []turn{{role: "user", text: "question"}, {role: "assistant", text: "answer"}},
+			want:  "question\n\nanswer",
+		},
+		{
+			name:     "later turns are separated from what is already there",
+			existing: "earlier",
+			turns:    []turn{{role: "user", text: "later"}},
+			want:     "earlier\n\nlater",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			content, indexed := appendTurns(tt.existing, tt.turns)
+			assert.Equal(t, tt.want, content)
+			require.Len(t, indexed, len(tt.turns))
+
+			for i, got := range indexed {
+				assert.Equal(t, tt.turns[i].role, got.Role)
+				assert.Equal(t, tt.turns[i].text, got.Content)
+				assert.Equal(t, got.Content, content[got.Offset:got.Offset+int64(len(got.Content))],
+					"the offset locates the turn in the text it was appended to")
+			}
 		})
 	}
 }

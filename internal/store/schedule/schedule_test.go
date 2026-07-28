@@ -281,6 +281,35 @@ func TestSetEnabled(t *testing.T) {
 	}
 }
 
+// TestHideAgents covers the flag deciding whether the agents a schedule launches start
+// hidden from the panel's list. It is the schedule's answer for its runs and the only
+// hiding a schedule has a say in, so it has to survive a write and be editable back off
+// again.
+func TestHideAgents(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	created := seed(t, st, Config{
+		Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep",
+		Enabled: true, HideAgents: true,
+	})
+
+	got, err := st.Get(ctx, created.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.True(t, got.HideAgents)
+
+	require.NoError(t, st.Update(ctx, created.ID, Config{
+		Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep",
+		Enabled: true, HideAgents: false, WorkflowID: got.WorkflowID,
+	}))
+
+	updated, err := st.Get(ctx, created.ID)
+	require.NoError(t, err)
+	require.NotNil(t, updated)
+	assert.False(t, updated.HideAgents, "an edit that turns it off is written")
+}
+
 // TestList covers what the listing shows, which is live schedules only.
 func TestList(t *testing.T) {
 	tests := []struct {

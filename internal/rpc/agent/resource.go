@@ -72,12 +72,15 @@ func (h searchHit) Cursor() (transcriptstore.Cursor, error) {
 func renderSearchHit(hit transcriptstore.SearchHit) searchHit {
 	return searchHit{
 		SearchHit: &agentv1.SearchHit{
-			AgentId:     hit.AgentID,
-			Name:        hit.Name,
-			Deleted:     hit.Deleted,
-			Snippet:     hit.Snippet,
-			Occurrences: int64(hit.Rank),
+			AgentId:       hit.AgentID,
+			Name:          hit.Name,
+			Deleted:       hit.Deleted,
+			Snippet:       hit.Snippet,
+			Score:         hit.Rank,
+			Seq:           hit.Seq,
+			Role:          hit.Role,
+			ContentOffset: hit.ContentOffset,
 		},
-		cursor: transcriptstore.Cursor{Rank: hit.Rank, AgentID: hit.AgentID},
+		cursor: transcriptstore.Cursor{Rank: hit.Rank, AgentID: hit.AgentID, Seq: hit.Seq},
 	}
 }

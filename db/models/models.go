@@ -44,6 +44,16 @@ type AgentTranscript struct {
 	SyncedAt     time.Time
 }
 
+// One turn of an agent's transcript, word-indexed for search.
+type AgentTranscriptChunk struct {
+	AgentID       string
+	Seq           int32
+	Role          string
+	Content       string
+	ContentOffset int64
+	Tsv           interface{}
+}
+
 // A cron-driven agent launch: when to fire and what to ask for.
 type Schedule struct {
 	ID         string
@@ -56,6 +66,7 @@ type Schedule struct {
 	IsDeleted  bool
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
+	HideAgents bool
 }
 
 // A named bucket of related agents. Pure organization; runs nothing.

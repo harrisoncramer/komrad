@@ -72,6 +72,18 @@ func TestCreateSchedule(t *testing.T) {
 			},
 		},
 		{
+			// Whether the runs it launches are hidden is the schedule's own field, not
+			// something about its row, so it comes back on the created schedule.
+			name: "hidden runs are stored as written",
+			req: &schedulev1.CreateScheduleRequest{
+				Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep", Enabled: true,
+				HideAgents: true,
+			},
+			check: func(t *testing.T, created *schedulev1.Schedule, _ string) {
+				assert.True(t, created.GetHideAgents())
+			},
+		},
+		{
 			// The proto checks the shape, five fields, and the service parses it.
 			// This one is well-shaped and still meaningless.
 			name: "an unparseable expression is refused",

@@ -39,6 +39,7 @@ func renderSchedule(s schedulestore.Schedule, now time.Time) schedule {
 		Cron:       s.Cron,
 		Timezone:   s.Timezone,
 		Enabled:    s.Enabled,
+		HideAgents: s.HideAgents,
 		Prompt:     s.Prompt,
 		WorkflowId: s.WorkflowID,
 	}

@@ -254,6 +254,10 @@ type NewAgentParams struct {
 	// ScheduleID records the schedule that launched this agent, nil for one a
 	// person started. Provenance only.
 	ScheduleID *string
+	// Hidden starts the agent out of the panel's list. A schedule set to hide its runs
+	// passes this, so a noisy recurring job can stay armed without filling the list.
+	// The agent still runs, and the user can show it from the panel afterwards.
+	Hidden bool
 	// IdempotencyKey makes the create repeatable. A second call carrying a key an
 	// agent already holds returns that agent untouched rather than spawning a
 	// second Claude process, which is what makes a retried background launch safe.
@@ -365,6 +369,7 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		WorkflowID:      p.WorkflowID,
 		ScheduleID:      p.ScheduleID,
 		IdempotencyKey:  idempotencyKey(p.IdempotencyKey),
+		Hidden:          p.Hidden,
 	}); err != nil {
 		// uniqueAgentName checks before inserting, so two calls racing on the same
 		// title both pass that check and one loses here. The window is already open

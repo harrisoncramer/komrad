@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"strings"
+	"time"
 
 	agentv1 "claude-agents/proto/gen/agent/v1"
 	paginationv1 "claude-agents/proto/gen/pagination/v1"
@@ -20,17 +21,34 @@ import (
 // for another, so the returned page token is ignored.
 const searchLimit = 10
 
+// searchDebounce is how long typing has to pause before the query runs. Every
+// keystroke used to be its own round trip, most of them for a prefix nobody wanted
+// results for, so the wait is long enough to swallow a burst of typing and short
+// enough that a pause still feels answered immediately.
+const searchDebounce = 120 * time.Millisecond
+
 // matchStyle highlights the matched terms inside a result row's snippet, the
 // panel-side rendering of the markers the store wraps hits in.
 var matchStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF9E3B")).Bold(true)
 
-// searchHit is one result of a transcript search, the agent it points at plus a
-// snippet of the matching text with the match wrapped in the store's markers.
+// searchHit is one result of a transcript search: the turn that matched, the agent
+// it belongs to, a snippet of the matching text with the match wrapped in the
+// store's markers, and where the turn sits in the full transcript so the preview
+// can scroll to it.
 type searchHit struct {
 	agentID string
 	name    string
 	deleted bool
+	role    string
+	offset  int64
 	snippet string
+}
+
+// searchSettledMsg fires once typing has paused for searchDebounce. The query it
+// carries is the one that was current when the pause began, so a keystroke landing
+// during the wait leaves it stale and it is dropped rather than queried for.
+type searchSettledMsg struct {
+	query string
 }
 
 // searchResultsMsg carries the hits for a query back to the update loop. The
@@ -44,9 +62,12 @@ type searchResultsMsg struct {
 // transcriptLoadedMsg carries a hovered hit's full transcript back for the
 // preview. The agent id and query are echoed so a response arriving after the
 // hover or the query moved on is discarded rather than staged over the wrong hit.
+// The offset is the hit's own, so the preview centres on the turn that matched
+// rather than wherever the words first happen to appear.
 type transcriptLoadedMsg struct {
 	agentID string
 	query   string
+	offset  int64
 	content string
 }
 
@@ -60,6 +81,29 @@ func (m model) enterSearch() (tea.Model, tea.Cmd) {
 	m.stage.Blank()
 
 	return m, nil
+}
+
+// debounceSearchCmd waits out searchDebounce before the query is run, so a burst
+// of typing costs one request rather than one per key. A blank query clears the
+// results straight away, since there is nothing to wait to ask for.
+func (m model) debounceSearchCmd(query string) tea.Cmd {
+	if strings.TrimSpace(query) == "" {
+		return func() tea.Msg { return searchResultsMsg{query: query} }
+	}
+
+	return tea.Tick(searchDebounce, func(time.Time) tea.Msg {
+		return searchSettledMsg{query: query}
+	})
+}
+
+// runSettledSearch runs a debounced query, unless the user typed on during the
+// wait, in which case the keystroke that did so has its own pause to sit out.
+func (m model) runSettledSearch(msg searchSettledMsg) tea.Cmd {
+	if msg.query != m.searchQuery {
+		return nil
+	}
+
+	return m.searchCmd(msg.query)
 }
 
 // searchCmd runs the query over the service off the UI goroutine, so typing
@@ -89,6 +133,8 @@ func (m model) searchCmd(query string) tea.Cmd {
 				agentID: h.GetAgentId(),
 				name:    h.GetName(),
 				deleted: h.GetDeleted(),
+				role:    h.GetRole(),
+				offset:  h.GetContentOffset(),
 				snippet: h.GetSnippet(),
 			})
 		}
@@ -129,10 +175,15 @@ func (m model) previewCmd(hit searchHit) tea.Cmd {
 			AgentId: hit.agentID,
 		}))
 		if err != nil {
-			return transcriptLoadedMsg{agentID: hit.agentID, query: query}
+			return transcriptLoadedMsg{agentID: hit.agentID, query: query, offset: hit.offset}
 		}
 
-		return transcriptLoadedMsg{agentID: hit.agentID, query: query, content: resp.Msg.GetContent()}
+		return transcriptLoadedMsg{
+			agentID: hit.agentID,
+			query:   query,
+			offset:  hit.offset,
+			content: resp.Msg.GetContent(),
+		}
 	}
 }
 
@@ -149,25 +200,20 @@ func (m *model) applyTranscript(msg transcriptLoadedMsg) {
 		return
 	}
 
-	m.stage.Transcript(msg.content, firstMatchLine(msg.content, m.searchQuery))
+	m.stage.Transcript(msg.content, lineAtOffset(msg.content, msg.offset))
 }
 
-// firstMatchLine returns the 1-based line of the first case-insensitive occurrence
-// of query in content, or 0 when it does not occur, so the preview can center on
-// the match. The store search is a substring match, so the query text itself
-// appears in the content it matched.
-func firstMatchLine(content, query string) int {
-	query = strings.TrimSpace(query)
-	if query == "" {
+// lineAtOffset returns the 1-based line the given byte offset falls on, so the
+// preview can centre on the turn that matched. Matching is stemmed, so the words the
+// user typed need not appear in the text they found. The offset was recorded when
+// the turn was indexed and locates it either way. An offset past the end of the
+// content means the two have drifted, which anchors at the top rather than guessing.
+func lineAtOffset(content string, offset int64) int {
+	if offset < 0 || offset > int64(len(content)) {
 		return 0
 	}
 
-	idx := strings.Index(strings.ToLower(content), strings.ToLower(query))
-	if idx < 0 {
-		return 0
-	}
-
-	return 1 + strings.Count(content[:idx], "\n")
+	return 1 + strings.Count(content[:offset], "\n")
 }
 
 // updateSearch drives the search screen. Printable keys edit the query and re-run
@@ -202,13 +248,13 @@ func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.searchQuery != "" {
 			m.searchQuery = trimLastRune(m.searchQuery)
 		}
-		return m, m.searchCmd(m.searchQuery)
+		return m, m.debounceSearchCmd(m.searchQuery)
 	case key.Type == tea.KeySpace:
 		m.searchQuery += " "
-		return m, m.searchCmd(m.searchQuery)
+		return m, m.debounceSearchCmd(m.searchQuery)
 	case key.Type == tea.KeyRunes:
 		m.searchQuery += string(key.Runes)
-		return m, m.searchCmd(m.searchQuery)
+		return m, m.debounceSearchCmd(m.searchQuery)
 	}
 
 	return m, nil
@@ -252,19 +298,29 @@ func (m model) searchView() string {
 	case len(m.searchHits) == 0:
 		b.WriteString(dimStyle.Render("no matches") + "\n")
 	default:
+		// One conversation matches once per turn that did, so its hits arrive as
+		// several adjacent rows. Repeating the name down all of them reads as
+		// several agents, so only the first of a run is labelled and the rest sit
+		// under it as further places the same conversation matched.
+		labelled := ""
 		for i, hit := range m.searchHits {
-			prefix := "  "
-			name := hit.name
-			if i == m.searchCursor {
-				prefix = cursorStyle.Render("› ")
-				name = cursorStyle.Render(name)
-			}
-			if hit.deleted {
-				name += dimStyle.Render(" (deleted)")
+			if hit.name != labelled {
+				name := hit.name
+				if hit.deleted {
+					name += dimStyle.Render(" (deleted)")
+				}
+				b.WriteString("  " + name + "\n")
+				labelled = hit.name
 			}
 
-			b.WriteString(prefix + name + "\n")
-			b.WriteString("    " + dimStyle.Render(renderSnippet(hit.snippet)) + "\n")
+			prefix := "    "
+			role := dimStyle.Render(hit.role)
+			if i == m.searchCursor {
+				prefix = "  " + cursorStyle.Render("› ")
+				role = cursorStyle.Render(hit.role)
+			}
+
+			b.WriteString(prefix + role + " " + dimStyle.Render(renderSnippet(hit.snippet)) + "\n")
 		}
 	}
 

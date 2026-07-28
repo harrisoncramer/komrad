@@ -83,13 +83,15 @@ func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgent
 		return river.JobCancel(fmt.Errorf("schedule %q still has %d agent(s) running", schedule.Name, running))
 	}
 
-	// Only the prompt and the provenance come from the schedule. Where and how the
-	// agent runs is the workflow's to say, and the service reads it from there.
+	// Only the prompt, the provenance, and whether the run shows in the list come from
+	// the schedule. Where and how the agent runs is the workflow's to say, and the
+	// service reads it from there.
 	_, err = w.agents.NewAgent(ctx, agents.NewAgentParams{
 		Title:      schedule.Name,
 		Prompt:     schedule.Prompt,
 		WorkflowID: schedule.WorkflowID,
 		ScheduleID: xptr.Ptr(schedule.ID),
+		Hidden:     schedule.HideAgents,
 		// The key is the occurrence rather than this attempt, so a retry after a
 		// launch that half-succeeded finds the agent it already made instead of
 		// starting a second Claude on the same prompt.

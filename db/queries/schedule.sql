@@ -32,8 +32,8 @@ WHERE
 LIMIT 1;
 
 -- name: InsertSchedule :one
-INSERT INTO schedules (name, cron, timezone, enabled, prompt, workflow_id)
-    VALUES (@name, @cron, @timezone, @enabled, @prompt, @workflow_id)
+INSERT INTO schedules (name, cron, timezone, enabled, hide_agents, prompt, workflow_id)
+    VALUES (@name, @cron, @timezone, @enabled, @hide_agents, @prompt, @workflow_id)
 RETURNING
     *;
 
@@ -45,6 +45,7 @@ SET
     cron = @cron,
     timezone = @timezone,
     enabled = @enabled,
+    hide_agents = @hide_agents,
     prompt = @prompt,
     workflow_id = @workflow_id
 WHERE

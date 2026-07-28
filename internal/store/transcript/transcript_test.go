@@ -1,6 +1,7 @@
 package transcript
 
 import (
+	"strings"
 	"testing"
 
 	"claude-agents/internal/pgtest"
@@ -129,7 +130,34 @@ func TestSearch(t *testing.T) {
 			wantHits: 1,
 		},
 		{
-			name:     "a substring, since the index is trigram",
+			name:     "a word the query stems to, rather than the form typed",
+			content:  "the reconciler derives its markers",
+			query:    "reconciling",
+			wantHits: 1,
+		},
+		{
+			name:     "several words, which all have to appear",
+			content:  "the reconciler derives its markers",
+			other:    "the reconciler runs on a timer",
+			query:    "reconciler markers",
+			wantHits: 1,
+		},
+		{
+			name:     "a quoted phrase has to appear in that order",
+			content:  "derives markers from the pane",
+			other:    "markers derives nothing in this order",
+			query:    `"derives markers"`,
+			wantHits: 1,
+		},
+		{
+			name:     "a word behind a minus is excluded",
+			content:  "postgres indexing notes",
+			other:    "postgres indexing and sqlite notes",
+			query:    "postgres -sqlite",
+			wantHits: 1,
+		},
+		{
+			name:     "a partial word, which the trigram fallback covers",
 			content:  "the quick brown fox discusses postgres indexing",
 			query:    "ostgr",
 			wantHits: 1,
@@ -150,13 +178,15 @@ func TestSearch(t *testing.T) {
 			wantHits: 1,
 		},
 		{
-			// The behaviour the LIKE escaping exists for: the percent matches itself
-			// rather than standing in for any run of text.
-			name:     "a wildcard in the query is matched literally",
+			// The percent is punctuation to the tokenizer, so both transcripts match
+			// on the number alone. What it must not do is act as a wildcard in the
+			// fallback and widen the search further, which is what the escaping in
+			// likePattern prevents.
+			name:     "a wildcard in the query does not widen it",
 			content:  "the coverage hit 100% today",
 			other:    "the coverage hit 100 of them today",
 			query:    "100%",
-			wantHits: 1,
+			wantHits: 2,
 		},
 		{
 			name:     "operator syntax and quotes are matched rather than parsed",
@@ -180,14 +210,15 @@ func TestSearch(t *testing.T) {
 			ctx := t.Context()
 
 			id := seedAgent(t, st, "one")
-			require.NoError(t, st.Upsert(ctx, UpsertParams{AgentID: id, Content: tt.content, Offset: 1}))
+			seedTranscript(t, st, id, tt.content)
 
 			if tt.other != "" {
 				second := seedAgent(t, st, "two")
-				require.NoError(t, st.Upsert(ctx, UpsertParams{AgentID: second, Content: tt.other, Offset: 1}))
+				seedTranscript(t, st, second, tt.other)
 			}
 			if tt.reindexTo != "" {
-				require.NoError(t, st.Upsert(ctx, UpsertParams{AgentID: id, Content: tt.reindexTo, Offset: 2}))
+				require.NoError(t, st.DeleteTurns(ctx, id))
+				seedTranscript(t, st, id, tt.reindexTo)
 			}
 			if tt.archive {
 				require.NoError(t, st.agents.Archive(ctx, "one"))
@@ -209,6 +240,35 @@ func TestSearch(t *testing.T) {
 	}
 }
 
+// TestSearchReturnsEveryMatchingTurn covers the shape a conversation matches in. A
+// subject that came up twice is two hits rather than one, each pointing at the turn
+// it was said in.
+func TestSearchReturnsEveryMatchingTurn(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	content, turns := layOutTurns([]Turn{
+		{Role: "user", Content: "how does the reconciler work"},
+		{Role: "assistant", Content: "it derives state from the pane"},
+		{Role: "user", Content: "and where do the reconciler markers come in"},
+	})
+
+	id := seedAgent(t, st, "one")
+	seedTurns(t, st, id, content, turns)
+
+	hits, err := st.Search(ctx, SearchParams{Query: "reconciler", Limit: 10})
+	require.NoError(t, err)
+	require.Len(t, hits, 2, "the turns that mention it, not the conversation once")
+
+	for _, hit := range hits {
+		assert.Equal(t, id, hit.AgentID)
+		assert.Contains(t, hit.Snippet, SnippetOpen, "the match is marked in the snippet")
+		assert.Contains(t, content[hit.ContentOffset:], "reconciler",
+			"the offset lands on the turn that matched")
+	}
+	assert.NotEqual(t, hits[0].Seq, hits[1].Seq, "each hit names a different turn")
+}
+
 // TestSearchPages walks a result set the way the RPC does, following the cursor
 // until it runs dry. That covers both the ordering the cursor depends on and the
 // paging built on top of it.
@@ -226,19 +286,28 @@ func TestSearchPages(t *testing.T) {
 		// wantNames, when set, is the order the hits must come back in. Cases whose
 		// hits all rank equally leave it unset, since the tiebreak is by id.
 		wantNames []string
-		wantRanks []int32
 		wantCount int
 	}{
 		{
-			name: "hits are ordered by how often the query appears",
+			name: "a turn the query fits closely outranks one it barely touches",
 			seeds: []seed{
-				{name: "once", content: "we mentioned pgx here"},
-				{name: "thrice", content: "pgx, and pgx again, and pgx once more"},
+				{name: "close", content: "pgx pool tuning"},
+				{name: "distant", content: "pgx is mentioned here and pool comes up much later after many other unrelated words"},
+			},
+			query:     "pgx pool",
+			limit:     10,
+			wantNames: []string{"close", "distant"},
+			wantCount: 2,
+		},
+		{
+			name: "a word match outranks a partial one",
+			seeds: []seed{
+				{name: "word", content: "we use pgx here"},
+				{name: "partial", content: "we use pgxpool here"},
 			},
 			query:     "pgx",
 			limit:     10,
-			wantNames: []string{"thrice", "once"},
-			wantRanks: []int32{3, 1},
+			wantNames: []string{"word", "partial"},
 			wantCount: 2,
 		},
 		{
@@ -260,14 +329,12 @@ func TestSearchPages(t *testing.T) {
 			ctx := t.Context()
 
 			for _, s := range tt.seeds {
-				id := seedAgent(t, st, s.name)
-				require.NoError(t, st.Upsert(ctx, UpsertParams{AgentID: id, Content: s.content, Offset: 1}))
+				seedTranscript(t, st, seedAgent(t, st, s.name), s.content)
 			}
 
 			var (
 				names  []string
 				ids    []string
-				ranks  []int32
 				cursor *Cursor
 			)
 			for range len(tt.seeds) + 1 {
@@ -280,11 +347,10 @@ func TestSearchPages(t *testing.T) {
 				for _, hit := range hits {
 					names = append(names, hit.Name)
 					ids = append(ids, hit.AgentID)
-					ranks = append(ranks, hit.Rank)
 				}
 
 				last := hits[len(hits)-1]
-				cursor = &Cursor{Rank: last.Rank, AgentID: last.AgentID}
+				cursor = &Cursor{Rank: last.Rank, AgentID: last.AgentID, Seq: last.Seq}
 			}
 
 			assert.Len(t, names, tt.wantCount)
@@ -292,9 +358,6 @@ func TestSearchPages(t *testing.T) {
 
 			if tt.wantNames != nil {
 				assert.Equal(t, tt.wantNames, names)
-			}
-			if tt.wantRanks != nil {
-				assert.Equal(t, tt.wantRanks, ranks)
 			}
 		})
 	}
@@ -373,6 +436,41 @@ func seedAgent(t *testing.T, st *fixture, name string) string {
 	require.NotNil(t, got)
 
 	return got.ID
+}
+
+// seedTranscript writes an agent's transcript and indexes it as one turn, which is
+// what a sync leaves behind for a conversation that is one turn long.
+func seedTranscript(t *testing.T, st *fixture, id, content string) {
+	t.Helper()
+	seedTurns(t, st, id, content, []Turn{{Role: "user", Content: content}})
+}
+
+// layOutTurns lays turns out the way a sync does, blank-line separated, and stamps
+// each with where it landed, so a test asserting on offsets does not hand-count
+// bytes to get them.
+func layOutTurns(turns []Turn) (string, []Turn) {
+	var content strings.Builder
+
+	out := make([]Turn, 0, len(turns))
+	for _, turn := range turns {
+		if content.Len() > 0 {
+			content.WriteString("\n\n")
+		}
+		turn.Offset = int64(content.Len())
+		out = append(out, turn)
+		content.WriteString(turn.Content)
+	}
+
+	return content.String(), out
+}
+
+// seedTurns writes an agent's transcript and indexes the turns making it up, for
+// the cases that care where inside a conversation a match landed.
+func seedTurns(t *testing.T, st *fixture, id, content string, turns []Turn) {
+	t.Helper()
+	ctx := t.Context()
+	require.NoError(t, st.Upsert(ctx, UpsertParams{AgentID: id, Content: content, Offset: 1}))
+	require.NoError(t, st.AppendTurns(ctx, id, turns))
 }
 
 func uniqueStrings(in []string) []string {

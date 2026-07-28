@@ -40,8 +40,12 @@ type Schedule struct {
 	// zone.
 	Timezone string `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
 	// False pauses the schedule. It keeps its record and stops firing.
-	Enabled bool   `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Prompt  string `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	Enabled bool `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Whether the agents this schedule launches start hidden from the panel's list.
+	// Each launched agent takes its own copy of the flag, so showing one afterwards is
+	// that agent's own.
+	HideAgents bool   `protobuf:"varint,8,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
+	Prompt     string `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
 	// The workflow this schedule launches into, and where each launched agent takes
 	// its directory, flags, and shared context from.
 	WorkflowId string `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
@@ -114,6 +118,13 @@ func (x *Schedule) GetTimezone() string {
 func (x *Schedule) GetEnabled() bool {
 	if x != nil {
 		return x.Enabled
+	}
+	return false
+}
+
+func (x *Schedule) GetHideAgents() bool {
+	if x != nil {
+		return x.HideAgents
 	}
 	return false
 }
@@ -342,6 +353,9 @@ type CreateScheduleRequest struct {
 	// Leave false to create the schedule paused, which is how a draft is written
 	// before it is trusted to run.
 	Enabled bool `protobuf:"varint,4,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Set to start every agent this schedule launches hidden from the panel's list,
+	// which is what keeps a frequent job from filling it. The agents run either way.
+	HideAgents bool `protobuf:"varint,7,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
 	// What each launched agent is asked to do. Required, since a schedule that
 	// launches an agent with nothing to do is never what the caller meant.
 	Prompt string `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
@@ -407,6 +421,13 @@ func (x *CreateScheduleRequest) GetTimezone() string {
 func (x *CreateScheduleRequest) GetEnabled() bool {
 	if x != nil {
 		return x.Enabled
+	}
+	return false
+}
+
+func (x *CreateScheduleRequest) GetHideAgents() bool {
+	if x != nil {
+		return x.HideAgents
 	}
 	return false
 }
@@ -481,6 +502,7 @@ type UpdateScheduleRequest struct {
 	Enabled       bool                   `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	Prompt        string                 `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
 	WorkflowId    string                 `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	HideAgents    bool                   `protobuf:"varint,8,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -562,6 +584,13 @@ func (x *UpdateScheduleRequest) GetWorkflowId() string {
 		return x.WorkflowId
 	}
 	return ""
+}
+
+func (x *UpdateScheduleRequest) GetHideAgents() bool {
+	if x != nil {
+		return x.HideAgents
+	}
+	return false
 }
 
 // SetScheduleEnabledRequest pauses or resumes one schedule, the single edit the
@@ -666,13 +695,15 @@ var File_schedule_v1_schedule_proto protoreflect.FileDescriptor
 
 const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\n" +
-	"\x1aschedule/v1/schedule.proto\x12\vschedule.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\x82\x02\n" +
+	"\x1aschedule/v1/schedule.proto\x12\vschedule.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xa3\x02\n" +
 	"\bSchedule\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
 	"\x04cron\x18\x03 \x01(\tR\x04cron\x12\x1a\n" +
 	"\btimezone\x18\x04 \x01(\tR\btimezone\x12\x18\n" +
-	"\aenabled\x18\x05 \x01(\bR\aenabled\x12\x16\n" +
+	"\aenabled\x18\x05 \x01(\bR\aenabled\x12\x1f\n" +
+	"\vhide_agents\x18\b \x01(\bR\n" +
+	"hideAgents\x12\x16\n" +
 	"\x06prompt\x18\x06 \x01(\tR\x06prompt\x12\x1f\n" +
 	"\vworkflow_id\x18\a \x01(\tR\n" +
 	"workflowId\x12?\n" +
@@ -691,18 +722,20 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x12GetScheduleRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"H\n" +
 	"\x13GetScheduleResponse\x121\n" +
-	"\bschedule\x18\x01 \x01(\v2\x15.schedule.v1.ScheduleR\bschedule\"\xe6\x01\n" +
+	"\bschedule\x18\x01 \x01(\v2\x15.schedule.v1.ScheduleR\bschedule\"\x87\x02\n" +
 	"\x15CreateScheduleRequest\x12\x1e\n" +
 	"\x04name\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x12\x1f\n" +
 	"\x04cron\x18\x02 \x01(\tB\v\xbaH\br\x06\xb8\xbb\x18\x01\x10\x01R\x04cron\x12#\n" +
 	"\btimezone\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x18dR\btimezone\x12\x18\n" +
-	"\aenabled\x18\x04 \x01(\bR\aenabled\x12#\n" +
+	"\aenabled\x18\x04 \x01(\bR\aenabled\x12\x1f\n" +
+	"\vhide_agents\x18\a \x01(\bR\n" +
+	"hideAgents\x12#\n" +
 	"\x06prompt\x18\x05 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12(\n" +
 	"\vworkflow_id\x18\x06 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
 	"workflowId\"K\n" +
 	"\x16CreateScheduleResponse\x121\n" +
-	"\bschedule\x18\x01 \x01(\v2\x15.schedule.v1.ScheduleR\bschedule\"\xff\x01\n" +
+	"\bschedule\x18\x01 \x01(\v2\x15.schedule.v1.ScheduleR\bschedule\"\xa0\x02\n" +
 	"\x15UpdateScheduleRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
@@ -712,21 +745,23 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\aenabled\x18\x05 \x01(\bR\aenabled\x12#\n" +
 	"\x06prompt\x18\x06 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12(\n" +
 	"\vworkflow_id\x18\a \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
-	"workflowId\"N\n" +
+	"workflowId\x12\x1f\n" +
+	"\vhide_agents\x18\b \x01(\bR\n" +
+	"hideAgents\"N\n" +
 	"\x19SetScheduleEnabledRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x18\n" +
 	"\aenabled\x18\x02 \x01(\bR\aenabled\"0\n" +
 	"\x15DeleteScheduleRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xcf\x0e\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\x83\x10\n" +
 	"\x0fScheduleService\x12\xd5\x02\n" +
 	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\xfc\x01\x9a\xb5\x18\xf4\x01\n" +
 	"\x0elist_schedules\x12\xe1\x01List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, and next run time. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
 	"\vGetSchedule\x12\x1f.schedule.v1.GetScheduleRequest\x1a .schedule.v1.GetScheduleResponse\"^\x9a\xb5\x18W\n" +
-	"\fget_schedule\x12GFetch one schedule by id. Returns not_found if no schedule has that id.\x90\x02\x01\x12\xe9\x03\n" +
-	"\x0eCreateSchedule\x12\".schedule.v1.CreateScheduleRequest\x1a#.schedule.v1.CreateScheduleResponse\"\x8d\x03\x9a\xb5\x18\x88\x03\n" +
-	"\x0fcreate_schedule\x12\xf2\x02Create a recurring agent launch inside a workflow. Nothing runs at create time; the agent is spawned when the cron expression next matches, and again on every match after that. The workflow supplies the directory, flags, and shared context each launch uses, so only the prompt and the timing are set here. Create it with enabled false to write it down without arming it. \x00\x12\xbf\x02\n" +
-	"\x0eUpdateSchedule\x12\".schedule.v1.UpdateScheduleRequest\x1a\x16.google.protobuf.Empty\"\xf0\x01\x9a\xb5\x18\xe8\x01\n" +
-	"\x0fupdate_schedule\x12\xd2\x01Replace a schedule's name, cron expression, timezone, prompt, and workflow. Every field is written, so read the schedule first and send back the ones you are not changing. Agents already launched are untouched. \x00\x90\x02\x02\x12\xfa\x01\n" +
+	"\fget_schedule\x12GFetch one schedule by id. Returns not_found if no schedule has that id.\x90\x02\x01\x12\xc0\x04\n" +
+	"\x0eCreateSchedule\x12\".schedule.v1.CreateScheduleRequest\x1a#.schedule.v1.CreateScheduleResponse\"\xe4\x03\x9a\xb5\x18\xdf\x03\n" +
+	"\x0fcreate_schedule\x12\xc9\x03Create a recurring agent launch inside a workflow. Nothing runs at create time; the agent is spawned when the cron expression next matches, and again on every match after that. The workflow supplies the directory, flags, and shared context each launch uses, so only the prompt and the timing are set here. Create it with enabled false to write it down without arming it, or with hideAgents true to keep its runs out of the panel's list while they still run. \x00\x12\x9c\x03\n" +
+	"\x0eUpdateSchedule\x12\".schedule.v1.UpdateScheduleRequest\x1a\x16.google.protobuf.Empty\"\xcd\x02\x9a\xb5\x18\xc5\x02\n" +
+	"\x0fupdate_schedule\x12\xaf\x02Replace a schedule's name, cron expression, timezone, prompt, workflow, and whether the agents it launches start hidden from the panel. Every field is written, so read the schedule first and send back the ones you are not changing. Agents already launched are untouched, including their own hidden flag. \x00\x90\x02\x02\x12\xfa\x01\n" +
 	"\x12SetScheduleEnabled\x12&.schedule.v1.SetScheduleEnabledRequest\x1a\x16.google.protobuf.Empty\"\xa3\x01\x9a\xb5\x18\x9b\x01\n" +
 	"\x14set_schedule_enabled\x12\x80\x01Pause or resume one schedule without editing anything else. A paused schedule keeps its record and its history and stops firing. \x00\x90\x02\x02\x12\x85\x02\n" +
 	"\x0eDeleteSchedule\x12\".schedule.v1.DeleteScheduleRequest\x1a\x16.google.protobuf.Empty\"\xb6\x01\x9a\xb5\x18\xae\x01\n" +

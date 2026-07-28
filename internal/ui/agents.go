@@ -178,7 +178,7 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// of the row under the cursor, so it works from a workflow header as much as from
 	// an agent.
 	if bound(k, m.keys.Agents.ShowHidden) {
-		return m.toggleShowHidden()
+		return m.toggleHiddenAgents()
 	}
 
 	// On a workflow header the workflow bindings act on that folder's workflow.
@@ -234,7 +234,7 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.renameTarget = item.agent
-		m.form = renameForm(item.agent.Name, m.keys.Form)
+		m.form, m.renameValue = renameForm(item.agent.Name, m.keys.Form)
 		m.screen = screenRename
 		return m, m.form.Init()
 	case bound(k, m.keys.Agents.Delete):
@@ -297,10 +297,10 @@ func (m model) archiveAgent(agent agentstore.Agent) error {
 	return err
 }
 
-// toggleShowHidden draws the hidden agents alongside the rest, or puts them away
+// toggleHiddenAgents draws the hidden agents alongside the rest, or puts them away
 // again. Rows appear and vanish above the cursor either way, so it follows the agent
 // it was on rather than the index it held, the same way a refresh does.
-func (m model) toggleShowHidden() (tea.Model, tea.Cmd) {
+func (m model) toggleHiddenAgents() (tea.Model, tea.Cmd) {
 	selected := ""
 	if item, ok := m.selectedAgent(); ok {
 		selected = item.agent.Name
@@ -428,11 +428,12 @@ func scheduledMark(agent agentstore.Agent) string {
 // hiddenIcon is a dotted circle, single-width for the same reason the clock is.
 const hiddenIcon = "◌"
 
-// hiddenMark is drawn after a hidden agent's name, which is only on screen at all
-// while the hidden ones are being shown. Without it a revealed row is
-// indistinguishable from the rest and the hide key reads as doing nothing.
-func hiddenMark(agent agentstore.Agent) string {
-	if !agent.Hidden {
+// hiddenMark is drawn after a hidden row's name, which is only on screen at all while
+// the hidden ones are being shown. Without it a revealed row is indistinguishable
+// from the rest and the hide key reads as doing nothing. Agents and schedules both
+// draw it, since hiding means the same thing on either screen.
+func hiddenMark(hidden bool) string {
+	if !hidden {
 		return ""
 	}
 
@@ -714,7 +715,7 @@ func (m model) agentsView() string {
 		}
 
 		icon := lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
-		rows = append(rows, prefix+"  "+icon+" "+name+scheduledMark(item.agent)+hiddenMark(item.agent)+markedMark(item.agent, m.marks))
+		rows = append(rows, prefix+"  "+icon+" "+name+scheduledMark(item.agent)+hiddenMark(item.agent.Hidden)+markedMark(item.agent, m.marks))
 	}
 
 	return header + renderList(rows, m.agentCursor, m.listLines(header, hints)) + hints

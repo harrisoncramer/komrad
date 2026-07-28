@@ -120,7 +120,7 @@ func TestBannerSurvivesTheFormItWasReportedFrom(t *testing.T) {
 		screen:    screenRename,
 		keys:      appconfig.DefaultKeybindings(),
 	}
-	m.form = renameForm("api-refactor", m.keys.Form)
+	m.form, m.renameValue = renameForm("api-refactor", m.keys.Form)
 	m.form.Init()
 
 	view := m.View()
@@ -258,7 +258,7 @@ func TestActionErrorDismissal(t *testing.T) {
 				stage:     NewStage(&recordingTmux{}),
 			}
 			if tt.screen == screenRename {
-				m.form = renameForm("api-refactor", m.keys.Form)
+				m.form, m.renameValue = renameForm("api-refactor", m.keys.Form)
 			}
 
 			updated, _ := m.Update(tt.key)

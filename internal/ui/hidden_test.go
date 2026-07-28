@@ -79,14 +79,14 @@ func TestAgentRowsHidden(t *testing.T) {
 	}
 }
 
-// TestToggleShowHiddenKeepsTheCursor covers where the cursor lands as rows appear and
-// vanish above it. It follows the agent it was on, since the rows it was counting
+// TestToggleHiddenAgentsKeepsTheCursor covers where the cursor lands as rows appear
+// and vanish above it. It follows the agent it was on, since the rows it was counting
 // from are not the rows it is left with.
-func TestToggleShowHiddenKeepsTheCursor(t *testing.T) {
+func TestToggleHiddenAgentsKeepsTheCursor(t *testing.T) {
 	m := hiddenTree()
 	m.agentCursor = 3 // frontend's ui, with backend's two hidden agents away
 
-	shown, _ := m.toggleShowHidden()
+	shown, _ := m.toggleHiddenAgents()
 	revealed, ok := shown.(model)
 	require.True(t, ok)
 	require.True(t, revealed.showHidden)
@@ -134,10 +134,10 @@ func TestHiddenTally(t *testing.T) {
 }
 
 // TestHiddenMark covers the marker on the row itself, which is what tells a revealed
-// agent apart from the ones that were never hidden.
+// row apart from the ones that were never hidden.
 func TestHiddenMark(t *testing.T) {
-	assert.Empty(t, hiddenMark(agentstore.Agent{}))
-	assert.Contains(t, hiddenMark(agentstore.Agent{Hidden: true}), hiddenIcon)
+	assert.Empty(t, hiddenMark(false))
+	assert.Contains(t, hiddenMark(true), hiddenIcon)
 }
 
 // TestAgentsViewHidden covers the rendered screen rather than the rows behind it. A

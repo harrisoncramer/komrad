@@ -950,12 +950,9 @@ func (x *UpdateAgentRequest) GetName() string {
 }
 
 type SearchTranscriptsRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Three characters is the floor rather than a stylistic minimum. The index uses
-	// a trigram tokenizer, so a shorter query can never match anything and would
-	// come back as a confident empty result.
-	Query         string         `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
-	Pagination    *v1.Pagination `protobuf:"bytes,2,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Query         string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	Pagination    *v1.Pagination         `protobuf:"bytes,2,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1004,19 +1001,27 @@ func (x *SearchTranscriptsRequest) GetPagination() *v1.Pagination {
 	return nil
 }
 
-// SearchHit is one transcript matched by a search. The agent it belongs to, its
-// display name and whether it is soft-deleted, a snippet of the matching text
-// with the matched terms wrapped in markers, and the relevance rank.
+// SearchHit is one turn of a transcript matched by a search. The agent it belongs
+// to, its display name and whether it is soft-deleted, which turn matched and who
+// spoke it, a snippet of the matching text with the matched terms wrapped in
+// markers, and the relevance the results are ordered by.
 type SearchHit struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	AgentId string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	Snippet string                 `protobuf:"bytes,2,opt,name=snippet,proto3" json:"snippet,omitempty"`
-	// How many times the query occurs in the transcript. Results come back in
-	// descending order of this, so an agent that discussed something at length
-	// outranks one that mentioned it once.
-	Occurrences   int64  `protobuf:"varint,3,opt,name=occurrences,proto3" json:"occurrences,omitempty"`
-	Name          string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
-	Deleted       bool   `protobuf:"varint,5,opt,name=deleted,proto3" json:"deleted,omitempty"`
+	Name    string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	Deleted bool                   `protobuf:"varint,5,opt,name=deleted,proto3" json:"deleted,omitempty"`
+	// Cover density of the matched turn, higher being a better match. It compares
+	// only against the other hits for the same query and carries no meaning of its
+	// own.
+	Score float64 `protobuf:"fixed64,6,opt,name=score,proto3" json:"score,omitempty"`
+	// Position of the matched turn within the transcript, counting from zero.
+	Seq int32 `protobuf:"varint,7,opt,name=seq,proto3" json:"seq,omitempty"`
+	// Who spoke the matched turn, user or assistant.
+	Role string `protobuf:"bytes,8,opt,name=role,proto3" json:"role,omitempty"`
+	// Byte offset where the matched turn begins in the full transcript, so a caller
+	// holding that text can scroll to the hit without searching for it again.
+	ContentOffset int64 `protobuf:"varint,9,opt,name=content_offset,json=contentOffset,proto3" json:"content_offset,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1065,13 +1070,6 @@ func (x *SearchHit) GetSnippet() string {
 	return ""
 }
 
-func (x *SearchHit) GetOccurrences() int64 {
-	if x != nil {
-		return x.Occurrences
-	}
-	return 0
-}
-
 func (x *SearchHit) GetName() string {
 	if x != nil {
 		return x.Name
@@ -1084,6 +1082,34 @@ func (x *SearchHit) GetDeleted() bool {
 		return x.Deleted
 	}
 	return false
+}
+
+func (x *SearchHit) GetScore() float64 {
+	if x != nil {
+		return x.Score
+	}
+	return 0
+}
+
+func (x *SearchHit) GetSeq() int32 {
+	if x != nil {
+		return x.Seq
+	}
+	return 0
+}
+
+func (x *SearchHit) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *SearchHit) GetContentOffset() int64 {
+	if x != nil {
+		return x.ContentOffset
+	}
+	return 0
 }
 
 type SearchTranscriptsResponse struct {
@@ -1312,17 +1338,20 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name\"\x8b\x01\n" +
 	"\x18SearchTranscriptsRequest\x12 \n" +
 	"\x05query\x18\x01 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x03\x18\xf4\x03R\x05query\x12>\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xf4\x03R\x05query\x12>\n" +
 	"\n" +
 	"pagination\x18\x02 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
 	"pagination\x88\x01\x01B\r\n" +
-	"\v_pagination\"\x90\x01\n" +
+	"\v_pagination\"\xd7\x01\n" +
 	"\tSearchHit\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x18\n" +
-	"\asnippet\x18\x02 \x01(\tR\asnippet\x12 \n" +
-	"\voccurrences\x18\x03 \x01(\x03R\voccurrences\x12\x12\n" +
+	"\asnippet\x18\x02 \x01(\tR\asnippet\x12\x12\n" +
 	"\x04name\x18\x04 \x01(\tR\x04name\x12\x18\n" +
-	"\adeleted\x18\x05 \x01(\bR\adeleted\"\x85\x01\n" +
+	"\adeleted\x18\x05 \x01(\bR\adeleted\x12\x14\n" +
+	"\x05score\x18\x06 \x01(\x01R\x05score\x12\x10\n" +
+	"\x03seq\x18\a \x01(\x05R\x03seq\x12\x12\n" +
+	"\x04role\x18\b \x01(\tR\x04role\x12%\n" +
+	"\x0econtent_offset\x18\t \x01(\x03R\rcontentOffsetJ\x04\b\x03\x10\x04\"\x85\x01\n" +
 	"\x19SearchTranscriptsResponse\x12'\n" +
 	"\x04hits\x18\x01 \x03(\v2\x13.agent.v1.SearchHitR\x04hits\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
@@ -1330,7 +1359,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14GetTranscriptRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"1\n" +
 	"\x15GetTranscriptResponse\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontent2\xc1$\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent2\xbc&\n" +
 	"\fAgentService\x12\xe7\x03\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x9d\x03\x9a\xb5\x18\x95\x03\n" +
@@ -1352,9 +1381,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\vDeleteAgent\x12\x1c.agent.v1.DeleteAgentRequest\x1a\x16.google.protobuf.Empty\"\xaf\x02\x9a\xb5\x18\xa7\x02\n" +
 	"\fdelete_agent\x12\x94\x02Permanently remove an agent's record, keyed by id. This is a hard delete, not the panel's soft delete: the config and the transcript go with it and search will never find the conversation again. Prefer archive_agent, and prefer leaving agents alone unless asked to remove one. \x01\x90\x02\x02\x12\xd7\x02\n" +
 	"\vUpdateAgent\x12\x1c.agent.v1.UpdateAgentRequest\x1a\x16.google.protobuf.Empty\"\x91\x02\x9a\xb5\x18\x89\x02\n" +
-	"\frename_agent\x12\xf6\x01Rename an agent, keyed by its id rather than its current name. The name is a display label the store keys on; the running tmux window keeps whatever it was called at launch. It may not contain spaces, colons, dots, slashes, or control characters. \x00\x90\x02\x02\x12\x94\x04\n" +
-	"\x11SearchTranscripts\x12\".agent.v1.SearchTranscriptsRequest\x1a#.agent.v1.SearchTranscriptsResponse\"\xb5\x03\x9a\xb5\x18\xad\x03\n" +
-	"\x12search_transcripts\x12\x96\x03Full-text search across every agent's conversation, including deleted ones, returning a ranked snippet per hit with the matched text marked. Substring matching, so partial words work. Returns one page, best match first; pass the response's nextPageToken back as pagination.cursor alongside the same query for the next one. Use this to answer what was discussed; use query for the SQL view of the same data.\x90\x02\x01\x12\x87\x02\n" +
+	"\frename_agent\x12\xf6\x01Rename an agent, keyed by its id rather than its current name. The name is a display label the store keys on; the running tmux window keeps whatever it was called at launch. It may not contain spaces, colons, dots, slashes, or control characters. \x00\x90\x02\x02\x12\x8f\x06\n" +
+	"\x11SearchTranscripts\x12\".agent.v1.SearchTranscriptsRequest\x1a#.agent.v1.SearchTranscriptsResponse\"\xb0\x05\x9a\xb5\x18\xa8\x05\n" +
+	"\x12search_transcripts\x12\x91\x05Full-text search across every agent's conversation, including deleted ones, returning one hit per matching turn with the matched text marked. Matches whole words, stemmed, so a query finds turns that phrased it differently; quote a phrase to require it verbatim, prefix a word with - to exclude it. Partial words also match as substrings, and rank below whole-word hits. One agent can appear several times, once per turn that matched. Returns one page, best match first; pass the response's nextPageToken back as pagination.cursor alongside the same query for the next one. Use this to answer what was discussed; use query for the SQL view of the same data.\x90\x02\x01\x12\x87\x02\n" +
 	"\rGetTranscript\x12\x1e.agent.v1.GetTranscriptRequest\x1a\x1f.agent.v1.GetTranscriptResponse\"\xb4\x01\x9a\xb5\x18\xac\x01\n" +
 	"\x0eget_transcript\x12\x99\x01Fetch one agent's full transcript by agent id, not by name. Transcripts can be very large; prefer search_transcripts when looking for something specific.\x90\x02\x01B*Z(claude-agents/proto/gen/agent/v1;agentv1b\x06proto3"
 

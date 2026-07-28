@@ -138,6 +138,19 @@ func TestLaunchAgentParams(t *testing.T) {
 				IdempotencyKey: "schedule:s1:2026-07-28T09:00:00Z",
 			},
 		},
+		{
+			// A schedule set to hide its runs starts each agent hidden, which is what
+			// lets a frequent job stay armed without filling the panel's list.
+			name: "a schedule hiding its runs launches a hidden agent",
+			schedule: schedulestore.Schedule{
+				ID: "s1", Name: "sweeper", Prompt: "sweep", WorkflowID: "w1",
+				Enabled: true, HideAgents: true,
+			},
+			want: agents.NewAgentParams{
+				Title: "sweeper", Prompt: "sweep", WorkflowID: "w1", Hidden: true,
+				IdempotencyKey: "schedule:s1:2026-07-28T09:00:00Z",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -156,6 +169,7 @@ func TestLaunchAgentParams(t *testing.T) {
 			assert.Empty(t, got.Dir, "the directory is the workflow's to supply")
 			assert.Empty(t, got.Flags, "and so are the flags")
 			assert.Equal(t, tt.want.IdempotencyKey, got.IdempotencyKey)
+			assert.Equal(t, tt.want.Hidden, got.Hidden, "whether the run starts out of the list is the schedule's to say")
 
 			require.NotNil(t, got.ScheduleID, "a launched agent records the schedule it came from")
 			assert.Equal(t, tt.schedule.ID, *got.ScheduleID)

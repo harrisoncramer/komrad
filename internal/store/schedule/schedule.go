@@ -49,7 +49,11 @@ type Schedule struct {
 	// Enabled false pauses the schedule. It keeps its row and its history and
 	// simply stops firing.
 	Enabled bool
-	Prompt  string
+	// HideAgents starts every agent this schedule launches hidden from the panel's
+	// list. Each launched agent takes its own copy, so hiding or showing one afterwards
+	// is that agent's business.
+	HideAgents bool
+	Prompt     string
 	// WorkflowID is the workflow this schedule launches into. It is where the
 	// directory, flags, and shared context each launch uses come from, read when
 	// the schedule fires rather than copied here, so a workflow that moves takes
@@ -66,6 +70,7 @@ type Config struct {
 	Cron       string
 	Timezone   string
 	Enabled    bool
+	HideAgents bool
 	Prompt     string
 	WorkflowID string
 }
@@ -150,6 +155,7 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Schedule, error) {
 		Cron:       cfg.Cron,
 		Timezone:   cfg.Timezone,
 		Enabled:    cfg.Enabled,
+		HideAgents: cfg.HideAgents,
 		Prompt:     cfg.Prompt,
 		WorkflowID: cfg.WorkflowID,
 	})
@@ -177,6 +183,7 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 		Cron:       cfg.Cron,
 		Timezone:   cfg.Timezone,
 		Enabled:    cfg.Enabled,
+		HideAgents: cfg.HideAgents,
 		Prompt:     cfg.Prompt,
 		WorkflowID: cfg.WorkflowID,
 	})
@@ -242,6 +249,7 @@ func scheduleFromRow(s models.Schedule) Schedule {
 		Cron:       s.Cron,
 		Timezone:   s.Timezone,
 		Enabled:    s.Enabled,
+		HideAgents: s.HideAgents,
 		Prompt:     s.Prompt,
 		WorkflowID: s.WorkflowID,
 		UpdatedAt:  s.UpdatedAt,
