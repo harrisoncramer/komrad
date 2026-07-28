@@ -37,7 +37,7 @@ type agentStore interface {
 	Get(ctx context.Context, name string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
 	SetState(ctx context.Context, name, state string) (bool, error)
-	SetMarked(ctx context.Context, id string, marked bool) (bool, error)
+	SetMark(ctx context.Context, id string, mark *string) (bool, error)
 	Rename(ctx context.Context, id, name string) (bool, error)
 }
 
@@ -145,11 +145,11 @@ func (s *Service) SetState(ctx context.Context, req *connect.Request[agentv1.Set
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// SetMarked marks or unmarks an agent. An id matching nothing is an error rather
-// than a quiet success, which would leave the caller believing in a mark it never
-// made.
-func (s *Service) SetMarked(ctx context.Context, req *connect.Request[agentv1.SetMarkedRequest]) (*connect.Response[emptypb.Empty], error) {
-	changed, err := s.agents.SetMarked(ctx, req.Msg.GetId(), req.Msg.GetMarked())
+// SetMark marks an agent, and an unset mark clears it. An id matching nothing is an
+// error rather than a quiet success, which would leave the caller believing in a
+// mark it never made.
+func (s *Service) SetMark(ctx context.Context, req *connect.Request[agentv1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error) {
+	changed, err := s.agents.SetMark(ctx, req.Msg.GetId(), req.Msg.Mark)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set the mark: %w", err))
 	}

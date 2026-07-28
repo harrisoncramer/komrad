@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"claude-agents/internal/interceptors"
+	"claude-agents/lib/xptr"
 	agentv1 "claude-agents/proto/gen/agent/v1"
 	"claude-agents/proto/gen/agent/v1/agentv1connect"
 	paginationv1 "claude-agents/proto/gen/pagination/v1"
@@ -13,6 +14,7 @@ import (
 	agentstore "claude-agents/internal/store/agent"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -211,6 +213,35 @@ func TestRequestValidation(t *testing.T) {
 				return err
 			},
 			wantErr: true,
+		},
+		{
+			name: "a mark carrying whitespace is refused, since it is drawn into a row",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
+					Id:   uuid.NewString(),
+					Mark: xptr.Ptr("two glyphs"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a glyph is not what the constraint stops",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
+					Id:   uuid.NewString(),
+					Mark: xptr.Ptr("◐"),
+				}))
+
+				// The id is nobody's, so the handler answers not_found once the mark
+				// itself has been let through.
+				if connect.CodeOf(err) == connect.CodeNotFound {
+					return nil
+				}
+
+				return err
+			},
 		},
 		{
 			name: "a transcript read with no agent id is refused",

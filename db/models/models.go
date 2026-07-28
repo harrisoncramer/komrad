@@ -21,9 +21,9 @@ type Agent struct {
 	ScheduleID      *string
 	IdempotencyKey  *string
 	IsDeleted       bool
-	MarkedAt        *time.Time
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+	Mark            *string
 }
 
 // Editable config (cwd, flags) owned by exactly one agent.

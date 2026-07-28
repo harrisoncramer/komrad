@@ -35,16 +35,11 @@ func Schema(dir string) (*jsonschema.Schema, error) {
 
 	schema := reflector.Reflect(&Config{})
 
-	if err := setDefaults(schema, reflect.ValueOf(defaultConfig())); err != nil {
+	if err := setDefaults(schema, reflect.ValueOf(*Defaults())); err != nil {
 		return nil, err
 	}
 
 	return schema, nil
-}
-
-// defaultConfig is the value every default in the schema is read from.
-func defaultConfig() Config {
-	return Config{Keybindings: DefaultKeybindings()}
 }
 
 // setDefaults walks the schema alongside the default value, stamping each leaf's

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"claude-agents/internal/appconfig"
 	agentv1 "claude-agents/proto/gen/agent/v1"
 
 	"claude-agents/lib/dates"
@@ -193,10 +194,8 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if !ok {
 			return m, nil
 		}
-		// One key both marks and clears, so it means the opposite of what the row
-		// currently carries.
-		marked := item.agent.MarkedAt == nil
-		m.report(fmt.Sprintf("Could not mark agent %q", item.agent.Name), m.setMarked(item.agent, marked))
+		next := nextMark(item.agent.Mark, m.marks)
+		m.report(fmt.Sprintf("Could not mark agent %q", item.agent.Name), m.setMark(item.agent, next))
 		m.reload()
 		m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
 	case bound(k, m.keys.Agents.Rename):
@@ -268,13 +267,12 @@ func (m model) archiveAgent(agent agentstore.Agent) error {
 	return err
 }
 
-// setMarked marks or unmarks an agent. The service writes the stamp, so the panel
-// sends only which way it should go.
-func (m model) setMarked(agent agentstore.Agent, marked bool) error {
+// setMark puts a mark on an agent, and a nil mark clears the one it carries.
+func (m model) setMark(agent agentstore.Agent, mark *string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	_, err := m.api.agents.SetMarked(ctx, connect.NewRequest(&agentv1.SetMarkedRequest{Id: agent.ID, Marked: marked}))
+	_, err := m.api.agents.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{Id: agent.ID, Mark: mark}))
 
 	return err
 }
@@ -345,18 +343,49 @@ func scheduledMark(agent agentstore.Agent) string {
 	return " " + dimStyle.Render(scheduledIcon)
 }
 
-// markedIcon is drawn after the row rather than in the state column, so it reads as
-// the user's own mark and not another lifecycle state.
-const markedIcon = "●"
-
-// markedMark is the dot on an agent the user has marked. An unmarked agent carries
-// nothing.
-func markedMark(agent agentstore.Agent) string {
-	if agent.MarkedAt == nil {
+// markedMark is the glyph the user marked an agent with, drawn after the row rather
+// than in the state column so it reads as their own mark and not another lifecycle
+// state. It takes the colour that mark carries in the config.
+func markedMark(agent agentstore.Agent, marks []appconfig.Mark) string {
+	if agent.Mark == nil {
 		return ""
 	}
 
-	return " " + lipgloss.NewStyle().Foreground(markedColor).Render(markedIcon)
+	return " " + lipgloss.NewStyle().Foreground(markColor(*agent.Mark, marks)).Render(*agent.Mark)
+}
+
+// markColor is the colour a glyph is drawn in. One the config does not list, or one
+// listed with no colour of its own, falls back rather than going undrawn.
+func markColor(glyph string, marks []appconfig.Mark) lipgloss.Color {
+	for _, mark := range marks {
+		if mark.Glyph == glyph && mark.Color != "" {
+			return lipgloss.Color(mark.Color)
+		}
+	}
+
+	return markedColor
+}
+
+// nextMark is where the mark key moves an agent, stepping through the configured
+// marks and past the last one back to unmarked. A mark that is not configured clears
+// for the same reason it draws in the fallback colour, so the key is always a way
+// back out of one.
+func nextMark(current *string, marks []appconfig.Mark) *string {
+	if len(marks) == 0 {
+		return nil
+	}
+
+	if current == nil {
+		return &marks[0].Glyph
+	}
+
+	for i, mark := range marks {
+		if mark.Glyph == *current && i+1 < len(marks) {
+			return &marks[i+1].Glyph
+		}
+	}
+
+	return nil
 }
 
 // scheduleName is the display name of the schedule that launched an agent, or
@@ -426,10 +455,8 @@ func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) string {
 	if created := dates.Friendly(agent.CreatedAt); created != "" {
 		fmt.Fprintf(&b, "- created: %s\n", created)
 	}
-	if agent.MarkedAt != nil {
-		if marked := dates.Friendly(*agent.MarkedAt); marked != "" {
-			fmt.Fprintf(&b, "- marked: %s\n", marked)
-		}
+	if agent.Mark != nil {
+		fmt.Fprintf(&b, "- mark: %s\n", *agent.Mark)
 	}
 	if !alive {
 		b.WriteString("\nPress open to restore.\n")
@@ -445,11 +472,15 @@ func (m model) actionHints() string {
 		infoDesc = "hide info"
 	}
 
-	// The mark key toggles, so the legend names what pressing it would do to the row
-	// under the cursor.
+	// The mark key steps through the marks, so the legend shows the one the row under
+	// the cursor would take next.
 	markDesc := "mark"
-	if item, ok := m.selectedAgent(); ok && item.agent.MarkedAt != nil {
-		markDesc = "unmark"
+	if item, ok := m.selectedAgent(); ok {
+		if next := nextMark(item.agent.Mark, m.marks); next != nil {
+			markDesc = "mark " + *next
+		} else {
+			markDesc = "unmark"
+		}
 	}
 
 	hints := []hint{
@@ -556,7 +587,7 @@ func (m model) agentsView() string {
 		}
 
 		icon := lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
-		list.WriteString(prefix + "  " + icon + " " + name + scheduledMark(item.agent) + markedMark(item.agent) + "\n")
+		list.WriteString(prefix + "  " + icon + " " + name + scheduledMark(item.agent) + markedMark(item.agent, m.marks) + "\n")
 	}
 
 	list.WriteString("\n" + m.actionHints())

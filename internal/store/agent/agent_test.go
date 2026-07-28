@@ -278,46 +278,58 @@ func TestSetState(t *testing.T) {
 	}
 }
 
-// TestSetMarked covers the mark in both directions and who may carry one. A write
-// that silently landed on nothing would leave the caller believing they had marked
-// an agent that shows no mark.
-func TestSetMarked(t *testing.T) {
+// TestSetMark covers marking, changing a mark, clearing one, and who may carry one.
+// A write that silently landed on nothing would leave the caller believing they had
+// marked an agent that shows no mark.
+func TestSetMark(t *testing.T) {
 	tests := []struct {
-		name        string
-		create      bool
-		archive     bool
-		id          func(created Agent) string
-		marked      bool
+		name    string
+		create  bool
+		archive bool
+		id      func(created Agent) string
+		// before is put on the agent ahead of the write, so a row can start from a
+		// mark rather than from nothing.
+		before      *string
+		mark        *string
 		wantChanged bool
 	}{
 		{
-			name:   "an id no agent holds",
-			id:     func(Agent) string { return uuid.NewString() },
-			marked: true,
+			name: "an id no agent holds",
+			id:   func(Agent) string { return uuid.NewString() },
+			mark: xptr.Ptr("●"),
 		},
 		{
-			name:   "a value that is not an id at all",
-			id:     func(Agent) string { return "not-an-id" },
-			marked: true,
+			name: "a value that is not an id at all",
+			id:   func(Agent) string { return "not-an-id" },
+			mark: xptr.Ptr("●"),
 		},
 		{
 			name:    "an archived agent, which has no listing to be marked in",
 			create:  true,
 			archive: true,
 			id:      func(created Agent) string { return created.ID },
-			marked:  true,
+			mark:    xptr.Ptr("●"),
 		},
 		{
 			name:        "marking a live agent",
 			create:      true,
 			id:          func(created Agent) string { return created.ID },
-			marked:      true,
+			mark:        xptr.Ptr("●"),
+			wantChanged: true,
+		},
+		{
+			name:        "moving an agent from one mark to another",
+			create:      true,
+			id:          func(created Agent) string { return created.ID },
+			before:      xptr.Ptr("●"),
+			mark:        xptr.Ptr("✓"),
 			wantChanged: true,
 		},
 		{
 			name:        "clearing a live agent's mark",
 			create:      true,
 			id:          func(created Agent) string { return created.ID },
+			before:      xptr.Ptr("●"),
 			wantChanged: true,
 		},
 	}
@@ -335,11 +347,16 @@ func TestSetMarked(t *testing.T) {
 				require.NotNil(t, got)
 				created = *got
 			}
+			if tt.before != nil {
+				changed, err := st.SetMark(ctx, created.ID, tt.before)
+				require.NoError(t, err)
+				require.True(t, changed)
+			}
 			if tt.archive {
 				require.NoError(t, st.Archive(ctx, "agent"))
 			}
 
-			changed, err := st.SetMarked(ctx, tt.id(created), tt.marked)
+			changed, err := st.SetMark(ctx, tt.id(created), tt.mark)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantChanged, changed)
 
@@ -350,11 +367,7 @@ func TestSetMarked(t *testing.T) {
 			after, err := st.Get(ctx, "agent")
 			require.NoError(t, err)
 			require.NotNil(t, after)
-			if tt.marked {
-				assert.NotNil(t, after.MarkedAt, "a marked agent carries when it was marked")
-			} else {
-				assert.Nil(t, after.MarkedAt, "an unmarked agent carries no stamp")
-			}
+			assert.Equal(t, tt.mark, after.Mark)
 		})
 	}
 }
@@ -371,7 +384,7 @@ func TestSetStateByIDKeepsTheMark(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, created)
 
-	changed, err := st.SetMarked(ctx, created.ID, true)
+	changed, err := st.SetMark(ctx, created.ID, xptr.Ptr("●"))
 	require.NoError(t, err)
 	require.True(t, changed)
 
@@ -381,7 +394,7 @@ func TestSetStateByIDKeepsTheMark(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, after)
 	assert.Equal(t, StateWaiting, after.State)
-	assert.NotNil(t, after.MarkedAt, "a state write leaves the user's mark standing")
+	assert.Equal(t, "●", *after.Mark, "a state write leaves the user's mark standing")
 }
 
 // TestActiveNameExists covers who owns a name. The unique index is scoped to

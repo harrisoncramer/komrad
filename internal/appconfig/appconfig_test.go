@@ -114,6 +114,78 @@ func TestLoad(t *testing.T) {
 	}
 }
 
+// TestLoadMarks covers the marks list. A glyph goes into a rendered row, so it
+// cannot carry anything a terminal would read as an instruction, and a colour has to
+// be one lipgloss understands or the mark would quietly lose it.
+func TestLoadMarks(t *testing.T) {
+	tests := []struct {
+		name    string
+		file    string
+		want    []Mark
+		wantErr bool
+	}{
+		{
+			name:    "a glyph carrying a tab, which would break the row it is drawn on",
+			file:    "marks = [{ glyph = \"a\\tb\" }]\n",
+			wantErr: true,
+		},
+		{
+			name:    "an empty glyph, which would draw as nothing at all",
+			file:    "marks = [{ glyph = \"\" }]\n",
+			wantErr: true,
+		},
+		{
+			name:    "the same glyph twice, which would sit twice in the cycle",
+			file:    "marks = [{ glyph = \"●\" }, { glyph = \"●\" }]\n",
+			wantErr: true,
+		},
+		{
+			name:    "a colour that is not hex at all",
+			file:    "marks = [{ glyph = \"●\", color = \"hot pink\" }]\n",
+			wantErr: true,
+		},
+		{
+			name:    "a colour missing its hash",
+			file:    "marks = [{ glyph = \"●\", color = \"F932A1\" }]\n",
+			wantErr: true,
+		},
+		{
+			name: "a file that names none falls back to the defaults",
+			file: "claude_flags = \"\"\n",
+			want: DefaultMarks(),
+		},
+		{
+			name: "the glyphs the user chose, in their order, with their colours",
+			file: "marks = [{ glyph = \"◐\", color = \"#F932A1\" }, { glyph = \"✓\", color = \"#0f0\" }]\n",
+			want: []Mark{
+				{Glyph: "◐", Color: "#F932A1"},
+				{Glyph: "✓", Color: "#0f0"},
+			},
+		},
+		{
+			name: "a glyph with no colour of its own, which the panel draws in the default",
+			file: "[[marks]]\nglyph = \"⚑\"\n",
+			want: []Mark{{Glyph: "⚑"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.toml")
+			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
+
+			cfg, err := Load(path)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, cfg.Marks)
+		})
+	}
+}
+
 func TestLoadRejectsUnknownKeys(t *testing.T) {
 	tests := []struct {
 		name string

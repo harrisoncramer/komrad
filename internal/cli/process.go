@@ -47,7 +47,7 @@ func ensureServer(addr, self, logPath string) error {
 	if err != nil {
 		return err
 	}
-	defer logFile.Close()
+	defer func() { _ = logFile.Close() }()
 
 	// Where the log already ends, so a failure reports what this server wrote and
 	// not what a previous one did.
@@ -122,7 +122,7 @@ func serveLogTail(path string, offset int64) string {
 	if err != nil {
 		return ""
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	if _, err := file.Seek(offset, io.SeekStart); err != nil {
 		return ""

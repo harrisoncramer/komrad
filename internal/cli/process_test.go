@@ -12,14 +12,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeServe writes a script that stands in for the serve subcommand, logging what
-// it is given and then exiting with code. It is used in place of the real binary so
-// the tests never need a database.
-func fakeServe(t *testing.T, output string, code int) string {
+// fakeServe writes a script that stands in for the serve subcommand, logging what it
+// is given and then failing. It is used in place of the real binary so the tests
+// never need a database, and it always fails because a server that starts cleanly is
+// not what any of these cases is about.
+func fakeServe(t *testing.T, output string) string {
 	t.Helper()
 
 	path := filepath.Join(t.TempDir(), "fake-serve")
-	script := fmt.Sprintf("#!/bin/sh\nprintf '%%s\\n' \"%s\" >&2\nexit %d\n", output, code)
+	script := fmt.Sprintf("#!/bin/sh\nprintf '%%s\\n' \"%s\" >&2\nexit 1\n", output)
 	require.NoError(t, os.WriteFile(path, []byte(script), 0o700))
 
 	return path
@@ -46,7 +47,7 @@ func freeAddr(t *testing.T) string {
 // database.
 func TestEnsureServerReportsWhyItDied(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "serve.log")
-	self := fakeServe(t, "failed to reach db: connection refused", 1)
+	self := fakeServe(t, "failed to reach db: connection refused")
 
 	err := ensureServer(freeAddr(t), self, logPath)
 
@@ -61,7 +62,7 @@ func TestEnsureServerIgnoresOlderLogLines(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 	require.NoError(t, os.WriteFile(logPath, []byte("failed to migrate db: an older run\n"), 0o644))
 
-	self := fakeServe(t, "failed to reach db: this run", 1)
+	self := fakeServe(t, "failed to reach db: this run")
 
 	err := ensureServer(freeAddr(t), self, logPath)
 
@@ -75,7 +76,7 @@ func TestEnsureServerIgnoresOlderLogLines(t *testing.T) {
 // idea where to look for one is not worth reading.
 func TestEnsureServerWithoutAReason(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "serve.log")
-	self := fakeServe(t, "", 1)
+	self := fakeServe(t, "")
 
 	err := ensureServer(freeAddr(t), self, logPath)
 
@@ -93,7 +94,7 @@ func TestEnsureServerWithAnUnwritableLog(t *testing.T) {
 
 	logPath := filepath.Join(blocked, "serve.log")
 
-	err := ensureServer(freeAddr(t), fakeServe(t, "should not run", 1), logPath)
+	err := ensureServer(freeAddr(t), fakeServe(t, "should not run"), logPath)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), logPath, "the path that could not be opened is named")
@@ -105,11 +106,11 @@ func TestEnsureServerWithAnUnwritableLog(t *testing.T) {
 func TestEnsureServerFindsARunningServer(t *testing.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 
-	require.NoError(t, ensureServer(listener.Addr().String(), fakeServe(t, "should not run", 1), logPath))
+	require.NoError(t, ensureServer(listener.Addr().String(), fakeServe(t, "should not run"), logPath))
 
 	_, statErr := os.Stat(logPath)
 	assert.True(t, os.IsNotExist(statErr), "no server was spawned, so nothing was logged")

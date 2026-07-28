@@ -11,6 +11,15 @@
 
 # Flags appended to the claude command for every new session.
 claude_flags = ""
+# The marks the mark key cycles through, in order. A mark is a glyph and means
+# whatever you decide, so the glyph is the label. Pressing mark advances the
+# hovered agent to the next one here, and past the last one back to unmarked,
+# which leaves a one-mark list behaving as a toggle.
+marks = [
+  { glyph = "●", color = "#DCA561" },
+  { glyph = "◐", color = "#DCA561" },
+  { glyph = "✓", color = "#DCA561" },
+]
 
 # Panel keybindings, scoped to the screen each action acts in.
 
@@ -40,8 +49,8 @@ delete = ["d"]
 search = ["/"]
 # Swap the hovered agent's stored record into the stage in place of the agent.
 info   = ["i"]
-# Mark the hovered agent, or clear the mark when it already carries one. The
-# mark means whatever you decide, and nothing else ever sets it.
+# Move the hovered agent to the next mark in the marks list, and past the last
+# one back to unmarked. Nothing but you ever sets a mark.
 mark   = ["m"]
 
 # The new-agent, rename, and workflow forms.

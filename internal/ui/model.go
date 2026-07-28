@@ -148,9 +148,8 @@ var (
 	dimStyle = errui.Dim
 )
 
-// markedColor is a yellow the panel uses for nothing else, so the mark cannot be
-// mistaken for a state.
-const markedColor = lipgloss.Color("#DCA561")
+// markedColor is what a mark is drawn in when its config names no colour of its own.
+const markedColor = lipgloss.Color(appconfig.DefaultMarkColor)
 
 func stateIcon(state string) string {
 	switch state {
@@ -224,6 +223,8 @@ type Deps struct {
 	Workflows workflowv1connect.WorkflowServiceClient
 	Schedules schedulev1connect.ScheduleServiceClient
 	Keys      appconfig.Keybindings
+	// Marks are the marks the mark key steps an agent through, in the user's order.
+	Marks []appconfig.Mark
 	// Addr is where Client points, shown on the error screen when the service
 	// stops answering so the address to go looking at is on screen.
 	Addr string
@@ -322,7 +323,8 @@ type model struct {
 	trashCursor       int
 	trashDeleteTarget *agentstore.Agent
 
-	keys appconfig.Keybindings
+	keys  appconfig.Keybindings
+	marks []appconfig.Mark
 }
 
 func newModel(deps Deps) model {
@@ -333,6 +335,7 @@ func newModel(deps Deps) model {
 		stage:      NewStage(deps.Tmux),
 		addr:       deps.Addr,
 		keys:       deps.Keys,
+		marks:      deps.Marks,
 		configErr:  deps.ConfigErr,
 		startupErr: deps.StartupErr,
 		screen:     screenAgents,
@@ -507,13 +510,6 @@ func clampCursor(idx, length int) int {
 func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 	created, _ := time.Parse(time.RFC3339, s.GetCreatedAt())
 
-	// A stamp the panel cannot read is treated as no mark, since there is no time it
-	// could show for one.
-	var marked *time.Time
-	if parsed, err := time.Parse(time.RFC3339, s.GetMarkedAt()); err == nil {
-		marked = &parsed
-	}
-
 	return agentstore.Agent{
 		ID:              s.GetId(),
 		Name:            s.GetName(),
@@ -526,7 +522,7 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 		WorkflowID:      s.GetWorkflowId(),
 		ScheduleID:      s.ScheduleId,
 		CreatedAt:       created,
-		MarkedAt:        marked,
+		Mark:            s.Mark,
 	}
 }
 

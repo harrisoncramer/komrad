@@ -53,9 +53,9 @@ type Agent struct {
 	// the same key finds this agent rather than spawning a second one.
 	IdempotencyKey *string
 	Deleted        bool
-	// MarkedAt is when the user marked this agent, nil when they have not. Only the
-	// user sets and clears it, so it says nothing about the agent's lifecycle.
-	MarkedAt *time.Time
+	// Mark is the glyph the user put on this agent, nil when it carries none. Only
+	// the user sets and clears it, so it says nothing about the agent's lifecycle.
+	Mark *string
 	// CreatedAt is when the agent was first recorded, for display.
 	CreatedAt time.Time
 	// UpdatedAt is when the row last changed, for display. No listing orders by it,
@@ -290,16 +290,15 @@ func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
 	return nil
 }
 
-// SetMarked marks or unmarks an agent, keyed by id. Marking stamps the moment it
-// happened and unmarking clears the stamp. The database supplies the clock so two
-// writers cannot disagree about now. It reports whether a row was touched, which is
-// how a caller tells an id that matches nothing from one that does.
-func (s *Store) SetMarked(ctx context.Context, id string, marked bool) (bool, error) {
+// SetMark puts a mark on an agent, keyed by id, and a nil mark clears it. It
+// reports whether a row was touched, which is how a caller tells an id that matches
+// nothing from one that does.
+func (s *Store) SetMark(ctx context.Context, id string, mark *string) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
 	}
 
-	updated, err := s.queries.SetAgentMarked(ctx, models.SetAgentMarkedParams{ID: id, Marked: marked})
+	updated, err := s.queries.SetAgentMark(ctx, models.SetAgentMarkParams{ID: id, Mark: mark})
 	if err != nil {
 		return false, fmt.Errorf("failed to mark agent %q: %w", id, err)
 	}
@@ -501,7 +500,7 @@ func agentFromRow(agent models.Agent, cwd, flags string) Agent {
 		ScheduleID:      agent.ScheduleID,
 		IdempotencyKey:  agent.IdempotencyKey,
 		Deleted:         agent.IsDeleted,
-		MarkedAt:        agent.MarkedAt,
+		Mark:            agent.Mark,
 		CreatedAt:       agent.CreatedAt,
 		UpdatedAt:       agent.UpdatedAt,
 	}

@@ -8,6 +8,7 @@ import (
 
 	"claude-agents/internal/agents"
 	"claude-agents/internal/storetest"
+	"claude-agents/lib/xptr"
 	agentv1 "claude-agents/proto/gen/agent/v1"
 
 	agentstore "claude-agents/internal/store/agent"
@@ -352,30 +353,36 @@ func TestSetState(t *testing.T) {
 // TestSetMarked covers the mark over the wire. The server writes the stamp, so the
 // request carries only a direction, and an id that matches nothing is refused rather
 // than reported as a mark that never landed.
-func TestSetMarked(t *testing.T) {
+func TestSetMark(t *testing.T) {
 	tests := []struct {
 		name string
 		seed bool
-		// markFirst marks the agent before the call, so clearing has something to
-		// clear.
-		markFirst bool
-		marked    bool
+		// markFirst is put on the agent before the call, so changing and clearing a
+		// mark both have one to work from.
+		markFirst *string
+		mark      *string
 		wantCode  connect.Code
 	}{
 		{
 			name:     "an id nobody holds is not a quiet success",
-			marked:   true,
+			mark:     xptr.Ptr("●"),
 			wantCode: connect.CodeNotFound,
 		},
 		{
-			name:   "an agent is marked",
-			seed:   true,
-			marked: true,
+			name: "an agent is marked",
+			seed: true,
+			mark: xptr.Ptr("●"),
+		},
+		{
+			name:      "an agent moves from one mark to another",
+			seed:      true,
+			markFirst: xptr.Ptr("●"),
+			mark:      xptr.Ptr("✓"),
 		},
 		{
 			name:      "and the mark is cleared again",
 			seed:      true,
-			markFirst: true,
+			markFirst: xptr.Ptr("●"),
 		},
 	}
 
@@ -388,13 +395,13 @@ func TestSetMarked(t *testing.T) {
 			if tt.seed {
 				id = st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking}).ID
 			}
-			if tt.markFirst {
-				changed, err := st.Agents.SetMarked(ctx, id, true)
+			if tt.markFirst != nil {
+				changed, err := st.Agents.SetMark(ctx, id, tt.markFirst)
 				require.NoError(t, err)
 				require.True(t, changed)
 			}
 
-			_, err := svc.SetMarked(ctx, connect.NewRequest(&agentv1.SetMarkedRequest{Id: id, Marked: tt.marked}))
+			_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{Id: id, Mark: tt.mark}))
 			if tt.wantCode != 0 {
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 				return
@@ -404,7 +411,7 @@ func TestSetMarked(t *testing.T) {
 
 			got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Name: "alpha"}))
 			require.NoError(t, err)
-			assert.Equal(t, tt.marked, got.Msg.GetAgent().MarkedAt != nil)
+			assert.Equal(t, tt.mark, got.Msg.GetAgent().Mark)
 		})
 	}
 }

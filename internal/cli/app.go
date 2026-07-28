@@ -39,6 +39,8 @@ type app struct {
 	env         *config.Config
 	keys        appconfig.Keybindings
 	claudeFlags string
+	// marks are the marks the panel's mark key steps an agent through.
+	marks []appconfig.Mark
 	// configErr is set when the user's config file would not parse. The panel shows
 	// it on its error screen; every other command ignores it, since none of them
 	// read keybindings.

@@ -47,12 +47,13 @@ func NewRootCommand() *cobra.Command {
 			cfg, err := appconfig.Load(configPath)
 			if err != nil {
 				state.configErr = err
-				cfg = &appconfig.Config{Keybindings: appconfig.DefaultKeybindings()}
+				cfg = appconfig.Defaults()
 			}
 
 			state.env = env
 			state.keys = cfg.Keybindings
 			state.claudeFlags = cfg.ClaudeFlags
+			state.marks = cfg.Marks
 			state.configPath = configPath
 			state.tmux = tmux.NewClient(env.TmuxSocket)
 			state.popup = ui.NewPopup(state.tmux, agents.ManagerSession)
@@ -88,6 +89,7 @@ func NewRootCommand() *cobra.Command {
 				Workflows:  workflowClient,
 				Schedules:  scheduleClient,
 				Keys:       state.keys,
+				Marks:      state.marks,
 				Addr:       state.env.Addr,
 				ConfigErr:  state.configErr,
 				StartupErr: startupErr,

@@ -318,7 +318,7 @@ func TestReconcileLeavesTheMark(t *testing.T) {
 	ctx := context.Background()
 	agent := seed(t, st, "agent", "%1", agentstore.StateNew)
 
-	marked, err := st.Agents.SetMarked(ctx, agent.ID, true)
+	marked, err := st.Agents.SetMark(ctx, agent.ID, xptr.Ptr("●"))
 	require.NoError(t, err)
 	require.True(t, marked)
 
@@ -333,7 +333,7 @@ func TestReconcileLeavesTheMark(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, after)
 	assert.Equal(t, agentstore.StateThinking, after.State, "the pass wrote a state")
-	assert.NotNil(t, after.MarkedAt, "the user's mark survives a state write")
+	assert.Equal(t, "●", *after.Mark, "the user's mark survives a state write")
 }
 
 // TestReconcileOverPasses covers what only shows up across several passes, the

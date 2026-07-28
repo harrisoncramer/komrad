@@ -1,11 +1,16 @@
 // Package appconfig loads the user's customization from a TOML file via viper.
-// It covers the default claude flags and the panel keybindings.
+// It covers the default claude flags, the marks an agent can be given, and the
+// panel keybindings.
 package appconfig
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
+	"unicode"
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/viper"
@@ -70,8 +75,8 @@ type AgentsKeys struct {
 	Search []string `mapstructure:"search"`
 	// Swap the hovered agent's stored record into the stage in place of the agent.
 	Info []string `mapstructure:"info"`
-	// Mark the hovered agent, or clear the mark when it already carries one. The
-	// mark means whatever you decide, and nothing else ever sets it.
+	// Move the hovered agent to the next mark in the marks list, and past the last
+	// one back to unmarked. Nothing but you ever sets a mark.
 	Mark []string `mapstructure:"mark"`
 }
 
@@ -129,8 +134,55 @@ type TrashKeys struct {
 type Config struct {
 	// Flags appended to the claude command for every new session.
 	ClaudeFlags string `mapstructure:"claude_flags"`
+	// The marks the mark key cycles through, in order. A mark is a glyph and means
+	// whatever you decide, so the glyph is the label. Pressing mark advances the
+	// hovered agent to the next one here, and past the last one back to unmarked,
+	// which leaves a one-mark list behaving as a toggle.
+	Marks []Mark `mapstructure:"marks"`
 	// Panel keybindings, scoped to the screen each action acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`
+}
+
+// Defaults is the configuration a user who has written nothing runs on. It is also
+// what the generated config.toml spells out, so the file and an install without one
+// agree by construction.
+func Defaults() *Config {
+	return &Config{
+		Marks:       DefaultMarks(),
+		Keybindings: DefaultKeybindings(),
+	}
+}
+
+// Mark is one of the marks the mark key steps through. The glyph is what a row draws
+// and what the store keeps, so it is the mark's identity, while the colour is the
+// panel's alone and is never stored.
+//
+// The json tags are the names get_config reports a mark under, spelled out because
+// the encoder behind it follows the mapstructure tags as far as the slice and no
+// further.
+type Mark struct {
+	Glyph string `mapstructure:"glyph" json:"glyph"`
+	// A hex colour such as "#DCA561", either three or six digits. Left empty the
+	// mark takes DefaultMarkColor.
+	Color string `mapstructure:"color" json:"color"`
+}
+
+// DefaultMarkColor is the yellow a mark takes when its own colour is unset. The panel
+// uses it for nothing else, so a mark left on it cannot be read as a lifecycle state.
+// Marks coloured apart from each other are worth having, and keeping them clear of
+// the state colours is then yours to do.
+const DefaultMarkColor = "#DCA561"
+
+// DefaultMarks are the marks stepped through when the config names none. A glyph says
+// what it means to whoever reads the row, so a dot reads as worth coming back to, a
+// half-filled circle as underway, and a check as dealt with. They share one colour,
+// leaving the glyph to carry the meaning until someone colours them apart.
+func DefaultMarks() []Mark {
+	return []Mark{
+		{Glyph: "●", Color: DefaultMarkColor},
+		{Glyph: "◐", Color: DefaultMarkColor},
+		{Glyph: "✓", Color: DefaultMarkColor},
+	}
 }
 
 // DefaultKeybindings are the bindings used when the config omits them.
@@ -179,6 +231,43 @@ func DefaultKeybindings() Keybindings {
 			Submit: []string{"shift+enter"},
 		},
 	}
+}
+
+// maxMarkLen bounds a mark in bytes. A glyph runs to a handful of bytes even with
+// modifiers on it, so anything longer is not the one character the panel can draw.
+const maxMarkLen = 16
+
+// hexColor matches the colours lipgloss reads, three or six digits behind a hash.
+// Anything else it renders as no colour at all, so a typo would silently lose the
+// mark's colour rather than say so.
+var hexColor = regexp.MustCompile(`^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
+
+// validateMarks rejects marks the panel could not draw. A glyph goes straight into a
+// rendered frame, so whitespace or a control character would break the row it sits
+// on rather than show up in it, and a glyph listed twice would never be steppable
+// past its first appearance.
+func validateMarks(marks []Mark) error {
+	unprintable := func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }
+	seen := make(map[string]bool, len(marks))
+
+	for _, mark := range marks {
+		switch {
+		case mark.Glyph == "":
+			return errors.New("a mark cannot be empty")
+		case len(mark.Glyph) > maxMarkLen:
+			return fmt.Errorf("mark %q is longer than %d bytes, so it is not one glyph", mark.Glyph, maxMarkLen)
+		case strings.ContainsFunc(mark.Glyph, unprintable):
+			return fmt.Errorf("mark %q carries whitespace or control characters", mark.Glyph)
+		case seen[mark.Glyph]:
+			return fmt.Errorf("mark %q is listed twice", mark.Glyph)
+		case mark.Color != "" && !hexColor.MatchString(mark.Color):
+			return fmt.Errorf("mark %q has colour %q, which is not a hex colour such as \"#DCA561\"", mark.Glyph, mark.Color)
+		}
+
+		seen[mark.Glyph] = true
+	}
+
+	return nil
 }
 
 func fillKeys(configured, def []string) []string {
@@ -260,10 +349,10 @@ func Load(path string) (*Config, error) {
 
 	if err := viperCfg.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			return &Config{Keybindings: DefaultKeybindings()}, nil
+			return Defaults(), nil
 		}
 		if os.IsNotExist(err) {
-			return &Config{Keybindings: DefaultKeybindings()}, nil
+			return Defaults(), nil
 		}
 
 		return nil, fmt.Errorf("failed to read config %s: %w", file, err)
@@ -276,7 +365,14 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config %s: %w", file, err)
 	}
 
+	if err := validateMarks(cfg.Marks); err != nil {
+		return nil, fmt.Errorf("failed to parse config %s: %w", file, err)
+	}
+
 	cfg.Keybindings = cfg.Keybindings.withDefaults()
+	if len(cfg.Marks) == 0 {
+		cfg.Marks = DefaultMarks()
+	}
 
 	return &cfg, nil
 }

@@ -159,15 +159,11 @@ SET
 WHERE
     id = @id;
 
--- name: SetAgentMarked :many
+-- name: SetAgentMark :many
 UPDATE
     agents
 SET
-    marked_at = CASE WHEN @marked::boolean THEN
-        now()
-    ELSE
-        NULL
-    END
+    mark = sqlc.narg (mark)
 WHERE
     id = @id
     AND is_deleted = FALSE

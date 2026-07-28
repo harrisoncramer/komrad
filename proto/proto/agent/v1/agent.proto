@@ -32,9 +32,11 @@ message Agent {
   // rather than stored, so a caller does not need tmux of its own to tell a live
   // agent from a dormant one.
   bool alive = 11;
-  // When the user marked this agent, as an RFC 3339 timestamp, unset when they
-  // have not. What the mark means is theirs to decide, and only they ever set it.
-  optional string marked_at = 13;
+  reserved 13;
+  // The glyph the user marked this agent with, unset when it carries no mark. What
+  // it means is theirs to decide, and the glyphs they cycle through are their
+  // config, which get_config returns.
+  optional string mark = 14;
 }
 
 message ListAgentsRequest {
@@ -137,13 +139,20 @@ message SetStateRequest {
   }];
 }
 
-// SetMarkedRequest marks or unmarks an agent. It is keyed by id rather than name
-// because the mark outlives a rename, and the panel already holds the id of the row
-// it is looking at. Marking carries no timestamp. The server stamps the moment, so a
-// caller with a skewed clock cannot record a mark in the future.
-message SetMarkedRequest {
+// SetMarkRequest marks an agent, and an unset mark clears it. It is keyed by id
+// rather than name because the mark outlives a rename, and the panel already holds
+// the id of the row it is looking at.
+//
+// The glyphs a user steps through are their config, so the set cannot be closed
+// here. What is checked is that a terminal row can hold the value. An escape
+// sequence or a newline would corrupt the frame it is drawn into rather than fail.
+message SetMarkRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
-  bool marked = 2;
+  optional string mark = 2 [(buf.validate.field).cel = {
+    id: "mark.glyph"
+    message: "a mark must be a short glyph carrying no whitespace or control characters"
+    expression: "this.size() <= 16 && !this.matches('[[:space:]]|[[:cntrl:]]')"
+  }];
 }
 
 // ArchiveAgentRequest hides an agent without destroying it. This is what the
@@ -274,11 +283,11 @@ service AgentService {
       destructive: false
     };
   }
-  rpc SetMarked(SetMarkedRequest) returns (google.protobuf.Empty) {
+  rpc SetMark(SetMarkRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
-      tool_name: "set_agent_marked"
-      description: "Mark or unmark an agent, keyed by its id. The mark is the user's own flag on an agent and means whatever they decide, such as dealt with or worth coming back to. Nothing sets it automatically, so do not mark an agent unless asked to. What an agent is currently doing is already in its state."
+      tool_name: "set_agent_mark"
+      description: "Put a mark on an agent, keyed by its id, or clear the one it carries by omitting the mark. A mark is a glyph the user reads off the row, meaning whatever they decided it means, such as needs review or dealt with. Use only the glyphs get_config returns under marks, since the panel's mark key cycles through those and can only clear anything else. What an agent is currently doing is already in its state, so do not mark that."
       destructive: false
     };
   }

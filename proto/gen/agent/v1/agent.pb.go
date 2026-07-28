@@ -49,9 +49,10 @@ type Agent struct {
 	// rather than stored, so a caller does not need tmux of its own to tell a live
 	// agent from a dormant one.
 	Alive bool `protobuf:"varint,11,opt,name=alive,proto3" json:"alive,omitempty"`
-	// When the user marked this agent, as an RFC 3339 timestamp, unset when they
-	// have not. What the mark means is theirs to decide, and only they ever set it.
-	MarkedAt      *string `protobuf:"bytes,13,opt,name=marked_at,json=markedAt,proto3,oneof" json:"marked_at,omitempty"`
+	// The glyph the user marked this agent with, unset when it carries no mark. What
+	// it means is theirs to decide, and the glyphs they cycle through are their
+	// config, which get_config returns.
+	Mark          *string `protobuf:"bytes,14,opt,name=mark,proto3,oneof" json:"mark,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -170,9 +171,9 @@ func (x *Agent) GetAlive() bool {
 	return false
 }
 
-func (x *Agent) GetMarkedAt() string {
-	if x != nil && x.MarkedAt != nil {
-		return *x.MarkedAt
+func (x *Agent) GetMark() string {
+	if x != nil && x.Mark != nil {
+		return *x.Mark
 	}
 	return ""
 }
@@ -581,32 +582,35 @@ func (x *SetStateRequest) GetState() string {
 	return ""
 }
 
-// SetMarkedRequest marks or unmarks an agent. It is keyed by id rather than name
-// because the mark outlives a rename, and the panel already holds the id of the row
-// it is looking at. Marking carries no timestamp. The server stamps the moment, so a
-// caller with a skewed clock cannot record a mark in the future.
-type SetMarkedRequest struct {
+// SetMarkRequest marks an agent, and an unset mark clears it. It is keyed by id
+// rather than name because the mark outlives a rename, and the panel already holds
+// the id of the row it is looking at.
+//
+// The glyphs a user steps through are their config, so the set cannot be closed
+// here. What is checked is that a terminal row can hold the value. An escape
+// sequence or a newline would corrupt the frame it is drawn into rather than fail.
+type SetMarkRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Marked        bool                   `protobuf:"varint,2,opt,name=marked,proto3" json:"marked,omitempty"`
+	Mark          *string                `protobuf:"bytes,2,opt,name=mark,proto3,oneof" json:"mark,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SetMarkedRequest) Reset() {
-	*x = SetMarkedRequest{}
+func (x *SetMarkRequest) Reset() {
+	*x = SetMarkRequest{}
 	mi := &file_agent_v1_agent_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SetMarkedRequest) String() string {
+func (x *SetMarkRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SetMarkedRequest) ProtoMessage() {}
+func (*SetMarkRequest) ProtoMessage() {}
 
-func (x *SetMarkedRequest) ProtoReflect() protoreflect.Message {
+func (x *SetMarkRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_agent_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -618,23 +622,23 @@ func (x *SetMarkedRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SetMarkedRequest.ProtoReflect.Descriptor instead.
-func (*SetMarkedRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use SetMarkRequest.ProtoReflect.Descriptor instead.
+func (*SetMarkRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *SetMarkedRequest) GetId() string {
+func (x *SetMarkRequest) GetId() string {
 	if x != nil {
 		return x.Id
 	}
 	return ""
 }
 
-func (x *SetMarkedRequest) GetMarked() bool {
-	if x != nil {
-		return x.Marked
+func (x *SetMarkRequest) GetMark() string {
+	if x != nil && x.Mark != nil {
+		return *x.Mark
 	}
-	return false
+	return ""
 }
 
 // ArchiveAgentRequest hides an agent without destroying it. This is what the
@@ -1163,7 +1167,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\x82\x03\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xfa\x02\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -1180,11 +1184,10 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	" \x01(\tR\tcreatedAt\x12$\n" +
 	"\vschedule_id\x18\f \x01(\tH\x00R\n" +
 	"scheduleId\x88\x01\x01\x12\x14\n" +
-	"\x05alive\x18\v \x01(\bR\x05alive\x12 \n" +
-	"\tmarked_at\x18\r \x01(\tH\x01R\bmarkedAt\x88\x01\x01B\x0e\n" +
-	"\f_schedule_idB\f\n" +
-	"\n" +
-	"_marked_at\"|\n" +
+	"\x05alive\x18\v \x01(\bR\x05alive\x12\x17\n" +
+	"\x04mark\x18\x0e \x01(\tH\x01R\x04mark\x88\x01\x01B\x0e\n" +
+	"\f_schedule_idB\a\n" +
+	"\x05_markJ\x04\b\r\x10\x0e\"|\n" +
 	"\x11ListAgentsRequest\x12>\n" +
 	"\n" +
 	"pagination\x18\x01 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
@@ -1216,10 +1219,13 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x0fSetStateRequest\x12\x1e\n" +
 	"\x04name\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x129\n" +
-	"\x05state\x18\x02 \x01(\tB#\xbaH r\x1eR\x03newR\bthinkingR\awaitingR\x04doneR\x05state\"C\n" +
-	"\x10SetMarkedRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x16\n" +
-	"\x06marked\x18\x02 \x01(\bR\x06marked\"5\n" +
+	"\x05state\x18\x02 \x01(\tB#\xbaH r\x1eR\x03newR\bthinkingR\awaitingR\x04doneR\x05state\"\xed\x01\n" +
+	"\x0eSetMarkRequest\x12\x17\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xb8\x01\n" +
+	"\x04mark\x18\x02 \x01(\tB\x9e\x01\xbaH\x9a\x01\xba\x01\x96\x01\n" +
+	"\n" +
+	"mark.glyph\x12Ia mark must be a short glyph carrying no whitespace or control characters\x1a=this.size() <= 16 && !this.matches('[[:space:]]|[[:cntrl:]]')H\x00R\x04mark\x88\x01\x01B\a\n" +
+	"\x05_mark\"5\n" +
 	"\x13ArchiveAgentRequest\x12\x1e\n" +
 	"\x04name\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\".\n" +
@@ -1253,7 +1259,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14GetTranscriptRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"1\n" +
 	"\x15GetTranscriptResponse\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontent2\xee\x1f\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent2\xee \n" +
 	"\fAgentService\x12\xe7\x03\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x9d\x03\x9a\xb5\x18\x95\x03\n" +
@@ -1263,9 +1269,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\xb9\x02\x9a\xb5\x18\xb4\x02\n" +
 	"\fcreate_agent\x12\xa1\x02Launch a background Claude agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would resolve somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. \x00\x12\xad\x02\n" +
 	"\bSetState\x12\x19.agent.v1.SetStateRequest\x1a\x16.google.protobuf.Empty\"\xed\x01\x9a\xb5\x18\xe5\x01\n" +
-	"\x0fset_agent_state\x12\xcf\x01Move an agent to one of new, thinking, waiting, or done. The reconciler derives state from the live pane every couple of seconds, so a value set here is overwritten shortly after unless the agent is dormant. \x00\x90\x02\x02\x12\x84\x03\n" +
-	"\tSetMarked\x12\x1a.agent.v1.SetMarkedRequest\x1a\x16.google.protobuf.Empty\"\xc2\x02\x9a\xb5\x18\xba\x02\n" +
-	"\x10set_agent_marked\x12\xa3\x02Mark or unmark an agent, keyed by its id. The mark is the user's own flag on an agent and means whatever they decide, such as dealt with or worth coming back to. Nothing sets it automatically, so do not mark an agent unless asked to. What an agent is currently doing is already in its state. \x00\x90\x02\x02\x12\xd4\x02\n" +
+	"\x0fset_agent_state\x12\xcf\x01Move an agent to one of new, thinking, waiting, or done. The reconciler derives state from the live pane every couple of seconds, so a value set here is overwritten shortly after unless the agent is dormant. \x00\x90\x02\x02\x12\x84\x04\n" +
+	"\aSetMark\x12\x18.agent.v1.SetMarkRequest\x1a\x16.google.protobuf.Empty\"\xc6\x03\x9a\xb5\x18\xbe\x03\n" +
+	"\x0eset_agent_mark\x12\xa9\x03Put a mark on an agent, keyed by its id, or clear the one it carries by omitting the mark. A mark is a glyph the user reads off the row, meaning whatever they decided it means, such as needs review or dealt with. Use only the glyphs get_config returns under marks, since the panel's mark key cycles through those and can only clear anything else. What an agent is currently doing is already in its state, so do not mark that. \x00\x90\x02\x02\x12\xd4\x02\n" +
 	"\fArchiveAgent\x12\x1d.agent.v1.ArchiveAgentRequest\x1a\x16.google.protobuf.Empty\"\x8c\x02\x9a\xb5\x18\x84\x02\n" +
 	"\rarchive_agent\x12\xf0\x01Stop an agent and hide it from the panel, keeping its record and transcript. Prefer this to delete_agent: it is reversible with restore_agent, and search_transcripts still finds the conversation. Returns not_found if no agent has that name. \x00\x90\x02\x02\x12\x9a\x03\n" +
 	"\fRestoreAgent\x12\x1d.agent.v1.RestoreAgentRequest\x1a\x1e.agent.v1.RestoreAgentResponse\"\xca\x02\x9a\xb5\x18\xc2\x02\n" +
@@ -1301,7 +1307,7 @@ var file_agent_v1_agent_proto_goTypes = []any{
 	(*GetAgentRequest)(nil),           // 5: agent.v1.GetAgentRequest
 	(*GetAgentResponse)(nil),          // 6: agent.v1.GetAgentResponse
 	(*SetStateRequest)(nil),           // 7: agent.v1.SetStateRequest
-	(*SetMarkedRequest)(nil),          // 8: agent.v1.SetMarkedRequest
+	(*SetMarkRequest)(nil),            // 8: agent.v1.SetMarkRequest
 	(*ArchiveAgentRequest)(nil),       // 9: agent.v1.ArchiveAgentRequest
 	(*RestoreAgentRequest)(nil),       // 10: agent.v1.RestoreAgentRequest
 	(*RestoreAgentResponse)(nil),      // 11: agent.v1.RestoreAgentResponse
@@ -1327,7 +1333,7 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	5,  // 8: agent.v1.AgentService.GetAgent:input_type -> agent.v1.GetAgentRequest
 	3,  // 9: agent.v1.AgentService.CreateAgent:input_type -> agent.v1.CreateAgentRequest
 	7,  // 10: agent.v1.AgentService.SetState:input_type -> agent.v1.SetStateRequest
-	8,  // 11: agent.v1.AgentService.SetMarked:input_type -> agent.v1.SetMarkedRequest
+	8,  // 11: agent.v1.AgentService.SetMark:input_type -> agent.v1.SetMarkRequest
 	9,  // 12: agent.v1.AgentService.ArchiveAgent:input_type -> agent.v1.ArchiveAgentRequest
 	10, // 13: agent.v1.AgentService.RestoreAgent:input_type -> agent.v1.RestoreAgentRequest
 	12, // 14: agent.v1.AgentService.DeleteAgent:input_type -> agent.v1.DeleteAgentRequest
@@ -1338,7 +1344,7 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	6,  // 19: agent.v1.AgentService.GetAgent:output_type -> agent.v1.GetAgentResponse
 	4,  // 20: agent.v1.AgentService.CreateAgent:output_type -> agent.v1.CreateAgentResponse
 	20, // 21: agent.v1.AgentService.SetState:output_type -> google.protobuf.Empty
-	20, // 22: agent.v1.AgentService.SetMarked:output_type -> google.protobuf.Empty
+	20, // 22: agent.v1.AgentService.SetMark:output_type -> google.protobuf.Empty
 	20, // 23: agent.v1.AgentService.ArchiveAgent:output_type -> google.protobuf.Empty
 	11, // 24: agent.v1.AgentService.RestoreAgent:output_type -> agent.v1.RestoreAgentResponse
 	20, // 25: agent.v1.AgentService.DeleteAgent:output_type -> google.protobuf.Empty
@@ -1361,6 +1367,7 @@ func file_agent_v1_agent_proto_init() {
 	file_agent_v1_agent_proto_msgTypes[1].OneofWrappers = []any{}
 	file_agent_v1_agent_proto_msgTypes[2].OneofWrappers = []any{}
 	file_agent_v1_agent_proto_msgTypes[3].OneofWrappers = []any{}
+	file_agent_v1_agent_proto_msgTypes[8].OneofWrappers = []any{}
 	file_agent_v1_agent_proto_msgTypes[14].OneofWrappers = []any{}
 	file_agent_v1_agent_proto_msgTypes[16].OneofWrappers = []any{}
 	type x struct{}

@@ -35,13 +35,6 @@ func renderAgent(stored agentstore.Agent, alive bool) agent {
 		created = stored.CreatedAt.Format(time.RFC3339)
 	}
 
-	// An unmarked agent leaves the field unset rather than sending a zero time.
-	var marked *string
-	if stored.MarkedAt != nil {
-		formatted := stored.MarkedAt.Format(time.RFC3339)
-		marked = &formatted
-	}
-
 	return agent{
 		Agent: &agentv1.Agent{
 			Id:              stored.ID,
@@ -56,7 +49,7 @@ func renderAgent(stored agentstore.Agent, alive bool) agent {
 			ScheduleId:      stored.ScheduleID,
 			CreatedAt:       created,
 			Alive:           alive,
-			MarkedAt:        marked,
+			Mark:            stored.Mark,
 		},
 		cursor: agentstore.Cursor{ID: stored.ID},
 	}

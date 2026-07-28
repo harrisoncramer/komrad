@@ -259,13 +259,13 @@ table "agents" {
     type    = boolean
     default = false
   }
-  # When the user marked this agent, null when they have not. What the mark means
-  # is theirs to decide. Only the person writes it, never the reconciler, since
-  # what an agent is doing is already in state. It is a timestamp rather than a
-  # flag so the moment is kept too.
-  column "marked_at" {
+  # The mark the user put on this agent, null when it carries none. It holds the
+  # glyph itself, since which glyphs exist is their config and the glyph is the
+  # whole meaning. Only the person writes it, never the reconciler, since what an
+  # agent is doing is already in state.
+  column "mark" {
     null = true
-    type = timestamptz
+    type = text
   }
   column "created_at" {
     null    = false

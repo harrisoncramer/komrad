@@ -38,7 +38,7 @@ func (s *Service) GetConfig(_ context.Context, _ *connect.Request[emptypb.Empty]
 
 	cfg, err := s.load()
 	if err != nil {
-		cfg = &appconfig.Config{Keybindings: appconfig.DefaultKeybindings()}
+		cfg = appconfig.Defaults()
 		configError = proto.String(err.Error())
 	}
 

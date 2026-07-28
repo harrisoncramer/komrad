@@ -281,7 +281,7 @@ func (m model) trashView() string {
 			name = cursorStyle.Render(agent.Name)
 		}
 
-		b.WriteString(prefix + name + scheduledMark(agent) + markedMark(agent) + "\n")
+		b.WriteString(prefix + name + scheduledMark(agent) + markedMark(agent, m.marks) + "\n")
 	}
 
 	b.WriteString("\n" + m.trashHints())
