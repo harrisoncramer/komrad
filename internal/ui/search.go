@@ -39,7 +39,6 @@ type searchHit struct {
 	agentID string
 	name    string
 	deleted bool
-	role    string
 	offset  int64
 	snippet string
 }
@@ -133,7 +132,6 @@ func (m model) searchCmd(query string) tea.Cmd {
 				agentID: h.GetAgentId(),
 				name:    h.GetName(),
 				deleted: h.GetDeleted(),
-				role:    h.GetRole(),
 				offset:  h.GetContentOffset(),
 				snippet: h.GetSnippet(),
 			})
@@ -314,13 +312,11 @@ func (m model) searchView() string {
 			}
 
 			prefix := "    "
-			role := dimStyle.Render(hit.role)
 			if i == m.searchCursor {
 				prefix = "  " + cursorStyle.Render("› ")
-				role = cursorStyle.Render(hit.role)
 			}
 
-			b.WriteString(prefix + role + " " + dimStyle.Render(renderSnippet(hit.snippet)) + "\n")
+			b.WriteString(prefix + dimStyle.Render(renderSnippet(hit.snippet, m.width-snippetIndent)) + "\n")
 		}
 	}
 
@@ -354,11 +350,117 @@ func (m model) searchHints() string {
 	return b.String()
 }
 
+// snippetIndent is how much of a result row the cursor column and indent take, the
+// part of the pane a snippet cannot have.
+const snippetIndent = 4
+
+// snippetClipLead is how many characters of a clipped snippet are kept ahead of its
+// match, enough that the match reads in context instead of starting the line.
+const snippetClipLead = 12
+
+// clipToMatch cuts a snippet down to width visible characters, keeping the first
+// marked match within what survives. A snippet that already fits, or a width from a
+// pane nothing has measured yet, is returned whole. The markers are not visible and
+// so do not count against the width, and an ellipsis stands in at either end that
+// was cut.
+//
+// Without this a long snippet is simply too wide for the pane, and since the match
+// can sit anywhere inside it, the part that gets cut off is often the match itself.
+func clipToMatch(snippet string, width int) string {
+	if width <= 0 {
+		return snippet
+	}
+
+	const ellipsis = "…"
+
+	openMark, closeMark := rune(transcript.SnippetOpen[0]), rune(transcript.SnippetClose[0])
+	runes := []rune(snippet)
+
+	visible, matchAt := 0, -1
+	for _, r := range runes {
+		switch r {
+		case openMark:
+			if matchAt < 0 {
+				matchAt = visible
+			}
+		case closeMark:
+		default:
+			visible++
+		}
+	}
+	if visible <= width {
+		return snippet
+	}
+
+	// Both ellipses come out of the width, since a row that overruns the pane is the
+	// thing being fixed.
+	budget := max(width-2*len(ellipsis), 1)
+
+	start := 0
+	if matchAt > snippetClipLead {
+		start = matchAt - snippetClipLead
+	}
+	if start+budget > visible {
+		start = visible - budget
+	}
+
+	var (
+		b       strings.Builder
+		at      int
+		marked  bool
+		wrapped bool
+	)
+	if start > 0 {
+		b.WriteString(ellipsis)
+	}
+
+	for _, r := range runes {
+		switch r {
+		case openMark:
+			marked = true
+			if at >= start && at < start+budget {
+				b.WriteRune(r)
+				wrapped = true
+			}
+
+			continue
+		case closeMark:
+			marked = false
+			if wrapped {
+				b.WriteRune(r)
+				wrapped = false
+			}
+
+			continue
+		}
+
+		if at >= start && at < start+budget {
+			// The window opened partway through a marked run, so the marker that began
+			// it fell outside it and is reissued here.
+			if marked && !wrapped {
+				b.WriteString(transcript.SnippetOpen)
+				wrapped = true
+			}
+			b.WriteRune(r)
+		}
+		at++
+	}
+
+	if wrapped {
+		b.WriteString(transcript.SnippetClose)
+	}
+	if start+budget < visible {
+		b.WriteString(ellipsis)
+	}
+
+	return b.String()
+}
+
 // renderSnippet styles a hit's snippet for the list, turning the store's match
-// markers into a highlighted run and collapsing newlines so the snippet stays on
-// one line.
-func renderSnippet(s string) string {
-	s = strings.ReplaceAll(s, "\n", " ")
+// markers into a highlighted run, collapsing newlines so the snippet stays on one
+// line, and clipping it to width so it cannot overrun the pane.
+func renderSnippet(s string, width int) string {
+	s = clipToMatch(strings.ReplaceAll(s, "\n", " "), width)
 
 	var b strings.Builder
 	for {

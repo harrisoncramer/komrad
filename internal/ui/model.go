@@ -280,6 +280,11 @@ type model struct {
 	// clipping themselves against a height nothing measured.
 	height int
 
+	// width is how wide that pane is, read the same way and for the same reason. A
+	// search snippet is clipped against it so a long one cannot push its own match
+	// off the side.
+	width int
+
 	agents      []agentItem
 	agentCursor int
 
@@ -715,6 +720,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// an open form lays itself out from the same message.
 	if size, ok := msg.(tea.WindowSizeMsg); ok {
 		m.height = size.Height
+		m.width = size.Width
 	}
 
 	// The banner is chrome rather than a screen, so it is dismissed with esc as a

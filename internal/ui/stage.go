@@ -145,8 +145,9 @@ func (s *Stage) Text(markdown string) {
 
 // transcriptPreviewBefore and transcriptPreviewAfter bound how many lines show
 // around a matched line in a search preview. Wide enough to read the match in its
-// surrounding conversation, but still a window into a large transcript. bat renders
-// from the top, so showing the whole thing would push the match off-screen.
+// surrounding conversation, but still a window into a large transcript. The pager
+// opens on the first line bat prints, so the lines before the match are what put
+// it a short way down the pane rather than at the very top.
 const (
 	transcriptPreviewBefore = 12
 	transcriptPreviewAfter  = 80
@@ -175,16 +176,13 @@ func (s *Stage) Transcript(content string, highlightLine int) {
 		return
 	}
 
-	args := "--language=markdown --style=plain --paging=never"
+	args := "--language=markdown --style=plain --paging=always --pager='less -RX'"
 	if highlightLine > 0 {
-		start := highlightLine - transcriptPreviewBefore
-		if start < 1 {
-			start = 1
-		}
+		start := max(highlightLine-transcriptPreviewBefore, 1)
 		args += fmt.Sprintf(" --line-range %d:%d --highlight-line %d", start, highlightLine+transcriptPreviewAfter, highlightLine)
 	}
 
-	cmd := fmt.Sprintf("bat %s '%s'; while :; do sleep 3600; done", args, path)
+	cmd := fmt.Sprintf("bat %s '%s'", args, path)
 	s.tmux.RespawnPane(s.pane, home, "sh", "-c", cmd)
 	s.shown = shownOther
 }

@@ -9,6 +9,7 @@ import (
 	"claude-agents/internal/store/transcript"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -183,12 +184,80 @@ func TestRenderSnippet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			out := renderSnippet(tt.in)
+			out := renderSnippet(tt.in, 0)
 
 			assert.Contains(t, out, tt.wantContain)
 			assert.NotContains(t, out, transcript.SnippetOpen, "the markers are consumed")
 			assert.NotContains(t, out, transcript.SnippetClose)
 			assert.NotContains(t, out, "\n", "the snippet occupies one row")
+		})
+	}
+}
+
+// TestClipToMatch covers the clipping a result row depends on. The row gets one line
+// of a fixed width, and the match can sit anywhere in the snippet, so what has to
+// hold is that the match survives the cut and the row fits.
+func TestClipToMatch(t *testing.T) {
+	const (
+		lead  = "the quick brown fox jumps over the lazy dog and keeps on running for a while "
+		trail = " and then carries on well past where any pane could show it all"
+	)
+
+	marked := func(match string) string {
+		return transcript.SnippetOpen + match + transcript.SnippetClose
+	}
+
+	tests := []struct {
+		name  string
+		in    string
+		width int
+		want  string
+	}{
+		{
+			name:  "an unmeasured pane clips nothing",
+			in:    lead + marked("needle") + trail,
+			width: 0,
+			want:  "needle",
+		},
+		{
+			name:  "a snippet already narrow enough is left alone",
+			in:    "short " + marked("needle"),
+			width: 40,
+			want:  "needle",
+		},
+		{
+			name:  "a match past the width is pulled into view",
+			in:    lead + marked("needle") + trail,
+			width: 40,
+			want:  "needle",
+		},
+		{
+			name:  "a match at the very end is still shown",
+			in:    lead + trail + marked("needle"),
+			width: 40,
+			want:  "needle",
+		},
+		{
+			name:  "an unmarked snippet is clipped from the start",
+			in:    lead + trail,
+			width: 40,
+			want:  "the quick",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := clipToMatch(tt.in, tt.width)
+			assert.Contains(t, out, tt.want, "the match survives the clip")
+
+			if tt.width > 0 {
+				assert.LessOrEqual(t, lipgloss.Width(renderSnippet(tt.in, tt.width)), tt.width,
+					"the rendered row fits the pane")
+			}
+
+			opens := strings.Count(out, transcript.SnippetOpen)
+			assert.Equal(t, opens, strings.Count(out, transcript.SnippetClose),
+				"every marker left in the snippet is paired")
 		})
 	}
 }
