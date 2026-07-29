@@ -34,8 +34,49 @@ if pgrep -f 'claude-agents serve' >/dev/null 2>&1; then
 	exit 1
 fi
 
-# The panel TUI runs inside the persistent claude-manager session, also holding
-# the old binary. Kill the session so the next open respawns the panel too.
-tmux kill-session -t claude-manager 2>/dev/null || true
+# The panel and every agent live on a tmux server of their own, which a plain
+# tmux command does not address: it would talk to the user's server, find no
+# claude-manager session there, and silently do nothing. The socket is the same
+# one the binary resolves from the environment.
+socket="${CLAUDE_AGENTS_TMUX_SOCKET:-claude-agents}"
+manager() { tmux -L "$socket" "$@"; }
 
-echo "stopped stale serve and panel; reopen the panel (prefix+g) to respawn from the current binary"
+# The panel is a window of the claude-manager session and every agent is a window
+# beside it, so the restart is scoped to the panel's own pane. Killing the session
+# would take every running agent down with the panel. The panel is the only pane
+# running this binary, which is what identifies it.
+panel_pane="$(manager list-panes -a -F '#{pane_id} #{pane_current_command}' 2>/dev/null |
+	awk '$2 == "claude-agents" { print $1; exit }')"
+
+if [ -z "$panel_pane" ]; then
+	echo "stopped stale serve; no panel is running, so open it (prefix+g) to start both from the current binary"
+	exit 0
+fi
+
+# An agent staged beside the panel is that agent's own pane, swapped into the
+# panel's window. Breaking it out returns it to a window of its own, and pane ids
+# travel with the pane, so the panel still finds the agent afterwards. A pane
+# sitting at a shell is the stage's own, which the panel recreates on its next
+# start, so it goes rather than becoming a window of junk. A dormant agent's pane
+# sits at a shell too and is killed with it, which costs nothing: restoring the
+# agent opens it again.
+panel_window="$(manager display-message -p -t "$panel_pane" '#{window_id}' 2>/dev/null)"
+manager list-panes -t "$panel_window" -F '#{pane_id} #{pane_current_command}' 2>/dev/null |
+	while read -r pane command; do
+		[ "$pane" = "$panel_pane" ] && continue
+		case "$command" in
+		sh | bash | zsh | fish | less | bat | .bat-wrapped)
+			manager kill-pane -t "$pane" 2>/dev/null || true
+			;;
+		*)
+			manager break-pane -d -s "$pane" 2>/dev/null || true
+			;;
+		esac
+	done
+
+# Respawning the pane restarts the panel in place, keeping the session and the
+# environment open recorded on it. The new panel spawns serve as it starts, so
+# both come back on the current binary.
+manager respawn-pane -k -t "$panel_pane" -c "$MISE_CONFIG_ROOT" "$MISE_CONFIG_ROOT/bin/claude-agents"
+
+echo "restarted the panel and its serve from the current binary; agents were left running"
