@@ -36,16 +36,20 @@ var ErrBadCron = errors.New("unreadable cron expression")
 // half reads these records and launches through the agent service.
 type ScheduleService struct {
 	store scheduleStore
+	// workflows is read to confirm a schedule launches into a workflow that is
+	// there. Nothing here writes one.
+	workflows workflowReader
 }
 
 // ScheduleParams carries the schedule service's dependencies.
 type ScheduleParams struct {
 	Schedules scheduleStore
+	Workflows workflowReader
 }
 
 // NewScheduleService builds the service from its dependencies.
 func NewScheduleService(p ScheduleParams) *ScheduleService {
-	return &ScheduleService{store: p.Schedules}
+	return &ScheduleService{store: p.Schedules, workflows: p.Workflows}
 }
 
 // GetSchedule returns a schedule by id, or nil when none has that id.
@@ -64,6 +68,9 @@ func (s *ScheduleService) GetSchedule(ctx context.Context, id string) (*schedule
 func (s *ScheduleService) NewSchedule(ctx context.Context, cfg schedule.Config) (*schedule.Schedule, error) {
 	normalized, err := normalize(cfg)
 	if err != nil {
+		return nil, err
+	}
+	if err := s.requireWorkflow(ctx, normalized.WorkflowID); err != nil {
 		return nil, err
 	}
 
@@ -92,6 +99,9 @@ func (s *ScheduleService) UpdateSchedule(ctx context.Context, id string, cfg sch
 	}
 	if normalized.Name == "" {
 		normalized.Name = existing.Name
+	}
+	if err := s.requireWorkflow(ctx, normalized.WorkflowID); err != nil {
+		return err
 	}
 
 	if err := s.store.Update(ctx, id, normalized); err != nil {
@@ -133,6 +143,28 @@ func (s *ScheduleService) DeleteSchedule(ctx context.Context, id string) error {
 
 	if err := s.store.Archive(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete schedule %q: %w", id, err)
+	}
+
+	return nil
+}
+
+// requireWorkflow refuses a schedule whose workflow is not there to be read.
+//
+// A schedule carries no directory or flags of its own and takes them off the
+// workflow every time it fires, so one naming a workflow nobody has is a schedule
+// that can only cancel. The foreign key catches an id belonging to no row at all,
+// but reports it as a constraint failure rather than as the caller's mistake, and
+// it cannot catch the case that matters more: a workflow is only ever
+// soft-deleted, so a deleted one still satisfies the constraint while every read
+// of it comes back empty. Left to the firing, that schedule sits armed and
+// silently launches nothing.
+func (s *ScheduleService) requireWorkflow(ctx context.Context, workflowID string) error {
+	wf, err := s.workflows.Get(ctx, workflowID)
+	if err != nil {
+		return fmt.Errorf("failed to look up workflow %q: %w", workflowID, err)
+	}
+	if wf == nil {
+		return fmt.Errorf("%w: %q", ErrWorkflowNotFound, workflowID)
 	}
 
 	return nil

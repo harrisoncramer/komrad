@@ -118,6 +118,28 @@ func TestCreateSchedule(t *testing.T) {
 	}
 }
 
+// TestScheduleWorkflowMustExist covers a caller naming a workflow that is not
+// there. It is the caller's mistake rather than a server fault, so it comes back
+// as not_found, the same code creating an agent into a missing workflow reports.
+func TestScheduleWorkflowMustExist(t *testing.T) {
+	svc, workflow := service(t)
+	existing := createSchedule(t, svc, workflow, "nightly")
+
+	// A well-formed uuid no workflow holds. The database's foreign key refuses it
+	// too, but as a constraint failure, which would surface as internal.
+	const missing = "00000000-0000-0000-0000-0000000000ff"
+
+	_, err := svc.CreateSchedule(t.Context(), connect.NewRequest(&schedulev1.CreateScheduleRequest{
+		Name: "morning", Cron: "0 9 * * *", Prompt: "go", Enabled: true, WorkflowId: missing,
+	}))
+	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err), "creating into a workflow that is not there")
+
+	_, err = svc.UpdateSchedule(t.Context(), connect.NewRequest(&schedulev1.UpdateScheduleRequest{
+		Id: existing, Name: "nightly", Cron: "0 9 * * *", Prompt: "go", Enabled: true, WorkflowId: missing,
+	}))
+	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err), "moving one into it")
+}
+
 // TestCreateScheduleNameConflict covers the unique index surfacing as
 // already_exists rather than as a server fault.
 func TestCreateScheduleNameConflict(t *testing.T) {
@@ -435,14 +457,13 @@ func TestListSchedules(t *testing.T) {
 
 // service builds the handler over a throwaway database, the same way the
 // composition root does, and returns the workflow every schedule in the test
-// launches into. The handler stores that id without resolving it, but the
-// foreign key means the row has to be there, so it is seeded rather than
-// invented.
+// launches into. A schedule is refused unless that workflow is there to read, so
+// it is seeded rather than invented.
 func service(t *testing.T) (*Service, string) {
 	t.Helper()
 
 	st := storetest.Open(t)
-	manager := agents.NewScheduleService(agents.ScheduleParams{Schedules: st.Schedules})
+	manager := agents.NewScheduleService(agents.ScheduleParams{Schedules: st.Schedules, Workflows: st.Workflows})
 
 	return NewService(st.Schedules, manager), st.SeedWorkflow(t, workflowstore.Config{Name: "schedules"}).ID
 }

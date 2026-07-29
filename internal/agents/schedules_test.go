@@ -149,7 +149,7 @@ func TestNewSchedule(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			svc := NewScheduleService(ScheduleParams{Schedules: st.Schedules})
+			svc := NewScheduleService(ScheduleParams{Schedules: st.Schedules, Workflows: st.Workflows})
 
 			workflowID := st.SeedWorkflow(t, workflow.Config{Name: "backend"}).ID
 			cfg := tt.cfg
@@ -172,6 +172,75 @@ func TestNewSchedule(t *testing.T) {
 		})
 	}
 }
+
+// TestScheduleWorkflowMustExist covers the workflow a schedule launches into. A
+// schedule reads its directory and flags off that workflow as it fires, so one
+// pointing at a workflow that is not there could never launch anything and is
+// refused when it is written rather than every time it fires.
+func TestScheduleWorkflowMustExist(t *testing.T) {
+	// archiveWorkflow is the case the foreign key cannot catch. A workflow is only
+	// ever soft-deleted, so the row is still there for the constraint while every
+	// read of it comes back empty.
+	tests := []struct {
+		name            string
+		archiveWorkflow bool
+		workflowID      string
+	}{
+		{
+			name:            "a workflow that has been deleted",
+			archiveWorkflow: true,
+		},
+		{
+			name:       "a well-formed id no workflow holds",
+			workflowID: missingWorkflowID,
+		},
+		{
+			name:       "an id that is not an id at all",
+			workflowID: "not-a-uuid",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			ctx := t.Context()
+			svc := NewScheduleService(ScheduleParams{Schedules: st.Schedules, Workflows: st.Workflows})
+
+			// A live workflow to move an existing schedule off of, so the update case
+			// starts from a schedule that is valid.
+			live := st.SeedWorkflow(t, workflow.Config{Name: "backend"}).ID
+			existing, err := svc.NewSchedule(ctx, schedule.Config{
+				Name: "nightly", Cron: "0 9 * * *", Prompt: "go", WorkflowID: live,
+			})
+			require.NoError(t, err)
+
+			target := tt.workflowID
+			if tt.archiveWorkflow {
+				target = st.SeedWorkflow(t, workflow.Config{Name: "gone"}).ID
+				require.NoError(t, st.Workflows.Archive(ctx, target))
+			}
+
+			_, err = svc.NewSchedule(ctx, schedule.Config{
+				Name: "morning", Cron: "0 9 * * *", Prompt: "go", WorkflowID: target,
+			})
+			require.ErrorIs(t, err, ErrWorkflowNotFound, "a schedule is not created into a workflow that is not there")
+
+			err = svc.UpdateSchedule(ctx, existing.ID, schedule.Config{
+				Name: "nightly", Cron: "0 9 * * *", Prompt: "go", WorkflowID: target,
+			})
+			require.ErrorIs(t, err, ErrWorkflowNotFound, "nor is one moved into it")
+
+			listed, err := st.Schedules.List(ctx)
+			require.NoError(t, err)
+			require.Len(t, listed, 1, "only the schedule that named a live workflow was written")
+			assert.Equal(t, live, listed[0].WorkflowID, "the refused update left the schedule where it was")
+		})
+	}
+}
+
+// missingWorkflowID is a well-formed uuid no workflow holds, so a lookup for it
+// reaches the store and comes back empty rather than being refused for its shape.
+const missingWorkflowID = "00000000-0000-0000-0000-0000000000ff"
 
 // TestScheduleNotFound covers the ids the mutating methods refuse. An id nothing
 // holds is not-found rather than a silent success, so a caller editing a schedule
@@ -205,7 +274,7 @@ func TestScheduleNotFound(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			svc := NewScheduleService(ScheduleParams{Schedules: st.Schedules})
+			svc := NewScheduleService(ScheduleParams{Schedules: st.Schedules, Workflows: st.Workflows})
 
 			require.ErrorIs(t, tt.call(t, svc), ErrScheduleNotFound)
 		})

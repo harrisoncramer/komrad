@@ -86,6 +86,7 @@ func (a *app) openStore(ctx context.Context) error {
 	})
 	a.scheduleService = agents.NewScheduleService(agents.ScheduleParams{
 		Schedules: a.schedules,
+		Workflows: a.workflows,
 	})
 	a.agentService = agents.NewAgentService(agents.AgentParams{
 		Tmux:        a.tmux,
