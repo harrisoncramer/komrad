@@ -190,6 +190,47 @@ func TestListAgents(t *testing.T) {
 	}
 }
 
+// TestListAgentsIdempotencyKey covers the creator's key reaching the listing. A
+// caller that dispatched a batch of work under keys of its own has nothing else to
+// match a listed agent back to the piece of work it covers, since the name is the
+// user's to rename at any time.
+func TestListAgentsIdempotencyKey(t *testing.T) {
+	tests := []struct {
+		name string
+		key  *string
+		want string
+	}{
+		{
+			name: "an agent created without a claim carries no key",
+			want: "",
+		},
+		{
+			name: "a claimed agent reports the key it was created under",
+			key:  xptr.Ptr("triage:ENG-5260:2026-07-29T15:30:00Z"),
+			want: "triage:ENG-5260:2026-07-29T15:30:00Z",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, st := service(t)
+
+			st.SeedAgent(t, agentstore.Agent{
+				Name:           "alpha",
+				Pane:           "%1",
+				State:          agentstore.StateThinking,
+				IdempotencyKey: tt.key,
+			})
+
+			listed, err := svc.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{}))
+			require.NoError(t, err)
+			require.Len(t, listed.Msg.GetAgents(), 1)
+
+			assert.Equal(t, tt.want, listed.Msg.GetAgents()[0].GetIdempotencyKey())
+		})
+	}
+}
+
 // TestListAgentsDeleted covers the flag that swaps which set is listed. The
 // panel reads the live agents and its trash reads the deleted ones through the
 // same call, so a request that ignored the flag would show one of them the
