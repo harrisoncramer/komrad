@@ -3,6 +3,7 @@ package agents
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -50,22 +51,30 @@ func NewTranscriptSyncer(agents agentLister, transcripts transcriptStore, projec
 // is idempotent and self-limiting. Each agent reads only the bytes appended since
 // its last sync, so a pass is cheap even over a large corpus, and an agent whose
 // log is unchanged is skipped entirely.
+//
+// An agent that cannot be folded in does not stop the pass. The failures that
+// reach here are mostly properties of one agent's log rather than of the machine,
+// so they recur on every pass, and the walk is ordered newest first: giving up at
+// the first one would leave every older agent behind it never indexed again. The
+// failures are still returned together, so a log that never syncs is visible in
+// the log rather than only in a search that quietly finds nothing.
 func (ts *TranscriptSyncer) Sync(ctx context.Context) error {
 	agents, err := ts.agents.ListAll(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list agents for transcript sync: %w", err)
 	}
 
+	var failures []error
 	for _, agent := range agents {
 		if agent.ClaudeSessionID == "" {
 			continue
 		}
 		if err := ts.syncOne(ctx, agent); err != nil {
-			return fmt.Errorf("failed to sync transcript for %q: %w", agent.Name, err)
+			failures = append(failures, fmt.Errorf("failed to sync transcript for %q: %w", agent.Name, err))
 		}
 	}
 
-	return nil
+	return errors.Join(failures...)
 }
 
 // syncOne reads the tail of one agent's log, appends its flattened text to the

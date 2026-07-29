@@ -177,7 +177,7 @@ func TestTranscriptSyncer(t *testing.T) {
 			ctx := context.Background()
 			projects := t.TempDir()
 
-			agent := seedWithClaudeID(t, st, testClaudeID)
+			agent := seedWithClaudeID(t, st, testClaudeID, "agent")
 
 			var path string
 			if tt.log != "" {
@@ -227,17 +227,56 @@ func TestTranscriptSyncer(t *testing.T) {
 	}
 }
 
+// TestSyncSurvivesOneUnsyncableAgent covers what a pass does with an agent whose
+// text the store cannot hold.
+//
+// The syncer walks every agent newest first on a timer, and an agent that fails
+// this way failed the same way on the pass before, so stopping at it means every
+// older agent behind it is never synced again. A NUL byte is the reachable
+// version: Postgres refuses one in a text value outright, and the text comes out
+// of a log written on the other side of this process.
+func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	projects := t.TempDir()
+
+	// Seeded oldest first, so the agent carrying the NUL is the newest and the walk
+	// reaches it before the one it would strand.
+	readable := seedWithClaudeID(t, st, "claude-readable", "readable")
+	unsyncable := seedWithClaudeID(t, st, "claude-unsyncable", "unsyncable")
+
+	writeLogFor(t, projects, "claude-readable", `{"type":"user","message":{"content":"a turn worth keeping"}}`+"\n")
+	writeLogFor(t, projects, "claude-unsyncable", `{"type":"user","message":{"content":"before\u0000after"}}`+"\n")
+
+	syncer := NewTranscriptSyncer(st.Agents, st.Transcripts, projects)
+
+	// The failure is still reported, so serve logs it rather than swallowing an
+	// agent that is quietly never indexed.
+	err := syncer.Sync(ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsyncable", "the pass names the agent it could not fold in")
+
+	stranded, err := st.GetTranscript(ctx, readable.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "a turn worth keeping", stranded.Content, "the rest of the pass is synced anyway")
+
+	empty, err := st.GetTranscript(ctx, unsyncable.ID)
+	require.NoError(t, err)
+	assert.Empty(t, empty.Content, "the agent that failed has nothing stored")
+}
+
 // testClaudeID is the claude session id every test log is keyed to. The store id
 // is generated on insert, so this only needs to be stable within a test.
 const testClaudeID = "claude-abc"
 
-// seedWithClaudeID inserts an agent carrying testClaudeID and returns it with its
-// generated store id, so a transcript can be keyed to the right row.
-func seedWithClaudeID(t *testing.T, st *testStore, claudeID string) agentstore.Agent {
+// seedWithClaudeID inserts an agent under the given name carrying a claude session
+// id, and returns it with its generated store id, so a transcript can be keyed to
+// the right row.
+func seedWithClaudeID(t *testing.T, st *testStore, claudeID, name string) agentstore.Agent {
 	t.Helper()
 	ctx := context.Background()
-	require.NoError(t, st.Create(ctx, agentstore.Agent{Name: "agent", State: agentstore.StateNew, ClaudeSessionID: claudeID}))
-	got, err := st.Get(ctx, "agent")
+	require.NoError(t, st.Create(ctx, agentstore.Agent{Name: name, State: agentstore.StateNew, ClaudeSessionID: claudeID}))
+	got, err := st.Get(ctx, name)
 	require.NoError(t, err)
 	require.NotNil(t, got)
 
@@ -248,9 +287,17 @@ func seedWithClaudeID(t *testing.T, st *testStore, claudeID string) agentstore.A
 // given projects dir, the way Claude Code lays them out.
 func writeLog(t *testing.T, projectsDir, body string) string {
 	t.Helper()
+
+	return writeLogFor(t, projectsDir, testClaudeID, body)
+}
+
+// writeLogFor is writeLog for a named session, which a test seeding more than one
+// agent needs.
+func writeLogFor(t *testing.T, projectsDir, claudeID, body string) string {
+	t.Helper()
 	dir := filepath.Join(projectsDir, "-some-project")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	path := filepath.Join(dir, testClaudeID+".jsonl")
+	path := filepath.Join(dir, claudeID+".jsonl")
 	require.NoError(t, os.WriteFile(path, []byte(body), 0o644))
 
 	return path
