@@ -2,6 +2,7 @@ package agents
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -49,6 +50,19 @@ func TestFlattenTranscript(t *testing.T) {
 				`{"type":"file-history-snapshot"}` + "\n" +
 				`{"type":"system","content":"hook fired"}`,
 			want: nil,
+		},
+		{
+			// Postgres refuses a NUL in a text value outright, and the log is written
+			// on the other side of this process, so it is dropped as the prose is read
+			// rather than at the write, where the offsets are already fixed.
+			name: "a NUL is dropped from the text it arrived in",
+			in:   `{"type":"user","message":{"content":"before\u0000after"}}`,
+			want: []turn{{role: "user", text: "beforeafter"}},
+		},
+		{
+			name: "and from a text block",
+			in:   `{"type":"assistant","message":{"content":[{"type":"text","text":"a\u0000b"}]}}`,
+			want: []turn{{role: "assistant", text: "ab"}},
 		},
 		{
 			name: "malformed lines are ignored",
@@ -166,6 +180,11 @@ func TestTranscriptSyncer(t *testing.T) {
 			want:      "new",
 		},
 		{
+			name: "a turn carrying a NUL is stored without it",
+			log:  `{"type":"user","message":{"content":"before\u0000after"}}` + "\n",
+			want: "beforeafter",
+		},
+		{
 			name: "an agent whose log is not on disk is skipped, not an error",
 			want: "",
 		},
@@ -227,31 +246,33 @@ func TestTranscriptSyncer(t *testing.T) {
 	}
 }
 
-// TestSyncSurvivesOneUnsyncableAgent covers what a pass does with an agent whose
-// text the store cannot hold.
+// TestSyncSurvivesOneUnsyncableAgent covers what a pass does with an agent it
+// cannot fold in.
 //
-// The syncer walks every agent newest first on a timer, and an agent that fails
-// this way failed the same way on the pass before, so stopping at it means every
-// older agent behind it is never synced again. A NUL byte is the reachable
-// version: Postgres refuses one in a text value outright, and the text comes out
-// of a log written on the other side of this process.
+// The syncer walks every agent newest first on a timer, and the failures that
+// reach it are properties of one agent's log rather than of the machine, so the
+// same agent fails on every pass. Giving up at it would leave every older agent
+// behind it never indexed again. The failure is injected here because the store
+// accepts everything the flattener now produces, and this is about the walk
+// rather than about any one reason a write is refused.
 func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
 	projects := t.TempDir()
 
-	// Seeded oldest first, so the agent carrying the NUL is the newest and the walk
-	// reaches it before the one it would strand.
+	// Seeded oldest first, so the failing agent is the newest and the walk reaches
+	// it before the one it would strand.
 	readable := seedWithClaudeID(t, st, "claude-readable", "readable")
 	unsyncable := seedWithClaudeID(t, st, "claude-unsyncable", "unsyncable")
 
 	writeLogFor(t, projects, "claude-readable", `{"type":"user","message":{"content":"a turn worth keeping"}}`+"\n")
-	writeLogFor(t, projects, "claude-unsyncable", `{"type":"user","message":{"content":"before\u0000after"}}`+"\n")
+	writeLogFor(t, projects, "claude-unsyncable", `{"type":"user","message":{"content":"never accepted"}}`+"\n")
 
-	syncer := NewTranscriptSyncer(st.Agents, st.Transcripts, projects)
+	store := failingTranscripts{transcriptStore: st.Transcripts, failFor: unsyncable.ID}
+	syncer := NewTranscriptSyncer(st.Agents, store, projects)
 
-	// The failure is still reported, so serve logs it rather than swallowing an
-	// agent that is quietly never indexed.
+	// The failure is still reported, so serve logs it rather than leaving an agent
+	// quietly never indexed.
 	err := syncer.Sync(ctx)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsyncable", "the pass names the agent it could not fold in")
@@ -263,6 +284,21 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 	empty, err := st.GetTranscript(ctx, unsyncable.ID)
 	require.NoError(t, err)
 	assert.Empty(t, empty.Content, "the agent that failed has nothing stored")
+}
+
+// failingTranscripts refuses one agent's writes and passes every other call
+// through to the real store.
+type failingTranscripts struct {
+	transcriptStore
+	failFor string
+}
+
+func (f failingTranscripts) Upsert(ctx context.Context, params transcript.UpsertParams) error {
+	if params.AgentID == f.failFor {
+		return errors.New("this log will never be accepted")
+	}
+
+	return f.transcriptStore.Upsert(ctx, params)
 }
 
 // testClaudeID is the claude session id every test log is keyed to. The store id

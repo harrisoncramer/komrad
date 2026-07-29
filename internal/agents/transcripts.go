@@ -246,7 +246,7 @@ func flattenTranscript(data []byte) []turn {
 func blockText(content json.RawMessage) string {
 	var plain string
 	if err := json.Unmarshal(content, &plain); err == nil {
-		return strings.TrimSpace(plain)
+		return cleanText(plain)
 	}
 
 	var blocks []contentBlock
@@ -256,12 +256,25 @@ func blockText(content json.RawMessage) string {
 
 	var parts []string
 	for _, block := range blocks {
-		if block.Type == "text" && strings.TrimSpace(block.Text) != "" {
-			parts = append(parts, strings.TrimSpace(block.Text))
+		if block.Type == "text" && cleanText(block.Text) != "" {
+			parts = append(parts, cleanText(block.Text))
 		}
 	}
 
 	return strings.Join(parts, "\n\n")
+}
+
+// cleanText trims a turn's prose and drops the one byte the transcript columns
+// cannot hold. Postgres refuses a NUL in a text value outright, and the log this
+// reads is written by another process entirely, so a single turn carrying one
+// would refuse every write for that agent from then on.
+//
+// It is dropped here, as the prose is read, rather than at the write. The turns a
+// pass produces carry the offset they sit at in the transcript text, and that text
+// is built from these strings, so anything removed later would leave every offset
+// after it pointing a byte too far.
+func cleanText(text string) string {
+	return strings.TrimSpace(strings.ReplaceAll(text, "\x00", ""))
 }
 
 // appendTurns joins newly-synced turns onto the transcript so far, blank-line
