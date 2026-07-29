@@ -503,12 +503,15 @@ func (s *Store) GetByIdempotencyKey(ctx context.Context, key string) (*Agent, er
 	return &agent, nil
 }
 
-// CountLiveForSchedule reports how many agents a schedule has that have not
-// finished, which is what tells a firing that the last one is still going.
+// CountLiveForSchedule reports how many agents a schedule has that are still
+// working on something, which is what tells a firing that the last one is still
+// going.
 //
-// Anything not done counts, including an agent sitting on a confirmation prompt:
-// it is unfinished work someone still has to answer, and starting a second run
-// beside it would only add another.
+// An agent sitting on a confirmation prompt counts: it is unfinished work someone
+// still has to answer, and starting a second run beside it would only add another.
+// An agent recorded but never yet seen working does not, since that is the state a
+// launch that died the moment it was typed keeps for good, and counting it would
+// leave the schedule blocked on a run that is never coming.
 func (s *Store) CountLiveForSchedule(ctx context.Context, scheduleID string) (int64, error) {
 	if !store.IsID(scheduleID) {
 		return 0, nil

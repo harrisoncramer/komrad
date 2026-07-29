@@ -1100,8 +1100,9 @@ func TestIdempotencyKeyIsUnique(t *testing.T) {
 }
 
 // TestCountLiveForSchedule covers the count that stops a schedule lapping
-// itself. Anything unfinished counts, including an agent waiting on a
-// confirmation, since that is work still owed rather than work done.
+// itself. An agent working or waiting on a confirmation counts, since that is
+// work still owed rather than work done. One never seen working does not, since
+// nothing will ever move it and the schedule would be blocked for good.
 func TestCountLiveForSchedule(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1127,9 +1128,11 @@ func TestCountLiveForSchedule(t *testing.T) {
 			want:   1,
 		},
 		{
-			name:   "and one that has not started yet",
+			// The state a launch that never got going keeps for good, since only an
+			// agent observed working is ever moved off it.
+			name:   "one that has never been seen working does not",
 			states: []string{StateNew},
-			want:   1,
+			want:   0,
 		},
 		{
 			name:   "a finished one does not",

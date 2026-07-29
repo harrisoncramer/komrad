@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	agentstore "claude-agents/internal/store/agent"
 	"claude-agents/internal/store/schedule"
 	"claude-agents/internal/store/workflow"
 
@@ -234,6 +235,83 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, listed, 1, "only the schedule that named a live workflow was written")
 			assert.Equal(t, live, listed[0].WorkflowID, "the refused update left the schedule where it was")
+		})
+	}
+}
+
+// TestScheduleIsNotBlockedByARunThatNeverStarted covers the count a firing
+// consults before it launches, driven through the reconciler that decides the
+// states it counts.
+//
+// A schedule runs one agent at a time, so a firing skips its tick while the last
+// run is still going. The trap is a run that never got going at all: claude
+// exiting the moment it is typed leaves an ordinary shell in a pane that is still
+// the agent's own, so the reconciler observes an idle frame forever and the agent
+// keeps the state it was recorded with. Counting that as work in flight is what
+// turns one failed launch into a schedule that never fires again, and says
+// nothing about it anywhere.
+func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
+	tests := []struct {
+		name string
+		// state is what the schedule's last run is sitting in.
+		state string
+		// frame is what its pane shows on every pass.
+		frame string
+		want  int64
+	}{
+		{
+			name:  "a run that never started leaves the schedule free to fire",
+			state: agentstore.StateNew,
+			frame: idleFrame,
+			want:  0,
+		},
+		{
+			name:  "a run still working holds the next tick off",
+			state: agentstore.StateThinking,
+			frame: busyFrame,
+			want:  1,
+		},
+		{
+			name:  "so does one waiting on an answer, which is work still owed",
+			state: agentstore.StateNew,
+			frame: waitFrame,
+			want:  1,
+		},
+		{
+			name:  "a run that finished does not",
+			state: agentstore.StateDone,
+			frame: idleFrame,
+			want:  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			ctx := t.Context()
+
+			schedule := st.SeedSchedule(t, schedule.Config{Name: "nightly", Cron: "0 2 * * *", Prompt: "sweep"})
+			run := st.SeedAgent(t, agentstore.Agent{
+				Name: "nightly-run", Pane: "%1", State: tt.state,
+				WorkflowID: schedule.WorkflowID, ScheduleID: &schedule.ID,
+			})
+
+			// The pane is still stamped with the agent, which is what a claude that
+			// exited back to its shell looks like. Only the frame says otherwise.
+			tmux := newFakeTmux()
+			tmux.owners["%1"] = run.ID
+			tmux.captures["%1"] = tt.frame
+
+			// More passes than the idle debounce needs, so whatever the reconciler is
+			// going to settle this agent on, it has settled on.
+			rec := NewReconciler(tmux, st.Agents)
+			for range reconcileMisses + 2 {
+				require.NoError(t, rec.Reconcile(ctx))
+			}
+
+			count, err := st.Agents.CountLiveForSchedule(ctx, schedule.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, count, "what the next firing sees")
 		})
 	}
 }

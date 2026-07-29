@@ -385,6 +385,17 @@ ORDER BY
     c.seq ASC
 LIMIT @lim;
 
+-- CountLiveScheduleAgents counts the agents of a schedule that are still working
+-- on something, which is what tells a firing the last run has not finished.
+-- Thinking and waiting are the two states that say so: one is generating, the
+-- other is blocked on an answer somebody still owes it.
+--
+-- A run that has been recorded but never observed working is not counted. It is
+-- the state a launch that died on the spot keeps for good, since the reconciler
+-- only ever moves an agent it can see working, and counting it would turn one
+-- failed launch into a schedule that never fires again. A run that really is
+-- starting is promoted within a reconcile interval, which is far inside the
+-- shortest interval a cron expression can name.
 -- name: CountLiveScheduleAgents :one
 SELECT
     count(*)
@@ -393,4 +404,4 @@ FROM
 WHERE
     schedule_id = @schedule_id
     AND is_deleted = FALSE
-    AND state <> 'done';
+    AND state IN ('thinking', 'waiting');
