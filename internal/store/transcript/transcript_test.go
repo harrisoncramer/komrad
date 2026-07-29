@@ -202,6 +202,16 @@ func TestSearch(t *testing.T) {
 			query:    "find\x00able",
 			wantHits: 1,
 		},
+		{
+			// The Kelvin sign lowercases to a plain k, three bytes to one, so
+			// Postgres matches it against ordinary text and the hit comes back
+			// ranked zero for this side to mark. The match it has to mark is one
+			// byte where the query is three.
+			name:     "a query that lowercases to fewer bytes than it was typed",
+			content:  "ok",
+			query:    "K",
+			wantHits: 1,
+		},
 	}
 
 	for _, tt := range tests {
@@ -359,6 +369,79 @@ func TestSearchPages(t *testing.T) {
 			if tt.wantNames != nil {
 				assert.Equal(t, tt.wantNames, names)
 			}
+		})
+	}
+}
+
+// TestMarkMatches covers the marking a substring-only hit gets on this side,
+// where the offsets of the match have to be offsets into the snippet the caller
+// is handed back.
+func TestMarkMatches(t *testing.T) {
+	tests := []struct {
+		name    string
+		snippet string
+		query   string
+		want    string
+	}{
+		{
+			name:    "an occurrence is wrapped",
+			snippet: "talking about postgres today",
+			query:   "postgres",
+			want:    "talking about " + SnippetOpen + "postgres" + SnippetClose + " today",
+		},
+		{
+			name:    "every occurrence is wrapped",
+			snippet: "postgres and postgres",
+			query:   "postgres",
+			want:    SnippetOpen + "postgres" + SnippetClose + " and " + SnippetOpen + "postgres" + SnippetClose,
+		},
+		{
+			name:    "a match of another case keeps the casing the snippet had",
+			snippet: "talking about Postgres today",
+			query:   "postgres",
+			want:    "talking about " + SnippetOpen + "Postgres" + SnippetClose + " today",
+		},
+		{
+			name:    "a window cut mid-match is left unmarked",
+			snippet: "talking about postg",
+			query:   "postgres",
+			want:    "talking about postg",
+		},
+		{
+			// The Kelvin sign is three bytes and lowercases to a one-byte k, so a
+			// match found by folding is shorter than the query that found it.
+			// Marking it by the query's own length would wrap the wrong run, and at
+			// the end of a window it would slice past the snippet entirely.
+			name:    "a query that folds to fewer bytes marks only the bytes it matched",
+			snippet: "ok",
+			query:   "K",
+			want:    "o" + SnippetOpen + "k" + SnippetClose,
+		},
+		{
+			// The other direction. The dotted capital I lowercases to two runes, so
+			// the match is longer than the query.
+			name:    "a query that folds to more bytes marks only the bytes it matched",
+			snippet: "bitİ",
+			query:   "tİ",
+			want:    "bi" + SnippetOpen + "tİ" + SnippetClose,
+		},
+		{
+			name:    "a snippet with no occurrence is returned as it stands",
+			snippet: "nothing to see",
+			query:   "postgres",
+			want:    "nothing to see",
+		},
+		{
+			name:    "an empty query marks nothing",
+			snippet: "nothing to see",
+			query:   "",
+			want:    "nothing to see",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, markMatches(tt.snippet, tt.query))
 		})
 	}
 }

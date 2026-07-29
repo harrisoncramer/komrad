@@ -9,6 +9,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"claude-agents/db/models"
 	"claude-agents/internal/store"
@@ -285,24 +287,56 @@ func markMatches(snippet, query string) string {
 	}
 
 	var (
-		out       strings.Builder
-		lowerHay  = strings.ToLower(snippet)
-		lowerNeed = strings.ToLower(query)
-		at        int
+		out strings.Builder
+		at  int
 	)
-	for {
-		i := strings.Index(lowerHay[at:], lowerNeed)
-		if i < 0 {
-			out.WriteString(snippet[at:])
-			return out.String()
+	for at < len(snippet) {
+		start, end, ok := foldIndex(snippet[at:], query)
+		if !ok {
+			break
 		}
 
-		start := at + i
-		end := start + len(query)
-		out.WriteString(snippet[at:start])
+		out.WriteString(snippet[at : at+start])
 		out.WriteString(SnippetOpen)
-		out.WriteString(snippet[start:end])
+		out.WriteString(snippet[at+start : at+end])
 		out.WriteString(SnippetClose)
-		at = end
+		at += end
 	}
+	out.WriteString(snippet[at:])
+
+	return out.String()
+}
+
+// foldIndex reports where the first case-insensitive occurrence of needle begins
+// and ends in hay, as byte offsets into hay itself, and whether there was one.
+//
+// It compares rune by rune rather than searching a lowercased copy of hay, because
+// lowercasing does not preserve byte length and the offsets a search of that copy
+// yields therefore index a string the caller does not hold. The Kelvin sign is the
+// short example: three bytes that lower to a one-byte k, which Postgres folds the
+// same way, so it is a match this side really is handed. Slicing hay by the query's
+// own length would wrap the wrong run, and a match near the end of a window would
+// slice past the snippet altogether.
+func foldIndex(hay, needle string) (int, int, bool) {
+	for start := 0; start < len(hay); {
+		_, width := utf8.DecodeRuneInString(hay[start:])
+
+		i, j := start, 0
+		for j < len(needle) && i < len(hay) {
+			h, hw := utf8.DecodeRuneInString(hay[i:])
+			n, nw := utf8.DecodeRuneInString(needle[j:])
+			if unicode.ToLower(h) != unicode.ToLower(n) {
+				break
+			}
+
+			i, j = i+hw, j+nw
+		}
+		if j == len(needle) {
+			return start, i, true
+		}
+
+		start += width
+	}
+
+	return 0, 0, false
 }
