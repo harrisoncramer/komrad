@@ -63,7 +63,7 @@ func TestRefusedActionIsReported(t *testing.T) {
 			workflows: emptyWorkflows{},
 		},
 		tmux:      &recordingTmux{},
-		stage:     NewStage(&recordingTmux{}),
+		stage:     NewStage(&recordingTmux{}, appconfig.DefaultSplit),
 		keys:      appconfig.DefaultKeybindings(),
 		screen:    screenAgents,
 		workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
@@ -91,7 +91,7 @@ func TestRefusedRestoreIsReported(t *testing.T) {
 			workflows: emptyWorkflows{},
 		},
 		tmux:      &recordingTmux{},
-		stage:     NewStage(&recordingTmux{}),
+		stage:     NewStage(&recordingTmux{}, appconfig.DefaultSplit),
 		keys:      appconfig.DefaultKeybindings(),
 		screen:    screenAgents,
 		workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
@@ -150,7 +150,7 @@ func TestSuccessfulActionClearsTheBanner(t *testing.T) {
 	m := model{
 		api:       api{agents: acceptingAgents{}, workflows: emptyWorkflows{}},
 		tmux:      &recordingTmux{},
-		stage:     NewStage(&recordingTmux{}),
+		stage:     NewStage(&recordingTmux{}, appconfig.DefaultSplit),
 		keys:      appconfig.DefaultKeybindings(),
 		screen:    screenAgents,
 		workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
@@ -255,7 +255,7 @@ func TestActionErrorDismissal(t *testing.T) {
 				screen:    tt.screen,
 				keys:      appconfig.DefaultKeybindings(),
 				tmux:      &recordingTmux{},
-				stage:     NewStage(&recordingTmux{}),
+				stage:     NewStage(&recordingTmux{}, appconfig.DefaultSplit),
 			}
 			if tt.screen == screenRename {
 				m.form, m.renameValue = renameForm("api-refactor", m.keys.Form)
@@ -441,7 +441,7 @@ func TestUnreachableView(t *testing.T) {
 				addr:        "127.0.0.1:8787",
 				unreachable: tt.start,
 				agents:      []agentItem{{agent: agentstore.Agent{Name: "still-here", State: agentstore.StateDone}}},
-				stage:       NewStage(&recordingTmux{}),
+				stage:       NewStage(&recordingTmux{}, appconfig.DefaultSplit),
 			}
 
 			updated, _ := m.Update(tt.msg)

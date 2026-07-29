@@ -59,7 +59,7 @@ func TestApplySearchResults(t *testing.T) {
 			m := model{
 				screen:      screenSearch,
 				searchQuery: tt.query,
-				stage:       NewStage(&recordingTmux{}),
+				stage:       NewStage(&recordingTmux{}, appconfig.DefaultSplit),
 			}
 
 			m.applySearchResults(tt.msg)

@@ -92,11 +92,21 @@ func (c *Client) CurrentPane() (string, error) {
 }
 
 // SplitRight splits the anchor pane horizontally, adding a pane to its right
-// rooted at dir, and returns the new pane's id. The split stays detached so
-// focus remains on the anchor. This is the stage the panel drives.
-func (c *Client) SplitRight(anchorPane, dir string) string {
-	pane, _ := c.query("split-window", "-h", "-d", "-t", anchorPane, "-c", dir, "-P", "-F", "#{pane_id}")
+// rooted at dir and taking percent of the width, and returns the new pane's id.
+// The split stays detached so focus remains on the anchor. This is the stage the
+// panel drives.
+func (c *Client) SplitRight(anchorPane, dir string, percent int) string {
+	size := fmt.Sprintf("%d%%", percent)
+	pane, _ := c.query("split-window", "-h", "-d", "-t", anchorPane, "-c", dir, "-l", size, "-P", "-F", "#{pane_id}")
+
 	return pane
+}
+
+// ResizePane sets a pane's width to percent of the window. tmux clamps it to what
+// the window can give both panes, so an extreme share ends up at the nearest one
+// that lays out rather than failing.
+func (c *Client) ResizePane(pane string, percent int) {
+	c.run("resize-pane", "-t", pane, "-x", fmt.Sprintf("%d%%", percent))
 }
 
 // NewWindow creates a detached window in a session, rooted at dir and titled name,

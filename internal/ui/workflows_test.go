@@ -291,7 +291,7 @@ func TestApplyWorkflows(t *testing.T) {
 // checked not to happen.
 func TestRefreshRestagesWorkflowContext(t *testing.T) {
 	tmux := &recordingTmux{}
-	stage := NewStage(tmux)
+	stage := NewStage(tmux, appconfig.DefaultSplit)
 	stage.Init()
 
 	// The cursor sits on the workflow's header, which is row 0.

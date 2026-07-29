@@ -139,10 +139,22 @@ type TrashKeys struct {
 	Delete []string `mapstructure:"delete"`
 }
 
+// Layout is how the panel divides the popup between its own list and the stage
+// pane beside it.
+type Layout struct {
+	// The share of the width the panel's list takes, as a fraction above zero and
+	// below one. The stage showing whatever the cursor is on takes the rest, so the
+	// default of 0.3 leaves the greater part to the preview, which is where there is
+	// something to read.
+	Split float64 `mapstructure:"split"`
+}
+
 // Config is the user's customization.
 type Config struct {
 	// Flags appended to the claude command for every new session.
 	ClaudeFlags string `mapstructure:"claude_flags"`
+	// How the popup's width is divided between the panel and the stage beside it.
+	Layout Layout `mapstructure:"layout"`
 	// The marks the mark key cycles through, in order. A mark is a glyph and means
 	// whatever you decide, so the glyph is the label. Pressing mark advances the
 	// hovered agent to the next one here, and past the last one back to unmarked,
@@ -157,9 +169,19 @@ type Config struct {
 // agree by construction.
 func Defaults() *Config {
 	return &Config{
+		Layout:      DefaultLayout(),
 		Marks:       DefaultMarks(),
 		Keybindings: DefaultKeybindings(),
 	}
+}
+
+// DefaultSplit is the share of the width the panel's list takes when the config
+// names none.
+const DefaultSplit = 0.2
+
+// DefaultLayout is the layout used when the config omits it.
+func DefaultLayout() Layout {
+	return Layout{Split: DefaultSplit}
 }
 
 // Mark is one of the marks the mark key steps through. The glyph is what a row draws
@@ -281,6 +303,18 @@ func validateMarks(marks []Mark) error {
 	return nil
 }
 
+// validateLayout rejects a split tmux could not lay the two panes out at. A share
+// of one or more leaves the panel nothing, and a negative one is not a share at
+// all. Zero is how an omitted key reads, so it is left to fall back to the default
+// rather than reported as a mistake.
+func validateLayout(layout Layout) error {
+	if layout.Split < 0 || layout.Split >= 1 {
+		return fmt.Errorf("layout split %v is not a fraction of the width above zero and below one", layout.Split)
+	}
+
+	return nil
+}
+
 func fillKeys(configured, def []string) []string {
 	if len(configured) == 0 {
 		return def
@@ -382,9 +416,16 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config %s: %w", file, err)
 	}
 
+	if err := validateLayout(cfg.Layout); err != nil {
+		return nil, fmt.Errorf("failed to parse config %s: %w", file, err)
+	}
+
 	cfg.Keybindings = cfg.Keybindings.withDefaults()
 	if len(cfg.Marks) == 0 {
 		cfg.Marks = DefaultMarks()
+	}
+	if cfg.Layout.Split == 0 {
+		cfg.Layout = DefaultLayout()
 	}
 
 	return &cfg, nil

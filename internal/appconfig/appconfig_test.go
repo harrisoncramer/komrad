@@ -186,6 +186,60 @@ func TestLoadMarks(t *testing.T) {
 	}
 }
 
+// TestLoadLayout covers the split the panel lays its two panes out at. A share of
+// the whole width or more is the case worth watching, since tmux would be asked to
+// leave the list nothing.
+func TestLoadLayout(t *testing.T) {
+	tests := []struct {
+		name    string
+		file    string
+		want    Layout
+		wantErr bool
+	}{
+		{
+			name:    "the whole width, which leaves the list none of it",
+			file:    "[layout]\nsplit = 1\n",
+			wantErr: true,
+		},
+		{
+			name:    "more than the width there is",
+			file:    "[layout]\nsplit = 1.5\n",
+			wantErr: true,
+		},
+		{
+			name:    "a negative share, which is not a share at all",
+			file:    "[layout]\nsplit = -0.2\n",
+			wantErr: true,
+		},
+		{
+			name: "a file that names no layout falls back to the default",
+			file: "claude_flags = \"\"\n",
+			want: DefaultLayout(),
+		},
+		{
+			name: "the share the user chose",
+			file: "[layout]\nsplit = 0.45\n",
+			want: Layout{Split: 0.45},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.toml")
+			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
+
+			cfg, err := Load(path)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, cfg.Layout)
+		})
+	}
+}
+
 func TestLoadRejectsUnknownKeys(t *testing.T) {
 	tests := []struct {
 		name string

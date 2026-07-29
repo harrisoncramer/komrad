@@ -2,9 +2,12 @@ package ui
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"claude-agents/internal/appconfig"
 )
 
 // stageTmux is the part of the tmux client the stage drives. The stage is
@@ -13,7 +16,8 @@ import (
 type stageTmux interface {
 	CurrentPane() (string, error)
 	PaneAlive(pane string) bool
-	SplitRight(anchorPane, dir string) string
+	SplitRight(anchorPane, dir string, percent int) string
+	ResizePane(pane string, percent int)
 	SwapPanes(src, dst string)
 	RespawnPane(pane, dir string, argv ...string)
 }
@@ -35,27 +39,53 @@ const (
 // shown is what the stage's own pane currently displays. The panel restages on
 // every refresh tick, and redrawing means respawning the pane, so the stage
 // compares against what is already there and does nothing when they match.
+//
+// split is the configured share of the width the nav list takes, which the stage
+// holds because it is the one that lays the two panes out.
 type Stage struct {
 	tmux      stageTmux
+	split     float64
 	navPane   string
 	pane      string
 	agentPane string
 	shown     string
 }
 
-// NewStage builds a stage over a tmux client. It claims no panes until Init.
-func NewStage(tmux stageTmux) *Stage {
-	return &Stage{tmux: tmux}
+// NewStage builds a stage over a tmux client, dividing the width by split. It
+// claims no panes until Init.
+func NewStage(tmux stageTmux, split float64) *Stage {
+	return &Stage{tmux: tmux, split: split}
+}
+
+// percent is the stage pane's share of the width as tmux takes it, a whole
+// percentage. The configured split is the nav list's share, so the stage gets what
+// is left of it. A split outside the range the loader allows falls back to the
+// default, since a stage built by hand rather than from a config file has none.
+func (s *Stage) percent() int {
+	split := s.split
+	if split <= 0 || split >= 1 {
+		split = appconfig.DefaultSplit
+	}
+
+	return int(math.Round((1 - split) * 100))
 }
 
 // Init records the panel's own pane as the anchor and splits a stage pane to its
 // right, rooted at home. Called once on startup. It is a no-op split if a live
 // stage already exists, so a panel restart does not stack splits.
+//
+// The stage pane is sized either way. A live one was split at whatever the config
+// said when it was created, so resizing here is what makes an edited split take
+// effect on the next start rather than only once the pane has died.
 func (s *Stage) Init() {
 	if pane, err := s.tmux.CurrentPane(); err == nil && pane != "" {
 		s.navPane = pane
 	}
 	s.ensure()
+
+	if s.pane != "" {
+		s.tmux.ResizePane(s.pane, s.percent())
+	}
 }
 
 // ensure guarantees a live stage pane beside the panel, splitting a fresh one when
@@ -71,7 +101,7 @@ func (s *Stage) ensure() {
 	}
 
 	home, _ := os.UserHomeDir()
-	s.pane = s.tmux.SplitRight(s.navPane, home)
+	s.pane = s.tmux.SplitRight(s.navPane, home, s.percent())
 	s.agentPane = ""
 	s.shown = ""
 }

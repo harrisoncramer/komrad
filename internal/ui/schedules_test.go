@@ -410,7 +410,7 @@ func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys appconfi
 		// The new-schedule form asks the popup which client opened it, to prefill
 		// the directory, so the panel needs one even though nothing here reads it.
 		popup:  NewPopup(tmux, "test-session"),
-		stage:  NewStage(tmux),
+		stage:  NewStage(tmux, appconfig.DefaultSplit),
 		keys:   keys,
 		screen: screenSchedules,
 		schedules: []scheduleItem{

@@ -54,6 +54,7 @@ func NewRootCommand() *cobra.Command {
 			state.keys = cfg.Keybindings
 			state.claudeFlags = cfg.ClaudeFlags
 			state.marks = cfg.Marks
+			state.layout = cfg.Layout
 			state.configPath = configPath
 			// Two tmux servers, held as one client. The manager's own server owns the
 			// session, its windows, and its panes. The user's server answers where the
@@ -97,6 +98,7 @@ func NewRootCommand() *cobra.Command {
 				Schedules:  scheduleClient,
 				Keys:       state.keys,
 				Marks:      state.marks,
+				Layout:     state.layout,
 				Addr:       state.env.Addr,
 				ConfigErr:  state.configErr,
 				StartupErr: startupErr,

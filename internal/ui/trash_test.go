@@ -280,7 +280,7 @@ func trashModel(client agentv1connect.AgentServiceClient, keys appconfig.Keybind
 		api:    api{agents: client},
 		tmux:   tmux,
 		popup:  NewPopup(tmux, "test-session"),
-		stage:  NewStage(tmux),
+		stage:  NewStage(tmux, appconfig.DefaultSplit),
 		keys:   keys,
 		screen: screenTrash,
 		trash:  []agentstore.Agent{{ID: "a1", Name: "api-refactor"}},

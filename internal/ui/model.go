@@ -225,6 +225,8 @@ type Deps struct {
 	Keys      appconfig.Keybindings
 	// Marks are the marks the mark key steps an agent through, in the user's order.
 	Marks []appconfig.Mark
+	// Layout is how the popup's width is divided between the list and the stage.
+	Layout appconfig.Layout
 	// Addr is where Client points, shown on the error screen when the service
 	// stops answering so the address to go looking at is on screen.
 	Addr string
@@ -359,7 +361,7 @@ func newModel(deps Deps) model {
 		api:        api{agents: deps.Agents, workflows: deps.Workflows, schedules: deps.Schedules},
 		popup:      deps.Popup,
 		tmux:       deps.Tmux,
-		stage:      NewStage(deps.Tmux),
+		stage:      NewStage(deps.Tmux, deps.Layout.Split),
 		addr:       deps.Addr,
 		keys:       deps.Keys,
 		marks:      deps.Marks,

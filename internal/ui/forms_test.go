@@ -335,7 +335,7 @@ func formModel(sent *formRecorder) model {
 		api:       api{agents: sent, workflows: sent, schedules: sent},
 		tmux:      tmux,
 		popup:     NewPopup(tmux, "test-session"),
-		stage:     NewStage(tmux),
+		stage:     NewStage(tmux, appconfig.DefaultSplit),
 		keys:      appconfig.DefaultKeybindings(),
 		workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Cwd: "/work/api", Flags: "--model opus"}},
 	}

@@ -16,7 +16,7 @@ import (
 // agent and two hidden ones, and a second holding nothing hidden at all.
 func hiddenTree() model {
 	return model{
-		stage: NewStage(&recordingTmux{}),
+		stage: NewStage(&recordingTmux{}, appconfig.DefaultSplit),
 		keys:  appconfig.DefaultKeybindings(),
 		workflows: []workflowstore.Workflow{
 			{ID: "w1", Name: "backend"},

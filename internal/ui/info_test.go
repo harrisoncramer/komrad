@@ -160,6 +160,8 @@ type recordingTmux struct {
 	path     string
 	swaps    int
 	respawns []string
+	// resizes are the widths the stage pane has been set to, as percentages.
+	resizes []int
 }
 
 func (t *recordingTmux) SetGlobal(string, string)                {}
@@ -172,12 +174,16 @@ func (t *recordingTmux) SendKeys(string, ...string) error        { return nil }
 func (t *recordingTmux) PaneAlive(string) bool                   { return true }
 func (t *recordingTmux) CapturePane(string) string               { return "" }
 func (t *recordingTmux) CurrentPane() (string, error)            { return "%0", nil }
-func (t *recordingTmux) SplitRight(string, string) string        { return "%1" }
+func (t *recordingTmux) SplitRight(string, string, int) string   { return "%1" }
 func (t *recordingTmux) SwapPanes(string, string)                { t.swaps++ }
 func (t *recordingTmux) KillPane(string)                         {}
 
 func (t *recordingTmux) NewWindow(string, string, string) (string, error) {
 	return "%2", nil
+}
+
+func (t *recordingTmux) ResizePane(_ string, percent int) {
+	t.resizes = append(t.resizes, percent)
 }
 
 func (t *recordingTmux) RespawnPane(_, _ string, argv ...string) {
@@ -187,7 +193,7 @@ func (t *recordingTmux) RespawnPane(_, _ string, argv ...string) {
 // infoModel builds an agents model holding one live agent, with the cursor on
 // it. Row 0 is the workflow header the agent sits under, so the agent is row 1.
 func infoModel(tmux *recordingTmux) model {
-	stage := NewStage(tmux)
+	stage := NewStage(tmux, appconfig.DefaultSplit)
 	stage.Init()
 
 	return model{
