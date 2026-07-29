@@ -8,12 +8,12 @@ cd "$MISE_CONFIG_ROOT"
 # Warn when air is not watching, since then the binary is whatever was last
 # built by hand and reload alone will not reflect new code.
 if ! pgrep -x air >/dev/null 2>&1; then
-	echo "warning: air is not running; start it with 'mise run go:dev' so saves rebuild the binary"
+  echo "warning: air is not running; start it with 'mise run go:dev' so saves rebuild the binary"
 fi
 
 if [ ! -x bin/claude-agents ]; then
-	echo "bin/claude-agents missing; building once (start air to keep it fresh)"
-	go build -o bin/claude-agents .
+  echo "bin/claude-agents missing; building once (start air to keep it fresh)"
+  go build -o bin/claude-agents .
 fi
 
 # serve is long-lived and spawned on first panel open, so a fresh binary alone
@@ -22,16 +22,16 @@ fi
 # process bound to the port.
 pkill -f 'claude-agents serve' 2>/dev/null || true
 for _ in $(seq 1 15); do
-	pgrep -f 'claude-agents serve' >/dev/null 2>&1 || break
-	sleep 0.2
+  pgrep -f 'claude-agents serve' >/dev/null 2>&1 || break
+  sleep 0.2
 done
 if pgrep -f 'claude-agents serve' >/dev/null 2>&1; then
-	pkill -9 -f 'claude-agents serve' 2>/dev/null || true
-	sleep 0.5
+  pkill -9 -f 'claude-agents serve' 2>/dev/null || true
+  sleep 0.5
 fi
 if pgrep -f 'claude-agents serve' >/dev/null 2>&1; then
-	echo "error: serve process would not die; kill it by hand" >&2
-	exit 1
+  echo "error: serve process would not die; kill it by hand" >&2
+  exit 1
 fi
 
 # The panel and every agent live on a tmux server of their own, which a plain
@@ -46,11 +46,11 @@ manager() { tmux -L "$socket" "$@"; }
 # would take every running agent down with the panel. The panel is the only pane
 # running this binary, which is what identifies it.
 panel_pane="$(manager list-panes -a -F '#{pane_id} #{pane_current_command}' 2>/dev/null |
-	awk '$2 == "claude-agents" { print $1; exit }')"
+  awk '$2 == "claude-agents" { print $1; exit }' || true)"
 
 if [ -z "$panel_pane" ]; then
-	echo "stopped stale serve; no panel is running, so open it (prefix+g) to start both from the current binary"
-	exit 0
+  echo "stopped stale serve; no panel is running, so open it (prefix+g) to start both from the current binary"
+  exit 0
 fi
 
 # An agent staged beside the panel is that agent's own pane, swapped into the
@@ -60,19 +60,19 @@ fi
 # start, so it goes rather than becoming a window of junk. A dormant agent's pane
 # sits at a shell too and is killed with it, which costs nothing: restoring the
 # agent opens it again.
-panel_window="$(manager display-message -p -t "$panel_pane" '#{window_id}' 2>/dev/null)"
-manager list-panes -t "$panel_window" -F '#{pane_id} #{pane_current_command}' 2>/dev/null |
-	while read -r pane command; do
-		[ "$pane" = "$panel_pane" ] && continue
-		case "$command" in
-		sh | bash | zsh | fish | less | bat | .bat-wrapped)
-			manager kill-pane -t "$pane" 2>/dev/null || true
-			;;
-		*)
-			manager break-pane -d -s "$pane" 2>/dev/null || true
-			;;
-		esac
-	done
+panel_window="$(manager display-message -p -t "$panel_pane" '#{window_id}' 2>/dev/null || true)"
+{ manager list-panes -t "$panel_window" -F '#{pane_id} #{pane_current_command}' 2>/dev/null || true; } |
+  while read -r pane command; do
+    [ "$pane" = "$panel_pane" ] && continue
+    case "$command" in
+    sh | bash | zsh | fish | less | bat | .bat-wrapped)
+      manager kill-pane -t "$pane" 2>/dev/null || true
+      ;;
+    *)
+      manager break-pane -d -s "$pane" 2>/dev/null || true
+      ;;
+    esac
+  done
 
 # Respawning the pane restarts the panel in place, keeping the session and the
 # environment open recorded on it. The new panel spawns serve as it starts, so

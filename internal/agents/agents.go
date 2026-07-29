@@ -45,7 +45,8 @@ type agentStore interface {
 	GetByIdempotencyKey(ctx context.Context, key string) (*agentstore.Agent, error)
 	Find(ctx context.Context, name string) (*agentstore.Target, error)
 	FindByID(ctx context.Context, id string) (*agentstore.Target, error)
-	Upsert(ctx context.Context, agent agentstore.Agent) error
+	Create(ctx context.Context, agent agentstore.Agent) error
+	Update(ctx context.Context, agent agentstore.Agent) error
 	Rename(ctx context.Context, id, name string) (bool, error)
 	Archive(ctx context.Context, name string) error
 	Restore(ctx context.Context, id string) error
@@ -68,11 +69,12 @@ type txRunner interface {
 }
 
 // agentTmux is the part of tmux an agent's lifecycle needs. A window to live in,
-// a way to end it, and a way to tell whether it is still there.
+// a way to end it, and a way to tell whose pane a pane is.
 type agentTmux interface {
 	NewWindow(session, name, dir string) (string, error)
 	KillPane(pane string)
-	PaneAlive(pane string) bool
+	SetPaneOwner(pane, agentID string) error
+	PaneOwner(pane string) string
 	ClientPath(client string) string
 }
 
@@ -131,9 +133,31 @@ func NewAgentService(p AgentParams) *AgentService {
 	}
 }
 
-// PaneAlive reports whether an agent's tmux pane still exists.
-func (s *AgentService) PaneAlive(pane string) bool {
-	return s.tmux.PaneAlive(pane)
+// AgentRunning reports whether an agent's claude is still up, which is true only
+// of a pane that exists and is stamped with that agent's id. The stored pane id is
+// never trusted on its own: tmux reissues pane ids from %0 after a server restart,
+// so a dormant agent's recorded pane routinely names a pane that now belongs to
+// somebody else. Reading a stale claim as liveness is what showed one agent's
+// conversation beside another's name and let a kill reach the wrong pane.
+func (s *AgentService) AgentRunning(agent agentstore.Agent) bool {
+	return paneOwnedBy(s.tmux.PaneOwner(agent.Pane), agent.ID)
+}
+
+// paneOwnedBy compares a pane's stamp against the agent that claims it. An agent
+// with no id owns nothing, so an unstamped pane cannot answer to it by both sides
+// being empty.
+func paneOwnedBy(owner, agentID string) bool {
+	return agentID != "" && owner == agentID
+}
+
+// killOwnedPane tears down an agent's pane, but only while that pane is still the
+// agent's own. Killing by a stored id alone would end whatever process the tmux
+// server has since given that id to, which is a live agent the user never asked
+// to stop.
+func (s *AgentService) killOwnedPane(agent agentstore.Agent) {
+	if s.AgentRunning(agent) {
+		s.tmux.KillPane(agent.Pane)
+	}
 }
 
 // ErrAgentNotFound reports that no agent answers to the given name or id.
@@ -155,7 +179,7 @@ func (s *AgentService) DeleteAgent(ctx context.Context, id string) error {
 		return err
 	}
 
-	s.tmux.KillPane(agent.Pane)
+	s.killOwnedPane(*agent)
 
 	return s.removeAgent(ctx, id)
 }
@@ -196,7 +220,7 @@ func (s *AgentService) ArchiveAgent(ctx context.Context, name string) error {
 		return ErrAgentNotFound
 	}
 
-	s.tmux.KillPane(agent.Pane)
+	s.killOwnedPane(*agent)
 
 	if err := s.agents.Archive(ctx, name); err != nil {
 		return fmt.Errorf("failed to archive agent %q: %w", name, err)
@@ -219,10 +243,10 @@ func (s *AgentService) RestoreAgent(ctx context.Context, id string) (*agentstore
 			continue
 		}
 
-		// An agent whose pane is still alive is already running. Returning it as it
+		// An agent still running in its own pane needs no restore. Returning it as it
 		// stands keeps the call idempotent rather than spawning a second window
 		// for the same conversation.
-		if s.tmux.PaneAlive(agent.Pane) {
+		if s.AgentRunning(agent) {
 			return &agent, nil
 		}
 
@@ -367,9 +391,23 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 
 	name := s.uniqueAgentName(ctx, p.Title, p.Prompt)
 
+	// The agent's own id is minted here rather than by the insert below, because the
+	// pane has to be stamped with it before the row exists. A row recorded against an
+	// unstamped pane is a row the reconciler would read as belonging to nobody, and it
+	// would clear the pane out from under an agent that is about to launch in it.
+	id, err := store.NewID()
+	if err != nil {
+		return nil, err
+	}
+
 	pane, err := s.tmux.NewWindow(ManagerSession, name, dir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open a window for %q: %w", name, err)
+	}
+	if err := s.tmux.SetPaneOwner(pane, id); err != nil {
+		s.tmux.KillPane(pane)
+
+		return nil, fmt.Errorf("failed to stamp the pane for %q: %w", name, err)
 	}
 	flags := strings.TrimSpace(s.claudeFlags + " " + agentFlags)
 
@@ -377,7 +415,8 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 	// known up front and restoring the agent can resume that same conversation
 	// with --resume.
 	claudeSessionID := uuid.NewString()
-	if err := s.agents.Upsert(ctx, agentstore.Agent{
+	if err := s.agents.Create(ctx, agentstore.Agent{
+		ID:              id,
 		Name:            name,
 		Pane:            pane,
 		Cwd:             dir,
@@ -399,6 +438,21 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		return nil, fmt.Errorf("failed to record agent %q: %w", name, err)
 	}
 
+	// Read the row back rather than returning what was written, since the store owns
+	// the config row's id and the created timestamp, and a caller that never watched
+	// the list has only this record to render.
+	created, err := s.agents.Get(ctx, name)
+	if err != nil {
+		s.tmux.KillPane(pane)
+
+		return nil, fmt.Errorf("failed to read back agent %q: %w", name, err)
+	}
+	if created == nil {
+		s.tmux.KillPane(pane)
+
+		return nil, fmt.Errorf("agent %q vanished after being recorded", name)
+	}
+
 	if err := s.launcher.launch(launchClaudeParams{
 		Pane:   pane,
 		Flags:  flags,
@@ -408,25 +462,16 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		// after them.
 		WorkflowContext: wf.Context,
 		ClaudeSessionID: claudeSessionID,
+		AgentID:         id,
 	}); err != nil {
 		// The row is stored and the pane is open with nothing useful in it. Left
 		// alone it would list as a live agent forever, so both go.
 		s.tmux.KillPane(pane)
-		if deleteErr := s.removeAgent(ctx, name); deleteErr != nil {
+		if deleteErr := s.removeAgent(ctx, id); deleteErr != nil {
 			return nil, fmt.Errorf("failed to launch claude for %q (%w), and failed to clean up: %w", name, err, deleteErr)
 		}
 
 		return nil, fmt.Errorf("failed to launch claude for %q: %w", name, err)
-	}
-
-	// Read the row back rather than returning what was written. The store owns the
-	// generated id and the created timestamp.
-	created, err := s.agents.Get(ctx, name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read back agent %q: %w", name, err)
-	}
-	if created == nil {
-		return nil, fmt.Errorf("agent %q vanished after being recorded", name)
 	}
 
 	return created, nil
@@ -467,6 +512,11 @@ func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) erro
 	if err != nil {
 		return fmt.Errorf("failed to open a window for %q: %w", agent.Name, err)
 	}
+	if err := s.tmux.SetPaneOwner(pane, agent.ID); err != nil {
+		s.tmux.KillPane(pane)
+
+		return fmt.Errorf("failed to stamp the pane for %q: %w", agent.Name, err)
+	}
 
 	// Clear the soft-delete flag first, so the row re-enters the unique-name
 	// index before the upsert below keys off it. Upserting a still-deleted row
@@ -483,7 +533,7 @@ func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) erro
 	// somewhere else entirely and the row is what the panel shows and the next
 	// restore reads.
 	agent.Cwd = dir
-	if err := s.agents.Upsert(ctx, agent); err != nil {
+	if err := s.agents.Update(ctx, agent); err != nil {
 		return fmt.Errorf("failed to restore agent %q: %w", agent.Name, err)
 	}
 
@@ -491,6 +541,7 @@ func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) erro
 		Pane:            pane,
 		Flags:           agent.Flags,
 		ClaudeSessionID: agent.ClaudeSessionID,
+		AgentID:         agent.ID,
 		Resume:          true,
 	}); err != nil {
 		return fmt.Errorf("failed to relaunch claude for %q: %w", agent.Name, err)

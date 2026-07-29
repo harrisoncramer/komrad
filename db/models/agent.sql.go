@@ -46,6 +46,20 @@ func (q *Queries) AgentExists(ctx context.Context, id string) (bool, error) {
 	return exists, err
 }
 
+const clearAgentPane = `-- name: ClearAgentPane :exec
+UPDATE
+    agents
+SET
+    pane_id = ''
+WHERE
+    id = $1
+`
+
+func (q *Queries) ClearAgentPane(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, clearAgentPane, id)
+	return err
+}
+
 const countLiveScheduleAgents = `-- name: CountLiveScheduleAgents :one
 SELECT
     count(*)
@@ -82,6 +96,39 @@ WHERE id = $1
 func (q *Queries) DeleteAgentConfig(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, deleteAgentConfig, id)
 	return err
+}
+
+const deleteAgentMetadata = `-- name: DeleteAgentMetadata :many
+DELETE FROM agent_metadata
+WHERE agent_id = $1
+    AND KEY = $2
+RETURNING
+    agent_id
+`
+
+type DeleteAgentMetadataParams struct {
+	AgentID string
+	Key     string
+}
+
+func (q *Queries) DeleteAgentMetadata(ctx context.Context, arg DeleteAgentMetadataParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, deleteAgentMetadata, arg.AgentID, arg.Key)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var agent_id string
+		if err := rows.Scan(&agent_id); err != nil {
+			return nil, err
+		}
+		items = append(items, agent_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const deleteAgentTranscript = `-- name: DeleteAgentTranscript :exec
@@ -261,13 +308,14 @@ func (q *Queries) GetTranscript(ctx context.Context, agentID string) (*GetTransc
 }
 
 const insertAgent = `-- name: InsertAgent :one
-INSERT INTO agents (name, agent_config_id, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key, is_hidden)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO agents (id, name, agent_config_id, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key, is_hidden)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING
     id
 `
 
 type InsertAgentParams struct {
+	ID              string
 	Name            string
 	AgentConfigID   string
 	Prompt          string
@@ -282,6 +330,7 @@ type InsertAgentParams struct {
 
 func (q *Queries) InsertAgent(ctx context.Context, arg InsertAgentParams) (string, error) {
 	row := q.db.QueryRow(ctx, insertAgent,
+		arg.ID,
 		arg.Name,
 		arg.AgentConfigID,
 		arg.Prompt,
@@ -323,6 +372,48 @@ type InsertTranscriptChunksParams struct {
 	Role          string
 	Content       string
 	ContentOffset int64
+}
+
+const listAgentMetadata = `-- name: ListAgentMetadata :many
+SELECT
+    agent_id,
+    KEY,
+    value
+FROM
+    agent_metadata
+WHERE
+    agent_id = ANY ($1::uuid[])
+ORDER BY
+    agent_id,
+    KEY
+`
+
+type ListAgentMetadataRow struct {
+	AgentID string
+	Key     string
+	Value   string
+}
+
+// ListAgentMetadata fetches the metadata for a whole page of agents at once, so
+// hydrating a listing costs one query rather than one per row.
+func (q *Queries) ListAgentMetadata(ctx context.Context, agentIds []string) ([]*ListAgentMetadataRow, error) {
+	rows, err := q.db.Query(ctx, listAgentMetadata, agentIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListAgentMetadataRow
+	for rows.Next() {
+		var i ListAgentMetadataRow
+		if err := rows.Scan(&i.AgentID, &i.Key, &i.Value); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listAgents = `-- name: ListAgents :many
@@ -783,6 +874,61 @@ func (q *Queries) SetAgentMark(ctx context.Context, arg SetAgentMarkParams) ([]s
 			return nil, err
 		}
 		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setAgentMetadata = `-- name: SetAgentMetadata :many
+INSERT INTO agent_metadata (agent_id, KEY, value)
+SELECT
+    $1,
+    $2,
+    $3
+WHERE
+    EXISTS (
+        SELECT
+            1
+        FROM
+            agents
+        WHERE
+            id = $1
+            AND is_deleted = FALSE)
+ON CONFLICT (agent_id,
+    KEY)
+    DO UPDATE SET
+        value = $3, updated_at = now()
+    RETURNING
+        agent_id
+`
+
+type SetAgentMetadataParams struct {
+	AgentID string
+	Key     string
+	Value   string
+}
+
+// SetAgentMetadata records one fact against a live agent, replacing whatever
+// that key held before and leaving the agent's other keys alone. The insert
+// selects through a guard rather than naming the values outright so an id
+// belonging to no live agent writes nothing and is reported as such, instead of
+// raising a foreign key violation the handler would have to read to tell an
+// unknown agent from a real failure.
+func (q *Queries) SetAgentMetadata(ctx context.Context, arg SetAgentMetadataParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, setAgentMetadata, arg.AgentID, arg.Key, arg.Value)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var agent_id string
+		if err := rows.Scan(&agent_id); err != nil {
+			return nil, err
+		}
+		items = append(items, agent_id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

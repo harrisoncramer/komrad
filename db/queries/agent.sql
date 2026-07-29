@@ -79,8 +79,8 @@ RETURNING
     id;
 
 -- name: InsertAgent :one
-INSERT INTO agents (name, agent_config_id, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key, is_hidden)
-    VALUES (@name, @agent_config_id, @prompt, @pane_id, @state, @claude_session_id, @workflow_id, sqlc.narg ('schedule_id'), sqlc.narg ('idempotency_key'), @is_hidden)
+INSERT INTO agents (id, name, agent_config_id, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key, is_hidden)
+    VALUES (@id, @name, @agent_config_id, @prompt, @pane_id, @state, @claude_session_id, @workflow_id, sqlc.narg ('schedule_id'), sqlc.narg ('idempotency_key'), @is_hidden)
 RETURNING
     id;
 
@@ -159,6 +159,14 @@ SET
 WHERE
     id = @id;
 
+-- name: ClearAgentPane :exec
+UPDATE
+    agents
+SET
+    pane_id = ''
+WHERE
+    id = @id;
+
 -- name: SetAgentMark :many
 UPDATE
     agents
@@ -180,6 +188,56 @@ WHERE
     AND is_deleted = FALSE
 RETURNING
     id;
+
+-- SetAgentMetadata records one fact against a live agent, replacing whatever
+-- that key held before and leaving the agent's other keys alone. The insert
+-- selects through a guard rather than naming the values outright so an id
+-- belonging to no live agent writes nothing and is reported as such, instead of
+-- raising a foreign key violation the handler would have to read to tell an
+-- unknown agent from a real failure.
+-- name: SetAgentMetadata :many
+INSERT INTO agent_metadata (agent_id, KEY, value)
+SELECT
+    @agent_id,
+    @key,
+    @value
+WHERE
+    EXISTS (
+        SELECT
+            1
+        FROM
+            agents
+        WHERE
+            id = @agent_id
+            AND is_deleted = FALSE)
+ON CONFLICT (agent_id,
+    KEY)
+    DO UPDATE SET
+        value = @value, updated_at = now()
+    RETURNING
+        agent_id;
+
+-- name: DeleteAgentMetadata :many
+DELETE FROM agent_metadata
+WHERE agent_id = @agent_id
+    AND KEY = @key
+RETURNING
+    agent_id;
+
+-- ListAgentMetadata fetches the metadata for a whole page of agents at once, so
+-- hydrating a listing costs one query rather than one per row.
+-- name: ListAgentMetadata :many
+SELECT
+    agent_id,
+    KEY,
+    value
+FROM
+    agent_metadata
+WHERE
+    agent_id = ANY (@agent_ids::uuid[])
+ORDER BY
+    agent_id,
+    KEY;
 
 -- GetAgentForDelete resolves the two ids a hard delete has to remove rows by.
 -- name: GetAgentForDelete :one

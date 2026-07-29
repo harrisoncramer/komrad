@@ -36,6 +36,15 @@ type AgentConfig struct {
 	UpdatedAt time.Time
 }
 
+// Key/value facts an agent recorded about its own work.
+type AgentMetadatum struct {
+	AgentID   string
+	Key       string
+	Value     string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 // Flattened transcript for an agent, synced from Claude's on-disk JSONL and indexed for search. Strict 1:1 with an agent.
 type AgentTranscript struct {
 	AgentID      string

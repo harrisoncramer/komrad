@@ -255,6 +255,91 @@ func TestRequestValidation(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			// A key that reads differently agent to agent is not worth querying across
+			// them, which is most of why the metadata is keyed at all.
+			name: "a metadata key carrying a capital is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
+					Id:    uuid.NewString(),
+					Key:   "PullRequest",
+					Value: xptr.Ptr("https://github.com/o/r/pull/1"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "so is one carrying a space",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
+					Id:    uuid.NewString(),
+					Key:   "pull request",
+					Value: xptr.Ptr("https://github.com/o/r/pull/1"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a metadata write with no key at all is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
+					Id:    uuid.NewString(),
+					Key:   "",
+					Value: xptr.Ptr("https://github.com/o/r/pull/1"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			// The value is drawn into the panel's frame, so a newline would break the
+			// row it lands in rather than fail.
+			name: "a metadata value spanning two lines is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
+					Id:    uuid.NewString(),
+					Key:   "pr",
+					Value: xptr.Ptr("https://github.com/o/r/pull/1\nand another"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a slug key and a single-line url are what the constraint lets through",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
+					Id:    uuid.NewString(),
+					Key:   "linear_issue",
+					Value: xptr.Ptr("https://linear.app/x/issue/ENG-1"),
+				}))
+
+				// The id is nobody's, so the handler answers not_found once the key and
+				// value have been let through.
+				if connect.CodeOf(err) == connect.CodeNotFound {
+					return nil
+				}
+
+				return err
+			},
+		},
+		{
+			name: "clearing a key needs no value",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
+					Id:  uuid.NewString(),
+					Key: "pr",
+				}))
+
+				return err
+			},
+		},
 	}
 
 	for _, tt := range tests {

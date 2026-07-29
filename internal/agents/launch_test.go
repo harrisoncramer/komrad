@@ -47,6 +47,27 @@ func TestLaunchCommand(t *testing.T) {
 			},
 			wantCommand: "claude '--model' 'opus' --session-id 'sess-3'",
 		},
+		{
+			name: "the agent's own id leads the line, so it reaches claude's environment",
+			params: launchClaudeParams{
+				Pane:            "pane",
+				AgentID:         "id-1",
+				ClaudeSessionID: "sess-4",
+			},
+			wantCommand: "CLAUDE_AGENTS_AGENT_ID='id-1' claude --session-id 'sess-4'",
+		},
+		{
+			// The appended system prompt carrying it would not, which is the whole reason
+			// it rides on the environment instead.
+			name: "and it survives a resume",
+			params: launchClaudeParams{
+				Pane:            "pane",
+				AgentID:         "id-1",
+				ClaudeSessionID: "sess-5",
+				Resume:          true,
+			},
+			wantCommand: "CLAUDE_AGENTS_AGENT_ID='id-1' claude --resume 'sess-5'",
+		},
 	}
 
 	for _, tt := range tests {
@@ -125,9 +146,17 @@ func TestAppendedSystemPrompt(t *testing.T) {
 		wantAbsent  []string
 	}{
 		{
-			name:        "an agent outside any workflow gets the briefing alone",
-			wantContain: []string{"http://127.0.0.1:9999/mcp", "list_tables", "agent_transcripts"},
-			wantAbsent:  []string{"shared notes"},
+			name: "an agent outside any workflow gets the briefing alone",
+			wantContain: []string{
+				"http://127.0.0.1:9999/mcp",
+				"list_tables",
+				"agent_transcripts",
+				// The briefing has to name both halves or the agent has an id it never uses
+				// and a tool it does not know to reach for.
+				"CLAUDE_AGENTS_AGENT_ID",
+				"set_agent_metadata",
+			},
+			wantAbsent: []string{"shared notes"},
 		},
 		{
 			name:        "an agent inside one gets the workflow's context after it",

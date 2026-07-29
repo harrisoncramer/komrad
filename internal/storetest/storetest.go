@@ -68,7 +68,7 @@ func (s *Stores) SeedAgent(t *testing.T, agent agentstore.Agent) *agentstore.Age
 		agent.WorkflowID = s.SeedWorkflow(t, workflowstore.Config{Name: "workflow-for-" + agent.Name}).ID
 	}
 
-	require.NoError(t, s.Agents.Upsert(t.Context(), agent))
+	require.NoError(t, s.Agents.Create(t.Context(), agent))
 
 	stored, err := s.Agents.Get(t.Context(), agent.Name)
 	require.NoError(t, err)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"claude-agents/db/models"
 	"claude-agents/internal/pgtest"
 	"claude-agents/internal/store"
 	schedulestore "claude-agents/internal/store/schedule"
@@ -57,10 +58,10 @@ func TestSanitizeName(t *testing.T) {
 	}
 }
 
-// TestUpsert covers what an agent carries in and out of the store, including the
-// config row it owns. An update has to rewrite that row rather than leave the
-// old one orphaned behind a new id.
-func TestUpsert(t *testing.T) {
+// TestCreateAndUpdate covers what an agent carries in and out of the store,
+// including the config row it owns. An update has to rewrite that row rather than
+// leave the old one orphaned behind a new id.
+func TestCreateAndUpdate(t *testing.T) {
 	tests := []struct {
 		name    string
 		initial Agent
@@ -101,17 +102,17 @@ func TestUpsert(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Upsert(ctx, tt.initial))
+			require.NoError(t, st.Create(ctx, tt.initial))
 			stored, err := st.Get(ctx, tt.initial.Name)
 			require.NoError(t, err)
 			require.NotNil(t, stored)
-			assert.NotEmpty(t, stored.ID, "an id is generated on insert")
+			assert.NotEmpty(t, stored.ID, "an id is minted for a caller that brought none")
 			assert.NotEmpty(t, stored.AgentConfigID, "an agent owns its config row")
 
 			if tt.update != nil {
 				updated := *stored
 				tt.update(&updated)
-				require.NoError(t, st.Upsert(ctx, updated))
+				require.NoError(t, st.Update(ctx, updated))
 
 				stored, err = st.Get(ctx, tt.initial.Name)
 				require.NoError(t, err)
@@ -172,7 +173,7 @@ func TestArchiveAndReuse(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Upsert(ctx, Agent{Name: "agent", Pane: "%1", State: StateThinking}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "agent", Pane: "%1", State: StateThinking}))
 			first, err := st.Get(ctx, "agent")
 			require.NoError(t, err)
 			require.NotNil(t, first)
@@ -181,7 +182,7 @@ func TestArchiveAndReuse(t *testing.T) {
 				require.NoError(t, st.Archive(ctx, "agent"))
 			}
 			if tt.reuse {
-				require.NoError(t, st.Upsert(ctx, Agent{Name: "agent", Pane: "%2", State: StateNew}))
+				require.NoError(t, st.Create(ctx, Agent{Name: "agent", Pane: "%2", State: StateNew}))
 			}
 
 			got, err := st.Get(ctx, "agent")
@@ -264,7 +265,7 @@ func TestSetState(t *testing.T) {
 			ctx := t.Context()
 
 			if tt.create {
-				require.NoError(t, st.Upsert(ctx, Agent{Name: "agent", State: StateNew}))
+				require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
 			}
 
 			changed, err := st.SetState(ctx, tt.target, StateThinking)
@@ -341,7 +342,7 @@ func TestSetMark(t *testing.T) {
 
 			var created Agent
 			if tt.create {
-				require.NoError(t, st.Upsert(ctx, Agent{Name: "agent", State: StateNew}))
+				require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
 				got, err := st.Get(ctx, "agent")
 				require.NoError(t, err)
 				require.NotNil(t, got)
@@ -426,7 +427,7 @@ func TestSetHidden(t *testing.T) {
 
 			var created Agent
 			if tt.create {
-				require.NoError(t, st.Upsert(ctx, Agent{Name: "agent", State: StateNew}))
+				require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
 				got, err := st.Get(ctx, "agent")
 				require.NoError(t, err)
 				require.NotNil(t, got)
@@ -458,6 +459,224 @@ func TestSetHidden(t *testing.T) {
 	}
 }
 
+// TestSetMetadata covers what an agent may record against itself. The write has to
+// land on exactly one key, since an agent recording a second fact must not drop the
+// first, and it has to refuse an id belonging to no live agent rather than report a
+// success the agent would go on believing.
+func TestSetMetadata(t *testing.T) {
+	tests := []struct {
+		name    string
+		create  bool
+		archive bool
+		id      func(created Agent) string
+		// before is written ahead of the call, so a row can start from facts it
+		// already recorded rather than from nothing.
+		before      []Metadata
+		key         string
+		value       *string
+		wantChanged bool
+		wantStored  []Metadata
+	}{
+		{
+			name:  "an id no agent holds",
+			id:    func(Agent) string { return uuid.NewString() },
+			key:   "pr",
+			value: xptr.Ptr("https://github.com/o/r/pull/1"),
+		},
+		{
+			name:  "a value that is not an id at all",
+			id:    func(Agent) string { return "not-an-id" },
+			key:   "pr",
+			value: xptr.Ptr("https://github.com/o/r/pull/1"),
+		},
+		{
+			name:    "an archived agent, which has no listing to show metadata in",
+			create:  true,
+			archive: true,
+			id:      func(created Agent) string { return created.ID },
+			key:     "pr",
+			value:   xptr.Ptr("https://github.com/o/r/pull/1"),
+		},
+		{
+			name:   "clearing a key the agent never held",
+			create: true,
+			id:     func(created Agent) string { return created.ID },
+			key:    "pr",
+		},
+		{
+			name:        "recording a fact",
+			create:      true,
+			id:          func(created Agent) string { return created.ID },
+			key:         "pr",
+			value:       xptr.Ptr("https://github.com/o/r/pull/1"),
+			wantChanged: true,
+			wantStored: []Metadata{
+				{Key: "pr", Value: "https://github.com/o/r/pull/1"},
+			},
+		},
+		{
+			name:   "revising a fact leaves the agent's other keys standing",
+			create: true,
+			id:     func(created Agent) string { return created.ID },
+			before: []Metadata{
+				{Key: "issue", Value: "https://linear.app/x/issue/ENG-1"},
+				{Key: "pr", Value: "https://github.com/o/r/pull/1"},
+			},
+			key:         "pr",
+			value:       xptr.Ptr("https://github.com/o/r/pull/2"),
+			wantChanged: true,
+			wantStored: []Metadata{
+				{Key: "issue", Value: "https://linear.app/x/issue/ENG-1"},
+				{Key: "pr", Value: "https://github.com/o/r/pull/2"},
+			},
+		},
+		{
+			name:   "clearing one key leaves the rest",
+			create: true,
+			id:     func(created Agent) string { return created.ID },
+			before: []Metadata{
+				{Key: "issue", Value: "https://linear.app/x/issue/ENG-1"},
+				{Key: "pr", Value: "https://github.com/o/r/pull/1"},
+			},
+			key:         "pr",
+			wantChanged: true,
+			wantStored: []Metadata{
+				{Key: "issue", Value: "https://linear.app/x/issue/ENG-1"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			var created Agent
+			if tt.create {
+				require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
+				got, err := st.Get(ctx, "agent")
+				require.NoError(t, err)
+				require.NotNil(t, got)
+				created = *got
+			}
+			for _, entry := range tt.before {
+				changed, err := st.SetMetadata(ctx, SetMetadataParams{ID: created.ID, Key: entry.Key, Value: xptr.Ptr(entry.Value)})
+				require.NoError(t, err)
+				require.True(t, changed)
+			}
+			if tt.archive {
+				require.NoError(t, st.Archive(ctx, "agent"))
+			}
+
+			changed, err := st.SetMetadata(ctx, SetMetadataParams{ID: tt.id(created), Key: tt.key, Value: tt.value})
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantChanged, changed)
+
+			if !tt.create || tt.archive {
+				return
+			}
+
+			after, err := st.Get(ctx, "agent")
+			require.NoError(t, err)
+			require.NotNil(t, after)
+			assert.Equal(t, tt.wantStored, after.Metadata)
+		})
+	}
+}
+
+// TestSetMetadataCeiling pins the cap on how many facts one agent may record. The
+// keys are the agent's own invention, so nothing else bounds them, but revising a
+// fact it already recorded has to keep working however full it is.
+func TestSetMetadataCeiling(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, created)
+
+	for i := range maxMetadataKeys {
+		changed, err := st.SetMetadata(ctx, SetMetadataParams{ID: created.ID, Key: fmt.Sprintf("key-%d", i), Value: xptr.Ptr("v")})
+		require.NoError(t, err)
+		require.True(t, changed)
+	}
+
+	_, err = st.SetMetadata(ctx, SetMetadataParams{ID: created.ID, Key: "one-too-many", Value: xptr.Ptr("v")})
+	require.ErrorIs(t, err, ErrTooManyMetadataKeys)
+
+	changed, err := st.SetMetadata(ctx, SetMetadataParams{ID: created.ID, Key: "key-0", Value: xptr.Ptr("revised")})
+	require.NoError(t, err, "revising a key the agent already holds is not a new key")
+	assert.True(t, changed)
+}
+
+// TestListPageHydratesMetadata pins that a listing carries each agent's own facts and
+// nobody else's, in one pass over the page. The panel renders straight off the
+// listing, so metadata arriving only from a single-agent read would leave the info
+// view empty.
+func TestListPageHydratesMetadata(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	ids := make(map[string]string, 2)
+	for _, name := range []string{"first", "second"} {
+		require.NoError(t, st.Create(ctx, Agent{Name: name, State: StateNew}))
+		created, err := st.Get(ctx, name)
+		require.NoError(t, err)
+		require.NotNil(t, created)
+		ids[name] = created.ID
+	}
+
+	// Written out of alphabetical order, so the ordering below is the query's rather
+	// than an accident of insertion.
+	for key, value := range map[string]string{"pr": "https://github.com/o/r/pull/1", "branch": "harry/x"} {
+		changed, err := st.SetMetadata(ctx, SetMetadataParams{ID: ids["first"], Key: key, Value: xptr.Ptr(value)})
+		require.NoError(t, err)
+		require.True(t, changed)
+	}
+
+	listed, err := st.ListPage(ctx, 10, nil, false)
+	require.NoError(t, err)
+	require.Len(t, listed, 2)
+
+	byName := make(map[string][]Metadata, len(listed))
+	for _, agent := range listed {
+		byName[agent.Name] = agent.Metadata
+	}
+
+	assert.Equal(t, []Metadata{
+		{Key: "branch", Value: "harry/x"},
+		{Key: "pr", Value: "https://github.com/o/r/pull/1"},
+	}, byName["first"], "ordered by key, whatever order they were written in")
+	assert.Empty(t, byName["second"], "an agent that recorded nothing carries nothing")
+}
+
+// TestDeleteTakesMetadata pins that a hard delete carries an agent's facts with it.
+// They hang off the agent by a cascading key, so nothing deletes them by hand and a
+// missing cascade would leave rows keyed to an id that no longer exists.
+func TestDeleteTakesMetadata(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, created)
+
+	changed, err := st.SetMetadata(ctx, SetMetadataParams{ID: created.ID, Key: "pr", Value: xptr.Ptr("https://github.com/o/r/pull/1")})
+	require.NoError(t, err)
+	require.True(t, changed)
+
+	target, err := st.Find(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, target)
+	require.NoError(t, st.Delete(ctx, *target))
+
+	orphaned, err := models.New(st.db).ListAgentMetadata(ctx, []string{created.ID})
+	require.NoError(t, err)
+	assert.Empty(t, orphaned)
+}
+
 // TestSetStateByIDKeepsTheMark pins that a state write is only a state write. The
 // mark belongs to the user and the reconciler writes state constantly, so the two
 // share a row without touching each other.
@@ -465,7 +684,7 @@ func TestSetStateByIDKeepsTheMark(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Upsert(ctx, Agent{Name: "agent", State: StateNew}))
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
 	created, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	require.NotNil(t, created)
@@ -513,7 +732,7 @@ func TestActiveNameExists(t *testing.T) {
 			ctx := t.Context()
 
 			if tt.create {
-				require.NoError(t, st.Upsert(ctx, Agent{Name: "agent", State: StateNew}))
+				require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
 			}
 			if tt.archive {
 				require.NoError(t, st.Archive(ctx, "agent"))
@@ -565,7 +784,7 @@ func TestRestore(t *testing.T) {
 				agent.WorkflowID = workflow.ID
 			}
 
-			require.NoError(t, st.Upsert(ctx, agent))
+			require.NoError(t, st.Create(ctx, agent))
 			original, err := st.Get(ctx, "beta")
 			require.NoError(t, err)
 			require.NotNil(t, original)
@@ -580,7 +799,7 @@ func TestRestore(t *testing.T) {
 			restored := *original
 			restored.State = StateNew
 			restored.Pane = "%9"
-			require.NoError(t, st.Upsert(ctx, restored), "upsert on restore must not collide")
+			require.NoError(t, st.Update(ctx, restored), "an update on restore must not collide")
 
 			got, err := st.Get(ctx, "beta")
 			require.NoError(t, err)
@@ -625,7 +844,7 @@ func TestDelete(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Upsert(ctx, Agent{Name: "alpha", Pane: "%1", State: StateNew}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "alpha", Pane: "%1", State: StateNew}))
 
 			if tt.hard {
 				target, err := st.Find(ctx, "alpha")
@@ -673,9 +892,9 @@ func TestListPageDeleted(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Upsert(ctx, Agent{Name: "archived", Pane: "%1", State: StateNew}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "archived", Pane: "%1", State: StateNew}))
 			require.NoError(t, st.Archive(ctx, "archived"))
-			require.NoError(t, st.Upsert(ctx, Agent{Name: "live", Pane: "%2", State: StateNew}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "live", Pane: "%2", State: StateNew}))
 
 			page, err := st.ListPage(ctx, 10, nil, tt.deleted)
 			require.NoError(t, err)
@@ -697,13 +916,13 @@ func TestFindByID(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Upsert(ctx, Agent{Name: "shared", Pane: "%1", State: StateNew}))
+	require.NoError(t, st.Create(ctx, Agent{Name: "shared", Pane: "%1", State: StateNew}))
 	first, err := st.Get(ctx, "shared")
 	require.NoError(t, err)
 	require.NotNil(t, first)
 
 	require.NoError(t, st.Archive(ctx, "shared"))
-	require.NoError(t, st.Upsert(ctx, Agent{Name: "shared", Pane: "%2", State: StateNew}))
+	require.NoError(t, st.Create(ctx, Agent{Name: "shared", Pane: "%2", State: StateNew}))
 
 	target, err := st.FindByID(ctx, first.ID)
 	require.NoError(t, err)
@@ -743,8 +962,8 @@ func TestMoveToWorkflow(t *testing.T) {
 			elsewhere, err := st.workflows.Create(ctx, workflowstore.Config{Name: "elsewhere"})
 			require.NoError(t, err)
 
-			require.NoError(t, st.Upsert(ctx, Agent{Name: "scoped", State: StateNew}))
-			require.NoError(t, st.Upsert(ctx, Agent{Name: "untouched", State: StateNew}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "scoped", State: StateNew}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "untouched", State: StateNew}))
 
 			scoped, err := st.Get(ctx, "scoped")
 			require.NoError(t, err)
@@ -815,7 +1034,7 @@ func TestGetByIdempotencyKey(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Upsert(ctx, Agent{Name: "agent", State: StateNew, IdempotencyKey: &tt.key}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew, IdempotencyKey: &tt.key}))
 			if tt.archive {
 				require.NoError(t, st.Archive(ctx, "agent"))
 			}
@@ -867,9 +1086,9 @@ func TestIdempotencyKeyIsUnique(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Upsert(ctx, Agent{Name: "first", State: StateNew, IdempotencyKey: tt.first}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "first", State: StateNew, IdempotencyKey: tt.first}))
 
-			err := st.Upsert(ctx, Agent{Name: "second", State: StateNew, IdempotencyKey: tt.second})
+			err := st.Create(ctx, Agent{Name: "second", State: StateNew, IdempotencyKey: tt.second})
 			if tt.wantFail {
 				require.Error(t, err)
 				return
@@ -944,7 +1163,7 @@ func TestCountLiveForSchedule(t *testing.T) {
 			schedule := seedSchedule(t, st)
 			for i, state := range tt.states {
 				name := fmt.Sprintf("agent-%d", i)
-				require.NoError(t, st.Upsert(ctx, Agent{Name: name, State: state, ScheduleID: &schedule}))
+				require.NoError(t, st.Create(ctx, Agent{Name: name, State: state, ScheduleID: &schedule}))
 				if tt.archive {
 					require.NoError(t, st.Archive(ctx, name))
 				}
@@ -976,13 +1195,13 @@ type fixture struct {
 	defaultWorkflow string
 }
 
-// Upsert fills in the default workflow when the test did not name one.
-func (f *fixture) Upsert(ctx context.Context, agent Agent) error {
+// Create fills in the default workflow when the test did not name one.
+func (f *fixture) Create(ctx context.Context, agent Agent) error {
 	if agent.WorkflowID == "" {
 		agent.WorkflowID = f.defaultWorkflow
 	}
 
-	return f.Store.Upsert(ctx, agent)
+	return f.Store.Create(ctx, agent)
 }
 
 // open builds the stores over a throwaway database, with one workflow ready to

@@ -53,7 +53,10 @@ func (c *Client) paneID(target string) (string, error) {
 	return c.query("display-message", "-p", "-t", target, "#{pane_id}")
 }
 
-// PaneAlive reports whether the given pane still exists.
+// PaneAlive reports whether the given pane still exists. It answers for a pane
+// the caller created and still holds, such as the panel's own stage. An agent's
+// pane is asked about with PaneOwner instead, since a stored id alone is not
+// evidence the pane behind it is still that agent's.
 func (c *Client) PaneAlive(pane string) bool {
 	if pane == "" {
 		return false
@@ -61,6 +64,44 @@ func (c *Client) PaneAlive(pane string) bool {
 
 	id, err := c.paneID(pane)
 	return err == nil && id == pane
+}
+
+// paneOwnerOption is the pane-scoped tmux option an agent's pane is stamped with.
+// The @ prefix is what tmux reserves for user options, so it cannot collide with
+// an option tmux itself defines now or later.
+const paneOwnerOption = "@claude_agent_id"
+
+// SetPaneOwner stamps a pane with the id of the agent running in it. tmux only
+// promises a pane id is unique while the server that issued it lives, so numbering
+// restarts from %0 when the server is restarted and an id recorded against a
+// dormant agent is handed out again to somebody else's pane. The stamp is what
+// makes the pairing verifiable rather than assumed: it travels with the pane for
+// its whole life, no matter which window or session the pane is moved into, and a
+// pane from a dead server carries nothing.
+func (c *Client) SetPaneOwner(pane, agentID string) error {
+	if pane == "" || agentID == "" {
+		return errors.New("refusing to stamp a pane without both a pane and an agent")
+	}
+
+	if _, err := c.query("set-option", "-p", "-t", pane, paneOwnerOption, agentID); err != nil {
+		return fmt.Errorf("failed to stamp pane %q for agent %q: %w", pane, agentID, err)
+	}
+
+	return nil
+}
+
+// PaneOwner returns the id of the agent whose pane this is, empty when the pane is
+// gone, was not stamped, or belongs to something other than an agent. A caller
+// compares it against the agent it holds rather than treating a non-empty answer as
+// liveness.
+func (c *Client) PaneOwner(pane string) string {
+	if pane == "" {
+		return ""
+	}
+
+	owner, _ := c.query("show-options", "-p", "-qv", "-t", pane, paneOwnerOption)
+
+	return owner
 }
 
 // ClientPath returns a client's active pane working directory.

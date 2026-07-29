@@ -35,6 +35,11 @@ func renderAgent(stored agentstore.Agent, alive bool) agent {
 		created = stored.CreatedAt.Format(time.RFC3339)
 	}
 
+	metadata := make([]*agentv1.AgentMetadata, 0, len(stored.Metadata))
+	for _, entry := range stored.Metadata {
+		metadata = append(metadata, &agentv1.AgentMetadata{Key: entry.Key, Value: entry.Value})
+	}
+
 	return agent{
 		Agent: &agentv1.Agent{
 			Id:              stored.ID,
@@ -51,6 +56,8 @@ func renderAgent(stored agentstore.Agent, alive bool) agent {
 			Alive:           alive,
 			Mark:            stored.Mark,
 			Hidden:          stored.Hidden,
+			Metadata:        metadata,
+			IdempotencyKey:  stored.IdempotencyKey,
 		},
 		cursor: agentstore.Cursor{ID: stored.ID},
 	}

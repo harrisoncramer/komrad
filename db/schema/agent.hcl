@@ -258,12 +258,61 @@ table "agent_transcript_chunks" {
   }
 }
 
+# Facts an agent records about its own work as it goes, so the panel can show
+# what an issue or pull request a conversation was about without reading the
+# transcript back. The agent writes these itself, and nothing else does.
+#
+# A row per key rather than one document per agent, because an agent recording a
+# second fact would otherwise have to rewrite the whole thing and could drop
+# whatever it had not read first. The pair below is the identity, so a repeated
+# write of the same fact updates in place instead of accumulating.
+table "agent_metadata" {
+  schema  = schema.public
+  comment = "Key/value facts an agent recorded about its own work."
+  column "agent_id" {
+    null = false
+    type = uuid
+  }
+  # The agent's own choice of name for the fact, constrained to a slug by the
+  # proto so a key reads the same however many agents wrote it and the panel can
+  # align a column of them.
+  column "key" {
+    null = false
+    type = text
+  }
+  column "value" {
+    null = false
+    type = text
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "updated_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  primary_key {
+    columns = [column.agent_id, column.key]
+  }
+  foreign_key "agent_metadata_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+}
+
 table "agents" {
   schema  = schema.public
   comment = "One background Claude agent, everything needed to restore it."
-  # uuidv7, time-ordered so it sorts chronologically. Postgres 18 generates it,
-  # so an id is never invented by a caller and every row is stamped the same way
-  # whichever process wrote it.
+  # uuidv7, time-ordered so it sorts chronologically, which is what the keyset page
+  # reads as newest-first. The service mints it before the insert, since the tmux
+  # pane the agent runs in is stamped with it and has to be stamped before the row
+  # exists. The default covers a writer that brings none, and generates the same
+  # version so both sort together.
   column "id" {
     null    = false
     type    = uuid

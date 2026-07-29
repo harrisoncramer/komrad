@@ -99,10 +99,12 @@ func frameShowsWaiting(frame string) bool {
 }
 
 // tmuxProbe is the part of the tmux client the reconciler observes through.
-// Liveness keys on the pane id rather than a session name, so an agent stays
-// observable no matter which window or session its pane sits in.
+// Observation keys on the pane id rather than a session name, so an agent stays
+// observable no matter which window or session its pane sits in, and on the pane's
+// owner stamp rather than the pane's mere existence, so a pane id the tmux server
+// has reissued to somebody else is not read as this agent still running.
 type tmuxProbe interface {
-	PaneAlive(pane string) bool
+	PaneOwner(pane string) string
 	CapturePane(pane string) string
 }
 
@@ -112,6 +114,7 @@ type tmuxProbe interface {
 type stateStore interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	SetStateByID(ctx context.Context, id, state string) error
+	ClearPane(ctx context.Context, id string) error
 }
 
 // Reconciler is the single source of truth for agent state. Rather than react to
@@ -160,10 +163,18 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 
 // reconcileAgent writes the single agent's state to match what tmux shows.
 func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent) {
-	// The pane is gone, so the agent is dormant and cannot be working. An active
-	// state settles to done so the counts stop treating it as running. A new agent
-	// that never launched, or one already done, is left as is.
-	if !r.tmux.PaneAlive(agent.Pane) {
+	// The pane behind the recorded id is not this agent's, so the agent is dormant
+	// and cannot be working, whether its pane died or the tmux server has since given
+	// that id to somebody else. An active state settles to done so the counts stop
+	// treating it as running. A new agent that never launched, or one already done, is
+	// left as is.
+	if !paneOwnedBy(r.tmux.PaneOwner(agent.Pane), agent.ID) {
+		// Drop the claim as well as the state. A pane id kept on a dormant row is the
+		// one that collides after a server restart, so forgetting it here is what stops
+		// a later pass, a stage preview, or a kill from landing on another agent's pane.
+		if agent.Pane != "" {
+			_ = r.store.ClearPane(ctx, agent.ID)
+		}
 		if agent.State == agentstore.StateThinking || agent.State == agentstore.StateWaiting {
 			r.apply(ctx, agent, agentstore.StateDone)
 		} else {
@@ -172,10 +183,7 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent)
 		return
 	}
 
-	var frame string
-	if agent.Pane != "" {
-		frame = r.tmux.CapturePane(agent.Pane)
-	}
+	frame := r.tmux.CapturePane(agent.Pane)
 
 	// An empty capture means the pane could not be read, not that Claude went idle.
 	// A live agent always shows at least its input box, so this is inconclusive and

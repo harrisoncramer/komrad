@@ -539,6 +539,11 @@ func clampCursor(idx, length int) int {
 func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 	created, _ := time.Parse(time.RFC3339, s.GetCreatedAt())
 
+	metadata := make([]agentstore.Metadata, 0, len(s.GetMetadata()))
+	for _, entry := range s.GetMetadata() {
+		metadata = append(metadata, agentstore.Metadata{Key: entry.GetKey(), Value: entry.GetValue()})
+	}
+
 	return agentstore.Agent{
 		ID:              s.GetId(),
 		Name:            s.GetName(),
@@ -553,6 +558,7 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 		CreatedAt:       created,
 		Mark:            s.Mark,
 		Hidden:          s.GetHidden(),
+		Metadata:        metadata,
 	}
 }
 

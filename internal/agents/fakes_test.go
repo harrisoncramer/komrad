@@ -14,12 +14,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeTmux is a scripted, recording tmux client. Reads are served from the alive
+// fakeTmux is a scripted, recording tmux client. Reads are served from the owners
 // and captures maps. Writes are appended to the recording slices so a test can
 // assert what the manager sent. It implements tmuxClient and also satisfies the
 // reconciler's narrower tmuxProbe.
 type fakeTmux struct {
-	alive     map[string]bool
+	// owners maps a live pane to the agent stamped on it, which is how the real
+	// client answers whether a pane is still a given agent's. A pane present here
+	// exists; one absent is either gone or was never opened.
+	owners    map[string]string
 	captures  map[string]string
 	clientDir string
 
@@ -34,11 +37,17 @@ type fakeTmux struct {
 	// newWindowErr makes NewWindow fail, standing in for tmux refusing to open
 	// a window.
 	newWindowErr error
+	// setOwnerErr makes SetPaneOwner fail, standing in for tmux refusing to stamp
+	// the pane a launch was about to run in.
+	setOwnerErr error
+	// sendKeysErr makes SendKeys fail, standing in for a launch that never reaches
+	// the pane's shell.
+	sendKeysErr error
 }
 
 func newFakeTmux() *fakeTmux {
 	return &fakeTmux{
-		alive:          map[string]bool{},
+		owners:         map[string]string{},
 		captures:       map[string]string{},
 		sent:           map[string][][]string{},
 		globals:        map[string]string{},
@@ -49,7 +58,7 @@ func newFakeTmux() *fakeTmux {
 
 func (f *fakeTmux) SetGlobal(name, value string)   { f.globals[name] = value }
 func (f *fakeTmux) ShowGlobal(name string) string  { return f.globals[name] }
-func (f *fakeTmux) PaneAlive(pane string) bool     { return f.alive[pane] }
+func (f *fakeTmux) PaneOwner(pane string) string   { return f.owners[pane] }
 func (f *fakeTmux) CapturePane(pane string) string { return f.captures[pane] }
 func (f *fakeTmux) ClientPath(string) string       { return f.clientDir }
 func (f *fakeTmux) DetachSession(name string)      { f.detached = append(f.detached, name) }
@@ -59,6 +68,9 @@ func (f *fakeTmux) SetSessionOption(target, name, value string) {
 }
 
 func (f *fakeTmux) SendKeys(target string, keys ...string) error {
+	if f.sendKeysErr != nil {
+		return f.sendKeysErr
+	}
 	if target == "" {
 		return errors.New("refusing to send keys to an empty target")
 	}
@@ -73,9 +85,10 @@ func (f *fakeTmux) CurrentPane() (string, error) { return "%nav", nil }
 // SplitRight records the anchor and returns a fixed stage pane id.
 func (f *fakeTmux) SplitRight(anchorPane, dir string) string { return "%stage" }
 
-// NewWindow records the window and returns a synthetic pane id, marking it alive
-// so pane-keyed liveness sees it. Setting newWindowErr makes it fail, standing in
-// for tmux refusing a name it cannot use.
+// NewWindow records the window and returns a synthetic pane id. The pane is not
+// owned by anybody until it is stamped, which is what the service does next.
+// Setting newWindowErr makes it fail, standing in for tmux refusing a name it
+// cannot use.
 func (f *fakeTmux) NewWindow(session, name, dir string) (string, error) {
 	if f.newWindowErr != nil {
 		return "", f.newWindowErr
@@ -83,9 +96,21 @@ func (f *fakeTmux) NewWindow(session, name, dir string) (string, error) {
 
 	f.newWindows[name] = dir
 	pane := "%" + name
-	f.alive[pane] = true
+	f.owners[pane] = ""
 
 	return pane, nil
+}
+
+// SetPaneOwner stamps a pane with an agent id, which is what makes the pane answer
+// to that agent. Setting setOwnerErr makes it fail.
+func (f *fakeTmux) SetPaneOwner(pane, agentID string) error {
+	if f.setOwnerErr != nil {
+		return f.setOwnerErr
+	}
+
+	f.owners[pane] = agentID
+
+	return nil
 }
 
 func (f *fakeTmux) SwapPanes(src, dst string) { f.swaps = append(f.swaps, [2]string{src, dst}) }
@@ -96,7 +121,7 @@ func (f *fakeTmux) RespawnPane(pane, dir string, argv ...string) {
 
 func (f *fakeTmux) KillPane(pane string) {
 	f.killedPanes = append(f.killedPanes, pane)
-	delete(f.alive, pane)
+	delete(f.owners, pane)
 }
 
 // lastKeys returns the most recent SendKeys payload sent to target.
@@ -131,10 +156,10 @@ func (s *testStore) Get(ctx context.Context, name string) (*agentstore.Agent, er
 	return s.Agents.Get(ctx, name)
 }
 
-// Upsert records an agent, filing it under a workflow of its own when the test
+// Create records an agent, filing it under a workflow of its own when the test
 // did not name one. Every agent belongs to a workflow, and most tests here are
 // about something else entirely.
-func (s *testStore) Upsert(ctx context.Context, agent agentstore.Agent) error {
+func (s *testStore) Create(ctx context.Context, agent agentstore.Agent) error {
 	if agent.WorkflowID == "" {
 		created, err := s.Workflows.Create(ctx, workflowstore.Config{Name: "workflow-" + uuid.NewString()})
 		if err != nil {
@@ -144,7 +169,18 @@ func (s *testStore) Upsert(ctx context.Context, agent agentstore.Agent) error {
 		agent.WorkflowID = created.ID
 	}
 
-	return s.Agents.Upsert(ctx, agent)
+	return s.Agents.Create(ctx, agent)
+}
+
+// Update rewrites an agent the test already recorded.
+func (s *testStore) Update(ctx context.Context, agent agentstore.Agent) error {
+	return s.Agents.Update(ctx, agent)
+}
+
+// ClearPane drops an agent's recorded pane, which is what the reconciler does to
+// a row whose pane is no longer its own.
+func (s *testStore) ClearPane(ctx context.Context, id string) error {
+	return s.Agents.ClearPane(ctx, id)
 }
 
 func (s *testStore) List(ctx context.Context) ([]agentstore.Agent, error) {
@@ -189,13 +225,32 @@ func (s *testStore) workflowService() *WorkflowService {
 func seed(t *testing.T, st *testStore, name, pane, state string) agentstore.Agent {
 	t.Helper()
 	ctx := context.Background()
-	require.NoError(t, st.Upsert(ctx, agentstore.Agent{Name: name, Pane: pane, State: state}))
+	require.NoError(t, st.Create(ctx, agentstore.Agent{Name: name, Pane: pane, State: state}))
 
 	got, err := st.Get(ctx, name)
 	require.NoError(t, err)
 	require.NotNil(t, got)
 
 	return *got
+}
+
+// paneStamper is the one thing seedRunning needs, which both the fake and the real
+// tmux client provide, so a test against either arranges a running agent the same
+// way.
+type paneStamper interface {
+	SetPaneOwner(pane, agentID string) error
+}
+
+// seedRunning inserts an agent and stamps its pane with the id the store gave it,
+// which is what a launched agent looks like: a row, plus a pane that answers to it.
+// Seeding without the stamp describes an agent whose recorded pane is somebody
+// else's, so a test wanting a live agent has to arrange both.
+func seedRunning(t *testing.T, st *testStore, tmux paneStamper, name, pane, state string) agentstore.Agent {
+	t.Helper()
+	agent := seed(t, st, name, pane, state)
+	require.NoError(t, tmux.SetPaneOwner(pane, agent.ID))
+
+	return agent
 }
 
 func stateOf(t *testing.T, st *testStore, name string) string {

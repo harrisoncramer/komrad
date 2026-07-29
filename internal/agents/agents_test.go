@@ -24,9 +24,14 @@ func TestNewAgent(t *testing.T) {
 		dir         func(t *testing.T) string
 		title       string
 		windowErr   error
+		sendKeysErr error
+		setOwnerErr error
 		badWorkflow bool
 		wantErrIs   error
 		wantErr     string
+		// wantPaneKilled says the window was already open when the launch failed, so
+		// tearing the agent down has to take the pane with it.
+		wantPaneKilled bool
 	}{
 		{
 			name:      "a directory nobody can enter",
@@ -60,6 +65,28 @@ func TestNewAgent(t *testing.T) {
 			wantErr:   "failed to open a window",
 		},
 		{
+			// Without the stamp there is nothing tying the pane to the agent, so the row
+			// would claim a pane nothing can verify is still its own. That is the state
+			// this whole mechanism exists to avoid, so the launch fails instead.
+			name:           "a pane tmux refuses to stamp",
+			dir:            func(t *testing.T) string { return t.TempDir() },
+			title:          "unstamped",
+			setOwnerErr:    errors.New("tmux refused the option"),
+			wantErr:        "failed to stamp the pane",
+			wantPaneKilled: true,
+		},
+		{
+			// The row is written before claude is typed, so a launch that dies here has
+			// left one behind. It has to be taken back out or it lists as a live agent with
+			// nothing running in it.
+			name:           "a launch that never reaches the pane's shell",
+			dir:            func(t *testing.T) string { return t.TempDir() },
+			title:          "stillborn",
+			sendKeysErr:    errors.New("tmux dropped the keys"),
+			wantErr:        "failed to launch claude",
+			wantPaneKilled: true,
+		},
+		{
 			name:  "a launch that works",
 			dir:   func(t *testing.T) string { return t.TempDir() },
 			title: "My Agent",
@@ -70,6 +97,8 @@ func TestNewAgent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := newFakeTmux()
 			tmux.newWindowErr = tt.windowErr
+			tmux.sendKeysErr = tt.sendKeysErr
+			tmux.setOwnerErr = tt.setOwnerErr
 			st := newStore(t)
 			manager := newManager(tmux, st, "--default-flag")
 
@@ -101,6 +130,10 @@ func TestNewAgent(t *testing.T) {
 				require.NoError(t, listErr)
 				assert.Empty(t, agents, "a refused launch records nothing")
 
+				if tt.wantPaneKilled {
+					assert.NotEmpty(t, tmux.killedPanes, "the open pane goes with the record")
+				}
+
 				return
 			}
 
@@ -119,6 +152,8 @@ func TestNewAgent(t *testing.T) {
 			assert.Equal(t, agentstore.StateNew, stored.State)
 			assert.NotEmpty(t, stored.ClaudeSessionID, "a conversation id is pinned at launch")
 			assert.NotEmpty(t, tmux.lastKeys("%My-Agent"), "claude is launched into the new pane")
+			assert.Equal(t, stored.ID, tmux.owners["%My-Agent"], "the pane is stamped with the agent it is running")
+			assert.True(t, manager.AgentRunning(*stored), "and the agent reads as running in it")
 		})
 	}
 }
@@ -422,7 +457,7 @@ func TestArchiveAgent(t *testing.T) {
 			manager := newManager(tmux, st, "")
 
 			if tt.seed != "" {
-				seed(t, st, tt.seed, "%1", agentstore.StateThinking)
+				seedRunning(t, st, tmux, tt.seed, "%1", agentstore.StateThinking)
 			}
 
 			err := manager.ArchiveAgent(t.Context(), tt.target)
@@ -478,7 +513,7 @@ func TestDeleteAgent(t *testing.T) {
 			manager := newManager(tmux, st, "")
 			ctx := t.Context()
 
-			seeded := seed(t, st, "target", "%1", agentstore.StateThinking)
+			seeded := seedRunning(t, st, tmux, "target", "%1", agentstore.StateThinking)
 			require.NoError(t, st.Transcripts.Upsert(ctx, transcriptstore.UpsertParams{
 				AgentID: seeded.ID, Content: "something it said", Offset: 1,
 			}))
@@ -511,6 +546,70 @@ func TestDeleteAgent(t *testing.T) {
 	}
 }
 
+// TestAReissuedPaneIsNotTheAgents covers the whole point of stamping a pane. tmux
+// only promises a pane id is unique while the server that issued it lives, so a
+// dormant agent's recorded pane routinely names a pane the next server gave to a
+// different agent. Every read of a stored pane id has to survive that: the agent
+// must not read as running, and nothing may reach into the pane that is now
+// somebody else's.
+func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
+	// The two agents share a pane id the way rows in the panel's database do after a
+	// restart: the live one holds it because it is running there, and the dormant one
+	// because that is what its row still says.
+	const shared = "%4"
+
+	setup := func(t *testing.T) (*AgentService, *testStore, *fakeTmux, agentstore.Agent) {
+		t.Helper()
+		st := newStore(t)
+		tmux := newFakeTmux()
+		dormant := seed(t, st, "dormant", shared, agentstore.StateDone)
+		seedRunning(t, st, tmux, "running", shared, agentstore.StateThinking)
+
+		return newManager(tmux, st, ""), st, tmux, dormant
+	}
+
+	t.Run("the dormant agent does not read as running", func(t *testing.T) {
+		manager, _, _, dormant := setup(t)
+		assert.False(t, manager.AgentRunning(dormant))
+	})
+
+	t.Run("archiving it leaves the pane running", func(t *testing.T) {
+		manager, _, tmux, dormant := setup(t)
+		require.NoError(t, manager.ArchiveAgent(t.Context(), dormant.Name))
+		assert.Empty(t, tmux.killedPanes, "killing by a stale id would stop the agent using that pane now")
+	})
+
+	t.Run("deleting it leaves the pane running", func(t *testing.T) {
+		manager, _, tmux, dormant := setup(t)
+		require.NoError(t, manager.DeleteAgent(t.Context(), dormant.ID))
+		assert.Empty(t, tmux.killedPanes, "killing by a stale id would stop the agent using that pane now")
+	})
+
+	t.Run("restoring it opens a window rather than adopting the pane", func(t *testing.T) {
+		manager, st, tmux, dormant := setup(t)
+		restored, err := manager.RestoreAgent(t.Context(), dormant.ID)
+		require.NoError(t, err)
+		assert.NotEqual(t, shared, restored.Pane, "a restore that read the pane as its own would relaunch nothing")
+		assert.Equal(t, dormant.ID, tmux.owners[restored.Pane], "and the new pane is its own")
+
+		still := agentByID(t, st, dormant.ID)
+		assert.Equal(t, restored.Pane, still.Pane)
+	})
+
+	t.Run("a reconcile pass forgets the claim without reading the pane", func(t *testing.T) {
+		_, st, tmux, dormant := setup(t)
+		tmux.captures[shared] = busyFrame
+
+		rec := NewReconciler(tmux, st.Agents)
+		require.NoError(t, rec.Reconcile(t.Context()))
+
+		after := agentByID(t, st, dormant.ID)
+		assert.Empty(t, after.Pane, "the stale claim is dropped, so it cannot collide again")
+		assert.Equal(t, agentstore.StateDone, after.State, "the frame belongs to another agent and says nothing about this one")
+		assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "running"), "the agent actually in that pane is read normally")
+	})
+}
+
 // TestRestore covers bringing an archived agent back. Its name may have been
 // taken while it sat hidden, in which case restoring under that name would
 // collide on the unique index.
@@ -534,10 +633,11 @@ func TestRestore(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			manager := newManager(newFakeTmux(), st, "")
+			tmux := newFakeTmux()
+			manager := newManager(tmux, st, "")
 			ctx := t.Context()
 
-			require.NoError(t, st.Upsert(ctx, agentstore.Agent{
+			require.NoError(t, st.Create(ctx, agentstore.Agent{
 				Name:            "foo",
 				State:           agentstore.StateDone,
 				ClaudeSessionID: "sess-old",
@@ -547,7 +647,7 @@ func TestRestore(t *testing.T) {
 			require.NoError(t, st.SoftDelete(ctx, "foo"))
 
 			if tt.reuseName {
-				require.NoError(t, st.Upsert(ctx, agentstore.Agent{Name: "foo", State: agentstore.StateNew}))
+				require.NoError(t, st.Create(ctx, agentstore.Agent{Name: "foo", State: agentstore.StateNew}))
 			}
 
 			archived := *original
@@ -558,6 +658,8 @@ func TestRestore(t *testing.T) {
 			assert.False(t, restored.Deleted, "the agent is back in the listing")
 			assert.Equal(t, agentstore.StateNew, restored.State)
 			assert.Equal(t, "sess-old", restored.ClaudeSessionID, "the conversation is preserved")
+			assert.Equal(t, original.ID, tmux.owners[restored.Pane], "the pane it came back in is stamped with its id")
+			assert.True(t, manager.AgentRunning(restored), "so it reads as running again")
 
 			if tt.wantSameName {
 				assert.Equal(t, "foo", restored.Name)

@@ -476,6 +476,103 @@ func TestSetMark(t *testing.T) {
 	}
 }
 
+// TestSetMetadata covers an agent recording facts about its own work and reading
+// them back off the resource, which is where the panel gets them.
+func TestSetMetadata(t *testing.T) {
+	tests := []struct {
+		name string
+		seed bool
+		// recordFirst is written before the call, so revising and clearing a fact both
+		// have one to work from.
+		recordFirst []agentstore.Metadata
+		key         string
+		value       *string
+		wantCode    connect.Code
+		// wantStored is the metadata the agent should carry afterwards, compared as
+		// stored pairs rather than protos so the ordering the store promised is what is
+		// asserted.
+		wantStored []agentstore.Metadata
+	}{
+		{
+			name:     "an id nobody holds is not a quiet success",
+			key:      "pr",
+			value:    xptr.Ptr("https://github.com/o/r/pull/1"),
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			// The key is gone either way, so failing a request that got what it asked
+			// for would have an agent retrying a clear that already held.
+			name: "clearing a key nothing held is served, not refused",
+			seed: true,
+			key:  "pr",
+		},
+		{
+			name:  "an agent records a fact",
+			seed:  true,
+			key:   "linear_issue",
+			value: xptr.Ptr("https://linear.app/x/issue/ENG-1"),
+			wantStored: []agentstore.Metadata{
+				{Key: "linear_issue", Value: "https://linear.app/x/issue/ENG-1"},
+			},
+		},
+		{
+			name: "revising one fact leaves the others alone",
+			seed: true,
+			recordFirst: []agentstore.Metadata{
+				{Key: "branch", Value: "harry/x"},
+				{Key: "pr", Value: "https://github.com/o/r/pull/1"},
+			},
+			key:   "pr",
+			value: xptr.Ptr("https://github.com/o/r/pull/2"),
+			wantStored: []agentstore.Metadata{
+				{Key: "branch", Value: "harry/x"},
+				{Key: "pr", Value: "https://github.com/o/r/pull/2"},
+			},
+		},
+		{
+			name: "and one is cleared without taking the rest",
+			seed: true,
+			recordFirst: []agentstore.Metadata{
+				{Key: "branch", Value: "harry/x"},
+				{Key: "pr", Value: "https://github.com/o/r/pull/1"},
+			},
+			key: "pr",
+			wantStored: []agentstore.Metadata{
+				{Key: "branch", Value: "harry/x"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, st := service(t)
+			ctx := t.Context()
+
+			id := uuid.NewString()
+			if tt.seed {
+				id = st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking}).ID
+			}
+			for _, entry := range tt.recordFirst {
+				changed, err := st.Agents.SetMetadata(ctx, agentstore.SetMetadataParams{ID: id, Key: entry.Key, Value: xptr.Ptr(entry.Value)})
+				require.NoError(t, err)
+				require.True(t, changed)
+			}
+
+			_, err := svc.SetMetadata(ctx, connect.NewRequest(&agentv1.SetMetadataRequest{Id: id, Key: tt.key, Value: tt.value}))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+				return
+			}
+
+			require.NoError(t, err)
+
+			got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Name: "alpha"}))
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantStored, storedMetadata(got.Msg.GetAgent()))
+		})
+	}
+}
+
 // TestAgentLifecycleGoesThroughTheService covers delete, archive, and restore.
 // All three hand off to the thing that can stop or relaunch an agent rather than
 // editing rows behind its back, which is what leaves an agent running with
@@ -590,9 +687,9 @@ func (f *fakeLauncher) NewAgent(_ context.Context, p agents.NewAgentParams) (*ag
 	return f.created, nil
 }
 
-// PaneAlive answers for the fake's agents. Nothing here runs tmux, so an agent is
-// live exactly when the test says it is.
-func (f *fakeLauncher) PaneAlive(string) bool { return f.alive }
+// AgentRunning answers for the fake's agents. Nothing here runs tmux, so an agent
+// is live exactly when the test says it is.
+func (f *fakeLauncher) AgentRunning(agentstore.Agent) bool { return f.alive }
 
 func (f *fakeLauncher) DeleteAgent(_ context.Context, id string) error {
 	f.deleted = append(f.deleted, id)
@@ -620,6 +717,21 @@ func service(t *testing.T) (*Service, *storetest.Stores) {
 	svc, st, _ := serviceWithLauncher(t)
 
 	return svc, st
+}
+
+// storedMetadata flattens a rendered agent's metadata back to stored pairs, so a
+// test states what the agent should carry without spelling out protos.
+func storedMetadata(agent *agentv1.Agent) []agentstore.Metadata {
+	if len(agent.GetMetadata()) == 0 {
+		return nil
+	}
+
+	stored := make([]agentstore.Metadata, 0, len(agent.GetMetadata()))
+	for _, entry := range agent.GetMetadata() {
+		stored = append(stored, agentstore.Metadata{Key: entry.GetKey(), Value: entry.GetValue()})
+	}
+
+	return stored
 }
 
 func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLauncher) {

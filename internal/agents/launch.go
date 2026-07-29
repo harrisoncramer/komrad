@@ -42,6 +42,8 @@ const mcpBriefing = `You are a background agent run by claude-agents, a tmux pan
 
 That server's tools are list_tables, describe_table, and query, which runs a single SELECT. Between them they cover every agent the panel knows about. The agents table holds each agent's name, state, and pane, agent_configs its working directory and flags, workflows the groups agents belong to, and agent_transcripts the text of their conversations. Writes are rejected. Reach for these when the question is about the other agents rather than the code in front of you.
 
+You are one of those agents, and your own id is in the CLAUDE_AGENTS_AGENT_ID environment variable. As you work, record what a person would want to open later against that id with set_agent_metadata, under keys you choose: the Linear issue you are implementing, the pull request you opened, the branch you are on. Store full URLs. The panel shows them beside you, which is the only way someone finds their way back to what you touched without reading this whole conversation again. Record each one when you learn it rather than at the end, since a conversation can be interrupted.
+
 If those tools are not present in your session, the server is not registered with your client. Say that plainly rather than answering from guesswork.`
 
 // mcpConfigJSON is the MCP client config every agent launches with, pointing at
@@ -93,6 +95,7 @@ type launchClaudeParams struct {
 	Prompt          string
 	WorkflowContext string
 	ClaudeSessionID string
+	AgentID         string
 	Resume          bool
 }
 
@@ -102,6 +105,15 @@ type launchClaudeParams struct {
 // file so multi-line input survives, removed as the command runs.
 func (l *Launcher) launch(params launchClaudeParams) error {
 	command := "claude"
+
+	// The agent's own id rides in on the environment rather than in the appended
+	// system prompt, because it has to survive a resume and that prompt does not. An
+	// agent that only learned its id at spawn would go anonymous the first time it was
+	// restored and could no longer record anything against itself. It is a uuid out of
+	// the store, quoted like everything else that reaches this shell.
+	if params.AgentID != "" {
+		command = fmt.Sprintf("CLAUDE_AGENTS_AGENT_ID=%s claude", quoteArg(params.AgentID))
+	}
 
 	// Flags are data, not shell. They are split into arguments and quoted, so a
 	// flag carrying $(...), a backtick, or a semicolon reaches claude as a

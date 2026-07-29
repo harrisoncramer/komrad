@@ -135,6 +135,21 @@ func IsID(id string) bool {
 	return err == nil
 }
 
+// NewID mints a row id the same way the columns' own uuidv7() default does, for a
+// caller that needs the id before the row exists. The version matters rather than
+// just the uniqueness: a v7 carries its creation time in its leading bits, so the
+// keyset pages and the search tie-breaks that order by id read it as the order rows
+// were written. A v4 here would be unique and sort arbitrarily, shuffling listings
+// against the rows the database generated.
+func NewID() (string, error) {
+	id, err := uuid.NewV7()
+	if err != nil {
+		return "", fmt.Errorf("failed to mint an id: %w", err)
+	}
+
+	return id.String(), nil
+}
+
 // NoRows reports whether an error is Postgres finding nothing, which every
 // domain store turns into its own empty answer rather than an error.
 func NoRows(err error) bool {

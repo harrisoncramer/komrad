@@ -101,7 +101,10 @@ func TestAgentMarkdown(t *testing.T) {
 		alive bool
 		// schedule is the name of the schedule that launched the agent, empty for
 		// one a person started.
-		schedule    string
+		schedule string
+		// metadata is what the agent recorded about its own work, empty for one that
+		// recorded nothing.
+		metadata    []agentstore.Metadata
 		wantContain []string
 		wantAbsent  []string
 	}{
@@ -135,10 +138,31 @@ func TestAgentMarkdown(t *testing.T) {
 			alive:      true,
 			wantAbsent: []string{"launched by"},
 		},
+		{
+			name:       "an agent that recorded nothing draws no heading for it",
+			alive:      true,
+			wantAbsent: []string{"metadata"},
+		},
+		{
+			name:  "what the agent recorded is listed under its own heading",
+			alive: true,
+			metadata: []agentstore.Metadata{
+				{Key: "branch", Value: "harry/rate-limits"},
+				{Key: "pr", Value: "https://github.com/o/r/pull/312"},
+			},
+			wantContain: []string{
+				"## metadata",
+				"- branch: harry/rate-limits",
+				"- pr: https://github.com/o/r/pull/312",
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			agent := agent
+			agent.Metadata = tt.metadata
+
 			got := agentMarkdown(agent, tt.alive, tt.schedule)
 
 			for _, want := range tt.wantContain {

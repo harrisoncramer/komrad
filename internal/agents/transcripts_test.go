@@ -236,7 +236,7 @@ const testClaudeID = "claude-abc"
 func seedWithClaudeID(t *testing.T, st *testStore, claudeID string) agentstore.Agent {
 	t.Helper()
 	ctx := context.Background()
-	require.NoError(t, st.Upsert(ctx, agentstore.Agent{Name: "agent", State: agentstore.StateNew, ClaudeSessionID: claudeID}))
+	require.NoError(t, st.Create(ctx, agentstore.Agent{Name: "agent", State: agentstore.StateNew, ClaudeSessionID: claudeID}))
 	got, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	require.NotNil(t, got)

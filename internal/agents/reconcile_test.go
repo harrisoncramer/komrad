@@ -208,87 +208,89 @@ func TestReconcileSinglePass(t *testing.T) {
 	tests := []struct {
 		name      string
 		fromState string
-		alive     bool
-		frame     string
-		want      string
+		// owned is whether the pane recorded against the agent is still stamped with
+		// that agent's id, which is the only thing that counts as it still running.
+		owned bool
+		frame string
+		want  string
 	}{
 		{
-			name:      "dead pane settles thinking to done",
+			name:      "a pane that is not the agent's settles thinking to done",
 			fromState: agentstore.StateThinking,
-			alive:     false,
+			owned:     false,
 			want:      agentstore.StateDone,
 		},
 		{
-			name:      "dead pane settles waiting to done",
+			name:      "a pane that is not the agent's settles waiting to done",
 			fromState: agentstore.StateWaiting,
-			alive:     false,
+			owned:     false,
 			want:      agentstore.StateDone,
 		},
 		{
-			name:      "dead pane leaves new untouched",
+			name:      "a pane that is not the agent's leaves new untouched",
 			fromState: agentstore.StateNew,
-			alive:     false,
+			owned:     false,
 			want:      agentstore.StateNew,
 		},
 		{
-			name:      "dead pane leaves done untouched",
+			name:      "a pane that is not the agent's leaves done untouched",
 			fromState: agentstore.StateDone,
-			alive:     false,
+			owned:     false,
 			want:      agentstore.StateDone,
 		},
 		{
 			name:      "empty capture is inconclusive",
 			fromState: agentstore.StateThinking,
-			alive:     true,
+			owned:     true,
 			frame:     "",
 			want:      agentstore.StateThinking,
 		},
 		{
 			name:      "idle frame does not demote in one pass",
 			fromState: agentstore.StateThinking,
-			alive:     true,
+			owned:     true,
 			frame:     idleFrame,
 			want:      agentstore.StateThinking,
 		},
 		{
 			name:      "idle frame leaves new untouched",
 			fromState: agentstore.StateNew,
-			alive:     true,
+			owned:     true,
 			frame:     idleFrame,
 			want:      agentstore.StateNew,
 		},
 		{
 			name:      "idle frame leaves done untouched",
 			fromState: agentstore.StateDone,
-			alive:     true,
+			owned:     true,
 			frame:     idleFrame,
 			want:      agentstore.StateDone,
 		},
 		{
 			name:      "waiting frame moves thinking to waiting",
 			fromState: agentstore.StateThinking,
-			alive:     true,
+			owned:     true,
 			frame:     waitFrame,
 			want:      agentstore.StateWaiting,
 		},
 		{
 			name:      "work promotes new to thinking",
 			fromState: agentstore.StateNew,
-			alive:     true,
+			owned:     true,
 			frame:     busyFrame,
 			want:      agentstore.StateThinking,
 		},
 		{
 			name:      "work promotes done to thinking",
 			fromState: agentstore.StateDone,
-			alive:     true,
+			owned:     true,
 			frame:     busyFrame,
 			want:      agentstore.StateThinking,
 		},
 		{
 			name:      "work keeps thinking",
 			fromState: agentstore.StateThinking,
-			alive:     true,
+			owned:     true,
 			frame:     busyFrame,
 			want:      agentstore.StateThinking,
 		},
@@ -297,10 +299,12 @@ func TestReconcileSinglePass(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			seed(t, st, "agent", "%1", tt.fromState)
+			agent := seed(t, st, "agent", "%1", tt.fromState)
 
 			tmux := newFakeTmux()
-			tmux.alive["%1"] = tt.alive
+			if tt.owned {
+				tmux.owners["%1"] = agent.ID
+			}
 			tmux.captures["%1"] = tt.frame
 
 			rec := NewReconciler(tmux, st.Agents)
@@ -323,7 +327,7 @@ func TestReconcileLeavesTheMark(t *testing.T) {
 	require.True(t, marked)
 
 	tmux := newFakeTmux()
-	tmux.alive["%1"] = true
+	tmux.owners["%1"] = agent.ID
 	tmux.captures["%1"] = busyFrame
 
 	rec := NewReconciler(tmux, st.Agents)
@@ -388,7 +392,7 @@ func TestReconcileOverPasses(t *testing.T) {
 			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
 
 			tmux := newFakeTmux()
-			tmux.alive["%1"] = true
+			tmux.owners["%1"] = agent.ID
 
 			rec := NewReconciler(tmux, st.Agents)
 			ctx := context.Background()

@@ -74,26 +74,35 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	// A busy agent seeded new. The pane keeps a realistic working line, so the
 	// reconciler must promote it to thinking.
 	busyPane := it.spawn("busy", `sh -c 'while true; do printf "\033[H· Cooking… (3s · down 1k tokens)\n"; sleep 1; done'`)
-	seed(t, st, "busy", busyPane, agentstore.StateNew)
+	seedRunning(t, st, cli, "busy", busyPane, agentstore.StateNew)
 	waitForFrame(t, cli, busyPane, "Cooking…")
 
 	// An idle agent renders a Claude-like input box with no timer, the way a real
 	// agent sits when interrupted. A bare sleep would capture empty, which the
 	// reconciler treats as inconclusive rather than idle.
 	idlePane := it.spawn("idle", `sh -c 'printf "\033[H❯ \n-- INSERT --\n"; sleep 300'`)
-	seed(t, st, "idle", idlePane, agentstore.StateThinking)
+	seedRunning(t, st, cli, "idle", idlePane, agentstore.StateThinking)
 	waitForFrame(t, cli, idlePane, "INSERT")
 
 	// A waiting agent shows an interactive selection with its footer, the general
 	// signal for any prompt Claude is blocked on.
 	waitPane := it.spawn("wait", `sh -c 'printf "\033[HPick one\n❯ 1. A\n  2. B\nEnter to select · Esc to cancel\n"; sleep 300'`)
-	seed(t, st, "wait", waitPane, agentstore.StateThinking)
+	seedRunning(t, st, cli, "wait", waitPane, agentstore.StateThinking)
 	waitForFrame(t, cli, waitPane, "Enter to select")
 
-	// A killed agent. Seed it, then tear the session down so has-session is false.
+	// A killed agent. Seed it, then tear the session down so nothing answers for the
+	// pane at all.
 	deadPane := it.spawn("dead", "sleep 300")
-	seed(t, st, "dead", deadPane, agentstore.StateThinking)
+	seedRunning(t, st, cli, "dead", deadPane, agentstore.StateThinking)
 	it.kill("dead")
+
+	// An agent whose recorded pane is alive but is not its own, which is what a pane
+	// id reissued after a server restart looks like. It shows the same working frame
+	// as the busy agent, so a reconciler reading the pane rather than its owner would
+	// promote this one to thinking off somebody else's work.
+	squatPane := it.spawn("squat", `sh -c 'while true; do printf "\033[H· Cooking… (3s · down 1k tokens)\n"; sleep 1; done'`)
+	squatter := seed(t, st, "squat", squatPane, agentstore.StateThinking)
+	waitForFrame(t, cli, squatPane, "Cooking…")
 
 	for range reconcileMisses {
 		if err := rec.Reconcile(ctx); err != nil {
@@ -112,5 +121,13 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	}
 	if got := stateOf(t, st, "dead"); got != agentstore.StateDone {
 		t.Fatalf("dead agent: want done, got %q", got)
+	}
+	if got := stateOf(t, st, "squat"); got != agentstore.StateDone {
+		t.Fatalf("agent holding another pane's id: want done, got %q", got)
+	}
+
+	after := agentByID(t, st, squatter.ID)
+	if after.Pane != "" {
+		t.Fatalf("agent holding another pane's id: want the claim dropped, still holds %q", after.Pane)
 	}
 }

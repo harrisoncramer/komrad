@@ -28,6 +28,14 @@ const (
 	StateDone     = "done"
 )
 
+// Metadata is one fact an agent recorded about its own work, such as the issue it
+// is implementing or the pull request it opened. The key is the agent's own
+// invention rather than one of a fixed set, so nothing here interprets it.
+type Metadata struct {
+	Key   string
+	Value string
+}
+
 // Agent is a persisted background agent.
 type Agent struct {
 	ID   string
@@ -61,6 +69,10 @@ type Agent struct {
 	// Mark is the glyph the user put on this agent, nil when it carries none. Only
 	// the user sets and clears it, so it says nothing about the agent's lifecycle.
 	Mark *string
+	// Metadata is what the agent recorded about its own work, ordered by key. Only
+	// the listings a caller renders carry it, since the reconciler reads every agent
+	// every couple of seconds and has no use for it.
+	Metadata []Metadata
 	// CreatedAt is when the agent was first recorded, for display.
 	CreatedAt time.Time
 	// UpdatedAt is when the row last changed, for display. No listing orders by it,
@@ -132,7 +144,43 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, delet
 		agents = append(agents, agentFromRow(row.Agent, row.Cwd, row.Flags))
 	}
 
+	if err := s.hydrateMetadata(ctx, agents); err != nil {
+		return nil, err
+	}
+
 	return agents, nil
+}
+
+// hydrateMetadata fills in the metadata of every agent in a listing, in one query
+// for the whole page rather than one per row. Only the listings something renders
+// call it, which is why it is not folded into agentFromRow: the reconciler walks
+// every agent on a two second timer and would pay for a second query it never
+// reads.
+func (s *Store) hydrateMetadata(ctx context.Context, agents []Agent) error {
+	if len(agents) == 0 {
+		return nil
+	}
+
+	ids := make([]string, 0, len(agents))
+	for _, agent := range agents {
+		ids = append(ids, agent.ID)
+	}
+
+	rows, err := s.queries.ListAgentMetadata(ctx, ids)
+	if err != nil {
+		return fmt.Errorf("failed to list agent metadata: %w", err)
+	}
+
+	byAgent := make(map[string][]Metadata, len(agents))
+	for _, row := range rows {
+		byAgent[row.AgentID] = append(byAgent[row.AgentID], Metadata{Key: row.Key, Value: row.Value})
+	}
+
+	for i := range agents {
+		agents[i].Metadata = byAgent[agents[i].ID]
+	}
+
+	return nil
 }
 
 // ListAll returns every agent including soft-deleted ones, newest first. It
@@ -163,8 +211,12 @@ func (s *Store) Get(ctx context.Context, name string) (*Agent, error) {
 		return nil, fmt.Errorf("failed to get agent %q: %w", name, err)
 	}
 
-	agent := agentFromRow(row.Agent, row.Cwd, row.Flags)
-	return &agent, nil
+	agents := []Agent{agentFromRow(row.Agent, row.Cwd, row.Flags)}
+	if err := s.hydrateMetadata(ctx, agents); err != nil {
+		return nil, err
+	}
+
+	return &agents[0], nil
 }
 
 // Exists reports whether any agent holds the given id, including soft-deleted
@@ -196,24 +248,24 @@ func (s *Store) ActiveNameExists(ctx context.Context, name string) (bool, error)
 	return exists, nil
 }
 
-// Upsert inserts a new agent or updates an existing one. A blank id means a fresh
-// agent, whose config row is inserted alongside it. A set id means an existing
-// agent whose linked config and runtime fields are updated in place, never
-// inserting a second config row.
+// Create inserts a fresh agent and the config row it owns, under the id the agent
+// carries. The id is the caller's rather than the database's because it is the
+// name of the agent everywhere outside this table: the pane it runs in is stamped
+// with it, and the agent itself is told it at launch. A caller with no id yet gets
+// one minted here, which is every test and nothing in production.
 //
 // Both halves must land together, so a caller outside a transaction gets one
 // through InTx. Inside one, this joins whatever is already open.
-func (s *Store) Upsert(ctx context.Context, agent Agent) error {
+func (s *Store) Create(ctx context.Context, agent Agent) error {
 	if agent.ID == "" {
-		return s.insert(ctx, agent)
+		id, err := store.NewID()
+		if err != nil {
+			return err
+		}
+
+		agent.ID = id
 	}
 
-	return s.update(ctx, agent)
-}
-
-// insert creates a fresh agent and its own config row. The database generates both
-// ids, so the config is inserted first and the agent points at what it returned.
-func (s *Store) insert(ctx context.Context, agent Agent) error {
 	configID, err := s.queries.InsertAgentConfig(ctx, models.InsertAgentConfigParams{
 		Cwd:   agent.Cwd,
 		Flags: agent.Flags,
@@ -223,6 +275,7 @@ func (s *Store) insert(ctx context.Context, agent Agent) error {
 	}
 
 	if _, err := s.queries.InsertAgent(ctx, models.InsertAgentParams{
+		ID:              agent.ID,
 		Name:            agent.Name,
 		AgentConfigID:   configID,
 		Prompt:          agent.Prompt,
@@ -240,9 +293,9 @@ func (s *Store) insert(ctx context.Context, agent Agent) error {
 	return nil
 }
 
-// update rewrites an existing agent's linked config and runtime fields, keyed by
+// Update rewrites an existing agent's linked config and runtime fields, keyed by
 // its stable id.
-func (s *Store) update(ctx context.Context, agent Agent) error {
+func (s *Store) Update(ctx context.Context, agent Agent) error {
 	if agent.AgentConfigID != "" {
 		if err := s.queries.UpdateAgentConfig(ctx, models.UpdateAgentConfigParams{
 			ID:    agent.AgentConfigID,
@@ -296,6 +349,23 @@ func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
 	return nil
 }
 
+// ClearPane drops the pane an agent claims to be running in, keyed by its stable
+// id. A pane id is only unique while the tmux server that issued it lives, so a
+// dormant agent still holding one would go on claiming an id the next server hands
+// to a different agent. The reconciler calls this the moment it sees a pane that is
+// not this agent's, which is what keeps a stale claim from outliving one pass.
+func (s *Store) ClearPane(ctx context.Context, id string) error {
+	if !store.IsID(id) {
+		return nil
+	}
+
+	if err := s.queries.ClearAgentPane(ctx, id); err != nil {
+		return fmt.Errorf("failed to clear pane for id %q: %w", id, err)
+	}
+
+	return nil
+}
+
 // SetMark puts a mark on an agent, keyed by id, and a nil mark clears it. It
 // reports whether a row was touched, which is how a caller tells an id that matches
 // nothing from one that does.
@@ -327,6 +397,80 @@ func (s *Store) SetHidden(ctx context.Context, id string, hidden bool) (bool, er
 	}
 
 	return len(updated) > 0, nil
+}
+
+// ErrTooManyMetadataKeys reports that an agent already holds as many keys as it is
+// allowed. It is a sentinel rather than a plain failure because the caller has to
+// tell the agent it has hit a ceiling, which it can act on, apart from a write that
+// genuinely broke.
+var ErrTooManyMetadataKeys = errors.New("too many metadata keys")
+
+// maxMetadataKeys caps how many facts one agent may record. The keys are the
+// agent's own invention, so nothing bounds them on its own and a looping agent
+// would fill the table. The limit is checked here rather than in the proto, since
+// deciding it needs a count of what is already stored and a validation rule has
+// only the request.
+const maxMetadataKeys = 32
+
+// SetMetadataParams identifies the fact being recorded. A nil Value clears the key
+// rather than storing an empty one, so one call covers both writing a fact and
+// retracting it.
+type SetMetadataParams struct {
+	ID    string
+	Key   string
+	Value *string
+}
+
+// SetMetadata records one fact an agent found out about its own work, replacing
+// whatever that key held and leaving its other keys untouched. It reports whether a
+// row was written, which is how a caller tells an id matching no live agent from a
+// key that was already absent.
+func (s *Store) SetMetadata(ctx context.Context, params SetMetadataParams) (bool, error) {
+	if !store.IsID(params.ID) {
+		return false, nil
+	}
+
+	if params.Value == nil {
+		deleted, err := s.queries.DeleteAgentMetadata(ctx, models.DeleteAgentMetadataParams{AgentID: params.ID, Key: params.Key})
+		if err != nil {
+			return false, fmt.Errorf("failed to clear metadata %q on agent %q: %w", params.Key, params.ID, err)
+		}
+
+		return len(deleted) > 0, nil
+	}
+
+	// What the agent already holds is read before the write rather than counted after
+	// it, so the ceiling refuses a new key instead of admitting it and reporting a
+	// failure the agent cannot undo. A key it already holds is a revision and passes
+	// however full it is, since correcting a fact should not be what runs it out of
+	// room.
+	held, err := s.queries.ListAgentMetadata(ctx, []string{params.ID})
+	if err != nil {
+		return false, fmt.Errorf("failed to read metadata on agent %q: %w", params.ID, err)
+	}
+
+	revising := false
+	for _, row := range held {
+		if row.Key == params.Key {
+			revising = true
+
+			break
+		}
+	}
+	if len(held) >= maxMetadataKeys && !revising {
+		return false, ErrTooManyMetadataKeys
+	}
+
+	written, err := s.queries.SetAgentMetadata(ctx, models.SetAgentMetadataParams{
+		AgentID: params.ID,
+		Key:     params.Key,
+		Value:   *params.Value,
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to record metadata %q on agent %q: %w", params.Key, params.ID, err)
+	}
+
+	return len(written) > 0, nil
 }
 
 // Target names the rows a hard delete has to remove. The agent itself, the config

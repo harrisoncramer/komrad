@@ -569,6 +569,17 @@ func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) string {
 	if agent.Hidden {
 		b.WriteString("- hidden from the list\n")
 	}
+	// What the agent recorded about its own work, which is the one part of this record
+	// it wrote rather than took at launch. The values go in bare: they are mostly URLs,
+	// terminals linkify those on their own, and markdown link syntax would hide the
+	// target this section exists to show. An agent that recorded nothing draws no
+	// heading at all rather than an empty one.
+	if len(agent.Metadata) > 0 {
+		b.WriteString("\n## metadata\n\n")
+		for _, entry := range agent.Metadata {
+			fmt.Fprintf(&b, "- %s: %s\n", entry.Key, entry.Value)
+		}
+	}
 	if !alive {
 		b.WriteString("\nPress open to restore.\n")
 	}
