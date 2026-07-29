@@ -129,11 +129,17 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 }
 
 // logPath resolves a claude session id to its JSONL log, or "" when no log
-// exists. The file is named for the session id under a per-directory folder, so a
-// glob on the id finds it without reproducing Claude's version-specific
-// directory-name encoding.
+// exists.
 func (ts *TranscriptSyncer) logPath(claudeSessionID string) string {
-	matches, err := filepath.Glob(filepath.Join(ts.projectsDir, "*", claudeSessionID+".jsonl"))
+	return sessionLogPath(ts.projectsDir, claudeSessionID)
+}
+
+// sessionLogPath finds the JSONL log for a claude session id under projectsDir,
+// or "" when no log exists. The file is named for the session id inside a
+// per-directory folder, so a glob on the id finds it without reproducing Claude's
+// version-specific directory-name encoding.
+func sessionLogPath(projectsDir, claudeSessionID string) string {
+	matches, err := filepath.Glob(filepath.Join(projectsDir, "*", claudeSessionID+".jsonl"))
 	if err != nil || len(matches) == 0 {
 		return ""
 	}

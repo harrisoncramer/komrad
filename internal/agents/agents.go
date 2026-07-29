@@ -88,6 +88,11 @@ type AgentService struct {
 	// claudeFlags are the configured defaults every agent launches with, recorded
 	// on the row alongside whatever the caller added.
 	claudeFlags string
+	// transcriptsDir and restoreRoot are only read when a restore has to repair a
+	// working directory that is gone. They are fields rather than constants so a
+	// test can point them at a temp directory instead of the user's home.
+	transcriptsDir string
+	restoreRoot    string
 }
 
 // AgentParams carries the agent service's dependencies.
@@ -98,17 +103,31 @@ type AgentParams struct {
 	Tx          txRunner
 	Launcher    *Launcher
 	ClaudeFlags string
+	// TranscriptsDir is Claude's ~/.claude/projects, and RestoreRoot is where an
+	// agent runs when its recorded directory cannot be recreated. Both default to
+	// the real locations when left empty.
+	TranscriptsDir string
+	RestoreRoot    string
 }
 
 // NewAgentService builds the service from its dependencies.
 func NewAgentService(p AgentParams) *AgentService {
+	if p.TranscriptsDir == "" {
+		p.TranscriptsDir = DefaultTranscriptsDir()
+	}
+	if p.RestoreRoot == "" {
+		p.RestoreRoot = DefaultRestoreRoot()
+	}
+
 	return &AgentService{
-		tmux:        p.Tmux,
-		agents:      p.Agents,
-		workflows:   p.Workflows,
-		tx:          p.Tx,
-		launcher:    p.Launcher,
-		claudeFlags: p.ClaudeFlags,
+		tmux:           p.Tmux,
+		agents:         p.Agents,
+		workflows:      p.Workflows,
+		tx:             p.Tx,
+		launcher:       p.Launcher,
+		claudeFlags:    p.ClaudeFlags,
+		transcriptsDir: p.TranscriptsDir,
+		restoreRoot:    p.RestoreRoot,
 	}
 }
 
@@ -428,10 +447,7 @@ func idempotencyKey(key string) *string {
 // updating the record. An archived agent has its hidden flag cleared, which is
 // what returns it to the normal listing.
 func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) error {
-	dir := expandHome(agent.Cwd)
-	if dir == "" {
-		dir, _ = os.UserHomeDir()
-	}
+	dir := s.resumeDir(agent)
 
 	// A deleted agent's original name may have been reused by a live agent while
 	// it sat deleted. Undeleting it under that name would collide on the
@@ -463,6 +479,10 @@ func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) erro
 
 	agent.Pane = pane
 	agent.State = agentstore.StateNew
+	// The resolved directory is recorded, since resumeDir may have moved the agent
+	// somewhere else entirely and the row is what the panel shows and the next
+	// restore reads.
+	agent.Cwd = dir
 	if err := s.agents.Upsert(ctx, agent); err != nil {
 		return fmt.Errorf("failed to restore agent %q: %w", agent.Name, err)
 	}
