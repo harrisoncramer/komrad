@@ -144,7 +144,7 @@ type TrashKeys struct {
 type Layout struct {
 	// The share of the width the panel's list takes, as a fraction above zero and
 	// below one. The stage showing whatever the cursor is on takes the rest, so the
-	// default of 0.3 leaves the greater part to the preview, which is where there is
+	// default leaves the greater part to the preview, which is where there is
 	// something to read.
 	Split float64 `mapstructure:"split"`
 }
@@ -322,6 +322,33 @@ func fillKeys(configured, def []string) []string {
 	return configured
 }
 
+// validate rejects the settings the panel could not run on, so a config that
+// cannot work says so when it is read rather than once something tries to draw
+// with it.
+func (c Config) validate() error {
+	if err := validateMarks(c.Marks); err != nil {
+		return err
+	}
+
+	return validateLayout(c.Layout)
+}
+
+// withDefaults fills anything the file left unset from the built-ins, so a user
+// who writes part of a config keeps the defaults for the rest. An omitted value
+// reads as its zero, which is why a blank marks list and a zero split are the
+// unset cases here rather than choices to be honoured.
+func (c Config) withDefaults() Config {
+	c.Keybindings = c.Keybindings.withDefaults()
+	if len(c.Marks) == 0 {
+		c.Marks = DefaultMarks()
+	}
+	if c.Layout.Split == 0 {
+		c.Layout = DefaultLayout()
+	}
+
+	return c
+}
+
 // withDefaults fills any unset binding from the defaults, so a user who sets
 // only some keys keeps the built-ins for the rest.
 func (k Keybindings) withDefaults() Keybindings {
@@ -412,21 +439,11 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config %s: %w", file, err)
 	}
 
-	if err := validateMarks(cfg.Marks); err != nil {
+	if err := cfg.validate(); err != nil {
 		return nil, fmt.Errorf("failed to parse config %s: %w", file, err)
 	}
 
-	if err := validateLayout(cfg.Layout); err != nil {
-		return nil, fmt.Errorf("failed to parse config %s: %w", file, err)
-	}
-
-	cfg.Keybindings = cfg.Keybindings.withDefaults()
-	if len(cfg.Marks) == 0 {
-		cfg.Marks = DefaultMarks()
-	}
-	if cfg.Layout.Split == 0 {
-		cfg.Layout = DefaultLayout()
-	}
+	cfg = cfg.withDefaults()
 
 	return &cfg, nil
 }

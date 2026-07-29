@@ -430,21 +430,11 @@ func scheduleForm(cfg schedulestore.Config, workflows []workflowstore.Workflow, 
 // launched are not touched either way, which the prompt says so the choice is
 // not read as bigger than it is.
 func deleteScheduleForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool) {
-	var confirmed bool
-
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewConfirm().
-				Key("confirm").
-				Title(fmt.Sprintf("Delete schedule %q?", name)).
-				Description("The agents it already launched are kept.").
-				Affirmative("Delete").
-				Negative("Cancel").
-				Value(&confirmed),
-		),
-	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
-
-	return form, &confirmed
+	return confirmForm(
+		fmt.Sprintf("Delete schedule %q?", name),
+		"The agents it already launched are kept.",
+		keys,
+	)
 }
 
 // The schedule screens act through the service like everything else. Each call

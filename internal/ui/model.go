@@ -526,14 +526,7 @@ func (m *model) applyAgents(fresh []agentItem) {
 
 // clampCursor keeps an index within a list of the given length.
 func clampCursor(idx, length int) int {
-	if idx >= length {
-		idx = length - 1
-	}
-	if idx < 0 {
-		idx = 0
-	}
-
-	return idx
+	return max(min(idx, length-1), 0)
 }
 
 func protoToAgent(s *agentv1.Agent) agentstore.Agent {
@@ -676,6 +669,27 @@ func (m model) wasConfirmed() bool {
 	return m.confirmed != nil && *m.confirmed
 }
 
+// confirmForm asks a yes-or-no question and returns the answer its buttons write
+// into. Every delete in the panel prompts through this, so the wording differs and
+// the shape does not.
+func confirmForm(title, description string, keys appconfig.FormKeys) (*huh.Form, *bool) {
+	var confirmed bool
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Key("confirm").
+				Title(title).
+				Description(description).
+				Affirmative("Delete").
+				Negative("Cancel").
+				Value(&confirmed),
+		),
+	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
+
+	return form, &confirmed
+}
+
 // onFormScreen reports whether a form owns the input, which decides whether a key
 // belongs to the form or to the panel's own chrome.
 func (m model) onFormScreen() bool {
@@ -743,81 +757,69 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if _, ok := msg.(refreshTickMsg); ok {
+	switch msg := msg.(type) {
+	case refreshTickMsg:
 		return m, tea.Batch(m.loadListsCmd(), refreshTick())
-	}
-
-	if loaded, ok := msg.(listsLoadedMsg); ok {
-		m.unreachable = loaded.err
-		if loaded.err == nil {
+	case listsLoadedMsg:
+		m.unreachable = msg.err
+		if msg.err == nil {
 			// Workflows first, since the tree's rows and so the cursor the agents are
 			// reapplied against are built over them.
-			m.applyWorkflows(loaded.workflows)
-			m.applyAgents(loaded.agents)
-			m.applySchedules(loaded.schedules)
+			m.applyWorkflows(msg.workflows)
+			m.applyAgents(msg.agents)
+			m.applySchedules(msg.schedules)
+			if msg.trashListed {
+				m.applyTrash(msg.trash)
+			}
 
 			// A refresh can change what the cursor is sitting on without the cursor
 			// moving, so the stage is redrawn from the merged lists. The stage is a
 			// no-op when what it already shows has not changed, which is what keeps
-			// this from respawning its pane every tick. Only the agents screen owns
-			// the stage: a search preview or a form's stage is not the tree's to
+			// this from respawning its pane every tick. Only the screen that owns the
+			// stage restages: a search preview or a form's stage is not the tree's to
 			// take back while it is up.
-			if m.screen == screenAgents {
+			switch m.screen {
+			case screenAgents:
 				m.stageSelection()
-			}
-			if m.screen == screenSchedules {
+			case screenSchedules:
 				m.stageSchedule()
-			}
-			if loaded.trashListed {
-				m.applyTrash(loaded.trash)
-			}
-			if m.screen == screenTrash {
+			case screenTrash:
 				m.stageTrash()
+			default:
+				// Search and the forms put the stage to their own use.
 			}
 		}
 
 		return m, nil
-	}
+	case searchSettledMsg:
+		return m, m.runSettledSearch(msg)
+	case searchResultsMsg:
+		return m, m.applySearchResults(msg)
+	case transcriptLoadedMsg:
+		m.applyTranscript(msg)
 
-	if settled, ok := msg.(searchSettledMsg); ok {
-		return m, m.runSettledSearch(settled)
-	}
-
-	if results, ok := msg.(searchResultsMsg); ok {
-		return m, m.applySearchResults(results)
-	}
-
-	if loaded, ok := msg.(transcriptLoadedMsg); ok {
-		m.applyTranscript(loaded)
 		return m, nil
 	}
 
-	if m.screen == screenForm {
+	// The form screens take every message, since a form lays itself out from a resize
+	// as much as it reads a keypress.
+	switch m.screen {
+	case screenForm:
 		return m.updateForm(msg)
-	}
-
-	if m.screen == screenRename {
+	case screenRename:
 		return m.updateRename(msg)
-	}
-
-	if m.screen == screenWorkflowForm {
+	case screenWorkflowForm:
 		return m.updateWorkflowForm(msg)
-	}
-
-	if m.screen == screenWorkflowDelete {
+	case screenWorkflowDelete:
 		return m.updateWorkflowDelete(msg)
-	}
-
-	if m.screen == screenScheduleForm {
+	case screenScheduleForm:
 		return m.updateScheduleForm(msg)
-	}
-
-	if m.screen == screenScheduleDelete {
+	case screenScheduleDelete:
 		return m.updateScheduleDelete(msg)
-	}
-
-	if m.screen == screenTrashDelete {
+	case screenTrashDelete:
 		return m.updateTrashDelete(msg)
+	default:
+		// The list screens act on keys alone, which are dispatched below.
 	}
 
 	key, ok := msg.(tea.KeyMsg)
@@ -825,23 +827,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.screen == screenSearch {
+	switch m.screen {
+	case screenSearch:
 		return m.updateSearch(key)
-	}
-
-	if m.screen == screenSchedules {
+	case screenSchedules:
 		return m.updateSchedules(key)
-	}
-
-	if m.screen == screenTrash {
+	case screenTrash:
 		return m.updateTrash(key)
-	}
-
-	if m.screen == screenAgents {
+	case screenAgents:
 		return m.updateAgents(key)
+	default:
+		return m, nil
 	}
-
-	return m, nil
 }
 
 func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {

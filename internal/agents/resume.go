@@ -8,19 +8,6 @@ import (
 	agentstore "claude-agents/internal/store/agent"
 )
 
-// DefaultRestoreRoot is where an agent runs when the directory it was created in
-// cannot be brought back. It sits beside Claude's own state rather than in the
-// system temp directory, so a stand-in an agent is still living in does not
-// vanish under it on the next cleanup sweep.
-func DefaultRestoreRoot() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = ""
-	}
-
-	return filepath.Join(home, ".claude", "claude-agents", "restored")
-}
-
 // resumeDir resolves the directory a restored agent is relaunched in, repairing
 // the recorded one when it has to. Claude keeps a conversation under a folder
 // named after the directory it ran in and resolves --resume against that folder

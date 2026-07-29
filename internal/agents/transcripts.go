@@ -81,7 +81,7 @@ func (ts *TranscriptSyncer) Sync(ctx context.Context) error {
 // stored transcript, and indexes the turns it found. A missing log is a no-op, as
 // is a log with no new complete lines.
 func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent) error {
-	path := ts.logPath(agent.ClaudeSessionID)
+	path := sessionLogPath(ts.projectsDir, agent.ClaudeSessionID)
 	if path == "" {
 		return nil
 	}
@@ -135,12 +135,6 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 	}
 
 	return ts.store.AppendTurns(ctx, agent.ID, turns)
-}
-
-// logPath resolves a claude session id to its JSONL log, or "" when no log
-// exists.
-func (ts *TranscriptSyncer) logPath(claudeSessionID string) string {
-	return sessionLogPath(ts.projectsDir, claudeSessionID)
 }
 
 // sessionLogPath finds the JSONL log for a claude session id under projectsDir,
@@ -256,8 +250,11 @@ func blockText(content json.RawMessage) string {
 
 	var parts []string
 	for _, block := range blocks {
-		if block.Type == "text" && cleanText(block.Text) != "" {
-			parts = append(parts, cleanText(block.Text))
+		if block.Type != "text" {
+			continue
+		}
+		if text := cleanText(block.Text); text != "" {
+			parts = append(parts, text)
 		}
 	}
 

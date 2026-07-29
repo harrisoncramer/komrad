@@ -43,7 +43,6 @@ type agentStore interface {
 	ListAll(ctx context.Context) ([]agentstore.Agent, error)
 	Get(ctx context.Context, name string) (*agentstore.Agent, error)
 	GetByIdempotencyKey(ctx context.Context, key string) (*agentstore.Agent, error)
-	Find(ctx context.Context, name string) (*agentstore.Target, error)
 	FindByID(ctx context.Context, id string) (*agentstore.Target, error)
 	Create(ctx context.Context, agent agentstore.Agent) error
 	Update(ctx context.Context, agent agentstore.Agent) error
@@ -518,9 +517,9 @@ func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) erro
 		return fmt.Errorf("failed to stamp the pane for %q: %w", agent.Name, err)
 	}
 
-	// Clear the soft-delete flag first, so the row re-enters the unique-name
-	// index before the upsert below keys off it. Upserting a still-deleted row
-	// would collide on the id primary key rather than resolve as a name conflict.
+	// Clearing the soft-delete flag is what puts the row back in the unique-name
+	// index and so back in the listing. The update below is keyed by id and leaves
+	// both alone.
 	if agent.Deleted {
 		if err := s.agents.Restore(ctx, agent.ID); err != nil {
 			return fmt.Errorf("failed to unarchive agent %q: %w", agent.Name, err)

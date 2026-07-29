@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -140,47 +141,45 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, delet
 	}
 
 	agents := make([]Agent, 0, len(rows))
+	ids := make([]string, 0, len(rows))
 	for _, row := range rows {
 		agents = append(agents, agentFromRow(row.Agent, row.Cwd, row.Flags))
+		ids = append(ids, row.Agent.ID)
 	}
 
-	if err := s.hydrateMetadata(ctx, agents); err != nil {
+	metadata, err := s.metadataByAgent(ctx, ids)
+	if err != nil {
 		return nil, err
+	}
+
+	for i := range agents {
+		agents[i].Metadata = metadata[agents[i].ID]
 	}
 
 	return agents, nil
 }
 
-// hydrateMetadata fills in the metadata of every agent in a listing, in one query
-// for the whole page rather than one per row. Only the listings something renders
-// call it, which is why it is not folded into agentFromRow: the reconciler walks
-// every agent on a two second timer and would pay for a second query it never
+// metadataByAgent reads the metadata of a whole page of agents in one query rather
+// than one per row, keyed by the agent it belongs to. Only the listings something
+// renders read it, which is why it is not folded into agentFromRow: the reconciler
+// walks every agent on a two second timer and would pay for a second query it never
 // reads.
-func (s *Store) hydrateMetadata(ctx context.Context, agents []Agent) error {
-	if len(agents) == 0 {
-		return nil
-	}
-
-	ids := make([]string, 0, len(agents))
-	for _, agent := range agents {
-		ids = append(ids, agent.ID)
+func (s *Store) metadataByAgent(ctx context.Context, ids []string) (map[string][]Metadata, error) {
+	if len(ids) == 0 {
+		return nil, nil
 	}
 
 	rows, err := s.queries.ListAgentMetadata(ctx, ids)
 	if err != nil {
-		return fmt.Errorf("failed to list agent metadata: %w", err)
+		return nil, fmt.Errorf("failed to list agent metadata: %w", err)
 	}
 
-	byAgent := make(map[string][]Metadata, len(agents))
+	byAgent := make(map[string][]Metadata, len(ids))
 	for _, row := range rows {
 		byAgent[row.AgentID] = append(byAgent[row.AgentID], Metadata{Key: row.Key, Value: row.Value})
 	}
 
-	for i := range agents {
-		agents[i].Metadata = byAgent[agents[i].ID]
-	}
-
-	return nil
+	return byAgent, nil
 }
 
 // ListAll returns every agent including soft-deleted ones, newest first. It
@@ -211,12 +210,15 @@ func (s *Store) Get(ctx context.Context, name string) (*Agent, error) {
 		return nil, fmt.Errorf("failed to get agent %q: %w", name, err)
 	}
 
-	agents := []Agent{agentFromRow(row.Agent, row.Cwd, row.Flags)}
-	if err := s.hydrateMetadata(ctx, agents); err != nil {
+	metadata, err := s.metadataByAgent(ctx, []string{row.Agent.ID})
+	if err != nil {
 		return nil, err
 	}
 
-	return &agents[0], nil
+	agent := agentFromRow(row.Agent, row.Cwd, row.Flags)
+	agent.Metadata = metadata[agent.ID]
+
+	return &agent, nil
 }
 
 // Exists reports whether any agent holds the given id, including soft-deleted
@@ -449,14 +451,9 @@ func (s *Store) SetMetadata(ctx context.Context, params SetMetadataParams) (bool
 		return false, fmt.Errorf("failed to read metadata on agent %q: %w", params.ID, err)
 	}
 
-	revising := false
-	for _, row := range held {
-		if row.Key == params.Key {
-			revising = true
-
-			break
-		}
-	}
+	revising := slices.ContainsFunc(held, func(row *models.ListAgentMetadataRow) bool {
+		return row.Key == params.Key
+	})
 	if len(held) >= maxMetadataKeys && !revising {
 		return false, ErrTooManyMetadataKeys
 	}

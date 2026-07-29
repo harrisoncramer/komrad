@@ -141,7 +141,7 @@ func TestMarkedMark(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := markedMark(agentstore.Agent{Mark: tt.mark}, marks)
+			got := markGlyph(agentstore.Agent{Mark: tt.mark}, marks)
 			if tt.want == "" {
 				assert.Empty(t, got)
 				return

@@ -25,8 +25,8 @@ marks = [
 [layout]
 # The share of the width the panel's list takes, as a fraction above zero and
 # below one. The stage showing whatever the cursor is on takes the rest, so
-# the default of 0.3 leaves the greater part to the preview, which is where
-# there is something to read.
+# the default leaves the greater part to the preview, which is where there is
+# something to read.
 split = 0.2
 
 # Panel keybindings, scoped to the screen each action acts in.

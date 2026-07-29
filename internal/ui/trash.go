@@ -26,15 +26,14 @@ import (
 func (m model) enterTrash() (tea.Model, tea.Cmd) {
 	m.screen = screenTrash
 	m.reloadTrash()
-	m.trashCursor = clampCursor(m.trashCursor, len(m.trash))
 	m.stageTrash()
 
 	return m, nil
 }
 
-// reloadTrash re-lists the deleted agents. A listing that fails leaves the rows
-// already on screen, since an empty trash and a trash that could not be read
-// mean different things.
+// reloadTrash re-lists the deleted agents, clamping the cursor into the new
+// length. A listing that fails leaves the rows already on screen, since an empty
+// trash and a trash that could not be read mean different things.
 func (m *model) reloadTrash() {
 	ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
 	defer cancel()
@@ -47,6 +46,7 @@ func (m *model) reloadTrash() {
 	}
 
 	m.trash = deletedAgentsFrom(listed)
+	m.trashCursor = clampCursor(m.trashCursor, len(m.trash))
 }
 
 // deletedAgentsFrom renders listed agents into the store type the screen is
@@ -139,7 +139,6 @@ func (m model) restoreFromTrash() (tea.Model, tea.Cmd) {
 	}
 
 	m.reloadTrash()
-	m.trashCursor = clampCursor(m.trashCursor, len(m.trash))
 	m.stageTrash()
 
 	return m, nil
@@ -164,6 +163,7 @@ func (m model) deleteFromTrashConfirm() (tea.Model, tea.Cmd) {
 // updateTrashDelete drives the delete prompt. Confirming destroys the agent,
 // declining and aborting leave it in the trash, and all three return to the
 // trash rather than to the agents list, since that is where the key was pressed.
+// Re-entering re-reads the list, so a destroyed agent is gone from it.
 func (m model) updateTrashDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 	form, cmd := m.form.Update(msg)
 	if updated, ok := form.(*huh.Form); ok {
@@ -180,25 +180,14 @@ func (m model) updateTrashDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.trashDeleteTarget = nil
 		m.confirmed = nil
-		return m.returnToTrash()
+		return m.enterTrash()
 	case huh.StateAborted:
 		m.trashDeleteTarget = nil
 		m.confirmed = nil
-		return m.returnToTrash()
+		return m.enterTrash()
 	default:
 		return m, cmd
 	}
-}
-
-// returnToTrash re-enters the trash after the delete prompt closes, re-reading
-// the list so a destroyed agent is gone from it.
-func (m model) returnToTrash() (tea.Model, tea.Cmd) {
-	m.screen = screenTrash
-	m.reloadTrash()
-	m.trashCursor = clampCursor(m.trashCursor, len(m.trash))
-	m.stageTrash()
-
-	return m, nil
 }
 
 // deleteAgent destroys an agent for good, keyed by id. A name identifies at most
@@ -216,21 +205,11 @@ func (m model) deleteAgent(id string) error {
 // since the reversible delete on the agents list uses the same key and this one
 // cannot be taken back.
 func deleteAgentForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool) {
-	var confirmed bool
-
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewConfirm().
-				Key("confirm").
-				Title(fmt.Sprintf("Permanently delete agent %q?", name)).
-				Description("Its transcript goes with it and search will not find the conversation again.").
-				Affirmative("Delete").
-				Negative("Cancel").
-				Value(&confirmed),
-		),
-	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
-
-	return form, &confirmed
+	return confirmForm(
+		fmt.Sprintf("Permanently delete agent %q?", name),
+		"Its transcript goes with it and search will not find the conversation again.",
+		keys,
+	)
 }
 
 // stageTrash shows the hovered agent's stored record in the stage. Nothing in
@@ -289,7 +268,7 @@ func (m model) trashView() string {
 			name = cursorStyle.Render(agent.Name)
 		}
 
-		rows = append(rows, prefix+name+scheduledMark(agent)+markedMark(agent, m.marks))
+		rows = append(rows, prefix+name+scheduledMark(agent)+markGlyph(agent, m.marks))
 	}
 
 	return header + renderList(rows, m.trashCursor, m.listLines(header, hints)) + hints

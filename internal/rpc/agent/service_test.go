@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	agentv1 "claude-agents/proto/gen/agent/v1"
 
 	agentstore "claude-agents/internal/store/agent"
+	transcriptstore "claude-agents/internal/store/transcript"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
@@ -614,6 +616,153 @@ func TestSetMetadata(t *testing.T) {
 	}
 }
 
+// TestSearchTranscripts covers what a hit carries back to the caller.
+//
+// Every field on it is load-bearing. The turn's position and its byte offset are
+// how the panel scrolls a match into view rather than hunting for the words
+// again, so two fields crossed on the way out send the reader somewhere else in
+// the conversation while still looking like a working search. The archived flag
+// decides how the hit is labelled, since search reaches agents the listing does
+// not.
+func TestSearchTranscripts(t *testing.T) {
+	tests := []struct {
+		name string
+		// turns are the seeded agent's conversation, in order.
+		turns []string
+		// archive puts the agent in the trash before the search, which search still
+		// reaches.
+		archive bool
+		query   string
+		// wantSeqs are the turns expected to match, in any order, since how two hits
+		// rank against each other is the store's business.
+		wantSeqs []int32
+	}{
+		{
+			name:  "a query nothing said matches nothing",
+			turns: []string{"talking about postgres"},
+			query: "kubernetes",
+		},
+		{
+			name:     "a hit names the turn that matched rather than the first one",
+			turns:    []string{"opening question", "the reconciler derives its markers"},
+			query:    "reconciler",
+			wantSeqs: []int32{1},
+		},
+		{
+			name:     "an archived agent is still searchable, and says so",
+			turns:    []string{"the reconciler derives its markers"},
+			archive:  true,
+			query:    "reconciler",
+			wantSeqs: []int32{0},
+		},
+		{
+			name:     "a subject raised twice is a hit per turn",
+			turns:    []string{"first on postgres", "later on postgres again"},
+			query:    "postgres",
+			wantSeqs: []int32{0, 1},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, st := service(t)
+			ctx := t.Context()
+
+			agent := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking})
+			content := seedTranscript(t, st, agent.ID, tt.turns)
+			if tt.archive {
+				require.NoError(t, st.Agents.Archive(ctx, "alpha"))
+			}
+
+			found, err := svc.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
+				Query: tt.query,
+			}))
+			require.NoError(t, err)
+			require.Len(t, found.Msg.GetHits(), len(tt.wantSeqs))
+
+			seqs := make([]int32, 0, len(tt.wantSeqs))
+			for _, hit := range found.Msg.GetHits() {
+				seqs = append(seqs, hit.GetSeq())
+
+				assert.Equal(t, agent.ID, hit.GetAgentId())
+				assert.Equal(t, "alpha", hit.GetName(), "the hit carries the agent's name, not its id alone")
+				assert.Equal(t, tt.archive, hit.GetDeleted())
+				assert.Equal(t, "user", hit.GetRole())
+				assert.Contains(t, hit.GetSnippet(), tt.query, "the snippet holds the text that matched")
+
+				// The offset has to land on the turn the hit names, which is the only
+				// thing that makes the two fields worth sending together.
+				turn := tt.turns[hit.GetSeq()]
+				assert.Equal(t, turn, content[hit.GetContentOffset():hit.GetContentOffset()+int64(len(turn))])
+			}
+
+			assert.ElementsMatch(t, tt.wantSeqs, seqs)
+		})
+	}
+}
+
+// TestGetTranscript covers the one distinction this handler exists to make. An
+// agent nobody holds and an agent whose log has not been synced yet would both
+// read as empty content, which tells a caller nothing about which it got, so the
+// agent is looked up first and only the unknown one is refused.
+func TestGetTranscript(t *testing.T) {
+	tests := []struct {
+		name string
+		// agentID, when set, is fetched instead of the seeded agent's own id.
+		agentID string
+		// turns are the seeded agent's conversation, empty for one whose log has not
+		// been read yet.
+		turns    []string
+		wantCode connect.Code
+		want     string
+	}{
+		{
+			name:     "an id no agent holds is refused",
+			agentID:  uuid.NewString(),
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			// The store refuses a malformed id before it reaches a query, which must
+			// read as an unknown agent rather than as a server fault.
+			name:     "and so is an id that is not an id",
+			agentID:  "not-a-uuid",
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name: "an agent with nothing synced yet is empty rather than missing",
+			want: "",
+		},
+		{
+			name:  "a synced agent hands back the whole conversation",
+			turns: []string{"opening question", "the answer"},
+			want:  "opening question\n\nthe answer",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, st := service(t)
+
+			agent := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking})
+			seedTranscript(t, st, agent.ID, tt.turns)
+
+			id := tt.agentID
+			if id == "" {
+				id = agent.ID
+			}
+
+			got, err := svc.GetTranscript(t.Context(), connect.NewRequest(&agentv1.GetTranscriptRequest{AgentId: id}))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got.Msg.GetContent())
+		})
+	}
+}
+
 // TestAgentLifecycleGoesThroughTheService covers delete, archive, and restore.
 // All three hand off to the thing that can stop or relaunch an agent rather than
 // editing rows behind its back, which is what leaves an agent running with
@@ -758,6 +907,44 @@ func service(t *testing.T) (*Service, *storetest.Stores) {
 	svc, st, _ := serviceWithLauncher(t)
 
 	return svc, st
+}
+
+// seedTranscript stores a conversation and indexes its turns the way a sync pass
+// leaves them, blank-line separated with each turn stamped where it landed, and
+// returns the text it built. A test asserting on an offset compares against this
+// rather than counting bytes by hand.
+func seedTranscript(t *testing.T, st *storetest.Stores, agentID string, turns []string) string {
+	t.Helper()
+
+	if len(turns) == 0 {
+		return ""
+	}
+
+	var content strings.Builder
+
+	indexed := make([]transcriptstore.Turn, 0, len(turns))
+	for _, text := range turns {
+		if content.Len() > 0 {
+			content.WriteString("\n\n")
+		}
+
+		indexed = append(indexed, transcriptstore.Turn{
+			Role:    "user",
+			Content: text,
+			Offset:  int64(content.Len()),
+		})
+		content.WriteString(text)
+	}
+
+	ctx := t.Context()
+	require.NoError(t, st.Transcripts.Upsert(ctx, transcriptstore.UpsertParams{
+		AgentID: agentID,
+		Content: content.String(),
+		Offset:  int64(content.Len()),
+	}))
+	require.NoError(t, st.Transcripts.AppendTurns(ctx, agentID, indexed))
+
+	return content.String()
 }
 
 // storedMetadata flattens a rendered agent's metadata back to stored pairs, so a

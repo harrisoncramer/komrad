@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"slices"
 	"strings"
 )
 
@@ -32,7 +33,7 @@ func NewClientAtPath(path string) *Client {
 }
 
 func (c *Client) query(args ...string) (string, error) {
-	out, err := exec.Command("tmux", append(append([]string{}, c.server...), args...)...).Output()
+	out, err := exec.Command("tmux", slices.Concat(c.server, args)...).Output()
 	return strings.TrimSpace(string(out)), err
 }
 

@@ -25,11 +25,7 @@ func (m model) listLines(chrome ...string) int {
 
 	// A pane too short to hold its own chrome still has to show the row under the
 	// cursor, so the list keeps one line no matter what is above it.
-	if lines < 1 {
-		return 1
-	}
-
-	return lines
+	return max(lines, 1)
 }
 
 // bannerLines is how much of the pane a refused action is taking. The banner is
@@ -105,10 +101,7 @@ func markersFor(start, visible, total int) int {
 // drawWindow renders visible rows from start, each end that has rows beyond it
 // carrying the count of what is off screen there.
 func drawWindow(rows []string, start, visible int) string {
-	end := start + visible
-	if end > len(rows) {
-		end = len(rows)
-	}
+	end := min(start+visible, len(rows))
 
 	var b strings.Builder
 	if start > 0 {
@@ -131,13 +124,5 @@ func windowStart(cursor, total, visible int) int {
 		return 0
 	}
 
-	start := cursor - visible/2
-	if start > total-visible {
-		start = total - visible
-	}
-	if start < 0 {
-		start = 0
-	}
-
-	return start
+	return max(min(cursor-visible/2, total-visible), 0)
 }

@@ -258,21 +258,11 @@ func workflowConfigForm(nameTitle string, cfg workflowstore.Config, keys appconf
 // deleteWorkflowForm confirms a delete. The agents inside go with it, since
 // every agent belongs to a workflow and there is nowhere to leave one.
 func deleteWorkflowForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool) {
-	var confirmed bool
-
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewConfirm().
-				Key("confirm").
-				Title(fmt.Sprintf("Delete workflow %q and its agents?", name)).
-				Description("Their transcripts are kept and stay searchable.").
-				Affirmative("Delete").
-				Negative("Cancel").
-				Value(&confirmed),
-		),
-	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
-
-	return form, &confirmed
+	return confirmForm(
+		fmt.Sprintf("Delete workflow %q and its agents?", name),
+		"Their transcripts are kept and stay searchable.",
+		keys,
+	)
 }
 
 // The workflow screens act through the service like everything else. Each call

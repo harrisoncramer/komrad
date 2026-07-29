@@ -218,10 +218,7 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if !ok {
 			return m, nil
 		}
-		next := nextMark(item.agent.Mark, m.marks)
-		m.report(fmt.Sprintf("Could not mark agent %q", item.agent.Name), m.setMark(item.agent, next))
-		m.reload()
-		m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
+		return m.markAgent(item.agent)
 	case bound(k, m.keys.Agents.Hide):
 		item, ok := m.selectedAgent()
 		if !ok {
@@ -315,6 +312,17 @@ func (m model) toggleHiddenAgents() (tea.Model, tea.Cmd) {
 		m.agentCursor = clampCursor(m.agentCursor, len(rows))
 	}
 	m.stageSelection()
+
+	return m, nil
+}
+
+// markAgent steps the hovered agent to the next mark. The row keeps its place, so
+// the cursor is only clamped against a list a concurrent change may have shortened.
+func (m model) markAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
+	next := nextMark(agent.Mark, m.marks)
+	m.report(fmt.Sprintf("Could not mark agent %q", agent.Name), m.setMark(agent, next))
+	m.reload()
+	m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
 
 	return m, nil
 }
@@ -451,10 +459,10 @@ func hiddenTally(count int, showing bool) string {
 	return " " + dimStyle.Render(fmt.Sprintf("+%d", count))
 }
 
-// markedMark is the glyph the user marked an agent with, drawn after the row rather
+// markGlyph is the glyph the user marked an agent with, drawn after the row rather
 // than in the state column so it reads as their own mark and not another lifecycle
 // state. It takes the colour that mark carries in the config.
-func markedMark(agent agentstore.Agent, marks []appconfig.Mark) string {
+func markGlyph(agent agentstore.Agent, marks []appconfig.Mark) string {
 	if agent.Mark == nil {
 		return ""
 	}
@@ -589,36 +597,55 @@ func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) string {
 
 // actionHints renders the key bindings one per line with an aligned key column.
 func (m model) actionHints() string {
+	// The key that draws the hidden agents toggles, so the legend names the direction
+	// it would go rather than the action in the abstract.
+	showHiddenDesc := "show hidden"
+	if m.showHidden {
+		showHiddenDesc = "put hidden away"
+	}
+
+	hints := append(m.rowHints(), m.screenHints()...)
+	hints = append(hints,
+		hint{hintKeys(m.keys.Agents.ShowHidden), showHiddenDesc},
+		hint{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
+		hint{hintKeys(m.keys.Agents.Back), "back"},
+	)
+
+	return renderHints(hints)
+}
+
+// rowHints are the bindings that act on the row under the cursor, which is a
+// workflow header or an agent. The info, mark, and hide keys all toggle, so their
+// lines name what that row would do rather than the action in the abstract.
+func (m model) rowHints() []hint {
+	if _, hoveringWorkflow := m.hoveredWorkflow(); hoveringWorkflow {
+		return []hint{
+			{hintKeys(m.keys.Agents.New), "new agent"},
+			{hintKeys(m.keys.Workflows.New), "new workflow"},
+			{hintKeys(m.keys.Workflows.Rename), "rename"},
+			{hintKeys(m.keys.Workflows.Edit), "edit"},
+			{hintKeys(m.keys.Workflows.Delete), "delete"},
+		}
+	}
+
 	infoDesc := "info"
 	if m.infoPinned {
 		infoDesc = "hide info"
 	}
 
-	// The mark key steps through the marks, so the legend shows the one the row under
-	// the cursor would take next.
-	markDesc := "mark"
+	markDesc, hideDesc := "mark", "hide"
 	if item, ok := m.selectedAgent(); ok {
 		if next := nextMark(item.agent.Mark, m.marks); next != nil {
 			markDesc = "mark " + *next
 		} else {
 			markDesc = "unmark"
 		}
+		if item.agent.Hidden {
+			hideDesc = "unhide"
+		}
 	}
 
-	// The hide key toggles too, so the legend names the direction the row under the
-	// cursor would go rather than the action in the abstract. So does the key that
-	// draws the hidden agents.
-	hideDesc := "hide"
-	if item, ok := m.selectedAgent(); ok && item.agent.Hidden {
-		hideDesc = "unhide"
-	}
-
-	showHiddenDesc := "show hidden"
-	if m.showHidden {
-		showHiddenDesc = "put hidden away"
-	}
-
-	hints := []hint{
+	return []hint{
 		{hintKeys(m.keys.Agents.Open), "open"},
 		{hintKeys(m.keys.Agents.Info), infoDesc},
 		{hintKeys(m.keys.Agents.Mark), markDesc},
@@ -628,24 +655,6 @@ func (m model) actionHints() string {
 		{hintKeys(m.keys.Agents.Rename), "rename"},
 		{hintKeys(m.keys.Agents.Delete), "delete"},
 	}
-	if _, hoveringWorkflow := m.hoveredWorkflow(); hoveringWorkflow {
-		hints = []hint{
-			{hintKeys(m.keys.Agents.New), "new agent"},
-			{hintKeys(m.keys.Workflows.New), "new workflow"},
-			{hintKeys(m.keys.Workflows.Rename), "rename"},
-			{hintKeys(m.keys.Workflows.Edit), "edit"},
-			{hintKeys(m.keys.Workflows.Delete), "delete"},
-		}
-	}
-
-	hints = append(hints, m.screenHints()...)
-	hints = append(hints, hint{hintKeys(m.keys.Agents.ShowHidden), showHiddenDesc})
-	hints = append(hints,
-		hint{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
-		hint{hintKeys(m.keys.Agents.Back), "back"},
-	)
-
-	return renderHints(hints)
 }
 
 // screenHints are the screens reachable from anywhere in the tree. They are
@@ -726,7 +735,7 @@ func (m model) agentsView() string {
 		}
 
 		icon := lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
-		rows = append(rows, prefix+"  "+icon+" "+name+scheduledMark(item.agent)+hiddenMark(item.agent.Hidden)+markedMark(item.agent, m.marks))
+		rows = append(rows, prefix+"  "+icon+" "+name+scheduledMark(item.agent)+hiddenMark(item.agent.Hidden)+markGlyph(item.agent, m.marks))
 	}
 
 	return header + renderList(rows, m.agentCursor, m.listLines(header, hints)) + hints
