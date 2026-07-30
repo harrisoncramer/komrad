@@ -5,8 +5,8 @@ FROM
     schedules s
 WHERE
     s.is_deleted = FALSE
-    AND (sqlc.narg ('cursor_id')::uuid IS NULL
-        OR s.id < sqlc.narg ('cursor_id'))
+    AND (sqlc.narg('cursor_id')::uuid IS NULL
+        OR s.id < sqlc.narg('cursor_id'))
 ORDER BY
     s.id DESC
 LIMIT @lim;
@@ -32,8 +32,22 @@ WHERE
 LIMIT 1;
 
 -- name: InsertSchedule :one
-INSERT INTO schedules (name, cron, timezone, enabled, hide_agents, prompt, workflow_id)
-    VALUES (@name, @cron, @timezone, @enabled, @hide_agents, @prompt, @workflow_id)
+INSERT INTO schedules(
+    name,
+    cron,
+    timezone,
+    enabled,
+    hide_agents,
+    prompt,
+    workflow_id)
+VALUES (
+    @name,
+    @cron,
+    @timezone,
+    @enabled,
+    @hide_agents,
+    @prompt,
+    @workflow_id)
 RETURNING
     *;
 
@@ -71,7 +85,7 @@ WHERE
 
 -- name: CountLiveWorkflowSchedules :one
 SELECT
-    count(*)
+    COUNT(*)
 FROM
     schedules
 WHERE

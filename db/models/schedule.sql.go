@@ -11,7 +11,7 @@ import (
 
 const countLiveWorkflowSchedules = `-- name: CountLiveWorkflowSchedules :one
 SELECT
-    count(*)
+    COUNT(*)
 FROM
     schedules
 WHERE
@@ -61,8 +61,22 @@ func (q *Queries) GetSchedule(ctx context.Context, id string) (*GetScheduleRow, 
 }
 
 const insertSchedule = `-- name: InsertSchedule :one
-INSERT INTO schedules (name, cron, timezone, enabled, hide_agents, prompt, workflow_id)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO schedules(
+    name,
+    cron,
+    timezone,
+    enabled,
+    hide_agents,
+    prompt,
+    workflow_id)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7)
 RETURNING
     id, name, cron, timezone, enabled, prompt, workflow_id, is_deleted, created_at, updated_at, hide_agents
 `

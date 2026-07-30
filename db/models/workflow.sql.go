@@ -47,8 +47,14 @@ func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, 
 }
 
 const insertWorkflow = `-- name: InsertWorkflow :one
-INSERT INTO workflows (name, context, workflow_config_id)
-    VALUES ($1, $2, $3)
+INSERT INTO workflows(
+    name,
+    context,
+    workflow_config_id)
+VALUES (
+    $1,
+    $2,
+    $3)
 RETURNING
     id, name, context, workflow_config_id, is_deleted, created_at, updated_at
 `
@@ -75,8 +81,12 @@ func (q *Queries) InsertWorkflow(ctx context.Context, arg InsertWorkflowParams) 
 }
 
 const insertWorkflowConfig = `-- name: InsertWorkflowConfig :one
-INSERT INTO workflow_configs (cwd, flags)
-    VALUES ($1, $2)
+INSERT INTO workflow_configs(
+    cwd,
+    flags)
+VALUES (
+    $1,
+    $2)
 RETURNING
     id
 `
@@ -260,7 +270,7 @@ SET
     cwd = $1,
     flags = $2
 WHERE
-    id = (
+    id =(
         SELECT
             workflow_config_id
         FROM
