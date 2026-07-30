@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# TPM entrypoint. Builds the claude-agents binary if needed, binds the panel,
-# and interpolates the status placeholder.
+# TPM entrypoint. Builds the claude-agents binary if needed and binds the panel.
 set -euo pipefail
 
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -38,16 +37,3 @@ tmux set-option -g @claude_manager_open 0
 tmux bind-key "$key" if-shell -F '#{==:#{@claude_manager_open},1}' \
 	"run-shell -b '$BIN hide'" \
 	"display-popup -w 95% -h 95% -x C -y C -T ' claude-manager ' -EE '$BIN open #{client_name} #{socket_path}'"
-
-# Interpolate the #{claude_agents} placeholder in status-left / status-right
-# with the live aggregate, so the plugin never clobbers the user's status line.
-placeholder='#{claude_agents}'
-render="#($BIN status)"
-for opt in status-right status-left; do
-	val="$(tmux show-option -gqv "$opt")"
-	case "$val" in
-	*"$placeholder"*)
-		tmux set-option -g "$opt" "${val//$placeholder/$render}"
-		;;
-	esac
-done

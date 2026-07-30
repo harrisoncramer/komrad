@@ -110,7 +110,6 @@ func NewRootCommand() *cobra.Command {
 	root.AddCommand(
 		openCmd(state),
 		hideCmd(state),
-		statusCmd(state),
 		serveCmd(state),
 		migrateCmd(state),
 	)
