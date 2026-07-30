@@ -556,9 +556,7 @@ func workflowMarkdown(w workflowstore.Workflow, agents int) string {
 func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", agent.Name)
-	if alive {
-		fmt.Fprintf(&b, "_running in %s_\n\n", orDash(agent.Pane))
-	} else {
+	if !alive {
 		b.WriteString("_dormant — not running_\n\n")
 	}
 	b.WriteString("---\n\n")
