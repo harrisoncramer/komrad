@@ -381,8 +381,8 @@ func (m model) restoreAgent(id string) (*agentv1.Agent, error) {
 }
 
 // stageSelection updates the stage pane to reflect what the cursor is on. A live
-// agent's pane is swapped in, a dormant agent and a workflow header show markdown
-// through bat, and anything else blanks the stage. With info pinned, an agent shows
+// agent's pane is swapped in, a dormant agent and a workflow header show rendered
+// markdown, and anything else blanks the stage. With info pinned, an agent shows
 // its stored record instead of itself.
 func (m model) stageSelection() {
 	rows := m.agentRows()

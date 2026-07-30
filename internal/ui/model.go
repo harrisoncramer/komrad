@@ -749,6 +749,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if size, ok := msg.(tea.WindowSizeMsg); ok {
 		m.height = size.Height
 		m.width = size.Width
+		m.stage.SetListWidth(size.Width)
 	}
 
 	// The banner is chrome rather than a screen, so it is dismissed with esc as a

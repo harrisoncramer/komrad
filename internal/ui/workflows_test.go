@@ -15,6 +15,7 @@ import (
 	"claude-agents/proto/gen/workflow/v1/workflowv1connect"
 
 	"connectrpc.com/connect"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -313,9 +314,11 @@ func TestRefreshRestagesWorkflowContext(t *testing.T) {
 	assert.Equal(t, "new notes", m.workflows[0].Context)
 	require.Greater(t, len(tmux.respawns), staged, "the edit is restaged without the cursor moving")
 
-	shown, err := os.ReadFile(filepath.Join(os.TempDir(), "claude-agents-stage.md"))
+	shown, err := os.ReadFile(filepath.Join(os.TempDir(), "claude-agents-stage.ansi"))
 	require.NoError(t, err)
-	assert.Contains(t, string(shown), "new notes")
+	// The file holds the rendered document, where the colours around a word sit
+	// between it and the next, so the text is read back without them.
+	assert.Contains(t, ansi.Strip(string(shown)), "new notes")
 
 	staged = len(tmux.respawns)
 	updated, _ = m.Update(fresh)

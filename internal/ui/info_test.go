@@ -20,13 +20,13 @@ import (
 // the pane back afterwards.
 func TestInfoKey(t *testing.T) {
 	tests := []struct {
-		name       string
-		cursor     int
-		presses    int
-		thenMove   bool
-		wantPinned bool
-		wantBat    int
-		wantSwaps  int
+		name        string
+		cursor      int
+		presses     int
+		thenMove    bool
+		wantPinned  bool
+		wantRenders int
+		wantSwaps   int
 	}{
 		{
 			name:    "on a workflow header there is no record to show",
@@ -34,27 +34,27 @@ func TestInfoKey(t *testing.T) {
 			presses: 1,
 		},
 		{
-			name:       "one press puts the record in the stage",
-			cursor:     1,
-			presses:    1,
-			wantPinned: true,
-			wantBat:    1,
+			name:        "one press puts the record in the stage",
+			cursor:      1,
+			presses:     1,
+			wantPinned:  true,
+			wantRenders: 1,
 		},
 		{
-			name:      "a second press swaps the agent's pane back in",
-			cursor:    1,
-			presses:   2,
-			wantBat:   1,
-			wantSwaps: 1,
+			name:        "a second press swaps the agent's pane back in",
+			cursor:      1,
+			presses:     2,
+			wantRenders: 1,
+			wantSwaps:   1,
 		},
 		{
 			// Two renders: the pinned record, then the workflow header the cursor
 			// lands on, which stages a record of its own.
-			name:     "moving the cursor unpins, so the record never outlives its row",
-			cursor:   1,
-			presses:  1,
-			thenMove: true,
-			wantBat:  2,
+			name:        "moving the cursor unpins, so the record never outlives its row",
+			cursor:      1,
+			presses:     1,
+			thenMove:    true,
+			wantRenders: 2,
 		},
 	}
 
@@ -74,13 +74,13 @@ func TestInfoKey(t *testing.T) {
 			assert.Equal(t, tt.wantPinned, m.infoPinned)
 			assert.Equal(t, tt.wantSwaps, tmux.swaps, "swaps move the agent's own pane")
 
-			bat := 0
+			renders := 0
 			for _, respawn := range tmux.respawns {
-				if strings.Contains(respawn, "bat") {
-					bat++
+				if strings.Contains(respawn, "less") {
+					renders++
 				}
 			}
-			assert.Equal(t, tt.wantBat, bat, "the record is rendered through bat")
+			assert.Equal(t, tt.wantRenders, renders, "the record is paged into the stage")
 		})
 	}
 }
@@ -176,7 +176,7 @@ func TestAgentMarkdown(t *testing.T) {
 }
 
 // recordingTmux records only what the stage does, so a test can tell a
-// swapped-in agent pane from a respawned bat preview. Every other call is an
+// swapped-in agent pane from a respawned pager preview. Every other call is an
 // inert stub.
 type recordingTmux struct {
 	// path is what ClientPath reports, the directory the panel falls back to for
