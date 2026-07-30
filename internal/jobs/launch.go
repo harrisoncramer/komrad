@@ -10,6 +10,7 @@ import (
 	"claude-agents/lib/xptr"
 
 	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/rivertype"
 )
 
 // LaunchAgentArgs is one firing of one schedule.
@@ -28,9 +29,23 @@ func (LaunchAgentArgs) Kind() string { return "launch_agent" }
 
 // InsertOpts dedups a firing by its arguments, so the same occurrence of the
 // same schedule cannot be queued twice however it came to be inserted.
+//
+// The states are the ones River defaults to plus the two ends it leaves out.
+// Every way a firing declines to launch cancels the job rather than failing it,
+// and one that runs out of retries is discarded, so without them an occurrence
+// would be free to queue again the moment its first attempt stopped. River's
+// cleaner eventually removes a finished job either way, which is why the
+// idempotency key below rather than this is what makes a firing permanent.
 func (LaunchAgentArgs) InsertOpts() river.InsertOpts {
 	return river.InsertOpts{
-		UniqueOpts: river.UniqueOpts{ByArgs: true},
+		UniqueOpts: river.UniqueOpts{
+			ByArgs: true,
+			ByState: append(
+				rivertype.UniqueOptsByStateDefault(),
+				rivertype.JobStateCancelled,
+				rivertype.JobStateDiscarded,
+			),
+		},
 	}
 }
 
