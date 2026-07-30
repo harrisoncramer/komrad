@@ -6,15 +6,15 @@ import (
 	"testing"
 
 	"claude-agents/internal/interceptors"
+	"claude-agents/lib/xptr"
 	agentv1 "claude-agents/proto/gen/agent/v1"
 	"claude-agents/proto/gen/agent/v1/agentv1connect"
 	paginationv1 "claude-agents/proto/gen/pagination/v1"
 
 	agentstore "claude-agents/internal/store/agent"
 
-	"claude-agents/lib/xptr"
-
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -27,31 +27,37 @@ func TestCreateAgentValidation(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "a prompt and an absolute directory are enough",
-			req:  &agentv1.CreateAgentRequest{Prompt: "audit the migrations", Dir: "/repo"},
+			name: "a prompt, a workflow, and an absolute directory are enough",
+			req:  &agentv1.CreateAgentRequest{Prompt: "audit the migrations", Dir: "/repo", WorkflowId: "wf-1"},
 		},
 		{
 			name: "a home-relative directory is allowed, since the manager expands it",
-			req:  &agentv1.CreateAgentRequest{Prompt: "go", Dir: "~/repo"},
+			req:  &agentv1.CreateAgentRequest{Prompt: "go", Dir: "~/repo", WorkflowId: "wf-1"},
+		},
+		{
+			// The workflow supplies the directory, which is what a caller with no
+			// view of the filesystem relies on.
+			name: "no directory is allowed, since the workflow has one",
+			req:  &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: "wf-1"},
 		},
 		{
 			name:    "no prompt",
-			req:     &agentv1.CreateAgentRequest{Dir: "/repo"},
+			req:     &agentv1.CreateAgentRequest{Dir: "/repo", WorkflowId: "wf-1"},
 			wantErr: true,
 		},
 		{
-			name:    "no directory",
-			req:     &agentv1.CreateAgentRequest{Prompt: "go"},
+			name:    "no workflow, which every agent needs",
+			req:     &agentv1.CreateAgentRequest{Prompt: "go", Dir: "/repo"},
 			wantErr: true,
 		},
 		{
 			name:    "a relative directory would resolve against whichever pane is current",
-			req:     &agentv1.CreateAgentRequest{Prompt: "go", Dir: "repo"},
+			req:     &agentv1.CreateAgentRequest{Prompt: "go", Dir: "repo", WorkflowId: "wf-1"},
 			wantErr: true,
 		},
 		{
-			name:    "an empty workflow id names a workflow that cannot exist",
-			req:     &agentv1.CreateAgentRequest{Prompt: "go", Dir: "/repo", WorkflowId: xptr.Ptr("")},
+			name:    "flags carrying a shell metacharacter are refused rather than quoted and run",
+			req:     &agentv1.CreateAgentRequest{Prompt: "go", Dir: "/repo", WorkflowId: "wf-1", Flags: "--model opus; rm -rf /"},
 			wantErr: true,
 		},
 	}
@@ -86,42 +92,6 @@ func TestRequestValidation(t *testing.T) {
 		// wantErr says the request should be refused as invalid rather than served.
 		wantErr bool
 	}{
-		{
-			name: "a known state is accepted",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetState(t.Context(), connect.NewRequest(&agentv1.SetStateRequest{Name: "alpha", State: agentstore.StateWaiting}))
-
-				return err
-			},
-		},
-		{
-			name: "so is the state a finished agent settles on",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetState(t.Context(), connect.NewRequest(&agentv1.SetStateRequest{Name: "alpha", State: agentstore.StateDone}))
-
-				return err
-			},
-		},
-		{
-			// An unknown state would store cleanly and then render nowhere, so the
-			// set is closed at the edge.
-			name: "a state outside the set is refused",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetState(t.Context(), connect.NewRequest(&agentv1.SetStateRequest{Name: "alpha", State: "pondering"}))
-
-				return err
-			},
-			wantErr: true,
-		},
-		{
-			name: "a state change with no name matches no agent",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetState(t.Context(), connect.NewRequest(&agentv1.SetStateRequest{Name: "", State: agentstore.StateDone}))
-
-				return err
-			},
-			wantErr: true,
-		},
 		{
 			// The store would rewrite a name like this rather than store it, and the
 			// caller would be told it succeeded under a name it did not ask for.
@@ -161,13 +131,16 @@ func TestRequestValidation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "the trigram index cannot match under three characters",
+			// Word matching has no floor of its own, and the trigram fallback covers
+			// what is too short for it, so a query this brief is served rather than
+			// refused.
+			name: "a query of two characters is accepted",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.SearchTranscripts(t.Context(), connect.NewRequest(&agentv1.SearchTranscriptsRequest{Query: "ab"}))
 
 				return err
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			// A limit past the ceiling is clamped rather than refused, so a caller
@@ -200,13 +173,42 @@ func TestRequestValidation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "a delete with no name is refused",
+			name: "a delete with no id is refused",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.DeleteAgent(t.Context(), connect.NewRequest(&agentv1.DeleteAgentRequest{Name: ""}))
+				_, err := c.DeleteAgent(t.Context(), connect.NewRequest(&agentv1.DeleteAgentRequest{Id: ""}))
 
 				return err
 			},
 			wantErr: true,
+		},
+		{
+			name: "a mark carrying whitespace is refused, since it is drawn into a row",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
+					Id:   uuid.NewString(),
+					Mark: xptr.Ptr("two glyphs"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a glyph is not what the constraint stops",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
+					Id:   uuid.NewString(),
+					Mark: xptr.Ptr("◐"),
+				}))
+
+				// The id is nobody's, so the handler answers not_found once the mark
+				// itself has been let through.
+				if connect.CodeOf(err) == connect.CodeNotFound {
+					return nil
+				}
+
+				return err
+			},
 		},
 		{
 			name: "a transcript read with no agent id is refused",
@@ -216,6 +218,91 @@ func TestRequestValidation(t *testing.T) {
 				return err
 			},
 			wantErr: true,
+		},
+		{
+			// A key that reads differently agent to agent is not worth querying across
+			// them, which is most of why the metadata is keyed at all.
+			name: "a metadata key carrying a capital is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
+					Id:    uuid.NewString(),
+					Key:   "PullRequest",
+					Value: xptr.Ptr("https://github.com/o/r/pull/1"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "so is one carrying a space",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
+					Id:    uuid.NewString(),
+					Key:   "pull request",
+					Value: xptr.Ptr("https://github.com/o/r/pull/1"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a metadata write with no key at all is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
+					Id:    uuid.NewString(),
+					Key:   "",
+					Value: xptr.Ptr("https://github.com/o/r/pull/1"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			// The value is drawn into the panel's frame, so a newline would break the
+			// row it lands in rather than fail.
+			name: "a metadata value spanning two lines is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
+					Id:    uuid.NewString(),
+					Key:   "pr",
+					Value: xptr.Ptr("https://github.com/o/r/pull/1\nand another"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a slug key and a single-line url are what the constraint lets through",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
+					Id:    uuid.NewString(),
+					Key:   "linear_issue",
+					Value: xptr.Ptr("https://linear.app/x/issue/ENG-1"),
+				}))
+
+				// The id is nobody's, so the handler answers not_found once the key and
+				// value have been let through.
+				if connect.CodeOf(err) == connect.CodeNotFound {
+					return nil
+				}
+
+				return err
+			},
+		},
+		{
+			name: "clearing a key needs no value",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
+					Id:  uuid.NewString(),
+					Key: "pr",
+				}))
+
+				return err
+			},
 		},
 	}
 
@@ -243,7 +330,7 @@ func validatedClient(t *testing.T) (agentv1connect.AgentServiceClient, *fakeLaun
 
 	// The mutating methods report not_found for an agent that does not exist, so
 	// the validation cases need a real one to aim at.
-	require.NoError(t, st.Agents.Upsert(t.Context(), agentstore.Agent{Name: "alpha", State: agentstore.StateNew}))
+	st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateNew})
 
 	validation, err := interceptors.NewValidation()
 	require.NoError(t, err)

@@ -1,13 +1,11 @@
-// Package store owns the database connection and the transaction boundary the
-// domain stores run inside.
+// Package store owns the database connection and the transaction boundary the domain
+// stores run inside. It holds no tables of its own; each domain owns a package beneath
+// this one.
 //
-// It holds no tables of its own. Each domain owns its own package beneath this
-// one, for agents, workflows, and transcripts.
-//
-// A write that spans domains runs through InTx, which hands the same handle to
-// each store so they commit together. That is why the stores are built over a
-// DBTX rather than a pool. The same code path serves a plain query and a
-// transaction, and no store has to reach into another's tables to stay atomic.
+// A write that spans domains runs through InTx, which hands the same handle to each store
+// so they commit together. That is why the stores are built over a DBTX rather than a
+// pool: the same code path serves a plain query and a transaction, and no store has to
+// reach into another's tables to stay atomic.
 package store
 
 import (
@@ -20,6 +18,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -32,10 +31,10 @@ type Pool struct {
 	pool *pgxpool.Pool
 }
 
-// Open connects to the Postgres at url and brings its schema up to date. The
-// ping is what turns an unreachable database into an error at startup rather
-// than on the first query, which for a tool launched from a tmux keybinding is
-// the difference between a message and a panel that renders empty.
+// Open connects to the Postgres at url and brings its schema up to date. The ping turns
+// an unreachable database into an error at startup rather than on the first query, which
+// for a tool launched from a tmux keybinding is the difference between a message and a
+// panel that renders empty.
 func Open(ctx context.Context, url string) (*Pool, error) {
 	pool, err := pgxpool.New(ctx, url)
 	if err != nil {
@@ -55,11 +54,10 @@ func Open(ctx context.Context, url string) (*Pool, error) {
 	return &Pool{pool: pool}, nil
 }
 
-// OpenReadOnly opens a pool for reading only, for surfaces that hand the database
-// to something that must never write, such as the MCP endpoint. The guard rides on
-// the connection rather than on each statement. Every session the pool hands out
-// defaults to read-only transactions, so a write is refused by Postgres itself
-// even if it slips past the statement checks above it.
+// OpenReadOnly opens a pool for reading only, for surfaces that hand the database to
+// something that must never write, such as the MCP endpoint. The guard rides on the
+// connection rather than on each statement, so a write is refused by Postgres itself even
+// if it slips past the statement checks above it.
 func OpenReadOnly(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
@@ -86,17 +84,22 @@ func (p *Pool) DB() DBTX {
 	return p.pool
 }
 
+// Raw returns the underlying pgx pool. It exists for River, whose driver takes the
+// concrete pool rather than an interface. Nothing else should reach for it, since a
+// domain store takes DBTX so a transaction can be swapped in underneath it.
+func (p *Pool) Raw() *pgxpool.Pool {
+	return p.pool
+}
+
 // Close releases the connection pool.
 func (p *Pool) Close() error {
 	p.pool.Close()
 	return nil
 }
 
-// InTx runs fn inside a transaction, handing it the handle to build the domain
-// stores over. Everything those stores do lands together or not at all, which is
-// how an operation spanning two domains stays atomic without either of them
-// knowing about the other's tables. Returning an error rolls the whole thing
-// back.
+// InTx runs fn inside a transaction, handing it the handle to build the domain stores
+// over, so an operation spanning two domains stays atomic without either of them knowing
+// about the other's tables. Returning an error rolls the whole thing back.
 func (p *Pool) InTx(ctx context.Context, fn func(DBTX) error) error {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
@@ -115,20 +118,47 @@ func (p *Pool) InTx(ctx context.Context, fn func(DBTX) error) error {
 	return nil
 }
 
-// IsID reports whether a string could be one of the ids these stores hand out.
-//
-// Ids reach the stores from outside, as tool arguments or a name typed into the
-// panel. The columns are uuid, so a value that is not one is refused by Postgres
-// with a parse error rather than matching nothing, which turns a caller's typo
-// into a failure instead of a miss. Checking first keeps the answer the caller
-// expects, that an id which cannot exist is one that is not there.
+// IsID reports whether a string could be one of the ids these stores hand out. The
+// columns are uuid, so a value that is not one is refused by Postgres with a parse error
+// rather than matching nothing, which would turn a caller's typo into a failure instead of
+// a miss.
 func IsID(id string) bool {
 	_, err := uuid.Parse(id)
 	return err == nil
+}
+
+// NewID mints a row id the same way the columns' own uuidv7() default does, for a caller
+// that needs the id before the row exists. The version matters rather than just the
+// uniqueness: a v7 carries its creation time in its leading bits, so the keyset pages and
+// the search tie-breaks that order by id read it as the order rows were written.
+func NewID() (string, error) {
+	id, err := uuid.NewV7()
+	if err != nil {
+		return "", fmt.Errorf("failed to mint an id: %w", err)
+	}
+
+	return id.String(), nil
 }
 
 // NoRows reports whether an error is Postgres finding nothing, which every
 // domain store turns into its own empty answer rather than an error.
 func NoRows(err error) bool {
 	return errors.Is(err, pgx.ErrNoRows)
+}
+
+// ErrNameTaken reports that a write collided with a name already held. Every
+// unique name in this schema is scoped to live rows, so this only ever means a
+// record currently listed answers to that name, never one sitting in the trash.
+var ErrNameTaken = errors.New("name already taken")
+
+// uniqueViolation is the SQLSTATE Postgres raises for a broken unique constraint.
+const uniqueViolation = "23505"
+
+// NameTaken reports whether an error is a unique index refusing a write. It reads the
+// driver's code rather than its message text, so the check does not depend on wording that
+// can change under it.
+func NameTaken(err error) bool {
+	var pgErr *pgconn.PgError
+
+	return errors.As(err, &pgErr) && pgErr.Code == uniqueViolation
 }

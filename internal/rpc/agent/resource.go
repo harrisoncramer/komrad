@@ -35,21 +35,32 @@ func renderAgent(stored agentstore.Agent, alive bool) agent {
 		created = stored.CreatedAt.Format(time.RFC3339)
 	}
 
+	metadata := make([]*agentv1.AgentMetadata, 0, len(stored.Metadata))
+	for _, entry := range stored.Metadata {
+		metadata = append(metadata, &agentv1.AgentMetadata{Key: entry.Key, Value: entry.Value})
+	}
+
 	return agent{
 		Agent: &agentv1.Agent{
-			Id:              stored.ID,
-			Name:            stored.Name,
-			Cwd:             stored.Cwd,
-			Flags:           stored.Flags,
-			Prompt:          stored.Prompt,
-			PaneId:          stored.Pane,
-			State:           stored.State,
-			ClaudeSessionId: stored.ClaudeSessionID,
-			WorkflowId:      stored.WorkflowID,
-			CreatedAt:       created,
-			Alive:           alive,
+			Id:             stored.ID,
+			Name:           stored.Name,
+			Cwd:            stored.Cwd,
+			Flags:          stored.Flags,
+			Prompt:         stored.Prompt,
+			PaneId:         stored.Pane,
+			State:          stored.State,
+			SessionId:      stored.SessionID,
+			Harness:        stored.Harness,
+			WorkflowId:     stored.WorkflowID,
+			ScheduleId:     stored.ScheduleID,
+			CreatedAt:      created,
+			Alive:          alive,
+			Mark:           stored.Mark,
+			Hidden:         stored.Hidden,
+			Metadata:       metadata,
+			IdempotencyKey: stored.IdempotencyKey,
 		},
-		cursor: agentstore.Cursor{UpdatedAt: stored.UpdatedAt, ID: stored.ID},
+		cursor: agentstore.Cursor{ID: stored.ID},
 	}
 }
 
@@ -69,12 +80,15 @@ func (h searchHit) Cursor() (transcriptstore.Cursor, error) {
 func renderSearchHit(hit transcriptstore.SearchHit) searchHit {
 	return searchHit{
 		SearchHit: &agentv1.SearchHit{
-			AgentId:     hit.AgentID,
-			Name:        hit.Name,
-			Deleted:     hit.Deleted,
-			Snippet:     hit.Snippet,
-			Occurrences: int64(hit.Rank),
+			AgentId:       hit.AgentID,
+			Name:          hit.Name,
+			Deleted:       hit.Deleted,
+			Snippet:       hit.Snippet,
+			Score:         hit.Rank,
+			Seq:           hit.Seq,
+			Role:          hit.Role,
+			ContentOffset: hit.ContentOffset,
 		},
-		cursor: transcriptstore.Cursor{Rank: hit.Rank, AgentID: hit.AgentID},
+		cursor: transcriptstore.Cursor{Rank: hit.Rank, AgentID: hit.AgentID, Seq: hit.Seq},
 	}
 }

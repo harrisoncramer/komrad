@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	agentstore "claude-agents/internal/store/agent"
+	transcriptstore "claude-agents/internal/store/transcript"
 	"claude-agents/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
@@ -23,9 +24,14 @@ func TestNewAgent(t *testing.T) {
 		dir         func(t *testing.T) string
 		title       string
 		windowErr   error
+		sendKeysErr error
+		setOwnerErr error
 		badWorkflow bool
 		wantErrIs   error
 		wantErr     string
+		// wantPaneKilled says the window was already open when the launch failed, so
+		// tearing the agent down has to take the pane with it.
+		wantPaneKilled bool
 	}{
 		{
 			name:      "a directory nobody can enter",
@@ -59,6 +65,28 @@ func TestNewAgent(t *testing.T) {
 			wantErr:   "failed to open a window",
 		},
 		{
+			// Without the stamp there is nothing tying the pane to the agent, so the row
+			// would claim a pane nothing can verify is still its own. That is the state
+			// this whole mechanism exists to avoid, so the launch fails instead.
+			name:           "a pane tmux refuses to stamp",
+			dir:            func(t *testing.T) string { return t.TempDir() },
+			title:          "unstamped",
+			setOwnerErr:    errors.New("tmux refused the option"),
+			wantErr:        "failed to stamp the pane",
+			wantPaneKilled: true,
+		},
+		{
+			// The row is written before the command is typed, so a launch that dies here has
+			// left one behind. It has to be taken back out or it lists as a live agent with
+			// nothing running in it.
+			name:           "a launch that never reaches the pane's shell",
+			dir:            func(t *testing.T) string { return t.TempDir() },
+			title:          "stillborn",
+			sendKeysErr:    errors.New("tmux dropped the keys"),
+			wantErr:        "failed to launch the agent",
+			wantPaneKilled: true,
+		},
+		{
 			name:  "a launch that works",
 			dir:   func(t *testing.T) string { return t.TempDir() },
 			title: "My Agent",
@@ -69,18 +97,20 @@ func TestNewAgent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := newFakeTmux()
 			tmux.newWindowErr = tt.windowErr
+			tmux.sendKeysErr = tt.sendKeysErr
+			tmux.setOwnerErr = tt.setOwnerErr
 			st := newStore(t)
 			manager := newManager(tmux, st, "--default-flag")
 
 			params := NewAgentParams{
-				Title:  tt.title,
-				Dir:    tt.dir(t),
-				Flags:  "--extra",
-				Prompt: "do the thing",
+				Title:      tt.title,
+				Dir:        tt.dir(t),
+				Flags:      "--extra",
+				Prompt:     "do the thing",
+				WorkflowID: seedWorkflow(t, st),
 			}
 			if tt.badWorkflow {
-				missing := "no-such-workflow"
-				params.WorkflowID = &missing
+				params.WorkflowID = "no-such-workflow"
 			}
 
 			created, err := manager.NewAgent(t.Context(), params)
@@ -100,6 +130,10 @@ func TestNewAgent(t *testing.T) {
 				require.NoError(t, listErr)
 				assert.Empty(t, agents, "a refused launch records nothing")
 
+				if tt.wantPaneKilled {
+					assert.NotEmpty(t, tmux.killedPanes, "the open pane goes with the record")
+				}
+
 				return
 			}
 
@@ -116,8 +150,78 @@ func TestNewAgent(t *testing.T) {
 			assert.Equal(t, "--default-flag --extra", stored.Flags, "the configured flags come first")
 			assert.Equal(t, "do the thing", stored.Prompt)
 			assert.Equal(t, agentstore.StateNew, stored.State)
-			assert.NotEmpty(t, stored.ClaudeSessionID, "a conversation id is pinned at launch")
-			assert.NotEmpty(t, tmux.lastKeys("%My-Agent"), "claude is launched into the new pane")
+			assert.NotEmpty(t, stored.SessionID, "a conversation id is pinned at launch")
+			assert.NotEmpty(t, tmux.lastKeys("%My-Agent"), "the agent is launched into the new pane")
+			assert.Equal(t, stored.ID, tmux.owners["%My-Agent"], "the pane is stamped with the agent it is running")
+			assert.True(t, manager.AgentRunning(*stored), "and the agent reads as running in it")
+		})
+	}
+}
+
+// TestNewAgentIdempotency covers the key that makes a launch repeatable. A
+// background job that retries after a launch half-succeeded has to find the
+// agent it already made, or the same prompt runs twice in two tmux windows.
+func TestNewAgentIdempotency(t *testing.T) {
+	tests := []struct {
+		name string
+		// first and second are the keys the two calls claim.
+		first  string
+		second string
+		// wantSame says the second call should return the first call's agent
+		// rather than create another.
+		wantSame bool
+	}{
+		{
+			name:     "the same key returns the agent already created",
+			first:    "schedule:s1:2026-07-28T09:00:00Z",
+			second:   "schedule:s1:2026-07-28T09:00:00Z",
+			wantSame: true,
+		},
+		{
+			name:   "the next occurrence is a different agent",
+			first:  "schedule:s1:2026-07-28T09:00:00Z",
+			second: "schedule:s1:2026-07-29T09:00:00Z",
+		},
+		{
+			// Two interactive creates claim nothing, so neither is the other, and
+			// the unique index has to tolerate both.
+			name: "two creates claiming no key are two agents",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := newFakeTmux()
+			st := newStore(t)
+			manager := newManager(tmux, st, "")
+			dir := t.TempDir()
+
+			params := NewAgentParams{
+				Title: "morning-ci", Dir: dir, Prompt: "check CI",
+				WorkflowID: seedWorkflow(t, st), IdempotencyKey: tt.first,
+			}
+			first, err := manager.NewAgent(t.Context(), params)
+			require.NoError(t, err)
+			require.NotNil(t, first)
+
+			params.IdempotencyKey = tt.second
+			second, err := manager.NewAgent(t.Context(), params)
+			require.NoError(t, err)
+			require.NotNil(t, second)
+
+			agents, err := st.List(t.Context())
+			require.NoError(t, err)
+
+			if tt.wantSame {
+				assert.Equal(t, first.ID, second.ID, "the retry finds the agent it already created")
+				assert.Len(t, agents, 1, "and no second agent is recorded")
+				assert.Len(t, tmux.sent, 1, "nor is a second agent started")
+
+				return
+			}
+
+			assert.NotEqual(t, first.ID, second.ID)
+			assert.Len(t, agents, 2)
 		})
 	}
 }
@@ -127,12 +231,26 @@ func TestNewAgent(t *testing.T) {
 // stored cwd would not be where the agent is running.
 func TestNewAgentResolvesDirectory(t *testing.T) {
 	tests := []struct {
-		name      string
-		dir       string
-		useClient bool
+		name string
+		dir  string
+		// workflowCwd is the directory the enclosing workflow supplies, which is
+		// what a launch with no directory of its own takes.
+		workflowCwd string
+		useClient   bool
 	}{
 		{
-			name:      "a blank directory falls back to the invoking client's",
+			name:        "a blank directory takes the workflow's",
+			workflowCwd: "~/chariot/chariot",
+		},
+		{
+			name: "what the caller asked for wins over the workflow's",
+			dir:  "~/chariot/chariot",
+			// Somewhere the test never creates, so taking it would fail rather than
+			// pass quietly.
+			workflowCwd: "/no/such/directory",
+		},
+		{
+			name:      "with neither, the invoking client's directory answers",
 			useClient: true,
 		},
 		{
@@ -157,7 +275,12 @@ func TestNewAgentResolvesDirectory(t *testing.T) {
 			st := newStore(t)
 			manager := newManager(tmux, st, "")
 
-			_, err := manager.NewAgent(t.Context(), NewAgentParams{Title: "scoped", Dir: tt.dir})
+			created, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{Name: "backend", Cwd: tt.workflowCwd})
+			require.NoError(t, err)
+
+			_, err = manager.NewAgent(t.Context(), NewAgentParams{
+				Title: "scoped", Dir: tt.dir, WorkflowID: created.ID,
+			})
 			require.NoError(t, err)
 
 			assert.Equal(t, want, tmux.newWindows["scoped"], "tmux is given an absolute path")
@@ -200,33 +323,26 @@ func TestNewAgentInsideWorkflow(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := newFakeTmux()
 			st := newStore(t)
-			manager := newManager(tmux, st, "")
+			manager, h := newManagerWithHarness(tmux, st, "")
 
-			params := NewAgentParams{Title: "agent", Dir: t.TempDir()}
-			if tt.scoped {
-				created, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{
-					Name:    "backend",
-					Context: tt.context,
-				})
-				require.NoError(t, err)
-				params.WorkflowID = &created.ID
-			}
+			created, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{
+				Name:    "backend",
+				Context: tt.context,
+			})
+			require.NoError(t, err)
 
-			_, err := manager.NewAgent(t.Context(), params)
+			params := NewAgentParams{Title: "agent", Dir: t.TempDir(), WorkflowID: created.ID}
+
+			_, err = manager.NewAgent(t.Context(), params)
 			require.NoError(t, err)
 
 			stored, err := st.Get(t.Context(), "agent")
 			require.NoError(t, err)
 			require.NotNil(t, stored)
+			assert.Equal(t, params.WorkflowID, stored.WorkflowID, "the agent carries its workflow's id")
 
-			if tt.scoped {
-				require.NotNil(t, stored.WorkflowID, "the agent carries its workflow's id")
-				assert.Equal(t, *params.WorkflowID, *stored.WorkflowID)
-			} else {
-				assert.Nil(t, stored.WorkflowID)
-			}
-
-			prompt := appendedPrompt(t, tmux.lastKeys("%agent")[0])
+			require.Len(t, h.launches, 1)
+			prompt := h.launches[0].Context
 			assert.Contains(t, prompt, "/mcp", "every agent is told about the endpoint")
 			if tt.wantContext {
 				assert.Contains(t, prompt, "shared notes")
@@ -342,7 +458,7 @@ func TestArchiveAgent(t *testing.T) {
 			manager := newManager(tmux, st, "")
 
 			if tt.seed != "" {
-				seed(t, st, tt.seed, "%1", agentstore.StateThinking)
+				seedRunning(t, st, tmux, tt.seed, "%1", agentstore.StateThinking)
 			}
 
 			err := manager.ArchiveAgent(t.Context(), tt.target)
@@ -359,6 +475,140 @@ func TestArchiveAgent(t *testing.T) {
 			assert.Nil(t, stored, "the agent is hidden from listings")
 		})
 	}
+}
+
+// TestDeleteAgent covers destroying an agent for good, which is what emptying
+// the trash does. It is keyed by id rather than by name because the agents it
+// runs against are archived, and an archived name is not unique: the index that
+// makes a name identify one agent holds among live rows only.
+func TestDeleteAgent(t *testing.T) {
+	tests := []struct {
+		name      string
+		archive   bool
+		target    func(seeded agentstore.Agent) string
+		wantErrIs error
+	}{
+		{
+			name:      "an id nobody holds is not a quiet success",
+			target:    func(agentstore.Agent) string { return "019fa434-e7a7-7ac9-bab5-718681da797d" },
+			wantErrIs: ErrAgentNotFound,
+		},
+		{
+			name:   "a live agent is stopped and destroyed",
+			target: func(seeded agentstore.Agent) string { return seeded.ID },
+		},
+		{
+			// The panel's delete archives, so everything reaching this path has been
+			// archived already. A delete that could not see those rows would report
+			// every agent in the trash as missing.
+			name:    "an archived agent is destroyed too",
+			archive: true,
+			target:  func(seeded agentstore.Agent) string { return seeded.ID },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			tmux := newFakeTmux()
+			manager := newManager(tmux, st, "")
+			ctx := t.Context()
+
+			seeded := seedRunning(t, st, tmux, "target", "%1", agentstore.StateThinking)
+			require.NoError(t, st.Transcripts.Upsert(ctx, transcriptstore.UpsertParams{
+				AgentID: seeded.ID, Content: "something it said", Offset: 1,
+			}))
+			if tt.archive {
+				require.NoError(t, st.SoftDelete(ctx, seeded.Name))
+			}
+
+			err := manager.DeleteAgent(ctx, tt.target(seeded))
+			if tt.wantErrIs != nil {
+				require.ErrorIs(t, err, tt.wantErrIs)
+
+				all, listErr := st.ListAll(ctx)
+				require.NoError(t, listErr)
+				assert.Len(t, all, 1, "a delete that matched nothing removes nothing")
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Contains(t, tmux.killedPanes, "%1", "the agent's pane is killed")
+
+			all, err := st.ListAll(ctx)
+			require.NoError(t, err)
+			assert.Empty(t, all, "the row is gone from every listing, not hidden from one")
+
+			tr, err := st.GetTranscript(ctx, seeded.ID)
+			require.NoError(t, err)
+			assert.Empty(t, tr.Content, "the transcript goes with the agent")
+		})
+	}
+}
+
+// TestAReissuedPaneIsNotTheAgents covers the whole point of stamping a pane. tmux
+// only promises a pane id is unique while the server that issued it lives, so a
+// dormant agent's recorded pane routinely names a pane the next server gave to a
+// different agent. Every read of a stored pane id has to survive that: the agent
+// must not read as running, and nothing may reach into the pane that is now
+// somebody else's.
+func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
+	// The two agents share a pane id the way rows in the panel's database do after a
+	// restart: the live one holds it because it is running there, and the dormant one
+	// because that is what its row still says.
+	const shared = "%4"
+
+	setup := func(t *testing.T) (*AgentService, *testStore, *fakeTmux, agentstore.Agent) {
+		t.Helper()
+		st := newStore(t)
+		tmux := newFakeTmux()
+		dormant := seed(t, st, "dormant", shared, agentstore.StateDone)
+		seedRunning(t, st, tmux, "running", shared, agentstore.StateThinking)
+
+		return newManager(tmux, st, ""), st, tmux, dormant
+	}
+
+	t.Run("the dormant agent does not read as running", func(t *testing.T) {
+		manager, _, _, dormant := setup(t)
+		assert.False(t, manager.AgentRunning(dormant))
+	})
+
+	t.Run("archiving it leaves the pane running", func(t *testing.T) {
+		manager, _, tmux, dormant := setup(t)
+		require.NoError(t, manager.ArchiveAgent(t.Context(), dormant.Name))
+		assert.Empty(t, tmux.killedPanes, "killing by a stale id would stop the agent using that pane now")
+	})
+
+	t.Run("deleting it leaves the pane running", func(t *testing.T) {
+		manager, _, tmux, dormant := setup(t)
+		require.NoError(t, manager.DeleteAgent(t.Context(), dormant.ID))
+		assert.Empty(t, tmux.killedPanes, "killing by a stale id would stop the agent using that pane now")
+	})
+
+	t.Run("restoring it opens a window rather than adopting the pane", func(t *testing.T) {
+		manager, st, tmux, dormant := setup(t)
+		restored, err := manager.RestoreAgent(t.Context(), dormant.ID)
+		require.NoError(t, err)
+		assert.NotEqual(t, shared, restored.Pane, "a restore that read the pane as its own would relaunch nothing")
+		assert.Equal(t, dormant.ID, tmux.owners[restored.Pane], "and the new pane is its own")
+
+		still := agentByID(t, st, dormant.ID)
+		assert.Equal(t, restored.Pane, still.Pane)
+	})
+
+	t.Run("a reconcile pass forgets the claim without reading the pane", func(t *testing.T) {
+		_, st, tmux, dormant := setup(t)
+		tmux.captures[shared] = busyFrame
+
+		rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+		require.NoError(t, rec.Reconcile(t.Context()))
+
+		after := agentByID(t, st, dormant.ID)
+		assert.Empty(t, after.Pane, "the stale claim is dropped, so it cannot collide again")
+		assert.Equal(t, agentstore.StateDone, after.State, "the frame belongs to another agent and says nothing about this one")
+		assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "running"), "the agent actually in that pane is read normally")
+	})
 }
 
 // TestRestore covers bringing an archived agent back. Its name may have been
@@ -384,20 +634,21 @@ func TestRestore(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			manager := newManager(newFakeTmux(), st, "")
+			tmux := newFakeTmux()
+			manager := newManager(tmux, st, "")
 			ctx := t.Context()
 
-			require.NoError(t, st.Upsert(ctx, agentstore.Agent{
-				Name:            "foo",
-				State:           agentstore.StateDone,
-				ClaudeSessionID: "sess-old",
+			require.NoError(t, st.Create(ctx, agentstore.Agent{
+				Name:      "foo",
+				State:     agentstore.StateDone,
+				SessionID: "sess-old",
 			}))
 			original, err := st.Get(ctx, "foo")
 			require.NoError(t, err)
 			require.NoError(t, st.SoftDelete(ctx, "foo"))
 
 			if tt.reuseName {
-				require.NoError(t, st.Upsert(ctx, agentstore.Agent{Name: "foo", State: agentstore.StateNew}))
+				require.NoError(t, st.Create(ctx, agentstore.Agent{Name: "foo", State: agentstore.StateNew}))
 			}
 
 			archived := *original
@@ -407,7 +658,9 @@ func TestRestore(t *testing.T) {
 			restored := agentByID(t, st, original.ID)
 			assert.False(t, restored.Deleted, "the agent is back in the listing")
 			assert.Equal(t, agentstore.StateNew, restored.State)
-			assert.Equal(t, "sess-old", restored.ClaudeSessionID, "the conversation is preserved")
+			assert.Equal(t, "sess-old", restored.SessionID, "the conversation is preserved")
+			assert.Equal(t, original.ID, tmux.owners[restored.Pane], "the pane it came back in is stamped with its id")
+			assert.True(t, manager.AgentRunning(restored), "so it reads as running again")
 
 			if tt.wantSameName {
 				assert.Equal(t, "foo", restored.Name)

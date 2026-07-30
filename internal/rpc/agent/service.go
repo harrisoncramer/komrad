@@ -8,6 +8,8 @@ import (
 	"fmt"
 
 	"claude-agents/internal/agents"
+	"claude-agents/internal/harness"
+	"claude-agents/internal/store"
 	"claude-agents/lib/pagination"
 	agentv1 "claude-agents/proto/gen/agent/v1"
 
@@ -18,31 +20,32 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// agentLauncher is the part of the agent manager the service drives. Creating an
-// agent is more than a row. It opens a tmux window and types claude into it, so the
-// service delegates rather than writing the record itself.
+// agentLauncher is the part of the agent manager the service drives. Creating an agent is
+// more than a row: it opens a tmux window and types a command line into it, so the service delegates
+// rather than writing the record itself.
 type agentLauncher interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
-	// PaneAlive answers whether an agent is still running, which is read at
+	// AgentRunning answers whether an agent is still running, which is read at
 	// response time rather than stored so a client needs no tmux of its own.
-	PaneAlive(pane string) bool
-	DeleteAgent(ctx context.Context, name string) error
+	AgentRunning(agent agentstore.Agent) bool
+	DeleteAgent(ctx context.Context, id string) error
 	ArchiveAgent(ctx context.Context, name string) error
 	RestoreAgent(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
-// agentStore is the part of the agent store this handler reads.
 type agentStore interface {
-	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor) ([]agentstore.Agent, error)
+	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, deleted bool) ([]agentstore.Agent, error)
 	Get(ctx context.Context, name string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
-	SetState(ctx context.Context, name, state string) (bool, error)
+	SetMark(ctx context.Context, id string, mark *string) (bool, error)
+	SetHidden(ctx context.Context, id string, hidden bool) (bool, error)
+	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 	Rename(ctx context.Context, id, name string) (bool, error)
 }
 
-// transcriptStore is the part of the transcript store this handler reads. One RPC
-// surface covers both domains, but each store is held separately rather than one
-// object reaching across both.
+// transcriptStore is the part of the transcript store this handler reads. One RPC surface
+// covers both domains, but each store is held separately rather than one object reaching
+// across both.
 type transcriptStore interface {
 	Get(ctx context.Context, agentID string) (transcriptstore.Transcript, error)
 	Search(ctx context.Context, params transcriptstore.SearchParams) ([]transcriptstore.SearchHit, error)
@@ -66,39 +69,42 @@ func NewService(agents agentStore, transcripts transcriptStore, launcher agentLa
 // already passed them.
 func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.CreateAgentRequest]) (*connect.Response[agentv1.CreateAgentResponse], error) {
 	created, err := s.launcher.NewAgent(ctx, agents.NewAgentParams{
-		Title:      req.Msg.GetTitle(),
-		Dir:        req.Msg.GetDir(),
-		Flags:      req.Msg.GetFlags(),
-		Prompt:     req.Msg.GetPrompt(),
-		WorkflowID: req.Msg.WorkflowId,
+		Title:          req.Msg.GetTitle(),
+		Dir:            req.Msg.GetDir(),
+		Flags:          req.Msg.GetFlags(),
+		Prompt:         req.Msg.GetPrompt(),
+		WorkflowID:     req.Msg.GetWorkflowId(),
+		Harness:        req.Msg.GetHarness(),
+		IdempotencyKey: req.Msg.GetIdempotencyKey(),
 	})
 	switch {
 	case errors.Is(err, agents.ErrWorkflowNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, err)
-	case errors.Is(err, agents.ErrBadDirectory):
+	case errors.Is(err, agents.ErrBadDirectory), errors.Is(err, harness.ErrNotRegistered):
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create agent: %w", err))
 	}
 
-	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, s.launcher.PaneAlive(created.Pane)).Agent}), nil
+	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, s.launcher.AgentRunning(*created)).Agent}), nil
 }
 
-// ListAgents returns one page of stored agents, most recently updated first.
+// ListAgents returns one page of stored agents, newest first. The request picks
+// which set is listed, the live agents or the soft-deleted ones.
 func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
 	paginator, err := pagination.New[agentstore.Cursor, agent](req.Msg.GetPagination())
 	if err != nil {
 		return nil, err
 	}
 
-	agents, err := s.agents.ListPage(ctx, paginator.Limit(), paginator.Cursor())
+	agents, err := s.agents.ListPage(ctx, paginator.Limit(), paginator.Cursor(), req.Msg.GetDeleted())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list agents: %w", err))
 	}
 
 	resources := make([]agent, 0, len(agents))
 	for _, agent := range agents {
-		resources = append(resources, renderAgent(agent, s.launcher.PaneAlive(agent.Pane)))
+		resources = append(resources, renderAgent(agent, s.launcher.AgentRunning(agent)))
 	}
 
 	next, err := paginator.NextToken(resources)
@@ -124,19 +130,58 @@ func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.Get
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("agent %q not found", req.Msg.GetName()))
 	}
 
-	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, s.launcher.PaneAlive(agent.Pane)).Agent}), nil
+	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, s.launcher.AgentRunning(*agent)).Agent}), nil
 }
 
-// SetState updates an agent's state. Naming an agent that does not exist is an
-// error rather than a quiet success, so a caller that mistyped a name learns it
-// here rather than wondering why nothing changed.
-func (s *Service) SetState(ctx context.Context, req *connect.Request[agentv1.SetStateRequest]) (*connect.Response[emptypb.Empty], error) {
-	changed, err := s.agents.SetState(ctx, req.Msg.GetName(), req.Msg.GetState())
+// SetMark marks an agent, and an unset mark clears it. An id matching nothing is an
+// error rather than a quiet success, which would leave the caller believing in a
+// mark it never made.
+func (s *Service) SetMark(ctx context.Context, req *connect.Request[agentv1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error) {
+	changed, err := s.agents.SetMark(ctx, req.Msg.GetId(), req.Msg.Mark)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set state: %w", err))
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set the mark: %w", err))
 	}
 	if !changed {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("agent %q not found", req.Msg.GetName()))
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// SetHidden hides an agent from the panel's list or brings it back. An id matching
+// nothing is an error rather than a quiet success, for the same reason it is on a
+// mark: the caller would otherwise believe in a change it never made.
+func (s *Service) SetHidden(ctx context.Context, req *connect.Request[agentv1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error) {
+	changed, err := s.agents.SetHidden(ctx, req.Msg.GetId(), req.Msg.GetHidden())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to hide the agent: %w", err))
+	}
+	if !changed {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// SetMetadata records one fact an agent found out about its own work, or clears the
+// key when the value is unset. An id matching nothing is an error rather than a quiet
+// success, as it is on a mark. Clearing a key nothing held is the one case that is
+// not: the agent asked for that key to be gone and it is, so reporting not-found
+// would fail a request that got what it wanted.
+func (s *Service) SetMetadata(ctx context.Context, req *connect.Request[agentv1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error) {
+	changed, err := s.agents.SetMetadata(ctx, agentstore.SetMetadataParams{
+		ID:    req.Msg.GetId(),
+		Key:   req.Msg.GetKey(),
+		Value: req.Msg.Value,
+	})
+	switch {
+	case errors.Is(err, agentstore.ErrTooManyMetadataKeys):
+		return nil, connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("agent %q already holds as much metadata as it may", req.Msg.GetId()))
+	case err != nil:
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set the metadata: %w", err))
+	}
+	if !changed && req.Msg.Value != nil {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -146,10 +191,10 @@ func (s *Service) SetState(ctx context.Context, req *connect.Request[agentv1.Set
 // The manager owns this rather than the store, since stopping the agent means
 // killing its pane.
 func (s *Service) DeleteAgent(ctx context.Context, req *connect.Request[agentv1.DeleteAgentRequest]) (*connect.Response[emptypb.Empty], error) {
-	err := s.launcher.DeleteAgent(ctx, req.Msg.GetName())
+	err := s.launcher.DeleteAgent(ctx, req.Msg.GetId())
 	switch {
 	case errors.Is(err, agents.ErrAgentNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("agent %q not found", req.Msg.GetName()))
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete agent: %w", err))
 	}
@@ -181,7 +226,7 @@ func (s *Service) RestoreAgent(ctx context.Context, req *connect.Request[agentv1
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to restore agent: %w", err))
 	}
 
-	return connect.NewResponse(&agentv1.RestoreAgentResponse{Agent: renderAgent(*restored, s.launcher.PaneAlive(restored.Pane)).Agent}), nil
+	return connect.NewResponse(&agentv1.RestoreAgentResponse{Agent: renderAgent(*restored, s.launcher.AgentRunning(*restored)).Agent}), nil
 }
 
 // UpdateAgent renames the agent with the given id. A name a live agent already
@@ -191,7 +236,7 @@ func (s *Service) RestoreAgent(ctx context.Context, req *connect.Request[agentv1
 func (s *Service) UpdateAgent(ctx context.Context, req *connect.Request[agentv1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error) {
 	renamed, err := s.agents.Rename(ctx, req.Msg.GetId(), req.Msg.GetName())
 	switch {
-	case errors.Is(err, agentstore.ErrNameTaken):
+	case errors.Is(err, store.ErrNameTaken):
 		return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("an agent named %q already exists", req.Msg.GetName()))
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update agent: %w", err))

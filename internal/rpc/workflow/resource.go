@@ -30,9 +30,10 @@ func renderWorkflow(w workflowstore.Workflow) workflow {
 			Id:      w.ID,
 			Name:    w.Name,
 			Context: w.Context,
+			Harness: w.Harness,
 			Cwd:     w.Cwd,
 			Flags:   w.Flags,
 		},
-		cursor: workflowstore.Cursor{UpdatedAt: w.UpdatedAt, ID: w.ID},
+		cursor: workflowstore.Cursor{ID: w.ID},
 	}
 }

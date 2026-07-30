@@ -94,6 +94,14 @@ func renderSection(buf *bytes.Buffer, schema *jsonschema.Schema, path []string) 
 			return fmt.Errorf("failed to render %s: %w", strings.Join(append(path, value.name), "."), err)
 		}
 
+		// A value that runs to several lines opens on its own name rather than a
+		// padded one, since there is no column of neighbours for it to line up with.
+		if strings.Contains(rendered, "\n") {
+			fmt.Fprintf(buf, "%s = %s\n", value.name, rendered)
+
+			continue
+		}
+
 		fmt.Fprintf(buf, "%-*s = %s\n", width, value.name, rendered)
 	}
 
@@ -113,6 +121,13 @@ func renderValue(value any) (string, error) {
 	switch typed := value.(type) {
 	case string:
 		return strconv.Quote(typed), nil
+	case bool:
+		return strconv.FormatBool(typed), nil
+	case float64:
+		// 'f' rather than the shortest form, since a fraction written in exponent
+		// notation is still a TOML float but not one a reader would recognize as the
+		// share of a width.
+		return strconv.FormatFloat(typed, 'f', -1, 64), nil
 	case []string:
 		quoted := make([]string, 0, len(typed))
 		for _, item := range typed {
@@ -120,6 +135,18 @@ func renderValue(value any) (string, error) {
 		}
 
 		return "[" + strings.Join(quoted, ", ") + "]", nil
+	case []Mark:
+		// One inline table per line rather than a [[marks]] block each, so the marks
+		// stay one value in a file whose every other value is one line too. A reader
+		// who prefers the block form can write it and it parses the same.
+		var buf strings.Builder
+		buf.WriteString("[\n")
+		for _, mark := range typed {
+			fmt.Fprintf(&buf, "  { glyph = %s, color = %s },\n", strconv.Quote(mark.Glyph), strconv.Quote(mark.Color))
+		}
+		buf.WriteString("]")
+
+		return buf.String(), nil
 	default:
 		return "", fmt.Errorf("unsupported default type %T", value)
 	}

@@ -2,10 +2,15 @@ package agents
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"claude-agents/internal/harness"
+	"claude-agents/internal/harness/claude"
+	"claude-agents/internal/harness/codex"
 	agentstore "claude-agents/internal/store/agent"
 	"claude-agents/internal/store/transcript"
 
@@ -13,59 +18,46 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFlattenTranscript(t *testing.T) {
+// TestAppendTurns covers the join and the offsets together, since the offset a turn
+// records is only right if it points at that turn inside the text the same call
+// built.
+func TestAppendTurns(t *testing.T) {
 	tests := []struct {
-		name string
-		in   string
-		want string
+		name     string
+		existing string
+		turns    []harness.Turn
+		want     string
 	}{
 		{
-			name: "string user prompt is kept",
-			in:   `{"type":"user","message":{"content":"hello there"}}`,
-			want: "hello there",
+			name:     "nothing new leaves the transcript alone",
+			existing: "earlier",
+			want:     "earlier",
 		},
 		{
-			name: "assistant text blocks are kept, thinking and tool_use dropped",
-			in: `{"type":"assistant","message":{"content":[` +
-				`{"type":"thinking","thinking":"secret reasoning"},` +
-				`{"type":"text","text":"visible answer"},` +
-				`{"type":"tool_use","name":"Bash","input":{}}` +
-				`]}}`,
-			want: "visible answer",
+			name:  "the first turns start the transcript",
+			turns: []harness.Turn{{Role: "user", Content: "question"}, {Role: "assistant", Content: "answer"}},
+			want:  "question\n\nanswer",
 		},
 		{
-			name: "user tool_result blocks are dropped",
-			in:   `{"type":"user","message":{"content":[{"type":"tool_result","content":"exit 0"}]}}`,
-			want: "",
-		},
-		{
-			name: "meta lines are skipped",
-			in:   `{"type":"user","isMeta":true,"message":{"content":"injected context"}}`,
-			want: "",
-		},
-		{
-			name: "non-conversation types are skipped",
-			in: `{"type":"mode","mode":"normal"}` + "\n" +
-				`{"type":"file-history-snapshot"}` + "\n" +
-				`{"type":"system","content":"hook fired"}`,
-			want: "",
-		},
-		{
-			name: "malformed lines are ignored",
-			in:   "not json\n" + `{"type":"user","message":{"content":"survives"}}`,
-			want: "survives",
-		},
-		{
-			name: "turns are joined in order, blank-line separated",
-			in: `{"type":"user","message":{"content":"question"}}` + "\n" +
-				`{"type":"assistant","message":{"content":[{"type":"text","text":"answer"}]}}`,
-			want: "question\n\nanswer",
+			name:     "later turns are separated from what is already there",
+			existing: "earlier",
+			turns:    []harness.Turn{{Role: "user", Content: "later"}},
+			want:     "earlier\n\nlater",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, flattenTranscript([]byte(tt.in)))
+			content, indexed := appendTurns(tt.existing, tt.turns)
+			assert.Equal(t, tt.want, content)
+			require.Len(t, indexed, len(tt.turns))
+
+			for i, got := range indexed {
+				assert.Equal(t, tt.turns[i].Role, got.Role)
+				assert.Equal(t, tt.turns[i].Content, got.Content)
+				assert.Equal(t, got.Content, content[got.Offset:got.Offset+int64(len(got.Content))],
+					"the offset locates the turn in the text it was appended to")
+			}
 		})
 	}
 }
@@ -119,6 +111,11 @@ func TestTranscriptSyncer(t *testing.T) {
 			want:      "new",
 		},
 		{
+			name: "a turn carrying a NUL is stored without it",
+			log:  `{"type":"user","message":{"content":"before\u0000after"}}` + "\n",
+			want: "beforeafter",
+		},
+		{
 			name: "an agent whose log is not on disk is skipped, not an error",
 			want: "",
 		},
@@ -130,14 +127,19 @@ func TestTranscriptSyncer(t *testing.T) {
 			ctx := context.Background()
 			projects := t.TempDir()
 
-			agent := seedWithClaudeID(t, st, testClaudeID)
+			agent := seedWithSessionID(t, st, testSessionID, "agent")
 
 			var path string
 			if tt.log != "" {
 				path = writeLog(t, projects, tt.log)
 			}
 
-			syncer := NewTranscriptSyncer(st.Agents, st.Transcripts, projects)
+			syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+				Agents:      st.Agents,
+				Sessions:    st.Agents,
+				Transcripts: st.Transcripts,
+				Harnesses:   mustRegistry(t, claude.New(projects)),
+			})
 			require.NoError(t, syncer.Sync(ctx))
 
 			first, err := st.GetTranscript(ctx, agent.ID)
@@ -180,17 +182,78 @@ func TestTranscriptSyncer(t *testing.T) {
 	}
 }
 
-// testClaudeID is the claude session id every test log is keyed to. The store id
-// is generated on insert, so this only needs to be stable within a test.
-const testClaudeID = "claude-abc"
+// TestSyncSurvivesOneUnsyncableAgent covers what a pass does with an agent it
+// cannot fold in.
+//
+// The syncer walks every agent newest first on a timer, and the failures that
+// reach it are properties of one agent's log rather than of the machine, so the
+// same agent fails on every pass. Giving up at it would leave every older agent
+// behind it never indexed again. The failure is injected here because the store
+// accepts everything the flattener now produces, and this is about the walk
+// rather than about any one reason a write is refused.
+func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	projects := t.TempDir()
 
-// seedWithClaudeID inserts an agent carrying testClaudeID and returns it with its
-// generated store id, so a transcript can be keyed to the right row.
-func seedWithClaudeID(t *testing.T, st *testStore, claudeID string) agentstore.Agent {
+	// Seeded oldest first, so the failing agent is the newest and the walk reaches
+	// it before the one it would strand.
+	readable := seedWithSessionID(t, st, "claude-readable", "readable")
+	unsyncable := seedWithSessionID(t, st, "claude-unsyncable", "unsyncable")
+
+	writeLogFor(t, projects, "claude-readable", `{"type":"user","message":{"content":"a turn worth keeping"}}`+"\n")
+	writeLogFor(t, projects, "claude-unsyncable", `{"type":"user","message":{"content":"never accepted"}}`+"\n")
+
+	store := failingTranscripts{transcriptStore: st.Transcripts, failFor: unsyncable.ID}
+	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+		Agents:      st.Agents,
+		Sessions:    st.Agents,
+		Transcripts: store,
+		Harnesses:   mustRegistry(t, claude.New(projects)),
+	})
+
+	// The failure is still reported, so serve logs it rather than leaving an agent
+	// quietly never indexed.
+	err := syncer.Sync(ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsyncable", "the pass names the agent it could not fold in")
+
+	stranded, err := st.GetTranscript(ctx, readable.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "a turn worth keeping", stranded.Content, "the rest of the pass is synced anyway")
+
+	empty, err := st.GetTranscript(ctx, unsyncable.ID)
+	require.NoError(t, err)
+	assert.Empty(t, empty.Content, "the agent that failed has nothing stored")
+}
+
+// failingTranscripts refuses one agent's writes and passes every other call
+// through to the real store.
+type failingTranscripts struct {
+	transcriptStore
+	failFor string
+}
+
+func (f failingTranscripts) Upsert(ctx context.Context, params transcript.UpsertParams) error {
+	if params.AgentID == f.failFor {
+		return errors.New("this log will never be accepted")
+	}
+
+	return f.transcriptStore.Upsert(ctx, params)
+}
+
+// testSessionID is the claude session id every test log is keyed to. The store id
+// is generated on insert, so this only needs to be stable within a test.
+const testSessionID = "claude-abc"
+
+// seedWithSessionID inserts an agent under the given name carrying a claude session
+// id, and returns it with its generated store id, so a transcript can be keyed to
+// the right row.
+func seedWithSessionID(t *testing.T, st *testStore, sessionID, name string) agentstore.Agent {
 	t.Helper()
 	ctx := context.Background()
-	require.NoError(t, st.Upsert(ctx, agentstore.Agent{Name: "agent", State: agentstore.StateNew, ClaudeSessionID: claudeID}))
-	got, err := st.Get(ctx, "agent")
+	require.NoError(t, st.Create(ctx, agentstore.Agent{Name: name, State: agentstore.StateNew, SessionID: sessionID}))
+	got, err := st.Get(ctx, name)
 	require.NoError(t, err)
 	require.NotNil(t, got)
 
@@ -201,9 +264,17 @@ func seedWithClaudeID(t *testing.T, st *testStore, claudeID string) agentstore.A
 // given projects dir, the way Claude Code lays them out.
 func writeLog(t *testing.T, projectsDir, body string) string {
 	t.Helper()
+
+	return writeLogFor(t, projectsDir, testSessionID, body)
+}
+
+// writeLogFor is writeLog for a named session, which a test seeding more than one
+// agent needs.
+func writeLogFor(t *testing.T, projectsDir, sessionID, body string) string {
+	t.Helper()
 	dir := filepath.Join(projectsDir, "-some-project")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	path := filepath.Join(dir, testClaudeID+".jsonl")
+	path := filepath.Join(dir, sessionID+".jsonl")
 	require.NoError(t, os.WriteFile(path, []byte(body), 0o644))
 
 	return path
@@ -218,4 +289,144 @@ func appendToLog(t *testing.T, path, body string) {
 	_, err = f.WriteString(body)
 	require.NoError(t, err)
 	require.NoError(t, f.Close())
+}
+
+// TestSyncReportsAnUnknownHarness covers an agent whose harness nothing implements.
+// Its transcript can never advance again, so the pass reports it rather than
+// skipping it: a search that quietly finds nothing is how that would go unnoticed.
+func TestSyncReportsAnUnknownHarness(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+
+	require.NoError(t, st.Create(ctx, agentstore.Agent{
+		Name:      "orphan",
+		State:     agentstore.StateDone,
+		Harness:   "gemini",
+		SessionID: testSessionID,
+	}))
+
+	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+		Agents:      st.Agents,
+		Sessions:    st.Agents,
+		Transcripts: st.Transcripts,
+		Harnesses:   mustRegistry(t, claude.New(t.TempDir())),
+	})
+
+	err := syncer.Sync(ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "orphan", "the pass names the agent it could not read")
+	assert.Contains(t, err.Error(), "gemini", "and the harness it is waiting on")
+}
+
+// TestSyncAdoptsSessions covers a harness that names its own conversations. The panel
+// cannot tell codex which id to use, so the syncer asks afterwards which conversations
+// appeared in the agent's directory and records the one that is the agent's.
+func TestSyncAdoptsSessions(t *testing.T) {
+	tests := []struct {
+		name string
+		// found is what the harness reports for the agent's directory, and taken is a
+		// conversation another agent already holds.
+		found []string
+		taken string
+		want  string
+	}{
+		{
+			name: "nothing to adopt yet, which is every pass before the CLI writes a rollout",
+		},
+		{
+			name:  "the conversation started in the agent's directory",
+			found: []string{"sess-mine"},
+			want:  "sess-mine",
+		},
+		{
+			name:  "the earliest one another agent does not already hold",
+			found: []string{"sess-taken", "sess-mine"},
+			taken: "sess-taken",
+			want:  "sess-mine",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			ctx := context.Background()
+
+			if tt.taken != "" {
+				require.NoError(t, st.Create(ctx, agentstore.Agent{
+					Name: "holder", State: agentstore.StateDone, SessionID: tt.taken,
+				}))
+			}
+			require.NoError(t, st.Create(ctx, agentstore.Agent{Name: "adopter", State: agentstore.StateNew}))
+
+			syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+				Agents:      st.Agents,
+				Sessions:    st.Agents,
+				Transcripts: st.Transcripts,
+				Harnesses:   fakeHarnesses{harness: &fakeHarness{found: tt.found}},
+			})
+			require.NoError(t, syncer.Sync(ctx))
+
+			adopter, err := st.Get(ctx, "adopter")
+			require.NoError(t, err)
+			require.NotNil(t, adopter)
+			assert.Equal(t, tt.want, adopter.SessionID)
+
+			if tt.taken != "" {
+				holder, err := st.Get(ctx, "holder")
+				require.NoError(t, err)
+				assert.Equal(t, tt.taken, holder.SessionID, "the agent already holding one keeps it")
+			}
+		})
+	}
+}
+
+// TestSyncAdoptedSessionIsIndexed covers the pass after an adoption, driving the real
+// codex harness over a real rollout. Adopting is only worth anything if the transcript
+// that turns up under that id is then read.
+func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	sessions := t.TempDir()
+	cwd := t.TempDir()
+
+	const sessionID = "019fb3e7-2cb6-7ab3-86a0-51a670a33140"
+
+	// The row exists before the CLI is launched, so the rollout is always the newer of
+	// the two. Stamping it deliberately keeps that true whatever the database clock
+	// says.
+	require.NoError(t, st.Create(ctx, agentstore.Agent{
+		Name: "adopter", State: agentstore.StateNew, Harness: "codex", Cwd: cwd,
+	}))
+	created, err := st.Get(ctx, "adopter")
+	require.NoError(t, err)
+	require.NotNil(t, created)
+
+	dir := filepath.Join(sessions, "2026", "07", "30")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	rollout := filepath.Join(dir, "rollout-2026-07-30T12-41-39-"+sessionID+".jsonl")
+	require.NoError(t, os.WriteFile(rollout,
+		[]byte(`{"type":"session_meta","payload":{"id":"`+sessionID+`","cwd":"`+cwd+`"}}`+"\n"+
+			`{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"how do I use trigram search"}]}}`+"\n"),
+		0o600))
+	launched := created.CreatedAt.Add(time.Minute)
+	require.NoError(t, os.Chtimes(rollout, launched, launched))
+
+	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+		Agents:      st.Agents,
+		Sessions:    st.Agents,
+		Transcripts: st.Transcripts,
+		Harnesses:   mustRegistry(t, codex.New(codex.Options{SessionsDir: sessions})),
+	})
+
+	// The first pass adopts and reads in one go, since the rollout is already on disk.
+	require.NoError(t, syncer.Sync(ctx))
+
+	adopted, err := st.Get(ctx, "adopter")
+	require.NoError(t, err)
+	require.NotNil(t, adopted)
+	assert.Equal(t, sessionID, adopted.SessionID, "the id codex chose is recorded")
+
+	tr, err := st.GetTranscript(ctx, adopted.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "how do I use trigram search", tr.Content)
 }

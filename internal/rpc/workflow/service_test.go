@@ -9,6 +9,7 @@ import (
 	workflowv1 "claude-agents/proto/gen/workflow/v1"
 
 	agentstore "claude-agents/internal/store/agent"
+	schedulestore "claude-agents/internal/store/schedule"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -180,16 +181,18 @@ func TestUpdateWorkflow(t *testing.T) {
 	}
 }
 
-// TestDeleteWorkflow covers the one decision the request carries, which is
-// whether the agents inside go with the workflow or outlive it.
+// TestDeleteWorkflow covers what goes with the workflow and what stops the
+// delete. The agents inside always go, since every agent belongs to a workflow
+// and there is nowhere to leave one.
 func TestDeleteWorkflow(t *testing.T) {
 	tests := []struct {
-		name          string
-		create        bool
-		archiveAgents bool
-		twice         bool
-		wantCode      connect.Code
-		wantAgent     bool
+		name   string
+		create bool
+		// scheduled leaves a live schedule launching into the workflow, which is
+		// what refuses the delete.
+		scheduled bool
+		twice     bool
+		wantCode  connect.Code
 	}{
 		{
 			name:     "an id nobody holds",
@@ -202,14 +205,14 @@ func TestDeleteWorkflow(t *testing.T) {
 			wantCode: connect.CodeNotFound,
 		},
 		{
-			name:      "the agents inside are orphaned back to unassigned",
-			create:    true,
-			wantAgent: true,
+			name:   "the agents inside are archived alongside it",
+			create: true,
 		},
 		{
-			name:          "archiveAgents hides them alongside the workflow",
-			create:        true,
-			archiveAgents: true,
+			name:      "a workflow still scheduled into is refused",
+			create:    true,
+			scheduled: true,
+			wantCode:  connect.CodeFailedPrecondition,
 		},
 	}
 
@@ -221,10 +224,15 @@ func TestDeleteWorkflow(t *testing.T) {
 			id := missingID
 			if tt.create {
 				id = createWorkflow(t, svc, "backend")
-				require.NoError(t, st.Agents.Upsert(ctx, agentstore.Agent{Name: "agent", WorkflowID: &id}))
+				st.SeedAgent(t, agentstore.Agent{Name: "agent", WorkflowID: id})
+			}
+			if tt.scheduled {
+				st.SeedSchedule(t, schedulestore.Config{
+					Name: "nightly", Cron: "0 2 * * *", Prompt: "sweep", Enabled: true, WorkflowID: id,
+				})
 			}
 
-			req := connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id, ArchiveAgents: tt.archiveAgents})
+			req := connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id})
 
 			_, err := svc.DeleteWorkflow(ctx, req)
 			if tt.twice {
@@ -241,13 +249,12 @@ func TestDeleteWorkflow(t *testing.T) {
 
 			agent, err := st.Agents.Get(ctx, "agent")
 			require.NoError(t, err)
-			if !tt.wantAgent {
-				assert.Nil(t, agent, "the agent is hidden alongside its workflow")
-				return
-			}
+			assert.Nil(t, agent, "the agent is hidden alongside its workflow")
 
-			require.NotNil(t, agent, "the agent outlives its workflow")
-			assert.Nil(t, agent.WorkflowID, "and points at no workflow rather than a missing one")
+			all, err := st.Agents.ListAll(ctx)
+			require.NoError(t, err)
+			require.Len(t, all, 1)
+			assert.True(t, all[0].Deleted, "and archived rather than removed")
 		})
 	}
 }
@@ -328,7 +335,11 @@ func service(t *testing.T) (*Service, *storetest.Stores) {
 	t.Helper()
 
 	st := storetest.Open(t)
-	manager := agents.NewWorkflowService(agents.WorkflowParams{Workflows: st.Workflows, Tx: st.Pool})
+	manager := agents.NewWorkflowService(agents.WorkflowParams{
+		Workflows: st.Workflows,
+		Schedules: st.Schedules,
+		Tx:        st.Pool,
+	})
 
 	return NewService(st.Workflows, manager), st
 }

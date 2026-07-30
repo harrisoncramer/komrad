@@ -2,6 +2,7 @@ package agents
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -9,6 +10,11 @@ import (
 	agentstore "claude-agents/internal/store/agent"
 	"claude-agents/internal/store/workflow"
 )
+
+// ErrWorkflowHasSchedules reports that a workflow still has schedules launching
+// into it. A schedule cannot outlive its workflow, since the workflow is where its
+// directory and flags come from.
+var ErrWorkflowHasSchedules = errors.New("workflow still has schedules")
 
 // workflowStore is the part of the workflow store this service reads and writes.
 // Workflows are pure organisation, so this touches no tmux.
@@ -19,27 +25,34 @@ type workflowStore interface {
 	Update(ctx context.Context, id string, cfg workflow.Config) error
 }
 
+// scheduleCounter answers whether anything is still scheduled into a workflow,
+// which is what stands between a delete and recurring work vanishing quietly.
+type scheduleCounter interface {
+	CountLive(ctx context.Context, workflowID string) (int64, error)
+}
+
 // WorkflowService manages the named buckets agents are grouped into. A workflow
 // runs nothing. It holds a display name, shared context injected into the agents
 // spawned inside it, and the cwd and flags those agents start from.
 //
-// Deleting one has to say what becomes of the agents inside it, and those rows
-// belong to the agent domain, so that write runs through a transaction the two
-// stores share.
+// Deleting one archives the agents inside it, and those rows belong to the agent
+// domain, so that write runs through a transaction the two stores share.
 type WorkflowService struct {
-	store workflowStore
-	tx    txRunner
+	store     workflowStore
+	schedules scheduleCounter
+	tx        txRunner
 }
 
 // WorkflowParams carries the workflow service's dependencies.
 type WorkflowParams struct {
 	Workflows workflowStore
+	Schedules scheduleCounter
 	Tx        txRunner
 }
 
 // NewWorkflowService builds the service from its dependencies.
 func NewWorkflowService(p WorkflowParams) *WorkflowService {
-	return &WorkflowService{store: p.Workflows, tx: p.Tx}
+	return &WorkflowService{store: p.Workflows, schedules: p.Schedules, tx: p.Tx}
 }
 
 // GetWorkflow returns a workflow by id, or nil when none has that id.
@@ -98,15 +111,19 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	return nil
 }
 
-// DeleteWorkflow archives a workflow. With archiveAgents the agents inside it are
-// hidden alongside it, otherwise they are orphaned back to unassigned and keep
-// running.
+// DeleteWorkflow archives a workflow and the agents inside it. The agents go with
+// it rather than being orphaned, since every agent belongs to a workflow and there
+// is nowhere for one to be left.
 //
-// The workflow row and the agent rows belong to different domains, so both stores
-// are rebound onto one transaction. Either the bucket and its agents agree
-// afterwards or nothing moved, since half of it landing would strand an agent
-// behind a workflow nothing lists.
-func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string, archiveAgents bool) error {
+// A workflow still holding live schedules is refused. Deleting it would either
+// strand them with nowhere to run or switch them off silently, so the schedules
+// have to be turned off first, deliberately.
+//
+// The workflow row and the agent rows belong to different domains, so both
+// stores are rebound onto one transaction. Either the bucket and its agents
+// agree afterwards or nothing moved, since half of it landing would strand an
+// agent behind a workflow nothing lists.
+func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 	existing, err := w.GetWorkflow(ctx, id)
 	if err != nil {
 		return err
@@ -115,17 +132,20 @@ func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string, archive
 		return fmt.Errorf("%w: %q", ErrWorkflowNotFound, id)
 	}
 
+	scheduled, err := w.schedules.CountLive(ctx, id)
+	if err != nil {
+		return err
+	}
+	if scheduled > 0 {
+		return fmt.Errorf("%w: %q has %d", ErrWorkflowHasSchedules, existing.Name, scheduled)
+	}
+
 	err = w.tx.InTx(ctx, func(db store.DBTX) error {
 		if err := workflow.New(db).Archive(ctx, id); err != nil {
 			return err
 		}
 
-		agents := agentstore.New(db)
-		if archiveAgents {
-			return agents.ArchiveWorkflowAgents(ctx, id)
-		}
-
-		return agents.ClearWorkflow(ctx, id)
+		return agentstore.New(db).ArchiveWorkflowAgents(ctx, id)
 	})
 	if err != nil {
 		return fmt.Errorf("failed to delete workflow %q: %w", id, err)

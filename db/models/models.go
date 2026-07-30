@@ -10,24 +10,30 @@ import (
 
 // One background Claude agent, everything needed to restore it.
 type Agent struct {
-	ID              string
-	Name            string
-	AgentConfigID   string
-	Prompt          string
-	PaneID          string
-	State           string
-	ClaudeSessionID string
-	WorkflowID      *string
-	IsDeleted       bool
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID             string
+	Name           string
+	Prompt         string
+	PaneID         string
+	State          string
+	SessionID      string
+	WorkflowID     string
+	ScheduleID     *string
+	IdempotencyKey *string
+	IsDeleted      bool
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	Mark           *string
+	IsHidden       bool
+	Cwd            string
+	Flags          string
+	Harness        string
 }
 
-// Editable config (cwd, flags) owned by exactly one agent.
-type AgentConfig struct {
-	ID        string
-	Cwd       string
-	Flags     string
+// Key/value facts an agent recorded about its own work.
+type AgentMetadatum struct {
+	AgentID   string
+	Key       string
+	Value     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -38,6 +44,31 @@ type AgentTranscript struct {
 	Content      string
 	SyncedOffset int64
 	SyncedAt     time.Time
+}
+
+// One turn of an agent's transcript, word-indexed for search.
+type AgentTranscriptChunk struct {
+	AgentID       string
+	Seq           int32
+	Role          string
+	Content       string
+	ContentOffset int64
+	Tsv           interface{}
+}
+
+// A cron-driven agent launch: when to fire and what to ask for.
+type Schedule struct {
+	ID         string
+	Name       string
+	Cron       string
+	Timezone   string
+	Enabled    bool
+	Prompt     string
+	WorkflowID string
+	IsDeleted  bool
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	HideAgents bool
 }
 
 // A named bucket of related agents. Pure organization; runs nothing.
@@ -51,11 +82,12 @@ type Workflow struct {
 	UpdatedAt        time.Time
 }
 
-// Default config (cwd, flags) seeded into new agents of a workflow.
+// Default config (harness, cwd, flags) seeded into new agents of a workflow.
 type WorkflowConfig struct {
 	ID        string
 	Cwd       string
 	Flags     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	Harness   string
 }

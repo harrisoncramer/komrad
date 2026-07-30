@@ -9,8 +9,49 @@
 # delete falls back to the same default shown here. An unknown key is an error,
 # so nothing outside this file is configurable.
 
-# Flags appended to the claude command for every new session.
-claude_flags = ""
+# Which agent CLI a new agent runs when neither the agent nor its workflow
+# names one. It has to be a harness this binary implements, so it is one of
+# the names under [harness] below.
+default_harness = "claude"
+# The marks the mark key cycles through, in order. A mark is a glyph and means
+# whatever you decide, so the glyph is the label. Pressing mark advances the
+# hovered agent to the next one here, and past the last one back to unmarked,
+# which leaves a one-mark list behaving as a toggle.
+marks = [
+  { glyph = "●", color = "#DCA561" },
+  { glyph = "◐", color = "#DCA561" },
+  { glyph = "✓", color = "#DCA561" },
+]
+
+# Per-CLI configuration, which is where the flags an agent of that CLI
+# inherits live.
+
+[harness.claude]
+# Flags appended to every agent's command line for this CLI, ahead of the
+# flags that agent carries itself. Flag vocabularies do not overlap between
+# CLIs, which is why they are configured per harness rather than once.
+flags = ""
+
+[harness.codex]
+# Flags appended to every Codex agent's command line, ahead of the flags that
+# agent carries itself.
+flags             = ""
+# Whether to record each agent's directory as trusted in Codex's own config
+# before launching it. Codex asks whether a directory is trusted the first
+# time it runs there and waits for an answer, which it reads only from that
+# file, so an agent in a fresh worktree otherwise starts blocked and shows
+# here as waiting. Turning this on edits ~/.codex/config.toml on your behalf,
+# adding nothing but a trust entry per directory and never changing one you
+# set yourself.
+trust_launch_dirs = false
+
+# How the popup's width is divided between the panel and the stage beside it.
+[layout]
+# The share of the width the panel's list takes, as a fraction above zero and
+# below one. The stage showing whatever the cursor is on takes the rest, so
+# the default leaves the greater part to the preview, which is where there is
+# something to read.
+split = 0.2
 
 # Panel keybindings, scoped to the screen each action acts in.
 
@@ -25,21 +66,33 @@ down = ["down", "ctrl+n"]
 # The agents list, the panel's main screen.
 [keybindings.agents]
 # Quit the panel.
-quit   = ["ctrl+c", "q"]
+quit        = ["ctrl+c", "q"]
 # Step out of a workflow scope, or quit at the root.
-back   = ["esc", "left", "h"]
+back        = ["esc", "left"]
 # Attach to the hovered agent.
-open   = ["enter", "l", "right"]
+open        = ["enter", "l", "right"]
 # Start a new agent.
-new    = ["n"]
+new         = ["n"]
 # Rename the hovered agent.
-rename = ["r"]
+rename      = ["r"]
 # Delete the hovered agent.
-delete = ["d"]
+delete      = ["d"]
 # Filter the list by name.
-search = ["/"]
+search      = ["/"]
 # Swap the hovered agent's stored record into the stage in place of the agent.
-info   = ["i"]
+info        = ["i"]
+# Move the hovered agent to the next mark in the marks list, and past the last
+# one back to unmarked. Nothing but you ever sets a mark.
+mark        = ["m"]
+# Hide the hovered agent from this list, or unhide one while the hidden agents
+# are shown. Hiding stops nothing: the agent keeps running and every other
+# view still holds it. This holds h, which is why back on this screen is esc
+# and left alone.
+hide        = ["h"]
+# Show the hidden agents alongside the rest, and press it again to put them
+# away. While they are away each workflow header carries the count of what it
+# is not showing.
+show_hidden = ["H"]
 
 # The new-agent, rename, and workflow forms.
 [keybindings.form]
@@ -49,7 +102,7 @@ quit   = ["ctrl+c"]
 back   = ["esc"]
 # Submit the form. Plain enter belongs to the text inputs, so this is
 # deliberately something else.
-submit = ["shift+enter"]
+submit = ["ctrl+s"]
 
 # The actions that create and change workflows, from the agents list.
 [keybindings.workflows]
@@ -61,3 +114,34 @@ rename = ["r"]
 edit   = ["e"]
 # Delete the workflow under the cursor.
 delete = ["d"]
+
+# The schedules screen, and the key that opens it from the agents list.
+[keybindings.schedules]
+# Open the schedules screen from the agents list.
+open   = ["s"]
+# Quit the panel.
+quit   = ["ctrl+c", "q"]
+# Leave the schedules screen for the agents list.
+back   = ["esc", "left", "h"]
+# Write a new schedule.
+new    = ["n"]
+# Edit the schedule under the cursor.
+edit   = ["e", "enter"]
+# Pause or resume the schedule under the cursor.
+toggle = [" "]
+# Delete the schedule under the cursor. The agents it launched are kept.
+delete = ["d"]
+
+# The trash screen, and the key that opens it from the agents list.
+[keybindings.trash]
+# Open the trash from the agents list.
+open    = ["t"]
+# Quit the panel.
+quit    = ["ctrl+c", "q"]
+# Leave the trash for the agents list.
+back    = ["esc", "left", "h"]
+# Put the agent under the cursor back in the panel.
+restore = ["r"]
+# Destroy the agent under the cursor for good, with its transcript. This is
+# the one action in the panel nothing undoes, so it asks first.
+delete  = ["d"]

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 
 	"claude-agents/internal/appconfig"
@@ -8,6 +9,7 @@ import (
 	"claude-agents/internal/store/transcript"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -19,13 +21,13 @@ func TestApplySearchResults(t *testing.T) {
 	tests := []struct {
 		name     string
 		query    string
-		msg      searchResultsMsg
+		msg      searchResult
 		wantHits int
 	}{
 		{
 			name:  "a response for a query the input has moved past",
 			query: "current",
-			msg: searchResultsMsg{
+			msg: searchResult{
 				query: "stale",
 				hits:  hits("a", "b"),
 			},
@@ -34,7 +36,7 @@ func TestApplySearchResults(t *testing.T) {
 		{
 			name:  "a response for the query on screen",
 			query: "current",
-			msg: searchResultsMsg{
+			msg: searchResult{
 				query: "current",
 				hits:  hits("a", "b"),
 			},
@@ -43,7 +45,7 @@ func TestApplySearchResults(t *testing.T) {
 		{
 			name:  "a query that matched nothing clears the list",
 			query: "current",
-			msg: searchResultsMsg{
+			msg: searchResult{
 				query: "current",
 			},
 			wantHits: 0,
@@ -55,14 +57,14 @@ func TestApplySearchResults(t *testing.T) {
 			// An empty result blanks the preview, so the model needs its stage even
 			// though nothing here draws.
 			m := model{
-				screen:      screenSearch,
-				searchQuery: tt.query,
-				stage:       NewStage(&recordingTmux{}),
+				screen: screenSearch,
+				search: searchState{query: tt.query},
+				stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
 			}
 
-			m.applySearchResults(tt.msg)
+			m.applySearch(tt.msg)
 
-			assert.Len(t, m.searchHits, tt.wantHits)
+			assert.Len(t, m.search.hits, tt.wantHits)
 		})
 	}
 }
@@ -120,7 +122,7 @@ func TestUpdateSearchEditsQuery(t *testing.T) {
 				m = updated
 			}
 
-			assert.Equal(t, tt.want, m.searchQuery)
+			assert.Equal(t, tt.want, m.search.query)
 		})
 	}
 }
@@ -182,7 +184,7 @@ func TestRenderSnippet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			out := renderSnippet(tt.in)
+			out := renderSnippet(tt.in, 0)
 
 			assert.Contains(t, out, tt.wantContain)
 			assert.NotContains(t, out, transcript.SnippetOpen, "the markers are consumed")
@@ -192,41 +194,114 @@ func TestRenderSnippet(t *testing.T) {
 	}
 }
 
-// TestFirstMatchLine covers where the transcript preview is anchored. Line zero
-// means the top, which is where a preview with nothing to centre on belongs.
-func TestFirstMatchLine(t *testing.T) {
-	const content = "line one\nline two has postgres in it\nline three"
+// TestClipToMatch covers the clipping a result row depends on. The row gets one line
+// of a fixed width, and the match can sit anywhere in the snippet, so what has to
+// hold is that the match survives the cut and the row fits.
+func TestClipToMatch(t *testing.T) {
+	const (
+		lead  = "the quick brown fox jumps over the lazy dog and keeps on running for a while "
+		trail = " and then carries on well past where any pane could show it all"
+	)
+
+	marked := func(match string) string {
+		return transcript.SnippetOpen + match + transcript.SnippetClose
+	}
 
 	tests := []struct {
 		name  string
-		query string
-		want  int
+		in    string
+		width int
+		want  string
 	}{
 		{
-			name:  "a blank query anchors at the top",
-			query: "  ",
-			want:  0,
+			name:  "an unmeasured pane clips nothing",
+			in:    lead + marked("needle") + trail,
+			width: 0,
+			want:  "needle",
 		},
 		{
-			name:  "a query that never occurs anchors at the top",
-			query: "sqlite",
-			want:  0,
+			name:  "a snippet already narrow enough is left alone",
+			in:    "short " + marked("needle"),
+			width: 40,
+			want:  "needle",
 		},
 		{
-			name:  "a match reports its line",
-			query: "postgres",
-			want:  2,
+			name:  "a match past the width is pulled into view",
+			in:    lead + marked("needle") + trail,
+			width: 40,
+			want:  "needle",
 		},
 		{
-			name:  "matching ignores case, since the search does",
-			query: "POSTGRES",
-			want:  2,
+			name:  "a match at the very end is still shown",
+			in:    lead + trail + marked("needle"),
+			width: 40,
+			want:  "needle",
+		},
+		{
+			name:  "an unmarked snippet is clipped from the start",
+			in:    lead + trail,
+			width: 40,
+			want:  "the quick",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, firstMatchLine(content, tt.query))
+			out := clipToMatch(tt.in, tt.width)
+			assert.Contains(t, out, tt.want, "the match survives the clip")
+
+			if tt.width > 0 {
+				assert.LessOrEqual(t, lipgloss.Width(renderSnippet(tt.in, tt.width)), tt.width,
+					"the rendered row fits the pane")
+			}
+
+			opens := strings.Count(out, transcript.SnippetOpen)
+			assert.Equal(t, opens, strings.Count(out, transcript.SnippetClose),
+				"every marker left in the snippet is paired")
+		})
+	}
+}
+
+// TestLineAtOffset covers where the transcript preview is anchored. Line zero means
+// the top, which is where a preview with nothing to centre on belongs.
+func TestLineAtOffset(t *testing.T) {
+	const content = "line one\nline two has postgres in it\nline three"
+
+	tests := []struct {
+		name   string
+		offset int64
+		want   int
+	}{
+		{
+			name:   "a negative offset anchors at the top",
+			offset: -1,
+			want:   0,
+		},
+		{
+			name:   "an offset past the end anchors at the top",
+			offset: int64(len(content) + 1),
+			want:   0,
+		},
+		{
+			name:   "the start of the transcript is its first line",
+			offset: 0,
+			want:   1,
+		},
+		{
+			name:   "an offset partway through reports the line it falls on",
+			offset: int64(strings.Index(content, "postgres")),
+			want:   2,
+		},
+		{
+			name:   "the last line is reached like any other",
+			offset: int64(strings.Index(content, "line three")),
+			want:   3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, lineAtOffset(content, tt.offset))
 		})
 	}
 }

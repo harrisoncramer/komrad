@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	agentv1 "claude-agents/proto/gen/agent/v1"
+	configv1 "claude-agents/proto/gen/config/v1"
 	workflowv1 "claude-agents/proto/gen/workflow/v1"
 
 	"claude-agents/lib/xptr"
@@ -25,6 +26,7 @@ func TestEveryMethodIsAnnotated(t *testing.T) {
 	}{
 		{name: "agent service", file: agentv1.File_agent_v1_agent_proto},
 		{name: "workflow service", file: workflowv1.File_workflow_v1_workflow_proto},
+		{name: "config service", file: configv1.File_config_v1_config_proto},
 	}
 
 	for _, tt := range tests {
@@ -58,7 +60,7 @@ func TestToolHints(t *testing.T) {
 		{method: "SearchTranscripts", readOnly: true, idempotent: true},
 		{method: "GetTranscript", readOnly: true, idempotent: true},
 		{method: "CreateAgent", readOnly: false, idempotent: false, wantDestructive: xptr.Ptr(false)},
-		{method: "SetState", readOnly: false, idempotent: true, wantDestructive: xptr.Ptr(false)},
+		{method: "SetMark", readOnly: false, idempotent: true, wantDestructive: xptr.Ptr(false)},
 		{method: "UpdateAgent", readOnly: false, idempotent: true, wantDestructive: xptr.Ptr(false)},
 		{method: "DeleteAgent", readOnly: false, idempotent: true, wantDestructive: xptr.Ptr(true)},
 	}
@@ -101,7 +103,7 @@ func TestInputSchema(t *testing.T) {
 		{
 			method:       "CreateAgent",
 			wantFields:   map[string]map[string]any{"prompt": {"type": "string"}, "workflowId": {"type": "string"}},
-			wantRequired: []string{"prompt", "dir"},
+			wantRequired: []string{"prompt", "workflowId"},
 		},
 		{
 			method:     "ListAgents",

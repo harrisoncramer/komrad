@@ -1,17 +1,17 @@
-package agents
+package harness
 
 import "strings"
 
-// A launch command is typed into a pane with send-keys, so the shell in that
-// pane parses whatever we assemble. Flags arrive as one configured string and
-// have to survive that trip as data. Unquoted, a flag holding $(...), a
-// backtick, or a semicolon would run as a command in the user's shell, and flags
-// can arrive over RPC.
-//
-// splitArgs breaks a flag string into arguments the way a shell would, honoring
+// SplitArgs breaks a flag string into arguments the way a shell would, honoring
 // single and double quotes so a flag whose value contains a space stays one
 // argument. It finds argument boundaries and expands nothing.
-func splitArgs(flags string) []string {
+//
+// A launch command is typed into a pane with send-keys, so the shell in that pane
+// parses whatever a harness assembles. Flags arrive as one configured string and
+// have to survive that trip as data. Unquoted, a flag holding $(...), a backtick,
+// or a semicolon would run as a command in the user's shell, and flags can arrive
+// over RPC.
+func SplitArgs(flags string) []string {
 	var (
 		args    []string
 		current strings.Builder
@@ -49,24 +49,24 @@ func splitArgs(flags string) []string {
 	return args
 }
 
-// quoteArg wraps an argument in single quotes so the shell takes it literally. A
+// QuoteArg wraps an argument in single quotes so the shell takes it literally. A
 // single quote inside the argument closes the quoting, escapes itself, and
 // reopens, the only way to represent one inside a single-quoted string.
-func quoteArg(arg string) string {
+func QuoteArg(arg string) string {
 	return "'" + strings.ReplaceAll(arg, "'", `'\''`) + "'"
 }
 
-// quoteFlags renders a configured flag string as shell-safe arguments, ready to
+// QuoteFlags renders a configured flag string as shell-safe arguments, ready to
 // append to a command line.
-func quoteFlags(flags string) string {
-	args := splitArgs(flags)
+func QuoteFlags(flags string) string {
+	args := SplitArgs(flags)
 	if len(args) == 0 {
 		return ""
 	}
 
 	quoted := make([]string, len(args))
 	for i, arg := range args {
-		quoted[i] = quoteArg(arg)
+		quoted[i] = QuoteArg(arg)
 	}
 
 	return strings.Join(quoted, " ")

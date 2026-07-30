@@ -5,50 +5,37 @@ package client
 
 import (
 	"context"
-	"fmt"
 
 	agentv1 "claude-agents/proto/gen/agent/v1"
 	"claude-agents/proto/gen/agent/v1/agentv1connect"
 	paginationv1 "claude-agents/proto/gen/pagination/v1"
 
 	"connectrpc.com/connect"
-	"google.golang.org/protobuf/proto"
 )
 
-// A caller wanting every agent asks for large pages rather than a first page,
-// since a list this size is one or two round trips. The cap on pages is a stop for
-// a token the server never retires, so a bug there cannot spin forever.
-const (
-	pageSize = 200
-	maxPages = 50
-)
-
-// ListAllAgents returns every agent, following the page tokens until the listing
-// is exhausted.
+// ListAllAgents returns every live agent, following the page tokens until the
+// listing is exhausted.
 func ListAllAgents(ctx context.Context, agents agentv1connect.AgentServiceClient) ([]*agentv1.Agent, error) {
-	var (
-		all    []*agentv1.Agent
-		cursor string
-	)
+	return listAllAgents(ctx, agents, false)
+}
 
-	for range maxPages {
-		page := &paginationv1.Pagination{Limit: proto.Int32(pageSize)}
-		if cursor != "" {
-			page.Cursor = proto.String(cursor)
-		}
+// ListAllDeletedAgents returns every soft-deleted agent, which is the trash. The
+// two listings never mix, so this is a call of its own rather than a flag the
+// caller has to remember to read back off the rows.
+func ListAllDeletedAgents(ctx context.Context, agents agentv1connect.AgentServiceClient) ([]*agentv1.Agent, error) {
+	return listAllAgents(ctx, agents, true)
+}
 
-		resp, err := agents.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{Pagination: page}))
+func listAllAgents(ctx context.Context, agents agentv1connect.AgentServiceClient, deleted bool) ([]*agentv1.Agent, error) {
+	return listAll(ctx, func(ctx context.Context, page *paginationv1.Pagination) ([]*agentv1.Agent, string, error) {
+		resp, err := agents.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{
+			Pagination: page,
+			Deleted:    deleted,
+		}))
 		if err != nil {
-			return nil, fmt.Errorf("failed to list agents: %w", err)
+			return nil, "", err
 		}
 
-		all = append(all, resp.Msg.GetAgents()...)
-
-		cursor = resp.Msg.GetNextPageToken()
-		if cursor == "" {
-			return all, nil
-		}
-	}
-
-	return all, nil
+		return resp.Msg.GetAgents(), resp.Msg.GetNextPageToken(), nil
+	})
 }

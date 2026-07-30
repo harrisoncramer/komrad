@@ -11,16 +11,14 @@ import (
 	"claude-agents/internal/store"
 	"claude-agents/lib/xstr"
 
+	"claude-agents/internal/harness"
 	agentstore "claude-agents/internal/store/agent"
 	"claude-agents/internal/store/transcript"
 	"claude-agents/internal/store/workflow"
-
-	"github.com/google/uuid"
 )
 
 // expandHome expands a leading ~ or ~/ to the user's home. tmux's new-session -c
 // does no shell tilde expansion, so a stored ~ path would fail to chdir.
-// Expanding here keeps the cwd absolute.
 func expandHome(dir string) string {
 	if dir != "~" && !strings.HasPrefix(dir, "~/") {
 		return dir
@@ -37,13 +35,13 @@ func expandHome(dir string) string {
 	return filepath.Join(home, dir[len("~/"):])
 }
 
-// agentStore is the part of the agent store this service reads and mutates.
 type agentStore interface {
-	List(ctx context.Context) ([]agentstore.Agent, error)
-	ListAll(ctx context.Context) ([]agentstore.Agent, error)
 	Get(ctx context.Context, name string) (*agentstore.Agent, error)
-	Find(ctx context.Context, name string) (*agentstore.Target, error)
-	Upsert(ctx context.Context, agent agentstore.Agent) error
+	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
+	GetByIdempotencyKey(ctx context.Context, key string) (*agentstore.Agent, error)
+	Exists(ctx context.Context, id string) (bool, error)
+	Create(ctx context.Context, agent agentstore.Agent) error
+	Update(ctx context.Context, agent agentstore.Agent) error
 	Rename(ctx context.Context, id, name string) (bool, error)
 	Archive(ctx context.Context, name string) error
 	Restore(ctx context.Context, id string) error
@@ -51,8 +49,8 @@ type agentStore interface {
 }
 
 // workflowReader is all this service needs from the workflow domain. An agent
-// spawned inside a workflow snapshots that workflow's shared context at launch,
-// so this reads and never writes.
+// snapshots its workflow's shared context at launch, so this reads and never
+// writes.
 type workflowReader interface {
 	Get(ctx context.Context, id string) (*workflow.Workflow, error)
 }
@@ -65,13 +63,18 @@ type txRunner interface {
 	InTx(ctx context.Context, fn func(store.DBTX) error) error
 }
 
-// agentTmux is the part of tmux an agent's lifecycle needs. A window to live in,
-// a way to end it, and a way to tell whether it is still there.
 type agentTmux interface {
 	NewWindow(session, name, dir string) (string, error)
 	KillPane(pane string)
-	PaneAlive(pane string) bool
+	SetPaneOwner(pane, agentID string) error
+	PaneOwner(pane string) string
 	ClientPath(client string) string
+}
+
+// harnessRegistry resolves the CLI an agent names. It hands back the whole Harness
+// because a lookup cannot return a different interface per caller.
+type harnessRegistry interface {
+	Resolve(id string) (harness.Harness, error)
 }
 
 // AgentService owns an agent's lifecycle. It creates one, brings a dormant one
@@ -83,36 +86,75 @@ type AgentService struct {
 	workflows workflowReader
 	tx        txRunner
 	launcher  *Launcher
-	// claudeFlags are the configured defaults every agent launches with, recorded
-	// on the row alongside whatever the caller added.
-	claudeFlags string
+	harnesses harnessRegistry
+	// defaultHarness is the CLI an agent runs when neither it nor its workflow names
+	// one, and defaultFlags are the configured flags each harness's agents are
+	// launched with, ahead of their own, keyed by harness id.
+	defaultHarness string
+	defaultFlags   map[string]string
+	// restoreRoot is only read when a restore has to repair a working directory that
+	// is gone. It is a field rather than a constant so a test can point it at a temp
+	// directory instead of the user's home.
+	restoreRoot string
 }
 
 // AgentParams carries the agent service's dependencies.
 type AgentParams struct {
-	Tmux        agentTmux
-	Agents      agentStore
-	Workflows   workflowReader
-	Tx          txRunner
-	Launcher    *Launcher
-	ClaudeFlags string
+	Tmux           agentTmux
+	Agents         agentStore
+	Workflows      workflowReader
+	Tx             txRunner
+	Launcher       *Launcher
+	Harnesses      harnessRegistry
+	DefaultHarness string
+	DefaultFlags   map[string]string
+	// RestoreRoot is where an agent runs when its recorded directory cannot be
+	// recreated, defaulting to the real location when left empty.
+	RestoreRoot string
 }
 
 // NewAgentService builds the service from its dependencies.
 func NewAgentService(p AgentParams) *AgentService {
+	if p.RestoreRoot == "" {
+		p.RestoreRoot = DefaultRestoreRoot()
+	}
+
 	return &AgentService{
-		tmux:        p.Tmux,
-		agents:      p.Agents,
-		workflows:   p.Workflows,
-		tx:          p.Tx,
-		launcher:    p.Launcher,
-		claudeFlags: p.ClaudeFlags,
+		tmux:           p.Tmux,
+		agents:         p.Agents,
+		workflows:      p.Workflows,
+		tx:             p.Tx,
+		launcher:       p.Launcher,
+		harnesses:      p.Harnesses,
+		defaultHarness: p.DefaultHarness,
+		defaultFlags:   p.DefaultFlags,
+		restoreRoot:    p.RestoreRoot,
 	}
 }
 
-// PaneAlive reports whether an agent's tmux pane still exists.
-func (s *AgentService) PaneAlive(pane string) bool {
-	return s.tmux.PaneAlive(pane)
+// AgentRunning reports whether an agent's CLI is still up, which is true only
+// of a pane that exists and is stamped with that agent's id. The stored pane id is
+// never trusted on its own: tmux reissues pane ids from %0 after a server restart,
+// so a dormant agent's recorded pane routinely names a pane that now belongs to
+// somebody else.
+func (s *AgentService) AgentRunning(agent agentstore.Agent) bool {
+	return paneOwnedBy(s.tmux.PaneOwner(agent.Pane), agent.ID)
+}
+
+// paneOwnedBy compares a pane's stamp against the agent that claims it. An agent
+// with no id owns nothing, so an unstamped pane cannot answer to it by both sides
+// being empty.
+func paneOwnedBy(owner, agentID string) bool {
+	return agentID != "" && owner == agentID
+}
+
+// killOwnedPane tears down an agent's pane, but only while that pane is still the
+// agent's own. Killing by a stored id alone would end whatever process the tmux
+// server has since given that id to.
+func (s *AgentService) killOwnedPane(agent agentstore.Agent) {
+	if s.AgentRunning(agent) {
+		s.tmux.KillPane(agent.Pane)
+	}
 }
 
 // ErrAgentNotFound reports that no agent answers to the given name or id.
@@ -124,50 +166,44 @@ var ErrWorkflowNotFound = errors.New("workflow not found")
 // ErrBadDirectory reports a working directory the agent could not be started in.
 var ErrBadDirectory = errors.New("unusable working directory")
 
-// DeleteAgent stops an agent and removes it. The pane is killed first, which the
-// store cannot do. Dropping the row alone leaves the agent running with nothing
-// left that can name it or reach it.
-func (s *AgentService) DeleteAgent(ctx context.Context, name string) error {
-	agent, err := s.agents.Get(ctx, name)
+// DeleteAgent stops an agent and removes it, keyed by id so it reaches the
+// archived agents too. Dropping the row alone would leave the agent running with
+// nothing left that can name it or reach it.
+func (s *AgentService) DeleteAgent(ctx context.Context, id string) error {
+	agent, err := s.byID(ctx, id)
 	if err != nil {
-		return fmt.Errorf("failed to look up agent %q: %w", name, err)
-	}
-	if agent == nil {
-		return ErrAgentNotFound
+		return err
 	}
 
-	s.tmux.KillPane(agent.Pane)
+	s.killOwnedPane(*agent)
 
-	return s.removeAgent(ctx, name)
+	return s.removeAgent(ctx, id)
 }
 
-// removeAgent deletes an agent, the config it owns, and the transcript keyed to
-// its id, in one transaction. The transcript is the transcript package's table,
-// so the two stores are rebound onto the same transaction and commit together.
-// An agent removed without its text would leave the conversation readable
-// through the SQL tools.
-func (s *AgentService) removeAgent(ctx context.Context, name string) error {
-	target, err := s.agents.Find(ctx, name)
+// removeAgent deletes an agent and the transcript keyed to its id in one
+// transaction, since an agent removed without its text would leave the conversation
+// readable through the SQL tools.
+func (s *AgentService) removeAgent(ctx context.Context, id string) error {
+	exists, err := s.agents.Exists(ctx, id)
 	if err != nil {
-		return fmt.Errorf("failed to find agent %q to delete: %w", name, err)
+		return fmt.Errorf("failed to look up agent %q to delete: %w", id, err)
 	}
-	if target == nil {
+	if !exists {
 		return ErrAgentNotFound
 	}
 
 	return s.tx.InTx(ctx, func(db store.DBTX) error {
-		if err := agentstore.New(db).Delete(ctx, *target); err != nil {
+		if err := agentstore.New(db).Delete(ctx, id); err != nil {
 			return err
 		}
 
-		return transcript.New(db).Delete(ctx, target.ID)
+		return transcript.New(db).Delete(ctx, id)
 	})
 }
 
 // ArchiveAgent stops an agent and hides it from the panel, keyed by name. The
-// record and its transcript stay, so search still reaches it and it can be
-// restored later. This is what the panel's delete key does. DeleteAgent is the
-// irreversible half.
+// record and its transcript stay, so search still reaches it and it can be restored
+// later. DeleteAgent is the irreversible half.
 func (s *AgentService) ArchiveAgent(ctx context.Context, name string) error {
 	agent, err := s.agents.Get(ctx, name)
 	if err != nil {
@@ -177,7 +213,7 @@ func (s *AgentService) ArchiveAgent(ctx context.Context, name string) error {
 		return ErrAgentNotFound
 	}
 
-	s.tmux.KillPane(agent.Pane)
+	s.killOwnedPane(*agent)
 
 	if err := s.agents.Archive(ctx, name); err != nil {
 		return fmt.Errorf("failed to archive agent %q: %w", name, err)
@@ -186,58 +222,40 @@ func (s *AgentService) ArchiveAgent(ctx context.Context, name string) error {
 	return nil
 }
 
-// RestoreAgent brings an agent back by id, relaunching claude on the same
+// RestoreAgent brings an agent back by id, relaunching its CLI on the same
 // conversation, and returns it as stored. It spans archived agents, since
 // restoring one is the point. An id that matches nothing is ErrAgentNotFound.
 func (s *AgentService) RestoreAgent(ctx context.Context, id string) (*agentstore.Agent, error) {
-	agents, err := s.agents.ListAll(ctx)
+	agent, err := s.byID(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list agents to restore %q: %w", id, err)
+		return nil, err
 	}
 
-	for _, agent := range agents {
-		if agent.ID != id {
-			continue
-		}
-
-		// An agent whose pane is still alive is already running. Returning it as it
-		// stands keeps the call idempotent rather than spawning a second window
-		// for the same conversation.
-		if s.tmux.PaneAlive(agent.Pane) {
-			return &agent, nil
-		}
-
-		if err := s.restore(ctx, agent); err != nil {
-			return nil, err
-		}
-
-		// Restore may rename an agent whose name was taken while it sat archived, so
-		// the row is read back rather than returned from the stale copy.
-		restored, err := s.byID(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-
-		return restored, nil
+	// An agent still running in its own pane needs no restore, so the call is
+	// idempotent rather than spawning a second window for the same conversation.
+	if s.AgentRunning(*agent) {
+		return agent, nil
 	}
 
-	return nil, ErrAgentNotFound
+	if err := s.restore(ctx, *agent); err != nil {
+		return nil, err
+	}
+
+	// Restore may rename an agent whose name was taken while it sat archived, so the
+	// row is read back rather than returned from the copy taken before the write.
+	return s.byID(ctx, id)
 }
 
-// byID returns the agent with the given id, spanning archived ones.
 func (s *AgentService) byID(ctx context.Context, id string) (*agentstore.Agent, error) {
-	agents, err := s.agents.ListAll(ctx)
+	agent, err := s.agents.GetByID(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list agents: %w", err)
+		return nil, err
+	}
+	if agent == nil {
+		return nil, ErrAgentNotFound
 	}
 
-	for _, agent := range agents {
-		if agent.ID == id {
-			return &agent, nil
-		}
-	}
-
-	return nil, ErrAgentNotFound
+	return agent, nil
 }
 
 // NewAgentParams configures a background agent to create.
@@ -247,15 +265,28 @@ type NewAgentParams struct {
 	Dir    string
 	Flags  string
 	Prompt string
-	// WorkflowID scopes the new agent to a workflow, or is nil when it is created
-	// from the root and belongs to no workflow.
-	WorkflowID *string
+	// Harness names the CLI this agent runs. Empty takes the workflow's default, and
+	// then the configured one. An id nothing implements is refused.
+	Harness string
+	// WorkflowID is required. It supplies the directory and flags when Dir and Flags
+	// are left empty, and the shared context appended to the agent's system prompt.
+	WorkflowID string
+	// ScheduleID records the schedule that launched this agent, nil for one a
+	// person started. Provenance only.
+	ScheduleID *string
+	// Hidden starts the agent out of the panel's list, so a noisy recurring schedule
+	// can stay armed without filling it. The agent still runs.
+	Hidden bool
+	// IdempotencyKey makes the create repeatable. A second call carrying a key an
+	// agent already holds returns that agent untouched rather than spawning a second
+	// Claude process. Empty makes no claim, which is every create from the panel.
+	IdempotencyKey string
 }
 
-// usableDir reports whether an agent can actually be started in dir. Existence
-// is not enough. tmux silently falls back to its own default directory when it
-// cannot enter the one given to -c, so a directory that cannot be opened would
-// leave an agent running somewhere other than the cwd stored against it.
+// usableDir reports whether an agent can actually be started in dir. Existence is
+// not enough: tmux silently falls back to its own default directory when it cannot
+// enter the one given to -c, which would leave an agent running somewhere other than
+// the cwd stored against it.
 func usableDir(dir string) error {
 	info, err := os.Stat(dir)
 	if err != nil {
@@ -275,14 +306,164 @@ func usableDir(dir string) error {
 }
 
 // NewAgent creates a background agent, records it so it lists immediately, and
-// launches claude with the default plus per-agent flags and the opening prompt.
-// It does not switch the client to the new agent. The stored record is returned
-// so a caller that did not watch the list, such as an RPC client, still learns
-// the generated name and id.
-//
-// The directory is the given Dir, else the client's current directory.
+// launches its CLI with the default plus per-agent flags and the opening prompt. It
+// does not switch the client to the new agent. The stored record is returned so a
+// caller that did not watch the list still learns the generated name and id.
 func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentstore.Agent, error) {
+	// The key is checked before anything is opened or written, so a retry costs a
+	// lookup rather than a second tmux window that has to be cleaned up after.
+	if p.IdempotencyKey != "" {
+		existing, err := s.agents.GetByIdempotencyKey(ctx, p.IdempotencyKey)
+		if err != nil {
+			return nil, err
+		}
+		if existing != nil {
+			return existing, nil
+		}
+	}
+
+	plan, err := s.planLaunch(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+
+	// The id is minted here rather than by the insert below, because the pane has to
+	// be stamped with it before the row exists. The reconciler reads a row against an
+	// unstamped pane as belonging to nobody and clears the pane out from under an agent
+	// about to launch in it.
+	id, err := store.NewID()
+	if err != nil {
+		return nil, err
+	}
+
+	pane, err := s.tmux.NewWindow(ManagerSession, plan.name, plan.dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open a window for %q: %w", plan.name, err)
+	}
+
+	// Every failure from here on has to take the window down again, since a pane no
+	// row names runs forever and shows up in no listing. One deferred check covers
+	// them all, so a failure path added later cannot forget the kill.
+	launched := false
+	defer func() {
+		if !launched {
+			s.tmux.KillPane(pane)
+		}
+	}()
+
+	if err := s.tmux.SetPaneOwner(pane, id); err != nil {
+		return nil, fmt.Errorf("failed to stamp the pane for %q: %w", plan.name, err)
+	}
+
+	// The conversation is named before it exists, so restoring the agent can ask the
+	// harness to reopen that same one. A harness that will not be told a name returns
+	// none, leaving the id to be discovered after the launch.
+	sessionID := plan.harness.MintSessionID()
+	if err := s.agents.Create(ctx, agentstore.Agent{
+		ID:             id,
+		Name:           plan.name,
+		Pane:           pane,
+		Cwd:            plan.dir,
+		Flags:          plan.flags,
+		Prompt:         p.Prompt,
+		State:          agentstore.StateNew,
+		Harness:        plan.harnessID,
+		SessionID:      sessionID,
+		WorkflowID:     p.WorkflowID,
+		ScheduleID:     p.ScheduleID,
+		IdempotencyKey: idempotencyKey(p.IdempotencyKey),
+		Hidden:         p.Hidden,
+	}); err != nil {
+		// uniqueAgentName checks before inserting, so two calls racing on the same
+		// title both pass that check and one loses here.
+		return nil, fmt.Errorf("failed to record agent %q: %w", plan.name, err)
+	}
+
+	// The row is read back rather than returned from what was written, since the store
+	// owns the id and timestamps a caller renders.
+	created, err := s.agents.Get(ctx, plan.name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read back agent %q: %w", plan.name, err)
+	}
+	if created == nil {
+		return nil, fmt.Errorf("agent %q vanished after being recorded", plan.name)
+	}
+
+	if err := s.launcher.launch(plan.harness, launchParams{
+		Pane:   pane,
+		Dir:    plan.dir,
+		Flags:  plan.flags,
+		Prompt: p.Prompt,
+		// The workflow's context is a snapshot taken at launch, so later edits to the
+		// workflow reach only agents spawned after them.
+		WorkflowContext: plan.workflowContext,
+		SessionID:       sessionID,
+		AgentID:         id,
+	}); err != nil {
+		// The pane goes with the unwind above. The row has to go too, or the agent
+		// lists as live forever with nothing running behind it.
+		if deleteErr := s.removeAgent(ctx, id); deleteErr != nil {
+			return nil, fmt.Errorf("failed to launch the agent for %q (%w), and failed to clean up: %w", plan.name, err, deleteErr)
+		}
+
+		return nil, fmt.Errorf("failed to launch the agent for %q: %w", plan.name, err)
+	}
+
+	launched = true
+
+	return created, nil
+}
+
+// launchPlan is a create resolved against the workflow it lands in.
+type launchPlan struct {
+	name string
+	// harness is the CLI this agent will run, and harnessID is what the row records so
+	// a later pass resolves the same one.
+	harness         harness.Harness
+	harnessID       string
+	dir             string
+	flags           string
+	workflowContext string
+}
+
+// planLaunch decides everything about a create that can be decided before anything is
+// opened or written. It touches nothing outside the store it reads, so a create that
+// cannot work fails here rather than part-way through, with a window open and a row to
+// take back out.
+func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launchPlan, error) {
+	// The workflow comes first, since it supplies the defaults everything below falls
+	// back to. An unknown one is refused rather than filed under an id that renders
+	// nowhere.
+	wf, err := s.workflows.Get(ctx, p.WorkflowID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to look up workflow %q: %w", p.WorkflowID, err)
+	}
+	if wf == nil {
+		return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, p.WorkflowID)
+	}
+
+	// The harness resolves before the directory is checked, since an agent naming a
+	// CLI this binary cannot run is wrong about something no directory makes right.
+	harnessID := strings.TrimSpace(p.Harness)
+	if harnessID == "" {
+		harnessID = strings.TrimSpace(wf.Harness)
+	}
+	if harnessID == "" {
+		harnessID = s.defaultHarness
+	}
+
+	resolved, err := s.harnesses.Resolve(harnessID)
+	if err != nil {
+		return nil, err
+	}
+
+	// What the caller asked for wins, then the workflow's default, then where the user
+	// is looking. A scheduled launch supplies neither of the first two, which is the
+	// point of the workflow holding them.
 	dir := expandHome(strings.TrimSpace(p.Dir))
+	if dir == "" {
+		dir = expandHome(strings.TrimSpace(wf.Cwd))
+	}
 	if dir == "" {
 		dir = s.tmux.ClientPath(p.Client)
 	}
@@ -290,105 +471,55 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		dir, _ = os.UserHomeDir()
 	}
 
-	// Checking the directory first means the launch fails rather than recording a
-	// location that is not true.
 	if err := usableDir(dir); err != nil {
 		return nil, err
 	}
 
-	// An agent created inside a workflow inherits the workflow's shared context,
-	// injected as an appended system prompt at launch. It is a snapshot, so later
-	// edits to the workflow context reach only agents spawned after them. An
-	// unknown workflow is refused rather than filed under an id that renders
-	// nowhere.
-	var workflowContext string
-	if p.WorkflowID != nil {
-		wf, err := s.workflows.Get(ctx, *p.WorkflowID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to look up workflow %q: %w", *p.WorkflowID, err)
-		}
-		if wf == nil {
-			return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, *p.WorkflowID)
-		}
-
-		workflowContext = wf.Context
+	// Flags follow the same rule. The panel prefills its form from the workflow, so an
+	// interactive create arrives with them already set and this changes nothing. A
+	// scheduled one arrives empty and takes them here.
+	agentFlags := strings.TrimSpace(p.Flags)
+	if agentFlags == "" {
+		agentFlags = strings.TrimSpace(wf.Flags)
 	}
 
-	name := s.uniqueAgentName(ctx, p.Title, p.Prompt)
+	return &launchPlan{
+		name:            s.uniqueAgentName(ctx, p.Title, p.Prompt),
+		harness:         resolved,
+		harnessID:       harnessID,
+		dir:             dir,
+		flags:           strings.TrimSpace(s.defaultFlags[harnessID] + " " + agentFlags),
+		workflowContext: wf.Context,
+	}, nil
+}
 
-	pane, err := s.tmux.NewWindow(ManagerSession, name, dir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open a window for %q: %w", name, err)
-	}
-	flags := strings.TrimSpace(s.claudeFlags + " " + p.Flags)
-
-	// Generate Claude's session id here and launch with --session-id, so the id is
-	// known up front and restoring the agent can resume that same conversation
-	// with --resume.
-	claudeSessionID := uuid.NewString()
-	if err := s.agents.Upsert(ctx, agentstore.Agent{
-		Name:            name,
-		Pane:            pane,
-		Cwd:             dir,
-		Flags:           flags,
-		Prompt:          p.Prompt,
-		State:           agentstore.StateNew,
-		ClaudeSessionID: claudeSessionID,
-		WorkflowID:      p.WorkflowID,
-	}); err != nil {
-		// uniqueAgentName checks before inserting, so two calls racing on the same
-		// title both pass that check and one loses here. The window is already open
-		// and nothing else knows about it, so without this kill it would run
-		// forever, invisible to every listing.
-		s.tmux.KillPane(pane)
-
-		return nil, fmt.Errorf("failed to record agent %q: %w", name, err)
+// idempotencyKey renders a caller's key for storage. The column is unique, so an
+// unclaimed create stores null rather than an empty string only the first of them
+// could hold.
+func idempotencyKey(key string) *string {
+	if key == "" {
+		return nil
 	}
 
-	if err := s.launcher.launch(launchClaudeParams{
-		Pane:            pane,
-		Flags:           flags,
-		Prompt:          p.Prompt,
-		WorkflowContext: workflowContext,
-		ClaudeSessionID: claudeSessionID,
-	}); err != nil {
-		// The row is stored and the pane is open with nothing useful in it. Left
-		// alone it would list as a live agent forever, so both go.
-		s.tmux.KillPane(pane)
-		if deleteErr := s.removeAgent(ctx, name); deleteErr != nil {
-			return nil, fmt.Errorf("failed to launch claude for %q (%w), and failed to clean up: %w", name, err, deleteErr)
-		}
-
-		return nil, fmt.Errorf("failed to launch claude for %q: %w", name, err)
-	}
-
-	// Read the row back rather than returning what was written. The store owns the
-	// generated id and the created timestamp.
-	created, err := s.agents.Get(ctx, name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read back agent %q: %w", name, err)
-	}
-	if created == nil {
-		return nil, fmt.Errorf("agent %q vanished after being recorded", name)
-	}
-
-	return created, nil
+	return &key
 }
 
 // restore recreates a dormant agent's tmux window from its stored cwd and flags,
-// updating the record. An archived agent has its hidden flag cleared, which is
-// what returns it to the normal listing.
+// updating the record. An archived agent has its soft-delete flag cleared, which
+// is what returns it to the normal listing.
 func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) error {
-	dir := expandHome(agent.Cwd)
-	if dir == "" {
-		dir, _ = os.UserHomeDir()
+	// An agent recorded against a harness this binary no longer runs cannot be brought
+	// back, and saying so beats a pane running the wrong CLI against its conversation.
+	resolved, err := s.harnesses.Resolve(agent.Harness)
+	if err != nil {
+		return err
 	}
 
-	// A deleted agent's original name may have been reused by a live agent while
-	// it sat deleted. Undeleting it under that name would collide on the
-	// unique-name index and fail, so give it a fresh unique name first, renaming
-	// the stored row by id. A non-deleted dormant agent already owns its name, so
-	// it is left as is.
+	dir := s.resumeDir(agent, resolved)
+
+	// A deleted agent's name may have been reused while it sat deleted, and undeleting
+	// it under that name would collide on the unique-name index, so it takes a fresh
+	// one first. A non-deleted dormant agent already owns its name.
 	if agent.Deleted && s.nameTaken(ctx, agent.Name) {
 		newName := s.uniqueAgentName(ctx, agent.Name, "")
 		if _, err := s.agents.Rename(ctx, agent.ID, newName); err != nil {
@@ -402,10 +533,14 @@ func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) erro
 	if err != nil {
 		return fmt.Errorf("failed to open a window for %q: %w", agent.Name, err)
 	}
+	if err := s.tmux.SetPaneOwner(pane, agent.ID); err != nil {
+		s.tmux.KillPane(pane)
 
-	// Clear the soft-delete flag first, so the row re-enters the unique-name
-	// index before the upsert below keys off it. Upserting a still-deleted row
-	// would collide on the id primary key rather than resolve as a name conflict.
+		return fmt.Errorf("failed to stamp the pane for %q: %w", agent.Name, err)
+	}
+
+	// Update below writes neither the soft-delete flag nor the name, so clearing it is
+	// its own call.
 	if agent.Deleted {
 		if err := s.agents.Restore(ctx, agent.ID); err != nil {
 			return fmt.Errorf("failed to unarchive agent %q: %w", agent.Name, err)
@@ -414,17 +549,22 @@ func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) erro
 
 	agent.Pane = pane
 	agent.State = agentstore.StateNew
-	if err := s.agents.Upsert(ctx, agent); err != nil {
+	// resumeDir may have moved the agent somewhere else, and the row is what the panel
+	// shows and the next restore reads.
+	agent.Cwd = dir
+	if err := s.agents.Update(ctx, agent); err != nil {
 		return fmt.Errorf("failed to restore agent %q: %w", agent.Name, err)
 	}
 
-	if err := s.launcher.launch(launchClaudeParams{
-		Pane:            pane,
-		Flags:           agent.Flags,
-		ClaudeSessionID: agent.ClaudeSessionID,
-		Resume:          true,
+	if err := s.launcher.launch(resolved, launchParams{
+		Pane:      pane,
+		Dir:       dir,
+		Flags:     agent.Flags,
+		SessionID: agent.SessionID,
+		AgentID:   agent.ID,
+		Resume:    true,
 	}); err != nil {
-		return fmt.Errorf("failed to relaunch claude for %q: %w", agent.Name, err)
+		return fmt.Errorf("failed to relaunch the agent for %q: %w", agent.Name, err)
 	}
 
 	return nil
@@ -449,9 +589,9 @@ func (s *AgentService) uniqueAgentName(ctx context.Context, title, prompt string
 	return name
 }
 
-// nameTaken reports whether a name is already owned by a live agent record.
-// Reusing a name would make the upsert clobber that agent's row instead of
-// creating a fresh one.
+// nameTaken reports whether a name is already owned by a live agent record. Reusing
+// one would make the upsert clobber that agent's row instead of creating a fresh
+// one.
 func (s *AgentService) nameTaken(ctx context.Context, name string) bool {
 	taken, _ := s.agents.ActiveNameExists(ctx, name)
 	return taken

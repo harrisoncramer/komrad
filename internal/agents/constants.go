@@ -16,14 +16,15 @@ const ManagerSession = "claude-manager"
 // endpoint rather than a malformed URL.
 const defaultServerAddr = "127.0.0.1:8787"
 
-// DefaultTranscriptsDir is where Claude Code writes its JSONL logs. An
-// unresolvable home yields a relative path, which matches no logs rather than
-// erroring.
-func DefaultTranscriptsDir() string {
+// DefaultRestoreRoot is where an agent runs when the directory it was created in
+// cannot be brought back. It sits beside Claude's own state rather than in the
+// system temp directory, so a stand-in an agent is still living in does not
+// vanish under it on the next cleanup sweep.
+func DefaultRestoreRoot() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		home = ""
 	}
 
-	return filepath.Join(home, ".claude", "projects")
+	return filepath.Join(home, ".claude", "claude-agents", "restored")
 }

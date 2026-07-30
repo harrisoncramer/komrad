@@ -16,6 +16,7 @@ import (
 	"claude-agents/internal/pgtest"
 	"claude-agents/internal/store"
 	agentstore "claude-agents/internal/store/agent"
+	schedulestore "claude-agents/internal/store/schedule"
 	transcriptstore "claude-agents/internal/store/transcript"
 	workflowstore "claude-agents/internal/store/workflow"
 
@@ -31,6 +32,7 @@ type Stores struct {
 	Pool        *store.Pool
 	Agents      *agentstore.Store
 	Workflows   *workflowstore.Store
+	Schedules   *schedulestore.Store
 	Transcripts *transcriptstore.Store
 }
 
@@ -50,16 +52,23 @@ func Open(t *testing.T) *Stores {
 		Pool:        pool,
 		Agents:      agentstore.New(pool.DB()),
 		Workflows:   workflowstore.New(pool.DB()),
+		Schedules:   schedulestore.New(pool.DB()),
 		Transcripts: transcriptstore.New(pool.DB()),
 	}
 }
 
 // SeedAgent records an agent and returns it as stored, since a test usually
-// needs the generated id rather than the fields it just wrote.
+// needs the generated id rather than the fields it just wrote. An agent with no
+// workflow set is filed under one created for it, since every agent belongs to
+// a workflow and most tests do not care which.
 func (s *Stores) SeedAgent(t *testing.T, agent agentstore.Agent) *agentstore.Agent {
 	t.Helper()
 
-	require.NoError(t, s.Agents.Upsert(t.Context(), agent))
+	if agent.WorkflowID == "" {
+		agent.WorkflowID = s.SeedWorkflow(t, workflowstore.Config{Name: "workflow-for-" + agent.Name}).ID
+	}
+
+	require.NoError(t, s.Agents.Create(t.Context(), agent))
 
 	stored, err := s.Agents.Get(t.Context(), agent.Name)
 	require.NoError(t, err)
@@ -74,6 +83,24 @@ func (s *Stores) SeedWorkflow(t *testing.T, cfg workflowstore.Config) *workflows
 	t.Helper()
 
 	created, err := s.Workflows.Create(t.Context(), cfg)
+	require.NoError(t, err)
+	require.NotNil(t, created)
+
+	return created
+}
+
+// SeedSchedule records a schedule and returns it, for the tests that need one
+// to aim at rather than one to inspect. A schedule with no workflow set is filed
+// under one created for it, since a schedule launches into a workflow and most
+// tests do not care which.
+func (s *Stores) SeedSchedule(t *testing.T, cfg schedulestore.Config) *schedulestore.Schedule {
+	t.Helper()
+
+	if cfg.WorkflowID == "" {
+		cfg.WorkflowID = s.SeedWorkflow(t, workflowstore.Config{Name: "workflow-for-" + cfg.Name}).ID
+	}
+
+	created, err := s.Schedules.Create(t.Context(), cfg)
 	require.NoError(t, err)
 	require.NotNil(t, created)
 

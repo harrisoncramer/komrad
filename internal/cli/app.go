@@ -6,8 +6,10 @@ import (
 	"claude-agents/config"
 	"claude-agents/internal/agents"
 	"claude-agents/internal/appconfig"
+	"claude-agents/internal/harness"
 	"claude-agents/internal/store"
 	agentstore "claude-agents/internal/store/agent"
+	schedulestore "claude-agents/internal/store/schedule"
 	transcriptstore "claude-agents/internal/store/transcript"
 	workflowstore "claude-agents/internal/store/workflow"
 	"claude-agents/internal/tmux"
@@ -23,6 +25,7 @@ type app struct {
 	// the database.
 	agentService    *agents.AgentService
 	workflowService *agents.WorkflowService
+	scheduleService *agents.ScheduleService
 
 	// The composition root. The pool is opened once and each domain gets its own
 	// store over it, so what a service can reach is decided here. The pool is
@@ -30,15 +33,39 @@ type app struct {
 	pool        *store.Pool
 	agents      *agentstore.Store
 	workflows   *workflowstore.Store
+	schedules   *schedulestore.Store
 	transcripts *transcriptstore.Store
 
-	popup       *ui.Popup
-	env         *config.Config
-	keys        appconfig.Keybindings
-	claudeFlags string
+	popup *ui.Popup
+	env   *config.Config
+	keys  appconfig.Keybindings
+	// harnesses is every agent CLI this binary can run, which the services resolve an
+	// agent's own harness through.
+	harnesses *harness.Registry
+	// defaultHarness is the CLI an agent runs when neither it nor its workflow names
+	// one, and defaultFlags are the configured flags each harness's agents inherit,
+	// keyed by harness id.
+	defaultHarness string
+	defaultFlags   map[string]string
+	// marks are the marks the panel's mark key steps an agent through.
+	marks []appconfig.Mark
+	// layout is how the panel divides the popup between its list and the stage.
+	layout appconfig.Layout
+	// configErr is set when the user's config file would not parse. The panel shows
+	// it on its error screen; every other command ignores it, since none of them
+	// read keybindings.
+	configErr error
+	// configPath is the file the user pointed at, empty for the default location.
+	// Serve keeps the path rather than the config parsed from it, since it reads the
+	// file again per request.
+	configPath string
 	// tmux is shared with the services. The UI needs it directly for the stage,
-	// which is its own layout rather than anything the agent API owns.
-	tmux *tmux.Client
+	// which is its own layout rather than anything the agent API owns. It covers
+	// both tmux servers, sending each call to the one that can answer it.
+	tmux *tmux.Servers
+	// host is the user's tmux server, kept alongside so the open command can record
+	// which one opened the popup. Every other use of it goes through tmux.
+	host *tmux.Host
 }
 
 // openStore connects to the database and builds the services over it. Calling it
@@ -57,19 +84,27 @@ func (a *app) openStore(ctx context.Context) error {
 	a.pool = pool
 	a.agents = agentstore.New(pool.DB())
 	a.workflows = workflowstore.New(pool.DB())
+	a.schedules = schedulestore.New(pool.DB())
 	a.transcripts = transcriptstore.New(pool.DB())
 
 	a.workflowService = agents.NewWorkflowService(agents.WorkflowParams{
 		Workflows: a.workflows,
+		Schedules: a.schedules,
 		Tx:        pool,
 	})
+	a.scheduleService = agents.NewScheduleService(agents.ScheduleParams{
+		Schedules: a.schedules,
+		Workflows: a.workflows,
+	})
 	a.agentService = agents.NewAgentService(agents.AgentParams{
-		Tmux:        a.tmux,
-		Agents:      a.agents,
-		Workflows:   a.workflows,
-		Tx:          pool,
-		Launcher:    agents.NewLauncher(a.tmux, a.env.Addr),
-		ClaudeFlags: a.claudeFlags,
+		Tmux:           a.tmux,
+		Agents:         a.agents,
+		Workflows:      a.workflows,
+		Tx:             pool,
+		Launcher:       agents.NewLauncher(a.tmux, a.env.Addr),
+		Harnesses:      a.harnesses,
+		DefaultHarness: a.defaultHarness,
+		DefaultFlags:   a.defaultFlags,
 	})
 
 	return nil

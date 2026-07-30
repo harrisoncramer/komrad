@@ -1,6 +1,7 @@
 -- name: ListWorkflowsPage :many
 SELECT
     sqlc.embed(w),
+    wc.harness,
     wc.cwd,
     wc.flags
 FROM
@@ -8,18 +9,16 @@ FROM
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
 WHERE
     w.is_deleted = FALSE
-    AND (sqlc.narg ('cursor_updated_at')::timestamptz IS NULL
-        OR w.updated_at < sqlc.narg ('cursor_updated_at')
-        OR (w.updated_at = sqlc.narg ('cursor_updated_at')
-            AND w.id < sqlc.narg ('cursor_id')))
+    AND (sqlc.narg('cursor_id')::uuid IS NULL
+        OR w.id < sqlc.narg('cursor_id'))
 ORDER BY
-    w.updated_at DESC,
     w.id DESC
 LIMIT @lim;
 
 -- name: ListWorkflows :many
 SELECT
     sqlc.embed(w),
+    wc.harness,
     wc.cwd,
     wc.flags
 FROM
@@ -28,11 +27,12 @@ FROM
 WHERE
     w.is_deleted = FALSE
 ORDER BY
-    w.updated_at DESC;
+    w.id DESC;
 
 -- name: GetWorkflow :one
 SELECT
     sqlc.embed(w),
+    wc.harness,
     wc.cwd,
     wc.flags
 FROM
@@ -44,14 +44,26 @@ WHERE
 LIMIT 1;
 
 -- name: InsertWorkflowConfig :one
-INSERT INTO workflow_configs (cwd, flags)
-    VALUES (@cwd, @flags)
+INSERT INTO workflow_configs(
+    harness,
+    cwd,
+    flags)
+VALUES (
+    @harness,
+    @cwd,
+    @flags)
 RETURNING
     id;
 
 -- name: InsertWorkflow :one
-INSERT INTO workflows (name, context, workflow_config_id)
-    VALUES (@name, @context, @workflow_config_id)
+INSERT INTO workflows(
+    name,
+    context,
+    workflow_config_id)
+VALUES (
+    @name,
+    @context,
+    @workflow_config_id)
 RETURNING
     *;
 
@@ -75,10 +87,11 @@ WHERE
 UPDATE
     workflow_configs
 SET
+    harness = @harness,
     cwd = @cwd,
     flags = @flags
 WHERE
-    id = (
+    id =(
         SELECT
             workflow_config_id
         FROM

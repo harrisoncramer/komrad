@@ -7,7 +7,6 @@ package models
 
 import (
 	"context"
-	"time"
 )
 
 const activeNameExists = `-- name: ActiveNameExists :one
@@ -47,18 +46,47 @@ func (q *Queries) AgentExists(ctx context.Context, id string) (bool, error) {
 	return exists, err
 }
 
-const clearWorkflowAgents = `-- name: ClearWorkflowAgents :exec
+const clearAgentPane = `-- name: ClearAgentPane :exec
 UPDATE
     agents
 SET
-    workflow_id = NULL
+    pane_id = ''
 WHERE
-    workflow_id = $1
+    id = $1
 `
 
-func (q *Queries) ClearWorkflowAgents(ctx context.Context, workflowID *string) error {
-	_, err := q.db.Exec(ctx, clearWorkflowAgents, workflowID)
+func (q *Queries) ClearAgentPane(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, clearAgentPane, id)
 	return err
+}
+
+const countLiveScheduleAgents = `-- name: CountLiveScheduleAgents :one
+SELECT
+    COUNT(*)
+FROM
+    agents
+WHERE
+    schedule_id = $1
+    AND is_deleted = FALSE
+    AND state IN ('thinking', 'waiting')
+`
+
+// CountLiveScheduleAgents counts the agents of a schedule that are still working
+// on something, which is what tells a firing the last run has not finished.
+// Thinking and waiting are the two states that say so: one is generating, the
+// other is blocked on an answer somebody still owes it.
+//
+// A run that has been recorded but never observed working is not counted. It is
+// the state a launch that died on the spot keeps for good, since the reconciler
+// only ever moves an agent it can see working, and counting it would turn one
+// failed launch into a schedule that never fires again. A run that really is
+// starting is promoted within a reconcile interval, which is far inside the
+// shortest interval a cron expression can name.
+func (q *Queries) CountLiveScheduleAgents(ctx context.Context, scheduleID *string) (int64, error) {
+	row := q.db.QueryRow(ctx, countLiveScheduleAgents, scheduleID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const deleteAgentByID = `-- name: DeleteAgentByID :exec
@@ -71,14 +99,37 @@ func (q *Queries) DeleteAgentByID(ctx context.Context, id string) error {
 	return err
 }
 
-const deleteAgentConfig = `-- name: DeleteAgentConfig :exec
-DELETE FROM agent_configs
-WHERE id = $1
+const deleteAgentMetadata = `-- name: DeleteAgentMetadata :many
+DELETE FROM agent_metadata
+WHERE agent_id = $1
+    AND KEY = $2
+RETURNING
+    agent_id
 `
 
-func (q *Queries) DeleteAgentConfig(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, deleteAgentConfig, id)
-	return err
+type DeleteAgentMetadataParams struct {
+	AgentID string
+	Key     string
+}
+
+func (q *Queries) DeleteAgentMetadata(ctx context.Context, arg DeleteAgentMetadataParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, deleteAgentMetadata, arg.AgentID, arg.Key)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var agent_id string
+		if err := rows.Scan(&agent_id); err != nil {
+			return nil, err
+		}
+		items = append(items, agent_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const deleteAgentTranscript = `-- name: DeleteAgentTranscript :exec
@@ -91,67 +142,119 @@ func (q *Queries) DeleteAgentTranscript(ctx context.Context, agentID string) err
 	return err
 }
 
+const deleteAgentTranscriptChunks = `-- name: DeleteAgentTranscriptChunks :exec
+DELETE FROM agent_transcript_chunks
+WHERE agent_id = $1
+`
+
+func (q *Queries) DeleteAgentTranscriptChunks(ctx context.Context, agentID string) error {
+	_, err := q.db.Exec(ctx, deleteAgentTranscriptChunks, agentID)
+	return err
+}
+
 const getAgent = `-- name: GetAgent :one
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at,
-    sc.cwd,
-    sc.flags
+    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags, harness
 FROM
     agents s
-    JOIN agent_configs sc ON sc.id = s.agent_config_id
 WHERE
     s.name = $1
     AND s.is_deleted = FALSE
 LIMIT 1
 `
 
-type GetAgentRow struct {
-	Agent Agent
-	Cwd   string
-	Flags string
-}
-
-func (q *Queries) GetAgent(ctx context.Context, name string) (*GetAgentRow, error) {
+func (q *Queries) GetAgent(ctx context.Context, name string) (*Agent, error) {
 	row := q.db.QueryRow(ctx, getAgent, name)
-	var i GetAgentRow
+	var i Agent
 	err := row.Scan(
-		&i.Agent.ID,
-		&i.Agent.Name,
-		&i.Agent.AgentConfigID,
-		&i.Agent.Prompt,
-		&i.Agent.PaneID,
-		&i.Agent.State,
-		&i.Agent.ClaudeSessionID,
-		&i.Agent.WorkflowID,
-		&i.Agent.IsDeleted,
-		&i.Agent.CreatedAt,
-		&i.Agent.UpdatedAt,
+		&i.ID,
+		&i.Name,
+		&i.Prompt,
+		&i.PaneID,
+		&i.State,
+		&i.SessionID,
+		&i.WorkflowID,
+		&i.ScheduleID,
+		&i.IdempotencyKey,
+		&i.IsDeleted,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Mark,
+		&i.IsHidden,
 		&i.Cwd,
 		&i.Flags,
+		&i.Harness,
 	)
 	return &i, err
 }
 
-const getAgentForDelete = `-- name: GetAgentForDelete :one
+const getAgentByID = `-- name: GetAgentByID :one
 SELECT
-    id,
-    agent_config_id
+    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags, harness
 FROM
-    agents
+    agents s
 WHERE
-    name = $1
+    s.id = $1
+LIMIT 1
 `
 
-type GetAgentForDeleteRow struct {
-	ID            string
-	AgentConfigID string
+func (q *Queries) GetAgentByID(ctx context.Context, id string) (*Agent, error) {
+	row := q.db.QueryRow(ctx, getAgentByID, id)
+	var i Agent
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Prompt,
+		&i.PaneID,
+		&i.State,
+		&i.SessionID,
+		&i.WorkflowID,
+		&i.ScheduleID,
+		&i.IdempotencyKey,
+		&i.IsDeleted,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Mark,
+		&i.IsHidden,
+		&i.Cwd,
+		&i.Flags,
+		&i.Harness,
+	)
+	return &i, err
 }
 
-// GetAgentForDelete resolves the two ids a hard delete has to remove rows by.
-func (q *Queries) GetAgentForDelete(ctx context.Context, name string) (*GetAgentForDeleteRow, error) {
-	row := q.db.QueryRow(ctx, getAgentForDelete, name)
-	var i GetAgentForDeleteRow
-	err := row.Scan(&i.ID, &i.AgentConfigID)
+const getAgentByIdempotencyKey = `-- name: GetAgentByIdempotencyKey :one
+SELECT
+    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags, harness
+FROM
+    agents s
+WHERE
+    s.idempotency_key = $1
+LIMIT 1
+`
+
+func (q *Queries) GetAgentByIdempotencyKey(ctx context.Context, idempotencyKey *string) (*Agent, error) {
+	row := q.db.QueryRow(ctx, getAgentByIdempotencyKey, idempotencyKey)
+	var i Agent
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Prompt,
+		&i.PaneID,
+		&i.State,
+		&i.SessionID,
+		&i.WorkflowID,
+		&i.ScheduleID,
+		&i.IdempotencyKey,
+		&i.IsDeleted,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Mark,
+		&i.IsHidden,
+		&i.Cwd,
+		&i.Flags,
+		&i.Harness,
+	)
 	return &i, err
 }
 
@@ -178,99 +281,163 @@ func (q *Queries) GetTranscript(ctx context.Context, agentID string) (*GetTransc
 }
 
 const insertAgent = `-- name: InsertAgent :one
-INSERT INTO agents (name, agent_config_id, prompt, pane_id, state, claude_session_id, workflow_id)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO agents(
+    id,
+    name,
+    cwd,
+    flags,
+    prompt,
+    pane_id,
+    state,
+    harness,
+    session_id,
+    workflow_id,
+    schedule_id,
+    idempotency_key,
+    is_hidden)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7,
+    $8,
+    $9,
+    $10,
+    $11,
+    $12,
+    $13)
 RETURNING
     id
 `
 
 type InsertAgentParams struct {
-	Name            string
-	AgentConfigID   string
-	Prompt          string
-	PaneID          string
-	State           string
-	ClaudeSessionID string
-	WorkflowID      *string
+	ID             string
+	Name           string
+	Cwd            string
+	Flags          string
+	Prompt         string
+	PaneID         string
+	State          string
+	Harness        string
+	SessionID      string
+	WorkflowID     string
+	ScheduleID     *string
+	IdempotencyKey *string
+	IsHidden       bool
 }
 
 func (q *Queries) InsertAgent(ctx context.Context, arg InsertAgentParams) (string, error) {
 	row := q.db.QueryRow(ctx, insertAgent,
+		arg.ID,
 		arg.Name,
-		arg.AgentConfigID,
+		arg.Cwd,
+		arg.Flags,
 		arg.Prompt,
 		arg.PaneID,
 		arg.State,
-		arg.ClaudeSessionID,
+		arg.Harness,
+		arg.SessionID,
 		arg.WorkflowID,
+		arg.ScheduleID,
+		arg.IdempotencyKey,
+		arg.IsHidden,
 	)
 	var id string
 	err := row.Scan(&id)
 	return id, err
 }
 
-const insertAgentConfig = `-- name: InsertAgentConfig :one
-INSERT INTO agent_configs (cwd, flags)
-    VALUES ($1, $2)
-RETURNING
-    id
-`
-
-type InsertAgentConfigParams struct {
-	Cwd   string
-	Flags string
+type InsertTranscriptChunksParams struct {
+	AgentID       string
+	Seq           int32
+	Role          string
+	Content       string
+	ContentOffset int64
 }
 
-func (q *Queries) InsertAgentConfig(ctx context.Context, arg InsertAgentConfigParams) (string, error) {
-	row := q.db.QueryRow(ctx, insertAgentConfig, arg.Cwd, arg.Flags)
-	var id string
-	err := row.Scan(&id)
-	return id, err
+const listAgentMetadata = `-- name: ListAgentMetadata :many
+SELECT
+    agent_id,
+    KEY,
+    value
+FROM
+    agent_metadata
+WHERE
+    agent_id = ANY ($1::uuid[])
+ORDER BY
+    agent_id,
+    KEY
+`
+
+type ListAgentMetadataRow struct {
+	AgentID string
+	Key     string
+	Value   string
+}
+
+// ListAgentMetadata fetches the metadata for a whole page of agents at once, so
+// hydrating a listing costs one query rather than one per row.
+func (q *Queries) ListAgentMetadata(ctx context.Context, agentIds []string) ([]*ListAgentMetadataRow, error) {
+	rows, err := q.db.Query(ctx, listAgentMetadata, agentIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListAgentMetadataRow
+	for rows.Next() {
+		var i ListAgentMetadataRow
+		if err := rows.Scan(&i.AgentID, &i.Key, &i.Value); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listAgents = `-- name: ListAgents :many
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at,
-    sc.cwd,
-    sc.flags
+    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags, harness
 FROM
     agents s
-    JOIN agent_configs sc ON sc.id = s.agent_config_id
 WHERE
     s.is_deleted = FALSE
 ORDER BY
-    s.updated_at DESC
+    s.id DESC
 `
 
-type ListAgentsRow struct {
-	Agent Agent
-	Cwd   string
-	Flags string
-}
-
-func (q *Queries) ListAgents(ctx context.Context) ([]*ListAgentsRow, error) {
+func (q *Queries) ListAgents(ctx context.Context) ([]*Agent, error) {
 	rows, err := q.db.Query(ctx, listAgents)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*ListAgentsRow
+	var items []*Agent
 	for rows.Next() {
-		var i ListAgentsRow
+		var i Agent
 		if err := rows.Scan(
-			&i.Agent.ID,
-			&i.Agent.Name,
-			&i.Agent.AgentConfigID,
-			&i.Agent.Prompt,
-			&i.Agent.PaneID,
-			&i.Agent.State,
-			&i.Agent.ClaudeSessionID,
-			&i.Agent.WorkflowID,
-			&i.Agent.IsDeleted,
-			&i.Agent.CreatedAt,
-			&i.Agent.UpdatedAt,
+			&i.ID,
+			&i.Name,
+			&i.Prompt,
+			&i.PaneID,
+			&i.State,
+			&i.SessionID,
+			&i.WorkflowID,
+			&i.ScheduleID,
+			&i.IdempotencyKey,
+			&i.IsDeleted,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Mark,
+			&i.IsHidden,
 			&i.Cwd,
 			&i.Flags,
+			&i.Harness,
 		); err != nil {
 			return nil, err
 		}
@@ -284,59 +451,51 @@ func (q *Queries) ListAgents(ctx context.Context) ([]*ListAgentsRow, error) {
 
 const listAgentsPage = `-- name: ListAgentsPage :many
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at,
-    sc.cwd,
-    sc.flags
+    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags, harness
 FROM
     agents s
-    JOIN agent_configs sc ON sc.id = s.agent_config_id
 WHERE
-    s.is_deleted = FALSE
-    AND ($1::timestamptz IS NULL
-        OR s.updated_at < $1
-        OR (s.updated_at = $1
-            AND s.id < $2))
+    s.is_deleted = $1
+    AND ($2::uuid IS NULL
+        OR s.id < $2)
 ORDER BY
-    s.updated_at DESC,
     s.id DESC
 LIMIT $3
 `
 
 type ListAgentsPageParams struct {
-	CursorUpdatedAt *time.Time
-	CursorID        *string
-	Lim             int32
+	Deleted  bool
+	CursorID *string
+	Lim      int32
 }
 
-type ListAgentsPageRow struct {
-	Agent Agent
-	Cwd   string
-	Flags string
-}
-
-func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) ([]*ListAgentsPageRow, error) {
-	rows, err := q.db.Query(ctx, listAgentsPage, arg.CursorUpdatedAt, arg.CursorID, arg.Lim)
+func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) ([]*Agent, error) {
+	rows, err := q.db.Query(ctx, listAgentsPage, arg.Deleted, arg.CursorID, arg.Lim)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*ListAgentsPageRow
+	var items []*Agent
 	for rows.Next() {
-		var i ListAgentsPageRow
+		var i Agent
 		if err := rows.Scan(
-			&i.Agent.ID,
-			&i.Agent.Name,
-			&i.Agent.AgentConfigID,
-			&i.Agent.Prompt,
-			&i.Agent.PaneID,
-			&i.Agent.State,
-			&i.Agent.ClaudeSessionID,
-			&i.Agent.WorkflowID,
-			&i.Agent.IsDeleted,
-			&i.Agent.CreatedAt,
-			&i.Agent.UpdatedAt,
+			&i.ID,
+			&i.Name,
+			&i.Prompt,
+			&i.PaneID,
+			&i.State,
+			&i.SessionID,
+			&i.WorkflowID,
+			&i.ScheduleID,
+			&i.IdempotencyKey,
+			&i.IsDeleted,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Mark,
+			&i.IsHidden,
 			&i.Cwd,
 			&i.Flags,
+			&i.Harness,
 		); err != nil {
 			return nil, err
 		}
@@ -350,45 +509,40 @@ func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) 
 
 const listAllAgents = `-- name: ListAllAgents :many
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.is_deleted, s.created_at, s.updated_at,
-    sc.cwd,
-    sc.flags
+    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags, harness
 FROM
     agents s
-    JOIN agent_configs sc ON sc.id = s.agent_config_id
 ORDER BY
-    s.updated_at DESC
+    s.id DESC
 `
 
-type ListAllAgentsRow struct {
-	Agent Agent
-	Cwd   string
-	Flags string
-}
-
-func (q *Queries) ListAllAgents(ctx context.Context) ([]*ListAllAgentsRow, error) {
+func (q *Queries) ListAllAgents(ctx context.Context) ([]*Agent, error) {
 	rows, err := q.db.Query(ctx, listAllAgents)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*ListAllAgentsRow
+	var items []*Agent
 	for rows.Next() {
-		var i ListAllAgentsRow
+		var i Agent
 		if err := rows.Scan(
-			&i.Agent.ID,
-			&i.Agent.Name,
-			&i.Agent.AgentConfigID,
-			&i.Agent.Prompt,
-			&i.Agent.PaneID,
-			&i.Agent.State,
-			&i.Agent.ClaudeSessionID,
-			&i.Agent.WorkflowID,
-			&i.Agent.IsDeleted,
-			&i.Agent.CreatedAt,
-			&i.Agent.UpdatedAt,
+			&i.ID,
+			&i.Name,
+			&i.Prompt,
+			&i.PaneID,
+			&i.State,
+			&i.SessionID,
+			&i.WorkflowID,
+			&i.ScheduleID,
+			&i.IdempotencyKey,
+			&i.IsDeleted,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Mark,
+			&i.IsHidden,
 			&i.Cwd,
 			&i.Flags,
+			&i.Harness,
 		); err != nil {
 			return nil, err
 		}
@@ -425,9 +579,27 @@ WHERE
     AND is_deleted = FALSE
 `
 
-func (q *Queries) MarkWorkflowAgentsDeleted(ctx context.Context, workflowID *string) error {
+func (q *Queries) MarkWorkflowAgentsDeleted(ctx context.Context, workflowID string) error {
 	_, err := q.db.Exec(ctx, markWorkflowAgentsDeleted, workflowID)
 	return err
+}
+
+const nextTranscriptChunkSeq = `-- name: NextTranscriptChunkSeq :one
+SELECT
+    COALESCE(MAX(seq) + 1, 0)::int AS next
+FROM
+    agent_transcript_chunks
+WHERE
+    agent_id = $1
+`
+
+// NextTranscriptChunkSeq is the position the next appended turn takes, which is
+// one past the highest already stored, or zero for an agent with no turns yet.
+func (q *Queries) NextTranscriptChunkSeq(ctx context.Context, agentID string) (int32, error) {
+	row := q.db.QueryRow(ctx, nextTranscriptChunkSeq, agentID)
+	var next int32
+	err := row.Scan(&next)
+	return next, err
 }
 
 const renameAgent = `-- name: RenameAgent :many
@@ -472,7 +644,8 @@ const restoreAgent = `-- name: RestoreAgent :exec
 UPDATE
     agents
 SET
-    is_deleted = FALSE
+    is_deleted = FALSE,
+    is_hidden = FALSE
 WHERE
     id = $1
 `
@@ -483,71 +656,88 @@ func (q *Queries) RestoreAgent(ctx context.Context, id string) error {
 }
 
 const searchTranscripts = `-- name: SearchTranscripts :many
-WITH matches AS (
+WITH q AS (
     SELECT
-        t.agent_id,
-        substring(t.content FROM greatest (1, position(lower($4) IN lower(t.content)) - $5::int)
-            FOR $6::int)::text AS snippet,
-        (length(t.content) - length(replace(lower(t.content), lower($4), ''))) / length($4) AS rank
-    FROM
-        agent_transcripts t
-    WHERE
-        t.content ILIKE $7
+        WEBSEARCH_TO_TSQUERY('english', $2) AS query
 )
 SELECT
-    matches.agent_id,
-    s.name,
-    s.is_deleted,
-    matches.snippet,
-    matches.rank
+    c.agent_id,
+    c.seq,
+    c.role,
+    c.content_offset,
+    a.name,
+    a.is_deleted,
+    CASE WHEN c.tsv @@ q.query THEN
+        TS_HEADLINE('english', c.content, q.query, $1)
+    ELSE
+        SUBSTRING(c.content FROM greatest(1, POSITION(LOWER($2) IN LOWER(c.content)) - $3::int)
+            FOR $4::int)
+    END::text AS snippet,
+    TS_RANK_CD(c.tsv, q.query)::float8 AS rank
 FROM
-    matches
-    JOIN agents s ON s.id = matches.agent_id
-WHERE ($1::int IS NULL
-    OR rank < $1
-    OR (rank = $1
-        AND agent_id > $2))
+    agent_transcript_chunks c
+    CROSS JOIN q
+    JOIN agents a ON a.id = c.agent_id
+WHERE (c.tsv @@ q.query
+    OR c.content ILIKE $5)
+AND ($6::float8 IS NULL
+    OR TS_RANK_CD(c.tsv, q.query) < $6
+    OR (TS_RANK_CD(c.tsv, q.query) = $6
+        AND (c.agent_id,
+            c.seq) >($7::uuid,
+            $8::int)))
 ORDER BY
-    matches.rank DESC,
-    matches.agent_id ASC
-LIMIT $3
+    rank DESC,
+    c.agent_id ASC,
+    c.seq ASC
+LIMIT $9
 `
 
 type SearchTranscriptsParams struct {
-	CursorRank    *int32
-	CursorAgentID *string
-	Lim           int32
+	Headline      string
 	Query         string
 	Lead          int32
 	Width         int32
 	Pattern       string
+	CursorRank    *float64
+	CursorAgentID *string
+	CursorSeq     *int32
+	Lim           int32
 }
 
 type SearchTranscriptsRow struct {
-	AgentID   string
-	Name      string
-	IsDeleted bool
-	Snippet   string
-	Rank      int32
+	AgentID       string
+	Seq           int32
+	Role          string
+	ContentOffset int64
+	Name          string
+	IsDeleted     bool
+	Snippet       string
+	Rank          float64
 }
 
-// SearchTranscripts finds the transcripts containing the query as a substring,
-// best match first. The ILIKE is the form the trigram index can answer, so the
-// pattern arrives already escaped and wrapped in wildcards, while the raw query
-// is passed alongside it for the position and the count, which have to match
-// literally. Rank is how many times the query occurs in a transcript, so an agent
-// that discussed something at length outranks one that mentioned it once. The
-// snippet is a plain window of the text around the first occurrence; the caller
-// marks the match within it.
+// SearchTranscripts finds the turns matching the query, best match first. Two
+// matchers run together because they fail in opposite places. The tsquery matches
+// whole stemmed words, so it finds a turn that phrased something differently but
+// cannot match a word still being typed. The ILIKE matches any substring, so it
+// covers the half-typed word but knows nothing about word boundaries. Rank is the
+// cover density of the word match, which rewards the query's terms appearing close
+// together, and is zero for a turn only the substring found, sorting those last.
+// A word match takes its snippet from ts_headline, which marks the lexemes it
+// matched rather than a literal run, so a stemmed hit is still highlighted. A
+// substring-only match has no lexemes to mark and takes a plain window around the
+// literal occurrence, which the caller marks instead.
 func (q *Queries) SearchTranscripts(ctx context.Context, arg SearchTranscriptsParams) ([]*SearchTranscriptsRow, error) {
 	rows, err := q.db.Query(ctx, searchTranscripts,
-		arg.CursorRank,
-		arg.CursorAgentID,
-		arg.Lim,
+		arg.Headline,
 		arg.Query,
 		arg.Lead,
 		arg.Width,
 		arg.Pattern,
+		arg.CursorRank,
+		arg.CursorAgentID,
+		arg.CursorSeq,
+		arg.Lim,
 	)
 	if err != nil {
 		return nil, err
@@ -558,6 +748,9 @@ func (q *Queries) SearchTranscripts(ctx context.Context, arg SearchTranscriptsPa
 		var i SearchTranscriptsRow
 		if err := rows.Scan(
 			&i.AgentID,
+			&i.Seq,
+			&i.Role,
+			&i.ContentOffset,
 			&i.Name,
 			&i.IsDeleted,
 			&i.Snippet,
@@ -573,27 +766,25 @@ func (q *Queries) SearchTranscripts(ctx context.Context, arg SearchTranscriptsPa
 	return items, nil
 }
 
-const setAgentState = `-- name: SetAgentState :many
+const setAgentHidden = `-- name: SetAgentHidden :many
 UPDATE
     agents
 SET
-    state = $1
+    is_hidden = $1
 WHERE
-    name = $2
+    id = $2
     AND is_deleted = FALSE
 RETURNING
     id
 `
 
-type SetAgentStateParams struct {
-	State string
-	Name  string
+type SetAgentHiddenParams struct {
+	Hidden bool
+	ID     string
 }
 
-// SetAgentState returns the row it touched so the caller can tell an agent that
-// does not exist from one that already held the state.
-func (q *Queries) SetAgentState(ctx context.Context, arg SetAgentStateParams) ([]string, error) {
-	rows, err := q.db.Query(ctx, setAgentState, arg.State, arg.Name)
+func (q *Queries) SetAgentHidden(ctx context.Context, arg SetAgentHiddenParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, setAgentHidden, arg.Hidden, arg.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -610,6 +801,122 @@ func (q *Queries) SetAgentState(ctx context.Context, arg SetAgentStateParams) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const setAgentMark = `-- name: SetAgentMark :many
+UPDATE
+    agents
+SET
+    mark = $1
+WHERE
+    id = $2
+    AND is_deleted = FALSE
+RETURNING
+    id
+`
+
+type SetAgentMarkParams struct {
+	Mark *string
+	ID   string
+}
+
+func (q *Queries) SetAgentMark(ctx context.Context, arg SetAgentMarkParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, setAgentMark, arg.Mark, arg.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setAgentMetadata = `-- name: SetAgentMetadata :many
+INSERT INTO agent_metadata(
+    agent_id,
+    KEY,
+    value)
+SELECT
+    $1,
+    $2,
+    $3
+WHERE
+    EXISTS (
+        SELECT
+            1
+        FROM
+            agents
+        WHERE
+            id = $1
+            AND is_deleted = FALSE)
+ON CONFLICT (agent_id,
+    KEY)
+    DO UPDATE SET
+        value = $3,
+        updated_at = NOW()
+    RETURNING
+        agent_id
+`
+
+type SetAgentMetadataParams struct {
+	AgentID string
+	Key     string
+	Value   string
+}
+
+// SetAgentMetadata records one fact against a live agent, replacing whatever
+// that key held before and leaving the agent's other keys alone. The insert
+// selects through a guard rather than naming the values outright so an id
+// belonging to no live agent writes nothing and is reported as such, instead of
+// raising a foreign key violation the handler would have to read to tell an
+// unknown agent from a real failure.
+func (q *Queries) SetAgentMetadata(ctx context.Context, arg SetAgentMetadataParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, setAgentMetadata, arg.AgentID, arg.Key, arg.Value)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var agent_id string
+		if err := rows.Scan(&agent_id); err != nil {
+			return nil, err
+		}
+		items = append(items, agent_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setAgentSessionID = `-- name: SetAgentSessionID :exec
+UPDATE
+    agents
+SET
+    session_id = $1
+WHERE
+    id = $2
+    AND session_id = ''
+`
+
+type SetAgentSessionIDParams struct {
+	SessionID string
+	ID        string
+}
+
+func (q *Queries) SetAgentSessionID(ctx context.Context, arg SetAgentSessionIDParams) error {
+	_, err := q.db.Exec(ctx, setAgentSessionID, arg.SessionID, arg.ID)
+	return err
 }
 
 const setAgentStateByID = `-- name: SetAgentStateByID :exec
@@ -631,92 +938,67 @@ func (q *Queries) SetAgentStateByID(ctx context.Context, arg SetAgentStateByIDPa
 	return err
 }
 
-const setAgentWorkflow = `-- name: SetAgentWorkflow :exec
-UPDATE
-    agents
-SET
-    workflow_id = $1
-WHERE
-    id = $2
-`
-
-type SetAgentWorkflowParams struct {
-	WorkflowID *string
-	ID         string
-}
-
-func (q *Queries) SetAgentWorkflow(ctx context.Context, arg SetAgentWorkflowParams) error {
-	_, err := q.db.Exec(ctx, setAgentWorkflow, arg.WorkflowID, arg.ID)
-	return err
-}
-
 const updateAgent = `-- name: UpdateAgent :exec
 UPDATE
     agents
 SET
-    prompt = $1,
-    pane_id = $2,
-    state = $3,
-    claude_session_id = CASE WHEN $4 != '' THEN
-        $4
+    cwd = $1,
+    flags = $2,
+    prompt = $3,
+    pane_id = $4,
+    state = $5,
+    session_id = CASE WHEN $6 != '' THEN
+        $6
     ELSE
-        claude_session_id
+        session_id
     END,
-    workflow_id = $5
+    workflow_id = $7
 WHERE
-    id = $6
+    id = $8
 `
 
 type UpdateAgentParams struct {
-	Prompt          string
-	PaneID          string
-	State           string
-	ClaudeSessionID interface{}
-	WorkflowID      *string
-	ID              string
+	Cwd        string
+	Flags      string
+	Prompt     string
+	PaneID     string
+	State      string
+	SessionID  interface{}
+	WorkflowID string
+	ID         string
 }
 
 func (q *Queries) UpdateAgent(ctx context.Context, arg UpdateAgentParams) error {
 	_, err := q.db.Exec(ctx, updateAgent,
+		arg.Cwd,
+		arg.Flags,
 		arg.Prompt,
 		arg.PaneID,
 		arg.State,
-		arg.ClaudeSessionID,
+		arg.SessionID,
 		arg.WorkflowID,
 		arg.ID,
 	)
 	return err
 }
 
-const updateAgentConfig = `-- name: UpdateAgentConfig :exec
-UPDATE
-    agent_configs
-SET
-    cwd = $1,
-    flags = $2
-WHERE
-    id = $3
-`
-
-type UpdateAgentConfigParams struct {
-	Cwd   string
-	Flags string
-	ID    string
-}
-
-func (q *Queries) UpdateAgentConfig(ctx context.Context, arg UpdateAgentConfigParams) error {
-	_, err := q.db.Exec(ctx, updateAgentConfig, arg.Cwd, arg.Flags, arg.ID)
-	return err
-}
-
 const upsertTranscript = `-- name: UpsertTranscript :exec
-INSERT INTO agent_transcripts (agent_id, content, synced_offset, synced_at)
-    VALUES ($1, $2, $3, now())
-ON CONFLICT (agent_id)
+INSERT INTO agent_transcripts(
+    agent_id,
+    content,
+    synced_offset,
+    synced_at)
+VALUES (
+    $1,
+    $2,
+    $3,
+    NOW())
+ON CONFLICT (
+    agent_id)
     DO UPDATE SET
         content = excluded.content,
         synced_offset = excluded.synced_offset,
-        synced_at = now()
+        synced_at = NOW()
 `
 
 type UpsertTranscriptParams struct {

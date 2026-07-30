@@ -12,6 +12,8 @@ import (
 
 	agentv1 "claude-agents/proto/gen/agent/v1"
 	annotationv1 "claude-agents/proto/gen/annotation/v1"
+	configv1 "claude-agents/proto/gen/config/v1"
+	schedulev1 "claude-agents/proto/gen/schedule/v1"
 	workflowv1 "claude-agents/proto/gen/workflow/v1"
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
@@ -50,6 +52,8 @@ func registerRPCTools(server *mcpsdk.Server, baseURL string) error {
 	files := []protoreflect.FileDescriptor{
 		agentv1.File_agent_v1_agent_proto,
 		workflowv1.File_workflow_v1_workflow_proto,
+		schedulev1.File_schedule_v1_schedule_proto,
+		configv1.File_config_v1_config_proto,
 	}
 
 	for _, file := range files {

@@ -8,6 +8,7 @@ import (
 	"claude-agents/internal/appconfig"
 
 	agentstore "claude-agents/internal/store/agent"
+	workflowstore "claude-agents/internal/store/workflow"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
@@ -19,13 +20,13 @@ import (
 // the pane back afterwards.
 func TestInfoKey(t *testing.T) {
 	tests := []struct {
-		name       string
-		cursor     int
-		presses    int
-		thenMove   bool
-		wantPinned bool
-		wantBat    int
-		wantSwaps  int
+		name        string
+		cursor      int
+		presses     int
+		thenMove    bool
+		wantPinned  bool
+		wantRenders int
+		wantSwaps   int
 	}{
 		{
 			name:    "on a workflow header there is no record to show",
@@ -33,25 +34,27 @@ func TestInfoKey(t *testing.T) {
 			presses: 1,
 		},
 		{
-			name:       "one press puts the record in the stage",
-			cursor:     1,
-			presses:    1,
-			wantPinned: true,
-			wantBat:    1,
+			name:        "one press puts the record in the stage",
+			cursor:      1,
+			presses:     1,
+			wantPinned:  true,
+			wantRenders: 1,
 		},
 		{
-			name:      "a second press swaps the agent's pane back in",
-			cursor:    1,
-			presses:   2,
-			wantBat:   1,
-			wantSwaps: 1,
+			name:        "a second press swaps the agent's pane back in",
+			cursor:      1,
+			presses:     2,
+			wantRenders: 1,
+			wantSwaps:   1,
 		},
 		{
-			name:     "moving the cursor unpins, so the record never outlives its row",
-			cursor:   1,
-			presses:  1,
-			thenMove: true,
-			wantBat:  1,
+			// Two renders: the pinned record, then the workflow header the cursor
+			// lands on, which stages a record of its own.
+			name:        "moving the cursor unpins, so the record never outlives its row",
+			cursor:      1,
+			presses:     1,
+			thenMove:    true,
+			wantRenders: 2,
 		},
 	}
 
@@ -59,7 +62,7 @@ func TestInfoKey(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := &recordingTmux{}
 			m := infoModel(tmux)
-			m.agentCursor = tt.cursor
+			m.tree.cursor = tt.cursor
 
 			for range tt.presses {
 				m = pressKey(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("i")})
@@ -68,16 +71,16 @@ func TestInfoKey(t *testing.T) {
 				m = pressKey(t, m, tea.KeyMsg{Type: tea.KeyUp})
 			}
 
-			assert.Equal(t, tt.wantPinned, m.infoPinned)
+			assert.Equal(t, tt.wantPinned, m.tree.infoPinned)
 			assert.Equal(t, tt.wantSwaps, tmux.swaps, "swaps move the agent's own pane")
 
-			bat := 0
+			renders := 0
 			for _, respawn := range tmux.respawns {
-				if strings.Contains(respawn, "bat") {
-					bat++
+				if strings.Contains(respawn, "less") {
+					renders++
 				}
 			}
-			assert.Equal(t, tt.wantBat, bat, "the record is rendered through bat")
+			assert.Equal(t, tt.wantRenders, renders, "the record is paged into the stage")
 		})
 	}
 }
@@ -86,16 +89,22 @@ func TestInfoKey(t *testing.T) {
 // has no pane to display, so this is all there is of it.
 func TestAgentMarkdown(t *testing.T) {
 	agent := agentstore.Agent{
-		Name:            "auth",
-		Pane:            "%9",
-		Cwd:             "/repo",
-		ClaudeSessionID: "abc",
-		CreatedAt:       time.Date(2026, 7, 24, 15, 4, 0, 0, time.UTC),
+		Name:      "auth",
+		Pane:      "%9",
+		Cwd:       "/repo",
+		SessionID: "abc",
+		CreatedAt: time.Date(2026, 7, 24, 15, 4, 0, 0, time.UTC),
 	}
 
 	tests := []struct {
-		name        string
-		alive       bool
+		name  string
+		alive bool
+		// schedule is the name of the schedule that launched the agent, empty for
+		// one a person started.
+		schedule string
+		// metadata is what the agent recorded about its own work, empty for one that
+		// recorded nothing.
+		metadata    []agentstore.Metadata
 		wantContain []string
 		wantAbsent  []string
 	}{
@@ -108,21 +117,52 @@ func TestAgentMarkdown(t *testing.T) {
 			},
 		},
 		{
-			name:  "a live agent says where it runs",
+			name:  "a live agent claims no dormancy and lists its record",
 			alive: true,
 			wantContain: []string{
-				"_running in %9_",
 				"- directory: /repo",
 				"- resume: abc",
 				"- flags: —",
 			},
-			wantAbsent: []string{"Press open to restore"},
+			wantAbsent: []string{"dormant", "Press open to restore"},
+		},
+		{
+			name:        "an agent a schedule launched names the schedule",
+			alive:       true,
+			schedule:    "morning-ci",
+			wantContain: []string{"- launched by: morning-ci"},
+		},
+		{
+			name:       "one a person started claims no schedule",
+			alive:      true,
+			wantAbsent: []string{"launched by"},
+		},
+		{
+			name:       "an agent that recorded nothing draws no heading for it",
+			alive:      true,
+			wantAbsent: []string{"metadata"},
+		},
+		{
+			name:  "what the agent recorded is listed under its own heading",
+			alive: true,
+			metadata: []agentstore.Metadata{
+				{Key: "branch", Value: "harry/rate-limits"},
+				{Key: "pr", Value: "https://github.com/o/r/pull/312"},
+			},
+			wantContain: []string{
+				"## metadata",
+				"- branch: harry/rate-limits",
+				"- pr: https://github.com/o/r/pull/312",
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := agentMarkdown(agent, tt.alive)
+			agent := agent
+			agent.Metadata = tt.metadata
+
+			got := agentMarkdown(agent, tt.alive, tt.schedule)
 
 			for _, want := range tt.wantContain {
 				assert.Contains(t, got, want)
@@ -135,23 +175,29 @@ func TestAgentMarkdown(t *testing.T) {
 }
 
 // recordingTmux records only what the stage does, so a test can tell a
-// swapped-in agent pane from a respawned bat preview. Every other call is an
+// swapped-in agent pane from a respawned pager preview. Every other call is an
 // inert stub.
 type recordingTmux struct {
+	// path is what ClientPath reports, the directory the panel falls back to for
+	// a form left blank.
+	path     string
 	swaps    int
 	respawns []string
+	// resizes are the widths the stage pane has been set to, as percentages.
+	resizes []int
 }
 
 func (t *recordingTmux) SetGlobal(string, string)                {}
 func (t *recordingTmux) ShowGlobal(string) string                { return "" }
 func (t *recordingTmux) SetSessionOption(string, string, string) {}
 func (t *recordingTmux) DetachSession(string)                    {}
-func (t *recordingTmux) ClientPath(string) string                { return "" }
+func (t *recordingTmux) BindKey(string, ...string)               {}
+func (t *recordingTmux) ClientPath(string) string                { return t.path }
 func (t *recordingTmux) SendKeys(string, ...string) error        { return nil }
 func (t *recordingTmux) PaneAlive(string) bool                   { return true }
 func (t *recordingTmux) CapturePane(string) string               { return "" }
 func (t *recordingTmux) CurrentPane() (string, error)            { return "%0", nil }
-func (t *recordingTmux) SplitRight(string, string) string        { return "%1" }
+func (t *recordingTmux) SplitRight(string, string, int) string   { return "%1" }
 func (t *recordingTmux) SwapPanes(string, string)                { t.swaps++ }
 func (t *recordingTmux) KillPane(string)                         {}
 
@@ -159,22 +205,31 @@ func (t *recordingTmux) NewWindow(string, string, string) (string, error) {
 	return "%2", nil
 }
 
+func (t *recordingTmux) ResizePane(_ string, percent int) {
+	t.resizes = append(t.resizes, percent)
+}
+
 func (t *recordingTmux) RespawnPane(_, _ string, argv ...string) {
 	t.respawns = append(t.respawns, strings.Join(argv, " "))
 }
 
-// infoModel builds an agents model holding one live agent, with the cursor on it.
-// Row 0 is the no-workflow header, so the agent is row 1.
+// infoModel builds an agents model holding one live agent, with the cursor on
+// it. Row 0 is the workflow header the agent sits under, so the agent is row 1.
 func infoModel(tmux *recordingTmux) model {
-	stage := NewStage(tmux)
+	stage := NewStage(tmux, appconfig.DefaultSplit)
 	stage.Init()
 
 	return model{
-		stage:       stage,
-		keys:        appconfig.DefaultKeybindings(),
-		screen:      screenAgents,
-		agents:      []agentItem{{agent: agentstore.Agent{Name: "auth", Pane: "%9", Cwd: "/repo"}, alive: true}},
-		agentCursor: 1,
+		stage:  stage,
+		keys:   appconfig.DefaultKeybindings(),
+		screen: screenAgents,
+		tree: treeState{
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			agents: []agentItem{
+				{agent: agentstore.Agent{Name: "auth", Pane: "%9", Cwd: "/repo", WorkflowID: "w1"}, alive: true},
+			},
+			cursor: 1,
+		},
 	}
 }
 

@@ -16,21 +16,19 @@ const (
 	// maxRows bounds how many rows a single query returns. The query is wrapped
 	// with LIMIT maxRows+1 so we can tell the caller when results were truncated.
 	maxRows = 1000
-	// maxCellChars truncates any single stringified cell so one wide column
-	// cannot blow up the response. Transcripts are stored whole, so this matters.
+	// maxCellChars truncates any single stringified cell so one wide column cannot blow up
+	// the response. Transcripts are stored whole, so this matters.
 	maxCellChars = 2000
-	// queryTimeout caps how long a query may run. It is set both as the context
-	// deadline and as the connection's statement_timeout, so a query that stops
-	// responding is cut off by the server rather than left running behind a caller
-	// who has already given up.
+	// queryTimeout is set both as the context deadline and as the connection's
+	// statement_timeout, so a query that stops responding is cut off by the server rather
+	// than left running behind a caller who has already given up.
 	queryTimeout = 15 * time.Second
 )
 
-// forbiddenPattern matches any write, DDL, or connection-state verb. A statement
-// containing one is rejected before it ever reaches the database. It runs over
-// the statement's executable text only, with literals, quoted identifiers, and
-// comments blanked out first, so searching transcripts for the word "update" is
-// a search and not a rejected write.
+// forbiddenPattern matches any write, DDL, or connection-state verb, rejecting the
+// statement before it reaches the database. It runs over the statement's executable text
+// only, with literals, quoted identifiers, and comments blanked out first, so searching
+// transcripts for the word "update" is a search and not a rejected write.
 var forbiddenPattern = regexp.MustCompile(`(?i)\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE|EXECUTE|CALL|MERGE|VACUUM|REINDEX|ATTACH|DETACH|PRAGMA|BEGIN|COMMIT|ROLLBACK|SET)\b`)
 
 // replaceStatement matches REPLACE only where it begins a statement. Postgres
@@ -46,11 +44,9 @@ type queryResult struct {
 	Truncated bool             `json:"truncated"`
 }
 
-// validateReadOnly checks that sql is a single SELECT or WITH statement with no
-// write or DDL verbs, returning the cleaned statement. Every check runs against
-// the statement's executable text, with quoted runs and comments blanked out, so
-// what a keyword sits inside decides whether it counts. This is defense in depth
-// on top of the read-only connection rather than the sole guarantee.
+// validateReadOnly checks that sql is a single SELECT or WITH statement with no write or
+// DDL verbs, returning the cleaned statement. It is defense in depth on top of the
+// read-only connection rather than the sole guarantee.
 func validateReadOnly(sql string) (string, error) {
 	trimmed := strings.TrimSpace(sql)
 	trimmed = strings.TrimSuffix(trimmed, ";")
@@ -83,11 +79,10 @@ func validateReadOnly(sql string) (string, error) {
 	return trimmed, nil
 }
 
-// stripQuoted blanks out the parts of a statement that are data rather than
-// instruction, meaning string literals, quoted identifiers, and comments. Each is
-// replaced by a single space so the tokens around it stay apart. An unclosed quote
-// or comment is an error, since the rest of the statement would otherwise
-// disappear into it and pass every check unread.
+// stripQuoted blanks out the parts of a statement that are data rather than instruction,
+// meaning string literals, quoted identifiers, and comments. Each becomes a single space so
+// the tokens around it stay apart. An unclosed quote or comment is an error, since the rest
+// of the statement would otherwise disappear into it and pass every check unread.
 func stripQuoted(statement string) (string, error) {
 	var b strings.Builder
 	b.Grow(len(statement))
@@ -152,13 +147,12 @@ func skipQuoted(statement string, start int, quote byte) (int, bool) {
 	return 0, false
 }
 
-// query validates that sql is a single read-only statement, then runs it under a
-// deadline with a row cap.
+// query validates that sql is a single read-only statement, then runs it under a deadline
+// with a row cap.
 //
-// The statement runs inside an explicitly read-only transaction. That is the
-// guarantee. The parsing above it is defense in depth, and the pool this borrows
-// from already defaults every session to read-only, so a write has to get past
-// three separate refusals.
+// The explicitly read-only transaction is the guarantee. The parsing above it is defense in
+// depth, and the pool this borrows from already defaults every session to read-only, so a
+// write has to get past three separate refusals.
 func (d *dbTools) query(ctx context.Context, statement string) (*queryResult, error) {
 	trimmed, err := validateReadOnly(statement)
 	if err != nil {
@@ -178,9 +172,8 @@ func (d *dbTools) query(ctx context.Context, statement string) (*queryResult, er
 		return nil, fmt.Errorf("set statement timeout: %w", err)
 	}
 
-	// The statement goes on its own line. A query ending in a -- comment would
-	// otherwise swallow the closing paren and fail as incomplete input, an error
-	// pointing nowhere near the cause.
+	// The statement goes on its own line. A query ending in a -- comment would otherwise
+	// swallow the closing paren and fail as incomplete input.
 	wrapped := fmt.Sprintf("SELECT * FROM (\n%s\n) AS _mcp_q LIMIT %d", trimmed, maxRows+1)
 
 	rows, err := tx.Query(ctx, wrapped)
@@ -227,8 +220,6 @@ func (d *dbTools) query(ctx context.Context, statement string) (*queryResult, er
 }
 
 // normalizeValue converts the driver's raw scan values into JSON-friendly forms.
-// Blobs become strings, timestamps render in RFC 3339, and oversized strings are
-// truncated.
 func normalizeValue(v any) any {
 	switch t := v.(type) {
 	case nil:
@@ -249,8 +240,8 @@ func capString(s string) string {
 		return s
 	}
 
-	// Cut on a rune boundary. Slicing raw bytes would split a multi-byte character
-	// in half and leave a replacement character at the seam.
+	// Slicing raw bytes would split a multi-byte character in half and leave a replacement
+	// character at the seam.
 	cut := maxCellChars
 	for cut > 0 && !utf8.RuneStart(s[cut]) {
 		cut--
@@ -259,8 +250,8 @@ func capString(s string) string {
 	return s[:cut] + "…(truncated)"
 }
 
-// scanStrings collects a single-column result into a slice, for the
-// introspection queries that return one text column per row.
+// scanStrings collects a single-column result into a slice, for the introspection queries
+// that return one text column per row.
 func scanStrings(rows pgx.Rows) ([]string, error) {
 	defer rows.Close()
 

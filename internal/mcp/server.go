@@ -34,7 +34,7 @@ func NewHandler(params NewHandlerParams) (http.Handler, error) {
 		Title:   "Claude Agents Database",
 		Version: "0.1.0",
 	}, &mcpsdk.ServerOptions{
-		Instructions: "Access to claude-agents, a tmux panel that runs background Claude agents. " +
+		Instructions: "Access to claude-agents, a tmux panel that runs background coding agents. " +
 			"Two ways in. list_tables, describe_table, and query read the panel's Postgres database " +
 			"directly, which is best for aggregates and joins. The agent tools read and change " +
 			"the agents themselves, and are the only way to spawn, rename, or remove one.",

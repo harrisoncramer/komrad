@@ -3,6 +3,7 @@ package agents
 import (
 	"testing"
 
+	"claude-agents/internal/store/schedule"
 	"claude-agents/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
@@ -92,29 +93,34 @@ func TestUpdateWorkflow(t *testing.T) {
 	}
 }
 
-// TestDeleteWorkflow covers what becomes of the agents inside. Both halves commit
-// together, so an agent is never left pointing at a workflow nothing lists.
+// TestDeleteWorkflow covers what becomes of the agents inside, and what stops
+// the delete. Both halves commit together, so an agent is never left pointing at
+// a workflow nothing lists.
 func TestDeleteWorkflow(t *testing.T) {
 	tests := []struct {
-		name          string
-		create        bool
-		archiveAgents bool
-		wantErrIs     error
-		wantAgentLive bool
+		name   string
+		create bool
+		// withSchedule leaves a live schedule launching into the workflow, which is
+		// what refuses the delete.
+		withSchedule bool
+		wantErrIs    error
 	}{
 		{
 			name:      "an id nobody holds",
 			wantErrIs: ErrWorkflowNotFound,
 		},
 		{
-			name:          "by default the agents are orphaned back to unassigned",
-			create:        true,
-			wantAgentLive: true,
+			name:   "the agents are archived alongside it, still findable in search",
+			create: true,
 		},
 		{
-			name:          "archiveAgents hides them alongside it, still findable in search",
-			create:        true,
-			archiveAgents: true,
+			// Deleting it would leave the schedule with nowhere to run, and switching
+			// off recurring work as a side effect of tidying is not something to do
+			// quietly.
+			name:         "a workflow still scheduled into is refused",
+			create:       true,
+			withSchedule: true,
+			wantErrIs:    ErrWorkflowHasSchedules,
 		},
 	}
 
@@ -134,14 +140,26 @@ func TestDeleteWorkflow(t *testing.T) {
 				_, err = manager.NewAgent(ctx, NewAgentParams{
 					Title:      "agent",
 					Dir:        t.TempDir(),
-					WorkflowID: &id,
+					WorkflowID: id,
 				})
 				require.NoError(t, err)
 			}
+			if tt.withSchedule {
+				st.SeedSchedule(t, schedule.Config{
+					Name: "nightly", Cron: "0 2 * * *", Prompt: "sweep", Enabled: true, WorkflowID: id,
+				})
+			}
 
-			err := workflows.DeleteWorkflow(ctx, id, tt.archiveAgents)
+			err := workflows.DeleteWorkflow(ctx, id)
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
+
+				if tt.create {
+					listed, listErr := st.Workflows.List(ctx)
+					require.NoError(t, listErr)
+					assert.Len(t, listed, 1, "a refused delete leaves the workflow alone")
+				}
+
 				return
 			}
 
@@ -153,20 +171,12 @@ func TestDeleteWorkflow(t *testing.T) {
 
 			agent, err := st.Get(ctx, "agent")
 			require.NoError(t, err)
+			assert.Nil(t, agent, "the agent is hidden from the live listing")
 
-			if !tt.wantAgentLive {
-				assert.Nil(t, agent, "the agent is hidden from the live listing")
-
-				all, err := st.ListAll(ctx)
-				require.NoError(t, err)
-				require.Len(t, all, 1)
-				assert.True(t, all[0].Deleted, "and archived rather than removed")
-
-				return
-			}
-
-			require.NotNil(t, agent, "the agent survives its workflow")
-			assert.Nil(t, agent.WorkflowID, "pointing at no workflow rather than a missing one")
+			all, err := st.ListAll(ctx)
+			require.NoError(t, err)
+			require.Len(t, all, 1)
+			assert.True(t, all[0].Deleted, "and archived rather than removed")
 		})
 	}
 }

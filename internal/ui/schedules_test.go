@@ -1,0 +1,578 @@
+package ui
+
+import (
+	"context"
+	"errors"
+	"regexp"
+	"strings"
+	"testing"
+	"time"
+
+	"claude-agents/internal/appconfig"
+	agentstore "claude-agents/internal/store/agent"
+	schedulestore "claude-agents/internal/store/schedule"
+	workflowstore "claude-agents/internal/store/workflow"
+	"claude-agents/lib/xptr"
+	schedulev1 "claude-agents/proto/gen/schedule/v1"
+	"claude-agents/proto/gen/schedule/v1/schedulev1connect"
+
+	"connectrpc.com/connect"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/emptypb"
+)
+
+// TestScheduleKeys covers what the schedules screen does with a keypress, which
+// screen it lands on and which write it asks the service for. A key that acts on a
+// hovered row must do nothing at all on an empty list rather than act on a row that
+// is not there.
+func TestScheduleKeys(t *testing.T) {
+	keys := appconfig.DefaultKeybindings()
+
+	tests := []struct {
+		name string
+		// empty starts the screen with no schedules, for the keys that need a row.
+		empty bool
+		// noWorkflows starts it with nowhere to put a new schedule.
+		noWorkflows  bool
+		key          string
+		wantScreen   screen
+		wantWrites   int
+		wantReported bool
+	}{
+		{
+			name:       "back returns to the agents tree",
+			key:        "esc",
+			wantScreen: screenAgents,
+		},
+		{
+			name:       "new opens the form",
+			key:        "n",
+			wantScreen: screenScheduleForm,
+		},
+		{
+			name:       "edit opens the form on the hovered schedule",
+			key:        "e",
+			wantScreen: screenScheduleForm,
+		},
+		{
+			name:       "delete opens the confirm prompt",
+			key:        "d",
+			wantScreen: screenScheduleDelete,
+		},
+		{
+			name:       "toggle writes straight through, with no form in between",
+			key:        " ",
+			wantScreen: screenSchedules,
+			wantWrites: 1,
+		},
+		{
+			name:       "edit on an empty list does nothing",
+			empty:      true,
+			key:        "e",
+			wantScreen: screenSchedules,
+		},
+		{
+			name:       "delete on an empty list does nothing",
+			empty:      true,
+			key:        "d",
+			wantScreen: screenSchedules,
+		},
+		{
+			name:       "toggle on an empty list asks for no write",
+			empty:      true,
+			key:        " ",
+			wantScreen: screenSchedules,
+		},
+		{
+			// A schedule launches into a workflow, so there is nothing to create
+			// against and the form would have nowhere to submit to.
+			name:         "new with no workflows reports rather than opening the form",
+			noWorkflows:  true,
+			key:          "n",
+			wantScreen:   screenSchedules,
+			wantReported: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &fakeSchedules{}
+			m := scheduleModel(client, keys)
+			if tt.empty {
+				m.schedules.items = nil
+			}
+			if tt.noWorkflows {
+				m.tree.workflows = nil
+			}
+
+			updated, cmd := m.updateSchedules(keyMsg(tt.key))
+			pressed, ok := updated.(model)
+			require.True(t, ok)
+
+			got := settle(t, pressed, cmd)
+
+			assert.Equal(t, tt.wantScreen, got.screen)
+			assert.Equal(t, tt.wantWrites, client.writes)
+			assert.Equal(t, tt.wantReported, got.actionErr != nil, "whether the panel had something to say")
+		})
+	}
+}
+
+// TestSchedulesView covers what the list renders. A paused schedule keeps its
+// row, so the screen has to say which of the two states each one is in.
+func TestSchedulesView(t *testing.T) {
+	tests := []struct {
+		name      string
+		schedules []scheduleItem
+		wants     []string
+		notWants  []string
+	}{
+		{
+			name:  "an empty list says so rather than rendering nothing",
+			wants: []string{"Schedules", "no schedules yet"},
+		},
+		{
+			name: "a schedule shows its name and its expression",
+			schedules: []scheduleItem{
+				{schedule: schedulestore.Schedule{Name: "morning-ci", Cron: "0 9 * * 1-5", Enabled: true}},
+			},
+			wants: []string{"morning-ci", "0 9 * * 1-5", scheduleIcon(true)},
+		},
+		{
+			name: "a paused one is marked differently from an armed one",
+			schedules: []scheduleItem{
+				{schedule: schedulestore.Schedule{Name: "paused", Cron: "0 9 * * *"}},
+			},
+			wants:    []string{"paused", scheduleIcon(false)},
+			notWants: []string{scheduleIcon(true)},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := scheduleModel(&fakeSchedules{}, appconfig.DefaultKeybindings())
+			m.schedules.items = tt.schedules
+			m.schedules.cursor = 0
+
+			view := m.schedulesView()
+			for _, want := range tt.wants {
+				assert.Contains(t, view, want)
+			}
+			for _, notWant := range tt.notWants {
+				assert.NotContains(t, view, notWant)
+			}
+		})
+	}
+}
+
+// TestScheduleFormButtonsLineUp covers where the form draws its confirm buttons. huh
+// centres them under the field's own prompt, so a field carrying a description is as
+// wide as that sentence and its buttons come out indented from the ones above it by
+// however long it happens to be. The form pins them left instead, and this is what says
+// so, since nothing else in the panel reads a rendered column.
+func TestScheduleFormButtonsLineUp(t *testing.T) {
+	form, _ := scheduleForm(schedulestore.Config{
+		Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep", Enabled: true, WorkflowID: "w1",
+	}, []workflowstore.Workflow{{ID: "w1", Name: "api", Cwd: "/work/api"}}, appconfig.DefaultKeybindings().Form)
+	form.Init()
+	form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
+
+	var indents []int
+	for _, line := range strings.Split(plain(form.View()), "\n") {
+		buttons := strings.TrimLeft(line, " ")
+		if !strings.HasPrefix(buttons, "Armed ") && !strings.HasPrefix(buttons, "Hidden ") {
+			continue
+		}
+
+		indents = append(indents, len(line)-len(buttons))
+	}
+
+	require.Len(t, indents, 2, "one row of buttons per confirm")
+	for _, indent := range indents {
+		assert.Equal(t, indents[0], indent, "every confirm draws its buttons in the same column")
+	}
+}
+
+// plain drops the colour escapes lipgloss writes, so a case can measure where on a line
+// something was drawn rather than how many bytes of styling preceded it.
+func plain(rendered string) string {
+	return colourEscape.ReplaceAllString(rendered, "")
+}
+
+var colourEscape = regexp.MustCompile("\x1b\\[[0-9;]*m")
+
+// TestScheduleMarkdown covers the record shown in the stage beside the list.
+// Nothing runs for a schedule, so the record is all there is to see.
+func TestScheduleMarkdown(t *testing.T) {
+	next := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.Local)
+
+	tests := []struct {
+		name string
+		item scheduleItem
+		// workflow is what the schedule launches into, nil for one whose workflow
+		// has been deleted.
+		workflow *workflowstore.Workflow
+		wants    []string
+		notWants []string
+	}{
+		{
+			name: "an armed schedule leads with when it next fires",
+			item: scheduleItem{
+				schedule: schedulestore.Schedule{
+					Name: "morning-ci", Cron: "0 9 * * 1-5", Timezone: "America/New_York",
+					Enabled: true, Prompt: "check CI",
+				},
+				nextRun: next,
+			},
+			workflow: &workflowstore.Workflow{Name: "api", Cwd: "/work/api"},
+			wants:    []string{"morning-ci", "next run", "check CI", "0 9 * * 1-5", "America/New_York", "api", "/work/api"},
+			notWants: []string{"paused"},
+		},
+		{
+			name: "a paused one says it will not run",
+			item: scheduleItem{
+				schedule: schedulestore.Schedule{Name: "draft", Cron: "0 9 * * *", Prompt: "later"},
+			},
+			workflow: &workflowstore.Workflow{Name: "api", Cwd: "/work/api"},
+			wants:    []string{"draft", "paused"},
+			notWants: []string{"next run"},
+		},
+		{
+			name:     "a schedule with nothing filled in still renders",
+			item:     scheduleItem{schedule: schedulestore.Schedule{Name: "bare", Enabled: true}},
+			workflow: &workflowstore.Workflow{Name: "api"},
+			wants: []string{
+				"bare",
+				"no prompt set",
+				"—", // the dash the empty fields fall back to
+			},
+		},
+		{
+			// The schedule keeps its workflow id after the workflow is deleted, so
+			// this has to read as gone rather than render a blank directory.
+			name:  "a schedule whose workflow was deleted says so",
+			item:  scheduleItem{schedule: schedulestore.Schedule{Name: "orphan", Cron: "0 9 * * *", Enabled: true}},
+			wants: []string{"orphan", "deleted"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rendered := scheduleMarkdown(tt.item, tt.workflow)
+
+			for _, want := range tt.wants {
+				assert.Contains(t, rendered, want)
+			}
+			for _, notWant := range tt.notWants {
+				assert.NotContains(t, rendered, notWant)
+			}
+		})
+	}
+}
+
+// TestApplySchedules covers what a refresh does to the cursor. A schedule
+// deleted from elsewhere shifts the rows below it up, so the cursor has to
+// follow the schedule it was on rather than the index it happened to be at.
+func TestApplySchedules(t *testing.T) {
+	tests := []struct {
+		name       string
+		start      []scheduleItem
+		cursor     int
+		fresh      []scheduleItem
+		wantCursor int
+	}{
+		{
+			name:       "the cursor follows its schedule when the order changes",
+			start:      scheduleItems("a", "b", "c"),
+			cursor:     2,
+			fresh:      scheduleItems("c", "a", "b"),
+			wantCursor: 0,
+		},
+		{
+			name:       "a vanished schedule leaves the cursor clamped in the list",
+			start:      scheduleItems("a", "b", "c"),
+			cursor:     2,
+			fresh:      scheduleItems("a", "b"),
+			wantCursor: 1,
+		},
+		{
+			name:       "an emptied list leaves the cursor at zero",
+			start:      scheduleItems("a"),
+			cursor:     0,
+			wantCursor: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := scheduleModel(&fakeSchedules{}, appconfig.DefaultKeybindings())
+			m.schedules.items = tt.start
+			m.schedules.cursor = tt.cursor
+
+			m.applySchedules(tt.fresh)
+
+			assert.Equal(t, tt.wantCursor, m.schedules.cursor)
+			assert.Len(t, m.schedules.items, len(tt.fresh))
+		})
+	}
+}
+
+// TestScheduleWriteFailure covers a refused write. The list looks the same
+// either way, so a rejected cron expression has to reach the screen as a banner
+// or it reads as a form that quietly did nothing.
+func TestScheduleWriteFailure(t *testing.T) {
+	tests := []struct {
+		name    string
+		act     func(t *testing.T, m model) model
+		wantErr string
+	}{
+		{
+			name: "a refused pause",
+			act: func(t *testing.T, m model) model {
+				t.Helper()
+				updated, cmd := m.toggleSchedule()
+				pressed, ok := updated.(model)
+				require.True(t, ok)
+
+				return settle(t, pressed, cmd)
+			},
+			wantErr: "Could not pause schedule",
+		},
+		{
+			name: "a refused create",
+			act: func(t *testing.T, m model) model {
+				t.Helper()
+				m.target.editSchedule = nil
+				m.form, m.values.schedule = scheduleForm(schedulestore.Config{Name: "x", Cron: "0 9 * * *"}, nil, appconfig.DefaultKeybindings().Form)
+				updated, cmd := m.submitScheduleForm()
+				submitted, ok := updated.(model)
+				require.True(t, ok)
+
+				return settle(t, submitted, cmd)
+			},
+			wantErr: "Could not create the schedule",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &fakeSchedules{err: errors.New("cron must be five fields")}
+			m := scheduleModel(client, appconfig.DefaultKeybindings())
+
+			got := tt.act(t, m)
+
+			require.NotNil(t, got.actionErr, "a refused write has to be reported")
+			assert.Contains(t, got.actionErr.Render(), tt.wantErr)
+		})
+	}
+}
+
+// TestEnterSchedules covers reaching the screen from the agents list, which is
+// the only way in.
+func TestEnterSchedules(t *testing.T) {
+	tests := []struct {
+		name       string
+		key        string
+		wantScreen screen
+	}{
+		{
+			name:       "the schedules key opens the screen",
+			key:        "s",
+			wantScreen: screenSchedules,
+		},
+		{
+			name:       "another key leaves the agents list where it is",
+			key:        "i",
+			wantScreen: screenAgents,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := scheduleModel(&fakeSchedules{}, appconfig.DefaultKeybindings())
+			m.screen = screenAgents
+
+			updated, _ := m.updateAgents(keyMsg(tt.key))
+			got, ok := updated.(model)
+			require.True(t, ok)
+
+			assert.Equal(t, tt.wantScreen, got.screen)
+		})
+	}
+}
+
+// scheduleModel builds a panel sitting on the schedules screen with one armed
+// schedule under the cursor, which is the state most of the cases act from.
+func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys appconfig.Keybindings) model {
+	tmux := &recordingTmux{}
+
+	return model{
+		api:  api{schedules: client},
+		tmux: tmux,
+		// A schedule launches into a workflow, so the form has one to select.
+		tree: treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Cwd: "/work/api"}}},
+		// The new-schedule form asks the popup which client opened it, to prefill
+		// the directory, so the panel needs one even though nothing here reads it.
+		popup:  NewPopup(tmux, "test-session"),
+		stage:  NewStage(tmux, appconfig.DefaultSplit),
+		keys:   keys,
+		screen: screenSchedules,
+		schedules: scheduleState{
+			items: []scheduleItem{
+				{schedule: schedulestore.Schedule{ID: "s1", Name: "morning-ci", Cron: "0 9 * * 1-5", Enabled: true}},
+			},
+		},
+	}
+}
+
+// scheduleItems builds a list of named schedules, for the cases that care about
+// order rather than content.
+func scheduleItems(names ...string) []scheduleItem {
+	out := make([]scheduleItem, 0, len(names))
+	for _, name := range names {
+		out = append(out, scheduleItem{schedule: schedulestore.Schedule{ID: name, Name: name, Enabled: true}})
+	}
+
+	return out
+}
+
+// fakeSchedules answers every call the screen makes, counting the writes and
+// refusing them when err is set, so a test can tell a call the panel decided not to
+// make from one the service turned down. Reads keep working, since a refused write
+// is usually a rejected field rather than a server that has stopped answering, and
+// the refresh that follows every action would otherwise replace the write's error
+// with a listing one. The embedded interface is nil, so any other method panics
+// rather than quietly returning a zero value.
+type fakeSchedules struct {
+	schedulev1connect.ScheduleServiceClient
+	err    error
+	writes int
+}
+
+func (f *fakeSchedules) ListSchedules(context.Context, *connect.Request[schedulev1.ListSchedulesRequest]) (*connect.Response[schedulev1.ListSchedulesResponse], error) {
+	return connect.NewResponse(&schedulev1.ListSchedulesResponse{}), nil
+}
+
+func (f *fakeSchedules) GetSchedule(_ context.Context, req *connect.Request[schedulev1.GetScheduleRequest]) (*connect.Response[schedulev1.GetScheduleResponse], error) {
+	return connect.NewResponse(&schedulev1.GetScheduleResponse{
+		Schedule: &schedulev1.Schedule{Id: req.Msg.GetId(), Name: "morning-ci", Cron: "0 9 * * 1-5", Enabled: true},
+	}), nil
+}
+
+func (f *fakeSchedules) CreateSchedule(context.Context, *connect.Request[schedulev1.CreateScheduleRequest]) (*connect.Response[schedulev1.CreateScheduleResponse], error) {
+	f.writes++
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return connect.NewResponse(&schedulev1.CreateScheduleResponse{Schedule: &schedulev1.Schedule{Id: "new"}}), nil
+}
+
+func (f *fakeSchedules) UpdateSchedule(context.Context, *connect.Request[schedulev1.UpdateScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
+	f.writes++
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (f *fakeSchedules) SetScheduleEnabled(context.Context, *connect.Request[schedulev1.SetScheduleEnabledRequest]) (*connect.Response[emptypb.Empty], error) {
+	f.writes++
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (f *fakeSchedules) DeleteSchedule(context.Context, *connect.Request[schedulev1.DeleteScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
+	f.writes++
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// keyMsg builds the key message a keypress arrives as, so the cases can name a
+// key the way the config does.
+func keyMsg(key string) tea.KeyMsg {
+	if key == " " {
+		return tea.KeyMsg{Type: tea.KeySpace, Runes: []rune{' '}}
+	}
+	if named, ok := namedKeys[key]; ok {
+		return tea.KeyMsg{Type: named}
+	}
+
+	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
+}
+
+// namedKeys are the non-rune keys the cases press.
+var namedKeys = map[string]tea.KeyType{
+	"esc":   tea.KeyEsc,
+	"enter": tea.KeyEnter,
+}
+
+// TestScheduledMark covers the clock the agents list puts beside a row a schedule
+// launched. Only scheduled agents carry it, since a person starting an agent is the
+// ordinary case and a marker on every row would say nothing.
+func TestScheduledMark(t *testing.T) {
+	tests := []struct {
+		name  string
+		agent agentstore.Agent
+		want  bool
+	}{
+		{
+			name:  "an agent a schedule launched is marked",
+			agent: agentstore.Agent{Name: "nightly-sweep", ScheduleID: xptr.Ptr("s1")},
+			want:  true,
+		},
+		{
+			name:  "one a person started is not",
+			agent: agentstore.Agent{Name: "by-hand"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, strings.Contains(scheduledMark(tt.agent), scheduledIcon))
+		})
+	}
+}
+
+// TestScheduleName resolves the schedule an agent came from against the list
+// the panel polls, which is what the record in the stage names.
+func TestScheduleName(t *testing.T) {
+	tests := []struct {
+		name  string
+		agent agentstore.Agent
+		want  string
+	}{
+		{
+			name:  "a schedule still listed resolves to its name",
+			agent: agentstore.Agent{ScheduleID: xptr.Ptr("s1")},
+			want:  "morning-ci",
+		},
+		{
+			// The row keeps its schedule id after the schedule is deleted, so this
+			// has to come back empty rather than render a dangling id.
+			name:  "a schedule since deleted resolves to nothing",
+			agent: agentstore.Agent{ScheduleID: xptr.Ptr("gone")},
+		},
+		{
+			name:  "an agent with no schedule resolves to nothing",
+			agent: agentstore.Agent{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := scheduleModel(&fakeSchedules{}, appconfig.DefaultKeybindings())
+
+			assert.Equal(t, tt.want, m.scheduleName(tt.agent))
+		})
+	}
+}

@@ -22,7 +22,7 @@ type workflowManager interface {
 	NewWorkflow(ctx context.Context, cfg workflowstore.Config) (*workflowstore.Workflow, error)
 	GetWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error)
 	UpdateWorkflow(ctx context.Context, id string, cfg workflowstore.Config) error
-	DeleteWorkflow(ctx context.Context, id string, archiveAgents bool) error
+	DeleteWorkflow(ctx context.Context, id string) error
 }
 
 // workflowLister is the read side, kept separate because listing pages straight
@@ -43,7 +43,7 @@ func NewService(lister workflowLister, workflows workflowManager) *Service {
 	return &Service{lister: lister, workflows: workflows}
 }
 
-// ListWorkflows returns one page of workflows, most recently updated first.
+// ListWorkflows returns one page of workflows, newest first.
 func (s *Service) ListWorkflows(ctx context.Context, req *connect.Request[workflowv1.ListWorkflowsRequest]) (*connect.Response[workflowv1.ListWorkflowsResponse], error) {
 	paginator, err := pagination.New[workflowstore.Cursor, workflow](req.Msg.GetPagination())
 	if err != nil {
@@ -91,6 +91,7 @@ func (s *Service) CreateWorkflow(ctx context.Context, req *connect.Request[workf
 	created, err := s.workflows.NewWorkflow(ctx, workflowstore.Config{
 		Name:    req.Msg.GetName(),
 		Context: req.Msg.GetContext(),
+		Harness: req.Msg.GetHarness(),
 		Cwd:     req.Msg.GetCwd(),
 		Flags:   req.Msg.GetFlags(),
 	})
@@ -106,6 +107,7 @@ func (s *Service) UpdateWorkflow(ctx context.Context, req *connect.Request[workf
 	err := s.workflows.UpdateWorkflow(ctx, req.Msg.GetId(), workflowstore.Config{
 		Name:    req.Msg.GetName(),
 		Context: req.Msg.GetContext(),
+		Harness: req.Msg.GetHarness(),
 		Cwd:     req.Msg.GetCwd(),
 		Flags:   req.Msg.GetFlags(),
 	})
@@ -119,12 +121,14 @@ func (s *Service) UpdateWorkflow(ctx context.Context, req *connect.Request[workf
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// DeleteWorkflow removes a workflow, orphaning or archiving its agents.
+// DeleteWorkflow removes a workflow and archives the agents inside it.
 func (s *Service) DeleteWorkflow(ctx context.Context, req *connect.Request[workflowv1.DeleteWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
-	err := s.workflows.DeleteWorkflow(ctx, req.Msg.GetId(), req.Msg.GetArchiveAgents())
+	err := s.workflows.DeleteWorkflow(ctx, req.Msg.GetId())
 	switch {
 	case errors.Is(err, agents.ErrWorkflowNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no workflow with id %q", req.Msg.GetId()))
+	case errors.Is(err, agents.ErrWorkflowHasSchedules):
+		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete workflow: %w", err))
 	}
