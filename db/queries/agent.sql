@@ -78,7 +78,8 @@ INSERT INTO agents(
     prompt,
     pane_id,
     state,
-    claude_session_id,
+    harness,
+    session_id,
     workflow_id,
     schedule_id,
     idempotency_key,
@@ -91,7 +92,8 @@ VALUES (
     @prompt,
     @pane_id,
     @state,
-    @claude_session_id,
+    @harness,
+    @session_id,
     @workflow_id,
     sqlc.narg('schedule_id'),
     sqlc.narg('idempotency_key'),
@@ -117,10 +119,10 @@ SET
     prompt = @prompt,
     pane_id = @pane_id,
     state = @state,
-    claude_session_id = CASE WHEN @claude_session_id != '' THEN
-        @claude_session_id
+    session_id = CASE WHEN @session_id != '' THEN
+        @session_id
     ELSE
-        claude_session_id
+        session_id
     END,
     workflow_id = @workflow_id
 WHERE
@@ -142,6 +144,15 @@ SET
     state = @state
 WHERE
     id = @id;
+
+-- name: SetAgentSessionID :exec
+UPDATE
+    agents
+SET
+    session_id = @session_id
+WHERE
+    id = @id
+    AND session_id = '';
 
 -- name: ClearAgentPane :exec
 UPDATE

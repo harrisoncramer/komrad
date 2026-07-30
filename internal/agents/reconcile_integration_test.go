@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"claude-agents/internal/harness"
 	"claude-agents/internal/harness/claude"
 	agentstore "claude-agents/internal/store/agent"
 	"claude-agents/internal/tmux"
@@ -70,7 +71,7 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	cli := tmux.NewClient(it.socket)
 	st := newStore(t)
 	ctx := context.Background()
-	rec := NewReconciler(cli, claude.New(t.TempDir()), st.Agents)
+	rec := NewReconciler(cli, mustRegistry(t, claude.New(t.TempDir())), st.Agents)
 
 	// A busy agent seeded new. The pane keeps a realistic working line, so the
 	// reconciler must promote it to thinking.
@@ -131,4 +132,16 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	if after.Pane != "" {
 		t.Fatalf("agent holding another pane's id: want the claim dropped, still holds %q", after.Pane)
 	}
+}
+
+// mustRegistry indexes the harnesses a test drives, which is what the loops resolve
+// an agent's own harness through.
+func mustRegistry(t *testing.T, harnesses ...harness.Harness) *harness.Registry {
+	t.Helper()
+	registry, err := harness.NewRegistry(harnesses...)
+	if err != nil {
+		t.Fatalf("registry: %v", err)
+	}
+
+	return registry
 }

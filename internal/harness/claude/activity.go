@@ -48,11 +48,11 @@ const waitingRegionLines = 6
 // and codes wedged between the ellipsis and the timer.
 var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 
-// Activity reads what a captured frame says Claude is doing. Anything that is
-// neither working nor a live prompt is idle rather than unknown: an agent sitting
-// at its input box is the ordinary finished case, and reporting no verdict there
-// would leave every agent stuck in the state it last held.
-func (h *Harness) Activity(frame string) harness.Activity {
+// ReadActivity reads what a captured frame says Claude is doing. Anything neither
+// working nor a live prompt is idle rather than unknown. An agent sitting at its
+// input box is the ordinary finished case, and reporting no verdict there would
+// leave every agent stuck in the state it last held.
+func (h *Harness) ReadActivity(frame string) harness.Activity {
 	switch {
 	case frame == "":
 		return harness.ActivityUnknown

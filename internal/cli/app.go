@@ -39,12 +39,14 @@ type app struct {
 	popup *ui.Popup
 	env   *config.Config
 	keys  appconfig.Keybindings
-	// harness is the agent CLI every agent runs. It is one instance because claude is
-	// the only one the panel knows how to run, and the services that hold it reach it
-	// only through the narrow interfaces they declare.
-	harness harness.Harness
-	// defaultFlags are the configured flags prepended to every agent's own.
-	defaultFlags string
+	// harnesses is every agent CLI this binary can run, which the services resolve an
+	// agent's own harness through.
+	harnesses *harness.Registry
+	// defaultHarness is the CLI an agent runs when neither it nor its workflow names
+	// one, and defaultFlags are the configured flags each harness's agents inherit,
+	// keyed by harness id.
+	defaultHarness string
+	defaultFlags   map[string]string
 	// marks are the marks the panel's mark key steps an agent through.
 	marks []appconfig.Mark
 	// layout is how the panel divides the popup between its list and the stage.
@@ -95,13 +97,14 @@ func (a *app) openStore(ctx context.Context) error {
 		Workflows: a.workflows,
 	})
 	a.agentService = agents.NewAgentService(agents.AgentParams{
-		Tmux:         a.tmux,
-		Agents:       a.agents,
-		Workflows:    a.workflows,
-		Tx:           pool,
-		Launcher:     agents.NewLauncher(a.tmux, a.harness, a.env.Addr),
-		Harness:      a.harness,
-		DefaultFlags: a.defaultFlags,
+		Tmux:           a.tmux,
+		Agents:         a.agents,
+		Workflows:      a.workflows,
+		Tx:             pool,
+		Launcher:       agents.NewLauncher(a.tmux, a.env.Addr),
+		Harnesses:      a.harnesses,
+		DefaultHarness: a.defaultHarness,
+		DefaultFlags:   a.defaultFlags,
 	})
 
 	return nil

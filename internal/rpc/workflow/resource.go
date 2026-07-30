@@ -30,6 +30,7 @@ func renderWorkflow(w workflowstore.Workflow) workflow {
 			Id:      w.ID,
 			Name:    w.Name,
 			Context: w.Context,
+			Harness: w.Harness,
 			Cwd:     w.Cwd,
 			Flags:   w.Flags,
 		},

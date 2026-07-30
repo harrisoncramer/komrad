@@ -52,6 +52,7 @@ func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) string {
 		b.WriteString("_dormant — not running_\n\n")
 	}
 	b.WriteString("---\n\n")
+	fmt.Fprintf(&b, "- agent: %s\n", orDash(agent.Harness))
 	fmt.Fprintf(&b, "- directory: %s\n", orDash(agent.Cwd))
 	fmt.Fprintf(&b, "- flags: %s\n", orDash(agent.Flags))
 	fmt.Fprintf(&b, "- resume: %s\n", orDash(agent.SessionID))
@@ -144,6 +145,7 @@ func trashMarkdown(agent agentstore.Agent, schedule string) string {
 	fmt.Fprintf(&b, "# %s\n\n", agent.Name)
 	b.WriteString("_deleted — kept until destroyed_\n\n")
 	b.WriteString("---\n\n")
+	fmt.Fprintf(&b, "- agent: %s\n", orDash(agent.Harness))
 	fmt.Fprintf(&b, "- directory: %s\n", orDash(agent.Cwd))
 	fmt.Fprintf(&b, "- flags: %s\n", orDash(agent.Flags))
 	fmt.Fprintf(&b, "- resume: %s\n", orDash(agent.SessionID))

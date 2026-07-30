@@ -14,10 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestCommand covers the command typed into the pane. Every launch also carries
+// TestBuildCommand covers the command typed into the pane. Every launch also carries
 // the MCP config, and a fresh one appends a system prompt, so each case states the
 // leading command rather than the whole line.
-func TestCommand(t *testing.T) {
+func TestBuildCommand(t *testing.T) {
 	tests := []struct {
 		name        string
 		launch      harness.Launch
@@ -54,7 +54,7 @@ func TestCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := New(t.TempDir()).Command(tt.launch)
+			command, err := New(t.TempDir()).BuildCommand(tt.launch)
 			require.NoError(t, err)
 
 			assert.True(t, strings.HasPrefix(stripMCPConfig(command), tt.wantCommand),
@@ -63,9 +63,9 @@ func TestCommand(t *testing.T) {
 	}
 }
 
-// TestCommandQuotesFlags confirms the quoting is actually applied on the path that
+// TestBuildCommandQuotesFlags confirms the quoting is actually applied on the path that
 // types into the pane, not just available to it.
-func TestCommandQuotesFlags(t *testing.T) {
+func TestBuildCommandQuotesFlags(t *testing.T) {
 	tests := []struct {
 		name        string
 		flags       string
@@ -88,7 +88,7 @@ func TestCommandQuotesFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := New(t.TempDir()).Command(harness.Launch{Flags: tt.flags, SessionID: "sess"})
+			command, err := New(t.TempDir()).BuildCommand(harness.Launch{Flags: tt.flags, SessionID: "sess"})
 			require.NoError(t, err)
 
 			assert.NotContains(t, command, tt.wantAbsent, "an unquoted flag would run in the pane")
@@ -97,10 +97,10 @@ func TestCommandQuotesFlags(t *testing.T) {
 	}
 }
 
-// TestCommandPassesTextThroughTempFiles covers the prompt and the appended system
+// TestBuildCommandPassesTextThroughTempFiles covers the prompt and the appended system
 // prompt. Both are sourced from a file the shell cats and removes, so markdown
 // carrying quotes and newlines survives the trip.
-func TestCommandPassesTextThroughTempFiles(t *testing.T) {
+func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 	tests := []struct {
 		name        string
 		launch      harness.Launch
@@ -126,7 +126,7 @@ func TestCommandPassesTextThroughTempFiles(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := New(t.TempDir()).Command(tt.launch)
+			command, err := New(t.TempDir()).BuildCommand(tt.launch)
 			require.NoError(t, err)
 
 			for _, want := range tt.wantContain {
@@ -144,10 +144,10 @@ func TestCommandPassesTextThroughTempFiles(t *testing.T) {
 	}
 }
 
-// TestCommandRegistersMCPServer covers the config file every launch points claude
+// TestBuildCommandRegistersMCPServer covers the config file every launch points claude
 // at. It is passed without --strict-mcp-config, so the agent gains this server on
 // top of whatever the user has registered rather than trading them for it.
-func TestCommandRegistersMCPServer(t *testing.T) {
+func TestBuildCommandRegistersMCPServer(t *testing.T) {
 	tests := []struct {
 		name   string
 		resume bool
@@ -166,7 +166,7 @@ func TestCommandRegistersMCPServer(t *testing.T) {
 			home := t.TempDir()
 			t.Setenv("HOME", home)
 
-			command, err := New(t.TempDir()).Command(harness.Launch{
+			command, err := New(t.TempDir()).BuildCommand(harness.Launch{
 				SessionID:   "sess",
 				MCPEndpoint: "127.0.0.1:9999",
 				Resume:      tt.resume,

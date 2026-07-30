@@ -1,6 +1,7 @@
 -- name: ListWorkflowsPage :many
 SELECT
     sqlc.embed(w),
+    wc.harness,
     wc.cwd,
     wc.flags
 FROM
@@ -17,6 +18,7 @@ LIMIT @lim;
 -- name: ListWorkflows :many
 SELECT
     sqlc.embed(w),
+    wc.harness,
     wc.cwd,
     wc.flags
 FROM
@@ -30,6 +32,7 @@ ORDER BY
 -- name: GetWorkflow :one
 SELECT
     sqlc.embed(w),
+    wc.harness,
     wc.cwd,
     wc.flags
 FROM
@@ -42,9 +45,11 @@ LIMIT 1;
 
 -- name: InsertWorkflowConfig :one
 INSERT INTO workflow_configs(
+    harness,
     cwd,
     flags)
 VALUES (
+    @harness,
     @cwd,
     @flags)
 RETURNING
@@ -82,6 +87,7 @@ WHERE
 UPDATE
     workflow_configs
 SET
+    harness = @harness,
     cwd = @cwd,
     flags = @flags
 WHERE

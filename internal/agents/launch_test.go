@@ -41,9 +41,9 @@ func TestLaunchTypesTheHarnessCommand(t *testing.T) {
 			tmux := newFakeTmux()
 			tmux.sendKeysErr = tt.sendKeysErr
 			h := &fakeHarness{commandErr: tt.commandErr}
-			launcher := NewLauncher(tmux, h, "127.0.0.1:9999")
+			launcher := NewLauncher(tmux, "127.0.0.1:9999")
 
-			err := launcher.launch(launchParams{Pane: "pane", SessionID: "sess"})
+			err := launcher.launch(h, launchParams{Pane: "pane", SessionID: "sess"})
 
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
@@ -67,9 +67,9 @@ func TestLaunchTypesTheHarnessCommand(t *testing.T) {
 func TestLaunchPassesWhatThePanelKnows(t *testing.T) {
 	tmux := newFakeTmux()
 	h := &fakeHarness{}
-	launcher := NewLauncher(tmux, h, "127.0.0.1:9999")
+	launcher := NewLauncher(tmux, "127.0.0.1:9999")
 
-	require.NoError(t, launcher.launch(launchParams{
+	require.NoError(t, launcher.launch(h, launchParams{
 		Pane:      "pane",
 		Flags:     "--model opus",
 		Prompt:    "do the thing",
@@ -123,7 +123,7 @@ func TestAppendedSystemPrompt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			launcher := NewLauncher(newFakeTmux(), &fakeHarness{}, "127.0.0.1:9999")
+			launcher := NewLauncher(newFakeTmux(), "127.0.0.1:9999")
 
 			prompt := launcher.appendedSystemPrompt(tt.context)
 			for _, want := range tt.wantContain {

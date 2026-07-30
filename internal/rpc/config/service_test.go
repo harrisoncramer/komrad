@@ -38,16 +38,16 @@ func TestGetConfig(t *testing.T) {
 			name: "no config file at all, which is every install that never wrote one",
 			check: func(t *testing.T, resp *configv1.GetConfigResponse) {
 				assert.Nil(t, resp.ConfigError)
-				assert.Empty(t, resp.GetConfig().AsMap()["claude_flags"])
+				assert.Empty(t, harnessFlags(t, resp, "claude"))
 				assert.Equal(t, []any{"up", "ctrl+p"}, binding(t, resp, "nav", "up"))
 			},
 		},
 		{
-			name: "flags the user wants on every session",
-			file: `claude_flags = "--model opus"`,
+			name: "flags the user wants on every agent of one CLI",
+			file: "[harness.claude]\nflags = \"--model opus\"\n",
 			check: func(t *testing.T, resp *configv1.GetConfigResponse) {
 				assert.Nil(t, resp.ConfigError)
-				assert.Equal(t, "--model opus", resp.GetConfig().AsMap()["claude_flags"])
+				assert.Equal(t, "--model opus", harnessFlags(t, resp, "claude"))
 			},
 		},
 		{
@@ -60,7 +60,7 @@ func TestGetConfig(t *testing.T) {
 		},
 		{
 			name: "a screen the user's file never mentions",
-			file: `claude_flags = ""`,
+			file: `default_harness = "claude"`,
 			check: func(t *testing.T, resp *configv1.GetConfigResponse) {
 				assert.Equal(t, []any{"t"}, binding(t, resp, "trash", "open"))
 				assert.Equal(t, []any{"r"}, binding(t, resp, "trash", "restore"))
@@ -94,8 +94,12 @@ func TestGetConfigKeysMatchTheFile(t *testing.T) {
 		path []string
 	}{
 		{
-			name: "the flags every session inherits",
-			path: []string{"claude_flags"},
+			name: "which CLI a new agent runs",
+			path: []string{"default_harness"},
+		},
+		{
+			name: "the flags every agent of one CLI inherits",
+			path: []string{"harness", "claude", "flags"},
 		},
 		{
 			name: "navigation",
@@ -170,4 +174,15 @@ func lookup(fields map[string]any, path []string) (any, bool) {
 	}
 
 	return current, true
+}
+
+// harnessFlags digs one harness's configured flags out of the blob, so a row names
+// the harness rather than walking to it.
+func harnessFlags(t *testing.T, resp *configv1.GetConfigResponse, id string) any {
+	t.Helper()
+
+	flags, ok := lookup(resp.GetConfig().AsMap(), []string{"harness", id, "flags"})
+	require.True(t, ok, "the blob carries harness.%s.flags", id)
+
+	return flags
 }

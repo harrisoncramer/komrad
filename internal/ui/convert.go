@@ -32,7 +32,8 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 		Flags:      s.GetFlags(),
 		Prompt:     s.GetPrompt(),
 		State:      s.GetState(),
-		SessionID:  s.GetClaudeSessionId(),
+		Harness:    s.GetHarness(),
+		SessionID:  s.GetSessionId(),
 		WorkflowID: s.GetWorkflowId(),
 		ScheduleID: s.ScheduleId,
 		CreatedAt:  created,
@@ -61,6 +62,7 @@ func workflowsFrom(listed []*workflowv1.Workflow) []workflowstore.Workflow {
 			ID:      w.GetId(),
 			Name:    w.GetName(),
 			Context: w.GetContext(),
+			Harness: w.GetHarness(),
 			Cwd:     w.GetCwd(),
 			Flags:   w.GetFlags(),
 		})

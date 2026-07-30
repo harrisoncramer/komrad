@@ -7,13 +7,19 @@ import (
 	agentstore "claude-agents/internal/store/agent"
 )
 
+// relocateHarness is all a restore needs from the harness it resolved, a chance to
+// carry the conversation to wherever the agent is about to come back up.
+type relocateHarness interface {
+	Relocate(sessionID, dir string) error
+}
+
 // resumeDir resolves the directory a restored agent is relaunched in, repairing
 // the recorded one when it has to. A CLI may key a conversation to the directory
 // it ran in, so a session can be reachable only from the path the agent was
 // created in. That path is frequently a worktree that has since been deleted, and
 // a restore that gave up there would strand the one conversation the panel still
 // lists, so this always returns somewhere an agent can be started.
-func (s *AgentService) resumeDir(agent agentstore.Agent) string {
+func (s *AgentService) resumeDir(agent agentstore.Agent, h relocateHarness) string {
 	dir := expandHome(agent.Cwd)
 	if dir == "" {
 		dir, _ = os.UserHomeDir()
@@ -43,7 +49,7 @@ func (s *AgentService) resumeDir(agent agentstore.Agent) string {
 
 	// A failure to carry it is swallowed: losing the conversation is the cost of a
 	// resume that finds nothing, while failing here would cost the agent as well.
-	_ = s.harness.Relocate(agent.SessionID, standIn)
+	_ = h.Relocate(agent.SessionID, standIn)
 
 	return standIn
 }

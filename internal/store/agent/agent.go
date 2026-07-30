@@ -40,6 +40,10 @@ type Agent struct {
 	Flags  string
 	Prompt string
 	State  string
+	// Harness names the CLI this agent runs, which decides how it is launched, how
+	// its state is read off its pane, and where its conversation log is found. It is
+	// resolved at create and never empty.
+	Harness string
 	// SessionID is the conversation the agent's harness files its own log under and
 	// reopens on a resume.
 	SessionID string
@@ -277,18 +281,19 @@ func (s *Store) Create(ctx context.Context, agent Agent) error {
 	}
 
 	if _, err := s.queries.InsertAgent(ctx, models.InsertAgentParams{
-		ID:              agent.ID,
-		Name:            agent.Name,
-		Cwd:             agent.Cwd,
-		Flags:           agent.Flags,
-		Prompt:          agent.Prompt,
-		PaneID:          agent.Pane,
-		State:           agent.State,
-		ClaudeSessionID: agent.SessionID,
-		WorkflowID:      agent.WorkflowID,
-		ScheduleID:      agent.ScheduleID,
-		IdempotencyKey:  agent.IdempotencyKey,
-		IsHidden:        agent.Hidden,
+		ID:             agent.ID,
+		Name:           agent.Name,
+		Cwd:            agent.Cwd,
+		Flags:          agent.Flags,
+		Prompt:         agent.Prompt,
+		PaneID:         agent.Pane,
+		State:          agent.State,
+		Harness:        agent.Harness,
+		SessionID:      agent.SessionID,
+		WorkflowID:     agent.WorkflowID,
+		ScheduleID:     agent.ScheduleID,
+		IdempotencyKey: agent.IdempotencyKey,
+		IsHidden:       agent.Hidden,
 	}); err != nil {
 		return fmt.Errorf("failed to insert agent %q: %w", agent.Name, err)
 	}
@@ -300,14 +305,14 @@ func (s *Store) Create(ctx context.Context, agent Agent) error {
 // stable id.
 func (s *Store) Update(ctx context.Context, agent Agent) error {
 	if err := s.queries.UpdateAgent(ctx, models.UpdateAgentParams{
-		ID:              agent.ID,
-		Cwd:             agent.Cwd,
-		Flags:           agent.Flags,
-		Prompt:          agent.Prompt,
-		PaneID:          agent.Pane,
-		State:           agent.State,
-		ClaudeSessionID: agent.SessionID,
-		WorkflowID:      agent.WorkflowID,
+		ID:         agent.ID,
+		Cwd:        agent.Cwd,
+		Flags:      agent.Flags,
+		Prompt:     agent.Prompt,
+		PaneID:     agent.Pane,
+		State:      agent.State,
+		SessionID:  agent.SessionID,
+		WorkflowID: agent.WorkflowID,
 	}); err != nil {
 		return fmt.Errorf("failed to update agent %q: %w", agent.Name, err)
 	}
@@ -325,6 +330,22 @@ func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
 
 	if err := s.queries.SetAgentStateByID(ctx, models.SetAgentStateByIDParams{ID: id, State: state}); err != nil {
 		return fmt.Errorf("failed to set state for id %q: %w", id, err)
+	}
+
+	return nil
+}
+
+// SetSessionID records the conversation an agent turned out to be holding, for a
+// harness that names its own and can only be asked afterwards. It writes only while
+// the agent still has none, so a second pass that raced the first cannot move an
+// agent onto another conversation.
+func (s *Store) SetSessionID(ctx context.Context, id, sessionID string) error {
+	if !store.IsID(id) {
+		return nil
+	}
+
+	if err := s.queries.SetAgentSessionID(ctx, models.SetAgentSessionIDParams{ID: id, SessionID: sessionID}); err != nil {
+		return fmt.Errorf("failed to set the session for id %q: %w", id, err)
 	}
 
 	return nil
@@ -554,7 +575,8 @@ func agentFromRow(agent models.Agent) Agent {
 		Flags:          agent.Flags,
 		Prompt:         agent.Prompt,
 		State:          agent.State,
-		SessionID:      agent.ClaudeSessionID,
+		Harness:        agent.Harness,
+		SessionID:      agent.SessionID,
 		WorkflowID:     agent.WorkflowID,
 		ScheduleID:     agent.ScheduleID,
 		IdempotencyKey: agent.IdempotencyKey,

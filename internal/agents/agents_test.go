@@ -601,7 +601,7 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 		_, st, tmux, dormant := setup(t)
 		tmux.captures[shared] = busyFrame
 
-		rec := NewReconciler(tmux, &fakeHarness{}, st.Agents)
+		rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
 		require.NoError(t, rec.Reconcile(t.Context()))
 
 		after := agentByID(t, st, dormant.ID)

@@ -9,9 +9,10 @@
 # delete falls back to the same default shown here. An unknown key is an error,
 # so nothing outside this file is configurable.
 
-# Flags appended to every agent's command line, ahead of the flags that agent
-# carries itself.
-claude_flags = ""
+# Which agent CLI a new agent runs when neither the agent nor its workflow
+# names one. It has to be a harness this binary implements, so it is one of
+# the names under [harness] below.
+default_harness = "claude"
 # The marks the mark key cycles through, in order. A mark is a glyph and means
 # whatever you decide, so the glyph is the label. Pressing mark advances the
 # hovered agent to the next one here, and past the last one back to unmarked,
@@ -21,6 +22,28 @@ marks = [
   { glyph = "◐", color = "#DCA561" },
   { glyph = "✓", color = "#DCA561" },
 ]
+
+# Per-CLI configuration, which is where the flags an agent of that CLI
+# inherits live.
+
+[harness.claude]
+# Flags appended to every agent's command line for this CLI, ahead of the
+# flags that agent carries itself. Flag vocabularies do not overlap between
+# CLIs, which is why they are configured per harness rather than once.
+flags = ""
+
+[harness.codex]
+# Flags appended to every Codex agent's command line, ahead of the flags that
+# agent carries itself.
+flags             = ""
+# Whether to record each agent's directory as trusted in Codex's own config
+# before launching it. Codex asks whether a directory is trusted the first
+# time it runs there and waits for an answer, which it reads only from that
+# file, so an agent in a fresh worktree otherwise starts blocked and shows
+# here as waiting. Turning this on edits ~/.codex/config.toml on your behalf,
+# adding nothing but a trust entry per directory and never changing one you
+# set yourself.
+trust_launch_dirs = false
 
 # How the popup's width is divided between the panel and the stage beside it.
 [layout]

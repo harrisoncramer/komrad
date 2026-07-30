@@ -18,6 +18,7 @@ require (
 	github.com/invopop/jsonschema v0.14.0
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/modelcontextprotocol/go-sdk v1.4.1
+	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/riverqueue/river v0.41.0
 	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.41.0
 	github.com/robfig/cron/v3 v3.0.1
@@ -68,7 +69,6 @@ require (
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
-	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/riverqueue/river/riverdriver v0.41.0 // indirect
 	github.com/riverqueue/river/rivershared v0.41.0 // indirect

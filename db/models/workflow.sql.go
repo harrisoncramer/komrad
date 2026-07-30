@@ -12,6 +12,7 @@ import (
 const getWorkflow = `-- name: GetWorkflow :one
 SELECT
     w.id, w.name, w.context, w.workflow_config_id, w.is_deleted, w.created_at, w.updated_at,
+    wc.harness,
     wc.cwd,
     wc.flags
 FROM
@@ -25,6 +26,7 @@ LIMIT 1
 
 type GetWorkflowRow struct {
 	Workflow Workflow
+	Harness  string
 	Cwd      string
 	Flags    string
 }
@@ -40,6 +42,7 @@ func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, 
 		&i.Workflow.IsDeleted,
 		&i.Workflow.CreatedAt,
 		&i.Workflow.UpdatedAt,
+		&i.Harness,
 		&i.Cwd,
 		&i.Flags,
 	)
@@ -82,22 +85,25 @@ func (q *Queries) InsertWorkflow(ctx context.Context, arg InsertWorkflowParams) 
 
 const insertWorkflowConfig = `-- name: InsertWorkflowConfig :one
 INSERT INTO workflow_configs(
+    harness,
     cwd,
     flags)
 VALUES (
     $1,
-    $2)
+    $2,
+    $3)
 RETURNING
     id
 `
 
 type InsertWorkflowConfigParams struct {
-	Cwd   string
-	Flags string
+	Harness string
+	Cwd     string
+	Flags   string
 }
 
 func (q *Queries) InsertWorkflowConfig(ctx context.Context, arg InsertWorkflowConfigParams) (string, error) {
-	row := q.db.QueryRow(ctx, insertWorkflowConfig, arg.Cwd, arg.Flags)
+	row := q.db.QueryRow(ctx, insertWorkflowConfig, arg.Harness, arg.Cwd, arg.Flags)
 	var id string
 	err := row.Scan(&id)
 	return id, err
@@ -106,6 +112,7 @@ func (q *Queries) InsertWorkflowConfig(ctx context.Context, arg InsertWorkflowCo
 const listWorkflows = `-- name: ListWorkflows :many
 SELECT
     w.id, w.name, w.context, w.workflow_config_id, w.is_deleted, w.created_at, w.updated_at,
+    wc.harness,
     wc.cwd,
     wc.flags
 FROM
@@ -119,6 +126,7 @@ ORDER BY
 
 type ListWorkflowsRow struct {
 	Workflow Workflow
+	Harness  string
 	Cwd      string
 	Flags    string
 }
@@ -140,6 +148,7 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 			&i.Workflow.IsDeleted,
 			&i.Workflow.CreatedAt,
 			&i.Workflow.UpdatedAt,
+			&i.Harness,
 			&i.Cwd,
 			&i.Flags,
 		); err != nil {
@@ -156,6 +165,7 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 const listWorkflowsPage = `-- name: ListWorkflowsPage :many
 SELECT
     w.id, w.name, w.context, w.workflow_config_id, w.is_deleted, w.created_at, w.updated_at,
+    wc.harness,
     wc.cwd,
     wc.flags
 FROM
@@ -177,6 +187,7 @@ type ListWorkflowsPageParams struct {
 
 type ListWorkflowsPageRow struct {
 	Workflow Workflow
+	Harness  string
 	Cwd      string
 	Flags    string
 }
@@ -198,6 +209,7 @@ func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPagePa
 			&i.Workflow.IsDeleted,
 			&i.Workflow.CreatedAt,
 			&i.Workflow.UpdatedAt,
+			&i.Harness,
 			&i.Cwd,
 			&i.Flags,
 		); err != nil {
@@ -267,8 +279,9 @@ const updateWorkflowConfig = `-- name: UpdateWorkflowConfig :exec
 UPDATE
     workflow_configs
 SET
-    cwd = $1,
-    flags = $2
+    harness = $1,
+    cwd = $2,
+    flags = $3
 WHERE
     id =(
         SELECT
@@ -276,16 +289,22 @@ WHERE
         FROM
             workflows
         WHERE
-            workflows.id = $3)
+            workflows.id = $4)
 `
 
 type UpdateWorkflowConfigParams struct {
+	Harness    string
 	Cwd        string
 	Flags      string
 	WorkflowID string
 }
 
 func (q *Queries) UpdateWorkflowConfig(ctx context.Context, arg UpdateWorkflowConfigParams) error {
-	_, err := q.db.Exec(ctx, updateWorkflowConfig, arg.Cwd, arg.Flags, arg.WorkflowID)
+	_, err := q.db.Exec(ctx, updateWorkflowConfig,
+		arg.Harness,
+		arg.Cwd,
+		arg.Flags,
+		arg.WorkflowID,
+	)
 	return err
 }

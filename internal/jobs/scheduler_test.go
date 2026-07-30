@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -158,6 +159,65 @@ func TestSchedulerReconcileFailure(t *testing.T) {
 	}
 }
 
+// TestSchedulerReconcileSurvivesAFailedRegistration covers a pass where River
+// refuses one schedule. An unparseable expression is already skipped so that one
+// bad row cannot stop the others, and a registration that fails is the same
+// situation arriving from the other side: the rest of the listing still has to be
+// registered, and a schedule paused or deleted since the last pass still has to
+// come off, or it keeps firing.
+func TestSchedulerReconcileSurvivesAFailedRegistration(t *testing.T) {
+	tests := []struct {
+		name string
+		// failFor is the schedule id River refuses to register.
+		failFor string
+		// passes are the schedule listings the reconciler sees, one per pass.
+		passes [][]schedulestore.Schedule
+		// wantAdded is the ids registration was attempted for, across every pass.
+		wantAdded []string
+		// wantRemoved is the ids taken back off.
+		wantRemoved []string
+	}{
+		{
+			name:    "the schedules after the failure are still registered",
+			failFor: "first",
+			passes: [][]schedulestore.Schedule{{
+				armed("first", "0 9 * * *"),
+				armed("second", "0 10 * * *"),
+			}},
+			wantAdded: []string{"first", "second"},
+		},
+		{
+			name:    "and a schedule paused since the last pass still comes off",
+			failFor: "broken",
+			passes: [][]schedulestore.Schedule{
+				{armed("good", "0 9 * * *")},
+				{
+					armed("broken", "0 10 * * *"),
+					paused("good", "0 9 * * *"),
+				},
+			},
+			wantAdded:   []string{"good", "broken"},
+			wantRemoved: []string{"good"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			listing := &listingSchedules{}
+			periodic := &recordingPeriodic{failFor: tt.failFor}
+			scheduler := NewScheduler(listing, periodic)
+
+			for _, pass := range tt.passes {
+				listing.schedules = pass
+				_ = scheduler.Reconcile(t.Context())
+			}
+
+			assert.Equal(t, tt.wantAdded, periodic.added)
+			assert.Equal(t, tt.wantRemoved, periodic.removed)
+		})
+	}
+}
+
 // armed is a schedule that should be registered.
 func armed(id, cron string) schedulestore.Schedule {
 	return schedulestore.Schedule{ID: id, Name: id, Cron: cron, Enabled: true}
@@ -205,6 +265,9 @@ func (l *listingSchedules) Get(context.Context, string) (*schedulestore.Schedule
 type recordingPeriodic struct {
 	added   []string
 	removed []string
+	// failFor is the schedule id registration is refused for, standing in for a
+	// River that will not take one particular job.
+	failFor string
 }
 
 func (r *recordingPeriodic) Add(id string, job *river.PeriodicJob) error {
@@ -213,6 +276,10 @@ func (r *recordingPeriodic) Add(id string, job *river.PeriodicJob) error {
 	}
 
 	r.added = append(r.added, id)
+
+	if id == r.failFor {
+		return fmt.Errorf("refusing to register %q", id)
+	}
 
 	return nil
 }
@@ -259,6 +326,15 @@ func TestOccurrenceAt(t *testing.T) {
 			name: "and past the halfway point belongs to the next",
 			at:   minute.Add(31 * time.Second),
 			want: minute.Add(time.Minute),
+		},
+		{
+			// The job is built when the enqueuer gets to it, which is not always
+			// promptly. A leader election, a paused process, or a machine coming out
+			// of sleep all put the construction well after the moment the schedule
+			// fired, and the firing still belongs to the minute it was due.
+			name: "a firing built a minute late still belongs to the minute it was due",
+			at:   minute.Add(45 * time.Second),
+			want: minute,
 		},
 	}
 

@@ -12,7 +12,7 @@ option go_package = "claude-agents/proto/gen/workflow/v1;workflowv1";
 
 // Workflow is a named bucket of related agents. It runs nothing itself. It holds
 // a label, shared context injected into the agents spawned inside it, and the
-// working directory and flags those agents start from.
+// harness, working directory, and flags those agents start from.
 message Workflow {
   string id = 1;
   string name = 2;
@@ -22,6 +22,9 @@ message Workflow {
   string context = 3;
   string cwd = 4;
   string flags = 5;
+  // Which CLI agents in this workflow run, blank when they take the user's
+  // configured default.
+  string harness = 6;
 }
 
 message ListWorkflowsRequest {
@@ -62,6 +65,12 @@ message CreateWorkflowRequest {
     max_len: 500,
     [rules.v1.shell_safe]: true
   }];
+  // Which CLI agents created inside this workflow run. Blank leaves them on the
+  // user's configured default. A name this panel does not implement is refused.
+  string harness = 5 [(buf.validate.field).string = {
+    max_len: 40,
+    pattern: "^[a-z0-9-]*$"
+  }];
 }
 
 message CreateWorkflowResponse {
@@ -85,6 +94,13 @@ message UpdateWorkflowRequest {
   string flags = 5 [(buf.validate.field).string = {
     max_len: 500,
     [rules.v1.shell_safe]: true
+  }];
+  // Which CLI agents created inside this workflow run from now on. Blank leaves
+  // them on the user's configured default. Agents already spawned keep the harness
+  // they started on, which is recorded against each of them.
+  string harness = 6 [(buf.validate.field).string = {
+    max_len: 40,
+    pattern: "^[a-z0-9-]*$"
   }];
 }
 

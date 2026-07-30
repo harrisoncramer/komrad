@@ -7,12 +7,15 @@
 package cli
 
 import (
+	"fmt"
 	"net/http"
 
 	"claude-agents/config"
 	"claude-agents/internal/agents"
 	"claude-agents/internal/appconfig"
+	"claude-agents/internal/harness"
 	"claude-agents/internal/harness/claude"
+	"claude-agents/internal/harness/codex"
 	"claude-agents/internal/tmux"
 	"claude-agents/internal/ui"
 	"claude-agents/proto/gen/agent/v1/agentv1connect"
@@ -27,6 +30,10 @@ import (
 func NewRootCommand() *cobra.Command {
 	state := &app{}
 	var configPath string
+
+	// One instance per CLI the binary implements, so every command shares it.
+	claudeHarness := claude.New("")
+	var codexHarness *codex.Harness
 
 	root := &cobra.Command{
 		Use:           "claude-agents",
@@ -53,8 +60,26 @@ func NewRootCommand() *cobra.Command {
 
 			state.env = env
 			state.keys = cfg.Keybindings
-			state.harness = claude.New("")
-			state.defaultFlags = cfg.ClaudeFlags
+			state.defaultHarness = cfg.DefaultHarness
+			// Codex is built here rather than beside claude because one of its settings is
+			// the user's to make, and the config is only loaded once the command runs.
+			codexHarness = codex.New(codex.Options{TrustLaunchDirs: cfg.Harness.Codex.TrustLaunchDirs})
+			state.defaultFlags = map[string]string{
+				claudeHarness.GetID(): cfg.Harness.Claude.Flags,
+				codexHarness.GetID():  cfg.Harness.Codex.Flags,
+			}
+
+			// The registry decides what an agent may name, so a configured default it does
+			// not hold is a config error like any other and reaches the panel's error screen
+			// rather than ending the process here.
+			harnesses, err := harness.NewRegistry(claudeHarness, codexHarness)
+			if err != nil {
+				return err
+			}
+			if _, err := harnesses.Resolve(cfg.DefaultHarness); err != nil && state.configErr == nil {
+				state.configErr = fmt.Errorf("default_harness: %w", err)
+			}
+			state.harnesses = harnesses
 			state.marks = cfg.Marks
 			state.layout = cfg.Layout
 			state.configPath = configPath

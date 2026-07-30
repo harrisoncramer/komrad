@@ -70,8 +70,8 @@ func TestResumeDir(t *testing.T) {
 			cwd := tt.cwd(t, root)
 
 			h := &fakeHarness{}
-			service := &AgentService{harness: h, restoreRoot: restoreRoot}
-			got := service.resumeDir(agentstore.Agent{ID: "agent-id", Cwd: cwd, SessionID: sessionID})
+			service := &AgentService{restoreRoot: restoreRoot}
+			got := service.resumeDir(agentstore.Agent{ID: "agent-id", Cwd: cwd, SessionID: sessionID}, h)
 
 			assert.Equal(t, tt.wantDir(root, restoreRoot), got)
 			require.NoError(t, usableDir(got), "a restore always gets a directory it can start in")

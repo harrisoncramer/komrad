@@ -15,14 +15,17 @@ import (
 	"claude-agents/internal/store"
 )
 
-// Workflow is a named bucket of related agents. It runs nothing. Its default cwd
-// and flags are the blueprint prefilled into the new-agent form for agents created
-// inside it.
+// Workflow is a named bucket of related agents. It runs nothing. Its default
+// harness, cwd, and flags are the blueprint prefilled into the new-agent form for
+// agents created inside it.
 type Workflow struct {
 	ID   string
 	Name string
 	// Context is free-text durable state for the workflow, edited by the user.
 	Context string
+	// Harness names the CLI agents in this workflow run, empty when they take
+	// whatever the user configured as their default.
+	Harness string
 	Cwd     string
 	Flags   string
 	// UpdatedAt is when the row last changed, for display. The listing sorts by
@@ -31,10 +34,11 @@ type Workflow struct {
 }
 
 // Config is the editable blueprint of a workflow. Its display label, its free-text
-// context, and the cwd and flags seeded into agents created inside it.
+// context, and the harness, cwd, and flags seeded into agents created inside it.
 type Config struct {
 	Name    string
 	Context string
+	Harness string
 	Cwd     string
 	Flags   string
 }
@@ -59,7 +63,7 @@ func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 
 	workflows := make([]Workflow, 0, len(rows))
 	for _, row := range rows {
-		workflows = append(workflows, workflowFromRow(row.Workflow, row.Cwd, row.Flags))
+		workflows = append(workflows, workflowFromRow(row.Workflow, row.Harness, row.Cwd, row.Flags))
 	}
 
 	return workflows, nil
@@ -86,7 +90,7 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Wo
 
 	workflows := make([]Workflow, 0, len(rows))
 	for _, row := range rows {
-		workflows = append(workflows, workflowFromRow(row.Workflow, row.Cwd, row.Flags))
+		workflows = append(workflows, workflowFromRow(row.Workflow, row.Harness, row.Cwd, row.Flags))
 	}
 
 	return workflows, nil
@@ -107,17 +111,18 @@ func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
 	}
 
-	workflow := workflowFromRow(row.Workflow, row.Cwd, row.Flags)
+	workflow := workflowFromRow(row.Workflow, row.Harness, row.Cwd, row.Flags)
 	return &workflow, nil
 }
 
-// Create inserts a workflow together with the config row holding the cwd and
-// flags new agents inside it inherit, and returns it. Both rows must land
+// Create inserts a workflow together with the config row holding the harness, cwd,
+// and flags new agents inside it inherit, and returns it. Both rows must land
 // together, so a caller outside a transaction gets one through InTx.
 func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 	configID, err := s.queries.InsertWorkflowConfig(ctx, models.InsertWorkflowConfigParams{
-		Cwd:   cfg.Cwd,
-		Flags: cfg.Flags,
+		Harness: cfg.Harness,
+		Cwd:     cfg.Cwd,
+		Flags:   cfg.Flags,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert config for workflow %q: %w", cfg.Name, err)
@@ -132,7 +137,7 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 		return nil, fmt.Errorf("failed to create workflow %q: %w", cfg.Name, err)
 	}
 
-	workflow := workflowFromRow(*row, cfg.Cwd, cfg.Flags)
+	workflow := workflowFromRow(*row, cfg.Harness, cfg.Cwd, cfg.Flags)
 	return &workflow, nil
 }
 
@@ -151,7 +156,7 @@ func (s *Store) Rename(ctx context.Context, id, name string) error {
 }
 
 // Update rewrites a workflow's display name, its free-text context, and its
-// linked config of cwd and flags, keyed by id. The three writes must land
+// linked config of harness, cwd, and flags, keyed by id. The three writes must land
 // together, so a caller outside a transaction gets one through InTx.
 func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 	if !store.IsID(id) {
@@ -166,7 +171,7 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 		return fmt.Errorf("failed to update context for workflow %q: %w", id, err)
 	}
 
-	if err := s.queries.UpdateWorkflowConfig(ctx, models.UpdateWorkflowConfigParams{WorkflowID: id, Cwd: cfg.Cwd, Flags: cfg.Flags}); err != nil {
+	if err := s.queries.UpdateWorkflowConfig(ctx, models.UpdateWorkflowConfigParams{WorkflowID: id, Harness: cfg.Harness, Cwd: cfg.Cwd, Flags: cfg.Flags}); err != nil {
 		return fmt.Errorf("failed to update config for workflow %q: %w", id, err)
 	}
 
@@ -190,11 +195,12 @@ func (s *Store) Archive(ctx context.Context, id string) error {
 }
 
 // workflowFromRow builds a Workflow from a workflow row and its joined config.
-func workflowFromRow(w models.Workflow, cwd, flags string) Workflow {
+func workflowFromRow(w models.Workflow, harness, cwd, flags string) Workflow {
 	return Workflow{
 		ID:        w.ID,
 		Name:      w.Name,
 		Context:   w.Context,
+		Harness:   harness,
 		Cwd:       cwd,
 		Flags:     flags,
 		UpdatedAt: w.UpdatedAt,

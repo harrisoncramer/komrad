@@ -21,7 +21,7 @@ func (h *Harness) Relocate(sessionID, dir string) error {
 		return nil
 	}
 
-	current := h.LogPath(sessionID)
+	current := h.GetLogPath(sessionID)
 	if current == "" {
 		return nil
 	}

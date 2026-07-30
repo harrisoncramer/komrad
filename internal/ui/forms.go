@@ -157,8 +157,8 @@ func workflowForm(title string, keys appconfig.FormKeys) (*huh.Form, *workflowst
 }
 
 // workflowConfigForm collects a workflow's name, its free-text context, and its default
-// config. The dir and flags become the blueprint prefilled into the new-agent form for
-// agents created inside the workflow. Every field prefills, so it serves both creating a
+// config. The harness, dir, and flags become the blueprint agents created inside the
+// workflow start from.' Every field prefills, so it serves both creating a
 // workflow and editing one.
 func workflowConfigForm(nameTitle string, cfg workflowstore.Config, keys appconfig.FormKeys) (*huh.Form, *workflowstore.Config) {
 	values := cfg
@@ -167,6 +167,7 @@ func workflowConfigForm(nameTitle string, cfg workflowstore.Config, keys appconf
 		huh.NewGroup(
 			huh.NewInput().Key("name").Title(nameTitle).Value(&values.Name),
 			huh.NewText().Key("context").Title("Context").Description("shared notes for this workflow; ctrl+e opens $EDITOR").Value(&values.Context),
+			huh.NewInput().Key("harness").Title("Default agent").Description("blank = the configured default").Placeholder("claude").Value(&values.Harness),
 			huh.NewInput().Key("dir").Title("Default directory").Description("blank = current").Value(&values.Cwd),
 			huh.NewInput().Key("flags").Title("Default flags").Placeholder("--model opus").Value(&values.Flags),
 		),

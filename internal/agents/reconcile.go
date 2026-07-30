@@ -24,11 +24,11 @@ type tmuxProbe interface {
 	CapturePane(pane string) string
 }
 
-// activityProbe is all the reconciler needs from a harness, what a captured frame
-// says the agent is doing. Which chrome that verdict is read out of belongs to the
-// harness, since it differs by CLI and moves between releases of one.
-type activityProbe interface {
-	Activity(frame string) harness.Activity
+// activityRegistry resolves the harness an agent is recorded against, since what a
+// frame means depends on which CLI drew it. A row naming one nothing implements
+// reads like a frame no harness could interpret, so it settles nothing.
+type activityRegistry interface {
+	Resolve(id string) (harness.Harness, error)
 }
 
 type stateStore interface {
@@ -43,16 +43,16 @@ type stateStore interface {
 // that observation implies. Because it reads ground truth every pass, a wrong state
 // cannot outlive the interval and there are no edges to miss.
 type Reconciler struct {
-	tmux    tmuxProbe
-	harness activityProbe
-	store   stateStore
-	misses  map[string]int // agent id to consecutive idle observations
+	tmux      tmuxProbe
+	harnesses activityRegistry
+	store     stateStore
+	misses    map[string]int // agent id to consecutive idle observations
 }
 
-// NewReconciler builds a Reconciler over a tmux probe, the harness that reads its
+// NewReconciler builds a Reconciler over a tmux probe, the harnesses that read its
 // captures, and the state store.
-func NewReconciler(t tmuxProbe, h activityProbe, s stateStore) *Reconciler {
-	return &Reconciler{tmux: t, harness: h, store: s, misses: map[string]int{}}
+func NewReconciler(t tmuxProbe, harnesses activityRegistry, s stateStore) *Reconciler {
+	return &Reconciler{tmux: t, harnesses: harnesses, store: s, misses: map[string]int{}}
 }
 
 // Reconcile observes every tracked agent once and corrects any stored state that
@@ -109,7 +109,15 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent)
 		return
 	}
 
-	switch r.harness.Activity(frame) {
+	// A harness this binary does not implement can say nothing about the frame, so the
+	// agent keeps the state it has rather than being demoted off a pane nothing here
+	// can read.
+	resolved, err := r.harnesses.Resolve(agent.Harness)
+	if err != nil {
+		return
+	}
+
+	switch resolved.ReadActivity(frame) {
 	case harness.ActivityWorking:
 		r.apply(ctx, agent, agentstore.StateThinking)
 	case harness.ActivityWaiting:

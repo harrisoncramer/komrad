@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"claude-agents/internal/agents"
+	"claude-agents/internal/harness"
 	"claude-agents/internal/store"
 	"claude-agents/lib/pagination"
 	agentv1 "claude-agents/proto/gen/agent/v1"
@@ -73,12 +74,13 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 		Flags:          req.Msg.GetFlags(),
 		Prompt:         req.Msg.GetPrompt(),
 		WorkflowID:     req.Msg.GetWorkflowId(),
+		Harness:        req.Msg.GetHarness(),
 		IdempotencyKey: req.Msg.GetIdempotencyKey(),
 	})
 	switch {
 	case errors.Is(err, agents.ErrWorkflowNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, err)
-	case errors.Is(err, agents.ErrBadDirectory):
+	case errors.Is(err, agents.ErrBadDirectory), errors.Is(err, harness.ErrNotRegistered):
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create agent: %w", err))

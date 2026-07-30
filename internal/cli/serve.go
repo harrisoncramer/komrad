@@ -144,7 +144,7 @@ func serveCmd(state *app) *cobra.Command {
 			go runLoop(cmd.Context(), runLoopParams{
 				Name:     "reconcile",
 				Interval: reconcileInterval,
-				Pass:     agents.NewReconciler(state.tmux, state.harness, state.agents).Reconcile,
+				Pass:     agents.NewReconciler(state.tmux, state.harnesses, state.agents).Reconcile,
 			})
 
 			// The transcript syncer runs alongside the reconciler for the same
@@ -153,7 +153,12 @@ func serveCmd(state *app) *cobra.Command {
 			go runLoop(cmd.Context(), runLoopParams{
 				Name:     "transcript sync",
 				Interval: transcriptSyncInterval,
-				Pass:     agents.NewTranscriptSyncer(state.agents, state.transcripts, state.harness).Sync,
+				Pass: agents.NewTranscriptSyncer(agents.TranscriptSyncerParams{
+					Agents:      state.agents,
+					Sessions:    state.agents,
+					Transcripts: state.transcripts,
+					Harnesses:   state.harnesses,
+				}).Sync,
 			})
 
 			server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}

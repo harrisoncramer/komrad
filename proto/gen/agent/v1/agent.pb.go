@@ -28,15 +28,20 @@ const (
 
 // Agent is one background agent, as stored.
 type Agent struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name            string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Cwd             string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	Flags           string                 `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
-	Prompt          string                 `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	PaneId          string                 `protobuf:"bytes,6,opt,name=pane_id,json=paneId,proto3" json:"pane_id,omitempty"`
-	State           string                 `protobuf:"bytes,7,opt,name=state,proto3" json:"state,omitempty"`
-	ClaudeSessionId string                 `protobuf:"bytes,8,opt,name=claude_session_id,json=claudeSessionId,proto3" json:"claude_session_id,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Id     string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name   string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Cwd    string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
+	Flags  string                 `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
+	Prompt string                 `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	PaneId string                 `protobuf:"bytes,6,opt,name=pane_id,json=paneId,proto3" json:"pane_id,omitempty"`
+	State  string                 `protobuf:"bytes,7,opt,name=state,proto3" json:"state,omitempty"`
+	// The conversation this agent holds, which its harness reopens when a dormant
+	// agent is restored.
+	SessionId string `protobuf:"bytes,8,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	// Which CLI this agent runs, which decides how it was launched, how its state is
+	// read off its pane, and where its conversation log is found.
+	Harness string `protobuf:"bytes,18,opt,name=harness,proto3" json:"harness,omitempty"`
 	// The workflow this agent belongs to. Every agent has one: the workflow holds
 	// the directory, flags, and shared context it started from.
 	WorkflowId string `protobuf:"bytes,9,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
@@ -151,9 +156,16 @@ func (x *Agent) GetState() string {
 	return ""
 }
 
-func (x *Agent) GetClaudeSessionId() string {
+func (x *Agent) GetSessionId() string {
 	if x != nil {
-		return x.ClaudeSessionId
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *Agent) GetHarness() string {
+	if x != nil {
+		return x.Harness
 	}
 	return ""
 }
@@ -406,6 +418,10 @@ type CreateAgentRequest struct {
 	// from when this request leaves them empty. Required: an agent outside a
 	// workflow would have no defaults to inherit and nowhere to be listed.
 	WorkflowId string `protobuf:"bytes,5,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	// Which CLI to run this agent on. Blank takes the workflow's default, and then
+	// the user's configured one, which is the usual case. A name this panel does not
+	// implement is refused: get_config lists what it runs.
+	Harness string `protobuf:"bytes,7,opt,name=harness,proto3" json:"harness,omitempty"`
 	// A key that makes this create repeatable. A second request carrying a key an
 	// agent already holds returns that agent untouched rather than starting a
 	// second agent process, which is what makes retrying a launch safe. Omit it
@@ -476,6 +492,13 @@ func (x *CreateAgentRequest) GetFlags() string {
 func (x *CreateAgentRequest) GetWorkflowId() string {
 	if x != nil {
 		return x.WorkflowId
+	}
+	return ""
+}
+
+func (x *CreateAgentRequest) GetHarness() string {
+	if x != nil {
+		return x.Harness
 	}
 	return ""
 }
@@ -1359,7 +1382,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\x89\x04\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\x96\x04\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -1367,8 +1390,10 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x05flags\x18\x04 \x01(\tR\x05flags\x12\x16\n" +
 	"\x06prompt\x18\x05 \x01(\tR\x06prompt\x12\x17\n" +
 	"\apane_id\x18\x06 \x01(\tR\x06paneId\x12\x14\n" +
-	"\x05state\x18\a \x01(\tR\x05state\x12*\n" +
-	"\x11claude_session_id\x18\b \x01(\tR\x0fclaudeSessionId\x12\x1f\n" +
+	"\x05state\x18\a \x01(\tR\x05state\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\b \x01(\tR\tsessionId\x12\x18\n" +
+	"\aharness\x18\x12 \x01(\tR\aharness\x12\x1f\n" +
 	"\vworkflow_id\x18\t \x01(\tR\n" +
 	"workflowId\x12\x1d\n" +
 	"\n" +
@@ -1396,7 +1421,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12ListAgentsResponse\x12'\n" +
 	"\x06agents\x18\x01 \x03(\v2\x0f.agent.v1.AgentR\x06agents\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"\xf6\x02\n" +
+	"\x10_next_page_token\"\xa7\x03\n" +
 	"\x12CreateAgentRequest\x12#\n" +
 	"\x06prompt\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12\x7f\n" +
 	"\x05title\x18\x02 \x01(\tBi\xbaHf\xba\x01^\n" +
@@ -1404,7 +1429,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x03dir\x18\x03 \x01(\tB\f\xbaH\tr\a\xb0\xbb\x18\x01\x18\x80 R\x03dir\x12\"\n" +
 	"\x05flags\x18\x04 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\x12(\n" +
 	"\vworkflow_id\x18\x05 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
-	"workflowId\x128\n" +
+	"workflowId\x12/\n" +
+	"\aharness\x18\a \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x128\n" +
 	"\x0fidempotency_key\x18\x06 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x00R\x0eidempotencyKey\x88\x01\x01B\x12\n" +
 	"\x10_idempotency_key\"<\n" +

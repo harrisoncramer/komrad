@@ -14,7 +14,7 @@ import (
 // has already registered instead of trading them for it.
 const mcpConfigJSON = `{"mcpServers":{"claude-agents":{"type":"http","url":"http://%s/mcp"}}}`
 
-// Command renders the command line that puts Claude up. It is not executed
+// BuildCommand renders the command line that puts Claude up. It is not executed
 // directly: it is typed into a pane and parsed by the shell running there, which
 // is why everything interpolated into it is either generated here or quoted.
 //
@@ -22,7 +22,7 @@ const mcpConfigJSON = `{"mcpServers":{"claude-agents":{"type":"http","url":"http
 // conversation pinned to that id, with the appended system prompt and the opening
 // prompt passed through temp files so multi-line markdown survives, removed as the
 // command runs.
-func (h *Harness) Command(launch harness.Launch) (string, error) {
+func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	command := "claude"
 
 	if launch.AgentID != "" {
@@ -54,7 +54,7 @@ func (h *Harness) Command(launch harness.Launch) (string, error) {
 		// The appended system prompt is sourced through a temp file the shell cats in place,
 		// so arbitrary markdown needs no escaping.
 		if launch.Context != "" {
-			if path, err := writeTempText("claude-context-*.md", launch.Context); err == nil {
+			if path, err := harness.WriteTempText("claude-context-*.md", launch.Context); err == nil {
 				command += fmt.Sprintf(" --append-system-prompt \"$(cat '%s'; rm '%s')\"", path, path)
 			}
 		}
@@ -62,35 +62,13 @@ func (h *Harness) Command(launch harness.Launch) (string, error) {
 		// so the prompt is fenced off with -- or a launch where no flag separates the two would
 		// read the prompt as another config file.
 		if launch.Prompt != "" {
-			if path, err := writeTempText("claude-prompt-*.md", launch.Prompt); err == nil {
+			if path, err := harness.WriteTempText("claude-prompt-*.md", launch.Prompt); err == nil {
 				command += fmt.Sprintf(" -- \"$(cat '%s'; rm '%s')\"", path, path)
 			}
 		}
 	}
 
 	return command, nil
-}
-
-// writeTempText writes text to a temp file matching pattern and returns its path.
-// The file is removed by the command that reads it rather than here, since nothing
-// on this side of send-keys knows when the shell has run it.
-func writeTempText(pattern, text string) (string, error) {
-	file, err := os.CreateTemp("", pattern)
-	if err != nil {
-		return "", fmt.Errorf("failed to create %q: %w", pattern, err)
-	}
-
-	if _, err := file.WriteString(text); err != nil {
-		_ = file.Close()
-
-		return "", fmt.Errorf("failed to write %q: %w", file.Name(), err)
-	}
-
-	if err := file.Close(); err != nil {
-		return "", fmt.Errorf("failed to close %q: %w", file.Name(), err)
-	}
-
-	return file.Name(), nil
 }
 
 // writeMCPConfig writes the MCP client config beside Claude's other state and

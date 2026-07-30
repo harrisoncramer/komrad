@@ -61,7 +61,7 @@ func TestLoad(t *testing.T) {
 		},
 		{
 			name: "what the file sets wins, and the rest still defaults",
-			file: "claude_flags = \"--model opus\"\n\n[keybindings.nav]\nup = [\"w\"]\n",
+			file: "[harness.claude]\nflags = \"--model opus\"\n\n[keybindings.nav]\nup = [\"w\"]\n",
 
 			wantFlags: "--model opus",
 			wantNavUp: []string{"w"},
@@ -70,6 +70,13 @@ func TestLoad(t *testing.T) {
 			name:      "a file that sets nothing leaves every default in place",
 			file:      "\n",
 			wantNavUp: DefaultKeybindings().Nav.Up,
+		},
+		{
+			// The id every launch is resolved through, so a file that names none has to
+			// end up on one rather than leaving creates to be refused.
+			name:      "a file that names no harness still lands on the default one",
+			file:      "[keybindings.nav]\nup = [\"w\"]\n",
+			wantNavUp: []string{"w"},
 		},
 	}
 
@@ -85,7 +92,8 @@ func TestLoad(t *testing.T) {
 
 			cfg, err := Load(path)
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantFlags, cfg.ClaudeFlags)
+			assert.Equal(t, tt.wantFlags, cfg.Harness.Claude.Flags)
+			assert.Equal(t, DefaultHarness, cfg.DefaultHarness, "a launch is resolved through this, so it is never empty")
 			assert.Equal(t, tt.wantNavUp, cfg.Keybindings.Nav.Up)
 			assert.Equal(t, DefaultKeybindings().Nav.Down, cfg.Keybindings.Nav.Down, "unset bindings still default")
 			assert.Equal(t, DefaultKeybindings().Agents.Open, cfg.Keybindings.Agents.Open, "an untouched panel still defaults")
@@ -130,7 +138,7 @@ func TestLoadMarks(t *testing.T) {
 		},
 		{
 			name: "a file that names none falls back to the defaults",
-			file: "claude_flags = \"\"\n",
+			file: "default_harness = \"claude\"\n",
 			want: DefaultMarks(),
 		},
 		{
@@ -192,7 +200,7 @@ func TestLoadLayout(t *testing.T) {
 		},
 		{
 			name: "a file that names no layout falls back to the default",
-			file: "claude_flags = \"\"\n",
+			file: "default_harness = \"claude\"\n",
 			want: DefaultLayout(),
 		},
 		{

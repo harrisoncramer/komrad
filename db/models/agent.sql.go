@@ -154,7 +154,7 @@ func (q *Queries) DeleteAgentTranscriptChunks(ctx context.Context, agentID strin
 
 const getAgent = `-- name: GetAgent :one
 SELECT
-    id, name, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags
+    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags, harness
 FROM
     agents s
 WHERE
@@ -172,7 +172,7 @@ func (q *Queries) GetAgent(ctx context.Context, name string) (*Agent, error) {
 		&i.Prompt,
 		&i.PaneID,
 		&i.State,
-		&i.ClaudeSessionID,
+		&i.SessionID,
 		&i.WorkflowID,
 		&i.ScheduleID,
 		&i.IdempotencyKey,
@@ -183,13 +183,14 @@ func (q *Queries) GetAgent(ctx context.Context, name string) (*Agent, error) {
 		&i.IsHidden,
 		&i.Cwd,
 		&i.Flags,
+		&i.Harness,
 	)
 	return &i, err
 }
 
 const getAgentByID = `-- name: GetAgentByID :one
 SELECT
-    id, name, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags
+    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags, harness
 FROM
     agents s
 WHERE
@@ -206,7 +207,7 @@ func (q *Queries) GetAgentByID(ctx context.Context, id string) (*Agent, error) {
 		&i.Prompt,
 		&i.PaneID,
 		&i.State,
-		&i.ClaudeSessionID,
+		&i.SessionID,
 		&i.WorkflowID,
 		&i.ScheduleID,
 		&i.IdempotencyKey,
@@ -217,13 +218,14 @@ func (q *Queries) GetAgentByID(ctx context.Context, id string) (*Agent, error) {
 		&i.IsHidden,
 		&i.Cwd,
 		&i.Flags,
+		&i.Harness,
 	)
 	return &i, err
 }
 
 const getAgentByIdempotencyKey = `-- name: GetAgentByIdempotencyKey :one
 SELECT
-    id, name, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags
+    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags, harness
 FROM
     agents s
 WHERE
@@ -240,7 +242,7 @@ func (q *Queries) GetAgentByIdempotencyKey(ctx context.Context, idempotencyKey *
 		&i.Prompt,
 		&i.PaneID,
 		&i.State,
-		&i.ClaudeSessionID,
+		&i.SessionID,
 		&i.WorkflowID,
 		&i.ScheduleID,
 		&i.IdempotencyKey,
@@ -251,6 +253,7 @@ func (q *Queries) GetAgentByIdempotencyKey(ctx context.Context, idempotencyKey *
 		&i.IsHidden,
 		&i.Cwd,
 		&i.Flags,
+		&i.Harness,
 	)
 	return &i, err
 }
@@ -286,7 +289,8 @@ INSERT INTO agents(
     prompt,
     pane_id,
     state,
-    claude_session_id,
+    harness,
+    session_id,
     workflow_id,
     schedule_id,
     idempotency_key,
@@ -303,24 +307,26 @@ VALUES (
     $9,
     $10,
     $11,
-    $12)
+    $12,
+    $13)
 RETURNING
     id
 `
 
 type InsertAgentParams struct {
-	ID              string
-	Name            string
-	Cwd             string
-	Flags           string
-	Prompt          string
-	PaneID          string
-	State           string
-	ClaudeSessionID string
-	WorkflowID      string
-	ScheduleID      *string
-	IdempotencyKey  *string
-	IsHidden        bool
+	ID             string
+	Name           string
+	Cwd            string
+	Flags          string
+	Prompt         string
+	PaneID         string
+	State          string
+	Harness        string
+	SessionID      string
+	WorkflowID     string
+	ScheduleID     *string
+	IdempotencyKey *string
+	IsHidden       bool
 }
 
 func (q *Queries) InsertAgent(ctx context.Context, arg InsertAgentParams) (string, error) {
@@ -332,7 +338,8 @@ func (q *Queries) InsertAgent(ctx context.Context, arg InsertAgentParams) (strin
 		arg.Prompt,
 		arg.PaneID,
 		arg.State,
-		arg.ClaudeSessionID,
+		arg.Harness,
+		arg.SessionID,
 		arg.WorkflowID,
 		arg.ScheduleID,
 		arg.IdempotencyKey,
@@ -395,7 +402,7 @@ func (q *Queries) ListAgentMetadata(ctx context.Context, agentIds []string) ([]*
 
 const listAgents = `-- name: ListAgents :many
 SELECT
-    id, name, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags
+    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags, harness
 FROM
     agents s
 WHERE
@@ -419,7 +426,7 @@ func (q *Queries) ListAgents(ctx context.Context) ([]*Agent, error) {
 			&i.Prompt,
 			&i.PaneID,
 			&i.State,
-			&i.ClaudeSessionID,
+			&i.SessionID,
 			&i.WorkflowID,
 			&i.ScheduleID,
 			&i.IdempotencyKey,
@@ -430,6 +437,7 @@ func (q *Queries) ListAgents(ctx context.Context) ([]*Agent, error) {
 			&i.IsHidden,
 			&i.Cwd,
 			&i.Flags,
+			&i.Harness,
 		); err != nil {
 			return nil, err
 		}
@@ -443,7 +451,7 @@ func (q *Queries) ListAgents(ctx context.Context) ([]*Agent, error) {
 
 const listAgentsPage = `-- name: ListAgentsPage :many
 SELECT
-    id, name, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags
+    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags, harness
 FROM
     agents s
 WHERE
@@ -476,7 +484,7 @@ func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) 
 			&i.Prompt,
 			&i.PaneID,
 			&i.State,
-			&i.ClaudeSessionID,
+			&i.SessionID,
 			&i.WorkflowID,
 			&i.ScheduleID,
 			&i.IdempotencyKey,
@@ -487,6 +495,7 @@ func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) 
 			&i.IsHidden,
 			&i.Cwd,
 			&i.Flags,
+			&i.Harness,
 		); err != nil {
 			return nil, err
 		}
@@ -500,7 +509,7 @@ func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) 
 
 const listAllAgents = `-- name: ListAllAgents :many
 SELECT
-    id, name, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags
+    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags, harness
 FROM
     agents s
 ORDER BY
@@ -522,7 +531,7 @@ func (q *Queries) ListAllAgents(ctx context.Context) ([]*Agent, error) {
 			&i.Prompt,
 			&i.PaneID,
 			&i.State,
-			&i.ClaudeSessionID,
+			&i.SessionID,
 			&i.WorkflowID,
 			&i.ScheduleID,
 			&i.IdempotencyKey,
@@ -533,6 +542,7 @@ func (q *Queries) ListAllAgents(ctx context.Context) ([]*Agent, error) {
 			&i.IsHidden,
 			&i.Cwd,
 			&i.Flags,
+			&i.Harness,
 		); err != nil {
 			return nil, err
 		}
@@ -889,6 +899,26 @@ func (q *Queries) SetAgentMetadata(ctx context.Context, arg SetAgentMetadataPara
 	return items, nil
 }
 
+const setAgentSessionID = `-- name: SetAgentSessionID :exec
+UPDATE
+    agents
+SET
+    session_id = $1
+WHERE
+    id = $2
+    AND session_id = ''
+`
+
+type SetAgentSessionIDParams struct {
+	SessionID string
+	ID        string
+}
+
+func (q *Queries) SetAgentSessionID(ctx context.Context, arg SetAgentSessionIDParams) error {
+	_, err := q.db.Exec(ctx, setAgentSessionID, arg.SessionID, arg.ID)
+	return err
+}
+
 const setAgentStateByID = `-- name: SetAgentStateByID :exec
 UPDATE
     agents
@@ -917,10 +947,10 @@ SET
     prompt = $3,
     pane_id = $4,
     state = $5,
-    claude_session_id = CASE WHEN $6 != '' THEN
+    session_id = CASE WHEN $6 != '' THEN
         $6
     ELSE
-        claude_session_id
+        session_id
     END,
     workflow_id = $7
 WHERE
@@ -928,14 +958,14 @@ WHERE
 `
 
 type UpdateAgentParams struct {
-	Cwd             string
-	Flags           string
-	Prompt          string
-	PaneID          string
-	State           string
-	ClaudeSessionID interface{}
-	WorkflowID      string
-	ID              string
+	Cwd        string
+	Flags      string
+	Prompt     string
+	PaneID     string
+	State      string
+	SessionID  interface{}
+	WorkflowID string
+	ID         string
 }
 
 func (q *Queries) UpdateAgent(ctx context.Context, arg UpdateAgentParams) error {
@@ -945,7 +975,7 @@ func (q *Queries) UpdateAgent(ctx context.Context, arg UpdateAgentParams) error 
 		arg.Prompt,
 		arg.PaneID,
 		arg.State,
-		arg.ClaudeSessionID,
+		arg.SessionID,
 		arg.WorkflowID,
 		arg.ID,
 	)

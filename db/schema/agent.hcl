@@ -12,11 +12,19 @@ schema "public" {
 # reference it at rest.
 table "workflow_configs" {
   schema  = schema.public
-  comment = "Default config (cwd, flags) seeded into new agents of a workflow."
+  comment = "Default config (harness, cwd, flags) seeded into new agents of a workflow."
   column "id" {
     null    = false
     type    = uuid
     default = sql("uuidv7()")
+  }
+  # Which agent CLI this workflow's agents run, empty when the workflow takes
+  # whatever the user configured as their default. It sits here rather than on the
+  # workflow because it is one of the defaults an agent inherits at launch.
+  column "harness" {
+    null    = false
+    type    = text
+    default = ""
   }
   column "cwd" {
     null    = false
@@ -288,8 +296,8 @@ table "agents" {
     type = text
   }
   # Where the agent runs and the flags it was launched with. A restore reads both
-  # back to put claude up the same way, so they are the agent's own columns rather
-  # than a row it points at.
+  # back to bring the agent up the same way, so they are the agent's own columns
+  # rather than a row it points at.
   column "cwd" {
     null    = false
     type    = text
@@ -315,9 +323,18 @@ table "agents" {
     type    = text
     default = "new"
   }
-  # Claude Code's own conversation id (from the hook payload), used to relaunch
-  # with `claude --resume <id>` when restoring a dormant agent.
-  column "claude_session_id" {
+  # Which agent CLI this agent runs, which decides how it is launched, how its
+  # state is read off its pane, and where its conversation log is found. Never
+  # empty: an agent whose harness nothing implements cannot be relaunched or
+  # observed, so the id is resolved and refused at create rather than here.
+  column "harness" {
+    null    = false
+    type    = text
+    default = "claude"
+  }
+  # The conversation this agent holds, minted by the panel at launch and handed to
+  # the harness, which reopens it when a dormant agent is restored.
+  column "session_id" {
     null    = false
     type    = text
     default = ""

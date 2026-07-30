@@ -92,6 +92,7 @@ func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea
 	m.form, m.values.workflow = workflowConfigForm("Workflow name", workflowstore.Config{
 		Name:    workflow.Name,
 		Context: workflow.Context,
+		Harness: workflow.Harness,
 		Cwd:     workflow.Cwd,
 		Flags:   workflow.Flags,
 	}, m.keys.Form)
@@ -197,6 +198,7 @@ func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 			ID:      m.target.editWorkflow.ID,
 			Name:    values.Name,
 			Context: values.Context,
+			Harness: values.Harness,
 			Cwd:     values.Cwd,
 			Flags:   values.Flags,
 		}

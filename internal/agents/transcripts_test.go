@@ -6,9 +6,11 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"claude-agents/internal/harness"
 	"claude-agents/internal/harness/claude"
+	"claude-agents/internal/harness/codex"
 	agentstore "claude-agents/internal/store/agent"
 	"claude-agents/internal/store/transcript"
 
@@ -132,7 +134,12 @@ func TestTranscriptSyncer(t *testing.T) {
 				path = writeLog(t, projects, tt.log)
 			}
 
-			syncer := NewTranscriptSyncer(st.Agents, st.Transcripts, claude.New(projects))
+			syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+				Agents:      st.Agents,
+				Sessions:    st.Agents,
+				Transcripts: st.Transcripts,
+				Harnesses:   mustRegistry(t, claude.New(projects)),
+			})
 			require.NoError(t, syncer.Sync(ctx))
 
 			first, err := st.GetTranscript(ctx, agent.ID)
@@ -198,7 +205,12 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 	writeLogFor(t, projects, "claude-unsyncable", `{"type":"user","message":{"content":"never accepted"}}`+"\n")
 
 	store := failingTranscripts{transcriptStore: st.Transcripts, failFor: unsyncable.ID}
-	syncer := NewTranscriptSyncer(st.Agents, store, claude.New(projects))
+	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+		Agents:      st.Agents,
+		Sessions:    st.Agents,
+		Transcripts: store,
+		Harnesses:   mustRegistry(t, claude.New(projects)),
+	})
 
 	// The failure is still reported, so serve logs it rather than leaving an agent
 	// quietly never indexed.
@@ -277,4 +289,144 @@ func appendToLog(t *testing.T, path, body string) {
 	_, err = f.WriteString(body)
 	require.NoError(t, err)
 	require.NoError(t, f.Close())
+}
+
+// TestSyncReportsAnUnknownHarness covers an agent whose harness nothing implements.
+// Its transcript can never advance again, so the pass reports it rather than
+// skipping it: a search that quietly finds nothing is how that would go unnoticed.
+func TestSyncReportsAnUnknownHarness(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+
+	require.NoError(t, st.Create(ctx, agentstore.Agent{
+		Name:      "orphan",
+		State:     agentstore.StateDone,
+		Harness:   "gemini",
+		SessionID: testSessionID,
+	}))
+
+	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+		Agents:      st.Agents,
+		Sessions:    st.Agents,
+		Transcripts: st.Transcripts,
+		Harnesses:   mustRegistry(t, claude.New(t.TempDir())),
+	})
+
+	err := syncer.Sync(ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "orphan", "the pass names the agent it could not read")
+	assert.Contains(t, err.Error(), "gemini", "and the harness it is waiting on")
+}
+
+// TestSyncAdoptsSessions covers a harness that names its own conversations. The panel
+// cannot tell codex which id to use, so the syncer asks afterwards which conversations
+// appeared in the agent's directory and records the one that is the agent's.
+func TestSyncAdoptsSessions(t *testing.T) {
+	tests := []struct {
+		name string
+		// found is what the harness reports for the agent's directory, and taken is a
+		// conversation another agent already holds.
+		found []string
+		taken string
+		want  string
+	}{
+		{
+			name: "nothing to adopt yet, which is every pass before the CLI writes a rollout",
+		},
+		{
+			name:  "the conversation started in the agent's directory",
+			found: []string{"sess-mine"},
+			want:  "sess-mine",
+		},
+		{
+			name:  "the earliest one another agent does not already hold",
+			found: []string{"sess-taken", "sess-mine"},
+			taken: "sess-taken",
+			want:  "sess-mine",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			ctx := context.Background()
+
+			if tt.taken != "" {
+				require.NoError(t, st.Create(ctx, agentstore.Agent{
+					Name: "holder", State: agentstore.StateDone, SessionID: tt.taken,
+				}))
+			}
+			require.NoError(t, st.Create(ctx, agentstore.Agent{Name: "adopter", State: agentstore.StateNew}))
+
+			syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+				Agents:      st.Agents,
+				Sessions:    st.Agents,
+				Transcripts: st.Transcripts,
+				Harnesses:   fakeHarnesses{harness: &fakeHarness{found: tt.found}},
+			})
+			require.NoError(t, syncer.Sync(ctx))
+
+			adopter, err := st.Get(ctx, "adopter")
+			require.NoError(t, err)
+			require.NotNil(t, adopter)
+			assert.Equal(t, tt.want, adopter.SessionID)
+
+			if tt.taken != "" {
+				holder, err := st.Get(ctx, "holder")
+				require.NoError(t, err)
+				assert.Equal(t, tt.taken, holder.SessionID, "the agent already holding one keeps it")
+			}
+		})
+	}
+}
+
+// TestSyncAdoptedSessionIsIndexed covers the pass after an adoption, driving the real
+// codex harness over a real rollout. Adopting is only worth anything if the transcript
+// that turns up under that id is then read.
+func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	sessions := t.TempDir()
+	cwd := t.TempDir()
+
+	const sessionID = "019fb3e7-2cb6-7ab3-86a0-51a670a33140"
+
+	// The row exists before the CLI is launched, so the rollout is always the newer of
+	// the two. Stamping it deliberately keeps that true whatever the database clock
+	// says.
+	require.NoError(t, st.Create(ctx, agentstore.Agent{
+		Name: "adopter", State: agentstore.StateNew, Harness: "codex", Cwd: cwd,
+	}))
+	created, err := st.Get(ctx, "adopter")
+	require.NoError(t, err)
+	require.NotNil(t, created)
+
+	dir := filepath.Join(sessions, "2026", "07", "30")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	rollout := filepath.Join(dir, "rollout-2026-07-30T12-41-39-"+sessionID+".jsonl")
+	require.NoError(t, os.WriteFile(rollout,
+		[]byte(`{"type":"session_meta","payload":{"id":"`+sessionID+`","cwd":"`+cwd+`"}}`+"\n"+
+			`{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"how do I use trigram search"}]}}`+"\n"),
+		0o600))
+	launched := created.CreatedAt.Add(time.Minute)
+	require.NoError(t, os.Chtimes(rollout, launched, launched))
+
+	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+		Agents:      st.Agents,
+		Sessions:    st.Agents,
+		Transcripts: st.Transcripts,
+		Harnesses:   mustRegistry(t, codex.New(codex.Options{SessionsDir: sessions})),
+	})
+
+	// The first pass adopts and reads in one go, since the rollout is already on disk.
+	require.NoError(t, syncer.Sync(ctx))
+
+	adopted, err := st.Get(ctx, "adopter")
+	require.NoError(t, err)
+	require.NotNil(t, adopted)
+	assert.Equal(t, sessionID, adopted.SessionID, "the id codex chose is recorded")
+
+	tr, err := st.GetTranscript(ctx, adopted.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "how do I use trigram search", tr.Content)
 }

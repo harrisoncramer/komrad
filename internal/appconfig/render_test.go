@@ -35,6 +35,7 @@ func TestRenderedConfigLoadsAsTheDefaults(t *testing.T) {
 
 	cfg, err := Load(path)
 	require.NoError(t, err)
-	assert.Empty(t, cfg.ClaudeFlags)
+	assert.Empty(t, cfg.Harness.Claude.Flags)
+	assert.Equal(t, DefaultHarness, cfg.DefaultHarness)
 	assert.Equal(t, DefaultKeybindings(), cfg.Keybindings)
 }

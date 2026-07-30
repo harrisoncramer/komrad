@@ -19,7 +19,12 @@ message Agent {
   string prompt = 5;
   string pane_id = 6;
   string state = 7;
-  string claude_session_id = 8;
+  // The conversation this agent holds, which its harness reopens when a dormant
+  // agent is restored.
+  string session_id = 8;
+  // Which CLI this agent runs, which decides how it was launched, how its state is
+  // read off its pane, and where its conversation log is found.
+  string harness = 18;
   // The workflow this agent belongs to. Every agent has one: the workflow holds
   // the directory, flags, and shared context it started from.
   string workflow_id = 9;
@@ -120,6 +125,13 @@ message CreateAgentRequest {
   // from when this request leaves them empty. Required: an agent outside a
   // workflow would have no defaults to inherit and nowhere to be listed.
   string workflow_id = 5 [(buf.validate.field).string.min_len = 1];
+  // Which CLI to run this agent on. Blank takes the workflow's default, and then
+  // the user's configured one, which is the usual case. A name this panel does not
+  // implement is refused: get_config lists what it runs.
+  string harness = 7 [(buf.validate.field).string = {
+    max_len: 40,
+    pattern: "^[a-z0-9-]*$"
+  }];
   // A key that makes this create repeatable. A second request carrying a key an
   // agent already holds returns that agent untouched rather than starting a
   // second agent process, which is what makes retrying a launch safe. Omit it

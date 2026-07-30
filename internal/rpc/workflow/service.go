@@ -91,6 +91,7 @@ func (s *Service) CreateWorkflow(ctx context.Context, req *connect.Request[workf
 	created, err := s.workflows.NewWorkflow(ctx, workflowstore.Config{
 		Name:    req.Msg.GetName(),
 		Context: req.Msg.GetContext(),
+		Harness: req.Msg.GetHarness(),
 		Cwd:     req.Msg.GetCwd(),
 		Flags:   req.Msg.GetFlags(),
 	})
@@ -106,6 +107,7 @@ func (s *Service) UpdateWorkflow(ctx context.Context, req *connect.Request[workf
 	err := s.workflows.UpdateWorkflow(ctx, req.Msg.GetId(), workflowstore.Config{
 		Name:    req.Msg.GetName(),
 		Context: req.Msg.GetContext(),
+		Harness: req.Msg.GetHarness(),
 		Cwd:     req.Msg.GetCwd(),
 		Flags:   req.Msg.GetFlags(),
 	})

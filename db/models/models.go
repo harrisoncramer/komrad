@@ -10,22 +10,23 @@ import (
 
 // One background Claude agent, everything needed to restore it.
 type Agent struct {
-	ID              string
-	Name            string
-	Prompt          string
-	PaneID          string
-	State           string
-	ClaudeSessionID string
-	WorkflowID      string
-	ScheduleID      *string
-	IdempotencyKey  *string
-	IsDeleted       bool
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	Mark            *string
-	IsHidden        bool
-	Cwd             string
-	Flags           string
+	ID             string
+	Name           string
+	Prompt         string
+	PaneID         string
+	State          string
+	SessionID      string
+	WorkflowID     string
+	ScheduleID     *string
+	IdempotencyKey *string
+	IsDeleted      bool
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	Mark           *string
+	IsHidden       bool
+	Cwd            string
+	Flags          string
+	Harness        string
 }
 
 // Key/value facts an agent recorded about its own work.
@@ -81,11 +82,12 @@ type Workflow struct {
 	UpdatedAt        time.Time
 }
 
-// Default config (cwd, flags) seeded into new agents of a workflow.
+// Default config (harness, cwd, flags) seeded into new agents of a workflow.
 type WorkflowConfig struct {
 	ID        string
 	Cwd       string
 	Flags     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	Harness   string
 }

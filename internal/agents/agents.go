@@ -11,6 +11,7 @@ import (
 	"claude-agents/internal/store"
 	"claude-agents/lib/xstr"
 
+	"claude-agents/internal/harness"
 	agentstore "claude-agents/internal/store/agent"
 	"claude-agents/internal/store/transcript"
 	"claude-agents/internal/store/workflow"
@@ -70,12 +71,10 @@ type agentTmux interface {
 	ClientPath(client string) string
 }
 
-// agentHarness is all the lifecycle needs from a harness: the name to file a new
-// conversation under, and a chance to carry that conversation along when a restore
-// has to move the agent somewhere else.
-type agentHarness interface {
-	NewSessionID() string
-	Relocate(sessionID, dir string) error
+// harnessRegistry resolves the CLI an agent names. It hands back the whole Harness
+// because a lookup cannot return a different interface per caller.
+type harnessRegistry interface {
+	Resolve(id string) (harness.Harness, error)
 }
 
 // AgentService owns an agent's lifecycle. It creates one, brings a dormant one
@@ -87,10 +86,12 @@ type AgentService struct {
 	workflows workflowReader
 	tx        txRunner
 	launcher  *Launcher
-	harness   agentHarness
-	// defaultFlags are the configured flags every agent is launched with, ahead of
-	// its own.
-	defaultFlags string
+	harnesses harnessRegistry
+	// defaultHarness is the CLI an agent runs when neither it nor its workflow names
+	// one, and defaultFlags are the configured flags each harness's agents are
+	// launched with, ahead of their own, keyed by harness id.
+	defaultHarness string
+	defaultFlags   map[string]string
 	// restoreRoot is only read when a restore has to repair a working directory that
 	// is gone. It is a field rather than a constant so a test can point it at a temp
 	// directory instead of the user's home.
@@ -99,13 +100,14 @@ type AgentService struct {
 
 // AgentParams carries the agent service's dependencies.
 type AgentParams struct {
-	Tmux         agentTmux
-	Agents       agentStore
-	Workflows    workflowReader
-	Tx           txRunner
-	Launcher     *Launcher
-	Harness      agentHarness
-	DefaultFlags string
+	Tmux           agentTmux
+	Agents         agentStore
+	Workflows      workflowReader
+	Tx             txRunner
+	Launcher       *Launcher
+	Harnesses      harnessRegistry
+	DefaultHarness string
+	DefaultFlags   map[string]string
 	// RestoreRoot is where an agent runs when its recorded directory cannot be
 	// recreated, defaulting to the real location when left empty.
 	RestoreRoot string
@@ -118,14 +120,15 @@ func NewAgentService(p AgentParams) *AgentService {
 	}
 
 	return &AgentService{
-		tmux:         p.Tmux,
-		agents:       p.Agents,
-		workflows:    p.Workflows,
-		tx:           p.Tx,
-		launcher:     p.Launcher,
-		harness:      p.Harness,
-		defaultFlags: p.DefaultFlags,
-		restoreRoot:  p.RestoreRoot,
+		tmux:           p.Tmux,
+		agents:         p.Agents,
+		workflows:      p.Workflows,
+		tx:             p.Tx,
+		launcher:       p.Launcher,
+		harnesses:      p.Harnesses,
+		defaultHarness: p.DefaultHarness,
+		defaultFlags:   p.DefaultFlags,
+		restoreRoot:    p.RestoreRoot,
 	}
 }
 
@@ -262,6 +265,9 @@ type NewAgentParams struct {
 	Dir    string
 	Flags  string
 	Prompt string
+	// Harness names the CLI this agent runs. Empty takes the workflow's default, and
+	// then the configured one. An id nothing implements is refused.
+	Harness string
 	// WorkflowID is required. It supplies the directory and flags when Dir and Flags
 	// are left empty, and the shared context appended to the agent's system prompt.
 	WorkflowID string
@@ -351,8 +357,8 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 
 	// The conversation is named before it exists, so restoring the agent can ask the
 	// harness to reopen that same one. A harness that will not be told a name returns
-	// none, and the id has to be discovered after the launch instead.
-	sessionID := s.harness.NewSessionID()
+	// none, leaving the id to be discovered after the launch.
+	sessionID := plan.harness.MintSessionID()
 	if err := s.agents.Create(ctx, agentstore.Agent{
 		ID:             id,
 		Name:           plan.name,
@@ -361,6 +367,7 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		Flags:          plan.flags,
 		Prompt:         p.Prompt,
 		State:          agentstore.StateNew,
+		Harness:        plan.harnessID,
 		SessionID:      sessionID,
 		WorkflowID:     p.WorkflowID,
 		ScheduleID:     p.ScheduleID,
@@ -382,8 +389,9 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		return nil, fmt.Errorf("agent %q vanished after being recorded", plan.name)
 	}
 
-	if err := s.launcher.launch(launchParams{
+	if err := s.launcher.launch(plan.harness, launchParams{
 		Pane:   pane,
+		Dir:    plan.dir,
 		Flags:  plan.flags,
 		Prompt: p.Prompt,
 		// The workflow's context is a snapshot taken at launch, so later edits to the
@@ -408,7 +416,11 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 
 // launchPlan is a create resolved against the workflow it lands in.
 type launchPlan struct {
-	name            string
+	name string
+	// harness is the CLI this agent will run, and harnessID is what the row records so
+	// a later pass resolves the same one.
+	harness         harness.Harness
+	harnessID       string
 	dir             string
 	flags           string
 	workflowContext string
@@ -428,6 +440,21 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 	}
 	if wf == nil {
 		return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, p.WorkflowID)
+	}
+
+	// The harness resolves before the directory is checked, since an agent naming a
+	// CLI this binary cannot run is wrong about something no directory makes right.
+	harnessID := strings.TrimSpace(p.Harness)
+	if harnessID == "" {
+		harnessID = strings.TrimSpace(wf.Harness)
+	}
+	if harnessID == "" {
+		harnessID = s.defaultHarness
+	}
+
+	resolved, err := s.harnesses.Resolve(harnessID)
+	if err != nil {
+		return nil, err
 	}
 
 	// What the caller asked for wins, then the workflow's default, then where the user
@@ -458,8 +485,10 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 
 	return &launchPlan{
 		name:            s.uniqueAgentName(ctx, p.Title, p.Prompt),
+		harness:         resolved,
+		harnessID:       harnessID,
 		dir:             dir,
-		flags:           strings.TrimSpace(s.defaultFlags + " " + agentFlags),
+		flags:           strings.TrimSpace(s.defaultFlags[harnessID] + " " + agentFlags),
 		workflowContext: wf.Context,
 	}, nil
 }
@@ -479,7 +508,14 @@ func idempotencyKey(key string) *string {
 // updating the record. An archived agent has its soft-delete flag cleared, which
 // is what returns it to the normal listing.
 func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) error {
-	dir := s.resumeDir(agent)
+	// An agent recorded against a harness this binary no longer runs cannot be brought
+	// back, and saying so beats a pane running the wrong CLI against its conversation.
+	resolved, err := s.harnesses.Resolve(agent.Harness)
+	if err != nil {
+		return err
+	}
+
+	dir := s.resumeDir(agent, resolved)
 
 	// A deleted agent's name may have been reused while it sat deleted, and undeleting
 	// it under that name would collide on the unique-name index, so it takes a fresh
@@ -520,8 +556,9 @@ func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) erro
 		return fmt.Errorf("failed to restore agent %q: %w", agent.Name, err)
 	}
 
-	if err := s.launcher.launch(launchParams{
+	if err := s.launcher.launch(resolved, launchParams{
 		Pane:      pane,
+		Dir:       dir,
 		Flags:     agent.Flags,
 		SessionID: agent.SessionID,
 		AgentID:   agent.ID,

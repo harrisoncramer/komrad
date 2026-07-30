@@ -28,7 +28,7 @@ const (
 
 // Workflow is a named bucket of related agents. It runs nothing itself. It holds
 // a label, shared context injected into the agents spawned inside it, and the
-// working directory and flags those agents start from.
+// harness, working directory, and flags those agents start from.
 type Workflow struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -36,9 +36,12 @@ type Workflow struct {
 	// Free-text durable state the user edits. Agents created inside the workflow
 	// get it appended to their system prompt as a snapshot at launch, so editing
 	// it reaches only agents spawned afterwards.
-	Context       string `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
-	Cwd           string `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	Flags         string `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
+	Context string `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
+	Cwd     string `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
+	Flags   string `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
+	// Which CLI agents in this workflow run, blank when they take the user's
+	// configured default.
+	Harness       string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -104,6 +107,13 @@ func (x *Workflow) GetCwd() string {
 func (x *Workflow) GetFlags() string {
 	if x != nil {
 		return x.Flags
+	}
+	return ""
+}
+
+func (x *Workflow) GetHarness() string {
+	if x != nil {
+		return x.Harness
 	}
 	return ""
 }
@@ -303,8 +313,11 @@ type CreateWorkflowRequest struct {
 	// Blank means agents inside this workflow choose their own directory. When set
 	// it must be absolute or ~-prefixed, matching what creating an agent demands,
 	// since this is the value prefilled into that form.
-	Cwd           string `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	Flags         string `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
+	Cwd   string `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
+	Flags string `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
+	// Which CLI agents created inside this workflow run. Blank leaves them on the
+	// user's configured default. A name this panel does not implement is refused.
+	Harness       string `protobuf:"bytes,5,opt,name=harness,proto3" json:"harness,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -367,6 +380,13 @@ func (x *CreateWorkflowRequest) GetFlags() string {
 	return ""
 }
 
+func (x *CreateWorkflowRequest) GetHarness() string {
+	if x != nil {
+		return x.Harness
+	}
+	return ""
+}
+
 type CreateWorkflowResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Workflow      *Workflow              `protobuf:"bytes,1,opt,name=workflow,proto3" json:"workflow,omitempty"`
@@ -415,12 +435,16 @@ func (x *CreateWorkflowResponse) GetWorkflow() *Workflow {
 // sent, so an omitted one reads as cleared rather than unchanged. Fetch the
 // workflow, change what you mean to, and send it back.
 type UpdateWorkflowRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Context       string                 `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
-	Cwd           string                 `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	Flags         string                 `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Id      string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name    string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Context string                 `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
+	Cwd     string                 `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
+	Flags   string                 `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
+	// Which CLI agents created inside this workflow run from now on. Blank leaves
+	// them on the user's configured default. Agents already spawned keep the harness
+	// they started on, which is recorded against each of them.
+	Harness       string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -490,6 +514,13 @@ func (x *UpdateWorkflowRequest) GetFlags() string {
 	return ""
 }
 
+func (x *UpdateWorkflowRequest) GetHarness() string {
+	if x != nil {
+		return x.Harness
+	}
+	return ""
+}
+
 // DeleteWorkflowRequest removes a workflow and the agents inside it.
 type DeleteWorkflowRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -539,13 +570,14 @@ var File_workflow_v1_workflow_proto protoreflect.FileDescriptor
 
 const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\n" +
-	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"p\n" +
+	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\x8a\x01\n" +
 	"\bWorkflow\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
 	"\acontext\x18\x03 \x01(\tR\acontext\x12\x10\n" +
 	"\x03cwd\x18\x04 \x01(\tR\x03cwd\x12\x14\n" +
-	"\x05flags\x18\x05 \x01(\tR\x05flags\"e\n" +
+	"\x05flags\x18\x05 \x01(\tR\x05flags\x12\x18\n" +
+	"\aharness\x18\x06 \x01(\tR\aharness\"e\n" +
 	"\x14ListWorkflowsRequest\x12>\n" +
 	"\n" +
 	"pagination\x18\x01 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
@@ -558,22 +590,24 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x12GetWorkflowRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"H\n" +
 	"\x13GetWorkflowResponse\x121\n" +
-	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xa0\x01\n" +
+	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xd1\x01\n" +
 	"\x15CreateWorkflowRequest\x12\x1e\n" +
 	"\x04name\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x12#\n" +
 	"\acontext\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\acontext\x12\x1e\n" +
 	"\x03cwd\x18\x03 \x01(\tB\f\xbaH\tr\a\xb0\xbb\x18\x01\x18\x80 R\x03cwd\x12\"\n" +
-	"\x05flags\x18\x04 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\"K\n" +
+	"\x05flags\x18\x04 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\x12/\n" +
+	"\aharness\x18\x05 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\"K\n" +
 	"\x16CreateWorkflowResponse\x121\n" +
-	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xb9\x01\n" +
+	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xea\x01\n" +
 	"\x15UpdateWorkflowRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x12#\n" +
 	"\acontext\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\acontext\x12\x1e\n" +
 	"\x03cwd\x18\x04 \x01(\tB\f\xbaH\tr\a\xb0\xbb\x18\x01\x18\x80 R\x03cwd\x12\"\n" +
-	"\x05flags\x18\x05 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\"0\n" +
+	"\x05flags\x18\x05 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\x12/\n" +
+	"\aharness\x18\x06 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\"0\n" +
 	"\x15DeleteWorkflowRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xef\f\n" +
 	"\x0fWorkflowService\x12\xf2\x02\n" +

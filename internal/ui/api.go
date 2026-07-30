@@ -239,6 +239,7 @@ func (a api) getWorkflow(id string) (*workflowstore.Workflow, error) {
 		ID:      w.GetId(),
 		Name:    w.GetName(),
 		Context: w.GetContext(),
+		Harness: w.GetHarness(),
 		Cwd:     w.GetCwd(),
 		Flags:   w.GetFlags(),
 	}, nil
@@ -258,6 +259,7 @@ func (a api) createWorkflow(cfg workflowstore.Config) error {
 	_, err := a.workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
 		Name:    name,
 		Context: cfg.Context,
+		Harness: cfg.Harness,
 		Cwd:     cfg.Cwd,
 		Flags:   cfg.Flags,
 	}))
@@ -280,6 +282,7 @@ func (a api) updateWorkflow(w workflowstore.Workflow) error {
 		Id:      w.ID,
 		Name:    name,
 		Context: w.Context,
+		Harness: w.Harness,
 		Cwd:     w.Cwd,
 		Flags:   w.Flags,
 	}))

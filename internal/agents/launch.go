@@ -17,27 +17,27 @@ type launchTmux interface {
 // launchHarness is all a launch needs from the harness, the command line that puts
 // the agent's CLI up.
 type launchHarness interface {
-	Command(harness.Launch) (string, error)
+	BuildCommand(harness.Launch) (string, error)
 }
 
 // Launcher turns an agent into a running CLI process. It owns what a spawned agent
 // is told and nothing else, with no store, no lifecycle, and no knowledge of what
-// an agent is. How any of it is spelled on a command line belongs to the harness.
+// an agent is. How any of it is spelled on a command line belongs to the harness,
+// which arrives per launch because which CLI an agent runs is the agent's own.
 type Launcher struct {
-	tmux    launchTmux
-	harness launchHarness
+	tmux launchTmux
 	// serverAddr is where serve listens, which is also where the MCP endpoint
 	// lives. Agents are told about it at launch.
 	serverAddr string
 }
 
 // NewLauncher builds a launcher that points spawned agents at serverAddr.
-func NewLauncher(tmux launchTmux, h launchHarness, serverAddr string) *Launcher {
+func NewLauncher(tmux launchTmux, serverAddr string) *Launcher {
 	if serverAddr == "" {
 		serverAddr = defaultServerAddr
 	}
 
-	return &Launcher{tmux: tmux, harness: h, serverAddr: serverAddr}
+	return &Launcher{tmux: tmux, serverAddr: serverAddr}
 }
 
 // mcpBriefing tells a spawned agent that the panel's own database is queryable, so a
@@ -65,6 +65,7 @@ func (l *Launcher) appendedSystemPrompt(workflowContext string) string {
 
 type launchParams struct {
 	Pane            string
+	Dir             string
 	Flags           string
 	Prompt          string
 	WorkflowContext string
@@ -76,10 +77,11 @@ type launchParams struct {
 // launch types the command that puts an agent up into its pane. What that command
 // is comes from the harness; whether the briefing survives a resume, and how the
 // prompt reaches the CLI, are its business rather than the launcher's.
-func (l *Launcher) launch(params launchParams) error {
-	command, err := l.harness.Command(harness.Launch{
+func (l *Launcher) launch(h launchHarness, params launchParams) error {
+	command, err := h.BuildCommand(harness.Launch{
 		Flags:       params.Flags,
 		Prompt:      params.Prompt,
+		Dir:         params.Dir,
 		Context:     l.appendedSystemPrompt(params.WorkflowContext),
 		SessionID:   params.SessionID,
 		AgentID:     params.AgentID,

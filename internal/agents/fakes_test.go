@@ -3,7 +3,10 @@ package agents
 import (
 	"context"
 	"errors"
+	"fmt"
+	"slices"
 	"testing"
+	"time"
 
 	"claude-agents/internal/harness"
 	agentstore "claude-agents/internal/store/agent"
@@ -145,6 +148,11 @@ const (
 	waitFrame = "frame: waiting"
 )
 
+// testHarnessID is the harness every seeded agent names, and what the fake registry
+// is asked for. It is claude's own id so the tests that drive the real harness and
+// the tests that drive the fake seed their agents the same way.
+const testHarnessID = "claude"
+
 // fakeHarness stands in for an agent CLI in the tests that are about the panel's
 // own behaviour rather than any one CLI's. It records what it was asked for, so a
 // test asserts on what the panel composed rather than on how a CLI would spell it.
@@ -156,11 +164,14 @@ type fakeHarness struct {
 	// commandErr makes building the command line fail, standing in for a harness
 	// that cannot assemble one.
 	commandErr error
+	// found is the conversations FindSessions reports, for the adoption path a harness
+	// that names its own sessions goes through.
+	found []string
 }
 
-func (f *fakeHarness) ID() string { return "fake" }
+func (f *fakeHarness) GetID() string { return testHarnessID }
 
-func (f *fakeHarness) Command(launch harness.Launch) (string, error) {
+func (f *fakeHarness) BuildCommand(launch harness.Launch) (string, error) {
 	f.launches = append(f.launches, launch)
 	if f.commandErr != nil {
 		return "", f.commandErr
@@ -169,9 +180,9 @@ func (f *fakeHarness) Command(launch harness.Launch) (string, error) {
 	return "agent-cli --session " + launch.SessionID, nil
 }
 
-func (f *fakeHarness) NewSessionID() string { return uuid.NewString() }
+func (f *fakeHarness) MintSessionID() string { return uuid.NewString() }
 
-func (f *fakeHarness) Activity(frame string) harness.Activity {
+func (f *fakeHarness) ReadActivity(frame string) harness.Activity {
 	switch frame {
 	case busyFrame:
 		return harness.ActivityWorking
@@ -188,6 +199,37 @@ func (f *fakeHarness) Relocate(sessionID, dir string) error {
 	f.relocated = append(f.relocated, [2]string{sessionID, dir})
 
 	return nil
+}
+
+// The log half is here to satisfy the interface a registry hands back. The syncer's
+// own tests drive a real harness over a real log, since the format is the point
+// there.
+func (f *fakeHarness) GetLogPath(string) string { return "" }
+
+// found is what FindSessions answers with, for a test about adopting the id a harness
+// named itself. Empty means this fake pre-mints like claude does.
+func (f *fakeHarness) FindSessions(string, time.Time) ([]string, error) {
+	return f.found, nil
+}
+
+func (f *fakeHarness) ReadLog(string, int64) (harness.LogRead, error) {
+	return harness.LogRead{}, nil
+}
+
+// fakeHarnesses is a registry over one fake harness. It answers for every id, since
+// most tests here are not about which CLI an agent named; a test that is about that
+// sets only, and every other id then resolves to ErrNotRegistered.
+type fakeHarnesses struct {
+	harness *fakeHarness
+	only    []string
+}
+
+func (f fakeHarnesses) Resolve(id string) (harness.Harness, error) {
+	if len(f.only) > 0 && !slices.Contains(f.only, id) {
+		return nil, fmt.Errorf("%w: %q", harness.ErrNotRegistered, id)
+	}
+
+	return f.harness, nil
 }
 
 // testStore gathers the domain stores a test needs behind one handle, built over
@@ -216,6 +258,11 @@ func (s *testStore) Get(ctx context.Context, name string) (*agentstore.Agent, er
 // did not name one. Every agent belongs to a workflow, and most tests here are
 // about something else entirely.
 func (s *testStore) Create(ctx context.Context, agent agentstore.Agent) error {
+	// The column is explicit on insert, so a test that did not care which CLI its
+	// agent runs would otherwise store an empty id no registry resolves.
+	if agent.Harness == "" {
+		agent.Harness = testHarnessID
+	}
 	if agent.WorkflowID == "" {
 		created, err := s.Workflows.Create(ctx, workflowstore.Config{Name: "workflow-" + uuid.NewString()})
 		if err != nil {
@@ -261,15 +308,16 @@ func (s *testStore) GetTranscript(ctx context.Context, agentID string) (transcri
 
 // agentService builds the service under test over these stores, the same way
 // the composition root does.
-func (s *testStore) agentService(tmux *fakeTmux, h *fakeHarness, addr, flags string) *AgentService {
+func (s *testStore) agentService(tmux *fakeTmux, harnesses fakeHarnesses, addr, flags string) *AgentService {
 	return NewAgentService(AgentParams{
-		Tmux:         tmux,
-		Agents:       s.Agents,
-		Workflows:    s.Workflows,
-		Tx:           s.Pool,
-		Launcher:     NewLauncher(tmux, h, addr),
-		Harness:      h,
-		DefaultFlags: flags,
+		Tmux:           tmux,
+		Agents:         s.Agents,
+		Workflows:      s.Workflows,
+		Tx:             s.Pool,
+		Launcher:       NewLauncher(tmux, addr),
+		Harnesses:      harnesses,
+		DefaultHarness: testHarnessID,
+		DefaultFlags:   map[string]string{testHarnessID: flags},
 	})
 }
 
@@ -340,7 +388,7 @@ func workflowsFor(st *testStore) *WorkflowService {
 func newManagerWithHarness(tmux *fakeTmux, st *testStore, flags string) (*AgentService, *fakeHarness) {
 	h := &fakeHarness{}
 
-	return st.agentService(tmux, h, "127.0.0.1:9999", flags), h
+	return st.agentService(tmux, fakeHarnesses{harness: h}, "127.0.0.1:9999", flags), h
 }
 
 // agentByID finds an agent among every row, archived ones included, since a test

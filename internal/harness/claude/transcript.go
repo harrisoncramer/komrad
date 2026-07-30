@@ -2,19 +2,16 @@ package claude
 
 import (
 	"encoding/json"
-	"fmt"
-	"io"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"claude-agents/internal/harness"
 )
 
-// LogPath finds the JSONL log for a session id under Claude's projects dir, or ""
+// GetLogPath finds the JSONL log for a session id under Claude's projects dir, or ""
 // when no log exists. A glob on the id finds it without reproducing Claude's
 // version-specific directory-name encoding.
-func (h *Harness) LogPath(sessionID string) string {
+func (h *Harness) GetLogPath(sessionID string) string {
 	if sessionID == "" {
 		return ""
 	}
@@ -27,59 +24,11 @@ func (h *Harness) LogPath(sessionID string) string {
 	return matches[0]
 }
 
-// ReadLog reads whatever the log at path holds past offset and flattens it into
-// turns. A log that has shrunk was rewritten, which a --resume can do, so the
-// stored offset no longer points into the same content and the read starts over.
+// ReadLog reads whatever the log at path holds past offset and flattens it into turns.
+// Claude appends a record per line, and a shrunk file means it rewrote the log, which a
+// --resume can do.
 func (h *Harness) ReadLog(path string, offset int64) (harness.LogRead, error) {
-	info, err := os.Stat(path)
-	if err != nil {
-		return harness.LogRead{}, nil //nolint:nilerr // a log that is not on disk yet is not an error
-	}
-
-	read := harness.LogRead{Restart: info.Size() < offset}
-	if read.Restart {
-		offset = 0
-	}
-	if info.Size() == offset {
-		return read, nil
-	}
-
-	appended, consumed, err := readNewLines(path, offset)
-	if err != nil {
-		return harness.LogRead{}, err
-	}
-
-	read.Turns, read.Consumed = flattenTranscript(appended), consumed
-
-	return read, nil
-}
-
-// readNewLines reads from offset to the end of the file and returns the complete lines
-// found there together with how many bytes they span. A trailing partial line, written
-// while Claude is mid-turn, is left unconsumed so the next pass reads it once whole.
-func readNewLines(path string, offset int64) ([]byte, int64, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to open transcript %q: %w", path, err)
-	}
-	defer func() { _ = file.Close() }()
-
-	if _, err := file.Seek(offset, io.SeekStart); err != nil {
-		return nil, 0, fmt.Errorf("failed to seek transcript %q: %w", path, err)
-	}
-
-	tail, err := io.ReadAll(file)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to read transcript %q: %w", path, err)
-	}
-
-	lastNL := strings.LastIndexByte(string(tail), '\n')
-	if lastNL < 0 {
-		return nil, 0, nil
-	}
-
-	complete := tail[:lastNL+1]
-	return complete, int64(len(complete)), nil
+	return harness.ReadAppendOnlyLog(path, offset, flattenTranscript)
 }
 
 // transcriptLine is the part of a JSONL entry the flattener reads. Only user and
@@ -134,7 +83,7 @@ func flattenTranscript(data []byte) []harness.Turn {
 func blockText(content json.RawMessage) string {
 	var plain string
 	if err := json.Unmarshal(content, &plain); err == nil {
-		return cleanText(plain)
+		return harness.CleanText(plain)
 	}
 
 	var blocks []contentBlock
@@ -147,21 +96,10 @@ func blockText(content json.RawMessage) string {
 		if block.Type != "text" {
 			continue
 		}
-		if text := cleanText(block.Text); text != "" {
+		if text := harness.CleanText(block.Text); text != "" {
 			parts = append(parts, text)
 		}
 	}
 
 	return strings.Join(parts, "\n\n")
-}
-
-// cleanText trims a turn's prose and drops the NUL the transcript columns cannot hold,
-// which a log written by another process may well carry and which would otherwise refuse
-// every write for that agent from then on.
-//
-// It is dropped as the prose is read rather than at the write, because the turns carry
-// the offset they sit at in the transcript text, so anything removed later would leave
-// every offset after it pointing a byte too far.
-func cleanText(text string) string {
-	return strings.TrimSpace(strings.ReplaceAll(text, "\x00", ""))
 }

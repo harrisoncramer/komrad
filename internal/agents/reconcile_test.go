@@ -117,7 +117,7 @@ func TestReconcileSinglePass(t *testing.T) {
 			}
 			tmux.captures["%1"] = tt.frame
 
-			rec := NewReconciler(tmux, &fakeHarness{}, st.Agents)
+			rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
 			require.NoError(t, rec.Reconcile(context.Background()))
 			assert.Equal(t, tt.want, stateOf(t, st, "agent"))
 		})
@@ -140,7 +140,7 @@ func TestReconcileLeavesTheMark(t *testing.T) {
 	tmux.owners["%1"] = agent.ID
 	tmux.captures["%1"] = busyFrame
 
-	rec := NewReconciler(tmux, &fakeHarness{}, st.Agents)
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
 	require.NoError(t, rec.Reconcile(ctx))
 
 	after, err := st.Get(ctx, "agent")
@@ -204,7 +204,7 @@ func TestReconcileOverPasses(t *testing.T) {
 			tmux := newFakeTmux()
 			tmux.owners["%1"] = agent.ID
 
-			rec := NewReconciler(tmux, &fakeHarness{}, st.Agents)
+			rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
 			ctx := context.Background()
 
 			for i, frame := range tt.passes {
@@ -250,4 +250,34 @@ func repeatFrame(frame string, n int) []string {
 	}
 
 	return frames
+}
+
+// TestReconcileLeavesAnUnknownHarnessAlone covers an agent recorded against a CLI
+// this binary does not run, which a removed harness looks like. Nothing here can
+// read its pane, so the only honest act is to leave the state it already holds:
+// demoting it would report work as finished off a frame nobody interpreted.
+func TestReconcileLeavesAnUnknownHarnessAlone(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+
+	require.NoError(t, st.Create(ctx, agentstore.Agent{
+		Name:    "orphan",
+		Pane:    "%1",
+		State:   agentstore.StateThinking,
+		Harness: "gemini",
+	}))
+	agent, err := st.Get(ctx, "orphan")
+	require.NoError(t, err)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+	tmux.captures["%1"] = idleFrame
+
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}}, st.Agents)
+	for range reconcileMisses + 1 {
+		require.NoError(t, rec.Reconcile(ctx))
+	}
+
+	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "orphan"))
+	assert.Empty(t, rec.misses, "an unread frame is not an idle observation")
 }

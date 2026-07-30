@@ -1,6 +1,6 @@
 // Package appconfig loads the user's customization from a TOML file via viper.
-// It covers the default agent flags, the marks an agent can be given, and the
-// panel keybindings.
+// It covers which CLI agents run and the flags it takes, the marks an agent can be
+// given, and the panel keybindings.
 package appconfig
 
 import (
@@ -150,11 +150,46 @@ type Layout struct {
 	Split float64 `mapstructure:"split"`
 }
 
+// Harness is how one agent CLI is configured.
+type Harness struct {
+	// Flags appended to every agent's command line for this CLI, ahead of the flags
+	// that agent carries itself. Flag vocabularies do not overlap between CLIs, which
+	// is why they are configured per harness rather than once.
+	Flags string `mapstructure:"flags"`
+}
+
+// Codex is how the Codex CLI is configured. It carries one setting of its own,
+// since Codex asks a question at startup that no other CLI here does.
+type Codex struct {
+	// Flags appended to every Codex agent's command line, ahead of the flags that
+	// agent carries itself.
+	Flags string `mapstructure:"flags"`
+	// Whether to record each agent's directory as trusted in Codex's own config
+	// before launching it. Codex asks whether a directory is trusted the first time it
+	// runs there and waits for an answer, which it reads only from that file, so an
+	// agent in a fresh worktree otherwise starts blocked and shows here as waiting.
+	// Turning this on edits ~/.codex/config.toml on your behalf, adding nothing but a
+	// trust entry per directory and never changing one you set yourself.
+	TrustLaunchDirs bool `mapstructure:"trust_launch_dirs"`
+}
+
+// Harnesses is the per-CLI configuration. There is a field per harness the binary
+// implements rather than an open table, so a misspelled name is refused by the same
+// unknown-key check as everything else here, and this file lists what can be run.
+type Harnesses struct {
+	Claude Harness `mapstructure:"claude"`
+	Codex  Codex   `mapstructure:"codex"`
+}
+
 // Config is the user's customization.
 type Config struct {
-	// Flags appended to every agent's command line, ahead of the flags that agent
-	// carries itself.
-	ClaudeFlags string `mapstructure:"claude_flags"`
+	// Which agent CLI a new agent runs when neither the agent nor its workflow names
+	// one. It has to be a harness this binary implements, so it is one of the names
+	// under [harness] below.
+	DefaultHarness string `mapstructure:"default_harness"`
+	// Per-CLI configuration, which is where the flags an agent of that CLI inherits
+	// live.
+	Harness Harnesses `mapstructure:"harness"`
 	// How the popup's width is divided between the panel and the stage beside it.
 	Layout Layout `mapstructure:"layout"`
 	// The marks the mark key cycles through, in order. A mark is a glyph and means
@@ -171,11 +206,17 @@ type Config struct {
 // agree by construction.
 func Defaults() *Config {
 	return &Config{
-		Layout:      DefaultLayout(),
-		Marks:       DefaultMarks(),
-		Keybindings: DefaultKeybindings(),
+		DefaultHarness: DefaultHarness,
+		Layout:         DefaultLayout(),
+		Marks:          DefaultMarks(),
+		Keybindings:    DefaultKeybindings(),
 	}
 }
+
+// DefaultHarness is the CLI a new agent runs when the config names none. It is
+// spelled here rather than taken from the registry because the registry is built
+// from what the binary implements, and this is a default a user overrides.
+const DefaultHarness = "claude"
 
 // DefaultSplit is the share of the width the panel's list takes when the config
 // names none.
@@ -327,6 +368,11 @@ func (c Config) validate() error {
 // cases here rather than choices to be honoured.
 func (c Config) withDefaults() Config {
 	c.Keybindings = c.Keybindings.withDefaults()
+	// Every launch resolves through this id, so leaving it empty would refuse every
+	// create rather than fall back to anything.
+	if strings.TrimSpace(c.DefaultHarness) == "" {
+		c.DefaultHarness = DefaultHarness
+	}
 	if len(c.Marks) == 0 {
 		c.Marks = DefaultMarks()
 	}

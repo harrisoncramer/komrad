@@ -7,6 +7,7 @@ package claude
 import (
 	"os"
 	"path/filepath"
+	"time"
 
 	"claude-agents/internal/harness"
 
@@ -31,18 +32,21 @@ func New(projectsDir string) *Harness {
 	return &Harness{projectsDir: projectsDir}
 }
 
-// The panel reaches Claude Code only through the interface, so a method missing
-// here is a compile error rather than a nil call on a loop that runs every two
-// seconds.
+// The panel reaches Claude Code only through the interface, so a method missing here
+// is a compile error rather than a nil call on one of serve's loops.
 var _ harness.Harness = (*Harness)(nil)
 
-// ID is the name an agent running Claude Code is recorded under.
-func (h *Harness) ID() string { return "claude" }
+// GetID is the name an agent running Claude Code is recorded under.
+func (h *Harness) GetID() string { return "claude" }
 
-// NewSessionID mints the id a fresh conversation is filed under. Claude takes one
-// on the command line, so the panel names a conversation before it exists, and
-// every later resume, log lookup, and relocation keys on the name it chose.
-func (h *Harness) NewSessionID() string { return uuid.NewString() }
+// MintSessionID names the conversation a fresh launch will hold. Claude takes one on
+// the command line, so the panel names it before it exists, and every later resume,
+// log lookup, and relocation keys on the name it chose.
+func (h *Harness) MintSessionID() string { return uuid.NewString() }
+
+// FindSessions has nothing to find. Claude is told the id of every conversation it
+// starts, so a session is never discovered after the fact.
+func (h *Harness) FindSessions(string, time.Time) ([]string, error) { return nil, nil }
 
 // DefaultProjectsDir is where Claude Code writes its JSONL logs. An unresolvable
 // home yields a relative path, which matches no logs rather than erroring.
