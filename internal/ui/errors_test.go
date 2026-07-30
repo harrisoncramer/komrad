@@ -12,8 +12,6 @@ import (
 	workflowstore "claude-agents/internal/store/workflow"
 	agentv1 "claude-agents/proto/gen/agent/v1"
 	"claude-agents/proto/gen/agent/v1/agentv1connect"
-	workflowv1 "claude-agents/proto/gen/workflow/v1"
-	"claude-agents/proto/gen/workflow/v1/workflowv1connect"
 
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
@@ -42,15 +40,6 @@ func (r refusingAgents) ListAgents(context.Context, *connect.Request[agentv1.Lis
 	return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
 }
 
-// emptyWorkflows answers the workflow list the agents reload also performs.
-type emptyWorkflows struct {
-	workflowv1connect.WorkflowServiceClient
-}
-
-func (emptyWorkflows) ListWorkflows(context.Context, *connect.Request[workflowv1.ListWorkflowsRequest]) (*connect.Response[workflowv1.ListWorkflowsResponse], error) {
-	return connect.NewResponse(&workflowv1.ListWorkflowsResponse{}), nil
-}
-
 // TestRefusedActionIsReported covers the case the panel used to swallow. Every
 // write discarded its error, and since the list reloads straight after, a refused
 // delete looked exactly like a keypress that never registered.
@@ -60,7 +49,7 @@ func TestRefusedActionIsReported(t *testing.T) {
 	m := model{
 		api: api{
 			agents:    refusingAgents{err: connect.NewError(connect.CodeFailedPrecondition, errors.New("already archived"))},
-			workflows: emptyWorkflows{},
+			workflows: emptyLists{},
 		},
 		tmux:      &recordingTmux{},
 		stage:     NewStage(&recordingTmux{}, appconfig.DefaultSplit),
@@ -71,9 +60,11 @@ func TestRefusedActionIsReported(t *testing.T) {
 	}
 	m.agentCursor = firstAgentRowIndex(m.agentRows())
 
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
-	m, ok := updated.(model)
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	pressed, ok := updated.(model)
 	require.True(t, ok)
+
+	m = settle(t, pressed, cmd)
 
 	require.NotNil(t, m.actionErr, "a refused delete is reported rather than swallowed")
 	assert.Equal(t, `Could not delete agent "api-refactor"`, m.actionErr.Summary)
@@ -88,7 +79,7 @@ func TestRefusedRestoreIsReported(t *testing.T) {
 	m := model{
 		api: api{
 			agents:    refusingAgents{err: connect.NewError(connect.CodeNotFound, errors.New("no such agent"))},
-			workflows: emptyWorkflows{},
+			workflows: emptyLists{},
 		},
 		tmux:      &recordingTmux{},
 		stage:     NewStage(&recordingTmux{}, appconfig.DefaultSplit),
@@ -101,9 +92,11 @@ func TestRefusedRestoreIsReported(t *testing.T) {
 	}
 	m.agentCursor = firstAgentRowIndex(m.agentRows())
 
-	updated, _ := m.openAgent()
-	got, ok := updated.(model)
+	updated, cmd := m.openAgent()
+	pressed, ok := updated.(model)
 	require.True(t, ok)
+
+	got := settle(t, pressed, cmd)
 
 	require.NotNil(t, got.actionErr)
 	assert.Equal(t, `Could not restore agent "api-refactor"`, got.actionErr.Summary)
@@ -148,7 +141,7 @@ func (acceptingAgents) ListAgents(context.Context, *connect.Request[agentv1.List
 // previous failure sitting on screen.
 func TestSuccessfulActionClearsTheBanner(t *testing.T) {
 	m := model{
-		api:       api{agents: acceptingAgents{}, workflows: emptyWorkflows{}},
+		api:       api{agents: acceptingAgents{}, workflows: emptyLists{}},
 		tmux:      &recordingTmux{},
 		stage:     NewStage(&recordingTmux{}, appconfig.DefaultSplit),
 		keys:      appconfig.DefaultKeybindings(),
@@ -161,9 +154,11 @@ func TestSuccessfulActionClearsTheBanner(t *testing.T) {
 	}
 	m.agentCursor = firstAgentRowIndex(m.agentRows())
 
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
-	got, ok := updated.(model)
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	pressed, ok := updated.(model)
 	require.True(t, ok)
+
+	got := settle(t, pressed, cmd)
 
 	assert.Nil(t, got.actionErr, "a write that succeeded clears the previous failure")
 }
@@ -416,22 +411,22 @@ func TestUnreachableView(t *testing.T) {
 	tests := []struct {
 		name         string
 		start        error
-		msg          listsLoadedMsg
+		msg          refreshResult
 		wantTakeover bool
 	}{
 		{
 			name: "while the service answers, the list renders as usual",
-			msg:  listsLoadedMsg{agents: []agentItem{{agent: agentstore.Agent{Name: "still-here", State: agentstore.StateNew}}}},
+			msg:  refreshResult{agents: []agentItem{{agent: agentstore.Agent{Name: "still-here", State: agentstore.StateNew}}}},
 		},
 		{
 			name:         "a failed poll takes the screen over",
-			msg:          listsLoadedMsg{err: errors.New("dial tcp 127.0.0.1:8787: connect: connection refused")},
+			msg:          refreshResult{agentsErr: errors.New("dial tcp 127.0.0.1:8787: connect: connection refused")},
 			wantTakeover: true,
 		},
 		{
 			name:  "and it clears itself once the service answers again",
 			start: errors.New("connection refused"),
-			msg:   listsLoadedMsg{agents: []agentItem{{agent: agentstore.Agent{Name: "back", State: agentstore.StateNew}}}},
+			msg:   refreshResult{agents: []agentItem{{agent: agentstore.Agent{Name: "back", State: agentstore.StateNew}}}},
 		},
 	}
 

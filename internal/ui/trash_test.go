@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 
 	"claude-agents/internal/appconfig"
@@ -73,9 +74,11 @@ func TestTrashKeys(t *testing.T) {
 				m.trash = nil
 			}
 
-			updated, _ := m.updateTrash(keyMsg(tt.key))
-			got, ok := updated.(model)
+			updated, cmd := m.updateTrash(keyMsg(tt.key))
+			pressed, ok := updated.(model)
 			require.True(t, ok)
+
+			got := settle(t, pressed, cmd)
 
 			assert.Equal(t, tt.wantScreen, got.screen)
 			assert.Equal(t, tt.wantRestored, client.restored)
@@ -131,8 +134,8 @@ func TestTrashDeleteConfirm(t *testing.T) {
 // answerPrompt presses one key on the delete prompt and runs the commands the
 // form hands back, which is what bubbletea does for it on screen. The form only
 // reaches its completed state once those have run, so a test that dropped them
-// would watch a prompt that never closes. It stops as soon as the prompt is off
-// screen, since by then the answer has been acted on.
+// would watch a prompt that never closes. Once the prompt is off screen the answer
+// has been acted on, and what it asked for is settled the way the runtime would.
 func answerPrompt(t *testing.T, m model, key string) model {
 	t.Helper()
 
@@ -143,8 +146,11 @@ func answerPrompt(t *testing.T, m model, key string) model {
 		require.True(t, ok)
 
 		m = next
-		if cmd == nil || m.screen != screenTrashDelete {
+		if cmd == nil {
 			return m
+		}
+		if m.screen != screenTrashDelete {
+			return settle(t, m, cmd)
 		}
 
 		msg = cmd()
@@ -168,11 +174,11 @@ func TestRefusedTrashWritesAreReported(t *testing.T) {
 			name: "a refused restore",
 			act: func(t *testing.T, m model) model {
 				t.Helper()
-				updated, _ := m.restoreFromTrash()
-				got, ok := updated.(model)
+				updated, cmd := m.restoreFromTrash()
+				pressed, ok := updated.(model)
 				require.True(t, ok)
 
-				return got
+				return settle(t, pressed, cmd)
 			},
 			wantSummary: `Could not restore agent "api-refactor"`,
 		},
@@ -255,18 +261,20 @@ func TestTrashMarkdown(t *testing.T) {
 }
 
 // TestTrashIsListedSeparatelyFromTheAgents covers the two listings staying
-// apart. The trash is read through its own call, so a deleted agent can never
-// appear as a row in the tree.
+// apart. A pass reads the deleted agents through a call of their own, so a deleted
+// agent can never appear as a row in the tree.
 func TestTrashIsListedSeparatelyFromTheAgents(t *testing.T) {
 	client := &fakeTrashAgents{}
 	m := trashModel(client, appconfig.DefaultKeybindings())
 	m.trash = nil
 
-	entered, _ := m.enterTrash()
-	got, ok := entered.(model)
+	entered, cmd := m.enterTrash()
+	opened, ok := entered.(model)
 	require.True(t, ok)
 
-	assert.Equal(t, []bool{true}, client.listedDeleted, "the trash asks for the deleted agents and only those")
+	got := settle(t, opened, cmd)
+
+	assert.Contains(t, client.listedDeleted, true, "the trash is asked for by the pass the screen starts")
 	require.Len(t, got.trash, 1)
 	assert.Equal(t, "api-refactor", got.trash[0].Name)
 	assert.Empty(t, got.agents, "the tree's rows are not what the trash listed")
@@ -277,7 +285,7 @@ func trashModel(client agentv1connect.AgentServiceClient, keys appconfig.Keybind
 	tmux := &recordingTmux{}
 
 	return model{
-		api:    api{agents: client},
+		api:    api{agents: client, workflows: emptyLists{}, schedules: emptyLists{}},
 		tmux:   tmux,
 		popup:  NewPopup(tmux, "test-session"),
 		stage:  NewStage(tmux, appconfig.DefaultSplit),
@@ -291,8 +299,12 @@ func trashModel(client agentv1connect.AgentServiceClient, keys appconfig.Keybind
 // was asked to restore and destroy and which set it listed. The embedded
 // interface is nil, so any other method panics rather than quietly returning a
 // zero value.
+//
+// A pass runs its listings at once, so what it records is guarded: the live agents
+// and the deleted ones are two calls on this same fake on two goroutines.
 type fakeTrashAgents struct {
 	agentv1connect.AgentServiceClient
+	mu            sync.Mutex
 	err           error
 	restored      []string
 	deleted       []string
@@ -300,7 +312,10 @@ type fakeTrashAgents struct {
 }
 
 func (f *fakeTrashAgents) ListAgents(_ context.Context, req *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
+	f.mu.Lock()
 	f.listedDeleted = append(f.listedDeleted, req.Msg.GetDeleted())
+	f.mu.Unlock()
+
 	if !req.Msg.GetDeleted() {
 		return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
 	}

@@ -21,13 +21,13 @@ func TestApplySearchResults(t *testing.T) {
 	tests := []struct {
 		name     string
 		query    string
-		msg      searchResultsMsg
+		msg      searchResult
 		wantHits int
 	}{
 		{
 			name:  "a response for a query the input has moved past",
 			query: "current",
-			msg: searchResultsMsg{
+			msg: searchResult{
 				query: "stale",
 				hits:  hits("a", "b"),
 			},
@@ -36,7 +36,7 @@ func TestApplySearchResults(t *testing.T) {
 		{
 			name:  "a response for the query on screen",
 			query: "current",
-			msg: searchResultsMsg{
+			msg: searchResult{
 				query: "current",
 				hits:  hits("a", "b"),
 			},
@@ -45,7 +45,7 @@ func TestApplySearchResults(t *testing.T) {
 		{
 			name:  "a query that matched nothing clears the list",
 			query: "current",
-			msg: searchResultsMsg{
+			msg: searchResult{
 				query: "current",
 			},
 			wantHits: 0,
@@ -62,7 +62,7 @@ func TestApplySearchResults(t *testing.T) {
 				stage:       NewStage(&recordingTmux{}, appconfig.DefaultSplit),
 			}
 
-			m.applySearchResults(tt.msg)
+			m.applySearch(tt.msg)
 
 			assert.Len(t, m.searchHits, tt.wantHits)
 		})

@@ -180,25 +180,25 @@ func TestWorkflowWrites(t *testing.T) {
 	}{
 		{
 			name:       "a refused create",
-			call:       func(m model) error { return m.createWorkflow(workflowstore.Config{Name: "api"}) },
+			call:       func(m model) error { return m.api.createWorkflow(workflowstore.Config{Name: "api"}) },
 			wantWrites: 1,
 			wantReason: "quota reached",
 		},
 		{
 			name:       "a refused update",
-			call:       func(m model) error { return m.updateWorkflow(workflowstore.Workflow{ID: "w1", Name: "api"}) },
+			call:       func(m model) error { return m.api.updateWorkflow(workflowstore.Workflow{ID: "w1", Name: "api"}) },
 			wantWrites: 1,
 			wantReason: "quota reached",
 		},
 		{
 			name:       "a refused delete",
-			call:       func(m model) error { return m.deleteWorkflow("w1") },
+			call:       func(m model) error { return m.api.deleteWorkflow("w1") },
 			wantWrites: 1,
 			wantReason: "quota reached",
 		},
 		{
 			name: "an update to a blank name never reaches the service",
-			call: func(m model) error { return m.updateWorkflow(workflowstore.Workflow{ID: "w1", Name: "  "}) },
+			call: func(m model) error { return m.api.updateWorkflow(workflowstore.Workflow{ID: "w1", Name: "  "}) },
 		},
 	}
 
@@ -227,17 +227,17 @@ func TestWorkflowWrites(t *testing.T) {
 // deleted.
 func TestFailedWorkflowListKeepsTheTree(t *testing.T) {
 	m := model{
-		api:            api{workflows: &refusingWorkflows{err: errors.New("connection reset")}},
+		stage:          NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		keys:           appconfig.DefaultKeybindings(),
 		workflows:      []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}},
 		workflowCursor: 1,
 	}
 
-	m.reloadWorkflows()
+	m.applyRefresh(refreshResult{workflowsErr: errors.New("connection reset")})
 
 	assert.Len(t, m.workflows, 2, "the tree already on screen is kept")
 	assert.Equal(t, 1, m.workflowCursor, "and the cursor stays where the user left it")
-	require.NotNil(t, m.actionErr)
-	assert.Equal(t, "Could not list workflows", m.actionErr.Summary)
+	assert.Error(t, m.unreachable, "and the panel says the server is not answering")
 }
 
 // TestApplyWorkflows covers what the refresh does to the tree's folders. The
@@ -306,7 +306,7 @@ func TestRefreshRestagesWorkflowContext(t *testing.T) {
 	m.stageSelection()
 	staged := len(tmux.respawns)
 
-	fresh := listsLoadedMsg{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Context: "new notes"}}}
+	fresh := refreshResult{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Context: "new notes"}}}
 	updated, _ := m.Update(fresh)
 	m, ok := updated.(model)
 	require.True(t, ok)

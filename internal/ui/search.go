@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -45,25 +46,27 @@ type searchHit struct {
 
 // searchSettledMsg fires once typing has paused for searchDebounce. The query it
 // carries is the one that was current when the pause began, so a keystroke landing
-// during the wait leaves it stale and it is dropped rather than queried for.
+// during the wait leaves it stale and it is dropped rather than queried for. Like the
+// refresh tick it is a prompt to go and ask rather than an answer, which is what its
+// suffix says.
 type searchSettledMsg struct {
 	query string
 }
 
-// searchResultsMsg carries the hits for a query back to the update loop. The
+// searchResult carries the hits for a query back to the update loop. The
 // query is echoed so a late response for a query the user has since edited past
 // can be discarded rather than shown against the wrong input.
-type searchResultsMsg struct {
+type searchResult struct {
 	query string
 	hits  []searchHit
 }
 
-// transcriptLoadedMsg carries a hovered hit's full transcript back for the
+// previewResult carries a hovered hit's full transcript back for the
 // preview. The agent id and query are echoed so a response arriving after the
 // hover or the query moved on is discarded rather than staged over the wrong hit.
 // The offset is the hit's own, so the preview centres on the turn that matched
 // rather than wherever the words first happen to appear.
-type transcriptLoadedMsg struct {
+type previewResult struct {
 	agentID string
 	query   string
 	offset  int64
@@ -87,7 +90,7 @@ func (m model) enterSearch() (tea.Model, tea.Cmd) {
 // results straight away, since there is nothing to wait to ask for.
 func (m model) debounceSearchCmd(query string) tea.Cmd {
 	if strings.TrimSpace(query) == "" {
-		return func() tea.Msg { return searchResultsMsg{query: query} }
+		return func() tea.Msg { return searchResult{query: query} }
 	}
 
 	return tea.Tick(searchDebounce, func(time.Time) tea.Msg {
@@ -112,7 +115,7 @@ func (m model) searchCmd(query string) tea.Cmd {
 
 	return func() tea.Msg {
 		if strings.TrimSpace(query) == "" {
-			return searchResultsMsg{query: query}
+			return searchResult{query: query}
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
@@ -123,7 +126,7 @@ func (m model) searchCmd(query string) tea.Cmd {
 			Pagination: &paginationv1.Pagination{Limit: proto.Int32(searchLimit)},
 		}))
 		if err != nil {
-			return searchResultsMsg{query: query}
+			return searchResult{query: query}
 		}
 
 		hits := make([]searchHit, 0, len(resp.Msg.GetHits()))
@@ -137,19 +140,19 @@ func (m model) searchCmd(query string) tea.Cmd {
 			})
 		}
 
-		return searchResultsMsg{query: query, hits: hits}
+		return searchResult{query: query, hits: hits}
 	}
 }
 
-// applySearchResults installs hits for the current query and returns a command to
+// applySearch installs hits for the current query and returns a command to
 // load the hovered hit's transcript preview. A result for a stale query is ignored
 // so the list never shows hits for text the user has already changed.
-func (m *model) applySearchResults(msg searchResultsMsg) tea.Cmd {
-	if msg.query != m.searchQuery {
+func (m *model) applySearch(result searchResult) tea.Cmd {
+	if result.query != m.searchQuery {
 		return nil
 	}
 
-	m.searchHits = msg.hits
+	m.searchHits = result.hits
 	m.searchCursor = clampCursor(m.searchCursor, len(m.searchHits))
 	if len(m.searchHits) == 0 {
 		m.stage.Blank()
@@ -173,10 +176,10 @@ func (m model) previewCmd(hit searchHit) tea.Cmd {
 			AgentId: hit.agentID,
 		}))
 		if err != nil {
-			return transcriptLoadedMsg{agentID: hit.agentID, query: query, offset: hit.offset}
+			return previewResult{agentID: hit.agentID, query: query, offset: hit.offset}
 		}
 
-		return transcriptLoadedMsg{
+		return previewResult{
 			agentID: hit.agentID,
 			query:   query,
 			offset:  hit.offset,
@@ -185,20 +188,20 @@ func (m model) previewCmd(hit searchHit) tea.Cmd {
 	}
 }
 
-// applyTranscript stages a loaded transcript centered on the match, ignoring a
+// applyPreview stages a loaded transcript centered on the match, ignoring a
 // response that no longer matches the hovered hit or the current query.
-func (m *model) applyTranscript(msg transcriptLoadedMsg) {
-	if msg.query != m.searchQuery {
+func (m *model) applyPreview(result previewResult) {
+	if result.query != m.searchQuery {
 		return
 	}
 	if m.searchCursor < 0 || m.searchCursor >= len(m.searchHits) {
 		return
 	}
-	if m.searchHits[m.searchCursor].agentID != msg.agentID {
+	if m.searchHits[m.searchCursor].agentID != result.agentID {
 		return
 	}
 
-	m.stage.Transcript(msg.content, lineAtOffset(msg.content, msg.offset))
+	m.stage.Transcript(result.content, lineAtOffset(result.content, result.offset))
 }
 
 // lineAtOffset returns the 1-based line the given byte offset falls on, so the
@@ -270,17 +273,7 @@ func (m model) openSearchHit() (tea.Model, tea.Cmd) {
 
 	// Opening a hit is a restore. The agent behind it may be archived or dormant,
 	// and a live one comes back as it stands rather than being started twice.
-	restored, err := m.restoreAgent(hit.agentID)
-	if err != nil {
-		return m, nil
-	}
-
-	m.screen = screenAgents
-	m.reload()
-	m.agentCursor = clampCursor(rowIndexOfAgentName(m.agentRows(), restored.GetName()), len(m.agentRows()))
-	m.stage.Agent(restored.GetPaneId())
-
-	return m, nil
+	return m, m.restoreCmd(fmt.Sprintf("Could not restore agent %q", hit.name), hit.agentID, screenAgents)
 }
 
 // searchView renders the search screen's own pane. The query line sits above the

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"claude-agents/internal/appconfig"
-	"claude-agents/internal/client"
 	"claude-agents/internal/errui"
 	agentv1 "claude-agents/proto/gen/agent/v1"
 	"claude-agents/proto/gen/agent/v1/agentv1connect"
@@ -28,84 +27,6 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 )
-
-// refreshInterval is how often the panel re-lists over RPC. It runs off the
-// render loop, so a slow serve can never freeze the UI.
-const (
-	refreshInterval = time.Second
-	agentsTimeout   = 2 * time.Second
-)
-
-type refreshTickMsg struct{}
-
-// listsLoadedMsg carries the result of an async re-list. Both lists come back
-// together, since a workflow edited anywhere other than this panel's own form is
-// invisible until the listing is read again. A non-nil err means the service could
-// not be reached, which the panel shows rather than absorbs. The rows it is holding
-// are from the last successful poll, and left on screen they would read as the
-// current truth.
-type listsLoadedMsg struct {
-	agents    []agentItem
-	workflows []workflowstore.Workflow
-	schedules []scheduleItem
-	// trash is only listed while the trash screen is up, since nothing else reads
-	// it and a deleted agent changes only when someone acts on it. trashListed
-	// says the listing was asked for, so an empty one reads as an empty trash
-	// rather than as a poll that skipped it.
-	trash       []agentstore.Agent
-	trashListed bool
-	err         error
-}
-
-func refreshTick() tea.Cmd {
-	return tea.Tick(refreshInterval, func(time.Time) tea.Msg { return refreshTickMsg{} })
-}
-
-// loadListsCmd re-lists the agents and the workflows off the UI goroutine with a
-// timeout, so the render loop never blocks on the RPCs or the per-agent tmux
-// liveness checks. Both share one deadline, since together they are one refresh.
-func (m model) loadListsCmd() tea.Cmd {
-	agents, workflows, schedules := m.api.agents, m.api.workflows, m.api.schedules
-	withTrash := m.screen == screenTrash
-
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
-		defer cancel()
-
-		listed, err := client.ListAllAgents(ctx, agents)
-		if err != nil {
-			return listsLoadedMsg{err: err}
-		}
-
-		listedWorkflows, err := client.ListAllWorkflows(ctx, workflows)
-		if err != nil {
-			return listsLoadedMsg{err: err}
-		}
-
-		listedSchedules, err := client.ListAllSchedules(ctx, schedules)
-		if err != nil {
-			return listsLoadedMsg{err: err}
-		}
-
-		loaded := listsLoadedMsg{
-			agents:    agentItemsFrom(listed),
-			workflows: workflowsFrom(listedWorkflows),
-			schedules: scheduleItemsFrom(listedSchedules),
-		}
-
-		if withTrash {
-			listedTrash, err := client.ListAllDeletedAgents(ctx, agents)
-			if err != nil {
-				return listsLoadedMsg{err: err}
-			}
-
-			loaded.trash = deletedAgentsFrom(listedTrash)
-			loaded.trashListed = true
-		}
-
-		return loaded
-	}
-}
 
 // agentItemsFrom maps listed agents to agent items, marking which panes are live.
 func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
@@ -258,10 +179,26 @@ type model struct {
 
 	// addr is where the service is expected to answer, shown when it does not.
 	addr string
-	// unreachable is the error from the last failed poll, nil while the service is
-	// answering. The poll keeps running while it is set, so the panel recovers on
+	// unreachable is the error from the last failed listing, nil while the service is
+	// answering. The refresh keeps running while it is set, so the panel recovers on
 	// its own once the service is back.
 	unreachable error
+	// epoch counts the writes this panel has made. A listing carries the epoch it was
+	// requested under, so one that read the store before a write can be told from one
+	// that read it after and dropped rather than putting the write's effect back.
+	epoch int
+	// pending is how many writes are in flight. While any is, the periodic refresh
+	// stands down: a listing started now would read rows the write is about to
+	// replace, and the write re-lists as it lands anyway.
+	pending int
+	// focusName is an agent the next listing should put the cursor on, consumed as it
+	// lands. A restore can hand back a different name than it went in with, and the
+	// row under that name only exists once the listing that carries it arrives.
+	focusName string
+	// placed says a listing has put the cursor somewhere. Nothing is listed when the
+	// panel paints its first frame, so the first one lands it on the first agent rather
+	// than on the workflow header a cursor nobody has placed sits on.
+	placed bool
 	// configErr is set when the config file would not parse. Unlike unreachable it
 	// never clears, since the file is read once at startup, so the screen it shows
 	// is the whole life of the process.
@@ -377,12 +314,10 @@ func newModel(deps Deps) model {
 		return m
 	}
 
-	// Split off the stage pane beside the panel, then show whatever the initial
-	// selection lands on.
+	// Split off the stage pane beside the panel. There is nothing to stage in it yet:
+	// the first listing is a command like every other one, so the panel paints its
+	// empty tree now rather than holding the first frame back for a round trip.
 	m.stage.Init()
-	m.reload()
-	m.agentCursor = firstAgentRowIndex(m.agentRows())
-	m.stageSelection()
 
 	return m
 }
@@ -392,27 +327,6 @@ func newModel(deps Deps) model {
 type agentItem struct {
 	agent agentstore.Agent
 	alive bool
-}
-
-// reload lists the agents through the service, marking which are live, and
-// refreshes the workflow list. Records are never deleted here, so agents
-// survive tmux restarts.
-func (m *model) reload() {
-	m.reloadWorkflows()
-
-	ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
-	defer cancel()
-
-	listed, err := client.ListAllAgents(ctx, m.api.agents)
-	if err != nil {
-		// The list already on screen is kept. Blanking it would say every agent had
-		// been deleted, which is not what a list that failed to answer means.
-		m.failAction("Could not list agents", err)
-
-		return
-	}
-
-	m.agents = agentItemsFrom(listed)
 }
 
 // currentDir fills in the directory a new agent starts in. The form allows a
@@ -434,7 +348,7 @@ func (m model) currentDir(dir string) string {
 
 // renameAgent renames an agent by id. A blank or unchanged name is a no-op, which
 // keeps the form's empty submit from asking the service to do nothing.
-func (m model) renameAgent(agent agentstore.Agent, name string) error {
+func (a api) renameAgent(agent agentstore.Agent, name string) error {
 	name = strings.TrimSpace(name)
 	if name == "" || name == agent.Name {
 		return nil
@@ -443,26 +357,12 @@ func (m model) renameAgent(agent agentstore.Agent, name string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	_, err := m.api.agents.UpdateAgent(ctx, connect.NewRequest(&agentv1.UpdateAgentRequest{
+	_, err := a.agents.UpdateAgent(ctx, connect.NewRequest(&agentv1.UpdateAgentRequest{
 		Id:   agent.ID,
 		Name: name,
 	}))
 
 	return err
-}
-
-// listWorkflows fetches every workflow and renders them into the store type the
-// tree is written against.
-func (m model) listWorkflows() ([]workflowstore.Workflow, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
-	defer cancel()
-
-	listed, err := client.ListAllWorkflows(ctx, m.api.workflows)
-	if err != nil {
-		return nil, err
-	}
-
-	return workflowsFrom(listed), nil
 }
 
 // workflowsFrom renders listed workflows into the store type the tree is written
@@ -480,22 +380,6 @@ func workflowsFrom(listed []*workflowv1.Workflow) []workflowstore.Workflow {
 	}
 
 	return workflows
-}
-
-// reloadWorkflows refreshes the workflow list backing the tree's folder headers,
-// clamping the cursor into the new length.
-func (m *model) reloadWorkflows() {
-	workflows, err := m.listWorkflows()
-	if err != nil {
-		// The tree already on screen is kept. Blanking it would say every workflow
-		// had been deleted, which is not what a list that failed to answer means.
-		m.failAction("Could not list workflows", err)
-
-		return
-	}
-
-	m.workflows = workflows
-	m.workflowCursor = clampCursor(m.workflowCursor, len(workflows))
 }
 
 // applyWorkflows takes a freshly-listed set as the on-screen workflows. The listing
@@ -517,17 +401,28 @@ func (m *model) applyAgents(fresh []agentItem) {
 		selected = item.agent.Name
 	}
 
+	// A row an action asked to be shown takes the cursor from whatever was under it,
+	// for this listing only.
+	if m.focusName != "" {
+		selected, m.focusName = m.focusName, ""
+	}
+
 	m.agents = fresh
+	rows := m.agentRows()
 
 	// The cursor indexes the tree of headers and agents, so keep it on the same
 	// agent across the rebuild, or clamp it into the new tree when that agent is
 	// gone.
-	rows := m.agentRows()
-	if idx := rowIndexOfAgentName(rows, selected); idx >= 0 {
+	switch idx := rowIndexOfAgentName(rows, selected); {
+	case idx >= 0:
 		m.agentCursor = idx
-	} else {
+	case !m.placed:
+		m.agentCursor = firstAgentRowIndex(rows)
+	default:
 		m.agentCursor = clampCursor(m.agentCursor, len(rows))
 	}
+
+	m.placed = true
 }
 
 // clampCursor keeps an index within a list of the given length.
@@ -571,7 +466,7 @@ var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one
 // rather than opening a form whose submit could not go anywhere.
 func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	if workflow == nil {
-		m.failAction("Could not start an agent", errNoWorkflow)
+		m.report("Could not start an agent", errNoWorkflow)
 
 		return m, nil
 	}
@@ -608,18 +503,20 @@ func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case huh.StateCompleted:
 		name := ""
 		if m.renameValue != nil {
-			name = *m.renameValue
+			name = strings.TrimSpace(*m.renameValue)
 		}
-		m.report(
-			fmt.Sprintf("Could not rename agent %q", m.renameTarget.Name),
-			m.renameAgent(m.renameTarget, name),
+		target := m.renameTarget
+		cmd := m.writeCmd(
+			fmt.Sprintf("Could not rename agent %q", target.Name),
+			func(a api) error { return a.renameAgent(target, name) },
 		)
+		// The row the cursor is on is about to be listed under a different name, so the
+		// cursor follows the name rather than being left to clamp.
+		m.focusName = name
 		m.renameValue = nil
-		m.reload()
-		m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
 		m.screen = screenAgents
-		m.stageSelection()
-		return m, nil
+
+		return m, cmd
 	case huh.StateAborted:
 		m.renameValue = nil
 		m.screen = screenAgents
@@ -721,14 +618,15 @@ func (m model) fatal() error {
 	return m.startupErr
 }
 
-// Init starts the async agents refresh so the list's counts and states stay current.
-// A startup failure means there is no list to refresh, so nothing is started.
+// Init starts the refresh loop, which is what fills the panel in and then keeps its
+// rows and states current. A startup failure means there is no list to refresh, so
+// nothing is started.
 func (m model) Init() tea.Cmd {
 	if m.fatal() != nil {
 		return nil
 	}
 
-	return tea.Batch(refreshTick(), m.loadListsCmd())
+	return tea.Batch(refreshTick(), m.refreshCmd())
 }
 
 // Update routes messages and key input to the active screen.
@@ -766,44 +664,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case refreshTickMsg:
-		return m, tea.Batch(m.loadListsCmd(), refreshTick())
-	case listsLoadedMsg:
-		m.unreachable = msg.err
-		if msg.err == nil {
-			// Workflows first, since the tree's rows and so the cursor the agents are
-			// reapplied against are built over them.
-			m.applyWorkflows(msg.workflows)
-			m.applyAgents(msg.agents)
-			m.applySchedules(msg.schedules)
-			if msg.trashListed {
-				m.applyTrash(msg.trash)
-			}
-
-			// A refresh can change what the cursor is sitting on without the cursor
-			// moving, so the stage is redrawn from the merged lists. The stage is a
-			// no-op when what it already shows has not changed, which is what keeps
-			// this from respawning its pane every tick. Only the screen that owns the
-			// stage restages: a search preview or a form's stage is not the tree's to
-			// take back while it is up.
-			switch m.screen {
-			case screenAgents:
-				m.stageSelection()
-			case screenSchedules:
-				m.stageSchedule()
-			case screenTrash:
-				m.stageTrash()
-			default:
-				// Search and the forms put the stage to their own use.
-			}
-		}
+		return m, tea.Batch(m.refreshCmd(), refreshTick())
+	case refreshResult:
+		m.applyRefresh(msg)
 
 		return m, nil
+	case writeResult:
+		return m, m.applyWrite(msg)
 	case searchSettledMsg:
 		return m, m.runSettledSearch(msg)
-	case searchResultsMsg:
-		return m, m.applySearchResults(msg)
-	case transcriptLoadedMsg:
-		m.applyTranscript(msg)
+	case searchResult:
+		return m, m.applySearch(msg)
+	case previewResult:
+		m.applyPreview(msg)
 
 		return m, nil
 	}
@@ -879,32 +752,54 @@ func (m model) submitAgent() (tea.Model, tea.Cmd) {
 	// create with no workflow would be refused by the service anyway, and saying
 	// so here costs a round trip less.
 	if m.newAgentWorkflow == nil || m.agentValues == nil {
-		m.failAction("Could not start the agent", errNoWorkflow)
+		m.report("Could not start the agent", errNoWorkflow)
 		m.screen = screenAgents
 		m.stageSelection()
 
 		return m, nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
-	defer cancel()
-
-	// A launch failure leaves the list unchanged, so it has to be reported. The
-	// refresh below would otherwise be the only signal, and a list that comes back
-	// without the new agent reads the same as a form that never submitted.
-	_, err := m.api.agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
+	params := createAgentParams{
 		Prompt:     m.agentValues.Prompt,
 		Title:      m.agentValues.Title,
 		Dir:        m.currentDir(m.agentValues.Dir),
 		Flags:      m.agentValues.Flags,
-		WorkflowId: m.newAgentWorkflow.ID,
-	}))
-	m.report("Could not start the agent", err)
+		WorkflowID: m.newAgentWorkflow.ID,
+	}
+
+	// A launch failure leaves the list unchanged, so it has to be reported. The
+	// refresh that follows would otherwise be the only signal, and a list that comes
+	// back without the new agent reads the same as a form that never submitted.
+	cmd := m.writeCmd("Could not start the agent", func(a api) error { return a.createAgent(params) })
 	m.newAgentWorkflow = nil
 	m.agentValues = nil
-	m.reload()
 	m.screen = screenAgents
-	m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
-	m.stageSelection()
-	return m, nil
+
+	return m, cmd
+}
+
+// createAgentParams is a launch: the workflow's blueprint as the form left it, plus
+// the workflow the agent lands in.
+type createAgentParams struct {
+	Prompt     string
+	Title      string
+	Dir        string
+	Flags      string
+	WorkflowID string
+}
+
+// createAgent launches an agent.
+func (a api) createAgent(params createAgentParams) error {
+	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	defer cancel()
+
+	_, err := a.agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
+		Prompt:     params.Prompt,
+		Title:      params.Title,
+		Dir:        params.Dir,
+		Flags:      params.Flags,
+		WorkflowId: params.WorkflowID,
+	}))
+
+	return err
 }

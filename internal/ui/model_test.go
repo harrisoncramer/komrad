@@ -174,7 +174,7 @@ func TestNewModelWiresTmux(t *testing.T) {
 				Popup:     NewPopup(tmux, "manager"),
 				Tmux:      tmux,
 				Agents:    refusingAgents{},
-				Workflows: emptyWorkflows{},
+				Workflows: emptyLists{},
 				Schedules: &fakeSchedules{},
 				Keys:      appconfig.DefaultKeybindings(),
 				Addr:      "127.0.0.1:8787",

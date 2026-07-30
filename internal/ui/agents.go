@@ -242,10 +242,11 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Killing a pane while it sits in the stage slot would take the stage down
 		// with it, so it is swapped back out first.
 		m.stage.Release(item.agent.Pane)
-		m.report(fmt.Sprintf("Could not delete agent %q", item.agent.Name), m.archiveAgent(item.agent))
-		m.reload()
-		m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
-		m.stageSelection()
+
+		return m, m.writeCmd(
+			fmt.Sprintf("Could not delete agent %q", item.agent.Name),
+			func(a api) error { return a.archiveAgent(item.agent) },
+		)
 	}
 
 	return m, nil
@@ -268,28 +269,20 @@ func (m model) openAgent() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	restored, err := m.restoreAgent(item.agent.ID)
-	m.report(fmt.Sprintf("Could not restore agent %q", item.agent.Name), err)
-	if err != nil {
-		return m, nil
-	}
-	m.infoPinned = false
-	m.reload()
-	// Restoring may rename an agent whose name was taken while it sat archived, so
-	// the cursor follows the name that came back rather than the one it had.
-	m.agentCursor = clampCursor(rowIndexOfAgentName(m.agentRows(), restored.GetName()), len(m.agentRows()))
-	m.stage.Agent(restored.GetPaneId())
-
-	return m, nil
+	return m, m.restoreCmd(
+		fmt.Sprintf("Could not restore agent %q", item.agent.Name),
+		item.agent.ID,
+		screenAgents,
+	)
 }
 
 // archiveAgent stops an agent and hides it. The record and transcript stay, so
 // search still reaches it.
-func (m model) archiveAgent(agent agentstore.Agent) error {
+func (a api) archiveAgent(agent agentstore.Agent) error {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	_, err := m.api.agents.ArchiveAgent(ctx, connect.NewRequest(&agentv1.ArchiveAgentRequest{Name: agent.Name}))
+	_, err := a.agents.ArchiveAgent(ctx, connect.NewRequest(&agentv1.ArchiveAgentRequest{Name: agent.Name}))
 
 	return err
 }
@@ -316,63 +309,55 @@ func (m model) toggleHiddenAgents() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// markAgent steps the hovered agent to the next mark. The row keeps its place, so
-// the cursor is only clamped against a list a concurrent change may have shortened.
+// markAgent steps the hovered agent to the next mark.
 func (m model) markAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	next := nextMark(agent.Mark, m.marks)
-	m.report(fmt.Sprintf("Could not mark agent %q", agent.Name), m.setMark(agent, next))
-	m.reload()
-	m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
 
-	return m, nil
+	return m, m.writeCmd(
+		fmt.Sprintf("Could not mark agent %q", agent.Name),
+		func(a api) error { return a.setMark(agent, next) },
+	)
 }
 
 // hideAgent takes the hovered agent out of the list, or puts a revealed one back.
-// The row leaves the tree as soon as the write lands unless the hidden agents are
-// being shown, so the cursor is clamped into whatever tree is left. One key does
-// both directions, so which way it went has to come from the row for the failure to
-// name it.
+// One key does both directions, so which way it went has to come from the row for
+// the failure to name it.
 func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	failure := fmt.Sprintf("Could not hide agent %q", agent.Name)
 	if agent.Hidden {
 		failure = fmt.Sprintf("Could not unhide agent %q", agent.Name)
 	}
 
-	m.report(failure, m.setHidden(agent, !agent.Hidden))
-	m.reload()
-	m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
-	m.stageSelection()
-
-	return m, nil
+	return m, m.writeCmd(failure, func(a api) error { return a.setHidden(agent, !agent.Hidden) })
 }
 
 // setHidden takes an agent out of the list or puts it back. Nothing about the agent
 // changes: it keeps running and every other view still holds it.
-func (m model) setHidden(agent agentstore.Agent, hidden bool) error {
+func (a api) setHidden(agent agentstore.Agent, hidden bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	_, err := m.api.agents.SetHidden(ctx, connect.NewRequest(&agentv1.SetHiddenRequest{Id: agent.ID, Hidden: hidden}))
+	_, err := a.agents.SetHidden(ctx, connect.NewRequest(&agentv1.SetHiddenRequest{Id: agent.ID, Hidden: hidden}))
 
 	return err
 }
 
 // setMark puts a mark on an agent, and a nil mark clears the one it carries.
-func (m model) setMark(agent agentstore.Agent, mark *string) error {
+func (a api) setMark(agent agentstore.Agent, mark *string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	_, err := m.api.agents.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{Id: agent.ID, Mark: mark}))
+	_, err := a.agents.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{Id: agent.ID, Mark: mark}))
 
 	return err
 }
 
 // restoreAgent brings an agent back and returns it as the service now holds it.
-func (m model) restoreAgent(id string) (*agentv1.Agent, error) {
+func (a api) restoreAgent(id string) (*agentv1.Agent, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	resp, err := m.api.agents.RestoreAgent(ctx, connect.NewRequest(&agentv1.RestoreAgentRequest{Id: id}))
+	resp, err := a.agents.RestoreAgent(ctx, connect.NewRequest(&agentv1.RestoreAgentRequest{Id: id}))
 	if err != nil {
 		return nil, fmt.Errorf("failed to restore agent %q: %w", id, err)
 	}

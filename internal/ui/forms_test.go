@@ -260,9 +260,11 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			m := tt.open(formModel(sent))
 			m.form.Init()
 
-			updated, _ := tt.submit(m)
-			got, ok := updated.(model)
+			updated, cmd := tt.submit(m)
+			submitted, ok := updated.(model)
 			require.True(t, ok)
+
+			got := settle(t, submitted, cmd)
 
 			require.Nil(t, got.actionErr, "the service accepted the write")
 			tt.check(t, sent)
@@ -296,7 +298,11 @@ func TestFormsSubmitNothingWithoutValues(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			sent := &formRecorder{}
 
-			_, _ = tt.submit(formModel(sent))
+			m := formModel(sent)
+			updated, cmd := tt.submit(m)
+			submitted, ok := updated.(model)
+			require.True(t, ok)
+			settle(t, submitted, cmd)
 
 			assert.Nil(t, sent.createdAgent)
 			assert.Nil(t, sent.createdWorkflow)

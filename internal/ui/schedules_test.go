@@ -107,9 +107,11 @@ func TestScheduleKeys(t *testing.T) {
 				m.workflows = nil
 			}
 
-			updated, _ := m.updateSchedules(keyMsg(tt.key))
-			got, ok := updated.(model)
+			updated, cmd := m.updateSchedules(keyMsg(tt.key))
+			pressed, ok := updated.(model)
 			require.True(t, ok)
+
+			got := settle(t, pressed, cmd)
 
 			assert.Equal(t, tt.wantScreen, got.screen)
 			assert.Equal(t, tt.wantWrites, client.writes)
@@ -323,28 +325,32 @@ func TestApplySchedules(t *testing.T) {
 func TestScheduleWriteFailure(t *testing.T) {
 	tests := []struct {
 		name    string
-		act     func(m model) (model, bool)
+		act     func(t *testing.T, m model) model
 		wantErr string
 	}{
 		{
 			name: "a refused pause",
-			act: func(m model) (model, bool) {
-				updated, _ := m.toggleSchedule()
-				got, ok := updated.(model)
+			act: func(t *testing.T, m model) model {
+				t.Helper()
+				updated, cmd := m.toggleSchedule()
+				pressed, ok := updated.(model)
+				require.True(t, ok)
 
-				return got, ok
+				return settle(t, pressed, cmd)
 			},
 			wantErr: "Could not pause schedule",
 		},
 		{
 			name: "a refused create",
-			act: func(m model) (model, bool) {
+			act: func(t *testing.T, m model) model {
+				t.Helper()
 				m.scheduleEditTarget = nil
 				m.form, m.scheduleValues = scheduleForm(schedulestore.Config{Name: "x", Cron: "0 9 * * *"}, nil, appconfig.DefaultKeybindings().Form)
-				updated, _ := m.submitScheduleForm()
-				got, ok := updated.(model)
+				updated, cmd := m.submitScheduleForm()
+				submitted, ok := updated.(model)
+				require.True(t, ok)
 
-				return got, ok
+				return settle(t, submitted, cmd)
 			},
 			wantErr: "Could not create the schedule",
 		},
@@ -355,8 +361,8 @@ func TestScheduleWriteFailure(t *testing.T) {
 			client := &fakeSchedules{err: errors.New("cron must be five fields")}
 			m := scheduleModel(client, appconfig.DefaultKeybindings())
 
-			got, ok := tt.act(m)
-			require.True(t, ok)
+			got := tt.act(t, m)
+
 			require.NotNil(t, got.actionErr, "a refused write has to be reported")
 			assert.Contains(t, got.actionErr.Render(), tt.wantErr)
 		})

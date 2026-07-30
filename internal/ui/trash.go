@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"claude-agents/internal/appconfig"
-	"claude-agents/internal/client"
 	"claude-agents/lib/dates"
 	agentv1 "claude-agents/proto/gen/agent/v1"
 
@@ -20,33 +19,12 @@ import (
 
 // enterTrash switches to the trash, the deleted agents. It is its own screen
 // rather than a section of the agents tree because a deleted agent is not
-// something to act on alongside live work: it has no pane, it belongs to a
-// workflow that may be gone, and its name may be one a live agent has since
-// taken.
+// something to act on alongside live work.
 func (m model) enterTrash() (tea.Model, tea.Cmd) {
 	m.screen = screenTrash
-	m.reloadTrash()
 	m.stageTrash()
 
-	return m, nil
-}
-
-// reloadTrash re-lists the deleted agents, clamping the cursor into the new
-// length. A listing that fails leaves the rows already on screen, since an empty
-// trash and a trash that could not be read mean different things.
-func (m *model) reloadTrash() {
-	ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
-	defer cancel()
-
-	listed, err := client.ListAllDeletedAgents(ctx, m.api.agents)
-	if err != nil {
-		m.failAction("Could not list the trash", err)
-
-		return
-	}
-
-	m.trash = deletedAgentsFrom(listed)
-	m.trashCursor = clampCursor(m.trashCursor, len(m.trash))
+	return m, m.refreshCmd()
 }
 
 // deletedAgentsFrom renders listed agents into the store type the screen is
@@ -132,16 +110,7 @@ func (m model) restoreFromTrash() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	_, err := m.restoreAgent(agent.ID)
-	m.report(fmt.Sprintf("Could not restore agent %q", agent.Name), err)
-	if err != nil {
-		return m, nil
-	}
-
-	m.reloadTrash()
-	m.stageTrash()
-
-	return m, nil
+	return m, m.restoreCmd(fmt.Sprintf("Could not restore agent %q", agent.Name), agent.ID, screenTrash)
 }
 
 // deleteFromTrashConfirm opens the prompt for destroying the hovered agent. This
@@ -172,15 +141,18 @@ func (m model) updateTrashDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.form.State {
 	case huh.StateCompleted:
-		if m.trashDeleteTarget != nil && m.wasConfirmed() {
-			m.report(
-				fmt.Sprintf("Could not delete agent %q", m.trashDeleteTarget.Name),
-				m.deleteAgent(m.trashDeleteTarget.ID),
+		var write tea.Cmd
+		if target := m.trashDeleteTarget; target != nil && m.wasConfirmed() {
+			write = m.writeCmd(
+				fmt.Sprintf("Could not delete agent %q", target.Name),
+				func(a api) error { return a.deleteAgent(target.ID) },
 			)
 		}
 		m.trashDeleteTarget = nil
 		m.confirmed = nil
-		return m.enterTrash()
+		entered, refresh := m.enterTrash()
+
+		return entered, tea.Batch(write, refresh)
 	case huh.StateAborted:
 		m.trashDeleteTarget = nil
 		m.confirmed = nil
@@ -192,11 +164,11 @@ func (m model) updateTrashDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // deleteAgent destroys an agent for good, keyed by id. A name identifies at most
 // one live agent, which is exactly what a deleted one is not.
-func (m model) deleteAgent(id string) error {
+func (a api) deleteAgent(id string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	_, err := m.api.agents.DeleteAgent(ctx, connect.NewRequest(&agentv1.DeleteAgentRequest{Id: id}))
+	_, err := a.agents.DeleteAgent(ctx, connect.NewRequest(&agentv1.DeleteAgentRequest{Id: id}))
 
 	return err
 }

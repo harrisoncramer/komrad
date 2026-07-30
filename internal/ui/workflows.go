@@ -93,7 +93,7 @@ func (m model) renameWorkflowForm() (tea.Model, tea.Cmd) {
 // fetch fails.
 func (m model) editWorkflowForm() (tea.Model, tea.Cmd) {
 	workflow := m.workflows[m.workflowCursor]
-	if fresh, err := m.getWorkflow(workflow.ID); err == nil && fresh != nil {
+	if fresh, err := m.api.getWorkflow(workflow.ID); err == nil && fresh != nil {
 		workflow = *fresh
 	}
 	m.workflowEditTarget = &workflow
@@ -131,16 +131,18 @@ func (m model) updateWorkflowDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.form.State {
 	case huh.StateCompleted:
-		if m.workflowDeleteTarget != nil && m.wasConfirmed() {
-			m.report(
-				fmt.Sprintf("Could not delete workflow %q", m.workflowDeleteTarget.Name),
-				m.deleteWorkflow(m.workflowDeleteTarget.ID),
+		var write tea.Cmd
+		if target := m.workflowDeleteTarget; target != nil && m.wasConfirmed() {
+			write = m.writeCmd(
+				fmt.Sprintf("Could not delete workflow %q", target.Name),
+				func(a api) error { return a.deleteWorkflow(target.ID) },
 			)
 		}
 		m.workflowDeleteTarget = nil
 		m.confirmed = nil
-		m.reloadWorkflows()
-		return m.returnToAgents()
+		returned, refresh := m.returnToAgents()
+
+		return returned, tea.Batch(write, refresh)
 	case huh.StateAborted:
 		m.workflowDeleteTarget = nil
 		m.confirmed = nil
@@ -186,6 +188,8 @@ func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 	}
 
 	values := *m.workflowValues
+
+	var write tea.Cmd
 	switch {
 	case m.workflowRenameTarget != nil:
 		// A rename is an update carrying the fields it is not changing, since the
@@ -193,31 +197,33 @@ func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 		target := *m.workflowRenameTarget
 		if trimmed := strings.TrimSpace(values.Name); trimmed != "" && trimmed != target.Name {
 			target.Name = trimmed
-			m.report(
+			write = m.writeCmd(
 				fmt.Sprintf("Could not rename workflow %q", m.workflowRenameTarget.Name),
-				m.updateWorkflow(target),
+				func(a api) error { return a.updateWorkflow(target) },
 			)
 		}
 	case m.workflowEditTarget != nil:
-		m.report(
+		edited := workflowstore.Workflow{
+			ID:      m.workflowEditTarget.ID,
+			Name:    values.Name,
+			Context: values.Context,
+			Cwd:     values.Cwd,
+			Flags:   values.Flags,
+		}
+		write = m.writeCmd(
 			fmt.Sprintf("Could not save workflow %q", m.workflowEditTarget.Name),
-			m.updateWorkflow(workflowstore.Workflow{
-				ID:      m.workflowEditTarget.ID,
-				Name:    values.Name,
-				Context: values.Context,
-				Cwd:     values.Cwd,
-				Flags:   values.Flags,
-			}),
+			func(a api) error { return a.updateWorkflow(edited) },
 		)
 	default:
-		m.report("Could not create the workflow", m.createWorkflow(values))
+		write = m.writeCmd("Could not create the workflow", func(a api) error { return a.createWorkflow(values) })
 	}
 
 	m.workflowRenameTarget = nil
 	m.workflowEditTarget = nil
 	m.workflowValues = nil
-	m.reloadWorkflows()
-	return m.returnToAgents()
+	returned, refresh := m.returnToAgents()
+
+	return returned, tea.Batch(write, refresh)
 }
 
 // workflowForm asks for a name alone, which is what a rename is. It returns the
@@ -270,12 +276,13 @@ func deleteWorkflowForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool)
 // the panel.
 
 // getWorkflow refetches one workflow, so an edit form opens on what is stored
-// rather than on the row the listing happened to carry.
-func (m model) getWorkflow(id string) (*workflowstore.Workflow, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+// rather than on the row the listing happened to carry. It reads on the render loop
+// for the reason getSchedule does, and takes the same short deadline.
+func (a api) getWorkflow(id string) (*workflowstore.Workflow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
 	defer cancel()
 
-	resp, err := m.api.workflows.GetWorkflow(ctx, connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: id}))
+	resp, err := a.workflows.GetWorkflow(ctx, connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: id}))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
 	}
@@ -293,7 +300,7 @@ func (m model) getWorkflow(id string) (*workflowstore.Workflow, error) {
 
 // createWorkflow adds a workflow, defaulting a blank name so the list always has
 // a label to render.
-func (m model) createWorkflow(cfg workflowstore.Config) error {
+func (a api) createWorkflow(cfg workflowstore.Config) error {
 	name := strings.TrimSpace(cfg.Name)
 	if name == "" {
 		name = "workflow"
@@ -302,7 +309,7 @@ func (m model) createWorkflow(cfg workflowstore.Config) error {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	_, err := m.api.workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+	_, err := a.workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
 		Name:    name,
 		Context: cfg.Context,
 		Cwd:     cfg.Cwd,
@@ -314,7 +321,7 @@ func (m model) createWorkflow(cfg workflowstore.Config) error {
 
 // updateWorkflow writes every field back, which is what the service expects. It
 // replaces rather than patches, so the caller sends the whole workflow.
-func (m model) updateWorkflow(w workflowstore.Workflow) error {
+func (a api) updateWorkflow(w workflowstore.Workflow) error {
 	name := strings.TrimSpace(w.Name)
 	if name == "" {
 		return nil
@@ -323,7 +330,7 @@ func (m model) updateWorkflow(w workflowstore.Workflow) error {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	_, err := m.api.workflows.UpdateWorkflow(ctx, connect.NewRequest(&workflowv1.UpdateWorkflowRequest{
+	_, err := a.workflows.UpdateWorkflow(ctx, connect.NewRequest(&workflowv1.UpdateWorkflowRequest{
 		Id:      w.ID,
 		Name:    name,
 		Context: w.Context,
@@ -336,11 +343,11 @@ func (m model) updateWorkflow(w workflowstore.Workflow) error {
 
 // deleteWorkflow removes a workflow, archiving the agents inside it alongside
 // it. The service refuses while any schedule still launches into it.
-func (m model) deleteWorkflow(id string) error {
+func (a api) deleteWorkflow(id string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	_, err := m.api.workflows.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id}))
+	_, err := a.workflows.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id}))
 
 	return err
 }

@@ -132,17 +132,29 @@ func serveCmd(state *app) *cobra.Command {
 			defer func() { _ = jobRunner.Stop(context.Background()) }()
 
 			periodic := jobs.NewRiverPeriodic(jobRunner.PeriodicJobs())
-			go runScheduleLoop(cmd.Context(), jobs.NewScheduler(state.schedules, periodic), scheduleReconcileInterval)
+			go runLoop(cmd.Context(), runLoopParams{
+				Name:     "schedule reconcile",
+				Interval: scheduleReconcileInterval,
+				Pass:     jobs.NewScheduler(state.schedules, periodic).Reconcile,
+			})
 
 			// The reconciler runs here rather than in the panel because serve is
 			// the always-on process that owns the store. The counts must stay
 			// correct even when no panel is open.
-			go runReconcileLoop(cmd.Context(), agents.NewReconciler(state.tmux, state.agents), reconcileInterval)
+			go runLoop(cmd.Context(), runLoopParams{
+				Name:     "reconcile",
+				Interval: reconcileInterval,
+				Pass:     agents.NewReconciler(state.tmux, state.agents).Reconcile,
+			})
 
 			// The transcript syncer runs alongside the reconciler for the same
 			// reason. Serve owns the store and is always on, so the search index
 			// stays current whether or not a panel is open.
-			go runTranscriptSyncLoop(cmd.Context(), agents.NewTranscriptSyncer(state.agents, state.transcripts, agents.DefaultTranscriptsDir()), transcriptSyncInterval)
+			go runLoop(cmd.Context(), runLoopParams{
+				Name:     "transcript sync",
+				Interval: transcriptSyncInterval,
+				Pass:     agents.NewTranscriptSyncer(state.agents, state.transcripts, agents.DefaultTranscriptsDir()).Sync,
+			})
 
 			server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 			return server.ListenAndServe()
@@ -154,56 +166,29 @@ func serveCmd(state *app) *cobra.Command {
 	return cmd
 }
 
-// runReconcileLoop reconciles every agent on a fixed interval until the context
-// is cancelled. Errors are logged and the loop continues, since a single failed
-// pass is corrected by the next one.
-func runReconcileLoop(ctx context.Context, rec *agents.Reconciler, interval time.Duration) {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			if err := rec.Reconcile(ctx); err != nil {
-				fmt.Fprintf(os.Stderr, "reconcile: %v\n", err)
-			}
-		}
-	}
+// runLoopParams is what one of serve's background loops needs. Name prefixes what
+// a failed pass writes to stderr, so a line says which loop it came from.
+type runLoopParams struct {
+	Name     string
+	Interval time.Duration
+	Pass     func(context.Context) error
 }
 
-// runTranscriptSyncLoop folds new transcript text into the search index on a
-// fixed interval until the context is cancelled. Errors are logged and the loop
-// continues, since a single failed pass is corrected by the next one.
-func runTranscriptSyncLoop(ctx context.Context, syncer *agents.TranscriptSyncer, interval time.Duration) {
-	ticker := time.NewTicker(interval)
+// runLoop re-runs a pass on a fixed interval until the context is cancelled. Every
+// loop serve owns is one of these, since all three want the same thing: correct what
+// you own, wait, correct it again.
+//
+// The first pass runs before the first wait, so a restart corrects what the loop owns
+// immediately rather than leaving it as the last process left it for an interval.
+// Errors are logged and the loop continues, since a single failed pass is corrected by
+// the next one.
+func runLoop(ctx context.Context, params runLoopParams) {
+	ticker := time.NewTicker(params.Interval)
 	defer ticker.Stop()
 
 	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			if err := syncer.Sync(ctx); err != nil {
-				fmt.Fprintf(os.Stderr, "transcript sync: %v\n", err)
-			}
-		}
-	}
-}
-
-// runScheduleLoop reconciles River's periodic jobs against the schedules table
-// on a fixed interval until the context is cancelled. It runs once immediately,
-// so a restart picks the schedules back up rather than waiting out an interval
-// with nothing armed. Errors are logged and the loop continues, since a single
-// failed pass is corrected by the next one.
-func runScheduleLoop(ctx context.Context, scheduler *jobs.Scheduler, interval time.Duration) {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	for {
-		if err := scheduler.Reconcile(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "schedule reconcile: %v\n", err)
+		if err := params.Pass(ctx); err != nil {
+			fmt.Fprintf(os.Stderr, "%s: %v\n", params.Name, err)
 		}
 
 		select {

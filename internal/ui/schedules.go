@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"claude-agents/internal/appconfig"
-	"claude-agents/internal/client"
 	"claude-agents/lib/dates"
 	schedulev1 "claude-agents/proto/gen/schedule/v1"
 
@@ -125,17 +124,16 @@ func (m model) toggleSchedule() (tea.Model, tea.Cmd) {
 		failure = fmt.Sprintf("Could not resume schedule %q", item.schedule.Name)
 	}
 
-	m.report(failure, m.setScheduleEnabled(item.schedule.ID, !item.schedule.Enabled))
-	m.reloadSchedules()
-
-	return m.enterSchedules()
+	return m, m.writeCmd(failure, func(a api) error {
+		return a.setScheduleEnabled(item.schedule.ID, !item.schedule.Enabled)
+	})
 }
 
 // newScheduleForm opens the form to create a schedule, blank except for the
 // workflow, which starts on the first in the list since one has to be chosen.
 func (m model) newScheduleForm() (tea.Model, tea.Cmd) {
 	if len(m.workflows) == 0 {
-		m.failAction("Could not create a schedule", errNoWorkflow)
+		m.report("Could not create a schedule", errNoWorkflow)
 
 		return m, nil
 	}
@@ -160,7 +158,7 @@ func (m model) editScheduleForm() (tea.Model, tea.Cmd) {
 	}
 
 	target := item.schedule
-	if fresh, err := m.getSchedule(target.ID); err == nil && fresh != nil {
+	if fresh, err := m.api.getSchedule(target.ID); err == nil && fresh != nil {
 		target = *fresh
 	}
 
@@ -231,17 +229,21 @@ func (m model) submitScheduleForm() (tea.Model, tea.Cmd) {
 
 	cfg := *m.scheduleValues
 
+	var write tea.Cmd
 	if target := m.scheduleEditTarget; target != nil {
-		m.report(fmt.Sprintf("Could not save schedule %q", target.Name), m.updateSchedule(target.ID, cfg))
+		write = m.writeCmd(
+			fmt.Sprintf("Could not save schedule %q", target.Name),
+			func(a api) error { return a.updateSchedule(target.ID, cfg) },
+		)
 	} else {
-		m.report("Could not create the schedule", m.createSchedule(cfg))
+		write = m.writeCmd("Could not create the schedule", func(a api) error { return a.createSchedule(cfg) })
 	}
 
 	m.scheduleEditTarget = nil
 	m.scheduleValues = nil
-	m.reloadSchedules()
+	entered, refresh := m.enterSchedules()
 
-	return m.enterSchedules()
+	return entered, tea.Batch(write, refresh)
 }
 
 // updateScheduleDelete drives the delete prompt. Confirming removes the
@@ -254,17 +256,18 @@ func (m model) updateScheduleDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.form.State {
 	case huh.StateCompleted:
+		var write tea.Cmd
 		if target := m.scheduleDeleteTarget; target != nil && m.wasConfirmed() {
-			m.report(
+			write = m.writeCmd(
 				fmt.Sprintf("Could not delete schedule %q", target.Name),
-				m.deleteSchedule(target.ID),
+				func(a api) error { return a.deleteSchedule(target.ID) },
 			)
 		}
 		m.scheduleDeleteTarget = nil
 		m.confirmed = nil
-		m.reloadSchedules()
+		entered, refresh := m.enterSchedules()
 
-		return m.enterSchedules()
+		return entered, tea.Batch(write, refresh)
 	case huh.StateAborted:
 		m.scheduleDeleteTarget = nil
 		m.confirmed = nil
@@ -445,43 +448,16 @@ func deleteScheduleForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool)
 // carries its own short deadline so a wedged server costs a keypress rather
 // than the panel.
 
-// listSchedules fetches every schedule and renders them into the items the list
-// is written against.
-func (m model) listSchedules() ([]scheduleItem, error) {
+// getSchedule refetches one schedule, so an edit form opens on what is stored
+// rather than on the row the listing happened to carry. The edit forms are the only
+// thing left that calls on the render loop, since a form has nothing to open on until
+// the answer is in, so this takes the short deadline a listing gets rather than the
+// generous one a write does.
+func (a api) getSchedule(id string) (*schedulestore.Schedule, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
 	defer cancel()
 
-	listed, err := client.ListAllSchedules(ctx, m.api.schedules)
-	if err != nil {
-		return nil, err
-	}
-
-	return scheduleItemsFrom(listed), nil
-}
-
-// reloadSchedules refreshes the list after an action, clamping the cursor into
-// the new length.
-func (m *model) reloadSchedules() {
-	schedules, err := m.listSchedules()
-	if err != nil {
-		// The list already on screen is kept. Blanking it would say every schedule
-		// had been deleted, which is not what a list that failed to answer means.
-		m.failAction("Could not list schedules", err)
-
-		return
-	}
-
-	m.schedules = schedules
-	m.scheduleCursor = clampCursor(m.scheduleCursor, len(schedules))
-}
-
-// getSchedule refetches one schedule, so an edit form opens on what is stored
-// rather than on the row the listing happened to carry.
-func (m model) getSchedule(id string) (*schedulestore.Schedule, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
-	defer cancel()
-
-	resp, err := m.api.schedules.GetSchedule(ctx, connect.NewRequest(&schedulev1.GetScheduleRequest{Id: id}))
+	resp, err := a.schedules.GetSchedule(ctx, connect.NewRequest(&schedulev1.GetScheduleRequest{Id: id}))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get schedule %q: %w", id, err)
 	}
@@ -492,11 +468,11 @@ func (m model) getSchedule(id string) (*schedulestore.Schedule, error) {
 }
 
 // createSchedule records a new schedule.
-func (m model) createSchedule(cfg schedulestore.Config) error {
+func (a api) createSchedule(cfg schedulestore.Config) error {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	_, err := m.api.schedules.CreateSchedule(ctx, connect.NewRequest(&schedulev1.CreateScheduleRequest{
+	_, err := a.schedules.CreateSchedule(ctx, connect.NewRequest(&schedulev1.CreateScheduleRequest{
 		Name:       strings.TrimSpace(cfg.Name),
 		Cron:       cfg.Cron,
 		Timezone:   cfg.Timezone,
@@ -511,11 +487,11 @@ func (m model) createSchedule(cfg schedulestore.Config) error {
 
 // updateSchedule writes every field back, which is what the service expects. It
 // replaces rather than patches, so the caller sends the whole schedule.
-func (m model) updateSchedule(id string, cfg schedulestore.Config) error {
+func (a api) updateSchedule(id string, cfg schedulestore.Config) error {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	_, err := m.api.schedules.UpdateSchedule(ctx, connect.NewRequest(&schedulev1.UpdateScheduleRequest{
+	_, err := a.schedules.UpdateSchedule(ctx, connect.NewRequest(&schedulev1.UpdateScheduleRequest{
 		Id:         id,
 		Name:       strings.TrimSpace(cfg.Name),
 		Cron:       cfg.Cron,
@@ -531,11 +507,11 @@ func (m model) updateSchedule(id string, cfg schedulestore.Config) error {
 
 // setScheduleEnabled pauses or resumes a schedule without touching the rest of
 // its record.
-func (m model) setScheduleEnabled(id string, enabled bool) error {
+func (a api) setScheduleEnabled(id string, enabled bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	_, err := m.api.schedules.SetScheduleEnabled(ctx, connect.NewRequest(&schedulev1.SetScheduleEnabledRequest{
+	_, err := a.schedules.SetScheduleEnabled(ctx, connect.NewRequest(&schedulev1.SetScheduleEnabledRequest{
 		Id:      id,
 		Enabled: enabled,
 	}))
@@ -544,11 +520,11 @@ func (m model) setScheduleEnabled(id string, enabled bool) error {
 }
 
 // deleteSchedule removes a schedule. The agents it launched are left alone.
-func (m model) deleteSchedule(id string) error {
+func (a api) deleteSchedule(id string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	defer cancel()
 
-	_, err := m.api.schedules.DeleteSchedule(ctx, connect.NewRequest(&schedulev1.DeleteScheduleRequest{Id: id}))
+	_, err := a.schedules.DeleteSchedule(ctx, connect.NewRequest(&schedulev1.DeleteScheduleRequest{Id: id}))
 
 	return err
 }
