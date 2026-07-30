@@ -62,7 +62,7 @@ func (q *Queries) ClearAgentPane(ctx context.Context, id string) error {
 
 const countLiveScheduleAgents = `-- name: CountLiveScheduleAgents :one
 SELECT
-    count(*)
+    COUNT(*)
 FROM
     agents
 WHERE
@@ -297,8 +297,30 @@ func (q *Queries) GetTranscript(ctx context.Context, agentID string) (*GetTransc
 }
 
 const insertAgent = `-- name: InsertAgent :one
-INSERT INTO agents (id, name, agent_config_id, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key, is_hidden)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+INSERT INTO agents(
+    id,
+    name,
+    agent_config_id,
+    prompt,
+    pane_id,
+    state,
+    claude_session_id,
+    workflow_id,
+    schedule_id,
+    idempotency_key,
+    is_hidden)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7,
+    $8,
+    $9,
+    $10,
+    $11)
 RETURNING
     id
 `
@@ -337,8 +359,12 @@ func (q *Queries) InsertAgent(ctx context.Context, arg InsertAgentParams) (strin
 }
 
 const insertAgentConfig = `-- name: InsertAgentConfig :one
-INSERT INTO agent_configs (cwd, flags)
-    VALUES ($1, $2)
+INSERT INTO agent_configs(
+    cwd,
+    flags)
+VALUES (
+    $1,
+    $2)
 RETURNING
     id
 `
@@ -618,7 +644,7 @@ func (q *Queries) MarkWorkflowAgentsDeleted(ctx context.Context, workflowID stri
 
 const nextTranscriptChunkSeq = `-- name: NextTranscriptChunkSeq :one
 SELECT
-    coalesce(max(seq) + 1, 0)::int AS next
+    COALESCE(MAX(seq) + 1, 0)::int AS next
 FROM
     agent_transcript_chunks
 WHERE
@@ -690,7 +716,7 @@ func (q *Queries) RestoreAgent(ctx context.Context, id string) error {
 const searchTranscripts = `-- name: SearchTranscripts :many
 WITH q AS (
     SELECT
-        websearch_to_tsquery('english', $2) AS query
+        WEBSEARCH_TO_TSQUERY('english', $2) AS query
 )
 SELECT
     c.agent_id,
@@ -700,12 +726,12 @@ SELECT
     a.name,
     a.is_deleted,
     CASE WHEN c.tsv @@ q.query THEN
-        ts_headline('english', c.content, q.query, $1)
+        TS_HEADLINE('english', c.content, q.query, $1)
     ELSE
-        substring(c.content FROM greatest (1, position(lower($2) IN lower(c.content)) - $3::int)
+        SUBSTRING(c.content FROM greatest(1, POSITION(LOWER($2) IN LOWER(c.content)) - $3::int)
             FOR $4::int)
     END::text AS snippet,
-    ts_rank_cd(c.tsv, q.query)::float8 AS rank
+    TS_RANK_CD(c.tsv, q.query)::float8 AS rank
 FROM
     agent_transcript_chunks c
     CROSS JOIN q
@@ -713,9 +739,11 @@ FROM
 WHERE (c.tsv @@ q.query
     OR c.content ILIKE $5)
 AND ($6::float8 IS NULL
-    OR ts_rank_cd(c.tsv, q.query) < $6
-    OR (ts_rank_cd(c.tsv, q.query) = $6
-        AND (c.agent_id, c.seq) > ($7::uuid, $8::int)))
+    OR TS_RANK_CD(c.tsv, q.query) < $6
+    OR (TS_RANK_CD(c.tsv, q.query) = $6
+        AND (c.agent_id,
+            c.seq) >($7::uuid,
+            $8::int)))
 ORDER BY
     rank DESC,
     c.agent_id ASC,
@@ -871,7 +899,10 @@ func (q *Queries) SetAgentMark(ctx context.Context, arg SetAgentMarkParams) ([]s
 }
 
 const setAgentMetadata = `-- name: SetAgentMetadata :many
-INSERT INTO agent_metadata (agent_id, KEY, value)
+INSERT INTO agent_metadata(
+    agent_id,
+    KEY,
+    value)
 SELECT
     $1,
     $2,
@@ -888,7 +919,8 @@ WHERE
 ON CONFLICT (agent_id,
     KEY)
     DO UPDATE SET
-        value = $3, updated_at = now()
+        value = $3,
+        updated_at = NOW()
     RETURNING
         agent_id
 `
@@ -1043,13 +1075,22 @@ func (q *Queries) UpdateAgentConfig(ctx context.Context, arg UpdateAgentConfigPa
 }
 
 const upsertTranscript = `-- name: UpsertTranscript :exec
-INSERT INTO agent_transcripts (agent_id, content, synced_offset, synced_at)
-    VALUES ($1, $2, $3, now())
-ON CONFLICT (agent_id)
+INSERT INTO agent_transcripts(
+    agent_id,
+    content,
+    synced_offset,
+    synced_at)
+VALUES (
+    $1,
+    $2,
+    $3,
+    NOW())
+ON CONFLICT (
+    agent_id)
     DO UPDATE SET
         content = excluded.content,
         synced_offset = excluded.synced_offset,
-        synced_at = now()
+        synced_at = NOW()
 `
 
 type UpsertTranscriptParams struct {

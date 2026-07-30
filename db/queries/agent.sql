@@ -1,6 +1,6 @@
 -- name: ListAgents :many
 SELECT
-    sqlc.embed (s),
+    sqlc.embed(s),
     sc.cwd,
     sc.flags
 FROM
@@ -13,7 +13,7 @@ ORDER BY
 
 -- name: ListAgentsPage :many
 SELECT
-    sqlc.embed (s),
+    sqlc.embed(s),
     sc.cwd,
     sc.flags
 FROM
@@ -21,15 +21,15 @@ FROM
     JOIN agent_configs sc ON sc.id = s.agent_config_id
 WHERE
     s.is_deleted = @deleted
-    AND (sqlc.narg ('cursor_id')::uuid IS NULL
-        OR s.id < sqlc.narg ('cursor_id'))
+    AND (sqlc.narg('cursor_id')::uuid IS NULL
+        OR s.id < sqlc.narg('cursor_id'))
 ORDER BY
     s.id DESC
 LIMIT @lim;
 
 -- name: ListAllAgents :many
 SELECT
-    sqlc.embed (s),
+    sqlc.embed(s),
     sc.cwd,
     sc.flags
 FROM
@@ -40,7 +40,7 @@ ORDER BY
 
 -- name: GetAgent :one
 SELECT
-    sqlc.embed (s),
+    sqlc.embed(s),
     sc.cwd,
     sc.flags
 FROM
@@ -73,20 +73,46 @@ SELECT
             id = @id);
 
 -- name: InsertAgentConfig :one
-INSERT INTO agent_configs (cwd, flags)
-    VALUES (@cwd, @flags)
+INSERT INTO agent_configs(
+    cwd,
+    flags)
+VALUES (
+    @cwd,
+    @flags)
 RETURNING
     id;
 
 -- name: InsertAgent :one
-INSERT INTO agents (id, name, agent_config_id, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key, is_hidden)
-    VALUES (@id, @name, @agent_config_id, @prompt, @pane_id, @state, @claude_session_id, @workflow_id, sqlc.narg ('schedule_id'), sqlc.narg ('idempotency_key'), @is_hidden)
+INSERT INTO agents(
+    id,
+    name,
+    agent_config_id,
+    prompt,
+    pane_id,
+    state,
+    claude_session_id,
+    workflow_id,
+    schedule_id,
+    idempotency_key,
+    is_hidden)
+VALUES (
+    @id,
+    @name,
+    @agent_config_id,
+    @prompt,
+    @pane_id,
+    @state,
+    @claude_session_id,
+    @workflow_id,
+    sqlc.narg('schedule_id'),
+    sqlc.narg('idempotency_key'),
+    @is_hidden)
 RETURNING
     id;
 
 -- name: GetAgentByIdempotencyKey :one
 SELECT
-    sqlc.embed (s),
+    sqlc.embed(s),
     sc.cwd,
     sc.flags
 FROM
@@ -163,7 +189,7 @@ WHERE
 UPDATE
     agents
 SET
-    mark = sqlc.narg (mark)
+    mark = sqlc.narg(mark)
 WHERE
     id = @id
     AND is_deleted = FALSE
@@ -188,7 +214,10 @@ RETURNING
 -- raising a foreign key violation the handler would have to read to tell an
 -- unknown agent from a real failure.
 -- name: SetAgentMetadata :many
-INSERT INTO agent_metadata (agent_id, KEY, value)
+INSERT INTO agent_metadata(
+    agent_id,
+    KEY,
+    value)
 SELECT
     @agent_id,
     @key,
@@ -206,7 +235,7 @@ ON CONFLICT (agent_id,
     KEY)
     DO UPDATE SET
         value = @value,
-        updated_at = now()
+        updated_at = NOW()
     RETURNING
         agent_id;
 
@@ -294,13 +323,22 @@ WHERE
     agent_id = @agent_id;
 
 -- name: UpsertTranscript :exec
-INSERT INTO agent_transcripts (agent_id, content, synced_offset, synced_at)
-    VALUES (@agent_id, @content, @synced_offset, now())
-ON CONFLICT (agent_id)
+INSERT INTO agent_transcripts(
+    agent_id,
+    content,
+    synced_offset,
+    synced_at)
+VALUES (
+    @agent_id,
+    @content,
+    @synced_offset,
+    NOW())
+ON CONFLICT (
+    agent_id)
     DO UPDATE SET
         content = excluded.content,
         synced_offset = excluded.synced_offset,
-        synced_at = now();
+        synced_at = NOW();
 
 -- name: DeleteAgentTranscriptChunks :exec
 DELETE FROM agent_transcript_chunks
@@ -310,7 +348,7 @@ WHERE agent_id = @agent_id;
 -- one past the highest already stored, or zero for an agent with no turns yet.
 -- name: NextTranscriptChunkSeq :one
 SELECT
-    coalesce(max(seq) + 1, 0)::int AS next
+    COALESCE(MAX(seq) + 1, 0)::int AS next
 FROM
     agent_transcript_chunks
 WHERE
@@ -320,8 +358,18 @@ WHERE
 -- a sync that folded in several turns writes them in one stream instead of a round
 -- trip each.
 -- name: InsertTranscriptChunks :copyfrom
-INSERT INTO agent_transcript_chunks (agent_id, seq, role, content, content_offset)
-    VALUES (@agent_id, @seq, @role, @content, @content_offset);
+INSERT INTO agent_transcript_chunks(
+    agent_id,
+    seq,
+    role,
+    content,
+    content_offset)
+VALUES (
+    @agent_id,
+    @seq,
+    @role,
+    @content,
+    @content_offset);
 
 -- SearchTranscripts finds the turns matching the query, best match first. Two
 -- matchers run together because they fail in opposite places. The tsquery matches
@@ -337,7 +385,7 @@ INSERT INTO agent_transcript_chunks (agent_id, seq, role, content, content_offse
 -- name: SearchTranscripts :many
 WITH q AS (
     SELECT
-        websearch_to_tsquery('english', @query) AS query
+        WEBSEARCH_TO_TSQUERY('english', @query) AS query
 )
 SELECT
     c.agent_id,
@@ -347,24 +395,24 @@ SELECT
     a.name,
     a.is_deleted,
     CASE WHEN c.tsv @@ q.query THEN
-        ts_headline('english', c.content, q.query, @headline)
+        TS_HEADLINE('english', c.content, q.query, @headline)
     ELSE
-        substring(c.content FROM greatest (1, position(lower(@query) IN lower(c.content)) - @lead::int)
+        SUBSTRING(c.content FROM greatest(1, POSITION(LOWER(@query) IN LOWER(c.content)) - @lead::int)
             FOR @width::int)
     END::text AS snippet,
-    ts_rank_cd(c.tsv, q.query)::float8 AS rank
+    TS_RANK_CD(c.tsv, q.query)::float8 AS rank
 FROM
     agent_transcript_chunks c
     CROSS JOIN q
     JOIN agents a ON a.id = c.agent_id
 WHERE (c.tsv @@ q.query
     OR c.content ILIKE @pattern)
-AND (sqlc.narg ('cursor_rank')::float8 IS NULL
-    OR ts_rank_cd(c.tsv, q.query) < sqlc.narg ('cursor_rank')
-    OR (ts_rank_cd(c.tsv, q.query) = sqlc.narg ('cursor_rank')
+AND (sqlc.narg('cursor_rank')::float8 IS NULL
+    OR TS_RANK_CD(c.tsv, q.query) < sqlc.narg('cursor_rank')
+    OR (TS_RANK_CD(c.tsv, q.query) = sqlc.narg('cursor_rank')
         AND (c.agent_id,
-            c.seq) > (sqlc.narg ('cursor_agent_id')::uuid,
-            sqlc.narg ('cursor_seq')::int)))
+            c.seq) >(sqlc.narg('cursor_agent_id')::uuid,
+            sqlc.narg('cursor_seq')::int)))
 ORDER BY
     rank DESC,
     c.agent_id ASC,
@@ -384,7 +432,7 @@ LIMIT @lim;
 -- shortest interval a cron expression can name.
 -- name: CountLiveScheduleAgents :one
 SELECT
-    count(*)
+    COUNT(*)
 FROM
     agents
 WHERE
