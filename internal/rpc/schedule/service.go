@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"claude-agents/internal/agents"
+	"claude-agents/internal/store"
 	"claude-agents/lib/pagination"
 	schedulev1 "claude-agents/proto/gen/schedule/v1"
 
@@ -103,7 +104,7 @@ func (s *Service) CreateSchedule(ctx context.Context, req *connect.Request[sched
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	case errors.Is(err, agents.ErrWorkflowNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, err)
-	case errors.Is(err, schedulestore.ErrNameTaken):
+	case errors.Is(err, store.ErrNameTaken):
 		return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("a schedule named %q already exists", req.Msg.GetName()))
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create schedule: %w", err))
@@ -132,7 +133,7 @@ func (s *Service) UpdateSchedule(ctx context.Context, req *connect.Request[sched
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	case errors.Is(err, agents.ErrWorkflowNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, err)
-	case errors.Is(err, schedulestore.ErrNameTaken):
+	case errors.Is(err, store.ErrNameTaken):
 		return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("a schedule named %q already exists", req.Msg.GetName()))
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update schedule: %w", err))

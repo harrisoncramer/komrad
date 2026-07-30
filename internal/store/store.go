@@ -20,6 +20,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -154,4 +155,22 @@ func NewID() (string, error) {
 // domain store turns into its own empty answer rather than an error.
 func NoRows(err error) bool {
 	return errors.Is(err, pgx.ErrNoRows)
+}
+
+// ErrNameTaken reports that a write collided with a name already held. Every
+// unique name in this schema is scoped to live rows, so this only ever means a
+// record currently listed answers to that name, never one sitting in the trash.
+var ErrNameTaken = errors.New("name already taken")
+
+// uniqueViolation is the SQLSTATE Postgres raises for a broken unique constraint.
+const uniqueViolation = "23505"
+
+// NameTaken reports whether an error is a unique index refusing a write, which
+// every domain store with a unique name turns into its own taken-name sentinel.
+// It reads the driver's code rather than its message text, so the check does not
+// depend on wording that can change under it.
+func NameTaken(err error) bool {
+	var pgErr *pgconn.PgError
+
+	return errors.As(err, &pgErr) && pgErr.Code == uniqueViolation
 }

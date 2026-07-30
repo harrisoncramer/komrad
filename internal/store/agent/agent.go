@@ -17,8 +17,6 @@ import (
 
 	"claude-agents/db/models"
 	"claude-agents/internal/store"
-
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // Agent lifecycle states.
@@ -496,16 +494,6 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// ErrNameTaken reports that a rename collided with a live agent's name. The
-// unique index is scoped to live rows, so this only ever means an agent currently
-// listed answers to that name.
-var ErrNameTaken = errors.New("name already taken")
-
-// uniqueViolation is the SQLSTATE Postgres raises for a broken unique constraint,
-// which is how a taken name is told apart from a real failure without reading the
-// driver's message text.
-const uniqueViolation = "23505"
-
 // Rename changes an agent's display name, keyed by id. It reports whether a row
 // was renamed, so an id that matches nothing is distinguishable from a rename to
 // the name an agent already had.
@@ -515,12 +503,10 @@ func (s *Store) Rename(ctx context.Context, id, name string) (bool, error) {
 	}
 
 	renamed, err := s.queries.RenameAgent(ctx, models.RenameAgentParams{ID: id, Name: name})
+	if store.NameTaken(err) {
+		return false, store.ErrNameTaken
+	}
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
-			return false, ErrNameTaken
-		}
-
 		return false, fmt.Errorf("failed to rename agent %q: %w", id, err)
 	}
 

@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"claude-agents/internal/agents"
+	"claude-agents/internal/store"
 	"claude-agents/lib/pagination"
 	agentv1 "claude-agents/proto/gen/agent/v1"
 
@@ -234,7 +235,7 @@ func (s *Service) RestoreAgent(ctx context.Context, req *connect.Request[agentv1
 func (s *Service) UpdateAgent(ctx context.Context, req *connect.Request[agentv1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error) {
 	renamed, err := s.agents.Rename(ctx, req.Msg.GetId(), req.Msg.GetName())
 	switch {
-	case errors.Is(err, agentstore.ErrNameTaken):
+	case errors.Is(err, store.ErrNameTaken):
 		return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("an agent named %q already exists", req.Msg.GetName()))
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update agent: %w", err))

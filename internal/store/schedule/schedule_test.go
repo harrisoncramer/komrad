@@ -155,7 +155,7 @@ func TestNameTaken(t *testing.T) {
 
 			_, err := st.Create(ctx, Config{Name: "morning-ci", Cron: "0 9 * * *", Prompt: "again", WorkflowID: seedWorkflow(t, st)})
 			if tt.wantTake {
-				require.ErrorIs(t, err, ErrNameTaken)
+				require.ErrorIs(t, err, store.ErrNameTaken)
 				return
 			}
 

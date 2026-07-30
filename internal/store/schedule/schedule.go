@@ -8,33 +8,12 @@ package schedule
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"claude-agents/db/models"
 	"claude-agents/internal/store"
-
-	"github.com/jackc/pgx/v5/pgconn"
 )
-
-// ErrNameTaken reports that a create or an update collided with a live
-// schedule's name. The unique index is scoped to live rows, so this only ever
-// means a schedule currently listed answers to that name.
-var ErrNameTaken = errors.New("name already taken")
-
-// uniqueViolation is the SQLSTATE Postgres raises for a broken unique
-// constraint, which is how a taken name is told apart from a real failure
-// without reading the driver's message text.
-const uniqueViolation = "23505"
-
-// nameTaken reports whether err is the unique index on live names refusing a
-// write.
-func nameTaken(err error) bool {
-	var pgErr *pgconn.PgError
-
-	return errors.As(err, &pgErr) && pgErr.Code == uniqueViolation
-}
 
 // Schedule is a recurring agent launch, what to run, where, and how often.
 type Schedule struct {
@@ -159,8 +138,8 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Schedule, error) {
 		Prompt:     cfg.Prompt,
 		WorkflowID: cfg.WorkflowID,
 	})
-	if nameTaken(err) {
-		return nil, fmt.Errorf("%w: %q", ErrNameTaken, cfg.Name)
+	if store.NameTaken(err) {
+		return nil, fmt.Errorf("%w: %q", store.ErrNameTaken, cfg.Name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to create schedule %q: %w", cfg.Name, err)
@@ -187,8 +166,8 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 		Prompt:     cfg.Prompt,
 		WorkflowID: cfg.WorkflowID,
 	})
-	if nameTaken(err) {
-		return fmt.Errorf("%w: %q", ErrNameTaken, cfg.Name)
+	if store.NameTaken(err) {
+		return fmt.Errorf("%w: %q", store.ErrNameTaken, cfg.Name)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to update schedule %q: %w", id, err)

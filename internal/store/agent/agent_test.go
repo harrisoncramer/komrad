@@ -698,6 +698,98 @@ func TestSetStateByIDKeepsTheMark(t *testing.T) {
 	assert.Equal(t, "●", *after.Mark, "a state write leaves the user's mark standing")
 }
 
+// TestRename covers renaming by id, including the collision. A name is unique
+// among live agents only, so a rename onto one that a live agent holds has to come
+// back as the caller's mistake rather than as a driver error the handler would have
+// to read, and a rename onto a name only an archived row holds has to be allowed.
+func TestRename(t *testing.T) {
+	tests := []struct {
+		name string
+		// target, when set, is renamed instead of the live agent that was created.
+		target string
+		// archiveOther archives the second agent, freeing the name it held.
+		archiveOther bool
+		to           string
+		wantErr      error
+		// wantRenamed says a row was actually touched.
+		wantRenamed bool
+	}{
+		{
+			name:   "an id no agent holds touches nothing",
+			target: "00000000-0000-0000-0000-0000000000ff",
+			to:     "free",
+		},
+		{
+			name:   "an id that is not an id touches nothing",
+			target: "not-a-uuid",
+			to:     "free",
+		},
+		{
+			name:    "a name a live agent already holds",
+			to:      "taken",
+			wantErr: store.ErrNameTaken,
+		},
+		{
+			name:         "a name only an archived row holds is free again",
+			archiveOther: true,
+			to:           "taken",
+			wantRenamed:  true,
+		},
+		{
+			name:        "the name it already answers to",
+			to:          "agent",
+			wantRenamed: true,
+		},
+		{
+			name:        "a name nobody holds",
+			to:          "renamed",
+			wantRenamed: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			require.NoError(t, st.Create(ctx, Agent{Name: "agent", Pane: "%1", State: StateNew}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "taken", Pane: "%2", State: StateNew}))
+			if tt.archiveOther {
+				require.NoError(t, st.Archive(ctx, "taken"))
+			}
+
+			created, err := st.Get(ctx, "agent")
+			require.NoError(t, err)
+			require.NotNil(t, created)
+
+			target := tt.target
+			if target == "" {
+				target = created.ID
+			}
+
+			renamed, err := st.Rename(ctx, target, tt.to)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				assert.False(t, renamed)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantRenamed, renamed)
+
+			if !tt.wantRenamed {
+				return
+			}
+
+			under, err := st.Get(ctx, tt.to)
+			require.NoError(t, err)
+			require.NotNil(t, under)
+			assert.Equal(t, created.ID, under.ID, "the rename kept the agent's id")
+		})
+	}
+}
+
 // TestActiveNameExists covers who owns a name. The unique index is scoped to
 // live rows, so an archived agent keeps its name without blocking a new one.
 func TestActiveNameExists(t *testing.T) {
