@@ -1,23 +1,18 @@
-# tmux-claude-agents
+# weave
 
-A tmux panel for background coding agents running across your tmux sessions.
+Weave is a Tmux-first workflow for managing coding agents. With weave you can:
 
-The tool watches each agent's state, thinking, waiting, or done, and keeps a small store. A persistent popup panel (`prefix + g`) lets you browse every agent, watch a live preview of its pane, and open any one in place. You step away, and you can still see and reach every agent from anywhere.
+- Create agents backed by different backends, like Claude or Codex
+- Quickly search, delete, restore agent sessions behind
+- Group agents into workflows with predefined context and working directories
+- Schedule agents and workflows
+- Manage your agents with another Agent through weave's MCP layer
 
-Which CLI an agent runs sits behind one interface, in `internal/harness`. Claude Code is the implementation that ships today.
-
-NOTE: This project is still under development. Expect breaking changes.
+The tmux panel helps you track and manage each agent's state. The persistent panel (`prefix + g`) lets you browse resources and open the conversations on the fly.
 
 ## Quickstart
 
-The store is Postgres. In development it runs in Docker:
-
-```
-mise run docker:up
-```
-
-That starts the database and applies the migrations. Anywhere else, point `DATABASE_URL` at your own instance and the tool migrates it on first run.
-
+1. Weave stores it's state in Postgres. You can configure it by setting a `DATABASE_URL` in your configuration file.
 1. Install the tmux plugin. With TPM, add to `~/.tmux.conf`, then press `prefix + I`:
 
 ```
