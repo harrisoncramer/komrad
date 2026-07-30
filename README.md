@@ -18,7 +18,7 @@ Weave's tmux panel helps you track and manage each agent's state, and come back 
 1. Install the tmux plugin. With TPM, add to `~/.tmux.conf`, then press `prefix + I`:
 
 ```tmux
-set -g @plugin 'git@github.com:harrisoncramer/tmux-claude-agents'
+set -g @plugin 'git@github.com:harrisoncramer/weave'
 ```
 
 3. Press `prefix + g` to toggle the panel. Use `new agent` to launch a background agent, or `W` to create a new workflow. Press `prefix + g` to hide the panel.
@@ -38,4 +38,4 @@ Concepts and guides:
 
 Command reference, with the usage line and every flag for each command:
 
-- [reference/](docs/reference/claude-agents.md)
+- [reference/](docs/reference/weave.md)

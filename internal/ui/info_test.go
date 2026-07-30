@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"claude-agents/internal/appconfig"
+	"weave/internal/appconfig"
 
-	agentstore "claude-agents/internal/store/agent"
-	workflowstore "claude-agents/internal/store/workflow"
+	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
@@ -185,6 +185,8 @@ type recordingTmux struct {
 	respawns []string
 	// resizes are the widths the stage pane has been set to, as percentages.
 	resizes []int
+	// width is what PaneWidth reports for every pane, the columns markdown renders to.
+	width int
 }
 
 func (t *recordingTmux) SetGlobal(string, string)                {}
@@ -195,6 +197,7 @@ func (t *recordingTmux) BindKey(string, ...string)               {}
 func (t *recordingTmux) ClientPath(string) string                { return t.path }
 func (t *recordingTmux) SendKeys(string, ...string) error        { return nil }
 func (t *recordingTmux) PaneAlive(string) bool                   { return true }
+func (t *recordingTmux) PaneWidth(string) int                    { return t.width }
 func (t *recordingTmux) CapturePane(string) string               { return "" }
 func (t *recordingTmux) CurrentPane() (string, error)            { return "%0", nil }
 func (t *recordingTmux) SplitRight(string, string, int) string   { return "%1" }

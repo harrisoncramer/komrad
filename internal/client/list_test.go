@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	paginationv1 "claude-agents/proto/gen/pagination/v1"
+	paginationv1 "weave/proto/gen/pagination/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

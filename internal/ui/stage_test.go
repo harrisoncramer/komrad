@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"claude-agents/internal/appconfig"
+	"weave/internal/appconfig"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -55,43 +55,23 @@ func TestStageInitSizesThePane(t *testing.T) {
 	assert.Equal(t, []int{60}, tmux.resizes)
 }
 
-// TestStageWrap covers the width markdown is rendered to, which the stage works out
-// from the list beside it rather than measuring a pane it does not draw into.
-func TestStageWrap(t *testing.T) {
-	tests := []struct {
-		name      string
-		split     float64
-		listWidth int
-		want      int
-	}{
-		{
-			name:      "a stage nothing has measured yet has no width of its own",
-			split:     appconfig.DefaultSplit,
-			listWidth: 0,
-			want:      0,
-		},
-		{
-			name:      "the default split leaves the stage four times the list",
-			split:     appconfig.DefaultSplit,
-			listWidth: 40,
-			want:      159,
-		},
-		{
-			name:      "an even split matches the list, less the divider",
-			split:     0.5,
-			listWidth: 100,
-			want:      99,
-		},
-	}
+// TestStageWrapMeasuresThePane covers the width markdown is rendered to, which is the
+// stage pane as tmux reports it and not the share of the width the panel asked for.
+func TestStageWrapMeasuresThePane(t *testing.T) {
+	tmux := &recordingTmux{width: 216}
+	stage := NewStage(tmux, appconfig.DefaultSplit)
+	stage.Init()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			stage := NewStage(&recordingTmux{}, tt.split)
-			stage.SetListWidth(tt.listWidth)
+	assert.Equal(t, 216, stage.wrap())
+}
 
-			assert.Equal(t, tt.want, stage.wrap())
-		})
-	}
+// TestStageWrapUnmeasurablePane covers a pane tmux gives no width for, which leaves
+// the renderer on its own default rather than rendering to nothing.
+func TestStageWrapUnmeasurablePane(t *testing.T) {
+	stage := NewStage(&recordingTmux{}, appconfig.DefaultSplit)
+	stage.Init()
+
+	assert.Equal(t, 0, stage.wrap())
 }
 
 // TestPagerArgv covers the command the stage pane runs, which carries the line to

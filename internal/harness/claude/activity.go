@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"claude-agents/internal/harness"
+	"weave/internal/harness"
 )
 
 // workingLine matches Claude Code's live status line, shown only while it is busy

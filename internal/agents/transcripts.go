@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"claude-agents/internal/harness"
-	agentstore "claude-agents/internal/store/agent"
-	"claude-agents/internal/store/transcript"
+	"weave/internal/harness"
+	agentstore "weave/internal/store/agent"
+	"weave/internal/store/transcript"
 )
 
 // sessionStore is how the syncer records the conversation an agent turned out to be

@@ -63,7 +63,7 @@ func Unreachable(addr string, err error) string {
 			"The panel could not list your agents.",
 		},
 		Hints: []string{
-			"Start it with: claude-agents serve",
+			"Start it with: weave serve",
 			"This screen clears itself once the server answers.",
 		},
 	}

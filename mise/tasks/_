@@ -22,5 +22,5 @@ adminURL() {
 # name, and the tmux entry point is named explicitly because it lives at the root.
 shell_scripts() {
 	find mise/tasks scripts -type f -exec file {} + | grep -i 'shell script' | cut -d: -f1
-	echo "claude-agents.tmux"
+	echo "weave.tmux"
 }

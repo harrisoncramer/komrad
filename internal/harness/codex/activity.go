@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"claude-agents/internal/harness"
+	"weave/internal/harness"
 )
 
 // workingLine matches Codex's live status line, shown only while it is generating or

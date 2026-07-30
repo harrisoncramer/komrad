@@ -14,14 +14,14 @@ import (
 // rewrapping a doc comment in the source does not churn the generated file.
 const commentTextWidth = 76
 
-const preamble = `# claude-agents configuration (github.com/harrisoncramer/tmux-claude-agents).
+const preamble = `# weave configuration (github.com/harrisoncramer/weave).
 #
 # Generated from the Config struct in internal/appconfig. Do not edit by hand;
 # change the struct's doc comments or DefaultKeybindings and run
 # 'mise run gen:config'.
 #
 # Every value below is the tool's built-in default, spelled out. Copy this file
-# to ~/.config/claude-agents/config.toml and change what you like; anything you
+# to ~/.config/weave/config.toml and change what you like; anything you
 # delete falls back to the same default shown here. An unknown key is an error,
 # so nothing outside this file is configurable.
 `

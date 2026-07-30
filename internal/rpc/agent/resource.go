@@ -3,9 +3,9 @@ package agent
 import (
 	"time"
 
-	agentstore "claude-agents/internal/store/agent"
-	transcriptstore "claude-agents/internal/store/transcript"
-	agentv1 "claude-agents/proto/gen/agent/v1"
+	agentstore "weave/internal/store/agent"
+	transcriptstore "weave/internal/store/transcript"
+	agentv1 "weave/proto/gen/agent/v1"
 )
 
 // Every resource the service lists is paged the same way. The handler renders

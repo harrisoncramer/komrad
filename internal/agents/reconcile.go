@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"claude-agents/internal/harness"
-	agentstore "claude-agents/internal/store/agent"
+	"weave/internal/harness"
+	agentstore "weave/internal/store/agent"
 )
 
 // reconcileMisses is how many consecutive idle observations a thinking agent must

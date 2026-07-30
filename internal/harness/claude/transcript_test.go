@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"claude-agents/internal/harness"
+	"weave/internal/harness"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

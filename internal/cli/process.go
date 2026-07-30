@@ -159,16 +159,16 @@ func serverReachable(addr string) bool {
 func serveLogPath() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "claude-agents-serve.log"
+		return "weave-serve.log"
 	}
 
-	return filepath.Join(home, ".claude", "claude-agents-serve.log")
+	return filepath.Join(home, ".claude", "weave-serve.log")
 }
 
 func selfPath() string {
 	path, err := os.Executable()
 	if err != nil {
-		return "claude-agents"
+		return "weave"
 	}
 
 	return path

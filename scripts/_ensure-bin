@@ -1,7 +1,7 @@
 #!/bin/bash
-# Print the path to the claude-agents binary, building it from source if missing.
+# Print the path to the weave binary, building it from source if missing.
 dir="$(cd "$(dirname "$0")/.." && pwd)"
-bin="$dir/bin/claude-agents"
+bin="$dir/bin/weave"
 
 if [ ! -x "$bin" ] && [ -f "$dir/go.mod" ] && command -v go >/dev/null 2>&1; then
 	(cd "$dir" && go build -o "$bin" .) >/dev/null 2>&1 || true

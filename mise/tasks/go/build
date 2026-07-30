@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Build the claude-agents binary."
+#MISE description="Build the weave binary."
 set -euo pipefail
 cd "$MISE_CONFIG_ROOT"
-go build -o bin/claude-agents .
+go build -o bin/weave .

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"claude-agents/lib/dates"
+	"weave/lib/dates"
 
-	agentstore "claude-agents/internal/store/agent"
-	workflowstore "claude-agents/internal/store/workflow"
+	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
 )
 
 // The stage shows a resource that has no pane of its own as rendered markdown, so

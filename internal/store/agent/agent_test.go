@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"testing"
 
-	"claude-agents/db/models"
-	"claude-agents/internal/pgtest"
-	"claude-agents/internal/store"
-	schedulestore "claude-agents/internal/store/schedule"
-	workflowstore "claude-agents/internal/store/workflow"
-	"claude-agents/lib/xptr"
+	"weave/db/models"
+	"weave/internal/pgtest"
+	"weave/internal/store"
+	schedulestore "weave/internal/store/schedule"
+	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xptr"
 
 	"github.com/google/uuid"
 

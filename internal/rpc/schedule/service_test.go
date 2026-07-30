@@ -4,12 +4,12 @@ import (
 	"testing"
 	"time"
 
-	"claude-agents/internal/agents"
-	"claude-agents/internal/storetest"
-	paginationv1 "claude-agents/proto/gen/pagination/v1"
-	schedulev1 "claude-agents/proto/gen/schedule/v1"
+	"weave/internal/agents"
+	"weave/internal/storetest"
+	paginationv1 "weave/proto/gen/pagination/v1"
+	schedulev1 "weave/proto/gen/schedule/v1"
 
-	workflowstore "claude-agents/internal/store/workflow"
+	workflowstore "weave/internal/store/workflow"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"

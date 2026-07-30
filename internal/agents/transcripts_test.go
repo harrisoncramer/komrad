@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"claude-agents/internal/harness"
-	"claude-agents/internal/harness/claude"
-	"claude-agents/internal/harness/codex"
-	agentstore "claude-agents/internal/store/agent"
-	"claude-agents/internal/store/transcript"
+	"weave/internal/harness"
+	"weave/internal/harness/claude"
+	"weave/internal/harness/codex"
+	agentstore "weave/internal/store/agent"
+	"weave/internal/store/transcript"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -1,6 +1,6 @@
 # agentslinter
 
-This module contains claude-agents' custom linter plugin for golangci-lint.
+This module contains weave' custom linter plugin for golangci-lint.
 
 The plugin contains a set of analyzers used to run static analysis against the
 source code and flag issues.

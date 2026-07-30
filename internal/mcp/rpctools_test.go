@@ -3,11 +3,11 @@ package mcp
 import (
 	"testing"
 
-	agentv1 "claude-agents/proto/gen/agent/v1"
-	configv1 "claude-agents/proto/gen/config/v1"
-	workflowv1 "claude-agents/proto/gen/workflow/v1"
+	agentv1 "weave/proto/gen/agent/v1"
+	configv1 "weave/proto/gen/config/v1"
+	workflowv1 "weave/proto/gen/workflow/v1"
 
-	"claude-agents/lib/xptr"
+	"weave/lib/xptr"
 
 	"google.golang.org/protobuf/reflect/protoreflect"
 

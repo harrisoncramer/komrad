@@ -3,7 +3,7 @@ package ui
 import (
 	"strings"
 
-	"claude-agents/internal/errui"
+	"weave/internal/errui"
 )
 
 // View renders the active screen. The takeover screens come first, because every

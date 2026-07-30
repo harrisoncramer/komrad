@@ -95,7 +95,7 @@ const file_rules_v1_rules_proto_rawDesc = "" +
 	"\x1dstring.absolute_path_or_blank\x12(must be blank, absolute, or start with ~\x1aC!rule || this == '' || this.startsWith('/') || this.startsWith('~')R\x13absolutePathOrBlank:\xe0\x01\n" +
 	"\x0fcron_expression\x12\x19.buf.validate.StringRules\x18\xb7\x87\x03 \x01(\bB\x99\x01\xc2H\x95\x01\n" +
 	"\x92\x01\n" +
-	"\x16string.cron_expression\x12?must be five whitespace-separated fields, such as '0 9 * * 1-5'\x1a7!rule || this.split(' ').filter(f, f != '').size() == 5R\x0ecronExpressionB*Z(claude-agents/proto/gen/rules/v1;rulesv1b\beditionsp\xe8\a"
+	"\x16string.cron_expression\x12?must be five whitespace-separated fields, such as '0 9 * * 1-5'\x1a7!rule || this.split(' ').filter(f, f != '').size() == 5R\x0ecronExpressionB\"Z weave/proto/gen/rules/v1;rulesv1b\beditionsp\xe8\a"
 
 var file_rules_v1_rules_proto_goTypes = []any{
 	(*validate.StringRules)(nil), // 0: buf.validate.StringRules

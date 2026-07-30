@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"claude-agents/internal/agents"
+	"weave/internal/agents"
 
 	"github.com/spf13/cobra"
 )

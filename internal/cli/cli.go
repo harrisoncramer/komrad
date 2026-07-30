@@ -1,4 +1,4 @@
-// Package cli builds the claude-agents command tree and wires its dependencies.
+// Package cli builds the weave command tree and wires its dependencies.
 //
 // This file holds the root command and nothing else. Each subcommand lives in its
 // own file named for it, holding that command and only the helpers it uses. What
@@ -10,22 +10,22 @@ import (
 	"fmt"
 	"net/http"
 
-	"claude-agents/config"
-	"claude-agents/internal/agents"
-	"claude-agents/internal/appconfig"
-	"claude-agents/internal/harness"
-	"claude-agents/internal/harness/claude"
-	"claude-agents/internal/harness/codex"
-	"claude-agents/internal/tmux"
-	"claude-agents/internal/ui"
-	"claude-agents/proto/gen/agent/v1/agentv1connect"
-	"claude-agents/proto/gen/schedule/v1/schedulev1connect"
-	"claude-agents/proto/gen/workflow/v1/workflowv1connect"
+	"weave/config"
+	"weave/internal/agents"
+	"weave/internal/appconfig"
+	"weave/internal/harness"
+	"weave/internal/harness/claude"
+	"weave/internal/harness/codex"
+	"weave/internal/tmux"
+	"weave/internal/ui"
+	"weave/proto/gen/agent/v1/agentv1connect"
+	"weave/proto/gen/schedule/v1/schedulev1connect"
+	"weave/proto/gen/workflow/v1/workflowv1connect"
 
 	"github.com/spf13/cobra"
 )
 
-// NewRootCommand builds the claude-agents command tree. Running it with no
+// NewRootCommand builds the weave command tree. Running it with no
 // subcommand opens the panel.
 func NewRootCommand() *cobra.Command {
 	state := &app{}
@@ -36,7 +36,7 @@ func NewRootCommand() *cobra.Command {
 	var codexHarness *codex.Harness
 
 	root := &cobra.Command{
-		Use:           "claude-agents",
+		Use:           "weave",
 		Short:         "tmux panel and CLI for background coding agents",
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,

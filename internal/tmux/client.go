@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os/exec"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -64,6 +65,28 @@ func (c *Client) PaneAlive(pane string) bool {
 
 	id, err := c.paneID(pane)
 	return err == nil && id == pane
+}
+
+// PaneWidth returns how many columns wide a pane is, zero when the pane is gone or
+// tmux answers with something that is not a count. A caller laying content out for a
+// pane asks tmux rather than working the width out from the split it requested, since
+// the two part company as soon as anything resizes a pane by hand.
+func (c *Client) PaneWidth(pane string) int {
+	if pane == "" {
+		return 0
+	}
+
+	out, err := c.query("display-message", "-p", "-t", pane, "#{pane_width}")
+	if err != nil {
+		return 0
+	}
+
+	width, err := strconv.Atoi(out)
+	if err != nil {
+		return 0
+	}
+
+	return width
 }
 
 // paneOwnerOption is the pane-scoped tmux option an agent's pane is stamped with.

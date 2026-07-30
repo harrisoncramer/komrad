@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"claude-agents/internal/appconfig"
+	"weave/internal/appconfig"
 
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/glamour/styles"
@@ -20,6 +20,7 @@ import (
 type stageTmux interface {
 	CurrentPane() (string, error)
 	PaneAlive(pane string) bool
+	PaneWidth(pane string) int
 	SplitRight(anchorPane, dir string, percent int) string
 	ResizePane(pane string, percent int)
 	SwapPanes(src, dst string)
@@ -45,7 +46,6 @@ const (
 type Stage struct {
 	tmux      stageTmux
 	split     float64
-	listWidth int
 	navPane   string
 	pane      string
 	agentPane string
@@ -75,24 +75,14 @@ func (s *Stage) percent() int {
 	return int(math.Round((1 - s.share()) * 100))
 }
 
-// SetListWidth records how wide the panel's own pane is, which the stage measures
-// itself against.
-func (s *Stage) SetListWidth(cols int) {
-	s.listWidth = cols
-}
-
 // wrap is how wide the stage pane is in columns, which is the width markdown renders
-// to. The two panes divide one popup at the configured split, so the stage's width
-// follows from the list's, less the column tmux draws the divider in. A stage nothing
-// has measured yet leaves the renderer on its own default.
+// to. It comes from tmux rather than from the configured split, because a pane the
+// user has dragged is no longer the share the panel asked for, and rendering wider
+// than the pane leaves the pager folding every line into three rows, most of them the
+// padding the renderer fills a line out to. A pane tmux cannot measure leaves the
+// renderer on its own default.
 func (s *Stage) wrap() int {
-	if s.listWidth <= 0 {
-		return 0
-	}
-
-	share := s.share()
-
-	return int(math.Round(float64(s.listWidth)*(1-share)/share)) - 1
+	return s.tmux.PaneWidth(s.pane)
 }
 
 // Init records the panel's own pane as the anchor and splits a stage pane to its
@@ -218,7 +208,7 @@ func (s *Stage) Text(markdown string) {
 	s.restore()
 
 	home, _ := os.UserHomeDir()
-	path := filepath.Join(os.TempDir(), "claude-agents-stage.ansi")
+	path := filepath.Join(os.TempDir(), "weave-stage.ansi")
 	if err := os.WriteFile(path, []byte(s.render(markdown)), 0o644); err != nil {
 		return
 	}
@@ -269,7 +259,7 @@ func (s *Stage) Transcript(content string, highlightLine int) {
 	s.restore()
 
 	home, _ := os.UserHomeDir()
-	path := filepath.Join(os.TempDir(), "claude-agents-stage.txt")
+	path := filepath.Join(os.TempDir(), "weave-stage.txt")
 	if err := os.WriteFile(path, []byte(highlighted(content, highlightLine)), 0o644); err != nil {
 		return
 	}

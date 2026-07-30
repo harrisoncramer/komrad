@@ -13,12 +13,12 @@ package storetest
 import (
 	"testing"
 
-	"claude-agents/internal/pgtest"
-	"claude-agents/internal/store"
-	agentstore "claude-agents/internal/store/agent"
-	schedulestore "claude-agents/internal/store/schedule"
-	transcriptstore "claude-agents/internal/store/transcript"
-	workflowstore "claude-agents/internal/store/workflow"
+	"weave/internal/pgtest"
+	"weave/internal/store"
+	agentstore "weave/internal/store/agent"
+	schedulestore "weave/internal/store/schedule"
+	transcriptstore "weave/internal/store/transcript"
+	workflowstore "weave/internal/store/workflow"
 
 	"github.com/stretchr/testify/require"
 )

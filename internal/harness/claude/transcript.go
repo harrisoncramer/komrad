@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"claude-agents/internal/harness"
+	"weave/internal/harness"
 )
 
 // GetLogPath finds the JSONL log for a session id under Claude's projects dir, or ""

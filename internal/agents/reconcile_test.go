@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	agentstore "claude-agents/internal/store/agent"
-	"claude-agents/lib/xptr"
+	agentstore "weave/internal/store/agent"
+	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

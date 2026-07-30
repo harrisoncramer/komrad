@@ -8,9 +8,6 @@ package schedulev1
 
 import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
-	_ "claude-agents/proto/gen/annotation/v1"
-	v1 "claude-agents/proto/gen/pagination/v1"
-	_ "claude-agents/proto/gen/rules/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -18,6 +15,9 @@ import (
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+	_ "weave/proto/gen/annotation/v1"
+	v1 "weave/proto/gen/pagination/v1"
+	_ "weave/proto/gen/rules/v1"
 )
 
 const (
@@ -765,7 +765,7 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x12SetScheduleEnabled\x12&.schedule.v1.SetScheduleEnabledRequest\x1a\x16.google.protobuf.Empty\"\xa3\x01\x9a\xb5\x18\x9b\x01\n" +
 	"\x14set_schedule_enabled\x12\x80\x01Pause or resume one schedule without editing anything else. A paused schedule keeps its record and its history and stops firing. \x00\x90\x02\x02\x12\x85\x02\n" +
 	"\x0eDeleteSchedule\x12\".schedule.v1.DeleteScheduleRequest\x1a\x16.google.protobuf.Empty\"\xb6\x01\x9a\xb5\x18\xae\x01\n" +
-	"\x0fdelete_schedule\x12\x98\x01Remove a schedule so it stops firing. The agents it already launched are left alone and keep running, and they still record the schedule that made them. \x01\x90\x02\x02B0Z.claude-agents/proto/gen/schedule/v1;schedulev1b\x06proto3"
+	"\x0fdelete_schedule\x12\x98\x01Remove a schedule so it stops firing. The agents it already launched are left alone and keep running, and they still record the schedule that made them. \x01\x90\x02\x02B(Z&weave/proto/gen/schedule/v1;schedulev1b\x06proto3"
 
 var (
 	file_schedule_v1_schedule_proto_rawDescOnce sync.Once

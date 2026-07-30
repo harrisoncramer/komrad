@@ -11,7 +11,7 @@ import (
 
 // pkgPath is the import path of this package, the key AddGoComments builds its
 // comment map against.
-const pkgPath = "claude-agents/internal/appconfig"
+const pkgPath = "weave/internal/appconfig"
 
 // Schema reflects Config into a JSON schema, pulling each field's description
 // from its Go doc comment and each leaf's default from DefaultKeybindings. It is

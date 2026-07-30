@@ -3,11 +3,11 @@ package ui
 import (
 	"fmt"
 
-	"claude-agents/internal/appconfig"
+	"weave/internal/appconfig"
 
-	agentstore "claude-agents/internal/store/agent"
-	schedulestore "claude-agents/internal/store/schedule"
-	workflowstore "claude-agents/internal/store/workflow"
+	agentstore "weave/internal/store/agent"
+	schedulestore "weave/internal/store/schedule"
+	workflowstore "weave/internal/store/workflow"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/huh"

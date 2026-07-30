@@ -3,9 +3,9 @@ package client
 import (
 	"context"
 
-	paginationv1 "claude-agents/proto/gen/pagination/v1"
-	workflowv1 "claude-agents/proto/gen/workflow/v1"
-	"claude-agents/proto/gen/workflow/v1/workflowv1connect"
+	paginationv1 "weave/proto/gen/pagination/v1"
+	workflowv1 "weave/proto/gen/workflow/v1"
+	"weave/proto/gen/workflow/v1/workflowv1connect"
 
 	"connectrpc.com/connect"
 )

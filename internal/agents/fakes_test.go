@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"claude-agents/internal/harness"
-	agentstore "claude-agents/internal/store/agent"
-	transcriptstore "claude-agents/internal/store/transcript"
-	workflowstore "claude-agents/internal/store/workflow"
-	"claude-agents/internal/storetest"
+	"weave/internal/harness"
+	agentstore "weave/internal/store/agent"
+	transcriptstore "weave/internal/store/transcript"
+	workflowstore "weave/internal/store/workflow"
+	"weave/internal/storetest"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"

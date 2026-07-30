@@ -11,8 +11,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"claude-agents/db/models"
-	"claude-agents/internal/store"
+	"weave/db/models"
+	"weave/internal/store"
 )
 
 // Transcript is an agent's stored transcript, the flattened text plus how far into

@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	agentv1 "claude-agents/proto/gen/agent/v1"
-	annotationv1 "claude-agents/proto/gen/annotation/v1"
-	configv1 "claude-agents/proto/gen/config/v1"
-	schedulev1 "claude-agents/proto/gen/schedule/v1"
-	workflowv1 "claude-agents/proto/gen/workflow/v1"
+	agentv1 "weave/proto/gen/agent/v1"
+	annotationv1 "weave/proto/gen/annotation/v1"
+	configv1 "weave/proto/gen/config/v1"
+	schedulev1 "weave/proto/gen/schedule/v1"
+	workflowv1 "weave/proto/gen/workflow/v1"
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"

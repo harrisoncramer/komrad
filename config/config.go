@@ -20,7 +20,7 @@ const defaultDatabaseURL = "postgres://claude_agents:claude_agents@localhost:546
 type Config struct {
 	DatabaseURL string `env:"DATABASE_URL"`
 	Addr        string `env:"CLAUDE_AGENTS_ADDR" envDefault:"127.0.0.1:8787"`
-	TmuxSocket  string `env:"CLAUDE_AGENTS_TMUX_SOCKET" envDefault:"claude-agents"`
+	TmuxSocket  string `env:"CLAUDE_AGENTS_TMUX_SOCKET" envDefault:"weave"`
 }
 
 // Load reads the panel's configuration from the environment, defaulting to the

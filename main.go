@@ -1,11 +1,11 @@
-// Command claude-agents is the tmux panel and CLI for background Claude agents.
+// Command weave is the tmux panel and CLI for background Claude agents.
 package main
 
 import (
 	"fmt"
 	"os"
 
-	"claude-agents/internal/cli"
+	"weave/internal/cli"
 )
 
 func main() {

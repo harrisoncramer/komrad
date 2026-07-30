@@ -3,9 +3,9 @@ package schedule
 import (
 	"time"
 
-	"claude-agents/internal/agents"
-	schedulestore "claude-agents/internal/store/schedule"
-	schedulev1 "claude-agents/proto/gen/schedule/v1"
+	"weave/internal/agents"
+	schedulestore "weave/internal/store/schedule"
+	schedulev1 "weave/proto/gen/schedule/v1"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

@@ -1,8 +1,8 @@
 package workflow
 
 import (
-	workflowstore "claude-agents/internal/store/workflow"
-	workflowv1 "claude-agents/proto/gen/workflow/v1"
+	workflowstore "weave/internal/store/workflow"
+	workflowv1 "weave/proto/gen/workflow/v1"
 )
 
 // Every resource the service lists is paged the same way. The handler renders

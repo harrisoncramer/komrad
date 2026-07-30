@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"time"
 
-	"claude-agents/internal/agents"
-	"claude-agents/internal/store"
-	"claude-agents/lib/pagination"
-	schedulev1 "claude-agents/proto/gen/schedule/v1"
+	"weave/internal/agents"
+	"weave/internal/store"
+	"weave/lib/pagination"
+	schedulev1 "weave/proto/gen/schedule/v1"
 
-	schedulestore "claude-agents/internal/store/schedule"
+	schedulestore "weave/internal/store/schedule"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"

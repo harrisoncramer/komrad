@@ -3,13 +3,13 @@ package ui
 import (
 	"time"
 
-	agentv1 "claude-agents/proto/gen/agent/v1"
-	schedulev1 "claude-agents/proto/gen/schedule/v1"
-	workflowv1 "claude-agents/proto/gen/workflow/v1"
+	agentv1 "weave/proto/gen/agent/v1"
+	schedulev1 "weave/proto/gen/schedule/v1"
+	workflowv1 "weave/proto/gen/workflow/v1"
 
-	agentstore "claude-agents/internal/store/agent"
-	schedulestore "claude-agents/internal/store/schedule"
-	workflowstore "claude-agents/internal/store/workflow"
+	agentstore "weave/internal/store/agent"
+	schedulestore "weave/internal/store/schedule"
+	workflowstore "weave/internal/store/workflow"
 )
 
 // The panel is written against the store types rather than the protos, so a listing is

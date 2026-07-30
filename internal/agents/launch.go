@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"claude-agents/internal/harness"
+	"weave/internal/harness"
 )
 
 // launchTmux is all a launch needs from tmux, somewhere to type. The command is not
@@ -44,7 +44,7 @@ func NewLauncher(tmux launchTmux, serverAddr string) *Launcher {
 // question about the other agents is something it can look up rather than guess at. The
 // closing line matters as much as the rest: an agent whose client has not registered the
 // server must say so instead of inventing an answer.
-const mcpBriefing = `You are a background agent run by claude-agents, a tmux panel that spawns and tracks background coding agents. The panel serves its own Postgres database read-only over MCP as a server named "claude-agents" at http://%s/mcp.
+const mcpBriefing = `You are a background agent run by weave, a tmux panel that spawns and tracks background coding agents. The panel serves its own Postgres database read-only over MCP as a server named "weave" at http://%s/mcp.
 
 That server's tools are list_tables, describe_table, and query, which runs a single SELECT. Between them they cover every agent the panel knows about. The agents table holds each agent's name, state, pane, working directory, and flags, workflows the groups agents belong to, and agent_transcripts the text of their conversations. Writes are rejected. Reach for these when the question is about the other agents rather than the code in front of you.
 

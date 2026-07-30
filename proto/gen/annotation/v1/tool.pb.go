@@ -147,7 +147,7 @@ const file_annotation_v1_tool_proto_rawDesc = "" +
 	"_read_onlyB\x0e\n" +
 	"\f_destructiveB\r\n" +
 	"\v_idempotent:S\n" +
-	"\x04tool\x12\x1e.google.protobuf.MethodOptions\x18ӆ\x03 \x01(\v2\x1d.annotation.v1.ToolAnnotationR\x04toolB4Z2claude-agents/proto/gen/annotation/v1;annotationv1b\x06proto3"
+	"\x04tool\x12\x1e.google.protobuf.MethodOptions\x18ӆ\x03 \x01(\v2\x1d.annotation.v1.ToolAnnotationR\x04toolB,Z*weave/proto/gen/annotation/v1;annotationv1b\x06proto3"
 
 var (
 	file_annotation_v1_tool_proto_rawDescOnce sync.Once

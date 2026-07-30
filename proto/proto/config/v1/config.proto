@@ -6,7 +6,7 @@ import "annotation/v1/tool.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/struct.proto";
 
-option go_package = "claude-agents/proto/gen/config/v1;configv1";
+option go_package = "weave/proto/gen/config/v1;configv1";
 
 message GetConfigResponse {
   // The configuration in force, keyed exactly as the user's TOML file is. It is an

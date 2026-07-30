@@ -412,8 +412,10 @@ func fillBindings(configured, def reflect.Value) {
 }
 
 // Load reads the config from path when given, otherwise from the default
-// location ~/.config/claude-agents/config.toml. A missing file is not an error
-// and yields the default keybindings.
+// location ~/.config/weave/config.toml. A missing file is not an error
+// and yields the default keybindings, but a symlink standing where the file
+// should be and resolving to nothing is, since that is a config someone meant
+// to have rather than one they never wrote.
 //
 // A key the Config struct does not know about is an error rather than something
 // silently dropped, so a typo or a binding left behind by an older version says
@@ -431,7 +433,7 @@ func Load(path string) (*Config, error) {
 			return nil, fmt.Errorf("failed to resolve home directory: %w", err)
 		}
 
-		file = filepath.Join(home, ".config", "claude-agents", "config.toml")
+		file = filepath.Join(home, ".config", "weave", "config.toml")
 	}
 
 	viperCfg.SetConfigFile(file)
@@ -441,6 +443,16 @@ func Load(path string) (*Config, error) {
 			return Defaults(), nil
 		}
 		if os.IsNotExist(err) {
+			// Reading through a symlink that resolves to nothing fails the same way as
+			// reading a path with nothing at it, so both arrive here and the defaults
+			// would go back for either. Readlink does not follow the link, and so
+			// succeeds only in the dangling case, which is the one worth naming: a
+			// broken link is a config the user believes they have, and silence about it
+			// looks exactly like a machine that was never configured.
+			if target, linkErr := os.Readlink(file); linkErr == nil {
+				return nil, fmt.Errorf("failed to read config %s: it is a symlink to %s, which does not exist", file, target)
+			}
+
 			return Defaults(), nil
 		}
 

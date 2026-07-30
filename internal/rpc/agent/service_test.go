@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"claude-agents/internal/agents"
-	"claude-agents/internal/storetest"
-	"claude-agents/lib/xptr"
-	agentv1 "claude-agents/proto/gen/agent/v1"
+	"weave/internal/agents"
+	"weave/internal/storetest"
+	"weave/lib/xptr"
+	agentv1 "weave/proto/gen/agent/v1"
 
-	agentstore "claude-agents/internal/store/agent"
-	transcriptstore "claude-agents/internal/store/transcript"
+	agentstore "weave/internal/store/agent"
+	transcriptstore "weave/internal/store/transcript"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"

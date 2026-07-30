@@ -8,7 +8,7 @@ import "google/protobuf/empty.proto";
 import "pagination/v1/pagination.proto";
 import "rules/v1/rules.proto";
 
-option go_package = "claude-agents/proto/gen/agent/v1;agentv1";
+option go_package = "weave/proto/gen/agent/v1;agentv1";
 
 // Agent is one background agent, as stored.
 message Agent {
@@ -92,7 +92,7 @@ message ListAgentsResponse {
 // title is auto-named and blank flags mean the configured defaults alone.
 message CreateAgentRequest {
   string prompt = 1 [(buf.validate.field).string = {
-    min_len: 1,
+    min_len: 1
     max_len: 50000
   }];
   // Control characters are refused rather than sanitised. The title becomes the
@@ -101,8 +101,8 @@ message CreateAgentRequest {
   string title = 2 [
     (buf.validate.field).string.max_len = 200,
     (buf.validate.field).cel = {
-      id: "title.printable",
-      message: "title must not contain control characters",
+      id: "title.printable"
+      message: "title must not contain control characters"
       expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
     }
   ];
@@ -111,14 +111,14 @@ message CreateAgentRequest {
   // must be absolute or ~-prefixed, since a relative path would resolve against
   // whichever pane the server happens to be in.
   string dir = 3 [(buf.validate.field).string = {
-    max_len: 4096,
+    max_len: 4096
     [rules.v1.absolute_path_or_blank]: true
   }];
   // Flags are quoted before they reach the pane's shell, so this rule is the
   // second lock rather than the only one. A request carrying a shell
   // metacharacter is rejected outright instead of being neutralised and run.
   string flags = 4 [(buf.validate.field).string = {
-    max_len: 500,
+    max_len: 500
     [rules.v1.shell_safe]: true
   }];
   // The workflow to place the agent in, and where its directory and flags come
@@ -129,7 +129,7 @@ message CreateAgentRequest {
   // the user's configured one, which is the usual case. A name this panel does not
   // implement is refused: get_config lists what it runs.
   string harness = 7 [(buf.validate.field).string = {
-    max_len: 40,
+    max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
   // A key that makes this create repeatable. A second request carrying a key an
@@ -137,7 +137,7 @@ message CreateAgentRequest {
   // second agent process, which is what makes retrying a launch safe. Omit it
   // to make no such claim, which is what an interactive create does.
   optional string idempotency_key = 6 [(buf.validate.field).string = {
-    min_len: 1,
+    min_len: 1
     max_len: 200
   }];
 }
@@ -148,7 +148,7 @@ message CreateAgentResponse {
 
 message GetAgentRequest {
   string name = 1 [(buf.validate.field).string = {
-    min_len: 1,
+    min_len: 1
     max_len: 200
   }];
 }
@@ -217,7 +217,7 @@ message SetMetadataRequest {
 // while its transcript stays searchable and it can be restored.
 message ArchiveAgentRequest {
   string name = 1 [(buf.validate.field).string = {
-    min_len: 1,
+    min_len: 1
     max_len: 200
   }];
 }
@@ -248,12 +248,12 @@ message UpdateAgentRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
   string name = 2 [
     (buf.validate.field).string = {
-      min_len: 1,
+      min_len: 1
       max_len: 200
     },
     (buf.validate.field).cel = {
-      id: "name.storable",
-      message: "name must not contain spaces, colons, dots, slashes, or control characters",
+      id: "name.storable"
+      message: "name must not contain spaces, colons, dots, slashes, or control characters"
       expression: "!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')"
     }
   ];
@@ -261,7 +261,7 @@ message UpdateAgentRequest {
 
 message SearchTranscriptsRequest {
   string query = 1 [(buf.validate.field).string = {
-    min_len: 1,
+    min_len: 1
     max_len: 500
   }];
   optional pagination.v1.Pagination pagination = 2;

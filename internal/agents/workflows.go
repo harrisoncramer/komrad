@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"claude-agents/internal/store"
-	agentstore "claude-agents/internal/store/agent"
-	"claude-agents/internal/store/workflow"
+	"weave/internal/store"
+	agentstore "weave/internal/store/agent"
+	"weave/internal/store/workflow"
 )
 
 // ErrWorkflowHasSchedules reports that a workflow still has schedules launching

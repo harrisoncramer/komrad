@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"claude-agents/db/models"
-	"claude-agents/internal/store"
+	"weave/db/models"
+	"weave/internal/store"
 )
 
 // Agent lifecycle states.

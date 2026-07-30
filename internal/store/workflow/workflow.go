@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"time"
 
-	"claude-agents/db/models"
-	"claude-agents/internal/store"
+	"weave/db/models"
+	"weave/internal/store"
 )
 
 // Workflow is a named bucket of related agents. It runs nothing. Its default

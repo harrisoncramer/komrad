@@ -3,9 +3,9 @@ package client
 import (
 	"context"
 
-	paginationv1 "claude-agents/proto/gen/pagination/v1"
-	schedulev1 "claude-agents/proto/gen/schedule/v1"
-	"claude-agents/proto/gen/schedule/v1/schedulev1connect"
+	paginationv1 "weave/proto/gen/pagination/v1"
+	schedulev1 "weave/proto/gen/schedule/v1"
+	"weave/proto/gen/schedule/v1/schedulev1connect"
 
 	"connectrpc.com/connect"
 )

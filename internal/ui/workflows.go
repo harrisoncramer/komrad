@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	workflowstore "claude-agents/internal/store/workflow"
+	workflowstore "weave/internal/store/workflow"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"

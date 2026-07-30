@@ -3,8 +3,8 @@ package agents
 import (
 	"testing"
 
-	"claude-agents/internal/store/schedule"
-	"claude-agents/internal/store/workflow"
+	"weave/internal/store/schedule"
+	"weave/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

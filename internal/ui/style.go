@@ -3,10 +3,10 @@ package ui
 import (
 	"fmt"
 
-	"claude-agents/internal/appconfig"
-	"claude-agents/internal/errui"
+	"weave/internal/appconfig"
+	"weave/internal/errui"
 
-	agentstore "claude-agents/internal/store/agent"
+	agentstore "weave/internal/store/agent"
 
 	"github.com/charmbracelet/lipgloss"
 )

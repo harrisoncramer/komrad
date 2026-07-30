@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"claude-agents/internal/appconfig"
+	"weave/internal/appconfig"
 
 	"github.com/go-viper/mapstructure/v2"
 	"google.golang.org/protobuf/encoding/protojson"

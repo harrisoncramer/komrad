@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"claude-agents/internal/agents"
-	schedulestore "claude-agents/internal/store/schedule"
+	"weave/internal/agents"
+	schedulestore "weave/internal/store/schedule"
 
 	"github.com/riverqueue/river"
 	"github.com/stretchr/testify/assert"

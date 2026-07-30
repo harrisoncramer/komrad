@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"claude-agents/internal/harness"
+	"weave/internal/harness"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -36,10 +36,10 @@ const (
 		`"content":[{"type":"input_text","text":"how do I use trigram search"}]}}`
 
 	briefedRecord = `{"type":"response_item","payload":{"type":"message","role":"user",` +
-		`"content":[{"type":"input_text","text":"<panel_briefing>\nYou are a background agent run by claude-agents.\n</panel_briefing>\n\nhow do I use trigram search"}]}}`
+		`"content":[{"type":"input_text","text":"<panel_briefing>\nYou are a background agent run by weave.\n</panel_briefing>\n\nhow do I use trigram search"}]}}`
 
 	briefingOnlyRecord = `{"type":"response_item","payload":{"type":"message","role":"user",` +
-		`"content":[{"type":"input_text","text":"<panel_briefing>\nYou are a background agent run by claude-agents.\n</panel_briefing>"}]}}`
+		`"content":[{"type":"input_text","text":"<panel_briefing>\nYou are a background agent run by weave.\n</panel_briefing>"}]}}`
 
 	unclosedBriefingRecord = `{"type":"response_item","payload":{"type":"message","role":"user",` +
 		`"content":[{"type":"input_text","text":"<panel_briefing>\nYou are a background agent"}]}}`

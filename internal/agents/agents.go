@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"claude-agents/internal/store"
-	"claude-agents/lib/xstr"
+	"weave/internal/store"
+	"weave/lib/xstr"
 
-	"claude-agents/internal/harness"
-	agentstore "claude-agents/internal/store/agent"
-	"claude-agents/internal/store/transcript"
-	"claude-agents/internal/store/workflow"
+	"weave/internal/harness"
+	agentstore "weave/internal/store/agent"
+	"weave/internal/store/transcript"
+	"weave/internal/store/workflow"
 )
 
 // expandHome expands a leading ~ or ~/ to the user's home. tmux's new-session -c

@@ -134,7 +134,7 @@ func TestAppendedSystemPrompt(t *testing.T) {
 			}
 
 			if tt.context != "" {
-				assert.Less(t, strings.Index(prompt, "claude-agents"), strings.Index(prompt, tt.context),
+				assert.Less(t, strings.Index(prompt, "weave"), strings.Index(prompt, tt.context),
 					"the briefing comes first")
 			}
 		})

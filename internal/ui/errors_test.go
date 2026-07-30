@@ -6,12 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	"claude-agents/internal/appconfig"
-	"claude-agents/internal/errui"
-	agentstore "claude-agents/internal/store/agent"
-	workflowstore "claude-agents/internal/store/workflow"
-	agentv1 "claude-agents/proto/gen/agent/v1"
-	"claude-agents/proto/gen/agent/v1/agentv1connect"
+	"weave/internal/appconfig"
+	"weave/internal/errui"
+	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
+	agentv1 "weave/proto/gen/agent/v1"
+	"weave/proto/gen/agent/v1/agentv1connect"
 
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
@@ -308,7 +308,7 @@ func TestConfigErrorView(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{
-				configErr:   errors.New("failed to parse config /home/u/.config/claude-agents/config.toml: 'keybindings' has invalid keys: list"),
+				configErr:   errors.New("failed to parse config /home/u/.config/weave/config.toml: 'keybindings' has invalid keys: list"),
 				unreachable: tt.unreachable,
 				addr:        "127.0.0.1:8787",
 				tree:        treeState{agents: []agentItem{{agent: agentstore.Agent{Name: "should-not-render", State: agentstore.StateDone}}}},

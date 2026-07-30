@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	agentstore "claude-agents/internal/store/agent"
+	agentstore "weave/internal/store/agent"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"os"
 
-	"claude-agents/internal/appconfig"
+	"weave/internal/appconfig"
 )
 
 const outputPath = "../../config.toml"

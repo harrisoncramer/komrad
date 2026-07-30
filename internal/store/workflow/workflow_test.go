@@ -3,8 +3,8 @@ package workflow
 import (
 	"testing"
 
-	"claude-agents/internal/pgtest"
-	"claude-agents/internal/store"
+	"weave/internal/pgtest"
+	"weave/internal/store"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

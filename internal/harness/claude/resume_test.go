@@ -84,8 +84,8 @@ func TestProjectFolder(t *testing.T) {
 			want: "-Users-someone-chariot-chariot--worktrees-harry-fix-thing",
 		},
 		{
-			dir:  "/Users/someone/tmux-claude-agents",
-			want: "-Users-someone-tmux-claude-agents",
+			dir:  "/Users/someone/weave",
+			want: "-Users-someone-weave",
 		},
 	}
 

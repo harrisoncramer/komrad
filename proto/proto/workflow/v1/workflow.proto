@@ -8,7 +8,7 @@ import "google/protobuf/empty.proto";
 import "pagination/v1/pagination.proto";
 import "rules/v1/rules.proto";
 
-option go_package = "claude-agents/proto/gen/workflow/v1;workflowv1";
+option go_package = "weave/proto/gen/workflow/v1;workflowv1";
 
 // Workflow is a named bucket of related agents. It runs nothing itself. It holds
 // a label, shared context injected into the agents spawned inside it, and the
@@ -50,7 +50,7 @@ message GetWorkflowResponse {
 // workflow with no context, directory, or flags is a plain folder.
 message CreateWorkflowRequest {
   string name = 1 [(buf.validate.field).string = {
-    min_len: 1,
+    min_len: 1
     max_len: 200
   }];
   string context = 2 [(buf.validate.field).string.max_len = 50000];
@@ -58,17 +58,17 @@ message CreateWorkflowRequest {
   // it must be absolute or ~-prefixed, matching what creating an agent demands,
   // since this is the value prefilled into that form.
   string cwd = 3 [(buf.validate.field).string = {
-    max_len: 4096,
+    max_len: 4096
     [rules.v1.absolute_path_or_blank]: true
   }];
   string flags = 4 [(buf.validate.field).string = {
-    max_len: 500,
+    max_len: 500
     [rules.v1.shell_safe]: true
   }];
   // Which CLI agents created inside this workflow run. Blank leaves them on the
   // user's configured default. A name this panel does not implement is refused.
   string harness = 5 [(buf.validate.field).string = {
-    max_len: 40,
+    max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
 }
@@ -83,23 +83,23 @@ message CreateWorkflowResponse {
 message UpdateWorkflowRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
   string name = 2 [(buf.validate.field).string = {
-    min_len: 1,
+    min_len: 1
     max_len: 200
   }];
   string context = 3 [(buf.validate.field).string.max_len = 50000];
   string cwd = 4 [(buf.validate.field).string = {
-    max_len: 4096,
+    max_len: 4096
     [rules.v1.absolute_path_or_blank]: true
   }];
   string flags = 5 [(buf.validate.field).string = {
-    max_len: 500,
+    max_len: 500
     [rules.v1.shell_safe]: true
   }];
   // Which CLI agents created inside this workflow run from now on. Blank leaves
   // them on the user's configured default. Agents already spawned keep the harness
   // they started on, which is recorded against each of them.
   string harness = 6 [(buf.validate.field).string = {
-    max_len: 40,
+    max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
 }

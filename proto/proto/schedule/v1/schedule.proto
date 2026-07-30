@@ -9,7 +9,7 @@ import "google/protobuf/timestamp.proto";
 import "pagination/v1/pagination.proto";
 import "rules/v1/rules.proto";
 
-option go_package = "claude-agents/proto/gen/schedule/v1;schedulev1";
+option go_package = "weave/proto/gen/schedule/v1;schedulev1";
 
 // Schedule is a recurring agent launch. The record is a blueprint holding the
 // prompt to run, where to run it, and how often. Each firing produces an agent
@@ -62,14 +62,14 @@ message GetScheduleResponse {
 // it produces.
 message CreateScheduleRequest {
   string name = 1 [(buf.validate.field).string = {
-    min_len: 1,
+    min_len: 1
     max_len: 200
   }];
   // Five whitespace-separated fields. The shape is checked here and the
   // expression is parsed by the service, which rejects one that is well-shaped
   // but meaningless.
   string cron = 2 [(buf.validate.field).string = {
-    min_len: 1,
+    min_len: 1
     [rules.v1.cron_expression]: true
   }];
   // An IANA zone such as America/New_York, or blank for the machine's local
@@ -85,7 +85,7 @@ message CreateScheduleRequest {
   // What each launched agent is asked to do. Required, since a schedule that
   // launches an agent with nothing to do is never what the caller meant.
   string prompt = 5 [(buf.validate.field).string = {
-    min_len: 1,
+    min_len: 1
     max_len: 50000
   }];
   // The workflow this schedule launches into, and the reason a schedule carries no
@@ -104,17 +104,17 @@ message CreateScheduleResponse {
 message UpdateScheduleRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
   string name = 2 [(buf.validate.field).string = {
-    min_len: 1,
+    min_len: 1
     max_len: 200
   }];
   string cron = 3 [(buf.validate.field).string = {
-    min_len: 1,
+    min_len: 1
     [rules.v1.cron_expression]: true
   }];
   string timezone = 4 [(buf.validate.field).string.max_len = 100];
   bool enabled = 5;
   string prompt = 6 [(buf.validate.field).string = {
-    min_len: 1,
+    min_len: 1
     max_len: 50000
   }];
   string workflow_id = 7 [(buf.validate.field).string.min_len = 1];

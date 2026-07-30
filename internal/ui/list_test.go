@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	"claude-agents/internal/appconfig"
-	"claude-agents/internal/errui"
-	agentstore "claude-agents/internal/store/agent"
-	schedulestore "claude-agents/internal/store/schedule"
-	workflowstore "claude-agents/internal/store/workflow"
+	"weave/internal/appconfig"
+	"weave/internal/errui"
+	agentstore "weave/internal/store/agent"
+	schedulestore "weave/internal/store/schedule"
+	workflowstore "weave/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 )

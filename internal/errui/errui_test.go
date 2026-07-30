@@ -104,7 +104,7 @@ func TestWrap(t *testing.T) {
 // does not start, so this screen is all the reader gets: it has to carry the error
 // itself and name the file to go and fix.
 func TestConfig(t *testing.T) {
-	err := errors.New("failed to parse config /home/u/.config/claude-agents/config.toml: 'keybindings' has invalid keys: list")
+	err := errors.New("failed to parse config /home/u/.config/weave/config.toml: 'keybindings' has invalid keys: list")
 
 	// The error wraps at the screen width, so the text is compared with its line
 	// breaks flattened away.

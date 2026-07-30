@@ -4,11 +4,11 @@ import (
 	"strings"
 	"testing"
 
-	"claude-agents/internal/store"
-	"claude-agents/internal/storetest"
+	"weave/internal/store"
+	"weave/internal/storetest"
 
-	agentstore "claude-agents/internal/store/agent"
-	"claude-agents/internal/store/transcript"
+	agentstore "weave/internal/store/agent"
+	"weave/internal/store/transcript"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

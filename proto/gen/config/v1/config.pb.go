@@ -7,7 +7,6 @@
 package configv1
 
 import (
-	_ "claude-agents/proto/gen/annotation/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -15,6 +14,7 @@ import (
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+	_ "weave/proto/gen/annotation/v1"
 )
 
 const (
@@ -97,7 +97,7 @@ const file_config_v1_config_proto_rawDesc = "" +
 	"\rConfigService\x12\x92\x04\n" +
 	"\tGetConfig\x12\x16.google.protobuf.Empty\x1a\x1c.config.v1.GetConfigResponse\"\xce\x03\x9a\xb5\x18\xc6\x03\n" +
 	"\n" +
-	"get_config\x12\xb7\x03Read the panel's configuration as it is currently in force, keyed the same way the user's config file is. Covers the default flags every new agent inherits and the keybindings for each of the panel's screens. Anything the user left out of their file reads back as the built-in default. A configError in the response means their file would not parse, in which case the configuration returned is the defaults the panel is running on instead.\x90\x02\x01B,Z*claude-agents/proto/gen/config/v1;configv1b\x06proto3"
+	"get_config\x12\xb7\x03Read the panel's configuration as it is currently in force, keyed the same way the user's config file is. Covers the default flags every new agent inherits and the keybindings for each of the panel's screens. Anything the user left out of their file reads back as the built-in default. A configError in the response means their file would not parse, in which case the configuration returned is the defaults the panel is running on instead.\x90\x02\x01B$Z\"weave/proto/gen/config/v1;configv1b\x06proto3"
 
 var (
 	file_config_v1_config_proto_rawDescOnce sync.Once

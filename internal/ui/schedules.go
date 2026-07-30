@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	schedulestore "claude-agents/internal/store/schedule"
-	workflowstore "claude-agents/internal/store/workflow"
+	schedulestore "weave/internal/store/schedule"
+	workflowstore "weave/internal/store/workflow"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"

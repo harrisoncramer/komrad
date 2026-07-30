@@ -3,7 +3,7 @@ package ui
 import (
 	"fmt"
 
-	agentstore "claude-agents/internal/store/agent"
+	agentstore "weave/internal/store/agent"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"

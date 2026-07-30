@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"claude-agents/internal/appconfig"
-	configv1 "claude-agents/proto/gen/config/v1"
+	"weave/internal/appconfig"
+	configv1 "weave/proto/gen/config/v1"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"

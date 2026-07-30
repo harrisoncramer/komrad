@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"claude-agents/internal/store/schedule"
+	"weave/internal/store/schedule"
 
 	"github.com/robfig/cron/v3"
 )

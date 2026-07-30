@@ -1,8 +1,8 @@
 package ui
 
 import (
-	agentstore "claude-agents/internal/store/agent"
-	workflowstore "claude-agents/internal/store/workflow"
+	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
 )
 
 // treeState is the agents screen, a tree of workflow folders with their agents nested

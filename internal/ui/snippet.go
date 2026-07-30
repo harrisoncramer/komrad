@@ -3,7 +3,7 @@ package ui
 import (
 	"strings"
 
-	"claude-agents/internal/store/transcript"
+	"weave/internal/store/transcript"
 )
 
 // A search hit arrives with the store's markers around whatever matched. Turning that

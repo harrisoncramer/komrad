@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# TPM entrypoint. Builds the claude-agents binary if needed and binds the panel.
+# TPM entrypoint. Builds the weave binary if needed and binds the panel.
 set -euo pipefail
 
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BIN="$CURRENT_DIR/bin/claude-agents"
+BIN="$CURRENT_DIR/bin/weave"
 
 if [ ! -x "$BIN" ] && command -v go >/dev/null 2>&1; then
 	(cd "$CURRENT_DIR" && go build -o "$BIN" .) >/dev/null 2>&1 || true

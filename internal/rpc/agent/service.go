@@ -7,14 +7,14 @@ import (
 	"errors"
 	"fmt"
 
-	"claude-agents/internal/agents"
-	"claude-agents/internal/harness"
-	"claude-agents/internal/store"
-	"claude-agents/lib/pagination"
-	agentv1 "claude-agents/proto/gen/agent/v1"
+	"weave/internal/agents"
+	"weave/internal/harness"
+	"weave/internal/store"
+	"weave/lib/pagination"
+	agentv1 "weave/proto/gen/agent/v1"
 
-	agentstore "claude-agents/internal/store/agent"
-	transcriptstore "claude-agents/internal/store/transcript"
+	agentstore "weave/internal/store/agent"
+	transcriptstore "weave/internal/store/transcript"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"

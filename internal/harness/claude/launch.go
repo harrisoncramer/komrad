@@ -5,14 +5,14 @@ import (
 	"os"
 	"path/filepath"
 
-	"claude-agents/internal/harness"
+	"weave/internal/harness"
 )
 
 // mcpConfigJSON is the MCP client config every agent launches with, pointing at
 // the panel's own read-only endpoint. It is passed with --mcp-config rather than
 // --strict-mcp-config, so an agent gains this server on top of whatever the user
 // has already registered instead of trading them for it.
-const mcpConfigJSON = `{"mcpServers":{"claude-agents":{"type":"http","url":"http://%s/mcp"}}}`
+const mcpConfigJSON = `{"mcpServers":{"weave":{"type":"http","url":"http://%s/mcp"}}}`
 
 // BuildCommand renders the command line that puts Claude up. It is not executed
 // directly: it is typed into a pane and parsed by the shell running there, which
@@ -86,7 +86,7 @@ func (h *Harness) writeMCPConfig(endpoint string) (string, error) {
 		return "", fmt.Errorf("failed to create mcp config dir: %w", err)
 	}
 
-	path := filepath.Join(dir, "claude-agents-mcp.json")
+	path := filepath.Join(dir, "weave-mcp.json")
 	if err := os.WriteFile(path, []byte(fmt.Sprintf(mcpConfigJSON, endpoint)), 0o644); err != nil {
 		return "", fmt.Errorf("failed to write mcp config: %w", err)
 	}

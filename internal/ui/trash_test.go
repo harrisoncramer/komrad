@@ -6,10 +6,10 @@ import (
 	"sync"
 	"testing"
 
-	"claude-agents/internal/appconfig"
-	agentstore "claude-agents/internal/store/agent"
-	agentv1 "claude-agents/proto/gen/agent/v1"
-	"claude-agents/proto/gen/agent/v1/agentv1connect"
+	"weave/internal/appconfig"
+	agentstore "weave/internal/store/agent"
+	agentv1 "weave/proto/gen/agent/v1"
+	"weave/proto/gen/agent/v1/agentv1connect"
 
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"

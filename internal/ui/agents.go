@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"claude-agents/internal/appconfig"
+	"weave/internal/appconfig"
 
-	agentstore "claude-agents/internal/store/agent"
-	workflowstore "claude-agents/internal/store/workflow"
+	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"

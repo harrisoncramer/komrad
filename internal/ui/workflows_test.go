@@ -7,12 +7,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"claude-agents/internal/appconfig"
-	"claude-agents/internal/errui"
-	agentstore "claude-agents/internal/store/agent"
-	workflowstore "claude-agents/internal/store/workflow"
-	workflowv1 "claude-agents/proto/gen/workflow/v1"
-	"claude-agents/proto/gen/workflow/v1/workflowv1connect"
+	"weave/internal/appconfig"
+	"weave/internal/errui"
+	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
+	workflowv1 "weave/proto/gen/workflow/v1"
+	"weave/proto/gen/workflow/v1/workflowv1connect"
 
 	"connectrpc.com/connect"
 	"github.com/charmbracelet/x/ansi"
@@ -317,7 +317,7 @@ func TestRefreshRestagesWorkflowContext(t *testing.T) {
 	assert.Equal(t, "new notes", m.tree.workflows[0].Context)
 	require.Greater(t, len(tmux.respawns), staged, "the edit is restaged without the cursor moving")
 
-	shown, err := os.ReadFile(filepath.Join(os.TempDir(), "claude-agents-stage.ansi"))
+	shown, err := os.ReadFile(filepath.Join(os.TempDir(), "weave-stage.ansi"))
 	require.NoError(t, err)
 	// The file holds the rendered document, where the colours around a word sit
 	// between it and the next, so the text is read back without them.

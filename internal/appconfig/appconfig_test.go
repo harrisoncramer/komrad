@@ -293,6 +293,36 @@ func TestLoadErrorNamesTheFile(t *testing.T) {
 	}
 }
 
+// TestLoadDanglingSymlink covers a config path that is a symlink to nothing, which
+// reading fails at in the same way as a path with no file at it. A machine that was
+// never configured is meant to fall back quietly, but a broken link is a config the
+// user believes is in force, and defaulting on it silently is indistinguishable from
+// the config being honoured with those same values.
+func TestLoadDanglingSymlink(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	target := filepath.Join(dir, "missing", "config.toml")
+	require.NoError(t, os.Symlink(target, path))
+
+	_, err := Load(path)
+
+	require.Error(t, err, "a link resolving to nothing is not the same as having no config")
+	assert.Contains(t, err.Error(), path, "the link to go and repoint is named")
+	assert.Contains(t, err.Error(), target, "what it points at is named, since that is the part that is missing")
+}
+
+// TestLoadAbsentFileDefaults covers the case the dangling link is separated from: a
+// path with nothing at it at all, which is every install that never wrote a config
+// and has to come up on the built-in bindings.
+func TestLoadAbsentFileDefaults(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+
+	cfg, err := Load(path)
+
+	require.NoError(t, err, "an install with no config file comes up on the defaults")
+	assert.Equal(t, DefaultKeybindings().Nav.Up, cfg.Keybindings.Nav.Up)
+}
+
 // withNavUp is the defaults with one navigation binding replaced, which is what
 // a config that overrides only that binding should come out as.
 func withNavUp(k Keybindings, keys ...string) Keybindings {

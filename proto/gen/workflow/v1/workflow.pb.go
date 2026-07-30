@@ -8,15 +8,15 @@ package workflowv1
 
 import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
-	_ "claude-agents/proto/gen/annotation/v1"
-	v1 "claude-agents/proto/gen/pagination/v1"
-	_ "claude-agents/proto/gen/rules/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+	_ "weave/proto/gen/annotation/v1"
+	v1 "weave/proto/gen/pagination/v1"
+	_ "weave/proto/gen/rules/v1"
 )
 
 const (
@@ -620,7 +620,7 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xa4\x02\x9a\xb5\x18\x9c\x02\n" +
 	"\x0fupdate_workflow\x12\x86\x02Replace a workflow's name, context, directory, and flags. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch. \x00\x90\x02\x02\x12\xda\x02\n" +
 	"\x0eDeleteWorkflow\x12\".workflow.v1.DeleteWorkflowRequest\x1a\x16.google.protobuf.Empty\"\x8b\x02\x9a\xb5\x18\x83\x02\n" +
-	"\x0fdelete_workflow\x12\xed\x01Remove a workflow. Its agents are archived alongside it, which leaves them findable through search_transcripts and deletes no transcript. Refused while any schedule still launches into the workflow, since those would have nowhere to run. \x01\x90\x02\x02B0Z.claude-agents/proto/gen/workflow/v1;workflowv1b\x06proto3"
+	"\x0fdelete_workflow\x12\xed\x01Remove a workflow. Its agents are archived alongside it, which leaves them findable through search_transcripts and deletes no transcript. Refused while any schedule still launches into the workflow, since those would have nowhere to run. \x01\x90\x02\x02B(Z&weave/proto/gen/workflow/v1;workflowv1b\x06proto3"
 
 var (
 	file_workflow_v1_workflow_proto_rawDescOnce sync.Once

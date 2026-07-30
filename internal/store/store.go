@@ -13,8 +13,8 @@ import (
 	"errors"
 	"fmt"
 
-	"claude-agents/db"
-	"claude-agents/db/models"
+	"weave/db"
+	"weave/db/models"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"

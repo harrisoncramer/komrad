@@ -5,13 +5,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"claude-agents/internal/interceptors"
-	"claude-agents/lib/xptr"
-	agentv1 "claude-agents/proto/gen/agent/v1"
-	"claude-agents/proto/gen/agent/v1/agentv1connect"
-	paginationv1 "claude-agents/proto/gen/pagination/v1"
+	"weave/internal/interceptors"
+	"weave/lib/xptr"
+	agentv1 "weave/proto/gen/agent/v1"
+	"weave/proto/gen/agent/v1/agentv1connect"
+	paginationv1 "weave/proto/gen/pagination/v1"
 
-	agentstore "claude-agents/internal/store/agent"
+	agentstore "weave/internal/store/agent"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"

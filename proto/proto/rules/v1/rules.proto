@@ -4,7 +4,7 @@ package rules.v1;
 
 import "buf/validate/validate.proto";
 
-option go_package = "claude-agents/proto/gen/rules/v1;rulesv1";
+option go_package = "weave/proto/gen/rules/v1;rulesv1";
 
 // Predefined protovalidate rules, for the checks more than one request message
 // makes. A rule declared here is compiled and evaluated exactly like a standard
@@ -21,31 +21,31 @@ option go_package = "claude-agents/proto/gen/rules/v1;rulesv1";
 extend buf.validate.StringRules {
   // Refuses the characters that would mean anything to a shell.
   bool shell_safe = 50100 [(buf.validate.predefined).cel = {
-    id: "string.shell_safe",
-    message: "must not contain shell metacharacters",
+    id: "string.shell_safe"
+    message: "must not contain shell metacharacters"
     expression: "!rule || !this.matches('[;&|<>`$\\\\\\n]')"
   }];
 
   // A path that resolves the same wherever it is read from.
   bool absolute_path = 50101 [(buf.validate.predefined).cel = {
-    id: "string.absolute_path",
-    message: "must be an absolute path or start with ~",
+    id: "string.absolute_path"
+    message: "must be an absolute path or start with ~"
     expression: "!rule || this.startsWith('/') || this.startsWith('~')"
   }];
 
   // The same rule where blank is a meaningful answer, standing for no path
   // chosen rather than for the root.
   bool absolute_path_or_blank = 50102 [(buf.validate.predefined).cel = {
-    id: "string.absolute_path_or_blank",
-    message: "must be blank, absolute, or start with ~",
+    id: "string.absolute_path_or_blank"
+    message: "must be blank, absolute, or start with ~"
     expression: "!rule || this == '' || this.startsWith('/') || this.startsWith('~')"
   }];
 
   // The shape of a cron expression, five whitespace-separated fields. Whether the
   // fields mean anything is left to whoever parses it.
   bool cron_expression = 50103 [(buf.validate.predefined).cel = {
-    id: "string.cron_expression",
-    message: "must be five whitespace-separated fields, such as '0 9 * * 1-5'",
+    id: "string.cron_expression"
+    message: "must be five whitespace-separated fields, such as '0 9 * * 1-5'"
     expression: "!rule || this.split(' ').filter(f, f != '').size() == 5"
   }];
 }

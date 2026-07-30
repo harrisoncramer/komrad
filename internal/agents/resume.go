@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	agentstore "claude-agents/internal/store/agent"
+	agentstore "weave/internal/store/agent"
 )
 
 // relocateHarness is all a restore needs from the harness it resolved, a chance to

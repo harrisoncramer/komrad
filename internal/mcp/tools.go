@@ -38,7 +38,7 @@ func (d *dbTools) registerTools(server *mcpsdk.Server) {
 	mcpsdk.AddTool(server, &mcpsdk.Tool{
 		Name:        "list_tables",
 		Title:       "List Tables",
-		Description: "List the tables in the claude-agents database with their row counts.",
+		Description: "List the tables in the weave database with their row counts.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true},
 	}, d.handleListTables)
 
@@ -52,7 +52,7 @@ func (d *dbTools) registerTools(server *mcpsdk.Server) {
 	mcpsdk.AddTool(server, &mcpsdk.Tool{
 		Name:        "query",
 		Title:       "Run Read-Only Query",
-		Description: "Run a single read-only SELECT statement against the claude-agents database and return the rows as JSON. Writes and DDL are rejected; results are capped at 1000 rows.",
+		Description: "Run a single read-only SELECT statement against the weave database and return the rows as JSON. Writes and DDL are rejected; results are capped at 1000 rows.",
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true},
 	}, d.handleQuery)
 }

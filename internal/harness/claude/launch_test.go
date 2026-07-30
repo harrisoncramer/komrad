@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"claude-agents/internal/harness"
+	"weave/internal/harness"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -177,7 +177,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 
 			match := mcpConfigRef.FindStringSubmatch(command)
 			require.Len(t, match, 2, "the launch carries a config path")
-			assert.Equal(t, filepath.Join(home, ".claude", "claude-agents-mcp.json"), match[1])
+			assert.Equal(t, filepath.Join(home, ".claude", "weave-mcp.json"), match[1])
 
 			raw, err := os.ReadFile(match[1])
 			require.NoError(t, err)
@@ -190,7 +190,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 			}
 			require.NoError(t, json.Unmarshal(raw, &config))
 
-			server, ok := config.MCPServers["claude-agents"]
+			server, ok := config.MCPServers["weave"]
 			require.True(t, ok, "the panel's own server is registered")
 			assert.Equal(t, "http", server.Type)
 			assert.Equal(t, "http://127.0.0.1:9999/mcp", server.URL)

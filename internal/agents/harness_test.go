@@ -3,9 +3,9 @@ package agents
 import (
 	"testing"
 
-	"claude-agents/internal/harness"
-	agentstore "claude-agents/internal/store/agent"
-	workflowstore "claude-agents/internal/store/workflow"
+	"weave/internal/harness"
+	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

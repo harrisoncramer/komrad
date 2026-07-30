@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"claude-agents/internal/harness"
+	"weave/internal/harness"
 
 	"github.com/stretchr/testify/assert"
 )

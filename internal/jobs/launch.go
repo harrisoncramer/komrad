@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"claude-agents/internal/agents"
-	"claude-agents/lib/xptr"
+	"weave/internal/agents"
+	"weave/lib/xptr"
 
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"

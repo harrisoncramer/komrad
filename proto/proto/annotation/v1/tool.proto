@@ -4,7 +4,7 @@ package annotation.v1;
 
 import "google/protobuf/descriptor.proto";
 
-option go_package = "claude-agents/proto/gen/annotation/v1;annotationv1";
+option go_package = "weave/proto/gen/annotation/v1;annotationv1";
 
 extend google.protobuf.MethodOptions {
   ToolAnnotation tool = 50003;

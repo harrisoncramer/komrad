@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	agentstore "claude-agents/internal/store/agent"
-	transcriptstore "claude-agents/internal/store/transcript"
-	"claude-agents/internal/store/workflow"
+	agentstore "weave/internal/store/agent"
+	transcriptstore "weave/internal/store/transcript"
+	"weave/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

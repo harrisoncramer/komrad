@@ -5,13 +5,13 @@
 package schedulev1connect
 
 import (
-	v1 "claude-agents/proto/gen/schedule/v1"
 	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	http "net/http"
 	strings "strings"
+	v1 "weave/proto/gen/schedule/v1"
 )
 
 // This is a compile-time assertion to ensure that this generated file and the connect package are

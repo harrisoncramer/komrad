@@ -17,7 +17,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	paginationv1 "claude-agents/proto/gen/pagination/v1"
+	paginationv1 "weave/proto/gen/pagination/v1"
 
 	"connectrpc.com/connect"
 )

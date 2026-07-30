@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$MISE_CONFIG_ROOT"
 
-# air (mise run go:dev) owns rebuilding bin/claude-agents on save. Reload does
+# air (mise run go:dev) owns rebuilding bin/weave on save. Reload does
 # not build; it restarts the long-lived processes still running the old binary.
 # Warn when air is not watching, since then the binary is whatever was last
 # built by hand and reload alone will not reflect new code.
@@ -11,25 +11,36 @@ if ! pgrep -x air >/dev/null 2>&1; then
 	echo "warning: air is not running; start it with 'mise run go:dev' so saves rebuild the binary"
 fi
 
-if [ ! -x bin/claude-agents ]; then
-	echo "bin/claude-agents missing; building once (start air to keep it fresh)"
-	go build -o bin/claude-agents .
+if [ ! -x bin/weave ]; then
+	echo "bin/weave missing; building once (start air to keep it fresh)"
+	go build -o bin/weave .
 fi
 
 # serve is long-lived and spawned on first panel open, so a fresh binary alone
 # does not reach it. Kill it and confirm it died, escalating to SIGKILL, so the
 # next panel open respawns it from the new build rather than leaving the stale
 # process bound to the port.
-pkill -f 'claude-agents serve' 2>/dev/null || true
+#
+# The pattern carries the path separator so it matches the binary rather than any
+# directory that happens to be called weave. An install whose binary goes by
+# another name is deliberately not matched: it is not what this checkout builds,
+# and killing it would hide the fact that something else holds the port.
+serve_pattern='/weave serve'
+serve_was_running=0
+if pgrep -f "$serve_pattern" >/dev/null 2>&1; then
+	serve_was_running=1
+fi
+
+pkill -f "$serve_pattern" 2>/dev/null || true
 for _ in $(seq 1 15); do
-	pgrep -f 'claude-agents serve' >/dev/null 2>&1 || break
+	pgrep -f "$serve_pattern" >/dev/null 2>&1 || break
 	sleep 0.2
 done
-if pgrep -f 'claude-agents serve' >/dev/null 2>&1; then
-	pkill -9 -f 'claude-agents serve' 2>/dev/null || true
+if pgrep -f "$serve_pattern" >/dev/null 2>&1; then
+	pkill -9 -f "$serve_pattern" 2>/dev/null || true
 	sleep 0.5
 fi
-if pgrep -f 'claude-agents serve' >/dev/null 2>&1; then
+if pgrep -f "$serve_pattern" >/dev/null 2>&1; then
 	echo "error: serve process would not die; kill it by hand" >&2
 	exit 1
 fi
@@ -38,7 +49,7 @@ fi
 # tmux command does not address: it would talk to the user's server, find no
 # claude-manager session there, and silently do nothing. The socket is the same
 # one the binary resolves from the environment.
-socket="${CLAUDE_AGENTS_TMUX_SOCKET:-claude-agents}"
+socket="${CLAUDE_AGENTS_TMUX_SOCKET:-weave}"
 manager() { tmux -L "$socket" "$@"; }
 
 # The panel is a window of the claude-manager session and every agent is a window
@@ -46,10 +57,20 @@ manager() { tmux -L "$socket" "$@"; }
 # would take every running agent down with the panel. The panel is the only pane
 # running this binary, which is what identifies it.
 panel_pane="$(manager list-panes -a -F '#{pane_id} #{pane_current_command}' 2>/dev/null |
-	awk '$2 == "claude-agents" { print $1; exit }' || true)"
+	awk '$2 == "weave" { print $1; exit }' || true)"
 
 if [ -z "$panel_pane" ]; then
-	echo "stopped stale serve; no panel is running, so open it (prefix+g) to start both from the current binary"
+	# Finding neither serve nor a panel is worth saying outright rather than
+	# reporting as a restart. A reload that matched nothing reads as success, which
+	# is wrong whenever something is running under a name or on a socket this task
+	# does not address, since the next open then comes back on that same untouched
+	# process and the new build never runs.
+	if [ "$serve_was_running" -eq 0 ]; then
+		echo "nothing to reload: no serve matching '$serve_pattern', and no panel pane on socket '$socket'"
+		echo "if the panel is up, it is running a binary or a socket this checkout does not build; check 'ps' and 'ls /tmp/tmux-$(id -u)'"
+	else
+		echo "stopped stale serve; no panel is running, so open it (prefix+g) to start both from the current binary"
+	fi
 	exit 0
 fi
 
@@ -77,6 +98,6 @@ panel_window="$(manager display-message -p -t "$panel_pane" '#{window_id}' 2>/de
 # Respawning the pane restarts the panel in place, keeping the session and the
 # environment open recorded on it. The new panel spawns serve as it starts, so
 # both come back on the current binary.
-manager respawn-pane -k -t "$panel_pane" -c "$MISE_CONFIG_ROOT" "$MISE_CONFIG_ROOT/bin/claude-agents"
+manager respawn-pane -k -t "$panel_pane" -c "$MISE_CONFIG_ROOT" "$MISE_CONFIG_ROOT/bin/weave"
 
 echo "restarted the panel and its serve from the current binary; agents were left running"

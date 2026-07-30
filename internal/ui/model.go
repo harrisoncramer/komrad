@@ -6,11 +6,11 @@ import (
 	"os"
 	"strings"
 
-	"claude-agents/internal/appconfig"
-	"claude-agents/internal/errui"
-	"claude-agents/proto/gen/agent/v1/agentv1connect"
-	schedulev1connect "claude-agents/proto/gen/schedule/v1/schedulev1connect"
-	"claude-agents/proto/gen/workflow/v1/workflowv1connect"
+	"weave/internal/appconfig"
+	"weave/internal/errui"
+	"weave/proto/gen/agent/v1/agentv1connect"
+	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
+	"weave/proto/gen/workflow/v1/workflowv1connect"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"

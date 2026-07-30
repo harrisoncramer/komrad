@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 
-	"claude-agents/internal/agents"
-	"claude-agents/lib/pagination"
-	workflowv1 "claude-agents/proto/gen/workflow/v1"
+	"weave/internal/agents"
+	"weave/lib/pagination"
+	workflowv1 "weave/proto/gen/workflow/v1"
 
-	workflowstore "claude-agents/internal/store/workflow"
+	workflowstore "weave/internal/store/workflow"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"

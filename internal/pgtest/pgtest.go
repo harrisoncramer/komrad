@@ -18,7 +18,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"claude-agents/config"
+	"weave/config"
 
 	"github.com/jackc/pgx/v5"
 )

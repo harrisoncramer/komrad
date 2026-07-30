@@ -13,9 +13,9 @@ import (
 	"fmt"
 	"time"
 
-	"claude-agents/internal/agents"
-	agentstore "claude-agents/internal/store/agent"
-	schedulestore "claude-agents/internal/store/schedule"
+	"weave/internal/agents"
+	agentstore "weave/internal/store/agent"
+	schedulestore "weave/internal/store/schedule"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"

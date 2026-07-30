@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	agentstore "claude-agents/internal/store/agent"
-	"claude-agents/internal/store/schedule"
-	"claude-agents/internal/store/workflow"
+	agentstore "weave/internal/store/agent"
+	"weave/internal/store/schedule"
+	"weave/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"time"
 
-	"claude-agents/db/models"
-	"claude-agents/internal/store"
+	"weave/db/models"
+	"weave/internal/store"
 )
 
 // Schedule is a recurring agent launch, what to run, where, and how often.

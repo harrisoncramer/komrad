@@ -1,6 +1,6 @@
 package ui
 
-import "claude-agents/internal/errui"
+import "weave/internal/errui"
 
 // report records the outcome of an action, whichever way it went: a nil error clears
 // the banner, anything else replaces it. Both halves live here so a caller cannot

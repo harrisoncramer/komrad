@@ -1,4 +1,4 @@
-// Package claude runs Claude Code as a claude-agents harness. Everything here is
+// Package claude runs Claude Code as a weave harness. Everything here is
 // true of that CLI and of nothing else: the flags it takes, the chrome its TUI
 // draws while it works, where it files a conversation, and the JSONL it writes
 // there.
@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"claude-agents/internal/harness"
+	"weave/internal/harness"
 
 	"github.com/google/uuid"
 )

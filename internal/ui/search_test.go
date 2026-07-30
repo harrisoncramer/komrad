@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"claude-agents/internal/appconfig"
+	"weave/internal/appconfig"
 
-	"claude-agents/internal/store/transcript"
+	"weave/internal/store/transcript"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"

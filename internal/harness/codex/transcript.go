@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"claude-agents/internal/harness"
+	"weave/internal/harness"
 )
 
 // GetLogPath finds the rollout for a session id, or "" when none exists. Codex names

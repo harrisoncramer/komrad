@@ -26,5 +26,5 @@ func DefaultRestoreRoot() string {
 		home = ""
 	}
 
-	return filepath.Join(home, ".claude", "claude-agents", "restored")
+	return filepath.Join(home, ".claude", "weave", "restored")
 }

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"claude-agents/internal/harness"
+	"weave/internal/harness"
 )
 
 // BuildCommand renders the command line that puts Codex up. It is not executed
@@ -44,7 +44,7 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	// agent should keep the tools.
 	if launch.MCPEndpoint != "" {
 		command += " -c " + harness.QuoteArg(fmt.Sprintf(
-			"mcp_servers.claude-agents.url=%s",
+			"mcp_servers.weave.url=%s",
 			tomlString("http://"+launch.MCPEndpoint+"/mcp"),
 		))
 	}

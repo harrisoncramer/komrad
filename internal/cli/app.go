@@ -3,17 +3,17 @@ package cli
 import (
 	"context"
 
-	"claude-agents/config"
-	"claude-agents/internal/agents"
-	"claude-agents/internal/appconfig"
-	"claude-agents/internal/harness"
-	"claude-agents/internal/store"
-	agentstore "claude-agents/internal/store/agent"
-	schedulestore "claude-agents/internal/store/schedule"
-	transcriptstore "claude-agents/internal/store/transcript"
-	workflowstore "claude-agents/internal/store/workflow"
-	"claude-agents/internal/tmux"
-	"claude-agents/internal/ui"
+	"weave/config"
+	"weave/internal/agents"
+	"weave/internal/appconfig"
+	"weave/internal/harness"
+	"weave/internal/store"
+	agentstore "weave/internal/store/agent"
+	schedulestore "weave/internal/store/schedule"
+	transcriptstore "weave/internal/store/transcript"
+	workflowstore "weave/internal/store/workflow"
+	"weave/internal/tmux"
+	"weave/internal/ui"
 )
 
 // app is what every subcommand is wired from. Each command holds only the part

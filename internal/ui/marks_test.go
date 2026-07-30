@@ -3,10 +3,10 @@ package ui
 import (
 	"testing"
 
-	"claude-agents/internal/appconfig"
-	"claude-agents/lib/xptr"
+	"weave/internal/appconfig"
+	"weave/lib/xptr"
 
-	agentstore "claude-agents/internal/store/agent"
+	agentstore "weave/internal/store/agent"
 
 	"github.com/stretchr/testify/assert"
 )

@@ -6,16 +6,16 @@ import (
 	"strings"
 	"time"
 
-	agentv1 "claude-agents/proto/gen/agent/v1"
-	"claude-agents/proto/gen/agent/v1/agentv1connect"
-	schedulev1 "claude-agents/proto/gen/schedule/v1"
-	schedulev1connect "claude-agents/proto/gen/schedule/v1/schedulev1connect"
-	workflowv1 "claude-agents/proto/gen/workflow/v1"
-	"claude-agents/proto/gen/workflow/v1/workflowv1connect"
+	agentv1 "weave/proto/gen/agent/v1"
+	"weave/proto/gen/agent/v1/agentv1connect"
+	schedulev1 "weave/proto/gen/schedule/v1"
+	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
+	workflowv1 "weave/proto/gen/workflow/v1"
+	"weave/proto/gen/workflow/v1/workflowv1connect"
 
-	agentstore "claude-agents/internal/store/agent"
-	schedulestore "claude-agents/internal/store/schedule"
-	workflowstore "claude-agents/internal/store/workflow"
+	agentstore "weave/internal/store/agent"
+	schedulestore "weave/internal/store/schedule"
+	workflowstore "weave/internal/store/workflow"
 
 	"connectrpc.com/connect"
 )

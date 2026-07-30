@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	paginationv1 "claude-agents/proto/gen/pagination/v1"
+	paginationv1 "weave/proto/gen/pagination/v1"
 
 	"google.golang.org/protobuf/proto"
 )

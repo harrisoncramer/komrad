@@ -95,7 +95,7 @@ const file_pagination_v1_pagination_proto_rawDesc = "" +
 	"\x05limit\x18\x01 \x01(\x05B\a\xbaH\x04\x1a\x02(\x00H\x00R\x05limit\x88\x01\x01\x12%\n" +
 	"\x06cursor\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x10H\x01R\x06cursor\x88\x01\x01B\b\n" +
 	"\x06_limitB\t\n" +
-	"\a_cursorB4Z2claude-agents/proto/gen/pagination/v1;paginationv1b\x06proto3"
+	"\a_cursorB,Z*weave/proto/gen/pagination/v1;paginationv1b\x06proto3"
 
 var (
 	file_pagination_v1_pagination_proto_rawDescOnce sync.Once

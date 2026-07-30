@@ -8,15 +8,15 @@ package agentv1
 
 import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
-	_ "claude-agents/proto/gen/annotation/v1"
-	v1 "claude-agents/proto/gen/pagination/v1"
-	_ "claude-agents/proto/gen/rules/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+	_ "weave/proto/gen/annotation/v1"
+	v1 "weave/proto/gen/pagination/v1"
+	_ "weave/proto/gen/rules/v1"
 )
 
 const (
@@ -1519,7 +1519,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x11SearchTranscripts\x12\".agent.v1.SearchTranscriptsRequest\x1a#.agent.v1.SearchTranscriptsResponse\"\xb0\x05\x9a\xb5\x18\xa8\x05\n" +
 	"\x12search_transcripts\x12\x91\x05Full-text search across every agent's conversation, including deleted ones, returning one hit per matching turn with the matched text marked. Matches whole words, stemmed, so a query finds turns that phrased it differently; quote a phrase to require it verbatim, prefix a word with - to exclude it. Partial words also match as substrings, and rank below whole-word hits. One agent can appear several times, once per turn that matched. Returns one page, best match first; pass the response's nextPageToken back as pagination.cursor alongside the same query for the next one. Use this to answer what was discussed; use query for the SQL view of the same data.\x90\x02\x01\x12\x87\x02\n" +
 	"\rGetTranscript\x12\x1e.agent.v1.GetTranscriptRequest\x1a\x1f.agent.v1.GetTranscriptResponse\"\xb4\x01\x9a\xb5\x18\xac\x01\n" +
-	"\x0eget_transcript\x12\x99\x01Fetch one agent's full transcript by agent id, not by name. Transcripts can be very large; prefer search_transcripts when looking for something specific.\x90\x02\x01B*Z(claude-agents/proto/gen/agent/v1;agentv1b\x06proto3"
+	"\x0eget_transcript\x12\x99\x01Fetch one agent's full transcript by agent id, not by name. Transcripts can be very large; prefer search_transcripts when looking for something specific.\x90\x02\x01B\"Z weave/proto/gen/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_agent_v1_agent_proto_rawDescOnce sync.Once

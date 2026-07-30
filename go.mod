@@ -1,4 +1,4 @@
-module claude-agents
+module weave
 
 go 1.25.1
 

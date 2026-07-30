@@ -17,7 +17,7 @@ services:
       timeout: 5s
       retries: 15
     volumes:
-      - claude-agents-db:/var/lib/postgresql
+      - weave-db:/var/lib/postgresql
 
 volumes:
-  claude-agents-db:
+  weave-db:

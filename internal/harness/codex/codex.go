@@ -1,4 +1,4 @@
-// Package codex runs OpenAI's Codex CLI as a claude-agents harness. Everything
+// Package codex runs OpenAI's Codex CLI as a weave harness. Everything
 // here is true of that CLI and of nothing else: the config overrides it takes, the
 // chrome its TUI draws, and the rollout files it records a conversation in.
 //
@@ -15,7 +15,7 @@ import (
 	"slices"
 	"time"
 
-	"claude-agents/internal/harness"
+	"weave/internal/harness"
 )
 
 // Harness puts Codex up in a pane and reads back what happened in it.

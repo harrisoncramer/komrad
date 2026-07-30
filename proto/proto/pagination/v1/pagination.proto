@@ -4,7 +4,7 @@ package pagination.v1;
 
 import "buf/validate/validate.proto";
 
-option go_package = "claude-agents/proto/gen/pagination/v1;paginationv1";
+option go_package = "weave/proto/gen/pagination/v1;paginationv1";
 
 // Pagination is the request half of a keyset page. Every list call embeds this
 // same message rather than declaring its own limit and token fields, so paging

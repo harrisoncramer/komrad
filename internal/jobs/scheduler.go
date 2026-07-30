@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"claude-agents/internal/agents"
+	"weave/internal/agents"
 
 	"github.com/riverqueue/river"
 )

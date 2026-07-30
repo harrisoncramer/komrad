@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"claude-agents/internal/harness"
-	"claude-agents/internal/harness/claude"
-	agentstore "claude-agents/internal/store/agent"
-	"claude-agents/internal/tmux"
+	"weave/internal/harness"
+	"weave/internal/harness/claude"
+	agentstore "weave/internal/store/agent"
+	"weave/internal/tmux"
 )
 
 // itmux drives a private tmux server so the reconciler can be exercised against

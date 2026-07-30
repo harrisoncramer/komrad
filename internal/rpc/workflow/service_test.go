@@ -3,13 +3,13 @@ package workflow
 import (
 	"testing"
 
-	"claude-agents/internal/agents"
-	"claude-agents/internal/storetest"
-	paginationv1 "claude-agents/proto/gen/pagination/v1"
-	workflowv1 "claude-agents/proto/gen/workflow/v1"
+	"weave/internal/agents"
+	"weave/internal/storetest"
+	paginationv1 "weave/proto/gen/pagination/v1"
+	workflowv1 "weave/proto/gen/workflow/v1"
 
-	agentstore "claude-agents/internal/store/agent"
-	schedulestore "claude-agents/internal/store/schedule"
+	agentstore "weave/internal/store/agent"
+	schedulestore "weave/internal/store/schedule"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
