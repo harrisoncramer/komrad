@@ -18,15 +18,17 @@ func hiddenTree() model {
 	return model{
 		stage: NewStage(&recordingTmux{}, appconfig.DefaultSplit),
 		keys:  appconfig.DefaultKeybindings(),
-		workflows: []workflowstore.Workflow{
-			{ID: "w1", Name: "backend"},
-			{ID: "w2", Name: "frontend"},
-		},
-		agents: []agentItem{
-			{agent: agentstore.Agent{Name: "auth", WorkflowID: "w1"}},
-			{agent: agentstore.Agent{Name: "chore", WorkflowID: "w1", Hidden: true}},
-			{agent: agentstore.Agent{Name: "sweep", WorkflowID: "w1", Hidden: true}},
-			{agent: agentstore.Agent{Name: "ui", WorkflowID: "w2"}},
+		tree: treeState{
+			workflows: []workflowstore.Workflow{
+				{ID: "w1", Name: "backend"},
+				{ID: "w2", Name: "frontend"},
+			},
+			agents: []agentItem{
+				{agent: agentstore.Agent{Name: "auth", WorkflowID: "w1"}},
+				{agent: agentstore.Agent{Name: "chore", WorkflowID: "w1", Hidden: true}},
+				{agent: agentstore.Agent{Name: "sweep", WorkflowID: "w1", Hidden: true}},
+				{agent: agentstore.Agent{Name: "ui", WorkflowID: "w2"}},
+			},
 		},
 	}
 }
@@ -68,7 +70,7 @@ func TestAgentRowsHidden(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := hiddenTree()
-			m.showHidden = tt.showHidden
+			m.tree.showHidden = tt.showHidden
 
 			rows := m.agentRows()
 			assert.Equal(t, tt.wantRows, describeRows(rows))
@@ -84,12 +86,12 @@ func TestAgentRowsHidden(t *testing.T) {
 // from are not the rows it is left with.
 func TestToggleHiddenAgentsKeepsTheCursor(t *testing.T) {
 	m := hiddenTree()
-	m.agentCursor = 3 // frontend's ui, with backend's two hidden agents away
+	m.tree.cursor = 3 // frontend's ui, with backend's two hidden agents away
 
 	shown, _ := m.toggleHiddenAgents()
 	revealed, ok := shown.(model)
 	require.True(t, ok)
-	require.True(t, revealed.showHidden)
+	require.True(t, revealed.tree.showHidden)
 
 	hovered, ok := revealed.selectedAgent()
 	require.True(t, ok)
@@ -150,7 +152,7 @@ func TestAgentsViewHidden(t *testing.T) {
 	assert.NotContains(t, away, "chore")
 	assert.Contains(t, away, "+2")
 
-	m.showHidden = true
+	m.tree.showHidden = true
 	shown := m.agentsView()
 	assert.Contains(t, shown, "chore")
 	assert.NotContains(t, shown, "+2")

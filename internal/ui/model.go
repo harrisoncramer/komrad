@@ -2,41 +2,19 @@
 package ui
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"claude-agents/internal/appconfig"
 	"claude-agents/internal/errui"
-	agentv1 "claude-agents/proto/gen/agent/v1"
 	"claude-agents/proto/gen/agent/v1/agentv1connect"
 	schedulev1connect "claude-agents/proto/gen/schedule/v1/schedulev1connect"
-	workflowv1 "claude-agents/proto/gen/workflow/v1"
 	"claude-agents/proto/gen/workflow/v1/workflowv1connect"
 
-	agentstore "claude-agents/internal/store/agent"
-	schedulestore "claude-agents/internal/store/schedule"
-	workflowstore "claude-agents/internal/store/workflow"
-
-	"connectrpc.com/connect"
-	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
 )
-
-// agentItemsFrom maps listed agents to agent items, marking which panes are live.
-func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
-	items := make([]agentItem, 0, len(listed))
-	for _, agent := range listed {
-		items = append(items, agentItem{agent: protoToAgent(agent), alive: agent.GetAlive()})
-	}
-
-	return items
-}
 
 // Run launches the panel and blocks for the life of the persistent manager tmux
 // session. Agents are read through the ConnectRPC client. The panel is the nav
@@ -48,54 +26,6 @@ func Run(deps Deps) error {
 	}
 
 	return nil
-}
-
-// hide detaches the popup's client from the persistent manager session without
-// stopping the panel. The bubbletea program keeps running with its state intact,
-// so reopening the popup restores the exact screen. The close and quit keys hide
-// the popup rather than tear the panel down.
-func (m model) hide() tea.Cmd {
-	return func() tea.Msg {
-		m.popup.Hide()
-		return nil
-	}
-}
-
-var (
-	headerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#7E9CD8")).Bold(true)
-	cursorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#7E9CD8")).Bold(true)
-	// dimStyle is shared with the error screens rather than restated here, so the
-	// panel's secondary text and theirs cannot drift to different greys.
-	dimStyle = errui.Dim
-)
-
-// markedColor is what a mark is drawn in when its config names no colour of its own.
-const markedColor = lipgloss.Color(appconfig.DefaultMarkColor)
-
-func stateIcon(state string) string {
-	switch state {
-	case agentstore.StateDone:
-		return "✓"
-	case agentstore.StateWaiting:
-		return "!"
-	case agentstore.StateThinking:
-		return "…"
-	default:
-		return "•"
-	}
-}
-
-func stateColor(state string) lipgloss.Color {
-	switch state {
-	case agentstore.StateDone:
-		return lipgloss.Color("#98BB6C")
-	case agentstore.StateWaiting:
-		return lipgloss.Color("#E82424")
-	case agentstore.StateThinking:
-		return lipgloss.Color("#FF9E3B")
-	default:
-		return lipgloss.Color("#7E9CD8")
-	}
 }
 
 type screen int
@@ -114,25 +44,11 @@ const (
 	screenTrashDelete
 )
 
-// actionTimeout bounds a single call made in response to a keypress. It is
-// generous because creating an agent opens a tmux window on the far side, and it
-// exists so a wedged server leaves the panel usable rather than frozen.
-const actionTimeout = 10 * time.Second
-
 // uiTmux is what the panel needs from tmux, enough to lay out its own panes plus
 // the working directory of the client looking at it.
 type uiTmux interface {
 	stageTmux
 	ClientPath(client string) string
-}
-
-// api holds the service clients the panel acts through. Every change to an agent or
-// a workflow goes over these, the same way the MCP tools and the CLI reach them, so
-// what the panel may do and what a model may do cannot drift apart.
-type api struct {
-	agents    agentv1connect.AgentServiceClient
-	workflows workflowv1connect.WorkflowServiceClient
-	schedules schedulev1connect.ScheduleServiceClient
 }
 
 // Deps are what the panel needs to run. The two services it acts through, the
@@ -191,14 +107,6 @@ type model struct {
 	// stands down: a listing started now would read rows the write is about to
 	// replace, and the write re-lists as it lands anyway.
 	pending int
-	// focusName is an agent the next listing should put the cursor on, consumed as it
-	// lands. A restore can hand back a different name than it went in with, and the
-	// row under that name only exists once the listing that carries it arrives.
-	focusName string
-	// placed says a listing has put the cursor somewhere. Nothing is listed when the
-	// panel paints its first frame, so the first one lands it on the first agent rather
-	// than on the workflow header a cursor nobody has placed sits on.
-	placed bool
 	// configErr is set when the config file would not parse. Unlike unreachable it
 	// never clears, since the file is read once at startup, so the screen it shows
 	// is the whole life of the process.
@@ -224,70 +132,19 @@ type model struct {
 	// off the side.
 	width int
 
-	agents      []agentItem
-	agentCursor int
+	// The screens, each holding the rows it draws and where its cursor is. They are
+	// grouped rather than flattened because the panel is five lists' worth of state and
+	// a flat model made every field name carry the screen it belonged to.
+	tree      treeState
+	schedules scheduleState
+	trash     trashState
+	search    searchState
 
-	// showHidden draws the hidden agents and the hidden schedules alongside the rest.
-	// One flag covers both screens, since it is one question the person watching is
-	// answering. It is the panel's own state rather than anything stored, so it lasts
-	// as long as this process and every panel starts with the hidden ones away.
-	showHidden bool
-
-	// infoPinned shows the hovered agent's stored record in the stage instead of the
-	// agent itself. A live agent otherwise occupies the stage with its own pane, so
-	// its cwd and flags have nowhere else to show. Moving the cursor or opening an
-	// agent clears it, so the pinned record never outlives the row it describes.
-	infoPinned bool
-
-	// workflows backs the tree's folder headers. workflowCursor is which workflow a
-	// header-hover action targets. workflowRenameTarget and workflowEditTarget are
-	// the workflows being renamed or edited while the workflow form is open, both
-	// nil when creating one. workflowDeleteTarget is the one the delete prompt is
-	// confirming.
-	workflows            []workflowstore.Workflow
-	workflowCursor       int
-	workflowRenameTarget *workflowstore.Workflow
-	workflowEditTarget   *workflowstore.Workflow
-	workflowDeleteTarget *workflowstore.Workflow
-
-	// newAgentWorkflow is the workflow a pending new-agent form will place its agent
-	// in, or nil for an agent that belongs to no workflow. Set when the form opens
-	// and consumed on submit.
-	newAgentWorkflow *workflowstore.Workflow
-
-	form *huh.Form
-	// The values the open form writes into, each nil while no form of that shape is
-	// up. huh records a field into its own results only as the cursor leaves it, so a
-	// submit from partway down a form would read every field below as blank. Each form
-	// binds its fields to one of these instead, which they write through on every
-	// change, so a submit reads what is on screen however it was reached.
-	agentValues    *agentFormValues
-	renameValue    *string
-	workflowValues *workflowstore.Config
-	confirmed      *bool
-
-	renameTarget agentstore.Agent
-
-	// Schedules screen state. The list, which row is hovered, and the schedules
-	// the form and the delete prompt are working on, both nil when creating one or
-	// when neither is open.
-	schedules            []scheduleItem
-	scheduleCursor       int
-	scheduleEditTarget   *schedulestore.Schedule
-	scheduleDeleteTarget *schedulestore.Schedule
-	scheduleValues       *schedulestore.Config
-
-	// Search screen state. The live query, its hits, and which hit is hovered.
-	searchQuery  string
-	searchHits   []searchHit
-	searchCursor int
-
-	// Trash screen state. The deleted agents, which one is hovered, and the one
-	// the delete prompt is confirming. The list is its own poll rather than a
-	// filter over m.agents, which holds the live agents only.
-	trash             []agentstore.Agent
-	trashCursor       int
-	trashDeleteTarget *agentstore.Agent
+	// form is the open form, and it owns the input while it is up. values are what it
+	// writes into and target is the record it is working on, both cleared as it closes.
+	form   *huh.Form
+	values formValues
+	target formTarget
 
 	keys  appconfig.Keybindings
 	marks []appconfig.Mark
@@ -322,13 +179,6 @@ func newModel(deps Deps) model {
 	return m
 }
 
-// agentItem is a stored agent plus whether its tmux pane is currently alive. A
-// dormant agent has a dead pane but is kept, since it can be restored from its stored state.
-type agentItem struct {
-	agent agentstore.Agent
-	alive bool
-}
-
 // currentDir fills in the directory a new agent starts in. The form allows a
 // blank, meaning "where I am", and only the panel can answer that, since it is the
 // invoking tmux client's path. The API refuses a blank directory because a server
@@ -346,460 +196,7 @@ func (m model) currentDir(dir string) string {
 	return home
 }
 
-// renameAgent renames an agent by id. A blank or unchanged name is a no-op, which
-// keeps the form's empty submit from asking the service to do nothing.
-func (a api) renameAgent(agent agentstore.Agent, name string) error {
-	name = strings.TrimSpace(name)
-	if name == "" || name == agent.Name {
-		return nil
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
-	defer cancel()
-
-	_, err := a.agents.UpdateAgent(ctx, connect.NewRequest(&agentv1.UpdateAgentRequest{
-		Id:   agent.ID,
-		Name: name,
-	}))
-
-	return err
-}
-
-// workflowsFrom renders listed workflows into the store type the tree is written
-// against.
-func workflowsFrom(listed []*workflowv1.Workflow) []workflowstore.Workflow {
-	workflows := make([]workflowstore.Workflow, 0, len(listed))
-	for _, w := range listed {
-		workflows = append(workflows, workflowstore.Workflow{
-			ID:      w.GetId(),
-			Name:    w.GetName(),
-			Context: w.GetContext(),
-			Cwd:     w.GetCwd(),
-			Flags:   w.GetFlags(),
-		})
-	}
-
-	return workflows
-}
-
-// applyWorkflows takes a freshly-listed set as the on-screen workflows. The listing
-// sorts by id, which is fixed at creation, so it reads newest first and no edit can
-// move a folder under the cursor. Only a create or a delete changes the tree.
-func (m *model) applyWorkflows(fresh []workflowstore.Workflow) {
-	m.workflows = fresh
-	m.workflowCursor = clampCursor(m.workflowCursor, len(fresh))
-}
-
-// applyAgents takes a freshly-listed set as the on-screen agents. The listing is
-// newest first and holds still while an agent is worked on, so a row only moves when
-// an agent above it is created or goes away. The cursor is kept on the agent it was
-// on rather than on its index for that reason. The fresh items carry updated state
-// and liveness, so a reconciler change shows without a structural reload.
-func (m *model) applyAgents(fresh []agentItem) {
-	selected := ""
-	if item, ok := m.selectedAgent(); ok {
-		selected = item.agent.Name
-	}
-
-	// A row an action asked to be shown takes the cursor from whatever was under it,
-	// for this listing only.
-	if m.focusName != "" {
-		selected, m.focusName = m.focusName, ""
-	}
-
-	m.agents = fresh
-	rows := m.agentRows()
-
-	// The cursor indexes the tree of headers and agents, so keep it on the same
-	// agent across the rebuild, or clamp it into the new tree when that agent is
-	// gone.
-	switch idx := rowIndexOfAgentName(rows, selected); {
-	case idx >= 0:
-		m.agentCursor = idx
-	case !m.placed:
-		m.agentCursor = firstAgentRowIndex(rows)
-	default:
-		m.agentCursor = clampCursor(m.agentCursor, len(rows))
-	}
-
-	m.placed = true
-}
-
 // clampCursor keeps an index within a list of the given length.
 func clampCursor(idx, length int) int {
 	return max(min(idx, length-1), 0)
-}
-
-func protoToAgent(s *agentv1.Agent) agentstore.Agent {
-	created, _ := time.Parse(time.RFC3339, s.GetCreatedAt())
-
-	metadata := make([]agentstore.Metadata, 0, len(s.GetMetadata()))
-	for _, entry := range s.GetMetadata() {
-		metadata = append(metadata, agentstore.Metadata{Key: entry.GetKey(), Value: entry.GetValue()})
-	}
-
-	return agentstore.Agent{
-		ID:              s.GetId(),
-		Name:            s.GetName(),
-		Pane:            s.GetPaneId(),
-		Cwd:             s.GetCwd(),
-		Flags:           s.GetFlags(),
-		Prompt:          s.GetPrompt(),
-		State:           s.GetState(),
-		ClaudeSessionID: s.GetClaudeSessionId(),
-		WorkflowID:      s.GetWorkflowId(),
-		ScheduleID:      s.ScheduleId,
-		CreatedAt:       created,
-		Mark:            s.Mark,
-		Hidden:          s.GetHidden(),
-		Metadata:        metadata,
-	}
-}
-
-// errNoWorkflow is what the panel reports when a create is attempted with no
-// workflow to put the agent in, which only happens when none exist at all.
-var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one first")
-
-// openNewAgent opens the new-agent form, seeded from the given workflow's
-// blueprint, and records that workflow so the created agent is placed in it. A
-// nil workflow means there are none to create an agent in, which is reported
-// rather than opening a form whose submit could not go anywhere.
-func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
-	if workflow == nil {
-		m.report("Could not start an agent", errNoWorkflow)
-
-		return m, nil
-	}
-
-	m.newAgentWorkflow = workflow
-	m.form, m.agentValues = newAgentForm(m.keys.Form, workflow.Cwd, workflow.Flags)
-	m.screen = screenForm
-
-	return m, m.form.Init()
-}
-
-// renameForm asks for a new name, starting blank rather than on the current one so
-// the old name is there to read while the new one is typed. It returns the name its
-// input writes into alongside the form.
-func renameForm(current string, keys appconfig.FormKeys) (*huh.Form, *string) {
-	var name string
-
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().Key("name").Title(fmt.Sprintf("Rename %q to", current)).Value(&name),
-		),
-	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
-
-	return form, &name
-}
-
-func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
-	form, cmd := m.form.Update(msg)
-	if updated, ok := form.(*huh.Form); ok {
-		m.form = updated
-	}
-
-	switch m.form.State {
-	case huh.StateCompleted:
-		name := ""
-		if m.renameValue != nil {
-			name = strings.TrimSpace(*m.renameValue)
-		}
-		target := m.renameTarget
-		cmd := m.writeCmd(
-			fmt.Sprintf("Could not rename agent %q", target.Name),
-			func(a api) error { return a.renameAgent(target, name) },
-		)
-		// The row the cursor is on is about to be listed under a different name, so the
-		// cursor follows the name rather than being left to clamp.
-		m.focusName = name
-		m.renameValue = nil
-		m.screen = screenAgents
-
-		return m, cmd
-	case huh.StateAborted:
-		m.renameValue = nil
-		m.screen = screenAgents
-		m.stageSelection()
-		return m, nil
-	default:
-		return m, cmd
-	}
-}
-
-// agentFormValues are the fields the new-agent form writes into.
-type agentFormValues struct {
-	Prompt string
-	Title  string
-	Dir    string
-	Flags  string
-}
-
-// newAgentForm builds the new-agent form and returns the values its fields write
-// into. defaultDir and defaultFlags prefill the directory and flags fields from the
-// enclosing workflow's config, so an agent created inside a workflow starts from its
-// blueprint. Both are blank at the root.
-func newAgentForm(keys appconfig.FormKeys, defaultDir, defaultFlags string) (*huh.Form, *agentFormValues) {
-	values := &agentFormValues{Dir: defaultDir, Flags: defaultFlags}
-
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewText().Key("prompt").Title("Initial prompt").Description(fmt.Sprintf("ctrl+e opens $EDITOR; %s submits", hintKeys(keys.Submit))).Value(&values.Prompt),
-			huh.NewInput().Key("title").Title("Title").Description("optional; claude names it if blank").Value(&values.Title),
-			huh.NewInput().Key("dir").Title("Directory").Description("blank = current").Value(&values.Dir),
-			huh.NewInput().Key("flags").Title("Claude flags").Placeholder("--model opus").Value(&values.Flags),
-		),
-	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
-
-	return form, values
-}
-
-// formKeyMap is the default form keymap with the configured back and quit keys
-// bound to abort, so esc backs out of a form the same way it leaves other
-// screens.
-func formKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
-	quit := append(append([]string{}, keys.Back...), keys.Quit...)
-
-	km := huh.NewDefaultKeyMap()
-	km.Quit = key.NewBinding(key.WithKeys(quit...), key.WithHelp(hintKeys(keys.Back), "back"))
-	return km
-}
-
-// wasConfirmed reports whether the open prompt was answered yes. A prompt that is not
-// open reads as no, so the destructive half of a confirm can only ever run off an
-// answer somebody gave.
-func (m model) wasConfirmed() bool {
-	return m.confirmed != nil && *m.confirmed
-}
-
-// confirmForm asks a yes-or-no question and returns the answer its buttons write
-// into. Every delete in the panel prompts through this, so the wording differs and
-// the shape does not.
-func confirmForm(title, description string, keys appconfig.FormKeys) (*huh.Form, *bool) {
-	var confirmed bool
-
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewConfirm().
-				Key("confirm").
-				Title(title).
-				Description(description).
-				Affirmative("Delete").
-				Negative("Cancel").
-				Value(&confirmed),
-		),
-	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
-
-	return form, &confirmed
-}
-
-// onFormScreen reports whether a form owns the input, which decides whether a key
-// belongs to the form or to the panel's own chrome.
-func (m model) onFormScreen() bool {
-	switch m.screen {
-	case screenForm, screenRename, screenWorkflowForm, screenWorkflowDelete,
-		screenScheduleForm, screenScheduleDelete, screenTrashDelete:
-		return true
-	default:
-		return false
-	}
-}
-
-// fatal is the failure that replaces the panel, or nil when there is none. Both
-// are settled before the panel starts and neither can clear itself, so either one
-// means there is no panel behind the screen it shows. A config that would not parse
-// comes first: a panel that never read its keybindings never got as far as trying
-// to start a server.
-func (m model) fatal() error {
-	if m.configErr != nil {
-		return m.configErr
-	}
-
-	return m.startupErr
-}
-
-// Init starts the refresh loop, which is what fills the panel in and then keeps its
-// rows and states current. A startup failure means there is no list to refresh, so
-// nothing is started.
-func (m model) Init() tea.Cmd {
-	if m.fatal() != nil {
-		return nil
-	}
-
-	return tea.Batch(refreshTick(), m.refreshCmd())
-}
-
-// Update routes messages and key input to the active screen.
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// A startup failure screen is terminal: there is nothing to act on, so any key
-	// dismisses it. Quitting exits zero, which is what lets the popup close on the
-	// keypress rather than lingering.
-	if m.fatal() != nil {
-		if _, ok := msg.(tea.KeyMsg); ok {
-			return m, tea.Quit
-		}
-
-		return m, nil
-	}
-
-	// A resize is recorded and then falls through rather than being consumed, since
-	// an open form lays itself out from the same message.
-	if size, ok := msg.(tea.WindowSizeMsg); ok {
-		m.height = size.Height
-		m.width = size.Width
-		m.stage.SetListWidth(size.Width)
-	}
-
-	// The banner is chrome rather than a screen, so it is dismissed with esc as a
-	// literal rather than through the rebindable back binding: back also carries
-	// left and h, and navigation keys should move the cursor, not clear an error.
-	// Form screens keep their own esc, which aborts the form.
-	if m.actionErr != nil && !m.onFormScreen() {
-		if key, ok := msg.(tea.KeyMsg); ok && key.String() == "esc" {
-			m.actionErr = nil
-
-			return m, nil
-		}
-	}
-
-	switch msg := msg.(type) {
-	case refreshTickMsg:
-		return m, tea.Batch(m.refreshCmd(), refreshTick())
-	case refreshResult:
-		m.applyRefresh(msg)
-
-		return m, nil
-	case writeResult:
-		return m, m.applyWrite(msg)
-	case searchSettledMsg:
-		return m, m.runSettledSearch(msg)
-	case searchResult:
-		return m, m.applySearch(msg)
-	case previewResult:
-		m.applyPreview(msg)
-
-		return m, nil
-	}
-
-	// The form screens take every message, since a form lays itself out from a resize
-	// as much as it reads a keypress.
-	switch m.screen {
-	case screenForm:
-		return m.updateForm(msg)
-	case screenRename:
-		return m.updateRename(msg)
-	case screenWorkflowForm:
-		return m.updateWorkflowForm(msg)
-	case screenWorkflowDelete:
-		return m.updateWorkflowDelete(msg)
-	case screenScheduleForm:
-		return m.updateScheduleForm(msg)
-	case screenScheduleDelete:
-		return m.updateScheduleDelete(msg)
-	case screenTrashDelete:
-		return m.updateTrashDelete(msg)
-	default:
-		// The list screens act on keys alone, which are dispatched below.
-	}
-
-	key, ok := msg.(tea.KeyMsg)
-	if !ok {
-		return m, nil
-	}
-
-	switch m.screen {
-	case screenSearch:
-		return m.updateSearch(key)
-	case screenSchedules:
-		return m.updateSchedules(key)
-	case screenTrash:
-		return m.updateTrash(key)
-	case screenAgents:
-		return m.updateAgents(key)
-	default:
-		return m, nil
-	}
-}
-
-func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if key, ok := msg.(tea.KeyMsg); ok && bound(key.String(), m.keys.Form.Submit) {
-		return m.submitAgent()
-	}
-
-	form, cmd := m.form.Update(msg)
-	if updated, ok := form.(*huh.Form); ok {
-		m.form = updated
-	}
-
-	switch m.form.State {
-	case huh.StateCompleted:
-		return m.submitAgent()
-	case huh.StateAborted:
-		m.newAgentWorkflow = nil
-		m.agentValues = nil
-		m.screen = screenAgents
-		m.agentCursor = clampCursor(m.agentCursor, len(m.agentRows()))
-		m.stageSelection()
-		return m, nil
-	default:
-		return m, cmd
-	}
-}
-
-func (m model) submitAgent() (tea.Model, tea.Cmd) {
-	// The form is only reachable from inside a workflow, so this holds one by the
-	// time a submit happens. It is checked rather than dereferenced because a
-	// create with no workflow would be refused by the service anyway, and saying
-	// so here costs a round trip less.
-	if m.newAgentWorkflow == nil || m.agentValues == nil {
-		m.report("Could not start the agent", errNoWorkflow)
-		m.screen = screenAgents
-		m.stageSelection()
-
-		return m, nil
-	}
-
-	params := createAgentParams{
-		Prompt:     m.agentValues.Prompt,
-		Title:      m.agentValues.Title,
-		Dir:        m.currentDir(m.agentValues.Dir),
-		Flags:      m.agentValues.Flags,
-		WorkflowID: m.newAgentWorkflow.ID,
-	}
-
-	// A launch failure leaves the list unchanged, so it has to be reported. The
-	// refresh that follows would otherwise be the only signal, and a list that comes
-	// back without the new agent reads the same as a form that never submitted.
-	cmd := m.writeCmd("Could not start the agent", func(a api) error { return a.createAgent(params) })
-	m.newAgentWorkflow = nil
-	m.agentValues = nil
-	m.screen = screenAgents
-
-	return m, cmd
-}
-
-// createAgentParams is a launch: the workflow's blueprint as the form left it, plus
-// the workflow the agent lands in.
-type createAgentParams struct {
-	Prompt     string
-	Title      string
-	Dir        string
-	Flags      string
-	WorkflowID string
-}
-
-// createAgent launches an agent.
-func (a api) createAgent(params createAgentParams) error {
-	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
-	defer cancel()
-
-	_, err := a.agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
-		Prompt:     params.Prompt,
-		Title:      params.Title,
-		Dir:        params.Dir,
-		Flags:      params.Flags,
-		WorkflowId: params.WorkflowID,
-	}))
-
-	return err
 }

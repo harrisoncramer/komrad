@@ -57,14 +57,14 @@ func TestApplySearchResults(t *testing.T) {
 			// An empty result blanks the preview, so the model needs its stage even
 			// though nothing here draws.
 			m := model{
-				screen:      screenSearch,
-				searchQuery: tt.query,
-				stage:       NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+				screen: screenSearch,
+				search: searchState{query: tt.query},
+				stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
 			}
 
 			m.applySearch(tt.msg)
 
-			assert.Len(t, m.searchHits, tt.wantHits)
+			assert.Len(t, m.search.hits, tt.wantHits)
 		})
 	}
 }
@@ -122,7 +122,7 @@ func TestUpdateSearchEditsQuery(t *testing.T) {
 				m = updated
 			}
 
-			assert.Equal(t, tt.want, m.searchQuery)
+			assert.Equal(t, tt.want, m.search.query)
 		})
 	}
 }

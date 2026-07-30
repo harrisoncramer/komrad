@@ -46,12 +46,12 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the new-agent form",
 			open: func(m model) model {
-				workflow := m.workflows[0]
-				m.newAgentWorkflow = &workflow
+				workflow := m.tree.workflows[0]
+				m.target.newAgentWorkflow = &workflow
 				m.screen = screenForm
-				m.form, m.agentValues = newAgentForm(m.keys.Form, workflow.Cwd, workflow.Flags)
-				m.agentValues.Prompt = "check CI"
-				m.agentValues.Title = "ci"
+				m.form, m.values.agent = newAgentForm(m.keys.Form, workflow.Cwd, workflow.Flags)
+				m.values.agent.Prompt = "check CI"
+				m.values.agent.Title = "ci"
 
 				return m
 			},
@@ -68,10 +68,10 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the rename form",
 			open: func(m model) model {
-				m.renameTarget = agentstore.Agent{ID: "a1", Name: "api-refactor"}
+				m.target.renameAgent = agentstore.Agent{ID: "a1", Name: "api-refactor"}
 				m.screen = screenRename
-				m.form, m.renameValue = renameForm("api-refactor", m.keys.Form)
-				*m.renameValue = "api-v2"
+				m.form, m.values.rename = renameForm("api-refactor", m.keys.Form)
+				*m.values.rename = "api-v2"
 				m.form.State = huh.StateCompleted
 
 				return m
@@ -87,11 +87,11 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			name: "the new-workflow form",
 			open: func(m model) model {
 				m.screen = screenWorkflowForm
-				m.form, m.workflowValues = workflowConfigForm("New workflow name", workflowstore.Config{}, m.keys.Form)
-				m.workflowValues.Name = "web"
-				m.workflowValues.Context = "the frontend"
-				m.workflowValues.Cwd = "/work/web"
-				m.workflowValues.Flags = "--model sonnet"
+				m.form, m.values.workflow = workflowConfigForm("New workflow name", workflowstore.Config{}, m.keys.Form)
+				m.values.workflow.Name = "web"
+				m.values.workflow.Context = "the frontend"
+				m.values.workflow.Cwd = "/work/web"
+				m.values.workflow.Flags = "--model sonnet"
 
 				return m
 			},
@@ -109,16 +109,16 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			// has to carry the rest as they were. The service replaces every field.
 			name: "the workflow edit form",
 			open: func(m model) model {
-				target := m.workflows[0]
-				m.workflowEditTarget = &target
+				target := m.tree.workflows[0]
+				m.target.editWorkflow = &target
 				m.screen = screenWorkflowForm
-				m.form, m.workflowValues = workflowConfigForm("Workflow name", workflowstore.Config{
+				m.form, m.values.workflow = workflowConfigForm("Workflow name", workflowstore.Config{
 					Name:    target.Name,
 					Context: "shared notes",
 					Cwd:     target.Cwd,
 					Flags:   target.Flags,
 				}, m.keys.Form)
-				m.workflowValues.Cwd = "/work/api-v2"
+				m.values.workflow.Cwd = "/work/api-v2"
 
 				return m
 			},
@@ -135,11 +135,11 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the workflow rename form",
 			open: func(m model) model {
-				target := m.workflows[0]
-				m.workflowRenameTarget = &target
+				target := m.tree.workflows[0]
+				m.target.renameWorkflow = &target
 				m.screen = screenWorkflowForm
-				m.form, m.workflowValues = workflowForm("Rename \"api\" to", m.keys.Form)
-				m.workflowValues.Name = "backend"
+				m.form, m.values.workflow = workflowForm("Rename \"api\" to", m.keys.Form)
+				m.values.workflow.Name = "backend"
 
 				return m
 			},
@@ -154,14 +154,14 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			name: "the new-schedule form",
 			open: func(m model) model {
 				m.screen = screenScheduleForm
-				m.form, m.scheduleValues = scheduleForm(schedulestore.Config{
+				m.form, m.values.schedule = scheduleForm(schedulestore.Config{
 					Enabled:    true,
-					WorkflowID: m.workflows[0].ID,
-				}, m.workflows, m.keys.Form)
-				m.scheduleValues.Name = "sweeper"
-				m.scheduleValues.Cron = "*/5 * * * *"
-				m.scheduleValues.Prompt = "sweep"
-				m.scheduleValues.HideAgents = true
+					WorkflowID: m.tree.workflows[0].ID,
+				}, m.tree.workflows, m.keys.Form)
+				m.values.schedule.Name = "sweeper"
+				m.values.schedule.Cron = "*/5 * * * *"
+				m.values.schedule.Prompt = "sweep"
+				m.values.schedule.HideAgents = true
 
 				return m
 			},
@@ -181,13 +181,13 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			// schedule's runs if the values were read off the cursor's trail.
 			name: "the schedule edit form",
 			open: func(m model) model {
-				m.scheduleEditTarget = &schedulestore.Schedule{ID: "s1", Name: "sweeper"}
+				m.target.editSchedule = &schedulestore.Schedule{ID: "s1", Name: "sweeper"}
 				m.screen = screenScheduleForm
-				m.form, m.scheduleValues = scheduleForm(schedulestore.Config{
+				m.form, m.values.schedule = scheduleForm(schedulestore.Config{
 					Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep",
 					Enabled: true, HideAgents: true, WorkflowID: "w1",
-				}, m.workflows, m.keys.Form)
-				m.scheduleValues.Prompt = "sweep harder"
+				}, m.tree.workflows, m.keys.Form)
+				m.values.schedule.Prompt = "sweep harder"
 
 				return m
 			},
@@ -202,11 +202,11 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the workflow delete prompt",
 			open: func(m model) model {
-				target := m.workflows[0]
-				m.workflowDeleteTarget = &target
+				target := m.tree.workflows[0]
+				m.target.deleteWorkflow = &target
 				m.screen = screenWorkflowDelete
-				m.form, m.confirmed = deleteWorkflowForm(target.Name, m.keys.Form)
-				*m.confirmed = true
+				m.form, m.values.confirmed = deleteWorkflowForm(target.Name, m.keys.Form)
+				*m.values.confirmed = true
 				m.form.State = huh.StateCompleted
 
 				return m
@@ -220,10 +220,10 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the schedule delete prompt",
 			open: func(m model) model {
-				m.scheduleDeleteTarget = &schedulestore.Schedule{ID: "s1", Name: "sweeper"}
+				m.target.deleteSchedule = &schedulestore.Schedule{ID: "s1", Name: "sweeper"}
 				m.screen = screenScheduleDelete
-				m.form, m.confirmed = deleteScheduleForm("sweeper", m.keys.Form)
-				*m.confirmed = true
+				m.form, m.values.confirmed = deleteScheduleForm("sweeper", m.keys.Form)
+				*m.values.confirmed = true
 				m.form.State = huh.StateCompleted
 
 				return m
@@ -237,11 +237,11 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the trash delete prompt",
 			open: func(m model) model {
-				m.trash = []agentstore.Agent{{ID: "a1", Name: "api-refactor"}}
-				m.trashDeleteTarget = &m.trash[0]
+				m.trash.agents = []agentstore.Agent{{ID: "a1", Name: "api-refactor"}}
+				m.target.deleteAgent = &m.trash.agents[0]
 				m.screen = screenTrashDelete
-				m.form, m.confirmed = deleteAgentForm("api-refactor", m.keys.Form)
-				*m.confirmed = true
+				m.form, m.values.confirmed = deleteAgentForm("api-refactor", m.keys.Form)
+				*m.values.confirmed = true
 				m.form.State = huh.StateCompleted
 
 				return m
@@ -338,12 +338,14 @@ func formModel(sent *formRecorder) model {
 	tmux := &recordingTmux{}
 
 	return model{
-		api:       api{agents: sent, workflows: sent, schedules: sent},
-		tmux:      tmux,
-		popup:     NewPopup(tmux, "test-session"),
-		stage:     NewStage(tmux, appconfig.DefaultSplit),
-		keys:      appconfig.DefaultKeybindings(),
-		workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Cwd: "/work/api", Flags: "--model opus"}},
+		api:   api{agents: sent, workflows: sent, schedules: sent},
+		tmux:  tmux,
+		popup: NewPopup(tmux, "test-session"),
+		stage: NewStage(tmux, appconfig.DefaultSplit),
+		keys:  appconfig.DefaultKeybindings(),
+		tree: treeState{
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Cwd: "/work/api", Flags: "--model opus"}},
+		},
 	}
 }
 

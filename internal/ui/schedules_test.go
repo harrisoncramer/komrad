@@ -101,10 +101,10 @@ func TestScheduleKeys(t *testing.T) {
 			client := &fakeSchedules{}
 			m := scheduleModel(client, keys)
 			if tt.empty {
-				m.schedules = nil
+				m.schedules.items = nil
 			}
 			if tt.noWorkflows {
-				m.workflows = nil
+				m.tree.workflows = nil
 			}
 
 			updated, cmd := m.updateSchedules(keyMsg(tt.key))
@@ -153,8 +153,8 @@ func TestSchedulesView(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := scheduleModel(&fakeSchedules{}, appconfig.DefaultKeybindings())
-			m.schedules = tt.schedules
-			m.scheduleCursor = 0
+			m.schedules.items = tt.schedules
+			m.schedules.cursor = 0
 
 			view := m.schedulesView()
 			for _, want := range tt.wants {
@@ -308,13 +308,13 @@ func TestApplySchedules(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := scheduleModel(&fakeSchedules{}, appconfig.DefaultKeybindings())
-			m.schedules = tt.start
-			m.scheduleCursor = tt.cursor
+			m.schedules.items = tt.start
+			m.schedules.cursor = tt.cursor
 
 			m.applySchedules(tt.fresh)
 
-			assert.Equal(t, tt.wantCursor, m.scheduleCursor)
-			assert.Len(t, m.schedules, len(tt.fresh))
+			assert.Equal(t, tt.wantCursor, m.schedules.cursor)
+			assert.Len(t, m.schedules.items, len(tt.fresh))
 		})
 	}
 }
@@ -344,8 +344,8 @@ func TestScheduleWriteFailure(t *testing.T) {
 			name: "a refused create",
 			act: func(t *testing.T, m model) model {
 				t.Helper()
-				m.scheduleEditTarget = nil
-				m.form, m.scheduleValues = scheduleForm(schedulestore.Config{Name: "x", Cron: "0 9 * * *"}, nil, appconfig.DefaultKeybindings().Form)
+				m.target.editSchedule = nil
+				m.form, m.values.schedule = scheduleForm(schedulestore.Config{Name: "x", Cron: "0 9 * * *"}, nil, appconfig.DefaultKeybindings().Form)
 				updated, cmd := m.submitScheduleForm()
 				submitted, ok := updated.(model)
 				require.True(t, ok)
@@ -412,15 +412,17 @@ func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys appconfi
 		api:  api{schedules: client},
 		tmux: tmux,
 		// A schedule launches into a workflow, so the form has one to select.
-		workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Cwd: "/work/api"}},
+		tree: treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Cwd: "/work/api"}}},
 		// The new-schedule form asks the popup which client opened it, to prefill
 		// the directory, so the panel needs one even though nothing here reads it.
 		popup:  NewPopup(tmux, "test-session"),
 		stage:  NewStage(tmux, appconfig.DefaultSplit),
 		keys:   keys,
 		screen: screenSchedules,
-		schedules: []scheduleItem{
-			{schedule: schedulestore.Schedule{ID: "s1", Name: "morning-ci", Cron: "0 9 * * 1-5", Enabled: true}},
+		schedules: scheduleState{
+			items: []scheduleItem{
+				{schedule: schedulestore.Schedule{ID: "s1", Name: "morning-ci", Cron: "0 9 * * 1-5", Enabled: true}},
+			},
 		},
 	}
 }

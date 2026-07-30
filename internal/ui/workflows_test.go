@@ -77,7 +77,7 @@ func TestAgentRows(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := model{workflows: tt.workflows, agents: tt.agents}
+			m := model{tree: treeState{workflows: tt.workflows, agents: tt.agents}}
 
 			assert.Equal(t, tt.wantRows, describeRows(m.agentRows()))
 		})
@@ -88,10 +88,10 @@ func TestAgentRows(t *testing.T) {
 // sits on that workflow's header, since the workflow keys act on what is hovered.
 func TestHoveredWorkflow(t *testing.T) {
 	tests := []struct {
-		name    string
-		cursor  int
-		wantIdx int
-		wantOK  bool
+		name     string
+		cursor   int
+		wantName string
+		wantOK   bool
 	}{
 		{
 			name:   "on an agent",
@@ -106,30 +106,32 @@ func TestHoveredWorkflow(t *testing.T) {
 			cursor: 3,
 		},
 		{
-			name:    "on a workflow header",
-			cursor:  0,
-			wantIdx: 0,
-			wantOK:  true,
+			name:     "on a workflow header",
+			cursor:   0,
+			wantName: "backend",
+			wantOK:   true,
 		},
 	}
 
 	// rows: 0 backend header, 1 auth, 2 no-workflow header, 3 loose.
 	m := model{
-		workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-		agents: []agentItem{
-			{agent: agentstore.Agent{Name: "auth", WorkflowID: "w1"}},
-			{agent: agentstore.Agent{Name: "loose"}},
+		tree: treeState{
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			agents: []agentItem{
+				{agent: agentstore.Agent{Name: "auth", WorkflowID: "w1"}},
+				{agent: agentstore.Agent{Name: "loose"}},
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m.agentCursor = tt.cursor
+			m.tree.cursor = tt.cursor
 
-			idx, ok := m.hoveredWorkflow()
+			workflow, ok := m.hoveredWorkflow()
 			require.Equal(t, tt.wantOK, ok)
 			if ok {
-				assert.Equal(t, tt.wantIdx, idx)
+				assert.Equal(t, tt.wantName, workflow.Name)
 			}
 		})
 	}
@@ -227,16 +229,16 @@ func TestWorkflowWrites(t *testing.T) {
 // deleted.
 func TestFailedWorkflowListKeepsTheTree(t *testing.T) {
 	m := model{
-		stage:          NewStage(&recordingTmux{}, appconfig.DefaultSplit),
-		keys:           appconfig.DefaultKeybindings(),
-		workflows:      []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}},
-		workflowCursor: 1,
+		stage: NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		keys:  appconfig.DefaultKeybindings(),
+		tree: treeState{
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}},
+		},
 	}
 
 	m.applyRefresh(refreshResult{workflowsErr: errors.New("connection reset")})
 
-	assert.Len(t, m.workflows, 2, "the tree already on screen is kept")
-	assert.Equal(t, 1, m.workflowCursor, "and the cursor stays where the user left it")
+	assert.Len(t, m.tree.workflows, 2, "the tree already on screen is kept")
 	assert.Error(t, m.unreachable, "and the panel says the server is not answering")
 }
 
@@ -271,16 +273,15 @@ func TestApplyWorkflows(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := model{workflows: tt.current, workflowCursor: len(tt.current) - 1}
+			m := model{tree: treeState{workflows: tt.current}}
 
 			m.applyWorkflows(tt.fresh)
 
-			names := make([]string, 0, len(m.workflows))
-			for _, w := range m.workflows {
+			names := make([]string, 0, len(m.tree.workflows))
+			for _, w := range m.tree.workflows {
 				names = append(names, w.Name)
 			}
 			assert.Equal(t, tt.wantNames, names)
-			assert.Less(t, m.workflowCursor, len(m.workflows), "the cursor stays inside the list")
 		})
 	}
 }
@@ -297,11 +298,13 @@ func TestRefreshRestagesWorkflowContext(t *testing.T) {
 
 	// The cursor sits on the workflow's header, which is row 0.
 	m := model{
-		stage:       stage,
-		keys:        appconfig.DefaultKeybindings(),
-		screen:      screenAgents,
-		workflows:   []workflowstore.Workflow{{ID: "w1", Name: "api", Context: "old notes"}},
-		agentCursor: 0,
+		stage:  stage,
+		keys:   appconfig.DefaultKeybindings(),
+		screen: screenAgents,
+		tree: treeState{
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Context: "old notes"}},
+			cursor:    0,
+		},
 	}
 	m.stageSelection()
 	staged := len(tmux.respawns)
@@ -311,7 +314,7 @@ func TestRefreshRestagesWorkflowContext(t *testing.T) {
 	m, ok := updated.(model)
 	require.True(t, ok)
 
-	assert.Equal(t, "new notes", m.workflows[0].Context)
+	assert.Equal(t, "new notes", m.tree.workflows[0].Context)
 	require.Greater(t, len(tmux.respawns), staged, "the edit is restaged without the cursor moving")
 
 	shown, err := os.ReadFile(filepath.Join(os.TempDir(), "claude-agents-stage.ansi"))

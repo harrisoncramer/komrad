@@ -248,8 +248,8 @@ func (m *model) applyWrite(result writeResult) tea.Cmd {
 			// The pane came back with the agent, so it is staged now rather than waited
 			// for. The cursor cannot move until there is a row under the name it came back
 			// with, which is the pass below.
-			m.infoPinned = false
-			m.focusName = result.restored.name
+			m.tree.infoPinned = false
+			m.tree.focus = result.restored.name
 			m.stage.Agent(result.restored.pane)
 		}
 	}

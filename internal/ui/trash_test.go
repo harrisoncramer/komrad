@@ -71,7 +71,7 @@ func TestTrashKeys(t *testing.T) {
 			client := &fakeTrashAgents{}
 			m := trashModel(client, keys)
 			if tt.empty {
-				m.trash = nil
+				m.trash.agents = nil
 			}
 
 			updated, cmd := m.updateTrash(keyMsg(tt.key))
@@ -126,7 +126,7 @@ func TestTrashDeleteConfirm(t *testing.T) {
 
 			assert.Equal(t, tt.wantDeleted, client.deleted)
 			assert.Equal(t, screenTrash, got.screen, "the prompt returns to the trash it was opened from")
-			assert.Nil(t, got.trashDeleteTarget)
+			assert.Nil(t, got.target.deleteAgent)
 		})
 	}
 }
@@ -234,8 +234,8 @@ func TestTrashView(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := trashModel(&fakeTrashAgents{}, appconfig.DefaultKeybindings())
-			m.trash = tt.trash
-			m.trashCursor = 0
+			m.trash.agents = tt.trash
+			m.trash.cursor = 0
 
 			view := m.trashView()
 			for _, want := range tt.wants {
@@ -266,7 +266,7 @@ func TestTrashMarkdown(t *testing.T) {
 func TestTrashIsListedSeparatelyFromTheAgents(t *testing.T) {
 	client := &fakeTrashAgents{}
 	m := trashModel(client, appconfig.DefaultKeybindings())
-	m.trash = nil
+	m.trash.agents = nil
 
 	entered, cmd := m.enterTrash()
 	opened, ok := entered.(model)
@@ -275,9 +275,9 @@ func TestTrashIsListedSeparatelyFromTheAgents(t *testing.T) {
 	got := settle(t, opened, cmd)
 
 	assert.Contains(t, client.listedDeleted, true, "the trash is asked for by the pass the screen starts")
-	require.Len(t, got.trash, 1)
-	assert.Equal(t, "api-refactor", got.trash[0].Name)
-	assert.Empty(t, got.agents, "the tree's rows are not what the trash listed")
+	require.Len(t, got.trash.agents, 1)
+	assert.Equal(t, "api-refactor", got.trash.agents[0].Name)
+	assert.Empty(t, got.tree.agents, "the tree's rows are not what the trash listed")
 }
 
 // trashModel builds the panel sitting on the trash with one deleted agent in it.
@@ -291,7 +291,7 @@ func trashModel(client agentv1connect.AgentServiceClient, keys appconfig.Keybind
 		stage:  NewStage(tmux, appconfig.DefaultSplit),
 		keys:   keys,
 		screen: screenTrash,
-		trash:  []agentstore.Agent{{ID: "a1", Name: "api-refactor"}},
+		trash:  trashState{agents: []agentstore.Agent{{ID: "a1", Name: "api-refactor"}}},
 	}
 }
 

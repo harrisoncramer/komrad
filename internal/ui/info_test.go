@@ -62,7 +62,7 @@ func TestInfoKey(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := &recordingTmux{}
 			m := infoModel(tmux)
-			m.agentCursor = tt.cursor
+			m.tree.cursor = tt.cursor
 
 			for range tt.presses {
 				m = pressKey(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("i")})
@@ -71,7 +71,7 @@ func TestInfoKey(t *testing.T) {
 				m = pressKey(t, m, tea.KeyMsg{Type: tea.KeyUp})
 			}
 
-			assert.Equal(t, tt.wantPinned, m.infoPinned)
+			assert.Equal(t, tt.wantPinned, m.tree.infoPinned)
 			assert.Equal(t, tt.wantSwaps, tmux.swaps, "swaps move the agent's own pane")
 
 			renders := 0
@@ -220,14 +220,16 @@ func infoModel(tmux *recordingTmux) model {
 	stage.Init()
 
 	return model{
-		stage:     stage,
-		keys:      appconfig.DefaultKeybindings(),
-		screen:    screenAgents,
-		workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-		agents: []agentItem{
-			{agent: agentstore.Agent{Name: "auth", Pane: "%9", Cwd: "/repo", WorkflowID: "w1"}, alive: true},
+		stage:  stage,
+		keys:   appconfig.DefaultKeybindings(),
+		screen: screenAgents,
+		tree: treeState{
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			agents: []agentItem{
+				{agent: agentstore.Agent{Name: "auth", Pane: "%9", Cwd: "/repo", WorkflowID: "w1"}, alive: true},
+			},
+			cursor: 1,
 		},
-		agentCursor: 1,
 	}
 }
 

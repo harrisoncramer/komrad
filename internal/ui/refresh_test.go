@@ -73,11 +73,10 @@ func produced(cmd tea.Cmd) []tea.Msg {
 // listing is how a slow call ends up costing the lists it has nothing to do with.
 func TestRefreshAppliesWhatAnswered(t *testing.T) {
 	m := model{
-		stage:          NewStage(&recordingTmux{}, appconfig.DefaultSplit),
-		keys:           appconfig.DefaultKeybindings(),
-		screen:         screenAgents,
-		workflows:      []workflowstore.Workflow{{ID: "w1", Name: "api"}},
-		workflowCursor: 0,
+		stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		keys:   appconfig.DefaultKeybindings(),
+		screen: screenAgents,
+		tree:   treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}},
 	}
 
 	m.applyRefresh(refreshResult{
@@ -85,9 +84,9 @@ func TestRefreshAppliesWhatAnswered(t *testing.T) {
 		workflowsErr: errors.New("connection reset"),
 	})
 
-	assert.Len(t, m.agents, 1, "the listing that answered is taken")
-	require.Len(t, m.workflows, 1, "the one that did not keeps the rows it had")
-	assert.Equal(t, "api", m.workflows[0].Name)
+	assert.Len(t, m.tree.agents, 1, "the listing that answered is taken")
+	require.Len(t, m.tree.workflows, 1, "the one that did not keeps the rows it had")
+	assert.Equal(t, "api", m.tree.workflows[0].Name)
 	assert.Error(t, m.unreachable, "and the panel says the server is not answering")
 }
 
@@ -97,10 +96,10 @@ func TestRefreshAppliesWhatAnswered(t *testing.T) {
 // as a keypress that did nothing.
 func TestStaleRefreshIsDropped(t *testing.T) {
 	m := model{
-		stage:     NewStage(&recordingTmux{}, appconfig.DefaultSplit),
-		keys:      appconfig.DefaultKeybindings(),
-		screen:    screenAgents,
-		workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}},
+		stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		keys:   appconfig.DefaultKeybindings(),
+		screen: screenAgents,
+		tree:   treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}},
 	}
 
 	inFlight := refreshResult{
@@ -111,7 +110,7 @@ func TestStaleRefreshIsDropped(t *testing.T) {
 
 	m.applyRefresh(inFlight)
 
-	assert.Empty(t, m.agents, "a pass from before the write is not what the panel shows after it")
+	assert.Empty(t, m.tree.agents, "a pass from before the write is not what the panel shows after it")
 }
 
 // TestWriteStandsTheRefreshDown covers the other half of that race. A pass started
@@ -135,10 +134,10 @@ func TestWriteStandsTheRefreshDown(t *testing.T) {
 // open on the workflow header above the agents.
 func TestFirstListingLandsOnTheFirstAgent(t *testing.T) {
 	m := model{
-		stage:     NewStage(&recordingTmux{}, appconfig.DefaultSplit),
-		keys:      appconfig.DefaultKeybindings(),
-		screen:    screenAgents,
-		workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}},
+		stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		keys:   appconfig.DefaultKeybindings(),
+		screen: screenAgents,
+		tree:   treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}},
 	}
 
 	m.applyRefresh(refreshResult{

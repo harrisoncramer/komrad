@@ -51,14 +51,16 @@ func TestRefusedActionIsReported(t *testing.T) {
 			agents:    refusingAgents{err: connect.NewError(connect.CodeFailedPrecondition, errors.New("already archived"))},
 			workflows: emptyLists{},
 		},
-		tmux:      &recordingTmux{},
-		stage:     NewStage(&recordingTmux{}, appconfig.DefaultSplit),
-		keys:      appconfig.DefaultKeybindings(),
-		screen:    screenAgents,
-		workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-		agents:    []agentItem{{agent: agent, alive: false}},
+		tmux:   &recordingTmux{},
+		stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		keys:   appconfig.DefaultKeybindings(),
+		screen: screenAgents,
+		tree: treeState{
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			agents:    []agentItem{{agent: agent, alive: false}},
+		},
 	}
-	m.agentCursor = firstAgentRowIndex(m.agentRows())
+	m.tree.cursor = firstAgentRowIndex(m.agentRows())
 
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
 	pressed, ok := updated.(model)
@@ -81,16 +83,18 @@ func TestRefusedRestoreIsReported(t *testing.T) {
 			agents:    refusingAgents{err: connect.NewError(connect.CodeNotFound, errors.New("no such agent"))},
 			workflows: emptyLists{},
 		},
-		tmux:      &recordingTmux{},
-		stage:     NewStage(&recordingTmux{}, appconfig.DefaultSplit),
-		keys:      appconfig.DefaultKeybindings(),
-		screen:    screenAgents,
-		workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-		agents: []agentItem{
-			{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateDone, WorkflowID: "w1"}, alive: false},
+		tmux:   &recordingTmux{},
+		stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		keys:   appconfig.DefaultKeybindings(),
+		screen: screenAgents,
+		tree: treeState{
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			agents: []agentItem{
+				{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateDone, WorkflowID: "w1"}, alive: false},
+			},
 		},
 	}
-	m.agentCursor = firstAgentRowIndex(m.agentRows())
+	m.tree.cursor = firstAgentRowIndex(m.agentRows())
 
 	updated, cmd := m.openAgent()
 	pressed, ok := updated.(model)
@@ -113,7 +117,7 @@ func TestBannerSurvivesTheFormItWasReportedFrom(t *testing.T) {
 		screen:    screenRename,
 		keys:      appconfig.DefaultKeybindings(),
 	}
-	m.form, m.renameValue = renameForm("api-refactor", m.keys.Form)
+	m.form, m.values.rename = renameForm("api-refactor", m.keys.Form)
 	m.form.Init()
 
 	view := m.View()
@@ -141,18 +145,20 @@ func (acceptingAgents) ListAgents(context.Context, *connect.Request[agentv1.List
 // previous failure sitting on screen.
 func TestSuccessfulActionClearsTheBanner(t *testing.T) {
 	m := model{
-		api:       api{agents: acceptingAgents{}, workflows: emptyLists{}},
-		tmux:      &recordingTmux{},
-		stage:     NewStage(&recordingTmux{}, appconfig.DefaultSplit),
-		keys:      appconfig.DefaultKeybindings(),
-		screen:    screenAgents,
-		workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-		agents: []agentItem{
-			{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateDone, WorkflowID: "w1"}},
+		api:    api{agents: acceptingAgents{}, workflows: emptyLists{}},
+		tmux:   &recordingTmux{},
+		stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		keys:   appconfig.DefaultKeybindings(),
+		screen: screenAgents,
+		tree: treeState{
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			agents: []agentItem{
+				{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateDone, WorkflowID: "w1"}},
+			},
 		},
 		actionErr: &errui.Banner{Summary: "Could not delete agent \"gone\"", Detail: "stale"},
 	}
-	m.agentCursor = firstAgentRowIndex(m.agentRows())
+	m.tree.cursor = firstAgentRowIndex(m.agentRows())
 
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
 	pressed, ok := updated.(model)
@@ -171,9 +177,11 @@ func TestActionErrorBannersOverTheList(t *testing.T) {
 		actionErr: &errui.Banner{Summary: `Could not delete agent "api-refactor"`, Detail: "already archived"},
 		screen:    screenAgents,
 		keys:      appconfig.DefaultKeybindings(),
-		workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-		agents: []agentItem{
-			{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateDone, WorkflowID: "w1"}},
+		tree: treeState{
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			agents: []agentItem{
+				{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateDone, WorkflowID: "w1"}},
+			},
 		},
 	}
 
@@ -253,7 +261,7 @@ func TestActionErrorDismissal(t *testing.T) {
 				stage:     NewStage(&recordingTmux{}, appconfig.DefaultSplit),
 			}
 			if tt.screen == screenRename {
-				m.form, m.renameValue = renameForm("api-refactor", m.keys.Form)
+				m.form, m.values.rename = renameForm("api-refactor", m.keys.Form)
 			}
 
 			updated, _ := m.Update(tt.key)
@@ -303,7 +311,7 @@ func TestConfigErrorView(t *testing.T) {
 				configErr:   errors.New("failed to parse config /home/u/.config/claude-agents/config.toml: 'keybindings' has invalid keys: list"),
 				unreachable: tt.unreachable,
 				addr:        "127.0.0.1:8787",
-				agents:      []agentItem{{agent: agentstore.Agent{Name: "should-not-render", State: agentstore.StateDone}}},
+				tree:        treeState{agents: []agentItem{{agent: agentstore.Agent{Name: "should-not-render", State: agentstore.StateDone}}}},
 			}
 
 			// The error wraps at the screen width, so the text is compared with its
@@ -374,7 +382,7 @@ func TestStartupErrorView(t *testing.T) {
 				startupErr:  errors.New("the agent server stopped during startup: failed to reach db: connection refused"),
 				unreachable: tt.unreachable,
 				addr:        "127.0.0.1:8787",
-				agents:      []agentItem{{agent: agentstore.Agent{Name: "should-not-render", State: agentstore.StateDone}}},
+				tree:        treeState{agents: []agentItem{{agent: agentstore.Agent{Name: "should-not-render", State: agentstore.StateDone}}}},
 			}
 
 			// The error wraps at the screen width, so the text is compared with its
@@ -435,7 +443,7 @@ func TestUnreachableView(t *testing.T) {
 			m := model{
 				addr:        "127.0.0.1:8787",
 				unreachable: tt.start,
-				agents:      []agentItem{{agent: agentstore.Agent{Name: "still-here", State: agentstore.StateDone}}},
+				tree:        treeState{agents: []agentItem{{agent: agentstore.Agent{Name: "still-here", State: agentstore.StateDone}}}},
 				stage:       NewStage(&recordingTmux{}, appconfig.DefaultSplit),
 			}
 
