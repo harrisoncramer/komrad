@@ -19,9 +19,9 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// agentLauncher is the part of the agent manager the service drives. Creating an
-// agent is more than a row. It opens a tmux window and types claude into it, so the
-// service delegates rather than writing the record itself.
+// agentLauncher is the part of the agent manager the service drives. Creating an agent is
+// more than a row: it opens a tmux window and types claude into it, so the service delegates
+// rather than writing the record itself.
 type agentLauncher interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
 	// AgentRunning answers whether an agent is still running, which is read at
@@ -32,7 +32,6 @@ type agentLauncher interface {
 	RestoreAgent(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
-// agentStore is the part of the agent store this handler reads.
 type agentStore interface {
 	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, deleted bool) ([]agentstore.Agent, error)
 	Get(ctx context.Context, name string) (*agentstore.Agent, error)
@@ -43,9 +42,9 @@ type agentStore interface {
 	Rename(ctx context.Context, id, name string) (bool, error)
 }
 
-// transcriptStore is the part of the transcript store this handler reads. One RPC
-// surface covers both domains, but each store is held separately rather than one
-// object reaching across both.
+// transcriptStore is the part of the transcript store this handler reads. One RPC surface
+// covers both domains, but each store is held separately rather than one object reaching
+// across both.
 type transcriptStore interface {
 	Get(ctx context.Context, agentID string) (transcriptstore.Transcript, error)
 	Search(ctx context.Context, params transcriptstore.SearchParams) ([]transcriptstore.SearchHit, error)

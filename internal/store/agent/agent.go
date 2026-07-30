@@ -1,10 +1,6 @@
-// Package agent persists the agents themselves, the agents table and the
-// per-agent config row that hangs off it.
-//
-// It owns no other domain's tables. An agent's transcript belongs to the
-// transcript package and the workflow an agent sits in belongs to the workflow
-// package, so an operation touching both is composed by a caller inside one
-// transaction rather than reached for from here.
+// Package agent persists the agents themselves. It owns no other domain's
+// tables, so an operation touching both an agent and its transcript or workflow
+// is composed by a caller inside one transaction rather than reached for here.
 package agent
 
 import (
@@ -27,9 +23,9 @@ const (
 	StateDone     = "done"
 )
 
-// Metadata is one fact an agent recorded about its own work, such as the issue it
-// is implementing or the pull request it opened. The key is the agent's own
-// invention rather than one of a fixed set, so nothing here interprets it.
+// Metadata is one fact an agent recorded about its own work. The key is the
+// agent's own invention rather than one of a fixed set, so nothing here
+// interprets it.
 type Metadata struct {
 	Key   string
 	Value string
@@ -37,44 +33,38 @@ type Metadata struct {
 
 // Agent is a persisted background agent.
 type Agent struct {
-	ID   string
-	Name string
-	Pane string
-	// Cwd is where the agent runs and Flags are what claude was launched with. A
-	// restore reads both back to bring it up the same way.
+	ID              string
+	Name            string
+	Pane            string
 	Cwd             string
 	Flags           string
 	Prompt          string
 	State           string
 	ClaudeSessionID string
-	// WorkflowID is the workflow this agent belongs to, and every agent has one,
-	// since the workflow is where the directory, flags, and shared context it starts
-	// from come from. It holds the workflow's stable id, not its display name.
+	// WorkflowID holds the workflow's stable id, not its display name. Every agent
+	// has one, since the workflow supplies the directory, flags, and shared context
+	// it starts from.
 	WorkflowID string
 	// ScheduleID is the schedule that launched this agent, or nil for one a person
 	// started. It is provenance only, and nothing about the agent depends on it.
 	ScheduleID *string
 	// IdempotencyKey is the caller's claim that this agent is the one identified by
-	// that key, nil for a create that makes no such claim. A retried launch passing
-	// the same key finds this agent rather than spawning a second one.
+	// that key. A retried launch passing the same key finds this agent rather than
+	// spawning a second one.
 	IdempotencyKey *string
 	Deleted        bool
-	// Hidden keeps this agent out of the panel's list without stopping it. It runs and
-	// is reconciled the same whichever way it is set. It is written on insert, from the
-	// launching schedule's HideAgents, and by the user afterwards. Nothing else touches
-	// it, so an update never carries it and a reconciler pass cannot undo a hide.
+	// Hidden keeps this agent out of the panel's list without stopping it. It is
+	// written on insert and by the user afterwards, so an update never carries it and
+	// a reconciler pass cannot undo a hide.
 	Hidden bool
-	// Mark is the glyph the user put on this agent, nil when it carries none. Only
-	// the user sets and clears it, so it says nothing about the agent's lifecycle.
-	Mark *string
-	// Metadata is what the agent recorded about its own work, ordered by key. Only
-	// the listings a caller renders carry it, since the reconciler reads every agent
-	// every couple of seconds and has no use for it.
-	Metadata []Metadata
-	// CreatedAt is when the agent was first recorded, for display.
+	Mark   *string
+	// Metadata is ordered by key, and only the listings a caller renders carry it,
+	// since the reconciler reads every agent every couple of seconds and has no use
+	// for it.
+	Metadata  []Metadata
 	CreatedAt time.Time
-	// UpdatedAt is when the row last changed, for display. No listing orders by it,
-	// since a key that every write moves reshuffles the list under the reader.
+	// UpdatedAt is for display. No listing orders by it, since a key that every write
+	// moves reshuffles the list under the reader.
 	UpdatedAt time.Time
 }
 
@@ -119,13 +109,11 @@ type Cursor struct {
 }
 
 // ListPage returns one page of agents, newest first, resuming after cursor when
-// one is given. deleted picks which set is listed, the live agents or the
-// soft-deleted ones, and never both: the trash is its own view, and a deleted
-// agent may share a name with a live one. The key is the id rather than anything
-// the agent can change. A uuidv7 is assigned once and sorts by the moment it was
-// assigned, so the newest agent goes to the top and stays there. Keying on update
-// time would move an agent the reconciler touched mid-scan ahead of where the
-// caller already is, and it would be seen twice or missed.
+// one is given. deleted picks the live agents or the soft-deleted ones and never
+// both, since the trash is its own view and a deleted agent may share a name with
+// a live one. Paging keys on the id rather than update time, which would move an
+// agent the reconciler touched mid-scan ahead of the reader and have it seen twice
+// or missed.
 func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, deleted bool) ([]Agent, error) {
 	params := models.ListAgentsPageParams{Lim: int32(limit), Deleted: deleted}
 	if cursor != nil {
@@ -156,11 +144,10 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, delet
 	return agents, nil
 }
 
-// metadataByAgent reads the metadata of a whole page of agents in one query rather
-// than one per row, keyed by the agent it belongs to. Only the listings something
-// renders read it, which is why it is not folded into agentFromRow: the reconciler
-// walks every agent on a two second timer and would pay for a second query it never
-// reads.
+// metadataByAgent reads the metadata of a whole page of agents in one query,
+// keyed by the agent it belongs to. It is not folded into agentFromRow because the
+// reconciler walks every agent on a two second timer and would pay for a second
+// query it never reads.
 func (s *Store) metadataByAgent(ctx context.Context, ids []string) (map[string][]Metadata, error) {
 	if len(ids) == 0 {
 		return nil, nil
@@ -179,8 +166,8 @@ func (s *Store) metadataByAgent(ctx context.Context, ids []string) (map[string][
 	return byAgent, nil
 }
 
-// ListAll returns every agent including soft-deleted ones, newest first. It
-// backs search, which spans active and deleted agents.
+// ListAll returns every agent including soft-deleted ones, newest first, for
+// search.
 func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
 	rows, err := s.queries.ListAllAgents(ctx)
 	if err != nil {
@@ -196,8 +183,7 @@ func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
 }
 
 // Get returns an agent by name, nil when none exists, or an error for a real
-// failure. No-rows is the nil case. Every other error is surfaced so a caller does
-// not report a genuine DB failure as not found.
+// failure, so a caller does not report a genuine DB failure as not found.
 func (s *Store) Get(ctx context.Context, name string) (*Agent, error) {
 	row, err := s.queries.GetAgent(ctx, name)
 	if store.NoRows(err) {
@@ -218,11 +204,10 @@ func (s *Store) Get(ctx context.Context, name string) (*Agent, error) {
 	return &agent, nil
 }
 
-// GetByID returns an agent by id, nil when none holds it, or an error for a real
-// failure. It spans the soft-deleted agents, because an id is the only handle one of
-// those still answers to: a live agent may have taken its name since. A string that is
-// not an id reads as nothing found rather than as a database error, the way Exists
-// treats it.
+// GetByID returns an agent by id, nil when none holds it. It spans the
+// soft-deleted agents, because an id is the only handle one of those still answers
+// to: a live agent may have taken its name since. A string that is not an id reads
+// as nothing found rather than as a database error.
 func (s *Store) GetByID(ctx context.Context, id string) (*Agent, error) {
 	if !store.IsID(id) {
 		return nil, nil
@@ -248,8 +233,7 @@ func (s *Store) GetByID(ctx context.Context, id string) (*Agent, error) {
 }
 
 // Exists reports whether any agent holds the given id, including soft-deleted
-// ones, so a caller can tell an unknown id from an agent that has nothing stored
-// yet.
+// ones.
 func (s *Store) Exists(ctx context.Context, id string) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
@@ -264,9 +248,8 @@ func (s *Store) Exists(ctx context.Context, id string) (bool, error) {
 }
 
 // ActiveNameExists reports whether a live, non-deleted agent already holds the
-// name. New agents consult this so an auto-generated name never collides with an
-// agent whose row still owns it, including a dormant one whose tmux session is
-// gone but whose record survives.
+// name, including a dormant one whose tmux session is gone but whose record
+// survives.
 func (s *Store) ActiveNameExists(ctx context.Context, name string) (bool, error) {
 	exists, err := s.queries.ActiveNameExists(ctx, name)
 	if err != nil {
@@ -276,13 +259,11 @@ func (s *Store) ActiveNameExists(ctx context.Context, name string) (bool, error)
 	return exists, nil
 }
 
-// Create inserts a fresh agent under the id it carries. The id is the caller's rather than the database's because it is the
-// name of the agent everywhere outside this table: the pane it runs in is stamped
-// with it, and the agent itself is told it at launch. A caller with no id yet gets
-// one minted here, which is every test and nothing in production.
-//
-// Both halves must land together, so a caller outside a transaction gets one
-// through InTx. Inside one, this joins whatever is already open.
+// Create inserts a fresh agent under the id it carries. The id is the caller's
+// rather than the database's because it is the name of the agent everywhere outside
+// this table: the pane it runs in is stamped with it, and the agent itself is told
+// it at launch. A caller with no id yet gets one minted here, which is every test
+// and nothing in production.
 func (s *Store) Create(ctx context.Context, agent Agent) error {
 	if agent.ID == "" {
 		id, err := store.NewID()
@@ -332,10 +313,9 @@ func (s *Store) Update(ctx context.Context, agent Agent) error {
 	return nil
 }
 
-// SetStateByID updates just an agent's state, keyed by its stable id. The
-// reconciler uses this so a write decided from a snapshot always lands on the
-// exact row it observed, even if that row's name was reused by another agent in
-// the meantime.
+// SetStateByID updates just an agent's state, keyed by id so a write the
+// reconciler decided from a snapshot lands on the exact row it observed, even if
+// that row's name was reused in the meantime.
 func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
 	if !store.IsID(id) {
 		return nil
@@ -348,11 +328,10 @@ func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
 	return nil
 }
 
-// ClearPane drops the pane an agent claims to be running in, keyed by its stable
-// id. A pane id is only unique while the tmux server that issued it lives, so a
-// dormant agent still holding one would go on claiming an id the next server hands
-// to a different agent. The reconciler calls this the moment it sees a pane that is
-// not this agent's, which is what keeps a stale claim from outliving one pass.
+// ClearPane drops the pane an agent claims to be running in. A pane id is only
+// unique while the tmux server that issued it lives, so a dormant agent still
+// holding one would go on claiming an id the next server hands to a different
+// agent.
 func (s *Store) ClearPane(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil
@@ -366,8 +345,7 @@ func (s *Store) ClearPane(ctx context.Context, id string) error {
 }
 
 // SetMark puts a mark on an agent, keyed by id, and a nil mark clears it. It
-// reports whether a row was touched, which is how a caller tells an id that matches
-// nothing from one that does.
+// reports whether a row was touched, so an id matching nothing is distinguishable.
 func (s *Store) SetMark(ctx context.Context, id string, mark *string) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
@@ -382,9 +360,8 @@ func (s *Store) SetMark(ctx context.Context, id string, mark *string) (bool, err
 }
 
 // SetHidden hides an agent from the panel's list or brings it back, keyed by id.
-// It reports whether a row was touched, so an id that matches nothing is
-// distinguishable from a flag that already held the value. An archived agent has no
-// listing to be hidden from, so it is not a row this writes.
+// An archived agent has no listing to be hidden from, so it is not a row this
+// writes.
 func (s *Store) SetHidden(ctx context.Context, id string, hidden bool) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
@@ -399,21 +376,18 @@ func (s *Store) SetHidden(ctx context.Context, id string, hidden bool) (bool, er
 }
 
 // ErrTooManyMetadataKeys reports that an agent already holds as many keys as it is
-// allowed. It is a sentinel rather than a plain failure because the caller has to
-// tell the agent it has hit a ceiling, which it can act on, apart from a write that
-// genuinely broke.
+// allowed. It is a sentinel so the caller can tell the agent it hit a ceiling,
+// which it can act on, apart from a write that genuinely broke.
 var ErrTooManyMetadataKeys = errors.New("too many metadata keys")
 
-// maxMetadataKeys caps how many facts one agent may record. The keys are the
-// agent's own invention, so nothing bounds them on its own and a looping agent
-// would fill the table. The limit is checked here rather than in the proto, since
-// deciding it needs a count of what is already stored and a validation rule has
-// only the request.
+// maxMetadataKeys caps how many facts one agent may record, since the keys are the
+// agent's own invention and a looping agent would fill the table. It is checked here
+// rather than in the proto because deciding it needs a count of what is already
+// stored and a validation rule has only the request.
 const maxMetadataKeys = 32
 
 // SetMetadataParams identifies the fact being recorded. A nil Value clears the key
-// rather than storing an empty one, so one call covers both writing a fact and
-// retracting it.
+// rather than storing an empty one.
 type SetMetadataParams struct {
 	ID    string
 	Key   string
@@ -422,8 +396,7 @@ type SetMetadataParams struct {
 
 // SetMetadata records one fact an agent found out about its own work, replacing
 // whatever that key held and leaving its other keys untouched. It reports whether a
-// row was written, which is how a caller tells an id matching no live agent from a
-// key that was already absent.
+// row was written.
 func (s *Store) SetMetadata(ctx context.Context, params SetMetadataParams) (bool, error) {
 	if !store.IsID(params.ID) {
 		return false, nil
@@ -438,11 +411,9 @@ func (s *Store) SetMetadata(ctx context.Context, params SetMetadataParams) (bool
 		return len(deleted) > 0, nil
 	}
 
-	// What the agent already holds is read before the write rather than counted after
-	// it, so the ceiling refuses a new key instead of admitting it and reporting a
-	// failure the agent cannot undo. A key it already holds is a revision and passes
-	// however full it is, since correcting a fact should not be what runs it out of
-	// room.
+	// The ceiling is checked before the write so it refuses a new key rather than
+	// admitting it and reporting a failure the agent cannot undo. A key it already
+	// holds is a revision and passes however full it is.
 	held, err := s.queries.ListAgentMetadata(ctx, []string{params.ID})
 	if err != nil {
 		return false, fmt.Errorf("failed to read metadata on agent %q: %w", params.ID, err)
@@ -468,9 +439,8 @@ func (s *Store) SetMetadata(ctx context.Context, params SetMetadataParams) (bool
 }
 
 // GetByIdempotencyKey returns the agent recorded under a caller's key, or nil
-// when none is. It spans archived agents deliberately. The key exists so a retry
-// finds what it already created, and an agent archived since is still that agent,
-// so returning nil here would spawn a duplicate.
+// when none is. It spans archived agents deliberately: an agent archived since the
+// first call is still that agent, so returning nil would spawn a duplicate.
 func (s *Store) GetByIdempotencyKey(ctx context.Context, key string) (*Agent, error) {
 	if key == "" {
 		return nil, nil
@@ -489,15 +459,13 @@ func (s *Store) GetByIdempotencyKey(ctx context.Context, key string) (*Agent, er
 	return &agent, nil
 }
 
-// CountLiveForSchedule reports how many agents a schedule has that are still
-// working on something, which is what tells a firing that the last one is still
-// going.
+// CountLiveForSchedule reports how many of a schedule's agents are still working,
+// which is what tells a firing that the last run has not finished.
 //
-// An agent sitting on a confirmation prompt counts: it is unfinished work someone
-// still has to answer, and starting a second run beside it would only add another.
-// An agent recorded but never yet seen working does not, since that is the state a
-// launch that died the moment it was typed keeps for good, and counting it would
-// leave the schedule blocked on a run that is never coming.
+// An agent sitting on a confirmation prompt counts, since it is unfinished work
+// someone still has to answer. An agent recorded but never yet seen working does
+// not, since that is the state a launch that died as it was typed keeps for good,
+// and counting it would block the schedule on a run that is never coming.
 func (s *Store) CountLiveForSchedule(ctx context.Context, scheduleID string) (int64, error) {
 	if !store.IsID(scheduleID) {
 		return 0, nil
@@ -513,8 +481,7 @@ func (s *Store) CountLiveForSchedule(ctx context.Context, scheduleID string) (in
 
 // Delete removes an agent, keyed by id so it reaches the archived rows the trash
 // destroys. The transcript keyed to the same id is the transcript package's to
-// remove, in the same transaction, since an agent deleted without its transcript
-// is a half-state worth avoiding.
+// remove, in the same transaction.
 func (s *Store) Delete(ctx context.Context, id string) error {
 	if err := s.queries.DeleteAgentByID(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete agent %q: %w", id, err)
@@ -523,9 +490,8 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// Rename changes an agent's display name, keyed by id. It reports whether a row
-// was renamed, so an id that matches nothing is distinguishable from a rename to
-// the name an agent already had.
+// Rename changes an agent's display name, keyed by id, reporting whether a row was
+// renamed.
 func (s *Store) Rename(ctx context.Context, id, name string) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
@@ -552,13 +518,9 @@ func (s *Store) Archive(ctx context.Context, name string) error {
 }
 
 // Restore clears an agent's archived flag by id, so an agent found in search
-// returns to the normal listing. It is keyed by id, not name, because an
-// archived row can share a name with a live agent, so the id is the only
-// unambiguous handle to the exact row to restore.
-//
-// It clears the hidden flag with it. Restoring is a request for the agent to be back
-// in the list, and one that came back still hidden would take no row, which reads as
-// a restore that did nothing.
+// returns to the normal listing. It is keyed by id because an archived row can share
+// a name with a live agent. The hidden flag goes with it, since an agent that came
+// back still hidden reads as a restore that did nothing.
 func (s *Store) Restore(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil
@@ -581,7 +543,6 @@ func (s *Store) ArchiveWorkflowAgents(ctx context.Context, workflowID string) er
 	return nil
 }
 
-// agentFromRow builds an Agent from its row.
 func agentFromRow(agent models.Agent) Agent {
 	return Agent{
 		ID:              agent.ID,

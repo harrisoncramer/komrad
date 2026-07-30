@@ -20,33 +20,21 @@ import (
 func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
-	// New workflow is global to the agents view regardless of cursor position, so it
-	// never collides with the per-row new-agent key.
+	// These act on the whole view rather than the row under the cursor, so they are
+	// checked before anything that reads the cursor and never collide with the per-row
+	// keys below.
 	if bound(k, m.keys.Workflows.New) {
 		return m.newWorkflowForm()
 	}
-
-	// Search is likewise global to the agents view. It opens over the whole corpus,
-	// not the hovered row.
 	if bound(k, m.keys.Agents.Search) {
 		return m.enterSearch()
 	}
-
-	// So is the schedules screen, which is a view of its own rather than a row in
-	// this tree.
 	if bound(k, m.keys.Schedules.Open) {
 		return m.enterSchedules()
 	}
-
-	// The trash is the same: a screen of its own, holding what this tree no longer
-	// shows, so the key that opens it cannot belong to a row.
 	if bound(k, m.keys.Trash.Open) {
 		return m.enterTrash()
 	}
-
-	// Whether the hidden agents are drawn is a property of the whole list rather than
-	// of the row under the cursor, so it works from a workflow header as much as from
-	// an agent.
 	if bound(k, m.keys.Agents.ShowHidden) {
 		return m.toggleHiddenAgents()
 	}
@@ -109,8 +97,7 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if !ok {
 			return m, nil
 		}
-		// Killing a pane while it sits in the stage slot would take the stage down
-		// with it, so it is swapped back out first.
+		// Killing a pane while it sits in the stage slot would take the stage down with it.
 		m.stage.Release(item.agent.Pane)
 
 		return m, m.writeCmd(
@@ -122,10 +109,9 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// openAgent acts on the hovered agent. A dormant agent is restored and staged
-// live. A live agent is already staged from hovering, so opening it only unpins the
-// info view to bring the agent back. Moving focus onto it is a plain tmux pane move
-// the user drives.
+// openAgent acts on the hovered agent. A dormant agent is restored and staged live. A
+// live agent is already staged from hovering, so opening it only unpins the info view to
+// bring the agent back.
 func (m model) openAgent() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedAgent()
 	if !ok {
@@ -146,9 +132,9 @@ func (m model) openAgent() (tea.Model, tea.Cmd) {
 	)
 }
 
-// toggleHiddenAgents draws the hidden agents alongside the rest, or puts them away
-// again. Rows appear and vanish above the cursor either way, so it follows the agent
-// it was on rather than the index it held, the same way a refresh does.
+// toggleHiddenAgents draws the hidden agents alongside the rest, or puts them away again.
+// Rows appear and vanish above the cursor either way, so it follows the agent it was on
+// rather than the index it held.
 func (m model) toggleHiddenAgents() (tea.Model, tea.Cmd) {
 	selected := ""
 	if item, ok := m.selectedAgent(); ok {
@@ -168,7 +154,6 @@ func (m model) toggleHiddenAgents() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// markAgent steps the hovered agent to the next mark.
 func (m model) markAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	next := nextMark(agent.Mark, m.marks)
 
@@ -178,9 +163,8 @@ func (m model) markAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	)
 }
 
-// hideAgent takes the hovered agent out of the list, or puts a revealed one back.
-// One key does both directions, so which way it went has to come from the row for
-// the failure to name it.
+// hideAgent takes the hovered agent out of the list, or puts a revealed one back. One key
+// does both directions, so the failure message comes off the row.
 func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	failure := fmt.Sprintf("Could not hide agent %q", agent.Name)
 	if agent.Hidden {
@@ -216,10 +200,9 @@ func (m model) stageSelection() {
 	}
 }
 
-// nextMark is where the mark key moves an agent, stepping through the configured
-// marks and past the last one back to unmarked. A mark that is not configured clears
-// for the same reason it draws in the fallback colour, so the key is always a way
-// back out of one.
+// nextMark is where the mark key moves an agent, stepping through the configured marks and
+// past the last one back to unmarked. A mark that is not configured clears, so the key is
+// always a way back out of one.
 func nextMark(current *string, marks []appconfig.Mark) *string {
 	if len(marks) == 0 {
 		return nil
@@ -238,10 +221,9 @@ func nextMark(current *string, marks []appconfig.Mark) *string {
 	return nil
 }
 
-// scheduleName is the display name of the schedule that launched an agent, or
-// empty for one a person started. It reads from the list the panel already
-// polls, so a schedule deleted since the agent ran resolves to nothing rather
-// than to a stale name.
+// scheduleName is the display name of the schedule that launched an agent, or empty for
+// one a person started. It reads from the list the panel already polls, so a schedule
+// deleted since resolves to nothing rather than to a stale name.
 func (m model) scheduleName(agent agentstore.Agent) string {
 	if agent.ScheduleID == nil {
 		return ""
@@ -262,9 +244,6 @@ func (m model) agentsView() string {
 	header := headerStyle.Render("Agents and Workflows") + "\n\n"
 	hints := "\n" + m.actionHints()
 
-	// The list is a tree. Each workflow is a folder header with its agents nested
-	// beneath it, so an agent's parent shows by position rather than a per-row
-	// marker.
 	all := m.agentRows()
 	rows := make([]string, 0, len(all))
 	for i, r := range all {
@@ -309,10 +288,10 @@ func (m model) agentsView() string {
 // workflow to put the agent in, which only happens when none exist at all.
 var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one first")
 
-// openNewAgent opens the new-agent form, seeded from the given workflow's
-// blueprint, and records that workflow so the created agent is placed in it. A
-// nil workflow means there are none to create an agent in, which is reported
-// rather than opening a form whose submit could not go anywhere.
+// openNewAgent opens the new-agent form, seeded from the given workflow's blueprint, and
+// records that workflow so the created agent is placed in it. A nil workflow means there
+// are none, which is reported rather than opening a form whose submit could not go
+// anywhere.
 func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	if workflow == nil {
 		m.report("Could not start an agent", errNoWorkflow)
@@ -362,10 +341,9 @@ func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) submitAgent() (tea.Model, tea.Cmd) {
-	// The form is only reachable from inside a workflow, so this holds one by the
-	// time a submit happens. It is checked rather than dereferenced because a
-	// create with no workflow would be refused by the service anyway, and saying
-	// so here costs a round trip less.
+	// The form is only reachable from inside a workflow, so this holds one by the time a
+	// submit happens. It is checked rather than dereferenced because saying so here costs a
+	// round trip less than the refusal from the service.
 	if m.target.newAgentWorkflow == nil || m.values.agent == nil {
 		m.report("Could not start the agent", errNoWorkflow)
 		m.screen = screenAgents
@@ -382,9 +360,8 @@ func (m model) submitAgent() (tea.Model, tea.Cmd) {
 		WorkflowID: m.target.newAgentWorkflow.ID,
 	}
 
-	// A launch failure leaves the list unchanged, so it has to be reported. The
-	// refresh that follows would otherwise be the only signal, and a list that comes
-	// back without the new agent reads the same as a form that never submitted.
+	// A launch failure leaves the list unchanged, and a list that comes back without the
+	// new agent reads the same as a form that never submitted, so it has to be reported.
 	cmd := m.writeCmd("Could not start the agent", func(a api) error { return a.createAgent(params) })
 	m.target.newAgentWorkflow = nil
 	m.values.agent = nil

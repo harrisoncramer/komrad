@@ -14,9 +14,9 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// stageTmux is the part of the tmux client the stage drives. The stage is
-// presentation. It lays out the panel's own two panes and fires on every cursor
-// move, so it talks to tmux directly rather than through the agent API.
+// stageTmux is the part of the tmux client the stage drives. The stage lays out the
+// panel's own two panes and fires on every cursor move, so it talks to tmux directly
+// rather than through the agent API.
 type stageTmux interface {
 	CurrentPane() (string, error)
 	PaneAlive(pane string) bool
@@ -36,18 +36,12 @@ const (
 )
 
 // Stage is the pane beside the nav list that shows whatever the cursor is on.
-// navPane anchors the split. pane is the one the stage drives, running either
-// a pager or a blank shell. agentPane is the agent pane currently swapped into the
-// slot, empty when the stage is showing its own pane.
+// navPane anchors the split, pane is the one the stage drives, and agentPane is the
+// agent pane currently swapped into the slot, empty when the stage shows its own pane.
 //
-// shown is what the stage's own pane currently displays. The panel restages on
-// every refresh tick, and redrawing means respawning the pane, so the stage
-// compares against what is already there and does nothing when they match.
-//
-// split is the configured share of the width the nav list takes, which the stage
-// holds because it is the one that lays the two panes out. listWidth is how wide
-// that nav list is in columns, which is what the stage works its own width out
-// from, since rendered markdown has to be wrapped to something.
+// shown is what the stage's own pane currently displays. The panel restages on every
+// refresh tick, and redrawing means respawning the pane, so the stage compares against
+// what is already there and does nothing when they match.
 type Stage struct {
 	tmux      stageTmux
 	split     float64
@@ -75,25 +69,22 @@ func (s *Stage) share() float64 {
 	return s.split
 }
 
-// percent is the stage pane's share of the width as tmux takes it, a whole
-// percentage. The configured split is the nav list's share, so the stage gets what
-// is left of it.
+// percent is the stage pane's share of the width as tmux takes it, a whole percentage.
+// The configured split is the nav list's share, so the stage gets what is left of it.
 func (s *Stage) percent() int {
 	return int(math.Round((1 - s.share()) * 100))
 }
 
 // SetListWidth records how wide the panel's own pane is, which the stage measures
-// itself against. The panel hands it over on every resize.
+// itself against.
 func (s *Stage) SetListWidth(cols int) {
 	s.listWidth = cols
 }
 
-// wrap is how wide the stage pane is in columns, which is the width markdown is
-// rendered to. The two panes divide one popup between them at the configured split,
-// so the stage's width follows from the list's: the list holds its share of the
-// whole and the stage the rest, less the column tmux draws the divider in. A stage
-// nothing has measured yet has no width to report, which leaves the renderer on its
-// own default.
+// wrap is how wide the stage pane is in columns, which is the width markdown renders
+// to. The two panes divide one popup at the configured split, so the stage's width
+// follows from the list's, less the column tmux draws the divider in. A stage nothing
+// has measured yet leaves the renderer on its own default.
 func (s *Stage) wrap() int {
 	if s.listWidth <= 0 {
 		return 0
@@ -105,12 +96,10 @@ func (s *Stage) wrap() int {
 }
 
 // Init records the panel's own pane as the anchor and splits a stage pane to its
-// right, rooted at home. Called once on startup. It is a no-op split if a live
-// stage already exists, so a panel restart does not stack splits.
-//
-// The stage pane is sized either way. A live one was split at whatever the config
-// said when it was created, so resizing here is what makes an edited split take
-// effect on the next start rather than only once the pane has died.
+// right, rooted at home. It is a no-op split if a live stage already exists, so a
+// panel restart does not stack splits. The pane is resized either way, which is what
+// makes an edited split take effect on the next start rather than only once the pane
+// has died.
 func (s *Stage) Init() {
 	if pane, err := s.tmux.CurrentPane(); err == nil && pane != "" {
 		s.navPane = pane
@@ -175,16 +164,14 @@ func (s *Stage) Agent(pane string) {
 	s.shown = shownOther
 }
 
-// pagerArgv is the command a stage render puts in the pane to show a file, opening
-// on the given line or at the top for a line of zero. A pager is what holds the
-// pane open, which a one-shot print does not: the process would exit and tmux would
-// close the stage pane under it. It is also what lets content taller than the pane
-// sit at its heading and scroll from there rather than dumping past the top and
-// leaving whatever slice of the middle happened to land last. Of the flags, -R
-// prints the escapes in the file as the colours they are rather than as their own
-// text, and -X keeps less out of the alternate screen, where its first paint is lost
-// when the popup holding the panel is detached. tmux runs this argv itself rather
-// than through a shell, so nothing in it needs quoting.
+// pagerArgv is the command a stage render puts in the pane to show a file, opening on
+// the given line or at the top for a line of zero. A pager is what holds the pane open,
+// which a one-shot print does not: the process would exit and tmux would close the
+// stage pane under it. Of the flags, -R prints the escapes in the file as the colours
+// they are rather than as their own text, and -X keeps less out of the alternate
+// screen, where its first paint is lost when the popup holding the panel is detached.
+// tmux runs this argv itself rather than through a shell, so nothing in it needs
+// quoting.
 func pagerArgv(path string, line int) []string {
 	argv := []string{"less", "-R", "-X"}
 	if line > 1 {
@@ -194,14 +181,10 @@ func pagerArgv(path string, line int) []string {
 	return append(argv, path)
 }
 
-// render turns markdown into the ANSI the pager prints. Glamour is the renderer
-// glow itself is built on, so the panel carries markdown rendering in-process rather
-// than shelling out to a highlighter the person running it would have to have
-// installed. The style is named rather than detected: detection asks the terminal
-// for its background colour and reads the answer back off the same input the panel's
-// own event loop is reading. A renderer that cannot be built, or a document it
-// cannot parse, falls back to the source text, which is plain enough to read as it
-// is.
+// render turns markdown into the ANSI the pager prints. The style is named rather than
+// detected: detection asks the terminal for its background colour and reads the answer
+// back off the same input the panel's own event loop is reading. A renderer that cannot
+// be built, or a document it cannot parse, falls back to the source text.
 func (s *Stage) render(markdown string) string {
 	options := []glamour.TermRendererOption{glamour.WithStandardStyle(styles.DarkStyle)}
 	if wrap := s.wrap(); wrap > 0 {
@@ -221,9 +204,8 @@ func (s *Stage) render(markdown string) string {
 	return rendered
 }
 
-// Text shows markdown in the stage by rendering it, writing that to a temp file and
-// paging the file there, which is how a workflow's info and a dormant agent's
-// placeholder render.
+// Text shows markdown in the stage by rendering it to a temp file and paging that
+// file, which is how a workflow's info and a dormant agent's placeholder render.
 func (s *Stage) Text(markdown string) {
 	s.ensure()
 	if s.pane == "" {
@@ -245,15 +227,12 @@ func (s *Stage) Text(markdown string) {
 	s.shown = markdown
 }
 
-// transcriptPreviewBefore is how many lines of a transcript show above a matched
-// line in a search preview. The pager opens on the line it is given, so the lines
-// before the match are what put it a short way down the pane rather than at the
-// very top, with enough of the conversation above it to read the match in.
+// transcriptPreviewBefore is how many lines of a transcript show above a matched line
+// in a search preview, so the match sits a short way down the pane with enough of the
+// conversation above it to read in.
 const transcriptPreviewBefore = 12
 
-// highlightStyle marks the matched line of a transcript preview. The pager prints
-// the escapes in the file as the colours they are, so the mark is written into the
-// copy it reads rather than asked of the pager itself. The escape is written
+// highlightStyle marks the matched line of a transcript preview. The escape is written
 // directly rather than through lipgloss, which styles against the colour profile it
 // detects on the panel's own output and would drop the mark on the way to a file.
 var highlightStyle = ansi.NewStyle().Reverse(true)

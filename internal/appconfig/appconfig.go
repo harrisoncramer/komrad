@@ -201,14 +201,11 @@ type Mark struct {
 
 // DefaultMarkColor is the yellow a mark takes when its own colour is unset. The panel
 // uses it for nothing else, so a mark left on it cannot be read as a lifecycle state.
-// Marks coloured apart from each other are worth having, and keeping them clear of
-// the state colours is then yours to do.
 const DefaultMarkColor = "#DCA561"
 
-// DefaultMarks are the marks stepped through when the config names none. A glyph says
-// what it means to whoever reads the row, so a dot reads as worth coming back to, a
-// half-filled circle as underway, and a check as dealt with. They share one colour,
-// leaving the glyph to carry the meaning until someone colours them apart.
+// DefaultMarks are the marks stepped through when the config names none. They share
+// one colour, leaving the glyph to carry the meaning until someone colours them
+// apart.
 func DefaultMarks() []Mark {
 	return []Mark{
 		{Glyph: "●", Color: DefaultMarkColor},
@@ -277,9 +274,8 @@ const maxMarkLen = 16
 var hexColor = regexp.MustCompile(`^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
 
 // validateMarks rejects marks the panel could not draw. A glyph goes straight into a
-// rendered frame, so whitespace or a control character would break the row it sits
-// on rather than show up in it, and a glyph listed twice would never be steppable
-// past its first appearance.
+// rendered frame, so whitespace or a control character would break the row it sits on,
+// and a glyph listed twice would never be steppable past its first appearance.
 func validateMarks(marks []Mark) error {
 	unprintable := func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }
 	seen := make(map[string]bool, len(marks))
@@ -304,10 +300,9 @@ func validateMarks(marks []Mark) error {
 	return nil
 }
 
-// validateLayout rejects a split tmux could not lay the two panes out at. A share
-// of one or more leaves the panel nothing, and a negative one is not a share at
-// all. Zero is how an omitted key reads, so it is left to fall back to the default
-// rather than reported as a mistake.
+// validateLayout rejects a split tmux could not lay the two panes out at. Zero is how
+// an omitted key reads, so it falls back to the default rather than being reported as
+// a mistake.
 func validateLayout(layout Layout) error {
 	if layout.Split < 0 || layout.Split >= 1 {
 		return fmt.Errorf("layout split %v is not a fraction of the width above zero and below one", layout.Split)
@@ -316,9 +311,8 @@ func validateLayout(layout Layout) error {
 	return nil
 }
 
-// validate rejects the settings the panel could not run on, so a config that
-// cannot work says so when it is read rather than once something tries to draw
-// with it.
+// validate rejects the settings the panel could not run on, so a config that cannot
+// work says so when it is read rather than once something tries to draw with it.
 func (c Config) validate() error {
 	if err := validateMarks(c.Marks); err != nil {
 		return err
@@ -327,10 +321,9 @@ func (c Config) validate() error {
 	return validateLayout(c.Layout)
 }
 
-// withDefaults fills anything the file left unset from the built-ins, so a user
-// who writes part of a config keeps the defaults for the rest. An omitted value
-// reads as its zero, which is why a blank marks list and a zero split are the
-// unset cases here rather than choices to be honoured.
+// withDefaults fills anything the file left unset from the built-ins. An omitted value
+// reads as its zero, which is why a blank marks list and a zero split are the unset
+// cases here rather than choices to be honoured.
 func (c Config) withDefaults() Config {
 	c.Keybindings = c.Keybindings.withDefaults()
 	if len(c.Marks) == 0 {
@@ -354,11 +347,8 @@ func (k Keybindings) withDefaults() Keybindings {
 
 // fillBindings copies the default into every key list the config left empty, walking
 // the groups of bindings as it goes. A group is a struct and a binding is a slice of
-// keys, which are the two cases below.
-//
-// It reads the struct rather than naming each binding, so adding one is an edit to the
-// struct and nothing else. The generated config.toml is rendered from Defaults by a
-// walk like this one, so both ends read the same structs and neither can fall behind.
+// keys, which are the two cases below. It reads the struct rather than naming each
+// binding, so adding one is an edit to the struct and nothing else.
 func fillBindings(configured, def reflect.Value) {
 	for i := range configured.NumField() {
 		field := configured.Field(i)
@@ -385,9 +375,8 @@ func Load(path string) (*Config, error) {
 	viperCfg := viper.New()
 	viperCfg.SetConfigType("toml")
 
-	// The resolved path is named in the errors below. What went wrong is not
-	// actionable without knowing which file to go and edit, and the default
-	// location is not something the reader has necessarily seen written down.
+	// The resolved path is named in the errors below, since what went wrong is not
+	// actionable without knowing which file to go and edit.
 	file := path
 	if file == "" {
 		home, err := os.UserHomeDir()

@@ -7,17 +7,15 @@ import (
 	"strings"
 )
 
-// launchTmux is all a launch needs from tmux, somewhere to type. The command is
-// not executed directly. It is typed into a pane and parsed by the shell running
-// there, which is why everything interpolated into it is either generated here or
-// quoted.
+// launchTmux is all a launch needs from tmux, somewhere to type. The command is not
+// executed directly: it is typed into a pane and parsed by the shell running there, which
+// is why everything interpolated into it is either generated here or quoted.
 type launchTmux interface {
 	SendKeys(target string, keys ...string) error
 }
 
-// Launcher turns an agent into a running claude process. It owns the command
-// line and nothing else. No store, no lifecycle, no knowledge of what an agent
-// is.
+// Launcher turns an agent into a running claude process. It owns the command line and
+// nothing else, with no store, no lifecycle, and no knowledge of what an agent is.
 type Launcher struct {
 	tmux launchTmux
 	// serverAddr is where serve listens, which is also where the MCP endpoint
@@ -34,10 +32,10 @@ func NewLauncher(tmux launchTmux, serverAddr string) *Launcher {
 	return &Launcher{tmux: tmux, serverAddr: serverAddr}
 }
 
-// mcpBriefing tells a spawned agent that the panel's own database is queryable,
-// so a question about the other agents is something it can look up rather than
-// guess at. The closing line matters as much as the rest. An agent whose client
-// has not registered the server must say so instead of inventing an answer.
+// mcpBriefing tells a spawned agent that the panel's own database is queryable, so a
+// question about the other agents is something it can look up rather than guess at. The
+// closing line matters as much as the rest: an agent whose client has not registered the
+// server must say so instead of inventing an answer.
 const mcpBriefing = `You are a background agent run by claude-agents, a tmux panel that spawns and tracks Claude sessions. The panel serves its own Postgres database read-only over MCP as a server named "claude-agents" at http://%s/mcp.
 
 That server's tools are list_tables, describe_table, and query, which runs a single SELECT. Between them they cover every agent the panel knows about. The agents table holds each agent's name, state, pane, working directory, and flags, workflows the groups agents belong to, and agent_transcripts the text of their conversations. Writes are rejected. Reach for these when the question is about the other agents rather than the code in front of you.
@@ -52,11 +50,10 @@ If those tools are not present in your session, the server is not registered wit
 // has already registered instead of trading them for it.
 const mcpConfigJSON = `{"mcpServers":{"claude-agents":{"type":"http","url":"http://%s/mcp"}}}`
 
-// writeMCPConfig writes the MCP client config beside the panel's other state and
-// returns its path. It is rewritten on every launch so a changed listen address
-// takes effect without a stale file lingering. Unlike the prompt temp files it
-// is not removed as the command runs, since a resumed agent re-reads it at every
-// relaunch.
+// writeMCPConfig writes the MCP client config beside the panel's other state and returns
+// its path. It is rewritten on every launch so a changed listen address takes effect, and
+// unlike the prompt temp files it is not removed as the command runs, since a resumed
+// agent re-reads it at every relaunch.
 func (l *Launcher) writeMCPConfig() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -76,9 +73,8 @@ func (l *Launcher) writeMCPConfig() (string, error) {
 	return path, nil
 }
 
-// appendedSystemPrompt is the text a fresh launch appends to the system prompt.
-// The standing MCP briefing, followed by the workflow's shared context when the
-// agent belongs to one.
+// appendedSystemPrompt is the standing MCP briefing followed by the workflow's shared
+// context, which is what a fresh launch appends to the system prompt.
 func (l *Launcher) appendedSystemPrompt(workflowContext string) string {
 	briefing := fmt.Sprintf(mcpBriefing, l.serverAddr)
 	if strings.TrimSpace(workflowContext) == "" {
@@ -88,7 +84,6 @@ func (l *Launcher) appendedSystemPrompt(workflowContext string) string {
 	return briefing + "\n\n" + workflowContext
 }
 
-// launchClaudeParams configures a single claude launch.
 type launchClaudeParams struct {
 	Pane            string
 	Flags           string
@@ -106,33 +101,27 @@ type launchClaudeParams struct {
 func (l *Launcher) launch(params launchClaudeParams) error {
 	command := "claude"
 
-	// The agent's own id rides in on the environment rather than in the appended
-	// system prompt, because it has to survive a resume and that prompt does not. An
-	// agent that only learned its id at spawn would go anonymous the first time it was
-	// restored and could no longer record anything against itself. It is a uuid out of
-	// the store, quoted like everything else that reaches this shell.
+	// The agent's own id rides in on the environment rather than in the appended system
+	// prompt, because it has to survive a resume and that prompt does not. An agent that
+	// only learned its id at spawn would go anonymous the first time it was restored.
 	if params.AgentID != "" {
 		command = fmt.Sprintf("CLAUDE_AGENTS_AGENT_ID=%s claude", quoteArg(params.AgentID))
 	}
 
-	// Flags are data, not shell. They are split into arguments and quoted, so a
-	// flag carrying $(...), a backtick, or a semicolon reaches claude as a
-	// literal argument instead of running in the pane's shell. Flags can arrive
-	// over RPC, which makes this the boundary between a request and the
-	// user's machine.
+	// Flags are data, not shell. They are split into arguments and quoted, so a flag
+	// carrying $(...), a backtick, or a semicolon reaches claude as a literal argument
+	// instead of running in the pane's shell. They can arrive over RPC, which makes this the
+	// boundary between a request and the user's machine.
 	if quoted := quoteFlags(params.Flags); quoted != "" {
 		command += " " + quoted
 	}
 
-	// Both paths get the MCP config. The briefing does not survive a resume, but
-	// the tools it describes should. A failure to write it drops the flag rather
-	// than the launch, leaving an agent that runs without the server.
+	// Both paths get the MCP config: the briefing does not survive a resume, but the tools
+	// it describes should. A failure to write it drops the flag rather than the launch.
 	if path, err := l.writeMCPConfig(); err == nil {
 		command += fmt.Sprintf(" --mcp-config '%s'", path)
 	}
 
-	// A restored agent's claude session id comes back out of the store, so it is
-	// quoted like anything else that was not built inline.
 	switch {
 	case params.Resume && params.ClaudeSessionID != "":
 		command += " --resume " + quoteArg(params.ClaudeSessionID)
@@ -140,19 +129,17 @@ func (l *Launcher) launch(params launchClaudeParams) error {
 		if params.ClaudeSessionID != "" {
 			command += " --session-id " + quoteArg(params.ClaudeSessionID)
 		}
-		// Pass the MCP briefing and any workflow context as an appended system
-		// prompt, sourced through a temp file the shell cats in place so arbitrary
-		// markdown needs no escaping. --append-system-prompt does not survive
-		// --resume, matching the snapshot-at-spawn behavior.
+		// The appended system prompt is sourced through a temp file the shell cats in place,
+		// so arbitrary markdown needs no escaping.
 		file, err := os.CreateTemp("", "claude-context-*.md")
 		if err == nil {
 			_, _ = file.WriteString(l.appendedSystemPrompt(params.WorkflowContext))
 			_ = file.Close()
 			command += fmt.Sprintf(" --append-system-prompt \"$(cat '%s'; rm '%s')\"", file.Name(), file.Name())
 		}
-		// The opening prompt is positional, and --mcp-config takes a variable
-		// number of paths, so the prompt is fenced off with -- or a launch where
-		// no flag separates the two would read the prompt as another config file.
+		// The opening prompt is positional and --mcp-config takes a variable number of paths,
+		// so the prompt is fenced off with -- or a launch where no flag separates the two would
+		// read the prompt as another config file.
 		if params.Prompt != "" {
 			file, err := os.CreateTemp("", "claude-prompt-*.md")
 			if err == nil {

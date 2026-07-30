@@ -14,8 +14,6 @@ import (
 	"claude-agents/internal/store/transcript"
 )
 
-// transcriptStore is the part of the store the transcript syncer reads and
-// writes.
 type transcriptStore interface {
 	Get(ctx context.Context, agentID string) (transcript.Transcript, error)
 	Upsert(ctx context.Context, params transcript.UpsertParams) error
@@ -29,12 +27,10 @@ type agentLister interface {
 	ListAll(ctx context.Context) ([]agentstore.Agent, error)
 }
 
-// TranscriptSyncer keeps each agent's searchable transcript in step with the
-// JSONL Claude Code writes to disk. Rather than hook into Claude's lifecycle,
-// which fires unreliably, it reads the on-disk log directly on a timer. The file
-// is named for the agent's claude session id, so the path is known without any
-// cooperation from Claude. Missing a pass loses nothing, since the next pass
-// reads whatever the file now holds.
+// TranscriptSyncer keeps each agent's searchable transcript in step with the JSONL
+// Claude Code writes to disk. Rather than hook into Claude's lifecycle, which fires
+// unreliably, it reads the on-disk log directly on a timer, so missing a pass loses
+// nothing.
 type TranscriptSyncer struct {
 	agents      agentLister
 	store       transcriptStore
@@ -47,17 +43,16 @@ func NewTranscriptSyncer(agents agentLister, transcripts transcriptStore, projec
 	return &TranscriptSyncer{agents: agents, store: transcripts, projectsDir: projectsDir}
 }
 
-// Sync folds any new transcript text for every tracked agent into the store. It
-// is idempotent and self-limiting. Each agent reads only the bytes appended since
-// its last sync, so a pass is cheap even over a large corpus, and an agent whose
-// log is unchanged is skipped entirely.
+// Sync folds any new transcript text for every tracked agent into the store. Each agent
+// reads only the bytes appended since its last sync, so a pass is cheap even over a large
+// corpus.
 //
-// An agent that cannot be folded in does not stop the pass. The failures that
-// reach here are mostly properties of one agent's log rather than of the machine,
-// so they recur on every pass, and the walk is ordered newest first: giving up at
-// the first one would leave every older agent behind it never indexed again. The
-// failures are still returned together, so a log that never syncs is visible in
-// the log rather than only in a search that quietly finds nothing.
+// An agent that cannot be folded in does not stop the pass. The failures that reach here
+// are mostly properties of one agent's log rather than of the machine, so they recur
+// every pass, and the walk is ordered newest first: giving up at the first one would
+// leave every older agent behind it never indexed again. They are still returned
+// together, so a log that never syncs shows up somewhere other than a search that quietly
+// finds nothing.
 func (ts *TranscriptSyncer) Sync(ctx context.Context) error {
 	agents, err := ts.agents.ListAll(ctx)
 	if err != nil {
@@ -96,9 +91,8 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 		return err
 	}
 
-	// The log shrank, so Claude rewrote it, which a --resume can do. The stored
-	// offset no longer points into the same content, so read from the start to match
-	// the file again.
+	// The log shrank, so Claude rewrote it, which a --resume can do. The stored offset no
+	// longer points into the same content, so reading starts over.
 	offset, content := tr.SyncedOffset, tr.Content
 	reindex := info.Size() < offset
 	if reindex {
@@ -137,9 +131,8 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 	return ts.store.AppendTurns(ctx, agent.ID, turns)
 }
 
-// sessionLogPath finds the JSONL log for a claude session id under projectsDir,
-// or "" when no log exists. The file is named for the session id inside a
-// per-directory folder, so a glob on the id finds it without reproducing Claude's
+// sessionLogPath finds the JSONL log for a claude session id under projectsDir, or ""
+// when no log exists. A glob on the id finds it without reproducing Claude's
 // version-specific directory-name encoding.
 func sessionLogPath(projectsDir, claudeSessionID string) string {
 	matches, err := filepath.Glob(filepath.Join(projectsDir, "*", claudeSessionID+".jsonl"))
@@ -150,11 +143,9 @@ func sessionLogPath(projectsDir, claudeSessionID string) string {
 	return matches[0]
 }
 
-// readNewLines reads from offset to the end of the file and returns the complete
-// lines found there together with how many bytes they span. A trailing partial
-// line, written while Claude is mid-turn, is left unconsumed so the next pass
-// reads it once whole. The offset advances by the bytes of complete lines only,
-// never the raw read length.
+// readNewLines reads from offset to the end of the file and returns the complete lines
+// found there together with how many bytes they span. A trailing partial line, written
+// while Claude is mid-turn, is left unconsumed so the next pass reads it once whole.
 func readNewLines(path string, offset int64) ([]byte, int64, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -181,7 +172,7 @@ func readNewLines(path string, offset int64) ([]byte, int64, error) {
 }
 
 // transcriptLine is the part of a JSONL entry the flattener reads. Only user and
-// assistant turns carry conversation. Everything else is skipped by type.
+// assistant turns carry conversation, so everything else is skipped by type.
 type transcriptLine struct {
 	Type    string `json:"type"`
 	IsMeta  bool   `json:"isMeta"`
@@ -197,17 +188,14 @@ type contentBlock struct {
 	Text string `json:"text"`
 }
 
-// turn is one turn of conversation pulled out of a log, who spoke and what they
-// said.
 type turn struct {
 	role string
 	text string
 }
 
-// flattenTranscript turns raw JSONL bytes into the turns worth searching, the
-// user's prompts and the assistant's prose in order. Tool calls, tool results,
-// thinking, and non-conversation entries are left out so the index stays lean and a
-// match reads as something actually said.
+// flattenTranscript turns raw JSONL bytes into the turns worth searching, the user's
+// prompts and the assistant's prose in order. Tool calls, tool results, thinking, and
+// non-conversation entries are left out so a match reads as something actually said.
 func flattenTranscript(data []byte) []turn {
 	var turns []turn
 	for _, raw := range strings.Split(string(data), "\n") {
@@ -261,24 +249,21 @@ func blockText(content json.RawMessage) string {
 	return strings.Join(parts, "\n\n")
 }
 
-// cleanText trims a turn's prose and drops the one byte the transcript columns
-// cannot hold. Postgres refuses a NUL in a text value outright, and the log this
-// reads is written by another process entirely, so a single turn carrying one
-// would refuse every write for that agent from then on.
+// cleanText trims a turn's prose and drops the NUL the transcript columns cannot hold,
+// which a log written by another process may well carry and which would otherwise refuse
+// every write for that agent from then on.
 //
-// It is dropped here, as the prose is read, rather than at the write. The turns a
-// pass produces carry the offset they sit at in the transcript text, and that text
-// is built from these strings, so anything removed later would leave every offset
-// after it pointing a byte too far.
+// It is dropped as the prose is read rather than at the write, because the turns carry
+// the offset they sit at in the transcript text, so anything removed later would leave
+// every offset after it pointing a byte too far.
 func cleanText(text string) string {
 	return strings.TrimSpace(strings.ReplaceAll(text, "\x00", ""))
 }
 
-// appendTurns joins newly-synced turns onto the transcript so far, blank-line
-// separated so they stay readable, and returns the grown text alongside the turns
-// ready to index. Each turn carries where it landed in that text. This is the only
-// place that knows, and the panel reads it back to scroll a hit into view rather
-// than hunt for the words again.
+// appendTurns joins newly-synced turns onto the transcript so far, blank-line separated,
+// and returns the grown text alongside the turns ready to index. Each turn carries where
+// it landed in that text, which is what the panel reads back to scroll a hit into view
+// rather than hunt for the words again.
 func appendTurns(existing string, turns []turn) (string, []transcript.Turn) {
 	var content strings.Builder
 	content.WriteString(existing)

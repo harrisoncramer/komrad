@@ -22,21 +22,18 @@ type searchState struct {
 	cursor int
 }
 
-// searchLimit caps how many hits a query returns, keeping the result list short
-// enough to scan at a glance. The screen shows one page and offers no way to ask
-// for another, so the returned page token is ignored.
+// searchLimit caps how many hits a query returns. The screen shows one page and offers no
+// way to ask for another, so the returned page token is ignored.
 const searchLimit = 10
 
-// searchDebounce is how long typing has to pause before the query runs. Every
-// keystroke used to be its own round trip, most of them for a prefix nobody wanted
-// results for, so the wait is long enough to swallow a burst of typing and short
-// enough that a pause still feels answered immediately.
+// searchDebounce is how long typing has to pause before the query runs, long enough to
+// swallow a burst of typing and short enough that a pause still feels answered
+// immediately.
 const searchDebounce = 120 * time.Millisecond
 
-// searchHit is one result of a transcript search: the turn that matched, the agent
-// it belongs to, a snippet of the matching text with the match wrapped in the
-// store's markers, and where the turn sits in the full transcript so the preview
-// can scroll to it.
+// searchHit is one result of a transcript search. The snippet carries the match wrapped in
+// the store's markers, and offset is where the turn sits in the full transcript so the
+// preview can scroll to it.
 type searchHit struct {
 	agentID string
 	name    string
@@ -45,28 +42,25 @@ type searchHit struct {
 	snippet string
 }
 
-// searchSettledMsg fires once typing has paused for searchDebounce. The query it
-// carries is the one that was current when the pause began, so a keystroke landing
-// during the wait leaves it stale and it is dropped rather than queried for. Like the
-// refresh tick it is a prompt to go and ask rather than an answer, which is what its
-// suffix says.
+// searchSettledMsg fires once typing has paused for searchDebounce. The query it carries
+// is the one that was current when the pause began, so a keystroke landing during the
+// wait leaves it stale and it is dropped rather than queried for.
 type searchSettledMsg struct {
 	query string
 }
 
-// searchResult carries the hits for a query back to the update loop. The
-// query is echoed so a late response for a query the user has since edited past
-// can be discarded rather than shown against the wrong input.
+// searchResult carries the hits for a query back to the update loop. The query is echoed
+// so a late response for a query the user has since edited past can be discarded rather
+// than shown against the wrong input.
 type searchResult struct {
 	query string
 	hits  []searchHit
 }
 
-// previewResult carries a hovered hit's full transcript back for the
-// preview. The agent id and query are echoed so a response arriving after the
-// hover or the query moved on is discarded rather than staged over the wrong hit.
-// The offset is the hit's own, so the preview centres on the turn that matched
-// rather than wherever the words first happen to appear.
+// previewResult carries a hovered hit's full transcript back for the preview. The agent id
+// and query are echoed so a response arriving after the hover or the query moved on is
+// discarded rather than staged over the wrong hit. The offset is the hit's own, so the
+// preview centres on the turn that matched rather than wherever the words first appear.
 type previewResult struct {
 	agentID string
 	query   string
@@ -86,9 +80,9 @@ func (m model) enterSearch() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// debounceSearchCmd waits out searchDebounce before the query is run, so a burst
-// of typing costs one request rather than one per key. A blank query clears the
-// results straight away, since there is nothing to wait to ask for.
+// debounceSearchCmd waits out searchDebounce before the query is run, so a burst of typing
+// costs one request rather than one per key. A blank query clears the results straight
+// away.
 func (m model) debounceSearchCmd(query string) tea.Cmd {
 	if strings.TrimSpace(query) == "" {
 		return func() tea.Msg { return searchResult{query: query} }
@@ -145,9 +139,8 @@ func (m model) searchCmd(query string) tea.Cmd {
 	}
 }
 
-// applySearch installs hits for the current query and returns a command to
-// load the hovered hit's transcript preview. A result for a stale query is ignored
-// so the list never shows hits for text the user has already changed.
+// applySearch installs hits for the current query and returns a command to load the
+// hovered hit's transcript preview. A result for a stale query is ignored.
 func (m *model) applySearch(result searchResult) tea.Cmd {
 	if result.query != m.search.query {
 		return nil
@@ -205,10 +198,8 @@ func (m *model) applyPreview(result previewResult) {
 	m.stage.Transcript(result.content, lineAtOffset(result.content, result.offset))
 }
 
-// updateSearch drives the search screen. Printable keys edit the query and re-run
-// the search, the nav keys move over the results, enter opens the hovered agent,
-// and esc returns to the list. Exit uses fixed keys rather than the configurable
-// agent bindings, whose letters would otherwise type into the query.
+// updateSearch drives the search screen. Exit uses fixed keys rather than the
+// configurable agent bindings, whose letters would otherwise type into the query.
 func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -249,9 +240,9 @@ func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// openSearchHit opens the hovered result's agent and returns to the list focused
-// on it. Restoring a dormant or deleted agent happens in the manager, so this
-// just stages the resulting pane.
+// openSearchHit opens the hovered result's agent and returns to the list focused on it.
+// Opening a hit is a restore, since the agent behind it may be archived or dormant, and a
+// live one comes back as it stands rather than being started twice.
 func (m model) openSearchHit() (tea.Model, tea.Cmd) {
 	if m.search.cursor < 0 || m.search.cursor >= len(m.search.hits) {
 		return m, nil
@@ -259,13 +250,11 @@ func (m model) openSearchHit() (tea.Model, tea.Cmd) {
 
 	hit := m.search.hits[m.search.cursor]
 
-	// Opening a hit is a restore. The agent behind it may be archived or dormant,
-	// and a live one comes back as it stands rather than being started twice.
 	return m, m.restoreCmd(fmt.Sprintf("Could not restore agent %q", hit.name), hit.agentID, screenAgents)
 }
 
-// searchView renders the search screen's own pane. The query line sits above the
-// list of matching agents, each with a one-line snippet of its match.
+// searchView renders the search screen's own pane. The query line sits above the list of
+// matching agents, each with a one-line snippet of its match.
 func (m model) searchView() string {
 	var b strings.Builder
 	b.WriteString(headerStyle.Render("Search") + "\n\n")
@@ -277,10 +266,9 @@ func (m model) searchView() string {
 	case len(m.search.hits) == 0:
 		b.WriteString(dimStyle.Render("no matches") + "\n")
 	default:
-		// One conversation matches once per turn that did, so its hits arrive as
-		// several adjacent rows. Repeating the name down all of them reads as
-		// several agents, so only the first of a run is labelled and the rest sit
-		// under it as further places the same conversation matched.
+		// One conversation matches once per turn that did, so its hits arrive as several
+		// adjacent rows. Repeating the name down all of them would read as several agents,
+		// so only the first of a run is labelled.
 		labelled := ""
 		for i, hit := range m.search.hits {
 			if hit.name != labelled {

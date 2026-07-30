@@ -14,15 +14,11 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Every form the panel opens is built here. Each builder hands back the values its
-// fields are bound to alongside the form itself, and formValues says why a submit reads
-// those rather than the form.
-
-// formValues are what the open form writes into, each nil while no form of that shape
-// is up. huh records a field into its own results only as the cursor leaves it, so a
-// submit from partway down a form would read every field below as blank. Each form
-// binds its fields to one of these instead, which they write through on every change,
-// so a submit reads what is on screen however it was reached.
+// formValues are what the open form writes into, each nil while no form of that shape is
+// up. huh records a field into its own results only as the cursor leaves it, so a submit
+// from partway down a form would read every field below as blank. Each form binds its
+// fields to one of these instead, which they write through on every change, so a submit
+// reads what is on screen however it was reached.
 type formValues struct {
 	agent     *agentFormValues
 	rename    *string
@@ -31,10 +27,10 @@ type formValues struct {
 	confirmed *bool
 }
 
-// formTarget is the record the open form is working on. Each is nil while no form is
-// working on one of that kind, which for the create forms is the whole time: there is
-// nothing to point at until the thing exists. renameAgent is a value rather than a
-// pointer, since a rename form is only ever opened on a row that is on screen.
+// formTarget is the record the open form is working on, nil while no form is working on
+// one of that kind, which for the create forms is the whole time. renameAgent is a value
+// rather than a pointer, since a rename form is only ever opened on a row that is on
+// screen.
 type formTarget struct {
 	renameAgent      agentstore.Agent
 	newAgentWorkflow *workflowstore.Workflow
@@ -46,7 +42,6 @@ type formTarget struct {
 	deleteAgent      *agentstore.Agent
 }
 
-// agentFormValues are the fields the new-agent form writes into.
 type agentFormValues struct {
 	Prompt string
 	Title  string
@@ -54,10 +49,9 @@ type agentFormValues struct {
 	Flags  string
 }
 
-// newAgentForm builds the new-agent form and returns the values its fields write
-// into. defaultDir and defaultFlags prefill the directory and flags fields from the
-// enclosing workflow's config, so an agent created inside a workflow starts from its
-// blueprint. Both are blank at the root.
+// newAgentForm builds the new-agent form and returns the values its fields write into.
+// defaultDir and defaultFlags prefill from the enclosing workflow's config, so an agent
+// created inside a workflow starts from its blueprint.
 func newAgentForm(keys appconfig.FormKeys, defaultDir, defaultFlags string) (*huh.Form, *agentFormValues) {
 	values := &agentFormValues{Dir: defaultDir, Flags: defaultFlags}
 
@@ -73,9 +67,8 @@ func newAgentForm(keys appconfig.FormKeys, defaultDir, defaultFlags string) (*hu
 	return form, values
 }
 
-// renameForm asks for a new name, starting blank rather than on the current one so
-// the old name is there to read while the new one is typed. It returns the name its
-// input writes into alongside the form.
+// renameForm asks for a new name, starting blank rather than on the current one so the
+// old name is there to read while the new one is typed.
 func renameForm(current string, keys appconfig.FormKeys) (*huh.Form, *string) {
 	var name string
 
@@ -88,9 +81,8 @@ func renameForm(current string, keys appconfig.FormKeys) (*huh.Form, *string) {
 	return form, &name
 }
 
-// formKeyMap is the default form keymap with the configured back and quit keys
-// bound to abort, so esc backs out of a form the same way it leaves other
-// screens.
+// formKeyMap is the default form keymap with the configured back and quit keys bound to
+// abort, so esc backs out of a form the same way it leaves other screens.
 func formKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
 	quit := append(append([]string{}, keys.Back...), keys.Quit...)
 
@@ -106,9 +98,8 @@ func (m model) wasConfirmed() bool {
 	return m.values.confirmed != nil && *m.values.confirmed
 }
 
-// confirmForm asks a yes-or-no question and returns the answer its buttons write
-// into. Every delete in the panel prompts through this, so the wording differs and
-// the shape does not.
+// confirmForm asks a yes-or-no question and returns the answer its buttons write into.
+// Every delete in the panel prompts through this, so only the wording differs.
 func confirmForm(title, description string, keys appconfig.FormKeys) (*huh.Form, *bool) {
 	var confirmed bool
 
@@ -127,10 +118,9 @@ func confirmForm(title, description string, keys appconfig.FormKeys) (*huh.Form,
 	return form, &confirmed
 }
 
-// isForm reports whether a form owns the screen. That decides two things: whether a
-// key belongs to the form or to the panel's own chrome, and whether the screen renders
-// the form rather than a list. Both ask it here rather than restating which screens
-// hold a form.
+// isForm reports whether a form owns the screen, which decides both whether a key belongs
+// to the form or to the panel's own chrome and whether the screen renders the form rather
+// than a list.
 func (s screen) isForm() bool {
 	switch s {
 	case screenForm, screenRename, screenWorkflowForm, screenWorkflowDelete,
@@ -141,9 +131,9 @@ func (s screen) isForm() bool {
 	}
 }
 
-// deleteAgentForm confirms destroying an agent. It names what goes with it,
-// since the reversible delete on the agents list uses the same key and this one
-// cannot be taken back.
+// deleteAgentForm confirms destroying an agent. It names what goes with it, since the
+// reversible delete on the agents list uses the same key and this one cannot be taken
+// back.
 func deleteAgentForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool) {
 	return confirmForm(
 		fmt.Sprintf("Permanently delete agent %q?", name),
@@ -152,9 +142,8 @@ func deleteAgentForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool) {
 	)
 }
 
-// workflowForm asks for a name alone, which is what a rename is. It returns the
-// config its input writes into, the same shape the fuller form binds, so a submit
-// reads either through one path.
+// workflowForm asks for a name alone, which is what a rename is. It binds the same config
+// shape the fuller form does, so a submit reads either through one path.
 func workflowForm(title string, keys appconfig.FormKeys) (*huh.Form, *workflowstore.Config) {
 	var values workflowstore.Config
 
@@ -167,11 +156,10 @@ func workflowForm(title string, keys appconfig.FormKeys) (*huh.Form, *workflowst
 	return form, &values
 }
 
-// workflowConfigForm collects a workflow's name, its free-text context, and its
-// default config, and returns the config its fields write into. The dir and flags
-// become the blueprint prefilled into the new-agent form for agents created inside the
-// workflow. Every field prefills, so it serves both creating a workflow with blank
-// values and editing one with its current values.
+// workflowConfigForm collects a workflow's name, its free-text context, and its default
+// config. The dir and flags become the blueprint prefilled into the new-agent form for
+// agents created inside the workflow. Every field prefills, so it serves both creating a
+// workflow and editing one.
 func workflowConfigForm(nameTitle string, cfg workflowstore.Config, keys appconfig.FormKeys) (*huh.Form, *workflowstore.Config) {
 	values := cfg
 
@@ -187,8 +175,8 @@ func workflowConfigForm(nameTitle string, cfg workflowstore.Config, keys appconf
 	return form, &values
 }
 
-// deleteWorkflowForm confirms a delete. The agents inside go with it, since
-// every agent belongs to a workflow and there is nowhere to leave one.
+// deleteWorkflowForm confirms a delete. The agents inside go with it, since every agent
+// belongs to a workflow and there is nowhere to leave one.
 func deleteWorkflowForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool) {
 	return confirmForm(
 		fmt.Sprintf("Delete workflow %q and its agents?", name),
@@ -197,17 +185,11 @@ func deleteWorkflowForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool)
 	)
 }
 
-// scheduleForm collects everything a schedule holds. Every field prefills, so
-// it serves both creating one and editing one in place.
+// scheduleForm collects everything a schedule holds. Every field prefills, so it serves
+// both creating one and editing one in place.
 //
-// There is no directory or flags field: those come off the workflow when the
-// schedule fires, which is why picking the workflow is picking where and how the
-// agent runs.
-// It returns the config its fields write into alongside the form. huh records a field
-// into the form's own results only as the cursor leaves it, so reading the results
-// after a submit from halfway down would take every field below the cursor as blank.
-// The bound config is written through on each change instead, so a submit reads what
-// is on screen however it was reached.
+// There is no directory or flags field: those come off the workflow when the schedule
+// fires, which is why picking the workflow is picking where and how the agent runs.
 func scheduleForm(cfg schedulestore.Config, workflows []workflowstore.Workflow, keys appconfig.FormKeys) (*huh.Form, *schedulestore.Config) {
 	values := cfg
 
@@ -223,10 +205,9 @@ func scheduleForm(cfg schedulestore.Config, workflows []workflowstore.Workflow, 
 			huh.NewInput().Key("timezone").Title("Timezone").Placeholder("America/New_York").Description("blank = this machine's zone").Value(&values.Timezone),
 			huh.NewText().Key("prompt").Title("Prompt").Description("what each launched agent is asked to do").Value(&values.Prompt),
 			huh.NewSelect[string]().Key("workflow").Title("Workflow").Description("supplies the directory, flags, and context").Options(options...).Value(&values.WorkflowID),
-			// The buttons are pinned left rather than left where huh puts them, which is
-			// centred under the field's own prompt. A field with a description is as wide
-			// as that description, so its buttons would sit indented from the ones above
-			// by however long the sentence happens to be.
+			// huh centres the buttons under the field's own prompt, and a field with a
+			// description is as wide as that description, so its buttons would sit indented
+			// from the ones above by however long the sentence happens to be.
 			huh.NewConfirm().Key("enabled").Title("Armed?").Affirmative("Armed").Negative("Paused").Value(&values.Enabled).WithButtonAlignment(lipgloss.Left),
 			huh.NewConfirm().Key("hide_agents").Title("Hide its runs?").Description("they still run, they just take no row").Affirmative("Hidden").Negative("Listed").Value(&values.HideAgents).WithButtonAlignment(lipgloss.Left),
 		),
@@ -235,9 +216,8 @@ func scheduleForm(cfg schedulestore.Config, workflows []workflowstore.Workflow, 
 	return form, &values
 }
 
-// deleteScheduleForm confirms a delete. The agents the schedule already
-// launched are not touched either way, which the prompt says so the choice is
-// not read as bigger than it is.
+// deleteScheduleForm confirms a delete. The prompt says the agents it already launched
+// are kept, so the choice is not read as bigger than it is.
 func deleteScheduleForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool) {
 	return confirmForm(
 		fmt.Sprintf("Delete schedule %q?", name),

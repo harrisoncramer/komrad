@@ -20,12 +20,9 @@ const (
 	agentsTimeout   = 2 * time.Second
 )
 
-// refreshTickMsg is the periodic prompt to re-list. It is the only thing that puts
-// rows on screen other than a write landing, so what the panel shows always came
-// from a listing rather than from a guess about what a write did.
-//
-// It keeps the Msg suffix the panel's other messages have dropped. A Result is what a
-// command came back with, and a tick asks for work rather than carrying any.
+// refreshTickMsg is the periodic prompt to re-list. It is the only thing that puts rows
+// on screen other than a write landing, so what the panel shows always came from a
+// listing rather than from a guess about what a write did.
 type refreshTickMsg struct{}
 
 func refreshTick() tea.Cmd {
@@ -33,12 +30,9 @@ func refreshTick() tea.Cmd {
 }
 
 // refreshResult is one listing pass, everything the panel draws. Each listing carries
-// its own error rather than the pass carrying one, so a listing that failed costs
-// its own rows and not the ones that answered.
-//
-// The rows a failed listing would have replaced are left alone. Blanking them would
-// say every agent had been deleted, which is not what a listing that failed to
-// answer means.
+// its own error rather than the pass carrying one, so a listing that failed costs its own
+// rows and not the ones that answered. The rows it would have replaced are left alone,
+// since blanking them would say every agent had been deleted.
 type refreshResult struct {
 	// epoch is the write generation the pass was requested under. A pass older than
 	// the panel's own generation read the store before a write this panel has since
@@ -54,24 +48,22 @@ type refreshResult struct {
 	schedules    []scheduleItem
 	schedulesErr error
 
-	// trash is listed only while the trash screen is up, since nothing else draws it
-	// and a deleted agent changes only when someone acts on it. trashListed says the
-	// listing was asked for, so an empty one reads as an empty trash rather than as a
-	// pass that skipped it.
+	// trash is listed only while the trash screen is up. trashListed says the listing was
+	// asked for, so an empty one reads as an empty trash rather than as a pass that
+	// skipped it.
 	trash       []agentstore.Agent
 	trashErr    error
 	trashListed bool
 }
 
-// refreshCmd lists everything the panel draws, off the UI goroutine so the render
-// loop never blocks on the RPCs or on the per-agent tmux liveness checks. The
-// listings run concurrently under one deadline, so a pass costs the slowest of them.
-// rather than their sum.
+// refreshCmd lists everything the panel draws, off the UI goroutine so the render loop
+// never blocks on the RPCs or on the per-agent tmux liveness checks. The listings run
+// concurrently under one deadline, so a pass costs the slowest of them rather than their
+// sum.
 //
-// A write in flight stands the pass down. It would read the rows that write is about
-// to replace, and every write asks for a pass of its own as it lands, so there is
-// nothing to gain by racing it. Callers batch what this returns, so the nil drops out
-// without any of them having to ask whether a write is on its way.
+// A write in flight stands the pass down: it would read the rows that write is about to
+// replace, and every write asks for a pass of its own as it lands. Callers batch what
+// this returns, so the nil drops out on its own.
 func (m model) refreshCmd() tea.Cmd {
 	if m.pending > 0 {
 		return nil
@@ -135,11 +127,10 @@ func (m *model) applyRefresh(result refreshResult) {
 		m.applyTrash(result.trash)
 	}
 
-	// A pass can change what the cursor is sitting on without the cursor moving, so
-	// the stage is redrawn from the merged lists. The stage is a no-op when what it
-	// already shows has not changed, which is what keeps this from respawning its pane
-	// every tick. Only the screen that owns the stage restages: a search preview or a
-	// form's stage is not the tree's to take back while it is up.
+	// A pass can change what the cursor is sitting on without the cursor moving, so the
+	// stage is redrawn from the merged lists. It is a no-op when what it already shows has
+	// not changed, which keeps this from respawning its pane every tick. Only the screen
+	// that owns the stage restages.
 	switch m.screen {
 	case screenAgents:
 		m.stageSelection()
@@ -152,9 +143,9 @@ func (m *model) applyRefresh(result refreshResult) {
 	}
 }
 
-// err is the first listing in the pass that did not answer, or nil when they all
-// did. Every listing goes to the same server over the same connection, so one of
-// them failing is the server not answering rather than that listing being special.
+// err is the first listing in the pass that did not answer, or nil when they all did.
+// Every listing goes to the same server over the same connection, so one of them failing
+// is the server not answering rather than that listing being special.
 func (r refreshResult) err() error {
 	switch {
 	case r.agentsErr != nil:
@@ -172,32 +163,28 @@ func (r refreshResult) err() error {
 // one of these, so reporting a refusal and re-listing after a success happen in one
 // place rather than at each of the two dozen call sites.
 type writeResult struct {
-	// summary is what the banner says if the write was refused. err is nil when it
-	// was not, which clears whatever the last one said.
+	// summary is what the banner says if the write was refused. err is nil when it was
+	// not, which clears whatever the last one said.
 	summary string
 	err     error
-	// restored is set by the one write whose result the panel needs, and nil for the
-	// rest.
+	// restored is set by the one write whose result the panel needs, and nil for the rest.
 	restored *restoredAgent
 }
 
-// restoredAgent is what a restore hands back: the agent as the service now holds it,
-// which carries the pane to stage and the name to put the cursor on, and that name
-// may not be the one the agent went in with. screen is where the person lands, since
-// a restore from the trash leaves them in the trash while one from the tree or from
-// search lands on the agent itself.
+// restoredAgent is what a restore hands back: the pane to stage and the name to put the
+// cursor on, which may not be the one the agent went in with. screen is where the person
+// lands, since a restore from the trash leaves them in the trash while one from the tree
+// or from search lands on the agent itself.
 type restoredAgent struct {
 	pane   string
 	name   string
 	screen screen
 }
 
-// writeCmd runs a write off the render loop and resolves to the message that reports
-// it. Nothing the panel does blocks a repaint, so a slow or wedged server costs the
-// action rather than every frame until it answers.
-//
-// The write takes the service clients rather than the panel, so what runs on the
-// other goroutine plainly holds nothing the render loop is still editing.
+// writeCmd runs a write off the render loop and resolves to the message that reports it,
+// so a slow or wedged server costs the action rather than every frame until it answers.
+// The write takes the service clients rather than the panel, so what runs on the other
+// goroutine holds nothing the render loop is still editing.
 func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {
 	clients := m.api
 	m.beginWrite()
@@ -207,9 +194,8 @@ func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {
 	}
 }
 
-// restoreCmd restores an agent off the render loop, the same way every other write
-// runs, and carries back what the panel needs of the agent that came back. stay is
-// the screen to land on once it does.
+// restoreCmd restores an agent off the render loop and carries back what the panel needs
+// of the agent that came back. stay is the screen to land on once it does.
 func (m *model) restoreCmd(summary, id string, stay screen) tea.Cmd {
 	clients := m.api
 	m.beginWrite()
@@ -235,9 +221,9 @@ func (m *model) beginWrite() {
 	m.pending++
 }
 
-// applyWrite reports a landed write and hands back the pass that shows what it did.
-// A refused write re-lists too: what it did and did not leave behind is a question for
-// the store rather than one the panel can answer.
+// applyWrite reports a landed write and hands back the pass that shows what it did. A
+// refused write re-lists too, since what it did and did not leave behind is a question
+// for the store rather than one the panel can answer.
 func (m *model) applyWrite(result writeResult) tea.Cmd {
 	m.pending--
 	m.report(result.summary, result.err)
@@ -245,9 +231,8 @@ func (m *model) applyWrite(result writeResult) tea.Cmd {
 	if result.restored != nil {
 		m.screen = result.restored.screen
 		if result.restored.screen == screenAgents {
-			// The pane came back with the agent, so it is staged now rather than waited
-			// for. The cursor cannot move until there is a row under the name it came back
-			// with, which is the pass below.
+			// The pane came back with the agent, so it is staged now. The cursor cannot move
+			// until there is a row under the name it came back with, which is the pass below.
 			m.tree.infoPinned = false
 			m.tree.focus = result.restored.name
 			m.stage.Agent(result.restored.pane)

@@ -11,23 +11,22 @@ import (
 	"strings"
 )
 
-// Client talks to one tmux server, addressed either by socket name or by socket
-// path. The server flags are held whole rather than the socket alone, since the
-// two forms differ in flag as well as value.
+// Client talks to one tmux server, addressed either by socket name or by socket path.
+// The server flags are held whole rather than the socket alone, since the two forms
+// differ in flag as well as value.
 type Client struct {
 	server []string
 }
 
-// NewClient returns a Client bound to a tmux server by socket name, which tmux
-// resolves under its own socket directory. The manager's server is reached this
-// way, since its name is configuration.
+// NewClient returns a Client bound to a tmux server by socket name, which tmux resolves
+// under its own socket directory. The manager's server is reached this way.
 func NewClient(socket string) *Client {
 	return &Client{server: []string{"-L", socket}}
 }
 
-// NewClientAtPath returns a Client bound to a tmux server by socket path. The
-// user's server is reached this way, since a popup is told the path of the server
-// that opened it and cannot assume the name it was started under.
+// NewClientAtPath returns a Client bound to a tmux server by socket path. The user's
+// server is reached this way, since a popup is told the path of the server that opened
+// it and cannot assume the name it was started under.
 func NewClientAtPath(path string) *Client {
 	return &Client{server: []string{"-S", path}}
 }
@@ -54,10 +53,10 @@ func (c *Client) paneID(target string) (string, error) {
 	return c.query("display-message", "-p", "-t", target, "#{pane_id}")
 }
 
-// PaneAlive reports whether the given pane still exists. It answers for a pane
-// the caller created and still holds, such as the panel's own stage. An agent's
-// pane is asked about with PaneOwner instead, since a stored id alone is not
-// evidence the pane behind it is still that agent's.
+// PaneAlive reports whether the given pane still exists. It answers for a pane the
+// caller created and still holds, such as the panel's own stage. An agent's pane is
+// asked about with PaneOwner instead, since a stored id alone is not evidence the pane
+// behind it is still that agent's.
 func (c *Client) PaneAlive(pane string) bool {
 	if pane == "" {
 		return false
@@ -72,13 +71,12 @@ func (c *Client) PaneAlive(pane string) bool {
 // an option tmux itself defines now or later.
 const paneOwnerOption = "@claude_agent_id"
 
-// SetPaneOwner stamps a pane with the id of the agent running in it. tmux only
-// promises a pane id is unique while the server that issued it lives, so numbering
-// restarts from %0 when the server is restarted and an id recorded against a
-// dormant agent is handed out again to somebody else's pane. The stamp is what
-// makes the pairing verifiable rather than assumed: it travels with the pane for
-// its whole life, no matter which window or session the pane is moved into, and a
-// pane from a dead server carries nothing.
+// SetPaneOwner stamps a pane with the id of the agent running in it. tmux only promises
+// a pane id is unique while the server that issued it lives, so numbering restarts from
+// %0 after a restart and an id recorded against a dormant agent is handed out again to
+// somebody else's pane. The stamp travels with the pane for its whole life, no matter
+// which window or session it is moved into, and a pane from a dead server carries
+// nothing.
 func (c *Client) SetPaneOwner(pane, agentID string) error {
 	if pane == "" || agentID == "" {
 		return errors.New("refusing to stamp a pane without both a pane and an agent")
@@ -111,10 +109,9 @@ func (c *Client) ClientPath(client string) string {
 	return path
 }
 
-// SendKeys sends literal keys to a target pane or session. An empty target is
-// refused, since tmux resolves one to the active pane and a caller holding a pane
-// id that was never created would type its command into whatever the user is
-// looking at.
+// SendKeys sends literal keys to a target pane or session. An empty target is refused,
+// since tmux resolves one to the active pane and a caller holding a pane id that was
+// never created would type its command into whatever the user is looking at.
 func (c *Client) SendKeys(target string, keys ...string) error {
 	if target == "" {
 		return errors.New("refusing to send keys to an empty target")
@@ -127,16 +124,15 @@ func (c *Client) SendKeys(target string, keys ...string) error {
 	return nil
 }
 
-// CurrentPane returns the id of the pane the calling process runs in. The panel
-// uses it as the stable anchor for the stage split.
+// CurrentPane returns the id of the pane the calling process runs in, which the panel
+// uses as the anchor for the stage split.
 func (c *Client) CurrentPane() (string, error) {
 	return c.query("display-message", "-p", "#{pane_id}")
 }
 
-// SplitRight splits the anchor pane horizontally, adding a pane to its right
-// rooted at dir and taking percent of the width, and returns the new pane's id.
-// The split stays detached so focus remains on the anchor. This is the stage the
-// panel drives.
+// SplitRight splits the anchor pane horizontally, adding a pane to its right rooted at
+// dir and taking percent of the width, and returns the new pane's id. The split stays
+// detached so focus remains on the anchor.
 func (c *Client) SplitRight(anchorPane, dir string, percent int) string {
 	size := fmt.Sprintf("%d%%", percent)
 	pane, _ := c.query("split-window", "-h", "-d", "-t", anchorPane, "-c", dir, "-l", size, "-P", "-F", "#{pane_id}")
@@ -151,11 +147,9 @@ func (c *Client) ResizePane(pane string, percent int) {
 	c.run("resize-pane", "-t", pane, "-x", fmt.Sprintf("%d%%", percent))
 }
 
-// NewWindow creates a detached window in a session, rooted at dir and titled name,
-// and returns its pane id. Agents live in these background windows, and the pane id
-// is their stable handle regardless of where the pane is later moved. An error is
-// returned rather than an empty id, since every caller needs a real pane to drive
-// and tmux resolves an empty target to the active pane.
+// NewWindow creates a detached window in a session, rooted at dir and titled name, and
+// returns its pane id. An error is returned rather than an empty id, since every caller
+// needs a real pane to drive and tmux resolves an empty target to the active pane.
 func (c *Client) NewWindow(session, name, dir string) (string, error) {
 	pane, err := c.query("new-window", "-d", "-t", session, "-n", name, "-c", dir, "-P", "-F", "#{pane_id}")
 	if err != nil {
@@ -168,9 +162,8 @@ func (c *Client) NewWindow(session, name, dir string) (string, error) {
 	return pane, nil
 }
 
-// SwapPanes exchanges two panes' positions, keeping the active pane unchanged.
-// Pane ids travel with their processes, so this moves a pane into or out of the
-// stage slot without disturbing which pane has focus.
+// SwapPanes exchanges two panes' positions, keeping the active pane unchanged, which is
+// how a pane moves into and out of the stage slot without disturbing focus.
 func (c *Client) SwapPanes(src, dst string) {
 	c.run("swap-pane", "-d", "-s", src, "-t", dst)
 }
@@ -182,9 +175,7 @@ func (c *Client) RespawnPane(pane, dir string, argv ...string) {
 }
 
 // KillPane tears down a single pane. An empty target is refused for the same reason
-// SendKeys refuses one, that tmux would kill the active pane instead. When the pane
-// is the only one in its window the window closes too, while the session holding
-// the panel survives.
+// SendKeys refuses one, that tmux would kill the active pane instead.
 func (c *Client) KillPane(pane string) {
 	if pane == "" {
 		return
@@ -215,10 +206,9 @@ func (c *Client) ShowGlobal(name string) string {
 	return value
 }
 
-// DetachSession detaches every client attached to the named session, leaving the
-// session and its pane processes running. It is how the manager popup is hidden.
-// The client viewing the persistent manager session drops away while the session
-// stays alive, so reopening restores it exactly.
+// DetachSession detaches every client attached to the named session, leaving the session
+// and its pane processes running. It is how the manager popup is hidden, so reopening
+// restores it exactly.
 func (c *Client) DetachSession(name string) {
 	c.run("detach-client", "-s", name)
 }

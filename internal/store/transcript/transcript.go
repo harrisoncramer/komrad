@@ -1,8 +1,7 @@
 // Package transcript persists the flattened text of each agent and searches it.
 //
 // A transcript is keyed by the id of the agent it belongs to, so removing an agent
-// has to remove its transcript too. The caller composes both inside one
-// transaction. The agent package deletes the agent, this one deletes the text.
+// has to remove its transcript too. The caller composes both inside one transaction.
 package transcript
 
 import (
@@ -23,11 +22,9 @@ type Transcript struct {
 	SyncedOffset int64
 }
 
-// SearchHit is one turn matched by a search. The agent it belongs to, its display
-// name, whether that agent is archived, which turn matched and who spoke it, where
-// that turn begins in the full transcript so the caller can scroll to it, a snippet
-// of the matching text with the hit marked, and the relevance the results are
-// ranked by.
+// SearchHit is one turn matched by a search. ContentOffset is where that turn begins
+// in the full transcript, so the caller can scroll to it, and Rank is the relevance
+// the results are ordered by.
 type SearchHit struct {
 	AgentID       string
 	Name          string
@@ -48,10 +45,9 @@ const (
 )
 
 // The shape of a search hit's snippet. Lead and width cut the plain window a
-// substring-only match falls back to, how much text to keep before the match so it
-// reads in context and how much to return in total. headlineOptions shapes the
-// window a word match gets instead, in the comma-separated form ts_headline parses.
-// It carries the same markers, so both kinds of snippet reach the caller alike.
+// substring-only match falls back to, and headlineOptions shapes the window a word
+// match gets instead, in the comma-separated form ts_headline parses. Both carry the
+// same markers, so either kind of snippet reaches the caller alike.
 const (
 	snippetLead  = 60
 	snippetWidth = 200
@@ -75,9 +71,8 @@ func New(db store.DBTX) *Store {
 	return &Store{queries: models.New(db)}
 }
 
-// Get returns an agent's stored transcript, or a zero Transcript when none has
-// been synced yet. No-rows is the zero case, so a first sync sees an offset of 0
-// and indexes the whole file. Every other error is surfaced.
+// Get returns an agent's stored transcript, or a zero Transcript when none has been
+// synced yet, so a first sync sees an offset of 0 and indexes the whole file.
 func (s *Store) Get(ctx context.Context, agentID string) (Transcript, error) {
 	if !store.IsID(agentID) {
 		return Transcript{}, nil
@@ -94,8 +89,7 @@ func (s *Store) Get(ctx context.Context, agentID string) (Transcript, error) {
 	return Transcript{Content: row.Content, SyncedOffset: row.SyncedOffset}, nil
 }
 
-// UpsertParams is one transcript write. It carries the agent the text belongs to,
-// the flattened text, and how far into the source log it was read from.
+// UpsertParams is one transcript write.
 type UpsertParams struct {
 	AgentID string
 	Content string
@@ -117,9 +111,9 @@ func (s *Store) Upsert(ctx context.Context, params UpsertParams) error {
 	return nil
 }
 
-// Turn is one turn of a transcript as the syncer hands it over, ready to be
-// indexed. Offset is where the turn begins in the transcript text it was appended
-// to, which is what lets a hit be scrolled to without searching for it again.
+// Turn is one turn of a transcript as the syncer hands it over. Offset is where the
+// turn begins in the transcript text it was appended to, which is what lets a hit be
+// scrolled to without searching for it again.
 type Turn struct {
 	Role    string
 	Content string
@@ -169,9 +163,7 @@ func (s *Store) DeleteTurns(ctx context.Context, agentID string) error {
 }
 
 // Delete removes the transcript belonging to an agent, both the whole copy and the
-// indexed turns. It runs alongside the agent's own delete, in the same transaction,
-// since text left behind by a removed agent would stay readable through the SQL
-// tools.
+// indexed turns. It runs alongside the agent's own delete, in the same transaction.
 func (s *Store) Delete(ctx context.Context, agentID string) error {
 	if err := s.queries.DeleteAgentTranscript(ctx, agentID); err != nil {
 		return fmt.Errorf("failed to delete transcript for %q: %w", agentID, err)
@@ -193,8 +185,7 @@ type Cursor struct {
 	Seq     int32   `json:"s"`
 }
 
-// SearchParams is one page of a transcript search. The text to match, how many
-// hits to return, and where in the previous page to resume.
+// SearchParams is one page of a transcript search.
 type SearchParams struct {
 	Query  string
 	Limit  int64
@@ -212,9 +203,7 @@ type SearchParams struct {
 // here.
 func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, error) {
 	// Postgres refuses a NUL in a text value outright, so a query carrying one would
-	// fail the request rather than match nothing. Dropping it makes the search find
-	// nothing, which is the right answer for a byte no transcript can contain
-	// either.
+	// fail the request rather than match nothing.
 	query := strings.ReplaceAll(params.Query, "\x00", "")
 	if strings.TrimSpace(query) == "" {
 		return nil, nil
@@ -275,12 +264,10 @@ func likePattern(query string) string {
 	return "%" + escaped + "%"
 }
 
-// markMatches wraps every case-insensitive occurrence of query inside a snippet
-// with the markers, so the caller can style the match without searching the text
-// again. Only a substring-only hit needs this, since a word match arrives already
-// marked. The window the database returns for one is centred on the occurrence, so
-// there is normally at least one to wrap. A window cut mid-match is returned
-// unchanged rather than marked wrongly.
+// markMatches wraps every case-insensitive occurrence of query inside a snippet with
+// the markers. Only a substring-only hit needs this, since a word match arrives
+// already marked. A window cut mid-match is returned unchanged rather than marked
+// wrongly.
 func markMatches(snippet, query string) string {
 	if query == "" {
 		return snippet
@@ -307,16 +294,14 @@ func markMatches(snippet, query string) string {
 	return out.String()
 }
 
-// foldIndex reports where the first case-insensitive occurrence of needle begins
-// and ends in hay, as byte offsets into hay itself, and whether there was one.
+// foldIndex reports where the first case-insensitive occurrence of needle begins and
+// ends in hay, as byte offsets into hay itself, and whether there was one.
 //
 // It compares rune by rune rather than searching a lowercased copy of hay, because
 // lowercasing does not preserve byte length and the offsets a search of that copy
 // yields therefore index a string the caller does not hold. The Kelvin sign is the
-// short example: three bytes that lower to a one-byte k, which Postgres folds the
-// same way, so it is a match this side really is handed. Slicing hay by the query's
-// own length would wrap the wrong run, and a match near the end of a window would
-// slice past the snippet altogether.
+// short example: three bytes that lower to a one-byte k, which Postgres folds the same
+// way, so it is a match this side really is handed.
 func foldIndex(hay, needle string) (int, int, bool) {
 	for start := 0; start < len(hay); {
 		_, width := utf8.DecodeRuneInString(hay[start:])

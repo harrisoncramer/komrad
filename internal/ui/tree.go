@@ -5,14 +5,9 @@ import (
 	workflowstore "claude-agents/internal/store/workflow"
 )
 
-// The agents list is a tree of workflow folders with their agents nested beneath, so
-// an agent's parent shows by position rather than by a marker on the row. One cursor
-// moves over both kinds of row, which is why everything that resolves what is under
-// it lives together here.
-
-// treeState is the agents screen. The two listings are held together because they are
-// drawn as one tree, and there is one cursor over it: a workflow header and an agent
-// are rows of the same list, so the cursor indexes rows rather than either listing.
+// treeState is the agents screen, a tree of workflow folders with their agents nested
+// beneath. A workflow header and an agent are rows of the same list, so the cursor
+// indexes rows rather than either listing.
 type treeState struct {
 	agents    []agentItem
 	workflows []workflowstore.Workflow
@@ -29,20 +24,18 @@ type treeState struct {
 	placed bool
 
 	// showHidden draws the hidden agents alongside the rest. It is the panel's own
-	// state rather than anything stored, so it lasts as long as this process and every
-	// panel starts with the hidden ones away.
+	// state rather than anything stored, so every panel starts with the hidden ones
+	// away.
 	showHidden bool
 
 	// infoPinned shows the hovered agent's stored record in the stage instead of the
-	// agent itself. A live agent otherwise occupies the stage with its own pane, so
-	// its cwd and flags have nowhere else to show. Moving the cursor or opening an
-	// agent clears it, so the pinned record never outlives the row it describes.
+	// agent itself, since a live agent otherwise occupies the stage with its own pane.
+	// Moving the cursor or opening an agent clears it.
 	infoPinned bool
 }
 
-// agentRow is one line of the agents list, either a workflow header or an agent
-// nested beneath one. The cursor moves over both but actions apply only to agent
-// rows.
+// agentRow is one line of the agents list, either a workflow header or an agent nested
+// beneath one. The cursor moves over both but actions apply only to agent rows.
 type agentRow struct {
 	header bool
 	label  string    // the workflow's name when header is true
@@ -51,25 +44,21 @@ type agentRow struct {
 	// target it, and the index of the enclosing workflow for an agent row, so a new
 	// agent started from one lands in the same place.
 	workflowIndex int
-	// hiddenCount is how many of a header's agents are hidden, so the folder can say
-	// how much of itself it is not showing. It is always the full count, whether or
-	// not the hidden ones are on screen.
+	// hiddenCount is how many of a header's agents are hidden, so the folder can say how
+	// much of itself it is not showing. It is always the full count, whether or not the
+	// hidden ones are on screen.
 	hiddenCount int
 }
 
-// agentRows arranges the agents into the displayed tree. Every workflow is a
-// header followed by its agents, and an empty workflow still gets a header so a
-// new one can be hovered to add its first agent.
+// agentRows arranges the agents into the displayed tree. Every workflow is a header
+// followed by its agents, and an empty workflow still gets a header so a new one can be
+// hovered to add its first agent. An agent whose workflow is not in the listing, which
+// means the workflow was deleted, is left out rather than shown under a header that is
+// not there.
 //
-// Every agent belongs to a workflow, so there is no trailing group for ones that
-// do not. An agent whose workflow is not in the listing, which means the
-// workflow was deleted, is left out rather than shown under a header that is not
-// there.
-//
-// A hidden agent gives up its row and is counted against its workflow's header
-// instead, unless the panel is showing the hidden ones. The filtering happens here
-// rather than at the listing, so every other screen and every count still sees the
-// whole set.
+// A hidden agent gives up its row and is counted against its workflow's header instead.
+// The filtering happens here rather than at the listing, so every other screen and every
+// count still sees the whole set.
 func (m model) agentRows() []agentRow {
 	byWorkflow := make(map[string][]agentItem)
 	hiddenCounts := make(map[string]int)
@@ -106,9 +95,8 @@ func (m model) selectedAgent() (agentItem, bool) {
 	return rows[m.tree.cursor].item, true
 }
 
-// hoveredWorkflow returns the workflow whose header the cursor is on, or false when
-// the cursor is not on a header. It hands back the record rather than its index, since
-// the index is only ever used to look the record up again.
+// hoveredWorkflow returns the workflow whose header the cursor is on, or false when the
+// cursor is not on a header.
 func (m model) hoveredWorkflow() (workflowstore.Workflow, bool) {
 	rows := m.agentRows()
 	if m.tree.cursor < 0 || m.tree.cursor >= len(rows) {
@@ -123,11 +111,9 @@ func (m model) hoveredWorkflow() (workflowstore.Workflow, bool) {
 	return m.tree.workflows[r.workflowIndex], true
 }
 
-// enclosingWorkflow is the workflow the cursor is inside, whether it sits on the
-// header or on one of the agents under it, so a new agent started from anywhere in the
-// tree lands in the workflow it was started from. hoveredWorkflow is the narrower
-// question, which only a header answers. It is nil when the tree is empty, which means
-// no workflow exists to start one in.
+// enclosingWorkflow is the workflow the cursor is inside, whether it sits on the header
+// or on one of the agents under it, so a new agent started from anywhere in the tree
+// lands in the workflow it was started from. It is nil when the tree is empty.
 func (m model) enclosingWorkflow() *workflowstore.Workflow {
 	rows := m.agentRows()
 	if m.tree.cursor < 0 || m.tree.cursor >= len(rows) {
@@ -180,34 +166,30 @@ func (m model) agentCount(workflowID string) int {
 	return n
 }
 
-// agentItem is a stored agent plus whether its tmux pane is currently alive. A
-// dormant agent has a dead pane but is kept, since it can be restored from its stored state.
+// agentItem is a stored agent plus whether its tmux pane is currently alive. A dormant
+// agent has a dead pane but is kept, since it can be restored from its stored state.
 type agentItem struct {
 	agent agentstore.Agent
 	alive bool
 }
 
 // applyWorkflows takes a freshly-listed set as the on-screen workflows. The listing
-// sorts by id, which is fixed at creation, so it reads newest first and no edit can
-// move a folder under the cursor. Only a create or a delete changes the tree, and the
-// cursor that moves over it is reapplied with the agents.
+// sorts by id, which is fixed at creation, so no edit can move a folder under the
+// cursor.
 func (m *model) applyWorkflows(fresh []workflowstore.Workflow) {
 	m.tree.workflows = fresh
 }
 
-// applyAgents takes a freshly-listed set as the on-screen agents. The listing is
-// newest first and holds still while an agent is worked on, so a row only moves when
-// an agent above it is created or goes away. The cursor is kept on the agent it was
-// on rather than on its index for that reason. The fresh items carry updated state
-// and liveness, so a reconciler change shows without a structural reload.
+// applyAgents takes a freshly-listed set as the on-screen agents. A row only moves when
+// an agent above it is created or goes away, so the cursor is kept on the agent it was on
+// rather than on its index.
 func (m *model) applyAgents(fresh []agentItem) {
 	selected := ""
 	if item, ok := m.selectedAgent(); ok {
 		selected = item.agent.Name
 	}
 
-	// A row an action asked to be shown takes the cursor from whatever was under it,
-	// for this listing only.
+	// A row an action asked to be shown takes the cursor for this listing only.
 	if m.tree.focus != "" {
 		selected, m.tree.focus = m.tree.focus, ""
 	}
@@ -215,9 +197,6 @@ func (m *model) applyAgents(fresh []agentItem) {
 	m.tree.agents = fresh
 	rows := m.agentRows()
 
-	// The cursor indexes the tree of headers and agents, so keep it on the same
-	// agent across the rebuild, or clamp it into the new tree when that agent is
-	// gone.
 	switch idx := rowIndexOfAgentName(rows, selected); {
 	case idx >= 0:
 		m.tree.cursor = idx
