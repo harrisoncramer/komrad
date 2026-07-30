@@ -1,17 +1,14 @@
 package ui
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 // bound reports whether the pressed key is one of the keys configured for an
 // action.
 func bound(pressed string, keys []string) bool {
-	for _, k := range keys {
-		if k == pressed {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(keys, pressed)
 }
 
 // hintKeys renders a binding's keys for the help text, joining them with "/"
