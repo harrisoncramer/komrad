@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -80,12 +81,17 @@ func NewScheduler(schedules ScheduleReader, periodic periodicJobs) *Scheduler {
 // is re-registered against the new one.
 //
 // A schedule whose expression cannot be parsed is skipped rather than failing the pass,
-// since one bad row should not stop every other schedule from running.
+// since one bad row should not stop every other schedule from running. A registration
+// River refuses is the same situation from the other side, so it is gathered and the
+// pass carries on. Returning there would leave the schedules after it unregistered and
+// skip the removal below, which is what actually takes a paused schedule off.
 func (s *Scheduler) Reconcile(ctx context.Context) error {
 	listed, err := s.schedules.List(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list schedules to reconcile: %w", err)
 	}
+
+	var failures []error
 
 	live := make(map[string]bool, len(listed))
 	for _, schedule := range listed {
@@ -107,13 +113,19 @@ func (s *Scheduler) Reconcile(ctx context.Context) error {
 		}
 
 		// An expression that changed has to replace its registration rather than sit beside
-		// it, or the schedule would fire on both the old one and the new.
+		// it, or the schedule would fire on both the old one and the new. The entry goes
+		// with it, so what this has told River about never claims a job River no longer
+		// holds.
 		if registered {
 			s.periodic.Remove(schedule.ID)
+			delete(s.registered, schedule.ID)
 		}
 
+		// A refused registration is left unrecorded so the next pass tries it again
+		// rather than treating it as done.
 		if err := s.periodic.Add(schedule.ID, periodicJobFor(schedule.ID, cron)); err != nil {
-			return fmt.Errorf("failed to register schedule %q: %w", schedule.ID, err)
+			failures = append(failures, fmt.Errorf("failed to register schedule %q: %w", schedule.ID, err))
+			continue
 		}
 
 		s.registered[schedule.ID] = want
@@ -128,7 +140,7 @@ func (s *Scheduler) Reconcile(ctx context.Context) error {
 		delete(s.registered, id)
 	}
 
-	return nil
+	return errors.Join(failures...)
 }
 
 // periodicJobFor builds the River periodic job for one schedule. The occurrence
