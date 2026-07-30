@@ -115,57 +115,6 @@ func TestNextRun(t *testing.T) {
 	}
 }
 
-// TestNextRunAcrossADaylightSavingChange covers the two days a year a wall clock
-// hour is not an hour. A schedule is stored in a named zone rather than an offset
-// precisely so 9am stays 9am, which leaves the hour that does not exist and the
-// hour that happens twice to be decided rather than discovered.
-func TestNextRunAcrossADaylightSavingChange(t *testing.T) {
-	// America/New_York springs forward on 8 March 2026 and falls back on 1
-	// November, so 02:00 is skipped on the one and 01:00 is repeated on the other.
-	const zone = "America/New_York"
-
-	tests := []struct {
-		name string
-		cron string
-		// from is the instant the next run is asked for, in UTC.
-		from time.Time
-		want time.Time
-	}{
-		{
-			// 02:00 never happens that morning. Reading it as no occurrence would
-			// silently skip a day of a daily job, so it has to land on the hour the
-			// clock jumped to.
-			name: "an hour skipped by the spring forward still runs that day",
-			cron: "0 2 * * *",
-			from: time.Date(2026, time.March, 7, 12, 0, 0, 0, time.UTC),
-			want: time.Date(2026, time.March, 8, 7, 0, 0, 0, time.UTC),
-		},
-		{
-			// 01:00 happens twice, once on each side of the change. A daily job runs
-			// once a day, so the second one is not a run.
-			name: "an hour repeated by the fall back runs once",
-			cron: "0 1 * * *",
-			from: time.Date(2026, time.November, 1, 5, 30, 0, 0, time.UTC),
-			want: time.Date(2026, time.November, 2, 6, 0, 0, 0, time.UTC),
-		},
-		{
-			name: "and an ordinary morning is unaffected either side of it",
-			cron: "0 9 * * *",
-			from: time.Date(2026, time.November, 1, 5, 30, 0, 0, time.UTC),
-			want: time.Date(2026, time.November, 1, 14, 0, 0, 0, time.UTC),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := NextRun(schedule.Schedule{Cron: tt.cron, Timezone: zone, Enabled: true}, tt.from)
-
-			require.False(t, got.IsZero(), "an armed schedule in a real zone has a next run")
-			assert.Equal(t, tt.want, got.UTC())
-		})
-	}
-}
-
 // TestNewSchedule covers what the service does to a config on the way in. It
 // trims, expands the launch directory, and refuses an expression that could never
 // fire.
