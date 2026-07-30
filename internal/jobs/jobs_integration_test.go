@@ -142,30 +142,34 @@ func TestFiringIsQueuedOnceAfterAnAttemptEnded(t *testing.T) {
 	}
 }
 
-// TestPeriodicRegistrationIsKeyedByTheIdGiven covers the id River files a
-// registration under. The scheduler removes a registration by the schedule's id
-// and nothing checks that the job was added under that id, so a registration
-// filed elsewhere can never be taken off and the schedule fires forever.
-func TestPeriodicRegistrationIsKeyedByTheIdGiven(t *testing.T) {
+// TestPeriodicRegistrationIsKeyedByItsId covers the id River files a registration
+// under. The scheduler takes one off by the schedule's id and nothing else, so a
+// job filed under anything but the id it was added with could never be removed and
+// the schedule would fire forever.
+func TestPeriodicRegistrationIsKeyedByItsId(t *testing.T) {
 	cron, err := agents.ParseCron("0 9 * * *", "")
 	require.NoError(t, err)
 
 	tests := []struct {
 		name string
-		// addUnder is the id handed to Add, and builtFor is the id the job it was
-		// handed carries.
-		addUnder string
-		builtFor string
+		// added are the ids registered, in order.
+		added []string
+		// wantAddErr says the last registration should have been refused, since two
+		// jobs under one id would leave the schedule firing after a removal.
+		wantAddErr bool
 	}{
 		{
-			name:     "a job built for another id is still filed under the one given",
-			addUnder: "s1",
-			builtFor: "s2",
+			name:       "the same id twice is refused",
+			added:      []string{"s1", "s1"},
+			wantAddErr: true,
 		},
 		{
-			name:     "and so is one that agrees with itself",
-			addUnder: "s1",
-			builtFor: "s1",
+			name:  "a registration comes off by the id it was added under",
+			added: []string{"s1"},
+		},
+		{
+			name:  "and each of several does, under its own",
+			added: []string{"s1", "s2", "s3"},
 		},
 	}
 
@@ -174,9 +178,19 @@ func TestPeriodicRegistrationIsKeyedByTheIdGiven(t *testing.T) {
 			bundle := newRiverClient(t).PeriodicJobs()
 			periodic := NewRiverPeriodic(bundle)
 
-			require.NoError(t, periodic.Add(tt.addUnder, periodicJobFor(tt.builtFor, cron)))
+			for i, id := range tt.added {
+				err := periodic.Add(id, cron)
+				if tt.wantAddErr && i == len(tt.added)-1 {
+					require.Error(t, err)
+					return
+				}
 
-			assert.True(t, bundle.RemoveByID(tt.addUnder), "a registration has to come off by the id it was added under")
+				require.NoError(t, err)
+			}
+
+			for _, id := range tt.added {
+				assert.True(t, bundle.RemoveByID(id), "a registration has to come off by the id it was added under")
+			}
 		})
 	}
 }

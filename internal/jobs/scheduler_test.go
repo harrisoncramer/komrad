@@ -270,9 +270,9 @@ type recordingPeriodic struct {
 	failFor string
 }
 
-func (r *recordingPeriodic) Add(id string, job *river.PeriodicJob) error {
-	if job == nil {
-		return errors.New("a registration with no job to run")
+func (r *recordingPeriodic) Add(id string, cron river.PeriodicSchedule) error {
+	if cron == nil {
+		return errors.New("a registration with nothing to fire on")
 	}
 
 	r.added = append(r.added, id)

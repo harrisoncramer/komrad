@@ -12,10 +12,14 @@ import (
 )
 
 // periodicJobs is what the reconciler needs to keep River's registrations in step, stated
-// in terms of the schedule id rather than River's handles, so a test can supply its own and
-// assert on which schedules were armed and disarmed.
+// in terms of the schedule id and the expression it fires on rather than River's handles,
+// so a test can supply its own and assert on which schedules were armed and disarmed.
+//
+// The job itself is built by the implementation rather than handed in, since the id River
+// files a registration under has to be the id it is later removed by, and passing a
+// ready-made job leaves those free to disagree.
 type periodicJobs interface {
-	Add(id string, job *river.PeriodicJob) error
+	Add(id string, cron river.PeriodicSchedule) error
 	Remove(id string)
 }
 
@@ -30,10 +34,10 @@ func NewRiverPeriodic(bundle *river.PeriodicJobBundle) *RiverPeriodic {
 	return &RiverPeriodic{bundle: bundle}
 }
 
-// Add registers a periodic job under an id it can later be removed by.
-func (r *RiverPeriodic) Add(_ string, job *river.PeriodicJob) error {
-	if _, err := r.bundle.AddSafely(job); err != nil {
-		return fmt.Errorf("failed to add a periodic job: %w", err)
+// Add registers a periodic job on cron under an id it can later be removed by.
+func (r *RiverPeriodic) Add(id string, cron river.PeriodicSchedule) error {
+	if _, err := r.bundle.AddSafely(periodicJobFor(id, cron)); err != nil {
+		return fmt.Errorf("failed to add a periodic job for %q: %w", id, err)
 	}
 
 	return nil
@@ -123,7 +127,7 @@ func (s *Scheduler) Reconcile(ctx context.Context) error {
 
 		// A refused registration is left unrecorded so the next pass tries it again
 		// rather than treating it as done.
-		if err := s.periodic.Add(schedule.ID, periodicJobFor(schedule.ID, cron)); err != nil {
+		if err := s.periodic.Add(schedule.ID, cron); err != nil {
 			failures = append(failures, fmt.Errorf("failed to register schedule %q: %w", schedule.ID, err))
 			continue
 		}
@@ -143,7 +147,8 @@ func (s *Scheduler) Reconcile(ctx context.Context) error {
 	return errors.Join(failures...)
 }
 
-// periodicJobFor builds the River periodic job for one schedule. The occurrence
+// periodicJobFor builds the River periodic job for one schedule, filed under the id
+// it will be removed by. The occurrence
 // is stamped when the job is constructed, at the resolution a cron expression
 // fires at, so two inserts for the same minute carry identical arguments and
 // River's unique index collapses them into one run.
