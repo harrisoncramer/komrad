@@ -107,7 +107,6 @@ func TestCreateAndUpdate(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, stored)
 			assert.NotEmpty(t, stored.ID, "an id is minted for a caller that brought none")
-			assert.NotEmpty(t, stored.AgentConfigID, "an agent owns its config row")
 
 			if tt.update != nil {
 				updated := *stored
@@ -117,7 +116,6 @@ func TestCreateAndUpdate(t *testing.T) {
 				stored, err = st.Get(ctx, tt.initial.Name)
 				require.NoError(t, err)
 				require.NotNil(t, stored)
-				assert.Equal(t, updated.AgentConfigID, stored.AgentConfigID, "the config id is stable across updates")
 			}
 
 			assert.Equal(t, tt.wantCwd, stored.Cwd)
@@ -668,10 +666,7 @@ func TestDeleteTakesMetadata(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, changed)
 
-	target, err := st.FindByID(ctx, created.ID)
-	require.NoError(t, err)
-	require.NotNil(t, target)
-	require.NoError(t, st.Delete(ctx, *target))
+	require.NoError(t, st.Delete(ctx, created.ID))
 
 	orphaned, err := models.New(st.db).ListAgentMetadata(ctx, []string{created.ID})
 	require.NoError(t, err)
@@ -852,10 +847,7 @@ func TestDelete(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, created)
 
-				target, err := st.FindByID(ctx, created.ID)
-				require.NoError(t, err)
-				require.NotNil(t, target)
-				require.NoError(t, st.Delete(ctx, *target))
+				require.NoError(t, st.Delete(ctx, created.ID))
 			} else {
 				require.NoError(t, st.Archive(ctx, "alpha"))
 			}
@@ -913,11 +905,11 @@ func TestListPageDeleted(t *testing.T) {
 	}
 }
 
-// TestFindByID covers resolving the ids a hard delete needs from an id rather
-// than a name. The trash deletes through this, and the rows there are exactly
-// the ones a name cannot tell apart: the unique index holds among live rows
-// only, so two archived agents may answer to the same name.
-func TestFindByID(t *testing.T) {
+// TestDeleteByIDPicksTheArchivedRow covers why a hard delete keys on the id. The
+// trash deletes through it, and the rows there are exactly the ones a name cannot
+// tell apart: the unique index holds among live rows only, so an archived agent
+// can share a name with a live one.
+func TestDeleteByIDPicksTheArchivedRow(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
@@ -929,15 +921,13 @@ func TestFindByID(t *testing.T) {
 	require.NoError(t, st.Archive(ctx, "shared"))
 	require.NoError(t, st.Create(ctx, Agent{Name: "shared", Pane: "%2", State: StateNew}))
 
-	target, err := st.FindByID(ctx, first.ID)
-	require.NoError(t, err)
-	require.NotNil(t, target)
-	assert.Equal(t, first.ID, target.ID, "the id picks the archived agent out from the live one holding its name")
-	assert.Equal(t, first.AgentConfigID, target.AgentConfigID, "the config to remove with it comes back too")
+	require.NoError(t, st.Delete(ctx, first.ID))
 
-	missing, err := st.FindByID(ctx, "019fa434-e7a7-7ac9-bab5-718681da797d")
+	all, err := st.ListAll(ctx)
 	require.NoError(t, err)
-	assert.Nil(t, missing, "an id nobody holds is nil rather than an error")
+	require.Len(t, all, 1, "only the archived row was destroyed")
+	assert.NotEqual(t, first.ID, all[0].ID, "the live agent holding the same name is untouched")
+	assert.Equal(t, "%2", all[0].Pane)
 }
 
 // TestGetByIdempotencyKey covers the lookup a retried launch makes. It spans

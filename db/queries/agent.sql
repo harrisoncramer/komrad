@@ -1,11 +1,8 @@
 -- name: ListAgents :many
 SELECT
-    sqlc.embed(s),
-    sc.cwd,
-    sc.flags
+    *
 FROM
     agents s
-    JOIN agent_configs sc ON sc.id = s.agent_config_id
 WHERE
     s.is_deleted = FALSE
 ORDER BY
@@ -13,12 +10,9 @@ ORDER BY
 
 -- name: ListAgentsPage :many
 SELECT
-    sqlc.embed(s),
-    sc.cwd,
-    sc.flags
+    *
 FROM
     agents s
-    JOIN agent_configs sc ON sc.id = s.agent_config_id
 WHERE
     s.is_deleted = @deleted
     AND (sqlc.narg('cursor_id')::uuid IS NULL
@@ -29,23 +23,17 @@ LIMIT @lim;
 
 -- name: ListAllAgents :many
 SELECT
-    sqlc.embed(s),
-    sc.cwd,
-    sc.flags
+    *
 FROM
     agents s
-    JOIN agent_configs sc ON sc.id = s.agent_config_id
 ORDER BY
     s.id DESC;
 
 -- name: GetAgent :one
 SELECT
-    sqlc.embed(s),
-    sc.cwd,
-    sc.flags
+    *
 FROM
     agents s
-    JOIN agent_configs sc ON sc.id = s.agent_config_id
 WHERE
     s.name = @name
     AND s.is_deleted = FALSE
@@ -72,21 +60,12 @@ SELECT
         WHERE
             id = @id);
 
--- name: InsertAgentConfig :one
-INSERT INTO agent_configs(
-    cwd,
-    flags)
-VALUES (
-    @cwd,
-    @flags)
-RETURNING
-    id;
-
 -- name: InsertAgent :one
 INSERT INTO agents(
     id,
     name,
-    agent_config_id,
+    cwd,
+    flags,
     prompt,
     pane_id,
     state,
@@ -98,7 +77,8 @@ INSERT INTO agents(
 VALUES (
     @id,
     @name,
-    @agent_config_id,
+    @cwd,
+    @flags,
     @prompt,
     @pane_id,
     @state,
@@ -112,29 +92,19 @@ RETURNING
 
 -- name: GetAgentByIdempotencyKey :one
 SELECT
-    sqlc.embed(s),
-    sc.cwd,
-    sc.flags
+    *
 FROM
     agents s
-    JOIN agent_configs sc ON sc.id = s.agent_config_id
 WHERE
     s.idempotency_key = @idempotency_key
 LIMIT 1;
-
--- name: UpdateAgentConfig :exec
-UPDATE
-    agent_configs
-SET
-    cwd = @cwd,
-    flags = @flags
-WHERE
-    id = @id;
 
 -- name: UpdateAgent :exec
 UPDATE
     agents
 SET
+    cwd = @cwd,
+    flags = @flags,
     prompt = @prompt,
     pane_id = @pane_id,
     state = @state,
@@ -248,22 +218,8 @@ ORDER BY
     agent_id,
     KEY;
 
--- GetAgentForDeleteByID resolves the two ids a hard delete has to remove rows by.
--- name: GetAgentForDeleteByID :one
-SELECT
-    id,
-    agent_config_id
-FROM
-    agents
-WHERE
-    id = @id;
-
 -- name: DeleteAgentByID :exec
 DELETE FROM agents
-WHERE id = @id;
-
--- name: DeleteAgentConfig :exec
-DELETE FROM agent_configs
 WHERE id = @id;
 
 -- name: DeleteAgentTranscript :exec

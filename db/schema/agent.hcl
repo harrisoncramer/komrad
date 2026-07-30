@@ -7,41 +7,6 @@ schema "public" {
 # does not manage extensions; it is created by the first migration, which the
 # diff replays into its dev database before reaching the index that needs it.
 
-# An agent.s editable configuration, split out of agents so it is a
-# first-class record. Strict 1:1 with an agent; never shared between agents.
-table "agent_configs" {
-  schema  = schema.public
-  comment = "Editable config (cwd, flags) owned by exactly one agent."
-  column "id" {
-    null    = false
-    type    = uuid
-    default = sql("uuidv7()")
-  }
-  column "cwd" {
-    null    = false
-    type    = text
-    default = ""
-  }
-  column "flags" {
-    null    = false
-    type    = text
-    default = ""
-  }
-  column "created_at" {
-    null    = false
-    type    = timestamptz
-    default = sql("now()")
-  }
-  column "updated_at" {
-    null    = false
-    type    = timestamptz
-    default = sql("now()")
-  }
-  primary_key {
-    columns = [column.id]
-  }
-}
-
 # A workflow's default configuration, used only as the blueprint prefilled into
 # the new-agent form. Agents copy it into their own config; they never
 # reference it at rest.
@@ -322,11 +287,18 @@ table "agents" {
     null = false
     type = text
   }
-  # This agent's own config. References agent_configs.id. Set on insert and
-  # never null: an agent always owns exactly one config row.
-  column "agent_config_id" {
-    null = false
-    type = uuid
+  # Where the agent runs and the flags it was launched with. A restore reads both
+  # back to put claude up the same way, so they are the agent's own columns rather
+  # than a row it points at.
+  column "cwd" {
+    null    = false
+    type    = text
+    default = ""
+  }
+  column "flags" {
+    null    = false
+    type    = text
+    default = ""
   }
   column "prompt" {
     null    = false
@@ -409,12 +381,6 @@ table "agents" {
   primary_key {
     columns = [column.id]
   }
-  foreign_key "agents_agent_config_id_fkey" {
-    columns     = [column.agent_config_id]
-    ref_columns = [table.agent_configs.column.id]
-    on_delete   = RESTRICT
-    on_update   = NO_ACTION
-  }
   foreign_key "agents_workflow_id_fkey" {
     columns     = [column.workflow_id]
     ref_columns = [table.workflows.column.id]
@@ -437,9 +403,6 @@ table "agents" {
     unique  = true
     columns = [column.name]
     where   = "is_deleted = false"
-  }
-  index "agents_agent_config_id" {
-    columns = [column.agent_config_id]
   }
   # Scoped listings filter by workflow, so index the foreign key.
   index "agents_workflow_id" {

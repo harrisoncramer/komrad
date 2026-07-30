@@ -12,7 +12,6 @@ import (
 type Agent struct {
 	ID              string
 	Name            string
-	AgentConfigID   string
 	Prompt          string
 	PaneID          string
 	State           string
@@ -25,15 +24,8 @@ type Agent struct {
 	UpdatedAt       time.Time
 	Mark            *string
 	IsHidden        bool
-}
-
-// Editable config (cwd, flags) owned by exactly one agent.
-type AgentConfig struct {
-	ID        string
-	Cwd       string
-	Flags     string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Cwd             string
+	Flags           string
 }
 
 // Key/value facts an agent recorded about its own work.

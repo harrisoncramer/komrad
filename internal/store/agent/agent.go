@@ -41,10 +41,9 @@ type Metadata struct {
 type Agent struct {
 	ID   string
 	Name string
-	// AgentConfigID is this agent's own config row, holding its cwd and flags.
-	// Every agent owns exactly one. Cwd and Flags are that row flattened on read.
-	AgentConfigID   string
-	Pane            string
+	Pane string
+	// Cwd is where the agent runs and Flags are what claude was launched with. A
+	// restore reads both back to bring it up the same way.
 	Cwd             string
 	Flags           string
 	Prompt          string
@@ -108,7 +107,7 @@ func (s *Store) List(ctx context.Context) ([]Agent, error) {
 
 	agents := make([]Agent, 0, len(rows))
 	for _, row := range rows {
-		agents = append(agents, agentFromRow(row.Agent, row.Cwd, row.Flags))
+		agents = append(agents, agentFromRow(*row))
 	}
 
 	return agents, nil
@@ -143,8 +142,8 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, delet
 	agents := make([]Agent, 0, len(rows))
 	ids := make([]string, 0, len(rows))
 	for _, row := range rows {
-		agents = append(agents, agentFromRow(row.Agent, row.Cwd, row.Flags))
-		ids = append(ids, row.Agent.ID)
+		agents = append(agents, agentFromRow(*row))
+		ids = append(ids, row.ID)
 	}
 
 	metadata, err := s.metadataByAgent(ctx, ids)
@@ -192,7 +191,7 @@ func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
 
 	agents := make([]Agent, 0, len(rows))
 	for _, row := range rows {
-		agents = append(agents, agentFromRow(row.Agent, row.Cwd, row.Flags))
+		agents = append(agents, agentFromRow(*row))
 	}
 
 	return agents, nil
@@ -210,12 +209,12 @@ func (s *Store) Get(ctx context.Context, name string) (*Agent, error) {
 		return nil, fmt.Errorf("failed to get agent %q: %w", name, err)
 	}
 
-	metadata, err := s.metadataByAgent(ctx, []string{row.Agent.ID})
+	metadata, err := s.metadataByAgent(ctx, []string{row.ID})
 	if err != nil {
 		return nil, err
 	}
 
-	agent := agentFromRow(row.Agent, row.Cwd, row.Flags)
+	agent := agentFromRow(*row)
 	agent.Metadata = metadata[agent.ID]
 
 	return &agent, nil
@@ -250,8 +249,7 @@ func (s *Store) ActiveNameExists(ctx context.Context, name string) (bool, error)
 	return exists, nil
 }
 
-// Create inserts a fresh agent and the config row it owns, under the id the agent
-// carries. The id is the caller's rather than the database's because it is the
+// Create inserts a fresh agent under the id it carries. The id is the caller's rather than the database's because it is the
 // name of the agent everywhere outside this table: the pane it runs in is stamped
 // with it, and the agent itself is told it at launch. A caller with no id yet gets
 // one minted here, which is every test and nothing in production.
@@ -268,18 +266,11 @@ func (s *Store) Create(ctx context.Context, agent Agent) error {
 		agent.ID = id
 	}
 
-	configID, err := s.queries.InsertAgentConfig(ctx, models.InsertAgentConfigParams{
-		Cwd:   agent.Cwd,
-		Flags: agent.Flags,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to insert config for %q: %w", agent.Name, err)
-	}
-
 	if _, err := s.queries.InsertAgent(ctx, models.InsertAgentParams{
 		ID:              agent.ID,
 		Name:            agent.Name,
-		AgentConfigID:   configID,
+		Cwd:             agent.Cwd,
+		Flags:           agent.Flags,
 		Prompt:          agent.Prompt,
 		PaneID:          agent.Pane,
 		State:           agent.State,
@@ -295,21 +286,13 @@ func (s *Store) Create(ctx context.Context, agent Agent) error {
 	return nil
 }
 
-// Update rewrites an existing agent's linked config and runtime fields, keyed by
-// its stable id.
+// Update rewrites an existing agent's editable and runtime fields, keyed by its
+// stable id.
 func (s *Store) Update(ctx context.Context, agent Agent) error {
-	if agent.AgentConfigID != "" {
-		if err := s.queries.UpdateAgentConfig(ctx, models.UpdateAgentConfigParams{
-			ID:    agent.AgentConfigID,
-			Cwd:   agent.Cwd,
-			Flags: agent.Flags,
-		}); err != nil {
-			return fmt.Errorf("failed to update config for %q: %w", agent.Name, err)
-		}
-	}
-
 	if err := s.queries.UpdateAgent(ctx, models.UpdateAgentParams{
 		ID:              agent.ID,
+		Cwd:             agent.Cwd,
+		Flags:           agent.Flags,
 		Prompt:          agent.Prompt,
 		PaneID:          agent.Pane,
 		State:           agent.State,
@@ -457,14 +440,6 @@ func (s *Store) SetMetadata(ctx context.Context, params SetMetadataParams) (bool
 	return len(written) > 0, nil
 }
 
-// Target names the rows a hard delete has to remove. The agent itself, the config
-// it owns, and the transcript keyed to its id. The transcript is another package's
-// table, so this reports the id rather than deleting it.
-type Target struct {
-	ID            string
-	AgentConfigID string
-}
-
 // GetByIdempotencyKey returns the agent recorded under a caller's key, or nil
 // when none is. It spans archived agents deliberately. The key exists so a retry
 // finds what it already created, and an agent archived since is still that agent,
@@ -482,7 +457,7 @@ func (s *Store) GetByIdempotencyKey(ctx context.Context, key string) (*Agent, er
 		return nil, fmt.Errorf("failed to get the agent for idempotency key %q: %w", key, err)
 	}
 
-	agent := agentFromRow(row.Agent, row.Cwd, row.Flags)
+	agent := agentFromRow(*row)
 
 	return &agent, nil
 }
@@ -509,32 +484,13 @@ func (s *Store) CountLiveForSchedule(ctx context.Context, scheduleID string) (in
 	return count, nil
 }
 
-// FindByID resolves an agent by id to the ids a delete needs, nil when no agent
-// holds it. Deletes key on the id rather than the name, since a name identifies
-// at most one live agent and the deleted rows it may collide with are exactly the
-// ones the trash destroys.
-func (s *Store) FindByID(ctx context.Context, id string) (*Target, error) {
-	row, err := s.queries.GetAgentForDeleteByID(ctx, id)
-	if store.NoRows(err) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to find agent %q: %w", id, err)
-	}
-
-	return &Target{ID: row.ID, AgentConfigID: row.AgentConfigID}, nil
-}
-
-// Delete removes an agent and the config it owns. The transcript keyed to the same
-// id is the transcript package's to remove, in the same transaction, since an
-// agent deleted without its transcript is a half-state worth avoiding.
-func (s *Store) Delete(ctx context.Context, target Target) error {
-	if err := s.queries.DeleteAgentByID(ctx, target.ID); err != nil {
-		return fmt.Errorf("failed to delete agent %q: %w", target.ID, err)
-	}
-
-	if err := s.queries.DeleteAgentConfig(ctx, target.AgentConfigID); err != nil {
-		return fmt.Errorf("failed to delete config for %q: %w", target.ID, err)
+// Delete removes an agent, keyed by id so it reaches the archived rows the trash
+// destroys. The transcript keyed to the same id is the transcript package's to
+// remove, in the same transaction, since an agent deleted without its transcript
+// is a half-state worth avoiding.
+func (s *Store) Delete(ctx context.Context, id string) error {
+	if err := s.queries.DeleteAgentByID(ctx, id); err != nil {
+		return fmt.Errorf("failed to delete agent %q: %w", id, err)
 	}
 
 	return nil
@@ -610,18 +566,14 @@ func (s *Store) ArchiveWorkflowAgents(ctx context.Context, workflowID string) er
 	return nil
 }
 
-// agentFromRow builds an Agent from an agent row and the config joined onto it.
-// Every agent read selects sqlc.embed(a), so they all carry the same models.Agent
-// whatever else their row type holds, leaving the cwd and flags as the only loose
-// columns to pass.
-func agentFromRow(agent models.Agent, cwd, flags string) Agent {
+// agentFromRow builds an Agent from its row.
+func agentFromRow(agent models.Agent) Agent {
 	return Agent{
 		ID:              agent.ID,
 		Name:            agent.Name,
-		AgentConfigID:   agent.AgentConfigID,
 		Pane:            agent.PaneID,
-		Cwd:             cwd,
-		Flags:           flags,
+		Cwd:             agent.Cwd,
+		Flags:           agent.Flags,
 		Prompt:          agent.Prompt,
 		State:           agent.State,
 		ClaudeSessionID: agent.ClaudeSessionID,

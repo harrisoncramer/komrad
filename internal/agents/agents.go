@@ -43,7 +43,7 @@ type agentStore interface {
 	ListAll(ctx context.Context) ([]agentstore.Agent, error)
 	Get(ctx context.Context, name string) (*agentstore.Agent, error)
 	GetByIdempotencyKey(ctx context.Context, key string) (*agentstore.Agent, error)
-	FindByID(ctx context.Context, id string) (*agentstore.Target, error)
+	Exists(ctx context.Context, id string) (bool, error)
 	Create(ctx context.Context, agent agentstore.Agent) error
 	Update(ctx context.Context, agent agentstore.Agent) error
 	Rename(ctx context.Context, id, name string) (bool, error)
@@ -183,26 +183,26 @@ func (s *AgentService) DeleteAgent(ctx context.Context, id string) error {
 	return s.removeAgent(ctx, id)
 }
 
-// removeAgent deletes an agent, the config it owns, and the transcript keyed to
-// its id, in one transaction. The transcript is the transcript package's table,
-// so the two stores are rebound onto the same transaction and commit together.
-// An agent removed without its text would leave the conversation readable
-// through the SQL tools.
+// removeAgent deletes an agent and the transcript keyed to its id, in one
+// transaction. The transcript is the transcript package's table, so the two
+// stores are rebound onto the same transaction and commit together. An agent
+// removed without its text would leave the conversation readable through the SQL
+// tools.
 func (s *AgentService) removeAgent(ctx context.Context, id string) error {
-	target, err := s.agents.FindByID(ctx, id)
+	exists, err := s.agents.Exists(ctx, id)
 	if err != nil {
-		return fmt.Errorf("failed to find agent %q to delete: %w", id, err)
+		return fmt.Errorf("failed to look up agent %q to delete: %w", id, err)
 	}
-	if target == nil {
+	if !exists {
 		return ErrAgentNotFound
 	}
 
 	return s.tx.InTx(ctx, func(db store.DBTX) error {
-		if err := agentstore.New(db).Delete(ctx, *target); err != nil {
+		if err := agentstore.New(db).Delete(ctx, id); err != nil {
 			return err
 		}
 
-		return transcript.New(db).Delete(ctx, target.ID)
+		return transcript.New(db).Delete(ctx, id)
 	})
 }
 

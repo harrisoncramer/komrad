@@ -23,10 +23,6 @@ func TestListTables(t *testing.T) {
 			wantRows: 1,
 		},
 		{
-			name: "the config each agent owns",
-			want: "agent_configs",
-		},
-		{
 			name: "the buckets agents group into",
 			want: "workflows",
 		},

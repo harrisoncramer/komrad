@@ -99,16 +99,6 @@ func (q *Queries) DeleteAgentByID(ctx context.Context, id string) error {
 	return err
 }
 
-const deleteAgentConfig = `-- name: DeleteAgentConfig :exec
-DELETE FROM agent_configs
-WHERE id = $1
-`
-
-func (q *Queries) DeleteAgentConfig(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, deleteAgentConfig, id)
-	return err
-}
-
 const deleteAgentMetadata = `-- name: DeleteAgentMetadata :many
 DELETE FROM agent_metadata
 WHERE agent_id = $1
@@ -164,43 +154,33 @@ func (q *Queries) DeleteAgentTranscriptChunks(ctx context.Context, agentID strin
 
 const getAgent = `-- name: GetAgent :one
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.schedule_id, s.idempotency_key, s.is_deleted, s.created_at, s.updated_at, s.mark, s.is_hidden,
-    sc.cwd,
-    sc.flags
+    id, name, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags
 FROM
     agents s
-    JOIN agent_configs sc ON sc.id = s.agent_config_id
 WHERE
     s.name = $1
     AND s.is_deleted = FALSE
 LIMIT 1
 `
 
-type GetAgentRow struct {
-	Agent Agent
-	Cwd   string
-	Flags string
-}
-
-func (q *Queries) GetAgent(ctx context.Context, name string) (*GetAgentRow, error) {
+func (q *Queries) GetAgent(ctx context.Context, name string) (*Agent, error) {
 	row := q.db.QueryRow(ctx, getAgent, name)
-	var i GetAgentRow
+	var i Agent
 	err := row.Scan(
-		&i.Agent.ID,
-		&i.Agent.Name,
-		&i.Agent.AgentConfigID,
-		&i.Agent.Prompt,
-		&i.Agent.PaneID,
-		&i.Agent.State,
-		&i.Agent.ClaudeSessionID,
-		&i.Agent.WorkflowID,
-		&i.Agent.ScheduleID,
-		&i.Agent.IdempotencyKey,
-		&i.Agent.IsDeleted,
-		&i.Agent.CreatedAt,
-		&i.Agent.UpdatedAt,
-		&i.Agent.Mark,
-		&i.Agent.IsHidden,
+		&i.ID,
+		&i.Name,
+		&i.Prompt,
+		&i.PaneID,
+		&i.State,
+		&i.ClaudeSessionID,
+		&i.WorkflowID,
+		&i.ScheduleID,
+		&i.IdempotencyKey,
+		&i.IsDeleted,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Mark,
+		&i.IsHidden,
 		&i.Cwd,
 		&i.Flags,
 	)
@@ -209,68 +189,35 @@ func (q *Queries) GetAgent(ctx context.Context, name string) (*GetAgentRow, erro
 
 const getAgentByIdempotencyKey = `-- name: GetAgentByIdempotencyKey :one
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.schedule_id, s.idempotency_key, s.is_deleted, s.created_at, s.updated_at, s.mark, s.is_hidden,
-    sc.cwd,
-    sc.flags
+    id, name, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags
 FROM
     agents s
-    JOIN agent_configs sc ON sc.id = s.agent_config_id
 WHERE
     s.idempotency_key = $1
 LIMIT 1
 `
 
-type GetAgentByIdempotencyKeyRow struct {
-	Agent Agent
-	Cwd   string
-	Flags string
-}
-
-func (q *Queries) GetAgentByIdempotencyKey(ctx context.Context, idempotencyKey *string) (*GetAgentByIdempotencyKeyRow, error) {
+func (q *Queries) GetAgentByIdempotencyKey(ctx context.Context, idempotencyKey *string) (*Agent, error) {
 	row := q.db.QueryRow(ctx, getAgentByIdempotencyKey, idempotencyKey)
-	var i GetAgentByIdempotencyKeyRow
+	var i Agent
 	err := row.Scan(
-		&i.Agent.ID,
-		&i.Agent.Name,
-		&i.Agent.AgentConfigID,
-		&i.Agent.Prompt,
-		&i.Agent.PaneID,
-		&i.Agent.State,
-		&i.Agent.ClaudeSessionID,
-		&i.Agent.WorkflowID,
-		&i.Agent.ScheduleID,
-		&i.Agent.IdempotencyKey,
-		&i.Agent.IsDeleted,
-		&i.Agent.CreatedAt,
-		&i.Agent.UpdatedAt,
-		&i.Agent.Mark,
-		&i.Agent.IsHidden,
+		&i.ID,
+		&i.Name,
+		&i.Prompt,
+		&i.PaneID,
+		&i.State,
+		&i.ClaudeSessionID,
+		&i.WorkflowID,
+		&i.ScheduleID,
+		&i.IdempotencyKey,
+		&i.IsDeleted,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Mark,
+		&i.IsHidden,
 		&i.Cwd,
 		&i.Flags,
 	)
-	return &i, err
-}
-
-const getAgentForDeleteByID = `-- name: GetAgentForDeleteByID :one
-SELECT
-    id,
-    agent_config_id
-FROM
-    agents
-WHERE
-    id = $1
-`
-
-type GetAgentForDeleteByIDRow struct {
-	ID            string
-	AgentConfigID string
-}
-
-// GetAgentForDeleteByID resolves the two ids a hard delete has to remove rows by.
-func (q *Queries) GetAgentForDeleteByID(ctx context.Context, id string) (*GetAgentForDeleteByIDRow, error) {
-	row := q.db.QueryRow(ctx, getAgentForDeleteByID, id)
-	var i GetAgentForDeleteByIDRow
-	err := row.Scan(&i.ID, &i.AgentConfigID)
 	return &i, err
 }
 
@@ -300,7 +247,8 @@ const insertAgent = `-- name: InsertAgent :one
 INSERT INTO agents(
     id,
     name,
-    agent_config_id,
+    cwd,
+    flags,
     prompt,
     pane_id,
     state,
@@ -320,7 +268,8 @@ VALUES (
     $8,
     $9,
     $10,
-    $11)
+    $11,
+    $12)
 RETURNING
     id
 `
@@ -328,7 +277,8 @@ RETURNING
 type InsertAgentParams struct {
 	ID              string
 	Name            string
-	AgentConfigID   string
+	Cwd             string
+	Flags           string
 	Prompt          string
 	PaneID          string
 	State           string
@@ -343,7 +293,8 @@ func (q *Queries) InsertAgent(ctx context.Context, arg InsertAgentParams) (strin
 	row := q.db.QueryRow(ctx, insertAgent,
 		arg.ID,
 		arg.Name,
-		arg.AgentConfigID,
+		arg.Cwd,
+		arg.Flags,
 		arg.Prompt,
 		arg.PaneID,
 		arg.State,
@@ -353,29 +304,6 @@ func (q *Queries) InsertAgent(ctx context.Context, arg InsertAgentParams) (strin
 		arg.IdempotencyKey,
 		arg.IsHidden,
 	)
-	var id string
-	err := row.Scan(&id)
-	return id, err
-}
-
-const insertAgentConfig = `-- name: InsertAgentConfig :one
-INSERT INTO agent_configs(
-    cwd,
-    flags)
-VALUES (
-    $1,
-    $2)
-RETURNING
-    id
-`
-
-type InsertAgentConfigParams struct {
-	Cwd   string
-	Flags string
-}
-
-func (q *Queries) InsertAgentConfig(ctx context.Context, arg InsertAgentConfigParams) (string, error) {
-	row := q.db.QueryRow(ctx, insertAgentConfig, arg.Cwd, arg.Flags)
 	var id string
 	err := row.Scan(&id)
 	return id, err
@@ -433,49 +361,39 @@ func (q *Queries) ListAgentMetadata(ctx context.Context, agentIds []string) ([]*
 
 const listAgents = `-- name: ListAgents :many
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.schedule_id, s.idempotency_key, s.is_deleted, s.created_at, s.updated_at, s.mark, s.is_hidden,
-    sc.cwd,
-    sc.flags
+    id, name, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags
 FROM
     agents s
-    JOIN agent_configs sc ON sc.id = s.agent_config_id
 WHERE
     s.is_deleted = FALSE
 ORDER BY
     s.id DESC
 `
 
-type ListAgentsRow struct {
-	Agent Agent
-	Cwd   string
-	Flags string
-}
-
-func (q *Queries) ListAgents(ctx context.Context) ([]*ListAgentsRow, error) {
+func (q *Queries) ListAgents(ctx context.Context) ([]*Agent, error) {
 	rows, err := q.db.Query(ctx, listAgents)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*ListAgentsRow
+	var items []*Agent
 	for rows.Next() {
-		var i ListAgentsRow
+		var i Agent
 		if err := rows.Scan(
-			&i.Agent.ID,
-			&i.Agent.Name,
-			&i.Agent.AgentConfigID,
-			&i.Agent.Prompt,
-			&i.Agent.PaneID,
-			&i.Agent.State,
-			&i.Agent.ClaudeSessionID,
-			&i.Agent.WorkflowID,
-			&i.Agent.ScheduleID,
-			&i.Agent.IdempotencyKey,
-			&i.Agent.IsDeleted,
-			&i.Agent.CreatedAt,
-			&i.Agent.UpdatedAt,
-			&i.Agent.Mark,
-			&i.Agent.IsHidden,
+			&i.ID,
+			&i.Name,
+			&i.Prompt,
+			&i.PaneID,
+			&i.State,
+			&i.ClaudeSessionID,
+			&i.WorkflowID,
+			&i.ScheduleID,
+			&i.IdempotencyKey,
+			&i.IsDeleted,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Mark,
+			&i.IsHidden,
 			&i.Cwd,
 			&i.Flags,
 		); err != nil {
@@ -491,12 +409,9 @@ func (q *Queries) ListAgents(ctx context.Context) ([]*ListAgentsRow, error) {
 
 const listAgentsPage = `-- name: ListAgentsPage :many
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.schedule_id, s.idempotency_key, s.is_deleted, s.created_at, s.updated_at, s.mark, s.is_hidden,
-    sc.cwd,
-    sc.flags
+    id, name, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags
 FROM
     agents s
-    JOIN agent_configs sc ON sc.id = s.agent_config_id
 WHERE
     s.is_deleted = $1
     AND ($2::uuid IS NULL
@@ -512,37 +427,30 @@ type ListAgentsPageParams struct {
 	Lim      int32
 }
 
-type ListAgentsPageRow struct {
-	Agent Agent
-	Cwd   string
-	Flags string
-}
-
-func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) ([]*ListAgentsPageRow, error) {
+func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) ([]*Agent, error) {
 	rows, err := q.db.Query(ctx, listAgentsPage, arg.Deleted, arg.CursorID, arg.Lim)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*ListAgentsPageRow
+	var items []*Agent
 	for rows.Next() {
-		var i ListAgentsPageRow
+		var i Agent
 		if err := rows.Scan(
-			&i.Agent.ID,
-			&i.Agent.Name,
-			&i.Agent.AgentConfigID,
-			&i.Agent.Prompt,
-			&i.Agent.PaneID,
-			&i.Agent.State,
-			&i.Agent.ClaudeSessionID,
-			&i.Agent.WorkflowID,
-			&i.Agent.ScheduleID,
-			&i.Agent.IdempotencyKey,
-			&i.Agent.IsDeleted,
-			&i.Agent.CreatedAt,
-			&i.Agent.UpdatedAt,
-			&i.Agent.Mark,
-			&i.Agent.IsHidden,
+			&i.ID,
+			&i.Name,
+			&i.Prompt,
+			&i.PaneID,
+			&i.State,
+			&i.ClaudeSessionID,
+			&i.WorkflowID,
+			&i.ScheduleID,
+			&i.IdempotencyKey,
+			&i.IsDeleted,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Mark,
+			&i.IsHidden,
 			&i.Cwd,
 			&i.Flags,
 		); err != nil {
@@ -558,47 +466,37 @@ func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) 
 
 const listAllAgents = `-- name: ListAllAgents :many
 SELECT
-    s.id, s.name, s.agent_config_id, s.prompt, s.pane_id, s.state, s.claude_session_id, s.workflow_id, s.schedule_id, s.idempotency_key, s.is_deleted, s.created_at, s.updated_at, s.mark, s.is_hidden,
-    sc.cwd,
-    sc.flags
+    id, name, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags
 FROM
     agents s
-    JOIN agent_configs sc ON sc.id = s.agent_config_id
 ORDER BY
     s.id DESC
 `
 
-type ListAllAgentsRow struct {
-	Agent Agent
-	Cwd   string
-	Flags string
-}
-
-func (q *Queries) ListAllAgents(ctx context.Context) ([]*ListAllAgentsRow, error) {
+func (q *Queries) ListAllAgents(ctx context.Context) ([]*Agent, error) {
 	rows, err := q.db.Query(ctx, listAllAgents)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*ListAllAgentsRow
+	var items []*Agent
 	for rows.Next() {
-		var i ListAllAgentsRow
+		var i Agent
 		if err := rows.Scan(
-			&i.Agent.ID,
-			&i.Agent.Name,
-			&i.Agent.AgentConfigID,
-			&i.Agent.Prompt,
-			&i.Agent.PaneID,
-			&i.Agent.State,
-			&i.Agent.ClaudeSessionID,
-			&i.Agent.WorkflowID,
-			&i.Agent.ScheduleID,
-			&i.Agent.IdempotencyKey,
-			&i.Agent.IsDeleted,
-			&i.Agent.CreatedAt,
-			&i.Agent.UpdatedAt,
-			&i.Agent.Mark,
-			&i.Agent.IsHidden,
+			&i.ID,
+			&i.Name,
+			&i.Prompt,
+			&i.PaneID,
+			&i.State,
+			&i.ClaudeSessionID,
+			&i.WorkflowID,
+			&i.ScheduleID,
+			&i.IdempotencyKey,
+			&i.IsDeleted,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Mark,
+			&i.IsHidden,
 			&i.Cwd,
 			&i.Flags,
 		); err != nil {
@@ -980,20 +878,24 @@ const updateAgent = `-- name: UpdateAgent :exec
 UPDATE
     agents
 SET
-    prompt = $1,
-    pane_id = $2,
-    state = $3,
-    claude_session_id = CASE WHEN $4 != '' THEN
-        $4
+    cwd = $1,
+    flags = $2,
+    prompt = $3,
+    pane_id = $4,
+    state = $5,
+    claude_session_id = CASE WHEN $6 != '' THEN
+        $6
     ELSE
         claude_session_id
     END,
-    workflow_id = $5
+    workflow_id = $7
 WHERE
-    id = $6
+    id = $8
 `
 
 type UpdateAgentParams struct {
+	Cwd             string
+	Flags           string
 	Prompt          string
 	PaneID          string
 	State           string
@@ -1004,6 +906,8 @@ type UpdateAgentParams struct {
 
 func (q *Queries) UpdateAgent(ctx context.Context, arg UpdateAgentParams) error {
 	_, err := q.db.Exec(ctx, updateAgent,
+		arg.Cwd,
+		arg.Flags,
 		arg.Prompt,
 		arg.PaneID,
 		arg.State,
@@ -1011,27 +915,6 @@ func (q *Queries) UpdateAgent(ctx context.Context, arg UpdateAgentParams) error 
 		arg.WorkflowID,
 		arg.ID,
 	)
-	return err
-}
-
-const updateAgentConfig = `-- name: UpdateAgentConfig :exec
-UPDATE
-    agent_configs
-SET
-    cwd = $1,
-    flags = $2
-WHERE
-    id = $3
-`
-
-type UpdateAgentConfigParams struct {
-	Cwd   string
-	Flags string
-	ID    string
-}
-
-func (q *Queries) UpdateAgentConfig(ctx context.Context, arg UpdateAgentConfigParams) error {
-	_, err := q.db.Exec(ctx, updateAgentConfig, arg.Cwd, arg.Flags, arg.ID)
 	return err
 }
 
