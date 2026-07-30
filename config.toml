@@ -78,7 +78,7 @@ quit   = ["ctrl+c"]
 back   = ["esc"]
 # Submit the form. Plain enter belongs to the text inputs, so this is
 # deliberately something else.
-submit = ["shift+enter"]
+submit = ["ctrl+s"]
 
 # The actions that create and change workflows, from the agents list.
 [keybindings.workflows]

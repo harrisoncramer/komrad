@@ -261,7 +261,7 @@ func DefaultKeybindings() Keybindings {
 		Form: FormKeys{
 			Quit:   []string{"ctrl+c"},
 			Back:   []string{"esc"},
-			Submit: []string{"shift+enter"},
+			Submit: []string{"ctrl+s"},
 		},
 	}
 }

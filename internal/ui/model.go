@@ -647,7 +647,7 @@ func newAgentForm(keys appconfig.FormKeys, defaultDir, defaultFlags string) (*hu
 
 	form := huh.NewForm(
 		huh.NewGroup(
-			huh.NewText().Key("prompt").Title("Initial prompt").Description("ctrl+e opens $EDITOR; shift+enter submits").Value(&values.Prompt),
+			huh.NewText().Key("prompt").Title("Initial prompt").Description(fmt.Sprintf("ctrl+e opens $EDITOR; %s submits", hintKeys(keys.Submit))).Value(&values.Prompt),
 			huh.NewInput().Key("title").Title("Title").Description("optional; claude names it if blank").Value(&values.Title),
 			huh.NewInput().Key("dir").Title("Directory").Description("blank = current").Value(&values.Dir),
 			huh.NewInput().Key("flags").Title("Claude flags").Placeholder("--model opus").Value(&values.Flags),
