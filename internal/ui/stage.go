@@ -149,7 +149,7 @@ func (s *Stage) Release(pane string) {
 	}
 }
 
-// Agent swaps a live agent's pane into the stage slot, so its running claude shows
+// Agent swaps a live agent's pane into the stage slot, so its running CLI shows
 // beside the panel. Focus stays on the panel, and moving to the agent is a plain
 // tmux pane move the user drives. A no-op when that agent is already staged.
 func (s *Stage) Agent(pane string) {

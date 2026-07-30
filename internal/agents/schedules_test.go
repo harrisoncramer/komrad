@@ -244,7 +244,7 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 // states it counts.
 //
 // A schedule runs one agent at a time, so a firing skips its tick while the last
-// run is still going. The trap is a run that never got going at all: claude
+// run is still going. The trap is a run that never got going at all: an agent
 // exiting the moment it is typed leaves an ordinary shell in a pane that is still
 // the agent's own, so the reconciler observes an idle frame forever and the agent
 // keeps the state it was recorded with. Counting that as work in flight is what
@@ -296,7 +296,7 @@ func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
 				WorkflowID: schedule.WorkflowID, ScheduleID: &schedule.ID,
 			})
 
-			// The pane is still stamped with the agent, which is what a claude that
+			// The pane is still stamped with the agent, which is what a CLI that
 			// exited back to its shell looks like. Only the frame says otherwise.
 			tmux := newFakeTmux()
 			tmux.owners["%1"] = run.ID
@@ -304,7 +304,7 @@ func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
 
 			// More passes than the idle debounce needs, so whatever the reconciler is
 			// going to settle this agent on, it has settled on.
-			rec := NewReconciler(tmux, st.Agents)
+			rec := NewReconciler(tmux, &fakeHarness{}, st.Agents)
 			for range reconcileMisses + 2 {
 				require.NoError(t, rec.Reconcile(ctx))
 			}

@@ -9,7 +9,8 @@
 # delete falls back to the same default shown here. An unknown key is an error,
 # so nothing outside this file is configurable.
 
-# Flags appended to the claude command for every new session.
+# Flags appended to every agent's command line, ahead of the flags that agent
+# carries itself.
 claude_flags = ""
 # The marks the mark key cycles through, in order. A mark is a glyph and means
 # whatever you decide, so the glyph is the label. Pressing mark advances the

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"claude-agents/internal/harness/claude"
 	agentstore "claude-agents/internal/store/agent"
 	"claude-agents/internal/tmux"
 )
@@ -69,7 +70,7 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	cli := tmux.NewClient(it.socket)
 	st := newStore(t)
 	ctx := context.Background()
-	rec := NewReconciler(cli, st.Agents)
+	rec := NewReconciler(cli, claude.New(t.TempDir()), st.Agents)
 
 	// A busy agent seeded new. The pane keeps a realistic working line, so the
 	// reconciler must promote it to thinking.

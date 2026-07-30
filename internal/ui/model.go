@@ -1,4 +1,4 @@
-// Package ui is the bubbletea panel for browsing and acting on Claude agents.
+// Package ui is the bubbletea panel for browsing and acting on background agents.
 package ui
 
 import (

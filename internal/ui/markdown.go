@@ -54,7 +54,7 @@ func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) string {
 	b.WriteString("---\n\n")
 	fmt.Fprintf(&b, "- directory: %s\n", orDash(agent.Cwd))
 	fmt.Fprintf(&b, "- flags: %s\n", orDash(agent.Flags))
-	fmt.Fprintf(&b, "- resume: %s\n", orDash(agent.ClaudeSessionID))
+	fmt.Fprintf(&b, "- resume: %s\n", orDash(agent.SessionID))
 	if schedule != "" {
 		fmt.Fprintf(&b, "- launched by: %s\n", schedule)
 	}
@@ -146,7 +146,7 @@ func trashMarkdown(agent agentstore.Agent, schedule string) string {
 	b.WriteString("---\n\n")
 	fmt.Fprintf(&b, "- directory: %s\n", orDash(agent.Cwd))
 	fmt.Fprintf(&b, "- flags: %s\n", orDash(agent.Flags))
-	fmt.Fprintf(&b, "- resume: %s\n", orDash(agent.ClaudeSessionID))
+	fmt.Fprintf(&b, "- resume: %s\n", orDash(agent.SessionID))
 	if schedule != "" {
 		fmt.Fprintf(&b, "- launched by: %s\n", schedule)
 	}

@@ -76,14 +76,14 @@ func TestNewAgent(t *testing.T) {
 			wantPaneKilled: true,
 		},
 		{
-			// The row is written before claude is typed, so a launch that dies here has
+			// The row is written before the command is typed, so a launch that dies here has
 			// left one behind. It has to be taken back out or it lists as a live agent with
 			// nothing running in it.
 			name:           "a launch that never reaches the pane's shell",
 			dir:            func(t *testing.T) string { return t.TempDir() },
 			title:          "stillborn",
 			sendKeysErr:    errors.New("tmux dropped the keys"),
-			wantErr:        "failed to launch claude",
+			wantErr:        "failed to launch the agent",
 			wantPaneKilled: true,
 		},
 		{
@@ -150,8 +150,8 @@ func TestNewAgent(t *testing.T) {
 			assert.Equal(t, "--default-flag --extra", stored.Flags, "the configured flags come first")
 			assert.Equal(t, "do the thing", stored.Prompt)
 			assert.Equal(t, agentstore.StateNew, stored.State)
-			assert.NotEmpty(t, stored.ClaudeSessionID, "a conversation id is pinned at launch")
-			assert.NotEmpty(t, tmux.lastKeys("%My-Agent"), "claude is launched into the new pane")
+			assert.NotEmpty(t, stored.SessionID, "a conversation id is pinned at launch")
+			assert.NotEmpty(t, tmux.lastKeys("%My-Agent"), "the agent is launched into the new pane")
 			assert.Equal(t, stored.ID, tmux.owners["%My-Agent"], "the pane is stamped with the agent it is running")
 			assert.True(t, manager.AgentRunning(*stored), "and the agent reads as running in it")
 		})
@@ -215,7 +215,7 @@ func TestNewAgentIdempotency(t *testing.T) {
 			if tt.wantSame {
 				assert.Equal(t, first.ID, second.ID, "the retry finds the agent it already created")
 				assert.Len(t, agents, 1, "and no second agent is recorded")
-				assert.Len(t, tmux.sent, 1, "nor is a second claude started")
+				assert.Len(t, tmux.sent, 1, "nor is a second agent started")
 
 				return
 			}
@@ -323,7 +323,7 @@ func TestNewAgentInsideWorkflow(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := newFakeTmux()
 			st := newStore(t)
-			manager := newManager(tmux, st, "")
+			manager, h := newManagerWithHarness(tmux, st, "")
 
 			created, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{
 				Name:    "backend",
@@ -341,7 +341,8 @@ func TestNewAgentInsideWorkflow(t *testing.T) {
 			require.NotNil(t, stored)
 			assert.Equal(t, params.WorkflowID, stored.WorkflowID, "the agent carries its workflow's id")
 
-			prompt := appendedPrompt(t, tmux.lastKeys("%agent")[0])
+			require.Len(t, h.launches, 1)
+			prompt := h.launches[0].Context
 			assert.Contains(t, prompt, "/mcp", "every agent is told about the endpoint")
 			if tt.wantContext {
 				assert.Contains(t, prompt, "shared notes")
@@ -600,7 +601,7 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 		_, st, tmux, dormant := setup(t)
 		tmux.captures[shared] = busyFrame
 
-		rec := NewReconciler(tmux, st.Agents)
+		rec := NewReconciler(tmux, &fakeHarness{}, st.Agents)
 		require.NoError(t, rec.Reconcile(t.Context()))
 
 		after := agentByID(t, st, dormant.ID)
@@ -638,9 +639,9 @@ func TestRestore(t *testing.T) {
 			ctx := t.Context()
 
 			require.NoError(t, st.Create(ctx, agentstore.Agent{
-				Name:            "foo",
-				State:           agentstore.StateDone,
-				ClaudeSessionID: "sess-old",
+				Name:      "foo",
+				State:     agentstore.StateDone,
+				SessionID: "sess-old",
 			}))
 			original, err := st.Get(ctx, "foo")
 			require.NoError(t, err)
@@ -657,7 +658,7 @@ func TestRestore(t *testing.T) {
 			restored := agentByID(t, st, original.ID)
 			assert.False(t, restored.Deleted, "the agent is back in the listing")
 			assert.Equal(t, agentstore.StateNew, restored.State)
-			assert.Equal(t, "sess-old", restored.ClaudeSessionID, "the conversation is preserved")
+			assert.Equal(t, "sess-old", restored.SessionID, "the conversation is preserved")
 			assert.Equal(t, original.ID, tmux.owners[restored.Pane], "the pane it came back in is stamped with its id")
 			assert.True(t, manager.AgentRunning(restored), "so it reads as running again")
 

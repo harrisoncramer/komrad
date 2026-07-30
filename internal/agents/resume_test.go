@@ -11,10 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestResumeDir covers the directory a restore relaunches in. A restore has to
-// produce a usable directory whatever became of the recorded one, since Claude
-// resolves --resume against a folder named after the cwd and the panel lists
-// agents whose worktree is long gone.
+// TestResumeDir covers the directory a restore relaunches in, and whether the
+// harness is asked to carry the conversation there. A restore has to produce a
+// usable directory whatever became of the recorded one, since a harness may resolve
+// a resume against the path the agent ran in and the panel lists agents whose
+// worktree is long gone.
 func TestResumeDir(t *testing.T) {
 	const sessionID = "6f1b0c34-0b6b-4a17-9d1f-1f4b6c0e9a11"
 
@@ -25,8 +26,8 @@ func TestResumeDir(t *testing.T) {
 		cwd func(t *testing.T, root string) string
 		// wantDir derives the directory the restore should land in.
 		wantDir func(root, restoreRoot string) string
-		// wantMoved says the conversation log should have followed the agent into the
-		// folder belonging to that directory.
+		// wantMoved says the conversation should have been carried into the directory
+		// the agent ends up in, which only a stand-in needs.
 		wantMoved bool
 	}{
 		{
@@ -64,55 +65,25 @@ func TestResumeDir(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			root := t.TempDir()
-			projects := filepath.Join(t.TempDir(), "projects")
 			restoreRoot := filepath.Join(t.TempDir(), "restored")
 
 			cwd := tt.cwd(t, root)
 
-			// The log starts out under the folder the original directory names, which is
-			// where Claude wrote it while the agent was running there.
-			origin := filepath.Join(projects, projectFolder(cwd))
-			require.NoError(t, os.MkdirAll(origin, 0o755))
-			require.NoError(t, os.WriteFile(filepath.Join(origin, sessionID+".jsonl"), []byte("{}\n"), 0o600))
-
-			service := &AgentService{transcriptsDir: projects, restoreRoot: restoreRoot}
-			got := service.resumeDir(agentstore.Agent{ID: "agent-id", Cwd: cwd, ClaudeSessionID: sessionID})
+			h := &fakeHarness{}
+			service := &AgentService{harness: h, restoreRoot: restoreRoot}
+			got := service.resumeDir(agentstore.Agent{ID: "agent-id", Cwd: cwd, SessionID: sessionID})
 
 			assert.Equal(t, tt.wantDir(root, restoreRoot), got)
 			require.NoError(t, usableDir(got), "a restore always gets a directory it can start in")
 
-			moved := filepath.Join(projects, projectFolder(got), sessionID+".jsonl")
-			_, err := os.Stat(moved)
-			require.NoError(t, err, "the conversation is filed under the directory the agent resumes in")
-			if tt.wantMoved {
-				_, err := os.Stat(filepath.Join(origin, sessionID+".jsonl"))
-				assert.ErrorIs(t, err, os.ErrNotExist, "the log is moved, so a glob on the session id finds one file")
+			if !tt.wantMoved {
+				assert.Empty(t, h.relocated, "a directory the agent can be started in leaves the conversation alone")
+
+				return
 			}
-		})
-	}
-}
 
-// TestProjectFolder pins the encoding Claude uses to name the folder a
-// directory's conversations live in, taken from the folders it has actually
-// written. A wrong name here means a moved log a resume cannot find.
-func TestProjectFolder(t *testing.T) {
-	tests := []struct {
-		dir  string
-		want string
-	}{
-		{
-			dir:  "/Users/someone/chariot/chariot/.worktrees/harry-fix-thing",
-			want: "-Users-someone-chariot-chariot--worktrees-harry-fix-thing",
-		},
-		{
-			dir:  "/Users/someone/tmux-claude-agents",
-			want: "-Users-someone-tmux-claude-agents",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.dir, func(t *testing.T) {
-			assert.Equal(t, tt.want, projectFolder(tt.dir))
+			assert.Equal(t, [][2]string{{sessionID, got}}, h.relocated,
+				"the conversation is carried into the directory the agent resumes in")
 		})
 	}
 }

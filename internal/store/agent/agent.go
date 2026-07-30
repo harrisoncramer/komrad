@@ -33,14 +33,16 @@ type Metadata struct {
 
 // Agent is a persisted background agent.
 type Agent struct {
-	ID              string
-	Name            string
-	Pane            string
-	Cwd             string
-	Flags           string
-	Prompt          string
-	State           string
-	ClaudeSessionID string
+	ID     string
+	Name   string
+	Pane   string
+	Cwd    string
+	Flags  string
+	Prompt string
+	State  string
+	// SessionID is the conversation the agent's harness files its own log under and
+	// reopens on a resume.
+	SessionID string
 	// WorkflowID holds the workflow's stable id, not its display name. Every agent
 	// has one, since the workflow supplies the directory, flags, and shared context
 	// it starts from.
@@ -282,7 +284,7 @@ func (s *Store) Create(ctx context.Context, agent Agent) error {
 		Prompt:          agent.Prompt,
 		PaneID:          agent.Pane,
 		State:           agent.State,
-		ClaudeSessionID: agent.ClaudeSessionID,
+		ClaudeSessionID: agent.SessionID,
 		WorkflowID:      agent.WorkflowID,
 		ScheduleID:      agent.ScheduleID,
 		IdempotencyKey:  agent.IdempotencyKey,
@@ -304,7 +306,7 @@ func (s *Store) Update(ctx context.Context, agent Agent) error {
 		Prompt:          agent.Prompt,
 		PaneID:          agent.Pane,
 		State:           agent.State,
-		ClaudeSessionID: agent.ClaudeSessionID,
+		ClaudeSessionID: agent.SessionID,
 		WorkflowID:      agent.WorkflowID,
 	}); err != nil {
 		return fmt.Errorf("failed to update agent %q: %w", agent.Name, err)
@@ -545,21 +547,21 @@ func (s *Store) ArchiveWorkflowAgents(ctx context.Context, workflowID string) er
 
 func agentFromRow(agent models.Agent) Agent {
 	return Agent{
-		ID:              agent.ID,
-		Name:            agent.Name,
-		Pane:            agent.PaneID,
-		Cwd:             agent.Cwd,
-		Flags:           agent.Flags,
-		Prompt:          agent.Prompt,
-		State:           agent.State,
-		ClaudeSessionID: agent.ClaudeSessionID,
-		WorkflowID:      agent.WorkflowID,
-		ScheduleID:      agent.ScheduleID,
-		IdempotencyKey:  agent.IdempotencyKey,
-		Deleted:         agent.IsDeleted,
-		Hidden:          agent.IsHidden,
-		Mark:            agent.Mark,
-		CreatedAt:       agent.CreatedAt,
-		UpdatedAt:       agent.UpdatedAt,
+		ID:             agent.ID,
+		Name:           agent.Name,
+		Pane:           agent.PaneID,
+		Cwd:            agent.Cwd,
+		Flags:          agent.Flags,
+		Prompt:         agent.Prompt,
+		State:          agent.State,
+		SessionID:      agent.ClaudeSessionID,
+		WorkflowID:     agent.WorkflowID,
+		ScheduleID:     agent.ScheduleID,
+		IdempotencyKey: agent.IdempotencyKey,
+		Deleted:        agent.IsDeleted,
+		Hidden:         agent.IsHidden,
+		Mark:           agent.Mark,
+		CreatedAt:      agent.CreatedAt,
+		UpdatedAt:      agent.UpdatedAt,
 	}
 }

@@ -1,8 +1,10 @@
 # tmux-claude-agents
 
-A tmux panel for background Claude Code agents running across your tmux sessions.
+A tmux panel for background coding agents running across your tmux sessions.
 
 The tool watches each agent's state, thinking, waiting, or done, and keeps a small store. A persistent popup panel (`prefix + g`) lets you browse every agent, watch a live preview of its pane, and open any one in place. You step away, and you can still see and reach every agent from anywhere.
+
+Which CLI an agent runs sits behind one interface, in `internal/harness`. Claude Code is the implementation that ships today.
 
 NOTE: This project is still under development. Expect breaking changes.
 
@@ -34,9 +36,9 @@ See [installation](docs/install.md) for the full setup, including the panel key.
 
 ## Why
 
-Running several Claude Code sessions at once is easy. Keeping track of them is not. Once you switch away from a session you lose sight of whether it is still working or has stopped and is waiting on you, and getting back to the right one means cycling through tmux sessions by hand.
+Running several agent sessions at once is easy. Keeping track of them is not. Once you switch away from a session you lose sight of whether it is still working or has stopped and is waiting on you, and getting back to the right one means cycling through tmux sessions by hand.
 
-This tool gives you one place for all of it. It works out each agent's state by watching its tmux pane, so there is nothing to set up and nothing to report, it just observes. The popup lets you preview and jump into any agent without leaving where you are. Agent records outlive their tmux sessions, so a finished or restarted agent still lists, and opening it relaunches Claude with `--resume` so the conversation continues.
+This tool gives you one place for all of it. It works out each agent's state by watching its tmux pane, so there is nothing to set up and nothing to report, it just observes. The popup lets you preview and jump into any agent without leaving where you are. Agent records outlive their tmux sessions, so a finished or restarted agent still lists, and opening it relaunches the agent's CLI on the same conversation, so it continues where it left off.
 
 ## Documentation
 

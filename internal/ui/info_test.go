@@ -89,11 +89,11 @@ func TestInfoKey(t *testing.T) {
 // has no pane to display, so this is all there is of it.
 func TestAgentMarkdown(t *testing.T) {
 	agent := agentstore.Agent{
-		Name:            "auth",
-		Pane:            "%9",
-		Cwd:             "/repo",
-		ClaudeSessionID: "abc",
-		CreatedAt:       time.Date(2026, 7, 24, 15, 4, 0, 0, time.UTC),
+		Name:      "auth",
+		Pane:      "%9",
+		Cwd:       "/repo",
+		SessionID: "abc",
+		CreatedAt: time.Date(2026, 7, 24, 15, 4, 0, 0, time.UTC),
 	}
 
 	tests := []struct {

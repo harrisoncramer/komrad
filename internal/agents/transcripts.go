@@ -2,14 +2,11 @@ package agents
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
 	"strings"
 
+	"claude-agents/internal/harness"
 	agentstore "claude-agents/internal/store/agent"
 	"claude-agents/internal/store/transcript"
 )
@@ -27,20 +24,28 @@ type agentLister interface {
 	ListAll(ctx context.Context) ([]agentstore.Agent, error)
 }
 
-// TranscriptSyncer keeps each agent's searchable transcript in step with the JSONL
-// Claude Code writes to disk. Rather than hook into Claude's lifecycle, which fires
+// logHarness is all the syncer needs from a harness, where a conversation's log is
+// and what has been written to it since the last pass. The format that log is in
+// never reaches here.
+type logHarness interface {
+	LogPath(sessionID string) string
+	ReadLog(path string, offset int64) (harness.LogRead, error)
+}
+
+// TranscriptSyncer keeps each agent's searchable transcript in step with the log its
+// CLI writes to disk. Rather than hook into that CLI's lifecycle, which fires
 // unreliably, it reads the on-disk log directly on a timer, so missing a pass loses
 // nothing.
 type TranscriptSyncer struct {
-	agents      agentLister
-	store       transcriptStore
-	projectsDir string
+	agents  agentLister
+	store   transcriptStore
+	harness logHarness
 }
 
-// NewTranscriptSyncer builds a syncer over the store, reading logs from
-// projectsDir, which is Claude's ~/.claude/projects.
-func NewTranscriptSyncer(agents agentLister, transcripts transcriptStore, projectsDir string) *TranscriptSyncer {
-	return &TranscriptSyncer{agents: agents, store: transcripts, projectsDir: projectsDir}
+// NewTranscriptSyncer builds a syncer over the store, reading logs through the
+// harness that wrote them.
+func NewTranscriptSyncer(agents agentLister, transcripts transcriptStore, h logHarness) *TranscriptSyncer {
+	return &TranscriptSyncer{agents: agents, store: transcripts, harness: h}
 }
 
 // Sync folds any new transcript text for every tracked agent into the store. Each agent
@@ -61,7 +66,7 @@ func (ts *TranscriptSyncer) Sync(ctx context.Context) error {
 
 	var failures []error
 	for _, agent := range agents {
-		if agent.ClaudeSessionID == "" {
+		if agent.SessionID == "" {
 			continue
 		}
 		if err := ts.syncOne(ctx, agent); err != nil {
@@ -74,16 +79,11 @@ func (ts *TranscriptSyncer) Sync(ctx context.Context) error {
 
 // syncOne reads the tail of one agent's log, appends its flattened text to the
 // stored transcript, and indexes the turns it found. A missing log is a no-op, as
-// is a log with no new complete lines.
+// is a log with nothing new complete enough to read.
 func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent) error {
-	path := sessionLogPath(ts.projectsDir, agent.ClaudeSessionID)
+	path := ts.harness.LogPath(agent.SessionID)
 	if path == "" {
 		return nil
-	}
-
-	info, err := os.Stat(path)
-	if err != nil {
-		return nil //nolint:nilerr // a log that is not on disk yet is not an error
 	}
 
 	tr, err := ts.store.Get(ctx, agent.ID)
@@ -91,39 +91,35 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 		return err
 	}
 
-	// The log shrank, so Claude rewrote it, which a --resume can do. The stored offset no
-	// longer points into the same content, so reading starts over.
-	offset, content := tr.SyncedOffset, tr.Content
-	reindex := info.Size() < offset
-	if reindex {
-		offset, content = 0, ""
-	}
-	if info.Size() == offset {
-		return nil
-	}
-
-	appended, consumed, err := readNewLines(path, offset)
+	read, err := ts.harness.ReadLog(path, tr.SyncedOffset)
 	if err != nil {
 		return err
 	}
-	if consumed == 0 {
+
+	// The log no longer continues from where the last pass left off, so the stored
+	// offset points into content that is gone and reading starts over.
+	offset, content := tr.SyncedOffset, tr.Content
+	if read.Restart {
+		offset, content = 0, ""
+	}
+	if read.Consumed == 0 {
 		return nil
 	}
 
 	// The indexed turns describe text that is about to be replaced, so they go
 	// before this pass numbers the turns it read.
-	if reindex {
+	if read.Restart {
 		if err := ts.store.DeleteTurns(ctx, agent.ID); err != nil {
 			return err
 		}
 	}
 
-	content, turns := appendTurns(content, flattenTranscript(appended))
+	content, turns := appendTurns(content, read.Turns)
 
 	if err := ts.store.Upsert(ctx, transcript.UpsertParams{
 		AgentID: agent.ID,
 		Content: content,
-		Offset:  offset + consumed,
+		Offset:  offset + read.Consumed,
 	}); err != nil {
 		return err
 	}
@@ -131,140 +127,11 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 	return ts.store.AppendTurns(ctx, agent.ID, turns)
 }
 
-// sessionLogPath finds the JSONL log for a claude session id under projectsDir, or ""
-// when no log exists. A glob on the id finds it without reproducing Claude's
-// version-specific directory-name encoding.
-func sessionLogPath(projectsDir, claudeSessionID string) string {
-	matches, err := filepath.Glob(filepath.Join(projectsDir, "*", claudeSessionID+".jsonl"))
-	if err != nil || len(matches) == 0 {
-		return ""
-	}
-
-	return matches[0]
-}
-
-// readNewLines reads from offset to the end of the file and returns the complete lines
-// found there together with how many bytes they span. A trailing partial line, written
-// while Claude is mid-turn, is left unconsumed so the next pass reads it once whole.
-func readNewLines(path string, offset int64) ([]byte, int64, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to open transcript %q: %w", path, err)
-	}
-	defer func() { _ = file.Close() }()
-
-	if _, err := file.Seek(offset, io.SeekStart); err != nil {
-		return nil, 0, fmt.Errorf("failed to seek transcript %q: %w", path, err)
-	}
-
-	tail, err := io.ReadAll(file)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to read transcript %q: %w", path, err)
-	}
-
-	lastNL := strings.LastIndexByte(string(tail), '\n')
-	if lastNL < 0 {
-		return nil, 0, nil
-	}
-
-	complete := tail[:lastNL+1]
-	return complete, int64(len(complete)), nil
-}
-
-// transcriptLine is the part of a JSONL entry the flattener reads. Only user and
-// assistant turns carry conversation, so everything else is skipped by type.
-type transcriptLine struct {
-	Type    string `json:"type"`
-	IsMeta  bool   `json:"isMeta"`
-	Message *struct {
-		Content json.RawMessage `json:"content"`
-	} `json:"message"`
-}
-
-// contentBlock is one block of a structured message. Only text blocks hold prose,
-// so tool_use, tool_result, thinking, and images are dropped.
-type contentBlock struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
-}
-
-type turn struct {
-	role string
-	text string
-}
-
-// flattenTranscript turns raw JSONL bytes into the turns worth searching, the user's
-// prompts and the assistant's prose in order. Tool calls, tool results, thinking, and
-// non-conversation entries are left out so a match reads as something actually said.
-func flattenTranscript(data []byte) []turn {
-	var turns []turn
-	for _, raw := range strings.Split(string(data), "\n") {
-		raw = strings.TrimSpace(raw)
-		if raw == "" {
-			continue
-		}
-
-		var line transcriptLine
-		if err := json.Unmarshal([]byte(raw), &line); err != nil {
-			continue
-		}
-		if line.IsMeta || line.Message == nil {
-			continue
-		}
-		if line.Type != "user" && line.Type != "assistant" {
-			continue
-		}
-
-		if text := blockText(line.Message.Content); text != "" {
-			turns = append(turns, turn{role: line.Type, text: text})
-		}
-	}
-
-	return turns
-}
-
-// blockText extracts the prose from a message's content, which is either a plain
-// string or an array of typed blocks. Only text blocks survive.
-func blockText(content json.RawMessage) string {
-	var plain string
-	if err := json.Unmarshal(content, &plain); err == nil {
-		return cleanText(plain)
-	}
-
-	var blocks []contentBlock
-	if err := json.Unmarshal(content, &blocks); err != nil {
-		return ""
-	}
-
-	var parts []string
-	for _, block := range blocks {
-		if block.Type != "text" {
-			continue
-		}
-		if text := cleanText(block.Text); text != "" {
-			parts = append(parts, text)
-		}
-	}
-
-	return strings.Join(parts, "\n\n")
-}
-
-// cleanText trims a turn's prose and drops the NUL the transcript columns cannot hold,
-// which a log written by another process may well carry and which would otherwise refuse
-// every write for that agent from then on.
-//
-// It is dropped as the prose is read rather than at the write, because the turns carry
-// the offset they sit at in the transcript text, so anything removed later would leave
-// every offset after it pointing a byte too far.
-func cleanText(text string) string {
-	return strings.TrimSpace(strings.ReplaceAll(text, "\x00", ""))
-}
-
 // appendTurns joins newly-synced turns onto the transcript so far, blank-line separated,
 // and returns the grown text alongside the turns ready to index. Each turn carries where
 // it landed in that text, which is what the panel reads back to scroll a hit into view
 // rather than hunt for the words again.
-func appendTurns(existing string, turns []turn) (string, []transcript.Turn) {
+func appendTurns(existing string, turns []harness.Turn) (string, []transcript.Turn) {
 	var content strings.Builder
 	content.WriteString(existing)
 
@@ -275,11 +142,11 @@ func appendTurns(existing string, turns []turn) (string, []transcript.Turn) {
 		}
 
 		indexed = append(indexed, transcript.Turn{
-			Role:    t.role,
-			Content: t.text,
+			Role:    t.Role,
+			Content: t.Content,
 			Offset:  int64(content.Len()),
 		})
-		content.WriteString(t.text)
+		content.WriteString(t.Content)
 	}
 
 	return content.String(), indexed

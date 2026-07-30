@@ -6,6 +6,7 @@ import (
 	"claude-agents/config"
 	"claude-agents/internal/agents"
 	"claude-agents/internal/appconfig"
+	"claude-agents/internal/harness"
 	"claude-agents/internal/store"
 	agentstore "claude-agents/internal/store/agent"
 	schedulestore "claude-agents/internal/store/schedule"
@@ -35,10 +36,15 @@ type app struct {
 	schedules   *schedulestore.Store
 	transcripts *transcriptstore.Store
 
-	popup       *ui.Popup
-	env         *config.Config
-	keys        appconfig.Keybindings
-	claudeFlags string
+	popup *ui.Popup
+	env   *config.Config
+	keys  appconfig.Keybindings
+	// harness is the agent CLI every agent runs. It is one instance because claude is
+	// the only one the panel knows how to run, and the services that hold it reach it
+	// only through the narrow interfaces they declare.
+	harness harness.Harness
+	// defaultFlags are the configured flags prepended to every agent's own.
+	defaultFlags string
 	// marks are the marks the panel's mark key steps an agent through.
 	marks []appconfig.Mark
 	// layout is how the panel divides the popup between its list and the stage.
@@ -89,12 +95,13 @@ func (a *app) openStore(ctx context.Context) error {
 		Workflows: a.workflows,
 	})
 	a.agentService = agents.NewAgentService(agents.AgentParams{
-		Tmux:        a.tmux,
-		Agents:      a.agents,
-		Workflows:   a.workflows,
-		Tx:          pool,
-		Launcher:    agents.NewLauncher(a.tmux, a.env.Addr),
-		ClaudeFlags: a.claudeFlags,
+		Tmux:         a.tmux,
+		Agents:       a.agents,
+		Workflows:    a.workflows,
+		Tx:           pool,
+		Launcher:     agents.NewLauncher(a.tmux, a.harness, a.env.Addr),
+		Harness:      a.harness,
+		DefaultFlags: a.defaultFlags,
 	})
 
 	return nil

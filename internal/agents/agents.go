@@ -14,8 +14,6 @@ import (
 	agentstore "claude-agents/internal/store/agent"
 	"claude-agents/internal/store/transcript"
 	"claude-agents/internal/store/workflow"
-
-	"github.com/google/uuid"
 )
 
 // expandHome expands a leading ~ or ~/ to the user's home. tmux's new-session -c
@@ -72,60 +70,66 @@ type agentTmux interface {
 	ClientPath(client string) string
 }
 
+// agentHarness is all the lifecycle needs from a harness: the name to file a new
+// conversation under, and a chance to carry that conversation along when a restore
+// has to move the agent somewhere else.
+type agentHarness interface {
+	NewSessionID() string
+	Relocate(sessionID, dir string) error
+}
+
 // AgentService owns an agent's lifecycle. It creates one, brings a dormant one
 // back, renames, archives, and removes it, coordinating the store with tmux and
 // delegating the command line to the launcher.
 type AgentService struct {
-	tmux        agentTmux
-	agents      agentStore
-	workflows   workflowReader
-	tx          txRunner
-	launcher    *Launcher
-	claudeFlags string
-	// transcriptsDir and restoreRoot are only read when a restore has to repair a
-	// working directory that is gone. They are fields rather than constants so a
-	// test can point them at a temp directory instead of the user's home.
-	transcriptsDir string
-	restoreRoot    string
+	tmux      agentTmux
+	agents    agentStore
+	workflows workflowReader
+	tx        txRunner
+	launcher  *Launcher
+	harness   agentHarness
+	// defaultFlags are the configured flags every agent is launched with, ahead of
+	// its own.
+	defaultFlags string
+	// restoreRoot is only read when a restore has to repair a working directory that
+	// is gone. It is a field rather than a constant so a test can point it at a temp
+	// directory instead of the user's home.
+	restoreRoot string
 }
 
 // AgentParams carries the agent service's dependencies.
 type AgentParams struct {
-	Tmux        agentTmux
-	Agents      agentStore
-	Workflows   workflowReader
-	Tx          txRunner
-	Launcher    *Launcher
-	ClaudeFlags string
-	// TranscriptsDir is Claude's ~/.claude/projects, and RestoreRoot is where an
-	// agent runs when its recorded directory cannot be recreated. Both default to
-	// the real locations when left empty.
-	TranscriptsDir string
-	RestoreRoot    string
+	Tmux         agentTmux
+	Agents       agentStore
+	Workflows    workflowReader
+	Tx           txRunner
+	Launcher     *Launcher
+	Harness      agentHarness
+	DefaultFlags string
+	// RestoreRoot is where an agent runs when its recorded directory cannot be
+	// recreated, defaulting to the real location when left empty.
+	RestoreRoot string
 }
 
 // NewAgentService builds the service from its dependencies.
 func NewAgentService(p AgentParams) *AgentService {
-	if p.TranscriptsDir == "" {
-		p.TranscriptsDir = DefaultTranscriptsDir()
-	}
 	if p.RestoreRoot == "" {
 		p.RestoreRoot = DefaultRestoreRoot()
 	}
 
 	return &AgentService{
-		tmux:           p.Tmux,
-		agents:         p.Agents,
-		workflows:      p.Workflows,
-		tx:             p.Tx,
-		launcher:       p.Launcher,
-		claudeFlags:    p.ClaudeFlags,
-		transcriptsDir: p.TranscriptsDir,
-		restoreRoot:    p.RestoreRoot,
+		tmux:         p.Tmux,
+		agents:       p.Agents,
+		workflows:    p.Workflows,
+		tx:           p.Tx,
+		launcher:     p.Launcher,
+		harness:      p.Harness,
+		defaultFlags: p.DefaultFlags,
+		restoreRoot:  p.RestoreRoot,
 	}
 }
 
-// AgentRunning reports whether an agent's claude is still up, which is true only
+// AgentRunning reports whether an agent's CLI is still up, which is true only
 // of a pane that exists and is stamped with that agent's id. The stored pane id is
 // never trusted on its own: tmux reissues pane ids from %0 after a server restart,
 // so a dormant agent's recorded pane routinely names a pane that now belongs to
@@ -215,7 +219,7 @@ func (s *AgentService) ArchiveAgent(ctx context.Context, name string) error {
 	return nil
 }
 
-// RestoreAgent brings an agent back by id, relaunching claude on the same
+// RestoreAgent brings an agent back by id, relaunching its CLI on the same
 // conversation, and returns it as stored. It spans archived agents, since
 // restoring one is the point. An id that matches nothing is ErrAgentNotFound.
 func (s *AgentService) RestoreAgent(ctx context.Context, id string) (*agentstore.Agent, error) {
@@ -296,7 +300,7 @@ func usableDir(dir string) error {
 }
 
 // NewAgent creates a background agent, records it so it lists immediately, and
-// launches claude with the default plus per-agent flags and the opening prompt. It
+// launches its CLI with the default plus per-agent flags and the opening prompt. It
 // does not switch the client to the new agent. The stored record is returned so a
 // caller that did not watch the list still learns the generated name and id.
 func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentstore.Agent, error) {
@@ -345,22 +349,23 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		return nil, fmt.Errorf("failed to stamp the pane for %q: %w", plan.name, err)
 	}
 
-	// Claude's session id is generated here and passed to --session-id, so restoring
-	// the agent can resume that same conversation with --resume.
-	claudeSessionID := uuid.NewString()
+	// The conversation is named before it exists, so restoring the agent can ask the
+	// harness to reopen that same one. A harness that will not be told a name returns
+	// none, and the id has to be discovered after the launch instead.
+	sessionID := s.harness.NewSessionID()
 	if err := s.agents.Create(ctx, agentstore.Agent{
-		ID:              id,
-		Name:            plan.name,
-		Pane:            pane,
-		Cwd:             plan.dir,
-		Flags:           plan.flags,
-		Prompt:          p.Prompt,
-		State:           agentstore.StateNew,
-		ClaudeSessionID: claudeSessionID,
-		WorkflowID:      p.WorkflowID,
-		ScheduleID:      p.ScheduleID,
-		IdempotencyKey:  idempotencyKey(p.IdempotencyKey),
-		Hidden:          p.Hidden,
+		ID:             id,
+		Name:           plan.name,
+		Pane:           pane,
+		Cwd:            plan.dir,
+		Flags:          plan.flags,
+		Prompt:         p.Prompt,
+		State:          agentstore.StateNew,
+		SessionID:      sessionID,
+		WorkflowID:     p.WorkflowID,
+		ScheduleID:     p.ScheduleID,
+		IdempotencyKey: idempotencyKey(p.IdempotencyKey),
+		Hidden:         p.Hidden,
 	}); err != nil {
 		// uniqueAgentName checks before inserting, so two calls racing on the same
 		// title both pass that check and one loses here.
@@ -377,23 +382,23 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		return nil, fmt.Errorf("agent %q vanished after being recorded", plan.name)
 	}
 
-	if err := s.launcher.launch(launchClaudeParams{
+	if err := s.launcher.launch(launchParams{
 		Pane:   pane,
 		Flags:  plan.flags,
 		Prompt: p.Prompt,
 		// The workflow's context is a snapshot taken at launch, so later edits to the
 		// workflow reach only agents spawned after them.
 		WorkflowContext: plan.workflowContext,
-		ClaudeSessionID: claudeSessionID,
+		SessionID:       sessionID,
 		AgentID:         id,
 	}); err != nil {
 		// The pane goes with the unwind above. The row has to go too, or the agent
 		// lists as live forever with nothing running behind it.
 		if deleteErr := s.removeAgent(ctx, id); deleteErr != nil {
-			return nil, fmt.Errorf("failed to launch claude for %q (%w), and failed to clean up: %w", plan.name, err, deleteErr)
+			return nil, fmt.Errorf("failed to launch the agent for %q (%w), and failed to clean up: %w", plan.name, err, deleteErr)
 		}
 
-		return nil, fmt.Errorf("failed to launch claude for %q: %w", plan.name, err)
+		return nil, fmt.Errorf("failed to launch the agent for %q: %w", plan.name, err)
 	}
 
 	launched = true
@@ -454,7 +459,7 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 	return &launchPlan{
 		name:            s.uniqueAgentName(ctx, p.Title, p.Prompt),
 		dir:             dir,
-		flags:           strings.TrimSpace(s.claudeFlags + " " + agentFlags),
+		flags:           strings.TrimSpace(s.defaultFlags + " " + agentFlags),
 		workflowContext: wf.Context,
 	}, nil
 }
@@ -515,14 +520,14 @@ func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) erro
 		return fmt.Errorf("failed to restore agent %q: %w", agent.Name, err)
 	}
 
-	if err := s.launcher.launch(launchClaudeParams{
-		Pane:            pane,
-		Flags:           agent.Flags,
-		ClaudeSessionID: agent.ClaudeSessionID,
-		AgentID:         agent.ID,
-		Resume:          true,
+	if err := s.launcher.launch(launchParams{
+		Pane:      pane,
+		Flags:     agent.Flags,
+		SessionID: agent.SessionID,
+		AgentID:   agent.ID,
+		Resume:    true,
 	}); err != nil {
-		return fmt.Errorf("failed to relaunch claude for %q: %w", agent.Name, err)
+		return fmt.Errorf("failed to relaunch the agent for %q: %w", agent.Name, err)
 	}
 
 	return nil

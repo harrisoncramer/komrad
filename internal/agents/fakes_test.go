@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"claude-agents/internal/harness"
 	agentstore "claude-agents/internal/store/agent"
 	transcriptstore "claude-agents/internal/store/transcript"
 	workflowstore "claude-agents/internal/store/workflow"
@@ -134,6 +135,61 @@ func (f *fakeTmux) lastKeys(target string) []string {
 	return sends[len(sends)-1]
 }
 
+// The frames these tests hand the reconciler are labels rather than any CLI's
+// chrome. Which state a real frame implies is the harness's own question, tested
+// against real captures where the detectors live, so nothing here has to be
+// reshaped when a CLI redraws its UI.
+const (
+	busyFrame = "frame: working"
+	idleFrame = "frame: idle"
+	waitFrame = "frame: waiting"
+)
+
+// fakeHarness stands in for an agent CLI in the tests that are about the panel's
+// own behaviour rather than any one CLI's. It records what it was asked for, so a
+// test asserts on what the panel composed rather than on how a CLI would spell it.
+type fakeHarness struct {
+	// launches records every command the harness was asked to build.
+	launches []harness.Launch
+	// relocated records every conversation it was asked to carry, and to where.
+	relocated [][2]string
+	// commandErr makes building the command line fail, standing in for a harness
+	// that cannot assemble one.
+	commandErr error
+}
+
+func (f *fakeHarness) ID() string { return "fake" }
+
+func (f *fakeHarness) Command(launch harness.Launch) (string, error) {
+	f.launches = append(f.launches, launch)
+	if f.commandErr != nil {
+		return "", f.commandErr
+	}
+
+	return "agent-cli --session " + launch.SessionID, nil
+}
+
+func (f *fakeHarness) NewSessionID() string { return uuid.NewString() }
+
+func (f *fakeHarness) Activity(frame string) harness.Activity {
+	switch frame {
+	case busyFrame:
+		return harness.ActivityWorking
+	case waitFrame:
+		return harness.ActivityWaiting
+	case "":
+		return harness.ActivityUnknown
+	default:
+		return harness.ActivityIdle
+	}
+}
+
+func (f *fakeHarness) Relocate(sessionID, dir string) error {
+	f.relocated = append(f.relocated, [2]string{sessionID, dir})
+
+	return nil
+}
+
 // testStore gathers the domain stores a test needs behind one handle, built over
 // one pool. Nothing in production holds this, since each service is still constructed
 // with only the store it depends on. It exists so a test can arrange rows across
@@ -205,14 +261,15 @@ func (s *testStore) GetTranscript(ctx context.Context, agentID string) (transcri
 
 // agentService builds the service under test over these stores, the same way
 // the composition root does.
-func (s *testStore) agentService(tmux agentTmux, launcher *Launcher, flags string) *AgentService {
+func (s *testStore) agentService(tmux *fakeTmux, h *fakeHarness, addr, flags string) *AgentService {
 	return NewAgentService(AgentParams{
-		Tmux:        tmux,
-		Agents:      s.Agents,
-		Workflows:   s.Workflows,
-		Tx:          s.Pool,
-		Launcher:    launcher,
-		ClaudeFlags: flags,
+		Tmux:         tmux,
+		Agents:       s.Agents,
+		Workflows:    s.Workflows,
+		Tx:           s.Pool,
+		Launcher:     NewLauncher(tmux, h, addr),
+		Harness:      h,
+		DefaultFlags: flags,
 	})
 }
 
@@ -265,7 +322,9 @@ func stateOf(t *testing.T, st *testStore, name string) string {
 // newManager builds an agent service over the fake tmux and a real store, which
 // is what most of these tests drive.
 func newManager(tmux *fakeTmux, st *testStore, flags string) *AgentService {
-	return newAgentService(tmux, st, flags, "")
+	service, _ := newManagerWithHarness(tmux, st, flags)
+
+	return service
 }
 
 // workflowsFor builds the workflow service over the same store, for the tests
@@ -274,10 +333,14 @@ func workflowsFor(st *testStore) *WorkflowService {
 	return st.workflowService()
 }
 
-// newAgentService is the same, with the launcher pointed at a specific address so a
-// test can assert on what a spawned agent is told.
-func newAgentService(tmux *fakeTmux, st *testStore, flags, addr string) *AgentService {
-	return st.agentService(tmux, NewLauncher(tmux, addr), flags)
+// newManagerWithHarness is the same, handing back the harness as well, for a test
+// that asserts on what the panel asked the CLI to be started with. The launcher is
+// pointed at a fixed address so what a spawned agent is told does not depend on the
+// machine.
+func newManagerWithHarness(tmux *fakeTmux, st *testStore, flags string) (*AgentService, *fakeHarness) {
+	h := &fakeHarness{}
+
+	return st.agentService(tmux, h, "127.0.0.1:9999", flags), h
 }
 
 // agentByID finds an agent among every row, archived ones included, since a test

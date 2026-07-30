@@ -865,7 +865,7 @@ func TestRestore(t *testing.T) {
 			workflows := st.workflows
 			ctx := t.Context()
 
-			agent := Agent{Name: "beta", State: StateThinking, ClaudeSessionID: "sess-1"}
+			agent := Agent{Name: "beta", State: StateThinking, SessionID: "sess-1"}
 			if tt.withWorkflow {
 				workflow, err := workflows.Create(ctx, workflowstore.Config{Name: "backend"})
 				require.NoError(t, err)
@@ -894,7 +894,7 @@ func TestRestore(t *testing.T) {
 			require.NotNil(t, got)
 			assert.Equal(t, original.ID, got.ID, "a restored row keeps its id")
 			assert.Equal(t, StateNew, got.State)
-			assert.Equal(t, "sess-1", got.ClaudeSessionID, "restore preserves the conversation")
+			assert.Equal(t, "sess-1", got.SessionID, "restore preserves the conversation")
 			assert.False(t, got.Hidden, "a restored agent comes back to a row")
 
 			all, err := st.ListAll(ctx)

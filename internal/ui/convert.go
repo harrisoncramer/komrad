@@ -25,20 +25,20 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 	}
 
 	return agentstore.Agent{
-		ID:              s.GetId(),
-		Name:            s.GetName(),
-		Pane:            s.GetPaneId(),
-		Cwd:             s.GetCwd(),
-		Flags:           s.GetFlags(),
-		Prompt:          s.GetPrompt(),
-		State:           s.GetState(),
-		ClaudeSessionID: s.GetClaudeSessionId(),
-		WorkflowID:      s.GetWorkflowId(),
-		ScheduleID:      s.ScheduleId,
-		CreatedAt:       created,
-		Mark:            s.Mark,
-		Hidden:          s.GetHidden(),
-		Metadata:        metadata,
+		ID:         s.GetId(),
+		Name:       s.GetName(),
+		Pane:       s.GetPaneId(),
+		Cwd:        s.GetCwd(),
+		Flags:      s.GetFlags(),
+		Prompt:     s.GetPrompt(),
+		State:      s.GetState(),
+		SessionID:  s.GetClaudeSessionId(),
+		WorkflowID: s.GetWorkflowId(),
+		ScheduleID: s.ScheduleId,
+		CreatedAt:  created,
+		Mark:       s.Mark,
+		Hidden:     s.GetHidden(),
+		Metadata:   metadata,
 	}
 }
 

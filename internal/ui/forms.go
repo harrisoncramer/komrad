@@ -58,9 +58,9 @@ func newAgentForm(keys appconfig.FormKeys, defaultDir, defaultFlags string) (*hu
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewText().Key("prompt").Title("Initial prompt").Description(fmt.Sprintf("ctrl+e opens $EDITOR; %s submits", hintKeys(keys.Submit))).Value(&values.Prompt),
-			huh.NewInput().Key("title").Title("Title").Description("optional; claude names it if blank").Value(&values.Title),
+			huh.NewInput().Key("title").Title("Title").Description("optional; named from the prompt if blank").Value(&values.Title),
 			huh.NewInput().Key("dir").Title("Directory").Description("blank = current").Value(&values.Dir),
-			huh.NewInput().Key("flags").Title("Claude flags").Placeholder("--model opus").Value(&values.Flags),
+			huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 		),
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
 
@@ -168,7 +168,7 @@ func workflowConfigForm(nameTitle string, cfg workflowstore.Config, keys appconf
 			huh.NewInput().Key("name").Title(nameTitle).Value(&values.Name),
 			huh.NewText().Key("context").Title("Context").Description("shared notes for this workflow; ctrl+e opens $EDITOR").Value(&values.Context),
 			huh.NewInput().Key("dir").Title("Default directory").Description("blank = current").Value(&values.Cwd),
-			huh.NewInput().Key("flags").Title("Default claude flags").Placeholder("--model opus").Value(&values.Flags),
+			huh.NewInput().Key("flags").Title("Default flags").Placeholder("--model opus").Value(&values.Flags),
 		),
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
 

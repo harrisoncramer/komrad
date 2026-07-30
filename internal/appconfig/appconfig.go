@@ -1,5 +1,5 @@
 // Package appconfig loads the user's customization from a TOML file via viper.
-// It covers the default claude flags, the marks an agent can be given, and the
+// It covers the default agent flags, the marks an agent can be given, and the
 // panel keybindings.
 package appconfig
 
@@ -152,7 +152,8 @@ type Layout struct {
 
 // Config is the user's customization.
 type Config struct {
-	// Flags appended to the claude command for every new session.
+	// Flags appended to every agent's command line, ahead of the flags that agent
+	// carries itself.
 	ClaudeFlags string `mapstructure:"claude_flags"`
 	// How the popup's width is divided between the panel and the stage beside it.
 	Layout Layout `mapstructure:"layout"`

@@ -49,7 +49,7 @@ func renderAgent(stored agentstore.Agent, alive bool) agent {
 			Prompt:          stored.Prompt,
 			PaneId:          stored.Pane,
 			State:           stored.State,
-			ClaudeSessionId: stored.ClaudeSessionID,
+			ClaudeSessionId: stored.SessionID,
 			WorkflowId:      stored.WorkflowID,
 			ScheduleId:      stored.ScheduleID,
 			CreatedAt:       created,

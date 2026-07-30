@@ -20,7 +20,7 @@ import (
 )
 
 // agentLauncher is the part of the agent manager the service drives. Creating an agent is
-// more than a row: it opens a tmux window and types claude into it, so the service delegates
+// more than a row: it opens a tmux window and types a command line into it, so the service delegates
 // rather than writing the record itself.
 type agentLauncher interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)

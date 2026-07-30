@@ -10,7 +10,7 @@ import "rules/v1/rules.proto";
 
 option go_package = "claude-agents/proto/gen/agent/v1;agentv1";
 
-// Agent is one background Claude agent, as stored.
+// Agent is one background agent, as stored.
 message Agent {
   string id = 1;
   string name = 2;
@@ -122,7 +122,7 @@ message CreateAgentRequest {
   string workflow_id = 5 [(buf.validate.field).string.min_len = 1];
   // A key that makes this create repeatable. A second request carrying a key an
   // agent already holds returns that agent untouched rather than starting a
-  // second Claude process, which is what makes retrying a launch safe. Omit it
+  // second agent process, which is what makes retrying a launch safe. Omit it
   // to make no such claim, which is what an interactive create does.
   optional string idempotency_key = 6 [(buf.validate.field).string = {
     min_len: 1,
@@ -322,7 +322,7 @@ service AgentService {
   rpc CreateAgent(CreateAgentRequest) returns (CreateAgentResponse) {
     option (annotation.v1.tool) = {
       tool_name: "create_agent"
-      description: "Launch a background Claude agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would resolve somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded."
+      description: "Launch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would resolve somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded."
       destructive: false
     };
   }
@@ -364,7 +364,7 @@ service AgentService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "restore_agent"
-      description: "Bring an agent back and relaunch claude on the same conversation, keyed by id. Works on archived agents and on ones whose pane has since died. An agent that is already running is returned as it stands rather than started twice. The agent may come back under a new name if another has taken its old one."
+      description: "Bring an agent back and relaunch its CLI on the same conversation, keyed by id. Works on archived agents and on ones whose pane has since died. An agent that is already running is returned as it stands rather than started twice. The agent may come back under a new name if another has taken its old one."
       destructive: false
     };
   }

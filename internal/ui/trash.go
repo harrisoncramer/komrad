@@ -87,7 +87,7 @@ func (m model) selectedTrash() (agentstore.Agent, bool) {
 	return m.trash.agents[m.trash.cursor], true
 }
 
-// restoreFromTrash brings the hovered agent back. Restoring relaunches claude on
+// restoreFromTrash brings the hovered agent back. Restoring relaunches the CLI on
 // the same conversation, so the agent returns running rather than as a row, and
 // it may come back renamed if a live agent has taken its name. It leaves the
 // trash either way, so the list is re-read.

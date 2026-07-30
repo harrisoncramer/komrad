@@ -214,8 +214,8 @@ func (c *Client) DetachSession(name string) {
 }
 
 // CapturePane returns the visible content of a pane with colors preserved.
-// Claude runs on the alternate screen, so tmux holds no scrollback for it. The
-// visible frame is all there is to capture.
+// An agent CLI drawing a TUI runs on the alternate screen, so tmux holds no
+// scrollback for it. The visible frame is all there is to capture.
 func (c *Client) CapturePane(pane string) string {
 	out, _ := c.query("capture-pane", "-p", "-e", "-t", pane)
 	return out

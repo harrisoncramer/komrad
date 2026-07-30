@@ -250,7 +250,7 @@ func TestTrashView(t *testing.T) {
 // opened.
 func TestTrashMarkdown(t *testing.T) {
 	got := trashMarkdown(agentstore.Agent{
-		Name: "api-refactor", Cwd: "/work/api", Flags: "--model opus", ClaudeSessionID: "sess-1",
+		Name: "api-refactor", Cwd: "/work/api", Flags: "--model opus", SessionID: "sess-1",
 	}, "nightly")
 
 	assert.Contains(t, got, "api-refactor")

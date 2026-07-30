@@ -26,7 +26,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Agent is one background Claude agent, as stored.
+// Agent is one background agent, as stored.
 type Agent struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -408,7 +408,7 @@ type CreateAgentRequest struct {
 	WorkflowId string `protobuf:"bytes,5,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
 	// A key that makes this create repeatable. A second request carrying a key an
 	// agent already holds returns that agent untouched rather than starting a
-	// second Claude process, which is what makes retrying a launch safe. Omit it
+	// second agent process, which is what makes retrying a launch safe. Omit it
 	// to make no such claim, which is what an interactive create does.
 	IdempotencyKey *string `protobuf:"bytes,6,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
 	unknownFields  protoimpl.UnknownFields
@@ -1467,15 +1467,15 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14GetTranscriptRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"1\n" +
 	"\x15GetTranscriptResponse\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontent2\xaa+\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent2\xa4+\n" +
 	"\fAgentService\x12\xe7\x03\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x9d\x03\x9a\xb5\x18\x95\x03\n" +
 	"\vlist_agents\x12\x85\x03List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow. Soft-deleted agents are excluded unless deleted is set, which lists those and only those. Returns one page, most recently updated first; pass the response's nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs.\x90\x02\x01\x12\x8d\x02\n" +
 	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"\xc9\x01\x9a\xb5\x18\xc1\x01\n" +
-	"\tget_agent\x12\xb3\x01Fetch one agent by its exact name, including whatever metadata it has recorded about its own work. Names are unique among live agents. Returns not_found if no agent has that name.\x90\x02\x01\x12\x86\x03\n" +
-	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\xb9\x02\x9a\xb5\x18\xb4\x02\n" +
-	"\fcreate_agent\x12\xa1\x02Launch a background Claude agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would resolve somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. \x00\x12\x84\x04\n" +
+	"\tget_agent\x12\xb3\x01Fetch one agent by its exact name, including whatever metadata it has recorded about its own work. Names are unique among live agents. Returns not_found if no agent has that name.\x90\x02\x01\x12\xff\x02\n" +
+	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\xb2\x02\x9a\xb5\x18\xad\x02\n" +
+	"\fcreate_agent\x12\x9a\x02Launch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would resolve somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. \x00\x12\x84\x04\n" +
 	"\aSetMark\x12\x18.agent.v1.SetMarkRequest\x1a\x16.google.protobuf.Empty\"\xc6\x03\x9a\xb5\x18\xbe\x03\n" +
 	"\x0eset_agent_mark\x12\xa9\x03Put a mark on an agent, keyed by its id, or clear the one it carries by omitting the mark. A mark is a glyph the user reads off the row, meaning whatever they decided it means, such as needs review or dealt with. Use only the glyphs get_config returns under marks, since the panel's mark key cycles through those and can only clear anything else. What an agent is currently doing is already in its state, so do not mark that. \x00\x90\x02\x02\x12\xd0\x03\n" +
 	"\tSetHidden\x12\x1a.agent.v1.SetHiddenRequest\x1a\x16.google.protobuf.Empty\"\x8e\x03\x9a\xb5\x18\x86\x03\n" +
@@ -1483,9 +1483,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\vSetMetadata\x12\x1c.agent.v1.SetMetadataRequest\x1a\x16.google.protobuf.Empty\"\x94\x06\x9a\xb5\x18\x8c\x06\n" +
 	"\x12set_agent_metadata\x12\xf3\x05Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value. Use this on yourself as you work, whenever you learn something a person would want to jump to later: the Linear issue you are implementing, the pull request you opened, the branch you are on. Your own id is in the CLAUDE_AGENTS_AGENT_ID environment variable. Store the full URL rather than a bare number, since the panel shows the value as it is. Keys are lowercase letters, digits, underscores, and dashes; call this once per key, which leaves every other key on the agent untouched. Do not record what the agent is currently doing, which is already its state, and do not paste findings here, which belong in your reply. \x00\x90\x02\x02\x12\xd4\x02\n" +
 	"\fArchiveAgent\x12\x1d.agent.v1.ArchiveAgentRequest\x1a\x16.google.protobuf.Empty\"\x8c\x02\x9a\xb5\x18\x84\x02\n" +
-	"\rarchive_agent\x12\xf0\x01Stop an agent and hide it from the panel, keeping its record and transcript. Prefer this to delete_agent: it is reversible with restore_agent, and search_transcripts still finds the conversation. Returns not_found if no agent has that name. \x00\x90\x02\x02\x12\x9a\x03\n" +
-	"\fRestoreAgent\x12\x1d.agent.v1.RestoreAgentRequest\x1a\x1e.agent.v1.RestoreAgentResponse\"\xca\x02\x9a\xb5\x18\xc2\x02\n" +
-	"\rrestore_agent\x12\xae\x02Bring an agent back and relaunch claude on the same conversation, keyed by id. Works on archived agents and on ones whose pane has since died. An agent that is already running is returned as it stands rather than started twice. The agent may come back under a new name if another has taken its old one. \x00\x90\x02\x02\x12\xf5\x02\n" +
+	"\rarchive_agent\x12\xf0\x01Stop an agent and hide it from the panel, keeping its record and transcript. Prefer this to delete_agent: it is reversible with restore_agent, and search_transcripts still finds the conversation. Returns not_found if no agent has that name. \x00\x90\x02\x02\x12\x9b\x03\n" +
+	"\fRestoreAgent\x12\x1d.agent.v1.RestoreAgentRequest\x1a\x1e.agent.v1.RestoreAgentResponse\"\xcb\x02\x9a\xb5\x18\xc3\x02\n" +
+	"\rrestore_agent\x12\xaf\x02Bring an agent back and relaunch its CLI on the same conversation, keyed by id. Works on archived agents and on ones whose pane has since died. An agent that is already running is returned as it stands rather than started twice. The agent may come back under a new name if another has taken its old one. \x00\x90\x02\x02\x12\xf5\x02\n" +
 	"\vDeleteAgent\x12\x1c.agent.v1.DeleteAgentRequest\x1a\x16.google.protobuf.Empty\"\xaf\x02\x9a\xb5\x18\xa7\x02\n" +
 	"\fdelete_agent\x12\x94\x02Permanently remove an agent's record, keyed by id. This is a hard delete, not the panel's soft delete: the config and the transcript go with it and search will never find the conversation again. Prefer archive_agent, and prefer leaving agents alone unless asked to remove one. \x01\x90\x02\x02\x12\xd7\x02\n" +
 	"\vUpdateAgent\x12\x1c.agent.v1.UpdateAgentRequest\x1a\x16.google.protobuf.Empty\"\x91\x02\x9a\xb5\x18\x89\x02\n" +

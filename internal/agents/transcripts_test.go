@@ -7,85 +7,14 @@ import (
 	"path/filepath"
 	"testing"
 
+	"claude-agents/internal/harness"
+	"claude-agents/internal/harness/claude"
 	agentstore "claude-agents/internal/store/agent"
 	"claude-agents/internal/store/transcript"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestFlattenTranscript(t *testing.T) {
-	tests := []struct {
-		name string
-		in   string
-		want []turn
-	}{
-		{
-			name: "string user prompt is kept",
-			in:   `{"type":"user","message":{"content":"hello there"}}`,
-			want: []turn{{role: "user", text: "hello there"}},
-		},
-		{
-			name: "assistant text blocks are kept, thinking and tool_use dropped",
-			in: `{"type":"assistant","message":{"content":[` +
-				`{"type":"thinking","thinking":"secret reasoning"},` +
-				`{"type":"text","text":"visible answer"},` +
-				`{"type":"tool_use","name":"Bash","input":{}}` +
-				`]}}`,
-			want: []turn{{role: "assistant", text: "visible answer"}},
-		},
-		{
-			name: "user tool_result blocks are dropped",
-			in:   `{"type":"user","message":{"content":[{"type":"tool_result","content":"exit 0"}]}}`,
-			want: nil,
-		},
-		{
-			name: "meta lines are skipped",
-			in:   `{"type":"user","isMeta":true,"message":{"content":"injected context"}}`,
-			want: nil,
-		},
-		{
-			name: "non-conversation types are skipped",
-			in: `{"type":"mode","mode":"normal"}` + "\n" +
-				`{"type":"file-history-snapshot"}` + "\n" +
-				`{"type":"system","content":"hook fired"}`,
-			want: nil,
-		},
-		{
-			// Postgres refuses a NUL in a text value outright, and the log is written
-			// on the other side of this process, so it is dropped as the prose is read
-			// rather than at the write, where the offsets are already fixed.
-			name: "a NUL is dropped from the text it arrived in",
-			in:   `{"type":"user","message":{"content":"before\u0000after"}}`,
-			want: []turn{{role: "user", text: "beforeafter"}},
-		},
-		{
-			name: "and from a text block",
-			in:   `{"type":"assistant","message":{"content":[{"type":"text","text":"a\u0000b"}]}}`,
-			want: []turn{{role: "assistant", text: "ab"}},
-		},
-		{
-			name: "malformed lines are ignored",
-			in:   "not json\n" + `{"type":"user","message":{"content":"survives"}}`,
-			want: []turn{{role: "user", text: "survives"}},
-		},
-		{
-			name: "turns come back in order, each tagged with who spoke",
-			in: `{"type":"user","message":{"content":"question"}}` + "\n" +
-				`{"type":"assistant","message":{"content":[{"type":"text","text":"answer"}]}}`,
-			want: []turn{
-				{role: "user", text: "question"},
-				{role: "assistant", text: "answer"},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, flattenTranscript([]byte(tt.in)))
-		})
-	}
-}
 
 // TestAppendTurns covers the join and the offsets together, since the offset a turn
 // records is only right if it points at that turn inside the text the same call
@@ -94,7 +23,7 @@ func TestAppendTurns(t *testing.T) {
 	tests := []struct {
 		name     string
 		existing string
-		turns    []turn
+		turns    []harness.Turn
 		want     string
 	}{
 		{
@@ -104,13 +33,13 @@ func TestAppendTurns(t *testing.T) {
 		},
 		{
 			name:  "the first turns start the transcript",
-			turns: []turn{{role: "user", text: "question"}, {role: "assistant", text: "answer"}},
+			turns: []harness.Turn{{Role: "user", Content: "question"}, {Role: "assistant", Content: "answer"}},
 			want:  "question\n\nanswer",
 		},
 		{
 			name:     "later turns are separated from what is already there",
 			existing: "earlier",
-			turns:    []turn{{role: "user", text: "later"}},
+			turns:    []harness.Turn{{Role: "user", Content: "later"}},
 			want:     "earlier\n\nlater",
 		},
 	}
@@ -122,8 +51,8 @@ func TestAppendTurns(t *testing.T) {
 			require.Len(t, indexed, len(tt.turns))
 
 			for i, got := range indexed {
-				assert.Equal(t, tt.turns[i].role, got.Role)
-				assert.Equal(t, tt.turns[i].text, got.Content)
+				assert.Equal(t, tt.turns[i].Role, got.Role)
+				assert.Equal(t, tt.turns[i].Content, got.Content)
 				assert.Equal(t, got.Content, content[got.Offset:got.Offset+int64(len(got.Content))],
 					"the offset locates the turn in the text it was appended to")
 			}
@@ -196,14 +125,14 @@ func TestTranscriptSyncer(t *testing.T) {
 			ctx := context.Background()
 			projects := t.TempDir()
 
-			agent := seedWithClaudeID(t, st, testClaudeID, "agent")
+			agent := seedWithSessionID(t, st, testSessionID, "agent")
 
 			var path string
 			if tt.log != "" {
 				path = writeLog(t, projects, tt.log)
 			}
 
-			syncer := NewTranscriptSyncer(st.Agents, st.Transcripts, projects)
+			syncer := NewTranscriptSyncer(st.Agents, st.Transcripts, claude.New(projects))
 			require.NoError(t, syncer.Sync(ctx))
 
 			first, err := st.GetTranscript(ctx, agent.ID)
@@ -262,14 +191,14 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 
 	// Seeded oldest first, so the failing agent is the newest and the walk reaches
 	// it before the one it would strand.
-	readable := seedWithClaudeID(t, st, "claude-readable", "readable")
-	unsyncable := seedWithClaudeID(t, st, "claude-unsyncable", "unsyncable")
+	readable := seedWithSessionID(t, st, "claude-readable", "readable")
+	unsyncable := seedWithSessionID(t, st, "claude-unsyncable", "unsyncable")
 
 	writeLogFor(t, projects, "claude-readable", `{"type":"user","message":{"content":"a turn worth keeping"}}`+"\n")
 	writeLogFor(t, projects, "claude-unsyncable", `{"type":"user","message":{"content":"never accepted"}}`+"\n")
 
 	store := failingTranscripts{transcriptStore: st.Transcripts, failFor: unsyncable.ID}
-	syncer := NewTranscriptSyncer(st.Agents, store, projects)
+	syncer := NewTranscriptSyncer(st.Agents, store, claude.New(projects))
 
 	// The failure is still reported, so serve logs it rather than leaving an agent
 	// quietly never indexed.
@@ -301,17 +230,17 @@ func (f failingTranscripts) Upsert(ctx context.Context, params transcript.Upsert
 	return f.transcriptStore.Upsert(ctx, params)
 }
 
-// testClaudeID is the claude session id every test log is keyed to. The store id
+// testSessionID is the claude session id every test log is keyed to. The store id
 // is generated on insert, so this only needs to be stable within a test.
-const testClaudeID = "claude-abc"
+const testSessionID = "claude-abc"
 
-// seedWithClaudeID inserts an agent under the given name carrying a claude session
+// seedWithSessionID inserts an agent under the given name carrying a claude session
 // id, and returns it with its generated store id, so a transcript can be keyed to
 // the right row.
-func seedWithClaudeID(t *testing.T, st *testStore, claudeID, name string) agentstore.Agent {
+func seedWithSessionID(t *testing.T, st *testStore, sessionID, name string) agentstore.Agent {
 	t.Helper()
 	ctx := context.Background()
-	require.NoError(t, st.Create(ctx, agentstore.Agent{Name: name, State: agentstore.StateNew, ClaudeSessionID: claudeID}))
+	require.NoError(t, st.Create(ctx, agentstore.Agent{Name: name, State: agentstore.StateNew, SessionID: sessionID}))
 	got, err := st.Get(ctx, name)
 	require.NoError(t, err)
 	require.NotNil(t, got)
@@ -324,16 +253,16 @@ func seedWithClaudeID(t *testing.T, st *testStore, claudeID, name string) agents
 func writeLog(t *testing.T, projectsDir, body string) string {
 	t.Helper()
 
-	return writeLogFor(t, projectsDir, testClaudeID, body)
+	return writeLogFor(t, projectsDir, testSessionID, body)
 }
 
 // writeLogFor is writeLog for a named session, which a test seeding more than one
 // agent needs.
-func writeLogFor(t *testing.T, projectsDir, claudeID, body string) string {
+func writeLogFor(t *testing.T, projectsDir, sessionID, body string) string {
 	t.Helper()
 	dir := filepath.Join(projectsDir, "-some-project")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
-	path := filepath.Join(dir, claudeID+".jsonl")
+	path := filepath.Join(dir, sessionID+".jsonl")
 	require.NoError(t, os.WriteFile(path, []byte(body), 0o644))
 
 	return path

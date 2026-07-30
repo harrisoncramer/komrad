@@ -69,7 +69,7 @@ func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgent
 
 	// A schedule runs one agent at a time. A run that outlives its interval would
 	// otherwise be lapped by the next tick, and an hourly job that takes ninety
-	// minutes would pile up a new Claude beside the last one forever.
+	// minutes would pile up a new agent beside the last one forever.
 	//
 	// The tick is skipped rather than deferred: the work is a sweep of whatever is
 	// outstanding, so the run already going will pick up anything this one would
@@ -94,7 +94,7 @@ func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgent
 		Hidden:     schedule.HideAgents,
 		// The key is the occurrence rather than this attempt, so a retry after a
 		// launch that half-succeeded finds the agent it already made instead of
-		// starting a second Claude on the same prompt.
+		// starting a second agent on the same prompt.
 		IdempotencyKey: LaunchKey(schedule.ID, job.Args.ScheduledFor),
 	})
 

@@ -1,10 +1,9 @@
-package agents
+package harness
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSplitArgs(t *testing.T) {
@@ -42,7 +41,7 @@ func TestSplitArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, splitArgs(tt.flags))
+			assert.Equal(t, tt.want, SplitArgs(tt.flags))
 		})
 	}
 }
@@ -82,7 +81,7 @@ func TestQuoteFlagsNeutralisesShellSyntax(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, quoteFlags(tt.flags))
+			assert.Equal(t, tt.want, QuoteFlags(tt.flags))
 		})
 	}
 }
@@ -114,48 +113,7 @@ func TestQuoteArg(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, quoteArg(tt.arg))
-		})
-	}
-}
-
-// TestLaunchClaudeQuotesFlags confirms the quoting is actually applied on the
-// path that types into the pane, not just available to it.
-func TestLaunchClaudeQuotesFlags(t *testing.T) {
-	tests := []struct {
-		name        string
-		flags       string
-		wantAbsent  string
-		wantPresent string
-	}{
-		{
-			name:        "a command substitution reaches the pane as a literal",
-			flags:       "--model $(touch /tmp/pwned)",
-			wantAbsent:  "claude --model $(",
-			wantPresent: `'$(touch'`,
-		},
-		{
-			name:        "a chained command reaches the pane as a literal",
-			flags:       "--model opus; touch /tmp/pwned",
-			wantAbsent:  "; touch /tmp/pwned",
-			wantPresent: `'opus;'`,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmux := newFakeTmux()
-			manager := newManager(tmux, newStore(t), "")
-
-			require.NoError(t, manager.launcher.launch(launchClaudeParams{
-				Pane:            "pane",
-				Flags:           tt.flags,
-				ClaudeSessionID: "sess",
-			}))
-
-			command := tmux.lastKeys("pane")[0]
-			assert.NotContains(t, command, tt.wantAbsent, "an unquoted flag would run in the pane")
-			assert.Contains(t, command, tt.wantPresent, "the flag survives only as a literal argument")
+			assert.Equal(t, tt.want, QuoteArg(tt.arg))
 		})
 	}
 }

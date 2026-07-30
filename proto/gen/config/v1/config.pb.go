@@ -93,11 +93,11 @@ const file_config_v1_config_proto_rawDesc = "" +
 	"\x11GetConfigResponse\x12/\n" +
 	"\x06config\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06config\x12&\n" +
 	"\fconfig_error\x18\x02 \x01(\tH\x00R\vconfigError\x88\x01\x01B\x0f\n" +
-	"\r_config_error2\xa3\x04\n" +
-	"\rConfigService\x12\x91\x04\n" +
-	"\tGetConfig\x12\x16.google.protobuf.Empty\x1a\x1c.config.v1.GetConfigResponse\"\xcd\x03\x9a\xb5\x18\xc5\x03\n" +
+	"\r_config_error2\xa4\x04\n" +
+	"\rConfigService\x12\x92\x04\n" +
+	"\tGetConfig\x12\x16.google.protobuf.Empty\x1a\x1c.config.v1.GetConfigResponse\"\xce\x03\x9a\xb5\x18\xc6\x03\n" +
 	"\n" +
-	"get_config\x12\xb6\x03Read the panel's configuration as it is currently in force, keyed the same way the user's config file is. Covers the claude flags every new agent inherits and the keybindings for each of the panel's screens. Anything the user left out of their file reads back as the built-in default. A configError in the response means their file would not parse, in which case the configuration returned is the defaults the panel is running on instead.\x90\x02\x01B,Z*claude-agents/proto/gen/config/v1;configv1b\x06proto3"
+	"get_config\x12\xb7\x03Read the panel's configuration as it is currently in force, keyed the same way the user's config file is. Covers the default flags every new agent inherits and the keybindings for each of the panel's screens. Anything the user left out of their file reads back as the built-in default. A configError in the response means their file would not parse, in which case the configuration returned is the defaults the panel is running on instead.\x90\x02\x01B,Z*claude-agents/proto/gen/config/v1;configv1b\x06proto3"
 
 var (
 	file_config_v1_config_proto_rawDescOnce sync.Once

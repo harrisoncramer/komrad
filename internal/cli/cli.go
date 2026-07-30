@@ -12,6 +12,7 @@ import (
 	"claude-agents/config"
 	"claude-agents/internal/agents"
 	"claude-agents/internal/appconfig"
+	"claude-agents/internal/harness/claude"
 	"claude-agents/internal/tmux"
 	"claude-agents/internal/ui"
 	"claude-agents/proto/gen/agent/v1/agentv1connect"
@@ -29,7 +30,7 @@ func NewRootCommand() *cobra.Command {
 
 	root := &cobra.Command{
 		Use:           "claude-agents",
-		Short:         "tmux panel and CLI for background Claude agents",
+		Short:         "tmux panel and CLI for background coding agents",
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -52,7 +53,8 @@ func NewRootCommand() *cobra.Command {
 
 			state.env = env
 			state.keys = cfg.Keybindings
-			state.claudeFlags = cfg.ClaudeFlags
+			state.harness = claude.New("")
+			state.defaultFlags = cfg.ClaudeFlags
 			state.marks = cfg.Marks
 			state.layout = cfg.Layout
 			state.configPath = configPath
