@@ -117,15 +117,14 @@ func TestAgentMarkdown(t *testing.T) {
 			},
 		},
 		{
-			name:  "a live agent says where it runs",
+			name:  "a live agent claims no dormancy and lists its record",
 			alive: true,
 			wantContain: []string{
-				"_running in %9_",
 				"- directory: /repo",
 				"- resume: abc",
 				"- flags: —",
 			},
-			wantAbsent: []string{"Press open to restore"},
+			wantAbsent: []string{"dormant", "Press open to restore"},
 		},
 		{
 			name:        "an agent a schedule launched names the schedule",
