@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"unicode"
@@ -315,13 +316,6 @@ func validateLayout(layout Layout) error {
 	return nil
 }
 
-func fillKeys(configured, def []string) []string {
-	if len(configured) == 0 {
-		return def
-	}
-	return configured
-}
-
 // validate rejects the settings the panel could not run on, so a config that
 // cannot work says so when it is read rather than once something tries to draw
 // with it.
@@ -352,47 +346,32 @@ func (c Config) withDefaults() Config {
 // withDefaults fills any unset binding from the defaults, so a user who sets
 // only some keys keeps the built-ins for the rest.
 func (k Keybindings) withDefaults() Keybindings {
-	def := DefaultKeybindings()
+	filled := k
+	fillBindings(reflect.ValueOf(&filled).Elem(), reflect.ValueOf(DefaultKeybindings()))
 
-	k.Nav.Up = fillKeys(k.Nav.Up, def.Nav.Up)
-	k.Nav.Down = fillKeys(k.Nav.Down, def.Nav.Down)
+	return filled
+}
 
-	k.Agents.Quit = fillKeys(k.Agents.Quit, def.Agents.Quit)
-	k.Agents.Back = fillKeys(k.Agents.Back, def.Agents.Back)
-	k.Agents.Open = fillKeys(k.Agents.Open, def.Agents.Open)
-	k.Agents.New = fillKeys(k.Agents.New, def.Agents.New)
-	k.Agents.Rename = fillKeys(k.Agents.Rename, def.Agents.Rename)
-	k.Agents.Delete = fillKeys(k.Agents.Delete, def.Agents.Delete)
-	k.Agents.Search = fillKeys(k.Agents.Search, def.Agents.Search)
-	k.Agents.Info = fillKeys(k.Agents.Info, def.Agents.Info)
-	k.Agents.Mark = fillKeys(k.Agents.Mark, def.Agents.Mark)
-	k.Agents.Hide = fillKeys(k.Agents.Hide, def.Agents.Hide)
-	k.Agents.ShowHidden = fillKeys(k.Agents.ShowHidden, def.Agents.ShowHidden)
+// fillBindings copies the default into every key list the config left empty, walking
+// the groups of bindings as it goes. A group is a struct and a binding is a slice of
+// keys, which are the two cases below.
+//
+// It reads the struct rather than naming each binding, so adding one is an edit to the
+// struct and nothing else. The generated config.toml is rendered from Defaults by a
+// walk like this one, so both ends read the same structs and neither can fall behind.
+func fillBindings(configured, def reflect.Value) {
+	for i := range configured.NumField() {
+		field := configured.Field(i)
 
-	k.Workflows.New = fillKeys(k.Workflows.New, def.Workflows.New)
-	k.Workflows.Rename = fillKeys(k.Workflows.Rename, def.Workflows.Rename)
-	k.Workflows.Edit = fillKeys(k.Workflows.Edit, def.Workflows.Edit)
-	k.Workflows.Delete = fillKeys(k.Workflows.Delete, def.Workflows.Delete)
+		if field.Kind() == reflect.Struct {
+			fillBindings(field, def.Field(i))
 
-	k.Schedules.Open = fillKeys(k.Schedules.Open, def.Schedules.Open)
-	k.Schedules.Quit = fillKeys(k.Schedules.Quit, def.Schedules.Quit)
-	k.Schedules.Back = fillKeys(k.Schedules.Back, def.Schedules.Back)
-	k.Schedules.New = fillKeys(k.Schedules.New, def.Schedules.New)
-	k.Schedules.Edit = fillKeys(k.Schedules.Edit, def.Schedules.Edit)
-	k.Schedules.Toggle = fillKeys(k.Schedules.Toggle, def.Schedules.Toggle)
-	k.Schedules.Delete = fillKeys(k.Schedules.Delete, def.Schedules.Delete)
-
-	k.Trash.Open = fillKeys(k.Trash.Open, def.Trash.Open)
-	k.Trash.Quit = fillKeys(k.Trash.Quit, def.Trash.Quit)
-	k.Trash.Back = fillKeys(k.Trash.Back, def.Trash.Back)
-	k.Trash.Restore = fillKeys(k.Trash.Restore, def.Trash.Restore)
-	k.Trash.Delete = fillKeys(k.Trash.Delete, def.Trash.Delete)
-
-	k.Form.Quit = fillKeys(k.Form.Quit, def.Form.Quit)
-	k.Form.Back = fillKeys(k.Form.Back, def.Form.Back)
-	k.Form.Submit = fillKeys(k.Form.Submit, def.Form.Submit)
-
-	return k
+			continue
+		}
+		if field.Kind() == reflect.Slice && field.Len() == 0 {
+			field.Set(def.Field(i))
+		}
+	}
 }
 
 // Load reads the config from path when given, otherwise from the default

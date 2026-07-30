@@ -187,6 +187,40 @@ func (q *Queries) GetAgent(ctx context.Context, name string) (*Agent, error) {
 	return &i, err
 }
 
+const getAgentByID = `-- name: GetAgentByID :one
+SELECT
+    id, name, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags
+FROM
+    agents s
+WHERE
+    s.id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetAgentByID(ctx context.Context, id string) (*Agent, error) {
+	row := q.db.QueryRow(ctx, getAgentByID, id)
+	var i Agent
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Prompt,
+		&i.PaneID,
+		&i.State,
+		&i.ClaudeSessionID,
+		&i.WorkflowID,
+		&i.ScheduleID,
+		&i.IdempotencyKey,
+		&i.IsDeleted,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Mark,
+		&i.IsHidden,
+		&i.Cwd,
+		&i.Flags,
+	)
+	return &i, err
+}
+
 const getAgentByIdempotencyKey = `-- name: GetAgentByIdempotencyKey :one
 SELECT
     id, name, prompt, pane_id, state, claude_session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags

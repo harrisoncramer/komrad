@@ -215,7 +215,3 @@ func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 
 	return returned, tea.Batch(write, refresh)
 }
-
-// The workflow screens act through the service like everything else. Each call
-// carries its own short deadline so a wedged server costs a keypress rather than
-// the panel.

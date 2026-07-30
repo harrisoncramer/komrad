@@ -1022,6 +1022,103 @@ func TestDeleteByIDPicksTheArchivedRow(t *testing.T) {
 	assert.Equal(t, "%2", all[0].Pane)
 }
 
+// TestGetByID covers the lookup every call that keys on an id makes. It has to span
+// the archived agents: an id is the only handle a deleted agent still answers to,
+// since its name may have been taken by a live one since. The ids that are not ids
+// matter because a restore or a delete asked for through the MCP tools arrives as
+// whatever string the caller typed.
+func TestGetByID(t *testing.T) {
+	tests := []struct {
+		name string
+		// lookFor is the id to look the agent up under, given the agent that was
+		// created, so a case can ask for that agent or for something that is not it.
+		lookFor func(created Agent) string
+		archive bool
+		wantHit bool
+	}{
+		{
+			name:    "an id nobody holds finds nothing",
+			lookFor: func(Agent) string { return uuid.NewString() },
+		},
+		{
+			name:    "and neither does a string that is not an id",
+			lookFor: func(Agent) string { return "not-an-id" },
+		},
+		{
+			name:    "an empty id finds nothing rather than failing",
+			lookFor: func(Agent) string { return "" },
+		},
+		{
+			name:    "the id an agent holds finds it",
+			lookFor: func(created Agent) string { return created.ID },
+			wantHit: true,
+		},
+		{
+			name:    "and still finds it once the agent is archived",
+			lookFor: func(created Agent) string { return created.ID },
+			archive: true,
+			wantHit: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
+			created, err := st.Get(ctx, "agent")
+			require.NoError(t, err)
+			require.NotNil(t, created)
+
+			if tt.archive {
+				require.NoError(t, st.Archive(ctx, "agent"))
+			}
+
+			got, err := st.GetByID(ctx, tt.lookFor(*created))
+			require.NoError(t, err)
+
+			if !tt.wantHit {
+				assert.Nil(t, got)
+
+				return
+			}
+
+			require.NotNil(t, got)
+			assert.Equal(t, created.ID, got.ID)
+			assert.Equal(t, "agent", got.Name)
+		})
+	}
+}
+
+// TestGetByIDCarriesMetadata covers the one thing the listing this replaced did not.
+// A restore hands the agent back to whoever asked for it, and what that agent recorded
+// about its own work is part of the record.
+func TestGetByIDCarriesMetadata(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, created)
+
+	changed, err := st.SetMetadata(ctx, SetMetadataParams{
+		ID:    created.ID,
+		Key:   "pull_request",
+		Value: xptr.Ptr("https://github.com/o/r/pull/1"),
+	})
+	require.NoError(t, err)
+	require.True(t, changed)
+
+	got, err := st.GetByID(ctx, created.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.Len(t, got.Metadata, 1)
+	assert.Equal(t, "pull_request", got.Metadata[0].Key)
+	assert.Equal(t, "https://github.com/o/r/pull/1", got.Metadata[0].Value)
+}
+
 // TestGetByIdempotencyKey covers the lookup a retried launch makes. It spans
 // archived agents on purpose: the key exists so a retry finds what it already
 // created, and an agent archived since is still that agent.

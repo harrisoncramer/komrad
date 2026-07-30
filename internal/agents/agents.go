@@ -39,9 +39,8 @@ func expandHome(dir string) string {
 
 // agentStore is the part of the agent store this service reads and mutates.
 type agentStore interface {
-	List(ctx context.Context) ([]agentstore.Agent, error)
-	ListAll(ctx context.Context) ([]agentstore.Agent, error)
 	Get(ctx context.Context, name string) (*agentstore.Agent, error)
+	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 	GetByIdempotencyKey(ctx context.Context, key string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
 	Create(ctx context.Context, agent agentstore.Agent) error
@@ -232,54 +231,39 @@ func (s *AgentService) ArchiveAgent(ctx context.Context, name string) error {
 // conversation, and returns it as stored. It spans archived agents, since
 // restoring one is the point. An id that matches nothing is ErrAgentNotFound.
 func (s *AgentService) RestoreAgent(ctx context.Context, id string) (*agentstore.Agent, error) {
-	agents, err := s.agents.ListAll(ctx)
+	agent, err := s.byID(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list agents to restore %q: %w", id, err)
+		return nil, err
 	}
 
-	for _, agent := range agents {
-		if agent.ID != id {
-			continue
-		}
-
-		// An agent still running in its own pane needs no restore. Returning it as it
-		// stands keeps the call idempotent rather than spawning a second window
-		// for the same conversation.
-		if s.AgentRunning(agent) {
-			return &agent, nil
-		}
-
-		if err := s.restore(ctx, agent); err != nil {
-			return nil, err
-		}
-
-		// Restore may rename an agent whose name was taken while it sat archived, so
-		// the row is read back rather than returned from the stale copy.
-		restored, err := s.byID(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-
-		return restored, nil
+	// An agent still running in its own pane needs no restore. Returning it as it
+	// stands keeps the call idempotent rather than spawning a second window
+	// for the same conversation.
+	if s.AgentRunning(*agent) {
+		return agent, nil
 	}
 
-	return nil, ErrAgentNotFound
+	if err := s.restore(ctx, *agent); err != nil {
+		return nil, err
+	}
+
+	// Restore may rename an agent whose name was taken while it sat archived, so the
+	// row is read back rather than returned from the copy taken before the write.
+	return s.byID(ctx, id)
 }
 
-// byID returns the agent with the given id, spanning archived ones.
+// byID returns the agent with the given id, spanning archived ones, and
+// ErrAgentNotFound when no row holds it.
 func (s *AgentService) byID(ctx context.Context, id string) (*agentstore.Agent, error) {
-	agents, err := s.agents.ListAll(ctx)
+	agent, err := s.agents.GetByID(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list agents: %w", err)
+		return nil, err
+	}
+	if agent == nil {
+		return nil, ErrAgentNotFound
 	}
 
-	for _, agent := range agents {
-		if agent.ID == id {
-			return &agent, nil
-		}
-	}
-
-	return nil, ErrAgentNotFound
+	return agent, nil
 }
 
 // NewAgentParams configures a background agent to create.
@@ -349,6 +333,113 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		}
 	}
 
+	plan, err := s.planLaunch(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+
+	// The agent's own id is minted here rather than by the insert below, because the
+	// pane has to be stamped with it before the row exists. A row recorded against an
+	// unstamped pane is a row the reconciler would read as belonging to nobody, and it
+	// would clear the pane out from under an agent that is about to launch in it.
+	id, err := store.NewID()
+	if err != nil {
+		return nil, err
+	}
+
+	pane, err := s.tmux.NewWindow(ManagerSession, plan.name, plan.dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open a window for %q: %w", plan.name, err)
+	}
+
+	// Every failure from here on has to take the window down again, since a pane no
+	// row names runs forever and shows up in no listing. One deferred check does it
+	// for all of them, so a failure path added later cannot forget the kill.
+	launched := false
+	defer func() {
+		if !launched {
+			s.tmux.KillPane(pane)
+		}
+	}()
+
+	if err := s.tmux.SetPaneOwner(pane, id); err != nil {
+		return nil, fmt.Errorf("failed to stamp the pane for %q: %w", plan.name, err)
+	}
+
+	// Generate Claude's session id here and launch with --session-id, so the id is
+	// known up front and restoring the agent can resume that same conversation
+	// with --resume.
+	claudeSessionID := uuid.NewString()
+	if err := s.agents.Create(ctx, agentstore.Agent{
+		ID:              id,
+		Name:            plan.name,
+		Pane:            pane,
+		Cwd:             plan.dir,
+		Flags:           plan.flags,
+		Prompt:          p.Prompt,
+		State:           agentstore.StateNew,
+		ClaudeSessionID: claudeSessionID,
+		WorkflowID:      p.WorkflowID,
+		ScheduleID:      p.ScheduleID,
+		IdempotencyKey:  idempotencyKey(p.IdempotencyKey),
+		Hidden:          p.Hidden,
+	}); err != nil {
+		// uniqueAgentName checks before inserting, so two calls racing on the same
+		// title both pass that check and one loses here.
+		return nil, fmt.Errorf("failed to record agent %q: %w", plan.name, err)
+	}
+
+	// Read the row back rather than returning what was written, since the store owns
+	// the config row's id and the created timestamp, and a caller that never watched
+	// the list has only this record to render.
+	created, err := s.agents.Get(ctx, plan.name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read back agent %q: %w", plan.name, err)
+	}
+	if created == nil {
+		return nil, fmt.Errorf("agent %q vanished after being recorded", plan.name)
+	}
+
+	if err := s.launcher.launch(launchClaudeParams{
+		Pane:   pane,
+		Flags:  plan.flags,
+		Prompt: p.Prompt,
+		// The workflow's shared context is appended to the system prompt at launch.
+		// It is a snapshot, so later edits to the workflow reach only agents spawned
+		// after them.
+		WorkflowContext: plan.workflowContext,
+		ClaudeSessionID: claudeSessionID,
+		AgentID:         id,
+	}); err != nil {
+		// The pane goes with the unwind above. The row has to go too, or the agent
+		// lists as live forever with nothing running behind it.
+		if deleteErr := s.removeAgent(ctx, id); deleteErr != nil {
+			return nil, fmt.Errorf("failed to launch claude for %q (%w), and failed to clean up: %w", plan.name, err, deleteErr)
+		}
+
+		return nil, fmt.Errorf("failed to launch claude for %q: %w", plan.name, err)
+	}
+
+	launched = true
+
+	return created, nil
+}
+
+// launchPlan is a create resolved against the workflow it lands in: where the agent
+// will run, what it will be called, the flags it launches with, and the workflow
+// context to append to its system prompt.
+type launchPlan struct {
+	name            string
+	dir             string
+	flags           string
+	workflowContext string
+}
+
+// planLaunch decides everything about a create that can be decided before anything is
+// opened or written. It touches nothing outside the store it reads, so a create that
+// cannot work fails here rather than part-way through, with a window open and a row to
+// take back out.
+func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launchPlan, error) {
 	// The workflow comes first, since it supplies the defaults everything below
 	// falls back to. An unknown one is refused rather than filed under an id that
 	// renders nowhere.
@@ -374,7 +465,7 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		dir, _ = os.UserHomeDir()
 	}
 
-	// Checking the directory first means the launch fails rather than recording a
+	// Checking the directory here means the create fails rather than recording a
 	// location that is not true.
 	if err := usableDir(dir); err != nil {
 		return nil, err
@@ -388,92 +479,12 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		agentFlags = strings.TrimSpace(wf.Flags)
 	}
 
-	name := s.uniqueAgentName(ctx, p.Title, p.Prompt)
-
-	// The agent's own id is minted here rather than by the insert below, because the
-	// pane has to be stamped with it before the row exists. A row recorded against an
-	// unstamped pane is a row the reconciler would read as belonging to nobody, and it
-	// would clear the pane out from under an agent that is about to launch in it.
-	id, err := store.NewID()
-	if err != nil {
-		return nil, err
-	}
-
-	pane, err := s.tmux.NewWindow(ManagerSession, name, dir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open a window for %q: %w", name, err)
-	}
-	if err := s.tmux.SetPaneOwner(pane, id); err != nil {
-		s.tmux.KillPane(pane)
-
-		return nil, fmt.Errorf("failed to stamp the pane for %q: %w", name, err)
-	}
-	flags := strings.TrimSpace(s.claudeFlags + " " + agentFlags)
-
-	// Generate Claude's session id here and launch with --session-id, so the id is
-	// known up front and restoring the agent can resume that same conversation
-	// with --resume.
-	claudeSessionID := uuid.NewString()
-	if err := s.agents.Create(ctx, agentstore.Agent{
-		ID:              id,
-		Name:            name,
-		Pane:            pane,
-		Cwd:             dir,
-		Flags:           flags,
-		Prompt:          p.Prompt,
-		State:           agentstore.StateNew,
-		ClaudeSessionID: claudeSessionID,
-		WorkflowID:      p.WorkflowID,
-		ScheduleID:      p.ScheduleID,
-		IdempotencyKey:  idempotencyKey(p.IdempotencyKey),
-		Hidden:          p.Hidden,
-	}); err != nil {
-		// uniqueAgentName checks before inserting, so two calls racing on the same
-		// title both pass that check and one loses here. The window is already open
-		// and nothing else knows about it, so without this kill it would run
-		// forever, invisible to every listing.
-		s.tmux.KillPane(pane)
-
-		return nil, fmt.Errorf("failed to record agent %q: %w", name, err)
-	}
-
-	// Read the row back rather than returning what was written, since the store owns
-	// the config row's id and the created timestamp, and a caller that never watched
-	// the list has only this record to render.
-	created, err := s.agents.Get(ctx, name)
-	if err != nil {
-		s.tmux.KillPane(pane)
-
-		return nil, fmt.Errorf("failed to read back agent %q: %w", name, err)
-	}
-	if created == nil {
-		s.tmux.KillPane(pane)
-
-		return nil, fmt.Errorf("agent %q vanished after being recorded", name)
-	}
-
-	if err := s.launcher.launch(launchClaudeParams{
-		Pane:   pane,
-		Flags:  flags,
-		Prompt: p.Prompt,
-		// The workflow's shared context is appended to the system prompt at launch.
-		// It is a snapshot, so later edits to the workflow reach only agents spawned
-		// after them.
-		WorkflowContext: wf.Context,
-		ClaudeSessionID: claudeSessionID,
-		AgentID:         id,
-	}); err != nil {
-		// The row is stored and the pane is open with nothing useful in it. Left
-		// alone it would list as a live agent forever, so both go.
-		s.tmux.KillPane(pane)
-		if deleteErr := s.removeAgent(ctx, id); deleteErr != nil {
-			return nil, fmt.Errorf("failed to launch claude for %q (%w), and failed to clean up: %w", name, err, deleteErr)
-		}
-
-		return nil, fmt.Errorf("failed to launch claude for %q: %w", name, err)
-	}
-
-	return created, nil
+	return &launchPlan{
+		name:            s.uniqueAgentName(ctx, p.Title, p.Prompt),
+		dir:             dir,
+		flags:           strings.TrimSpace(s.claudeFlags + " " + agentFlags),
+		workflowContext: wf.Context,
+	}, nil
 }
 
 // idempotencyKey renders a caller's key for storage. The column is unique across

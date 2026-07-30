@@ -9,34 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFillKeys(t *testing.T) {
-	tests := []struct {
-		name string
-		val  []string
-		def  []string
-		want []string
-	}{
-		{
-			name: "an empty value falls back to the default",
-			val:  nil,
-			def:  []string{"a", "b"},
-			want: []string{"a", "b"},
-		},
-		{
-			name: "a set value is kept",
-			val:  []string{"x"},
-			def:  []string{"a"},
-			want: []string{"x"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, fillKeys(tt.val, tt.def))
-		})
-	}
-}
-
 func TestWithDefaults(t *testing.T) {
 	tests := []struct {
 		name string
@@ -57,6 +29,13 @@ func TestWithDefaults(t *testing.T) {
 			name: "an override in one panel leaves the other panels alone",
 			in:   Keybindings{Workflows: WorkflowsKeys{Delete: []string{"x"}}},
 			want: withWorkflowDelete(DefaultKeybindings(), "x"),
+		},
+		{
+			// A binding written out as an empty list is a binding nobody set, not a
+			// request for a key that does nothing.
+			name: "a binding set to no keys at all falls back like an absent one",
+			in:   Keybindings{Nav: NavKeys{Up: []string{}}},
+			want: DefaultKeybindings(),
 		},
 	}
 

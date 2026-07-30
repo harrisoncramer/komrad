@@ -4,9 +4,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// The messages in. Init starts the loops, Update routes everything that arrives, and
-// the screen that owns the input handles it. Its companion is view.go, the strings
-// out, and model.go, the state between them.
+// The messages coming in. Init starts the loops and Update routes whatever arrives to
+// the screen that owns it. view.go is the other end, the strings going out, and
+// model.go is the state between them.
 
 // hide detaches the popup's client from the persistent manager session without
 // stopping the panel. The bubbletea program keeps running with its state intact,

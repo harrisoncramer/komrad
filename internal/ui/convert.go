@@ -12,9 +12,9 @@ import (
 	workflowstore "claude-agents/internal/store/workflow"
 )
 
-// The panel is written against the store types rather than the protos, so a listing
-// is rendered into them on the way in. Nothing downstream of here holds a proto,
-// which is what keeps the wire shape out of the screens.
+// The panel is written against the store types rather than the protos, so a listing is
+// rendered into them on the way in. What the screens hold is the store's shape, which
+// is what keeps the wire format out of them.
 
 func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 	created, _ := time.Parse(time.RFC3339, s.GetCreatedAt())

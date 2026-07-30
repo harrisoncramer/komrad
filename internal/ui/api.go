@@ -22,8 +22,8 @@ import (
 
 // The panel acts through the service for everything, the same way the MCP tools and
 // the CLI do, so what a person may do from here and what a model may do cannot drift
-// apart. Every call below is one RPC under its own deadline, and every one of them
-// runs inside a command rather than on the render loop.
+// apart. Every call below is one RPC under its own deadline. All but the two reads an
+// edit form opens on run inside a command rather than on the render loop.
 
 // actionTimeout bounds a single call made in response to a keypress. It is
 // generous because creating an agent opens a tmux window on the far side, and it

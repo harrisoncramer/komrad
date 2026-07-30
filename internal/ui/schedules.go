@@ -311,10 +311,6 @@ func (m model) schedulesView() string {
 	return header + renderList(rows, m.schedules.cursor, m.listLines(header, hints)) + hints
 }
 
-// The schedule screens act through the service like everything else. Each call
-// carries its own short deadline so a wedged server costs a keypress rather
-// than the panel.
-
 // applySchedules takes a freshly-listed set as the on-screen schedules. It keeps the
 // cursor on the schedule it was on rather than on an index that now means a
 // different row, since a schedule deleted from another panel shifts everything below

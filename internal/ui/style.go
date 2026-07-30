@@ -11,9 +11,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// What the list draws a row's state, marks, and chrome in. The glyphs are all
-// single-width: an emoji one renders double in some terminals and pushes the column
-// out of line.
+// How a row is drawn: its state, its marks, and the chrome around them. Every glyph
+// here is single-width, since an emoji one renders double in some terminals and pushes
+// the column out of line.
 
 var (
 	headerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#7E9CD8")).Bold(true)

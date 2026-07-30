@@ -39,6 +39,15 @@ WHERE
     AND s.is_deleted = FALSE
 LIMIT 1;
 
+-- name: GetAgentByID :one
+SELECT
+    *
+FROM
+    agents s
+WHERE
+    s.id = @id
+LIMIT 1;
+
 -- name: ActiveNameExists :one
 SELECT
     EXISTS (

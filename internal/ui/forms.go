@@ -14,9 +14,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Every form the panel opens is built here, and each builder hands back the values its
-// fields are bound to alongside the form itself. Reading them rather than the form is
-// the whole point, which formValues says why.
+// Every form the panel opens is built here. Each builder hands back the values its
+// fields are bound to alongside the form itself, and formValues says why a submit reads
+// those rather than the form.
 
 // formValues are what the open form writes into, each nil while no form of that shape
 // is up. huh records a field into its own results only as the cursor leaves it, so a

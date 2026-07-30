@@ -218,6 +218,35 @@ func (s *Store) Get(ctx context.Context, name string) (*Agent, error) {
 	return &agent, nil
 }
 
+// GetByID returns an agent by id, nil when none holds it, or an error for a real
+// failure. It spans the soft-deleted agents, because an id is the only handle one of
+// those still answers to: a live agent may have taken its name since. A string that is
+// not an id reads as nothing found rather than as a database error, the way Exists
+// treats it.
+func (s *Store) GetByID(ctx context.Context, id string) (*Agent, error) {
+	if !store.IsID(id) {
+		return nil, nil
+	}
+
+	row, err := s.queries.GetAgentByID(ctx, id)
+	if store.NoRows(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent %q: %w", id, err)
+	}
+
+	metadata, err := s.metadataByAgent(ctx, []string{row.ID})
+	if err != nil {
+		return nil, err
+	}
+
+	agent := agentFromRow(*row)
+	agent.Metadata = metadata[agent.ID]
+
+	return &agent, nil
+}
+
 // Exists reports whether any agent holds the given id, including soft-deleted
 // ones, so a caller can tell an unknown id from an agent that has nothing stored
 // yet.
