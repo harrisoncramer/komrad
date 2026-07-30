@@ -53,7 +53,7 @@ type contentBlock struct {
 // non-conversation entries are left out so a match reads as something actually said.
 func flattenTranscript(data []byte) []harness.Turn {
 	var turns []harness.Turn
-	for _, raw := range strings.Split(string(data), "\n") {
+	for raw := range strings.SplitSeq(string(data), "\n") {
 		raw = strings.TrimSpace(raw)
 		if raw == "" {
 			continue
