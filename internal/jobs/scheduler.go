@@ -148,28 +148,53 @@ func (s *Scheduler) Reconcile(ctx context.Context) error {
 }
 
 // periodicJobFor builds the River periodic job for one schedule, filed under the id
-// it will be removed by. The occurrence
-// is stamped when the job is constructed, at the resolution a cron expression
-// fires at, so two inserts for the same minute carry identical arguments and
-// River's unique index collapses them into one run.
+// it will be removed by. The occurrence is taken from the schedule rather than from
+// the clock, so two inserts standing for the same firing carry identical arguments
+// and River's unique index collapses them into one run.
 func periodicJobFor(scheduleID string, cron river.PeriodicSchedule) *river.PeriodicJob {
 	return river.NewPeriodicJob(
 		cron,
 		func() (river.JobArgs, *river.InsertOpts) {
 			return LaunchAgentArgs{
 				ScheduleID:   scheduleID,
-				ScheduledFor: occurrenceAt(time.Now()),
+				ScheduledFor: occurrenceFor(cron, time.Now()),
 			}, nil
 		},
 		&river.PeriodicJobOpts{ID: scheduleID},
 	)
 }
 
-// occurrenceAt names the minute a firing belongs to, rounding to the nearest one rather
-// than down. The job is constructed as the schedule fires, which can happen a hair either
-// side of the boundary, and rounding down would file a job built at 09:59.998 under the
-// minute before, where the unique index swallows it as a duplicate of a run that already
-// happened.
-func occurrenceAt(t time.Time) time.Time {
-	return t.Add(30 * time.Second).Truncate(time.Minute)
+// lateness is how long after a firing was due the job standing for it may still be
+// built. River constructs the arguments when its enqueuer gets to the schedule, which
+// is usually within a tick and occasionally much later: a leader election, a paused
+// process, or a machine coming out of sleep all put the construction well after the
+// moment the schedule fired. An hour is far beyond any of them, and it bounds the walk
+// below to sixty steps at the finest resolution a cron expression can name.
+const lateness = time.Hour
+
+// skew is how far ahead of an occurrence the construction may run and still be counted
+// as standing for it, covering a firing that lands a hair before the boundary.
+const skew = 5 * time.Second
+
+// occurrenceFor names the firing a job stands for: the schedule's last occurrence at or
+// before now. Which firing it is has to come from the schedule, since the clock alone
+// cannot tell a job built a minute late for one occurrence from one built early for the
+// next, and naming the wrong one is not cosmetic. The run either collides with the
+// previous firing on the unique index and vanishes with nothing recorded, or is filed
+// under a firing that has not happened yet and blocks the one that follows.
+//
+// It walks forward rather than back because a cron schedule can only say what comes
+// next, starting from a point far enough behind that no plausible lateness precedes it.
+func occurrenceFor(cron river.PeriodicSchedule, now time.Time) time.Time {
+	cutoff := now.Add(skew)
+
+	occurrence := cron.Next(now.Add(-lateness))
+	for {
+		next := cron.Next(occurrence)
+		if next.After(cutoff) {
+			return occurrence
+		}
+
+		occurrence = next
+	}
 }

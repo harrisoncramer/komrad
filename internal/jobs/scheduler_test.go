@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"claude-agents/internal/agents"
 	schedulestore "claude-agents/internal/store/schedule"
 
 	"github.com/riverqueue/river"
@@ -288,59 +289,71 @@ func (r *recordingPeriodic) Remove(id string) {
 	r.removed = append(r.removed, id)
 }
 
-// TestOccurrenceAt covers which minute a firing is filed under. River constructs
-// the job as the schedule fires, which can land either side of the boundary, and
-// naming the wrong minute is not a cosmetic error. The run collides with the
-// previous one on the unique index and vanishes with nothing recorded.
-func TestOccurrenceAt(t *testing.T) {
+// TestOccurrenceFor covers which firing a job is filed under. River builds the job
+// when its enqueuer gets to the schedule, which is not always promptly, and naming
+// the wrong firing is not a cosmetic error. The run either collides with the previous
+// one on the unique index and vanishes with nothing recorded, or takes the name of a
+// firing that has not happened yet and blocks the one that follows.
+func TestOccurrenceFor(t *testing.T) {
+	// Nine in the morning is both the hourly and the daily occurrence, so the rows
+	// below share it.
 	minute := time.Date(2026, time.July, 28, 9, 34, 0, 0, time.UTC)
+	nine := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
 
 	tests := []struct {
 		name string
+		cron string
+		// at is when the job was built, which is the firing's own moment only in the
+		// case where nothing delayed the enqueuer.
 		at   time.Time
 		want time.Time
 	}{
 		{
-			name: "exactly on the boundary",
-			at:   minute,
-			want: minute,
-		},
-		{
-			name: "a hair late, which is the ordinary case",
-			at:   minute.Add(7 * time.Millisecond),
-			want: minute,
-		},
-		{
-			// Rounding down here would file the run under 09:33 and lose it to the
-			// previous minute's job.
-			name: "a hair early, which rounding down would misfile",
+			// A firing can land a hair before the boundary. Taking the occurrence
+			// before it would collide with a run that already happened.
+			name: "a firing built a hair early belongs to the occurrence it beat",
+			cron: "* * * * *",
 			at:   minute.Add(-2 * time.Millisecond),
 			want: minute,
 		},
 		{
-			name: "well into the minute still belongs to it",
-			at:   minute.Add(29 * time.Second),
+			name: "one built most of a minute late still belongs to that minute",
+			cron: "* * * * *",
+			at:   minute.Add(45 * time.Second),
 			want: minute,
 		},
 		{
-			name: "and past the halfway point belongs to the next",
-			at:   minute.Add(31 * time.Second),
-			want: minute.Add(time.Minute),
+			name: "one built a minute late on an hourly schedule belongs to the hour",
+			cron: "0 * * * *",
+			at:   nine.Add(90 * time.Second),
+			want: nine,
 		},
 		{
-			// The job is built when the enqueuer gets to it, which is not always
-			// promptly. A leader election, a paused process, or a machine coming out
-			// of sleep all put the construction well after the moment the schedule
-			// fired, and the firing still belongs to the minute it was due.
-			name: "a firing built a minute late still belongs to the minute it was due",
-			at:   minute.Add(45 * time.Second),
+			name: "and half an hour late on a daily one belongs to the morning",
+			cron: "0 9 * * *",
+			at:   nine.Add(30 * time.Minute),
+			want: nine,
+		},
+		{
+			name: "a firing built on the boundary belongs to itself",
+			cron: "* * * * *",
+			at:   minute,
+			want: minute,
+		},
+		{
+			name: "and one a hair after it, which is the ordinary case",
+			cron: "* * * * *",
+			at:   minute.Add(7 * time.Millisecond),
 			want: minute,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, occurrenceAt(tt.at).UTC())
+			cron, err := agents.ParseCron(tt.cron, "UTC")
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.want, occurrenceFor(cron, tt.at).UTC())
 		})
 	}
 }
