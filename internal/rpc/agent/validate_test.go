@@ -93,42 +93,6 @@ func TestRequestValidation(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "a known state is accepted",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetState(t.Context(), connect.NewRequest(&agentv1.SetStateRequest{Name: "alpha", State: agentstore.StateWaiting}))
-
-				return err
-			},
-		},
-		{
-			name: "so is the state a finished agent settles on",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetState(t.Context(), connect.NewRequest(&agentv1.SetStateRequest{Name: "alpha", State: agentstore.StateDone}))
-
-				return err
-			},
-		},
-		{
-			// An unknown state would store cleanly and then render nowhere, so the
-			// set is closed at the edge.
-			name: "a state outside the set is refused",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetState(t.Context(), connect.NewRequest(&agentv1.SetStateRequest{Name: "alpha", State: "pondering"}))
-
-				return err
-			},
-			wantErr: true,
-		},
-		{
-			name: "a state change with no name matches no agent",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetState(t.Context(), connect.NewRequest(&agentv1.SetStateRequest{Name: "", State: agentstore.StateDone}))
-
-				return err
-			},
-			wantErr: true,
-		},
-		{
 			// The store would rewrite a name like this rather than store it, and the
 			// caller would be told it succeeded under a name it did not ask for.
 			name: "a rename to a name with a space is refused",

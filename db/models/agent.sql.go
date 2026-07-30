@@ -957,45 +957,6 @@ func (q *Queries) SetAgentMetadata(ctx context.Context, arg SetAgentMetadataPara
 	return items, nil
 }
 
-const setAgentState = `-- name: SetAgentState :many
-UPDATE
-    agents
-SET
-    state = $1
-WHERE
-    name = $2
-    AND is_deleted = FALSE
-RETURNING
-    id
-`
-
-type SetAgentStateParams struct {
-	State string
-	Name  string
-}
-
-// SetAgentState returns the row it touched so the caller can tell an agent that
-// does not exist from one that already held the state.
-func (q *Queries) SetAgentState(ctx context.Context, arg SetAgentStateParams) ([]string, error) {
-	rows, err := q.db.Query(ctx, setAgentState, arg.State, arg.Name)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		items = append(items, id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const setAgentStateByID = `-- name: SetAgentStateByID :exec
 UPDATE
     agents

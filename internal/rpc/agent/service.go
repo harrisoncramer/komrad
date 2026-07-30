@@ -36,7 +36,6 @@ type agentStore interface {
 	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, deleted bool) ([]agentstore.Agent, error)
 	Get(ctx context.Context, name string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
-	SetState(ctx context.Context, name, state string) (bool, error)
 	SetMark(ctx context.Context, id string, mark *string) (bool, error)
 	SetHidden(ctx context.Context, id string, hidden bool) (bool, error)
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
@@ -130,21 +129,6 @@ func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.Get
 	}
 
 	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, s.launcher.AgentRunning(*agent)).Agent}), nil
-}
-
-// SetState updates an agent's state. Naming an agent that does not exist is an
-// error rather than a quiet success, so a caller that mistyped a name learns it
-// here rather than wondering why nothing changed.
-func (s *Service) SetState(ctx context.Context, req *connect.Request[agentv1.SetStateRequest]) (*connect.Response[emptypb.Empty], error) {
-	changed, err := s.agents.SetState(ctx, req.Msg.GetName(), req.Msg.GetState())
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set state: %w", err))
-	}
-	if !changed {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("agent %q not found", req.Msg.GetName()))
-	}
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 // SetMark marks an agent, and an unset mark clears it. An id matching nothing is an

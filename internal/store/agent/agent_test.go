@@ -209,14 +209,12 @@ func TestArchiveAndReuse(t *testing.T) {
 			assert.Equal(t, StateNew, got.State)
 			assert.Equal(t, "%2", got.Pane)
 
-			changed, err := st.SetState(ctx, "agent", StateWaiting)
-			require.NoError(t, err)
-			require.True(t, changed)
+			require.NoError(t, st.SetStateByID(ctx, got.ID, StateWaiting))
 
 			live, err = st.List(ctx)
 			require.NoError(t, err)
 			require.Len(t, live, 1)
-			assert.Equal(t, StateWaiting, live[0].State, "a state event keyed by name lands on the live row")
+			assert.Equal(t, StateWaiting, live[0].State, "the live row takes the new state")
 
 			all, err = st.ListAll(ctx)
 			require.NoError(t, err)
@@ -229,33 +227,31 @@ func TestArchiveAndReuse(t *testing.T) {
 	}
 }
 
-// TestSetState guards the rule that a state write never creates a row. A write
-// for an agent the tool did not create finds nothing and changes nothing, so an
-// outside Claude session never leaks into the store.
-func TestSetState(t *testing.T) {
+// TestSetStateByID guards the rule that a state write never creates a row. The
+// reconciler decides a state from a listing it took moments earlier, so it can
+// name an agent that has since been deleted, and that write has to find nothing
+// rather than put the row back.
+func TestSetStateByID(t *testing.T) {
 	tests := []struct {
-		name        string
-		create      bool
-		target      string
-		wantChanged bool
-		wantRows    int
+		name string
+		// target, when set, is written instead of the created agent's own id.
+		target string
+		// wantState is what the created agent should be sitting in afterwards.
+		wantState string
 	}{
 		{
-			name:   "an agent the tool never created",
-			target: "external",
+			name:      "an id no agent holds",
+			target:    "00000000-0000-0000-0000-0000000000ff",
+			wantState: StateNew,
 		},
 		{
-			name:     "a name that exists only as an archived row",
-			create:   true,
-			target:   "archived",
-			wantRows: 1,
+			name:      "an id that is not an id",
+			target:    "not-a-uuid",
+			wantState: StateNew,
 		},
 		{
-			name:        "a live agent",
-			create:      true,
-			target:      "agent",
-			wantChanged: true,
-			wantRows:    1,
+			name:      "the agent's own id",
+			wantState: StateThinking,
 		},
 	}
 
@@ -264,17 +260,22 @@ func TestSetState(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			if tt.create {
-				require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
+			created, err := st.Get(ctx, "agent")
+			require.NoError(t, err)
+			require.NotNil(t, created)
+
+			target := tt.target
+			if target == "" {
+				target = created.ID
 			}
 
-			changed, err := st.SetState(ctx, tt.target, StateThinking)
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantChanged, changed)
+			require.NoError(t, st.SetStateByID(ctx, target, StateThinking))
 
 			all, err := st.ListAll(ctx)
 			require.NoError(t, err)
-			assert.Len(t, all, tt.wantRows, "a state write never inserts")
+			require.Len(t, all, 1, "a state write never inserts")
+			assert.Equal(t, tt.wantState, all[0].State)
 		})
 	}
 }

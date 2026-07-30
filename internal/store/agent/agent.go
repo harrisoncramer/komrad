@@ -322,19 +322,6 @@ func (s *Store) Update(ctx context.Context, agent Agent) error {
 	return nil
 }
 
-// SetState updates just an agent's state, keyed by name. It reports whether a row
-// was updated, so naming an agent that does not exist is distinguishable from
-// setting a state it already had. The query returns the ids it touched, so the
-// count is known without a second read.
-func (s *Store) SetState(ctx context.Context, name, state string) (bool, error) {
-	updated, err := s.queries.SetAgentState(ctx, models.SetAgentStateParams{Name: name, State: state})
-	if err != nil {
-		return false, fmt.Errorf("failed to set state for %q: %w", name, err)
-	}
-
-	return len(updated) > 0, nil
-}
-
 // SetStateByID updates just an agent's state, keyed by its stable id. The
 // reconciler uses this so a write decided from a snapshot always lands on the
 // exact row it observed, even if that row's name was reused by another agent in

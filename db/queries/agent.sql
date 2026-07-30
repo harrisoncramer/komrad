@@ -156,19 +156,6 @@ WHERE
     workflow_id = @workflow_id
     AND is_deleted = FALSE;
 
--- SetAgentState returns the row it touched so the caller can tell an agent that
--- does not exist from one that already held the state.
--- name: SetAgentState :many
-UPDATE
-    agents
-SET
-    state = @state
-WHERE
-    name = @name
-    AND is_deleted = FALSE
-RETURNING
-    id;
-
 -- name: SetAgentStateByID :exec
 UPDATE
     agents

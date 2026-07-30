@@ -340,59 +340,6 @@ func TestUpdateAgent(t *testing.T) {
 	}
 }
 
-func TestSetState(t *testing.T) {
-	tests := []struct {
-		name     string
-		seed     string
-		target   string
-		state    string
-		wantCode connect.Code
-	}{
-		{
-			name:     "a name nobody holds is not a quiet success",
-			target:   "ghost",
-			state:    agentstore.StateDone,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:   "an agent moves to done",
-			seed:   "alpha",
-			target: "alpha",
-			state:  agentstore.StateDone,
-		},
-		{
-			name:   "and to waiting",
-			seed:   "alpha",
-			target: "alpha",
-			state:  agentstore.StateWaiting,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, st := service(t)
-			ctx := t.Context()
-
-			if tt.seed != "" {
-				st.SeedAgent(t, agentstore.Agent{Name: tt.seed, State: agentstore.StateThinking})
-			}
-
-			_, err := svc.SetState(ctx, connect.NewRequest(&agentv1.SetStateRequest{Name: tt.target, State: tt.state}))
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-				return
-			}
-
-			require.NoError(t, err)
-
-			got, err := st.Agents.Get(ctx, tt.target)
-			require.NoError(t, err)
-			require.NotNil(t, got)
-			assert.Equal(t, tt.state, got.State)
-		})
-	}
-}
-
 // TestSetHidden covers hiding over the wire. Hiding is the panel's own view of an
 // agent rather than anything about the agent, so what matters is that the flag comes
 // back on the agent the caller named and that naming nobody is refused.

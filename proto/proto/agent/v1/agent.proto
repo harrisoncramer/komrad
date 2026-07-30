@@ -145,24 +145,6 @@ message GetAgentResponse {
   Agent agent = 1;
 }
 
-// SetStateRequest moves an agent between lifecycle states. The set of states is
-// closed. The store treats an unknown value as a state nothing renders, so a typo
-// would make an agent vanish from every count rather than fail.
-message SetStateRequest {
-  string name = 1 [(buf.validate.field).string = {
-    min_len: 1,
-    max_len: 200
-  }];
-  string state = 2 [(buf.validate.field).string = {
-    in: [
-      "new",
-      "thinking",
-      "waiting",
-      "done"
-    ]
-  }];
-}
-
 // SetMarkRequest marks an agent, and an unset mark clears it. It is keyed by id
 // rather than name because the mark outlives a rename, and the panel already holds
 // the id of the row it is looking at.
@@ -344,16 +326,8 @@ service AgentService {
       destructive: false
     };
   }
-  // Mutations key on the unique agent name, so repeating them yields the same
-  // state. They are idempotent and safe for the client to retry.
-  rpc SetState(SetStateRequest) returns (google.protobuf.Empty) {
-    option idempotency_level = IDEMPOTENT;
-    option (annotation.v1.tool) = {
-      tool_name: "set_agent_state"
-      description: "Move an agent to one of new, thinking, waiting, or done. The reconciler derives state from the live pane every couple of seconds, so a value set here is overwritten shortly after unless the agent is dormant."
-      destructive: false
-    };
-  }
+  // Mutations key on the id of the row the caller is looking at, so repeating one
+  // yields the same state. They are idempotent and safe for the client to retry.
   rpc SetMark(SetMarkRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
