@@ -522,24 +522,10 @@ func (s *Store) CountLiveForSchedule(ctx context.Context, scheduleID string) (in
 	return count, nil
 }
 
-// Find resolves an agent by name to the ids a delete needs, nil when no agent has
-// that name.
-func (s *Store) Find(ctx context.Context, name string) (*Target, error) {
-	row, err := s.queries.GetAgentForDelete(ctx, name)
-	if store.NoRows(err) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to find agent %q: %w", name, err)
-	}
-
-	return &Target{ID: row.ID, AgentConfigID: row.AgentConfigID}, nil
-}
-
 // FindByID resolves an agent by id to the ids a delete needs, nil when no agent
-// holds it. This is what the trash deletes through: a name identifies at most
-// one live agent, but the deleted rows it may collide with are exactly the ones
-// being destroyed there.
+// holds it. Deletes key on the id rather than the name, since a name identifies
+// at most one live agent and the deleted rows it may collide with are exactly the
+// ones the trash destroys.
 func (s *Store) FindByID(ctx context.Context, id string) (*Target, error) {
 	row, err := s.queries.GetAgentForDeleteByID(ctx, id)
 	if store.NoRows(err) {
@@ -622,21 +608,6 @@ func (s *Store) Restore(ctx context.Context, id string) error {
 
 	if err := s.queries.RestoreAgent(ctx, id); err != nil {
 		return fmt.Errorf("failed to restore agent %q: %w", id, err)
-	}
-
-	return nil
-}
-
-// MoveToWorkflow reassigns an agent to another workflow, keyed by the agent's
-// id. There is nowhere to move an agent to but a workflow, so this replaces one
-// with another rather than being able to clear it.
-func (s *Store) MoveToWorkflow(ctx context.Context, id, workflowID string) error {
-	if !store.IsID(id) {
-		return nil
-	}
-
-	if err := s.queries.SetAgentWorkflow(ctx, models.SetAgentWorkflowParams{ID: id, WorkflowID: workflowID}); err != nil {
-		return fmt.Errorf("failed to move agent %q to workflow: %w", id, err)
 	}
 
 	return nil

@@ -251,29 +251,6 @@ func (q *Queries) GetAgentByIdempotencyKey(ctx context.Context, idempotencyKey *
 	return &i, err
 }
 
-const getAgentForDelete = `-- name: GetAgentForDelete :one
-SELECT
-    id,
-    agent_config_id
-FROM
-    agents
-WHERE
-    name = $1
-`
-
-type GetAgentForDeleteRow struct {
-	ID            string
-	AgentConfigID string
-}
-
-// GetAgentForDelete resolves the two ids a hard delete has to remove rows by.
-func (q *Queries) GetAgentForDelete(ctx context.Context, name string) (*GetAgentForDeleteRow, error) {
-	row := q.db.QueryRow(ctx, getAgentForDelete, name)
-	var i GetAgentForDeleteRow
-	err := row.Scan(&i.ID, &i.AgentConfigID)
-	return &i, err
-}
-
 const getAgentForDeleteByID = `-- name: GetAgentForDeleteByID :one
 SELECT
     id,
@@ -289,6 +266,7 @@ type GetAgentForDeleteByIDRow struct {
 	AgentConfigID string
 }
 
+// GetAgentForDeleteByID resolves the two ids a hard delete has to remove rows by.
 func (q *Queries) GetAgentForDeleteByID(ctx context.Context, id string) (*GetAgentForDeleteByIDRow, error) {
 	row := q.db.QueryRow(ctx, getAgentForDeleteByID, id)
 	var i GetAgentForDeleteByIDRow
@@ -1002,25 +980,6 @@ type SetAgentStateByIDParams struct {
 
 func (q *Queries) SetAgentStateByID(ctx context.Context, arg SetAgentStateByIDParams) error {
 	_, err := q.db.Exec(ctx, setAgentStateByID, arg.State, arg.ID)
-	return err
-}
-
-const setAgentWorkflow = `-- name: SetAgentWorkflow :exec
-UPDATE
-    agents
-SET
-    workflow_id = $1
-WHERE
-    id = $2
-`
-
-type SetAgentWorkflowParams struct {
-	WorkflowID string
-	ID         string
-}
-
-func (q *Queries) SetAgentWorkflow(ctx context.Context, arg SetAgentWorkflowParams) error {
-	_, err := q.db.Exec(ctx, setAgentWorkflow, arg.WorkflowID, arg.ID)
 	return err
 }
 

@@ -111,17 +111,21 @@ func (m model) workflowByID(id string) *workflowstore.Workflow {
 	return nil
 }
 
-// toggleSchedule pauses or resumes the hovered schedule.
+// toggleSchedule pauses or resumes the hovered schedule. One key does both
+// directions, so which way it went has to come from the row for the failure to
+// name it.
 func (m model) toggleSchedule() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedSchedule()
 	if !ok {
 		return m, nil
 	}
 
-	m.report(
-		fmt.Sprintf("Could not pause schedule %q", item.schedule.Name),
-		m.setScheduleEnabled(item.schedule.ID, !item.schedule.Enabled),
-	)
+	failure := fmt.Sprintf("Could not pause schedule %q", item.schedule.Name)
+	if !item.schedule.Enabled {
+		failure = fmt.Sprintf("Could not resume schedule %q", item.schedule.Name)
+	}
+
+	m.report(failure, m.setScheduleEnabled(item.schedule.ID, !item.schedule.Enabled))
 	m.reloadSchedules()
 
 	return m.enterSchedules()

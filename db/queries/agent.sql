@@ -1,6 +1,6 @@
 -- name: ListAgents :many
 SELECT
-    sqlc.embed(s),
+    sqlc.embed (s),
     sc.cwd,
     sc.flags
 FROM
@@ -13,7 +13,7 @@ ORDER BY
 
 -- name: ListAgentsPage :many
 SELECT
-    sqlc.embed(s),
+    sqlc.embed (s),
     sc.cwd,
     sc.flags
 FROM
@@ -29,7 +29,7 @@ LIMIT @lim;
 
 -- name: ListAllAgents :many
 SELECT
-    sqlc.embed(s),
+    sqlc.embed (s),
     sc.cwd,
     sc.flags
 FROM
@@ -40,7 +40,7 @@ ORDER BY
 
 -- name: GetAgent :one
 SELECT
-    sqlc.embed(s),
+    sqlc.embed (s),
     sc.cwd,
     sc.flags
 FROM
@@ -86,7 +86,7 @@ RETURNING
 
 -- name: GetAgentByIdempotencyKey :one
 SELECT
-    sqlc.embed(s),
+    sqlc.embed (s),
     sc.cwd,
     sc.flags
 FROM
@@ -117,14 +117,6 @@ SET
     ELSE
         claude_session_id
     END,
-    workflow_id = @workflow_id
-WHERE
-    id = @id;
-
--- name: SetAgentWorkflow :exec
-UPDATE
-    agents
-SET
     workflow_id = @workflow_id
 WHERE
     id = @id;
@@ -213,7 +205,8 @@ WHERE
 ON CONFLICT (agent_id,
     KEY)
     DO UPDATE SET
-        value = @value, updated_at = now()
+        value = @value,
+        updated_at = now()
     RETURNING
         agent_id;
 
@@ -239,16 +232,7 @@ ORDER BY
     agent_id,
     KEY;
 
--- GetAgentForDelete resolves the two ids a hard delete has to remove rows by.
--- name: GetAgentForDelete :one
-SELECT
-    id,
-    agent_config_id
-FROM
-    agents
-WHERE
-    name = @name;
-
+-- GetAgentForDeleteByID resolves the two ids a hard delete has to remove rows by.
 -- name: GetAgentForDeleteByID :one
 SELECT
     id,
@@ -378,7 +362,9 @@ WHERE (c.tsv @@ q.query
 AND (sqlc.narg ('cursor_rank')::float8 IS NULL
     OR ts_rank_cd(c.tsv, q.query) < sqlc.narg ('cursor_rank')
     OR (ts_rank_cd(c.tsv, q.query) = sqlc.narg ('cursor_rank')
-        AND (c.agent_id, c.seq) > (sqlc.narg ('cursor_agent_id')::uuid, sqlc.narg ('cursor_seq')::int)))
+        AND (c.agent_id,
+            c.seq) > (sqlc.narg ('cursor_agent_id')::uuid,
+            sqlc.narg ('cursor_seq')::int)))
 ORDER BY
     rank DESC,
     c.agent_id ASC,

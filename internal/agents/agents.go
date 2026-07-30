@@ -488,8 +488,8 @@ func idempotencyKey(key string) *string {
 }
 
 // restore recreates a dormant agent's tmux window from its stored cwd and flags,
-// updating the record. An archived agent has its hidden flag cleared, which is
-// what returns it to the normal listing.
+// updating the record. An archived agent has its soft-delete flag cleared, which
+// is what returns it to the normal listing.
 func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) error {
 	dir := s.resumeDir(agent)
 
@@ -517,9 +517,9 @@ func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) erro
 		return fmt.Errorf("failed to stamp the pane for %q: %w", agent.Name, err)
 	}
 
-	// Clearing the soft-delete flag is what puts the row back in the unique-name
-	// index and so back in the listing. The update below is keyed by id and leaves
-	// both alone.
+	// A restored agent is one the user wants back in the panel, so the soft-delete
+	// flag goes. Update below writes neither that flag nor the name, so this is its
+	// own call rather than part of the same write.
 	if agent.Deleted {
 		if err := s.agents.Restore(ctx, agent.ID); err != nil {
 			return fmt.Errorf("failed to unarchive agent %q: %w", agent.Name, err)
@@ -529,8 +529,7 @@ func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) erro
 	agent.Pane = pane
 	agent.State = agentstore.StateNew
 	// The resolved directory is recorded, since resumeDir may have moved the agent
-	// somewhere else entirely and the row is what the panel shows and the next
-	// restore reads.
+	// somewhere else and the row is what the panel shows and the next restore reads.
 	agent.Cwd = dir
 	if err := s.agents.Update(ctx, agent); err != nil {
 		return fmt.Errorf("failed to restore agent %q: %w", agent.Name, err)

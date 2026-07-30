@@ -667,7 +667,7 @@ func TestDeleteTakesMetadata(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, changed)
 
-	target, err := st.Find(ctx, "agent")
+	target, err := st.FindByID(ctx, created.ID)
 	require.NoError(t, err)
 	require.NotNil(t, target)
 	require.NoError(t, st.Delete(ctx, *target))
@@ -847,7 +847,11 @@ func TestDelete(t *testing.T) {
 			require.NoError(t, st.Create(ctx, Agent{Name: "alpha", Pane: "%1", State: StateNew}))
 
 			if tt.hard {
-				target, err := st.Find(ctx, "alpha")
+				created, err := st.Get(ctx, "alpha")
+				require.NoError(t, err)
+				require.NotNil(t, created)
+
+				target, err := st.FindByID(ctx, created.ID)
 				require.NoError(t, err)
 				require.NotNil(t, target)
 				require.NoError(t, st.Delete(ctx, *target))
@@ -933,64 +937,6 @@ func TestFindByID(t *testing.T) {
 	missing, err := st.FindByID(ctx, "019fa434-e7a7-7ac9-bab5-718681da797d")
 	require.NoError(t, err)
 	assert.Nil(t, missing, "an id nobody holds is nil rather than an error")
-}
-
-// TestMoveToWorkflow covers filing an agent under a different workflow. There is
-// nowhere to move an agent to but a workflow, so this replaces one with another
-// rather than being able to clear it.
-func TestMoveToWorkflow(t *testing.T) {
-	tests := []struct {
-		name string
-		// move says whether the agent is reassigned at all, so a case can show what
-		// an untouched agent still reports.
-		move bool
-	}{
-		{
-			name: "an agent stays in the workflow it was created in",
-		},
-		{
-			name: "and moves when it is reassigned",
-			move: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := open(t)
-			ctx := t.Context()
-
-			elsewhere, err := st.workflows.Create(ctx, workflowstore.Config{Name: "elsewhere"})
-			require.NoError(t, err)
-
-			require.NoError(t, st.Create(ctx, Agent{Name: "scoped", State: StateNew}))
-			require.NoError(t, st.Create(ctx, Agent{Name: "untouched", State: StateNew}))
-
-			scoped, err := st.Get(ctx, "scoped")
-			require.NoError(t, err)
-			require.NotNil(t, scoped)
-			assert.Equal(t, st.defaultWorkflow, scoped.WorkflowID)
-
-			want := st.defaultWorkflow
-			if tt.move {
-				require.NoError(t, st.MoveToWorkflow(ctx, scoped.ID, elsewhere.ID))
-				want = elsewhere.ID
-			}
-
-			got, err := st.Get(ctx, "scoped")
-			require.NoError(t, err)
-			require.NotNil(t, got)
-			assert.Equal(t, want, got.WorkflowID)
-
-			other, err := st.Get(ctx, "untouched")
-			require.NoError(t, err)
-			require.NotNil(t, other)
-			assert.Equal(t, st.defaultWorkflow, other.WorkflowID, "moving one agent leaves the others alone")
-
-			all, err := st.List(ctx)
-			require.NoError(t, err)
-			assert.Len(t, all, 2, "the root list shows every agent regardless of workflow")
-		})
-	}
 }
 
 // TestGetByIdempotencyKey covers the lookup a retried launch makes. It spans

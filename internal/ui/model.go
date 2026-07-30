@@ -400,9 +400,15 @@ type agentItem struct {
 func (m *model) reload() {
 	m.reloadWorkflows()
 
-	listed, err := client.ListAllAgents(context.Background(), m.api.agents)
+	ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
+	defer cancel()
+
+	listed, err := client.ListAllAgents(ctx, m.api.agents)
 	if err != nil {
-		m.agents = nil
+		// The list already on screen is kept. Blanking it would say every agent had
+		// been deleted, which is not what a list that failed to answer means.
+		m.failAction("Could not list agents", err)
+
 		return
 	}
 
