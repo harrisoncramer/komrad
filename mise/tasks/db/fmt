@@ -1,34 +1,37 @@
 #!/usr/bin/env bash
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 set -euo pipefail
-#MISE description="Format the sqlc queries with pg_format."
+#MISE description="Format the sqlc queries and the Atlas schema."
 
 usage() {
-  echo "Usage: mise run db:fmt [--check]"
-  echo
-  echo "Rewrites db/queries with pg_format. Pass --check to name the files that"
-  echo "would change and exit non-zero instead."
-  echo
-  echo "pg_format output is not stable across releases, so the version this runs"
-  echo "with has to match the one .pg_format.conf declares, which is also the one"
-  echo "mise.toml installs."
+	echo "Usage: mise run db:fmt [--check]"
+	echo
+	echo "Rewrites db/queries with pg_format and db/schema with atlas. Pass --check"
+	echo "to name the files that would change and exit non-zero instead."
+	echo
+	echo "pg_format output is not stable across releases, so the version this runs"
+	echo "with has to match the one .pg_format.conf declares, which is also the one"
+	echo "mise.toml installs."
+	echo
+	echo "db/migrations is left alone. Atlas writes it from db/schema, so it is"
+	echo "generated output and formatting it by hand would only show up as drift."
 }
 
 CHECK=false
 for arg in "$@"; do
-  case "$arg" in
-  -h | --help)
-    usage
-    exit 0
-    ;;
-  --check)
-    CHECK=true
-    ;;
-  *)
-    usage >&2
-    exit 1
-    ;;
-  esac
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	--check)
+		CHECK=true
+		;;
+	*)
+		usage >&2
+		exit 1
+		;;
+	esac
 done
 
 cd "$MISE_CONFIG_ROOT"
@@ -38,30 +41,30 @@ CONF=.pg_format.conf
 want="$(sed -n 's/^# pg_format-version: //p' "$CONF")"
 got="$(pg_format --version | awk '{print $NF}')"
 if [ "$want" != "$got" ]; then
-  gum log --level error "pg_format $got is on PATH but $CONF declares $want; run through mise so the pinned build is used"
-  exit 1
+	gum log --level error "pg_format $got is on PATH but $CONF declares $want; run through mise so the pinned build is used"
+	exit 1
 fi
 
 failed=()
 for query in db/queries/*.sql; do
-  formatted="$(pg_format --config "$CONF" - <"$query")"
+	formatted="$(pg_format --config "$CONF" - <"$query")"
 
-  if [ "$CHECK" = true ]; then
-    if [ "$formatted" != "$(cat "$query")" ]; then
-      failed+=("$query")
-    fi
-    continue
-  fi
+	if [ "$CHECK" = true ]; then
+		if [ "$formatted" != "$(cat "$query")" ]; then
+			failed+=("$query")
+		fi
+		continue
+	fi
 
-  printf '%s\n' "$formatted" >"$query"
+	printf '%s\n' "$formatted" >"$query"
 done
 
 if [ "$CHECK" = true ]; then
-  if ((${#failed[@]} > 0)); then
-    gum log --level error "these queries are not pg_format clean; run 'mise run db:fmt'"
-    printf '  %s\n' "${failed[@]}" >&2
-    exit 1
-  fi
+	if ((${#failed[@]} > 0)); then
+		gum log --level error "these queries are not pg_format clean; run 'mise run db:fmt'"
+		printf '  %s\n' "${failed[@]}" >&2
+		exit 1
+	fi
 
-  echo "pg_format clean"
+	echo "pg_format clean"
 fi
