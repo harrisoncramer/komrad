@@ -13,7 +13,7 @@ import (
 // ListAllSchedules returns every schedule, following the page tokens until the
 // listing is exhausted.
 func ListAllSchedules(ctx context.Context, schedules schedulev1connect.ScheduleServiceClient) ([]*schedulev1.Schedule, error) {
-	return listAll(ctx, "schedules", func(ctx context.Context, page *paginationv1.Pagination) ([]*schedulev1.Schedule, string, error) {
+	return listAll(ctx, func(ctx context.Context, page *paginationv1.Pagination) ([]*schedulev1.Schedule, string, error) {
 		resp, err := schedules.ListSchedules(ctx, connect.NewRequest(&schedulev1.ListSchedulesRequest{Pagination: page}))
 		if err != nil {
 			return nil, "", err

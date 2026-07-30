@@ -13,7 +13,7 @@ import (
 // ListAllWorkflows returns every workflow, following the page tokens until the
 // listing is exhausted.
 func ListAllWorkflows(ctx context.Context, workflows workflowv1connect.WorkflowServiceClient) ([]*workflowv1.Workflow, error) {
-	return listAll(ctx, "workflows", func(ctx context.Context, page *paginationv1.Pagination) ([]*workflowv1.Workflow, string, error) {
+	return listAll(ctx, func(ctx context.Context, page *paginationv1.Pagination) ([]*workflowv1.Workflow, string, error) {
 		resp, err := workflows.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{Pagination: page}))
 		if err != nil {
 			return nil, "", err

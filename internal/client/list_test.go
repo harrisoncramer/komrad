@@ -90,7 +90,7 @@ func TestListAll(t *testing.T) {
 				return records, "", nil
 			}
 
-			got, err := listAll(t.Context(), "things", fetch)
+			got, err := listAll(t.Context(), fetch)
 			if tt.wantErr {
 				require.Error(t, err)
 				assert.Nil(t, got, "a listing that did not finish returns nothing")
@@ -121,7 +121,7 @@ func TestListAllStopsAtTheCap(t *testing.T) {
 		return []string{"a"}, "always-another", nil
 	}
 
-	_, err := listAll(t.Context(), "things", fetch)
+	_, err := listAll(t.Context(), fetch)
 	require.Error(t, err)
 	assert.Equal(t, maxPages, calls, "the cap is what stopped it")
 }

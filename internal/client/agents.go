@@ -27,7 +27,7 @@ func ListAllDeletedAgents(ctx context.Context, agents agentv1connect.AgentServic
 }
 
 func listAllAgents(ctx context.Context, agents agentv1connect.AgentServiceClient, deleted bool) ([]*agentv1.Agent, error) {
-	return listAll(ctx, "agents", func(ctx context.Context, page *paginationv1.Pagination) ([]*agentv1.Agent, string, error) {
+	return listAll(ctx, func(ctx context.Context, page *paginationv1.Pagination) ([]*agentv1.Agent, string, error) {
 		resp, err := agents.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{
 			Pagination: page,
 			Deleted:    deleted,

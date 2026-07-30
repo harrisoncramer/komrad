@@ -20,7 +20,7 @@ const (
 type fetchPage[T any] func(ctx context.Context, page *paginationv1.Pagination) ([]T, string, error)
 
 // listAll follows a listing's page tokens to the end and returns everything they covered. Running out of pages is a failure rather than the end of the listing
-func listAll[T any](ctx context.Context, what string, fetch fetchPage[T]) ([]T, error) {
+func listAll[T any](ctx context.Context, fetch fetchPage[T]) ([]T, error) {
 	var (
 		all    []T
 		cursor string
@@ -34,7 +34,7 @@ func listAll[T any](ctx context.Context, what string, fetch fetchPage[T]) ([]T, 
 
 		records, next, err := fetch(ctx, page)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list %s: %w", what, err)
+			return nil, fmt.Errorf("failed to list: %w", err)
 		}
 
 		all = append(all, records...)
@@ -45,5 +45,5 @@ func listAll[T any](ctx context.Context, what string, fetch fetchPage[T]) ([]T, 
 		cursor = next
 	}
 
-	return nil, fmt.Errorf("failed to list %s: still paging after %d pages", what, maxPages)
+	return nil, fmt.Errorf("failed to list: still paging after %d pages", maxPages)
 }
