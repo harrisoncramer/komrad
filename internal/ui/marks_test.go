@@ -78,38 +78,50 @@ func TestNextMark(t *testing.T) {
 }
 
 // TestMarkColor covers which colour a glyph is drawn in, including the glyphs the
-// config has nothing to say about.
+// config has nothing to say about. A colour comes back as lipgloss reads it, so a
+// configured name arrives here as the index it draws as.
 func TestMarkColor(t *testing.T) {
 	tests := []struct {
 		name  string
 		glyph string
+		marks []appconfig.Mark
 		want  string
 	}{
 		{
-			name:  "a glyph the config does not list falls back",
+			name:  "a glyph the config does not list falls back to the default yellow",
 			glyph: "★",
-			want:  appconfig.DefaultMarkColor,
+			marks: marks,
+			want:  "3",
 		},
 		{
 			name:  "so does one configured with no colour of its own",
 			glyph: "✓",
-			want:  appconfig.DefaultMarkColor,
+			marks: marks,
+			want:  "3",
 		},
 		{
 			name:  "a configured colour is the one used",
 			glyph: "●",
+			marks: marks,
 			want:  "#F932A1",
 		},
 		{
 			name:  "including a three-digit one",
 			glyph: "◐",
+			marks: marks,
 			want:  "#0f0",
+		},
+		{
+			name:  "a colour named rather than given in hex draws as its index",
+			glyph: "◆",
+			marks: []appconfig.Mark{{Glyph: "◆", Color: "brightcyan"}},
+			want:  "14",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, string(markColor(tt.glyph, marks)))
+			assert.Equal(t, tt.want, string(markColor(tt.glyph, tt.marks)))
 		})
 	}
 }

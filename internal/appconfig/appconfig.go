@@ -195,7 +195,10 @@ type Config struct {
 	// The marks the mark key cycles through, in order. A mark is a glyph and means
 	// whatever you decide, so the glyph is the label. Pressing mark advances the
 	// hovered agent to the next one here, and past the last one back to unmarked,
-	// which leaves a one-mark list behaving as a toggle.
+	// which leaves a one-mark list behaving as a toggle. A colour is either one of the
+	// sixteen your terminal's own scheme maps, named as "red" or "brightred", or a hex
+	// value such as "#DCA561". The panel draws itself from the sixteen, so a name is
+	// what keeps a mark in the same scheme as everything around it.
 	Marks []Mark `mapstructure:"marks"`
 	// Panel keybindings, scoped to the screen each action acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`
@@ -236,14 +239,52 @@ func DefaultLayout() Layout {
 // further.
 type Mark struct {
 	Glyph string `mapstructure:"glyph" json:"glyph"`
-	// A hex colour such as "#DCA561", either three or six digits. Left empty the
-	// mark takes DefaultMarkColor.
+	// The colour the glyph is drawn in, either one of the sixteen a terminal's own
+	// scheme maps, named as "red" or "brightred", or a hex value such as "#DCA561" with
+	// three or six digits. A name follows whatever your colour scheme holds in that
+	// slot, the way the rest of the panel does, while hex is the same in every terminal.
+	// Left empty the mark takes DefaultMarkColor.
 	Color string `mapstructure:"color" json:"color"`
 }
 
-// DefaultMarkColor is the yellow a mark takes when its own colour is unset. The panel
-// uses it for nothing else, so a mark left on it cannot be read as a lifecycle state.
-const DefaultMarkColor = "#DCA561"
+// DefaultMarkColor is the yellow a mark takes when its own colour is unset. It is the
+// plain yellow rather than the bright one the panel draws a thinking agent in, so a mark
+// left on the default cannot be read as a lifecycle state.
+const DefaultMarkColor = "yellow"
+
+// ansiColors are the sixteen colours a terminal's scheme maps, keyed by the name a config
+// names one by and valued by the index lipgloss draws it as. They are the palette the
+// panel itself is drawn from, so a mark named this way sits in the same scheme as the
+// rows around it.
+var ansiColors = map[string]string{
+	"black":         "0",
+	"red":           "1",
+	"green":         "2",
+	"yellow":        "3",
+	"blue":          "4",
+	"magenta":       "5",
+	"cyan":          "6",
+	"white":         "7",
+	"brightblack":   "8",
+	"brightred":     "9",
+	"brightgreen":   "10",
+	"brightyellow":  "11",
+	"brightblue":    "12",
+	"brightmagenta": "13",
+	"brightcyan":    "14",
+	"brightwhite":   "15",
+}
+
+// ResolveColor is a configured colour in the form lipgloss reads it. A name becomes its
+// index, which is what lipgloss maps onto the terminal's own scheme, and a hex value
+// passes through as it is.
+func ResolveColor(color string) string {
+	if index, ok := ansiColors[color]; ok {
+		return index
+	}
+
+	return color
+}
 
 // DefaultMarks are the marks stepped through when the config names none. They share
 // one colour, leaving the glyph to carry the meaning until someone colours them
@@ -315,6 +356,17 @@ const maxMarkLen = 16
 // mark's colour rather than say so.
 var hexColor = regexp.MustCompile(`^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
 
+// validColor reports whether the panel could draw a colour. The names are a closed set
+// rather than anything the terminal might accept, so a colour spelled wrongly is refused
+// here instead of drawing as no colour at all.
+func validColor(color string) bool {
+	if _, ok := ansiColors[color]; ok {
+		return true
+	}
+
+	return hexColor.MatchString(color)
+}
+
 // validateMarks rejects marks the panel could not draw. A glyph goes straight into a
 // rendered frame, so whitespace or a control character would break the row it sits on,
 // and a glyph listed twice would never be steppable past its first appearance.
@@ -332,8 +384,8 @@ func validateMarks(marks []Mark) error {
 			return fmt.Errorf("mark %q carries whitespace or control characters", mark.Glyph)
 		case seen[mark.Glyph]:
 			return fmt.Errorf("mark %q is listed twice", mark.Glyph)
-		case mark.Color != "" && !hexColor.MatchString(mark.Color):
-			return fmt.Errorf("mark %q has colour %q, which is not a hex colour such as \"#DCA561\"", mark.Glyph, mark.Color)
+		case mark.Color != "" && !validColor(mark.Color):
+			return fmt.Errorf("mark %q has colour %q, which is neither one of the sixteen such as \"yellow\" nor a hex colour such as \"#DCA561\"", mark.Glyph, mark.Color)
 		}
 
 		seen[mark.Glyph] = true

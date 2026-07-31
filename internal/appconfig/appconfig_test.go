@@ -127,13 +127,18 @@ func TestLoadMarks(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "a colour that is not hex at all",
+			name:    "a colour that is neither a name nor hex",
 			file:    "marks = [{ glyph = \"●\", color = \"hot pink\" }]\n",
 			wantErr: true,
 		},
 		{
 			name:    "a colour missing its hash",
 			file:    "marks = [{ glyph = \"●\", color = \"F932A1\" }]\n",
+			wantErr: true,
+		},
+		{
+			name:    "a colour named as an index rather than by name, which is the panel's own spelling and not a config's",
+			file:    "marks = [{ glyph = \"●\", color = \"4\" }]\n",
 			wantErr: true,
 		},
 		{
@@ -147,6 +152,14 @@ func TestLoadMarks(t *testing.T) {
 			want: []Mark{
 				{Glyph: "◐", Color: "#F932A1"},
 				{Glyph: "✓", Color: "#0f0"},
+			},
+		},
+		{
+			name: "colours named from the sixteen, which follow the terminal's own scheme",
+			file: "marks = [{ glyph = \"◐\", color = \"blue\" }, { glyph = \"✓\", color = \"brightmagenta\" }]\n",
+			want: []Mark{
+				{Glyph: "◐", Color: "blue"},
+				{Glyph: "✓", Color: "brightmagenta"},
 			},
 		},
 		{

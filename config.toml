@@ -16,11 +16,14 @@ default_harness = "claude"
 # The marks the mark key cycles through, in order. A mark is a glyph and means
 # whatever you decide, so the glyph is the label. Pressing mark advances the
 # hovered agent to the next one here, and past the last one back to unmarked,
-# which leaves a one-mark list behaving as a toggle.
+# which leaves a one-mark list behaving as a toggle. A colour is either one of
+# the sixteen your terminal's own scheme maps, named as "red" or "brightred",
+# or a hex value such as "#DCA561". The panel draws itself from the sixteen,
+# so a name is what keeps a mark in the same scheme as everything around it.
 marks = [
-  { glyph = "●", color = "#DCA561" },
-  { glyph = "◐", color = "#DCA561" },
-  { glyph = "✓", color = "#DCA561" },
+  { glyph = "●", color = "yellow" },
+  { glyph = "◐", color = "yellow" },
+  { glyph = "✓", color = "yellow" },
 ]
 
 # Per-CLI configuration, which is where the flags an agent of that CLI

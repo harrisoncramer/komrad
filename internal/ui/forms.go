@@ -62,7 +62,7 @@ func newAgentForm(keys appconfig.FormKeys, defaultDir, defaultFlags string) (*hu
 			huh.NewInput().Key("dir").Title("Directory").Description("blank = current").Value(&values.Dir),
 			huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 		),
-	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
+	).WithShowHelp(true).WithKeyMap(formKeyMap(keys)).WithTheme(formTheme())
 
 	return form, values
 }
@@ -76,7 +76,7 @@ func renameForm(current string, keys appconfig.FormKeys) (*huh.Form, *string) {
 		huh.NewGroup(
 			huh.NewInput().Key("name").Title(fmt.Sprintf("Rename %q to", current)).Value(&name),
 		),
-	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
+	).WithShowHelp(true).WithKeyMap(formKeyMap(keys)).WithTheme(formTheme())
 
 	return form, &name
 }
@@ -113,7 +113,7 @@ func confirmForm(title, description string, keys appconfig.FormKeys) (*huh.Form,
 				Negative("Cancel").
 				Value(&confirmed),
 		),
-	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
+	).WithShowHelp(true).WithKeyMap(formKeyMap(keys)).WithTheme(formTheme())
 
 	return form, &confirmed
 }
@@ -151,7 +151,7 @@ func workflowForm(title string, keys appconfig.FormKeys) (*huh.Form, *workflowst
 		huh.NewGroup(
 			huh.NewInput().Key("name").Title(title).Value(&values.Name),
 		),
-	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
+	).WithShowHelp(true).WithKeyMap(formKeyMap(keys)).WithTheme(formTheme())
 
 	return form, &values
 }
@@ -171,7 +171,7 @@ func workflowConfigForm(nameTitle string, cfg workflowstore.Config, keys appconf
 			huh.NewInput().Key("dir").Title("Default directory").Description("blank = current").Value(&values.Cwd),
 			huh.NewInput().Key("flags").Title("Default flags").Placeholder("--model opus").Value(&values.Flags),
 		),
-	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
+	).WithShowHelp(true).WithKeyMap(formKeyMap(keys)).WithTheme(formTheme())
 
 	return form, &values
 }
@@ -212,7 +212,7 @@ func scheduleForm(cfg schedulestore.Config, workflows []workflowstore.Workflow, 
 			huh.NewConfirm().Key("enabled").Title("Armed?").Affirmative("Armed").Negative("Paused").Value(&values.Enabled).WithButtonAlignment(lipgloss.Left),
 			huh.NewConfirm().Key("hide_agents").Title("Hide its runs?").Description("they still run, they just take no row").Affirmative("Hidden").Negative("Listed").Value(&values.HideAgents).WithButtonAlignment(lipgloss.Left),
 		),
-	).WithShowHelp(true).WithKeyMap(formKeyMap(keys))
+	).WithShowHelp(true).WithKeyMap(formKeyMap(keys)).WithTheme(formTheme())
 
 	return form, &values
 }

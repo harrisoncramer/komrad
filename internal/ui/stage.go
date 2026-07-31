@@ -10,7 +10,6 @@ import (
 	"weave/internal/appconfig"
 
 	"github.com/charmbracelet/glamour"
-	"github.com/charmbracelet/glamour/styles"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -197,12 +196,14 @@ func pagerArgv(path string, line int) []string {
 	return append(argv, path)
 }
 
-// render turns markdown into the ANSI the pager prints. The style is named rather than
+// render turns markdown into the ANSI the pager prints. The style is given rather than
 // detected: detection asks the terminal for its background colour and reads the answer
-// back off the same input the panel's own event loop is reading. A renderer that cannot
-// be built, or a document it cannot parse, falls back to the source text.
+// back off the same input the panel's own event loop is reading. Nothing is lost by not
+// asking, since the palette it is given draws from the sixteen the terminal maps and so
+// suits a light background and a dark one alike. A renderer that cannot be built, or a
+// document it cannot parse, falls back to the source text.
 func (s *Stage) render(markdown string) string {
-	options := []glamour.TermRendererOption{glamour.WithStandardStyle(styles.DarkStyle)}
+	options := []glamour.TermRendererOption{glamour.WithStyles(stageStyle)}
 	if wrap := s.wrap(); wrap > 0 {
 		options = append(options, glamour.WithWordWrap(wrap))
 	}
