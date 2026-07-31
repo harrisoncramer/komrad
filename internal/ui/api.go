@@ -43,35 +43,6 @@ type api struct {
 	actions   actionv1connect.ActionServiceClient
 }
 
-// listActions is the user's actions as the service finds them, each with the start of its own
-// text for the preview. The panel never reads the directory itself, so what it lists and what a
-// model lists are one call.
-func (a api) listActions() ([]*actionv1.Action, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	resp, err := a.actions.ListActions(ctx, connect.NewRequest(&emptypb.Empty{}))
-	if err != nil {
-		return nil, err
-	}
-
-	return resp.Msg.GetActions(), nil
-}
-
-// runAction fires an action on an agent. It returns once the service has started the process,
-// so an error is always from before it began and never from what it did.
-func (a api) runAction(agentID, name string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	_, err := a.actions.RunAction(ctx, connect.NewRequest(&actionv1.RunActionRequest{
-		AgentId: agentID,
-		Action:  name,
-	}))
-
-	return err
-}
-
 // renameAgent renames an agent by id. A blank or unchanged name is a no-op, which
 // keeps the form's empty submit from asking the service to do nothing.
 func (a api) renameAgent(agent agentstore.Agent, name string) error {
@@ -330,6 +301,35 @@ func (a api) deleteWorkflow(id string) error {
 	defer cancel()
 
 	_, err := a.workflows.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id}))
+
+	return err
+}
+
+// listActions is the user's actions as the service finds them, each with the start of its own
+// text for the preview. The panel never reads the directory itself, so what it lists and what a
+// model lists are one call.
+func (a api) listActions() ([]*actionv1.Action, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+
+	resp, err := a.actions.ListActions(ctx, connect.NewRequest(&emptypb.Empty{}))
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.Msg.GetActions(), nil
+}
+
+// runAction fires an action on an agent. It returns once the service has started the process,
+// so an error is always from before it began and never from what it did.
+func (a api) runAction(agentID, name string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+
+	_, err := a.actions.RunAction(ctx, connect.NewRequest(&actionv1.RunActionRequest{
+		AgentId: agentID,
+		Action:  name,
+	}))
 
 	return err
 }

@@ -61,16 +61,15 @@ func (s *Service) ListActions(_ context.Context, _ *connect.Request[emptypb.Empt
 // from under it, since nothing about the action itself is wrong.
 func (s *Service) RunAction(ctx context.Context, req *connect.Request[actionv1.RunActionRequest]) (*connect.Response[emptypb.Empty], error) {
 	err := s.actions.RunAction(ctx, req.Msg.GetAgentId(), req.Msg.GetAction())
-
 	switch {
-	case err == nil:
-		return connect.NewResponse(&emptypb.Empty{}), nil
 	case errors.Is(err, agents.ErrAgentNotFound), errors.Is(err, agents.ErrActionNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, err)
 	case errors.Is(err, actions.ErrNotExecutable), errors.Is(err, actions.ErrNotStartable),
 		errors.Is(err, actions.ErrDirMissing):
 		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
-	default:
+	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }

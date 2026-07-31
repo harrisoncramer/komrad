@@ -100,6 +100,9 @@ func markGlyph(agent agentstore.Agent, marks []appconfig.Mark) string {
 	return " " + lipgloss.NewStyle().Foreground(markColor(*agent.Mark, marks)).Render(*agent.Mark)
 }
 
+// markedColor is what a mark is drawn in when its config names no colour of its own.
+var markedColor = lipgloss.Color(appconfig.ResolveColor(appconfig.DefaultMarkColor))
+
 // markColor is the colour a glyph is drawn in. One the config does not list, or one
 // listed with no colour of its own, falls back rather than going undrawn. The colour goes
 // through appconfig on the way out, since a config names one of the sixteen by name and
@@ -111,7 +114,7 @@ func markColor(glyph string, marks []appconfig.Mark) lipgloss.Color {
 		}
 	}
 
-	return lipgloss.Color(appconfig.ResolveColor(appconfig.DefaultMarkColor))
+	return markedColor
 }
 
 // scheduleIcon marks whether a schedule is armed. A paused one keeps its row,

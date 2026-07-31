@@ -51,15 +51,6 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 	}
 }
 
-// actionItem is one of the user's actions as the panel holds it. The preview is the start of the
-// file, which the service reads, since the panel does not touch the actions directory itself.
-type actionItem struct {
-	name       string
-	executable bool
-	preview    []byte
-	truncated  bool
-}
-
 // actionItemsFrom renders listed actions into the items the screen is written against.
 func actionItemsFrom(listed []*actionv1.Action) []actionItem {
 	items := make([]actionItem, 0, len(listed))

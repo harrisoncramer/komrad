@@ -22,6 +22,15 @@ type actionState struct {
 	agent  agentstore.Agent
 }
 
+// actionItem is one of the user's actions as the panel holds it. The preview is the start of the
+// file, which the service reads, since the panel does not touch the actions directory itself.
+type actionItem struct {
+	name       string
+	executable bool
+	preview    []byte
+	truncated  bool
+}
+
 // actionsResult is a finished listing. It is its own message rather than part of the refresh
 // pass, since the pass runs every second and this is read once per visit to the screen.
 type actionsResult struct {

@@ -112,12 +112,7 @@ type ListedAction struct {
 // contents. A file that cannot be read is listed with an empty preview rather than dropped,
 // since it is still there and still nameable.
 func (s *ActionService) ListActions() ([]ListedAction, error) {
-	dir, err := s.dir()
-	if err != nil {
-		return nil, err
-	}
-
-	found, err := actions.Discover(dir)
+	_, found, err := s.discover()
 	if err != nil {
 		return nil, err
 	}
@@ -167,12 +162,7 @@ func (s *ActionService) RunAction(ctx context.Context, agentID, name string) err
 // joined onto its path, so a name carrying enough parent directories to climb out finds nothing
 // instead of resolving to some executable elsewhere on the machine.
 func (s *ActionService) find(name string) (actions.Action, error) {
-	dir, err := s.dir()
-	if err != nil {
-		return actions.Action{}, err
-	}
-
-	found, err := actions.Discover(dir)
+	dir, found, err := s.discover()
 	if err != nil {
 		return actions.Action{}, err
 	}
@@ -186,15 +176,25 @@ func (s *ActionService) find(name string) (actions.Action, error) {
 	return actions.Action{}, fmt.Errorf("%w: %q is not in %s", ErrActionNotFound, name, dir)
 }
 
-// dir is the actions directory as the config has it, read fresh so an edit takes effect
-// without a restart.
-func (s *ActionService) dir() (string, error) {
+// discover is the actions directory and what it holds. The config is read here rather than
+// held, so a directory changed while the server runs takes effect without a restart.
+func (s *ActionService) discover() (string, []actions.Action, error) {
 	cfg, err := s.load()
 	if err != nil {
-		return "", fmt.Errorf("failed to read the config: %w", err)
+		return "", nil, fmt.Errorf("failed to read the config: %w", err)
 	}
 
-	return cfg.ActionsDir()
+	dir, err := cfg.ActionsDir()
+	if err != nil {
+		return "", nil, err
+	}
+
+	found, err := actions.Discover(dir)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return dir, found, nil
 }
 
 // actionPayload is what an action is told about the agent it was fired on, encoded into
