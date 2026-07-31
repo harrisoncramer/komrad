@@ -187,6 +187,9 @@ type recordingTmux struct {
 	resizes []int
 	// width is what PaneWidth reports for every pane, the columns markdown renders to.
 	width int
+	// zooms are the zoom states the nav pane has been put into, in order, which is how a
+	// test tells that a form took the whole width and gave it back.
+	zooms []bool
 }
 
 func (t *recordingTmux) SetGlobal(string, string)                {}
@@ -210,6 +213,10 @@ func (t *recordingTmux) NewWindow(string, string, string) (string, error) {
 
 func (t *recordingTmux) ResizePane(_ string, percent int) {
 	t.resizes = append(t.resizes, percent)
+}
+
+func (t *recordingTmux) ZoomPane(_ string, zoom bool) {
+	t.zooms = append(t.zooms, zoom)
 }
 
 func (t *recordingTmux) RespawnPane(_, _ string, argv ...string) {

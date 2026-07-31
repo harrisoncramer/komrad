@@ -19,7 +19,6 @@ type Agent struct {
 	WorkflowID     string
 	ScheduleID     *string
 	IdempotencyKey *string
-	IsDeleted      bool
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	Mark           *string
@@ -27,6 +26,7 @@ type Agent struct {
 	Cwd            string
 	Flags          string
 	Harness        string
+	DeletedAt      *time.Time
 }
 
 // Key/value facts an agent recorded about its own work.

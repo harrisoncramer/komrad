@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 
 	"weave/internal/appconfig"
 	agentstore "weave/internal/store/agent"
@@ -249,15 +250,64 @@ func TestTrashView(t *testing.T) {
 // so the record must not read as one that is merely dormant and waiting to be
 // opened.
 func TestTrashMarkdown(t *testing.T) {
+	deletedAt := time.Date(2026, time.July, 30, 9, 0, 0, 0, time.UTC)
 	got := trashMarkdown(agentstore.Agent{
 		Name: "api-refactor", Cwd: "/work/api", Flags: "--model opus", SessionID: "sess-1",
+		DeletedAt: &deletedAt,
 	}, "nightly")
 
 	assert.Contains(t, got, "api-refactor")
 	assert.Contains(t, got, "deleted")
 	assert.Contains(t, got, "/work/api")
 	assert.Contains(t, got, "nightly")
+	assert.Contains(t, got, "deleted: ", "the record says when it was thrown away")
 	assert.NotContains(t, got, "dormant", "a deleted agent is not one waiting to be opened")
+}
+
+// TestTrashIsOrderedByWhenAgentsWereDeleted covers the order the trash reads in.
+// The listing arrives keyed on the id, which orders by when each agent was
+// created, so an agent deleted long after it was made would otherwise sit below one
+// created after it.
+func TestTrashIsOrderedByWhenAgentsWereDeleted(t *testing.T) {
+	tests := []struct {
+		name      string
+		listed    []*agentv1.Agent
+		wantNames []string
+	}{
+		{
+			name: "the most recently deleted agent is first",
+			listed: []*agentv1.Agent{
+				deletedProtoAgent("newest-agent", "2026-07-30T09:00:00Z"),
+				deletedProtoAgent("oldest-agent", "2026-07-30T12:00:00Z"),
+			},
+			wantNames: []string{"oldest-agent", "newest-agent"},
+		},
+		{
+			name: "a row deleted before the time was recorded sits below the ones that carry it",
+			listed: []*agentv1.Agent{
+				{Name: "unstamped"},
+				deletedProtoAgent("stamped", "2026-07-30T09:00:00Z"),
+			},
+			wantNames: []string{"stamped", "unstamped"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := deletedAgentsFrom(tt.listed)
+
+			names := make([]string, 0, len(got))
+			for _, agent := range got {
+				names = append(names, agent.Name)
+			}
+			assert.Equal(t, tt.wantNames, names)
+		})
+	}
+}
+
+// deletedProtoAgent builds a listed agent deleted at the given RFC 3339 time.
+func deletedProtoAgent(name, deletedAt string) *agentv1.Agent {
+	return &agentv1.Agent{Name: name, DeletedAt: &deletedAt}
 }
 
 // TestTrashIsListedSeparatelyFromTheAgents covers the two listings staying

@@ -242,15 +242,19 @@ func TestListAgentsDeleted(t *testing.T) {
 		name      string
 		deleted   bool
 		wantNames []string
+		// wantDeletedAt is whether the listed agents carry a deletion time, which is what
+		// the trash orders on and the only thing that says a row is in it.
+		wantDeletedAt bool
 	}{
 		{
 			name:      "the default listing is the live agents",
 			wantNames: []string{"live"},
 		},
 		{
-			name:      "asking for the deleted ones excludes the live",
-			deleted:   true,
-			wantNames: []string{"archived"},
+			name:          "asking for the deleted ones excludes the live",
+			deleted:       true,
+			wantNames:     []string{"archived"},
+			wantDeletedAt: true,
 		},
 	}
 
@@ -271,6 +275,18 @@ func TestListAgentsDeleted(t *testing.T) {
 				names = append(names, agent.GetName())
 			}
 			assert.Equal(t, tt.wantNames, names)
+
+			for _, agent := range listed.Msg.GetAgents() {
+				if !tt.wantDeletedAt {
+					assert.Nil(t, agent.DeletedAt, "a live agent carries no deletion time")
+
+					continue
+				}
+
+				require.NotNil(t, agent.DeletedAt, "a deleted agent says when it was deleted")
+				_, err := time.Parse(time.RFC3339, agent.GetDeletedAt())
+				assert.NoError(t, err, "and says it as an RFC 3339 timestamp")
+			}
 		})
 	}
 }
@@ -568,9 +584,9 @@ func TestSetMetadata(t *testing.T) {
 // Every field on it is load-bearing. The turn's position and its byte offset are
 // how the panel scrolls a match into view rather than hunting for the words
 // again, so two fields crossed on the way out send the reader somewhere else in
-// the conversation while still looking like a working search. The archived flag
-// decides how the hit is labelled, since search reaches agents the listing does
-// not.
+// the conversation while still looking like a working search. Whether the agent is
+// archived decides how the hit is labelled, since search reaches agents the listing
+// does not.
 func TestSearchTranscripts(t *testing.T) {
 	tests := []struct {
 		name string

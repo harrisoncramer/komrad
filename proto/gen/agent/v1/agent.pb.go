@@ -47,6 +47,11 @@ type Agent struct {
 	WorkflowId string `protobuf:"bytes,9,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
 	// When the agent was first created, as an RFC 3339 timestamp, for display.
 	CreatedAt string `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When the agent was deleted, as an RFC 3339 timestamp, unset while it is live.
+	// It is both how a caller tells a deleted agent from a live one and the order the
+	// trash reads in, most recently deleted first, which the id does not give since it
+	// orders by when the agent was created.
+	DeletedAt *string `protobuf:"bytes,19,opt,name=deleted_at,json=deletedAt,proto3,oneof" json:"deleted_at,omitempty"`
 	// The schedule that launched this agent. Unset for one a person started, so a
 	// caller can tell scheduled work from work someone asked for.
 	ScheduleId *string `protobuf:"bytes,12,opt,name=schedule_id,json=scheduleId,proto3,oneof" json:"schedule_id,omitempty"`
@@ -180,6 +185,13 @@ func (x *Agent) GetWorkflowId() string {
 func (x *Agent) GetCreatedAt() string {
 	if x != nil {
 		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *Agent) GetDeletedAt() string {
+	if x != nil && x.DeletedAt != nil {
+		return *x.DeletedAt
 	}
 	return ""
 }
@@ -1382,7 +1394,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\x96\x04\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xc9\x04\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -1398,14 +1410,17 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"workflowId\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\n" +
-	" \x01(\tR\tcreatedAt\x12$\n" +
-	"\vschedule_id\x18\f \x01(\tH\x00R\n" +
+	" \x01(\tR\tcreatedAt\x12\"\n" +
+	"\n" +
+	"deleted_at\x18\x13 \x01(\tH\x00R\tdeletedAt\x88\x01\x01\x12$\n" +
+	"\vschedule_id\x18\f \x01(\tH\x01R\n" +
 	"scheduleId\x88\x01\x01\x12\x14\n" +
 	"\x05alive\x18\v \x01(\bR\x05alive\x12\x17\n" +
-	"\x04mark\x18\x0e \x01(\tH\x01R\x04mark\x88\x01\x01\x12\x16\n" +
+	"\x04mark\x18\x0e \x01(\tH\x02R\x04mark\x88\x01\x01\x12\x16\n" +
 	"\x06hidden\x18\x0f \x01(\bR\x06hidden\x123\n" +
 	"\bmetadata\x18\x10 \x03(\v2\x17.agent.v1.AgentMetadataR\bmetadata\x12,\n" +
-	"\x0fidempotency_key\x18\x11 \x01(\tH\x02R\x0eidempotencyKey\x88\x01\x01B\x0e\n" +
+	"\x0fidempotency_key\x18\x11 \x01(\tH\x03R\x0eidempotencyKey\x88\x01\x01B\r\n" +
+	"\v_deleted_atB\x0e\n" +
 	"\f_schedule_idB\a\n" +
 	"\x05_markB\x12\n" +
 	"\x10_idempotency_keyJ\x04\b\r\x10\x0e\"7\n" +

@@ -4,7 +4,7 @@ SELECT
 FROM
     agents s
 WHERE
-    s.is_deleted = FALSE
+    s.deleted_at IS NULL
 ORDER BY
     s.id DESC;
 
@@ -13,8 +13,7 @@ SELECT
     *
 FROM
     agents s
-WHERE
-    s.is_deleted = @deleted
+WHERE (@deleted::boolean) =(s.deleted_at IS NOT NULL)
     AND (sqlc.narg('cursor_id')::uuid IS NULL
         OR s.id < sqlc.narg('cursor_id'))
 ORDER BY
@@ -36,7 +35,7 @@ FROM
     agents s
 WHERE
     s.name = @name
-    AND s.is_deleted = FALSE
+    AND s.deleted_at IS NULL
 LIMIT 1;
 
 -- name: GetAgentByID :one
@@ -57,7 +56,7 @@ SELECT
             agents
         WHERE
             name = @name
-            AND is_deleted = FALSE);
+            AND deleted_at IS NULL);
 
 -- name: AgentExists :one
 SELECT
@@ -132,10 +131,10 @@ WHERE
 UPDATE
     agents
 SET
-    is_deleted = TRUE
+    deleted_at = NOW()
 WHERE
     workflow_id = @workflow_id
-    AND is_deleted = FALSE;
+    AND deleted_at IS NULL;
 
 -- name: SetAgentStateByID :exec
 UPDATE
@@ -169,7 +168,7 @@ SET
     mark = sqlc.narg(mark)
 WHERE
     id = @id
-    AND is_deleted = FALSE
+    AND deleted_at IS NULL
 RETURNING
     id;
 
@@ -180,7 +179,7 @@ SET
     is_hidden = @hidden
 WHERE
     id = @id
-    AND is_deleted = FALSE
+    AND deleted_at IS NULL
 RETURNING
     id;
 
@@ -207,7 +206,7 @@ WHERE
             agents
         WHERE
             id = @agent_id
-            AND is_deleted = FALSE)
+            AND deleted_at IS NULL)
 ON CONFLICT (agent_id,
     KEY)
     DO UPDATE SET
@@ -262,17 +261,17 @@ RETURNING
 UPDATE
     agents
 SET
-    is_deleted = TRUE
+    deleted_at = NOW()
 WHERE
     name = @name
-    AND is_deleted = FALSE;
+    AND deleted_at IS NULL;
 
 -- name: RestoreAgent :exec
 UPDATE
     agents
 SET
-    is_deleted = FALSE,
-    is_hidden = FALSE
+    is_hidden = FALSE,
+    deleted_at = NULL
 WHERE
     id = @id;
 
@@ -356,7 +355,7 @@ SELECT
     c.role,
     c.content_offset,
     a.name,
-    a.is_deleted,
+(a.deleted_at IS NOT NULL)::boolean AS deleted,
     CASE WHEN c.tsv @@ q.query THEN
         TS_HEADLINE('english', c.content, q.query, @headline)
     ELSE
@@ -400,5 +399,5 @@ FROM
     agents
 WHERE
     schedule_id = @schedule_id
-    AND is_deleted = FALSE
+    AND deleted_at IS NULL
     AND state IN ('thinking', 'waiting');

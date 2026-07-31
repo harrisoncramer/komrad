@@ -43,8 +43,22 @@ func (m model) Init() tea.Cmd {
 	return tea.Batch(refreshTick(), m.refreshCmd())
 }
 
-// Update routes messages and key input to the active screen.
+// Update routes a message and then squares the layout with the screen it left the panel
+// on. A form is a takeover, so the stage is zoomed away for as long as one is up. This is
+// reconciled from the screen after the fact rather than at each of the dozen places a form
+// opens or closes, so a new form cannot be added that forgets to do it.
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	next, cmd := m.route(msg)
+
+	if updated, ok := next.(model); ok && updated.stage != nil {
+		updated.stage.Hide(updated.screen.isForm())
+	}
+
+	return next, cmd
+}
+
+// route hands a message to the screen that owns it.
+func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// A startup failure screen is terminal: there is nothing to act on, so any key
 	// dismisses it. Quitting exits zero, which is what lets the popup close on the
 	// keypress rather than lingering.

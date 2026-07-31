@@ -896,6 +896,7 @@ func TestRestore(t *testing.T) {
 			assert.Equal(t, StateNew, got.State)
 			assert.Equal(t, "sess-1", got.SessionID, "restore preserves the conversation")
 			assert.False(t, got.Hidden, "a restored agent comes back to a row")
+			assert.Nil(t, got.DeletedAt, "and carries no deletion time")
 
 			all, err := st.ListAll(ctx)
 			require.NoError(t, err)
@@ -951,6 +952,10 @@ func TestDelete(t *testing.T) {
 			all, err := st.ListAll(ctx)
 			require.NoError(t, err)
 			assert.Len(t, all, tt.wantAll)
+			if !tt.hard {
+				require.Len(t, all, 1)
+				assert.NotNil(t, all[0].DeletedAt, "an archived row records when it was archived")
+			}
 		})
 	}
 }

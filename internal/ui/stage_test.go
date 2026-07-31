@@ -5,7 +5,9 @@ import (
 
 	"weave/internal/appconfig"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestStagePercent covers the width the stage pane is given. The configured split
@@ -74,6 +76,42 @@ func TestStageWrapUnmeasurablePane(t *testing.T) {
 	assert.Equal(t, 0, stage.wrap())
 }
 
+// TestStageHideOnlyTellsTmuxOnAChange covers the zoom that takes the stage away for a
+// form. The panel reconciles it from the screen on every message, so asking for the state
+// the stage is already in has to cost nothing.
+func TestStageHideOnlyTellsTmuxOnAChange(t *testing.T) {
+	tmux := &recordingTmux{}
+	stage := NewStage(tmux, appconfig.DefaultSplit)
+	stage.Init()
+
+	stage.Hide(false)
+	stage.Hide(true)
+	stage.Hide(true)
+	stage.Hide(false)
+
+	assert.Equal(t, []bool{true, false}, tmux.zooms)
+}
+
+// TestFormTakesTheWholeWidth covers a form opening and being abandoned. A form has
+// nothing to preview, so the stage is zoomed away while it is up and comes back as the
+// screen behind it does.
+func TestFormTakesTheWholeWidth(t *testing.T) {
+	tmux := &recordingTmux{}
+	m := infoModel(tmux)
+
+	opened, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	form, ok := opened.(model)
+	require.True(t, ok)
+	require.True(t, form.screen.isForm())
+	assert.Equal(t, []bool{true}, tmux.zooms)
+
+	aborted, _ := form.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	closed, ok := aborted.(model)
+	require.True(t, ok)
+	require.False(t, closed.screen.isForm())
+	assert.Equal(t, []bool{true, false}, tmux.zooms)
+}
+
 // TestPagerArgv covers the command the stage pane runs, which carries the line to
 // open on for a search preview and nothing for a record read from the top.
 func TestPagerArgv(t *testing.T) {
@@ -85,17 +123,17 @@ func TestPagerArgv(t *testing.T) {
 		{
 			name: "no line opens at the top",
 			line: 0,
-			want: []string{"less", "-R", "-X", "/tmp/stage"},
+			want: []string{"less", "-R", "-X", "-Ps", "/tmp/stage"},
 		},
 		{
 			name: "the first line is the top already",
 			line: 1,
-			want: []string{"less", "-R", "-X", "/tmp/stage"},
+			want: []string{"less", "-R", "-X", "-Ps", "/tmp/stage"},
 		},
 		{
 			name: "a line further down is where the pager opens",
 			line: 42,
-			want: []string{"less", "-R", "-X", "+42", "/tmp/stage"},
+			want: []string{"less", "-R", "-X", "-Ps", "+42", "/tmp/stage"},
 		},
 	}
 

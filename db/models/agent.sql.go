@@ -18,7 +18,7 @@ SELECT
             agents
         WHERE
             name = $1
-            AND is_deleted = FALSE)
+            AND deleted_at IS NULL)
 `
 
 func (q *Queries) ActiveNameExists(ctx context.Context, name string) (bool, error) {
@@ -67,7 +67,7 @@ FROM
     agents
 WHERE
     schedule_id = $1
-    AND is_deleted = FALSE
+    AND deleted_at IS NULL
     AND state IN ('thinking', 'waiting')
 `
 
@@ -154,12 +154,12 @@ func (q *Queries) DeleteAgentTranscriptChunks(ctx context.Context, agentID strin
 
 const getAgent = `-- name: GetAgent :one
 SELECT
-    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags, harness
+    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, created_at, updated_at, mark, is_hidden, cwd, flags, harness, deleted_at
 FROM
     agents s
 WHERE
     s.name = $1
-    AND s.is_deleted = FALSE
+    AND s.deleted_at IS NULL
 LIMIT 1
 `
 
@@ -176,7 +176,6 @@ func (q *Queries) GetAgent(ctx context.Context, name string) (*Agent, error) {
 		&i.WorkflowID,
 		&i.ScheduleID,
 		&i.IdempotencyKey,
-		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Mark,
@@ -184,13 +183,14 @@ func (q *Queries) GetAgent(ctx context.Context, name string) (*Agent, error) {
 		&i.Cwd,
 		&i.Flags,
 		&i.Harness,
+		&i.DeletedAt,
 	)
 	return &i, err
 }
 
 const getAgentByID = `-- name: GetAgentByID :one
 SELECT
-    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags, harness
+    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, created_at, updated_at, mark, is_hidden, cwd, flags, harness, deleted_at
 FROM
     agents s
 WHERE
@@ -211,7 +211,6 @@ func (q *Queries) GetAgentByID(ctx context.Context, id string) (*Agent, error) {
 		&i.WorkflowID,
 		&i.ScheduleID,
 		&i.IdempotencyKey,
-		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Mark,
@@ -219,13 +218,14 @@ func (q *Queries) GetAgentByID(ctx context.Context, id string) (*Agent, error) {
 		&i.Cwd,
 		&i.Flags,
 		&i.Harness,
+		&i.DeletedAt,
 	)
 	return &i, err
 }
 
 const getAgentByIdempotencyKey = `-- name: GetAgentByIdempotencyKey :one
 SELECT
-    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags, harness
+    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, created_at, updated_at, mark, is_hidden, cwd, flags, harness, deleted_at
 FROM
     agents s
 WHERE
@@ -246,7 +246,6 @@ func (q *Queries) GetAgentByIdempotencyKey(ctx context.Context, idempotencyKey *
 		&i.WorkflowID,
 		&i.ScheduleID,
 		&i.IdempotencyKey,
-		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Mark,
@@ -254,6 +253,7 @@ func (q *Queries) GetAgentByIdempotencyKey(ctx context.Context, idempotencyKey *
 		&i.Cwd,
 		&i.Flags,
 		&i.Harness,
+		&i.DeletedAt,
 	)
 	return &i, err
 }
@@ -402,11 +402,11 @@ func (q *Queries) ListAgentMetadata(ctx context.Context, agentIds []string) ([]*
 
 const listAgents = `-- name: ListAgents :many
 SELECT
-    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags, harness
+    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, created_at, updated_at, mark, is_hidden, cwd, flags, harness, deleted_at
 FROM
     agents s
 WHERE
-    s.is_deleted = FALSE
+    s.deleted_at IS NULL
 ORDER BY
     s.id DESC
 `
@@ -430,7 +430,6 @@ func (q *Queries) ListAgents(ctx context.Context) ([]*Agent, error) {
 			&i.WorkflowID,
 			&i.ScheduleID,
 			&i.IdempotencyKey,
-			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Mark,
@@ -438,6 +437,7 @@ func (q *Queries) ListAgents(ctx context.Context) ([]*Agent, error) {
 			&i.Cwd,
 			&i.Flags,
 			&i.Harness,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -451,11 +451,10 @@ func (q *Queries) ListAgents(ctx context.Context) ([]*Agent, error) {
 
 const listAgentsPage = `-- name: ListAgentsPage :many
 SELECT
-    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags, harness
+    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, created_at, updated_at, mark, is_hidden, cwd, flags, harness, deleted_at
 FROM
     agents s
-WHERE
-    s.is_deleted = $1
+WHERE ($1::boolean) =(s.deleted_at IS NOT NULL)
     AND ($2::uuid IS NULL
         OR s.id < $2)
 ORDER BY
@@ -488,7 +487,6 @@ func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) 
 			&i.WorkflowID,
 			&i.ScheduleID,
 			&i.IdempotencyKey,
-			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Mark,
@@ -496,6 +494,7 @@ func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) 
 			&i.Cwd,
 			&i.Flags,
 			&i.Harness,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -509,7 +508,7 @@ func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) 
 
 const listAllAgents = `-- name: ListAllAgents :many
 SELECT
-    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, is_deleted, created_at, updated_at, mark, is_hidden, cwd, flags, harness
+    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, created_at, updated_at, mark, is_hidden, cwd, flags, harness, deleted_at
 FROM
     agents s
 ORDER BY
@@ -535,7 +534,6 @@ func (q *Queries) ListAllAgents(ctx context.Context) ([]*Agent, error) {
 			&i.WorkflowID,
 			&i.ScheduleID,
 			&i.IdempotencyKey,
-			&i.IsDeleted,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Mark,
@@ -543,6 +541,7 @@ func (q *Queries) ListAllAgents(ctx context.Context) ([]*Agent, error) {
 			&i.Cwd,
 			&i.Flags,
 			&i.Harness,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -558,10 +557,10 @@ const markAgentDeleted = `-- name: MarkAgentDeleted :exec
 UPDATE
     agents
 SET
-    is_deleted = TRUE
+    deleted_at = NOW()
 WHERE
     name = $1
-    AND is_deleted = FALSE
+    AND deleted_at IS NULL
 `
 
 func (q *Queries) MarkAgentDeleted(ctx context.Context, name string) error {
@@ -573,10 +572,10 @@ const markWorkflowAgentsDeleted = `-- name: MarkWorkflowAgentsDeleted :exec
 UPDATE
     agents
 SET
-    is_deleted = TRUE
+    deleted_at = NOW()
 WHERE
     workflow_id = $1
-    AND is_deleted = FALSE
+    AND deleted_at IS NULL
 `
 
 func (q *Queries) MarkWorkflowAgentsDeleted(ctx context.Context, workflowID string) error {
@@ -644,8 +643,8 @@ const restoreAgent = `-- name: RestoreAgent :exec
 UPDATE
     agents
 SET
-    is_deleted = FALSE,
-    is_hidden = FALSE
+    is_hidden = FALSE,
+    deleted_at = NULL
 WHERE
     id = $1
 `
@@ -666,7 +665,7 @@ SELECT
     c.role,
     c.content_offset,
     a.name,
-    a.is_deleted,
+(a.deleted_at IS NOT NULL)::boolean AS deleted,
     CASE WHEN c.tsv @@ q.query THEN
         TS_HEADLINE('english', c.content, q.query, $1)
     ELSE
@@ -711,7 +710,7 @@ type SearchTranscriptsRow struct {
 	Role          string
 	ContentOffset int64
 	Name          string
-	IsDeleted     bool
+	Deleted       bool
 	Snippet       string
 	Rank          float64
 }
@@ -752,7 +751,7 @@ func (q *Queries) SearchTranscripts(ctx context.Context, arg SearchTranscriptsPa
 			&i.Role,
 			&i.ContentOffset,
 			&i.Name,
-			&i.IsDeleted,
+			&i.Deleted,
 			&i.Snippet,
 			&i.Rank,
 		); err != nil {
@@ -773,7 +772,7 @@ SET
     is_hidden = $1
 WHERE
     id = $2
-    AND is_deleted = FALSE
+    AND deleted_at IS NULL
 RETURNING
     id
 `
@@ -810,7 +809,7 @@ SET
     mark = $1
 WHERE
     id = $2
-    AND is_deleted = FALSE
+    AND deleted_at IS NULL
 RETURNING
     id
 `
@@ -857,7 +856,7 @@ WHERE
             agents
         WHERE
             id = $1
-            AND is_deleted = FALSE)
+            AND deleted_at IS NULL)
 ON CONFLICT (agent_id,
     KEY)
     DO UPDATE SET

@@ -30,6 +30,11 @@ message Agent {
   string workflow_id = 9;
   // When the agent was first created, as an RFC 3339 timestamp, for display.
   string created_at = 10;
+  // When the agent was deleted, as an RFC 3339 timestamp, unset while it is live.
+  // It is both how a caller tells a deleted agent from a live one and the order the
+  // trash reads in, most recently deleted first, which the id does not give since it
+  // orders by when the agent was created.
+  optional string deleted_at = 19;
   // The schedule that launched this agent. Unset for one a person started, so a
   // caller can tell scheduled work from work someone asked for.
   optional string schedule_id = 12;

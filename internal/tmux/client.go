@@ -170,6 +170,24 @@ func (c *Client) ResizePane(pane string, percent int) {
 	c.run("resize-pane", "-t", pane, "-x", fmt.Sprintf("%d%%", percent))
 }
 
+// ZoomPane zooms a pane to fill its window, or restores the window's layout when zoom
+// is false. tmux only offers a toggle, so the window's current state is read first and
+// the toggle is sent only when it disagrees with what the caller asked for. That also
+// means a window the user zoomed by hand is left as it is rather than being flipped by a
+// caller that asked for what is already true.
+func (c *Client) ZoomPane(pane string, zoom bool) {
+	if pane == "" {
+		return
+	}
+
+	flag, err := c.query("display-message", "-p", "-t", pane, "#{window_zoomed_flag}")
+	if err != nil || (flag == "1") == zoom {
+		return
+	}
+
+	c.run("resize-pane", "-Z", "-t", pane)
+}
+
 // NewWindow creates a detached window in a session, rooted at dir and titled name, and
 // returns its pane id. An error is returned rather than an empty id, since every caller
 // needs a real pane to drive and tmux resolves an empty target to the active pane.
@@ -193,8 +211,17 @@ func (c *Client) SwapPanes(src, dst string) {
 
 // RespawnPane replaces a pane's process with argv, rooted at dir. With no
 // command it re-runs the default shell, blanking the pane.
+//
+// The history is cleared afterwards because tmux pushes the dying process's visible
+// screen into the pane's scrollback, and a pager that stays out of the alternate screen
+// leaves everything it painted there too. A respawn means the pane's whole content is
+// being replaced, so scrolling back into what the last one showed only turns up a stack
+// of stale screens. Clearing after the respawn rather than before is what catches the
+// screen the kill just pushed, and it costs nothing on-screen, since clear-history
+// leaves the visible pane alone.
 func (c *Client) RespawnPane(pane, dir string, argv ...string) {
 	c.run(append([]string{"respawn-pane", "-k", "-t", pane, "-c", dir}, argv...)...)
+	c.run("clear-history", "-t", pane)
 }
 
 // KillPane tears down a single pane. An empty target is refused for the same reason

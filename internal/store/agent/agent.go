@@ -58,7 +58,11 @@ type Agent struct {
 	// that key. A retried launch passing the same key finds this agent rather than
 	// spawning a second one.
 	IdempotencyKey *string
-	Deleted        bool
+	// DeletedAt is when the agent was thrown away, nil while it is live. It is the
+	// soft delete itself rather than a time recorded beside a flag, so nothing has to
+	// reconcile the two, and it is what the trash orders by so the agent just deleted
+	// is the one on top.
+	DeletedAt *time.Time
 	// Hidden keeps this agent out of the panel's list without stopping it. It is
 	// written on insert and by the user afterwards, so an update never carries it and
 	// a reconciler pass cannot undo a hide.
@@ -540,7 +544,7 @@ func (s *Store) Archive(ctx context.Context, name string) error {
 	return nil
 }
 
-// Restore clears an agent's archived flag by id, so an agent found in search
+// Restore clears an agent's deletion time by id, so an agent found in search
 // returns to the normal listing. It is keyed by id because an archived row can share
 // a name with a live agent. The hidden flag goes with it, since an agent that came
 // back still hidden reads as a restore that did nothing.
@@ -580,7 +584,7 @@ func agentFromRow(agent models.Agent) Agent {
 		WorkflowID:     agent.WorkflowID,
 		ScheduleID:     agent.ScheduleID,
 		IdempotencyKey: agent.IdempotencyKey,
-		Deleted:        agent.IsDeleted,
+		DeletedAt:      agent.DeletedAt,
 		Hidden:         agent.IsHidden,
 		Mark:           agent.Mark,
 		CreatedAt:      agent.CreatedAt,

@@ -155,6 +155,11 @@ func trashMarkdown(agent agentstore.Agent, schedule string) string {
 	if created := dates.Friendly(agent.CreatedAt); created != "" {
 		fmt.Fprintf(&b, "- created: %s\n", created)
 	}
+	if agent.DeletedAt != nil {
+		if deleted := dates.Friendly(*agent.DeletedAt); deleted != "" {
+			fmt.Fprintf(&b, "- deleted: %s\n", deleted)
+		}
+	}
 	b.WriteString("\nRestore brings it back and picks the conversation up where it stopped.\n")
 
 	return b.String()

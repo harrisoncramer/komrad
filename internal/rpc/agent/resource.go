@@ -35,6 +35,12 @@ func renderAgent(stored agentstore.Agent, alive bool) agent {
 		created = stored.CreatedAt.Format(time.RFC3339)
 	}
 
+	var deleted *string
+	if stored.DeletedAt != nil {
+		formatted := stored.DeletedAt.Format(time.RFC3339)
+		deleted = &formatted
+	}
+
 	metadata := make([]*agentv1.AgentMetadata, 0, len(stored.Metadata))
 	for _, entry := range stored.Metadata {
 		metadata = append(metadata, &agentv1.AgentMetadata{Key: entry.Key, Value: entry.Value})
@@ -54,6 +60,7 @@ func renderAgent(stored agentstore.Agent, alive bool) agent {
 			WorkflowId:     stored.WorkflowID,
 			ScheduleId:     stored.ScheduleID,
 			CreatedAt:      created,
+			DeletedAt:      deleted,
 			Alive:          alive,
 			Mark:           stored.Mark,
 			Hidden:         stored.Hidden,

@@ -243,7 +243,7 @@ func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, e
 		hits = append(hits, SearchHit{
 			AgentID:       row.AgentID,
 			Name:          row.Name,
-			Deleted:       row.IsDeleted,
+			Deleted:       row.Deleted,
 			Seq:           row.Seq,
 			Role:          row.Role,
 			ContentOffset: row.ContentOffset,

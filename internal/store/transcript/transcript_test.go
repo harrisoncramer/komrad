@@ -482,9 +482,9 @@ func TestLikePattern(t *testing.T) {
 }
 
 // fixture is the transcript store under test plus the agent store the tests seed
-// through. A transcript is keyed to an agent, and search joins the agents table
-// for the name and archived flag, so a hit needs a real agent behind it. The two
-// stay separate stores, so this package never writes that table itself.
+// through. A transcript is keyed to an agent, and search joins the agents table for
+// the name and whether the agent is archived, so a hit needs a real agent behind it.
+// The two stay separate stores, so this package never writes that table itself.
 type fixture struct {
 	*Store
 	agents *agentstore.Store

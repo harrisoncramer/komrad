@@ -1,4 +1,4 @@
-h1:qX+SZ0IK0RZ0Ug0d5r3AZSXLkBu7KvRHjq6cS/8wRMY=
+h1:s6IzAaqbmPwsDkZ3ROd2azJVj7VZy3BUmLBg1T+Iv5U=
 20260727000000_initial.sql h1:nKYa79j2lQPUmXwn3Snm7MfcHj5P6Ua3Wd0kGjX/lYw=
 20260728132946_agent_mark.sql h1:THjYBKTHaCzlVq5yZVo7NrUHcEGSenBsXcPYS9EQOk4=
 20260728162735_agent_hidden.sql h1:kP5SKSkIGlxFqJQd7hdvfrHjttpiXc8wFcz07F2pQ/c=
@@ -7,3 +7,4 @@ h1:qX+SZ0IK0RZ0Ug0d5r3AZSXLkBu7KvRHjq6cS/8wRMY=
 20260729185823_agent_metadata.sql h1:xo+iZcvLHZ1vU/R0uRAQHsVemgUAXsGnM+RXCclUqxk=
 20260730023121_fold_agent_config_into_agents.sql h1:qetT80gay6hd6r87ivgzbUlDc0sUx/MLW9ZoKJ3HxUQ=
 20260730155546_agent_harness.sql h1:3v9AcsljX/SKcfkMT8L+gvCLM5ePsyCOcQJCeRutyyg=
+20260730201654_agent_deleted_at.sql h1:O4qlzfH10RjLVDH/lEHAC4hNV/7TxZW3UkW6ve0RsAI=

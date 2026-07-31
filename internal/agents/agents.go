@@ -505,8 +505,8 @@ func idempotencyKey(key string) *string {
 }
 
 // restore recreates a dormant agent's tmux window from its stored cwd and flags,
-// updating the record. An archived agent has its soft-delete flag cleared, which
-// is what returns it to the normal listing.
+// updating the record. An archived agent has its deletion time cleared, which is
+// what returns it to the normal listing.
 func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) error {
 	// An agent recorded against a harness this binary no longer runs cannot be brought
 	// back, and saying so beats a pane running the wrong CLI against its conversation.
@@ -520,7 +520,7 @@ func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) erro
 	// A deleted agent's name may have been reused while it sat deleted, and undeleting
 	// it under that name would collide on the unique-name index, so it takes a fresh
 	// one first. A non-deleted dormant agent already owns its name.
-	if agent.Deleted && s.nameTaken(ctx, agent.Name) {
+	if agent.DeletedAt != nil && s.nameTaken(ctx, agent.Name) {
 		newName := s.uniqueAgentName(ctx, agent.Name, "")
 		if _, err := s.agents.Rename(ctx, agent.ID, newName); err != nil {
 			return fmt.Errorf("failed to rename restored agent %q: %w", agent.Name, err)
@@ -539,9 +539,9 @@ func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) erro
 		return fmt.Errorf("failed to stamp the pane for %q: %w", agent.Name, err)
 	}
 
-	// Update below writes neither the soft-delete flag nor the name, so clearing it is
+	// Update below writes neither the deletion time nor the name, so clearing it is
 	// its own call.
-	if agent.Deleted {
+	if agent.DeletedAt != nil {
 		if err := s.agents.Restore(ctx, agent.ID); err != nil {
 			return fmt.Errorf("failed to unarchive agent %q: %w", agent.Name, err)
 		}

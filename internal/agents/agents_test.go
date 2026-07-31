@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
@@ -652,11 +653,12 @@ func TestRestore(t *testing.T) {
 			}
 
 			archived := *original
-			archived.Deleted = true
+			deletedAt := time.Now()
+			archived.DeletedAt = &deletedAt
 			require.NoError(t, manager.restore(ctx, archived))
 
 			restored := agentByID(t, st, original.ID)
-			assert.False(t, restored.Deleted, "the agent is back in the listing")
+			assert.Nil(t, restored.DeletedAt, "the agent is back in the listing")
 			assert.Equal(t, agentstore.StateNew, restored.State)
 			assert.Equal(t, "sess-old", restored.SessionID, "the conversation is preserved")
 			assert.Equal(t, original.ID, tmux.owners[restored.Pane], "the pane it came back in is stamped with its id")

@@ -360,18 +360,15 @@ table "agents" {
     null = true
     type = text
   }
-  # Soft-delete flag: a deleted record is hidden from the panel but kept.
-  column "is_deleted" {
-    null    = false
-    type    = boolean
-    default = false
+  # When the row was soft-deleted, null while it is live.
+  column "deleted_at" {
+    null = true
+    type = timestamptz
   }
   # Hidden keeps an agent out of the panel's list while leaving it running. It is
   # not a second soft delete: the agent is live, still reconciled, and still
   # counted, it just does not take a row until the panel is asked to show the
-  # hidden ones. It is set at insert from the launching schedule's hide_agents and
-  # by the user afterwards. The reconciler never writes it, so a hidden agent stays
-  # hidden however often its state moves.
+  # hidden ones.
   column "is_hidden" {
     null    = false
     type    = boolean
@@ -419,7 +416,7 @@ table "agents" {
   index "agents_name_active" {
     unique  = true
     columns = [column.name]
-    where   = "is_deleted = false"
+    where   = "deleted_at IS NULL"
   }
   # Scoped listings filter by workflow, so index the foreign key.
   index "agents_workflow_id" {

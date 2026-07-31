@@ -25,6 +25,7 @@ type stageTmux interface {
 	ResizePane(pane string, percent int)
 	SwapPanes(src, dst string)
 	RespawnPane(pane, dir string, argv ...string)
+	ZoomPane(pane string, zoom bool)
 }
 
 // shownBlank and shownOther are what the stage records for content that is not
@@ -50,6 +51,10 @@ type Stage struct {
 	pane      string
 	agentPane string
 	shown     string
+	// hidden is whether the stage is currently zoomed away. Asking for the state it is
+	// already in costs a tmux round trip, and the panel reconciles this on every message,
+	// so what was last asked for is remembered instead.
+	hidden bool
 }
 
 // NewStage builds a stage over a tmux client, dividing the width by split. It
@@ -119,6 +124,23 @@ func (s *Stage) ensure() {
 	s.shown = ""
 }
 
+// Hide zooms the nav pane over the stage, and Hide(false) gives the stage its share of
+// the width back. A form has nothing to preview, and the record the cursor happened to be
+// on before it opened is not what the form is about, so leaving the stage up beside it
+// spends half the width saying something unrelated to what is being filled in.
+//
+// Zoom rather than killing the pane, because the pane may hold a swapped-in agent, and
+// because a stage that was torn down would have to be split and repainted from scratch on
+// the way back rather than reappearing as it was.
+func (s *Stage) Hide(hide bool) {
+	if s.navPane == "" || s.hidden == hide {
+		return
+	}
+
+	s.hidden = hide
+	s.tmux.ZoomPane(s.navPane, hide)
+}
+
 // restore swaps any staged agent pane back to its own window, leaving the stage's
 // own pane sitting in the slot again. A no-op when nothing is staged.
 func (s *Stage) restore() {
@@ -160,10 +182,14 @@ func (s *Stage) Agent(pane string) {
 // stage pane under it. Of the flags, -R prints the escapes in the file as the colours
 // they are rather than as their own text, and -X keeps less out of the alternate
 // screen, where its first paint is lost when the popup holding the panel is detached.
+// -Ps with no prompt after it replaces the status line less otherwise fills with the
+// temp file's path in reverse video, which reads as a white bar across the bottom of the
+// preview naming a file the user has no reason to see. An empty prompt leaves less
+// showing a bare colon, and drops the (END) marker with it.
 // tmux runs this argv itself rather than through a shell, so nothing in it needs
 // quoting.
 func pagerArgv(path string, line int) []string {
-	argv := []string{"less", "-R", "-X"}
+	argv := []string{"less", "-R", "-X", "-Ps"}
 	if line > 1 {
 		argv = append(argv, fmt.Sprintf("+%d", line))
 	}
