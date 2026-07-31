@@ -40,16 +40,18 @@ const (
 	screenSchedules
 	screenScheduleForm
 	screenScheduleDelete
-	screenTrash
-	screenTrashDelete
+	screenArchive
+	screenArchiveDelete
 	screenActions
 )
 
-// uiTmux is what the panel needs from tmux, enough to lay out its own panes plus the
-// working directory of the client looking at it.
+// uiTmux is what the panel needs from tmux, enough to lay out its own panes plus two
+// things about the client looking at it. The directory it sits in, and its session, which
+// is where a window opened for the user has to land.
 type uiTmux interface {
 	stageTmux
 	ClientPath(client string) string
+	OpenWindow(client, name, dir string, argv ...string) error
 }
 
 // Deps are what the panel needs to run.
@@ -68,6 +70,9 @@ type Deps struct {
 	// Addr is where Client points, shown on the error screen when the service stops
 	// answering.
 	Addr string
+	// Editor is the command the editor key opens an agent's directory in, from the
+	// environment rather than the panel's own config.
+	Editor string
 	// ConfigErr is set when the user's config file would not parse. The panel shows it on
 	// its error screen instead of starting, so the message is readable rather than written
 	// to a popup that closes on top of it.
@@ -123,7 +128,7 @@ type model struct {
 	// The screens, each holding the rows it draws and where its cursor is.
 	tree      treeState
 	schedules scheduleState
-	trash     trashState
+	archive   archiveState
 	search    searchState
 	actions   actionState
 
@@ -135,6 +140,8 @@ type model struct {
 
 	keys  appconfig.Keybindings
 	marks []appconfig.Mark
+	// editor is the command the editor key runs on an agent's directory.
+	editor string
 }
 
 func newModel(deps Deps) model {
@@ -144,6 +151,7 @@ func newModel(deps Deps) model {
 		tmux:       deps.Tmux,
 		stage:      NewStage(deps.Tmux, deps.Layout.Split),
 		addr:       deps.Addr,
+		editor:     deps.Editor,
 		keys:       deps.Keys,
 		marks:      deps.Marks,
 		configErr:  deps.ConfigErr,

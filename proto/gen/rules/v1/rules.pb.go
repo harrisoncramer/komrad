@@ -49,6 +49,22 @@ var file_rules_v1_rules_proto_extTypes = []protoimpl.ExtensionInfo{
 	{
 		ExtendedType:  (*validate.StringRules)(nil),
 		ExtensionType: (*bool)(nil),
+		Field:         50104,
+		Name:          "rules.v1.action_name",
+		Tag:           "varint,50104,opt,name=action_name",
+		Filename:      "rules/v1/rules.proto",
+	},
+	{
+		ExtendedType:  (*validate.StringRules)(nil),
+		ExtensionType: (*bool)(nil),
+		Field:         50105,
+		Name:          "rules.v1.action_name_or_blank",
+		Tag:           "varint,50105,opt,name=action_name_or_blank",
+		Filename:      "rules/v1/rules.proto",
+	},
+	{
+		ExtendedType:  (*validate.StringRules)(nil),
+		ExtensionType: (*bool)(nil),
 		Field:         50103,
 		Name:          "rules.v1.cron_expression",
 		Tag:           "varint,50103,opt,name=cron_expression",
@@ -71,11 +87,23 @@ var (
 	//
 	// optional bool absolute_path_or_blank = 50102;
 	E_AbsolutePathOrBlank = &file_rules_v1_rules_proto_extTypes[2]
+	// The shape of an action's file name. A name is matched against the actions
+	// directory's own entries rather than joined onto its path, so this is a second line
+	// of defence rather than the only one. It refuses the two shapes that would reach
+	// outside the directory, a slash and a leading dot.
+	//
+	// optional bool action_name = 50104;
+	E_ActionName = &file_rules_v1_rules_proto_extTypes[3]
+	// The same rule where blank is a meaningful answer, standing for no action chosen
+	// rather than for a file with no name.
+	//
+	// optional bool action_name_or_blank = 50105;
+	E_ActionNameOrBlank = &file_rules_v1_rules_proto_extTypes[4]
 	// The shape of a cron expression, five whitespace-separated fields. Whether the
 	// fields mean anything is left to whoever parses it.
 	//
 	// optional bool cron_expression = 50103;
-	E_CronExpression = &file_rules_v1_rules_proto_extTypes[3]
+	E_CronExpression = &file_rules_v1_rules_proto_extTypes[5]
 )
 
 var File_rules_v1_rules_proto protoreflect.FileDescriptor
@@ -92,7 +120,14 @@ const file_rules_v1_rules_proto_rawDesc = "" +
 	"\x14string.absolute_path\x12(must be an absolute path or start with ~\x1a5!rule || this.startsWith('/') || this.startsWith('~')R\fabsolutePath:\xe8\x01\n" +
 	"\x16absolute_path_or_blank\x12\x19.buf.validate.StringRules\x18\xb6\x87\x03 \x01(\bB\x95\x01\xc2H\x91\x01\n" +
 	"\x8e\x01\n" +
-	"\x1dstring.absolute_path_or_blank\x12(must be blank, absolute, or start with ~\x1aC!rule || this == '' || this.startsWith('/') || this.startsWith('~')R\x13absolutePathOrBlank:\xe0\x01\n" +
+	"\x1dstring.absolute_path_or_blank\x12(must be blank, absolute, or start with ~\x1aC!rule || this == '' || this.startsWith('/') || this.startsWith('~')R\x13absolutePathOrBlank:\xd8\x01\n" +
+	"\vaction_name\x12\x19.buf.validate.StringRules\x18\xb8\x87\x03 \x01(\bB\x99\x01\xc2H\x95\x01\n" +
+	"\x92\x01\n" +
+	"\x12string.action_name\x125must be a file name, with no slash and no leading dot\x1aE!rule || (this != '' && !this.contains('/') && !this.startsWith('.'))R\n" +
+	"actionName:\xfa\x01\n" +
+	"\x14action_name_or_blank\x12\x19.buf.validate.StringRules\x18\xb9\x87\x03 \x01(\bB\xab\x01\xc2H\xa7\x01\n" +
+	"\xa4\x01\n" +
+	"\x1bstring.action_name_or_blank\x12>must be blank or a file name, with no slash and no leading dot\x1aE!rule || this == '' || (!this.contains('/') && !this.startsWith('.'))R\x11actionNameOrBlank:\xe0\x01\n" +
 	"\x0fcron_expression\x12\x19.buf.validate.StringRules\x18\xb7\x87\x03 \x01(\bB\x99\x01\xc2H\x95\x01\n" +
 	"\x92\x01\n" +
 	"\x16string.cron_expression\x12?must be five whitespace-separated fields, such as '0 9 * * 1-5'\x1a7!rule || this.split(' ').filter(f, f != '').size() == 5R\x0ecronExpressionB\"Z weave/proto/gen/rules/v1;rulesv1b\beditionsp\xe8\a"
@@ -104,11 +139,13 @@ var file_rules_v1_rules_proto_depIdxs = []int32{
 	0, // 0: rules.v1.shell_safe:extendee -> buf.validate.StringRules
 	0, // 1: rules.v1.absolute_path:extendee -> buf.validate.StringRules
 	0, // 2: rules.v1.absolute_path_or_blank:extendee -> buf.validate.StringRules
-	0, // 3: rules.v1.cron_expression:extendee -> buf.validate.StringRules
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	0, // [0:4] is the sub-list for extension extendee
+	0, // 3: rules.v1.action_name:extendee -> buf.validate.StringRules
+	0, // 4: rules.v1.action_name_or_blank:extendee -> buf.validate.StringRules
+	0, // 5: rules.v1.cron_expression:extendee -> buf.validate.StringRules
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	0, // [0:6] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
 }
 
@@ -124,7 +161,7 @@ func file_rules_v1_rules_proto_init() {
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_rules_v1_rules_proto_rawDesc), len(file_rules_v1_rules_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   0,
-			NumExtensions: 4,
+			NumExtensions: 6,
 			NumServices:   0,
 		},
 		GoTypes:           file_rules_v1_rules_proto_goTypes,

@@ -1,8 +1,10 @@
 package actions
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -213,6 +215,85 @@ func TestRunRefusesADirectoryThatIsAFile(t *testing.T) {
 	notADir := filepath.Join(dir, "open-pr")
 
 	assert.ErrorIs(t, Runner{}.Run(found[0], notADir, nil), ErrDirMissing)
+}
+
+// TestRunAndWaitReportsWhatTheActionSaid covers the streams coming back apart, since a
+// caller reads stdout as the action's answer and stderr as what it told a person.
+func TestRunAndWaitReportsWhatTheActionSaid(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "provision"), []byte(
+		"#!/bin/sh\necho progress >&2\nprintf '%s\\n' \"$WEAVE_TEST_ANSWER\"\n",
+	), 0o755))
+
+	found, err := Discover(dir)
+	require.NoError(t, err)
+	require.Len(t, found, 1)
+
+	result, err := Runner{}.RunAndWait(t.Context(), found[0], dir, []string{"WEAVE_TEST_ANSWER=/work/api-auth"})
+	require.NoError(t, err)
+	assert.Equal(t, "/work/api-auth", strings.TrimSpace(string(result.Stdout)), "stdout carries what the action answered")
+	assert.Equal(t, "progress", strings.TrimSpace(string(result.Stderr)), "stderr stays separate from it")
+}
+
+// TestRunAndWaitRefusesANonZeroExit covers the case Run cannot have, an action that
+// started fine and then disagreed. The result still comes back, since a failing action's
+// stderr is the only thing that says why.
+func TestRunAndWaitRefusesANonZeroExit(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "install"), []byte(
+		"#!/bin/sh\necho 'no lockfile' >&2\nexit 3\n",
+	), 0o755))
+
+	found, err := Discover(dir)
+	require.NoError(t, err)
+	require.Len(t, found, 1)
+
+	result, err := Runner{}.RunAndWait(t.Context(), found[0], dir, nil)
+
+	require.ErrorIs(t, err, ErrFailed)
+	assert.Contains(t, err.Error(), "install", "the refusal names the action")
+	assert.Equal(t, "no lockfile", strings.TrimSpace(string(result.Stderr)))
+}
+
+// TestRunAndWaitStopsAtTheDeadline covers an action that hangs. Without the deadline the
+// launch waiting on it waits forever, which is worse than one that is refused.
+func TestRunAndWaitStopsAtTheDeadline(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "hangs"), []byte(
+		"#!/bin/sh\nsleep 60\n",
+	), 0o755))
+
+	found, err := Discover(dir)
+	require.NoError(t, err)
+	require.Len(t, found, 1)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
+	defer cancel()
+
+	started := time.Now()
+	_, err = Runner{}.RunAndWait(ctx, found[0], dir, nil)
+
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.Less(t, time.Since(started), 30*time.Second, "the action is killed rather than waited out")
+}
+
+// TestRunAndWaitKeepsTheTailOfALoudAction covers the cap. The end of a failing script's
+// output is the part that says why, so what survives truncation has to be the tail.
+func TestRunAndWaitKeepsTheTailOfALoudAction(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "loud"), []byte(
+		"#!/bin/sh\nawk 'BEGIN { for (i = 0; i < 20000; i++) print \"filler line\" }'\necho the-last-thing\n",
+	), 0o755))
+
+	found, err := Discover(dir)
+	require.NoError(t, err)
+	require.Len(t, found, 1)
+
+	result, err := Runner{}.RunAndWait(t.Context(), found[0], dir, nil)
+	require.NoError(t, err)
+
+	assert.LessOrEqual(t, len(result.Stdout), outputLimit, "the stream is capped")
+	assert.Contains(t, string(result.Stdout), "the-last-thing", "what is kept is the end, not the start")
 }
 
 // write puts an empty file at path with the given mode, standing in for a script whose

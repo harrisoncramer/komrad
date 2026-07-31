@@ -5,6 +5,8 @@
 package actions
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -12,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // Action is one file in the actions directory. Name is the file's own name, which is the
@@ -134,4 +137,105 @@ func (Runner) Run(action Action, dir string, env []string) error {
 	go func() { _ = cmd.Wait() }()
 
 	return nil
+}
+
+// ErrFailed is what an action that ran and exited non-zero is refused with, as opposed
+// to ErrNotStartable, which means the file itself is wrong.
+var ErrFailed = errors.New("the action exited non-zero")
+
+// outputLimit is how much of each stream is kept. Only the tail of an action's output is
+// ever read, so buffering all of a script that prints without stopping would cost the
+// server its memory for nothing.
+const outputLimit = 64 << 10
+
+// killDelay is how long a cancelled action's process group gets to die on its own after
+// the kill before Wait returns anyway. Without it a child still holding the output pipe
+// keeps Wait blocked, which is the hang the deadline was there to prevent.
+const killDelay = 2 * time.Second
+
+// Result is what running an action to completion produced. The streams are kept apart
+// because they mean different things to the caller. Stdout is the action's answer, and
+// stderr is what it had to say about it. Both are truncated to the last outputLimit
+// bytes.
+type Result struct {
+	Stdout []byte
+	Stderr []byte
+}
+
+// RunAndWait runs an action in dir and does not return until it has finished, or until
+// ctx is done. It is for a caller with something downstream of the action, where Run is
+// for one with nothing waiting on it.
+//
+// The result comes back whether or not the action succeeded, since a non-zero exit is
+// exactly when its stderr is worth showing.
+//
+// The refusals Run makes are made here too and for the same reasons, plus ErrFailed for
+// an action that exited non-zero and ctx's error for one that outlived its deadline.
+// Cancelling kills the whole process group, so a script that spawned a build does not
+// leave it running.
+//
+// Stdin is left nil for the same reason it is in Run. Both output streams are captured
+// rather than inherited, so nothing an action prints paints over the frame the panel is
+// drawing.
+func (Runner) RunAndWait(ctx context.Context, action Action, dir string, env []string) (Result, error) {
+	if !action.Executable {
+		return Result{}, fmt.Errorf("failed to run action %s: %w", action.Name, ErrNotExecutable)
+	}
+
+	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+		return Result{}, fmt.Errorf("failed to run action %s in %s: %w", action.Name, dir, ErrDirMissing)
+	}
+
+	var stdout, stderr tail
+
+	cmd := exec.CommandContext(ctx, action.Path)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), env...)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	// The group, not the process. CommandContext's own kill reaches the leader only,
+	// which leaves whatever it spawned running and holding the pipes open.
+	cmd.Cancel = func() error {
+		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	}
+	cmd.WaitDelay = killDelay
+
+	err := cmd.Run()
+	result := Result{Stdout: stdout.kept(), Stderr: stderr.kept()}
+
+	switch {
+	case ctx.Err() != nil:
+		return result, fmt.Errorf("failed to run action %s: %w", action.Name, ctx.Err())
+	case errors.As(err, new(*exec.ExitError)):
+		return result, fmt.Errorf("failed to run action %s: %w: %v", action.Name, ErrFailed, err)
+	case err != nil:
+		return result, fmt.Errorf("failed to run action %s: %w: %v", action.Name, ErrNotStartable, err)
+	}
+
+	return result, nil
+}
+
+// tail collects the last outputLimit bytes written to it and discards what came before.
+// The end of a failing script's output is the part that says why, so a truncated stream
+// is still worth reading.
+type tail struct {
+	buf bytes.Buffer
+}
+
+// Write accepts everything and keeps only what fits, so a script printing endlessly
+// costs a bounded amount of memory. It never reports a short write, since the cap is not
+// the writing process's problem.
+func (t *tail) Write(p []byte) (int, error) {
+	t.buf.Write(p)
+	if excess := t.buf.Len() - outputLimit; excess > 0 {
+		t.buf.Next(excess)
+	}
+
+	return len(p), nil
+}
+
+// kept returns the bytes that survived the cap.
+func (t *tail) kept() []byte {
+	return t.buf.Bytes()
 }

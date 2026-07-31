@@ -89,11 +89,13 @@ func (s *Service) GetWorkflow(ctx context.Context, req *connect.Request[workflow
 // CreateWorkflow adds a workflow and returns it as stored.
 func (s *Service) CreateWorkflow(ctx context.Context, req *connect.Request[workflowv1.CreateWorkflowRequest]) (*connect.Response[workflowv1.CreateWorkflowResponse], error) {
 	created, err := s.workflows.NewWorkflow(ctx, workflowstore.Config{
-		Name:    req.Msg.GetName(),
-		Context: req.Msg.GetContext(),
-		Harness: req.Msg.GetHarness(),
-		Cwd:     req.Msg.GetCwd(),
-		Flags:   req.Msg.GetFlags(),
+		Name:          req.Msg.GetName(),
+		Context:       req.Msg.GetContext(),
+		Harness:       req.Msg.GetHarness(),
+		Cwd:           req.Msg.GetCwd(),
+		Flags:         req.Msg.GetFlags(),
+		SetupAction:   req.Msg.GetSetupAction(),
+		CleanupAction: req.Msg.GetCleanupAction(),
 	})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create workflow: %w", err))
@@ -105,11 +107,13 @@ func (s *Service) CreateWorkflow(ctx context.Context, req *connect.Request[workf
 // UpdateWorkflow replaces a workflow's editable fields.
 func (s *Service) UpdateWorkflow(ctx context.Context, req *connect.Request[workflowv1.UpdateWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
 	err := s.workflows.UpdateWorkflow(ctx, req.Msg.GetId(), workflowstore.Config{
-		Name:    req.Msg.GetName(),
-		Context: req.Msg.GetContext(),
-		Harness: req.Msg.GetHarness(),
-		Cwd:     req.Msg.GetCwd(),
-		Flags:   req.Msg.GetFlags(),
+		Name:          req.Msg.GetName(),
+		Context:       req.Msg.GetContext(),
+		Harness:       req.Msg.GetHarness(),
+		Cwd:           req.Msg.GetCwd(),
+		Flags:         req.Msg.GetFlags(),
+		SetupAction:   req.Msg.GetSetupAction(),
+		CleanupAction: req.Msg.GetCleanupAction(),
 	})
 	switch {
 	case errors.Is(err, agents.ErrWorkflowNotFound):

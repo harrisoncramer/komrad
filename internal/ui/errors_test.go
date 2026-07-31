@@ -42,7 +42,7 @@ func (r refusingAgents) ListAgents(context.Context, *connect.Request[agentv1.Lis
 
 // TestRefusedWriteIsReported covers the case the panel used to swallow. Every
 // write discarded its error, and since the list reloads straight after, a refused
-// delete looked exactly like a keypress that never registered.
+// archive looked exactly like a keypress that never registered.
 func TestRefusedWriteIsReported(t *testing.T) {
 	agent := agentstore.Agent{Name: "api-refactor", State: agentstore.StateIdle, WorkflowID: "w1"}
 
@@ -62,14 +62,14 @@ func TestRefusedWriteIsReported(t *testing.T) {
 	}
 	m.tree.cursor = firstAgentRowIndex(m.agentRows())
 
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
 	pressed, ok := updated.(model)
 	require.True(t, ok)
 
 	m = settle(t, pressed, cmd)
 
-	require.NotNil(t, m.banner, "a refused delete is reported rather than swallowed")
-	assert.Equal(t, `Could not delete agent "api-refactor"`, m.banner.Summary)
+	require.NotNil(t, m.banner, "a refused archive is reported rather than swallowed")
+	assert.Equal(t, `Could not archive agent "api-refactor"`, m.banner.Summary)
 	assert.Equal(t, "already archived", m.banner.Detail,
 		"the service's message is shown rather than the connect code in front of it")
 }
@@ -156,11 +156,11 @@ func TestSuccessfulWriteClearsTheBanner(t *testing.T) {
 				{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateIdle, WorkflowID: "w1"}},
 			},
 		},
-		banner: &errui.Banner{Summary: "Could not delete agent \"gone\"", Detail: "stale"},
+		banner: &errui.Banner{Summary: "Could not archive agent \"gone\"", Detail: "stale"},
 	}
 	m.tree.cursor = firstAgentRowIndex(m.agentRows())
 
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
 	pressed, ok := updated.(model)
 	require.True(t, ok)
 
@@ -174,7 +174,7 @@ func TestSuccessfulWriteClearsTheBanner(t *testing.T) {
 // is about is in the list underneath, so hiding the list would lose the context.
 func TestBannerRendersOverTheList(t *testing.T) {
 	m := model{
-		banner: &errui.Banner{Summary: `Could not delete agent "api-refactor"`, Detail: "already archived"},
+		banner: &errui.Banner{Summary: `Could not archive agent "api-refactor"`, Detail: "already archived"},
 		screen: screenAgents,
 		keys:   appconfig.DefaultKeybindings(),
 		tree: treeState{
@@ -187,7 +187,7 @@ func TestBannerRendersOverTheList(t *testing.T) {
 
 	view := m.View()
 
-	assert.Contains(t, view, "Could not delete agent")
+	assert.Contains(t, view, "Could not archive agent")
 	assert.Contains(t, view, "already archived")
 	assert.Contains(t, view, "esc to dismiss")
 	assert.Contains(t, view, "api-refactor", "the list is still on screen under the banner")
@@ -414,7 +414,7 @@ func TestStartupErrorScreenIsTerminal(t *testing.T) {
 
 // TestUnreachableView covers what the panel shows when the service stops
 // answering. A swallowed poll would leave the last good list on screen, so a
-// dead server would read as a panel whose agents had all been deleted.
+// dead server would read as a panel whose agents had all been archived.
 func TestUnreachableView(t *testing.T) {
 	tests := []struct {
 		name         string

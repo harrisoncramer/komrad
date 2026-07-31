@@ -321,6 +321,48 @@ func (s *testStore) agentService(tmux *fakeTmux, harnesses fakeHarnesses, addr, 
 	})
 }
 
+// agentServiceWithLifecycle builds the service with a stand-in for the actions a
+// workflow runs around its agents' lives, which the plain builder leaves absent the way
+// a panel with no actions directory does.
+func (s *testStore) agentServiceWithLifecycle(tmux *fakeTmux, harnesses fakeHarnesses, lifecycle lifecycleActions) *AgentService {
+	return NewAgentService(AgentParams{
+		Tmux:           tmux,
+		Agents:         s.Agents,
+		Workflows:      s.Workflows,
+		Tx:             s.Pool,
+		Launcher:       NewLauncher(tmux, "127.0.0.1:9999"),
+		Harnesses:      harnesses,
+		Lifecycle:      lifecycle,
+		DefaultHarness: testHarnessID,
+	})
+}
+
+// fakeLifecycle stands in for running a workflow's actions, so a create's tests drive the
+// whole path without an actions directory or a process. It records what it was asked for,
+// which is what says the workflow's own choice reached it.
+type fakeLifecycle struct {
+	// dir is what setup names as the directory to run in, empty for setup that names none.
+	dir      string
+	setupErr error
+	setup    []string
+	cleanup  []string
+}
+
+func (f *fakeLifecycle) RunSetupAction(_ context.Context, _ agentstore.Agent, name string) (string, error) {
+	f.setup = append(f.setup, name)
+	if f.setupErr != nil {
+		return "", f.setupErr
+	}
+
+	return f.dir, nil
+}
+
+func (f *fakeLifecycle) RunCleanupAction(_ context.Context, _ agentstore.Agent, name string) error {
+	f.cleanup = append(f.cleanup, name)
+
+	return nil
+}
+
 // workflowService builds the workflow service over these stores.
 func (s *testStore) workflowService() *WorkflowService {
 	return NewWorkflowService(WorkflowParams{Workflows: s.Workflows, Schedules: s.Schedules, Tx: s.Pool})

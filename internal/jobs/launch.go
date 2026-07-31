@@ -113,10 +113,16 @@ func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgent
 		IdempotencyKey: LaunchKey(schedule.ID, job.Args.ScheduledFor),
 	})
 
-	// Neither a directory that cannot be opened nor a workflow that has gone will
-	// fix itself by trying again. Both need the schedule or its workflow edited,
-	// so this stops rather than burning retries.
-	if errors.Is(err, agents.ErrBadDirectory) || errors.Is(err, agents.ErrWorkflowNotFound) {
+	// None of these fixes itself by trying again. A directory that cannot be opened, a
+	// workflow that has gone, and a setup action that refuses all need the schedule or its
+	// workflow edited, so this stops rather than burning retries.
+	//
+	// The setup action matters most of the three, since it is the one that can have done
+	// something before it failed. Five attempts at a script that provisions a worktree and
+	// then refuses is five worktrees, where cancelling leaves one.
+	if errors.Is(err, agents.ErrBadDirectory) ||
+		errors.Is(err, agents.ErrWorkflowNotFound) ||
+		errors.Is(err, agents.ErrSetupFailed) {
 		return river.JobCancel(fmt.Errorf("schedule %q cannot launch: %w", schedule.Name, err))
 	}
 	if err != nil {

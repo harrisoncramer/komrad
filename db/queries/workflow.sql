@@ -59,10 +59,14 @@ RETURNING
 INSERT INTO workflows(
     name,
     context,
+    setup_action,
+    cleanup_action,
     workflow_config_id)
 VALUES (
     @name,
     @context,
+    @setup_action,
+    @cleanup_action,
     @workflow_config_id)
 RETURNING
     *;
@@ -80,6 +84,15 @@ UPDATE
     workflows
 SET
     context = @context
+WHERE
+    id = @id;
+
+-- name: SetWorkflowActions :exec
+UPDATE
+    workflows
+SET
+    setup_action = @setup_action,
+    cleanup_action = @cleanup_action
 WHERE
     id = @id;
 

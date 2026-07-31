@@ -77,6 +77,16 @@ type harnessRegistry interface {
 	Resolve(id string) (harness.Harness, error)
 }
 
+// lifecycleActions runs the actions a workflow names around its agents' lives. What an
+// action is stays the action service's, so this service only decides when one fires.
+//
+// It may be absent, which reads the same as a workflow naming no actions. A build that has
+// not wired one is a panel with no actions rather than one that cannot create an agent.
+type lifecycleActions interface {
+	RunSetupAction(ctx context.Context, agent agentstore.Agent, name string) (string, error)
+	RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string) error
+}
+
 // AgentService owns an agent's lifecycle. It creates one, brings a dormant one
 // back, renames, archives, and removes it, coordinating the store with tmux and
 // delegating the command line to the launcher.
@@ -87,6 +97,7 @@ type AgentService struct {
 	tx        txRunner
 	launcher  *Launcher
 	harnesses harnessRegistry
+	lifecycle lifecycleActions
 	// defaultHarness is the CLI an agent runs when neither it nor its workflow names
 	// one, and defaultFlags are the configured flags each harness's agents are
 	// launched with, ahead of their own, keyed by harness id.
@@ -106,6 +117,7 @@ type AgentParams struct {
 	Tx             txRunner
 	Launcher       *Launcher
 	Harnesses      harnessRegistry
+	Lifecycle      lifecycleActions
 	DefaultHarness string
 	DefaultFlags   map[string]string
 	// RestoreRoot is where an agent runs when its recorded directory cannot be
@@ -126,6 +138,7 @@ func NewAgentService(p AgentParams) *AgentService {
 		tx:             p.Tx,
 		launcher:       p.Launcher,
 		harnesses:      p.Harnesses,
+		lifecycle:      p.Lifecycle,
 		defaultHarness: p.DefaultHarness,
 		defaultFlags:   p.DefaultFlags,
 		restoreRoot:    p.RestoreRoot,
@@ -169,6 +182,10 @@ var ErrBadDirectory = errors.New("unusable working directory")
 // DeleteAgent stops an agent and removes it, keyed by id so it reaches the
 // archived agents too. Dropping the row alone would leave the agent running with
 // nothing left that can name it or reach it.
+//
+// Its workflow's cleanup action fires between the pane and the row. After the pane so a
+// script removing the directory is not racing a CLI still writing in it, and before the row
+// so what the script is told about the agent is still what the panel held.
 func (s *AgentService) DeleteAgent(ctx context.Context, id string) error {
 	agent, err := s.byID(ctx, id)
 	if err != nil {
@@ -176,6 +193,7 @@ func (s *AgentService) DeleteAgent(ctx context.Context, id string) error {
 	}
 
 	s.killOwnedPane(*agent)
+	s.runCleanup(ctx, *agent, s.cleanupAction(ctx, agent.WorkflowID))
 
 	return s.removeAgent(ctx, id)
 }
@@ -204,6 +222,11 @@ func (s *AgentService) removeAgent(ctx context.Context, id string) error {
 // ArchiveAgent stops an agent and hides it from the panel, keyed by name. The
 // record and its transcript stay, so search still reaches it and it can be restored
 // later. DeleteAgent is the irreversible half.
+//
+// The cleanup action does not fire here, and that is the whole difference between the two.
+// Restoring an agent relaunches it in the directory its row records and does not run its
+// workflow's setup again, so an archive that tore down what setup built would bring the
+// agent back somewhere else without saying so.
 func (s *AgentService) ArchiveAgent(ctx context.Context, name string) error {
 	agent, err := s.agents.Get(ctx, name)
 	if err != nil {
@@ -336,15 +359,55 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		return nil, err
 	}
 
-	pane, err := s.tmux.NewWindow(ManagerSession, plan.name, plan.dir)
+	// The conversation is named before it exists, so restoring the agent can ask the
+	// harness to reopen that same one. A harness that will not be told a name returns
+	// none, leaving the id to be discovered after the launch.
+	sessionID := plan.harness.MintSessionID()
+
+	// Setup runs before the window opens, because where it opens is one of the things setup
+	// decides. A refusal here leaves nothing to take back out, since a script that refused
+	// is one saying it never got as far as doing anything.
+	planned := plan.agent(p, id, sessionID)
+
+	named, err := s.runSetup(ctx, planned, plan.setupAction)
+	if err != nil {
+		return nil, err
+	}
+
+	// Armed the moment the action has run, because from here on it may have built something
+	// and everything below can still refuse. A worktree no row names is never reached
+	// again. One deferred check covers every refusal, so a failure path added later cannot
+	// forget it.
+	//
+	// It fires on the planned agent rather than a stored one, since most of what can fail
+	// below fails before the row exists.
+	launched := false
+	defer func() {
+		if !launched {
+			s.runCleanup(ctx, planned, plan.cleanupAction)
+		}
+	}()
+
+	// Settled after the unwind is armed, so an action that built something and then named
+	// somewhere unusable is still cleaned up after. That cleanup is told the planned
+	// directory, since the name it was given is the one value known to be wrong. An action
+	// that names a directory it did not build in has put that work beyond reach, and it is
+	// the one shape nothing here can recover.
+	dir, err := s.setupDir(plan.dir, named)
+	if err != nil {
+		return nil, err
+	}
+
+	planned.Cwd = dir
+
+	pane, err := s.tmux.NewWindow(ManagerSession, plan.name, dir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open a window for %q: %w", plan.name, err)
 	}
 
-	// Every failure from here on has to take the window down again, since a pane no
-	// row names runs forever and shows up in no listing. One deferred check covers
-	// them all, so a failure path added later cannot forget the kill.
-	launched := false
+	// The window goes the same way and for the same reason. A pane no row names runs forever
+	// and shows up in no listing. It is a second deferred check rather than part of the one
+	// above, since the pane does not exist until here.
 	defer func() {
 		if !launched {
 			s.tmux.KillPane(pane)
@@ -355,15 +418,11 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		return nil, fmt.Errorf("failed to stamp the pane for %q: %w", plan.name, err)
 	}
 
-	// The conversation is named before it exists, so restoring the agent can ask the
-	// harness to reopen that same one. A harness that will not be told a name returns
-	// none, leaving the id to be discovered after the launch.
-	sessionID := plan.harness.MintSessionID()
 	if err := s.agents.Create(ctx, agentstore.Agent{
 		ID:             id,
 		Name:           plan.name,
 		Pane:           pane,
-		Cwd:            plan.dir,
+		Cwd:            dir,
 		Flags:          plan.flags,
 		Prompt:         p.Prompt,
 		State:          agentstore.StateIdle,
@@ -391,7 +450,7 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 
 	if err := s.launcher.launch(plan.harness, launchParams{
 		Pane:   pane,
-		Dir:    plan.dir,
+		Dir:    dir,
 		Flags:  plan.flags,
 		Prompt: p.Prompt,
 		// The workflow's context is a snapshot taken at launch, so later edits to the
@@ -400,8 +459,8 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		SessionID:       sessionID,
 		AgentID:         id,
 	}); err != nil {
-		// The pane goes with the unwind above. The row has to go too, or the agent
-		// lists as live forever with nothing running behind it.
+		// The pane and whatever setup built go with the unwind above. The row has to go
+		// too, or the agent lists as live forever with nothing running behind it.
 		if deleteErr := s.removeAgent(ctx, id); deleteErr != nil {
 			return nil, fmt.Errorf("failed to launch the agent for %q (%w), and failed to clean up: %w", plan.name, err, deleteErr)
 		}
@@ -419,11 +478,17 @@ type launchPlan struct {
 	name string
 	// harness is the CLI this agent will run, and harnessID is what the row records so
 	// a later pass resolves the same one.
-	harness         harness.Harness
-	harnessID       string
+	harness   harness.Harness
+	harnessID string
+	// dir is where the agent runs unless a setup action names somewhere else.
 	dir             string
 	flags           string
 	workflowContext string
+	// setupAction and cleanupAction are the workflow's, carried here so the launch and the
+	// unwind that follows a failed one both have them without a second read of a workflow
+	// that may have been edited in between.
+	setupAction   string
+	cleanupAction string
 }
 
 // planLaunch decides everything about a create that can be decided before anything is
@@ -490,7 +555,91 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 		dir:             dir,
 		flags:           strings.TrimSpace(s.defaultFlags[harnessID] + " " + agentFlags),
 		workflowContext: wf.Context,
+		setupAction:     wf.SetupAction,
+		cleanupAction:   wf.CleanupAction,
 	}, nil
+}
+
+// agent is the row this launch is about to write, which is what the actions fired around
+// the launch are told about.
+//
+// They are handed this rather than something read back, since most of the launch happens
+// before the row exists. It goes through the same payload builder every other action's
+// does, so a script sees one shape whenever it was fired. What it cannot do is record
+// metadata against itself, since there is no row yet to record it on. The agent does that
+// for itself once it starts.
+func (plan *launchPlan) agent(params NewAgentParams, id, sessionID string) agentstore.Agent {
+	return agentstore.Agent{
+		ID:         id,
+		Name:       plan.name,
+		Cwd:        plan.dir,
+		Flags:      plan.flags,
+		Prompt:     params.Prompt,
+		State:      agentstore.StateIdle,
+		Harness:    plan.harnessID,
+		SessionID:  sessionID,
+		WorkflowID: params.WorkflowID,
+		Hidden:     params.Hidden,
+	}
+}
+
+// runSetup runs the workflow's setup action and returns the directory it named, blank
+// when it named none or when the workflow names no action at all.
+//
+// It stops at the answer rather than checking it, because the check has to happen where a
+// refusal is still cleaned up after, and by the time this returns the script has already
+// run.
+func (s *AgentService) runSetup(ctx context.Context, planned agentstore.Agent, name string) (string, error) {
+	if s.lifecycle == nil || name == "" {
+		return "", nil
+	}
+
+	return s.lifecycle.RunSetupAction(ctx, planned, name)
+}
+
+// setupDir settles where an agent runs, given the directory the plan resolved and the one
+// its setup action named. A setup action that named none leaves the plan's alone.
+//
+// The named one is checked as well as the plan's, because this one was not chosen by the
+// caller. A script that printed something that is not a directory is the likeliest way it
+// goes wrong, and the refusal has to say so rather than arrive later as a window that
+// opened somewhere unexpected.
+func (s *AgentService) setupDir(planned, named string) (string, error) {
+	if named == "" {
+		return planned, nil
+	}
+
+	dir := expandHome(named)
+	if err := usableDir(dir); err != nil {
+		return "", fmt.Errorf("%w: a setup action named %q: %w", ErrSetupFailed, dir, err)
+	}
+
+	return dir, nil
+}
+
+// runCleanup fires the workflow's cleanup action for an agent that is going away.
+//
+// A failure is dropped rather than returned. An agent has to be archivable and deletable
+// whatever state the actions directory is in, or a renamed tidy-up script would leave a
+// row nothing could remove.
+func (s *AgentService) runCleanup(ctx context.Context, agent agentstore.Agent, name string) {
+	if s.lifecycle == nil || name == "" {
+		return
+	}
+
+	_ = s.lifecycle.RunCleanupAction(ctx, agent, name)
+}
+
+// cleanupAction is the cleanup action the workflow an agent belongs to names, blank when it
+// cannot be read. It is read when it fires rather than snapshotted at launch, so editing a
+// workflow's cleanup reaches the agents already inside it.
+func (s *AgentService) cleanupAction(ctx context.Context, workflowID string) string {
+	wf, err := s.workflows.Get(ctx, workflowID)
+	if err != nil || wf == nil {
+		return ""
+	}
+
+	return wf.CleanupAction
 }
 
 // idempotencyKey renders a caller's key for storage. The column is unique, so an
@@ -505,7 +654,7 @@ func idempotencyKey(key string) *string {
 }
 
 // restore recreates a dormant agent's tmux window from its stored cwd and flags,
-// updating the record. An archived agent has its deletion time cleared, which is
+// updating the record. An archived agent has its archive time cleared, which is
 // what returns it to the normal listing.
 func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) error {
 	// An agent recorded against a harness this binary no longer runs cannot be brought
@@ -517,10 +666,10 @@ func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) erro
 
 	dir := s.resumeDir(agent, resolved)
 
-	// A deleted agent's name may have been reused while it sat deleted, and undeleting
-	// it under that name would collide on the unique-name index, so it takes a fresh
-	// one first. A non-deleted dormant agent already owns its name.
-	if agent.DeletedAt != nil && s.nameTaken(ctx, agent.Name) {
+	// An archived agent's name may have been reused while it sat archived, and
+	// bringing it back under that name would collide on the unique-name index, so it
+	// takes a fresh one first. An unarchived dormant agent already owns its name.
+	if agent.ArchivedAt != nil && s.nameTaken(ctx, agent.Name) {
 		newName := s.uniqueAgentName(ctx, agent.Name, "")
 		if _, err := s.agents.Rename(ctx, agent.ID, newName); err != nil {
 			return fmt.Errorf("failed to rename restored agent %q: %w", agent.Name, err)
@@ -539,9 +688,9 @@ func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) erro
 		return fmt.Errorf("failed to stamp the pane for %q: %w", agent.Name, err)
 	}
 
-	// Update below writes neither the deletion time nor the name, so clearing it is
+	// Update below writes neither the archive time nor the name, so clearing it is
 	// its own call.
-	if agent.DeletedAt != nil {
+	if agent.ArchivedAt != nil {
 		if err := s.agents.Restore(ctx, agent.ID); err != nil {
 			return fmt.Errorf("failed to unarchive agent %q: %w", agent.Name, err)
 		}

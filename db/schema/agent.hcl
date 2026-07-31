@@ -72,6 +72,31 @@ table "workflows" {
     type    = text
     default = ""
   }
+  # The action run before an agent in this workflow starts, blank for none. It blocks and a
+  # failure abandons the launch, so this is where a workflow puts the work an agent cannot run
+  # without, like provisioning a worktree to sit in. It holds a name rather than an id because
+  # an action is a file in a directory and has no row to reference.
+  #
+  # One action rather than a list of them, because an action is a script and a script already
+  # sequences its own steps. A workflow wanting three things done in order writes them in one
+  # file, where it also gets the error handling a list could not express.
+  #
+  # These sit on the workflow rather than on workflow_configs because an agent never copies
+  # them. workflow_configs holds what a launch seeds into the agent's own row, where this is
+  # read at the moment it runs, like context.
+  column "setup_action" {
+    null    = false
+    type    = text
+    default = ""
+  }
+  # The action run once an agent in this workflow is deleted, blank for none. It undoes what
+  # setup built. Nothing waits on it and nothing is downstream of a failure, so unlike setup
+  # it does not block.
+  column "cleanup_action" {
+    null    = false
+    type    = text
+    default = ""
+  }
   # The workflow's default config. References workflow_configs.id.
   column "workflow_config_id" {
     null = false
@@ -363,13 +388,13 @@ table "agents" {
     null = true
     type = text
   }
-  # When the row was soft-deleted, null while it is live.
-  column "deleted_at" {
+  # When the row was archived, null while it is live.
+  column "archived_at" {
     null = true
     type = timestamptz
   }
   # Hidden keeps an agent out of the panel's list while leaving it running. It is
-  # not a second soft delete: the agent is live, still reconciled, and still
+  # not a second archive: the agent is live, still reconciled, and still
   # counted, it just does not take a row until the panel is asked to show the
   # hidden ones.
   column "is_hidden" {
@@ -410,16 +435,16 @@ table "agents" {
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
-  # Unique on name only among live records. A soft-deleted row keeps its name,
-  # so without the predicate a deleted agent would block ever reusing its name
+  # Unique on name only among live records. An archived row keeps its name, so
+  # without the predicate an archived agent would block ever reusing its name
   # and the upsert-by-name path would resurrect the dead row instead of creating
-  # a fresh one. Scoping the constraint to live rows lets deleted rows retain
+  # a fresh one. Scoping the constraint to live rows lets archived rows retain
   # their name harmlessly while every name-keyed lookup still resolves to at
   # most one live agent.
   index "agents_name_active" {
     unique  = true
     columns = [column.name]
-    where   = "deleted_at IS NULL"
+    where   = "archived_at IS NULL"
   }
   # Scoped listings filter by workflow, so index the foreign key.
   index "agents_workflow_id" {
@@ -429,7 +454,7 @@ table "agents" {
   index "agents_schedule_id" {
     columns = [column.schedule_id]
   }
-  # One agent per key, across live and deleted rows alike. Unlike the name
+  # One agent per key, across live and archived rows alike. Unlike the name
   # index this is not scoped to live records: a retry must find the agent it
   # already created even if that agent has since been archived, or it would
   # spawn a duplicate. Partial on non-null so the ordinary create, which claims

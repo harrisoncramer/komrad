@@ -21,9 +21,9 @@ import (
 func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 	created, _ := time.Parse(time.RFC3339, s.GetCreatedAt())
 
-	var deleted *time.Time
-	if parsed, err := time.Parse(time.RFC3339, s.GetDeletedAt()); err == nil {
-		deleted = &parsed
+	var archived *time.Time
+	if parsed, err := time.Parse(time.RFC3339, s.GetArchivedAt()); err == nil {
+		archived = &parsed
 	}
 
 	metadata := make([]agentstore.Metadata, 0, len(s.GetMetadata()))
@@ -44,7 +44,7 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 		WorkflowID: s.GetWorkflowId(),
 		ScheduleID: s.ScheduleId,
 		CreatedAt:  created,
-		DeletedAt:  deleted,
+		ArchivedAt: archived,
 		Mark:       s.Mark,
 		Hidden:     s.GetHidden(),
 		Metadata:   metadata,
@@ -82,44 +82,46 @@ func workflowsFrom(listed []*workflowv1.Workflow) []workflowstore.Workflow {
 	workflows := make([]workflowstore.Workflow, 0, len(listed))
 	for _, w := range listed {
 		workflows = append(workflows, workflowstore.Workflow{
-			ID:      w.GetId(),
-			Name:    w.GetName(),
-			Context: w.GetContext(),
-			Harness: w.GetHarness(),
-			Cwd:     w.GetCwd(),
-			Flags:   w.GetFlags(),
+			ID:            w.GetId(),
+			Name:          w.GetName(),
+			Context:       w.GetContext(),
+			Harness:       w.GetHarness(),
+			Cwd:           w.GetCwd(),
+			Flags:         w.GetFlags(),
+			SetupAction:   w.GetSetupAction(),
+			CleanupAction: w.GetCleanupAction(),
 		})
 	}
 
 	return workflows
 }
 
-// deletedAgentsFrom renders listed agents into the store type the screen is
-// written against, most recently deleted first. Liveness is not carried: archiving
-// kills the pane, so nothing in the trash is running.
+// archivedAgentsFrom renders listed agents into the store type the screen is
+// written against, most recently archived first. Liveness is not carried: archiving
+// kills the pane, so nothing in the archive is running.
 //
 // The order is applied here rather than asked of the service, whose pages are keyed
 // on the id so a page resumes exactly where the last one ended. The panel reads the
-// whole trash before it draws any of it, so sorting what came back is total, while
-// paging the service by deletion time would need a second key in every cursor to
-// stay exact. A row deleted before the column existed carries no time and sorts
+// whole archive before it draws any of it, so sorting what came back is total, while
+// paging the service by archive time would need a second key in every cursor to
+// stay exact. A row archived before the column existed carries no time and sorts
 // below the ones that do, by id, which is the order the listing already arrived in.
-func deletedAgentsFrom(listed []*agentv1.Agent) []agentstore.Agent {
+func archivedAgentsFrom(listed []*agentv1.Agent) []agentstore.Agent {
 	agents := make([]agentstore.Agent, 0, len(listed))
 	for _, agent := range listed {
 		agents = append(agents, protoToAgent(agent))
 	}
 
-	deletedAt := func(agent agentstore.Agent) time.Time {
-		if agent.DeletedAt == nil {
+	archivedAt := func(agent agentstore.Agent) time.Time {
+		if agent.ArchivedAt == nil {
 			return time.Time{}
 		}
 
-		return *agent.DeletedAt
+		return *agent.ArchivedAt
 	}
 
 	slices.SortStableFunc(agents, func(a, b agentstore.Agent) int {
-		return deletedAt(b).Compare(deletedAt(a))
+		return archivedAt(b).Compare(archivedAt(a))
 	})
 
 	return agents

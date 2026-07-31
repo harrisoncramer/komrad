@@ -199,17 +199,17 @@ func scheduleMarkdown(item scheduleItem, workflow *workflowstore.Workflow) strin
 	return b.String()
 }
 
-// emptyTrashMarkdown is what the stage shows with nothing in the trash, so the
+// emptyArchiveMarkdown is what the stage shows with nothing in the archive, so the
 // pane says why it is blank rather than sitting empty.
-const emptyTrashMarkdown = "# Trash\n\n_nothing deleted_\n\nAgents deleted from the panel are kept here until you destroy them.\n"
+const emptyArchiveMarkdown = "# Archive\n\n_nothing archived_\n\nAgents archived from the panel are kept here until you delete them.\n"
 
-// trashMarkdown renders a deleted agent's stored record for the stage. It is the
+// archiveMarkdown renders an archived agent's stored record for the stage. It is the
 // same record the agents list shows, minus the liveness, plus what the two keys
 // here would do to it.
-func trashMarkdown(agent agentstore.Agent, schedule string) string {
+func archiveMarkdown(agent agentstore.Agent, schedule string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", agent.Name)
-	b.WriteString("_deleted — kept until destroyed_\n\n")
+	b.WriteString("_archived — kept until deleted_\n\n")
 	b.WriteString("---\n\n")
 	fmt.Fprintf(&b, "- agent: %s\n", orDash(agent.Harness))
 	fmt.Fprintf(&b, "- directory: %s\n", orDash(agent.Cwd))
@@ -221,9 +221,9 @@ func trashMarkdown(agent agentstore.Agent, schedule string) string {
 	if created := dates.Friendly(agent.CreatedAt); created != "" {
 		fmt.Fprintf(&b, "- created: %s\n", created)
 	}
-	if agent.DeletedAt != nil {
-		if deleted := dates.Friendly(*agent.DeletedAt); deleted != "" {
-			fmt.Fprintf(&b, "- deleted: %s\n", deleted)
+	if agent.ArchivedAt != nil {
+		if archived := dates.Friendly(*agent.ArchivedAt); archived != "" {
+			fmt.Fprintf(&b, "- archived: %s\n", archived)
 		}
 	}
 	b.WriteString("\nRestore brings it back and picks the conversation up where it stopped.\n")

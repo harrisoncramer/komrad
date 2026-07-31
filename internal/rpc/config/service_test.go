@@ -55,15 +55,15 @@ func TestGetConfig(t *testing.T) {
 			file: "[keybindings.agents]\nmark = [\"M\"]\n",
 			check: func(t *testing.T, resp *configv1.GetConfigResponse) {
 				assert.Equal(t, []any{"M"}, binding(t, resp, "agents", "mark"))
-				assert.Equal(t, []any{"d"}, binding(t, resp, "agents", "delete"))
+				assert.Equal(t, []any{"z"}, binding(t, resp, "agents", "archive"))
 			},
 		},
 		{
 			name: "a screen the user's file never mentions",
 			file: `default_harness = "claude"`,
 			check: func(t *testing.T, resp *configv1.GetConfigResponse) {
-				assert.Equal(t, []any{"t"}, binding(t, resp, "trash", "open"))
-				assert.Equal(t, []any{"r"}, binding(t, resp, "trash", "restore"))
+				assert.Equal(t, []any{"Z"}, binding(t, resp, "archive", "open"))
+				assert.Equal(t, []any{"r"}, binding(t, resp, "archive", "restore"))
 			},
 		},
 	}
@@ -122,8 +122,8 @@ func TestGetConfigKeysMatchTheFile(t *testing.T) {
 			path: []string{"keybindings", "schedules"},
 		},
 		{
-			name: "the trash",
-			path: []string{"keybindings", "trash"},
+			name: "the archive",
+			path: []string{"keybindings", "archive"},
 		},
 	}
 

@@ -896,7 +896,7 @@ func TestRestore(t *testing.T) {
 			assert.Equal(t, StateIdle, got.State)
 			assert.Equal(t, "sess-1", got.SessionID, "restore preserves the conversation")
 			assert.False(t, got.Hidden, "a restored agent comes back to a row")
-			assert.Nil(t, got.DeletedAt, "and carries no deletion time")
+			assert.Nil(t, got.ArchivedAt, "and carries no deletion time")
 
 			all, err := st.ListAll(ctx)
 			require.NoError(t, err)
@@ -954,29 +954,29 @@ func TestDelete(t *testing.T) {
 			assert.Len(t, all, tt.wantAll)
 			if !tt.hard {
 				require.Len(t, all, 1)
-				assert.NotNil(t, all[0].DeletedAt, "an archived row records when it was archived")
+				assert.NotNil(t, all[0].ArchivedAt, "an archived row records when it was archived")
 			}
 		})
 	}
 }
 
-// TestListPageDeleted covers the two sets a listing can ask for. They are what
-// the panel and its trash each show, and an agent in one must never appear in
-// the other: the tree would offer keys on a row that is gone, and the trash
+// TestListPageArchived covers the two sets a listing can ask for. They are what
+// the panel and its archive each show, and an agent in one must never appear in
+// the other: the tree would offer keys on a row that is gone, and the archive
 // would offer to destroy one that is running.
-func TestListPageDeleted(t *testing.T) {
+func TestListPageArchived(t *testing.T) {
 	tests := []struct {
 		name      string
-		deleted   bool
+		archived  bool
 		wantNames []string
 	}{
 		{
-			name:      "the live listing leaves out what was deleted",
+			name:      "the live listing leaves out what was archived",
 			wantNames: []string{"live"},
 		},
 		{
-			name:      "the trash listing is the deleted rows and only those",
-			deleted:   true,
+			name:      "the archive listing is the archived rows and only those",
+			archived:  true,
 			wantNames: []string{"archived"},
 		},
 	}
@@ -990,7 +990,7 @@ func TestListPageDeleted(t *testing.T) {
 			require.NoError(t, st.Archive(ctx, "archived"))
 			require.NoError(t, st.Create(ctx, Agent{Name: "live", Pane: "%2", State: StateIdle}))
 
-			page, err := st.ListPage(ctx, 10, nil, tt.deleted)
+			page, err := st.ListPage(ctx, 10, nil, tt.archived)
 			require.NoError(t, err)
 
 			names := make([]string, 0, len(page))
@@ -1003,9 +1003,9 @@ func TestListPageDeleted(t *testing.T) {
 }
 
 // TestDeleteByIDPicksTheArchivedRow covers why a hard delete keys on the id. The
-// trash deletes through it, and the rows there are exactly the ones a name cannot
-// tell apart: the unique index holds among live rows only, so an archived agent
-// can share a name with a live one.
+// archive deletes through it, and the rows there are exactly the ones a name
+// cannot tell apart: the unique index holds among live rows only, so an archived
+// agent can share a name with a live one.
 func TestDeleteByIDPicksTheArchivedRow(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -1028,7 +1028,7 @@ func TestDeleteByIDPicksTheArchivedRow(t *testing.T) {
 }
 
 // TestGetByID covers the lookup every call that keys on an id makes. It has to span
-// the archived agents: an id is the only handle a deleted agent still answers to,
+// the archived agents: an id is the only handle an archived agent still answers to,
 // since its name may have been taken by a live one since. The ids that are not ids
 // matter because a restore or a delete asked for through the MCP tools arrives as
 // whatever string the caller typed.

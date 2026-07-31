@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 
 	"weave/internal/appconfig"
 
@@ -124,7 +125,7 @@ func confirmForm(title, description string, keys appconfig.FormKeys) (*huh.Form,
 func (s screen) isForm() bool {
 	switch s {
 	case screenForm, screenRename, screenWorkflowForm, screenWorkflowDelete,
-		screenScheduleForm, screenScheduleDelete, screenTrashDelete:
+		screenScheduleForm, screenScheduleDelete, screenArchiveDelete:
 		return true
 	default:
 		return false
@@ -156,11 +157,16 @@ func workflowForm(title string, keys appconfig.FormKeys) (*huh.Form, *workflowst
 	return form, &values
 }
 
-// workflowConfigForm collects a workflow's name, its free-text context, and its default
-// config. The harness, dir, and flags become the blueprint agents created inside the
-// workflow start from.' Every field prefills, so it serves both creating a
-// workflow and editing one.
-func workflowConfigForm(nameTitle string, cfg workflowstore.Config, keys appconfig.FormKeys) (*huh.Form, *workflowstore.Config) {
+// workflowConfigForm collects a workflow's name, its free-text context, its default
+// config, and the actions run around its agents' lives. The harness, dir, and flags become
+// the blueprint agents created inside the workflow start from. Every field prefills, so it
+// serves both creating a workflow and editing one.
+//
+// available is what the actions directory holds, which the two action fields are chosen
+// from. Picking rather than typing makes a name that matches no file unwritable from here.
+// One action per moment is why a select is enough, since there is no order to express. An
+// empty directory leaves both fields offering only the blank.
+func workflowConfigForm(nameTitle string, cfg workflowstore.Config, available []string, keys appconfig.FormKeys) (*huh.Form, *workflowstore.Config) {
 	values := cfg
 
 	form := huh.NewForm(
@@ -170,10 +176,35 @@ func workflowConfigForm(nameTitle string, cfg workflowstore.Config, keys appconf
 			huh.NewInput().Key("harness").Title("Default agent").Description("blank = the configured default").Placeholder("claude").Value(&values.Harness),
 			huh.NewInput().Key("dir").Title("Default directory").Description("blank = current").Value(&values.Cwd),
 			huh.NewInput().Key("flags").Title("Default flags").Placeholder("--model opus").Value(&values.Flags),
+			huh.NewSelect[string]().Key("setup").Title("Setup action").
+				Description("runs before each agent starts; a failure stops the launch").
+				Options(actionOptions(available, cfg.SetupAction)...).Value(&values.SetupAction),
+			huh.NewSelect[string]().Key("cleanup").Title("Cleanup action").
+				Description("runs once an agent here is deleted").
+				Options(actionOptions(available, cfg.CleanupAction)...).Value(&values.CleanupAction),
 		),
 	).WithShowHelp(true).WithKeyMap(formKeyMap(keys)).WithTheme(formTheme())
 
 	return form, &values
+}
+
+// actionOptions is what an action field offers, which is none followed by every action the
+// directory holds.
+//
+// A stored name the directory no longer holds is offered too, so opening the form on a
+// workflow whose script has been renamed does not silently reset the field to none. It
+// shows what is recorded and leaves changing it deliberate.
+func actionOptions(available []string, current string) []huh.Option[string] {
+	options := make([]huh.Option[string], 0, len(available)+2)
+	options = append(options, huh.NewOption("none", ""))
+	for _, name := range available {
+		options = append(options, huh.NewOption(name, name))
+	}
+	if current != "" && !slices.Contains(available, current) {
+		options = append(options, huh.NewOption(current+"  (missing)", current))
+	}
+
+	return options
 }
 
 // deleteWorkflowForm confirms a delete. The agents inside go with it, since every agent

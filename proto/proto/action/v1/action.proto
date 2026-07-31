@@ -5,6 +5,7 @@ package action.v1;
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
+import "rules/v1/rules.proto";
 
 option go_package = "weave/proto/gen/action/v1;actionv1";
 
@@ -36,10 +37,8 @@ message RunActionRequest {
   // rather than joined onto its path, so this cannot reach outside it whatever it
   // holds. The rules below refuse the shapes that would try.
   string action = 2 [(buf.validate.field).string = {
-    min_len: 1
     max_len: 255
-    not_contains: "/"
-    pattern: "^[^.]"
+    [rules.v1.action_name]: true
   }];
 }
 

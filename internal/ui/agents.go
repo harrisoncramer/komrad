@@ -32,8 +32,8 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if bound(k, m.keys.Schedules.Open) {
 		return m.enterSchedules()
 	}
-	if bound(k, m.keys.Trash.Open) {
-		return m.enterTrash()
+	if bound(k, m.keys.Archive.Open) {
+		return m.enterArchive()
 	}
 	if bound(k, m.keys.Agents.ShowHidden) {
 		return m.toggleHiddenAgents()
@@ -71,6 +71,8 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.stageSelection()
 	case bound(k, m.keys.Agents.Open):
 		return m.openAgent()
+	case bound(k, m.keys.Agents.Editor):
+		return m.openEditor()
 	case bound(k, m.keys.Actions.Open):
 		return m.enterActions()
 	case bound(k, m.keys.Agents.Mark):
@@ -94,7 +96,7 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.form, m.values.rename = renameForm(item.agent.Name, m.keys.Form)
 		m.screen = screenRename
 		return m, m.form.Init()
-	case bound(k, m.keys.Agents.Delete):
+	case bound(k, m.keys.Agents.Archive):
 		item, ok := m.selectedAgent()
 		if !ok {
 			return m, nil
@@ -103,7 +105,7 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.stage.Release(item.agent.Pane)
 
 		return m, m.writeCmd(
-			fmt.Sprintf("Could not delete agent %q", item.agent.Name),
+			fmt.Sprintf("Could not archive agent %q", item.agent.Name),
 			func(a api) error { return a.archiveAgent(item.agent) },
 		)
 	}
@@ -132,6 +134,47 @@ func (m model) openAgent() (tea.Model, tea.Cmd) {
 		item.agent.ID,
 		screenAgents,
 	)
+}
+
+// openEditor opens the hovered agent's directory in the user's editor and closes the
+// panel behind it. The window is created on the user's own tmux server rather than the
+// manager's, since an editor is theirs to keep working in once the popup is gone and
+// nothing on the manager's server can be reached from outside it.
+//
+// A failure leaves the popup up so the banner is readable. Hiding on the way out would
+// write the message to a popup tearing down on top of it.
+func (m model) openEditor() (tea.Model, tea.Cmd) {
+	item, ok := m.selectedAgent()
+	if !ok {
+		return m, nil
+	}
+
+	dir := item.agent.Cwd
+	err := m.tmux.OpenWindow(m.popup.InvokingClient(), item.agent.Name, dir, editorArgv(m.editor, dir)...)
+	m.report(fmt.Sprintf("Could not open %q in your editor", dir), err)
+
+	if err != nil {
+		return m, nil
+	}
+
+	return m, m.hide()
+}
+
+// editorArgv is what the editor window runs. The editor is split on whitespace so one
+// carrying its own flags still works, and tmux runs the result itself rather than
+// through a shell, so nothing in it needs quoting.
+//
+// The directory is passed as an argument as well as being the window's working directory,
+// since an editor given nothing to open lands on an empty buffer instead of the tree. An
+// empty editor leaves the argv empty, which tmux reads as a plain shell in the directory
+// rather than as a command it cannot find.
+func editorArgv(editor, dir string) []string {
+	fields := strings.Fields(editor)
+	if len(fields) == 0 {
+		return nil
+	}
+
+	return append(fields, dir)
 }
 
 // toggleHiddenAgents draws the hidden agents alongside the rest, or puts them away again.

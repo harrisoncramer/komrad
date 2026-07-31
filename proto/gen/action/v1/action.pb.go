@@ -15,6 +15,7 @@ import (
 	sync "sync"
 	unsafe "unsafe"
 	_ "weave/proto/gen/annotation/v1"
+	_ "weave/proto/gen/rules/v1"
 )
 
 const (
@@ -206,7 +207,7 @@ var File_action_v1_action_proto protoreflect.FileDescriptor
 
 const file_action_v1_action_proto_rawDesc = "" +
 	"\n" +
-	"\x16action/v1/action.proto\x12\taction.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\"\x83\x01\n" +
+	"\x16action/v1/action.proto\x12\taction.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x14rules/v1/rules.proto\"\x83\x01\n" +
 	"\x06Action\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1e\n" +
 	"\n" +
@@ -215,10 +216,10 @@ const file_action_v1_action_proto_rawDesc = "" +
 	"\apreview\x18\x03 \x01(\fR\apreview\x12+\n" +
 	"\x11preview_truncated\x18\x04 \x01(\bR\x10previewTruncated\"B\n" +
 	"\x13ListActionsResponse\x12+\n" +
-	"\aactions\x18\x01 \x03(\v2\x11.action.v1.ActionR\aactions\"e\n" +
+	"\aactions\x18\x01 \x03(\v2\x11.action.v1.ActionR\aactions\"\\\n" +
 	"\x10RunActionRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12-\n" +
-	"\x06action\x18\x02 \x01(\tB\x15\xbaH\x12r\x10\x10\x01\x18\xff\x012\x05^[^.]\xba\x01\x01/R\x06action2\xf3\b\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12$\n" +
+	"\x06action\x18\x02 \x01(\tB\f\xbaH\tr\a\xc0\xbb\x18\x01\x18\xff\x01R\x06action2\xf3\b\n" +
 	"\rActionService\x12\xa9\x04\n" +
 	"\vListActions\x12\x16.google.protobuf.Empty\x1a\x1e.action.v1.ListActionsResponse\"\xe1\x03\x9a\xb5\x18\xd9\x03\n" +
 	"\flist_actions\x12\xc8\x03List the actions the user has written, which are executable files in their actions directory. An action is a script or program that takes one agent as its input and does whatever the user wrote it to do, such as opening the pull request that agent recorded. The name is what run_action takes. A file listed with executable false cannot be run until the user chmods it, and the preview is the start of the file so you can see what one does before firing it.\x90\x02\x01\x12\xb5\x04\n" +

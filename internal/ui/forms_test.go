@@ -87,11 +87,13 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			name: "the new-workflow form",
 			open: func(m model) model {
 				m.screen = screenWorkflowForm
-				m.form, m.values.workflow = workflowConfigForm("New workflow name", workflowstore.Config{}, m.keys.Form)
+				m.form, m.values.workflow = workflowConfigForm("New workflow name", workflowstore.Config{}, []string{"make-worktree", "drop-worktree"}, m.keys.Form)
 				m.values.workflow.Name = "web"
 				m.values.workflow.Context = "the frontend"
 				m.values.workflow.Cwd = "/work/web"
 				m.values.workflow.Flags = "--model sonnet"
+				m.values.workflow.SetupAction = "make-worktree"
+				m.values.workflow.CleanupAction = "drop-worktree"
 
 				return m
 			},
@@ -102,6 +104,8 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				assert.Equal(t, "the frontend", sent.createdWorkflow.GetContext())
 				assert.Equal(t, "/work/web", sent.createdWorkflow.GetCwd())
 				assert.Equal(t, "--model sonnet", sent.createdWorkflow.GetFlags())
+				assert.Equal(t, "make-worktree", sent.createdWorkflow.GetSetupAction())
+				assert.Equal(t, "drop-worktree", sent.createdWorkflow.GetCleanupAction())
 			},
 		},
 		{
@@ -113,11 +117,12 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				m.target.editWorkflow = &target
 				m.screen = screenWorkflowForm
 				m.form, m.values.workflow = workflowConfigForm("Workflow name", workflowstore.Config{
-					Name:    target.Name,
-					Context: "shared notes",
-					Cwd:     target.Cwd,
-					Flags:   target.Flags,
-				}, m.keys.Form)
+					Name:        target.Name,
+					Context:     "shared notes",
+					Cwd:         target.Cwd,
+					Flags:       target.Flags,
+					SetupAction: "make-worktree",
+				}, []string{"make-worktree"}, m.keys.Form)
 				m.values.workflow.Cwd = "/work/api-v2"
 
 				return m
@@ -130,6 +135,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				assert.Equal(t, "api", sent.updatedWorkflow.GetName(), "and the ones that were not")
 				assert.Equal(t, "shared notes", sent.updatedWorkflow.GetContext())
 				assert.Equal(t, "--model opus", sent.updatedWorkflow.GetFlags())
+				assert.Equal(t, "make-worktree", sent.updatedWorkflow.GetSetupAction(), "the stored choice survives a round trip through the field")
 			},
 		},
 		{
@@ -235,18 +241,18 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			},
 		},
 		{
-			name: "the trash delete prompt",
+			name: "the archive delete prompt",
 			open: func(m model) model {
-				m.trash.agents = []agentstore.Agent{{ID: "a1", Name: "api-refactor"}}
-				m.target.deleteAgent = &m.trash.agents[0]
-				m.screen = screenTrashDelete
+				m.archive.agents = []agentstore.Agent{{ID: "a1", Name: "api-refactor"}}
+				m.target.deleteAgent = &m.archive.agents[0]
+				m.screen = screenArchiveDelete
 				m.form, m.values.confirmed = deleteAgentForm("api-refactor", m.keys.Form)
 				*m.values.confirmed = true
 				m.form.State = huh.StateCompleted
 
 				return m
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateTrashDelete(keyMsg("enter")) },
+			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateArchiveDelete(keyMsg("enter")) },
 			check: func(t *testing.T, sent *formRecorder) {
 				require.NotNil(t, sent.deletedAgent)
 				assert.Equal(t, "a1", sent.deletedAgent.GetId())

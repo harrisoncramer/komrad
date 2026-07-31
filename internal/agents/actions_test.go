@@ -311,6 +311,147 @@ func TestRunActionWithTheAgentDirectoryGone(t *testing.T) {
 }
 
 // actionService builds the service over a temp actions directory, one agent, and one workflow.
+// TestRunSetupAction covers the two things a workflow's setup action decides about a create,
+// which are whether it happens at all and where the agent ends up running.
+func TestRunSetupAction(t *testing.T) {
+	tests := []struct {
+		name string
+		// action is the workflow's setup action, and result what the runner answers for it.
+		action  string
+		result  runResult
+		wantDir string
+		wantRan []string
+		wantErr bool
+	}{
+		{
+			name:    "one the directory does not hold abandons the launch",
+			action:  "was-renamed",
+			wantErr: true,
+		},
+		{
+			name:    "one that fails abandons the launch",
+			action:  "install-deps",
+			result:  runResult{stderr: "no lockfile", err: actions.ErrFailed},
+			wantRan: []string{"install-deps"},
+			wantErr: true,
+		},
+		{
+			name:    "one that chats on stdout is refused rather than believed",
+			action:  "loud",
+			result:  runResult{stdout: strings.Repeat("a", maxSetupDir+1)},
+			wantRan: []string{"loud"},
+			wantErr: true,
+		},
+		{
+			name:    "an action that says nothing names no directory",
+			action:  "install-deps",
+			wantRan: []string{"install-deps"},
+		},
+		{
+			name:    "what it writes to stdout is where the agent runs",
+			action:  "make-worktree",
+			result:  runResult{stdout: "/work/api-auth\n"},
+			wantDir: "/work/api-auth",
+			wantRan: []string{"make-worktree"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for _, name := range []string{"make-worktree", "install-deps", "loud"} {
+				require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte("#!/bin/sh\n"), 0o755))
+			}
+
+			runner := &recordingRunner{results: map[string]runResult{tt.action: tt.result}}
+			service := actionService(t, dir, runner)
+
+			got, err := service.RunSetupAction(t.Context(), agentstore.Agent{ID: "a1", Name: "auth"}, tt.action)
+
+			if tt.wantErr {
+				require.ErrorIs(t, err, ErrSetupFailed)
+				assert.Empty(t, got, "a refused setup names no directory")
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.wantDir, got)
+			}
+			assert.Equal(t, tt.wantRan, runner.ran)
+		})
+	}
+}
+
+// TestRunSetupActionTellsTheScriptWhatSetItOff covers WEAVE_TRIGGER, which is how a script that
+// only makes sense at one moment can refuse the others itself.
+func TestRunSetupActionTellsTheScriptWhatSetItOff(t *testing.T) {
+	tests := []struct {
+		name        string
+		fire        func(*ActionService, *recordingRunner) error
+		wantTrigger string
+	}{
+		{
+			name: "fired by hand",
+			fire: func(s *ActionService, _ *recordingRunner) error {
+				return s.RunAction(t.Context(), "a1", "make-worktree")
+			},
+			wantTrigger: TriggerManual,
+		},
+		{
+			name: "fired as a workflow's setup",
+			fire: func(s *ActionService, _ *recordingRunner) error {
+				_, err := s.RunSetupAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree")
+				return err
+			},
+			wantTrigger: TriggerSetup,
+		},
+		{
+			name: "fired as a workflow's cleanup",
+			fire: func(s *ActionService, _ *recordingRunner) error {
+				return s.RunCleanupAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree")
+			},
+			wantTrigger: TriggerCleanup,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "make-worktree"), []byte("#!/bin/sh\n"), 0o755))
+
+			runner := &recordingRunner{}
+			require.NoError(t, tt.fire(actionService(t, dir, runner), runner))
+
+			assert.Contains(t, runner.env, "WEAVE_TRIGGER="+tt.wantTrigger)
+		})
+	}
+}
+
+// TestRunSetupActionCarriesTheReason covers what a person sees when a setup action refuses. The
+// script's own stderr is the only thing that says why, so it travels with the refusal rather than
+// sitting somewhere only a log would show.
+func TestRunSetupActionCarriesTheReason(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "make-worktree"), []byte("#!/bin/sh\n"), 0o755))
+
+	runner := &recordingRunner{results: map[string]runResult{
+		"make-worktree": {stderr: "fatal: 'api-auth' is already checked out", err: actions.ErrFailed},
+	}}
+
+	_, err := actionService(t, dir, runner).RunSetupAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already checked out")
+}
+
+// TestRunCleanupActionRefusesOneThatIsGone covers a cleanup naming a script that has been
+// renamed. It reports rather than pretending, and the caller is the one that decides an agent
+// is still removable.
+func TestRunCleanupActionRefusesOneThatIsGone(t *testing.T) {
+	err := actionService(t, t.TempDir(), &recordingRunner{}).
+		RunCleanupAction(t.Context(), agentstore.Agent{ID: "a1"}, "was-renamed")
+
+	require.ErrorIs(t, err, ErrActionNotFound)
+}
+
 func actionService(t *testing.T, dir string, runner actionRunner) *ActionService {
 	t.Helper()
 
@@ -374,11 +515,24 @@ type fakePaneOwner struct {
 func (f fakePaneOwner) PaneOwner(string) string { return f.owner }
 
 // recordingRunner stands in for starting a process, so the service's tests drive the whole path
-// without spawning anything. Only the last run is kept, since no case fires twice.
+// without spawning anything. Only the last run's directory and environment are kept, since no
+// case inspects those of an earlier one.
+//
+// results answers a blocking run per action name, so a case can say what a script printed and
+// whether it worked without writing one. A name with no entry succeeds silently, which is the
+// ordinary setup action that installs something and says nothing.
 type recordingRunner struct {
-	ran []string
-	dir string
-	env []string
+	ran     []string
+	dir     string
+	env     []string
+	results map[string]runResult
+}
+
+// runResult is what the fake answers one blocking run with.
+type runResult struct {
+	stdout string
+	stderr string
+	err    error
 }
 
 func (r *recordingRunner) Run(action actions.Action, dir string, env []string) error {
@@ -390,4 +544,17 @@ func (r *recordingRunner) Run(action actions.Action, dir string, env []string) e
 	r.dir, r.env = dir, env
 
 	return nil
+}
+
+func (r *recordingRunner) RunAndWait(_ context.Context, action actions.Action, dir string, env []string) (actions.Result, error) {
+	if !action.Executable {
+		return actions.Result{}, actions.ErrNotExecutable
+	}
+
+	r.ran = append(r.ran, action.Name)
+	r.dir, r.env = dir, env
+
+	answer := r.results[action.Name]
+
+	return actions.Result{Stdout: []byte(answer.stdout), Stderr: []byte(answer.stderr)}, answer.err
 }

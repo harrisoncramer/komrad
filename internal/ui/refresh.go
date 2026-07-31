@@ -32,7 +32,7 @@ func refreshTick() tea.Cmd {
 // refreshResult is one listing pass, everything the panel draws. Each listing carries
 // its own error rather than the pass carrying one, so a listing that failed costs its own
 // rows and not the ones that answered. The rows it would have replaced are left alone,
-// since blanking them would say every agent had been deleted.
+// since blanking them would say every agent had been archived.
 type refreshResult struct {
 	// epoch is the write generation the pass was requested under. A pass older than
 	// the panel's own generation read the store before a write this panel has since
@@ -48,12 +48,12 @@ type refreshResult struct {
 	schedules    []scheduleItem
 	schedulesErr error
 
-	// trash is listed only while the trash screen is up. trashListed says the listing was
-	// asked for, so an empty one reads as an empty trash rather than as a pass that
-	// skipped it.
-	trash       []agentstore.Agent
-	trashErr    error
-	trashListed bool
+	// archived is listed only while the archive screen is up. archivedListed says the
+	// listing was asked for, so an empty one reads as an empty archive rather than as a
+	// pass that skipped it.
+	archived       []agentstore.Agent
+	archivedErr    error
+	archivedListed bool
 }
 
 // refreshCmd lists everything the panel draws, off the UI goroutine so the render loop
@@ -69,13 +69,13 @@ func (m model) refreshCmd() tea.Cmd {
 		return nil
 	}
 
-	clients, epoch, withTrash := m.api, m.epoch, m.screen == screenTrash
+	clients, epoch, withArchive := m.api, m.epoch, m.screen == screenArchive
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
 		defer cancel()
 
-		result := refreshResult{epoch: epoch, trashListed: withTrash}
+		result := refreshResult{epoch: epoch, archivedListed: withArchive}
 
 		var wg sync.WaitGroup
 		wg.Go(func() {
@@ -90,10 +90,10 @@ func (m model) refreshCmd() tea.Cmd {
 			listed, err := client.ListAllSchedules(ctx, clients.schedules)
 			result.schedules, result.schedulesErr = scheduleItemsFrom(listed), err
 		})
-		if withTrash {
+		if withArchive {
 			wg.Go(func() {
-				listed, err := client.ListAllDeletedAgents(ctx, clients.agents)
-				result.trash, result.trashErr = deletedAgentsFrom(listed), err
+				listed, err := client.ListAllArchivedAgents(ctx, clients.agents)
+				result.archived, result.archivedErr = archivedAgentsFrom(listed), err
 			})
 		}
 		wg.Wait()
@@ -123,8 +123,8 @@ func (m *model) applyRefresh(result refreshResult) {
 	if result.schedulesErr == nil {
 		m.applySchedules(result.schedules)
 	}
-	if result.trashListed && result.trashErr == nil {
-		m.applyTrash(result.trash)
+	if result.archivedListed && result.archivedErr == nil {
+		m.applyArchive(result.archived)
 	}
 
 	// A pass can change what the cursor is sitting on without the cursor moving, so the
@@ -136,8 +136,8 @@ func (m *model) applyRefresh(result refreshResult) {
 		m.stageSelection()
 	case screenSchedules:
 		m.stageSchedule()
-	case screenTrash:
-		m.stageTrash()
+	case screenArchive:
+		m.stageArchive()
 	default:
 		// Search, the actions list, and the forms put the stage to their own use.
 	}
@@ -155,7 +155,7 @@ func (r refreshResult) err() error {
 	case r.schedulesErr != nil:
 		return r.schedulesErr
 	default:
-		return r.trashErr
+		return r.archivedErr
 	}
 }
 
@@ -173,8 +173,8 @@ type writeResult struct {
 
 // restoredAgent is what a restore hands back: the pane to stage and the name to put the
 // cursor on, which may not be the one the agent went in with. screen is where the person
-// lands, since a restore from the trash leaves them in the trash while one from the tree
-// or from search lands on the agent itself.
+// lands, since a restore from the archive leaves them in the archive while one from
+// the tree or from search lands on the agent itself.
 type restoredAgent struct {
 	pane   string
 	name   string

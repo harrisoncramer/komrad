@@ -132,6 +132,57 @@ func (c *Client) ClientPath(client string) string {
 	return path
 }
 
+// SessionClient returns a client attached to the given session, empty when none is. The
+// first is taken when several are, since every one of them shows the same session and it
+// is the session's directory and window that get asked for.
+func (c *Client) SessionClient(session string) string {
+	clients, err := c.query("list-clients", "-t", session, "-F", "#{client_name}")
+	if err != nil || clients == "" {
+		return ""
+	}
+
+	first, _, _ := strings.Cut(clients, "\n")
+
+	return first
+}
+
+// ClientSession returns the session a client is attached to, empty when tmux knows no
+// such client.
+func (c *Client) ClientSession(client string) string {
+	session, _ := c.query(append([]string{"display-message", "-p"}, append(clientTarget(client), "#{client_session}")...)...)
+	return session
+}
+
+// OpenWindow creates a window in the session the given client is attached to, rooted at
+// dir and running argv, and leaves it as that session's current window. It is how
+// something is put in front of the user on their own tmux server, where the client viewing
+// the popup is the only handle on a session.
+//
+// Unlike NewWindow the window is created attached, since the point is to land the user in
+// it. The session is targeted with a trailing colon for the same reason NewWindow does it,
+// that tmux matches a bare name against window names too and prefers those.
+//
+// An empty client is refused for the reason SendKeys refuses an empty target. tmux would
+// resolve it to whatever the server holds as current and open the window over a session
+// nobody named.
+func (c *Client) OpenWindow(client, name, dir string, argv ...string) error {
+	if client == "" {
+		return errors.New("refusing to open a window without a client to open it for")
+	}
+
+	session := c.ClientSession(client)
+	if session == "" {
+		return fmt.Errorf("tmux knows no client %q", client)
+	}
+
+	args := append([]string{"new-window", "-t", session + ":", "-n", name, "-c", dir}, argv...)
+	if _, err := c.query(args...); err != nil {
+		return fmt.Errorf("failed to open window %q: %w", name, err)
+	}
+
+	return nil
+}
+
 // SendKeys sends literal keys to a target pane or session. An empty target is refused,
 // since tmux resolves one to the active pane and a caller holding a pane id that was
 // never created would type its command into whatever the user is looking at.

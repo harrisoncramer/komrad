@@ -224,6 +224,67 @@ func TestConfigRoundTrip(t *testing.T) {
 	}
 }
 
+func TestActionsRoundTrip(t *testing.T) {
+	tests := []struct {
+		name        string
+		create      Config
+		update      *Config
+		wantSetup   string
+		wantCleanup string
+	}{
+		{
+			name:   "naming none stores blank",
+			create: Config{Name: "digest"},
+		},
+		{
+			name: "both are carried",
+			create: Config{
+				Name:          "backend",
+				SetupAction:   "make-worktree",
+				CleanupAction: "drop-worktree",
+			},
+			wantSetup:   "make-worktree",
+			wantCleanup: "drop-worktree",
+		},
+		{
+			name: "an update writes both, so clearing one clears it",
+			create: Config{
+				Name:          "backend",
+				SetupAction:   "make-worktree",
+				CleanupAction: "drop-worktree",
+			},
+			update:    &Config{Name: "backend", SetupAction: "provision"},
+			wantSetup: "provision",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			created, err := st.Create(ctx, tt.create)
+			require.NoError(t, err)
+			assert.Equal(t, tt.create.SetupAction, created.SetupAction, "the create result carries what it was given")
+
+			if tt.update != nil {
+				require.NoError(t, st.Update(ctx, created.ID, *tt.update))
+			}
+
+			got, err := st.Get(ctx, created.ID)
+			require.NoError(t, err)
+			require.NotNil(t, got)
+			assert.Equal(t, tt.wantSetup, got.SetupAction)
+			assert.Equal(t, tt.wantCleanup, got.CleanupAction)
+
+			listed, err := st.List(ctx)
+			require.NoError(t, err)
+			require.Len(t, listed, 1)
+			assert.Equal(t, tt.wantSetup, listed[0].SetupAction, "the listing carries them too")
+		})
+	}
+}
+
 // open builds a workflow store over a throwaway database.
 func open(t *testing.T) *Store {
 	t.Helper()

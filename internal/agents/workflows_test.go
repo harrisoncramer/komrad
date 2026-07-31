@@ -176,7 +176,7 @@ func TestDeleteWorkflow(t *testing.T) {
 			all, err := st.ListAll(ctx)
 			require.NoError(t, err)
 			require.Len(t, all, 1)
-			assert.NotNil(t, all[0].DeletedAt, "and archived rather than removed")
+			assert.NotNil(t, all[0].ArchivedAt, "and archived rather than removed")
 		})
 	}
 }

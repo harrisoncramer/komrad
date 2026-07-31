@@ -39,7 +39,7 @@ type actionsResult struct {
 }
 
 // enterActions opens the actions list on the hovered agent. The list arrives as a message, so
-// the screen paints empty and fills in, the way the trash does.
+// the screen paints empty and fills in, the way the archive does.
 func (m model) enterActions() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedAgent()
 	if !ok {

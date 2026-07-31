@@ -105,10 +105,10 @@ func TestSearch(t *testing.T) {
 		archive   bool
 		// other is a second agent's transcript, for the cases that only mean
 		// something when there is something to leave out.
-		other       string
-		query       string
-		wantHits    int
-		wantDeleted bool
+		other        string
+		query        string
+		wantHits     int
+		wantArchived bool
 	}{
 		{
 			name:     "a blank query matches nothing rather than everything",
@@ -163,12 +163,12 @@ func TestSearch(t *testing.T) {
 			wantHits: 1,
 		},
 		{
-			name:        "an archived agent is still findable",
-			content:     "an agent that mentions postgres then is archived",
-			archive:     true,
-			query:       "postgres",
-			wantHits:    1,
-			wantDeleted: true,
+			name:         "an archived agent is still findable",
+			content:      "an agent that mentions postgres then is archived",
+			archive:      true,
+			query:        "postgres",
+			wantHits:     1,
+			wantArchived: true,
 		},
 		{
 			name:     "an unrelated transcript is left out",
@@ -244,7 +244,7 @@ func TestSearch(t *testing.T) {
 
 			assert.Equal(t, id, hits[0].AgentID)
 			assert.Equal(t, "one", hits[0].Name, "the hit carries the agent's name")
-			assert.Equal(t, tt.wantDeleted, hits[0].Deleted)
+			assert.Equal(t, tt.wantArchived, hits[0].Archived)
 			assert.Contains(t, hits[0].Snippet, SnippetOpen, "the match is marked in the snippet")
 		})
 	}

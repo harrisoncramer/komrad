@@ -3,7 +3,7 @@
 Weave is a Tmux-first workflow for managing coding agents. With weave you can:
 
 - Create agents backed by different backends, like Claude or Codex
-- Quickly search, delete, restore agent sessions behind
+- Quickly search, archive, restore agent sessions behind
 - Group agents into workflows with predefined context and working directories
 - Schedule agents and workflows
 - Manage your agents with another Agent through weave's MCP layer

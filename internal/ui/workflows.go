@@ -61,7 +61,7 @@ func (m model) returnToAgents() (tea.Model, tea.Cmd) {
 func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
 	m.target.renameWorkflow = nil
 	m.target.editWorkflow = nil
-	m.form, m.values.workflow = workflowConfigForm("New workflow name", workflowstore.Config{}, m.keys.Form)
+	m.form, m.values.workflow = workflowConfigForm("New workflow name", workflowstore.Config{}, m.availableActions(), m.keys.Form)
 	m.screen = screenWorkflowForm
 
 	return m, m.form.Init()
@@ -90,15 +90,38 @@ func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea
 	m.target.editWorkflow = &workflow
 	m.target.renameWorkflow = nil
 	m.form, m.values.workflow = workflowConfigForm("Workflow name", workflowstore.Config{
-		Name:    workflow.Name,
-		Context: workflow.Context,
-		Harness: workflow.Harness,
-		Cwd:     workflow.Cwd,
-		Flags:   workflow.Flags,
-	}, m.keys.Form)
+		Name:          workflow.Name,
+		Context:       workflow.Context,
+		Harness:       workflow.Harness,
+		Cwd:           workflow.Cwd,
+		Flags:         workflow.Flags,
+		SetupAction:   workflow.SetupAction,
+		CleanupAction: workflow.CleanupAction,
+	}, m.availableActions(), m.keys.Form)
 	m.screen = screenWorkflowForm
 
 	return m, m.form.Init()
+}
+
+// availableActions is what the actions directory holds, which the workflow form's two
+// action fields are chosen from.
+//
+// It is fetched on the render loop for the same reason editWorkflowForm refetches the
+// workflow, which is that a form has nothing to open on until the answer is in. A listing
+// that fails leaves the fields offering none and whatever the workflow already records,
+// since a workflow stays editable when the directory cannot be read.
+func (m model) availableActions() []string {
+	listed, err := m.api.listActions()
+	if err != nil {
+		return nil
+	}
+
+	names := make([]string, 0, len(listed))
+	for _, action := range listed {
+		names = append(names, action.GetName())
+	}
+
+	return names
 }
 
 // deleteWorkflowConfirm opens the delete prompt for the highlighted workflow,
@@ -195,12 +218,14 @@ func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 		}
 	case m.target.editWorkflow != nil:
 		edited := workflowstore.Workflow{
-			ID:      m.target.editWorkflow.ID,
-			Name:    values.Name,
-			Context: values.Context,
-			Harness: values.Harness,
-			Cwd:     values.Cwd,
-			Flags:   values.Flags,
+			ID:            m.target.editWorkflow.ID,
+			Name:          values.Name,
+			Context:       values.Context,
+			Harness:       values.Harness,
+			Cwd:           values.Cwd,
+			Flags:         values.Flags,
+			SetupAction:   values.SetupAction,
+			CleanupAction: values.CleanupAction,
 		}
 		write = m.writeCmd(
 			fmt.Sprintf("Could not save workflow %q", m.target.editWorkflow.Name),

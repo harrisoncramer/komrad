@@ -32,8 +32,8 @@ type Keybindings struct {
 	Workflows WorkflowsKeys `mapstructure:"workflows"`
 	// The schedules screen, and the key that opens it from the agents list.
 	Schedules SchedulesKeys `mapstructure:"schedules"`
-	// The trash screen, and the key that opens it from the agents list.
-	Trash TrashKeys `mapstructure:"trash"`
+	// The archive screen, and the key that opens it from the agents list.
+	Archive ArchiveKeys `mapstructure:"archive"`
 	// The actions list, and the key that opens it on the hovered agent.
 	Actions ActionsKeys `mapstructure:"actions"`
 }
@@ -68,12 +68,17 @@ type AgentsKeys struct {
 	Back []string `mapstructure:"back"`
 	// Attach to the hovered agent.
 	Open []string `mapstructure:"open"`
+	// Open the hovered agent's directory in whatever EDITOR names. The window is created
+	// on your own tmux server rather than the panel's, and the panel closes behind it, so
+	// you are left in the editor.
+	Editor []string `mapstructure:"editor"`
 	// Start a new agent.
 	New []string `mapstructure:"new"`
 	// Rename the hovered agent.
 	Rename []string `mapstructure:"rename"`
-	// Delete the hovered agent.
-	Delete []string `mapstructure:"delete"`
+	// Archive the hovered agent, which stops it and moves it to the archive screen
+	// rather than destroying it.
+	Archive []string `mapstructure:"archive"`
 	// Filter the list by name.
 	Search []string `mapstructure:"search"`
 	// Swap the hovered agent's stored record into the stage in place of the agent.
@@ -125,15 +130,15 @@ type SchedulesKeys struct {
 	Delete []string `mapstructure:"delete"`
 }
 
-// TrashKeys are the bindings for the trash screen, which lists the agents
-// deleted from the panel. Open enters it from the agents list, and the rest act
+// ArchiveKeys are the bindings for the archive screen, which lists the agents
+// archived from the panel. Open enters it from the agents list, and the rest act
 // on the hovered agent once inside.
-type TrashKeys struct {
-	// Open the trash from the agents list.
+type ArchiveKeys struct {
+	// Open the archive from the agents list.
 	Open []string `mapstructure:"open"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit"`
-	// Leave the trash for the agents list.
+	// Leave the archive for the agents list.
 	Back []string `mapstructure:"back"`
 	// Put the agent under the cursor back in the panel.
 	Restore []string `mapstructure:"restore"`
@@ -337,9 +342,10 @@ func DefaultKeybindings() Keybindings {
 			Quit:       []string{"ctrl+c", "q"},
 			Back:       []string{"esc", "left"},
 			Open:       []string{"enter", "l", "right"},
+			Editor:     []string{"e"},
 			New:        []string{"n"},
 			Rename:     []string{"r"},
-			Delete:     []string{"d"},
+			Archive:    []string{"z"},
 			Search:     []string{"/"},
 			Info:       []string{"i"},
 			Mark:       []string{"m"},
@@ -361,8 +367,8 @@ func DefaultKeybindings() Keybindings {
 			Toggle: []string{" "},
 			Delete: []string{"d"},
 		},
-		Trash: TrashKeys{
-			Open:    []string{"t"},
+		Archive: ArchiveKeys{
+			Open:    []string{"Z"},
 			Quit:    []string{"ctrl+c", "q"},
 			Back:    []string{"esc", "left", "h"},
 			Restore: []string{"r"},

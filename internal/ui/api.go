@@ -240,12 +240,14 @@ func (a api) getWorkflow(id string) (*workflowstore.Workflow, error) {
 	w := resp.Msg.GetWorkflow()
 
 	return &workflowstore.Workflow{
-		ID:      w.GetId(),
-		Name:    w.GetName(),
-		Context: w.GetContext(),
-		Harness: w.GetHarness(),
-		Cwd:     w.GetCwd(),
-		Flags:   w.GetFlags(),
+		ID:            w.GetId(),
+		Name:          w.GetName(),
+		Context:       w.GetContext(),
+		Harness:       w.GetHarness(),
+		Cwd:           w.GetCwd(),
+		Flags:         w.GetFlags(),
+		SetupAction:   w.GetSetupAction(),
+		CleanupAction: w.GetCleanupAction(),
 	}, nil
 }
 
@@ -261,11 +263,13 @@ func (a api) createWorkflow(cfg workflowstore.Config) error {
 	defer cancel()
 
 	_, err := a.workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-		Name:    name,
-		Context: cfg.Context,
-		Harness: cfg.Harness,
-		Cwd:     cfg.Cwd,
-		Flags:   cfg.Flags,
+		Name:          name,
+		Context:       cfg.Context,
+		Harness:       cfg.Harness,
+		Cwd:           cfg.Cwd,
+		Flags:         cfg.Flags,
+		SetupAction:   cfg.SetupAction,
+		CleanupAction: cfg.CleanupAction,
 	}))
 
 	return err
@@ -283,12 +287,14 @@ func (a api) updateWorkflow(w workflowstore.Workflow) error {
 	defer cancel()
 
 	_, err := a.workflows.UpdateWorkflow(ctx, connect.NewRequest(&workflowv1.UpdateWorkflowRequest{
-		Id:      w.ID,
-		Name:    name,
-		Context: w.Context,
-		Harness: w.Harness,
-		Cwd:     w.Cwd,
-		Flags:   w.Flags,
+		Id:            w.ID,
+		Name:          name,
+		Context:       w.Context,
+		Harness:       w.Harness,
+		Cwd:           w.Cwd,
+		Flags:         w.Flags,
+		SetupAction:   w.SetupAction,
+		CleanupAction: w.CleanupAction,
 	}))
 
 	return err

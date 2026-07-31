@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	"weave/internal/actions"
 	"weave/internal/agents"
 	"weave/internal/appconfig"
 	"weave/internal/interceptors"
@@ -96,18 +95,10 @@ func serveCmd(state *app) *cobra.Command {
 			)
 			mux.Handle(configPath, configHandler)
 
-			// Actions read the same config per call, so an actions directory changed
-			// while this server runs takes effect without a restart.
+			// The same service the agent service fires a workflow's actions through, so a
+			// script is handed the same payload whoever set it off.
 			actionPath, actionHandler := actionv1connect.NewActionServiceHandler(
-				rpcaction.NewService(agents.NewActionService(agents.ActionParams{
-					Agents:    state.agents,
-					Workflows: state.workflows,
-					Tmux:      state.tmux,
-					Runner:    actions.Runner{},
-					Load:      loadConfig,
-					Addr:      state.env.Addr,
-					Socket:    state.env.TmuxSocket,
-				})),
+				rpcaction.NewService(state.actionService),
 				connect.WithInterceptors(validation),
 			)
 			mux.Handle(actionPath, actionHandler)

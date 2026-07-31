@@ -23,10 +23,14 @@ type actionReader interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
-// actionRunner starts an action. The service takes it as an interface so its tests drive the
-// whole path without spawning processes.
+// actionRunner starts an action. The service takes it as an interface so its tests drive
+// the whole path without spawning processes.
+//
+// Which of the two a caller wants depends on the caller, not the action. RunAndWait is for
+// one with something downstream of the action, and Run is for one with nothing waiting.
 type actionRunner interface {
 	Run(action actions.Action, dir string, env []string) error
+	RunAndWait(ctx context.Context, action actions.Action, dir string, env []string) (actions.Result, error)
 }
 
 // actionTmux is the one thing this asks of tmux, which agent a pane currently belongs to. It is
@@ -42,6 +46,23 @@ type configLoader func() (*appconfig.Config, error)
 
 // ErrActionNotFound reports that the actions directory holds no file by that name.
 var ErrActionNotFound = errors.New("action not found")
+
+// What set an action off, passed to it in WEAVE_TRIGGER. There is one kind of action and
+// one payload, so this is how a script tells apart the moments it can be reached at.
+//
+// The contract differs at one of them. Under TriggerSetup a launch is waiting, so the exit
+// status decides whether the agent starts and stdout is read as the directory it runs in.
+// Under the other two nothing is waiting and neither is read. A script that only makes
+// sense at one moment guards on this and refuses the rest itself, which keeps the check in
+// the file rather than in a registry weave would have to keep in step with a directory.
+const (
+	// TriggerManual is a person pressing the action key or a model calling run_action.
+	TriggerManual = "manual"
+	// TriggerSetup is a workflow's setup action, before one of its agents starts.
+	TriggerSetup = "setup"
+	// TriggerCleanup is a workflow's cleanup action, once one of its agents is deleted.
+	TriggerCleanup = "cleanup"
+)
 
 // ActionService lists and fires the executables the user keeps in their actions directory.
 //
@@ -155,12 +176,92 @@ func (s *ActionService) RunAction(ctx context.Context, agentID, name string) err
 		return err
 	}
 
-	env, err := s.env(ctx, *agent, dir)
+	env, err := s.env(ctx, *agent, dir, TriggerManual)
 	if err != nil {
 		return err
 	}
 
 	return s.runner.Run(action, dir, env)
+}
+
+// ErrSetupFailed reports that the action a workflow runs before its agents start refused,
+// so the agent was never launched. It is the one action failure something else is
+// downstream of. Everywhere else an action that will not run is only the script's problem.
+var ErrSetupFailed = errors.New("the setup action failed")
+
+// setupTimeout bounds how long a setup action may take. A launch waits on it, so one that
+// hangs is a create that never answers. It is generous because the ordinary case is
+// installing dependencies over a network, and killing that halfway through leaves a mess.
+const setupTimeout = 10 * time.Minute
+
+// maxSetupDir bounds what a setup action may name as the directory to run in, matching the
+// limit the same field carries on the wire. It also stops a script that chats on stdout
+// from being read as having answered with a page of prose.
+const maxSetupDir = 4096
+
+// RunSetupAction runs a workflow's setup action and does not return until it has finished.
+//
+// The directory the agent should run in is what the action writes to stdout, trimmed.
+// Writing nothing is the ordinary case, since only a workflow that provisions a directory
+// has anything to say here. Progress belongs on stderr, so a script that chats on stdout is
+// refused rather than taken at its word.
+func (s *ActionService) RunSetupAction(ctx context.Context, agent agentstore.Agent, name string) (string, error) {
+	action, actionsDir, err := s.find(name)
+	if err != nil {
+		return "", fmt.Errorf("%w: %w", ErrSetupFailed, err)
+	}
+
+	env, err := s.env(ctx, agent, actionsDir, TriggerSetup)
+	if err != nil {
+		return "", err
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, setupTimeout)
+	defer cancel()
+
+	result, err := s.runner.RunAndWait(ctx, action, actionsDir, env)
+	if err != nil {
+		return "", fmt.Errorf("%w: %w%s", ErrSetupFailed, err, stderrDetail(result.Stderr))
+	}
+
+	answered := string(bytes.TrimSpace(result.Stdout))
+	if len(answered) > maxSetupDir {
+		return "", fmt.Errorf("%w: %s wrote %d bytes to stdout, where a directory to run in was expected. Progress belongs on stderr", ErrSetupFailed, name, len(answered))
+	}
+
+	return answered, nil
+}
+
+// RunCleanupAction fires a workflow's cleanup action and returns once the process exists.
+// Nothing is downstream of a cleanup, so it is started and abandoned the way an action fired
+// by hand is.
+//
+// The agent is taken as a value rather than looked up, so a cleanup can fire for an agent
+// whose row has already gone. Deleting one is exactly when its worktree wants removing.
+func (s *ActionService) RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string) error {
+	action, dir, err := s.find(name)
+	if err != nil {
+		return err
+	}
+
+	env, err := s.env(ctx, agent, dir, TriggerCleanup)
+	if err != nil {
+		return err
+	}
+
+	return s.runner.Run(action, dir, env)
+}
+
+// stderrDetail renders an action's stderr for the end of a refusal, so what the script said
+// about its own failure travels with the error rather than only reaching a log. Empty
+// stderr renders as nothing rather than as an empty pair of quotes.
+func stderrDetail(stderr []byte) string {
+	trimmed := bytes.TrimSpace(stderr)
+	if len(trimmed) == 0 {
+		return ""
+	}
+
+	return ": " + string(trimmed)
 }
 
 // find is the action by name, with the directory it was found in. The name is matched against
@@ -240,7 +341,7 @@ type actionPayload struct {
 // pane in the payload would be addressing the user's own server, where that pane id means
 // something else. The directory is what a script that cds to the agent's own gets back to its
 // siblings by, since its own path is only reliable when it was not reached through a symlink.
-func (s *ActionService) env(ctx context.Context, agent agentstore.Agent, dir string) ([]string, error) {
+func (s *ActionService) env(ctx context.Context, agent agentstore.Agent, dir, trigger string) ([]string, error) {
 	payload := actionPayload{
 		ID:        agent.ID,
 		Name:      agent.Name,
@@ -277,6 +378,7 @@ func (s *ActionService) env(ctx context.Context, agent agentstore.Agent, dir str
 		"WEAVE_ADDR=" + s.addr,
 		"WEAVE_TMUX_SOCKET=" + s.socket,
 		"WEAVE_ACTIONS_DIR=" + dir,
+		"WEAVE_TRIGGER=" + trigger,
 	}, nil
 }
 

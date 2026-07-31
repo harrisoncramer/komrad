@@ -1,10 +1,46 @@
 package tmux
 
+import (
+	"errors"
+	"strings"
+)
+
 // hostSocketOption records the socket path of the tmux server the user is on. It
 // is stored on the manager's own server because the panel and the API server both
 // run there, and it is rewritten on every open rather than passed in through their
 // environment, which only the open that created the session could set.
 const hostSocketOption = "@weave_host_socket"
+
+// tmuxEnvFields is how many fields tmux writes into TMUX for a pane it spawns. They are
+// the socket path of the server, that server's pid, and the id of the session the pane
+// belongs to.
+const tmuxEnvFields = 3
+
+// SocketFromEnv returns the socket path of the server a TMUX value names, empty when it
+// names none. It is how the popup finds the user's server, which cannot be passed in.
+// tmux expands no format in a popup's command or in the environment it sets, and an
+// unexpanded format at the start of a shell word is a comment, so a value written into the
+// key binding never arrives at all.
+func SocketFromEnv(value string) string {
+	fields := strings.Split(value, ",")
+	if len(fields) != tmuxEnvFields {
+		return ""
+	}
+
+	return fields[0]
+}
+
+// SessionFromEnv returns the session a TMUX value belongs to, as the id target tmux
+// resolves it by, and empty when the value names none. An id is what tmux exports, and
+// unlike a bare name it cannot be confused with a window's name.
+func SessionFromEnv(value string) string {
+	fields := strings.Split(value, ",")
+	if len(fields) != tmuxEnvFields || fields[tmuxEnvFields-1] == "" {
+		return ""
+	}
+
+	return "$" + fields[tmuxEnvFields-1]
+}
 
 // Host is the tmux server the user is on. The manager runs on a server of its own,
 // so its session never shows up in the user's session list and cannot be attached
@@ -64,6 +100,19 @@ func (h *Host) SetGlobal(name, value string) {
 	}
 }
 
+// OpenWindow creates a window on the user's server for the client viewing the popup,
+// running argv in dir. It is the one thing the panel puts on that server rather than reads
+// off it, and it belongs here because that is where the sessions a person is looking at
+// live.
+func (h *Host) OpenWindow(client, name, dir string, argv ...string) error {
+	host := h.client()
+	if host == nil {
+		return errors.New("no tmux server has opened the panel yet")
+	}
+
+	return host.OpenWindow(client, name, dir, argv...)
+}
+
 // ShowGlobal returns a global tmux option's value from the user's server, empty
 // if it is unset.
 func (h *Host) ShowGlobal(name string) string {
@@ -103,4 +152,11 @@ func (s *Servers) SetGlobal(name, value string) {
 // ShowGlobal reads from the user's server, for the same reason.
 func (s *Servers) ShowGlobal(name string) string {
 	return s.host.ShowGlobal(name)
+}
+
+// OpenWindow goes to the user's server, unlike NewWindow beside it, since a window
+// meant for the user to sit in has to land in the session they are attached to rather
+// than in the manager's.
+func (s *Servers) OpenWindow(client, name, dir string, argv ...string) error {
+	return s.host.OpenWindow(client, name, dir, argv...)
 }

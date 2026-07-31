@@ -85,6 +85,7 @@ func (m model) rowHints() []hint {
 
 	return []hint{
 		{hintKeys(m.keys.Agents.Open), "open"},
+		{hintKeys(m.keys.Agents.Editor), "editor"},
 		{hintKeys(m.keys.Agents.Info), infoDesc},
 		{hintKeys(m.keys.Actions.Open), "actions"},
 		{hintKeys(m.keys.Agents.Mark), markDesc},
@@ -92,7 +93,7 @@ func (m model) rowHints() []hint {
 		{hintKeys(m.keys.Agents.New), "new agent"},
 		{hintKeys(m.keys.Workflows.New), "new workflow"},
 		{hintKeys(m.keys.Agents.Rename), "rename"},
-		{hintKeys(m.keys.Agents.Delete), "delete"},
+		{hintKeys(m.keys.Agents.Archive), "archive"},
 	}
 }
 
@@ -104,7 +105,7 @@ func (m model) screenHints() []hint {
 	return []hint{
 		{hintKeys(m.keys.Agents.Search), "search"},
 		{hintKeys(m.keys.Schedules.Open), "schedules"},
-		{hintKeys(m.keys.Trash.Open), "trash"},
+		{hintKeys(m.keys.Archive.Open), "archived agents"},
 	}
 }
 
@@ -126,13 +127,13 @@ func (m model) scheduleHints() string {
 	})
 }
 
-// trashHints lists the trash screen's bindings.
-func (m model) trashHints() string {
+// archiveHints lists the archive screen's bindings.
+func (m model) archiveHints() string {
 	return renderHints([]hint{
-		{hintKeys(m.keys.Trash.Restore), "restore"},
-		{hintKeys(m.keys.Trash.Delete), "delete for good"},
+		{hintKeys(m.keys.Archive.Restore), "restore"},
+		{hintKeys(m.keys.Archive.Delete), "delete for good"},
 		{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
-		{hintKeys(m.keys.Trash.Back), "back"},
+		{hintKeys(m.keys.Archive.Back), "back"},
 	})
 }
 

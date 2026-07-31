@@ -130,8 +130,8 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateScheduleForm(msg)
 	case screenScheduleDelete:
 		return m.updateScheduleDelete(msg)
-	case screenTrashDelete:
-		return m.updateTrashDelete(msg)
+	case screenArchiveDelete:
+		return m.updateArchiveDelete(msg)
 	default:
 		// The list screens act on keys alone, which are dispatched below.
 	}
@@ -146,8 +146,8 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateSearch(key)
 	case screenSchedules:
 		return m.updateSchedules(key)
-	case screenTrash:
-		return m.updateTrash(key)
+	case screenArchive:
+		return m.updateArchive(key)
 	case screenActions:
 		return m.updateActions(key)
 	case screenAgents:

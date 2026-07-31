@@ -130,6 +130,7 @@ func NewRootCommand() *cobra.Command {
 				Marks:      state.marks,
 				Layout:     state.layout,
 				Addr:       state.env.Addr,
+				Editor:     state.env.Editor,
 				ConfigErr:  state.configErr,
 				StartupErr: startupErr,
 			})

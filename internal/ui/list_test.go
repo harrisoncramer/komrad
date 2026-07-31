@@ -160,14 +160,14 @@ func TestScreensFitThePane(t *testing.T) {
 	for i := range total {
 		name := fmt.Sprintf("agent%d", i)
 		m.tree.agents = append(m.tree.agents, agentItem{agent: agentstore.Agent{Name: name, WorkflowID: "w1"}})
-		m.trash.agents = append(m.trash.agents, agentstore.Agent{Name: name})
+		m.archive.agents = append(m.archive.agents, agentstore.Agent{Name: name})
 		m.schedules.items = append(m.schedules.items, scheduleItem{schedule: schedulestore.Schedule{Name: name}})
 	}
 
 	// Every cursor sits on the last row, the one a list that ran off the bottom
 	// would have taken off screen with it.
 	m.tree.cursor = total
-	m.trash.cursor = total - 1
+	m.archive.cursor = total - 1
 	m.schedules.cursor = total - 1
 
 	tests := []struct {
@@ -181,9 +181,9 @@ func TestScreensFitThePane(t *testing.T) {
 			wantTitle: "Agents and Workflows",
 		},
 		{
-			name:      "the trash",
-			screen:    screenTrash,
-			wantTitle: "Trash",
+			name:      "the archive",
+			screen:    screenArchive,
+			wantTitle: "Archive",
 		},
 		{
 			name:      "the schedules",
@@ -213,7 +213,7 @@ func TestScreensFitThePane(t *testing.T) {
 // and the banner over it both come off the pane, and a pane too short to hold even
 // that keeps one line for the hovered row.
 func TestListLines(t *testing.T) {
-	header := "Trash\n\n"
+	header := "Archive\n\n"
 	hints := "\nrestore\ndelete\nback\n"
 
 	tests := []struct {

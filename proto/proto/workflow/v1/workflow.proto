@@ -11,8 +11,9 @@ import "rules/v1/rules.proto";
 option go_package = "weave/proto/gen/workflow/v1;workflowv1";
 
 // Workflow is a named bucket of related agents. It runs nothing itself. It holds
-// a label, shared context injected into the agents spawned inside it, and the
-// harness, working directory, and flags those agents start from.
+// a label, shared context injected into the agents spawned inside it, the harness,
+// working directory, and flags those agents start from, and the actions run at the
+// start and end of each of their lives.
 message Workflow {
   string id = 1;
   string name = 2;
@@ -25,6 +26,13 @@ message Workflow {
   // Which CLI agents in this workflow run, blank when they take the user's
   // configured default.
   string harness = 6;
+  // The action run before an agent in this workflow starts, blank for none. It blocks and
+  // a failure abandons the launch. A file in the actions directory names it, so nothing
+  // here promises it still exists.
+  string setup_action = 7;
+  // The action run once an agent in this workflow is deleted, blank for none. Nothing
+  // waits on it.
+  string cleanup_action = 8;
 }
 
 message ListWorkflowsRequest {
@@ -71,6 +79,18 @@ message CreateWorkflowRequest {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
+  // The action to run before an agent in this workflow starts, blank for none. One
+  // action rather than a list, since an action is a script and a script already
+  // sequences its own steps.
+  string setup_action = 6 [(buf.validate.field).string = {
+    max_len: 255
+    [rules.v1.action_name_or_blank]: true
+  }];
+  // The action to run once an agent in this workflow is deleted, blank for none.
+  string cleanup_action = 7 [(buf.validate.field).string = {
+    max_len: 255
+    [rules.v1.action_name_or_blank]: true
+  }];
 }
 
 message CreateWorkflowResponse {
@@ -102,6 +122,19 @@ message UpdateWorkflowRequest {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
+  // The action run before an agent in this workflow starts, blank for none. Written like
+  // every other field here, and reaches only agents launched afterwards.
+  string setup_action = 7 [(buf.validate.field).string = {
+    max_len: 255
+    [rules.v1.action_name_or_blank]: true
+  }];
+  // The action run once an agent in this workflow is deleted, blank for none. Editing this
+  // does reach agents already running, since cleanup is read when it fires rather than at
+  // launch.
+  string cleanup_action = 8 [(buf.validate.field).string = {
+    max_len: 255
+    [rules.v1.action_name_or_blank]: true
+  }];
 }
 
 // DeleteWorkflowRequest removes a workflow and the agents inside it.
@@ -116,7 +149,7 @@ service WorkflowService {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "list_workflows"
-      description: "List the workflows agents are grouped into, most recently updated first, with each one's shared context and the working directory and flags its agents start from. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next."
+      description: "List the workflows agents are grouped into, most recently updated first, with each one's shared context, the working directory and flags its agents start from, and the action run before its agents start and the one run after they are deleted. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next."
     };
   }
   rpc GetWorkflow(GetWorkflowRequest) returns (GetWorkflowResponse) {
@@ -129,7 +162,7 @@ service WorkflowService {
   rpc CreateWorkflow(CreateWorkflowRequest) returns (CreateWorkflowResponse) {
     option (annotation.v1.tool) = {
       tool_name: "create_workflow"
-      description: "Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts."
+      description: "Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. setupAction names one action from list_actions to run before each of its agents starts, which blocks and abandons the launch if it fails; cleanupAction names the one run once one of its agents is deleted. Both are blank for none."
       destructive: false
     };
   }
@@ -137,7 +170,7 @@ service WorkflowService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "update_workflow"
-      description: "Replace a workflow's name, context, directory, and flags. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch."
+      description: "Replace a workflow's name, context, directory, flags, and the actions run around its agents' lives. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context or the setup action reaches only agents spawned afterwards, since existing agents took a snapshot at launch; editing the cleanup action reaches agents already running, since it is read when it fires."
       destructive: false
     };
   }

@@ -28,19 +28,27 @@ type Workflow struct {
 	Harness string
 	Cwd     string
 	Flags   string
+	// SetupAction names the action run before an agent in this workflow starts, and
+	// CleanupAction the one run once one is deleted. Both are blank for none, and both
+	// name a file in the actions directory, so nothing here can promise it still exists.
+	SetupAction   string
+	CleanupAction string
 	// UpdatedAt is when the row last changed, for display. The listing sorts by
 	// id instead, so an edit never moves a workflow out from under the reader.
 	UpdatedAt time.Time
 }
 
 // Config is the editable blueprint of a workflow. Its display label, its free-text
-// context, and the harness, cwd, and flags seeded into agents created inside it.
+// context, the actions run around its agents' lives, and the harness, cwd, and flags
+// seeded into agents created inside it.
 type Config struct {
-	Name    string
-	Context string
-	Harness string
-	Cwd     string
-	Flags   string
+	Name          string
+	Context       string
+	Harness       string
+	Cwd           string
+	Flags         string
+	SetupAction   string
+	CleanupAction string
 }
 
 // Store reads and writes workflows.
@@ -131,6 +139,8 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 	row, err := s.queries.InsertWorkflow(ctx, models.InsertWorkflowParams{
 		Name:             cfg.Name,
 		Context:          cfg.Context,
+		SetupAction:      cfg.SetupAction,
+		CleanupAction:    cfg.CleanupAction,
 		WorkflowConfigID: configID,
 	})
 	if err != nil {
@@ -155,9 +165,10 @@ func (s *Store) Rename(ctx context.Context, id, name string) error {
 	return nil
 }
 
-// Update rewrites a workflow's display name, its free-text context, and its
-// linked config of harness, cwd, and flags, keyed by id. The three writes must land
-// together, so a caller outside a transaction gets one through InTx.
+// Update rewrites a workflow's display name, its free-text context, the actions
+// around its agents' lives, and its linked config of harness, cwd, and flags, keyed
+// by id. The writes must land together, so a caller outside a transaction gets one
+// through InTx.
 func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 	if !store.IsID(id) {
 		return nil
@@ -169,6 +180,10 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 
 	if err := s.queries.SetWorkflowContext(ctx, models.SetWorkflowContextParams{ID: id, Context: cfg.Context}); err != nil {
 		return fmt.Errorf("failed to update context for workflow %q: %w", id, err)
+	}
+
+	if err := s.queries.SetWorkflowActions(ctx, models.SetWorkflowActionsParams{ID: id, SetupAction: cfg.SetupAction, CleanupAction: cfg.CleanupAction}); err != nil {
+		return fmt.Errorf("failed to update actions for workflow %q: %w", id, err)
 	}
 
 	if err := s.queries.UpdateWorkflowConfig(ctx, models.UpdateWorkflowConfigParams{WorkflowID: id, Harness: cfg.Harness, Cwd: cfg.Cwd, Flags: cfg.Flags}); err != nil {
@@ -197,12 +212,14 @@ func (s *Store) Archive(ctx context.Context, id string) error {
 // workflowFromRow builds a Workflow from a workflow row and its joined config.
 func workflowFromRow(w models.Workflow, harness, cwd, flags string) Workflow {
 	return Workflow{
-		ID:        w.ID,
-		Name:      w.Name,
-		Context:   w.Context,
-		Harness:   harness,
-		Cwd:       cwd,
-		Flags:     flags,
-		UpdatedAt: w.UpdatedAt,
+		ID:            w.ID,
+		Name:          w.Name,
+		Context:       w.Context,
+		Harness:       harness,
+		Cwd:           cwd,
+		Flags:         flags,
+		SetupAction:   w.SetupAction,
+		CleanupAction: w.CleanupAction,
+		UpdatedAt:     w.UpdatedAt,
 	}
 }

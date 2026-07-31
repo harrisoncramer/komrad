@@ -4,7 +4,7 @@ SELECT
 FROM
     agents s
 WHERE
-    s.deleted_at IS NULL
+    s.archived_at IS NULL
 ORDER BY
     s.id DESC;
 
@@ -13,7 +13,7 @@ SELECT
     *
 FROM
     agents s
-WHERE (@deleted::boolean) =(s.deleted_at IS NOT NULL)
+WHERE (@archived::boolean) =(s.archived_at IS NOT NULL)
     AND (sqlc.narg('cursor_id')::uuid IS NULL
         OR s.id < sqlc.narg('cursor_id'))
 ORDER BY
@@ -35,7 +35,7 @@ FROM
     agents s
 WHERE
     s.name = @name
-    AND s.deleted_at IS NULL
+    AND s.archived_at IS NULL
 LIMIT 1;
 
 -- name: GetAgentByID :one
@@ -56,7 +56,7 @@ SELECT
             agents
         WHERE
             name = @name
-            AND deleted_at IS NULL);
+            AND archived_at IS NULL);
 
 -- name: AgentExists :one
 SELECT
@@ -127,14 +127,14 @@ SET
 WHERE
     id = @id;
 
--- name: MarkWorkflowAgentsDeleted :exec
+-- name: MarkWorkflowAgentsArchived :exec
 UPDATE
     agents
 SET
-    deleted_at = NOW()
+    archived_at = NOW()
 WHERE
     workflow_id = @workflow_id
-    AND deleted_at IS NULL;
+    AND archived_at IS NULL;
 
 -- name: SetAgentStateByID :exec
 UPDATE
@@ -168,7 +168,7 @@ SET
     mark = sqlc.narg(mark)
 WHERE
     id = @id
-    AND deleted_at IS NULL
+    AND archived_at IS NULL
 RETURNING
     id;
 
@@ -179,7 +179,7 @@ SET
     is_hidden = @hidden
 WHERE
     id = @id
-    AND deleted_at IS NULL
+    AND archived_at IS NULL
 RETURNING
     id;
 
@@ -206,7 +206,7 @@ WHERE
             agents
         WHERE
             id = @agent_id
-            AND deleted_at IS NULL)
+            AND archived_at IS NULL)
 ON CONFLICT (agent_id,
     KEY)
     DO UPDATE SET
@@ -257,21 +257,21 @@ WHERE
 RETURNING
     id;
 
--- name: MarkAgentDeleted :exec
+-- name: MarkAgentArchived :exec
 UPDATE
     agents
 SET
-    deleted_at = NOW()
+    archived_at = NOW()
 WHERE
     name = @name
-    AND deleted_at IS NULL;
+    AND archived_at IS NULL;
 
 -- name: RestoreAgent :exec
 UPDATE
     agents
 SET
     is_hidden = FALSE,
-    deleted_at = NULL
+    archived_at = NULL
 WHERE
     id = @id;
 
@@ -355,7 +355,7 @@ SELECT
     c.role,
     c.content_offset,
     a.name,
-(a.deleted_at IS NOT NULL)::boolean AS deleted,
+(a.archived_at IS NOT NULL)::boolean AS archived,
     CASE WHEN c.tsv @@ q.query THEN
         TS_HEADLINE('english', c.content, q.query, @headline)
     ELSE
@@ -399,5 +399,5 @@ FROM
     agents
 WHERE
     schedule_id = @schedule_id
-    AND deleted_at IS NULL
+    AND archived_at IS NULL
     AND state IN ('thinking', 'waiting');

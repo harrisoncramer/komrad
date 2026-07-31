@@ -30,11 +30,11 @@ message Agent {
   string workflow_id = 9;
   // When the agent was first created, as an RFC 3339 timestamp, for display.
   string created_at = 10;
-  // When the agent was deleted, as an RFC 3339 timestamp, unset while it is live.
-  // It is both how a caller tells a deleted agent from a live one and the order the
-  // trash reads in, most recently deleted first, which the id does not give since it
-  // orders by when the agent was created.
-  optional string deleted_at = 19;
+  // When the agent was archived, as an RFC 3339 timestamp, unset while it is live.
+  // It is both how a caller tells an archived agent from a live one and the order the
+  // archive reads in, most recently archived first, which the id does not give since
+  // it orders by when the agent was created.
+  optional string archived_at = 19;
   // The schedule that launched this agent. Unset for one a person started, so a
   // caller can tell scheduled work from work someone asked for.
   optional string schedule_id = 12;
@@ -75,11 +75,11 @@ message AgentMetadata {
 
 message ListAgentsRequest {
   optional pagination.v1.Pagination pagination = 1;
-  // Lists the soft-deleted agents instead of the live ones, which is the trash
-  // the panel shows on its own screen. The two sets never mix in one listing: a
-  // deleted agent is not something to act on alongside live work, and its name
+  // Lists the archived agents instead of the live ones, which is the archive
+  // the panel shows on its own screen. The two sets never mix in one listing: an
+  // archived agent is not something to act on alongside live work, and its name
   // may be one a live agent has since taken.
-  bool deleted = 2;
+  bool archived = 2;
 }
 
 message ListAgentsResponse {
@@ -218,7 +218,7 @@ message SetMetadataRequest {
 }
 
 // ArchiveAgentRequest hides an agent without destroying it. This is what the
-// panel's delete key does. The agent is stopped and drops out of the listing,
+// panel's archive key does. The agent is stopped and drops out of the listing,
 // while its transcript stays searchable and it can be restored.
 message ArchiveAgentRequest {
   string name = 1 [(buf.validate.field).string = {
@@ -240,8 +240,8 @@ message RestoreAgentResponse {
 
 // DeleteAgentRequest removes an agent for good, keyed by id rather than name
 // for the same reason restoring is: the name index only holds among live rows,
-// so a deleted agent may share its name with a live one and with other deleted
-// ones. A name would not say which of them to destroy.
+// so an archived agent may share its name with a live one and with other
+// archived ones. A name would not say which of them to destroy.
 message DeleteAgentRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
@@ -273,7 +273,7 @@ message SearchTranscriptsRequest {
 }
 
 // SearchHit is one turn of a transcript matched by a search. The agent it belongs
-// to, its display name and whether it is soft-deleted, which turn matched and who
+// to, its display name and whether it is archived, which turn matched and who
 // spoke it, a snippet of the matching text with the matched terms wrapped in
 // markers, and the relevance the results are ordered by.
 message SearchHit {
@@ -283,7 +283,7 @@ message SearchHit {
   // replaced.
   reserved 3;
   string name = 4;
-  bool deleted = 5;
+  bool archived = 5;
   // Cover density of the matched turn, higher being a better match. It compares
   // only against the other hits for the same query and carries no meaning of its
   // own.
@@ -323,7 +323,7 @@ service AgentService {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "list_agents"
-      description: "List the agents the panel tracks, live and dormant, with each one\'s name, state, working directory, flags, and workflow. Soft-deleted agents are excluded unless deleted is set, which lists those and only those. Returns one page, most recently updated first; pass the response\'s nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs."
+      description: "List the agents the panel tracks, live and dormant, with each one\'s name, state, working directory, flags, and workflow. Archived agents are excluded unless archived is set, which lists those and only those. Returns one page, most recently updated first; pass the response\'s nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs."
     };
   }
   rpc GetAgent(GetAgentRequest) returns (GetAgentResponse) {
@@ -389,7 +389,7 @@ service AgentService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "delete_agent"
-      description: "Permanently remove an agent's record, keyed by id. This is a hard delete, not the panel's soft delete: the config and the transcript go with it and search will never find the conversation again. Prefer archive_agent, and prefer leaving agents alone unless asked to remove one."
+      description: "Permanently remove an agent's record, keyed by id. This is a hard delete, not the panel's archive: the config and the transcript go with it and search will never find the conversation again. Prefer archive_agent, and prefer leaving agents alone unless asked to remove one."
       destructive: true
     };
   }
@@ -407,7 +407,7 @@ service AgentService {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "search_transcripts"
-      description: "Full-text search across every agent's conversation, including deleted ones, returning one hit per matching turn with the matched text marked. Matches whole words, stemmed, so a query finds turns that phrased it differently; quote a phrase to require it verbatim, prefix a word with - to exclude it. Partial words also match as substrings, and rank below whole-word hits. One agent can appear several times, once per turn that matched. Returns one page, best match first; pass the response's nextPageToken back as pagination.cursor alongside the same query for the next one. Use this to answer what was discussed; use query for the SQL view of the same data."
+      description: "Full-text search across every agent's conversation, including archived ones, returning one hit per matching turn with the matched text marked. Matches whole words, stemmed, so a query finds turns that phrased it differently; quote a phrase to require it verbatim, prefix a word with - to exclude it. Partial words also match as substrings, and rank below whole-word hits. One agent can appear several times, once per turn that matched. Returns one page, best match first; pass the response's nextPageToken back as pagination.cursor alongside the same query for the next one. Use this to answer what was discussed; use query for the SQL view of the same data."
     };
   }
   // GetTranscript returns an agent's full stored transcript by id.

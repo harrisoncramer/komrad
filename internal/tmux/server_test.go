@@ -66,6 +66,32 @@ func TestNewWindowAlongsideASameNamedWindow(t *testing.T) {
 	assert.Equal(t, []string{"weave", "agent-one"}, windowNames(t, client, "weave"))
 }
 
+// TestOpenWindowWithoutAClient covers the two ways there is no session to open into: no
+// client named at all, and one tmux does not know. Both are refused rather than left to
+// tmux, which would resolve the target to whatever it holds as current and put the window
+// over a session nobody named.
+// TestSessionClientWithNothingAttached covers looking for the client viewing a popup on a
+// server nobody is attached to, and on a session that is not there. Both answer nothing,
+// which is what leaves the panel saying it cannot reach the user's server rather than
+// opening a window against a target tmux picked.
+func TestSessionClientWithNothingAttached(t *testing.T) {
+	client := testServer(t, "detached")
+
+	assert.Empty(t, client.SessionClient("$0"))
+	assert.Empty(t, client.SessionClient("$99"))
+}
+
+// The server here stands in for the user's own rather than the manager's, since that is
+// the only side OpenWindow is ever pointed at.
+func TestOpenWindowWithoutAClient(t *testing.T) {
+	client := testServer(t, "host")
+
+	assert.Error(t, client.OpenWindow("", "editor", t.TempDir(), "sh"))
+	assert.Error(t, client.OpenWindow("/dev/ttys999", "editor", t.TempDir(), "sh"))
+
+	assert.Equal(t, []string{"host"}, windowNames(t, client, "host"))
+}
+
 // TestNewWindowRepeatedly covers several agents launching into the same session, which is
 // the ordinary case and the one that finds an index tmux was given rather than chose.
 func TestNewWindowRepeatedly(t *testing.T) {
