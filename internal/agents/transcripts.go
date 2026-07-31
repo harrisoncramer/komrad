@@ -103,53 +103,33 @@ func (ts *TranscriptSyncer) Sync(ctx context.Context) error {
 // started for it, and returns the agents with the ids it settled on.
 //
 // A harness that names its own conversations is the reason this exists. The panel
-// cannot tell such an agent which id to use, so it asks afterwards which
-// conversations appeared in that agent's directory since it was created, and takes
-// the earliest one no other agent already holds. Two agents launched into the same
-// directory within a pass are told apart that way rather than by guessing.
+// cannot tell such an agent which id to use, so it asks afterwards. The harness knows
+// which conversation is this agent's without the panel arbitrating, since the launch
+// told the CLI which agent it was and the CLI records that beside the id it minted.
 //
 // A failure to adopt is not reported. The conversation appears a second or two after
 // the launch, so the passes before it are the ordinary case rather than a fault, and
 // the next pass tries again.
 func (ts *TranscriptSyncer) adoptSessions(ctx context.Context, agents []agentstore.Agent) []agentstore.Agent {
-	held := make(map[string]struct{}, len(agents))
-	var pending []int
 	for i, agent := range agents {
 		if agent.SessionID != "" {
-			held[agent.SessionID] = struct{}{}
-
 			continue
 		}
-
-		pending = append(pending, i)
-	}
-
-	for _, i := range pending {
-		agent := agents[i]
 
 		harness, err := ts.harnesses.Resolve(agent.Harness)
 		if err != nil {
 			continue
 		}
 
-		candidates, err := harness.FindSessions(agent.Cwd, agent.CreatedAt)
-		if err != nil {
+		found, err := harness.FindSession(agent.ID)
+		if err != nil || found == "" {
+			continue
+		}
+		if err := ts.sessions.SetSessionID(ctx, agent.ID, found); err != nil {
 			continue
 		}
 
-		for _, candidate := range candidates {
-			if _, taken := held[candidate]; taken {
-				continue
-			}
-			if err := ts.sessions.SetSessionID(ctx, agent.ID, candidate); err != nil {
-				break
-			}
-
-			held[candidate] = struct{}{}
-			agents[i].SessionID = candidate
-
-			break
-		}
+		agents[i].SessionID = found
 	}
 
 	return agents

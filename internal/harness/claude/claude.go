@@ -7,7 +7,6 @@ package claude
 import (
 	"os"
 	"path/filepath"
-	"time"
 
 	"weave/internal/harness"
 
@@ -44,9 +43,9 @@ func (h *Harness) GetID() string { return "claude" }
 // log lookup, and relocation keys on the name it chose.
 func (h *Harness) MintSessionID() string { return uuid.NewString() }
 
-// FindSessions has nothing to find. Claude is told the id of every conversation it
+// FindSession has nothing to find. Claude is told the id of every conversation it
 // starts, so a session is never discovered after the fact.
-func (h *Harness) FindSessions(string, time.Time) ([]string, error) { return nil, nil }
+func (h *Harness) FindSession(string) (string, error) { return "", nil }
 
 // DefaultProjectsDir is where Claude Code writes its JSONL logs. An unresolvable
 // home yields a relative path, which matches no logs rather than erroring.

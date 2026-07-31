@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"weave/internal/caller"
 	"weave/internal/logging"
 
 	"github.com/google/uuid"
@@ -35,12 +36,15 @@ func NewLoggingHandler(logger *slog.Logger, next http.Handler) http.Handler {
 
 		method, tool := mcpCall(r)
 
+		from := caller.FromHeader(r.Header)
+
 		attrs := []slog.Attr{
 			slog.String(logging.TraceID, trace),
 			slog.String(logging.HTTPMethod, r.Method),
 			slog.String(logging.URLPath, r.URL.Path),
 			slog.String(logging.ClientAddress, r.RemoteAddr),
 		}
+		attrs = append(attrs, CallerAttrs(from)...)
 		if method != "" {
 			attrs = append(attrs, slog.String(logging.RPCMethod, method))
 		}
@@ -48,7 +52,8 @@ func NewLoggingHandler(logger *slog.Logger, next http.Handler) http.Handler {
 			attrs = append(attrs, slog.String(logging.MCPTool, tool))
 		}
 
-		ctx := logging.WithTraceID(logging.WithLogger(r.Context(), logger.With(logging.Attrs(attrs)...)), trace)
+		ctx := logging.WithLogger(r.Context(), logger.With(logging.Attrs(attrs)...))
+		ctx = caller.With(caller.WithTrace(ctx, trace), from)
 
 		recorder := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		recorder.Header().Set(TraceHeader, trace)
@@ -61,12 +66,18 @@ func NewLoggingHandler(logger *slog.Logger, next http.Handler) http.Handler {
 			slog.Int64(logging.DurationMS, time.Since(start).Milliseconds()),
 		)
 
-		// The status is the only thing that says whether it worked. Nothing below returns an
-		// error to this layer, so a failure is a 4xx or a 5xx and is logged as one rather
-		// than sitting at info among the calls that were served.
+		// The status is the only thing that says whether it worked, since nothing below
+		// returns an error to this layer. A 5xx is the service breaking and is logged as a
+		// failure. A 4xx is the caller being told no, which is worth seeing but is not the
+		// service's failure: MCP clients probe this endpoint with a GET on every connect and
+		// are answered 405, and logging that as an error puts a red herring at the top of
+		// the file every time an agent starts.
 		level := slog.LevelInfo
-		if recorder.status >= http.StatusBadRequest {
+		switch {
+		case recorder.status >= http.StatusInternalServerError:
 			level = slog.LevelError
+		case recorder.status >= http.StatusBadRequest:
+			level = slog.LevelWarn
 		}
 
 		logger.LogAttrs(ctx, level, "http served", attrs...)

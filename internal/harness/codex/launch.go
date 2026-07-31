@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"weave/internal/caller"
 	"weave/internal/harness"
 )
 
@@ -21,10 +22,11 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 		return "", err
 	}
 
-	command := "codex"
-	if launch.AgentID != "" {
-		command = fmt.Sprintf("%s=%s codex", harness.AgentIDEnv, harness.QuoteArg(launch.AgentID))
-	}
+	// The agent's own ids are exported ahead of the CLI, which is both how it can name
+	// itself to the panel and where the headers configured below read their values from.
+	// The originator goes on beside them, which is how the conversation Codex is about to
+	// mint is recognized as this agent's once it appears on disk.
+	command := harness.EnvPrefix(launch) + originatorPrefix(launch.AgentID) + "codex"
 
 	resuming := launch.Resume && launch.SessionID != ""
 	if resuming {
@@ -47,6 +49,7 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 			"mcp_servers.weave.url=%s",
 			tomlString("http://"+launch.MCPEndpoint+"/mcp"),
 		))
+		command += " -c " + harness.QuoteArg(mcpHeaders())
 	}
 
 	if resuming {
@@ -67,6 +70,23 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	}
 
 	return command + fmt.Sprintf(" -- \"$(cat '%s'; rm '%s')\"", path, path), nil
+}
+
+// mcpHeaders is the override telling Codex to put the agent's identity on every call it
+// makes back to the panel. It names the variables to read rather than the values, which
+// Codex is built for: env_http_headers maps a header to an environment variable, and the
+// panel has already exported both ahead of the command. A variable that is not set sends
+// no header, which is what an unattributed call should look like.
+//
+// It is written as one inline table rather than a key per header, since the dotted path a
+// Codex override takes would otherwise have to reach through header names of its own that
+// contain dashes.
+func mcpHeaders() string {
+	return fmt.Sprintf(
+		"mcp_servers.weave.env_http_headers={%s=%s,%s=%s}",
+		tomlString(caller.AgentHeader), tomlString(harness.AgentIDEnv),
+		tomlString(caller.SessionHeader), tomlString(harness.SessionIDEnv),
+	)
 }
 
 // openingPrompt is the panel's briefing followed by the prompt the agent was created

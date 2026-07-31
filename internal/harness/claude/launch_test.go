@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"weave/internal/caller"
 	"weave/internal/harness"
 
 	"github.com/stretchr/testify/assert"
@@ -26,29 +27,29 @@ func TestBuildCommand(t *testing.T) {
 		{
 			name:        "a resume pins the prior conversation by id",
 			launch:      harness.Launch{SessionID: "sess-1", Resume: true},
-			wantCommand: "claude --resume 'sess-1'",
+			wantCommand: "WEAVE_SESSION_ID='sess-1' claude --resume 'sess-1'",
 		},
 		{
 			name:        "a fresh launch pins the id it was given",
 			launch:      harness.Launch{SessionID: "sess-2"},
-			wantCommand: "claude --session-id 'sess-2'",
+			wantCommand: "WEAVE_SESSION_ID='sess-2' claude --session-id 'sess-2'",
 		},
 		{
 			name:        "flags precede the session id",
 			launch:      harness.Launch{Flags: "--model opus", SessionID: "sess-3"},
-			wantCommand: "claude '--model' 'opus' --session-id 'sess-3'",
+			wantCommand: "WEAVE_SESSION_ID='sess-3' claude '--model' 'opus' --session-id 'sess-3'",
 		},
 		{
-			name:        "the agent's own id leads the line, so it reaches claude's environment",
+			name:        "the agent's own ids lead the line, so they reach claude's environment",
 			launch:      harness.Launch{AgentID: "id-1", SessionID: "sess-4"},
-			wantCommand: "WEAVE_AGENT_ID='id-1' claude --session-id 'sess-4'",
+			wantCommand: "WEAVE_AGENT_ID='id-1' WEAVE_SESSION_ID='sess-4' claude --session-id 'sess-4'",
 		},
 		{
 			// The appended system prompt carrying it would not, which is the whole reason
 			// it rides on the environment instead.
-			name:        "and it survives a resume",
+			name:        "and they survive a resume",
 			launch:      harness.Launch{AgentID: "id-1", SessionID: "sess-5", Resume: true},
-			wantCommand: "WEAVE_AGENT_ID='id-1' claude --resume 'sess-5'",
+			wantCommand: "WEAVE_AGENT_ID='id-1' WEAVE_SESSION_ID='sess-5' claude --resume 'sess-5'",
 		},
 	}
 
@@ -226,4 +227,47 @@ func appendedPrompt(t *testing.T, command string) string {
 	t.Cleanup(func() { _ = os.Remove(match[1]) })
 
 	return string(text)
+}
+
+// TestMCPConfigCarriesTheAgentsIdentity covers the headers every call an agent makes back
+// to the panel arrives with, which is how the service says which agent asked for something
+// rather than only that something on loopback did.
+//
+// They are written as variables rather than as this agent's ids, which is what lets every
+// agent share one config file: Claude expands them out of the environment the panel
+// launched that agent with, so each one calls back as itself.
+func TestMCPConfigCarriesTheAgentsIdentity(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	command, err := New(t.TempDir()).BuildCommand(harness.Launch{
+		AgentID:     "agent-1",
+		SessionID:   "sess-1",
+		MCPEndpoint: "127.0.0.1:9999",
+	})
+	require.NoError(t, err)
+
+	match := mcpConfigRef.FindStringSubmatch(command)
+	require.Len(t, match, 2)
+	assert.Equal(t, filepath.Join(home, ".claude", "weave-mcp.json"), match[1],
+		"one file for every agent, since the headers name no agent")
+
+	raw, err := os.ReadFile(match[1])
+	require.NoError(t, err)
+
+	var config struct {
+		MCPServers map[string]struct {
+			Headers map[string]string `json:"headers"`
+		} `json:"mcpServers"`
+	}
+	require.NoError(t, json.Unmarshal(raw, &config))
+
+	headers := config.MCPServers["weave"].Headers
+	assert.Equal(t, "${WEAVE_AGENT_ID:-}", headers[caller.AgentHeader])
+	assert.Equal(t, "${WEAVE_SESSION_ID:-}", headers[caller.SessionHeader])
+
+	// The variables the headers name are the ones the launch exports, or every call an
+	// agent makes arrives anonymous.
+	assert.Contains(t, command, "WEAVE_AGENT_ID='agent-1'")
+	assert.Contains(t, command, "WEAVE_SESSION_ID='sess-1'")
 }

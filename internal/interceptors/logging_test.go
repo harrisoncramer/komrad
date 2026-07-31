@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"weave/internal/caller"
 	"weave/internal/logging"
 	"weave/internal/logtest"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -40,7 +41,7 @@ func loggedCall(t *testing.T, level slog.Level, req connect.AnyRequest, handlerE
 	// The handler below the interceptor has to be able to log under the same trace as the
 	// line the interceptor writes, which is the whole reason the logger is on the context.
 	require.NotNil(t, seen)
-	assert.NotEmpty(t, logging.Trace(seen), "the handler can reach the trace id")
+	assert.NotEmpty(t, caller.Trace(seen), "the handler can reach the trace id")
 	assert.NotNil(t, logging.From(seen))
 
 	return out.String(), res, err
@@ -183,4 +184,53 @@ func TestSplitProcedure(t *testing.T) {
 			assert.Equal(t, tt.wantMethod, method)
 		})
 	}
+}
+
+// TestLoggingNamesTheCallingAgent covers a call from an agent the panel spawned. The panel
+// and every agent reach the service over the same loopback connection, so the address says
+// nothing about who called and the header is the only thing that does.
+func TestLoggingNamesTheCallingAgent(t *testing.T) {
+	req := unaryRequest("/agent.v1.AgentService/CreateAgent", "")
+	req.Header().Set(caller.AgentHeader, "agent-1")
+	req.Header().Set(caller.SessionHeader, "sess-1")
+
+	written, _, err := loggedCall(t, slog.LevelDebug, req, nil)
+	require.NoError(t, err)
+
+	record := logtest.Record(t, written)
+	assert.Equal(t, "agent-1", record[logging.AgentID])
+	assert.Equal(t, "sess-1", record[logging.SessionID])
+}
+
+// TestLoggingLeavesThePanelUnattributed covers the panel's own calls, which are the user
+// rather than an agent. An empty field would read as an agent whose id nobody recorded, so
+// there is no field at all.
+func TestLoggingLeavesThePanelUnattributed(t *testing.T) {
+	written, _, err := loggedCall(t, slog.LevelDebug, unaryRequest("/agent.v1.AgentService/ListAgents", ""), nil)
+	require.NoError(t, err)
+
+	record := logtest.Record(t, written)
+	assert.NotContains(t, record, logging.AgentID)
+	assert.NotContains(t, record, logging.SessionID)
+}
+
+// TestLoggingHandsTheIdentityDown covers what the handler under the interceptor is left
+// with. An RPC that calls back out has to be able to say who it is acting for, which is
+// what keeps a call made on an agent's behalf attributed to that agent.
+func TestLoggingHandsTheIdentityDown(t *testing.T) {
+	req := unaryRequest("/agent.v1.AgentService/CreateAgent", "")
+	req.Header().Set(caller.AgentHeader, "agent-1")
+
+	var seen caller.Caller
+	next := func(ctx context.Context, _ connect.AnyRequest) (connect.AnyResponse, error) {
+		seen = caller.From(ctx)
+
+		return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
+	}
+
+	var out bytes.Buffer
+	_, err := NewLogging(logging.New(&out, slog.LevelDebug)).WrapUnary(next)(context.Background(), req)
+	require.NoError(t, err)
+
+	assert.Equal(t, caller.Caller{AgentID: "agent-1"}, seen)
 }

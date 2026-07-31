@@ -231,7 +231,7 @@ func (m model) stageSelection() {
 	// cursor is read at all. It shows from a workflow header as readily as from an agent,
 	// and from an empty list, which is the moment the log is worth the most.
 	if m.tree.logsPinned {
-		m.stage.Log(m.logPath)
+		m.stage.Log(m.logPath, logArgv(m.logViewer, m.logPath))
 
 		return
 	}

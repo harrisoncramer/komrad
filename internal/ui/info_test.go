@@ -89,6 +89,7 @@ func TestInfoKey(t *testing.T) {
 // has no pane to display, so this is all there is of it.
 func TestAgentMarkdown(t *testing.T) {
 	agent := agentstore.Agent{
+		ID:        "a1",
 		Name:      "auth",
 		Pane:      "%9",
 		Cwd:       "/repo",
@@ -121,7 +122,8 @@ func TestAgentMarkdown(t *testing.T) {
 			alive: true,
 			wantContain: []string{
 				"- directory: /repo",
-				"- resume: abc",
+				"- agent_id: a1",
+				"- session_id: abc",
 				"- flags: —",
 			},
 			wantAbsent: []string{"dormant", "Press open to restore"},

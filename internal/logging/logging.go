@@ -38,6 +38,11 @@ const (
 	HTTPMethod = "http.request.method"
 	URLPath    = "url.path"
 	HTTPStatus = "http.response.status_code"
+	// AgentID and SessionID name the agent a call came from, set only on calls from an
+	// agent the panel spawned. They are what the log is filtered by to follow one agent,
+	// and what a call is joined on to put it beside what was being said around it.
+	AgentID   = "weave.agent.id"
+	SessionID = "weave.session.id"
 	// MCPTool is the tool a model asked for. The path is /mcp whatever it wanted, so this
 	// is the only field on an MCP call that says what it was trying to do.
 	MCPTool = "mcp.tool.name"
@@ -188,20 +193,4 @@ func From(ctx context.Context) *slog.Logger {
 	}
 
 	return slog.Default()
-}
-
-// traceKey is what the request's trace id is held under, separately from the logger,
-// since it is put on the response as well as into every line.
-type traceKey struct{}
-
-// WithTraceID carries a request's trace id on the context.
-func WithTraceID(ctx context.Context, id string) context.Context {
-	return context.WithValue(ctx, traceKey{}, id)
-}
-
-// Trace is the trace id of the request being served, empty outside one.
-func Trace(ctx context.Context) string {
-	id, _ := ctx.Value(traceKey{}).(string)
-
-	return id
 }

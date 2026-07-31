@@ -54,6 +54,8 @@ type app struct {
 	defaultFlags   map[string]string
 	// marks are the marks the panel's mark key steps an agent through.
 	marks []appconfig.Mark
+	// logViewer is what the panel's log key opens the log in, the user's own command.
+	logViewer string
 	// logLevel is how much the served process writes to its log. It is read here with the
 	// rest of the config, so serve is handed what this process parsed like every other
 	// setting rather than reading the file again.

@@ -2,7 +2,6 @@ package harness
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,11 +17,11 @@ func (s stub) GetID() string                       { return s.id }
 func (s stub) BuildCommand(Launch) (string, error) { return "", nil }
 func (s stub) MintSessionID() string               { return "" }
 
-func (s stub) FindSessions(string, time.Time) ([]string, error) { return nil, nil }
-func (s stub) ReadActivity(string) Activity                     { return ActivityUnknown }
-func (s stub) GetLogPath(string) string                         { return "" }
-func (s stub) ReadLog(string, int64) (LogRead, error)           { return LogRead{}, nil }
-func (s stub) Relocate(string, string) error                    { return nil }
+func (s stub) FindSession(string) (string, error)     { return "", nil }
+func (s stub) ReadActivity(string) Activity           { return ActivityUnknown }
+func (s stub) GetLogPath(string) string               { return "" }
+func (s stub) ReadLog(string, int64) (LogRead, error) { return LogRead{}, nil }
+func (s stub) Relocate(string, string) error          { return nil }
 
 // TestNewRegistry covers what a registry refuses to be built from. Both cases would
 // otherwise decide which harness an agent got by argument order.

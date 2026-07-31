@@ -56,7 +56,13 @@ func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) string {
 	fmt.Fprintf(&b, "- agent: %s\n", orDash(agent.Harness))
 	fmt.Fprintf(&b, "- directory: %s\n", orDash(agent.Cwd))
 	fmt.Fprintf(&b, "- flags: %s\n", orDash(agent.Flags))
-	fmt.Fprintf(&b, "- resume: %s\n", orDash(agent.SessionID))
+	// Both ids are shown because they are different things and both get typed into
+	// something: the agent id is what the panel and its tools call this agent, and the
+	// session id is what its CLI calls the conversation, which is what a resume by hand
+	// takes. An agent whose CLI names its own conversations has none until it has said
+	// something.
+	fmt.Fprintf(&b, "- agent_id: %s\n", orDash(agent.ID))
+	fmt.Fprintf(&b, "- session_id: %s\n", orDash(agent.SessionID))
 	if schedule != "" {
 		fmt.Fprintf(&b, "- launched by: %s\n", schedule)
 	}
@@ -214,7 +220,8 @@ func archiveMarkdown(agent agentstore.Agent, schedule string) string {
 	fmt.Fprintf(&b, "- agent: %s\n", orDash(agent.Harness))
 	fmt.Fprintf(&b, "- directory: %s\n", orDash(agent.Cwd))
 	fmt.Fprintf(&b, "- flags: %s\n", orDash(agent.Flags))
-	fmt.Fprintf(&b, "- resume: %s\n", orDash(agent.SessionID))
+	fmt.Fprintf(&b, "- agent_id: %s\n", orDash(agent.ID))
+	fmt.Fprintf(&b, "- session_id: %s\n", orDash(agent.SessionID))
 	if schedule != "" {
 		fmt.Fprintf(&b, "- launched by: %s\n", schedule)
 	}

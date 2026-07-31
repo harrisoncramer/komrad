@@ -65,19 +65,17 @@ func TestErrOfNothing(t *testing.T) {
 	assert.Empty(t, Err(nil))
 }
 
-// TestContextCarriesTheRequestsLogger covers what the interceptor leaves behind, which is
-// how a handler's own lines come out under the trace of the call that reached it.
+// TestContextCarriesTheRequestsLogger covers what an interceptor leaves behind, which is
+// how a handler's own lines come out under the same fields as the record for the call that
+// reached it.
 func TestContextCarriesTheRequestsLogger(t *testing.T) {
 	var out bytes.Buffer
 	logger := New(&out, slog.LevelInfo).With(slog.String(TraceID, "abc-123"))
 
-	ctx := WithTraceID(WithLogger(context.Background(), logger), "abc-123")
-
-	From(ctx).Info("the handler said something")
+	From(WithLogger(context.Background(), logger)).Info("the handler said something")
 
 	var record map[string]any
 	require.NoError(t, json.Unmarshal(out.Bytes(), &record))
-	assert.Equal(t, "abc-123", Trace(ctx))
 	assert.Equal(t, "abc-123", record[TraceID])
 	assert.Equal(t, Service, record[ServiceName], "every record names what produced it")
 }
@@ -86,5 +84,4 @@ func TestContextCarriesTheRequestsLogger(t *testing.T) {
 // logs to the default rather than to nothing at all.
 func TestContextWithoutALogger(t *testing.T) {
 	assert.Equal(t, slog.Default(), From(context.Background()))
-	assert.Empty(t, Trace(context.Background()))
 }

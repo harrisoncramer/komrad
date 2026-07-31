@@ -84,6 +84,7 @@ func NewRootCommand() *cobra.Command {
 			state.marks = cfg.Marks
 			state.layout = cfg.Layout
 			state.logLevel = cfg.Log.Level
+			state.logViewer = cfg.Log.Viewer
 			state.configPath = configPath
 			// Two tmux servers, held as one client. The manager's own server owns the
 			// session, its windows, and its panes. The user's server answers where the
@@ -134,6 +135,7 @@ func NewRootCommand() *cobra.Command {
 				Addr:       state.env.Addr,
 				Editor:     state.env.Editor,
 				LogPath:    logPath,
+				LogViewer:  state.logViewer,
 				ConfigErr:  state.configErr,
 				StartupErr: startupErr,
 			})

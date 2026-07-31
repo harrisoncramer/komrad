@@ -201,22 +201,17 @@ func pagerArgv(path string, line int) []string {
 // rendered markdown, which is the other thing compared against.
 const shownLog = "\x00log:"
 
-// logArgv is the pager a log is read through. It carries the same -R and -X a preview
-// does, for the same reasons, but keeps the status line a preview suppresses with -Ps.
-// This is a real file with a name and a length worth seeing, not the temp file a preview
-// pages. It opens at the end with +G because the last thing written is what a log is
-// opened for, and less follows a file still being written from there with F.
-func logArgv(path string) []string {
-	return []string{"less", "-R", "-X", "+G", path}
-}
-
-// Log pages a file in the stage, in place of whatever the cursor was showing. It uses the
-// same pane a preview does and keeps its share of the width, so reading the log is
-// scrolling the stage the way reading a transcript is rather than something that has to
-// be dismissed before the panel can be used again.
-func (s *Stage) Log(path string) {
+// Log runs argv in the stage to read the file at path, in place of whatever the cursor was
+// showing. It uses the same pane a preview does and keeps its share of the width, so
+// reading the log is scrolling the stage the way reading a transcript is rather than
+// something that has to be dismissed before the panel can be used again.
+//
+// What argv is belongs to the caller, since the log is the one thing here whose reader the
+// user chooses. The path comes alongside it only to tell one file from another, so a
+// restage of the log already up does not respawn the pane under somebody reading it.
+func (s *Stage) Log(path string, argv []string) {
 	s.ensure()
-	if s.pane == "" {
+	if s.pane == "" || len(argv) == 0 {
 		return
 	}
 	if s.agentPane == "" && s.shown == shownLog+path {
@@ -226,7 +221,7 @@ func (s *Stage) Log(path string) {
 	s.restore()
 
 	home, _ := os.UserHomeDir()
-	s.tmux.RespawnPane(s.pane, home, logArgv(path)...)
+	s.tmux.RespawnPane(s.pane, home, argv...)
 	s.shown = shownLog + path
 }
 

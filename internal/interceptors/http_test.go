@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"weave/internal/caller"
 	"weave/internal/logging"
 	"weave/internal/logtest"
 
@@ -62,17 +63,34 @@ func TestHTTPLoggingNamesTheTool(t *testing.T) {
 	assert.Equal(t, body, seen)
 }
 
-// TestHTTPLoggingRecordsAFailure covers a call the handler refused. Nothing below this
-// layer returns an error to it, so the status is the only thing that says the call did not
-// work, and a refusal logged at info would sit unread among the ones that did.
+// TestHTTPLoggingRecordsAFailure covers what the status is read as, since nothing below
+// this layer returns an error to it. A 5xx is the service breaking. A 4xx is the caller
+// being told no, which is not the same thing: an MCP client probes this endpoint with a GET
+// on every connect and is answered 405, and logging that as a failure would put a red
+// herring in the file every time an agent starts.
 func TestHTTPLoggingRecordsAFailure(t *testing.T) {
-	written, _ := servedCall(t, `{"method":"tools/call","params":{"name":"query"}}`, func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "bad request", http.StatusBadRequest)
-	})
+	tests := []struct {
+		name         string
+		status       int
+		wantSeverity string
+	}{
+		{name: "the service breaking", status: http.StatusInternalServerError, wantSeverity: "ERROR"},
+		{name: "the caller being refused", status: http.StatusBadRequest, wantSeverity: "WARN"},
+		{name: "a client probing for a method this endpoint does not serve", status: http.StatusMethodNotAllowed, wantSeverity: "WARN"},
+		{name: "a call that worked", status: http.StatusOK, wantSeverity: "INFO"},
+	}
 
-	record := logtest.Record(t, written)
-	assert.Equal(t, "ERROR", record["severity_text"])
-	assert.EqualValues(t, 400, record[logging.HTTPStatus])
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			written, _ := servedCall(t, `{"method":"tools/call","params":{"name":"query"}}`, func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(tt.status)
+			})
+
+			record := logtest.Record(t, written)
+			assert.Equal(t, tt.wantSeverity, record["severity_text"])
+			assert.EqualValues(t, tt.status, record[logging.HTTPStatus])
+		})
+	}
 }
 
 // TestHTTPLoggingWithAnUnreadableBody covers a request that is not the envelope this knows
@@ -116,7 +134,7 @@ func TestHTTPLoggingCarriesATrace(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// The trace is on the context as well as on the response, so anything below can log
 		// under the same id as the line this writes.
-		assert.NotEmpty(t, logging.Trace(r.Context()))
+		assert.NotEmpty(t, caller.Trace(r.Context()))
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -124,4 +142,47 @@ func TestHTTPLoggingCarriesATrace(t *testing.T) {
 
 	assert.NotEmpty(t, recorder.Header().Get(TraceHeader))
 	assert.NotEmpty(t, logtest.Record(t, out.String())[logging.TraceID])
+}
+
+// TestHTTPLoggingNamesTheCallingAgent covers an agent calling a tool. This is the edge most
+// agent traffic arrives at, and the identity is read here exactly as it is on the RPC edge,
+// so following one agent is one filter however it called.
+func TestHTTPLoggingNamesTheCallingAgent(t *testing.T) {
+	var out bytes.Buffer
+
+	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"method":"tools/call","params":{"name":"create_agent"}}`))
+	req.Header.Set(caller.AgentHeader, "agent-1")
+	req.Header.Set(caller.SessionHeader, "sess-1")
+
+	var seen caller.Caller
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = caller.From(r.Context())
+		w.WriteHeader(http.StatusOK)
+	})
+
+	NewLoggingHandler(logging.New(&out, slog.LevelInfo), next).ServeHTTP(httptest.NewRecorder(), req)
+
+	record := logtest.Record(t, out.String())
+	assert.Equal(t, "agent-1", record[logging.AgentID])
+	assert.Equal(t, "sess-1", record[logging.SessionID])
+	assert.Equal(t, "create_agent", record[logging.MCPTool])
+
+	// A tool that calls an RPC does it on the caller's behalf, so the identity has to be
+	// reachable from the handler and not only in the record written here.
+	assert.Equal(t, caller.Caller{AgentID: "agent-1", SessionID: "sess-1"}, seen)
+}
+
+// TestHTTPLoggingIgnoresAnUnexpandedVariable covers a CLI that passed the config through
+// without filling it in. The header names a variable rather than a value, and recording it
+// would put an agent called ${WEAVE_AGENT_ID} in the log and in every filter built on it.
+func TestHTTPLoggingIgnoresAnUnexpandedVariable(t *testing.T) {
+	var out bytes.Buffer
+
+	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"method":"tools/list"}`))
+	req.Header.Set(caller.AgentHeader, "${WEAVE_AGENT_ID}")
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	NewLoggingHandler(logging.New(&out, slog.LevelInfo), next).ServeHTTP(httptest.NewRecorder(), req)
+
+	assert.NotContains(t, logtest.Record(t, out.String()), logging.AgentID)
 }

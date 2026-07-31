@@ -50,7 +50,7 @@ func TestLogsReplaceTheStagedAgent(t *testing.T) {
 	assert.True(t, shown.tree.logsPinned)
 	assert.Nil(t, shown.banner)
 	assert.Equal(t, 2, tmux.swaps, "the agent's pane goes back to its own window")
-	assert.Equal(t, []string{"less -R -X +G " + path}, tmux.respawns)
+	assert.Equal(t, []string{"sh -c less -R -X +G '" + path + "'"}, tmux.respawns)
 	assert.Empty(t, tmux.zooms, "the stage keeps its share of the width")
 }
 
@@ -128,5 +128,82 @@ func TestLogsShowOnAnEmptyList(t *testing.T) {
 	shown := pressLogs(t, m)
 
 	assert.True(t, shown.tree.logsPinned)
-	assert.Equal(t, []string{"less -R -X +G " + path}, tmux.respawns)
+	assert.Equal(t, []string{"sh -c less -R -X +G '" + path + "'"}, tmux.respawns)
+}
+
+// TestLogArgv covers the command the log key runs, which is the user's rather than the
+// panel's. The records are JSON, so the reader worth having is often a pipeline, and a
+// pipeline is not something an argv can express: it goes through a shell.
+func TestLogArgv(t *testing.T) {
+	tests := []struct {
+		name   string
+		viewer string
+		path   string
+		want   string
+	}{
+		{
+			name: "nothing configured falls back to the pager the previews use",
+			path: "/tmp/weave.log",
+			want: "less -R -X +G '/tmp/weave.log'",
+		},
+		{
+			name:   "a placeholder is where the path goes",
+			viewer: "jq -C . {} | fzf --ansi --tac",
+			path:   "/tmp/weave.log",
+			want:   "jq -C . '/tmp/weave.log' | fzf --ansi --tac",
+		},
+		{
+			name:   "a command naming no placeholder is handed the path",
+			viewer: "bat --paging always",
+			path:   "/tmp/weave.log",
+			want:   "bat --paging always '/tmp/weave.log'",
+		},
+		{
+			name:   "the placeholder can appear more than once",
+			viewer: "wc -l {} && tail -f {} | fzf --ansi",
+			path:   "/tmp/weave.log",
+			want:   "wc -l '/tmp/weave.log' && tail -f '/tmp/weave.log' | fzf --ansi",
+		},
+		{
+			name:   "a home directory with a space in it stays one word",
+			viewer: "less {}",
+			path:   "/Users/a b/.config/weave/weave.log",
+			want:   "less '/Users/a b/.config/weave/weave.log'",
+		},
+		{
+			name:   "a path carrying a quote cannot end the quoting",
+			viewer: "less {}",
+			path:   "/tmp/it's.log",
+			want:   `less '/tmp/it'\''s.log'`,
+		},
+		{
+			name:   "a viewer that is only whitespace is no viewer at all",
+			viewer: "   ",
+			path:   "/tmp/weave.log",
+			want:   "less -R -X +G '/tmp/weave.log'",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			argv := logArgv(tt.viewer, tt.path)
+
+			require.Len(t, argv, 3)
+			assert.Equal(t, []string{"sh", "-c"}, argv[:2], "a pipeline needs a shell to read it")
+			assert.Equal(t, tt.want, argv[2])
+		})
+	}
+}
+
+// TestLogsUseTheConfiguredViewer covers the key itself running what the config named,
+// rather than the panel's own default reaching the pane whatever the user asked for.
+func TestLogsUseTheConfiguredViewer(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, path := logsModel(t, tmux)
+	m.logViewer = "fzf --ansi --tac < {}"
+
+	shown := pressLogs(t, m)
+
+	require.True(t, shown.tree.logsPinned)
+	assert.Equal(t, []string{"sh -c fzf --ansi --tac < '" + path + "'"}, tmux.respawns)
 }

@@ -228,6 +228,19 @@ type Log struct {
 	// Debug is worth turning on while chasing something. It is loud, because the panel
 	// calls four times a second while it is open.
 	Level string `mapstructure:"level"`
+	// What the log key opens the log in. It runs in the stage pane through a shell, so a
+	// pipeline is as good as a single command, and "{}" stands for the log's path. A
+	// command naming no "{}" is handed the path as a final argument instead, which is what
+	// makes a bare pager name work. The records are JSON, so a reader that understands
+	// that is worth reaching for: "jq -c -C . {} | fzf --ansi --tac" colours the fields and
+	// makes the file searchable. Keep jq compact with -c. A record spread over a dozen
+	// lines is a dozen entries to a line-oriented reader, and one line per record is what
+	// makes a search return the record rather than the field that matched. The path arrives quoted, so a directory with a space in its name holds
+	// together and there is no need to write quotes around the "{}" yourself.
+	//
+	// Whatever it runs has to hold the pane, the way a pager does. A command that prints
+	// and exits takes the pane down with it, and the stage comes back empty.
+	Viewer string `mapstructure:"viewer"`
 }
 
 // Config is the user's customization.
@@ -266,7 +279,7 @@ func Defaults() *Config {
 		Layout:         DefaultLayout(),
 		Marks:          DefaultMarks(),
 		Keybindings:    DefaultKeybindings(),
-		Log:            Log{Level: DefaultLogLevel},
+		Log:            Log{Level: DefaultLogLevel, Viewer: DefaultLogViewer},
 	}
 }
 
@@ -274,6 +287,11 @@ func Defaults() *Config {
 // are written at error and everything else at debug, so the file stays empty while the
 // service works.
 const DefaultLogLevel = "info"
+
+// DefaultLogViewer is what the log key opens the log in when the config names nothing. It
+// is the same pager the previews use, carrying the same flags for the same reasons, plus a
+// start at the end of the file, which is the end a log is read from.
+const DefaultLogViewer = "less -R -X +G"
 
 // DefaultHarness is the CLI a new agent runs when the config names none. It is
 // spelled here rather than taken from the registry because the registry is built
@@ -518,6 +536,9 @@ func (c Config) withDefaults() Config {
 	}
 	if strings.TrimSpace(c.Log.Level) == "" {
 		c.Log.Level = DefaultLogLevel
+	}
+	if strings.TrimSpace(c.Log.Viewer) == "" {
+		c.Log.Viewer = DefaultLogViewer
 	}
 
 	return c

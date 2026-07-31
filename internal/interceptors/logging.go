@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/http"
 	"strings"
 	"time"
 
+	"weave/internal/caller"
 	"weave/internal/logging"
 
 	"connectrpc.com/connect"
@@ -40,15 +42,22 @@ func (l *loggingInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc
 		}
 
 		service, method := splitProcedure(req.Spec().Procedure)
-		logger := l.logger.With(
+		attrs := []slog.Attr{
 			slog.String(logging.TraceID, trace),
 			slog.String(logging.RPCSystem, logging.RPCSystemConnect),
 			slog.String(logging.RPCService, service),
 			slog.String(logging.RPCMethod, method),
 			slog.String(logging.ClientAddress, req.Peer().Addr),
-		)
+		}
 
-		ctx = logging.WithTraceID(logging.WithLogger(ctx, logger), trace)
+		// The panel and every agent it spawned reach this over the same loopback
+		// connection, which the address tells apart not at all, so a call says which agent
+		// it is from or is left unattributed.
+		from := caller.FromHeader(http.Header(req.Header()))
+		attrs = append(attrs, CallerAttrs(from)...)
+
+		logger := l.logger.With(logging.Attrs(attrs)...)
+		ctx = caller.With(caller.WithTrace(logging.WithLogger(ctx, logger), trace), from)
 
 		start := time.Now()
 		res, err := next(ctx, req)
@@ -82,6 +91,21 @@ func (l *loggingInterceptor) WrapStreamingClient(next connect.StreamingClientFun
 
 func (l *loggingInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
 	return next
+}
+
+// CallerAttrs name the agent a call came from, and nothing at all for a call from the
+// panel or from a person, which is unattributed rather than anonymous. Both edges of the
+// service log it the same way, so one agent's calls are one filter however they arrived.
+func CallerAttrs(from caller.Caller) []slog.Attr {
+	attrs := make([]slog.Attr, 0, 2)
+	if from.AgentID != "" {
+		attrs = append(attrs, slog.String(logging.AgentID, from.AgentID))
+	}
+	if from.SessionID != "" {
+		attrs = append(attrs, slog.String(logging.SessionID, from.SessionID))
+	}
+
+	return attrs
 }
 
 // failure is what a failed call adds to its record. The connect code is pulled out

@@ -73,6 +73,9 @@ type Deps struct {
 	// Editor is the command the editor key opens an agent's directory in, from the
 	// environment rather than the panel's own config.
 	Editor string
+	// LogViewer is the command the log key opens the log in, from the user's config. It
+	// runs through a shell, so it can be a pipeline.
+	LogViewer string
 	// LogPath is the file the service writes to, which the log key pages. It is passed in
 	// rather than resolved here, so the panel reads the same file the process that spawned
 	// the service pointed it at.
@@ -146,8 +149,9 @@ type model struct {
 	marks []appconfig.Mark
 	// editor is the command the editor key runs on an agent's directory.
 	editor string
-	// logPath is the service's log, which the log key pages over the popup.
-	logPath string
+	// logPath is the service's log, and logViewer is what the log key opens it in.
+	logPath   string
+	logViewer string
 }
 
 func newModel(deps Deps) model {
@@ -159,6 +163,7 @@ func newModel(deps Deps) model {
 		addr:       deps.Addr,
 		editor:     deps.Editor,
 		logPath:    deps.LogPath,
+		logViewer:  deps.LogViewer,
 		keys:       deps.Keys,
 		marks:      deps.Marks,
 		configErr:  deps.ConfigErr,

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"slices"
 	"testing"
-	"time"
 
 	"weave/internal/harness"
 	agentstore "weave/internal/store/agent"
@@ -164,9 +163,9 @@ type fakeHarness struct {
 	// commandErr makes building the command line fail, standing in for a harness
 	// that cannot assemble one.
 	commandErr error
-	// found is the conversations FindSessions reports, for the adoption path a harness
+	// found is the conversation FindSession reports, for the adoption path a harness
 	// that names its own sessions goes through.
-	found []string
+	found string
 }
 
 func (f *fakeHarness) GetID() string { return testHarnessID }
@@ -206,9 +205,9 @@ func (f *fakeHarness) Relocate(sessionID, dir string) error {
 // there.
 func (f *fakeHarness) GetLogPath(string) string { return "" }
 
-// found is what FindSessions answers with, for a test about adopting the id a harness
+// found is what FindSession answers with, for a test about adopting the id a harness
 // named itself. Empty means this fake pre-mints like claude does.
-func (f *fakeHarness) FindSessions(string, time.Time) ([]string, error) {
+func (f *fakeHarness) FindSession(string) (string, error) {
 	return f.found, nil
 }
 
