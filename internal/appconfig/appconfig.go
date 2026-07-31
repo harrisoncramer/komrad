@@ -229,14 +229,13 @@ type Log struct {
 	// calls four times a second while it is open.
 	Level string `mapstructure:"level"`
 	// What the log key opens the log in. It runs in the stage pane through a shell, so a
-	// pipeline is as good as a single command, and "{}" stands for the log's path. A
-	// command naming no "{}" is handed the path as a final argument instead, which is what
-	// makes a bare pager name work. The records are JSON, so a reader that understands
-	// that is worth reaching for: "jq -c -C . {} | fzf --ansi --tac" colours the fields and
-	// makes the file searchable. Keep jq compact with -c. A record spread over a dozen
-	// lines is a dozen entries to a line-oriented reader, and one line per record is what
-	// makes a search return the record rather than the field that matched. The path arrives quoted, so a directory with a space in its name holds
-	// together and there is no need to write quotes around the "{}" yourself.
+	// pipeline is as good as a single command. Two variables are exported into it:
+	// WEAVE_BIN is this binary, whose "logs" subcommand prints the file a line per record
+	// rather than as the JSON it is stored as, and WEAVE_LOG is the file itself, for a
+	// reader that would rather have it raw.
+	//
+	// Nothing in the command is rewritten, so a tool's own placeholders are its own:
+	// "$WEAVE_BIN logs --color=always | fzf --ansi --tac" gives fzf the whole of its "{}".
 	//
 	// Whatever it runs has to hold the pane, the way a pager does. A command that prints
 	// and exits takes the pane down with it, and the stage comes back empty.
@@ -289,9 +288,11 @@ func Defaults() *Config {
 const DefaultLogLevel = "info"
 
 // DefaultLogViewer is what the log key opens the log in when the config names nothing. It
-// is the same pager the previews use, carrying the same flags for the same reasons, plus a
-// start at the end of the file, which is the end a log is read from.
-const DefaultLogViewer = "less -R -X +G"
+// reads through this binary's own logs command, so what lands in the pane is a line per
+// record rather than the JSON the file holds, and it pages that with the flags a preview
+// uses plus -S, which leaves a long line running off the edge rather than wrapping it into
+// four rows of one record.
+const DefaultLogViewer = `"$WEAVE_BIN" logs --color=always | less -RSX +G`
 
 // DefaultHarness is the CLI a new agent runs when the config names none. It is
 // spelled here rather than taken from the registry because the registry is built

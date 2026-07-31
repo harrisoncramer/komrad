@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"weave/internal/appconfig"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,7 +52,9 @@ func TestLogsReplaceTheStagedAgent(t *testing.T) {
 	assert.True(t, shown.tree.logsPinned)
 	assert.Nil(t, shown.banner)
 	assert.Equal(t, 2, tmux.swaps, "the agent's pane goes back to its own window")
-	assert.Equal(t, []string{"sh -c less -R -X +G '" + path + "'"}, tmux.respawns)
+	require.Len(t, tmux.respawns, 1)
+	assert.Contains(t, tmux.respawns[0], "export WEAVE_LOG='"+path+"'")
+	assert.Contains(t, tmux.respawns[0], appconfig.DefaultLogViewer)
 	assert.Empty(t, tmux.zooms, "the stage keeps its share of the width")
 }
 
@@ -128,71 +132,62 @@ func TestLogsShowOnAnEmptyList(t *testing.T) {
 	shown := pressLogs(t, m)
 
 	assert.True(t, shown.tree.logsPinned)
-	assert.Equal(t, []string{"sh -c less -R -X +G '" + path + "'"}, tmux.respawns)
+	require.Len(t, tmux.respawns, 1)
+	assert.Contains(t, tmux.respawns[0], "export WEAVE_LOG='"+path+"'")
 }
 
 // TestLogArgv covers the command the log key runs, which is the user's rather than the
-// panel's. The records are JSON, so the reader worth having is often a pipeline, and a
-// pipeline is not something an argv can express: it goes through a shell.
+// panel's. The command's inputs are exported into its environment rather than substituted
+// into its text, so a tool's own placeholders stay its own: fzf's "{}" means the selected
+// line, and a panel that rewrote it before fzf saw it would break half of fzf's manual.
 func TestLogArgv(t *testing.T) {
 	tests := []struct {
 		name   string
 		viewer string
 		path   string
+		binary string
 		want   string
 	}{
 		{
-			name: "nothing configured falls back to the pager the previews use",
-			path: "/tmp/weave.log",
-			want: "less -R -X +G '/tmp/weave.log'",
-		},
-		{
-			name:   "a placeholder is where the path goes",
-			viewer: "jq -C . {} | fzf --ansi --tac",
+			name:   "nothing configured falls back to the reader that ships with this",
 			path:   "/tmp/weave.log",
-			want:   "jq -C . '/tmp/weave.log' | fzf --ansi --tac",
+			binary: "/usr/local/bin/weave",
+			want:   appconfig.DefaultLogViewer,
 		},
 		{
-			name:   "a command naming no placeholder is handed the path",
-			viewer: "bat --paging always",
+			name:   "a pipeline is left exactly as it was written",
+			viewer: `$WEAVE_BIN logs | fzf --ansi --preview 'echo {}'`,
 			path:   "/tmp/weave.log",
-			want:   "bat --paging always '/tmp/weave.log'",
-		},
-		{
-			name:   "the placeholder can appear more than once",
-			viewer: "wc -l {} && tail -f {} | fzf --ansi",
-			path:   "/tmp/weave.log",
-			want:   "wc -l '/tmp/weave.log' && tail -f '/tmp/weave.log' | fzf --ansi",
-		},
-		{
-			name:   "a home directory with a space in it stays one word",
-			viewer: "less {}",
-			path:   "/Users/a b/.config/weave/weave.log",
-			want:   "less '/Users/a b/.config/weave/weave.log'",
-		},
-		{
-			name:   "a path carrying a quote cannot end the quoting",
-			viewer: "less {}",
-			path:   "/tmp/it's.log",
-			want:   `less '/tmp/it'\''s.log'`,
+			binary: "/usr/local/bin/weave",
+			want:   `$WEAVE_BIN logs | fzf --ansi --preview 'echo {}'`,
 		},
 		{
 			name:   "a viewer that is only whitespace is no viewer at all",
 			viewer: "   ",
 			path:   "/tmp/weave.log",
-			want:   "less -R -X +G '/tmp/weave.log'",
+			binary: "/usr/local/bin/weave",
+			want:   appconfig.DefaultLogViewer,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			argv := logArgv(tt.viewer, tt.path)
+			argv := logArgv(tt.viewer, tt.path, tt.binary)
 
 			require.Len(t, argv, 3)
 			assert.Equal(t, []string{"sh", "-c"}, argv[:2], "a pipeline needs a shell to read it")
-			assert.Equal(t, tt.want, argv[2])
+			assert.Contains(t, argv[2], tt.want)
+			assert.Contains(t, argv[2], "export WEAVE_LOG='"+tt.path+"' WEAVE_BIN='"+tt.binary+"'; ")
 		})
 	}
+}
+
+// TestLogArgvQuotesTheEnvironment covers a path the shell would otherwise read as two
+// words, or as the end of a quoted string.
+func TestLogArgvQuotesTheEnvironment(t *testing.T) {
+	argv := logArgv("", "/Users/a b/it's.log", "/opt/weave")
+
+	assert.Contains(t, argv[2], `export WEAVE_LOG='/Users/a b/it'\''s.log'`)
 }
 
 // TestLogsUseTheConfiguredViewer covers the key itself running what the config named,
@@ -200,10 +195,12 @@ func TestLogArgv(t *testing.T) {
 func TestLogsUseTheConfiguredViewer(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, path := logsModel(t, tmux)
-	m.logViewer = "fzf --ansi --tac < {}"
+	m.logViewer = `$WEAVE_BIN logs | fzf --ansi --tac`
 
 	shown := pressLogs(t, m)
 
 	require.True(t, shown.tree.logsPinned)
-	assert.Equal(t, []string{"sh -c fzf --ansi --tac < '" + path + "'"}, tmux.respawns)
+	require.Len(t, tmux.respawns, 1)
+	assert.Contains(t, tmux.respawns[0], `$WEAVE_BIN logs | fzf --ansi --tac`)
+	assert.Contains(t, tmux.respawns[0], "export WEAVE_LOG='"+path+"'")
 }

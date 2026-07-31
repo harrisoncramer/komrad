@@ -171,6 +171,10 @@ func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) er
 		return err
 	}
 
+	// Readiness is answered outside the logging middleware, since whoever is asking is
+	// asking on a loop and every answer would be a line.
+	mux.Handle(HealthPath, newHealthHandler(state.pool.Raw()))
+
 	// The MCP endpoint is not served through connect, so the interceptors above never see
 	// it. It is wrapped here instead, since a surface a model can spawn and delete agents
 	// through is the last one that should leave no trace.

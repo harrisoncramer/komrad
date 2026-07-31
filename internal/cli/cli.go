@@ -136,6 +136,7 @@ func NewRootCommand() *cobra.Command {
 				Editor:     state.env.Editor,
 				LogPath:    logPath,
 				LogViewer:  state.logViewer,
+				Binary:     selfPath(),
 				ConfigErr:  state.configErr,
 				StartupErr: startupErr,
 			})
@@ -144,6 +145,7 @@ func NewRootCommand() *cobra.Command {
 
 	root.PersistentFlags().StringVar(&configPath, "config", "", "path to config TOML")
 	root.AddCommand(
+		logsCmd(),
 		openCmd(state),
 		hideCmd(state),
 		serveCmd(state),

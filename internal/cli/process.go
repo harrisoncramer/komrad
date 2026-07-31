@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
-	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"syscall"
@@ -30,7 +30,7 @@ const (
 // answered names the symptom while the cause sits unread in a file. The lines it
 // wrote before exiting are read back and carried in the error instead.
 func ensureServer(addr, self, logPath string) error {
-	if serverReachable(addr) {
+	if serverAnswering(addr) {
 		return nil
 	}
 
@@ -73,7 +73,7 @@ func ensureServer(addr, self, logPath string) error {
 	}()
 
 	for range serveWaitAttempts {
-		if serverReachable(addr) {
+		if serverReady(addr) {
 			return nil
 		}
 
@@ -88,17 +88,43 @@ func ensureServer(addr, self, logPath string) error {
 		}
 	}
 
-	return fmt.Errorf("the agent server did not become reachable at %s, see %s", addr, logPath)
+	return fmt.Errorf("the agent server did not become ready at %s, see %s", addr, logPath)
 }
 
-func serverReachable(addr string) bool {
-	conn, err := net.DialTimeout("tcp", addr, 150*time.Millisecond)
+// serverAnswering reports whether anything is serving at addr, whatever it answers. A
+// server already up is not to be spawned over, and one running an older build that has no
+// health route still holds the port: treating its 404 as nobody there would start a second
+// process whose only outcome is failing to bind.
+func serverAnswering(addr string) bool {
+	res, err := healthCheck(addr)
 	if err != nil {
 		return false
 	}
+	defer func() { _ = res.Body.Close() }()
 
-	_ = conn.Close()
 	return true
+}
+
+// serverReady reports whether the service can actually serve, which is what the wait after
+// a spawn is waiting for. A listening socket is not the same thing: the server binds before
+// it can reach its database, so a panel that started on the first successful dial came up
+// against a service that failed every call it made.
+func serverReady(addr string) bool {
+	res, err := healthCheck(addr)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	return res.StatusCode == http.StatusOK
+}
+
+// healthCheck asks the service whether it is ready. The timeout is the dial timeout this
+// replaced, since the request is one round trip to loopback and a database ping.
+func healthCheck(addr string) (*http.Response, error) {
+	client := &http.Client{Timeout: 3 * time.Second}
+
+	return client.Get("http://" + addr + HealthPath)
 }
 
 func selfPath() string {

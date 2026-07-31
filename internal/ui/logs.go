@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -13,40 +14,36 @@ import (
 // the popup opens and writes to a file rather than to a terminal, so the panel is the only
 // place somebody would think to look for it.
 
-// logPlaceholder is what the configured viewer writes where it wants the log's path. It is
-// fzf's own placeholder, which is the tool most likely to be on the other side of a pipe
-// here, and a log viewer is one of the few commands a person is likely to have written one
-// of these for already.
-const logPlaceholder = "{}"
+// logEnv is what a viewer command reads its inputs from. They are exported into the
+// command's environment rather than substituted into its text, which is what keeps the
+// panel out of the way of the tools people put here: fzf's own "{}" means the selected
+// line, and a panel that rewrote every "{}" before fzf saw it would make half the recipes
+// in fzf's own manual impossible to write.
+const (
+	logEnvPath   = "WEAVE_LOG"
+	logEnvBinary = "WEAVE_BIN"
+)
 
 // logArgv is what the stage runs to show the log. The configured command goes through a
-// shell rather than being split into arguments, because the useful readers for a file of
-// JSON records are pipelines, and "jq -C . {} | fzf" is not something an argv can express.
-//
-// The path replaces the placeholder, quoted, so a home directory with a space in it does
-// not arrive as two arguments. A command that names no placeholder is handed the path at
-// the end instead, which is what lets "less -R" or a bare pager name work as written.
-func logArgv(viewer, path string) []string {
+// shell rather than being split into arguments, because the readers worth having here are
+// pipelines, and "weave logs | fzf" is not something an argv can express.
+func logArgv(viewer, path, binary string) []string {
 	command := strings.TrimSpace(viewer)
 	if command == "" {
 		command = appconfig.DefaultLogViewer
 	}
 
-	quoted := shellQuote(path)
-	if strings.Contains(command, logPlaceholder) {
-		command = strings.ReplaceAll(command, logPlaceholder, quoted)
-	} else {
-		command += " " + quoted
-	}
+	exports := fmt.Sprintf("export %s=%s %s=%s; ",
+		logEnvPath, shellQuote(path), logEnvBinary, shellQuote(binary))
 
-	return []string{"sh", "-c", command}
+	return []string{"sh", "-c", exports + command}
 }
 
-// shellQuote wraps a path so the shell reads it as one word whatever is in it. Single
+// shellQuote wraps a value so the shell reads it as one word whatever is in it. Single
 // quotes take everything literally, and the only thing they cannot hold is a single quote,
-// which is closed and re-opened around.
-func shellQuote(path string) string {
-	return "'" + strings.ReplaceAll(path, "'", `'\''`) + "'"
+// which is closed and reopened around.
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'"
 }
 
 // logsDesc is what the legend says the log key would do, naming the direction it would go
