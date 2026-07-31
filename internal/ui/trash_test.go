@@ -277,10 +277,10 @@ func TestTrashIsOrderedByWhenAgentsWereDeleted(t *testing.T) {
 		{
 			name: "the most recently deleted agent is first",
 			listed: []*agentv1.Agent{
-				deletedProtoAgent("newest-agent", "2026-07-30T09:00:00Z"),
-				deletedProtoAgent("oldest-agent", "2026-07-30T12:00:00Z"),
+				deletedProtoAgent("deleted-at-nine", "2026-07-30T09:00:00Z"),
+				deletedProtoAgent("deleted-at-noon", "2026-07-30T12:00:00Z"),
 			},
-			wantNames: []string{"oldest-agent", "newest-agent"},
+			wantNames: []string{"deleted-at-noon", "deleted-at-nine"},
 		},
 		{
 			name: "a row deleted before the time was recorded sits below the ones that carry it",
