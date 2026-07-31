@@ -7,8 +7,6 @@ import (
 
 	"weave/lib/dates"
 
-	"weave/internal/actions"
-
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 )
@@ -135,18 +133,19 @@ func longestBacktickRun(body string) int {
 	return longest
 }
 
-// actionMarkdown renders an action for the stage, its name over its own text. An action is as
-// readily a compiled program as a script, so the body goes through fencedBlock, which shows a
-// script as the code it is and says so rather than spilling a binary into the pane.
-func actionMarkdown(action actions.Action, contents []byte, truncated bool) string {
+// actionMarkdown renders an action for the stage, its name over the start of its own text as the
+// service read it. An action is as readily a compiled program as a script, so the body goes
+// through fencedBlock, which shows a script as the code it is and says so rather than spilling a
+// binary into the pane.
+func actionMarkdown(action actionItem) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "# %s\n\n", action.Name)
-	if !action.Executable {
+	fmt.Fprintf(&b, "# %s\n\n", action.name)
+	if !action.executable {
 		b.WriteString("_not executable — chmod +x to run it_\n\n")
 	}
 
-	b.WriteString(fencedBlock(contents))
-	if truncated && textual(contents) {
+	b.WriteString(fencedBlock(action.preview))
+	if action.truncated && textual(action.preview) {
 		b.WriteString("\n_only the start of the file is shown_\n")
 	}
 

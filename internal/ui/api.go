@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	actionv1 "weave/proto/gen/action/v1"
+	"weave/proto/gen/action/v1/actionv1connect"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	schedulev1 "weave/proto/gen/schedule/v1"
@@ -18,6 +20,7 @@ import (
 	workflowstore "weave/internal/store/workflow"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // The panel acts through the service for everything, the same way the MCP tools and
@@ -37,6 +40,36 @@ type api struct {
 	agents    agentv1connect.AgentServiceClient
 	workflows workflowv1connect.WorkflowServiceClient
 	schedules schedulev1connect.ScheduleServiceClient
+	actions   actionv1connect.ActionServiceClient
+}
+
+// listActions is the user's actions as the service finds them, each with the start of its own
+// text for the preview. The panel never reads the directory itself, so what it lists and what a
+// model lists are one call.
+func (a api) listActions() ([]*actionv1.Action, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+
+	resp, err := a.actions.ListActions(ctx, connect.NewRequest(&emptypb.Empty{}))
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.Msg.GetActions(), nil
+}
+
+// runAction fires an action on an agent. It returns once the service has started the process,
+// so an error is always from before it began and never from what it did.
+func (a api) runAction(agentID, name string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+
+	_, err := a.actions.RunAction(ctx, connect.NewRequest(&actionv1.RunActionRequest{
+		AgentId: agentID,
+		Action:  name,
+	}))
+
+	return err
 }
 
 // renameAgent renames an agent by id. A blank or unchanged name is a no-op, which

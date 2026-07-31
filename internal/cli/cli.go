@@ -11,7 +11,6 @@ import (
 	"net/http"
 
 	"weave/config"
-	"weave/internal/actions"
 	"weave/internal/agents"
 	"weave/internal/appconfig"
 	"weave/internal/harness"
@@ -19,6 +18,7 @@ import (
 	"weave/internal/harness/codex"
 	"weave/internal/tmux"
 	"weave/internal/ui"
+	"weave/proto/gen/action/v1/actionv1connect"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
@@ -84,18 +84,6 @@ func NewRootCommand() *cobra.Command {
 			state.marks = cfg.Marks
 			state.layout = cfg.Layout
 			state.configPath = configPath
-			// Resolved here rather than as a config default, since every default is spelled
-			// out in the generated config.toml, where one machine's home directory cannot
-			// stand as everybody's. A home directory that will not resolve is a config error
-			// like any other and reaches the panel's error screen.
-			state.actionsDir = cfg.Actions.Dir
-			if state.actionsDir == "" {
-				dir, err := appconfig.DefaultActionsDir()
-				if err != nil && state.configErr == nil {
-					state.configErr = err
-				}
-				state.actionsDir = dir
-			}
 			// Two tmux servers, held as one client. The manager's own server owns the
 			// session, its windows, and its panes. The user's server answers where the
 			// client viewing the popup is sitting and holds the options the plugin's
@@ -121,6 +109,7 @@ func NewRootCommand() *cobra.Command {
 			agentClient := agentv1connect.NewAgentServiceClient(http.DefaultClient, base)
 			workflowClient := workflowv1connect.NewWorkflowServiceClient(http.DefaultClient, base)
 			scheduleClient := schedulev1connect.NewScheduleServiceClient(http.DefaultClient, base)
+			actionClient := actionv1connect.NewActionServiceClient(http.DefaultClient, base)
 
 			// Drop this tmux session's status bar so the panel and its stage pane
 			// fill the popup without a footer beneath them.
@@ -137,12 +126,10 @@ func NewRootCommand() *cobra.Command {
 				Workflows:  workflowClient,
 				Schedules:  scheduleClient,
 				Keys:       state.keys,
-				ActionsDir: state.actionsDir,
-				Runner:     actions.Runner{},
+				Actions:    actionClient,
 				Marks:      state.marks,
 				Layout:     state.layout,
 				Addr:       state.env.Addr,
-				TmuxSocket: state.env.TmuxSocket,
 				ConfigErr:  state.configErr,
 				StartupErr: startupErr,
 			})

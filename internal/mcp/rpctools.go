@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	actionv1 "weave/proto/gen/action/v1"
 	agentv1 "weave/proto/gen/agent/v1"
 	annotationv1 "weave/proto/gen/annotation/v1"
 	configv1 "weave/proto/gen/config/v1"
@@ -54,6 +55,7 @@ func registerRPCTools(server *mcpsdk.Server, baseURL string) error {
 		workflowv1.File_workflow_v1_workflow_proto,
 		schedulev1.File_schedule_v1_schedule_proto,
 		configv1.File_config_v1_config_proto,
+		actionv1.File_action_v1_action_proto,
 	}
 
 	for _, file := range files {

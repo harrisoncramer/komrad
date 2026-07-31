@@ -73,6 +73,11 @@ func Discover(dir string) ([]Action, error) {
 // path and says nothing about the one thing that fixes it.
 var ErrNotExecutable = errors.New("the file is not executable: run chmod +x on it")
 
+// ErrNotStartable is what a file that would not exec is refused with, most often a shebang
+// naming an interpreter that is not installed. It is named so a caller can tell the file being
+// unrunnable from something going wrong on its own side, without reading errno itself.
+var ErrNotStartable = errors.New("the file could not be started")
+
 // Runner starts actions as processes. It holds nothing and exists so a caller can take
 // running one as an interface and stand something else in its place under test.
 type Runner struct{}
@@ -106,7 +111,7 @@ func (Runner) Run(action Action, dir string, env []string) error {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to run action %s: %w", action.Name, err)
+		return fmt.Errorf("failed to run action %s: %w: %v", action.Name, ErrNotStartable, err)
 	}
 
 	// Nothing reads the exit status, but something has to reap the child, or it stays a

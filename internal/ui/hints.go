@@ -140,7 +140,7 @@ func (m model) trashHints() string {
 // the executable bit wants, since a dim row on its own cannot say why it is dim.
 func (m model) actionHints() string {
 	runDesc := "run"
-	if action, ok := m.selectedAction(); ok && !action.Executable {
+	if action, ok := m.selectedAction(); ok && !action.executable {
 		runDesc = "chmod +x to run"
 	}
 

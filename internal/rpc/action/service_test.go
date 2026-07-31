@@ -1,0 +1,161 @@
+package action
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"weave/internal/actions"
+	"weave/internal/agents"
+	actionv1 "weave/proto/gen/action/v1"
+
+	"connectrpc.com/connect"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/emptypb"
+)
+
+// TestRunActionCodes covers the whole of what a caller can be told. An action is fired and
+// forgotten, so every failure is from before the process started, and the code has to say which
+// kind it was: a name that answers to nothing, or a file that is there and will not run.
+func TestRunActionCodes(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		wantCode connect.Code
+	}{
+		{
+			name:     "an agent that is not there",
+			err:      agents.ErrAgentNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "an action the directory does not hold",
+			err:      agents.ErrActionNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "a file the user has not made executable",
+			err:      actions.ErrNotExecutable,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name:     "a shebang naming an interpreter that is not there",
+			err:      actions.ErrNotStartable,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name:     "anything else is ours rather than theirs",
+			err:      errors.New("the config would not parse"),
+			wantCode: connect.CodeInternal,
+		},
+		{
+			name:     "a started action answers with nothing to say",
+			err:      nil,
+			wantCode: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := NewService(&fakeActions{err: tt.err})
+
+			_, err := service.RunAction(context.Background(), connect.NewRequest(&actionv1.RunActionRequest{
+				AgentId: "a1",
+				Action:  "open-pr",
+			}))
+
+			if tt.wantCode == 0 {
+				require.NoError(t, err)
+
+				return
+			}
+
+			require.Error(t, err)
+			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+		})
+	}
+}
+
+// TestRunActionPassesWhatItWasAsked covers the handler translating and nothing more. Which agent
+// and which action are the caller's to decide, and the service is where they mean anything.
+func TestRunActionPassesWhatItWasAsked(t *testing.T) {
+	manager := &fakeActions{}
+	service := NewService(manager)
+
+	_, err := service.RunAction(context.Background(), connect.NewRequest(&actionv1.RunActionRequest{
+		AgentId: "a7",
+		Action:  "open-linear",
+	}))
+
+	require.NoError(t, err)
+	assert.Equal(t, "a7", manager.agentID)
+	assert.Equal(t, "open-linear", manager.action)
+}
+
+// TestListActions covers the listing rendered onto the wire. The preview is bytes rather than a
+// string because an action is as readily a compiled program as a script, and the first page of one
+// is not valid UTF-8, which proto3 would refuse.
+func TestListActions(t *testing.T) {
+	manager := &fakeActions{listed: []agents.ListedAction{
+		{
+			Action:    actions.Action{Name: "open-pr", Path: "/actions/open-pr", Executable: true},
+			Preview:   []byte("#!/bin/sh\n"),
+			Truncated: false,
+		},
+		{
+			Action:    actions.Action{Name: "compiled", Path: "/actions/compiled", Executable: true},
+			Preview:   []byte{0x7f, 'E', 'L', 'F', 0x00},
+			Truncated: true,
+		},
+	}}
+
+	resp, err := NewService(manager).ListActions(context.Background(), connect.NewRequest(&emptypb.Empty{}))
+	require.NoError(t, err)
+
+	listed := resp.Msg.GetActions()
+	require.Len(t, listed, 2)
+
+	assert.Equal(t, "open-pr", listed[0].GetName())
+	assert.True(t, listed[0].GetExecutable())
+	assert.Equal(t, []byte("#!/bin/sh\n"), listed[0].GetPreview())
+	assert.False(t, listed[0].GetPreviewTruncated())
+
+	assert.Equal(t, []byte{0x7f, 'E', 'L', 'F', 0x00}, listed[1].GetPreview(), "bytes no string could carry")
+	assert.True(t, listed[1].GetPreviewTruncated())
+}
+
+// TestListActionsFailure covers a directory that could not be read at all, which is the server's
+// problem rather than the caller's.
+func TestListActionsFailure(t *testing.T) {
+	service := NewService(&fakeActions{listErr: errors.New("permission denied")})
+
+	_, err := service.ListActions(context.Background(), connect.NewRequest(&emptypb.Empty{}))
+
+	require.Error(t, err)
+	assert.Equal(t, connect.CodeInternal, connect.CodeOf(err))
+}
+
+// fakeActions stands in for the service the handlers translate for, recording what it was asked
+// to fire so a case can assert the handler passed it through unchanged.
+type fakeActions struct {
+	listed  []agents.ListedAction
+	listErr error
+	err     error
+	agentID string
+	action  string
+}
+
+func (f *fakeActions) ListActions() ([]agents.ListedAction, error) {
+	if f.listErr != nil {
+		return nil, f.listErr
+	}
+
+	return f.listed, nil
+}
+
+func (f *fakeActions) RunAction(_ context.Context, agentID, name string) error {
+	f.agentID, f.action = agentID, name
+
+	return f.err
+}

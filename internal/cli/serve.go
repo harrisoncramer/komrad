@@ -7,16 +7,19 @@ import (
 	"os"
 	"time"
 
+	"weave/internal/actions"
 	"weave/internal/agents"
 	"weave/internal/appconfig"
 	"weave/internal/interceptors"
 	"weave/internal/jobs"
 	"weave/internal/mcp"
+	rpcaction "weave/internal/rpc/action"
 	rpcagent "weave/internal/rpc/agent"
 	rpcconfig "weave/internal/rpc/config"
 	rpcschedule "weave/internal/rpc/schedule"
 	rpcworkflow "weave/internal/rpc/workflow"
 	"weave/internal/store"
+	"weave/proto/gen/action/v1/actionv1connect"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/config/v1/configv1connect"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
@@ -85,11 +88,29 @@ func serveCmd(state *app) *cobra.Command {
 
 			// The config service reads the file per call, so it takes the path
 			// rather than the config this process parsed at startup.
+			loadConfig := func() (*appconfig.Config, error) { return appconfig.Load(state.configPath) }
+
 			configPath, configHandler := configv1connect.NewConfigServiceHandler(
-				rpcconfig.NewService(func() (*appconfig.Config, error) { return appconfig.Load(state.configPath) }),
+				rpcconfig.NewService(loadConfig),
 				connect.WithInterceptors(validation),
 			)
 			mux.Handle(configPath, configHandler)
+
+			// Actions read the same config per call, so an actions directory changed
+			// while this server runs takes effect without a restart.
+			actionPath, actionHandler := actionv1connect.NewActionServiceHandler(
+				rpcaction.NewService(agents.NewActionService(agents.ActionParams{
+					Agents:    state.agents,
+					Workflows: state.workflows,
+					Tmux:      state.tmux,
+					Runner:    actions.Runner{},
+					Load:      loadConfig,
+					Addr:      state.env.Addr,
+					Socket:    state.env.TmuxSocket,
+				})),
+				connect.WithInterceptors(validation),
+			)
+			mux.Handle(actionPath, actionHandler)
 
 			// The MCP endpoint reads through its own read-only handle rather than
 			// the store's, so nothing reachable from a model can write, whatever

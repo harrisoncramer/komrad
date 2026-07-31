@@ -4,6 +4,7 @@ import (
 	"slices"
 	"time"
 
+	actionv1 "weave/proto/gen/action/v1"
 	agentv1 "weave/proto/gen/agent/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -48,6 +49,30 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 		Hidden:     s.GetHidden(),
 		Metadata:   metadata,
 	}
+}
+
+// actionItem is one of the user's actions as the panel holds it. The preview is the start of the
+// file, which the service reads, since the panel does not touch the actions directory itself.
+type actionItem struct {
+	name       string
+	executable bool
+	preview    []byte
+	truncated  bool
+}
+
+// actionItemsFrom renders listed actions into the items the screen is written against.
+func actionItemsFrom(listed []*actionv1.Action) []actionItem {
+	items := make([]actionItem, 0, len(listed))
+	for _, action := range listed {
+		items = append(items, actionItem{
+			name:       action.GetName(),
+			executable: action.GetExecutable(),
+			preview:    action.GetPreview(),
+			truncated:  action.GetPreviewTruncated(),
+		})
+	}
+
+	return items
 }
 
 // agentItemsFrom maps listed agents to agent items, marking which panes are live.

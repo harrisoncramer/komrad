@@ -102,6 +102,10 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.runSettledSearch(msg)
 	case searchResult:
 		return m, m.applySearch(msg)
+	case actionsResult:
+		m.applyActions(msg)
+
+		return m, nil
 	case previewResult:
 		m.applyPreview(msg)
 

@@ -508,17 +508,21 @@ func configHome() (string, error) {
 	return filepath.Join(home, ".config", "weave"), nil
 }
 
-// DefaultActionsDir is where the panel looks for actions when the config names no directory,
-// ~/.config/weave/actions. It is resolved here rather than defaulted into Config, since every
-// default there is spelled out in the generated config.toml, and a file naming one machine's
-// home directory as everybody's default would be wrong on every other machine.
-func DefaultActionsDir() (string, error) {
-	dir, err := configHome()
+// ActionsDir is where the actions live, the configured directory or ~/.config/weave/actions
+// when the config names none. The default is resolved here rather than filled into Config,
+// since every default there is spelled out in the generated config.toml, and a file naming one
+// machine's home directory as everybody's default would be wrong on every other machine.
+func (c Config) ActionsDir() (string, error) {
+	if dir := strings.TrimSpace(c.Actions.Dir); dir != "" {
+		return dir, nil
+	}
+
+	home, err := configHome()
 	if err != nil {
 		return "", err
 	}
 
-	return filepath.Join(dir, "actions"), nil
+	return filepath.Join(home, "actions"), nil
 }
 
 // Load reads the config from path when given, otherwise from the default
