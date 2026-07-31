@@ -87,9 +87,9 @@ func ensureManagerSession(state *app) error {
 
 	cmd := state.tmuxCommand(
 		"new-session", "-d", "-s", agents.ManagerSession,
-		"-e", "CLAUDE_AGENTS_TMUX_SOCKET="+state.env.TmuxSocket,
+		"-e", "WEAVE_TMUX_SOCKET="+state.env.TmuxSocket,
 		"-e", "DATABASE_URL="+state.env.DatabaseURL,
-		"-e", "CLAUDE_AGENTS_ADDR="+state.env.Addr,
+		"-e", "WEAVE_ADDR="+state.env.Addr,
 		"--", selfPath(),
 	)
 	cmd.Stderr = os.Stderr

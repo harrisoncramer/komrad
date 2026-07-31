@@ -9,7 +9,7 @@ import (
 // attaches to it rather than launching the panel fresh, so hiding the popup
 // leaves the panel running and reopening restores it. The tmux plugin uses the
 // same literal.
-const ManagerSession = "claude-manager"
+const ManagerSession = "weave"
 
 // defaultServerAddr matches the config package's default listen address. It is
 // used when a caller passes none, so a launched agent is still told a usable

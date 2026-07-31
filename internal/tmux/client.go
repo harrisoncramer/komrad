@@ -92,7 +92,7 @@ func (c *Client) PaneWidth(pane string) int {
 // paneOwnerOption is the pane-scoped tmux option an agent's pane is stamped with.
 // The @ prefix is what tmux reserves for user options, so it cannot collide with
 // an option tmux itself defines now or later.
-const paneOwnerOption = "@claude_agent_id"
+const paneOwnerOption = "@weave_agent_id"
 
 // SetPaneOwner stamps a pane with the id of the agent running in it. tmux only promises
 // a pane id is unique while the server that issued it lives, so numbering restarts from
@@ -191,8 +191,14 @@ func (c *Client) ZoomPane(pane string, zoom bool) {
 // NewWindow creates a detached window in a session, rooted at dir and titled name, and
 // returns its pane id. An error is returned rather than an empty id, since every caller
 // needs a real pane to drive and tmux resolves an empty target to the active pane.
+//
+// The session is targeted with a trailing colon, which is how tmux is told a target is a
+// session and nothing else. A bare name is matched against window names too, and it is a
+// window it prefers: the manager's own window carries the same name as its session, so a
+// bare name resolves to that window and tmux then insists on creating at that window's
+// index, which is by definition taken.
 func (c *Client) NewWindow(session, name, dir string) (string, error) {
-	pane, err := c.query("new-window", "-d", "-t", session, "-n", name, "-c", dir, "-P", "-F", "#{pane_id}")
+	pane, err := c.query("new-window", "-d", "-t", session+":", "-n", name, "-c", dir, "-P", "-F", "#{pane_id}")
 	if err != nil {
 		return "", fmt.Errorf("failed to create window %q: %w", name, err)
 	}

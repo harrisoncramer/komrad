@@ -41,14 +41,14 @@ func TestBuildCommand(t *testing.T) {
 		{
 			name:        "the agent's own id leads the line, so it reaches claude's environment",
 			launch:      harness.Launch{AgentID: "id-1", SessionID: "sess-4"},
-			wantCommand: "CLAUDE_AGENTS_AGENT_ID='id-1' claude --session-id 'sess-4'",
+			wantCommand: "WEAVE_AGENT_ID='id-1' claude --session-id 'sess-4'",
 		},
 		{
 			// The appended system prompt carrying it would not, which is the whole reason
 			// it rides on the environment instead.
 			name:        "and it survives a resume",
 			launch:      harness.Launch{AgentID: "id-1", SessionID: "sess-5", Resume: true},
-			wantCommand: "CLAUDE_AGENTS_AGENT_ID='id-1' claude --resume 'sess-5'",
+			wantCommand: "WEAVE_AGENT_ID='id-1' claude --resume 'sess-5'",
 		},
 	}
 

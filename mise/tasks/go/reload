@@ -47,12 +47,12 @@ fi
 
 # The panel and every agent live on a tmux server of their own, which a plain
 # tmux command does not address: it would talk to the user's server, find no
-# claude-manager session there, and silently do nothing. The socket is the same
+# weave session there, and silently do nothing. The socket is the same
 # one the binary resolves from the environment.
-socket="${CLAUDE_AGENTS_TMUX_SOCKET:-weave}"
+socket="${WEAVE_TMUX_SOCKET:-weave}"
 manager() { tmux -L "$socket" "$@"; }
 
-# The panel is a window of the claude-manager session and every agent is a window
+# The panel is a window of the weave session and every agent is a window
 # beside it, so the restart is scoped to the panel's own pane. Killing the session
 # would take every running agent down with the panel. The panel is the only pane
 # running this binary, which is what identifies it.

@@ -109,7 +109,7 @@ func TestAppendedSystemPrompt(t *testing.T) {
 				"agent_transcripts",
 				// The briefing has to name both halves or the agent has an id it never uses
 				// and a tool it does not know to reach for.
-				"CLAUDE_AGENTS_AGENT_ID",
+				"WEAVE_AGENT_ID",
 				"set_agent_metadata",
 			},
 			wantAbsent: []string{"shared notes"},

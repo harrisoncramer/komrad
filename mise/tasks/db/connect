@@ -7,4 +7,4 @@ source "$MISE_CONFIG_ROOT/mise/tasks/_"
 # prerequisite. This reaches the development database only; a remote
 # DATABASE_URL is not what this container can see.
 cd "$MISE_CONFIG_ROOT"
-exec docker compose exec db psql -U claude_agents -d claude_agents
+exec docker compose exec db psql -U weave -d weave

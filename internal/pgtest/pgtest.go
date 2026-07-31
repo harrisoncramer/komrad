@@ -46,7 +46,7 @@ func URL(t *testing.T) string {
 	}
 	baseURL := cfg.DatabaseURL
 
-	name := fmt.Sprintf("claude_agents_test_%d_%d", os.Getpid(), created.Add(1))
+	name := fmt.Sprintf("weave_test_%d_%d", os.Getpid(), created.Add(1))
 
 	ctx := t.Context()
 

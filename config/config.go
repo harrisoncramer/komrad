@@ -11,7 +11,7 @@ import (
 // defaultDatabaseURL points at the Postgres that docker-compose brings up, so a
 // checkout works after `mise run docker:up` with nothing exported. A deployed
 // instance sets DATABASE_URL to its own database and never falls back here.
-const defaultDatabaseURL = "postgres://claude_agents:claude_agents@localhost:5460/claude_agents?sslmode=disable"
+const defaultDatabaseURL = "postgres://weave:weave@localhost:5460/weave?sslmode=disable"
 
 // Config holds the panel's runtime configuration. TmuxSocket names the manager's
 // own tmux server, which is deliberately not the user's. A server only lists its
@@ -19,8 +19,8 @@ const defaultDatabaseURL = "postgres://claude_agents:claude_agents@localhost:546
 // cannot be attached to outside the popup, which is the only place it behaves.
 type Config struct {
 	DatabaseURL string `env:"DATABASE_URL"`
-	Addr        string `env:"CLAUDE_AGENTS_ADDR" envDefault:"127.0.0.1:8787"`
-	TmuxSocket  string `env:"CLAUDE_AGENTS_TMUX_SOCKET" envDefault:"weave"`
+	Addr        string `env:"WEAVE_ADDR" envDefault:"127.0.0.1:8787"`
+	TmuxSocket  string `env:"WEAVE_TMUX_SOCKET" envDefault:"weave"`
 }
 
 // Load reads the panel's configuration from the environment, defaulting to the

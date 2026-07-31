@@ -6,13 +6,13 @@ services:
   db:
     image: postgres:18
     environment:
-      POSTGRES_USER: claude_agents
-      POSTGRES_PASSWORD: claude_agents
-      POSTGRES_DB: claude_agents
+      POSTGRES_USER: weave
+      POSTGRES_PASSWORD: weave
+      POSTGRES_DB: weave
     ports:
       - "${DB_PORT:-5460}:5432"
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "claude_agents"]
+      test: ["CMD", "pg_isready", "-U", "weave"]
       interval: 2s
       timeout: 5s
       retries: 15

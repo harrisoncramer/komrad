@@ -12,14 +12,14 @@ fi
 get() { tmux show-option -gqv "$1"; }
 
 # Configurable prefix key for the panel (default: g).
-key="$(get '@claude_agents_key')"
+key="$(get '@weave_key')"
 [ -z "$key" ] && key="g"
 
 # The manager lives in a persistent tmux session shown through a popup. Pressing
 # the key while the popup is up hides it by detaching that session's client,
 # which leaves the panel running so reopening restores the exact view. Pressing
 # it while hidden opens the popup, attaching to the persistent session. The open
-# command owns the @claude_manager_open flag: it sets it while the popup is up
+# command owns the @weave_open flag: it sets it while the popup is up
 # and clears it when the popup closes.
 #
 # That session lives on a tmux server of its own, so it stays out of this server's
@@ -33,7 +33,7 @@ key="$(get '@claude_agents_key')"
 # leaves the popup up with its error on screen instead of destroying the popup in
 # the same instant the message is written. Dismiss a held-open popup with Escape
 # or C-c.
-tmux set-option -g @claude_manager_open 0
-tmux bind-key "$key" if-shell -F '#{==:#{@claude_manager_open},1}' \
+tmux set-option -g @weave_open 0
+tmux bind-key "$key" if-shell -F '#{==:#{@weave_open},1}' \
 	"run-shell -b '$BIN hide'" \
-	"display-popup -w 95% -h 95% -x C -y C -T ' claude-manager ' -EE '$BIN open #{client_name} #{socket_path}'"
+	"display-popup -w 95% -h 95% -x C -y C -T ' weave ' -EE '$BIN open #{client_name} #{socket_path}'"

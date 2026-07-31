@@ -31,17 +31,17 @@ func TestServersRouting(t *testing.T) {
 
 	host.Record(socketPath(t, hostSocket))
 
-	servers.SetGlobal("@claude_manager_open", "1")
-	assert.Equal(t, "1", tmuxRun(t, hostSocket, "show-option", "-gqv", "@claude_manager_open"),
+	servers.SetGlobal("@weave_open", "1")
+	assert.Equal(t, "1", tmuxRun(t, hostSocket, "show-option", "-gqv", "@weave_open"),
 		"globals belong to the user's server, where the key binding reads them")
-	assert.Empty(t, tmuxRun(t, managerSocket, "show-option", "-gqv", "@claude_manager_open"),
+	assert.Empty(t, tmuxRun(t, managerSocket, "show-option", "-gqv", "@weave_open"),
 		"and are not written to the manager's")
-	assert.Equal(t, "1", servers.ShowGlobal("@claude_manager_open"), "and are read back from the same place")
+	assert.Equal(t, "1", servers.ShowGlobal("@weave_open"), "and are read back from the same place")
 
-	servers.BindKey("g", "detach-client", "-s", "claude-manager")
-	assert.Contains(t, tmuxRun(t, managerSocket, "list-keys", "-T", "prefix"), "claude-manager",
+	servers.BindKey("g", "detach-client", "-s", "weave")
+	assert.Contains(t, tmuxRun(t, managerSocket, "list-keys", "-T", "prefix"), "weave",
 		"the key pressed inside the popup is bound on the manager's server")
-	assert.NotContains(t, tmuxRun(t, hostSocket, "list-keys", "-T", "prefix"), "claude-manager",
+	assert.NotContains(t, tmuxRun(t, hostSocket, "list-keys", "-T", "prefix"), "weave",
 		"and not on the user's, whose binding opens the popup")
 
 	// The invoking client's directory is a question only the server it is attached

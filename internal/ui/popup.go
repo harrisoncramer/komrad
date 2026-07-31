@@ -30,18 +30,18 @@ func NewPopup(tmux popupTmux, session string) *Popup {
 // managerOpenFlag marks that the popup is currently shown, so the binding hides
 // it rather than opening a second one. The open command sets it while the popup
 // is up and clears it on close. The tmux plugin reads it.
-const managerOpenFlag = "@claude_manager_open"
+const managerOpenFlag = "@weave_open"
 
 // managerClientFlag holds the tmux client that opened the current popup. The open
 // command writes it on each open, and the manager reads it live, so actions that
 // need the invoking client use the one actually viewing the popup rather than one
 // fixed when the persistent panel first started.
-const managerClientFlag = "@claude_manager_client"
+const managerClientFlag = "@weave_client"
 
 // managerKeyOption holds the user's chosen panel key. The tmux plugin reads it on
 // the user's server to bind the key there, and the popup reads the same option to
 // bind its own meaning for it inside the popup.
-const managerKeyOption = "@claude_agents_key"
+const managerKeyOption = "@weave_key"
 
 // defaultPanelKey is the panel key when the user has chosen none. The plugin script
 // carries the same default, since it binds the key on the user's server.

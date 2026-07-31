@@ -4,7 +4,7 @@ package tmux
 // is stored on the manager's own server because the panel and the API server both
 // run there, and it is rewritten on every open rather than passed in through their
 // environment, which only the open that created the session could set.
-const hostSocketOption = "@claude_host_socket"
+const hostSocketOption = "@weave_host_socket"
 
 // Host is the tmux server the user is on. The manager runs on a server of its own,
 // so its session never shows up in the user's session list and cannot be attached

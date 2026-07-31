@@ -11,7 +11,7 @@ import "time"
 // for it in. It rides on the environment rather than in an appended system prompt
 // because it has to survive a resume, and an agent that only learned its id at
 // spawn would go anonymous the first time it was restored.
-const AgentIDEnv = "CLAUDE_AGENTS_AGENT_ID"
+const AgentIDEnv = "WEAVE_AGENT_ID"
 
 // Launch is everything the panel knows about one start of an agent. How any of it
 // reaches the command line belongs to the harness, since the flag that pins a

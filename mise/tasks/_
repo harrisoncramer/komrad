@@ -8,7 +8,7 @@
 # DATABASE_URL to its own instance and never uses the fallback.
 : "${DB_PORT:=5460}"
 export DB_PORT
-export DATABASE_URL="${DATABASE_URL:-postgres://claude_agents:claude_agents@localhost:${DB_PORT}/claude_agents?sslmode=disable}"
+export DATABASE_URL="${DATABASE_URL:-postgres://weave:weave@localhost:${DB_PORT}/weave?sslmode=disable}"
 
 # adminURL rewrites DATABASE_URL to point at the server's default database,
 # which is where a throwaway test database has to be created from since you

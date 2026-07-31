@@ -16,19 +16,19 @@ jobs:
       postgres:
         image: postgres:18
         env:
-          POSTGRES_USER: claude_agents
-          POSTGRES_PASSWORD: claude_agents
-          POSTGRES_DB: claude_agents
+          POSTGRES_USER: weave
+          POSTGRES_PASSWORD: weave
+          POSTGRES_DB: weave
         ports:
           - 5460:5432
         options: >-
-          --health-cmd "pg_isready -U claude_agents"
+          --health-cmd "pg_isready -U weave"
           --health-interval 2s
           --health-timeout 5s
           --health-retries 15
 
     env:
-      DATABASE_URL: postgres://claude_agents:claude_agents@localhost:5460/claude_agents?sslmode=disable
+      DATABASE_URL: postgres://weave:weave@localhost:5460/weave?sslmode=disable
 
     steps:
       - uses: actions/checkout@v4

@@ -48,14 +48,14 @@ func TestBuildCommand(t *testing.T) {
 		{
 			name:        "the agent's own id leads the line, so it reaches codex's environment",
 			launch:      harness.Launch{AgentID: "id-1", Prompt: "go"},
-			wantContain: []string{"CLAUDE_AGENTS_AGENT_ID='id-1' codex"},
+			wantContain: []string{"WEAVE_AGENT_ID='id-1' codex"},
 		},
 		{
 			// It rides on the environment because it has to survive a resume, which the
 			// briefing does not.
 			name:        "and it survives a resume",
 			launch:      harness.Launch{AgentID: "id-1", SessionID: "sess", Resume: true},
-			wantContain: []string{"CLAUDE_AGENTS_AGENT_ID='id-1' codex resume"},
+			wantContain: []string{"WEAVE_AGENT_ID='id-1' codex resume"},
 		},
 		{
 			name:        "the prompt is fenced off, since it could open with a subcommand's name",
