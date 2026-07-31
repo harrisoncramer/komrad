@@ -163,7 +163,100 @@ func TestRunActionPayload(t *testing.T) {
 	assert.Equal(t, "✓", payload.Mark)
 	assert.Equal(t, "2026-07-30T09:00:00Z", payload.CreatedAt)
 	assert.Equal(t, map[string]string{"pr": "https://example.test/1"}, payload.Metadata)
+	assert.Equal(t, "fix auth", payload.Prompt)
+	assert.False(t, payload.PromptTruncated, "a prompt that fits arrives whole and says so")
 	assert.NotContains(t, values["WEAVE_AGENT"], "transcript", "a transcript is far past what an environment holds")
+}
+
+// TestRunActionBoundsALongPrompt covers the one field in the payload with no bound of its own.
+// Everything an exec is handed shares a kernel limit, and going past it fails the run with a
+// message naming the script, so a long prompt is cut here instead and the payload says it was.
+func TestRunActionBoundsALongPrompt(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
+
+	runner := &recordingRunner{}
+	service := actionService(t, dir, runner)
+	service.agents = fakeAgentReader{agent: &agentstore.Agent{
+		ID:     "a1",
+		Name:   "auth",
+		Cwd:    "/repo",
+		Prompt: strings.Repeat("prompt ", maxActionPrompt),
+	}}
+
+	require.NoError(t, service.RunAction(context.Background(), "a1", "open-pr"))
+
+	var encoded string
+	for _, entry := range runner.env {
+		if key, value, _ := strings.Cut(entry, "="); key == "WEAVE_AGENT" {
+			encoded = value
+		}
+	}
+
+	var payload actionPayload
+	require.NoError(t, json.Unmarshal([]byte(encoded), &payload))
+
+	assert.True(t, payload.PromptTruncated, "a script showing the prompt can say it is a head of one")
+	assert.LessOrEqual(t, len(payload.Prompt), maxActionPrompt)
+	assert.True(t, strings.HasPrefix(payload.Prompt, "prompt prompt "), "what is kept is the start of it")
+	assert.Less(t, len(encoded), 128*1024, "the payload stays well inside what an exec carries")
+}
+
+// TestHead covers the cut itself, which has to leave text a script can decode rather than half of
+// whatever character the limit landed inside.
+func TestHead(t *testing.T) {
+	tests := []struct {
+		name          string
+		s             string
+		limit         int
+		want          string
+		wantTruncated bool
+	}{
+		{
+			name:  "a string inside the limit is untouched",
+			s:     "fix auth",
+			limit: 8,
+			want:  "fix auth",
+		},
+		{
+			name:          "a longer string is cut to the limit",
+			s:             "fix auth now",
+			limit:         8,
+			want:          "fix auth",
+			wantTruncated: true,
+		},
+		{
+			// The limit lands inside the third character, so the cut pulls back off it
+			// rather than handing over one byte of it.
+			name:          "a cut inside a character pulls back to the one before it",
+			s:             "日本語",
+			limit:         7,
+			want:          "日本",
+			wantTruncated: true,
+		},
+		{
+			name:          "a limit inside the first character keeps nothing",
+			s:             "日本語",
+			limit:         2,
+			want:          "",
+			wantTruncated: true,
+		},
+		{
+			name:  "an empty string is not truncated",
+			s:     "",
+			limit: 8,
+			want:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, truncated := head(tt.s, tt.limit)
+
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantTruncated, truncated)
+		})
+	}
 }
 
 // TestRunActionOnADormantAgent covers the one field the payload works out rather than reads. A

@@ -45,6 +45,11 @@ func TestRunActionCodes(t *testing.T) {
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
+			name:     "an agent whose directory has been removed from under it",
+			err:      actions.ErrDirMissing,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
 			name:     "anything else is ours rather than theirs",
 			err:      errors.New("the config would not parse"),
 			wantCode: connect.CodeInternal,

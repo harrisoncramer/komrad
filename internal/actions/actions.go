@@ -31,9 +31,11 @@ type Action struct {
 // A directory that does not exist yields no actions and no error, since not having written
 // one is the ordinary case rather than a failure anybody caused.
 //
-// Subdirectories are skipped rather than walked, so an action is always one file. Each entry
-// is stated rather than read off its directory entry, so a symlink into a dotfiles repo is
-// judged by what it points at.
+// Only regular files are offered. Subdirectories are skipped rather than walked, so an action
+// is always one file, and anything else with a name in here is passed over: opening a fifo
+// blocks until something writes to it, which would hang the caller reading the file rather than
+// fail. Each entry is stated rather than read off its directory entry, so a symlink into a
+// dotfiles repo is judged by what it points at.
 func Discover(dir string) ([]Action, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -54,7 +56,7 @@ func Discover(dir string) ([]Action, error) {
 
 		path := filepath.Join(dir, entry.Name())
 		info, err := os.Stat(path)
-		if err != nil || info.IsDir() {
+		if err != nil || !info.Mode().IsRegular() {
 			continue
 		}
 
@@ -78,6 +80,12 @@ var ErrNotExecutable = errors.New("the file is not executable: run chmod +x on i
 // unrunnable from something going wrong on its own side, without reading errno itself.
 var ErrNotStartable = errors.New("the file could not be started")
 
+// ErrDirMissing is what running in a directory that is not there is refused with. It is named
+// because the exec failure it would otherwise arrive as names the script and not the directory,
+// which sends whoever reads it to look at a file that is fine. An agent outliving the worktree
+// it ran in is the ordinary way this happens.
+var ErrDirMissing = errors.New("the directory to run in does not exist")
+
 // Runner starts actions as processes. It holds nothing and exists so a caller can take
 // running one as an interface and stand something else in its place under test.
 type Runner struct{}
@@ -86,9 +94,9 @@ type Runner struct{}
 // process exists rather than once it has finished. A script may take as long as it likes,
 // and what it prints and what it changes are its own business.
 //
-// What it does report is a failure to start, which covers the two failures indistinguishable
-// from a keypress that did nothing at all. A file that cannot be executed, and a shebang
-// naming an interpreter that is not there.
+// What it does report is a failure to start, which covers the failures indistinguishable
+// from a keypress that did nothing at all. A file that cannot be executed, a directory that is
+// no longer there, and a shebang naming an interpreter that is not there.
 //
 // The three standard streams are left nil, which os/exec maps to the null device. That is
 // the point rather than an omission. An inherited stdin would let a script read the
@@ -101,6 +109,12 @@ type Runner struct{}
 func (Runner) Run(action Action, dir string, env []string) error {
 	if !action.Executable {
 		return fmt.Errorf("failed to run action %s: %w", action.Name, ErrNotExecutable)
+	}
+
+	// Stated before the exec rather than left to it, since a chdir that fails arrives as a
+	// no-such-file naming the script, which is the one thing here that is not the problem.
+	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+		return fmt.Errorf("failed to run action %s in %s: %w", action.Name, dir, ErrDirMissing)
 	}
 
 	cmd := exec.Command(action.Path)

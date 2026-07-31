@@ -62,7 +62,15 @@ func (m model) listActionsCmd() tea.Cmd {
 // applyActions puts a finished listing on screen. A listing that failed is reported and leaves
 // the list empty, since there is nothing to show and the stage would otherwise claim the
 // directory is empty when nobody could read it.
+//
+// A listing that arrives after the screen was left is dropped whole, the way the refresh drops a
+// pass the panel has moved past. It would otherwise write the stage of whichever screen is up
+// now, and a failed one would banner over it, both of them about a list nobody is looking at.
 func (m *model) applyActions(result actionsResult) {
+	if m.screen != screenActions {
+		return
+	}
+
 	if result.err != nil {
 		m.report("Could not read your actions", result.err)
 

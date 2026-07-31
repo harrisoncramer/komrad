@@ -3,6 +3,7 @@ package actions
 import (
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ func TestDiscover(t *testing.T) {
 	require.NoError(t, os.Mkdir(filepath.Join(dir, "helpers"), 0o755))
 	write(t, filepath.Join(dir, "helpers", "nested"), 0o755)
 	require.NoError(t, os.Symlink(filepath.Join(dir, "open-pr"), filepath.Join(dir, "linked")))
+	require.NoError(t, syscall.Mkfifo(filepath.Join(dir, "fifo"), 0o755))
 
 	found, err := Discover(dir)
 	require.NoError(t, err)
@@ -46,6 +48,13 @@ func TestDiscover(t *testing.T) {
 		{
 			name:       "a subdirectory is skipped rather than walked",
 			entry:      "helpers",
+			wantListed: false,
+		},
+		{
+			// Reading one waits for a writer that is never coming, so listing it would
+			// hang whoever reads the file rather than fail.
+			name:       "a fifo is not an action, however its mode reads",
+			entry:      "fifo",
 			wantListed: false,
 		},
 		{
@@ -169,6 +178,41 @@ func TestRunRefusesWhatItCannotStart(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestRunRefusesAMissingDirectory covers an agent outliving the worktree it ran in, which is
+// ordinary once a worktree is cleaned up. The refusal has to name the directory: the exec failure
+// underneath it reports no such file against the script, which is the one thing here that is
+// fine.
+func TestRunRefusesAMissingDirectory(t *testing.T) {
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, "open-pr"), 0o755)
+
+	found, err := Discover(dir)
+	require.NoError(t, err)
+	require.Len(t, found, 1)
+
+	gone := filepath.Join(t.TempDir(), "worktree-that-was-removed")
+
+	err = Runner{}.Run(found[0], gone, nil)
+
+	require.ErrorIs(t, err, ErrDirMissing)
+	assert.Contains(t, err.Error(), gone, "the refusal names the directory, not the script")
+}
+
+// TestRunRefusesADirectoryThatIsAFile covers the same check meeting a path that exists and is
+// not somewhere a process can be started, which fails at chdir the same way nothing there does.
+func TestRunRefusesADirectoryThatIsAFile(t *testing.T) {
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, "open-pr"), 0o755)
+
+	found, err := Discover(dir)
+	require.NoError(t, err)
+	require.Len(t, found, 1)
+
+	notADir := filepath.Join(dir, "open-pr")
+
+	assert.ErrorIs(t, Runner{}.Run(found[0], notADir, nil), ErrDirMissing)
 }
 
 // write puts an empty file at path with the given mode, standing in for a script whose

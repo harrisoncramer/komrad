@@ -176,6 +176,49 @@ func TestActionListingFailureIsReported(t *testing.T) {
 	assert.Contains(t, got.banner.Summary, "Could not read your actions")
 }
 
+// TestActionListingArrivingAfterTheScreenWasLeft covers the listing outliving the visit that
+// asked for it. It is read once on the way in and the directory can be slow, so backing out
+// before it lands is ordinary. It has to be dropped whole, the way the refresh drops a pass the
+// panel has moved past, or it writes the stage of whichever screen is up by then.
+func TestActionListingArrivingAfterTheScreenWasLeft(t *testing.T) {
+	client := &fakeActions{}
+	m := actionsModel(client, appconfig.DefaultKeybindings())
+	pending := m.listActionsCmd()
+
+	// The list carries a row of its own, so a listing that lands writes over something
+	// recognisable rather than filling in what was empty anyway.
+	m.actions.items = []actionItem{{name: "from-the-visit-that-ended"}}
+
+	left, _ := m.updateActions(keyMsg("esc"))
+	departed, ok := left.(model)
+	require.True(t, ok)
+	require.Equal(t, screenAgents, departed.screen)
+
+	got := settle(t, departed, pending)
+
+	assert.Equal(t, screenAgents, got.screen, "a listing does not pull the panel back")
+	require.Len(t, got.actions.items, 1)
+	assert.Equal(t, "from-the-visit-that-ended", got.actions.items[0].name, "the listing was dropped")
+}
+
+// TestActionListingFailureAfterTheScreenWasLeftIsSilent covers the same race on the failing
+// side. A directory that could not be read is worth a banner over the list it is about and
+// nothing at all over a screen it says nothing about.
+func TestActionListingFailureAfterTheScreenWasLeftIsSilent(t *testing.T) {
+	client := &fakeActions{listErr: errors.New("connection refused")}
+	m := actionsModel(client, appconfig.DefaultKeybindings())
+	pending := m.listActionsCmd()
+
+	left, _ := m.updateActions(keyMsg("esc"))
+	departed, ok := left.(model)
+	require.True(t, ok)
+
+	got := settle(t, departed, pending)
+
+	assert.Equal(t, screenAgents, got.screen)
+	assert.Nil(t, got.banner, "nothing banners over a screen the failure is not about")
+}
+
 // TestFencedBlock covers the shared block any screen wraps somebody else's text in. The fence has
 // to beat whatever is inside it, or text carrying a fence of its own closes the block early and
 // leaves the rest of itself rendering as prose.

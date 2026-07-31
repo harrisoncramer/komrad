@@ -56,8 +56,9 @@ func (s *Service) ListActions(_ context.Context, _ *connect.Request[emptypb.Empt
 // because there is nothing to say: nothing waits for the action and nothing reads what it did.
 //
 // The failures are all of them from before the process started. A missing agent or action is
-// NotFound, and a file the user has not made executable is FailedPrecondition, since the file
-// is there and one chmod away from running.
+// NotFound. A file the user has not made executable is FailedPrecondition, since the file is
+// there and one chmod away from running, and so is an agent whose directory has been removed
+// from under it, since nothing about the action itself is wrong.
 func (s *Service) RunAction(ctx context.Context, req *connect.Request[actionv1.RunActionRequest]) (*connect.Response[emptypb.Empty], error) {
 	err := s.actions.RunAction(ctx, req.Msg.GetAgentId(), req.Msg.GetAction())
 
@@ -66,7 +67,8 @@ func (s *Service) RunAction(ctx context.Context, req *connect.Request[actionv1.R
 		return connect.NewResponse(&emptypb.Empty{}), nil
 	case errors.Is(err, agents.ErrAgentNotFound), errors.Is(err, agents.ErrActionNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, err)
-	case errors.Is(err, actions.ErrNotExecutable), errors.Is(err, actions.ErrNotStartable):
+	case errors.Is(err, actions.ErrNotExecutable), errors.Is(err, actions.ErrNotStartable),
+		errors.Is(err, actions.ErrDirMissing):
 		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
 	default:
 		return nil, connect.NewError(connect.CodeInternal, err)

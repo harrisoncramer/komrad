@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"time"
+	"unicode/utf8"
 
 	"weave/internal/actions"
 	"weave/internal/appconfig"
@@ -90,6 +91,13 @@ func NewActionService(p ActionParams) *ActionService {
 // of the file rather than all of it.
 const maxActionPreview = 8 * 1024
 
+// maxActionPrompt bounds how much of an agent's prompt the payload carries. Everything an exec
+// is handed shares one kernel limit, and the prompt is the only field in here with no bound of
+// its own, so a long enough one would fail the run at exec with a message naming the script. The
+// transcript is left out of the payload for the same reason; this is the same call made for a
+// field small enough to be worth keeping a head of.
+const maxActionPrompt = 16 * 1024
+
 // ListedAction is an action with the start of its own text, which is what a caller showing one
 // needs and what the file itself is the only source of.
 type ListedAction struct {
@@ -131,7 +139,8 @@ func (s *ActionService) ListActions() ([]ListedAction, error) {
 
 // RunAction fires an action on an agent and returns once the process exists. Nothing waits for
 // it and nothing reads what it did, so the only failures are the ones that happen before it
-// starts: an agent or an action that is not there, and a file that will not execute.
+// starts: an agent or an action that is not there, a file that will not execute, and an agent
+// whose directory is gone.
 func (s *ActionService) RunAction(ctx context.Context, agentID, name string) error {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if err != nil {
@@ -196,21 +205,24 @@ func (s *ActionService) dir() (string, error) {
 // The transcript is not in here. It is far past what an environment variable holds, and a
 // script that wants it has the agent's id and the address of the server.
 type actionPayload struct {
-	ID        string            `json:"id"`
-	Name      string            `json:"name"`
-	State     string            `json:"state"`
-	Alive     bool              `json:"alive"`
-	Cwd       string            `json:"cwd"`
-	Harness   string            `json:"harness"`
-	SessionID string            `json:"session_id"`
-	Flags     string            `json:"flags"`
-	Prompt    string            `json:"prompt"`
-	Pane      string            `json:"pane"`
-	Workflow  string            `json:"workflow"`
-	Mark      string            `json:"mark"`
-	Hidden    bool              `json:"hidden"`
-	CreatedAt string            `json:"created_at"`
-	Metadata  map[string]string `json:"metadata"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	State     string `json:"state"`
+	Alive     bool   `json:"alive"`
+	Cwd       string `json:"cwd"`
+	Harness   string `json:"harness"`
+	SessionID string `json:"session_id"`
+	Flags     string `json:"flags"`
+	Prompt    string `json:"prompt"`
+	// PromptTruncated says the prompt is longer than what Prompt carries, so a script
+	// showing it can say so rather than presenting a cut one as the whole.
+	PromptTruncated bool              `json:"prompt_truncated"`
+	Pane            string            `json:"pane"`
+	Workflow        string            `json:"workflow"`
+	Mark            string            `json:"mark"`
+	Hidden          bool              `json:"hidden"`
+	CreatedAt       string            `json:"created_at"`
+	Metadata        map[string]string `json:"metadata"`
 }
 
 // env is the environment an action runs with, over the server's own.
@@ -230,12 +242,12 @@ func (s *ActionService) env(ctx context.Context, agent agentstore.Agent) ([]stri
 		Harness:   agent.Harness,
 		SessionID: agent.SessionID,
 		Flags:     agent.Flags,
-		Prompt:    agent.Prompt,
 		Pane:      agent.Pane,
 		Workflow:  s.workflowName(ctx, agent.WorkflowID),
 		Hidden:    agent.Hidden,
 		Metadata:  make(map[string]string, len(agent.Metadata)),
 	}
+	payload.Prompt, payload.PromptTruncated = head(agent.Prompt, maxActionPrompt)
 	if agent.Mark != nil {
 		payload.Mark = *agent.Mark
 	}
@@ -269,6 +281,21 @@ func (s *ActionService) workflowName(ctx context.Context, id string) string {
 	}
 
 	return found.Name
+}
+
+// head is the first limit bytes of s and whether anything was dropped. The cut is pulled back
+// off a partial character, so what a script is handed is always text it can decode.
+func head(s string, limit int) (string, bool) {
+	if len(s) <= limit {
+		return s, false
+	}
+
+	cut := s[:limit]
+	for len(cut) > 0 && !utf8.ValidString(cut) {
+		cut = cut[:len(cut)-1]
+	}
+
+	return cut, true
 }
 
 // readHead reads up to limit bytes of a file and reports whether there was more. A truncated
