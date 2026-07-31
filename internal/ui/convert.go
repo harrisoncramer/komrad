@@ -21,10 +21,8 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 	created, _ := time.Parse(time.RFC3339, s.GetCreatedAt())
 
 	var deleted *time.Time
-	if s.DeletedAt != nil {
-		if parsed, err := time.Parse(time.RFC3339, s.GetDeletedAt()); err == nil {
-			deleted = &parsed
-		}
+	if parsed, err := time.Parse(time.RFC3339, s.GetDeletedAt()); err == nil {
+		deleted = &parsed
 	}
 
 	metadata := make([]agentstore.Metadata, 0, len(s.GetMetadata()))
@@ -96,17 +94,16 @@ func deletedAgentsFrom(listed []*agentv1.Agent) []agentstore.Agent {
 		agents = append(agents, protoToAgent(agent))
 	}
 
-	slices.SortStableFunc(agents, func(a, b agentstore.Agent) int {
-		switch {
-		case a.DeletedAt == nil && b.DeletedAt == nil:
-			return 0
-		case a.DeletedAt == nil:
-			return 1
-		case b.DeletedAt == nil:
-			return -1
-		default:
-			return b.DeletedAt.Compare(*a.DeletedAt)
+	deletedAt := func(agent agentstore.Agent) time.Time {
+		if agent.DeletedAt == nil {
+			return time.Time{}
 		}
+
+		return *agent.DeletedAt
+	}
+
+	slices.SortStableFunc(agents, func(a, b agentstore.Agent) int {
+		return deletedAt(b).Compare(deletedAt(a))
 	})
 
 	return agents
