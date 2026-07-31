@@ -101,8 +101,8 @@ func (m model) restoreFromTrash() (tea.Model, tea.Cmd) {
 }
 
 // deleteFromTrashConfirm opens the prompt for destroying the hovered agent. This
-// is the one action in the panel nothing undoes, so it is the only per-row
-// action that asks first.
+// is the one thing in the panel nothing undoes, so it is the only per-row key
+// that asks first.
 func (m model) deleteFromTrashConfirm() (tea.Model, tea.Cmd) {
 	agent, ok := m.selectedTrash()
 	if !ok {

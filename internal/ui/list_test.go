@@ -247,7 +247,7 @@ func TestListLines(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := model{height: tt.height, actionErr: tt.banner}
+			m := model{height: tt.height, banner: tt.banner}
 
 			assert.Equal(t, tt.want, m.listLines(header, hints))
 		})

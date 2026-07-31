@@ -43,7 +43,7 @@ func openCmd(state *app) *cobra.Command {
 			// restarted one points the panel at the server actually showing it.
 			state.host.Record(argAt(args, 1))
 
-			// Record the client that opened this popup so panel actions resolve the
+			// Record the client that opened this popup so the panel resolves the
 			// right directory and client. Mark the popup shown so the binding hides
 			// it on the next press. The mark clears when the attach below returns.
 			state.popup.SetInvokingClient(argAt(args, 0))

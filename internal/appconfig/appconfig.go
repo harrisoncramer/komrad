@@ -17,8 +17,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Keybindings scopes bindings to the screen they act in. Each action is a list of
-// bubbletea key strings such as "enter", "ctrl+d", or "esc". An action left unset
+// Keybindings scopes bindings to the screen they act in. Each binding is a list of
+// bubbletea key strings such as "enter", "ctrl+d", or "esc". A binding left unset
 // falls back to its built-in default.
 type Keybindings struct {
 	// Navigation, shared by every menu so movement is the same everywhere. These
@@ -28,7 +28,7 @@ type Keybindings struct {
 	Agents AgentsKeys `mapstructure:"agents"`
 	// The new-agent, rename, and workflow forms.
 	Form FormKeys `mapstructure:"form"`
-	// The actions that create and change workflows, from the agents list.
+	// The bindings that create and change workflows, from the agents list.
 	Workflows WorkflowsKeys `mapstructure:"workflows"`
 	// The schedules screen, and the key that opens it from the agents list.
 	Schedules SchedulesKeys `mapstructure:"schedules"`
@@ -136,7 +136,7 @@ type TrashKeys struct {
 	// Put the agent under the cursor back in the panel.
 	Restore []string `mapstructure:"restore"`
 	// Destroy the agent under the cursor for good, with its transcript. This is
-	// the one action in the panel nothing undoes, so it asks first.
+	// the one thing in the panel nothing undoes, so it asks first.
 	Delete []string `mapstructure:"delete"`
 }
 
@@ -200,7 +200,7 @@ type Config struct {
 	// value such as "#DCA561". The panel draws itself from the sixteen, so a name is
 	// what keeps a mark in the same scheme as everything around it.
 	Marks []Mark `mapstructure:"marks"`
-	// Panel keybindings, scoped to the screen each action acts in.
+	// Panel keybindings, scoped to the screen each binding acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`
 }
 

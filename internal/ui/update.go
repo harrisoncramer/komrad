@@ -81,9 +81,9 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// literal rather than through the rebindable back binding: back also carries
 	// left and h, and navigation keys should move the cursor, not clear an error.
 	// Form screens keep their own esc, which aborts the form.
-	if m.actionErr != nil && !m.screen.isForm() {
+	if m.banner != nil && !m.screen.isForm() {
 		if key, ok := msg.(tea.KeyMsg); ok && key.String() == "esc" {
-			m.actionErr = nil
+			m.banner = nil
 
 			return m, nil
 		}

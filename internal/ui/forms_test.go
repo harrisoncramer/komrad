@@ -266,7 +266,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 
 			got := settle(t, submitted, cmd)
 
-			require.Nil(t, got.actionErr, "the service accepted the write")
+			require.Nil(t, got.banner, "the service accepted the write")
 			tt.check(t, sent)
 		})
 	}

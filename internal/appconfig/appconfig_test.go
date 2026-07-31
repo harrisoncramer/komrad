@@ -250,7 +250,7 @@ func TestLoadRejectsUnknownKeys(t *testing.T) {
 			file: "claude_flgas = \"--model opus\"\n",
 		},
 		{
-			name: "an action the panel does not have",
+			name: "a binding the panel does not have",
 			file: "[keybindings.nav]\npreview_up = [\"ctrl+u\"]\n",
 		},
 		{

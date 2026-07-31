@@ -25,10 +25,10 @@ import (
 // apart. Every call below is one RPC under its own deadline. All but the two reads an
 // edit form opens on run inside a command rather than on the render loop.
 
-// actionTimeout bounds a single call made in response to a keypress. It is
+// requestTimeout bounds a single call made in response to a keypress. It is
 // generous because creating an agent opens a tmux window on the far side, and it
 // exists so a wedged server leaves the panel usable rather than frozen.
-const actionTimeout = 10 * time.Second
+const requestTimeout = 10 * time.Second
 
 // api holds the service clients the panel acts through. Every change to an agent or
 // a workflow goes over these, the same way the MCP tools and the CLI reach them, so
@@ -47,7 +47,7 @@ func (a api) renameAgent(agent agentstore.Agent, name string) error {
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
 	_, err := a.agents.UpdateAgent(ctx, connect.NewRequest(&agentv1.UpdateAgentRequest{
@@ -70,7 +70,7 @@ type createAgentParams struct {
 
 // createAgent launches an agent.
 func (a api) createAgent(params createAgentParams) error {
-	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
 	_, err := a.agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
@@ -87,7 +87,7 @@ func (a api) createAgent(params createAgentParams) error {
 // archiveAgent stops an agent and hides it. The record and transcript stay, so
 // search still reaches it.
 func (a api) archiveAgent(agent agentstore.Agent) error {
-	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
 	_, err := a.agents.ArchiveAgent(ctx, connect.NewRequest(&agentv1.ArchiveAgentRequest{Name: agent.Name}))
@@ -98,7 +98,7 @@ func (a api) archiveAgent(agent agentstore.Agent) error {
 // setHidden takes an agent out of the list or puts it back. Nothing about the agent
 // changes: it keeps running and every other view still holds it.
 func (a api) setHidden(agent agentstore.Agent, hidden bool) error {
-	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
 	_, err := a.agents.SetHidden(ctx, connect.NewRequest(&agentv1.SetHiddenRequest{Id: agent.ID, Hidden: hidden}))
@@ -108,7 +108,7 @@ func (a api) setHidden(agent agentstore.Agent, hidden bool) error {
 
 // setMark puts a mark on an agent, and a nil mark clears the one it carries.
 func (a api) setMark(agent agentstore.Agent, mark *string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
 	_, err := a.agents.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{Id: agent.ID, Mark: mark}))
@@ -118,7 +118,7 @@ func (a api) setMark(agent agentstore.Agent, mark *string) error {
 
 // restoreAgent brings an agent back and returns it as the service now holds it.
 func (a api) restoreAgent(id string) (*agentv1.Agent, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
 	resp, err := a.agents.RestoreAgent(ctx, connect.NewRequest(&agentv1.RestoreAgentRequest{Id: id}))
@@ -132,7 +132,7 @@ func (a api) restoreAgent(id string) (*agentv1.Agent, error) {
 // deleteAgent destroys an agent for good, keyed by id. A name identifies at most
 // one live agent, which is exactly what a deleted one is not.
 func (a api) deleteAgent(id string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
 	_, err := a.agents.DeleteAgent(ctx, connect.NewRequest(&agentv1.DeleteAgentRequest{Id: id}))
@@ -161,7 +161,7 @@ func (a api) getSchedule(id string) (*schedulestore.Schedule, error) {
 
 // createSchedule records a new schedule.
 func (a api) createSchedule(cfg schedulestore.Config) error {
-	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
 	_, err := a.schedules.CreateSchedule(ctx, connect.NewRequest(&schedulev1.CreateScheduleRequest{
@@ -180,7 +180,7 @@ func (a api) createSchedule(cfg schedulestore.Config) error {
 // updateSchedule writes every field back, which is what the service expects. It
 // replaces rather than patches, so the caller sends the whole schedule.
 func (a api) updateSchedule(id string, cfg schedulestore.Config) error {
-	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
 	_, err := a.schedules.UpdateSchedule(ctx, connect.NewRequest(&schedulev1.UpdateScheduleRequest{
@@ -200,7 +200,7 @@ func (a api) updateSchedule(id string, cfg schedulestore.Config) error {
 // setScheduleEnabled pauses or resumes a schedule without touching the rest of
 // its record.
 func (a api) setScheduleEnabled(id string, enabled bool) error {
-	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
 	_, err := a.schedules.SetScheduleEnabled(ctx, connect.NewRequest(&schedulev1.SetScheduleEnabledRequest{
@@ -213,7 +213,7 @@ func (a api) setScheduleEnabled(id string, enabled bool) error {
 
 // deleteSchedule removes a schedule. The agents it launched are left alone.
 func (a api) deleteSchedule(id string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
 	_, err := a.schedules.DeleteSchedule(ctx, connect.NewRequest(&schedulev1.DeleteScheduleRequest{Id: id}))
@@ -253,7 +253,7 @@ func (a api) createWorkflow(cfg workflowstore.Config) error {
 		name = "workflow"
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
 	_, err := a.workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
@@ -275,7 +275,7 @@ func (a api) updateWorkflow(w workflowstore.Workflow) error {
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
 	_, err := a.workflows.UpdateWorkflow(ctx, connect.NewRequest(&workflowv1.UpdateWorkflowRequest{
@@ -293,7 +293,7 @@ func (a api) updateWorkflow(w workflowstore.Workflow) error {
 // deleteWorkflow removes a workflow, archiving the agents inside it alongside
 // it. The service refuses while any schedule still launches into it.
 func (a api) deleteWorkflow(id string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
 	_, err := a.workflows.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id}))

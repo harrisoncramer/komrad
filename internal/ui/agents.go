@@ -242,7 +242,7 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 // shown in the separate stage pane, not here.
 func (m model) agentsView() string {
 	header := headerStyle.Render("Agents and Workflows") + "\n\n"
-	hints := "\n" + m.actionHints()
+	hints := "\n" + m.agentHints()
 
 	all := m.agentRows()
 	rows := make([]string, 0, len(all))

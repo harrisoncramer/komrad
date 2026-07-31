@@ -7,7 +7,7 @@ import (
 )
 
 // The key legend under every list. Each screen names its own bindings, and the
-// toggles name the direction the row would go rather than the action in the abstract,
+// toggles name the direction the row would go rather than the binding in the abstract,
 // so a legend says what the key would do to what is under the cursor.
 
 // hint is one line of the key legend under a list, a binding and what it does.
@@ -33,10 +33,10 @@ func renderHints(hints []hint) string {
 	return b.String()
 }
 
-// actionHints renders the key bindings one per line with an aligned key column.
-func (m model) actionHints() string {
+// agentHints lists the agents screen's bindings, one per line with an aligned key column.
+func (m model) agentHints() string {
 	// The key that draws the hidden agents toggles, so the legend names the direction
-	// it would go rather than the action in the abstract.
+	// it would go rather than the binding in the abstract.
 	showHiddenDesc := "show hidden"
 	if m.tree.showHidden {
 		showHiddenDesc = "put hidden away"
@@ -54,7 +54,7 @@ func (m model) actionHints() string {
 
 // rowHints are the bindings that act on the row under the cursor, which is a
 // workflow header or an agent. The info, mark, and hide keys all toggle, so their
-// lines name what that row would do rather than the action in the abstract.
+// lines name what that row would do rather than the binding in the abstract.
 func (m model) rowHints() []hint {
 	if _, hoveringWorkflow := m.hoveredWorkflow(); hoveringWorkflow {
 		return []hint{

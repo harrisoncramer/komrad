@@ -35,12 +35,12 @@ type treeState struct {
 }
 
 // agentRow is one line of the agents list, either a workflow header or an agent nested
-// beneath one. The cursor moves over both but actions apply only to agent rows.
+// beneath one. The cursor moves over both but the per-row keys apply only to agent rows.
 type agentRow struct {
 	header bool
 	label  string    // the workflow's name when header is true
 	item   agentItem // the agent when header is false
-	// workflowIndex is the header's index in m.tree.workflows so workflow actions can
+	// workflowIndex is the header's index in m.tree.workflows so the workflow keys can
 	// target it, and the index of the enclosing workflow for an agent row, so a new
 	// agent started from one lands in the same place.
 	workflowIndex int
@@ -189,7 +189,7 @@ func (m *model) applyAgents(fresh []agentItem) {
 		selected = item.agent.Name
 	}
 
-	// A row an action asked to be shown takes the cursor for this listing only.
+	// A row a write asked to be shown takes the cursor for this listing only.
 	if m.tree.focus != "" {
 		selected, m.tree.focus = m.tree.focus, ""
 	}

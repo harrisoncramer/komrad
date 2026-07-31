@@ -32,7 +32,7 @@ type scheduleItem struct {
 // after one of the schedule forms closes. It is its own screen rather than a
 // section of the agents tree, because a schedule is a record of future work with
 // nothing running to stage beside it, so it shares neither the tree's shape nor
-// its actions.
+// its keys.
 func (m model) enterSchedules() (tea.Model, tea.Cmd) {
 	m.screen = screenSchedules
 	m.schedules.cursor = clampCursor(m.schedules.cursor, len(m.schedules.items))
@@ -42,7 +42,7 @@ func (m model) enterSchedules() (tea.Model, tea.Cmd) {
 }
 
 // updateSchedules drives the schedules list. Arrows move the selection and
-// restage, and the action keys act on the hovered schedule.
+// restage, and the per-row keys act on the hovered schedule.
 func (m model) updateSchedules(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 

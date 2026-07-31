@@ -40,10 +40,10 @@ func (r refusingAgents) ListAgents(context.Context, *connect.Request[agentv1.Lis
 	return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
 }
 
-// TestRefusedActionIsReported covers the case the panel used to swallow. Every
+// TestRefusedWriteIsReported covers the case the panel used to swallow. Every
 // write discarded its error, and since the list reloads straight after, a refused
 // delete looked exactly like a keypress that never registered.
-func TestRefusedActionIsReported(t *testing.T) {
+func TestRefusedWriteIsReported(t *testing.T) {
 	agent := agentstore.Agent{Name: "api-refactor", State: agentstore.StateIdle, WorkflowID: "w1"}
 
 	m := model{
@@ -68,9 +68,9 @@ func TestRefusedActionIsReported(t *testing.T) {
 
 	m = settle(t, pressed, cmd)
 
-	require.NotNil(t, m.actionErr, "a refused delete is reported rather than swallowed")
-	assert.Equal(t, `Could not delete agent "api-refactor"`, m.actionErr.Summary)
-	assert.Equal(t, "already archived", m.actionErr.Detail,
+	require.NotNil(t, m.banner, "a refused delete is reported rather than swallowed")
+	assert.Equal(t, `Could not delete agent "api-refactor"`, m.banner.Summary)
+	assert.Equal(t, "already archived", m.banner.Detail,
 		"the service's message is shown rather than the connect code in front of it")
 }
 
@@ -102,9 +102,9 @@ func TestRefusedRestoreIsReported(t *testing.T) {
 
 	got := settle(t, pressed, cmd)
 
-	require.NotNil(t, got.actionErr)
-	assert.Equal(t, `Could not restore agent "api-refactor"`, got.actionErr.Summary)
-	assert.Equal(t, "no such agent", got.actionErr.Detail,
+	require.NotNil(t, got.banner)
+	assert.Equal(t, `Could not restore agent "api-refactor"`, got.banner.Summary)
+	assert.Equal(t, "no such agent", got.banner.Detail,
 		"the wrapper the panel put around the call is not what the reader is shown")
 }
 
@@ -113,9 +113,9 @@ func TestRefusedRestoreIsReported(t *testing.T) {
 // whatever screen the panel lands on, so it outlives the form that caused it.
 func TestBannerSurvivesTheFormItWasReportedFrom(t *testing.T) {
 	m := model{
-		actionErr: &errui.Banner{Summary: `Could not rename agent "api-refactor"`, Detail: "name is taken"},
-		screen:    screenRename,
-		keys:      appconfig.DefaultKeybindings(),
+		banner: &errui.Banner{Summary: `Could not rename agent "api-refactor"`, Detail: "name is taken"},
+		screen: screenRename,
+		keys:   appconfig.DefaultKeybindings(),
 	}
 	m.form, m.values.rename = renameForm("api-refactor", m.keys.Form)
 	m.form.Init()
@@ -140,10 +140,10 @@ func (acceptingAgents) ListAgents(context.Context, *connect.Request[agentv1.List
 	return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
 }
 
-// TestSuccessfulActionClearsTheBanner covers the other half of report. Clearing is
+// TestSuccessfulWriteClearsTheBanner covers the other half of report. Clearing is
 // folded into the same call that sets, so a write cannot succeed and leave the
 // previous failure sitting on screen.
-func TestSuccessfulActionClearsTheBanner(t *testing.T) {
+func TestSuccessfulWriteClearsTheBanner(t *testing.T) {
 	m := model{
 		api:    api{agents: acceptingAgents{}, workflows: emptyLists{}},
 		tmux:   &recordingTmux{},
@@ -156,7 +156,7 @@ func TestSuccessfulActionClearsTheBanner(t *testing.T) {
 				{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateIdle, WorkflowID: "w1"}},
 			},
 		},
-		actionErr: &errui.Banner{Summary: "Could not delete agent \"gone\"", Detail: "stale"},
+		banner: &errui.Banner{Summary: "Could not delete agent \"gone\"", Detail: "stale"},
 	}
 	m.tree.cursor = firstAgentRowIndex(m.agentRows())
 
@@ -166,17 +166,17 @@ func TestSuccessfulActionClearsTheBanner(t *testing.T) {
 
 	got := settle(t, pressed, cmd)
 
-	assert.Nil(t, got.actionErr, "a write that succeeded clears the previous failure")
+	assert.Nil(t, got.banner, "a write that succeeded clears the previous failure")
 }
 
-// TestActionErrorBannersOverTheList covers that a refused action reports without
+// TestBannerRendersOverTheList covers that a refused write reports without
 // taking the screen, unlike the config and unreachable screens. The row the error
 // is about is in the list underneath, so hiding the list would lose the context.
-func TestActionErrorBannersOverTheList(t *testing.T) {
+func TestBannerRendersOverTheList(t *testing.T) {
 	m := model{
-		actionErr: &errui.Banner{Summary: `Could not delete agent "api-refactor"`, Detail: "already archived"},
-		screen:    screenAgents,
-		keys:      appconfig.DefaultKeybindings(),
+		banner: &errui.Banner{Summary: `Could not delete agent "api-refactor"`, Detail: "already archived"},
+		screen: screenAgents,
+		keys:   appconfig.DefaultKeybindings(),
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
 			agents: []agentItem{
@@ -193,10 +193,10 @@ func TestActionErrorBannersOverTheList(t *testing.T) {
 	assert.Contains(t, view, "api-refactor", "the list is still on screen under the banner")
 }
 
-// TestActionErrorYieldsToTakeoverScreens pins the precedence. A banner over a list
+// TestBannerYieldsToTakeoverScreens pins the precedence. A banner over a list
 // that cannot be trusted would be reporting one failed write while every row behind
 // it was stale.
-func TestActionErrorYieldsToTakeoverScreens(t *testing.T) {
+func TestBannerYieldsToTakeoverScreens(t *testing.T) {
 	tests := []struct {
 		name string
 		m    model
@@ -204,12 +204,12 @@ func TestActionErrorYieldsToTakeoverScreens(t *testing.T) {
 	}{
 		{
 			name: "an unreachable service takes the screen from the banner",
-			m:    model{actionErr: &errui.Banner{Summary: "Could not delete"}, unreachable: errors.New("refused")},
+			m:    model{banner: &errui.Banner{Summary: "Could not delete"}, unreachable: errors.New("refused")},
 			want: "Cannot reach the server",
 		},
 		{
 			name: "and so does a config error",
-			m:    model{actionErr: &errui.Banner{Summary: "Could not delete"}, configErr: errors.New("bad")},
+			m:    model{banner: &errui.Banner{Summary: "Could not delete"}, configErr: errors.New("bad")},
 			want: "Your configuration could not be read",
 		},
 	}
@@ -224,9 +224,9 @@ func TestActionErrorYieldsToTakeoverScreens(t *testing.T) {
 	}
 }
 
-// TestActionErrorDismissal covers what clears the banner. It is chrome rather than
+// TestBannerDismissal covers what clears the banner. It is chrome rather than
 // a screen, so esc dismisses it, but a form owns its own esc and has to keep it.
-func TestActionErrorDismissal(t *testing.T) {
+func TestBannerDismissal(t *testing.T) {
 	tests := []struct {
 		name      string
 		screen    screen
@@ -254,11 +254,11 @@ func TestActionErrorDismissal(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{
-				actionErr: &errui.Banner{Summary: "Could not delete", Detail: "nope"},
-				screen:    tt.screen,
-				keys:      appconfig.DefaultKeybindings(),
-				tmux:      &recordingTmux{},
-				stage:     NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+				banner: &errui.Banner{Summary: "Could not delete", Detail: "nope"},
+				screen: tt.screen,
+				keys:   appconfig.DefaultKeybindings(),
+				tmux:   &recordingTmux{},
+				stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
 			}
 			if tt.screen == screenRename {
 				m.form, m.values.rename = renameForm("api-refactor", m.keys.Form)
@@ -269,9 +269,9 @@ func TestActionErrorDismissal(t *testing.T) {
 			require.True(t, ok)
 
 			if tt.wantClear {
-				assert.Nil(t, got.actionErr)
+				assert.Nil(t, got.banner)
 			} else {
-				assert.NotNil(t, got.actionErr)
+				assert.NotNil(t, got.banner)
 			}
 		})
 	}

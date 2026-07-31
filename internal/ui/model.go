@@ -104,10 +104,10 @@ type model struct {
 	// process.
 	configErr  error
 	startupErr error
-	// actionErr is the last write the service refused, shown as a banner over the screen
-	// it happened on. It is cleared by the next action and by esc, never by a poll, since
+	// banner is the last write the service refused, shown as a banner over the screen
+	// it happened on. It is cleared by the next write and by esc, never by a poll, since
 	// a refused delete is still worth reading a second later.
-	actionErr *errui.Banner
+	banner *errui.Banner
 
 	screen screen
 

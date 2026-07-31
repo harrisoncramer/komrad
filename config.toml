@@ -56,7 +56,7 @@ trust_launch_dirs = false
 # something to read.
 split = 0.2
 
-# Panel keybindings, scoped to the screen each action acts in.
+# Panel keybindings, scoped to the screen each binding acts in.
 
 # Navigation, shared by every menu so movement is the same everywhere. These
 # avoid letter keys so they still work in the search text field.
@@ -107,7 +107,7 @@ back   = ["esc"]
 # deliberately something else.
 submit = ["ctrl+s"]
 
-# The actions that create and change workflows, from the agents list.
+# The bindings that create and change workflows, from the agents list.
 [keybindings.workflows]
 # Create a workflow. Works from anywhere in the list.
 new    = ["W"]
@@ -146,5 +146,5 @@ back    = ["esc", "left", "h"]
 # Put the agent under the cursor back in the panel.
 restore = ["r"]
 # Destroy the agent under the cursor for good, with its transcript. This is
-# the one action in the panel nothing undoes, so it asks first.
+# the one thing in the panel nothing undoes, so it asks first.
 delete  = ["d"]

@@ -204,9 +204,9 @@ func TestRefusedTrashWritesAreReported(t *testing.T) {
 
 			got := tt.act(t, m)
 
-			require.NotNil(t, got.actionErr)
-			assert.Equal(t, tt.wantSummary, got.actionErr.Summary)
-			assert.Equal(t, "no such agent", got.actionErr.Detail)
+			require.NotNil(t, got.banner)
+			assert.Equal(t, tt.wantSummary, got.banner.Summary)
+			assert.Equal(t, "no such agent", got.banner.Detail)
 		})
 	}
 }

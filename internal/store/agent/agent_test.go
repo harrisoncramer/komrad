@@ -962,7 +962,7 @@ func TestDelete(t *testing.T) {
 
 // TestListPageDeleted covers the two sets a listing can ask for. They are what
 // the panel and its trash each show, and an agent in one must never appear in
-// the other: the tree would offer actions on a row that is gone, and the trash
+// the other: the tree would offer keys on a row that is gone, and the trash
 // would offer to destroy one that is running.
 func TestListPageDeleted(t *testing.T) {
 	tests := []struct {

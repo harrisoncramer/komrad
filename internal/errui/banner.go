@@ -10,11 +10,11 @@ import (
 // Banner is a write the panel asked for and the service refused.
 //
 // It reports without taking the screen, unlike the screens above. Those mean
-// nothing on screen can be trusted. A refused action means one thing did not
+// nothing on screen can be trusted. A refused write means one thing did not
 // happen, and the list it did not happen to is the context the error needs.
 //
 // The caller is expected to hold it until dismissed rather than show it and forget
-// it, because the panel reloads its lists after every action. Without it a refused
+// it, because the panel reloads its lists after every write. Without it a refused
 // delete is indistinguishable from a keypress that never registered: the row is
 // still there either way.
 type Banner struct {

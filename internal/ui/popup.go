@@ -33,8 +33,8 @@ func NewPopup(tmux popupTmux, session string) *Popup {
 const managerOpenFlag = "@weave_open"
 
 // managerClientFlag holds the tmux client that opened the current popup. The open
-// command writes it on each open, and the manager reads it live, so actions that
-// need the invoking client use the one actually viewing the popup rather than one
+// command writes it on each open, and the manager reads it live, so anything that
+// needs the invoking client uses the one actually viewing the popup rather than one
 // fixed when the persistent panel first started.
 const managerClientFlag = "@weave_client"
 

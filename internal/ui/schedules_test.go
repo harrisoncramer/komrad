@@ -115,7 +115,7 @@ func TestScheduleKeys(t *testing.T) {
 
 			assert.Equal(t, tt.wantScreen, got.screen)
 			assert.Equal(t, tt.wantWrites, client.writes)
-			assert.Equal(t, tt.wantReported, got.actionErr != nil, "whether the panel had something to say")
+			assert.Equal(t, tt.wantReported, got.banner != nil, "whether the panel had something to say")
 		})
 	}
 }
@@ -363,8 +363,8 @@ func TestScheduleWriteFailure(t *testing.T) {
 
 			got := tt.act(t, m)
 
-			require.NotNil(t, got.actionErr, "a refused write has to be reported")
-			assert.Contains(t, got.actionErr.Render(), tt.wantErr)
+			require.NotNil(t, got.banner, "a refused write has to be reported")
+			assert.Contains(t, got.banner.Render(), tt.wantErr)
 		})
 	}
 }
@@ -442,7 +442,7 @@ func scheduleItems(names ...string) []scheduleItem {
 // refusing them when err is set, so a test can tell a call the panel decided not to
 // make from one the service turned down. Reads keep working, since a refused write
 // is usually a rejected field rather than a server that has stopped answering, and
-// the refresh that follows every action would otherwise replace the write's error
+// the refresh that follows every write would otherwise replace the write's error
 // with a listing one. The embedded interface is nil, so any other method panics
 // rather than quietly returning a zero value.
 type fakeSchedules struct {

@@ -142,16 +142,16 @@ func TestGetConfigKeysMatchTheFile(t *testing.T) {
 	}
 }
 
-// binding digs one action's keys out of the blob, so a row can name the screen and
-// the action rather than walking to them itself.
-func binding(t *testing.T, resp *configv1.GetConfigResponse, screen, action string) []any {
+// binding digs one binding's keys out of the blob, so a row can name the screen and
+// the binding rather than walking to them itself.
+func binding(t *testing.T, resp *configv1.GetConfigResponse, screen, name string) []any {
 	t.Helper()
 
-	found, ok := lookup(resp.GetConfig().AsMap(), []string{"keybindings", screen, action})
-	require.True(t, ok, "the %s screen binds %s", screen, action)
+	found, ok := lookup(resp.GetConfig().AsMap(), []string{"keybindings", screen, name})
+	require.True(t, ok, "the %s screen binds %s", screen, name)
 
 	keys, isList := found.([]any)
-	require.True(t, isList, "%s is bound to a list of keys", action)
+	require.True(t, isList, "%s is bound to a list of keys", name)
 
 	return keys
 }

@@ -182,7 +182,7 @@ type restoredAgent struct {
 }
 
 // writeCmd runs a write off the render loop and resolves to the message that reports it,
-// so a slow or wedged server costs the action rather than every frame until it answers.
+// so a slow or wedged server costs the write rather than every frame until it answers.
 // The write takes the service clients rather than the panel, so what runs on the other
 // goroutine holds nothing the render loop is still editing.
 func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {
