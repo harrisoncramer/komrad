@@ -330,7 +330,7 @@ func validatedClient(t *testing.T) (agentv1connect.AgentServiceClient, *fakeLaun
 
 	// The mutating methods report not_found for an agent that does not exist, so
 	// the validation cases need a real one to aim at.
-	st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateNew})
+	st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle})
 
 	validation, err := interceptors.NewValidation()
 	require.NoError(t, err)

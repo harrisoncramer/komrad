@@ -150,7 +150,7 @@ func TestNewAgent(t *testing.T) {
 			assert.Equal(t, params.Dir, stored.Cwd)
 			assert.Equal(t, "--default-flag --extra", stored.Flags, "the configured flags come first")
 			assert.Equal(t, "do the thing", stored.Prompt)
-			assert.Equal(t, agentstore.StateNew, stored.State)
+			assert.Equal(t, agentstore.StateIdle, stored.State)
 			assert.NotEmpty(t, stored.SessionID, "a conversation id is pinned at launch")
 			assert.NotEmpty(t, tmux.lastKeys("%My-Agent"), "the agent is launched into the new pane")
 			assert.Equal(t, stored.ID, tmux.owners["%My-Agent"], "the pane is stamped with the agent it is running")
@@ -392,7 +392,7 @@ func TestUniqueAgentName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			for _, name := range tt.taken {
-				seed(t, st, name, "%1", agentstore.StateNew)
+				seed(t, st, name, "%1", agentstore.StateIdle)
 			}
 
 			manager := newManager(newFakeTmux(), st, "")
@@ -421,7 +421,7 @@ func TestNameTaken(t *testing.T) {
 	}
 
 	st := newStore(t)
-	seed(t, st, "taken", "%1", agentstore.StateDone)
+	seed(t, st, "taken", "%1", agentstore.StateIdle)
 	manager := newManager(newFakeTmux(), st, "")
 
 	for _, tt := range tests {
@@ -564,7 +564,7 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 		t.Helper()
 		st := newStore(t)
 		tmux := newFakeTmux()
-		dormant := seed(t, st, "dormant", shared, agentstore.StateDone)
+		dormant := seed(t, st, "dormant", shared, agentstore.StateIdle)
 		seedRunning(t, st, tmux, "running", shared, agentstore.StateThinking)
 
 		return newManager(tmux, st, ""), st, tmux, dormant
@@ -607,7 +607,7 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 
 		after := agentByID(t, st, dormant.ID)
 		assert.Empty(t, after.Pane, "the stale claim is dropped, so it cannot collide again")
-		assert.Equal(t, agentstore.StateDone, after.State, "the frame belongs to another agent and says nothing about this one")
+		assert.Equal(t, agentstore.StateIdle, after.State, "the frame belongs to another agent and says nothing about this one")
 		assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "running"), "the agent actually in that pane is read normally")
 	})
 }
@@ -641,7 +641,7 @@ func TestRestore(t *testing.T) {
 
 			require.NoError(t, st.Create(ctx, agentstore.Agent{
 				Name:      "foo",
-				State:     agentstore.StateDone,
+				State:     agentstore.StateIdle,
 				SessionID: "sess-old",
 			}))
 			original, err := st.Get(ctx, "foo")
@@ -649,7 +649,7 @@ func TestRestore(t *testing.T) {
 			require.NoError(t, st.SoftDelete(ctx, "foo"))
 
 			if tt.reuseName {
-				require.NoError(t, st.Create(ctx, agentstore.Agent{Name: "foo", State: agentstore.StateNew}))
+				require.NoError(t, st.Create(ctx, agentstore.Agent{Name: "foo", State: agentstore.StateIdle}))
 			}
 
 			archived := *original
@@ -659,7 +659,7 @@ func TestRestore(t *testing.T) {
 
 			restored := agentByID(t, st, original.ID)
 			assert.Nil(t, restored.DeletedAt, "the agent is back in the listing")
-			assert.Equal(t, agentstore.StateNew, restored.State)
+			assert.Equal(t, agentstore.StateIdle, restored.State)
 			assert.Equal(t, "sess-old", restored.SessionID, "the conversation is preserved")
 			assert.Equal(t, original.ID, tmux.owners[restored.Pane], "the pane it came back in is stamped with its id")
 			assert.True(t, manager.AgentRunning(restored), "so it reads as running again")

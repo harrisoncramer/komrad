@@ -15,12 +15,15 @@ import (
 	"weave/internal/store"
 )
 
-// Agent lifecycle states.
+// Agent states. There are three because there are only three things a person
+// watching the panel acts on differently: an agent generating, one blocked on an
+// answer they owe it, and one doing neither. An agent that has not started yet and
+// one that has stopped share the third, since nothing is owed either way and neither
+// is finished in any lasting sense: the next prompt puts it straight back to work.
 const (
-	StateNew      = "new"
 	StateThinking = "thinking"
 	StateWaiting  = "waiting"
-	StateDone     = "done"
+	StateIdle     = "idle"
 )
 
 // Metadata is one fact an agent recorded about its own work. The key is the
@@ -490,8 +493,8 @@ func (s *Store) GetByIdempotencyKey(ctx context.Context, key string) (*Agent, er
 // which is what tells a firing that the last run has not finished.
 //
 // An agent sitting on a confirmation prompt counts, since it is unfinished work
-// someone still has to answer. An agent recorded but never yet seen working does
-// not, since that is the state a launch that died as it was typed keeps for good,
+// someone still has to answer. An idle one does not, whether it finished or never
+// got going, since idle is what a launch that died as it was typed keeps for good
 // and counting it would block the schedule on a run that is never coming.
 func (s *Store) CountLiveForSchedule(ctx context.Context, scheduleID string) (int64, error) {
 	if !store.IsID(scheduleID) {

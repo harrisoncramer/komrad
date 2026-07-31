@@ -318,10 +318,13 @@ table "agents" {
     type    = text
     default = ""
   }
+  # What the agent is doing, one of thinking, waiting, or idle, written only by the
+  # reconciler off the agent's live pane. A fresh row starts idle because nothing has
+  # been observed working yet, which is the same thing a finished agent shows.
   column "state" {
     null    = false
     type    = text
-    default = "new"
+    default = "idle"
   }
   # Which agent CLI this agent runs, which decides how it is launched, how its
   # state is read off its pane, and where its conversation log is found. Never

@@ -19,17 +19,18 @@ import (
 // Body text names no colour at all. Left alone it draws in the terminal's foreground,
 // which is the one colour a scheme is certain to have got right.
 const (
-	// colorAccent is blue: headers, the cursor, and an agent that has just started.
+	// colorAccent is blue: headers and the cursor.
 	colorAccent = lipgloss.Color("4")
-	// colorSuccess is bright green: a finished agent and an armed schedule.
+	// colorSuccess is bright green: an armed schedule.
 	colorSuccess = lipgloss.Color("10")
 	// colorWarning is bright yellow: an agent still thinking, and a matched search term.
 	colorWarning = lipgloss.Color("11")
 	// colorDanger is bright red: an agent waiting on you. It is the red errui headlines
 	// in, so a row needing attention and the screen explaining a failure agree.
 	colorDanger = lipgloss.Color("9")
-	// colorMuted is bright black, the sixteen's only grey. Secondary text and the chrome
-	// with no text in it both take it, since there is no second grey to tell them apart.
+	// colorMuted is bright black, the sixteen's only grey. Secondary text, an idle agent,
+	// and the chrome with no text in it all take it, since there is no second grey to tell
+	// them apart.
 	colorMuted = lipgloss.Color("8")
 )
 

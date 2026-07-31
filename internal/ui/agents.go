@@ -270,7 +270,7 @@ func (m model) agentsView() string {
 
 		state := item.agent.State
 		if !item.alive {
-			state = "" // dormant, neutral icon and color
+			state = agentstore.StateIdle // nothing runs in a pane that is gone
 			name = dimStyle.Render(item.agent.Name)
 			if selected {
 				name = cursorStyle.Render(item.agent.Name)

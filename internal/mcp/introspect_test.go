@@ -80,7 +80,7 @@ func TestDescribeTable(t *testing.T) {
 		{
 			name:        "a default is reported with the type it is coerced to",
 			column:      "state",
-			wantDefault: "'new'::text",
+			wantDefault: "'idle'::text",
 		},
 	}
 

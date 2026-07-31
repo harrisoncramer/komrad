@@ -252,7 +252,7 @@ const testSessionID = "claude-abc"
 func seedWithSessionID(t *testing.T, st *testStore, sessionID, name string) agentstore.Agent {
 	t.Helper()
 	ctx := context.Background()
-	require.NoError(t, st.Create(ctx, agentstore.Agent{Name: name, State: agentstore.StateNew, SessionID: sessionID}))
+	require.NoError(t, st.Create(ctx, agentstore.Agent{Name: name, State: agentstore.StateIdle, SessionID: sessionID}))
 	got, err := st.Get(ctx, name)
 	require.NoError(t, err)
 	require.NotNil(t, got)
@@ -300,7 +300,7 @@ func TestSyncReportsAnUnknownHarness(t *testing.T) {
 
 	require.NoError(t, st.Create(ctx, agentstore.Agent{
 		Name:      "orphan",
-		State:     agentstore.StateDone,
+		State:     agentstore.StateIdle,
 		Harness:   "gemini",
 		SessionID: testSessionID,
 	}))
@@ -353,10 +353,10 @@ func TestSyncAdoptsSessions(t *testing.T) {
 
 			if tt.taken != "" {
 				require.NoError(t, st.Create(ctx, agentstore.Agent{
-					Name: "holder", State: agentstore.StateDone, SessionID: tt.taken,
+					Name: "holder", State: agentstore.StateIdle, SessionID: tt.taken,
 				}))
 			}
-			require.NoError(t, st.Create(ctx, agentstore.Agent{Name: "adopter", State: agentstore.StateNew}))
+			require.NoError(t, st.Create(ctx, agentstore.Agent{Name: "adopter", State: agentstore.StateIdle}))
 
 			syncer := NewTranscriptSyncer(TranscriptSyncerParams{
 				Agents:      st.Agents,
@@ -395,7 +395,7 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 	// the two. Stamping it deliberately keeps that true whatever the database clock
 	// says.
 	require.NoError(t, st.Create(ctx, agentstore.Agent{
-		Name: "adopter", State: agentstore.StateNew, Harness: "codex", Cwd: cwd,
+		Name: "adopter", State: agentstore.StateIdle, Harness: "codex", Cwd: cwd,
 	}))
 	created, err := st.Get(ctx, "adopter")
 	require.NoError(t, err)

@@ -59,7 +59,7 @@ func TestValidateReadOnly(t *testing.T) {
 		},
 		{
 			name:    "update",
-			sql:     "UPDATE agents SET state = 'done'",
+			sql:     "UPDATE agents SET state = 'idle'",
 			wantErr: true,
 		},
 		{
@@ -263,7 +263,7 @@ func TestQueryRejectsWrite(t *testing.T) {
 		},
 		{
 			name: "an update",
-			sql:  "UPDATE agents SET state = 'done'",
+			sql:  "UPDATE agents SET state = 'idle'",
 		},
 	}
 

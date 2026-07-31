@@ -44,7 +44,7 @@ func (r refusingAgents) ListAgents(context.Context, *connect.Request[agentv1.Lis
 // write discarded its error, and since the list reloads straight after, a refused
 // delete looked exactly like a keypress that never registered.
 func TestRefusedActionIsReported(t *testing.T) {
-	agent := agentstore.Agent{Name: "api-refactor", State: agentstore.StateDone, WorkflowID: "w1"}
+	agent := agentstore.Agent{Name: "api-refactor", State: agentstore.StateIdle, WorkflowID: "w1"}
 
 	m := model{
 		api: api{
@@ -90,7 +90,7 @@ func TestRefusedRestoreIsReported(t *testing.T) {
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
 			agents: []agentItem{
-				{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateDone, WorkflowID: "w1"}, alive: false},
+				{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateIdle, WorkflowID: "w1"}, alive: false},
 			},
 		},
 	}
@@ -153,7 +153,7 @@ func TestSuccessfulActionClearsTheBanner(t *testing.T) {
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
 			agents: []agentItem{
-				{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateDone, WorkflowID: "w1"}},
+				{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateIdle, WorkflowID: "w1"}},
 			},
 		},
 		actionErr: &errui.Banner{Summary: "Could not delete agent \"gone\"", Detail: "stale"},
@@ -180,7 +180,7 @@ func TestActionErrorBannersOverTheList(t *testing.T) {
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
 			agents: []agentItem{
-				{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateDone, WorkflowID: "w1"}},
+				{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateIdle, WorkflowID: "w1"}},
 			},
 		},
 	}
@@ -311,7 +311,7 @@ func TestConfigErrorView(t *testing.T) {
 				configErr:   errors.New("failed to parse config /home/u/.config/weave/config.toml: 'keybindings' has invalid keys: list"),
 				unreachable: tt.unreachable,
 				addr:        "127.0.0.1:8787",
-				tree:        treeState{agents: []agentItem{{agent: agentstore.Agent{Name: "should-not-render", State: agentstore.StateDone}}}},
+				tree:        treeState{agents: []agentItem{{agent: agentstore.Agent{Name: "should-not-render", State: agentstore.StateIdle}}}},
 			}
 
 			// The error wraps at the screen width, so the text is compared with its
@@ -382,7 +382,7 @@ func TestStartupErrorView(t *testing.T) {
 				startupErr:  errors.New("the agent server stopped during startup: failed to reach db: connection refused"),
 				unreachable: tt.unreachable,
 				addr:        "127.0.0.1:8787",
-				tree:        treeState{agents: []agentItem{{agent: agentstore.Agent{Name: "should-not-render", State: agentstore.StateDone}}}},
+				tree:        treeState{agents: []agentItem{{agent: agentstore.Agent{Name: "should-not-render", State: agentstore.StateIdle}}}},
 			}
 
 			// The error wraps at the screen width, so the text is compared with its
@@ -424,7 +424,7 @@ func TestUnreachableView(t *testing.T) {
 	}{
 		{
 			name: "while the service answers, the list renders as usual",
-			msg:  refreshResult{agents: []agentItem{{agent: agentstore.Agent{Name: "still-here", State: agentstore.StateNew}}}},
+			msg:  refreshResult{agents: []agentItem{{agent: agentstore.Agent{Name: "still-here", State: agentstore.StateIdle}}}},
 		},
 		{
 			name:         "a failed poll takes the screen over",
@@ -434,7 +434,7 @@ func TestUnreachableView(t *testing.T) {
 		{
 			name:  "and it clears itself once the service answers again",
 			start: errors.New("connection refused"),
-			msg:   refreshResult{agents: []agentItem{{agent: agentstore.Agent{Name: "back", State: agentstore.StateNew}}}},
+			msg:   refreshResult{agents: []agentItem{{agent: agentstore.Agent{Name: "back", State: agentstore.StateIdle}}}},
 		},
 	}
 
@@ -443,7 +443,7 @@ func TestUnreachableView(t *testing.T) {
 			m := model{
 				addr:        "127.0.0.1:8787",
 				unreachable: tt.start,
-				tree:        treeState{agents: []agentItem{{agent: agentstore.Agent{Name: "still-here", State: agentstore.StateDone}}}},
+				tree:        treeState{agents: []agentItem{{agent: agentstore.Agent{Name: "still-here", State: agentstore.StateIdle}}}},
 				stage:       NewStage(&recordingTmux{}, appconfig.DefaultSplit),
 			}
 

@@ -929,7 +929,7 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 	t.Helper()
 
 	st := storetest.Open(t)
-	launcher := &fakeLauncher{created: &agentstore.Agent{ID: "id-1", Name: "spawned", Cwd: "/repo", State: agentstore.StateNew}}
+	launcher := &fakeLauncher{created: &agentstore.Agent{ID: "id-1", Name: "spawned", Cwd: "/repo", State: agentstore.StateIdle}}
 
 	return NewService(st.Agents, st.Transcripts, launcher), st, launcher
 }

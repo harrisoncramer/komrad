@@ -74,14 +74,14 @@ func TestCreateAndUpdate(t *testing.T) {
 	}{
 		{
 			name:      "the fields a new agent was given are read back",
-			initial:   Agent{Name: "agent", Pane: "%1", Cwd: "/work/api", Flags: "--model opus", Prompt: "do the thing", State: StateNew},
+			initial:   Agent{Name: "agent", Pane: "%1", Cwd: "/work/api", Flags: "--model opus", Prompt: "do the thing", State: StateIdle},
 			wantCwd:   "/work/api",
 			wantFlags: "--model opus",
 			wantPane:  "%1",
 		},
 		{
 			name:      "an update rewrites the owned config row in place",
-			initial:   Agent{Name: "agent", Pane: "%1", Cwd: "/work/api", Flags: "--model opus", State: StateNew},
+			initial:   Agent{Name: "agent", Pane: "%1", Cwd: "/work/api", Flags: "--model opus", State: StateIdle},
 			update:    func(a *Agent) { a.Cwd = "/work/web"; a.Pane = "%3" },
 			wantCwd:   "/work/web",
 			wantFlags: "--model opus",
@@ -89,7 +89,7 @@ func TestCreateAndUpdate(t *testing.T) {
 		},
 		{
 			name:      "an update leaves the fields it did not touch alone",
-			initial:   Agent{Name: "agent", Pane: "%1", Cwd: "/work/api", Flags: "--model opus", State: StateNew},
+			initial:   Agent{Name: "agent", Pane: "%1", Cwd: "/work/api", Flags: "--model opus", State: StateIdle},
 			update:    func(a *Agent) { a.State = StateThinking },
 			wantCwd:   "/work/api",
 			wantFlags: "--model opus",
@@ -180,7 +180,7 @@ func TestArchiveAndReuse(t *testing.T) {
 				require.NoError(t, st.Archive(ctx, "agent"))
 			}
 			if tt.reuse {
-				require.NoError(t, st.Create(ctx, Agent{Name: "agent", Pane: "%2", State: StateNew}))
+				require.NoError(t, st.Create(ctx, Agent{Name: "agent", Pane: "%2", State: StateIdle}))
 			}
 
 			got, err := st.Get(ctx, "agent")
@@ -204,7 +204,7 @@ func TestArchiveAndReuse(t *testing.T) {
 			}
 
 			assert.NotEqual(t, first.ID, got.ID, "a reused name must not resurrect the archived row")
-			assert.Equal(t, StateNew, got.State)
+			assert.Equal(t, StateIdle, got.State)
 			assert.Equal(t, "%2", got.Pane)
 
 			require.NoError(t, st.SetStateByID(ctx, got.ID, StateWaiting))
@@ -240,12 +240,12 @@ func TestSetStateByID(t *testing.T) {
 		{
 			name:      "an id no agent holds",
 			target:    "00000000-0000-0000-0000-0000000000ff",
-			wantState: StateNew,
+			wantState: StateIdle,
 		},
 		{
 			name:      "an id that is not an id",
 			target:    "not-a-uuid",
-			wantState: StateNew,
+			wantState: StateIdle,
 		},
 		{
 			name:      "the agent's own id",
@@ -258,7 +258,7 @@ func TestSetStateByID(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
 			created, err := st.Get(ctx, "agent")
 			require.NoError(t, err)
 			require.NotNil(t, created)
@@ -341,7 +341,7 @@ func TestSetMark(t *testing.T) {
 
 			var created Agent
 			if tt.create {
-				require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
+				require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
 				got, err := st.Get(ctx, "agent")
 				require.NoError(t, err)
 				require.NotNil(t, got)
@@ -426,7 +426,7 @@ func TestSetHidden(t *testing.T) {
 
 			var created Agent
 			if tt.create {
-				require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
+				require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
 				got, err := st.Get(ctx, "agent")
 				require.NoError(t, err)
 				require.NotNil(t, got)
@@ -552,7 +552,7 @@ func TestSetMetadata(t *testing.T) {
 
 			var created Agent
 			if tt.create {
-				require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
+				require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
 				got, err := st.Get(ctx, "agent")
 				require.NoError(t, err)
 				require.NotNil(t, got)
@@ -590,7 +590,7 @@ func TestSetMetadataCeiling(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
 	created, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	require.NotNil(t, created)
@@ -619,7 +619,7 @@ func TestListPageHydratesMetadata(t *testing.T) {
 
 	ids := make(map[string]string, 2)
 	for _, name := range []string{"first", "second"} {
-		require.NoError(t, st.Create(ctx, Agent{Name: name, State: StateNew}))
+		require.NoError(t, st.Create(ctx, Agent{Name: name, State: StateIdle}))
 		created, err := st.Get(ctx, name)
 		require.NoError(t, err)
 		require.NotNil(t, created)
@@ -657,7 +657,7 @@ func TestDeleteTakesMetadata(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
 	created, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	require.NotNil(t, created)
@@ -680,7 +680,7 @@ func TestSetStateByIDKeepsTheMark(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
 	created, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	require.NotNil(t, created)
@@ -752,8 +752,8 @@ func TestRename(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Create(ctx, Agent{Name: "agent", Pane: "%1", State: StateNew}))
-			require.NoError(t, st.Create(ctx, Agent{Name: "taken", Pane: "%2", State: StateNew}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "agent", Pane: "%1", State: StateIdle}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "taken", Pane: "%2", State: StateIdle}))
 			if tt.archiveOther {
 				require.NoError(t, st.Archive(ctx, "taken"))
 			}
@@ -820,7 +820,7 @@ func TestActiveNameExists(t *testing.T) {
 			ctx := t.Context()
 
 			if tt.create {
-				require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
+				require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
 			}
 			if tt.archive {
 				require.NoError(t, st.Archive(ctx, "agent"))
@@ -885,7 +885,7 @@ func TestRestore(t *testing.T) {
 
 			require.NoError(t, st.Restore(ctx, original.ID))
 			restored := *original
-			restored.State = StateNew
+			restored.State = StateIdle
 			restored.Pane = "%9"
 			require.NoError(t, st.Update(ctx, restored), "an update on restore must not collide")
 
@@ -893,7 +893,7 @@ func TestRestore(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, got)
 			assert.Equal(t, original.ID, got.ID, "a restored row keeps its id")
-			assert.Equal(t, StateNew, got.State)
+			assert.Equal(t, StateIdle, got.State)
 			assert.Equal(t, "sess-1", got.SessionID, "restore preserves the conversation")
 			assert.False(t, got.Hidden, "a restored agent comes back to a row")
 			assert.Nil(t, got.DeletedAt, "and carries no deletion time")
@@ -933,7 +933,7 @@ func TestDelete(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Create(ctx, Agent{Name: "alpha", Pane: "%1", State: StateNew}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "alpha", Pane: "%1", State: StateIdle}))
 
 			if tt.hard {
 				created, err := st.Get(ctx, "alpha")
@@ -986,9 +986,9 @@ func TestListPageDeleted(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Create(ctx, Agent{Name: "archived", Pane: "%1", State: StateNew}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "archived", Pane: "%1", State: StateIdle}))
 			require.NoError(t, st.Archive(ctx, "archived"))
-			require.NoError(t, st.Create(ctx, Agent{Name: "live", Pane: "%2", State: StateNew}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "live", Pane: "%2", State: StateIdle}))
 
 			page, err := st.ListPage(ctx, 10, nil, tt.deleted)
 			require.NoError(t, err)
@@ -1010,13 +1010,13 @@ func TestDeleteByIDPicksTheArchivedRow(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Create(ctx, Agent{Name: "shared", Pane: "%1", State: StateNew}))
+	require.NoError(t, st.Create(ctx, Agent{Name: "shared", Pane: "%1", State: StateIdle}))
 	first, err := st.Get(ctx, "shared")
 	require.NoError(t, err)
 	require.NotNil(t, first)
 
 	require.NoError(t, st.Archive(ctx, "shared"))
-	require.NoError(t, st.Create(ctx, Agent{Name: "shared", Pane: "%2", State: StateNew}))
+	require.NoError(t, st.Create(ctx, Agent{Name: "shared", Pane: "%2", State: StateIdle}))
 
 	require.NoError(t, st.Delete(ctx, first.ID))
 
@@ -1071,7 +1071,7 @@ func TestGetByID(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
 			created, err := st.Get(ctx, "agent")
 			require.NoError(t, err)
 			require.NotNil(t, created)
@@ -1103,7 +1103,7 @@ func TestGetByIDCarriesMetadata(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew}))
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
 	created, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	require.NotNil(t, created)
@@ -1165,7 +1165,7 @@ func TestGetByIdempotencyKey(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateNew, IdempotencyKey: &tt.key}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle, IdempotencyKey: &tt.key}))
 			if tt.archive {
 				require.NoError(t, st.Archive(ctx, "agent"))
 			}
@@ -1217,9 +1217,9 @@ func TestIdempotencyKeyIsUnique(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Create(ctx, Agent{Name: "first", State: StateNew, IdempotencyKey: tt.first}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "first", State: StateIdle, IdempotencyKey: tt.first}))
 
-			err := st.Create(ctx, Agent{Name: "second", State: StateNew, IdempotencyKey: tt.second})
+			err := st.Create(ctx, Agent{Name: "second", State: StateIdle, IdempotencyKey: tt.second})
 			if tt.wantFail {
 				require.Error(t, err)
 				return
@@ -1232,8 +1232,8 @@ func TestIdempotencyKeyIsUnique(t *testing.T) {
 
 // TestCountLiveForSchedule covers the count that stops a schedule lapping
 // itself. An agent working or waiting on a confirmation counts, since that is
-// work still owed rather than work done. One never seen working does not, since
-// nothing will ever move it and the schedule would be blocked for good.
+// work still owed. An idle one does not, and that includes one never seen working,
+// since nothing will ever move it and the schedule would be blocked for good.
 func TestCountLiveForSchedule(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1259,20 +1259,15 @@ func TestCountLiveForSchedule(t *testing.T) {
 			want:   1,
 		},
 		{
-			// The state a launch that never got going keeps for good, since only an
-			// agent observed working is ever moved off it.
-			name:   "one that has never been seen working does not",
-			states: []string{StateNew},
-			want:   0,
-		},
-		{
-			name:   "a finished one does not",
-			states: []string{StateDone},
+			// Idle covers both the agent that finished and the launch that never got
+			// going, since only an agent observed working is ever moved off it.
+			name:   "an idle one does not",
+			states: []string{StateIdle},
 			want:   0,
 		},
 		{
 			name:   "several unfinished agents are all counted",
-			states: []string{StateThinking, StateWaiting, StateDone},
+			states: []string{StateThinking, StateWaiting, StateIdle},
 			want:   2,
 		},
 		{

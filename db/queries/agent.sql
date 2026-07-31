@@ -386,9 +386,9 @@ LIMIT @lim;
 -- Thinking and waiting are the two states that say so: one is generating, the
 -- other is blocked on an answer somebody still owes it.
 --
--- A run that has been recorded but never observed working is not counted. It is
+-- An idle run is not counted, whether it has finished or never got going. Idle is
 -- the state a launch that died on the spot keeps for good, since the reconciler
--- only ever moves an agent it can see working, and counting it would turn one
+-- only ever promotes an agent it can see working, and counting it would turn one
 -- failed launch into a schedule that never fires again. A run that really is
 -- starting is promoted within a reconcile interval, which is far inside the
 -- shortest interval a cron expression can name.

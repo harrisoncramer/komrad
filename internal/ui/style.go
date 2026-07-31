@@ -23,10 +23,11 @@ var (
 	dimStyle = errui.Dim
 )
 
+// Only the two states worth looking at draw an icon of their own. An idle agent takes
+// the neutral bullet, so the column reads as the few rows wanting attention against a
+// quiet background rather than as a glyph per row to be told apart.
 func stateIcon(state string) string {
 	switch state {
-	case agentstore.StateDone:
-		return "✓"
 	case agentstore.StateWaiting:
 		return "!"
 	case agentstore.StateThinking:
@@ -38,14 +39,12 @@ func stateIcon(state string) string {
 
 func stateColor(state string) lipgloss.Color {
 	switch state {
-	case agentstore.StateDone:
-		return colorSuccess
 	case agentstore.StateWaiting:
 		return colorDanger
 	case agentstore.StateThinking:
 		return colorWarning
 	default:
-		return colorAccent
+		return colorMuted
 	}
 }
 

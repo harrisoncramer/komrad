@@ -366,7 +366,7 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		Cwd:            plan.dir,
 		Flags:          plan.flags,
 		Prompt:         p.Prompt,
-		State:          agentstore.StateNew,
+		State:          agentstore.StateIdle,
 		Harness:        plan.harnessID,
 		SessionID:      sessionID,
 		WorkflowID:     p.WorkflowID,
@@ -548,7 +548,7 @@ func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) erro
 	}
 
 	agent.Pane = pane
-	agent.State = agentstore.StateNew
+	agent.State = agentstore.StateIdle
 	// resumeDir may have moved the agent somewhere else, and the row is what the panel
 	// shows and the next restore reads.
 	agent.Cwd = dir
