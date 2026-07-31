@@ -86,6 +86,7 @@ func (m model) rowHints() []hint {
 	return []hint{
 		{hintKeys(m.keys.Agents.Open), "open"},
 		{hintKeys(m.keys.Agents.Info), infoDesc},
+		{hintKeys(m.keys.Actions.Open), "actions"},
 		{hintKeys(m.keys.Agents.Mark), markDesc},
 		{hintKeys(m.keys.Agents.Hide), hideDesc},
 		{hintKeys(m.keys.Agents.New), "new agent"},
@@ -132,6 +133,21 @@ func (m model) trashHints() string {
 		{hintKeys(m.keys.Trash.Delete), "delete for good"},
 		{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
 		{hintKeys(m.keys.Trash.Back), "back"},
+	})
+}
+
+// actionHints lists the actions screen's bindings. The run line names the chmod a file without
+// the executable bit wants, since a dim row on its own cannot say why it is dim.
+func (m model) actionHints() string {
+	runDesc := "run"
+	if action, ok := m.selectedAction(); ok && !action.Executable {
+		runDesc = "chmod +x to run"
+	}
+
+	return renderHints([]hint{
+		{hintKeys(m.keys.Actions.Run), runDesc},
+		{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
+		{hintKeys(m.keys.Actions.Back), "back"},
 	})
 }
 

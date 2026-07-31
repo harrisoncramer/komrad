@@ -139,7 +139,7 @@ func (m *model) applyRefresh(result refreshResult) {
 	case screenTrash:
 		m.stageTrash()
 	default:
-		// Search and the forms put the stage to their own use.
+		// Search, the actions list, and the forms put the stage to their own use.
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"weave/internal/actions"
 	"weave/internal/appconfig"
 	"weave/internal/errui"
 	"weave/proto/gen/agent/v1/agentv1connect"
@@ -41,6 +42,7 @@ const (
 	screenScheduleDelete
 	screenTrash
 	screenTrashDelete
+	screenActions
 )
 
 // uiTmux is what the panel needs from tmux, enough to lay out its own panes plus the
@@ -48,6 +50,13 @@ const (
 type uiTmux interface {
 	stageTmux
 	ClientPath(client string) string
+}
+
+// actionRunner starts one of the user's actions. The panel takes running one as an
+// interface so a test can drive the screen without spawning processes, and so nothing
+// about how a script is run reaches the screen that picks one.
+type actionRunner interface {
+	Run(action actions.Action, dir string, env []string) error
 }
 
 // Deps are what the panel needs to run.
@@ -58,6 +67,10 @@ type Deps struct {
 	Workflows workflowv1connect.WorkflowServiceClient
 	Schedules schedulev1connect.ScheduleServiceClient
 	Keys      appconfig.Keybindings
+	// ActionsDir is the already-resolved directory the action key lists, and Runner starts
+	// the file it was pointed at.
+	ActionsDir string
+	Runner     actionRunner
 	// Marks are the marks the mark key steps an agent through, in the user's order.
 	Marks []appconfig.Mark
 	// Layout is how the popup's width is divided between the list and the stage.
@@ -65,6 +78,10 @@ type Deps struct {
 	// Addr is where Client points, shown on the error screen when the service stops
 	// answering.
 	Addr string
+	// TmuxSocket names the manager's own tmux server, which is where every agent's pane
+	// lives. An action is told it, since a script that addressed a pane on the user's server
+	// instead would be reaching for something else.
+	TmuxSocket string
 	// ConfigErr is set when the user's config file would not parse. The panel shows it on
 	// its error screen instead of starting, so the message is readable rather than written
 	// to a popup that closes on top of it.
@@ -87,6 +104,13 @@ type model struct {
 	stage *Stage
 
 	addr string
+	// tmuxSocket is the manager's tmux server, passed to an action so a script can reach
+	// the pane the agent is running in.
+	tmuxSocket string
+	// actionsDir is where the action key looks, read afresh on every press, and runner is
+	// what starts what it finds.
+	actionsDir string
+	runner     actionRunner
 	// unreachable is the error from the last failed listing, nil while the service is
 	// answering. The refresh keeps running while it is set, so the panel recovers on its
 	// own once the service is back.
@@ -122,6 +146,7 @@ type model struct {
 	schedules scheduleState
 	trash     trashState
 	search    searchState
+	actions   actionState
 
 	// form is the open form, and it owns the input while it is up. values are what it
 	// writes into and target is the record it is working on, both cleared as it closes.
@@ -140,6 +165,9 @@ func newModel(deps Deps) model {
 		tmux:       deps.Tmux,
 		stage:      NewStage(deps.Tmux, deps.Layout.Split),
 		addr:       deps.Addr,
+		tmuxSocket: deps.TmuxSocket,
+		actionsDir: deps.ActionsDir,
+		runner:     deps.Runner,
 		keys:       deps.Keys,
 		marks:      deps.Marks,
 		configErr:  deps.ConfigErr,

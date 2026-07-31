@@ -51,6 +51,9 @@ type app struct {
 	marks []appconfig.Mark
 	// layout is how the panel divides the popup between its list and the stage.
 	layout appconfig.Layout
+	// actionsDir is the directory the panel's action key lists, resolved from the config
+	// or the default beside it.
+	actionsDir string
 	// configErr is set when the user's config file would not parse. The panel shows
 	// it on its error screen; every other command ignores it, since none of them
 	// read keybindings.

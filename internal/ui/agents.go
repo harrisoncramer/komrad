@@ -71,6 +71,8 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.stageSelection()
 	case bound(k, m.keys.Agents.Open):
 		return m.openAgent()
+	case bound(k, m.keys.Actions.Open):
+		return m.enterActions()
 	case bound(k, m.keys.Agents.Mark):
 		item, ok := m.selectedAgent()
 		if !ok {

@@ -1,10 +1,13 @@
 package ui
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 
 	"weave/lib/dates"
+
+	"weave/internal/actions"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -81,6 +84,70 @@ func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) string {
 	}
 	if !alive {
 		b.WriteString("\nPress open to restore.\n")
+	}
+
+	return b.String()
+}
+
+// textual reports whether bytes are text the stage can show. A NUL byte is what tells them
+// apart, which is how less itself decides, and nothing worth reading in the stage carries one.
+func textual(text []byte) bool {
+	return bytes.IndexByte(text, 0) < 0
+}
+
+// fencedBlock is a block of text somebody else wrote, ready to sit in a stage document. The
+// renderer indents a fenced block whole and leaves what is inside it alone, so the text is shown
+// as it was written rather than read as markdown and reflowed to the pane.
+//
+// The fence is three backticks, or one longer than the longest run inside the text. Text
+// carrying a fence of its own would otherwise close the block early and leave the rest of itself
+// rendering as prose.
+func fencedBlock(text []byte) string {
+	if !textual(text) {
+		return "_not text, so there is nothing to show_\n"
+	}
+
+	body := strings.TrimRight(string(text), "\n")
+	if body == "" {
+		return "_empty_\n"
+	}
+
+	fence := strings.Repeat("`", max(3, longestBacktickRun(body)+1))
+
+	return fmt.Sprintf("%s\n%s\n%s\n", fence, body, fence)
+}
+
+// longestBacktickRun is the longest unbroken run of backticks in a string, which is what a fence
+// around it has to beat.
+func longestBacktickRun(body string) int {
+	longest, run := 0, 0
+	for _, char := range body {
+		if char != '`' {
+			run = 0
+
+			continue
+		}
+
+		run++
+		longest = max(longest, run)
+	}
+
+	return longest
+}
+
+// actionMarkdown renders an action for the stage, its name over its own text. An action is as
+// readily a compiled program as a script, so the body goes through fencedBlock, which shows a
+// script as the code it is and says so rather than spilling a binary into the pane.
+func actionMarkdown(action actions.Action, contents []byte, truncated bool) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "# %s\n\n", action.Name)
+	if !action.Executable {
+		b.WriteString("_not executable — chmod +x to run it_\n\n")
+	}
+
+	b.WriteString(fencedBlock(contents))
+	if truncated && textual(contents) {
+		b.WriteString("\n_only the start of the file is shown_\n")
 	}
 
 	return b.String()

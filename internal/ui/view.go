@@ -54,6 +54,8 @@ func (m model) screenView() string {
 		return m.schedulesView()
 	case screenTrash:
 		return m.trashView()
+	case screenActions:
+		return m.actionsView()
 	default:
 		return m.agentsView()
 	}

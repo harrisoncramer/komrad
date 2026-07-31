@@ -148,3 +148,25 @@ restore = ["r"]
 # Destroy the agent under the cursor for good, with its transcript. This is
 # the one thing in the panel nothing undoes, so it asks first.
 delete  = ["d"]
+
+# The actions list, and the key that opens it on the hovered agent.
+[keybindings.actions]
+# Open the actions list on the hovered agent. It acts on a row rather than on
+# the list, so this does nothing on a workflow header.
+open = ["a"]
+# Quit the panel.
+quit = ["ctrl+c", "q"]
+# Leave the actions list for the agents list.
+back = ["esc", "left", "h"]
+# Run the script under the cursor on the agent the list was opened on.
+run  = ["enter", "l", "right"]
+
+# Where the panel finds the scripts its action key runs.
+[actions]
+# The directory holding them, one file per action, named by the file. Every
+# file directly inside is offered and the directory is read on each press, so
+# writing an action is dropping an executable in rather than an edit here. An
+# action runs on the agent it was chosen on, in that agent's directory, with
+# the agent as JSON in WEAVE_AGENT. Left empty this is
+# ~/.config/weave/actions, beside this file.
+dir = ""

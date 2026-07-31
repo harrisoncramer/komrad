@@ -34,6 +34,8 @@ type Keybindings struct {
 	Schedules SchedulesKeys `mapstructure:"schedules"`
 	// The trash screen, and the key that opens it from the agents list.
 	Trash TrashKeys `mapstructure:"trash"`
+	// The actions list, and the key that opens it on the hovered agent.
+	Actions ActionsKeys `mapstructure:"actions"`
 }
 
 // NavKeys are the shared navigation bindings every menu uses, so movement is the
@@ -140,6 +142,31 @@ type TrashKeys struct {
 	Delete []string `mapstructure:"delete"`
 }
 
+// ActionsKeys are the bindings for the actions list, the scripts you have written for
+// the panel to run. Open enters it on the hovered agent, and the rest act on the script
+// under the cursor once inside.
+type ActionsKeys struct {
+	// Open the actions list on the hovered agent. It acts on a row rather than on the
+	// list, so this does nothing on a workflow header.
+	Open []string `mapstructure:"open"`
+	// Quit the panel.
+	Quit []string `mapstructure:"quit"`
+	// Leave the actions list for the agents list.
+	Back []string `mapstructure:"back"`
+	// Run the script under the cursor on the agent the list was opened on.
+	Run []string `mapstructure:"run"`
+}
+
+// Actions is where the panel finds the scripts its action key runs.
+type Actions struct {
+	// The directory holding them, one file per action, named by the file. Every file
+	// directly inside is offered and the directory is read on each press, so writing an
+	// action is dropping an executable in rather than an edit here. An action runs on the
+	// agent it was chosen on, in that agent's directory, with the agent as JSON in
+	// WEAVE_AGENT. Left empty this is ~/.config/weave/actions, beside this file.
+	Dir string `mapstructure:"dir"`
+}
+
 // Layout is how the panel divides the popup between its own list and the stage
 // pane beside it.
 type Layout struct {
@@ -202,6 +229,8 @@ type Config struct {
 	Marks []Mark `mapstructure:"marks"`
 	// Panel keybindings, scoped to the screen each binding acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`
+	// Where the panel finds the scripts its action key runs.
+	Actions Actions `mapstructure:"actions"`
 }
 
 // Defaults is the configuration a user who has written nothing runs on. It is also
@@ -339,6 +368,12 @@ func DefaultKeybindings() Keybindings {
 			Restore: []string{"r"},
 			Delete:  []string{"d"},
 		},
+		Actions: ActionsKeys{
+			Open: []string{"a"},
+			Quit: []string{"ctrl+c", "q"},
+			Back: []string{"esc", "left", "h"},
+			Run:  []string{"enter", "l", "right"},
+		},
 		Form: FormKeys{
 			Quit:   []string{"ctrl+c"},
 			Back:   []string{"esc"},
@@ -463,6 +498,29 @@ func fillBindings(configured, def reflect.Value) {
 	}
 }
 
+// configHome is the directory the panel keeps its own files in, ~/.config/weave.
+func configHome() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve home directory: %w", err)
+	}
+
+	return filepath.Join(home, ".config", "weave"), nil
+}
+
+// DefaultActionsDir is where the panel looks for actions when the config names no directory,
+// ~/.config/weave/actions. It is resolved here rather than defaulted into Config, since every
+// default there is spelled out in the generated config.toml, and a file naming one machine's
+// home directory as everybody's default would be wrong on every other machine.
+func DefaultActionsDir() (string, error) {
+	dir, err := configHome()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(dir, "actions"), nil
+}
+
 // Load reads the config from path when given, otherwise from the default
 // location ~/.config/weave/config.toml. A missing file is not an error
 // and yields the default keybindings, but a symlink standing where the file
@@ -480,12 +538,12 @@ func Load(path string) (*Config, error) {
 	// actionable without knowing which file to go and edit.
 	file := path
 	if file == "" {
-		home, err := os.UserHomeDir()
+		dir, err := configHome()
 		if err != nil {
-			return nil, fmt.Errorf("failed to resolve home directory: %w", err)
+			return nil, err
 		}
 
-		file = filepath.Join(home, ".config", "weave", "config.toml")
+		file = filepath.Join(dir, "config.toml")
 	}
 
 	viperCfg.SetConfigFile(file)

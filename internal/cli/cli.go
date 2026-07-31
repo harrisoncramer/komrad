@@ -11,6 +11,7 @@ import (
 	"net/http"
 
 	"weave/config"
+	"weave/internal/actions"
 	"weave/internal/agents"
 	"weave/internal/appconfig"
 	"weave/internal/harness"
@@ -83,6 +84,18 @@ func NewRootCommand() *cobra.Command {
 			state.marks = cfg.Marks
 			state.layout = cfg.Layout
 			state.configPath = configPath
+			// Resolved here rather than as a config default, since every default is spelled
+			// out in the generated config.toml, where one machine's home directory cannot
+			// stand as everybody's. A home directory that will not resolve is a config error
+			// like any other and reaches the panel's error screen.
+			state.actionsDir = cfg.Actions.Dir
+			if state.actionsDir == "" {
+				dir, err := appconfig.DefaultActionsDir()
+				if err != nil && state.configErr == nil {
+					state.configErr = err
+				}
+				state.actionsDir = dir
+			}
 			// Two tmux servers, held as one client. The manager's own server owns the
 			// session, its windows, and its panes. The user's server answers where the
 			// client viewing the popup is sitting and holds the options the plugin's
@@ -124,9 +137,12 @@ func NewRootCommand() *cobra.Command {
 				Workflows:  workflowClient,
 				Schedules:  scheduleClient,
 				Keys:       state.keys,
+				ActionsDir: state.actionsDir,
+				Runner:     actions.Runner{},
 				Marks:      state.marks,
 				Layout:     state.layout,
 				Addr:       state.env.Addr,
+				TmuxSocket: state.env.TmuxSocket,
 				ConfigErr:  state.configErr,
 				StartupErr: startupErr,
 			})

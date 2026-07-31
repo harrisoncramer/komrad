@@ -141,6 +141,8 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateSchedules(key)
 	case screenTrash:
 		return m.updateTrash(key)
+	case screenActions:
+		return m.updateActions(key)
 	case screenAgents:
 		return m.updateAgents(key)
 	default:
