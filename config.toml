@@ -101,6 +101,10 @@ hide        = ["h"]
 # away. While they are away each workflow header carries the count of what it
 # is not showing.
 show_hidden = ["H"]
+# Show the background service's log in the stage, in place of the row under
+# the cursor, and press it again to put the row back. The service is spawned
+# detached and writes to a file, so nothing else shows what it is doing.
+logs        = ["L"]
 
 # The new-agent, rename, and workflow forms.
 [keybindings.form]
@@ -175,3 +179,11 @@ run  = ["enter", "l", "right"]
 # the agent as JSON in WEAVE_AGENT. Left empty this is
 # ~/.config/weave/actions, beside this file.
 dir = ""
+
+# The log the background service writes, which the panel's log key pages.
+[log]
+# How much is written, one of debug, info, warn, or error. Served requests are
+# logged at debug and failures at error, so the default keeps the file to what
+# went wrong. Debug is worth turning on while chasing something. It is loud,
+# because the panel calls four times a second while it is open.
+level = "info"

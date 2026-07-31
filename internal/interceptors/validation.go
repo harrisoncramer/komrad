@@ -1,5 +1,7 @@
-// Package interceptors holds the ConnectRPC middleware every service is served
-// behind, so a cross-cutting rule is written once rather than per resource.
+// Package interceptors holds the middleware every request passes through, so a
+// cross-cutting rule is written once rather than per resource. Most of it is ConnectRPC
+// interceptors, since most of the service is served that way. The MCP endpoint is plain
+// HTTP on the same mux, so anything that has to cover it too lives here as well.
 package interceptors
 
 import (

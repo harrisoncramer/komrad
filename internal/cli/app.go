@@ -54,6 +54,10 @@ type app struct {
 	defaultFlags   map[string]string
 	// marks are the marks the panel's mark key steps an agent through.
 	marks []appconfig.Mark
+	// logLevel is how much the served process writes to its log. It is read here with the
+	// rest of the config, so serve is handed what this process parsed like every other
+	// setting rather than reading the file again.
+	logLevel string
 	// layout is how the panel divides the popup between its list and the stage.
 	layout appconfig.Layout
 	// configErr is set when the user's config file would not parse. The panel shows

@@ -233,7 +233,7 @@ func (m *model) applyWrite(result writeResult) tea.Cmd {
 		if result.restored.screen == screenAgents {
 			// The pane came back with the agent, so it is staged now. The cursor cannot move
 			// until there is a row under the name it came back with, which is the pass below.
-			m.tree.infoPinned = false
+			m.tree.unpin()
 			m.tree.focus = result.restored.name
 			m.stage.Agent(result.restored.pane)
 		}

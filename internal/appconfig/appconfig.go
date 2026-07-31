@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -95,6 +96,10 @@ type AgentsKeys struct {
 	// away. While they are away each workflow header carries the count of what it is
 	// not showing.
 	ShowHidden []string `mapstructure:"show_hidden"`
+	// Show the background service's log in the stage, in place of the row under the cursor,
+	// and press it again to put the row back. The service is spawned detached and writes to
+	// a file, so nothing else shows what it is doing.
+	Logs []string `mapstructure:"logs"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow. New is global. Rename,
@@ -213,6 +218,18 @@ type Harnesses struct {
 	Codex  Codex   `mapstructure:"codex"`
 }
 
+// Log is how much the background service writes about itself. Where it writes is not
+// configurable. The process that spawns the service points its output at the log and the
+// panel's log key pages the same file, and a path the two could disagree about is a log
+// nobody can find.
+type Log struct {
+	// How much is written, one of debug, info, warn, or error. Served requests are logged
+	// at debug and failures at error, so the default keeps the file to what went wrong.
+	// Debug is worth turning on while chasing something. It is loud, because the panel
+	// calls four times a second while it is open.
+	Level string `mapstructure:"level"`
+}
+
 // Config is the user's customization.
 type Config struct {
 	// Which agent CLI a new agent runs when neither the agent nor its workflow names
@@ -236,6 +253,8 @@ type Config struct {
 	Keybindings Keybindings `mapstructure:"keybindings"`
 	// Where the panel finds the scripts its action key runs.
 	Actions Actions `mapstructure:"actions"`
+	// The log the background service writes, which the panel's log key pages.
+	Log Log `mapstructure:"log"`
 }
 
 // Defaults is the configuration a user who has written nothing runs on. It is also
@@ -247,8 +266,14 @@ func Defaults() *Config {
 		Layout:         DefaultLayout(),
 		Marks:          DefaultMarks(),
 		Keybindings:    DefaultKeybindings(),
+		Log:            Log{Level: DefaultLogLevel},
 	}
 }
+
+// DefaultLogLevel is how much the service writes when the config says nothing. Failures
+// are written at error and everything else at debug, so the file stays empty while the
+// service works.
+const DefaultLogLevel = "info"
 
 // DefaultHarness is the CLI a new agent runs when the config names none. It is
 // spelled here rather than taken from the registry because the registry is built
@@ -351,6 +376,7 @@ func DefaultKeybindings() Keybindings {
 			Mark:       []string{"m"},
 			Hide:       []string{"h"},
 			ShowHidden: []string{"H"},
+			Logs:       []string{"L"},
 		},
 		Workflows: WorkflowsKeys{
 			New:    []string{"W"},
@@ -452,8 +478,26 @@ func (c Config) validate() error {
 	if err := validateMarks(c.Marks); err != nil {
 		return err
 	}
+	if err := validateLog(c.Log); err != nil {
+		return err
+	}
 
 	return validateLayout(c.Layout)
+}
+
+// logLevels are the levels the service understands, which is what slog offers. A level it
+// does not know decodes as debug, so an unchecked typo turns the log up instead of saying
+// the word was wrong.
+var logLevels = []string{"debug", "info", "warn", "error"}
+
+// validateLog rejects a level the service could not act on.
+func validateLog(log Log) error {
+	level := strings.TrimSpace(log.Level)
+	if level == "" || slices.Contains(logLevels, strings.ToLower(level)) {
+		return nil
+	}
+
+	return fmt.Errorf("log.level: %q is not one of %s", log.Level, strings.Join(logLevels, ", "))
 }
 
 // withDefaults fills anything the file left unset from the built-ins. An omitted value
@@ -471,6 +515,9 @@ func (c Config) withDefaults() Config {
 	}
 	if c.Layout.Split == 0 {
 		c.Layout = DefaultLayout()
+	}
+	if strings.TrimSpace(c.Log.Level) == "" {
+		c.Log.Level = DefaultLogLevel
 	}
 
 	return c
@@ -529,6 +576,20 @@ func (c Config) ActionsDir() (string, error) {
 	}
 
 	return filepath.Join(home, "actions"), nil
+}
+
+// LogPath is the file the background service writes to, ~/.config/weave/weave.log. Both
+// the process that spawns the service and the panel that pages the log resolve it here,
+// since a service writing where the panel does not look may as well not be writing. An
+// unresolvable home falls back to the working directory, so even a machine that broken
+// still keeps the service's account of itself.
+func LogPath() string {
+	home, err := configHome()
+	if err != nil {
+		return "weave.log"
+	}
+
+	return filepath.Join(home, "weave.log")
 }
 
 // Load reads the config from path when given, otherwise from the default

@@ -73,6 +73,10 @@ type Deps struct {
 	// Editor is the command the editor key opens an agent's directory in, from the
 	// environment rather than the panel's own config.
 	Editor string
+	// LogPath is the file the service writes to, which the log key pages. It is passed in
+	// rather than resolved here, so the panel reads the same file the process that spawned
+	// the service pointed it at.
+	LogPath string
 	// ConfigErr is set when the user's config file would not parse. The panel shows it on
 	// its error screen instead of starting, so the message is readable rather than written
 	// to a popup that closes on top of it.
@@ -142,6 +146,8 @@ type model struct {
 	marks []appconfig.Mark
 	// editor is the command the editor key runs on an agent's directory.
 	editor string
+	// logPath is the service's log, which the log key pages over the popup.
+	logPath string
 }
 
 func newModel(deps Deps) model {
@@ -152,6 +158,7 @@ func newModel(deps Deps) model {
 		stage:      NewStage(deps.Tmux, deps.Layout.Split),
 		addr:       deps.Addr,
 		editor:     deps.Editor,
+		logPath:    deps.LogPath,
 		keys:       deps.Keys,
 		marks:      deps.Marks,
 		configErr:  deps.ConfigErr,

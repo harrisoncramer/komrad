@@ -196,6 +196,40 @@ func pagerArgv(path string, line int) []string {
 	return append(argv, path)
 }
 
+// shownLog prefixes what the stage records for a file it is paging, so a restage of the
+// same file is the no-op every other kind of content gets. The prefix cannot collide with
+// rendered markdown, which is the other thing compared against.
+const shownLog = "\x00log:"
+
+// logArgv is the pager a log is read through. It carries the same -R and -X a preview
+// does, for the same reasons, but keeps the status line a preview suppresses with -Ps.
+// This is a real file with a name and a length worth seeing, not the temp file a preview
+// pages. It opens at the end with +G because the last thing written is what a log is
+// opened for, and less follows a file still being written from there with F.
+func logArgv(path string) []string {
+	return []string{"less", "-R", "-X", "+G", path}
+}
+
+// Log pages a file in the stage, in place of whatever the cursor was showing. It uses the
+// same pane a preview does and keeps its share of the width, so reading the log is
+// scrolling the stage the way reading a transcript is rather than something that has to
+// be dismissed before the panel can be used again.
+func (s *Stage) Log(path string) {
+	s.ensure()
+	if s.pane == "" {
+		return
+	}
+	if s.agentPane == "" && s.shown == shownLog+path {
+		return
+	}
+
+	s.restore()
+
+	home, _ := os.UserHomeDir()
+	s.tmux.RespawnPane(s.pane, home, logArgv(path)...)
+	s.shown = shownLog + path
+}
+
 // render turns markdown into the ANSI the pager prints. The style is given rather than
 // detected: detection asks the terminal for its background colour and reads the answer
 // back off the same input the panel's own event loop is reading. Nothing is lost by not

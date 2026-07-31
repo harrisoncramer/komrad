@@ -32,6 +32,19 @@ type treeState struct {
 	// agent itself, since a live agent otherwise occupies the stage with its own pane.
 	// Moving the cursor or opening an agent clears it.
 	infoPinned bool
+
+	// logsPinned shows the service's log in the stage in place of the row under the
+	// cursor. It is pinned and cleared the same way info is, so the stage goes back to
+	// following the cursor as soon as the cursor moves.
+	logsPinned bool
+}
+
+// unpin puts the stage back to following the cursor. Both pins are the panel showing
+// something other than the row under the cursor, so a cursor that moves clears them
+// together rather than each key having to know about the other pin.
+func (t *treeState) unpin() {
+	t.infoPinned = false
+	t.logsPinned = false
 }
 
 // agentRow is one line of the agents list, either a workflow header or an agent nested

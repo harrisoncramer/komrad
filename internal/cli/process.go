@@ -6,8 +6,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 )
@@ -93,59 +91,6 @@ func ensureServer(addr, self, logPath string) error {
 	return fmt.Errorf("the agent server did not become reachable at %s, see %s", addr, logPath)
 }
 
-// openServeLog opens the log the spawned server writes to, creating the directory
-// it lives in. The server outlives the process that started it, so it cannot write
-// to that process's output and this file is where everything it has to say goes.
-func openServeLog(path string) (*os.File, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return nil, fmt.Errorf("failed to create the directory for the server log %s: %w", path, err)
-	}
-
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open the server log %s: %w", path, err)
-	}
-
-	return file, nil
-}
-
-// serveLogLines is how much of the tail is worth carrying. A failed dial spends
-// several lines on the addresses it tried, and the line naming what failed sits
-// above them.
-const serveLogLines = 12
-
-// serveLogTail reads what the server logged from offset on, as a single line. The
-// error it builds is rendered wrapped, so the newlines the log uses would only put
-// breaks in it that the screen has to fold again.
-func serveLogTail(path string, offset int64) string {
-	file, err := os.Open(path)
-	if err != nil {
-		return ""
-	}
-	defer func() { _ = file.Close() }()
-
-	if _, err := file.Seek(offset, io.SeekStart); err != nil {
-		return ""
-	}
-
-	written, err := io.ReadAll(file)
-	if err != nil {
-		return ""
-	}
-
-	trimmed := strings.TrimSpace(string(written))
-	if trimmed == "" {
-		return ""
-	}
-
-	lines := strings.Split(trimmed, "\n")
-	if len(lines) > serveLogLines {
-		lines = lines[len(lines)-serveLogLines:]
-	}
-
-	return strings.Join(strings.Fields(strings.Join(lines, " ")), " ")
-}
-
 func serverReachable(addr string) bool {
 	conn, err := net.DialTimeout("tcp", addr, 150*time.Millisecond)
 	if err != nil {
@@ -154,15 +99,6 @@ func serverReachable(addr string) bool {
 
 	_ = conn.Close()
 	return true
-}
-
-func serveLogPath() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "weave-serve.log"
-	}
-
-	return filepath.Join(home, ".claude", "weave-serve.log")
 }
 
 func selfPath() string {

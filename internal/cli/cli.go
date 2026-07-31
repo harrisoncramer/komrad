@@ -83,6 +83,7 @@ func NewRootCommand() *cobra.Command {
 			state.harnesses = harnesses
 			state.marks = cfg.Marks
 			state.layout = cfg.Layout
+			state.logLevel = cfg.Log.Level
 			state.configPath = configPath
 			// Two tmux servers, held as one client. The manager's own server owns the
 			// session, its windows, and its panes. The user's server answers where the
@@ -103,7 +104,8 @@ func NewRootCommand() *cobra.Command {
 			// session, and tmux tears its pane down with the message still on it. The
 			// popup then closes on a success it never had, leaving nothing on screen to
 			// say a database was unreachable.
-			startupErr := ensureServer(state.env.Addr, selfPath(), serveLogPath())
+			logPath := appconfig.LogPath()
+			startupErr := ensureServer(state.env.Addr, selfPath(), logPath)
 
 			base := "http://" + state.env.Addr
 			agentClient := agentv1connect.NewAgentServiceClient(http.DefaultClient, base)
@@ -131,6 +133,7 @@ func NewRootCommand() *cobra.Command {
 				Layout:     state.layout,
 				Addr:       state.env.Addr,
 				Editor:     state.env.Editor,
+				LogPath:    logPath,
 				ConfigErr:  state.configErr,
 				StartupErr: startupErr,
 			})

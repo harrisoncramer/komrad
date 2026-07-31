@@ -146,9 +146,13 @@ func TestRenderListKeepsCursorVisible(t *testing.T) {
 // TestScreensFitThePane covers the whole screen rather than the list alone. The
 // header, the list, and the legend under it have to fit the pane together, since a
 // legend shoved off the bottom is the thing the clipping is there to save.
+//
+// The pane is taller than the tallest legend on purpose. A list keeps the row under the
+// cursor whatever is above it, so a pane too short for its own chrome overflows by
+// design, and measuring that says nothing about the clipping this is here for.
 func TestScreensFitThePane(t *testing.T) {
 	const (
-		height = 20
+		height = 24
 		total  = 40
 	)
 

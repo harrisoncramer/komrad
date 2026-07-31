@@ -1,0 +1,207 @@
+// Package logging is the service's structured log. Everything the background service has
+// to say goes through here in one shape, so a line reads by eye in the pager the panel
+// opens and greps by field without being reparsed first.
+//
+// The names are OpenTelemetry's semantic conventions rather than names invented here.
+// Nothing exports to a collector yet, but borrowing the vocabulary means the log can be
+// shipped later without every consumer learning new words for the same things.
+package logging
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"log/slog"
+	"strings"
+)
+
+// The attribute keys, spelled once here rather than at each call site. A typo in one of
+// them is invisible in a log, and the point of borrowing the conventions is that every
+// record agrees on them.
+const (
+	// TraceID identifies one request across every line written while serving it. It is
+	// otel's trace id in role rather than in format. Nothing here is a span, so it is
+	// generated per request rather than propagated from a caller that has none.
+	TraceID = "trace.id"
+	// RPCSystem, RPCService, and RPCMethod name what was called. Connect gives the
+	// procedure as one path, which is split so the service can be grouped on.
+	RPCSystem  = "rpc.system"
+	RPCService = "rpc.service"
+	RPCMethod  = "rpc.method"
+	// RPCErrorCode is the connect code a failed call answered with, which separates a
+	// client sending nonsense from the service breaking.
+	RPCErrorCode = "rpc.connect_rpc.error_code"
+	// ClientAddress is where the call came from.
+	ClientAddress = "client.address"
+	// HTTPMethod, URLPath, and HTTPStatus describe a call served as plain HTTP rather
+	// than through connect, which is how the MCP endpoint is reached.
+	HTTPMethod = "http.request.method"
+	URLPath    = "url.path"
+	HTTPStatus = "http.response.status_code"
+	// MCPTool is the tool a model asked for. The path is /mcp whatever it wanted, so this
+	// is the only field on an MCP call that says what it was trying to do.
+	MCPTool = "mcp.tool.name"
+	// DurationMS is how long the call took, in milliseconds. Named rather than left as a
+	// duration so it sorts and thresholds as a number.
+	DurationMS = "duration_ms"
+	// Loop names the background loop a line came from. The service runs three of them
+	// against the same store, so a failed pass says nothing without it.
+	Loop = "loop"
+	// Repeats is how many times running a loop has failed the same way. A pass that keeps
+	// failing writes one line and then counts, so a log paged by a person is not the same
+	// sentence a thousand times.
+	Repeats = "repeats"
+	// ServerAddress is where the service is listening.
+	ServerAddress = "server.address"
+	// ErrorType and ErrorMessage carry a failure. The type is the Go type of the error,
+	// which tells two failures apart when both messages are wrapped past recognition.
+	ErrorType    = "error.type"
+	ErrorMessage = "error.message"
+)
+
+// RPCSystemConnect is what every record about a served call carries as its system, the
+// value otel reserves for Connect.
+const RPCSystemConnect = "connect_rpc"
+
+// The fields every record carries, which are the OpenTelemetry log data model's rather
+// than slog's own. A record is written flat rather than as the nested OTLP JSON envelope,
+// since nothing exports it yet and flat lines are what greps and what jq reads without a
+// path into a structure. The nesting is the exporter's job on the day there is one.
+const (
+	timestampKey = "timestamp"
+	severityKey  = "severity_text"
+	severityNum  = "severity_number"
+	bodyKey      = "body"
+)
+
+// ServiceName is the resource every record is attributed to. One process writes this log
+// so it is constant, and it is written anyway because a log that does not name what
+// produced it cannot be merged with another.
+const ServiceName = "service.name"
+
+// Service is what this binary calls itself in a record.
+const Service = "weave"
+
+// severityNumbers map slog's levels onto the numbers OpenTelemetry orders severity by. The
+// text alone cannot be compared, so a query for everything at least as bad as a warning
+// needs the number beside it.
+var severityNumbers = map[slog.Level]int{
+	slog.LevelDebug: 5,
+	slog.LevelInfo:  9,
+	slog.LevelWarn:  13,
+	slog.LevelError: 17,
+}
+
+// New builds the service's logger over w at the given level. It writes JSON, one record
+// per line, since the log is read as much by a tool as by a person. A key=value line
+// cannot be split back apart reliably once a wrapped error carries a colon and a quote.
+func New(w io.Writer, level slog.Level) *slog.Logger {
+	handler := slog.NewJSONHandler(w, &slog.HandlerOptions{Level: level, ReplaceAttr: otelFields})
+
+	return slog.New(handler).With(slog.String(ServiceName, Service))
+}
+
+// otelFields renames what slog puts on every record to what the log data model calls it,
+// and splits the level into the text and the number that orders it.
+func otelFields(groups []string, attr slog.Attr) slog.Attr {
+	// Only the record's own fields are renamed. An attribute inside a group is one a
+	// caller nested deliberately, and a key of "msg" down there is theirs, not slog's.
+	if len(groups) > 0 {
+		return attr
+	}
+
+	switch attr.Key {
+	case slog.TimeKey:
+		return slog.Attr{Key: timestampKey, Value: attr.Value}
+	case slog.MessageKey:
+		return slog.Attr{Key: bodyKey, Value: attr.Value}
+	case slog.LevelKey:
+		level, _ := attr.Value.Any().(slog.Level)
+
+		// An empty key inlines the group, so the two fields sit beside each other on the
+		// record rather than nested under a level of their own.
+		return slog.Attr{Key: "", Value: slog.GroupValue(
+			slog.String(severityKey, level.String()),
+			slog.Int(severityNum, severityNumbers[level]),
+		)}
+	default:
+		return attr
+	}
+}
+
+// ParseLevel turns a configured level into slog's. An unknown word is an error rather
+// than a fallback, so a misspelled level is reported by whoever read the config instead
+// of quietly leaving the log at a verbosity nobody chose.
+func ParseLevel(level string) (slog.Level, error) {
+	switch strings.ToLower(strings.TrimSpace(level)) {
+	case "debug":
+		return slog.LevelDebug, nil
+	case "", "info":
+		return slog.LevelInfo, nil
+	case "warn":
+		return slog.LevelWarn, nil
+	case "error":
+		return slog.LevelError, nil
+	default:
+		return 0, fmt.Errorf("unknown log level %q", level)
+	}
+}
+
+// Err renders an error as its two attributes. Every failure logged anywhere in the
+// service goes through this, so a search for one field finds all of them.
+func Err(err error) []slog.Attr {
+	if err == nil {
+		return nil
+	}
+
+	return []slog.Attr{slog.String(ErrorType, fmt.Sprintf("%T", err)), slog.String(ErrorMessage, err.Error())}
+}
+
+// Attrs is a list of attributes as With takes them. slog's structured call takes typed
+// attributes and its fluent one takes loose values, and building a logger out of what was
+// gathered for a record is where the two meet.
+func Attrs(attrs []slog.Attr) []any {
+	loose := make([]any, 0, len(attrs))
+	for _, attr := range attrs {
+		loose = append(loose, attr)
+	}
+
+	return loose
+}
+
+// loggerKey is what a request's own logger is held under. It is an unexported type so
+// nothing outside this package can collide with it.
+type loggerKey struct{}
+
+// WithLogger carries a logger on the context, which is how the attributes an
+// interceptor worked out once reach everything the handler under it logs.
+func WithLogger(ctx context.Context, logger *slog.Logger) context.Context {
+	return context.WithValue(ctx, loggerKey{}, logger)
+}
+
+// From is the logger carried on the context, or the default one. Code below the
+// interceptor logs through this rather than holding a logger of its own, so its lines
+// carry the trace id of the call that reached it.
+func From(ctx context.Context) *slog.Logger {
+	if logger, ok := ctx.Value(loggerKey{}).(*slog.Logger); ok && logger != nil {
+		return logger
+	}
+
+	return slog.Default()
+}
+
+// traceKey is what the request's trace id is held under, separately from the logger,
+// since it is put on the response as well as into every line.
+type traceKey struct{}
+
+// WithTraceID carries a request's trace id on the context.
+func WithTraceID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, traceKey{}, id)
+}
+
+// Trace is the trace id of the request being served, empty outside one.
+func Trace(ctx context.Context) string {
+	id, _ := ctx.Value(traceKey{}).(string)
+
+	return id
+}

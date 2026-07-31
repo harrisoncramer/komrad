@@ -106,6 +106,7 @@ func (m model) screenHints() []hint {
 		{hintKeys(m.keys.Agents.Search), "search"},
 		{hintKeys(m.keys.Schedules.Open), "schedules"},
 		{hintKeys(m.keys.Archive.Open), "archived agents"},
+		{hintKeys(m.keys.Agents.Logs), m.logsDesc()},
 	}
 }
 

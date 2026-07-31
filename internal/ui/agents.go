@@ -38,6 +38,9 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if bound(k, m.keys.Agents.ShowHidden) {
 		return m.toggleHiddenAgents()
 	}
+	if bound(k, m.keys.Agents.Logs) {
+		return m.openLogs()
+	}
 
 	// On a workflow header the workflow bindings act on that folder's workflow.
 	if workflow, ok := m.hoveredWorkflow(); ok {
@@ -54,13 +57,13 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case bound(k, m.keys.Nav.Up):
 		if m.tree.cursor > 0 {
 			m.tree.cursor--
-			m.tree.infoPinned = false
+			m.tree.unpin()
 			m.stageSelection()
 		}
 	case bound(k, m.keys.Nav.Down):
 		if m.tree.cursor < len(m.agentRows())-1 {
 			m.tree.cursor++
-			m.tree.infoPinned = false
+			m.tree.unpin()
 			m.stageSelection()
 		}
 	case bound(k, m.keys.Agents.Info):
@@ -114,16 +117,16 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // openAgent acts on the hovered agent. A dormant agent is restored and staged live. A
-// live agent is already staged from hovering, so opening it only unpins the info view to
-// bring the agent back.
+// live agent is already staged from hovering, so opening it only unpins whatever was over
+// it to bring the agent back.
 func (m model) openAgent() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedAgent()
 	if !ok {
 		return m, nil
 	}
 	if item.alive {
-		if m.tree.infoPinned {
-			m.tree.infoPinned = false
+		if m.tree.infoPinned || m.tree.logsPinned {
+			m.tree.unpin()
 			m.stageSelection()
 		}
 		return m, nil
@@ -224,6 +227,15 @@ func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 // markdown, and anything else blanks the stage. With info pinned, an agent shows
 // its stored record instead of itself.
 func (m model) stageSelection() {
+	// The log is about the service rather than about a row, so it is answered before the
+	// cursor is read at all. It shows from a workflow header as readily as from an agent,
+	// and from an empty list, which is the moment the log is worth the most.
+	if m.tree.logsPinned {
+		m.stage.Log(m.logPath)
+
+		return
+	}
+
 	rows := m.agentRows()
 	if m.tree.cursor < 0 || m.tree.cursor >= len(rows) {
 		m.stage.Blank()
