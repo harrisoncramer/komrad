@@ -139,7 +139,7 @@ func TestRunActionPayload(t *testing.T) {
 	require.NoError(t, service.RunAction(context.Background(), "a1", "open-pr"))
 
 	require.Equal(t, []string{"open-pr"}, runner.ran)
-	assert.Equal(t, "/repo", runner.dir, "an action starts where the agent is")
+	assert.Equal(t, dir, runner.dir, "an action starts among its own siblings, not in the agent")
 
 	values := map[string]string{}
 	for _, entry := range runner.env {
@@ -151,6 +151,7 @@ func TestRunActionPayload(t *testing.T) {
 	assert.Equal(t, "a1", values["WEAVE_AGENT_ID"])
 	assert.Equal(t, "127.0.0.1:8787", values["WEAVE_ADDR"])
 	assert.Equal(t, "weave", values["WEAVE_TMUX_SOCKET"])
+	assert.Equal(t, dir, values["WEAVE_ACTIONS_DIR"])
 
 	var payload actionPayload
 	require.NoError(t, json.Unmarshal([]byte(values["WEAVE_AGENT"]), &payload))
@@ -280,6 +281,33 @@ func TestRunActionOnADormantAgent(t *testing.T) {
 	}
 
 	assert.False(t, payload.Alive)
+}
+
+// TestRunActionWithTheAgentDirectoryGone covers the agent an action is most wanted on. A worktree
+// removed out from under an agent leaves the row behind, and that row is the one a script is fired
+// on to tidy it, so where the agent used to be is a string in the payload and never somewhere the
+// action has to be able to stand.
+func TestRunActionWithTheAgentDirectoryGone(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "cleanup"), []byte("#!/bin/sh\n"), 0o755))
+
+	gone := filepath.Join(t.TempDir(), "removed-worktree")
+	runner := &recordingRunner{}
+	service := actionService(t, dir, runner)
+	service.agents = fakeAgentReader{agent: &agentstore.Agent{ID: "a1", Name: "auth", Cwd: gone}}
+
+	require.NoError(t, service.RunAction(context.Background(), "a1", "cleanup"))
+
+	assert.Equal(t, dir, runner.dir)
+
+	var payload actionPayload
+	for _, entry := range runner.env {
+		if key, value, _ := strings.Cut(entry, "="); key == "WEAVE_AGENT" {
+			require.NoError(t, json.Unmarshal([]byte(value), &payload))
+		}
+	}
+
+	assert.Equal(t, gone, payload.Cwd, "a script works out what to clean from the path itself")
 }
 
 // actionService builds the service over a temp actions directory, one agent, and one workflow.

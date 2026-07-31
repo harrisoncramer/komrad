@@ -134,8 +134,13 @@ func (s *ActionService) ListActions() ([]ListedAction, error) {
 
 // RunAction fires an action on an agent and returns once the process exists. Nothing waits for
 // it and nothing reads what it did, so the only failures are the ones that happen before it
-// starts: an agent or an action that is not there, a file that will not execute, and an agent
-// whose directory is gone.
+// starts: an agent or an action that is not there, and a file that will not execute.
+//
+// It runs in the actions directory rather than in the agent's own. An action that removes the
+// directory its agent worked in cannot be standing in it, and an agent whose directory is
+// already gone would otherwise have no action that could run on it at all, which is exactly the
+// row still wanting one. The agent's directory is in the payload for a script that wants it, and
+// a script that needs to work there says so with a cd of its own.
 func (s *ActionService) RunAction(ctx context.Context, agentID, name string) error {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if err != nil {
@@ -145,35 +150,36 @@ func (s *ActionService) RunAction(ctx context.Context, agentID, name string) err
 		return ErrAgentNotFound
 	}
 
-	action, err := s.find(name)
+	action, dir, err := s.find(name)
 	if err != nil {
 		return err
 	}
 
-	env, err := s.env(ctx, *agent)
+	env, err := s.env(ctx, *agent, dir)
 	if err != nil {
 		return err
 	}
 
-	return s.runner.Run(action, agent.Cwd, env)
+	return s.runner.Run(action, dir, env)
 }
 
-// find is the action by name. The name is matched against what the directory holds rather than
-// joined onto its path, so a name carrying enough parent directories to climb out finds nothing
-// instead of resolving to some executable elsewhere on the machine.
-func (s *ActionService) find(name string) (actions.Action, error) {
+// find is the action by name, with the directory it was found in. The name is matched against
+// what the directory holds rather than joined onto its path, so a name carrying enough parent
+// directories to climb out finds nothing instead of resolving to some executable elsewhere on
+// the machine.
+func (s *ActionService) find(name string) (actions.Action, string, error) {
 	dir, found, err := s.discover()
 	if err != nil {
-		return actions.Action{}, err
+		return actions.Action{}, "", err
 	}
 
 	for _, action := range found {
 		if action.Name == name {
-			return action, nil
+			return action, dir, nil
 		}
 	}
 
-	return actions.Action{}, fmt.Errorf("%w: %q is not in %s", ErrActionNotFound, name, dir)
+	return actions.Action{}, "", fmt.Errorf("%w: %q is not in %s", ErrActionNotFound, name, dir)
 }
 
 // discover is the actions directory and what it holds. The config is read here rather than
@@ -227,12 +233,14 @@ type actionPayload struct {
 
 // env is the environment an action runs with, over the server's own.
 //
-// The agent goes in whole as JSON under one name. The two values beside it are what a script
-// reaches back through: the address of this server, which is where everything about the agent
-// too large to pass in an environment variable is, and the socket of the tmux server the
-// agent's pane lives on. Without that socket a script sending keys to the pane in the payload
-// would be addressing the user's own server, where that pane id means something else.
-func (s *ActionService) env(ctx context.Context, agent agentstore.Agent) ([]string, error) {
+// The agent goes in whole as JSON under one name. The values beside it are what a script reaches
+// back through: the address of this server, which is where everything about the agent too large
+// to pass in an environment variable is, the socket of the tmux server the agent's pane lives on,
+// and the directory the action was found in. Without that socket a script sending keys to the
+// pane in the payload would be addressing the user's own server, where that pane id means
+// something else. The directory is what a script that cds to the agent's own gets back to its
+// siblings by, since its own path is only reliable when it was not reached through a symlink.
+func (s *ActionService) env(ctx context.Context, agent agentstore.Agent, dir string) ([]string, error) {
 	payload := actionPayload{
 		ID:        agent.ID,
 		Name:      agent.Name,
@@ -268,6 +276,7 @@ func (s *ActionService) env(ctx context.Context, agent agentstore.Agent) ([]stri
 		"WEAVE_AGENT_ID=" + agent.ID,
 		"WEAVE_ADDR=" + s.addr,
 		"WEAVE_TMUX_SOCKET=" + s.socket,
+		"WEAVE_ACTIONS_DIR=" + dir,
 	}, nil
 }
 

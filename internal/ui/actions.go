@@ -158,8 +158,8 @@ func (m model) runSelectedAction() (tea.Model, tea.Cmd) {
 const noActionsMarkdown = "# Actions\n\n_nothing here yet_\n\n" +
 	"An action is any executable file in your actions directory, which is " +
 	"`~/.config/weave/actions` unless your config names another.\n\n" +
-	"It runs on the agent you opened this list from, in that agent's directory, with the " +
-	"agent as JSON in `WEAVE_AGENT`. Where its output goes is up to it.\n"
+	"It runs on the agent you opened this list from, in that directory rather than the " +
+	"agent's, with the agent as JSON in `WEAVE_AGENT`. Where its output goes is up to it.\n"
 
 // stageAction shows the action under the cursor in the stage. The service sends the start of
 // each file with the listing, so hovering costs nothing and the panel never reads the directory

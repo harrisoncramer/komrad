@@ -44,8 +44,9 @@ message RunActionRequest {
 }
 
 // ActionService lists and fires the executables the user keeps in their actions
-// directory. An action runs with the agent it was fired on in WEAVE_AGENT, as JSON,
-// and the service reads the directory per call, so writing one is dropping a file in.
+// directory. An action runs in that directory, with the agent it was fired on in
+// WEAVE_AGENT as JSON, and the service reads the directory per call, so writing one is
+// dropping a file in.
 service ActionService {
   // The directory is read on every call, so an action written while the server runs
   // is listed without a restart.

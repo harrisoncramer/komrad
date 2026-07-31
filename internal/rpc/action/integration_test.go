@@ -31,8 +31,11 @@ import (
 // sees it, and the payload actually arriving in a process.
 func TestActionServiceOverHTTP(t *testing.T) {
 	dir := t.TempDir()
-	work := t.TempDir()
-	out := filepath.Join(work, "payload.json")
+	// Where the agent claims to have worked, and never created. An action fired on an agent
+	// whose worktree has already been removed has to run anyway, since tidying up after that
+	// removal is what one is for.
+	work := filepath.Join(t.TempDir(), "removed-worktree")
+	out := filepath.Join(dir, "payload.json")
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "record"), []byte(
 		"#!/bin/sh\nprintf '%s' \"$WEAVE_AGENT\" > payload.json\n",
@@ -103,12 +106,16 @@ func TestActionServiceOverHTTP(t *testing.T) {
 		assert.Contains(t, string(written), `"name":"auth"`)
 		assert.Contains(t, string(written), `"workflow":"backend"`)
 		assert.Contains(t, string(written), `"pane":"%9"`)
+		// The relative write landing here is the whole of the claim: the process started
+		// among its own siblings, which is what lets one action source another, and it
+		// started at all despite the agent's own directory being gone.
+		assert.Contains(t, string(written), `"cwd":"`+work+`"`)
 	})
 }
 
 // actionClient stands the service up behind a real server, with the validation interceptor the
 // panel and the MCP tools both go through, and returns a client pointed at it. work is the
-// directory the agent claims, which is where an action it fires starts.
+// directory the agent claims, which an action is told about and never runs in.
 func actionClient(t *testing.T, dir, work string) actionv1connect.ActionServiceClient {
 	t.Helper()
 

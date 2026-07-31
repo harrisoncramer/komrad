@@ -82,8 +82,7 @@ var ErrNotStartable = errors.New("the file could not be started")
 
 // ErrDirMissing is what running in a directory that is not there is refused with. It is named
 // because the exec failure it would otherwise arrive as names the script and not the directory,
-// which sends whoever reads it to look at a file that is fine. An agent outliving the worktree
-// it ran in is the ordinary way this happens.
+// which sends whoever reads it to look at a file that is fine.
 var ErrDirMissing = errors.New("the directory to run in does not exist")
 
 // Runner starts actions as processes. It holds nothing and exists so a caller can take
