@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -53,35 +54,44 @@ func TestScreenSections(t *testing.T) {
 	}
 }
 
-// TestWrap covers how a reported value is folded. It wraps rather than
-// truncating, since the useful part of a dial error is at the end.
-func TestWrap(t *testing.T) {
-	longWords := strings.Split(strings.TrimSpace(strings.Repeat("refused ", 60)), " ")
+// narrowPane is the width of the pane the panel runs in, the narrow half of the
+// split beside the stage. Screens are asserted against it because that is the width
+// the renderer above the panel cuts a line at.
+const narrowPane = 59
 
+// TestFold covers how text is folded to a pane. It wraps rather than truncating,
+// since the useful part of a dial error is at the end.
+func TestFold(t *testing.T) {
 	tests := []struct {
 		name      string
-		words     []string
+		text      string
 		wantLines bool
 	}{
 		{
-			name:  "a short value stays on one line",
-			words: []string{"connection", "refused"},
+			name: "a short value stays on one line",
+			text: "connection refused",
 		},
 		{
 			name:      "a long one wraps and keeps every word",
-			words:     longWords,
+			text:      strings.TrimSpace(strings.Repeat("refused ", 60)),
+			wantLines: true,
+		},
+		{
+			name:      "a single word too long to fit is broken rather than left to overrun",
+			text:      "/Users/someone/Library/Application Support/weave/configuration.toml",
 			wantLines: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			wrapped := Wrap(strings.Join(tt.words, " "))
+			folded := fold(tt.text, narrowPane, indent)
 
-			assert.NotContains(t, wrapped, "…", "the text is wrapped rather than cut")
-			assert.Equal(t, tt.words, strings.Fields(wrapped), "every word survives")
+			assert.NotContains(t, folded, "…", "the text is folded rather than cut")
+			assert.Equal(t, strings.Fields(tt.text), strings.Fields(strings.ReplaceAll(folded, "\n", "")),
+				"every word survives, allowing for the breaks")
 
-			lines := strings.Split(wrapped, "\n")
+			lines := strings.Split(folded, "\n")
 			if !tt.wantLines {
 				assert.Len(t, lines, 1)
 
@@ -90,11 +100,49 @@ func TestWrap(t *testing.T) {
 
 			require.Greater(t, len(lines), 1)
 			for i, line := range lines {
-				assert.LessOrEqual(t, len(strings.TrimRight(line, " ")), Width+len(Indent),
-					"line %d stays within the width", i)
+				assert.LessOrEqual(t, lipgloss.Width(line), narrowPane, "line %d stays inside the pane", i)
 				if i > 0 {
-					assert.True(t, strings.HasPrefix(line, Indent), "line %d is indented under the first", i)
+					assert.True(t, strings.HasPrefix(line, indent), "line %d is indented under the first", i)
 				}
+			}
+		})
+	}
+}
+
+// TestScreensFitTheirPane covers the whole of every screen against the pane it draws
+// into, prose and hints included. The renderer above the panel cuts a line that
+// overruns the pane rather than wrapping it, so anything unfolded loses its tail at
+// the pane edge: on a hint that is the command it was naming, and on a detail it is
+// the end of the error, which is the part saying what went wrong.
+func TestScreensFitTheirPane(t *testing.T) {
+	err := errors.New("the agent server stopped during startup: failed to reach db: dial tcp 127.0.0.1:5460: connect: connection refused")
+
+	tests := []struct {
+		name     string
+		rendered string
+	}{
+		{
+			name:     "the config screen",
+			rendered: Config(narrowPane, err),
+		},
+		{
+			name:     "the startup screen",
+			rendered: Startup(narrowPane, err),
+		},
+		{
+			name:     "the unreachable screen",
+			rendered: Unreachable(narrowPane, "127.0.0.1:8787", err),
+		},
+		{
+			name:     "a refused write's banner",
+			rendered: Banner{Summary: `Could not rename agent "api-refactor"`, Detail: Reason(err)}.Render(narrowPane),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for i, line := range strings.Split(tt.rendered, "\n") {
+				assert.LessOrEqual(t, lipgloss.Width(line), narrowPane, "line %d stays inside the pane", i)
 			}
 		})
 	}
@@ -108,7 +156,7 @@ func TestConfig(t *testing.T) {
 
 	// The error wraps at the screen width, so the text is compared with its line
 	// breaks flattened away.
-	rendered := strings.Join(strings.Fields(Config(err)), " ")
+	rendered := strings.Join(strings.Fields(Config(narrowPane, err)), " ")
 
 	assert.Contains(t, rendered, "Your configuration could not be read")
 	assert.Contains(t, rendered, "invalid keys: list")
@@ -123,7 +171,7 @@ func TestStartup(t *testing.T) {
 
 	// The error wraps at the screen width, so the text is compared with its line
 	// breaks flattened away.
-	rendered := strings.Join(strings.Fields(Startup(err)), " ")
+	rendered := strings.Join(strings.Fields(Startup(narrowPane, err)), " ")
 
 	assert.Contains(t, rendered, "The agent server could not be started")
 	assert.Contains(t, rendered, "connect: connection refused")
@@ -144,7 +192,7 @@ func TestUnreachable(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rendered := Unreachable(tt.addr, errors.New("connection refused"))
+			rendered := Unreachable(narrowPane, tt.addr, errors.New("connection refused"))
 
 			assert.Contains(t, rendered, "Cannot reach the server")
 			assert.Contains(t, rendered, "connection refused")
@@ -162,7 +210,7 @@ func TestUnreachable(t *testing.T) {
 // TestBannerRendersWithoutAReason covers a service that fails without saying why,
 // which would otherwise render as a red line with nothing under it.
 func TestBannerRendersWithoutAReason(t *testing.T) {
-	rendered := Banner{Summary: "Could not delete the agent"}.Render()
+	rendered := Banner{Summary: "Could not delete the agent"}.Render(narrowPane)
 
 	assert.Contains(t, rendered, "no reason given")
 	assert.NotContains(t, strings.Split(rendered, "\n")[1], "esc", "the reason line is its own line")

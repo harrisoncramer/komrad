@@ -18,20 +18,20 @@ import (
 // error is about is a row in the list underneath.
 func (m model) View() string {
 	if m.configErr != nil {
-		return errui.Config(m.configErr)
+		return errui.Config(m.width, m.configErr)
 	}
 
 	if m.startupErr != nil {
-		return errui.Startup(m.startupErr)
+		return errui.Startup(m.width, m.startupErr)
 	}
 
 	if m.unreachable != nil {
-		return errui.Unreachable(m.addr, m.unreachable)
+		return errui.Unreachable(m.width, m.addr, m.unreachable)
 	}
 
 	var chrome string
 	if m.banner != nil {
-		chrome = m.banner.Render()
+		chrome = m.banner.Render(m.width)
 	}
 
 	// Every block a screen builds ends in a newline, and the renderer draws the

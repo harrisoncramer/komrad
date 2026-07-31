@@ -59,6 +59,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // route hands a message to the screen that owns it.
 func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// A resize is recorded and then falls through rather than being consumed, since
+	// an open form lays itself out from the same message. It is taken before the
+	// fatal screens, which consume everything else: a screen that never learned the
+	// pane it is in folds its error to a width the pane cannot hold, and the renderer
+	// cuts what does not fit at the pane edge.
+	if size, ok := msg.(tea.WindowSizeMsg); ok {
+		m.height = size.Height
+		m.width = size.Width
+	}
+
 	// A startup failure screen is terminal: there is nothing to act on, so any key
 	// dismisses it. Quitting exits zero, which is what lets the popup close on the
 	// keypress rather than lingering.
@@ -68,13 +78,6 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
-	}
-
-	// A resize is recorded and then falls through rather than being consumed, since
-	// an open form lays itself out from the same message.
-	if size, ok := msg.(tea.WindowSizeMsg); ok {
-		m.height = size.Height
-		m.width = size.Width
 	}
 
 	// The banner is chrome rather than a screen, so it is dismissed with esc as a

@@ -364,7 +364,7 @@ func TestScheduleWriteFailure(t *testing.T) {
 			got := tt.act(t, m)
 
 			require.NotNil(t, got.banner, "a refused write has to be reported")
-			assert.Contains(t, got.banner.Render(), tt.wantErr)
+			assert.Contains(t, got.banner.Render(got.width), tt.wantErr)
 		})
 	}
 }

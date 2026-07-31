@@ -36,7 +36,7 @@ func (m model) bannerLines() int {
 		return 0
 	}
 
-	return strings.Count(m.banner.Render(), "\n")
+	return strings.Count(m.banner.Render(m.width), "\n")
 }
 
 // renderList draws rows clipped to the lines it was given, keeping the row under

@@ -8,12 +8,12 @@ package errui
 // It replaces printing to stderr and exiting. That wrote the message to a popup
 // tmux destroyed in the same instant, so the only way to read it was to run the
 // binary by hand.
-func Config(err error) string {
+func Config(width int, err error) string {
 	return Screen{
+		Width: width,
 		Title: "Your configuration could not be read",
 		Body: []string{
-			"The panel did not start. Nothing about your agents has changed, and",
-			"the file is only read at startup, so nothing else has acted on it.",
+			"The panel did not start. Nothing about your agents has changed, and the file is only read at startup, so nothing else has acted on it.",
 		},
 		Details: []Detail{{Label: "error", Value: err.Error()}},
 		Hints: []string{
@@ -31,12 +31,12 @@ func Config(err error) string {
 // It is a takeover rather than the unreachable screen because that one waits for a
 // server that is coming back. This one has nothing to wait for: the panel starts a
 // server once, and if that attempt failed nothing tries again.
-func Startup(err error) string {
+func Startup(width int, err error) string {
 	return Screen{
+		Width: width,
 		Title: "The agent server could not be started",
 		Body: []string{
-			"The panel did not start. Nothing about your agents has changed, and none",
-			"of them were stopped: the server is only how the panel reads and changes them.",
+			"The panel did not start. Nothing about your agents has changed, and none of them were stopped: the server is only how the panel reads and changes them.",
 		},
 		Details: []Detail{{Label: "error", Value: err.Error()}},
 		Hints: []string{
@@ -56,8 +56,9 @@ func Startup(err error) string {
 //
 // There is nothing to press. The list keeps polling underneath, so the panel
 // returns to itself within a poll of the service coming back.
-func Unreachable(addr string, err error) string {
+func Unreachable(width int, addr string, err error) string {
 	screen := Screen{
+		Width: width,
 		Title: "Cannot reach the server",
 		Body: []string{
 			"The panel could not list your agents.",
