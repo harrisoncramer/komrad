@@ -45,6 +45,8 @@ func TestRunActionCodes(t *testing.T) {
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
+			// Nothing about the action is wrong, so this reads the same way a chmod does.
+			// An agent outliving the worktree it ran in is how it happens.
 			name:     "an agent whose directory has been removed from under it",
 			err:      actions.ErrDirMissing,
 			wantCode: connect.CodeFailedPrecondition,

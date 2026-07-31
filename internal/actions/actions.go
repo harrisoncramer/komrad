@@ -113,6 +113,8 @@ func (Runner) Run(action Action, dir string, env []string) error {
 
 	// Stated before the exec rather than left to it, since a chdir that fails arrives as a
 	// no-such-file naming the script, which is the one thing here that is not the problem.
+	// A directory removed between this and the start still gets through and comes back as
+	// ErrNotStartable, which is the honest answer for a race nothing could have prevented.
 	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
 		return fmt.Errorf("failed to run action %s in %s: %w", action.Name, dir, ErrDirMissing)
 	}
