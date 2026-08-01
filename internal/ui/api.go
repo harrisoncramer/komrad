@@ -116,14 +116,28 @@ func (a api) setMark(agent agentstore.Agent, mark *string) error {
 	return err
 }
 
-// restoreAgent brings an agent back and returns it as the service now holds it.
-func (a api) restoreAgent(id string) (*agentv1.Agent, error) {
+// restoreAgent takes an agent out of the archive, which starts nothing. Resuming it is a
+// call of its own.
+func (a api) restoreAgent(id string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	resp, err := a.agents.RestoreAgent(ctx, connect.NewRequest(&agentv1.RestoreAgentRequest{Id: id}))
+	if _, err := a.agents.RestoreAgent(ctx, connect.NewRequest(&agentv1.RestoreAgentRequest{Id: id})); err != nil {
+		return fmt.Errorf("failed to restore agent %q: %w", id, err)
+	}
+
+	return nil
+}
+
+// resumeAgent puts an agent's conversation back in a pane and returns it as the service
+// now holds it, since the stage shows the pane it came back in.
+func (a api) resumeAgent(id string) (*agentv1.Agent, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+
+	resp, err := a.agents.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: id}))
 	if err != nil {
-		return nil, fmt.Errorf("failed to restore agent %q: %w", id, err)
+		return nil, fmt.Errorf("failed to resume agent %q: %w", id, err)
 	}
 
 	return resp.Msg.GetAgent(), nil

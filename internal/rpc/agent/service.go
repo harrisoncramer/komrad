@@ -34,6 +34,7 @@ type agentLauncher interface {
 	DeleteAgent(ctx context.Context, id string) error
 	ArchiveAgent(ctx context.Context, name string) error
 	RestoreAgent(ctx context.Context, id string) (*agentstore.Agent, error)
+	ResumeAgent(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
 type agentStore interface {
@@ -222,17 +223,34 @@ func (s *Service) ArchiveAgent(ctx context.Context, req *connect.Request[agentv1
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// RestoreAgent brings an agent back and returns it as stored.
+// RestoreAgent takes an agent out of the archive and returns it as stored, dormant.
 func (s *Service) RestoreAgent(ctx context.Context, req *connect.Request[agentv1.RestoreAgentRequest]) (*connect.Response[agentv1.RestoreAgentResponse], error) {
 	restored, err := s.launcher.RestoreAgent(ctx, req.Msg.GetId())
 	switch {
 	case errors.Is(err, agents.ErrAgentNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
+	case errors.Is(err, agents.ErrTooManyAgents):
+		return nil, connect.NewError(connect.CodeResourceExhausted, err)
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to restore agent: %w", err))
 	}
 
 	return connect.NewResponse(&agentv1.RestoreAgentResponse{Agent: renderAgent(*restored, s.launcher.AgentRunning(*restored)).Agent}), nil
+}
+
+// ResumeAgent relaunches an agent's CLI on its conversation and returns it as stored.
+func (s *Service) ResumeAgent(ctx context.Context, req *connect.Request[agentv1.ResumeAgentRequest]) (*connect.Response[agentv1.ResumeAgentResponse], error) {
+	resumed, err := s.launcher.ResumeAgent(ctx, req.Msg.GetId())
+	switch {
+	case errors.Is(err, agents.ErrAgentNotFound):
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
+	case errors.Is(err, agents.ErrAgentArchived):
+		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
+	case err != nil:
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to resume agent: %w", err))
+	}
+
+	return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: renderAgent(*resumed, s.launcher.AgentRunning(*resumed)).Agent}), nil
 }
 
 // UpdateAgent renames the agent with the given id. A name a live agent already holds is a

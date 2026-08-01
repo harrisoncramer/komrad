@@ -1,12 +1,18 @@
 package ui
 
 import (
+	"context"
 	"strings"
 	"testing"
 
 	"weave/internal/appconfig"
 
 	"weave/internal/store/transcript"
+
+	agentv1 "weave/proto/gen/agent/v1"
+	"weave/proto/gen/agent/v1/agentv1connect"
+
+	"connectrpc.com/connect"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -323,4 +329,72 @@ func hits(names ...string) []searchHit {
 	}
 
 	return out
+}
+
+// TestOpenSearchHit covers what enter on a result does. Search is the one screen that
+// reaches archived conversations, so opening one there has to take it out of the archive
+// before resuming it, while a hit that is already listed is only resumed.
+func TestOpenSearchHit(t *testing.T) {
+	tests := []struct {
+		name         string
+		archived     bool
+		wantRestored []string
+	}{
+		{
+			name:         "an archived hit is restored on the way",
+			archived:     true,
+			wantRestored: []string{"a1"},
+		},
+		{
+			name: "a listed hit is resumed alone",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &fakeSearchAgents{}
+			tmux := &recordingTmux{}
+			m := model{
+				api:    api{agents: client, workflows: emptyLists{}, schedules: emptyLists{}},
+				tmux:   tmux,
+				popup:  NewPopup(tmux, "test-session"),
+				stage:  NewStage(tmux, appconfig.DefaultSplit),
+				keys:   appconfig.DefaultKeybindings(),
+				screen: screenSearch,
+				search: searchState{hits: []searchHit{{agentID: "a1", name: "api-refactor", archived: tt.archived}}},
+			}
+
+			updated, cmd := m.openSearchHit()
+			pressed, ok := updated.(model)
+			require.True(t, ok)
+
+			got := settle(t, pressed, cmd)
+
+			require.Nil(t, got.banner)
+			assert.Equal(t, tt.wantRestored, client.restored)
+			assert.Equal(t, []string{"a1"}, client.resumed, "the conversation is put back in a pane either way")
+		})
+	}
+}
+
+// fakeSearchAgents records the two calls opening a hit can make. The embedded interface
+// is nil, so anything else panics rather than quietly answering.
+type fakeSearchAgents struct {
+	agentv1connect.AgentServiceClient
+	restored []string
+	resumed  []string
+}
+
+func (f *fakeSearchAgents) RestoreAgent(_ context.Context, req *connect.Request[agentv1.RestoreAgentRequest]) (*connect.Response[agentv1.RestoreAgentResponse], error) {
+	f.restored = append(f.restored, req.Msg.GetId())
+
+	return connect.NewResponse(&agentv1.RestoreAgentResponse{Agent: &agentv1.Agent{Id: req.Msg.GetId(), Name: "api-refactor"}}), nil
+}
+
+func (f *fakeSearchAgents) ResumeAgent(_ context.Context, req *connect.Request[agentv1.ResumeAgentRequest]) (*connect.Response[agentv1.ResumeAgentResponse], error) {
+	f.resumed = append(f.resumed, req.Msg.GetId())
+
+	return connect.NewResponse(&agentv1.ResumeAgentResponse{
+		Agent: &agentv1.Agent{Id: req.Msg.GetId(), Name: "api-refactor", PaneId: "%9"},
+	}), nil
 }

@@ -130,11 +130,11 @@ func (m model) openAgent() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m, m.restoreCmd(
-		fmt.Sprintf("Could not restore agent %q", item.agent.Name),
-		item.agent.ID,
-		screenAgents,
-	)
+	return m, m.resumeCmd(resumeParams{
+		summary: fmt.Sprintf("Could not resume agent %q", item.agent.Name),
+		id:      item.agent.ID,
+		stay:    screenAgents,
+	})
 }
 
 // openEditor opens the hovered agent's directory in the user's editor and closes the panel

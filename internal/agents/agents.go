@@ -177,6 +177,9 @@ var ErrBadDirectory = errors.New("unusable working directory")
 // as a sentinel so a caller can tell a ceiling from a create that broke and not retry.
 var ErrTooManyAgents = errors.New("too many agents")
 
+// ErrAgentArchived reports a resume aimed at an agent still in the archive.
+var ErrAgentArchived = errors.New("agent is archived")
+
 // DeleteAgent stops an agent and removes it, keyed by id so it reaches the archived
 // agents too. The workflow's cleanup action fires between the pane and the row: after
 // the pane so a script removing the directory is not racing a CLI still writing in it,
@@ -237,26 +240,62 @@ func (s *AgentService) ArchiveAgent(ctx context.Context, name string) error {
 	return nil
 }
 
-// RestoreAgent brings an agent back by id, relaunching its CLI on the same
-// conversation, and returns it as stored. It spans archived agents.
+// RestoreAgent takes an agent out of the archive and returns it as stored. The agent lands
+// dormant, since starting anything is ResumeAgent's half. An unarchived agent holds a slot
+// whether or not it is running, so this is refused at the ceiling a create is.
 func (s *AgentService) RestoreAgent(ctx context.Context, id string) (*agentstore.Agent, error) {
 	agent, err := s.byID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	// An agent still running in its own pane needs no restore, so the call is
-	// idempotent rather than opening a second window on the same conversation.
+	// An agent that is not archived is already where a restore would put it.
+	if agent.ArchivedAt == nil {
+		return agent, nil
+	}
+
+	if err := s.roomForAgent(ctx); err != nil {
+		return nil, err
+	}
+
+	// The unique-name index covers the unarchived alone, so a name claimed while this
+	// agent sat archived would collide on the way out.
+	if s.nameTaken(ctx, agent.Name) {
+		if _, err := s.agents.Rename(ctx, agent.ID, s.uniqueAgentName(ctx, agent.Name, "")); err != nil {
+			return nil, fmt.Errorf("failed to rename restored agent %q: %w", agent.Name, err)
+		}
+	}
+
+	if err := s.agents.Restore(ctx, id); err != nil {
+		return nil, fmt.Errorf("failed to restore agent %q: %w", agent.Name, err)
+	}
+
+	// The row is read back rather than returned from the copy, which may hold a name
+	// the rename above replaced.
+	return s.byID(ctx, id)
+}
+
+// ResumeAgent opens a window for an agent and relaunches its CLI on the same
+// conversation, returning it as stored. An agent already running in its own pane is
+// returned as it stands rather than started twice. An archived agent is refused, since
+// its pane would sit behind a row nothing lists.
+func (s *AgentService) ResumeAgent(ctx context.Context, id string) (*agentstore.Agent, error) {
+	agent, err := s.byID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if agent.ArchivedAt != nil {
+		return nil, fmt.Errorf("%w: %q is archived, restore it first", ErrAgentArchived, agent.Name)
+	}
+
 	if s.AgentRunning(*agent) {
 		return agent, nil
 	}
 
-	if err := s.restore(ctx, *agent); err != nil {
+	if err := s.resume(ctx, *agent); err != nil {
 		return nil, err
 	}
 
-	// Restore may rename an agent whose name was taken while it sat archived, so the
-	// row is read back rather than returned from the copy taken before it.
 	return s.byID(ctx, id)
 }
 
@@ -651,10 +690,10 @@ func idempotencyKey(key string) *string {
 	return &key
 }
 
-// restore recreates a dormant agent's tmux window from its stored cwd and flags,
-// updating the record. An archived agent has its archive time cleared, which is
-// what returns it to the normal listing.
-func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) error {
+// resume recreates a dormant agent's tmux window from its stored cwd and flags,
+// updating the record. The row is already in the listing, so this touches nothing
+// but the pane and what the panel reads to find it.
+func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error {
 	// An agent recorded against a harness this binary no longer runs cannot be brought
 	// back, and saying so beats a pane running the wrong CLI on its conversation.
 	resolved, err := s.harnesses.Resolve(agent.Harness)
@@ -663,17 +702,6 @@ func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) erro
 	}
 
 	dir := s.resumeDir(agent, resolved)
-
-	// A name reused while the agent sat archived would collide on the unique-name index,
-	// so it takes a fresh one first. An unarchived dormant agent already owns its name.
-	if agent.ArchivedAt != nil && s.nameTaken(ctx, agent.Name) {
-		newName := s.uniqueAgentName(ctx, agent.Name, "")
-		if _, err := s.agents.Rename(ctx, agent.ID, newName); err != nil {
-			return fmt.Errorf("failed to rename restored agent %q: %w", agent.Name, err)
-		}
-
-		agent.Name = newName
-	}
 
 	pane, err := s.tmux.NewWindow(ManagerSession, agent.Name, dir)
 	if err != nil {
@@ -685,21 +713,13 @@ func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) erro
 		return fmt.Errorf("failed to stamp the pane for %q: %w", agent.Name, err)
 	}
 
-	// Update below writes neither the archive time nor the name, so clearing it is
-	// its own call.
-	if agent.ArchivedAt != nil {
-		if err := s.agents.Restore(ctx, agent.ID); err != nil {
-			return fmt.Errorf("failed to unarchive agent %q: %w", agent.Name, err)
-		}
-	}
-
 	agent.Pane = pane
 	agent.State = agentstore.StateIdle
 	// resumeDir may have moved the agent, and the row is what the panel shows and the
-	// next restore reads.
+	// next resume reads.
 	agent.Cwd = dir
 	if err := s.agents.Update(ctx, agent); err != nil {
-		return fmt.Errorf("failed to restore agent %q: %w", agent.Name, err)
+		return fmt.Errorf("failed to resume agent %q: %w", agent.Name, err)
 	}
 
 	if err := s.launcher.launch(resolved, launchParams{
