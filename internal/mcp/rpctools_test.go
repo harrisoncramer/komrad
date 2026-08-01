@@ -116,8 +116,8 @@ func TestInputSchema(t *testing.T) {
 		},
 		{
 			method:       "GetAgent",
-			wantFields:   map[string]map[string]any{"name": {"type": "string"}},
-			wantRequired: []string{"name"},
+			wantFields:   map[string]map[string]any{"id": {"type": "string"}},
+			wantRequired: []string{"id"},
 		},
 	}
 

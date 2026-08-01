@@ -164,9 +164,9 @@ func TestRequestValidation(t *testing.T) {
 			},
 		},
 		{
-			name: "a get with no name is refused",
+			name: "a get with no id is refused",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Name: ""}))
+				_, err := c.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: ""}))
 
 				return err
 			},

@@ -113,10 +113,7 @@ message CreateAgentResponse {
 }
 
 message GetAgentRequest {
-  string name = 1 [(buf.validate.field).string = {
-    min_len: 1
-    max_len: 200
-  }];
+  string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message GetAgentResponse {
@@ -166,10 +163,7 @@ message SetMetadataRequest {
 // ArchiveAgentRequest hides an agent without destroying it. This is what the
 // panel's archive key does.
 message ArchiveAgentRequest {
-  string name = 1 [(buf.validate.field).string = {
-    min_len: 1
-    max_len: 200
-  }];
+  string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message RestoreAgentRequest {
@@ -269,7 +263,7 @@ service AgentService {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "get_agent"
-      description: "Fetch one agent by its exact name, including whatever metadata it has recorded about its own work. Names are unique among live agents. Returns not_found if no agent has that name."
+      description: "Fetch one agent by id, including whatever metadata it has recorded about its own work. Spans the archived agents too, since an id is the one handle those still answer to. Returns not_found if no agent has that id."
     };
   }
   rpc CreateAgent(CreateAgentRequest) returns (CreateAgentResponse) {
@@ -307,7 +301,7 @@ service AgentService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "archive_agent"
-      description: "Stop an agent and hide it from the panel, keeping its record and transcript. Prefer this to delete_agent: it is reversible with restore_agent, and search_transcripts still finds the conversation. Returns not_found if no agent has that name."
+      description: "Stop an agent and hide it from the panel, keyed by id, keeping its record and transcript. Prefer this to delete_agent: it is reversible with restore_agent, and search_transcripts still finds the conversation. Returns not_found if no agent has that id."
       destructive: false
     };
   }

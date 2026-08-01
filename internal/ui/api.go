@@ -90,7 +90,7 @@ func (a api) archiveAgent(agent agentstore.Agent) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	_, err := a.agents.ArchiveAgent(ctx, connect.NewRequest(&agentv1.ArchiveAgentRequest{Name: agent.Name}))
+	_, err := a.agents.ArchiveAgent(ctx, connect.NewRequest(&agentv1.ArchiveAgentRequest{Id: agent.ID}))
 
 	return err
 }

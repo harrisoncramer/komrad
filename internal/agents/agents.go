@@ -38,7 +38,7 @@ func expandHome(dir string) string {
 }
 
 type agentStore interface {
-	Get(ctx context.Context, name string) (*agentstore.Agent, error)
+	GetInWorkflow(ctx context.Context, workflowID, name string) (*agentstore.Agent, error)
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 	GetByIdempotencyKey(ctx context.Context, key string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
@@ -46,9 +46,9 @@ type agentStore interface {
 	CountLive(ctx context.Context) (int64, error)
 	Update(ctx context.Context, agent agentstore.Agent) error
 	Rename(ctx context.Context, id, name string) (bool, error)
-	Archive(ctx context.Context, name string) error
+	Archive(ctx context.Context, id string) error
 	Restore(ctx context.Context, id string) error
-	ActiveNameExists(ctx context.Context, name string) (bool, error)
+	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
 }
 
 // workflowReader is all this service needs from the workflow domain.
@@ -237,19 +237,16 @@ func (s *AgentService) removeAgent(ctx context.Context, id string) error {
 // The cleanup action does not fire here, since a restore relaunches in the directory
 // the row records without running setup again, and tearing down what setup built would
 // bring the agent back somewhere else without saying so.
-func (s *AgentService) ArchiveAgent(ctx context.Context, name string) error {
-	agent, err := s.agents.Get(ctx, name)
+func (s *AgentService) ArchiveAgent(ctx context.Context, id string) error {
+	agent, err := s.byID(ctx, id)
 	if err != nil {
-		return fmt.Errorf("failed to look up agent %q: %w", name, err)
-	}
-	if agent == nil {
-		return ErrAgentNotFound
+		return err
 	}
 
 	s.killOwnedPane(*agent)
 
-	if err := s.agents.Archive(ctx, name); err != nil {
-		return fmt.Errorf("failed to archive agent %q: %w", name, err)
+	if err := s.agents.Archive(ctx, id); err != nil {
+		return fmt.Errorf("failed to archive agent %q: %w", agent.Name, err)
 	}
 
 	return nil
@@ -280,14 +277,14 @@ func (s *AgentService) RestoreAgent(ctx context.Context, id string) (*agentstore
 		return nil, err
 	}
 
-	// The unique-name index covers the unarchived alone, so a name claimed while this
-	// agent sat archived would collide on the way out.
-	taken, err := s.agents.ActiveNameExists(ctx, agent.Name)
+	// The unique-name index covers the unarchived in this workflow, so a name claimed
+	// there while the agent sat archived would collide on the way out.
+	taken, err := s.agents.ActiveNameExists(ctx, agent.WorkflowID, agent.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check the name of agent %q: %w", agent.Name, err)
 	}
 	if taken {
-		return nil, fmt.Errorf("%w: a live agent is called %q, rename it to restore this one", store.ErrNameTaken, agent.Name)
+		return nil, fmt.Errorf("%w: a live agent in this workflow is called %q, rename it to restore this one", store.ErrNameTaken, agent.Name)
 	}
 
 	err = s.tx.InTx(ctx, func(db store.DBTX) error {
@@ -496,7 +493,7 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 
 	// The row is read back rather than returned from what was written, since the store
 	// owns the timestamps a caller renders.
-	created, err := s.agents.Get(ctx, plan.name)
+	created, err := s.agents.GetInWorkflow(ctx, p.WorkflowID, plan.name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read back agent %q: %w", plan.name, err)
 	}
@@ -544,7 +541,7 @@ type agentCounter interface {
 // agentNamer answers whether a live agent already holds a name, for the same reason
 // agentCounter is an interface.
 type agentNamer interface {
-	ActiveNameExists(ctx context.Context, name string) (bool, error)
+	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
 }
 
 // roomForAgents refuses unless want more agents fit under the ceiling. A workflow restore
@@ -637,7 +634,7 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 	}
 
 	return &launchPlan{
-		name:            s.uniqueAgentName(ctx, p.Title, p.Prompt),
+		name:            s.uniqueAgentName(ctx, p.WorkflowID, p.Title, p.Prompt),
 		harness:         resolved,
 		harnessID:       harnessID,
 		dir:             dir,
@@ -785,8 +782,9 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 }
 
 // uniqueAgentName derives an agent name from the title, falling back to a slug
-// of the prompt, then "agent", and appends a suffix until it is free.
-func (s *AgentService) uniqueAgentName(ctx context.Context, title, prompt string) string {
+// of the prompt, then "agent", and appends a suffix until it is free. Free means free
+// inside the workflow, so the same name in two workflows takes no suffix.
+func (s *AgentService) uniqueAgentName(ctx context.Context, workflowID, title, prompt string) string {
 	base := agentstore.SanitizeName(strings.TrimSpace(title))
 	if base == "" {
 		base = xstr.Slug(xstr.FirstLine(prompt), 24)
@@ -796,16 +794,16 @@ func (s *AgentService) uniqueAgentName(ctx context.Context, title, prompt string
 	}
 
 	name := base
-	for i := 2; s.nameTaken(ctx, name); i++ {
+	for i := 2; s.nameTaken(ctx, workflowID, name); i++ {
 		name = fmt.Sprintf("%s-%d", base, i)
 	}
 
 	return name
 }
 
-// nameTaken reports whether a live agent record already owns a name, since reusing one
-// would make the upsert clobber that agent's row.
-func (s *AgentService) nameTaken(ctx context.Context, name string) bool {
-	taken, _ := s.agents.ActiveNameExists(ctx, name)
+// nameTaken reports whether a live agent in the workflow already owns a name, since the
+// insert would collide on the unique index.
+func (s *AgentService) nameTaken(ctx context.Context, workflowID, name string) bool {
+	taken, _ := s.agents.ActiveNameExists(ctx, workflowID, name)
 	return taken
 }

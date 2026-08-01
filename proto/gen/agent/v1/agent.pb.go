@@ -530,7 +530,7 @@ func (x *CreateAgentResponse) GetAgent() *Agent {
 
 type GetAgentRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -565,9 +565,9 @@ func (*GetAgentRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *GetAgentRequest) GetName() string {
+func (x *GetAgentRequest) GetId() string {
 	if x != nil {
-		return x.Name
+		return x.Id
 	}
 	return ""
 }
@@ -793,7 +793,7 @@ func (x *SetMetadataRequest) GetValue() string {
 // panel's archive key does.
 type ArchiveAgentRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -828,9 +828,9 @@ func (*ArchiveAgentRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{11}
 }
 
-func (x *ArchiveAgentRequest) GetName() string {
+func (x *ArchiveAgentRequest) GetId() string {
 	if x != nil {
-		return x.Name
+		return x.Id
 	}
 	return ""
 }
@@ -1481,10 +1481,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x00R\x0eidempotencyKey\x88\x01\x01B\x12\n" +
 	"\x10_idempotency_key\"<\n" +
 	"\x13CreateAgentResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"1\n" +
-	"\x0fGetAgentRequest\x12\x1e\n" +
-	"\x04name\x18\x01 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\"9\n" +
+	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"*\n" +
+	"\x0fGetAgentRequest\x12\x17\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"9\n" +
 	"\x10GetAgentResponse\x12%\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\xed\x01\n" +
 	"\x0eSetMarkRequest\x12\x17\n" +
@@ -1502,10 +1501,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\bkey.slug\x12Ha metadata key must be lowercase letters, digits, underscores, or dashes\x1a\x1dthis.matches('^[a-z0-9_-]+$')r\x02\x18@R\x03key\x12\xcc\x01\n" +
 	"\x05value\x18\x03 \x01(\tB\xb0\x01\xbaH\xac\x01\xba\x01\xa8\x01\n" +
 	"\x0fvalue.printable\x12`a metadata value must be a single line of at most 2048 characters carrying no control characters\x1a3this.size() <= 2048 && !this.matches('[[:cntrl:]]')H\x00R\x05value\x88\x01\x01B\b\n" +
-	"\x06_value\"5\n" +
-	"\x13ArchiveAgentRequest\x12\x1e\n" +
-	"\x04name\x18\x01 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\".\n" +
+	"\x06_value\".\n" +
+	"\x13ArchiveAgentRequest\x12\x17\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\".\n" +
 	"\x13RestoreAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"=\n" +
 	"\x14RestoreAgentResponse\x12%\n" +
@@ -1545,13 +1543,13 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14GetTranscriptRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"1\n" +
 	"\x15GetTranscriptResponse\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontent2\xaa4\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent2\xd74\n" +
 	"\fAgentService\x12\xe4\x03\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x9a\x03\x9a\xb5\x18\x92\x03\n" +
-	"\vlist_agents\x12\x82\x03List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow. Archived agents are excluded unless archived is set, which lists those and only those. Returns one page, most recently updated first; pass the response's nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs.\x90\x02\x01\x12\x8d\x02\n" +
-	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"\xc9\x01\x9a\xb5\x18\xc1\x01\n" +
-	"\tget_agent\x12\xb3\x01Fetch one agent by its exact name, including whatever metadata it has recorded about its own work. Names are unique among live agents. Returns not_found if no agent has that name.\x90\x02\x01\x12\xe0\x04\n" +
+	"\vlist_agents\x12\x82\x03List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow. Archived agents are excluded unless archived is set, which lists those and only those. Returns one page, most recently updated first; pass the response's nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs.\x90\x02\x01\x12\xaf\x02\n" +
+	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"\xeb\x01\x9a\xb5\x18\xe3\x01\n" +
+	"\tget_agent\x12\xd5\x01Fetch one agent by id, including whatever metadata it has recorded about its own work. Spans the archived agents too, since an id is the one handle those still answer to. Returns not_found if no agent has that id.\x90\x02\x01\x12\xe0\x04\n" +
 	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\x93\x04\x9a\xb5\x18\x8e\x04\n" +
 	"\fcreate_agent\x12\xfb\x03Launch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would resolve somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again. \x00\x12\x84\x04\n" +
 	"\aSetMark\x12\x18.agent.v1.SetMarkRequest\x1a\x16.google.protobuf.Empty\"\xc6\x03\x9a\xb5\x18\xbe\x03\n" +
@@ -1559,9 +1557,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\tSetHidden\x12\x1a.agent.v1.SetHiddenRequest\x1a\x16.google.protobuf.Empty\"\x8e\x03\x9a\xb5\x18\x86\x03\n" +
 	"\x10set_agent_hidden\x12\xef\x02Hide an agent from the panel's list, keyed by its id, or unhide it by passing hidden false. This changes nothing about the agent: it keeps running, the reconciler keeps moving its state, and every tool still returns it. It only decides whether the person watching the panel sees a row for it, which is theirs to decide, so do not hide work you were not asked to hide. \x00\x90\x02\x02\x12\xd2\x06\n" +
 	"\vSetMetadata\x12\x1c.agent.v1.SetMetadataRequest\x1a\x16.google.protobuf.Empty\"\x8c\x06\x9a\xb5\x18\x84\x06\n" +
-	"\x12set_agent_metadata\x12\xeb\x05Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value. Use this on yourself as you work, whenever you learn something a person would want to jump to later: the Linear issue you are implementing, the pull request you opened, the branch you are on. Your own id is in the WEAVE_AGENT_ID environment variable. Store the full URL rather than a bare number, since the panel shows the value as it is. Keys are lowercase letters, digits, underscores, and dashes; call this once per key, which leaves every other key on the agent untouched. Do not record what the agent is currently doing, which is already its state, and do not paste findings here, which belong in your reply. \x00\x90\x02\x02\x12\xd4\x02\n" +
-	"\fArchiveAgent\x12\x1d.agent.v1.ArchiveAgentRequest\x1a\x16.google.protobuf.Empty\"\x8c\x02\x9a\xb5\x18\x84\x02\n" +
-	"\rarchive_agent\x12\xf0\x01Stop an agent and hide it from the panel, keeping its record and transcript. Prefer this to delete_agent: it is reversible with restore_agent, and search_transcripts still finds the conversation. Returns not_found if no agent has that name. \x00\x90\x02\x02\x12\x85\x04\n" +
+	"\x12set_agent_metadata\x12\xeb\x05Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value. Use this on yourself as you work, whenever you learn something a person would want to jump to later: the Linear issue you are implementing, the pull request you opened, the branch you are on. Your own id is in the WEAVE_AGENT_ID environment variable. Store the full URL rather than a bare number, since the panel shows the value as it is. Keys are lowercase letters, digits, underscores, and dashes; call this once per key, which leaves every other key on the agent untouched. Do not record what the agent is currently doing, which is already its state, and do not paste findings here, which belong in your reply. \x00\x90\x02\x02\x12\xdf\x02\n" +
+	"\fArchiveAgent\x12\x1d.agent.v1.ArchiveAgentRequest\x1a\x16.google.protobuf.Empty\"\x97\x02\x9a\xb5\x18\x8f\x02\n" +
+	"\rarchive_agent\x12\xfb\x01Stop an agent and hide it from the panel, keyed by id, keeping its record and transcript. Prefer this to delete_agent: it is reversible with restore_agent, and search_transcripts still finds the conversation. Returns not_found if no agent has that id. \x00\x90\x02\x02\x12\x85\x04\n" +
 	"\fRestoreAgent\x12\x1d.agent.v1.RestoreAgentRequest\x1a\x1e.agent.v1.RestoreAgentResponse\"\xb5\x03\x9a\xb5\x18\xad\x03\n" +
 	"\rrestore_agent\x12\x99\x03Take an agent out of the archive, keyed by id. It comes back as a dormant row and nothing is started, so call resume_agent to put its conversation back in a pane. An agent that is not archived is returned as it stands. Returns already_exists when a live agent has taken the archived one's name, which you clear by renaming that agent, and is refused once the panel holds as many agents as it is configured to. \x00\x90\x02\x02\x12\xe8\x02\n" +
 	"\vResumeAgent\x12\x1c.agent.v1.ResumeAgentRequest\x1a\x1d.agent.v1.ResumeAgentResponse\"\x9b\x02\x9a\xb5\x18\x93\x02\n" +

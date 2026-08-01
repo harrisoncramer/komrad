@@ -11,6 +11,7 @@
 package storetest
 
 import (
+	"context"
 	"net/url"
 	"testing"
 
@@ -104,11 +105,29 @@ func (s *Stores) SeedAgent(t *testing.T, agent agentstore.Agent) *agentstore.Age
 
 	require.NoError(t, s.Agents.Create(t.Context(), agent))
 
-	stored, err := s.Agents.Get(t.Context(), agent.Name)
+	stored, err := s.Agents.GetInWorkflow(t.Context(), agent.WorkflowID, agent.Name)
 	require.NoError(t, err)
 	require.NotNil(t, stored)
 
 	return stored
+}
+
+// LiveAgentByName finds the one live agent holding a name, nil when none does. Nothing in
+// production reaches an agent this way, since a name is unique per workflow rather than
+// panel-wide. A test that chose the names itself knows they are unambiguous.
+func (s *Stores) LiveAgentByName(ctx context.Context, name string) (*agentstore.Agent, error) {
+	listed, err := s.Agents.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, agent := range listed {
+		if agent.Name == name {
+			return &agent, nil
+		}
+	}
+
+	return nil, nil
 }
 
 // SeedWorkflow creates a workflow and returns it, for the tests that only need

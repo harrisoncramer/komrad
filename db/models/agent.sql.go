@@ -17,12 +17,18 @@ SELECT
         FROM
             agents
         WHERE
-            name = $1
+            workflow_id = $1
+            AND name = $2
             AND archived_at IS NULL)
 `
 
-func (q *Queries) ActiveNameExists(ctx context.Context, name string) (bool, error) {
-	row := q.db.QueryRow(ctx, activeNameExists, name)
+type ActiveNameExistsParams struct {
+	WorkflowID string
+	Name       string
+}
+
+func (q *Queries) ActiveNameExists(ctx context.Context, arg ActiveNameExistsParams) (bool, error) {
+	row := q.db.QueryRow(ctx, activeNameExists, arg.WorkflowID, arg.Name)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
@@ -168,42 +174,6 @@ func (q *Queries) DeleteAgentTranscriptChunks(ctx context.Context, agentID strin
 	return err
 }
 
-const getAgent = `-- name: GetAgent :one
-SELECT
-    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, created_at, updated_at, mark, is_hidden, cwd, flags, harness, archived_at
-FROM
-    agents s
-WHERE
-    s.name = $1
-    AND s.archived_at IS NULL
-LIMIT 1
-`
-
-func (q *Queries) GetAgent(ctx context.Context, name string) (*Agent, error) {
-	row := q.db.QueryRow(ctx, getAgent, name)
-	var i Agent
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Prompt,
-		&i.PaneID,
-		&i.State,
-		&i.SessionID,
-		&i.WorkflowID,
-		&i.ScheduleID,
-		&i.IdempotencyKey,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.Mark,
-		&i.IsHidden,
-		&i.Cwd,
-		&i.Flags,
-		&i.Harness,
-		&i.ArchivedAt,
-	)
-	return &i, err
-}
-
 const getAgentByID = `-- name: GetAgentByID :one
 SELECT
     id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, created_at, updated_at, mark, is_hidden, cwd, flags, harness, archived_at
@@ -251,6 +221,48 @@ LIMIT 1
 
 func (q *Queries) GetAgentByIdempotencyKey(ctx context.Context, idempotencyKey *string) (*Agent, error) {
 	row := q.db.QueryRow(ctx, getAgentByIdempotencyKey, idempotencyKey)
+	var i Agent
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Prompt,
+		&i.PaneID,
+		&i.State,
+		&i.SessionID,
+		&i.WorkflowID,
+		&i.ScheduleID,
+		&i.IdempotencyKey,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Mark,
+		&i.IsHidden,
+		&i.Cwd,
+		&i.Flags,
+		&i.Harness,
+		&i.ArchivedAt,
+	)
+	return &i, err
+}
+
+const getAgentInWorkflow = `-- name: GetAgentInWorkflow :one
+SELECT
+    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, created_at, updated_at, mark, is_hidden, cwd, flags, harness, archived_at
+FROM
+    agents s
+WHERE
+    s.workflow_id = $1
+    AND s.name = $2
+    AND s.archived_at IS NULL
+LIMIT 1
+`
+
+type GetAgentInWorkflowParams struct {
+	WorkflowID string
+	Name       string
+}
+
+func (q *Queries) GetAgentInWorkflow(ctx context.Context, arg GetAgentInWorkflowParams) (*Agent, error) {
+	row := q.db.QueryRow(ctx, getAgentInWorkflow, arg.WorkflowID, arg.Name)
 	var i Agent
 	err := row.Scan(
 		&i.ID,
@@ -626,12 +638,12 @@ SET
     archived_at = NOW(),
     pane_id = ''
 WHERE
-    name = $1
+    id = $1
     AND archived_at IS NULL
 `
 
-func (q *Queries) MarkAgentArchived(ctx context.Context, name string) error {
-	_, err := q.db.Exec(ctx, markAgentArchived, name)
+func (q *Queries) MarkAgentArchived(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, markAgentArchived, id)
 	return err
 }
 

@@ -35,14 +35,14 @@ type agentLauncher interface {
 	// agent costs a tmux subprocess each and the panel re-lists every second.
 	AgentsRunning(agents []agentstore.Agent) map[string]bool
 	DeleteAgent(ctx context.Context, id string) error
-	ArchiveAgent(ctx context.Context, name string) error
+	ArchiveAgent(ctx context.Context, id string) error
 	RestoreAgent(ctx context.Context, id string) (*agentstore.Agent, error)
 	ResumeAgent(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
 type agentStore interface {
 	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, archived bool) ([]agentstore.Agent, error)
-	Get(ctx context.Context, name string) (*agentstore.Agent, error)
+	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
 	SetMark(ctx context.Context, id string, mark *string) (bool, error)
 	SetHidden(ctx context.Context, id string, hidden bool) (bool, error)
@@ -136,14 +136,14 @@ func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.L
 	return connect.NewResponse(response), nil
 }
 
-// GetAgent returns one agent by name.
+// GetAgent returns one agent by id, archived or not.
 func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.GetAgentRequest]) (*connect.Response[agentv1.GetAgentResponse], error) {
-	agent, err := s.agents.Get(ctx, req.Msg.GetName())
+	agent, err := s.agents.GetByID(ctx, req.Msg.GetId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get agent: %w", err))
 	}
 	if agent == nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("agent %q not found", req.Msg.GetName()))
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
 	}
 
 	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, s.launcher.AgentRunning(*agent)).Agent}), nil
@@ -217,10 +217,10 @@ func (s *Service) DeleteAgent(ctx context.Context, req *connect.Request[agentv1.
 // ArchiveAgent stops an agent and hides it, keeping the record and transcript. It is the
 // reversible half of removing an agent, and DeleteAgent the other.
 func (s *Service) ArchiveAgent(ctx context.Context, req *connect.Request[agentv1.ArchiveAgentRequest]) (*connect.Response[emptypb.Empty], error) {
-	err := s.launcher.ArchiveAgent(ctx, req.Msg.GetName())
+	err := s.launcher.ArchiveAgent(ctx, req.Msg.GetId())
 	switch {
 	case errors.Is(err, agents.ErrAgentNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("agent %q not found", req.Msg.GetName()))
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to archive agent: %w", err))
 	}
