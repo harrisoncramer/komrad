@@ -27,8 +27,8 @@ func TestWithDefaults(t *testing.T) {
 		},
 		{
 			name: "an override in one panel leaves the other panels alone",
-			in:   Keybindings{Workflows: WorkflowsKeys{Delete: []string{"x"}}},
-			want: withWorkflowDelete(DefaultKeybindings(), "x"),
+			in:   Keybindings{Workflows: WorkflowsKeys{Archive: []string{"x"}}},
+			want: withWorkflowArchive(DefaultKeybindings(), "x"),
 		},
 		{
 			// A binding written out as an empty list is a binding nobody set, not a
@@ -393,10 +393,10 @@ func withNavUp(k Keybindings, keys ...string) Keybindings {
 	return k
 }
 
-// withWorkflowDelete is the same idea for a binding in another panel, so a case
+// withWorkflowArchive is the same idea for a binding in another panel, so a case
 // can show that overriding one panel does not disturb the others.
-func withWorkflowDelete(k Keybindings, keys ...string) Keybindings {
-	k.Workflows.Delete = keys
+func withWorkflowArchive(k Keybindings, keys ...string) Keybindings {
+	k.Workflows.Archive = keys
 
 	return k
 }

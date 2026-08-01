@@ -572,28 +572,28 @@ func (x *UpdateWorkflowRequest) GetCleanupAction() string {
 	return ""
 }
 
-// DeleteWorkflowRequest removes a workflow and the agents inside it.
-type DeleteWorkflowRequest struct {
+// ArchiveWorkflowRequest hides a workflow and archives the agents inside it.
+type ArchiveWorkflowRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *DeleteWorkflowRequest) Reset() {
-	*x = DeleteWorkflowRequest{}
+func (x *ArchiveWorkflowRequest) Reset() {
+	*x = ArchiveWorkflowRequest{}
 	mi := &file_workflow_v1_workflow_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *DeleteWorkflowRequest) String() string {
+func (x *ArchiveWorkflowRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*DeleteWorkflowRequest) ProtoMessage() {}
+func (*ArchiveWorkflowRequest) ProtoMessage() {}
 
-func (x *DeleteWorkflowRequest) ProtoReflect() protoreflect.Message {
+func (x *ArchiveWorkflowRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_workflow_v1_workflow_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -605,12 +605,12 @@ func (x *DeleteWorkflowRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use DeleteWorkflowRequest.ProtoReflect.Descriptor instead.
-func (*DeleteWorkflowRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ArchiveWorkflowRequest.ProtoReflect.Descriptor instead.
+func (*ArchiveWorkflowRequest) Descriptor() ([]byte, []int) {
 	return file_workflow_v1_workflow_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *DeleteWorkflowRequest) GetId() string {
+func (x *ArchiveWorkflowRequest) GetId() string {
 	if x != nil {
 		return x.Id
 	}
@@ -664,9 +664,9 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x05flags\x18\x05 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\x12/\n" +
 	"\aharness\x18\x06 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x12/\n" +
 	"\fsetup_action\x18\a \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01R\vsetupAction\x123\n" +
-	"\x0ecleanup_action\x18\b \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01R\rcleanupAction\"0\n" +
-	"\x15DeleteWorkflowRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xbe\x10\n" +
+	"\x0ecleanup_action\x18\b \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01R\rcleanupAction\"1\n" +
+	"\x16ArchiveWorkflowRequest\x12\x17\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xe3\x10\n" +
 	"\x0fWorkflowService\x12\xc2\x03\n" +
 	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\xe9\x02\x9a\xb5\x18\xe1\x02\n" +
 	"\x0elist_workflows\x12\xce\x02List the workflows agents are grouped into, most recently updated first, with each one's shared context, the working directory and flags its agents start from, and the action run before its agents start and the one run after they are deleted. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
@@ -675,9 +675,9 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\xea\x03\x9a\xb5\x18\xe5\x03\n" +
 	"\x0fcreate_workflow\x12\xcf\x03Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. setupAction names one action from list_actions to run before each of its agents starts, which blocks and abandons the launch if it fails; cleanupAction names the one run once one of its agents is deleted. Both are blank for none. \x00\x12\x8c\x04\n" +
 	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xbd\x03\x9a\xb5\x18\xb5\x03\n" +
-	"\x0fupdate_workflow\x12\x9f\x03Replace a workflow's name, context, directory, flags, and the actions run around its agents' lives. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context or the setup action reaches only agents spawned afterwards, since existing agents took a snapshot at launch; editing the cleanup action reaches agents already running, since it is read when it fires. \x00\x90\x02\x02\x12\xda\x02\n" +
-	"\x0eDeleteWorkflow\x12\".workflow.v1.DeleteWorkflowRequest\x1a\x16.google.protobuf.Empty\"\x8b\x02\x9a\xb5\x18\x83\x02\n" +
-	"\x0fdelete_workflow\x12\xed\x01Remove a workflow. Its agents are archived alongside it, which leaves them findable through search_transcripts and deletes no transcript. Refused while any schedule still launches into the workflow, since those would have nowhere to run. \x01\x90\x02\x02B(Z&weave/proto/gen/workflow/v1;workflowv1b\x06proto3"
+	"\x0fupdate_workflow\x12\x9f\x03Replace a workflow's name, context, directory, flags, and the actions run around its agents' lives. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context or the setup action reaches only agents spawned afterwards, since existing agents took a snapshot at launch; editing the cleanup action reaches agents already running, since it is read when it fires. \x00\x90\x02\x02\x12\xff\x02\n" +
+	"\x0fArchiveWorkflow\x12#.workflow.v1.ArchiveWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xae\x02\x9a\xb5\x18\xa6\x02\n" +
+	"\x10archive_workflow\x12\x8f\x02Hide a workflow from the panel, archiving the agents inside it. Nothing is destroyed: the agents stay findable through search_transcripts and no transcript goes with them. Refused while any schedule still launches into the workflow, since those would have nowhere to run. \x00\x90\x02\x02B(Z&weave/proto/gen/workflow/v1;workflowv1b\x06proto3"
 
 var (
 	file_workflow_v1_workflow_proto_rawDescOnce sync.Once
@@ -701,7 +701,7 @@ var file_workflow_v1_workflow_proto_goTypes = []any{
 	(*CreateWorkflowRequest)(nil),  // 5: workflow.v1.CreateWorkflowRequest
 	(*CreateWorkflowResponse)(nil), // 6: workflow.v1.CreateWorkflowResponse
 	(*UpdateWorkflowRequest)(nil),  // 7: workflow.v1.UpdateWorkflowRequest
-	(*DeleteWorkflowRequest)(nil),  // 8: workflow.v1.DeleteWorkflowRequest
+	(*ArchiveWorkflowRequest)(nil), // 8: workflow.v1.ArchiveWorkflowRequest
 	(*v1.Pagination)(nil),          // 9: pagination.v1.Pagination
 	(*emptypb.Empty)(nil),          // 10: google.protobuf.Empty
 }
@@ -714,12 +714,12 @@ var file_workflow_v1_workflow_proto_depIdxs = []int32{
 	3,  // 5: workflow.v1.WorkflowService.GetWorkflow:input_type -> workflow.v1.GetWorkflowRequest
 	5,  // 6: workflow.v1.WorkflowService.CreateWorkflow:input_type -> workflow.v1.CreateWorkflowRequest
 	7,  // 7: workflow.v1.WorkflowService.UpdateWorkflow:input_type -> workflow.v1.UpdateWorkflowRequest
-	8,  // 8: workflow.v1.WorkflowService.DeleteWorkflow:input_type -> workflow.v1.DeleteWorkflowRequest
+	8,  // 8: workflow.v1.WorkflowService.ArchiveWorkflow:input_type -> workflow.v1.ArchiveWorkflowRequest
 	2,  // 9: workflow.v1.WorkflowService.ListWorkflows:output_type -> workflow.v1.ListWorkflowsResponse
 	4,  // 10: workflow.v1.WorkflowService.GetWorkflow:output_type -> workflow.v1.GetWorkflowResponse
 	6,  // 11: workflow.v1.WorkflowService.CreateWorkflow:output_type -> workflow.v1.CreateWorkflowResponse
 	10, // 12: workflow.v1.WorkflowService.UpdateWorkflow:output_type -> google.protobuf.Empty
-	10, // 13: workflow.v1.WorkflowService.DeleteWorkflow:output_type -> google.protobuf.Empty
+	10, // 13: workflow.v1.WorkflowService.ArchiveWorkflow:output_type -> google.protobuf.Empty
 	9,  // [9:14] is the sub-list for method output_type
 	4,  // [4:9] is the sub-list for method input_type
 	4,  // [4:4] is the sub-list for extension type_name

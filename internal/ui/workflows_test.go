@@ -163,7 +163,7 @@ func (r *refusingWorkflows) UpdateWorkflow(context.Context, *connect.Request[wor
 	return nil, r.err
 }
 
-func (r *refusingWorkflows) DeleteWorkflow(context.Context, *connect.Request[workflowv1.DeleteWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
+func (r *refusingWorkflows) ArchiveWorkflow(context.Context, *connect.Request[workflowv1.ArchiveWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
 	r.writes++
 
 	return nil, r.err
@@ -193,8 +193,8 @@ func TestWorkflowWrites(t *testing.T) {
 			wantReason: "quota reached",
 		},
 		{
-			name:       "a refused delete",
-			call:       func(m model) error { return m.api.deleteWorkflow("w1") },
+			name:       "a refused archive",
+			call:       func(m model) error { return m.api.archiveWorkflow("w1") },
 			wantWrites: 1,
 			wantReason: "quota reached",
 		},
@@ -226,7 +226,7 @@ func TestWorkflowWrites(t *testing.T) {
 
 // TestFailedWorkflowListKeepsTheTree covers a workflow list that does not answer.
 // The tree stays as it was, since blanking it would say every workflow had just been
-// deleted.
+// archived.
 func TestFailedWorkflowListKeepsTheTree(t *testing.T) {
 	m := model{
 		stage: NewStage(&recordingTmux{}, appconfig.DefaultSplit),
@@ -264,7 +264,7 @@ func TestApplyWorkflows(t *testing.T) {
 			wantNames: []string{"web", "api"},
 		},
 		{
-			name:      "a workflow deleted elsewhere drops out",
+			name:      "a workflow archived elsewhere drops out",
 			current:   []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}},
 			fresh:     []workflowstore.Workflow{{ID: "w2", Name: "web"}},
 			wantNames: []string{"web"},

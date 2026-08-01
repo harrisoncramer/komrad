@@ -93,10 +93,10 @@ func TestUpdateWorkflow(t *testing.T) {
 	}
 }
 
-// TestDeleteWorkflow covers what becomes of the agents inside, and what stops
-// the delete. Both halves commit together, so an agent is never left pointing at
+// TestArchiveWorkflow covers what becomes of the agents inside, and what stops
+// the archive. Both halves commit together, so an agent is never left pointing at
 // a workflow nothing lists.
-func TestDeleteWorkflow(t *testing.T) {
+func TestArchiveWorkflow(t *testing.T) {
 	tests := []struct {
 		name   string
 		create bool
@@ -150,7 +150,7 @@ func TestDeleteWorkflow(t *testing.T) {
 				})
 			}
 
-			err := workflows.DeleteWorkflow(ctx, id)
+			err := workflows.ArchiveWorkflow(ctx, id)
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
 

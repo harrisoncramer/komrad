@@ -35,7 +35,7 @@ const (
 	screenForm
 	screenRename
 	screenWorkflowForm
-	screenWorkflowDelete
+	screenWorkflowArchive
 	screenSearch
 	screenSchedules
 	screenScheduleForm

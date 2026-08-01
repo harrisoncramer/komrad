@@ -22,7 +22,7 @@ type workflowManager interface {
 	NewWorkflow(ctx context.Context, cfg workflowstore.Config) (*workflowstore.Workflow, error)
 	GetWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error)
 	UpdateWorkflow(ctx context.Context, id string, cfg workflowstore.Config) error
-	DeleteWorkflow(ctx context.Context, id string) error
+	ArchiveWorkflow(ctx context.Context, id string) error
 }
 
 // workflowLister is the read side, kept separate because listing pages straight
@@ -125,16 +125,16 @@ func (s *Service) UpdateWorkflow(ctx context.Context, req *connect.Request[workf
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// DeleteWorkflow removes a workflow and archives the agents inside it.
-func (s *Service) DeleteWorkflow(ctx context.Context, req *connect.Request[workflowv1.DeleteWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
-	err := s.workflows.DeleteWorkflow(ctx, req.Msg.GetId())
+// ArchiveWorkflow hides a workflow and archives the agents inside it.
+func (s *Service) ArchiveWorkflow(ctx context.Context, req *connect.Request[workflowv1.ArchiveWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
+	err := s.workflows.ArchiveWorkflow(ctx, req.Msg.GetId())
 	switch {
 	case errors.Is(err, agents.ErrWorkflowNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no workflow with id %q", req.Msg.GetId()))
 	case errors.Is(err, agents.ErrWorkflowHasSchedules):
 		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
 	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete workflow: %w", err))
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to archive workflow: %w", err))
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

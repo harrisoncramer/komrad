@@ -124,8 +124,8 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateRename(msg)
 	case screenWorkflowForm:
 		return m.updateWorkflowForm(msg)
-	case screenWorkflowDelete:
-		return m.updateWorkflowDelete(msg)
+	case screenWorkflowArchive:
+		return m.updateWorkflowArchive(msg)
 	case screenScheduleForm:
 		return m.updateScheduleForm(msg)
 	case screenScheduleDelete:

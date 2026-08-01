@@ -104,7 +104,7 @@ func (m model) rowHelp() []key.Binding {
 			binding(m.keys.Workflows.New, "new workflow"),
 			binding(m.keys.Workflows.Rename, "rename"),
 			binding(m.keys.Workflows.Edit, "edit"),
-			binding(m.keys.Workflows.Delete, "archive"),
+			binding(m.keys.Workflows.Archive, "archive"),
 		}
 	}
 

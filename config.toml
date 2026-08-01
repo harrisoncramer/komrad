@@ -128,13 +128,13 @@ submit = ["ctrl+s"]
 # The bindings that create and change workflows, from the agents list.
 [keybindings.workflows]
 # Create a workflow. Works from anywhere in the list.
-new    = ["W"]
+new     = ["W"]
 # Rename the workflow under the cursor.
-rename = ["r"]
+rename  = ["r"]
 # Edit the workflow under the cursor.
-edit   = ["e"]
+edit    = ["e"]
 # Archive the workflow under the cursor, which archives the agents inside it.
-delete = ["z"]
+archive = ["z"]
 
 # The schedules screen, and the key that opens it from the agents list.
 [keybindings.schedules]
