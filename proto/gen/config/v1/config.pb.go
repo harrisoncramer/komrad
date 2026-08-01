@@ -32,7 +32,9 @@ type GetConfigResponse struct {
 	// The config is read on every call, so a configuration edited while the server runs is picked up without a restart.
 	Config *structpb.Struct `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
 	// Why the user's config file would not parse, unset when it did.
-	ConfigError   *string `protobuf:"bytes,2,opt,name=config_error,json=configError,proto3,oneof" json:"config_error,omitempty"`
+	ConfigError *string `protobuf:"bytes,2,opt,name=config_error,json=configError,proto3,oneof" json:"config_error,omitempty"`
+	// The build this server is running, the same string weave version prints.
+	Version       string `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -81,19 +83,27 @@ func (x *GetConfigResponse) GetConfigError() string {
 	return ""
 }
 
+func (x *GetConfigResponse) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
 var File_config_v1_config_proto protoreflect.FileDescriptor
 
 const file_config_v1_config_proto_rawDesc = "" +
 	"\n" +
-	"\x16config/v1/config.proto\x12\tconfig.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/protobuf/struct.proto\"}\n" +
+	"\x16config/v1/config.proto\x12\tconfig.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/protobuf/struct.proto\"\x97\x01\n" +
 	"\x11GetConfigResponse\x12/\n" +
 	"\x06config\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06config\x12&\n" +
-	"\fconfig_error\x18\x02 \x01(\tH\x00R\vconfigError\x88\x01\x01B\x0f\n" +
-	"\r_config_error2\xa4\x04\n" +
-	"\rConfigService\x12\x92\x04\n" +
-	"\tGetConfig\x12\x16.google.protobuf.Empty\x1a\x1c.config.v1.GetConfigResponse\"\xce\x03\x9a\xb5\x18\xc6\x03\n" +
+	"\fconfig_error\x18\x02 \x01(\tH\x00R\vconfigError\x88\x01\x01\x12\x18\n" +
+	"\aversion\x18\x03 \x01(\tR\aversionB\x0f\n" +
+	"\r_config_error2\xae\x05\n" +
+	"\rConfigService\x12\x9c\x05\n" +
+	"\tGetConfig\x12\x16.google.protobuf.Empty\x1a\x1c.config.v1.GetConfigResponse\"\xd8\x04\x9a\xb5\x18\xd0\x04\n" +
 	"\n" +
-	"get_config\x12\xb7\x03Read the panel's configuration as it is currently in force, keyed the same way the user's config file is. Covers the default flags every new agent inherits and the keybindings for each of the panel's screens. Anything the user left out of their file reads back as the built-in default. A configError in the response means their file would not parse, in which case the configuration returned is the defaults the panel is running on instead.\x90\x02\x01B$Z\"weave/proto/gen/config/v1;configv1b\x06proto3"
+	"get_config\x12\xc1\x04Read the panel's configuration as it is currently in force, keyed the same way the user's config file is. Covers the default flags every new agent inherits and the keybindings for each of the panel's screens. Anything the user left out of their file reads back as the built-in default. A configError in the response means their file would not parse, in which case the configuration returned is the defaults the panel is running on instead. The version is the build the server answering you is running, which is worth quoting in a bug report about behaviour that makes no sense.\x90\x02\x01B$Z\"weave/proto/gen/config/v1;configv1b\x06proto3"
 
 var (
 	file_config_v1_config_proto_rawDescOnce sync.Once

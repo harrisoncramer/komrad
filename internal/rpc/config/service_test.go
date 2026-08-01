@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"weave/internal/appconfig"
+	"weave/internal/version"
 	configv1 "weave/proto/gen/config/v1"
 
 	"connectrpc.com/connect"
@@ -82,6 +83,18 @@ func TestGetConfig(t *testing.T) {
 			tt.check(t, resp.Msg)
 		})
 	}
+}
+
+// TestGetConfigReportsTheBuild covers the one thing in the response that is not the user's
+// config. An agent reaches this server over MCP and has no build of its own to compare
+// against, so this answer is the only way it can say which server it was talking to.
+func TestGetConfigReportsTheBuild(t *testing.T) {
+	svc := NewService(func() (*appconfig.Config, error) { return appconfig.Defaults(), nil })
+
+	resp, err := svc.GetConfig(t.Context(), connect.NewRequest(&emptypb.Empty{}))
+
+	require.NoError(t, err)
+	assert.Equal(t, version.Version(), resp.Msg.GetVersion())
 }
 
 // TestGetConfigKeysMatchTheFile pins the names the blob is keyed by, and that the
