@@ -217,6 +217,22 @@ func TestIsPending(t *testing.T) {
 	}
 }
 
+// TestMigrationsHaveNoTxmodeDirective guards the concurrent_index option in
+// db/atlas.hcl, which makes Atlas tag its migrations with a directive saying not
+// to run them in a transaction.
+func TestMigrationsHaveNoTxmodeDirective(t *testing.T) {
+	for _, version := range allVersions(t) {
+		sqlText, err := migrationsFS.ReadFile("migrations/" + version)
+		require.NoError(t, err)
+
+		assert.NotContains(t, string(sqlText), "atlas:txmode none",
+			"%s asks not to run in a transaction, which apply cannot honour, since it wraps every "+
+				"file in one and sends it as a single Exec that Postgres wraps in another. Teach it to "+
+				"split those files and run their statements one at a time, or the binary will not start.",
+			version)
+	}
+}
+
 // open builds a pool over a throwaway database, left unmigrated because applying
 // the migrations is what is under test.
 func open(t *testing.T) *pgxpool.Pool {
