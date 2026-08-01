@@ -177,3 +177,31 @@ func TestHighlighted(t *testing.T) {
 		})
 	}
 }
+
+// TestStageInitReclaimsTheWindow covers the panel starting into a window the last one
+// left panes in, which is what a reload or a panel that died leaves behind. An agent
+// staged at the time is sitting in that window as its own pane, so it goes back to a
+// window of its own, and the last stage's pane is killed rather than left for the new
+// stage to split beside.
+func TestStageInitReclaimsTheWindow(t *testing.T) {
+	tmux := &recordingTmux{
+		siblings: []string{"%7", "%8"},
+		owners:   map[string]string{"%7": "019fbb22-3735-71a9-ad83-acf4aa537acb"},
+	}
+
+	NewStage(tmux, 0.4).Init()
+
+	assert.Equal(t, []string{"%7"}, tmux.broken, "a staged agent is returned to its own window")
+	assert.Equal(t, []string{"%8"}, tmux.killed, "the last stage's own pane is not kept")
+}
+
+// TestStageInitLeavesAnEmptyWindowAlone covers the ordinary first start, where the panel
+// is the only pane. Nothing is reclaimed, since there is nothing there to reclaim.
+func TestStageInitLeavesAnEmptyWindowAlone(t *testing.T) {
+	tmux := &recordingTmux{}
+
+	NewStage(tmux, 0.4).Init()
+
+	assert.Empty(t, tmux.broken)
+	assert.Empty(t, tmux.killed)
+}

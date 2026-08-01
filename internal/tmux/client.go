@@ -262,6 +262,39 @@ func (c *Client) RespawnPane(pane, dir string, argv ...string) {
 	c.run("clear-history", "-t", pane)
 }
 
+// SiblingPanes are the other panes sharing a window with the given one, in tmux's order.
+// It answers empty for a pane that has gone, since a window nothing is left in has no
+// siblings to report.
+func (c *Client) SiblingPanes(pane string) []string {
+	if pane == "" {
+		return nil
+	}
+
+	listed, err := c.query("list-panes", "-t", pane, "-F", "#{pane_id}")
+	if err != nil || listed == "" {
+		return nil
+	}
+
+	var siblings []string
+	for _, id := range strings.Split(listed, "\n") {
+		if id != "" && id != pane {
+			siblings = append(siblings, id)
+		}
+	}
+
+	return siblings
+}
+
+// BreakPane moves a pane into a window of its own, leaving the current window focused.
+// Pane ids travel with the pane, so whoever recorded this one still finds it afterwards.
+func (c *Client) BreakPane(pane string) {
+	if pane == "" {
+		return
+	}
+
+	c.run("break-pane", "-d", "-s", pane)
+}
+
 // KillPane tears down a single pane. An empty target is refused for the same reason
 // SendKeys refuses one, that tmux would kill the active pane instead.
 func (c *Client) KillPane(pane string) {
