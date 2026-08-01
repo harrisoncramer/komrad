@@ -2,6 +2,9 @@ package agents
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -10,6 +13,7 @@ import (
 
 	"weave/internal/harness"
 	"weave/internal/harness/claude"
+	"weave/internal/harness/codex"
 	agentstore "weave/internal/store/agent"
 	"weave/internal/tmux"
 )
@@ -66,45 +70,115 @@ func waitForFrame(t *testing.T, cli *tmux.Client, pane, want string) {
 	t.Fatalf("pane %s never showed %q; last frame:\n%s", pane, want, cli.CapturePane(pane))
 }
 
+// seedAgent inserts an agent running the named harness and stamps its pane, which is
+// what a launched agent looks like. The harness matters here because the two read an
+// agent through different things: codex through the pane, claude through the status
+// files Claude Code writes about its own processes.
+func seedAgent(t *testing.T, st *testStore, cli *tmux.Client, agent agentstore.Agent) {
+	t.Helper()
+	ctx := context.Background()
+	if err := st.Create(ctx, agent); err != nil {
+		t.Fatalf("create %s: %v", agent.Name, err)
+	}
+
+	got, err := st.Get(ctx, agent.Name)
+	if err != nil || got == nil {
+		t.Fatalf("get %s: %v", agent.Name, err)
+	}
+	if err := cli.SetPaneOwner(agent.Pane, got.ID); err != nil {
+		t.Fatalf("stamp %s: %v", agent.Name, err)
+	}
+}
+
+// writeSessionStatus puts a Claude status file in dir for a conversation, under this
+// test's own pid so the liveness check the reader does against it passes.
+func writeSessionStatus(t *testing.T, dir, sessionID, status string) {
+	t.Helper()
+	data, err := json.Marshal(map[string]any{
+		"pid":       os.Getpid(),
+		"sessionId": sessionID,
+		"status":    status,
+	})
+	if err != nil {
+		t.Fatalf("marshal status: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, fmt.Sprintf("%d.json", os.Getpid())), data, 0o600); err != nil {
+		t.Fatalf("write status: %v", err)
+	}
+}
+
 func TestReconcileAgainstRealTmux(t *testing.T) {
 	it := newITmux(t)
 	cli := tmux.NewClient(it.socket)
 	st := newStore(t)
 	ctx := context.Background()
-	rec := NewReconciler(cli, mustRegistry(t, claude.New(claude.Options{ProjectsDir: t.TempDir(), SessionsDir: t.TempDir()})), st.Agents)
+
+	sessionsDir := t.TempDir()
+	registry := mustRegistry(t,
+		claude.New(claude.Options{ProjectsDir: t.TempDir(), SessionsDir: sessionsDir}),
+		codex.New(codex.Options{SessionsDir: t.TempDir(), ConfigPath: filepath.Join(t.TempDir(), "config.toml")}),
+	)
+	rec := NewReconciler(cli, registry, st.Agents)
 
 	// A busy agent seeded idle. The pane keeps a realistic working line, so the
 	// reconciler must promote it to thinking.
-	busyPane := it.spawn("busy", `sh -c 'while true; do printf "\033[H· Cooking… (3s · down 1k tokens)\n"; sleep 1; done'`)
-	seedRunning(t, st, cli, "busy", busyPane, agentstore.StateIdle)
-	waitForFrame(t, cli, busyPane, "Cooking…")
+	busyPane := it.spawn("busy", `sh -c 'while true; do printf "\033[H• Working (3s • esc to interrupt)\n"; sleep 1; done'`)
+	seedAgent(t, st, cli, agentstore.Agent{Name: "busy", Pane: busyPane, State: agentstore.StateIdle, Harness: "codex"})
+	waitForFrame(t, cli, busyPane, "Working")
 
-	// An idle agent renders a Claude-like input box with no timer, the way a real
-	// agent sits when interrupted. A bare sleep would capture empty, which the
-	// reconciler treats as inconclusive rather than idle.
-	idlePane := it.spawn("idle", `sh -c 'printf "\033[H❯ \n-- INSERT --\n"; sleep 300'`)
-	seedRunning(t, st, cli, "idle", idlePane, agentstore.StateThinking)
-	waitForFrame(t, cli, idlePane, "INSERT")
+	// An idle agent renders an input box with no working line, the way a real agent
+	// sits when interrupted. A bare sleep would capture empty, which the reconciler
+	// treats as inconclusive rather than idle.
+	idlePane := it.spawn("idle", `sh -c 'printf "\033[H› \nsummarize recent commits\n"; sleep 300'`)
+	seedAgent(t, st, cli, agentstore.Agent{Name: "idle", Pane: idlePane, State: agentstore.StateThinking, Harness: "codex"})
+	waitForFrame(t, cli, idlePane, "summarize")
 
-	// A waiting agent shows an interactive selection with its footer, the general
-	// signal for any prompt Claude is blocked on.
-	waitPane := it.spawn("wait", `sh -c 'printf "\033[HPick one\n❯ 1. A\n  2. B\nEnter to select · Esc to cancel\n"; sleep 300'`)
-	seedRunning(t, st, cli, "wait", waitPane, agentstore.StateThinking)
-	waitForFrame(t, cli, waitPane, "Enter to select")
+	// A waiting agent shows an approval with its footer, the general signal for any
+	// prompt Codex is blocked on.
+	waitPane := it.spawn("wait", `sh -c 'printf "\033[HRun this?\n› 1. Yes\n  2. No\nPress enter to confirm or esc to cancel\n"; sleep 300'`)
+	seedAgent(t, st, cli, agentstore.Agent{Name: "wait", Pane: waitPane, State: agentstore.StateThinking, Harness: "codex"})
+	waitForFrame(t, cli, waitPane, "Press enter to confirm")
+
+	// A Claude agent, which is read through the status file rather than the pane. The
+	// pane shows the input box an interrupted agent leaves behind while the file says
+	// the session is at a prompt, so only a reconciler ignoring the pane gets this one
+	// right.
+	claudePane := it.spawn("claude", `sh -c 'printf "\033[H❯ \n-- INSERT --\n"; sleep 300'`)
+	seedAgent(t, st, cli, agentstore.Agent{
+		Name:      "claude",
+		Pane:      claudePane,
+		State:     agentstore.StateThinking,
+		Harness:   "claude",
+		SessionID: "live-session",
+	})
+	writeSessionStatus(t, sessionsDir, "live-session", "waiting")
+	waitForFrame(t, cli, claudePane, "INSERT")
+
+	// A Claude agent no live process holds, which is what one whose CLI died under a
+	// pane that outlived it looks like. Nothing writes a status for it, so it settles
+	// idle without anything reading the pane.
+	goneePane := it.spawn("gone", `sh -c 'printf "\033[H❯ \n-- INSERT --\n"; sleep 300'`)
+	seedAgent(t, st, cli, agentstore.Agent{
+		Name:      "gone",
+		Pane:      goneePane,
+		State:     agentstore.StateThinking,
+		Harness:   "claude",
+		SessionID: "no-such-session",
+	})
 
 	// A killed agent. Seed it, then tear the session down so nothing answers for the
 	// pane at all.
 	deadPane := it.spawn("dead", "sleep 300")
-	seedRunning(t, st, cli, "dead", deadPane, agentstore.StateThinking)
+	seedAgent(t, st, cli, agentstore.Agent{Name: "dead", Pane: deadPane, State: agentstore.StateThinking, Harness: "codex"})
 	it.kill("dead")
 
 	// An agent whose recorded pane is alive but is not its own, which is what a pane
 	// id reissued after a server restart looks like. It shows the same working frame
 	// as the busy agent, so a reconciler reading the pane rather than its owner would
 	// promote this one to thinking off somebody else's work.
-	squatPane := it.spawn("squat", `sh -c 'while true; do printf "\033[H· Cooking… (3s · down 1k tokens)\n"; sleep 1; done'`)
+	squatPane := it.spawn("squat", `sh -c 'while true; do printf "\033[H• Working (3s • esc to interrupt)\n"; sleep 1; done'`)
 	squatter := seed(t, st, "squat", squatPane, agentstore.StateThinking)
-	waitForFrame(t, cli, squatPane, "Cooking…")
+	waitForFrame(t, cli, squatPane, "Working")
 
 	for range reconcileMisses {
 		if err := rec.Reconcile(ctx); err != nil {
@@ -112,20 +186,18 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 		}
 	}
 
-	if got := stateOf(t, st, "busy"); got != agentstore.StateThinking {
-		t.Fatalf("busy agent: want thinking, got %q", got)
-	}
-	if got := stateOf(t, st, "idle"); got != agentstore.StateIdle {
-		t.Fatalf("idle agent: want idle, got %q", got)
-	}
-	if got := stateOf(t, st, "wait"); got != agentstore.StateWaiting {
-		t.Fatalf("waiting agent: want waiting, got %q", got)
-	}
-	if got := stateOf(t, st, "dead"); got != agentstore.StateIdle {
-		t.Fatalf("dead agent: want idle, got %q", got)
-	}
-	if got := stateOf(t, st, "squat"); got != agentstore.StateIdle {
-		t.Fatalf("agent holding another pane's id: want idle, got %q", got)
+	for _, want := range []struct{ agent, state string }{
+		{"busy", agentstore.StateThinking},
+		{"idle", agentstore.StateIdle},
+		{"wait", agentstore.StateWaiting},
+		{"claude", agentstore.StateWaiting},
+		{"gone", agentstore.StateIdle},
+		{"dead", agentstore.StateIdle},
+		{"squat", agentstore.StateIdle},
+	} {
+		if got := stateOf(t, st, want.agent); got != want.state {
+			t.Fatalf("%s agent: want %q, got %q", want.agent, want.state, got)
+		}
 	}
 
 	after := agentByID(t, st, squatter.ID)

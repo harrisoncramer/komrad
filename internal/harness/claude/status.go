@@ -13,9 +13,14 @@ import (
 )
 
 // Claude Code keeps a file per running process under ~/.claude/sessions, named for the
-// pid and rewritten whenever the session changes what it is doing. It settles what a
-// capture cannot: an escape interrupt leaves the status line on the pane but returns the
-// session to idle here.
+// pid and rewritten whenever the session changes what it is doing. It is the whole of
+// what the panel knows about a Claude agent, and it settles what a capture cannot: an
+// escape interrupt leaves the status line on the pane but returns the session to idle
+// here.
+//
+// The files are keyed by conversation, which survives a resume and a compaction but not
+// a /clear. Clearing mints a new conversation under the same process, leaving the id the
+// panel recorded matching nothing, so an agent that has been cleared stops reporting.
 const (
 	statusBusy    = "busy"
 	statusWaiting = "waiting"

@@ -22,8 +22,8 @@ func writeStatus(t *testing.T, dir string, file sessionFile) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "1234.json"), data, 0o600))
 }
 
-// newTestHarness builds a harness over dir with every pid alive and the scan reused for
-// nothing, so a test sees each write on the next read.
+// newTestHarness builds a harness over dir with every pid alive and no scan reused, so
+// a test sees each write on the next read.
 func newTestHarness(t *testing.T, dir string) *Harness {
 	t.Helper()
 
@@ -34,41 +34,32 @@ func newTestHarness(t *testing.T, dir string) *Harness {
 	return h
 }
 
-// TestReadActivityPrefersReportedStatus covers the statuses Claude writes about its own
-// running sessions, which beat the frame because they are what it says rather than what
-// its chrome implies. Each case pairs a status with a frame that would read the other
-// way, so a pass proves which source won.
-func TestReadActivityPrefersReportedStatus(t *testing.T) {
+// TestReadActivity covers the verdict each of Claude's own statuses settles on. All of
+// them are reported rather than inferred, since the CLI is stating them about itself.
+func TestReadActivity(t *testing.T) {
 	tests := []struct {
 		name   string
 		status string
-		frame  string
 		want   harness.Activity
 	}{
 		{
-			name:   "busy over an idle frame",
+			name:   "busy is working",
 			status: statusBusy,
-			frame:  idleFrame,
 			want:   harness.ActivityWorking,
 		},
 		{
-			name:   "waiting over an idle frame",
+			name:   "waiting is a prompt the user has to answer",
 			status: statusWaiting,
-			frame:  idleFrame,
 			want:   harness.ActivityWaiting,
 		},
 		{
-			// The interrupted turn. Claude leaves the status line on screen for the
-			// moment the frame is captured, but says it is done.
-			name:   "idle over a working frame",
+			name:   "idle is the ordinary finished agent",
 			status: statusIdle,
-			frame:  busyFrame,
 			want:   harness.ActivityIdle,
 		},
 		{
 			name:   "a shell left open under the session is the user's turn",
 			status: statusShell,
-			frame:  busyFrame,
 			want:   harness.ActivityIdle,
 		},
 	}
@@ -78,54 +69,38 @@ func TestReadActivityPrefersReportedStatus(t *testing.T) {
 			dir := t.TempDir()
 			writeStatus(t, dir, sessionFile{PID: 1234, SessionID: "sess", Status: tt.status})
 
-			reading := newTestHarness(t, dir).ReadActivity(harness.Observation{Frame: tt.frame, SessionID: "sess"})
+			reading := newTestHarness(t, dir).ReadActivity(harness.Observation{SessionID: "sess"})
 			assert.Equal(t, harness.Reading{Activity: tt.want, Reported: true}, reading)
 		})
 	}
 }
 
-// TestReadActivityFallsBackToTheFrame covers everything that leaves the status files
-// saying nothing about a conversation. All of it has to land on the frame, since the
-// format is undocumented and a build that stops writing it must not strand every agent.
-func TestReadActivityFallsBackToTheFrame(t *testing.T) {
+// TestReadActivityWithNoLiveSession covers a conversation no running process holds,
+// which is what a finished agent, a crashed one, and a launch that has not written its
+// first status yet all look like. Idle is the answer, left unreported so the
+// reconciler's debounce rules out the launch case before demoting anything.
+func TestReadActivityWithNoLiveSession(t *testing.T) {
 	tests := []struct {
 		name string
 		// file is the status file to write, or nil to leave the directory empty.
 		file *sessionFile
 		// alive answers whether the pid in that file names a running process.
 		alive bool
-		// sessionID is the conversation the agent is recorded against.
-		sessionID string
 	}{
 		{
-			name:      "no status file at all, which is a build too old to write them",
-			alive:     true,
-			sessionID: "sess",
+			name:  "no status file at all, which is the moment after a launch",
+			alive: true,
 		},
 		{
-			name:      "a file for somebody else's conversation",
-			file:      &sessionFile{PID: 1234, SessionID: "other", Status: statusIdle},
-			alive:     true,
-			sessionID: "sess",
+			name:  "a file for somebody else's conversation",
+			file:  &sessionFile{PID: 1234, SessionID: "other", Status: statusBusy},
+			alive: true,
 		},
 		{
-			name:      "an agent with no conversation yet",
-			file:      &sessionFile{PID: 1234, SessionID: "sess", Status: statusIdle},
-			alive:     true,
-			sessionID: "",
-		},
-		{
-			// Only a graceful exit removes the file, so a killed process leaves its
-			// last status behind to be believed.
-			name:      "a status left behind by a process that is gone",
-			file:      &sessionFile{PID: 1234, SessionID: "sess", Status: statusIdle},
-			sessionID: "sess",
-		},
-		{
-			name:      "a status this build does not know",
-			file:      &sessionFile{PID: 1234, SessionID: "sess", Status: "compacting"},
-			alive:     true,
-			sessionID: "sess",
+			// Only a graceful exit removes the file, so a process that was killed
+			// leaves its last status behind to be believed.
+			name: "a status left behind by a process that is gone",
+			file: &sessionFile{PID: 1234, SessionID: "sess", Status: statusBusy},
 		},
 	}
 
@@ -139,9 +114,40 @@ func TestReadActivityFallsBackToTheFrame(t *testing.T) {
 			h := newTestHarness(t, dir)
 			h.sessions.alive = func(int) bool { return tt.alive }
 
-			reading := h.ReadActivity(harness.Observation{Frame: busyFrame, SessionID: tt.sessionID})
-			assert.Equal(t, harness.Reading{Activity: harness.ActivityWorking}, reading,
-				"the frame decides, and an inferred verdict is never reported")
+			reading := h.ReadActivity(harness.Observation{SessionID: "sess"})
+			assert.Equal(t, harness.Reading{Activity: harness.ActivityIdle}, reading)
+		})
+	}
+}
+
+// TestReadActivityHoldsTheState covers the two cases where something is plainly running
+// but this build cannot say what it is doing. Calling either of them idle would report
+// live work as finished, so the agent keeps the state it already holds.
+func TestReadActivityHoldsTheState(t *testing.T) {
+	tests := []struct {
+		name      string
+		status    string
+		sessionID string
+	}{
+		{
+			name:      "an agent with no conversation recorded yet",
+			status:    statusBusy,
+			sessionID: "",
+		},
+		{
+			name:      "a status this build does not know",
+			status:    "compacting",
+			sessionID: "sess",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeStatus(t, dir, sessionFile{PID: 1234, SessionID: "sess", Status: tt.status})
+
+			reading := newTestHarness(t, dir).ReadActivity(harness.Observation{SessionID: tt.sessionID})
+			assert.Equal(t, harness.Reading{Activity: harness.ActivityUnknown}, reading)
 		})
 	}
 }
@@ -156,8 +162,7 @@ func TestReadActivitySurvivesJunk(t *testing.T) {
 	require.NoError(t, os.Mkdir(filepath.Join(dir, "nested.json"), 0o750))
 
 	for _, sessionsDir := range []string{dir, filepath.Join(dir, "gone")} {
-		h := newTestHarness(t, sessionsDir)
-		reading := h.ReadActivity(harness.Observation{Frame: idleFrame, SessionID: "sess"})
+		reading := newTestHarness(t, sessionsDir).ReadActivity(harness.Observation{SessionID: "sess"})
 		assert.Equal(t, harness.Reading{Activity: harness.ActivityIdle}, reading)
 	}
 }

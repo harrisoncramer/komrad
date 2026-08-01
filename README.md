@@ -25,6 +25,14 @@ set -g @plugin 'git@github.com:harrisoncramer/weave'
 
 See [installation](docs/install.md) for the full setup, including the panel key.
 
+## Do not clear a Claude agent
+
+Weave reads a Claude agent's state from the status file Claude Code keeps for each of its
+running processes, matched on the conversation weave named when it launched the agent.
+Resuming and compacting keep that conversation. Running `/clear` in an agent's pane starts
+a new one under an id weave has no way to learn, and that agent reports idle from then on
+however busy it is. Start a new agent instead.
+
 ## Documentation
 
 Concepts and guides:

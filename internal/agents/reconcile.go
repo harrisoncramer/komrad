@@ -9,10 +9,11 @@ import (
 )
 
 // reconcileMisses is how many consecutive idle observations a thinking agent must show
-// before it settles to idle, which guards against a capture landing on a redraw frame
-// between tool calls. It errs high, since wrongly demoting a live agent is worse than a
-// stale state lingering a few seconds. It applies only to a verdict inferred from a
-// frame: a CLI that reports its own idleness is not guessing and settles at once.
+// before it settles to idle, which guards against a capture landing on a redraw between
+// tool calls and against a CLI that has not published its state yet. It errs high, since
+// wrongly demoting a live agent is worse than a stale state lingering a few seconds. It
+// applies only to an inferred verdict: a CLI reporting its own idleness is not guessing
+// and settles at once.
 const reconcileMisses = 3
 
 // tmuxProbe is the part of the tmux client the reconciler observes through. It keys on the
@@ -23,8 +24,9 @@ type tmuxProbe interface {
 	CapturePane(pane string) string
 }
 
-// activityRegistry resolves the harness an agent is recorded against, since what a frame
-// means depends on which CLI drew it. A row naming one nothing implements settles nothing.
+// activityRegistry resolves the harness an agent is recorded against, since what an agent
+// is doing is read differently per CLI. A row naming one nothing implements settles
+// nothing.
 type activityRegistry interface {
 	Resolve(id string) (harness.Harness, error)
 }
