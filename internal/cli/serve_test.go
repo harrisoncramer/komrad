@@ -21,12 +21,26 @@ import (
 func passes(t *testing.T, level slog.Level, results []error) string {
 	t.Helper()
 
+	each := make([]func() error, 0, len(results))
+	for _, result := range results {
+		each = append(each, func() error { return result })
+	}
+
+	return drive(t, level, each)
+}
+
+// drive is passes over passes that do something other than return, which is how a test
+// supplies one that panics. A result cannot express a panic, so the sequence holds the
+// passes themselves.
+func drive(t *testing.T, level slog.Level, each []func() error) string {
+	t.Helper()
+
 	var out bytes.Buffer
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	remaining := results
+	remaining := each
 	done := make(chan struct{})
 
 	go func() {
@@ -42,10 +56,10 @@ func passes(t *testing.T, level slog.Level, results []error) string {
 					return nil
 				}
 
-				err := remaining[0]
+				pass := remaining[0]
 				remaining = remaining[1:]
 
-				return err
+				return pass()
 			},
 		})
 	}()
@@ -118,6 +132,38 @@ func TestLoopLogsRecovery(t *testing.T) {
 	require.Len(t, records, 2)
 	assert.Equal(t, "loop recovered", records[1]["body"])
 	assert.EqualValues(t, 2, records[1][logging.Repeats])
+}
+
+// TestLoopSurvivesAPanickingPass covers a pass that panics instead of returning. Go would
+// otherwise end the process over it, which freezes every agent's state at whatever the last
+// pass wrote, so the panic is taken as a failed pass and the next one runs. The stack is
+// asserted on because a panic value alone never says where it came from.
+func TestLoopSurvivesAPanickingPass(t *testing.T) {
+	written := drive(t, slog.LevelInfo, []func() error{
+		func() error { panic("assignment to entry in nil map") },
+		func() error { return nil },
+	})
+
+	records := logtest.Records(t, written)
+	require.Len(t, records, 2, "the panic and the pass that ran after it")
+	assert.Equal(t, "loop pass failed", records[0]["body"])
+	assert.Contains(t, records[0][logging.ErrorMessage], "assignment to entry in nil map")
+	assert.Contains(t, records[0][logging.StackTrace], "serve_test.go")
+	assert.Equal(t, "loop recovered", records[1]["body"])
+}
+
+// TestLoopFoldsARepeatingPanic covers a pass panicking the same way every time, which is
+// what a frame or a log one agent keeps producing looks like from in here. It folds through
+// the same path a repeating error does, so a two-second loop does not write the same stack
+// a thousand times over.
+func TestLoopFoldsARepeatingPanic(t *testing.T) {
+	panics := func() error { panic("index out of range [30] with length 6") }
+
+	written := drive(t, slog.LevelDebug, []func() error{panics, panics, panics})
+
+	assert.Equal(t, []string{
+		"loop pass failed", "loop still failing", "loop still failing", "loop recovered",
+	}, logtest.Bodies(t, written))
 }
 
 // TestServeLoggerRejectsAnUnknownLevel covers a level the config carries that slog has no
