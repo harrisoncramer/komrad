@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"weave/internal/appconfig"
 	"weave/internal/harness"
 )
 
@@ -31,15 +30,28 @@ type Launcher struct {
 	// serverAddr is where serve listens, which is also where the MCP endpoint
 	// lives. Agents are told about it at launch.
 	serverAddr string
+	// cacheDir is where a harness writes the temp files it passes a prompt through, and
+	// logPath is the service's log, which the briefing sends an agent to.
+	cacheDir string
+	logPath  string
 }
 
-// NewLauncher builds a launcher that points spawned agents at serverAddr.
-func NewLauncher(tmux launchTmux, serverAddr string) *Launcher {
-	if serverAddr == "" {
-		serverAddr = defaultServerAddr
+// LauncherParams is where a launcher reads the addresses and directories it hands on. Only
+// Tmux has no sensible zero, since a launcher with nowhere to type cannot launch.
+type LauncherParams struct {
+	Tmux     launchTmux
+	Addr     string
+	CacheDir string
+	LogPath  string
+}
+
+// NewLauncher builds a launcher that points spawned agents at the given address.
+func NewLauncher(p LauncherParams) *Launcher {
+	if p.Addr == "" {
+		p.Addr = defaultServerAddr
 	}
 
-	return &Launcher{tmux: tmux, serverAddr: serverAddr}
+	return &Launcher{tmux: p.Tmux, serverAddr: p.Addr, cacheDir: p.CacheDir, logPath: p.LogPath}
 }
 
 // briefingDoc is what every spawned agent is told about the panel running it: what it can
@@ -68,7 +80,7 @@ const logPathPlaceholder = "{{LOG_PATH}}"
 func (l *Launcher) briefing() string {
 	text := strings.ReplaceAll(briefingDoc, mcpURLPlaceholder, fmt.Sprintf("http://%s/mcp", l.serverAddr))
 
-	return strings.ReplaceAll(text, logPathPlaceholder, appconfig.LogPath())
+	return strings.ReplaceAll(text, logPathPlaceholder, l.logPath)
 }
 
 // appendedSystemPrompt is the standing briefing followed by the workflow's shared
@@ -105,6 +117,7 @@ func (l *Launcher) launch(h launchHarness, params launchParams) error {
 		SessionID:   params.SessionID,
 		AgentID:     params.AgentID,
 		MCPEndpoint: l.serverAddr,
+		CacheDir:    l.cacheDir,
 		Resume:      params.Resume,
 	})
 	if err != nil {

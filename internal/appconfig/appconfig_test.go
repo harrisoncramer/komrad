@@ -448,13 +448,3 @@ func TestLoadLogLevel(t *testing.T) {
 		})
 	}
 }
-
-// TestLogPathSitsBesideTheConfig covers where the service's log goes. The panel's log key
-// pages this exact path, so it is resolved from the panel's own directory rather than
-// anywhere the service would have to be told about.
-func TestLogPathSitsBesideTheConfig(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-
-	assert.Equal(t, filepath.Join(home, ".config", "weave", "weave.log"), LogPath())
-}

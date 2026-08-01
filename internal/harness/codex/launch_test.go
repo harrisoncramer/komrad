@@ -77,7 +77,10 @@ func TestBuildCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := New(Options{SessionsDir: t.TempDir()}).BuildCommand(tt.launch)
+			launch := tt.launch
+			launch.CacheDir = t.TempDir()
+
+			command, err := New(Options{SessionsDir: t.TempDir()}).BuildCommand(launch)
 			require.NoError(t, err)
 
 			for _, want := range tt.wantContain {
@@ -110,6 +113,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			command, err := New(Options{SessionsDir: t.TempDir()}).BuildCommand(harness.Launch{
+				CacheDir:    t.TempDir(),
 				SessionID:   "sess",
 				MCPEndpoint: "127.0.0.1:9999",
 				Resume:      tt.resume,
@@ -147,7 +151,7 @@ func TestBuildCommandQuotesFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := New(Options{SessionsDir: t.TempDir()}).BuildCommand(harness.Launch{Flags: tt.flags, Prompt: "go"})
+			command, err := New(Options{SessionsDir: t.TempDir()}).BuildCommand(harness.Launch{Flags: tt.flags, Prompt: "go", CacheDir: t.TempDir()})
 			require.NoError(t, err)
 
 			assert.NotContains(t, command, tt.wantAbsent, "an unquoted flag would run in the pane")
@@ -190,7 +194,10 @@ func TestOpeningPrompt(t *testing.T) {
 			harnessUnderTest := New(Options{SessionsDir: t.TempDir()})
 			assert.Equal(t, tt.want, harnessUnderTest.openingPrompt(tt.launch))
 
-			command, err := harnessUnderTest.BuildCommand(tt.launch)
+			launch := tt.launch
+			launch.CacheDir = t.TempDir()
+
+			command, err := harnessUnderTest.BuildCommand(launch)
 			require.NoError(t, err)
 
 			if tt.want == "" {
@@ -265,6 +272,7 @@ func TestTOMLString(t *testing.T) {
 // values still differ per agent.
 func TestMCPHeadersNameTheEnvironment(t *testing.T) {
 	command, err := New(Options{}).BuildCommand(harness.Launch{
+		CacheDir:    t.TempDir(),
 		AgentID:     "agent-1",
 		SessionID:   "sess-1",
 		MCPEndpoint: "127.0.0.1:9999",

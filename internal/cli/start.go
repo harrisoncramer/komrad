@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"weave/internal/appconfig"
-
 	"github.com/spf13/cobra"
 )
 
@@ -27,7 +25,7 @@ func startCmd(state *app) *cobra.Command {
 				return nil
 			}
 
-			if err := ensureServer(addr, selfPath(), appconfig.LogPath()); err != nil {
+			if err := ensureServer(addr, selfPath(), state.env.LogPath()); err != nil {
 				return err
 			}
 

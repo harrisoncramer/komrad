@@ -4,6 +4,8 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/caarlos0/env/v10"
 )
@@ -16,6 +18,7 @@ type Config struct {
 	TmuxSocket          string `env:"WEAVE_TMUX_SOCKET" envDefault:"weave"`
 	Editor              string `env:"EDITOR" envDefault:"vi"`
 	Tmux                string `env:"TMUX"`
+	CacheDir            string `env:"WEAVE_CACHE_DIR"`
 }
 
 // Load reads the panel's configuration from the environment.
@@ -25,5 +28,30 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
+	// Resolved here rather than as an envDefault, since the default names a directory that
+	// differs per machine and per platform.
+	if cfg.CacheDir == "" {
+		cfg.CacheDir = defaultCacheDir()
+	}
+
 	return cfg, nil
+}
+
+// LogPath is the file the background service writes to, resolved here for everything that
+// spawns the service, pages its log, or tells an agent where to read it, since a service
+// writing where nothing looks may as well not be writing.
+func (c *Config) LogPath() string {
+	return filepath.Join(c.CacheDir, "weave.log")
+}
+
+// defaultCacheDir is where weave keeps what it generates rather than what it is configured
+// with, falling back to the working directory when the user's cache directory cannot be
+// resolved at all.
+func defaultCacheDir() string {
+	dir, err := os.UserCacheDir()
+	if err != nil {
+		return "."
+	}
+
+	return filepath.Join(dir, "weave")
 }
