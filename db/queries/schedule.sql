@@ -4,7 +4,7 @@ SELECT
 FROM
     schedules s
 WHERE
-    s.is_deleted = FALSE
+    s.archived_at IS NULL
     AND (sqlc.narg('cursor_id')::uuid IS NULL
         OR s.id < sqlc.narg('cursor_id'))
 ORDER BY
@@ -17,7 +17,7 @@ SELECT
 FROM
     schedules s
 WHERE
-    s.is_deleted = FALSE
+    s.archived_at IS NULL
 ORDER BY
     s.id DESC;
 
@@ -28,7 +28,7 @@ FROM
     schedules s
 WHERE
     s.id = @id
-    AND s.is_deleted = FALSE
+    AND s.archived_at IS NULL
 LIMIT 1;
 
 -- name: InsertSchedule :one
@@ -64,7 +64,7 @@ SET
     workflow_id = @workflow_id
 WHERE
     id = @id
-    AND is_deleted = FALSE;
+    AND archived_at IS NULL;
 
 -- name: SetScheduleEnabled :exec
 UPDATE
@@ -73,15 +73,16 @@ SET
     enabled = @enabled
 WHERE
     id = @id
-    AND is_deleted = FALSE;
+    AND archived_at IS NULL;
 
--- name: MarkScheduleDeleted :exec
+-- name: MarkScheduleArchived :exec
 UPDATE
     schedules
 SET
-    is_deleted = TRUE
+    archived_at = NOW()
 WHERE
-    id = @id;
+    id = @id
+    AND archived_at IS NULL;
 
 -- name: CountLiveWorkflowSchedules :one
 SELECT
@@ -90,4 +91,4 @@ FROM
     schedules
 WHERE
     workflow_id = @workflow_id
-    AND is_deleted = FALSE;
+    AND archived_at IS NULL;

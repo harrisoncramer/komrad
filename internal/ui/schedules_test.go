@@ -57,9 +57,9 @@ func TestScheduleKeys(t *testing.T) {
 			wantScreen: screenScheduleForm,
 		},
 		{
-			name:       "delete opens the confirm prompt",
-			key:        "d",
-			wantScreen: screenScheduleDelete,
+			name:       "archive opens the confirm prompt",
+			key:        "z",
+			wantScreen: screenScheduleArchive,
 		},
 		{
 			name:       "toggle writes straight through, with no form in between",
@@ -74,9 +74,9 @@ func TestScheduleKeys(t *testing.T) {
 			wantScreen: screenSchedules,
 		},
 		{
-			name:       "delete on an empty list does nothing",
+			name:       "archive on an empty list does nothing",
 			empty:      true,
-			key:        "d",
+			key:        "z",
 			wantScreen: screenSchedules,
 		},
 		{
@@ -212,7 +212,7 @@ func TestScheduleMarkdown(t *testing.T) {
 		name string
 		item scheduleItem
 		// workflow is what the schedule launches into, nil for one whose workflow
-		// has been deleted.
+		// has been archived.
 		workflow *workflowstore.Workflow
 		wants    []string
 		notWants []string
@@ -250,11 +250,11 @@ func TestScheduleMarkdown(t *testing.T) {
 			},
 		},
 		{
-			// The schedule keeps its workflow id after the workflow is deleted, so
+			// The schedule keeps its workflow id after the workflow is archived, so
 			// this has to read as gone rather than render a blank directory.
-			name:  "a schedule whose workflow was deleted says so",
+			name:  "a schedule whose workflow was archived says so",
 			item:  scheduleItem{schedule: schedulestore.Schedule{Name: "orphan", Cron: "0 9 * * *", Enabled: true}},
-			wants: []string{"orphan", "deleted"},
+			wants: []string{"orphan", "archived"},
 		},
 	}
 
@@ -488,7 +488,7 @@ func (f *fakeSchedules) SetScheduleEnabled(context.Context, *connect.Request[sch
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (f *fakeSchedules) DeleteSchedule(context.Context, *connect.Request[schedulev1.DeleteScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
+func (f *fakeSchedules) ArchiveSchedule(context.Context, *connect.Request[schedulev1.ArchiveScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
 	f.writes++
 	if f.err != nil {
 		return nil, f.err

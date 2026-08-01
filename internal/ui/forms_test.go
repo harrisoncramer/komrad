@@ -226,18 +226,18 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the schedule delete prompt",
 			open: func(m model) model {
-				m.target.deleteSchedule = &schedulestore.Schedule{ID: "s1", Name: "sweeper"}
-				m.screen = screenScheduleDelete
-				m.form, m.values.confirmed = deleteScheduleForm("sweeper", m.keys.Form)
+				m.target.archiveSchedule = &schedulestore.Schedule{ID: "s1", Name: "sweeper"}
+				m.screen = screenScheduleArchive
+				m.form, m.values.confirmed = archiveScheduleForm("sweeper", m.keys.Form)
 				*m.values.confirmed = true
 				m.form.State = huh.StateCompleted
 
 				return m
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateScheduleDelete(keyMsg("enter")) },
+			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateScheduleArchive(keyMsg("enter")) },
 			check: func(t *testing.T, sent *formRecorder) {
-				require.NotNil(t, sent.deletedSchedule)
-				assert.Equal(t, "s1", sent.deletedSchedule.GetId())
+				require.NotNil(t, sent.archivedSchedule)
+				assert.Equal(t, "s1", sent.archivedSchedule.GetId())
 			},
 		},
 		{
@@ -373,7 +373,7 @@ type formRecorder struct {
 	archivedWorkflow *workflowv1.ArchiveWorkflowRequest
 	createdSchedule  *schedulev1.CreateScheduleRequest
 	updatedSchedule  *schedulev1.UpdateScheduleRequest
-	deletedSchedule  *schedulev1.DeleteScheduleRequest
+	archivedSchedule *schedulev1.ArchiveScheduleRequest
 }
 
 func (f *formRecorder) ListAgents(context.Context, *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
@@ -436,8 +436,8 @@ func (f *formRecorder) UpdateSchedule(_ context.Context, req *connect.Request[sc
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (f *formRecorder) DeleteSchedule(_ context.Context, req *connect.Request[schedulev1.DeleteScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
-	f.deletedSchedule = req.Msg
+func (f *formRecorder) ArchiveSchedule(_ context.Context, req *connect.Request[schedulev1.ArchiveScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
+	f.archivedSchedule = req.Msg
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }

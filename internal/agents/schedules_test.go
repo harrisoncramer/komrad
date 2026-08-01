@@ -344,7 +344,7 @@ func TestScheduleNotFound(t *testing.T) {
 		{
 			name: "deleting",
 			call: func(t *testing.T, svc *ScheduleService) error {
-				return svc.DeleteSchedule(t.Context(), missingScheduleID)
+				return svc.ArchiveSchedule(t.Context(), missingScheduleID)
 			},
 		},
 	}

@@ -16,7 +16,7 @@ FROM
     schedules
 WHERE
     workflow_id = $1
-    AND is_deleted = FALSE
+    AND archived_at IS NULL
 `
 
 func (q *Queries) CountLiveWorkflowSchedules(ctx context.Context, workflowID string) (int64, error) {
@@ -28,12 +28,12 @@ func (q *Queries) CountLiveWorkflowSchedules(ctx context.Context, workflowID str
 
 const getSchedule = `-- name: GetSchedule :one
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.prompt, s.workflow_id, s.is_deleted, s.created_at, s.updated_at, s.hide_agents
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.prompt, s.workflow_id, s.created_at, s.updated_at, s.hide_agents, s.archived_at
 FROM
     schedules s
 WHERE
     s.id = $1
-    AND s.is_deleted = FALSE
+    AND s.archived_at IS NULL
 LIMIT 1
 `
 
@@ -52,10 +52,10 @@ func (q *Queries) GetSchedule(ctx context.Context, id string) (*GetScheduleRow, 
 		&i.Schedule.Enabled,
 		&i.Schedule.Prompt,
 		&i.Schedule.WorkflowID,
-		&i.Schedule.IsDeleted,
 		&i.Schedule.CreatedAt,
 		&i.Schedule.UpdatedAt,
 		&i.Schedule.HideAgents,
+		&i.Schedule.ArchivedAt,
 	)
 	return &i, err
 }
@@ -78,7 +78,7 @@ VALUES (
     $6,
     $7)
 RETURNING
-    id, name, cron, timezone, enabled, prompt, workflow_id, is_deleted, created_at, updated_at, hide_agents
+    id, name, cron, timezone, enabled, prompt, workflow_id, created_at, updated_at, hide_agents, archived_at
 `
 
 type InsertScheduleParams struct {
@@ -110,21 +110,21 @@ func (q *Queries) InsertSchedule(ctx context.Context, arg InsertScheduleParams) 
 		&i.Enabled,
 		&i.Prompt,
 		&i.WorkflowID,
-		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.HideAgents,
+		&i.ArchivedAt,
 	)
 	return &i, err
 }
 
 const listSchedules = `-- name: ListSchedules :many
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.prompt, s.workflow_id, s.is_deleted, s.created_at, s.updated_at, s.hide_agents
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.prompt, s.workflow_id, s.created_at, s.updated_at, s.hide_agents, s.archived_at
 FROM
     schedules s
 WHERE
-    s.is_deleted = FALSE
+    s.archived_at IS NULL
 ORDER BY
     s.id DESC
 `
@@ -150,10 +150,10 @@ func (q *Queries) ListSchedules(ctx context.Context) ([]*ListSchedulesRow, error
 			&i.Schedule.Enabled,
 			&i.Schedule.Prompt,
 			&i.Schedule.WorkflowID,
-			&i.Schedule.IsDeleted,
 			&i.Schedule.CreatedAt,
 			&i.Schedule.UpdatedAt,
 			&i.Schedule.HideAgents,
+			&i.Schedule.ArchivedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -167,11 +167,11 @@ func (q *Queries) ListSchedules(ctx context.Context) ([]*ListSchedulesRow, error
 
 const listSchedulesPage = `-- name: ListSchedulesPage :many
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.prompt, s.workflow_id, s.is_deleted, s.created_at, s.updated_at, s.hide_agents
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.prompt, s.workflow_id, s.created_at, s.updated_at, s.hide_agents, s.archived_at
 FROM
     schedules s
 WHERE
-    s.is_deleted = FALSE
+    s.archived_at IS NULL
     AND ($1::uuid IS NULL
         OR s.id < $1)
 ORDER BY
@@ -205,10 +205,10 @@ func (q *Queries) ListSchedulesPage(ctx context.Context, arg ListSchedulesPagePa
 			&i.Schedule.Enabled,
 			&i.Schedule.Prompt,
 			&i.Schedule.WorkflowID,
-			&i.Schedule.IsDeleted,
 			&i.Schedule.CreatedAt,
 			&i.Schedule.UpdatedAt,
 			&i.Schedule.HideAgents,
+			&i.Schedule.ArchivedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -220,17 +220,18 @@ func (q *Queries) ListSchedulesPage(ctx context.Context, arg ListSchedulesPagePa
 	return items, nil
 }
 
-const markScheduleDeleted = `-- name: MarkScheduleDeleted :exec
+const markScheduleArchived = `-- name: MarkScheduleArchived :exec
 UPDATE
     schedules
 SET
-    is_deleted = TRUE
+    archived_at = NOW()
 WHERE
     id = $1
+    AND archived_at IS NULL
 `
 
-func (q *Queries) MarkScheduleDeleted(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, markScheduleDeleted, id)
+func (q *Queries) MarkScheduleArchived(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, markScheduleArchived, id)
 	return err
 }
 
@@ -241,7 +242,7 @@ SET
     enabled = $1
 WHERE
     id = $2
-    AND is_deleted = FALSE
+    AND archived_at IS NULL
 `
 
 type SetScheduleEnabledParams struct {
@@ -267,7 +268,7 @@ SET
     workflow_id = $7
 WHERE
     id = $8
-    AND is_deleted = FALSE
+    AND archived_at IS NULL
 `
 
 type UpdateScheduleParams struct {

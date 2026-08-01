@@ -26,7 +26,7 @@ type scheduleManager interface {
 	NewSchedule(ctx context.Context, cfg schedulestore.Config) (*schedulestore.Schedule, error)
 	UpdateSchedule(ctx context.Context, id string, cfg schedulestore.Config) error
 	SetScheduleEnabled(ctx context.Context, id string, enabled bool) error
-	DeleteSchedule(ctx context.Context, id string) error
+	ArchiveSchedule(ctx context.Context, id string) error
 }
 
 // scheduleLister is the read side, kept separate because listing pages straight
@@ -155,14 +155,14 @@ func (s *Service) SetScheduleEnabled(ctx context.Context, req *connect.Request[s
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// DeleteSchedule stops a schedule from firing again.
-func (s *Service) DeleteSchedule(ctx context.Context, req *connect.Request[schedulev1.DeleteScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
-	err := s.schedules.DeleteSchedule(ctx, req.Msg.GetId())
+// ArchiveSchedule stops a schedule from firing again.
+func (s *Service) ArchiveSchedule(ctx context.Context, req *connect.Request[schedulev1.ArchiveScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
+	err := s.schedules.ArchiveSchedule(ctx, req.Msg.GetId())
 	switch {
 	case errors.Is(err, agents.ErrScheduleNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no schedule with id %q", req.Msg.GetId()))
 	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete schedule: %w", err))
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to archive schedule: %w", err))
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

@@ -125,10 +125,10 @@ func (s *ScheduleService) SetScheduleEnabled(ctx context.Context, id string, ena
 	return nil
 }
 
-// DeleteSchedule stops a schedule from firing again. The agents it already launched are
+// ArchiveSchedule stops a schedule from firing again. The agents it already launched are
 // left alone, since they are real conversations, each still recording the schedule that
 // made it.
-func (s *ScheduleService) DeleteSchedule(ctx context.Context, id string) error {
+func (s *ScheduleService) ArchiveSchedule(ctx context.Context, id string) error {
 	existing, err := s.GetSchedule(ctx, id)
 	if err != nil {
 		return err
@@ -138,7 +138,7 @@ func (s *ScheduleService) DeleteSchedule(ctx context.Context, id string) error {
 	}
 
 	if err := s.store.Archive(ctx, id); err != nil {
-		return fmt.Errorf("failed to delete schedule %q: %w", id, err)
+		return fmt.Errorf("failed to archive schedule %q: %w", id, err)
 	}
 
 	return nil
@@ -149,7 +149,7 @@ func (s *ScheduleService) DeleteSchedule(ctx context.Context, id string) error {
 //
 // The foreign key is not enough. It reports a missing id as a constraint failure rather
 // than the caller's mistake, and it cannot catch the case that matters more: a workflow is
-// only soft-deleted, so a deleted one still satisfies the constraint while every read of
+// only ever archived, so an archived one still satisfies the constraint while every read of
 // it comes back empty, leaving the schedule armed and launching nothing.
 func (s *ScheduleService) requireWorkflow(ctx context.Context, workflowID string) error {
 	wf, err := s.workflows.Get(ctx, workflowID)

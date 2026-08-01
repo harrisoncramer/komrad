@@ -210,7 +210,7 @@ func TestGetSchedule(t *testing.T) {
 				id = createSchedule(t, svc, workflow, "morning-ci")
 			}
 			if tt.create && tt.wantCode == connect.CodeNotFound {
-				_, err := svc.DeleteSchedule(ctx, connect.NewRequest(&schedulev1.DeleteScheduleRequest{Id: id}))
+				_, err := svc.ArchiveSchedule(ctx, connect.NewRequest(&schedulev1.ArchiveScheduleRequest{Id: id}))
 				require.NoError(t, err)
 			}
 
@@ -348,7 +348,7 @@ func TestSetScheduleEnabled(t *testing.T) {
 	}
 }
 
-func TestDeleteSchedule(t *testing.T) {
+func TestArchiveSchedule(t *testing.T) {
 	tests := []struct {
 		name     string
 		target   string
@@ -375,7 +375,7 @@ func TestDeleteSchedule(t *testing.T) {
 				target = id
 			}
 
-			_, err := svc.DeleteSchedule(ctx, connect.NewRequest(&schedulev1.DeleteScheduleRequest{Id: target}))
+			_, err := svc.ArchiveSchedule(ctx, connect.NewRequest(&schedulev1.ArchiveScheduleRequest{Id: target}))
 			if tt.wantCode != 0 {
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 				return

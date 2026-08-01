@@ -137,19 +137,20 @@ archive = ["z"]
 # The schedules screen, and the key that opens it from the agents list.
 [keybindings.schedules]
 # Open the schedules screen from the agents list.
-open   = ["s"]
+open    = ["s"]
 # Quit the panel.
-quit   = ["ctrl+c"]
+quit    = ["ctrl+c"]
 # Leave the schedules screen for the agents list.
-back   = ["esc"]
+back    = ["esc"]
 # Write a new schedule.
-new    = ["n"]
+new     = ["n"]
 # Edit the schedule under the cursor.
-edit   = ["enter"]
+edit    = ["enter"]
 # Pause or resume the schedule under the cursor.
-toggle = [" "]
-# Delete the schedule under the cursor. The agents it launched are kept.
-delete = ["d"]
+toggle  = [" "]
+# Archive the schedule under the cursor, which stops it firing. The agents it
+# launched are kept, and nothing brings the schedule back.
+archive = ["z"]
 
 # The archive screen, and the key that opens it from the agents list.
 [keybindings.archive]

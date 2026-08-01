@@ -140,8 +140,9 @@ type SchedulesKeys struct {
 	Edit []string `mapstructure:"edit"`
 	// Pause or resume the schedule under the cursor.
 	Toggle []string `mapstructure:"toggle"`
-	// Delete the schedule under the cursor. The agents it launched are kept.
-	Delete []string `mapstructure:"delete"`
+	// Archive the schedule under the cursor, which stops it firing. The agents it
+	// launched are kept, and nothing brings the schedule back.
+	Archive []string `mapstructure:"archive"`
 }
 
 // ArchiveKeys are the bindings for the archive screen, which lists the agents
@@ -418,13 +419,13 @@ func DefaultKeybindings() Keybindings {
 			Archive: []string{"z"},
 		},
 		Schedules: SchedulesKeys{
-			Open:   []string{"s"},
-			Quit:   []string{"ctrl+c"},
-			Back:   []string{"esc"},
-			New:    []string{"n"},
-			Edit:   []string{"enter"},
-			Toggle: []string{" "},
-			Delete: []string{"d"},
+			Open:    []string{"s"},
+			Quit:    []string{"ctrl+c"},
+			Back:    []string{"esc"},
+			New:     []string{"n"},
+			Edit:    []string{"enter"},
+			Toggle:  []string{" "},
+			Archive: []string{"z"},
 		},
 		Archive: ArchiveKeys{
 			Open:    []string{"Z"},

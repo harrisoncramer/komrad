@@ -202,7 +202,7 @@ func (s *Store) Archive(ctx context.Context, id string) error {
 		return nil
 	}
 
-	if err := s.queries.MarkWorkflowDeleted(ctx, id); err != nil {
+	if err := s.queries.MarkWorkflowArchived(ctx, id); err != nil {
 		return fmt.Errorf("failed to archive workflow %q: %w", id, err)
 	}
 

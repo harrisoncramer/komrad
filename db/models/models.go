@@ -65,10 +65,10 @@ type Schedule struct {
 	Enabled    bool
 	Prompt     string
 	WorkflowID string
-	IsDeleted  bool
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 	HideAgents bool
+	ArchivedAt *time.Time
 }
 
 // A named bucket of related agents. Pure organization; runs nothing.
@@ -77,11 +77,11 @@ type Workflow struct {
 	Name             string
 	Context          string
 	WorkflowConfigID string
-	IsDeleted        bool
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	SetupAction      string
 	CleanupAction    string
+	ArchivedAt       *time.Time
 }
 
 // Default config (harness, cwd, flags) seeded into new agents of a workflow.

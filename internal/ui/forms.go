@@ -37,7 +37,7 @@ type formTarget struct {
 	editWorkflow     *workflowstore.Workflow
 	archiveWorkflow  *workflowstore.Workflow
 	editSchedule     *schedulestore.Schedule
-	deleteSchedule   *schedulestore.Schedule
+	archiveSchedule  *schedulestore.Schedule
 	deleteAgent      *agentstore.Agent
 }
 
@@ -122,7 +122,7 @@ func confirmForm(title, description, affirmative string, keys appconfig.FormKeys
 func (s screen) isForm() bool {
 	switch s {
 	case screenForm, screenRename, screenWorkflowForm, screenWorkflowArchive,
-		screenScheduleForm, screenScheduleDelete, screenArchiveDelete:
+		screenScheduleForm, screenScheduleArchive, screenArchiveDelete:
 		return true
 	default:
 		return false
@@ -239,13 +239,13 @@ func scheduleForm(cfg schedulestore.Config, workflows []workflowstore.Workflow, 
 	return form, &values
 }
 
-// deleteScheduleForm confirms a delete, saying the agents it already launched are kept so
-// the choice is not read as bigger than it is.
-func deleteScheduleForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool) {
+// archiveScheduleForm confirms an archive, saying the agents it already launched are kept
+// so the choice is not read as bigger than it is.
+func archiveScheduleForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool) {
 	return confirmForm(
-		fmt.Sprintf("Delete schedule %q?", name),
-		"The agents it already launched are kept.",
-		"Delete",
+		fmt.Sprintf("Archive schedule %q?", name),
+		"The agents it already launched are kept, and nothing brings the schedule back.",
+		"Archive",
 		keys,
 	)
 }

@@ -197,7 +197,7 @@ func (s *Store) Archive(ctx context.Context, id string) error {
 		return nil
 	}
 
-	if err := s.queries.MarkScheduleDeleted(ctx, id); err != nil {
+	if err := s.queries.MarkScheduleArchived(ctx, id); err != nil {
 		return fmt.Errorf("failed to archive schedule %q: %w", id, err)
 	}
 

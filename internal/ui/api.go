@@ -207,12 +207,13 @@ func (a api) setScheduleEnabled(id string, enabled bool) error {
 	return err
 }
 
-// deleteSchedule removes a schedule. The agents it launched are left alone.
-func (a api) deleteSchedule(id string) error {
+// archiveSchedule hides a schedule, which stops it firing. The agents it launched are
+// left alone.
+func (a api) archiveSchedule(id string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	_, err := a.schedules.DeleteSchedule(ctx, connect.NewRequest(&schedulev1.DeleteScheduleRequest{Id: id}))
+	_, err := a.schedules.ArchiveSchedule(ctx, connect.NewRequest(&schedulev1.ArchiveScheduleRequest{Id: id}))
 
 	return err
 }

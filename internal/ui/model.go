@@ -39,7 +39,7 @@ const (
 	screenSearch
 	screenSchedules
 	screenScheduleForm
-	screenScheduleDelete
+	screenScheduleArchive
 	screenArchive
 	screenArchiveDelete
 	screenActions
