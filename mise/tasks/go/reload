@@ -46,6 +46,6 @@ fi
 # Respawning the pane restarts the panel in place, keeping the session and the environment
 # open recorded on it. The panel clears its own window and spawns serve as it starts, so
 # both come back on the current binary with the agents left running.
-tmux -L "$socket" respawn-pane -k -t "$panel_pane" -c "$MISE_CONFIG_ROOT" "$weave"
+tmux -L "$socket" respawn-pane -k -t "$panel_pane" -c "$MISE_CONFIG_ROOT" "$weave panel"
 
 echo "restarted the panel and its serve from the current binary; agents were left running"

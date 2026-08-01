@@ -28,6 +28,7 @@ func openCmd(state *app) *cobra.Command {
 		Use:           "open",
 		Short:         "Open the manager popup (create or attach its persistent session)",
 		Args:          cobra.ArbitraryArgs,
+		Hidden:        true,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(_ *cobra.Command, _ []string) error {
@@ -93,7 +94,7 @@ func ensureManagerSession(state *app) error {
 		"-e", "DATABASE_URL="+state.env.DatabaseURL,
 		"-e", "WEAVE_ADDR="+state.env.Addr,
 		"-e", "EDITOR="+state.env.Editor,
-		"--", selfPath(),
+		"--", selfPath(), "panel",
 	)
 	cmd.Stderr = os.Stderr
 

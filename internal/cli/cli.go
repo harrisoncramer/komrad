@@ -8,7 +8,6 @@ package cli
 
 import (
 	"fmt"
-	"net/http"
 
 	"weave/config"
 	"weave/internal/agents"
@@ -18,10 +17,6 @@ import (
 	"weave/internal/harness/codex"
 	"weave/internal/tmux"
 	"weave/internal/ui"
-	"weave/proto/gen/action/v1/actionv1connect"
-	"weave/proto/gen/agent/v1/agentv1connect"
-	"weave/proto/gen/schedule/v1/schedulev1connect"
-	"weave/proto/gen/workflow/v1/workflowv1connect"
 
 	"github.com/spf13/cobra"
 )
@@ -100,54 +95,12 @@ func NewRootCommand() *cobra.Command {
 
 			return nil
 		},
-		RunE: func(_ *cobra.Command, _ []string) error {
-			// A server that will not start is carried into the panel and shown on its
-			// error screen for the same reason a bad config is. This process is the
-			// command of the tmux session behind the popup, so returning here ends that
-			// session, and tmux tears its pane down with the message still on it. The
-			// popup then closes on a success it never had, leaving nothing on screen to
-			// say a database was unreachable.
-			logPath := appconfig.LogPath()
-			startupErr := ensureServer(state.env.Addr, selfPath(), logPath)
-
-			base := "http://" + state.env.Addr
-			agentClient := agentv1connect.NewAgentServiceClient(http.DefaultClient, base)
-			workflowClient := workflowv1connect.NewWorkflowServiceClient(http.DefaultClient, base)
-			scheduleClient := schedulev1connect.NewScheduleServiceClient(http.DefaultClient, base)
-			actionClient := actionv1connect.NewActionServiceClient(http.DefaultClient, base)
-
-			// Drop this tmux session's status bar so the panel and its stage pane
-			// fill the popup without a footer beneath them.
-			state.popup.SilenceStatus(agents.ManagerSession)
-
-			// This process runs inside the persistent manager tmux session and never
-			// exits on its own. The close and quit keys detach the popup rather than
-			// quit, so the panel stays one long-lived program with its state
-			// preserved between opens. Run returns only on a real error.
-			return ui.Run(ui.Deps{
-				Popup:      state.popup,
-				Tmux:       state.tmux,
-				Agents:     agentClient,
-				Workflows:  workflowClient,
-				Schedules:  scheduleClient,
-				Keys:       state.keys,
-				Actions:    actionClient,
-				Marks:      state.marks,
-				Layout:     state.layout,
-				Addr:       state.env.Addr,
-				Editor:     state.env.Editor,
-				LogPath:    logPath,
-				LogViewer:  state.logViewer,
-				Binary:     selfPath(),
-				ConfigErr:  state.configErr,
-				StartupErr: startupErr,
-			})
-		},
 	}
 
 	root.PersistentFlags().StringVar(&configPath, "config", "", "path to config TOML")
 	root.AddCommand(
 		logsCmd(),
+		panelCmd(state),
 		openCmd(state),
 		hideCmd(state),
 		serveCmd(state),

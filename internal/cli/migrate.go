@@ -15,6 +15,7 @@ func migrateCmd(state *app) *cobra.Command {
 		Use:           "migrate",
 		Short:         "apply any pending database migrations",
 		Args:          cobra.NoArgs,
+		Hidden:        true,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
