@@ -49,6 +49,9 @@ const (
 	// WorkflowServiceArchiveWorkflowProcedure is the fully-qualified name of the WorkflowService's
 	// ArchiveWorkflow RPC.
 	WorkflowServiceArchiveWorkflowProcedure = "/workflow.v1.WorkflowService/ArchiveWorkflow"
+	// WorkflowServiceRestoreWorkflowProcedure is the fully-qualified name of the WorkflowService's
+	// RestoreWorkflow RPC.
+	WorkflowServiceRestoreWorkflowProcedure = "/workflow.v1.WorkflowService/RestoreWorkflow"
 )
 
 // WorkflowServiceClient is a client for the workflow.v1.WorkflowService service.
@@ -58,6 +61,7 @@ type WorkflowServiceClient interface {
 	CreateWorkflow(context.Context, *connect.Request[v1.CreateWorkflowRequest]) (*connect.Response[v1.CreateWorkflowResponse], error)
 	UpdateWorkflow(context.Context, *connect.Request[v1.UpdateWorkflowRequest]) (*connect.Response[emptypb.Empty], error)
 	ArchiveWorkflow(context.Context, *connect.Request[v1.ArchiveWorkflowRequest]) (*connect.Response[emptypb.Empty], error)
+	RestoreWorkflow(context.Context, *connect.Request[v1.RestoreWorkflowRequest]) (*connect.Response[v1.RestoreWorkflowResponse], error)
 }
 
 // NewWorkflowServiceClient constructs a client for the workflow.v1.WorkflowService service. By
@@ -105,6 +109,13 @@ func NewWorkflowServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
+		restoreWorkflow: connect.NewClient[v1.RestoreWorkflowRequest, v1.RestoreWorkflowResponse](
+			httpClient,
+			baseURL+WorkflowServiceRestoreWorkflowProcedure,
+			connect.WithSchema(workflowServiceMethods.ByName("RestoreWorkflow")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -115,6 +126,7 @@ type workflowServiceClient struct {
 	createWorkflow  *connect.Client[v1.CreateWorkflowRequest, v1.CreateWorkflowResponse]
 	updateWorkflow  *connect.Client[v1.UpdateWorkflowRequest, emptypb.Empty]
 	archiveWorkflow *connect.Client[v1.ArchiveWorkflowRequest, emptypb.Empty]
+	restoreWorkflow *connect.Client[v1.RestoreWorkflowRequest, v1.RestoreWorkflowResponse]
 }
 
 // ListWorkflows calls workflow.v1.WorkflowService.ListWorkflows.
@@ -142,6 +154,11 @@ func (c *workflowServiceClient) ArchiveWorkflow(ctx context.Context, req *connec
 	return c.archiveWorkflow.CallUnary(ctx, req)
 }
 
+// RestoreWorkflow calls workflow.v1.WorkflowService.RestoreWorkflow.
+func (c *workflowServiceClient) RestoreWorkflow(ctx context.Context, req *connect.Request[v1.RestoreWorkflowRequest]) (*connect.Response[v1.RestoreWorkflowResponse], error) {
+	return c.restoreWorkflow.CallUnary(ctx, req)
+}
+
 // WorkflowServiceHandler is an implementation of the workflow.v1.WorkflowService service.
 type WorkflowServiceHandler interface {
 	ListWorkflows(context.Context, *connect.Request[v1.ListWorkflowsRequest]) (*connect.Response[v1.ListWorkflowsResponse], error)
@@ -149,6 +166,7 @@ type WorkflowServiceHandler interface {
 	CreateWorkflow(context.Context, *connect.Request[v1.CreateWorkflowRequest]) (*connect.Response[v1.CreateWorkflowResponse], error)
 	UpdateWorkflow(context.Context, *connect.Request[v1.UpdateWorkflowRequest]) (*connect.Response[emptypb.Empty], error)
 	ArchiveWorkflow(context.Context, *connect.Request[v1.ArchiveWorkflowRequest]) (*connect.Response[emptypb.Empty], error)
+	RestoreWorkflow(context.Context, *connect.Request[v1.RestoreWorkflowRequest]) (*connect.Response[v1.RestoreWorkflowResponse], error)
 }
 
 // NewWorkflowServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -192,6 +210,13 @@ func NewWorkflowServiceHandler(svc WorkflowServiceHandler, opts ...connect.Handl
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
+	workflowServiceRestoreWorkflowHandler := connect.NewUnaryHandler(
+		WorkflowServiceRestoreWorkflowProcedure,
+		svc.RestoreWorkflow,
+		connect.WithSchema(workflowServiceMethods.ByName("RestoreWorkflow")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/workflow.v1.WorkflowService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case WorkflowServiceListWorkflowsProcedure:
@@ -204,6 +229,8 @@ func NewWorkflowServiceHandler(svc WorkflowServiceHandler, opts ...connect.Handl
 			workflowServiceUpdateWorkflowHandler.ServeHTTP(w, r)
 		case WorkflowServiceArchiveWorkflowProcedure:
 			workflowServiceArchiveWorkflowHandler.ServeHTTP(w, r)
+		case WorkflowServiceRestoreWorkflowProcedure:
+			workflowServiceRestoreWorkflowHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -231,4 +258,8 @@ func (UnimplementedWorkflowServiceHandler) UpdateWorkflow(context.Context, *conn
 
 func (UnimplementedWorkflowServiceHandler) ArchiveWorkflow(context.Context, *connect.Request[v1.ArchiveWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("workflow.v1.WorkflowService.ArchiveWorkflow is not implemented"))
+}
+
+func (UnimplementedWorkflowServiceHandler) RestoreWorkflow(context.Context, *connect.Request[v1.RestoreWorkflowRequest]) (*connect.Response[v1.RestoreWorkflowResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("workflow.v1.WorkflowService.RestoreWorkflow is not implemented"))
 }

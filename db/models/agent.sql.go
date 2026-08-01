@@ -569,6 +569,56 @@ func (q *Queries) ListAllAgents(ctx context.Context) ([]*Agent, error) {
 	return items, nil
 }
 
+const listArchivedWorkflowAgents = `-- name: ListArchivedWorkflowAgents :many
+SELECT
+    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, created_at, updated_at, mark, is_hidden, cwd, flags, harness, archived_at
+FROM
+    agents
+WHERE
+    workflow_id = $1
+    AND archived_at IS NOT NULL
+ORDER BY
+    id DESC
+`
+
+func (q *Queries) ListArchivedWorkflowAgents(ctx context.Context, workflowID string) ([]*Agent, error) {
+	rows, err := q.db.Query(ctx, listArchivedWorkflowAgents, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Agent
+	for rows.Next() {
+		var i Agent
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Prompt,
+			&i.PaneID,
+			&i.State,
+			&i.SessionID,
+			&i.WorkflowID,
+			&i.ScheduleID,
+			&i.IdempotencyKey,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Mark,
+			&i.IsHidden,
+			&i.Cwd,
+			&i.Flags,
+			&i.Harness,
+			&i.ArchivedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markAgentArchived = `-- name: MarkAgentArchived :exec
 UPDATE
     agents
@@ -597,6 +647,22 @@ WHERE
 
 func (q *Queries) MarkWorkflowAgentsArchived(ctx context.Context, workflowID string) error {
 	_, err := q.db.Exec(ctx, markWorkflowAgentsArchived, workflowID)
+	return err
+}
+
+const markWorkflowAgentsRestored = `-- name: MarkWorkflowAgentsRestored :exec
+UPDATE
+    agents
+SET
+    is_hidden = FALSE,
+    archived_at = NULL
+WHERE
+    workflow_id = $1
+    AND archived_at IS NOT NULL
+`
+
+func (q *Queries) MarkWorkflowAgentsRestored(ctx context.Context, workflowID string) error {
+	_, err := q.db.Exec(ctx, markWorkflowAgentsRestored, workflowID)
 	return err
 }
 

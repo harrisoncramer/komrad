@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
 	"weave/internal/store/workflow"
@@ -982,23 +983,22 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 	})
 }
 
-// TestRestore covers bringing an archived agent back. It returns as a row and
-// nothing else, and its name may have been taken while it sat hidden, in which
-// case restoring under that name would collide on the unique index.
+// TestRestore covers bringing an archived agent back. It returns as a row and nothing
+// else, and a name taken while it sat hidden is refused rather than worked around, since
+// which of the two agents keeps the name is the user's to decide.
 func TestRestore(t *testing.T) {
 	tests := []struct {
-		name         string
-		reuseName    bool
-		wantSameName bool
+		name      string
+		reuseName bool
+		wantErrIs error
 	}{
 		{
-			name:         "a name taken since is stepped past",
-			reuseName:    true,
-			wantSameName: false,
+			name:      "a name taken since is refused",
+			reuseName: true,
+			wantErrIs: store.ErrNameTaken,
 		},
 		{
-			name:         "a free name is kept",
-			wantSameName: true,
+			name: "a free name is kept",
 		},
 	}
 
@@ -1023,10 +1023,23 @@ func TestRestore(t *testing.T) {
 			}
 
 			_, err = manager.RestoreAgent(ctx, original.ID)
+
+			if tt.wantErrIs != nil {
+				require.ErrorIs(t, err, tt.wantErrIs)
+				assert.ErrorContains(t, err, "rename it", "the refusal says what to do about it")
+
+				refused := agentByID(t, st, original.ID)
+				assert.NotNil(t, refused.ArchivedAt, "the agent stays in the archive")
+				assert.Equal(t, "foo", refused.Name, "under the name it went in with")
+
+				return
+			}
+
 			require.NoError(t, err)
 
 			restored := agentByID(t, st, original.ID)
 			assert.Nil(t, restored.ArchivedAt, "the agent is back in the listing")
+			assert.Equal(t, "foo", restored.Name)
 			assert.Equal(t, agentstore.StateIdle, restored.State)
 			assert.Equal(t, "sess-old", restored.SessionID, "the conversation is preserved")
 			assert.Empty(t, tmux.owners, "a restore starts nothing, so no pane was opened")
@@ -1036,18 +1049,6 @@ func TestRestore(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, original.ID, tmux.owners[resumed.Pane], "resuming stamps the pane it came back in")
 			assert.True(t, manager.AgentRunning(*resumed), "so it reads as running again")
-
-			if tt.wantSameName {
-				assert.Equal(t, "foo", restored.Name)
-				return
-			}
-
-			assert.NotEqual(t, "foo", restored.Name, "the restored agent takes a fresh name")
-
-			live, err := st.Get(ctx, "foo")
-			require.NoError(t, err)
-			require.NotNil(t, live)
-			assert.NotEqual(t, original.ID, live.ID, "the namesake that took the name is untouched")
 		})
 	}
 }

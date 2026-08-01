@@ -258,6 +258,13 @@ func (s *AgentService) ArchiveAgent(ctx context.Context, name string) error {
 // RestoreAgent takes an agent out of the archive and returns it as stored. The agent lands
 // dormant, since starting anything is ResumeAgent's half. An unarchived agent holds a slot
 // whether or not it is running, so this is refused at the ceiling a create is.
+//
+// The agent's workflow comes back with it, on one transaction, since an agent listed
+// under a workflow nothing lists would get no row anywhere.
+//
+// A name a live agent has taken since is refused rather than worked around. The panel
+// would otherwise hand back an agent under a name nobody chose, and which of the two
+// keeps the name is the user's to decide.
 func (s *AgentService) RestoreAgent(ctx context.Context, id string) (*agentstore.Agent, error) {
 	agent, err := s.byID(ctx, id)
 	if err != nil {
@@ -275,18 +282,25 @@ func (s *AgentService) RestoreAgent(ctx context.Context, id string) (*agentstore
 
 	// The unique-name index covers the unarchived alone, so a name claimed while this
 	// agent sat archived would collide on the way out.
-	if s.nameTaken(ctx, agent.Name) {
-		if _, err := s.agents.Rename(ctx, agent.ID, s.uniqueAgentName(ctx, agent.Name, "")); err != nil {
-			return nil, fmt.Errorf("failed to rename restored agent %q: %w", agent.Name, err)
-		}
+	taken, err := s.agents.ActiveNameExists(ctx, agent.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check the name of agent %q: %w", agent.Name, err)
+	}
+	if taken {
+		return nil, fmt.Errorf("%w: a live agent is called %q, rename it to restore this one", store.ErrNameTaken, agent.Name)
 	}
 
-	if err := s.agents.Restore(ctx, id); err != nil {
+	err = s.tx.InTx(ctx, func(db store.DBTX) error {
+		if err := agentstore.New(db).Restore(ctx, id); err != nil {
+			return err
+		}
+
+		return workflow.New(db).Restore(ctx, agent.WorkflowID)
+	})
+	if err != nil {
 		return nil, fmt.Errorf("failed to restore agent %q: %w", agent.Name, err)
 	}
 
-	// The row is read back rather than returned from the copy, which may hold a name
-	// the rename above replaced.
 	return s.byID(ctx, id)
 }
 
@@ -518,16 +532,35 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 // roomForAgent refuses a create once the panel is full, since creating one is a tool a
 // model can call in a loop and each agent is a real CLI in a real pane.
 func (s *AgentService) roomForAgent(ctx context.Context) error {
-	if s.maxAgents <= 0 {
+	return roomForAgents(ctx, s.agents, s.maxAgents, 1)
+}
+
+// agentCounter reads how many unarchived agents the panel holds. It is an interface so a
+// caller inside a transaction can count through the store bound to it.
+type agentCounter interface {
+	CountLive(ctx context.Context) (int64, error)
+}
+
+// agentNamer answers whether a live agent already holds a name, for the same reason
+// agentCounter is an interface.
+type agentNamer interface {
+	ActiveNameExists(ctx context.Context, name string) (bool, error)
+}
+
+// roomForAgents refuses unless want more agents fit under the ceiling. A workflow restore
+// asks for its whole contents at once, since a folder that came back with some of its
+// runs would read as whole.
+func roomForAgents(ctx context.Context, agents agentCounter, maxAgents, want int) error {
+	if maxAgents <= 0 || want <= 0 {
 		return nil
 	}
 
-	live, err := s.agents.CountLive(ctx)
+	live, err := agents.CountLive(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to count the agents already running: %w", err)
 	}
-	if live >= int64(s.maxAgents) {
-		return fmt.Errorf("%w: max number of concurrent agents reached (%d of %d), please archive one to continue", ErrTooManyAgents, live, s.maxAgents)
+	if live+int64(want) > int64(maxAgents) {
+		return fmt.Errorf("%w: max number of concurrent agents reached (%d of %d), please archive one to continue", ErrTooManyAgents, live, maxAgents)
 	}
 
 	return nil

@@ -21,6 +21,7 @@ var ErrWorkflowHasSchedules = errors.New("workflow still has schedules")
 type workflowStore interface {
 	List(ctx context.Context) ([]workflow.Workflow, error)
 	Get(ctx context.Context, id string) (*workflow.Workflow, error)
+	GetArchived(ctx context.Context, id string) (*workflow.Workflow, error)
 	Create(ctx context.Context, cfg workflow.Config) (*workflow.Workflow, error)
 	Update(ctx context.Context, id string, cfg workflow.Config) error
 }
@@ -41,6 +42,9 @@ type WorkflowService struct {
 	store     workflowStore
 	schedules scheduleCounter
 	tx        txRunner
+	// maxAgents is the ceiling a restore has to fit the workflow's archived agents
+	// under, zero for no ceiling.
+	maxAgents int
 }
 
 // WorkflowParams carries the workflow service's dependencies.
@@ -48,11 +52,17 @@ type WorkflowParams struct {
 	Workflows workflowStore
 	Schedules scheduleCounter
 	Tx        txRunner
+	MaxAgents int
 }
 
 // NewWorkflowService builds the service from its dependencies.
 func NewWorkflowService(p WorkflowParams) *WorkflowService {
-	return &WorkflowService{store: p.Workflows, schedules: p.Schedules, tx: p.Tx}
+	return &WorkflowService{
+		store:     p.Workflows,
+		schedules: p.Schedules,
+		tx:        p.Tx,
+		maxAgents: p.MaxAgents,
+	}
 }
 
 // GetWorkflow returns a workflow by id, or nil when none has that id.
@@ -153,6 +163,70 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 	})
 	if err != nil {
 		return fmt.Errorf("failed to archive workflow %q: %w", id, err)
+	}
+
+	return nil
+}
+
+// RestoreWorkflow brings an archived workflow back with every agent inside it, the way a
+// folder out of the trash carries its files, and returns it as stored. The agents land
+// dormant, so a folder of twelve does not start twelve CLIs.
+//
+// It is all or nothing, under the agent ceiling and against the names live agents hold,
+// since a workflow back with some of its runs would read as whole. A refusal names what
+// is in the way so the user can clear it and press restore again.
+func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*workflow.Workflow, error) {
+	existing, err := w.store.GetArchived(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, fmt.Errorf("%w: %q is not archived", ErrWorkflowNotFound, id)
+	}
+
+	err = w.tx.InTx(ctx, func(db store.DBTX) error {
+		agents := agentstore.New(db)
+
+		archived, err := agents.ListArchivedInWorkflow(ctx, id)
+		if err != nil {
+			return err
+		}
+		if err := roomForAgents(ctx, agents, w.maxAgents, len(archived)); err != nil {
+			return err
+		}
+		if err := namesFree(ctx, agents, archived); err != nil {
+			return err
+		}
+
+		if err := workflow.New(db).Restore(ctx, id); err != nil {
+			return err
+		}
+
+		return agents.RestoreWorkflowAgents(ctx, id)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to restore workflow %q: %w", existing.Name, err)
+	}
+
+	return w.store.Get(ctx, id)
+}
+
+// namesFree refuses when a live agent holds a name one of these archived agents is coming
+// back under. The unique-name index covers the unarchived alone, so the collision only
+// exists at the moment they return.
+func namesFree(ctx context.Context, agents agentNamer, archived []agentstore.Agent) error {
+	var held []string
+	for _, agent := range archived {
+		taken, err := agents.ActiveNameExists(ctx, agent.Name)
+		if err != nil {
+			return fmt.Errorf("failed to check the name of agent %q: %w", agent.Name, err)
+		}
+		if taken {
+			held = append(held, agent.Name)
+		}
+	}
+	if len(held) > 0 {
+		return fmt.Errorf("%w: live agents are called %s, rename them to restore this workflow", store.ErrNameTaken, strings.Join(held, ", "))
 	}
 
 	return nil

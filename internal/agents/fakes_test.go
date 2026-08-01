@@ -392,7 +392,18 @@ func (f *fakeLifecycle) RunCleanupAction(_ context.Context, _ agentstore.Agent, 
 
 // workflowService builds the workflow service over these stores.
 func (s *testStore) workflowService() *WorkflowService {
-	return NewWorkflowService(WorkflowParams{Workflows: s.Workflows, Schedules: s.Schedules, Tx: s.Pool})
+	return s.workflowServiceCapped(0)
+}
+
+// workflowServiceCapped is the same with an agent ceiling, for the restore that has to
+// fit a whole workflow's archived agents under it.
+func (s *testStore) workflowServiceCapped(maxAgents int) *WorkflowService {
+	return NewWorkflowService(WorkflowParams{
+		Workflows: s.Workflows,
+		Schedules: s.Schedules,
+		Tx:        s.Pool,
+		MaxAgents: maxAgents,
+	})
 }
 
 // seed inserts an agent in a given state and returns it with its generated id.

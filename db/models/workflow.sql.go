@@ -9,6 +9,48 @@ import (
 	"context"
 )
 
+const getArchivedWorkflow = `-- name: GetArchivedWorkflow :one
+SELECT
+    w.id, w.name, w.context, w.workflow_config_id, w.created_at, w.updated_at, w.setup_action, w.cleanup_action, w.archived_at,
+    wc.harness,
+    wc.cwd,
+    wc.flags
+FROM
+    workflows w
+    JOIN workflow_configs wc ON wc.id = w.workflow_config_id
+WHERE
+    w.id = $1
+    AND w.archived_at IS NOT NULL
+LIMIT 1
+`
+
+type GetArchivedWorkflowRow struct {
+	Workflow Workflow
+	Harness  string
+	Cwd      string
+	Flags    string
+}
+
+func (q *Queries) GetArchivedWorkflow(ctx context.Context, id string) (*GetArchivedWorkflowRow, error) {
+	row := q.db.QueryRow(ctx, getArchivedWorkflow, id)
+	var i GetArchivedWorkflowRow
+	err := row.Scan(
+		&i.Workflow.ID,
+		&i.Workflow.Name,
+		&i.Workflow.Context,
+		&i.Workflow.WorkflowConfigID,
+		&i.Workflow.CreatedAt,
+		&i.Workflow.UpdatedAt,
+		&i.Workflow.SetupAction,
+		&i.Workflow.CleanupAction,
+		&i.Workflow.ArchivedAt,
+		&i.Harness,
+		&i.Cwd,
+		&i.Flags,
+	)
+	return &i, err
+}
+
 const getWorkflow = `-- name: GetWorkflow :one
 SELECT
     w.id, w.name, w.context, w.workflow_config_id, w.created_at, w.updated_at, w.setup_action, w.cleanup_action, w.archived_at,
@@ -255,6 +297,20 @@ WHERE
 
 func (q *Queries) MarkWorkflowArchived(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, markWorkflowArchived, id)
+	return err
+}
+
+const markWorkflowRestored = `-- name: MarkWorkflowRestored :exec
+UPDATE
+    workflows
+SET
+    archived_at = NULL
+WHERE
+    id = $1
+`
+
+func (q *Queries) MarkWorkflowRestored(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, markWorkflowRestored, id)
 	return err
 }
 

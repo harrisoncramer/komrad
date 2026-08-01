@@ -318,7 +318,7 @@ service AgentService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "restore_agent"
-      description: "Take an agent out of the archive, keyed by id. It comes back as a dormant row and nothing is started, so call resume_agent to put its conversation back in a pane. An agent that is not archived is returned as it stands. The agent may come back under a new name if another has taken its old one, and the call is refused once the panel holds as many agents as it is configured to."
+      description: "Take an agent out of the archive, keyed by id. It comes back as a dormant row and nothing is started, so call resume_agent to put its conversation back in a pane. An agent that is not archived is returned as it stands. Returns already_exists when a live agent has taken the archived one's name, which you clear by renaming that agent, and is refused once the panel holds as many agents as it is configured to."
       destructive: false
     };
   }

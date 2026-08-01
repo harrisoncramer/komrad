@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"weave/internal/agents"
+	"weave/internal/store"
 	"weave/lib/pagination"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
@@ -23,6 +24,7 @@ type workflowManager interface {
 	GetWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error)
 	UpdateWorkflow(ctx context.Context, id string, cfg workflowstore.Config) error
 	ArchiveWorkflow(ctx context.Context, id string) error
+	RestoreWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error)
 }
 
 // workflowLister is the read side, kept separate because listing pages straight
@@ -138,4 +140,21 @@ func (s *Service) ArchiveWorkflow(ctx context.Context, req *connect.Request[work
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// RestoreWorkflow brings a workflow back with the agents archived inside it.
+func (s *Service) RestoreWorkflow(ctx context.Context, req *connect.Request[workflowv1.RestoreWorkflowRequest]) (*connect.Response[workflowv1.RestoreWorkflowResponse], error) {
+	restored, err := s.workflows.RestoreWorkflow(ctx, req.Msg.GetId())
+	switch {
+	case errors.Is(err, agents.ErrWorkflowNotFound):
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no archived workflow with id %q", req.Msg.GetId()))
+	case errors.Is(err, agents.ErrTooManyAgents):
+		return nil, connect.NewError(connect.CodeResourceExhausted, err)
+	case errors.Is(err, store.ErrNameTaken):
+		return nil, connect.NewError(connect.CodeAlreadyExists, err)
+	case err != nil:
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to restore workflow: %w", err))
+	}
+
+	return connect.NewResponse(&workflowv1.RestoreWorkflowResponse{Workflow: renderWorkflow(*restored).Workflow}), nil
 }

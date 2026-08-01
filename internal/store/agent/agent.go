@@ -559,6 +559,32 @@ func (s *Store) ArchiveWorkflowAgents(ctx context.Context, workflowID string) er
 	return nil
 }
 
+// RestoreWorkflowAgents brings every archived agent in a workflow back as a row. They
+// come back dormant, so their conversations are resumed one at a time.
+func (s *Store) RestoreWorkflowAgents(ctx context.Context, workflowID string) error {
+	if err := s.queries.MarkWorkflowAgentsRestored(ctx, workflowID); err != nil {
+		return fmt.Errorf("failed to restore agents of workflow %q: %w", workflowID, err)
+	}
+
+	return nil
+}
+
+// ListArchivedInWorkflow is the archived agents belonging to one workflow, which is what
+// a workflow restore has to make room and free names for before it writes.
+func (s *Store) ListArchivedInWorkflow(ctx context.Context, workflowID string) ([]Agent, error) {
+	rows, err := s.queries.ListArchivedWorkflowAgents(ctx, workflowID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list archived agents of workflow %q: %w", workflowID, err)
+	}
+
+	agents := make([]Agent, 0, len(rows))
+	for _, row := range rows {
+		agents = append(agents, agentFromRow(*row))
+	}
+
+	return agents, nil
+}
+
 func agentFromRow(agent models.Agent) Agent {
 	return Agent{
 		ID:             agent.ID,

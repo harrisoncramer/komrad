@@ -1545,7 +1545,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14GetTranscriptRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"1\n" +
 	"\x15GetTranscriptResponse\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontent2\x8a4\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent2\xaa4\n" +
 	"\fAgentService\x12\xe4\x03\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x9a\x03\x9a\xb5\x18\x92\x03\n" +
@@ -1561,9 +1561,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\vSetMetadata\x12\x1c.agent.v1.SetMetadataRequest\x1a\x16.google.protobuf.Empty\"\x8c\x06\x9a\xb5\x18\x84\x06\n" +
 	"\x12set_agent_metadata\x12\xeb\x05Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value. Use this on yourself as you work, whenever you learn something a person would want to jump to later: the Linear issue you are implementing, the pull request you opened, the branch you are on. Your own id is in the WEAVE_AGENT_ID environment variable. Store the full URL rather than a bare number, since the panel shows the value as it is. Keys are lowercase letters, digits, underscores, and dashes; call this once per key, which leaves every other key on the agent untouched. Do not record what the agent is currently doing, which is already its state, and do not paste findings here, which belong in your reply. \x00\x90\x02\x02\x12\xd4\x02\n" +
 	"\fArchiveAgent\x12\x1d.agent.v1.ArchiveAgentRequest\x1a\x16.google.protobuf.Empty\"\x8c\x02\x9a\xb5\x18\x84\x02\n" +
-	"\rarchive_agent\x12\xf0\x01Stop an agent and hide it from the panel, keeping its record and transcript. Prefer this to delete_agent: it is reversible with restore_agent, and search_transcripts still finds the conversation. Returns not_found if no agent has that name. \x00\x90\x02\x02\x12\xe5\x03\n" +
-	"\fRestoreAgent\x12\x1d.agent.v1.RestoreAgentRequest\x1a\x1e.agent.v1.RestoreAgentResponse\"\x95\x03\x9a\xb5\x18\x8d\x03\n" +
-	"\rrestore_agent\x12\xf9\x02Take an agent out of the archive, keyed by id. It comes back as a dormant row and nothing is started, so call resume_agent to put its conversation back in a pane. An agent that is not archived is returned as it stands. The agent may come back under a new name if another has taken its old one, and the call is refused once the panel holds as many agents as it is configured to. \x00\x90\x02\x02\x12\xe8\x02\n" +
+	"\rarchive_agent\x12\xf0\x01Stop an agent and hide it from the panel, keeping its record and transcript. Prefer this to delete_agent: it is reversible with restore_agent, and search_transcripts still finds the conversation. Returns not_found if no agent has that name. \x00\x90\x02\x02\x12\x85\x04\n" +
+	"\fRestoreAgent\x12\x1d.agent.v1.RestoreAgentRequest\x1a\x1e.agent.v1.RestoreAgentResponse\"\xb5\x03\x9a\xb5\x18\xad\x03\n" +
+	"\rrestore_agent\x12\x99\x03Take an agent out of the archive, keyed by id. It comes back as a dormant row and nothing is started, so call resume_agent to put its conversation back in a pane. An agent that is not archived is returned as it stands. Returns already_exists when a live agent has taken the archived one's name, which you clear by renaming that agent, and is refused once the panel holds as many agents as it is configured to. \x00\x90\x02\x02\x12\xe8\x02\n" +
 	"\vResumeAgent\x12\x1c.agent.v1.ResumeAgentRequest\x1a\x1d.agent.v1.ResumeAgentResponse\"\x9b\x02\x9a\xb5\x18\x93\x02\n" +
 	"\fresume_agent\x12\x80\x02Relaunch an agent's CLI on the same conversation, keyed by id, which is what reaches an agent whose pane has since died. An agent already running is returned as it stands rather than started twice. An archived agent is refused, so call restore_agent first. \x00\x90\x02\x02\x12\xf1\x02\n" +
 	"\vDeleteAgent\x12\x1c.agent.v1.DeleteAgentRequest\x1a\x16.google.protobuf.Empty\"\xab\x02\x9a\xb5\x18\xa3\x02\n" +
