@@ -3,8 +3,10 @@ package db
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"sync"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"weave/internal/pgtest"
@@ -90,8 +92,8 @@ func TestMigrateFailure(t *testing.T) {
 		unobstruct string
 	}{
 		{
-			// agent_transcripts is the last table the first migration creates, so holding
-			// its name fails that migration after it has already created several others.
+			// agent_transcripts is the last table the migration creates, so holding its
+			// name fails it after it has already created several others.
 			name:       "a migration that fails partway applies none of itself",
 			obstruct:   `CREATE TABLE agent_transcripts (placeholder int)`,
 			unobstruct: `DROP TABLE agent_transcripts`,
@@ -114,7 +116,7 @@ func TestMigrateFailure(t *testing.T) {
 			require.NoError(t, err)
 
 			require.Error(t, Migrate(ctx, pool))
-			assert.False(t, tableExists(t, pool, "agent_configs"), "the failed migration rolled back")
+			assert.False(t, tableExists(t, pool, "agents"), "the failed migration rolled back")
 			assert.Empty(t, appliedVersions(t, pool), "and recorded nothing")
 
 			_, err = pool.Exec(ctx, tt.unobstruct)
@@ -126,29 +128,38 @@ func TestMigrateFailure(t *testing.T) {
 	}
 }
 
+// TestMigrateResumes covers a pass that stops partway through a ledger of several
+// files, which is what a failure between two of them leaves behind. The set is
+// written for the test rather than taken from db/migrations, since how many files
+// ship there is up to whoever last squashed them.
 func TestMigrateResumes(t *testing.T) {
 	pool := open(t)
 	ctx := t.Context()
 
-	versions := allVersions(t)
-	require.Greater(t, len(versions), 1)
+	files := fstest.MapFS{
+		"20260101000000_first.sql":  {Data: []byte(`CREATE TABLE resume_probe (id int PRIMARY KEY)`)},
+		"20260102000000_second.sql": {Data: []byte(`ALTER TABLE resume_probe ADD COLUMN extra int`)},
+	}
+	versions, err := migrationVersions(files)
+	require.NoError(t, err)
+	require.Len(t, versions, 2)
 
 	// A ledger that accepts only the first version stops the pass at the second,
 	// leaving what the first one did in place. CREATE TABLE binds no parameters.
-	_, err := pool.Exec(ctx, fmt.Sprintf(
+	_, err = pool.Exec(ctx, fmt.Sprintf(
 		`CREATE TABLE schema_migrations (version text PRIMARY KEY CHECK (version = '%s'))`, versions[0]))
 	require.NoError(t, err)
 
-	require.Error(t, Migrate(ctx, pool))
+	require.Error(t, migrate(ctx, pool, files))
 	assert.Equal(t, versions[:1], appliedVersions(t, pool))
-	assert.False(t, columnExists(t, pool, "agents", "mark"), "the second migration did not land")
+	assert.False(t, columnExists(t, pool, "resume_probe", "extra"), "the second migration did not land")
 
 	_, err = pool.Exec(ctx, `ALTER TABLE schema_migrations DROP CONSTRAINT schema_migrations_version_check`)
 	require.NoError(t, err)
 
-	require.NoError(t, Migrate(ctx, pool))
+	require.NoError(t, migrate(ctx, pool, files))
 	assert.Equal(t, versions, appliedVersions(t, pool))
-	assert.True(t, columnExists(t, pool, "agents", "mark"), "and the rest picked up where it stopped")
+	assert.True(t, columnExists(t, pool, "resume_probe", "extra"), "and the rest picked up where it stopped")
 }
 
 // TestMigrateUpToDate holds the lock elsewhere, so a Migrate that reached for it
@@ -245,8 +256,10 @@ func TestIsPending(t *testing.T) {
 // db/atlas.hcl, which makes Atlas tag its migrations with a directive saying not
 // to run them in a transaction.
 func TestMigrationsHaveNoTxmodeDirective(t *testing.T) {
+	files := embeddedFiles(t)
+
 	for _, version := range allVersions(t) {
-		sqlText, err := migrationsFS.ReadFile("migrations/" + version)
+		sqlText, err := fs.ReadFile(files, version)
 		require.NoError(t, err)
 
 		assert.NotContains(t, string(sqlText), "atlas:txmode none",
@@ -291,10 +304,21 @@ func connect(t *testing.T, url string) *pgx.Conn {
 	return conn
 }
 
+// embeddedFiles is the migration set the binary ships with, which is what every
+// test that is not about the pass itself runs against.
+func embeddedFiles(t *testing.T) fs.FS {
+	t.Helper()
+
+	files, err := migrationFiles()
+	require.NoError(t, err)
+
+	return files
+}
+
 func allVersions(t *testing.T) []string {
 	t.Helper()
 
-	versions, err := migrationVersions()
+	versions, err := migrationVersions(embeddedFiles(t))
 	require.NoError(t, err)
 	require.NotEmpty(t, versions)
 
@@ -319,16 +343,6 @@ func appliedVersions(t *testing.T, pool *pgxpool.Pool) []string {
 	return versions
 }
 
-func tableExists(t *testing.T, pool *pgxpool.Pool, name string) bool {
-	t.Helper()
-
-	var exists bool
-	require.NoError(t, pool.QueryRow(t.Context(),
-		`SELECT to_regclass($1) IS NOT NULL`, name).Scan(&exists))
-
-	return exists
-}
-
 func columnExists(t *testing.T, pool *pgxpool.Pool, table, column string) bool {
 	t.Helper()
 
@@ -336,6 +350,16 @@ func columnExists(t *testing.T, pool *pgxpool.Pool, table, column string) bool {
 	require.NoError(t, pool.QueryRow(t.Context(),
 		`SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2)`,
 		table, column).Scan(&exists))
+
+	return exists
+}
+
+func tableExists(t *testing.T, pool *pgxpool.Pool, name string) bool {
+	t.Helper()
+
+	var exists bool
+	require.NoError(t, pool.QueryRow(t.Context(),
+		`SELECT to_regclass($1) IS NOT NULL`, name).Scan(&exists))
 
 	return exists
 }

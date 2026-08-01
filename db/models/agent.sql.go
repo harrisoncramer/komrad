@@ -176,7 +176,7 @@ func (q *Queries) DeleteAgentTranscriptChunks(ctx context.Context, agentID strin
 
 const getAgentByID = `-- name: GetAgentByID :one
 SELECT
-    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, created_at, updated_at, mark, is_hidden, cwd, flags, harness, archived_at
+    id, name, cwd, flags, prompt, pane_id, state, harness, session_id, workflow_id, schedule_id, idempotency_key, archived_at, is_hidden, mark, created_at, updated_at
 FROM
     agents s
 WHERE
@@ -190,28 +190,28 @@ func (q *Queries) GetAgentByID(ctx context.Context, id string) (*Agent, error) {
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
+		&i.Cwd,
+		&i.Flags,
 		&i.Prompt,
 		&i.PaneID,
 		&i.State,
+		&i.Harness,
 		&i.SessionID,
 		&i.WorkflowID,
 		&i.ScheduleID,
 		&i.IdempotencyKey,
+		&i.ArchivedAt,
+		&i.IsHidden,
+		&i.Mark,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.Mark,
-		&i.IsHidden,
-		&i.Cwd,
-		&i.Flags,
-		&i.Harness,
-		&i.ArchivedAt,
 	)
 	return &i, err
 }
 
 const getAgentByIdempotencyKey = `-- name: GetAgentByIdempotencyKey :one
 SELECT
-    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, created_at, updated_at, mark, is_hidden, cwd, flags, harness, archived_at
+    id, name, cwd, flags, prompt, pane_id, state, harness, session_id, workflow_id, schedule_id, idempotency_key, archived_at, is_hidden, mark, created_at, updated_at
 FROM
     agents s
 WHERE
@@ -225,28 +225,28 @@ func (q *Queries) GetAgentByIdempotencyKey(ctx context.Context, idempotencyKey *
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
+		&i.Cwd,
+		&i.Flags,
 		&i.Prompt,
 		&i.PaneID,
 		&i.State,
+		&i.Harness,
 		&i.SessionID,
 		&i.WorkflowID,
 		&i.ScheduleID,
 		&i.IdempotencyKey,
+		&i.ArchivedAt,
+		&i.IsHidden,
+		&i.Mark,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.Mark,
-		&i.IsHidden,
-		&i.Cwd,
-		&i.Flags,
-		&i.Harness,
-		&i.ArchivedAt,
 	)
 	return &i, err
 }
 
 const getAgentInWorkflow = `-- name: GetAgentInWorkflow :one
 SELECT
-    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, created_at, updated_at, mark, is_hidden, cwd, flags, harness, archived_at
+    id, name, cwd, flags, prompt, pane_id, state, harness, session_id, workflow_id, schedule_id, idempotency_key, archived_at, is_hidden, mark, created_at, updated_at
 FROM
     agents s
 WHERE
@@ -267,21 +267,21 @@ func (q *Queries) GetAgentInWorkflow(ctx context.Context, arg GetAgentInWorkflow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
+		&i.Cwd,
+		&i.Flags,
 		&i.Prompt,
 		&i.PaneID,
 		&i.State,
+		&i.Harness,
 		&i.SessionID,
 		&i.WorkflowID,
 		&i.ScheduleID,
 		&i.IdempotencyKey,
+		&i.ArchivedAt,
+		&i.IsHidden,
+		&i.Mark,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.Mark,
-		&i.IsHidden,
-		&i.Cwd,
-		&i.Flags,
-		&i.Harness,
-		&i.ArchivedAt,
 	)
 	return &i, err
 }
@@ -430,7 +430,7 @@ func (q *Queries) ListAgentMetadata(ctx context.Context, agentIds []string) ([]*
 
 const listAgents = `-- name: ListAgents :many
 SELECT
-    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, created_at, updated_at, mark, is_hidden, cwd, flags, harness, archived_at
+    id, name, cwd, flags, prompt, pane_id, state, harness, session_id, workflow_id, schedule_id, idempotency_key, archived_at, is_hidden, mark, created_at, updated_at
 FROM
     agents s
 WHERE
@@ -451,21 +451,21 @@ func (q *Queries) ListAgents(ctx context.Context) ([]*Agent, error) {
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
+			&i.Cwd,
+			&i.Flags,
 			&i.Prompt,
 			&i.PaneID,
 			&i.State,
+			&i.Harness,
 			&i.SessionID,
 			&i.WorkflowID,
 			&i.ScheduleID,
 			&i.IdempotencyKey,
+			&i.ArchivedAt,
+			&i.IsHidden,
+			&i.Mark,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.Mark,
-			&i.IsHidden,
-			&i.Cwd,
-			&i.Flags,
-			&i.Harness,
-			&i.ArchivedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -479,7 +479,7 @@ func (q *Queries) ListAgents(ctx context.Context) ([]*Agent, error) {
 
 const listAgentsPage = `-- name: ListAgentsPage :many
 SELECT
-    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, created_at, updated_at, mark, is_hidden, cwd, flags, harness, archived_at
+    id, name, cwd, flags, prompt, pane_id, state, harness, session_id, workflow_id, schedule_id, idempotency_key, archived_at, is_hidden, mark, created_at, updated_at
 FROM
     agents s
 WHERE ($1::boolean) =(s.archived_at IS NOT NULL)
@@ -508,21 +508,21 @@ func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) 
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
+			&i.Cwd,
+			&i.Flags,
 			&i.Prompt,
 			&i.PaneID,
 			&i.State,
+			&i.Harness,
 			&i.SessionID,
 			&i.WorkflowID,
 			&i.ScheduleID,
 			&i.IdempotencyKey,
+			&i.ArchivedAt,
+			&i.IsHidden,
+			&i.Mark,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.Mark,
-			&i.IsHidden,
-			&i.Cwd,
-			&i.Flags,
-			&i.Harness,
-			&i.ArchivedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -536,7 +536,7 @@ func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) 
 
 const listAllAgents = `-- name: ListAllAgents :many
 SELECT
-    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, created_at, updated_at, mark, is_hidden, cwd, flags, harness, archived_at
+    id, name, cwd, flags, prompt, pane_id, state, harness, session_id, workflow_id, schedule_id, idempotency_key, archived_at, is_hidden, mark, created_at, updated_at
 FROM
     agents s
 ORDER BY
@@ -555,21 +555,21 @@ func (q *Queries) ListAllAgents(ctx context.Context) ([]*Agent, error) {
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
+			&i.Cwd,
+			&i.Flags,
 			&i.Prompt,
 			&i.PaneID,
 			&i.State,
+			&i.Harness,
 			&i.SessionID,
 			&i.WorkflowID,
 			&i.ScheduleID,
 			&i.IdempotencyKey,
+			&i.ArchivedAt,
+			&i.IsHidden,
+			&i.Mark,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.Mark,
-			&i.IsHidden,
-			&i.Cwd,
-			&i.Flags,
-			&i.Harness,
-			&i.ArchivedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -583,7 +583,7 @@ func (q *Queries) ListAllAgents(ctx context.Context) ([]*Agent, error) {
 
 const listArchivedWorkflowAgents = `-- name: ListArchivedWorkflowAgents :many
 SELECT
-    id, name, prompt, pane_id, state, session_id, workflow_id, schedule_id, idempotency_key, created_at, updated_at, mark, is_hidden, cwd, flags, harness, archived_at
+    id, name, cwd, flags, prompt, pane_id, state, harness, session_id, workflow_id, schedule_id, idempotency_key, archived_at, is_hidden, mark, created_at, updated_at
 FROM
     agents
 WHERE
@@ -605,21 +605,21 @@ func (q *Queries) ListArchivedWorkflowAgents(ctx context.Context, workflowID str
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
+			&i.Cwd,
+			&i.Flags,
 			&i.Prompt,
 			&i.PaneID,
 			&i.State,
+			&i.Harness,
 			&i.SessionID,
 			&i.WorkflowID,
 			&i.ScheduleID,
 			&i.IdempotencyKey,
+			&i.ArchivedAt,
+			&i.IsHidden,
+			&i.Mark,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.Mark,
-			&i.IsHidden,
-			&i.Cwd,
-			&i.Flags,
-			&i.Harness,
-			&i.ArchivedAt,
 		); err != nil {
 			return nil, err
 		}

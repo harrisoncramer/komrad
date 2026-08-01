@@ -11,7 +11,7 @@ import (
 
 const getArchivedWorkflow = `-- name: GetArchivedWorkflow :one
 SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.created_at, w.updated_at, w.setup_action, w.cleanup_action, w.archived_at,
+    w.id, w.name, w.context, w.setup_action, w.cleanup_action, w.workflow_config_id, w.archived_at, w.created_at, w.updated_at,
     wc.harness,
     wc.cwd,
     wc.flags
@@ -38,12 +38,12 @@ func (q *Queries) GetArchivedWorkflow(ctx context.Context, id string) (*GetArchi
 		&i.Workflow.ID,
 		&i.Workflow.Name,
 		&i.Workflow.Context,
-		&i.Workflow.WorkflowConfigID,
-		&i.Workflow.CreatedAt,
-		&i.Workflow.UpdatedAt,
 		&i.Workflow.SetupAction,
 		&i.Workflow.CleanupAction,
+		&i.Workflow.WorkflowConfigID,
 		&i.Workflow.ArchivedAt,
+		&i.Workflow.CreatedAt,
+		&i.Workflow.UpdatedAt,
 		&i.Harness,
 		&i.Cwd,
 		&i.Flags,
@@ -53,7 +53,7 @@ func (q *Queries) GetArchivedWorkflow(ctx context.Context, id string) (*GetArchi
 
 const getWorkflow = `-- name: GetWorkflow :one
 SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.created_at, w.updated_at, w.setup_action, w.cleanup_action, w.archived_at,
+    w.id, w.name, w.context, w.setup_action, w.cleanup_action, w.workflow_config_id, w.archived_at, w.created_at, w.updated_at,
     wc.harness,
     wc.cwd,
     wc.flags
@@ -80,12 +80,12 @@ func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, 
 		&i.Workflow.ID,
 		&i.Workflow.Name,
 		&i.Workflow.Context,
-		&i.Workflow.WorkflowConfigID,
-		&i.Workflow.CreatedAt,
-		&i.Workflow.UpdatedAt,
 		&i.Workflow.SetupAction,
 		&i.Workflow.CleanupAction,
+		&i.Workflow.WorkflowConfigID,
 		&i.Workflow.ArchivedAt,
+		&i.Workflow.CreatedAt,
+		&i.Workflow.UpdatedAt,
 		&i.Harness,
 		&i.Cwd,
 		&i.Flags,
@@ -107,7 +107,7 @@ VALUES (
     $4,
     $5)
 RETURNING
-    id, name, context, workflow_config_id, created_at, updated_at, setup_action, cleanup_action, archived_at
+    id, name, context, setup_action, cleanup_action, workflow_config_id, archived_at, created_at, updated_at
 `
 
 type InsertWorkflowParams struct {
@@ -131,12 +131,12 @@ func (q *Queries) InsertWorkflow(ctx context.Context, arg InsertWorkflowParams) 
 		&i.ID,
 		&i.Name,
 		&i.Context,
-		&i.WorkflowConfigID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
 		&i.SetupAction,
 		&i.CleanupAction,
+		&i.WorkflowConfigID,
 		&i.ArchivedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return &i, err
 }
@@ -169,7 +169,7 @@ func (q *Queries) InsertWorkflowConfig(ctx context.Context, arg InsertWorkflowCo
 
 const listWorkflows = `-- name: ListWorkflows :many
 SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.created_at, w.updated_at, w.setup_action, w.cleanup_action, w.archived_at,
+    w.id, w.name, w.context, w.setup_action, w.cleanup_action, w.workflow_config_id, w.archived_at, w.created_at, w.updated_at,
     wc.harness,
     wc.cwd,
     wc.flags
@@ -202,12 +202,12 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 			&i.Workflow.ID,
 			&i.Workflow.Name,
 			&i.Workflow.Context,
-			&i.Workflow.WorkflowConfigID,
-			&i.Workflow.CreatedAt,
-			&i.Workflow.UpdatedAt,
 			&i.Workflow.SetupAction,
 			&i.Workflow.CleanupAction,
+			&i.Workflow.WorkflowConfigID,
 			&i.Workflow.ArchivedAt,
+			&i.Workflow.CreatedAt,
+			&i.Workflow.UpdatedAt,
 			&i.Harness,
 			&i.Cwd,
 			&i.Flags,
@@ -224,7 +224,7 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 
 const listWorkflowsPage = `-- name: ListWorkflowsPage :many
 SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.created_at, w.updated_at, w.setup_action, w.cleanup_action, w.archived_at,
+    w.id, w.name, w.context, w.setup_action, w.cleanup_action, w.workflow_config_id, w.archived_at, w.created_at, w.updated_at,
     wc.harness,
     wc.cwd,
     wc.flags
@@ -265,12 +265,12 @@ func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPagePa
 			&i.Workflow.ID,
 			&i.Workflow.Name,
 			&i.Workflow.Context,
-			&i.Workflow.WorkflowConfigID,
-			&i.Workflow.CreatedAt,
-			&i.Workflow.UpdatedAt,
 			&i.Workflow.SetupAction,
 			&i.Workflow.CleanupAction,
+			&i.Workflow.WorkflowConfigID,
 			&i.Workflow.ArchivedAt,
+			&i.Workflow.CreatedAt,
+			&i.Workflow.UpdatedAt,
 			&i.Harness,
 			&i.Cwd,
 			&i.Flags,

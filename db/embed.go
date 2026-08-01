@@ -8,6 +8,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"sort"
 	"strings"
@@ -36,7 +37,19 @@ const migrateLock int64 = 7_240_115
 // lands and is marked or does neither. The whole pass is serialized on an
 // advisory lock, which makes a concurrent start wait rather than race.
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
-	versions, err := migrationVersions()
+	files, err := migrationFiles()
+	if err != nil {
+		return err
+	}
+
+	return migrate(ctx, pool, files)
+}
+
+// migrate applies the migrations in files, which is the embedded set on every
+// real run and a written-out one under test, where how a pass behaves across
+// several files is what is being checked.
+func migrate(ctx context.Context, pool *pgxpool.Pool, files fs.FS) error {
+	versions, err := migrationVersions(files)
 	if err != nil {
 		return err
 	}
@@ -49,7 +62,18 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		return nil
 	}
 
-	return apply(ctx, pool, versions)
+	return apply(ctx, pool, migrationSet{files: files, versions: versions})
+}
+
+// migrationFiles opens the embedded migrations rooted at the directory holding
+// them, so a version is the bare file name both here and under test.
+func migrationFiles() (fs.FS, error) {
+	files, err := fs.Sub(migrationsFS, "migrations")
+	if err != nil {
+		return nil, fmt.Errorf("failed to open the embedded migrations: %w", err)
+	}
+
+	return files, nil
 }
 
 // isPending reports whether any migration has yet to run. A missing
@@ -74,9 +98,15 @@ func isPending(ctx context.Context, pool *pgxpool.Pool, versions []string) (bool
 // that does not exist, which on the first run is schema_migrations itself.
 const undefinedTable = "42P01"
 
+// migrationSet is the migrations to apply and where to read them from.
+type migrationSet struct {
+	files    fs.FS
+	versions []string
+}
+
 // apply runs the pending migrations under the advisory lock, re-reading the applied set
 // inside it since another process may have finished the work while this one waited.
-func apply(ctx context.Context, pool *pgxpool.Pool, versions []string) error {
+func apply(ctx context.Context, pool *pgxpool.Pool, set migrationSet) error {
 	conn, err := pool.Acquire(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to acquire a connection to migrate: %w", err)
@@ -92,7 +122,7 @@ func apply(ctx context.Context, pool *pgxpool.Pool, versions []string) error {
 		return fmt.Errorf("failed to create schema_migrations: %w", err)
 	}
 
-	for _, version := range versions {
+	for _, version := range set.versions {
 		var applied bool
 		if err := conn.QueryRow(ctx,
 			`SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = $1)`, version).Scan(&applied); err != nil {
@@ -102,7 +132,7 @@ func apply(ctx context.Context, pool *pgxpool.Pool, versions []string) error {
 			continue
 		}
 
-		sqlText, err := migrationsFS.ReadFile("migrations/" + version)
+		sqlText, err := fs.ReadFile(set.files, version)
 		if err != nil {
 			return fmt.Errorf("failed to read migration %q: %w", version, err)
 		}
@@ -145,8 +175,8 @@ func releaseMigrateLock(ctx context.Context, conn *pgxpool.Conn) {
 // migrationVersions lists the embedded migration file names in the order they
 // must run, which is filename order because Atlas prefixes each with the
 // timestamp it was authored at.
-func migrationVersions() ([]string, error) {
-	entries, err := migrationsFS.ReadDir("migrations")
+func migrationVersions(files fs.FS) ([]string, error) {
+	entries, err := fs.ReadDir(files, ".")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read migrations: %w", err)
 	}
