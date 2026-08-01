@@ -145,8 +145,7 @@ type model struct {
 	values formValues
 	target formTarget
 	// pendingForm is whether the open form is waiting on the write it submitted. It stays
-	// up until that write lands, so a refusal is answered on the filled-in fields instead
-	// of costing everything typed into them.
+	// up until that write lands, so a refusal is answered on the fields as filled in.
 	pendingForm bool
 
 	// helpCollapsed is whether the help under a list is down to its one line, which the help

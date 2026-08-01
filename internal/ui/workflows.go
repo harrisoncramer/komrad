@@ -99,9 +99,9 @@ func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea
 	return m, m.form.Init()
 }
 
-// workflowFormFor builds whichever of the three workflow forms the target says is being
-// worked on, around the given config. Deciding it here rather than at each opener is what
-// lets a refused submit put the same form back.
+// workflowFormFor builds whichever workflow form the target says is open, around the given
+// config. It is decided here rather than at each opener so a refused submit can put the
+// same form back.
 func (m model) workflowFormFor(cfg workflowstore.Config) (*huh.Form, *workflowstore.Config) {
 	switch {
 	case m.target.renameWorkflow != nil:
@@ -237,8 +237,8 @@ func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 		write = m.writeCmd("Could not create the workflow", func(a api) error { return a.createWorkflow(values) })
 	}
 
-	// A rename to the name it already has writes nothing, and a form with no write to wait
-	// on has nothing to stay open for.
+	// A rename to the name it already has writes nothing, and a form with no write has
+	// nothing to wait for.
 	if write == nil {
 		return m.closeForm()
 	}

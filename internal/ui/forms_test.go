@@ -284,13 +284,12 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 
 // TestRefusedSubmitKeepsTheForm covers what a refused write leaves on screen. The form
 // stays up carrying what was filled in, since the field that caused the refusal is fixed
-// from there, and closing it would cost every other field along with it.
+// from there and closing would cost every other field with it.
 func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 	tests := []struct {
 		name string
-		// open puts the form on screen and types into it. The cases that set the form
-		// completed are the ones submitted with the cursor on the last field, which is the
-		// path that has to build the form again.
+		// open puts the form on screen and fills it in. A case that sets the form completed
+		// is one submitted from its last field, which is the path that rebuilds.
 		open   func(t *testing.T, m model) model
 		submit func(m model) (tea.Model, tea.Cmd)
 		screen screen
@@ -380,7 +379,7 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 	}
 }
 
-// TestFormResubmitsAfterARefusal covers the point of keeping the form: the fields it kept
+// TestFormResubmitsAfterARefusal covers the point of keeping the form. The fields it kept
 // are what the second attempt sends, so a refusal costs the keystroke that caused it
 // rather than the whole form.
 func TestFormResubmitsAfterARefusal(t *testing.T) {
@@ -508,8 +507,8 @@ type formRecorder struct {
 	schedulev1connect.ScheduleServiceClient
 	actionv1connect.ActionServiceClient
 
-	// refuse is what every write answers with while it is set, which is how a case gets
-	// the refusal a form has to survive.
+	// refuse is what every write answers with while it is set, which is the refusal a
+	// form has to survive.
 	refuse error
 
 	createdAgent     *agentv1.CreateAgentRequest
