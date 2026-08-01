@@ -76,8 +76,14 @@ var ErrShellUnsupported = errors.New("unsupported pane shell")
 // posixShells are the shell basenames that parse the two POSIX forms a harness emits, a
 // command substitution and a leading VAR=value assignment.
 var posixShells = map[string]bool{
-	"ash": true, "bash": true, "dash": true, "ksh": true,
-	"ksh93": true, "mksh": true, "sh": true, "zsh": true,
+	"ash":   true,
+	"bash":  true,
+	"dash":  true,
+	"ksh":   true,
+	"ksh93": true,
+	"mksh":  true,
+	"sh":    true,
+	"zsh":   true,
 }
 
 // RequirePOSIXShell refuses a shell that would leave a launch as a parse error in the
