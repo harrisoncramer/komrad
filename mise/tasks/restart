@@ -14,7 +14,9 @@ addr="${WEAVE_ADDR:-127.0.0.1:8787}"
 # Before anything is killed, so a build that does not compile leaves the running one alone.
 go build -o "$weave" .
 
-agents="$(tmux -L "$socket" list-panes -a -F x 2>/dev/null | wc -l | tr -d ' ')"
+# An instance that has never been opened has no tmux server at all, and under pipefail
+# that failure would come back as the count's own and take the script with it.
+agents="$( (tmux -L "$socket" list-panes -a -F x 2>/dev/null || true) | wc -l | tr -d ' ')"
 
 # The whole tmux server, which is the panel, its stage, and every agent pane. Killing it
 # first means the panel is not around to spawn a replacement server underneath the stop.
