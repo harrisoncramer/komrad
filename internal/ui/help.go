@@ -173,20 +173,38 @@ func (m model) scheduleHelp() keyMap {
 	}
 }
 
-// archiveHelp lists the archive screen's bindings.
+// archiveHelp lists the archive screen's bindings, which differ by what the cursor is on
+// the way the agents screen's do.
 func (m model) archiveHelp() keyMap {
-	restore := binding(m.keys.Archive.Restore, "restore")
 	back := binding(m.keys.Archive.Back, "back")
+	rows := m.archiveRowHelp()
+
+	short := []key.Binding{back, m.helpBinding()}
+	if len(rows) > 0 {
+		short = slices.Concat(rows[:1], short)
+	}
 
 	return keyMap{
-		short: []key.Binding{restore, back, m.helpBinding()},
-		full: []key.Binding{
-			restore,
-			binding(m.keys.Archive.Delete, "delete for good"),
-			m.moveBinding(),
-			back,
-			m.helpBinding(),
-		},
+		short: short,
+		full:  slices.Concat(rows, []key.Binding{m.moveBinding(), back, m.helpBinding()}),
+	}
+}
+
+// archiveRowHelp are the bindings that act on the row under the archive's cursor. A folder
+// is restored whole and never destroyed, since nothing in the panel hard-deletes one, and
+// a live folder takes no keys at all, since it is drawn only to hold the agents put away
+// out of it.
+func (m model) archiveRowHelp() []key.Binding {
+	if _, ok := m.hoveredArchivedWorkflow(); ok {
+		return []key.Binding{binding(m.keys.Archive.Restore, "restore workflow")}
+	}
+	if _, ok := m.selectedArchived(); !ok {
+		return nil
+	}
+
+	return []key.Binding{
+		binding(m.keys.Archive.Restore, "restore"),
+		binding(m.keys.Archive.Delete, "delete for good"),
 	}
 }
 

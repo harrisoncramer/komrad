@@ -42,35 +42,36 @@ func (t *treeState) unpin() {
 	t.logsPinned = false
 }
 
-// agentRow is one line of the agents list, either a workflow header or an agent nested
-// beneath one. The cursor moves over both but the per-row keys apply only to agent rows.
+// agentRow is one line of a tree, either a workflow header or an agent nested beneath one.
+// The cursor moves over both but the per-row keys apply only to agent rows.
 type agentRow struct {
 	header bool
-	label  string    // the workflow's name when header is true
 	item   agentItem // the agent when header is false
-	// workflowIndex is the header's index in m.tree.workflows so the workflow keys can
-	// target it, and the enclosing workflow's for an agent row, so a new agent started
-	// from one lands in the same place.
-	workflowIndex int
+	// workflow is the folder the row sits in, the one a header names and the one an agent
+	// is nested under, so the keys acting on a workflow have it off the row.
+	workflow workflowstore.Workflow
 	// hiddenCount is how many of a header's agents are hidden, always the full count
 	// whether or not the hidden ones are on screen.
 	hiddenCount int
 }
 
-// agentRows arranges the agents into the displayed tree. Every workflow is a header
-// followed by its agents, and an empty workflow still gets a header so it can be hovered
-// to add its first. An agent whose workflow is not in the listing was deleted, so it is
-// left out rather than shown under a header that is not there.
+// treeRows arranges agents into the displayed tree. Every workflow is a header followed by
+// its agents, and an empty workflow still gets a header so it can be hovered to add its
+// first. An agent whose workflow is not in the given set was deleted, so it is left out
+// rather than shown under a header that is not there.
 //
 // A hidden agent gives up its row and is counted against its header instead. The filtering
 // happens here rather than at the listing, so every other screen still sees the whole set.
-func (m model) agentRows() []agentRow {
+//
+// The agents screen and the archive each decide which workflows to draw and build their
+// rows here, so the two trees cannot drift into different shapes.
+func treeRows(workflows []workflowstore.Workflow, agents []agentItem, showHidden bool) []agentRow {
 	byWorkflow := make(map[string][]agentItem)
 	hiddenCounts := make(map[string]int)
-	for _, it := range m.tree.agents {
+	for _, it := range agents {
 		if it.agent.Hidden {
 			hiddenCounts[it.agent.WorkflowID]++
-			if !m.tree.showHidden {
+			if !showHidden {
 				continue
 			}
 		}
@@ -79,14 +80,19 @@ func (m model) agentRows() []agentRow {
 	}
 
 	var rows []agentRow
-	for wi, w := range m.tree.workflows {
-		rows = append(rows, agentRow{header: true, label: w.Name, workflowIndex: wi, hiddenCount: hiddenCounts[w.ID]})
+	for _, w := range workflows {
+		rows = append(rows, agentRow{header: true, workflow: w, hiddenCount: hiddenCounts[w.ID]})
 		for _, it := range byWorkflow[w.ID] {
-			rows = append(rows, agentRow{item: it, workflowIndex: wi})
+			rows = append(rows, agentRow{item: it, workflow: w})
 		}
 	}
 
 	return rows
+}
+
+// agentRows is the agents screen's tree, the live workflows over the live agents.
+func (m model) agentRows() []agentRow {
+	return treeRows(m.tree.workflows, m.tree.agents, m.tree.showHidden)
 }
 
 // selectedAgent returns the agent under the cursor, or false when the cursor is on
@@ -103,17 +109,17 @@ func (m model) selectedAgent() (agentItem, bool) {
 // hoveredWorkflow returns the workflow whose header the cursor is on, or false when the
 // cursor is not on a header.
 func (m model) hoveredWorkflow() (workflowstore.Workflow, bool) {
-	rows := m.agentRows()
-	if m.tree.cursor < 0 || m.tree.cursor >= len(rows) {
+	return hoveredHeader(m.agentRows(), m.tree.cursor)
+}
+
+// hoveredHeader returns the workflow the cursor's header names, or false when the cursor
+// is not on a header.
+func hoveredHeader(rows []agentRow, cursor int) (workflowstore.Workflow, bool) {
+	if cursor < 0 || cursor >= len(rows) || !rows[cursor].header {
 		return workflowstore.Workflow{}, false
 	}
 
-	r := rows[m.tree.cursor]
-	if !r.header || r.workflowIndex < 0 || r.workflowIndex >= len(m.tree.workflows) {
-		return workflowstore.Workflow{}, false
-	}
-
-	return m.tree.workflows[r.workflowIndex], true
+	return rows[cursor].workflow, true
 }
 
 // enclosingWorkflow is the workflow the cursor is inside, header or agent alike, so a new
@@ -124,14 +130,7 @@ func (m model) enclosingWorkflow() *workflowstore.Workflow {
 		return nil
 	}
 
-	idx := rows[m.tree.cursor].workflowIndex
-	if idx < 0 || idx >= len(m.tree.workflows) {
-		return nil
-	}
-
-	workflow := m.tree.workflows[idx]
-
-	return &workflow
+	return &rows[m.tree.cursor].workflow
 }
 
 // firstAgentRowIndex returns the index of the first agent row, skipping a leading

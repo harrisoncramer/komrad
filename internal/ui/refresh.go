@@ -47,11 +47,14 @@ type refreshResult struct {
 	schedules    []scheduleItem
 	schedulesErr error
 
-	// archived is listed only while the archive screen is up. archivedListed says it was
-	// asked for, so an empty one reads as an empty archive rather than a skipped pass.
-	archived       []agentstore.Agent
-	archivedErr    error
-	archivedListed bool
+	// The archive is listed only while its screen is up, its agents and its folders each
+	// through a call of their own. archivedListed says they were asked for, so an empty
+	// pair reads as an empty archive rather than a skipped pass.
+	archived             []agentstore.Agent
+	archivedErr          error
+	archivedWorkflows    []workflowstore.Workflow
+	archivedWorkflowsErr error
+	archivedListed       bool
 }
 
 // refreshCmd lists everything the panel draws, off the UI goroutine so the render loop
@@ -91,6 +94,10 @@ func (m model) refreshCmd() tea.Cmd {
 				listed, err := client.ListAllArchivedAgents(ctx, clients.agents)
 				result.archived, result.archivedErr = archivedAgentsFrom(listed), err
 			})
+			wg.Go(func() {
+				listed, err := client.ListAllArchivedWorkflows(ctx, clients.workflows)
+				result.archivedWorkflows, result.archivedWorkflowsErr = workflowsFrom(listed), err
+			})
 		}
 		wg.Wait()
 
@@ -118,8 +125,10 @@ func (m *model) applyRefresh(result refreshResult) {
 	if result.schedulesErr == nil {
 		m.applySchedules(result.schedules)
 	}
-	if result.archivedListed && result.archivedErr == nil {
-		m.applyArchive(result.archived)
+	// The archive's two listings land together or not at all, since its folders and the
+	// agents nested under them are one tree.
+	if result.archivedListed && result.archivedErr == nil && result.archivedWorkflowsErr == nil {
+		m.applyArchive(result.archived, result.archivedWorkflows)
 	}
 
 	// A pass can change what the cursor is sitting on without the cursor moving, so the
@@ -147,8 +156,10 @@ func (r refreshResult) err() error {
 		return r.workflowsErr
 	case r.schedulesErr != nil:
 		return r.schedulesErr
-	default:
+	case r.archivedErr != nil:
 		return r.archivedErr
+	default:
+		return r.archivedWorkflowsErr
 	}
 }
 

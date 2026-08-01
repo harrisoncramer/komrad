@@ -164,14 +164,14 @@ func TestScreensFitThePane(t *testing.T) {
 	for i := range total {
 		name := fmt.Sprintf("agent%d", i)
 		m.tree.agents = append(m.tree.agents, agentItem{agent: agentstore.Agent{Name: name, WorkflowID: "w1"}})
-		m.archive.agents = append(m.archive.agents, agentstore.Agent{Name: name})
+		m.archive.agents = append(m.archive.agents, agentstore.Agent{Name: name, WorkflowID: "w1"})
 		m.schedules.items = append(m.schedules.items, scheduleItem{schedule: schedulestore.Schedule{Name: name}})
 	}
 
 	// Every cursor sits on the last row, the one a list that ran off the bottom
 	// would have taken off screen with it.
 	m.tree.cursor = total
-	m.archive.cursor = total - 1
+	m.archive.cursor = total
 	m.schedules.cursor = total - 1
 
 	tests := []struct {

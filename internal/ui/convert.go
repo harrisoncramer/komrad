@@ -77,10 +77,16 @@ func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
 }
 
 // workflowsFrom renders listed workflows into the store type the tree is written
-// against.
+// against. The archive time comes with them, since the archive draws an archived folder
+// differently from a live one.
 func workflowsFrom(listed []*workflowv1.Workflow) []workflowstore.Workflow {
 	workflows := make([]workflowstore.Workflow, 0, len(listed))
 	for _, w := range listed {
+		var archived *time.Time
+		if parsed, err := time.Parse(time.RFC3339, w.GetArchivedAt()); err == nil {
+			archived = &parsed
+		}
+
 		workflows = append(workflows, workflowstore.Workflow{
 			ID:            w.GetId(),
 			Name:          w.GetName(),
@@ -90,6 +96,7 @@ func workflowsFrom(listed []*workflowv1.Workflow) []workflowstore.Workflow {
 			Flags:         w.GetFlags(),
 			SetupAction:   w.GetSetupAction(),
 			CleanupAction: w.GetCleanupAction(),
+			ArchivedAt:    archived,
 		})
 	}
 
