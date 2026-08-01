@@ -524,7 +524,8 @@ func (s *Store) Rename(ctx context.Context, id, name string) (bool, error) {
 	return len(renamed) > 0, nil
 }
 
-// Archive hides an agent from listings without dropping the row.
+// Archive hides an agent from listings without dropping the row. The pane goes with it,
+// since the reconciler that would clear a stale id skips archived rows.
 func (s *Store) Archive(ctx context.Context, name string) error {
 	if err := s.queries.MarkAgentArchived(ctx, name); err != nil {
 		return fmt.Errorf("failed to archive agent %q: %w", name, err)

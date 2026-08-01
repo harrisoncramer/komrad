@@ -573,7 +573,8 @@ const markAgentArchived = `-- name: MarkAgentArchived :exec
 UPDATE
     agents
 SET
-    archived_at = NOW()
+    archived_at = NOW(),
+    pane_id = ''
 WHERE
     name = $1
     AND archived_at IS NULL
