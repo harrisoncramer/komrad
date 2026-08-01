@@ -16,6 +16,8 @@ message GetConfigResponse {
   google.protobuf.Struct config = 1;
   // Why the user's config file would not parse, unset when it did.
   optional string config_error = 2;
+  // The build this server is running, the same string weave version prints.
+  string version = 3;
 }
 
 service ConfigService {
@@ -23,7 +25,7 @@ service ConfigService {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "get_config"
-      description: "Read the panel's configuration as it is currently in force, keyed the same way the user's config file is. Covers the default flags every new agent inherits and the keybindings for each of the panel's screens. Anything the user left out of their file reads back as the built-in default. A configError in the response means their file would not parse, in which case the configuration returned is the defaults the panel is running on instead."
+      description: "Read the panel's configuration as it is currently in force, keyed the same way the user's config file is. Covers the default flags every new agent inherits and the keybindings for each of the panel's screens. Anything the user left out of their file reads back as the built-in default. A configError in the response means their file would not parse, in which case the configuration returned is the defaults the panel is running on instead. The version is the build the server answering you is running, which is worth quoting in a bug report about behaviour that makes no sense."
     };
   }
 }
