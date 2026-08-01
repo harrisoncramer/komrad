@@ -183,6 +183,30 @@ func TestMigrateReleasesLock(t *testing.T) {
 	assert.True(t, taken)
 }
 
+// TestReleaseMigrateLockOnCancelledContext covers a cancel landing between two statements,
+// the one path that leaves the connection healthy enough to be pooled with the lock held.
+func TestReleaseMigrateLockOnCancelledContext(t *testing.T) {
+	url := pgtest.URL(t)
+	pool := openAt(t, url)
+
+	conn, err := pool.Acquire(t.Context())
+	require.NoError(t, err)
+
+	_, err = conn.Exec(t.Context(), `SELECT pg_advisory_lock($1)`, migrateLock)
+	require.NoError(t, err)
+
+	cancelled, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	releaseMigrateLock(cancelled, conn)
+	conn.Release()
+
+	var taken bool
+	require.NoError(t, connect(t, url).QueryRow(t.Context(),
+		`SELECT pg_try_advisory_lock($1)`, migrateLock).Scan(&taken))
+	assert.True(t, taken, "the migration lock outlived the run that took it")
+}
+
 func TestIsPending(t *testing.T) {
 	tests := []struct {
 		name    string
