@@ -242,6 +242,12 @@ func serve(ctx context.Context, p serveParams) error {
 
 	mux.Handle(HealthPath, newHealthHandler(state.pool.Raw()))
 
+	// Asking to stop goes through the logging middleware, unlike readiness above. A
+	// readiness check is asked on a loop and says nothing, where a request that stops the
+	// service is the last thing in the log and the reason for everything after it.
+	stopRequested := make(chan struct{}, 1)
+	mux.Handle(StopPath, interceptors.NewLoggingHandler(logger, newStopHandler(stopRequested)))
+
 	if err := jobs.Migrate(ctx, state.pool.Raw()); err != nil {
 		return err
 	}
@@ -308,11 +314,15 @@ func serve(ctx context.Context, p serveParams) error {
 	served := make(chan error, 1)
 	go func() { served <- server.Serve(listener) }()
 
+	// Being asked and being signalled are the same shutdown from here on, so both land in
+	// the same teardown below rather than each having one of their own.
 	var failure error
 	select {
 	case failure = <-served:
 	case <-ctx.Done():
 		logger.LogAttrs(ctx, slog.LevelInfo, "the server is stopping")
+	case <-stopRequested:
+		logger.LogAttrs(ctx, slog.LevelInfo, "the server was asked to stop")
 	}
 
 	drain, cancelDrain := shutdownDeadline(ctx, httpDrainTimeout)
