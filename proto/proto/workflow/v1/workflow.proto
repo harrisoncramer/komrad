@@ -130,6 +130,15 @@ message ArchiveWorkflowRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
+// RestoreWorkflowRequest brings an archived workflow back with its agents.
+message RestoreWorkflowRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message RestoreWorkflowResponse {
+  Workflow workflow = 1;
+}
+
 service WorkflowService {
   rpc ListWorkflows(ListWorkflowsRequest) returns (ListWorkflowsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
@@ -165,6 +174,14 @@ service WorkflowService {
     option (annotation.v1.tool) = {
       tool_name: "archive_workflow"
       description: "Hide a workflow from the panel, archiving the agents inside it. Nothing is destroyed: the agents stay findable through search_transcripts and no transcript goes with them. Refused while any schedule still launches into the workflow, since those would have nowhere to run."
+      destructive: false
+    };
+  }
+  rpc RestoreWorkflow(RestoreWorkflowRequest) returns (RestoreWorkflowResponse) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.tool) = {
+      tool_name: "restore_workflow"
+      description: "Take a workflow out of the archive, keyed by id, along with every agent archived inside it. The agents come back as dormant rows, so call resume_agent on the ones whose conversations you want in a pane. Returns not_found if the workflow is not archived, and is refused whole if its agents would not fit under the number of agents the panel is configured to hold."
       destructive: false
     };
   }

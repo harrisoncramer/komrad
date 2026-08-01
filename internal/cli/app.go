@@ -103,6 +103,7 @@ func (a *app) openStore(ctx context.Context) error {
 		Workflows: a.workflows,
 		Schedules: a.schedules,
 		Tx:        pool,
+		MaxAgents: a.maxAgents,
 	})
 	a.scheduleService = agents.NewScheduleService(agents.ScheduleParams{
 		Schedules: a.schedules,

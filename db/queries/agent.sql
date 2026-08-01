@@ -144,6 +144,27 @@ WHERE
     workflow_id = @workflow_id
     AND archived_at IS NULL;
 
+-- name: MarkWorkflowAgentsRestored :exec
+UPDATE
+    agents
+SET
+    is_hidden = FALSE,
+    archived_at = NULL
+WHERE
+    workflow_id = @workflow_id
+    AND archived_at IS NOT NULL;
+
+-- name: ListArchivedWorkflowAgents :many
+SELECT
+    *
+FROM
+    agents
+WHERE
+    workflow_id = @workflow_id
+    AND archived_at IS NOT NULL
+ORDER BY
+    id DESC;
+
 -- name: SetAgentStateByID :exec
 UPDATE
     agents

@@ -295,3 +295,62 @@ func open(t *testing.T) *Store {
 
 	return New(pool.DB())
 }
+
+// TestGetArchived covers the read a restore opens on, which sees the archived workflows
+// and only those, since every other read here is scoped to the live ones.
+func TestGetArchived(t *testing.T) {
+	tests := []struct {
+		name    string
+		create  bool
+		archive bool
+		wantHit bool
+	}{
+		{
+			name: "an id nobody holds",
+		},
+		{
+			name:   "a live workflow is not archived",
+			create: true,
+		},
+		{
+			name:    "an archived workflow",
+			create:  true,
+			archive: true,
+			wantHit: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			id := missingID
+			if tt.create {
+				created, err := st.Create(ctx, Config{Name: "backend"})
+				require.NoError(t, err)
+				id = created.ID
+			}
+			if tt.archive {
+				require.NoError(t, st.Archive(ctx, id))
+			}
+
+			got, err := st.GetArchived(ctx, id)
+			require.NoError(t, err)
+
+			if !tt.wantHit {
+				assert.Nil(t, got)
+
+				return
+			}
+
+			require.NotNil(t, got)
+			assert.Equal(t, "backend", got.Name)
+
+			require.NoError(t, st.Restore(ctx, id))
+			after, err := st.GetArchived(ctx, id)
+			require.NoError(t, err)
+			assert.Nil(t, after, "a restored workflow leaves the archived read")
+		})
+	}
+}

@@ -243,6 +243,9 @@ func (s *AgentService) ArchiveAgent(ctx context.Context, name string) error {
 // RestoreAgent takes an agent out of the archive and returns it as stored. The agent lands
 // dormant, since starting anything is ResumeAgent's half. An unarchived agent holds a slot
 // whether or not it is running, so this is refused at the ceiling a create is.
+//
+// The agent's workflow comes back with it, on one transaction, since an agent listed
+// under a workflow nothing lists would get no row anywhere.
 func (s *AgentService) RestoreAgent(ctx context.Context, id string) (*agentstore.Agent, error) {
 	agent, err := s.byID(ctx, id)
 	if err != nil {
@@ -258,15 +261,24 @@ func (s *AgentService) RestoreAgent(ctx context.Context, id string) (*agentstore
 		return nil, err
 	}
 
-	// The unique-name index covers the unarchived alone, so a name claimed while this
-	// agent sat archived would collide on the way out.
-	if s.nameTaken(ctx, agent.Name) {
-		if _, err := s.agents.Rename(ctx, agent.ID, s.uniqueAgentName(ctx, agent.Name, "")); err != nil {
-			return nil, fmt.Errorf("failed to rename restored agent %q: %w", agent.Name, err)
-		}
-	}
+	err = s.tx.InTx(ctx, func(db store.DBTX) error {
+		agents := agentstore.New(db)
 
-	if err := s.agents.Restore(ctx, id); err != nil {
+		// The unique-name index covers the unarchived alone, so a name claimed while
+		// this agent sat archived would collide on the way out.
+		if taken, _ := agents.ActiveNameExists(ctx, agent.Name); taken {
+			if _, err := agents.Rename(ctx, agent.ID, freeAgentName(ctx, agents, agent.Name)); err != nil {
+				return fmt.Errorf("failed to rename restored agent %q: %w", agent.Name, err)
+			}
+		}
+
+		if err := agents.Restore(ctx, id); err != nil {
+			return err
+		}
+
+		return workflow.New(db).Restore(ctx, agent.WorkflowID)
+	})
+	if err != nil {
 		return nil, fmt.Errorf("failed to restore agent %q: %w", agent.Name, err)
 	}
 
@@ -503,16 +515,29 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 // roomForAgent refuses a create once the panel is full, since creating one is a tool a
 // model can call in a loop and each agent is a real CLI in a real pane.
 func (s *AgentService) roomForAgent(ctx context.Context) error {
-	if s.maxAgents <= 0 {
+	return roomForAgents(ctx, s.agents, s.maxAgents, 1)
+}
+
+// agentCounter reads how many unarchived agents the panel holds. It is an interface so a
+// caller inside a transaction can count through the store bound to it.
+type agentCounter interface {
+	CountLive(ctx context.Context) (int64, error)
+}
+
+// roomForAgents refuses unless want more agents fit under the ceiling. A workflow restore
+// asks for its whole contents at once, since a folder that came back with some of its
+// runs would read as whole.
+func roomForAgents(ctx context.Context, agents agentCounter, maxAgents, want int) error {
+	if maxAgents <= 0 || want <= 0 {
 		return nil
 	}
 
-	live, err := s.agents.CountLive(ctx)
+	live, err := agents.CountLive(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to count the agents already running: %w", err)
 	}
-	if live >= int64(s.maxAgents) {
-		return fmt.Errorf("%w: max number of concurrent agents reached (%d of %d), please archive one to continue", ErrTooManyAgents, live, s.maxAgents)
+	if live+int64(want) > int64(maxAgents) {
+		return fmt.Errorf("%w: max number of concurrent agents reached (%d of %d), please archive one to continue", ErrTooManyAgents, live, maxAgents)
 	}
 
 	return nil
@@ -747,12 +772,7 @@ func (s *AgentService) uniqueAgentName(ctx context.Context, title, prompt string
 		base = "agent"
 	}
 
-	name := base
-	for i := 2; s.nameTaken(ctx, name); i++ {
-		name = fmt.Sprintf("%s-%d", base, i)
-	}
-
-	return name
+	return freeAgentName(ctx, s.agents, base)
 }
 
 // nameTaken reports whether a live agent record already owns a name, since reusing one
@@ -760,4 +780,24 @@ func (s *AgentService) uniqueAgentName(ctx context.Context, title, prompt string
 func (s *AgentService) nameTaken(ctx context.Context, name string) bool {
 	taken, _ := s.agents.ActiveNameExists(ctx, name)
 	return taken
+}
+
+// agentNamer answers whether a live agent already holds a name, for the same reason
+// agentCounter is an interface.
+type agentNamer interface {
+	ActiveNameExists(ctx context.Context, name string) (bool, error)
+}
+
+// freeAgentName is base, or base with a suffix once a live agent holds it. A store that
+// cannot answer reads as free, leaving the unique index to refuse the write.
+func freeAgentName(ctx context.Context, agents agentNamer, base string) string {
+	name := base
+	for i := 2; ; i++ {
+		taken, _ := agents.ActiveNameExists(ctx, name)
+		if !taken {
+			return name
+		}
+
+		name = fmt.Sprintf("%s-%d", base, i)
+	}
 }

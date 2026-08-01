@@ -617,6 +617,95 @@ func (x *ArchiveWorkflowRequest) GetId() string {
 	return ""
 }
 
+// RestoreWorkflowRequest brings an archived workflow back with its agents.
+type RestoreWorkflowRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RestoreWorkflowRequest) Reset() {
+	*x = RestoreWorkflowRequest{}
+	mi := &file_workflow_v1_workflow_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RestoreWorkflowRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RestoreWorkflowRequest) ProtoMessage() {}
+
+func (x *RestoreWorkflowRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_workflow_v1_workflow_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RestoreWorkflowRequest.ProtoReflect.Descriptor instead.
+func (*RestoreWorkflowRequest) Descriptor() ([]byte, []int) {
+	return file_workflow_v1_workflow_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *RestoreWorkflowRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type RestoreWorkflowResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Workflow      *Workflow              `protobuf:"bytes,1,opt,name=workflow,proto3" json:"workflow,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RestoreWorkflowResponse) Reset() {
+	*x = RestoreWorkflowResponse{}
+	mi := &file_workflow_v1_workflow_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RestoreWorkflowResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RestoreWorkflowResponse) ProtoMessage() {}
+
+func (x *RestoreWorkflowResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_workflow_v1_workflow_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RestoreWorkflowResponse.ProtoReflect.Descriptor instead.
+func (*RestoreWorkflowResponse) Descriptor() ([]byte, []int) {
+	return file_workflow_v1_workflow_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *RestoreWorkflowResponse) GetWorkflow() *Workflow {
+	if x != nil {
+		return x.Workflow
+	}
+	return nil
+}
+
 var File_workflow_v1_workflow_proto protoreflect.FileDescriptor
 
 const file_workflow_v1_workflow_proto_rawDesc = "" +
@@ -666,7 +755,11 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\fsetup_action\x18\a \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01R\vsetupAction\x123\n" +
 	"\x0ecleanup_action\x18\b \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01R\rcleanupAction\"1\n" +
 	"\x16ArchiveWorkflowRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xe3\x10\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"1\n" +
+	"\x16RestoreWorkflowRequest\x12\x17\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"L\n" +
+	"\x17RestoreWorkflowResponse\x121\n" +
+	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow2\xce\x14\n" +
 	"\x0fWorkflowService\x12\xc2\x03\n" +
 	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\xe9\x02\x9a\xb5\x18\xe1\x02\n" +
 	"\x0elist_workflows\x12\xce\x02List the workflows agents are grouped into, most recently updated first, with each one's shared context, the working directory and flags its agents start from, and the action run before its agents start and the one run after they are deleted. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
@@ -677,7 +770,9 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xbd\x03\x9a\xb5\x18\xb5\x03\n" +
 	"\x0fupdate_workflow\x12\x9f\x03Replace a workflow's name, context, directory, flags, and the actions run around its agents' lives. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context or the setup action reaches only agents spawned afterwards, since existing agents took a snapshot at launch; editing the cleanup action reaches agents already running, since it is read when it fires. \x00\x90\x02\x02\x12\xff\x02\n" +
 	"\x0fArchiveWorkflow\x12#.workflow.v1.ArchiveWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xae\x02\x9a\xb5\x18\xa6\x02\n" +
-	"\x10archive_workflow\x12\x8f\x02Hide a workflow from the panel, archiving the agents inside it. Nothing is destroyed: the agents stay findable through search_transcripts and no transcript goes with them. Refused while any schedule still launches into the workflow, since those would have nowhere to run. \x00\x90\x02\x02B(Z&weave/proto/gen/workflow/v1;workflowv1b\x06proto3"
+	"\x10archive_workflow\x12\x8f\x02Hide a workflow from the panel, archiving the agents inside it. Nothing is destroyed: the agents stay findable through search_transcripts and no transcript goes with them. Refused while any schedule still launches into the workflow, since those would have nowhere to run. \x00\x90\x02\x02\x12\xe8\x03\n" +
+	"\x0fRestoreWorkflow\x12#.workflow.v1.RestoreWorkflowRequest\x1a$.workflow.v1.RestoreWorkflowResponse\"\x89\x03\x9a\xb5\x18\x81\x03\n" +
+	"\x10restore_workflow\x12\xea\x02Take a workflow out of the archive, keyed by id, along with every agent archived inside it. The agents come back as dormant rows, so call resume_agent on the ones whose conversations you want in a pane. Returns not_found if the workflow is not archived, and is refused whole if its agents would not fit under the number of agents the panel is configured to hold. \x00\x90\x02\x02B(Z&weave/proto/gen/workflow/v1;workflowv1b\x06proto3"
 
 var (
 	file_workflow_v1_workflow_proto_rawDescOnce sync.Once
@@ -691,40 +786,45 @@ func file_workflow_v1_workflow_proto_rawDescGZIP() []byte {
 	return file_workflow_v1_workflow_proto_rawDescData
 }
 
-var file_workflow_v1_workflow_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_workflow_v1_workflow_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_workflow_v1_workflow_proto_goTypes = []any{
-	(*Workflow)(nil),               // 0: workflow.v1.Workflow
-	(*ListWorkflowsRequest)(nil),   // 1: workflow.v1.ListWorkflowsRequest
-	(*ListWorkflowsResponse)(nil),  // 2: workflow.v1.ListWorkflowsResponse
-	(*GetWorkflowRequest)(nil),     // 3: workflow.v1.GetWorkflowRequest
-	(*GetWorkflowResponse)(nil),    // 4: workflow.v1.GetWorkflowResponse
-	(*CreateWorkflowRequest)(nil),  // 5: workflow.v1.CreateWorkflowRequest
-	(*CreateWorkflowResponse)(nil), // 6: workflow.v1.CreateWorkflowResponse
-	(*UpdateWorkflowRequest)(nil),  // 7: workflow.v1.UpdateWorkflowRequest
-	(*ArchiveWorkflowRequest)(nil), // 8: workflow.v1.ArchiveWorkflowRequest
-	(*v1.Pagination)(nil),          // 9: pagination.v1.Pagination
-	(*emptypb.Empty)(nil),          // 10: google.protobuf.Empty
+	(*Workflow)(nil),                // 0: workflow.v1.Workflow
+	(*ListWorkflowsRequest)(nil),    // 1: workflow.v1.ListWorkflowsRequest
+	(*ListWorkflowsResponse)(nil),   // 2: workflow.v1.ListWorkflowsResponse
+	(*GetWorkflowRequest)(nil),      // 3: workflow.v1.GetWorkflowRequest
+	(*GetWorkflowResponse)(nil),     // 4: workflow.v1.GetWorkflowResponse
+	(*CreateWorkflowRequest)(nil),   // 5: workflow.v1.CreateWorkflowRequest
+	(*CreateWorkflowResponse)(nil),  // 6: workflow.v1.CreateWorkflowResponse
+	(*UpdateWorkflowRequest)(nil),   // 7: workflow.v1.UpdateWorkflowRequest
+	(*ArchiveWorkflowRequest)(nil),  // 8: workflow.v1.ArchiveWorkflowRequest
+	(*RestoreWorkflowRequest)(nil),  // 9: workflow.v1.RestoreWorkflowRequest
+	(*RestoreWorkflowResponse)(nil), // 10: workflow.v1.RestoreWorkflowResponse
+	(*v1.Pagination)(nil),           // 11: pagination.v1.Pagination
+	(*emptypb.Empty)(nil),           // 12: google.protobuf.Empty
 }
 var file_workflow_v1_workflow_proto_depIdxs = []int32{
-	9,  // 0: workflow.v1.ListWorkflowsRequest.pagination:type_name -> pagination.v1.Pagination
+	11, // 0: workflow.v1.ListWorkflowsRequest.pagination:type_name -> pagination.v1.Pagination
 	0,  // 1: workflow.v1.ListWorkflowsResponse.workflows:type_name -> workflow.v1.Workflow
 	0,  // 2: workflow.v1.GetWorkflowResponse.workflow:type_name -> workflow.v1.Workflow
 	0,  // 3: workflow.v1.CreateWorkflowResponse.workflow:type_name -> workflow.v1.Workflow
-	1,  // 4: workflow.v1.WorkflowService.ListWorkflows:input_type -> workflow.v1.ListWorkflowsRequest
-	3,  // 5: workflow.v1.WorkflowService.GetWorkflow:input_type -> workflow.v1.GetWorkflowRequest
-	5,  // 6: workflow.v1.WorkflowService.CreateWorkflow:input_type -> workflow.v1.CreateWorkflowRequest
-	7,  // 7: workflow.v1.WorkflowService.UpdateWorkflow:input_type -> workflow.v1.UpdateWorkflowRequest
-	8,  // 8: workflow.v1.WorkflowService.ArchiveWorkflow:input_type -> workflow.v1.ArchiveWorkflowRequest
-	2,  // 9: workflow.v1.WorkflowService.ListWorkflows:output_type -> workflow.v1.ListWorkflowsResponse
-	4,  // 10: workflow.v1.WorkflowService.GetWorkflow:output_type -> workflow.v1.GetWorkflowResponse
-	6,  // 11: workflow.v1.WorkflowService.CreateWorkflow:output_type -> workflow.v1.CreateWorkflowResponse
-	10, // 12: workflow.v1.WorkflowService.UpdateWorkflow:output_type -> google.protobuf.Empty
-	10, // 13: workflow.v1.WorkflowService.ArchiveWorkflow:output_type -> google.protobuf.Empty
-	9,  // [9:14] is the sub-list for method output_type
-	4,  // [4:9] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	0,  // 4: workflow.v1.RestoreWorkflowResponse.workflow:type_name -> workflow.v1.Workflow
+	1,  // 5: workflow.v1.WorkflowService.ListWorkflows:input_type -> workflow.v1.ListWorkflowsRequest
+	3,  // 6: workflow.v1.WorkflowService.GetWorkflow:input_type -> workflow.v1.GetWorkflowRequest
+	5,  // 7: workflow.v1.WorkflowService.CreateWorkflow:input_type -> workflow.v1.CreateWorkflowRequest
+	7,  // 8: workflow.v1.WorkflowService.UpdateWorkflow:input_type -> workflow.v1.UpdateWorkflowRequest
+	8,  // 9: workflow.v1.WorkflowService.ArchiveWorkflow:input_type -> workflow.v1.ArchiveWorkflowRequest
+	9,  // 10: workflow.v1.WorkflowService.RestoreWorkflow:input_type -> workflow.v1.RestoreWorkflowRequest
+	2,  // 11: workflow.v1.WorkflowService.ListWorkflows:output_type -> workflow.v1.ListWorkflowsResponse
+	4,  // 12: workflow.v1.WorkflowService.GetWorkflow:output_type -> workflow.v1.GetWorkflowResponse
+	6,  // 13: workflow.v1.WorkflowService.CreateWorkflow:output_type -> workflow.v1.CreateWorkflowResponse
+	12, // 14: workflow.v1.WorkflowService.UpdateWorkflow:output_type -> google.protobuf.Empty
+	12, // 15: workflow.v1.WorkflowService.ArchiveWorkflow:output_type -> google.protobuf.Empty
+	10, // 16: workflow.v1.WorkflowService.RestoreWorkflow:output_type -> workflow.v1.RestoreWorkflowResponse
+	11, // [11:17] is the sub-list for method output_type
+	5,  // [5:11] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_workflow_v1_workflow_proto_init() }
@@ -740,7 +840,7 @@ func file_workflow_v1_workflow_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_workflow_v1_workflow_proto_rawDesc), len(file_workflow_v1_workflow_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

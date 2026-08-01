@@ -259,6 +259,66 @@ func TestArchiveWorkflow(t *testing.T) {
 	}
 }
 
+// TestRestoreWorkflow covers the handler's side of a restore, which is the codes it
+// answers with. A workflow that is not archived is not found, since there is nothing for
+// this call to do to it.
+func TestRestoreWorkflow(t *testing.T) {
+	tests := []struct {
+		name     string
+		create   bool
+		archive  bool
+		wantCode connect.Code
+	}{
+		{
+			name:     "an id nobody holds",
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "a workflow that is not archived",
+			create:   true,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:    "an archived workflow comes back with its agents",
+			create:  true,
+			archive: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, st := service(t)
+			ctx := t.Context()
+
+			id := missingID
+			if tt.create {
+				id = createWorkflow(t, svc, "backend")
+				st.SeedAgent(t, agentstore.Agent{Name: "agent", WorkflowID: id})
+			}
+			if tt.archive {
+				_, err := svc.ArchiveWorkflow(ctx, connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{Id: id}))
+				require.NoError(t, err)
+			}
+
+			resp, err := svc.RestoreWorkflow(ctx, connect.NewRequest(&workflowv1.RestoreWorkflowRequest{Id: id}))
+
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, "backend", resp.Msg.GetWorkflow().GetName())
+
+			agent, err := st.Agents.Get(ctx, "agent")
+			require.NoError(t, err)
+			require.NotNil(t, agent, "its agent is listed again")
+			assert.Nil(t, agent.ArchivedAt)
+		})
+	}
+}
+
 func TestListWorkflows(t *testing.T) {
 	tests := []struct {
 		name      string
