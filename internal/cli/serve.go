@@ -55,10 +55,9 @@ func serveCmd(state *app) *cobra.Command {
 		Use:   "serve",
 		Short: "Serve the agent store over ConnectRPC/HTTP",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+
 			// The logger is built before anything that could fail, so a service that
-			// cannot start says why in the same shape as one that is running. It writes to
-			// stderr rather than opening the log, since the process that spawns it already
-			// points stderr at appconfig.LogPath.
+			// cannot start says why in the same shape as one that is running.
 			logger, err := serveLogger(state.logLevel)
 			if err != nil {
 				return err
@@ -94,8 +93,7 @@ func serveLogger(level string) (*slog.Logger, error) {
 	return logging.New(os.Stderr, parsed), nil
 }
 
-// serve builds the handlers, starts the background loops, and listens. It is split out of
-// the command so every way it can fail lands in one place to be logged.
+// serve builds the handlers, starts the background loops, and listens.
 func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) error {
 	if err := state.openStore(ctx); err != nil {
 		return err
@@ -108,8 +106,7 @@ func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) er
 		return err
 	}
 
-	// Logging wraps validation rather than the other way round, so a request refused for
-	// being malformed is still recorded as one that arrived.
+	// Connect options are logging and validation through CEL expressions
 	options := connect.WithInterceptors(interceptors.NewLogging(logger), validation)
 
 	mux := http.NewServeMux()
@@ -141,8 +138,6 @@ func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) er
 	)
 	mux.Handle(configPath, configHandler)
 
-	// The same service the agent service fires a workflow's actions through, so a
-	// script is handed the same payload whoever set it off.
 	actionPath, actionHandler := actionv1connect.NewActionServiceHandler(
 		rpcaction.NewService(state.actionService),
 		options,
@@ -157,25 +152,18 @@ func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) er
 	}
 	defer readOnly.Close()
 
-	// The RPC-backed tools call back into this same server, so they are pointed at the
-	// address it is about to listen on.
-	mcpHandler, err := mcp.NewHandler(mcp.NewHandlerParams{DB: readOnly, BaseURL: "http://" + addr})
+	mcpHandler, err := mcp.NewHandler(mcp.NewHandlerParams{
+		DB:      readOnly,
+		BaseURL: "http://" + addr,
+	})
 	if err != nil {
 		return err
 	}
 
-	// Readiness is answered outside the logging middleware, since whoever is asking is
-	// asking on a loop and every answer would be a line.
-	mux.Handle(HealthPath, newHealthHandler(state.pool.Raw()))
-
-	// The MCP endpoint is not served through connect, so the interceptors above never see
-	// it. It is wrapped here instead, since a surface a model spawns and deletes agents
-	// through is the last one that should leave no trace.
 	mux.Handle("/mcp", interceptors.NewLoggingHandler(logger, mcpHandler))
 
-	// River runs the schedules, keeping its own tables in their own schema, one worker
-	// that launches an agent, and a reconciler that matches its periodic jobs to the
-	// schedules table.
+	mux.Handle(HealthPath, newHealthHandler(state.pool.Raw()))
+
 	if err := jobs.Migrate(ctx, state.pool.Raw()); err != nil {
 		return err
 	}
@@ -196,6 +184,7 @@ func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) er
 	defer func() { _ = jobRunner.Stop(context.Background()) }()
 
 	periodic := jobs.NewRiverPeriodic(jobRunner.PeriodicJobs())
+
 	go runLoop(ctx, runLoopParams{
 		Name:     "schedule reconcile",
 		Interval: scheduleReconcileInterval,
@@ -203,8 +192,6 @@ func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) er
 		Logger:   logger,
 	})
 
-	// The reconciler runs here rather than in the panel because serve is the always-on
-	// process that owns the store, and the counts must stay correct with no panel open.
 	go runLoop(ctx, runLoopParams{
 		Name:     "reconcile",
 		Interval: reconcileInterval,
@@ -212,8 +199,6 @@ func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) er
 		Logger:   logger,
 	})
 
-	// The transcript syncer runs alongside the reconciler for the same reason, so the
-	// search index stays current whether or not a panel is open.
 	go runLoop(ctx, runLoopParams{
 		Name:     "transcript sync",
 		Interval: transcriptSyncInterval,
@@ -226,9 +211,6 @@ func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) er
 		Logger: logger,
 	})
 
-	// The socket is claimed here rather than left to ListenAndServe so the line saying the
-	// service is up is written only once it is. Serving blocks, so a port already taken
-	// would otherwise put "listening" directly above the error saying it never started.
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
@@ -237,8 +219,6 @@ func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) er
 	logger.LogAttrs(ctx, slog.LevelInfo, "the server is listening",
 		slog.String(logging.ServerAddress, listener.Addr().String()))
 
-	// The guard wraps the server rather than any one route, so a route added later cannot
-	// be mounted without it.
 	server := &http.Server{
 		Handler:           interceptors.NewLocalGuard(logger, mux),
 		ReadHeaderTimeout: 5 * time.Second,
@@ -257,13 +237,7 @@ type runLoopParams struct {
 }
 
 // runLoop re-runs a pass on a fixed interval until the context is cancelled. Every loop
-// serve owns is one of these: correct what you own, wait, correct it again. The first pass
-// runs before the first wait, and a failed pass is logged and left to the next one.
-//
-// A loop that keeps failing the same way writes one line and then counts, since the usual
-// failure holds for as long as the database is unreachable and a two-second tick would
-// bury everything else. The repeats stay at debug, where somebody chasing a flapping
-// failure can still see each pass.
+// serve owns is one of these: correct what you own, wait, correct it again.
 //
 // A pass that panics is a failing pass too, for the reasons on runPass, so it folds and
 // counts the same way rather than ending the process.
@@ -301,17 +275,6 @@ func runLoop(ctx context.Context, params runLoopParams) {
 // process. Go ends the program on a panic in any goroutine that does not catch one, and
 // every loop here is one, so without this a single bad pass takes the other two loops, the
 // RPC surface, and the MCP endpoint with it.
-//
-// Carrying on with state a panic left behind is the argument against recovering, and it
-// does not hold for what these loops own. Every pass re-derives its answer from the store
-// and from tmux rather than from anything it remembers, so the most a torn pass leaves is a
-// miss count the next pass overwrites.
-//
-// Dying deliberately would be defensible if anything restarted the process, and nothing
-// does: the server is spawned once by the panel, which then runs for as long as its tmux
-// session and never spawns another. A fatal panic freezes every agent's state at whatever
-// the last pass wrote until that session is gone, which is the failure this guards against
-// rather than a clean restart.
 func runPass(ctx context.Context, pass func(context.Context) error) (err error) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
@@ -323,9 +286,7 @@ func runPass(ctx context.Context, pass func(context.Context) error) (err error) 
 }
 
 // panicError is a panic a pass raised, carried as an error so it is reported through the
-// same path a returned failure is. The stack sits beside the message rather than in it,
-// since the message is what repeats are folded on and frames carrying a goroutine number
-// would make every pass read as a new failure.
+// same path a returned failure is.
 type panicError struct {
 	value any
 	stack string
@@ -335,9 +296,6 @@ func (e *panicError) Error() string {
 	return fmt.Sprintf("the pass panicked: %v", e.value)
 }
 
-// failureAttrs is what a failed pass is reported with: the error, and the frames behind it
-// when the failure was a panic. A returned error names where it came from in its message,
-// where a panic value says only what went wrong and never where.
 func failureAttrs(err error) []slog.Attr {
 	attrs := logging.Err(err)
 
