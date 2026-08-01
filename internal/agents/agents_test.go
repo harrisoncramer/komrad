@@ -705,6 +705,35 @@ func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
 	}
 }
 
+// TestDeleteAgentRunsCleanupFromAnArchivedWorkflow covers deleting an agent out of the
+// archive, where the worktree setup built is still on disk and the cleanup is the only
+// thing that takes it back.
+func TestDeleteAgentRunsCleanupFromAnArchivedWorkflow(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	lifecycle := &fakeLifecycle{}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+	workflows := workflowsFor(st)
+
+	created, err := workflows.NewWorkflow(t.Context(), workflow.Config{
+		Name:          "backend",
+		CleanupAction: "drop-worktree",
+	})
+	require.NoError(t, err)
+
+	agent, err := manager.NewAgent(t.Context(), NewAgentParams{
+		Title:      "agent",
+		Dir:        t.TempDir(),
+		WorkflowID: created.ID,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, workflows.ArchiveWorkflow(t.Context(), created.ID))
+	require.NoError(t, manager.DeleteAgent(t.Context(), agent.ID))
+
+	assert.Equal(t, []string{"drop-worktree"}, lifecycle.cleanup)
+}
+
 // TestRunCleanupLogsOneThatWouldNotStart covers the cleanup that never becomes a process at
 // all, which is what a renamed script leaves behind.
 func TestRunCleanupLogsOneThatWouldNotStart(t *testing.T) {

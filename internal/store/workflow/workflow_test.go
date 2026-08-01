@@ -296,9 +296,10 @@ func open(t *testing.T) *Store {
 	return New(pool.DB())
 }
 
-// TestGetArchived covers the read a restore opens on, which sees the archived workflows
-// and only those, since every other read here is scoped to the live ones.
-func TestGetArchived(t *testing.T) {
+// TestGetIncludingArchived covers the read that ignores the archive, which is what an
+// agent's cleanup resolves its action through. It carries whether the workflow is
+// archived rather than filtering on it, since that is what a restore is refused by.
+func TestGetIncludingArchived(t *testing.T) {
 	tests := []struct {
 		name    string
 		create  bool
@@ -309,8 +310,9 @@ func TestGetArchived(t *testing.T) {
 			name: "an id nobody holds",
 		},
 		{
-			name:   "a live workflow is not archived",
-			create: true,
+			name:    "a live workflow",
+			create:  true,
+			wantHit: true,
 		},
 		{
 			name:    "an archived workflow",
@@ -327,7 +329,7 @@ func TestGetArchived(t *testing.T) {
 
 			id := missingID
 			if tt.create {
-				created, err := st.Create(ctx, Config{Name: "backend"})
+				created, err := st.Create(ctx, Config{Name: "backend", CleanupAction: "drop-worktree"})
 				require.NoError(t, err)
 				id = created.ID
 			}
@@ -335,7 +337,7 @@ func TestGetArchived(t *testing.T) {
 				require.NoError(t, st.Archive(ctx, id))
 			}
 
-			got, err := st.GetArchived(ctx, id)
+			got, err := st.GetIncludingArchived(ctx, id)
 			require.NoError(t, err)
 
 			if !tt.wantHit {
@@ -345,12 +347,15 @@ func TestGetArchived(t *testing.T) {
 			}
 
 			require.NotNil(t, got)
-			assert.Equal(t, "backend", got.Name)
+			assert.Equal(t, "drop-worktree", got.CleanupAction)
 
-			require.NoError(t, st.Restore(ctx, id))
-			after, err := st.GetArchived(ctx, id)
-			require.NoError(t, err)
-			assert.Nil(t, after, "a restored workflow leaves the archived read")
+			if tt.archive {
+				assert.NotNil(t, got.ArchivedAt)
+
+				return
+			}
+
+			assert.Nil(t, got.ArchivedAt)
 		})
 	}
 }

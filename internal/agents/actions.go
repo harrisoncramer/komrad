@@ -69,7 +69,7 @@ type ActionService struct {
 	agents actionReader
 	// workflows is read for the name of the workflow an agent belongs to, which a script
 	// can use where the id it is stored under says nothing.
-	workflows workflowReader
+	workflows storedWorkflowReader
 	tmux      actionTmux
 	runner    actionRunner
 	load      configLoader
@@ -82,7 +82,7 @@ type ActionService struct {
 // ActionParams carries the action service's dependencies.
 type ActionParams struct {
 	Agents    actionReader
-	Workflows workflowReader
+	Workflows storedWorkflowReader
 	Tmux      actionTmux
 	Runner    actionRunner
 	Load      configLoader
@@ -431,9 +431,10 @@ func (s *ActionService) env(ctx context.Context, agent agentstore.Agent, dir, tr
 }
 
 // workflowName is the name of the workflow an agent belongs to. A payload is not worth
-// refusing over one label, so a lookup that fails leaves the field blank.
+// refusing over one label, so a lookup that fails leaves the field blank. The archive is
+// read through, since an agent in an archived workflow still belongs to it by name.
 func (s *ActionService) workflowName(ctx context.Context, id string) string {
-	found, err := s.workflows.Get(ctx, id)
+	found, err := s.workflows.GetIncludingArchived(ctx, id)
 	if err != nil || found == nil {
 		return ""
 	}

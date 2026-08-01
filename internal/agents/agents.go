@@ -51,9 +51,23 @@ type agentStore interface {
 	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
 }
 
-// workflowReader is all this service needs from the workflow domain.
-type workflowReader interface {
+// liveWorkflowReader reads a workflow the panel still lists, which is what a launch has
+// to be refused against.
+type liveWorkflowReader interface {
 	Get(ctx context.Context, id string) (*workflow.Workflow, error)
+}
+
+// storedWorkflowReader reads what a workflow row says whether or not it is archived,
+// which is what an agent outliving its workflow's archiving is read against.
+type storedWorkflowReader interface {
+	GetIncludingArchived(ctx context.Context, id string) (*workflow.Workflow, error)
+}
+
+// workflowReader is both, since an agent is launched into a live workflow and torn down
+// out of one that may since have been archived.
+type workflowReader interface {
+	liveWorkflowReader
+	storedWorkflowReader
 }
 
 // txRunner opens the transaction a write spanning two domains needs, since removing
@@ -715,9 +729,10 @@ func (s *AgentService) runCleanup(ctx context.Context, agent agentstore.Agent, n
 
 // cleanupAction is the action an agent's workflow names, blank when it cannot be read.
 // It is read when it fires rather than at launch, so editing a workflow's cleanup
-// reaches the agents already inside it.
+// reaches the agents already inside it. The archive is read through too, since deleting
+// an agent out of an archived workflow is where the teardown matters most.
 func (s *AgentService) cleanupAction(ctx context.Context, workflowID string) string {
-	wf, err := s.workflows.Get(ctx, workflowID)
+	wf, err := s.workflows.GetIncludingArchived(ctx, workflowID)
 	if err != nil || wf == nil {
 		return ""
 	}
