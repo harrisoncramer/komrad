@@ -30,7 +30,7 @@ type workflowManager interface {
 // workflowLister is the read side, kept separate because listing pages straight
 // out of the store rather than through the service.
 type workflowLister interface {
-	ListPage(ctx context.Context, limit int64, cursor *workflowstore.Cursor) ([]workflowstore.Workflow, error)
+	ListPage(ctx context.Context, limit int64, cursor *workflowstore.Cursor, archived bool) ([]workflowstore.Workflow, error)
 }
 
 // Service implements workflowv1connect.WorkflowServiceHandler.
@@ -52,7 +52,7 @@ func (s *Service) ListWorkflows(ctx context.Context, req *connect.Request[workfl
 		return nil, err
 	}
 
-	stored, err := s.lister.ListPage(ctx, paginator.Limit(), paginator.Cursor())
+	stored, err := s.lister.ListPage(ctx, paginator.Limit(), paginator.Cursor(), req.Msg.GetArchived())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list workflows: %w", err))
 	}

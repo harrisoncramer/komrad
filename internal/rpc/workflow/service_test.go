@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"testing"
+	"time"
 
 	"weave/internal/agents"
 	"weave/internal/storetest"
@@ -413,4 +414,59 @@ func createWorkflow(t *testing.T, svc *Service, name string) string {
 	require.NoError(t, err)
 
 	return created.Msg.GetWorkflow().GetId()
+}
+
+// TestListWorkflowsArchived covers the flag that picks which set is listed, and the
+// archive time riding out with it, which is how a caller tells an archived workflow from
+// a live one.
+func TestListWorkflowsArchived(t *testing.T) {
+	tests := []struct {
+		name      string
+		archived  bool
+		wantNames []string
+	}{
+		{
+			name:      "the live listing leaves out what was archived",
+			wantNames: []string{"live"},
+		},
+		{
+			name:      "the archive listing is the archived rows and only those",
+			archived:  true,
+			wantNames: []string{"archived"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, _ := service(t)
+			ctx := t.Context()
+
+			gone := createWorkflow(t, svc, "archived")
+			_, err := svc.ArchiveWorkflow(ctx, connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{Id: gone}))
+			require.NoError(t, err)
+			createWorkflow(t, svc, "live")
+
+			listed, err := svc.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{
+				Archived: tt.archived,
+			}))
+			require.NoError(t, err)
+
+			names := make([]string, 0, len(listed.Msg.GetWorkflows()))
+			for _, workflow := range listed.Msg.GetWorkflows() {
+				names = append(names, workflow.GetName())
+			}
+			require.Equal(t, tt.wantNames, names)
+
+			if !tt.archived {
+				assert.Empty(t, listed.Msg.GetWorkflows()[0].GetArchivedAt(), "a live workflow reports no archive time")
+
+				return
+			}
+
+			stamped := listed.Msg.GetWorkflows()[0].GetArchivedAt()
+			require.NotEmpty(t, stamped, "and an archived one reports when it was put away")
+			_, err = time.Parse(time.RFC3339, stamped)
+			require.NoError(t, err, "as RFC 3339")
+		})
+	}
 }

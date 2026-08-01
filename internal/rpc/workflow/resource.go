@@ -1,6 +1,8 @@
 package workflow
 
 import (
+	"time"
+
 	workflowstore "weave/internal/store/workflow"
 	workflowv1 "weave/proto/gen/workflow/v1"
 )
@@ -25,6 +27,12 @@ func (w workflow) Cursor() (workflowstore.Cursor, error) {
 
 // renderWorkflow renders a stored workflow into a workflow resource.
 func renderWorkflow(w workflowstore.Workflow) workflow {
+	var archived *string
+	if w.ArchivedAt != nil {
+		formatted := w.ArchivedAt.Format(time.RFC3339)
+		archived = &formatted
+	}
+
 	return workflow{
 		Workflow: &workflowv1.Workflow{
 			Id:            w.ID,
@@ -35,6 +43,7 @@ func renderWorkflow(w workflowstore.Workflow) workflow {
 			Flags:         w.Flags,
 			SetupAction:   w.SetupAction,
 			CleanupAction: w.CleanupAction,
+			ArchivedAt:    archived,
 		},
 		cursor: workflowstore.Cursor{ID: w.ID},
 	}

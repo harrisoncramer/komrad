@@ -33,6 +33,9 @@ type Workflow struct {
 	// name a file in the actions directory, so nothing here can promise it still exists.
 	SetupAction   string
 	CleanupAction string
+	// ArchivedAt is when the workflow was put away, nil while it is live. The archive draws
+	// an archived header differently from a live one, so it has to tell them apart.
+	ArchivedAt *time.Time
 	// UpdatedAt is when the row last changed, for display. The listing sorts by
 	// id instead, so an edit never moves a workflow out from under the reader.
 	UpdatedAt time.Time
@@ -83,10 +86,10 @@ type Cursor struct {
 	ID string `json:"i"`
 }
 
-// ListPage returns one page of live workflows, newest first, resuming after
-// cursor when one is given.
-func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Workflow, error) {
-	params := models.ListWorkflowsPageParams{Lim: int32(limit)}
+// ListPage returns one page of workflows, newest first, resuming after cursor when one is
+// given. archived picks the archived workflows or the live ones and never both.
+func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archived bool) ([]Workflow, error) {
+	params := models.ListWorkflowsPageParams{Lim: int32(limit), Archived: archived}
 	if cursor != nil {
 		params.CursorID = &cursor.ID
 	}
@@ -255,6 +258,7 @@ func workflowFromRow(w models.Workflow, harness, cwd, flags string) Workflow {
 		Flags:         flags,
 		SetupAction:   w.SetupAction,
 		CleanupAction: w.CleanupAction,
+		ArchivedAt:    w.ArchivedAt,
 		UpdatedAt:     w.UpdatedAt,
 	}
 }
