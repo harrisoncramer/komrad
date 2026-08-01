@@ -2,9 +2,12 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"weave/internal/appconfig"
+	actionv1 "weave/proto/gen/action/v1"
+	"weave/proto/gen/action/v1/actionv1connect"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	schedulev1 "weave/proto/gen/schedule/v1"
@@ -49,7 +52,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				workflow := m.tree.workflows[0]
 				m.target.newAgentWorkflow = &workflow
 				m.screen = screenForm
-				m.form, m.values.agent = newAgentForm(m.keys.Form, workflow.Cwd, workflow.Flags)
+				m.form, m.values.agent = newAgentForm(m.keys.Form, agentFormValues{Dir: workflow.Cwd, Flags: workflow.Flags})
 				m.values.agent.Prompt = "check CI"
 				m.values.agent.Title = "ci"
 
@@ -70,7 +73,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			open: func(m model) model {
 				m.target.renameAgent = agentstore.Agent{ID: "a1", Name: "api-refactor"}
 				m.screen = screenRename
-				m.form, m.values.rename = renameForm("api-refactor", m.keys.Form)
+				m.form, m.values.rename = renameForm("api-refactor", "", m.keys.Form)
 				*m.values.rename = "api-v2"
 				m.form.State = huh.StateCompleted
 
@@ -144,7 +147,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				target := m.tree.workflows[0]
 				m.target.renameWorkflow = &target
 				m.screen = screenWorkflowForm
-				m.form, m.values.workflow = workflowForm("Rename \"api\" to", m.keys.Form)
+				m.form, m.values.workflow = workflowForm("Rename \"api\" to", workflowstore.Config{}, m.keys.Form)
 				m.values.workflow.Name = "backend"
 
 				return m
@@ -273,9 +276,147 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			got := settle(t, submitted, cmd)
 
 			require.Nil(t, got.banner, "the service accepted the write")
+			assert.False(t, got.screen.isForm(), "a write the service took closes the form")
 			tt.check(t, sent)
 		})
 	}
+}
+
+// TestRefusedSubmitKeepsTheForm covers what a refused write leaves on screen. The form
+// stays up carrying what was filled in, since the field that caused the refusal is fixed
+// from there and closing would cost every other field with it.
+func TestRefusedSubmitKeepsTheForm(t *testing.T) {
+	tests := []struct {
+		name string
+		// open puts the form on screen and fills it in. A case that sets the form completed
+		// is one submitted from its last field, which is the path that rebuilds.
+		open   func(t *testing.T, m model) model
+		submit func(m model) (tea.Model, tea.Cmd)
+		screen screen
+		// typed is what was filled in, and held reads it back off the panel afterwards.
+		typed string
+		held  func(m model) string
+	}{
+		{
+			name: "the new-agent form",
+			open: func(t *testing.T, m model) model {
+				workflow := m.tree.workflows[0]
+				opened, _ := m.openNewAgent(&workflow)
+				m = asModel(t, opened)
+				m.values.agent.Prompt = "check CI"
+
+				return m
+			},
+			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateForm(keyMsg("ctrl+s")) },
+			screen: screenForm,
+			typed:  "check CI",
+			held:   func(m model) string { return m.values.agent.Prompt },
+		},
+		{
+			name: "the rename form",
+			open: func(t *testing.T, m model) model {
+				m.target.renameAgent = agentstore.Agent{ID: "a1", Name: "api-refactor"}
+				m.screen = screenRename
+				m.form, m.values.rename = renameForm("api-refactor", "", m.keys.Form)
+				*m.values.rename = "api-v2"
+				m.form.State = huh.StateCompleted
+
+				return m
+			},
+			submit: func(m model) (tea.Model, tea.Cmd) { return m.submitRename() },
+			screen: screenRename,
+			typed:  "api-v2",
+			held:   func(m model) string { return *m.values.rename },
+		},
+		{
+			name: "the new-workflow form",
+			open: func(t *testing.T, m model) model {
+				opened, _ := m.newWorkflowForm()
+				m = asModel(t, opened)
+				m.values.workflow.Name = "web"
+				m.form.State = huh.StateCompleted
+
+				return m
+			},
+			submit: func(m model) (tea.Model, tea.Cmd) { return m.submitWorkflowForm() },
+			screen: screenWorkflowForm,
+			typed:  "web",
+			held:   func(m model) string { return m.values.workflow.Name },
+		},
+		{
+			name: "the new-schedule form",
+			open: func(t *testing.T, m model) model {
+				opened, _ := m.newScheduleForm()
+				m = asModel(t, opened)
+				m.values.schedule.Cron = "*/5 * * * *"
+
+				return m
+			},
+			submit: func(m model) (tea.Model, tea.Cmd) { return m.submitScheduleForm() },
+			screen: screenScheduleForm,
+			typed:  "*/5 * * * *",
+			held:   func(m model) string { return m.values.schedule.Cron },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sent := &formRecorder{refuse: connect.NewError(connect.CodeInvalidArgument, errors.New("not allowed"))}
+			m := tt.open(t, formModel(sent))
+			m.form.Init()
+
+			updated, cmd := tt.submit(m)
+			got := settle(t, asModel(t, updated), cmd)
+
+			require.NotNil(t, got.banner, "a refused write is reported")
+			assert.Equal(t, "not allowed", got.banner.Detail)
+			assert.Equal(t, "fix and submit again", got.banner.Hint, "esc backs out of the form rather than clearing the banner")
+			assert.Equal(t, tt.screen, got.screen, "the form still owns the screen")
+			assert.Equal(t, tt.typed, tt.held(got), "and still holds what was filled in")
+			assert.NotEqual(t, huh.StateCompleted, got.form.State, "a completed form draws as nothing, so the form is built back")
+			assert.NotEmpty(t, got.form.View())
+		})
+	}
+}
+
+// TestFormResubmitsAfterARefusal covers the point of keeping the form. The fields it kept
+// are what the second attempt sends, so a refusal costs the keystroke that caused it
+// rather than the whole form.
+func TestFormResubmitsAfterARefusal(t *testing.T) {
+	sent := &formRecorder{refuse: connect.NewError(connect.CodeInvalidArgument, errors.New("bad flags"))}
+
+	m := formModel(sent)
+	workflow := m.tree.workflows[0]
+	opened, _ := m.openNewAgent(&workflow)
+	m = asModel(t, opened)
+	m.values.agent.Prompt = "check CI"
+	m.values.agent.Flags = "--modle opus"
+
+	attempted, cmd := m.updateForm(keyMsg("ctrl+s"))
+	refused := settle(t, asModel(t, attempted), cmd)
+	require.Nil(t, sent.createdAgent, "the service refused the first attempt")
+
+	sent.refuse = nil
+	refused.values.agent.Flags = "--model opus"
+
+	updated, cmd := refused.updateForm(keyMsg("ctrl+s"))
+	got := settle(t, asModel(t, updated), cmd)
+
+	require.NotNil(t, sent.createdAgent)
+	assert.Equal(t, "check CI", sent.createdAgent.GetPrompt(), "the prompt survived the refusal")
+	assert.Equal(t, "--model opus", sent.createdAgent.GetFlags(), "and the field that was fixed is what went")
+	assert.Nil(t, got.banner)
+	assert.Equal(t, screenAgents, got.screen, "the accepted write closes the form")
+}
+
+// asModel unwraps what an update handed back, which is the panel's model in every case.
+func asModel(t *testing.T, updated tea.Model) model {
+	t.Helper()
+
+	m, ok := updated.(model)
+	require.True(t, ok)
+
+	return m
 }
 
 // TestFormsSubmitNothingWithoutValues covers a submit reaching a panel holding no
@@ -344,7 +485,7 @@ func formModel(sent *formRecorder) model {
 	tmux := &recordingTmux{}
 
 	return model{
-		api:   api{agents: sent, workflows: sent, schedules: sent},
+		api:   api{agents: sent, workflows: sent, schedules: sent, actions: sent},
 		tmux:  tmux,
 		popup: NewPopup(tmux, "test-session"),
 		stage: NewStage(tmux, appconfig.DefaultSplit),
@@ -364,6 +505,11 @@ type formRecorder struct {
 	agentv1connect.AgentServiceClient
 	workflowv1connect.WorkflowServiceClient
 	schedulev1connect.ScheduleServiceClient
+	actionv1connect.ActionServiceClient
+
+	// refuse is what every write answers with while it is set, which is the refusal a
+	// form has to survive.
+	refuse error
 
 	createdAgent     *agentv1.CreateAgentRequest
 	renamedAgent     *agentv1.UpdateAgentRequest
@@ -380,19 +526,35 @@ func (f *formRecorder) ListAgents(context.Context, *connect.Request[agentv1.List
 	return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
 }
 
+func (f *formRecorder) ListActions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[actionv1.ListActionsResponse], error) {
+	return connect.NewResponse(&actionv1.ListActionsResponse{}), nil
+}
+
 func (f *formRecorder) CreateAgent(_ context.Context, req *connect.Request[agentv1.CreateAgentRequest]) (*connect.Response[agentv1.CreateAgentResponse], error) {
+	if f.refuse != nil {
+		return nil, f.refuse
+	}
+
 	f.createdAgent = req.Msg
 
 	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: &agentv1.Agent{Id: "new"}}), nil
 }
 
 func (f *formRecorder) UpdateAgent(_ context.Context, req *connect.Request[agentv1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error) {
+	if f.refuse != nil {
+		return nil, f.refuse
+	}
+
 	f.renamedAgent = req.Msg
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (f *formRecorder) DeleteAgent(_ context.Context, req *connect.Request[agentv1.DeleteAgentRequest]) (*connect.Response[emptypb.Empty], error) {
+	if f.refuse != nil {
+		return nil, f.refuse
+	}
+
 	f.deletedAgent = req.Msg
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -403,18 +565,30 @@ func (f *formRecorder) ListWorkflows(context.Context, *connect.Request[workflowv
 }
 
 func (f *formRecorder) CreateWorkflow(_ context.Context, req *connect.Request[workflowv1.CreateWorkflowRequest]) (*connect.Response[workflowv1.CreateWorkflowResponse], error) {
+	if f.refuse != nil {
+		return nil, f.refuse
+	}
+
 	f.createdWorkflow = req.Msg
 
 	return connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "new"}}), nil
 }
 
 func (f *formRecorder) UpdateWorkflow(_ context.Context, req *connect.Request[workflowv1.UpdateWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
+	if f.refuse != nil {
+		return nil, f.refuse
+	}
+
 	f.updatedWorkflow = req.Msg
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (f *formRecorder) ArchiveWorkflow(_ context.Context, req *connect.Request[workflowv1.ArchiveWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
+	if f.refuse != nil {
+		return nil, f.refuse
+	}
+
 	f.archivedWorkflow = req.Msg
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -425,19 +599,87 @@ func (f *formRecorder) ListSchedules(context.Context, *connect.Request[schedulev
 }
 
 func (f *formRecorder) CreateSchedule(_ context.Context, req *connect.Request[schedulev1.CreateScheduleRequest]) (*connect.Response[schedulev1.CreateScheduleResponse], error) {
+	if f.refuse != nil {
+		return nil, f.refuse
+	}
+
 	f.createdSchedule = req.Msg
 
 	return connect.NewResponse(&schedulev1.CreateScheduleResponse{Schedule: &schedulev1.Schedule{Id: "new"}}), nil
 }
 
 func (f *formRecorder) UpdateSchedule(_ context.Context, req *connect.Request[schedulev1.UpdateScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
+	if f.refuse != nil {
+		return nil, f.refuse
+	}
+
 	f.updatedSchedule = req.Msg
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (f *formRecorder) ArchiveSchedule(_ context.Context, req *connect.Request[schedulev1.ArchiveScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
+	if f.refuse != nil {
+		return nil, f.refuse
+	}
+
 	f.archivedSchedule = req.Msg
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// TestOnlyTheSubmitKeySubmitsAMultiFieldForm covers the keymap the fillable forms use.
+// Enter from the last field would complete the form, which huh cannot resume, so a refusal
+// would have nowhere to come back to. The one-field forms keep enter, since there is no
+// cursor to lose in them.
+func TestOnlyTheSubmitKeySubmitsAMultiFieldForm(t *testing.T) {
+	keys := appconfig.DefaultKeybindings().Form
+
+	agent, _ := newAgentForm(keys, agentFormValues{})
+	agent.Init()
+	for range 3 {
+		agent.Update(huh.NextField())
+	}
+
+	pump(t, agent, keyMsg("enter"))
+	assert.NotEqual(t, huh.StateCompleted, agent.State, "enter on the last field leaves the form alone")
+
+	rename, _ := renameForm("api-refactor", "", keys)
+	rename.Init()
+
+	pump(t, rename, keyMsg("enter"))
+	assert.Equal(t, huh.StateCompleted, rename.State, "a one-field form still submits on enter")
+}
+
+// TestFormTakesNoKeysWhileItsWriteIsInFlight covers the second ctrl+s landing before the
+// first write has answered, which would launch the same agent twice.
+func TestFormTakesNoKeysWhileItsWriteIsInFlight(t *testing.T) {
+	sent := &formRecorder{}
+
+	m := formModel(sent)
+	workflow := m.tree.workflows[0]
+	opened, _ := m.openNewAgent(&workflow)
+	m = asModel(t, opened)
+	m.values.agent.Prompt = "check CI"
+	m.pendingForm = true
+
+	updated, cmd := m.Update(keyMsg("ctrl+s"))
+	got := settle(t, asModel(t, updated), cmd)
+
+	assert.Nil(t, sent.createdAgent, "the key never reached the submit path")
+	assert.Equal(t, screenForm, got.screen)
+	assert.Equal(t, "check CI", got.values.agent.Prompt, "and the form is as it was")
+}
+
+// pump applies a message to a form and feeds back whatever the form asks for, since moving
+// between fields takes a couple of rounds. The step bound is a backstop against a form that
+// keeps asking, such as a blinking cursor.
+func pump(t *testing.T, form *huh.Form, msg tea.Msg) {
+	t.Helper()
+
+	queue := []tea.Msg{msg}
+	for step := 0; len(queue) > 0 && step < 10; step++ {
+		_, cmd := form.Update(queue[0])
+		queue = append(queue[1:], produced(cmd)...)
+	}
 }

@@ -230,7 +230,10 @@ func (m *model) beginWrite() {
 
 // applyWrite reports a landed write and hands back the pass that shows what it did. A
 // refused write re-lists too, since what it left behind is a question for the store.
-func (m *model) applyWrite(result writeResult) tea.Cmd {
+//
+// A form waiting on its write closes only once the write was accepted. A refused one stays
+// on screen under the banner with its fields as they were.
+func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	m.pending--
 	m.report(result.summary, result.err)
 
@@ -245,5 +248,20 @@ func (m *model) applyWrite(result writeResult) tea.Cmd {
 		}
 	}
 
-	return m.refreshCmd()
+	if m.pendingForm {
+		if result.err == nil {
+			closed, cmd := m.closeForm()
+			if next, ok := closed.(model); ok {
+				m = next
+			}
+
+			return m, tea.Batch(cmd, m.refreshCmd())
+		}
+
+		// esc backs out of the form rather than clearing the banner, so the hint says what
+		// actually clears this one.
+		m.banner.Hint = "fix and submit again"
+	}
+
+	return m, m.refreshCmd()
 }

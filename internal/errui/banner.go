@@ -1,6 +1,7 @@
 package errui
 
 import (
+	"cmp"
 	"errors"
 	"strings"
 
@@ -23,6 +24,9 @@ type Banner struct {
 	Summary string
 	// Detail is the reason the service gave.
 	Detail string
+	// Hint says how the banner goes away. Blank means esc, which is every banner but one
+	// over a form, where esc backs out of the form.
+	Hint string
 }
 
 // bannerIndent lines the detail up under the summary, past the marker.
@@ -48,7 +52,7 @@ func (b Banner) Render(width int) string {
 	}
 
 	out.WriteString(bannerIndent + fold(detail, folded, bannerIndent) + "\n")
-	out.WriteString(Dim.Render(bannerIndent+"esc to dismiss") + "\n\n")
+	out.WriteString(Dim.Render(bannerIndent+cmp.Or(b.Hint, "esc to dismiss")) + "\n\n")
 
 	return out.String()
 }

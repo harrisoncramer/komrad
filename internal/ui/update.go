@@ -100,7 +100,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case writeResult:
-		return m, m.applyWrite(msg)
+		return m.applyWrite(msg)
 	case searchSettledMsg:
 		return m, m.runSettledSearch(msg)
 	case searchResult:
@@ -112,6 +112,13 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case previewResult:
 		m.applyPreview(msg)
 
+		return m, nil
+	}
+
+	// A form waiting on its write takes no keys, so a second submit cannot send the same
+	// request twice. Every write is bounded by its own timeout, so the form is never held
+	// for longer than that.
+	if _, ok := msg.(tea.KeyMsg); ok && m.pendingForm {
 		return m, nil
 	}
 

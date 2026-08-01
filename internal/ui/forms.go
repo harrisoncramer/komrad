@@ -11,6 +11,7 @@ import (
 	workflowstore "weave/internal/store/workflow"
 
 	"github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -49,10 +50,10 @@ type agentFormValues struct {
 }
 
 // newAgentForm builds the new-agent form and returns the values its fields write into.
-// defaultDir and defaultFlags prefill from the enclosing workflow's config, so an agent
-// created inside a workflow starts from its blueprint.
-func newAgentForm(keys appconfig.FormKeys, defaultDir, defaultFlags string) (*huh.Form, *agentFormValues) {
-	values := &agentFormValues{Dir: defaultDir, Flags: defaultFlags}
+// prefill is the enclosing workflow's directory and flags, so an agent created inside a
+// workflow starts from its blueprint, or everything a refused submit is putting back.
+func newAgentForm(keys appconfig.FormKeys, prefill agentFormValues) (*huh.Form, *agentFormValues) {
+	values := &prefill
 
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -61,15 +62,16 @@ func newAgentForm(keys appconfig.FormKeys, defaultDir, defaultFlags string) (*hu
 			huh.NewInput().Key("dir").Title("Directory").Description("blank = current").Value(&values.Dir),
 			huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 		),
-	).WithShowHelp(true).WithKeyMap(formKeyMap(keys)).WithTheme(formTheme())
+	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 
 	return form, values
 }
 
 // renameForm asks for a new name, starting blank rather than on the current one so the
-// old name is there to read while the new one is typed.
-func renameForm(current string, keys appconfig.FormKeys) (*huh.Form, *string) {
-	var name string
+// old name is there to read while the new one is typed. prefill is what the field opens
+// on, blank except when a refused submit is putting it back.
+func renameForm(current, prefill string, keys appconfig.FormKeys) (*huh.Form, *string) {
+	name := prefill
 
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -81,12 +83,28 @@ func renameForm(current string, keys appconfig.FormKeys) (*huh.Form, *string) {
 }
 
 // formKeyMap is the default form keymap with the configured back and quit keys bound to
-// abort, so esc backs out of a form the same way it leaves other screens.
+// abort, so esc backs out of a form the same way it leaves other screens. Enter still
+// submits, which is what a one-field form and a yes-or-no prompt want.
 func formKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
 	quit := append(append([]string{}, keys.Back...), keys.Quit...)
 
 	km := huh.NewDefaultKeyMap()
 	km.Quit = key.NewBinding(key.WithKeys(quit...), key.WithHelp(keyLabel(keys.Back), "back"))
+	return km
+}
+
+// multiFieldKeyMap is the keymap for the forms with fields to fill in, where enter moves
+// between them and only the submit key submits. An enter from the last field otherwise
+// completes the form, and huh cannot resume a completed one.
+func multiFieldKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
+	submit := key.NewBinding(key.WithKeys(keys.Submit...), key.WithHelp(keyLabel(keys.Submit), "submit"))
+
+	km := formKeyMap(keys)
+	km.Input.Submit = submit
+	km.Text.Submit = submit
+	km.Select.Submit = submit
+	km.Confirm.Submit = submit
+
 	return km
 }
 
@@ -117,6 +135,52 @@ func confirmForm(title, description, affirmative string, keys appconfig.FormKeys
 	return form, &confirmed
 }
 
+// holdForm keeps a submitted form on screen until its write lands, so a refusal comes back
+// to the filled-in fields rather than closing and reporting over the list. A form the
+// submit completed is built again, since huh cannot resume one.
+func (m *model) holdForm() tea.Cmd {
+	m.pendingForm = true
+
+	if m.form != nil && m.form.State == huh.StateCompleted {
+		return m.rebuildForm()
+	}
+
+	return nil
+}
+
+// rebuildForm builds the open form again around the values the panel holds, which are
+// everything that was typed into it.
+func (m *model) rebuildForm() tea.Cmd {
+	switch {
+	case m.screen == screenForm && m.values.agent != nil:
+		m.form, m.values.agent = newAgentForm(m.keys.Form, *m.values.agent)
+	case m.screen == screenRename && m.values.rename != nil:
+		m.form, m.values.rename = renameForm(m.target.renameAgent.Name, *m.values.rename, m.keys.Form)
+	case m.screen == screenWorkflowForm && m.values.workflow != nil:
+		m.form, m.values.workflow = m.workflowFormFor(*m.values.workflow)
+	case m.screen == screenScheduleForm && m.values.schedule != nil:
+		m.form, m.values.schedule = scheduleForm(*m.values.schedule, m.tree.workflows, m.keys.Form)
+	default:
+		return nil
+	}
+
+	return m.form.Init()
+}
+
+// closeForm leaves the open form and lands on the screen it was opened from, dropping
+// what it was working on.
+func (m model) closeForm() (tea.Model, tea.Cmd) {
+	m.pendingForm = false
+	m.values = formValues{}
+	m.target = formTarget{}
+
+	if m.screen == screenScheduleForm {
+		return m.enterSchedules()
+	}
+
+	return m.returnToAgents()
+}
+
 // isForm reports whether a form owns the screen, which decides whether a key belongs to
 // the form or the panel's chrome, and whether a form or a list is drawn.
 func (s screen) isForm() bool {
@@ -142,8 +206,8 @@ func deleteAgentForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool) {
 
 // workflowForm asks for a name alone, which is what a rename is. It binds the same config
 // shape the fuller form does, so one submit path reads either.
-func workflowForm(title string, keys appconfig.FormKeys) (*huh.Form, *workflowstore.Config) {
-	var values workflowstore.Config
+func workflowForm(title string, cfg workflowstore.Config, keys appconfig.FormKeys) (*huh.Form, *workflowstore.Config) {
+	values := cfg
 
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -178,7 +242,7 @@ func workflowConfigForm(nameTitle string, cfg workflowstore.Config, available []
 				Description("runs once an agent here is deleted").
 				Options(actionOptions(available, cfg.CleanupAction)...).Value(&values.CleanupAction),
 		),
-	).WithShowHelp(true).WithKeyMap(formKeyMap(keys)).WithTheme(formTheme())
+	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 
 	return form, &values
 }
@@ -234,7 +298,7 @@ func scheduleForm(cfg schedulestore.Config, workflows []workflowstore.Workflow, 
 			huh.NewConfirm().Key("enabled").Title("Armed?").Affirmative("Armed").Negative("Paused").Value(&values.Enabled).WithButtonAlignment(lipgloss.Left),
 			huh.NewConfirm().Key("hide_agents").Title("Hide its runs?").Description("they still run, they just take no row").Affirmative("Hidden").Negative("Listed").Value(&values.HideAgents).WithButtonAlignment(lipgloss.Left),
 		),
-	).WithShowHelp(true).WithKeyMap(formKeyMap(keys)).WithTheme(formTheme())
+	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 
 	return form, &values
 }
