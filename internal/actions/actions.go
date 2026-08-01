@@ -116,6 +116,13 @@ type RunParams struct {
 	Done func(Result, error)
 }
 
+// Result is what running an action to completion produced.
+type Result struct {
+	Stdout   []byte
+	Stderr   []byte
+	ExitCode int
+}
+
 // Run starts an action and returns once the process exists rather than once it has
 // finished. What it does report is a failure to start, which is otherwise
 // indistinguishable from a keypress that did nothing.
@@ -164,41 +171,6 @@ func (r Runner) Run(p RunParams) error {
 	return nil
 }
 
-type outcomeParams struct {
-	action  Action
-	state   *os.ProcessState
-	stderr  []byte
-	waitErr error
-}
-
-// outcome is what a finished action did. The exit status decides whether it worked rather
-// than the wait's error, since a script that exited cleanly but left something holding
-// stderr open comes back as exec.ErrWaitDelay.
-func (r Runner) outcome(p outcomeParams) (Result, error) {
-	result := Result{Stderr: p.stderr, ExitCode: r.exitCode(p.state)}
-	if result.ExitCode == 0 {
-		return result, nil
-	}
-
-	return result, fmt.Errorf("failed to run action %s: %w: %v", p.action.Name, ErrFailed, p.waitErr)
-}
-
-// exitCode is what a process exited with, and -1 for one that was signalled or never ran.
-func (Runner) exitCode(state *os.ProcessState) int {
-	if state == nil {
-		return -1
-	}
-
-	return state.ExitCode()
-}
-
-// Result is what running an action to completion produced.
-type Result struct {
-	Stdout   []byte
-	Stderr   []byte
-	ExitCode int
-}
-
 // RunAndWait runs an action and does not return until it has finished or ctx is done. It is for a caller with something downstream of the action, where Run is for one
 // with nothing waiting. The result comes back whether or not the action succeeded, since a
 // non-zero exit is exactly when its stderr is worth showing.
@@ -223,6 +195,7 @@ func (r Runner) RunAndWait(ctx context.Context, p RunParams) (Result, error) {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
 	// The group, not the process. CommandContext's own kill reaches the leader only,
 	// leaving whatever it spawned running and holding the pipes open.
 	cmd.Cancel = func() error {
@@ -245,6 +218,25 @@ func (r Runner) RunAndWait(ctx context.Context, p RunParams) (Result, error) {
 	return result, nil
 }
 
+type outcomeParams struct {
+	action  Action
+	state   *os.ProcessState
+	stderr  []byte
+	waitErr error
+}
+
+// outcome is what a finished action did. The exit status decides whether it worked rather
+// than the wait's error, since a script that exited cleanly but left something holding
+// stderr open comes back as exec.ErrWaitDelay.
+func (r Runner) outcome(p outcomeParams) (Result, error) {
+	result := Result{Stderr: p.stderr, ExitCode: r.exitCode(p.state)}
+	if result.ExitCode == 0 {
+		return result, nil
+	}
+
+	return result, fmt.Errorf("failed to run action %s: %w: %v", p.action.Name, ErrFailed, p.waitErr)
+}
+
 // tail collects the last outputLimit bytes written to it and discards what came before,
 // since the end of a failing script's output is the part that says why.
 type tail struct {
@@ -265,4 +257,13 @@ func (t *tail) Write(p []byte) (int, error) {
 // kept returns the bytes that survived the cap.
 func (t *tail) kept() []byte {
 	return t.buf.Bytes()
+}
+
+// exitCode is what a process exited with, and -1 for one that was signalled or never ran.
+func (Runner) exitCode(state *os.ProcessState) int {
+	if state == nil {
+		return -1
+	}
+
+	return state.ExitCode()
 }
