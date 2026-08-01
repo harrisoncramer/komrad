@@ -849,10 +849,13 @@ func TestArchiveAgent(t *testing.T) {
 // makes a name identify one agent holds among live rows only.
 func TestDeleteAgent(t *testing.T) {
 	tests := []struct {
-		name      string
-		archive   bool
-		target    func(seeded agentstore.Agent) string
-		wantErrIs error
+		name    string
+		archive bool
+		target  func(seeded agentstore.Agent) string
+		// wantPaneKilled is false for an archived agent, which gave up its pane at
+		// archive time and has none left to kill.
+		wantPaneKilled bool
+		wantErrIs      error
 	}{
 		{
 			name:      "an id nobody holds is not a quiet success",
@@ -860,8 +863,9 @@ func TestDeleteAgent(t *testing.T) {
 			wantErrIs: ErrAgentNotFound,
 		},
 		{
-			name:   "a live agent is stopped and destroyed",
-			target: func(seeded agentstore.Agent) string { return seeded.ID },
+			name:           "a live agent is stopped and destroyed",
+			target:         func(seeded agentstore.Agent) string { return seeded.ID },
+			wantPaneKilled: true,
 		},
 		{
 			// The panel's archive key is what most agents go out through, so everything
@@ -900,7 +904,9 @@ func TestDeleteAgent(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Contains(t, tmux.killedPanes, "%1", "the agent's pane is killed")
+			if tt.wantPaneKilled {
+				assert.Contains(t, tmux.killedPanes, "%1", "the agent's pane is killed")
+			}
 
 			all, err := st.ListAll(ctx)
 			require.NoError(t, err)

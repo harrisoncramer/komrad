@@ -269,7 +269,8 @@ RETURNING
 UPDATE
     agents
 SET
-    archived_at = NOW()
+    archived_at = NOW(),
+    pane_id = ''
 WHERE
     name = @name
     AND archived_at IS NULL;

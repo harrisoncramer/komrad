@@ -225,6 +225,25 @@ func TestArchiveAndReuse(t *testing.T) {
 	}
 }
 
+// TestArchiveClearsPane guards the pane id on an archived row, which the reconciler
+// never clears because it skips archived agents.
+func TestArchiveClearsPane(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", Pane: "%1", State: StateThinking}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, created)
+
+	require.NoError(t, st.Archive(ctx, "agent"))
+
+	archived, err := st.GetByID(ctx, created.ID)
+	require.NoError(t, err)
+	require.NotNil(t, archived)
+	assert.Empty(t, archived.Pane, "an archived agent claims no pane")
+}
+
 // TestSetStateByID guards the rule that a state write never creates a row. The
 // reconciler decides a state from a listing it took moments earlier, so it can
 // name an agent that has since been deleted, and that write has to find nothing
