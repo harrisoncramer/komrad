@@ -176,17 +176,15 @@ type writeResult struct {
 	// not, which clears whatever the last one said.
 	summary string
 	err     error
-	// restored is set by the one write whose result the panel needs, and nil for the rest.
-	restored *restoredAgent
+	// resumed is set by the one write whose result the panel needs, and nil for the rest.
+	resumed *resumedAgent
 }
 
-// restoredAgent is what a resume hands back, the pane to stage and the name to put the
-// cursor on, which may not be the one the agent went in with. screen is where the person
-// lands once it is back.
-type restoredAgent struct {
-	pane   string
-	name   string
-	screen screen
+// resumedAgent is what a resume hands back, the pane to stage and the name to put the
+// cursor on, which may not be the one the agent went in with.
+type resumedAgent struct {
+	pane string
+	name string
 }
 
 // writeCmd runs a write off the render loop and resolves to the message that reports it,
@@ -202,15 +200,13 @@ func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {
 	}
 }
 
-// resumeParams is the agent to resume and what the panel does with it once it is back.
+// resumeParams is the agent to resume.
 type resumeParams struct {
 	summary string
 	id      string
 	// unarchiveFirst restores the agent before resuming it, which is what search needs,
 	// since its hits reach archived conversations.
 	unarchiveFirst bool
-	// stay is the screen to land on.
-	stay screen
 }
 
 // resumeCmd resumes an agent off the render loop and carries back what the panel needs of
@@ -232,8 +228,8 @@ func (m *model) resumeCmd(params resumeParams) tea.Cmd {
 		}
 
 		return writeResult{
-			summary:  params.summary,
-			restored: &restoredAgent{pane: agent.GetPaneId(), name: agent.GetName(), screen: params.stay},
+			summary: params.summary,
+			resumed: &resumedAgent{pane: agent.GetPaneId(), name: agent.GetName()},
 		}
 	}
 }
@@ -254,15 +250,13 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	m.pending--
 	m.report(result.summary, result.err)
 
-	if result.restored != nil {
-		m.screen = result.restored.screen
-		if result.restored.screen == screenAgents {
-			// The pane came back with the agent, so it stages now. The cursor cannot move
-			// until a row carries the name it came back with, which is the pass below.
-			m.tree.unpin()
-			m.tree.focus = result.restored.name
-			m.stage.Agent(result.restored.pane)
-		}
+	if result.resumed != nil {
+		m.screen = screenAgents
+		// The pane came back with the agent, so it stages now. The cursor cannot move
+		// until a row carries the name it came back with, which is the pass below.
+		m.tree.unpin()
+		m.tree.focus = result.resumed.name
+		m.stage.Agent(result.resumed.pane)
 	}
 
 	if m.pendingForm {

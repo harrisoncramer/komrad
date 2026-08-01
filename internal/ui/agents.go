@@ -133,7 +133,6 @@ func (m model) openAgent() (tea.Model, tea.Cmd) {
 	return m, m.resumeCmd(resumeParams{
 		summary: fmt.Sprintf("Could not resume agent %q", item.agent.Name),
 		id:      item.agent.ID,
-		stay:    screenAgents,
 	})
 }
 
