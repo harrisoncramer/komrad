@@ -13,14 +13,12 @@ option go_package = "weave/proto/gen/action/v1;actionv1";
 // own name, which is the whole of what identifies it, since nothing is parsed out of
 // the file.
 message Action {
+  // The name of the file
   string name = 1;
-  // Whether the file carries the bit that lets it run. One without it is still
-  // listed, so a script that was written and forgotten shows up wanting a chmod
-  // rather than silently never appearing.
+  // If the action is executable (valid to run) or not.
   bool executable = 2;
   // The start of the file, for a caller that wants to show it. Bytes rather than a
-  // string because an action is as readily a compiled program as a script, and the
-  // first page of one is not valid UTF-8.
+  // string because an action can be a binary.
   bytes preview = 3;
   // Whether the file is longer than the preview carries.
   bool preview_truncated = 4;
@@ -33,9 +31,6 @@ message ListActionsResponse {
 // RunActionRequest names the action to fire and the agent to fire it on.
 message RunActionRequest {
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
-  // The action's file name. A name is matched against the directory's own entries
-  // rather than joined onto its path, so this cannot reach outside it whatever it
-  // holds. The rules below refuse the shapes that would try.
   string action = 2 [(buf.validate.field).string = {
     max_len: 255
     [rules.v1.action_name]: true
@@ -43,12 +38,10 @@ message RunActionRequest {
 }
 
 // ActionService lists and fires the executables the user keeps in their actions
-// directory. An action runs in that directory, with the agent it was fired on in
-// WEAVE_AGENT as JSON, and the service reads the directory per call, so writing one is
-// dropping a file in.
+// directory. An action runs in that directory, with the agent it was fired on using
+// WEAVE_AGENT environment variable as JSON.
 service ActionService {
-  // The directory is read on every call, so an action written while the server runs
-  // is listed without a restart.
+  // The directory is read on every call, so an action written while the server runs is listed without a restart.
   rpc ListActions(google.protobuf.Empty) returns (ListActionsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {

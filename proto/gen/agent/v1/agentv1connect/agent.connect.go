@@ -70,26 +70,17 @@ const (
 
 // AgentServiceClient is a client for the agent.v1.AgentService service.
 type AgentServiceClient interface {
-	// Reads have no side effects and are safe to cache and issue over GET.
 	ListAgents(context.Context, *connect.Request[v1.ListAgentsRequest]) (*connect.Response[v1.ListAgentsResponse], error)
 	GetAgent(context.Context, *connect.Request[v1.GetAgentRequest]) (*connect.Response[v1.GetAgentResponse], error)
-	// CreateAgent launches a background agent and returns it as stored. It is not
-	// idempotent. Each call spawns another agent, since two agents may legitimately
-	// run the same prompt.
 	CreateAgent(context.Context, *connect.Request[v1.CreateAgentRequest]) (*connect.Response[v1.CreateAgentResponse], error)
-	// Mutations key on the id of the row the caller is looking at, so repeating one
-	// yields the same state. They are idempotent and safe for the client to retry.
 	SetMark(context.Context, *connect.Request[v1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error)
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
 	ArchiveAgent(context.Context, *connect.Request[v1.ArchiveAgentRequest]) (*connect.Response[emptypb.Empty], error)
 	RestoreAgent(context.Context, *connect.Request[v1.RestoreAgentRequest]) (*connect.Response[v1.RestoreAgentResponse], error)
 	DeleteAgent(context.Context, *connect.Request[v1.DeleteAgentRequest]) (*connect.Response[emptypb.Empty], error)
-	// UpdateAgent renames an agent by id.
 	UpdateAgent(context.Context, *connect.Request[v1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error)
-	// SearchTranscripts runs a full-text search over stored transcripts.
 	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)
-	// GetTranscript returns an agent's full stored transcript by id.
 	GetTranscript(context.Context, *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error)
 }
 
@@ -268,26 +259,17 @@ func (c *agentServiceClient) GetTranscript(ctx context.Context, req *connect.Req
 
 // AgentServiceHandler is an implementation of the agent.v1.AgentService service.
 type AgentServiceHandler interface {
-	// Reads have no side effects and are safe to cache and issue over GET.
 	ListAgents(context.Context, *connect.Request[v1.ListAgentsRequest]) (*connect.Response[v1.ListAgentsResponse], error)
 	GetAgent(context.Context, *connect.Request[v1.GetAgentRequest]) (*connect.Response[v1.GetAgentResponse], error)
-	// CreateAgent launches a background agent and returns it as stored. It is not
-	// idempotent. Each call spawns another agent, since two agents may legitimately
-	// run the same prompt.
 	CreateAgent(context.Context, *connect.Request[v1.CreateAgentRequest]) (*connect.Response[v1.CreateAgentResponse], error)
-	// Mutations key on the id of the row the caller is looking at, so repeating one
-	// yields the same state. They are idempotent and safe for the client to retry.
 	SetMark(context.Context, *connect.Request[v1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error)
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
 	ArchiveAgent(context.Context, *connect.Request[v1.ArchiveAgentRequest]) (*connect.Response[emptypb.Empty], error)
 	RestoreAgent(context.Context, *connect.Request[v1.RestoreAgentRequest]) (*connect.Response[v1.RestoreAgentResponse], error)
 	DeleteAgent(context.Context, *connect.Request[v1.DeleteAgentRequest]) (*connect.Response[emptypb.Empty], error)
-	// UpdateAgent renames an agent by id.
 	UpdateAgent(context.Context, *connect.Request[v1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error)
-	// SearchTranscripts runs a full-text search over stored transcripts.
 	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)
-	// GetTranscript returns an agent's full stored transcript by id.
 	GetTranscript(context.Context, *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error)
 }
 

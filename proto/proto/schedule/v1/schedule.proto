@@ -25,16 +25,11 @@ message Schedule {
   // False pauses the schedule. It keeps its record and stops firing.
   bool enabled = 5;
   // Whether the agents this schedule launches start hidden from the panel's list.
-  // Each launched agent takes its own copy of the flag, so showing one afterwards is
-  // that agent's own.
   bool hide_agents = 8;
   string prompt = 6;
-  // The workflow this schedule launches into, and where each launched agent takes
-  // its directory, flags, and shared context from.
+  // The workflow this schedule launches into.
   string workflow_id = 7;
-  // When this schedule next fires, derived from the cron expression rather than
-  // stored. Unset when the schedule is paused, since a paused one has no next
-  // run.
+  // When this schedule next fires, derived from the cron expression.
   optional google.protobuf.Timestamp next_run_at = 10;
 }
 
@@ -44,8 +39,6 @@ message ListSchedulesRequest {
 
 message ListSchedulesResponse {
   repeated Schedule schedules = 1;
-  // The token that fetches the page after this one, unset once the listing is
-  // exhausted.
   optional string next_page_token = 2;
 }
 
@@ -57,40 +50,22 @@ message GetScheduleResponse {
   Schedule schedule = 1;
 }
 
-// CreateScheduleRequest describes a recurring launch. The prompt and the cron
-// expression are what make it a schedule, and everything else shapes the agents
-// it produces.
 message CreateScheduleRequest {
   string name = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 200
   }];
-  // Five whitespace-separated fields. The shape is checked here and the
-  // expression is parsed by the service, which rejects one that is well-shaped
-  // but meaningless.
   string cron = 2 [(buf.validate.field).string = {
     min_len: 1
     [rules.v1.cron_expression]: true
   }];
-  // An IANA zone such as America/New_York, or blank for the machine's local
-  // zone. A zone rather than an offset, so a 9am schedule stays at 9am across a
-  // daylight saving change.
   string timezone = 3 [(buf.validate.field).string.max_len = 100];
-  // Leave false to create the schedule paused, which is how a draft is written
-  // before it is trusted to run.
   bool enabled = 4;
-  // Set to start every agent this schedule launches hidden from the panel's list,
-  // which is what keeps a frequent job from filling it. The agents run either way.
   bool hide_agents = 7;
-  // What each launched agent is asked to do. Required, since a schedule that
-  // launches an agent with nothing to do is never what the caller meant.
   string prompt = 5 [(buf.validate.field).string = {
     min_len: 1
     max_len: 50000
   }];
-  // The workflow this schedule launches into, and the reason a schedule carries no
-  // directory or flags of its own. It reads them off the workflow as it fires, so a
-  // workflow that moves takes its schedules with it.
   string workflow_id = 6 [(buf.validate.field).string.min_len = 1];
 }
 
@@ -98,9 +73,6 @@ message CreateScheduleResponse {
   Schedule schedule = 1;
 }
 
-// UpdateScheduleRequest replaces a schedule's editable fields. Every field is
-// sent, so an omitted one reads as cleared rather than unchanged. Fetch the
-// schedule, change what you mean to, and send it back.
 message UpdateScheduleRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
   string name = 2 [(buf.validate.field).string = {
@@ -121,8 +93,6 @@ message UpdateScheduleRequest {
   bool hide_agents = 8;
 }
 
-// SetScheduleEnabledRequest pauses or resumes one schedule, the single edit the
-// panel makes with one keystroke.
 message SetScheduleEnabledRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
   bool enabled = 2;
@@ -132,8 +102,6 @@ message DeleteScheduleRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
-// ScheduleService manages recurring agent launches. Every method carries a tool
-// annotation, which is what puts it on the MCP surface.
 service ScheduleService {
   rpc ListSchedules(ListSchedulesRequest) returns (ListSchedulesResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;

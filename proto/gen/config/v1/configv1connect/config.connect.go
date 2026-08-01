@@ -40,8 +40,6 @@ const (
 
 // ConfigServiceClient is a client for the config.v1.ConfigService service.
 type ConfigServiceClient interface {
-	// The file is read on every call, so a configuration edited while the server runs
-	// is picked up without a restart.
 	GetConfig(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.GetConfigResponse], error)
 }
 
@@ -78,8 +76,6 @@ func (c *configServiceClient) GetConfig(ctx context.Context, req *connect.Reques
 
 // ConfigServiceHandler is an implementation of the config.v1.ConfigService service.
 type ConfigServiceHandler interface {
-	// The file is read on every call, so a configuration edited while the server runs
-	// is picked up without a restart.
 	GetConfig(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.GetConfigResponse], error)
 }
 

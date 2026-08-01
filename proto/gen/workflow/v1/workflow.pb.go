@@ -27,21 +27,17 @@ const (
 )
 
 // Workflow is a named bucket of related agents. It runs nothing itself. It holds
-// a label, shared context injected into the agents spawned inside it, the harness,
-// working directory, and flags those agents start from, and the actions run at the
-// start and end of each of their lives.
+// a label, shared context, and other information per agent.
 type Workflow struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Name  string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// Free-text durable state the user edits. Agents created inside the workflow
-	// get it appended to their system prompt as a snapshot at launch, so editing
-	// it reaches only agents spawned afterwards.
+	// get it appended to their system prompt.
 	Context string `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
 	Cwd     string `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
 	Flags   string `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
-	// Which CLI agents in this workflow run, blank when they take the user's
-	// configured default.
+	// Which CLI agents in this workflow run, blank when they take the user's configured default.
 	Harness string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
 	// The action run before an agent in this workflow starts, blank for none. It blocks and
 	// a failure abandons the launch. A file in the actions directory names it, so nothing
@@ -185,11 +181,9 @@ func (x *ListWorkflowsRequest) GetPagination() *v1.Pagination {
 }
 
 type ListWorkflowsResponse struct {
-	state     protoimpl.MessageState `protogen:"open.v1"`
-	Workflows []*Workflow            `protobuf:"bytes,1,rep,name=workflows,proto3" json:"workflows,omitempty"`
-	// The token that fetches the page after this one, unset once the listing is
-	// exhausted.
-	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Workflows     []*Workflow            `protobuf:"bytes,1,rep,name=workflows,proto3" json:"workflows,omitempty"`
+	NextPageToken *string                `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -326,8 +320,7 @@ func (x *GetWorkflowResponse) GetWorkflow() *Workflow {
 	return nil
 }
 
-// CreateWorkflowRequest describes a new bucket. Only the name is required. A
-// workflow with no context, directory, or flags is a plain folder.
+// CreateWorkflowRequest describes a new bucket. Only the name is required.
 type CreateWorkflowRequest struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Name    string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -338,11 +331,9 @@ type CreateWorkflowRequest struct {
 	Cwd   string `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
 	Flags string `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
 	// Which CLI agents created inside this workflow run. Blank leaves them on the
-	// user's configured default. A name this panel does not implement is refused.
+	// user's configured default.
 	Harness string `protobuf:"bytes,5,opt,name=harness,proto3" json:"harness,omitempty"`
-	// The action to run before an agent in this workflow starts, blank for none. One
-	// action rather than a list, since an action is a script and a script already
-	// sequences its own steps.
+	// The action to run before an agent in this workflow starts, blank for none.
 	SetupAction string `protobuf:"bytes,6,opt,name=setup_action,json=setupAction,proto3" json:"setup_action,omitempty"`
 	// The action to run once an agent in this workflow is deleted, blank for none.
 	CleanupAction string `protobuf:"bytes,7,opt,name=cleanup_action,json=cleanupAction,proto3" json:"cleanup_action,omitempty"`
@@ -487,12 +478,9 @@ type UpdateWorkflowRequest struct {
 	// them on the user's configured default. Agents already spawned keep the harness
 	// they started on, which is recorded against each of them.
 	Harness string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
-	// The action run before an agent in this workflow starts, blank for none. Written like
-	// every other field here, and reaches only agents launched afterwards.
+	// The action run before an agent in this workflow starts, blank for none.
 	SetupAction string `protobuf:"bytes,7,opt,name=setup_action,json=setupAction,proto3" json:"setup_action,omitempty"`
-	// The action run once an agent in this workflow is deleted, blank for none. Editing this
-	// does reach agents already running, since cleanup is read when it fires rather than at
-	// launch.
+	// The action run once an agent in this workflow is deleted, blank for none.
 	CleanupAction string `protobuf:"bytes,8,opt,name=cleanup_action,json=cleanupAction,proto3" json:"cleanup_action,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

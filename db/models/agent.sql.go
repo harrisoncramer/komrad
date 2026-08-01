@@ -679,17 +679,19 @@ FROM
     JOIN agents a ON a.id = c.agent_id
 WHERE (c.tsv @@ q.query
     OR c.content ILIKE $5)
-AND ($6::float8 IS NULL
-    OR TS_RANK_CD(c.tsv, q.query) < $6
-    OR (TS_RANK_CD(c.tsv, q.query) = $6
+AND ($6::uuid IS NULL
+    OR c.agent_id = $6)
+AND ($7::float8 IS NULL
+    OR TS_RANK_CD(c.tsv, q.query) < $7
+    OR (TS_RANK_CD(c.tsv, q.query) = $7
         AND (c.agent_id,
-            c.seq) >($7::uuid,
-            $8::int)))
+            c.seq) >($8::uuid,
+            $9::int)))
 ORDER BY
     rank DESC,
     c.agent_id ASC,
     c.seq ASC
-LIMIT $9
+LIMIT $10
 `
 
 type SearchTranscriptsParams struct {
@@ -698,6 +700,7 @@ type SearchTranscriptsParams struct {
 	Lead          int32
 	Width         int32
 	Pattern       string
+	AgentID       *string
 	CursorRank    *float64
 	CursorAgentID *string
 	CursorSeq     *int32
@@ -733,6 +736,7 @@ func (q *Queries) SearchTranscripts(ctx context.Context, arg SearchTranscriptsPa
 		arg.Lead,
 		arg.Width,
 		arg.Pattern,
+		arg.AgentID,
 		arg.CursorRank,
 		arg.CursorAgentID,
 		arg.CursorSeq,

@@ -6,9 +6,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"weave/internal/agents"
+	"weave/internal/caller"
 	"weave/internal/harness"
+	"weave/internal/logging"
 	"weave/internal/store"
 	"weave/lib/pagination"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -248,16 +251,25 @@ func (s *Service) UpdateAgent(ctx context.Context, req *connect.Request[agentv1.
 // SearchTranscripts runs a full-text search over stored transcripts and returns one page
 // of matching agents with a marked snippet, best match first. The page token encodes a
 // position in this query's ranking, so replaying it against another query means nothing.
+//
+// Scope is worked out per page rather than carried in the token, so a replayed cursor
+// cannot widen a search.
 func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[agentv1.SearchTranscriptsRequest]) (*connect.Response[agentv1.SearchTranscriptsResponse], error) {
 	paginator, err := pagination.New[transcriptstore.Cursor, searchHit](req.Msg.GetPagination())
 	if err != nil {
 		return nil, err
 	}
 
+	scope := searchScope(ctx, req.Msg.GetAgentId())
+	if scope != nil {
+		logCrossAgentRead(ctx, *scope)
+	}
+
 	hits, err := s.transcripts.Search(ctx, transcriptstore.SearchParams{
-		Query:  req.Msg.GetQuery(),
-		Limit:  paginator.Limit(),
-		Cursor: paginator.Cursor(),
+		Query:   req.Msg.GetQuery(),
+		Limit:   paginator.Limit(),
+		Cursor:  paginator.Cursor(),
+		AgentID: scope,
 	})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to search transcripts: %w", err))
@@ -285,6 +297,8 @@ func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[ag
 // show a match in its surrounding conversation. An id that matches no agent is not_found
 // rather than empty content, which would read as an agent with nothing stored yet.
 func (s *Service) GetTranscript(ctx context.Context, req *connect.Request[agentv1.GetTranscriptRequest]) (*connect.Response[agentv1.GetTranscriptResponse], error) {
+	logCrossAgentRead(ctx, req.Msg.GetAgentId())
+
 	exists, err := s.agents.Exists(ctx, req.Msg.GetAgentId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to look up agent: %w", err))
@@ -299,4 +313,32 @@ func (s *Service) GetTranscript(ctx context.Context, req *connect.Request[agentv
 	}
 
 	return connect.NewResponse(&agentv1.GetTranscriptResponse{Content: tr.Content}), nil
+}
+
+// searchScope is the one agent a search is confined to, nil for a search across all of
+// them, so an agent that named nobody reads its own conversation and the panel reads
+// everyone.
+func searchScope(ctx context.Context, requested string) *string {
+	if requested != "" {
+		return &requested
+	}
+
+	from := caller.From(ctx)
+	if from.AgentID == "" {
+		return nil
+	}
+
+	return &from.AgentID
+}
+
+// logCrossAgentRead records an agent reading a conversation other than its own, which is
+// what a scoping keyed on a header a caller sets about itself leaves worth having.
+func logCrossAgentRead(ctx context.Context, target string) {
+	from := caller.From(ctx)
+	if from.AgentID == "" || from.AgentID == target {
+		return
+	}
+
+	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "agent read another agent's transcript",
+		slog.String(logging.TargetAgentID, target))
 }

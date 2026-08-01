@@ -369,6 +369,8 @@ FROM
     JOIN agents a ON a.id = c.agent_id
 WHERE (c.tsv @@ q.query
     OR c.content ILIKE @pattern)
+AND (sqlc.narg('agent_id')::uuid IS NULL
+    OR c.agent_id = sqlc.narg('agent_id'))
 AND (sqlc.narg('cursor_rank')::float8 IS NULL
     OR TS_RANK_CD(c.tsv, q.query) < sqlc.narg('cursor_rank')
     OR (TS_RANK_CD(c.tsv, q.query) = sqlc.narg('cursor_rank')

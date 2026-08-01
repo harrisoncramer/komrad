@@ -30,14 +30,12 @@ const (
 // the file.
 type Action struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Whether the file carries the bit that lets it run. One without it is still
-	// listed, so a script that was written and forgotten shows up wanting a chmod
-	// rather than silently never appearing.
+	// The name of the file
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// If the action is executable (valid to run) or not.
 	Executable bool `protobuf:"varint,2,opt,name=executable,proto3" json:"executable,omitempty"`
 	// The start of the file, for a caller that wants to show it. Bytes rather than a
-	// string because an action is as readily a compiled program as a script, and the
-	// first page of one is not valid UTF-8.
+	// string because an action can be a binary.
 	Preview []byte `protobuf:"bytes,3,opt,name=preview,proto3" json:"preview,omitempty"`
 	// Whether the file is longer than the preview carries.
 	PreviewTruncated bool `protobuf:"varint,4,opt,name=preview_truncated,json=previewTruncated,proto3" json:"preview_truncated,omitempty"`
@@ -149,12 +147,9 @@ func (x *ListActionsResponse) GetActions() []*Action {
 
 // RunActionRequest names the action to fire and the agent to fire it on.
 type RunActionRequest struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	AgentId string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	// The action's file name. A name is matched against the directory's own entries
-	// rather than joined onto its path, so this cannot reach outside it whatever it
-	// holds. The rules below refuse the shapes that would try.
-	Action        string `protobuf:"bytes,2,opt,name=action,proto3" json:"action,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	Action        string                 `protobuf:"bytes,2,opt,name=action,proto3" json:"action,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
