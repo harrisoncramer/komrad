@@ -15,6 +15,9 @@ usage() {
 	echo "and compare, so a stale file fails here without needing a clean git tree."
 	echo "gen:check covers the sqlc and buf output too, but only when those paths"
 	echo "have no uncommitted edits."
+	echo
+	echo "The steps come from mise/checks.json, which CI expands into one job per"
+	echo "step, so a step added there is run by both."
 }
 
 for arg in "$@"; do
@@ -28,16 +31,9 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-STEPS=(
-	"bash:check"
-	"bash:fmt --check"
-	"go:fmt --check"
-	"db:fmt --check"
-	"db:validate"
-	"go:lint"
-	"go:test"
-	"gen:check"
-)
+# The needs each step declares are for CI, which runs one step per machine and
+# has to install what that step touches. Locally everything is already here.
+mapfile -t STEPS < <(jq -r '.[].step' mise/checks.json)
 
 failed=()
 for STEP in "${STEPS[@]}"; do

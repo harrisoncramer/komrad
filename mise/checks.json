@@ -1,0 +1,10 @@
+[
+  { "step": "bash:check", "needs": [] },
+  { "step": "bash:fmt --check", "needs": [] },
+  { "step": "go:fmt --check", "needs": [] },
+  { "step": "db:fmt --check", "needs": [] },
+  { "step": "db:validate", "needs": [] },
+  { "step": "go:lint", "needs": ["linter"] },
+  { "step": "go:test", "needs": ["postgres", "tmux"] },
+  { "step": "gen:check", "needs": [] }
+]

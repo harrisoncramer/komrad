@@ -6,26 +6,29 @@ on:
   pull_request:
 
 jobs:
-  check:
+  # mise/checks.json is the same list the local check task walks, so a step is
+  # added in one place and both a local run and this matrix pick it up.
+  plan:
     runs-on: ubuntu-latest
+    outputs:
+      checks: ${{ steps.read.outputs.checks }}
+    steps:
+      - uses: actions/checkout@v4
 
-    # The store tests run against a real Postgres rather than a fake, and
-    # internal/pgtest creates a database per test off the server DATABASE_URL
-    # points at. Credentials match docker-compose so nothing else has to change.
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: weave
-          POSTGRES_PASSWORD: weave
-          POSTGRES_DB: weave
-        ports:
-          - 5460:5432
-        options: >-
-          --health-cmd "pg_isready -U weave"
-          --health-interval 2s
-          --health-timeout 5s
-          --health-retries 15
+      - id: read
+        run: echo "checks=$(jq -c . mise/checks.json)" >>"$GITHUB_OUTPUT"
+
+  check:
+    needs: plan
+    runs-on: ubuntu-latest
+    name: ${{ matrix.step }}
+
+    # Every step reports, rather than the first failure cancelling the rest, so
+    # one run still tells you everything that is wrong.
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.checks) }}
 
     env:
       DATABASE_URL: postgres://weave:weave@localhost:5460/weave?sslmode=disable
@@ -40,20 +43,41 @@ jobs:
           install: true
           cache: true
 
+      # Splitting the steps across machines means each one compiles the tree
+      # again, so the build cache is worth carrying between runs.
+      - name: Cache the Go build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: go-${{ runner.os }}-${{ matrix.step }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: go-${{ runner.os }}-${{ matrix.step }}-
+
+      # The store tests run against a real Postgres rather than a fake, and
+      # internal/pgtest creates a database per test off the server DATABASE_URL
+      # points at. Compose is what a local run uses, so the credentials and the
+      # port are declared once.
+      - name: Start Postgres
+        if: contains(matrix.needs, 'postgres')
+        run: docker compose up -d --wait db
+
       # The agents reconciler drives a real tmux server instead of a fake, and
       # those tests skip themselves when tmux is missing rather than failing, so
       # without this they would quietly not run.
       - name: Install tmux
+        if: contains(matrix.needs, 'tmux')
         run: sudo apt-get update && sudo apt-get install -y tmux
 
       # go:lint builds golangci-lint from source to bundle the repo's plugin,
       # which dominates the job. The binary only changes when the plugin or its
       # pin does, so it is cached against those rather than rebuilt every run.
       - name: Cache the custom linter
+        if: contains(matrix.needs, 'linter')
         uses: actions/cache@v4
         with:
           path: local/custom-gcl
           key: custom-gcl-${{ runner.os }}-${{ hashFiles('.custom-gcl.yml', 'tools/agentslinter/**') }}
 
-      - name: Check
-        run: mise run check
+      - name: Run ${{ matrix.step }}
+        run: mise run ${{ matrix.step }}

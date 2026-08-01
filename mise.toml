@@ -8,6 +8,7 @@ includes = ["mise/tasks"]
 go = "1.25.1"
 air = "1.61.7"
 golangci-lint = "v2.7.0"
+jq = "1.8.1"
 "aqua:koalaman/shellcheck" = "0.10.0"
 "aqua:mvdan/sh" = "3.11.0"
 "go:github.com/charmbracelet/gum" = "v0.17.0"
