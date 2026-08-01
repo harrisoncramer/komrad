@@ -11,7 +11,8 @@ import (
 // reconcileMisses is how many consecutive idle observations a thinking agent must show
 // before it settles to idle, which guards against a capture landing on a redraw frame
 // between tool calls. It errs high, since wrongly demoting a live agent is worse than a
-// stale state lingering a few seconds.
+// stale state lingering a few seconds. It applies only to a verdict inferred from a
+// frame: a CLI that reports its own idleness is not guessing and settles at once.
 const reconcileMisses = 3
 
 // tmuxProbe is the part of the tmux client the reconciler observes through. It keys on the
@@ -36,8 +37,10 @@ type stateStore interface {
 
 // Reconciler is the single source of truth for agent state. Rather than react to an agent
 // CLI's lifecycle events, which fire unreliably and miss endings like an escape interrupt,
-// it observes each agent from tmux on a timer and writes the state that implies. Reading
-// ground truth every pass means a wrong state cannot outlive the interval.
+// it observes each agent on a timer and writes the state that implies. Reading ground
+// truth every pass means a wrong state cannot outlive the interval. What an observation
+// is made of belongs to the harness, since one CLI publishes what it is doing and another
+// only draws it.
 type Reconciler struct {
 	tmux      tmuxProbe
 	harnesses activityRegistry
@@ -92,38 +95,35 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent)
 		return
 	}
 
-	frame := r.tmux.CapturePane(agent.Pane)
-
-	// An empty capture means the pane could not be read rather than that the agent went
-	// idle, and every uncertain case is a no-op.
-	if frame == "" {
-		return
-	}
-
-	// A harness this binary does not implement can say nothing about the frame, so the
-	// agent keeps the state it has.
+	// A harness this binary does not implement can say nothing about the agent, so it
+	// keeps the state it has.
 	resolved, err := r.harnesses.Resolve(agent.Harness)
 	if err != nil {
 		return
 	}
 
-	switch resolved.ReadActivity(frame) {
+	reading := resolved.ReadActivity(harness.Observation{
+		Frame:     r.tmux.CapturePane(agent.Pane),
+		SessionID: agent.SessionID,
+	})
+
+	switch reading.Activity {
 	case harness.ActivityWorking:
 		r.apply(ctx, agent, agentstore.StateThinking)
 	case harness.ActivityWaiting:
 		r.apply(ctx, agent, agentstore.StateWaiting)
 	case harness.ActivityUnknown:
-		// The harness read the frame and could not tell, which stands where a capture
-		// that could not be read does.
+		// The harness looked and could not tell, which is where a pane that could not
+		// be captured lands. Every uncertain case is a no-op.
 	case harness.ActivityIdle:
-		if agent.State == agentstore.StateIdle {
-			delete(r.misses, agent.ID)
+		if agent.State == agentstore.StateIdle || reading.Reported {
+			r.apply(ctx, agent, agentstore.StateIdle)
 
 			return
 		}
 
-		// Idle, but was active. Demoting waits for enough consecutive idle observations
-		// to rule out a redraw between tool calls.
+		// Idle by inference, but was active. Demoting waits for enough consecutive idle
+		// observations to rule out a redraw between tool calls.
 		r.misses[agent.ID]++
 		if r.misses[agent.ID] >= reconcileMisses {
 			r.apply(ctx, agent, agentstore.StateIdle)

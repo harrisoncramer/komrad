@@ -73,10 +73,10 @@ const loginFrame = "  Welcome to Codex, OpenAI's command-line coding agent\n" +
 	"\n" +
 	"  Press enter to continue"
 
-// TestReadActivity covers the verdict one captured frame settles on. Codex prefixes its
+// TestReadFrame covers the verdict one captured frame settles on. Codex prefixes its
 // own prose and every tool line with the same bullet the status line uses, so most of
 // these cases are about not reading ordinary transcript text as work.
-func TestReadActivity(t *testing.T) {
+func TestReadFrame(t *testing.T) {
 	tests := []struct {
 		name  string
 		frame string
@@ -168,15 +168,15 @@ func TestReadActivity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, New(Options{SessionsDir: t.TempDir()}).ReadActivity(tt.frame))
+			assert.Equal(t, tt.want, readFrame(tt.frame))
 		})
 	}
 }
 
-// TestReadActivityIgnoresTranscriptProse checks that an agent discussing the markers is
+// TestReadFrameIgnoresTranscriptProse checks that an agent discussing the markers is
 // not read as being at one. Only the bottom of the frame counts, and below the prose in
 // both cases is an idle input box.
-func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
+func TestReadFrameIgnoresTranscriptProse(t *testing.T) {
 	tests := []struct {
 		name  string
 		frame string
@@ -195,16 +195,16 @@ func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, harness.ActivityIdle, New(Options{SessionsDir: t.TempDir()}).ReadActivity(tt.frame),
+			assert.Equal(t, harness.ActivityIdle, readFrame(tt.frame),
 				"prose must not read as a live prompt or as work")
 		})
 	}
 }
 
-// TestReadActivityStripsANSI covers a frame captured with colours, which is how the
+// TestReadFrameStripsANSI covers a frame captured with colours, which is how the
 // panel captures every pane. The status line comes back shredded by SGR codes.
-func TestReadActivityStripsANSI(t *testing.T) {
+func TestReadFrameStripsANSI(t *testing.T) {
 	frame := "\x1b[38;5;39m•\x1b[39m \x1b[1mWorking\x1b[0m \x1b[2m(7s • esc to interrupt)\x1b[0m"
 
-	assert.Equal(t, harness.ActivityWorking, New(Options{SessionsDir: t.TempDir()}).ReadActivity(frame))
+	assert.Equal(t, harness.ActivityWorking, readFrame(frame))
 }

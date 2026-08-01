@@ -48,11 +48,25 @@ const waitingRegionLines = 6
 // and codes wedged between the ellipsis and the timer.
 var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 
-// ReadActivity reads what a captured frame says Claude is doing. Anything neither
+// ReadActivity reports what Claude is doing, preferring what it says about itself to
+// what its chrome implies. The frame is the fallback for a conversation the status files
+// do not cover, which is a build too old to write them, one whose process is gone, and
+// the moments either side of a launch.
+func (h *Harness) ReadActivity(obs harness.Observation) harness.Reading {
+	if status, ok := h.sessions.status(obs.SessionID); ok {
+		if activity, known := statusActivity(status); known {
+			return harness.Reading{Activity: activity, Reported: true}
+		}
+	}
+
+	return harness.Reading{Activity: readFrame(obs.Frame)}
+}
+
+// readFrame reads what a captured frame says Claude is doing. Anything neither
 // working nor a live prompt is idle rather than unknown. An agent sitting at its
 // input box is the ordinary finished case, and reporting no verdict there would
 // leave every agent stuck in the state it last held.
-func (h *Harness) ReadActivity(frame string) harness.Activity {
+func readFrame(frame string) harness.Activity {
 	switch {
 	case frame == "":
 		return harness.ActivityUnknown

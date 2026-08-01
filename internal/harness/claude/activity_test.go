@@ -27,10 +27,10 @@ const toolBlock = "\n" +
 	"      … +1 pending\n\n" +
 	"────────────────\n❯ \n────────────────\n   ~/dir  main\n  -- INSERT --"
 
-// TestReadActivity covers the verdict a single captured frame settles on. Idle is the
+// TestReadFrame covers the verdict a single captured frame settles on. Idle is the
 // answer for anything that is neither working nor a live prompt, since an agent at
 // its input box is the ordinary finished case.
-func TestReadActivity(t *testing.T) {
+func TestReadFrame(t *testing.T) {
 	tests := []struct {
 		name  string
 		frame string
@@ -138,15 +138,15 @@ func TestReadActivity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, New(t.TempDir()).ReadActivity(tt.frame))
+			assert.Equal(t, tt.want, readFrame(tt.frame))
 		})
 	}
 }
 
-// TestReadActivityIgnoresTranscriptProse checks that transcript text carrying a marker
+// TestReadFrameIgnoresTranscriptProse checks that transcript text carrying a marker
 // phrase is not read as a live prompt or live work. Only the bottom of the frame
 // counts, and in both cases below it is an idle input box.
-func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
+func TestReadFrameIgnoresTranscriptProse(t *testing.T) {
 	tests := []struct {
 		name  string
 		frame string
@@ -165,7 +165,7 @@ func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, harness.ActivityIdle, New(t.TempDir()).ReadActivity(tt.frame),
+			assert.Equal(t, harness.ActivityIdle, readFrame(tt.frame),
 				"prose must not read as a live prompt or as work")
 		})
 	}

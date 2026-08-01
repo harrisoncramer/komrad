@@ -52,7 +52,7 @@ func TestRelocate(t *testing.T) {
 				require.NoError(t, os.WriteFile(origin, []byte("{}\n"), 0o600))
 			}
 
-			require.NoError(t, New(projects).Relocate(tt.sessionID, to))
+			require.NoError(t, New(Options{ProjectsDir: projects}).Relocate(tt.sessionID, to))
 
 			moved := filepath.Join(projects, projectFolder(to), sessionID+".jsonl")
 			if !tt.wantMoved {

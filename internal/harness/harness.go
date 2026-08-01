@@ -69,8 +69,18 @@ type Launch struct {
 	Resume bool
 }
 
-// Activity is what a captured pane says an agent is doing, a verdict about one frame and
-// nothing more. How many frames it takes to move a state is the reconciler's.
+// Observation is everything the reconciler gathered about one agent this pass. A harness
+// reads whichever parts the CLI it runs actually reports through, which is not the same
+// for all of them: one publishes what it is doing, another only draws it.
+type Observation struct {
+	// Frame is the agent's captured pane, empty when it could not be read.
+	Frame string
+	// SessionID is the conversation the agent is recorded against, empty until its
+	// harness has one.
+	SessionID string
+}
+
+// Activity is what an observation says an agent is doing.
 type Activity int
 
 const (
@@ -86,6 +96,16 @@ const (
 	// ActivityIdle is an agent sitting at its input prompt with nothing to do.
 	ActivityIdle
 )
+
+// Reading is a harness's verdict about one observation.
+type Reading struct {
+	// Activity is what the agent is doing.
+	Activity Activity
+	// Reported marks a verdict the CLI stated about itself rather than one inferred
+	// from the chrome it drew. Only an inferred verdict can be a capture landing on a
+	// redraw between tool calls, so only that kind is worth debouncing.
+	Reported bool
+}
 
 // Turn is one thing said in a conversation, which is all the panel keeps of it. Tool
 // calls, results, and reasoning are not turns, since a search hit has to read as
@@ -124,8 +144,8 @@ type Harness interface {
 	// agent it was told at launch on what it writes, so the answer is that agent's own
 	// rather than a candidate to be told apart from another agent's.
 	FindSession(agentID string) (string, error)
-	// ReadActivity reads a captured frame and reports what it says the agent is doing.
-	ReadActivity(frame string) Activity
+	// ReadActivity reads an observation and reports what it says the agent is doing.
+	ReadActivity(Observation) Reading
 	// GetLogPath locates the conversation log for a session id, or returns empty when
 	// there is none on disk yet.
 	GetLogPath(sessionID string) string

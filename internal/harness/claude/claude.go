@@ -19,16 +19,25 @@ type Harness struct {
 	// log per session. It is a field rather than a constant so a test can point it
 	// at a temp directory instead of the user's home.
 	projectsDir string
+	// sessions is Claude's own account of what each running conversation is doing.
+	sessions *sessions
 }
 
-// New builds a harness reading conversation logs from projectsDir, which is
-// Claude's own location when it is left empty.
-func New(projectsDir string) *Harness {
-	if projectsDir == "" {
-		projectsDir = DefaultProjectsDir()
+// Options configures the Claude harness. Both paths default to Claude's own locations.
+type Options struct {
+	ProjectsDir string
+	SessionsDir string
+}
+
+// New builds a harness reading conversation logs and session statuses from the
+// configured directories.
+func New(opts Options) *Harness {
+	projects := opts.ProjectsDir
+	if projects == "" {
+		projects = DefaultProjectsDir()
 	}
 
-	return &Harness{projectsDir: projectsDir}
+	return &Harness{projectsDir: projects, sessions: newSessions(opts.SessionsDir)}
 }
 
 // The panel reaches Claude Code only through the interface, so a method missing here

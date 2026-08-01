@@ -50,7 +50,17 @@ var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 // working nor blocked on the user is idle rather than unknown, which is also where an
 // interrupted turn lands: the live line vanishes and the typed prompt stays in the
 // input box, so an escaped agent reads as finished.
-func (h *Harness) ReadActivity(frame string) harness.Activity {
+//
+// The frame is all there is. Codex keeps no account of what a running session is doing:
+// its hooks cover a turn that ends on its own but not one the user interrupts, and its
+// state database records a conversation without recording whether it is mid-turn. So
+// every verdict here is inferred and none is reported.
+func (h *Harness) ReadActivity(obs harness.Observation) harness.Reading {
+	return harness.Reading{Activity: readFrame(obs.Frame)}
+}
+
+// readFrame reads what a captured frame says Codex is doing.
+func readFrame(frame string) harness.Activity {
 	switch {
 	case frame == "":
 		return harness.ActivityUnknown

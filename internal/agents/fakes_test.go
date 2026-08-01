@@ -166,6 +166,9 @@ type fakeHarness struct {
 	// found is the conversation FindSession reports, for the adoption path a harness
 	// that names its own sessions goes through.
 	found string
+	// reported is what the CLI says about a conversation, keyed by session id, standing
+	// in for a harness that reads more than the pane. An entry here beats the frame.
+	reported map[string]harness.Activity
 }
 
 func (f *fakeHarness) GetID() string { return testHarnessID }
@@ -181,16 +184,20 @@ func (f *fakeHarness) BuildCommand(launch harness.Launch) (string, error) {
 
 func (f *fakeHarness) MintSessionID() string { return uuid.NewString() }
 
-func (f *fakeHarness) ReadActivity(frame string) harness.Activity {
-	switch frame {
+func (f *fakeHarness) ReadActivity(obs harness.Observation) harness.Reading {
+	if activity, ok := f.reported[obs.SessionID]; ok {
+		return harness.Reading{Activity: activity, Reported: true}
+	}
+
+	switch obs.Frame {
 	case busyFrame:
-		return harness.ActivityWorking
+		return harness.Reading{Activity: harness.ActivityWorking}
 	case waitFrame:
-		return harness.ActivityWaiting
+		return harness.Reading{Activity: harness.ActivityWaiting}
 	case "":
-		return harness.ActivityUnknown
+		return harness.Reading{Activity: harness.ActivityUnknown}
 	default:
-		return harness.ActivityIdle
+		return harness.Reading{Activity: harness.ActivityIdle}
 	}
 }
 

@@ -33,7 +33,7 @@ func NewRootCommand() *cobra.Command {
 	var configPath string
 
 	// One instance per CLI the binary implements, so every command shares it.
-	claudeHarness := claude.New("")
+	claudeHarness := claude.New(claude.Options{})
 	var codexHarness *codex.Harness
 
 	root := &cobra.Command{

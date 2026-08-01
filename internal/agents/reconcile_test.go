@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"weave/internal/harness"
 	agentstore "weave/internal/store/agent"
 	"weave/lib/xptr"
 
@@ -230,6 +231,33 @@ func repeatFrame(frame string, n int) []string {
 	}
 
 	return frames
+}
+
+// TestReconcileSettlesAReportedIdleAtOnce covers a harness reading a CLI that says what
+// it is doing rather than drawing it. The debounce exists to survive a capture landing
+// on a redraw between tool calls, and a CLI reporting its own idleness is not a capture,
+// so holding the agent in thinking for three more passes would only be late.
+func TestReconcileSettlesAReportedIdleAtOnce(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+	require.NoError(t, st.Agents.SetSessionID(ctx, agent.ID, "sess"))
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+	// The frame still shows the status line, which is what an interrupted turn leaves
+	// behind, so only the reported status can settle this.
+	tmux.captures["%1"] = busyFrame
+
+	harnesses := fakeHarnesses{harness: &fakeHarness{
+		reported: map[string]harness.Activity{"sess": harness.ActivityIdle},
+	}}
+
+	rec := NewReconciler(tmux, harnesses, st.Agents)
+	require.NoError(t, rec.Reconcile(ctx))
+
+	assert.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
+	assert.Empty(t, rec.misses, "a reported verdict accrues nothing to debounce")
 }
 
 // TestReconcileLeavesAnUnknownHarnessAlone covers an agent recorded against a CLI

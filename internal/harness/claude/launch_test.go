@@ -55,7 +55,7 @@ func TestBuildCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := New(t.TempDir()).BuildCommand(tt.launch)
+			command, err := New(Options{ProjectsDir: t.TempDir()}).BuildCommand(tt.launch)
 			require.NoError(t, err)
 
 			assert.True(t, strings.HasPrefix(stripMCPConfig(command), tt.wantCommand),
@@ -89,7 +89,7 @@ func TestBuildCommandQuotesFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := New(t.TempDir()).BuildCommand(harness.Launch{Flags: tt.flags, SessionID: "sess"})
+			command, err := New(Options{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{Flags: tt.flags, SessionID: "sess"})
 			require.NoError(t, err)
 
 			assert.NotContains(t, command, tt.wantAbsent, "an unquoted flag would run in the pane")
@@ -127,7 +127,7 @@ func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := New(t.TempDir()).BuildCommand(tt.launch)
+			command, err := New(Options{ProjectsDir: t.TempDir()}).BuildCommand(tt.launch)
 			require.NoError(t, err)
 
 			for _, want := range tt.wantContain {
@@ -167,7 +167,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 			home := t.TempDir()
 			t.Setenv("HOME", home)
 
-			command, err := New(t.TempDir()).BuildCommand(harness.Launch{
+			command, err := New(Options{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{
 				SessionID:   "sess",
 				MCPEndpoint: "127.0.0.1:9999",
 				Resume:      tt.resume,
@@ -240,7 +240,7 @@ func TestMCPConfigCarriesTheAgentsIdentity(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	command, err := New(t.TempDir()).BuildCommand(harness.Launch{
+	command, err := New(Options{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{
 		AgentID:     "agent-1",
 		SessionID:   "sess-1",
 		MCPEndpoint: "127.0.0.1:9999",

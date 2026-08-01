@@ -137,7 +137,7 @@ func TestTranscriptSyncer(t *testing.T) {
 				Agents:      st.Agents,
 				Sessions:    st.Agents,
 				Transcripts: st.Transcripts,
-				Harnesses:   mustRegistry(t, claude.New(projects)),
+				Harnesses:   mustRegistry(t, claude.New(claude.Options{ProjectsDir: projects})),
 			})
 			require.NoError(t, syncer.Sync(ctx))
 
@@ -208,7 +208,7 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 		Agents:      st.Agents,
 		Sessions:    st.Agents,
 		Transcripts: store,
-		Harnesses:   mustRegistry(t, claude.New(projects)),
+		Harnesses:   mustRegistry(t, claude.New(claude.Options{ProjectsDir: projects})),
 	})
 
 	// The failure is still reported, so serve logs it rather than leaving an agent
@@ -308,7 +308,7 @@ func TestSyncReportsAnUnknownHarness(t *testing.T) {
 		Agents:      st.Agents,
 		Sessions:    st.Agents,
 		Transcripts: st.Transcripts,
-		Harnesses:   mustRegistry(t, claude.New(t.TempDir())),
+		Harnesses:   mustRegistry(t, claude.New(claude.Options{ProjectsDir: t.TempDir(), SessionsDir: t.TempDir()})),
 	})
 
 	err := syncer.Sync(ctx)
