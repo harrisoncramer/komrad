@@ -102,11 +102,11 @@ table "workflows" {
     null = false
     type = uuid
   }
-  # Soft-delete flag: a deleted workflow is hidden from the panel but kept.
-  column "is_deleted" {
-    null    = false
-    type    = boolean
-    default = false
+  # When the workflow was archived, null while it is live. An archived workflow is
+  # hidden from the panel but kept, with the agents inside it archived alongside it.
+  column "archived_at" {
+    null = true
+    type = timestamptz
   }
   column "created_at" {
     null    = false

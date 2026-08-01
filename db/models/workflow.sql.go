@@ -11,7 +11,7 @@ import (
 
 const getWorkflow = `-- name: GetWorkflow :one
 SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.is_deleted, w.created_at, w.updated_at, w.setup_action, w.cleanup_action,
+    w.id, w.name, w.context, w.workflow_config_id, w.created_at, w.updated_at, w.setup_action, w.cleanup_action, w.archived_at,
     wc.harness,
     wc.cwd,
     wc.flags
@@ -20,7 +20,7 @@ FROM
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
 WHERE
     w.id = $1
-    AND w.is_deleted = FALSE
+    AND w.archived_at IS NULL
 LIMIT 1
 `
 
@@ -39,11 +39,11 @@ func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, 
 		&i.Workflow.Name,
 		&i.Workflow.Context,
 		&i.Workflow.WorkflowConfigID,
-		&i.Workflow.IsDeleted,
 		&i.Workflow.CreatedAt,
 		&i.Workflow.UpdatedAt,
 		&i.Workflow.SetupAction,
 		&i.Workflow.CleanupAction,
+		&i.Workflow.ArchivedAt,
 		&i.Harness,
 		&i.Cwd,
 		&i.Flags,
@@ -65,7 +65,7 @@ VALUES (
     $4,
     $5)
 RETURNING
-    id, name, context, workflow_config_id, is_deleted, created_at, updated_at, setup_action, cleanup_action
+    id, name, context, workflow_config_id, created_at, updated_at, setup_action, cleanup_action, archived_at
 `
 
 type InsertWorkflowParams struct {
@@ -90,11 +90,11 @@ func (q *Queries) InsertWorkflow(ctx context.Context, arg InsertWorkflowParams) 
 		&i.Name,
 		&i.Context,
 		&i.WorkflowConfigID,
-		&i.IsDeleted,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SetupAction,
 		&i.CleanupAction,
+		&i.ArchivedAt,
 	)
 	return &i, err
 }
@@ -127,7 +127,7 @@ func (q *Queries) InsertWorkflowConfig(ctx context.Context, arg InsertWorkflowCo
 
 const listWorkflows = `-- name: ListWorkflows :many
 SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.is_deleted, w.created_at, w.updated_at, w.setup_action, w.cleanup_action,
+    w.id, w.name, w.context, w.workflow_config_id, w.created_at, w.updated_at, w.setup_action, w.cleanup_action, w.archived_at,
     wc.harness,
     wc.cwd,
     wc.flags
@@ -135,7 +135,7 @@ FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
 WHERE
-    w.is_deleted = FALSE
+    w.archived_at IS NULL
 ORDER BY
     w.id DESC
 `
@@ -161,11 +161,11 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 			&i.Workflow.Name,
 			&i.Workflow.Context,
 			&i.Workflow.WorkflowConfigID,
-			&i.Workflow.IsDeleted,
 			&i.Workflow.CreatedAt,
 			&i.Workflow.UpdatedAt,
 			&i.Workflow.SetupAction,
 			&i.Workflow.CleanupAction,
+			&i.Workflow.ArchivedAt,
 			&i.Harness,
 			&i.Cwd,
 			&i.Flags,
@@ -182,7 +182,7 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 
 const listWorkflowsPage = `-- name: ListWorkflowsPage :many
 SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.is_deleted, w.created_at, w.updated_at, w.setup_action, w.cleanup_action,
+    w.id, w.name, w.context, w.workflow_config_id, w.created_at, w.updated_at, w.setup_action, w.cleanup_action, w.archived_at,
     wc.harness,
     wc.cwd,
     wc.flags
@@ -190,7 +190,7 @@ FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
 WHERE
-    w.is_deleted = FALSE
+    w.archived_at IS NULL
     AND ($1::uuid IS NULL
         OR w.id < $1)
 ORDER BY
@@ -224,11 +224,11 @@ func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPagePa
 			&i.Workflow.Name,
 			&i.Workflow.Context,
 			&i.Workflow.WorkflowConfigID,
-			&i.Workflow.IsDeleted,
 			&i.Workflow.CreatedAt,
 			&i.Workflow.UpdatedAt,
 			&i.Workflow.SetupAction,
 			&i.Workflow.CleanupAction,
+			&i.Workflow.ArchivedAt,
 			&i.Harness,
 			&i.Cwd,
 			&i.Flags,
@@ -243,17 +243,18 @@ func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPagePa
 	return items, nil
 }
 
-const markWorkflowDeleted = `-- name: MarkWorkflowDeleted :exec
+const markWorkflowArchived = `-- name: MarkWorkflowArchived :exec
 UPDATE
     workflows
 SET
-    is_deleted = TRUE
+    archived_at = NOW()
 WHERE
     id = $1
+    AND archived_at IS NULL
 `
 
-func (q *Queries) MarkWorkflowDeleted(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, markWorkflowDeleted, id)
+func (q *Queries) MarkWorkflowArchived(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, markWorkflowArchived, id)
 	return err
 }
 

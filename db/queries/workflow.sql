@@ -8,7 +8,7 @@ FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
 WHERE
-    w.is_deleted = FALSE
+    w.archived_at IS NULL
     AND (sqlc.narg('cursor_id')::uuid IS NULL
         OR w.id < sqlc.narg('cursor_id'))
 ORDER BY
@@ -25,7 +25,7 @@ FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
 WHERE
-    w.is_deleted = FALSE
+    w.archived_at IS NULL
 ORDER BY
     w.id DESC;
 
@@ -40,7 +40,7 @@ FROM
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
 WHERE
     w.id = @id
-    AND w.is_deleted = FALSE
+    AND w.archived_at IS NULL
 LIMIT 1;
 
 -- name: InsertWorkflowConfig :one
@@ -112,10 +112,11 @@ WHERE
         WHERE
             workflows.id = @workflow_id);
 
--- name: MarkWorkflowDeleted :exec
+-- name: MarkWorkflowArchived :exec
 UPDATE
     workflows
 SET
-    is_deleted = TRUE
+    archived_at = NOW()
 WHERE
-    id = @id;
+    id = @id
+    AND archived_at IS NULL;

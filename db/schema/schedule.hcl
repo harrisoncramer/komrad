@@ -32,8 +32,8 @@ table "schedules" {
     default = ""
   }
   # Paused schedules keep their row and their history and simply stop firing.
-  # Distinct from is_deleted: pausing is a state the user toggles, deleting is
-  # the end of the schedule.
+  # Distinct from archived_at: pausing is a state the user toggles, archiving puts
+  # the schedule away.
   column "enabled" {
     null    = false
     type    = boolean
@@ -63,12 +63,12 @@ table "schedules" {
     null = false
     type = uuid
   }
-  # Soft-delete flag: a deleted schedule is hidden from the panel but kept, so
-  # the agents it produced still resolve to the schedule that launched them.
-  column "is_deleted" {
-    null    = false
-    type    = boolean
-    default = false
+  # When the schedule was archived, null while it is live. An archived schedule is
+  # hidden from the panel but kept, so the agents it produced still resolve to the
+  # schedule that launched them.
+  column "archived_at" {
+    null = true
+    type = timestamptz
   }
   column "created_at" {
     null    = false
@@ -85,7 +85,7 @@ table "schedules" {
   }
   # A schedule reads its directory and flags off the workflow every time it
   # fires, so one pointing at a workflow that does not exist could never launch
-  # anything. Workflows are only soft-deleted, so this never blocks a delete.
+  # anything. Workflows are only ever archived, so this never blocks one.
   foreign_key "schedules_workflow_id_fkey" {
     columns     = [column.workflow_id]
     ref_columns = [table.workflows.column.id]
@@ -97,7 +97,7 @@ table "schedules" {
   index "schedules_name_active" {
     unique  = true
     columns = [column.name]
-    where   = "is_deleted = false"
+    where   = "archived_at IS NULL"
   }
   # Scoped listings filter by workflow, so index the foreign key.
   index "schedules_workflow_id" {
