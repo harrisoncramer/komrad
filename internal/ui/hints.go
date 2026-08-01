@@ -1,67 +1,106 @@
 package ui
 
 import (
+	"slices"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 )
 
-// The key legend under every list. Each screen names its own bindings, and a toggle names
-// the direction the row would go, so a legend says what the key would do to what is under
-// the cursor.
-
-// hint is one line of the key legend under a list, a binding and what it does.
-type hint struct{ key, desc string }
-
-// renderHints lays the legend out as two columns, the keys padded to the widest so the
-// descriptions line up.
-func renderHints(hints []hint) string {
-	keyWidth := 0
-	for _, h := range hints {
-		if w := lipgloss.Width(h.key); w > keyWidth {
-			keyWidth = w
-		}
-	}
-	keyStyle := lipgloss.NewStyle().Width(keyWidth + 1)
-
-	var b strings.Builder
-	for _, h := range hints {
-		b.WriteString(dimStyle.Render(keyStyle.Render(h.key) + h.desc))
-		b.WriteString("\n")
-	}
-
-	return b.String()
+// The key legend under every list.
+type legend struct {
+	short []key.Binding
+	full  []key.Binding
 }
 
-// agentHints lists the agents screen's bindings, one per line with an aligned key column.
-func (m model) agentHints() string {
-	// The key that draws the hidden agents toggles, so the legend names the direction it
-	// would go.
+// ShortHelp is the collapsed legend, the one line.
+func (l legend) ShortHelp() []key.Binding {
+	return l.short
+}
+
+// FullHelp is the expanded legend as a single column, so the bindings run down the pane
+// one per line.
+func (l legend) FullHelp() [][]key.Binding {
+	return [][]key.Binding{l.full}
+}
+
+// renderHints draws a screen's legend, ending in the newline every block a screen builds
+// ends in so the height budget counts it like the rest of the views.
+func (m model) renderHints(l legend) string {
+	view := help.New()
+	view.Styles = helpStyles()
+	view.Width = m.width
+	view.ShowAll = !m.hintsCollapsed
+
+	return trimLines(view.View(l)) + "\n"
+}
+
+// trimLines takes the padding off the end of every line of a legend.
+func trimLines(legend string) string {
+	lines := strings.Split(legend, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimRight(line, " ")
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// hint is one line of the key legend, a configured binding paired with what it does.
+func hint(keys []string, desc string) key.Binding {
+	return key.NewBinding(key.WithKeys(keys...), key.WithHelp(hintKeys(keys), desc))
+}
+
+// moveHint is the two nav bindings as one line, since neither direction is worth a line of
+// its own.
+func (m model) moveHint() key.Binding {
+	keys := slices.Concat(m.keys.Nav.Up, m.keys.Nav.Down)
+
+	return key.NewBinding(
+		key.WithKeys(keys...),
+		key.WithHelp(hintKeys(m.keys.Nav.Up)+"/"+hintKeys(m.keys.Nav.Down), "move"),
+	)
+}
+
+// helpHint is the binding that draws the legend itself, which ends every screen's legend in
+// both states.
+func (m model) helpHint() key.Binding {
+	desc := "show help"
+	if !m.hintsCollapsed {
+		desc = "hide help"
+	}
+
+	return hint(m.keys.Help.Toggle, desc)
+}
+
+// agentHints lists the agents screen's bindings.
+func (m model) agentHints() legend {
 	showHiddenDesc := "show hidden"
 	if m.tree.showHidden {
 		showHiddenDesc = "put hidden away"
 	}
 
-	hints := append(m.rowHints(), m.screenHints()...)
-	hints = append(hints,
-		hint{hintKeys(m.keys.Agents.ShowHidden), showHiddenDesc},
-		hint{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
-		hint{hintKeys(m.keys.Agents.Back), "back"},
-	)
+	rows := m.rowHints()
+	full := slices.Concat(rows, m.screenHints(), []key.Binding{
+		hint(m.keys.Agents.ShowHidden, showHiddenDesc),
+		m.moveHint(),
+		hint(m.keys.Agents.Back, "back"),
+		m.helpHint(),
+	})
 
-	return renderHints(hints)
+	return legend{short: []key.Binding{rows[0], m.helpHint()}, full: full}
 }
 
-// rowHints are the bindings that act on the row under the cursor, a workflow header or an
-// agent. The info, mark, and hide keys toggle, so their lines name what that row would do.
-func (m model) rowHints() []hint {
+// rowHints are the bindings that act on the row under the cursor, which is a
+// workflow header or an agent.
+func (m model) rowHints() []key.Binding {
 	if _, hoveringWorkflow := m.hoveredWorkflow(); hoveringWorkflow {
-		return []hint{
-			{hintKeys(m.keys.Agents.New), "new agent"},
-			{hintKeys(m.keys.Workflows.New), "new workflow"},
-			{hintKeys(m.keys.Workflows.Rename), "rename"},
-			{hintKeys(m.keys.Workflows.Edit), "edit"},
-			{hintKeys(m.keys.Workflows.Delete), "delete"},
+		return []key.Binding{
+			hint(m.keys.Agents.New, "new agent"),
+			hint(m.keys.Workflows.New, "new workflow"),
+			hint(m.keys.Workflows.Rename, "rename"),
+			hint(m.keys.Workflows.Edit, "edit"),
+			hint(m.keys.Workflows.Delete, "delete"),
 		}
 	}
 
@@ -82,97 +121,97 @@ func (m model) rowHints() []hint {
 		}
 	}
 
-	return []hint{
-		{hintKeys(m.keys.Agents.Open), "open"},
-		{hintKeys(m.keys.Agents.Editor), "editor"},
-		{hintKeys(m.keys.Agents.Info), infoDesc},
-		{hintKeys(m.keys.Actions.Open), "actions"},
-		{hintKeys(m.keys.Agents.Mark), markDesc},
-		{hintKeys(m.keys.Agents.Hide), hideDesc},
-		{hintKeys(m.keys.Agents.New), "new agent"},
-		{hintKeys(m.keys.Workflows.New), "new workflow"},
-		{hintKeys(m.keys.Agents.Rename), "rename"},
-		{hintKeys(m.keys.Agents.Archive), "archive"},
+	return []key.Binding{
+		hint(m.keys.Agents.Open, "open"),
+		hint(m.keys.Agents.Editor, "editor"),
+		hint(m.keys.Agents.Info, infoDesc),
+		hint(m.keys.Actions.Open, "actions"),
+		hint(m.keys.Agents.Mark, markDesc),
+		hint(m.keys.Agents.Hide, hideDesc),
+		hint(m.keys.Agents.New, "new agent"),
+		hint(m.keys.Workflows.New, "new workflow"),
+		hint(m.keys.Agents.Rename, "rename"),
+		hint(m.keys.Agents.Archive, "archive"),
 	}
 }
 
-// screenHints are the screens reachable from anywhere in the tree, appended to whichever
-// legend is showing, since none of them act on the row under the cursor.
-func (m model) screenHints() []hint {
-	return []hint{
-		{hintKeys(m.keys.Agents.Search), "search"},
-		{hintKeys(m.keys.Schedules.Open), "schedules"},
-		{hintKeys(m.keys.Archive.Open), "archived agents"},
-		{hintKeys(m.keys.Agents.Logs), m.logsDesc()},
+// screenHints are the screens reachable from anywhere in the tree.
+func (m model) screenHints() []key.Binding {
+	return []key.Binding{
+		hint(m.keys.Agents.Search, "search"),
+		hint(m.keys.Schedules.Open, "schedules"),
+		hint(m.keys.Archive.Open, "archived agents"),
+		hint(m.keys.Agents.Logs, m.logsDesc()),
 	}
 }
 
-// scheduleHints renders the schedules screen's key hints, in the two-column shape the
-// agents view uses.
-func (m model) scheduleHints() string {
+// scheduleHints lists the schedules screen's bindings
+func (m model) scheduleHints() legend {
 	toggle := "pause"
 	if item, ok := m.selectedSchedule(); ok && !item.schedule.Enabled {
 		toggle = "resume"
 	}
 
-	return renderHints([]hint{
-		{hintKeys(m.keys.Schedules.New), "new schedule"},
-		{hintKeys(m.keys.Schedules.Edit), "edit"},
-		{hintKeys(m.keys.Schedules.Toggle), toggle},
-		{hintKeys(m.keys.Schedules.Delete), "delete"},
-		{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
-		{hintKeys(m.keys.Schedules.Back), "back"},
-	})
+	edit := hint(m.keys.Schedules.Edit, "edit")
+	back := hint(m.keys.Schedules.Back, "back")
+
+	return legend{
+		short: []key.Binding{edit, back, m.helpHint()},
+		full: []key.Binding{
+			hint(m.keys.Schedules.New, "new schedule"),
+			edit,
+			hint(m.keys.Schedules.Toggle, toggle),
+			hint(m.keys.Schedules.Delete, "delete"),
+			m.moveHint(),
+			back,
+			m.helpHint(),
+		},
+	}
 }
 
 // archiveHints lists the archive screen's bindings.
-func (m model) archiveHints() string {
-	return renderHints([]hint{
-		{hintKeys(m.keys.Archive.Restore), "restore"},
-		{hintKeys(m.keys.Archive.Delete), "delete for good"},
-		{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
-		{hintKeys(m.keys.Archive.Back), "back"},
-	})
+func (m model) archiveHints() legend {
+	restore := hint(m.keys.Archive.Restore, "restore")
+	back := hint(m.keys.Archive.Back, "back")
+
+	return legend{
+		short: []key.Binding{restore, back, m.helpHint()},
+		full: []key.Binding{
+			restore,
+			hint(m.keys.Archive.Delete, "delete for good"),
+			m.moveHint(),
+			back,
+			m.helpHint(),
+		},
+	}
 }
 
-// actionHints lists the actions screen's bindings. The run line names the chmod a file
-// without the executable bit wants, since a dim row cannot say why it is dim.
-func (m model) actionHints() string {
+// actionHints lists the actions screen's bindings.
+func (m model) actionHints() legend {
 	runDesc := "run"
 	if action, ok := m.selectedAction(); ok && !action.executable {
 		runDesc = "chmod +x to run"
 	}
 
-	return renderHints([]hint{
-		{hintKeys(m.keys.Actions.Run), runDesc},
-		{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
-		{hintKeys(m.keys.Actions.Back), "back"},
-	})
+	run := hint(m.keys.Actions.Run, runDesc)
+	back := hint(m.keys.Actions.Back, "back")
+
+	return legend{
+		short: []key.Binding{run, back, m.helpHint()},
+		full:  []key.Binding{run, m.moveHint(), back, m.helpHint()},
+	}
 }
 
-// searchHints lists the search screen's fixed key hints.
-func (m model) searchHints() string {
-	hints := []struct{ key, desc string }{
-		{"enter", "open"},
-		{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
-		{"esc", "back"},
-	}
+// searchHints lists the search screen's fixed key hints. The screen has no help key, since
+// every key on it goes into the query.
+func (m model) searchHints() legend {
+	open := hint([]string{"enter"}, "open")
+	back := hint([]string{"esc"}, "back")
 
-	keyWidth := 0
-	for _, h := range hints {
-		if w := lipgloss.Width(h.key); w > keyWidth {
-			keyWidth = w
-		}
+	return legend{
+		short: []key.Binding{open, back},
+		full:  []key.Binding{open, m.moveHint(), back},
 	}
-	keyStyle := lipgloss.NewStyle().Width(keyWidth + 1)
-
-	var b strings.Builder
-	for _, h := range hints {
-		b.WriteString(dimStyle.Render(keyStyle.Render(h.key) + h.desc))
-		b.WriteString("\n")
-	}
-
-	return b.String()
 }
 
 // hintKeys renders a binding's keys for the help text, joining them with "/" and

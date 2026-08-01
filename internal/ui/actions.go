@@ -172,7 +172,7 @@ func (m model) stageAction() {
 // now. A file without the executable bit is drawn dim, the way a dormant agent is.
 func (m model) actionsView() string {
 	header := headerStyle.Render("Actions on "+m.actions.agent.Name) + "\n\n"
-	hints := "\n" + m.actionHints()
+	hints := "\n" + m.renderHints(m.actionHints())
 
 	if len(m.actions.items) == 0 {
 		return header + dimStyle.Render("no actions") + "\n" + hints

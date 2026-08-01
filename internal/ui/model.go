@@ -145,6 +145,10 @@ type model struct {
 	values formValues
 	target formTarget
 
+	// hintsCollapsed is whether the key legend under a list is down to its one line, which
+	// the help key toggles. Defaults to false so legend is open.
+	hintsCollapsed bool
+
 	keys  appconfig.Keybindings
 	marks []appconfig.Mark
 	// editor is the command the editor key runs on an agent's directory.

@@ -25,6 +25,9 @@ type Keybindings struct {
 	// Navigation, shared by every menu so movement is the same everywhere. These
 	// avoid letter keys so they still work in the search text field.
 	Nav NavKeys `mapstructure:"nav"`
+	// The key that draws the legend under a list, shared by every screen for the same
+	// reason navigation is.
+	Help HelpKeys `mapstructure:"help"`
 	// The agents list, the panel's main screen.
 	Agents AgentsKeys `mapstructure:"agents"`
 	// The new-agent, rename, and workflow forms.
@@ -46,6 +49,13 @@ type NavKeys struct {
 	Up []string `mapstructure:"up"`
 	// Move the cursor down.
 	Down []string `mapstructure:"down"`
+}
+
+// HelpKeys is the binding that draws the legend under a list. It is its own group
+// rather than one of a screen's, since it acts the same on all of them.
+type HelpKeys struct {
+	// Toggle for the keybindings
+	Toggle []string `mapstructure:"toggle"`
 }
 
 // FormKeys are the bindings for the new-agent and rename forms. Back and Quit both
@@ -376,6 +386,9 @@ func DefaultKeybindings() Keybindings {
 		Nav: NavKeys{
 			Up:   []string{"up", "ctrl+p"},
 			Down: []string{"down", "ctrl+n"},
+		},
+		Help: HelpKeys{
+			Toggle: []string{"?"},
 		},
 		Agents: AgentsKeys{
 			Quit:       []string{"ctrl+c", "q"},

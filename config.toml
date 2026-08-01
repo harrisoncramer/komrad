@@ -66,6 +66,12 @@ up   = ["up", "ctrl+p"]
 # Move the cursor down.
 down = ["down", "ctrl+n"]
 
+# The key that draws the legend under a list, shared by every screen for the
+# same reason navigation is.
+[keybindings.help]
+# Toggle for the keybindings
+toggle = ["?"]
+
 # The agents list, the panel's main screen.
 [keybindings.agents]
 # Quit the panel.

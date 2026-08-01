@@ -164,7 +164,7 @@ func (m model) stageArchive() {
 // archiveView renders the archive's own pane, the list of archived agents.
 func (m model) archiveView() string {
 	header := headerStyle.Render("Archive") + "\n\n"
-	hints := "\n" + m.archiveHints()
+	hints := "\n" + m.renderHints(m.archiveHints())
 
 	if len(m.archive.agents) == 0 {
 		return header + dimStyle.Render("nothing archived") + "\n" + hints
