@@ -759,7 +759,7 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x16RestoreWorkflowRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"L\n" +
 	"\x17RestoreWorkflowResponse\x121\n" +
-	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow2\xce\x14\n" +
+	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow2\xbc\x15\n" +
 	"\x0fWorkflowService\x12\xc2\x03\n" +
 	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\xe9\x02\x9a\xb5\x18\xe1\x02\n" +
 	"\x0elist_workflows\x12\xce\x02List the workflows agents are grouped into, most recently updated first, with each one's shared context, the working directory and flags its agents start from, and the action run before its agents start and the one run after they are deleted. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
@@ -770,9 +770,9 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xbd\x03\x9a\xb5\x18\xb5\x03\n" +
 	"\x0fupdate_workflow\x12\x9f\x03Replace a workflow's name, context, directory, flags, and the actions run around its agents' lives. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context or the setup action reaches only agents spawned afterwards, since existing agents took a snapshot at launch; editing the cleanup action reaches agents already running, since it is read when it fires. \x00\x90\x02\x02\x12\xff\x02\n" +
 	"\x0fArchiveWorkflow\x12#.workflow.v1.ArchiveWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xae\x02\x9a\xb5\x18\xa6\x02\n" +
-	"\x10archive_workflow\x12\x8f\x02Hide a workflow from the panel, archiving the agents inside it. Nothing is destroyed: the agents stay findable through search_transcripts and no transcript goes with them. Refused while any schedule still launches into the workflow, since those would have nowhere to run. \x00\x90\x02\x02\x12\xe8\x03\n" +
-	"\x0fRestoreWorkflow\x12#.workflow.v1.RestoreWorkflowRequest\x1a$.workflow.v1.RestoreWorkflowResponse\"\x89\x03\x9a\xb5\x18\x81\x03\n" +
-	"\x10restore_workflow\x12\xea\x02Take a workflow out of the archive, keyed by id, along with every agent archived inside it. The agents come back as dormant rows, so call resume_agent on the ones whose conversations you want in a pane. Returns not_found if the workflow is not archived, and is refused whole if its agents would not fit under the number of agents the panel is configured to hold. \x00\x90\x02\x02B(Z&weave/proto/gen/workflow/v1;workflowv1b\x06proto3"
+	"\x10archive_workflow\x12\x8f\x02Hide a workflow from the panel, archiving the agents inside it. Nothing is destroyed: the agents stay findable through search_transcripts and no transcript goes with them. Refused while any schedule still launches into the workflow, since those would have nowhere to run. \x00\x90\x02\x02\x12\xd6\x04\n" +
+	"\x0fRestoreWorkflow\x12#.workflow.v1.RestoreWorkflowRequest\x1a$.workflow.v1.RestoreWorkflowResponse\"\xf7\x03\x9a\xb5\x18\xef\x03\n" +
+	"\x10restore_workflow\x12\xd8\x03Take a workflow out of the archive, keyed by id, along with every agent archived inside it. The agents come back as dormant rows, so call resume_agent on the ones whose conversations you want in a pane. Returns not_found if the workflow is not archived. It is refused whole rather than in part, either because its agents would not fit under the number the panel is configured to hold, or because live agents have taken their names, which the error lists for you to rename. \x00\x90\x02\x02B(Z&weave/proto/gen/workflow/v1;workflowv1b\x06proto3"
 
 var (
 	file_workflow_v1_workflow_proto_rawDescOnce sync.Once

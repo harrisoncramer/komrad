@@ -231,6 +231,8 @@ func (s *Service) RestoreAgent(ctx context.Context, req *connect.Request[agentv1
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
 	case errors.Is(err, agents.ErrTooManyAgents):
 		return nil, connect.NewError(connect.CodeResourceExhausted, err)
+	case errors.Is(err, store.ErrNameTaken):
+		return nil, connect.NewError(connect.CodeAlreadyExists, err)
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to restore agent: %w", err))
 	}

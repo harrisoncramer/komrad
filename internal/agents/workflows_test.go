@@ -3,6 +3,7 @@ package agents
 import (
 	"testing"
 
+	"weave/internal/store"
 	"weave/internal/store/schedule"
 	"weave/internal/store/workflow"
 
@@ -182,7 +183,8 @@ func TestArchiveWorkflow(t *testing.T) {
 }
 
 // TestRestoreWorkflow covers taking a workflow out of the archive. Its agents come back
-// with it, as rows rather than as running CLIs.
+// with it, as rows rather than as running CLIs, and a name a live agent has taken since
+// refuses the whole restore.
 func TestRestoreWorkflow(t *testing.T) {
 	tests := []struct {
 		name string
@@ -207,9 +209,10 @@ func TestRestoreWorkflow(t *testing.T) {
 			takeName: false,
 		},
 		{
-			name:     "an agent whose name was taken comes back renamed",
-			archive:  true,
-			takeName: true,
+			name:      "an agent whose name was taken is refused",
+			archive:   true,
+			takeName:  true,
+			wantErrIs: store.ErrNameTaken,
 		},
 	}
 
@@ -254,6 +257,16 @@ func TestRestoreWorkflow(t *testing.T) {
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
 
+				if tt.takeName {
+					listed, listErr := st.Workflows.List(ctx)
+					require.NoError(t, listErr)
+					assert.NotContains(t, workflowNames(listed), "backend", "the refused restore leaves it archived")
+
+					archived, archivedErr := st.Agents.ListArchivedInWorkflow(ctx, id)
+					require.NoError(t, archivedErr)
+					assert.Len(t, archived, 1, "with its agent still inside")
+				}
+
 				return
 			}
 
@@ -274,12 +287,6 @@ func TestRestoreWorkflow(t *testing.T) {
 			}
 			require.Len(t, names, 1, "the workflow's agent is listed again")
 			assert.Len(t, tmux.newWindows, opened, "and nothing was started for it")
-
-			if tt.takeName {
-				assert.NotEqual(t, "agent", names[0], "the namesake keeps the name it took")
-
-				return
-			}
 
 			assert.Equal(t, "agent", names[0])
 		})

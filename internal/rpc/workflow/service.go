@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"weave/internal/agents"
+	"weave/internal/store"
 	"weave/lib/pagination"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
@@ -149,6 +150,8 @@ func (s *Service) RestoreWorkflow(ctx context.Context, req *connect.Request[work
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no archived workflow with id %q", req.Msg.GetId()))
 	case errors.Is(err, agents.ErrTooManyAgents):
 		return nil, connect.NewError(connect.CodeResourceExhausted, err)
+	case errors.Is(err, store.ErrNameTaken):
+		return nil, connect.NewError(connect.CodeAlreadyExists, err)
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to restore workflow: %w", err))
 	}

@@ -172,8 +172,9 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 // folder out of the trash carries its files, and returns it as stored. The agents land
 // dormant, so a folder of twelve does not start twelve CLIs.
 //
-// It is all or nothing under the agent ceiling, since a workflow back with some of its
-// runs would read as whole.
+// It is all or nothing, under the agent ceiling and against the names live agents hold,
+// since a workflow back with some of its runs would read as whole. A refusal names what
+// is in the way so the user can clear it and press restore again.
 func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*workflow.Workflow, error) {
 	existing, err := w.store.GetArchived(ctx, id)
 	if err != nil {
@@ -193,16 +194,8 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 		if err := roomForAgents(ctx, agents, w.maxAgents, len(archived)); err != nil {
 			return err
 		}
-
-		// The unique-name index covers the unarchived alone, so any name claimed while
-		// these agents sat archived would collide as they come back.
-		for _, agent := range archived {
-			if taken, _ := agents.ActiveNameExists(ctx, agent.Name); !taken {
-				continue
-			}
-			if _, err := agents.Rename(ctx, agent.ID, freeAgentName(ctx, agents, agent.Name)); err != nil {
-				return fmt.Errorf("failed to rename restored agent %q: %w", agent.Name, err)
-			}
+		if err := namesFree(ctx, agents, archived); err != nil {
+			return err
 		}
 
 		if err := workflow.New(db).Restore(ctx, id); err != nil {
@@ -216,4 +209,25 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 	}
 
 	return w.store.Get(ctx, id)
+}
+
+// namesFree refuses when a live agent holds a name one of these archived agents is coming
+// back under. The unique-name index covers the unarchived alone, so the collision only
+// exists at the moment they return.
+func namesFree(ctx context.Context, agents agentNamer, archived []agentstore.Agent) error {
+	var held []string
+	for _, agent := range archived {
+		taken, err := agents.ActiveNameExists(ctx, agent.Name)
+		if err != nil {
+			return fmt.Errorf("failed to check the name of agent %q: %w", agent.Name, err)
+		}
+		if taken {
+			held = append(held, agent.Name)
+		}
+	}
+	if len(held) > 0 {
+		return fmt.Errorf("%w: live agents are called %s, rename them to restore this workflow", store.ErrNameTaken, strings.Join(held, ", "))
+	}
+
+	return nil
 }

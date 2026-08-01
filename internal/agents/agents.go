@@ -246,6 +246,10 @@ func (s *AgentService) ArchiveAgent(ctx context.Context, name string) error {
 //
 // The agent's workflow comes back with it, on one transaction, since an agent listed
 // under a workflow nothing lists would get no row anywhere.
+//
+// A name a live agent has taken since is refused rather than worked around. The panel
+// would otherwise hand back an agent under a name nobody chose, and which of the two
+// keeps the name is the user's to decide.
 func (s *AgentService) RestoreAgent(ctx context.Context, id string) (*agentstore.Agent, error) {
 	agent, err := s.byID(ctx, id)
 	if err != nil {
@@ -261,18 +265,18 @@ func (s *AgentService) RestoreAgent(ctx context.Context, id string) (*agentstore
 		return nil, err
 	}
 
+	// The unique-name index covers the unarchived alone, so a name claimed while this
+	// agent sat archived would collide on the way out.
+	taken, err := s.agents.ActiveNameExists(ctx, agent.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check the name of agent %q: %w", agent.Name, err)
+	}
+	if taken {
+		return nil, fmt.Errorf("%w: a live agent is called %q, rename it to restore this one", store.ErrNameTaken, agent.Name)
+	}
+
 	err = s.tx.InTx(ctx, func(db store.DBTX) error {
-		agents := agentstore.New(db)
-
-		// The unique-name index covers the unarchived alone, so a name claimed while
-		// this agent sat archived would collide on the way out.
-		if taken, _ := agents.ActiveNameExists(ctx, agent.Name); taken {
-			if _, err := agents.Rename(ctx, agent.ID, freeAgentName(ctx, agents, agent.Name)); err != nil {
-				return fmt.Errorf("failed to rename restored agent %q: %w", agent.Name, err)
-			}
-		}
-
-		if err := agents.Restore(ctx, id); err != nil {
+		if err := agentstore.New(db).Restore(ctx, id); err != nil {
 			return err
 		}
 
@@ -282,8 +286,6 @@ func (s *AgentService) RestoreAgent(ctx context.Context, id string) (*agentstore
 		return nil, fmt.Errorf("failed to restore agent %q: %w", agent.Name, err)
 	}
 
-	// The row is read back rather than returned from the copy, which may hold a name
-	// the rename above replaced.
 	return s.byID(ctx, id)
 }
 
@@ -522,6 +524,12 @@ func (s *AgentService) roomForAgent(ctx context.Context) error {
 // caller inside a transaction can count through the store bound to it.
 type agentCounter interface {
 	CountLive(ctx context.Context) (int64, error)
+}
+
+// agentNamer answers whether a live agent already holds a name, for the same reason
+// agentCounter is an interface.
+type agentNamer interface {
+	ActiveNameExists(ctx context.Context, name string) (bool, error)
 }
 
 // roomForAgents refuses unless want more agents fit under the ceiling. A workflow restore
@@ -772,7 +780,12 @@ func (s *AgentService) uniqueAgentName(ctx context.Context, title, prompt string
 		base = "agent"
 	}
 
-	return freeAgentName(ctx, s.agents, base)
+	name := base
+	for i := 2; s.nameTaken(ctx, name); i++ {
+		name = fmt.Sprintf("%s-%d", base, i)
+	}
+
+	return name
 }
 
 // nameTaken reports whether a live agent record already owns a name, since reusing one
@@ -780,24 +793,4 @@ func (s *AgentService) uniqueAgentName(ctx context.Context, title, prompt string
 func (s *AgentService) nameTaken(ctx context.Context, name string) bool {
 	taken, _ := s.agents.ActiveNameExists(ctx, name)
 	return taken
-}
-
-// agentNamer answers whether a live agent already holds a name, for the same reason
-// agentCounter is an interface.
-type agentNamer interface {
-	ActiveNameExists(ctx context.Context, name string) (bool, error)
-}
-
-// freeAgentName is base, or base with a suffix once a live agent holds it. A store that
-// cannot answer reads as free, leaving the unique index to refuse the write.
-func freeAgentName(ctx context.Context, agents agentNamer, base string) string {
-	name := base
-	for i := 2; ; i++ {
-		taken, _ := agents.ActiveNameExists(ctx, name)
-		if !taken {
-			return name
-		}
-
-		name = fmt.Sprintf("%s-%d", base, i)
-	}
 }
