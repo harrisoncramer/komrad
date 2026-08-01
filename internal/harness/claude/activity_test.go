@@ -115,11 +115,6 @@ func TestReadActivity(t *testing.T) {
 			want:  harness.ActivityWorking,
 		},
 		{
-			name:  "legacy esc-to-interrupt reads as working",
-			frame: "· Working… (3s · esc to interrupt)",
-			want:  harness.ActivityWorking,
-		},
-		{
 			name:  "bare ellipsis timer reads as working",
 			frame: "…(0s",
 			want:  harness.ActivityWorking,

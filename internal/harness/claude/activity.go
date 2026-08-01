@@ -20,10 +20,6 @@ var (
 	workingTimer = regexp.MustCompile(`…\s*\(\s*\d+m?\s*\d*\s*s`)
 )
 
-// legacyWorkingMarker is the wording older builds put on that same line instead
-// of a token count. Accept it too so the detector spans releases.
-const legacyWorkingMarker = "esc to interrupt"
-
 // waitingFooter matches the footer chrome Claude renders under any interactive
 // selection it is blocked on, which reads "Enter to select · ↑/↓ to navigate · Esc to
 // cancel". Those phrases are wording-independent, distinct from the working line's "esc
@@ -82,7 +78,7 @@ func tailLines(frame string, n int) string {
 // working, as opposed to sitting idle at its input prompt.
 func frameShowsWork(frame string) bool {
 	region := tailLines(frame, liveRegionLines)
-	return workingLine.MatchString(region) || workingTimer.MatchString(region) || strings.Contains(region, legacyWorkingMarker)
+	return workingLine.MatchString(region) || workingTimer.MatchString(region)
 }
 
 // frameShowsWaiting reports whether the frame's live region shows Claude blocked on the

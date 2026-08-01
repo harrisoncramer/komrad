@@ -1425,7 +1425,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xcc\x04\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xc6\x04\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -1454,7 +1454,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\f_archived_atB\x0e\n" +
 	"\f_schedule_idB\a\n" +
 	"\x05_markB\x12\n" +
-	"\x10_idempotency_keyJ\x04\b\r\x10\x0e\"7\n" +
+	"\x10_idempotency_key\"7\n" +
 	"\rAgentMetadata\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\"~\n" +
@@ -1528,7 +1528,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"pagination\x88\x01\x01\x12'\n" +
 	"\bagent_id\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x01R\aagentId\x88\x01\x01B\r\n" +
 	"\v_paginationB\v\n" +
-	"\t_agent_id\"\xd9\x01\n" +
+	"\t_agent_id\"\xd3\x01\n" +
 	"\tSearchHit\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x18\n" +
 	"\asnippet\x18\x02 \x01(\tR\asnippet\x12\x12\n" +
@@ -1537,7 +1537,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x05score\x18\x06 \x01(\x01R\x05score\x12\x10\n" +
 	"\x03seq\x18\a \x01(\x05R\x03seq\x12\x12\n" +
 	"\x04role\x18\b \x01(\tR\x04role\x12%\n" +
-	"\x0econtent_offset\x18\t \x01(\x03R\rcontentOffsetJ\x04\b\x03\x10\x04\"\x85\x01\n" +
+	"\x0econtent_offset\x18\t \x01(\x03R\rcontentOffset\"\x85\x01\n" +
 	"\x19SearchTranscriptsResponse\x12'\n" +
 	"\x04hits\x18\x01 \x03(\v2\x13.agent.v1.SearchHitR\x04hits\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +

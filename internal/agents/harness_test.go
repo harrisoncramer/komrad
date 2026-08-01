@@ -95,10 +95,9 @@ func TestNewAgentRefusesUnknownHarness(t *testing.T) {
 	assert.Empty(t, tmux.sent, "and types nothing")
 }
 
-// TestResumeRefusesUnknownHarness covers a dormant agent recorded against a CLI the
-// binary no longer runs, which a removed harness or a downgrade looks like. Bringing
-// it back would put the wrong CLI on its conversation, so the resume fails and says
-// which harness is missing.
+// TestResumeRefusesUnknownHarness covers a dormant agent recorded against a CLI this
+// binary does not run. Bringing it back would put the wrong CLI on its conversation,
+// so the resume fails and says which harness is missing.
 func TestResumeRefusesUnknownHarness(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
