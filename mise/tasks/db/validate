@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+#MISE description="Check db/migrations against atlas.sum."
+set -euo pipefail
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+
+# The binary applies migrations and never reads atlas.sum, so without this a
+# migration edited after it was applied is caught only when somebody next authors
+# one and atlas refuses the mismatched directory.
+cd "$MISE_CONFIG_ROOT/db"
+atlas migrate validate --dir file://migrations
