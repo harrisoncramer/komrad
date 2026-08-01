@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"weave/db"
 	"weave/internal/agents"
 	"weave/internal/appconfig"
 	"weave/internal/harness"
@@ -256,7 +257,9 @@ func serve(ctx context.Context, p serveParams) error {
 	stopRequested := make(chan struct{}, 1)
 	mux.Handle(StopPath, interceptors.NewLoggingHandler(logger, newStopHandler(stopRequested)))
 
-	if err := jobs.Migrate(ctx, state.pool.Raw()); err != nil {
+	// Serve is the only process that runs the queue, so it is the only one that brings
+	// River's tables up. Opening the store does the application's schema for everybody.
+	if err := db.MigrateRiver(ctx, state.pool.Raw()); err != nil {
 		return err
 	}
 

@@ -23,6 +23,7 @@ func readonlyRoleCmd(state *app) *cobra.Command {
 		Use:           "readonly-role",
 		Short:         "create the least-privilege role the MCP query tools connect as",
 		Args:          cobra.NoArgs,
+		Hidden:        true,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
