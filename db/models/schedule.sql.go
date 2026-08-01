@@ -28,7 +28,7 @@ func (q *Queries) CountLiveWorkflowSchedules(ctx context.Context, workflowID str
 
 const getSchedule = `-- name: GetSchedule :one
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.prompt, s.workflow_id, s.created_at, s.updated_at, s.hide_agents, s.archived_at
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at
 FROM
     schedules s
 WHERE
@@ -50,12 +50,12 @@ func (q *Queries) GetSchedule(ctx context.Context, id string) (*GetScheduleRow, 
 		&i.Schedule.Cron,
 		&i.Schedule.Timezone,
 		&i.Schedule.Enabled,
+		&i.Schedule.HideAgents,
 		&i.Schedule.Prompt,
 		&i.Schedule.WorkflowID,
+		&i.Schedule.ArchivedAt,
 		&i.Schedule.CreatedAt,
 		&i.Schedule.UpdatedAt,
-		&i.Schedule.HideAgents,
-		&i.Schedule.ArchivedAt,
 	)
 	return &i, err
 }
@@ -78,7 +78,7 @@ VALUES (
     $6,
     $7)
 RETURNING
-    id, name, cron, timezone, enabled, prompt, workflow_id, created_at, updated_at, hide_agents, archived_at
+    id, name, cron, timezone, enabled, hide_agents, prompt, workflow_id, archived_at, created_at, updated_at
 `
 
 type InsertScheduleParams struct {
@@ -108,19 +108,19 @@ func (q *Queries) InsertSchedule(ctx context.Context, arg InsertScheduleParams) 
 		&i.Cron,
 		&i.Timezone,
 		&i.Enabled,
+		&i.HideAgents,
 		&i.Prompt,
 		&i.WorkflowID,
+		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.HideAgents,
-		&i.ArchivedAt,
 	)
 	return &i, err
 }
 
 const listSchedules = `-- name: ListSchedules :many
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.prompt, s.workflow_id, s.created_at, s.updated_at, s.hide_agents, s.archived_at
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at
 FROM
     schedules s
 WHERE
@@ -148,12 +148,12 @@ func (q *Queries) ListSchedules(ctx context.Context) ([]*ListSchedulesRow, error
 			&i.Schedule.Cron,
 			&i.Schedule.Timezone,
 			&i.Schedule.Enabled,
+			&i.Schedule.HideAgents,
 			&i.Schedule.Prompt,
 			&i.Schedule.WorkflowID,
+			&i.Schedule.ArchivedAt,
 			&i.Schedule.CreatedAt,
 			&i.Schedule.UpdatedAt,
-			&i.Schedule.HideAgents,
-			&i.Schedule.ArchivedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -167,7 +167,7 @@ func (q *Queries) ListSchedules(ctx context.Context) ([]*ListSchedulesRow, error
 
 const listSchedulesPage = `-- name: ListSchedulesPage :many
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.prompt, s.workflow_id, s.created_at, s.updated_at, s.hide_agents, s.archived_at
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at
 FROM
     schedules s
 WHERE
@@ -203,12 +203,12 @@ func (q *Queries) ListSchedulesPage(ctx context.Context, arg ListSchedulesPagePa
 			&i.Schedule.Cron,
 			&i.Schedule.Timezone,
 			&i.Schedule.Enabled,
+			&i.Schedule.HideAgents,
 			&i.Schedule.Prompt,
 			&i.Schedule.WorkflowID,
+			&i.Schedule.ArchivedAt,
 			&i.Schedule.CreatedAt,
 			&i.Schedule.UpdatedAt,
-			&i.Schedule.HideAgents,
-			&i.Schedule.ArchivedAt,
 		); err != nil {
 			return nil, err
 		}

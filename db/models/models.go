@@ -12,21 +12,21 @@ import (
 type Agent struct {
 	ID             string
 	Name           string
+	Cwd            string
+	Flags          string
 	Prompt         string
 	PaneID         string
 	State          string
+	Harness        string
 	SessionID      string
 	WorkflowID     string
 	ScheduleID     *string
 	IdempotencyKey *string
+	ArchivedAt     *time.Time
+	IsHidden       bool
+	Mark           *string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
-	Mark           *string
-	IsHidden       bool
-	Cwd            string
-	Flags          string
-	Harness        string
-	ArchivedAt     *time.Time
 }
 
 // Key/value facts an agent recorded about its own work.
@@ -63,12 +63,12 @@ type Schedule struct {
 	Cron       string
 	Timezone   string
 	Enabled    bool
+	HideAgents bool
 	Prompt     string
 	WorkflowID string
+	ArchivedAt *time.Time
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
-	HideAgents bool
-	ArchivedAt *time.Time
 }
 
 // A named bucket of related agents. Pure organization; runs nothing.
@@ -76,20 +76,20 @@ type Workflow struct {
 	ID               string
 	Name             string
 	Context          string
-	WorkflowConfigID string
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
 	SetupAction      string
 	CleanupAction    string
+	WorkflowConfigID string
 	ArchivedAt       *time.Time
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 // Default config (harness, cwd, flags) seeded into new agents of a workflow.
 type WorkflowConfig struct {
 	ID        string
+	Harness   string
 	Cwd       string
 	Flags     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	Harness   string
 }
