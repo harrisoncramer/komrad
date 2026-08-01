@@ -12,9 +12,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"weave/db"
 	"weave/db/models"
+	"weave/internal/logging"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -58,6 +60,11 @@ func Open(ctx context.Context, url string) (*Pool, error) {
 // something that must never write, such as the MCP endpoint. The guard rides on the
 // connection rather than on each statement, so a write is refused by Postgres itself even
 // if it slips past the statement checks above it.
+//
+// What the url names matters as much as the flag on it. The read-only transaction stops
+// writes and only writes, so the privileges of the role it connects as are what decide
+// everything a statement can read. That is why this takes its own url rather than the
+// writable one.
 func OpenReadOnly(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
@@ -75,7 +82,36 @@ func OpenReadOnly(ctx context.Context, url string) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("failed to reach db read-only: %w", err)
 	}
 
+	warnIfSuperuser(ctx, pool)
+
 	return pool, nil
+}
+
+// warnIfSuperuser writes a line when the read-only pool has landed on a superuser, which
+// is the one case where nothing above the database holds. A superuser is exempt from the
+// privilege checks on the catalogs and on the file-reading functions, and both are reached
+// through a plain SELECT that writes nothing, so neither the read-only transaction nor any
+// amount of reading the statement will refuse them.
+//
+// It warns rather than refuses because the alternative is a database that stops being
+// served the moment this ships, over a role whoever runs it has not been told to create
+// yet. The line names the fix so the log is enough to act on.
+func warnIfSuperuser(ctx context.Context, pool *pgxpool.Pool) {
+	var superuser bool
+	if err := pool.QueryRow(ctx,
+		`SELECT rolsuper FROM pg_roles WHERE rolname = current_user`).Scan(&superuser); err != nil {
+		slog.LogAttrs(ctx, slog.LevelWarn, "could not tell whether the read-only role is a superuser",
+			logging.Err(err)...)
+
+		return
+	}
+	if !superuser {
+		return
+	}
+
+	slog.LogAttrs(ctx, slog.LevelWarn,
+		"the read-only pool is connected as a superuser, so a query tool can read files on the database host; "+
+			"run 'mise run db:readonly-role' and set WEAVE_READONLY_DATABASE_URL")
 }
 
 // DB returns the handle to build a domain store over for ordinary use, outside

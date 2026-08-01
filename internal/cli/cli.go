@@ -150,6 +150,7 @@ func NewRootCommand() *cobra.Command {
 		hideCmd(state),
 		serveCmd(state),
 		migrateCmd(state),
+		readonlyRoleCmd(state),
 	)
 
 	return root

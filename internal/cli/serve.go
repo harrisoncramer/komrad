@@ -157,8 +157,9 @@ func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) er
 
 	// The MCP endpoint reads through its own read-only handle rather than
 	// the store's, so nothing reachable from a model can write, whatever
-	// the tools do.
-	readOnly, err := store.OpenReadOnly(ctx, state.env.DatabaseURL)
+	// the tools do. It is also its own least-privilege login, since what a
+	// statement may read is decided by the role and not by the flag.
+	readOnly, err := store.OpenReadOnly(ctx, state.env.ReadOnlyDatabaseURL)
 	if err != nil {
 		return err
 	}

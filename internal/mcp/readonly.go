@@ -29,7 +29,12 @@ const (
 // statement before it reaches the database. It runs over the statement's executable text
 // only, with literals, quoted identifiers, and comments blanked out first, so searching
 // transcripts for the word "update" is a search and not a rejected write.
-var forbiddenPattern = regexp.MustCompile(`(?i)\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE|EXECUTE|CALL|MERGE|VACUUM|REINDEX|ATTACH|DETACH|PRAGMA|BEGIN|COMMIT|ROLLBACK|SET)\b`)
+//
+// COPY is here because it is the one verb that leaves the database entirely: COPY TO
+// PROGRAM runs a shell command as the server's own user. Nothing in this schema is named
+// for it, and a caller searching for the word passes it as a literal, which is blanked
+// before the match runs.
+var forbiddenPattern = regexp.MustCompile(`(?i)\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE|EXECUTE|CALL|MERGE|VACUUM|REINDEX|ATTACH|DETACH|PRAGMA|BEGIN|COMMIT|ROLLBACK|SET|COPY)\b`)
 
 // replaceStatement matches REPLACE only where it begins a statement. Postgres
 // has a replace() scalar function, so rejecting every use of the word would turn
@@ -150,9 +155,13 @@ func skipQuoted(statement string, start int, quote byte) (int, bool) {
 // query validates that sql is a single read-only statement, then runs it under a deadline
 // with a row cap.
 //
-// The explicitly read-only transaction is the guarantee. The parsing above it is defense in
-// depth, and the pool this borrows from already defaults every session to read-only, so a
-// write has to get past three separate refusals.
+// The privileges of the role the pool connects as are the guarantee, since they are the
+// only thing that bounds what a statement may read rather than only what it may change.
+// The read-only transaction and the parsing above it are the layers over that, so a write
+// has to get past three separate refusals.
+//
+// The deadline and the row cap are neither. They bound what one query costs the pool the
+// panel shares, which is the same whatever the role is allowed to see.
 func (d *dbTools) query(ctx context.Context, statement string) (*queryResult, error) {
 	trimmed, err := validateReadOnly(statement)
 	if err != nil {

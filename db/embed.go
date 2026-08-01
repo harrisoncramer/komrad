@@ -18,6 +18,9 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
+//go:embed readonly_role.sql
+var readOnlyRoleSQL string
+
 // migrateLock is the advisory lock key migrations are applied under. Several
 // processes share the database and more than one can start at once, so without
 // it two of them can read the same empty schema_migrations and both try to
