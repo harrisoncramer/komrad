@@ -11,25 +11,7 @@ import (
 const defaultDatabaseURL = "postgres://weave:weave@localhost:5460/weave?sslmode=disable"
 const defaultReadOnlyDatabaseURL = "postgres://weave_readonly:weave_readonly@localhost:5460/weave?sslmode=disable"
 
-// Config holds the panel's runtime configuration. TmuxSocket names the manager's
-// own tmux server, which is deliberately not the user's. A server only lists its
-// own sessions, so the manager session stays out of the user's session list and
-// cannot be attached to outside the popup, which is the only place it behaves.
-//
-// Editor is what the panel's editor key runs. It reads EDITOR rather than being a
-// setting of the panel's own, so the key opens whatever the rest of the user's shell
-// opens.
-//
-// Tmux is what tmux exports into the pane it spawns. It holds the socket path of that
-// pane's server, the server's pid, and the id of its session. The open command reads it
-// to find the user's server, because nothing can be handed in from the key binding.
-// tmux expands no format in a popup's command or its environment.
-//
-// ReadOnlyDatabaseURL is what the MCP query tools connect as, and it is a separate login
-// rather than the same one opened with a read-only flag. Postgres exempts a superuser from
-// the privilege checks on the catalogs and the file-reading functions, and those are
-// reached through an ordinary SELECT, so nothing that inspects the statement can refuse
-// them. Only the role can.
+// Config holds the panel's runtime configuration.
 type Config struct {
 	DatabaseURL         string `env:"DATABASE_URL"`
 	ReadOnlyDatabaseURL string `env:"WEAVE_READONLY_DATABASE_URL"`
@@ -41,11 +23,6 @@ type Config struct {
 
 // Load reads the panel's configuration from the environment, defaulting to the
 // local development database when DATABASE_URL is unset.
-//
-// The read-only login falls back to the writable one when nobody has provisioned it, so a
-// database this is pointed at keeps serving rather than refusing to start over a role it
-// has not been given the chance to create. That fallback is the unsafe case, and the pool
-// says so on the way up rather than passing silently.
 func Load() (*Config, error) {
 	cfg, err := ultra.Load(&Config{})
 	if err != nil {
