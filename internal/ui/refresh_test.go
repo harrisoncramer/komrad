@@ -150,6 +150,102 @@ func TestFirstListingLandsOnTheFirstAgent(t *testing.T) {
 	assert.Equal(t, "api-refactor", selected.agent.Name)
 }
 
+// TestCursorHoldsItsFolderAcrossARefresh covers a folder archived from somewhere else
+// while the cursor sits on a folder below it. A header is a row like any other, so the
+// cursor has to follow the folder it names rather than the index it was drawn at.
+func TestCursorHoldsItsFolderAcrossARefresh(t *testing.T) {
+	m := model{
+		stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		keys:   appconfig.DefaultKeybindings(),
+		screen: screenAgents,
+		tree: treeState{
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}},
+			agents: []agentItem{
+				{agent: agentstore.Agent{ID: "a1", Name: "api-refactor", WorkflowID: "w1"}},
+				{agent: agentstore.Agent{ID: "a2", Name: "infra-audit", WorkflowID: "w2"}},
+			},
+			cursor: 2,
+			placed: true,
+		},
+	}
+
+	m.applyRefresh(refreshResult{
+		workflows: []workflowstore.Workflow{{ID: "w2", Name: "infra"}},
+		agents:    []agentItem{{agent: agentstore.Agent{ID: "a2", Name: "infra-audit", WorkflowID: "w2"}}},
+	})
+
+	hovered, ok := m.hoveredWorkflow()
+	require.True(t, ok, "the cursor is still on a folder rather than on the agent under it")
+	assert.Equal(t, "infra", hovered.Name)
+}
+
+// TestCursorHoldsItsAgentWhenAFolderArrives covers the other direction, a folder created
+// from somewhere else sorting in above the cursor. The folders land before the agents, so
+// a cursor read after they have is read against a tree that is half of each pass.
+func TestCursorHoldsItsAgentWhenAFolderArrives(t *testing.T) {
+	m := model{
+		stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		keys:   appconfig.DefaultKeybindings(),
+		screen: screenAgents,
+		tree: treeState{
+			workflows: []workflowstore.Workflow{{ID: "w2", Name: "infra"}},
+			agents: []agentItem{
+				{agent: agentstore.Agent{ID: "b1", Name: "infra-audit", WorkflowID: "w2"}},
+				{agent: agentstore.Agent{ID: "b2", Name: "infra-upgrade", WorkflowID: "w2"}},
+			},
+			cursor: 2,
+			placed: true,
+		},
+	}
+
+	m.applyRefresh(refreshResult{
+		workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}},
+		agents: []agentItem{
+			{agent: agentstore.Agent{ID: "b1", Name: "infra-audit", WorkflowID: "w2"}},
+			{agent: agentstore.Agent{ID: "b2", Name: "infra-upgrade", WorkflowID: "w2"}},
+		},
+	})
+
+	selected, ok := m.selectedAgent()
+	require.True(t, ok, "the cursor is on an agent")
+	assert.Equal(t, "infra-upgrade", selected.agent.Name)
+}
+
+// TestArchiveCursorHoldsItsAgentWhenAFolderGoes covers the same shape on the archive. Its
+// folders are partly the live ones, which a pass replaces before the archive's own listings
+// land, so the row under the cursor has to be read before any of them do.
+func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
+	m := model{
+		stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		keys:   appconfig.DefaultKeybindings(),
+		screen: screenArchive,
+		tree: treeState{
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}},
+		},
+		archive: archiveState{
+			agents: []agentstore.Agent{
+				{ID: "x1", Name: "api-spike", WorkflowID: "w1"},
+				{ID: "x2", Name: "infra-audit", WorkflowID: "w2"},
+				{ID: "x3", Name: "infra-upgrade", WorkflowID: "w2"},
+			},
+			cursor: 3,
+		},
+	}
+
+	m.applyRefresh(refreshResult{
+		workflows:      []workflowstore.Workflow{{ID: "w2", Name: "infra"}},
+		archivedListed: true,
+		archived: []agentstore.Agent{
+			{ID: "x2", Name: "infra-audit", WorkflowID: "w2"},
+			{ID: "x3", Name: "infra-upgrade", WorkflowID: "w2"},
+		},
+	})
+
+	selected, ok := m.selectedArchived()
+	require.True(t, ok, "the cursor is on an archived agent")
+	assert.Equal(t, "infra-audit", selected.Name)
+}
+
 // emptyLists answers every listing a pass makes with nothing, so a case that settles
 // one does not have to stub the listings it is not about. The embedded interfaces are
 // nil, so a method nothing here answers panics rather than quietly returning a zero

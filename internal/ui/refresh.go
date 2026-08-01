@@ -114,13 +114,19 @@ func (m *model) applyRefresh(result refreshResult) {
 
 	m.unreachable = result.err()
 
+	// Both cursors are read off the trees still on screen. Every listing feeds one of them,
+	// so the first to land moves rows out from under a cursor not resolved yet.
+	treeRow := rowKeyAt(m.agentRows(), m.tree.cursor)
+	archiveRow := rowKeyAt(m.archiveRows(), m.archive.cursor)
+
 	if result.workflowsErr == nil {
-		// Workflows go first, since the tree's rows, and so the cursor the agents are
-		// reapplied against, are built over them.
 		m.applyWorkflows(result.workflows)
 	}
 	if result.agentsErr == nil {
 		m.applyAgents(result.agents)
+	}
+	if result.workflowsErr == nil || result.agentsErr == nil {
+		m.placeTreeCursor(treeRow)
 	}
 	if result.schedulesErr == nil {
 		m.applySchedules(result.schedules)
@@ -128,7 +134,7 @@ func (m *model) applyRefresh(result refreshResult) {
 	// The archive's two listings land together or not at all, since its folders and the
 	// agents nested under them are one tree.
 	if result.archivedListed && result.archivedErr == nil && result.archivedWorkflowsErr == nil {
-		m.applyArchive(result.archived, result.archivedWorkflows)
+		m.applyArchive(result.archived, result.archivedWorkflows, archiveRow)
 	}
 
 	// A pass can change what the cursor is sitting on without the cursor moving, so the
