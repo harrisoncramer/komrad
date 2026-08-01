@@ -11,20 +11,16 @@ import "rules/v1/rules.proto";
 option go_package = "weave/proto/gen/workflow/v1;workflowv1";
 
 // Workflow is a named bucket of related agents. It runs nothing itself. It holds
-// a label, shared context injected into the agents spawned inside it, the harness,
-// working directory, and flags those agents start from, and the actions run at the
-// start and end of each of their lives.
+// a label, shared context, and other information per agent.
 message Workflow {
   string id = 1;
   string name = 2;
   // Free-text durable state the user edits. Agents created inside the workflow
-  // get it appended to their system prompt as a snapshot at launch, so editing
-  // it reaches only agents spawned afterwards.
+  // get it appended to their system prompt.
   string context = 3;
   string cwd = 4;
   string flags = 5;
-  // Which CLI agents in this workflow run, blank when they take the user's
-  // configured default.
+  // Which CLI agents in this workflow run, blank when they take the user's configured default.
   string harness = 6;
   // The action run before an agent in this workflow starts, blank for none. It blocks and
   // a failure abandons the launch. A file in the actions directory names it, so nothing
@@ -41,8 +37,6 @@ message ListWorkflowsRequest {
 
 message ListWorkflowsResponse {
   repeated Workflow workflows = 1;
-  // The token that fetches the page after this one, unset once the listing is
-  // exhausted.
   optional string next_page_token = 2;
 }
 
@@ -54,8 +48,7 @@ message GetWorkflowResponse {
   Workflow workflow = 1;
 }
 
-// CreateWorkflowRequest describes a new bucket. Only the name is required. A
-// workflow with no context, directory, or flags is a plain folder.
+// CreateWorkflowRequest describes a new bucket. Only the name is required.
 message CreateWorkflowRequest {
   string name = 1 [(buf.validate.field).string = {
     min_len: 1
@@ -74,14 +67,12 @@ message CreateWorkflowRequest {
     [rules.v1.shell_safe]: true
   }];
   // Which CLI agents created inside this workflow run. Blank leaves them on the
-  // user's configured default. A name this panel does not implement is refused.
+  // user's configured default.
   string harness = 5 [(buf.validate.field).string = {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
-  // The action to run before an agent in this workflow starts, blank for none. One
-  // action rather than a list, since an action is a script and a script already
-  // sequences its own steps.
+  // The action to run before an agent in this workflow starts, blank for none.
   string setup_action = 6 [(buf.validate.field).string = {
     max_len: 255
     [rules.v1.action_name_or_blank]: true
@@ -122,15 +113,12 @@ message UpdateWorkflowRequest {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
-  // The action run before an agent in this workflow starts, blank for none. Written like
-  // every other field here, and reaches only agents launched afterwards.
+  // The action run before an agent in this workflow starts, blank for none.
   string setup_action = 7 [(buf.validate.field).string = {
     max_len: 255
     [rules.v1.action_name_or_blank]: true
   }];
-  // The action run once an agent in this workflow is deleted, blank for none. Editing this
-  // does reach agents already running, since cleanup is read when it fires rather than at
-  // launch.
+  // The action run once an agent in this workflow is deleted, blank for none.
   string cleanup_action = 8 [(buf.validate.field).string = {
     max_len: 255
     [rules.v1.action_name_or_blank]: true
@@ -142,8 +130,6 @@ message DeleteWorkflowRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
-// WorkflowService manages the buckets agents are grouped into. Every method
-// carries a tool annotation, which is what puts it on the MCP surface.
 service WorkflowService {
   rpc ListWorkflows(ListWorkflowsRequest) returns (ListWorkflowsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;

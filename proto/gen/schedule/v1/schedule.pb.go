@@ -42,16 +42,11 @@ type Schedule struct {
 	// False pauses the schedule. It keeps its record and stops firing.
 	Enabled bool `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Whether the agents this schedule launches start hidden from the panel's list.
-	// Each launched agent takes its own copy of the flag, so showing one afterwards is
-	// that agent's own.
 	HideAgents bool   `protobuf:"varint,8,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
 	Prompt     string `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	// The workflow this schedule launches into, and where each launched agent takes
-	// its directory, flags, and shared context from.
+	// The workflow this schedule launches into.
 	WorkflowId string `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
-	// When this schedule next fires, derived from the cron expression rather than
-	// stored. Unset when the schedule is paused, since a paused one has no next
-	// run.
+	// When this schedule next fires, derived from the cron expression.
 	NextRunAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=next_run_at,json=nextRunAt,proto3,oneof" json:"next_run_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -195,11 +190,9 @@ func (x *ListSchedulesRequest) GetPagination() *v1.Pagination {
 }
 
 type ListSchedulesResponse struct {
-	state     protoimpl.MessageState `protogen:"open.v1"`
-	Schedules []*Schedule            `protobuf:"bytes,1,rep,name=schedules,proto3" json:"schedules,omitempty"`
-	// The token that fetches the page after this one, unset once the listing is
-	// exhausted.
-	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Schedules     []*Schedule            `protobuf:"bytes,1,rep,name=schedules,proto3" json:"schedules,omitempty"`
+	NextPageToken *string                `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -336,33 +329,15 @@ func (x *GetScheduleResponse) GetSchedule() *Schedule {
 	return nil
 }
 
-// CreateScheduleRequest describes a recurring launch. The prompt and the cron
-// expression are what make it a schedule, and everything else shapes the agents
-// it produces.
 type CreateScheduleRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Five whitespace-separated fields. The shape is checked here and the
-	// expression is parsed by the service, which rejects one that is well-shaped
-	// but meaningless.
-	Cron string `protobuf:"bytes,2,opt,name=cron,proto3" json:"cron,omitempty"`
-	// An IANA zone such as America/New_York, or blank for the machine's local
-	// zone. A zone rather than an offset, so a 9am schedule stays at 9am across a
-	// daylight saving change.
-	Timezone string `protobuf:"bytes,3,opt,name=timezone,proto3" json:"timezone,omitempty"`
-	// Leave false to create the schedule paused, which is how a draft is written
-	// before it is trusted to run.
-	Enabled bool `protobuf:"varint,4,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// Set to start every agent this schedule launches hidden from the panel's list,
-	// which is what keeps a frequent job from filling it. The agents run either way.
-	HideAgents bool `protobuf:"varint,7,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
-	// What each launched agent is asked to do. Required, since a schedule that
-	// launches an agent with nothing to do is never what the caller meant.
-	Prompt string `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	// The workflow this schedule launches into, and the reason a schedule carries no
-	// directory or flags of its own. It reads them off the workflow as it fires, so a
-	// workflow that moves takes its schedules with it.
-	WorkflowId    string `protobuf:"bytes,6,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Cron          string                 `protobuf:"bytes,2,opt,name=cron,proto3" json:"cron,omitempty"`
+	Timezone      string                 `protobuf:"bytes,3,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	Enabled       bool                   `protobuf:"varint,4,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	HideAgents    bool                   `protobuf:"varint,7,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
+	Prompt        string                 `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	WorkflowId    string                 `protobuf:"bytes,6,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -490,9 +465,6 @@ func (x *CreateScheduleResponse) GetSchedule() *Schedule {
 	return nil
 }
 
-// UpdateScheduleRequest replaces a schedule's editable fields. Every field is
-// sent, so an omitted one reads as cleared rather than unchanged. Fetch the
-// schedule, change what you mean to, and send it back.
 type UpdateScheduleRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -593,8 +565,6 @@ func (x *UpdateScheduleRequest) GetHideAgents() bool {
 	return false
 }
 
-// SetScheduleEnabledRequest pauses or resumes one schedule, the single edit the
-// panel makes with one keystroke.
 type SetScheduleEnabledRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`

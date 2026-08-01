@@ -43,8 +43,7 @@ const (
 
 // ActionServiceClient is a client for the action.v1.ActionService service.
 type ActionServiceClient interface {
-	// The directory is read on every call, so an action written while the server runs
-	// is listed without a restart.
+	// The directory is read on every call, so an action written while the server runs is listed without a restart.
 	ListActions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListActionsResponse], error)
 	// Fire and forget. The action is started and nothing waits for it, so this
 	// answers as soon as the process exists and never reports what it did.
@@ -96,8 +95,7 @@ func (c *actionServiceClient) RunAction(ctx context.Context, req *connect.Reques
 
 // ActionServiceHandler is an implementation of the action.v1.ActionService service.
 type ActionServiceHandler interface {
-	// The directory is read on every call, so an action written while the server runs
-	// is listed without a restart.
+	// The directory is read on every call, so an action written while the server runs is listed without a restart.
 	ListActions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListActionsResponse], error)
 	// Fire and forget. The action is started and nothing waits for it, so this
 	// answers as soon as the process exists and never reports what it did.

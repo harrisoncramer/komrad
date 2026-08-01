@@ -87,10 +87,7 @@ var (
 	//
 	// optional bool absolute_path_or_blank = 50102;
 	E_AbsolutePathOrBlank = &file_rules_v1_rules_proto_extTypes[2]
-	// The shape of an action's file name. A name is matched against the actions
-	// directory's own entries rather than joined onto its path, so this is a second line
-	// of defence rather than the only one. It refuses the two shapes that would reach
-	// outside the directory, a slash and a leading dot.
+	// The shape of an action's file name.
 	//
 	// optional bool action_name = 50104;
 	E_ActionName = &file_rules_v1_rules_proto_extTypes[3]

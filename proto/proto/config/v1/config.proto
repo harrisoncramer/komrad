@@ -11,23 +11,14 @@ option go_package = "weave/proto/gen/config/v1;configv1";
 message GetConfigResponse {
   // The configuration in force, keyed exactly as the user's TOML file is. It is an
   // open blob rather than a message per setting because the Config struct in
-  // internal/appconfig decides the shape, and a mirror of it here would drift the
-  // first time somebody added a setting without one. Nothing consumes it as a typed
-  // value. It exists to tell a model how this panel is set up.
+  // internal/appconfig decides the shape.
+  // The config is read on every call, so a configuration edited while the server runs is picked up without a restart.
   google.protobuf.Struct config = 1;
-  // Why the user's config file would not parse, unset when it did. The config above
-  // is then the built-in defaults, which is also what the panel falls back to, so a
-  // caller is told what is in force and separately that it is not what the user
-  // wrote.
+  // Why the user's config file would not parse, unset when it did.
   optional string config_error = 2;
 }
 
-// ConfigService reads the user's configuration. It is the one service here with no
-// store behind it, since the configuration is a file the user edits rather than
-// anything the panel records.
 service ConfigService {
-  // The file is read on every call, so a configuration edited while the server runs
-  // is picked up without a restart.
   rpc GetConfig(google.protobuf.Empty) returns (GetConfigResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {

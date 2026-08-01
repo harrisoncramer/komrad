@@ -28,14 +28,10 @@ type GetConfigResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The configuration in force, keyed exactly as the user's TOML file is. It is an
 	// open blob rather than a message per setting because the Config struct in
-	// internal/appconfig decides the shape, and a mirror of it here would drift the
-	// first time somebody added a setting without one. Nothing consumes it as a typed
-	// value. It exists to tell a model how this panel is set up.
+	// internal/appconfig decides the shape.
+	// The config is read on every call, so a configuration edited while the server runs is picked up without a restart.
 	Config *structpb.Struct `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
-	// Why the user's config file would not parse, unset when it did. The config above
-	// is then the built-in defaults, which is also what the panel falls back to, so a
-	// caller is told what is in force and separately that it is not what the user
-	// wrote.
+	// Why the user's config file would not parse, unset when it did.
 	ConfigError   *string `protobuf:"bytes,2,opt,name=config_error,json=configError,proto3,oneof" json:"config_error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
