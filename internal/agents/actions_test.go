@@ -1,8 +1,10 @@
 package agents
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +13,7 @@ import (
 
 	"weave/internal/actions"
 	"weave/internal/appconfig"
+	"weave/internal/logging"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -452,6 +455,131 @@ func TestRunCleanupActionRefusesOneThatIsGone(t *testing.T) {
 	require.ErrorIs(t, err, ErrActionNotFound)
 }
 
+// TestRunActionLogsWhatItDid covers the only account there is of an action nothing waits on.
+func TestRunActionLogsWhatItDid(t *testing.T) {
+	tests := []struct {
+		name string
+		// result is what the runner answers for the action the case fires.
+		result    runResult
+		wantLevel string
+		wantBody  string
+		// wantFields are the record's fields and what each has to be, with a nil value for
+		// one that only has to be absent.
+		wantFields map[string]any
+	}{
+		{
+			name:      "one that worked stays out of the way",
+			wantLevel: "DEBUG",
+			wantBody:  "action finished",
+			wantFields: map[string]any{
+				"process.exit.code":     float64(0),
+				"weave.action.stderr":   nil,
+				"weave.action.name":     "cleanup",
+				"weave.action.trigger":  TriggerManual,
+				"weave.action.agent.id": "a1",
+			},
+		},
+		{
+			name: "one that failed carries the status and what it said",
+			result: runResult{
+				stderr:   "fatal: '/repo' is dirty\n",
+				exitCode: 3,
+				err:      actions.ErrFailed,
+			},
+			wantLevel: "ERROR",
+			wantBody:  "action failed",
+			wantFields: map[string]any{
+				"process.exit.code":      float64(3),
+				"weave.action.stderr":    "fatal: '/repo' is dirty",
+				"weave.action.agent.cwd": "/repo",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "cleanup"), []byte("#!/bin/sh\n"), 0o755))
+
+			runner := &recordingRunner{results: map[string]runResult{"cleanup": tt.result}}
+			ctx, records := loggedContext(t)
+
+			require.NoError(t, actionService(t, dir, runner).RunAction(ctx, "a1", "cleanup"))
+
+			got := recordFor(t, records(), tt.wantBody)
+			assert.Equal(t, tt.wantLevel, got["severity_text"])
+			for field, want := range tt.wantFields {
+				if want == nil {
+					assert.NotContains(t, got, field)
+
+					continue
+				}
+
+				assert.Equal(t, want, got[field], field)
+			}
+		})
+	}
+}
+
+// TestRunCleanupActionLogsUnderItsOwnTrigger covers the field that separates the two
+// fire-and-forget paths in a log.
+func TestRunCleanupActionLogsUnderItsOwnTrigger(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "cleanup"), []byte("#!/bin/sh\n"), 0o755))
+
+	runner := &recordingRunner{results: map[string]runResult{"cleanup": {exitCode: 1, err: actions.ErrFailed}}}
+	ctx, records := loggedContext(t)
+
+	gone := "/repo/.worktrees/removed"
+	require.NoError(t, actionService(t, dir, runner).
+		RunCleanupAction(ctx, agentstore.Agent{ID: "a2", Cwd: gone}, "cleanup"))
+
+	got := recordFor(t, records(), "action failed")
+	assert.Equal(t, TriggerCleanup, got["weave.action.trigger"])
+	assert.Equal(t, "a2", got["weave.action.agent.id"])
+	assert.Equal(t, gone, got["weave.action.agent.cwd"], "the row is gone, so the record is what names the directory")
+}
+
+// loggedContext is a context carrying a logger writing to a buffer, and the records written
+// to it so far.
+func loggedContext(t *testing.T) (context.Context, func() []map[string]any) {
+	t.Helper()
+
+	var written bytes.Buffer
+
+	ctx := logging.WithLogger(context.Background(), logging.New(&written, slog.LevelDebug))
+
+	return ctx, func() []map[string]any {
+		records := make([]map[string]any, 0, 2)
+		for _, line := range strings.Split(strings.TrimSpace(written.String()), "\n") {
+			if line == "" {
+				continue
+			}
+
+			var record map[string]any
+			require.NoError(t, json.Unmarshal([]byte(line), &record))
+			records = append(records, record)
+		}
+
+		return records
+	}
+}
+
+// recordFor is the one record with that body, and a failure naming what was written instead.
+func recordFor(t *testing.T, records []map[string]any, body string) map[string]any {
+	t.Helper()
+
+	for _, record := range records {
+		if record["body"] == body {
+			return record
+		}
+	}
+
+	require.FailNowf(t, "no record was written", "wanted %q, got %v", body, records)
+
+	return nil
+}
+
 func actionService(t *testing.T, dir string, runner actionRunner) *ActionService {
 	t.Helper()
 
@@ -518,7 +646,7 @@ func (f fakePaneOwner) PaneOwner(string) string { return f.owner }
 // without spawning anything. Only the last run's directory and environment are kept, since no
 // case inspects those of an earlier one.
 //
-// results answers a blocking run per action name, so a case can say what a script printed and
+// results answers a run per action name, so a case can say what a script printed and
 // whether it worked without writing one. A name with no entry succeeds silently, which is the
 // ordinary setup action that installs something and says nothing.
 type recordingRunner struct {
@@ -528,33 +656,47 @@ type recordingRunner struct {
 	results map[string]runResult
 }
 
-// runResult is what the fake answers one blocking run with.
+// runResult is what the fake answers one run with.
 type runResult struct {
-	stdout string
-	stderr string
-	err    error
+	stdout   string
+	stderr   string
+	exitCode int
+	err      error
 }
 
-func (r *recordingRunner) Run(action actions.Action, dir string, env []string) error {
-	if !action.Executable {
+// Run answers the outcome inline, so a case asserting what reached the log has nothing to
+// wait for.
+// Discover is the real thing, since a case's actions directory is a temp directory it
+// wrote and what a fake would answer is what the directory already says.
+func (r *recordingRunner) Discover(dir string) ([]actions.Action, error) {
+	return actions.NewRunner().Discover(dir)
+}
+
+func (r *recordingRunner) Run(p actions.RunParams) error {
+	if !p.Action.Executable {
 		return actions.ErrNotExecutable
 	}
 
-	r.ran = append(r.ran, action.Name)
-	r.dir, r.env = dir, env
+	r.ran = append(r.ran, p.Action.Name)
+	r.dir, r.env = p.Dir, p.Env
+
+	if p.Done != nil {
+		answer := r.results[p.Action.Name]
+		p.Done(actions.Result{Stderr: []byte(answer.stderr), ExitCode: answer.exitCode}, answer.err)
+	}
 
 	return nil
 }
 
-func (r *recordingRunner) RunAndWait(_ context.Context, action actions.Action, dir string, env []string) (actions.Result, error) {
-	if !action.Executable {
+func (r *recordingRunner) RunAndWait(_ context.Context, p actions.RunParams) (actions.Result, error) {
+	if !p.Action.Executable {
 		return actions.Result{}, actions.ErrNotExecutable
 	}
 
-	r.ran = append(r.ran, action.Name)
-	r.dir, r.env = dir, env
+	r.ran = append(r.ran, p.Action.Name)
+	r.dir, r.env = p.Dir, p.Env
 
-	answer := r.results[action.Name]
+	answer := r.results[p.Action.Name]
 
 	return actions.Result{Stdout: []byte(answer.stdout), Stderr: []byte(answer.stderr)}, answer.err
 }

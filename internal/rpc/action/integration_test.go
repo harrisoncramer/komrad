@@ -126,7 +126,7 @@ func actionClient(t *testing.T, dir, work string) actionv1connect.ActionServiceC
 		Agents:    stubAgents{cwd: work},
 		Workflows: stubWorkflows{},
 		Tmux:      stubPanes{},
-		Runner:    actions.Runner{},
+		Runner:    actions.NewRunner(),
 		Load: func() (*appconfig.Config, error) {
 			cfg := appconfig.Defaults()
 			cfg.Actions.Dir = dir

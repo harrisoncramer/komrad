@@ -357,10 +357,11 @@ func (s *testStore) agentServiceCapped(tmux *fakeTmux, lifecycle lifecycleAction
 // which is what says the workflow's own choice reached it.
 type fakeLifecycle struct {
 	// dir is what setup names as the directory to run in, empty for setup that names none.
-	dir      string
-	setupErr error
-	setup    []string
-	cleanup  []string
+	dir        string
+	setupErr   error
+	cleanupErr error
+	setup      []string
+	cleanup    []string
 }
 
 func (f *fakeLifecycle) RunSetupAction(_ context.Context, _ agentstore.Agent, name string) (string, error) {
@@ -375,7 +376,7 @@ func (f *fakeLifecycle) RunSetupAction(_ context.Context, _ agentstore.Agent, na
 func (f *fakeLifecycle) RunCleanupAction(_ context.Context, _ agentstore.Agent, name string) error {
 	f.cleanup = append(f.cleanup, name)
 
-	return nil
+	return f.cleanupErr
 }
 
 // workflowService builds the workflow service over these stores.
