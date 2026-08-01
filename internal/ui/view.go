@@ -13,32 +13,32 @@ import (
 // than the last thing it caused: a config that would not parse outranks a server
 // that would not start, which outranks a service that stopped answering.
 //
-// A refused action is different in kind and so renders differently. It banners
+// A refused write is different in kind and so renders differently. It banners
 // over the screen it happened on rather than replacing it, since the thing the
 // error is about is a row in the list underneath.
 func (m model) View() string {
 	if m.configErr != nil {
-		return errui.Config(m.configErr)
+		return errui.Config(m.width, m.configErr)
 	}
 
 	if m.startupErr != nil {
-		return errui.Startup(m.startupErr)
+		return errui.Startup(m.width, m.startupErr)
 	}
 
 	if m.unreachable != nil {
-		return errui.Unreachable(m.addr, m.unreachable)
+		return errui.Unreachable(m.width, m.addr, m.unreachable)
 	}
 
-	var banner string
-	if m.actionErr != nil {
-		banner = m.actionErr.Render()
+	var chrome string
+	if m.banner != nil {
+		chrome = m.banner.Render(m.width)
 	}
 
 	// Every block a screen builds ends in a newline, and the renderer draws the
 	// nothing after that last one as a line of its own. On a screen built to fill
 	// the pane that line is one too many, and the pane scrolls by one to make room
 	// for it, taking the title off the top.
-	return strings.TrimRight(banner+m.screenView(), "\n")
+	return strings.TrimRight(chrome+m.screenView(), "\n")
 }
 
 // screenView renders whichever screen the panel is on, without the chrome above it.
@@ -52,8 +52,10 @@ func (m model) screenView() string {
 		return m.searchView()
 	case screenSchedules:
 		return m.schedulesView()
-	case screenTrash:
-		return m.trashView()
+	case screenArchive:
+		return m.archiveView()
+	case screenActions:
+		return m.actionsView()
 	default:
 		return m.agentsView()
 	}

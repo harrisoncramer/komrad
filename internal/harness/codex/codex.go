@@ -13,10 +13,34 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"time"
 
 	"weave/internal/harness"
 )
+
+// originatorEnv is what Codex calls the client that started a conversation, overridden
+// per launch so the panel can recognize its own. Codex writes the value into the opening
+// record of the rollout, which is the only place an agent's id and the conversation id
+// Codex minted ever appear together.
+//
+// It is marked internal by Codex and could be renamed in any release. The cost of that
+// is an agent whose transcript never syncs rather than a wrong conversation adopted,
+// since a stamp that stops arriving matches nothing.
+const originatorEnv = "CODEX_INTERNAL_ORIGINATOR_OVERRIDE"
+
+// originator is the value originatorEnv carries for an agent. It is prefixed rather than
+// the bare id so a rollout says which tool started it, which is what the value means to
+// Codex and to anything else reading the file.
+func originator(agentID string) string { return "weave-" + agentID }
+
+// originatorPrefix is the assignment that goes ahead of the CLI on the command line, or
+// nothing for a launch with no agent id to stamp.
+func originatorPrefix(agentID string) string {
+	if agentID == "" {
+		return ""
+	}
+
+	return fmt.Sprintf("%s=%s ", originatorEnv, harness.QuoteArg(originator(agentID)))
+}
 
 // Harness puts Codex up in a pane and reads back what happened in it.
 type Harness struct {
@@ -82,43 +106,52 @@ func DefaultSessionsDir() string {
 }
 
 // sessionMeta is the first record of a rollout, which names the conversation and
-// the directory it was started in. Those two are what identify a rollout as one
-// agent's, since nothing else ties a file Codex named to a row the panel holds.
+// carries the originator the launch stamped on it. Those two are what tie a file
+// Codex named itself to the agent the panel launched.
 type sessionMeta struct {
-	ID  string `json:"id"`
-	Cwd string `json:"cwd"`
+	ID         string `json:"id"`
+	Originator string `json:"originator"`
 }
 
-// FindSessions lists the conversations Codex started in dir since notBefore, oldest
-// first. It reads the first record of each candidate rollout rather than trusting
-// the timestamp in the filename, since the directory a session ran in is the only
-// thing that distinguishes one agent's conversation from another's.
-func (h *Harness) FindSessions(dir string, notBefore time.Time) ([]string, error) {
+// FindSession returns the conversation Codex started for this agent, or empty when
+// none has been written yet. Codex records nothing until the first turn is submitted,
+// so an agent still sitting at its prompt has no rollout at all and the next pass
+// looks again.
+//
+// The match is the originator the launch stamped on the rollout, which is this
+// agent's id and nothing else's. Everything about a rollout that a person would guess
+// from — the directory it ran in, when it was written — is shared with any Codex a
+// person started by hand in the same place, so a guess can adopt someone else's
+// conversation. A stamp cannot.
+//
+// The newest match wins. An agent relaunched before its first conversation was
+// adopted leaves an abandoned rollout carrying the same stamp, and the live pane is
+// the later one.
+func (h *Harness) FindSession(agentID string) (string, error) {
+	if agentID == "" {
+		return "", nil
+	}
+
 	paths, err := filepath.Glob(filepath.Join(h.sessionsDir, "*", "*", "*", "rollout-*.jsonl"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to list codex rollouts: %w", err)
+		return "", fmt.Errorf("failed to list codex rollouts: %w", err)
 	}
 
-	// Oldest first, so a caller taking the first unclaimed one pairs the earliest
-	// conversation with the earliest agent still missing an id.
+	// The filename opens with the timestamp Codex wrote it at, so sorting orders the
+	// rollouts and the walk can run backwards to reach the newest first.
 	slices.Sort(paths)
 
-	var found []string
-	for _, path := range paths {
-		info, err := os.Stat(path)
-		if err != nil || info.ModTime().Before(notBefore) {
-			continue
-		}
-
+	want := originator(agentID)
+	for _, path := range slices.Backward(paths) {
 		meta, err := readSessionMeta(path)
-		if err != nil || meta.ID == "" || meta.Cwd != dir {
+		if err != nil || meta.ID == "" || meta.Originator != want {
 			continue
 		}
 
-		found = append(found, meta.ID)
+		return meta.ID, nil
 	}
 
-	return found, nil
+	return "", nil
 }
 
 // readSessionMeta reads a rollout's opening record. A rollout is written as it goes,

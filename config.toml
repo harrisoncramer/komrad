@@ -16,11 +16,14 @@ default_harness = "claude"
 # The marks the mark key cycles through, in order. A mark is a glyph and means
 # whatever you decide, so the glyph is the label. Pressing mark advances the
 # hovered agent to the next one here, and past the last one back to unmarked,
-# which leaves a one-mark list behaving as a toggle.
+# which leaves a one-mark list behaving as a toggle. A colour is either one of
+# the sixteen your terminal's own scheme maps, named as "red" or "brightred",
+# or a hex value such as "#DCA561". The panel draws itself from the sixteen,
+# so a name is what keeps a mark in the same scheme as everything around it.
 marks = [
-  { glyph = "●", color = "#DCA561" },
-  { glyph = "◐", color = "#DCA561" },
-  { glyph = "✓", color = "#DCA561" },
+  { glyph = "●", color = "yellow" },
+  { glyph = "◐", color = "yellow" },
+  { glyph = "✓", color = "yellow" },
 ]
 
 # Per-CLI configuration, which is where the flags an agent of that CLI
@@ -53,7 +56,7 @@ trust_launch_dirs = false
 # something to read.
 split = 0.2
 
-# Panel keybindings, scoped to the screen each action acts in.
+# Panel keybindings, scoped to the screen each binding acts in.
 
 # Navigation, shared by every menu so movement is the same everywhere. These
 # avoid letter keys so they still work in the search text field.
@@ -71,12 +74,17 @@ quit        = ["ctrl+c", "q"]
 back        = ["esc", "left"]
 # Attach to the hovered agent.
 open        = ["enter", "l", "right"]
+# Open the hovered agent's directory in whatever EDITOR names. The window is
+# created on your own tmux server rather than the panel's, and the panel
+# closes behind it, so you are left in the editor.
+editor      = ["e"]
 # Start a new agent.
 new         = ["n"]
 # Rename the hovered agent.
 rename      = ["r"]
-# Delete the hovered agent.
-delete      = ["d"]
+# Archive the hovered agent, which stops it and moves it to the archive screen
+# rather than destroying it.
+archive     = ["z"]
 # Filter the list by name.
 search      = ["/"]
 # Swap the hovered agent's stored record into the stage in place of the agent.
@@ -93,6 +101,10 @@ hide        = ["h"]
 # away. While they are away each workflow header carries the count of what it
 # is not showing.
 show_hidden = ["H"]
+# Show the background service's log in the stage, in place of the row under
+# the cursor, and press it again to put the row back. The service is spawned
+# detached and writes to a file, so nothing else shows what it is doing.
+logs        = ["L"]
 
 # The new-agent, rename, and workflow forms.
 [keybindings.form]
@@ -104,7 +116,7 @@ back   = ["esc"]
 # deliberately something else.
 submit = ["ctrl+s"]
 
-# The actions that create and change workflows, from the agents list.
+# The bindings that create and change workflows, from the agents list.
 [keybindings.workflows]
 # Create a workflow. Works from anywhere in the list.
 new    = ["W"]
@@ -132,16 +144,57 @@ toggle = [" "]
 # Delete the schedule under the cursor. The agents it launched are kept.
 delete = ["d"]
 
-# The trash screen, and the key that opens it from the agents list.
-[keybindings.trash]
-# Open the trash from the agents list.
-open    = ["t"]
+# The archive screen, and the key that opens it from the agents list.
+[keybindings.archive]
+# Open the archive from the agents list.
+open    = ["Z"]
 # Quit the panel.
 quit    = ["ctrl+c", "q"]
-# Leave the trash for the agents list.
+# Leave the archive for the agents list.
 back    = ["esc", "left", "h"]
 # Put the agent under the cursor back in the panel.
 restore = ["r"]
 # Destroy the agent under the cursor for good, with its transcript. This is
-# the one action in the panel nothing undoes, so it asks first.
+# the one thing in the panel nothing undoes, so it asks first.
 delete  = ["d"]
+
+# The actions list, and the key that opens it on the hovered agent.
+[keybindings.actions]
+# Open the actions list on the hovered agent. It acts on a row rather than on
+# the list, so this does nothing on a workflow header.
+open = ["a"]
+# Quit the panel.
+quit = ["ctrl+c", "q"]
+# Leave the actions list for the agents list.
+back = ["esc", "left", "h"]
+# Run the script under the cursor on the agent the list was opened on.
+run  = ["enter", "l", "right"]
+
+# Where the panel finds the scripts its action key runs.
+[actions]
+# The directory holding them, one file per action, named by the file. Every
+# file directly inside is offered and the directory is read on each press, so
+# writing an action is dropping an executable in rather than an edit here. An
+# action runs on the agent it was chosen on, in that agent's directory, with
+# the agent as JSON in WEAVE_AGENT. Left empty this is
+# ~/.config/weave/actions, beside this file.
+dir = ""
+
+# The log the background service writes, which the panel's log key pages.
+[log]
+# How much is written, one of debug, info, warn, or error. Served requests are
+# logged at debug and failures at error, so the default keeps the file to what
+# went wrong. Debug is worth turning on while chasing something. It is loud,
+# because the panel calls four times a second while it is open.
+level  = "info"
+# What the log key opens the log in. It runs in the stage pane through a
+# shell, so a pipeline is as good as a single command. Two variables are
+# exported into it: WEAVE_BIN is this binary, whose "logs" subcommand prints
+# the file a line per record rather than as the JSON it is stored as, and
+# WEAVE_LOG is the file itself, for a reader that would rather have it raw.
+# Nothing in the command is rewritten, so a tool's own placeholders are its
+# own: "$WEAVE_BIN logs --color=always | fzf --ansi --tac" gives fzf the whole
+# of its "{}". Whatever it runs has to hold the pane, the way a pager does. A
+# command that prints and exits takes the pane down with it, and the stage
+# comes back empty.
+viewer = "\"$WEAVE_BIN\" logs --color=always | less -RSX +G"

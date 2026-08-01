@@ -19,16 +19,16 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestTrashKeys covers what a keypress in the trash does, which screen it lands
+// TestArchiveKeys covers what a keypress in the archive does, which screen it lands
 // on and which write it asks for. Destroying an agent is the one thing the panel
 // cannot undo, so the key must open the prompt rather than act, and every key
 // that needs a row must do nothing at all on an empty list.
-func TestTrashKeys(t *testing.T) {
+func TestArchiveKeys(t *testing.T) {
 	keys := appconfig.DefaultKeybindings()
 
 	tests := []struct {
 		name string
-		// empty starts the screen with nothing deleted, for the keys that act on a row.
+		// empty starts the screen with nothing archived, for the keys that act on a row.
 		empty        bool
 		key          string
 		wantScreen   screen
@@ -43,7 +43,7 @@ func TestTrashKeys(t *testing.T) {
 		{
 			name:         "restore puts the hovered agent back",
 			key:          "r",
-			wantScreen:   screenTrash,
+			wantScreen:   screenArchive,
 			wantRestored: []string{"a1"},
 		},
 		{
@@ -51,31 +51,31 @@ func TestTrashKeys(t *testing.T) {
 			// safety here, since the same key on the agents list is reversible.
 			name:       "delete opens the confirm prompt rather than destroying",
 			key:        "d",
-			wantScreen: screenTrashDelete,
+			wantScreen: screenArchiveDelete,
 		},
 		{
-			name:       "restore on an empty trash asks for no write",
+			name:       "restore on an empty archive asks for no write",
 			empty:      true,
 			key:        "r",
-			wantScreen: screenTrash,
+			wantScreen: screenArchive,
 		},
 		{
-			name:       "delete on an empty trash opens no prompt",
+			name:       "delete on an empty archive opens no prompt",
 			empty:      true,
 			key:        "d",
-			wantScreen: screenTrash,
+			wantScreen: screenArchive,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := &fakeTrashAgents{}
-			m := trashModel(client, keys)
+			client := &fakeArchiveAgents{}
+			m := archiveModel(client, keys)
 			if tt.empty {
-				m.trash.agents = nil
+				m.archive.agents = nil
 			}
 
-			updated, cmd := m.updateTrash(keyMsg(tt.key))
+			updated, cmd := m.updateArchive(keyMsg(tt.key))
 			pressed, ok := updated.(model)
 			require.True(t, ok)
 
@@ -88,10 +88,10 @@ func TestTrashKeys(t *testing.T) {
 	}
 }
 
-// TestTrashDeleteConfirm covers the prompt itself. Declining has to leave the
+// TestArchiveDeleteConfirm covers the prompt itself. Declining has to leave the
 // agent alone, since the prompt exists precisely because the write cannot be
 // taken back.
-func TestTrashDeleteConfirm(t *testing.T) {
+func TestArchiveDeleteConfirm(t *testing.T) {
 	tests := []struct {
 		name        string
 		confirm     bool
@@ -110,13 +110,13 @@ func TestTrashDeleteConfirm(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := &fakeTrashAgents{}
-			m := trashModel(client, appconfig.DefaultKeybindings())
+			client := &fakeArchiveAgents{}
+			m := archiveModel(client, appconfig.DefaultKeybindings())
 
-			opened, _ := m.deleteFromTrashConfirm()
+			opened, _ := m.deleteFromArchiveConfirm()
 			m, ok := opened.(model)
 			require.True(t, ok)
-			require.Equal(t, screenTrashDelete, m.screen)
+			require.Equal(t, screenArchiveDelete, m.screen)
 
 			answer := "n"
 			if tt.confirm {
@@ -126,7 +126,7 @@ func TestTrashDeleteConfirm(t *testing.T) {
 			got := answerPrompt(t, m, answer)
 
 			assert.Equal(t, tt.wantDeleted, client.deleted)
-			assert.Equal(t, screenTrash, got.screen, "the prompt returns to the trash it was opened from")
+			assert.Equal(t, screenArchive, got.screen, "the prompt returns to the archive it was opened from")
 			assert.Nil(t, got.target.deleteAgent)
 		})
 	}
@@ -142,7 +142,7 @@ func answerPrompt(t *testing.T, m model, key string) model {
 
 	var msg tea.Msg = keyMsg(key)
 	for range 8 {
-		updated, cmd := m.updateTrashDelete(msg)
+		updated, cmd := m.updateArchiveDelete(msg)
 		next, ok := updated.(model)
 		require.True(t, ok)
 
@@ -150,7 +150,7 @@ func answerPrompt(t *testing.T, m model, key string) model {
 		if cmd == nil {
 			return m
 		}
-		if m.screen != screenTrashDelete {
+		if m.screen != screenArchiveDelete {
 			return settle(t, m, cmd)
 		}
 
@@ -162,10 +162,10 @@ func answerPrompt(t *testing.T, m model, key string) model {
 	return m
 }
 
-// TestRefusedTrashWritesAreReported covers the trash's two writes failing. Both
+// TestRefusedArchiveWritesAreReported covers the archive's two writes failing. Both
 // leave the row exactly where it was, so without the banner the keypress reads
 // as one that never registered.
-func TestRefusedTrashWritesAreReported(t *testing.T) {
+func TestRefusedArchiveWritesAreReported(t *testing.T) {
 	tests := []struct {
 		name        string
 		act         func(t *testing.T, m model) model
@@ -175,7 +175,7 @@ func TestRefusedTrashWritesAreReported(t *testing.T) {
 			name: "a refused restore",
 			act: func(t *testing.T, m model) model {
 				t.Helper()
-				updated, cmd := m.restoreFromTrash()
+				updated, cmd := m.restoreFromArchive()
 				pressed, ok := updated.(model)
 				require.True(t, ok)
 
@@ -187,7 +187,7 @@ func TestRefusedTrashWritesAreReported(t *testing.T) {
 			name: "a refused delete",
 			act: func(t *testing.T, m model) model {
 				t.Helper()
-				opened, _ := m.deleteFromTrashConfirm()
+				opened, _ := m.deleteFromArchiveConfirm()
 				got, ok := opened.(model)
 				require.True(t, ok)
 
@@ -199,33 +199,33 @@ func TestRefusedTrashWritesAreReported(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := &fakeTrashAgents{err: connect.NewError(connect.CodeNotFound, errors.New("no such agent"))}
-			m := trashModel(client, appconfig.DefaultKeybindings())
+			client := &fakeArchiveAgents{err: connect.NewError(connect.CodeNotFound, errors.New("no such agent"))}
+			m := archiveModel(client, appconfig.DefaultKeybindings())
 
 			got := tt.act(t, m)
 
-			require.NotNil(t, got.actionErr)
-			assert.Equal(t, tt.wantSummary, got.actionErr.Summary)
-			assert.Equal(t, "no such agent", got.actionErr.Detail)
+			require.NotNil(t, got.banner)
+			assert.Equal(t, tt.wantSummary, got.banner.Summary)
+			assert.Equal(t, "no such agent", got.banner.Detail)
 		})
 	}
 }
 
-// TestTrashView covers what the list renders. An empty trash has to say so
+// TestArchiveView covers what the list renders. An empty archive has to say so
 // rather than drawing a blank pane, which reads as a screen that failed to load.
-func TestTrashView(t *testing.T) {
+func TestArchiveView(t *testing.T) {
 	tests := []struct {
-		name  string
-		trash []agentstore.Agent
-		wants []string
+		name    string
+		archive []agentstore.Agent
+		wants   []string
 	}{
 		{
-			name:  "an empty trash says so",
-			wants: []string{"Trash", "nothing deleted"},
+			name:  "an empty archive says so",
+			wants: []string{"Archive", "nothing archived"},
 		},
 		{
-			name: "a deleted agent shows its name and what can be done to it",
-			trash: []agentstore.Agent{
+			name: "an archived agent shows its name and what can be done to it",
+			archive: []agentstore.Agent{
 				{ID: "a1", Name: "api-refactor"},
 			},
 			wants: []string{"api-refactor", "restore", "delete for good"},
@@ -234,11 +234,11 @@ func TestTrashView(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := trashModel(&fakeTrashAgents{}, appconfig.DefaultKeybindings())
-			m.trash.agents = tt.trash
-			m.trash.cursor = 0
+			m := archiveModel(&fakeArchiveAgents{}, appconfig.DefaultKeybindings())
+			m.archive.agents = tt.archive
+			m.archive.cursor = 0
 
-			view := m.trashView()
+			view := m.archiveView()
 			for _, want := range tt.wants {
 				assert.Contains(t, view, want)
 			}
@@ -246,47 +246,47 @@ func TestTrashView(t *testing.T) {
 	}
 }
 
-// TestTrashMarkdown covers the record in the stage. A deleted agent has no pane,
+// TestArchiveMarkdown covers the record in the stage. An archived agent has no pane,
 // so the record must not read as one that is merely dormant and waiting to be
 // opened.
-func TestTrashMarkdown(t *testing.T) {
-	deletedAt := time.Date(2026, time.July, 30, 9, 0, 0, 0, time.UTC)
-	got := trashMarkdown(agentstore.Agent{
+func TestArchiveMarkdown(t *testing.T) {
+	archivedAt := time.Date(2026, time.July, 30, 9, 0, 0, 0, time.UTC)
+	got := archiveMarkdown(agentstore.Agent{
 		Name: "api-refactor", Cwd: "/work/api", Flags: "--model opus", SessionID: "sess-1",
-		DeletedAt: &deletedAt,
+		ArchivedAt: &archivedAt,
 	}, "nightly")
 
 	assert.Contains(t, got, "api-refactor")
-	assert.Contains(t, got, "deleted")
+	assert.Contains(t, got, "archived")
 	assert.Contains(t, got, "/work/api")
 	assert.Contains(t, got, "nightly")
-	assert.Contains(t, got, "deleted: ", "the record says when it was thrown away")
-	assert.NotContains(t, got, "dormant", "a deleted agent is not one waiting to be opened")
+	assert.Contains(t, got, "archived: ", "the record says when it was put away")
+	assert.NotContains(t, got, "dormant", "an archived agent is not one waiting to be opened")
 }
 
-// TestTrashIsOrderedByWhenAgentsWereDeleted covers the order the trash reads in.
-// The listing arrives keyed on the id, which orders by when each agent was
-// created, so an agent deleted long after it was made would otherwise sit below one
+// TestArchiveIsOrderedByWhenAgentsWereArchived covers the order the archive reads
+// in. The listing arrives keyed on the id, which orders by when each agent was
+// created, so an agent archived long after it was made would otherwise sit below one
 // created after it.
-func TestTrashIsOrderedByWhenAgentsWereDeleted(t *testing.T) {
+func TestArchiveIsOrderedByWhenAgentsWereArchived(t *testing.T) {
 	tests := []struct {
 		name      string
 		listed    []*agentv1.Agent
 		wantNames []string
 	}{
 		{
-			name: "the most recently deleted agent is first",
+			name: "the most recently archived agent is first",
 			listed: []*agentv1.Agent{
-				deletedProtoAgent("newest-agent", "2026-07-30T09:00:00Z"),
-				deletedProtoAgent("oldest-agent", "2026-07-30T12:00:00Z"),
+				archivedProtoAgent("archived-at-nine", "2026-07-30T09:00:00Z"),
+				archivedProtoAgent("archived-at-noon", "2026-07-30T12:00:00Z"),
 			},
-			wantNames: []string{"oldest-agent", "newest-agent"},
+			wantNames: []string{"archived-at-noon", "archived-at-nine"},
 		},
 		{
-			name: "a row deleted before the time was recorded sits below the ones that carry it",
+			name: "a row archived before the time was recorded sits below the ones that carry it",
 			listed: []*agentv1.Agent{
 				{Name: "unstamped"},
-				deletedProtoAgent("stamped", "2026-07-30T09:00:00Z"),
+				archivedProtoAgent("stamped", "2026-07-30T09:00:00Z"),
 			},
 			wantNames: []string{"stamped", "unstamped"},
 		},
@@ -294,7 +294,7 @@ func TestTrashIsOrderedByWhenAgentsWereDeleted(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := deletedAgentsFrom(tt.listed)
+			got := archivedAgentsFrom(tt.listed)
 
 			names := make([]string, 0, len(got))
 			for _, agent := range got {
@@ -305,68 +305,68 @@ func TestTrashIsOrderedByWhenAgentsWereDeleted(t *testing.T) {
 	}
 }
 
-// deletedProtoAgent builds a listed agent deleted at the given RFC 3339 time.
-func deletedProtoAgent(name, deletedAt string) *agentv1.Agent {
-	return &agentv1.Agent{Name: name, DeletedAt: &deletedAt}
+// archivedProtoAgent builds a listed agent archived at the given RFC 3339 time.
+func archivedProtoAgent(name, archivedAt string) *agentv1.Agent {
+	return &agentv1.Agent{Name: name, ArchivedAt: &archivedAt}
 }
 
-// TestTrashIsListedSeparatelyFromTheAgents covers the two listings staying
-// apart. A pass reads the deleted agents through a call of their own, so a deleted
-// agent can never appear as a row in the tree.
-func TestTrashIsListedSeparatelyFromTheAgents(t *testing.T) {
-	client := &fakeTrashAgents{}
-	m := trashModel(client, appconfig.DefaultKeybindings())
-	m.trash.agents = nil
+// TestArchiveIsListedSeparatelyFromTheAgents covers the two listings staying
+// apart. A pass reads the archived agents through a call of their own, so an
+// archived agent can never appear as a row in the tree.
+func TestArchiveIsListedSeparatelyFromTheAgents(t *testing.T) {
+	client := &fakeArchiveAgents{}
+	m := archiveModel(client, appconfig.DefaultKeybindings())
+	m.archive.agents = nil
 
-	entered, cmd := m.enterTrash()
+	entered, cmd := m.enterArchive()
 	opened, ok := entered.(model)
 	require.True(t, ok)
 
 	got := settle(t, opened, cmd)
 
-	assert.Contains(t, client.listedDeleted, true, "the trash is asked for by the pass the screen starts")
-	require.Len(t, got.trash.agents, 1)
-	assert.Equal(t, "api-refactor", got.trash.agents[0].Name)
-	assert.Empty(t, got.tree.agents, "the tree's rows are not what the trash listed")
+	assert.Contains(t, client.listedArchived, true, "the archive is asked for by the pass the screen starts")
+	require.Len(t, got.archive.agents, 1)
+	assert.Equal(t, "api-refactor", got.archive.agents[0].Name)
+	assert.Empty(t, got.tree.agents, "the tree's rows are not what the archive listed")
 }
 
-// trashModel builds the panel sitting on the trash with one deleted agent in it.
-func trashModel(client agentv1connect.AgentServiceClient, keys appconfig.Keybindings) model {
+// archiveModel builds the panel sitting on the archive with one archived agent in it.
+func archiveModel(client agentv1connect.AgentServiceClient, keys appconfig.Keybindings) model {
 	tmux := &recordingTmux{}
 
 	return model{
-		api:    api{agents: client, workflows: emptyLists{}, schedules: emptyLists{}},
-		tmux:   tmux,
-		popup:  NewPopup(tmux, "test-session"),
-		stage:  NewStage(tmux, appconfig.DefaultSplit),
-		keys:   keys,
-		screen: screenTrash,
-		trash:  trashState{agents: []agentstore.Agent{{ID: "a1", Name: "api-refactor"}}},
+		api:     api{agents: client, workflows: emptyLists{}, schedules: emptyLists{}},
+		tmux:    tmux,
+		popup:   NewPopup(tmux, "test-session"),
+		stage:   NewStage(tmux, appconfig.DefaultSplit),
+		keys:    keys,
+		screen:  screenArchive,
+		archive: archiveState{agents: []agentstore.Agent{{ID: "a1", Name: "api-refactor"}}},
 	}
 }
 
-// fakeTrashAgents answers the calls the trash makes, recording which agents it
+// fakeArchiveAgents answers the calls the archive makes, recording which agents it
 // was asked to restore and destroy and which set it listed. The embedded
 // interface is nil, so any other method panics rather than quietly returning a
 // zero value.
 //
 // A pass runs its listings at once, so what it records is guarded: the live agents
-// and the deleted ones are two calls on this same fake on two goroutines.
-type fakeTrashAgents struct {
+// and the archived ones are two calls on this same fake on two goroutines.
+type fakeArchiveAgents struct {
 	agentv1connect.AgentServiceClient
-	mu            sync.Mutex
-	err           error
-	restored      []string
-	deleted       []string
-	listedDeleted []bool
+	mu             sync.Mutex
+	err            error
+	restored       []string
+	deleted        []string
+	listedArchived []bool
 }
 
-func (f *fakeTrashAgents) ListAgents(_ context.Context, req *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
+func (f *fakeArchiveAgents) ListAgents(_ context.Context, req *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
 	f.mu.Lock()
-	f.listedDeleted = append(f.listedDeleted, req.Msg.GetDeleted())
+	f.listedArchived = append(f.listedArchived, req.Msg.GetArchived())
 	f.mu.Unlock()
 
-	if !req.Msg.GetDeleted() {
+	if !req.Msg.GetArchived() {
 		return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
 	}
 
@@ -375,7 +375,7 @@ func (f *fakeTrashAgents) ListAgents(_ context.Context, req *connect.Request[age
 	}), nil
 }
 
-func (f *fakeTrashAgents) RestoreAgent(_ context.Context, req *connect.Request[agentv1.RestoreAgentRequest]) (*connect.Response[agentv1.RestoreAgentResponse], error) {
+func (f *fakeArchiveAgents) RestoreAgent(_ context.Context, req *connect.Request[agentv1.RestoreAgentRequest]) (*connect.Response[agentv1.RestoreAgentResponse], error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -386,7 +386,7 @@ func (f *fakeTrashAgents) RestoreAgent(_ context.Context, req *connect.Request[a
 	}), nil
 }
 
-func (f *fakeTrashAgents) DeleteAgent(_ context.Context, req *connect.Request[agentv1.DeleteAgentRequest]) (*connect.Response[emptypb.Empty], error) {
+func (f *fakeArchiveAgents) DeleteAgent(_ context.Context, req *connect.Request[agentv1.DeleteAgentRequest]) (*connect.Response[emptypb.Empty], error) {
 	if f.err != nil {
 		return nil, f.err
 	}

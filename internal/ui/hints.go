@@ -7,7 +7,7 @@ import (
 )
 
 // The key legend under every list. Each screen names its own bindings, and the
-// toggles name the direction the row would go rather than the action in the abstract,
+// toggles name the direction the row would go rather than the binding in the abstract,
 // so a legend says what the key would do to what is under the cursor.
 
 // hint is one line of the key legend under a list, a binding and what it does.
@@ -33,10 +33,10 @@ func renderHints(hints []hint) string {
 	return b.String()
 }
 
-// actionHints renders the key bindings one per line with an aligned key column.
-func (m model) actionHints() string {
+// agentHints lists the agents screen's bindings, one per line with an aligned key column.
+func (m model) agentHints() string {
 	// The key that draws the hidden agents toggles, so the legend names the direction
-	// it would go rather than the action in the abstract.
+	// it would go rather than the binding in the abstract.
 	showHiddenDesc := "show hidden"
 	if m.tree.showHidden {
 		showHiddenDesc = "put hidden away"
@@ -54,7 +54,7 @@ func (m model) actionHints() string {
 
 // rowHints are the bindings that act on the row under the cursor, which is a
 // workflow header or an agent. The info, mark, and hide keys all toggle, so their
-// lines name what that row would do rather than the action in the abstract.
+// lines name what that row would do rather than the binding in the abstract.
 func (m model) rowHints() []hint {
 	if _, hoveringWorkflow := m.hoveredWorkflow(); hoveringWorkflow {
 		return []hint{
@@ -85,13 +85,15 @@ func (m model) rowHints() []hint {
 
 	return []hint{
 		{hintKeys(m.keys.Agents.Open), "open"},
+		{hintKeys(m.keys.Agents.Editor), "editor"},
 		{hintKeys(m.keys.Agents.Info), infoDesc},
+		{hintKeys(m.keys.Actions.Open), "actions"},
 		{hintKeys(m.keys.Agents.Mark), markDesc},
 		{hintKeys(m.keys.Agents.Hide), hideDesc},
 		{hintKeys(m.keys.Agents.New), "new agent"},
 		{hintKeys(m.keys.Workflows.New), "new workflow"},
 		{hintKeys(m.keys.Agents.Rename), "rename"},
-		{hintKeys(m.keys.Agents.Delete), "delete"},
+		{hintKeys(m.keys.Agents.Archive), "archive"},
 	}
 }
 
@@ -103,7 +105,8 @@ func (m model) screenHints() []hint {
 	return []hint{
 		{hintKeys(m.keys.Agents.Search), "search"},
 		{hintKeys(m.keys.Schedules.Open), "schedules"},
-		{hintKeys(m.keys.Trash.Open), "trash"},
+		{hintKeys(m.keys.Archive.Open), "archived agents"},
+		{hintKeys(m.keys.Agents.Logs), m.logsDesc()},
 	}
 }
 
@@ -125,13 +128,28 @@ func (m model) scheduleHints() string {
 	})
 }
 
-// trashHints lists the trash screen's bindings.
-func (m model) trashHints() string {
+// archiveHints lists the archive screen's bindings.
+func (m model) archiveHints() string {
 	return renderHints([]hint{
-		{hintKeys(m.keys.Trash.Restore), "restore"},
-		{hintKeys(m.keys.Trash.Delete), "delete for good"},
+		{hintKeys(m.keys.Archive.Restore), "restore"},
+		{hintKeys(m.keys.Archive.Delete), "delete for good"},
 		{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
-		{hintKeys(m.keys.Trash.Back), "back"},
+		{hintKeys(m.keys.Archive.Back), "back"},
+	})
+}
+
+// actionHints lists the actions screen's bindings. The run line names the chmod a file without
+// the executable bit wants, since a dim row on its own cannot say why it is dim.
+func (m model) actionHints() string {
+	runDesc := "run"
+	if action, ok := m.selectedAction(); ok && !action.executable {
+		runDesc = "chmod +x to run"
+	}
+
+	return renderHints([]hint{
+		{hintKeys(m.keys.Actions.Run), runDesc},
+		{hintKeys(m.keys.Nav.Up) + "/" + hintKeys(m.keys.Nav.Down), "move"},
+		{hintKeys(m.keys.Actions.Back), "back"},
 	})
 }
 

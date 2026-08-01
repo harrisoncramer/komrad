@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	actionv1 "weave/proto/gen/action/v1"
 	agentv1 "weave/proto/gen/agent/v1"
 	annotationv1 "weave/proto/gen/annotation/v1"
 	configv1 "weave/proto/gen/config/v1"
@@ -21,6 +22,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
+
+	"weave/internal/caller"
 )
 
 // callTimeout bounds a single RPC invoked through a tool. Creating an agent opens
@@ -42,9 +45,12 @@ type rpcTools struct {
 // registered, so widening the tool surface is an edit to the proto rather than a
 // side effect of adding an RPC.
 func registerRPCTools(server *mcpsdk.Server, baseURL string) error {
+	// The transport carries whoever the served request is from onto the call this makes on
+	// their behalf, so an RPC reached through a tool is logged as the agent that asked for
+	// it rather than as the service calling itself.
 	tools := &rpcTools{
 		baseURL: strings.TrimSuffix(baseURL, "/"),
-		client:  &http.Client{Timeout: callTimeout},
+		client:  &http.Client{Timeout: callTimeout, Transport: caller.Transport(nil)},
 	}
 
 	// Every service the server exposes is listed here. A new one is a line in
@@ -54,6 +60,7 @@ func registerRPCTools(server *mcpsdk.Server, baseURL string) error {
 		workflowv1.File_workflow_v1_workflow_proto,
 		schedulev1.File_schedule_v1_schedule_proto,
 		configv1.File_config_v1_config_proto,
+		actionv1.File_action_v1_action_proto,
 	}
 
 	for _, file := range files {
@@ -207,22 +214,38 @@ func rejectsEmpty(field protoreflect.FieldDescriptor) bool {
 		return true
 	}
 
-	// A minimum length is the usual way a string says it cannot be blank. CEL rules
-	// are not read, since what they accept is only knowable by running them, so a
-	// field guarded solely by CEL is advertised as optional and refused by the
-	// server if it is genuinely needed.
-	return rules.GetString().GetMinLen() > 0
+	// A minimum length is the usual way a string says it cannot be blank, and a
+	// minimum count is how a list says the same. CEL rules are not read, since what
+	// they accept is only knowable by running them, so a field guarded solely by CEL is
+	// advertised as optional and refused by the server if it is genuinely needed.
+	return rules.GetString().GetMinLen() > 0 || rules.GetRepeated().GetMinItems() > 0
 }
 
-// fieldSchema maps one field to its JSON Schema type. A message field becomes a
-// nested object, which is how a request carrying pagination is described.
-// Anything else is refused loudly at startup rather than advertised to a model
-// as a type it cannot satisfy.
+// fieldSchema maps one field to its JSON Schema type. A repeated field becomes an
+// array of whatever one of its values is. A map is refused, since nothing here takes
+// one.
 func fieldSchema(field protoreflect.FieldDescriptor, enclosing map[protoreflect.FullName]bool) (map[string]any, error) {
-	if field.IsList() || field.IsMap() {
-		return nil, fmt.Errorf("field %q is a list or map, which the tool schema does not describe yet", field.Name())
+	if field.IsMap() {
+		return nil, fmt.Errorf("field %q is a map, which the tool schema does not describe yet", field.Name())
 	}
 
+	value, err := valueSchema(field, enclosing)
+	if err != nil {
+		return nil, err
+	}
+
+	if field.IsList() {
+		return map[string]any{"type": "array", "items": value}, nil
+	}
+
+	return value, nil
+}
+
+// valueSchema describes one of a field's values, which for a repeated field is one
+// element rather than the list. A message becomes a nested object, which is how a
+// request carrying pagination is described. Anything else is refused loudly at startup
+// rather than advertised to a model as a type it cannot satisfy.
+func valueSchema(field protoreflect.FieldDescriptor, enclosing map[protoreflect.FullName]bool) (map[string]any, error) {
 	switch field.Kind() {
 	case protoreflect.MessageKind:
 		return messageSchema(field.Message(), enclosing)

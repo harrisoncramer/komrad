@@ -46,16 +46,27 @@ func TestBuildCommand(t *testing.T) {
 			wantContain: []string{"'-m' 'gpt-5.6' '-s' 'read-only'"},
 		},
 		{
+			// The originator goes on beside the agent's own id because it is what codex
+			// writes into the rollout, which is how that conversation is found again.
 			name:        "the agent's own id leads the line, so it reaches codex's environment",
 			launch:      harness.Launch{AgentID: "id-1", Prompt: "go"},
-			wantContain: []string{"WEAVE_AGENT_ID='id-1' codex"},
+			wantContain: []string{"WEAVE_AGENT_ID='id-1' CODEX_INTERNAL_ORIGINATOR_OVERRIDE='weave-id-1' codex"},
 		},
 		{
 			// It rides on the environment because it has to survive a resume, which the
 			// briefing does not.
-			name:        "and it survives a resume",
-			launch:      harness.Launch{AgentID: "id-1", SessionID: "sess", Resume: true},
-			wantContain: []string{"WEAVE_AGENT_ID='id-1' codex resume"},
+			name:   "and it survives a resume",
+			launch: harness.Launch{AgentID: "id-1", SessionID: "sess", Resume: true},
+			wantContain: []string{
+				"WEAVE_AGENT_ID='id-1' WEAVE_SESSION_ID='sess' CODEX_INTERNAL_ORIGINATOR_OVERRIDE='weave-id-1' codex resume",
+			},
+		},
+		{
+			// A launch with no agent id stamps nothing rather than an empty originator,
+			// which codex would take as the client that started the conversation.
+			name:       "a launch with no agent id stamps nothing",
+			launch:     harness.Launch{Prompt: "go"},
+			wantAbsent: []string{"CODEX_INTERNAL_ORIGINATOR_OVERRIDE"},
 		},
 		{
 			name:        "the prompt is fenced off, since it could open with a subcommand's name",
@@ -243,4 +254,38 @@ func TestTOMLString(t *testing.T) {
 				"a value must not end mid-escape, which would swallow the closing quote")
 		})
 	}
+}
+
+// TestMCPHeadersNameTheEnvironment covers how Codex is told to identify the agent on every
+// call it makes back to the panel. Codex takes its servers from config rather than a flag,
+// so this rides on the same per-invocation override the endpoint does.
+//
+// It names environment variables rather than this agent's ids, which is what Codex's
+// env_http_headers is for, and it means the override is the same for every agent while the
+// values still differ per agent.
+func TestMCPHeadersNameTheEnvironment(t *testing.T) {
+	command, err := New(Options{}).BuildCommand(harness.Launch{
+		AgentID:     "agent-1",
+		SessionID:   "sess-1",
+		MCPEndpoint: "127.0.0.1:9999",
+	})
+	require.NoError(t, err)
+
+	assert.Contains(t, command,
+		`-c 'mcp_servers.weave.env_http_headers={"X-Weave-Agent-Id"="WEAVE_AGENT_ID","X-Weave-Session-Id"="WEAVE_SESSION_ID"}'`)
+
+	// The variables it names are the ones the launch exports, or every call an agent makes
+	// arrives anonymous.
+	assert.Contains(t, command, "WEAVE_AGENT_ID='agent-1'")
+	assert.Contains(t, command, "WEAVE_SESSION_ID='sess-1'")
+}
+
+// TestMCPHeadersOnlyWithAnEndpoint covers a launch with no server to register. There is
+// nothing to put a header on, so no override is written rather than one pointing at
+// nothing.
+func TestMCPHeadersOnlyWithAnEndpoint(t *testing.T) {
+	command, err := New(Options{}).BuildCommand(harness.Launch{AgentID: "agent-1"})
+	require.NoError(t, err)
+
+	assert.NotContains(t, command, "env_http_headers")
 }

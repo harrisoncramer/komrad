@@ -3,6 +3,8 @@ package cli
 import (
 	"fmt"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -100,81 +102,56 @@ func TestEnsureServerWithAnUnwritableLog(t *testing.T) {
 	assert.Contains(t, err.Error(), logPath, "the path that could not be opened is named")
 }
 
-// TestEnsureServerFindsARunningServer covers that nothing is spawned when the
-// address already answers, so opening a second panel does not start a second
-// server.
+// TestEnsureServerFindsARunningServer covers that nothing is spawned when the address is
+// already served, so opening a second panel does not start a second server.
+//
+// A server that answers anything at all counts, including one too old to have a health
+// route. It holds the port either way, and spawning over it achieves nothing but a process
+// that fails to bind.
 func TestEnsureServerFindsARunningServer(t *testing.T) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	defer func() { _ = listener.Close() }()
-
-	logPath := filepath.Join(t.TempDir(), "serve.log")
-
-	require.NoError(t, ensureServer(listener.Addr().String(), fakeServe(t, "should not run"), logPath))
-
-	_, statErr := os.Stat(logPath)
-	assert.True(t, os.IsNotExist(statErr), "no server was spawned, so nothing was logged")
-}
-
-// TestServeLogTail covers how the log is folded into a reason. A dial failure spans
-// several indented lines, and the error it becomes is rendered wrapped, so it is
-// carried as one line rather than with the log's own breaks in it.
-func TestServeLogTail(t *testing.T) {
-	dialFailure := "failed to reach db: failed to connect:\n\t[::1]:5460: dial error: connection refused\n"
-
 	tests := []struct {
-		name     string
-		contents string
-		offset   int64
-		want     string
+		name   string
+		status int
 	}{
-		{
-			name:     "an empty log has no reason to give",
-			contents: "\n\n",
-		},
-		{
-			name:     "a multi-line failure is folded onto one line",
-			contents: dialFailure,
-			want:     "failed to reach db: failed to connect: [::1]:5460: dial error: connection refused",
-		},
-		{
-			name:     "reading past the end gives nothing rather than the older lines",
-			contents: dialFailure,
-			offset:   int64(len(dialFailure)),
-		},
+		{name: "a server that is ready", status: http.StatusOK},
+		{name: "a server whose database is down", status: http.StatusServiceUnavailable},
+		{name: "a server from a build that has no health route", status: http.StatusNotFound},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "serve.log")
-			require.NoError(t, os.WriteFile(path, []byte(tt.contents), 0o644))
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(tt.status)
+			}))
+			defer server.Close()
 
-			assert.Equal(t, tt.want, serveLogTail(path, tt.offset))
+			addr := strings.TrimPrefix(server.URL, "http://")
+			logPath := filepath.Join(t.TempDir(), "serve.log")
+
+			require.NoError(t, ensureServer(addr, fakeServe(t, "should not run"), logPath))
+
+			_, statErr := os.Stat(logPath)
+			assert.True(t, os.IsNotExist(statErr), "no server was spawned, so nothing was logged")
 		})
 	}
 }
 
-// TestServeLogTailIsBounded covers that a server which logged a great deal is cut
-// down to its last lines, since the error is shown on a panel screen. The cut keeps
-// the end, where the failure that stopped it is.
-func TestServeLogTailIsBounded(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "serve.log")
+// TestServerReadyNeedsMoreThanAListener covers what the wait after a spawn waits for. A
+// bound socket is not a working service: the server listens before it can reach its
+// database, and a panel that started on the first successful dial came up against a
+// service that failed every call it made.
+func TestServerReadyNeedsMoreThanAListener(t *testing.T) {
+	unreachable := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte("database unreachable: connection refused"))
+	}))
+	defer unreachable.Close()
 
-	var log strings.Builder
-	for i := range serveLogLines * 3 {
-		fmt.Fprintf(&log, "line %d\n", i)
-	}
-	require.NoError(t, os.WriteFile(path, []byte(log.String()), 0o644))
+	ready := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer ready.Close()
 
-	tail := serveLogTail(path, 0)
-
-	assert.Len(t, strings.Split(tail, " "), serveLogLines*2, "each kept line is two words")
-	assert.Contains(t, tail, fmt.Sprintf("line %d", serveLogLines*3-1), "the last line is kept")
-	assert.NotContains(t, tail, "line 0 ", "the first is dropped")
-}
-
-// TestServeLogTailWithNoLog covers a log that could not be read at all, which is
-// the case when the file could not be opened for the server to write to either.
-func TestServeLogTailWithNoLog(t *testing.T) {
-	assert.Empty(t, serveLogTail(filepath.Join(t.TempDir(), "absent.log"), 0))
+	assert.False(t, serverReady(strings.TrimPrefix(unreachable.URL, "http://")))
+	assert.True(t, serverReady(strings.TrimPrefix(ready.URL, "http://")))
 }

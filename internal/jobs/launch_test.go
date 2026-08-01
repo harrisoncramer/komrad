@@ -61,6 +61,17 @@ func TestLaunchAgentWorker(t *testing.T) {
 			wantLaunched: true,
 		},
 		{
+			// A setup action that refuses will not start working by being run again,
+			// and it is the one failure here that can have done something before it
+			// refused. Five attempts at a script that provisions a worktree and then
+			// fails is five worktrees, where cancelling leaves one.
+			name:         "a setup action that refuses cancels",
+			schedule:     &schedulestore.Schedule{ID: "s1", Name: "morning-ci", Prompt: "go", Enabled: true},
+			launchErr:    agents.ErrSetupFailed,
+			wantCancel:   true,
+			wantLaunched: true,
+		},
+		{
 			// One at a time. A run that outlived its interval would otherwise be
 			// lapped by the next tick, and the pile would never drain.
 			name:       "a schedule whose last agent is still running skips this tick",

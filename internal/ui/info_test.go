@@ -89,6 +89,7 @@ func TestInfoKey(t *testing.T) {
 // has no pane to display, so this is all there is of it.
 func TestAgentMarkdown(t *testing.T) {
 	agent := agentstore.Agent{
+		ID:        "a1",
 		Name:      "auth",
 		Pane:      "%9",
 		Cwd:       "/repo",
@@ -121,7 +122,8 @@ func TestAgentMarkdown(t *testing.T) {
 			alive: true,
 			wantContain: []string{
 				"- directory: /repo",
-				"- resume: abc",
+				"- agent_id: a1",
+				"- session_id: abc",
 				"- flags: —",
 			},
 			wantAbsent: []string{"dormant", "Press open to restore"},
@@ -190,12 +192,18 @@ type recordingTmux struct {
 	// zooms are the zoom states the nav pane has been put into, in order, which is how a
 	// test tells that a form took the whole width and gave it back.
 	zooms []bool
+	// windows are the windows opened for the user's own client, each recorded as its
+	// directory followed by the argv it runs. openWindowErr makes the next one fail.
+	windows       []string
+	openWindowErr error
+	// detaches counts the sessions the popup has been closed by detaching from.
+	detaches int
 }
 
 func (t *recordingTmux) SetGlobal(string, string)                {}
 func (t *recordingTmux) ShowGlobal(string) string                { return "" }
 func (t *recordingTmux) SetSessionOption(string, string, string) {}
-func (t *recordingTmux) DetachSession(string)                    {}
+func (t *recordingTmux) DetachSession(string)                    { t.detaches++ }
 func (t *recordingTmux) BindKey(string, ...string)               {}
 func (t *recordingTmux) ClientPath(string) string                { return t.path }
 func (t *recordingTmux) SendKeys(string, ...string) error        { return nil }
@@ -209,6 +217,16 @@ func (t *recordingTmux) KillPane(string)                         {}
 
 func (t *recordingTmux) NewWindow(string, string, string) (string, error) {
 	return "%2", nil
+}
+
+func (t *recordingTmux) OpenWindow(_, _, dir string, argv ...string) error {
+	if t.openWindowErr != nil {
+		return t.openWindowErr
+	}
+
+	t.windows = append(t.windows, strings.Join(append([]string{dir}, argv...), " "))
+
+	return nil
 }
 
 func (t *recordingTmux) ResizePane(_ string, percent int) {

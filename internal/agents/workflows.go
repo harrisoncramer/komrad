@@ -76,6 +76,8 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflow.Config) 
 
 	cfg.Cwd = expandHome(strings.TrimSpace(cfg.Cwd))
 	cfg.Flags = strings.TrimSpace(cfg.Flags)
+	cfg.SetupAction = strings.TrimSpace(cfg.SetupAction)
+	cfg.CleanupAction = strings.TrimSpace(cfg.CleanupAction)
 
 	created, err := w.store.Create(ctx, cfg)
 	if err != nil {
@@ -103,6 +105,8 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 
 	cfg.Cwd = expandHome(strings.TrimSpace(cfg.Cwd))
 	cfg.Flags = strings.TrimSpace(cfg.Flags)
+	cfg.SetupAction = strings.TrimSpace(cfg.SetupAction)
+	cfg.CleanupAction = strings.TrimSpace(cfg.CleanupAction)
 
 	if err := w.store.Update(ctx, id, cfg); err != nil {
 		return fmt.Errorf("failed to update workflow %q: %w", id, err)

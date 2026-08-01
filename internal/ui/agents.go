@@ -32,11 +32,14 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if bound(k, m.keys.Schedules.Open) {
 		return m.enterSchedules()
 	}
-	if bound(k, m.keys.Trash.Open) {
-		return m.enterTrash()
+	if bound(k, m.keys.Archive.Open) {
+		return m.enterArchive()
 	}
 	if bound(k, m.keys.Agents.ShowHidden) {
 		return m.toggleHiddenAgents()
+	}
+	if bound(k, m.keys.Agents.Logs) {
+		return m.openLogs()
 	}
 
 	// On a workflow header the workflow bindings act on that folder's workflow.
@@ -54,13 +57,13 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case bound(k, m.keys.Nav.Up):
 		if m.tree.cursor > 0 {
 			m.tree.cursor--
-			m.tree.infoPinned = false
+			m.tree.unpin()
 			m.stageSelection()
 		}
 	case bound(k, m.keys.Nav.Down):
 		if m.tree.cursor < len(m.agentRows())-1 {
 			m.tree.cursor++
-			m.tree.infoPinned = false
+			m.tree.unpin()
 			m.stageSelection()
 		}
 	case bound(k, m.keys.Agents.Info):
@@ -71,6 +74,10 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.stageSelection()
 	case bound(k, m.keys.Agents.Open):
 		return m.openAgent()
+	case bound(k, m.keys.Agents.Editor):
+		return m.openEditor()
+	case bound(k, m.keys.Actions.Open):
+		return m.enterActions()
 	case bound(k, m.keys.Agents.Mark):
 		item, ok := m.selectedAgent()
 		if !ok {
@@ -92,7 +99,7 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.form, m.values.rename = renameForm(item.agent.Name, m.keys.Form)
 		m.screen = screenRename
 		return m, m.form.Init()
-	case bound(k, m.keys.Agents.Delete):
+	case bound(k, m.keys.Agents.Archive):
 		item, ok := m.selectedAgent()
 		if !ok {
 			return m, nil
@@ -101,7 +108,7 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.stage.Release(item.agent.Pane)
 
 		return m, m.writeCmd(
-			fmt.Sprintf("Could not delete agent %q", item.agent.Name),
+			fmt.Sprintf("Could not archive agent %q", item.agent.Name),
 			func(a api) error { return a.archiveAgent(item.agent) },
 		)
 	}
@@ -110,16 +117,16 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // openAgent acts on the hovered agent. A dormant agent is restored and staged live. A
-// live agent is already staged from hovering, so opening it only unpins the info view to
-// bring the agent back.
+// live agent is already staged from hovering, so opening it only unpins whatever was over
+// it to bring the agent back.
 func (m model) openAgent() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedAgent()
 	if !ok {
 		return m, nil
 	}
 	if item.alive {
-		if m.tree.infoPinned {
-			m.tree.infoPinned = false
+		if m.tree.infoPinned || m.tree.logsPinned {
+			m.tree.unpin()
 			m.stageSelection()
 		}
 		return m, nil
@@ -130,6 +137,47 @@ func (m model) openAgent() (tea.Model, tea.Cmd) {
 		item.agent.ID,
 		screenAgents,
 	)
+}
+
+// openEditor opens the hovered agent's directory in the user's editor and closes the
+// panel behind it. The window is created on the user's own tmux server rather than the
+// manager's, since an editor is theirs to keep working in once the popup is gone and
+// nothing on the manager's server can be reached from outside it.
+//
+// A failure leaves the popup up so the banner is readable. Hiding on the way out would
+// write the message to a popup tearing down on top of it.
+func (m model) openEditor() (tea.Model, tea.Cmd) {
+	item, ok := m.selectedAgent()
+	if !ok {
+		return m, nil
+	}
+
+	dir := item.agent.Cwd
+	err := m.tmux.OpenWindow(m.popup.InvokingClient(), item.agent.Name, dir, editorArgv(m.editor, dir)...)
+	m.report(fmt.Sprintf("Could not open %q in your editor", dir), err)
+
+	if err != nil {
+		return m, nil
+	}
+
+	return m, m.hide()
+}
+
+// editorArgv is what the editor window runs. The editor is split on whitespace so one
+// carrying its own flags still works, and tmux runs the result itself rather than
+// through a shell, so nothing in it needs quoting.
+//
+// The directory is passed as an argument as well as being the window's working directory,
+// since an editor given nothing to open lands on an empty buffer instead of the tree. An
+// empty editor leaves the argv empty, which tmux reads as a plain shell in the directory
+// rather than as a command it cannot find.
+func editorArgv(editor, dir string) []string {
+	fields := strings.Fields(editor)
+	if len(fields) == 0 {
+		return nil
+	}
+
+	return append(fields, dir)
 }
 
 // toggleHiddenAgents draws the hidden agents alongside the rest, or puts them away again.
@@ -179,6 +227,15 @@ func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 // markdown, and anything else blanks the stage. With info pinned, an agent shows
 // its stored record instead of itself.
 func (m model) stageSelection() {
+	// The log is about the service rather than about a row, so it is answered before the
+	// cursor is read at all. It shows from a workflow header as readily as from an agent,
+	// and from an empty list, which is the moment the log is worth the most.
+	if m.tree.logsPinned {
+		m.stage.Log(m.logPath, logArgv(m.logViewer, m.logPath, m.binary))
+
+		return
+	}
+
 	rows := m.agentRows()
 	if m.tree.cursor < 0 || m.tree.cursor >= len(rows) {
 		m.stage.Blank()
@@ -242,7 +299,7 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 // shown in the separate stage pane, not here.
 func (m model) agentsView() string {
 	header := headerStyle.Render("Agents and Workflows") + "\n\n"
-	hints := "\n" + m.actionHints()
+	hints := "\n" + m.agentHints()
 
 	all := m.agentRows()
 	rows := make([]string, 0, len(all))
@@ -270,7 +327,7 @@ func (m model) agentsView() string {
 
 		state := item.agent.State
 		if !item.alive {
-			state = "" // dormant, neutral icon and color
+			state = agentstore.StateIdle // nothing runs in a pane that is gone
 			name = dimStyle.Render(item.agent.Name)
 			if selected {
 				name = cursorStyle.Render(item.agent.Name)

@@ -2,6 +2,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -9,8 +10,17 @@ import (
 )
 
 func main() {
-	if err := cli.NewRootCommand().Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	err := cli.NewRootCommand().Execute()
+	if err == nil {
+		return
 	}
+
+	// A command that already wrote its failure to the log says so. Printing it here too
+	// would put the same failure in the same file twice, once with its fields and once as
+	// a bare sentence.
+	if !errors.Is(err, cli.ErrLogged) {
+		fmt.Fprintln(os.Stderr, err)
+	}
+
+	os.Exit(1)
 }

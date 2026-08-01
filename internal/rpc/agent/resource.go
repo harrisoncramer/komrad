@@ -35,10 +35,10 @@ func renderAgent(stored agentstore.Agent, alive bool) agent {
 		created = stored.CreatedAt.Format(time.RFC3339)
 	}
 
-	var deleted *string
-	if stored.DeletedAt != nil {
-		formatted := stored.DeletedAt.Format(time.RFC3339)
-		deleted = &formatted
+	var archived *string
+	if stored.ArchivedAt != nil {
+		formatted := stored.ArchivedAt.Format(time.RFC3339)
+		archived = &formatted
 	}
 
 	metadata := make([]*agentv1.AgentMetadata, 0, len(stored.Metadata))
@@ -60,7 +60,7 @@ func renderAgent(stored agentstore.Agent, alive bool) agent {
 			WorkflowId:     stored.WorkflowID,
 			ScheduleId:     stored.ScheduleID,
 			CreatedAt:      created,
-			DeletedAt:      deleted,
+			ArchivedAt:     archived,
 			Alive:          alive,
 			Mark:           stored.Mark,
 			Hidden:         stored.Hidden,
@@ -89,7 +89,7 @@ func renderSearchHit(hit transcriptstore.SearchHit) searchHit {
 		SearchHit: &agentv1.SearchHit{
 			AgentId:       hit.AgentID,
 			Name:          hit.Name,
-			Deleted:       hit.Deleted,
+			Archived:      hit.Archived,
 			Snippet:       hit.Snippet,
 			Score:         hit.Rank,
 			Seq:           hit.Seq,

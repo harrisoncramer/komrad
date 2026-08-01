@@ -150,7 +150,7 @@ func TestNewAgent(t *testing.T) {
 			assert.Equal(t, params.Dir, stored.Cwd)
 			assert.Equal(t, "--default-flag --extra", stored.Flags, "the configured flags come first")
 			assert.Equal(t, "do the thing", stored.Prompt)
-			assert.Equal(t, agentstore.StateNew, stored.State)
+			assert.Equal(t, agentstore.StateIdle, stored.State)
 			assert.NotEmpty(t, stored.SessionID, "a conversation id is pinned at launch")
 			assert.NotEmpty(t, tmux.lastKeys("%My-Agent"), "the agent is launched into the new pane")
 			assert.Equal(t, stored.ID, tmux.owners["%My-Agent"], "the pane is stamped with the agent it is running")
@@ -355,6 +355,244 @@ func TestNewAgentInsideWorkflow(t *testing.T) {
 	}
 }
 
+// TestNewAgentRunsWorkflowSetup covers the two things a workflow's setup action decides
+// about a create, which are whether it happens at all and where the agent ends up running.
+func TestNewAgentRunsWorkflowSetup(t *testing.T) {
+	provisioned := t.TempDir()
+
+	tests := []struct {
+		name string
+		// action is the workflow's setup action, and answered the directory it names.
+		action    string
+		answered  string
+		setupErr  error
+		wantDir   string
+		wantSetup []string
+		wantErr   error
+	}{
+		{
+			name:      "setup that fails abandons the create",
+			action:    "make-worktree",
+			setupErr:  ErrSetupFailed,
+			wantSetup: []string{"make-worktree"},
+			wantErr:   ErrSetupFailed,
+		},
+		{
+			name:      "a directory setup names that is not usable abandons the create",
+			action:    "make-worktree",
+			answered:  filepath.Join(t.TempDir(), "never-created"),
+			wantSetup: []string{"make-worktree"},
+			wantErr:   ErrSetupFailed,
+		},
+		{
+			name: "a workflow naming none launches where it was told to",
+		},
+		{
+			name:      "setup that names no directory leaves the create where it was",
+			action:    "install-deps",
+			wantSetup: []string{"install-deps"},
+		},
+		{
+			name:      "the directory setup names is where the agent runs",
+			action:    "make-worktree",
+			answered:  provisioned,
+			wantDir:   provisioned,
+			wantSetup: []string{"make-worktree"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := newFakeTmux()
+			st := newStore(t)
+			lifecycle := &fakeLifecycle{dir: tt.answered, setupErr: tt.setupErr}
+			h := &fakeHarness{}
+			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: h}, lifecycle)
+
+			created, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{
+				Name:        "backend",
+				SetupAction: tt.action,
+			})
+			require.NoError(t, err)
+
+			asked := t.TempDir()
+			_, err = manager.NewAgent(t.Context(), NewAgentParams{
+				Title:      "agent",
+				Dir:        asked,
+				WorkflowID: created.ID,
+			})
+
+			assert.Equal(t, tt.wantSetup, lifecycle.setup, "the workflow's own choice reaches the runner")
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				stored, getErr := st.Get(t.Context(), "agent")
+				require.NoError(t, getErr)
+				assert.Nil(t, stored, "a refused setup leaves no row behind")
+				assert.Empty(t, h.launches, "and launches nothing")
+
+				return
+			}
+
+			require.NoError(t, err)
+
+			want := tt.wantDir
+			if want == "" {
+				want = asked
+			}
+
+			stored, err := st.Get(t.Context(), "agent")
+			require.NoError(t, err)
+			require.NotNil(t, stored)
+			assert.Equal(t, want, stored.Cwd, "the row records where the agent actually runs")
+			require.Len(t, h.launches, 1)
+			assert.Equal(t, want, h.launches[0].Dir, "and the launch is told the same directory")
+		})
+	}
+}
+
+// TestNewAgentCleansUpAfterASetupThatRan covers a launch that refuses after its setup
+// action has already built something. A worktree no row names is never reached again, so
+// every refusal past the point the script ran has to undo it.
+func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
+	tests := []struct {
+		name string
+		// answered is the directory setup names, and each error below is a way the launch
+		// can refuse once the script has already run.
+		answered    string
+		windowErr   error
+		setOwnerErr error
+		sendKeysErr error
+	}{
+		{
+			name:     "a directory setup named that is not there",
+			answered: filepath.Join(t.TempDir(), "never-created"),
+		},
+		{
+			name:      "a window tmux refuses",
+			windowErr: errors.New("tmux refused the window name"),
+		},
+		{
+			name:        "a pane tmux refuses to stamp",
+			setOwnerErr: errors.New("tmux refused the option"),
+		},
+		{
+			name:        "a launch that never reaches the pane's shell",
+			sendKeysErr: errors.New("tmux dropped the keys"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := newFakeTmux()
+			tmux.newWindowErr = tt.windowErr
+			tmux.setOwnerErr = tt.setOwnerErr
+			tmux.sendKeysErr = tt.sendKeysErr
+			st := newStore(t)
+			lifecycle := &fakeLifecycle{dir: tt.answered}
+			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+			created, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{
+				Name:          "backend",
+				SetupAction:   "make-worktree",
+				CleanupAction: "drop-worktree",
+			})
+			require.NoError(t, err)
+
+			_, err = manager.NewAgent(t.Context(), NewAgentParams{
+				Title:      "agent",
+				Dir:        t.TempDir(),
+				WorkflowID: created.ID,
+			})
+
+			require.Error(t, err)
+			assert.Equal(t, []string{"make-worktree"}, lifecycle.setup)
+			assert.Equal(t, []string{"drop-worktree"}, lifecycle.cleanup, "what setup built is taken back")
+
+			agents, listErr := st.List(t.Context())
+			require.NoError(t, listErr)
+			assert.Empty(t, agents, "and no row is left behind")
+		})
+	}
+}
+
+// TestNewAgentDoesNotCleanUpASetupThatRefused covers the other side of it. A setup action
+// that refused is the script saying it did not get as far as doing anything, so firing
+// cleanup would be asking it to undo work nobody did.
+func TestNewAgentDoesNotCleanUpASetupThatRefused(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	lifecycle := &fakeLifecycle{setupErr: ErrSetupFailed}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+	created, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{
+		Name:          "backend",
+		SetupAction:   "make-worktree",
+		CleanupAction: "drop-worktree",
+	})
+	require.NoError(t, err)
+
+	_, err = manager.NewAgent(t.Context(), NewAgentParams{
+		Title:      "agent",
+		Dir:        t.TempDir(),
+		WorkflowID: created.ID,
+	})
+
+	require.ErrorIs(t, err, ErrSetupFailed)
+	assert.Empty(t, lifecycle.cleanup)
+}
+
+// TestDeleteAgentRunsWorkflowCleanup covers cleanup firing on the irreversible half only.
+// Archiving keeps whatever setup built, since restoring an agent relaunches it in the
+// directory its row records and does not run setup again.
+func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
+	tests := []struct {
+		name        string
+		archive     bool
+		wantCleanup []string
+	}{
+		{
+			name:        "deleting an agent releases what setup built",
+			wantCleanup: []string{"drop-worktree"},
+		},
+		{
+			name:    "archiving one keeps it",
+			archive: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := newFakeTmux()
+			st := newStore(t)
+			lifecycle := &fakeLifecycle{}
+			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+			created, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{
+				Name:          "backend",
+				CleanupAction: "drop-worktree",
+			})
+			require.NoError(t, err)
+
+			agent, err := manager.NewAgent(t.Context(), NewAgentParams{
+				Title:      "agent",
+				Dir:        t.TempDir(),
+				WorkflowID: created.ID,
+			})
+			require.NoError(t, err)
+
+			if tt.archive {
+				require.NoError(t, manager.ArchiveAgent(t.Context(), agent.Name))
+			} else {
+				require.NoError(t, manager.DeleteAgent(t.Context(), agent.ID))
+			}
+
+			assert.Equal(t, tt.wantCleanup, lifecycle.cleanup)
+		})
+	}
+}
+
 // TestUniqueAgentName covers the name an agent ends up with. The store's unique
 // index is the authority, so a taken name has to be stepped past rather than
 // reused, which would clobber the agent holding it.
@@ -392,7 +630,7 @@ func TestUniqueAgentName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			for _, name := range tt.taken {
-				seed(t, st, name, "%1", agentstore.StateNew)
+				seed(t, st, name, "%1", agentstore.StateIdle)
 			}
 
 			manager := newManager(newFakeTmux(), st, "")
@@ -421,7 +659,7 @@ func TestNameTaken(t *testing.T) {
 	}
 
 	st := newStore(t)
-	seed(t, st, "taken", "%1", agentstore.StateDone)
+	seed(t, st, "taken", "%1", agentstore.StateIdle)
 	manager := newManager(newFakeTmux(), st, "")
 
 	for _, tt := range tests {
@@ -479,7 +717,7 @@ func TestArchiveAgent(t *testing.T) {
 }
 
 // TestDeleteAgent covers destroying an agent for good, which is what emptying
-// the trash does. It is keyed by id rather than by name because the agents it
+// the archive does. It is keyed by id rather than by name because the agents it
 // runs against are archived, and an archived name is not unique: the index that
 // makes a name identify one agent holds among live rows only.
 func TestDeleteAgent(t *testing.T) {
@@ -499,9 +737,9 @@ func TestDeleteAgent(t *testing.T) {
 			target: func(seeded agentstore.Agent) string { return seeded.ID },
 		},
 		{
-			// The panel's delete archives, so everything reaching this path has been
-			// archived already. A delete that could not see those rows would report
-			// every agent in the trash as missing.
+			// The panel's archive key is what most agents go out through, so everything
+			// reaching this path has been archived already. A delete that could not see
+			// those rows would report every agent in the archive as missing.
 			name:    "an archived agent is destroyed too",
 			archive: true,
 			target:  func(seeded agentstore.Agent) string { return seeded.ID },
@@ -564,7 +802,7 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 		t.Helper()
 		st := newStore(t)
 		tmux := newFakeTmux()
-		dormant := seed(t, st, "dormant", shared, agentstore.StateDone)
+		dormant := seed(t, st, "dormant", shared, agentstore.StateIdle)
 		seedRunning(t, st, tmux, "running", shared, agentstore.StateThinking)
 
 		return newManager(tmux, st, ""), st, tmux, dormant
@@ -607,7 +845,7 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 
 		after := agentByID(t, st, dormant.ID)
 		assert.Empty(t, after.Pane, "the stale claim is dropped, so it cannot collide again")
-		assert.Equal(t, agentstore.StateDone, after.State, "the frame belongs to another agent and says nothing about this one")
+		assert.Equal(t, agentstore.StateIdle, after.State, "the frame belongs to another agent and says nothing about this one")
 		assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "running"), "the agent actually in that pane is read normally")
 	})
 }
@@ -641,7 +879,7 @@ func TestRestore(t *testing.T) {
 
 			require.NoError(t, st.Create(ctx, agentstore.Agent{
 				Name:      "foo",
-				State:     agentstore.StateDone,
+				State:     agentstore.StateIdle,
 				SessionID: "sess-old",
 			}))
 			original, err := st.Get(ctx, "foo")
@@ -649,17 +887,17 @@ func TestRestore(t *testing.T) {
 			require.NoError(t, st.SoftDelete(ctx, "foo"))
 
 			if tt.reuseName {
-				require.NoError(t, st.Create(ctx, agentstore.Agent{Name: "foo", State: agentstore.StateNew}))
+				require.NoError(t, st.Create(ctx, agentstore.Agent{Name: "foo", State: agentstore.StateIdle}))
 			}
 
 			archived := *original
-			deletedAt := time.Now()
-			archived.DeletedAt = &deletedAt
+			archivedAt := time.Now()
+			archived.ArchivedAt = &archivedAt
 			require.NoError(t, manager.restore(ctx, archived))
 
 			restored := agentByID(t, st, original.ID)
-			assert.Nil(t, restored.DeletedAt, "the agent is back in the listing")
-			assert.Equal(t, agentstore.StateNew, restored.State)
+			assert.Nil(t, restored.ArchivedAt, "the agent is back in the listing")
+			assert.Equal(t, agentstore.StateIdle, restored.State)
 			assert.Equal(t, "sess-old", restored.SessionID, "the conversation is preserved")
 			assert.Equal(t, original.ID, tmux.owners[restored.Pane], "the pane it came back in is stamped with its id")
 			assert.True(t, manager.AgentRunning(restored), "so it reads as running again")

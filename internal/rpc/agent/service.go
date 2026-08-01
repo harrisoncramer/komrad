@@ -34,7 +34,7 @@ type agentLauncher interface {
 }
 
 type agentStore interface {
-	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, deleted bool) ([]agentstore.Agent, error)
+	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, archived bool) ([]agentstore.Agent, error)
 	Get(ctx context.Context, name string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
 	SetMark(ctx context.Context, id string, mark *string) (bool, error)
@@ -80,6 +80,11 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 	switch {
 	case errors.Is(err, agents.ErrWorkflowNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, err)
+	// Ahead of the directory case, which this wraps when the directory the action named is
+	// the part that was wrong. Either way the workflow's setup is what needs editing, so
+	// the code a caller sees should not depend on which half of the action refused.
+	case errors.Is(err, agents.ErrSetupFailed):
+		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, agents.ErrBadDirectory), errors.Is(err, harness.ErrNotRegistered):
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	case err != nil:
@@ -90,14 +95,14 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 }
 
 // ListAgents returns one page of stored agents, newest first. The request picks
-// which set is listed, the live agents or the soft-deleted ones.
+// which set is listed, the live agents or the archived ones.
 func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
 	paginator, err := pagination.New[agentstore.Cursor, agent](req.Msg.GetPagination())
 	if err != nil {
 		return nil, err
 	}
 
-	agents, err := s.agents.ListPage(ctx, paginator.Limit(), paginator.Cursor(), req.Msg.GetDeleted())
+	agents, err := s.agents.ListPage(ctx, paginator.Limit(), paginator.Cursor(), req.Msg.GetArchived())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list agents: %w", err))
 	}

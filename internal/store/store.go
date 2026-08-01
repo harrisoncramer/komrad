@@ -148,7 +148,7 @@ func NoRows(err error) bool {
 
 // ErrNameTaken reports that a write collided with a name already held. Every
 // unique name in this schema is scoped to live rows, so this only ever means a
-// record currently listed answers to that name, never one sitting in the trash.
+// record currently listed answers to that name, never one sitting in the archive.
 var ErrNameTaken = errors.New("name already taken")
 
 // uniqueViolation is the SQLSTATE Postgres raises for a broken unique constraint.

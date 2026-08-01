@@ -16,20 +16,18 @@ import (
 // the column out of line.
 
 var (
-	headerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#7E9CD8")).Bold(true)
-	cursorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#7E9CD8")).Bold(true)
+	headerStyle = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
+	cursorStyle = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
 	// dimStyle is shared with the error screens rather than restated here, so the
 	// panel's secondary text and theirs cannot drift to different greys.
 	dimStyle = errui.Dim
 )
 
-// markedColor is what a mark is drawn in when its config names no colour of its own.
-const markedColor = lipgloss.Color(appconfig.DefaultMarkColor)
-
+// Only the two states worth looking at draw an icon of their own. An idle agent takes
+// the neutral bullet, so the column reads as the few rows wanting attention against a
+// quiet background rather than as a glyph per row to be told apart.
 func stateIcon(state string) string {
 	switch state {
-	case agentstore.StateDone:
-		return "✓"
 	case agentstore.StateWaiting:
 		return "!"
 	case agentstore.StateThinking:
@@ -41,14 +39,12 @@ func stateIcon(state string) string {
 
 func stateColor(state string) lipgloss.Color {
 	switch state {
-	case agentstore.StateDone:
-		return lipgloss.Color("#98BB6C")
 	case agentstore.StateWaiting:
-		return lipgloss.Color("#E82424")
+		return colorDanger
 	case agentstore.StateThinking:
-		return lipgloss.Color("#FF9E3B")
+		return colorWarning
 	default:
-		return lipgloss.Color("#7E9CD8")
+		return colorMuted
 	}
 }
 
@@ -104,12 +100,17 @@ func markGlyph(agent agentstore.Agent, marks []appconfig.Mark) string {
 	return " " + lipgloss.NewStyle().Foreground(markColor(*agent.Mark, marks)).Render(*agent.Mark)
 }
 
+// markedColor is what a mark is drawn in when its config names no colour of its own.
+var markedColor = lipgloss.Color(appconfig.ResolveColor(appconfig.DefaultMarkColor))
+
 // markColor is the colour a glyph is drawn in. One the config does not list, or one
-// listed with no colour of its own, falls back rather than going undrawn.
+// listed with no colour of its own, falls back rather than going undrawn. The colour goes
+// through appconfig on the way out, since a config names one of the sixteen by name and
+// lipgloss knows it only by index.
 func markColor(glyph string, marks []appconfig.Mark) lipgloss.Color {
 	for _, mark := range marks {
 		if mark.Glyph == glyph && mark.Color != "" {
-			return lipgloss.Color(mark.Color)
+			return lipgloss.Color(appconfig.ResolveColor(mark.Color))
 		}
 	}
 
@@ -128,12 +129,12 @@ func scheduleIcon(enabled bool) string {
 
 func scheduleColor(enabled bool) lipgloss.Color {
 	if enabled {
-		return lipgloss.Color("#98BB6C")
+		return colorSuccess
 	}
 
-	return lipgloss.Color("#727169")
+	return colorMuted
 }
 
 // matchStyle highlights the matched terms inside a result row's snippet, the
 // panel-side rendering of the markers the store wraps hits in.
-var matchStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF9E3B")).Bold(true)
+var matchStyle = lipgloss.NewStyle().Foreground(colorWarning).Bold(true)

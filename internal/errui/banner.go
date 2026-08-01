@@ -10,11 +10,11 @@ import (
 // Banner is a write the panel asked for and the service refused.
 //
 // It reports without taking the screen, unlike the screens above. Those mean
-// nothing on screen can be trusted. A refused action means one thing did not
+// nothing on screen can be trusted. A refused write means one thing did not
 // happen, and the list it did not happen to is the context the error needs.
 //
 // The caller is expected to hold it until dismissed rather than show it and forget
-// it, because the panel reloads its lists after every action. Without it a refused
+// it, because the panel reloads its lists after every write. Without it a refused
 // delete is indistinguishable from a keypress that never registered: the row is
 // still there either way.
 type Banner struct {
@@ -28,11 +28,17 @@ type Banner struct {
 // bannerIndent lines the detail up under the summary, past the marker.
 const bannerIndent = "  "
 
-// Render draws the banner that sits above the active screen.
-func (b Banner) Render() string {
+// Render draws the banner that sits above the active screen, folded to a pane of
+// the given width. A width of zero means the panel has not been told its size yet.
+//
+// The reason the service gave is the whole point of the banner and is as long as the
+// service made it, so it is folded rather than left to be cut at the pane edge.
+func (b Banner) Render(width int) string {
+	folded := foldWidth(width)
+
 	var out strings.Builder
 
-	out.WriteString(Red.Render("✗ "+b.Summary) + "\n")
+	out.WriteString(styled(Red, fold("✗ "+b.Summary, folded, bannerIndent)) + "\n")
 
 	// A service that fails without saying why still has to render as something, or
 	// the banner is a red line with nothing under it.
@@ -41,7 +47,7 @@ func (b Banner) Render() string {
 		detail = "no reason given"
 	}
 
-	out.WriteString(bannerIndent + detail + "\n")
+	out.WriteString(bannerIndent + fold(detail, folded, bannerIndent) + "\n")
 	out.WriteString(Dim.Render(bannerIndent+"esc to dismiss") + "\n\n")
 
 	return out.String()

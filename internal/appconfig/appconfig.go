@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -17,8 +18,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Keybindings scopes bindings to the screen they act in. Each action is a list of
-// bubbletea key strings such as "enter", "ctrl+d", or "esc". An action left unset
+// Keybindings scopes bindings to the screen they act in. Each binding is a list of
+// bubbletea key strings such as "enter", "ctrl+d", or "esc". A binding left unset
 // falls back to its built-in default.
 type Keybindings struct {
 	// Navigation, shared by every menu so movement is the same everywhere. These
@@ -28,12 +29,14 @@ type Keybindings struct {
 	Agents AgentsKeys `mapstructure:"agents"`
 	// The new-agent, rename, and workflow forms.
 	Form FormKeys `mapstructure:"form"`
-	// The actions that create and change workflows, from the agents list.
+	// The bindings that create and change workflows, from the agents list.
 	Workflows WorkflowsKeys `mapstructure:"workflows"`
 	// The schedules screen, and the key that opens it from the agents list.
 	Schedules SchedulesKeys `mapstructure:"schedules"`
-	// The trash screen, and the key that opens it from the agents list.
-	Trash TrashKeys `mapstructure:"trash"`
+	// The archive screen, and the key that opens it from the agents list.
+	Archive ArchiveKeys `mapstructure:"archive"`
+	// The actions list, and the key that opens it on the hovered agent.
+	Actions ActionsKeys `mapstructure:"actions"`
 }
 
 // NavKeys are the shared navigation bindings every menu uses, so movement is the
@@ -66,12 +69,17 @@ type AgentsKeys struct {
 	Back []string `mapstructure:"back"`
 	// Attach to the hovered agent.
 	Open []string `mapstructure:"open"`
+	// Open the hovered agent's directory in whatever EDITOR names. The window is created
+	// on your own tmux server rather than the panel's, and the panel closes behind it, so
+	// you are left in the editor.
+	Editor []string `mapstructure:"editor"`
 	// Start a new agent.
 	New []string `mapstructure:"new"`
 	// Rename the hovered agent.
 	Rename []string `mapstructure:"rename"`
-	// Delete the hovered agent.
-	Delete []string `mapstructure:"delete"`
+	// Archive the hovered agent, which stops it and moves it to the archive screen
+	// rather than destroying it.
+	Archive []string `mapstructure:"archive"`
 	// Filter the list by name.
 	Search []string `mapstructure:"search"`
 	// Swap the hovered agent's stored record into the stage in place of the agent.
@@ -88,6 +96,10 @@ type AgentsKeys struct {
 	// away. While they are away each workflow header carries the count of what it is
 	// not showing.
 	ShowHidden []string `mapstructure:"show_hidden"`
+	// Show the background service's log in the stage, in place of the row under the cursor,
+	// and press it again to put the row back. The service is spawned detached and writes to
+	// a file, so nothing else shows what it is doing.
+	Logs []string `mapstructure:"logs"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow. New is global. Rename,
@@ -123,21 +135,46 @@ type SchedulesKeys struct {
 	Delete []string `mapstructure:"delete"`
 }
 
-// TrashKeys are the bindings for the trash screen, which lists the agents
-// deleted from the panel. Open enters it from the agents list, and the rest act
+// ArchiveKeys are the bindings for the archive screen, which lists the agents
+// archived from the panel. Open enters it from the agents list, and the rest act
 // on the hovered agent once inside.
-type TrashKeys struct {
-	// Open the trash from the agents list.
+type ArchiveKeys struct {
+	// Open the archive from the agents list.
 	Open []string `mapstructure:"open"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit"`
-	// Leave the trash for the agents list.
+	// Leave the archive for the agents list.
 	Back []string `mapstructure:"back"`
 	// Put the agent under the cursor back in the panel.
 	Restore []string `mapstructure:"restore"`
 	// Destroy the agent under the cursor for good, with its transcript. This is
-	// the one action in the panel nothing undoes, so it asks first.
+	// the one thing in the panel nothing undoes, so it asks first.
 	Delete []string `mapstructure:"delete"`
+}
+
+// ActionsKeys are the bindings for the actions list, the scripts you have written for
+// the panel to run. Open enters it on the hovered agent, and the rest act on the script
+// under the cursor once inside.
+type ActionsKeys struct {
+	// Open the actions list on the hovered agent. It acts on a row rather than on the
+	// list, so this does nothing on a workflow header.
+	Open []string `mapstructure:"open"`
+	// Quit the panel.
+	Quit []string `mapstructure:"quit"`
+	// Leave the actions list for the agents list.
+	Back []string `mapstructure:"back"`
+	// Run the script under the cursor on the agent the list was opened on.
+	Run []string `mapstructure:"run"`
+}
+
+// Actions is where the panel finds the scripts its action key runs.
+type Actions struct {
+	// The directory holding them, one file per action, named by the file. Every file
+	// directly inside is offered and the directory is read on each press, so writing an
+	// action is dropping an executable in rather than an edit here. An action runs on the
+	// agent it was chosen on, in that agent's directory, with the agent as JSON in
+	// WEAVE_AGENT. Left empty this is ~/.config/weave/actions, beside this file.
+	Dir string `mapstructure:"dir"`
 }
 
 // Layout is how the panel divides the popup between its own list and the stage
@@ -181,6 +218,30 @@ type Harnesses struct {
 	Codex  Codex   `mapstructure:"codex"`
 }
 
+// Log is how much the background service writes about itself. Where it writes is not
+// configurable. The process that spawns the service points its output at the log and the
+// panel's log key pages the same file, and a path the two could disagree about is a log
+// nobody can find.
+type Log struct {
+	// How much is written, one of debug, info, warn, or error. Served requests are logged
+	// at debug and failures at error, so the default keeps the file to what went wrong.
+	// Debug is worth turning on while chasing something. It is loud, because the panel
+	// calls four times a second while it is open.
+	Level string `mapstructure:"level"`
+	// What the log key opens the log in. It runs in the stage pane through a shell, so a
+	// pipeline is as good as a single command. Two variables are exported into it:
+	// WEAVE_BIN is this binary, whose "logs" subcommand prints the file a line per record
+	// rather than as the JSON it is stored as, and WEAVE_LOG is the file itself, for a
+	// reader that would rather have it raw.
+	//
+	// Nothing in the command is rewritten, so a tool's own placeholders are its own:
+	// "$WEAVE_BIN logs --color=always | fzf --ansi --tac" gives fzf the whole of its "{}".
+	//
+	// Whatever it runs has to hold the pane, the way a pager does. A command that prints
+	// and exits takes the pane down with it, and the stage comes back empty.
+	Viewer string `mapstructure:"viewer"`
+}
+
 // Config is the user's customization.
 type Config struct {
 	// Which agent CLI a new agent runs when neither the agent nor its workflow names
@@ -195,10 +256,17 @@ type Config struct {
 	// The marks the mark key cycles through, in order. A mark is a glyph and means
 	// whatever you decide, so the glyph is the label. Pressing mark advances the
 	// hovered agent to the next one here, and past the last one back to unmarked,
-	// which leaves a one-mark list behaving as a toggle.
+	// which leaves a one-mark list behaving as a toggle. A colour is either one of the
+	// sixteen your terminal's own scheme maps, named as "red" or "brightred", or a hex
+	// value such as "#DCA561". The panel draws itself from the sixteen, so a name is
+	// what keeps a mark in the same scheme as everything around it.
 	Marks []Mark `mapstructure:"marks"`
-	// Panel keybindings, scoped to the screen each action acts in.
+	// Panel keybindings, scoped to the screen each binding acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`
+	// Where the panel finds the scripts its action key runs.
+	Actions Actions `mapstructure:"actions"`
+	// The log the background service writes, which the panel's log key pages.
+	Log Log `mapstructure:"log"`
 }
 
 // Defaults is the configuration a user who has written nothing runs on. It is also
@@ -210,8 +278,21 @@ func Defaults() *Config {
 		Layout:         DefaultLayout(),
 		Marks:          DefaultMarks(),
 		Keybindings:    DefaultKeybindings(),
+		Log:            Log{Level: DefaultLogLevel, Viewer: DefaultLogViewer},
 	}
 }
+
+// DefaultLogLevel is how much the service writes when the config says nothing. Failures
+// are written at error and everything else at debug, so the file stays empty while the
+// service works.
+const DefaultLogLevel = "info"
+
+// DefaultLogViewer is what the log key opens the log in when the config names nothing. It
+// reads through this binary's own logs command, so what lands in the pane is a line per
+// record rather than the JSON the file holds, and it pages that with the flags a preview
+// uses plus -S, which leaves a long line running off the edge rather than wrapping it into
+// four rows of one record.
+const DefaultLogViewer = `"$WEAVE_BIN" logs --color=always | less -RSX +G`
 
 // DefaultHarness is the CLI a new agent runs when the config names none. It is
 // spelled here rather than taken from the registry because the registry is built
@@ -236,14 +317,52 @@ func DefaultLayout() Layout {
 // further.
 type Mark struct {
 	Glyph string `mapstructure:"glyph" json:"glyph"`
-	// A hex colour such as "#DCA561", either three or six digits. Left empty the
-	// mark takes DefaultMarkColor.
+	// The colour the glyph is drawn in, either one of the sixteen a terminal's own
+	// scheme maps, named as "red" or "brightred", or a hex value such as "#DCA561" with
+	// three or six digits. A name follows whatever your colour scheme holds in that
+	// slot, the way the rest of the panel does, while hex is the same in every terminal.
+	// Left empty the mark takes DefaultMarkColor.
 	Color string `mapstructure:"color" json:"color"`
 }
 
-// DefaultMarkColor is the yellow a mark takes when its own colour is unset. The panel
-// uses it for nothing else, so a mark left on it cannot be read as a lifecycle state.
-const DefaultMarkColor = "#DCA561"
+// DefaultMarkColor is the yellow a mark takes when its own colour is unset. It is the
+// plain yellow rather than the bright one the panel draws a thinking agent in, so a mark
+// left on the default cannot be read as a lifecycle state.
+const DefaultMarkColor = "yellow"
+
+// ansiColors are the sixteen colours a terminal's scheme maps, keyed by the name a config
+// names one by and valued by the index lipgloss draws it as. They are the palette the
+// panel itself is drawn from, so a mark named this way sits in the same scheme as the
+// rows around it.
+var ansiColors = map[string]string{
+	"black":         "0",
+	"red":           "1",
+	"green":         "2",
+	"yellow":        "3",
+	"blue":          "4",
+	"magenta":       "5",
+	"cyan":          "6",
+	"white":         "7",
+	"brightblack":   "8",
+	"brightred":     "9",
+	"brightgreen":   "10",
+	"brightyellow":  "11",
+	"brightblue":    "12",
+	"brightmagenta": "13",
+	"brightcyan":    "14",
+	"brightwhite":   "15",
+}
+
+// ResolveColor is a configured colour in the form lipgloss reads it. A name becomes its
+// index, which is what lipgloss maps onto the terminal's own scheme, and a hex value
+// passes through as it is.
+func ResolveColor(color string) string {
+	if index, ok := ansiColors[color]; ok {
+		return index
+	}
+
+	return color
+}
 
 // DefaultMarks are the marks stepped through when the config names none. They share
 // one colour, leaving the glyph to carry the meaning until someone colours them
@@ -267,14 +386,16 @@ func DefaultKeybindings() Keybindings {
 			Quit:       []string{"ctrl+c", "q"},
 			Back:       []string{"esc", "left"},
 			Open:       []string{"enter", "l", "right"},
+			Editor:     []string{"e"},
 			New:        []string{"n"},
 			Rename:     []string{"r"},
-			Delete:     []string{"d"},
+			Archive:    []string{"z"},
 			Search:     []string{"/"},
 			Info:       []string{"i"},
 			Mark:       []string{"m"},
 			Hide:       []string{"h"},
 			ShowHidden: []string{"H"},
+			Logs:       []string{"L"},
 		},
 		Workflows: WorkflowsKeys{
 			New:    []string{"W"},
@@ -291,12 +412,18 @@ func DefaultKeybindings() Keybindings {
 			Toggle: []string{" "},
 			Delete: []string{"d"},
 		},
-		Trash: TrashKeys{
-			Open:    []string{"t"},
+		Archive: ArchiveKeys{
+			Open:    []string{"Z"},
 			Quit:    []string{"ctrl+c", "q"},
 			Back:    []string{"esc", "left", "h"},
 			Restore: []string{"r"},
 			Delete:  []string{"d"},
+		},
+		Actions: ActionsKeys{
+			Open: []string{"a"},
+			Quit: []string{"ctrl+c", "q"},
+			Back: []string{"esc", "left", "h"},
+			Run:  []string{"enter", "l", "right"},
 		},
 		Form: FormKeys{
 			Quit:   []string{"ctrl+c"},
@@ -315,6 +442,17 @@ const maxMarkLen = 16
 // mark's colour rather than say so.
 var hexColor = regexp.MustCompile(`^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
 
+// validColor reports whether the panel could draw a colour. The names are a closed set
+// rather than anything the terminal might accept, so a colour spelled wrongly is refused
+// here instead of drawing as no colour at all.
+func validColor(color string) bool {
+	if _, ok := ansiColors[color]; ok {
+		return true
+	}
+
+	return hexColor.MatchString(color)
+}
+
 // validateMarks rejects marks the panel could not draw. A glyph goes straight into a
 // rendered frame, so whitespace or a control character would break the row it sits on,
 // and a glyph listed twice would never be steppable past its first appearance.
@@ -332,8 +470,8 @@ func validateMarks(marks []Mark) error {
 			return fmt.Errorf("mark %q carries whitespace or control characters", mark.Glyph)
 		case seen[mark.Glyph]:
 			return fmt.Errorf("mark %q is listed twice", mark.Glyph)
-		case mark.Color != "" && !hexColor.MatchString(mark.Color):
-			return fmt.Errorf("mark %q has colour %q, which is not a hex colour such as \"#DCA561\"", mark.Glyph, mark.Color)
+		case mark.Color != "" && !validColor(mark.Color):
+			return fmt.Errorf("mark %q has colour %q, which is neither one of the sixteen such as \"yellow\" nor a hex colour such as \"#DCA561\"", mark.Glyph, mark.Color)
 		}
 
 		seen[mark.Glyph] = true
@@ -359,8 +497,26 @@ func (c Config) validate() error {
 	if err := validateMarks(c.Marks); err != nil {
 		return err
 	}
+	if err := validateLog(c.Log); err != nil {
+		return err
+	}
 
 	return validateLayout(c.Layout)
+}
+
+// logLevels are the levels the service understands, which is what slog offers. A level it
+// does not know decodes as debug, so an unchecked typo turns the log up instead of saying
+// the word was wrong.
+var logLevels = []string{"debug", "info", "warn", "error"}
+
+// validateLog rejects a level the service could not act on.
+func validateLog(log Log) error {
+	level := strings.TrimSpace(log.Level)
+	if level == "" || slices.Contains(logLevels, strings.ToLower(level)) {
+		return nil
+	}
+
+	return fmt.Errorf("log.level: %q is not one of %s", log.Level, strings.Join(logLevels, ", "))
 }
 
 // withDefaults fills anything the file left unset from the built-ins. An omitted value
@@ -378,6 +534,12 @@ func (c Config) withDefaults() Config {
 	}
 	if c.Layout.Split == 0 {
 		c.Layout = DefaultLayout()
+	}
+	if strings.TrimSpace(c.Log.Level) == "" {
+		c.Log.Level = DefaultLogLevel
+	}
+	if strings.TrimSpace(c.Log.Viewer) == "" {
+		c.Log.Viewer = DefaultLogViewer
 	}
 
 	return c
@@ -411,6 +573,47 @@ func fillBindings(configured, def reflect.Value) {
 	}
 }
 
+// configHome is the directory the panel keeps its own files in, ~/.config/weave.
+func configHome() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve home directory: %w", err)
+	}
+
+	return filepath.Join(home, ".config", "weave"), nil
+}
+
+// ActionsDir is where the actions live, the configured directory or ~/.config/weave/actions
+// when the config names none. The default is resolved here rather than filled into Config,
+// since every default there is spelled out in the generated config.toml, and a file naming one
+// machine's home directory as everybody's default would be wrong on every other machine.
+func (c Config) ActionsDir() (string, error) {
+	if dir := strings.TrimSpace(c.Actions.Dir); dir != "" {
+		return dir, nil
+	}
+
+	home, err := configHome()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(home, "actions"), nil
+}
+
+// LogPath is the file the background service writes to, ~/.config/weave/weave.log. Both
+// the process that spawns the service and the panel that pages the log resolve it here,
+// since a service writing where the panel does not look may as well not be writing. An
+// unresolvable home falls back to the working directory, so even a machine that broken
+// still keeps the service's account of itself.
+func LogPath() string {
+	home, err := configHome()
+	if err != nil {
+		return "weave.log"
+	}
+
+	return filepath.Join(home, "weave.log")
+}
+
 // Load reads the config from path when given, otherwise from the default
 // location ~/.config/weave/config.toml. A missing file is not an error
 // and yields the default keybindings, but a symlink standing where the file
@@ -428,12 +631,12 @@ func Load(path string) (*Config, error) {
 	// actionable without knowing which file to go and edit.
 	file := path
 	if file == "" {
-		home, err := os.UserHomeDir()
+		dir, err := configHome()
 		if err != nil {
-			return nil, fmt.Errorf("failed to resolve home directory: %w", err)
+			return nil, err
 		}
 
-		file = filepath.Join(home, ".config", "weave", "config.toml")
+		file = filepath.Join(dir, "config.toml")
 	}
 
 	viperCfg.SetConfigFile(file)

@@ -27,12 +27,14 @@ func (w workflow) Cursor() (workflowstore.Cursor, error) {
 func renderWorkflow(w workflowstore.Workflow) workflow {
 	return workflow{
 		Workflow: &workflowv1.Workflow{
-			Id:      w.ID,
-			Name:    w.Name,
-			Context: w.Context,
-			Harness: w.Harness,
-			Cwd:     w.Cwd,
-			Flags:   w.Flags,
+			Id:            w.ID,
+			Name:          w.Name,
+			Context:       w.Context,
+			Harness:       w.Harness,
+			Cwd:           w.Cwd,
+			Flags:         w.Flags,
+			SetupAction:   w.SetupAction,
+			CleanupAction: w.CleanupAction,
 		},
 		cursor: workflowstore.Cursor{ID: w.ID},
 	}

@@ -106,7 +106,7 @@ func TestRestoreRefusesUnknownHarness(t *testing.T) {
 
 	require.NoError(t, st.Create(t.Context(), agentstore.Agent{
 		Name:      "dormant",
-		State:     agentstore.StateDone,
+		State:     agentstore.StateIdle,
 		Harness:   "gemini",
 		SessionID: "sess-1",
 	}))

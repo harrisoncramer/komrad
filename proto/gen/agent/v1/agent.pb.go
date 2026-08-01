@@ -47,11 +47,11 @@ type Agent struct {
 	WorkflowId string `protobuf:"bytes,9,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
 	// When the agent was first created, as an RFC 3339 timestamp, for display.
 	CreatedAt string `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// When the agent was deleted, as an RFC 3339 timestamp, unset while it is live.
-	// It is both how a caller tells a deleted agent from a live one and the order the
-	// trash reads in, most recently deleted first, which the id does not give since it
-	// orders by when the agent was created.
-	DeletedAt *string `protobuf:"bytes,19,opt,name=deleted_at,json=deletedAt,proto3,oneof" json:"deleted_at,omitempty"`
+	// When the agent was archived, as an RFC 3339 timestamp, unset while it is live.
+	// It is both how a caller tells an archived agent from a live one and the order the
+	// archive reads in, most recently archived first, which the id does not give since
+	// it orders by when the agent was created.
+	ArchivedAt *string `protobuf:"bytes,19,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
 	// The schedule that launched this agent. Unset for one a person started, so a
 	// caller can tell scheduled work from work someone asked for.
 	ScheduleId *string `protobuf:"bytes,12,opt,name=schedule_id,json=scheduleId,proto3,oneof" json:"schedule_id,omitempty"`
@@ -189,9 +189,9 @@ func (x *Agent) GetCreatedAt() string {
 	return ""
 }
 
-func (x *Agent) GetDeletedAt() string {
-	if x != nil && x.DeletedAt != nil {
-		return *x.DeletedAt
+func (x *Agent) GetArchivedAt() string {
+	if x != nil && x.ArchivedAt != nil {
+		return *x.ArchivedAt
 	}
 	return ""
 }
@@ -297,11 +297,11 @@ func (x *AgentMetadata) GetValue() string {
 type ListAgentsRequest struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`
 	Pagination *v1.Pagination         `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
-	// Lists the soft-deleted agents instead of the live ones, which is the trash
-	// the panel shows on its own screen. The two sets never mix in one listing: a
-	// deleted agent is not something to act on alongside live work, and its name
+	// Lists the archived agents instead of the live ones, which is the archive
+	// the panel shows on its own screen. The two sets never mix in one listing: an
+	// archived agent is not something to act on alongside live work, and its name
 	// may be one a live agent has since taken.
-	Deleted       bool `protobuf:"varint,2,opt,name=deleted,proto3" json:"deleted,omitempty"`
+	Archived      bool `protobuf:"varint,2,opt,name=archived,proto3" json:"archived,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -343,9 +343,9 @@ func (x *ListAgentsRequest) GetPagination() *v1.Pagination {
 	return nil
 }
 
-func (x *ListAgentsRequest) GetDeleted() bool {
+func (x *ListAgentsRequest) GetArchived() bool {
 	if x != nil {
-		return x.Deleted
+		return x.Archived
 	}
 	return false
 }
@@ -843,7 +843,7 @@ func (x *SetMetadataRequest) GetValue() string {
 }
 
 // ArchiveAgentRequest hides an agent without destroying it. This is what the
-// panel's delete key does. The agent is stopped and drops out of the listing,
+// panel's archive key does. The agent is stopped and drops out of the listing,
 // while its transcript stays searchable and it can be restored.
 type ArchiveAgentRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -982,8 +982,8 @@ func (x *RestoreAgentResponse) GetAgent() *Agent {
 
 // DeleteAgentRequest removes an agent for good, keyed by id rather than name
 // for the same reason restoring is: the name index only holds among live rows,
-// so a deleted agent may share its name with a live one and with other deleted
-// ones. A name would not say which of them to destroy.
+// so an archived agent may share its name with a live one and with other
+// archived ones. A name would not say which of them to destroy.
 type DeleteAgentRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -1136,15 +1136,15 @@ func (x *SearchTranscriptsRequest) GetPagination() *v1.Pagination {
 }
 
 // SearchHit is one turn of a transcript matched by a search. The agent it belongs
-// to, its display name and whether it is soft-deleted, which turn matched and who
+// to, its display name and whether it is archived, which turn matched and who
 // spoke it, a snippet of the matching text with the matched terms wrapped in
 // markers, and the relevance the results are ordered by.
 type SearchHit struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	AgentId string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	Snippet string                 `protobuf:"bytes,2,opt,name=snippet,proto3" json:"snippet,omitempty"`
-	Name    string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
-	Deleted bool                   `protobuf:"varint,5,opt,name=deleted,proto3" json:"deleted,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	AgentId  string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	Snippet  string                 `protobuf:"bytes,2,opt,name=snippet,proto3" json:"snippet,omitempty"`
+	Name     string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	Archived bool                   `protobuf:"varint,5,opt,name=archived,proto3" json:"archived,omitempty"`
 	// Cover density of the matched turn, higher being a better match. It compares
 	// only against the other hits for the same query and carries no meaning of its
 	// own.
@@ -1211,9 +1211,9 @@ func (x *SearchHit) GetName() string {
 	return ""
 }
 
-func (x *SearchHit) GetDeleted() bool {
+func (x *SearchHit) GetArchived() bool {
 	if x != nil {
-		return x.Deleted
+		return x.Archived
 	}
 	return false
 }
@@ -1394,7 +1394,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xc9\x04\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xcc\x04\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -1410,28 +1410,28 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"workflowId\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\n" +
-	" \x01(\tR\tcreatedAt\x12\"\n" +
-	"\n" +
-	"deleted_at\x18\x13 \x01(\tH\x00R\tdeletedAt\x88\x01\x01\x12$\n" +
+	" \x01(\tR\tcreatedAt\x12$\n" +
+	"\varchived_at\x18\x13 \x01(\tH\x00R\n" +
+	"archivedAt\x88\x01\x01\x12$\n" +
 	"\vschedule_id\x18\f \x01(\tH\x01R\n" +
 	"scheduleId\x88\x01\x01\x12\x14\n" +
 	"\x05alive\x18\v \x01(\bR\x05alive\x12\x17\n" +
 	"\x04mark\x18\x0e \x01(\tH\x02R\x04mark\x88\x01\x01\x12\x16\n" +
 	"\x06hidden\x18\x0f \x01(\bR\x06hidden\x123\n" +
 	"\bmetadata\x18\x10 \x03(\v2\x17.agent.v1.AgentMetadataR\bmetadata\x12,\n" +
-	"\x0fidempotency_key\x18\x11 \x01(\tH\x03R\x0eidempotencyKey\x88\x01\x01B\r\n" +
-	"\v_deleted_atB\x0e\n" +
+	"\x0fidempotency_key\x18\x11 \x01(\tH\x03R\x0eidempotencyKey\x88\x01\x01B\x0e\n" +
+	"\f_archived_atB\x0e\n" +
 	"\f_schedule_idB\a\n" +
 	"\x05_markB\x12\n" +
 	"\x10_idempotency_keyJ\x04\b\r\x10\x0e\"7\n" +
 	"\rAgentMetadata\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value\"|\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"~\n" +
 	"\x11ListAgentsRequest\x12>\n" +
 	"\n" +
 	"pagination\x18\x01 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
-	"pagination\x88\x01\x01\x12\x18\n" +
-	"\adeleted\x18\x02 \x01(\bR\adeletedB\r\n" +
+	"pagination\x88\x01\x01\x12\x1a\n" +
+	"\barchived\x18\x02 \x01(\bR\barchivedB\r\n" +
 	"\v_pagination\"~\n" +
 	"\x12ListAgentsResponse\x12'\n" +
 	"\x06agents\x18\x01 \x03(\v2\x0f.agent.v1.AgentR\x06agents\x12+\n" +
@@ -1491,12 +1491,12 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
 	"pagination\x18\x02 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
 	"pagination\x88\x01\x01B\r\n" +
-	"\v_pagination\"\xd7\x01\n" +
+	"\v_pagination\"\xd9\x01\n" +
 	"\tSearchHit\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x18\n" +
 	"\asnippet\x18\x02 \x01(\tR\asnippet\x12\x12\n" +
-	"\x04name\x18\x04 \x01(\tR\x04name\x12\x18\n" +
-	"\adeleted\x18\x05 \x01(\bR\adeleted\x12\x14\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\x12\x1a\n" +
+	"\barchived\x18\x05 \x01(\bR\barchived\x12\x14\n" +
 	"\x05score\x18\x06 \x01(\x01R\x05score\x12\x10\n" +
 	"\x03seq\x18\a \x01(\x05R\x03seq\x12\x12\n" +
 	"\x04role\x18\b \x01(\tR\x04role\x12%\n" +
@@ -1508,11 +1508,11 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14GetTranscriptRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"1\n" +
 	"\x15GetTranscriptResponse\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontent2\x9c+\n" +
-	"\fAgentService\x12\xe7\x03\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent2\x96+\n" +
+	"\fAgentService\x12\xe4\x03\n" +
 	"\n" +
-	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x9d\x03\x9a\xb5\x18\x95\x03\n" +
-	"\vlist_agents\x12\x85\x03List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow. Soft-deleted agents are excluded unless deleted is set, which lists those and only those. Returns one page, most recently updated first; pass the response's nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs.\x90\x02\x01\x12\x8d\x02\n" +
+	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x9a\x03\x9a\xb5\x18\x92\x03\n" +
+	"\vlist_agents\x12\x82\x03List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow. Archived agents are excluded unless archived is set, which lists those and only those. Returns one page, most recently updated first; pass the response's nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs.\x90\x02\x01\x12\x8d\x02\n" +
 	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"\xc9\x01\x9a\xb5\x18\xc1\x01\n" +
 	"\tget_agent\x12\xb3\x01Fetch one agent by its exact name, including whatever metadata it has recorded about its own work. Names are unique among live agents. Returns not_found if no agent has that name.\x90\x02\x01\x12\xff\x02\n" +
 	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\xb2\x02\x9a\xb5\x18\xad\x02\n" +
@@ -1526,13 +1526,13 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\fArchiveAgent\x12\x1d.agent.v1.ArchiveAgentRequest\x1a\x16.google.protobuf.Empty\"\x8c\x02\x9a\xb5\x18\x84\x02\n" +
 	"\rarchive_agent\x12\xf0\x01Stop an agent and hide it from the panel, keeping its record and transcript. Prefer this to delete_agent: it is reversible with restore_agent, and search_transcripts still finds the conversation. Returns not_found if no agent has that name. \x00\x90\x02\x02\x12\x9b\x03\n" +
 	"\fRestoreAgent\x12\x1d.agent.v1.RestoreAgentRequest\x1a\x1e.agent.v1.RestoreAgentResponse\"\xcb\x02\x9a\xb5\x18\xc3\x02\n" +
-	"\rrestore_agent\x12\xaf\x02Bring an agent back and relaunch its CLI on the same conversation, keyed by id. Works on archived agents and on ones whose pane has since died. An agent that is already running is returned as it stands rather than started twice. The agent may come back under a new name if another has taken its old one. \x00\x90\x02\x02\x12\xf5\x02\n" +
-	"\vDeleteAgent\x12\x1c.agent.v1.DeleteAgentRequest\x1a\x16.google.protobuf.Empty\"\xaf\x02\x9a\xb5\x18\xa7\x02\n" +
-	"\fdelete_agent\x12\x94\x02Permanently remove an agent's record, keyed by id. This is a hard delete, not the panel's soft delete: the config and the transcript go with it and search will never find the conversation again. Prefer archive_agent, and prefer leaving agents alone unless asked to remove one. \x01\x90\x02\x02\x12\xd7\x02\n" +
+	"\rrestore_agent\x12\xaf\x02Bring an agent back and relaunch its CLI on the same conversation, keyed by id. Works on archived agents and on ones whose pane has since died. An agent that is already running is returned as it stands rather than started twice. The agent may come back under a new name if another has taken its old one. \x00\x90\x02\x02\x12\xf1\x02\n" +
+	"\vDeleteAgent\x12\x1c.agent.v1.DeleteAgentRequest\x1a\x16.google.protobuf.Empty\"\xab\x02\x9a\xb5\x18\xa3\x02\n" +
+	"\fdelete_agent\x12\x90\x02Permanently remove an agent's record, keyed by id. This is a hard delete, not the panel's archive: the config and the transcript go with it and search will never find the conversation again. Prefer archive_agent, and prefer leaving agents alone unless asked to remove one. \x01\x90\x02\x02\x12\xd7\x02\n" +
 	"\vUpdateAgent\x12\x1c.agent.v1.UpdateAgentRequest\x1a\x16.google.protobuf.Empty\"\x91\x02\x9a\xb5\x18\x89\x02\n" +
-	"\frename_agent\x12\xf6\x01Rename an agent, keyed by its id rather than its current name. The name is a display label the store keys on; the running tmux window keeps whatever it was called at launch. It may not contain spaces, colons, dots, slashes, or control characters. \x00\x90\x02\x02\x12\x8f\x06\n" +
-	"\x11SearchTranscripts\x12\".agent.v1.SearchTranscriptsRequest\x1a#.agent.v1.SearchTranscriptsResponse\"\xb0\x05\x9a\xb5\x18\xa8\x05\n" +
-	"\x12search_transcripts\x12\x91\x05Full-text search across every agent's conversation, including deleted ones, returning one hit per matching turn with the matched text marked. Matches whole words, stemmed, so a query finds turns that phrased it differently; quote a phrase to require it verbatim, prefix a word with - to exclude it. Partial words also match as substrings, and rank below whole-word hits. One agent can appear several times, once per turn that matched. Returns one page, best match first; pass the response's nextPageToken back as pagination.cursor alongside the same query for the next one. Use this to answer what was discussed; use query for the SQL view of the same data.\x90\x02\x01\x12\x87\x02\n" +
+	"\frename_agent\x12\xf6\x01Rename an agent, keyed by its id rather than its current name. The name is a display label the store keys on; the running tmux window keeps whatever it was called at launch. It may not contain spaces, colons, dots, slashes, or control characters. \x00\x90\x02\x02\x12\x90\x06\n" +
+	"\x11SearchTranscripts\x12\".agent.v1.SearchTranscriptsRequest\x1a#.agent.v1.SearchTranscriptsResponse\"\xb1\x05\x9a\xb5\x18\xa9\x05\n" +
+	"\x12search_transcripts\x12\x92\x05Full-text search across every agent's conversation, including archived ones, returning one hit per matching turn with the matched text marked. Matches whole words, stemmed, so a query finds turns that phrased it differently; quote a phrase to require it verbatim, prefix a word with - to exclude it. Partial words also match as substrings, and rank below whole-word hits. One agent can appear several times, once per turn that matched. Returns one page, best match first; pass the response's nextPageToken back as pagination.cursor alongside the same query for the next one. Use this to answer what was discussed; use query for the SQL view of the same data.\x90\x02\x01\x12\x87\x02\n" +
 	"\rGetTranscript\x12\x1e.agent.v1.GetTranscriptRequest\x1a\x1f.agent.v1.GetTranscriptResponse\"\xb4\x01\x9a\xb5\x18\xac\x01\n" +
 	"\x0eget_transcript\x12\x99\x01Fetch one agent's full transcript by agent id, not by name. Transcripts can be very large; prefer search_transcripts when looking for something specific.\x90\x02\x01B\"Z weave/proto/gen/agent/v1;agentv1b\x06proto3"
 

@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"weave/internal/appconfig"
 )
 
 // TestLaunchTypesTheHarnessCommand covers the launcher's whole job: the command the
@@ -111,8 +113,13 @@ func TestAppendedSystemPrompt(t *testing.T) {
 				// and a tool it does not know to reach for.
 				"WEAVE_AGENT_ID",
 				"set_agent_metadata",
+				// An agent told to read the service's log is told the file this install
+				// writes, resolved the way the service that writes it resolves it.
+				appconfig.LogPath(),
 			},
-			wantAbsent: []string{"shared notes"},
+			// A placeholder that reached an agent would send it looking for a path or an
+			// endpoint that does not exist, which is worse than saying nothing.
+			wantAbsent: []string{"shared notes", mcpURLPlaceholder, logPathPlaceholder},
 		},
 		{
 			name:        "an agent inside one gets the workflow's context after it",

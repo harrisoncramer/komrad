@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"weave/config"
+	"weave/internal/actions"
 	"weave/internal/agents"
 	"weave/internal/appconfig"
 	"weave/internal/harness"
@@ -26,6 +27,10 @@ type app struct {
 	agentService    *agents.AgentService
 	workflowService *agents.WorkflowService
 	scheduleService *agents.ScheduleService
+	// actionService is shared with the agent service, which fires a workflow's actions
+	// around its agents' lives, so a person, a model, and a launch all hand a script the
+	// same payload.
+	actionService *agents.ActionService
 
 	// The composition root. The pool is opened once and each domain gets its own
 	// store over it, so what a service can reach is decided here. The pool is
@@ -49,6 +54,12 @@ type app struct {
 	defaultFlags   map[string]string
 	// marks are the marks the panel's mark key steps an agent through.
 	marks []appconfig.Mark
+	// logViewer is what the panel's log key opens the log in, the user's own command.
+	logViewer string
+	// logLevel is how much the served process writes to its log. It is read here with the
+	// rest of the config, so serve is handed what this process parsed like every other
+	// setting rather than reading the file again.
+	logLevel string
 	// layout is how the panel divides the popup between its list and the stage.
 	layout appconfig.Layout
 	// configErr is set when the user's config file would not parse. The panel shows
@@ -96,6 +107,18 @@ func (a *app) openStore(ctx context.Context) error {
 		Schedules: a.schedules,
 		Workflows: a.workflows,
 	})
+	// Built here rather than where it is served, since the agent service needs the same
+	// one. It reads the config per call, so an actions directory changed while this
+	// process runs takes effect without a restart.
+	a.actionService = agents.NewActionService(agents.ActionParams{
+		Agents:    a.agents,
+		Workflows: a.workflows,
+		Tmux:      a.tmux,
+		Runner:    actions.Runner{},
+		Load:      func() (*appconfig.Config, error) { return appconfig.Load(a.configPath) },
+		Addr:      a.env.Addr,
+		Socket:    a.env.TmuxSocket,
+	})
 	a.agentService = agents.NewAgentService(agents.AgentParams{
 		Tmux:           a.tmux,
 		Agents:         a.agents,
@@ -103,6 +126,7 @@ func (a *app) openStore(ctx context.Context) error {
 		Tx:             pool,
 		Launcher:       agents.NewLauncher(a.tmux, a.env.Addr),
 		Harnesses:      a.harnesses,
+		Lifecycle:      a.actionService,
 		DefaultHarness: a.defaultHarness,
 		DefaultFlags:   a.defaultFlags,
 	})

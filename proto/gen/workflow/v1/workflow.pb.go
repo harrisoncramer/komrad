@@ -27,8 +27,9 @@ const (
 )
 
 // Workflow is a named bucket of related agents. It runs nothing itself. It holds
-// a label, shared context injected into the agents spawned inside it, and the
-// harness, working directory, and flags those agents start from.
+// a label, shared context injected into the agents spawned inside it, the harness,
+// working directory, and flags those agents start from, and the actions run at the
+// start and end of each of their lives.
 type Workflow struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -41,7 +42,14 @@ type Workflow struct {
 	Flags   string `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
 	// Which CLI agents in this workflow run, blank when they take the user's
 	// configured default.
-	Harness       string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
+	Harness string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
+	// The action run before an agent in this workflow starts, blank for none. It blocks and
+	// a failure abandons the launch. A file in the actions directory names it, so nothing
+	// here promises it still exists.
+	SetupAction string `protobuf:"bytes,7,opt,name=setup_action,json=setupAction,proto3" json:"setup_action,omitempty"`
+	// The action run once an agent in this workflow is deleted, blank for none. Nothing
+	// waits on it.
+	CleanupAction string `protobuf:"bytes,8,opt,name=cleanup_action,json=cleanupAction,proto3" json:"cleanup_action,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -114,6 +122,20 @@ func (x *Workflow) GetFlags() string {
 func (x *Workflow) GetHarness() string {
 	if x != nil {
 		return x.Harness
+	}
+	return ""
+}
+
+func (x *Workflow) GetSetupAction() string {
+	if x != nil {
+		return x.SetupAction
+	}
+	return ""
+}
+
+func (x *Workflow) GetCleanupAction() string {
+	if x != nil {
+		return x.CleanupAction
 	}
 	return ""
 }
@@ -317,7 +339,13 @@ type CreateWorkflowRequest struct {
 	Flags string `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
 	// Which CLI agents created inside this workflow run. Blank leaves them on the
 	// user's configured default. A name this panel does not implement is refused.
-	Harness       string `protobuf:"bytes,5,opt,name=harness,proto3" json:"harness,omitempty"`
+	Harness string `protobuf:"bytes,5,opt,name=harness,proto3" json:"harness,omitempty"`
+	// The action to run before an agent in this workflow starts, blank for none. One
+	// action rather than a list, since an action is a script and a script already
+	// sequences its own steps.
+	SetupAction string `protobuf:"bytes,6,opt,name=setup_action,json=setupAction,proto3" json:"setup_action,omitempty"`
+	// The action to run once an agent in this workflow is deleted, blank for none.
+	CleanupAction string `protobuf:"bytes,7,opt,name=cleanup_action,json=cleanupAction,proto3" json:"cleanup_action,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -387,6 +415,20 @@ func (x *CreateWorkflowRequest) GetHarness() string {
 	return ""
 }
 
+func (x *CreateWorkflowRequest) GetSetupAction() string {
+	if x != nil {
+		return x.SetupAction
+	}
+	return ""
+}
+
+func (x *CreateWorkflowRequest) GetCleanupAction() string {
+	if x != nil {
+		return x.CleanupAction
+	}
+	return ""
+}
+
 type CreateWorkflowResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Workflow      *Workflow              `protobuf:"bytes,1,opt,name=workflow,proto3" json:"workflow,omitempty"`
@@ -444,7 +486,14 @@ type UpdateWorkflowRequest struct {
 	// Which CLI agents created inside this workflow run from now on. Blank leaves
 	// them on the user's configured default. Agents already spawned keep the harness
 	// they started on, which is recorded against each of them.
-	Harness       string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
+	Harness string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
+	// The action run before an agent in this workflow starts, blank for none. Written like
+	// every other field here, and reaches only agents launched afterwards.
+	SetupAction string `protobuf:"bytes,7,opt,name=setup_action,json=setupAction,proto3" json:"setup_action,omitempty"`
+	// The action run once an agent in this workflow is deleted, blank for none. Editing this
+	// does reach agents already running, since cleanup is read when it fires rather than at
+	// launch.
+	CleanupAction string `protobuf:"bytes,8,opt,name=cleanup_action,json=cleanupAction,proto3" json:"cleanup_action,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -521,6 +570,20 @@ func (x *UpdateWorkflowRequest) GetHarness() string {
 	return ""
 }
 
+func (x *UpdateWorkflowRequest) GetSetupAction() string {
+	if x != nil {
+		return x.SetupAction
+	}
+	return ""
+}
+
+func (x *UpdateWorkflowRequest) GetCleanupAction() string {
+	if x != nil {
+		return x.CleanupAction
+	}
+	return ""
+}
+
 // DeleteWorkflowRequest removes a workflow and the agents inside it.
 type DeleteWorkflowRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -570,14 +633,16 @@ var File_workflow_v1_workflow_proto protoreflect.FileDescriptor
 
 const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\n" +
-	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\x8a\x01\n" +
+	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xd4\x01\n" +
 	"\bWorkflow\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
 	"\acontext\x18\x03 \x01(\tR\acontext\x12\x10\n" +
 	"\x03cwd\x18\x04 \x01(\tR\x03cwd\x12\x14\n" +
 	"\x05flags\x18\x05 \x01(\tR\x05flags\x12\x18\n" +
-	"\aharness\x18\x06 \x01(\tR\aharness\"e\n" +
+	"\aharness\x18\x06 \x01(\tR\aharness\x12!\n" +
+	"\fsetup_action\x18\a \x01(\tR\vsetupAction\x12%\n" +
+	"\x0ecleanup_action\x18\b \x01(\tR\rcleanupAction\"e\n" +
 	"\x14ListWorkflowsRequest\x12>\n" +
 	"\n" +
 	"pagination\x18\x01 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
@@ -590,16 +655,18 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x12GetWorkflowRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"H\n" +
 	"\x13GetWorkflowResponse\x121\n" +
-	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xd1\x01\n" +
+	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xb7\x02\n" +
 	"\x15CreateWorkflowRequest\x12\x1e\n" +
 	"\x04name\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x12#\n" +
 	"\acontext\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\acontext\x12\x1e\n" +
 	"\x03cwd\x18\x03 \x01(\tB\f\xbaH\tr\a\xb0\xbb\x18\x01\x18\x80 R\x03cwd\x12\"\n" +
 	"\x05flags\x18\x04 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\x12/\n" +
-	"\aharness\x18\x05 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\"K\n" +
+	"\aharness\x18\x05 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x12/\n" +
+	"\fsetup_action\x18\x06 \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01R\vsetupAction\x123\n" +
+	"\x0ecleanup_action\x18\a \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01R\rcleanupAction\"K\n" +
 	"\x16CreateWorkflowResponse\x121\n" +
-	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xea\x01\n" +
+	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xd0\x02\n" +
 	"\x15UpdateWorkflowRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
@@ -607,18 +674,20 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\acontext\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\acontext\x12\x1e\n" +
 	"\x03cwd\x18\x04 \x01(\tB\f\xbaH\tr\a\xb0\xbb\x18\x01\x18\x80 R\x03cwd\x12\"\n" +
 	"\x05flags\x18\x05 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\x12/\n" +
-	"\aharness\x18\x06 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\"0\n" +
+	"\aharness\x18\x06 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x12/\n" +
+	"\fsetup_action\x18\a \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01R\vsetupAction\x123\n" +
+	"\x0ecleanup_action\x18\b \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01R\rcleanupAction\"0\n" +
 	"\x15DeleteWorkflowRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xef\f\n" +
-	"\x0fWorkflowService\x12\xf2\x02\n" +
-	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\x99\x02\x9a\xb5\x18\x91\x02\n" +
-	"\x0elist_workflows\x12\xfe\x01List the workflows agents are grouped into, most recently updated first, with each one's shared context and the working directory and flags its agents start from. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xbe\x10\n" +
+	"\x0fWorkflowService\x12\xc2\x03\n" +
+	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\xe9\x02\x9a\xb5\x18\xe1\x02\n" +
+	"\x0elist_workflows\x12\xce\x02List the workflows agents are grouped into, most recently updated first, with each one's shared context, the working directory and flags its agents start from, and the action run before its agents start and the one run after they are deleted. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
 	"\vGetWorkflow\x12\x1f.workflow.v1.GetWorkflowRequest\x1a .workflow.v1.GetWorkflowResponse\"^\x9a\xb5\x18W\n" +
-	"\fget_workflow\x12GFetch one workflow by id. Returns not_found if no workflow has that id.\x90\x02\x01\x12\xe0\x02\n" +
-	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\x84\x02\x9a\xb5\x18\xff\x01\n" +
-	"\x0fcreate_workflow\x12\xe9\x01Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. \x00\x12\xf3\x02\n" +
-	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xa4\x02\x9a\xb5\x18\x9c\x02\n" +
-	"\x0fupdate_workflow\x12\x86\x02Replace a workflow's name, context, directory, and flags. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch. \x00\x90\x02\x02\x12\xda\x02\n" +
+	"\fget_workflow\x12GFetch one workflow by id. Returns not_found if no workflow has that id.\x90\x02\x01\x12\xc6\x04\n" +
+	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\xea\x03\x9a\xb5\x18\xe5\x03\n" +
+	"\x0fcreate_workflow\x12\xcf\x03Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. setupAction names one action from list_actions to run before each of its agents starts, which blocks and abandons the launch if it fails; cleanupAction names the one run once one of its agents is deleted. Both are blank for none. \x00\x12\x8c\x04\n" +
+	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xbd\x03\x9a\xb5\x18\xb5\x03\n" +
+	"\x0fupdate_workflow\x12\x9f\x03Replace a workflow's name, context, directory, flags, and the actions run around its agents' lives. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context or the setup action reaches only agents spawned afterwards, since existing agents took a snapshot at launch; editing the cleanup action reaches agents already running, since it is read when it fires. \x00\x90\x02\x02\x12\xda\x02\n" +
 	"\x0eDeleteWorkflow\x12\".workflow.v1.DeleteWorkflowRequest\x1a\x16.google.protobuf.Empty\"\x8b\x02\x9a\xb5\x18\x83\x02\n" +
 	"\x0fdelete_workflow\x12\xed\x01Remove a workflow. Its agents are archived alongside it, which leaves them findable through search_transcripts and deletes no transcript. Refused while any schedule still launches into the workflow, since those would have nowhere to run. \x01\x90\x02\x02B(Z&weave/proto/gen/workflow/v1;workflowv1b\x06proto3"
 

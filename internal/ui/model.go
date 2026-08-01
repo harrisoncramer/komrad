@@ -8,6 +8,7 @@ import (
 
 	"weave/internal/appconfig"
 	"weave/internal/errui"
+	"weave/proto/gen/action/v1/actionv1connect"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
@@ -39,15 +40,18 @@ const (
 	screenSchedules
 	screenScheduleForm
 	screenScheduleDelete
-	screenTrash
-	screenTrashDelete
+	screenArchive
+	screenArchiveDelete
+	screenActions
 )
 
-// uiTmux is what the panel needs from tmux, enough to lay out its own panes plus the
-// working directory of the client looking at it.
+// uiTmux is what the panel needs from tmux, enough to lay out its own panes plus two
+// things about the client looking at it. The directory it sits in, and its session, which
+// is where a window opened for the user has to land.
 type uiTmux interface {
 	stageTmux
 	ClientPath(client string) string
+	OpenWindow(client, name, dir string, argv ...string) error
 }
 
 // Deps are what the panel needs to run.
@@ -57,6 +61,7 @@ type Deps struct {
 	Agents    agentv1connect.AgentServiceClient
 	Workflows workflowv1connect.WorkflowServiceClient
 	Schedules schedulev1connect.ScheduleServiceClient
+	Actions   actionv1connect.ActionServiceClient
 	Keys      appconfig.Keybindings
 	// Marks are the marks the mark key steps an agent through, in the user's order.
 	Marks []appconfig.Mark
@@ -65,6 +70,20 @@ type Deps struct {
 	// Addr is where Client points, shown on the error screen when the service stops
 	// answering.
 	Addr string
+	// Editor is the command the editor key opens an agent's directory in, from the
+	// environment rather than the panel's own config.
+	Editor string
+	// LogViewer is the command the log key opens the log in, from the user's config. It
+	// runs through a shell, so it can be a pipeline.
+	LogViewer string
+	// Binary is this executable, which a viewer command reaches through WEAVE_BIN. It is
+	// passed in rather than resolved here so the panel and the service it spawns are the
+	// same build, whatever the name it was installed under.
+	Binary string
+	// LogPath is the file the service writes to, which the log key pages. It is passed in
+	// rather than resolved here, so the panel reads the same file the process that spawned
+	// the service pointed it at.
+	LogPath string
 	// ConfigErr is set when the user's config file would not parse. The panel shows it on
 	// its error screen instead of starting, so the message is readable rather than written
 	// to a popup that closes on top of it.
@@ -104,10 +123,10 @@ type model struct {
 	// process.
 	configErr  error
 	startupErr error
-	// actionErr is the last write the service refused, shown as a banner over the screen
-	// it happened on. It is cleared by the next action and by esc, never by a poll, since
+	// banner is the last write the service refused, shown as a banner over the screen
+	// it happened on. It is cleared by the next write and by esc, never by a poll, since
 	// a refused delete is still worth reading a second later.
-	actionErr *errui.Banner
+	banner *errui.Banner
 
 	screen screen
 
@@ -120,8 +139,9 @@ type model struct {
 	// The screens, each holding the rows it draws and where its cursor is.
 	tree      treeState
 	schedules scheduleState
-	trash     trashState
+	archive   archiveState
 	search    searchState
+	actions   actionState
 
 	// form is the open form, and it owns the input while it is up. values are what it
 	// writes into and target is the record it is working on, both cleared as it closes.
@@ -131,15 +151,26 @@ type model struct {
 
 	keys  appconfig.Keybindings
 	marks []appconfig.Mark
+	// editor is the command the editor key runs on an agent's directory.
+	editor string
+	// logPath is the service's log, logViewer is what the log key opens it in, and binary
+	// is this executable, which the viewer reaches through the environment.
+	logPath   string
+	logViewer string
+	binary    string
 }
 
 func newModel(deps Deps) model {
 	m := model{
-		api:        api{agents: deps.Agents, workflows: deps.Workflows, schedules: deps.Schedules},
+		api:        api{agents: deps.Agents, workflows: deps.Workflows, schedules: deps.Schedules, actions: deps.Actions},
 		popup:      deps.Popup,
 		tmux:       deps.Tmux,
 		stage:      NewStage(deps.Tmux, deps.Layout.Split),
 		addr:       deps.Addr,
+		editor:     deps.Editor,
+		logPath:    deps.LogPath,
+		logViewer:  deps.LogViewer,
+		binary:     deps.Binary,
 		keys:       deps.Keys,
 		marks:      deps.Marks,
 		configErr:  deps.ConfigErr,

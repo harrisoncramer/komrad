@@ -9,7 +9,7 @@ import (
 )
 
 // reconcileMisses is how many consecutive idle observations a thinking agent must
-// show before it settles to done. Requiring several guards against a capture landing
+// show before it settles to idle. Requiring several guards against a capture landing
 // on a redraw frame between tool calls, where the live UI is momentarily absent even
 // though work is ongoing. Erring high matters because wrongly demoting a live agent is
 // far worse than a stale state lingering a few seconds.
@@ -92,11 +92,8 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent)
 		if agent.Pane != "" {
 			_ = r.store.ClearPane(ctx, agent.ID)
 		}
-		if agent.State == agentstore.StateThinking || agent.State == agentstore.StateWaiting {
-			r.apply(ctx, agent, agentstore.StateDone)
-		} else {
-			delete(r.misses, agent.ID)
-		}
+		r.apply(ctx, agent, agentstore.StateIdle)
+
 		return
 	}
 
@@ -126,18 +123,18 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent)
 		// The harness read the frame and could not tell, which stands exactly where a
 		// capture that could not be read does.
 	case harness.ActivityIdle:
-		if agent.State == agentstore.StateThinking || agent.State == agentstore.StateWaiting {
-			// Idle, but was active. Demoting waits for enough consecutive idle observations to
-			// rule out a transient redraw between tool calls.
-			r.misses[agent.ID]++
-			if r.misses[agent.ID] >= reconcileMisses {
-				r.apply(ctx, agent, agentstore.StateDone)
-			}
+		if agent.State == agentstore.StateIdle {
+			delete(r.misses, agent.ID)
 
 			return
 		}
 
-		delete(r.misses, agent.ID)
+		// Idle, but was active. Demoting waits for enough consecutive idle observations to
+		// rule out a transient redraw between tool calls.
+		r.misses[agent.ID]++
+		if r.misses[agent.ID] >= reconcileMisses {
+			r.apply(ctx, agent, agentstore.StateIdle)
+		}
 	}
 }
 

@@ -18,6 +18,7 @@ import (
 	"weave/internal/harness/codex"
 	"weave/internal/tmux"
 	"weave/internal/ui"
+	"weave/proto/gen/action/v1/actionv1connect"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
@@ -82,6 +83,8 @@ func NewRootCommand() *cobra.Command {
 			state.harnesses = harnesses
 			state.marks = cfg.Marks
 			state.layout = cfg.Layout
+			state.logLevel = cfg.Log.Level
+			state.logViewer = cfg.Log.Viewer
 			state.configPath = configPath
 			// Two tmux servers, held as one client. The manager's own server owns the
 			// session, its windows, and its panes. The user's server answers where the
@@ -102,12 +105,14 @@ func NewRootCommand() *cobra.Command {
 			// session, and tmux tears its pane down with the message still on it. The
 			// popup then closes on a success it never had, leaving nothing on screen to
 			// say a database was unreachable.
-			startupErr := ensureServer(state.env.Addr, selfPath(), serveLogPath())
+			logPath := appconfig.LogPath()
+			startupErr := ensureServer(state.env.Addr, selfPath(), logPath)
 
 			base := "http://" + state.env.Addr
 			agentClient := agentv1connect.NewAgentServiceClient(http.DefaultClient, base)
 			workflowClient := workflowv1connect.NewWorkflowServiceClient(http.DefaultClient, base)
 			scheduleClient := schedulev1connect.NewScheduleServiceClient(http.DefaultClient, base)
+			actionClient := actionv1connect.NewActionServiceClient(http.DefaultClient, base)
 
 			// Drop this tmux session's status bar so the panel and its stage pane
 			// fill the popup without a footer beneath them.
@@ -124,9 +129,14 @@ func NewRootCommand() *cobra.Command {
 				Workflows:  workflowClient,
 				Schedules:  scheduleClient,
 				Keys:       state.keys,
+				Actions:    actionClient,
 				Marks:      state.marks,
 				Layout:     state.layout,
 				Addr:       state.env.Addr,
+				Editor:     state.env.Editor,
+				LogPath:    logPath,
+				LogViewer:  state.logViewer,
+				Binary:     selfPath(),
 				ConfigErr:  state.configErr,
 				StartupErr: startupErr,
 			})
@@ -135,6 +145,7 @@ func NewRootCommand() *cobra.Command {
 
 	root.PersistentFlags().StringVar(&configPath, "config", "", "path to config TOML")
 	root.AddCommand(
+		logsCmd(),
 		openCmd(state),
 		hideCmd(state),
 		serveCmd(state),

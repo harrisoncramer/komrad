@@ -26,7 +26,7 @@ type Agent struct {
 	Cwd            string
 	Flags          string
 	Harness        string
-	DeletedAt      *time.Time
+	ArchivedAt     *time.Time
 }
 
 // Key/value facts an agent recorded about its own work.
@@ -80,6 +80,8 @@ type Workflow struct {
 	IsDeleted        bool
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	SetupAction      string
+	CleanupAction    string
 }
 
 // Default config (harness, cwd, flags) seeded into new agents of a workflow.

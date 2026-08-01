@@ -21,8 +21,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// settle delivers what an action asked for back into the model, the way the
-// bubbletea runtime does with the command an action hands back. Every write the
+// settle delivers what a write asked for back into the model, the way the
+// bubbletea runtime does with the command an update hands back. Every write the
 // panel makes runs as a command, so a case that only pressed the key would be
 // asserting against the keypress rather than against what came of it. Messages that
 // belong to a form rather than to the panel's own loop are left alone.
@@ -31,7 +31,7 @@ func settle(t *testing.T, m model, cmd tea.Cmd) model {
 
 	for _, msg := range produced(cmd) {
 		switch msg.(type) {
-		case writeResult, refreshResult:
+		case writeResult, refreshResult, actionsResult:
 		default:
 			continue
 		}

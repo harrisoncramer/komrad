@@ -24,9 +24,10 @@ key="$(get '@weave_key')"
 #
 # That session lives on a tmux server of its own, so it stays out of this server's
 # session list and cannot be attached to outside the popup. Hiding therefore goes
-# through the binary, which knows that server's socket, and open is handed the
-# socket path of this one so the panel can reach back for the working directory of
-# whoever opened it.
+# through the binary, which knows that server's socket. Open finds this server for
+# itself, out of the TMUX variable tmux sets in the popup, because nothing can be
+# handed over here. tmux does not expand a #{format} in a popup command, and the
+# shell running the command reads the unexpanded text as a comment.
 #
 # -EE, rather than -E, closes the popup only when the command succeeds. Detaching
 # to hide the panel is a success, so that still closes it, but a startup failure
@@ -36,4 +37,4 @@ key="$(get '@weave_key')"
 tmux set-option -g @weave_open 0
 tmux bind-key "$key" if-shell -F '#{==:#{@weave_open},1}' \
 	"run-shell -b '$BIN hide'" \
-	"display-popup -w 95% -h 95% -x C -y C -T ' weave ' -EE '$BIN open #{client_name} #{socket_path}'"
+	"display-popup -w 95% -h 95% -x C -y C -T ' weave ' -EE '$BIN open'"

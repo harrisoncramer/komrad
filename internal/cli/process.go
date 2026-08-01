@@ -3,11 +3,9 @@ package cli
 import (
 	"fmt"
 	"io"
-	"net"
+	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 )
@@ -32,7 +30,7 @@ const (
 // answered names the symptom while the cause sits unread in a file. The lines it
 // wrote before exiting are read back and carried in the error instead.
 func ensureServer(addr, self, logPath string) error {
-	if serverReachable(addr) {
+	if serverAnswering(addr) {
 		return nil
 	}
 
@@ -75,7 +73,7 @@ func ensureServer(addr, self, logPath string) error {
 	}()
 
 	for range serveWaitAttempts {
-		if serverReachable(addr) {
+		if serverReady(addr) {
 			return nil
 		}
 
@@ -90,79 +88,43 @@ func ensureServer(addr, self, logPath string) error {
 		}
 	}
 
-	return fmt.Errorf("the agent server did not become reachable at %s, see %s", addr, logPath)
+	return fmt.Errorf("the agent server did not become ready at %s, see %s", addr, logPath)
 }
 
-// openServeLog opens the log the spawned server writes to, creating the directory
-// it lives in. The server outlives the process that started it, so it cannot write
-// to that process's output and this file is where everything it has to say goes.
-func openServeLog(path string) (*os.File, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return nil, fmt.Errorf("failed to create the directory for the server log %s: %w", path, err)
-	}
-
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open the server log %s: %w", path, err)
-	}
-
-	return file, nil
-}
-
-// serveLogLines is how much of the tail is worth carrying. A failed dial spends
-// several lines on the addresses it tried, and the line naming what failed sits
-// above them.
-const serveLogLines = 12
-
-// serveLogTail reads what the server logged from offset on, as a single line. The
-// error it builds is rendered wrapped, so the newlines the log uses would only put
-// breaks in it that the screen has to fold again.
-func serveLogTail(path string, offset int64) string {
-	file, err := os.Open(path)
-	if err != nil {
-		return ""
-	}
-	defer func() { _ = file.Close() }()
-
-	if _, err := file.Seek(offset, io.SeekStart); err != nil {
-		return ""
-	}
-
-	written, err := io.ReadAll(file)
-	if err != nil {
-		return ""
-	}
-
-	trimmed := strings.TrimSpace(string(written))
-	if trimmed == "" {
-		return ""
-	}
-
-	lines := strings.Split(trimmed, "\n")
-	if len(lines) > serveLogLines {
-		lines = lines[len(lines)-serveLogLines:]
-	}
-
-	return strings.Join(strings.Fields(strings.Join(lines, " ")), " ")
-}
-
-func serverReachable(addr string) bool {
-	conn, err := net.DialTimeout("tcp", addr, 150*time.Millisecond)
+// serverAnswering reports whether anything is serving at addr, whatever it answers. A
+// server already up is not to be spawned over, and one running an older build that has no
+// health route still holds the port: treating its 404 as nobody there would start a second
+// process whose only outcome is failing to bind.
+func serverAnswering(addr string) bool {
+	res, err := healthCheck(addr)
 	if err != nil {
 		return false
 	}
+	defer func() { _ = res.Body.Close() }()
 
-	_ = conn.Close()
 	return true
 }
 
-func serveLogPath() string {
-	home, err := os.UserHomeDir()
+// serverReady reports whether the service can actually serve, which is what the wait after
+// a spawn is waiting for. A listening socket is not the same thing: the server binds before
+// it can reach its database, so a panel that started on the first successful dial came up
+// against a service that failed every call it made.
+func serverReady(addr string) bool {
+	res, err := healthCheck(addr)
 	if err != nil {
-		return "weave-serve.log"
+		return false
 	}
+	defer func() { _ = res.Body.Close() }()
 
-	return filepath.Join(home, ".claude", "weave-serve.log")
+	return res.StatusCode == http.StatusOK
+}
+
+// healthCheck asks the service whether it is ready. The timeout is the dial timeout this
+// replaced, since the request is one round trip to loopback and a database ping.
+func healthCheck(addr string) (*http.Response, error) {
+	client := &http.Client{Timeout: 3 * time.Second}
+
+	return client.Get("http://" + addr + HealthPath)
 }
 
 func selfPath() string {

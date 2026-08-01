@@ -28,15 +28,15 @@ func (m model) listLines(chrome ...string) int {
 	return max(lines, 1)
 }
 
-// bannerLines is how much of the pane a refused action is taking. The banner is
+// bannerLines is how much of the pane a refused write is taking. The banner is
 // chrome above the screen rather than part of it, so the list below has that much
 // less room while one is up.
 func (m model) bannerLines() int {
-	if m.actionErr == nil {
+	if m.banner == nil {
 		return 0
 	}
 
-	return strings.Count(m.actionErr.Render(), "\n")
+	return strings.Count(m.banner.Render(m.width), "\n")
 }
 
 // renderList draws rows clipped to the lines it was given, keeping the row under

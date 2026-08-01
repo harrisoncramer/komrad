@@ -62,6 +62,46 @@ func TestClientAtPath(t *testing.T) {
 	assert.Equal(t, "here", byPath.ShowGlobal("@probe"))
 }
 
+// TestFromEnv covers reading the user's server and session out of the TMUX variable
+// tmux sets in the popup. It is the only channel there is, so a value that is not the
+// three fields tmux writes yields nothing rather than a socket path made of whatever
+// was there.
+func TestFromEnv(t *testing.T) {
+	tests := []struct {
+		name        string
+		value       string
+		wantSocket  string
+		wantSession string
+	}{
+		{
+			name:  "an unset variable names no server",
+			value: "",
+		},
+		{
+			name:  "a value short of the fields tmux writes is not read",
+			value: "/tmp/tmux-501/default,74333",
+		},
+		{
+			name:       "a value missing its session still names the server",
+			value:      "/tmp/tmux-501/default,74333,",
+			wantSocket: "/tmp/tmux-501/default",
+		},
+		{
+			name:        "the socket comes first and the session id last",
+			value:       "/tmp/tmux-501/default,74333,0",
+			wantSocket:  "/tmp/tmux-501/default",
+			wantSession: "$0",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.wantSocket, SocketFromEnv(tt.value))
+			assert.Equal(t, tt.wantSession, SessionFromEnv(tt.value))
+		})
+	}
+}
+
 // newTestServer starts a private tmux server holding one session and returns its
 // socket name. It is killed on cleanup, so a test never touches the user's tmux.
 func newTestServer(t *testing.T, role string) string {

@@ -1,9 +1,11 @@
 package agents
 
 import (
+	_ "embed"
 	"fmt"
 	"strings"
 
+	"weave/internal/appconfig"
 	"weave/internal/harness"
 )
 
@@ -40,22 +42,39 @@ func NewLauncher(tmux launchTmux, serverAddr string) *Launcher {
 	return &Launcher{tmux: tmux, serverAddr: serverAddr}
 }
 
-// mcpBriefing tells a spawned agent that the panel's own database is queryable, so a
-// question about the other agents is something it can look up rather than guess at. The
-// closing line matters as much as the rest: an agent whose client has not registered the
-// server must say so instead of inventing an answer.
-const mcpBriefing = `You are a background agent run by weave, a tmux panel that spawns and tracks background coding agents. The panel serves its own Postgres database read-only over MCP as a server named "weave" at http://%s/mcp.
+// briefingDoc is what every spawned agent is told about the panel running it: what it can
+// look up rather than guess at, what the panel reads out of its pane, and where to find
+// the log when the panel is behaving oddly. It stops at what an agent needs to work under
+// weave, since most agents are working on something else entirely and how this repo builds
+// itself is no use to them. It is prose in a file rather than a string constant because
+// editing it should not mean reading around Go quoting, and it names only the tools an
+// agent would not think to go looking for. The rest of the surface is in the tool list its
+// client already has.
+//
+//go:embed briefing.md
+var briefingDoc string
 
-That server's tools are list_tables, describe_table, and query, which runs a single SELECT. Between them they cover every agent the panel knows about. The agents table holds each agent's name, state, pane, working directory, and flags, workflows the groups agents belong to, and agent_transcripts the text of their conversations. Writes are rejected. Reach for these when the question is about the other agents rather than the code in front of you.
+// mcpURLPlaceholder is where the briefing names the panel's own endpoint. It is
+// substituted rather than formatted, since a %s in prose about a shell command line is
+// too easy to write by accident.
+const mcpURLPlaceholder = "{{MCP_URL}}"
 
-You are one of those agents, and your own id is in the WEAVE_AGENT_ID environment variable. As you work, record what a person would want to open later against that id with set_agent_metadata, under keys you choose: the Linear issue you are implementing, the pull request you opened, the branch you are on. Store full URLs. The panel shows them beside you, which is the only way someone finds their way back to what you touched without reading this whole conversation again. Record each one when you learn it rather than at the end, since a conversation can be interrupted.
+// logPathPlaceholder is where the briefing names the service's log, resolved the same way
+// the service that writes it does, so an agent sent looking for a failure is sent to the
+// file that holds it.
+const logPathPlaceholder = "{{LOG_PATH}}"
 
-If those tools are not present in your session, the server is not registered with your client. Say that plainly rather than answering from guesswork.`
+// briefing is the doc with the paths this install actually runs on filled in.
+func (l *Launcher) briefing() string {
+	text := strings.ReplaceAll(briefingDoc, mcpURLPlaceholder, fmt.Sprintf("http://%s/mcp", l.serverAddr))
 
-// appendedSystemPrompt is the standing MCP briefing followed by the workflow's shared
+	return strings.ReplaceAll(text, logPathPlaceholder, appconfig.LogPath())
+}
+
+// appendedSystemPrompt is the standing briefing followed by the workflow's shared
 // context, which is what the panel has to say to an agent it is starting.
 func (l *Launcher) appendedSystemPrompt(workflowContext string) string {
-	briefing := fmt.Sprintf(mcpBriefing, l.serverAddr)
+	briefing := l.briefing()
 	if strings.TrimSpace(workflowContext) == "" {
 		return briefing
 	}

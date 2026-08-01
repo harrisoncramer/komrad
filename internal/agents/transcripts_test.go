@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"weave/internal/harness"
 	"weave/internal/harness/claude"
@@ -252,7 +251,7 @@ const testSessionID = "claude-abc"
 func seedWithSessionID(t *testing.T, st *testStore, sessionID, name string) agentstore.Agent {
 	t.Helper()
 	ctx := context.Background()
-	require.NoError(t, st.Create(ctx, agentstore.Agent{Name: name, State: agentstore.StateNew, SessionID: sessionID}))
+	require.NoError(t, st.Create(ctx, agentstore.Agent{Name: name, State: agentstore.StateIdle, SessionID: sessionID}))
 	got, err := st.Get(ctx, name)
 	require.NoError(t, err)
 	require.NotNil(t, got)
@@ -300,7 +299,7 @@ func TestSyncReportsAnUnknownHarness(t *testing.T) {
 
 	require.NoError(t, st.Create(ctx, agentstore.Agent{
 		Name:      "orphan",
-		State:     agentstore.StateDone,
+		State:     agentstore.StateIdle,
 		Harness:   "gemini",
 		SessionID: testSessionID,
 	}))
@@ -319,29 +318,29 @@ func TestSyncReportsAnUnknownHarness(t *testing.T) {
 }
 
 // TestSyncAdoptsSessions covers a harness that names its own conversations. The panel
-// cannot tell codex which id to use, so the syncer asks afterwards which conversations
-// appeared in the agent's directory and records the one that is the agent's.
+// cannot tell codex which id to use, so the syncer asks afterwards which conversation
+// the CLI started for that agent and records it.
 func TestSyncAdoptsSessions(t *testing.T) {
 	tests := []struct {
 		name string
-		// found is what the harness reports for the agent's directory, and taken is a
-		// conversation another agent already holds.
-		found []string
-		taken string
+		// found is what the harness reports for the agent, and held is a conversation the
+		// agent was already recorded as holding.
+		found string
+		held  string
 		want  string
 	}{
 		{
 			name: "nothing to adopt yet, which is every pass before the CLI writes a rollout",
 		},
 		{
-			name:  "the conversation started in the agent's directory",
-			found: []string{"sess-mine"},
-			want:  "sess-mine",
+			name:  "an agent already holding a conversation is not asked again",
+			found: "sess-other",
+			held:  "sess-held",
+			want:  "sess-held",
 		},
 		{
-			name:  "the earliest one another agent does not already hold",
-			found: []string{"sess-taken", "sess-mine"},
-			taken: "sess-taken",
+			name:  "the conversation the CLI started for this agent",
+			found: "sess-mine",
 			want:  "sess-mine",
 		},
 	}
@@ -351,12 +350,9 @@ func TestSyncAdoptsSessions(t *testing.T) {
 			st := newStore(t)
 			ctx := context.Background()
 
-			if tt.taken != "" {
-				require.NoError(t, st.Create(ctx, agentstore.Agent{
-					Name: "holder", State: agentstore.StateDone, SessionID: tt.taken,
-				}))
-			}
-			require.NoError(t, st.Create(ctx, agentstore.Agent{Name: "adopter", State: agentstore.StateNew}))
+			require.NoError(t, st.Create(ctx, agentstore.Agent{
+				Name: "adopter", State: agentstore.StateIdle, SessionID: tt.held,
+			}))
 
 			syncer := NewTranscriptSyncer(TranscriptSyncerParams{
 				Agents:      st.Agents,
@@ -370,12 +366,6 @@ func TestSyncAdoptsSessions(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, adopter)
 			assert.Equal(t, tt.want, adopter.SessionID)
-
-			if tt.taken != "" {
-				holder, err := st.Get(ctx, "holder")
-				require.NoError(t, err)
-				assert.Equal(t, tt.taken, holder.SessionID, "the agent already holding one keeps it")
-			}
 		})
 	}
 }
@@ -391,25 +381,22 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 
 	const sessionID = "019fb3e7-2cb6-7ab3-86a0-51a670a33140"
 
-	// The row exists before the CLI is launched, so the rollout is always the newer of
-	// the two. Stamping it deliberately keeps that true whatever the database clock
-	// says.
 	require.NoError(t, st.Create(ctx, agentstore.Agent{
-		Name: "adopter", State: agentstore.StateNew, Harness: "codex", Cwd: cwd,
+		Name: "adopter", State: agentstore.StateIdle, Harness: "codex", Cwd: cwd,
 	}))
 	created, err := st.Get(ctx, "adopter")
 	require.NoError(t, err)
 	require.NotNil(t, created)
 
+	// The originator is what the launch would have stamped on the rollout, which is the
+	// whole of what makes this conversation this agent's.
 	dir := filepath.Join(sessions, "2026", "07", "30")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	rollout := filepath.Join(dir, "rollout-2026-07-30T12-41-39-"+sessionID+".jsonl")
 	require.NoError(t, os.WriteFile(rollout,
-		[]byte(`{"type":"session_meta","payload":{"id":"`+sessionID+`","cwd":"`+cwd+`"}}`+"\n"+
+		[]byte(`{"type":"session_meta","payload":{"id":"`+sessionID+`","originator":"weave-`+created.ID+`"}}`+"\n"+
 			`{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"how do I use trigram search"}]}}`+"\n"),
 		0o600))
-	launched := created.CreatedAt.Add(time.Minute)
-	require.NoError(t, os.Chtimes(rollout, launched, launched))
 
 	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
 		Agents:      st.Agents,

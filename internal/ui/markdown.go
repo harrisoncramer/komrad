@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 
@@ -55,7 +56,13 @@ func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) string {
 	fmt.Fprintf(&b, "- agent: %s\n", orDash(agent.Harness))
 	fmt.Fprintf(&b, "- directory: %s\n", orDash(agent.Cwd))
 	fmt.Fprintf(&b, "- flags: %s\n", orDash(agent.Flags))
-	fmt.Fprintf(&b, "- resume: %s\n", orDash(agent.SessionID))
+	// Both ids are shown because they are different things and both get typed into
+	// something: the agent id is what the panel and its tools call this agent, and the
+	// session id is what its CLI calls the conversation, which is what a resume by hand
+	// takes. An agent whose CLI names its own conversations has none until it has said
+	// something.
+	fmt.Fprintf(&b, "- agent_id: %s\n", orDash(agent.ID))
+	fmt.Fprintf(&b, "- session_id: %s\n", orDash(agent.SessionID))
 	if schedule != "" {
 		fmt.Fprintf(&b, "- launched by: %s\n", schedule)
 	}
@@ -81,6 +88,71 @@ func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) string {
 	}
 	if !alive {
 		b.WriteString("\nPress open to restore.\n")
+	}
+
+	return b.String()
+}
+
+// textual reports whether bytes are text the stage can show. A NUL byte is what tells them
+// apart, which is how less itself decides, and nothing worth reading in the stage carries one.
+func textual(text []byte) bool {
+	return bytes.IndexByte(text, 0) < 0
+}
+
+// fencedBlock is a block of text somebody else wrote, ready to sit in a stage document. The
+// renderer indents a fenced block whole and leaves what is inside it alone, so the text is shown
+// as it was written rather than read as markdown and reflowed to the pane.
+//
+// The fence is three backticks, or one longer than the longest run inside the text. Text
+// carrying a fence of its own would otherwise close the block early and leave the rest of itself
+// rendering as prose.
+func fencedBlock(text []byte) string {
+	if !textual(text) {
+		return "_not text, so there is nothing to show_\n"
+	}
+
+	body := strings.TrimRight(string(text), "\n")
+	if body == "" {
+		return "_empty_\n"
+	}
+
+	fence := strings.Repeat("`", max(3, longestBacktickRun(body)+1))
+
+	return fmt.Sprintf("%s\n%s\n%s\n", fence, body, fence)
+}
+
+// longestBacktickRun is the longest unbroken run of backticks in a string, which is what a fence
+// around it has to beat.
+func longestBacktickRun(body string) int {
+	longest, run := 0, 0
+	for _, char := range body {
+		if char != '`' {
+			run = 0
+
+			continue
+		}
+
+		run++
+		longest = max(longest, run)
+	}
+
+	return longest
+}
+
+// actionMarkdown renders an action for the stage, its name over the start of its own text as the
+// service read it. An action is as readily a compiled program as a script, so the body goes
+// through fencedBlock, which shows a script as the code it is and says so rather than spilling a
+// binary into the pane.
+func actionMarkdown(action actionItem) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "# %s\n\n", action.name)
+	if !action.executable {
+		b.WriteString("_not executable — chmod +x to run it_\n\n")
+	}
+
+	b.WriteString(fencedBlock(action.preview))
+	if action.truncated && textual(action.preview) {
+		b.WriteString("\n_only the start of the file is shown_\n")
 	}
 
 	return b.String()
@@ -133,31 +205,32 @@ func scheduleMarkdown(item scheduleItem, workflow *workflowstore.Workflow) strin
 	return b.String()
 }
 
-// emptyTrashMarkdown is what the stage shows with nothing in the trash, so the
+// emptyArchiveMarkdown is what the stage shows with nothing in the archive, so the
 // pane says why it is blank rather than sitting empty.
-const emptyTrashMarkdown = "# Trash\n\n_nothing deleted_\n\nAgents deleted from the panel are kept here until you destroy them.\n"
+const emptyArchiveMarkdown = "# Archive\n\n_nothing archived_\n\nAgents archived from the panel are kept here until you delete them.\n"
 
-// trashMarkdown renders a deleted agent's stored record for the stage. It is the
+// archiveMarkdown renders an archived agent's stored record for the stage. It is the
 // same record the agents list shows, minus the liveness, plus what the two keys
 // here would do to it.
-func trashMarkdown(agent agentstore.Agent, schedule string) string {
+func archiveMarkdown(agent agentstore.Agent, schedule string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", agent.Name)
-	b.WriteString("_deleted — kept until destroyed_\n\n")
+	b.WriteString("_archived — kept until deleted_\n\n")
 	b.WriteString("---\n\n")
 	fmt.Fprintf(&b, "- agent: %s\n", orDash(agent.Harness))
 	fmt.Fprintf(&b, "- directory: %s\n", orDash(agent.Cwd))
 	fmt.Fprintf(&b, "- flags: %s\n", orDash(agent.Flags))
-	fmt.Fprintf(&b, "- resume: %s\n", orDash(agent.SessionID))
+	fmt.Fprintf(&b, "- agent_id: %s\n", orDash(agent.ID))
+	fmt.Fprintf(&b, "- session_id: %s\n", orDash(agent.SessionID))
 	if schedule != "" {
 		fmt.Fprintf(&b, "- launched by: %s\n", schedule)
 	}
 	if created := dates.Friendly(agent.CreatedAt); created != "" {
 		fmt.Fprintf(&b, "- created: %s\n", created)
 	}
-	if agent.DeletedAt != nil {
-		if deleted := dates.Friendly(*agent.DeletedAt); deleted != "" {
-			fmt.Fprintf(&b, "- deleted: %s\n", deleted)
+	if agent.ArchivedAt != nil {
+		if archived := dates.Friendly(*agent.ArchivedAt); archived != "" {
+			fmt.Fprintf(&b, "- archived: %s\n", archived)
 		}
 	}
 	b.WriteString("\nRestore brings it back and picks the conversation up where it stopped.\n")

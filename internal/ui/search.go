@@ -35,11 +35,11 @@ const searchDebounce = 120 * time.Millisecond
 // the store's markers, and offset is where the turn sits in the full transcript so the
 // preview can scroll to it.
 type searchHit struct {
-	agentID string
-	name    string
-	deleted bool
-	offset  int64
-	snippet string
+	agentID  string
+	name     string
+	archived bool
+	offset   int64
+	snippet  string
 }
 
 // searchSettledMsg fires once typing has paused for searchDebounce. The query it carries
@@ -127,11 +127,11 @@ func (m model) searchCmd(query string) tea.Cmd {
 		hits := make([]searchHit, 0, len(resp.Msg.GetHits()))
 		for _, h := range resp.Msg.GetHits() {
 			hits = append(hits, searchHit{
-				agentID: h.GetAgentId(),
-				name:    h.GetName(),
-				deleted: h.GetDeleted(),
-				offset:  h.GetContentOffset(),
-				snippet: h.GetSnippet(),
+				agentID:  h.GetAgentId(),
+				name:     h.GetName(),
+				archived: h.GetArchived(),
+				offset:   h.GetContentOffset(),
+				snippet:  h.GetSnippet(),
 			})
 		}
 
@@ -273,8 +273,8 @@ func (m model) searchView() string {
 		for i, hit := range m.search.hits {
 			if hit.name != labelled {
 				name := hit.name
-				if hit.deleted {
-					name += dimStyle.Render(" (deleted)")
+				if hit.archived {
+					name += dimStyle.Render(" (archived)")
 				}
 				b.WriteString("  " + name + "\n")
 				labelled = hit.name

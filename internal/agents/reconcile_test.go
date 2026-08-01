@@ -25,28 +25,22 @@ func TestReconcileSinglePass(t *testing.T) {
 		want  string
 	}{
 		{
-			name:      "a pane that is not the agent's settles thinking to done",
+			name:      "a pane that is not the agent's settles thinking to idle",
 			fromState: agentstore.StateThinking,
 			owned:     false,
-			want:      agentstore.StateDone,
+			want:      agentstore.StateIdle,
 		},
 		{
-			name:      "a pane that is not the agent's settles waiting to done",
+			name:      "a pane that is not the agent's settles waiting to idle",
 			fromState: agentstore.StateWaiting,
 			owned:     false,
-			want:      agentstore.StateDone,
+			want:      agentstore.StateIdle,
 		},
 		{
-			name:      "a pane that is not the agent's leaves new untouched",
-			fromState: agentstore.StateNew,
+			name:      "a pane that is not the agent's leaves idle untouched",
+			fromState: agentstore.StateIdle,
 			owned:     false,
-			want:      agentstore.StateNew,
-		},
-		{
-			name:      "a pane that is not the agent's leaves done untouched",
-			fromState: agentstore.StateDone,
-			owned:     false,
-			want:      agentstore.StateDone,
+			want:      agentstore.StateIdle,
 		},
 		{
 			name:      "empty capture is inconclusive",
@@ -63,18 +57,11 @@ func TestReconcileSinglePass(t *testing.T) {
 			want:      agentstore.StateThinking,
 		},
 		{
-			name:      "idle frame leaves new untouched",
-			fromState: agentstore.StateNew,
+			name:      "idle frame leaves idle untouched",
+			fromState: agentstore.StateIdle,
 			owned:     true,
 			frame:     idleFrame,
-			want:      agentstore.StateNew,
-		},
-		{
-			name:      "idle frame leaves done untouched",
-			fromState: agentstore.StateDone,
-			owned:     true,
-			frame:     idleFrame,
-			want:      agentstore.StateDone,
+			want:      agentstore.StateIdle,
 		},
 		{
 			name:      "waiting frame moves thinking to waiting",
@@ -84,15 +71,8 @@ func TestReconcileSinglePass(t *testing.T) {
 			want:      agentstore.StateWaiting,
 		},
 		{
-			name:      "work promotes new to thinking",
-			fromState: agentstore.StateNew,
-			owned:     true,
-			frame:     busyFrame,
-			want:      agentstore.StateThinking,
-		},
-		{
-			name:      "work promotes done to thinking",
-			fromState: agentstore.StateDone,
+			name:      "work promotes idle to thinking",
+			fromState: agentstore.StateIdle,
 			owned:     true,
 			frame:     busyFrame,
 			want:      agentstore.StateThinking,
@@ -130,7 +110,7 @@ func TestReconcileSinglePass(t *testing.T) {
 func TestReconcileLeavesTheMark(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
-	agent := seed(t, st, "agent", "%1", agentstore.StateNew)
+	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
 
 	marked, err := st.Agents.SetMark(ctx, agent.ID, xptr.Ptr("●"))
 	require.NoError(t, err)
@@ -174,7 +154,7 @@ func TestReconcileOverPasses(t *testing.T) {
 			name:           "an idle pane only demotes once the misses run out",
 			passes:         repeatFrame(idleFrame, reconcileMisses),
 			wantBeforeLast: agentstore.StateThinking,
-			want:           agentstore.StateDone,
+			want:           agentstore.StateIdle,
 		},
 		{
 			name:       "a busy pass clears the accrued misses, so a trailing idle one cannot demote",
@@ -183,10 +163,10 @@ func TestReconcileOverPasses(t *testing.T) {
 			wantMisses: xptr.Ptr(1),
 		},
 		{
-			name:           "a prompt moves it to waiting, and answering lets it settle to done",
+			name:           "a prompt moves it to waiting, and answering lets it settle to idle",
 			passes:         append([]string{waitFrame}, repeatFrame(idleFrame, reconcileMisses)...),
 			wantAfterFirst: agentstore.StateWaiting,
-			want:           agentstore.StateDone,
+			want:           agentstore.StateIdle,
 		},
 		{
 			name:              "an agent that leaves the listing has its misses reaped",

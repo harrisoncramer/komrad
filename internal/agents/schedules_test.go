@@ -261,7 +261,7 @@ func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
 	}{
 		{
 			name:  "a run that never started leaves the schedule free to fire",
-			state: agentstore.StateNew,
+			state: agentstore.StateIdle,
 			frame: idleFrame,
 			want:  0,
 		},
@@ -273,13 +273,13 @@ func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
 		},
 		{
 			name:  "so does one waiting on an answer, which is work still owed",
-			state: agentstore.StateNew,
+			state: agentstore.StateIdle,
 			frame: waitFrame,
 			want:  1,
 		},
 		{
 			name:  "a run that finished does not",
-			state: agentstore.StateDone,
+			state: agentstore.StateIdle,
 			frame: idleFrame,
 			want:  0,
 		},

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"weave/internal/caller"
 	"weave/internal/harness"
 )
 
@@ -12,7 +13,16 @@ import (
 // the panel's own read-only endpoint. It is passed with --mcp-config rather than
 // --strict-mcp-config, so an agent gains this server on top of whatever the user
 // has already registered instead of trading them for it.
-const mcpConfigJSON = `{"mcpServers":{"weave":{"type":"http","url":"http://%s/mcp"}}}`
+//
+// The headers are what let the service tell one caller from another. They are written as
+// variables rather than as this agent's own ids, because Claude expands them out of the
+// environment it is launched with, which the panel has already put the ids into. That is
+// what keeps this one shared file: an agent fills in its own identity as it starts, so two
+// agents reading the same file still call back as themselves. The :- default leaves the
+// header empty rather than literal when a variable is unset.
+const mcpConfigJSON = `{"mcpServers":{"weave":{"type":"http","url":"http://%s/mcp",` +
+	`"headers":{"` + caller.AgentHeader + `":"${` + harness.AgentIDEnv + `:-}",` +
+	`"` + caller.SessionHeader + `":"${` + harness.SessionIDEnv + `:-}"}}}}`
 
 // BuildCommand renders the command line that puts Claude up. It is not executed
 // directly: it is typed into a pane and parsed by the shell running there, which
@@ -23,11 +33,9 @@ const mcpConfigJSON = `{"mcpServers":{"weave":{"type":"http","url":"http://%s/mc
 // prompt passed through temp files so multi-line markdown survives, removed as the
 // command runs.
 func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
-	command := "claude"
-
-	if launch.AgentID != "" {
-		command = fmt.Sprintf("%s=%s claude", harness.AgentIDEnv, harness.QuoteArg(launch.AgentID))
-	}
+	// The agent's own ids are exported ahead of the CLI, which is both how it can name
+	// itself to the panel and how the MCP config below resolves the headers it sends.
+	command := harness.EnvPrefix(launch) + "claude"
 
 	// Flags are data, not shell. They are split into arguments and quoted, so a flag
 	// carrying $(...), a backtick, or a semicolon reaches claude as a literal argument

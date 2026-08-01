@@ -41,6 +41,24 @@ extend buf.validate.StringRules {
     expression: "!rule || this == '' || this.startsWith('/') || this.startsWith('~')"
   }];
 
+  // The shape of an action's file name. A name is matched against the actions
+  // directory's own entries rather than joined onto its path, so this is a second line
+  // of defence rather than the only one. It refuses the two shapes that would reach
+  // outside the directory, a slash and a leading dot.
+  bool action_name = 50104 [(buf.validate.predefined).cel = {
+    id: "string.action_name"
+    message: "must be a file name, with no slash and no leading dot"
+    expression: "!rule || (this != '' && !this.contains('/') && !this.startsWith('.'))"
+  }];
+
+  // The same rule where blank is a meaningful answer, standing for no action chosen
+  // rather than for a file with no name.
+  bool action_name_or_blank = 50105 [(buf.validate.predefined).cel = {
+    id: "string.action_name_or_blank"
+    message: "must be blank or a file name, with no slash and no leading dot"
+    expression: "!rule || this == '' || (!this.contains('/') && !this.startsWith('.'))"
+  }];
+
   // The shape of a cron expression, five whitespace-separated fields. Whether the
   // fields mean anything is left to whoever parses it.
   bool cron_expression = 50103 [(buf.validate.predefined).cel = {

@@ -127,13 +127,18 @@ func TestLoadMarks(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "a colour that is not hex at all",
+			name:    "a colour that is neither a name nor hex",
 			file:    "marks = [{ glyph = \"●\", color = \"hot pink\" }]\n",
 			wantErr: true,
 		},
 		{
 			name:    "a colour missing its hash",
 			file:    "marks = [{ glyph = \"●\", color = \"F932A1\" }]\n",
+			wantErr: true,
+		},
+		{
+			name:    "a colour named as an index rather than by name, which is the panel's own spelling and not a config's",
+			file:    "marks = [{ glyph = \"●\", color = \"4\" }]\n",
 			wantErr: true,
 		},
 		{
@@ -147,6 +152,14 @@ func TestLoadMarks(t *testing.T) {
 			want: []Mark{
 				{Glyph: "◐", Color: "#F932A1"},
 				{Glyph: "✓", Color: "#0f0"},
+			},
+		},
+		{
+			name: "colours named from the sixteen, which follow the terminal's own scheme",
+			file: "marks = [{ glyph = \"◐\", color = \"blue\" }, { glyph = \"✓\", color = \"brightmagenta\" }]\n",
+			want: []Mark{
+				{Glyph: "◐", Color: "blue"},
+				{Glyph: "✓", Color: "brightmagenta"},
 			},
 		},
 		{
@@ -237,7 +250,7 @@ func TestLoadRejectsUnknownKeys(t *testing.T) {
 			file: "claude_flgas = \"--model opus\"\n",
 		},
 		{
-			name: "an action the panel does not have",
+			name: "a binding the panel does not have",
 			file: "[keybindings.nav]\npreview_up = [\"ctrl+u\"]\n",
 		},
 		{
@@ -337,4 +350,62 @@ func withWorkflowDelete(k Keybindings, keys ...string) Keybindings {
 	k.Workflows.Delete = keys
 
 	return k
+}
+
+// TestLoadLogLevel covers the level the service logs at. A word slog has no answer for
+// would decode as debug and turn the log all the way up, so it is refused here rather
+// than left to surprise somebody reading a file four times the size they expected.
+func TestLoadLogLevel(t *testing.T) {
+	tests := []struct {
+		name    string
+		file    string
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "a file that says nothing about logging",
+			want: DefaultLogLevel,
+		},
+		{
+			name: "a level spelled as slog spells it",
+			file: "[log]\nlevel = \"debug\"\n",
+			want: "debug",
+		},
+		{
+			name: "a level in capitals, since a config is written by hand",
+			file: "[log]\nlevel = \"ERROR\"\n",
+			want: "ERROR",
+		},
+		{
+			name:    "a level that is not one",
+			file:    "[log]\nlevel = \"verbose\"\n",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.toml")
+			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
+
+			cfg, err := Load(path)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, cfg.Log.Level)
+		})
+	}
+}
+
+// TestLogPathSitsBesideTheConfig covers where the service's log goes. The panel's log key
+// pages this exact path, so it is resolved from the panel's own directory rather than
+// anywhere the service would have to be told about.
+func TestLogPathSitsBesideTheConfig(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	assert.Equal(t, filepath.Join(home, ".config", "weave", "weave.log"), LogPath())
 }

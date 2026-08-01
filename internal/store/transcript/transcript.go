@@ -28,7 +28,7 @@ type Transcript struct {
 type SearchHit struct {
 	AgentID       string
 	Name          string
-	Deleted       bool
+	Archived      bool
 	Seq           int32
 	Role          string
 	ContentOffset int64
@@ -243,7 +243,7 @@ func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, e
 		hits = append(hits, SearchHit{
 			AgentID:       row.AgentID,
 			Name:          row.Name,
-			Deleted:       row.Deleted,
+			Archived:      row.Archived,
 			Seq:           row.Seq,
 			Role:          row.Role,
 			ContentOffset: row.ContentOffset,

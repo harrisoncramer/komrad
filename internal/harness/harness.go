@@ -5,13 +5,46 @@
 // or the agent service.
 package harness
 
-import "time"
+import (
+	"fmt"
+	"strings"
+)
 
 // AgentIDEnv is the environment variable a launched agent finds the panel's own id
 // for it in. It rides on the environment rather than in an appended system prompt
 // because it has to survive a resume, and an agent that only learned its id at
 // spawn would go anonymous the first time it was restored.
 const AgentIDEnv = "WEAVE_AGENT_ID"
+
+// SessionIDEnv is the environment variable a launched agent finds its own conversation
+// id in. It rides on the environment for the same reason the agent id does, and the two
+// travel together: what a CLI puts on the calls it makes back to the panel is worked out
+// from its environment, so a value that is not there cannot be sent.
+const SessionIDEnv = "WEAVE_SESSION_ID"
+
+// EnvPrefix is the assignments that go ahead of the CLI on the command line, so an agent
+// runs knowing which agent it is and which conversation it is in. Every harness starts its
+// command with this rather than spelling the variables out, since what an agent knows about
+// itself is the panel's business rather than any one CLI's.
+//
+// The values are quoted like any other data reaching the pane's shell, and a launch missing
+// either one leaves that variable unset rather than exported empty, which is the difference
+// between a CLI sending no header and sending a blank one.
+func EnvPrefix(launch Launch) string {
+	var assignments []string
+	if launch.AgentID != "" {
+		assignments = append(assignments, fmt.Sprintf("%s=%s", AgentIDEnv, QuoteArg(launch.AgentID)))
+	}
+	if launch.SessionID != "" {
+		assignments = append(assignments, fmt.Sprintf("%s=%s", SessionIDEnv, QuoteArg(launch.SessionID)))
+	}
+
+	if len(assignments) == 0 {
+		return ""
+	}
+
+	return strings.Join(assignments, " ") + " "
+}
 
 // Launch is everything the panel knows about one start of an agent. How any of it
 // reaches the command line belongs to the harness, since the flag that pins a
@@ -97,13 +130,14 @@ type Harness interface {
 	BuildCommand(Launch) (string, error)
 	// MintSessionID mints the id a fresh conversation should be filed under, or
 	// returns empty when the CLI will not be told one and the id has to be
-	// discovered after the fact with FindSessions.
+	// discovered after the fact with FindSession.
 	MintSessionID() string
-	// FindSessions lists the conversations this CLI started in dir since notBefore,
-	// oldest first, for a CLI that names its own. Which of them belongs to which
-	// agent is the panel's to decide, since only it knows what the other agents
-	// already hold.
-	FindSessions(dir string, notBefore time.Time) ([]string, error)
+	// FindSession returns the conversation this CLI started for the given agent, or
+	// empty when it has not written one yet. A CLI that names its own conversations
+	// is told which agent it is at launch and stamps that on what it writes, so the
+	// answer is the agent's own conversation rather than a candidate the panel then
+	// has to tell apart from another agent's.
+	FindSession(agentID string) (string, error)
 	// ReadActivity reads a captured frame and reports what it says the agent is doing.
 	ReadActivity(frame string) Activity
 	// GetLogPath locates the conversation log for a session id, or returns empty when

@@ -10,7 +10,6 @@ import (
 	"weave/internal/appconfig"
 
 	"github.com/charmbracelet/glamour"
-	"github.com/charmbracelet/glamour/styles"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -197,12 +196,43 @@ func pagerArgv(path string, line int) []string {
 	return append(argv, path)
 }
 
-// render turns markdown into the ANSI the pager prints. The style is named rather than
+// shownLog prefixes what the stage records for a file it is paging, so a restage of the
+// same file is the no-op every other kind of content gets. The prefix cannot collide with
+// rendered markdown, which is the other thing compared against.
+const shownLog = "\x00log:"
+
+// Log runs argv in the stage to read the file at path, in place of whatever the cursor was
+// showing. It uses the same pane a preview does and keeps its share of the width, so
+// reading the log is scrolling the stage the way reading a transcript is rather than
+// something that has to be dismissed before the panel can be used again.
+//
+// What argv is belongs to the caller, since the log is the one thing here whose reader the
+// user chooses. The path comes alongside it only to tell one file from another, so a
+// restage of the log already up does not respawn the pane under somebody reading it.
+func (s *Stage) Log(path string, argv []string) {
+	s.ensure()
+	if s.pane == "" || len(argv) == 0 {
+		return
+	}
+	if s.agentPane == "" && s.shown == shownLog+path {
+		return
+	}
+
+	s.restore()
+
+	home, _ := os.UserHomeDir()
+	s.tmux.RespawnPane(s.pane, home, argv...)
+	s.shown = shownLog + path
+}
+
+// render turns markdown into the ANSI the pager prints. The style is given rather than
 // detected: detection asks the terminal for its background colour and reads the answer
-// back off the same input the panel's own event loop is reading. A renderer that cannot
-// be built, or a document it cannot parse, falls back to the source text.
+// back off the same input the panel's own event loop is reading. Nothing is lost by not
+// asking, since the palette it is given draws from the sixteen the terminal maps and so
+// suits a light background and a dark one alike. A renderer that cannot be built, or a
+// document it cannot parse, falls back to the source text.
 func (s *Stage) render(markdown string) string {
-	options := []glamour.TermRendererOption{glamour.WithStandardStyle(styles.DarkStyle)}
+	options := []glamour.TermRendererOption{glamour.WithStyles(stageStyle)}
 	if wrap := s.wrap(); wrap > 0 {
 		options = append(options, glamour.WithWordWrap(wrap))
 	}

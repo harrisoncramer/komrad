@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -48,6 +49,23 @@ func TestCreateAgent(t *testing.T) {
 			req:      &agentv1.CreateAgentRequest{Prompt: "go", Dir: "/no/such/dir"},
 			launchEr: agents.ErrBadDirectory,
 			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			// The workflow's setup action refusing is a workflow to edit rather than
+			// anything wrong on this side, so it must not read as a server fault.
+			name:     "a setup action that refuses is a precondition, not an internal error",
+			req:      &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflow},
+			launchEr: agents.ErrSetupFailed,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			// Checked ahead of the directory case, which this wraps when the directory
+			// the action named is the part that was wrong. Which half of the action
+			// refused should not change the code the caller sees.
+			name:     "a setup action naming an unusable directory is the same precondition",
+			req:      &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflow},
+			launchEr: fmt.Errorf("%w: %w", agents.ErrSetupFailed, agents.ErrBadDirectory),
+			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
 			// The workflow supplies the directory, so a request that names one and
@@ -233,28 +251,28 @@ func TestListAgentsIdempotencyKey(t *testing.T) {
 	}
 }
 
-// TestListAgentsDeleted covers the flag that swaps which set is listed. The
-// panel reads the live agents and its trash reads the deleted ones through the
-// same call, so a request that ignored the flag would show one of them the
+// TestListAgentsArchived covers the flag that swaps which set is listed. The
+// panel reads the live agents and its archive reads the archived ones through
+// the same call, so a request that ignored the flag would show one of them the
 // other's rows.
-func TestListAgentsDeleted(t *testing.T) {
+func TestListAgentsArchived(t *testing.T) {
 	tests := []struct {
 		name      string
-		deleted   bool
+		archived  bool
 		wantNames []string
-		// wantDeletedAt is whether the listed agents carry a deletion time, which is what
-		// the trash orders on and the only thing that says a row is in it.
-		wantDeletedAt bool
+		// wantArchivedAt is whether the listed agents carry an archive time, which is
+		// what the archive orders on and the only thing that says a row is in it.
+		wantArchivedAt bool
 	}{
 		{
 			name:      "the default listing is the live agents",
 			wantNames: []string{"live"},
 		},
 		{
-			name:          "asking for the deleted ones excludes the live",
-			deleted:       true,
-			wantNames:     []string{"archived"},
-			wantDeletedAt: true,
+			name:           "asking for the archived ones excludes the live",
+			archived:       true,
+			wantNames:      []string{"archived"},
+			wantArchivedAt: true,
 		},
 	}
 
@@ -267,7 +285,7 @@ func TestListAgentsDeleted(t *testing.T) {
 			require.NoError(t, st.Agents.Archive(ctx, "archived"))
 			st.SeedAgent(t, agentstore.Agent{Name: "live", Pane: "%2", State: agentstore.StateThinking})
 
-			listed, err := svc.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{Deleted: tt.deleted}))
+			listed, err := svc.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{Archived: tt.archived}))
 			require.NoError(t, err)
 
 			names := make([]string, 0, len(listed.Msg.GetAgents()))
@@ -277,14 +295,14 @@ func TestListAgentsDeleted(t *testing.T) {
 			assert.Equal(t, tt.wantNames, names)
 
 			for _, agent := range listed.Msg.GetAgents() {
-				if !tt.wantDeletedAt {
-					assert.Nil(t, agent.DeletedAt, "a live agent carries no deletion time")
+				if !tt.wantArchivedAt {
+					assert.Nil(t, agent.ArchivedAt, "a live agent carries no archive time")
 
 					continue
 				}
 
-				require.NotNil(t, agent.DeletedAt, "a deleted agent says when it was deleted")
-				_, err := time.Parse(time.RFC3339, agent.GetDeletedAt())
+				require.NotNil(t, agent.ArchivedAt, "an archived agent says when it was archived")
+				_, err := time.Parse(time.RFC3339, agent.GetArchivedAt())
 				assert.NoError(t, err, "and says it as an RFC 3339 timestamp")
 			}
 		})
@@ -592,7 +610,7 @@ func TestSearchTranscripts(t *testing.T) {
 		name string
 		// turns are the seeded agent's conversation, in order.
 		turns []string
-		// archive puts the agent in the trash before the search, which search still
+		// archive puts the agent in the archive before the search, which search still
 		// reaches.
 		archive bool
 		query   string
@@ -649,7 +667,7 @@ func TestSearchTranscripts(t *testing.T) {
 
 				assert.Equal(t, agent.ID, hit.GetAgentId())
 				assert.Equal(t, "alpha", hit.GetName(), "the hit carries the agent's name, not its id alone")
-				assert.Equal(t, tt.archive, hit.GetDeleted())
+				assert.Equal(t, tt.archive, hit.GetArchived())
 				assert.Equal(t, "user", hit.GetRole())
 				assert.Contains(t, hit.GetSnippet(), tt.query, "the snippet holds the text that matched")
 
@@ -929,7 +947,7 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 	t.Helper()
 
 	st := storetest.Open(t)
-	launcher := &fakeLauncher{created: &agentstore.Agent{ID: "id-1", Name: "spawned", Cwd: "/repo", State: agentstore.StateNew}}
+	launcher := &fakeLauncher{created: &agentstore.Agent{ID: "id-1", Name: "spawned", Cwd: "/repo", State: agentstore.StateIdle}}
 
 	return NewService(st.Agents, st.Transcripts, launcher), st, launcher
 }

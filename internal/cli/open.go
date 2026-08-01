@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"weave/internal/agents"
+	"weave/internal/tmux"
 
 	"github.com/spf13/cobra"
 )
@@ -19,17 +20,22 @@ import (
 // tmux client.
 //
 // The session lives on the manager's own tmux server, which the user's server knows
-// nothing about. tmux interpolates the socket path of the server that opened the
-// popup into the command, and that path is recorded so the panel can reach back to
-// it for the two things only it can answer.
+// nothing about. Which server that is comes out of this process's own environment,
+// where tmux names the server and session the popup pane belongs to, and it is
+// recorded so the panel can reach back to it for the things only it can answer.
+//
+// Arguments are accepted and ignored, so a key binding that passes something is not
+// refused. Nothing can be passed in usefully anyway. tmux expands no format in a popup's
+// command, and an unexpanded format at the start of a word is a comment to the shell that
+// runs it.
 func openCmd(state *app) *cobra.Command {
 	return &cobra.Command{
-		Use:           "open [client] [host-socket]",
+		Use:           "open",
 		Short:         "Open the manager popup (create or attach its persistent session)",
-		Args:          cobra.MaximumNArgs(2),
+		Args:          cobra.ArbitraryArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			// Creating the session detached and attaching to it separately, rather than
 			// with one new-session -A, leaves room to record the user's socket on the
 			// manager server between the two. A single attaching command holds the
@@ -41,12 +47,13 @@ func openCmd(state *app) *cobra.Command {
 			// Recorded first, since everything below reaches the user's server through
 			// it. Rewritten on every open, so a popup from a different server or a
 			// restarted one points the panel at the server actually showing it.
-			state.host.Record(argAt(args, 1))
+			socket := tmux.SocketFromEnv(state.env.Tmux)
+			state.host.Record(socket)
 
-			// Record the client that opened this popup so panel actions resolve the
+			// Record the client that opened this popup so the panel resolves the
 			// right directory and client. Mark the popup shown so the binding hides
 			// it on the next press. The mark clears when the attach below returns.
-			state.popup.SetInvokingClient(argAt(args, 0))
+			state.popup.SetInvokingClient(invokingClient(socket, tmux.SessionFromEnv(state.env.Tmux)))
 			state.popup.MarkOpen()
 			defer state.popup.MarkClosed()
 
@@ -90,6 +97,7 @@ func ensureManagerSession(state *app) error {
 		"-e", "WEAVE_TMUX_SOCKET="+state.env.TmuxSocket,
 		"-e", "DATABASE_URL="+state.env.DatabaseURL,
 		"-e", "WEAVE_ADDR="+state.env.Addr,
+		"-e", "EDITOR="+state.env.Editor,
 		"--", selfPath(),
 	)
 	cmd.Stderr = os.Stderr
@@ -125,11 +133,14 @@ func envWithoutTmux() []string {
 	return filtered
 }
 
-// argAt returns the positional argument at i, empty when it was not given.
-func argAt(args []string, i int) string {
-	if i >= len(args) {
+// invokingClient is the client viewing this popup, found by asking the user's server
+// which one is attached to the session the popup was opened from. It is asked for rather
+// than passed in because the popup's own environment names its server and session but
+// not the client, and nothing in the key binding can carry one.
+func invokingClient(socket, session string) string {
+	if socket == "" || session == "" {
 		return ""
 	}
 
-	return args[i]
+	return tmux.NewClientAtPath(socket).SessionClient(session)
 }

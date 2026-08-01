@@ -15,12 +15,15 @@ import (
 	"weave/internal/store"
 )
 
-// Agent lifecycle states.
+// Agent states. There are three because there are only three things a person
+// watching the panel acts on differently: an agent generating, one blocked on an
+// answer they owe it, and one doing neither. An agent that has not started yet and
+// one that has stopped share the third, since nothing is owed either way and neither
+// is finished in any lasting sense: the next prompt puts it straight back to work.
 const (
-	StateNew      = "new"
 	StateThinking = "thinking"
 	StateWaiting  = "waiting"
-	StateDone     = "done"
+	StateIdle     = "idle"
 )
 
 // Metadata is one fact an agent recorded about its own work. The key is the
@@ -58,11 +61,11 @@ type Agent struct {
 	// that key. A retried launch passing the same key finds this agent rather than
 	// spawning a second one.
 	IdempotencyKey *string
-	// DeletedAt is when the agent was thrown away, nil while it is live. It is the
-	// soft delete itself rather than a time recorded beside a flag, so nothing has to
-	// reconcile the two, and it is what the trash orders by so the agent just deleted
-	// is the one on top.
-	DeletedAt *time.Time
+	// ArchivedAt is when the agent was put away, nil while it is live. It is the
+	// archive itself rather than a time recorded beside a flag, so nothing has to
+	// reconcile the two, and it is what the archive orders by so the agent just
+	// archived is the one on top.
+	ArchivedAt *time.Time
 	// Hidden keeps this agent out of the panel's list without stopping it. It is
 	// written on insert and by the user afterwards, so an update never carries it and
 	// a reconciler pass cannot undo a hide.
@@ -119,13 +122,13 @@ type Cursor struct {
 }
 
 // ListPage returns one page of agents, newest first, resuming after cursor when
-// one is given. deleted picks the live agents or the soft-deleted ones and never
-// both, since the trash is its own view and a deleted agent may share a name with
-// a live one. Paging keys on the id rather than update time, which would move an
-// agent the reconciler touched mid-scan ahead of the reader and have it seen twice
-// or missed.
-func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, deleted bool) ([]Agent, error) {
-	params := models.ListAgentsPageParams{Lim: int32(limit), Deleted: deleted}
+// one is given. archived picks the live agents or the archived ones and never
+// both, since the archive is its own view and an archived agent may share a name
+// with a live one. Paging keys on the id rather than update time, which would move
+// an agent the reconciler touched mid-scan ahead of the reader and have it seen
+// twice or missed.
+func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archived bool) ([]Agent, error) {
+	params := models.ListAgentsPageParams{Lim: int32(limit), Archived: archived}
 	if cursor != nil {
 		params.CursorID = &cursor.ID
 	}
@@ -176,7 +179,7 @@ func (s *Store) metadataByAgent(ctx context.Context, ids []string) (map[string][
 	return byAgent, nil
 }
 
-// ListAll returns every agent including soft-deleted ones, newest first, for
+// ListAll returns every agent including archived ones, newest first, for
 // search.
 func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
 	rows, err := s.queries.ListAllAgents(ctx)
@@ -215,7 +218,7 @@ func (s *Store) Get(ctx context.Context, name string) (*Agent, error) {
 }
 
 // GetByID returns an agent by id, nil when none holds it. It spans the
-// soft-deleted agents, because an id is the only handle one of those still answers
+// archived agents, because an id is the only handle one of those still answers
 // to: a live agent may have taken its name since. A string that is not an id reads
 // as nothing found rather than as a database error.
 func (s *Store) GetByID(ctx context.Context, id string) (*Agent, error) {
@@ -242,7 +245,7 @@ func (s *Store) GetByID(ctx context.Context, id string) (*Agent, error) {
 	return &agent, nil
 }
 
-// Exists reports whether any agent holds the given id, including soft-deleted
+// Exists reports whether any agent holds the given id, including archived
 // ones.
 func (s *Store) Exists(ctx context.Context, id string) (bool, error) {
 	if !store.IsID(id) {
@@ -257,7 +260,7 @@ func (s *Store) Exists(ctx context.Context, id string) (bool, error) {
 	return exists, nil
 }
 
-// ActiveNameExists reports whether a live, non-deleted agent already holds the
+// ActiveNameExists reports whether a live, unarchived agent already holds the
 // name, including a dormant one whose tmux session is gone but whose record
 // survives.
 func (s *Store) ActiveNameExists(ctx context.Context, name string) (bool, error) {
@@ -490,8 +493,8 @@ func (s *Store) GetByIdempotencyKey(ctx context.Context, key string) (*Agent, er
 // which is what tells a firing that the last run has not finished.
 //
 // An agent sitting on a confirmation prompt counts, since it is unfinished work
-// someone still has to answer. An agent recorded but never yet seen working does
-// not, since that is the state a launch that died as it was typed keeps for good,
+// someone still has to answer. An idle one does not, whether it finished or never
+// got going, since idle is what a launch that died as it was typed keeps for good
 // and counting it would block the schedule on a run that is never coming.
 func (s *Store) CountLiveForSchedule(ctx context.Context, scheduleID string) (int64, error) {
 	if !store.IsID(scheduleID) {
@@ -506,9 +509,9 @@ func (s *Store) CountLiveForSchedule(ctx context.Context, scheduleID string) (in
 	return count, nil
 }
 
-// Delete removes an agent, keyed by id so it reaches the archived rows the trash
-// destroys. The transcript keyed to the same id is the transcript package's to
-// remove, in the same transaction.
+// Delete removes an agent, keyed by id so it reaches the archived rows the
+// archive screen destroys. The transcript keyed to the same id is the transcript
+// package's to remove, in the same transaction.
 func (s *Store) Delete(ctx context.Context, id string) error {
 	if err := s.queries.DeleteAgentByID(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete agent %q: %w", id, err)
@@ -537,14 +540,14 @@ func (s *Store) Rename(ctx context.Context, id, name string) (bool, error) {
 
 // Archive hides an agent from listings without dropping the row.
 func (s *Store) Archive(ctx context.Context, name string) error {
-	if err := s.queries.MarkAgentDeleted(ctx, name); err != nil {
+	if err := s.queries.MarkAgentArchived(ctx, name); err != nil {
 		return fmt.Errorf("failed to archive agent %q: %w", name, err)
 	}
 
 	return nil
 }
 
-// Restore clears an agent's deletion time by id, so an agent found in search
+// Restore clears an agent's archive time by id, so an agent found in search
 // returns to the normal listing. It is keyed by id because an archived row can share
 // a name with a live agent. The hidden flag goes with it, since an agent that came
 // back still hidden reads as a restore that did nothing.
@@ -563,7 +566,7 @@ func (s *Store) Restore(ctx context.Context, id string) error {
 // ArchiveWorkflowAgents archives every live agent in a workflow, keeping their
 // workflow id so they still list under it in search.
 func (s *Store) ArchiveWorkflowAgents(ctx context.Context, workflowID string) error {
-	if err := s.queries.MarkWorkflowAgentsDeleted(ctx, workflowID); err != nil {
+	if err := s.queries.MarkWorkflowAgentsArchived(ctx, workflowID); err != nil {
 		return fmt.Errorf("failed to archive agents of workflow %q: %w", workflowID, err)
 	}
 
@@ -584,7 +587,7 @@ func agentFromRow(agent models.Agent) Agent {
 		WorkflowID:     agent.WorkflowID,
 		ScheduleID:     agent.ScheduleID,
 		IdempotencyKey: agent.IdempotencyKey,
-		DeletedAt:      agent.DeletedAt,
+		ArchivedAt:     agent.ArchivedAt,
 		Hidden:         agent.IsHidden,
 		Mark:           agent.Mark,
 		CreatedAt:      agent.CreatedAt,

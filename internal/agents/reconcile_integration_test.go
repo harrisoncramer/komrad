@@ -73,10 +73,10 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	ctx := context.Background()
 	rec := NewReconciler(cli, mustRegistry(t, claude.New(t.TempDir())), st.Agents)
 
-	// A busy agent seeded new. The pane keeps a realistic working line, so the
+	// A busy agent seeded idle. The pane keeps a realistic working line, so the
 	// reconciler must promote it to thinking.
 	busyPane := it.spawn("busy", `sh -c 'while true; do printf "\033[H· Cooking… (3s · down 1k tokens)\n"; sleep 1; done'`)
-	seedRunning(t, st, cli, "busy", busyPane, agentstore.StateNew)
+	seedRunning(t, st, cli, "busy", busyPane, agentstore.StateIdle)
 	waitForFrame(t, cli, busyPane, "Cooking…")
 
 	// An idle agent renders a Claude-like input box with no timer, the way a real
@@ -115,17 +115,17 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	if got := stateOf(t, st, "busy"); got != agentstore.StateThinking {
 		t.Fatalf("busy agent: want thinking, got %q", got)
 	}
-	if got := stateOf(t, st, "idle"); got != agentstore.StateDone {
-		t.Fatalf("idle agent: want done, got %q", got)
+	if got := stateOf(t, st, "idle"); got != agentstore.StateIdle {
+		t.Fatalf("idle agent: want idle, got %q", got)
 	}
 	if got := stateOf(t, st, "wait"); got != agentstore.StateWaiting {
 		t.Fatalf("waiting agent: want waiting, got %q", got)
 	}
-	if got := stateOf(t, st, "dead"); got != agentstore.StateDone {
-		t.Fatalf("dead agent: want done, got %q", got)
+	if got := stateOf(t, st, "dead"); got != agentstore.StateIdle {
+		t.Fatalf("dead agent: want idle, got %q", got)
 	}
-	if got := stateOf(t, st, "squat"); got != agentstore.StateDone {
-		t.Fatalf("agent holding another pane's id: want done, got %q", got)
+	if got := stateOf(t, st, "squat"); got != agentstore.StateIdle {
+		t.Fatalf("agent holding another pane's id: want idle, got %q", got)
 	}
 
 	after := agentByID(t, st, squatter.ID)

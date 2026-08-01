@@ -146,9 +146,13 @@ func TestRenderListKeepsCursorVisible(t *testing.T) {
 // TestScreensFitThePane covers the whole screen rather than the list alone. The
 // header, the list, and the legend under it have to fit the pane together, since a
 // legend shoved off the bottom is the thing the clipping is there to save.
+//
+// The pane is taller than the tallest legend on purpose. A list keeps the row under the
+// cursor whatever is above it, so a pane too short for its own chrome overflows by
+// design, and measuring that says nothing about the clipping this is here for.
 func TestScreensFitThePane(t *testing.T) {
 	const (
-		height = 20
+		height = 24
 		total  = 40
 	)
 
@@ -160,14 +164,14 @@ func TestScreensFitThePane(t *testing.T) {
 	for i := range total {
 		name := fmt.Sprintf("agent%d", i)
 		m.tree.agents = append(m.tree.agents, agentItem{agent: agentstore.Agent{Name: name, WorkflowID: "w1"}})
-		m.trash.agents = append(m.trash.agents, agentstore.Agent{Name: name})
+		m.archive.agents = append(m.archive.agents, agentstore.Agent{Name: name})
 		m.schedules.items = append(m.schedules.items, scheduleItem{schedule: schedulestore.Schedule{Name: name}})
 	}
 
 	// Every cursor sits on the last row, the one a list that ran off the bottom
 	// would have taken off screen with it.
 	m.tree.cursor = total
-	m.trash.cursor = total - 1
+	m.archive.cursor = total - 1
 	m.schedules.cursor = total - 1
 
 	tests := []struct {
@@ -181,9 +185,9 @@ func TestScreensFitThePane(t *testing.T) {
 			wantTitle: "Agents and Workflows",
 		},
 		{
-			name:      "the trash",
-			screen:    screenTrash,
-			wantTitle: "Trash",
+			name:      "the archive",
+			screen:    screenArchive,
+			wantTitle: "Archive",
 		},
 		{
 			name:      "the schedules",
@@ -213,7 +217,7 @@ func TestScreensFitThePane(t *testing.T) {
 // and the banner over it both come off the pane, and a pane too short to hold even
 // that keeps one line for the hovered row.
 func TestListLines(t *testing.T) {
-	header := "Trash\n\n"
+	header := "Archive\n\n"
 	hints := "\nrestore\ndelete\nback\n"
 
 	tests := []struct {
@@ -247,7 +251,7 @@ func TestListLines(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := model{height: tt.height, actionErr: tt.banner}
+			m := model{height: tt.height, banner: tt.banner}
 
 			assert.Equal(t, tt.want, m.listLines(header, hints))
 		})

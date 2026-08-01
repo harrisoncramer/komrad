@@ -59,6 +59,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // route hands a message to the screen that owns it.
 func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// A resize is recorded and then falls through rather than being consumed, since
+	// an open form lays itself out from the same message. It is taken before the
+	// fatal screens, which consume everything else: a screen that never learned the
+	// pane it is in folds its error to a width the pane cannot hold, and the renderer
+	// cuts what does not fit at the pane edge.
+	if size, ok := msg.(tea.WindowSizeMsg); ok {
+		m.height = size.Height
+		m.width = size.Width
+	}
+
 	// A startup failure screen is terminal: there is nothing to act on, so any key
 	// dismisses it. Quitting exits zero, which is what lets the popup close on the
 	// keypress rather than lingering.
@@ -70,20 +80,13 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// A resize is recorded and then falls through rather than being consumed, since
-	// an open form lays itself out from the same message.
-	if size, ok := msg.(tea.WindowSizeMsg); ok {
-		m.height = size.Height
-		m.width = size.Width
-	}
-
 	// The banner is chrome rather than a screen, so it is dismissed with esc as a
 	// literal rather than through the rebindable back binding: back also carries
 	// left and h, and navigation keys should move the cursor, not clear an error.
 	// Form screens keep their own esc, which aborts the form.
-	if m.actionErr != nil && !m.screen.isForm() {
+	if m.banner != nil && !m.screen.isForm() {
 		if key, ok := msg.(tea.KeyMsg); ok && key.String() == "esc" {
-			m.actionErr = nil
+			m.banner = nil
 
 			return m, nil
 		}
@@ -102,6 +105,10 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.runSettledSearch(msg)
 	case searchResult:
 		return m, m.applySearch(msg)
+	case actionsResult:
+		m.applyActions(msg)
+
+		return m, nil
 	case previewResult:
 		m.applyPreview(msg)
 
@@ -123,8 +130,8 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateScheduleForm(msg)
 	case screenScheduleDelete:
 		return m.updateScheduleDelete(msg)
-	case screenTrashDelete:
-		return m.updateTrashDelete(msg)
+	case screenArchiveDelete:
+		return m.updateArchiveDelete(msg)
 	default:
 		// The list screens act on keys alone, which are dispatched below.
 	}
@@ -139,8 +146,10 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateSearch(key)
 	case screenSchedules:
 		return m.updateSchedules(key)
-	case screenTrash:
-		return m.updateTrash(key)
+	case screenArchive:
+		return m.updateArchive(key)
+	case screenActions:
+		return m.updateActions(key)
 	case screenAgents:
 		return m.updateAgents(key)
 	default:

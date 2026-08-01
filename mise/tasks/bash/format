@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
-set -x
 set -euo pipefail
 #MISE description="Format every shell script in the repo."
 #MISE alias="bash:fmt"
