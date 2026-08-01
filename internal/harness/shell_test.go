@@ -117,3 +117,58 @@ func TestQuoteArg(t *testing.T) {
 		})
 	}
 }
+
+func TestRequirePOSIXShell(t *testing.T) {
+	tests := []struct {
+		name  string
+		shell string
+		want  bool
+	}{
+		{
+			name:  "a shell tmux does not report",
+			shell: "",
+			want:  true,
+		},
+		{
+			name:  "sh",
+			shell: "/bin/sh",
+			want:  true,
+		},
+		{
+			name:  "zsh",
+			shell: "/bin/zsh",
+			want:  true,
+		},
+		{
+			name:  "a shell matched on its basename rather than its path",
+			shell: "/opt/homebrew/bin/bash",
+			want:  true,
+		},
+		{
+			// fish reads the VAR=value prefix as a command name at every version, so the
+			// command substitution it gained in 3.4 does not make it usable here.
+			name:  "fish",
+			shell: "/usr/local/bin/fish",
+			want:  false,
+		},
+		{
+			name:  "nushell",
+			shell: "/opt/homebrew/bin/nu",
+			want:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := RequirePOSIXShell(tt.shell)
+			if tt.want {
+				assert.NoError(t, err)
+
+				return
+			}
+
+			assert.ErrorIs(t, err, ErrShellUnsupported)
+			assert.Contains(t, err.Error(), tt.shell)
+		})
+	}
+}

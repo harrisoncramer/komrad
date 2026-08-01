@@ -327,6 +327,13 @@ func (c *Client) ShowGlobal(name string) string {
 	return value
 }
 
+// DefaultShell returns the shell tmux starts a pane's process with, which is the only
+// option that decides what a pane can parse, since tmux runs a non-empty default-command
+// through this shell too.
+func (c *Client) DefaultShell() string {
+	return c.ShowGlobal("default-shell")
+}
+
 // DetachSession detaches every client attached to the named session, leaving its pane
 // processes running. It is how the manager popup is hidden, so reopening restores it.
 func (c *Client) DetachSession(name string) {
