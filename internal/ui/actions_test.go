@@ -362,7 +362,7 @@ func TestActionPreviewRedrawsOnlyOnAChange(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := actionsModel(&fakeActions{}, appconfig.DefaultKeybindings())
 	m.stage = NewStage(tmux, appconfig.DefaultSplit)
-	m.stage.Init()
+	m.stage.Init("%0")
 
 	m.stageAction()
 	m.stageAction()
@@ -380,7 +380,7 @@ func TestActionPreviewRedrawsOnlyOnAChange(t *testing.T) {
 func actionsModel(client actionv1connect.ActionServiceClient, keys appconfig.Keybindings) model {
 	tmux := &recordingTmux{}
 	stage := NewStage(tmux, appconfig.DefaultSplit)
-	stage.Init()
+	stage.Init("%0")
 
 	return model{
 		api:    api{actions: client},

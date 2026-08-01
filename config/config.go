@@ -19,6 +19,10 @@ type Config struct {
 	Editor              string `env:"EDITOR" envDefault:"vi"`
 	Tmux                string `env:"TMUX"`
 	CacheDir            string `env:"WEAVE_CACHE_DIR"`
+	// TmuxPane is the pane this process runs in, which tmux puts in the environment of
+	// every pane it starts. It is the only answer that does not depend on a client being
+	// attached and looking at that pane.
+	TmuxPane string `env:"TMUX_PANE"`
 }
 
 // Load reads the panel's configuration from the environment.

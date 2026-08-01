@@ -90,6 +90,10 @@ type Deps struct {
 	// often because its database is not up. It shows on the error screen for the reason
 	// ConfigErr does: exiting takes the message down with the popup.
 	StartupErr error
+	// Pane is the pane the panel runs in, read from the environment tmux gives that pane.
+	// The stage lays the window out around it, so it has to be this pane and not whichever
+	// one an attached client happens to be looking at.
+	Pane string
 }
 
 type model struct {
@@ -190,11 +194,7 @@ func newModel(deps Deps) model {
 	// There is nothing to stage yet: the first listing is a command like any other, so the
 	// panel paints its empty tree rather than holding the first frame back for a round
 	// trip.
-	m.stage.Init()
-
-	// Recorded once the stage has found it, so a reload can respawn the panel by asking
-	// the manager server which pane it is in rather than guessing from pane commands.
-	m.popup.MarkPane(m.stage.NavPane())
+	m.stage.Init(deps.Pane)
 
 	return m
 }

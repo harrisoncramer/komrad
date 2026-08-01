@@ -93,9 +93,6 @@ func (f *fakeTmux) SendKeys(target string, keys ...string) error {
 	return nil
 }
 
-// CurrentPane returns a fixed nav pane id for the panel's own pane.
-func (f *fakeTmux) CurrentPane() (string, error) { return "%nav", nil }
-
 // SplitRight records the anchor and returns a fixed stage pane id.
 func (f *fakeTmux) SplitRight(anchorPane, dir string) string { return "%stage" }
 

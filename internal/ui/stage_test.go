@@ -47,12 +47,26 @@ func TestStagePercent(t *testing.T) {
 	}
 }
 
+// TestStageInitAnchorsToTheGivenPane covers which pane the stage is laid out beside. It is
+// the one the panel was told it runs in, never one resolved from tmux, which answers for
+// whatever window the session is currently looking at. A panel restarted while the session
+// sits on an agent would otherwise split its stage into that agent's window.
+func TestStageInitAnchorsToTheGivenPane(t *testing.T) {
+	tmux := &recordingTmux{}
+	stage := NewStage(tmux, appconfig.DefaultSplit)
+
+	stage.Init("%7")
+
+	assert.Equal(t, []string{"%7"}, tmux.anchors)
+	assert.Equal(t, "%7", stage.NavPane())
+}
+
 // TestStageInitSizesThePane covers a stage pane that outlived the panel. It is not
 // split again, so the resize is the only thing that puts it at the configured
 // split.
 func TestStageInitSizesThePane(t *testing.T) {
 	tmux := &recordingTmux{}
-	NewStage(tmux, 0.4).Init()
+	NewStage(tmux, 0.4).Init("%0")
 
 	assert.Equal(t, []int{60}, tmux.resizes)
 }
@@ -62,7 +76,7 @@ func TestStageInitSizesThePane(t *testing.T) {
 func TestStageWrapMeasuresThePane(t *testing.T) {
 	tmux := &recordingTmux{width: 216}
 	stage := NewStage(tmux, appconfig.DefaultSplit)
-	stage.Init()
+	stage.Init("%0")
 
 	assert.Equal(t, 216, stage.wrap())
 }
@@ -71,7 +85,7 @@ func TestStageWrapMeasuresThePane(t *testing.T) {
 // the renderer on its own default rather than rendering to nothing.
 func TestStageWrapUnmeasurablePane(t *testing.T) {
 	stage := NewStage(&recordingTmux{}, appconfig.DefaultSplit)
-	stage.Init()
+	stage.Init("%0")
 
 	assert.Equal(t, 0, stage.wrap())
 }
@@ -82,7 +96,7 @@ func TestStageWrapUnmeasurablePane(t *testing.T) {
 func TestStageHideOnlyTellsTmuxOnAChange(t *testing.T) {
 	tmux := &recordingTmux{}
 	stage := NewStage(tmux, appconfig.DefaultSplit)
-	stage.Init()
+	stage.Init("%0")
 
 	stage.Hide(false)
 	stage.Hide(true)
@@ -189,7 +203,7 @@ func TestStageInitReclaimsTheWindow(t *testing.T) {
 		owners:   map[string]string{"%7": "019fbb22-3735-71a9-ad83-acf4aa537acb"},
 	}
 
-	NewStage(tmux, 0.4).Init()
+	NewStage(tmux, 0.4).Init("%0")
 
 	assert.Equal(t, []string{"%7"}, tmux.broken, "a staged agent is returned to its own window")
 	assert.Equal(t, []string{"%8"}, tmux.killed, "the last stage's own pane is not kept")
@@ -200,7 +214,7 @@ func TestStageInitReclaimsTheWindow(t *testing.T) {
 func TestStageInitLeavesAnEmptyWindowAlone(t *testing.T) {
 	tmux := &recordingTmux{}
 
-	NewStage(tmux, 0.4).Init()
+	NewStage(tmux, 0.4).Init("%0")
 
 	assert.Empty(t, tmux.broken)
 	assert.Empty(t, tmux.killed)

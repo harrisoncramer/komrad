@@ -206,6 +206,9 @@ type recordingTmux struct {
 	// broken and killed are what reclaim did with those panes.
 	broken []string
 	killed []string
+	// anchors are the panes the stage has been split beside, which is the pane the panel
+	// believes it is running in.
+	anchors []string
 }
 
 func (t *recordingTmux) SetGlobal(string, string)                {}
@@ -218,13 +221,17 @@ func (t *recordingTmux) SendKeys(string, ...string) error        { return nil }
 func (t *recordingTmux) PaneAlive(string) bool                   { return true }
 func (t *recordingTmux) PaneWidth(string) int                    { return t.width }
 func (t *recordingTmux) CapturePane(string) string               { return "" }
-func (t *recordingTmux) CurrentPane() (string, error)            { return "%0", nil }
-func (t *recordingTmux) SplitRight(string, string, int) string   { return "%1" }
-func (t *recordingTmux) SwapPanes(string, string)                { t.swaps++ }
-func (t *recordingTmux) SiblingPanes(string) []string            { return t.siblings }
-func (t *recordingTmux) PaneOwner(pane string) string            { return t.owners[pane] }
-func (t *recordingTmux) BreakPane(pane string)                   { t.broken = append(t.broken, pane) }
-func (t *recordingTmux) KillPane(pane string)                    { t.killed = append(t.killed, pane) }
+func (t *recordingTmux) SplitRight(anchor, _ string, _ int) string {
+	t.anchors = append(t.anchors, anchor)
+
+	return "%1"
+}
+
+func (t *recordingTmux) SwapPanes(string, string)     { t.swaps++ }
+func (t *recordingTmux) SiblingPanes(string) []string { return t.siblings }
+func (t *recordingTmux) PaneOwner(pane string) string { return t.owners[pane] }
+func (t *recordingTmux) BreakPane(pane string)        { t.broken = append(t.broken, pane) }
+func (t *recordingTmux) KillPane(pane string)         { t.killed = append(t.killed, pane) }
 
 func (t *recordingTmux) NewWindow(string, string, string) (string, error) {
 	return "%2", nil
@@ -256,7 +263,7 @@ func (t *recordingTmux) RespawnPane(_, _ string, argv ...string) {
 // it. Row 0 is the workflow header the agent sits under, so the agent is row 1.
 func infoModel(tmux *recordingTmux) model {
 	stage := NewStage(tmux, appconfig.DefaultSplit)
-	stage.Init()
+	stage.Init("%0")
 
 	return model{
 		stage:  stage,

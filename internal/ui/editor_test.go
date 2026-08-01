@@ -82,7 +82,7 @@ func TestEditorKey(t *testing.T) {
 // the cursor where the test puts it. Row 0 is the header and row 1 the agent.
 func editorModel(tmux *recordingTmux, editor string, cursor int) model {
 	stage := NewStage(tmux, appconfig.DefaultSplit)
-	stage.Init()
+	stage.Init("%0")
 
 	return model{
 		tmux:   tmux,

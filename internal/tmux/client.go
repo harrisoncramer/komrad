@@ -206,12 +206,6 @@ func (c *Client) SendKeys(target string, keys ...string) error {
 	return nil
 }
 
-// CurrentPane returns the id of the pane the calling process runs in, which the panel
-// uses as the anchor for the stage split.
-func (c *Client) CurrentPane() (string, error) {
-	return c.query("display-message", "-p", "#{pane_id}")
-}
-
 // SplitRight splits the anchor pane horizontally, adding a pane to its right rooted at
 // dir and taking percent of the width, and returns the new pane's id. The split stays
 // detached so focus remains on the anchor.

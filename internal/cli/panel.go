@@ -57,6 +57,7 @@ func panelCmd(state *app) *cobra.Command {
 				Binary:     selfPath(),
 				ConfigErr:  state.configErr,
 				StartupErr: startupErr,
+				Pane:       state.env.TmuxPane,
 			})
 		},
 	}
