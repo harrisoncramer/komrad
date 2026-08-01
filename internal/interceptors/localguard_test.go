@@ -17,55 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// guardedCall puts one request through the guard and gives back what the caller was
-// answered, whether the handler under it ran, and what was logged.
-//
-// localAddr is the address the connection arrived on, which net/http puts on the context
-// of every request it serves and httptest.NewRequest does not. Empty leaves it off, which
-// is the case of a request whose provenance cannot be read.
-func guardedCall(t *testing.T, req *http.Request, localAddr string) (int, bool, string) {
-	t.Helper()
-
-	if localAddr != "" {
-		addr, err := net.ResolveTCPAddr("tcp", localAddr)
-		require.NoError(t, err)
-
-		req = req.WithContext(context.WithValue(req.Context(), http.LocalAddrContextKey, net.Addr(addr)))
-	}
-
-	var out bytes.Buffer
-
-	served := false
-	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		served = true
-		w.WriteHeader(http.StatusOK)
-	})
-
-	recorder := httptest.NewRecorder()
-	NewLocalGuard(logging.New(&out, slog.LevelInfo), next).ServeHTTP(recorder, req)
-
-	return recorder.Code, served, out.String()
-}
-
-// createAgentCall is a call at the RPC that creates an agent, which is the one worth
-// refusing: it takes a prompt and a directory.
-func createAgentCall(host, origin, fetchSite string) *http.Request {
-	req := httptest.NewRequest(http.MethodPost, "/agent.v1.AgentService/CreateAgent",
-		strings.NewReader(`{"name":"x"}`))
-	req.Host = host
-	req.Header.Set("Content-Type", "application/json")
-
-	if origin != "" {
-		req.Header.Set("Origin", origin)
-	}
-
-	if fetchSite != "" {
-		req.Header.Set("Sec-Fetch-Site", fetchSite)
-	}
-
-	return req
-}
-
 func TestLocalGuard(t *testing.T) {
 	t.Parallel()
 
@@ -220,4 +171,47 @@ func TestLocalGuardRefusesEveryMethod(t *testing.T) {
 			assert.False(t, served)
 		})
 	}
+}
+
+func guardedCall(t *testing.T, req *http.Request, localAddr string) (int, bool, string) {
+	t.Helper()
+
+	if localAddr != "" {
+		addr, err := net.ResolveTCPAddr("tcp", localAddr)
+		require.NoError(t, err)
+
+		req = req.WithContext(context.WithValue(req.Context(), http.LocalAddrContextKey, net.Addr(addr)))
+	}
+
+	var out bytes.Buffer
+
+	served := false
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		served = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	recorder := httptest.NewRecorder()
+	NewLocalGuard(logging.New(&out, slog.LevelInfo), next).ServeHTTP(recorder, req)
+
+	return recorder.Code, served, out.String()
+}
+
+// createAgentCall is a call at the RPC that creates an agent, which is the one worth
+// refusing: it takes a prompt and a directory.
+func createAgentCall(host, origin, fetchSite string) *http.Request {
+	req := httptest.NewRequest(http.MethodPost, "/agent.v1.AgentService/CreateAgent",
+		strings.NewReader(`{"name":"x"}`))
+	req.Host = host
+	req.Header.Set("Content-Type", "application/json")
+
+	if origin != "" {
+		req.Header.Set("Origin", origin)
+	}
+
+	if fetchSite != "" {
+		req.Header.Set("Sec-Fetch-Site", fetchSite)
+	}
+
+	return req
 }
