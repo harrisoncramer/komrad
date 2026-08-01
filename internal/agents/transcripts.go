@@ -12,7 +12,7 @@ import (
 )
 
 // sessionStore is how the syncer records the conversation an agent turned out to be
-// holding. It writes only that, since nothing else about the agent is its to change.
+// holding, which is the only thing about an agent it changes.
 type sessionStore interface {
 	SetSessionID(ctx context.Context, id, sessionID string) error
 }
@@ -24,22 +24,21 @@ type transcriptStore interface {
 	DeleteTurns(ctx context.Context, agentID string) error
 }
 
-// agentLister is all the syncer needs from the agent domain, which agents exist
-// to sync. Archived ones are included, since their transcripts stay searchable.
+// agentLister is all the syncer needs from the agent domain. Archived agents are included,
+// since their transcripts stay searchable.
 type agentLister interface {
 	ListAll(ctx context.Context) ([]agentstore.Agent, error)
 }
 
-// logRegistry resolves the harness that wrote an agent's log, the only thing that
-// knows where that log is and how to read it. The format never reaches here.
+// logRegistry resolves the harness that wrote an agent's log, which is the only thing that
+// knows where it is and how to read it.
 type logRegistry interface {
 	Resolve(id string) (harness.Harness, error)
 }
 
-// TranscriptSyncer keeps each agent's searchable transcript in step with the log its
-// CLI writes to disk. Rather than hook into that CLI's lifecycle, which fires
-// unreliably, it reads the on-disk log directly on a timer, so missing a pass loses
-// nothing.
+// TranscriptSyncer keeps each agent's searchable transcript in step with the log its CLI
+// writes to disk. Rather than hook into that CLI's lifecycle, which fires unreliably, it
+// reads the log on a timer, so missing a pass loses nothing.
 type TranscriptSyncer struct {
 	agents    agentLister
 	sessions  sessionStore
@@ -66,26 +65,23 @@ func NewTranscriptSyncer(p TranscriptSyncerParams) *TranscriptSyncer {
 	}
 }
 
-// Sync folds any new transcript text for every tracked agent into the store. Each agent
-// reads only the bytes appended since its last sync, so a pass is cheap even over a large
-// corpus.
+// Sync folds any new transcript text for every tracked agent into the store, reading only
+// the bytes appended since that agent's last sync.
 //
-// An agent that cannot be folded in does not stop the pass. The failures that reach here
-// are mostly properties of one agent's log rather than of the machine, so they recur
-// every pass, and the walk is ordered newest first: giving up at the first one would
-// leave every older agent behind it never indexed again. They are still returned
-// together, so a log that never syncs shows up somewhere other than a search that quietly
-// finds nothing.
+// An agent that cannot be folded in does not stop the pass. These failures are properties
+// of one agent's log rather than of the machine, so they recur every pass, and the walk is
+// newest first: giving up at the first would leave every older agent behind it unindexed.
+// They are still returned together, so a log that never syncs shows up somewhere other
+// than a search that quietly finds nothing.
 func (ts *TranscriptSyncer) Sync(ctx context.Context) error {
 	agents, err := ts.agents.ListAll(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list agents for transcript sync: %w", err)
 	}
 
-	// An agent with no conversation yet cannot be synced, and the id it will hold has
-	// to be adopted before the first pass that can read anything. Both walks see the
-	// same listing, so adoption knows which conversations the other agents already
-	// hold.
+	// An agent with no conversation yet cannot be synced, so the id it will hold is
+	// adopted first. Both walks see the same listing, so adoption knows which
+	// conversations the other agents already hold.
 	var failures []error
 	for _, agent := range ts.adoptSessions(ctx, agents) {
 		if agent.SessionID == "" {
@@ -99,17 +95,13 @@ func (ts *TranscriptSyncer) Sync(ctx context.Context) error {
 	return errors.Join(failures...)
 }
 
-// adoptSessions gives every agent still missing a conversation the one its harness
-// started for it, and returns the agents with the ids it settled on.
+// adoptSessions gives every agent still missing a conversation the one its harness started
+// for it, and returns the agents with the ids it settled on. A harness that names its own
+// conversations cannot be told which id to use, so it is asked afterwards, and it knows
+// which conversation is this agent's because the launch told the CLI which agent it was.
 //
-// A harness that names its own conversations is the reason this exists. The panel
-// cannot tell such an agent which id to use, so it asks afterwards. The harness knows
-// which conversation is this agent's without the panel arbitrating, since the launch
-// told the CLI which agent it was and the CLI records that beside the id it minted.
-//
-// A failure to adopt is not reported. The conversation appears a second or two after
-// the launch, so the passes before it are the ordinary case rather than a fault, and
-// the next pass tries again.
+// A failure to adopt is not reported: the conversation appears a second or two after the
+// launch, so the passes before it are ordinary and the next pass tries again.
 func (ts *TranscriptSyncer) adoptSessions(ctx context.Context, agents []agentstore.Agent) []agentstore.Agent {
 	for i, agent := range agents {
 		if agent.SessionID != "" {
@@ -140,8 +132,7 @@ func (ts *TranscriptSyncer) adoptSessions(ctx context.Context, agents []agentsto
 // is a log with nothing new complete enough to read.
 func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent) error {
 	// An agent recorded against a harness this binary does not implement is reported
-	// rather than skipped. Its transcript will never advance again, and a search that
-	// quietly finds nothing is how that goes unnoticed.
+	// rather than skipped, since its transcript will never advance again.
 	resolved, err := ts.harnesses.Resolve(agent.Harness)
 	if err != nil {
 		return err
@@ -194,9 +185,8 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 }
 
 // appendTurns joins newly-synced turns onto the transcript so far, blank-line separated,
-// and returns the grown text alongside the turns ready to index. Each turn carries where
-// it landed in that text, which is what the panel reads back to scroll a hit into view
-// rather than hunt for the words again.
+// and returns the grown text alongside the turns ready to index. Each turn carries where it
+// landed, which is what the panel reads back to scroll a hit into view.
 func appendTurns(existing string, turns []harness.Turn) (string, []transcript.Turn) {
 	var content strings.Builder
 	content.WriteString(existing)

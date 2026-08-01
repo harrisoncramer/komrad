@@ -12,19 +12,15 @@ import (
 )
 
 // periodicJobs is what the reconciler needs to keep River's registrations in step, stated
-// in terms of the schedule id and the expression it fires on rather than River's handles,
-// so a test can supply its own and assert on which schedules were armed and disarmed.
-//
-// The job itself is built by the implementation rather than handed in, since the id River
-// files a registration under has to be the id it is later removed by, and passing a
-// ready-made job leaves those free to disagree.
+// in schedule ids rather than River's handles so a test can assert on what was armed. The
+// job is built by the implementation, since the id a registration is filed under has to be
+// the id it is later removed by.
 type periodicJobs interface {
 	Add(id string, cron river.PeriodicSchedule) error
 	Remove(id string)
 }
 
-// RiverPeriodic adapts a River client's periodic job bundle to what the
-// scheduler drives.
+// RiverPeriodic adapts a River client's periodic job bundle to what the scheduler drives.
 type RiverPeriodic struct {
 	bundle *river.PeriodicJobBundle
 }
@@ -48,23 +44,20 @@ func (r *RiverPeriodic) Remove(id string) {
 	r.bundle.RemoveByID(id)
 }
 
-// Scheduler keeps River's periodic jobs matching the schedules table.
-//
-// River holds its periodic jobs in memory and the schedules a person creates live in
-// Postgres, so something has to carry one into the other. Every pass reads the table and
-// makes the registered set match, so a schedule created through the panel, the CLI, or an
-// MCP tool is picked up without any of them knowing this exists.
+// Scheduler keeps River's periodic jobs matching the schedules table. River holds its
+// periodic jobs in memory while the schedules live in Postgres, so every pass reads the
+// table and makes the registered set match, and a schedule created through the panel, the
+// CLI, or an MCP tool is picked up without any of them knowing this exists.
 type Scheduler struct {
 	schedules ScheduleReader
 	periodic  periodicJobs
-	// registered is what this has told River about, keyed by schedule id. The value is what
-	// the job was built from, so a pass can tell a schedule that changed from one that only
-	// had its name edited.
+	// registered is what this has told River about, keyed by schedule id, valued by what
+	// the job was built from so a pass can tell a changed schedule from a renamed one.
 	registered map[string]registration
 }
 
-// registration is the part of a schedule the periodic job is built from. A change to any
-// of it means the registered job no longer matches the row.
+// registration is the part of a schedule the periodic job is built from. A change to any of
+// it means the registered job no longer matches the row.
 type registration struct {
 	cron     string
 	timezone string
@@ -84,11 +77,9 @@ func NewScheduler(schedules ScheduleReader, periodic periodicJobs) *Scheduler {
 // registered, paused and deleted ones are removed, and a schedule whose expression changed
 // is re-registered against the new one.
 //
-// A schedule whose expression cannot be parsed is skipped rather than failing the pass,
-// since one bad row should not stop every other schedule from running. A registration
-// River refuses is the same situation from the other side, so it is gathered and the
-// pass carries on. Returning there would leave the schedules after it unregistered and
-// skip the removal below, which is what actually takes a paused schedule off.
+// A row that cannot be parsed or that River refuses is gathered and the pass carries on,
+// since returning there would leave the schedules after it unregistered and skip the
+// removal below, which is what takes a paused schedule off.
 func (s *Scheduler) Reconcile(ctx context.Context) error {
 	listed, err := s.schedules.List(ctx)
 	if err != nil {
@@ -116,10 +107,9 @@ func (s *Scheduler) Reconcile(ctx context.Context) error {
 			continue
 		}
 
-		// An expression that changed has to replace its registration rather than sit beside
-		// it, or the schedule would fire on both the old one and the new. The entry goes
-		// with it, so what this has told River about never claims a job River no longer
-		// holds.
+		// An expression that changed has to replace its registration rather than sit
+		// beside it, or the schedule would fire on both. The entry goes with it, so this
+		// never claims a job River no longer holds.
 		if registered {
 			s.periodic.Remove(schedule.ID)
 			delete(s.registered, schedule.ID)
@@ -147,10 +137,10 @@ func (s *Scheduler) Reconcile(ctx context.Context) error {
 	return errors.Join(failures...)
 }
 
-// periodicJobFor builds the River periodic job for one schedule, filed under the id
-// it will be removed by. The occurrence is taken from the schedule rather than from
-// the clock, so two inserts standing for the same firing carry identical arguments
-// and River's unique index collapses them into one run.
+// periodicJobFor builds the River periodic job for one schedule, filed under the id it
+// will be removed by. The occurrence comes from the schedule rather than the clock, so two
+// inserts standing for the same firing carry identical arguments and River's unique index
+// collapses them into one run.
 func periodicJobFor(scheduleID string, cron river.PeriodicSchedule) *river.PeriodicJob {
 	return river.NewPeriodicJob(
 		cron,
@@ -164,12 +154,10 @@ func periodicJobFor(scheduleID string, cron river.PeriodicSchedule) *river.Perio
 	)
 }
 
-// lateness is how long after a firing was due the job standing for it may still be
-// built. River constructs the arguments when its enqueuer gets to the schedule, which
-// is usually within a tick and occasionally much later: a leader election, a paused
-// process, or a machine coming out of sleep all put the construction well after the
-// moment the schedule fired. An hour is far beyond any of them, and it bounds the walk
-// below to sixty steps at the finest resolution a cron expression can name.
+// lateness is how long after a firing was due the job standing for it may still be built.
+// River constructs the arguments when its enqueuer gets to the schedule, which a leader
+// election, a paused process, or a machine coming out of sleep can put well after the
+// firing. An hour is beyond any of them, and bounds the walk below to sixty steps.
 const lateness = time.Hour
 
 // skew is how far ahead of an occurrence the construction may run and still be counted
@@ -177,14 +165,13 @@ const lateness = time.Hour
 const skew = 5 * time.Second
 
 // occurrenceFor names the firing a job stands for: the schedule's last occurrence at or
-// before now. Which firing it is has to come from the schedule, since the clock alone
-// cannot tell a job built a minute late for one occurrence from one built early for the
-// next, and naming the wrong one is not cosmetic. The run either collides with the
-// previous firing on the unique index and vanishes with nothing recorded, or is filed
-// under a firing that has not happened yet and blocks the one that follows.
+// before now. It has to come from the schedule, since the clock alone cannot tell a job
+// built late for one occurrence from one built early for the next, and naming the wrong one
+// either collides with the previous firing on the unique index and vanishes, or blocks the
+// firing that follows.
 //
-// It walks forward rather than back because a cron schedule can only say what comes
-// next, starting from a point far enough behind that no plausible lateness precedes it.
+// It walks forward rather than back because a cron schedule can only say what comes next,
+// starting far enough behind that no plausible lateness precedes it.
 func occurrenceFor(cron river.PeriodicSchedule, now time.Time) time.Time {
 	cutoff := now.Add(skew)
 

@@ -1,10 +1,10 @@
 // Package logging is the service's structured log. Everything the background service has
 // to say goes through here in one shape, so a line reads by eye in the pager the panel
-// opens and greps by field without being reparsed first.
+// opens and greps by field.
 //
-// The names are OpenTelemetry's semantic conventions rather than names invented here.
-// Nothing exports to a collector yet, but borrowing the vocabulary means the log can be
-// shipped later without every consumer learning new words for the same things.
+// The names are OpenTelemetry's semantic conventions. Nothing exports to a collector yet,
+// but borrowing the vocabulary means the log can be shipped later without every consumer
+// learning new words for the same things.
 package logging
 
 import (
@@ -15,13 +15,12 @@ import (
 	"strings"
 )
 
-// The attribute keys, spelled once here rather than at each call site. A typo in one of
-// them is invisible in a log, and the point of borrowing the conventions is that every
-// record agrees on them.
+// The attribute keys, spelled once here rather than at each call site, since a typo in one
+// is invisible in a log.
 const (
 	// TraceID identifies one request across every line written while serving it. It is
-	// otel's trace id in role rather than in format. Nothing here is a span, so it is
-	// generated per request rather than propagated from a caller that has none.
+	// otel's trace id in role rather than format, generated per request since nothing here
+	// is a span and no caller propagates one.
 	TraceID = "trace.id"
 	// RPCSystem, RPCService, and RPCMethod name what was called. Connect gives the
 	// procedure as one path, which is split so the service can be grouped on.
@@ -46,15 +45,14 @@ const (
 	// MCPTool is the tool a model asked for. The path is /mcp whatever it wanted, so this
 	// is the only field on an MCP call that says what it was trying to do.
 	MCPTool = "mcp.tool.name"
-	// DurationMS is how long the call took, in milliseconds. Named rather than left as a
+	// DurationMS is how long the call took, in milliseconds, named rather than left as a
 	// duration so it sorts and thresholds as a number.
 	DurationMS = "duration_ms"
 	// Loop names the background loop a line came from. The service runs three of them
 	// against the same store, so a failed pass says nothing without it.
 	Loop = "loop"
-	// Repeats is how many times running a loop has failed the same way. A pass that keeps
-	// failing writes one line and then counts, so a log paged by a person is not the same
-	// sentence a thousand times.
+	// Repeats is how many times a loop has failed the same way, since a pass that keeps
+	// failing writes one line and then counts.
 	Repeats = "repeats"
 	// ServerAddress is where the service is listening.
 	ServerAddress = "server.address"
@@ -69,9 +67,9 @@ const (
 const RPCSystemConnect = "connect_rpc"
 
 // The fields every record carries, which are the OpenTelemetry log data model's rather
-// than slog's own. A record is written flat rather than as the nested OTLP JSON envelope,
-// since nothing exports it yet and flat lines are what greps and what jq reads without a
-// path into a structure. The nesting is the exporter's job on the day there is one.
+// than slog's own. A record is written flat rather than as the nested OTLP envelope, since
+// nothing exports it yet and flat lines are what greps. The nesting is the exporter's job
+// on the day there is one.
 const (
 	timestampKey = "timestamp"
 	severityKey  = "severity_text"
@@ -79,17 +77,15 @@ const (
 	bodyKey      = "body"
 )
 
-// ServiceName is the resource every record is attributed to. One process writes this log
-// so it is constant, and it is written anyway because a log that does not name what
-// produced it cannot be merged with another.
+// ServiceName is the resource every record is attributed to. It is constant, and written
+// anyway because a log that does not name what produced it cannot be merged with another.
 const ServiceName = "service.name"
 
 // Service is what this binary calls itself in a record.
 const Service = "weave"
 
-// severityNumbers map slog's levels onto the numbers OpenTelemetry orders severity by. The
-// text alone cannot be compared, so a query for everything at least as bad as a warning
-// needs the number beside it.
+// severityNumbers map slog's levels onto the numbers OpenTelemetry orders severity by,
+// since the text alone cannot be compared against a threshold.
 var severityNumbers = map[slog.Level]int{
 	slog.LevelDebug: 5,
 	slog.LevelInfo:  9,
@@ -98,8 +94,8 @@ var severityNumbers = map[slog.Level]int{
 }
 
 // New builds the service's logger over w at the given level. It writes JSON, one record
-// per line, since the log is read as much by a tool as by a person. A key=value line
-// cannot be split back apart reliably once a wrapped error carries a colon and a quote.
+// per line, since a key=value line cannot be split apart reliably once a wrapped error
+// carries a colon and a quote.
 func New(w io.Writer, level slog.Level) *slog.Logger {
 	handler := slog.NewJSONHandler(w, &slog.HandlerOptions{Level: level, ReplaceAttr: otelFields})
 
@@ -109,8 +105,8 @@ func New(w io.Writer, level slog.Level) *slog.Logger {
 // otelFields renames what slog puts on every record to what the log data model calls it,
 // and splits the level into the text and the number that orders it.
 func otelFields(groups []string, attr slog.Attr) slog.Attr {
-	// Only the record's own fields are renamed. An attribute inside a group is one a
-	// caller nested deliberately, and a key of "msg" down there is theirs, not slog's.
+	// Only the record's own fields are renamed. An attribute inside a group was nested
+	// deliberately, and a key of "msg" down there is the caller's rather than slog's.
 	if len(groups) > 0 {
 		return attr
 	}
@@ -134,9 +130,9 @@ func otelFields(groups []string, attr slog.Attr) slog.Attr {
 	}
 }
 
-// ParseLevel turns a configured level into slog's. An unknown word is an error rather
-// than a fallback, so a misspelled level is reported by whoever read the config instead
-// of quietly leaving the log at a verbosity nobody chose.
+// ParseLevel turns a configured level into slog's. An unknown word is an error rather than
+// a fallback, so a misspelled level is reported instead of leaving the log at a verbosity
+// nobody chose.
 func ParseLevel(level string) (slog.Level, error) {
 	switch strings.ToLower(strings.TrimSpace(level)) {
 	case "debug":
@@ -152,8 +148,8 @@ func ParseLevel(level string) (slog.Level, error) {
 	}
 }
 
-// Err renders an error as its two attributes. Every failure logged anywhere in the
-// service goes through this, so a search for one field finds all of them.
+// Err renders an error as its two attributes. Every failure logged in the service goes
+// through this, so a search for one field finds all of them.
 func Err(err error) []slog.Attr {
 	if err == nil {
 		return nil
@@ -162,9 +158,8 @@ func Err(err error) []slog.Attr {
 	return []slog.Attr{slog.String(ErrorType, fmt.Sprintf("%T", err)), slog.String(ErrorMessage, err.Error())}
 }
 
-// Attrs is a list of attributes as With takes them. slog's structured call takes typed
-// attributes and its fluent one takes loose values, and building a logger out of what was
-// gathered for a record is where the two meet.
+// Attrs is a list of attributes as With takes them, which is where slog's typed
+// attributes and its loose fluent values meet.
 func Attrs(attrs []slog.Attr) []any {
 	loose := make([]any, 0, len(attrs))
 	for _, attr := range attrs {
@@ -185,8 +180,7 @@ func WithLogger(ctx context.Context, logger *slog.Logger) context.Context {
 }
 
 // From is the logger carried on the context, or the default one. Code below the
-// interceptor logs through this rather than holding a logger of its own, so its lines
-// carry the trace id of the call that reached it.
+// interceptor logs through this, so its lines carry the trace id of the call.
 func From(ctx context.Context) *slog.Logger {
 	if logger, ok := ctx.Value(loggerKey{}).(*slog.Logger); ok && logger != nil {
 		return logger

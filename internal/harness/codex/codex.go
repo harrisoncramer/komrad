@@ -1,10 +1,9 @@
-// Package codex runs OpenAI's Codex CLI as a weave harness. Everything
-// here is true of that CLI and of nothing else: the config overrides it takes, the
-// chrome its TUI draws, and the rollout files it records a conversation in.
+// Package codex runs OpenAI's Codex CLI as a weave harness: the config overrides it takes,
+// the chrome its TUI draws, and the rollout files it records a conversation in.
 //
-// Codex differs from Claude Code in the one way that shapes the rest. It will not
-// be told which id to file a conversation under, so the panel cannot name one
-// before it exists and has to adopt the id Codex chose after the launch.
+// Codex differs from Claude Code in the one way that shapes the rest. It will not be told
+// which id to file a conversation under, so the panel adopts the id Codex chose after the
+// launch rather than naming one before it exists.
 package codex
 
 import (
@@ -17,19 +16,18 @@ import (
 	"weave/internal/harness"
 )
 
-// originatorEnv is what Codex calls the client that started a conversation, overridden
-// per launch so the panel can recognize its own. Codex writes the value into the opening
-// record of the rollout, which is the only place an agent's id and the conversation id
-// Codex minted ever appear together.
+// originatorEnv is what Codex calls the client that started a conversation, overridden per
+// launch so the panel can recognize its own. Codex writes it into the rollout's opening
+// record, the only place an agent's id and the conversation id Codex minted appear
+// together.
 //
-// It is marked internal by Codex and could be renamed in any release. The cost of that
-// is an agent whose transcript never syncs rather than a wrong conversation adopted,
-// since a stamp that stops arriving matches nothing.
+// It is marked internal by Codex and could be renamed in any release. The cost of that is
+// an agent whose transcript never syncs rather than a wrong conversation adopted, since a
+// stamp that stops arriving matches nothing.
 const originatorEnv = "CODEX_INTERNAL_ORIGINATOR_OVERRIDE"
 
-// originator is the value originatorEnv carries for an agent. It is prefixed rather than
-// the bare id so a rollout says which tool started it, which is what the value means to
-// Codex and to anything else reading the file.
+// originator is the value originatorEnv carries for an agent, prefixed rather than the bare
+// id so a rollout says which tool started it.
 func originator(agentID string) string { return "weave-" + agentID }
 
 // originatorPrefix is the assignment that goes ahead of the CLI on the command line, or
@@ -44,10 +42,9 @@ func originatorPrefix(agentID string) string {
 
 // Harness puts Codex up in a pane and reads back what happened in it.
 type Harness struct {
-	// sessionsDir is Codex's $CODEX_HOME/sessions, where it writes one rollout file per
-	// conversation under a year, month, and day of directories. configPath is the config
-	// file beside it. Both are fields rather than constants so a test can point them at a
-	// temp directory.
+	// sessionsDir is Codex's $CODEX_HOME/sessions, one rollout file per conversation under
+	// year, month, and day directories, and configPath is the config file beside it. Both
+	// are fields so a test can point them at a temp directory.
 	sessionsDir string
 	configPath  string
 	// trustLaunchDirs answers Codex's directory-trust question in advance, which it can
@@ -55,8 +52,7 @@ type Harness struct {
 	trustLaunchDirs bool
 }
 
-// Options configures the Codex harness. The two paths default to Codex's own
-// locations when they are left empty.
+// Options configures the Codex harness. The two paths default to Codex's own locations.
 type Options struct {
 	SessionsDir string
 	ConfigPath  string
@@ -89,9 +85,8 @@ var _ harness.Harness = (*Harness)(nil)
 // GetID is the name an agent running Codex is recorded under.
 func (h *Harness) GetID() string { return "codex" }
 
-// MintSessionID returns empty. Codex takes no session id on the command line and
-// names the conversation itself, so the panel adopts that name afterwards through
-// FindSessions.
+// MintSessionID returns empty, since Codex takes no session id on the command line and
+// names the conversation itself, which the panel adopts afterwards through FindSession.
 func (h *Harness) MintSessionID() string { return "" }
 
 // DefaultSessionsDir is where Codex records its rollouts. An unresolvable home
@@ -105,28 +100,22 @@ func DefaultSessionsDir() string {
 	return filepath.Join(home, ".codex", "sessions")
 }
 
-// sessionMeta is the first record of a rollout, which names the conversation and
-// carries the originator the launch stamped on it. Those two are what tie a file
-// Codex named itself to the agent the panel launched.
+// sessionMeta is the first record of a rollout, whose conversation id and originator are
+// what tie a file Codex named itself to the agent the panel launched.
 type sessionMeta struct {
 	ID         string `json:"id"`
 	Originator string `json:"originator"`
 }
 
-// FindSession returns the conversation Codex started for this agent, or empty when
-// none has been written yet. Codex records nothing until the first turn is submitted,
-// so an agent still sitting at its prompt has no rollout at all and the next pass
-// looks again.
+// FindSession returns the conversation Codex started for this agent, or empty when none
+// has been written yet, since Codex records nothing until the first turn is submitted.
 //
-// The match is the originator the launch stamped on the rollout, which is this
-// agent's id and nothing else's. Everything about a rollout that a person would guess
-// from — the directory it ran in, when it was written — is shared with any Codex a
-// person started by hand in the same place, so a guess can adopt someone else's
-// conversation. A stamp cannot.
+// The match is the originator the launch stamped on the rollout, which is this agent's id
+// and nothing else's. Anything else a rollout could be matched on is shared with a Codex
+// started by hand in the same place, so it could adopt someone else's conversation.
 //
-// The newest match wins. An agent relaunched before its first conversation was
-// adopted leaves an abandoned rollout carrying the same stamp, and the live pane is
-// the later one.
+// The newest match wins, since an agent relaunched before its first conversation was
+// adopted leaves an abandoned rollout carrying the same stamp.
 func (h *Harness) FindSession(agentID string) (string, error) {
 	if agentID == "" {
 		return "", nil
@@ -154,9 +143,8 @@ func (h *Harness) FindSession(agentID string) (string, error) {
 	return "", nil
 }
 
-// readSessionMeta reads a rollout's opening record. A rollout is written as it goes,
-// so a file caught before its first record is complete has nothing to read yet and
-// is not an error.
+// readSessionMeta reads a rollout's opening record. A rollout is written as it goes, so a
+// file caught before its first record is complete has nothing to read yet.
 func readSessionMeta(path string) (sessionMeta, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -178,6 +166,5 @@ func readSessionMeta(path string) (sessionMeta, error) {
 	return record.Payload, nil
 }
 
-// Relocate has nothing to carry. Codex resumes a conversation by id from anywhere,
-// so a restore that has to run the agent somewhere else costs it nothing.
+// Relocate has nothing to carry, since Codex resumes a conversation by id from anywhere.
 func (h *Harness) Relocate(string, string) error { return nil }

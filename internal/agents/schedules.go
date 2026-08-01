@@ -12,9 +12,8 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
-// scheduleStore is the part of the schedule store this service reads and
-// writes. A schedule is a record until something fires it, so this touches no
-// tmux.
+// scheduleStore is the part of the schedule store this service reads and writes. A
+// schedule is only a record until something fires it, so this touches no tmux.
 type scheduleStore interface {
 	Get(ctx context.Context, id string) (*schedule.Schedule, error)
 	Create(ctx context.Context, cfg schedule.Config) (*schedule.Schedule, error)
@@ -26,18 +25,17 @@ type scheduleStore interface {
 // ErrScheduleNotFound reports that no schedule answers to the given id.
 var ErrScheduleNotFound = errors.New("schedule not found")
 
-// ErrBadCron reports a cron expression or timezone the scheduler cannot read. The
-// proto catches a malformed string before this, so reaching here means the shape
-// was fine and the parse still refused it.
+// ErrBadCron reports a cron expression or timezone the scheduler cannot read. The proto
+// catches a malformed string first, so reaching here means the shape was fine and the
+// parse still refused it.
 var ErrBadCron = errors.New("unreadable cron expression")
 
-// ScheduleService manages recurring agent launches. A schedule is a blueprint of
-// an agent plus a cron expression, and nothing here starts anything. The firing
-// half reads these records and launches through the agent service.
+// ScheduleService manages recurring agent launches. A schedule is a blueprint of an agent
+// plus a cron expression; the firing half reads these records and launches through the
+// agent service.
 type ScheduleService struct {
 	store scheduleStore
-	// workflows is read to confirm a schedule launches into a workflow that is
-	// there. Nothing here writes one.
+	// workflows is read to confirm a schedule launches into a workflow that is there.
 	workflows workflowReader
 }
 
@@ -62,9 +60,8 @@ func (s *ScheduleService) GetSchedule(ctx context.Context, id string) (*schedule
 	return found, nil
 }
 
-// NewSchedule records a recurring launch. The cron expression is parsed before
-// the write, so a schedule that could never fire is refused at creation rather
-// than discovered when it fails to run.
+// NewSchedule records a recurring launch. The cron expression is parsed before the write,
+// so a schedule that could never fire is refused at creation.
 func (s *ScheduleService) NewSchedule(ctx context.Context, cfg schedule.Config) (*schedule.Schedule, error) {
 	normalized, err := normalize(cfg)
 	if err != nil {
@@ -82,8 +79,8 @@ func (s *ScheduleService) NewSchedule(ctx context.Context, cfg schedule.Config) 
 	return created, nil
 }
 
-// UpdateSchedule replaces a schedule's editable fields. A blank name falls back
-// to the one it already has, so the list never renders an unlabelled row.
+// UpdateSchedule replaces a schedule's editable fields. A blank name falls back to the one
+// it already has, so the list never renders an unlabelled row.
 func (s *ScheduleService) UpdateSchedule(ctx context.Context, id string, cfg schedule.Config) error {
 	existing, err := s.GetSchedule(ctx, id)
 	if err != nil {
@@ -111,8 +108,7 @@ func (s *ScheduleService) UpdateSchedule(ctx context.Context, id string, cfg sch
 	return nil
 }
 
-// SetScheduleEnabled pauses or resumes a schedule, leaving everything else as
-// it stands.
+// SetScheduleEnabled pauses or resumes a schedule, leaving everything else as it stands.
 func (s *ScheduleService) SetScheduleEnabled(ctx context.Context, id string, enabled bool) error {
 	existing, err := s.GetSchedule(ctx, id)
 	if err != nil {
@@ -129,9 +125,9 @@ func (s *ScheduleService) SetScheduleEnabled(ctx context.Context, id string, ena
 	return nil
 }
 
-// DeleteSchedule stops a schedule from firing again. The agents it has already
-// launched are left alone, since they are real conversations, and each still
-// records the schedule that made it.
+// DeleteSchedule stops a schedule from firing again. The agents it already launched are
+// left alone, since they are real conversations, each still recording the schedule that
+// made it.
 func (s *ScheduleService) DeleteSchedule(ctx context.Context, id string) error {
 	existing, err := s.GetSchedule(ctx, id)
 	if err != nil {
@@ -148,16 +144,13 @@ func (s *ScheduleService) DeleteSchedule(ctx context.Context, id string) error {
 	return nil
 }
 
-// requireWorkflow refuses a schedule whose workflow is not there to be read.
+// requireWorkflow refuses a schedule whose workflow is not there to be read, since a
+// schedule takes its directory and flags off the workflow every time it fires.
 //
-// A schedule carries no directory or flags of its own and takes them off the
-// workflow every time it fires, so one naming a workflow nobody has is a schedule
-// that can only cancel. The foreign key catches an id belonging to no row at all,
-// but reports it as a constraint failure rather than as the caller's mistake, and
-// it cannot catch the case that matters more: a workflow is only ever
-// soft-deleted, so a deleted one still satisfies the constraint while every read
-// of it comes back empty. Left to the firing, that schedule sits armed and
-// silently launches nothing.
+// The foreign key is not enough. It reports a missing id as a constraint failure rather
+// than the caller's mistake, and it cannot catch the case that matters more: a workflow is
+// only soft-deleted, so a deleted one still satisfies the constraint while every read of
+// it comes back empty, leaving the schedule armed and launching nothing.
 func (s *ScheduleService) requireWorkflow(ctx context.Context, workflowID string) error {
 	wf, err := s.workflows.Get(ctx, workflowID)
 	if err != nil {
@@ -170,8 +163,7 @@ func (s *ScheduleService) requireWorkflow(ctx context.Context, workflowID string
 	return nil
 }
 
-// normalize trims the config, expands the launch directory the way an agent
-// launch would, and parses the cron expression so an unreadable one never
+// normalize trims the config and parses the cron expression, so an unreadable one never
 // reaches the database.
 func normalize(cfg schedule.Config) (schedule.Config, error) {
 	cfg.Name = strings.TrimSpace(cfg.Name)
@@ -186,13 +178,10 @@ func normalize(cfg schedule.Config) (schedule.Config, error) {
 	return cfg, nil
 }
 
-// ParseCron reads a cron expression in a zone and returns the schedule it
-// describes. An empty zone is the machine's local one, which is what a person
-// writing "9am" on their laptop means.
-//
-// The zone is checked before parsing so an unknown one is reported as such,
-// rather than as a syntax error about the TZ prefix the parser reads it
-// through.
+// ParseCron reads a cron expression in a zone and returns the schedule it describes. An
+// empty zone is the machine's local one, which is what a person writing "9am" on their
+// laptop means. The zone is checked before parsing, so an unknown one is reported as such
+// rather than as a syntax error about the TZ prefix it is read through.
 func ParseCron(expression, timezone string) (cron.Schedule, error) {
 	if timezone != "" {
 		if _, err := time.LoadLocation(timezone); err != nil {
@@ -209,9 +198,8 @@ func ParseCron(expression, timezone string) (cron.Schedule, error) {
 	return parsed, nil
 }
 
-// NextRun returns when a schedule next fires after from, or the zero time when
-// it is paused or its expression cannot be read. A paused schedule has no next
-// run, which is what the panel renders as a dash.
+// NextRun returns when a schedule next fires after from, or the zero time when it is
+// paused or its expression cannot be read, which the panel renders as a dash.
 func NextRun(s schedule.Schedule, from time.Time) time.Time {
 	if !s.Enabled {
 		return time.Time{}
