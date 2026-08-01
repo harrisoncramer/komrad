@@ -139,3 +139,52 @@ func TestZoomPaneIsIdempotent(t *testing.T) {
 	client.ZoomPane(pane, false)
 	assert.Equal(t, "0", zoomed())
 }
+
+// TestSiblingPanesFindsTheRestOfTheWindow covers the panel asking what else is sitting in
+// its window, which is how a restarted panel finds what the last one left. tmux is asked
+// with the panel's own pane as the target, so this needs a real server to confirm tmux
+// resolves a pane id to the window holding it rather than refusing it.
+func TestSiblingPanesFindsTheRestOfTheWindow(t *testing.T) {
+	client := testServer(t, "weave")
+
+	panel, err := client.query("display-message", "-p", "-t", "weave:", "#{pane_id}")
+	require.NoError(t, err)
+
+	first := client.SplitRight(panel, "/tmp", 50)
+	second := client.SplitRight(panel, "/tmp", 50)
+	require.NotEmpty(t, first)
+	require.NotEmpty(t, second)
+
+	siblings := client.SiblingPanes(panel)
+
+	assert.ElementsMatch(t, []string{first, second}, siblings, "every pane but the one asked about")
+	assert.NotContains(t, siblings, panel, "the pane asked about is not its own sibling")
+}
+
+// TestSiblingPanesOfNothing covers the panel running outside tmux, where it has no pane to
+// ask about. Nothing is reclaimed rather than tmux being asked about the active pane,
+// which would be some other window entirely.
+func TestSiblingPanesOfNothing(t *testing.T) {
+	client := testServer(t, "weave")
+
+	assert.Empty(t, client.SiblingPanes(""))
+}
+
+// TestBreakPaneKeepsTheID covers a staged agent being returned to a window of its own. The
+// panel records an agent by its pane id and reaches it by that id afterwards, so a break
+// that renamed the pane would lose the agent.
+func TestBreakPaneKeepsTheID(t *testing.T) {
+	client := testServer(t, "weave")
+
+	panel, err := client.query("display-message", "-p", "-t", "weave:", "#{pane_id}")
+	require.NoError(t, err)
+
+	staged := client.SplitRight(panel, "/tmp", 50)
+	require.NotEmpty(t, staged)
+
+	client.BreakPane(staged)
+
+	assert.True(t, client.PaneAlive(staged), "the pane survives being broken out")
+	assert.Empty(t, client.SiblingPanes(panel), "and is no longer in the panel's window")
+	assert.Len(t, windowNames(t, client, "weave"), 2, "it is a window of its own now")
+}

@@ -25,6 +25,10 @@ type stageTmux interface {
 	SwapPanes(src, dst string)
 	RespawnPane(pane, dir string, argv ...string)
 	ZoomPane(pane string, zoom bool)
+	SiblingPanes(pane string) []string
+	BreakPane(pane string)
+	KillPane(pane string)
+	PaneOwner(pane string) string
 }
 
 // shownBlank and shownOther are what the stage records for content it cannot compare
@@ -91,10 +95,36 @@ func (s *Stage) Init() {
 	if pane, err := s.tmux.CurrentPane(); err == nil && pane != "" {
 		s.navPane = pane
 	}
+	s.reclaim()
 	s.ensure()
 
 	if s.pane != "" {
 		s.tmux.ResizePane(s.pane, s.percent())
+	}
+}
+
+// reclaim clears the panel's window of whatever the last panel left in it. Which panes
+// the stage owns is remembered in this process and nowhere else, so a panel that was
+// replaced or that died leaves panes its successor cannot recognise, and ensure would
+// split a second stage beside them.
+//
+// An agent's pane is staged by swapping the pane itself into the slot, so one found here
+// is returned to a window of its own rather than killed. The stamp says which, and is the
+// same one the reconciler reads. Anything else is the last stage's own pane, which the
+// panel is about to replace.
+func (s *Stage) reclaim() {
+	if s.navPane == "" {
+		return
+	}
+
+	for _, pane := range s.tmux.SiblingPanes(s.navPane) {
+		if s.tmux.PaneOwner(pane) != "" {
+			s.tmux.BreakPane(pane)
+
+			continue
+		}
+
+		s.tmux.KillPane(pane)
 	}
 }
 

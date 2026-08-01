@@ -198,6 +198,14 @@ type recordingTmux struct {
 	openWindowErr error
 	// detaches counts the sessions the popup has been closed by detaching from.
 	detaches int
+	// siblings are the panes SiblingPanes reports beside the panel's own, and owners
+	// says which of them carry an agent's stamp. Together they are the window a
+	// replaced panel left behind.
+	siblings []string
+	owners   map[string]string
+	// broken and killed are what reclaim did with those panes.
+	broken []string
+	killed []string
 }
 
 func (t *recordingTmux) SetGlobal(string, string)                {}
@@ -213,7 +221,10 @@ func (t *recordingTmux) CapturePane(string) string               { return "" }
 func (t *recordingTmux) CurrentPane() (string, error)            { return "%0", nil }
 func (t *recordingTmux) SplitRight(string, string, int) string   { return "%1" }
 func (t *recordingTmux) SwapPanes(string, string)                { t.swaps++ }
-func (t *recordingTmux) KillPane(string)                         {}
+func (t *recordingTmux) SiblingPanes(string) []string            { return t.siblings }
+func (t *recordingTmux) PaneOwner(pane string) string            { return t.owners[pane] }
+func (t *recordingTmux) BreakPane(pane string)                   { t.broken = append(t.broken, pane) }
+func (t *recordingTmux) KillPane(pane string)                    { t.killed = append(t.killed, pane) }
 
 func (t *recordingTmux) NewWindow(string, string, string) (string, error) {
 	return "%2", nil
