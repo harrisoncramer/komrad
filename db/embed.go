@@ -18,6 +18,9 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
+//go:embed readonly_role.sql
+var readOnlyRoleSQL string
+
 // migrateLock is the advisory lock key migrations are applied under. Several
 // processes share the database and more than one can start at once, so without
 // it two of them can read the same empty schema_migrations and both try to
@@ -28,10 +31,6 @@ const migrateLock int64 = 7_240_115
 // in its own transaction alongside the row recording it, so a migration either
 // lands and is marked or does neither. The whole pass is serialized on an
 // advisory lock, which makes a concurrent start wait rather than race.
-//
-// Every command opens the store, including the status line's, which tmux runs
-// as a fresh process on each interval. So the common case, a database already up
-// to date, is answered by a single read before any lock is taken.
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	versions, err := migrationVersions()
 	if err != nil {

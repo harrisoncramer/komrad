@@ -58,6 +58,11 @@ func Open(ctx context.Context, url string) (*Pool, error) {
 // something that must never write, such as the MCP endpoint. The guard rides on the
 // connection rather than on each statement, so a write is refused by Postgres itself even
 // if it slips past the statement checks above it.
+//
+// What the url names matters as much as the flag on it. The read-only transaction stops
+// writes and only writes, so the privileges of the role it connects as are what decide
+// everything a statement can read. That is why this takes its own url rather than the
+// writable one.
 func OpenReadOnly(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
@@ -75,7 +80,38 @@ func OpenReadOnly(ctx context.Context, url string) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("failed to reach db read-only: %w", err)
 	}
 
+	if err := refuseSuperuser(ctx, pool); err != nil {
+		pool.Close()
+		return nil, err
+	}
+
 	return pool, nil
+}
+
+// refuseSuperuser rejects a read-only pool that has landed on a superuser, which is the one
+// case where nothing above the database holds. A superuser is exempt from the privilege
+// checks on the catalogs and on the file-reading functions, and both are reached through a
+// plain SELECT that writes nothing, so neither the read-only transaction nor any amount of
+// reading the statement will refuse them.
+//
+// Refusing rather than warning, because the privileges are the boundary and a boundary that
+// announces itself missing and carries on is not one. There is a single way to arrive here,
+// which is pointing WEAVE_READONLY_DATABASE_URL at a role somebody chose, so the answer is
+// to name the role and stop rather than to serve and hope the line is read.
+func refuseSuperuser(ctx context.Context, pool *pgxpool.Pool) error {
+	var superuser bool
+	if err := pool.QueryRow(ctx,
+		`SELECT rolsuper FROM pg_roles WHERE rolname = current_user`).Scan(&superuser); err != nil {
+		return fmt.Errorf("failed to check whether the read-only role is a superuser: %w", err)
+	}
+	if !superuser {
+		return nil
+	}
+
+	return fmt.Errorf(
+		"the read-only database role is a superuser, which would let a query tool read files on " +
+			"the database host; run 'mise run db:readonly-role' and point " +
+			"WEAVE_READONLY_DATABASE_URL at the role it creates")
 }
 
 // DB returns the handle to build a domain store over for ordinary use, outside

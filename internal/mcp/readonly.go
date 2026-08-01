@@ -29,7 +29,10 @@ const (
 // statement before it reaches the database. It runs over the executable text only, with
 // literals, identifiers, and comments blanked out first, so searching transcripts for the
 // word "update" is a search rather than a rejected write.
-var forbiddenPattern = regexp.MustCompile(`(?i)\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE|EXECUTE|CALL|MERGE|VACUUM|REINDEX|ATTACH|DETACH|PRAGMA|BEGIN|COMMIT|ROLLBACK|SET)\b`)
+//
+// COPY is on the list because it is the one verb that leaves the database entirely: COPY
+// TO PROGRAM runs a shell command as the server's own user.
+var forbiddenPattern = regexp.MustCompile(`(?i)\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE|EXECUTE|CALL|MERGE|VACUUM|REINDEX|ATTACH|DETACH|PRAGMA|BEGIN|COMMIT|ROLLBACK|SET|COPY)\b`)
 
 // replaceStatement matches REPLACE only where it begins a statement, since Postgres has a
 // replace() scalar function and rejecting every use of the word would refuse an ordinary
@@ -148,8 +151,12 @@ func skipQuoted(statement string, start int, quote byte) (int, bool) {
 }
 
 // query validates that sql is a single read-only statement, then runs it under a deadline
-// with a row cap. The read-only transaction is the guarantee; the parsing above it and the
-// pool's own read-only default are the other two refusals a write has to get past.
+// with a row cap. The role's privileges are the guarantee, since they bound what a
+// statement may read rather than only what it may change; the read-only transaction and
+// the parsing above it are the other two refusals a write has to get past.
+//
+// The deadline and the row cap are neither. They bound what one query costs the pool the
+// panel shares, which is the same whatever the role is allowed to see.
 func (d *dbTools) query(ctx context.Context, statement string) (*queryResult, error) {
 	trimmed, err := validateReadOnly(statement)
 	if err != nil {

@@ -1,7 +1,5 @@
 # Local development database. The app itself is not containerised: it runs on
-# the host because it drives tmux, which lives on the host. Only Postgres is in
-# Docker, and in a deployed environment DATABASE_URL points at a managed
-# instance instead and none of this is used.
+# the host because it drives tmux. Only Postgres is in Docker.
 services:
   db:
     image: postgres:18

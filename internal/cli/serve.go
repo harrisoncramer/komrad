@@ -147,9 +147,9 @@ func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) er
 	)
 	mux.Handle(actionPath, actionHandler)
 
-	// The MCP endpoint reads through its own read-only handle, so nothing reachable from
-	// a model can write whatever the tools do.
-	readOnly, err := store.OpenReadOnly(ctx, state.env.DatabaseURL)
+	// The MCP endpoint reads through its own read-only handle, opened as a least-privilege
+	// role, since what a statement may read is decided by the role and not by the flag.
+	readOnly, err := store.OpenReadOnly(ctx, state.env.ReadOnlyDatabaseURL)
 	if err != nil {
 		return err
 	}
