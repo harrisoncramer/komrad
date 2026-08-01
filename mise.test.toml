@@ -1,6 +1,6 @@
 # The throwaway instance, a second checkout kept on main to verify builds against. It is
-# not loaded by default: link mise.local.toml to this file in the checkout that should be
-# the throwaway one, and every other checkout ignores it.
+# not loaded by default, so a command meant for that checkout names it: MISE_ENV=test mise
+# run restart. Every checkout ignores this file otherwise, including the one you develop in.
 #
 # Everything here is something the two instances would otherwise share. Moving all of it
 # means `mise run restart` in the throwaway checkout cannot reach the agents or the data in
