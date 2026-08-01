@@ -6,15 +6,15 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// The key legend under every list. Each screen names its own bindings, and the
-// toggles name the direction the row would go rather than the binding in the abstract,
-// so a legend says what the key would do to what is under the cursor.
+// The key legend under every list. Each screen names its own bindings, and a toggle names
+// the direction the row would go, so a legend says what the key would do to what is under
+// the cursor.
 
 // hint is one line of the key legend under a list, a binding and what it does.
 type hint struct{ key, desc string }
 
-// renderHints lays the legend out as two columns, the keys padded to the widest
-// so the descriptions line up.
+// renderHints lays the legend out as two columns, the keys padded to the widest so the
+// descriptions line up.
 func renderHints(hints []hint) string {
 	keyWidth := 0
 	for _, h := range hints {
@@ -35,8 +35,8 @@ func renderHints(hints []hint) string {
 
 // agentHints lists the agents screen's bindings, one per line with an aligned key column.
 func (m model) agentHints() string {
-	// The key that draws the hidden agents toggles, so the legend names the direction
-	// it would go rather than the binding in the abstract.
+	// The key that draws the hidden agents toggles, so the legend names the direction it
+	// would go.
 	showHiddenDesc := "show hidden"
 	if m.tree.showHidden {
 		showHiddenDesc = "put hidden away"
@@ -52,9 +52,8 @@ func (m model) agentHints() string {
 	return renderHints(hints)
 }
 
-// rowHints are the bindings that act on the row under the cursor, which is a
-// workflow header or an agent. The info, mark, and hide keys all toggle, so their
-// lines name what that row would do rather than the binding in the abstract.
+// rowHints are the bindings that act on the row under the cursor, a workflow header or an
+// agent. The info, mark, and hide keys toggle, so their lines name what that row would do.
 func (m model) rowHints() []hint {
 	if _, hoveringWorkflow := m.hoveredWorkflow(); hoveringWorkflow {
 		return []hint{
@@ -97,10 +96,8 @@ func (m model) rowHints() []hint {
 	}
 }
 
-// screenHints are the screens reachable from anywhere in the tree. They are
-// appended to whichever legend is showing, since none of them act on the row
-// under the cursor and all of them work from a workflow header as much as from
-// an agent.
+// screenHints are the screens reachable from anywhere in the tree, appended to whichever
+// legend is showing, since none of them act on the row under the cursor.
 func (m model) screenHints() []hint {
 	return []hint{
 		{hintKeys(m.keys.Agents.Search), "search"},
@@ -110,8 +107,8 @@ func (m model) screenHints() []hint {
 	}
 }
 
-// scheduleHints renders the key hints for the schedules screen, in the same
-// two-column shape the agents view uses.
+// scheduleHints renders the schedules screen's key hints, in the two-column shape the
+// agents view uses.
 func (m model) scheduleHints() string {
 	toggle := "pause"
 	if item, ok := m.selectedSchedule(); ok && !item.schedule.Enabled {
@@ -138,8 +135,8 @@ func (m model) archiveHints() string {
 	})
 }
 
-// actionHints lists the actions screen's bindings. The run line names the chmod a file without
-// the executable bit wants, since a dim row on its own cannot say why it is dim.
+// actionHints lists the actions screen's bindings. The run line names the chmod a file
+// without the executable bit wants, since a dim row cannot say why it is dim.
 func (m model) actionHints() string {
 	runDesc := "run"
 	if action, ok := m.selectedAction(); ok && !action.executable {
@@ -178,10 +175,9 @@ func (m model) searchHints() string {
 	return b.String()
 }
 
-// hintKeys renders a binding's keys for the help text, joining them with "/"
-// and shortening "ctrl+x" to "C-x" so they read like the rest of the hints. The
-// space bar is named rather than printed, since a literal space renders as a
-// gap and reads as a binding that failed to load.
+// hintKeys renders a binding's keys for the help text, joining them with "/" and
+// shortening "ctrl+x" to "C-x". The space bar is named rather than printed, since a
+// literal space reads as a binding that failed to load.
 func hintKeys(keys []string) string {
 	out := make([]string, len(keys))
 	for i, k := range keys {
