@@ -65,6 +65,10 @@ const (
 	// which tells two failures apart when both messages are wrapped past recognition.
 	ErrorType    = "error.type"
 	ErrorMessage = "error.message"
+	// StackTrace is where a panic came from, carried only by the records standing for one.
+	// An ordinary error names where it came from in its message, where a panic value says
+	// nothing at all without the frames behind it.
+	StackTrace = "error.stack_trace"
 )
 
 // RPCSystemConnect is what every record about a served call carries as its system, the
