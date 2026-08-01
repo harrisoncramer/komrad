@@ -1,14 +1,17 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"weave/internal/version"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -26,6 +29,68 @@ func fakeServe(t *testing.T, output string) string {
 	require.NoError(t, os.WriteFile(path, []byte(script), 0o700))
 
 	return path
+}
+
+// fakeServerParams is what a stand-in server answers with, where status and body are the
+// health route and stopPid is what its stop route reports having stopped.
+type fakeServerParams struct {
+	status  int
+	body    string
+	stopPid int
+}
+
+// fakeServer stands in for whatever holds the address, answering the health route with a body
+// of the test's choosing and the stop route the way serve does.
+func fakeServer(t *testing.T, params fakeServerParams) string {
+	t.Helper()
+
+	var server *httptest.Server
+
+	mux := http.NewServeMux()
+	mux.HandleFunc(HealthPath, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(params.status)
+		_, _ = w.Write([]byte(params.body))
+	})
+
+	mux.HandleFunc(StopPath, func(w http.ResponseWriter, _ *http.Request) {
+		// The stand-in stops by dropping its listener and this connection with it, since the
+		// caller's pool would otherwise keep answering over a socket already accepted.
+		_ = server.Listener.Close()
+		w.Header().Set("Connection", "close")
+
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = fmt.Fprint(w, params.stopPid)
+	})
+
+	server = httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	return strippedHost(t, server.URL)
+}
+
+// healthJSON is a health body reporting the given build, so a test can serve one that looks
+// like this build and one that does not.
+func healthJSON(t *testing.T, build string) string {
+	t.Helper()
+
+	body, err := json.Marshal(health{Status: "ok", Version: build})
+	require.NoError(t, err)
+
+	return string(body)
+}
+
+// deadPid is the pid of a process that has already exited, so the wait after a stop ends on
+// finding it gone rather than on its own timeout.
+func deadPid(t *testing.T) int {
+	t.Helper()
+
+	cmd := exec.Command("sh", "-c", "exit 0")
+	require.NoError(t, cmd.Start())
+
+	pid := cmd.Process.Pid
+	require.NoError(t, cmd.Wait())
+
+	return pid
 }
 
 // freeAddr returns an address nothing is listening on, so ensureServer takes its
@@ -102,30 +167,31 @@ func TestEnsureServerWithAnUnwritableLog(t *testing.T) {
 	assert.Contains(t, err.Error(), logPath, "the path that could not be opened is named")
 }
 
-// TestEnsureServerFindsARunningServer covers that nothing is spawned when the address is
-// already served, so opening a second panel does not start a second server.
-//
-// A server that answers anything at all counts, including one too old to have a health
-// route. It holds the port either way, and spawning over it achieves nothing but a process
-// that fails to bind.
-func TestEnsureServerFindsARunningServer(t *testing.T) {
+// TestEnsureServerReusesItsOwnBuild covers that nothing is spawned when this build is already
+// serving, so opening a second panel does not start a second server. A database that is down
+// is still this build, so it is waited for rather than replaced.
+func TestEnsureServerReusesItsOwnBuild(t *testing.T) {
 	tests := []struct {
 		name   string
 		status int
 	}{
-		{name: "a server that is ready", status: http.StatusOK},
-		{name: "a server whose database is down", status: http.StatusServiceUnavailable},
-		{name: "a server from a build that has no health route", status: http.StatusNotFound},
+		{
+			name:   "a server whose database is down",
+			status: http.StatusServiceUnavailable,
+		},
+		{
+			name:   "a server that is ready",
+			status: http.StatusOK,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-				w.WriteHeader(tt.status)
-			}))
-			defer server.Close()
-
-			addr := strings.TrimPrefix(server.URL, "http://")
+			addr := fakeServer(t, fakeServerParams{
+				status:  tt.status,
+				body:    healthJSON(t, version.Version()),
+				stopPid: deadPid(t),
+			})
 			logPath := filepath.Join(t.TempDir(), "serve.log")
 
 			require.NoError(t, ensureServer(addr, fakeServe(t, "should not run"), logPath))
@@ -136,22 +202,71 @@ func TestEnsureServerFindsARunningServer(t *testing.T) {
 	}
 }
 
-// TestServerReadyNeedsMoreThanAListener covers what the wait after a spawn waits for. A
-// bound socket is not a working service: the server listens before it can reach its
-// database, and a panel that started on the first successful dial came up against a
-// service that failed every call it made.
-func TestServerReadyNeedsMoreThanAListener(t *testing.T) {
-	unreachable := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_, _ = w.Write([]byte("database unreachable: connection refused"))
-	}))
-	defer unreachable.Close()
+// TestEnsureServerReplacesAnotherBuild covers the panel finding a server it cannot use, since
+// talking to one means fields that come back empty and routes that answer 404.
+func TestEnsureServerReplacesAnotherBuild(t *testing.T) {
+	addr := fakeServer(t, fakeServerParams{
+		status:  http.StatusOK,
+		body:    healthJSON(t, "v0.0.0-20260701000000-0000000000ab"),
+		stopPid: deadPid(t),
+	})
+	logPath := filepath.Join(t.TempDir(), "serve.log")
 
-	ready := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("ok"))
-	}))
-	defer ready.Close()
+	err := ensureServer(addr, fakeServe(t, "the replacement was spawned"), logPath)
 
-	assert.False(t, serverReady(strings.TrimPrefix(unreachable.URL, "http://")))
-	assert.True(t, serverReady(strings.TrimPrefix(ready.URL, "http://")))
+	require.Error(t, err, "the stand-in serve always fails")
+	assert.Contains(t, err.Error(), "the replacement was spawned",
+		"the server that was there is stopped and a new one started over it")
+}
+
+// TestProbeServer covers what the panel decides on. Ready is more than a bound socket, since
+// the server listens before it can reach its database.
+func TestProbeServer(t *testing.T) {
+	tests := []struct {
+		name   string
+		serve  bool
+		status int
+		body   string
+		want   serverProbe
+	}{
+		{
+			name:   "nothing on the address",
+			serve:  false,
+			status: 0,
+			body:   "",
+			want:   serverProbe{},
+		},
+		{
+			name:   "another build",
+			serve:  true,
+			status: http.StatusOK,
+			body:   healthJSON(t, "v0.0.0-20260701000000-0000000000ab"),
+			want:   serverProbe{answering: true, ready: true, version: "v0.0.0-20260701000000-0000000000ab"},
+		},
+		{
+			name:   "this build with a database it cannot reach",
+			serve:  true,
+			status: http.StatusServiceUnavailable,
+			body:   healthJSON(t, version.Version()),
+			want:   serverProbe{answering: true, version: version.Version(), current: true},
+		},
+		{
+			name:   "this build",
+			serve:  true,
+			status: http.StatusOK,
+			body:   healthJSON(t, version.Version()),
+			want:   serverProbe{answering: true, ready: true, version: version.Version(), current: true},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			addr := freeAddr(t)
+			if tt.serve {
+				addr = fakeServer(t, fakeServerParams{status: tt.status, body: tt.body})
+			}
+
+			assert.Equal(t, tt.want, probeServer(addr))
+		})
+	}
 }

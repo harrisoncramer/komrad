@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -8,11 +9,9 @@ import (
 	"os/exec"
 	"syscall"
 	"time"
-)
 
-// The commands that talk to the service over HTTP share these, locating this binary
-// so it can respawn itself and making sure something is listening before a request
-// is sent.
+	"weave/internal/version"
+)
 
 // The spawned server is polled for this long before it is given up on, in steps
 // of this size.
@@ -21,17 +20,22 @@ const (
 	serveWaitInterval = 40 * time.Millisecond
 )
 
-// ensureServer makes sure a server is reachable at addr, spawning a detached serve
-// process if not. It returns an error if the server never becomes reachable.
+// ensureServer makes sure a server from this build is reachable at addr, replacing one from
+// another build and spawning one when nothing is there.
 //
-// The spawned process writes to a log rather than to this process's output, since
-// it outlives whoever started it. So when it dies during startup its reason is on
-// disk and nowhere the caller can see, and reporting only that the address never
-// answered names the symptom while the cause sits unread in a file. The lines it
-// wrote before exiting are read back and carried in the error instead.
+// The spawned process writes to a log rather than to this process's output, since it outlives
+// whoever started it, so the lines it wrote before dying are read back and carried in the
+// error rather than left unread in a file.
 func ensureServer(addr, self, logPath string) error {
-	if serverAnswering(addr) {
-		return nil
+	probe := probeServer(addr)
+	if probe.answering {
+		if probe.current {
+			return nil
+		}
+
+		if err := replaceServer(addr, probe.version); err != nil {
+			return err
+		}
 	}
 
 	cmd := exec.Command(self, "serve", "--addr", addr)
@@ -73,7 +77,9 @@ func ensureServer(addr, self, logPath string) error {
 	}()
 
 	for range serveWaitAttempts {
-		if serverReady(addr) {
+		// Readiness rather than the version, since air rewrites the binary in place and the
+		// build this process spawned can be a newer one than the build it is itself.
+		if probeServer(addr).ready {
 			return nil
 		}
 
@@ -91,36 +97,53 @@ func ensureServer(addr, self, logPath string) error {
 	return fmt.Errorf("the agent server did not become ready at %s, see %s", addr, logPath)
 }
 
-// serverAnswering reports whether anything is serving at addr, whatever it answers. A
-// server already up is not to be spawned over, and one running an older build that has no
-// health route still holds the port: treating its 404 as nobody there would start a second
-// process whose only outcome is failing to bind.
-func serverAnswering(addr string) bool {
+// replaceServer asks the build holding addr to stop, so the panel is not left talking to a
+// server whose fields, routes and enums are not the ones it was built against. The error names
+// both builds, since a server that will not stop leaves the panel with nothing but this
+// sentence on screen.
+func replaceServer(addr, reported string) error {
+	if _, err := stopServer(addr); err != nil {
+		return fmt.Errorf("the server at %s is build %q and this is %s, so it has to be replaced: %w",
+			addr, reported, version.Version(), err)
+	}
+
+	return nil
+}
+
+// serverProbe is what the health route said about whatever holds the address.
+type serverProbe struct {
+	answering bool
+	// ready is a database it can reach rather than only a socket that accepts, since the
+	// server binds before it can reach its store.
+	ready bool
+	// version is the build it reported and current whether that is this build, both empty when
+	// the answer was not this service's health.
+	version string
+	current bool
+}
+
+// probeServer asks who is on addr, where a body that is not this build's health leaves the
+// version empty and marks the server for replacing rather than reuse.
+func probeServer(addr string) serverProbe {
 	res, err := healthCheck(addr)
 	if err != nil {
-		return false
+		return serverProbe{}
 	}
 	defer func() { _ = res.Body.Close() }()
 
-	return true
-}
+	probe := serverProbe{answering: true, ready: res.StatusCode == http.StatusOK}
 
-// serverReady reports whether the service can actually serve, which is what the wait after
-// a spawn is waiting for. A listening socket is not the same thing: the server binds before
-// it can reach its database, so a panel that started on the first successful dial came up
-// against a service that failed every call it made.
-func serverReady(addr string) bool {
-	res, err := healthCheck(addr)
-	if err != nil {
-		return false
+	var body health
+	if err := json.NewDecoder(res.Body).Decode(&body); err == nil {
+		probe.version = body.Version
+		probe.current = body.Version == version.Version()
 	}
-	defer func() { _ = res.Body.Close() }()
 
-	return res.StatusCode == http.StatusOK
+	return probe
 }
 
-// healthCheck asks the service whether it is ready. The timeout is the dial timeout this
-// replaced, since the request is one round trip to loopback and a database ping.
+// healthCheck asks the health route, on a timeout sized for one loopback round trip and a
+// database ping.
 func healthCheck(addr string) (*http.Response, error) {
 	client := &http.Client{Timeout: 3 * time.Second}
 
