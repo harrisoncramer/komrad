@@ -13,6 +13,7 @@ func hideCmd(state *app) *cobra.Command {
 		Use:           "hide",
 		Short:         "Hide the manager popup",
 		Args:          cobra.NoArgs,
+		Hidden:        true,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(_ *cobra.Command, _ []string) error {
