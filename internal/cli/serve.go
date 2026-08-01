@@ -247,7 +247,12 @@ func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) er
 	logger.LogAttrs(ctx, slog.LevelInfo, "the server is listening",
 		slog.String(logging.ServerAddress, listener.Addr().String()))
 
-	server := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+	// The guard wraps the server rather than any one route, so every surface on this mux
+	// checks where a request was aimed and one added later cannot be mounted without it.
+	server := &http.Server{
+		Handler:           interceptors.NewLocalGuard(logger, mux),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 
 	return server.Serve(listener)
 }
