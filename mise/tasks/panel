@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+#MISE description="Open this checkout's panel, for a checkout the tmux plugin does not bind."
+set -euo pipefail
+cd "$MISE_CONFIG_ROOT"
+
+# The plugin binds prefix+g to one checkout's binary, so every other one needs a way in.
+# open creates the manager session if it is not up and attaches either way, which is what
+# the popup does, so this is the same entry point without the keybinding.
+exec "$MISE_CONFIG_ROOT/bin/weave" open

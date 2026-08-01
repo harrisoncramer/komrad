@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+#MISE description="Rebuild, then kill and restart everything: the server, the panel, and every agent."
+set -euo pipefail
+cd "$MISE_CONFIG_ROOT"
+
+weave="$MISE_CONFIG_ROOT/bin/weave"
+
+# The panel and every agent live on a tmux server of their own, which a plain tmux command
+# does not address. The socket and the address are the same ones the binary resolves from
+# the environment, so a checkout that overrides them kills its own instance and no other.
+socket="${WEAVE_TMUX_SOCKET:-weave}"
+addr="${WEAVE_ADDR:-127.0.0.1:8787}"
+
+# Before anything is killed, so a build that does not compile leaves the running one alone.
+go build -o "$weave" .
+
+agents="$(tmux -L "$socket" list-panes -a -F x 2>/dev/null | wc -l | tr -d ' ')"
+
+# The whole tmux server, which is the panel, its stage, and every agent pane. Killing it
+# first means the panel is not around to spawn a replacement server underneath the stop.
+tmux -L "$socket" kill-server 2>/dev/null || true
+
+# Matched on the address rather than the binary, since another checkout's server is another
+# process running the same command and is not this instance's to kill.
+if ! "$weave" stop; then
+	pkill -f "weave serve --addr $addr" 2>/dev/null || true
+fi
+
+# Reported rather than fatal. The panel shows a server it could not start on its own error
+# screen, which is more use than this exiting before the panel is ever opened.
+if ! "$weave" start; then
+	echo "warning: the server did not come up, so open the panel to see why" >&2
+fi
+
+echo "killed $agents panes and restarted the server; press prefix+g for the panel"
