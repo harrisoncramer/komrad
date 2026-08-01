@@ -26,7 +26,7 @@ func TestDiscover(t *testing.T) {
 	require.NoError(t, os.Symlink(filepath.Join(dir, "open-pr"), filepath.Join(dir, "linked")))
 	require.NoError(t, syscall.Mkfifo(filepath.Join(dir, "fifo"), 0o755))
 
-	found, err := Discover(dir)
+	found, err := NewRunner().Discover(dir)
 	require.NoError(t, err)
 
 	listed := map[string]Action{}
@@ -103,7 +103,7 @@ func TestDiscover(t *testing.T) {
 // TestDiscoverMissingDirectory covers the ordinary case of never having written one.
 // Nothing is wrong, so nothing is reported: the panel says where it looked on screen.
 func TestDiscoverMissingDirectory(t *testing.T) {
-	found, err := Discover(filepath.Join(t.TempDir(), "never-created"))
+	found, err := NewRunner().Discover(filepath.Join(t.TempDir(), "never-created"))
 
 	require.NoError(t, err)
 	assert.Empty(t, found)
@@ -125,11 +125,11 @@ func TestRunPassesTheEnvironmentAndDirectory(t *testing.T) {
 	t.Setenv("WEAVE_TEST_INHERITED", "from the panel")
 
 	work := t.TempDir()
-	found, err := Discover(dir)
+	found, err := NewRunner().Discover(dir)
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
-	require.NoError(t, Runner{}.Run(found[0], work, []string{`WEAVE_AGENT={"name":"auth"}`}))
+	require.NoError(t, NewRunner().Run(RunParams{Action: found[0], Dir: work, Env: []string{`WEAVE_AGENT={"name":"auth"}`}}))
 
 	written := eventually(t, out)
 	assert.Contains(t, written, `{"name":"auth"}`, "the payload reaches the script")
@@ -168,11 +168,11 @@ func TestRunRefusesWhatItCannotStart(t *testing.T) {
 			dir := t.TempDir()
 			require.NoError(t, os.WriteFile(filepath.Join(dir, tt.file), []byte(tt.contents), tt.mode))
 
-			found, err := Discover(dir)
+			found, err := NewRunner().Discover(dir)
 			require.NoError(t, err)
 			require.Len(t, found, 1)
 
-			err = Runner{}.Run(found[0], dir, nil)
+			err = NewRunner().Run(RunParams{Action: found[0], Dir: dir})
 
 			require.Error(t, err)
 			if tt.wantIs != nil {
@@ -190,13 +190,13 @@ func TestRunRefusesAMissingDirectory(t *testing.T) {
 	dir := t.TempDir()
 	write(t, filepath.Join(dir, "open-pr"), 0o755)
 
-	found, err := Discover(dir)
+	found, err := NewRunner().Discover(dir)
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
 	gone := filepath.Join(t.TempDir(), "worktree-that-was-removed")
 
-	err = Runner{}.Run(found[0], gone, nil)
+	err = NewRunner().Run(RunParams{Action: found[0], Dir: gone})
 
 	require.ErrorIs(t, err, ErrDirMissing)
 	assert.Contains(t, err.Error(), gone, "the refusal names the directory, not the script")
@@ -208,13 +208,119 @@ func TestRunRefusesADirectoryThatIsAFile(t *testing.T) {
 	dir := t.TempDir()
 	write(t, filepath.Join(dir, "open-pr"), 0o755)
 
-	found, err := Discover(dir)
+	found, err := NewRunner().Discover(dir)
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
 	notADir := filepath.Join(dir, "open-pr")
 
-	assert.ErrorIs(t, Runner{}.Run(found[0], notADir, nil), ErrDirMissing)
+	assert.ErrorIs(t, NewRunner().Run(RunParams{Action: found[0], Dir: notADir}), ErrDirMissing)
+}
+
+// TestRunReportsTheOutcome covers the whole of what a caller with nothing waiting on an
+// action can learn about it.
+func TestRunReportsTheOutcome(t *testing.T) {
+	tests := []struct {
+		name     string
+		contents string
+		wantCode int
+		wantErr  bool
+		// wantStderr is what the tail of the captured stream has to contain.
+		wantStderr string
+	}{
+		{
+			name:     "one that worked reports no failure",
+			contents: "#!/bin/sh\nexit 0\n",
+		},
+		{
+			name:       "one that exited non-zero reports the status and what it said",
+			contents:   "#!/bin/sh\necho 'the worktree is dirty' >&2\nexit 3\n",
+			wantCode:   3,
+			wantErr:    true,
+			wantStderr: "the worktree is dirty",
+		},
+		{
+			name:     "one that was signalled reports no status of its own",
+			contents: "#!/bin/sh\nkill -TERM $$\n",
+			wantCode: -1,
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "cleanup"), []byte(tt.contents), 0o755))
+
+			found, err := NewRunner().Discover(dir)
+			require.NoError(t, err)
+			require.Len(t, found, 1)
+
+			reported := make(chan outcomeReport, 1)
+			require.NoError(t, NewRunner().Run(RunParams{
+				Action: found[0],
+				Dir:    dir,
+				Done: func(result Result, err error) {
+					reported <- outcomeReport{result: result, err: err}
+				},
+			}))
+
+			got := await(t, reported)
+
+			assert.Equal(t, tt.wantCode, got.result.ExitCode)
+			assert.Contains(t, string(got.result.Stderr), tt.wantStderr)
+			if !tt.wantErr {
+				assert.NoError(t, got.err)
+
+				return
+			}
+
+			require.ErrorIs(t, got.err, ErrFailed)
+			assert.Contains(t, got.err.Error(), "cleanup", "the failure names the action")
+		})
+	}
+}
+
+// TestRunLeavesStdoutAlone covers the half of the streams that is still the null device.
+func TestRunLeavesStdoutAlone(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "chatty"), []byte(
+		"#!/bin/sh\necho an answer nobody asked for\n",
+	), 0o755))
+
+	found, err := NewRunner().Discover(dir)
+	require.NoError(t, err)
+	require.Len(t, found, 1)
+
+	reported := make(chan outcomeReport, 1)
+	require.NoError(t, NewRunner().Run(RunParams{
+		Action: found[0],
+		Dir:    dir,
+		Done: func(result Result, _ error) {
+			reported <- outcomeReport{result: result}
+		},
+	}))
+
+	assert.Empty(t, await(t, reported).result.Stdout)
+}
+
+type outcomeReport struct {
+	result Result
+	err    error
+}
+
+// await reads an outcome reported from the goroutine that reaped the process.
+func await(t *testing.T, reported chan outcomeReport) outcomeReport {
+	t.Helper()
+
+	select {
+	case got := <-reported:
+		return got
+	case <-time.After(5 * time.Second):
+		require.FailNow(t, "the action never reported what it did")
+
+		return outcomeReport{}
+	}
 }
 
 // TestRunAndWaitReportsWhatTheActionSaid covers the streams coming back apart, since a
@@ -225,11 +331,11 @@ func TestRunAndWaitReportsWhatTheActionSaid(t *testing.T) {
 		"#!/bin/sh\necho progress >&2\nprintf '%s\\n' \"$WEAVE_TEST_ANSWER\"\n",
 	), 0o755))
 
-	found, err := Discover(dir)
+	found, err := NewRunner().Discover(dir)
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
-	result, err := Runner{}.RunAndWait(t.Context(), found[0], dir, []string{"WEAVE_TEST_ANSWER=/work/api-auth"})
+	result, err := NewRunner().RunAndWait(t.Context(), RunParams{Action: found[0], Dir: dir, Env: []string{"WEAVE_TEST_ANSWER=/work/api-auth"}})
 	require.NoError(t, err)
 	assert.Equal(t, "/work/api-auth", strings.TrimSpace(string(result.Stdout)), "stdout carries what the action answered")
 	assert.Equal(t, "progress", strings.TrimSpace(string(result.Stderr)), "stderr stays separate from it")
@@ -244,11 +350,11 @@ func TestRunAndWaitRefusesANonZeroExit(t *testing.T) {
 		"#!/bin/sh\necho 'no lockfile' >&2\nexit 3\n",
 	), 0o755))
 
-	found, err := Discover(dir)
+	found, err := NewRunner().Discover(dir)
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
-	result, err := Runner{}.RunAndWait(t.Context(), found[0], dir, nil)
+	result, err := NewRunner().RunAndWait(t.Context(), RunParams{Action: found[0], Dir: dir})
 
 	require.ErrorIs(t, err, ErrFailed)
 	assert.Contains(t, err.Error(), "install", "the refusal names the action")
@@ -263,7 +369,7 @@ func TestRunAndWaitStopsAtTheDeadline(t *testing.T) {
 		"#!/bin/sh\nsleep 60\n",
 	), 0o755))
 
-	found, err := Discover(dir)
+	found, err := NewRunner().Discover(dir)
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
@@ -271,7 +377,7 @@ func TestRunAndWaitStopsAtTheDeadline(t *testing.T) {
 	defer cancel()
 
 	started := time.Now()
-	_, err = Runner{}.RunAndWait(ctx, found[0], dir, nil)
+	_, err = NewRunner().RunAndWait(ctx, RunParams{Action: found[0], Dir: dir})
 
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	assert.Less(t, time.Since(started), 30*time.Second, "the action is killed rather than waited out")
@@ -285,11 +391,11 @@ func TestRunAndWaitKeepsTheTailOfALoudAction(t *testing.T) {
 		"#!/bin/sh\nawk 'BEGIN { for (i = 0; i < 20000; i++) print \"filler line\" }'\necho the-last-thing\n",
 	), 0o755))
 
-	found, err := Discover(dir)
+	found, err := NewRunner().Discover(dir)
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
-	result, err := Runner{}.RunAndWait(t.Context(), found[0], dir, nil)
+	result, err := NewRunner().RunAndWait(t.Context(), RunParams{Action: found[0], Dir: dir})
 	require.NoError(t, err)
 
 	assert.LessOrEqual(t, len(result.Stdout), outputLimit, "the stream is capped")

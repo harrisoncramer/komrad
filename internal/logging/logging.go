@@ -50,6 +50,17 @@ const (
 	// MCPTool is the tool a model asked for. The path is /mcp whatever it wanted, so this
 	// is the only field on an MCP call that says what it was trying to do.
 	MCPTool = "mcp.tool.name"
+	// ActionName and ActionTrigger name the script that ran and what set it off.
+	ActionName    = "weave.action.name"
+	ActionTrigger = "weave.action.trigger"
+	// ActionAgentID and ActionAgentCwd name the agent an action was fired on, which is not
+	// AgentID: a model firing an action on another agent is two different agents.
+	ActionAgentID  = "weave.action.agent.id"
+	ActionAgentCwd = "weave.action.agent.cwd"
+	// ActionStderr is the tail of what a failing action said about itself.
+	ActionStderr = "weave.action.stderr"
+	// ExitCode is what a process exited with.
+	ExitCode = "process.exit.code"
 	// DurationMS is how long the call took, in milliseconds, named rather than left as a
 	// duration so it sorts and thresholds as a number.
 	DurationMS = "duration_ms"

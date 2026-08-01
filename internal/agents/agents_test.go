@@ -593,6 +593,21 @@ func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
 	}
 }
 
+// TestRunCleanupLogsOneThatWouldNotStart covers the cleanup that never becomes a process at
+// all, which is what a renamed script leaves behind.
+func TestRunCleanupLogsOneThatWouldNotStart(t *testing.T) {
+	lifecycle := &fakeLifecycle{cleanupErr: ErrActionNotFound}
+	manager := NewAgentService(AgentParams{Lifecycle: lifecycle})
+	ctx, records := loggedContext(t)
+
+	manager.runCleanup(ctx, agentstore.Agent{ID: "a1", Cwd: "/repo/.worktrees/auth"}, "was-renamed")
+
+	got := recordFor(t, records(), "the cleanup action would not start")
+	assert.Equal(t, "ERROR", got["severity_text"])
+	assert.Equal(t, "was-renamed", got["weave.action.name"])
+	assert.Equal(t, "/repo/.worktrees/auth", got["weave.action.agent.cwd"])
+}
+
 // TestUniqueAgentName covers the name an agent ends up with. The store's unique
 // index is the authority, so a taken name has to be stepped past rather than
 // reused, which would clobber the agent holding it.

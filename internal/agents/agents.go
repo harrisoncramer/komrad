@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"weave/internal/logging"
 	"weave/internal/store"
 	"weave/lib/xstr"
 
@@ -572,14 +574,25 @@ func (s *AgentService) setupDir(planned, named string) (string, error) {
 }
 
 // runCleanup fires the workflow's cleanup action for an agent that is going away. A
-// failure is dropped, since an agent has to be deletable whatever state the actions
-// directory is in, or a renamed script would leave a row nothing could remove.
+// failure is logged rather than returned, since an agent has to be deletable whatever
+// state the actions directory is in, or a renamed script would leave a row nothing could
+// remove.
 func (s *AgentService) runCleanup(ctx context.Context, agent agentstore.Agent, name string) {
 	if s.lifecycle == nil || name == "" {
 		return
 	}
 
-	_ = s.lifecycle.RunCleanupAction(ctx, agent, name)
+	err := s.lifecycle.RunCleanupAction(ctx, agent, name)
+	if err == nil {
+		return
+	}
+
+	attrs := []slog.Attr{
+		slog.String(logging.ActionName, name),
+		slog.String(logging.ActionAgentID, agent.ID),
+		slog.String(logging.ActionAgentCwd, agent.Cwd),
+	}
+	logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the cleanup action would not start", append(attrs, logging.Err(err)...)...)
 }
 
 // cleanupAction is the action an agent's workflow names, blank when it cannot be read.

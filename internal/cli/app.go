@@ -114,7 +114,7 @@ func (a *app) openStore(ctx context.Context) error {
 		Agents:    a.agents,
 		Workflows: a.workflows,
 		Tmux:      a.tmux,
-		Runner:    actions.Runner{},
+		Runner:    actions.NewRunner(),
 		Load:      func() (*appconfig.Config, error) { return appconfig.Load(a.configPath) },
 		Addr:      a.env.Addr,
 		Socket:    a.env.TmuxSocket,

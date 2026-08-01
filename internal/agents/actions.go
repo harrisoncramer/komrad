@@ -7,12 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"time"
 	"unicode/utf8"
 
 	"weave/internal/actions"
 	"weave/internal/appconfig"
+	"weave/internal/logging"
 
 	agentstore "weave/internal/store/agent"
 )
@@ -23,11 +25,12 @@ type actionReader interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
-// actionRunner starts an action. RunAndWait is for a caller with something downstream of
-// the action, and Run for one with nothing waiting.
+// actionRunner finds actions and starts them. RunAndWait is for a caller with something
+// downstream of the action, and Run for one with nothing waiting.
 type actionRunner interface {
-	Run(action actions.Action, dir string, env []string) error
-	RunAndWait(ctx context.Context, action actions.Action, dir string, env []string) (actions.Result, error)
+	Discover(dir string) ([]actions.Action, error)
+	Run(p actions.RunParams) error
+	RunAndWait(ctx context.Context, p actions.RunParams) (actions.Result, error)
 }
 
 // actionTmux is the one thing this asks of tmux, which agent a pane belongs to, which is
@@ -144,8 +147,8 @@ func (s *ActionService) ListActions() ([]ListedAction, error) {
 }
 
 // RunAction fires an action on an agent and returns once the process exists. Nothing
-// waits for it, so the only failures are the ones before it starts: a missing agent or
-// action, and a file that will not execute.
+// waits for it, so the only failures reported are the ones before it starts: a missing
+// agent or action, and a file that will not execute. What it did afterwards reaches the log.
 //
 // It runs in the actions directory rather than the agent's own, since an action that
 // removes its agent's directory cannot be standing in it, and an agent whose directory is
@@ -170,7 +173,13 @@ func (s *ActionService) RunAction(ctx context.Context, agentID, name string) err
 		return err
 	}
 
-	return s.runner.Run(action, dir, env)
+	return s.start(ctx, startParams{
+		action:  action,
+		dir:     dir,
+		env:     env,
+		agent:   *agent,
+		trigger: TriggerManual,
+	})
 }
 
 // ErrSetupFailed reports that a workflow's setup action refused, so the agent was never
@@ -203,7 +212,7 @@ func (s *ActionService) RunSetupAction(ctx context.Context, agent agentstore.Age
 	ctx, cancel := context.WithTimeout(ctx, setupTimeout)
 	defer cancel()
 
-	result, err := s.runner.RunAndWait(ctx, action, actionsDir, env)
+	result, err := s.runner.RunAndWait(ctx, actions.RunParams{Action: action, Dir: actionsDir, Env: env})
 	if err != nil {
 		return "", fmt.Errorf("%w: %w%s", ErrSetupFailed, err, stderrDetail(result.Stderr))
 	}
@@ -230,7 +239,70 @@ func (s *ActionService) RunCleanupAction(ctx context.Context, agent agentstore.A
 		return err
 	}
 
-	return s.runner.Run(action, dir, env)
+	return s.start(ctx, startParams{
+		action:  action,
+		dir:     dir,
+		env:     env,
+		agent:   agent,
+		trigger: TriggerCleanup,
+	})
+}
+
+// startParams is one action about to be fired, with the agent and the trigger its record
+// is written against.
+type startParams struct {
+	action  actions.Action
+	dir     string
+	env     []string
+	agent   agentstore.Agent
+	trigger string
+}
+
+// start fires an action and arranges for what it did to reach the log.
+func (s *ActionService) start(ctx context.Context, p startParams) error {
+	logger := logging.From(ctx).With(logging.Attrs([]slog.Attr{
+		slog.String(logging.ActionName, p.action.Name),
+		slog.String(logging.ActionTrigger, p.trigger),
+		slog.String(logging.ActionAgentID, p.agent.ID),
+		slog.String(logging.ActionAgentCwd, p.agent.Cwd),
+	})...)
+	ctx = context.WithoutCancel(ctx)
+
+	err := s.runner.Run(actions.RunParams{
+		Action: p.action,
+		Dir:    p.dir,
+		Env:    p.env,
+		Done: func(result actions.Result, err error) {
+			if err != nil {
+				logger.LogAttrs(ctx, slog.LevelError, "action failed", failedAction(result, err)...)
+
+				return
+			}
+
+			logger.LogAttrs(ctx, slog.LevelDebug, "action finished", slog.Int(logging.ExitCode, result.ExitCode))
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	// Written once the process exists, so it never claims a run that never happened.
+	logger.LogAttrs(ctx, slog.LevelDebug, "action started")
+
+	return nil
+}
+
+// failedAction is what a failed run adds to its record, with the exit status pulled out of
+// the error beside it, since one inside a wrapped sentence cannot be filtered on.
+func failedAction(result actions.Result, err error) []slog.Attr {
+	attrs := []slog.Attr{slog.Int(logging.ExitCode, result.ExitCode)}
+	attrs = append(attrs, logging.Err(err)...)
+
+	if said := bytes.TrimSpace(result.Stderr); len(said) > 0 {
+		attrs = append(attrs, slog.String(logging.ActionStderr, string(said)))
+	}
+
+	return attrs
 }
 
 // stderrDetail renders an action's stderr for the end of a refusal, so what the script
@@ -275,7 +347,7 @@ func (s *ActionService) discover() (string, []actions.Action, error) {
 		return "", nil, err
 	}
 
-	found, err := actions.Discover(dir)
+	found, err := s.runner.Discover(dir)
 	if err != nil {
 		return "", nil, err
 	}
