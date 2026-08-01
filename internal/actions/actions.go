@@ -194,10 +194,8 @@ func (Runner) exitCode(state *os.ProcessState) int {
 
 // Result is what running an action to completion produced.
 type Result struct {
-	Stdout []byte
-	Stderr []byte
-	// ExitCode is what the process exited with, and -1 for one that was signalled or that
-	// never ran.
+	Stdout   []byte
+	Stderr   []byte
 	ExitCode int
 }
 
