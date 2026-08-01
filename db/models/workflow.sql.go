@@ -93,6 +93,47 @@ func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, 
 	return &i, err
 }
 
+const getWorkflowIncludingArchived = `-- name: GetWorkflowIncludingArchived :one
+SELECT
+    w.id, w.name, w.context, w.workflow_config_id, w.created_at, w.updated_at, w.setup_action, w.cleanup_action, w.archived_at,
+    wc.harness,
+    wc.cwd,
+    wc.flags
+FROM
+    workflows w
+    JOIN workflow_configs wc ON wc.id = w.workflow_config_id
+WHERE
+    w.id = $1
+LIMIT 1
+`
+
+type GetWorkflowIncludingArchivedRow struct {
+	Workflow Workflow
+	Harness  string
+	Cwd      string
+	Flags    string
+}
+
+func (q *Queries) GetWorkflowIncludingArchived(ctx context.Context, id string) (*GetWorkflowIncludingArchivedRow, error) {
+	row := q.db.QueryRow(ctx, getWorkflowIncludingArchived, id)
+	var i GetWorkflowIncludingArchivedRow
+	err := row.Scan(
+		&i.Workflow.ID,
+		&i.Workflow.Name,
+		&i.Workflow.Context,
+		&i.Workflow.WorkflowConfigID,
+		&i.Workflow.CreatedAt,
+		&i.Workflow.UpdatedAt,
+		&i.Workflow.SetupAction,
+		&i.Workflow.CleanupAction,
+		&i.Workflow.ArchivedAt,
+		&i.Harness,
+		&i.Cwd,
+		&i.Flags,
+	)
+	return &i, err
+}
+
 const insertWorkflow = `-- name: InsertWorkflow :one
 INSERT INTO workflows(
     name,

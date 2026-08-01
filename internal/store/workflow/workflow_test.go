@@ -355,6 +355,61 @@ func TestGetArchived(t *testing.T) {
 	}
 }
 
+// TestGetIncludingArchived covers the read that ignores the archive, which is what an
+// agent's cleanup resolves its action through.
+func TestGetIncludingArchived(t *testing.T) {
+	tests := []struct {
+		name    string
+		create  bool
+		archive bool
+		wantHit bool
+	}{
+		{
+			name: "an id nobody holds",
+		},
+		{
+			name:    "a live workflow",
+			create:  true,
+			wantHit: true,
+		},
+		{
+			name:    "an archived workflow",
+			create:  true,
+			archive: true,
+			wantHit: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			id := missingID
+			if tt.create {
+				created, err := st.Create(ctx, Config{Name: "backend", CleanupAction: "drop-worktree"})
+				require.NoError(t, err)
+				id = created.ID
+			}
+			if tt.archive {
+				require.NoError(t, st.Archive(ctx, id))
+			}
+
+			got, err := st.GetIncludingArchived(ctx, id)
+			require.NoError(t, err)
+
+			if !tt.wantHit {
+				assert.Nil(t, got)
+
+				return
+			}
+
+			require.NotNil(t, got)
+			assert.Equal(t, "drop-worktree", got.CleanupAction)
+		})
+	}
+}
+
 // TestListPageArchived covers the two sets a listing can ask for, which are what the panel
 // and its archive each draw their headers from. A workflow in one never shows up in the other.
 func TestListPageArchived(t *testing.T) {

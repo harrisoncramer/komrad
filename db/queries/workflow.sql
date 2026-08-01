@@ -128,6 +128,19 @@ SET
 WHERE
     id = @id;
 
+-- name: GetWorkflowIncludingArchived :one
+SELECT
+    sqlc.embed(w),
+    wc.harness,
+    wc.cwd,
+    wc.flags
+FROM
+    workflows w
+    JOIN workflow_configs wc ON wc.id = w.workflow_config_id
+WHERE
+    w.id = @id
+LIMIT 1;
+
 -- name: GetArchivedWorkflow :one
 SELECT
     sqlc.embed(w),

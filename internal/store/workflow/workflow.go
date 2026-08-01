@@ -227,6 +227,27 @@ func (s *Store) Restore(ctx context.Context, id string) error {
 	return nil
 }
 
+// GetIncludingArchived reads a workflow by id whether or not it is archived, nil when
+// none has that id. It is for the reads that only want what the row says, since the
+// listings the panel builds are what archiving is meant to hide it from.
+func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow, error) {
+	if !store.IsID(id) {
+		return nil, nil
+	}
+
+	row, err := s.queries.GetWorkflowIncludingArchived(ctx, id)
+	if store.NoRows(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
+	}
+
+	workflow := workflowFromRow(row.Workflow, row.Harness, row.Cwd, row.Flags)
+
+	return &workflow, nil
+}
+
 // GetArchived reads a workflow that has been archived, or nil when none has that id.
 // Every other read here covers the live ones alone, so this is what a restore opens on.
 func (s *Store) GetArchived(ctx context.Context, id string) (*Workflow, error) {

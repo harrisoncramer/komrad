@@ -56,6 +56,13 @@ type workflowReader interface {
 	Get(ctx context.Context, id string) (*workflow.Workflow, error)
 }
 
+// agentWorkflowReader adds the read an agent's own lifecycle needs, since an agent
+// outlives the archiving of the workflow it belongs to.
+type agentWorkflowReader interface {
+	workflowReader
+	GetIncludingArchived(ctx context.Context, id string) (*workflow.Workflow, error)
+}
+
 // txRunner opens the transaction a write spanning two domains needs, since removing
 // an agent also removes its transcript.
 type txRunner interface {
@@ -88,7 +95,7 @@ type lifecycleActions interface {
 type AgentService struct {
 	tmux      agentTmux
 	agents    agentStore
-	workflows workflowReader
+	workflows agentWorkflowReader
 	tx        txRunner
 	launcher  *Launcher
 	harnesses harnessRegistry
@@ -109,7 +116,7 @@ type AgentService struct {
 type AgentParams struct {
 	Tmux           agentTmux
 	Agents         agentStore
-	Workflows      workflowReader
+	Workflows      agentWorkflowReader
 	Tx             txRunner
 	Launcher       *Launcher
 	Harnesses      harnessRegistry
@@ -715,9 +722,10 @@ func (s *AgentService) runCleanup(ctx context.Context, agent agentstore.Agent, n
 
 // cleanupAction is the action an agent's workflow names, blank when it cannot be read.
 // It is read when it fires rather than at launch, so editing a workflow's cleanup
-// reaches the agents already inside it.
+// reaches the agents already inside it. The archive is read through too, since deleting
+// an agent out of an archived workflow is where the teardown matters most.
 func (s *AgentService) cleanupAction(ctx context.Context, workflowID string) string {
-	wf, err := s.workflows.Get(ctx, workflowID)
+	wf, err := s.workflows.GetIncludingArchived(ctx, workflowID)
 	if err != nil || wf == nil {
 		return ""
 	}
