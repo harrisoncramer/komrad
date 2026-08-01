@@ -19,20 +19,17 @@ type scheduleState struct {
 	cursor int
 }
 
-// scheduleItem is a stored schedule plus when it next fires. The next run is
-// derived by the service from the cron expression rather than stored, so it
-// arrives with the listing and is held beside the record the same way an
-// agent's liveness is.
+// scheduleItem is a stored schedule plus when it next fires. The next run is derived by
+// the service from the cron expression rather than stored, so it arrives with the listing
+// the way an agent's liveness does.
 type scheduleItem struct {
 	schedule schedulestore.Schedule
 	nextRun  time.Time
 }
 
-// enterSchedules switches to the schedules view, both from the agents list and
-// after one of the schedule forms closes. It is its own screen rather than a
-// section of the agents tree, because a schedule is a record of future work with
-// nothing running to stage beside it, so it shares neither the tree's shape nor
-// its keys.
+// enterSchedules switches to the schedules view, from the agents list and after one of the
+// schedule forms closes. It is its own screen rather than part of the agents tree, since a
+// schedule is a record of future work with nothing running to stage beside it.
 func (m model) enterSchedules() (tea.Model, tea.Cmd) {
 	m.screen = screenSchedules
 	m.schedules.cursor = clampCursor(m.schedules.cursor, len(m.schedules.items))
@@ -84,9 +81,8 @@ func (m model) selectedSchedule() (scheduleItem, bool) {
 	return m.schedules.items[m.schedules.cursor], true
 }
 
-// stageSchedule shows the hovered schedule's record in the stage. Nothing runs
-// for a schedule, so there is never a pane to swap in and the record is all
-// there is to show.
+// stageSchedule shows the hovered schedule's record in the stage. Nothing runs for a
+// schedule, so there is never a pane to swap in.
 func (m model) stageSchedule() {
 	item, ok := m.selectedSchedule()
 	if !ok {
@@ -97,8 +93,8 @@ func (m model) stageSchedule() {
 	m.stage.Text(scheduleMarkdown(item, m.workflowByID(item.schedule.WorkflowID)))
 }
 
-// workflowByID finds a workflow in the list the panel already polls, nil when
-// none holds that id, which means it was deleted.
+// workflowByID finds a workflow in the list the panel already polls, nil when none holds
+// that id, which means it was deleted.
 func (m model) workflowByID(id string) *workflowstore.Workflow {
 	for _, w := range m.tree.workflows {
 		if w.ID == id {
@@ -109,9 +105,8 @@ func (m model) workflowByID(id string) *workflowstore.Workflow {
 	return nil
 }
 
-// toggleSchedule pauses or resumes the hovered schedule. One key does both
-// directions, so which way it went has to come from the row for the failure to
-// name it.
+// toggleSchedule pauses or resumes the hovered schedule. One key does both directions, so
+// the failure message comes off the row.
 func (m model) toggleSchedule() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedSchedule()
 	if !ok {
@@ -128,8 +123,8 @@ func (m model) toggleSchedule() (tea.Model, tea.Cmd) {
 	})
 }
 
-// newScheduleForm opens the form to create a schedule, blank except for the
-// workflow, which starts on the first in the list since one has to be chosen.
+// newScheduleForm opens the form to create a schedule, blank except for the workflow,
+// which starts on the first in the list since one has to be chosen.
 func (m model) newScheduleForm() (tea.Model, tea.Cmd) {
 	if len(m.tree.workflows) == 0 {
 		m.report("Could not create a schedule", errNoWorkflow)
@@ -147,9 +142,8 @@ func (m model) newScheduleForm() (tea.Model, tea.Cmd) {
 	return m, m.form.Init()
 }
 
-// editScheduleForm reopens the form for the hovered schedule, prefilled with
-// its stored values. It refetches first, so the form edits what is stored
-// rather than what the last listing happened to carry.
+// editScheduleForm reopens the form for the hovered schedule. It refetches first, so the
+// form edits what is stored rather than what the last listing carried.
 func (m model) editScheduleForm() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedSchedule()
 	if !ok {
@@ -191,8 +185,8 @@ func (m model) deleteScheduleConfirm() (tea.Model, tea.Cmd) {
 	return m, m.form.Init()
 }
 
-// updateScheduleForm drives the create and edit form, submitting on the
-// configured submit key or on completion and aborting back to the list.
+// updateScheduleForm drives the create and edit form, submitting on the configured key or
+// on completion and aborting back to the list.
 func (m model) updateScheduleForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if key, ok := msg.(tea.KeyMsg); ok && bound(key.String(), m.keys.Form.Submit) {
 		return m.submitScheduleForm()
@@ -215,13 +209,12 @@ func (m model) updateScheduleForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// submitScheduleForm applies the form, editing the target schedule or creating
-// a new one, then returns to the list with it refreshed. A rejected expression
-// comes back as a banner rather than silently doing nothing, since the list
-// looking unchanged is exactly what a failed submit looks like otherwise.
+// submitScheduleForm applies the form, editing the target schedule or creating one, then
+// returns to the refreshed list. A rejected expression comes back as a banner, since an
+// unchanged list is otherwise indistinguishable from a submit that did nothing.
 func (m model) submitScheduleForm() (tea.Model, tea.Cmd) {
-	// The form owns nothing the panel has not been handed a pointer to, so a submit
-	// with no bound values is a submit for a form that was never opened.
+	// The form writes through pointers the panel holds, so a submit with no bound values
+	// is a submit for a form that was never opened.
 	if m.values.schedule == nil {
 		return m.enterSchedules()
 	}
@@ -277,9 +270,8 @@ func (m model) updateScheduleDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// schedulesView renders the list. Each row is a schedule with its cron
-// expression and when it next fires, since those two are what a person checks a
-// schedule for.
+// schedulesView renders the list, each row a schedule with its cron expression and when it
+// next fires, which is what a person checks a schedule for.
 func (m model) schedulesView() string {
 	header := headerStyle.Render("Schedules") + "\n\n"
 	hints := "\n" + m.scheduleHints()
@@ -311,10 +303,9 @@ func (m model) schedulesView() string {
 	return header + renderList(rows, m.schedules.cursor, m.listLines(header, hints)) + hints
 }
 
-// applySchedules takes a freshly-listed set as the on-screen schedules. It keeps the
-// cursor on the schedule it was on rather than on an index that now means a
-// different row, since a schedule deleted from another panel shifts everything below
-// it up.
+// applySchedules takes a freshly-listed set as the on-screen schedules, keeping the cursor
+// on the schedule it was on, since a schedule deleted from another panel shifts everything
+// below it up.
 func (m *model) applySchedules(fresh []scheduleItem) {
 	selected := ""
 	if item, ok := m.selectedSchedule(); ok {

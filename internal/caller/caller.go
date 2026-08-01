@@ -1,16 +1,11 @@
-// Package caller is who a request is from.
+// Package caller is who a request is from. What reaches the service is either the panel,
+// which is the person, or an agent the panel spawned calling back through its tools, and a
+// log that cannot tell one agent from another cannot answer which of them deleted
+// something.
 //
-// Most of what reaches the service is the panel, which is the person sitting in front of
-// it. The rest is agents the panel spawned, calling back through the tools they were
-// launched with. Those two are worth telling apart in the log, and one agent is worth
-// telling from another: an agent that deleted something, or that hammered a tool in a
-// loop, is a question about which agent, and a record saying only that a call arrived from
-// loopback cannot answer it.
-//
-// The identity travels as headers because that is the only channel there is. An agent runs
-// somebody else's CLI in a pane, and the one thing the panel decides about how it calls
-// back is the server registration it is launched with, which every CLI here can be told to
-// put a header on.
+// The identity travels as headers because that is the only channel there is: an agent runs
+// somebody else's CLI, and all the panel decides is the server registration it is launched
+// with, which every CLI here can be told to put a header on.
 package caller
 
 import (
@@ -38,18 +33,16 @@ type Caller struct {
 	SessionID string
 }
 
-// Known reports whether the request named an agent at all. A call from the panel, from a
-// person with curl, or from an agent launched before the panel started sending this is
-// unattributed rather than wrong, and is logged without the fields rather than with empty
-// ones.
+// Known reports whether the request named an agent at all. A call from the panel or from a
+// person with curl is unattributed rather than wrong, and is logged without the fields
+// rather than with empty ones.
 func (c Caller) Known() bool {
 	return c.AgentID != "" || c.SessionID != ""
 }
 
 // FromHeader reads the identity a request arrived with. A value that is still a shell
-// variable is dropped: the CLIs are told to fill these in from the agent's environment,
-// and one that arrives unexpanded means the variable was not set, which is no identity
-// rather than an agent called ${WEAVE_AGENT_ID}.
+// variable is dropped, since the CLIs fill these in from the agent's environment and an
+// unexpanded one means the variable was never set.
 func FromHeader(header http.Header) Caller {
 	return Caller{
 		AgentID:   expanded(header.Get(AgentHeader)),
@@ -66,9 +59,8 @@ func expanded(value string) string {
 	return value
 }
 
-// SetHeader writes the identity onto a request going out, so a call the service makes on a
-// caller's behalf arrives attributed to them rather than to the service. Nothing is written
-// for a caller that is not known, since an empty header reads as an answer.
+// SetHeader writes the identity onto a request going out. Nothing is written for a caller
+// that is not known, since an empty header reads as an answer.
 func (c Caller) SetHeader(header http.Header) {
 	if c.AgentID != "" {
 		header.Set(AgentHeader, c.AgentID)
@@ -79,12 +71,11 @@ func (c Caller) SetHeader(header http.Header) {
 }
 
 // Transport stamps every request a client sends with the identity and trace of the request
-// being served, and is how a call the service makes on somebody's behalf stays attributed
-// to them. next is the transport underneath, or the default one when nil.
+// being served, so a call the service makes on somebody's behalf stays attributed to them.
+// next is the transport underneath, or the default one when nil.
 //
-// It is a transport rather than something each caller remembers to do, because the
-// alternative is every outbound client copying the same headers, and the one that forgets
-// is the one whose calls read in the log as the service talking to itself.
+// It is a transport rather than something each caller remembers to do, since the client
+// that forgets is the one whose calls read as the service talking to itself.
 func Transport(next http.RoundTripper) http.RoundTripper {
 	if next == nil {
 		next = http.DefaultTransport
@@ -95,9 +86,8 @@ func Transport(next http.RoundTripper) http.RoundTripper {
 
 type forwarding struct{ next http.RoundTripper }
 
-// RoundTrip copies what the context carries onto a clone of the request. The request handed
-// to a transport belongs to whoever built it and must not be modified, which is why this
-// clones before touching the headers.
+// RoundTrip copies what the context carries onto a clone of the request, since the request
+// handed to a transport belongs to whoever built it and must not be modified.
 func (f forwarding) RoundTrip(req *http.Request) (*http.Response, error) {
 	ctx := req.Context()
 
@@ -120,8 +110,8 @@ func (f forwarding) RoundTrip(req *http.Request) (*http.Response, error) {
 // nothing outside this package can collide with it.
 type callerKey struct{}
 
-// With carries the identity on a context, which is how the handler under a request, and
-// anything it calls in turn, can say who asked.
+// With carries the identity on a context, which is how a handler and anything it calls can
+// say who asked.
 func With(ctx context.Context, from Caller) context.Context {
 	return context.WithValue(ctx, callerKey{}, from)
 }

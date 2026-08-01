@@ -5,22 +5,19 @@ import (
 	"strings"
 )
 
-// hostSocketOption records the socket path of the tmux server the user is on. It
-// is stored on the manager's own server because the panel and the API server both
-// run there, and it is rewritten on every open rather than passed in through their
-// environment, which only the open that created the session could set.
+// hostSocketOption records the socket path of the tmux server the user is on. It is stored
+// on the manager's own server, where the panel and the API server run, and rewritten on
+// every open, since only the open that created the session could set an environment.
 const hostSocketOption = "@weave_host_socket"
 
-// tmuxEnvFields is how many fields tmux writes into TMUX for a pane it spawns. They are
-// the socket path of the server, that server's pid, and the id of the session the pane
-// belongs to.
+// tmuxEnvFields is how many fields tmux writes into TMUX for a pane it spawns: the
+// server's socket path, its pid, and the id of the session the pane belongs to.
 const tmuxEnvFields = 3
 
 // SocketFromEnv returns the socket path of the server a TMUX value names, empty when it
-// names none. It is how the popup finds the user's server, which cannot be passed in.
-// tmux expands no format in a popup's command or in the environment it sets, and an
-// unexpanded format at the start of a shell word is a comment, so a value written into the
-// key binding never arrives at all.
+// names none. It is how the popup finds the user's server, which cannot be passed in: tmux
+// expands no format in a popup's command or environment, and an unexpanded one at the
+// start of a shell word is a comment, so a value in the key binding never arrives.
 func SocketFromEnv(value string) string {
 	fields := strings.Split(value, ",")
 	if len(fields) != tmuxEnvFields {
@@ -31,8 +28,7 @@ func SocketFromEnv(value string) string {
 }
 
 // SessionFromEnv returns the session a TMUX value belongs to, as the id target tmux
-// resolves it by, and empty when the value names none. An id is what tmux exports, and
-// unlike a bare name it cannot be confused with a window's name.
+// resolves it by, which unlike a bare name cannot be confused with a window's.
 func SessionFromEnv(value string) string {
 	fields := strings.Split(value, ",")
 	if len(fields) != tmuxEnvFields || fields[tmuxEnvFields-1] == "" {
@@ -42,27 +38,25 @@ func SessionFromEnv(value string) string {
 	return "$" + fields[tmuxEnvFields-1]
 }
 
-// Host is the tmux server the user is on. The manager runs on a server of its own,
-// so its session never shows up in the user's session list and cannot be attached
-// to by accident. That isolation cuts both ways: two things live only on the
-// user's server, the working directory of the client viewing the popup and the
-// global options the key binding reads, and this is how they are reached.
+// Host is the tmux server the user is on. The manager runs on a server of its own, so its
+// session cannot be attached to by accident, and that isolation cuts both ways: the
+// working directory of the client viewing the popup and the global options the key binding
+// reads live only on the user's server, and this is how they are reached.
 //
-// The socket is looked up per call rather than held, since the panel outlives many
-// opens and each one may come from a different server.
+// The socket is looked up per call rather than held, since the panel outlives many opens
+// and each may come from a different server.
 type Host struct {
 	manager *Client
 }
 
-// NewHost returns a Host that finds the user's server through the manager's,
-// where its socket path is recorded.
+// NewHost returns a Host that finds the user's server through the manager's, where its
+// socket path is recorded.
 func NewHost(manager *Client) *Host {
 	return &Host{manager: manager}
 }
 
-// Record stores the socket path of the user's server. The open command calls it
-// with the path tmux interpolated into the popup command, so every open points the
-// panel at the server that actually opened it.
+// Record stores the socket path of the user's server, called by the open command with the
+// path tmux interpolated, so every open points the panel at the server that opened it.
 func (h *Host) Record(path string) {
 	if path == "" {
 		return
@@ -71,9 +65,8 @@ func (h *Host) Record(path string) {
 	h.manager.SetGlobal(hostSocketOption, path)
 }
 
-// client returns a client for the user's server, nil when no open has recorded
-// one. Every method below then does nothing, which is the honest answer for a
-// panel running with no popup ever having been attached to it.
+// client returns a client for the user's server, nil when no open has recorded one, which
+// leaves every method below doing nothing.
 func (h *Host) client() *Client {
 	path := h.manager.ShowGlobal(hostSocketOption)
 	if path == "" {
@@ -102,8 +95,7 @@ func (h *Host) SetGlobal(name, value string) {
 
 // OpenWindow creates a window on the user's server for the client viewing the popup,
 // running argv in dir. It is the one thing the panel puts on that server rather than reads
-// off it, and it belongs here because that is where the sessions a person is looking at
-// live.
+// off it, since that is where the sessions a person is looking at live.
 func (h *Host) OpenWindow(client, name, dir string, argv ...string) error {
 	host := h.client()
 	if host == nil {
@@ -113,8 +105,7 @@ func (h *Host) OpenWindow(client, name, dir string, argv ...string) error {
 	return host.OpenWindow(client, name, dir, argv...)
 }
 
-// ShowGlobal returns a global tmux option's value from the user's server, empty
-// if it is unset.
+// ShowGlobal returns a global tmux option's value from the user's server, empty if unset.
 func (h *Host) ShowGlobal(name string) string {
 	host := h.client()
 	if host == nil {
@@ -124,11 +115,9 @@ func (h *Host) ShowGlobal(name string) string {
 	return host.ShowGlobal(name)
 }
 
-// Servers is the pair of tmux servers this program uses, presented as the one
-// client the rest of the program holds. Sessions, windows, and panes belong to the
-// manager's server. Global options and the invoking client's directory belong to
-// the user's, since the key binding reads those options and that client is
-// attached only there.
+// Servers is the pair of tmux servers this program uses, presented as the one client the
+// rest of it holds. Sessions, windows, and panes belong to the manager's server, while
+// global options and the invoking client's directory belong to the user's.
 type Servers struct {
 	*Client
 	host *Host
@@ -154,9 +143,8 @@ func (s *Servers) ShowGlobal(name string) string {
 	return s.host.ShowGlobal(name)
 }
 
-// OpenWindow goes to the user's server, unlike NewWindow beside it, since a window
-// meant for the user to sit in has to land in the session they are attached to rather
-// than in the manager's.
+// OpenWindow goes to the user's server, unlike NewWindow beside it, since a window meant
+// for the user to sit in has to land in the session they are attached to.
 func (s *Servers) OpenWindow(client, name, dir string, argv ...string) error {
 	return s.host.OpenWindow(client, name, dir, argv...)
 }

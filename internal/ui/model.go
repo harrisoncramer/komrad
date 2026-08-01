@@ -45,9 +45,9 @@ const (
 	screenActions
 )
 
-// uiTmux is what the panel needs from tmux, enough to lay out its own panes plus two
-// things about the client looking at it. The directory it sits in, and its session, which
-// is where a window opened for the user has to land.
+// uiTmux is what the panel needs from tmux: enough to lay out its own panes, plus the
+// directory the client looking at it sits in and the session a window opened for the user
+// has to land in.
 type uiTmux interface {
 	stageTmux
 	ClientPath(client string) string
@@ -77,21 +77,18 @@ type Deps struct {
 	// runs through a shell, so it can be a pipeline.
 	LogViewer string
 	// Binary is this executable, which a viewer command reaches through WEAVE_BIN. It is
-	// passed in rather than resolved here so the panel and the service it spawns are the
-	// same build, whatever the name it was installed under.
+	// passed in so the panel and the service it spawns are the same build.
 	Binary string
 	// LogPath is the file the service writes to, which the log key pages. It is passed in
-	// rather than resolved here, so the panel reads the same file the process that spawned
-	// the service pointed it at.
+	// so the panel reads the file the process that spawned the service pointed it at.
 	LogPath string
 	// ConfigErr is set when the user's config file would not parse. The panel shows it on
-	// its error screen instead of starting, so the message is readable rather than written
-	// to a popup that closes on top of it.
+	// its error screen instead of starting, since a message written to a popup that closes
+	// on top of it cannot be read.
 	ConfigErr error
-	// StartupErr is set when the server the panel talks through could not be started,
-	// most often because its database is not up. It is shown on the error screen for the
-	// same reason ConfigErr is: this process is the command of the tmux session behind the
-	// popup, so exiting takes the message down with it.
+	// StartupErr is set when the server the panel talks through could not be started, most
+	// often because its database is not up. It shows on the error screen for the reason
+	// ConfigErr does: exiting takes the message down with the popup.
 	StartupErr error
 }
 
@@ -115,24 +112,23 @@ type model struct {
 	// putting the write's effect back.
 	epoch int
 	// pending is how many writes are in flight. While any is, the periodic refresh stands
-	// down: a listing started now would read rows the write is about to replace, and the
-	// write re-lists as it lands anyway.
+	// down: it would read rows the write is about to replace, and the write re-lists as it
+	// lands anyway.
 	pending int
-	// configErr and startupErr never clear, unlike unreachable. The config is read once at
-	// startup and nothing retries the server, so either screen lasts the life of the
-	// process.
+	// configErr and startupErr never clear, unlike unreachable, since the config is read
+	// once at startup and nothing retries the server.
 	configErr  error
 	startupErr error
-	// banner is the last write the service refused, shown as a banner over the screen
-	// it happened on. It is cleared by the next write and by esc, never by a poll, since
-	// a refused delete is still worth reading a second later.
+	// banner is the last write the service refused, shown over the screen it happened on.
+	// It is cleared by the next write and by esc, never by a poll, since a refused delete
+	// is still worth reading a second later.
 	banner *errui.Banner
 
 	screen screen
 
-	// height and width are the panel's own pane, from the last resize. They are zero
-	// until the first one arrives, which the lists read as unbounded rather than clipping
-	// themselves against a size nothing measured.
+	// height and width are the panel's own pane, from the last resize. They are zero until
+	// the first one arrives, which the lists read as unbounded rather than clipping
+	// against a size nothing measured.
 	height int
 	width  int
 
@@ -184,17 +180,17 @@ func newModel(deps Deps) model {
 		return m
 	}
 
-	// There is nothing to stage yet: the first listing is a command like every other one,
-	// so the panel paints its empty tree now rather than holding the first frame back for
-	// a round trip.
+	// There is nothing to stage yet: the first listing is a command like any other, so the
+	// panel paints its empty tree rather than holding the first frame back for a round
+	// trip.
 	m.stage.Init()
 
 	return m
 }
 
 // currentDir fills in the directory a new agent starts in. The form allows a blank,
-// meaning "where I am", and only the panel can answer that, since it is the invoking
-// tmux client's path.
+// meaning "where I am", which only the panel can answer since it is the invoking client's
+// path.
 func (m model) currentDir(dir string) string {
 	if trimmed := strings.TrimSpace(dir); trimmed != "" {
 		return trimmed

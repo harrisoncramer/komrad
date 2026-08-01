@@ -269,9 +269,8 @@ type Config struct {
 	Log Log `mapstructure:"log"`
 }
 
-// Defaults is the configuration a user who has written nothing runs on. It is also
-// what the generated config.toml spells out, so the file and an install without one
-// agree by construction.
+// Defaults is the configuration a user who has written nothing runs on, and what the
+// generated config.toml spells out, so the two agree by construction.
 func Defaults() *Config {
 	return &Config{
 		DefaultHarness: DefaultHarness,
@@ -294,9 +293,8 @@ const DefaultLogLevel = "info"
 // four rows of one record.
 const DefaultLogViewer = `"$WEAVE_BIN" logs --color=always | less -RSX +G`
 
-// DefaultHarness is the CLI a new agent runs when the config names none. It is
-// spelled here rather than taken from the registry because the registry is built
-// from what the binary implements, and this is a default a user overrides.
+// DefaultHarness is the CLI a new agent runs when the config names none, spelled here
+// rather than taken from the registry since this is a default a user overrides.
 const DefaultHarness = "claude"
 
 // DefaultSplit is the share of the width the panel's list takes when the config
@@ -331,9 +329,8 @@ type Mark struct {
 const DefaultMarkColor = "yellow"
 
 // ansiColors are the sixteen colours a terminal's scheme maps, keyed by the name a config
-// names one by and valued by the index lipgloss draws it as. They are the palette the
-// panel itself is drawn from, so a mark named this way sits in the same scheme as the
-// rows around it.
+// names one by and valued by the index lipgloss draws it as. The panel is drawn from the
+// same palette, so a mark named this way sits in the scheme around it.
 var ansiColors = map[string]string{
 	"black":         "0",
 	"red":           "1",
@@ -353,9 +350,8 @@ var ansiColors = map[string]string{
 	"brightwhite":   "15",
 }
 
-// ResolveColor is a configured colour in the form lipgloss reads it. A name becomes its
-// index, which is what lipgloss maps onto the terminal's own scheme, and a hex value
-// passes through as it is.
+// ResolveColor is a configured colour in the form lipgloss reads it: a name becomes the
+// index lipgloss maps onto the terminal's scheme, and a hex value passes through.
 func ResolveColor(color string) string {
 	if index, ok := ansiColors[color]; ok {
 		return index
@@ -364,9 +360,8 @@ func ResolveColor(color string) string {
 	return color
 }
 
-// DefaultMarks are the marks stepped through when the config names none. They share
-// one colour, leaving the glyph to carry the meaning until someone colours them
-// apart.
+// DefaultMarks are the marks stepped through when the config names none. They share one
+// colour, leaving the glyph to carry the meaning until someone colours them apart.
 func DefaultMarks() []Mark {
 	return []Mark{
 		{Glyph: "●", Color: DefaultMarkColor},
@@ -433,18 +428,16 @@ func DefaultKeybindings() Keybindings {
 	}
 }
 
-// maxMarkLen bounds a mark in bytes. A glyph runs to a handful of bytes even with
-// modifiers on it, so anything longer is not the one character the panel can draw.
+// maxMarkLen bounds a mark in bytes. A glyph runs to a handful even with modifiers on it,
+// so anything longer is not the one character the panel can draw.
 const maxMarkLen = 16
 
-// hexColor matches the colours lipgloss reads, three or six digits behind a hash.
-// Anything else it renders as no colour at all, so a typo would silently lose the
-// mark's colour rather than say so.
+// hexColor matches the colours lipgloss reads, three or six digits behind a hash. Anything
+// else renders as no colour at all, so a typo would silently lose the mark's colour.
 var hexColor = regexp.MustCompile(`^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
 
-// validColor reports whether the panel could draw a colour. The names are a closed set
-// rather than anything the terminal might accept, so a colour spelled wrongly is refused
-// here instead of drawing as no colour at all.
+// validColor reports whether the panel could draw a colour. The names are a closed set, so
+// a colour spelled wrongly is refused here rather than drawn as no colour.
 func validColor(color string) bool {
 	if _, ok := ansiColors[color]; ok {
 		return true
@@ -454,8 +447,8 @@ func validColor(color string) bool {
 }
 
 // validateMarks rejects marks the panel could not draw. A glyph goes straight into a
-// rendered frame, so whitespace or a control character would break the row it sits on,
-// and a glyph listed twice would never be steppable past its first appearance.
+// rendered frame, so whitespace or a control character would break its row, and a glyph
+// listed twice could never be stepped past.
 func validateMarks(marks []Mark) error {
 	unprintable := func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }
 	seen := make(map[string]bool, len(marks))
@@ -480,9 +473,8 @@ func validateMarks(marks []Mark) error {
 	return nil
 }
 
-// validateLayout rejects a split tmux could not lay the two panes out at. Zero is how
-// an omitted key reads, so it falls back to the default rather than being reported as
-// a mistake.
+// validateLayout rejects a split tmux could not lay the two panes out at. Zero is how an
+// omitted key reads, so it falls back to the default rather than being called a mistake.
 func validateLayout(layout Layout) error {
 	if layout.Split < 0 || layout.Split >= 1 {
 		return fmt.Errorf("layout split %v is not a fraction of the width above zero and below one", layout.Split)
@@ -491,8 +483,8 @@ func validateLayout(layout Layout) error {
 	return nil
 }
 
-// validate rejects the settings the panel could not run on, so a config that cannot
-// work says so when it is read rather than once something tries to draw with it.
+// validate rejects the settings the panel could not run on, so a config that cannot work
+// says so when it is read rather than when something tries to draw with it.
 func (c Config) validate() error {
 	if err := validateMarks(c.Marks); err != nil {
 		return err
@@ -504,9 +496,8 @@ func (c Config) validate() error {
 	return validateLayout(c.Layout)
 }
 
-// logLevels are the levels the service understands, which is what slog offers. A level it
-// does not know decodes as debug, so an unchecked typo turns the log up instead of saying
-// the word was wrong.
+// logLevels are the levels the service understands. One it does not know decodes as debug,
+// so an unchecked typo turns the log up instead of saying the word was wrong.
 var logLevels = []string{"debug", "info", "warn", "error"}
 
 // validateLog rejects a level the service could not act on.
@@ -520,12 +511,12 @@ func validateLog(log Log) error {
 }
 
 // withDefaults fills anything the file left unset from the built-ins. An omitted value
-// reads as its zero, which is why a blank marks list and a zero split are the unset
-// cases here rather than choices to be honoured.
+// reads as its zero, which is why a blank marks list and a zero split are unset here
+// rather than choices to be honoured.
 func (c Config) withDefaults() Config {
 	c.Keybindings = c.Keybindings.withDefaults()
 	// Every launch resolves through this id, so leaving it empty would refuse every
-	// create rather than fall back to anything.
+	// create rather than fall back.
 	if strings.TrimSpace(c.DefaultHarness) == "" {
 		c.DefaultHarness = DefaultHarness
 	}
@@ -554,10 +545,9 @@ func (k Keybindings) withDefaults() Keybindings {
 	return filled
 }
 
-// fillBindings copies the default into every key list the config left empty, walking
-// the groups of bindings as it goes. A group is a struct and a binding is a slice of
-// keys, which are the two cases below. It reads the struct rather than naming each
-// binding, so adding one is an edit to the struct and nothing else.
+// fillBindings copies the default into every key list the config left empty, walking the
+// groups as it goes: a group is a struct and a binding a slice of keys. It reads the struct
+// rather than naming each binding, so adding one is an edit to the struct and nothing else.
 func fillBindings(configured, def reflect.Value) {
 	for i := range configured.NumField() {
 		field := configured.Field(i)
@@ -583,10 +573,10 @@ func configHome() (string, error) {
 	return filepath.Join(home, ".config", "weave"), nil
 }
 
-// ActionsDir is where the actions live, the configured directory or ~/.config/weave/actions
-// when the config names none. The default is resolved here rather than filled into Config,
-// since every default there is spelled out in the generated config.toml, and a file naming one
-// machine's home directory as everybody's default would be wrong on every other machine.
+// ActionsDir is where the actions live: the configured directory, or
+// ~/.config/weave/actions when the config names none. The default is resolved here rather
+// than filled into Config, since the generated config.toml spells every default out and one
+// machine's home directory would be wrong on every other machine.
 func (c Config) ActionsDir() (string, error) {
 	if dir := strings.TrimSpace(c.Actions.Dir); dir != "" {
 		return dir, nil
@@ -603,8 +593,7 @@ func (c Config) ActionsDir() (string, error) {
 // LogPath is the file the background service writes to, ~/.config/weave/weave.log. Both
 // the process that spawns the service and the panel that pages the log resolve it here,
 // since a service writing where the panel does not look may as well not be writing. An
-// unresolvable home falls back to the working directory, so even a machine that broken
-// still keeps the service's account of itself.
+// unresolvable home falls back to the working directory.
 func LogPath() string {
 	home, err := configHome()
 	if err != nil {
@@ -614,21 +603,18 @@ func LogPath() string {
 	return filepath.Join(home, "weave.log")
 }
 
-// Load reads the config from path when given, otherwise from the default
-// location ~/.config/weave/config.toml. A missing file is not an error
-// and yields the default keybindings, but a symlink standing where the file
-// should be and resolving to nothing is, since that is a config someone meant
-// to have rather than one they never wrote.
+// Load reads the config from path when given, otherwise from
+// ~/.config/weave/config.toml. A missing file is not an error and yields the defaults, but
+// a symlink resolving to nothing is, since that is a config someone meant to have.
 //
-// A key the Config struct does not know about is an error rather than something
-// silently dropped, so a typo or a binding left behind by an older version says
-// so instead of quietly doing nothing.
+// A key the Config struct does not know about is an error rather than silently dropped, so
+// a typo or a binding left behind by an older version says so.
 func Load(path string) (*Config, error) {
 	viperCfg := viper.New()
 	viperCfg.SetConfigType("toml")
 
 	// The resolved path is named in the errors below, since what went wrong is not
-	// actionable without knowing which file to go and edit.
+	// actionable without knowing which file to edit.
 	file := path
 	if file == "" {
 		dir, err := configHome()
@@ -646,12 +632,10 @@ func Load(path string) (*Config, error) {
 			return Defaults(), nil
 		}
 		if os.IsNotExist(err) {
-			// Reading through a symlink that resolves to nothing fails the same way as
-			// reading a path with nothing at it, so both arrive here and the defaults
-			// would go back for either. Readlink does not follow the link, and so
-			// succeeds only in the dangling case, which is the one worth naming: a
-			// broken link is a config the user believes they have, and silence about it
-			// looks exactly like a machine that was never configured.
+			// A dangling symlink and a path with nothing at it fail the same way, so
+			// both arrive here. Readlink does not follow the link and so succeeds only
+			// in the dangling case, which is the one worth naming: a broken link is a
+			// config the user believes they have.
 			if target, linkErr := os.Readlink(file); linkErr == nil {
 				return nil, fmt.Errorf("failed to read config %s: it is a symlink to %s, which does not exist", file, target)
 			}

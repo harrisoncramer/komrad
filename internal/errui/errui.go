@@ -1,13 +1,9 @@
-// Package errui renders the panel's errors.
+// Package errui renders the panel's errors. Every failure is built here rather than
+// formatted wherever it was noticed, so they all read the same: a red headline, prose
+// saying what it means for what is on screen, the machine detail, and dim closing hints.
 //
-// Every failure the panel reports is built here rather than formatted wherever it
-// was noticed, so they all read the same: a red headline saying what is wrong,
-// plain prose saying what it means for what is on screen, the machine detail under
-// it, and dim closing lines saying what to do.
-//
-// It holds the presentation and nothing about the panel's state. The screens are
-// functions of the error and, at most, the address it concerns, so what a screen
-// says cannot depend on which part of the panel happened to build it.
+// It holds the presentation and nothing about the panel's state, so what a screen says
+// cannot depend on which part of the panel built it.
 package errui
 
 import (
@@ -18,33 +14,31 @@ import (
 )
 
 // Both colours are indexes into the sixteen a terminal's own scheme maps rather than hex
-// values, so an error screen is drawn in the colours the terminal is already running, the
-// way the rest of the panel is.
+// values, so an error screen is drawn in the colours the terminal is already running.
 var (
-	// Red is the headline colour, the same red the agent list uses for a row that
-	// needs attention.
+	// Red is the headline colour, the same red the agent list uses for a row that needs
+	// attention.
 	Red = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
-	// Dim is the colour of anything secondary: labels, hints, and the panel's own
-	// chrome, which shares it so the two cannot drift apart.
+	// Dim is the colour of anything secondary: labels, hints, and the panel's own chrome,
+	// which shares it so the two cannot drift apart.
 	Dim = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 )
 
-// Screen is a failure that takes the whole panel. It is used when nothing on
-// screen can be trusted, so there is no point leaving any of it visible.
+// Screen is a failure that takes the whole panel, for when nothing on screen can be
+// trusted.
 type Screen struct {
 	// Title is the headline, the one line saying what is wrong.
 	Title string
-	// Body explains what the failure means for the panel, one entry per paragraph.
-	// Each is folded to the width, so a paragraph is written as one string rather
-	// than broken by hand into lines that would only fit one pane.
+	// Body explains what the failure means for the panel, one entry per paragraph. Each
+	// is folded to the width, so a paragraph is written as one string rather than broken
+	// by hand into lines that fit only one pane.
 	Body []string
-	// Details are the labelled facts worth reading exactly, such as an address or
-	// the underlying error. Long values wrap under their label.
+	// Details are the labelled facts worth reading exactly, such as an address or the
+	// underlying error. Long values wrap under their label.
 	Details []Detail
 	// Hints close the screen with what to do about it.
 	Hints []string
-	// Width is the pane the screen is rendering into, in columns. Zero means the
-	// panel has not been told its size yet.
+	// Width is the pane the screen renders into, zero before the first resize.
 	Width int
 }
 
@@ -54,13 +48,11 @@ type Detail struct {
 	Value string
 }
 
-// Render lays the screen out. Sections are separated only when they have content,
-// so a screen with no details does not leave a gap where they would be.
+// Render lays the screen out, separating sections only when they have content.
 //
-// Everything on it is folded to the pane, including the prose, because the panel
-// runs in the narrow half of a split and the renderer above it cuts a line that
-// overruns the pane rather than wrapping it. An unfolded line loses its tail at the
-// pane edge, which on a hint is the command it was naming.
+// Everything is folded to the pane, prose included, because the renderer above the panel
+// cuts a line that overruns rather than wrapping it, and what is lost at the pane edge is
+// the tail of the line, which on a hint is the command it was naming.
 func (s Screen) Render() string {
 	width := foldWidth(s.Width)
 
@@ -90,27 +82,24 @@ func (s Screen) Render() string {
 	return b.String()
 }
 
-// maxWidth is how wide a screen runs in a pane wide enough to allow it. Prose
-// stretched the whole way across a wide pane reads worse than the same prose in a
-// column, so the pane is a ceiling on the fold rather than the fold itself.
+// maxWidth is how wide a screen runs in a pane wide enough to allow it, since prose
+// stretched across a wide pane reads worse than the same prose in a column.
 const maxWidth = 120
 
 // labelWidth is the column values line up in.
 const labelWidth = 9
 
-// indent lines a wrapped value up under the first line of that value. It is built
-// from the label width so the two cannot drift apart.
+// indent lines a wrapped value up under the first line of that value, built from the label
+// width so the two cannot drift apart.
 var indent = strings.Repeat(" ", labelWidth)
 
-// minWidth is the narrowest anything folds to. A pane too narrow to hold the label
-// column and a readable value beside it would otherwise fold to a column a word
-// wide, and a value that overruns a pane that narrow reads better than one broken
-// every other word.
+// minWidth is the narrowest anything folds to. A pane too narrow for the label column and
+// a readable value beside it would otherwise fold to a column a word wide, which reads
+// worse than a value that overruns.
 const minWidth = 20
 
-// foldWidth is how wide a screen folds to in a pane of the given width. A pane the
-// panel has not been told the size of yet folds at the maximum, since that is the
-// only width there is any reason to guess.
+// foldWidth is how wide a screen folds to in a pane of the given width. A pane of unknown
+// size folds at the maximum, since that is the only width worth guessing.
 func foldWidth(pane int) int {
 	if pane <= 0 {
 		return maxWidth
@@ -119,9 +108,8 @@ func foldWidth(pane int) int {
 	return min(pane, maxWidth)
 }
 
-// styled colours text a line at a time. Handing a folded block to a style instead
-// pads every line out to the longest of them, which is trailing whitespace on all but
-// one line of anything folded.
+// styled colours text a line at a time, since handing a folded block to a style pads every
+// line out to the longest of them.
 func styled(style lipgloss.Style, text string) string {
 	lines := strings.Split(text, "\n")
 	for i, line := range lines {
@@ -131,14 +119,12 @@ func styled(style lipgloss.Style, text string) string {
 	return strings.Join(lines, "\n")
 }
 
-// fold folds text onto as many lines as it needs to sit inside width, prefixing the
-// continuations with indent so they read as part of what they continue rather than as
-// a new field. The indent comes out of the width, so a folded value stays inside the
-// pane once it is written out under its label.
+// fold folds text onto as many lines as it needs to sit inside width, prefixing
+// continuations with indent so they read as part of what they continue. The indent comes
+// out of the width, so a folded value stays inside the pane under its label.
 //
-// It wraps rather than truncating, since the useful part of a dial error is at the
-// end, and it breaks a word too long to fit at all: a config path or an address is a
-// single word that would otherwise overrun on its own.
+// It wraps rather than truncating, since the useful part of a dial error is at the end,
+// and it breaks a word too long to fit at all, which a config path or an address is.
 func fold(text string, width int, indent string) string {
 	body := max(width-len(indent), minWidth)
 

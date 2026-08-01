@@ -10,11 +10,10 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-// updateHoveredWorkflow handles keys while the agents-tree cursor is on a workflow
-// header. The workflow bindings act on that folder's workflow, while nav still
-// moves the tree cursor and any form it opens returns to the agents view. The
-// workflow is the one under the cursor, resolved once and handed to whatever the key
-// opens, so nothing has to hold which folder was hovered between keypresses.
+// updateHoveredWorkflow handles keys while the agents-tree cursor is on a workflow header.
+// The workflow bindings act on that folder's workflow, while nav still moves the tree
+// cursor. The workflow is resolved once and handed to whatever the key opens, so nothing
+// has to hold which folder was hovered between keypresses.
 func (m model) updateHoveredWorkflow(key tea.KeyMsg, workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -46,8 +45,8 @@ func (m model) updateHoveredWorkflow(key tea.KeyMsg, workflow workflowstore.Work
 	return m, nil
 }
 
-// returnToAgents sends the user back to the agents view after a form, a dialog, or
-// another screen closes, restaging for the current selection.
+// returnToAgents sends the user back to the agents view once a form, dialog, or other
+// screen closes, restaging for the current selection.
 func (m model) returnToAgents() (tea.Model, tea.Cmd) {
 	m.screen = screenAgents
 	m.tree.cursor = clampCursor(m.tree.cursor, len(m.agentRows()))
@@ -56,8 +55,8 @@ func (m model) returnToAgents() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// newWorkflowForm opens the form to create a workflow with a name plus the
-// default cwd and flags that seed new agents created inside it.
+// newWorkflowForm opens the form to create a workflow: a name plus the default cwd and
+// flags that seed the agents created inside it.
 func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
 	m.target.renameWorkflow = nil
 	m.target.editWorkflow = nil
@@ -67,8 +66,7 @@ func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
 	return m, m.form.Init()
 }
 
-// renameWorkflowForm opens the single-input form to rename the highlighted
-// workflow.
+// renameWorkflowForm opens the single-input form to rename the highlighted workflow.
 func (m model) renameWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	m.target.renameWorkflow = &workflow
 	m.target.editWorkflow = nil
@@ -78,11 +76,9 @@ func (m model) renameWorkflowForm(workflow workflowstore.Workflow) (tea.Model, t
 	return m, m.form.Init()
 }
 
-// editWorkflowForm reopens the create form for the highlighted workflow,
-// prefilled with its current name, context, and default config, so its
-// properties can be patched in place. It refetches the workflow so the form
-// reflects the latest stored values, falling back to the listed row if the
-// fetch fails.
+// editWorkflowForm reopens the create form for the highlighted workflow, prefilled so its
+// properties can be patched in place. It refetches so the form reflects what is stored,
+// falling back to the listed row if that fails.
 func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	if fresh, err := m.api.getWorkflow(workflow.ID); err == nil && fresh != nil {
 		workflow = *fresh
@@ -104,12 +100,9 @@ func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea
 }
 
 // availableActions is what the actions directory holds, which the workflow form's two
-// action fields are chosen from.
-//
-// It is fetched on the render loop for the same reason editWorkflowForm refetches the
-// workflow, which is that a form has nothing to open on until the answer is in. A listing
-// that fails leaves the fields offering none and whatever the workflow already records,
-// since a workflow stays editable when the directory cannot be read.
+// action fields are chosen from. It is fetched on the render loop because a form has
+// nothing to open on until the answer is in, and a listing that fails leaves the fields
+// offering none plus whatever the workflow already records.
 func (m model) availableActions() []string {
 	listed, err := m.api.listActions()
 	if err != nil {
@@ -134,9 +127,8 @@ func (m model) deleteWorkflowConfirm(workflow workflowstore.Workflow) (tea.Model
 	return m, m.form.Init()
 }
 
-// updateWorkflowDelete drives the delete prompt. Confirming purges the workflow
-// with its agents, declining orphans the agents back to unassigned, and aborting
-// leaves everything untouched. All three return to the agents view.
+// updateWorkflowDelete drives the delete prompt. Confirming purges the workflow with its
+// agents, and anything else leaves it untouched. All outcomes return to the agents view.
 func (m model) updateWorkflowDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 	form, cmd := m.form.Update(msg)
 	if updated, ok := form.(*huh.Form); ok {
@@ -191,9 +183,8 @@ func (m model) updateWorkflowForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// submitWorkflowForm applies the form, renaming the target workflow, editing an
-// existing one's config, or creating a new one, then returns to the agents view
-// with the list refreshed.
+// submitWorkflowForm applies the form, renaming a workflow, editing its config, or
+// creating one, then returns to the refreshed agents view.
 func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 	// The form writes into values the panel handed it, so a submit without them is a
 	// submit for a form that was never opened.

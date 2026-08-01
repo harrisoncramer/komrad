@@ -31,23 +31,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// reconcileInterval is how often serve re-observes every agent and writes its
-// state. It is the only thing that moves an agent's state, so it stays brisk enough
-// that starting or finishing work shows within a couple of seconds while the tmux
-// captures stay cheap.
+// reconcileInterval is how often serve re-observes every agent and writes its state. It
+// stays brisk enough that starting or finishing work shows within a couple of seconds,
+// while the tmux captures stay cheap.
 const reconcileInterval = 2 * time.Second
 
-// scheduleReconcileInterval is how often serve re-reads the schedules table and
-// makes River's periodic jobs match it. River holds those in memory, so this is
-// what carries a schedule someone just created into the thing that fires it. It is
-// slow because a schedule is a record of future work. A few seconds late to notice
-// a new one costs nothing, where the same lag on agent state would show.
+// scheduleReconcileInterval is how often serve re-reads the schedules table and makes
+// River's periodic jobs match it, since River holds those in memory. It is slow because a
+// schedule is a record of future work, where the same lag on agent state would show.
 const scheduleReconcileInterval = 10 * time.Second
 
-// transcriptSyncInterval is how often serve folds new transcript text into the
-// search index. It runs far slower than the state reconcile. A stale search
-// corpus is harmless where a stale state count is not, and each pass re-indexes
-// potentially large logs, so it stays off the hot path.
+// transcriptSyncInterval is how often serve folds new transcript text into the search
+// index. A stale search corpus is harmless where a stale state count is not, and each pass
+// re-indexes potentially large logs, so it stays off the hot path.
 const transcriptSyncInterval = 15 * time.Second
 
 func serveCmd(state *app) *cobra.Command {
@@ -58,10 +54,9 @@ func serveCmd(state *app) *cobra.Command {
 		Short: "Serve the agent store over ConnectRPC/HTTP",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			// The logger is built before anything that could fail, so a service that
-			// cannot start says why in the same shape as one that is running. It writes
-			// to stderr rather than opening the log itself, since the process that spawns
-			// it already points stderr at appconfig.LogPath and a second handle on the
-			// same file would write every line twice.
+			// cannot start says why in the same shape as one that is running. It writes to
+			// stderr rather than opening the log, since the process that spawns it already
+			// points stderr at appconfig.LogPath.
 			logger, err := serveLogger(state.logLevel)
 			if err != nil {
 				return err
@@ -72,7 +67,7 @@ func serveCmd(state *app) *cobra.Command {
 				logger.LogAttrs(cmd.Context(), slog.LevelError, "the server stopped", logging.Err(err)...)
 
 				// The failure is on the record now, so it is marked as said rather than
-				// printed again by main in another shape.
+				// printed again by main.
 				return fmt.Errorf("%w: %w", ErrLogged, err)
 			}
 
@@ -98,24 +93,21 @@ func serveLogger(level string) (*slog.Logger, error) {
 }
 
 // serve builds the handlers, starts the background loops, and listens. It is split out of
-// the command so every way it can fail lands in one place to be logged, rather than at
-// each of the returns in it.
+// the command so every way it can fail lands in one place to be logged.
 func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) error {
 	if err := state.openStore(ctx); err != nil {
 		return err
 	}
 
-	// Requests are checked against the constraints declared in the proto
-	// before any handler sees them, so a malformed payload is rejected in
-	// one place rather than at the top of each method.
+	// Requests are checked against the constraints declared in the proto before any
+	// handler sees them, so a malformed payload is rejected in one place.
 	validation, err := interceptors.NewValidation()
 	if err != nil {
 		return err
 	}
 
 	// Logging wraps validation rather than the other way round, so a request refused for
-	// being malformed is still recorded as one that arrived. Otherwise a caller sending the
-	// wrong thing looks the same in the log as one that never called.
+	// being malformed is still recorded as one that arrived.
 	options := connect.WithInterceptors(interceptors.NewLogging(logger), validation)
 
 	mux := http.NewServeMux()
@@ -137,8 +129,8 @@ func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) er
 	)
 	mux.Handle(schedulePath, scheduleHandler)
 
-	// The config service reads the file per call, so it takes the path
-	// rather than the config this process parsed at startup.
+	// The config service reads the file per call, so it takes the path rather than the
+	// config this process parsed at startup.
 	loadConfig := func() (*appconfig.Config, error) { return appconfig.Load(state.configPath) }
 
 	configPath, configHandler := configv1connect.NewConfigServiceHandler(
@@ -155,25 +147,33 @@ func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) er
 	)
 	mux.Handle(actionPath, actionHandler)
 
-	// The MCP endpoint reads through its own read-only handle.
+	// The MCP endpoint reads through its own read-only handle, opened as a least-privilege
+	// role, since what a statement may read is decided by the role and not by the flag.
 	readOnly, err := store.OpenReadOnly(ctx, state.env.ReadOnlyDatabaseURL)
 	if err != nil {
 		return err
 	}
 	defer readOnly.Close()
 
+	// The RPC-backed tools call back into this same server, so they are pointed at the
+	// address it is about to listen on.
 	mcpHandler, err := mcp.NewHandler(mcp.NewHandlerParams{DB: readOnly, BaseURL: "http://" + addr})
 	if err != nil {
 		return err
 	}
 
-	mux.Handle("/mcp", interceptors.NewLoggingHandler(logger, mcpHandler))
-
+	// Readiness is answered outside the logging middleware, since whoever is asking is
+	// asking on a loop and every answer would be a line.
 	mux.Handle(HealthPath, newHealthHandler(state.pool.Raw()))
 
-	// River runs the schedules. It keeps its own tables in their own schema,
-	// one worker that launches an agent, and a reconciler that keeps its
-	// periodic jobs matching the schedules table.
+	// The MCP endpoint is not served through connect, so the interceptors above never see
+	// it. It is wrapped here instead, since a surface a model spawns and deletes agents
+	// through is the last one that should leave no trace.
+	mux.Handle("/mcp", interceptors.NewLoggingHandler(logger, mcpHandler))
+
+	// River runs the schedules, keeping its own tables in their own schema, one worker
+	// that launches an agent, and a reconciler that matches its periodic jobs to the
+	// schedules table.
 	if err := jobs.Migrate(ctx, state.pool.Raw()); err != nil {
 		return err
 	}
@@ -201,9 +201,8 @@ func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) er
 		Logger:   logger,
 	})
 
-	// The reconciler runs here rather than in the panel because serve is
-	// the always-on process that owns the store. The counts must stay
-	// correct even when no panel is open.
+	// The reconciler runs here rather than in the panel because serve is the always-on
+	// process that owns the store, and the counts must stay correct with no panel open.
 	go runLoop(ctx, runLoopParams{
 		Name:     "reconcile",
 		Interval: reconcileInterval,
@@ -211,9 +210,8 @@ func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) er
 		Logger:   logger,
 	})
 
-	// The transcript syncer runs alongside the reconciler for the same
-	// reason. Serve owns the store and is always on, so the search index
-	// stays current whether or not a panel is open.
+	// The transcript syncer runs alongside the reconciler for the same reason, so the
+	// search index stays current whether or not a panel is open.
 	go runLoop(ctx, runLoopParams{
 		Name:     "transcript sync",
 		Interval: transcriptSyncInterval,
@@ -227,9 +225,8 @@ func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) er
 	})
 
 	// The socket is claimed here rather than left to ListenAndServe so the line saying the
-	// service is up is written only once it is. Serving blocks, so a line written before
-	// the call is a claim about something that has not happened yet. A port already taken
-	// would put "listening" directly above the error saying it never started.
+	// service is up is written only once it is. Serving blocks, so a port already taken
+	// would otherwise put "listening" directly above the error saying it never started.
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
@@ -257,20 +254,14 @@ type runLoopParams struct {
 	Logger   *slog.Logger
 }
 
-// runLoop re-runs a pass on a fixed interval until the context is cancelled. Every
-// loop serve owns is one of these, since all three want the same thing: correct what
-// you own, wait, correct it again.
+// runLoop re-runs a pass on a fixed interval until the context is cancelled. Every loop
+// serve owns is one of these: correct what you own, wait, correct it again. The first pass
+// runs before the first wait, and a failed pass is logged and left to the next one.
 //
-// The first pass runs before the first wait, so a restart corrects what the loop owns
-// immediately rather than leaving it as the last process left it for an interval.
-// Errors are logged and the loop continues, since a single failed pass is corrected by
-// the next one.
-//
-// A loop that keeps failing the same way writes one line and then counts. These run
-// against a database, so the usual failure holds for as long as the database is
-// unreachable or its schema is behind, and a two-second tick would otherwise write the
-// same sentence a thousand times and bury everything else. The repeats stay at debug,
-// where somebody chasing a flapping failure can still see each pass.
+// A loop that keeps failing the same way writes one line and then counts, since the usual
+// failure holds for as long as the database is unreachable and a two-second tick would
+// bury everything else. The repeats stay at debug, where somebody chasing a flapping
+// failure can still see each pass.
 func runLoop(ctx context.Context, params runLoopParams) {
 	ticker := time.NewTicker(params.Interval)
 	defer ticker.Stop()

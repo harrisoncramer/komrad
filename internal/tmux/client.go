@@ -12,22 +12,21 @@ import (
 	"strings"
 )
 
-// Client talks to one tmux server, addressed either by socket name or by socket path.
-// The server flags are held whole rather than the socket alone, since the two forms
-// differ in flag as well as value.
+// Client talks to one tmux server, addressed by socket name or socket path. The server
+// flags are held whole, since the two forms differ in flag as well as value.
 type Client struct {
 	server []string
 }
 
-// NewClient returns a Client bound to a tmux server by socket name, which tmux resolves
-// under its own socket directory. The manager's server is reached this way.
+// NewClient returns a Client bound to a tmux server by socket name, which is how the
+// manager's own server is reached.
 func NewClient(socket string) *Client {
 	return &Client{server: []string{"-L", socket}}
 }
 
 // NewClientAtPath returns a Client bound to a tmux server by socket path. The user's
-// server is reached this way, since a popup is told the path of the server that opened
-// it and cannot assume the name it was started under.
+// server is reached this way, since a popup is told the path of the server that opened it
+// and cannot assume the name it was started under.
 func NewClientAtPath(path string) *Client {
 	return &Client{server: []string{"-S", path}}
 }
@@ -54,10 +53,9 @@ func (c *Client) paneID(target string) (string, error) {
 	return c.query("display-message", "-p", "-t", target, "#{pane_id}")
 }
 
-// PaneAlive reports whether the given pane still exists. It answers for a pane the
-// caller created and still holds, such as the panel's own stage. An agent's pane is
-// asked about with PaneOwner instead, since a stored id alone is not evidence the pane
-// behind it is still that agent's.
+// PaneAlive reports whether the given pane still exists, for a pane the caller created
+// and still holds such as the panel's own stage. An agent's pane is asked about with
+// PaneOwner instead, since a stored id alone is not evidence the pane is still its.
 func (c *Client) PaneAlive(pane string) bool {
 	if pane == "" {
 		return false
@@ -67,10 +65,9 @@ func (c *Client) PaneAlive(pane string) bool {
 	return err == nil && id == pane
 }
 
-// PaneWidth returns how many columns wide a pane is, zero when the pane is gone or
-// tmux answers with something that is not a count. A caller laying content out for a
-// pane asks tmux rather than working the width out from the split it requested, since
-// the two part company as soon as anything resizes a pane by hand.
+// PaneWidth returns how many columns wide a pane is, zero when it is gone. tmux is asked
+// rather than the width worked out from the requested split, since the two part company
+// as soon as anything resizes a pane by hand.
 func (c *Client) PaneWidth(pane string) int {
 	if pane == "" {
 		return 0
@@ -89,17 +86,14 @@ func (c *Client) PaneWidth(pane string) int {
 	return width
 }
 
-// paneOwnerOption is the pane-scoped tmux option an agent's pane is stamped with.
-// The @ prefix is what tmux reserves for user options, so it cannot collide with
-// an option tmux itself defines now or later.
+// paneOwnerOption is the pane-scoped tmux option an agent's pane is stamped with. The @
+// prefix is what tmux reserves for user options, so it cannot collide with its own.
 const paneOwnerOption = "@weave_agent_id"
 
-// SetPaneOwner stamps a pane with the id of the agent running in it. tmux only promises
-// a pane id is unique while the server that issued it lives, so numbering restarts from
-// %0 after a restart and an id recorded against a dormant agent is handed out again to
-// somebody else's pane. The stamp travels with the pane for its whole life, no matter
-// which window or session it is moved into, and a pane from a dead server carries
-// nothing.
+// SetPaneOwner stamps a pane with the id of the agent running in it. tmux only promises a
+// pane id is unique while the server that issued it lives, so a dormant agent's recorded
+// id is handed out again after a restart. The stamp travels with the pane wherever it is
+// moved, and a pane from a dead server carries nothing.
 func (c *Client) SetPaneOwner(pane, agentID string) error {
 	if pane == "" || agentID == "" {
 		return errors.New("refusing to stamp a pane without both a pane and an agent")
@@ -112,10 +106,9 @@ func (c *Client) SetPaneOwner(pane, agentID string) error {
 	return nil
 }
 
-// PaneOwner returns the id of the agent whose pane this is, empty when the pane is
-// gone, was not stamped, or belongs to something other than an agent. A caller
-// compares it against the agent it holds rather than treating a non-empty answer as
-// liveness.
+// PaneOwner returns the id of the agent whose pane this is, empty when the pane is gone
+// or was never stamped. A caller compares it against the agent it holds rather than
+// treating a non-empty answer as liveness.
 func (c *Client) PaneOwner(pane string) string {
 	if pane == "" {
 		return ""
@@ -133,8 +126,7 @@ func (c *Client) ClientPath(client string) string {
 }
 
 // SessionClient returns a client attached to the given session, empty when none is. The
-// first is taken when several are, since every one of them shows the same session and it
-// is the session's directory and window that get asked for.
+// first is taken when several are, since they all show the same session.
 func (c *Client) SessionClient(session string) string {
 	clients, err := c.query("list-clients", "-t", session, "-F", "#{client_name}")
 	if err != nil || clients == "" {
@@ -154,17 +146,13 @@ func (c *Client) ClientSession(client string) string {
 }
 
 // OpenWindow creates a window in the session the given client is attached to, rooted at
-// dir and running argv, and leaves it as that session's current window. It is how
-// something is put in front of the user on their own tmux server, where the client viewing
-// the popup is the only handle on a session.
+// dir and running argv, and leaves it current. It is how something is put in front of the
+// user on their own tmux server, where the client viewing the popup is the only handle on
+// a session, so the window is created attached rather than detached as NewWindow does.
 //
-// Unlike NewWindow the window is created attached, since the point is to land the user in
-// it. The session is targeted with a trailing colon for the same reason NewWindow does it,
-// that tmux matches a bare name against window names too and prefers those.
-//
-// An empty client is refused for the reason SendKeys refuses an empty target. tmux would
-// resolve it to whatever the server holds as current and open the window over a session
-// nobody named.
+// The trailing colon on the session target is what NewWindow explains. An empty client is
+// refused for the reason SendKeys refuses an empty target: tmux would resolve it to
+// whatever the server holds as current and open the window over a session nobody named.
 func (c *Client) OpenWindow(client, name, dir string, argv ...string) error {
 	if client == "" {
 		return errors.New("refusing to open a window without a client to open it for")
@@ -184,8 +172,8 @@ func (c *Client) OpenWindow(client, name, dir string, argv ...string) error {
 }
 
 // SendKeys sends literal keys to a target pane or session. An empty target is refused,
-// since tmux resolves one to the active pane and a caller holding a pane id that was
-// never created would type its command into whatever the user is looking at.
+// since tmux resolves one to the active pane and would type the command into whatever the
+// user is looking at.
 func (c *Client) SendKeys(target string, keys ...string) error {
 	if target == "" {
 		return errors.New("refusing to send keys to an empty target")
@@ -221,11 +209,9 @@ func (c *Client) ResizePane(pane string, percent int) {
 	c.run("resize-pane", "-t", pane, "-x", fmt.Sprintf("%d%%", percent))
 }
 
-// ZoomPane zooms a pane to fill its window, or restores the window's layout when zoom
-// is false. tmux only offers a toggle, so the window's current state is read first and
-// the toggle is sent only when it disagrees with what the caller asked for. That also
-// means a window the user zoomed by hand is left as it is rather than being flipped by a
-// caller that asked for what is already true.
+// ZoomPane zooms a pane to fill its window, or restores the window's layout when zoom is
+// false. tmux only offers a toggle, so the current state is read first and the toggle sent
+// only when it disagrees, which also leaves a window the user zoomed by hand alone.
 func (c *Client) ZoomPane(pane string, zoom bool) {
 	if pane == "" {
 		return
@@ -240,14 +226,12 @@ func (c *Client) ZoomPane(pane string, zoom bool) {
 }
 
 // NewWindow creates a detached window in a session, rooted at dir and titled name, and
-// returns its pane id. An error is returned rather than an empty id, since every caller
-// needs a real pane to drive and tmux resolves an empty target to the active pane.
+// returns its pane id. An error is returned rather than an empty id, since tmux resolves
+// an empty target to the active pane.
 //
-// The session is targeted with a trailing colon, which is how tmux is told a target is a
-// session and nothing else. A bare name is matched against window names too, and it is a
-// window it prefers: the manager's own window carries the same name as its session, so a
-// bare name resolves to that window and tmux then insists on creating at that window's
-// index, which is by definition taken.
+// The trailing colon is how tmux is told a target is a session and nothing else. A bare
+// name matches window names too and prefers those: the manager's window shares its
+// session's name, so tmux would insist on creating at that window's index, which is taken.
 func (c *Client) NewWindow(session, name, dir string) (string, error) {
 	pane, err := c.query("new-window", "-d", "-t", session+":", "-n", name, "-c", dir, "-P", "-F", "#{pane_id}")
 	if err != nil {
@@ -266,16 +250,13 @@ func (c *Client) SwapPanes(src, dst string) {
 	c.run("swap-pane", "-d", "-s", src, "-t", dst)
 }
 
-// RespawnPane replaces a pane's process with argv, rooted at dir. With no
-// command it re-runs the default shell, blanking the pane.
+// RespawnPane replaces a pane's process with argv, rooted at dir. With no command it
+// re-runs the default shell, blanking the pane.
 //
-// The history is cleared afterwards because tmux pushes the dying process's visible
-// screen into the pane's scrollback, and a pager that stays out of the alternate screen
-// leaves everything it painted there too. A respawn means the pane's whole content is
-// being replaced, so scrolling back into what the last one showed only turns up a stack
-// of stale screens. Clearing after the respawn rather than before is what catches the
-// screen the kill just pushed, and it costs nothing on-screen, since clear-history
-// leaves the visible pane alone.
+// The history is cleared afterwards because tmux pushes the dying process's visible screen
+// into the scrollback, so scrolling back would only turn up a stack of stale screens.
+// Clearing after rather than before is what catches the screen the kill just pushed, and
+// clear-history leaves the visible pane alone.
 func (c *Client) RespawnPane(pane, dir string, argv ...string) {
 	c.run(append([]string{"respawn-pane", "-k", "-t", pane, "-c", dir}, argv...)...)
 	c.run("clear-history", "-t", pane)
@@ -313,16 +294,14 @@ func (c *Client) ShowGlobal(name string) string {
 	return value
 }
 
-// DetachSession detaches every client attached to the named session, leaving the session
-// and its pane processes running. It is how the manager popup is hidden, so reopening
-// restores it exactly.
+// DetachSession detaches every client attached to the named session, leaving its pane
+// processes running. It is how the manager popup is hidden, so reopening restores it.
 func (c *Client) DetachSession(name string) {
 	c.run("detach-client", "-s", name)
 }
 
-// CapturePane returns the visible content of a pane with colors preserved.
-// An agent CLI drawing a TUI runs on the alternate screen, so tmux holds no
-// scrollback for it. The visible frame is all there is to capture.
+// CapturePane returns the visible content of a pane with colors preserved. An agent CLI
+// drawing a TUI runs on the alternate screen, so the visible frame is all there is.
 func (c *Client) CapturePane(pane string) string {
 	out, _ := c.query("capture-pane", "-p", "-e", "-t", pane)
 	return out

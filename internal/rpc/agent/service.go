@@ -20,9 +20,9 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// agentLauncher is the part of the agent manager the service drives. Creating an agent is
-// more than a row: it opens a tmux window and types a command line into it, so the service delegates
-// rather than writing the record itself.
+// agentLauncher is the part of the agent manager the service drives. Creating an agent
+// opens a tmux window and types a command line into it, so the service delegates rather
+// than writing the record itself.
 type agentLauncher interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
 	// AgentRunning answers whether an agent is still running, which is read at
@@ -44,8 +44,7 @@ type agentStore interface {
 }
 
 // transcriptStore is the part of the transcript store this handler reads. One RPC surface
-// covers both domains, but each store is held separately rather than one object reaching
-// across both.
+// covers both domains, but each store is held separately.
 type transcriptStore interface {
 	Get(ctx context.Context, agentID string) (transcriptstore.Transcript, error)
 	Search(ctx context.Context, params transcriptstore.SearchParams) ([]transcriptstore.SearchHit, error)
@@ -58,15 +57,14 @@ type Service struct {
 	launcher    agentLauncher
 }
 
-// NewService constructs the handler from the stores it reads and the manager
-// that launches agents.
+// NewService constructs the handler from the stores it reads and the manager that launches
+// agents.
 func NewService(agents agentStore, transcripts transcriptStore, launcher agentLauncher) *Service {
 	return &Service{agents: agents, transcripts: transcripts, launcher: launcher}
 }
 
-// CreateAgent launches a background agent and returns it as stored. The request's
-// own constraints decide what is well-formed, and a request reaching here has
-// already passed them.
+// CreateAgent launches a background agent and returns it as stored. A request reaching
+// here has already passed the constraints declared in the proto.
 func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.CreateAgentRequest]) (*connect.Response[agentv1.CreateAgentResponse], error) {
 	created, err := s.launcher.NewAgent(ctx, agents.NewAgentParams{
 		Title:          req.Msg.GetTitle(),
@@ -80,9 +78,9 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 	switch {
 	case errors.Is(err, agents.ErrWorkflowNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, err)
-	// Ahead of the directory case, which this wraps when the directory the action named is
-	// the part that was wrong. Either way the workflow's setup is what needs editing, so
-	// the code a caller sees should not depend on which half of the action refused.
+	// Ahead of the directory case, which this wraps when the directory the action named
+	// was the part that was wrong. Either way the workflow's setup needs editing, so the
+	// code should not depend on which half of the action refused.
 	case errors.Is(err, agents.ErrSetupFailed):
 		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, agents.ErrBadDirectory), errors.Is(err, harness.ErrNotRegistered):
@@ -94,8 +92,8 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, s.launcher.AgentRunning(*created)).Agent}), nil
 }
 
-// ListAgents returns one page of stored agents, newest first. The request picks
-// which set is listed, the live agents or the archived ones.
+// ListAgents returns one page of stored agents, newest first. The request picks which set
+// is listed, the live agents or the archived ones.
 func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
 	paginator, err := pagination.New[agentstore.Cursor, agent](req.Msg.GetPagination())
 	if err != nil {
@@ -138,9 +136,9 @@ func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.Get
 	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, s.launcher.AgentRunning(*agent)).Agent}), nil
 }
 
-// SetMark marks an agent, and an unset mark clears it. An id matching nothing is an
-// error rather than a quiet success, which would leave the caller believing in a
-// mark it never made.
+// SetMark marks an agent, and an unset mark clears it. An id matching nothing is an error
+// rather than a quiet success, which would leave the caller believing in a mark it never
+// made.
 func (s *Service) SetMark(ctx context.Context, req *connect.Request[agentv1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error) {
 	changed, err := s.agents.SetMark(ctx, req.Msg.GetId(), req.Msg.Mark)
 	if err != nil {
@@ -153,9 +151,8 @@ func (s *Service) SetMark(ctx context.Context, req *connect.Request[agentv1.SetM
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// SetHidden hides an agent from the panel's list or brings it back. An id matching
-// nothing is an error rather than a quiet success, for the same reason it is on a
-// mark: the caller would otherwise believe in a change it never made.
+// SetHidden hides an agent from the panel's list or brings it back. An id matching nothing
+// is an error, for the reason it is on a mark.
 func (s *Service) SetHidden(ctx context.Context, req *connect.Request[agentv1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error) {
 	changed, err := s.agents.SetHidden(ctx, req.Msg.GetId(), req.Msg.GetHidden())
 	if err != nil {
@@ -168,11 +165,9 @@ func (s *Service) SetHidden(ctx context.Context, req *connect.Request[agentv1.Se
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// SetMetadata records one fact an agent found out about its own work, or clears the
-// key when the value is unset. An id matching nothing is an error rather than a quiet
-// success, as it is on a mark. Clearing a key nothing held is the one case that is
-// not: the agent asked for that key to be gone and it is, so reporting not-found
-// would fail a request that got what it wanted.
+// SetMetadata records one fact an agent found out about its own work, or clears the key
+// when the value is unset. An id matching nothing is an error, as it is on a mark, but
+// clearing a key nothing held is not: the agent asked for that key to be gone and it is.
 func (s *Service) SetMetadata(ctx context.Context, req *connect.Request[agentv1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error) {
 	changed, err := s.agents.SetMetadata(ctx, agentstore.SetMetadataParams{
 		ID:    req.Msg.GetId(),
@@ -192,9 +187,8 @@ func (s *Service) SetMetadata(ctx context.Context, req *connect.Request[agentv1.
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// DeleteAgent stops an agent and removes it, along with its config and transcript.
-// The manager owns this rather than the store, since stopping the agent means
-// killing its pane.
+// DeleteAgent stops an agent and removes it with its config and transcript. The manager
+// owns this rather than the store, since stopping the agent means killing its pane.
 func (s *Service) DeleteAgent(ctx context.Context, req *connect.Request[agentv1.DeleteAgentRequest]) (*connect.Response[emptypb.Empty], error) {
 	err := s.launcher.DeleteAgent(ctx, req.Msg.GetId())
 	switch {
@@ -207,8 +201,8 @@ func (s *Service) DeleteAgent(ctx context.Context, req *connect.Request[agentv1.
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// ArchiveAgent stops an agent and hides it, keeping the record and transcript.
-// This is the reversible half of removing an agent. DeleteAgent is the other.
+// ArchiveAgent stops an agent and hides it, keeping the record and transcript. It is the
+// reversible half of removing an agent, and DeleteAgent the other.
 func (s *Service) ArchiveAgent(ctx context.Context, req *connect.Request[agentv1.ArchiveAgentRequest]) (*connect.Response[emptypb.Empty], error) {
 	err := s.launcher.ArchiveAgent(ctx, req.Msg.GetName())
 	switch {
@@ -234,10 +228,9 @@ func (s *Service) RestoreAgent(ctx context.Context, req *connect.Request[agentv1
 	return connect.NewResponse(&agentv1.RestoreAgentResponse{Agent: renderAgent(*restored, s.launcher.AgentRunning(*restored)).Agent}), nil
 }
 
-// UpdateAgent renames the agent with the given id. A name a live agent already
-// holds is a conflict rather than a server fault. The store's unique index refuses
-// it, and reporting that as internal would leak a database message to a caller who
-// picked a taken name.
+// UpdateAgent renames the agent with the given id. A name a live agent already holds is a
+// conflict rather than a server fault, since reporting the unique index's refusal as
+// internal would leak a database message to a caller who picked a taken name.
 func (s *Service) UpdateAgent(ctx context.Context, req *connect.Request[agentv1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error) {
 	renamed, err := s.agents.Rename(ctx, req.Msg.GetId(), req.Msg.GetName())
 	switch {
@@ -252,10 +245,9 @@ func (s *Service) UpdateAgent(ctx context.Context, req *connect.Request[agentv1.
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// SearchTranscripts runs a full-text search over stored transcripts and returns
-// one page of matching agents with a marked snippet, best match first. The page
-// token encodes a position in this query's ranking, so replaying it against a
-// different query resumes from a rank that means nothing there.
+// SearchTranscripts runs a full-text search over stored transcripts and returns one page
+// of matching agents with a marked snippet, best match first. The page token encodes a
+// position in this query's ranking, so replaying it against another query means nothing.
 func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[agentv1.SearchTranscriptsRequest]) (*connect.Response[agentv1.SearchTranscriptsResponse], error) {
 	paginator, err := pagination.New[transcriptstore.Cursor, searchHit](req.Msg.GetPagination())
 	if err != nil {
@@ -289,10 +281,9 @@ func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[ag
 	return connect.NewResponse(response), nil
 }
 
-// GetTranscript returns an agent's full stored transcript by id, so the search
-// preview can show a match in its surrounding conversation. An id that matches no
-// agent is not_found rather than empty content, which would be indistinguishable
-// from an agent that has nothing stored yet.
+// GetTranscript returns an agent's full stored transcript by id, so the search preview can
+// show a match in its surrounding conversation. An id that matches no agent is not_found
+// rather than empty content, which would read as an agent with nothing stored yet.
 func (s *Service) GetTranscript(ctx context.Context, req *connect.Request[agentv1.GetTranscriptRequest]) (*connect.Response[agentv1.GetTranscriptResponse], error) {
 	exists, err := s.agents.Exists(ctx, req.Msg.GetAgentId())
 	if err != nil {
