@@ -17,7 +17,7 @@ import (
 //
 // The role's name and password are read out of WEAVE_READONLY_DATABASE_URL rather than
 // taken as flags, so the credentials this creates and the credentials serve connects with
-// are the same string in one place.
+// are the same.
 func readonlyRoleCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:           "readonly-role",
@@ -26,12 +26,9 @@ func readonlyRoleCmd(state *app) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Pointing both urls at the same login would grant the application's own role
-			// SELECT on its own tables and leave the endpoint exactly as exposed as it was.
+
 			if state.env.ReadOnlyDatabaseURL == state.env.DatabaseURL {
-				return fmt.Errorf(
-					"WEAVE_READONLY_DATABASE_URL names the same login as DATABASE_URL, so there is " +
-						"no separate role to create; point it at the login you want instead")
+				return fmt.Errorf("WEAVE_READONLY_DATABASE_URL names the same login as DATABASE_URL")
 			}
 
 			readOnly, err := pgconn.ParseConfig(state.env.ReadOnlyDatabaseURL)
@@ -46,8 +43,6 @@ func readonlyRoleCmd(state *app) *cobra.Command {
 				return err
 			}
 
-			// Granted through the writable pool, since the role being created is by
-			// definition not one that could create itself.
 			if err := db.GrantReadOnlyRole(
 				cmd.Context(), state.pool.Raw(), readOnly.User, readOnly.Password); err != nil {
 				return err
