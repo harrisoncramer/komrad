@@ -50,8 +50,7 @@ func (d *dbTools) registerTools(server *mcpsdk.Server) {
 	}, d.handleDescribeTable)
 
 	// The description says outright that this reads every agent's conversation, since a
-	// scope filter faked over arbitrary SQL would be escaped by a subselect while
-	// advertising a boundary that is not there.
+	// scope filter over arbitrary SQL would be escaped by a subselect.
 	mcpsdk.AddTool(server, &mcpsdk.Tool{
 		Name:        "query",
 		Title:       "Run Read-Only Query",

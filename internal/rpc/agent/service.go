@@ -252,8 +252,8 @@ func (s *Service) UpdateAgent(ctx context.Context, req *connect.Request[agentv1.
 // of matching agents with a marked snippet, best match first. The page token encodes a
 // position in this query's ranking, so replaying it against another query means nothing.
 //
-// Scope comes from the caller and the request on every page rather than from the token, so
-// a replayed cursor cannot widen a search.
+// Scope is worked out per page rather than carried in the token, so a replayed cursor
+// cannot widen a search.
 func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[agentv1.SearchTranscriptsRequest]) (*connect.Response[agentv1.SearchTranscriptsResponse], error) {
 	paginator, err := pagination.New[transcriptstore.Cursor, searchHit](req.Msg.GetPagination())
 	if err != nil {
@@ -316,14 +316,8 @@ func (s *Service) GetTranscript(ctx context.Context, req *connect.Request[agentv
 }
 
 // searchScope is the one agent a search is confined to, nil for a search across all of
-// them.
-//
-// An agent that named nobody gets its own conversation, since the transcripts are a shared
-// memory layer and an agent searching them out of habit otherwise reads what every other
-// agent pasted into its pane as context rather than as somebody else's words.
-//
-// A caller that is not an agent is the panel or a person, unattributed rather than
-// anonymous, and searches everything, which is what the search screen is for.
+// them, so an agent that named nobody reads its own conversation and the panel reads
+// everyone.
 func searchScope(ctx context.Context, requested string) *string {
 	if requested != "" {
 		return &requested
@@ -337,12 +331,8 @@ func searchScope(ctx context.Context, requested string) *string {
 	return &from.AgentID
 }
 
-// logCrossAgentRead records an agent reading a conversation other than its own, and writes
-// nothing for an agent reading itself or for the panel, which reads everyone by design.
-//
-// The scoping above is a default rather than a boundary, since the id both sides of the
-// comparison come from is a header a caller sets about itself, so what is left worth having
-// is the record of a deliberate read.
+// logCrossAgentRead records an agent reading a conversation other than its own, which is
+// what a scoping keyed on a header a caller sets about itself leaves worth having.
 func logCrossAgentRead(ctx context.Context, target string) {
 	from := caller.From(ctx)
 	if from.AgentID == "" || from.AgentID == target {

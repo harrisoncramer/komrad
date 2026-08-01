@@ -1020,13 +1020,13 @@ func (x *UpdateAgentRequest) GetName() string {
 	return ""
 }
 
-// SearchTranscriptsRequest carries the query and, optionally, the one agent to
-// search. Which transcripts an unset agent_id reaches depends on who is asking.
 type SearchTranscriptsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Query         string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
-	Pagination    *v1.Pagination         `protobuf:"bytes,2,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
-	AgentId       *string                `protobuf:"bytes,3,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Query      string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	Pagination *v1.Pagination         `protobuf:"bytes,2,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+	// The one agent to search, defaulting to the caller's own conversation when the caller
+	// is an agent and to every conversation when it is not.
+	AgentId       *string `protobuf:"bytes,3,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

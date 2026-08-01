@@ -280,8 +280,7 @@ func TestSearchReturnsEveryMatchingTurn(t *testing.T) {
 }
 
 // TestSearchScopedToOneAgent covers the filter a caller narrows a search with, across a
-// cursor as well as on a first page, since one that widened as it paged would hand back the
-// conversations it was asked to leave out.
+// cursor as well as on a first page.
 func TestSearchScopedToOneAgent(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()

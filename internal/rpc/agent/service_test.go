@@ -690,9 +690,6 @@ func TestSearchTranscripts(t *testing.T) {
 
 // TestSearchTranscriptsScope covers who a search reaches, which the handler works out from
 // the caller rather than from the request alone.
-//
-// An agent that does not say whose conversation it wants gets its own, and the panel, which
-// is not an agent, gets everyone, since that is what its search screen is for.
 func TestSearchTranscriptsScope(t *testing.T) {
 	tests := []struct {
 		name string
@@ -765,8 +762,7 @@ func TestSearchTranscriptsScope(t *testing.T) {
 }
 
 // TestSearchTranscriptsScopeSurvivesACursor covers the second page of a scoped search,
-// which is worked out per call rather than carried in the token, so a caller replaying one
-// cannot page its way out of the conversation it was confined to.
+// which a replayed token must not widen.
 func TestSearchTranscriptsScopeSurvivesACursor(t *testing.T) {
 	svc, st := service(t)
 
@@ -808,9 +804,8 @@ func TestSearchTranscriptsScopeSurvivesACursor(t *testing.T) {
 	assert.Equal(t, []string{"alpha", "alpha"}, names, "both of its own turns, and neither of the other agent's")
 }
 
-// TestCrossAgentReadIsRecorded covers the line a deliberate read of somebody else's
-// conversation leaves, which is what makes it answerable afterwards given the scoping around
-// it is a default rather than a boundary.
+// TestCrossAgentReadIsRecorded covers the line a read of somebody else's conversation
+// leaves, and the silence a read of your own does.
 func TestCrossAgentReadIsRecorded(t *testing.T) {
 	tests := []struct {
 		name string
