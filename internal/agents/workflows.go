@@ -21,7 +21,7 @@ var ErrWorkflowHasSchedules = errors.New("workflow still has schedules")
 type workflowStore interface {
 	List(ctx context.Context) ([]workflow.Workflow, error)
 	Get(ctx context.Context, id string) (*workflow.Workflow, error)
-	GetArchived(ctx context.Context, id string) (*workflow.Workflow, error)
+	GetIncludingArchived(ctx context.Context, id string) (*workflow.Workflow, error)
 	Create(ctx context.Context, cfg workflow.Config) (*workflow.Workflow, error)
 	Update(ctx context.Context, id string, cfg workflow.Config) error
 }
@@ -176,11 +176,11 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 // since a workflow back with some of its runs would read as whole. A refusal names what
 // is in the way so the user can clear it and press restore again.
 func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*workflow.Workflow, error) {
-	existing, err := w.store.GetArchived(ctx, id)
+	existing, err := w.store.GetIncludingArchived(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	if existing == nil {
+	if existing == nil || existing.ArchivedAt == nil {
 		return nil, fmt.Errorf("%w: %q is not archived", ErrWorkflowNotFound, id)
 	}
 

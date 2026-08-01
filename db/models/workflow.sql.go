@@ -9,48 +9,6 @@ import (
 	"context"
 )
 
-const getArchivedWorkflow = `-- name: GetArchivedWorkflow :one
-SELECT
-    w.id, w.name, w.context, w.setup_action, w.cleanup_action, w.workflow_config_id, w.archived_at, w.created_at, w.updated_at,
-    wc.harness,
-    wc.cwd,
-    wc.flags
-FROM
-    workflows w
-    JOIN workflow_configs wc ON wc.id = w.workflow_config_id
-WHERE
-    w.id = $1
-    AND w.archived_at IS NOT NULL
-LIMIT 1
-`
-
-type GetArchivedWorkflowRow struct {
-	Workflow Workflow
-	Harness  string
-	Cwd      string
-	Flags    string
-}
-
-func (q *Queries) GetArchivedWorkflow(ctx context.Context, id string) (*GetArchivedWorkflowRow, error) {
-	row := q.db.QueryRow(ctx, getArchivedWorkflow, id)
-	var i GetArchivedWorkflowRow
-	err := row.Scan(
-		&i.Workflow.ID,
-		&i.Workflow.Name,
-		&i.Workflow.Context,
-		&i.Workflow.SetupAction,
-		&i.Workflow.CleanupAction,
-		&i.Workflow.WorkflowConfigID,
-		&i.Workflow.ArchivedAt,
-		&i.Workflow.CreatedAt,
-		&i.Workflow.UpdatedAt,
-		&i.Harness,
-		&i.Cwd,
-		&i.Flags,
-	)
-	return &i, err
-}
-
 const getWorkflow = `-- name: GetWorkflow :one
 SELECT
     w.id, w.name, w.context, w.setup_action, w.cleanup_action, w.workflow_config_id, w.archived_at, w.created_at, w.updated_at,
@@ -95,7 +53,7 @@ func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, 
 
 const getWorkflowIncludingArchived = `-- name: GetWorkflowIncludingArchived :one
 SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.created_at, w.updated_at, w.setup_action, w.cleanup_action, w.archived_at,
+    w.id, w.name, w.context, w.setup_action, w.cleanup_action, w.workflow_config_id, w.archived_at, w.created_at, w.updated_at,
     wc.harness,
     wc.cwd,
     wc.flags
@@ -121,12 +79,12 @@ func (q *Queries) GetWorkflowIncludingArchived(ctx context.Context, id string) (
 		&i.Workflow.ID,
 		&i.Workflow.Name,
 		&i.Workflow.Context,
-		&i.Workflow.WorkflowConfigID,
-		&i.Workflow.CreatedAt,
-		&i.Workflow.UpdatedAt,
 		&i.Workflow.SetupAction,
 		&i.Workflow.CleanupAction,
+		&i.Workflow.WorkflowConfigID,
 		&i.Workflow.ArchivedAt,
+		&i.Workflow.CreatedAt,
+		&i.Workflow.UpdatedAt,
 		&i.Harness,
 		&i.Cwd,
 		&i.Flags,

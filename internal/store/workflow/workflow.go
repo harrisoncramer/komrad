@@ -248,26 +248,6 @@ func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow,
 	return &workflow, nil
 }
 
-// GetArchived reads a workflow that has been archived, or nil when none has that id.
-// Every other read here covers the live ones alone, so this is what a restore opens on.
-func (s *Store) GetArchived(ctx context.Context, id string) (*Workflow, error) {
-	if !store.IsID(id) {
-		return nil, nil
-	}
-
-	row, err := s.queries.GetArchivedWorkflow(ctx, id)
-	if store.NoRows(err) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get archived workflow %q: %w", id, err)
-	}
-
-	workflow := workflowFromRow(row.Workflow, row.Harness, row.Cwd, row.Flags)
-
-	return &workflow, nil
-}
-
 // workflowFromRow builds a Workflow from a workflow row and its joined config.
 func workflowFromRow(w models.Workflow, harness, cwd, flags string) Workflow {
 	return Workflow{
