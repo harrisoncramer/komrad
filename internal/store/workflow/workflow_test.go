@@ -354,3 +354,54 @@ func TestGetArchived(t *testing.T) {
 		})
 	}
 }
+
+// TestListPageArchived covers the two sets a listing can ask for, which are what the panel
+// and its archive each draw their headers from. A workflow in one never shows up in the other.
+func TestListPageArchived(t *testing.T) {
+	tests := []struct {
+		name      string
+		archived  bool
+		wantNames []string
+	}{
+		{
+			name:      "the live listing leaves out what was archived",
+			wantNames: []string{"live"},
+		},
+		{
+			name:      "the archive listing is the archived rows and only those",
+			archived:  true,
+			wantNames: []string{"archived"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			gone, err := st.Create(ctx, Config{Name: "archived"})
+			require.NoError(t, err)
+			require.NoError(t, st.Archive(ctx, gone.ID))
+
+			_, err = st.Create(ctx, Config{Name: "live"})
+			require.NoError(t, err)
+
+			page, err := st.ListPage(ctx, 10, nil, tt.archived)
+			require.NoError(t, err)
+
+			names := make([]string, 0, len(page))
+			for _, workflow := range page {
+				names = append(names, workflow.Name)
+			}
+			assert.Equal(t, tt.wantNames, names)
+
+			if !tt.archived {
+				assert.Nil(t, page[0].ArchivedAt, "a live workflow carries no archive time")
+
+				return
+			}
+
+			assert.NotNil(t, page[0].ArchivedAt, "and an archived one carries when it was put away")
+		})
+	}
+}

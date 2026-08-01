@@ -46,6 +46,8 @@ type Workflow struct {
 	// The action run once an agent in this workflow is deleted, blank for none. Nothing
 	// waits on it.
 	CleanupAction string `protobuf:"bytes,8,opt,name=cleanup_action,json=cleanupAction,proto3" json:"cleanup_action,omitempty"`
+	// When the workflow was archived, as an RFC 3339 timestamp, unset while it is live.
+	ArchivedAt    *string `protobuf:"bytes,9,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -136,9 +138,18 @@ func (x *Workflow) GetCleanupAction() string {
 	return ""
 }
 
+func (x *Workflow) GetArchivedAt() string {
+	if x != nil && x.ArchivedAt != nil {
+		return *x.ArchivedAt
+	}
+	return ""
+}
+
 type ListWorkflowsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Pagination    *v1.Pagination         `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Pagination *v1.Pagination         `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+	// Lists the archived workflows instead of the live ones.
+	Archived      bool `protobuf:"varint,2,opt,name=archived,proto3" json:"archived,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -178,6 +189,13 @@ func (x *ListWorkflowsRequest) GetPagination() *v1.Pagination {
 		return x.Pagination
 	}
 	return nil
+}
+
+func (x *ListWorkflowsRequest) GetArchived() bool {
+	if x != nil {
+		return x.Archived
+	}
+	return false
 }
 
 type ListWorkflowsResponse struct {
@@ -710,7 +728,7 @@ var File_workflow_v1_workflow_proto protoreflect.FileDescriptor
 
 const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\n" +
-	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xd4\x01\n" +
+	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\x8a\x02\n" +
 	"\bWorkflow\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
@@ -719,11 +737,15 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x05flags\x18\x05 \x01(\tR\x05flags\x12\x18\n" +
 	"\aharness\x18\x06 \x01(\tR\aharness\x12!\n" +
 	"\fsetup_action\x18\a \x01(\tR\vsetupAction\x12%\n" +
-	"\x0ecleanup_action\x18\b \x01(\tR\rcleanupAction\"e\n" +
+	"\x0ecleanup_action\x18\b \x01(\tR\rcleanupAction\x12$\n" +
+	"\varchived_at\x18\t \x01(\tH\x00R\n" +
+	"archivedAt\x88\x01\x01B\x0e\n" +
+	"\f_archived_at\"\x81\x01\n" +
 	"\x14ListWorkflowsRequest\x12>\n" +
 	"\n" +
 	"pagination\x18\x01 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
-	"pagination\x88\x01\x01B\r\n" +
+	"pagination\x88\x01\x01\x12\x1a\n" +
+	"\barchived\x18\x02 \x01(\bR\barchivedB\r\n" +
 	"\v_pagination\"\x8d\x01\n" +
 	"\x15ListWorkflowsResponse\x123\n" +
 	"\tworkflows\x18\x01 \x03(\v2\x15.workflow.v1.WorkflowR\tworkflows\x12+\n" +
@@ -759,10 +781,10 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x16RestoreWorkflowRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"L\n" +
 	"\x17RestoreWorkflowResponse\x121\n" +
-	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow2\xbc\x15\n" +
-	"\x0fWorkflowService\x12\xc2\x03\n" +
-	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\xe9\x02\x9a\xb5\x18\xe1\x02\n" +
-	"\x0elist_workflows\x12\xce\x02List the workflows agents are grouped into, most recently updated first, with each one's shared context, the working directory and flags its agents start from, and the action run before its agents start and the one run after they are deleted. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
+	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow2\x96\x16\n" +
+	"\x0fWorkflowService\x12\x9c\x04\n" +
+	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\xc3\x03\x9a\xb5\x18\xbb\x03\n" +
+	"\x0elist_workflows\x12\xa8\x03List the workflows agents are grouped into, most recently updated first, with each one's shared context, the working directory and flags its agents start from, and the action run before its agents start and the one run after they are deleted. Archived workflows are excluded unless archived is set, which lists those and only those. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
 	"\vGetWorkflow\x12\x1f.workflow.v1.GetWorkflowRequest\x1a .workflow.v1.GetWorkflowResponse\"^\x9a\xb5\x18W\n" +
 	"\fget_workflow\x12GFetch one workflow by id. Returns not_found if no workflow has that id.\x90\x02\x01\x12\xc6\x04\n" +
 	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\xea\x03\x9a\xb5\x18\xe5\x03\n" +
@@ -832,6 +854,7 @@ func file_workflow_v1_workflow_proto_init() {
 	if File_workflow_v1_workflow_proto != nil {
 		return
 	}
+	file_workflow_v1_workflow_proto_msgTypes[0].OneofWrappers = []any{}
 	file_workflow_v1_workflow_proto_msgTypes[1].OneofWrappers = []any{}
 	file_workflow_v1_workflow_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}

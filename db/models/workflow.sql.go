@@ -231,16 +231,16 @@ SELECT
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
-WHERE
-    w.archived_at IS NULL
-    AND ($1::uuid IS NULL
-        OR w.id < $1)
+WHERE ($1::boolean) =(w.archived_at IS NOT NULL)
+    AND ($2::uuid IS NULL
+        OR w.id < $2)
 ORDER BY
     w.id DESC
-LIMIT $2
+LIMIT $3
 `
 
 type ListWorkflowsPageParams struct {
+	Archived bool
 	CursorID *string
 	Lim      int32
 }
@@ -253,7 +253,7 @@ type ListWorkflowsPageRow struct {
 }
 
 func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPageParams) ([]*ListWorkflowsPageRow, error) {
-	rows, err := q.db.Query(ctx, listWorkflowsPage, arg.CursorID, arg.Lim)
+	rows, err := q.db.Query(ctx, listWorkflowsPage, arg.Archived, arg.CursorID, arg.Lim)
 	if err != nil {
 		return nil, err
 	}

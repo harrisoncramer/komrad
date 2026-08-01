@@ -7,8 +7,7 @@ SELECT
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
-WHERE
-    w.archived_at IS NULL
+WHERE (@archived::boolean) =(w.archived_at IS NOT NULL)
     AND (sqlc.narg('cursor_id')::uuid IS NULL
         OR w.id < sqlc.narg('cursor_id'))
 ORDER BY

@@ -211,22 +211,40 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 	return w.store.Get(ctx, id)
 }
 
-// namesFree refuses when a live agent holds a name one of these archived agents is coming
-// back under. The unique-name index covers the unarchived of one workflow, so the collision
-// only exists at the moment they return.
+// namesFree refuses when the archived agents coming back would collide on a name. The
+// unique-name index covers the unarchived of one workflow, so a live agent may hold the
+// name, or two of the returning agents may hold it between them.
 func namesFree(ctx context.Context, agents agentNamer, archived []agentstore.Agent) error {
-	var held []string
+	returning := make(map[string]int, len(archived))
 	for _, agent := range archived {
+		returning[agent.Name]++
+	}
+
+	var clashing []string
+	checked := make(map[string]bool, len(archived))
+
+	for _, agent := range archived {
+		if checked[agent.Name] {
+			continue
+		}
+		checked[agent.Name] = true
+
+		if returning[agent.Name] > 1 {
+			clashing = append(clashing, agent.Name)
+
+			continue
+		}
+
 		taken, err := agents.ActiveNameExists(ctx, agent.WorkflowID, agent.Name)
 		if err != nil {
 			return fmt.Errorf("failed to check the name of agent %q: %w", agent.Name, err)
 		}
 		if taken {
-			held = append(held, agent.Name)
+			clashing = append(clashing, agent.Name)
 		}
 	}
-	if len(held) > 0 {
-		return fmt.Errorf("%w: live agents are called %s, rename them to restore this workflow", store.ErrNameTaken, strings.Join(held, ", "))
+	if len(clashing) > 0 {
+		return fmt.Errorf("%w: rename whatever holds %s before restoring this workflow", store.ErrNameTaken, strings.Join(clashing, ", "))
 	}
 
 	return nil

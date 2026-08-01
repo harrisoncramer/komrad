@@ -374,3 +374,36 @@ func TestRestoreAgentRestoresItsWorkflow(t *testing.T) {
 	require.Len(t, siblings, 1, "the agents nobody asked for stay archived")
 	assert.Equal(t, other.ID, siblings[0].ID)
 }
+
+// TestRestoreWorkflowRefusesTwoArchivedNamesakes covers a collision between the returning
+// agents themselves. Archived rows sit outside the unique index, so one workflow can hold
+// two under a name, and checking live names alone leaves the caller a constraint error.
+func TestRestoreWorkflowRefusesTwoArchivedNamesakes(t *testing.T) {
+	st := newStore(t)
+	workflows := workflowsFor(st)
+	ctx := t.Context()
+
+	created, err := workflows.NewWorkflow(ctx, workflow.Config{Name: "backend"})
+	require.NoError(t, err)
+
+	for range 2 {
+		require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+			Name:       "agent",
+			State:      agentstore.StateIdle,
+			Harness:    testHarnessID,
+			WorkflowID: created.ID,
+		}))
+		require.NoError(t, st.SoftDelete(ctx, "agent"))
+	}
+
+	require.NoError(t, workflows.ArchiveWorkflow(ctx, created.ID))
+
+	_, err = workflows.RestoreWorkflow(ctx, created.ID)
+
+	require.ErrorIs(t, err, store.ErrNameTaken)
+	assert.ErrorContains(t, err, "agent", "the refusal names what is in the way")
+
+	archived, err := st.Agents.ListArchivedInWorkflow(ctx, created.ID)
+	require.NoError(t, err)
+	assert.Len(t, archived, 2, "and both stay archived")
+}
