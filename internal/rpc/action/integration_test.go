@@ -171,6 +171,10 @@ func (stubWorkflows) Get(_ context.Context, id string) (*workflowstore.Workflow,
 	return &workflowstore.Workflow{ID: id, Name: "backend"}, nil
 }
 
+func (stubWorkflows) GetIncludingArchived(_ context.Context, id string) (*workflowstore.Workflow, error) {
+	return &workflowstore.Workflow{ID: id, Name: "backend"}, nil
+}
+
 type stubPanes struct{}
 
 func (stubPanes) PaneOwner(string) string { return "a1" }

@@ -172,6 +172,32 @@ func TestRunActionPayload(t *testing.T) {
 	assert.NotContains(t, values["WEAVE_AGENT"], "transcript", "a transcript is far past what an environment holds")
 }
 
+// TestRunActionNamesAnArchivedWorkflow covers the label on an agent whose workflow has been
+// archived. The agent still belongs to it, and a script told nothing cannot tell that from a
+// workflow with no name.
+func TestRunActionNamesAnArchivedWorkflow(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
+
+	runner := &recordingRunner{}
+	service := actionService(t, dir, runner)
+	service.workflows = fakeWorkflowReader{
+		workflow: &workflowstore.Workflow{ID: "w1", Name: "backend"},
+		archived: true,
+	}
+
+	require.NoError(t, service.RunAction(context.Background(), "a1", "open-pr"))
+
+	var payload actionPayload
+	for _, entry := range runner.env {
+		if value, found := strings.CutPrefix(entry, "WEAVE_AGENT="); found {
+			require.NoError(t, json.Unmarshal([]byte(value), &payload))
+		}
+	}
+
+	assert.Equal(t, "backend", payload.Workflow)
+}
+
 // TestRunActionBoundsALongPrompt covers the one field in the payload with no bound of its own.
 // Everything an exec is handed shares a kernel limit, and going past it fails the run with a
 // message naming the script, so a long prompt is cut here instead and the payload says it was.
@@ -621,12 +647,21 @@ func (f fakeAgentReader) GetByID(_ context.Context, id string) (*agentstore.Agen
 }
 
 // fakeWorkflowReader answers with one workflow, which is where the payload's workflow name comes
-// from.
+// from. An archived one answers the archive-tolerant read alone, the way the store does.
 type fakeWorkflowReader struct {
 	workflow *workflowstore.Workflow
+	archived bool
 }
 
-func (f fakeWorkflowReader) Get(_ context.Context, id string) (*workflowstore.Workflow, error) {
+func (f fakeWorkflowReader) Get(ctx context.Context, id string) (*workflowstore.Workflow, error) {
+	if f.archived {
+		return nil, nil
+	}
+
+	return f.GetIncludingArchived(ctx, id)
+}
+
+func (f fakeWorkflowReader) GetIncludingArchived(_ context.Context, id string) (*workflowstore.Workflow, error) {
 	if f.workflow != nil && f.workflow.ID == id {
 		return f.workflow, nil
 	}

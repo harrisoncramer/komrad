@@ -51,15 +51,11 @@ type agentStore interface {
 	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
 }
 
-// workflowReader is all this service needs from the workflow domain.
+// workflowReader is all this service needs from the workflow domain. Get is the live
+// read a create or a schedule has to refuse against, and GetIncludingArchived is for
+// what an agent reads off its own workflow, which outlives that workflow's archiving.
 type workflowReader interface {
 	Get(ctx context.Context, id string) (*workflow.Workflow, error)
-}
-
-// agentWorkflowReader adds the read an agent's own lifecycle needs, since an agent
-// outlives the archiving of the workflow it belongs to.
-type agentWorkflowReader interface {
-	workflowReader
 	GetIncludingArchived(ctx context.Context, id string) (*workflow.Workflow, error)
 }
 
@@ -95,7 +91,7 @@ type lifecycleActions interface {
 type AgentService struct {
 	tmux      agentTmux
 	agents    agentStore
-	workflows agentWorkflowReader
+	workflows workflowReader
 	tx        txRunner
 	launcher  *Launcher
 	harnesses harnessRegistry
@@ -116,7 +112,7 @@ type AgentService struct {
 type AgentParams struct {
 	Tmux           agentTmux
 	Agents         agentStore
-	Workflows      agentWorkflowReader
+	Workflows      workflowReader
 	Tx             txRunner
 	Launcher       *Launcher
 	Harnesses      harnessRegistry
