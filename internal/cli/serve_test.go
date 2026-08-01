@@ -4,7 +4,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"log/slog"
+	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -83,7 +87,7 @@ func TestLoopLogsAFailureOnce(t *testing.T) {
 	written := passes(t, slog.LevelInfo, []error{down, down, down, down})
 
 	records := logtest.Records(t, written)
-	require.Len(t, records, 2, "one failure and the recovery that stopped the loop")
+	require.Len(t, records, 1, "one failure however many times it repeats")
 	assert.Equal(t, "loop pass failed", records[0]["body"])
 	assert.Equal(t, "reconcile", records[0][logging.Loop])
 	assert.Contains(t, records[0][logging.ErrorMessage], "connection refused")
@@ -98,9 +102,8 @@ func TestLoopLogsEachDistinctFailure(t *testing.T) {
 
 	written := passes(t, slog.LevelInfo, []error{first, first, second, first})
 
-	// The pass that stops the loop succeeds, so a recovery closes every one of these.
 	assert.Equal(t, []string{
-		"loop pass failed", "loop pass failed", "loop pass failed", "loop recovered",
+		"loop pass failed", "loop pass failed", "loop pass failed",
 	}, logtest.Bodies(t, written))
 }
 
@@ -113,9 +116,9 @@ func TestLoopLogsTheRepeatsAtDebug(t *testing.T) {
 	written := passes(t, slog.LevelDebug, []error{down, down, down})
 
 	records := logtest.Records(t, written)
-	require.Len(t, records, 4)
+	require.Len(t, records, 3)
 	assert.Equal(t, []string{
-		"loop pass failed", "loop still failing", "loop still failing", "loop recovered",
+		"loop pass failed", "loop still failing", "loop still failing",
 	}, logtest.Bodies(t, written))
 	assert.EqualValues(t, 3, records[2][logging.Repeats])
 }
@@ -162,8 +165,41 @@ func TestLoopFoldsARepeatingPanic(t *testing.T) {
 	written := drive(t, slog.LevelDebug, []func() error{panics, panics, panics})
 
 	assert.Equal(t, []string{
-		"loop pass failed", "loop still failing", "loop still failing", "loop recovered",
+		"loop pass failed", "loop still failing", "loop still failing",
 	}, logtest.Bodies(t, written))
+}
+
+// TestLoopSaysNothingOnceCancelled covers the shutdown reaching a pass that is partway
+// through. Every store call a pass makes takes the loop's context, so the pass fails the
+// moment it is cancelled, and reporting that would end a clean stop with an error naming
+// every agent the pass had left to do.
+func TestLoopSaysNothingOnceCancelled(t *testing.T) {
+	var out bytes.Buffer
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		runLoop(ctx, runLoopParams{
+			Name:     "transcript sync",
+			Interval: time.Millisecond,
+			Logger:   logging.New(&out, slog.LevelDebug),
+			Pass: func(ctx context.Context) error {
+				cancel()
+
+				return fmt.Errorf("failed to sync transcript: %w", ctx.Err())
+			},
+		})
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the loop did not stop")
+	}
+
+	assert.Empty(t, logtest.Bodies(t, out.String()), "a pass cut short by the shutdown is not a failure")
 }
 
 // TestServeLoggerRejectsAnUnknownLevel covers a level the config carries that slog has no
@@ -174,4 +210,150 @@ func TestServeLoggerRejectsAnUnknownLevel(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "verbose")
+}
+
+// fakeRunner stands in for River and records the two things the teardown has to get
+// right: the context it was started on, and the one it was stopped with.
+type fakeRunner struct {
+	startCtx context.Context //nolint:containedctx // the point of the fake is to hold it for inspection
+	stopCtx  context.Context //nolint:containedctx // as above
+	startErr error
+	stopped  bool
+}
+
+func (f *fakeRunner) Start(ctx context.Context) error {
+	f.startCtx = ctx
+
+	return f.startErr
+}
+
+func (f *fakeRunner) Stop(ctx context.Context) error {
+	f.stopCtx = ctx
+	f.stopped = true
+
+	return nil
+}
+
+// TestBackgroundOutlivesTheSignal is the one that matters. River treats cancelling the
+// context it was started on as a hard stop, which would cut a launch off mid-flight
+// instead of waiting for it, so the signal must not reach that context.
+func TestBackgroundOutlivesTheSignal(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	runner := &fakeRunner{}
+
+	work, err := startBackground(ctx, backgroundParams{Runner: runner})
+	require.NoError(t, err)
+
+	cancel()
+
+	require.NotNil(t, runner.startCtx)
+	assert.NoError(t, runner.startCtx.Err(), "the context River was started on outlives the signal")
+
+	work.stop(context.Background(), logging.New(io.Discard, slog.LevelError))
+}
+
+// TestBackgroundStopWaitsForTheLoops covers the loops being waited on rather than left to
+// die with the process, which is what makes the teardown ordered rather than a race.
+func TestBackgroundStopWaitsForTheLoops(t *testing.T) {
+	var passes atomic.Int64
+	runner := &fakeRunner{}
+
+	work, err := startBackground(context.Background(), backgroundParams{
+		Runner: runner,
+		Loops: []runLoopParams{{
+			Name:     "reconcile",
+			Interval: time.Millisecond,
+			Logger:   logging.New(io.Discard, slog.LevelError),
+			Pass: func(context.Context) error {
+				passes.Add(1)
+
+				return nil
+			},
+		}},
+	})
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool { return passes.Load() > 0 }, 5*time.Second, time.Millisecond)
+
+	work.stop(context.Background(), logging.New(io.Discard, slog.LevelError))
+
+	// stop waits on the loops, so nothing runs after it returns.
+	settled := passes.Load()
+	time.Sleep(10 * time.Millisecond)
+	assert.Equal(t, settled, passes.Load(), "the loop is stopped rather than still ticking")
+	assert.True(t, runner.stopped, "and the job runner is stopped after it")
+}
+
+// TestStartBackgroundReportsAFailedRunner covers River refusing to come up, which is a
+// server that can never fire a schedule and has to say so rather than serve anyway.
+func TestStartBackgroundReportsAFailedRunner(t *testing.T) {
+	_, err := startBackground(context.Background(), backgroundParams{
+		Runner: &fakeRunner{startErr: errors.New("river is unreachable")},
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "river is unreachable")
+}
+
+// TestShutdownDeadlineOutlivesTheSignal covers each stage of the teardown getting a clock
+// of its own. The signal that started the shutdown is already cancelled by the time these
+// are made, so deriving from it directly would give every stage no time at all.
+func TestShutdownDeadlineOutlivesTheSignal(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	deadline, release := shutdownDeadline(ctx, jobStopTimeout)
+	defer release()
+
+	assert.NoError(t, deadline.Err(), "the stage is not already over before it starts")
+
+	at, ok := deadline.Deadline()
+	require.True(t, ok, "the stage is bounded rather than waiting forever")
+	assert.WithinDuration(t, time.Now().Add(jobStopTimeout), at, time.Second)
+}
+
+// TestAwaitWithinGivesUp covers the teardown moving on from something that will not
+// finish. A loop pass talking to a tmux server that stopped answering, or a pool waiting
+// on a query that will not end, would otherwise hold the process open for good.
+func TestAwaitWithinGivesUp(t *testing.T) {
+	assert.True(t, awaitWithin(5*time.Second, func() {}), "work that finishes is waited for")
+
+	blocked := make(chan struct{})
+	defer close(blocked)
+
+	assert.False(t, awaitWithin(10*time.Millisecond, func() { <-blocked }), "work that hangs is left behind")
+}
+
+// TestShutdownSignalFollowsItsParent covers the context handed to serve still being the
+// command's own, so a parent that goes away stops the server as a signal would.
+func TestShutdownSignalFollowsItsParent(t *testing.T) {
+	parent, cancelParent := context.WithCancel(context.Background())
+
+	ctx, stop := shutdownSignal(parent)
+	defer stop()
+
+	assert.NoError(t, ctx.Err())
+
+	cancelParent()
+
+	select {
+	case <-ctx.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("cancelling the parent did not stop the server")
+	}
+}
+
+// TestShutdownSignalStopsOnASignal covers the wiring itself, that the signals a reload
+// and a Ctrl-C actually send are the ones being listened for.
+func TestShutdownSignalStopsOnASignal(t *testing.T) {
+	ctx, stop := shutdownSignal(context.Background())
+	defer stop()
+
+	require.NoError(t, syscall.Kill(syscall.Getpid(), syscall.SIGTERM))
+
+	select {
+	case <-ctx.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("the signal did not stop the server")
+	}
 }

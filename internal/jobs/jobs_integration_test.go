@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -343,3 +345,78 @@ func (s *stubTmux) PaneOwner(string) string { return "" }
 func (s *stubTmux) ClientPath(string) string { return "" }
 
 func (s *stubTmux) SendKeys(string, ...string) error { return nil }
+
+// blockingLauncher holds a launch open until the test lets it go, standing in for
+// an agent partway through being typed into its pane.
+type blockingLauncher struct {
+	started chan struct{}
+	release chan struct{}
+}
+
+func (b *blockingLauncher) NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error) {
+	close(b.started)
+
+	select {
+	case <-b.release:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+
+	return &agentstore.Agent{ID: "a1", Name: p.Title}, nil
+}
+
+// TestStopWaitsForALaunchInFlight is the guarantee the shutdown path is built on. A
+// process killed partway through a launch leaves the firing marked running, and River's
+// rescuer does not come back for it for over an hour, so the stop has to wait rather
+// than walk away.
+func TestStopWaitsForALaunchInFlight(t *testing.T) {
+	stores := storetest.Open(t)
+	require.NoError(t, Migrate(t.Context(), stores.Pool.Raw()))
+
+	launcher := &blockingLauncher{started: make(chan struct{}), release: make(chan struct{})}
+
+	client, err := NewClient(ClientParams{
+		Pool:      stores.Pool.Raw(),
+		Schedules: &fakeSchedules{schedule: &schedulestore.Schedule{ID: "s1", Name: "nightly", Enabled: true}},
+		Agents:    launcher,
+		Running:   &fakeRunning{},
+	})
+	require.NoError(t, err)
+	require.NoError(t, client.Start(t.Context()))
+
+	inserted, err := client.Insert(t.Context(), LaunchAgentArgs{
+		ScheduleID:   "s1",
+		ScheduledFor: time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC),
+	}, nil)
+	require.NoError(t, err)
+
+	select {
+	case <-launcher.started:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the job never started")
+	}
+
+	stopped := make(chan error, 1)
+	go func() { stopped <- client.Stop(t.Context()) }()
+
+	// The launch is still going, so a stop that returned here would be the process
+	// walking out on it.
+	select {
+	case <-stopped:
+		t.Fatal("the stop did not wait for the launch")
+	case <-time.After(250 * time.Millisecond):
+	}
+
+	close(launcher.release)
+
+	select {
+	case err := <-stopped:
+		require.NoError(t, err)
+	case <-time.After(10 * time.Second):
+		t.Fatal("the stop did not return once the launch finished")
+	}
+
+	job, err := client.JobGet(t.Context(), inserted.Job.ID)
+	require.NoError(t, err)
+	assert.Equal(t, rivertype.JobStateCompleted, job.State, "the firing is finished rather than left stuck as running")
+}

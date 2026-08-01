@@ -72,6 +72,9 @@ const (
 	// Repeats is how many times a loop has failed the same way, since a pass that keeps
 	// failing writes one line and then counts.
 	Repeats = "repeats"
+	// Handle names a database handle the teardown was closing, since the service holds
+	// more than one and a close that timed out says nothing without it.
+	Handle = "handle"
 	// ServerAddress is where the service is listening.
 	ServerAddress = "server.address"
 	// ErrorType and ErrorMessage carry a failure. The type is the Go type of the error,

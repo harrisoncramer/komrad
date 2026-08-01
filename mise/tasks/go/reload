@@ -17,24 +17,21 @@ if [ ! -x bin/weave ]; then
 fi
 
 # serve is long-lived and spawned on first panel open, so a fresh binary alone
-# does not reach it. Kill it and confirm it died, escalating to SIGKILL, so the
-# next panel open respawns it from the new build rather than leaving the stale
-# process bound to the port.
-#
-# The pattern carries the path separator so it matches the binary rather than any
-# directory that happens to be called weave. An install whose binary goes by
-# another name is deliberately not matched: it is not what this checkout builds,
-# and killing it would hide the fact that something else holds the port.
+# does not reach it. The pattern carries the path separator so it matches the binary
+# rather than any directory that happens to be called weave.
 serve_pattern='/weave serve'
 serve_was_running=0
 if pgrep -f "$serve_pattern" >/dev/null 2>&1; then
 	serve_was_running=1
 fi
 
+# The wait covers serve's own shutdown budget, most of which is the ten seconds a launch
+# in flight is given to finish. Escalating before that expires is the abrupt kill the
+# shutdown exists to avoid, so this is deliberately longer than serve can take.
 pkill -f "$serve_pattern" 2>/dev/null || true
-for _ in $(seq 1 15); do
+for _ in $(seq 1 120); do
 	pgrep -f "$serve_pattern" >/dev/null 2>&1 || break
-	sleep 0.2
+	sleep 0.25
 done
 if pgrep -f "$serve_pattern" >/dev/null 2>&1; then
 	pkill -9 -f "$serve_pattern" 2>/dev/null || true
