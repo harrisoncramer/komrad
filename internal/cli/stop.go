@@ -74,18 +74,15 @@ func stopCmd(state *app) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			addr := state.env.Addr
 
-			pid, err := requestStop(addr)
+			pid, err := stopServer(addr)
 			if err != nil {
 				return err
 			}
+
 			if pid == 0 {
 				cmd.Printf("nothing is serving at %s\n", addr)
 
 				return nil
-			}
-
-			if err := awaitStopped(pid, stopWaitFor); err != nil {
-				return err
 			}
 
 			cmd.Printf("the server at %s has stopped\n", addr)
@@ -93,6 +90,25 @@ func stopCmd(state *app) *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// stopServer asks the server at addr to stop and waits for its process to be gone, returning
+// the pid it stopped and zero when nothing was serving.
+func stopServer(addr string) (int, error) {
+	pid, err := requestStop(addr)
+	if err != nil {
+		return 0, err
+	}
+
+	if pid == 0 {
+		return 0, nil
+	}
+
+	if err := awaitStopped(pid, stopWaitFor); err != nil {
+		return 0, err
+	}
+
+	return pid, nil
 }
 
 // requestStop asks the server at addr to stop and returns the pid it answered with, zero

@@ -106,6 +106,7 @@ func NewRootCommand() *cobra.Command {
 		serveCmd(state),
 		startCmd(state),
 		stopCmd(state),
+		versionCmd(state),
 		migrateCmd(state),
 		readonlyRoleCmd(state),
 	)

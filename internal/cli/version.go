@@ -1,0 +1,34 @@
+package cli
+
+import (
+	"weave/internal/version"
+
+	"github.com/spf13/cobra"
+)
+
+// versionCmd prints which build this binary is and which one is serving, so the two can be
+// compared by hand rather than through what the panel does about it.
+func versionCmd(state *app) *cobra.Command {
+	return &cobra.Command{
+		Use:           "version",
+		Short:         "Print which build this binary is, and which one is serving",
+		Args:          cobra.NoArgs,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			addr := state.env.Addr
+			cmd.Printf("this binary: %s\n", version.Version())
+
+			probe := probeServer(addr)
+			if !probe.answering {
+				cmd.Printf("nothing is serving at %s\n", addr)
+
+				return nil
+			}
+
+			cmd.Printf("the server at %s: %q\n", addr, probe.version)
+
+			return nil
+		},
+	}
+}
