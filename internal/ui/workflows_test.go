@@ -337,7 +337,7 @@ func describeRows(rows []agentRow) []string {
 	out := make([]string, 0, len(rows))
 	for _, row := range rows {
 		if row.header {
-			out = append(out, "header:"+row.label)
+			out = append(out, "header:"+row.workflow.Name)
 			continue
 		}
 

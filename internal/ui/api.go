@@ -317,6 +317,19 @@ func (a api) archiveWorkflow(id string) error {
 	return err
 }
 
+// restoreWorkflow takes a workflow out of the archive with the agents archived inside it,
+// which starts nothing. Every one of them comes back the way a restored agent does.
+func (a api) restoreWorkflow(id string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+
+	if _, err := a.workflows.RestoreWorkflow(ctx, connect.NewRequest(&workflowv1.RestoreWorkflowRequest{Id: id})); err != nil {
+		return fmt.Errorf("failed to restore workflow %q: %w", id, err)
+	}
+
+	return nil
+}
+
 // listActions is the user's actions as the service finds them, each with the start of its
 // own text for the preview. The panel never reads the directory itself, so what it lists
 // and what a model lists are one call.

@@ -7,6 +7,7 @@ import (
 	"weave/internal/errui"
 
 	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -46,6 +47,20 @@ func stateColor(state string) lipgloss.Color {
 	default:
 		return colorMuted
 	}
+}
+
+// workflowIcon is the folder a workflow header is drawn with on both trees.
+const workflowIcon = "⧉"
+
+// archivedTag is drawn after an archived workflow's name. The archive lists live folders
+// alongside archived ones, and restore acts on only one of the two, so without it the
+// rows read the same.
+func archivedTag(w workflowstore.Workflow) string {
+	if w.ArchivedAt == nil {
+		return ""
+	}
+
+	return " " + dimStyle.Render("archived")
 }
 
 // scheduledIcon is a clock face rather than an emoji one, which would render

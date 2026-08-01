@@ -235,10 +235,8 @@ func (m model) stageSelection() {
 
 	r := rows[m.tree.cursor]
 	switch {
-	case r.header && r.workflowIndex >= 0:
-		m.stage.Text(workflowMarkdown(m.tree.workflows[r.workflowIndex], m.agentCount(m.tree.workflows[r.workflowIndex].ID)))
 	case r.header:
-		m.stage.Blank()
+		m.stage.Text(workflowMarkdown(r.workflow, m.agentCount(r.workflow.ID)))
 	case m.tree.infoPinned:
 		m.stage.Text(agentMarkdown(r.item.agent, r.item.alive, m.scheduleName(r.item.agent)))
 	case r.item.alive:
@@ -301,11 +299,11 @@ func (m model) agentsView() string {
 		}
 
 		if r.header {
-			label := r.label
+			label := r.workflow.Name
 			if selected {
 				label = cursorStyle.Render(label)
 			}
-			rows = append(rows, prefix+dimStyle.Render("⧉")+" "+label+hiddenTally(r.hiddenCount, m.tree.showHidden))
+			rows = append(rows, prefix+dimStyle.Render(workflowIcon)+" "+label+hiddenTally(r.hiddenCount, m.tree.showHidden))
 			continue
 		}
 
