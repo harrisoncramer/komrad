@@ -189,6 +189,10 @@ func newModel(deps Deps) model {
 	// trip.
 	m.stage.Init()
 
+	// Recorded once the stage has found it, so a reload can respawn the panel by asking
+	// the manager server which pane it is in rather than guessing from pane commands.
+	m.popup.MarkPane(m.stage.NavPane())
+
 	return m
 }
 

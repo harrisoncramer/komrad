@@ -103,6 +103,9 @@ func (s *Stage) Init() {
 	}
 }
 
+// NavPane is the pane the panel itself runs in, empty until Init has found it.
+func (s *Stage) NavPane() string { return s.navPane }
+
 // reclaim clears the panel's window of whatever the last panel left in it. Which panes
 // the stage owns is remembered in this process and nowhere else, so a panel that was
 // replaced or that died leaves panes its successor cannot recognise, and ensure would
