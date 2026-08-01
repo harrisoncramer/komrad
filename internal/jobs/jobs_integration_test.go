@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/db"
 	"weave/internal/agents"
 	"weave/internal/harness"
 	"weave/internal/harness/claude"
@@ -37,7 +38,7 @@ func newRiverClient(t *testing.T) *river.Client[pgx.Tx] {
 
 	stores := storetest.Open(t)
 
-	require.NoError(t, Migrate(t.Context(), stores.Pool.Raw()))
+	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.Raw()))
 
 	client, err := NewClient(ClientParams{
 		Pool:      stores.Pool.Raw(),
@@ -371,7 +372,7 @@ func (b *blockingLauncher) NewAgent(ctx context.Context, p agents.NewAgentParams
 // than walk away.
 func TestStopWaitsForALaunchInFlight(t *testing.T) {
 	stores := storetest.Open(t)
-	require.NoError(t, Migrate(t.Context(), stores.Pool.Raw()))
+	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.Raw()))
 
 	launcher := &blockingLauncher{started: make(chan struct{}), release: make(chan struct{})}
 

@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"time"
 
+	"weave/db"
 	"weave/internal/agents"
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
@@ -21,13 +22,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
-	"github.com/riverqueue/river/rivermigrate"
 )
-
-// schema is the Postgres schema River keeps its own tables in. It is separate
-// from the application's so Atlas manages one schema and River manages the
-// other, and neither migration ledger has to know about the other's tables.
-const schema = "river"
 
 // maxAttempts caps how many times a failed job is retried. River's default of 25
 // lets a launch that can never work churn for hours. A handful of attempts is
@@ -38,26 +33,6 @@ const maxAttempts = 5
 // types into it, which is fast, so a job still running after this is wedged
 // rather than slow.
 const jobTimeout = 2 * time.Minute
-
-// Migrate brings River's own tables up to date, in its own schema. It runs at
-// startup alongside the application's migrations, so a checkout that has never
-// seen River gets the tables without anyone installing the River CLI.
-func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
-	if _, err := pool.Exec(ctx, fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %q", schema)); err != nil {
-		return fmt.Errorf("failed to create the river schema: %w", err)
-	}
-
-	migrator, err := rivermigrate.New(riverpgxv5.New(pool), &rivermigrate.Config{Schema: schema})
-	if err != nil {
-		return fmt.Errorf("failed to build the river migrator: %w", err)
-	}
-
-	if _, err := migrator.Migrate(ctx, rivermigrate.DirectionUp, nil); err != nil {
-		return fmt.Errorf("failed to migrate river: %w", err)
-	}
-
-	return nil
-}
 
 // ClientParams are what the background worker needs. The pool River runs on, the
 // schedules it reads, and the service that actually launches an agent.
@@ -78,7 +53,7 @@ func NewClient(p ClientParams) (*river.Client[pgx.Tx], error) {
 	river.AddWorker(workers, NewLaunchAgentWorker(p.Schedules, p.Agents, p.Running))
 
 	client, err := river.NewClient(riverpgxv5.New(p.Pool), &river.Config{
-		Schema:      schema,
+		Schema:      db.RiverSchema,
 		Workers:     workers,
 		MaxAttempts: maxAttempts,
 		JobTimeout:  jobTimeout,
