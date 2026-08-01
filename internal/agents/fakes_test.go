@@ -336,6 +336,22 @@ func (s *testStore) agentServiceWithLifecycle(tmux *fakeTmux, harnesses fakeHarn
 	})
 }
 
+// agentServiceCapped builds the service with a ceiling and the workflow actions wired,
+// since what a refused create must not do is run the setup action.
+func (s *testStore) agentServiceCapped(tmux *fakeTmux, lifecycle lifecycleActions, maxAgents int) *AgentService {
+	return NewAgentService(AgentParams{
+		Tmux:           tmux,
+		Agents:         s.Agents,
+		Workflows:      s.Workflows,
+		Tx:             s.Pool,
+		Launcher:       NewLauncher(tmux, "127.0.0.1:9999"),
+		Harnesses:      fakeHarnesses{harness: &fakeHarness{}},
+		Lifecycle:      lifecycle,
+		DefaultHarness: testHarnessID,
+		MaxAgents:      maxAgents,
+	})
+}
+
 // fakeLifecycle stands in for running a workflow's actions, so a create's tests drive the
 // whole path without an actions directory or a process. It records what it was asked for,
 // which is what says the workflow's own choice reached it.

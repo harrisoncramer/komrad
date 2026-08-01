@@ -41,6 +41,7 @@ type agentStore interface {
 	GetByIdempotencyKey(ctx context.Context, key string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
 	Create(ctx context.Context, agent agentstore.Agent) error
+	CountLive(ctx context.Context) (int64, error)
 	Update(ctx context.Context, agent agentstore.Agent) error
 	Rename(ctx context.Context, id, name string) (bool, error)
 	Archive(ctx context.Context, name string) error
@@ -94,6 +95,8 @@ type AgentService struct {
 	// agent's own.
 	defaultHarness string
 	defaultFlags   map[string]string
+	// maxAgents is how many unarchived agents may exist at once, zero for no ceiling.
+	maxAgents int
 	// restoreRoot is where a restore rebuilds a working directory that is gone. It is
 	// a field so a test can point it somewhere other than the user's home.
 	restoreRoot string
@@ -110,6 +113,8 @@ type AgentParams struct {
 	Lifecycle      lifecycleActions
 	DefaultHarness string
 	DefaultFlags   map[string]string
+	// MaxAgents is the ceiling on unarchived agents, zero for a build that configures none.
+	MaxAgents int
 	// RestoreRoot is where an agent runs when its recorded directory cannot be
 	// recreated, defaulting to the real location when left empty.
 	RestoreRoot string
@@ -131,6 +136,7 @@ func NewAgentService(p AgentParams) *AgentService {
 		lifecycle:      p.Lifecycle,
 		defaultHarness: p.DefaultHarness,
 		defaultFlags:   p.DefaultFlags,
+		maxAgents:      p.MaxAgents,
 		restoreRoot:    p.RestoreRoot,
 	}
 }
@@ -164,6 +170,10 @@ var ErrWorkflowNotFound = errors.New("workflow not found")
 
 // ErrBadDirectory reports a working directory the agent could not be started in.
 var ErrBadDirectory = errors.New("unusable working directory")
+
+// ErrTooManyAgents reports a panel already holding as many agents as it is configured to,
+// as a sentinel so a caller can tell a ceiling from a create that broke and not retry.
+var ErrTooManyAgents = errors.New("too many agents")
 
 // DeleteAgent stops an agent and removes it, keyed by id so it reaches the archived
 // agents too. The workflow's cleanup action fires between the pane and the row: after
@@ -322,6 +332,12 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		}
 	}
 
+	// After the key, since a retry that finds its agent creates nothing, and before
+	// anything is opened, so a refusal leaves no window, row, or setup action behind.
+	if err := s.roomForAgent(ctx); err != nil {
+		return nil, err
+	}
+
 	plan, err := s.planLaunch(ctx, p)
 	if err != nil {
 		return nil, err
@@ -441,6 +457,24 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 	launched = true
 
 	return created, nil
+}
+
+// roomForAgent refuses a create once the panel is full, since creating one is a tool a
+// model can call in a loop and each agent is a real CLI in a real pane.
+func (s *AgentService) roomForAgent(ctx context.Context) error {
+	if s.maxAgents <= 0 {
+		return nil
+	}
+
+	live, err := s.agents.CountLive(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to count the agents already running: %w", err)
+	}
+	if live >= int64(s.maxAgents) {
+		return fmt.Errorf("%w: max number of concurrent agents reached (%d of %d), please archive one to continue", ErrTooManyAgents, live, s.maxAgents)
+	}
+
+	return nil
 }
 
 // launchPlan is a create resolved against the workflow it lands in.

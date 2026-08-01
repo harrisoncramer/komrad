@@ -2,6 +2,7 @@ package agents
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -450,6 +451,117 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 			assert.Equal(t, want, h.launches[0].Dir, "and the launch is told the same directory")
 		})
 	}
+}
+
+// TestNewAgentCeiling covers the ceiling, which has to refuse before anything is opened or
+// a create refused after its workflow built a worktree leaves one behind every time.
+func TestNewAgentCeiling(t *testing.T) {
+	tests := []struct {
+		name string
+		// maxAgents is the configured ceiling, zero for a build that wires none.
+		maxAgents       int
+		existing        int
+		archiveExisting bool
+		wantErr         error
+	}{
+		{
+			name:      "a create with room is untouched by the ceiling",
+			maxAgents: 3,
+			existing:  1,
+		},
+		{
+			name:      "the create that would reach the ceiling is refused",
+			maxAgents: 2,
+			existing:  2,
+			wantErr:   ErrTooManyAgents,
+		},
+		{
+			name:            "archiving one makes room again",
+			maxAgents:       2,
+			existing:        2,
+			archiveExisting: true,
+		},
+		{
+			name:      "a build that configures no ceiling refuses nothing",
+			maxAgents: 0,
+			existing:  5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := newFakeTmux()
+			st := newStore(t)
+			lifecycle := &fakeLifecycle{}
+			manager := st.agentServiceCapped(tmux, lifecycle, tt.maxAgents)
+
+			workflow, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{
+				Name:        "backend",
+				SetupAction: "make-worktree",
+			})
+			require.NoError(t, err)
+
+			for i := range tt.existing {
+				name := fmt.Sprintf("existing-%d", i)
+				seed(t, st, name, fmt.Sprintf("%%%d", i), agentstore.StateThinking)
+
+				if tt.archiveExisting {
+					require.NoError(t, st.Agents.Archive(t.Context(), name))
+				}
+			}
+
+			opened := len(tmux.newWindows)
+
+			created, err := manager.NewAgent(t.Context(), NewAgentParams{
+				Title:      "agent",
+				Dir:        t.TempDir(),
+				WorkflowID: workflow.ID,
+			})
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				assert.Contains(t, err.Error(), "please archive one to continue", "the refusal says what to do about it")
+				assert.Empty(t, lifecycle.setup, "a refused create runs no setup action")
+				assert.Len(t, tmux.newWindows, opened, "and opens no window")
+
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, created)
+		})
+	}
+}
+
+// TestNewAgentCeilingAllowsARetriedLaunch covers the one create the ceiling does not
+// measure, since a retry carrying a key an agent already holds creates nothing.
+func TestNewAgentCeilingAllowsARetriedLaunch(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := st.agentServiceCapped(tmux, &fakeLifecycle{}, 1)
+
+	params := NewAgentParams{
+		Title:          "morning-ci",
+		Dir:            t.TempDir(),
+		Prompt:         "check CI",
+		WorkflowID:     seedWorkflow(t, st),
+		IdempotencyKey: "schedule:s1:2026-07-28T09:00:00Z",
+	}
+
+	first, err := manager.NewAgent(t.Context(), params)
+	require.NoError(t, err)
+	require.NotNil(t, first)
+
+	// The ceiling of one is full, and this is the retry of the launch that filled it.
+	second, err := manager.NewAgent(t.Context(), params)
+	require.NoError(t, err)
+	require.NotNil(t, second)
+	assert.Equal(t, first.ID, second.ID, "the retry finds the agent it already created")
+
+	// A create claiming no key is a second agent, which there is no room for.
+	params.IdempotencyKey = ""
+	_, err = manager.NewAgent(t.Context(), params)
+	require.ErrorIs(t, err, ErrTooManyAgents)
 }
 
 // TestNewAgentCleansUpAfterASetupThatRan covers a launch that refuses after its setup

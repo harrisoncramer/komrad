@@ -103,9 +103,14 @@ func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgent
 	// workflow, and a refusing setup action all need the schedule or its workflow edited.
 	// The setup action matters most, since five attempts at a script that provisions a
 	// worktree and then refuses is five worktrees, where cancelling leaves one.
+	//
+	// A full panel joins them because only somebody archiving an agent empties it, which
+	// makes the next occurrence the retry.
+
 	if errors.Is(err, agents.ErrBadDirectory) ||
 		errors.Is(err, agents.ErrWorkflowNotFound) ||
-		errors.Is(err, agents.ErrSetupFailed) {
+		errors.Is(err, agents.ErrSetupFailed) ||
+		errors.Is(err, agents.ErrTooManyAgents) {
 		return river.JobCancel(fmt.Errorf("schedule %q cannot launch: %w", schedule.Name, err))
 	}
 	if err != nil {

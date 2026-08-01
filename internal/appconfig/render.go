@@ -123,6 +123,8 @@ func renderValue(value any) (string, error) {
 		return strconv.Quote(typed), nil
 	case bool:
 		return strconv.FormatBool(typed), nil
+	case int:
+		return strconv.Itoa(typed), nil
 	case float64:
 		// 'f' rather than the shortest form, since a fraction written in exponent
 		// notation is still a TOML float but not one a reader would recognize as the

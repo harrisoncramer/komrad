@@ -62,6 +62,7 @@ func NewRootCommand() *cobra.Command {
 			state.env = env
 			state.keys = cfg.Keybindings
 			state.defaultHarness = cfg.DefaultHarness
+			state.maxAgents = cfg.MaxAgents
 
 			// Codex is built here rather than beside claude because one of its settings is
 			// the user's to make, and the config is only loaded once the command runs.
