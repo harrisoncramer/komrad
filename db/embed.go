@@ -8,8 +8,12 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
+	"time"
+
+	"weave/internal/logging"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -70,9 +74,8 @@ func isPending(ctx context.Context, pool *pgxpool.Pool, versions []string) (bool
 // that does not exist, which on the first run is schema_migrations itself.
 const undefinedTable = "42P01"
 
-// apply runs the pending migrations under the advisory lock. The applied set is
-// re-read inside the lock, since another process may have finished the work
-// between the check above and the lock being granted.
+// apply runs the pending migrations under the advisory lock, re-reading the applied set
+// inside it since another process may have finished the work while this one waited.
 func apply(ctx context.Context, pool *pgxpool.Pool, versions []string) error {
 	conn, err := pool.Acquire(ctx)
 	if err != nil {
@@ -83,7 +86,7 @@ func apply(ctx context.Context, pool *pgxpool.Pool, versions []string) error {
 	if _, err := conn.Exec(ctx, "SELECT pg_advisory_lock($1)", migrateLock); err != nil {
 		return fmt.Errorf("failed to take the migration lock: %w", err)
 	}
-	defer func() { _, _ = conn.Exec(ctx, "SELECT pg_advisory_unlock($1)", migrateLock) }()
+	defer releaseMigrateLock(ctx, conn)
 
 	if _, err := conn.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (version text PRIMARY KEY)`); err != nil {
 		return fmt.Errorf("failed to create schema_migrations: %w", err)
@@ -123,6 +126,20 @@ func apply(ctx context.Context, pool *pgxpool.Pool, versions []string) error {
 	}
 
 	return nil
+}
+
+// unlockTimeout bounds the unlock so it cannot hang on a connection whose peer is gone.
+const unlockTimeout = 5 * time.Second
+
+// releaseMigrateLock unlocks on a context of its own, since a cancelled caller context
+// fails before reaching the server and pgxpool pools the connection with the lock held.
+func releaseMigrateLock(ctx context.Context, conn *pgxpool.Conn) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), unlockTimeout)
+	defer cancel()
+
+	if _, err := conn.Exec(ctx, "SELECT pg_advisory_unlock($1)", migrateLock); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the migration lock", logging.Err(err)...)
+	}
 }
 
 // migrationVersions lists the embedded migration file names in the order they
