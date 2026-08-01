@@ -77,7 +77,7 @@ func formTheme() *huh.Theme {
 	return theme
 }
 
-// helpStyles is how bubbles draws a key legend in the palette.
+// helpStyles is how bubbles draws the key help in the palette.
 func helpStyles() help.Styles {
 	muted := lipgloss.NewStyle().Foreground(colorMuted)
 

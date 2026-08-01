@@ -286,7 +286,7 @@ func (m model) searchView() string {
 		}
 	}
 
-	b.WriteString("\n" + m.renderHints(m.searchHints()))
+	b.WriteString("\n" + m.renderHelp(m.searchHelp()))
 
 	return b.String()
 }
