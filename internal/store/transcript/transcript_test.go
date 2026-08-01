@@ -279,6 +279,51 @@ func TestSearchReturnsEveryMatchingTurn(t *testing.T) {
 	assert.NotEqual(t, hits[0].Seq, hits[1].Seq, "each hit names a different turn")
 }
 
+// TestSearchScopedToOneAgent covers the filter a caller narrows a search with, across a
+// cursor as well as on a first page, since one that widened as it paged would hand back the
+// conversations it was asked to leave out.
+func TestSearchScopedToOneAgent(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	mine, theirs := seedAgent(t, st, "mine"), seedAgent(t, st, "theirs")
+
+	content, turns := layOutTurns([]Turn{
+		{Role: "user", Content: "how does the reconciler work"},
+		{Role: "assistant", Content: "the reconciler reads the pane"},
+	})
+	seedTurns(t, st, mine, content, turns)
+	seedTranscript(t, st, theirs, "the reconciler is described here too")
+
+	unscoped, err := st.Search(ctx, SearchParams{Query: "reconciler", Limit: 10})
+	require.NoError(t, err)
+	require.Len(t, uniqueStrings(agentIDs(unscoped)), 2, "both agents said it")
+
+	var (
+		ids    []string
+		cursor *Cursor
+	)
+	for range 3 {
+		hits, err := st.Search(ctx, SearchParams{Query: "reconciler", Limit: 1, Cursor: cursor, AgentID: &mine})
+		require.NoError(t, err)
+		if len(hits) == 0 {
+			break
+		}
+
+		ids = append(ids, agentIDs(hits)...)
+
+		last := hits[len(hits)-1]
+		cursor = &Cursor{Rank: last.Rank, AgentID: last.AgentID, Seq: last.Seq}
+	}
+
+	assert.Equal(t, []string{mine, mine}, ids, "both of one agent's turns, and neither of the other's")
+
+	nobody := "not-an-id"
+	none, err := st.Search(ctx, SearchParams{Query: "reconciler", Limit: 10, AgentID: &nobody})
+	require.NoError(t, err, "a string that is not an id is a miss rather than a failure")
+	assert.Empty(t, none)
+}
+
 // TestSearchPages walks a result set the way the RPC does, following the cursor
 // until it runs dry. That covers both the ordering the cursor depends on and the
 // paging built on top of it.
@@ -554,6 +599,16 @@ func seedTurns(t *testing.T, st *fixture, id, content string, turns []Turn) {
 	ctx := t.Context()
 	require.NoError(t, st.Upsert(ctx, UpsertParams{AgentID: id, Content: content, Offset: 1}))
 	require.NoError(t, st.AppendTurns(ctx, id, turns))
+}
+
+// agentIDs are the agents a page of hits belongs to, in the order they came back.
+func agentIDs(hits []SearchHit) []string {
+	ids := make([]string, 0, len(hits))
+	for _, hit := range hits {
+		ids = append(ids, hit.AgentID)
+	}
+
+	return ids
 }
 
 func uniqueStrings(in []string) []string {

@@ -47,6 +47,9 @@ const (
 	// and what a call is joined on to put it beside what was being said around it.
 	AgentID   = "weave.agent.id"
 	SessionID = "weave.session.id"
+	// TargetAgentID names the agent a call reached for rather than the one that made it,
+	// so a record carrying both is one agent acting on another.
+	TargetAgentID = "weave.target_agent.id"
 	// MCPTool is the tool a model asked for. The path is /mcp whatever it wanted, so this
 	// is the only field on an MCP call that says what it was trying to do.
 	MCPTool = "mcp.tool.name"

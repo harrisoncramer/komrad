@@ -178,11 +178,14 @@ type Cursor struct {
 	Seq     int32   `json:"s"`
 }
 
-// SearchParams is one page of a transcript search.
+// SearchParams is one page of a transcript search. AgentID narrows it to one agent's
+// conversation and nil searches every one of them, since who is allowed which is the
+// caller's business rather than the store's.
 type SearchParams struct {
-	Query  string
-	Limit  int64
-	Cursor *Cursor
+	Query   string
+	Limit   int64
+	Cursor  *Cursor
+	AgentID *string
 }
 
 // Search returns one page of the turns matching the query, most relevant first, resuming
@@ -200,6 +203,12 @@ func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, e
 		return nil, nil
 	}
 
+	// Narrowing to a string that is not an id matches nothing, the way looking an agent
+	// up by one does, rather than failing on the uuid it would be compared against.
+	if params.AgentID != nil && !store.IsID(*params.AgentID) {
+		return nil, nil
+	}
+
 	limit := params.Limit
 	if limit <= 0 {
 		limit = defaultSearchLimit
@@ -212,6 +221,7 @@ func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, e
 		Lead:     snippetLead,
 		Width:    snippetWidth,
 		Lim:      int32(limit),
+		AgentID:  params.AgentID,
 	}
 	if params.Cursor != nil {
 		args.CursorRank = &params.Cursor.Rank

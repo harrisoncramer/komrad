@@ -4,14 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"testing"
 	"time"
 
 	"weave/internal/agents"
+	"weave/internal/caller"
+	"weave/internal/logging"
+	"weave/internal/logtest"
 	"weave/internal/storetest"
 	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
+	paginationv1 "weave/proto/gen/pagination/v1"
 
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
@@ -20,6 +25,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestCreateAgent(t *testing.T) {
@@ -678,6 +684,211 @@ func TestSearchTranscripts(t *testing.T) {
 			}
 
 			assert.ElementsMatch(t, tt.wantSeqs, seqs)
+		})
+	}
+}
+
+// TestSearchTranscriptsScope covers who a search reaches, which the handler works out from
+// the caller rather than from the request alone.
+//
+// An agent that does not say whose conversation it wants gets its own, and the panel, which
+// is not an agent, gets everyone, since that is what its search screen is for.
+func TestSearchTranscriptsScope(t *testing.T) {
+	tests := []struct {
+		name string
+		// callerIs, when set, is the agent the call arrives from, "alpha" or "beta".
+		callerIs string
+		// asksFor, when set, is the agent the request names.
+		asksFor string
+		// wantNames are the agents whose turns come back.
+		wantNames []string
+	}{
+		{
+			name:      "an agent that names nobody reads its own conversation",
+			callerIs:  "alpha",
+			wantNames: []string{"alpha"},
+		},
+		{
+			name:      "an agent that names another reads that one",
+			callerIs:  "alpha",
+			asksFor:   "beta",
+			wantNames: []string{"beta"},
+		},
+		{
+			name:      "an agent that names itself is where it started",
+			callerIs:  "alpha",
+			asksFor:   "alpha",
+			wantNames: []string{"alpha"},
+		},
+		{
+			name:      "the panel is not an agent and reads every conversation",
+			wantNames: []string{"alpha", "beta"},
+		},
+		{
+			name:      "and can still narrow to one",
+			asksFor:   "beta",
+			wantNames: []string{"beta"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, st := service(t)
+
+			ids := map[string]string{}
+			for _, name := range []string{"alpha", "beta"} {
+				agent := st.SeedAgent(t, agentstore.Agent{Name: name, State: agentstore.StateThinking})
+				ids[name] = agent.ID
+				seedTranscript(t, st, agent.ID, []string{"the reconciler derives its markers"})
+			}
+
+			ctx := t.Context()
+			if tt.callerIs != "" {
+				ctx = caller.With(ctx, caller.Caller{AgentID: ids[tt.callerIs]})
+			}
+
+			req := &agentv1.SearchTranscriptsRequest{Query: "reconciler"}
+			if tt.asksFor != "" {
+				req.AgentId = xptr.Ptr(ids[tt.asksFor])
+			}
+
+			found, err := svc.SearchTranscripts(ctx, connect.NewRequest(req))
+			require.NoError(t, err)
+
+			names := make([]string, 0, len(found.Msg.GetHits()))
+			for _, hit := range found.Msg.GetHits() {
+				names = append(names, hit.GetName())
+			}
+			assert.ElementsMatch(t, tt.wantNames, names)
+		})
+	}
+}
+
+// TestSearchTranscriptsScopeSurvivesACursor covers the second page of a scoped search,
+// which is worked out per call rather than carried in the token, so a caller replaying one
+// cannot page its way out of the conversation it was confined to.
+func TestSearchTranscriptsScopeSurvivesACursor(t *testing.T) {
+	svc, st := service(t)
+
+	ids := map[string]string{}
+	for _, name := range []string{"alpha", "beta"} {
+		agent := st.SeedAgent(t, agentstore.Agent{Name: name, State: agentstore.StateThinking})
+		ids[name] = agent.ID
+		seedTranscript(t, st, agent.ID, []string{"the reconciler derives its markers", "more on the reconciler"})
+	}
+
+	ctx := caller.With(t.Context(), caller.Caller{AgentID: ids["alpha"]})
+
+	var (
+		names []string
+		token *string
+	)
+	for range 4 {
+		req := &agentv1.SearchTranscriptsRequest{
+			Query:      "reconciler",
+			Pagination: &paginationv1.Pagination{Limit: proto.Int32(1), Cursor: token},
+		}
+
+		found, err := svc.SearchTranscripts(ctx, connect.NewRequest(req))
+		require.NoError(t, err)
+		if len(found.Msg.GetHits()) == 0 {
+			break
+		}
+
+		for _, hit := range found.Msg.GetHits() {
+			names = append(names, hit.GetName())
+		}
+
+		token = found.Msg.NextPageToken
+		if token == nil {
+			break
+		}
+	}
+
+	assert.Equal(t, []string{"alpha", "alpha"}, names, "both of its own turns, and neither of the other agent's")
+}
+
+// TestCrossAgentReadIsRecorded covers the line a deliberate read of somebody else's
+// conversation leaves, which is what makes it answerable afterwards given the scoping around
+// it is a default rather than a boundary.
+func TestCrossAgentReadIsRecorded(t *testing.T) {
+	tests := []struct {
+		name string
+		// callerIs, when set, is the agent the call arrives from.
+		callerIs string
+		// read is the call under test, against the agent named beta.
+		read       func(t *testing.T, svc *Service, ctx context.Context, target string)
+		wantRecord bool
+	}{
+		{
+			name:     "an agent searching another agent",
+			callerIs: "alpha",
+			read: func(t *testing.T, svc *Service, ctx context.Context, target string) {
+				t.Helper()
+				_, err := svc.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
+					Query:   "reconciler",
+					AgentId: xptr.Ptr(target),
+				}))
+				require.NoError(t, err)
+			},
+			wantRecord: true,
+		},
+		{
+			name:     "an agent fetching another agent's whole conversation",
+			callerIs: "alpha",
+			read: func(t *testing.T, svc *Service, ctx context.Context, target string) {
+				t.Helper()
+				_, err := svc.GetTranscript(ctx, connect.NewRequest(&agentv1.GetTranscriptRequest{AgentId: target}))
+				require.NoError(t, err)
+			},
+			wantRecord: true,
+		},
+		{
+			name:     "an agent searching itself",
+			callerIs: "beta",
+			read: func(t *testing.T, svc *Service, ctx context.Context, _ string) {
+				t.Helper()
+				_, err := svc.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{Query: "reconciler"}))
+				require.NoError(t, err)
+			},
+		},
+		{
+			name: "the panel reading anyone, which is what it is for",
+			read: func(t *testing.T, svc *Service, ctx context.Context, target string) {
+				t.Helper()
+				_, err := svc.GetTranscript(ctx, connect.NewRequest(&agentv1.GetTranscriptRequest{AgentId: target}))
+				require.NoError(t, err)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, st := service(t)
+
+			ids := map[string]string{}
+			for _, name := range []string{"alpha", "beta"} {
+				agent := st.SeedAgent(t, agentstore.Agent{Name: name, State: agentstore.StateThinking})
+				ids[name] = agent.ID
+				seedTranscript(t, st, agent.ID, []string{"the reconciler derives its markers"})
+			}
+
+			var written strings.Builder
+			ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelInfo))
+			if tt.callerIs != "" {
+				ctx = caller.With(ctx, caller.Caller{AgentID: ids[tt.callerIs]})
+			}
+
+			tt.read(t, svc, ctx, ids["beta"])
+
+			if !tt.wantRecord {
+				assert.Empty(t, written.String(), "reading your own conversation is not worth a line")
+				return
+			}
+
+			record := logtest.Record(t, written.String())
+			assert.Equal(t, "agent read another agent's transcript", record["body"])
+			assert.Equal(t, ids["beta"], record[logging.TargetAgentID])
 		})
 	}
 }
