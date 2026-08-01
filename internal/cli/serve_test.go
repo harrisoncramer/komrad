@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"sync/atomic"
@@ -86,7 +87,7 @@ func TestLoopLogsAFailureOnce(t *testing.T) {
 	written := passes(t, slog.LevelInfo, []error{down, down, down, down})
 
 	records := logtest.Records(t, written)
-	require.Len(t, records, 2, "one failure and the recovery that stopped the loop")
+	require.Len(t, records, 1, "one failure however many times it repeats")
 	assert.Equal(t, "loop pass failed", records[0]["body"])
 	assert.Equal(t, "reconcile", records[0][logging.Loop])
 	assert.Contains(t, records[0][logging.ErrorMessage], "connection refused")
@@ -101,9 +102,8 @@ func TestLoopLogsEachDistinctFailure(t *testing.T) {
 
 	written := passes(t, slog.LevelInfo, []error{first, first, second, first})
 
-	// The pass that stops the loop succeeds, so a recovery closes every one of these.
 	assert.Equal(t, []string{
-		"loop pass failed", "loop pass failed", "loop pass failed", "loop recovered",
+		"loop pass failed", "loop pass failed", "loop pass failed",
 	}, logtest.Bodies(t, written))
 }
 
@@ -116,9 +116,9 @@ func TestLoopLogsTheRepeatsAtDebug(t *testing.T) {
 	written := passes(t, slog.LevelDebug, []error{down, down, down})
 
 	records := logtest.Records(t, written)
-	require.Len(t, records, 4)
+	require.Len(t, records, 3)
 	assert.Equal(t, []string{
-		"loop pass failed", "loop still failing", "loop still failing", "loop recovered",
+		"loop pass failed", "loop still failing", "loop still failing",
 	}, logtest.Bodies(t, written))
 	assert.EqualValues(t, 3, records[2][logging.Repeats])
 }
@@ -165,8 +165,41 @@ func TestLoopFoldsARepeatingPanic(t *testing.T) {
 	written := drive(t, slog.LevelDebug, []func() error{panics, panics, panics})
 
 	assert.Equal(t, []string{
-		"loop pass failed", "loop still failing", "loop still failing", "loop recovered",
+		"loop pass failed", "loop still failing", "loop still failing",
 	}, logtest.Bodies(t, written))
+}
+
+// TestLoopSaysNothingOnceCancelled covers the shutdown reaching a pass that is partway
+// through. Every store call a pass makes takes the loop's context, so the pass fails the
+// moment it is cancelled, and reporting that would end a clean stop with an error naming
+// every agent the pass had left to do.
+func TestLoopSaysNothingOnceCancelled(t *testing.T) {
+	var out bytes.Buffer
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		runLoop(ctx, runLoopParams{
+			Name:     "transcript sync",
+			Interval: time.Millisecond,
+			Logger:   logging.New(&out, slog.LevelDebug),
+			Pass: func(ctx context.Context) error {
+				cancel()
+
+				return fmt.Errorf("failed to sync transcript: %w", ctx.Err())
+			},
+		})
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the loop did not stop")
+	}
+
+	assert.Empty(t, logtest.Bodies(t, out.String()), "a pass cut short by the shutdown is not a failure")
 }
 
 // TestServeLoggerRejectsAnUnknownLevel covers a level the config carries that slog has no
@@ -262,20 +295,33 @@ func TestStartBackgroundReportsAFailedRunner(t *testing.T) {
 	assert.Contains(t, err.Error(), "river is unreachable")
 }
 
-// TestShutdownDeadlineIsBounded covers the teardown being given a clock at all. Waiting
-// forever on a wedged job would leave the process up with nothing serving.
-func TestShutdownDeadlineIsBounded(t *testing.T) {
+// TestShutdownDeadlineOutlivesTheSignal covers each stage of the teardown getting a clock
+// of its own. The signal that started the shutdown is already cancelled by the time these
+// are made, so deriving from it directly would give every stage no time at all.
+func TestShutdownDeadlineOutlivesTheSignal(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	deadline, release := shutdownDeadline(ctx)
+	deadline, release := shutdownDeadline(ctx, jobStopTimeout)
 	defer release()
 
-	assert.NoError(t, deadline.Err(), "the teardown is not already over before it starts")
+	assert.NoError(t, deadline.Err(), "the stage is not already over before it starts")
 
 	at, ok := deadline.Deadline()
-	require.True(t, ok, "the teardown is bounded rather than waiting forever")
-	assert.WithinDuration(t, time.Now().Add(shutdownTimeout), at, time.Second)
+	require.True(t, ok, "the stage is bounded rather than waiting forever")
+	assert.WithinDuration(t, time.Now().Add(jobStopTimeout), at, time.Second)
+}
+
+// TestAwaitWithinGivesUp covers the teardown moving on from something that will not
+// finish. A loop pass talking to a tmux server that stopped answering, or a pool waiting
+// on a query that will not end, would otherwise hold the process open for good.
+func TestAwaitWithinGivesUp(t *testing.T) {
+	assert.True(t, awaitWithin(5*time.Second, func() {}), "work that finishes is waited for")
+
+	blocked := make(chan struct{})
+	defer close(blocked)
+
+	assert.False(t, awaitWithin(10*time.Millisecond, func() { <-blocked }), "work that hangs is left behind")
 }
 
 // TestShutdownSignalFollowsItsParent covers the context handed to serve still being the

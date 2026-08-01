@@ -51,10 +51,29 @@ const scheduleReconcileInterval = 10 * time.Second
 // re-indexes potentially large logs, so it stays off the hot path.
 const transcriptSyncInterval = 15 * time.Second
 
-// shutdownTimeout bounds the whole teardown. It is long enough for a launch in flight to
-// finish typing into its pane, and short enough that a development reload does not feel
-// hung.
-const shutdownTimeout = 10 * time.Second
+// The teardown gives each stage its own budget rather than sharing one, so a stage that
+// runs long cannot spend what the next one needs.
+
+// httpDrainTimeout bounds the wait for the requests already in flight. It is the shortest
+// of the three because whoever was asking will ask again.
+const httpDrainTimeout = 5 * time.Second
+
+// loopStopTimeout bounds the wait for a background loop to finish the pass it is in.
+// Abandoning a pass costs nothing, since the next start redoes it, but a moment's wait
+// keeps one from writing to a database that is closing under it. It is bounded because a
+// pass talks to tmux, and a tmux server that is not answering would otherwise hold the
+// process open for good.
+const loopStopTimeout = 2 * time.Second
+
+// jobStopTimeout is how long a launch in flight is given to finish, and it is the one
+// that matters. A job abandoned here stays marked running until River's rescuer comes
+// back for it over an hour later.
+const jobStopTimeout = 10 * time.Second
+
+// closeTimeout bounds the wait for the database handles. A pool closes by waiting for its
+// connections to come back, so a query still running would otherwise hold the process
+// open past every deadline above it.
+const closeTimeout = 2 * time.Second
 
 func serveCmd(state *app) *cobra.Command {
 	var addr string
@@ -75,7 +94,19 @@ func serveCmd(state *app) *cobra.Command {
 			ctx, stopSignals := shutdownSignal(cmd.Context())
 			defer stopSignals()
 
-			if err := serve(ctx, serveParams{App: state, Logger: logger, Addr: addr}); err != nil {
+			err = serve(ctx, serveParams{App: state, Logger: logger, Addr: addr})
+
+			// A signal landing partway through startup fails whichever step was reaching
+			// for the database at the time. That is the shutdown arriving early rather
+			// than something going wrong, and reporting it as a failure would have
+			// whoever spawned this process read a reload as a crash.
+			if err != nil && ctx.Err() != nil {
+				logger.LogAttrs(context.WithoutCancel(ctx), slog.LevelInfo, "the server stopped before it had started")
+
+				return nil
+			}
+
+			if err != nil {
 				logger.LogAttrs(cmd.Context(), slog.LevelError, "the server stopped", logging.Err(err)...)
 
 				// The failure is on the record now, so it is marked as said rather than
@@ -144,7 +175,7 @@ func serve(ctx context.Context, p serveParams) error {
 	if err := state.openStore(ctx); err != nil {
 		return err
 	}
-	defer func() { _ = state.pool.Close() }()
+	defer closeWithin(logger, "the store", func() { _ = state.pool.Close() })
 
 	// Requests are checked against the constraints declared in the proto before any
 	// handler sees them, so a malformed payload is rejected in one place.
@@ -197,7 +228,7 @@ func serve(ctx context.Context, p serveParams) error {
 	if err != nil {
 		return err
 	}
-	defer readOnly.Close()
+	defer closeWithin(logger, "the read-only store", readOnly.Close)
 
 	mcpHandler, err := mcp.NewHandler(mcp.NewHandlerParams{
 		DB:      readOnly,
@@ -284,16 +315,16 @@ func serve(ctx context.Context, p serveParams) error {
 		logger.LogAttrs(ctx, slog.LevelInfo, "the server is stopping")
 	}
 
-	deadline, cancel := shutdownDeadline(ctx)
-	defer cancel()
+	drain, cancelDrain := shutdownDeadline(ctx, httpDrainTimeout)
+	defer cancelDrain()
 
 	// The listener goes first, so nothing new arrives against a dependency that is
 	// already being torn down.
-	if err := server.Shutdown(deadline); err != nil {
+	if err := server.Shutdown(drain); err != nil {
 		logger.LogAttrs(ctx, slog.LevelError, "the server would not shut down cleanly", logging.Err(err)...)
 	}
 
-	work.stop(deadline, logger)
+	work.stop(context.WithoutCancel(ctx), logger)
 
 	if errors.Is(failure, http.ErrServerClosed) {
 		return nil
@@ -302,10 +333,10 @@ func serve(ctx context.Context, p serveParams) error {
 	return failure
 }
 
-// shutdownDeadline bounds the teardown. It is derived here rather than at startup so the
-// clock starts when the shutdown does.
-func shutdownDeadline(ctx context.Context) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.WithoutCancel(ctx), shutdownTimeout)
+// shutdownDeadline gives one stage of the teardown its budget, on a context the signal
+// that started the teardown does not reach.
+func shutdownDeadline(ctx context.Context, within time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(ctx), within)
 }
 
 // jobRunner is what serve needs of River, which is only the two ends of its life.
@@ -358,10 +389,46 @@ func startBackground(ctx context.Context, p backgroundParams) (*backgroundWork, 
 // since a launch cut off partway through leaves a pane no row names.
 func (b *backgroundWork) stop(ctx context.Context, logger *slog.Logger) {
 	b.stopLoops()
-	b.loops.Wait()
 
-	if err := b.runner.Stop(ctx); err != nil {
+	if !awaitWithin(loopStopTimeout, b.loops.Wait) {
+		logger.LogAttrs(ctx, slog.LevelWarn, "a background loop did not stop in time")
+	}
+
+	deadline, cancel := shutdownDeadline(ctx, jobStopTimeout)
+	defer cancel()
+
+	if err := b.runner.Stop(deadline); err != nil {
 		logger.LogAttrs(ctx, slog.LevelError, "gave up waiting for a job to finish", logging.Err(err)...)
+	}
+}
+
+// closeWithin closes a database handle without letting a query still running hold the
+// process open. What did not close goes when the process does.
+func closeWithin(logger *slog.Logger, what string, close func()) {
+	if !awaitWithin(closeTimeout, close) {
+		logger.LogAttrs(context.Background(), slog.LevelWarn, "a database handle did not close in time",
+			slog.String(logging.Handle, what))
+	}
+}
+
+// awaitWithin runs wait and reports whether it finished inside the budget. Whatever is
+// being waited on carries on in the background if it does not, since the point here is
+// only that the teardown moves on rather than stalling on it.
+func awaitWithin(within time.Duration, wait func()) bool {
+	done := make(chan struct{})
+	go func() {
+		wait()
+		close(done)
+	}()
+
+	timer := time.NewTimer(within)
+	defer timer.Stop()
+
+	select {
+	case <-done:
+		return true
+	case <-timer.C:
+		return false
 	}
 }
 
@@ -389,7 +456,16 @@ func runLoop(ctx context.Context, params runLoopParams) {
 	var repeats int
 
 	for {
-		switch err := runPass(ctx, params.Pass); {
+		err := runPass(ctx, params.Pass)
+
+		// A pass cut short by the shutdown is not a failure. Every store call it makes
+		// takes this context, so without this a clean stop writes one last error naming
+		// every agent the pass had left to do.
+		if ctx.Err() != nil {
+			return
+		}
+
+		switch {
 		case err == nil && failing != "":
 			logger.LogAttrs(ctx, slog.LevelInfo, "loop recovered", slog.Int(logging.Repeats, repeats))
 			failing, repeats = "", 0

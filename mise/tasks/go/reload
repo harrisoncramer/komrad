@@ -25,10 +25,11 @@ if pgrep -f "$serve_pattern" >/dev/null 2>&1; then
 	serve_was_running=1
 fi
 
-# The wait covers serve's own shutdown deadline, since a launch in flight is given ten
-# seconds to finish. Escalating before that expires is the abrupt kill it exists to avoid.
+# The wait covers serve's own shutdown budget, most of which is the ten seconds a launch
+# in flight is given to finish. Escalating before that expires is the abrupt kill the
+# shutdown exists to avoid, so this is deliberately longer than serve can take.
 pkill -f "$serve_pattern" 2>/dev/null || true
-for _ in $(seq 1 60); do
+for _ in $(seq 1 120); do
 	pgrep -f "$serve_pattern" >/dev/null 2>&1 || break
 	sleep 0.25
 done
