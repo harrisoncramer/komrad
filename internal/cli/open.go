@@ -12,22 +12,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// openCmd is the popup entrypoint. It creates the persistent manager tmux session
-// if it does not exist and attaches, otherwise attaches to the running one. The
-// tmux plugin runs this as the popup's -E command, so it blocks until the client
-// detaches and then returns, which closes the popup. TMUX is stripped so tmux does
-// not refuse the attach as nested, since the popup itself lives inside the user's
-// tmux client.
+// openCmd is the popup entrypoint, creating the persistent manager tmux session if it is
+// not there and attaching either way. The tmux plugin runs this as the popup's -E command,
+// so it blocks until the client detaches, which closes the popup.
 //
-// The session lives on the manager's own tmux server, which the user's server knows
-// nothing about. Which server that is comes out of this process's own environment,
-// where tmux names the server and session the popup pane belongs to, and it is
-// recorded so the panel can reach back to it for the things only it can answer.
+// The session lives on the manager's own tmux server, which the user's server knows nothing
+// about. Which server the popup came from is read out of this process's environment and
+// recorded, so the panel can reach back for the things only that server can answer.
 //
 // Arguments are accepted and ignored, so a key binding that passes something is not
-// refused. Nothing can be passed in usefully anyway. tmux expands no format in a popup's
-// command, and an unexpanded format at the start of a word is a comment to the shell that
-// runs it.
+// refused. Nothing can be passed in usefully anyway, since tmux expands no format in a
+// popup's command and an unexpanded one is a comment to the shell that runs it.
 func openCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:           "open",
@@ -36,10 +31,10 @@ func openCmd(state *app) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			// Creating the session detached and attaching to it separately, rather than
-			// with one new-session -A, leaves room to record the user's socket on the
-			// manager server between the two. A single attaching command holds the
-			// client for as long as the popup is up, so nothing could run in between.
+			// Creating the session detached and attaching separately, rather than with
+			// one new-session -A, leaves room to record the user's socket between the
+			// two. A single attaching command would hold the client for as long as the
+			// popup is up.
 			if err := ensureManagerSession(state); err != nil {
 				return err
 			}

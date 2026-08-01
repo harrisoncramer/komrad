@@ -26,35 +26,33 @@ import (
 	"weave/internal/caller"
 )
 
-// callTimeout bounds a single RPC invoked through a tool. Creating an agent opens
-// a tmux window and types into it, which is the slowest thing here and still
-// well inside this.
+// callTimeout bounds a single RPC invoked through a tool. Creating an agent opens a tmux
+// window and types into it, which is the slowest thing here and still well inside this.
 const callTimeout = 30 * time.Second
 
-// rpcTools invokes the service's own Connect endpoint over loopback. Going back
-// through HTTP rather than calling the handler directly means a tool call takes the
-// same path a real client takes, validation interceptor included, so the tool
-// surface cannot drift into accepting what the API rejects.
+// rpcTools invokes the service's own Connect endpoint over loopback. Going back through
+// HTTP rather than calling the handler directly means a tool call takes the path a real
+// client takes, validation interceptor included, so the tool surface cannot drift into
+// accepting what the API rejects.
 type rpcTools struct {
 	baseURL string
 	client  *http.Client
 }
 
-// registerRPCTools adds one MCP tool per annotated method across every service the
-// server exposes. The annotation is the gate. A method without one is not
-// registered, so widening the tool surface is an edit to the proto rather than a
-// side effect of adding an RPC.
+// registerRPCTools adds one MCP tool per annotated method across every service the server
+// exposes. A method without the annotation is not registered, so widening the tool surface
+// is an edit to the proto rather than a side effect of adding an RPC.
 func registerRPCTools(server *mcpsdk.Server, baseURL string) error {
-	// The transport carries whoever the served request is from onto the call this makes on
-	// their behalf, so an RPC reached through a tool is logged as the agent that asked for
-	// it rather than as the service calling itself.
+	// The transport carries whoever the served request is from onto the call this makes
+	// on their behalf, so an RPC reached through a tool is logged as the agent that asked
+	// for it.
 	tools := &rpcTools{
 		baseURL: strings.TrimSuffix(baseURL, "/"),
 		client:  &http.Client{Timeout: callTimeout, Transport: caller.Transport(nil)},
 	}
 
-	// Every service the server exposes is listed here. A new one is a line in
-	// this slice, and its methods appear as tools only if they are annotated.
+	// Every service the server exposes is listed here, and its methods appear as tools
+	// only if they are annotated.
 	files := []protoreflect.FileDescriptor{
 		agentv1.File_agent_v1_agent_proto,
 		workflowv1.File_workflow_v1_workflow_proto,
@@ -100,8 +98,8 @@ func (r *rpcTools) registerService(server *mcpsdk.Server, service protoreflect.S
 	return nil
 }
 
-// toolAnnotation returns the method's tool annotation, or nil when it has none
-// and so is not exposed.
+// toolAnnotation returns the method's tool annotation, nil when it has none and so is not
+// exposed.
 func toolAnnotation(method protoreflect.MethodDescriptor) *annotationv1.ToolAnnotation {
 	opts, ok := method.Options().(*descriptorpb.MethodOptions)
 	if !ok || !proto.HasExtension(opts, annotationv1.E_Tool) {
@@ -116,9 +114,9 @@ func toolAnnotation(method protoreflect.MethodDescriptor) *annotationv1.ToolAnno
 	return annotation
 }
 
-// toolHints derives the MCP behavior hints, letting the annotation override what
-// the method's idempotency level implies. A read-only tool leaves the
-// destructive hint unset, where the MCP spec says it carries no meaning.
+// toolHints derives the MCP behavior hints, letting the annotation override what the
+// method's idempotency level implies. A read-only tool leaves the destructive hint unset,
+// where the MCP spec says it carries no meaning.
 func toolHints(method protoreflect.MethodDescriptor, annotation *annotationv1.ToolAnnotation) *mcpsdk.ToolAnnotations {
 	level := descriptorpb.MethodOptions_IDEMPOTENCY_UNKNOWN
 	if opts, ok := method.Options().(*descriptorpb.MethodOptions); ok {
