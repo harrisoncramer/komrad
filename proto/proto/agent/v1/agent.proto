@@ -36,7 +36,6 @@ message Agent {
   optional string schedule_id = 12;
   // Whether the agent's tmux pane is still running.
   bool alive = 11;
-  reserved 13;
   // The glyph the user marked this agent with, unset when it carries no mark.
   optional string mark = 14;
   // Whether the user has hidden this agent from the panel's list. It is not a
@@ -226,8 +225,6 @@ message SearchTranscriptsRequest {
 message SearchHit {
   string agent_id = 1;
   string snippet = 2;
-  // Held by the occurrence count results were once ordered by, which relevance replaced.
-  reserved 3;
   string name = 4;
   bool archived = 5;
   // Cover density of the matched turn, higher being a better match. It compares

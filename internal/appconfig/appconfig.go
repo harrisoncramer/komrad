@@ -623,7 +623,7 @@ func (c Config) ActionsDir() (string, error) {
 // a symlink resolving to nothing is, since that is a config someone meant to have.
 //
 // A key the Config struct does not know about is an error rather than silently dropped, so
-// a typo or a binding left behind by an older version says so.
+// a typo is reported rather than quietly doing nothing.
 func Load(path string) (*Config, error) {
 	viperCfg := viper.New()
 	viperCfg.SetConfigType("toml")

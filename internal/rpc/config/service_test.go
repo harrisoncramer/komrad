@@ -28,7 +28,7 @@ func TestGetConfig(t *testing.T) {
 		check func(t *testing.T, resp *configv1.GetConfigResponse)
 	}{
 		{
-			name: "a key the config knows nothing about, which is a typo or a binding left by an older version",
+			name: "a key the config knows nothing about, which is a typo in the file",
 			file: `bogus = true`,
 			check: func(t *testing.T, resp *configv1.GetConfigResponse) {
 				assert.Contains(t, resp.GetConfigError(), "failed to parse config")
