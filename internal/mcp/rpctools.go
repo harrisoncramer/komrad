@@ -45,9 +45,7 @@ type rpcTools struct {
 // registered, so widening the tool surface is an edit to the proto rather than a
 // side effect of adding an RPC.
 func registerRPCTools(server *mcpsdk.Server, baseURL string) error {
-	// The transport carries whoever the served request is from onto the call this makes on
-	// their behalf, so an RPC reached through a tool is logged as the agent that asked for
-	// it rather than as the service calling itself.
+
 	tools := &rpcTools{
 		baseURL: strings.TrimSuffix(baseURL, "/"),
 		client:  &http.Client{Timeout: callTimeout, Transport: caller.Transport(nil)},

@@ -12,11 +12,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 
 	"weave/db"
 	"weave/db/models"
-	"weave/internal/logging"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -82,36 +80,38 @@ func OpenReadOnly(ctx context.Context, url string) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("failed to reach db read-only: %w", err)
 	}
 
-	warnIfSuperuser(ctx, pool)
+	if err := refuseSuperuser(ctx, pool); err != nil {
+		pool.Close()
+		return nil, err
+	}
 
 	return pool, nil
 }
 
-// warnIfSuperuser writes a line when the read-only pool has landed on a superuser, which
-// is the one case where nothing above the database holds. A superuser is exempt from the
-// privilege checks on the catalogs and on the file-reading functions, and both are reached
-// through a plain SELECT that writes nothing, so neither the read-only transaction nor any
-// amount of reading the statement will refuse them.
+// refuseSuperuser rejects a read-only pool that has landed on a superuser, which is the one
+// case where nothing above the database holds. A superuser is exempt from the privilege
+// checks on the catalogs and on the file-reading functions, and both are reached through a
+// plain SELECT that writes nothing, so neither the read-only transaction nor any amount of
+// reading the statement will refuse them.
 //
-// It warns rather than refuses because reaching here means someone pointed this at a
-// superuser on purpose, and a panel that will not open says less about why than a line
-// naming what it costs. A role that was never created fails earlier, on the ping.
-func warnIfSuperuser(ctx context.Context, pool *pgxpool.Pool) {
+// Refusing rather than warning, because the privileges are the boundary and a boundary that
+// announces itself missing and carries on is not one. There is a single way to arrive here,
+// which is pointing WEAVE_READONLY_DATABASE_URL at a role somebody chose, so the answer is
+// to name the role and stop rather than to serve and hope the line is read.
+func refuseSuperuser(ctx context.Context, pool *pgxpool.Pool) error {
 	var superuser bool
 	if err := pool.QueryRow(ctx,
 		`SELECT rolsuper FROM pg_roles WHERE rolname = current_user`).Scan(&superuser); err != nil {
-		slog.LogAttrs(ctx, slog.LevelWarn, "could not tell whether the read-only role is a superuser",
-			logging.Err(err)...)
-
-		return
+		return fmt.Errorf("failed to check whether the read-only role is a superuser: %w", err)
 	}
 	if !superuser {
-		return
+		return nil
 	}
 
-	slog.LogAttrs(ctx, slog.LevelWarn,
-		"the read-only pool is connected as a superuser, so a query tool can read files on the database host; "+
-			"run 'mise run db:readonly-role' and set WEAVE_READONLY_DATABASE_URL")
+	return fmt.Errorf(
+		"the read-only database role is a superuser, which would let a query tool read files on " +
+			"the database host; run 'mise run db:readonly-role' and point " +
+			"WEAVE_READONLY_DATABASE_URL at the role it creates")
 }
 
 // DB returns the handle to build a domain store over for ordinary use, outside

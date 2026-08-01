@@ -155,31 +155,21 @@ func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) er
 	)
 	mux.Handle(actionPath, actionHandler)
 
-	// The MCP endpoint reads through its own read-only handle rather than
-	// the store's, so nothing reachable from a model can write, whatever
-	// the tools do. It is also its own least-privilege login, since what a
-	// statement may read is decided by the role and not by the flag.
+	// The MCP endpoint reads through its own read-only handle.
 	readOnly, err := store.OpenReadOnly(ctx, state.env.ReadOnlyDatabaseURL)
 	if err != nil {
 		return err
 	}
 	defer readOnly.Close()
 
-	// The RPC-backed tools call back into this same server, so they are
-	// pointed at the address it is about to listen on.
 	mcpHandler, err := mcp.NewHandler(mcp.NewHandlerParams{DB: readOnly, BaseURL: "http://" + addr})
 	if err != nil {
 		return err
 	}
 
-	// Readiness is answered outside the logging middleware, since whoever is asking is
-	// asking on a loop and every answer would be a line.
-	mux.Handle(HealthPath, newHealthHandler(state.pool.Raw()))
-
-	// The MCP endpoint is not served through connect, so the interceptors above never see
-	// it. It is wrapped here instead, since a surface a model can spawn and delete agents
-	// through is the last one that should leave no trace.
 	mux.Handle("/mcp", interceptors.NewLoggingHandler(logger, mcpHandler))
+
+	mux.Handle(HealthPath, newHealthHandler(state.pool.Raw()))
 
 	// River runs the schedules. It keeps its own tables in their own schema,
 	// one worker that launches an agent, and a reconciler that keeps its

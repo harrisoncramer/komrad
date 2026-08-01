@@ -33,7 +33,7 @@ func openTools(t *testing.T) *dbTools {
 		Offset:  0,
 	}))
 
-	readOnly, err := store.OpenReadOnly(t.Context(), st.URL)
+	readOnly, err := store.OpenReadOnly(t.Context(), st.ReadOnlyURL)
 	require.NoError(t, err)
 	t.Cleanup(readOnly.Close)
 
