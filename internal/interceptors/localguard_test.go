@@ -123,8 +123,8 @@ func TestLocalGuard(t *testing.T) {
 	}
 }
 
-// TestLocalGuardOverRealConnection serves the guard on a socket, since every row above
-// puts the connection's own address on the request itself. The Host check rests on net/http
+// TestLocalGuardOverRealConnection serves the guard on a socket. The rows above put the
+// connection's address on the request themselves, and the Host check rests on net/http
 // setting it, so one case goes through a listener to hold that.
 func TestLocalGuardOverRealConnection(t *testing.T) {
 	t.Parallel()
@@ -153,7 +153,7 @@ func TestLocalGuardOverRealConnection(t *testing.T) {
 
 // TestLocalGuardRefusesEveryMethod covers the methods a CSRF check would ordinarily let
 // through as safe. Connect serves idempotent unary RPCs over GET when a client asks for it,
-// so a read of every agent the panel tracks is a GET, and nothing here is exempt.
+// so nothing here is exempt by its method.
 func TestLocalGuardRefusesEveryMethod(t *testing.T) {
 	t.Parallel()
 
@@ -198,7 +198,7 @@ func guardedCall(t *testing.T, req *http.Request, localAddr string) (int, bool, 
 }
 
 // createAgentCall is a call at the RPC that creates an agent, which is the one worth
-// refusing: it takes a prompt and a directory.
+// refusing since it takes a prompt and a directory.
 func createAgentCall(host, origin, fetchSite string) *http.Request {
 	req := httptest.NewRequest(http.MethodPost, "/agent.v1.AgentService/CreateAgent",
 		strings.NewReader(`{"name":"x"}`))

@@ -43,7 +43,6 @@ const originHeader = "Origin"
 
 // refusal is why a request should be refused, or empty for one that should be served.
 func refusal(r *http.Request) string {
-
 	if servedOnLoopback(r) && !loopbackHost(r.Host) {
 		return "the Host header is not a loopback address"
 	}

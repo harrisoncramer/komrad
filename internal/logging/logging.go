@@ -39,8 +39,8 @@ const (
 	URLPath    = "url.path"
 	HTTPStatus = "http.response.status_code"
 	// RequestHost and RequestOrigin are the address a request was aimed at and the page
-	// that sent it. They are carried only on a request refused for one of them, since
-	// together they are the whole of why a browser was told no.
+	// that sent it. They are carried only on a refused request, where the two of them are
+	// the whole of why it was refused.
 	RequestHost   = "http.request.header.host"
 	RequestOrigin = "http.request.header.origin"
 	// AgentID and SessionID name the agent a call came from, set only on calls from an
