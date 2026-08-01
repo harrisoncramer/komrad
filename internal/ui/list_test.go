@@ -218,7 +218,7 @@ func TestScreensFitThePane(t *testing.T) {
 // that keeps one line for the hovered row.
 func TestListLines(t *testing.T) {
 	header := "Archive\n\n"
-	hints := "\nrestore\ndelete\nback\n"
+	help := "\nrestore\ndelete\nback\n"
 
 	tests := []struct {
 		name   string
@@ -253,7 +253,7 @@ func TestListLines(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{height: tt.height, banner: tt.banner}
 
-			assert.Equal(t, tt.want, m.listLines(header, hints))
+			assert.Equal(t, tt.want, m.listLines(header, help))
 		})
 	}
 }

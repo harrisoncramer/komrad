@@ -289,7 +289,7 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 // stage pane rather than here.
 func (m model) agentsView() string {
 	header := headerStyle.Render("Agents and Workflows") + "\n\n"
-	hints := "\n" + m.agentHints()
+	help := "\n" + m.renderHelp(m.agentHelp())
 
 	all := m.agentRows()
 	rows := make([]string, 0, len(all))
@@ -328,7 +328,7 @@ func (m model) agentsView() string {
 		rows = append(rows, prefix+"  "+icon+" "+name+scheduledMark(item.agent)+hiddenMark(item.agent.Hidden)+markGlyph(item.agent, m.marks))
 	}
 
-	return header + renderList(rows, m.tree.cursor, m.listLines(header, hints)) + hints
+	return header + renderList(rows, m.tree.cursor, m.listLines(header, help)) + help
 }
 
 // errNoWorkflow is what the panel reports when a create is attempted with no

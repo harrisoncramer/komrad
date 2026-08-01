@@ -274,10 +274,10 @@ func (m model) updateScheduleDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 // next fires, which is what a person checks a schedule for.
 func (m model) schedulesView() string {
 	header := headerStyle.Render("Schedules") + "\n\n"
-	hints := "\n" + m.scheduleHints()
+	help := "\n" + m.renderHelp(m.scheduleHelp())
 
 	if len(m.schedules.items) == 0 {
-		return header + dimStyle.Render("  no schedules yet") + "\n" + hints
+		return header + dimStyle.Render("  no schedules yet") + "\n" + help
 	}
 
 	rows := make([]string, 0, len(m.schedules.items))
@@ -300,7 +300,7 @@ func (m model) schedulesView() string {
 		rows = append(rows, prefix+"  "+icon+" "+name+"  "+dimStyle.Render(item.schedule.Cron))
 	}
 
-	return header + renderList(rows, m.schedules.cursor, m.listLines(header, hints)) + hints
+	return header + renderList(rows, m.schedules.cursor, m.listLines(header, help)) + help
 }
 
 // applySchedules takes a freshly-listed set as the on-screen schedules, keeping the cursor

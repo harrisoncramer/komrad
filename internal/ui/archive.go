@@ -164,10 +164,10 @@ func (m model) stageArchive() {
 // archiveView renders the archive's own pane, the list of archived agents.
 func (m model) archiveView() string {
 	header := headerStyle.Render("Archive") + "\n\n"
-	hints := "\n" + m.archiveHints()
+	help := "\n" + m.renderHelp(m.archiveHelp())
 
 	if len(m.archive.agents) == 0 {
-		return header + dimStyle.Render("nothing archived") + "\n" + hints
+		return header + dimStyle.Render("nothing archived") + "\n" + help
 	}
 
 	rows := make([]string, 0, len(m.archive.agents))
@@ -182,5 +182,5 @@ func (m model) archiveView() string {
 		rows = append(rows, prefix+name+scheduledMark(agent)+markGlyph(agent, m.marks))
 	}
 
-	return header + renderList(rows, m.archive.cursor, m.listLines(header, hints)) + hints
+	return header + renderList(rows, m.archive.cursor, m.listLines(header, help)) + help
 }

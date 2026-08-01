@@ -145,6 +145,10 @@ type model struct {
 	values formValues
 	target formTarget
 
+	// helpCollapsed is whether the help under a list is down to its one line, which the help
+	// key toggles. Defaults to false so the help is open.
+	helpCollapsed bool
+
 	keys  appconfig.Keybindings
 	marks []appconfig.Mark
 	// editor is the command the editor key runs on an agent's directory.

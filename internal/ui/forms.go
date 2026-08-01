@@ -56,7 +56,7 @@ func newAgentForm(keys appconfig.FormKeys, defaultDir, defaultFlags string) (*hu
 
 	form := huh.NewForm(
 		huh.NewGroup(
-			huh.NewText().Key("prompt").Title("Initial prompt").Description(fmt.Sprintf("ctrl+e opens $EDITOR; %s submits", hintKeys(keys.Submit))).Value(&values.Prompt),
+			huh.NewText().Key("prompt").Title("Initial prompt").Description(fmt.Sprintf("ctrl+e opens $EDITOR; %s submits", keyLabel(keys.Submit))).Value(&values.Prompt),
 			huh.NewInput().Key("title").Title("Title").Description("optional; named from the prompt if blank").Value(&values.Title),
 			huh.NewInput().Key("dir").Title("Directory").Description("blank = current").Value(&values.Dir),
 			huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
@@ -86,7 +86,7 @@ func formKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
 	quit := append(append([]string{}, keys.Back...), keys.Quit...)
 
 	km := huh.NewDefaultKeyMap()
-	km.Quit = key.NewBinding(key.WithKeys(quit...), key.WithHelp(hintKeys(keys.Back), "back"))
+	km.Quit = key.NewBinding(key.WithKeys(quit...), key.WithHelp(keyLabel(keys.Back), "back"))
 	return km
 }
 

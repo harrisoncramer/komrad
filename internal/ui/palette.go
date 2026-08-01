@@ -72,17 +72,24 @@ func formTheme() *huh.Theme {
 
 	// The help line under a form comes from bubbles, which colours it in hex, so it is
 	// restated here rather than inherited.
-	theme.Help = help.Styles{
-		ShortKey:       lipgloss.NewStyle().Foreground(colorMuted),
-		ShortDesc:      lipgloss.NewStyle().Foreground(colorMuted),
-		ShortSeparator: lipgloss.NewStyle().Foreground(colorMuted),
-		Ellipsis:       lipgloss.NewStyle().Foreground(colorMuted),
-		FullKey:        lipgloss.NewStyle().Foreground(colorMuted),
-		FullDesc:       lipgloss.NewStyle().Foreground(colorMuted),
-		FullSeparator:  lipgloss.NewStyle().Foreground(colorMuted),
-	}
+	theme.Help = helpStyles()
 
 	return theme
+}
+
+// helpStyles is how bubbles draws the key help in the palette.
+func helpStyles() help.Styles {
+	muted := lipgloss.NewStyle().Foreground(colorMuted)
+
+	return help.Styles{
+		ShortKey:       muted,
+		ShortDesc:      muted,
+		ShortSeparator: muted,
+		Ellipsis:       muted,
+		FullKey:        muted,
+		FullDesc:       muted,
+		FullSeparator:  muted,
+	}
 }
 
 // stageStyle is how the stage renders markdown: glamour's dark style with every colour
