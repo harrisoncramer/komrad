@@ -8,7 +8,10 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"runtime/debug"
+	"sync"
+	"syscall"
 	"time"
 
 	"weave/internal/agents"
@@ -48,6 +51,11 @@ const scheduleReconcileInterval = 10 * time.Second
 // re-indexes potentially large logs, so it stays off the hot path.
 const transcriptSyncInterval = 15 * time.Second
 
+// shutdownTimeout bounds the whole teardown. It is long enough for a launch in flight to
+// finish typing into its pane, and short enough that a development reload does not feel
+// hung.
+const shutdownTimeout = 10 * time.Second
+
 func serveCmd(state *app) *cobra.Command {
 	var addr string
 
@@ -64,7 +72,10 @@ func serveCmd(state *app) *cobra.Command {
 			}
 			slog.SetDefault(logger)
 
-			if err := serve(cmd.Context(), state, logger, addr); err != nil {
+			ctx, stopSignals := shutdownSignal(cmd.Context())
+			defer stopSignals()
+
+			if err := serve(ctx, serveParams{App: state, Logger: logger, Addr: addr}); err != nil {
 				logger.LogAttrs(cmd.Context(), slog.LevelError, "the server stopped", logging.Err(err)...)
 
 				// The failure is on the record now, so it is marked as said rather than
@@ -93,11 +104,47 @@ func serveLogger(level string) (*slog.Logger, error) {
 	return logging.New(os.Stderr, parsed), nil
 }
 
-// serve builds the handlers, starts the background loops, and listens.
-func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) error {
+// shutdownSignal returns a context cancelled by the first interrupt or termination
+// signal. The handler is released as that signal lands, so a second one gets the default
+// disposition and kills the process outright.
+func shutdownSignal(parent context.Context) (context.Context, func()) {
+	ctx, cancel := context.WithCancel(parent)
+
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		select {
+		case <-signals:
+			signal.Stop(signals)
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+
+	return ctx, func() {
+		signal.Stop(signals)
+		cancel()
+	}
+}
+
+// serveParams is what serve needs to build the service and run it.
+type serveParams struct {
+	App    *app
+	Logger *slog.Logger
+	Addr   string
+}
+
+// serve builds the handlers, starts the background loops, and listens until the context
+// is cancelled or serving fails. A shutdown that was asked for returns nil, since
+// something spawned this process and reads its status.
+func serve(ctx context.Context, p serveParams) error {
+	state, logger, addr := p.App, p.Logger, p.Addr
+
 	if err := state.openStore(ctx); err != nil {
 		return err
 	}
+	defer func() { _ = state.pool.Close() }()
 
 	// Requests are checked against the constraints declared in the proto before any
 	// handler sees them, so a malformed payload is rejected in one place.
@@ -178,42 +225,45 @@ func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) er
 		return err
 	}
 
-	if err := jobRunner.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start the job runner: %w", err)
-	}
-	defer func() { _ = jobRunner.Stop(context.Background()) }()
-
-	periodic := jobs.NewRiverPeriodic(jobRunner.PeriodicJobs())
-
-	go runLoop(ctx, runLoopParams{
-		Name:     "schedule reconcile",
-		Interval: scheduleReconcileInterval,
-		Pass:     jobs.NewScheduler(state.schedules, periodic).Reconcile,
-		Logger:   logger,
-	})
-
-	go runLoop(ctx, runLoopParams{
-		Name:     "reconcile",
-		Interval: reconcileInterval,
-		Pass:     agents.NewReconciler(state.tmux, state.harnesses, state.agents).Reconcile,
-		Logger:   logger,
-	})
-
-	go runLoop(ctx, runLoopParams{
-		Name:     "transcript sync",
-		Interval: transcriptSyncInterval,
-		Pass: agents.NewTranscriptSyncer(agents.TranscriptSyncerParams{
-			Agents:      state.agents,
-			Sessions:    state.agents,
-			Transcripts: state.transcripts,
-			Harnesses:   state.harnesses,
-		}).Sync,
-		Logger: logger,
-	})
-
+	// The socket is claimed before the background work starts, so a port already taken is
+	// reported without anything having to be stopped again on the way out.
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
+	}
+
+	periodic := jobs.NewRiverPeriodic(jobRunner.PeriodicJobs())
+
+	work, err := startBackground(ctx, backgroundParams{
+		Runner: jobRunner,
+		Loops: []runLoopParams{
+			{
+				Name:     "schedule reconcile",
+				Interval: scheduleReconcileInterval,
+				Pass:     jobs.NewScheduler(state.schedules, periodic).Reconcile,
+				Logger:   logger,
+			},
+			{
+				Name:     "reconcile",
+				Interval: reconcileInterval,
+				Pass:     agents.NewReconciler(state.tmux, state.harnesses, state.agents).Reconcile,
+				Logger:   logger,
+			},
+			{
+				Name:     "transcript sync",
+				Interval: transcriptSyncInterval,
+				Pass: agents.NewTranscriptSyncer(agents.TranscriptSyncerParams{
+					Agents:      state.agents,
+					Sessions:    state.agents,
+					Transcripts: state.transcripts,
+					Harnesses:   state.harnesses,
+				}).Sync,
+				Logger: logger,
+			},
+		},
+	})
+	if err != nil {
+		return err
 	}
 
 	logger.LogAttrs(ctx, slog.LevelInfo, "the server is listening",
@@ -224,7 +274,95 @@ func serve(ctx context.Context, state *app, logger *slog.Logger, addr string) er
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	return server.Serve(listener)
+	served := make(chan error, 1)
+	go func() { served <- server.Serve(listener) }()
+
+	var failure error
+	select {
+	case failure = <-served:
+	case <-ctx.Done():
+		logger.LogAttrs(ctx, slog.LevelInfo, "the server is stopping")
+	}
+
+	deadline, cancel := shutdownDeadline(ctx)
+	defer cancel()
+
+	// The listener goes first, so nothing new arrives against a dependency that is
+	// already being torn down.
+	if err := server.Shutdown(deadline); err != nil {
+		logger.LogAttrs(ctx, slog.LevelError, "the server would not shut down cleanly", logging.Err(err)...)
+	}
+
+	work.stop(deadline, logger)
+
+	if errors.Is(failure, http.ErrServerClosed) {
+		return nil
+	}
+
+	return failure
+}
+
+// shutdownDeadline bounds the teardown. It is derived here rather than at startup so the
+// clock starts when the shutdown does.
+func shutdownDeadline(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(ctx), shutdownTimeout)
+}
+
+// jobRunner is what serve needs of River, which is only the two ends of its life.
+type jobRunner interface {
+	Start(ctx context.Context) error
+	Stop(ctx context.Context) error
+}
+
+// backgroundParams is the work that runs behind the listener rather than in answer to a
+// request.
+type backgroundParams struct {
+	Runner jobRunner
+	Loops  []runLoopParams
+}
+
+// backgroundWork is that work once started, held so serve can stop it in order.
+type backgroundWork struct {
+	runner    jobRunner
+	stopLoops context.CancelFunc
+	loops     *sync.WaitGroup
+}
+
+// startBackground starts River and the loops on a context the signal deliberately does
+// not reach. Cancelling the context River was started on is a hard stop, which would cut
+// a launch off mid-flight rather than waiting for it to finish.
+func startBackground(ctx context.Context, p backgroundParams) (*backgroundWork, error) {
+	uncancelled := context.WithoutCancel(ctx)
+
+	if err := p.Runner.Start(uncancelled); err != nil {
+		return nil, fmt.Errorf("failed to start the job runner: %w", err)
+	}
+
+	loopCtx, stopLoops := context.WithCancel(uncancelled)
+
+	var loops sync.WaitGroup
+	for _, params := range p.Loops {
+		loops.Add(1)
+
+		go func() {
+			defer loops.Done()
+			runLoop(loopCtx, params)
+		}()
+	}
+
+	return &backgroundWork{runner: p.Runner, stopLoops: stopLoops, loops: &loops}, nil
+}
+
+// stop ends the loops and then waits for River, which waits in turn for a launch in
+// flight. A job still running at the deadline is left where it is rather than cancelled,
+// since a launch cut off partway through leaves a pane no row names.
+func (b *backgroundWork) stop(ctx context.Context, logger *slog.Logger) {
+	b.stopLoops()
+	b.loops.Wait()
+
+	if err := b.runner.Stop(ctx); err != nil {
+		logger.LogAttrs(ctx, slog.LevelError, "gave up waiting for a job to finish", logging.Err(err)...)
+	}
 }
 
 // runLoopParams is what one of serve's background loops needs. Name is carried on every
