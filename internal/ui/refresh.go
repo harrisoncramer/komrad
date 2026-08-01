@@ -249,6 +249,10 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	}
 
 	if m.pendingForm {
+		// The wait is over whichever way it went. A form still marked as waiting takes no
+		// keys, so leaving the mark on would freeze the form the refusal came back to.
+		m.pendingForm = false
+
 		if result.err == nil {
 			closed, cmd := m.closeForm()
 			if next, ok := closed.(model); ok {
