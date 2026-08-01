@@ -62,7 +62,7 @@ func newAgentForm(keys appconfig.FormKeys, prefill agentFormValues) (*huh.Form, 
 			huh.NewInput().Key("dir").Title("Directory").Description("blank = current").Value(&values.Dir),
 			huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 		),
-	).WithShowHelp(true).WithKeyMap(formKeyMap(keys)).WithTheme(formTheme())
+	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 
 	return form, values
 }
@@ -83,12 +83,30 @@ func renameForm(current, prefill string, keys appconfig.FormKeys) (*huh.Form, *s
 }
 
 // formKeyMap is the default form keymap with the configured back and quit keys bound to
-// abort, so esc backs out of a form the same way it leaves other screens.
+// abort, so esc backs out of a form the same way it leaves other screens. Enter still
+// submits, which is what a one-field form and a yes-or-no prompt want.
 func formKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
 	quit := append(append([]string{}, keys.Back...), keys.Quit...)
 
 	km := huh.NewDefaultKeyMap()
 	km.Quit = key.NewBinding(key.WithKeys(quit...), key.WithHelp(keyLabel(keys.Back), "back"))
+	return km
+}
+
+// multiFieldKeyMap is the keymap for the forms with fields to fill in, where enter moves
+// between them and only the submit key submits. huh otherwise submits on an enter from the
+// last field, which completes the form, and a completed form is one huh cannot resume and
+// draws as nothing. Submitting the panel's own way leaves the form untouched, so a refusal
+// comes back to it with the cursor where it was left.
+func multiFieldKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
+	submit := key.NewBinding(key.WithKeys(keys.Submit...), key.WithHelp(keyLabel(keys.Submit), "submit"))
+
+	km := formKeyMap(keys)
+	km.Input.Submit = submit
+	km.Text.Submit = submit
+	km.Select.Submit = submit
+	km.Confirm.Submit = submit
+
 	return km
 }
 
@@ -226,7 +244,7 @@ func workflowConfigForm(nameTitle string, cfg workflowstore.Config, available []
 				Description("runs once an agent here is deleted").
 				Options(actionOptions(available, cfg.CleanupAction)...).Value(&values.CleanupAction),
 		),
-	).WithShowHelp(true).WithKeyMap(formKeyMap(keys)).WithTheme(formTheme())
+	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 
 	return form, &values
 }
@@ -282,7 +300,7 @@ func scheduleForm(cfg schedulestore.Config, workflows []workflowstore.Workflow, 
 			huh.NewConfirm().Key("enabled").Title("Armed?").Affirmative("Armed").Negative("Paused").Value(&values.Enabled).WithButtonAlignment(lipgloss.Left),
 			huh.NewConfirm().Key("hide_agents").Title("Hide its runs?").Description("they still run, they just take no row").Affirmative("Hidden").Negative("Listed").Value(&values.HideAgents).WithButtonAlignment(lipgloss.Left),
 		),
-	).WithShowHelp(true).WithKeyMap(formKeyMap(keys)).WithTheme(formTheme())
+	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 
 	return form, &values
 }

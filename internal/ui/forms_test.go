@@ -627,3 +627,59 @@ func (f *formRecorder) ArchiveSchedule(_ context.Context, req *connect.Request[s
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
+
+// TestOnlyTheSubmitKeySubmitsAMultiFieldForm covers the keymap the fillable forms use.
+// Enter from the last field would complete the form, which huh cannot resume and draws as
+// nothing, so a refusal would have nowhere to come back to. The one-field forms keep enter,
+// since there is no cursor to lose in them.
+func TestOnlyTheSubmitKeySubmitsAMultiFieldForm(t *testing.T) {
+	keys := appconfig.DefaultKeybindings().Form
+
+	agent, _ := newAgentForm(keys, agentFormValues{})
+	agent.Init()
+	for range 3 {
+		agent.Update(huh.NextField())
+	}
+
+	pump(t, agent, keyMsg("enter"))
+	assert.NotEqual(t, huh.StateCompleted, agent.State, "enter on the last field leaves the form alone")
+
+	rename, _ := renameForm("api-refactor", "", keys)
+	rename.Init()
+
+	pump(t, rename, keyMsg("enter"))
+	assert.Equal(t, huh.StateCompleted, rename.State, "a one-field form still submits on enter")
+}
+
+// TestFormTakesNoKeysWhileItsWriteIsInFlight covers the second ctrl+s landing before the
+// first write has answered, which would launch the same agent twice.
+func TestFormTakesNoKeysWhileItsWriteIsInFlight(t *testing.T) {
+	sent := &formRecorder{}
+
+	m := formModel(sent)
+	workflow := m.tree.workflows[0]
+	opened, _ := m.openNewAgent(&workflow)
+	m = asModel(t, opened)
+	m.values.agent.Prompt = "check CI"
+	m.pendingForm = true
+
+	updated, cmd := m.Update(keyMsg("ctrl+s"))
+	got := settle(t, asModel(t, updated), cmd)
+
+	assert.Nil(t, sent.createdAgent, "the key never reached the submit path")
+	assert.Equal(t, screenForm, got.screen)
+	assert.Equal(t, "check CI", got.values.agent.Prompt, "and the form is as it was")
+}
+
+// pump applies a message to a form and feeds back whatever the form asks for, since moving
+// between fields takes a couple of rounds. The step bound is a backstop against a form that
+// keeps asking, such as a blinking cursor.
+func pump(t *testing.T, form *huh.Form, msg tea.Msg) {
+	t.Helper()
+
+	queue := []tea.Msg{msg}
+	for step := 0; len(queue) > 0 && step < 10; step++ {
+		_, cmd := form.Update(queue[0])
+		queue = append(queue[1:], produced(cmd)...)
+	}
+}

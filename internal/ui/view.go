@@ -27,8 +27,13 @@ func (m model) View() string {
 		return errui.Unreachable(m.width, m.addr, m.unreachable)
 	}
 
+	// A form waiting on its write is frozen, so it says so. The banner underneath it is
+	// the refusal being retried, which the next result replaces anyway.
 	var chrome string
-	if m.banner != nil {
+	switch {
+	case m.pendingForm:
+		chrome = dimStyle.Render("  submitting…") + "\n\n"
+	case m.banner != nil:
 		chrome = m.banner.Render(m.width)
 	}
 
