@@ -11,9 +11,9 @@ import (
 	workflowstore "weave/internal/store/workflow"
 )
 
-// The stage shows a resource that has no pane of its own as rendered markdown, so
-// every screen has a document for whatever it is hovering. These build them, and
-// nothing here reads the model: a document is a function of the record it describes.
+// The stage shows a resource with no pane of its own as rendered markdown. These build
+// those documents, and nothing here reads the model: a document is a function of the
+// record it describes.
 
 func orDash(v string) string {
 	if strings.TrimSpace(v) == "" {
@@ -23,8 +23,7 @@ func orDash(v string) string {
 	return v
 }
 
-// workflowMarkdown renders a workflow's name, shared context, and config for the
-// stage.
+// workflowMarkdown renders a workflow's name, shared context, and config for the stage.
 func workflowMarkdown(w workflowstore.Workflow, agents int) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", w.Name)
@@ -41,11 +40,9 @@ func workflowMarkdown(w workflowstore.Workflow, agents int) string {
 	return b.String()
 }
 
-// agentMarkdown renders an agent's stored record for the stage. A dormant agent has
-// no live pane to show, so this is all there is of it. A live one shows the same
-// record on demand, since its running pane occupies the stage and hides the cwd and
-// flags it was launched with. The values are the record as stored at launch rather
-// than what the running agent has done since.
+// agentMarkdown renders an agent's stored record for the stage, which is all there is of a
+// dormant agent and what a live one shows on demand, since its pane otherwise hides the
+// cwd and flags it was launched with. The values are as stored at launch.
 func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", agent.Name)
@@ -56,11 +53,9 @@ func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) string {
 	fmt.Fprintf(&b, "- agent: %s\n", orDash(agent.Harness))
 	fmt.Fprintf(&b, "- directory: %s\n", orDash(agent.Cwd))
 	fmt.Fprintf(&b, "- flags: %s\n", orDash(agent.Flags))
-	// Both ids are shown because they are different things and both get typed into
-	// something: the agent id is what the panel and its tools call this agent, and the
-	// session id is what its CLI calls the conversation, which is what a resume by hand
-	// takes. An agent whose CLI names its own conversations has none until it has said
-	// something.
+	// Both ids are shown because both get typed into something: the agent id is what the
+	// panel and its tools call this agent, and the session id is what its CLI calls the
+	// conversation, which is what a resume by hand takes.
 	fmt.Fprintf(&b, "- agent_id: %s\n", orDash(agent.ID))
 	fmt.Fprintf(&b, "- session_id: %s\n", orDash(agent.SessionID))
 	if schedule != "" {
@@ -75,11 +70,9 @@ func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) string {
 	if agent.Hidden {
 		b.WriteString("- hidden from the list\n")
 	}
-	// What the agent recorded about its own work, which is the one part of this record
-	// it wrote rather than took at launch. The values go in bare: they are mostly URLs,
-	// terminals linkify those on their own, and markdown link syntax would hide the
-	// target this section exists to show. An agent that recorded nothing draws no
-	// heading at all rather than an empty one.
+	// What the agent recorded about its own work, the one part of this record it wrote
+	// rather than took at launch. The values go in bare, since they are mostly URLs and
+	// markdown link syntax would hide the target this section exists to show.
 	if len(agent.Metadata) > 0 {
 		b.WriteString("\n## metadata\n\n")
 		for _, entry := range agent.Metadata {
@@ -93,19 +86,18 @@ func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) string {
 	return b.String()
 }
 
-// textual reports whether bytes are text the stage can show. A NUL byte is what tells them
-// apart, which is how less itself decides, and nothing worth reading in the stage carries one.
+// textual reports whether bytes are text the stage can show, deciding on a NUL byte the
+// way less itself does.
 func textual(text []byte) bool {
 	return bytes.IndexByte(text, 0) < 0
 }
 
-// fencedBlock is a block of text somebody else wrote, ready to sit in a stage document. The
-// renderer indents a fenced block whole and leaves what is inside it alone, so the text is shown
-// as it was written rather than read as markdown and reflowed to the pane.
+// fencedBlock is a block of text somebody else wrote, ready to sit in a stage document.
+// The renderer leaves what is inside a fence alone, so the text shows as it was written
+// rather than reflowed to the pane.
 //
-// The fence is three backticks, or one longer than the longest run inside the text. Text
-// carrying a fence of its own would otherwise close the block early and leave the rest of itself
-// rendering as prose.
+// The fence is three backticks, or one longer than the longest run inside the text, since
+// text carrying a fence of its own would otherwise close the block early.
 func fencedBlock(text []byte) string {
 	if !textual(text) {
 		return "_not text, so there is nothing to show_\n"
@@ -121,7 +113,7 @@ func fencedBlock(text []byte) string {
 	return fmt.Sprintf("%s\n%s\n%s\n", fence, body, fence)
 }
 
-// longestBacktickRun is the longest unbroken run of backticks in a string, which is what a fence
+// longestBacktickRun is the longest unbroken run of backticks in a string, which a fence
 // around it has to beat.
 func longestBacktickRun(body string) int {
 	longest, run := 0, 0
@@ -139,10 +131,9 @@ func longestBacktickRun(body string) int {
 	return longest
 }
 
-// actionMarkdown renders an action for the stage, its name over the start of its own text as the
-// service read it. An action is as readily a compiled program as a script, so the body goes
-// through fencedBlock, which shows a script as the code it is and says so rather than spilling a
-// binary into the pane.
+// actionMarkdown renders an action for the stage, its name over the start of its own text.
+// An action is as readily a compiled program as a script, so the body goes through
+// fencedBlock rather than spilling a binary into the pane.
 func actionMarkdown(action actionItem) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", action.name)
@@ -158,8 +149,8 @@ func actionMarkdown(action actionItem) string {
 	return b.String()
 }
 
-// noSchedulesMarkdown is what the stage shows with an empty list, so the pane
-// beside it says what the screen is for rather than sitting blank.
+// noSchedulesMarkdown is what the stage shows with an empty list, so the pane says what
+// the screen is for rather than sitting blank.
 const noSchedulesMarkdown = "# Schedules\n\n" +
 	"A schedule launches an agent on a cron expression.\n\n" +
 	"Press the new key to write one.\n"
@@ -189,9 +180,8 @@ func scheduleMarkdown(item scheduleItem, workflow *workflowstore.Workflow) strin
 		b.WriteString("- its runs start hidden\n")
 	}
 
-	// The directory and flags belong to the workflow and are read as the schedule
-	// fires, so they are shown under the workflow that supplies them rather than as
-	// settings of the schedule itself.
+	// The directory and flags belong to the workflow and are read as the schedule fires,
+	// so they show under the workflow rather than as settings of the schedule.
 	if workflow == nil {
 		b.WriteString("- workflow: — (deleted)\n")
 
@@ -205,13 +195,12 @@ func scheduleMarkdown(item scheduleItem, workflow *workflowstore.Workflow) strin
 	return b.String()
 }
 
-// emptyArchiveMarkdown is what the stage shows with nothing in the archive, so the
-// pane says why it is blank rather than sitting empty.
+// emptyArchiveMarkdown is what the stage shows with nothing in the archive, so the pane
+// says why it is blank.
 const emptyArchiveMarkdown = "# Archive\n\n_nothing archived_\n\nAgents archived from the panel are kept here until you delete them.\n"
 
-// archiveMarkdown renders an archived agent's stored record for the stage. It is the
-// same record the agents list shows, minus the liveness, plus what the two keys
-// here would do to it.
+// archiveMarkdown renders an archived agent's stored record for the stage: what the agents
+// list shows, minus the liveness, plus what the two keys here would do to it.
 func archiveMarkdown(agent agentstore.Agent, schedule string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", agent.Name)

@@ -27,8 +27,7 @@ type searchState struct {
 const searchLimit = 10
 
 // searchDebounce is how long typing has to pause before the query runs, long enough to
-// swallow a burst of typing and short enough that a pause still feels answered
-// immediately.
+// swallow a burst and short enough that a pause still feels answered immediately.
 const searchDebounce = 120 * time.Millisecond
 
 // searchHit is one result of a transcript search. The snippet carries the match wrapped in
@@ -42,25 +41,24 @@ type searchHit struct {
 	snippet  string
 }
 
-// searchSettledMsg fires once typing has paused for searchDebounce. The query it carries
-// is the one that was current when the pause began, so a keystroke landing during the
-// wait leaves it stale and it is dropped rather than queried for.
+// searchSettledMsg fires once typing has paused for searchDebounce, carrying the query
+// current when the pause began, so a keystroke during the wait leaves it stale and it is
+// dropped rather than queried for.
 type searchSettledMsg struct {
 	query string
 }
 
-// searchResult carries the hits for a query back to the update loop. The query is echoed
-// so a late response for a query the user has since edited past can be discarded rather
-// than shown against the wrong input.
+// searchResult carries the hits for a query back to the update loop, echoing the query so
+// a late response is discarded rather than shown against the wrong input.
 type searchResult struct {
 	query string
 	hits  []searchHit
 }
 
 // previewResult carries a hovered hit's full transcript back for the preview. The agent id
-// and query are echoed so a response arriving after the hover or the query moved on is
-// discarded rather than staged over the wrong hit. The offset is the hit's own, so the
-// preview centres on the turn that matched rather than wherever the words first appear.
+// and query are echoed so a response arriving after either moved on is discarded rather
+// than staged over the wrong hit, and the offset is the hit's own, so the preview centres
+// on the turn that matched rather than wherever the words first appear.
 type previewResult struct {
 	agentID string
 	query   string
@@ -80,9 +78,8 @@ func (m model) enterSearch() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// debounceSearchCmd waits out searchDebounce before the query is run, so a burst of typing
-// costs one request rather than one per key. A blank query clears the results straight
-// away.
+// debounceSearchCmd waits out searchDebounce before the query runs, so a burst of typing
+// costs one request rather than one per key. A blank query clears the results at once.
 func (m model) debounceSearchCmd(query string) tea.Cmd {
 	if strings.TrimSpace(query) == "" {
 		return func() tea.Msg { return searchResult{query: query} }
@@ -93,8 +90,8 @@ func (m model) debounceSearchCmd(query string) tea.Cmd {
 	})
 }
 
-// runSettledSearch runs a debounced query, unless the user typed on during the
-// wait, in which case the keystroke that did so has its own pause to sit out.
+// runSettledSearch runs a debounced query, unless the user typed on during the wait, in
+// which case that keystroke has its own pause to sit out.
 func (m model) runSettledSearch(msg searchSettledMsg) tea.Cmd {
 	if msg.query != m.search.query {
 		return nil
@@ -103,8 +100,8 @@ func (m model) runSettledSearch(msg searchSettledMsg) tea.Cmd {
 	return m.searchCmd(msg.query)
 }
 
-// searchCmd runs the query over the service off the UI goroutine, so typing
-// never blocks on the RPC. A blank query resolves to no hits without a call.
+// searchCmd runs the query over the service off the UI goroutine, so typing never blocks
+// on the RPC. A blank query resolves to no hits without a call.
 func (m model) searchCmd(query string) tea.Cmd {
 	client := m.api.agents
 
@@ -156,8 +153,8 @@ func (m *model) applySearch(result searchResult) tea.Cmd {
 	return m.previewCmd(m.search.hits[m.search.cursor])
 }
 
-// previewCmd loads a hit's full transcript off the UI goroutine, so hovering a
-// result never blocks the render loop on the fetch.
+// previewCmd loads a hit's full transcript off the UI goroutine, so hovering a result
+// never blocks the render loop on the fetch.
 func (m model) previewCmd(hit searchHit) tea.Cmd {
 	client := m.api.agents
 	query := m.search.query
@@ -198,8 +195,8 @@ func (m *model) applyPreview(result previewResult) {
 	m.stage.Transcript(result.content, lineAtOffset(result.content, result.offset))
 }
 
-// updateSearch drives the search screen. Exit uses fixed keys rather than the
-// configurable agent bindings, whose letters would otherwise type into the query.
+// updateSearch drives the search screen. Exit uses fixed keys rather than the configurable
+// agent bindings, whose letters would otherwise type into the query.
 func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -240,9 +237,9 @@ func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// openSearchHit opens the hovered result's agent and returns to the list focused on it.
-// Opening a hit is a restore, since the agent behind it may be archived or dormant, and a
-// live one comes back as it stands rather than being started twice.
+// openSearchHit opens the hovered result's agent and returns to the list focused on it, as
+// a restore, since the agent behind a hit may be archived or dormant and a live one comes
+// back as it stands rather than being started twice.
 func (m model) openSearchHit() (tea.Model, tea.Cmd) {
 	if m.search.cursor < 0 || m.search.cursor >= len(m.search.hits) {
 		return m, nil
@@ -267,8 +264,8 @@ func (m model) searchView() string {
 		b.WriteString(dimStyle.Render("no matches") + "\n")
 	default:
 		// One conversation matches once per turn that did, so its hits arrive as several
-		// adjacent rows. Repeating the name down all of them would read as several agents,
-		// so only the first of a run is labelled.
+		// adjacent rows and only the first of a run is labelled, or it would read as
+		// several agents.
 		labelled := ""
 		for i, hit := range m.search.hits {
 			if hit.name != labelled {
