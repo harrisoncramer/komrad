@@ -3,98 +3,49 @@
 set -euo pipefail
 cd "$MISE_CONFIG_ROOT"
 
-# air (mise run go:dev) owns rebuilding bin/weave on save. Reload does
-# not build; it restarts the long-lived processes still running the old binary.
-# Warn when air is not watching, since then the binary is whatever was last
-# built by hand and reload alone will not reflect new code.
+weave="$MISE_CONFIG_ROOT/bin/weave"
+
+# air (mise run go:dev) owns rebuilding bin/weave on save. Reload does not build; it
+# restarts the long-lived processes still running the old binary.
 if ! pgrep -x air >/dev/null 2>&1; then
 	echo "warning: air is not running; start it with 'mise run go:dev' so saves rebuild the binary"
 fi
 
-if [ ! -x bin/weave ]; then
+if [ ! -x "$weave" ]; then
 	echo "bin/weave missing; building once (start air to keep it fresh)"
-	go build -o bin/weave .
+	go build -o "$weave" .
 fi
 
-# serve is long-lived and spawned on first panel open, so a fresh binary alone
-# does not reach it. The pattern carries the path separator so it matches the binary
-# rather than any directory that happens to be called weave.
-serve_pattern='/weave serve'
-serve_was_running=0
-if pgrep -f "$serve_pattern" >/dev/null 2>&1; then
-	serve_was_running=1
+# Asking rather than signalling, so serve is given its own shutdown and this waits for
+# however long that actually takes instead of guessing at a timeout. A build too old to
+# hold the stop route is reported by the command itself, and the pkill below is what
+# clears it.
+if ! "$weave" stop; then
+	echo "falling back to a signal" >&2
+	pkill -f "/weave serve" 2>/dev/null || true
+	for _ in $(seq 1 120); do
+		pgrep -f "/weave serve" >/dev/null 2>&1 || break
+		sleep 0.25
+	done
+	if pgrep -f "/weave serve" >/dev/null 2>&1; then
+		echo "error: serve process would not die; kill it by hand" >&2
+		exit 1
+	fi
 fi
 
-# The wait covers serve's own shutdown budget, most of which is the ten seconds a launch
-# in flight is given to finish. Escalating before that expires is the abrupt kill the
-# shutdown exists to avoid, so this is deliberately longer than serve can take.
-pkill -f "$serve_pattern" 2>/dev/null || true
-for _ in $(seq 1 120); do
-	pgrep -f "$serve_pattern" >/dev/null 2>&1 || break
-	sleep 0.25
-done
-if pgrep -f "$serve_pattern" >/dev/null 2>&1; then
-	pkill -9 -f "$serve_pattern" 2>/dev/null || true
-	sleep 0.5
-fi
-if pgrep -f "$serve_pattern" >/dev/null 2>&1; then
-	echo "error: serve process would not die; kill it by hand" >&2
-	exit 1
-fi
-
-# The panel and every agent live on a tmux server of their own, which a plain
-# tmux command does not address: it would talk to the user's server, find no
-# weave session there, and silently do nothing. The socket is the same one the
-# binary resolves from the environment.
+# The panel and every agent live on a tmux server of their own, which a plain tmux command
+# does not address. The socket is the same one the binary resolves from the environment.
 socket="${WEAVE_TMUX_SOCKET:-weave}"
-manager() { tmux -L "$socket" "$@"; }
-
-# The panel is a window of the weave session and every agent is a window beside
-# it, so the restart is scoped to the panel's own pane. Killing the session
-# would take every running agent down with the panel. The panel is the only pane
-# running this binary, which is what identifies it.
-panel_pane="$(manager list-panes -a -F '#{pane_id} #{pane_current_command}' 2>/dev/null |
-	awk '$2 == "weave" { print $1; exit }' || true)"
+panel_pane="$(tmux -L "$socket" show -gv @weave_pane 2>/dev/null || true)"
 
 if [ -z "$panel_pane" ]; then
-	# Finding neither serve nor a panel is worth saying outright rather than
-	# reporting as a restart. A reload that matched nothing reads as success, which
-	# is wrong whenever something is running under a name or on a socket this task
-	# does not address, since the next open then comes back on that same untouched
-	# process and the new build never runs.
-	if [ "$serve_was_running" -eq 0 ]; then
-		echo "nothing to reload: no serve matching '$serve_pattern', and no panel pane on socket '$socket'"
-		echo "if the panel is up, it is running a binary or a socket this checkout does not build; check 'ps' and 'ls /tmp/tmux-$(id -u)'"
-	else
-		echo "stopped stale serve; no panel is running, so open it (prefix+g) to start both from the current binary"
-	fi
+	echo "no panel is running, so open it (prefix+g) to start both from the current binary"
 	exit 0
 fi
 
-# An agent staged beside the panel is that agent's own pane, swapped into the
-# panel's window. Breaking it out returns it to a window of its own, and pane ids
-# travel with the pane, so the panel still finds the agent afterwards. A pane
-# sitting at a shell is the stage's own, which the panel recreates on its next
-# start, so it goes rather than becoming a window of junk. A dormant agent's pane
-# sits at a shell too and is killed with it, which costs nothing: restoring the
-# agent opens it again.
-panel_window="$(manager display-message -p -t "$panel_pane" '#{window_id}' 2>/dev/null || true)"
-{ manager list-panes -t "$panel_window" -F '#{pane_id} #{pane_current_command}' 2>/dev/null || true; } |
-	while read -r pane command; do
-		[ "$pane" = "$panel_pane" ] && continue
-		case "$command" in
-		sh | bash | zsh | fish | less | bat | .bat-wrapped)
-			manager kill-pane -t "$pane" 2>/dev/null || true
-			;;
-		*)
-			manager break-pane -d -s "$pane" 2>/dev/null || true
-			;;
-		esac
-	done
-
-# Respawning the pane restarts the panel in place, keeping the session and the
-# environment open recorded on it. The new panel spawns serve as it starts, so
-# both come back on the current binary.
-manager respawn-pane -k -t "$panel_pane" -c "$MISE_CONFIG_ROOT" "$MISE_CONFIG_ROOT/bin/weave"
+# Respawning the pane restarts the panel in place, keeping the session and the environment
+# open recorded on it. The panel clears its own window and spawns serve as it starts, so
+# both come back on the current binary with the agents left running.
+tmux -L "$socket" respawn-pane -k -t "$panel_pane" -c "$MISE_CONFIG_ROOT" "$weave"
 
 echo "restarted the panel and its serve from the current binary; agents were left running"

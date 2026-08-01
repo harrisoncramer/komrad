@@ -151,6 +151,8 @@ func NewRootCommand() *cobra.Command {
 		openCmd(state),
 		hideCmd(state),
 		serveCmd(state),
+		startCmd(state),
+		stopCmd(state),
 		migrateCmd(state),
 		readonlyRoleCmd(state),
 	)

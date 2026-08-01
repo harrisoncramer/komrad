@@ -38,6 +38,11 @@ const managerOpenFlag = "@weave_open"
 // fixed when the persistent panel first started.
 const managerClientFlag = "@weave_client"
 
+// managerPaneFlag holds the pane the panel is running in. A reload has to respawn that
+// pane to restart the panel, and the panel is the only thing that knows for certain which
+// it is: found from outside, it can only be guessed at by what command a pane is running.
+const managerPaneFlag = "@weave_pane"
+
 // managerKeyOption holds the user's chosen panel key. The tmux plugin reads it on
 // the user's server to bind the key there, and the popup reads the same option to
 // bind its own meaning for it inside the popup.
@@ -66,6 +71,15 @@ func (p *Popup) MarkOpen() { p.tmux.SetGlobal(managerOpenFlag, "1") }
 
 // MarkClosed records that the popup is hidden.
 func (p *Popup) MarkClosed() { p.tmux.SetGlobal(managerOpenFlag, "0") }
+
+// MarkPane records the pane the panel is running in, for a reload that has to respawn it.
+func (p *Popup) MarkPane(pane string) {
+	if pane == "" {
+		return
+	}
+
+	p.tmux.SetGlobal(managerPaneFlag, pane)
+}
 
 // SetInvokingClient records the tmux client that opened the current popup.
 func (p *Popup) SetInvokingClient(client string) {
