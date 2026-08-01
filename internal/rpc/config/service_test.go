@@ -39,7 +39,7 @@ func TestGetConfig(t *testing.T) {
 			check: func(t *testing.T, resp *configv1.GetConfigResponse) {
 				assert.Nil(t, resp.ConfigError)
 				assert.Empty(t, harnessFlags(t, resp, "claude"))
-				assert.Equal(t, []any{"up", "ctrl+p"}, binding(t, resp, "nav", "up"))
+				assert.Equal(t, []any{"k"}, binding(t, resp, "nav", "up"))
 			},
 		},
 		{

@@ -109,6 +109,14 @@ func TestUpdateSearchEditsQuery(t *testing.T) {
 			},
 			want: "pos",
 		},
+		{
+			name: "the nav keys are part of the query, since this screen moves on the arrows",
+			keys: []tea.KeyMsg{
+				{Type: tea.KeyRunes, Runes: []rune("j")},
+				{Type: tea.KeyRunes, Runes: []rune("k")},
+			},
+			want: "jk",
+		},
 	}
 
 	for _, tt := range tests {

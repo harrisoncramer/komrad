@@ -19,11 +19,11 @@ import (
 )
 
 // Keybindings scopes bindings to the screen they act in. Each binding is a list of
-// bubbletea key strings such as "enter", "ctrl+d", or "esc". A binding left unset
-// falls back to its built-in default.
+// bubbletea key strings such as "enter", "ctrl+d", or "esc". Every default is a
+// single key, leaving the alternatives to you. A binding left unset falls back to
+// its built-in default.
 type Keybindings struct {
-	// Navigation, shared by every menu so movement is the same everywhere. These
-	// avoid letter keys so they still work in the search text field.
+	// Navigation, shared by every menu so movement is the same everywhere.
 	Nav NavKeys `mapstructure:"nav"`
 	// The key that draws the legend under a list, shared by every screen for the same
 	// reason navigation is.
@@ -99,8 +99,7 @@ type AgentsKeys struct {
 	Mark []string `mapstructure:"mark"`
 	// Hide the hovered agent from this list, or unhide one while the hidden agents
 	// are shown. Hiding stops nothing: the agent keeps running and every other view
-	// still holds it. This holds h, which is why back on this screen is esc and left
-	// alone.
+	// still holds it.
 	Hide []string `mapstructure:"hide"`
 	// Show the hidden agents alongside the rest, and press it again to put them
 	// away. While they are away each workflow header carries the count of what it is
@@ -391,16 +390,16 @@ func DefaultMarks() []Mark {
 func DefaultKeybindings() Keybindings {
 	return Keybindings{
 		Nav: NavKeys{
-			Up:   []string{"up", "ctrl+p"},
-			Down: []string{"down", "ctrl+n"},
+			Up:   []string{"k"},
+			Down: []string{"j"},
 		},
 		Help: HelpKeys{
 			Toggle: []string{"?"},
 		},
 		Agents: AgentsKeys{
-			Quit:       []string{"ctrl+c", "q"},
-			Back:       []string{"esc", "left"},
-			Open:       []string{"enter", "l", "right"},
+			Quit:       []string{"ctrl+c"},
+			Back:       []string{"esc"},
+			Open:       []string{"enter"},
 			Editor:     []string{"e"},
 			New:        []string{"n"},
 			Rename:     []string{"r"},
@@ -420,25 +419,25 @@ func DefaultKeybindings() Keybindings {
 		},
 		Schedules: SchedulesKeys{
 			Open:   []string{"s"},
-			Quit:   []string{"ctrl+c", "q"},
-			Back:   []string{"esc", "left", "h"},
+			Quit:   []string{"ctrl+c"},
+			Back:   []string{"esc"},
 			New:    []string{"n"},
-			Edit:   []string{"e", "enter"},
+			Edit:   []string{"enter"},
 			Toggle: []string{" "},
 			Delete: []string{"d"},
 		},
 		Archive: ArchiveKeys{
 			Open:    []string{"Z"},
-			Quit:    []string{"ctrl+c", "q"},
-			Back:    []string{"esc", "left", "h"},
+			Quit:    []string{"ctrl+c"},
+			Back:    []string{"esc"},
 			Restore: []string{"r"},
 			Delete:  []string{"d"},
 		},
 		Actions: ActionsKeys{
 			Open: []string{"a"},
-			Quit: []string{"ctrl+c", "q"},
-			Back: []string{"esc", "left", "h"},
-			Run:  []string{"enter", "l", "right"},
+			Quit: []string{"ctrl+c"},
+			Back: []string{"esc"},
+			Run:  []string{"enter"},
 		},
 		Form: FormKeys{
 			Quit:   []string{"ctrl+c"},

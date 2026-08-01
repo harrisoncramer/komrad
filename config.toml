@@ -61,13 +61,12 @@ split = 0.2
 
 # Panel keybindings, scoped to the screen each binding acts in.
 
-# Navigation, shared by every menu so movement is the same everywhere. These
-# avoid letter keys so they still work in the search text field.
+# Navigation, shared by every menu so movement is the same everywhere.
 [keybindings.nav]
 # Move the cursor up.
-up   = ["up", "ctrl+p"]
+up   = ["k"]
 # Move the cursor down.
-down = ["down", "ctrl+n"]
+down = ["j"]
 
 # The key that draws the legend under a list, shared by every screen for the
 # same reason navigation is.
@@ -78,11 +77,11 @@ toggle = ["?"]
 # The agents list, the panel's main screen.
 [keybindings.agents]
 # Quit the panel.
-quit        = ["ctrl+c", "q"]
+quit        = ["ctrl+c"]
 # Step out of a workflow scope, or quit at the root.
-back        = ["esc", "left"]
+back        = ["esc"]
 # Attach to the hovered agent.
-open        = ["enter", "l", "right"]
+open        = ["enter"]
 # Open the hovered agent's directory in whatever EDITOR names. The window is
 # created on your own tmux server rather than the panel's, and the panel
 # closes behind it, so you are left in the editor.
@@ -103,8 +102,7 @@ info        = ["i"]
 mark        = ["m"]
 # Hide the hovered agent from this list, or unhide one while the hidden agents
 # are shown. Hiding stops nothing: the agent keeps running and every other
-# view still holds it. This holds h, which is why back on this screen is esc
-# and left alone.
+# view still holds it.
 hide        = ["h"]
 # Show the hidden agents alongside the rest, and press it again to put them
 # away. While they are away each workflow header carries the count of what it
@@ -141,13 +139,13 @@ delete = ["d"]
 # Open the schedules screen from the agents list.
 open   = ["s"]
 # Quit the panel.
-quit   = ["ctrl+c", "q"]
+quit   = ["ctrl+c"]
 # Leave the schedules screen for the agents list.
-back   = ["esc", "left", "h"]
+back   = ["esc"]
 # Write a new schedule.
 new    = ["n"]
 # Edit the schedule under the cursor.
-edit   = ["e", "enter"]
+edit   = ["enter"]
 # Pause or resume the schedule under the cursor.
 toggle = [" "]
 # Delete the schedule under the cursor. The agents it launched are kept.
@@ -158,9 +156,9 @@ delete = ["d"]
 # Open the archive from the agents list.
 open    = ["Z"]
 # Quit the panel.
-quit    = ["ctrl+c", "q"]
+quit    = ["ctrl+c"]
 # Leave the archive for the agents list.
-back    = ["esc", "left", "h"]
+back    = ["esc"]
 # Put the agent under the cursor back in the panel.
 restore = ["r"]
 # Destroy the agent under the cursor for good, with its transcript. This is
@@ -173,11 +171,11 @@ delete  = ["d"]
 # the list, so this does nothing on a workflow header.
 open = ["a"]
 # Quit the panel.
-quit = ["ctrl+c", "q"]
+quit = ["ctrl+c"]
 # Leave the actions list for the agents list.
-back = ["esc", "left", "h"]
+back = ["esc"]
 # Run the script under the cursor on the agent the list was opened on.
-run  = ["enter", "l", "right"]
+run  = ["enter"]
 
 # Where the panel finds the scripts its action key runs.
 [actions]

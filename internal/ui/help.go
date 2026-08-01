@@ -211,10 +211,11 @@ func (m model) actionHelp() keyMap {
 func (m model) searchHelp() keyMap {
 	open := binding([]string{"enter"}, "open")
 	back := binding([]string{"esc"}, "back")
+	move := binding([]string{"up", "down"}, "move")
 
 	return keyMap{
 		short: []key.Binding{open, back},
-		full:  []key.Binding{open, m.moveBinding(), back},
+		full:  []key.Binding{open, move, back},
 	}
 }
 

@@ -83,7 +83,7 @@ func TestLogsUnpinOnACursorMove(t *testing.T) {
 	shown := pressLogs(t, m)
 	require.True(t, shown.tree.logsPinned)
 
-	moved, _ := shown.Update(tea.KeyMsg{Type: tea.KeyUp})
+	moved, _ := shown.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
 	panel, ok := moved.(model)
 	require.True(t, ok)
 
