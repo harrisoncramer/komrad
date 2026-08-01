@@ -68,6 +68,14 @@ SELECT
         WHERE
             id = @id);
 
+-- name: CountLiveAgents :one
+SELECT
+    COUNT(*)
+FROM
+    agents
+WHERE
+    archived_at IS NULL;
+
 -- name: InsertAgent :one
 INSERT INTO agents(
     id,

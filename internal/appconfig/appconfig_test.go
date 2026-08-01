@@ -240,6 +240,55 @@ func TestLoadLayout(t *testing.T) {
 	}
 }
 
+// TestLoadMaxAgents covers the ceiling on how many agents may exist, which an omitted key
+// takes the built-in for rather than reading as none.
+func TestLoadMaxAgents(t *testing.T) {
+	tests := []struct {
+		name    string
+		file    string
+		want    int
+		wantErr bool
+	}{
+		{
+			name: "a file naming none takes the built-in",
+			file: "default_harness = \"claude\"\n",
+			want: DefaultMaxAgents,
+		},
+		{
+			name: "the ceiling the user chose",
+			file: "max_agents = 12\n",
+			want: 12,
+		},
+		{
+			// Zero reads the same as the key being absent, so it cannot mean no ceiling.
+			name: "zero is an omitted key rather than a ceiling of none",
+			file: "max_agents = 0\n",
+			want: DefaultMaxAgents,
+		},
+		{
+			name:    "a negative ceiling is not a number of agents",
+			file:    "max_agents = -1\n",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.toml")
+			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
+
+			cfg, err := Load(path)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, cfg.MaxAgents)
+		})
+	}
+}
+
 func TestLoadRejectsUnknownKeys(t *testing.T) {
 	tests := []struct {
 		name string

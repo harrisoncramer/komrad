@@ -13,6 +13,9 @@
 # names one. It has to be a harness this binary implements, so it is one of
 # the names under [harness] below.
 default_harness = "claude"
+# How many unarchived agents may exist at once, past which a create is
+# refused.
+max_agents      = 50
 # The marks the mark key cycles through, in order. A mark is a glyph and means
 # whatever you decide, so the glyph is the label. Pressing mark advances the
 # hovered agent to the next one here, and past the last one back to unmarked,

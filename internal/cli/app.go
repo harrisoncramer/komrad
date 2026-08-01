@@ -52,6 +52,7 @@ type app struct {
 	// keyed by harness id.
 	defaultHarness string
 	defaultFlags   map[string]string
+	maxAgents      int
 	// marks are the marks the panel's mark key steps an agent through.
 	marks []appconfig.Mark
 	// logViewer is what the panel's log key opens the log in, the user's own command.
@@ -129,6 +130,7 @@ func (a *app) openStore(ctx context.Context) error {
 		Lifecycle:      a.actionService,
 		DefaultHarness: a.defaultHarness,
 		DefaultFlags:   a.defaultFlags,
+		MaxAgents:      a.maxAgents,
 	})
 
 	return nil

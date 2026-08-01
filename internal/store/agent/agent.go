@@ -467,6 +467,17 @@ func (s *Store) GetByIdempotencyKey(ctx context.Context, key string) (*Agent, er
 	return &agent, nil
 }
 
+// CountLive reports how many agents the panel still holds, archived ones aside, a dormant
+// one counting since it is still a row somebody has to archive.
+func (s *Store) CountLive(ctx context.Context) (int64, error) {
+	count, err := s.queries.CountLiveAgents(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count the live agents: %w", err)
+	}
+
+	return count, nil
+}
+
 // CountLiveForSchedule reports how many of a schedule's agents are still working, which
 // is what tells a firing that the last run has not finished. One waiting on a
 // confirmation counts; an idle one does not, since idle is also what a launch that died

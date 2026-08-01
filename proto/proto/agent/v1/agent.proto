@@ -268,7 +268,7 @@ service AgentService {
   rpc CreateAgent(CreateAgentRequest) returns (CreateAgentResponse) {
     option (annotation.v1.tool) = {
       tool_name: "create_agent"
-      description: "Launch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would resolve somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded."
+      description: "Launch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would resolve somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again."
       destructive: false
     };
   }

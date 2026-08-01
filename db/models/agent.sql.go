@@ -60,6 +60,22 @@ func (q *Queries) ClearAgentPane(ctx context.Context, id string) error {
 	return err
 }
 
+const countLiveAgents = `-- name: CountLiveAgents :one
+SELECT
+    COUNT(*)
+FROM
+    agents
+WHERE
+    archived_at IS NULL
+`
+
+func (q *Queries) CountLiveAgents(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countLiveAgents)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countLiveScheduleAgents = `-- name: CountLiveScheduleAgents :one
 SELECT
     COUNT(*)

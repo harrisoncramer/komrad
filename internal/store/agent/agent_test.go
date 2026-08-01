@@ -1310,6 +1310,80 @@ func TestCountLiveForSchedule(t *testing.T) {
 	}
 }
 
+// TestCountLive covers the count a create is measured against, which every row the panel
+// holds contributes to whatever its state and whether or not it is shown.
+func TestCountLive(t *testing.T) {
+	tests := []struct {
+		name string
+		// states are the agents to write, one per entry.
+		states  []string
+		hide    bool
+		archive bool
+		want    int64
+	}{
+		{
+			name: "a panel holding nothing has room",
+		},
+		{
+			name:   "an agent still thinking counts",
+			states: []string{StateThinking},
+			want:   1,
+		},
+		{
+			// Idle is both the agent that finished and the dormant one whose pane is gone.
+			name:   "so does an idle one, which is still a row to be dealt with",
+			states: []string{StateIdle},
+			want:   1,
+		},
+		{
+			name:   "every state at once",
+			states: []string{StateThinking, StateWaiting, StateIdle},
+			want:   3,
+		},
+		{
+			name:   "a hidden agent counts, since hiding it stopped nothing",
+			states: []string{StateThinking},
+			hide:   true,
+			want:   1,
+		},
+		{
+			name:    "an archived agent does not, which is how the count comes down",
+			states:  []string{StateThinking, StateIdle},
+			archive: true,
+			want:    0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			for i, state := range tt.states {
+				name := fmt.Sprintf("agent-%d", i)
+				require.NoError(t, st.Create(ctx, Agent{Name: name, State: state}))
+
+				written, err := st.Get(ctx, name)
+				require.NoError(t, err)
+				require.NotNil(t, written)
+
+				if tt.hide {
+					hidden, err := st.SetHidden(ctx, written.ID, true)
+					require.NoError(t, err)
+					require.True(t, hidden)
+				}
+				if tt.archive {
+					require.NoError(t, st.Archive(ctx, name))
+				}
+			}
+
+			count, err := st.CountLive(ctx)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, count)
+		})
+	}
+}
+
 // fixture is the agent store under test plus the workflow store the tests seed
 // through. Every agent belongs to a workflow, so one has to exist before an
 // agent can be written. The two stay separate stores, since this package never

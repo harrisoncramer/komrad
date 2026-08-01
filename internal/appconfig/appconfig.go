@@ -258,6 +258,8 @@ type Config struct {
 	// one. It has to be a harness this binary implements, so it is one of the names
 	// under [harness] below.
 	DefaultHarness string `mapstructure:"default_harness"`
+	// How many unarchived agents may exist at once, past which a create is refused.
+	MaxAgents int `mapstructure:"max_agents"`
 	// Per-CLI configuration, which is where the flags an agent of that CLI inherits
 	// live.
 	Harness Harnesses `mapstructure:"harness"`
@@ -284,6 +286,7 @@ type Config struct {
 func Defaults() *Config {
 	return &Config{
 		DefaultHarness: DefaultHarness,
+		MaxAgents:      DefaultMaxAgents,
 		Layout:         DefaultLayout(),
 		Marks:          DefaultMarks(),
 		Keybindings:    DefaultKeybindings(),
@@ -302,6 +305,10 @@ const DefaultLogLevel = "info"
 // uses plus -S, which leaves a long line running off the edge rather than wrapping it into
 // four rows of one record.
 const DefaultLogViewer = `"$WEAVE_BIN" logs --color=always | less -RSX +G`
+
+// DefaultMaxAgents is how many agents may exist at once when the config names no number,
+// well above what anyone opens by hand and low enough to catch a caller in a loop.
+const DefaultMaxAgents = 50
 
 // DefaultHarness is the CLI a new agent runs when the config names none, spelled here
 // rather than taken from the registry since this is a default a user overrides.
@@ -505,6 +512,11 @@ func (c Config) validate() error {
 	if err := validateLog(c.Log); err != nil {
 		return err
 	}
+	// A negative ceiling would read as zero and take the default, leaving the file saying
+	// one thing while the panel does another.
+	if c.MaxAgents < 0 {
+		return fmt.Errorf("max_agents: %d is not a number of agents", c.MaxAgents)
+	}
 
 	return validateLayout(c.Layout)
 }
@@ -532,6 +544,9 @@ func (c Config) withDefaults() Config {
 	// create rather than fall back.
 	if strings.TrimSpace(c.DefaultHarness) == "" {
 		c.DefaultHarness = DefaultHarness
+	}
+	if c.MaxAgents == 0 {
+		c.MaxAgents = DefaultMaxAgents
 	}
 	if len(c.Marks) == 0 {
 		c.Marks = DefaultMarks()

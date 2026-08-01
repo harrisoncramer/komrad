@@ -74,6 +74,12 @@ func TestCreateAgent(t *testing.T) {
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
+			name:     "a full panel is resource exhausted",
+			req:      &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflow},
+			launchEr: agents.ErrTooManyAgents,
+			wantCode: connect.CodeResourceExhausted,
+		},
+		{
 			// The workflow supplies the directory, so a request that names one and
 			// nothing else is complete.
 			name: "an omitted directory reaches the launcher empty, for the workflow to fill",

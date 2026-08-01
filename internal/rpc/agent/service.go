@@ -88,6 +88,10 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, agents.ErrBadDirectory), errors.Is(err, harness.ErrNotRegistered):
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	// Exhausted rather than a precondition, since nothing about the request is wrong and
+	// the same call works once there is room.
+	case errors.Is(err, agents.ErrTooManyAgents):
+		return nil, connect.NewError(connect.CodeResourceExhausted, err)
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create agent: %w", err))
 	}
