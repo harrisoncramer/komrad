@@ -220,7 +220,7 @@ func (s *AgentService) DeleteAgent(ctx context.Context, id string) error {
 	}
 
 	s.killOwnedPane(*agent)
-	s.runCleanup(ctx, *agent, s.cleanupAction(ctx, agent.WorkflowID))
+	s.runCleanup(ctx, *agent, s.cleanupAction(ctx, *agent))
 
 	return s.removeAgent(ctx, id)
 }
@@ -730,10 +730,22 @@ func (s *AgentService) runCleanup(ctx context.Context, agent agentstore.Agent, n
 // cleanupAction is the action an agent's workflow names, blank when it cannot be read.
 // It is read when it fires rather than at launch, so editing a workflow's cleanup
 // reaches the agents already inside it. The archive is read through too, since deleting
-// an agent out of an archived workflow is where the teardown matters most.
-func (s *AgentService) cleanupAction(ctx context.Context, workflowID string) string {
-	wf, err := s.workflows.GetIncludingArchived(ctx, workflowID)
-	if err != nil || wf == nil {
+// an agent out of an archived workflow is where the teardown matters most. A read that
+// breaks is logged rather than returned, since the delete has nothing left to abort and a
+// teardown skipped in silence reads as a workflow naming none.
+func (s *AgentService) cleanupAction(ctx context.Context, agent agentstore.Agent) string {
+	wf, err := s.workflows.GetIncludingArchived(ctx, agent.WorkflowID)
+	if err != nil {
+		attrs := []slog.Attr{
+			slog.String(logging.WorkflowID, agent.WorkflowID),
+			slog.String(logging.ActionAgentID, agent.ID),
+			slog.String(logging.ActionAgentCwd, agent.Cwd),
+		}
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the cleanup action could not be read", append(attrs, logging.Err(err)...)...)
+
+		return ""
+	}
+	if wf == nil {
 		return ""
 	}
 

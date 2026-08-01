@@ -61,6 +61,8 @@ const (
 	ActionAgentCwd = "weave.action.agent.cwd"
 	// ActionStderr is the tail of what a failing action said about itself.
 	ActionStderr = "weave.action.stderr"
+	// WorkflowID names the workflow a line is about.
+	WorkflowID = "weave.workflow.id"
 	// ExitCode is what a process exited with.
 	ExitCode = "process.exit.code"
 	// DurationMS is how long the call took, in milliseconds, named rather than left as a
