@@ -67,6 +67,9 @@ type app struct {
 	// it on its error screen; every other command ignores it, since none of them
 	// read keybindings.
 	configErr error
+	// contextPath is the file holding the standing text every agent is started with,
+	// resolved from the config at startup.
+	contextPath string
 	// configPath is the file the user pointed at, empty for the default location.
 	// Serve keeps the path rather than the config parsed from it, since it reads the
 	// file again per request.
@@ -127,10 +130,11 @@ func (a *app) openStore(ctx context.Context) error {
 		Workflows: a.workflows,
 		Tx:        pool,
 		Launcher: agents.NewLauncher(agents.LauncherParams{
-			Tmux:     a.tmux,
-			Addr:     a.env.Addr,
-			CacheDir: a.env.CacheDir,
-			LogPath:  a.env.LogPath(),
+			Tmux:        a.tmux,
+			Addr:        a.env.Addr,
+			CacheDir:    a.env.CacheDir,
+			LogPath:     a.env.LogPath(),
+			ContextPath: a.contextPath,
 		}),
 		Harnesses:      a.harnesses,
 		Lifecycle:      a.actionService,

@@ -187,6 +187,16 @@ type Actions struct {
 	Dir string `mapstructure:"dir"`
 }
 
+// Context is the standing text every agent is started with, above whatever its workflow
+// adds. It is where what is true of your machine and how you want to be worked with goes,
+// so it does not have to be pasted into every workflow.
+type Context struct {
+	// The file holding it, read at each launch so an edit reaches the next agent without
+	// a restart. Left empty this is ~/.config/weave/context.md, beside this file, and a
+	// file that is not there means no standing text rather than a failure to launch.
+	File string `mapstructure:"file"`
+}
+
 // Layout is how the panel divides the popup between its own list and the stage
 // pane beside it.
 type Layout struct {
@@ -277,6 +287,8 @@ type Config struct {
 	Keybindings Keybindings `mapstructure:"keybindings"`
 	// Where the panel finds the scripts its action key runs.
 	Actions Actions `mapstructure:"actions"`
+	// The standing text every agent is started with, whatever workflow it is in.
+	Context Context `mapstructure:"context"`
 	// The log the background service writes, which the panel's log key pages.
 	Log Log `mapstructure:"log"`
 }
@@ -616,6 +628,23 @@ func (c Config) ActionsDir() (string, error) {
 	}
 
 	return filepath.Join(home, "actions"), nil
+}
+
+// ContextFile is the standing text every agent is started with: the configured file, or
+// ~/.config/weave/context.md when the config names none. The default is resolved here for
+// the reason the actions directory's is, since one machine's home directory spelled into
+// the generated config would be wrong on every other machine.
+func (c Config) ContextFile() (string, error) {
+	if file := strings.TrimSpace(c.Context.File); file != "" {
+		return file, nil
+	}
+
+	home, err := configHome()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(home, "context.md"), nil
 }
 
 // Load reads the config from path when given, otherwise from

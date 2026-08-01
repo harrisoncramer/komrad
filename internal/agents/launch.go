@@ -3,6 +3,7 @@ package agents
 import (
 	_ "embed"
 	"fmt"
+	"os"
 	"strings"
 
 	"weave/internal/harness"
@@ -34,15 +35,20 @@ type Launcher struct {
 	// logPath is the service's log, which the briefing sends an agent to.
 	cacheDir string
 	logPath  string
+	// contextPath is the file holding the standing text every agent is started with. The
+	// path is fixed at startup but the file is read per launch, so editing it reaches the
+	// next agent without restarting the service.
+	contextPath string
 }
 
 // LauncherParams is where a launcher reads the addresses and directories it hands on. Only
 // Tmux has no sensible zero, since a launcher with nowhere to type cannot launch.
 type LauncherParams struct {
-	Tmux     launchTmux
-	Addr     string
-	CacheDir string
-	LogPath  string
+	Tmux        launchTmux
+	Addr        string
+	CacheDir    string
+	LogPath     string
+	ContextPath string
 }
 
 // NewLauncher builds a launcher that points spawned agents at the given address.
@@ -51,7 +57,13 @@ func NewLauncher(p LauncherParams) *Launcher {
 		p.Addr = defaultServerAddr
 	}
 
-	return &Launcher{tmux: p.Tmux, serverAddr: p.Addr, cacheDir: p.CacheDir, logPath: p.LogPath}
+	return &Launcher{
+		tmux:        p.Tmux,
+		serverAddr:  p.Addr,
+		cacheDir:    p.CacheDir,
+		logPath:     p.LogPath,
+		contextPath: p.ContextPath,
+	}
 }
 
 // briefingDoc is what every spawned agent is told about the panel running it: what it can
@@ -83,15 +95,37 @@ func (l *Launcher) briefing() string {
 	return strings.ReplaceAll(text, logPathPlaceholder, l.logPath)
 }
 
-// appendedSystemPrompt is the standing briefing followed by the workflow's shared
-// context, which is what the panel has to say to an agent it is starting.
+// appendedSystemPrompt is what the panel has to say to an agent it is starting: the
+// standing briefing, then the user's own standing context, then the workflow's. They run
+// general to specific, so a workflow reads as the last word on anything the file above it
+// also speaks to.
 func (l *Launcher) appendedSystemPrompt(workflowContext string) string {
-	briefing := l.briefing()
-	if strings.TrimSpace(workflowContext) == "" {
-		return briefing
+	parts := []string{l.briefing(), l.globalContext(), workflowContext}
+
+	kept := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if strings.TrimSpace(part) != "" {
+			kept = append(kept, strings.TrimSpace(part))
+		}
 	}
 
-	return briefing + "\n\n" + workflowContext
+	return strings.Join(kept, "\n\n")
+}
+
+// globalContext is the user's standing text, empty when they keep none. A file that is not
+// there is the ordinary case rather than a problem, and one that cannot be read is not
+// worth refusing a launch over, so both come back empty.
+func (l *Launcher) globalContext() string {
+	if l.contextPath == "" {
+		return ""
+	}
+
+	text, err := os.ReadFile(l.contextPath)
+	if err != nil {
+		return ""
+	}
+
+	return string(text)
 }
 
 type launchParams struct {

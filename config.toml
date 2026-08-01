@@ -188,6 +188,14 @@ run  = ["enter"]
 # ~/.config/weave/actions, beside this file.
 dir = ""
 
+# The standing text every agent is started with, whatever workflow it is in.
+[context]
+# The file holding it, read at each launch so an edit reaches the next agent
+# without a restart. Left empty this is ~/.config/weave/context.md, beside
+# this file, and a file that is not there means no standing text rather than a
+# failure to launch.
+file = ""
+
 # The log the background service writes, which the panel's log key pages.
 [log]
 # How much is written, one of debug, info, warn, or error. Served requests are

@@ -2,6 +2,8 @@ package agents
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -139,6 +141,7 @@ func TestAppendedSystemPrompt(t *testing.T) {
 			})
 
 			prompt := launcher.appendedSystemPrompt(tt.context)
+
 			for _, want := range tt.wantContain {
 				assert.Contains(t, prompt, want)
 			}
@@ -152,4 +155,97 @@ func TestAppendedSystemPrompt(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestAppendedSystemPromptGlobalContext covers the standing text the user keeps for every
+// agent. It sits between the briefing and the workflow's own, so the three read general to
+// specific, and a file that is not there is the ordinary case rather than a failed launch.
+func TestAppendedSystemPromptGlobalContext(t *testing.T) {
+	tests := []struct {
+		name string
+		// global is written to the context file, or the file is left absent when empty.
+		global string
+		// missing points the launcher at a path nothing was written to.
+		missing         bool
+		workflowContext string
+		wantContain     []string
+		wantAbsent      []string
+	}{
+		{
+			name:            "a path with no file behind it is not an error",
+			missing:         true,
+			workflowContext: "shared notes",
+			wantContain:     []string{"shared notes"},
+		},
+		{
+			name:            "a file of only whitespace adds nothing",
+			global:          "   \n\t\n",
+			workflowContext: "shared notes",
+			wantContain:     []string{"shared notes"},
+		},
+		{
+			name:        "the standing text reaches an agent in no workflow",
+			global:      "always use tabs",
+			wantContain: []string{"always use tabs"},
+		},
+		{
+			name:            "both are given, the workflow's last",
+			global:          "always use tabs",
+			workflowContext: "shared notes",
+			wantContain:     []string{"always use tabs", "shared notes"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "context.md")
+			if !tt.missing {
+				require.NoError(t, os.WriteFile(path, []byte(tt.global), 0o600))
+			}
+
+			launcher := NewLauncher(LauncherParams{
+				Tmux:        newFakeTmux(),
+				Addr:        "127.0.0.1:9999",
+				LogPath:     briefedLogPath,
+				ContextPath: path,
+			})
+
+			prompt := launcher.appendedSystemPrompt(tt.workflowContext)
+
+			for _, want := range tt.wantContain {
+				assert.Contains(t, prompt, want)
+			}
+			for _, absent := range tt.wantAbsent {
+				assert.NotContains(t, prompt, absent)
+			}
+
+			// General to specific, which is what makes a workflow the last word on
+			// anything the standing text also speaks to.
+			if tt.global != "" && tt.workflowContext != "" {
+				assert.Less(t, strings.Index(prompt, tt.global), strings.Index(prompt, tt.workflowContext))
+			}
+		})
+	}
+}
+
+// TestGlobalContextIsReadPerLaunch covers editing the file while the service runs. The
+// path is fixed at startup, so a launcher that read the text once would hand every later
+// agent whatever was there when the service came up.
+func TestGlobalContextIsReadPerLaunch(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "context.md")
+	require.NoError(t, os.WriteFile(path, []byte("before-the-edit"), 0o600))
+
+	launcher := NewLauncher(LauncherParams{
+		Tmux:        newFakeTmux(),
+		Addr:        "127.0.0.1:9999",
+		LogPath:     briefedLogPath,
+		ContextPath: path,
+	})
+	require.Contains(t, launcher.appendedSystemPrompt(""), "before-the-edit")
+
+	require.NoError(t, os.WriteFile(path, []byte("after-the-edit"), 0o600))
+
+	prompt := launcher.appendedSystemPrompt("")
+	assert.Contains(t, prompt, "after-the-edit")
+	assert.NotContains(t, prompt, "before-the-edit")
 }

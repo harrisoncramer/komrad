@@ -59,6 +59,11 @@ func NewRootCommand() *cobra.Command {
 			state.defaultHarness = cfg.DefaultHarness
 			state.maxAgents = cfg.MaxAgents
 
+			// Resolved once, though the file behind it is read per launch. A home
+			// directory this cannot resolve leaves the path empty, which is the same as
+			// keeping no standing context and is not worth refusing to start over.
+			state.contextPath, _ = cfg.ContextFile()
+
 			// Codex is built here rather than beside claude because one of its settings is
 			// the user's to make, and the config is only loaded once the command runs.
 			codexHarness = codex.New(codex.Options{TrustLaunchDirs: cfg.Harness.Codex.TrustLaunchDirs})

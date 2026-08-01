@@ -3,6 +3,7 @@ package appconfig
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -445,6 +446,57 @@ func TestLoadLogLevel(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, cfg.Log.Level)
+		})
+	}
+}
+
+// TestContextFile covers where the standing text every agent is started with is read from.
+// The default is resolved at read time rather than written into the generated config,
+// since one machine's home directory would be wrong on every other machine.
+func TestContextFile(t *testing.T) {
+	tests := []struct {
+		name string
+		file string
+		// want is the exact path when the config names one, and wantSuffix is what the
+		// resolved default has to end in.
+		want       string
+		wantSuffix string
+	}{
+		{
+			name:       "no config at all falls back beside the config file",
+			file:       "",
+			wantSuffix: filepath.Join(".config", "weave", "context.md"),
+		},
+		{
+			name:       "a blank entry is the same as naming none",
+			file:       "[context]\nfile = \"   \"\n",
+			wantSuffix: filepath.Join(".config", "weave", "context.md"),
+		},
+		{
+			name: "a file the config names is taken as given",
+			file: "[context]\nfile = \"/work/notes/standing.md\"\n",
+			want: "/work/notes/standing.md",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.toml")
+			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
+
+			cfg, err := Load(path)
+			require.NoError(t, err)
+
+			got, err := cfg.ContextFile()
+			require.NoError(t, err)
+
+			if tt.want != "" {
+				assert.Equal(t, tt.want, got)
+
+				return
+			}
+
+			assert.True(t, strings.HasSuffix(got, tt.wantSuffix), "got %q", got)
 		})
 	}
 }
