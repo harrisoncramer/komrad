@@ -51,12 +51,23 @@ type agentStore interface {
 	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
 }
 
-// workflowReader is all this service needs from the workflow domain. Get is the live
-// read a create or a schedule has to refuse against, and GetIncludingArchived is for
-// what an agent reads off its own workflow, which outlives that workflow's archiving.
-type workflowReader interface {
+// liveWorkflowReader reads a workflow the panel still lists, which is what a launch has
+// to be refused against.
+type liveWorkflowReader interface {
 	Get(ctx context.Context, id string) (*workflow.Workflow, error)
+}
+
+// storedWorkflowReader reads what a workflow row says whether or not it is archived,
+// which is what an agent outliving its workflow's archiving is read against.
+type storedWorkflowReader interface {
 	GetIncludingArchived(ctx context.Context, id string) (*workflow.Workflow, error)
+}
+
+// workflowReader is both, since an agent is launched into a live workflow and torn down
+// out of one that may since have been archived.
+type workflowReader interface {
+	liveWorkflowReader
+	storedWorkflowReader
 }
 
 // txRunner opens the transaction a write spanning two domains needs, since removing

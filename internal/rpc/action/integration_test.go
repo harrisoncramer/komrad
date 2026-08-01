@@ -167,10 +167,6 @@ func (s stubAgents) GetByID(_ context.Context, id string) (*agentstore.Agent, er
 
 type stubWorkflows struct{}
 
-func (stubWorkflows) Get(_ context.Context, id string) (*workflowstore.Workflow, error) {
-	return &workflowstore.Workflow{ID: id, Name: "backend"}, nil
-}
-
 func (stubWorkflows) GetIncludingArchived(_ context.Context, id string) (*workflowstore.Workflow, error) {
 	return &workflowstore.Workflow{ID: id, Name: "backend"}, nil
 }

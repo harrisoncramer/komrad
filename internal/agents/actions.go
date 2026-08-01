@@ -69,7 +69,7 @@ type ActionService struct {
 	agents actionReader
 	// workflows is read for the name of the workflow an agent belongs to, which a script
 	// can use where the id it is stored under says nothing.
-	workflows workflowReader
+	workflows storedWorkflowReader
 	tmux      actionTmux
 	runner    actionRunner
 	load      configLoader
@@ -82,7 +82,7 @@ type ActionService struct {
 // ActionParams carries the action service's dependencies.
 type ActionParams struct {
 	Agents    actionReader
-	Workflows workflowReader
+	Workflows storedWorkflowReader
 	Tmux      actionTmux
 	Runner    actionRunner
 	Load      configLoader
