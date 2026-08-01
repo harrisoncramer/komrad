@@ -201,7 +201,7 @@ func actionOptions(available []string, current string) []huh.Option[string] {
 // belongs to a workflow and there is nowhere else to leave one.
 func deleteWorkflowForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool) {
 	return confirmForm(
-		fmt.Sprintf("Delete workflow %q and its agents?", name),
+		fmt.Sprintf("Archive workflow %q and its agents?", name),
 		"Their transcripts are kept and stay searchable.",
 		keys,
 	)

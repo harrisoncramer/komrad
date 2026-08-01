@@ -121,7 +121,7 @@ type WorkflowsKeys struct {
 	Rename []string `mapstructure:"rename"`
 	// Edit the workflow under the cursor.
 	Edit []string `mapstructure:"edit"`
-	// Delete the workflow under the cursor.
+	// Archive the workflow under the cursor, which archives the agents inside it.
 	Delete []string `mapstructure:"delete"`
 }
 
@@ -416,7 +416,7 @@ func DefaultKeybindings() Keybindings {
 			New:    []string{"W"},
 			Rename: []string{"r"},
 			Edit:   []string{"e"},
-			Delete: []string{"d"},
+			Delete: []string{"z"},
 		},
 		Schedules: SchedulesKeys{
 			Open:   []string{"s"},

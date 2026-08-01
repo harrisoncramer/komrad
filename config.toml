@@ -133,8 +133,8 @@ new    = ["W"]
 rename = ["r"]
 # Edit the workflow under the cursor.
 edit   = ["e"]
-# Delete the workflow under the cursor.
-delete = ["d"]
+# Archive the workflow under the cursor, which archives the agents inside it.
+delete = ["z"]
 
 # The schedules screen, and the key that opens it from the agents list.
 [keybindings.schedules]
