@@ -375,6 +375,7 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 			assert.Equal(t, tt.typed, tt.held(got), "and still holds what was filled in")
 			assert.NotEqual(t, huh.StateCompleted, got.form.State, "a completed form draws as nothing, so the form is built back")
 			assert.NotEmpty(t, got.form.View())
+			assert.False(t, got.pendingForm, "and takes keys again, since the write it was waiting on has landed")
 		})
 	}
 }
@@ -382,6 +383,9 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 // TestFormResubmitsAfterARefusal covers the point of keeping the form. The fields it kept
 // are what the second attempt sends, so a refusal costs the keystroke that caused it
 // rather than the whole form.
+//
+// Both submits go through Update, which is where the panel drops the keys bound for a form
+// that is waiting. Calling the form handler directly walks around that.
 func TestFormResubmitsAfterARefusal(t *testing.T) {
 	sent := &formRecorder{refuse: connect.NewError(connect.CodeInvalidArgument, errors.New("bad flags"))}
 
@@ -392,14 +396,15 @@ func TestFormResubmitsAfterARefusal(t *testing.T) {
 	m.values.agent.Prompt = "check CI"
 	m.values.agent.Flags = "--modle opus"
 
-	attempted, cmd := m.updateForm(keyMsg("ctrl+s"))
+	attempted, cmd := m.Update(keyMsg("ctrl+s"))
 	refused := settle(t, asModel(t, attempted), cmd)
 	require.Nil(t, sent.createdAgent, "the service refused the first attempt")
+	require.False(t, refused.pendingForm, "the refusal ended the wait, so the form takes keys again")
 
 	sent.refuse = nil
 	refused.values.agent.Flags = "--model opus"
 
-	updated, cmd := refused.updateForm(keyMsg("ctrl+s"))
+	updated, cmd := refused.Update(keyMsg("ctrl+s"))
 	got := settle(t, asModel(t, updated), cmd)
 
 	require.NotNil(t, sent.createdAgent)
