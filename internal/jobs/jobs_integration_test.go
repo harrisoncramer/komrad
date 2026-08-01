@@ -343,6 +343,8 @@ func (s *stubTmux) SetPaneOwner(string, string) error { return nil }
 
 func (s *stubTmux) PaneOwner(string) string { return "" }
 
+func (s *stubTmux) PaneOwners() (map[string]string, error) { return map[string]string{}, nil }
+
 func (s *stubTmux) ClientPath(string) string { return "" }
 
 func (s *stubTmux) SendKeys(string, ...string) error { return nil }

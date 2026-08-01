@@ -106,6 +106,32 @@ func TestNewWindowRepeatedly(t *testing.T) {
 	assert.Equal(t, []string{"weave", "agent-one", "agent-two", "agent-three"}, windowNames(t, client, "weave"))
 }
 
+// TestPaneOwners covers the batched lookup a whole listing resolves through, where a pane
+// that is gone has to be absent rather than reported under a stale stamp.
+func TestPaneOwners(t *testing.T) {
+	client := testServer(t, "weave")
+
+	stamped, err := client.NewWindow("weave", "stamped", t.TempDir())
+	require.NoError(t, err)
+	require.NoError(t, client.SetPaneOwner(stamped, "agent-one"))
+
+	bare, err := client.NewWindow("weave", "bare", t.TempDir())
+	require.NoError(t, err)
+
+	killed, err := client.NewWindow("weave", "killed", t.TempDir())
+	require.NoError(t, err)
+	require.NoError(t, client.SetPaneOwner(killed, "agent-two"))
+	client.KillPane(killed)
+
+	owners, err := client.PaneOwners()
+	require.NoError(t, err)
+
+	assert.Equal(t, "agent-one", owners[stamped], "a stamped pane answers to its agent")
+	assert.Empty(t, owners[bare], "an unstamped pane answers to nobody")
+	assert.NotContains(t, owners, killed, "a pane that is gone is absent rather than stale")
+	assert.Equal(t, client.PaneOwner(stamped), owners[stamped], "the batch agrees with the single lookup")
+}
+
 // TestZoomPaneIsIdempotent covers the zoom the panel puts a form behind. tmux offers only
 // a toggle, so asking for the state the window is already in has to leave it alone rather
 // than flipping it.

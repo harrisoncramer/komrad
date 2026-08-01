@@ -119,6 +119,26 @@ func (c *Client) PaneOwner(pane string) string {
 	return owner
 }
 
+// PaneOwners returns every pane on the server keyed to its owner stamp. The error is
+// reported rather than swallowed, since a caller must not read tmux failing to answer as
+// every pane being gone.
+func (c *Client) PaneOwners() (map[string]string, error) {
+	out, err := c.query("list-panes", "-a", "-F", "#{pane_id} #{"+paneOwnerOption+"}")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list pane owners: %w", err)
+	}
+
+	owners := map[string]string{}
+	for line := range strings.SplitSeq(out, "\n") {
+		pane, owner, _ := strings.Cut(line, " ")
+		if pane != "" {
+			owners[pane] = owner
+		}
+	}
+
+	return owners, nil
+}
+
 // ClientPath returns a client's active pane working directory.
 func (c *Client) ClientPath(client string) string {
 	path, _ := c.query(append([]string{"display-message", "-p"}, append(clientTarget(client), "#{pane_current_path}")...)...)
