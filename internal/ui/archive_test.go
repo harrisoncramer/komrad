@@ -352,6 +352,9 @@ func archiveModel(client agentv1connect.AgentServiceClient, keys appconfig.Keybi
 //
 // A pass runs its listings at once, so what it records is guarded: the live agents
 // and the archived ones are two calls on this same fake on two goroutines.
+//
+// ResumeAgent is left off deliberately. Restoring from the archive puts the row back
+// and starts nothing, so a resume reaching here panics rather than passing.
 type fakeArchiveAgents struct {
 	agentv1connect.AgentServiceClient
 	mu             sync.Mutex

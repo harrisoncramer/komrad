@@ -114,7 +114,7 @@ func TestAgentMarkdown(t *testing.T) {
 			alive: false,
 			wantContain: []string{
 				"_dormant — not running_",
-				"Press open to restore",
+				"Press open to resume",
 			},
 		},
 		{
@@ -126,7 +126,7 @@ func TestAgentMarkdown(t *testing.T) {
 				"- session_id: abc",
 				"- flags: —",
 			},
-			wantAbsent: []string{"dormant", "Press open to restore"},
+			wantAbsent: []string{"dormant", "Press open to resume"},
 		},
 		{
 			name:        "an agent a schedule launched names the schedule",

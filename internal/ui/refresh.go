@@ -163,10 +163,9 @@ type writeResult struct {
 	restored *restoredAgent
 }
 
-// restoredAgent is what a restore hands back: the pane to stage and the name to put the
+// restoredAgent is what a resume hands back, the pane to stage and the name to put the
 // cursor on, which may not be the one the agent went in with. screen is where the person
-// lands, since a restore from the archive leaves them there while one from the tree or
-// search lands on the agent itself.
+// lands once it is back.
 type restoredAgent struct {
 	pane   string
 	name   string
@@ -186,21 +185,38 @@ func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {
 	}
 }
 
-// restoreCmd restores an agent off the render loop and carries back what the panel needs
-// of the agent that came back. stay is the screen to land on once it does.
-func (m *model) restoreCmd(summary, id string, stay screen) tea.Cmd {
+// resumeParams is the agent to resume and what the panel does with it once it is back.
+type resumeParams struct {
+	summary string
+	id      string
+	// unarchiveFirst restores the agent before resuming it, which is what search needs,
+	// since its hits reach archived conversations.
+	unarchiveFirst bool
+	// stay is the screen to land on.
+	stay screen
+}
+
+// resumeCmd resumes an agent off the render loop and carries back what the panel needs of
+// the agent that came back.
+func (m *model) resumeCmd(params resumeParams) tea.Cmd {
 	clients := m.api
 	m.beginWrite()
 
 	return func() tea.Msg {
-		agent, err := clients.restoreAgent(id)
+		if params.unarchiveFirst {
+			if err := clients.restoreAgent(params.id); err != nil {
+				return writeResult{summary: params.summary, err: err}
+			}
+		}
+
+		agent, err := clients.resumeAgent(params.id)
 		if err != nil {
-			return writeResult{summary: summary, err: err}
+			return writeResult{summary: params.summary, err: err}
 		}
 
 		return writeResult{
-			summary:  summary,
-			restored: &restoredAgent{pane: agent.GetPaneId(), name: agent.GetName(), screen: stay},
+			summary:  params.summary,
+			restored: &restoredAgent{pane: agent.GetPaneId(), name: agent.GetName(), screen: params.stay},
 		}
 	}
 }

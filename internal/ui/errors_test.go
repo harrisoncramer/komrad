@@ -36,6 +36,10 @@ func (r refusingAgents) RestoreAgent(context.Context, *connect.Request[agentv1.R
 	return nil, r.err
 }
 
+func (r refusingAgents) ResumeAgent(context.Context, *connect.Request[agentv1.ResumeAgentRequest]) (*connect.Response[agentv1.ResumeAgentResponse], error) {
+	return nil, r.err
+}
+
 func (r refusingAgents) ListAgents(context.Context, *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
 	return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
 }
@@ -74,10 +78,10 @@ func TestRefusedWriteIsReported(t *testing.T) {
 		"the service's message is shown rather than the connect code in front of it")
 }
 
-// TestRefusedRestoreIsReported covers the other write the agents screen makes. A
-// refused restore leaves the row dormant, which is how it looked before the key was
+// TestRefusedResumeIsReported covers the other write the agents screen makes. A
+// refused resume leaves the row dormant, which is how it looked before the key was
 // pressed, so without the banner nothing on screen changed.
-func TestRefusedRestoreIsReported(t *testing.T) {
+func TestRefusedResumeIsReported(t *testing.T) {
 	m := model{
 		api: api{
 			agents:    refusingAgents{err: connect.NewError(connect.CodeNotFound, errors.New("no such agent"))},
@@ -103,7 +107,7 @@ func TestRefusedRestoreIsReported(t *testing.T) {
 	got := settle(t, pressed, cmd)
 
 	require.NotNil(t, got.banner)
-	assert.Equal(t, `Could not restore agent "api-refactor"`, got.banner.Summary)
+	assert.Equal(t, `Could not resume agent "api-refactor"`, got.banner.Summary)
 	assert.Equal(t, "no such agent", got.banner.Detail,
 		"the wrapper the panel put around the call is not what the reader is shown")
 }

@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
@@ -958,15 +957,15 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 		assert.Empty(t, tmux.killedPanes, "killing by a stale id would stop the agent using that pane now")
 	})
 
-	t.Run("restoring it opens a window rather than adopting the pane", func(t *testing.T) {
+	t.Run("resuming it opens a window rather than adopting the pane", func(t *testing.T) {
 		manager, st, tmux, dormant := setup(t)
-		restored, err := manager.RestoreAgent(t.Context(), dormant.ID)
+		resumed, err := manager.ResumeAgent(t.Context(), dormant.ID)
 		require.NoError(t, err)
-		assert.NotEqual(t, shared, restored.Pane, "a restore that read the pane as its own would relaunch nothing")
-		assert.Equal(t, dormant.ID, tmux.owners[restored.Pane], "and the new pane is its own")
+		assert.NotEqual(t, shared, resumed.Pane, "a resume that read the pane as its own would relaunch nothing")
+		assert.Equal(t, dormant.ID, tmux.owners[resumed.Pane], "and the new pane is its own")
 
 		still := agentByID(t, st, dormant.ID)
-		assert.Equal(t, restored.Pane, still.Pane)
+		assert.Equal(t, resumed.Pane, still.Pane)
 	})
 
 	t.Run("a reconcile pass forgets the claim without reading the pane", func(t *testing.T) {
@@ -983,9 +982,9 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 	})
 }
 
-// TestRestore covers bringing an archived agent back. Its name may have been
-// taken while it sat hidden, in which case restoring under that name would
-// collide on the unique index.
+// TestRestore covers bringing an archived agent back. It returns as a row and
+// nothing else, and its name may have been taken while it sat hidden, in which
+// case restoring under that name would collide on the unique index.
 func TestRestore(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -1023,17 +1022,20 @@ func TestRestore(t *testing.T) {
 				require.NoError(t, st.Create(ctx, agentstore.Agent{Name: "foo", State: agentstore.StateIdle}))
 			}
 
-			archived := *original
-			archivedAt := time.Now()
-			archived.ArchivedAt = &archivedAt
-			require.NoError(t, manager.restore(ctx, archived))
+			_, err = manager.RestoreAgent(ctx, original.ID)
+			require.NoError(t, err)
 
 			restored := agentByID(t, st, original.ID)
 			assert.Nil(t, restored.ArchivedAt, "the agent is back in the listing")
 			assert.Equal(t, agentstore.StateIdle, restored.State)
 			assert.Equal(t, "sess-old", restored.SessionID, "the conversation is preserved")
-			assert.Equal(t, original.ID, tmux.owners[restored.Pane], "the pane it came back in is stamped with its id")
-			assert.True(t, manager.AgentRunning(restored), "so it reads as running again")
+			assert.Empty(t, tmux.owners, "a restore starts nothing, so no pane was opened")
+			assert.False(t, manager.AgentRunning(restored), "it comes back dormant, waiting to be resumed")
+
+			resumed, err := manager.ResumeAgent(ctx, original.ID)
+			require.NoError(t, err)
+			assert.Equal(t, original.ID, tmux.owners[resumed.Pane], "resuming stamps the pane it came back in")
+			assert.True(t, manager.AgentRunning(*resumed), "so it reads as running again")
 
 			if tt.wantSameName {
 				assert.Equal(t, "foo", restored.Name)
@@ -1048,4 +1050,48 @@ func TestRestore(t *testing.T) {
 			assert.NotEqual(t, original.ID, live.ID, "the namesake that took the name is untouched")
 		})
 	}
+}
+
+// TestRestoreCeiling covers the ceiling on the way out of the archive. An unarchived
+// agent holds a slot whether or not anything is running in it, so a restore has to be
+// refused where a create would be, or the archive is a way around the limit.
+func TestRestoreCeiling(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := st.agentServiceCapped(tmux, &fakeLifecycle{}, 2)
+	ctx := t.Context()
+
+	archived := seed(t, st, "archived", "%0", agentstore.StateIdle)
+	require.NoError(t, st.Agents.Archive(ctx, "archived"))
+
+	seed(t, st, "live-0", "%1", agentstore.StateThinking)
+	seed(t, st, "live-1", "%2", agentstore.StateThinking)
+
+	_, err := manager.RestoreAgent(ctx, archived.ID)
+
+	require.ErrorIs(t, err, ErrTooManyAgents)
+	still := agentByID(t, st, archived.ID)
+	assert.NotNil(t, still.ArchivedAt, "the refused restore leaves it in the archive")
+
+	require.NoError(t, manager.ArchiveAgent(ctx, "live-1"))
+	_, err = manager.RestoreAgent(ctx, archived.ID)
+	require.NoError(t, err, "archiving one makes room again")
+}
+
+// TestResumeRefusesArchived covers resuming an agent that is still in the archive. The
+// pane would sit behind a row nothing lists, so it is refused and names the way out.
+func TestResumeRefusesArchived(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := newManager(tmux, st, "")
+	ctx := t.Context()
+
+	archived := seed(t, st, "archived", "%0", agentstore.StateIdle)
+	require.NoError(t, st.Agents.Archive(ctx, "archived"))
+
+	_, err := manager.ResumeAgent(ctx, archived.ID)
+
+	require.ErrorIs(t, err, ErrAgentArchived)
+	assert.ErrorContains(t, err, "restore it first", "the refusal says what to do about it")
+	assert.Empty(t, tmux.newWindows, "and opens no window")
 }

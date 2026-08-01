@@ -181,6 +181,16 @@ message RestoreAgentResponse {
   Agent agent = 1;
 }
 
+// ResumeAgentRequest puts an agent's conversation back in a pane, which is what the
+// panel's open key does on a row whose pane is gone.
+message ResumeAgentRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message ResumeAgentResponse {
+  Agent agent = 1;
+}
+
 // DeleteAgentRequest removes an agent for good.
 message DeleteAgentRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
@@ -308,7 +318,15 @@ service AgentService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "restore_agent"
-      description: "Bring an agent back and relaunch its CLI on the same conversation, keyed by id. Works on archived agents and on ones whose pane has since died. An agent that is already running is returned as it stands rather than started twice. The agent may come back under a new name if another has taken its old one."
+      description: "Take an agent out of the archive, keyed by id. It comes back as a dormant row and nothing is started, so call resume_agent to put its conversation back in a pane. An agent that is not archived is returned as it stands. The agent may come back under a new name if another has taken its old one, and the call is refused once the panel holds as many agents as it is configured to."
+      destructive: false
+    };
+  }
+  rpc ResumeAgent(ResumeAgentRequest) returns (ResumeAgentResponse) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.tool) = {
+      tool_name: "resume_agent"
+      description: "Relaunch an agent's CLI on the same conversation, keyed by id, which is what reaches an agent whose pane has since died. An agent already running is returned as it stands rather than started twice. An archived agent is refused, so call restore_agent first."
       destructive: false
     };
   }

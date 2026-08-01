@@ -87,17 +87,20 @@ func (m model) selectedArchived() (agentstore.Agent, bool) {
 	return m.archive.agents[m.archive.cursor], true
 }
 
-// restoreFromArchive brings the hovered agent back. Restoring relaunches the CLI on
-// the same conversation, so the agent returns running rather than as a row, and
-// it may come back renamed if a live agent has taken its name. It leaves the
-// archive either way, so the list is re-read.
+// restoreFromArchive puts the hovered agent's row back in the panel, dormant. Its
+// conversation comes back when the row is opened from the tree. The agent may return
+// renamed if a live one has taken its name, and it leaves the archive either way, so the
+// list is re-read.
 func (m model) restoreFromArchive() (tea.Model, tea.Cmd) {
 	agent, ok := m.selectedArchived()
 	if !ok {
 		return m, nil
 	}
 
-	return m, m.restoreCmd(fmt.Sprintf("Could not restore agent %q", agent.Name), agent.ID, screenArchive)
+	return m, m.writeCmd(
+		fmt.Sprintf("Could not restore agent %q", agent.Name),
+		func(a api) error { return a.restoreAgent(agent.ID) },
+	)
 }
 
 // deleteFromArchiveConfirm opens the prompt for destroying the hovered agent. This

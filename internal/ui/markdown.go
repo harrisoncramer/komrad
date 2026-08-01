@@ -80,7 +80,7 @@ func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) string {
 		}
 	}
 	if !alive {
-		b.WriteString("\nPress open to restore.\n")
+		b.WriteString("\nPress open to resume.\n")
 	}
 
 	return b.String()

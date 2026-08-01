@@ -95,11 +95,11 @@ func TestNewAgentRefusesUnknownHarness(t *testing.T) {
 	assert.Empty(t, tmux.sent, "and types nothing")
 }
 
-// TestRestoreRefusesUnknownHarness covers a dormant agent recorded against a CLI the
+// TestResumeRefusesUnknownHarness covers a dormant agent recorded against a CLI the
 // binary no longer runs, which a removed harness or a downgrade looks like. Bringing
-// it back would put the wrong CLI on its conversation, so the restore fails and says
+// it back would put the wrong CLI on its conversation, so the resume fails and says
 // which harness is missing.
-func TestRestoreRefusesUnknownHarness(t *testing.T) {
+func TestResumeRefusesUnknownHarness(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
 	service := st.agentService(tmux, fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}}, "", "")
@@ -113,7 +113,7 @@ func TestRestoreRefusesUnknownHarness(t *testing.T) {
 	stored, err := st.Get(t.Context(), "dormant")
 	require.NoError(t, err)
 
-	_, err = service.RestoreAgent(t.Context(), stored.ID)
+	_, err = service.ResumeAgent(t.Context(), stored.ID)
 
 	require.ErrorIs(t, err, harness.ErrNotRegistered)
 	assert.ErrorContains(t, err, "gemini")

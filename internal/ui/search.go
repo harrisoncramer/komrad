@@ -237,9 +237,9 @@ func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// openSearchHit opens the hovered result's agent and returns to the list focused on it, as
-// a restore, since the agent behind a hit may be archived or dormant and a live one comes
-// back as it stands rather than being started twice.
+// openSearchHit opens the hovered result's agent and lands on the tree focused on it. An
+// archived hit is restored on the way, since search is the one screen that reaches those
+// conversations.
 func (m model) openSearchHit() (tea.Model, tea.Cmd) {
 	if m.search.cursor < 0 || m.search.cursor >= len(m.search.hits) {
 		return m, nil
@@ -247,7 +247,12 @@ func (m model) openSearchHit() (tea.Model, tea.Cmd) {
 
 	hit := m.search.hits[m.search.cursor]
 
-	return m, m.restoreCmd(fmt.Sprintf("Could not restore agent %q", hit.name), hit.agentID, screenAgents)
+	return m, m.resumeCmd(resumeParams{
+		summary:        fmt.Sprintf("Could not open agent %q", hit.name),
+		id:             hit.agentID,
+		unarchiveFirst: hit.archived,
+		stay:           screenAgents,
+	})
 }
 
 // searchView renders the search screen's own pane. The query line sits above the list of

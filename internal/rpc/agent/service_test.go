@@ -1059,6 +1059,8 @@ type fakeLauncher struct {
 	archiveErr error
 	restored   []string
 	restoreErr error
+	resumed    []string
+	resumeErr  error
 }
 
 func (f *fakeLauncher) NewAgent(_ context.Context, p agents.NewAgentParams) (*agentstore.Agent, error) {
@@ -1090,6 +1092,15 @@ func (f *fakeLauncher) RestoreAgent(_ context.Context, id string) (*agentstore.A
 	f.restored = append(f.restored, id)
 	if f.restoreErr != nil {
 		return nil, f.restoreErr
+	}
+
+	return f.created, nil
+}
+
+func (f *fakeLauncher) ResumeAgent(_ context.Context, id string) (*agentstore.Agent, error) {
+	f.resumed = append(f.resumed, id)
+	if f.resumeErr != nil {
+		return nil, f.resumeErr
 	}
 
 	return f.created, nil
