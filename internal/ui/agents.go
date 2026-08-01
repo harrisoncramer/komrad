@@ -21,8 +21,7 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
 	// These act on the whole view rather than the row under the cursor, so they are
-	// checked before anything that reads the cursor and never collide with the per-row
-	// keys below.
+	// checked before anything that reads the cursor.
 	if bound(k, m.keys.Workflows.New) {
 		return m.newWorkflowForm()
 	}
@@ -116,9 +115,8 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// openAgent acts on the hovered agent. A dormant agent is restored and staged live. A
-// live agent is already staged from hovering, so opening it only unpins whatever was over
-// it to bring the agent back.
+// openAgent acts on the hovered agent. A dormant one is restored and staged live, and a
+// live one is already staged from hovering, so opening it only unpins whatever was over it.
 func (m model) openAgent() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedAgent()
 	if !ok {
@@ -139,13 +137,11 @@ func (m model) openAgent() (tea.Model, tea.Cmd) {
 	)
 }
 
-// openEditor opens the hovered agent's directory in the user's editor and closes the
-// panel behind it. The window is created on the user's own tmux server rather than the
-// manager's, since an editor is theirs to keep working in once the popup is gone and
-// nothing on the manager's server can be reached from outside it.
+// openEditor opens the hovered agent's directory in the user's editor and closes the panel
+// behind it. The window is created on the user's own tmux server, since an editor is
+// theirs to keep working in once the popup is gone.
 //
-// A failure leaves the popup up so the banner is readable. Hiding on the way out would
-// write the message to a popup tearing down on top of it.
+// A failure leaves the popup up so the banner is readable.
 func (m model) openEditor() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedAgent()
 	if !ok {
@@ -163,14 +159,12 @@ func (m model) openEditor() (tea.Model, tea.Cmd) {
 	return m, m.hide()
 }
 
-// editorArgv is what the editor window runs. The editor is split on whitespace so one
-// carrying its own flags still works, and tmux runs the result itself rather than
-// through a shell, so nothing in it needs quoting.
+// editorArgv is what the editor window runs, split on whitespace so an editor carrying its
+// own flags still works. tmux runs the result itself rather than through a shell.
 //
-// The directory is passed as an argument as well as being the window's working directory,
-// since an editor given nothing to open lands on an empty buffer instead of the tree. An
-// empty editor leaves the argv empty, which tmux reads as a plain shell in the directory
-// rather than as a command it cannot find.
+// The directory is an argument as well as the window's working directory, since an editor
+// given nothing to open lands on an empty buffer. An empty editor leaves the argv empty,
+// which tmux reads as a plain shell rather than a command it cannot find.
 func editorArgv(editor, dir string) []string {
 	fields := strings.Fields(editor)
 	if len(fields) == 0 {
@@ -181,8 +175,7 @@ func editorArgv(editor, dir string) []string {
 }
 
 // toggleHiddenAgents draws the hidden agents alongside the rest, or puts them away again.
-// Rows appear and vanish above the cursor either way, so it follows the agent it was on
-// rather than the index it held.
+// Rows appear and vanish above the cursor, so it follows the agent rather than the index.
 func (m model) toggleHiddenAgents() (tea.Model, tea.Cmd) {
 	selected := ""
 	if item, ok := m.selectedAgent(); ok {
@@ -222,14 +215,12 @@ func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	return m, m.writeCmd(failure, func(a api) error { return a.setHidden(agent, !agent.Hidden) })
 }
 
-// stageSelection updates the stage pane to reflect what the cursor is on. A live
-// agent's pane is swapped in, a dormant agent and a workflow header show rendered
-// markdown, and anything else blanks the stage. With info pinned, an agent shows
-// its stored record instead of itself.
+// stageSelection updates the stage pane to reflect what the cursor is on. A live agent's
+// pane is swapped in, a dormant agent and a workflow header show rendered markdown, and
+// anything else blanks the stage. With info pinned, an agent shows its stored record.
 func (m model) stageSelection() {
-	// The log is about the service rather than about a row, so it is answered before the
-	// cursor is read at all. It shows from a workflow header as readily as from an agent,
-	// and from an empty list, which is the moment the log is worth the most.
+	// The log is about the service rather than a row, so it is answered before the cursor
+	// is read at all, and shows from an empty list too, which is when it is worth most.
 	if m.tree.logsPinned {
 		m.stage.Log(m.logPath, logArgv(m.logViewer, m.logPath, m.binary))
 
@@ -258,8 +249,7 @@ func (m model) stageSelection() {
 }
 
 // nextMark is where the mark key moves an agent, stepping through the configured marks and
-// past the last one back to unmarked. A mark that is not configured clears, so the key is
-// always a way back out of one.
+// past the last one back to unmarked. A mark that is not configured clears.
 func nextMark(current *string, marks []appconfig.Mark) *string {
 	if len(marks) == 0 {
 		return nil
@@ -278,9 +268,9 @@ func nextMark(current *string, marks []appconfig.Mark) *string {
 	return nil
 }
 
-// scheduleName is the display name of the schedule that launched an agent, or empty for
-// one a person started. It reads from the list the panel already polls, so a schedule
-// deleted since resolves to nothing rather than to a stale name.
+// scheduleName is the display name of the schedule that launched an agent, empty for one a
+// person started. It reads the list the panel already polls, so a schedule deleted since
+// resolves to nothing rather than a stale name.
 func (m model) scheduleName(agent agentstore.Agent) string {
 	if agent.ScheduleID == nil {
 		return ""
@@ -295,8 +285,8 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 	return ""
 }
 
-// agentsView renders the nav list, the panel's own pane. The hovered resource is
-// shown in the separate stage pane, not here.
+// agentsView renders the nav list, the panel's own pane. The hovered resource shows in the
+// stage pane rather than here.
 func (m model) agentsView() string {
 	header := headerStyle.Render("Agents and Workflows") + "\n\n"
 	hints := "\n" + m.agentHints()
@@ -346,9 +336,8 @@ func (m model) agentsView() string {
 var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one first")
 
 // openNewAgent opens the new-agent form, seeded from the given workflow's blueprint, and
-// records that workflow so the created agent is placed in it. A nil workflow means there
-// are none, which is reported rather than opening a form whose submit could not go
-// anywhere.
+// records that workflow so the created agent lands in it. A nil workflow means there are
+// none, which is reported rather than opening a form whose submit could go nowhere.
 func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	if workflow == nil {
 		m.report("Could not start an agent", errNoWorkflow)
@@ -399,8 +388,8 @@ func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) submitAgent() (tea.Model, tea.Cmd) {
 	// The form is only reachable from inside a workflow, so this holds one by the time a
-	// submit happens. It is checked rather than dereferenced because saying so here costs a
-	// round trip less than the refusal from the service.
+	// submit happens. It is checked rather than dereferenced because saying so here costs
+	// a round trip less than the refusal from the service.
 	if m.target.newAgentWorkflow == nil || m.values.agent == nil {
 		m.report("Could not start the agent", errNoWorkflow)
 		m.screen = screenAgents
@@ -417,8 +406,8 @@ func (m model) submitAgent() (tea.Model, tea.Cmd) {
 		WorkflowID: m.target.newAgentWorkflow.ID,
 	}
 
-	// A launch failure leaves the list unchanged, and a list that comes back without the
-	// new agent reads the same as a form that never submitted, so it has to be reported.
+	// A launch failure leaves the list unchanged, which reads the same as a form that
+	// never submitted, so it has to be reported.
 	cmd := m.writeCmd("Could not start the agent", func(a api) error { return a.createAgent(params) })
 	m.target.newAgentWorkflow = nil
 	m.values.agent = nil

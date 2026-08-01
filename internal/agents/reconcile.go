@@ -8,25 +8,22 @@ import (
 	agentstore "weave/internal/store/agent"
 )
 
-// reconcileMisses is how many consecutive idle observations a thinking agent must
-// show before it settles to idle. Requiring several guards against a capture landing
-// on a redraw frame between tool calls, where the live UI is momentarily absent even
-// though work is ongoing. Erring high matters because wrongly demoting a live agent is
-// far worse than a stale state lingering a few seconds.
+// reconcileMisses is how many consecutive idle observations a thinking agent must show
+// before it settles to idle, which guards against a capture landing on a redraw frame
+// between tool calls. It errs high, since wrongly demoting a live agent is worse than a
+// stale state lingering a few seconds.
 const reconcileMisses = 3
 
-// tmuxProbe is the part of the tmux client the reconciler observes through.
-// Observation keys on the pane's owner stamp rather than the pane's mere existence, so
-// a pane id the tmux server has reissued to somebody else is not read as this agent
-// still running.
+// tmuxProbe is the part of the tmux client the reconciler observes through. It keys on the
+// pane's owner stamp rather than its existence, so a reissued pane id is not read as this
+// agent still running.
 type tmuxProbe interface {
 	PaneOwner(pane string) string
 	CapturePane(pane string) string
 }
 
-// activityRegistry resolves the harness an agent is recorded against, since what a
-// frame means depends on which CLI drew it. A row naming one nothing implements
-// reads like a frame no harness could interpret, so it settles nothing.
+// activityRegistry resolves the harness an agent is recorded against, since what a frame
+// means depends on which CLI drew it. A row naming one nothing implements settles nothing.
 type activityRegistry interface {
 	Resolve(id string) (harness.Harness, error)
 }
@@ -37,11 +34,10 @@ type stateStore interface {
 	ClearPane(ctx context.Context, id string) error
 }
 
-// Reconciler is the single source of truth for agent state. Rather than react to an
-// agent CLI's lifecycle events, which fire unreliably and miss endings like an escape
-// interrupt, it observes each agent directly from tmux on a timer and writes the state
-// that observation implies. Because it reads ground truth every pass, a wrong state
-// cannot outlive the interval and there are no edges to miss.
+// Reconciler is the single source of truth for agent state. Rather than react to an agent
+// CLI's lifecycle events, which fire unreliably and miss endings like an escape interrupt,
+// it observes each agent from tmux on a timer and writes the state that implies. Reading
+// ground truth every pass means a wrong state cannot outlive the interval.
 type Reconciler struct {
 	tmux      tmuxProbe
 	harnesses activityRegistry
@@ -55,9 +51,8 @@ func NewReconciler(t tmuxProbe, harnesses activityRegistry, s stateStore) *Recon
 	return &Reconciler{tmux: t, harnesses: harnesses, store: s, misses: map[string]int{}}
 }
 
-// Reconcile observes every tracked agent once and corrects any stored state that
-// reality has moved past. An agent already matching reality is left untouched, so
-// running it repeatedly is safe and cheap.
+// Reconcile observes every tracked agent once and corrects any stored state reality has
+// moved past, leaving an agent that already matches untouched.
 func (r *Reconciler) Reconcile(ctx context.Context) error {
 	agents, err := r.store.List(ctx)
 	if err != nil {
@@ -71,7 +66,7 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 	}
 
 	// Miss counts for agents that no longer list are forgotten, so the map cannot grow
-	// without bound as agents come and go.
+	// without bound.
 	for id := range r.misses {
 		if _, ok := listed[id]; !ok {
 			delete(r.misses, id)
@@ -83,12 +78,12 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 
 // reconcileAgent writes the single agent's state to match what tmux shows.
 func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent) {
-	// A pane that is not this agent's means the agent is dormant and cannot be working,
-	// whether its pane died or the tmux server has since given that id to somebody else.
+	// A pane that is not this agent's means the agent is dormant, whether its pane died or
+	// the tmux server has since given that id to somebody else.
 	if !paneOwnedBy(r.tmux.PaneOwner(agent.Pane), agent.ID) {
 		// A pane id kept on a dormant row is the one that collides after a server restart,
-		// so forgetting it here is what stops a later pass, a stage preview, or a kill from
-		// landing on another agent's pane.
+		// so forgetting it stops a later pass, a preview, or a kill from landing on
+		// another agent's pane.
 		if agent.Pane != "" {
 			_ = r.store.ClearPane(ctx, agent.ID)
 		}
@@ -99,16 +94,14 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent)
 
 	frame := r.tmux.CapturePane(agent.Pane)
 
-	// An empty capture means the pane could not be read, not that the agent went idle. A
-	// live agent always shows at least its input box, so this is inconclusive and every
-	// uncertain case is a no-op.
+	// An empty capture means the pane could not be read rather than that the agent went
+	// idle, and every uncertain case is a no-op.
 	if frame == "" {
 		return
 	}
 
 	// A harness this binary does not implement can say nothing about the frame, so the
-	// agent keeps the state it has rather than being demoted off a pane nothing here
-	// can read.
+	// agent keeps the state it has.
 	resolved, err := r.harnesses.Resolve(agent.Harness)
 	if err != nil {
 		return
@@ -120,8 +113,8 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent)
 	case harness.ActivityWaiting:
 		r.apply(ctx, agent, agentstore.StateWaiting)
 	case harness.ActivityUnknown:
-		// The harness read the frame and could not tell, which stands exactly where a
-		// capture that could not be read does.
+		// The harness read the frame and could not tell, which stands where a capture
+		// that could not be read does.
 	case harness.ActivityIdle:
 		if agent.State == agentstore.StateIdle {
 			delete(r.misses, agent.ID)
@@ -129,8 +122,8 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent)
 			return
 		}
 
-		// Idle, but was active. Demoting waits for enough consecutive idle observations to
-		// rule out a transient redraw between tool calls.
+		// Idle, but was active. Demoting waits for enough consecutive idle observations
+		// to rule out a redraw between tool calls.
 		r.misses[agent.ID]++
 		if r.misses[agent.ID] >= reconcileMisses {
 			r.apply(ctx, agent, agentstore.StateIdle)
@@ -139,7 +132,7 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent)
 }
 
 // apply writes a state and clears the agent's miss count, doing nothing when the stored
-// state already matches so an unchanged agent never touches the store.
+// state already matches.
 func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state string) {
 	delete(r.misses, agent.ID)
 	if agent.State == state {

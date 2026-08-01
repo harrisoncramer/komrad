@@ -8,22 +8,20 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// actionState is the actions screen, the scripts the user has written for the panel to run.
-// The list is asked for on the way in rather than polled, since a directory does not change
-// often enough to restat every second the screen is up.
+// actionState is the actions screen, the scripts the user has written for the panel to
+// run. The list is asked for on the way in rather than polled, since a directory does not
+// change often enough to restat every second.
 //
-// agent is the agent the screen was opened on, held here rather than read back off the cursor
-// when a script is chosen. The refresh keeps running while the list is up and can move the rows
-// under it, so reading the cursor then could fire the action at whatever the last pass left
-// there.
+// agent is the agent the screen was opened on, held here rather than read off the cursor
+// when a script is chosen, since the refresh keeps running and can move the rows underneath.
 type actionState struct {
 	items  []actionItem
 	cursor int
 	agent  agentstore.Agent
 }
 
-// actionItem is one of the user's actions as the panel holds it. The preview is the start of the
-// file, which the service reads, since the panel does not touch the actions directory itself.
+// actionItem is one of the user's actions as the panel holds it. The preview is the start
+// of the file, read by the service since the panel never touches the actions directory.
 type actionItem struct {
 	name       string
 	executable bool
@@ -31,15 +29,15 @@ type actionItem struct {
 	truncated  bool
 }
 
-// actionsResult is a finished listing. It is its own message rather than part of the refresh
-// pass, since the pass runs every second and this is read once per visit to the screen.
+// actionsResult is a finished listing, its own message rather than part of the refresh
+// pass, since the pass runs every second and this is read once per visit.
 type actionsResult struct {
 	actions []actionItem
 	err     error
 }
 
-// enterActions opens the actions list on the hovered agent. The list arrives as a message, so
-// the screen paints empty and fills in, the way the archive does.
+// enterActions opens the actions list on the hovered agent. The list arrives as a message,
+// so the screen paints empty and fills in, the way the archive does.
 func (m model) enterActions() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedAgent()
 	if !ok {
@@ -53,8 +51,8 @@ func (m model) enterActions() (tea.Model, tea.Cmd) {
 	return m, m.listActionsCmd()
 }
 
-// listActionsCmd asks the service for the actions, off the render loop like every other call
-// the panel makes.
+// listActionsCmd asks the service for the actions, off the render loop like every other
+// call the panel makes.
 func (m model) listActionsCmd() tea.Cmd {
 	clients := m.api
 
@@ -68,13 +66,13 @@ func (m model) listActionsCmd() tea.Cmd {
 	}
 }
 
-// applyActions puts a finished listing on screen. A listing that failed is reported and leaves
-// the list empty, since there is nothing to show and the stage would otherwise claim the
-// directory is empty when nobody could read it.
+// applyActions puts a finished listing on screen. A failed one is reported and leaves the
+// list empty rather than letting the stage claim the directory is empty when nobody could
+// read it.
 //
-// A listing that arrives after the screen was left is dropped whole, the way the refresh drops a
-// pass the panel has moved past. It would otherwise write the stage of whichever screen is up
-// now, and a failed one would banner over it, both of them about a list nobody is looking at.
+// A listing that arrives after the screen was left is dropped whole, the way the refresh
+// drops a pass the panel has moved past, since it would otherwise write the stage of
+// whichever screen is up now about a list nobody is looking at.
 func (m *model) applyActions(result actionsResult) {
 	if m.screen != screenActions {
 		return
@@ -91,8 +89,8 @@ func (m *model) applyActions(result actionsResult) {
 	m.stageAction()
 }
 
-// updateActions drives the actions list. Nav moves the selection and restages, and run fires
-// the action under the cursor at the agent the list was opened on.
+// updateActions drives the actions list. Nav moves the selection and restages, and run
+// fires the action under the cursor at the agent the list was opened on.
 func (m model) updateActions(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -128,16 +126,11 @@ func (m model) selectedAction() (actionItem, bool) {
 }
 
 // runSelectedAction fires the action under the cursor at the agent the list was opened on.
-// Nothing waits for it and nothing reports what it did, since where its output goes is the
-// action's to decide, and whatever it changes reaches the panel the way a change made from
-// anywhere else does, on the next refresh.
+// Nothing waits for it, since where its output goes is the action's to decide and whatever
+// it changes reaches the panel on the next refresh.
 //
-// The list stays where it is. Firing is closer to a webhook than to opening something, so there
-// is nothing to navigate to, and staying put leaves the cursor on the agent to fire a second
-// action at.
-//
-// A failure is always from before the process started, an action or agent that is not there or
-// a file the service could not execute, so it banners over the list the row is on.
+// The list stays where it is, so the cursor is ready to fire a second action, and a failure
+// is always from before the process started, so it banners over the row it came from.
 func (m model) runSelectedAction() (tea.Model, tea.Cmd) {
 	action, ok := m.selectedAction()
 	if !ok {
@@ -153,17 +146,16 @@ func (m model) runSelectedAction() (tea.Model, tea.Cmd) {
 }
 
 // noActionsMarkdown is what the stage shows with nothing to list, so the pane says what an
-// action is rather than sitting blank. It names no directory: the panel does not resolve one
-// any more, and the config is where the answer lives.
+// action is rather than sitting blank. It names no directory, since the config is where
+// that answer lives.
 const noActionsMarkdown = "# Actions\n\n_nothing here yet_\n\n" +
 	"An action is any executable file in your actions directory, which is " +
 	"`~/.config/weave/actions` unless your config names another.\n\n" +
 	"It runs on the agent you opened this list from, in that directory rather than the " +
 	"agent's, with the agent as JSON in `WEAVE_AGENT`. Where its output goes is up to it.\n"
 
-// stageAction shows the action under the cursor in the stage. The service sends the start of
-// each file with the listing, so hovering costs nothing and the panel never reads the directory
-// itself.
+// stageAction shows the action under the cursor in the stage. The service sends the start
+// of each file with the listing, so hovering costs nothing.
 func (m model) stageAction() {
 	action, ok := m.selectedAction()
 	if !ok {
@@ -175,10 +167,9 @@ func (m model) stageAction() {
 	m.stage.Text(actionMarkdown(action))
 }
 
-// actionsView renders the actions list, naming the agent they would run on. The list acts on the
-// row it was opened from rather than on whatever the agents list is hovering by the time an
-// action is chosen, so the name says which agent it has. A file without the executable bit is
-// drawn dim, the way a dormant agent is, since it is there and it will not run.
+// actionsView renders the actions list, naming the agent they would run on, since the list
+// acts on the row it was opened from rather than whatever the agents list is hovering by
+// now. A file without the executable bit is drawn dim, the way a dormant agent is.
 func (m model) actionsView() string {
 	header := headerStyle.Render("Actions on "+m.actions.agent.Name) + "\n\n"
 	hints := "\n" + m.actionHints()

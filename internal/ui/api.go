@@ -23,19 +23,15 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// The panel acts through the service for everything, the same way the MCP tools and
-// the CLI do, so what a person may do from here and what a model may do cannot drift
-// apart. Every call below is one RPC under its own deadline. All but the two reads an
-// edit form opens on run inside a command rather than on the render loop.
-
-// requestTimeout bounds a single call made in response to a keypress. It is
-// generous because creating an agent opens a tmux window on the far side, and it
-// exists so a wedged server leaves the panel usable rather than frozen.
+// requestTimeout bounds a single call made in response to a keypress. It is generous
+// because creating an agent opens a tmux window on the far side, and exists so a wedged
+// server leaves the panel usable rather than frozen.
 const requestTimeout = 10 * time.Second
 
-// api holds the service clients the panel acts through. Every change to an agent or
-// a workflow goes over these, the same way the MCP tools and the CLI reach them, so
-// what the panel may do and what a model may do cannot drift apart.
+// api holds the service clients the panel acts through. Every change goes over these, the
+// same way the MCP tools and the CLI reach them, so what a person may do from the panel
+// and what a model may do cannot drift apart. Each call below is one RPC under its own
+// deadline, and all but the two reads an edit form opens on run off the render loop.
 type api struct {
 	agents    agentv1connect.AgentServiceClient
 	workflows workflowv1connect.WorkflowServiceClient
@@ -43,8 +39,8 @@ type api struct {
 	actions   actionv1connect.ActionServiceClient
 }
 
-// renameAgent renames an agent by id. A blank or unchanged name is a no-op, which
-// keeps the form's empty submit from asking the service to do nothing.
+// renameAgent renames an agent by id. A blank or unchanged name is a no-op, so the form's
+// empty submit asks the service for nothing.
 func (a api) renameAgent(agent agentstore.Agent, name string) error {
 	name = strings.TrimSpace(name)
 	if name == "" || name == agent.Name {
@@ -62,8 +58,8 @@ func (a api) renameAgent(agent agentstore.Agent, name string) error {
 	return err
 }
 
-// createAgentParams is a launch: the workflow's blueprint as the form left it, plus
-// the workflow the agent lands in.
+// createAgentParams is a launch: the workflow's blueprint as the form left it, plus the
+// workflow the agent lands in.
 type createAgentParams struct {
 	Prompt     string
 	Title      string
@@ -88,8 +84,8 @@ func (a api) createAgent(params createAgentParams) error {
 	return err
 }
 
-// archiveAgent stops an agent and hides it. The record and transcript stay, so
-// search still reaches it.
+// archiveAgent stops an agent and hides it, keeping the record and transcript so search
+// still reaches it.
 func (a api) archiveAgent(agent agentstore.Agent) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
@@ -99,8 +95,8 @@ func (a api) archiveAgent(agent agentstore.Agent) error {
 	return err
 }
 
-// setHidden takes an agent out of the list or puts it back. Nothing about the agent
-// changes: it keeps running and every other view still holds it.
+// setHidden takes an agent out of the list or puts it back. It keeps running and every
+// other view still holds it.
 func (a api) setHidden(agent agentstore.Agent, hidden bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
@@ -133,8 +129,8 @@ func (a api) restoreAgent(id string) (*agentv1.Agent, error) {
 	return resp.Msg.GetAgent(), nil
 }
 
-// deleteAgent destroys an agent for good, keyed by id. A name identifies at most
-// one live agent, which is exactly what a deleted one is not.
+// deleteAgent destroys an agent for good, keyed by id since a name identifies at most one
+// live agent, which is what a deleted one is not.
 func (a api) deleteAgent(id string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
@@ -144,11 +140,9 @@ func (a api) deleteAgent(id string) error {
 	return err
 }
 
-// getSchedule refetches one schedule, so an edit form opens on what is stored
-// rather than on the row the listing happened to carry. The edit forms are the only
-// thing left that calls on the render loop, since a form has nothing to open on until
-// the answer is in, so this takes the short deadline a listing gets rather than the
-// generous one a write does.
+// getSchedule refetches one schedule, so an edit form opens on what is stored rather than
+// the row the listing carried. A form has nothing to open on until the answer is in, so
+// this is the one call left on the render loop and takes a listing's short deadline.
 func (a api) getSchedule(id string) (*schedulestore.Schedule, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
 	defer cancel()
@@ -181,8 +175,7 @@ func (a api) createSchedule(cfg schedulestore.Config) error {
 	return err
 }
 
-// updateSchedule writes every field back, which is what the service expects. It
-// replaces rather than patches, so the caller sends the whole schedule.
+// updateSchedule writes every field back, since the service replaces rather than patches.
 func (a api) updateSchedule(id string, cfg schedulestore.Config) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
@@ -201,8 +194,7 @@ func (a api) updateSchedule(id string, cfg schedulestore.Config) error {
 	return err
 }
 
-// setScheduleEnabled pauses or resumes a schedule without touching the rest of
-// its record.
+// setScheduleEnabled pauses or resumes a schedule without touching the rest of its record.
 func (a api) setScheduleEnabled(id string, enabled bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
@@ -225,9 +217,9 @@ func (a api) deleteSchedule(id string) error {
 	return err
 }
 
-// getWorkflow refetches one workflow, so an edit form opens on what is stored
-// rather than on the row the listing happened to carry. It reads on the render loop
-// for the reason getSchedule does, and takes the same short deadline.
+// getWorkflow refetches one workflow, so an edit form opens on what is stored rather than
+// the row the listing carried. It reads on the render loop for the reason getSchedule
+// does, and takes the same short deadline.
 func (a api) getWorkflow(id string) (*workflowstore.Workflow, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
 	defer cancel()
@@ -251,8 +243,8 @@ func (a api) getWorkflow(id string) (*workflowstore.Workflow, error) {
 	}, nil
 }
 
-// createWorkflow adds a workflow, defaulting a blank name so the list always has
-// a label to render.
+// createWorkflow adds a workflow, defaulting a blank name so the list always has a label
+// to render.
 func (a api) createWorkflow(cfg workflowstore.Config) error {
 	name := strings.TrimSpace(cfg.Name)
 	if name == "" {
@@ -275,8 +267,7 @@ func (a api) createWorkflow(cfg workflowstore.Config) error {
 	return err
 }
 
-// updateWorkflow writes every field back, which is what the service expects. It
-// replaces rather than patches, so the caller sends the whole workflow.
+// updateWorkflow writes every field back, since the service replaces rather than patches.
 func (a api) updateWorkflow(w workflowstore.Workflow) error {
 	name := strings.TrimSpace(w.Name)
 	if name == "" {
@@ -300,8 +291,8 @@ func (a api) updateWorkflow(w workflowstore.Workflow) error {
 	return err
 }
 
-// deleteWorkflow removes a workflow, archiving the agents inside it alongside
-// it. The service refuses while any schedule still launches into it.
+// deleteWorkflow removes a workflow, archiving the agents inside it. The service refuses
+// while any schedule still launches into it.
 func (a api) deleteWorkflow(id string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
@@ -311,9 +302,9 @@ func (a api) deleteWorkflow(id string) error {
 	return err
 }
 
-// listActions is the user's actions as the service finds them, each with the start of its own
-// text for the preview. The panel never reads the directory itself, so what it lists and what a
-// model lists are one call.
+// listActions is the user's actions as the service finds them, each with the start of its
+// own text for the preview. The panel never reads the directory itself, so what it lists
+// and what a model lists are one call.
 func (a api) listActions() ([]*actionv1.Action, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
@@ -326,8 +317,8 @@ func (a api) listActions() ([]*actionv1.Action, error) {
 	return resp.Msg.GetActions(), nil
 }
 
-// runAction fires an action on an agent. It returns once the service has started the process,
-// so an error is always from before it began and never from what it did.
+// runAction fires an action on an agent, returning once the service has started the
+// process, so an error is always from before it began rather than from what it did.
 func (a api) runAction(agentID, name string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()

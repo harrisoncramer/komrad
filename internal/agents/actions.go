@@ -17,44 +17,39 @@ import (
 	agentstore "weave/internal/store/agent"
 )
 
-// actionReader is the part of the agent store this service reads. An action is fired on an
-// agent and changes nothing about it, so this never writes.
+// actionReader is the part of the agent store this service reads. An action changes
+// nothing about the agent it fires on, so this never writes.
 type actionReader interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
-// actionRunner starts an action. The service takes it as an interface so its tests drive
-// the whole path without spawning processes.
-//
-// Which of the two a caller wants depends on the caller, not the action. RunAndWait is for
-// one with something downstream of the action, and Run is for one with nothing waiting.
+// actionRunner starts an action. RunAndWait is for a caller with something downstream of
+// the action, and Run for one with nothing waiting.
 type actionRunner interface {
 	Run(action actions.Action, dir string, env []string) error
 	RunAndWait(ctx context.Context, action actions.Action, dir string, env []string) (actions.Result, error)
 }
 
-// actionTmux is the one thing this asks of tmux, which agent a pane currently belongs to. It is
+// actionTmux is the one thing this asks of tmux, which agent a pane belongs to, which is
 // what says whether the agent an action is fired on is running.
 type actionTmux interface {
 	PaneOwner(pane string) string
 }
 
-// configLoader reads the user's config. The service holds the loader rather than a parsed
-// config so the file is read per call, which is what lets an actions directory changed while
-// the server runs take effect without a restart.
+// configLoader reads the user's config. The service holds the loader rather than a
+// parsed config so a directory changed while the server runs takes effect without a
+// restart.
 type configLoader func() (*appconfig.Config, error)
 
 // ErrActionNotFound reports that the actions directory holds no file by that name.
 var ErrActionNotFound = errors.New("action not found")
 
-// What set an action off, passed to it in WEAVE_TRIGGER. There is one kind of action and
-// one payload, so this is how a script tells apart the moments it can be reached at.
+// What set an action off, passed to it in WEAVE_TRIGGER, which is how a script tells
+// apart the moments it can be reached at and refuses the ones it does not handle.
 //
-// The contract differs at one of them. Under TriggerSetup a launch is waiting, so the exit
-// status decides whether the agent starts and stdout is read as the directory it runs in.
-// Under the other two nothing is waiting and neither is read. A script that only makes
-// sense at one moment guards on this and refuses the rest itself, which keeps the check in
-// the file rather than in a registry weave would have to keep in step with a directory.
+// The contract differs under TriggerSetup: a launch is waiting, so the exit status decides
+// whether the agent starts and stdout is read as the directory it runs in. Under the other
+// two nothing is waiting and neither is read.
 const (
 	// TriggerManual is a person pressing the action key or a model calling run_action.
 	TriggerManual = "manual"
@@ -64,15 +59,13 @@ const (
 	TriggerCleanup = "cleanup"
 )
 
-// ActionService lists and fires the executables the user keeps in their actions directory.
-//
-// It owns the whole of what an action sees. The payload a script parses out of WEAVE_AGENT is
-// built here and nowhere else, so the panel firing an action and a model firing one hand the
-// script the same thing.
+// ActionService lists and fires the executables the user keeps in their actions
+// directory. The WEAVE_AGENT payload is built here and nowhere else, so the panel firing
+// an action and a model firing one hand the script the same thing.
 type ActionService struct {
 	agents actionReader
-	// workflows is read for the name of the workflow an agent belongs to, which is what a
-	// script can use where the id it is stored under says nothing.
+	// workflows is read for the name of the workflow an agent belongs to, which a script
+	// can use where the id it is stored under says nothing.
 	workflows workflowReader
 	tmux      actionTmux
 	runner    actionRunner
@@ -107,20 +100,17 @@ func NewActionService(p ActionParams) *ActionService {
 	}
 }
 
-// maxActionPreview bounds how much of an action is read for the preview. A caller renders
-// whatever it is given and an action can be a compiled program of any size, so this is a head
-// of the file rather than all of it.
+// maxActionPreview bounds how much of an action is read for the preview, since an action
+// can be a compiled program of any size and a caller renders whatever it is given.
 const maxActionPreview = 8 * 1024
 
-// maxActionPrompt bounds how much of an agent's prompt the payload carries. Everything an exec
-// is handed shares one kernel limit, and the prompt is the only field in here with no bound of
-// its own, so a long enough one would fail the run at exec with a message naming the script. The
-// transcript is left out of the payload for the same reason; this is the same call made for a
-// field small enough to be worth keeping a head of.
+// maxActionPrompt bounds how much of an agent's prompt the payload carries. Everything an
+// exec is handed shares one kernel limit, and the prompt is the only field here with no
+// bound of its own, so a long enough one would fail the run at exec.
 const maxActionPrompt = 16 * 1024
 
-// ListedAction is an action with the start of its own text, which is what a caller showing one
-// needs and what the file itself is the only source of.
+// ListedAction is an action with the start of its own text, which is what a caller
+// showing one needs.
 type ListedAction struct {
 	actions.Action
 	// Preview is the head of the file, empty for one that could not be read.
@@ -129,9 +119,9 @@ type ListedAction struct {
 	Truncated bool
 }
 
-// ListActions is every file in the actions directory, in name order, each with the start of its
-// contents. A file that cannot be read is listed with an empty preview rather than dropped,
-// since it is still there and still nameable.
+// ListActions is every file in the actions directory, in name order, each with the start
+// of its contents. A file that cannot be read is listed with an empty preview rather than
+// dropped, since it is still there and still nameable.
 func (s *ActionService) ListActions() ([]ListedAction, error) {
 	_, found, err := s.discover()
 	if err != nil {
@@ -153,15 +143,14 @@ func (s *ActionService) ListActions() ([]ListedAction, error) {
 	return listed, nil
 }
 
-// RunAction fires an action on an agent and returns once the process exists. Nothing waits for
-// it and nothing reads what it did, so the only failures are the ones that happen before it
-// starts: an agent or an action that is not there, and a file that will not execute.
+// RunAction fires an action on an agent and returns once the process exists. Nothing
+// waits for it, so the only failures are the ones before it starts: a missing agent or
+// action, and a file that will not execute.
 //
-// It runs in the actions directory rather than in the agent's own. An action that removes the
-// directory its agent worked in cannot be standing in it, and an agent whose directory is
-// already gone would otherwise have no action that could run on it at all, which is exactly the
-// row still wanting one. The agent's directory is in the payload for a script that wants it, and
-// a script that needs to work there says so with a cd of its own.
+// It runs in the actions directory rather than the agent's own, since an action that
+// removes its agent's directory cannot be standing in it, and an agent whose directory is
+// already gone is exactly the one still wanting an action. The agent's directory is in
+// the payload for a script that wants to cd there itself.
 func (s *ActionService) RunAction(ctx context.Context, agentID, name string) error {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if err != nil {
@@ -184,27 +173,22 @@ func (s *ActionService) RunAction(ctx context.Context, agentID, name string) err
 	return s.runner.Run(action, dir, env)
 }
 
-// ErrSetupFailed reports that the action a workflow runs before its agents start refused,
-// so the agent was never launched. It is the one action failure something else is
-// downstream of. Everywhere else an action that will not run is only the script's problem.
+// ErrSetupFailed reports that a workflow's setup action refused, so the agent was never
+// launched. It is the one action failure something else is downstream of.
 var ErrSetupFailed = errors.New("the setup action failed")
 
-// setupTimeout bounds how long a setup action may take. A launch waits on it, so one that
-// hangs is a create that never answers. It is generous because the ordinary case is
-// installing dependencies over a network, and killing that halfway through leaves a mess.
+// setupTimeout bounds how long a setup action may take, since a launch waits on it. It is
+// generous because the ordinary case is installing dependencies over a network.
 const setupTimeout = 10 * time.Minute
 
-// maxSetupDir bounds what a setup action may name as the directory to run in, matching the
-// limit the same field carries on the wire. It also stops a script that chats on stdout
-// from being read as having answered with a page of prose.
+// maxSetupDir bounds what a setup action may name as the directory to run in, matching
+// the limit the same field carries on the wire.
 const maxSetupDir = 4096
 
-// RunSetupAction runs a workflow's setup action and does not return until it has finished.
-//
-// The directory the agent should run in is what the action writes to stdout, trimmed.
-// Writing nothing is the ordinary case, since only a workflow that provisions a directory
-// has anything to say here. Progress belongs on stderr, so a script that chats on stdout is
-// refused rather than taken at its word.
+// RunSetupAction runs a workflow's setup action and does not return until it has
+// finished. The directory the agent should run in is whatever the action trims to on
+// stdout, ordinarily nothing. Progress belongs on stderr, so a script that chats on
+// stdout is refused rather than taken at its word.
 func (s *ActionService) RunSetupAction(ctx context.Context, agent agentstore.Agent, name string) (string, error) {
 	action, actionsDir, err := s.find(name)
 	if err != nil {
@@ -232,12 +216,9 @@ func (s *ActionService) RunSetupAction(ctx context.Context, agent agentstore.Age
 	return answered, nil
 }
 
-// RunCleanupAction fires a workflow's cleanup action and returns once the process exists.
-// Nothing is downstream of a cleanup, so it is started and abandoned the way an action fired
-// by hand is.
-//
-// The agent is taken as a value rather than looked up, so a cleanup can fire for an agent
-// whose row has already gone. Deleting one is exactly when its worktree wants removing.
+// RunCleanupAction fires a workflow's cleanup action and returns once the process exists,
+// since nothing is downstream of a cleanup. The agent is taken as a value rather than
+// looked up, so a cleanup can fire for an agent whose row has already gone.
 func (s *ActionService) RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string) error {
 	action, dir, err := s.find(name)
 	if err != nil {
@@ -252,9 +233,8 @@ func (s *ActionService) RunCleanupAction(ctx context.Context, agent agentstore.A
 	return s.runner.Run(action, dir, env)
 }
 
-// stderrDetail renders an action's stderr for the end of a refusal, so what the script said
-// about its own failure travels with the error rather than only reaching a log. Empty
-// stderr renders as nothing rather than as an empty pair of quotes.
+// stderrDetail renders an action's stderr for the end of a refusal, so what the script
+// said about its own failure travels with the error rather than only reaching a log.
 func stderrDetail(stderr []byte) string {
 	trimmed := bytes.TrimSpace(stderr)
 	if len(trimmed) == 0 {
@@ -264,10 +244,9 @@ func stderrDetail(stderr []byte) string {
 	return ": " + string(trimmed)
 }
 
-// find is the action by name, with the directory it was found in. The name is matched against
-// what the directory holds rather than joined onto its path, so a name carrying enough parent
-// directories to climb out finds nothing instead of resolving to some executable elsewhere on
-// the machine.
+// find is the action by name, with the directory it was found in. The name is matched
+// against what the directory holds rather than joined onto its path, so a name that
+// climbs out finds nothing instead of some executable elsewhere on the machine.
 func (s *ActionService) find(name string) (actions.Action, string, error) {
 	dir, found, err := s.discover()
 	if err != nil {
@@ -305,12 +284,10 @@ func (s *ActionService) discover() (string, []actions.Action, error) {
 }
 
 // actionPayload is what an action is told about the agent it was fired on, encoded into
-// WEAVE_AGENT. It is a shape of its own rather than the wire format, so what a script parses is
-// written down in one place, and so metadata arrives as an object a script can index by key
-// rather than as the store's list of pairs.
-//
-// The transcript is not in here. It is far past what an environment variable holds, and a
-// script that wants it has the agent's id and the address of the server.
+// WEAVE_AGENT. It is a shape of its own rather than the wire format, so what a script
+// parses is written down in one place and metadata arrives as an object it can index by
+// key. The transcript is left out, since it is far past what an environment variable
+// holds and a script that wants it has the agent's id and the server's address.
 type actionPayload struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
@@ -332,15 +309,14 @@ type actionPayload struct {
 	Metadata        map[string]string `json:"metadata"`
 }
 
-// env is the environment an action runs with, over the server's own.
+// env is the environment an action runs with, over the server's own. The agent goes in
+// whole as JSON, beside the values a script reaches back through: this server's address,
+// the socket of the tmux server the agent's pane lives on, and the actions directory.
 //
-// The agent goes in whole as JSON under one name. The values beside it are what a script reaches
-// back through: the address of this server, which is where everything about the agent too large
-// to pass in an environment variable is, the socket of the tmux server the agent's pane lives on,
-// and the directory the action was found in. Without that socket a script sending keys to the
-// pane in the payload would be addressing the user's own server, where that pane id means
-// something else. The directory is what a script that cds to the agent's own gets back to its
-// siblings by, since its own path is only reliable when it was not reached through a symlink.
+// The socket matters because a script sending keys to the pane in the payload would
+// otherwise address the user's own server, where that pane id means something else. The
+// directory is how a script that cds elsewhere finds its siblings again, since its own
+// path is only reliable when it was not reached through a symlink.
 func (s *ActionService) env(ctx context.Context, agent agentstore.Agent, dir, trigger string) ([]string, error) {
 	payload := actionPayload{
 		ID:        agent.ID,
@@ -382,9 +358,8 @@ func (s *ActionService) env(ctx context.Context, agent agentstore.Agent, dir, tr
 	}, nil
 }
 
-// workflowName is the name of the workflow an agent belongs to, empty when it cannot be read.
-// A payload is not worth refusing over the label on one field, so a lookup that fails leaves the
-// field blank rather than failing the run.
+// workflowName is the name of the workflow an agent belongs to. A payload is not worth
+// refusing over one label, so a lookup that fails leaves the field blank.
 func (s *ActionService) workflowName(ctx context.Context, id string) string {
 	found, err := s.workflows.Get(ctx, id)
 	if err != nil || found == nil {
@@ -394,8 +369,8 @@ func (s *ActionService) workflowName(ctx context.Context, id string) string {
 	return found.Name
 }
 
-// head is the first limit bytes of s and whether anything was dropped. The cut is pulled back
-// off a partial character, so what a script is handed is always text it can decode.
+// head is the first limit bytes of s and whether anything was dropped. The cut is pulled
+// back off a partial character, so a script is always handed text it can decode.
 func head(s string, limit int) (string, bool) {
 	if len(s) <= limit {
 		return s, false
@@ -409,9 +384,9 @@ func head(s string, limit int) (string, bool) {
 	return cut, true
 }
 
-// readHead reads up to limit bytes of a file and reports whether there was more. A truncated
-// read is cut back to its last complete line, which keeps a preview from ending mid-character
-// and reading as a file that is not text at all.
+// readHead reads up to limit bytes of a file and reports whether there was more. A
+// truncated read is cut back to its last complete line, which keeps a preview from ending
+// mid-character and reading as a file that is not text at all.
 func readHead(path string, limit int) ([]byte, bool, error) {
 	file, err := os.Open(path)
 	if err != nil {
