@@ -157,6 +157,41 @@ func rowIndexOfAgentName(rows []agentRow, name string) int {
 	return -1
 }
 
+// rowKey identifies a row across listings, a header by its folder and an agent by itself,
+// so a cursor can follow the row it was on as the tree is rebuilt. A header is keyed the
+// same as an agent, since a folder appearing or going takes every row below it with it.
+func rowKey(row agentRow) string {
+	if row.header {
+		return "workflow:" + row.workflow.ID
+	}
+
+	return "agent:" + row.item.agent.ID
+}
+
+// rowKeyAt is the key of the row a cursor is on, or empty when it is on nothing.
+func rowKeyAt(rows []agentRow, cursor int) string {
+	if cursor < 0 || cursor >= len(rows) {
+		return ""
+	}
+
+	return rowKey(rows[cursor])
+}
+
+// rowIndexOfKey returns the row carrying the key, or -1 when it is gone.
+func rowIndexOfKey(rows []agentRow, key string) int {
+	if key == "" {
+		return -1
+	}
+
+	for i, r := range rows {
+		if rowKey(r) == key {
+			return i
+		}
+	}
+
+	return -1
+}
+
 // agentCount returns how many listed agents belong to the given workflow id.
 func (m model) agentCount(workflowID string) int {
 	n := 0
@@ -182,26 +217,41 @@ func (m *model) applyWorkflows(fresh []workflowstore.Workflow) {
 	m.tree.workflows = fresh
 }
 
-// applyAgents takes a freshly-listed set as the on-screen agents, keeping the cursor on the
-// agent it was on rather than its index, since an agent above it may have gone.
+// applyAgents takes a freshly-listed set as the on-screen agents.
 func (m *model) applyAgents(fresh []agentItem) {
-	selected := ""
-	if item, ok := m.selectedAgent(); ok {
-		selected = item.agent.Name
-	}
-
-	// A row a write asked to be shown takes the cursor for this listing only.
-	if m.tree.focus != "" {
-		selected, m.tree.focus = m.tree.focus, ""
-	}
-
 	m.tree.agents = fresh
+}
+
+// placeTreeCursor puts the cursor back on the row selected names, or as near as the rebuilt
+// tree allows. Either listing can add or drop rows above the cursor, so it follows the row
+// rather than the index that row happened to be drawn at.
+//
+// The caller reads selected before the pass starts landing, since a cursor cannot be
+// resolved against a tree that is half this pass and half the last.
+func (m *model) placeTreeCursor(selected string) {
+	// A row a write asked to be shown takes the cursor for this listing only. It is named
+	// rather than keyed, since a restore can hand back a name the panel has no row for yet.
+	focus := m.tree.focus
+	m.tree.focus = ""
+
+	// Nothing was on screen before the first listing, so there is no row to hold and the
+	// cursor lands on the first agent rather than on the folder above it.
+	placed := m.tree.placed
+	if !placed {
+		selected = ""
+	}
+
 	rows := m.agentRows()
 
-	switch idx := rowIndexOfAgentName(rows, selected); {
+	idx := rowIndexOfKey(rows, selected)
+	if focus != "" {
+		idx = rowIndexOfAgentName(rows, focus)
+	}
+
+	switch {
 	case idx >= 0:
 		m.tree.cursor = idx
-	case !m.tree.placed:
+	case !placed:
 		m.tree.cursor = firstAgentRowIndex(rows)
 	default:
 		m.tree.cursor = clampCursor(m.tree.cursor, len(rows))

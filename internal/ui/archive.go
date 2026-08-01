@@ -75,34 +75,20 @@ func (m model) archiveHeaders() []workflowstore.Workflow {
 	return headers
 }
 
-// archiveRowKey identifies a row across listings, a header by its folder and an agent by
-// itself, so the cursor can follow the row it was on as the tree is rebuilt.
-func archiveRowKey(row agentRow) string {
-	if row.header {
-		return "workflow:" + row.workflow.ID
-	}
-
-	return "agent:" + row.item.agent.ID
-}
-
 // applyArchive takes freshly-listed sets as the on-screen archive, keeping the cursor on
-// the row it was on rather than on its index, so a row removed above it does not move the
-// selection onto something else.
-func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstore.Workflow) {
-	selected := ""
-	if rows := m.archiveRows(); m.archive.cursor >= 0 && m.archive.cursor < len(rows) {
-		selected = archiveRowKey(rows[m.archive.cursor])
-	}
-
+// the row selected names rather than on its index, so a row removed above it does not move
+// the selection onto something else.
+//
+// The caller reads selected before the pass starts landing, since the archive draws headers
+// for live folders too and those are replaced ahead of it.
+func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstore.Workflow, selected string) {
 	m.archive.agents, m.archive.workflows = agents, workflows
 
 	rows := m.archiveRows()
-	for i, row := range rows {
-		if archiveRowKey(row) == selected {
-			m.archive.cursor = i
+	if idx := rowIndexOfKey(rows, selected); idx >= 0 {
+		m.archive.cursor = idx
 
-			return
-		}
+		return
 	}
 
 	m.archive.cursor = clampCursor(m.archive.cursor, len(rows))

@@ -101,11 +101,14 @@ func TestApplyAgents(t *testing.T) {
 					workflows: []workflowstore.Workflow{{ID: testWorkflowID, Name: "backend"}},
 					agents:    tt.start,
 					cursor:    tt.cursor,
+					placed:    true,
 				},
 				keys: appconfig.DefaultKeybindings(),
 			}
 
+			was := rowKeyAt(m.agentRows(), m.tree.cursor)
 			m.applyAgents(tt.fresh)
+			m.placeTreeCursor(was)
 
 			assert.Equal(t, screenAgents, m.screen, "the panel stays where it was")
 			assert.Len(t, m.tree.agents, tt.wantLen)
@@ -138,11 +141,12 @@ func TestApplyAgents(t *testing.T) {
 const testWorkflowID = "w1"
 
 // items builds a list of agents from names alone, all in one workflow, for the
-// cases that only care about ordering and selection.
+// cases that only care about ordering and selection. The name doubles as the id,
+// which is what the cursor follows a row by.
 func items(names ...string) []agentItem {
 	out := make([]agentItem, 0, len(names))
 	for _, name := range names {
-		out = append(out, agentItem{agent: agentstore.Agent{Name: name, WorkflowID: testWorkflowID}})
+		out = append(out, agentItem{agent: agentstore.Agent{ID: name, Name: name, WorkflowID: testWorkflowID}})
 	}
 
 	return out

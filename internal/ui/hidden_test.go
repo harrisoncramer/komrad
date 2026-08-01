@@ -24,10 +24,10 @@ func hiddenTree() model {
 				{ID: "w2", Name: "frontend"},
 			},
 			agents: []agentItem{
-				{agent: agentstore.Agent{Name: "auth", WorkflowID: "w1"}},
-				{agent: agentstore.Agent{Name: "chore", WorkflowID: "w1", Hidden: true}},
-				{agent: agentstore.Agent{Name: "sweep", WorkflowID: "w1", Hidden: true}},
-				{agent: agentstore.Agent{Name: "ui", WorkflowID: "w2"}},
+				{agent: agentstore.Agent{ID: "a1", Name: "auth", WorkflowID: "w1"}},
+				{agent: agentstore.Agent{ID: "a2", Name: "chore", WorkflowID: "w1", Hidden: true}},
+				{agent: agentstore.Agent{ID: "a3", Name: "sweep", WorkflowID: "w1", Hidden: true}},
+				{agent: agentstore.Agent{ID: "a4", Name: "ui", WorkflowID: "w2"}},
 			},
 		},
 	}

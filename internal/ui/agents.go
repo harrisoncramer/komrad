@@ -175,17 +175,14 @@ func editorArgv(editor, dir string) []string {
 }
 
 // toggleHiddenAgents draws the hidden agents alongside the rest, or puts them away again.
-// Rows appear and vanish above the cursor, so it follows the agent rather than the index.
+// Rows appear and vanish above the cursor, so it follows the row rather than the index.
 func (m model) toggleHiddenAgents() (tea.Model, tea.Cmd) {
-	selected := ""
-	if item, ok := m.selectedAgent(); ok {
-		selected = item.agent.Name
-	}
+	selected := rowKeyAt(m.agentRows(), m.tree.cursor)
 
 	m.tree.showHidden = !m.tree.showHidden
 
 	rows := m.agentRows()
-	if idx := rowIndexOfAgentName(rows, selected); idx >= 0 {
+	if idx := rowIndexOfKey(rows, selected); idx >= 0 {
 		m.tree.cursor = idx
 	} else {
 		m.tree.cursor = clampCursor(m.tree.cursor, len(rows))
