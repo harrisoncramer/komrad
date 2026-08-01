@@ -38,8 +38,8 @@ func (m model) updateHoveredWorkflow(key tea.KeyMsg, workflow workflowstore.Work
 		return m.renameWorkflowForm(workflow)
 	case bound(k, m.keys.Workflows.Edit):
 		return m.editWorkflowForm(workflow)
-	case bound(k, m.keys.Workflows.Delete):
-		return m.deleteWorkflowConfirm(workflow)
+	case bound(k, m.keys.Workflows.Archive):
+		return m.archiveWorkflowConfirm(workflow)
 	}
 
 	return m, nil
@@ -117,19 +117,19 @@ func (m model) availableActions() []string {
 	return names
 }
 
-// deleteWorkflowConfirm opens the delete prompt for the highlighted workflow,
-// asking whether its agents should be removed with it.
-func (m model) deleteWorkflowConfirm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
-	m.target.deleteWorkflow = &workflow
-	m.form, m.values.confirmed = deleteWorkflowForm(workflow.Name, m.keys.Form)
-	m.screen = screenWorkflowDelete
+// archiveWorkflowConfirm opens the archive prompt for the highlighted workflow,
+// asking whether its agents should go with it.
+func (m model) archiveWorkflowConfirm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
+	m.target.archiveWorkflow = &workflow
+	m.form, m.values.confirmed = archiveWorkflowForm(workflow.Name, m.keys.Form)
+	m.screen = screenWorkflowArchive
 
 	return m, m.form.Init()
 }
 
-// updateWorkflowDelete drives the delete prompt. Confirming purges the workflow with its
-// agents, and anything else leaves it untouched. All outcomes return to the agents view.
-func (m model) updateWorkflowDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
+// updateWorkflowArchive drives the archive prompt. Confirming archives the workflow with
+// its agents, and anything else leaves it untouched. All outcomes return to the agents view.
+func (m model) updateWorkflowArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
 	form, cmd := m.form.Update(msg)
 	if updated, ok := form.(*huh.Form); ok {
 		m.form = updated
@@ -138,19 +138,19 @@ func (m model) updateWorkflowDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.form.State {
 	case huh.StateCompleted:
 		var write tea.Cmd
-		if target := m.target.deleteWorkflow; target != nil && m.wasConfirmed() {
+		if target := m.target.archiveWorkflow; target != nil && m.wasConfirmed() {
 			write = m.writeCmd(
-				fmt.Sprintf("Could not delete workflow %q", target.Name),
-				func(a api) error { return a.deleteWorkflow(target.ID) },
+				fmt.Sprintf("Could not archive workflow %q", target.Name),
+				func(a api) error { return a.archiveWorkflow(target.ID) },
 			)
 		}
-		m.target.deleteWorkflow = nil
+		m.target.archiveWorkflow = nil
 		m.values.confirmed = nil
 		returned, refresh := m.returnToAgents()
 
 		return returned, tea.Batch(write, refresh)
 	case huh.StateAborted:
-		m.target.deleteWorkflow = nil
+		m.target.archiveWorkflow = nil
 		m.values.confirmed = nil
 		return m.returnToAgents()
 	default:

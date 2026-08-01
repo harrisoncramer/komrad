@@ -125,8 +125,8 @@ message UpdateWorkflowRequest {
   }];
 }
 
-// DeleteWorkflowRequest removes a workflow and the agents inside it.
-message DeleteWorkflowRequest {
+// ArchiveWorkflowRequest hides a workflow and archives the agents inside it.
+message ArchiveWorkflowRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
@@ -160,12 +160,12 @@ service WorkflowService {
       destructive: false
     };
   }
-  rpc DeleteWorkflow(DeleteWorkflowRequest) returns (google.protobuf.Empty) {
+  rpc ArchiveWorkflow(ArchiveWorkflowRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
-      tool_name: "delete_workflow"
-      description: "Remove a workflow. Its agents are archived alongside it, which leaves them findable through search_transcripts and deletes no transcript. Refused while any schedule still launches into the workflow, since those would have nowhere to run."
-      destructive: true
+      tool_name: "archive_workflow"
+      description: "Hide a workflow from the panel, archiving the agents inside it. Nothing is destroyed: the agents stay findable through search_transcripts and no transcript goes with them. Refused while any schedule still launches into the workflow, since those would have nowhere to run."
+      destructive: false
     };
   }
 }

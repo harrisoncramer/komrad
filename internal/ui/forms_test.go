@@ -206,21 +206,21 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			},
 		},
 		{
-			name: "the workflow delete prompt",
+			name: "the workflow archive prompt",
 			open: func(m model) model {
 				target := m.tree.workflows[0]
-				m.target.deleteWorkflow = &target
-				m.screen = screenWorkflowDelete
-				m.form, m.values.confirmed = deleteWorkflowForm(target.Name, m.keys.Form)
+				m.target.archiveWorkflow = &target
+				m.screen = screenWorkflowArchive
+				m.form, m.values.confirmed = archiveWorkflowForm(target.Name, m.keys.Form)
 				*m.values.confirmed = true
 				m.form.State = huh.StateCompleted
 
 				return m
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateWorkflowDelete(keyMsg("enter")) },
+			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateWorkflowArchive(keyMsg("enter")) },
 			check: func(t *testing.T, sent *formRecorder) {
-				require.NotNil(t, sent.deletedWorkflow)
-				assert.Equal(t, "w1", sent.deletedWorkflow.GetId())
+				require.NotNil(t, sent.archivedWorkflow)
+				assert.Equal(t, "w1", sent.archivedWorkflow.GetId())
 			},
 		},
 		{
@@ -365,15 +365,15 @@ type formRecorder struct {
 	workflowv1connect.WorkflowServiceClient
 	schedulev1connect.ScheduleServiceClient
 
-	createdAgent    *agentv1.CreateAgentRequest
-	renamedAgent    *agentv1.UpdateAgentRequest
-	deletedAgent    *agentv1.DeleteAgentRequest
-	createdWorkflow *workflowv1.CreateWorkflowRequest
-	updatedWorkflow *workflowv1.UpdateWorkflowRequest
-	deletedWorkflow *workflowv1.DeleteWorkflowRequest
-	createdSchedule *schedulev1.CreateScheduleRequest
-	updatedSchedule *schedulev1.UpdateScheduleRequest
-	deletedSchedule *schedulev1.DeleteScheduleRequest
+	createdAgent     *agentv1.CreateAgentRequest
+	renamedAgent     *agentv1.UpdateAgentRequest
+	deletedAgent     *agentv1.DeleteAgentRequest
+	createdWorkflow  *workflowv1.CreateWorkflowRequest
+	updatedWorkflow  *workflowv1.UpdateWorkflowRequest
+	archivedWorkflow *workflowv1.ArchiveWorkflowRequest
+	createdSchedule  *schedulev1.CreateScheduleRequest
+	updatedSchedule  *schedulev1.UpdateScheduleRequest
+	deletedSchedule  *schedulev1.DeleteScheduleRequest
 }
 
 func (f *formRecorder) ListAgents(context.Context, *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
@@ -414,8 +414,8 @@ func (f *formRecorder) UpdateWorkflow(_ context.Context, req *connect.Request[wo
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (f *formRecorder) DeleteWorkflow(_ context.Context, req *connect.Request[workflowv1.DeleteWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
-	f.deletedWorkflow = req.Msg
+func (f *formRecorder) ArchiveWorkflow(_ context.Context, req *connect.Request[workflowv1.ArchiveWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
+	f.archivedWorkflow = req.Msg
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }

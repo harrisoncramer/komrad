@@ -181,15 +181,15 @@ func TestUpdateWorkflow(t *testing.T) {
 	}
 }
 
-// TestDeleteWorkflow covers what goes with the workflow and what stops the
-// delete. The agents inside always go, since every agent belongs to a workflow
+// TestArchiveWorkflow covers what goes with the workflow and what stops the
+// archive. The agents inside always go, since every agent belongs to a workflow
 // and there is nowhere to leave one.
-func TestDeleteWorkflow(t *testing.T) {
+func TestArchiveWorkflow(t *testing.T) {
 	tests := []struct {
 		name   string
 		create bool
 		// scheduled leaves a live schedule launching into the workflow, which is
-		// what refuses the delete.
+		// what refuses the archive.
 		scheduled bool
 		twice     bool
 		wantCode  connect.Code
@@ -232,12 +232,12 @@ func TestDeleteWorkflow(t *testing.T) {
 				})
 			}
 
-			req := connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id})
+			req := connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{Id: id})
 
-			_, err := svc.DeleteWorkflow(ctx, req)
+			_, err := svc.ArchiveWorkflow(ctx, req)
 			if tt.twice {
 				require.NoError(t, err)
-				_, err = svc.DeleteWorkflow(ctx, req)
+				_, err = svc.ArchiveWorkflow(ctx, req)
 			}
 
 			if tt.wantCode != 0 {

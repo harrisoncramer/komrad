@@ -113,7 +113,7 @@ type AgentsKeys struct {
 }
 
 // WorkflowsKeys are the bindings that act on a workflow. New is global. Rename,
-// edit, and delete apply while the cursor is on a workflow header.
+// edit, and archive apply while the cursor is on a workflow header.
 type WorkflowsKeys struct {
 	// Create a workflow. Works from anywhere in the list.
 	New []string `mapstructure:"new"`
@@ -121,8 +121,8 @@ type WorkflowsKeys struct {
 	Rename []string `mapstructure:"rename"`
 	// Edit the workflow under the cursor.
 	Edit []string `mapstructure:"edit"`
-	// Delete the workflow under the cursor.
-	Delete []string `mapstructure:"delete"`
+	// Archive the workflow under the cursor, which archives the agents inside it.
+	Archive []string `mapstructure:"archive"`
 }
 
 // SchedulesKeys are the bindings for the schedules screen, which is its own view
@@ -413,10 +413,10 @@ func DefaultKeybindings() Keybindings {
 			Logs:       []string{"L"},
 		},
 		Workflows: WorkflowsKeys{
-			New:    []string{"W"},
-			Rename: []string{"r"},
-			Edit:   []string{"e"},
-			Delete: []string{"d"},
+			New:     []string{"W"},
+			Rename:  []string{"r"},
+			Edit:    []string{"e"},
+			Archive: []string{"z"},
 		},
 		Schedules: SchedulesKeys{
 			Open:   []string{"s"},

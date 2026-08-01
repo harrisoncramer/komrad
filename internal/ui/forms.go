@@ -35,7 +35,7 @@ type formTarget struct {
 	newAgentWorkflow *workflowstore.Workflow
 	renameWorkflow   *workflowstore.Workflow
 	editWorkflow     *workflowstore.Workflow
-	deleteWorkflow   *workflowstore.Workflow
+	archiveWorkflow  *workflowstore.Workflow
 	editSchedule     *schedulestore.Schedule
 	deleteSchedule   *schedulestore.Schedule
 	deleteAgent      *agentstore.Agent
@@ -97,8 +97,9 @@ func (m model) wasConfirmed() bool {
 }
 
 // confirmForm asks a yes-or-no question and returns the answer its buttons write into.
-// Every delete in the panel prompts through this, so only the wording differs.
-func confirmForm(title, description string, keys appconfig.FormKeys) (*huh.Form, *bool) {
+// Every prompt in the panel goes through this, so only the wording differs. affirmative
+// names what saying yes does, since one prompt archives and the others destroy.
+func confirmForm(title, description, affirmative string, keys appconfig.FormKeys) (*huh.Form, *bool) {
 	var confirmed bool
 
 	form := huh.NewForm(
@@ -107,7 +108,7 @@ func confirmForm(title, description string, keys appconfig.FormKeys) (*huh.Form,
 				Key("confirm").
 				Title(title).
 				Description(description).
-				Affirmative("Delete").
+				Affirmative(affirmative).
 				Negative("Cancel").
 				Value(&confirmed),
 		),
@@ -120,7 +121,7 @@ func confirmForm(title, description string, keys appconfig.FormKeys) (*huh.Form,
 // the form or the panel's chrome, and whether a form or a list is drawn.
 func (s screen) isForm() bool {
 	switch s {
-	case screenForm, screenRename, screenWorkflowForm, screenWorkflowDelete,
+	case screenForm, screenRename, screenWorkflowForm, screenWorkflowArchive,
 		screenScheduleForm, screenScheduleDelete, screenArchiveDelete:
 		return true
 	default:
@@ -134,6 +135,7 @@ func deleteAgentForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool) {
 	return confirmForm(
 		fmt.Sprintf("Permanently delete agent %q?", name),
 		"Its transcript goes with it and search will not find the conversation again.",
+		"Delete",
 		keys,
 	)
 }
@@ -197,12 +199,13 @@ func actionOptions(available []string, current string) []huh.Option[string] {
 	return options
 }
 
-// deleteWorkflowForm confirms a delete. The agents inside go with it, since every agent
+// archiveWorkflowForm confirms an archive. The agents inside go with it, since every agent
 // belongs to a workflow and there is nowhere else to leave one.
-func deleteWorkflowForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool) {
+func archiveWorkflowForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool) {
 	return confirmForm(
-		fmt.Sprintf("Delete workflow %q and its agents?", name),
+		fmt.Sprintf("Archive workflow %q and its agents?", name),
 		"Their transcripts are kept and stay searchable.",
+		"Archive",
 		keys,
 	)
 }
@@ -242,6 +245,7 @@ func deleteScheduleForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool)
 	return confirmForm(
 		fmt.Sprintf("Delete schedule %q?", name),
 		"The agents it already launched are kept.",
+		"Delete",
 		keys,
 	)
 }

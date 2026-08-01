@@ -26,7 +26,7 @@ type workflowStore interface {
 }
 
 // scheduleCounter answers whether anything is still scheduled into a workflow,
-// which is what stands between a delete and recurring work vanishing quietly.
+// which is what stands between an archive and recurring work vanishing quietly.
 type scheduleCounter interface {
 	CountLive(ctx context.Context, workflowID string) (int64, error)
 }
@@ -115,11 +115,11 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	return nil
 }
 
-// DeleteWorkflow archives a workflow and the agents inside it. The agents go with
+// ArchiveWorkflow archives a workflow and the agents inside it. The agents go with
 // it rather than being orphaned, since every agent belongs to a workflow and there
 // is nowhere for one to be left.
 //
-// A workflow still holding live schedules is refused. Deleting it would either
+// A workflow still holding live schedules is refused. Archiving it would either
 // strand them with nowhere to run or switch them off silently, so the schedules
 // have to be turned off first, deliberately.
 //
@@ -127,7 +127,7 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 // stores are rebound onto one transaction. Either the bucket and its agents
 // agree afterwards or nothing moved, since half of it landing would strand an
 // agent behind a workflow nothing lists.
-func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
+func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error {
 	existing, err := w.GetWorkflow(ctx, id)
 	if err != nil {
 		return err
@@ -152,7 +152,7 @@ func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 		return agentstore.New(db).ArchiveWorkflowAgents(ctx, id)
 	})
 	if err != nil {
-		return fmt.Errorf("failed to delete workflow %q: %w", id, err)
+		return fmt.Errorf("failed to archive workflow %q: %w", id, err)
 	}
 
 	return nil

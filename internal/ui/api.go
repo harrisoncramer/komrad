@@ -291,13 +291,13 @@ func (a api) updateWorkflow(w workflowstore.Workflow) error {
 	return err
 }
 
-// deleteWorkflow removes a workflow, archiving the agents inside it. The service refuses
+// archiveWorkflow hides a workflow, archiving the agents inside it. The service refuses
 // while any schedule still launches into it.
-func (a api) deleteWorkflow(id string) error {
+func (a api) archiveWorkflow(id string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	_, err := a.workflows.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id}))
+	_, err := a.workflows.ArchiveWorkflow(ctx, connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{Id: id}))
 
 	return err
 }
