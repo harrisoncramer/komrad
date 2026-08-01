@@ -94,10 +94,8 @@ func formKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
 }
 
 // multiFieldKeyMap is the keymap for the forms with fields to fill in, where enter moves
-// between them and only the submit key submits. huh otherwise submits on an enter from the
-// last field, which completes the form, and a completed form is one huh cannot resume and
-// draws as nothing. Submitting the panel's own way leaves the form untouched, so a refusal
-// comes back to it with the cursor where it was left.
+// between them and only the submit key submits. An enter from the last field otherwise
+// completes the form, and huh cannot resume a completed one.
 func multiFieldKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
 	submit := key.NewBinding(key.WithKeys(keys.Submit...), key.WithHelp(keyLabel(keys.Submit), "submit"))
 

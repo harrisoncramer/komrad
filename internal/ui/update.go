@@ -115,14 +115,11 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// A form waiting on its write takes no keys. The request is already on its way with
-	// the values as they stand, so a second submit would send it twice and an edit would
-	// be to fields the panel is no longer reading. Every write is bounded by its own
-	// timeout, so the form is never held for longer than that.
-	if m.pendingForm {
-		if _, ok := msg.(tea.KeyMsg); ok {
-			return m, nil
-		}
+	// A form waiting on its write takes no keys, so a second submit cannot send the same
+	// request twice. Every write is bounded by its own timeout, so the form is never held
+	// for longer than that.
+	if _, ok := msg.(tea.KeyMsg); ok && m.pendingForm {
+		return m, nil
 	}
 
 	// The form screens take every message, since a form lays itself out from a resize

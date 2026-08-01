@@ -27,8 +27,8 @@ func (m model) View() string {
 		return errui.Unreachable(m.width, m.addr, m.unreachable)
 	}
 
-	// A form waiting on its write is frozen, so it says so. The banner underneath it is
-	// the refusal being retried, which the next result replaces anyway.
+	// A form waiting on its write is frozen, so it says so. It takes the banner's place,
+	// which reads as the refusal being retried.
 	var chrome string
 	switch {
 	case m.pendingForm:

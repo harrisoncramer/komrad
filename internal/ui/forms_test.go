@@ -629,9 +629,9 @@ func (f *formRecorder) ArchiveSchedule(_ context.Context, req *connect.Request[s
 }
 
 // TestOnlyTheSubmitKeySubmitsAMultiFieldForm covers the keymap the fillable forms use.
-// Enter from the last field would complete the form, which huh cannot resume and draws as
-// nothing, so a refusal would have nowhere to come back to. The one-field forms keep enter,
-// since there is no cursor to lose in them.
+// Enter from the last field would complete the form, which huh cannot resume, so a refusal
+// would have nowhere to come back to. The one-field forms keep enter, since there is no
+// cursor to lose in them.
 func TestOnlyTheSubmitKeySubmitsAMultiFieldForm(t *testing.T) {
 	keys := appconfig.DefaultKeybindings().Form
 
