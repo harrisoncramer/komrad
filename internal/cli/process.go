@@ -77,8 +77,8 @@ func ensureServer(addr, self, logPath string) error {
 	}()
 
 	for range serveWaitAttempts {
-		// Readiness rather than the version, since air rewrites the binary in place and the
-		// build this process spawned can be a newer one than the build it is itself.
+		// Readiness rather than the version, since a rebuild replaces the binary in place and
+		// the build this process spawned can be a newer one than the build it is itself.
 		if probeServer(addr).ready {
 			return nil
 		}

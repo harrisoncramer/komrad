@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Watch .go files and rebuild bin/weave on save."
-set -euo pipefail
-cd "$MISE_CONFIG_ROOT"
-exec air

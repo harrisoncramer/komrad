@@ -7,9 +7,9 @@ import (
 // startCmd starts the server if this build is not serving already, and waits until it can
 // answer.
 //
-// The panel does this for itself on the way up, so this exists for everything that is not
-// the panel: a reload bringing the service back, and anyone who wants it running without
-// opening the popup. A server from this build is left alone rather than started twice.
+// The panel does this for itself on the way up, so this exists for anyone who wants the
+// service running without opening the popup. A server from this build is left alone rather
+// than started twice.
 func startCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:           "start",
