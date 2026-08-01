@@ -15,7 +15,6 @@ Weave's tmux panel helps you track and manage each agent's state, and come back 
 ## Quickstart
 
 1. Weave stores it's state in Postgres. You can configure it by setting a `DATABASE_URL` in your configuration file.
-1. Weave writes its service log, and the files it stages an agent's prompt in, under your user cache directory: `~/Library/Caches/weave` on macOS, `~/.cache/weave` on Linux. Set `WEAVE_CACHE_DIR` to move them.
 1. Install the tmux plugin. With TPM, add to `~/.tmux.conf`, then press `prefix + I`:
 
 ```tmux
