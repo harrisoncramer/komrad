@@ -251,7 +251,6 @@ func (m model) openSearchHit() (tea.Model, tea.Cmd) {
 		summary:        fmt.Sprintf("Could not open agent %q", hit.name),
 		id:             hit.agentID,
 		unarchiveFirst: hit.archived,
-		stay:           screenAgents,
 	})
 }
 
