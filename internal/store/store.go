@@ -93,9 +93,9 @@ func OpenReadOnly(ctx context.Context, url string) (*pgxpool.Pool, error) {
 // through a plain SELECT that writes nothing, so neither the read-only transaction nor any
 // amount of reading the statement will refuse them.
 //
-// It warns rather than refuses because the alternative is a database that stops being
-// served the moment this ships, over a role whoever runs it has not been told to create
-// yet. The line names the fix so the log is enough to act on.
+// It warns rather than refuses because reaching here means someone pointed this at a
+// superuser on purpose, and a panel that will not open says less about why than a line
+// naming what it costs. A role that was never created fails earlier, on the ping.
 func warnIfSuperuser(ctx context.Context, pool *pgxpool.Pool) {
 	var superuser bool
 	if err := pool.QueryRow(ctx,

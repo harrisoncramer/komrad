@@ -26,13 +26,12 @@ func readonlyRoleCmd(state *app) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// An unset WEAVE_READONLY_DATABASE_URL falls back to the writable url, which
-			// would mean granting the application's own role SELECT on its own tables and
-			// leaving the endpoint exactly as exposed as it was.
+			// Pointing both urls at the same login would grant the application's own role
+			// SELECT on its own tables and leave the endpoint exactly as exposed as it was.
 			if state.env.ReadOnlyDatabaseURL == state.env.DatabaseURL {
 				return fmt.Errorf(
-					"WEAVE_READONLY_DATABASE_URL is unset, so there is no separate role to create; " +
-						"set it to a url naming the login you want, then run this again")
+					"WEAVE_READONLY_DATABASE_URL names the same login as DATABASE_URL, so there is " +
+						"no separate role to create; point it at the login you want instead")
 			}
 
 			readOnly, err := pgconn.ParseConfig(state.env.ReadOnlyDatabaseURL)
