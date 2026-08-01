@@ -100,7 +100,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case writeResult:
-		return m, m.applyWrite(msg)
+		return m.applyWrite(msg)
 	case searchSettledMsg:
 		return m, m.runSettledSearch(msg)
 	case searchResult:

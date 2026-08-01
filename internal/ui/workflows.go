@@ -60,7 +60,7 @@ func (m model) returnToAgents() (tea.Model, tea.Cmd) {
 func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
 	m.target.renameWorkflow = nil
 	m.target.editWorkflow = nil
-	m.form, m.values.workflow = workflowConfigForm("New workflow name", workflowstore.Config{}, m.availableActions(), m.keys.Form)
+	m.form, m.values.workflow = m.workflowFormFor(workflowstore.Config{})
 	m.screen = screenWorkflowForm
 
 	return m, m.form.Init()
@@ -70,7 +70,7 @@ func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
 func (m model) renameWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	m.target.renameWorkflow = &workflow
 	m.target.editWorkflow = nil
-	m.form, m.values.workflow = workflowForm(fmt.Sprintf("Rename %q to", workflow.Name), m.keys.Form)
+	m.form, m.values.workflow = m.workflowFormFor(workflowstore.Config{})
 	m.screen = screenWorkflowForm
 
 	return m, m.form.Init()
@@ -85,7 +85,7 @@ func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea
 	}
 	m.target.editWorkflow = &workflow
 	m.target.renameWorkflow = nil
-	m.form, m.values.workflow = workflowConfigForm("Workflow name", workflowstore.Config{
+	m.form, m.values.workflow = m.workflowFormFor(workflowstore.Config{
 		Name:          workflow.Name,
 		Context:       workflow.Context,
 		Harness:       workflow.Harness,
@@ -93,10 +93,24 @@ func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea
 		Flags:         workflow.Flags,
 		SetupAction:   workflow.SetupAction,
 		CleanupAction: workflow.CleanupAction,
-	}, m.availableActions(), m.keys.Form)
+	})
 	m.screen = screenWorkflowForm
 
 	return m, m.form.Init()
+}
+
+// workflowFormFor builds whichever of the three workflow forms the target says is being
+// worked on, around the given config. Deciding it here rather than at each opener is what
+// lets a refused submit put the same form back.
+func (m model) workflowFormFor(cfg workflowstore.Config) (*huh.Form, *workflowstore.Config) {
+	switch {
+	case m.target.renameWorkflow != nil:
+		return workflowForm(fmt.Sprintf("Rename %q to", m.target.renameWorkflow.Name), cfg, m.keys.Form)
+	case m.target.editWorkflow != nil:
+		return workflowConfigForm("Workflow name", cfg, m.availableActions(), m.keys.Form)
+	default:
+		return workflowConfigForm("New workflow name", cfg, m.availableActions(), m.keys.Form)
+	}
 }
 
 // availableActions is what the actions directory holds, which the workflow form's two
@@ -174,22 +188,19 @@ func (m model) updateWorkflowForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case huh.StateCompleted:
 		return m.submitWorkflowForm()
 	case huh.StateAborted:
-		m.target.renameWorkflow = nil
-		m.target.editWorkflow = nil
-		m.values.workflow = nil
-		return m.returnToAgents()
+		return m.closeForm()
 	default:
 		return m, cmd
 	}
 }
 
 // submitWorkflowForm applies the form, renaming a workflow, editing its config, or
-// creating one, then returns to the refreshed agents view.
+// creating one.
 func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 	// The form writes into values the panel handed it, so a submit without them is a
 	// submit for a form that was never opened.
 	if m.values.workflow == nil {
-		return m.returnToAgents()
+		return m.closeForm()
 	}
 
 	values := *m.values.workflow
@@ -226,10 +237,11 @@ func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 		write = m.writeCmd("Could not create the workflow", func(a api) error { return a.createWorkflow(values) })
 	}
 
-	m.target.renameWorkflow = nil
-	m.target.editWorkflow = nil
-	m.values.workflow = nil
-	returned, refresh := m.returnToAgents()
+	// A rename to the name it already has writes nothing, and a form with no write to wait
+	// on has nothing to stay open for.
+	if write == nil {
+		return m.closeForm()
+	}
 
-	return returned, tea.Batch(write, refresh)
+	return m, tea.Batch(write, m.holdForm())
 }

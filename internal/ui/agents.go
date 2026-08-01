@@ -95,7 +95,7 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.target.renameAgent = item.agent
-		m.form, m.values.rename = renameForm(item.agent.Name, m.keys.Form)
+		m.form, m.values.rename = renameForm(item.agent.Name, "", m.keys.Form)
 		m.screen = screenRename
 		return m, m.form.Init()
 	case bound(k, m.keys.Agents.Archive):
@@ -346,7 +346,7 @@ func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cm
 	}
 
 	m.target.newAgentWorkflow = workflow
-	m.form, m.values.agent = newAgentForm(m.keys.Form, workflow.Cwd, workflow.Flags)
+	m.form, m.values.agent = newAgentForm(m.keys.Form, agentFormValues{Dir: workflow.Cwd, Flags: workflow.Flags})
 	m.screen = screenForm
 
 	return m, m.form.Init()
@@ -360,30 +360,32 @@ func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.form.State {
 	case huh.StateCompleted:
-		name := ""
-		if m.values.rename != nil {
-			name = strings.TrimSpace(*m.values.rename)
-		}
-		target := m.target.renameAgent
-		cmd := m.writeCmd(
-			fmt.Sprintf("Could not rename agent %q", target.Name),
-			func(a api) error { return a.renameAgent(target, name) },
-		)
-		// The row the cursor is on is about to be listed under a different name, so the
-		// cursor follows the name rather than being left to clamp.
-		m.tree.focus = name
-		m.values.rename = nil
-		m.screen = screenAgents
-
-		return m, cmd
+		return m.submitRename()
 	case huh.StateAborted:
-		m.values.rename = nil
-		m.screen = screenAgents
-		m.stageSelection()
-		return m, nil
+		return m.closeForm()
 	default:
 		return m, cmd
 	}
+}
+
+func (m model) submitRename() (tea.Model, tea.Cmd) {
+	// The form writes into a value the panel handed it, so a submit without one is a
+	// submit for a form that was never opened.
+	if m.values.rename == nil {
+		return m.closeForm()
+	}
+
+	target := m.target.renameAgent
+	name := strings.TrimSpace(*m.values.rename)
+	cmd := m.writeCmd(
+		fmt.Sprintf("Could not rename agent %q", target.Name),
+		func(a api) error { return a.renameAgent(target, name) },
+	)
+	// The row the cursor is on is about to be listed under a different name, so the
+	// cursor follows the name rather than being left to clamp.
+	m.tree.focus = name
+
+	return m, tea.Batch(cmd, m.holdForm())
 }
 
 func (m model) submitAgent() (tea.Model, tea.Cmd) {
@@ -392,10 +394,8 @@ func (m model) submitAgent() (tea.Model, tea.Cmd) {
 	// a round trip less than the refusal from the service.
 	if m.target.newAgentWorkflow == nil || m.values.agent == nil {
 		m.report("Could not start the agent", errNoWorkflow)
-		m.screen = screenAgents
-		m.stageSelection()
 
-		return m, nil
+		return m.closeForm()
 	}
 
 	params := createAgentParams{
@@ -409,11 +409,8 @@ func (m model) submitAgent() (tea.Model, tea.Cmd) {
 	// A launch failure leaves the list unchanged, which reads the same as a form that
 	// never submitted, so it has to be reported.
 	cmd := m.writeCmd("Could not start the agent", func(a api) error { return a.createAgent(params) })
-	m.target.newAgentWorkflow = nil
-	m.values.agent = nil
-	m.screen = screenAgents
 
-	return m, cmd
+	return m, tea.Batch(cmd, m.holdForm())
 }
 
 func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -430,12 +427,7 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case huh.StateCompleted:
 		return m.submitAgent()
 	case huh.StateAborted:
-		m.target.newAgentWorkflow = nil
-		m.values.agent = nil
-		m.screen = screenAgents
-		m.tree.cursor = clampCursor(m.tree.cursor, len(m.agentRows()))
-		m.stageSelection()
-		return m, nil
+		return m.closeForm()
 	default:
 		return m, cmd
 	}

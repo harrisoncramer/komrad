@@ -201,22 +201,19 @@ func (m model) updateScheduleForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case huh.StateCompleted:
 		return m.submitScheduleForm()
 	case huh.StateAborted:
-		m.target.editSchedule = nil
-		m.values.schedule = nil
-		return m.enterSchedules()
+		return m.closeForm()
 	default:
 		return m, cmd
 	}
 }
 
-// submitScheduleForm applies the form, editing the target schedule or creating one, then
-// returns to the refreshed list. A rejected expression comes back as a banner, since an
-// unchanged list is otherwise indistinguishable from a submit that did nothing.
+// submitScheduleForm applies the form, editing the target schedule or creating one. A
+// rejected cron expression comes back on the form itself, which is where it is fixed.
 func (m model) submitScheduleForm() (tea.Model, tea.Cmd) {
 	// The form writes through pointers the panel holds, so a submit with no bound values
 	// is a submit for a form that was never opened.
 	if m.values.schedule == nil {
-		return m.enterSchedules()
+		return m.closeForm()
 	}
 
 	cfg := *m.values.schedule
@@ -231,11 +228,7 @@ func (m model) submitScheduleForm() (tea.Model, tea.Cmd) {
 		write = m.writeCmd("Could not create the schedule", func(a api) error { return a.createSchedule(cfg) })
 	}
 
-	m.target.editSchedule = nil
-	m.values.schedule = nil
-	entered, refresh := m.enterSchedules()
-
-	return entered, tea.Batch(write, refresh)
+	return m, tea.Batch(write, m.holdForm())
 }
 
 // updateScheduleArchive drives the archive prompt. Confirming puts the schedule

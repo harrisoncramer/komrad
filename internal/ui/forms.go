@@ -11,6 +11,7 @@ import (
 	workflowstore "weave/internal/store/workflow"
 
 	"github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -49,10 +50,11 @@ type agentFormValues struct {
 }
 
 // newAgentForm builds the new-agent form and returns the values its fields write into.
-// defaultDir and defaultFlags prefill from the enclosing workflow's config, so an agent
-// created inside a workflow starts from its blueprint.
-func newAgentForm(keys appconfig.FormKeys, defaultDir, defaultFlags string) (*huh.Form, *agentFormValues) {
-	values := &agentFormValues{Dir: defaultDir, Flags: defaultFlags}
+// prefill carries the enclosing workflow's directory and flags, so an agent created inside
+// a workflow starts from its blueprint, and carries back what was typed when a refused
+// submit puts the form up again.
+func newAgentForm(keys appconfig.FormKeys, prefill agentFormValues) (*huh.Form, *agentFormValues) {
+	values := &prefill
 
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -67,9 +69,10 @@ func newAgentForm(keys appconfig.FormKeys, defaultDir, defaultFlags string) (*hu
 }
 
 // renameForm asks for a new name, starting blank rather than on the current one so the
-// old name is there to read while the new one is typed.
-func renameForm(current string, keys appconfig.FormKeys) (*huh.Form, *string) {
-	var name string
+// old name is there to read while the new one is typed. prefill is what the field opens
+// on, which is what was typed when a refused submit puts the form up again.
+func renameForm(current, prefill string, keys appconfig.FormKeys) (*huh.Form, *string) {
+	name := prefill
 
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -117,6 +120,53 @@ func confirmForm(title, description, affirmative string, keys appconfig.FormKeys
 	return form, &confirmed
 }
 
+// holdForm keeps a submitted form on screen until its write lands, so a refusal comes
+// back to the fields as they were filled in rather than closing and reporting over the
+// list. A submit that completed the form rebuilds it, since huh blanks a completed form
+// and offers no way to resume one.
+func (m *model) holdForm() tea.Cmd {
+	m.pendingForm = true
+
+	if m.form != nil && m.form.State == huh.StateCompleted {
+		return m.rebuildForm()
+	}
+
+	return nil
+}
+
+// rebuildForm puts the open form back around the values already typed into it, which the
+// panel holds rather than the form, so nothing typed is lost in the rebuild.
+func (m *model) rebuildForm() tea.Cmd {
+	switch {
+	case m.screen == screenForm && m.values.agent != nil:
+		m.form, m.values.agent = newAgentForm(m.keys.Form, *m.values.agent)
+	case m.screen == screenRename && m.values.rename != nil:
+		m.form, m.values.rename = renameForm(m.target.renameAgent.Name, *m.values.rename, m.keys.Form)
+	case m.screen == screenWorkflowForm && m.values.workflow != nil:
+		m.form, m.values.workflow = m.workflowFormFor(*m.values.workflow)
+	case m.screen == screenScheduleForm && m.values.schedule != nil:
+		m.form, m.values.schedule = scheduleForm(*m.values.schedule, m.tree.workflows, m.keys.Form)
+	default:
+		return nil
+	}
+
+	return m.form.Init()
+}
+
+// closeForm leaves the open form and lands on the screen it was opened from, dropping
+// what it was working on.
+func (m model) closeForm() (tea.Model, tea.Cmd) {
+	m.pendingForm = false
+	m.values = formValues{}
+	m.target = formTarget{}
+
+	if m.screen == screenScheduleForm {
+		return m.enterSchedules()
+	}
+
+	return m.returnToAgents()
+}
+
 // isForm reports whether a form owns the screen, which decides whether a key belongs to
 // the form or the panel's chrome, and whether a form or a list is drawn.
 func (s screen) isForm() bool {
@@ -142,8 +192,8 @@ func deleteAgentForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool) {
 
 // workflowForm asks for a name alone, which is what a rename is. It binds the same config
 // shape the fuller form does, so one submit path reads either.
-func workflowForm(title string, keys appconfig.FormKeys) (*huh.Form, *workflowstore.Config) {
-	var values workflowstore.Config
+func workflowForm(title string, cfg workflowstore.Config, keys appconfig.FormKeys) (*huh.Form, *workflowstore.Config) {
+	values := cfg
 
 	form := huh.NewForm(
 		huh.NewGroup(
