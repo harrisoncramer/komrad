@@ -53,7 +53,7 @@ func TestScheduleKeys(t *testing.T) {
 		},
 		{
 			name:       "edit opens the form on the hovered schedule",
-			key:        "e",
+			key:        "enter",
 			wantScreen: screenScheduleForm,
 		},
 		{
@@ -70,7 +70,7 @@ func TestScheduleKeys(t *testing.T) {
 		{
 			name:       "edit on an empty list does nothing",
 			empty:      true,
-			key:        "e",
+			key:        "enter",
 			wantScreen: screenSchedules,
 		},
 		{

@@ -195,8 +195,8 @@ func (m *model) applyPreview(result previewResult) {
 	m.stage.Transcript(result.content, lineAtOffset(result.content, result.offset))
 }
 
-// updateSearch drives the search screen. Exit uses fixed keys rather than the configurable
-// agent bindings, whose letters would otherwise type into the query.
+// updateSearch drives the search screen. Every key here is fixed rather than one of the
+// configurable bindings, whose letters would otherwise type into the query.
 func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -207,13 +207,13 @@ func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case k == "ctrl+c":
 		return m, m.hide()
-	case bound(k, m.keys.Nav.Up):
+	case k == "up" || k == "ctrl+p":
 		if m.search.cursor > 0 {
 			m.search.cursor--
 			return m, m.previewCmd(m.search.hits[m.search.cursor])
 		}
 		return m, nil
-	case bound(k, m.keys.Nav.Down):
+	case k == "down" || k == "ctrl+n":
 		if m.search.cursor < len(m.search.hits)-1 {
 			m.search.cursor++
 			return m, m.previewCmd(m.search.hits[m.search.cursor])

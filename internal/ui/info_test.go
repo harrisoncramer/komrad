@@ -68,7 +68,7 @@ func TestInfoKey(t *testing.T) {
 				m = pressKey(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("i")})
 			}
 			if tt.thenMove {
-				m = pressKey(t, m, tea.KeyMsg{Type: tea.KeyUp})
+				m = pressKey(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
 			}
 
 			assert.Equal(t, tt.wantPinned, m.tree.infoPinned)

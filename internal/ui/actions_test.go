@@ -47,7 +47,7 @@ func TestActionKeys(t *testing.T) {
 		},
 		{
 			name:       "down moves to the next action",
-			key:        "down",
+			key:        "j",
 			wantScreen: screenActions,
 		},
 		{
@@ -91,7 +91,7 @@ func TestActionsFireInSuccession(t *testing.T) {
 	require.True(t, ok)
 	m = settle(t, m, cmd)
 
-	moved, _ := m.updateActions(keyMsg("down"))
+	moved, _ := m.updateActions(keyMsg("j"))
 	m, ok = moved.(model)
 	require.True(t, ok)
 
