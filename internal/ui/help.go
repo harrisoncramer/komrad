@@ -165,7 +165,7 @@ func (m model) scheduleHelp() keyMap {
 			binding(m.keys.Schedules.New, "new schedule"),
 			edit,
 			binding(m.keys.Schedules.Toggle, toggle),
-			binding(m.keys.Schedules.Delete, "delete"),
+			binding(m.keys.Schedules.Archive, "archive"),
 			m.moveBinding(),
 			back,
 			m.helpBinding(),

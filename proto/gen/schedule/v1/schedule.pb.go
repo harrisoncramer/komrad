@@ -617,27 +617,27 @@ func (x *SetScheduleEnabledRequest) GetEnabled() bool {
 	return false
 }
 
-type DeleteScheduleRequest struct {
+type ArchiveScheduleRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *DeleteScheduleRequest) Reset() {
-	*x = DeleteScheduleRequest{}
+func (x *ArchiveScheduleRequest) Reset() {
+	*x = ArchiveScheduleRequest{}
 	mi := &file_schedule_v1_schedule_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *DeleteScheduleRequest) String() string {
+func (x *ArchiveScheduleRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*DeleteScheduleRequest) ProtoMessage() {}
+func (*ArchiveScheduleRequest) ProtoMessage() {}
 
-func (x *DeleteScheduleRequest) ProtoReflect() protoreflect.Message {
+func (x *ArchiveScheduleRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_schedule_v1_schedule_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -649,12 +649,12 @@ func (x *DeleteScheduleRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use DeleteScheduleRequest.ProtoReflect.Descriptor instead.
-func (*DeleteScheduleRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ArchiveScheduleRequest.ProtoReflect.Descriptor instead.
+func (*ArchiveScheduleRequest) Descriptor() ([]byte, []int) {
 	return file_schedule_v1_schedule_proto_rawDescGZIP(), []int{9}
 }
 
-func (x *DeleteScheduleRequest) GetId() string {
+func (x *ArchiveScheduleRequest) GetId() string {
 	if x != nil {
 		return x.Id
 	}
@@ -720,9 +720,9 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"hideAgents\"N\n" +
 	"\x19SetScheduleEnabledRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x18\n" +
-	"\aenabled\x18\x02 \x01(\bR\aenabled\"0\n" +
-	"\x15DeleteScheduleRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\x83\x10\n" +
+	"\aenabled\x18\x02 \x01(\bR\aenabled\"1\n" +
+	"\x16ArchiveScheduleRequest\x12\x17\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xfb\x10\n" +
 	"\x0fScheduleService\x12\xd5\x02\n" +
 	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\xfc\x01\x9a\xb5\x18\xf4\x01\n" +
 	"\x0elist_schedules\x12\xe1\x01List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, and next run time. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
@@ -733,9 +733,9 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x0eUpdateSchedule\x12\".schedule.v1.UpdateScheduleRequest\x1a\x16.google.protobuf.Empty\"\xcd\x02\x9a\xb5\x18\xc5\x02\n" +
 	"\x0fupdate_schedule\x12\xaf\x02Replace a schedule's name, cron expression, timezone, prompt, workflow, and whether the agents it launches start hidden from the panel. Every field is written, so read the schedule first and send back the ones you are not changing. Agents already launched are untouched, including their own hidden flag. \x00\x90\x02\x02\x12\xfa\x01\n" +
 	"\x12SetScheduleEnabled\x12&.schedule.v1.SetScheduleEnabledRequest\x1a\x16.google.protobuf.Empty\"\xa3\x01\x9a\xb5\x18\x9b\x01\n" +
-	"\x14set_schedule_enabled\x12\x80\x01Pause or resume one schedule without editing anything else. A paused schedule keeps its record and its history and stops firing. \x00\x90\x02\x02\x12\x85\x02\n" +
-	"\x0eDeleteSchedule\x12\".schedule.v1.DeleteScheduleRequest\x1a\x16.google.protobuf.Empty\"\xb6\x01\x9a\xb5\x18\xae\x01\n" +
-	"\x0fdelete_schedule\x12\x98\x01Remove a schedule so it stops firing. The agents it already launched are left alone and keep running, and they still record the schedule that made them. \x01\x90\x02\x02B(Z&weave/proto/gen/schedule/v1;schedulev1b\x06proto3"
+	"\x14set_schedule_enabled\x12\x80\x01Pause or resume one schedule without editing anything else. A paused schedule keeps its record and its history and stops firing. \x00\x90\x02\x02\x12\xfd\x02\n" +
+	"\x0fArchiveSchedule\x12#.schedule.v1.ArchiveScheduleRequest\x1a\x16.google.protobuf.Empty\"\xac\x02\x9a\xb5\x18\xa4\x02\n" +
+	"\x10archive_schedule\x12\x8d\x02Hide a schedule from the panel so it stops firing, keeping its record. The agents it already launched are left alone and keep running, and they still record the schedule that made them. Nothing brings an archived schedule back yet, so this is the end of it in practice. \x00\x90\x02\x02B(Z&weave/proto/gen/schedule/v1;schedulev1b\x06proto3"
 
 var (
 	file_schedule_v1_schedule_proto_rawDescOnce sync.Once
@@ -760,7 +760,7 @@ var file_schedule_v1_schedule_proto_goTypes = []any{
 	(*CreateScheduleResponse)(nil),    // 6: schedule.v1.CreateScheduleResponse
 	(*UpdateScheduleRequest)(nil),     // 7: schedule.v1.UpdateScheduleRequest
 	(*SetScheduleEnabledRequest)(nil), // 8: schedule.v1.SetScheduleEnabledRequest
-	(*DeleteScheduleRequest)(nil),     // 9: schedule.v1.DeleteScheduleRequest
+	(*ArchiveScheduleRequest)(nil),    // 9: schedule.v1.ArchiveScheduleRequest
 	(*timestamppb.Timestamp)(nil),     // 10: google.protobuf.Timestamp
 	(*v1.Pagination)(nil),             // 11: pagination.v1.Pagination
 	(*emptypb.Empty)(nil),             // 12: google.protobuf.Empty
@@ -776,13 +776,13 @@ var file_schedule_v1_schedule_proto_depIdxs = []int32{
 	5,  // 7: schedule.v1.ScheduleService.CreateSchedule:input_type -> schedule.v1.CreateScheduleRequest
 	7,  // 8: schedule.v1.ScheduleService.UpdateSchedule:input_type -> schedule.v1.UpdateScheduleRequest
 	8,  // 9: schedule.v1.ScheduleService.SetScheduleEnabled:input_type -> schedule.v1.SetScheduleEnabledRequest
-	9,  // 10: schedule.v1.ScheduleService.DeleteSchedule:input_type -> schedule.v1.DeleteScheduleRequest
+	9,  // 10: schedule.v1.ScheduleService.ArchiveSchedule:input_type -> schedule.v1.ArchiveScheduleRequest
 	2,  // 11: schedule.v1.ScheduleService.ListSchedules:output_type -> schedule.v1.ListSchedulesResponse
 	4,  // 12: schedule.v1.ScheduleService.GetSchedule:output_type -> schedule.v1.GetScheduleResponse
 	6,  // 13: schedule.v1.ScheduleService.CreateSchedule:output_type -> schedule.v1.CreateScheduleResponse
 	12, // 14: schedule.v1.ScheduleService.UpdateSchedule:output_type -> google.protobuf.Empty
 	12, // 15: schedule.v1.ScheduleService.SetScheduleEnabled:output_type -> google.protobuf.Empty
-	12, // 16: schedule.v1.ScheduleService.DeleteSchedule:output_type -> google.protobuf.Empty
+	12, // 16: schedule.v1.ScheduleService.ArchiveSchedule:output_type -> google.protobuf.Empty
 	11, // [11:17] is the sub-list for method output_type
 	5,  // [5:11] is the sub-list for method input_type
 	5,  // [5:5] is the sub-list for extension type_name

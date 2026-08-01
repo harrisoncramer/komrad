@@ -64,8 +64,8 @@ func (m model) updateSchedules(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.editScheduleForm()
 	case bound(k, m.keys.Schedules.Toggle):
 		return m.toggleSchedule()
-	case bound(k, m.keys.Schedules.Delete):
-		return m.deleteScheduleConfirm()
+	case bound(k, m.keys.Schedules.Archive):
+		return m.archiveScheduleConfirm()
 	}
 
 	return m, nil
@@ -94,7 +94,7 @@ func (m model) stageSchedule() {
 }
 
 // workflowByID finds a workflow in the list the panel already polls, nil when none holds
-// that id, which means it was deleted.
+// that id, which means it was archived.
 func (m model) workflowByID(id string) *workflowstore.Workflow {
 	for _, w := range m.tree.workflows {
 		if w.ID == id {
@@ -170,17 +170,17 @@ func (m model) editScheduleForm() (tea.Model, tea.Cmd) {
 	return m, m.form.Init()
 }
 
-// deleteScheduleConfirm opens the delete prompt for the hovered schedule.
-func (m model) deleteScheduleConfirm() (tea.Model, tea.Cmd) {
+// archiveScheduleConfirm opens the archive prompt for the hovered schedule.
+func (m model) archiveScheduleConfirm() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedSchedule()
 	if !ok {
 		return m, nil
 	}
 
 	target := item.schedule
-	m.target.deleteSchedule = &target
-	m.form, m.values.confirmed = deleteScheduleForm(target.Name, m.keys.Form)
-	m.screen = screenScheduleDelete
+	m.target.archiveSchedule = &target
+	m.form, m.values.confirmed = archiveScheduleForm(target.Name, m.keys.Form)
+	m.screen = screenScheduleArchive
 
 	return m, m.form.Init()
 }
@@ -238,9 +238,9 @@ func (m model) submitScheduleForm() (tea.Model, tea.Cmd) {
 	return entered, tea.Batch(write, refresh)
 }
 
-// updateScheduleDelete drives the delete prompt. Confirming removes the
-// schedule, and both outcomes return to the list.
-func (m model) updateScheduleDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
+// updateScheduleArchive drives the archive prompt. Confirming puts the schedule
+// away, and both outcomes return to the list.
+func (m model) updateScheduleArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
 	form, cmd := m.form.Update(msg)
 	if updated, ok := form.(*huh.Form); ok {
 		m.form = updated
@@ -249,19 +249,19 @@ func (m model) updateScheduleDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.form.State {
 	case huh.StateCompleted:
 		var write tea.Cmd
-		if target := m.target.deleteSchedule; target != nil && m.wasConfirmed() {
+		if target := m.target.archiveSchedule; target != nil && m.wasConfirmed() {
 			write = m.writeCmd(
-				fmt.Sprintf("Could not delete schedule %q", target.Name),
-				func(a api) error { return a.deleteSchedule(target.ID) },
+				fmt.Sprintf("Could not archive schedule %q", target.Name),
+				func(a api) error { return a.archiveSchedule(target.ID) },
 			)
 		}
-		m.target.deleteSchedule = nil
+		m.target.archiveSchedule = nil
 		m.values.confirmed = nil
 		entered, refresh := m.enterSchedules()
 
 		return entered, tea.Batch(write, refresh)
 	case huh.StateAborted:
-		m.target.deleteSchedule = nil
+		m.target.archiveSchedule = nil
 		m.values.confirmed = nil
 
 		return m.enterSchedules()
@@ -304,7 +304,7 @@ func (m model) schedulesView() string {
 }
 
 // applySchedules takes a freshly-listed set as the on-screen schedules, keeping the cursor
-// on the schedule it was on, since a schedule deleted from another panel shifts everything
+// on the schedule it was on, since a schedule archived from another panel shifts everything
 // below it up.
 func (m *model) applySchedules(fresh []scheduleItem) {
 	selected := ""

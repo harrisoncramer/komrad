@@ -49,9 +49,9 @@ const (
 	// ScheduleServiceSetScheduleEnabledProcedure is the fully-qualified name of the ScheduleService's
 	// SetScheduleEnabled RPC.
 	ScheduleServiceSetScheduleEnabledProcedure = "/schedule.v1.ScheduleService/SetScheduleEnabled"
-	// ScheduleServiceDeleteScheduleProcedure is the fully-qualified name of the ScheduleService's
-	// DeleteSchedule RPC.
-	ScheduleServiceDeleteScheduleProcedure = "/schedule.v1.ScheduleService/DeleteSchedule"
+	// ScheduleServiceArchiveScheduleProcedure is the fully-qualified name of the ScheduleService's
+	// ArchiveSchedule RPC.
+	ScheduleServiceArchiveScheduleProcedure = "/schedule.v1.ScheduleService/ArchiveSchedule"
 )
 
 // ScheduleServiceClient is a client for the schedule.v1.ScheduleService service.
@@ -61,7 +61,7 @@ type ScheduleServiceClient interface {
 	CreateSchedule(context.Context, *connect.Request[v1.CreateScheduleRequest]) (*connect.Response[v1.CreateScheduleResponse], error)
 	UpdateSchedule(context.Context, *connect.Request[v1.UpdateScheduleRequest]) (*connect.Response[emptypb.Empty], error)
 	SetScheduleEnabled(context.Context, *connect.Request[v1.SetScheduleEnabledRequest]) (*connect.Response[emptypb.Empty], error)
-	DeleteSchedule(context.Context, *connect.Request[v1.DeleteScheduleRequest]) (*connect.Response[emptypb.Empty], error)
+	ArchiveSchedule(context.Context, *connect.Request[v1.ArchiveScheduleRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewScheduleServiceClient constructs a client for the schedule.v1.ScheduleService service. By
@@ -109,10 +109,10 @@ func NewScheduleServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
-		deleteSchedule: connect.NewClient[v1.DeleteScheduleRequest, emptypb.Empty](
+		archiveSchedule: connect.NewClient[v1.ArchiveScheduleRequest, emptypb.Empty](
 			httpClient,
-			baseURL+ScheduleServiceDeleteScheduleProcedure,
-			connect.WithSchema(scheduleServiceMethods.ByName("DeleteSchedule")),
+			baseURL+ScheduleServiceArchiveScheduleProcedure,
+			connect.WithSchema(scheduleServiceMethods.ByName("ArchiveSchedule")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
@@ -126,7 +126,7 @@ type scheduleServiceClient struct {
 	createSchedule     *connect.Client[v1.CreateScheduleRequest, v1.CreateScheduleResponse]
 	updateSchedule     *connect.Client[v1.UpdateScheduleRequest, emptypb.Empty]
 	setScheduleEnabled *connect.Client[v1.SetScheduleEnabledRequest, emptypb.Empty]
-	deleteSchedule     *connect.Client[v1.DeleteScheduleRequest, emptypb.Empty]
+	archiveSchedule    *connect.Client[v1.ArchiveScheduleRequest, emptypb.Empty]
 }
 
 // ListSchedules calls schedule.v1.ScheduleService.ListSchedules.
@@ -154,9 +154,9 @@ func (c *scheduleServiceClient) SetScheduleEnabled(ctx context.Context, req *con
 	return c.setScheduleEnabled.CallUnary(ctx, req)
 }
 
-// DeleteSchedule calls schedule.v1.ScheduleService.DeleteSchedule.
-func (c *scheduleServiceClient) DeleteSchedule(ctx context.Context, req *connect.Request[v1.DeleteScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
-	return c.deleteSchedule.CallUnary(ctx, req)
+// ArchiveSchedule calls schedule.v1.ScheduleService.ArchiveSchedule.
+func (c *scheduleServiceClient) ArchiveSchedule(ctx context.Context, req *connect.Request[v1.ArchiveScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.archiveSchedule.CallUnary(ctx, req)
 }
 
 // ScheduleServiceHandler is an implementation of the schedule.v1.ScheduleService service.
@@ -166,7 +166,7 @@ type ScheduleServiceHandler interface {
 	CreateSchedule(context.Context, *connect.Request[v1.CreateScheduleRequest]) (*connect.Response[v1.CreateScheduleResponse], error)
 	UpdateSchedule(context.Context, *connect.Request[v1.UpdateScheduleRequest]) (*connect.Response[emptypb.Empty], error)
 	SetScheduleEnabled(context.Context, *connect.Request[v1.SetScheduleEnabledRequest]) (*connect.Response[emptypb.Empty], error)
-	DeleteSchedule(context.Context, *connect.Request[v1.DeleteScheduleRequest]) (*connect.Response[emptypb.Empty], error)
+	ArchiveSchedule(context.Context, *connect.Request[v1.ArchiveScheduleRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewScheduleServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -210,10 +210,10 @@ func NewScheduleServiceHandler(svc ScheduleServiceHandler, opts ...connect.Handl
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
-	scheduleServiceDeleteScheduleHandler := connect.NewUnaryHandler(
-		ScheduleServiceDeleteScheduleProcedure,
-		svc.DeleteSchedule,
-		connect.WithSchema(scheduleServiceMethods.ByName("DeleteSchedule")),
+	scheduleServiceArchiveScheduleHandler := connect.NewUnaryHandler(
+		ScheduleServiceArchiveScheduleProcedure,
+		svc.ArchiveSchedule,
+		connect.WithSchema(scheduleServiceMethods.ByName("ArchiveSchedule")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
@@ -229,8 +229,8 @@ func NewScheduleServiceHandler(svc ScheduleServiceHandler, opts ...connect.Handl
 			scheduleServiceUpdateScheduleHandler.ServeHTTP(w, r)
 		case ScheduleServiceSetScheduleEnabledProcedure:
 			scheduleServiceSetScheduleEnabledHandler.ServeHTTP(w, r)
-		case ScheduleServiceDeleteScheduleProcedure:
-			scheduleServiceDeleteScheduleHandler.ServeHTTP(w, r)
+		case ScheduleServiceArchiveScheduleProcedure:
+			scheduleServiceArchiveScheduleHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -260,6 +260,6 @@ func (UnimplementedScheduleServiceHandler) SetScheduleEnabled(context.Context, *
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("schedule.v1.ScheduleService.SetScheduleEnabled is not implemented"))
 }
 
-func (UnimplementedScheduleServiceHandler) DeleteSchedule(context.Context, *connect.Request[v1.DeleteScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("schedule.v1.ScheduleService.DeleteSchedule is not implemented"))
+func (UnimplementedScheduleServiceHandler) ArchiveSchedule(context.Context, *connect.Request[v1.ArchiveScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("schedule.v1.ScheduleService.ArchiveSchedule is not implemented"))
 }

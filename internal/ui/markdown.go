@@ -183,7 +183,7 @@ func scheduleMarkdown(item scheduleItem, workflow *workflowstore.Workflow) strin
 	// The directory and flags belong to the workflow and are read as the schedule fires,
 	// so they show under the workflow rather than as settings of the schedule.
 	if workflow == nil {
-		b.WriteString("- workflow: — (deleted)\n")
+		b.WriteString("- workflow: — (archived)\n")
 
 		return b.String()
 	}

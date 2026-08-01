@@ -128,8 +128,8 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateWorkflowArchive(msg)
 	case screenScheduleForm:
 		return m.updateScheduleForm(msg)
-	case screenScheduleDelete:
-		return m.updateScheduleDelete(msg)
+	case screenScheduleArchive:
+		return m.updateScheduleArchive(msg)
 	case screenArchiveDelete:
 		return m.updateArchiveDelete(msg)
 	default:

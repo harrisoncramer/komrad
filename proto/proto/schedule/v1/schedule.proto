@@ -98,7 +98,7 @@ message SetScheduleEnabledRequest {
   bool enabled = 2;
 }
 
-message DeleteScheduleRequest {
+message ArchiveScheduleRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
@@ -140,12 +140,12 @@ service ScheduleService {
       destructive: false
     };
   }
-  rpc DeleteSchedule(DeleteScheduleRequest) returns (google.protobuf.Empty) {
+  rpc ArchiveSchedule(ArchiveScheduleRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
-      tool_name: "delete_schedule"
-      description: "Remove a schedule so it stops firing. The agents it already launched are left alone and keep running, and they still record the schedule that made them."
-      destructive: true
+      tool_name: "archive_schedule"
+      description: "Hide a schedule from the panel so it stops firing, keeping its record. The agents it already launched are left alone and keep running, and they still record the schedule that made them. Nothing brings an archived schedule back yet, so this is the end of it in practice."
+      destructive: false
     };
   }
 }
