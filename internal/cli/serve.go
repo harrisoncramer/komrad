@@ -16,6 +16,7 @@ import (
 
 	"weave/internal/agents"
 	"weave/internal/appconfig"
+	"weave/internal/harness"
 	"weave/internal/interceptors"
 	"weave/internal/jobs"
 	"weave/internal/logging"
@@ -171,6 +172,13 @@ type serveParams struct {
 // something spawned this process and reads its status.
 func serve(ctx context.Context, p serveParams) error {
 	state, logger, addr := p.App, p.Logger, p.Addr
+
+	// The manager server's shell, since agent panes are created there, and checked ahead of
+	// everything else so a server that cannot start an agent says so once rather than
+	// leaving each launch to fail in a pane nobody is watching.
+	if err := harness.RequirePOSIXShell(state.tmux.DefaultShell()); err != nil {
+		return err
+	}
 
 	if err := state.openStore(ctx); err != nil {
 		return err
