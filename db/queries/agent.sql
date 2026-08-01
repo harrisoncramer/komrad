@@ -28,13 +28,14 @@ FROM
 ORDER BY
     s.id DESC;
 
--- name: GetAgent :one
+-- name: GetAgentInWorkflow :one
 SELECT
     *
 FROM
     agents s
 WHERE
-    s.name = @name
+    s.workflow_id = @workflow_id
+    AND s.name = @name
     AND s.archived_at IS NULL
 LIMIT 1;
 
@@ -55,7 +56,8 @@ SELECT
         FROM
             agents
         WHERE
-            name = @name
+            workflow_id = @workflow_id
+            AND name = @name
             AND archived_at IS NULL);
 
 -- name: AgentExists :one
@@ -293,7 +295,7 @@ SET
     archived_at = NOW(),
     pane_id = ''
 WHERE
-    name = @name
+    id = @id
     AND archived_at IS NULL;
 
 -- name: RestoreAgent :exec

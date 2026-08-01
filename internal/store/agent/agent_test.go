@@ -177,7 +177,7 @@ func TestArchiveAndReuse(t *testing.T) {
 			require.NotNil(t, first)
 
 			if tt.archive {
-				require.NoError(t, st.Archive(ctx, "agent"))
+				require.NoError(t, st.archiveByName(ctx, "agent"))
 			}
 			if tt.reuse {
 				require.NoError(t, st.Create(ctx, Agent{Name: "agent", Pane: "%2", State: StateIdle}))
@@ -236,7 +236,7 @@ func TestArchiveClearsPane(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, created)
 
-	require.NoError(t, st.Archive(ctx, "agent"))
+	require.NoError(t, st.archiveByName(ctx, "agent"))
 
 	archived, err := st.GetByID(ctx, created.ID)
 	require.NoError(t, err)
@@ -372,7 +372,7 @@ func TestSetMark(t *testing.T) {
 				require.True(t, changed)
 			}
 			if tt.archive {
-				require.NoError(t, st.Archive(ctx, "agent"))
+				require.NoError(t, st.archiveByName(ctx, "agent"))
 			}
 
 			changed, err := st.SetMark(ctx, tt.id(created), tt.mark)
@@ -458,7 +458,7 @@ func TestSetHidden(t *testing.T) {
 				require.True(t, changed)
 			}
 			if tt.archive {
-				require.NoError(t, st.Archive(ctx, "agent"))
+				require.NoError(t, st.archiveByName(ctx, "agent"))
 			}
 
 			changed, err := st.SetHidden(ctx, tt.id(created), tt.hidden)
@@ -583,7 +583,7 @@ func TestSetMetadata(t *testing.T) {
 				require.True(t, changed)
 			}
 			if tt.archive {
-				require.NoError(t, st.Archive(ctx, "agent"))
+				require.NoError(t, st.archiveByName(ctx, "agent"))
 			}
 
 			changed, err := st.SetMetadata(ctx, SetMetadataParams{ID: tt.id(created), Key: tt.key, Value: tt.value})
@@ -774,7 +774,7 @@ func TestRename(t *testing.T) {
 			require.NoError(t, st.Create(ctx, Agent{Name: "agent", Pane: "%1", State: StateIdle}))
 			require.NoError(t, st.Create(ctx, Agent{Name: "taken", Pane: "%2", State: StateIdle}))
 			if tt.archiveOther {
-				require.NoError(t, st.Archive(ctx, "taken"))
+				require.NoError(t, st.archiveByName(ctx, "taken"))
 			}
 
 			created, err := st.Get(ctx, "agent")
@@ -809,14 +809,18 @@ func TestRename(t *testing.T) {
 	}
 }
 
-// TestActiveNameExists covers who owns a name. The unique index is scoped to
-// live rows, so an archived agent keeps its name without blocking a new one.
+// TestActiveNameExists covers who owns a name. The unique index is scoped to live rows in
+// one workflow, so an archived agent keeps its name without blocking a new one, and so
+// does a live agent in another workflow.
 func TestActiveNameExists(t *testing.T) {
 	tests := []struct {
 		name    string
 		create  bool
 		archive bool
-		want    bool
+		// elsewhere files the agent under a second workflow, where the name it holds is
+		// none of the first workflow's business.
+		elsewhere bool
+		want      bool
 	}{
 		{
 			name: "nobody has the name yet",
@@ -825,6 +829,11 @@ func TestActiveNameExists(t *testing.T) {
 			name:    "only an archived agent holds it",
 			create:  true,
 			archive: true,
+		},
+		{
+			name:      "a live agent in another workflow holds it",
+			create:    true,
+			elsewhere: true,
 		},
 		{
 			name:   "a live agent holds it",
@@ -838,14 +847,28 @@ func TestActiveNameExists(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			if tt.create {
-				require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
-			}
-			if tt.archive {
-				require.NoError(t, st.Archive(ctx, "agent"))
+			workflowID := st.defaultWorkflow
+			if tt.elsewhere {
+				other, err := st.workflows.Create(ctx, workflowstore.Config{Name: "other"})
+				require.NoError(t, err)
+				workflowID = other.ID
 			}
 
-			exists, err := st.ActiveNameExists(ctx, "agent")
+			if tt.create {
+				require.NoError(t, st.Store.Create(ctx, Agent{
+					Name:       "agent",
+					State:      StateIdle,
+					WorkflowID: workflowID,
+				}))
+			}
+			if tt.archive {
+				archived, err := st.GetInWorkflow(ctx, workflowID, "agent")
+				require.NoError(t, err)
+				require.NotNil(t, archived)
+				require.NoError(t, st.Archive(ctx, archived.ID))
+			}
+
+			exists, err := st.ActiveNameExists(ctx, st.defaultWorkflow, "agent")
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, exists)
 		})
@@ -885,14 +908,16 @@ func TestRestore(t *testing.T) {
 			ctx := t.Context()
 
 			agent := Agent{Name: "beta", State: StateThinking, SessionID: "sess-1"}
+			scope := st.defaultWorkflow
 			if tt.withWorkflow {
 				workflow, err := workflows.Create(ctx, workflowstore.Config{Name: "backend"})
 				require.NoError(t, err)
 				agent.WorkflowID = workflow.ID
+				scope = workflow.ID
 			}
 
 			require.NoError(t, st.Create(ctx, agent))
-			original, err := st.Get(ctx, "beta")
+			original, err := st.GetInWorkflow(ctx, scope, "beta")
 			require.NoError(t, err)
 			require.NotNil(t, original)
 			if tt.hidden {
@@ -900,7 +925,7 @@ func TestRestore(t *testing.T) {
 				require.NoError(t, err)
 				require.True(t, changed)
 			}
-			require.NoError(t, st.Archive(ctx, "beta"))
+			require.NoError(t, st.Archive(ctx, original.ID))
 
 			require.NoError(t, st.Restore(ctx, original.ID))
 			restored := *original
@@ -908,7 +933,7 @@ func TestRestore(t *testing.T) {
 			restored.Pane = "%9"
 			require.NoError(t, st.Update(ctx, restored), "an update on restore must not collide")
 
-			got, err := st.Get(ctx, "beta")
+			got, err := st.GetInWorkflow(ctx, scope, "beta")
 			require.NoError(t, err)
 			require.NotNil(t, got)
 			assert.Equal(t, original.ID, got.ID, "a restored row keeps its id")
@@ -961,7 +986,7 @@ func TestDelete(t *testing.T) {
 
 				require.NoError(t, st.Delete(ctx, created.ID))
 			} else {
-				require.NoError(t, st.Archive(ctx, "alpha"))
+				require.NoError(t, st.archiveByName(ctx, "alpha"))
 			}
 
 			live, err := st.List(ctx)
@@ -1006,7 +1031,7 @@ func TestListPageArchived(t *testing.T) {
 			ctx := t.Context()
 
 			require.NoError(t, st.Create(ctx, Agent{Name: "archived", Pane: "%1", State: StateIdle}))
-			require.NoError(t, st.Archive(ctx, "archived"))
+			require.NoError(t, st.archiveByName(ctx, "archived"))
 			require.NoError(t, st.Create(ctx, Agent{Name: "live", Pane: "%2", State: StateIdle}))
 
 			page, err := st.ListPage(ctx, 10, nil, tt.archived)
@@ -1034,7 +1059,7 @@ func TestDeleteByIDPicksTheArchivedRow(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, first)
 
-	require.NoError(t, st.Archive(ctx, "shared"))
+	require.NoError(t, st.archiveByName(ctx, "shared"))
 	require.NoError(t, st.Create(ctx, Agent{Name: "shared", Pane: "%2", State: StateIdle}))
 
 	require.NoError(t, st.Delete(ctx, first.ID))
@@ -1096,7 +1121,7 @@ func TestGetByID(t *testing.T) {
 			require.NotNil(t, created)
 
 			if tt.archive {
-				require.NoError(t, st.Archive(ctx, "agent"))
+				require.NoError(t, st.archiveByName(ctx, "agent"))
 			}
 
 			got, err := st.GetByID(ctx, tt.lookFor(*created))
@@ -1186,7 +1211,7 @@ func TestGetByIdempotencyKey(t *testing.T) {
 
 			require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle, IdempotencyKey: &tt.key}))
 			if tt.archive {
-				require.NoError(t, st.Archive(ctx, "agent"))
+				require.NoError(t, st.archiveByName(ctx, "agent"))
 			}
 
 			got, err := st.GetByIdempotencyKey(ctx, tt.lookFor)
@@ -1313,7 +1338,7 @@ func TestCountLiveForSchedule(t *testing.T) {
 				name := fmt.Sprintf("agent-%d", i)
 				require.NoError(t, st.Create(ctx, Agent{Name: name, State: state, ScheduleID: &schedule}))
 				if tt.archive {
-					require.NoError(t, st.Archive(ctx, name))
+					require.NoError(t, st.archiveByName(ctx, name))
 				}
 			}
 
@@ -1392,7 +1417,7 @@ func TestCountLive(t *testing.T) {
 					require.True(t, hidden)
 				}
 				if tt.archive {
-					require.NoError(t, st.Archive(ctx, name))
+					require.NoError(t, st.Archive(ctx, written.ID))
 				}
 			}
 
@@ -1415,6 +1440,26 @@ type fixture struct {
 	// most of them: they are about names, states, and pages rather than about
 	// where an agent belongs.
 	defaultWorkflow string
+}
+
+// Get reads an agent back by name out of the default workflow, which is the scope a
+// name is unique in.
+func (f *fixture) Get(ctx context.Context, name string) (*Agent, error) {
+	return f.GetInWorkflow(ctx, f.defaultWorkflow, name)
+}
+
+// archiveByName archives the agent the default workflow holds under a name, since these
+// tests seed by name and Archive is keyed by id.
+func (f *fixture) archiveByName(ctx context.Context, name string) error {
+	agent, err := f.GetInWorkflow(ctx, f.defaultWorkflow, name)
+	if err != nil {
+		return err
+	}
+	if agent == nil {
+		return fmt.Errorf("no live agent called %q", name)
+	}
+
+	return f.Archive(ctx, agent.ID)
 }
 
 // Create fills in the default workflow when the test did not name one.

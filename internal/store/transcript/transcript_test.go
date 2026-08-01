@@ -231,7 +231,10 @@ func TestSearch(t *testing.T) {
 				seedTranscript(t, st, id, tt.reindexTo)
 			}
 			if tt.archive {
-				require.NoError(t, st.agents.Archive(ctx, "one"))
+				archived, findErr := st.agents.GetInWorkflow(ctx, st.workflow, "one")
+				require.NoError(t, findErr)
+				require.NotNil(t, archived)
+				require.NoError(t, st.agents.Archive(ctx, archived.ID))
 			}
 
 			hits, err := st.Search(ctx, SearchParams{Query: tt.query, Limit: 10})
@@ -558,7 +561,7 @@ func seedAgent(t *testing.T, st *fixture, name string) string {
 	require.NoError(t, st.agents.Create(ctx, agentstore.Agent{
 		Name: name, State: agentstore.StateIdle, WorkflowID: st.workflow,
 	}))
-	got, err := st.agents.Get(ctx, name)
+	got, err := st.agents.GetInWorkflow(ctx, st.workflow, name)
 	require.NoError(t, err)
 	require.NotNil(t, got)
 

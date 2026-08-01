@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"weave/internal/store"
+	agentstore "weave/internal/store/agent"
 	"weave/internal/store/schedule"
 	"weave/internal/store/workflow"
 
@@ -240,15 +241,16 @@ func TestRestoreWorkflow(t *testing.T) {
 			if tt.archive {
 				require.NoError(t, workflows.ArchiveWorkflow(ctx, id))
 			}
+			// The namesake goes into the archived workflow itself, which is the scope the
+			// unique index covers. It is written straight to the store, since a create
+			// through the service refuses a workflow nothing lists.
 			if tt.takeName {
-				other, err := workflows.NewWorkflow(ctx, workflow.Config{Name: "frontend"})
-				require.NoError(t, err)
-				_, err = manager.NewAgent(ctx, NewAgentParams{
-					Title:      "agent",
-					Dir:        t.TempDir(),
-					WorkflowID: other.ID,
-				})
-				require.NoError(t, err)
+				require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+					Name:       "agent",
+					State:      agentstore.StateIdle,
+					Harness:    testHarnessID,
+					WorkflowID: id,
+				}))
 			}
 
 			opened := len(tmux.newWindows)

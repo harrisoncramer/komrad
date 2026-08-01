@@ -247,7 +247,7 @@ func TestArchiveWorkflow(t *testing.T) {
 
 			require.NoError(t, err)
 
-			agent, err := st.Agents.Get(ctx, "agent")
+			agent, err := st.LiveAgentByName(ctx, "agent")
 			require.NoError(t, err)
 			assert.Nil(t, agent, "the agent is hidden alongside its workflow")
 
@@ -311,7 +311,7 @@ func TestRestoreWorkflow(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, "backend", resp.Msg.GetWorkflow().GetName())
 
-			agent, err := st.Agents.Get(ctx, "agent")
+			agent, err := st.LiveAgentByName(ctx, "agent")
 			require.NoError(t, err)
 			require.NotNil(t, agent, "its agent is listed again")
 			assert.Nil(t, agent.ArchivedAt)

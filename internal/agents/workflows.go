@@ -212,12 +212,12 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 }
 
 // namesFree refuses when a live agent holds a name one of these archived agents is coming
-// back under. The unique-name index covers the unarchived alone, so the collision only
-// exists at the moment they return.
+// back under. The unique-name index covers the unarchived of one workflow, so the collision
+// only exists at the moment they return.
 func namesFree(ctx context.Context, agents agentNamer, archived []agentstore.Agent) error {
 	var held []string
 	for _, agent := range archived {
-		taken, err := agents.ActiveNameExists(ctx, agent.Name)
+		taken, err := agents.ActiveNameExists(ctx, agent.WorkflowID, agent.Name)
 		if err != nil {
 			return fmt.Errorf("failed to check the name of agent %q: %w", agent.Name, err)
 		}

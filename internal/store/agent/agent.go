@@ -183,15 +183,19 @@ func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
 	return agents, nil
 }
 
-// Get returns an agent by name, nil when none exists, so a caller does not report a
-// genuine failure as not found.
-func (s *Store) Get(ctx context.Context, name string) (*Agent, error) {
-	row, err := s.queries.GetAgent(ctx, name)
+// GetInWorkflow returns the live agent a workflow holds under a name, nil when it holds
+// none. A name is unique inside a workflow and nowhere wider, so this is the narrowest
+// lookup a name answers.
+func (s *Store) GetInWorkflow(ctx context.Context, workflowID, name string) (*Agent, error) {
+	row, err := s.queries.GetAgentInWorkflow(ctx, models.GetAgentInWorkflowParams{
+		WorkflowID: workflowID,
+		Name:       name,
+	})
 	if store.NoRows(err) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get agent %q: %w", name, err)
+		return nil, fmt.Errorf("failed to get agent %q in workflow %q: %w", name, workflowID, err)
 	}
 
 	metadata, err := s.metadataByAgent(ctx, []string{row.ID})
@@ -246,12 +250,15 @@ func (s *Store) Exists(ctx context.Context, id string) (bool, error) {
 	return exists, nil
 }
 
-// ActiveNameExists reports whether a live, unarchived agent already holds the name,
+// ActiveNameExists reports whether a live agent in the workflow already holds the name,
 // including a dormant one whose pane is gone but whose record survives.
-func (s *Store) ActiveNameExists(ctx context.Context, name string) (bool, error) {
-	exists, err := s.queries.ActiveNameExists(ctx, name)
+func (s *Store) ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error) {
+	exists, err := s.queries.ActiveNameExists(ctx, models.ActiveNameExistsParams{
+		WorkflowID: workflowID,
+		Name:       name,
+	})
 	if err != nil {
-		return false, fmt.Errorf("failed to check active name %q: %w", name, err)
+		return false, fmt.Errorf("failed to check active name %q in workflow %q: %w", name, workflowID, err)
 	}
 
 	return exists, nil
@@ -524,11 +531,15 @@ func (s *Store) Rename(ctx context.Context, id, name string) (bool, error) {
 	return len(renamed) > 0, nil
 }
 
-// Archive hides an agent from listings without dropping the row. The pane goes with it,
-// since the reconciler that would clear a stale id skips archived rows.
-func (s *Store) Archive(ctx context.Context, name string) error {
-	if err := s.queries.MarkAgentArchived(ctx, name); err != nil {
-		return fmt.Errorf("failed to archive agent %q: %w", name, err)
+// Archive hides an agent from listings without dropping the row, keyed by id. The pane
+// goes with it, since the reconciler that would clear a stale id skips archived rows.
+func (s *Store) Archive(ctx context.Context, id string) error {
+	if !store.IsID(id) {
+		return nil
+	}
+
+	if err := s.queries.MarkAgentArchived(ctx, id); err != nil {
+		return fmt.Errorf("failed to archive agent %q: %w", id, err)
 	}
 
 	return nil

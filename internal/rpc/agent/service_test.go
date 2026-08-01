@@ -20,6 +20,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
+	workflowstore "weave/internal/store/workflow"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
@@ -27,6 +28,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
+
+const missingID = "00000000-0000-0000-0000-000000000000"
 
 func TestCreateAgent(t *testing.T) {
 	workflow := "wf-1"
@@ -128,26 +131,18 @@ func TestCreateAgent(t *testing.T) {
 
 func TestGetAgent(t *testing.T) {
 	tests := []struct {
-		name     string
+		name string
+		// seed is the agent to look up, blank to look up an id nobody holds.
 		seed     string
-		lookup   string
 		wantCode connect.Code
 	}{
 		{
-			name:     "a name nobody holds",
-			lookup:   "ghost",
+			name:     "an id nobody holds",
 			wantCode: connect.CodeNotFound,
 		},
 		{
-			name:     "an archived agent is not listed either",
-			seed:     "alpha",
-			lookup:   "beta",
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:   "an agent that exists",
-			seed:   "alpha",
-			lookup: "alpha",
+			name: "an agent that exists",
+			seed: "alpha",
 		},
 	}
 
@@ -155,11 +150,12 @@ func TestGetAgent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc, st := service(t)
 
+			lookup := missingID
 			if tt.seed != "" {
-				st.SeedAgent(t, agentstore.Agent{Name: tt.seed, Cwd: "/tmp", State: agentstore.StateThinking})
+				lookup = st.SeedAgent(t, agentstore.Agent{Name: tt.seed, Cwd: "/tmp", State: agentstore.StateThinking}).ID
 			}
 
-			got, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Name: tt.lookup}))
+			got, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: lookup}))
 			if tt.wantCode != 0 {
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 				return
@@ -295,8 +291,8 @@ func TestListAgentsArchived(t *testing.T) {
 			svc, st, _ := serviceWithLauncher(t)
 			ctx := t.Context()
 
-			st.SeedAgent(t, agentstore.Agent{Name: "archived", Pane: "%1", State: agentstore.StateThinking})
-			require.NoError(t, st.Agents.Archive(ctx, "archived"))
+			archived := st.SeedAgent(t, agentstore.Agent{Name: "archived", Pane: "%1", State: agentstore.StateThinking})
+			require.NoError(t, st.Agents.Archive(ctx, archived.ID))
 			st.SeedAgent(t, agentstore.Agent{Name: "live", Pane: "%2", State: agentstore.StateThinking})
 
 			listed, err := svc.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{Archived: tt.archived}))
@@ -359,9 +355,12 @@ func TestUpdateAgent(t *testing.T) {
 			svc, st := service(t)
 			ctx := t.Context()
 
+			// One workflow for both, since a name is only taken within one.
+			workflow := st.SeedWorkflow(t, workflowstore.Config{Name: "backend"})
+
 			id := "ghost"
 			for _, name := range tt.seed {
-				agent := st.SeedAgent(t, agentstore.Agent{Name: name})
+				agent := st.SeedAgent(t, agentstore.Agent{Name: name, WorkflowID: workflow.ID})
 				if name == tt.rename {
 					id = agent.ID
 				}
@@ -376,12 +375,12 @@ func TestUpdateAgent(t *testing.T) {
 
 			require.NoError(t, err)
 
-			renamed, err := st.Agents.Get(ctx, tt.to)
+			renamed, err := st.LiveAgentByName(ctx, tt.to)
 			require.NoError(t, err)
 			require.NotNil(t, renamed)
 			assert.Equal(t, id, renamed.ID, "a rename preserves the id")
 
-			stale, err := st.Agents.Get(ctx, tt.rename)
+			stale, err := st.LiveAgentByName(ctx, tt.rename)
 			require.NoError(t, err)
 			assert.Nil(t, stale, "the old name no longer resolves")
 		})
@@ -441,7 +440,7 @@ func TestSetHidden(t *testing.T) {
 
 			require.NoError(t, err)
 
-			got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Name: "alpha"}))
+			got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
 			require.NoError(t, err)
 			assert.Equal(t, tt.hidden, got.Msg.GetAgent().GetHidden())
 		})
@@ -507,7 +506,7 @@ func TestSetMark(t *testing.T) {
 
 			require.NoError(t, err)
 
-			got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Name: "alpha"}))
+			got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
 			require.NoError(t, err)
 			assert.Equal(t, tt.mark, got.Msg.GetAgent().Mark)
 		})
@@ -604,7 +603,7 @@ func TestSetMetadata(t *testing.T) {
 
 			require.NoError(t, err)
 
-			got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Name: "alpha"}))
+			got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantStored, storedMetadata(got.Msg.GetAgent()))
 		})
@@ -666,7 +665,7 @@ func TestSearchTranscripts(t *testing.T) {
 			agent := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking})
 			content := seedTranscript(t, st, agent.ID, tt.turns)
 			if tt.archive {
-				require.NoError(t, st.Agents.Archive(ctx, "alpha"))
+				require.NoError(t, st.Agents.Archive(ctx, agent.ID))
 			}
 
 			found, err := svc.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
@@ -982,7 +981,7 @@ func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 		{
 			name: "archiving an agent nobody holds",
 			call: func(t *testing.T, svc *Service) error {
-				_, err := svc.ArchiveAgent(t.Context(), connect.NewRequest(&agentv1.ArchiveAgentRequest{Name: "ghost"}))
+				_, err := svc.ArchiveAgent(t.Context(), connect.NewRequest(&agentv1.ArchiveAgentRequest{Id: "ghost"}))
 				return err
 			},
 			fail:     func(l *fakeLauncher) { l.archiveErr = agents.ErrAgentNotFound },
@@ -1010,7 +1009,7 @@ func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 		{
 			name: "archiving stops the agent",
 			call: func(t *testing.T, svc *Service) error {
-				_, err := svc.ArchiveAgent(t.Context(), connect.NewRequest(&agentv1.ArchiveAgentRequest{Name: "alpha"}))
+				_, err := svc.ArchiveAgent(t.Context(), connect.NewRequest(&agentv1.ArchiveAgentRequest{Id: "alpha"}))
 				return err
 			},
 			wantCalled: func(t *testing.T, l *fakeLauncher) {

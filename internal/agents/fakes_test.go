@@ -261,7 +261,7 @@ func (s *testStore) Close() error {
 }
 
 func (s *testStore) Get(ctx context.Context, name string) (*agentstore.Agent, error) {
-	return s.Agents.Get(ctx, name)
+	return s.LiveAgentByName(ctx, name)
 }
 
 // Create records an agent, filing it under a workflow of its own when the test
@@ -304,8 +304,18 @@ func (s *testStore) ListAll(ctx context.Context) ([]agentstore.Agent, error) {
 	return s.Agents.ListAll(ctx)
 }
 
+// SoftDelete archives the live agent with this name, which is how these tests reach the
+// archive without holding an id.
 func (s *testStore) SoftDelete(ctx context.Context, name string) error {
-	return s.Agents.Archive(ctx, name)
+	agent, err := s.LiveAgentByName(ctx, name)
+	if err != nil {
+		return err
+	}
+	if agent == nil {
+		return fmt.Errorf("no live agent called %q", name)
+	}
+
+	return s.Agents.Archive(ctx, agent.ID)
 }
 
 func (s *testStore) GetWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error) {
@@ -409,10 +419,29 @@ func (s *testStore) workflowServiceCapped(maxAgents int) *WorkflowService {
 // seed inserts an agent in a given state and returns it with its generated id.
 func seed(t *testing.T, st *testStore, name, pane, state string) agentstore.Agent {
 	t.Helper()
-	ctx := context.Background()
-	require.NoError(t, st.Create(ctx, agentstore.Agent{Name: name, Pane: pane, State: state}))
 
-	got, err := st.Get(ctx, name)
+	return seedInWorkflow(t, st, "", name, pane, state)
+}
+
+// seedInWorkflow is the same for a test that cares which workflow the agent lands in. A
+// blank workflow gets one of its own, and the row is read back through the workflow, so
+// two agents sharing a name stay distinguishable.
+func seedInWorkflow(t *testing.T, st *testStore, workflowID, name, pane, state string) agentstore.Agent {
+	t.Helper()
+	ctx := t.Context()
+
+	if workflowID == "" {
+		workflowID = seedWorkflow(t, st)
+	}
+
+	require.NoError(t, st.Create(ctx, agentstore.Agent{
+		Name:       name,
+		Pane:       pane,
+		State:      state,
+		WorkflowID: workflowID,
+	}))
+
+	got, err := st.Agents.GetInWorkflow(ctx, workflowID, name)
 	require.NoError(t, err)
 	require.NotNil(t, got)
 

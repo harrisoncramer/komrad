@@ -506,7 +506,7 @@ func TestNewAgentCeiling(t *testing.T) {
 				seed(t, st, name, fmt.Sprintf("%%%d", i), agentstore.StateThinking)
 
 				if tt.archiveExisting {
-					require.NoError(t, st.Agents.Archive(t.Context(), name))
+					require.NoError(t, st.SoftDelete(t.Context(), name))
 				}
 			}
 
@@ -695,7 +695,7 @@ func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
 			require.NoError(t, err)
 
 			if tt.archive {
-				require.NoError(t, manager.ArchiveAgent(t.Context(), agent.Name))
+				require.NoError(t, manager.ArchiveAgent(t.Context(), agent.ID))
 			} else {
 				require.NoError(t, manager.DeleteAgent(t.Context(), agent.ID))
 			}
@@ -722,14 +722,18 @@ func TestRunCleanupLogsOneThatWouldNotStart(t *testing.T) {
 
 // TestUniqueAgentName covers the name an agent ends up with. The store's unique
 // index is the authority, so a taken name has to be stepped past rather than
-// reused, which would clobber the agent holding it.
+// reused, which would clobber the agent holding it. The index is scoped to the
+// workflow, so a name is only taken when it is taken in the same one.
 func TestUniqueAgentName(t *testing.T) {
 	tests := []struct {
-		name     string
-		title    string
-		prompt   string
-		taken    []string
-		wantName string
+		name   string
+		title  string
+		prompt string
+		// taken are agents seeded into the workflow the name is generated for, and
+		// takenElsewhere the same into a workflow of their own.
+		taken          []string
+		takenElsewhere []string
+		wantName       string
 	}{
 		{
 			name:     "no title and no prompt falls back to a label",
@@ -740,6 +744,12 @@ func TestUniqueAgentName(t *testing.T) {
 			title:    "agent",
 			taken:    []string{"agent"},
 			wantName: "agent-2",
+		},
+		{
+			name:           "the same title in another workflow needs no suffix",
+			title:          "review",
+			takenElsewhere: []string{"review"},
+			wantName:       "review",
 		},
 		{
 			name:     "characters tmux rejects are replaced",
@@ -756,13 +766,17 @@ func TestUniqueAgentName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
+			workflowID := seedWorkflow(t, st)
 			for _, name := range tt.taken {
-				seed(t, st, name, "%1", agentstore.StateIdle)
+				seedInWorkflow(t, st, workflowID, name, "%1", agentstore.StateIdle)
+			}
+			for _, name := range tt.takenElsewhere {
+				seed(t, st, name, "%2", agentstore.StateIdle)
 			}
 
 			manager := newManager(newFakeTmux(), st, "")
 
-			assert.Equal(t, tt.wantName, manager.uniqueAgentName(t.Context(), tt.title, tt.prompt))
+			assert.Equal(t, tt.wantName, manager.uniqueAgentName(t.Context(), workflowID, tt.title, tt.prompt))
 		})
 	}
 }
@@ -771,7 +785,9 @@ func TestNameTaken(t *testing.T) {
 	tests := []struct {
 		name  string
 		check string
-		want  bool
+		// elsewhere asks about the other workflow, where the same name is free.
+		elsewhere bool
+		want      bool
 	}{
 		{
 			name:  "a name nobody holds",
@@ -779,19 +795,32 @@ func TestNameTaken(t *testing.T) {
 			want:  false,
 		},
 		{
-			name:  "a name a live agent holds",
+			name:      "a name held in another workflow",
+			check:     "taken",
+			elsewhere: true,
+			want:      false,
+		},
+		{
+			name:  "a name a live agent in this workflow holds",
 			check: "taken",
 			want:  true,
 		},
 	}
 
 	st := newStore(t)
-	seed(t, st, "taken", "%1", agentstore.StateIdle)
+	workflowID := seedWorkflow(t, st)
+	other := seedWorkflow(t, st)
+	seedInWorkflow(t, st, workflowID, "taken", "%1", agentstore.StateIdle)
 	manager := newManager(newFakeTmux(), st, "")
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, manager.nameTaken(t.Context(), tt.check))
+			scope := workflowID
+			if tt.elsewhere {
+				scope = other
+			}
+
+			assert.Equal(t, tt.want, manager.nameTaken(t.Context(), scope, tt.check))
 		})
 	}
 }
@@ -800,20 +829,20 @@ func TestNameTaken(t *testing.T) {
 // so search still reaches it, but the agent is stopped.
 func TestArchiveAgent(t *testing.T) {
 	tests := []struct {
-		name      string
-		seed      string
-		target    string
+		name string
+		seed string
+		// missing aims the call at an id nobody holds rather than at the seeded agent.
+		missing   bool
 		wantErrIs error
 	}{
 		{
-			name:      "a name nobody holds is not a quiet success",
-			target:    "ghost",
+			name:      "an id nobody holds is not a quiet success",
+			missing:   true,
 			wantErrIs: ErrAgentNotFound,
 		},
 		{
-			name:   "a live agent is stopped and hidden",
-			seed:   "target",
-			target: "target",
+			name: "a live agent is stopped and hidden",
+			seed: "target",
 		},
 	}
 
@@ -823,11 +852,15 @@ func TestArchiveAgent(t *testing.T) {
 			tmux := newFakeTmux()
 			manager := newManager(tmux, st, "")
 
+			target := "00000000-0000-0000-0000-000000000000"
 			if tt.seed != "" {
-				seedRunning(t, st, tmux, tt.seed, "%1", agentstore.StateThinking)
+				target = seedRunning(t, st, tmux, tt.seed, "%1", agentstore.StateThinking).ID
+			}
+			if tt.missing {
+				target = "00000000-0000-0000-0000-000000000000"
 			}
 
-			err := manager.ArchiveAgent(t.Context(), tt.target)
+			err := manager.ArchiveAgent(t.Context(), target)
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
 				return
@@ -836,7 +869,7 @@ func TestArchiveAgent(t *testing.T) {
 			require.NoError(t, err)
 			assert.Contains(t, tmux.killedPanes, "%1", "the agent's pane is killed")
 
-			stored, err := st.Get(t.Context(), tt.target)
+			stored, err := st.Get(t.Context(), tt.seed)
 			require.NoError(t, err)
 			assert.Nil(t, stored, "the agent is hidden from listings")
 		})
@@ -948,7 +981,7 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 
 	t.Run("archiving it leaves the pane running", func(t *testing.T) {
 		manager, _, tmux, dormant := setup(t)
-		require.NoError(t, manager.ArchiveAgent(t.Context(), dormant.Name))
+		require.NoError(t, manager.ArchiveAgent(t.Context(), dormant.ID))
 		assert.Empty(t, tmux.killedPanes, "killing by a stale id would stop the agent using that pane now")
 	})
 
@@ -1009,17 +1042,25 @@ func TestRestore(t *testing.T) {
 			manager := newManager(tmux, st, "")
 			ctx := t.Context()
 
+			workflowID := seedWorkflow(t, st)
 			require.NoError(t, st.Create(ctx, agentstore.Agent{
-				Name:      "foo",
-				State:     agentstore.StateIdle,
-				SessionID: "sess-old",
+				Name:       "foo",
+				State:      agentstore.StateIdle,
+				SessionID:  "sess-old",
+				WorkflowID: workflowID,
 			}))
-			original, err := st.Get(ctx, "foo")
+			original, err := st.Agents.GetInWorkflow(ctx, workflowID, "foo")
 			require.NoError(t, err)
 			require.NoError(t, st.SoftDelete(ctx, "foo"))
 
+			// The namesake goes in the same workflow, since that is the scope the
+			// unique index covers.
 			if tt.reuseName {
-				require.NoError(t, st.Create(ctx, agentstore.Agent{Name: "foo", State: agentstore.StateIdle}))
+				require.NoError(t, st.Create(ctx, agentstore.Agent{
+					Name:       "foo",
+					State:      agentstore.StateIdle,
+					WorkflowID: workflowID,
+				}))
 			}
 
 			_, err = manager.RestoreAgent(ctx, original.ID)
@@ -1063,10 +1104,10 @@ func TestRestoreCeiling(t *testing.T) {
 	ctx := t.Context()
 
 	archived := seed(t, st, "archived", "%0", agentstore.StateIdle)
-	require.NoError(t, st.Agents.Archive(ctx, "archived"))
+	require.NoError(t, st.SoftDelete(ctx, "archived"))
 
 	seed(t, st, "live-0", "%1", agentstore.StateThinking)
-	seed(t, st, "live-1", "%2", agentstore.StateThinking)
+	liveTwo := seed(t, st, "live-1", "%2", agentstore.StateThinking)
 
 	_, err := manager.RestoreAgent(ctx, archived.ID)
 
@@ -1074,7 +1115,7 @@ func TestRestoreCeiling(t *testing.T) {
 	still := agentByID(t, st, archived.ID)
 	assert.NotNil(t, still.ArchivedAt, "the refused restore leaves it in the archive")
 
-	require.NoError(t, manager.ArchiveAgent(ctx, "live-1"))
+	require.NoError(t, manager.ArchiveAgent(ctx, liveTwo.ID))
 	_, err = manager.RestoreAgent(ctx, archived.ID)
 	require.NoError(t, err, "archiving one makes room again")
 }
@@ -1088,7 +1129,7 @@ func TestResumeRefusesArchived(t *testing.T) {
 	ctx := t.Context()
 
 	archived := seed(t, st, "archived", "%0", agentstore.StateIdle)
-	require.NoError(t, st.Agents.Archive(ctx, "archived"))
+	require.NoError(t, st.SoftDelete(ctx, "archived"))
 
 	_, err := manager.ResumeAgent(ctx, archived.ID)
 

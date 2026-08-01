@@ -435,15 +435,13 @@ table "agents" {
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
-  # Unique on name only among live records. An archived row keeps its name, so
-  # without the predicate an archived agent would block ever reusing its name
-  # and the upsert-by-name path would resurrect the dead row instead of creating
-  # a fresh one. Scoping the constraint to live rows lets archived rows retain
-  # their name harmlessly while every name-keyed lookup still resolves to at
-  # most one live agent.
+  # Unique per workflow, among live records only. A name is a label the panel renders
+  # rather than a key anything resolves by, so two workflows may each hold an agent
+  # called review without one of them having to be review-2. Archived rows are left out
+  # of the predicate, since they keep their names and would otherwise block reuse.
   index "agents_name_active" {
     unique  = true
-    columns = [column.name]
+    columns = [column.workflow_id, column.name]
     where   = "archived_at IS NULL"
   }
   # Scoped listings filter by workflow, so index the foreign key.
