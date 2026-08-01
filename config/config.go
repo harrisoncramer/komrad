@@ -8,15 +8,7 @@ import (
 	"github.com/harrisoncramer/ultra"
 )
 
-// defaultDatabaseURL points at the Postgres that docker-compose brings up, so a
-// checkout works after `mise run docker:up` with nothing exported. A deployed
-// instance sets DATABASE_URL to its own database and never falls back here.
 const defaultDatabaseURL = "postgres://weave:weave@localhost:5460/weave?sslmode=disable"
-
-// defaultReadOnlyDatabaseURL is the least-privilege login the MCP query tools connect as
-// on a local checkout, created by `mise run db:readonly-role`. It is only assumed when
-// DATABASE_URL is unset too, since a database somebody pointed this at themselves is not
-// one this can guess a second set of credentials for.
 const defaultReadOnlyDatabaseURL = "postgres://weave_readonly:weave_readonly@localhost:5460/weave?sslmode=disable"
 
 // Config holds the panel's runtime configuration. TmuxSocket names the manager's
