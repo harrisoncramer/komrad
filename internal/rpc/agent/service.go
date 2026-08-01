@@ -31,6 +31,9 @@ type agentLauncher interface {
 	// AgentRunning answers whether an agent is still running, which is read at
 	// response time rather than stored so a client needs no tmux of its own.
 	AgentRunning(agent agentstore.Agent) bool
+	// AgentsRunning answers the same for a whole listing at once, since resolving it per
+	// agent costs a tmux subprocess each and the panel re-lists every second.
+	AgentsRunning(agents []agentstore.Agent) map[string]bool
 	DeleteAgent(ctx context.Context, id string) error
 	ArchiveAgent(ctx context.Context, name string) error
 	RestoreAgent(ctx context.Context, id string) (*agentstore.Agent, error)
@@ -113,9 +116,11 @@ func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.L
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list agents: %w", err))
 	}
 
+	running := s.launcher.AgentsRunning(agents)
+
 	resources := make([]agent, 0, len(agents))
 	for _, agent := range agents {
-		resources = append(resources, renderAgent(agent, s.launcher.AgentRunning(agent)))
+		resources = append(resources, renderAgent(agent, running[agent.ID]))
 	}
 
 	next, err := paginator.NextToken(resources)

@@ -18,7 +18,7 @@ const reconcileMisses = 3
 // pane's owner stamp rather than its existence, so a reissued pane id is not read as this
 // agent still running.
 type tmuxProbe interface {
-	PaneOwner(pane string) string
+	PaneOwners() (map[string]string, error)
 	CapturePane(pane string) string
 }
 
@@ -59,10 +59,17 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 		return fmt.Errorf("failed to list agents for reconcile: %w", err)
 	}
 
+	// Tmux failing to answer says nothing about any agent, and treating it as every pane
+	// being gone would clear every pane id and demote every agent in one pass.
+	owners, err := r.tmux.PaneOwners()
+	if err != nil {
+		return fmt.Errorf("failed to read pane owners for reconcile: %w", err)
+	}
+
 	listed := make(map[string]struct{}, len(agents))
 	for _, agent := range agents {
 		listed[agent.ID] = struct{}{}
-		r.reconcileAgent(ctx, agent)
+		r.reconcileAgent(ctx, agent, owners[agent.Pane])
 	}
 
 	// Miss counts for agents that no longer list are forgotten, so the map cannot grow
@@ -77,10 +84,10 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 }
 
 // reconcileAgent writes the single agent's state to match what tmux shows.
-func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent) {
+func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent, owner string) {
 	// A pane that is not this agent's means the agent is dormant, whether its pane died or
 	// the tmux server has since given that id to somebody else.
-	if !paneOwnedBy(r.tmux.PaneOwner(agent.Pane), agent.ID) {
+	if !paneOwnedBy(owner, agent.ID) {
 		// A pane id kept on a dormant row is the one that collides after a server restart,
 		// so forgetting it stops a later pass, a preview, or a kill from landing on
 		// another agent's pane.

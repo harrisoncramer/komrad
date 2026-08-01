@@ -218,6 +218,8 @@ func TestListAgents(t *testing.T) {
 			for _, s := range listed.Msg.GetAgents() {
 				assert.Equal(t, tt.alive, s.GetAlive())
 			}
+
+			assert.Equal(t, 1, launcher.runningCalls, "liveness is resolved once for the page, not once per agent")
 		})
 	}
 }
@@ -1061,6 +1063,9 @@ type fakeLauncher struct {
 	restoreErr error
 	resumed    []string
 	resumeErr  error
+	// runningCalls counts AgentsRunning calls, which is what holds a listing to one
+	// liveness lookup.
+	runningCalls int
 }
 
 func (f *fakeLauncher) NewAgent(_ context.Context, p agents.NewAgentParams) (*agentstore.Agent, error) {
@@ -1075,6 +1080,19 @@ func (f *fakeLauncher) NewAgent(_ context.Context, p agents.NewAgentParams) (*ag
 // AgentRunning answers for the fake's agents. Nothing here runs tmux, so an agent
 // is live exactly when the test says it is.
 func (f *fakeLauncher) AgentRunning(agentstore.Agent) bool { return f.alive }
+
+// AgentsRunning answers a whole listing the same way, recording the call so a test can
+// hold a listing to one lookup rather than one per agent.
+func (f *fakeLauncher) AgentsRunning(agents []agentstore.Agent) map[string]bool {
+	f.runningCalls++
+
+	running := make(map[string]bool, len(agents))
+	for _, agent := range agents {
+		running[agent.ID] = f.alive
+	}
+
+	return running
+}
 
 func (f *fakeLauncher) DeleteAgent(_ context.Context, id string) error {
 	f.deleted = append(f.deleted, id)

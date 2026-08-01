@@ -67,6 +67,7 @@ type agentTmux interface {
 	KillPane(pane string)
 	SetPaneOwner(pane, agentID string) error
 	PaneOwner(pane string) string
+	PaneOwners() (map[string]string, error)
 	ClientPath(client string) string
 }
 
@@ -148,6 +149,20 @@ func NewAgentService(p AgentParams) *AgentService {
 // restart, so the stored pane id alone routinely names somebody else's pane.
 func (s *AgentService) AgentRunning(agent agentstore.Agent) bool {
 	return paneOwnedBy(s.tmux.PaneOwner(agent.Pane), agent.ID)
+}
+
+// AgentsRunning answers liveness for a whole listing off one tmux call, keyed by agent
+// id. A tmux that will not answer reports every agent as not running, which is what
+// asking per agent already does when the server is unreachable.
+func (s *AgentService) AgentsRunning(agents []agentstore.Agent) map[string]bool {
+	owners, _ := s.tmux.PaneOwners()
+
+	running := make(map[string]bool, len(agents))
+	for _, agent := range agents {
+		running[agent.ID] = paneOwnedBy(owners[agent.Pane], agent.ID)
+	}
+
+	return running
 }
 
 // paneOwnedBy compares a pane's stamp against the agent that claims it. An agent with

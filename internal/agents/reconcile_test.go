@@ -2,6 +2,7 @@ package agents
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	agentstore "weave/internal/store/agent"
@@ -260,4 +261,31 @@ func TestReconcileLeavesAnUnknownHarnessAlone(t *testing.T) {
 
 	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "orphan"))
 	assert.Empty(t, rec.misses, "an unread frame is not an idle observation")
+}
+
+// TestReconcileWithoutTmux covers a pass that could not read tmux at all, where treating
+// the failure as an answer would clear every pane and demote every agent at once.
+func TestReconcileWithoutTmux(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+
+	require.NoError(t, st.Create(ctx, agentstore.Agent{
+		Name:  "busy",
+		Pane:  "%1",
+		State: agentstore.StateThinking,
+	}))
+	agent, err := st.Get(ctx, "busy")
+	require.NoError(t, err)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+	tmux.captures["%1"] = busyFrame
+	tmux.paneOwnersErr = errors.New("no server running")
+
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	require.Error(t, rec.Reconcile(ctx), "a pass that observed nothing is a failed pass")
+
+	after := agentByID(t, st, agent.ID)
+	assert.Equal(t, "%1", after.Pane, "the pane is kept, since nothing said it was gone")
+	assert.Equal(t, agentstore.StateThinking, after.State, "and the state stands")
 }
