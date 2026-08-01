@@ -62,7 +62,7 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 		// The appended system prompt is sourced through a temp file the shell cats in place,
 		// so arbitrary markdown needs no escaping.
 		if launch.Context != "" {
-			if path, err := harness.WriteTempText("claude-context-*.md", launch.Context); err == nil {
+			if path, err := harness.WriteTempText(launch.CacheDir, "claude-context-*.md", launch.Context); err == nil {
 				command += fmt.Sprintf(" --append-system-prompt \"$(cat '%s'; rm '%s')\"", path, path)
 			}
 		}
@@ -70,7 +70,7 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 		// so the prompt is fenced off with -- or a launch where no flag separates the two would
 		// read the prompt as another config file.
 		if launch.Prompt != "" {
-			if path, err := harness.WriteTempText("claude-prompt-*.md", launch.Prompt); err == nil {
+			if path, err := harness.WriteTempText(launch.CacheDir, "claude-prompt-*.md", launch.Prompt); err == nil {
 				command += fmt.Sprintf(" -- \"$(cat '%s'; rm '%s')\"", path, path)
 			}
 		}

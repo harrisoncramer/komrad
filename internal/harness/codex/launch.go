@@ -64,7 +64,7 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	// The prompt is positional and could open with a word codex reads as a subcommand, so
 	// it is fenced off with --. It is sourced through a temp file the shell cats in place,
 	// so arbitrary markdown needs no escaping.
-	path, err := harness.WriteTempText("codex-prompt-*.md", prompt)
+	path, err := harness.WriteTempText(launch.CacheDir, "codex-prompt-*.md", prompt)
 	if err != nil {
 		return "", err
 	}

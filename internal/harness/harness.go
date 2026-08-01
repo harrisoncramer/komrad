@@ -61,6 +61,8 @@ type Launch struct {
 	AgentID string
 	// MCPEndpoint is the host:port serve listens on, where the panel's own MCP server is.
 	MCPEndpoint string
+	// CacheDir is where a harness writes the temp files it passes a prompt through.
+	CacheDir string
 	// Dir is the directory the agent runs in. The pane is already opened there, so a
 	// harness needs it only for a CLI that has to be told separately, such as one that
 	// asks whether the directory is trusted.

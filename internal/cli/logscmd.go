@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 
-	"weave/internal/appconfig"
 	"weave/internal/logging"
 
 	"github.com/spf13/cobra"
@@ -24,7 +23,7 @@ import (
 // logsCmd prints the service's log, projected to a line per record by default and whole
 // when asked. It is what the panel's log key pipes into a pager, and what a person runs in
 // a terminal for the same reason.
-func logsCmd() *cobra.Command {
+func logsCmd(state *app) *cobra.Command {
 	var output string
 	var color string
 
@@ -46,7 +45,7 @@ func logsCmd() *cobra.Command {
 				return fmt.Errorf("unknown output %q, expected short or json", output)
 			}
 
-			file, err := os.Open(appconfig.LogPath())
+			file, err := os.Open(state.env.LogPath())
 			if err != nil {
 				return fmt.Errorf("failed to read the service log: %w", err)
 			}

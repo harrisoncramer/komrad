@@ -55,7 +55,10 @@ func TestBuildCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := New(t.TempDir()).BuildCommand(tt.launch)
+			launch := tt.launch
+			launch.CacheDir = t.TempDir()
+
+			command, err := New(t.TempDir()).BuildCommand(launch)
 			require.NoError(t, err)
 
 			assert.True(t, strings.HasPrefix(stripMCPConfig(command), tt.wantCommand),
@@ -89,7 +92,7 @@ func TestBuildCommandQuotesFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := New(t.TempDir()).BuildCommand(harness.Launch{Flags: tt.flags, SessionID: "sess"})
+			command, err := New(t.TempDir()).BuildCommand(harness.Launch{Flags: tt.flags, SessionID: "sess", CacheDir: t.TempDir()})
 			require.NoError(t, err)
 
 			assert.NotContains(t, command, tt.wantAbsent, "an unquoted flag would run in the pane")
@@ -127,7 +130,10 @@ func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := New(t.TempDir()).BuildCommand(tt.launch)
+			launch := tt.launch
+			launch.CacheDir = t.TempDir()
+
+			command, err := New(t.TempDir()).BuildCommand(launch)
 			require.NoError(t, err)
 
 			for _, want := range tt.wantContain {
@@ -143,6 +149,26 @@ func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestBuildCommandStagesTextUnderTheCacheDir covers where the files a launch passes text
+// through are written. They hold the agent's prompt and are removed by the command that
+// reads them, so they belong under the directory weave was told to keep what it generates
+// in rather than wherever the system temp directory happens to be.
+func TestBuildCommandStagesTextUnderTheCacheDir(t *testing.T) {
+	cache := t.TempDir()
+
+	_, err := New(t.TempDir()).BuildCommand(harness.Launch{
+		SessionID: "sess",
+		Context:   "the briefing",
+		Prompt:    "do the thing",
+		CacheDir:  cache,
+	})
+	require.NoError(t, err)
+
+	staged, err := filepath.Glob(filepath.Join(cache, "claude-*.md"))
+	require.NoError(t, err)
+	assert.Len(t, staged, 2, "one file for the appended system prompt and one for the opening prompt")
 }
 
 // TestBuildCommandRegistersMCPServer covers the config file every launch points claude
@@ -168,6 +194,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 			t.Setenv("HOME", home)
 
 			command, err := New(t.TempDir()).BuildCommand(harness.Launch{
+				CacheDir:    t.TempDir(),
 				SessionID:   "sess",
 				MCPEndpoint: "127.0.0.1:9999",
 				Resume:      tt.resume,
@@ -241,6 +268,7 @@ func TestMCPConfigCarriesTheAgentsIdentity(t *testing.T) {
 	t.Setenv("HOME", home)
 
 	command, err := New(t.TempDir()).BuildCommand(harness.Launch{
+		CacheDir:    t.TempDir(),
 		AgentID:     "agent-1",
 		SessionID:   "sess-1",
 		MCPEndpoint: "127.0.0.1:9999",

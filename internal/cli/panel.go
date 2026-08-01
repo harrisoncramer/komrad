@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"weave/internal/agents"
-	"weave/internal/appconfig"
 	"weave/internal/ui"
 	"weave/proto/gen/action/v1/actionv1connect"
 	"weave/proto/gen/agent/v1/agentv1connect"
@@ -27,7 +26,7 @@ func panelCmd(state *app) *cobra.Command {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			// Carried into the panel rather than returned, since returning ends the
 			// session and tmux tears the pane down with the message still on it.
-			logPath := appconfig.LogPath()
+			logPath := state.env.LogPath()
 			startupErr := ensureServer(state.env.Addr, selfPath(), logPath)
 
 			base := "http://" + state.env.Addr

@@ -95,7 +95,7 @@ func TestTrustLaunchDirs(t *testing.T) {
 				TrustLaunchDirs: tt.enabled,
 			})
 
-			_, err := harnessUnderTest.BuildCommand(harness.Launch{Prompt: "go", Dir: tt.dir})
+			_, err := harnessUnderTest.BuildCommand(harness.Launch{Prompt: "go", Dir: tt.dir, CacheDir: t.TempDir()})
 
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)

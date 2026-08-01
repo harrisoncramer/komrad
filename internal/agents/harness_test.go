@@ -132,7 +132,7 @@ func TestNewAgentFlagsFollowTheHarness(t *testing.T) {
 		Agents:         st.Agents,
 		Workflows:      st.Workflows,
 		Tx:             st.Pool,
-		Launcher:       NewLauncher(tmux, ""),
+		Launcher:       NewLauncher(LauncherParams{Tmux: tmux}),
 		Harnesses:      fakeHarnesses{harness: &fakeHarness{}},
 		DefaultHarness: testHarnessID,
 		DefaultFlags: map[string]string{

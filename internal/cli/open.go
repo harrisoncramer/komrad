@@ -94,6 +94,7 @@ func ensureManagerSession(state *app) error {
 		"-e", "DATABASE_URL="+state.env.DatabaseURL,
 		"-e", "WEAVE_ADDR="+state.env.Addr,
 		"-e", "EDITOR="+state.env.Editor,
+		"-e", "WEAVE_CACHE_DIR="+state.env.CacheDir,
 		"--", selfPath(), "panel",
 	)
 	cmd.Stderr = os.Stderr

@@ -121,11 +121,16 @@ func (a *app) openStore(ctx context.Context) error {
 		Socket:    a.env.TmuxSocket,
 	})
 	a.agentService = agents.NewAgentService(agents.AgentParams{
-		Tmux:           a.tmux,
-		Agents:         a.agents,
-		Workflows:      a.workflows,
-		Tx:             pool,
-		Launcher:       agents.NewLauncher(a.tmux, a.env.Addr),
+		Tmux:      a.tmux,
+		Agents:    a.agents,
+		Workflows: a.workflows,
+		Tx:        pool,
+		Launcher: agents.NewLauncher(agents.LauncherParams{
+			Tmux:     a.tmux,
+			Addr:     a.env.Addr,
+			CacheDir: a.env.CacheDir,
+			LogPath:  a.env.LogPath(),
+		}),
 		Harnesses:      a.harnesses,
 		Lifecycle:      a.actionService,
 		DefaultHarness: a.defaultHarness,

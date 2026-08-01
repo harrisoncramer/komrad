@@ -618,19 +618,6 @@ func (c Config) ActionsDir() (string, error) {
 	return filepath.Join(home, "actions"), nil
 }
 
-// LogPath is the file the background service writes to, ~/.config/weave/weave.log. Both
-// the process that spawns the service and the panel that pages the log resolve it here,
-// since a service writing where the panel does not look may as well not be writing. An
-// unresolvable home falls back to the working directory.
-func LogPath() string {
-	home, err := configHome()
-	if err != nil {
-		return "weave.log"
-	}
-
-	return filepath.Join(home, "weave.log")
-}
-
 // Load reads the config from path when given, otherwise from
 // ~/.config/weave/config.toml. A missing file is not an error and yields the defaults, but
 // a symlink resolving to nothing is, since that is a config someone meant to have.

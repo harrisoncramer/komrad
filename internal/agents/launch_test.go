@@ -7,8 +7,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"weave/internal/appconfig"
 )
 
 // TestLaunchTypesTheHarnessCommand covers the launcher's whole job: the command the
@@ -43,7 +41,7 @@ func TestLaunchTypesTheHarnessCommand(t *testing.T) {
 			tmux := newFakeTmux()
 			tmux.sendKeysErr = tt.sendKeysErr
 			h := &fakeHarness{commandErr: tt.commandErr}
-			launcher := NewLauncher(tmux, "127.0.0.1:9999")
+			launcher := NewLauncher(LauncherParams{Tmux: tmux, Addr: "127.0.0.1:9999"})
 
 			err := launcher.launch(h, launchParams{Pane: "pane", SessionID: "sess"})
 
@@ -69,7 +67,7 @@ func TestLaunchTypesTheHarnessCommand(t *testing.T) {
 func TestLaunchPassesWhatThePanelKnows(t *testing.T) {
 	tmux := newFakeTmux()
 	h := &fakeHarness{}
-	launcher := NewLauncher(tmux, "127.0.0.1:9999")
+	launcher := NewLauncher(LauncherParams{Tmux: tmux, Addr: "127.0.0.1:9999"})
 
 	require.NoError(t, launcher.launch(h, launchParams{
 		Pane:      "pane",
@@ -93,6 +91,10 @@ func TestLaunchPassesWhatThePanelKnows(t *testing.T) {
 	assert.Contains(t, launch.Context, "http://127.0.0.1:9999/mcp")
 }
 
+// briefedLogPath stands in for the service's log, which the launcher is handed rather than
+// resolving for itself.
+const briefedLogPath = "/var/cache/weave/weave.log"
+
 // TestAppendedSystemPrompt covers what a spawned agent is told. The briefing
 // comes first so a workflow's own context reads as an addition to it rather than
 // being buried inside it.
@@ -114,8 +116,8 @@ func TestAppendedSystemPrompt(t *testing.T) {
 				"WEAVE_AGENT_ID",
 				"set_agent_metadata",
 				// An agent told to read the service's log is told the file this install
-				// writes, resolved the way the service that writes it resolves it.
-				appconfig.LogPath(),
+				// writes, rather than a path it would have to work out for itself.
+				briefedLogPath,
 			},
 			// A placeholder that reached an agent would send it looking for a path or an
 			// endpoint that does not exist, which is worse than saying nothing.
@@ -130,7 +132,11 @@ func TestAppendedSystemPrompt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			launcher := NewLauncher(newFakeTmux(), "127.0.0.1:9999")
+			launcher := NewLauncher(LauncherParams{
+				Tmux:    newFakeTmux(),
+				Addr:    "127.0.0.1:9999",
+				LogPath: briefedLogPath,
+			})
 
 			prompt := launcher.appendedSystemPrompt(tt.context)
 			for _, want := range tt.wantContain {
