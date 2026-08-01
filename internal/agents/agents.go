@@ -17,8 +17,8 @@ import (
 	"weave/internal/store/workflow"
 )
 
-// expandHome expands a leading ~ or ~/ to the user's home. tmux's new-session -c
-// does no shell tilde expansion, so a stored ~ path would fail to chdir.
+// expandHome expands a leading ~ or ~/ to the user's home, since tmux's new-session
+// -c does no tilde expansion of its own.
 func expandHome(dir string) string {
 	if dir != "~" && !strings.HasPrefix(dir, "~/") {
 		return dir
@@ -48,17 +48,13 @@ type agentStore interface {
 	ActiveNameExists(ctx context.Context, name string) (bool, error)
 }
 
-// workflowReader is all this service needs from the workflow domain. An agent
-// snapshots its workflow's shared context at launch, so this reads and never
-// writes.
+// workflowReader is all this service needs from the workflow domain.
 type workflowReader interface {
 	Get(ctx context.Context, id string) (*workflow.Workflow, error)
 }
 
-// txRunner opens the transaction a write spanning two domains needs. Removing an
-// agent also removes its transcript, which lives in another package, so the two
-// stores are rebound onto one transaction instead of either reaching into the
-// other's tables.
+// txRunner opens the transaction a write spanning two domains needs, since removing
+// an agent also removes its transcript.
 type txRunner interface {
 	InTx(ctx context.Context, fn func(store.DBTX) error) error
 }
@@ -71,24 +67,19 @@ type agentTmux interface {
 	ClientPath(client string) string
 }
 
-// harnessRegistry resolves the CLI an agent names. It hands back the whole Harness
-// because a lookup cannot return a different interface per caller.
+// harnessRegistry resolves the CLI an agent names.
 type harnessRegistry interface {
 	Resolve(id string) (harness.Harness, error)
 }
 
-// lifecycleActions runs the actions a workflow names around its agents' lives. What an
-// action is stays the action service's, so this service only decides when one fires.
-//
-// It may be absent, which reads the same as a workflow naming no actions. A build that has
-// not wired one is a panel with no actions rather than one that cannot create an agent.
+// lifecycleActions runs the actions a workflow names around its agents' lives. It may
+// be absent, which reads the same as a workflow naming no actions.
 type lifecycleActions interface {
 	RunSetupAction(ctx context.Context, agent agentstore.Agent, name string) (string, error)
 	RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string) error
 }
 
-// AgentService owns an agent's lifecycle. It creates one, brings a dormant one
-// back, renames, archives, and removes it, coordinating the store with tmux and
+// AgentService owns an agent's lifecycle, coordinating the store with tmux and
 // delegating the command line to the launcher.
 type AgentService struct {
 	tmux      agentTmux
@@ -99,13 +90,12 @@ type AgentService struct {
 	harnesses harnessRegistry
 	lifecycle lifecycleActions
 	// defaultHarness is the CLI an agent runs when neither it nor its workflow names
-	// one, and defaultFlags are the configured flags each harness's agents are
-	// launched with, ahead of their own, keyed by harness id.
+	// one, and defaultFlags are the configured flags per harness id, prepended to an
+	// agent's own.
 	defaultHarness string
 	defaultFlags   map[string]string
-	// restoreRoot is only read when a restore has to repair a working directory that
-	// is gone. It is a field rather than a constant so a test can point it at a temp
-	// directory instead of the user's home.
+	// restoreRoot is where a restore rebuilds a working directory that is gone. It is
+	// a field so a test can point it somewhere other than the user's home.
 	restoreRoot string
 }
 
@@ -145,25 +135,21 @@ func NewAgentService(p AgentParams) *AgentService {
 	}
 }
 
-// AgentRunning reports whether an agent's CLI is still up, which is true only
-// of a pane that exists and is stamped with that agent's id. The stored pane id is
-// never trusted on its own: tmux reissues pane ids from %0 after a server restart,
-// so a dormant agent's recorded pane routinely names a pane that now belongs to
-// somebody else.
+// AgentRunning reports whether an agent's CLI is still up, which is true only of a
+// pane stamped with that agent's id. tmux reissues pane ids from %0 after a server
+// restart, so the stored pane id alone routinely names somebody else's pane.
 func (s *AgentService) AgentRunning(agent agentstore.Agent) bool {
 	return paneOwnedBy(s.tmux.PaneOwner(agent.Pane), agent.ID)
 }
 
-// paneOwnedBy compares a pane's stamp against the agent that claims it. An agent
-// with no id owns nothing, so an unstamped pane cannot answer to it by both sides
-// being empty.
+// paneOwnedBy compares a pane's stamp against the agent that claims it. An agent with
+// no id owns nothing, so an unstamped pane cannot match by both sides being empty.
 func paneOwnedBy(owner, agentID string) bool {
 	return agentID != "" && owner == agentID
 }
 
 // killOwnedPane tears down an agent's pane, but only while that pane is still the
-// agent's own. Killing by a stored id alone would end whatever process the tmux
-// server has since given that id to.
+// agent's own, since a reissued id may now belong to another process.
 func (s *AgentService) killOwnedPane(agent agentstore.Agent) {
 	if s.AgentRunning(agent) {
 		s.tmux.KillPane(agent.Pane)
@@ -179,13 +165,10 @@ var ErrWorkflowNotFound = errors.New("workflow not found")
 // ErrBadDirectory reports a working directory the agent could not be started in.
 var ErrBadDirectory = errors.New("unusable working directory")
 
-// DeleteAgent stops an agent and removes it, keyed by id so it reaches the
-// archived agents too. Dropping the row alone would leave the agent running with
-// nothing left that can name it or reach it.
-//
-// Its workflow's cleanup action fires between the pane and the row. After the pane so a
-// script removing the directory is not racing a CLI still writing in it, and before the row
-// so what the script is told about the agent is still what the panel held.
+// DeleteAgent stops an agent and removes it, keyed by id so it reaches the archived
+// agents too. The workflow's cleanup action fires between the pane and the row: after
+// the pane so a script removing the directory is not racing a CLI still writing in it,
+// and before the row so the script is told what the panel held.
 func (s *AgentService) DeleteAgent(ctx context.Context, id string) error {
 	agent, err := s.byID(ctx, id)
 	if err != nil {
@@ -198,9 +181,8 @@ func (s *AgentService) DeleteAgent(ctx context.Context, id string) error {
 	return s.removeAgent(ctx, id)
 }
 
-// removeAgent deletes an agent and the transcript keyed to its id in one
-// transaction, since an agent removed without its text would leave the conversation
-// readable through the SQL tools.
+// removeAgent deletes an agent and the transcript keyed to its id in one transaction,
+// so a removed agent leaves no conversation behind for the SQL tools to read.
 func (s *AgentService) removeAgent(ctx context.Context, id string) error {
 	exists, err := s.agents.Exists(ctx, id)
 	if err != nil {
@@ -219,14 +201,12 @@ func (s *AgentService) removeAgent(ctx context.Context, id string) error {
 	})
 }
 
-// ArchiveAgent stops an agent and hides it from the panel, keyed by name. The
-// record and its transcript stay, so search still reaches it and it can be restored
-// later. DeleteAgent is the irreversible half.
+// ArchiveAgent stops an agent and hides it from the panel, keeping its record and
+// transcript so it can be restored later. DeleteAgent is the irreversible half.
 //
-// The cleanup action does not fire here, and that is the whole difference between the two.
-// Restoring an agent relaunches it in the directory its row records and does not run its
-// workflow's setup again, so an archive that tore down what setup built would bring the
-// agent back somewhere else without saying so.
+// The cleanup action does not fire here, since a restore relaunches in the directory
+// the row records without running setup again, and tearing down what setup built would
+// bring the agent back somewhere else without saying so.
 func (s *AgentService) ArchiveAgent(ctx context.Context, name string) error {
 	agent, err := s.agents.Get(ctx, name)
 	if err != nil {
@@ -246,8 +226,7 @@ func (s *AgentService) ArchiveAgent(ctx context.Context, name string) error {
 }
 
 // RestoreAgent brings an agent back by id, relaunching its CLI on the same
-// conversation, and returns it as stored. It spans archived agents, since
-// restoring one is the point. An id that matches nothing is ErrAgentNotFound.
+// conversation, and returns it as stored. It spans archived agents.
 func (s *AgentService) RestoreAgent(ctx context.Context, id string) (*agentstore.Agent, error) {
 	agent, err := s.byID(ctx, id)
 	if err != nil {
@@ -255,7 +234,7 @@ func (s *AgentService) RestoreAgent(ctx context.Context, id string) (*agentstore
 	}
 
 	// An agent still running in its own pane needs no restore, so the call is
-	// idempotent rather than spawning a second window for the same conversation.
+	// idempotent rather than opening a second window on the same conversation.
 	if s.AgentRunning(*agent) {
 		return agent, nil
 	}
@@ -265,7 +244,7 @@ func (s *AgentService) RestoreAgent(ctx context.Context, id string) (*agentstore
 	}
 
 	// Restore may rename an agent whose name was taken while it sat archived, so the
-	// row is read back rather than returned from the copy taken before the write.
+	// row is read back rather than returned from the copy taken before it.
 	return s.byID(ctx, id)
 }
 
@@ -300,16 +279,14 @@ type NewAgentParams struct {
 	// Hidden starts the agent out of the panel's list, so a noisy recurring schedule
 	// can stay armed without filling it. The agent still runs.
 	Hidden bool
-	// IdempotencyKey makes the create repeatable. A second call carrying a key an
-	// agent already holds returns that agent untouched rather than spawning a second
-	// Claude process. Empty makes no claim, which is every create from the panel.
+	// IdempotencyKey makes the create repeatable: a second call carrying a key an agent
+	// already holds returns that agent untouched. Empty makes no claim.
 	IdempotencyKey string
 }
 
-// usableDir reports whether an agent can actually be started in dir. Existence is
-// not enough: tmux silently falls back to its own default directory when it cannot
-// enter the one given to -c, which would leave an agent running somewhere other than
-// the cwd stored against it.
+// usableDir reports whether an agent can actually be started in dir. Existence is not
+// enough: tmux silently falls back to its own default directory when it cannot enter
+// the one given to -c, leaving the agent somewhere other than its stored cwd.
 func usableDir(dir string) error {
 	info, err := os.Stat(dir)
 	if err != nil {
@@ -330,11 +307,11 @@ func usableDir(dir string) error {
 
 // NewAgent creates a background agent, records it so it lists immediately, and
 // launches its CLI with the default plus per-agent flags and the opening prompt. It
-// does not switch the client to the new agent. The stored record is returned so a
-// caller that did not watch the list still learns the generated name and id.
+// does not switch the client to the new agent, and returns the stored record so the
+// caller learns the generated name and id.
 func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentstore.Agent, error) {
 	// The key is checked before anything is opened or written, so a retry costs a
-	// lookup rather than a second tmux window that has to be cleaned up after.
+	// lookup rather than a tmux window that has to be cleaned up after.
 	if p.IdempotencyKey != "" {
 		existing, err := s.agents.GetByIdempotencyKey(ctx, p.IdempotencyKey)
 		if err != nil {
@@ -350,10 +327,9 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		return nil, err
 	}
 
-	// The id is minted here rather than by the insert below, because the pane has to
-	// be stamped with it before the row exists. The reconciler reads a row against an
-	// unstamped pane as belonging to nobody and clears the pane out from under an agent
-	// about to launch in it.
+	// The id is minted here rather than by the insert below, because the pane has to be
+	// stamped with it before the row exists. The reconciler reads an unstamped pane as
+	// belonging to nobody and clears it out from under an agent about to launch in it.
 	id, err := store.NewID()
 	if err != nil {
 		return nil, err
@@ -364,9 +340,8 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 	// none, leaving the id to be discovered after the launch.
 	sessionID := plan.harness.MintSessionID()
 
-	// Setup runs before the window opens, because where it opens is one of the things setup
-	// decides. A refusal here leaves nothing to take back out, since a script that refused
-	// is one saying it never got as far as doing anything.
+	// Setup runs before the window opens, because where it opens is one of the things
+	// setup decides. A refusal here leaves nothing to take back out.
 	planned := plan.agent(p, id, sessionID)
 
 	named, err := s.runSetup(ctx, planned, plan.setupAction)
@@ -374,12 +349,9 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		return nil, err
 	}
 
-	// Armed the moment the action has run, because from here on it may have built something
-	// and everything below can still refuse. A worktree no row names is never reached
-	// again. One deferred check covers every refusal, so a failure path added later cannot
-	// forget it.
-	//
-	// It fires on the planned agent rather than a stored one, since most of what can fail
+	// Armed the moment the action has run, because from here on it may have built
+	// something and everything below can still refuse, and a worktree no row names is
+	// never reached again. It fires on the planned agent, since most of what can fail
 	// below fails before the row exists.
 	launched := false
 	defer func() {
@@ -390,9 +362,7 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 
 	// Settled after the unwind is armed, so an action that built something and then named
 	// somewhere unusable is still cleaned up after. That cleanup is told the planned
-	// directory, since the name it was given is the one value known to be wrong. An action
-	// that names a directory it did not build in has put that work beyond reach, and it is
-	// the one shape nothing here can recover.
+	// directory, since the name it was given is the one value known to be wrong.
 	dir, err := s.setupDir(plan.dir, named)
 	if err != nil {
 		return nil, err
@@ -405,9 +375,9 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		return nil, fmt.Errorf("failed to open a window for %q: %w", plan.name, err)
 	}
 
-	// The window goes the same way and for the same reason. A pane no row names runs forever
-	// and shows up in no listing. It is a second deferred check rather than part of the one
-	// above, since the pane does not exist until here.
+	// The window goes the same way and for the same reason: a pane no row names runs
+	// forever and shows up in no listing. It is separate from the check above only
+	// because the pane does not exist until here.
 	defer func() {
 		if !launched {
 			s.tmux.KillPane(pane)
@@ -439,7 +409,7 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 	}
 
 	// The row is read back rather than returned from what was written, since the store
-	// owns the id and timestamps a caller renders.
+	// owns the timestamps a caller renders.
 	created, err := s.agents.Get(ctx, plan.name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read back agent %q: %w", plan.name, err)
@@ -453,14 +423,14 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		Dir:    dir,
 		Flags:  plan.flags,
 		Prompt: p.Prompt,
-		// The workflow's context is a snapshot taken at launch, so later edits to the
-		// workflow reach only agents spawned after them.
+		// A snapshot taken at launch, so later edits to the workflow reach only agents
+		// spawned after them.
 		WorkflowContext: plan.workflowContext,
 		SessionID:       sessionID,
 		AgentID:         id,
 	}); err != nil {
 		// The pane and whatever setup built go with the unwind above. The row has to go
-		// too, or the agent lists as live forever with nothing running behind it.
+		// too, or the agent lists as live with nothing running behind it.
 		if deleteErr := s.removeAgent(ctx, id); deleteErr != nil {
 			return nil, fmt.Errorf("failed to launch the agent for %q (%w), and failed to clean up: %w", plan.name, err, deleteErr)
 		}
@@ -484,21 +454,18 @@ type launchPlan struct {
 	dir             string
 	flags           string
 	workflowContext string
-	// setupAction and cleanupAction are the workflow's, carried here so the launch and the
-	// unwind that follows a failed one both have them without a second read of a workflow
-	// that may have been edited in between.
+	// setupAction and cleanupAction are the workflow's, carried here so the launch and
+	// the unwind after a failed one agree even if the workflow is edited in between.
 	setupAction   string
 	cleanupAction string
 }
 
 // planLaunch decides everything about a create that can be decided before anything is
-// opened or written. It touches nothing outside the store it reads, so a create that
-// cannot work fails here rather than part-way through, with a window open and a row to
-// take back out.
+// opened or written, so a create that cannot work fails here rather than part-way
+// through with a window open and a row to take back out.
 func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launchPlan, error) {
 	// The workflow comes first, since it supplies the defaults everything below falls
-	// back to. An unknown one is refused rather than filed under an id that renders
-	// nowhere.
+	// back to.
 	wf, err := s.workflows.Get(ctx, p.WorkflowID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to look up workflow %q: %w", p.WorkflowID, err)
@@ -507,8 +474,8 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 		return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, p.WorkflowID)
 	}
 
-	// The harness resolves before the directory is checked, since an agent naming a
-	// CLI this binary cannot run is wrong about something no directory makes right.
+	// The harness resolves before the directory is checked, since an agent naming a CLI
+	// this binary cannot run is wrong about something no directory makes right.
 	harnessID := strings.TrimSpace(p.Harness)
 	if harnessID == "" {
 		harnessID = strings.TrimSpace(wf.Harness)
@@ -523,8 +490,7 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 	}
 
 	// What the caller asked for wins, then the workflow's default, then where the user
-	// is looking. A scheduled launch supplies neither of the first two, which is the
-	// point of the workflow holding them.
+	// is looking. A scheduled launch supplies neither of the first two.
 	dir := expandHome(strings.TrimSpace(p.Dir))
 	if dir == "" {
 		dir = expandHome(strings.TrimSpace(wf.Cwd))
@@ -540,9 +506,8 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 		return nil, err
 	}
 
-	// Flags follow the same rule. The panel prefills its form from the workflow, so an
-	// interactive create arrives with them already set and this changes nothing. A
-	// scheduled one arrives empty and takes them here.
+	// Flags follow the same rule. The panel prefills its form from the workflow, so only
+	// a scheduled create arrives empty and takes them here.
 	agentFlags := strings.TrimSpace(p.Flags)
 	if agentFlags == "" {
 		agentFlags = strings.TrimSpace(wf.Flags)
@@ -560,14 +525,9 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 	}, nil
 }
 
-// agent is the row this launch is about to write, which is what the actions fired around
-// the launch are told about.
-//
-// They are handed this rather than something read back, since most of the launch happens
-// before the row exists. It goes through the same payload builder every other action's
-// does, so a script sees one shape whenever it was fired. What it cannot do is record
-// metadata against itself, since there is no row yet to record it on. The agent does that
-// for itself once it starts.
+// agent is the row this launch is about to write, and what the actions fired around the
+// launch are told about. They are handed this rather than something read back, since
+// most of the launch happens before the row exists.
 func (plan *launchPlan) agent(params NewAgentParams, id, sessionID string) agentstore.Agent {
 	return agentstore.Agent{
 		ID:         id,
@@ -584,11 +544,8 @@ func (plan *launchPlan) agent(params NewAgentParams, id, sessionID string) agent
 }
 
 // runSetup runs the workflow's setup action and returns the directory it named, blank
-// when it named none or when the workflow names no action at all.
-//
-// It stops at the answer rather than checking it, because the check has to happen where a
-// refusal is still cleaned up after, and by the time this returns the script has already
-// run.
+// when it named none. The answer is checked by the caller, where a refusal is still
+// cleaned up after.
 func (s *AgentService) runSetup(ctx context.Context, planned agentstore.Agent, name string) (string, error) {
 	if s.lifecycle == nil || name == "" {
 		return "", nil
@@ -597,13 +554,10 @@ func (s *AgentService) runSetup(ctx context.Context, planned agentstore.Agent, n
 	return s.lifecycle.RunSetupAction(ctx, planned, name)
 }
 
-// setupDir settles where an agent runs, given the directory the plan resolved and the one
-// its setup action named. A setup action that named none leaves the plan's alone.
-//
-// The named one is checked as well as the plan's, because this one was not chosen by the
-// caller. A script that printed something that is not a directory is the likeliest way it
-// goes wrong, and the refusal has to say so rather than arrive later as a window that
-// opened somewhere unexpected.
+// setupDir settles where an agent runs, given the directory the plan resolved and the
+// one its setup action named. The named one is checked too, since nobody chose it: a
+// script printing something that is not a directory has to be refused here rather than
+// arrive later as a window opened somewhere unexpected.
 func (s *AgentService) setupDir(planned, named string) (string, error) {
 	if named == "" {
 		return planned, nil
@@ -617,11 +571,9 @@ func (s *AgentService) setupDir(planned, named string) (string, error) {
 	return dir, nil
 }
 
-// runCleanup fires the workflow's cleanup action for an agent that is going away.
-//
-// A failure is dropped rather than returned. An agent has to be archivable and deletable
-// whatever state the actions directory is in, or a renamed tidy-up script would leave a
-// row nothing could remove.
+// runCleanup fires the workflow's cleanup action for an agent that is going away. A
+// failure is dropped, since an agent has to be deletable whatever state the actions
+// directory is in, or a renamed script would leave a row nothing could remove.
 func (s *AgentService) runCleanup(ctx context.Context, agent agentstore.Agent, name string) {
 	if s.lifecycle == nil || name == "" {
 		return
@@ -630,9 +582,9 @@ func (s *AgentService) runCleanup(ctx context.Context, agent agentstore.Agent, n
 	_ = s.lifecycle.RunCleanupAction(ctx, agent, name)
 }
 
-// cleanupAction is the cleanup action the workflow an agent belongs to names, blank when it
-// cannot be read. It is read when it fires rather than snapshotted at launch, so editing a
-// workflow's cleanup reaches the agents already inside it.
+// cleanupAction is the action an agent's workflow names, blank when it cannot be read.
+// It is read when it fires rather than at launch, so editing a workflow's cleanup
+// reaches the agents already inside it.
 func (s *AgentService) cleanupAction(ctx context.Context, workflowID string) string {
 	wf, err := s.workflows.Get(ctx, workflowID)
 	if err != nil || wf == nil {
@@ -643,8 +595,7 @@ func (s *AgentService) cleanupAction(ctx context.Context, workflowID string) str
 }
 
 // idempotencyKey renders a caller's key for storage. The column is unique, so an
-// unclaimed create stores null rather than an empty string only the first of them
-// could hold.
+// unclaimed create stores null rather than an empty string only one row could hold.
 func idempotencyKey(key string) *string {
 	if key == "" {
 		return nil
@@ -658,7 +609,7 @@ func idempotencyKey(key string) *string {
 // what returns it to the normal listing.
 func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) error {
 	// An agent recorded against a harness this binary no longer runs cannot be brought
-	// back, and saying so beats a pane running the wrong CLI against its conversation.
+	// back, and saying so beats a pane running the wrong CLI on its conversation.
 	resolved, err := s.harnesses.Resolve(agent.Harness)
 	if err != nil {
 		return err
@@ -666,9 +617,8 @@ func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) erro
 
 	dir := s.resumeDir(agent, resolved)
 
-	// An archived agent's name may have been reused while it sat archived, and
-	// bringing it back under that name would collide on the unique-name index, so it
-	// takes a fresh one first. An unarchived dormant agent already owns its name.
+	// A name reused while the agent sat archived would collide on the unique-name index,
+	// so it takes a fresh one first. An unarchived dormant agent already owns its name.
 	if agent.ArchivedAt != nil && s.nameTaken(ctx, agent.Name) {
 		newName := s.uniqueAgentName(ctx, agent.Name, "")
 		if _, err := s.agents.Rename(ctx, agent.ID, newName); err != nil {
@@ -698,8 +648,8 @@ func (s *AgentService) restore(ctx context.Context, agent agentstore.Agent) erro
 
 	agent.Pane = pane
 	agent.State = agentstore.StateIdle
-	// resumeDir may have moved the agent somewhere else, and the row is what the panel
-	// shows and the next restore reads.
+	// resumeDir may have moved the agent, and the row is what the panel shows and the
+	// next restore reads.
 	agent.Cwd = dir
 	if err := s.agents.Update(ctx, agent); err != nil {
 		return fmt.Errorf("failed to restore agent %q: %w", agent.Name, err)
@@ -738,9 +688,8 @@ func (s *AgentService) uniqueAgentName(ctx context.Context, title, prompt string
 	return name
 }
 
-// nameTaken reports whether a name is already owned by a live agent record. Reusing
-// one would make the upsert clobber that agent's row instead of creating a fresh
-// one.
+// nameTaken reports whether a live agent record already owns a name, since reusing one
+// would make the upsert clobber that agent's row.
 func (s *AgentService) nameTaken(ctx context.Context, name string) bool {
 	taken, _ := s.agents.ActiveNameExists(ctx, name)
 	return taken
