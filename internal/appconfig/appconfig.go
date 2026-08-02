@@ -31,7 +31,12 @@ const DefaultLogLevel = "info"
 // run past it are the ones worth opening the log for: what a failure said and what a
 // script wrote about refusing. Chopping puts those off the right edge, where reading one
 // means scrolling a pager sideways.
-const DefaultLogViewer = `"$WEAVE_BIN" logs --color=always | less -RX +G`
+//
+// It follows, and opens in the pager's own follow, so the log is watched rather than read
+// once: firing an action from the panel puts what it did on screen while it is happening.
+// The pager toggles out of following and back with ^C and F, which needs the command to
+// keep writing, so a read that ended at the last record would leave nothing to go back to.
+const DefaultLogViewer = `"$WEAVE_BIN" logs --follow --color=always | less -RX +F`
 
 // DefaultMaxAgents is how many agents may exist at once when the config names no number,
 // well above what anyone opens by hand and low enough to catch a caller in a loop.

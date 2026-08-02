@@ -256,4 +256,4 @@ level  = "info"
 # of its "{}". Whatever it runs has to hold the pane, the way a pager does. A
 # command that prints and exits takes the pane down with it, and the stage
 # comes back empty.
-viewer = "\"$WEAVE_BIN\" logs --color=always | less -RX +G"
+viewer = "\"$WEAVE_BIN\" logs --follow --color=always | less -RX +F"
