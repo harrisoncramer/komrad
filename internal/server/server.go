@@ -196,11 +196,14 @@ func New(ctx context.Context, p Params) (*Server, error) {
 
 	srv.Mux = http.NewServeMux()
 
-	// Every service goes through the transcoder rather than onto the mux directly. It
-	// serves each one's own Connect path as before and additionally answers the REST paths
-	// the protos declare, so a script with curl and a client with a generated stub are
-	// talking to the same handler.
-	transcoder, err := newTranscoder([]*vanguard.Service{
+	// The services go behind one handler that answers whichever protocol the caller used. A
+	// Connect client reaches the same handler on the same path it always did, and a request
+	// shaped by the google.api.http rules in the protos is translated into that same call,
+	// so REST is a second door onto these handlers rather than a second implementation.
+	//
+	// No codec is configured, which leaves JSON as the protobuf JSON mapping and the wire
+	// format as nothing weave maintains.
+	transcoder, err := vanguard.NewTranscoder([]*vanguard.Service{
 		vanguard.NewService(agentv1connect.NewAgentServiceHandler(
 			rpcagent.NewService(agentStore, transcriptStore, agentService), options)),
 		vanguard.NewService(workflowv1connect.NewWorkflowServiceHandler(
@@ -215,7 +218,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 	if err != nil {
 		srv.Close()
 
-		return nil, err
+		return nil, fmt.Errorf("failed to set up the transcoder: %w", err)
 	}
 
 	srv.Mux.Handle("/", transcoder)

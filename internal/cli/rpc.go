@@ -137,9 +137,8 @@ func callRPC(ctx context.Context, params callRPCParams) ([]byte, error) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	// Named outright because the server tells the protocols apart by this header. A POST of
-	// JSON without it is a REST call, and the endpoints below the Connect paths are the RPC
-	// ones, so the call would be looked for among the REST routes and not found.
+	// The server tells the protocols apart by this header. Without it a JSON post is taken
+	// for a REST call and looked for among the REST routes, which these RPC paths are not.
 	req.Header.Set("Connect-Protocol-Version", "1")
 
 	// An agent running this CLI is named on the call, so its work is logged as its own
