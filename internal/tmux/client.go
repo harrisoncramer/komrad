@@ -4,6 +4,7 @@
 package tmux
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"weave/internal/logging"
 )
@@ -18,6 +20,18 @@ import (
 // paneOwnerOption is the pane-scoped tmux option an agent's pane is stamped with. The @
 // prefix is what tmux reserves for user options, so it cannot collide with its own.
 const paneOwnerOption = "@weave_agent_id"
+
+// queryTimeout bounds a single tmux call. Every command here is a request and an answer
+// over a local socket, so a healthy one costs milliseconds, and the bound is set orders of
+// magnitude above that to be tripped only by a server that has stopped answering rather
+// than by a loaded machine.
+const queryTimeout = 5 * time.Second
+
+// killGrace is how long a timed-out tmux is given after being killed before its output is
+// abandoned. Killing the process is not on its own enough to unblock the read: anything
+// else holding the inherited stdout keeps it open, and tmux leaves a daemonized server
+// doing exactly that, so without this the call still never returns.
+const killGrace = 100 * time.Millisecond
 
 // Client talks to one tmux server, addressed by socket name or socket path. The server
 // flags are held whole, since the two forms differ in flag as well as value.
@@ -314,11 +328,34 @@ func (c *Client) CapturePane(pane string) string {
 // query runs a tmux command and returns its stdout. A failure carries the command that
 // failed and whatever tmux wrote to stderr, since an exit status on its own says neither
 // which call broke nor why, and these run on a loop where nobody is watching.
+//
+// The call is bounded for the same reason. Nobody watching also means nobody to notice a
+// tmux that never answers, and these run in a pass that finishes before its loop looks at
+// its context again, so one such call would stop every agent's state being read from then
+// on. A timeout gives up the answer instead, which the callers already treat as not having
+// read rather than as the pane being gone.
 func (c *Client) query(args ...string) (string, error) {
-	out, err := exec.Command("tmux", slices.Concat(c.server, args)...).Output()
+	command := slices.Concat(c.server, args)
+
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "tmux", command...)
+	cmd.WaitDelay = killGrace
+
+	out, err := cmd.Output()
+
+	// The timeout is reported ahead of the error the kill produced, which says only that
+	// something signalled the process and not that it had run out of time. Whatever tmux
+	// managed to write before it went is dropped, since a half-read frame answered as if it
+	// were whole is worse than no answer.
+	if ctx.Err() != nil {
+		return "", fmt.Errorf("tmux %s: gave up waiting after %s", strings.Join(command, " "), queryTimeout)
+	}
+
 	if err != nil {
 		return strings.TrimSpace(string(out)), fmt.Errorf("tmux %s: %w%s",
-			strings.Join(slices.Concat(c.server, args), " "), err, stderrDetail(err))
+			strings.Join(command, " "), err, stderrDetail(err))
 	}
 
 	return strings.TrimSpace(string(out)), nil
