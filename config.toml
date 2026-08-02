@@ -197,14 +197,9 @@ toggle  = [" "]
 [keybindings.selection]
 # Drop the whole selection, which is the way back out of multi-select mode.
 clear  = ["esc"]
-# Take in every agent between the cursor and the nearest already-selected one,
-# which is how a run is chosen without pressing toggle down the whole of it.
-# From a tree with nothing selected it does what toggle does, since there is
-# nothing yet for a range to reach back to.
+# Take in every agent between the cursor and the nearest already-selected one.
 range  = ["V"]
-# Take the row under the cursor into the selection, or back out of it. On a
-# workflow header that is the whole folder: one not already wholly selected is
-# taken in whole, and one that is drops.
+# Take the row under the cursor into the selection, or back out of it.
 toggle = ["v"]
 
 # The bindings that create and change workflows, from the agents list.
