@@ -106,24 +106,6 @@ func TestNewWindowRepeatedly(t *testing.T) {
 	assert.Equal(t, []string{"weave", "agent-one", "agent-two", "agent-three"}, windowNames(t, client, "weave"))
 }
 
-// TestNewWindowRefusesAControlCharacter records the constraint every agent name is
-// sanitized for. tmux opens nothing and answers with an error, so a name that reaches here
-// carrying one is a launch that trying again cannot fix. The rule belongs to tmux, so only
-// a real server can say what it is.
-func TestNewWindowRefusesAControlCharacter(t *testing.T) {
-	client := testServer(t, "weave")
-
-	for _, name := range []string{"nightly\treview", "nightly\nreview", "nightly\areview", "nightly\x7freview"} {
-		_, err := client.NewWindow("weave", name, t.TempDir())
-		assert.Error(t, err, "tmux accepted %q", name)
-	}
-
-	_, err := client.NewWindow("weave", "nightly-review", t.TempDir())
-	require.NoError(t, err, "the sanitized form is the one tmux takes")
-
-	assert.Equal(t, []string{"weave", "nightly-review"}, windowNames(t, client, "weave"))
-}
-
 // TestPaneOwners covers the batched lookup a whole listing goes through, where a pane
 // that is gone has to be absent rather than reported under a stale stamp.
 func TestPaneOwners(t *testing.T) {

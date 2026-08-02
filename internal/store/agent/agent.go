@@ -86,8 +86,8 @@ type Agent struct {
 
 // SanitizeName maps a name to the characters tmux allows in a session name,
 // which is also the store key so the two always agree. Control characters go the
-// same way as the punctuation, since tmux refuses a window name carrying one
-// outright and the launch fails rather than merely looking wrong.
+// same way as the punctuation, since a current tmux refuses a window name carrying
+// one outright and older versions open something other than what was asked for.
 func SanitizeName(name string) string {
 	return strings.Map(func(r rune) rune {
 		switch {
