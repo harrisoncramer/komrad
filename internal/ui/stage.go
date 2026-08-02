@@ -98,7 +98,7 @@ func (s *Stage) wrap() int {
 func (s *Stage) Init(pane string) {
 	s.navPane = pane
 	s.reclaim()
-	s.ensure()
+	s.claim()
 
 	if s.pane != "" {
 		s.tmux.ResizePane(s.pane, s.percent())
@@ -122,7 +122,7 @@ func (s *Stage) SlotPane() string {
 
 // reclaim clears the panel's window of whatever the last panel left in it. Which panes
 // the stage owns is remembered in this process and nowhere else, so a panel that was
-// replaced or that died leaves panes its successor cannot recognise, and ensure would
+// replaced or that died leaves panes its successor cannot recognise, and claim would
 // split a second stage beside them.
 //
 // An agent's pane is staged by swapping the pane itself into the slot, so one found here
@@ -145,21 +145,44 @@ func (s *Stage) reclaim() {
 	}
 }
 
-// ensure guarantees a live stage pane beside the panel, splitting a fresh one when the
-// stage is missing or has died, which is what a quit pager leaves behind. A stage pane
-// swapped out to hold an agent is still alive and is left as is.
-func (s *Stage) ensure() {
-	if s.navPane == "" {
-		return
-	}
-	if s.pane != "" && s.tmux.IsPaneAlive(s.pane) {
+// claim gives the stage the slot beside the panel, splitting a fresh pane whenever it no
+// longer holds one. Everything the stage draws calls this first, so a slot lost to something
+// outside the panel is back on the next frame.
+func (s *Stage) claim() {
+	if s.navPane == "" || s.hasSlot() {
 		return
 	}
 
+	s.abandon()
+
 	home, _ := os.UserHomeDir()
 	s.pane = s.tmux.SplitRight(s.navPane, home, s.percent())
-	s.agentPane = ""
 	s.shown = ""
+}
+
+// hasSlot reports whether the stage still holds the slot beside the panel, which comes down
+// to whether the pane filling that slot is running.
+//
+// A staged agent's pane is asked after as well as the stage's own. Staging swaps the agent's
+// pane into the panel's window and sends the stage's own out to the agent's, so whoever ends
+// that agent ends its pane in the panel's window. The slot goes with it, and the stage is
+// left running in a window nobody can see.
+func (s *Stage) hasSlot() bool {
+	if s.pane == "" || !s.tmux.IsPaneAlive(s.pane) {
+		return false
+	}
+
+	return s.agentPane == "" || s.tmux.IsPaneAlive(s.agentPane)
+}
+
+// abandon drops a stage that has lost its slot. Its own pane is killed while it is still
+// running, since by then it is away in another window and nothing will find it again.
+func (s *Stage) abandon() {
+	if s.pane != "" && s.tmux.IsPaneAlive(s.pane) {
+		s.tmux.KillPane(s.pane)
+	}
+
+	s.pane, s.agentPane, s.shown = "", "", ""
 }
 
 // Hide zooms the nav pane over the stage, and Hide(false) gives the stage its share of the
@@ -178,13 +201,17 @@ func (s *Stage) Hide(hide bool) {
 }
 
 // restore swaps any staged agent pane back to its own window, leaving the stage's own pane
-// in the slot again.
+// in the slot again. A pane tmux no longer has is only forgotten, since the swap would be
+// refused and claim has already rebuilt the slot around it.
 func (s *Stage) restore() {
 	if s.agentPane == "" {
 		return
 	}
 
-	s.tmux.SwapPanes(s.pane, s.agentPane)
+	if s.tmux.IsPaneAlive(s.agentPane) {
+		s.tmux.SwapPanes(s.pane, s.agentPane)
+	}
+
 	s.agentPane = ""
 }
 
@@ -201,7 +228,7 @@ func (s *Stage) Release(pane string) {
 // panel. Focus stays on the panel, and moving to the agent is a plain tmux pane move the
 // user drives.
 func (s *Stage) Agent(pane string) {
-	s.ensure()
+	s.claim()
 	if s.pane == "" || pane == "" || pane == s.agentPane {
 		return
 	}
@@ -242,7 +269,7 @@ const shownLog = "\x00log:"
 // chooses. The path comes alongside only to tell one file from another, so a restage of
 // the log already up does not respawn the pane under somebody reading it.
 func (s *Stage) Log(path string, argv []string) {
-	s.ensure()
+	s.claim()
 	if s.pane == "" || len(argv) == 0 {
 		return
 	}
@@ -284,7 +311,7 @@ func (s *Stage) render(markdown string) string {
 // Text shows markdown in the stage by rendering it to a temp file and paging that
 // file, which is how a workflow's info and a dormant agent's placeholder render.
 func (s *Stage) Text(markdown string) {
-	s.ensure()
+	s.claim()
 	if s.pane == "" {
 		return
 	}
@@ -337,7 +364,7 @@ func (s *Stage) Transcript(content string, highlightLine int) {
 		return
 	}
 
-	s.ensure()
+	s.claim()
 	if s.pane == "" {
 		return
 	}
@@ -361,7 +388,7 @@ func (s *Stage) Transcript(content string, highlightLine int) {
 
 // Blank clears the stage back to an empty shell.
 func (s *Stage) Blank() {
-	s.ensure()
+	s.claim()
 	if s.pane == "" {
 		return
 	}
