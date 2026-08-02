@@ -105,8 +105,8 @@ func Start(t *testing.T, p Params) *Instance {
 	require.NoError(t, os.MkdirAll(actionsDir, 0o755))
 
 	configPath := filepath.Join(root, "config.toml")
-	require.NoError(t, os.WriteFile(configPath, []byte(fmt.Sprintf(
-		"[actions]\ndir = %q\n", actionsDir)), 0o600))
+	require.NoError(t, os.WriteFile(configPath, fmt.Appendf(nil,
+		"[actions]\ndir = %q\n", actionsDir), 0o600))
 
 	// Unstarted, so the address the agents are told is the one the service ends up on
 	// rather than a port guessed ahead of it.
