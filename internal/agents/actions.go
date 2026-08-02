@@ -48,14 +48,19 @@ var ErrActionNotFound = errors.New("action not found")
 // What set an action off, passed to it in WEAVE_TRIGGER, which is how a script tells
 // apart the moments it can be reached at and refuses the ones it does not handle.
 //
-// The contract differs under TriggerSetup: a launch is waiting, so the exit status decides
-// whether the agent starts and stdout is read as the directory it runs in. Under the other
-// two nothing is waiting and neither is read.
+// The contract differs under TriggerSetup and TriggerResume: the agent is waiting on the
+// action, so the exit status decides whether it gets a pane and stdout is read as the
+// directory it runs in. Under the other two nothing is waiting and neither is read.
 const (
 	// TriggerManual is a person pressing the action key or a model calling run_action.
 	TriggerManual = "manual"
 	// TriggerSetup is a workflow's setup action, before one of its agents starts.
 	TriggerSetup = "setup"
+	// TriggerResume is the same setup action again, before a dormant agent gets its pane
+	// back. A script reached this way is running a second time against a workspace it
+	// built once already, so what it does about one that is still there is its own to
+	// decide.
+	TriggerResume = "resume"
 	// TriggerCleanup is a workflow's cleanup action, once one of its agents is deleted.
 	TriggerCleanup = "cleanup"
 )
@@ -192,17 +197,37 @@ const setupTimeout = 10 * time.Minute
 // the limit the same field carries on the wire.
 const maxSetupDir = 4096
 
-// RunSetupAction runs a workflow's setup action and does not return until it has
-// finished. The directory the agent should run in is whatever the action trims to on
-// stdout, ordinarily nothing. Progress belongs on stderr, so a script that chats on
-// stdout is refused rather than taken at its word.
+// RunSetupAction runs a workflow's setup action for an agent being created and does not
+// return until it has finished.
 func (s *ActionService) RunSetupAction(ctx context.Context, agent agentstore.Agent, name string) (string, error) {
-	action, actionsDir, err := s.find(name)
+	return s.runAwaitedAction(ctx, awaitedActionParams{agent: agent, name: name, trigger: TriggerSetup})
+}
+
+// RunResumeAction runs the same setup action for a dormant agent about to get its pane
+// back. Resume is where a workspace has to exist again, since archive leaves whatever setup
+// built alone and a restore only takes the row out of the archive.
+func (s *ActionService) RunResumeAction(ctx context.Context, agent agentstore.Agent, name string) (string, error) {
+	return s.runAwaitedAction(ctx, awaitedActionParams{agent: agent, name: name, trigger: TriggerResume})
+}
+
+// awaitedActionParams is one run of the setup action, with what set it off, since a create
+// and a resume reach the same script and only the trigger tells them apart.
+type awaitedActionParams struct {
+	agent   agentstore.Agent
+	name    string
+	trigger string
+}
+
+// runAwaitedAction runs the setup action to completion. The directory the agent should run
+// in is whatever the action trims to on stdout, ordinarily nothing. Progress belongs on
+// stderr, so a script that chats on stdout is refused rather than taken at its word.
+func (s *ActionService) runAwaitedAction(ctx context.Context, p awaitedActionParams) (string, error) {
+	action, actionsDir, err := s.find(p.name)
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrSetupFailed, err)
 	}
 
-	env, err := s.env(ctx, agent, actionsDir, TriggerSetup)
+	env, err := s.env(ctx, p.agent, actionsDir, p.trigger)
 	if err != nil {
 		return "", err
 	}
@@ -217,7 +242,7 @@ func (s *ActionService) RunSetupAction(ctx context.Context, agent agentstore.Age
 
 	answered := string(bytes.TrimSpace(result.Stdout))
 	if len(answered) > maxSetupDir {
-		return "", fmt.Errorf("%w: %s wrote %d bytes to stdout, where a directory to run in was expected. Progress belongs on stderr", ErrSetupFailed, name, len(answered))
+		return "", fmt.Errorf("%w: %s wrote %d bytes to stdout, where a directory to run in was expected. Progress belongs on stderr", ErrSetupFailed, p.name, len(answered))
 	}
 
 	return answered, nil

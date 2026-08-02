@@ -433,6 +433,14 @@ func TestRunSetupActionTellsTheScriptWhatSetItOff(t *testing.T) {
 			wantTrigger: TriggerSetup,
 		},
 		{
+			name: "fired as a workflow's setup on the way back up",
+			fire: func(s *ActionService, _ *recordingRunner) error {
+				_, err := s.RunResumeAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree")
+				return err
+			},
+			wantTrigger: TriggerResume,
+		},
+		{
 			name: "fired as a workflow's cleanup",
 			fire: func(s *ActionService, _ *recordingRunner) error {
 				return s.RunCleanupAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree")

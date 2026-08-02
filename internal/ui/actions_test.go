@@ -148,10 +148,9 @@ func TestActionOpensOnTheHoveredAgent(t *testing.T) {
 	assert.Contains(t, stagedDocument(t), "echo hello", "the file's own text is what the stage shows")
 }
 
-// TestActionItemsSkipUnderscoredNames covers the naming convention that keeps an action off the
-// list. A script written for a workflow to run around an agent's life, or for a model to fire
-// through run_action, is still an action the service offers, and prefixing it is how the user
-// says nobody should be picking it by hand.
+// TestActionItemsSkipUnderscoredNames covers the naming convention that keeps a file off the
+// list. Shell an action sources for a shared function is still a file the service offers, and
+// prefixing it is how the user says it is not something to run on its own.
 func TestActionItemsSkipUnderscoredNames(t *testing.T) {
 	tests := []struct {
 		name   string

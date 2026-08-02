@@ -759,7 +759,7 @@ func TestCleanupActionLogsAWorkflowThatWouldNotRead(t *testing.T) {
 	agent := agentstore.Agent{ID: "a1", Cwd: "/repo/.worktrees/auth", WorkflowID: "wf1"}
 	assert.Empty(t, manager.getCleanupAction(ctx, agent))
 
-	got := recordFor(t, records(), "the cleanup action could not be read")
+	got := recordFor(t, records(), "the workflow behind an agent could not be read")
 	assert.Equal(t, "ERROR", got["severity_text"])
 	assert.Equal(t, "wf1", got["weave.workflow.id"])
 	assert.Equal(t, "a1", got["weave.action.agent.id"])
@@ -1193,6 +1193,108 @@ func TestRestoreCeiling(t *testing.T) {
 
 // TestResumeRefusesArchived covers resuming an agent that is still in the archive. The
 // pane would sit behind a row nothing lists, so it is refused and names the way out.
+// TestResumeRunsTheSetupAction covers the workflow's setup action firing again on the way
+// back up. Archive leaves whatever setup built alone and a restore only takes the row out of
+// the archive, so resume is the moment a workspace has to exist again, and a script that
+// makes one is reached with the agent's recorded directory to work from.
+func TestResumeRunsTheSetupAction(t *testing.T) {
+	tests := []struct {
+		name string
+		// named is the directory the action prints, empty for one that prints none.
+		named      string
+		resumeErr  error
+		wantWindow bool
+		wantErr    string
+	}{
+		{
+			name:      "an action that refuses keeps the agent dormant",
+			resumeErr: errors.New("fatal: 'auth' is already checked out"),
+			wantErr:   "already checked out",
+		},
+		{
+			name:    "an action naming somewhere that is not a directory is refused",
+			named:   "/definitely/not/here",
+			wantErr: "a setup action named",
+		},
+		{
+			name:       "an action naming nowhere leaves the recorded directory alone",
+			wantWindow: true,
+		},
+		{
+			name:       "an action naming a directory brings the agent back up in it",
+			named:      "named",
+			wantWindow: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			tmux := newFakeTmux()
+			ctx := t.Context()
+
+			recorded := t.TempDir()
+			named := tt.named
+			if named == "named" {
+				named = t.TempDir()
+			}
+
+			lifecycle := &fakeLifecycle{resumeDir: named, resumeErr: tt.resumeErr}
+			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+			created, err := st.Workflows.Create(ctx, workflow.Config{
+				Name:        "resume-" + tt.name,
+				SetupAction: "make-worktree",
+			})
+			require.NoError(t, err)
+
+			agent := seedInWorkflow(t, st, created.ID, "auth", "%0", agentstore.StateIdle)
+			agent.Cwd = recorded
+			require.NoError(t, st.Agents.Update(ctx, agent))
+
+			resumed, err := manager.ResumeAgent(ctx, agent.ID)
+
+			assert.Equal(t, []string{"make-worktree"}, lifecycle.resumed, "the workflow's own action is what fired")
+
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.ErrorContains(t, err, tt.wantErr)
+				assert.Empty(t, tmux.newWindows, "a refused action opens no window")
+				assert.Equal(t, recorded, agentByID(t, st, agent.ID).Cwd, "and moves nobody")
+
+				return
+			}
+
+			require.NoError(t, err)
+			require.True(t, tt.wantWindow)
+
+			want := recorded
+			if named != "" {
+				want = named
+			}
+
+			assert.Equal(t, want, resumed.Cwd)
+			assert.Equal(t, want, tmux.newWindows["auth"], "the window opens where the action said")
+		})
+	}
+}
+
+// TestResumeWithoutASetupActionFiresNothing covers the ordinary workflow, which names no
+// setup action and comes back up the way it always has.
+func TestResumeWithoutASetupActionFiresNothing(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	lifecycle := &fakeLifecycle{}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+	agent := seed(t, st, "auth", "%0", agentstore.StateIdle)
+
+	_, err := manager.ResumeAgent(t.Context(), agent.ID)
+
+	require.NoError(t, err)
+	assert.Empty(t, lifecycle.resumed)
+}
+
 func TestResumeRefusesArchived(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)

@@ -117,6 +117,9 @@ func (m model) workflowFormFor(cfg workflowstore.Config) (*huh.Form, *workflowst
 // action fields are chosen from. It is fetched on the render loop because a form has
 // nothing to open on until the answer is in, and a listing that fails leaves the fields
 // offering none plus whatever the workflow already records.
+//
+// Shell written to be reused by other actions is left out, the same as it is on the actions
+// list. A workflow naming one would run a fragment on its own.
 func (m model) getAvailableActions() []string {
 	listed, err := m.api.listActions()
 	if err != nil {
@@ -125,6 +128,10 @@ func (m model) getAvailableActions() []string {
 
 	names := make([]string, 0, len(listed))
 	for _, action := range listed {
+		if isInternalAction(action.GetName()) {
+			continue
+		}
+
 		names = append(names, action.GetName())
 	}
 

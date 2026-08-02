@@ -153,8 +153,8 @@ const noActionsMarkdown = "# Actions\n\n_nothing here yet_\n\n" +
 	"`~/.config/weave/actions` unless your config names another.\n\n" +
 	"It runs on the agent you opened this list from, in that directory rather than the " +
 	"agent's, with the agent as JSON in `WEAVE_AGENT`. Where its output goes is up to it.\n\n" +
-	"A file whose name starts with `_` is left off this list, which is how a script meant " +
-	"for a workflow or a model to fire stays out of the way.\n"
+	"A file whose name starts with `_` is left off this list and out of the workflow form, " +
+	"which is how shell your other actions source stays out of the way.\n"
 
 // stageAction shows the action under the cursor in the stage. The service sends the start
 // of each file with the listing, so hovering costs nothing.

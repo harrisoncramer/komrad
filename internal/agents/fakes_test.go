@@ -375,10 +375,15 @@ func (s *testStore) agentServiceCapped(tmux *fakeTmux, lifecycle lifecycleAction
 // which is what says the workflow's own choice reached it.
 type fakeLifecycle struct {
 	// dir is what setup names as the directory to run in, empty for setup that names none.
-	dir        string
+	dir string
+	// resumeDir is what the same action names on a resume, falling back to dir so a case
+	// that does not care about the difference states it once.
+	resumeDir  string
 	setupErr   error
+	resumeErr  error
 	cleanupErr error
 	setup      []string
+	resumed    []string
 	cleanup    []string
 }
 
@@ -386,6 +391,18 @@ func (f *fakeLifecycle) RunSetupAction(_ context.Context, _ agentstore.Agent, na
 	f.setup = append(f.setup, name)
 	if f.setupErr != nil {
 		return "", f.setupErr
+	}
+
+	return f.dir, nil
+}
+
+func (f *fakeLifecycle) RunResumeAction(_ context.Context, _ agentstore.Agent, name string) (string, error) {
+	f.resumed = append(f.resumed, name)
+	if f.resumeErr != nil {
+		return "", f.resumeErr
+	}
+	if f.resumeDir != "" {
+		return f.resumeDir, nil
 	}
 
 	return f.dir, nil

@@ -71,6 +71,7 @@ type harnessGetter interface {
 
 type lifecycleActioner interface {
 	RunSetupAction(ctx context.Context, agent agentstore.Agent, name string) (string, error)
+	RunResumeAction(ctx context.Context, agent agentstore.Agent, name string) (string, error)
 	RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string) error
 }
 
@@ -658,13 +659,34 @@ func (s *AgentService) runSetup(ctx context.Context, planned agentstore.Agent, n
 	return s.lifecycle.RunSetupAction(ctx, planned, name)
 }
 
+// runResumeSetup runs the workflow's setup action again for a dormant agent, and returns the
+// directory it named. A refusal stops the resume, since the action is what makes the agent's
+// workspace exist and coming back up without it would run the CLI over nothing.
+func (s *AgentService) runResumeSetup(ctx context.Context, agent agentstore.Agent) (string, error) {
+	name := s.getSetupAction(ctx, agent)
+	if s.lifecycle == nil || name == "" {
+		return "", nil
+	}
+
+	return s.lifecycle.RunResumeAction(ctx, agent, name)
+}
+
 // setupDir settles where an agent runs, given the directory the plan chose and the
-// one its setup action named. The named one is checked too, since nobody chose it: a
-// script printing something that is not a directory has to be refused here rather than
-// arrive later as a window opened somewhere unexpected.
+// one its setup action named.
 func (s *AgentService) setupDir(planned, named string) (string, error) {
 	if named == "" {
 		return planned, nil
+	}
+
+	return namedDir(named)
+}
+
+// namedDir is the directory a setup action named, blank when it named none. It is checked
+// because nobody chose it: a script printing something that is not a directory has to be
+// refused here rather than arrive later as a window opened somewhere unexpected.
+func namedDir(named string) (string, error) {
+	if named == "" {
+		return "", nil
 	}
 
 	dir := expandHome(named)
@@ -697,13 +719,35 @@ func (s *AgentService) runCleanup(ctx context.Context, agent agentstore.Agent, n
 	logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the cleanup action would not start", append(attrs, logging.Err(err)...)...)
 }
 
-// getCleanupAction is the action an agent's workflow names, blank when it cannot be read.
-// It is read when it fires rather than at launch, so editing a workflow's cleanup
-// reaches the agents already inside it. The archive is read through too, since deleting
-// an agent out of an archived workflow is where the teardown matters most. A read that
-// breaks is logged rather than returned, since the delete has nothing left to abort and a
-// teardown skipped in silence reads as a workflow naming none.
+// getCleanupAction is the action an agent's workflow names for a delete, blank when it
+// cannot be read. A read that breaks is logged rather than returned, since the delete has
+// nothing left to abort and a teardown skipped in silence reads as a workflow naming none.
 func (s *AgentService) getCleanupAction(ctx context.Context, agent agentstore.Agent) string {
+	wf := s.getWorkflowFor(ctx, agent)
+	if wf == nil {
+		return ""
+	}
+
+	return wf.CleanupAction
+}
+
+// getSetupAction is the action an agent's workflow names for a launch, blank when it cannot
+// be read. A resume that cannot tell whether there is one comes back in the recorded
+// directory, which is where it landed before this ran at all.
+func (s *AgentService) getSetupAction(ctx context.Context, agent agentstore.Agent) string {
+	wf := s.getWorkflowFor(ctx, agent)
+	if wf == nil {
+		return ""
+	}
+
+	return wf.SetupAction
+}
+
+// getWorkflowFor is the workflow an agent belongs to, nil when it cannot be read. It is read
+// when an action fires rather than at launch, so editing a workflow reaches the agents
+// already inside it. The archive is read through, since deleting an agent out of an archived
+// workflow is where the teardown matters most.
+func (s *AgentService) getWorkflowFor(ctx context.Context, agent agentstore.Agent) *workflow.Workflow {
 	wf, err := s.workflows.GetIncludingArchived(ctx, agent.WorkflowID)
 	if err != nil {
 		attrs := []slog.Attr{
@@ -711,15 +755,12 @@ func (s *AgentService) getCleanupAction(ctx context.Context, agent agentstore.Ag
 			slog.String(logging.ActionAgentID, agent.ID),
 			slog.String(logging.ActionAgentCwd, agent.Cwd),
 		}
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the cleanup action could not be read", append(attrs, logging.Err(err)...)...)
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the workflow behind an agent could not be read", append(attrs, logging.Err(err)...)...)
 
-		return ""
-	}
-	if wf == nil {
-		return ""
+		return nil
 	}
 
-	return wf.CleanupAction
+	return wf
 }
 
 // idempotencyKey renders a caller's key for storage. The column is unique, so an
@@ -743,7 +784,23 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 		return err
 	}
 
-	dir := s.getResumeDir(ctx, agent, hn)
+	// Before the window, for the reason it runs before one at create: where the agent
+	// comes back up is one of the things the action decides.
+	named, err := s.runResumeSetup(ctx, agent)
+	if err != nil {
+		return err
+	}
+
+	dir, err := namedDir(named)
+	if err != nil {
+		return err
+	}
+
+	// An action that named nowhere leaves the recorded directory to be repaired, which is
+	// also what an agent whose workflow has no setup action gets.
+	if dir == "" {
+		dir = s.getResumeDir(ctx, agent, hn)
+	}
 
 	pane, err := s.tmux.NewWindow(ManagerSession, agent.Name, dir)
 	if err != nil {

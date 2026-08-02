@@ -52,13 +52,19 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 	}
 }
 
-// actionItemsFrom renders listed actions into the items the screen is written against. A
-// name starting with an underscore is left out, which is how an action written for a
-// workflow or a model to fire stays out of the list a person picks from.
+// isInternalAction says a file in the actions directory is shell the user keeps for other
+// actions to reuse rather than an action itself. An underscore in front of the name is how
+// they say so, and nothing the panel offers to pick carries one.
+func isInternalAction(name string) bool {
+	return strings.HasPrefix(name, "_")
+}
+
+// actionItemsFrom renders listed actions into the items the screen is written against,
+// leaving out the ones written to be sourced rather than run.
 func actionItemsFrom(listed []*actionv1.Action) []actionItem {
 	items := make([]actionItem, 0, len(listed))
 	for _, action := range listed {
-		if strings.HasPrefix(action.GetName(), "_") {
+		if isInternalAction(action.GetName()) {
 			continue
 		}
 
