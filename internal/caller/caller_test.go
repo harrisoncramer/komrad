@@ -51,7 +51,7 @@ func TestFromHeader(t *testing.T) {
 
 			from := FromHeader(header)
 			assert.Equal(t, tt.want, from)
-			assert.Equal(t, tt.want != Caller{}, from.Known())
+			assert.Equal(t, tt.want != Caller{}, from.IsKnown())
 		})
 	}
 }

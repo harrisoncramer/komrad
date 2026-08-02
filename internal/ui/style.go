@@ -116,7 +116,7 @@ func markGlyph(agent agentstore.Agent, marks []appconfig.Mark) string {
 }
 
 // markedColor is what a mark is drawn in when its config names no colour of its own.
-var markedColor = lipgloss.Color(appconfig.ResolveColor(appconfig.DefaultMarkColor))
+var markedColor = lipgloss.Color(appconfig.GetColor(appconfig.DefaultMarkColor))
 
 // markColor is the colour a glyph is drawn in. One the config does not list, or one
 // listed with no colour of its own, falls back rather than going undrawn. The colour goes
@@ -125,7 +125,7 @@ var markedColor = lipgloss.Color(appconfig.ResolveColor(appconfig.DefaultMarkCol
 func markColor(glyph string, marks []appconfig.Mark) lipgloss.Color {
 	for _, mark := range marks {
 		if mark.Glyph == glyph && mark.Color != "" {
-			return lipgloss.Color(appconfig.ResolveColor(mark.Color))
+			return lipgloss.Color(appconfig.GetColor(mark.Color))
 		}
 	}
 

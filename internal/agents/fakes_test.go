@@ -225,7 +225,7 @@ func (f *fakeHarness) ReadLog(string, int64) (harness.LogRead, error) {
 
 // fakeHarnesses is a registry over one fake harness. It answers for every id, since
 // most tests here are not about which CLI an agent named; a test that is about that
-// sets only, and every other id then resolves to ErrNotRegistered.
+// sets only, and every other id then gets ErrNotRegistered.
 type fakeHarnesses struct {
 	harness *fakeHarness
 	only    []string
@@ -266,7 +266,7 @@ func (s *testStore) Get(ctx context.Context, name string) (*agentstore.Agent, er
 // about something else entirely.
 func (s *testStore) Create(ctx context.Context, agent agentstore.Agent) error {
 	// The column is explicit on insert, so a test that did not care which CLI its
-	// agent runs would otherwise store an empty id no registry resolves.
+	// agent runs would otherwise store an empty id no registry knows.
 	if agent.Harness == "" {
 		agent.Harness = testHarnessID
 	}

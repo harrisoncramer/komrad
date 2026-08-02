@@ -23,7 +23,7 @@ func TestGetConfig(t *testing.T) {
 	tests := []struct {
 		name string
 		// file is written to the config path before the call. An empty one writes
-		// nothing, so the loader resolves a path that is not there.
+		// nothing, so the loader gets a path that is not there.
 		file  string
 		check func(t *testing.T, resp *configv1.GetConfigResponse)
 	}{

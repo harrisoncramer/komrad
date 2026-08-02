@@ -13,7 +13,7 @@ import (
 
 // TestResumeDir covers the directory a restore relaunches in, and whether the
 // harness is asked to carry the conversation there. A restore has to produce a
-// usable directory whatever became of the recorded one, since a harness may resolve
+// usable directory whatever became of the recorded one, since a harness may match
 // a resume against the path the agent ran in and the panel lists agents whose
 // worktree is long gone.
 func TestResumeDir(t *testing.T) {

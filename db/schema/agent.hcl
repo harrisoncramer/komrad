@@ -237,7 +237,7 @@ table "agent_transcript_chunks" {
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
-  # The search index. Inverted, so a lexeme resolves to the turns holding it in
+  # The search index. Inverted, so a lexeme maps to the turns holding it in
   # one probe rather than a scan of the corpus.
   index "agent_transcript_chunks_tsv" {
     type    = GIN
@@ -354,7 +354,7 @@ table "agents" {
   # Which agent CLI this agent runs, which decides how it is launched, how its
   # state is read off its pane, and where its conversation log is found. Never
   # empty: an agent whose harness nothing implements cannot be relaunched or
-  # observed, so the id is resolved and refused at create rather than here.
+  # observed, so the id is checked and refused at create rather than here.
   column "harness" {
     null    = false
     type    = text
@@ -436,7 +436,7 @@ table "agents" {
     on_update   = NO_ACTION
   }
   # Unique per workflow, among live records only. A name is a label the panel renders
-  # rather than a key anything resolves by, so two workflows may each hold an agent
+  # rather than a key anything is looked up by, so two workflows may each hold an agent
   # called review without one of them having to be review-2. Archived rows are left out
   # of the predicate, since they keep their names and would otherwise block reuse.
   index "agents_name_active" {

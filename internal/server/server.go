@@ -58,7 +58,7 @@ const ScheduleReconcileInterval = 10 * time.Second
 // each pass re-indexes potentially large logs, so it stays off the hot path.
 const TranscriptSyncInterval = 15 * time.Second
 
-// Params is everything the service is built from. Every one of them is resolved before
+// Params is everything the service is built from. Every one of them is gathered before
 // this is reached, so nothing here reads a file, an environment, or a flag.
 type Params struct {
 	// Env is the process configuration the connection strings and paths come from.

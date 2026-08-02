@@ -155,7 +155,7 @@ func awaitStopped(pid int, within time.Duration) error {
 	deadline := time.Now().Add(within)
 
 	for time.Now().Before(deadline) {
-		if !processAlive(pid) {
+		if !isProcessAlive(pid) {
 			return nil
 		}
 
@@ -165,9 +165,9 @@ func awaitStopped(pid int, within time.Duration) error {
 	return fmt.Errorf("the server was asked to stop and process %d is still running after %s", pid, within)
 }
 
-// processAlive reports whether a process still exists. Signal zero is delivered to nothing
+// isProcessAlive reports whether a process still exists. Signal zero is delivered to nothing
 // and only reports whether it could have been.
-func processAlive(pid int) bool {
+func isProcessAlive(pid int) bool {
 	process, err := os.FindProcess(pid)
 	if err != nil {
 		return false

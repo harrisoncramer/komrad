@@ -286,7 +286,7 @@ func startBackground(ctx context.Context, p backgroundParams) (*backgroundWork, 
 func (b *backgroundWork) stop(ctx context.Context, logger *slog.Logger) {
 	b.stopLoops()
 
-	if !awaitWithin(loopStopTimeout, b.loops.Wait) {
+	if !didFinishWithin(loopStopTimeout, b.loops.Wait) {
 		logger.LogAttrs(ctx, slog.LevelWarn, "a background loop did not stop in time")
 	}
 
@@ -301,16 +301,16 @@ func (b *backgroundWork) stop(ctx context.Context, logger *slog.Logger) {
 // closeWithin closes a database handle without letting a query still running hold the
 // process open. What did not close goes when the process does.
 func closeWithin(logger *slog.Logger, what string, close func()) {
-	if !awaitWithin(closeTimeout, close) {
+	if !didFinishWithin(closeTimeout, close) {
 		logger.LogAttrs(context.Background(), slog.LevelWarn, "a database handle did not close in time",
 			slog.String(logging.Handle, what))
 	}
 }
 
-// awaitWithin runs wait and reports whether it finished inside the budget. Whatever is
+// didFinishWithin runs wait and reports whether it finished inside the budget. Whatever is
 // being waited on carries on in the background if it does not, since the point here is
 // only that the teardown moves on rather than stalling on it.
-func awaitWithin(within time.Duration, wait func()) bool {
+func didFinishWithin(within time.Duration, wait func()) bool {
 	done := make(chan struct{})
 	go func() {
 		wait()

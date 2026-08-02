@@ -28,7 +28,7 @@ func SocketFromEnv(value string) string {
 }
 
 // SessionFromEnv returns the session a TMUX value belongs to, as the id target tmux
-// resolves it by, which unlike a bare name cannot be confused with a window's.
+// reads it by, which unlike a bare name cannot be confused with a window's.
 func SessionFromEnv(value string) string {
 	fields := strings.Split(value, ",")
 	if len(fields) != tmuxEnvFields || fields[tmuxEnvFields-1] == "" {

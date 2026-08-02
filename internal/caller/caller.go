@@ -33,10 +33,10 @@ type Caller struct {
 	SessionID string
 }
 
-// Known reports whether the request named an agent at all. A call from the panel or from a
+// IsKnown reports whether the request named an agent at all. A call from the panel or from a
 // person with curl is unattributed rather than wrong, and is logged without the fields
 // rather than with empty ones.
-func (c Caller) Known() bool {
+func (c Caller) IsKnown() bool {
 	return c.AgentID != "" || c.SessionID != ""
 }
 
@@ -92,7 +92,7 @@ func (f forwarding) RoundTrip(req *http.Request) (*http.Response, error) {
 	ctx := req.Context()
 
 	from, trace := From(ctx), Trace(ctx)
-	if !from.Known() && trace == "" {
+	if !from.IsKnown() && trace == "" {
 		return f.next.RoundTrip(req)
 	}
 

@@ -227,7 +227,7 @@ func (m *model) applyAgents(fresh []agentItem) {
 // rather than the index that row happened to be drawn at.
 //
 // The caller reads selected before the pass starts landing, since a cursor cannot be
-// resolved against a tree that is half this pass and half the last.
+// placed against a tree that is half this pass and half the last.
 func (m *model) placeTreeCursor(selected string) {
 	// A row a write asked to be shown takes the cursor for this listing only. It is named
 	// rather than keyed, since a restore can hand back a name the panel has no row for yet.

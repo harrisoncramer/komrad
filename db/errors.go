@@ -14,20 +14,20 @@ const (
 	undefinedTable  = "42P01"
 )
 
-// NoRows reports whether an error is Postgres finding nothing, which every domain store
+// IsNoRows reports whether an error is Postgres finding nothing, which every domain store
 // turns into its own empty answer rather than an error.
-func NoRows(err error) bool {
+func IsNoRows(err error) bool {
 	return errors.Is(err, pgx.ErrNoRows)
 }
 
-// UniqueViolation reports whether an error is a unique index refusing a write.
-func UniqueViolation(err error) bool {
+// IsUniqueViolation reports whether an error is a unique index refusing a write.
+func IsUniqueViolation(err error) bool {
 	return hasCode(err, uniqueViolation)
 }
 
-// UndefinedTable reports whether an error is a query against a table that does not exist,
+// IsUndefinedTable reports whether an error is a query against a table that does not exist,
 // which on the first run is schema_migrations itself.
-func UndefinedTable(err error) bool {
+func IsUndefinedTable(err error) bool {
 	return hasCode(err, undefinedTable)
 }
 

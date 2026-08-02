@@ -115,7 +115,7 @@ func TestApplyAgents(t *testing.T) {
 
 			if tt.wantLen == 0 {
 				// Acting on the empty list must be a safe no-op rather than an index
-				// panic, since the handlers resolve a selection through selectedAgent.
+				// panic, since the handlers get a selection through selectedAgent.
 				_, _ = m.updateAgents(tea.KeyMsg{Type: tea.KeyEnter})
 				assert.Equal(t, screenAgents, m.screen)
 

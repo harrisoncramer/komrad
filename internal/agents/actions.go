@@ -394,7 +394,7 @@ func (s *ActionService) env(ctx context.Context, agent agentstore.Agent, dir, tr
 		ID:        agent.ID,
 		Name:      agent.Name,
 		State:     agent.State,
-		Alive:     paneOwnedBy(s.tmux.PaneOwner(agent.Pane), agent.ID),
+		Alive:     isPaneOwnedBy(s.tmux.PaneOwner(agent.Pane), agent.ID),
 		Cwd:       agent.Cwd,
 		Harness:   agent.Harness,
 		SessionID: agent.SessionID,

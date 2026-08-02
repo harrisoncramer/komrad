@@ -19,7 +19,7 @@ import (
 
 // TestNewAgent covers a launch end to end. A refused launch has to record
 // nothing. A row pointing at a pane that does not exist reads as a live agent
-// forever, and tmux resolves an empty pane target to whatever the user is
+// forever, and tmux reads an empty pane target as whatever the user is
 // looking at.
 func TestNewAgent(t *testing.T) {
 	tests := []struct {
@@ -229,10 +229,10 @@ func TestNewAgentIdempotency(t *testing.T) {
 	}
 }
 
-// TestNewAgentResolvesDirectory covers where an agent starts. tmux does no tilde
+// TestNewAgentGetsDirectory covers where an agent starts. tmux does no tilde
 // expansion, so a ~ path has to be absolute before the window is opened or the
 // stored cwd would not be where the agent is running.
-func TestNewAgentResolvesDirectory(t *testing.T) {
+func TestNewAgentGetsDirectory(t *testing.T) {
 	tests := []struct {
 		name string
 		dir  string
@@ -891,7 +891,7 @@ func TestNameTaken(t *testing.T) {
 				scope = other
 			}
 
-			assert.Equal(t, tt.want, manager.nameTaken(t.Context(), scope, tt.check))
+			assert.Equal(t, tt.want, manager.isNameTaken(t.Context(), scope, tt.check))
 		})
 	}
 }

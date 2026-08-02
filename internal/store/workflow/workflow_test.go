@@ -297,7 +297,7 @@ func open(t *testing.T) *Store {
 }
 
 // TestGetIncludingArchived covers the read that ignores the archive, which is what an
-// agent's cleanup resolves its action through. It carries whether the workflow is
+// agent's cleanup gets its action through. It carries whether the workflow is
 // archived rather than filtering on it, since that is what a restore is refused by.
 func TestGetIncludingArchived(t *testing.T) {
 	tests := []struct {

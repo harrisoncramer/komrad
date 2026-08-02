@@ -49,7 +49,7 @@ const defaultPanelKey = "g"
 
 // BindHide binds the panel key on the manager's own tmux server to hiding the
 // popup. The popup's client is attached to that server, so a keypress inside the
-// popup is resolved by its bindings rather than the user's. That server sources the
+// popup is read by its bindings rather than the user's. That server sources the
 // user's tmux config as any new server does, which binds the key to opening the
 // popup, and inside the popup that would stack a second one on top of itself.
 func (p *PopupWindow) BindHide() {

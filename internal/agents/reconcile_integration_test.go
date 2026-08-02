@@ -78,7 +78,7 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	}
 }
 
-// mustRegistry indexes the harnesses a test drives, which is what the loops resolve
+// mustRegistry indexes the harnesses a test drives, which is what the loops get
 // an agent's own harness through.
 func mustRegistry(t *testing.T, harnesses ...harness.Harness) *harness.Registry {
 	t.Helper()

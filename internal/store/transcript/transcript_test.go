@@ -554,7 +554,7 @@ func open(t *testing.T) *fixture {
 }
 
 // seedAgent inserts an agent and returns its generated id, so a transcript can
-// be keyed to a real row the search join can resolve.
+// be keyed to a real row the search join can find.
 func seedAgent(t *testing.T, st *fixture, name string) string {
 	t.Helper()
 	ctx := t.Context()

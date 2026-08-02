@@ -116,7 +116,7 @@ func (s *Store) Get(ctx context.Context, id string) (*Schedule, error) {
 	}
 
 	row, err := s.queries.GetSchedule(ctx, id)
-	if db.NoRows(err) {
+	if db.IsNoRows(err) {
 		return nil, nil
 	}
 	if err != nil {
@@ -139,7 +139,7 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Schedule, error) {
 		Prompt:     cfg.Prompt,
 		WorkflowID: cfg.WorkflowID,
 	})
-	if db.UniqueViolation(err) {
+	if db.IsUniqueViolation(err) {
 		return nil, fmt.Errorf("%w: %q", store.ErrNameTaken, cfg.Name)
 	}
 	if err != nil {
@@ -167,7 +167,7 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 		Prompt:     cfg.Prompt,
 		WorkflowID: cfg.WorkflowID,
 	})
-	if db.UniqueViolation(err) {
+	if db.IsUniqueViolation(err) {
 		return fmt.Errorf("%w: %q", store.ErrNameTaken, cfg.Name)
 	}
 	if err != nil {
@@ -192,7 +192,7 @@ func (s *Store) SetEnabled(ctx context.Context, id string, enabled bool) error {
 }
 
 // Archive hides a schedule from the panel without dropping the row, so the
-// agents it launched still resolve to the schedule that made them.
+// agents it launched still point at the schedule that made them.
 func (s *Store) Archive(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil

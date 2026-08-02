@@ -10,12 +10,12 @@ import (
 
 // app is what every subcommand is wired from. Each command holds only the part
 // it drives. Nothing here reaches the database: the panel is a client of the service,
-// and the service builds its own stores from what is resolved here.
+// and the service builds its own stores from what is gathered here.
 type app struct {
 	popup *ui.PopupWindow
 	env   *config.Config
 	keys  appconfig.Keybindings
-	// harnesses is every agent CLI this binary can run, which the services resolve an
+	// harnesses is every agent CLI this binary can run, which the services get an
 	// agent's own harness through.
 	harnesses *harness.Registry
 	// defaultHarness is the CLI an agent runs when neither it nor its workflow names
@@ -39,7 +39,7 @@ type app struct {
 	// read keybindings.
 	configErr error
 	// contextPath is the file holding the standing text every agent is started with,
-	// resolved from the config at startup.
+	// read from the config at startup.
 	contextPath string
 	// configPath is the file the user pointed at, empty for the default location.
 	// Serve keeps the path rather than the config parsed from it, since it reads the

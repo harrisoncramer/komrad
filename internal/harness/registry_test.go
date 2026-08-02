@@ -66,10 +66,10 @@ func TestNewRegistry(t *testing.T) {
 	}
 }
 
-// TestRegistryResolve covers resolving an id. An id nothing implements is an error
+// TestRegistryGetByID covers looking up an id. An id nothing implements is an error
 // naming what is available rather than a nil the caller has to notice, since the
 // callers are loops that would otherwise dereference it.
-func TestRegistryResolve(t *testing.T) {
+func TestRegistryGetByID(t *testing.T) {
 	registry, err := NewRegistry(stub{id: "codex"}, stub{id: "claude"})
 	require.NoError(t, err)
 

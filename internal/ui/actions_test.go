@@ -348,7 +348,7 @@ func TestActionsViewNamesTheAgentAndDimsWhatCannotRun(t *testing.T) {
 	assert.Contains(t, view, "chmod +x to run", "the legend says what the run key wants")
 }
 
-// TestNoActionsSaysWhereToPutThem covers the empty case. The panel no longer resolves the
+// TestNoActionsSaysWhereToPutThem covers the empty case. The panel no longer finds the
 // directory, so the pane beside an empty list says what an action is and where the default lives.
 func TestNoActionsSaysWhereToPutThem(t *testing.T) {
 	assert.Contains(t, noActionsMarkdown, ".config/weave/actions")

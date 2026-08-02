@@ -51,7 +51,7 @@ func TestCreateAgentValidation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "a relative directory would resolve against whichever pane is current",
+			name:    "a relative directory would be read against whichever pane is current",
 			req:     &agentv1.CreateAgentRequest{Prompt: "go", Dir: "repo", WorkflowId: "wf-1"},
 			wantErr: true,
 		},

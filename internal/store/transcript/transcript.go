@@ -76,7 +76,7 @@ func (s *Store) Get(ctx context.Context, agentID string) (Transcript, error) {
 	}
 
 	row, err := s.queries.GetTranscript(ctx, agentID)
-	if db.NoRows(err) {
+	if db.IsNoRows(err) {
 		return Transcript{}, nil
 	}
 	if err != nil {

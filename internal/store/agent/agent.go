@@ -44,7 +44,7 @@ type Agent struct {
 	State  string
 	// Harness names the CLI this agent runs, which decides how it is launched, how its
 	// state is read off its pane, and where its conversation log is found. It is
-	// resolved at create and never empty.
+	// set at create and never empty.
 	Harness string
 	// SessionID is the conversation the agent's harness files its own log under and
 	// reopens on a resume.
@@ -192,7 +192,7 @@ func (s *Store) GetInWorkflow(ctx context.Context, workflowID, name string) (*Ag
 		WorkflowID: workflowID,
 		Name:       name,
 	})
-	if db.NoRows(err) {
+	if db.IsNoRows(err) {
 		return nil, nil
 	}
 	if err != nil {
@@ -219,7 +219,7 @@ func (s *Store) GetByID(ctx context.Context, id string) (*Agent, error) {
 	}
 
 	row, err := s.queries.GetAgentByID(ctx, id)
-	if db.NoRows(err) {
+	if db.IsNoRows(err) {
 		return nil, nil
 	}
 	if err != nil {
@@ -463,7 +463,7 @@ func (s *Store) GetByIdempotencyKey(ctx context.Context, key string) (*Agent, er
 	}
 
 	row, err := s.queries.GetAgentByIdempotencyKey(ctx, &key)
-	if db.NoRows(err) {
+	if db.IsNoRows(err) {
 		return nil, nil
 	}
 	if err != nil {
@@ -522,7 +522,7 @@ func (s *Store) Rename(ctx context.Context, id, name string) (bool, error) {
 	}
 
 	renamed, err := s.queries.RenameAgent(ctx, models.RenameAgentParams{ID: id, Name: name})
-	if db.UniqueViolation(err) {
+	if db.IsUniqueViolation(err) {
 		return false, store.ErrNameTaken
 	}
 	if err != nil {

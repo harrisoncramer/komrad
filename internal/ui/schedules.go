@@ -44,27 +44,27 @@ func (m model) updateSchedules(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
 	switch {
-	case bound(k, m.keys.Schedules.Quit):
+	case isBound(k, m.keys.Schedules.Quit):
 		return m, m.hide()
-	case bound(k, m.keys.Schedules.Back):
+	case isBound(k, m.keys.Schedules.Back):
 		return m.returnToAgents()
-	case bound(k, m.keys.Nav.Up):
+	case isBound(k, m.keys.Nav.Up):
 		if m.schedules.cursor > 0 {
 			m.schedules.cursor--
 			m.stageSchedule()
 		}
-	case bound(k, m.keys.Nav.Down):
+	case isBound(k, m.keys.Nav.Down):
 		if m.schedules.cursor < len(m.schedules.items)-1 {
 			m.schedules.cursor++
 			m.stageSchedule()
 		}
-	case bound(k, m.keys.Schedules.New):
+	case isBound(k, m.keys.Schedules.New):
 		return m.newScheduleForm()
-	case bound(k, m.keys.Schedules.Edit):
+	case isBound(k, m.keys.Schedules.Edit):
 		return m.editScheduleForm()
-	case bound(k, m.keys.Schedules.Toggle):
+	case isBound(k, m.keys.Schedules.Toggle):
 		return m.toggleSchedule()
-	case bound(k, m.keys.Schedules.Archive):
+	case isBound(k, m.keys.Schedules.Archive):
 		return m.archiveScheduleConfirm()
 	}
 
@@ -188,7 +188,7 @@ func (m model) archiveScheduleConfirm() (tea.Model, tea.Cmd) {
 // updateScheduleForm drives the create and edit form, submitting on the configured key or
 // on completion and aborting back to the list.
 func (m model) updateScheduleForm(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if key, ok := msg.(tea.KeyMsg); ok && bound(key.String(), m.keys.Form.Submit) {
+	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), m.keys.Form.Submit) {
 		return m.submitScheduleForm()
 	}
 

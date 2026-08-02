@@ -101,7 +101,7 @@ func (m model) runSettledSearch(msg searchSettledMsg) tea.Cmd {
 }
 
 // searchCmd runs the query over the service off the UI goroutine, so typing never blocks
-// on the RPC. A blank query resolves to no hits without a call.
+// on the RPC. A blank query gives no hits without a call.
 func (m model) searchCmd(query string) tea.Cmd {
 	client := m.api.agents
 

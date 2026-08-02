@@ -379,9 +379,9 @@ var ansiColors = map[string]string{
 	"brightwhite":   "15",
 }
 
-// ResolveColor is a configured colour in the form lipgloss reads it: a name becomes the
+// GetColor is a configured colour in the form lipgloss reads it: a name becomes the
 // index lipgloss maps onto the terminal's scheme, and a hex value passes through.
-func ResolveColor(color string) string {
+func GetColor(color string) string {
 	if index, ok := ansiColors[color]; ok {
 		return index
 	}
@@ -468,9 +468,9 @@ const maxMarkLen = 16
 // else renders as no colour at all, so a typo would silently lose the mark's colour.
 var hexColor = regexp.MustCompile(`^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
 
-// validColor reports whether the panel could draw a colour. The names are a closed set, so
+// isValidColor reports whether the panel could draw a colour. The names are a closed set, so
 // a colour spelled wrongly is refused here rather than drawn as no colour.
-func validColor(color string) bool {
+func isValidColor(color string) bool {
 	if _, ok := ansiColors[color]; ok {
 		return true
 	}
@@ -495,7 +495,7 @@ func validateMarks(marks []Mark) error {
 			return fmt.Errorf("mark %q carries whitespace or control characters", mark.Glyph)
 		case seen[mark.Glyph]:
 			return fmt.Errorf("mark %q is listed twice", mark.Glyph)
-		case mark.Color != "" && !validColor(mark.Color):
+		case mark.Color != "" && !isValidColor(mark.Color):
 			return fmt.Errorf("mark %q has colour %q, which is neither one of the sixteen such as \"yellow\" nor a hex colour such as \"#DCA561\"", mark.Glyph, mark.Color)
 		}
 
@@ -552,7 +552,7 @@ func validateLog(log Log) error {
 // rather than choices to be honoured.
 func (c Config) withDefaults() Config {
 	c.Keybindings = c.Keybindings.withDefaults()
-	// Every launch resolves through this id, so leaving it empty would refuse every
+	// Every launch goes through this id, so leaving it empty would refuse every
 	// create rather than fall back.
 	if strings.TrimSpace(c.DefaultHarness) == "" {
 		c.DefaultHarness = DefaultHarness
@@ -607,14 +607,14 @@ func fillBindings(configured, def reflect.Value) {
 func configHome() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve home directory: %w", err)
+		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
 
 	return filepath.Join(home, ".config", "weave"), nil
 }
 
 // ActionsDir is where the actions live: the configured directory, or
-// ~/.config/weave/actions when the config names none. The default is resolved here rather
+// ~/.config/weave/actions when the config names none. The default is filled in here rather
 // than filled into Config, since the generated config.toml spells every default out and one
 // machine's home directory would be wrong on every other machine.
 func (c Config) ActionsDir() (string, error) {
@@ -631,7 +631,7 @@ func (c Config) ActionsDir() (string, error) {
 }
 
 // ContextFile is the standing text every agent is started with: the configured file, or
-// ~/.config/weave/context.md when the config names none. The default is resolved here for
+// ~/.config/weave/context.md when the config names none. The default is filled in here for
 // the reason the actions directory's is, since one machine's home directory spelled into
 // the generated config would be wrong on every other machine.
 func (c Config) ContextFile() (string, error) {
@@ -649,7 +649,7 @@ func (c Config) ContextFile() (string, error) {
 
 // Load reads the config from path when given, otherwise from
 // ~/.config/weave/config.toml. A missing file is not an error and yields the defaults, but
-// a symlink resolving to nothing is, since that is a config someone meant to have.
+// a symlink pointing at nothing is, since that is a config someone meant to have.
 //
 // A key the Config struct does not know about is an error rather than silently dropped, so
 // a typo is reported rather than quietly doing nothing.
@@ -657,7 +657,7 @@ func Load(path string) (*Config, error) {
 	viperCfg := viper.New()
 	viperCfg.SetConfigType("toml")
 
-	// The resolved path is named in the errors below, since what went wrong is not
+	// The full path is named in the errors below, since what went wrong is not
 	// actionable without knowing which file to edit.
 	file := path
 	if file == "" {

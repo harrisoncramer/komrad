@@ -218,7 +218,7 @@ func (t *recordingTmux) DetachSession(string)                    { t.detaches++ 
 func (t *recordingTmux) BindKey(string, ...string)               {}
 func (t *recordingTmux) ClientPath(string) string                { return t.path }
 func (t *recordingTmux) SendKeys(string, ...string) error        { return nil }
-func (t *recordingTmux) PaneAlive(string) bool                   { return true }
+func (t *recordingTmux) IsPaneAlive(string) bool                 { return true }
 func (t *recordingTmux) PaneWidth(string) int                    { return t.width }
 func (t *recordingTmux) CapturePane(string) string               { return "" }
 func (t *recordingTmux) SplitRight(anchor, _ string, _ int) string {

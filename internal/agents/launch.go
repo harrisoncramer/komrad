@@ -83,7 +83,7 @@ var briefingDoc string
 // too easy to write by accident.
 const mcpURLPlaceholder = "{{MCP_URL}}"
 
-// logPathPlaceholder is where the briefing names the service's log, resolved the same way
+// logPathPlaceholder is where the briefing names the service's log, found the same way
 // the service that writes it does, so an agent sent looking for a failure is sent to the
 // file that holds it.
 const logPathPlaceholder = "{{LOG_PATH}}"

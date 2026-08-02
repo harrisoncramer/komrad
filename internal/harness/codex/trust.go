@@ -40,7 +40,7 @@ func (h *Harness) trustDir(dir string) error {
 		return fmt.Errorf("failed to read the codex config %q: %w", h.configPath, err)
 	}
 
-	trusted, err := dirIsListed(current, dir)
+	trusted, err := isDirListed(current, dir)
 	if err != nil || trusted {
 		return err
 	}
@@ -70,11 +70,11 @@ func (h *Harness) trustDir(dir string) error {
 	return nil
 }
 
-// dirIsListed reports whether config already says something about dir. It parses rather
+// isDirListed reports whether config already says something about dir. It parses rather
 // than searching for the table header, since the same directory can be spelled several
 // ways in TOML and appending a table that is already there would leave the file
 // refusing to parse at all.
-func dirIsListed(config []byte, dir string) (bool, error) {
+func isDirListed(config []byte, dir string) (bool, error) {
 	var parsed struct {
 		Projects map[string]any `toml:"projects"`
 	}

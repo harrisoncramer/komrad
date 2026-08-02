@@ -10,7 +10,7 @@ import (
 )
 
 // TestRelocate covers carrying a conversation to where the agent is about to be
-// resumed. Claude resolves --resume against the folder named after the directory it
+// resumed. Claude matches --resume against the folder named after the directory it
 // runs in, so a restore that had to move the agent has to move the log with it.
 func TestRelocate(t *testing.T) {
 	const sessionID = "6f1b0c34-0b6b-4a17-9d1f-1f4b6c0e9a11"

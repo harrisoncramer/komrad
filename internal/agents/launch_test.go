@@ -94,7 +94,7 @@ func TestLaunchPassesWhatThePanelKnows(t *testing.T) {
 }
 
 // briefedLogPath stands in for the service's log, which the launcher is handed rather than
-// resolving for itself.
+// finding it for itself.
 const briefedLogPath = "/var/cache/weave/weave.log"
 
 // TestAppendedSystemPrompt covers what a spawned agent is told. The briefing

@@ -47,8 +47,8 @@ func (h *Harness) MintSessionID() string { return uuid.NewString() }
 // starts, so a session is never discovered after the fact. This is only relevant for Codex.
 func (h *Harness) FindSession(string) (string, error) { return "", nil }
 
-// DefaultProjectsDir is where Claude Code writes its JSONL logs. An unresolvable
-// home yields a relative path, which matches no logs rather than erroring.
+// DefaultProjectsDir is where Claude Code writes its JSONL logs. A home that
+// cannot be read yields a relative path, which matches no logs rather than erroring.
 func DefaultProjectsDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {

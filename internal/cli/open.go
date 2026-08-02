@@ -46,7 +46,7 @@ func openCmd(state *app) *cobra.Command {
 			socket := tmux.SocketFromEnv(state.env.Tmux)
 			state.host.Record(socket)
 
-			// Record the client that opened this popup so the panel resolves the
+			// Record the client that opened this popup so the panel picks the
 			// right directory and client. Mark the popup shown so the binding hides
 			// it on the next press. The mark clears when the attach below returns.
 			state.popup.SetInvokingClient(invokingClient(socket, tmux.SessionFromEnv(state.env.Tmux)))
@@ -79,7 +79,7 @@ func openCmd(state *app) *cobra.Command {
 // after it ran.
 //
 // The panel runs as this session's command, so it inherits the tmux server's
-// environment rather than the popup's. The resolved config is forwarded with -e so
+// environment rather than the popup's. The config it read is forwarded with -e so
 // the panel reads the same values this process did, including any shell overrides.
 // Only the open that creates the session sets them, since every later one finds it
 // already up.

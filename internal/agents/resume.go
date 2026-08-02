@@ -7,13 +7,13 @@ import (
 	agentstore "weave/internal/store/agent"
 )
 
-// relocateHarness is all a restore needs from the harness it resolved, a chance to
+// relocateHarness is all a restore needs from the harness it looked up, a chance to
 // carry the conversation to wherever the agent is about to come back up.
 type relocateHarness interface {
 	Relocate(sessionID, dir string) error
 }
 
-// resumeDir resolves the directory a restored agent is relaunched in, repairing
+// resumeDir picks the directory a restored agent is relaunched in, repairing
 // the recorded one when it has to. A CLI may key a conversation to the directory
 // it ran in, so a session can be reachable only from the path the agent was
 // created in. That path is frequently a worktree that has since been deleted, and

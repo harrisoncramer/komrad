@@ -81,7 +81,7 @@ func isPending(ctx context.Context, pool *pgxpool.Pool, versions []string) (bool
 	err := pool.QueryRow(ctx,
 		`SELECT COUNT(*) FROM schema_migrations WHERE version = ANY ($1)`, versions).Scan(&applied)
 
-	if UndefinedTable(err) {
+	if IsUndefinedTable(err) {
 		return true, nil
 	}
 	if err != nil {

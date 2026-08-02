@@ -22,22 +22,22 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// These act on the whole view rather than the row under the cursor, so they are
 	// checked before anything that reads the cursor.
-	if bound(k, m.keys.Workflows.New) {
+	if isBound(k, m.keys.Workflows.New) {
 		return m.newWorkflowForm()
 	}
-	if bound(k, m.keys.Agents.Search) {
+	if isBound(k, m.keys.Agents.Search) {
 		return m.enterSearch()
 	}
-	if bound(k, m.keys.Schedules.Open) {
+	if isBound(k, m.keys.Schedules.Open) {
 		return m.enterSchedules()
 	}
-	if bound(k, m.keys.Archive.Open) {
+	if isBound(k, m.keys.Archive.Open) {
 		return m.enterArchive()
 	}
-	if bound(k, m.keys.Agents.ShowHidden) {
+	if isBound(k, m.keys.Agents.ShowHidden) {
 		return m.toggleHiddenAgents()
 	}
-	if bound(k, m.keys.Agents.Logs) {
+	if isBound(k, m.keys.Agents.Logs) {
 		return m.openLogs()
 	}
 
@@ -47,49 +47,49 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch {
-	case bound(k, m.keys.Agents.Quit):
+	case isBound(k, m.keys.Agents.Quit):
 		return m, m.hide()
-	case bound(k, m.keys.Agents.Back):
+	case isBound(k, m.keys.Agents.Back):
 		return m, m.hide()
-	case bound(k, m.keys.Agents.New):
+	case isBound(k, m.keys.Agents.New):
 		return m.openNewAgent(m.enclosingWorkflow())
-	case bound(k, m.keys.Nav.Up):
+	case isBound(k, m.keys.Nav.Up):
 		if m.tree.cursor > 0 {
 			m.tree.cursor--
 			m.tree.unpin()
 			m.stageSelection()
 		}
-	case bound(k, m.keys.Nav.Down):
+	case isBound(k, m.keys.Nav.Down):
 		if m.tree.cursor < len(m.agentRows())-1 {
 			m.tree.cursor++
 			m.tree.unpin()
 			m.stageSelection()
 		}
-	case bound(k, m.keys.Agents.Info):
+	case isBound(k, m.keys.Agents.Info):
 		if _, ok := m.selectedAgent(); !ok {
 			return m, nil
 		}
 		m.tree.infoPinned = !m.tree.infoPinned
 		m.stageSelection()
-	case bound(k, m.keys.Agents.Open):
+	case isBound(k, m.keys.Agents.Open):
 		return m.openAgent()
-	case bound(k, m.keys.Agents.Editor):
+	case isBound(k, m.keys.Agents.Editor):
 		return m.openEditor()
-	case bound(k, m.keys.Actions.Open):
+	case isBound(k, m.keys.Actions.Open):
 		return m.enterActions()
-	case bound(k, m.keys.Agents.Mark):
+	case isBound(k, m.keys.Agents.Mark):
 		item, ok := m.selectedAgent()
 		if !ok {
 			return m, nil
 		}
 		return m.markAgent(item.agent)
-	case bound(k, m.keys.Agents.Hide):
+	case isBound(k, m.keys.Agents.Hide):
 		item, ok := m.selectedAgent()
 		if !ok {
 			return m, nil
 		}
 		return m.hideAgent(item.agent)
-	case bound(k, m.keys.Agents.Rename):
+	case isBound(k, m.keys.Agents.Rename):
 		item, ok := m.selectedAgent()
 		if !ok {
 			return m, nil
@@ -98,7 +98,7 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.form, m.values.rename = renameForm(item.agent.Name, "", m.keys.Form)
 		m.screen = screenRename
 		return m, m.form.Init()
-	case bound(k, m.keys.Agents.Archive):
+	case isBound(k, m.keys.Agents.Archive):
 		item, ok := m.selectedAgent()
 		if !ok {
 			return m, nil
@@ -264,7 +264,7 @@ func nextMark(current *string, marks []appconfig.Mark) *string {
 
 // scheduleName is the display name of the schedule that launched an agent, empty for one a
 // person started. It reads the list the panel already polls, so a schedule deleted since
-// resolves to nothing rather than a stale name.
+// shows nothing rather than a stale name.
 func (m model) scheduleName(agent agentstore.Agent) string {
 	if agent.ScheduleID == nil {
 		return ""
@@ -408,7 +408,7 @@ func (m model) submitAgent() (tea.Model, tea.Cmd) {
 }
 
 func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if key, ok := msg.(tea.KeyMsg); ok && bound(key.String(), m.keys.Form.Submit) {
+	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), m.keys.Form.Submit) {
 		return m.submitAgent()
 	}
 

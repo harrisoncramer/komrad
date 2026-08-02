@@ -34,7 +34,7 @@ const mcpConfigJSON = `{"mcpServers":{"weave":{"type":"http","url":"http://%s/mc
 // command runs.
 func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	// The agent's own ids are exported ahead of the CLI, which is both how it can name
-	// itself to the panel and how the MCP config below resolves the headers it sends.
+	// itself to the panel and how the MCP config below builds the headers it sends.
 	command := harness.EnvPrefix(launch) + "claude"
 
 	// Flags are data, not shell. They are split into arguments and quoted, so a flag
@@ -86,7 +86,7 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 func (h *Harness) writeMCPConfig(endpoint string) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve home directory: %w", err)
+		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
 
 	dir := filepath.Join(home, ".claude")

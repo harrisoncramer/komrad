@@ -138,7 +138,7 @@ func NewAgentService(p NewAgentServiceParams) *AgentService {
 // pane stamped with that agent's id. tmux reissues pane ids from %0 after a server
 // restart, so the stored pane id alone routinely names somebody else's pane.
 func (s *AgentService) IsAgentRunning(agent agentstore.Agent) bool {
-	return paneOwnedBy(s.tmux.PaneOwner(agent.Pane), agent.ID)
+	return isPaneOwnedBy(s.tmux.PaneOwner(agent.Pane), agent.ID)
 }
 
 // AgentsRunning answers liveness for a whole listing off one tmux call, keyed by agent
@@ -149,7 +149,7 @@ func (s *AgentService) AgentsRunning(agents []agentstore.Agent) map[string]bool 
 
 	running := make(map[string]bool, len(agents))
 	for _, agent := range agents {
-		running[agent.ID] = paneOwnedBy(owners[agent.Pane], agent.ID)
+		running[agent.ID] = isPaneOwnedBy(owners[agent.Pane], agent.ID)
 	}
 
 	return running
@@ -451,9 +451,9 @@ func expandHome(dir string) string {
 	return filepath.Join(home, dir[len("~/"):])
 }
 
-// paneOwnedBy compares a pane's stamp against the agent that claims it. An agent with
+// isPaneOwnedBy compares a pane's stamp against the agent that claims it. An agent with
 // no id owns nothing, so an unstamped pane cannot match by both sides being empty.
-func paneOwnedBy(owner, agentID string) bool {
+func isPaneOwnedBy(owner, agentID string) bool {
 	return agentID != "" && owner == agentID
 }
 
@@ -543,11 +543,11 @@ func roomForAgents(ctx context.Context, agents agentCounter, maxAgents, want int
 	return nil
 }
 
-// launchPlan is a create resolved against the workflow it lands in.
+// launchPlan is a create read against the workflow it lands in.
 type launchPlan struct {
 	name string
 	// harness is the CLI this agent will run, and harnessID is what the row records so
-	// a later pass resolves the same one.
+	// a later pass gets the same one.
 	harness   harness.Harness
 	harnessID string
 	// dir is where the agent runs unless a setup action names somewhere else.
@@ -574,7 +574,7 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 		return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, p.WorkflowID)
 	}
 
-	// The harness resolves before the directory is checked, since an agent naming a CLI
+	// The harness is looked up before the directory is checked, since an agent naming a CLI
 	// this binary cannot run is wrong about something no directory makes right.
 	harnessID := strings.TrimSpace(p.Harness)
 	if harnessID == "" {
@@ -584,7 +584,7 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 		harnessID = s.userDefaultHarness
 	}
 
-	resolved, err := s.harnesses.GetByID(harnessID)
+	hn, err := s.harnesses.GetByID(harnessID)
 	if err != nil {
 		return nil, err
 	}
@@ -615,7 +615,7 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 
 	return &launchPlan{
 		name:            s.uniqueAgentName(ctx, p.WorkflowID, p.Title, p.Prompt),
-		harness:         resolved,
+		harness:         hn,
 		harnessID:       harnessID,
 		dir:             dir,
 		flags:           strings.TrimSpace(s.userDefaultFlags[harnessID] + " " + agentFlags),
@@ -654,7 +654,7 @@ func (s *AgentService) runSetup(ctx context.Context, planned agentstore.Agent, n
 	return s.lifecycle.RunSetupAction(ctx, planned, name)
 }
 
-// setupDir settles where an agent runs, given the directory the plan resolved and the
+// setupDir settles where an agent runs, given the directory the plan chose and the
 // one its setup action named. The named one is checked too, since nobody chose it: a
 // script printing something that is not a directory has to be refused here rather than
 // arrive later as a window opened somewhere unexpected.
@@ -734,12 +734,12 @@ func idempotencyKey(key string) *string {
 func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error {
 	// An agent recorded against a harness this binary no longer runs cannot be brought
 	// back, and saying so beats a pane running the wrong CLI on its conversation.
-	resolved, err := s.harnesses.GetByID(agent.Harness)
+	hn, err := s.harnesses.GetByID(agent.Harness)
 	if err != nil {
 		return err
 	}
 
-	dir := s.resumeDir(agent, resolved)
+	dir := s.resumeDir(agent, hn)
 
 	pane, err := s.tmux.NewWindow(ManagerSession, agent.Name, dir)
 	if err != nil {
@@ -760,7 +760,7 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 		return fmt.Errorf("failed to resume agent %q: %w", agent.Name, err)
 	}
 
-	if err := s.launcher.launch(resolved, launchParams{
+	if err := s.launcher.launch(hn, launchParams{
 		Pane:      pane,
 		Dir:       dir,
 		Flags:     agent.Flags,
@@ -787,16 +787,16 @@ func (s *AgentService) uniqueAgentName(ctx context.Context, workflowID, title, p
 	}
 
 	name := base
-	for i := 2; s.nameTaken(ctx, workflowID, name); i++ {
+	for i := 2; s.isNameTaken(ctx, workflowID, name); i++ {
 		name = fmt.Sprintf("%s-%d", base, i)
 	}
 
 	return name
 }
 
-// nameTaken reports whether a live agent in the workflow already owns a name, since the
+// isNameTaken reports whether a live agent in the workflow already owns a name, since the
 // insert would collide on the unique index.
-func (s *AgentService) nameTaken(ctx context.Context, workflowID, name string) bool {
+func (s *AgentService) isNameTaken(ctx context.Context, workflowID, name string) bool {
 	taken, _ := s.agents.ActiveNameExists(ctx, workflowID, name)
 	return taken
 }

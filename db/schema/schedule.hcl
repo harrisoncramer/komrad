@@ -64,7 +64,7 @@ table "schedules" {
     type = uuid
   }
   # When the schedule was archived, null while it is live. An archived schedule is
-  # hidden from the panel but kept, so the agents it produced still resolve to the
+  # hidden from the panel but kept, so the agents it produced still point at the
   # schedule that launched them.
   column "archived_at" {
     null = true

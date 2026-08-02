@@ -7,10 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestResolve covers what each way of building this binary reports. The panel reuses a server
+// TestGet covers what each way of building this binary reports. The panel reuses a server
 // only when its version matches, so what matters is that every build has one and that two
 // different builds never share it.
-func TestResolve(t *testing.T) {
+func TestGet(t *testing.T) {
 	tests := []struct {
 		name    string
 		stamped string
@@ -57,7 +57,7 @@ func TestResolve(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, resolve(tt.stamped, tt.info))
+			assert.Equal(t, tt.want, get(tt.stamped, tt.info))
 		})
 	}
 }

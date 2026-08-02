@@ -1543,15 +1543,15 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14GetTranscriptRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"1\n" +
 	"\x15GetTranscriptResponse\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontent2\xd74\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent2\xd54\n" +
 	"\fAgentService\x12\xe4\x03\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x9a\x03\x9a\xb5\x18\x92\x03\n" +
 	"\vlist_agents\x12\x82\x03List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow. Archived agents are excluded unless archived is set, which lists those and only those. Returns one page, most recently updated first; pass the response's nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs.\x90\x02\x01\x12\xaf\x02\n" +
 	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"\xeb\x01\x9a\xb5\x18\xe3\x01\n" +
-	"\tget_agent\x12\xd5\x01Fetch one agent by id, including whatever metadata it has recorded about its own work. Spans the archived agents too, since an id is the one handle those still answer to. Returns not_found if no agent has that id.\x90\x02\x01\x12\xe0\x04\n" +
-	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\x93\x04\x9a\xb5\x18\x8e\x04\n" +
-	"\fcreate_agent\x12\xfb\x03Launch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would resolve somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again. \x00\x12\x84\x04\n" +
+	"\tget_agent\x12\xd5\x01Fetch one agent by id, including whatever metadata it has recorded about its own work. Spans the archived agents too, since an id is the one handle those still answer to. Returns not_found if no agent has that id.\x90\x02\x01\x12\xde\x04\n" +
+	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\x91\x04\x9a\xb5\x18\x8c\x04\n" +
+	"\fcreate_agent\x12\xf9\x03Launch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would point somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again. \x00\x12\x84\x04\n" +
 	"\aSetMark\x12\x18.agent.v1.SetMarkRequest\x1a\x16.google.protobuf.Empty\"\xc6\x03\x9a\xb5\x18\xbe\x03\n" +
 	"\x0eset_agent_mark\x12\xa9\x03Put a mark on an agent, keyed by its id, or clear the one it carries by omitting the mark. A mark is a glyph the user reads off the row, meaning whatever they decided it means, such as needs review or dealt with. Use only the glyphs get_config returns under marks, since the panel's mark key cycles through those and can only clear anything else. What an agent is currently doing is already in its state, so do not mark that. \x00\x90\x02\x02\x12\xd0\x03\n" +
 	"\tSetHidden\x12\x1a.agent.v1.SetHiddenRequest\x1a\x16.google.protobuf.Empty\"\x8e\x03\x9a\xb5\x18\x86\x03\n" +

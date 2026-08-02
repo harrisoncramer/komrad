@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestNewAgentResolvesHarness covers which CLI a new agent lands on. It follows the
+// TestNewAgentGetsHarness covers which CLI a new agent lands on. It follows the
 // same precedence the directory and flags do, what the caller asked for ahead of the
 // workflow's default and the configured one, and the answer is recorded on the row
-// so every later pass resolves the same harness.
-func TestNewAgentResolvesHarness(t *testing.T) {
+// so every later pass gets the same harness.
+func TestNewAgentGetsHarness(t *testing.T) {
 	tests := []struct {
 		name string
 		// requested is the harness the create names, and workflow is the default of
@@ -46,7 +46,7 @@ func TestNewAgentResolvesHarness(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			tmux := newFakeTmux()
-			// Every id resolves here, so this is about which one is chosen.
+			// Every id is found here, so this is about which one is chosen.
 			service := st.agentService(tmux, fakeHarnesses{harness: &fakeHarness{}}, "", "")
 
 			created, err := st.Workflows.Create(t.Context(), workflowstore.Config{

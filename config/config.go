@@ -41,7 +41,7 @@ func (c *Config) LogPath() string {
 	return filepath.Join(c.CacheDir, "weave.log")
 }
 
-// defaultCacheDir is where weave keeps what it generates, falling back to the working directory when the user's cache directory cannot be resolved at all.
+// defaultCacheDir is where weave keeps what it generates, falling back to the working directory when the user's cache directory cannot be found at all.
 func defaultCacheDir() string {
 	dir, err := os.UserCacheDir()
 	if err != nil {

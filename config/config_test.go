@@ -10,7 +10,7 @@ import (
 )
 
 // TestLoadCacheDir covers where weave writes what it generates. The service, the panel that
-// pages its log, and the launch that hands an agent a prompt file all resolve this from the
+// pages its log, and the launch that hands an agent a prompt file all get this from the
 // same place, so a value one of them does not see may as well not be set.
 func TestLoadCacheDir(t *testing.T) {
 	t.Run("defaults under the user's cache directory", func(t *testing.T) {

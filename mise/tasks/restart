@@ -6,7 +6,7 @@ cd "$MISE_CONFIG_ROOT"
 weave="$MISE_CONFIG_ROOT/bin/weave"
 
 # The panel and every agent live on a tmux server of their own, which a plain tmux command
-# does not address. The socket and the address are the same ones the binary resolves from
+# does not address. The socket and the address are the same ones the binary reads from
 # the environment, so a checkout that overrides them kills its own instance and no other.
 socket="${WEAVE_TMUX_SOCKET:-weave}"
 addr="${WEAVE_ADDR:-127.0.0.1:8787}"

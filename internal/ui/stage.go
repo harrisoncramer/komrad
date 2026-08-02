@@ -17,7 +17,7 @@ import (
 // panel's own two panes on every cursor move, so it talks to tmux directly rather than
 // through the agent API.
 type stageTmux interface {
-	PaneAlive(pane string) bool
+	IsPaneAlive(pane string) bool
 	PaneWidth(pane string) int
 	SplitRight(anchorPane, dir string, percent int) string
 	ResizePane(pane string, percent int)
@@ -91,7 +91,7 @@ func (s *Stage) wrap() int {
 // rooted at home. A live stage is left alone so a panel restart does not stack splits, but
 // resized either way, so an edited split takes effect on the next start.
 //
-// The pane is passed in rather than asked of tmux. tmux resolves a pane query against the
+// The pane is passed in rather than asked of tmux. tmux reads a pane query against the
 // attached client, which answers for whatever pane that client is looking at and fails
 // outright when the session is running detached, and everything below rearranges the
 // window around this pane.
@@ -140,7 +140,7 @@ func (s *Stage) ensure() {
 	if s.navPane == "" {
 		return
 	}
-	if s.pane != "" && s.tmux.PaneAlive(s.pane) {
+	if s.pane != "" && s.tmux.IsPaneAlive(s.pane) {
 		return
 	}
 

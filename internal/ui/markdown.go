@@ -86,9 +86,9 @@ func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) string {
 	return b.String()
 }
 
-// textual reports whether bytes are text the stage can show, deciding on a NUL byte the
+// isTextual reports whether bytes are text the stage can show, deciding on a NUL byte the
 // way less itself does.
-func textual(text []byte) bool {
+func isTextual(text []byte) bool {
 	return bytes.IndexByte(text, 0) < 0
 }
 
@@ -99,7 +99,7 @@ func textual(text []byte) bool {
 // The fence is three backticks, or one longer than the longest run inside the text, since
 // text carrying a fence of its own would otherwise close the block early.
 func fencedBlock(text []byte) string {
-	if !textual(text) {
+	if !isTextual(text) {
 		return "_not text, so there is nothing to show_\n"
 	}
 
@@ -142,7 +142,7 @@ func actionMarkdown(action actionItem) string {
 	}
 
 	b.WriteString(fencedBlock(action.preview))
-	if action.truncated && textual(action.preview) {
+	if action.truncated && isTextual(action.preview) {
 		b.WriteString("\n_only the start of the file is shown_\n")
 	}
 

@@ -215,7 +215,7 @@ func TestListAgents(t *testing.T) {
 				assert.Equal(t, tt.alive, s.GetAlive())
 			}
 
-			assert.Equal(t, 1, launcher.runningCalls, "liveness is resolved once for the page, not once per agent")
+			assert.Equal(t, 1, launcher.runningCalls, "liveness is read once for the page, not once per agent")
 		})
 	}
 }
@@ -382,7 +382,7 @@ func TestUpdateAgent(t *testing.T) {
 
 			stale, err := st.LiveAgentByName(ctx, tt.rename)
 			require.NoError(t, err)
-			assert.Nil(t, stale, "the old name no longer resolves")
+			assert.Nil(t, stale, "the old name no longer finds anything")
 		})
 	}
 }

@@ -15,12 +15,12 @@ const devel = "devel"
 func Version() string {
 	info, _ := debug.ReadBuildInfo()
 
-	return resolve(stamped, info)
+	return get(stamped, info)
 }
 
-// resolve prefers a release stamp, then what the toolchain recorded, which is a pseudo-version
+// get prefers a release stamp, then what the toolchain recorded, which is a pseudo-version
 // off the commit for an ordinary build and the tag for a go install.
-func resolve(stamped string, info *debug.BuildInfo) string {
+func get(stamped string, info *debug.BuildInfo) string {
 	if stamped != "" {
 		return stamped
 	}

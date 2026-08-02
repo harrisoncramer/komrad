@@ -89,8 +89,8 @@ func (h *Harness) GetID() string { return "codex" }
 // names the conversation itself, which the panel adopts afterwards through FindSession.
 func (h *Harness) MintSessionID() string { return "" }
 
-// DefaultSessionsDir is where Codex records its rollouts. An unresolvable home
-// yields a relative path, which matches no rollouts rather than erroring.
+// DefaultSessionsDir is where Codex records its rollouts. A home that cannot be
+// read yields a relative path, which matches no rollouts rather than erroring.
 func DefaultSessionsDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {

@@ -116,7 +116,7 @@ func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 	}
 
 	row, err := s.queries.GetWorkflow(ctx, id)
-	if db.NoRows(err) {
+	if db.IsNoRows(err) {
 		return nil, nil
 	}
 	if err != nil {
@@ -237,7 +237,7 @@ func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow,
 	}
 
 	row, err := s.queries.GetWorkflowIncludingArchived(ctx, id)
-	if db.NoRows(err) {
+	if db.IsNoRows(err) {
 		return nil, nil
 	}
 	if err != nil {

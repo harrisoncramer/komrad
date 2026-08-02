@@ -22,7 +22,7 @@ type tmuxProbe interface {
 	CapturePane(pane string) string
 }
 
-// activityRegistry resolves the harness an agent is recorded against, since what a frame
+// activityRegistry gets the harness an agent is recorded against, since what a frame
 // means depends on which CLI drew it. A row naming one nothing implements settles nothing.
 type activityRegistry interface {
 	GetByID(id string) (harness.Harness, error)
@@ -92,7 +92,7 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent, owner string) {
 	// A pane that is not this agent's means the agent is dormant, whether its pane died or
 	// the tmux server has since given that id to somebody else.
-	if !paneOwnedBy(owner, agent.ID) {
+	if !isPaneOwnedBy(owner, agent.ID) {
 		// A pane id kept on a dormant row is the one that collides after a server restart,
 		// so forgetting it stops a later pass, a preview, or a kill from landing on
 		// another agent's pane.
@@ -114,12 +114,12 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 
 	// A harness this binary does not implement can say nothing about the frame, so the
 	// agent keeps the state it has.
-	resolved, err := r.harnesses.GetByID(agent.Harness)
+	hn, err := r.harnesses.GetByID(agent.Harness)
 	if err != nil {
 		return
 	}
 
-	switch resolved.ReadActivity(frame) {
+	switch hn.ReadActivity(frame) {
 	case harness.ActivityWorking:
 		r.apply(ctx, agent, agentstore.StateThinking)
 	case harness.ActivityWaiting:

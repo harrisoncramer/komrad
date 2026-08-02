@@ -32,8 +32,8 @@ func NewClientAtPath(path string) *Client {
 	return &Client{server: []string{"-S", path}}
 }
 
-// PaneAlive reports whether the given pane still exists.
-func (c *Client) PaneAlive(pane string) bool {
+// IsPaneAlive reports whether the given pane still exists.
+func (c *Client) IsPaneAlive(pane string) bool {
 	if pane == "" {
 		return false
 	}
@@ -313,7 +313,7 @@ func clientTarget(client string) []string {
 	return []string{"-c", client}
 }
 
-// paneID resolves a pane target to its canonical id, empty if it no longer exists.
+// paneID gets a pane target's canonical id, empty if it no longer exists.
 func (c *Client) paneID(target string) (string, error) {
 	return c.query("display-message", "-p", "-t", target, "#{pane_id}")
 }

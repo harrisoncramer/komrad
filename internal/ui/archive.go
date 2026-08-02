@@ -100,23 +100,23 @@ func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
 	switch {
-	case bound(k, m.keys.Archive.Quit):
+	case isBound(k, m.keys.Archive.Quit):
 		return m, m.hide()
-	case bound(k, m.keys.Archive.Back):
+	case isBound(k, m.keys.Archive.Back):
 		return m.returnToAgents()
-	case bound(k, m.keys.Nav.Up):
+	case isBound(k, m.keys.Nav.Up):
 		if m.archive.cursor > 0 {
 			m.archive.cursor--
 			m.stageArchive()
 		}
-	case bound(k, m.keys.Nav.Down):
+	case isBound(k, m.keys.Nav.Down):
 		if m.archive.cursor < len(m.archiveRows())-1 {
 			m.archive.cursor++
 			m.stageArchive()
 		}
-	case bound(k, m.keys.Archive.Restore):
+	case isBound(k, m.keys.Archive.Restore):
 		return m.restoreFromArchive()
-	case bound(k, m.keys.Archive.Delete):
+	case isBound(k, m.keys.Archive.Delete):
 		return m.deleteFromArchiveConfirm()
 	}
 

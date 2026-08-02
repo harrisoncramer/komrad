@@ -316,12 +316,12 @@ func TestShutdownDeadlineOutlivesTheSignal(t *testing.T) {
 // finish. A loop pass talking to a tmux server that stopped answering, or a pool waiting
 // on a query that will not end, would otherwise hold the process open for good.
 func TestAwaitWithinGivesUp(t *testing.T) {
-	assert.True(t, awaitWithin(5*time.Second, func() {}), "work that finishes is waited for")
+	assert.True(t, didFinishWithin(5*time.Second, func() {}), "work that finishes is waited for")
 
 	blocked := make(chan struct{})
 	defer close(blocked)
 
-	assert.False(t, awaitWithin(10*time.Millisecond, func() { <-blocked }), "work that hangs is left behind")
+	assert.False(t, didFinishWithin(10*time.Millisecond, func() { <-blocked }), "work that hangs is left behind")
 }
 
 // TestShutdownSignalFollowsItsParent covers the context handed to serve still being the

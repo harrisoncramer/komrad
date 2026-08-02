@@ -73,7 +73,7 @@ func TestLoad(t *testing.T) {
 			wantNavUp: DefaultKeybindings().Nav.Up,
 		},
 		{
-			// The id every launch is resolved through, so a file that names none has to
+			// The id every launch goes through, so a file that names none has to
 			// end up on one rather than leaving creates to be refused.
 			name:      "a file that names no harness still lands on the default one",
 			file:      "[keybindings.nav]\nup = [\"w\"]\n",
@@ -94,7 +94,7 @@ func TestLoad(t *testing.T) {
 			cfg, err := Load(path)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantFlags, cfg.Harness.Claude.Flags)
-			assert.Equal(t, DefaultHarness, cfg.DefaultHarness, "a launch is resolved through this, so it is never empty")
+			assert.Equal(t, DefaultHarness, cfg.DefaultHarness, "a launch goes through this, so it is never empty")
 			assert.Equal(t, tt.wantNavUp, cfg.Keybindings.Nav.Up)
 			assert.Equal(t, DefaultKeybindings().Nav.Down, cfg.Keybindings.Nav.Down, "unset bindings still default")
 			assert.Equal(t, DefaultKeybindings().Agents.Open, cfg.Keybindings.Agents.Open, "an untouched panel still defaults")
@@ -369,7 +369,7 @@ func TestLoadDanglingSymlink(t *testing.T) {
 
 	_, err := Load(path)
 
-	require.Error(t, err, "a link resolving to nothing is not the same as having no config")
+	require.Error(t, err, "a link pointing at nothing is not the same as having no config")
 	assert.Contains(t, err.Error(), path, "the link to go and repoint is named")
 	assert.Contains(t, err.Error(), target, "what it points at is named, since that is the part that is missing")
 }
@@ -451,14 +451,14 @@ func TestLoadLogLevel(t *testing.T) {
 }
 
 // TestContextFile covers where the standing text every agent is started with is read from.
-// The default is resolved at read time rather than written into the generated config,
+// The default is filled in at read time rather than written into the generated config,
 // since one machine's home directory would be wrong on every other machine.
 func TestContextFile(t *testing.T) {
 	tests := []struct {
 		name string
 		file string
 		// want is the exact path when the config names one, and wantSuffix is what the
-		// resolved default has to end in.
+		// filled-in default has to end in.
 		want       string
 		wantSuffix string
 	}{

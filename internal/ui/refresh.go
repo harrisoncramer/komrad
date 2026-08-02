@@ -115,7 +115,7 @@ func (m *model) applyRefresh(result refreshResult) {
 	m.unreachable = result.err()
 
 	// Both cursors are read off the trees still on screen. Every listing feeds one of them,
-	// so the first to land moves rows out from under a cursor not resolved yet.
+	// so the first to land moves rows out from under a cursor not placed yet.
 	treeRow := rowKeyAt(m.agentRows(), m.tree.cursor)
 	archiveRow := rowKeyAt(m.archiveRows(), m.archive.cursor)
 
@@ -169,7 +169,7 @@ func (r refreshResult) err() error {
 	}
 }
 
-// writeResult is a write that has landed. Every write the panel makes resolves to one of
+// writeResult is a write that has landed. Every write the panel makes ends in one of
 // these, so reporting a refusal and re-listing after a success happen in one place.
 type writeResult struct {
 	// summary is what the banner says if the write was refused. err is nil when it was
@@ -187,7 +187,7 @@ type resumedAgent struct {
 	name string
 }
 
-// writeCmd runs a write off the render loop and resolves to the message that reports it,
+// writeCmd runs a write off the render loop and returns the message that reports it,
 // so a wedged server costs the write rather than every frame until it answers. It takes
 // the service clients rather than the panel, so nothing the render loop is still editing
 // crosses onto the other goroutine.

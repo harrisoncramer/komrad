@@ -95,21 +95,21 @@ func (m model) updateActions(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
 	switch {
-	case bound(k, m.keys.Actions.Quit):
+	case isBound(k, m.keys.Actions.Quit):
 		return m, m.hide()
-	case bound(k, m.keys.Actions.Back):
+	case isBound(k, m.keys.Actions.Back):
 		return m.returnToAgents()
-	case bound(k, m.keys.Nav.Up):
+	case isBound(k, m.keys.Nav.Up):
 		if m.actions.cursor > 0 {
 			m.actions.cursor--
 			m.stageAction()
 		}
-	case bound(k, m.keys.Nav.Down):
+	case isBound(k, m.keys.Nav.Down):
 		if m.actions.cursor < len(m.actions.items)-1 {
 			m.actions.cursor++
 			m.stageAction()
 		}
-	case bound(k, m.keys.Actions.Run):
+	case isBound(k, m.keys.Actions.Run):
 		return m.runSelectedAction()
 	}
 

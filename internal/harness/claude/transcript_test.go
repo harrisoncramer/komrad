@@ -159,7 +159,7 @@ func TestReadLog(t *testing.T) {
 }
 
 // TestGetLogPath covers finding a conversation by its session id. The id is globbed
-// for rather than resolved through Claude's directory-name encoding, so a log lands
+// for rather than derived from Claude's directory-name encoding, so a log lands
 // whichever folder it was written in.
 func TestGetLogPath(t *testing.T) {
 	projects := t.TempDir()

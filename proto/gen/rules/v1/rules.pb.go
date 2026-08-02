@@ -78,7 +78,7 @@ var (
 	//
 	// optional bool shell_safe = 50100;
 	E_ShellSafe = &file_rules_v1_rules_proto_extTypes[0]
-	// A path that resolves the same wherever it is read from.
+	// A path that means the same wherever it is read from.
 	//
 	// optional bool absolute_path = 50101;
 	E_AbsolutePath = &file_rules_v1_rules_proto_extTypes[1]
