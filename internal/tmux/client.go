@@ -296,9 +296,33 @@ func (c *Client) CapturePane(pane string) string {
 	return out
 }
 
+// query runs a tmux command and returns its stdout. A failure carries the command that
+// failed and whatever tmux wrote to stderr, since an exit status on its own says neither
+// which call broke nor why, and these run on a loop where nobody is watching.
 func (c *Client) query(args ...string) (string, error) {
 	out, err := exec.Command("tmux", slices.Concat(c.server, args)...).Output()
-	return strings.TrimSpace(string(out)), err
+	if err != nil {
+		return strings.TrimSpace(string(out)), fmt.Errorf("tmux %s: %w%s",
+			strings.Join(slices.Concat(c.server, args), " "), err, stderrDetail(err))
+	}
+
+	return strings.TrimSpace(string(out)), nil
+}
+
+// stderrDetail renders what a failed command wrote to stderr, blank when it wrote
+// nothing. Output collects it on the ExitError rather than in the error's own text.
+func stderrDetail(err error) string {
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		return ""
+	}
+
+	detail := strings.TrimSpace(string(exitErr.Stderr))
+	if detail == "" {
+		return ""
+	}
+
+	return ": " + detail
 }
 
 func (c *Client) run(args ...string) {
