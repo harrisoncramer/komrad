@@ -51,6 +51,28 @@ func TestParseCron(t *testing.T) {
 			timezone:   "Mars/Olympus",
 			wantErr:    true,
 		},
+		{
+			// A day the month does not have parses cleanly and then never comes
+			// round, which is worse than a syntax error: it is stored, registered,
+			// and only found when something has to name the firing.
+			name:       "a February the thirtieth",
+			expression: "0 0 30 2 *",
+			wantErr:    true,
+		},
+		{
+			name:       "a February the thirty-first",
+			expression: "0 0 31 2 *",
+			wantErr:    true,
+		},
+		{
+			name:       "an April the thirty-first",
+			expression: "0 0 31 4 *",
+			wantErr:    true,
+		},
+		{
+			name:       "while the thirty-first of a month that has one is fine",
+			expression: "0 0 31 1 *",
+		},
 	}
 
 	for _, tt := range tests {
@@ -143,6 +165,11 @@ func TestNewSchedule(t *testing.T) {
 		{
 			name:    "nor does an unknown timezone",
 			cfg:     schedule.Config{Name: "elsewhere", Cron: "0 9 * * *", Timezone: "Mars/Olympus", Prompt: "go"},
+			wantErr: ErrBadCron,
+		},
+		{
+			name:    "nor does a date the calendar never reaches",
+			cfg:     schedule.Config{Name: "leap", Cron: "0 0 30 2 *", Prompt: "go"},
 			wantErr: ErrBadCron,
 		},
 	}

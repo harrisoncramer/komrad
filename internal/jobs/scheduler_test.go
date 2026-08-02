@@ -11,6 +11,7 @@ import (
 	schedulestore "weave/internal/store/schedule"
 
 	"github.com/riverqueue/river"
+	robfig "github.com/robfig/cron/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -356,4 +357,63 @@ func TestOccurrenceFor(t *testing.T) {
 			assert.Equal(t, tt.want, occurrenceFor(cron, tt.at).UTC())
 		})
 	}
+}
+
+// neverOccurring are dates the calendar does not have. They parse, and then the library
+// searches five years, finds nothing, and reports the zero time. The expressions are built
+// here rather than through agents.ParseCron, which refuses them, since what is under test
+// is what happens when one reaches the scheduler anyway.
+var neverOccurring = []string{"0 0 30 2 *", "0 0 31 2 *", "0 0 31 4 *"}
+
+// TestOccurrenceForNeverOccurs covers the walk over a schedule that has no occurrence.
+// Every step of it comes back as the zero time, which is never after the cutoff, so
+// without a stop the walk spins inside River's enqueuer and no schedule fires again.
+func TestOccurrenceForNeverOccurs(t *testing.T) {
+	for _, expression := range neverOccurring {
+		t.Run(expression, func(t *testing.T) {
+			schedule, err := robfig.ParseStandard(expression)
+			require.NoError(t, err, "the expression parses, which is what puts it here")
+
+			returned := make(chan time.Time, 1)
+			go func() { returned <- occurrenceFor(schedule, time.Now()) }()
+
+			select {
+			case got := <-returned:
+				assert.True(t, got.IsZero(), "a schedule with no occurrence names none")
+			case <-time.After(3 * time.Second):
+				t.Fatal("occurrenceFor did not return within 3s: it is spinning")
+			}
+		})
+	}
+}
+
+// TestLaunchArgsForNeverOccurs covers what such a schedule queues. Nothing, since a firing
+// filed under the zero time stands for no occurrence and every later one would dedup into
+// the first.
+func TestLaunchArgsForNeverOccurs(t *testing.T) {
+	for _, expression := range neverOccurring {
+		t.Run(expression, func(t *testing.T) {
+			schedule, err := robfig.ParseStandard(expression)
+			require.NoError(t, err)
+
+			args, _ := launchArgsFor("s1", schedule, time.Now())
+			assert.Nil(t, args)
+		})
+	}
+}
+
+// TestLaunchArgsForOccurrence covers the ordinary case, where the arguments name the
+// schedule and the firing they stand for.
+func TestLaunchArgsForOccurrence(t *testing.T) {
+	nine := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
+
+	cron, err := agents.ParseCron("0 9 * * *", "UTC")
+	require.NoError(t, err)
+
+	args, _ := launchArgsFor("s1", cron, nine.Add(30*time.Minute))
+	launch, ok := args.(LaunchAgentArgs)
+	require.True(t, ok)
+
+	assert.Equal(t, "s1", launch.ScheduleID)
+	assert.Equal(t, nine, launch.ScheduledFor.UTC())
 }

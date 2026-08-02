@@ -182,6 +182,12 @@ func normalize(cfg schedule.Config) (schedule.Config, error) {
 // empty zone is the machine's local one, which is what a person writing "9am" on their
 // laptop means. The zone is checked before parsing, so an unknown one is reported as such
 // rather than as a syntax error about the TZ prefix it is read through.
+//
+// Syntax is not enough on its own. A date the calendar never reaches, February the
+// thirtieth being the plain case, parses as readily as any other and then never comes
+// round, which the library reports as the zero time. Refusing it here means it is caught
+// where it is written rather than surviving in the table for everything downstream to trip
+// over.
 func ParseCron(expression, timezone string) (cron.Schedule, error) {
 	if timezone != "" {
 		if _, err := time.LoadLocation(timezone); err != nil {
@@ -193,6 +199,10 @@ func ParseCron(expression, timezone string) (cron.Schedule, error) {
 	parsed, err := cron.ParseStandard(expression)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %q: %w", ErrBadCron, expression, err)
+	}
+
+	if parsed.Next(time.Now()).IsZero() {
+		return nil, fmt.Errorf("%w: %q never occurs", ErrBadCron, expression)
 	}
 
 	return parsed, nil

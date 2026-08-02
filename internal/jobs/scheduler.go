@@ -144,14 +144,22 @@ func (s *Scheduler) Reconcile(ctx context.Context) error {
 func periodicJobFor(scheduleID string, cron river.PeriodicSchedule) *river.PeriodicJob {
 	return river.NewPeriodicJob(
 		cron,
-		func() (river.JobArgs, *river.InsertOpts) {
-			return LaunchAgentArgs{
-				ScheduleID:   scheduleID,
-				ScheduledFor: occurrenceFor(cron, time.Now()),
-			}, nil
-		},
+		func() (river.JobArgs, *river.InsertOpts) { return launchArgsFor(scheduleID, cron, time.Now()) },
 		&river.PeriodicJobOpts{ID: scheduleID},
 	)
+}
+
+// launchArgsFor is what River's enqueuer builds each time the schedule comes round. A
+// schedule with no occurrence to name queues nothing, which River takes nil arguments to
+// mean, since a firing filed under the zero time stands for none and every later one would
+// dedup into the first.
+func launchArgsFor(scheduleID string, cron river.PeriodicSchedule, now time.Time) (river.JobArgs, *river.InsertOpts) {
+	occurrence := occurrenceFor(cron, now)
+	if occurrence.IsZero() {
+		return nil, nil
+	}
+
+	return LaunchAgentArgs{ScheduleID: scheduleID, ScheduledFor: occurrence}, nil
 }
 
 // lateness is how long after a firing was due the job standing for it may still be built.
@@ -172,13 +180,21 @@ const skew = 5 * time.Second
 //
 // It walks forward rather than back because a cron schedule can only say what comes next,
 // starting far enough behind that no plausible lateness precedes it.
+//
+// A schedule with nothing left to fire on reports the zero time, which is never after the
+// cutoff, so both ends of the walk stop on it rather than asking for a step that cannot
+// come. There is no occurrence to name in that case, and the zero time says so.
 func occurrenceFor(cron river.PeriodicSchedule, now time.Time) time.Time {
 	cutoff := now.Add(skew)
 
 	occurrence := cron.Next(now.Add(-lateness))
+	if occurrence.IsZero() {
+		return time.Time{}
+	}
+
 	for {
 		next := cron.Next(occurrence)
-		if next.After(cutoff) {
+		if next.IsZero() || next.After(cutoff) {
 			return occurrence
 		}
 
