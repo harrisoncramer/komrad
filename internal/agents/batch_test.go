@@ -375,3 +375,23 @@ func seedRunningIn(t *testing.T, st *testStore, tmux paneStamper, workflowID, na
 
 	return agent
 }
+
+// TestArchiveAgentsNamesOnlyTheFirstMissing covers the refusal a large batch produces. A
+// hundred ids that matched nothing would otherwise put four kilobytes of uuids into a panel
+// banner and into whatever a model reads back.
+func TestArchiveAgentsNamesOnlyTheFirstMissing(t *testing.T) {
+	st := newStore(t)
+	manager := newManager(newFakeTmux(), st, "")
+
+	ids := make([]string, 0, 20)
+	for range 20 {
+		ids = append(ids, uuid.NewString())
+	}
+
+	err := manager.ArchiveAgents(t.Context(), ids)
+
+	require.ErrorIs(t, err, ErrAgentNotFound)
+	assert.ErrorContains(t, err, ids[0], "the first few are named")
+	assert.ErrorContains(t, err, "and 15 more", "and the rest are counted")
+	assert.NotContains(t, err.Error(), ids[19], "rather than spelled out")
+}

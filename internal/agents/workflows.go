@@ -221,19 +221,20 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 func requireNamesFree(ctx context.Context, agents agentNamer, archived []agentstore.Agent) error {
 	returning := make(map[agentName]int, len(archived))
 	for _, agent := range archived {
-		returning[nameOf(agent)]++
+		returning[agentName{workflowID: agent.WorkflowID, name: agent.Name}]++
 	}
 
 	var clashing []string
 	checked := make(map[agentName]bool, len(archived))
 
 	for _, agent := range archived {
-		if checked[nameOf(agent)] {
+		claimed := agentName{workflowID: agent.WorkflowID, name: agent.Name}
+		if checked[claimed] {
 			continue
 		}
-		checked[nameOf(agent)] = true
+		checked[claimed] = true
 
-		if returning[nameOf(agent)] > 1 {
+		if returning[claimed] > 1 {
 			clashing = append(clashing, agent.Name)
 
 			continue
@@ -259,8 +260,4 @@ func requireNamesFree(ctx context.Context, agents agentNamer, archived []agentst
 type agentName struct {
 	workflowID string
 	name       string
-}
-
-func nameOf(agent agentstore.Agent) agentName {
-	return agentName{workflowID: agent.WorkflowID, name: agent.Name}
 }

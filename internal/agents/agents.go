@@ -382,10 +382,10 @@ func (s *AgentService) ArchiveAgents(ctx context.Context, ids []string) error {
 // agent listed under a workflow nothing lists would get no row anywhere.
 //
 // It is all or nothing. A name a live agent has taken since is refused rather than worked
-// around, as is a batch too big for the ceiling: the panel would otherwise hand back an
-// agent under a name nobody chose, and which of the two keeps the name is the user's to
-// decide. The refusal names what is in the way so it can be cleared and the key pressed
-// again.
+// around, since the panel would otherwise hand back an agent under a name nobody chose,
+// and which of the two keeps the name is the user's to decide. A batch too big for the
+// ceiling is refused whole for the same reason. Either refusal names what is in the way so
+// it can be cleared and the key pressed again.
 func (s *AgentService) RestoreAgents(ctx context.Context, ids []string) ([]agentstore.Agent, error) {
 	agents, err := s.requireEveryAgent(ctx, ids)
 	if err != nil {
@@ -405,21 +405,20 @@ func (s *AgentService) RestoreAgents(ctx context.Context, ids []string) ([]agent
 	}
 
 	err = s.tx.InTx(ctx, func(db store.DBTX) error {
-		stored := agentstore.New(db)
+		agentStore, workflowStore := agentstore.New(db), workflow.New(db)
 
-		if err := requireRoomForAgents(ctx, stored, s.maxAgents, len(archived)); err != nil {
+		if err := requireRoomForAgents(ctx, agentStore, s.maxAgents, len(archived)); err != nil {
 			return err
 		}
-		if err := requireNamesFree(ctx, stored, archived); err != nil {
+		if err := requireNamesFree(ctx, agentStore, archived); err != nil {
 			return err
 		}
-		if err := stored.Restore(ctx, agentIDs(archived)); err != nil {
+		if err := agentStore.Restore(ctx, agentIDs(archived)); err != nil {
 			return err
 		}
 
-		workflows := workflow.New(db)
 		for _, id := range workflowIDs(archived) {
-			if err := workflows.Restore(ctx, id); err != nil {
+			if err := workflowStore.Restore(ctx, id); err != nil {
 				return err
 			}
 		}
@@ -457,7 +456,23 @@ func (s *AgentService) requireEveryAgent(ctx context.Context, ids []string) ([]a
 		}
 	}
 
-	return nil, fmt.Errorf("%w: %s", ErrAgentNotFound, strings.Join(missing, ", "))
+	return nil, fmt.Errorf("%w: %s", ErrAgentNotFound, describeMissing(missing))
+}
+
+// namedMissing is how many ids a refusal spells out before it starts counting. A batch may
+// carry a hundred, and a message naming every one of them is drawn into a panel banner and
+// read back by a model.
+const namedMissing = 5
+
+// describeMissing names the ids a batch could not find, counting the rest. What a caller
+// does about it is the same whether five are missing or ninety, so the first few are enough
+// to recognise the mistake by.
+func describeMissing(missing []string) string {
+	if len(missing) <= namedMissing {
+		return strings.Join(missing, ", ")
+	}
+
+	return fmt.Sprintf("%s, and %d more", strings.Join(missing[:namedMissing], ", "), len(missing)-namedMissing)
 }
 
 // agentIDs is the ids of a set of agents, which is what the calls keyed on a list take.
