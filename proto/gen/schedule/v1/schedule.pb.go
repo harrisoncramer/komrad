@@ -331,9 +331,9 @@ func (x *GetScheduleResponse) GetSchedule() *Schedule {
 
 type CreateScheduleRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Control characters are refused for the same reason an agent's title refuses
-	// them. A firing launches the agent under this name, so a name tmux cannot open
-	// a window for would fail every occurrence rather than just look wrong.
+	// Control characters are refused rather than sanitised. A firing launches an agent
+	// under this name and the name becomes the tmux window name, so accepting one here
+	// would fail every occurrence of the schedule.
 	Name          string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Cron          string `protobuf:"bytes,2,opt,name=cron,proto3" json:"cron,omitempty"`
 	Timezone      string `protobuf:"bytes,3,opt,name=timezone,proto3" json:"timezone,omitempty"`

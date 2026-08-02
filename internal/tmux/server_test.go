@@ -107,11 +107,9 @@ func TestNewWindowRepeatedly(t *testing.T) {
 }
 
 // TestNewWindowRefusesAControlCharacter records the constraint every agent name is
-// sanitized for. tmux refuses the name outright and opens nothing, so a name that reaches
-// here carrying one is a launch that cannot be made to work by trying it again.
-//
-// This needs a real tmux server, since the rule belongs to tmux and nothing standing in
-// for it can say what it is.
+// sanitized for. tmux opens nothing and answers with an error, so a name that reaches here
+// carrying one is a launch that trying again cannot fix. The rule belongs to tmux, so only
+// a real server can say what it is.
 func TestNewWindowRefusesAControlCharacter(t *testing.T) {
 	client := testServer(t, "weave")
 

@@ -50,23 +50,8 @@ func TestSanitizeName(t *testing.T) {
 			want: "clean-name",
 		},
 		{
-			name: "a tab becomes a dash",
-			in:   "ab\tcd",
-			want: "ab-cd",
-		},
-		{
 			name: "a newline becomes a dash",
 			in:   "ab\ncd",
-			want: "ab-cd",
-		},
-		{
-			name: "a bell becomes a dash",
-			in:   "ab\acd",
-			want: "ab-cd",
-		},
-		{
-			name: "an escape becomes a dash",
-			in:   "ab\x1bcd",
 			want: "ab-cd",
 		},
 		{

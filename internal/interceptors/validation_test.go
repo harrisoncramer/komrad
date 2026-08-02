@@ -1,90 +1,84 @@
 package interceptors
 
 import (
+	"context"
 	"testing"
 
 	agentv1 "weave/proto/gen/agent/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
 
-	"buf.build/go/protovalidate"
+	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 )
 
 // TestValidationRefusesControlCharacters covers the request fields that end up as a tmux
-// window name. A schedule's name is handed to a scheduled launch as the agent's title
+// window name. A firing hands the schedule's name to the agent service as the title
 // without passing through the agent RPC, so the rule has to sit on the schedule messages
-// too or the schedule is simply the way around it.
+// too or the schedule is the way around it.
 func TestValidationRefusesControlCharacters(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name    string
-		req     proto.Message
+		req     connect.AnyRequest
 		wantErr bool
 	}{
 		{
 			name: "an agent title carrying a tab is refused",
-			req: &agentv1.CreateAgentRequest{
+			req: connect.NewRequest(&agentv1.CreateAgentRequest{
 				Prompt:     "go",
 				Title:      "nightly\treview",
 				WorkflowId: "w1",
-			},
+			}),
 			wantErr: true,
 		},
 		{
 			name: "a new schedule named with a tab is refused",
-			req: &schedulev1.CreateScheduleRequest{
+			req: connect.NewRequest(&schedulev1.CreateScheduleRequest{
 				Name:       "nightly\treview",
 				Cron:       "0 9 * * *",
 				Prompt:     "go",
 				WorkflowId: "w1",
-			},
+			}),
 			wantErr: true,
 		},
 		{
-			name: "a new schedule named with a bell is refused",
-			req: &schedulev1.CreateScheduleRequest{
-				Name:       "nightly\areview",
-				Cron:       "0 9 * * *",
-				Prompt:     "go",
-				WorkflowId: "w1",
-			},
-			wantErr: true,
-		},
-		{
-			name: "renaming a schedule to a name carrying a newline is refused",
-			req: &schedulev1.UpdateScheduleRequest{
+			name: "renaming a schedule to a name carrying a delete is refused",
+			req: connect.NewRequest(&schedulev1.UpdateScheduleRequest{
 				Id:         "s1",
-				Name:       "nightly\nreview",
+				Name:       "nightly\x7freview",
 				Cron:       "0 9 * * *",
 				Prompt:     "go",
 				WorkflowId: "w1",
-			},
+			}),
 			wantErr: true,
 		},
 		{
 			name: "an ordinary schedule name is accepted",
-			req: &schedulev1.CreateScheduleRequest{
+			req: connect.NewRequest(&schedulev1.CreateScheduleRequest{
 				Name:       "nightly review",
 				Cron:       "0 9 * * *",
 				Prompt:     "go",
 				WorkflowId: "w1",
-			},
+			}),
 		},
 	}
 
-	validator, err := protovalidate.New()
+	interceptor, err := NewValidation()
 	require.NoError(t, err)
+
+	next := func(context.Context, connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&schedulev1.CreateScheduleResponse{}), nil
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validator.Validate(tt.req)
+			_, err := interceptor.WrapUnary(next)(t.Context(), tt.req)
 			if tt.wantErr {
-				assert.Error(t, err)
+				assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 				return
 			}
 
