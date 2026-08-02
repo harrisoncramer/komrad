@@ -9,8 +9,10 @@
 package jobs
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"weave/db"
@@ -40,9 +42,8 @@ type ClientParams struct {
 	Pool      *pgxpool.Pool
 	Schedules ScheduleReader
 	Agents    AgentLauncher
-	// Running answers whether a schedule's last agent is still going, which is
-	// what stops a slow run being lapped by the next tick.
-	Running RunningAgentCounter
+	Running   RunningAgentCounter
+	Logger    *slog.Logger
 }
 
 // NewClient builds the River client with the launch worker registered. It starts
@@ -55,6 +56,7 @@ func NewClient(p ClientParams) (*river.Client[pgx.Tx], error) {
 	client, err := river.NewClient(riverpgxv5.New(p.Pool), &river.Config{
 		Schema:      db.RiverSchema,
 		Workers:     workers,
+		Logger:      cmp.Or(p.Logger, slog.Default()),
 		MaxAttempts: maxAttempts,
 		JobTimeout:  jobTimeout,
 		Queues: map[string]river.QueueConfig{
