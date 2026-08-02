@@ -502,8 +502,8 @@ func TestRunActionLogsWhatItDid(t *testing.T) {
 		wantFields map[string]any
 	}{
 		{
-			name:      "one that worked stays out of the way",
-			wantLevel: "DEBUG",
+			name:      "one that worked is still an account of a run",
+			wantLevel: "INFO",
 			wantBody:  "action finished",
 			wantFields: map[string]any{
 				"process.exit.code":     float64(0),
@@ -540,8 +540,15 @@ func TestRunActionLogsWhatItDid(t *testing.T) {
 
 			require.NoError(t, actionService(t, dir, runner).RunAction(ctx, "a1", "cleanup"))
 
-			got := recordFor(t, records(), tt.wantBody)
+			written := records()
+
+			began := recordFor(t, written, "action started")
+			assert.Equal(t, "INFO", began["severity_text"])
+			assert.Equal(t, "cleanup", began["weave.action.name"])
+
+			got := recordFor(t, written, tt.wantBody)
 			assert.Equal(t, tt.wantLevel, got["severity_text"])
+			assert.Contains(t, got, "duration_ms", "how long it took is on the end of every run")
 			for field, want := range tt.wantFields {
 				if want == nil {
 					assert.NotContains(t, got, field)
@@ -549,6 +556,72 @@ func TestRunActionLogsWhatItDid(t *testing.T) {
 					continue
 				}
 
+				assert.Equal(t, want, got[field], field)
+			}
+		})
+	}
+}
+
+// TestSetupActionLogsBothEnds covers the account of an action something is waiting on. The
+// refusal travels back to whoever asked for the launch, so the log's job here is saying a run
+// happened and what came of it, which is the half nothing else records.
+func TestSetupActionLogsBothEnds(t *testing.T) {
+	tests := []struct {
+		name       string
+		result     runResult
+		wantFields map[string]any
+	}{
+		{
+			name: "one that refused is recorded as the end of the run",
+			result: runResult{
+				stderr:   "fatal: 'api-auth' is already checked out\n",
+				exitCode: 2,
+				err:      actions.ErrFailed,
+			},
+			wantFields: map[string]any{
+				"process.exit.code":    float64(2),
+				"weave.action.stderr":  "fatal: 'api-auth' is already checked out",
+				"weave.action.trigger": TriggerSetup,
+			},
+		},
+		{
+			name:   "one that worked carries what it said about itself",
+			result: runResult{stdout: "/repo/.worktrees/auth\n", stderr: "cloning\n"},
+			wantFields: map[string]any{
+				"process.exit.code":     float64(0),
+				"weave.action.stderr":   "cloning",
+				"weave.action.name":     "make-worktree",
+				"weave.action.agent.id": "a1",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "make-worktree"), []byte("#!/bin/sh\n"), 0o755))
+
+			runner := &recordingRunner{results: map[string]runResult{"make-worktree": tt.result}}
+			ctx, records := loggedContext(t)
+
+			_, err := actionService(t, dir, runner).
+				RunSetupAction(ctx, agentstore.Agent{ID: "a1", Cwd: "/repo"}, "make-worktree")
+			if tt.result.err != nil {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+
+			written := records()
+
+			began := recordFor(t, written, "action started")
+			assert.Equal(t, "INFO", began["severity_text"])
+			assert.Equal(t, TriggerSetup, began["weave.action.trigger"])
+
+			got := recordFor(t, written, "action finished")
+			assert.Equal(t, "INFO", got["severity_text"], "the caller reports the refusal, this says a run happened")
+			assert.Contains(t, got, "duration_ms")
+			for field, want := range tt.wantFields {
 				assert.Equal(t, want, got[field], field)
 			}
 		})
@@ -741,5 +814,9 @@ func (r *recordingRunner) RunAndWait(_ context.Context, p actions.RunParams) (ac
 
 	answer := r.results[p.Action.Name]
 
-	return actions.Result{Stdout: []byte(answer.stdout), Stderr: []byte(answer.stderr)}, answer.err
+	return actions.Result{
+		Stdout:   []byte(answer.stdout),
+		Stderr:   []byte(answer.stderr),
+		ExitCode: answer.exitCode,
+	}, answer.err
 }

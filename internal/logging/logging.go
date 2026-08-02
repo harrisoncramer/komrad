@@ -61,7 +61,9 @@ const (
 	// AgentID: a model firing an action on another agent is two different agents.
 	ActionAgentID  = "weave.action.agent.id"
 	ActionAgentCwd = "weave.action.agent.cwd"
-	// ActionStderr is the tail of what a failing action said about itself.
+	// ActionStderr is the tail of what an action said about itself. An action waited on
+	// carries it whether or not it worked, since stderr is where its progress belongs and
+	// that is worth keeping; one nothing waits on carries it only when it failed.
 	ActionStderr = "weave.action.stderr"
 	// WorkflowID names the workflow a line is about.
 	WorkflowID = "weave.workflow.id"
