@@ -8,6 +8,7 @@ import (
 	configv1 "weave/proto/gen/config/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
+	"weave/internal/rpcapi"
 	"weave/lib/xptr"
 
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -39,7 +40,7 @@ func TestEveryMethodIsAnnotated(t *testing.T) {
 			for i := range service.Methods().Len() {
 				method := service.Methods().Get(i)
 
-				annotation := toolAnnotation(method)
+				annotation := rpcapi.GetToolAnnotation(method)
 				require.NotNil(t, annotation, "method %s has no tool annotation", method.Name())
 				assert.NotEmpty(t, annotation.GetDescription(), "tool %s needs a description", annotation.GetToolName())
 			}
@@ -73,7 +74,7 @@ func TestToolHints(t *testing.T) {
 			method := service.Methods().ByName(protoreflect.Name(tt.method))
 			require.NotNil(t, method)
 
-			hints := toolHints(method, toolAnnotation(method))
+			hints := toolHints(method, rpcapi.GetToolAnnotation(method))
 			assert.Equal(t, tt.readOnly, hints.ReadOnlyHint)
 			assert.Equal(t, tt.idempotent, hints.IdempotentHint)
 

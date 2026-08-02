@@ -119,6 +119,7 @@ func NewRootCommand() *cobra.Command {
 		versionCmd(app),
 		migrateCmd(app),
 		readonlyRoleCmd(app),
+		rpcCmd(app),
 	)
 
 	return root

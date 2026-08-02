@@ -10,20 +10,13 @@ import (
 	"strings"
 	"time"
 
-	actionv1 "weave/proto/gen/action/v1"
-	agentv1 "weave/proto/gen/agent/v1"
 	annotationv1 "weave/proto/gen/annotation/v1"
-	configv1 "weave/proto/gen/config/v1"
-	schedulev1 "weave/proto/gen/schedule/v1"
-	workflowv1 "weave/proto/gen/workflow/v1"
 
-	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/types/descriptorpb"
 
 	"weave/internal/caller"
+	"weave/internal/rpcapi"
 )
 
 // callTimeout bounds a single RPC invoked through a tool. Creating an agent opens a tmux
@@ -39,9 +32,9 @@ type rpcTools struct {
 	client  *http.Client
 }
 
-// registerRPCTools adds one MCP tool per annotated method across every service the server
-// exposes. A method without the annotation is not registered, so widening the tool surface
-// is an edit to the proto rather than a side effect of adding an RPC.
+// registerRPCTools adds one MCP tool per exposed method. What is exposed is rpcapi's to
+// say, so widening the tool surface is an edit to the proto rather than a side effect of
+// adding an RPC.
 func registerRPCTools(server *mcpsdk.Server, baseURL string) error {
 	// The transport carries whoever the served request is from onto the call this makes
 	// on their behalf, so an RPC reached through a tool is logged as the agent that asked
@@ -51,89 +44,29 @@ func registerRPCTools(server *mcpsdk.Server, baseURL string) error {
 		client:  &http.Client{Timeout: callTimeout, Transport: caller.Transport(nil)},
 	}
 
-	// Every service the server exposes is listed here, and its methods appear as tools
-	// only if they are annotated.
-	files := []protoreflect.FileDescriptor{
-		agentv1.File_agent_v1_agent_proto,
-		workflowv1.File_workflow_v1_workflow_proto,
-		schedulev1.File_schedule_v1_schedule_proto,
-		configv1.File_config_v1_config_proto,
-		actionv1.File_action_v1_action_proto,
-	}
-
-	for _, file := range files {
-		for s := range file.Services().Len() {
-			if err := tools.registerService(server, file.Services().Get(s)); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-// registerService adds one tool per annotated method on a service.
-func (r *rpcTools) registerService(server *mcpsdk.Server, service protoreflect.ServiceDescriptor) error {
-	for i := range service.Methods().Len() {
-		method := service.Methods().Get(i)
-
-		annotation := toolAnnotation(method)
-		if annotation == nil {
-			continue
-		}
-
-		schema, err := inputSchema(method.Input())
+	for exposed := range rpcapi.GetMethods() {
+		schema, err := inputSchema(exposed.Method.Input())
 		if err != nil {
-			return fmt.Errorf("failed to build input schema for %s: %w", method.Name(), err)
+			return fmt.Errorf("failed to build input schema for %s: %w", exposed.Method.Name(), err)
 		}
 
 		mcpsdk.AddTool(server, &mcpsdk.Tool{
-			Name:        annotation.GetToolName(),
-			Description: annotation.GetDescription(),
+			Name:        exposed.Annotation.GetToolName(),
+			Description: exposed.Annotation.GetDescription(),
 			InputSchema: schema,
-			Annotations: toolHints(method, annotation),
-		}, r.handler(string(service.FullName()), string(method.Name())))
+			Annotations: toolHints(exposed.Method, exposed.Annotation),
+		}, tools.handler(string(exposed.Service.FullName()), string(exposed.Method.Name())))
 	}
 
 	return nil
 }
 
-// toolAnnotation returns the method's tool annotation, nil when it has none and so is not
-// exposed.
-func toolAnnotation(method protoreflect.MethodDescriptor) *annotationv1.ToolAnnotation {
-	opts, ok := method.Options().(*descriptorpb.MethodOptions)
-	if !ok || !proto.HasExtension(opts, annotationv1.E_Tool) {
-		return nil
-	}
-
-	annotation, ok := proto.GetExtension(opts, annotationv1.E_Tool).(*annotationv1.ToolAnnotation)
-	if !ok || annotation.GetToolName() == "" {
-		return nil
-	}
-
-	return annotation
-}
-
-// toolHints derives the MCP behavior hints, letting the annotation override what the
-// method's idempotency level implies. A read-only tool leaves the destructive hint unset,
-// where the MCP spec says it carries no meaning.
+// toolHints derives the MCP behavior hints. A read-only tool leaves the destructive hint
+// unset, where the MCP spec says it carries no meaning.
 func toolHints(method protoreflect.MethodDescriptor, annotation *annotationv1.ToolAnnotation) *mcpsdk.ToolAnnotations {
-	level := descriptorpb.MethodOptions_IDEMPOTENCY_UNKNOWN
-	if opts, ok := method.Options().(*descriptorpb.MethodOptions); ok {
-		level = opts.GetIdempotencyLevel()
-	}
+	readOnly := rpcapi.IsReadOnly(method, annotation)
 
-	readOnly := level == descriptorpb.MethodOptions_NO_SIDE_EFFECTS
-	if annotation.ReadOnly != nil {
-		readOnly = annotation.GetReadOnly()
-	}
-
-	idempotent := level == descriptorpb.MethodOptions_IDEMPOTENT || level == descriptorpb.MethodOptions_NO_SIDE_EFFECTS
-	if annotation.Idempotent != nil {
-		idempotent = annotation.GetIdempotent()
-	}
-
-	hints := &mcpsdk.ToolAnnotations{ReadOnlyHint: readOnly, IdempotentHint: idempotent}
+	hints := &mcpsdk.ToolAnnotations{ReadOnlyHint: readOnly, IdempotentHint: rpcapi.IsIdempotent(method, annotation)}
 	if !readOnly {
 		destructive := true
 		if annotation.Destructive != nil {
@@ -177,7 +110,7 @@ func messageSchema(message protoreflect.MessageDescriptor, enclosing map[protore
 
 		name := field.JSONName()
 		properties[name] = property
-		if doesRejectEmpty(field) {
+		if rpcapi.IsRequired(field) {
 			required = append(required, name)
 		}
 	}
@@ -188,35 +121,6 @@ func messageSchema(message protoreflect.MessageDescriptor, enclosing map[protore
 	}
 
 	return schema, nil
-}
-
-// doesRejectEmpty reports whether the validation rules on a field would refuse an
-// empty value, which is what makes it required from a caller's point of view. A
-// field the proto marks optional is never required, since leaving it out is the
-// point of the keyword and its rules apply only once it is present.
-func doesRejectEmpty(field protoreflect.FieldDescriptor) bool {
-	if field.HasOptionalKeyword() {
-		return false
-	}
-
-	opts, ok := field.Options().(*descriptorpb.FieldOptions)
-	if !ok || !proto.HasExtension(opts, validate.E_Field) {
-		return false
-	}
-
-	rules, ok := proto.GetExtension(opts, validate.E_Field).(*validate.FieldRules)
-	if !ok {
-		return false
-	}
-	if rules.GetRequired() {
-		return true
-	}
-
-	// A minimum length is the usual way a string says it cannot be blank, and a
-	// minimum count is how a list says the same. CEL rules are not read, since what
-	// they accept is only knowable by running them, so a field guarded solely by CEL is
-	// advertised as optional and refused by the server if it is genuinely needed.
-	return rules.GetString().GetMinLen() > 0 || rules.GetRepeated().GetMinItems() > 0
 }
 
 // fieldSchema maps one field to its JSON Schema type. A repeated field becomes an
