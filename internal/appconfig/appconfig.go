@@ -727,7 +727,8 @@ func (c Config) GetContextFile() (string, error) {
 // a symlink pointing at nothing is, since that is a config someone meant to have.
 //
 // A key the Config struct does not know about is an error rather than silently dropped, so
-// a typo is reported rather than quietly doing nothing.
+// a typo is reported rather than quietly doing nothing. The error names it beside what its
+// table does take, since the panel shows that error in place of itself and nothing else.
 func Load(path string) (*Config, error) {
 	viperCfg := viper.New()
 	viperCfg.SetConfigType("toml")
@@ -765,10 +766,19 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed to read config %s: %w", file, err)
 	}
 
+	// The decoder is asked what it did not use rather than told to fail on it, since the
+	// error it raises for itself names the table as '' at the top level and lists nothing a
+	// key could have been instead.
 	var cfg Config
+	var decoded mapstructure.Metadata
+
 	if err := viperCfg.Unmarshal(&cfg, func(dc *mapstructure.DecoderConfig) {
-		dc.ErrorUnused = true
+		dc.Metadata = &decoded
 	}); err != nil {
+		return nil, fmt.Errorf("failed to parse config %s: %w", file, err)
+	}
+
+	if err := reportUnknownKeys(decoded.Unused); err != nil {
 		return nil, fmt.Errorf("failed to parse config %s: %w", file, err)
 	}
 

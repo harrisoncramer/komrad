@@ -126,6 +126,15 @@ func TestScreensFitTheirPane(t *testing.T) {
 			rendered: Config(narrowPane, err),
 		},
 		{
+			// A file with more than one key nothing answers to is reported a line per
+			// key, so the screen has to hold a detail that already has breaks in it.
+			name: "the config screen carrying a detail of several lines",
+			rendered: Config(narrowPane, errors.New(
+				"failed to parse config /home/u/.config/weave/config.toml: "+
+					"default_harnes is not a setting; the top level takes default_harness, max_agents\n"+
+					"layout.splitt is not a setting; [layout] takes split, secondary_split")),
+		},
+		{
 			name:     "the startup screen",
 			rendered: Startup(narrowPane, err),
 		},
@@ -152,14 +161,14 @@ func TestScreensFitTheirPane(t *testing.T) {
 // does not start, so this screen is all the reader gets: it has to carry the error
 // itself and name the file to go and fix.
 func TestConfig(t *testing.T) {
-	err := errors.New("failed to parse config /home/u/.config/weave/config.toml: 'keybindings' has invalid keys: list")
+	err := errors.New("failed to parse config /home/u/.config/weave/config.toml: keybindings.list is not a setting; [keybindings] takes actions, agents, archive, filter, form, help, nav, schedules, selection, workflows")
 
 	// The error wraps at the screen width, so the text is compared with its line
 	// breaks flattened away.
 	rendered := strings.Join(strings.Fields(Config(narrowPane, err)), " ")
 
 	assert.Contains(t, rendered, "Your configuration could not be read")
-	assert.Contains(t, rendered, "invalid keys: list")
+	assert.Contains(t, rendered, "keybindings.list is not a setting")
 	assert.Contains(t, rendered, "config.toml", "the file to go and fix is named")
 }
 
