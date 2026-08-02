@@ -79,6 +79,13 @@ type agentCounter interface {
 	CountLive(ctx context.Context) (int64, error)
 }
 
+// agentClaimer counts the live agents and can hold that count still, which is what a
+// caller about to write under the ceiling needs and a caller only reporting on it does not.
+type agentClaimer interface {
+	agentCounter
+	LockSlots(ctx context.Context) error
+}
+
 type agentNamer interface {
 	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
 }
@@ -273,7 +280,11 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		return nil, fmt.Errorf("failed to stamp the pane for %q: %w", plan.name, err)
 	}
 
-	if err := s.agents.Create(ctx, agentstore.Agent{
+	// The ceiling is claimed here rather than at the check above because the claim has to
+	// be held to the insert, and everything in between runs a setup action that may
+	// provision a worktree and opens a window, neither of which a transaction can span. A
+	// create that loses the claim here unwinds through the defers above.
+	if err := s.createUnderCeiling(ctx, agentstore.Agent{
 		ID:             id,
 		Name:           plan.name,
 		Pane:           pane,
@@ -288,9 +299,7 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		IdempotencyKey: idempotencyKey(p.IdempotencyKey),
 		Hidden:         p.Hidden,
 	}); err != nil {
-		// uniqueAgentName checks before inserting, so two calls racing on the same
-		// title both pass that check and one loses here.
-		return nil, fmt.Errorf("failed to record agent %q: %w", plan.name, err)
+		return nil, err
 	}
 
 	// The row is read back rather than returned from what was written, since the store
@@ -407,7 +416,7 @@ func (s *AgentService) RestoreAgents(ctx context.Context, ids []string) ([]agent
 	err = s.tx.InTx(ctx, func(db store.DBTX) error {
 		agentStore, workflowStore := agentstore.New(db), workflow.New(db)
 
-		if err := requireRoomForAgents(ctx, agentStore, s.maxAgents, len(archived)); err != nil {
+		if err := claimRoomForAgents(ctx, agentStore, s.maxAgents, len(archived)); err != nil {
 			return err
 		}
 		if err := requireNamesFree(ctx, agentStore, archived); err != nil {
@@ -568,6 +577,27 @@ func (s *AgentService) removeAgents(ctx context.Context, ids []string) error {
 	})
 }
 
+// createUnderCeiling records an agent on the same transaction that claims its slot, so a
+// create that found room is the one that takes it and a caller that arrived with the panel
+// already full is refused rather than landing beside the others.
+func (s *AgentService) createUnderCeiling(ctx context.Context, agent agentstore.Agent) error {
+	return s.tx.InTx(ctx, func(db store.DBTX) error {
+		agentStore := agentstore.New(db)
+
+		if err := claimRoomForAgents(ctx, agentStore, s.maxAgents, 1); err != nil {
+			return err
+		}
+
+		if err := agentStore.Create(ctx, agent); err != nil {
+			// uniqueAgentName checks before inserting, so two calls racing on the same
+			// title both pass that check and one loses here.
+			return fmt.Errorf("failed to record agent %q: %w", agent.Name, err)
+		}
+
+		return nil
+	})
+}
+
 // requireUsableDir reports whether an agent can actually be started in dir. Existence is not
 // enough: tmux silently falls back to its own default directory when it cannot enter
 // the one given to -c, leaving the agent somewhere other than its stored cwd.
@@ -591,8 +621,26 @@ func requireUsableDir(dir string) error {
 
 // requireRoomForAgent refuses a create once the panel is full, since creating one is a tool a
 // model can call in a loop and each agent is a real CLI in a real pane.
+//
+// It is the cheap refusal rather than the guarantee. Nothing holds the count still between
+// here and the insert, which is claimRoomForAgents' half; this earns its place by refusing
+// before a setup action has provisioned anything.
 func (s *AgentService) requireRoomForAgent(ctx context.Context) error {
 	return requireRoomForAgents(ctx, s.agents, s.maxAgents, 1)
+}
+
+// claimRoomForAgents takes room for want more agents and holds it until the caller's
+// transaction ends, so the count and the write it guards act as one. It has to be given a
+// store bound to that same transaction, or the lock is released before the write lands.
+func claimRoomForAgents(ctx context.Context, agents agentClaimer, maxAgents, want int) error {
+	if maxAgents <= 0 || want <= 0 {
+		return nil
+	}
+	if err := agents.LockSlots(ctx); err != nil {
+		return err
+	}
+
+	return requireRoomForAgents(ctx, agents, maxAgents, want)
 }
 
 // requireRoomForAgents refuses unless want more agents fit under the ceiling. A workflow restore

@@ -1,0 +1,62 @@
+package agents
+
+import (
+	"fmt"
+	"sync"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+// TestNewAgentCeilingUnderConcurrency drives more creates than fit, all at once, which is
+// how the panel is actually driven: an orchestrator issuing several create_agent calls in
+// one turn. Each agent past the ceiling is a real CLI in a real pane nobody agreed to, so
+// what is asserted is the count rather than any one caller's answer.
+func TestNewAgentCeilingUnderConcurrency(t *testing.T) {
+	t.Parallel()
+
+	const ceiling = 2
+	const callers = 8
+
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := st.agentServiceCapped(tmux, &fakeLifecycle{}, ceiling)
+	workflowID := seedWorkflow(t, st)
+	dir := t.TempDir()
+
+	var wg sync.WaitGroup
+	errs := make([]error, callers)
+
+	for i := range callers {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			// Distinct titles, so two callers losing a race for the same name is not
+			// what keeps the count down.
+			_, err := manager.NewAgent(t.Context(), NewAgentParams{
+				Title:      fmt.Sprintf("racer-%d", i),
+				Dir:        dir,
+				WorkflowID: workflowID,
+			})
+			errs[i] = err
+		}()
+	}
+
+	wg.Wait()
+
+	live, err := st.Agents.CountLive(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, int64(ceiling), live)
+
+	for i, err := range errs {
+		if err != nil {
+			require.ErrorIs(t, err, ErrTooManyAgents, "caller %d", i)
+		}
+	}
+
+	// A caller refused after its window was open has to take the window with it, or the
+	// ceiling holds in the table while the panes it was counting run anyway.
+	require.Len(t, tmux.owners, ceiling)
+}
