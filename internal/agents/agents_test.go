@@ -156,7 +156,7 @@ func TestNewAgent(t *testing.T) {
 			assert.NotEmpty(t, stored.SessionID, "a conversation id is pinned at launch")
 			assert.NotEmpty(t, tmux.lastKeys("%My-Agent"), "the agent is launched into the new pane")
 			assert.Equal(t, stored.ID, tmux.owners["%My-Agent"], "the pane is stamped with the agent it is running")
-			assert.True(t, manager.AgentRunning(*stored), "and the agent reads as running in it")
+			assert.True(t, manager.IsAgentRunning(*stored), "and the agent reads as running in it")
 		})
 	}
 }
@@ -1047,7 +1047,7 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 
 	t.Run("the dormant agent does not read as running", func(t *testing.T) {
 		manager, _, _, dormant := setup(t)
-		assert.False(t, manager.AgentRunning(dormant))
+		assert.False(t, manager.IsAgentRunning(dormant))
 	})
 
 	t.Run("archiving it leaves the pane running", func(t *testing.T) {
@@ -1155,12 +1155,12 @@ func TestRestore(t *testing.T) {
 			assert.Equal(t, agentstore.StateIdle, restored.State)
 			assert.Equal(t, "sess-old", restored.SessionID, "the conversation is preserved")
 			assert.Empty(t, tmux.owners, "a restore starts nothing, so no pane was opened")
-			assert.False(t, manager.AgentRunning(restored), "it comes back dormant, waiting to be resumed")
+			assert.False(t, manager.IsAgentRunning(restored), "it comes back dormant, waiting to be resumed")
 
 			resumed, err := manager.ResumeAgent(ctx, original.ID)
 			require.NoError(t, err)
 			assert.Equal(t, original.ID, tmux.owners[resumed.Pane], "resuming stamps the pane it came back in")
-			assert.True(t, manager.AgentRunning(*resumed), "so it reads as running again")
+			assert.True(t, manager.IsAgentRunning(*resumed), "so it reads as running again")
 		})
 	}
 }

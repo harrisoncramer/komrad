@@ -1076,9 +1076,9 @@ func (f *fakeLauncher) NewAgent(_ context.Context, p agents.NewAgentParams) (*ag
 	return f.created, nil
 }
 
-// AgentRunning answers for the fake's agents. Nothing here runs tmux, so an agent
+// IsAgentRunning answers for the fake's agents. Nothing here runs tmux, so an agent
 // is live exactly when the test says it is.
-func (f *fakeLauncher) AgentRunning(agentstore.Agent) bool { return f.alive }
+func (f *fakeLauncher) IsAgentRunning(agentstore.Agent) bool { return f.alive }
 
 // AgentsRunning answers a whole listing the same way, recording the call so a test can
 // hold a listing to one lookup rather than one per agent.

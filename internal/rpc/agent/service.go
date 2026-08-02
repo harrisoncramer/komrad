@@ -28,11 +28,7 @@ import (
 // than writing the record itself.
 type agentLauncher interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
-	// AgentRunning answers whether an agent is still running, which is read at
-	// response time rather than stored so a client needs no tmux of its own.
-	AgentRunning(agent agentstore.Agent) bool
-	// AgentsRunning answers the same for a whole listing at once, since resolving it per
-	// agent costs a tmux subprocess each and the panel re-lists every second.
+	IsAgentRunning(agent agentstore.Agent) bool
 	AgentsRunning(agents []agentstore.Agent) map[string]bool
 	DeleteAgent(ctx context.Context, id string) error
 	ArchiveAgent(ctx context.Context, id string) error
@@ -100,7 +96,7 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create agent: %w", err))
 	}
 
-	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, s.launcher.AgentRunning(*created)).Agent}), nil
+	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, s.launcher.IsAgentRunning(*created)).Agent}), nil
 }
 
 // ListAgents returns one page of stored agents, newest first. The request picks which set
@@ -146,7 +142,7 @@ func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.Get
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
 	}
 
-	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, s.launcher.AgentRunning(*agent)).Agent}), nil
+	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, s.launcher.IsAgentRunning(*agent)).Agent}), nil
 }
 
 // SetMark marks an agent, and an unset mark clears it. An id matching nothing is an error
@@ -242,7 +238,7 @@ func (s *Service) RestoreAgent(ctx context.Context, req *connect.Request[agentv1
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to restore agent: %w", err))
 	}
 
-	return connect.NewResponse(&agentv1.RestoreAgentResponse{Agent: renderAgent(*restored, s.launcher.AgentRunning(*restored)).Agent}), nil
+	return connect.NewResponse(&agentv1.RestoreAgentResponse{Agent: renderAgent(*restored, s.launcher.IsAgentRunning(*restored)).Agent}), nil
 }
 
 // ResumeAgent relaunches an agent's CLI on its conversation and returns it as stored.
@@ -257,7 +253,7 @@ func (s *Service) ResumeAgent(ctx context.Context, req *connect.Request[agentv1.
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to resume agent: %w", err))
 	}
 
-	return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: renderAgent(*resumed, s.launcher.AgentRunning(*resumed)).Agent}), nil
+	return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: renderAgent(*resumed, s.launcher.IsAgentRunning(*resumed)).Agent}), nil
 }
 
 // UpdateAgent renames the agent with the given id. A name a live agent already holds is a

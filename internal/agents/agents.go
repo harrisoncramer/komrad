@@ -134,10 +134,10 @@ func NewAgentService(p NewAgentServiceParams) *AgentService {
 	}
 }
 
-// AgentRunning reports whether an agent's CLI is still up, which is true only of a
+// IsAgentRunning reports whether an agent's CLI is still up, which is true only of a
 // pane stamped with that agent's id. tmux reissues pane ids from %0 after a server
 // restart, so the stored pane id alone routinely names somebody else's pane.
-func (s *AgentService) AgentRunning(agent agentstore.Agent) bool {
+func (s *AgentService) IsAgentRunning(agent agentstore.Agent) bool {
 	return paneOwnedBy(s.tmux.PaneOwner(agent.Pane), agent.ID)
 }
 
@@ -422,7 +422,7 @@ func (s *AgentService) ResumeAgent(ctx context.Context, id string) (*agentstore.
 		return nil, fmt.Errorf("%w: %q is archived, restore it first", ErrAgentArchived, agent.Name)
 	}
 
-	if s.AgentRunning(*agent) {
+	if s.IsAgentRunning(*agent) {
 		return agent, nil
 	}
 
@@ -460,7 +460,7 @@ func paneOwnedBy(owner, agentID string) bool {
 // killOwnedPane tears down an agent's pane, but only while that pane is still the
 // agent's own, since a reissued id may now belong to another process.
 func (s *AgentService) killOwnedPane(agent agentstore.Agent) {
-	if s.AgentRunning(agent) {
+	if s.IsAgentRunning(agent) {
 		s.tmux.KillPane(agent.Pane)
 	}
 }
