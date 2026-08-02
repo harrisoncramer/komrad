@@ -343,7 +343,7 @@ func TestOccurrenceFor(t *testing.T) {
 		},
 		{
 			// A laptop shut overnight and opened in the afternoon, which is the
-			// ordinary way this tool is used rather than an exotic one.
+			// ordinary way this tool is used.
 			name: "and so does one built most of a day late",
 			cron: "0 9 * * *",
 			at:   nine.Add(20 * time.Hour),
@@ -352,7 +352,7 @@ func TestOccurrenceFor(t *testing.T) {
 		{
 			// Late enough that a firing has been missed outright. The job stands for
 			// the occurrence it is closest behind, not the one before that.
-			name: "one built past the following occurrence belongs to the following one",
+			name: "one built after the following firing belongs to that one",
 			cron: "0 9 * * *",
 			at:   nine.Add(30 * time.Hour),
 			want: nine.AddDate(0, 0, 1),
@@ -389,54 +389,57 @@ func TestOccurrenceFor(t *testing.T) {
 	}
 }
 
-// TestOccurrenceForNeverNamesTheFuture covers the one invariant the whole function rests on:
-// the firing a job stands for has already come. A stamp in the future is the next firing's
-// name, and since the arguments are unique by value and cover every terminal state, wearing
-// it means that firing's own insert dedups into this one and never launches. One late run
-// would silently swallow the next.
+// TestOccurrenceForNeverNamesTheFuture covers the one invariant the whole function rests on,
+// that the firing a job stands for has already come. A stamp in the future is the next
+// firing's name, and since the arguments are unique by value and cover every terminal state,
+// wearing it means that firing's own insert dedups into this one and never launches. One
+// late run would silently swallow the next.
 func TestOccurrenceForNeverNamesTheFuture(t *testing.T) {
-	nine := time.Date(2026, time.August, 2, 9, 0, 0, 0, time.UTC)
+	// Every row measures its delay from this moment. It is a firing of the daily
+	// schedules and not of the others, which does not matter here, since all that is
+	// asserted is that whatever gets named has already come.
+	base := time.Date(2026, time.August, 2, 9, 0, 0, 0, time.UTC)
 
 	tests := []struct {
 		name string
 		cron string
-		// late is how long after the occurrence the job was built.
-		late time.Duration
+		// delay is how long after base the job was built.
+		delay time.Duration
 	}{
 		{
-			name: "an hour and a half after a daily firing",
-			cron: "0 9 * * *",
-			late: 90 * time.Minute,
+			name:  "an hour and a half after a daily firing",
+			cron:  "0 9 * * *",
+			delay: 90 * time.Minute,
 		},
 		{
-			name: "three hours after it",
-			cron: "0 9 * * *",
-			late: 3 * time.Hour,
+			name:  "three hours after it",
+			cron:  "0 9 * * *",
+			delay: 3 * time.Hour,
 		},
 		{
-			name: "a machine opened in the evening",
-			cron: "0 9 * * *",
-			late: 11 * time.Hour,
+			name:  "a machine opened in the evening",
+			cron:  "0 9 * * *",
+			delay: 11 * time.Hour,
 		},
 		{
-			name: "one opened a week later",
-			cron: "0 9 * * *",
-			late: 7 * 24 * time.Hour,
+			name:  "one opened an afternoon a week later",
+			cron:  "0 9 * * *",
+			delay: 7*24*time.Hour + 5*time.Hour,
 		},
 		{
-			name: "a weekly schedule a fortnight on",
-			cron: "0 9 * * 1",
-			late: 14 * 24 * time.Hour,
+			name:  "a weekly schedule a fortnight on",
+			cron:  "0 9 * * 1",
+			delay: 14 * 24 * time.Hour,
 		},
 		{
-			name: "a monthly one a quarter on",
-			cron: "0 9 1 * *",
-			late: 90 * 24 * time.Hour,
+			name:  "a monthly one a quarter on",
+			cron:  "0 9 1 * *",
+			delay: 90 * 24 * time.Hour,
 		},
 		{
-			name: "and a minutely one, which was never at risk",
-			cron: "* * * * *",
-			late: 90 * time.Minute,
+			name:  "and a minutely one, which was never at risk",
+			cron:  "* * * * *",
+			delay: 90 * time.Minute,
 		},
 	}
 
@@ -445,7 +448,7 @@ func TestOccurrenceForNeverNamesTheFuture(t *testing.T) {
 			cron, err := agents.ParseCron(tt.cron, "UTC")
 			require.NoError(t, err)
 
-			builtAt := nine.Add(tt.late)
+			builtAt := base.Add(tt.delay)
 			got := occurrenceFor(cron, builtAt).UTC()
 			require.False(t, got.IsZero(), "a recurring schedule has an occurrence to name")
 
@@ -457,7 +460,7 @@ func TestOccurrenceForNeverNamesTheFuture(t *testing.T) {
 
 // TestLaunchArgsForLateBuildDoesNotClaimTheNextFiring covers the consequence of a future
 // stamp from the other side. The arguments are unique by value, so a late run wearing the
-// next firing's name is not a cosmetic error: the insert for that firing carries identical
+// next firing's name is not a cosmetic error. The insert for that firing carries identical
 // arguments, collapses into the late one, and no agent starts.
 func TestLaunchArgsForLateBuildDoesNotClaimTheNextFiring(t *testing.T) {
 	nine := time.Date(2026, time.August, 2, 9, 0, 0, 0, time.UTC)
@@ -475,7 +478,7 @@ func TestLaunchArgsForLateBuildDoesNotClaimTheNextFiring(t *testing.T) {
 	require.True(t, ok)
 
 	assert.Equal(t, nine, lateArgs.ScheduledFor.UTC(), "the late run stands for the firing it missed")
-	assert.Equal(t, tomorrow, onTimeArgs.ScheduledFor.UTC())
+	assert.Equal(t, tomorrow, onTimeArgs.ScheduledFor.UTC(), "and the next firing for its own")
 	assert.NotEqual(t, lateArgs, onTimeArgs, "identical arguments dedup, so the second firing would never launch")
 	assert.NotEqual(t,
 		LaunchKey("s1", lateArgs.ScheduledFor),
