@@ -26,9 +26,6 @@ func NewRootCommand() *cobra.Command {
 	state := &app{}
 	var configPath string
 
-	claudeHarness := claude.New("")
-	var codexHarness *codex.Harness
-
 	root := &cobra.Command{
 		Use:           "weave",
 		Short:         "tmux panel and CLI for background coding agents",
@@ -42,10 +39,7 @@ func NewRootCommand() *cobra.Command {
 			}
 
 			// A config that will not parse is carried into the panel and shown on its
-			// error screen rather than ending the process here. Exiting wrote the
-			// message to a popup tmux tore down in the same instant, so the only way
-			// to read it was to run the binary by hand. The panel runs on the built-in
-			// keybindings meanwhile, which is what it would have used anyway.
+			// error screen rather than ending the process here.
 			cfg, err := appconfig.Load(configPath)
 			if err != nil {
 				state.configErr = err
@@ -57,40 +51,39 @@ func NewRootCommand() *cobra.Command {
 			state.defaultHarness = cfg.DefaultHarness
 			state.maxAgents = cfg.MaxAgents
 
-			// Resolved once, though the file behind it is read per launch. A home
-			// directory this cannot resolve leaves the path empty, which is the same as
-			// keeping no standing context and is not worth refusing to start over.
+			// No context file is not an error
 			state.contextPath, _ = cfg.ContextFile()
 
-			// Codex is built here rather than beside claude because one of its settings is
-			// the user's to make, and the config is only loaded once the command runs.
-			codexHarness = codex.New(codex.Options{TrustLaunchDirs: cfg.Harness.Codex.TrustLaunchDirs})
+			codexHarness := codex.New(codex.Options{TrustLaunchDirs: cfg.Harness.Codex.TrustLaunchDirs})
+			claudeHarness := claude.New("")
+
+			// Set up default flags for the harnesses provided by the user in their config file.
 			state.defaultFlags = map[string]string{
 				claudeHarness.GetID(): cfg.Harness.Claude.Flags,
 				codexHarness.GetID():  cfg.Harness.Codex.Flags,
 			}
 
-			// The registry decides what an agent may name, so a configured default it does
-			// not hold is a config error like any other and reaches the panel's error screen
-			// rather than ending the process here.
 			harnesses, err := harness.NewRegistry(claudeHarness, codexHarness)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to create registry: %w", err)
 			}
+
 			if _, err := harnesses.Resolve(cfg.DefaultHarness); err != nil && state.configErr == nil {
 				state.configErr = fmt.Errorf("default_harness: %w", err)
 			}
+
 			state.harnesses = harnesses
 			state.marks = cfg.Marks
 			state.layout = cfg.Layout
 			state.logLevel = cfg.Log.Level
 			state.logViewer = cfg.Log.Viewer
 			state.configPath = configPath
-			// Two tmux servers, held as one client. The manager's own server owns the
+
+			// Weave uses two tmux servers: the manager's server owns the
 			// session, its windows, and its panes. The user's server answers where the
-			// client viewing the popup is sitting and holds the options the plugin's
-			// key binding reads, and is found through a socket path the manager server
-			// records on every open.
+			// client viewing the popup is sitting, and holds the options the plugin's
+			// key binding reads.
+
 			manager := tmux.NewClient(env.TmuxSocket)
 			state.host = tmux.NewHost(manager)
 			state.tmux = tmux.NewServers(manager, state.host)
