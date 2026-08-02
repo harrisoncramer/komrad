@@ -522,3 +522,60 @@ func TestLoadNamedFileMustExist(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), path, "the error names the file that is not there")
 }
+
+// TestConfiguredPathsExpandHome covers the ~ this file's own comments write their defaults
+// with, which is how anyone writing a path here spells one. Nothing below expands it. A
+// missing actions directory is no actions and a missing context file is no standing text,
+// neither an error, so a path left unexpanded is a setting that silently does nothing.
+func TestConfiguredPathsExpandHome(t *testing.T) {
+	tests := []struct {
+		name string
+		file string
+		// want is what the getter has to return, given the home the test set.
+		want func(home string) string
+		read func(Config) (string, error)
+	}{
+		{
+			name: "a path that only begins with a tilde is not a home path",
+			file: "[context]\nfile = \"~notahome/context.md\"\n",
+			want: func(string) string { return "~notahome/context.md" },
+			read: Config.GetContextFile,
+		},
+		{
+			name: "an actions directory under ~ resolves to the home directory",
+			file: "[actions]\ndir = \"~/dotfiles/weave/actions\"\n",
+			want: func(home string) string { return filepath.Join(home, "dotfiles", "weave", "actions") },
+			read: Config.GetActionsDir,
+		},
+		{
+			name: "a bare ~ is the home directory itself",
+			file: "[actions]\ndir = \"~\"\n",
+			want: func(home string) string { return home },
+			read: Config.GetActionsDir,
+		},
+		{
+			name: "a context file under ~ resolves to the home directory",
+			file: "[context]\nfile = \"~/dotfiles/weave/context.md\"\n",
+			want: func(home string) string { return filepath.Join(home, "dotfiles", "weave", "context.md") },
+			read: Config.GetContextFile,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+
+			path := filepath.Join(t.TempDir(), "config.toml")
+			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
+
+			cfg, err := Load(path)
+			require.NoError(t, err)
+
+			got, err := tt.read(*cfg)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.want(home), got)
+		})
+	}
+}

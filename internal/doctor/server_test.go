@@ -143,3 +143,58 @@ func TestNotReadyWaitsRatherThanRestarts(t *testing.T) {
 	assert.NotContains(t, result.Fix, "stop")
 	assert.NotContains(t, result.Fix, "kill")
 }
+
+// TestListenAddressIsCheckedFirst covers WEAVE_ADDR itself. Every other branch of this
+// check reads a probe, and a probe against an address nothing can bind answers the same way
+// an address nobody has started yet does, so an unbindable one would report as the ordinary
+// state of a fresh machine while the server it describes can never come up.
+func TestListenAddressIsCheckedFirst(t *testing.T) {
+	tests := []struct {
+		name     string
+		addr     string
+		want     Status
+		wantCode string
+	}{
+		{
+			name:     "a host with no port at all",
+			addr:     "localhost",
+			want:     StatusFail,
+			wantCode: "address_unusable",
+		},
+		{
+			name:     "a port above the ones there are",
+			addr:     "127.0.0.1:99999",
+			want:     StatusFail,
+			wantCode: "address_unusable",
+		},
+		{
+			name:     "port zero, which binds whatever is free and tells nobody which",
+			addr:     "127.0.0.1:0",
+			want:     StatusFail,
+			wantCode: "address_unusable",
+		},
+		{
+			name:     "a port that is not a number",
+			addr:     "127.0.0.1:http-ish",
+			want:     StatusFail,
+			wantCode: "address_unusable",
+		},
+		{
+			name: "an ordinary loopback address",
+			addr: "127.0.0.1:8787",
+			want: StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := serverEnv(ServerStatus{Answering: true, Ready: true, Version: "v1.2.3", Current: true})
+			env.Addr = tt.addr
+
+			result := Server().Run(t.Context(), env)
+
+			assert.Equal(t, tt.want, result.Status)
+			assert.Equal(t, tt.wantCode, CodeOf(result.Err))
+		})
+	}
+}

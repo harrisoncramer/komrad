@@ -174,6 +174,24 @@ func nameStyle(hovered, inactive bool) lipgloss.Style {
 	}
 }
 
+// nameWidth is how much of an agent's name a list row draws. An agent named after the
+// branch it works on carries a whole ticket title, which is the name a worktree wants and
+// far more than a row has room for, so the list shows the head of it and the record pane
+// shows the whole thing.
+const nameWidth = 30
+
+// clipName cuts a name down to nameWidth, ending in an ellipsis where anything was
+// dropped. Filtering still reads the whole name, so a row can match on a word the list
+// does not draw.
+func clipName(name string) string {
+	runes := []rune(name)
+	if len(runes) <= nameWidth {
+		return name
+	}
+
+	return string(runes[:nameWidth-1]) + "…"
+}
+
 // selectionIcon is the bar a selected row carries, in green rather than the cursor's blue
 // so a row that is both chosen and hovered says both at once.
 const selectionIcon = "▌"
