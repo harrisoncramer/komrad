@@ -74,6 +74,20 @@ down = ["j"]
 # Toggle for the keybindings
 toggle = ["?"]
 
+# Choosing several agents at once, shared by the two screens that draw a tree.
+[keybindings.selection]
+# Take the row under the cursor into the selection, or back out of it. On a
+# workflow header that is the whole folder: one not already wholly selected is
+# taken in whole, and one that is drops.
+toggle = ["v"]
+# Take in every agent between the cursor and the nearest already-selected one,
+# which is how a run is chosen without pressing toggle down the whole of it.
+# From a tree with nothing selected it does what toggle does, since there is
+# nothing yet for a range to reach back to.
+range  = ["V"]
+# Drop the whole selection, which is the way back out of multi-select mode.
+clear  = ["esc"]
+
 # The agents list, the panel's main screen.
 [keybindings.agents]
 # Quit the panel.

@@ -49,6 +49,8 @@ const (
 	SessionID = "weave.session.id"
 	// TargetAgentID names the agent a call reached for rather than the one that made it.
 	TargetAgentID = "weave.target_agent.id"
+	// AgentState is the state the reconciler decided an agent is in.
+	AgentState = "weave.agent.state"
 	// MCPTool is the tool a model asked for. The path is /mcp whatever it wanted, so this
 	// is the only field on an MCP call that says what it was trying to do.
 	MCPTool = "mcp.tool.name"

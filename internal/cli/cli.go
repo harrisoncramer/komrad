@@ -7,6 +7,7 @@ package cli
 
 import (
 	"fmt"
+	"log/slog"
 
 	"weave/config"
 	"weave/internal/agents"
@@ -14,6 +15,7 @@ import (
 	"weave/internal/harness"
 	"weave/internal/harness/claude"
 	"weave/internal/harness/codex"
+	"weave/internal/logging"
 	"weave/internal/tmux"
 	"weave/internal/ui"
 
@@ -37,7 +39,7 @@ func NewRootCommand() *cobra.Command {
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 
 			env, err := config.Load() // Loads the environment, tmux socket name, cache directory, etc.
 			if err != nil {
@@ -86,8 +88,17 @@ func NewRootCommand() *cobra.Command {
 			app.tmux = tmux.NewServers(manager, app.host)
 
 			app.popup = ui.NewPopupWindow(app.tmux, agents.ManagerSession)
-			app.contextPath, _ = cfg.GetContextFile() // No context file is not an error
-			app.defaultFlags = map[string]string{     // Set up default flags for the harnesses provided by the user in their config file.
+			contextPath, err := cfg.GetContextFile()
+			if err != nil {
+				ctx := cmd.Context()
+				// Only reached when the config directory cannot be worked out at all. Agents
+				// then start with no standing context, which is worth a line rather than a
+				// silent difference in what every agent is told.
+				logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "failed to resolve the context file", logging.Err(err)...)
+			}
+
+			app.contextPath = contextPath
+			app.defaultFlags = map[string]string{ // Set up default flags for the harnesses provided by the user in their config file.
 				claudeHarness.GetID(): cfg.Harness.Claude.Flags,
 				codexHarness.GetID():  cfg.Harness.Codex.Flags,
 			}

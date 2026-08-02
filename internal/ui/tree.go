@@ -33,6 +33,9 @@ type treeState struct {
 	// logsPinned shows the service's log in the stage in place of the row under the
 	// cursor, pinned and cleared the way info is.
 	logsPinned bool
+
+	// selected are the agents taken into the selection on this tree.
+	selected selection
 }
 
 // unpin puts the stage back to following the cursor. Both pins show something other than
@@ -110,6 +113,16 @@ func (m model) selectedAgent() (agentItem, bool) {
 // cursor is not on a header.
 func (m model) hoveredWorkflow() (workflowstore.Workflow, bool) {
 	return hoveredHeader(m.agentRows(), m.tree.cursor)
+}
+
+// rowAt is the row a cursor is on, or false when it is on nothing. Both trees index their
+// rows through it rather than each bounds-checking its own cursor.
+func rowAt(rows []agentRow, cursor int) (agentRow, bool) {
+	if cursor < 0 || cursor >= len(rows) {
+		return agentRow{}, false
+	}
+
+	return rows[cursor], true
 }
 
 // hoveredHeader returns the workflow the cursor's header names, or false when the cursor
@@ -258,4 +271,5 @@ func (m *model) placeTreeCursor(selected string) {
 	}
 
 	m.tree.placed = true
+	m.tree.selected = m.tree.selected.pruned(rows)
 }

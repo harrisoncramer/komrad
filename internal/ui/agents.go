@@ -24,6 +24,21 @@ var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one
 func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
+	// A selection takes the list over: while one is up the keys that act on a single row
+	// stand down, since nothing acts on a selection yet and acting on the hovered one alone
+	// would be the wrong thing done quietly.
+	if m.tree.selected.active() {
+		return m.updateAgentsSelection(key)
+	}
+
+	// Either selection key opens the mode on the row under the cursor, so they are checked
+	// ahead of the row keys they would otherwise sit among.
+	if sel, took := m.applySelectionKey(k, m.tree.selected, m.agentRows(), m.tree.cursor); took {
+		m.tree.selected = sel
+
+		return m, nil
+	}
+
 	// These act on the whole view rather than the row under the cursor, so they are
 	// checked before anything that reads the cursor.
 	if isBound(k, m.keys.Workflows.New) {
@@ -58,17 +73,9 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, m.keys.Agents.New):
 		return m.openNewAgent(m.enclosingWorkflow())
 	case isBound(k, m.keys.Nav.Up):
-		if m.tree.cursor > 0 {
-			m.tree.cursor--
-			m.tree.unpin()
-			m.stageSelection()
-		}
+		return m.moveCursor(-1), nil
 	case isBound(k, m.keys.Nav.Down):
-		if m.tree.cursor < len(m.agentRows())-1 {
-			m.tree.cursor++
-			m.tree.unpin()
-			m.stageSelection()
-		}
+		return m.moveCursor(1), nil
 	case isBound(k, m.keys.Agents.Info):
 		if _, ok := m.selectedAgent(); !ok {
 			return m, nil
@@ -117,6 +124,48 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// updateAgentsSelection drives the agents list while a selection is up. Movement, the
+// selection keys, and the way out stay live, plus the hidden toggle, which changes what is
+// drawn rather than acting on a row and is the one key that can put a chosen agent off
+// screen. The rest stand down.
+func (m model) updateAgentsSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	k := key.String()
+
+	if sel, took := m.applySelectionKey(k, m.tree.selected, m.agentRows(), m.tree.cursor); took {
+		m.tree.selected = sel
+
+		return m, nil
+	}
+
+	switch {
+	case isBound(k, m.keys.Agents.Quit):
+		return m, m.hide()
+	case isBound(k, m.keys.Agents.ShowHidden):
+		return m.toggleHiddenAgents()
+	case isBound(k, m.keys.Nav.Up):
+		return m.moveCursor(-1), nil
+	case isBound(k, m.keys.Nav.Down):
+		return m.moveCursor(1), nil
+	}
+
+	return m, nil
+}
+
+// moveCursor steps the tree cursor and restages what it lands on, doing nothing at either
+// end of the list.
+func (m model) moveCursor(delta int) model {
+	next := m.tree.cursor + delta
+	if next < 0 || next >= len(m.agentRows()) {
+		return m
+	}
+
+	m.tree.cursor = next
+	m.tree.unpin()
+	m.stageSelection()
+
+	return m
 }
 
 // openAgent acts on the hovered agent. A dormant one is restored and staged live, and a
@@ -190,6 +239,7 @@ func (m model) toggleHiddenAgents() (tea.Model, tea.Cmd) {
 	} else {
 		m.tree.cursor = clampCursor(m.tree.cursor, len(rows))
 	}
+	m.tree.selected = m.tree.selected.pruned(rows)
 	m.stageSelection()
 
 	return m, nil
@@ -292,15 +342,16 @@ func (m model) agentsView() string {
 	all := m.agentRows()
 	rows := make([]string, 0, len(all))
 	for i, r := range all {
-		selected := i == m.tree.cursor
+		hovered := i == m.tree.cursor
 		prefix := "  "
-		if selected {
+		if hovered {
 			prefix = cursorStyle.Render("› ")
 		}
+		prefix = selectionGutter(!r.header && m.tree.selected.has(r.item.agent.ID)) + prefix
 
 		if r.header {
 			label := r.workflow.Name
-			if selected {
+			if hovered {
 				label = cursorStyle.Render(label)
 			}
 			rows = append(rows, prefix+dimStyle.Render(workflowIcon)+" "+label+hiddenTally(r.hiddenCount, m.tree.showHidden))
@@ -309,7 +360,7 @@ func (m model) agentsView() string {
 
 		item := r.item
 		name := item.agent.Name
-		if selected {
+		if hovered {
 			name = cursorStyle.Render(name)
 		}
 
@@ -317,7 +368,7 @@ func (m model) agentsView() string {
 		if !item.alive {
 			state = agentstore.StateIdle // nothing runs in a pane that is gone
 			name = dimStyle.Render(item.agent.Name)
-			if selected {
+			if hovered {
 				name = cursorStyle.Render(item.agent.Name)
 			}
 		}

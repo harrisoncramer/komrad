@@ -72,7 +72,7 @@ func ensureServer(addr, self, logPath string) error {
 	// cleanly does not sit as a zombie for the life of this process.
 	exited := make(chan struct{})
 	go func() {
-		_ = cmd.Wait()
+		_ = cmd.Wait() //nolint:errcheck // a non-zero exit is the signal itself, and the reason comes from the log tail
 		close(exited)
 	}()
 

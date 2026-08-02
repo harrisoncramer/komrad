@@ -19,6 +19,10 @@ type archiveState struct {
 	agents    []agentstore.Agent
 	workflows []workflowstore.Workflow
 	cursor    int
+
+	// selected are the agents taken into the selection on this tree. It is the archive's
+	// own, so choosing rows here leaves whatever is chosen on the agents screen alone.
+	selected selection
 }
 
 // enterArchive switches to the archive, what has been put away. It is its own screen
@@ -85,6 +89,8 @@ func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstor
 	m.archive.agents, m.archive.workflows = agents, workflows
 
 	rows := m.archiveRows()
+	m.archive.selected = m.archive.selected.pruned(rows)
+
 	if idx := rowIndexOfKey(rows, selected); idx >= 0 {
 		m.archive.cursor = idx
 
@@ -99,21 +105,25 @@ func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstor
 func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
+	if m.archive.selected.active() {
+		return m.updateArchiveSelection(key)
+	}
+
+	if sel, took := m.applySelectionKey(k, m.archive.selected, m.archiveRows(), m.archive.cursor); took {
+		m.archive.selected = sel
+
+		return m, nil
+	}
+
 	switch {
 	case isBound(k, m.keys.Archive.Quit):
 		return m, m.hide()
 	case isBound(k, m.keys.Archive.Back):
 		return m.returnToAgents()
 	case isBound(k, m.keys.Nav.Up):
-		if m.archive.cursor > 0 {
-			m.archive.cursor--
-			m.stageArchive()
-		}
+		return m.moveArchiveCursor(-1), nil
 	case isBound(k, m.keys.Nav.Down):
-		if m.archive.cursor < len(m.archiveRows())-1 {
-			m.archive.cursor++
-			m.stageArchive()
-		}
+		return m.moveArchiveCursor(1), nil
 	case isBound(k, m.keys.Archive.Restore):
 		return m.restoreFromArchive()
 	case isBound(k, m.keys.Archive.Delete):
@@ -121,6 +131,44 @@ func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// updateArchiveSelection drives the archive while a selection is up. As on the agents tree,
+// only movement, the selection keys, and the way out stay live: nothing acts on a selection
+// yet, so restore and delete would act on whichever chosen row the cursor happens to be on.
+func (m model) updateArchiveSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	k := key.String()
+
+	if sel, took := m.applySelectionKey(k, m.archive.selected, m.archiveRows(), m.archive.cursor); took {
+		m.archive.selected = sel
+
+		return m, nil
+	}
+
+	switch {
+	case isBound(k, m.keys.Archive.Quit):
+		return m, m.hide()
+	case isBound(k, m.keys.Nav.Up):
+		return m.moveArchiveCursor(-1), nil
+	case isBound(k, m.keys.Nav.Down):
+		return m.moveArchiveCursor(1), nil
+	}
+
+	return m, nil
+}
+
+// moveArchiveCursor steps the archive cursor and restages what it lands on, doing nothing at
+// either end of the list.
+func (m model) moveArchiveCursor(delta int) model {
+	next := m.archive.cursor + delta
+	if next < 0 || next >= len(m.archiveRows()) {
+		return m
+	}
+
+	m.archive.cursor = next
+	m.stageArchive()
+
+	return m
 }
 
 // selectedArchived returns the archived agent under the cursor, or false when the cursor
@@ -266,15 +314,16 @@ func (m model) archiveView() string {
 
 	rows := make([]string, 0, len(all))
 	for i, r := range all {
-		selected := i == m.archive.cursor
+		hovered := i == m.archive.cursor
 		prefix := "  "
-		if selected {
+		if hovered {
 			prefix = cursorStyle.Render("› ")
 		}
+		prefix = selectionGutter(!r.header && m.archive.selected.has(r.item.agent.ID)) + prefix
 
 		if r.header {
 			label := r.workflow.Name
-			if selected {
+			if hovered {
 				label = cursorStyle.Render(label)
 			}
 			rows = append(rows, prefix+dimStyle.Render(workflowIcon)+" "+label+archivedTag(r.workflow))
@@ -284,7 +333,7 @@ func (m model) archiveView() string {
 
 		agent := r.item.agent
 		name := dimStyle.Render(agent.Name)
-		if selected {
+		if hovered {
 			name = cursorStyle.Render(agent.Name)
 		}
 

@@ -1082,7 +1082,7 @@ func (f *fakeLauncher) IsAgentRunning(agentstore.Agent) bool { return f.alive }
 
 // GetRunningAgents answers a whole listing the same way, recording the call so a test can
 // hold a listing to one lookup rather than one per agent.
-func (f *fakeLauncher) GetRunningAgents(agents []agentstore.Agent) map[string]bool {
+func (f *fakeLauncher) GetRunningAgents(_ context.Context, agents []agentstore.Agent) map[string]bool {
 	f.runningCalls++
 
 	running := make(map[string]bool, len(agents))

@@ -57,6 +57,8 @@ type Keybindings struct {
 	// The key that draws the legend under a list, shared by every screen for the same
 	// reason navigation is.
 	Help HelpKeys `mapstructure:"help"`
+	// Choosing several agents at once, shared by the two screens that draw a tree.
+	Selection SelectionKeys `mapstructure:"selection"`
 	// The agents list, the panel's main screen.
 	Agents AgentsKeys `mapstructure:"agents"`
 	// The new-agent, rename, and workflow forms.
@@ -85,6 +87,24 @@ type NavKeys struct {
 type HelpKeys struct {
 	// Toggle for the keybindings
 	Toggle []string `mapstructure:"toggle"`
+}
+
+// SelectionKeys are the bindings for choosing several agents at once. They are shared by
+// the agents list and the archive rather than set per screen, since the gesture is the same
+// on either tree. While anything is selected that screen is in multi-select mode, where a
+// gutter marks the chosen rows and the keys that act on one agent stand down.
+type SelectionKeys struct {
+	// Take the row under the cursor into the selection, or back out of it. On a workflow
+	// header that is the whole folder: one not already wholly selected is taken in whole,
+	// and one that is drops.
+	Toggle []string `mapstructure:"toggle"`
+	// Take in every agent between the cursor and the nearest already-selected one, which
+	// is how a run is chosen without pressing toggle down the whole of it. From a tree
+	// with nothing selected it does what toggle does, since there is nothing yet for a
+	// range to reach back to.
+	Range []string `mapstructure:"range"`
+	// Drop the whole selection, which is the way back out of multi-select mode.
+	Clear []string `mapstructure:"clear"`
 }
 
 // FormKeys are the bindings for the new-agent and rename forms. Back and Quit both
@@ -408,6 +428,11 @@ func DefaultKeybindings() Keybindings {
 		},
 		Help: HelpKeys{
 			Toggle: []string{"?"},
+		},
+		Selection: SelectionKeys{
+			Toggle: []string{"v"},
+			Range:  []string{"V"},
+			Clear:  []string{"esc"},
 		},
 		Agents: AgentsKeys{
 			Quit:       []string{"ctrl+c"},

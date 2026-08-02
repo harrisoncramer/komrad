@@ -153,3 +153,20 @@ func scheduleColor(enabled bool) lipgloss.Color {
 // matchStyle highlights the matched terms inside a result row's snippet, the
 // panel-side rendering of the markers the store wraps hits in.
 var matchStyle = lipgloss.NewStyle().Foreground(colorWarning).Bold(true)
+
+// selectionIcon is the bar a selected row carries, in green rather than the cursor's blue
+// so a row that is both chosen and hovered says both at once.
+const selectionIcon = "▌"
+
+var selectionStyle = lipgloss.NewStyle().Foreground(colorSuccess)
+
+// selectionGutter is the column down the left of the tree. It holds the bar or a blank of
+// the same width, and it is drawn on every row whether or not anything is selected, since a
+// gutter that opened with the first selection would push every row sideways.
+func selectionGutter(selected bool) string {
+	if !selected {
+		return "  "
+	}
+
+	return selectionStyle.Render(selectionIcon) + " "
+}

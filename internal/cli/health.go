@@ -3,9 +3,11 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"time"
 
+	"weave/internal/logging"
 	"weave/internal/version"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -51,6 +53,9 @@ func newHealthHandler(pool *pgxpool.Pool) http.Handler {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(status)
-		_ = json.NewEncoder(w).Encode(body)
+		if err := json.NewEncoder(w).Encode(body); err != nil {
+			// The status is already on the wire, so this is the caller having gone away.
+			logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "failed to write the health body", logging.Err(err)...)
+		}
 	})
 }

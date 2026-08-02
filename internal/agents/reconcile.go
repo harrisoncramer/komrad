@@ -3,8 +3,10 @@ package agents
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"weave/internal/harness"
+	"weave/internal/logging"
 	agentstore "weave/internal/store/agent"
 )
 
@@ -91,7 +93,10 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 		// so forgetting it stops a later pass, a preview, or a kill from landing on
 		// another agent's pane.
 		if agent.Pane != "" {
-			_ = r.store.ClearPane(ctx, agent.ID)
+			if err := r.store.ClearPane(ctx, agent.ID); err != nil {
+				logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to forget a dormant agent's pane",
+					append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+			}
 		}
 		r.apply(ctx, agent, agentstore.StateIdle)
 
@@ -145,5 +150,11 @@ func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state st
 		return
 	}
 
-	_ = r.store.SetStateByID(ctx, agent.ID, state)
+	if err := r.store.SetStateByID(ctx, agent.ID, state); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to write an agent's reconciled state",
+			append([]slog.Attr{
+				slog.String(logging.AgentID, agent.ID),
+				slog.String(logging.AgentState, state),
+			}, logging.Err(err)...)...)
+	}
 }

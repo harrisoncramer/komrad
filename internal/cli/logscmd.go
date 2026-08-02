@@ -69,7 +69,6 @@ func writeLog(out io.Writer, in io.Reader, short, color bool) error {
 	scanner.Buffer(make([]byte, 0, 64*1024), maxRecordBytes)
 
 	writer := bufio.NewWriter(out)
-	defer func() { _ = writer.Flush() }()
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -84,6 +83,12 @@ func writeLog(out io.Writer, in io.Reader, short, color bool) error {
 
 	if err := scanner.Err(); err != nil {
 		return fmt.Errorf("failed to read the service log: %w", err)
+	}
+
+	// Checked rather than deferred, since what is still buffered here is output the caller
+	// asked for, and dropping this would end a truncated read on a zero exit code.
+	if err := writer.Flush(); err != nil {
+		return fmt.Errorf("failed to write the service log: %w", err)
 	}
 
 	return nil

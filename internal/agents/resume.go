@@ -1,9 +1,12 @@
 package agents
 
 import (
+	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 
+	"weave/internal/logging"
 	agentstore "weave/internal/store/agent"
 )
 
@@ -19,7 +22,7 @@ type harnessRelocator interface {
 // created in. That path is frequently a worktree that has since been deleted, and
 // a restore that gave up there would strand the one conversation the panel still
 // lists, so this always returns somewhere an agent can be started.
-func (s *AgentService) getResumeDir(agent agentstore.Agent, h harnessRelocator) string {
+func (s *AgentService) getResumeDir(ctx context.Context, agent agentstore.Agent, h harnessRelocator) string {
 	dir := expandHome(agent.Cwd)
 	if dir == "" {
 		dir, _ = os.UserHomeDir()
@@ -47,9 +50,16 @@ func (s *AgentService) getResumeDir(agent agentstore.Agent, h harnessRelocator) 
 		return home
 	}
 
-	// A failure to carry it is swallowed: losing the conversation is the cost of a
-	// resume that finds nothing, while failing here would cost the agent as well.
-	_ = h.Relocate(agent.SessionID, standIn)
+	// A failure to carry it is not fatal: losing the conversation is the cost of a resume
+	// that finds nothing, while failing here would cost the agent as well. It is logged,
+	// since an agent that came back without its history is otherwise unexplained.
+	if err := h.Relocate(agent.SessionID, standIn); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to carry an agent's conversation to its stand-in directory",
+			append([]slog.Attr{
+				slog.String(logging.AgentID, agent.ID),
+				slog.String(logging.SessionID, agent.SessionID),
+			}, logging.Err(err)...)...)
+	}
 
 	return standIn
 }

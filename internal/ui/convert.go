@@ -19,7 +19,7 @@ import (
 // is what keeps the wire format out of them.
 
 func protoToAgent(s *agentv1.Agent) agentstore.Agent {
-	created, _ := time.Parse(time.RFC3339, s.GetCreatedAt())
+	created, _ := time.Parse(time.RFC3339, s.GetCreatedAt()) //nolint:errcheck // a timestamp that will not parse renders as the zero time
 
 	var archived *time.Time
 	if parsed, err := time.Parse(time.RFC3339, s.GetArchivedAt()); err == nil {

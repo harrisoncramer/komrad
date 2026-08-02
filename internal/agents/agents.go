@@ -144,8 +144,12 @@ func (s *AgentService) IsAgentRunning(agent agentstore.Agent) bool {
 // GetRunningAgents answers liveness for a whole listing off one tmux call, keyed by agent
 // id. A tmux that will not answer reports every agent as not running, which is what
 // asking per agent already does when the server is unreachable.
-func (s *AgentService) GetRunningAgents(agents []agentstore.Agent) map[string]bool {
-	owners, _ := s.tmux.GetPaneOwners()
+func (s *AgentService) GetRunningAgents(ctx context.Context, agents []agentstore.Agent) map[string]bool {
+	owners, err := s.tmux.GetPaneOwners()
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "failed to read pane owners, reporting every agent as not running",
+			logging.Err(err)...)
+	}
 
 	running := make(map[string]bool, len(agents))
 	for _, agent := range agents {
@@ -739,7 +743,7 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 		return err
 	}
 
-	dir := s.getResumeDir(agent, hn)
+	dir := s.getResumeDir(ctx, agent, hn)
 
 	pane, err := s.tmux.NewWindow(ManagerSession, agent.Name, dir)
 	if err != nil {
@@ -797,6 +801,13 @@ func (s *AgentService) uniqueAgentName(ctx context.Context, workflowID, title, p
 // isNameTaken reports whether a live agent in the workflow already owns a name, since the
 // insert would collide on the unique index.
 func (s *AgentService) isNameTaken(ctx context.Context, workflowID, name string) bool {
-	taken, _ := s.agents.ActiveNameExists(ctx, workflowID, name)
+	taken, err := s.agents.ActiveNameExists(ctx, workflowID, name)
+	if err != nil {
+		// A name that cannot be checked reads as free, and the insert then collides on the
+		// index and fails with something vaguer than this. Logged so the cause is readable.
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to check whether an agent name is taken",
+			append([]slog.Attr{slog.String(logging.WorkflowID, workflowID)}, logging.Err(err)...)...)
+	}
+
 	return taken
 }

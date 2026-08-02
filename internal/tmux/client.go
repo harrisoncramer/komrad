@@ -6,10 +6,13 @@ package tmux
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os/exec"
 	"slices"
 	"strconv"
 	"strings"
+
+	"weave/internal/logging"
 )
 
 // paneOwnerOption is the pane-scoped tmux option an agent's pane is stamped with. The @
@@ -80,9 +83,7 @@ func (c *Client) GetPaneOwner(pane string) string {
 		return ""
 	}
 
-	owner, _ := c.query("show-options", "-p", "-qv", "-t", pane, paneOwnerOption)
-
-	return owner
+	return c.value("show-options", "-p", "-qv", "-t", pane, paneOwnerOption)
 }
 
 // GetPaneOwners returns every pane on the server keyed to its owner stamp.
@@ -105,8 +106,7 @@ func (c *Client) GetPaneOwners() (map[string]string, error) {
 
 // GetClientPath returns a client's active pane working directory.
 func (c *Client) GetClientPath(client string) string {
-	path, _ := c.query(append([]string{"display-message", "-p"}, append(clientTarget(client), "#{pane_current_path}")...)...)
-	return path
+	return c.value(append([]string{"display-message", "-p"}, append(clientTarget(client), "#{pane_current_path}")...)...)
 }
 
 // GetSessionClient returns a client attached to the given session, empty when none is.
@@ -123,8 +123,7 @@ func (c *Client) GetSessionClient(session string) string {
 
 // GetClientSession returns the session a client is attached to, empty when tmux knows no such client.
 func (c *Client) GetClientSession(client string) string {
-	session, _ := c.query(append([]string{"display-message", "-p"}, append(clientTarget(client), "#{client_session}")...)...)
-	return session
+	return c.value(append([]string{"display-message", "-p"}, append(clientTarget(client), "#{client_session}")...)...)
 }
 
 // OpenWindow creates a window in the session the given client is attached to, rooted at
@@ -165,9 +164,7 @@ func (c *Client) SendKeys(target string, keys ...string) error {
 // SplitRight splits the anchor pane horizontally.
 func (c *Client) SplitRight(anchorPane, dir string, percent int) string {
 	size := fmt.Sprintf("%d%%", percent)
-	pane, _ := c.query("split-window", "-h", "-d", "-t", anchorPane, "-c", dir, "-l", size, "-P", "-F", "#{pane_id}")
-
-	return pane
+	return c.value("split-window", "-h", "-d", "-t", anchorPane, "-c", dir, "-l", size, "-P", "-F", "#{pane_id}")
 }
 
 // ResizePane sets a pane's width to percent of the window.
@@ -267,8 +264,7 @@ func (c *Client) SetGlobal(name, value string) {
 
 // ShowGlobal returns a global tmux option's value, empty if it is unset.
 func (c *Client) ShowGlobal(name string) string {
-	value, _ := c.query("show-option", "-gqv", name)
-	return value
+	return c.value("show-option", "-gqv", name)
 }
 
 // SetSessionOption sets a session-scoped tmux option.
@@ -292,8 +288,7 @@ func (c *Client) DetachSession(name string) {
 // CapturePane returns the visible content of a pane with colors preserved. An agent CLI
 // drawing a TUI runs on the alternate screen, so the visible frame is all there is.
 func (c *Client) CapturePane(pane string) string {
-	out, _ := c.query("capture-pane", "-p", "-e", "-t", pane)
-	return out
+	return c.value("capture-pane", "-p", "-e", "-t", pane)
 }
 
 // query runs a tmux command and returns its stdout. A failure carries the command that
@@ -325,8 +320,27 @@ func stderrDetail(err error) string {
 	return ": " + detail
 }
 
+// run performs a side-effecting tmux command. The result stays unreturned, since the
+// caller has nothing to do about it, but a failure is logged rather than dropped: silently
+// this is a pane that did not die or a key that did not bind, with nothing to read after.
 func (c *Client) run(args ...string) {
-	_, _ = c.query(args...)
+	if _, err := c.query(args...); err != nil {
+		slog.Default().Warn("a tmux command failed", logging.Attrs(logging.Err(err))...)
+	}
+}
+
+// value runs a tmux command whose answer is a single string, returning empty when it
+// fails. The zero value is the answer these callers want, since an option that is unset
+// and a pane that is gone both read as nothing, but the failure is logged at debug so a
+// wrong answer can still be traced. It is debug rather than warn because these run per
+// agent per pass, and a tmux that is down would otherwise fill the log.
+func (c *Client) value(args ...string) string {
+	out, err := c.query(args...)
+	if err != nil {
+		slog.Default().Debug("a tmux query failed", logging.Attrs(logging.Err(err))...)
+	}
+
+	return out
 }
 
 func clientTarget(client string) []string {
