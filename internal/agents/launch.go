@@ -9,12 +9,37 @@ import (
 	"weave/internal/harness"
 )
 
-// harnessCommandBuilder is all a launch needs from the harness, the command line that puts
-// the agent's CLI up.
+// briefingDoc is what every spawned agent is told about the panel running it: what it can
+// look up rather than guess at, what the panel reads out of its pane, and where to find
+// the log when the panel is behaving oddly. It stops at what an agent needs to work under
+// weave, since most agents are working on something else entirely and how this repo builds
+// itself is no use to them. It is prose in a file rather than a string constant because
+// editing it should not mean reading around Go quoting, and it names only the tools an
+// agent would not think to go looking for. The rest of the surface is in the tool list its
+// client already has.
+//
+//go:embed briefing.md
+var briefingDoc string
+
+// mcpURLPlaceholder is where the briefing names the panel's own endpoint. It is
+// substituted rather than formatted, since a %s in prose about a shell command line is
+// too easy to write by accident.
+const mcpURLPlaceholder = "{{MCP_URL}}"
+
+// logPathPlaceholder is where the briefing names the service's log, found the same way
+// the service that writes it does, so an agent sent looking for a failure is sent to the
+// file that holds it.
+const logPathPlaceholder = "{{LOG_PATH}}"
+
+// keySender is all a launch needs from tmux, somewhere to type. The command is not
+// executed directly: it is typed into a pane and parsed by the shell running there, which
+// is why the harness that assembles it quotes everything interpolated into it.
 type keySender interface {
 	SendKeys(target string, keys ...string) error
 }
 
+// harnessCommandBuilder is all a launch needs from the harness, the command line that puts
+// the agent's CLI up.
 type harnessCommandBuilder interface {
 	BuildCommand(harness.Launch) (string, error)
 }
@@ -62,28 +87,6 @@ func NewLauncher(p LauncherParams) *Launcher {
 		contextPath: p.ContextPath,
 	}
 }
-
-// briefingDoc is what every spawned agent is told about the panel running it: what it can
-// look up rather than guess at, what the panel reads out of its pane, and where to find
-// the log when the panel is behaving oddly. It stops at what an agent needs to work under
-// weave, since most agents are working on something else entirely and how this repo builds
-// itself is no use to them. It is prose in a file rather than a string constant because
-// editing it should not mean reading around Go quoting, and it names only the tools an
-// agent would not think to go looking for. The rest of the surface is in the tool list its
-// client already has.
-//
-//go:embed briefing.md
-var briefingDoc string
-
-// mcpURLPlaceholder is where the briefing names the panel's own endpoint. It is
-// substituted rather than formatted, since a %s in prose about a shell command line is
-// too easy to write by accident.
-const mcpURLPlaceholder = "{{MCP_URL}}"
-
-// logPathPlaceholder is where the briefing names the service's log, found the same way
-// the service that writes it does, so an agent sent looking for a failure is sent to the
-// file that holds it.
-const logPathPlaceholder = "{{LOG_PATH}}"
 
 // buildBriefing is the doc with the paths this install actually runs on filled in.
 func (l *Launcher) buildBriefing() string {

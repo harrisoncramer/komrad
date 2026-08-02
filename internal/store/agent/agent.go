@@ -16,6 +16,15 @@ import (
 	"weave/internal/store"
 )
 
+// ErrTooManyMetadataKeys reports that an agent already holds as many keys as it is
+// allowed. It is a sentinel so a caller can tell a ceiling apart from a broken write.
+var ErrTooManyMetadataKeys = errors.New("too many metadata keys")
+
+// maxMetadataKeys caps how many facts one agent may record, since the keys are the
+// agent's own invention and a looping agent would fill the table. It is checked here
+// rather than in the proto because it needs a count of what is already stored.
+const maxMetadataKeys = 32
+
 // Agent states. There are three because there are only three things a person watching
 // the panel acts on differently: an agent generating, one blocked on an answer they owe
 // it, and one doing neither. An agent that has not started and one that has stopped share
@@ -393,15 +402,6 @@ func (s *Store) SetHidden(ctx context.Context, id string, hidden bool) (bool, er
 
 	return len(updated) > 0, nil
 }
-
-// ErrTooManyMetadataKeys reports that an agent already holds as many keys as it is
-// allowed. It is a sentinel so a caller can tell a ceiling apart from a broken write.
-var ErrTooManyMetadataKeys = errors.New("too many metadata keys")
-
-// maxMetadataKeys caps how many facts one agent may record, since the keys are the
-// agent's own invention and a looping agent would fill the table. It is checked here
-// rather than in the proto because it needs a count of what is already stored.
-const maxMetadataKeys = 32
 
 // SetMetadataParams identifies the fact being recorded. A nil Value clears the key
 // rather than storing an empty one.

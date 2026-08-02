@@ -18,6 +18,35 @@ import (
 	"github.com/spf13/viper"
 )
 
+// DefaultLogLevel is how much the service writes when the config says nothing. Failures
+// are written at error and everything else at debug, so the file stays empty while the
+// service works.
+const DefaultLogLevel = "info"
+
+// DefaultLogViewer is what the log key opens the log in when the config names nothing. It
+// reads through this binary's own logs command, so what lands in the pane is a line per
+// record rather than the JSON the file holds, and it pages that with the flags a preview
+// uses plus -S, which leaves a long line running off the edge rather than wrapping it into
+// four rows of one record.
+const DefaultLogViewer = `"$WEAVE_BIN" logs --color=always | less -RSX +G`
+
+// DefaultMaxAgents is how many agents may exist at once when the config names no number,
+// well above what anyone opens by hand and low enough to catch a caller in a loop.
+const DefaultMaxAgents = 50
+
+// DefaultHarness is the CLI a new agent runs when the config names none, spelled here
+// rather than taken from the registry since this is a default a user overrides.
+const DefaultHarness = "claude"
+
+// DefaultSplit is the share of the width the panel's list takes when the config
+// names none.
+const DefaultSplit = 0.2
+
+// DefaultMarkColor is the yellow a mark takes when its own colour is unset. It is the
+// plain yellow rather than the bright one the panel draws a thinking agent in, so a mark
+// left on the default cannot be read as a lifecycle state.
+const DefaultMarkColor = "yellow"
+
 // Keybindings scopes bindings to the screen they act in. Each binding is a list of
 // bubbletea key strings such as "enter", "ctrl+d", or "esc". Every default is a
 // single key, leaving the alternatives to you. A binding left unset falls back to
@@ -306,30 +335,6 @@ func Defaults() *Config {
 	}
 }
 
-// DefaultLogLevel is how much the service writes when the config says nothing. Failures
-// are written at error and everything else at debug, so the file stays empty while the
-// service works.
-const DefaultLogLevel = "info"
-
-// DefaultLogViewer is what the log key opens the log in when the config names nothing. It
-// reads through this binary's own logs command, so what lands in the pane is a line per
-// record rather than the JSON the file holds, and it pages that with the flags a preview
-// uses plus -S, which leaves a long line running off the edge rather than wrapping it into
-// four rows of one record.
-const DefaultLogViewer = `"$WEAVE_BIN" logs --color=always | less -RSX +G`
-
-// DefaultMaxAgents is how many agents may exist at once when the config names no number,
-// well above what anyone opens by hand and low enough to catch a caller in a loop.
-const DefaultMaxAgents = 50
-
-// DefaultHarness is the CLI a new agent runs when the config names none, spelled here
-// rather than taken from the registry since this is a default a user overrides.
-const DefaultHarness = "claude"
-
-// DefaultSplit is the share of the width the panel's list takes when the config
-// names none.
-const DefaultSplit = 0.2
-
 // DefaultLayout is the layout used when the config omits it.
 func DefaultLayout() Layout {
 	return Layout{Split: DefaultSplit}
@@ -351,11 +356,6 @@ type Mark struct {
 	// Left empty the mark takes DefaultMarkColor.
 	Color string `mapstructure:"color" json:"color"`
 }
-
-// DefaultMarkColor is the yellow a mark takes when its own colour is unset. It is the
-// plain yellow rather than the bright one the panel draws a thinking agent in, so a mark
-// left on the default cannot be read as a lifecycle state.
-const DefaultMarkColor = "yellow"
 
 // ansiColors are the sixteen colours a terminal's scheme maps, keyed by the name a config
 // names one by and valued by the index lipgloss draws it as. The panel is drawn from the

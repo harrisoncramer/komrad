@@ -15,6 +15,10 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// errNoWorkflow is what the panel reports when a create is attempted with no
+// workflow to put the agent in, which only happens when none exist at all.
+var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one first")
+
 // updateAgents drives the nav list. The nav keys move the selection and restage,
 // and letter keys act on the hovered agent or workflow.
 func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -324,10 +328,6 @@ func (m model) agentsView() string {
 
 	return header + renderList(rows, m.tree.cursor, m.listLines(header, help)) + help
 }
-
-// errNoWorkflow is what the panel reports when a create is attempted with no
-// workflow to put the agent in, which only happens when none exist at all.
-var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one first")
 
 // openNewAgent opens the new-agent form, seeded from the given workflow's blueprint, and
 // records that workflow so the created agent lands in it. A nil workflow means there are
