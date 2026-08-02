@@ -1,3 +1,0 @@
-#!/bin/bash
-# Thin wrapper: the logic lives in the weave Go binary.
-exec "$("$(dirname "$0")/_ensure-bin")" "$@"
