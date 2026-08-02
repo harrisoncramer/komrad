@@ -70,7 +70,7 @@ func TestDatabaseCheckTellsTheFailuresApart(t *testing.T) {
 			connectErr: refused(),
 			want:       StatusFail,
 			wantCode:   "database_unreachable",
-			wantFix:    "mise run docker:up",
+			wantFix:    "start Postgres at localhost:5460, or point DATABASE_URL at one that is running",
 		},
 		{
 			name:       "a password the server rejected",
@@ -120,28 +120,30 @@ func TestDatabaseCheckHidesThePassword(t *testing.T) {
 	assert.Equal(t, "postgres://weave@localhost:5460/weave", result.Detail)
 }
 
-// TestDatabaseFixNamesComposeOnlyForItsOwnPort covers that somebody running their own
-// Postgres is not told to start a container they do not use.
-func TestDatabaseFixNamesComposeOnlyForItsOwnPort(t *testing.T) {
+// TestDatabaseFixAssumesNoCheckout covers that a fix is something the reader can actually
+// run. Most people who hit this installed a binary: they have no checkout, no mise, and no
+// compose file, and their Postgres is wherever they put it. So the fix names the address it
+// could not reach and stops, rather than guessing at how that Postgres is meant to start.
+func TestDatabaseFixAssumesNoCheckout(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
 		want string
 	}{
 		{
-			name: "the port the checked-in compose file publishes",
+			name: "the address the checked-in compose file happens to use",
 			url:  writableURL,
-			want: "mise run docker:up",
+			want: "start Postgres at localhost:5460, or point DATABASE_URL at one that is running",
 		},
 		{
 			name: "somebody else's Postgres on the standard port",
 			url:  "postgres://weave:weave@localhost:5432/weave",
-			want: "start the Postgres at that address, or point DATABASE_URL at one that is running",
+			want: "start Postgres at localhost:5432, or point DATABASE_URL at one that is running",
 		},
 		{
 			name: "a Postgres on another host",
 			url:  "postgres://weave:weave@db.internal:5460/weave",
-			want: "start the Postgres at that address, or point DATABASE_URL at one that is running",
+			want: "start Postgres at db.internal:5460, or point DATABASE_URL at one that is running",
 		},
 	}
 
@@ -151,8 +153,19 @@ func TestDatabaseFixNamesComposeOnlyForItsOwnPort(t *testing.T) {
 			env.DatabaseURL = tt.url
 
 			assert.Equal(t, tt.want, Database().Run(t.Context(), env).Fix)
+			assert.NotContains(t, Database().Run(t.Context(), env).Fix, "mise",
+				"a fix never names a command that only exists inside a checkout")
 		})
 	}
+}
+
+// TestDatabaseMissingFixNamesTheDatabase covers that the fix is runnable rather than a
+// description of the goal.
+func TestDatabaseMissingFixNamesTheDatabase(t *testing.T) {
+	missing := &pgconn.PgError{Code: "3D000", Message: `database "weave" does not exist`}
+	result := Database().Run(t.Context(), dbEnv(&fakeProbe{}, missing, nil))
+
+	assert.Equal(t, "createdb weave, or point DATABASE_URL at one that exists", result.Fix)
 }
 
 // TestSchemaCheck covers that being behind is reported rather than treated as broken, since

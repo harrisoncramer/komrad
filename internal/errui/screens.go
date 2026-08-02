@@ -23,27 +23,56 @@ func Config(width int, err error) string {
 	}.Render()
 }
 
-// Startup is shown instead of the panel when the server it works through could not
-// be started. Its most common cause by far is a Postgres that is not up, so the
-// hints name the way to bring it up rather than leaving a refused connection as the
-// last word on screen.
+// Startup is shown instead of the panel when the server it works through could not be
+// started.
 //
-// It is a takeover rather than the unreachable screen because that one waits for a
-// server that is coming back. This one has nothing to wait for: the panel starts a
-// server once, and if that attempt failed nothing tries again.
-func Startup(width int, err error) string {
-	return Screen{
+// The reason the server gave is the tail of a log, which says what failed and not what to
+// do about it. So the screen carries the doctor's findings underneath, and those name the
+// dependency and the command that repairs it. Without them this screen could only guess,
+// and the guess it used to make was that the database was down, which is wrong exactly as
+// often as the readonly login is the thing that is missing.
+//
+// It is a takeover rather than the unreachable screen because that one waits for a server
+// that is coming back. This one has nothing to wait for: the panel starts a server once,
+// and if that attempt failed nothing tries again.
+func Startup(width int, err error, findings []Finding) string {
+	screen := Screen{
 		Width: width,
 		Title: "The agent server could not be started",
 		Body: []string{
 			"The panel did not start. Nothing about your agents has changed, and none of them were stopped: the server is only how the panel reads and changes them.",
 		},
-		Details: []Detail{{Label: "error", Value: err.Error()}},
-		Hints: []string{
-			"A refused connection usually means the database is not running: mise run docker:up",
-			"Press any key to close.",
-		},
-	}.Render()
+	}
+
+	// Ahead of the error, since the error is a log line the server wrote about itself
+	// and these name the dependency behind it. Whichever is first is what gets read.
+	for _, finding := range findings {
+		screen.Details = append(screen.Details, Detail{Label: finding.Name, Value: finding.Reason})
+		if finding.Fix != "" {
+			screen.Hints = append(screen.Hints, finding.Name+": "+finding.Fix)
+		}
+	}
+
+	screen.Details = append(screen.Details, Detail{Label: "error", Value: err.Error()})
+
+	// Only when nothing was found, since a run that turned up no failing dependency
+	// leaves the log tail as the only thing anyone can act on.
+	if len(findings) == 0 {
+		screen.Hints = append(screen.Hints, "Run weave doctor for what this machine is missing.")
+	}
+
+	screen.Hints = append(screen.Hints, "Press any key to close.")
+
+	return screen.Render()
+}
+
+// Finding is one thing the doctor found wrong, in the little this package needs of it.
+// It is restated here rather than taken from the doctor, so drawing a screen does not
+// pull the checks and their database handles in behind it.
+type Finding struct {
+	Name   string
+	Reason string
+	Fix    string
 }
 
 // Unreachable is shown in place of every other screen while the service is not

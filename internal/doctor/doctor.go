@@ -6,6 +6,7 @@ package doctor
 import (
 	"context"
 	"errors"
+	"fmt"
 )
 
 // Status is what a check concluded.
@@ -157,10 +158,27 @@ func Run(ctx context.Context, env Env, checks []Check) Report {
 	return report
 }
 
+// ErrCheckPanicked reports a check that did not survive being run, which is a bug in the
+// check rather than anything about the machine.
+var ErrCheckPanicked = &Problem{
+	Code:    "check_panicked",
+	Message: "this check could not be made because it failed on its own",
+}
+
 // runCheck makes one assertion, unless something it needs did not pass. A dependency that
 // was itself skipped skips this too, so a chain of them collapses to the one real failure
 // at its head.
-func runCheck(ctx context.Context, env Env, check Check, concluded map[string]Status) Result {
+//
+// A check that panics is reported as one bad row rather than taking the process with it.
+// The panel runs these to explain why it could not start, so the one moment doctor is
+// needed most is the moment it must not be the reason nothing renders.
+func runCheck(ctx context.Context, env Env, check Check, concluded map[string]Status) (result Result) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			result = fail(fmt.Errorf("%w: %v", ErrCheckPanicked, recovered), "", "")
+		}
+	}()
+
 	for _, needed := range check.Needs {
 		switch concluded[needed] {
 		case StatusFail, StatusSkip:

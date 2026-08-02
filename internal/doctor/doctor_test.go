@@ -112,3 +112,24 @@ func TestProblemsAreMatchable(t *testing.T) {
 	assert.ErrorIs(t, wrapped, ErrTmuxTooOld)
 	assert.NotErrorIs(t, wrapped, ErrTmuxMissing)
 }
+
+// TestRunSurvivesACheckThatPanics covers the promise that matters on the path this is
+// actually used from. The panel runs these to explain why its server would not start, so a
+// bug in one check must cost that check's row and not the whole screen.
+func TestRunSurvivesACheckThatPanics(t *testing.T) {
+	report := Run(t.Context(), Env{}, []Check{
+		stub("before", ok("fine")),
+		{
+			Name:        "broken",
+			Description: "a check whose seam was never filled in",
+			Run:         func(context.Context, Env) Result { panic("nil seam") },
+		},
+		stub("after", ok("also fine")),
+	})
+
+	require.Len(t, report.Findings, 3, "the rows either side of it are still reported")
+	assert.Equal(t, StatusOK, report.Findings[0].Status)
+	assert.Equal(t, StatusFail, report.Findings[1].Status)
+	assert.Equal(t, "check_panicked", report.Findings[1].Code)
+	assert.Equal(t, StatusOK, report.Findings[2].Status)
+}

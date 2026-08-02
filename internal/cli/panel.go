@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"weave/internal/agents"
+	"weave/internal/errui"
 	"weave/internal/ui"
 	"weave/proto/gen/action/v1/actionv1connect"
 	"weave/proto/gen/agent/v1/agentv1connect"
@@ -23,11 +24,19 @@ func panelCmd(state *app) *cobra.Command {
 		Hidden:        true,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Carried into the panel rather than returned, since returning ends the
 			// session and tmux tears the pane down with the message still on it.
 			logPath := state.env.LogPath()
 			startupErr := ensureServer(state.env.Addr, getSelfPath(), logPath)
+
+			// Only on failure. The checks reach a database and a tmux server, which
+			// is not work to do on every open, and there is nothing to explain when
+			// the server came up.
+			var startupFindings []errui.Finding
+			if startupErr != nil {
+				startupFindings = state.diagnose(cmd.Context())
+			}
 
 			base := "http://" + state.env.Addr
 			agentClient := agentv1connect.NewAgentServiceClient(http.DefaultClient, base)
@@ -41,22 +50,23 @@ func panelCmd(state *app) *cobra.Command {
 			// Close and quit detach the popup rather than exit, so Run returns only on a
 			// real error.
 			return ui.Run(ui.Deps{
-				PopupWindow: state.popup,
-				Tmux:        state.tmux,
-				Agents:      agentClient,
-				Workflows:   workflowClient,
-				Schedules:   scheduleClient,
-				Keys:        state.keys,
-				Actions:     actionClient,
-				Marks:       state.marks,
-				Layout:      state.layout,
-				Addr:        state.env.Addr,
-				LogPath:     logPath,
-				LogViewer:   state.logViewer,
-				Binary:      getSelfPath(),
-				ConfigErr:   state.configErr,
-				StartupErr:  startupErr,
-				Pane:        state.env.TmuxPane,
+				PopupWindow:     state.popup,
+				Tmux:            state.tmux,
+				Agents:          agentClient,
+				Workflows:       workflowClient,
+				Schedules:       scheduleClient,
+				Keys:            state.keys,
+				Actions:         actionClient,
+				Marks:           state.marks,
+				Layout:          state.layout,
+				Addr:            state.env.Addr,
+				LogPath:         logPath,
+				LogViewer:       state.logViewer,
+				Binary:          getSelfPath(),
+				ConfigErr:       state.configErr,
+				StartupErr:      startupErr,
+				StartupFindings: startupFindings,
+				Pane:            state.env.TmuxPane,
 			})
 		},
 	}

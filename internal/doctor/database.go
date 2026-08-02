@@ -171,13 +171,13 @@ func databaseFailure(err error, url, detail string) Result {
 				"check the user and password in DATABASE_URL")
 		case pgDatabaseMissing:
 			return fail(fmt.Errorf("%w: %s", ErrDatabaseMissing, pgErr.Message), detail,
-				"create it, or point DATABASE_URL at one that exists")
+				"createdb "+databaseName(url)+", or point DATABASE_URL at one that exists")
 		}
 	}
 
 	return fail(
 		fmt.Errorf("%w %s: %s", ErrDatabaseUnreachable, hostPort(url), networkReason(err)),
-		detail, startPostgresFix(url))
+		detail, "start Postgres "+hostPort(url)+", or point DATABASE_URL at one that is running")
 }
 
 // shortDatabaseReason is what went wrong in the words Postgres or the network used, without
@@ -228,30 +228,16 @@ const (
 	pgDatabaseMissing = "3D000"
 )
 
-// startPostgresFix is what to run when nothing answered. The local compose Postgres is
-// named only when the address is the one it listens on, since telling someone with their
-// own Postgres to start a container is worse than saying nothing.
-func startPostgresFix(url string) string {
-	if isLocalCompose(url) {
-		return "mise run docker:up"
-	}
-
-	return "start the Postgres at that address, or point DATABASE_URL at one that is running"
-}
-
-// isLocalCompose reports whether the url is the port the checked-in compose file publishes,
-// which is the only address weave can say anything specific about.
-func isLocalCompose(url string) bool {
+// databaseName is the database the url names, for a fix that has to say which one to
+// create rather than leaving the reader to pick it back out of the connection string.
+func databaseName(url string) string {
 	cfg, err := pgconn.ParseConfig(url)
 	if err != nil {
-		return false
+		return "the database"
 	}
 
-	return cfg.Port == composePort && (cfg.Host == "localhost" || cfg.Host == "127.0.0.1")
+	return cfg.Database
 }
-
-// composePort is the port docker-compose.yml publishes Postgres on by default.
-const composePort = 5460
 
 // redactDSN is the connection string with the password taken out, since a report is pasted
 // into issues and the address is the part worth reading anyway.

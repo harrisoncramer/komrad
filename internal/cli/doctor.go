@@ -7,6 +7,7 @@ import (
 
 	"weave/internal/appconfig"
 	"weave/internal/doctor"
+	"weave/internal/errui"
 	"weave/internal/version"
 
 	"github.com/spf13/cobra"
@@ -38,27 +39,12 @@ func doctorCmd(state *app) *cobra.Command {
 				return err
 			}
 
-			settings, err := state.doctorSettings()
+			env, checks, err := state.doctor()
 			if err != nil {
 				return err
 			}
 
-			env := doctor.NewEnv(settings)
-			// Supplied here rather than built in doctor, so the report and the panel
-			// agree about who holds the address: this is the same probe the panel
-			// uses to decide whether to reuse a server or replace it.
-			env.ProbeServer = func(_ context.Context, addr string) doctor.ServerStatus {
-				found := probeServer(addr)
-
-				return doctor.ServerStatus{
-					Answering: found.answering,
-					Ready:     found.ready,
-					Version:   found.version,
-					Current:   found.current,
-				}
-			}
-
-			report := doctor.Run(cmd.Context(), env, doctor.Checks(settings))
+			report := doctor.Run(cmd.Context(), env, checks)
 
 			if asJSON {
 				err = doctor.WriteJSON(cmd.OutOrStdout(), report)
@@ -83,6 +69,34 @@ func doctorCmd(state *app) *cobra.Command {
 	cmd.Flags().StringVar(&color, "color", "auto", "auto, always, or never")
 
 	return cmd
+}
+
+// doctor is the checks and what they run against, built in one place because there are two
+// callers: the command, and the panel explaining why its server would not start. Building
+// it twice is how a seam gets filled in for one of them and left nil for the other.
+func (a *app) doctor() (doctor.Env, []doctor.Check, error) {
+	settings, err := a.doctorSettings()
+	if err != nil {
+		return doctor.Env{}, nil, err
+	}
+
+	env := doctor.NewEnv(settings)
+
+	// Supplied here rather than built inside doctor, so the report and the panel agree
+	// about who holds the address: this is the same probe the panel uses to decide
+	// whether to reuse a server or replace it.
+	env.ProbeServer = func(_ context.Context, addr string) doctor.ServerStatus {
+		found := probeServer(addr)
+
+		return doctor.ServerStatus{
+			Answering: found.answering,
+			Ready:     found.ready,
+			Version:   found.version,
+			Current:   found.current,
+		}
+	}
+
+	return env, doctor.Checks(settings), nil
 }
 
 // doctorSettings is what this build would run with, gathered here so no check reads a file
@@ -116,4 +130,33 @@ func (a *app) doctorSettings() (doctor.Settings, error) {
 		Addr:                a.env.Addr,
 		Version:             version.Version(),
 	}, nil
+}
+
+// diagnose is the doctor's failing findings, for a caller that has to explain a failure it
+// only has a log tail for. It returns nothing when the checks cannot even be assembled,
+// since a screen with no advice beats one carrying an error about why there is no advice.
+func (a *app) diagnose(ctx context.Context) []errui.Finding {
+	env, checks, err := a.doctor()
+	if err != nil {
+		return nil
+	}
+
+	report := doctor.Run(ctx, env, checks)
+
+	var found []errui.Finding
+	for _, finding := range report.Findings {
+		// Failures only. A warning is a fact that was true before the server failed
+		// to start and will be true after it works.
+		if finding.Status != doctor.StatusFail {
+			continue
+		}
+
+		found = append(found, errui.Finding{
+			Name:   finding.Name,
+			Reason: finding.Error,
+			Fix:    finding.Fix,
+		})
+	}
+
+	return found
 }
