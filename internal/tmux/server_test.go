@@ -181,7 +181,7 @@ func TestSiblingPanesFindsTheRestOfTheWindow(t *testing.T) {
 	require.NotEmpty(t, first)
 	require.NotEmpty(t, second)
 
-	siblings := client.SiblingPanes(panel)
+	siblings := client.GetSiblingPanes(panel)
 
 	assert.ElementsMatch(t, []string{first, second}, siblings, "every pane but the one asked about")
 	assert.NotContains(t, siblings, panel, "the pane asked about is not its own sibling")
@@ -193,7 +193,7 @@ func TestSiblingPanesFindsTheRestOfTheWindow(t *testing.T) {
 func TestSiblingPanesOfNothing(t *testing.T) {
 	client := testServer(t, "weave")
 
-	assert.Empty(t, client.SiblingPanes(""))
+	assert.Empty(t, client.GetSiblingPanes(""))
 }
 
 // TestBreakPaneKeepsTheID covers a staged agent being returned to a window of its own. The
@@ -211,6 +211,6 @@ func TestBreakPaneKeepsTheID(t *testing.T) {
 	client.BreakPane(staged)
 
 	assert.True(t, client.PaneAlive(staged), "the pane survives being broken out")
-	assert.Empty(t, client.SiblingPanes(panel), "and is no longer in the panel's window")
+	assert.Empty(t, client.GetSiblingPanes(panel), "and is no longer in the panel's window")
 	assert.Len(t, windowNames(t, client, "weave"), 2, "it is a window of its own now")
 }

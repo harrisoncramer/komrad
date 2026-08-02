@@ -75,14 +75,14 @@ func TestRegistryResolve(t *testing.T) {
 
 	assert.Equal(t, []string{"claude", "codex"}, registry.ids(), "sorted, so a message reads the same every time")
 
-	found, err := registry.Resolve("codex")
+	found, err := registry.GetByID("codex")
 	require.NoError(t, err)
 	assert.Equal(t, "codex", found.GetID())
 
-	_, err = registry.Resolve("gemini")
+	_, err = registry.GetByID("gemini")
 	require.ErrorIs(t, err, ErrNotRegistered)
 	assert.ErrorContains(t, err, "claude, codex", "the error names what it does hold")
 
-	_, err = registry.Resolve("")
+	_, err = registry.GetByID("")
 	require.ErrorIs(t, err, ErrNotRegistered, "resolution happens before the lookup, so nothing here guesses a default")
 }

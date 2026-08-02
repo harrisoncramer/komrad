@@ -24,7 +24,7 @@ type stageTmux interface {
 	SwapPanes(src, dst string)
 	RespawnPane(pane, dir string, argv ...string)
 	ZoomPane(pane string, zoom bool)
-	SiblingPanes(pane string) []string
+	GetSiblingPanes(pane string) []string
 	BreakPane(pane string)
 	KillPane(pane string)
 	PaneOwner(pane string) string
@@ -122,7 +122,7 @@ func (s *Stage) reclaim() {
 		return
 	}
 
-	for _, pane := range s.tmux.SiblingPanes(s.navPane) {
+	for _, pane := range s.tmux.GetSiblingPanes(s.navPane) {
 		if s.tmux.PaneOwner(pane) != "" {
 			s.tmux.BreakPane(pane)
 

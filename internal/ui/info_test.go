@@ -227,11 +227,11 @@ func (t *recordingTmux) SplitRight(anchor, _ string, _ int) string {
 	return "%1"
 }
 
-func (t *recordingTmux) SwapPanes(string, string)     { t.swaps++ }
-func (t *recordingTmux) SiblingPanes(string) []string { return t.siblings }
-func (t *recordingTmux) PaneOwner(pane string) string { return t.owners[pane] }
-func (t *recordingTmux) BreakPane(pane string)        { t.broken = append(t.broken, pane) }
-func (t *recordingTmux) KillPane(pane string)         { t.killed = append(t.killed, pane) }
+func (t *recordingTmux) SwapPanes(string, string)        { t.swaps++ }
+func (t *recordingTmux) GetSiblingPanes(string) []string { return t.siblings }
+func (t *recordingTmux) PaneOwner(pane string) string    { return t.owners[pane] }
+func (t *recordingTmux) BreakPane(pane string)           { t.broken = append(t.broken, pane) }
+func (t *recordingTmux) KillPane(pane string)            { t.killed = append(t.killed, pane) }
 
 func (t *recordingTmux) NewWindow(string, string, string) (string, error) {
 	return "%2", nil

@@ -73,6 +73,11 @@ func NewRootCommand() *cobra.Command {
 			app.defaultHarness = cfg.DefaultHarness
 			app.maxAgents = cfg.MaxAgents
 
+			//  A tmux server is one long-lived process that owns sessions, windows, and panes. You reach it through a unix socket.
+			//  Every tmux command you run is a short-lived client process that connects to that socket.
+			//  Weave starts a second server, and connects to it with a client (called manager). Any command issued through the manager will be routed to
+			//  that other tmux server. This is why nothing in your regular tmux server can see weave sessions or state. To see them, run `tmux -L weave ls`
+
 			manager := tmux.NewClient(env.TmuxSocket)
 			app.host = tmux.NewHost(manager)
 			app.tmux = tmux.NewServers(manager, app.host)

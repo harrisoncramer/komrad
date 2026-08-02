@@ -231,7 +231,7 @@ type fakeHarnesses struct {
 	only    []string
 }
 
-func (f fakeHarnesses) Resolve(id string) (harness.Harness, error) {
+func (f fakeHarnesses) GetByID(id string) (harness.Harness, error) {
 	if len(f.only) > 0 && !slices.Contains(f.only, id) {
 		return nil, fmt.Errorf("%w: %q", harness.ErrNotRegistered, id)
 	}
