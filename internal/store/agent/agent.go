@@ -90,9 +90,18 @@ type Agent struct {
 }
 
 // SanitizeName maps a name to the characters tmux allows in a session name,
-// which is also the store key so the two always agree.
+// which is also the store key so the two always agree. Control characters go the
+// same way as the punctuation, since a current tmux refuses a window name carrying
+// one outright and older versions open something other than what was asked for.
 func SanitizeName(name string) string {
-	return strings.NewReplacer(":", "-", ".", "-", " ", "-").Replace(name)
+	return strings.Map(func(r rune) rune {
+		switch {
+		case r < 0x20, r == 0x7f, r == ':', r == '.', r == ' ':
+			return '-'
+		default:
+			return r
+		}
+	}, name)
 }
 
 // Store reads and writes agents.
