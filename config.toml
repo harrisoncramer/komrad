@@ -220,15 +220,9 @@ rename  = ["r"]
 
 # Where the panel finds the scripts its action key runs.
 [actions]
-# The directory holding them, one file per action, named by the file. Every
-# file directly inside is offered and the directory is read on each press, so
-# writing an action is dropping an executable in rather than an edit here. An
-# action runs on the agent it was chosen on, in that agent's directory, with
-# the agent as JSON in WEAVE_AGENT. Left empty this is
-# ~/.config/weave/actions, beside this file. Weave ships actions of its own
-# behind the panel's keys, such as _editor and _terminal. A file here of the
-# same name is used instead of the one shipped, which is how a key is given
-# different behaviour.
+# Directory for actions: one executable file per action, named after the action.
+# Files here override built-in actions with the same name.
+# Actions run in the agent's directory with agent info in WEAVE_AGENT as JSON. Default is ~/.config/weave/actions.
 dir = ""
 
 # The standing text every agent is started with, whatever workflow it is in.
@@ -241,19 +235,7 @@ file = ""
 
 # The log the background service writes, which the panel's log key pages.
 [log]
-# How much is written, one of debug, info, warn, or error. Served requests are
-# logged at debug and failures at error, so the default keeps the file to what
-# went wrong. Debug is worth turning on while chasing something. It is loud,
-# because the panel calls four times a second while it is open.
+# How much is written, one of debug, info, warn, or error.
 level  = "info"
-# What the log key opens the log in. It runs in the stage pane through a
-# shell, so a pipeline is as good as a single command. Two variables are
-# exported into it: WEAVE_BIN is this binary, whose "logs" subcommand prints
-# the file a line per record rather than as the JSON it is stored as, and
-# WEAVE_LOG is the file itself, for a reader that would rather have it raw.
-# Nothing in the command is rewritten, so a tool's own placeholders are its
-# own: "$WEAVE_BIN logs --color=always | fzf --ansi --tac" gives fzf the whole
-# of its "{}". Whatever it runs has to hold the pane, the way a pager does. A
-# command that prints and exits takes the pane down with it, and the stage
-# comes back empty.
-viewer = "\"$WEAVE_BIN\" logs --follow --color=always | less -RX +F"
+# The default log viewer. Switch with fzf, rg, etc.
+viewer = "less -R +F \"$WEAVE_LOG\""
