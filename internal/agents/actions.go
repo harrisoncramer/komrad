@@ -19,24 +19,22 @@ import (
 	agentstore "weave/internal/store/agent"
 )
 
-// actionReader is the part of the agent store this service reads. An action changes
+// agentGetter is the part of the agent store this service reads. An action changes
 // nothing about the agent it fires on, so this never writes.
-type actionReader interface {
+type agentGetter interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
 // actionRunner finds actions and starts them. RunAndWait is for a caller with something
 // downstream of the action, and Run for one with nothing waiting.
+type paneOwnerGetter interface {
+	GetPaneOwner(pane string) string
+}
+
 type actionRunner interface {
 	Discover(dir string) ([]actions.Action, error)
 	Run(p actions.RunParams) error
 	RunAndWait(ctx context.Context, p actions.RunParams) (actions.Result, error)
-}
-
-// actionTmux is the one thing this asks of tmux, which agent a pane belongs to, which is
-// what says whether the agent an action is fired on is running.
-type actionTmux interface {
-	GetPaneOwner(pane string) string
 }
 
 // configLoader reads the user's config. The service holds the loader rather than a
@@ -66,11 +64,11 @@ const (
 // directory. The WEAVE_AGENT payload is built here and nowhere else, so the panel firing
 // an action and a model firing one hand the script the same thing.
 type ActionService struct {
-	agents actionReader
+	agents agentGetter
 	// workflows is read for the name of the workflow an agent belongs to, which a script
 	// can use where the id it is stored under says nothing.
 	workflows storedWorkflowReader
-	tmux      actionTmux
+	tmux      paneOwnerGetter
 	runner    actionRunner
 	load      configLoader
 	// addr and socket are what an action reaches back through, the address of this server
@@ -81,9 +79,9 @@ type ActionService struct {
 
 // ActionParams carries the action service's dependencies.
 type ActionParams struct {
-	Agents    actionReader
+	Agents    agentGetter
 	Workflows storedWorkflowReader
-	Tmux      actionTmux
+	Tmux      paneOwnerGetter
 	Runner    actionRunner
 	Load      configLoader
 	Addr      string

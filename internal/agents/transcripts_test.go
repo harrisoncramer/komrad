@@ -203,7 +203,7 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 	writeLogFor(t, projects, "claude-readable", `{"type":"user","message":{"content":"a turn worth keeping"}}`+"\n")
 	writeLogFor(t, projects, "claude-unsyncable", `{"type":"user","message":{"content":"never accepted"}}`+"\n")
 
-	store := failingTranscripts{transcriptStore: st.Transcripts, failFor: unsyncable.ID}
+	store := failingTranscripts{transcriptReadWriter: st.Transcripts, failFor: unsyncable.ID}
 	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
 		Agents:      st.Agents,
 		Sessions:    st.Agents,
@@ -229,7 +229,7 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 // failingTranscripts refuses one agent's writes and passes every other call
 // through to the real store.
 type failingTranscripts struct {
-	transcriptStore
+	transcriptReadWriter
 	failFor string
 }
 
@@ -238,7 +238,7 @@ func (f failingTranscripts) Upsert(ctx context.Context, params transcript.Upsert
 		return errors.New("this log will never be accepted")
 	}
 
-	return f.transcriptStore.Upsert(ctx, params)
+	return f.transcriptReadWriter.Upsert(ctx, params)
 }
 
 // testSessionID is the claude session id every test log is keyed to. The store id

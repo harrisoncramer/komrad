@@ -13,20 +13,20 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// actionManager is the part of the action service the handlers drive. The handlers translate
+// actionRunner is the part of the action service the handlers drive. The handlers translate
 // and nothing more. What an action is and what it is told lives behind this.
-type actionManager interface {
+type actionRunner interface {
 	ListActions() ([]agents.ListedAction, error)
 	RunAction(ctx context.Context, agentID, name string) error
 }
 
 // Service implements actionv1connect.ActionServiceHandler.
 type Service struct {
-	actions actionManager
+	actions actionRunner
 }
 
 // NewService constructs the handler from the service that owns the rules.
-func NewService(manager actionManager) *Service {
+func NewService(manager actionRunner) *Service {
 	return &Service{actions: manager}
 }
 

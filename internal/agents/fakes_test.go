@@ -20,8 +20,8 @@ import (
 
 // fakeTmux is a scripted, recording tmux client. Reads are served from the owners
 // and captures maps. Writes are appended to the recording slices so a test can
-// assert what the manager sent. It implements tmuxClient and also satisfies the
-// reconciler's narrower tmuxProbe.
+// assert what the manager sent. It satisfies every tmux role this package
+// declares, from paneOwnerGetter up to the composed paneController.
 type fakeTmux struct {
 	// owners maps a live pane to the agent stamped on it, which is how the real
 	// client answers whether a pane is still a given agent's. A pane present here

@@ -33,13 +33,11 @@ type agentManager interface {
 	Create(ctx context.Context, agent agentstore.Agent) error
 	CountLive(ctx context.Context) (int64, error)
 	Update(ctx context.Context, agent agentstore.Agent) error
-	Rename(ctx context.Context, id, name string) (bool, error)
 	Archive(ctx context.Context, id string) error
-	Restore(ctx context.Context, id string) error
 	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
 }
 
-type tmuxManager interface {
+type paneController interface {
 	NewWindow(session, name, dir string) (string, error)
 	KillPane(pane string)
 	SetPaneOwner(pane, agentID string) error
@@ -65,6 +63,8 @@ type txRunner interface {
 	InTx(ctx context.Context, fn func(store.DBTX) error) error
 }
 
+// harnessGetter resolves the CLI an agent is recorded against, which is what knows how to
+// launch it, read its frames, and find its log.
 type harnessGetter interface {
 	GetByID(id string) (harness.Harness, error)
 }
@@ -85,7 +85,7 @@ type agentNamer interface {
 // AgentService owns an agent's lifecycle, coordinating the store with tmux and
 // delegating the command line to the launcher.
 type AgentService struct {
-	tmux               tmuxManager
+	tmux               paneController
 	agents             agentManager
 	workflows          workflowReader
 	tx                 txRunner
@@ -100,7 +100,7 @@ type AgentService struct {
 
 // NewAgentServiceParams carries the agent service's dependencies.
 type NewAgentServiceParams struct {
-	Tmux               tmuxManager
+	Tmux               paneController
 	Agents             agentManager
 	Workflows          workflowReader
 	Tx                 txRunner

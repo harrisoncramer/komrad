@@ -9,16 +9,13 @@ import (
 	"weave/internal/harness"
 )
 
-// launchTmux is all a launch needs from tmux, somewhere to type. The command is not
-// executed directly: it is typed into a pane and parsed by the shell running there, which
-// is why the harness that assembles it quotes everything interpolated into it.
-type launchTmux interface {
+// harnessCommandBuilder is all a launch needs from the harness, the command line that puts
+// the agent's CLI up.
+type keySender interface {
 	SendKeys(target string, keys ...string) error
 }
 
-// launchHarness is all a launch needs from the harness, the command line that puts
-// the agent's CLI up.
-type launchHarness interface {
+type harnessCommandBuilder interface {
 	BuildCommand(harness.Launch) (string, error)
 }
 
@@ -27,7 +24,7 @@ type launchHarness interface {
 // an agent is. How any of it is spelled on a command line belongs to the harness,
 // which arrives per launch because which CLI an agent runs is the agent's own.
 type Launcher struct {
-	tmux launchTmux
+	tmux keySender
 	// serverAddr is where serve listens, which is also where the MCP endpoint
 	// lives. Agents are told about it at launch.
 	serverAddr string
@@ -44,7 +41,7 @@ type Launcher struct {
 // LauncherParams is where a launcher reads the addresses and directories it hands on. Only
 // Tmux has no sensible zero, since a launcher with nowhere to type cannot launch.
 type LauncherParams struct {
-	Tmux        launchTmux
+	Tmux        keySender
 	Addr        string
 	CacheDir    string
 	LogPath     string
@@ -142,7 +139,7 @@ type launchParams struct {
 // launch types the command that puts an agent up into its pane. What that command
 // is comes from the harness; whether the briefing survives a resume, and how the
 // prompt reaches the CLI, are its business rather than the launcher's.
-func (l *Launcher) launch(h launchHarness, params launchParams) error {
+func (l *Launcher) launch(h harnessCommandBuilder, params launchParams) error {
 	command, err := h.BuildCommand(harness.Launch{
 		Flags:       params.Flags,
 		Prompt:      params.Prompt,

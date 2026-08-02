@@ -50,12 +50,12 @@ type LaunchAgentWorker struct {
 	river.WorkerDefaults[LaunchAgentArgs]
 	schedules ScheduleReader
 	agents    AgentLauncher
-	running   RunningAgents
+	running   RunningAgentCounter
 }
 
 // NewLaunchAgentWorker builds the worker over the schedules it reads and the service that
 // launches an agent.
-func NewLaunchAgentWorker(schedules ScheduleReader, launcher AgentLauncher, running RunningAgents) *LaunchAgentWorker {
+func NewLaunchAgentWorker(schedules ScheduleReader, launcher AgentLauncher, running RunningAgentCounter) *LaunchAgentWorker {
 	return &LaunchAgentWorker{schedules: schedules, agents: launcher, running: running}
 }
 

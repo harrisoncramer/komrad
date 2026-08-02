@@ -17,9 +17,9 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// workflowManager is the part of the workflow service the handlers drive. The
+// workflowWriter is the part of the workflow service the handlers drive. The
 // handlers translate and nothing more. What a workflow may be lives behind this.
-type workflowManager interface {
+type workflowWriter interface {
 	NewWorkflow(ctx context.Context, cfg workflowstore.Config) (*workflowstore.Workflow, error)
 	GetWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error)
 	UpdateWorkflow(ctx context.Context, id string, cfg workflowstore.Config) error
@@ -36,12 +36,12 @@ type workflowLister interface {
 // Service implements workflowv1connect.WorkflowServiceHandler.
 type Service struct {
 	lister    workflowLister
-	workflows workflowManager
+	workflows workflowWriter
 }
 
 // NewService constructs the handler from the store it lists through and the
 // service that owns the rules.
-func NewService(lister workflowLister, workflows workflowManager) *Service {
+func NewService(lister workflowLister, workflows workflowWriter) *Service {
 	return &Service{lister: lister, workflows: workflows}
 }
 

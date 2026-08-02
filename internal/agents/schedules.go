@@ -12,9 +12,9 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
-// scheduleStore is the part of the schedule store this service reads and writes. A
+// scheduleReadWriter is the part of the schedule store this service reads and writes. A
 // schedule is only a record until something fires it, so this touches no tmux.
-type scheduleStore interface {
+type scheduleReadWriter interface {
 	Get(ctx context.Context, id string) (*schedule.Schedule, error)
 	Create(ctx context.Context, cfg schedule.Config) (*schedule.Schedule, error)
 	Update(ctx context.Context, id string, cfg schedule.Config) error
@@ -34,14 +34,14 @@ var ErrBadCron = errors.New("unreadable cron expression")
 // plus a cron expression; the firing half reads these records and launches through the
 // agent service.
 type ScheduleService struct {
-	store scheduleStore
+	store scheduleReadWriter
 	// workflows is read to confirm a schedule launches into a workflow that is there.
 	workflows liveWorkflowReader
 }
 
 // ScheduleParams carries the schedule service's dependencies.
 type ScheduleParams struct {
-	Schedules scheduleStore
+	Schedules scheduleReadWriter
 	Workflows liveWorkflowReader
 }
 

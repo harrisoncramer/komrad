@@ -14,21 +14,15 @@ import (
 // stale state lingering a few seconds.
 const reconcileMisses = 3
 
-// tmuxProbe is the part of the tmux client the reconciler observes through. It keys on the
+// paneObserver is how the reconciler watches a pane. It keys on the
 // pane's owner stamp rather than its existence, so a reissued pane id is not read as this
 // agent still running.
-type tmuxProbe interface {
+type paneObserver interface {
 	GetPaneOwners() (map[string]string, error)
 	CapturePane(pane string) string
 }
 
-// activityRegistry gets the harness an agent is recorded against, since what a frame
-// means depends on which CLI drew it. A row naming one nothing implements settles nothing.
-type activityRegistry interface {
-	GetByID(id string) (harness.Harness, error)
-}
-
-type stateStore interface {
+type agentStateWriter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	SetStateByID(ctx context.Context, id, state string) error
 	ClearPane(ctx context.Context, id string) error
@@ -39,15 +33,15 @@ type stateStore interface {
 // it observes each agent from tmux on a timer and writes the state that implies. Reading
 // ground truth every pass means a wrong state cannot outlive the interval.
 type Reconciler struct {
-	tmux      tmuxProbe
-	harnesses activityRegistry
-	store     stateStore
+	tmux      paneObserver
+	harnesses harnessGetter
+	store     agentStateWriter
 	misses    map[string]int // agent id to consecutive idle observations
 }
 
 // NewReconciler builds a Reconciler over a tmux probe, the harnesses that read its
 // captures, and the state store.
-func NewReconciler(t tmuxProbe, harnesses activityRegistry, s stateStore) *Reconciler {
+func NewReconciler(t paneObserver, harnesses harnessGetter, s agentStateWriter) *Reconciler {
 	return &Reconciler{
 		tmux:      t,
 		harnesses: harnesses,

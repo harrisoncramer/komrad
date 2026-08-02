@@ -11,11 +11,11 @@ import (
 	"github.com/riverqueue/river"
 )
 
-// periodicJobs is what the reconciler needs to keep River's registrations in step, stated
+// periodicJobRegistrar is what the reconciler needs to keep River's registrations in step, stated
 // in schedule ids rather than River's handles so a test can assert on what was armed. The
 // job is built by the implementation, since the id a registration is filed under has to be
 // the id it is later removed by.
-type periodicJobs interface {
+type periodicJobRegistrar interface {
 	Add(id string, cron river.PeriodicSchedule) error
 	Remove(id string)
 }
@@ -50,7 +50,7 @@ func (r *RiverPeriodic) Remove(id string) {
 // CLI, or an MCP tool is picked up without any of them knowing this exists.
 type Scheduler struct {
 	schedules ScheduleReader
-	periodic  periodicJobs
+	periodic  periodicJobRegistrar
 	// registered is what this has told River about, keyed by schedule id, valued by what
 	// the job was built from so a pass can tell a changed schedule from a renamed one.
 	registered map[string]registration
@@ -65,7 +65,7 @@ type registration struct {
 
 // NewScheduler builds the reconciler over the schedules it reads and the periodic jobs it
 // maintains.
-func NewScheduler(schedules ScheduleReader, periodic periodicJobs) *Scheduler {
+func NewScheduler(schedules ScheduleReader, periodic periodicJobRegistrar) *Scheduler {
 	return &Scheduler{
 		schedules:  schedules,
 		periodic:   periodic,

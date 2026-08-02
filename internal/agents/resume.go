@@ -7,9 +7,9 @@ import (
 	agentstore "weave/internal/store/agent"
 )
 
-// relocateHarness is all a restore needs from the harness it looked up, a chance to
+// harnessRelocator is all a restore needs from the harness it looked up, a chance to
 // carry the conversation to wherever the agent is about to come back up.
-type relocateHarness interface {
+type harnessRelocator interface {
 	Relocate(sessionID, dir string) error
 }
 
@@ -19,7 +19,7 @@ type relocateHarness interface {
 // created in. That path is frequently a worktree that has since been deleted, and
 // a restore that gave up there would strand the one conversation the panel still
 // lists, so this always returns somewhere an agent can be started.
-func (s *AgentService) getResumeDir(agent agentstore.Agent, h relocateHarness) string {
+func (s *AgentService) getResumeDir(agent agentstore.Agent, h harnessRelocator) string {
 	dir := expandHome(agent.Cwd)
 	if dir == "" {
 		dir, _ = os.UserHomeDir()

@@ -18,10 +18,10 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// scheduleManager is the part of the schedule service the handlers drive. The
+// scheduleWriter is the part of the schedule service the handlers drive. The
 // handlers translate and nothing more. What a schedule may be lives behind
 // this.
-type scheduleManager interface {
+type scheduleWriter interface {
 	GetSchedule(ctx context.Context, id string) (*schedulestore.Schedule, error)
 	NewSchedule(ctx context.Context, cfg schedulestore.Config) (*schedulestore.Schedule, error)
 	UpdateSchedule(ctx context.Context, id string, cfg schedulestore.Config) error
@@ -38,12 +38,12 @@ type scheduleLister interface {
 // Service implements schedulev1connect.ScheduleServiceHandler.
 type Service struct {
 	lister    scheduleLister
-	schedules scheduleManager
+	schedules scheduleWriter
 }
 
 // NewService constructs the handler from the store it lists through and the
 // service that owns the rules.
-func NewService(lister scheduleLister, schedules scheduleManager) *Service {
+func NewService(lister scheduleLister, schedules scheduleWriter) *Service {
 	return &Service{lister: lister, schedules: schedules}
 }
 

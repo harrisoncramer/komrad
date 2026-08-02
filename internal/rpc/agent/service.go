@@ -36,7 +36,7 @@ type agentLauncher interface {
 	ResumeAgent(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
-type agentStore interface {
+type agentReadWriter interface {
 	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, archived bool) ([]agentstore.Agent, error)
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
@@ -46,23 +46,23 @@ type agentStore interface {
 	Rename(ctx context.Context, id, name string) (bool, error)
 }
 
-// transcriptStore is the part of the transcript store this handler reads. One RPC surface
+// transcriptReader is the part of the transcript store this handler reads. One RPC surface
 // covers both domains, but each store is held separately.
-type transcriptStore interface {
+type transcriptReader interface {
 	Get(ctx context.Context, agentID string) (transcriptstore.Transcript, error)
 	Search(ctx context.Context, params transcriptstore.SearchParams) ([]transcriptstore.SearchHit, error)
 }
 
 // Service implements agentv1connect.AgentServiceHandler.
 type Service struct {
-	agents      agentStore
-	transcripts transcriptStore
+	agents      agentReadWriter
+	transcripts transcriptReader
 	launcher    agentLauncher
 }
 
 // NewService constructs the handler from the stores it reads and the manager that launches
 // agents.
-func NewService(agents agentStore, transcripts transcriptStore, launcher agentLauncher) *Service {
+func NewService(agents agentReadWriter, transcripts transcriptReader, launcher agentLauncher) *Service {
 	return &Service{
 		agents:      agents,
 		transcripts: transcripts,

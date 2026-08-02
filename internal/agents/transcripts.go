@@ -11,29 +11,19 @@ import (
 	"weave/internal/store/transcript"
 )
 
-// sessionStore is how the syncer records the conversation an agent turned out to be
-// holding, which is the only thing about an agent it changes.
-type sessionStore interface {
+type sessionIDSetter interface {
 	SetSessionID(ctx context.Context, id, sessionID string) error
 }
 
-type transcriptStore interface {
+type transcriptReadWriter interface {
 	Get(ctx context.Context, agentID string) (transcript.Transcript, error)
 	Upsert(ctx context.Context, params transcript.UpsertParams) error
 	AppendTurns(ctx context.Context, agentID string, turns []transcript.Turn) error
 	DeleteTurns(ctx context.Context, agentID string) error
 }
 
-// agentLister is all the syncer needs from the agent domain. Archived agents are included,
-// since their transcripts stay searchable.
 type agentLister interface {
 	ListAll(ctx context.Context) ([]agentstore.Agent, error)
-}
-
-// logRegistry gets the harness that wrote an agent's log, which is the only thing that
-// knows where it is and how to read it.
-type logRegistry interface {
-	GetByID(id string) (harness.Harness, error)
 }
 
 // TranscriptSyncer keeps each agent's searchable transcript in step with the log its CLI
@@ -41,17 +31,17 @@ type logRegistry interface {
 // reads the log on a timer, so missing a pass loses nothing.
 type TranscriptSyncer struct {
 	agents    agentLister
-	sessions  sessionStore
-	store     transcriptStore
-	harnesses logRegistry
+	sessions  sessionIDSetter
+	store     transcriptReadWriter
+	harnesses harnessGetter
 }
 
 // TranscriptSyncerParams carries the syncer's dependencies.
 type TranscriptSyncerParams struct {
 	Agents      agentLister
-	Sessions    sessionStore
-	Transcripts transcriptStore
-	Harnesses   logRegistry
+	Sessions    sessionIDSetter
+	Transcripts transcriptReadWriter
+	Harnesses   harnessGetter
 }
 
 // NewTranscriptSyncer builds a syncer over the store, reading each agent's log
