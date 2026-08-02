@@ -144,15 +144,18 @@ func (s *Scheduler) Reconcile(ctx context.Context) error {
 func periodicJobFor(scheduleID string, cron river.PeriodicSchedule) *river.PeriodicJob {
 	return river.NewPeriodicJob(
 		cron,
-		func() (river.JobArgs, *river.InsertOpts) { return launchArgsFor(scheduleID, cron, time.Now()) },
+		func() (river.JobArgs, *river.InsertOpts) {
+			return launchArgsFor(scheduleID, cron, time.Now())
+		},
 		&river.PeriodicJobOpts{ID: scheduleID},
 	)
 }
 
-// launchArgsFor is what River's enqueuer builds each time the schedule comes round. A
-// schedule with no occurrence to name queues nothing, which River takes nil arguments to
-// mean, since a firing filed under the zero time stands for none and every later one would
-// dedup into the first.
+// launchArgsFor builds the arguments for one firing. Nil arguments tell River there is
+// nothing to insert, which is the answer for a schedule with no occurrence to name. Filing
+// the job under the zero time instead would stand for a firing that never happened, and
+// since the occurrence is what the unique index is built from, every later one would
+// collapse into it.
 func launchArgsFor(scheduleID string, cron river.PeriodicSchedule, now time.Time) (river.JobArgs, *river.InsertOpts) {
 	occurrence := occurrenceFor(cron, now)
 	if occurrence.IsZero() {

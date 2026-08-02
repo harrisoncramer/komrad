@@ -53,24 +53,24 @@ func TestParseCron(t *testing.T) {
 		},
 		{
 			// A day the month does not have parses cleanly and then never comes
-			// round, which is worse than a syntax error: it is stored, registered,
-			// and only found when something has to name the firing.
-			name:       "a February the thirtieth",
+			// round. That is worse than a syntax error, since it is stored and
+			// registered, and only found when something has to name the firing.
+			name:       "February the thirtieth",
 			expression: "0 0 30 2 *",
 			wantErr:    true,
 		},
 		{
-			name:       "a February the thirty-first",
+			name:       "February the thirty-first",
 			expression: "0 0 31 2 *",
 			wantErr:    true,
 		},
 		{
-			name:       "an April the thirty-first",
+			name:       "April the thirty-first",
 			expression: "0 0 31 4 *",
 			wantErr:    true,
 		},
 		{
-			name:       "while the thirty-first of a month that has one is fine",
+			name:       "the thirty-first of a month that has one",
 			expression: "0 0 31 1 *",
 		},
 	}
@@ -169,7 +169,7 @@ func TestNewSchedule(t *testing.T) {
 		},
 		{
 			name:    "nor does a date the calendar never reaches",
-			cfg:     schedule.Config{Name: "leap", Cron: "0 0 30 2 *", Prompt: "go"},
+			cfg:     schedule.Config{Name: "never", Cron: "0 0 30 2 *", Prompt: "go"},
 			wantErr: ErrBadCron,
 		},
 	}
