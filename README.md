@@ -1,5 +1,13 @@
 # weave
 
+<p align="center">
+  <a href="https://github.com/harrisoncramer/weave/actions/workflows/ci.yml"><img src="https://github.com/harrisoncramer/weave/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/harrisoncramer/weave" alt="Go version" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
+</p>
+
+<hr>
+
 Weave is a terminal-based agent manager. It lets you:
 
 - Quickly create agents backed by different CLIs, like Claude or Codex
