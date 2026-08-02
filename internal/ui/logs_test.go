@@ -145,39 +145,35 @@ func TestLogArgv(t *testing.T) {
 		name   string
 		viewer string
 		path   string
-		binary string
 		want   string
 	}{
 		{
-			name:   "nothing configured falls back to the reader that ships with this",
-			path:   "/tmp/weave.log",
-			binary: "/usr/local/bin/weave",
-			want:   appconfig.DefaultLogViewer,
+			name: "nothing configured falls back to a pager on the file",
+			path: "/tmp/weave.log",
+			want: appconfig.DefaultLogViewer,
 		},
 		{
 			name:   "a pipeline is left exactly as it was written",
-			viewer: `$WEAVE_BIN logs | fzf --ansi --preview 'echo {}'`,
+			viewer: `jq -c . "$WEAVE_LOG" | fzf --ansi --preview 'echo {}'`,
 			path:   "/tmp/weave.log",
-			binary: "/usr/local/bin/weave",
-			want:   `$WEAVE_BIN logs | fzf --ansi --preview 'echo {}'`,
+			want:   `jq -c . "$WEAVE_LOG" | fzf --ansi --preview 'echo {}'`,
 		},
 		{
 			name:   "a viewer that is only whitespace is no viewer at all",
 			viewer: "   ",
 			path:   "/tmp/weave.log",
-			binary: "/usr/local/bin/weave",
 			want:   appconfig.DefaultLogViewer,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			argv := logArgv(tt.viewer, tt.path, tt.binary)
+			argv := logArgv(tt.viewer, tt.path)
 
 			require.Len(t, argv, 3)
 			assert.Equal(t, []string{"sh", "-c"}, argv[:2], "a pipeline needs a shell to read it")
 			assert.Contains(t, argv[2], tt.want)
-			assert.Contains(t, argv[2], "export WEAVE_LOG='"+tt.path+"' WEAVE_BIN='"+tt.binary+"'; ")
+			assert.Contains(t, argv[2], "export WEAVE_LOG='"+tt.path+"'; ")
 		})
 	}
 }
@@ -185,7 +181,7 @@ func TestLogArgv(t *testing.T) {
 // TestLogArgvQuotesTheEnvironment covers a path the shell would otherwise read as two
 // words, or as the end of a quoted string.
 func TestLogArgvQuotesTheEnvironment(t *testing.T) {
-	argv := logArgv("", "/Users/a b/it's.log", "/opt/weave")
+	argv := logArgv("", "/Users/a b/it's.log")
 
 	assert.Contains(t, argv[2], `export WEAVE_LOG='/Users/a b/it'\''s.log'`)
 }
@@ -195,12 +191,12 @@ func TestLogArgvQuotesTheEnvironment(t *testing.T) {
 func TestLogsUseTheConfiguredViewer(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, path := logsModel(t, tmux)
-	m.logViewer = `$WEAVE_BIN logs | fzf --ansi --tac`
+	m.logViewer = `jq -c . "$WEAVE_LOG" | fzf --ansi --tac`
 
 	shown := pressLogs(t, m)
 
 	require.Equal(t, belowLogs, shown.tree.below)
 	require.Len(t, tmux.respawns, 1)
-	assert.Contains(t, tmux.respawns[0], `$WEAVE_BIN logs | fzf --ansi --tac`)
+	assert.Contains(t, tmux.respawns[0], `jq -c . "$WEAVE_LOG" | fzf --ansi --tac`)
 	assert.Contains(t, tmux.respawns[0], "export WEAVE_LOG='"+path+"'")
 }

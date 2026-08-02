@@ -1,6 +1,7 @@
 // Package logging is the service's structured log. Everything the background service has
-// to say goes through here in one shape, so a line reads by eye in the pager the panel
-// opens and greps by field.
+// to say goes through here in one shape: one JSON record per line, written and never
+// rendered, so every reader of the file works on the same thing and none of them is
+// privileged.
 //
 // The names are OpenTelemetry's semantic conventions. Nothing exports to a collector yet,
 // but borrowing the vocabulary means the log can be shipped later without every consumer

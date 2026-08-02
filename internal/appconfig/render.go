@@ -9,11 +9,6 @@ import (
 	"github.com/invopop/jsonschema"
 )
 
-// commentTextWidth is how wide a comment's prose is allowed to run, before the
-// "# " prefix. Descriptions are re-flowed to it rather than copied verbatim, so
-// rewrapping a doc comment in the source does not churn the generated file.
-const commentTextWidth = 76
-
 const preamble = `# weave configuration (github.com/harrisoncramer/weave).
 #
 # Generated from the Config struct in internal/appconfig. Do not edit by hand;
@@ -54,7 +49,8 @@ type property struct {
 // renderSection writes one table and then descends into its sub-tables. A table
 // header is only emitted when the level has values of its own, so a struct that
 // exists purely to group other structs contributes its prose without an empty
-// [header] above it.
+// [header] above it, and one with nothing to say contributes nothing at all
+// rather than a blank line where its prose would have gone.
 func renderSection(buf *bytes.Buffer, schema *jsonschema.Schema, path []string) error {
 	var values, tables []property
 
@@ -68,9 +64,10 @@ func renderSection(buf *bytes.Buffer, schema *jsonschema.Schema, path []string) 
 		values = append(values, property{name: name, schema: child})
 	}
 
-	buf.WriteString("\n")
-
-	if len(path) > 0 {
+	if len(path) == 0 {
+		buf.WriteString("\n")
+	} else if strings.TrimSpace(schema.Description) != "" || len(values) > 0 {
+		buf.WriteString("\n")
 		writeComment(buf, schema.Description)
 
 		if len(values) > 0 {
@@ -153,34 +150,24 @@ func renderValue(value any) (string, error) {
 	}
 }
 
-// writeComment emits text as wrapped TOML comment lines, collapsing the source
-// comment's own line breaks first so only the words matter.
+// writeComment emits text as TOML comment lines, one per line of the doc comment
+// it came from. The breaks are the author's rather than a width's, since where a
+// sentence ends is a decision about how the paragraph reads and re-flowing it
+// would take that decision away from the comment.
 func writeComment(buf *bytes.Buffer, text string) {
-	for _, line := range wrap(strings.Fields(text), commentTextWidth) {
-		fmt.Fprintf(buf, "# %s\n", line)
+	documented := strings.TrimSpace(text)
+	if documented == "" {
+		return
 	}
-}
 
-// wrap greedily packs words into lines no longer than width.
-func wrap(words []string, width int) []string {
-	var lines []string
-	var line string
+	for _, line := range strings.Split(documented, "\n") {
+		trimmed := strings.TrimRight(line, " \t")
+		if trimmed == "" {
+			buf.WriteString("#\n")
 
-	for _, word := range words {
-		switch {
-		case line == "":
-			line = word
-		case len(line)+1+len(word) <= width:
-			line += " " + word
-		default:
-			lines = append(lines, line)
-			line = word
+			continue
 		}
-	}
 
-	if line != "" {
-		lines = append(lines, line)
+		fmt.Fprintf(buf, "# %s\n", trimmed)
 	}
-
-	return lines
 }

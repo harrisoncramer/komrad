@@ -397,7 +397,7 @@ func (m model) stageBelow() {
 			m.stage.SecondaryText(agentMarkdown(r.item.agent, r.item.alive, m.scheduleName(r.item.agent)))
 		}
 	case belowLogs:
-		m.stage.SecondaryLog(m.logPath, logArgv(m.logViewer, m.logPath, m.binary))
+		m.stage.SecondaryLog(m.logPath, logArgv(m.logViewer, m.logPath))
 	case belowNothing, belowAction:
 	}
 }

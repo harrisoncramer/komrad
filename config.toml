@@ -12,14 +12,10 @@
 # names one. It has to be a harness this binary implements, so it is one of
 # the names under [harness] below.
 default_harness = "claude"
-# How many unarchived agents may exist at once, past which a create is
-# refused.
+# How many unarchived agents may exist at once, past which a create is refused.
 max_agents      = 50
-# The marks the mark key cycles through, in order. A mark is a glyph and means
-# whatever you decide, so the glyph is the label. Pressing mark advances the
-# hovered agent to the next one here, and past the last one back to unmarked,
-# which leaves a one-mark list behaving as a toggle. A colour is either one of
-# the sixteen your terminal's own scheme maps, named as "red" or "brightred",
+# The marks the mark key cycles through, in order.
+# A colour is either one of the sixteen your terminal's own scheme maps, named as "red" or "brightred",
 # or a hex value such as "#DCA561". The panel draws itself from the sixteen,
 # so a name is what keeps a mark in the same scheme as everything around it.
 marks = [
@@ -28,39 +24,25 @@ marks = [
   { glyph = "✓", color = "yellow" },
 ]
 
-# Per-CLI configuration, which is where the flags an agent of that CLI
-# inherits live.
-
 [harness.claude]
-# Flags appended to every agent's command line for this CLI, ahead of the
-# flags that agent carries itself. Flag vocabularies do not overlap between
-# CLIs, which is why they are configured per harness rather than once.
+# Flags appended to every agent's command line for this CLI, ahead of the flags that agent carries itself.
 flags = ""
 
 [harness.codex]
-# Flags appended to every Codex agent's command line, ahead of the flags that
-# agent carries itself.
+# Flags appended to every Codex agent's command line, ahead of the flags that agent carries itself.
 flags             = ""
 # Whether to record each agent's directory as trusted in Codex's own config
 # before launching it. Codex asks whether a directory is trusted the first
 # time it runs there and waits for an answer, which it reads only from that
 # file, so an agent in a fresh worktree otherwise starts blocked and shows
-# here as waiting. Turning this on edits ~/.codex/config.toml on your behalf,
-# adding nothing but a trust entry per directory and never changing one you
-# set yourself.
+# here as waiting. Turning this on edits ~/.codex/config.toml on your behalf.
 trust_launch_dirs = false
 
 # How the popup's width is divided between the panel and the stage beside it.
 [layout]
-# The share of the width the panel's list takes, as a fraction above zero and
-# below one. The stage showing whatever the cursor is on takes the rest, so
-# the default leaves the greater part to the preview, which is where there is
-# something to read.
+# The share of the width the panel's list takes.
 split           = 0.2
-# The share of the stage's height taken by the pane that opens under it, as a
-# fraction above zero and below one. That pane is where the editor, a shell,
-# the server log, and a hovered agent's record open, so the agent above it
-# stays on screen while you read or work in it.
+# The share of the stage's height taken by the pane that opens under it.
 secondary_split = 0.4
 
 # Panel keybindings, scoped to the screen each binding acts in.
@@ -79,8 +61,7 @@ run  = ["enter"]
 
 # The agents list, the panel's main screen.
 [keybindings.agents]
-# Archive the hovered agent, which stops it and moves it to the archive screen
-# rather than destroying it.
+# Archive the hovered agent, which stops it and moves it to the archive screen rather than destroying it.
 archive     = ["z"]
 # Step out of a workflow scope, or quit at the root.
 back        = ["esc"]
@@ -206,10 +187,8 @@ dir = ""
 
 # The standing text every agent is started with, whatever workflow it is in.
 [context]
-# The file holding it, read at each launch so an edit reaches the next agent
-# without a restart. Left empty this is ~/.config/weave/context.md, beside
-# this file, and a file that is not there means no standing text rather than a
-# failure to launch.
+# The file holding global context, read at each launch.
+# Left empty this is ~/.config/weave/context.md, but will not trigger a failure if left blank.
 file = ""
 
 # The log the background service writes, which the panel's log key pages.

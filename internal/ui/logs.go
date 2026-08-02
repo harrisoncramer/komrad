@@ -13,28 +13,28 @@ import (
 // The service's log, read from the panel. The service is spawned detached the first time
 // the popup opens and writes to a file rather than to a terminal, so the panel is the only
 // place somebody would think to look for it.
+//
+// What runs in that pane is the user's command and nothing here renders the file. It holds
+// JSON records, and how one should read is a question with as many answers as there are
+// tools for it.
 
-// logEnv is what a viewer command reads its inputs from. They are exported into the
+// logEnvPath is where a viewer command reads the file from. It is exported into the
 // command's environment rather than substituted into its text, which is what keeps the
 // panel out of the way of the tools people put here: fzf's own "{}" means the selected
 // line, and a panel that rewrote every "{}" before fzf saw it would make half the recipes
 // in fzf's own manual impossible to write.
-const (
-	logEnvPath   = "WEAVE_LOG"
-	logEnvBinary = "WEAVE_BIN"
-)
+const logEnvPath = "WEAVE_LOG"
 
 // logArgv is what the stage runs to show the log. The configured command goes through a
 // shell rather than being split into arguments, because the readers worth having here are
-// pipelines, and "weave logs | fzf" is not something an argv can express.
-func logArgv(viewer, path, binary string) []string {
+// pipelines, and "jq . $WEAVE_LOG | less" is not something an argv can express.
+func logArgv(viewer, path string) []string {
 	command := strings.TrimSpace(viewer)
 	if command == "" {
 		command = appconfig.DefaultLogViewer
 	}
 
-	exports := fmt.Sprintf("export %s=%s %s=%s; ",
-		logEnvPath, shellQuote(path), logEnvBinary, shellQuote(binary))
+	exports := fmt.Sprintf("export %s=%s; ", logEnvPath, shellQuote(path))
 
 	return []string{"sh", "-c", exports + command}
 }

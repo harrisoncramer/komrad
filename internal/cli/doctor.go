@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 
 	"weave/internal/agents"
 	"weave/internal/appconfig"
@@ -12,6 +14,7 @@ import (
 	"weave/internal/version"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 // ErrReported marks a command that has already written the reason to its own output. main
@@ -127,6 +130,24 @@ func (a *app) buildDoctorSettings() (doctor.Settings, error) {
 		Addr:                a.env.Addr,
 		Version:             version.Version(),
 	}, nil
+}
+
+// shouldColorize decides whether to write escapes. Auto asks whether anything reading this
+// can show them, which a pipe cannot, so a report piped into grep is plain and the same
+// command in a terminal is not.
+func shouldColorize(mode string, out io.Writer) (bool, error) {
+	switch mode {
+	case "always":
+		return true, nil
+	case "never":
+		return false, nil
+	case "auto":
+		file, ok := out.(*os.File)
+
+		return ok && term.IsTerminal(int(file.Fd())), nil
+	default:
+		return false, fmt.Errorf("unknown color %q, expected auto, always, or never", mode)
+	}
 }
 
 // diagnose is the doctor's failing findings, for a caller that otherwise has only a log

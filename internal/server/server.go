@@ -248,6 +248,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Schedules: scheduleStore,
 		Agents:    agentService,
 		Running:   agentStore,
+		Logger:    p.Logger,
 	})
 	if err != nil {
 		srv.Close()

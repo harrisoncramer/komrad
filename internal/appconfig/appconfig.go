@@ -23,20 +23,10 @@ import (
 // service works.
 const DefaultLogLevel = "info"
 
-// DefaultLogViewer is what the log key opens the log in when the config names nothing. It
-// reads through this binary's own logs command, so what lands in the pane is a line per
-// record rather than the JSON the file holds.
-//
-// Long lines wrap. The pane the log opens in is half a screen wide, and the fields that
-// run past it are the ones worth opening the log for: what a failure said and what a
-// script wrote about refusing. Chopping puts those off the right edge, where reading one
-// means scrolling a pager sideways.
-//
-// It follows, and opens in the pager's own follow, so the log is watched rather than read
-// once: firing an action from the panel puts what it did on screen while it is happening.
-// The pager toggles out of following and back with ^C and F, which needs the command to
-// keep writing, so a read that ended at the last record would leave nothing to go back to.
-const DefaultLogViewer = `"$WEAVE_BIN" logs --follow --color=always | less -RX +F`
+// DefaultLogViewer is what the log key opens the log in when the config names nothing: a
+// pager on the file itself, opened in the pager's own follow so the log is watched rather
+// than read once.
+const DefaultLogViewer = `less -R +F "$WEAVE_LOG"`
 
 // DefaultMaxAgents is how many agents may exist at once when the config names no number,
 // well above what anyone opens by hand and low enough to catch a caller in a loop.
@@ -71,12 +61,13 @@ type Keybindings struct {
 	Agents AgentsKeys `mapstructure:"agents"`
 	// The archive screen, and the key that opens it from the agents list.
 	Archive ArchiveKeys `mapstructure:"archive"`
-	// The filter over whichever list is on screen, shared by every screen that draws one.
+	// The filter over whichever list is on screen, shared by every screen that
+	// draws one.
 	Filter FilterKeys `mapstructure:"filter"`
 	// The new-agent, rename, and workflow forms.
 	Form FormKeys `mapstructure:"form"`
-	// The key that draws the legend under a list, shared by every screen for the same
-	// reason navigation is.
+	// The key that draws the legend under a list, shared by every screen for the
+	// same reason navigation is.
 	Help HelpKeys `mapstructure:"help"`
 	// Navigation, shared by every menu so movement is the same everywhere.
 	Nav NavKeys `mapstructure:"nav"`
@@ -113,10 +104,7 @@ type HelpKeys struct {
 // other key types into the pattern, so the keys that close it are fixed rather than
 // configured.
 type FilterKeys struct {
-	// Narrow the list on screen to the rows matching what you type, as a regular
-	// expression. A pattern in lower case matches either case and one carrying an upper
-	// case letter matches exactly. esc closes the input and leaves the list narrowed to
-	// act on, and the screen's back key clears it.
+	// Narrow the list on screen to the rows matching what you type, as a regular expression.
 	Open []string `mapstructure:"open"`
 }
 
@@ -127,14 +115,9 @@ type FilterKeys struct {
 type SelectionKeys struct {
 	// Drop the whole selection, which is the way back out of multi-select mode.
 	Clear []string `mapstructure:"clear"`
-	// Take in every agent between the cursor and the nearest already-selected one, which
-	// is how a run is chosen without pressing toggle down the whole of it. From a tree
-	// with nothing selected it does what toggle does, since there is nothing yet for a
-	// range to reach back to.
+	// Take in every agent between the cursor and the nearest already-selected one.
 	Range []string `mapstructure:"range"`
-	// Take the row under the cursor into the selection, or back out of it. On a workflow
-	// header that is the whole folder: one not already wholly selected is taken in whole,
-	// and one that is drops.
+	// Take the row under the cursor into the selection, or back out of it.
 	Toggle []string `mapstructure:"toggle"`
 }
 
@@ -153,25 +136,18 @@ type FormKeys struct {
 // AgentsKeys are the bindings for the agents list. Info toggles the hovered agent's
 // stored record into the stage in place of the agent itself.
 type AgentsKeys struct {
-	// Archive the hovered agent, which stops it and moves it to the archive screen
-	// rather than destroying it.
+	// Archive the hovered agent, which stops it and moves it to the archive screen rather than destroying it.
 	Archive []string `mapstructure:"archive"`
 	// Step out of a workflow scope, or quit at the root.
 	Back []string `mapstructure:"back"`
-	// Open the hovered agent's directory in whatever EDITOR names, in the pane under the
-	// stage, and press it again to close that pane. It runs the _editor action, so writing
-	// your own _editor in your actions directory replaces what the key does.
+	// Open the hovered agent's directory in your EDITOR.
+	// the key does.
 	Editor []string `mapstructure:"editor"`
-	// Hide the hovered agent from this list, or unhide one while the hidden agents
-	// are shown. Hiding stops nothing: the agent keeps running and every other view
-	// still holds it.
+	// Hide the hovered agent from this list.
 	Hide []string `mapstructure:"hide"`
-	// Show the hovered agent's stored record in the pane under the stage, so it reads
-	// beside the agent rather than in place of it, and press it again to close that pane.
+	// Show the hovered agent's stored record in the pane under the stage.
 	Info []string `mapstructure:"info"`
-	// Show the background service's log in the pane under the stage, and press it again to
-	// close that pane. The service is spawned detached and writes to a file, so nothing
-	// else shows what it is doing.
+	// Show the background service's log in the pane under the stage.
 	Logs []string `mapstructure:"logs"`
 	// Move the hovered agent to the next mark in the marks list, and past the last
 	// one back to unmarked. Nothing but you ever sets a mark.
@@ -184,16 +160,12 @@ type AgentsKeys struct {
 	Quit []string `mapstructure:"quit"`
 	// Rename the hovered agent.
 	Rename []string `mapstructure:"rename"`
-	// Search every conversation the panel holds for what you type, the archived ones
-	// included, and open the agent a hit belongs to.
+	// Search every conversation the panel holds for what you type, the archived ones included.
 	Search []string `mapstructure:"search"`
-	// Show the hidden agents alongside the rest, and press it again to put them
-	// away. While they are away each workflow header carries the count of what it is
-	// not showing.
+	// Toggles visibility of hidden agents alongside the rest.
 	ShowHidden []string `mapstructure:"show_hidden"`
-	// Open a shell in the pane under the stage, in the hovered agent's directory, and press
-	// it again to close that pane. It runs the _terminal action, so writing your own
-	// _terminal in your actions directory replaces what the key does.
+	// Open a shell in the pane under the stage, in the hovered agent's directory.
+	// This runs the _terminal action, write your own _terminal in your actions directory.
 	Terminal []string `mapstructure:"terminal"`
 }
 
@@ -254,8 +226,8 @@ type ArchiveKeys struct {
 type ActionsKeys struct {
 	// Leave the actions list for the agents list.
 	Back []string `mapstructure:"back"`
-	// Open the actions list on the hovered agent. It acts on a row rather than on the
-	// list, so this does nothing on a workflow header.
+	// Open the actions list on the hovered agent. It acts on a row rather than on
+	// the list, so this does nothing on a workflow header.
 	Open []string `mapstructure:"open"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit"`
@@ -265,15 +237,9 @@ type ActionsKeys struct {
 
 // Actions is where the panel finds the scripts its action key runs.
 type Actions struct {
-	// The directory holding them, one file per action, named by the file. Every file
-	// directly inside is offered and the directory is read on each press, so writing an
-	// action is dropping an executable in rather than an edit here. An action runs on the
-	// agent it was chosen on, in that agent's directory, with the agent as JSON in
-	// WEAVE_AGENT. Left empty this is ~/.config/weave/actions, beside this file.
-	//
-	// Weave ships actions of its own behind the panel's keys, such as _editor and
-	// _terminal. A file here of the same name is used instead of the one shipped, which is
-	// how a key is given different behaviour.
+	// Directory for actions: one executable file per action, named after the action.
+	// Files here override built-in actions with the same name.
+	// Actions run in the agent's directory with agent info in WEAVE_AGENT as JSON. Default is ~/.config/weave/actions.
 	Dir string `mapstructure:"dir"`
 }
 
@@ -281,47 +247,36 @@ type Actions struct {
 // adds. It is where what is true of your machine and how you want to be worked with goes,
 // so it does not have to be pasted into every workflow.
 type Context struct {
-	// The file holding it, read at each launch so an edit reaches the next agent without
-	// a restart. Left empty this is ~/.config/weave/context.md, beside this file, and a
-	// file that is not there means no standing text rather than a failure to launch.
+	// The file holding global context, read at each launch.
+	// Left empty this is ~/.config/weave/context.md, but will not trigger a failure if left blank.
 	File string `mapstructure:"file"`
 }
 
 // Layout is how the panel divides the popup between its own list and the stage
 // pane beside it.
 type Layout struct {
-	// The share of the width the panel's list takes, as a fraction above zero and
-	// below one. The stage showing whatever the cursor is on takes the rest, so the
-	// default leaves the greater part to the preview, which is where there is
-	// something to read.
+	// The share of the width the panel's list takes.
 	Split float64 `mapstructure:"split"`
-	// The share of the stage's height taken by the pane that opens under it, as a
-	// fraction above zero and below one. That pane is where the editor, a shell, the
-	// server log, and a hovered agent's record open, so the agent above it stays on
-	// screen while you read or work in it.
+	// The share of the stage's height taken by the pane that opens under it.
 	SecondarySplit float64 `mapstructure:"secondary_split"`
 }
 
 // Harness is how one agent CLI is configured.
 type Harness struct {
-	// Flags appended to every agent's command line for this CLI, ahead of the flags
-	// that agent carries itself. Flag vocabularies do not overlap between CLIs, which
-	// is why they are configured per harness rather than once.
+	// Flags appended to every agent's command line for this CLI, ahead of the flags that agent carries itself.
 	Flags string `mapstructure:"flags"`
 }
 
 // Codex is how the Codex CLI is configured. It carries one setting of its own,
 // since Codex asks a question at startup that no other CLI here does.
 type Codex struct {
-	// Flags appended to every Codex agent's command line, ahead of the flags that
-	// agent carries itself.
+	// Flags appended to every Codex agent's command line, ahead of the flags that agent carries itself.
 	Flags string `mapstructure:"flags"`
 	// Whether to record each agent's directory as trusted in Codex's own config
-	// before launching it. Codex asks whether a directory is trusted the first time it
-	// runs there and waits for an answer, which it reads only from that file, so an
-	// agent in a fresh worktree otherwise starts blocked and shows here as waiting.
-	// Turning this on edits ~/.codex/config.toml on your behalf, adding nothing but a
-	// trust entry per directory and never changing one you set yourself.
+	// before launching it. Codex asks whether a directory is trusted the first
+	// time it runs there and waits for an answer, which it reads only from that
+	// file, so an agent in a fresh worktree otherwise starts blocked and shows
+	// here as waiting. Turning this on edits ~/.codex/config.toml on your behalf.
 	TrustLaunchDirs bool `mapstructure:"trust_launch_dirs"`
 }
 
@@ -338,45 +293,27 @@ type Harnesses struct {
 // panel's log key pages the same file, and a path the two could disagree about is a log
 // nobody can find.
 type Log struct {
-	// How much is written, one of debug, info, warn, or error. Served requests are logged
-	// at debug and failures at error, so the default keeps the file to what went wrong.
-	// Debug is worth turning on while chasing something. It is loud, because the panel
-	// calls four times a second while it is open.
+	// How much is written, one of debug, info, warn, or error.
 	Level string `mapstructure:"level"`
-	// What the log key opens the log in. It runs in the stage pane through a shell, so a
-	// pipeline is as good as a single command. Two variables are exported into it:
-	// WEAVE_BIN is this binary, whose "logs" subcommand prints the file a line per record
-	// rather than as the JSON it is stored as, and WEAVE_LOG is the file itself, for a
-	// reader that would rather have it raw.
-	//
-	// Nothing in the command is rewritten, so a tool's own placeholders are its own:
-	// "$WEAVE_BIN logs --color=always | fzf --ansi --tac" gives fzf the whole of its "{}".
-	//
-	// Whatever it runs has to hold the pane, the way a pager does. A command that prints
-	// and exits takes the pane down with it, and the stage comes back empty.
+	// The default log viewer. Switch with fzf, rg, etc.
 	Viewer string `mapstructure:"viewer"`
 }
 
 // Config is the user's customization.
 type Config struct {
-	// Which agent CLI a new agent runs when neither the agent nor its workflow names
-	// one. It has to be a harness this binary implements, so it is one of the names
-	// under [harness] below.
+	// Which agent CLI a new agent runs when neither the agent nor its workflow
+	// names one. It has to be a harness this binary implements, so it is one of
+	// the names under [harness] below.
 	DefaultHarness string `mapstructure:"default_harness"`
 	// How many unarchived agents may exist at once, past which a create is refused.
-	MaxAgents int `mapstructure:"max_agents"`
-	// Per-CLI configuration, which is where the flags an agent of that CLI inherits
-	// live.
-	Harness Harnesses `mapstructure:"harness"`
+	MaxAgents int       `mapstructure:"max_agents"`
+	Harness   Harnesses `mapstructure:"harness"`
 	// How the popup's width is divided between the panel and the stage beside it.
 	Layout Layout `mapstructure:"layout"`
-	// The marks the mark key cycles through, in order. A mark is a glyph and means
-	// whatever you decide, so the glyph is the label. Pressing mark advances the
-	// hovered agent to the next one here, and past the last one back to unmarked,
-	// which leaves a one-mark list behaving as a toggle. A colour is either one of the
-	// sixteen your terminal's own scheme maps, named as "red" or "brightred", or a hex
-	// value such as "#DCA561". The panel draws itself from the sixteen, so a name is
-	// what keeps a mark in the same scheme as everything around it.
+	// The marks the mark key cycles through, in order.
+	// A colour is either one of the sixteen your terminal's own scheme maps, named as "red" or "brightred",
+	// or a hex value such as "#DCA561". The panel draws itself from the sixteen,
+	// so a name is what keeps a mark in the same scheme as everything around it.
 	Marks []Mark `mapstructure:"marks"`
 	// Panel keybindings, scoped to the screen each binding acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`

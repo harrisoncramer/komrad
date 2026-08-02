@@ -75,9 +75,6 @@ type Deps struct {
 	// LogViewer is the command the log key opens the log in, from the user's config. It
 	// runs through a shell, so it can be a pipeline.
 	LogViewer string
-	// Binary is this executable, which a viewer command reaches through WEAVE_BIN. It is
-	// passed in so the panel and the service it spawns are the same build.
-	Binary string
 	// LogPath is the file the service writes to, which the log key pages. It is passed in
 	// so the panel reads the file the process that spawned the service pointed it at.
 	LogPath string
@@ -171,11 +168,9 @@ type model struct {
 
 	keys  appconfig.Keybindings
 	marks []appconfig.Mark
-	// logPath is the service's log, logViewer is what the log key opens it in, and binary
-	// is this executable, which the viewer reaches through the environment.
+	// logPath is the service's log and logViewer is what the log key opens it in.
 	logPath   string
 	logViewer string
-	binary    string
 }
 
 func newModel(deps Deps) model {
@@ -187,7 +182,6 @@ func newModel(deps Deps) model {
 		addr:            deps.Addr,
 		logPath:         deps.LogPath,
 		logViewer:       deps.LogViewer,
-		binary:          deps.Binary,
 		keys:            deps.Keys,
 		marks:           deps.Marks,
 		configErr:       deps.ConfigErr,
