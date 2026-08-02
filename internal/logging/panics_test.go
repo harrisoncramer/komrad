@@ -13,10 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestLogPanic covers the record a panic is written as. The value and its type both go on
-// it, since a panic can carry anything and the type is often the only thing that says what
-// raised it, and the stack goes on the record rather than beside it so a reader does not
-// have to piece it back together from the lines around it.
+// TestLogPanic covers the record a panic is written as.
 func TestLogPanic(t *testing.T) {
 	tests := []struct {
 		name        string

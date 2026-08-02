@@ -10,15 +10,6 @@ import (
 	"connectrpc.com/connect"
 )
 
-// A panic under a request. net/http already keeps one from ending the process, so what is
-// missing is an account of it and an answer for the caller. Without those the connection is
-// dropped with nothing in the log but Go's own text on stderr, and the caller sees the service
-// go quiet rather than fail.
-//
-// The process is left alive here, unlike at every other root. A panic under one request is
-// that request's problem, and ending the service over it would take every agent's work along
-// with it.
-
 // errPanicked is what a caller is told when a handler panicked. The value itself is not passed
 // on, since it can hold anything the code that raised it was holding.
 var errPanicked = errors.New("the server panicked")

@@ -132,9 +132,7 @@ func (a *app) buildDoctorSettings() (doctor.Settings, error) {
 	}, nil
 }
 
-// shouldColorize decides whether to write escapes. Auto asks whether anything reading this
-// can show them, which a pipe cannot, so a report piped into grep is plain and the same
-// command in a terminal is not.
+// shouldColorize decides whether to write escapes.
 func shouldColorize(mode string, out io.Writer) (bool, error) {
 	switch mode {
 	case "always":
@@ -151,8 +149,7 @@ func shouldColorize(mode string, out io.Writer) (bool, error) {
 }
 
 // diagnose is the doctor's failing findings, for a caller that otherwise has only a log
-// tail to explain itself with. It returns nothing when the checks cannot be assembled,
-// since a screen with no advice beats one carrying an error about why there is no advice.
+// tail to explain itself with.
 func (a *app) diagnose(ctx context.Context) []errui.Finding {
 	env, checks, err := a.buildDoctor()
 	if err != nil {

@@ -207,10 +207,7 @@ func serve(ctx context.Context, p serveParams) error {
 	httpServer := &http.Server{
 		Handler:           built.Handler(logger),
 		ReadHeaderTimeout: 5 * time.Second,
-		// net/http writes its own complaints through a log.Logger, which left unset is the
-		// standard one and puts plain text among the records. What it has to say is a panic it
-		// caught under our own recovery or a connection it could not read, both worth a record.
-		ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelError),
+		ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelError),
 	}
 
 	served := make(chan error, 1)

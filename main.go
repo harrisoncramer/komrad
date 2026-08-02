@@ -12,10 +12,7 @@ import (
 )
 
 func main() {
-	// The root every command's own goroutine runs under. serve makes the service's logger the
-	// default one before anything else, so a panic here is a record in the log file like
-	// everything else the service says, and in any other command it is the line on stderr it
-	// always was.
+
 	defer logging.LogAndRepanic(context.Background())
 
 	err := cli.NewRootCommand().Execute()
