@@ -23,7 +23,9 @@ import (
 // NewRootCommand builds the weave command tree. Running it with no
 // subcommand opens the panel.
 func NewRootCommand() *cobra.Command {
-	state := &app{}
+
+	app := &app{} // The app holds basically all of our application state, which drives the CLI commands and the bubbletea models.
+
 	var configPath string
 
 	root := &cobra.Command{
@@ -42,23 +44,23 @@ func NewRootCommand() *cobra.Command {
 			// error screen rather than ending the process here.
 			cfg, err := appconfig.Load(configPath)
 			if err != nil {
-				state.configErr = err
+				app.configErr = err
 				cfg = appconfig.Defaults()
 			}
 
-			state.env = env
-			state.keys = cfg.Keybindings
-			state.defaultHarness = cfg.DefaultHarness
-			state.maxAgents = cfg.MaxAgents
+			app.env = env
+			app.keys = cfg.Keybindings
+			app.defaultHarness = cfg.DefaultHarness
+			app.maxAgents = cfg.MaxAgents
 
 			// No context file is not an error
-			state.contextPath, _ = cfg.ContextFile()
+			app.contextPath, _ = cfg.ContextFile()
 
 			codexHarness := codex.New(codex.Options{TrustLaunchDirs: cfg.Harness.Codex.TrustLaunchDirs})
 			claudeHarness := claude.New("")
 
 			// Set up default flags for the harnesses provided by the user in their config file.
-			state.defaultFlags = map[string]string{
+			app.defaultFlags = map[string]string{
 				claudeHarness.GetID(): cfg.Harness.Claude.Flags,
 				codexHarness.GetID():  cfg.Harness.Codex.Flags,
 			}
@@ -68,16 +70,16 @@ func NewRootCommand() *cobra.Command {
 				return fmt.Errorf("failed to create registry: %w", err)
 			}
 
-			if _, err := harnesses.Resolve(cfg.DefaultHarness); err != nil && state.configErr == nil {
-				state.configErr = fmt.Errorf("default_harness: %w", err)
+			if _, err := harnesses.Resolve(cfg.DefaultHarness); err != nil && app.configErr == nil {
+				app.configErr = fmt.Errorf("default_harness: %w", err)
 			}
 
-			state.harnesses = harnesses
-			state.marks = cfg.Marks
-			state.layout = cfg.Layout
-			state.logLevel = cfg.Log.Level
-			state.logViewer = cfg.Log.Viewer
-			state.configPath = configPath
+			app.harnesses = harnesses
+			app.marks = cfg.Marks
+			app.layout = cfg.Layout
+			app.logLevel = cfg.Log.Level
+			app.logViewer = cfg.Log.Viewer
+			app.configPath = configPath
 
 			// Weave uses two tmux servers: the manager's server owns the
 			// session, its windows, and its panes. The user's server answers where the
@@ -85,9 +87,9 @@ func NewRootCommand() *cobra.Command {
 			// key binding reads.
 
 			manager := tmux.NewClient(env.TmuxSocket)
-			state.host = tmux.NewHost(manager)
-			state.tmux = tmux.NewServers(manager, state.host)
-			state.popup = ui.NewPopup(state.tmux, agents.ManagerSession)
+			app.host = tmux.NewHost(manager)
+			app.tmux = tmux.NewServers(manager, app.host)
+			app.popup = ui.NewPopup(app.tmux, agents.ManagerSession)
 
 			return nil
 		},
@@ -95,16 +97,16 @@ func NewRootCommand() *cobra.Command {
 
 	root.PersistentFlags().StringVar(&configPath, "config", "", "path to config TOML")
 	root.AddCommand(
-		logsCmd(state),
-		panelCmd(state),
-		openCmd(state),
-		hideCmd(state),
-		serveCmd(state),
-		startCmd(state),
-		stopCmd(state),
-		versionCmd(state),
-		migrateCmd(state),
-		readonlyRoleCmd(state),
+		logsCmd(app),
+		panelCmd(app),
+		openCmd(app),
+		hideCmd(app),
+		serveCmd(app),
+		startCmd(app),
+		stopCmd(app),
+		versionCmd(app),
+		migrateCmd(app),
+		readonlyRoleCmd(app),
 	)
 
 	return root
