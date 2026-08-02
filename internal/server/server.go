@@ -38,6 +38,7 @@ import (
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
 	"connectrpc.com/connect"
+	"connectrpc.com/vanguard"
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 )
@@ -194,16 +195,30 @@ func New(ctx context.Context, p Params) (*Server, error) {
 	options := connect.WithInterceptors(interceptors.NewLogging(p.Logger), validation)
 
 	srv.Mux = http.NewServeMux()
-	srv.handle(agentv1connect.NewAgentServiceHandler(
-		rpcagent.NewService(agentStore, transcriptStore, agentService), options))
-	srv.handle(workflowv1connect.NewWorkflowServiceHandler(
-		rpcworkflow.NewService(workflowStore, workflowService), options))
-	srv.handle(schedulev1connect.NewScheduleServiceHandler(
-		rpcschedule.NewService(scheduleStore, scheduleService), options))
-	srv.handle(configv1connect.NewConfigServiceHandler(
-		rpcconfig.NewService(loadConfig), options))
-	srv.handle(actionv1connect.NewActionServiceHandler(
-		rpcaction.NewService(actionService), options))
+
+	// Every service goes through the transcoder rather than onto the mux directly. It
+	// serves each one's own Connect path as before and additionally answers the REST paths
+	// the protos declare, so a script with curl and a client with a generated stub are
+	// talking to the same handler.
+	transcoder, err := newTranscoder([]*vanguard.Service{
+		vanguard.NewService(agentv1connect.NewAgentServiceHandler(
+			rpcagent.NewService(agentStore, transcriptStore, agentService), options)),
+		vanguard.NewService(workflowv1connect.NewWorkflowServiceHandler(
+			rpcworkflow.NewService(workflowStore, workflowService), options)),
+		vanguard.NewService(schedulev1connect.NewScheduleServiceHandler(
+			rpcschedule.NewService(scheduleStore, scheduleService), options)),
+		vanguard.NewService(configv1connect.NewConfigServiceHandler(
+			rpcconfig.NewService(loadConfig), options)),
+		vanguard.NewService(actionv1connect.NewActionServiceHandler(
+			rpcaction.NewService(actionService), options)),
+	})
+	if err != nil {
+		srv.Close()
+
+		return nil, err
+	}
+
+	srv.Mux.Handle("/", transcoder)
 
 	// The MCP endpoint reads through its own read-only handle, opened as a least-privilege
 	// role, since what a statement may read is decided by the role and not by the flag.
@@ -297,8 +312,4 @@ func (s *Server) Close() {
 	}
 
 	s.closers = nil
-}
-
-func (s *Server) handle(path string, handler http.Handler) {
-	s.Mux.Handle(path, handler)
 }

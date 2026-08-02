@@ -4,6 +4,7 @@ package agent.v1;
 
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
+import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 import "pagination/v1/pagination.proto";
 import "rules/v1/rules.proto";
@@ -265,6 +266,7 @@ message GetTranscriptResponse {
 service AgentService {
   rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {get: "/v1/agents"};
     option (annotation.v1.tool) = {
       tool_name: "list_agents"
       description: "List the agents the panel tracks, live and dormant, with each one\'s name, state, working directory, flags, and workflow. Archived agents are excluded unless archived is set, which lists those and only those. Returns one page, most recently updated first; pass the response\'s nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs."
@@ -272,12 +274,17 @@ service AgentService {
   }
   rpc GetAgent(GetAgentRequest) returns (GetAgentResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {get: "/v1/agents/{id}"};
     option (annotation.v1.tool) = {
       tool_name: "get_agent"
       description: "Fetch one agent by id, including whatever metadata it has recorded about its own work. Spans the archived agents too, since an id is the one handle those still answer to. Returns not_found if no agent has that id."
     };
   }
   rpc CreateAgent(CreateAgentRequest) returns (CreateAgentResponse) {
+    option (google.api.http) = {
+      post: "/v1/agents"
+      body: "*"
+    };
     option (annotation.v1.tool) = {
       tool_name: "create_agent"
       description: "Launch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would point somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again."
@@ -302,6 +309,10 @@ service AgentService {
   }
   rpc SetMetadata(SetMetadataRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
+    option (google.api.http) = {
+      put: "/v1/agents/{id}/metadata/{key}"
+      body: "*"
+    };
     option (annotation.v1.tool) = {
       tool_name: "set_agent_metadata"
       description: "Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value. Use this on yourself as you work, whenever you learn something a person would want to jump to later: the Linear issue you are implementing, the pull request you opened, the branch you are on. Your own id is in the WEAVE_AGENT_ID environment variable. Store the full URL rather than a bare number, since the panel shows the value as it is. Keys are lowercase letters, digits, underscores, and dashes; call this once per key, which leaves every other key on the agent untouched. Do not record what the agent is currently doing, which is already its state, and do not paste findings here, which belong in your reply."
@@ -310,6 +321,10 @@ service AgentService {
   }
   rpc ArchiveAgent(ArchiveAgentRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
+    option (google.api.http) = {
+      post: "/v1/agents/{id}:archive"
+      body: "*"
+    };
     option (annotation.v1.tool) = {
       tool_name: "archive_agent"
       description: "Stop an agent and hide it from the panel, keyed by id, keeping its record and transcript. Prefer this to delete_agent: it is reversible with restore_agent, and search_transcripts still finds the conversation. Returns not_found if no agent has that id."
@@ -334,6 +349,7 @@ service AgentService {
   }
   rpc DeleteAgent(DeleteAgentRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
+    option (google.api.http) = {delete: "/v1/agents/{id}"};
     option (annotation.v1.tool) = {
       tool_name: "delete_agent"
       description: "Permanently remove an agent's record, keyed by id. This is a hard delete, not the panel's archive: the config and the transcript go with it and search will never find the conversation again. Prefer archive_agent, and prefer leaving agents alone unless asked to remove one."
