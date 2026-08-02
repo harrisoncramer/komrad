@@ -23,11 +23,9 @@ var (
 	}
 )
 
-// Config asserts the user's config file parses.
-//
-// A file that does not is the one failure the panel cannot work around: an unknown key is
-// an error rather than a dropped line, so a typo takes the whole panel down to an error
-// screen. Having no file at all is the ordinary install and passes.
+// Config asserts the user's config file parses. An unknown key is an error rather than a
+// dropped line, so a typo takes the whole panel down to an error screen. Having no file is
+// the ordinary install and passes.
 func Config() Check {
 	return Check{
 		Name:        "config",
@@ -44,19 +42,18 @@ func Config() Check {
 			// Whether the file is there is not worth its own status. Both answers
 			// are correct installs, and which one this is only matters when a
 			// setting is not taking effect, so it is said rather than judged.
-			if !env.ConfigExists() {
-				return ok("no file at " + env.ConfigPath + ", so every default applies")
+			if !env.DoesConfigExist() {
+				return pass("no file at " + env.ConfigPath + ", so every default applies")
 			}
 
-			return ok(env.ConfigPath)
+			return pass(env.ConfigPath)
 		},
 	}
 }
 
-// DefaultHarness asserts the CLI a new agent runs is one this build knows how to run.
-//
-// The config takes a name rather than a choice, so a misspelling is only found when an
-// agent is created, which is a form the panel refuses to submit with no way back.
+// DefaultHarness asserts the CLI a new agent runs is one this build knows how to run. The
+// config takes a name rather than a choice, so a misspelling is otherwise only found when
+// somebody tries to create an agent.
 func DefaultHarness() Check {
 	return Check{
 		Name:        "default harness",
@@ -70,7 +67,7 @@ func DefaultHarness() Check {
 
 			for _, candidate := range env.Harnesses {
 				if candidate.ID == cfg.DefaultHarness {
-					return ok(cfg.DefaultHarness)
+					return pass(cfg.DefaultHarness)
 				}
 			}
 
@@ -84,18 +81,13 @@ func DefaultHarness() Check {
 	}
 }
 
-// HarnessBinary asserts one agent CLI is on PATH.
+// HarnessBinary asserts one agent CLI is on PATH, which is the quietest way weave breaks.
+// The launch is a line typed into a pane, so a CLI that is not there leaves the pane
+// printing "command not found" and going idle, and the reconciler reads idle as an agent
+// that finished.
 //
-// It is the quietest way weave breaks. The launch is a line typed into a pane, so a CLI
-// that is not there leaves the pane printing "command not found" and going idle, which the
-// reconciler reads as an agent that finished. The panel shows work that was never done.
-//
-// Missing is only a failure for the CLI new agents actually run. Weave ships support for
-// several and nobody installs all of them, so the rest are worth a line and no more.
-//
-// This does not need the config, only the answer it would have given. Whether a command
-// resolves is worth reporting even when the config is broken, and a config that will not
-// parse falls back to the built-in default, which is the same thing the root command does.
+// Only the CLI new agents actually run is a failure. Weave supports several and nobody
+// installs all of them.
 func HarnessBinary(agent HarnessInfo) Check {
 	return Check{
 		Name:        agent.ID,
@@ -103,7 +95,7 @@ func HarnessBinary(agent HarnessInfo) Check {
 		Run: func(_ context.Context, env Env) Result {
 			path, lookErr := env.LookPath(agent.Binary)
 			if lookErr == nil {
-				return ok(path)
+				return pass(path)
 			}
 
 			if effectiveDefaultHarness(env) != agent.ID {
@@ -123,9 +115,9 @@ func HarnessBinary(agent HarnessInfo) Check {
 	}
 }
 
-// effectiveDefaultHarness is the CLI a new agent would actually run: what the config names,
-// or the built-in default when the config could not be read, since that is what the root
-// command falls back to.
+// effectiveDefaultHarness is the CLI a new agent would actually run. A config that will not
+// parse falls back to the built-in default, which is what the root command does too, so
+// this check still answers when the config is broken.
 func effectiveDefaultHarness(env Env) string {
 	cfg, err := env.LoadConfig()
 	if err != nil {
@@ -135,8 +127,7 @@ func effectiveDefaultHarness(env Env) string {
 	return cfg.DefaultHarness
 }
 
-// listNames is the registered harness ids as a sentence fragment, for a message offering
-// them as the choices.
+// listNames is the registered harness ids as a sentence fragment.
 func listNames(harnesses []HarnessInfo) string {
 	names := make([]string, 0, len(harnesses))
 	for _, agent := range harnesses {

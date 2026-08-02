@@ -91,7 +91,7 @@ type Deps struct {
 	StartupErr error
 	// StartupFindings are what the doctor found wrong when the server would not start.
 	// They are gathered by whoever tried to start it, since the panel has no business
-	// opening a database to work out why it could not reach one.
+	// opening a database to find out why one could not be reached.
 	StartupFindings []errui.Finding
 	// Pane is the pane the panel runs in, read from the environment tmux gives that pane.
 	// The stage lays the window out around it, so it has to be this pane and not whichever

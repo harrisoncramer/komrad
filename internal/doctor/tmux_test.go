@@ -10,12 +10,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeEnv answers for tmux without one being installed, which is the whole reason the
-// checks reach the machine through functions.
-func fakeEnv(path string, lookErr error, reported string, outErr error) Env {
+// tmuxOnPath answers for whether tmux resolves, which is all the binary check asks.
+func tmuxOnPath(path string, err error) Env {
 	return Env{
-		LookPath: func(string) (string, error) { return path, lookErr },
-		Output:   func(context.Context, string, ...string) (string, error) { return reported, outErr },
+		LookPath: func(string) (string, error) { return path, err },
+	}
+}
+
+// tmuxReporting answers for what "tmux -V" prints, for the version check.
+func tmuxReporting(reported string, err error) Env {
+	return Env{
+		LookPath: func(string) (string, error) { return "/usr/bin/tmux", nil },
+		Output:   func(context.Context, string, ...string) (string, error) { return reported, err },
 	}
 }
 
@@ -29,6 +35,26 @@ func TestParseTmuxVersion(t *testing.T) {
 		want     tmuxVersion
 		wantErr  bool
 	}{
+		{
+			name:     "nothing",
+			reported: "",
+			wantErr:  true,
+		},
+		{
+			name:     "a major with nothing after it",
+			reported: "tmux 3",
+			wantErr:  true,
+		},
+		{
+			name:     "a build naming no version at all",
+			reported: "tmux master",
+			wantErr:  true,
+		},
+		{
+			name:     "OpenBSD's base tmux, which reports the OS release and not tmux's",
+			reported: "tmux openbsd-7.6",
+			wantErr:  true,
+		},
 		{
 			name:     "an ordinary release",
 			reported: "tmux 3.4",
@@ -59,26 +85,6 @@ func TestParseTmuxVersion(t *testing.T) {
 			reported: "tmux 3.10",
 			want:     tmuxVersion{major: 3, minor: 10},
 		},
-		{
-			name:     "OpenBSD's base tmux, which reports the OS release and not tmux's",
-			reported: "tmux openbsd-7.6",
-			wantErr:  true,
-		},
-		{
-			name:     "a build naming no version at all",
-			reported: "tmux master",
-			wantErr:  true,
-		},
-		{
-			name:     "a major with nothing after it",
-			reported: "tmux 3",
-			wantErr:  true,
-		},
-		{
-			name:     "nothing",
-			reported: "",
-			wantErr:  true,
-		},
 	}
 
 	for _, tt := range tests {
@@ -96,8 +102,8 @@ func TestParseTmuxVersion(t *testing.T) {
 	}
 }
 
-// TestTmuxVersionOrdering covers the comparison, including the two-digit minor that a
-// string comparison would order wrongly.
+// TestTmuxVersionOrdering covers the comparison, including the two-digit minor a string
+// comparison would order wrongly.
 func TestTmuxVersionOrdering(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -105,17 +111,47 @@ func TestTmuxVersionOrdering(t *testing.T) {
 		floor tmuxVersion
 		want  bool
 	}{
-		{name: "the same version", have: tmuxVersion{3, 3}, floor: tmuxVersion{3, 3}, want: true},
-		{name: "a newer minor", have: tmuxVersion{3, 4}, floor: tmuxVersion{3, 3}, want: true},
-		{name: "an older minor", have: tmuxVersion{3, 2}, floor: tmuxVersion{3, 3}, want: false},
-		{name: "a newer major", have: tmuxVersion{4, 0}, floor: tmuxVersion{3, 3}, want: true},
-		{name: "an older major with a bigger minor", have: tmuxVersion{2, 9}, floor: tmuxVersion{3, 3}, want: false},
-		{name: "a two-digit minor over a one-digit floor", have: tmuxVersion{3, 10}, floor: tmuxVersion{3, 9}, want: true},
+		{
+			name:  "an older minor",
+			have:  tmuxVersion{major: 3, minor: 2},
+			floor: tmuxVersion{major: 3, minor: 3},
+			want:  false,
+		},
+		{
+			name:  "an older major with a bigger minor",
+			have:  tmuxVersion{major: 2, minor: 9},
+			floor: tmuxVersion{major: 3, minor: 3},
+			want:  false,
+		},
+		{
+			name:  "the same version",
+			have:  tmuxVersion{major: 3, minor: 3},
+			floor: tmuxVersion{major: 3, minor: 3},
+			want:  true,
+		},
+		{
+			name:  "a newer minor",
+			have:  tmuxVersion{major: 3, minor: 4},
+			floor: tmuxVersion{major: 3, minor: 3},
+			want:  true,
+		},
+		{
+			name:  "a newer major",
+			have:  tmuxVersion{major: 4, minor: 0},
+			floor: tmuxVersion{major: 3, minor: 3},
+			want:  true,
+		},
+		{
+			name:  "a two-digit minor over a one-digit floor",
+			have:  tmuxVersion{major: 3, minor: 10},
+			floor: tmuxVersion{major: 3, minor: 9},
+			want:  true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.have.atLeast(tt.floor))
+			assert.Equal(t, tt.want, tt.have.isAtLeast(tt.floor))
 		})
 	}
 }
@@ -124,14 +160,14 @@ func TestTmuxVersionOrdering(t *testing.T) {
 // code rather than only a sentence.
 func TestTmuxBinaryCheck(t *testing.T) {
 	t.Run("tmux is installed", func(t *testing.T) {
-		result := TmuxBinary().Run(t.Context(), fakeEnv("/usr/bin/tmux", nil, "", nil))
+		result := TmuxBinary().Run(t.Context(), tmuxOnPath("/usr/bin/tmux", nil))
 
 		assert.Equal(t, StatusOK, result.Status)
 		assert.Equal(t, "/usr/bin/tmux", result.Detail, "where it landed is reported, since two tmuxes on one machine is the confusing case")
 	})
 
 	t.Run("tmux is not installed", func(t *testing.T) {
-		result := TmuxBinary().Run(t.Context(), fakeEnv("", exec.ErrNotFound, "", nil))
+		result := TmuxBinary().Run(t.Context(), tmuxOnPath("", exec.ErrNotFound))
 
 		assert.Equal(t, StatusFail, result.Status)
 		assert.Equal(t, "tmux_missing", CodeOf(result.Err))
@@ -149,16 +185,6 @@ func TestTmuxVersionCheck(t *testing.T) {
 		want     Status
 		wantCode string
 	}{
-		{
-			name:     "exactly the floor",
-			reported: "tmux 3.3a",
-			want:     StatusOK,
-		},
-		{
-			name:     "newer than the floor",
-			reported: "tmux 3.7b",
-			want:     StatusOK,
-		},
 		{
 			name:     "below the floor",
 			reported: "tmux 3.1c",
@@ -183,11 +209,21 @@ func TestTmuxVersionCheck(t *testing.T) {
 			want:     StatusFail,
 			wantCode: "tmux_not_runnable",
 		},
+		{
+			name:     "exactly the floor",
+			reported: "tmux 3.3a",
+			want:     StatusOK,
+		},
+		{
+			name:     "newer than the floor",
+			reported: "tmux 3.7b",
+			want:     StatusOK,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := TmuxVersion().Run(t.Context(), fakeEnv("/usr/bin/tmux", nil, tt.reported, tt.outErr))
+			result := TmuxVersion().Run(t.Context(), tmuxReporting(tt.reported, tt.outErr))
 
 			assert.Equal(t, tt.want, result.Status)
 			assert.Equal(t, tt.wantCode, CodeOf(result.Err))
@@ -236,12 +272,6 @@ func TestTmuxShellCheck(t *testing.T) {
 		wantDetail string
 	}{
 		{
-			name:       "weave's own server names a shell an agent can launch from",
-			answers:    map[string]string{"-L weave": "/bin/zsh"},
-			want:       StatusOK,
-			wantDetail: "/bin/zsh (weave's tmux server)",
-		},
-		{
 			name:     "a shell that cannot parse the launch",
 			answers:  map[string]string{"-L weave": "/usr/bin/fish"},
 			want:     StatusFail,
@@ -270,6 +300,12 @@ func TestTmuxShellCheck(t *testing.T) {
 			answers:  map[string]string{},
 			want:     StatusWarn,
 			wantCode: "tmux_no_server",
+		},
+		{
+			name:       "weave's own server names a shell an agent can launch from",
+			answers:    map[string]string{"-L weave": "/bin/zsh"},
+			want:       StatusOK,
+			wantDetail: "/bin/zsh (weave's tmux server)",
 		},
 	}
 

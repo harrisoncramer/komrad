@@ -20,11 +20,7 @@ import (
 func TestProbeLeavesTheSchemaAlone(t *testing.T) {
 	url := pgtest.URL(t)
 
-	handle, err := connectProbe(t.Context(), url)
-	require.NoError(t, err)
-	defer handle.Close()
-
-	pending, err := handle.Pending(t.Context())
+	pending, err := readPendingMigrations(t.Context(), url)
 	require.NoError(t, err)
 	assert.NotEmpty(t, pending, "a database pgtest just created has every migration outstanding")
 
@@ -39,20 +35,15 @@ func TestProbeLeavesTheSchemaAlone(t *testing.T) {
 	assert.Zero(t, tables, "reading the schema created nothing, not even the migration ledger")
 }
 
-// TestProbeCannotWrite covers the other half of the promise. The read-only flag rides on
-// the connection, so a statement that would write is refused by Postgres rather than by
-// this package remembering not to send one.
+// TestProbeCannotWrite covers the other half of the promise. The read-only flag rides on the
+// connection, so a write is refused by Postgres rather than by this package remembering not
+// to send one.
 func TestProbeCannotWrite(t *testing.T) {
-	url := pgtest.URL(t)
-
-	handle, err := connectProbe(t.Context(), url)
+	pool, err := openReadOnlyPool(t.Context(), pgtest.URL(t))
 	require.NoError(t, err)
-	defer handle.Close()
+	defer pool.Close()
 
-	probe, ok := handle.(*pgProbe)
-	require.True(t, ok)
-
-	_, err = probe.pool.Exec(t.Context(), `CREATE TABLE written_anyway (id int)`)
+	_, err = pool.Exec(t.Context(), `CREATE TABLE written_anyway (id int)`)
 	require.Error(t, err, "the connection refuses a write without the caller having to avoid one")
 }
 
@@ -66,11 +57,7 @@ func TestProbeReportsNothingPendingOnceMigrated(t *testing.T) {
 	defer migrated.Close()
 	require.NoError(t, db.Migrate(t.Context(), migrated))
 
-	handle, err := connectProbe(t.Context(), url)
-	require.NoError(t, err)
-	defer handle.Close()
-
-	pending, err := handle.Pending(t.Context())
+	pending, err := readPendingMigrations(t.Context(), url)
 	require.NoError(t, err)
 	assert.Empty(t, pending)
 }

@@ -12,30 +12,37 @@ import (
 )
 
 // connectTimeout bounds reaching a database. A Postgres that has not answered in this long
-// is one the panel would fail to start against anyway, and the point of the check is to say
-// so rather than to wait with it.
+// is one the panel would fail to start against anyway.
 const connectTimeout = 5 * time.Second
 
-// pgProbe is a database opened for looking at and nothing else.
-type pgProbe struct {
-	pool *pgxpool.Pool
+// pingDatabase reports whether the writable login answers.
+func pingDatabase(ctx context.Context, url string) error {
+	pool, err := openReadOnlyPool(ctx, url)
+	if err != nil {
+		return err
+	}
+	pool.Close()
+
+	return nil
 }
 
-// Pending is the migrations this build ships that the database has not applied. It reads
-// the ledger and writes nothing, so a database behind on migrations stays behind.
-func (p *pgProbe) Pending(ctx context.Context) ([]string, error) {
-	return db.Pending(ctx, p.pool)
+// readPendingMigrations lists what this build ships that the database has not applied.
+func readPendingMigrations(ctx context.Context, url string) ([]string, error) {
+	pool, err := openReadOnlyPool(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	defer pool.Close()
+
+	return db.Pending(ctx, pool)
 }
 
-func (p *pgProbe) Close() { p.pool.Close() }
-
-// connectProbe opens the writable login without letting it write.
+// openReadOnlyPool opens the writable login without letting it write.
 //
 // This is deliberately not store.Open, which applies the migrations on the way in. Doctor
-// reports whether the schema is behind, and a check that fixed the thing it was measuring
-// could never report it. The read-only flag rides on the connection, so the guarantee is
-// Postgres's rather than this code's.
-func connectProbe(ctx context.Context, url string) (Probe, error) {
+// reports whether the schema is behind, and a check that fixed what it was measuring could
+// never report it. The flag rides on the connection, so the guarantee is Postgres's.
+func openReadOnlyPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
 	defer cancel()
 
@@ -50,15 +57,15 @@ func connectProbe(ctx context.Context, url string) (Probe, error) {
 		return nil, err
 	}
 
-	// NewWithConfig does not dial, so without this a database that is not there comes
-	// back as a working handle and fails on the first query instead.
+	// NewWithConfig does not dial, so without this a database that is not there comes back
+	// as a working handle and fails on the first query instead.
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
 
 		return nil, err
 	}
 
-	return &pgProbe{pool: pool}, nil
+	return pool, nil
 }
 
 // connectReadOnly opens the least-privilege login the way the service does, so a machine

@@ -10,9 +10,16 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// The ways the database can be wrong. They are separate codes rather than one because the
-// fix for each is different, and a refused connection and a rejected password look the
-// same from the panel: a server that would not start.
+// The SQLSTATEs worth telling apart. Postgres reports each as a connection failure, and
+// only the code says which one it was.
+const (
+	pgAuthFailed      = "28P01"
+	pgAuthUnspecified = "28000"
+	pgDatabaseMissing = "3D000"
+)
+
+// The ways the database can be wrong. Each is a separate code because each needs a
+// different thing done, and from the panel they all look like a server that would not start.
 var (
 	ErrDatabaseURLInvalid = &Problem{
 		Code:    "database_url_invalid",
@@ -49,18 +56,13 @@ var (
 )
 
 // Database asserts Postgres is there and will let weave in.
-//
-// It connects read-only rather than the way the service does, because opening the store
-// applies the migrations, and a command run to find out what is wrong must not be the thing
-// that changes it.
 func Database() Check {
 	return Check{
 		Name:        "database",
 		Description: "every agent, workflow, and schedule weave knows about lives in Postgres",
 		Run: func(ctx context.Context, env Env) Result {
-			// Parsed before connecting so a malformed string is its own answer. A
-			// connection attempt would report it as a failure to reach an address
-			// that was never an address.
+			// Parsed before connecting so a malformed string is its own answer rather
+			// than a failure to reach an address that was never an address.
 			if _, err := pgconn.ParseConfig(env.DatabaseURL); err != nil {
 				return fail(
 					fmt.Errorf("%w: %w", ErrDatabaseURLInvalid, err),
@@ -71,71 +73,54 @@ func Database() Check {
 
 			target := redactDSN(env.DatabaseURL)
 
-			handle, err := env.Connect(ctx, env.DatabaseURL)
-			if err != nil {
-				return databaseFailure(err, env.DatabaseURL, target)
+			if err := env.PingDatabase(ctx, env.DatabaseURL); err != nil {
+				return classifyDatabaseFailure(err, env.DatabaseURL, target)
 			}
-			defer handle.Close()
 
-			return ok(target)
+			return pass(target)
 		},
 	}
 }
 
-// Schema asserts the database has every migration this build ships.
-//
-// Being behind is not a failure the user has to fix by hand, since the service migrates on
-// the way up, so this reports what is outstanding rather than treating it as broken.
+// Schema asserts the database has every migration this build ships. Being behind is not a
+// failure the user has to fix, since the service migrates on the way up.
 func Schema() Check {
 	return Check{
 		Name:        "schema",
 		Description: "the tables weave reads have to match the build reading them",
 		Needs:       []string{"database"},
 		Run: func(ctx context.Context, env Env) Result {
-			handle, err := env.Connect(ctx, env.DatabaseURL)
+			pending, err := env.ReadPendingMigrations(ctx, env.DatabaseURL)
 			if err != nil {
-				return databaseFailure(err, env.DatabaseURL, "")
-			}
-			defer handle.Close()
-
-			pending, err := handle.Pending(ctx)
-			if err != nil {
-				return fail(
-					fmt.Errorf("%w: %w", ErrSchemaUnreadable, err),
-					"",
-					"weave migrate",
-				)
+				return fail(fmt.Errorf("%w: %w", ErrSchemaUnreadable, err), "", "weave migrate")
 			}
 
 			if len(pending) > 0 {
 				return warn(
-					fmt.Errorf("%w: %s not applied yet", ErrSchemaBehind, countMigrations(len(pending))),
+					fmt.Errorf("%w: %s not applied yet", ErrSchemaBehind, describeMigrationCount(len(pending))),
 					"",
 				)
 			}
 
-			return ok("up to date")
+			return pass("up to date")
 		},
 	}
 }
 
 // ReadOnlyLogin asserts the least-privilege login exists and can connect.
 //
-// This is the sharpest edge on a fresh machine. The service opens a second pool as this
-// login and refuses to start when it cannot, so a user who has done everything else right
-// still gets a panel that will not open, and the only thing that creates the login is a
-// hidden subcommand.
-//
-// It connects exactly the way the service does, superuser refusal included, so passing here
-// means the service gets past the same call rather than something close to it.
+// The service opens a second pool as this login and refuses to start when it cannot, so a
+// user who has done everything else right still gets a panel that will not open. It
+// connects the way the service does, superuser refusal included, so passing here means the
+// service gets past the same call rather than something close to it.
 func ReadOnlyLogin() Check {
 	return Check{
 		Name:        "readonly login",
 		Description: "the MCP query tools read through a login that can only read",
 		Needs:       []string{"database"},
 		Run: func(ctx context.Context, env Env) Result {
-			// Checked before connecting, since one login for both would connect
-			// cleanly and hand the MCP endpoint the writable role.
+			// Checked before connecting, since one login for both would connect cleanly
+			// and hand the MCP endpoint the writable role.
 			if env.ReadOnlyDatabaseURL == env.DatabaseURL {
 				return fail(
 					ErrReadOnlyLoginShared,
@@ -146,23 +131,21 @@ func ReadOnlyLogin() Check {
 
 			if err := env.ConnectReadOnly(ctx, env.ReadOnlyDatabaseURL); err != nil {
 				return fail(
-					fmt.Errorf("%w: %s", ErrReadOnlyLoginUnusable, shortDatabaseReason(err)),
+					fmt.Errorf("%w: %s", ErrReadOnlyLoginUnusable, describeDatabaseReason(err)),
 					redactDSN(env.ReadOnlyDatabaseURL),
 					"weave readonly-role",
 				)
 			}
 
-			return ok(redactDSN(env.ReadOnlyDatabaseURL))
+			return pass(redactDSN(env.ReadOnlyDatabaseURL))
 		},
 	}
 }
 
-// databaseFailure names what Postgres actually objected to, and what to do about it.
-//
-// Every one of these arrives at the panel as the same startup failure, so telling them
-// apart is most of what this check is worth: a server that is not running, a password that
-// is wrong, and a database that was never created need three different things done.
-func databaseFailure(err error, url, detail string) Result {
+// classifyDatabaseFailure names what Postgres objected to, and what to do about it. A
+// server that is not running, a password that is wrong, and a database that was never
+// created need three different things done.
+func classifyDatabaseFailure(err error, url, detail string) Result {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
 		switch pgErr.Code {
@@ -171,32 +154,33 @@ func databaseFailure(err error, url, detail string) Result {
 				"check the user and password in DATABASE_URL")
 		case pgDatabaseMissing:
 			return fail(fmt.Errorf("%w: %s", ErrDatabaseMissing, pgErr.Message), detail,
-				"createdb "+databaseName(url)+", or point DATABASE_URL at one that exists")
+				"createdb "+readDatabaseName(url)+", or point DATABASE_URL at one that exists")
 		}
 	}
 
+	// No mention of docker or mise. Most people who read this line installed a binary and
+	// have neither, and their Postgres is wherever they put it.
 	return fail(
-		fmt.Errorf("%w %s: %s", ErrDatabaseUnreachable, hostPort(url), networkReason(err)),
-		detail, "start Postgres "+hostPort(url)+", or point DATABASE_URL at one that is running")
+		fmt.Errorf("%w %s: %s", ErrDatabaseUnreachable, describeHostPort(url), describeNetworkReason(err)),
+		detail,
+		"start Postgres "+describeHostPort(url)+", or point DATABASE_URL at one that is running",
+	)
 }
 
-// shortDatabaseReason is what went wrong in the words Postgres or the network used, without
-// the connection attempt spelled out around them.
-func shortDatabaseReason(err error) string {
+// describeDatabaseReason is what went wrong in the words Postgres or the network used.
+func describeDatabaseReason(err error) string {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
 		return pgErr.Message
 	}
 
-	return networkReason(err)
+	return describeNetworkReason(err)
 }
 
-// networkReason is why the dial did not land, in the few words that say it.
-//
-// pgx reports the whole attempt, which for a host that resolves to both an IPv4 and an
-// IPv6 address is two dial errors and the connection string spelled out again. All of that
-// is one fact, and the row it has to fit on is one line.
-func networkReason(err error) string {
+// describeNetworkReason is why the dial did not land, in the few words that say it. pgx
+// reports the whole attempt, which for a host resolving to both an IPv4 and an IPv6 address
+// is two dial errors and the connection string again. That is one fact on one row.
+func describeNetworkReason(err error) string {
 	var opErr *net.OpError
 	if errors.As(err, &opErr) && opErr.Err != nil {
 		return opErr.Err.Error()
@@ -209,28 +193,19 @@ func networkReason(err error) string {
 	return err.Error()
 }
 
-// hostPort is where the connection was attempted, for a message that has to name it since
-// the reason alone does not.
-func hostPort(url string) string {
+// describeHostPort is where the connection was attempted, since the reason alone does not
+// name it.
+func describeHostPort(url string) string {
 	cfg, err := pgconn.ParseConfig(url)
 	if err != nil {
-		return "the configured address"
+		return "at the configured address"
 	}
 
 	return "at " + cfg.Host + ":" + strconv.Itoa(int(cfg.Port))
 }
 
-// The SQLSTATEs worth telling apart. Postgres reports each as a connection failure, and
-// only the code says which one it was.
-const (
-	pgAuthFailed      = "28P01"
-	pgAuthUnspecified = "28000"
-	pgDatabaseMissing = "3D000"
-)
-
-// databaseName is the database the url names, for a fix that has to say which one to
-// create rather than leaving the reader to pick it back out of the connection string.
-func databaseName(url string) string {
+// readDatabaseName is the database the url names, so a fix can say which one to create.
+func readDatabaseName(url string) string {
 	cfg, err := pgconn.ParseConfig(url)
 	if err != nil {
 		return "the database"
@@ -239,8 +214,8 @@ func databaseName(url string) string {
 	return cfg.Database
 }
 
-// redactDSN is the connection string with the password taken out, since a report is pasted
-// into issues and the address is the part worth reading anyway.
+// redactDSN is the connection string without the password, since a report gets pasted into
+// issues and the address is the part worth reading.
 func redactDSN(url string) string {
 	cfg, err := pgconn.ParseConfig(url)
 	if err != nil {
@@ -250,12 +225,12 @@ func redactDSN(url string) string {
 	return "postgres://" + cfg.User + "@" + cfg.Host + ":" + strconv.Itoa(int(cfg.Port)) + "/" + cfg.Database
 }
 
-// countMigrations writes a number of migrations as a phrase, so the line reads as a
-// sentence rather than as a count with a noun stuck to it.
-func countMigrations(n int) string {
-	if n == 1 {
+// describeMigrationCount writes a number of migrations as a phrase, so the line reads as a
+// sentence rather than a count with a noun stuck to it.
+func describeMigrationCount(pending int) string {
+	if pending == 1 {
 		return "1 migration"
 	}
 
-	return strconv.Itoa(n) + " migrations"
+	return strconv.Itoa(pending) + " migrations"
 }

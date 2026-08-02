@@ -28,9 +28,9 @@ func TestRunSkipsWhatItCannotCheck(t *testing.T) {
 
 	report := Run(t.Context(), Env{}, []Check{
 		stub("base", fail(problem, "", "install it")),
-		stub("dependent", ok("never reached"), "base"),
-		stub("transitive", ok("never reached either"), "dependent"),
-		stub("unrelated", ok("ran anyway")),
+		stub("dependent", pass("never reached"), "base"),
+		stub("transitive", pass("never reached either"), "dependent"),
+		stub("unrelated", pass("ran anyway")),
 	})
 
 	statuses := map[string]Status{}
@@ -50,7 +50,7 @@ func TestRunSkipsWhatItCannotCheck(t *testing.T) {
 // report can be diffed against another machine's.
 func TestRunReportsEveryCheck(t *testing.T) {
 	report := Run(t.Context(), Env{}, []Check{
-		stub("one", ok("fine")),
+		stub("one", pass("fine")),
 		stub("two", fail(&Problem{Code: "bad", Message: "broken"}, "", "fix it")),
 		stub("three", warn(&Problem{Code: "odd", Message: "unclear"}, "something")),
 	})
@@ -67,9 +67,21 @@ func TestSummaryHealth(t *testing.T) {
 		check Check
 		want  bool
 	}{
-		{name: "everything passing is healthy", check: stub("a", ok("")), want: true},
-		{name: "a warning is not a problem", check: stub("a", warn(errors.New("odd"), "")), want: true},
-		{name: "a failure is", check: stub("a", fail(errors.New("bad"), "", "")), want: false},
+		{
+			name:  "a failure is not healthy",
+			check: stub("a", fail(errors.New("bad"), "", "")),
+			want:  false,
+		},
+		{
+			name:  "a warning is a fact rather than a problem",
+			check: stub("a", warn(errors.New("odd"), "")),
+			want:  true,
+		},
+		{
+			name:  "everything passing is healthy",
+			check: stub("a", pass("")),
+			want:  true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -90,11 +102,31 @@ func TestCodeOfReadsThroughTheChain(t *testing.T) {
 		err  error
 		want string
 	}{
-		{name: "the sentinel itself", err: sentinel, want: "tmux_too_old"},
-		{name: "wrapped with detail", err: fmt.Errorf("%w: found 3.1", sentinel), want: "tmux_too_old"},
-		{name: "wrapped twice", err: fmt.Errorf("%w", fmt.Errorf("%w: found 3.1", sentinel)), want: "tmux_too_old"},
-		{name: "an error carrying no problem", err: errors.New("plain"), want: ""},
-		{name: "no error at all", err: nil, want: ""},
+		{
+			name: "no error at all",
+			err:  nil,
+			want: "",
+		},
+		{
+			name: "an error carrying no problem",
+			err:  errors.New("plain"),
+			want: "",
+		},
+		{
+			name: "the sentinel itself",
+			err:  sentinel,
+			want: "tmux_too_old",
+		},
+		{
+			name: "wrapped with detail",
+			err:  fmt.Errorf("%w: found 3.1", sentinel),
+			want: "tmux_too_old",
+		},
+		{
+			name: "wrapped twice",
+			err:  fmt.Errorf("%w", fmt.Errorf("%w: found 3.1", sentinel)),
+			want: "tmux_too_old",
+		},
 	}
 
 	for _, tt := range tests {
@@ -118,13 +150,13 @@ func TestProblemsAreMatchable(t *testing.T) {
 // bug in one check must cost that check's row and not the whole screen.
 func TestRunSurvivesACheckThatPanics(t *testing.T) {
 	report := Run(t.Context(), Env{}, []Check{
-		stub("before", ok("fine")),
+		stub("before", pass("fine")),
 		{
 			Name:        "broken",
 			Description: "a check whose seam was never filled in",
 			Run:         func(context.Context, Env) Result { panic("nil seam") },
 		},
-		stub("after", ok("also fine")),
+		stub("after", pass("also fine")),
 	})
 
 	require.Len(t, report.Findings, 3, "the rows either side of it are still reported")

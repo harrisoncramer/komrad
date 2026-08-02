@@ -9,6 +9,13 @@ import (
 	"fmt"
 )
 
+// ErrCheckPanicked reports a check that did not survive being run, which is a bug in the
+// check rather than anything about the machine.
+var ErrCheckPanicked = &Problem{
+	Code:    "check_panicked",
+	Message: "this check could not be made because it failed on its own",
+}
+
 // Status is what a check concluded.
 type Status string
 
@@ -74,8 +81,8 @@ type Result struct {
 	Fix string
 }
 
-// ok is a passing result carrying what was observed.
-func ok(detail string) Result {
+// pass is a passing result carrying what was observed.
+func pass(detail string) Result {
 	return Result{Status: StatusOK, Detail: detail}
 }
 
@@ -130,12 +137,10 @@ type Summary struct {
 func Run(ctx context.Context, env Env, checks []Check) Report {
 	report := Report{Findings: make([]Finding, 0, len(checks))}
 
-	// What each check concluded, so the ones after it can be skipped rather than run
-	// against a dependency already known to be missing.
-	concluded := make(map[string]Status, len(checks))
+	concluded := make(conclusions, len(checks))
 
 	for _, check := range checks {
-		result := runCheck(ctx, env, check, concluded)
+		result := concluded.run(ctx, env, check)
 		concluded[check.Name] = result.Status
 
 		finding := Finding{
@@ -158,21 +163,16 @@ func Run(ctx context.Context, env Env, checks []Check) Report {
 	return report
 }
 
-// ErrCheckPanicked reports a check that did not survive being run, which is a bug in the
-// check rather than anything about the machine.
-var ErrCheckPanicked = &Problem{
-	Code:    "check_panicked",
-	Message: "this check could not be made because it failed on its own",
-}
+// conclusions is what each check concluded, keyed by name, so the ones after it can be
+// skipped rather than run against a dependency already known to be missing.
+type conclusions map[string]Status
 
-// runCheck makes one assertion, unless something it needs did not pass. A dependency that
-// was itself skipped skips this too, so a chain of them collapses to the one real failure
-// at its head.
+// run makes one assertion, unless something it needs did not pass. A dependency that was
+// itself skipped skips this too, so a chain collapses to the one real failure at its head.
 //
-// A check that panics is reported as one bad row rather than taking the process with it.
-// The panel runs these to explain why it could not start, so the one moment doctor is
-// needed most is the moment it must not be the reason nothing renders.
-func runCheck(ctx context.Context, env Env, check Check, concluded map[string]Status) (result Result) {
+// A check that panics costs its own row and nothing else. The panel runs these to explain
+// why it could not start, so doctor must never be the reason nothing renders.
+func (c conclusions) run(ctx context.Context, env Env, check Check) (result Result) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			result = fail(fmt.Errorf("%w: %v", ErrCheckPanicked, recovered), "", "")
@@ -180,7 +180,7 @@ func runCheck(ctx context.Context, env Env, check Check, concluded map[string]St
 	}()
 
 	for _, needed := range check.Needs {
-		switch concluded[needed] {
+		switch c[needed] {
 		case StatusFail, StatusSkip:
 			return skip(needed)
 		case StatusOK, StatusWarn:

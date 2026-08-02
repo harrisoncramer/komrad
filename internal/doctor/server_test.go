@@ -45,11 +45,6 @@ func TestServerCheck(t *testing.T) {
 		wantCode string
 	}{
 		{
-			name:   "this build, serving",
-			status: ServerStatus{Answering: true, Ready: true, Version: "v1.2.3", Current: true},
-			want:   StatusOK,
-		},
-		{
 			name:     "nothing there yet",
 			status:   ServerStatus{},
 			want:     StatusWarn,
@@ -72,6 +67,11 @@ func TestServerCheck(t *testing.T) {
 			status:   ServerStatus{Answering: true, Version: "v1.2.3", Current: true},
 			want:     StatusFail,
 			wantCode: "server_not_ready",
+		},
+		{
+			name:   "this build, serving",
+			status: ServerStatus{Answering: true, Ready: true, Version: "v1.2.3", Current: true},
+			want:   StatusOK,
 		},
 	}
 

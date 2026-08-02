@@ -50,7 +50,7 @@ func TestWriteTextColumnsLineUp(t *testing.T) {
 		}
 		require.NotEmpty(t, row, "every finding is drawn on a line of its own: %s", finding.Name)
 
-		column := strings.LastIndex(row, line(finding))
+		column := strings.LastIndex(row, describeFinding(finding))
 		require.NotEqual(t, -1, column, "the finding's text is on its line: %s", finding.Name)
 		columns[finding.Name] = column
 	}
@@ -81,11 +81,6 @@ func TestWriteTextSaysWhatFailed(t *testing.T) {
 		want     string
 	}{
 		{
-			name:     "nothing wrong",
-			findings: []Finding{{Name: "tmux", Status: StatusOK}},
-			want:     "1 checks, all ok.",
-		},
-		{
 			name: "something wrong",
 			findings: []Finding{
 				{Name: "tmux", Status: StatusOK},
@@ -100,6 +95,11 @@ func TestWriteTextSaysWhatFailed(t *testing.T) {
 				{Name: "codex", Status: StatusWarn, Error: "not on PATH"},
 			},
 			want: "1 of 2 checks failed, 1 worth a look.",
+		},
+		{
+			name:     "nothing wrong",
+			findings: []Finding{{Name: "tmux", Status: StatusOK}},
+			want:     "1 checks, all ok.",
 		},
 	}
 

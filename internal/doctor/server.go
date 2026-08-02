@@ -38,12 +38,10 @@ type ServerStatus struct {
 	Current bool
 }
 
-// Server reports who holds the address the panel talks through.
-//
-// Nothing serving is the ordinary state, not a problem: the panel spawns the server the
-// first time it opens. What is worth catching is the address held by something else, since
-// the panel will then try to start a server, fail to bind, and report a startup error that
-// names none of this.
+// Server reports who holds the address the panel talks through. Nothing serving is the
+// ordinary state before the first open, so it is a note. The address held by something else
+// is what is worth catching, since the panel then fails to bind and reports a startup error
+// naming none of it.
 func Server() Check {
 	return Check{
 		Name:        "server",
@@ -71,12 +69,12 @@ func Server() Check {
 					fmt.Errorf("%w: %s is serving build %s and this is %s",
 						ErrServerStale, env.Addr, status.Version, env.Version),
 					env.Addr,
-					staleServerFix(ctx, env),
+					describeStaleServerFix(ctx, env),
 				)
 
 			case !status.Ready:
-				// No restart advice. The pool reconnects, so the server picks the
-				// database back up on its own and the panel clears within a poll.
+				// No restart advice. The pool reconnects, so the server recovers on
+				// its own and the panel clears within a poll.
 				return fail(
 					fmt.Errorf("%w: %s is up but reports it cannot reach its database", ErrServerNotReady, env.Addr),
 					env.Addr,
@@ -84,32 +82,32 @@ func Server() Check {
 				)
 			}
 
-			return ok(env.Addr + " serving " + status.Version)
+			return pass(env.Addr + " serving " + status.Version)
 		},
 	}
 }
 
-// staleServerFix is how to get onto the current build, which depends on whether the panel
-// is up.
+// describeStaleServerFix is how to get onto the current build, which depends on whether the
+// panel is up.
 //
-// With no panel, stopping the server is the whole fix: the next open creates the session
-// and spawns the build doing the opening. With a panel, that same advice strands the user.
-// The panel runs ensureServer once, when its session is created, so re-opening the popup
-// re-attaches the process that is already there and nothing ever starts a server again.
+// With no panel, stopping the server is the whole fix, since the next open creates the
+// session and spawns the build doing the opening. With a panel that advice strands the
+// user. The panel runs ensureServer once, when its session is created, so re-opening the
+// popup re-attaches the process already there and nothing starts a server again.
 //
-// What is left in that case costs the agents. They are windows in the panel's own session,
-// so replacing the panel replaces them, and the fix says so rather than finding out later.
-func staleServerFix(ctx context.Context, env Env) string {
-	if !panelRunning(ctx, env) {
+// What is left costs the agents, because they are windows in the panel's own session. The
+// fix says so rather than letting it be discovered.
+func describeStaleServerFix(ctx context.Context, env Env) string {
+	if !isPanelRunning(ctx, env) {
 		return "weave stop, then reopen the panel"
 	}
 
 	return "tmux -L " + env.TmuxSocket + " kill-server, then reopen the panel, which also restarts every agent"
 }
 
-// panelRunning reports whether the panel's tmux session is up. has-session is asked rather
-// than anything that would create a server, for the reason the shell check gives.
-func panelRunning(ctx context.Context, env Env) bool {
+// isPanelRunning reports whether the panel's tmux session is up. has-session is asked
+// rather than anything that would create a server, for the reason the shell check gives.
+func isPanelRunning(ctx context.Context, env Env) bool {
 	if env.TmuxSocket == "" || env.PanelSession == "" {
 		return false
 	}

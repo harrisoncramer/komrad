@@ -47,9 +47,26 @@ services:
       target: tmux
     volumes: *doctor-sandbox-volumes
 
-  # The same machine with the local Postgres reachable, for the checks that need one to
-  # answer. Override DATABASE_URL on the run to point it at a database that is missing,
-  # unmigrated, or refusing the password.
+  # A Postgres of the sandbox's own, on no volume and no published port. It is not the db
+  # service above, because that one holds the panel's real state on a named volume, and a
+  # sandbox that tears itself down would take a developer's agents with it. This one starts
+  # empty every run, which is also what the checks want to see.
+  doctor-db:
+    profiles: ["doctor"]
+    image: postgres:18
+    environment:
+      POSTGRES_USER: weave
+      POSTGRES_PASSWORD: weave
+      POSTGRES_DB: weave
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "weave"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  # The same machine with a Postgres reachable, for the checks that need one to answer.
+  # Override DATABASE_URL on the run to point it at a database that is missing, unmigrated,
+  # or refusing the password.
   doctor-postgres:
     profiles: ["doctor"]
     build:
@@ -57,11 +74,11 @@ services:
       target: tmux
     volumes: *doctor-sandbox-volumes
     depends_on:
-      db:
+      doctor-db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://weave:weave@db:5432/weave?sslmode=disable
-      WEAVE_READONLY_DATABASE_URL: postgres://weave_readonly:weave_readonly@db:5432/weave?sslmode=disable
+      DATABASE_URL: postgres://weave:weave@doctor-db:5432/weave?sslmode=disable
+      WEAVE_READONLY_DATABASE_URL: postgres://weave_readonly:weave_readonly@doctor-db:5432/weave?sslmode=disable
 
 volumes:
   weave-db:

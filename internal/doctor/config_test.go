@@ -35,9 +35,9 @@ func configEnv(cfg *appconfig.Config, loadErr error, exists bool, installed ...s
 
 			return "", exec.ErrNotFound
 		},
-		Output:       func(context.Context, string, ...string) (string, error) { return "", errors.New("no server") },
-		LoadConfig:   func() (*appconfig.Config, error) { return cfg, loadErr },
-		ConfigExists: func() bool { return exists },
+		Output:          func(context.Context, string, ...string) (string, error) { return "", errors.New("no server") },
+		LoadConfig:      func() (*appconfig.Config, error) { return cfg, loadErr },
+		DoesConfigExist: func() bool { return exists },
 	}
 }
 
@@ -79,10 +79,28 @@ func TestDefaultHarnessCheck(t *testing.T) {
 		want     Status
 		wantCode string
 	}{
-		{name: "a harness this build has", harness: "claude", want: StatusOK},
-		{name: "the other one it has", harness: "codex", want: StatusOK},
-		{name: "one it does not", harness: "aider", want: StatusFail, wantCode: "harness_unknown"},
-		{name: "a near miss", harness: "Claude", want: StatusFail, wantCode: "harness_unknown"},
+		{
+			name:     "one this build does not have",
+			harness:  "aider",
+			want:     StatusFail,
+			wantCode: "harness_unknown",
+		},
+		{
+			name:     "a near miss on one it does",
+			harness:  "Claude",
+			want:     StatusFail,
+			wantCode: "harness_unknown",
+		},
+		{
+			name:    "a harness this build has",
+			harness: "claude",
+			want:    StatusOK,
+		},
+		{
+			name:    "the other one it has",
+			harness: "codex",
+			want:    StatusOK,
+		},
 	}
 
 	for _, tt := range tests {
@@ -115,13 +133,6 @@ func TestHarnessBinaryCheck(t *testing.T) {
 		wantCode   string
 	}{
 		{
-			name:       "installed",
-			agent:      claudeAndCodex[0],
-			configured: "claude",
-			installed:  []string{"claude"},
-			want:       StatusOK,
-		},
-		{
 			name:       "the default one is missing",
 			agent:      claudeAndCodex[0],
 			configured: "claude",
@@ -144,6 +155,13 @@ func TestHarnessBinaryCheck(t *testing.T) {
 			installed:  []string{"claude"},
 			want:       StatusFail,
 			wantCode:   "harness_missing",
+		},
+		{
+			name:       "installed",
+			agent:      claudeAndCodex[0],
+			configured: "claude",
+			installed:  []string{"claude"},
+			want:       StatusOK,
 		},
 	}
 

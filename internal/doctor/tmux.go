@@ -9,10 +9,6 @@ import (
 	"weave/internal/harness"
 )
 
-// minTmux is the oldest tmux the panel's key binding works on. display-popup arrived in
-// 3.2, but weave.tmux passes it -T for the popup title, which arrived in 3.3.
-var minTmux = tmuxVersion{major: 3, minor: 3}
-
 // The ways tmux can be wrong. Each is a code a script can switch on, so the wording here
 // can change without breaking a caller.
 var (
@@ -42,8 +38,12 @@ var (
 	}
 )
 
-// TmuxBinary asserts tmux is installed. Nothing about the panel works without it: the
-// popup, the agent panes, and the manager server are all tmux.
+// minTmux is the oldest tmux the panel's key binding works on. display-popup arrived in
+// 3.2, but weave.tmux passes it -T for the popup title, which arrived in 3.3.
+var minTmux = tmuxVersion{major: 3, minor: 3}
+
+// TmuxBinary asserts tmux is installed. The popup, the agent panes, and the manager server
+// are all tmux, so nothing works without it.
 func TmuxBinary() Check {
 	return Check{
 		Name:        "tmux",
@@ -51,13 +51,12 @@ func TmuxBinary() Check {
 		Run: func(_ context.Context, env Env) Result {
 			path, err := env.LookPath("tmux")
 			if err != nil {
-				// What LookPath returned is dropped rather than wrapped: it only
-				// ever says the name was not found, which the sentinel says
-				// better, and it names PATH in a way that reads as the cause.
+				// LookPath's error only restates the name, which the sentinel says
+				// better, so it is dropped rather than wrapped.
 				return fail(ErrTmuxMissing, "", "install tmux "+minTmux.String()+" or newer")
 			}
 
-			return ok(path)
+			return pass(path)
 		},
 	}
 }
@@ -87,7 +86,7 @@ func TmuxVersion() Check {
 				return warn(fmt.Errorf("%w: %w", ErrTmuxVersionUnreadable, err), reported)
 			}
 
-			if !version.atLeast(minTmux) {
+			if !version.isAtLeast(minTmux) {
 				return fail(
 					fmt.Errorf("%w: found %s, need %s or newer", ErrTmuxTooOld, reported, minTmux),
 					reported,
@@ -95,7 +94,7 @@ func TmuxVersion() Check {
 				)
 			}
 
-			return ok(reported)
+			return pass(reported)
 		},
 	}
 }
@@ -109,8 +108,8 @@ type tmuxVersion struct {
 
 func (v tmuxVersion) String() string { return strconv.Itoa(v.major) + "." + strconv.Itoa(v.minor) }
 
-// atLeast reports whether v is other or newer.
-func (v tmuxVersion) atLeast(other tmuxVersion) bool {
+// isAtLeast reports whether v is other or newer.
+func (v tmuxVersion) isAtLeast(other tmuxVersion) bool {
 	if v.major != other.major {
 		return v.major > other.major
 	}
@@ -118,12 +117,11 @@ func (v tmuxVersion) atLeast(other tmuxVersion) bool {
 	return v.minor >= other.minor
 }
 
-// parseTmuxVersion reads what "tmux -V" printed.
-//
-// Three spellings have to survive it: a release, "tmux 3.3a", where the trailing letter is
-// not part of the number; a build from master, "tmux next-3.8", which is the release it is
-// heading for; and OpenBSD's base tmux, "tmux openbsd-7.6", which reports the OS release
-// and says nothing about tmux, so it is refused rather than read as version 7.
+// parseTmuxVersion reads what "tmux -V" printed. Three spellings have to survive it. A
+// release is "tmux 3.3a", where the trailing letter is not part of the number. A build from
+// master is "tmux next-3.8", named for the release it heads for. OpenBSD's base tmux is
+// "tmux openbsd-7.6", which reports the OS release and nothing about tmux, so it is refused
+// rather than read as version 7.
 func parseTmuxVersion(reported string) (tmuxVersion, error) {
 	number := strings.TrimSpace(strings.TrimPrefix(reported, "tmux "))
 	number = strings.TrimPrefix(number, "next-")
@@ -156,34 +154,30 @@ func parseTmuxVersion(reported string) (tmuxVersion, error) {
 	return tmuxVersion{major: majorNumber, minor: minorNumber}, nil
 }
 
-// TmuxShell asserts that the shell tmux would start an agent's pane with can parse the
-// command that starts one.
+// TmuxShell asserts the shell tmux starts agent panes with can parse the command that
+// starts an agent.
 //
-// This is the failure that reads as something else. The launch is a string typed into a
-// pane, and a shell that cannot parse a command substitution leaves the agent as a syntax
-// error next to a prompt file that was never cleaned up. The service refuses to start at
-// all rather than let it happen, so what a user sees today is a panel that will not open.
+// A shell that cannot parse a command substitution leaves the agent as a syntax error. The
+// service refuses to start rather than let that happen, so what a user sees is a panel that
+// will not open.
 //
-// The option is read from a tmux server that is already running rather than from one
-// started to ask, since doctor starting a server would be doctor changing the machine it
-// is describing. Weave's own server is asked first because that is the one agent panes are
-// opened on; the user's is the fallback, and answers the same unless the two servers were
-// given different configuration.
+// The option is read off a server already running rather than one started to ask, since
+// starting a server would be doctor changing the machine it is describing.
 func TmuxShell() Check {
 	return Check{
 		Name:        "tmux shell",
 		Description: "agent panes are started through tmux's default-shell",
 		Needs:       []string{"tmux"},
 		Run: func(ctx context.Context, env Env) Result {
-			shell, from, err := tmuxDefaultShell(ctx, env)
+			shell, from, err := readTmuxDefaultShell(ctx, env)
 			if err != nil {
 				return warn(err, "")
 			}
 
 			// tmux declining to name one is not evidence of a bad shell, which is
-			// the same reading RequirePOSIXShell takes.
+			// the reading RequirePOSIXShell takes too.
 			if shell == "" {
-				return ok("tmux names no default-shell, so panes take the system one")
+				return pass("tmux names no default-shell, so panes take the system one")
 			}
 
 			if err := harness.RequirePOSIXShell(shell); err != nil {
@@ -194,15 +188,18 @@ func TmuxShell() Check {
 				)
 			}
 
-			return ok(shell + " (" + from + ")")
+			return pass(shell + " (" + from + ")")
 		},
 	}
 }
 
-// tmuxDefaultShell reads default-shell off whichever tmux server is already up, and says
-// which one answered. It reports a problem rather than an empty answer when none is
-// running, since "no server to ask" and "the option is unset" are different facts.
-func tmuxDefaultShell(ctx context.Context, env Env) (shell, from string, err error) {
+// readTmuxDefaultShell reads default-shell off whichever tmux server is already up, and
+// says which answered. No server to ask and an unset option are different facts, so the
+// first is a problem rather than an empty answer.
+//
+// Weave's own server goes first because that is where agent panes open. The user's is the
+// fallback and answers the same unless the two were configured differently.
+func readTmuxDefaultShell(ctx context.Context, env Env) (shell, from string, err error) {
 	servers := []struct {
 		name string
 		args []string
@@ -221,8 +218,7 @@ func tmuxDefaultShell(ctx context.Context, env Env) (shell, from string, err err
 			continue
 		}
 
-		// show-option before anything that could create a server, and -q so an
-		// option that is simply unset comes back empty rather than as an error.
+		// -q so an option that is unset comes back empty rather than as an error.
 		out, err := env.Output(ctx, "tmux", append(server.args, "show-option", "-gqv", "default-shell")...)
 		if err != nil {
 			continue

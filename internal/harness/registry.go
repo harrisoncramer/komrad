@@ -45,7 +45,8 @@ func (r *Registry) GetByID(id string) (Harness, error) {
 	return found, nil
 }
 
-// IDs are the registered harness ids, sorted so a message listing the choices reads the same every time.
+// IDs are the registered harness ids, sorted so a message listing the choices reads the
+// same every time.
 func (r *Registry) IDs() []string {
 	ids := make([]string, 0, len(r.harnesses))
 	for id := range r.harnesses {
