@@ -37,7 +37,7 @@ func NewRootCommand() *cobra.Command {
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 			env, err := config.Load()
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to load config: %w", err)
 			}
 
 			// A config that will not parse is carried into the panel and shown on its
