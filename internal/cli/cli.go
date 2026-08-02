@@ -47,21 +47,19 @@ func NewRootCommand() *cobra.Command {
 				cfg = appconfig.Defaults()
 			}
 
+			// Load in the harnesses and verify that we can reach them. Then attach to the app.
+
 			codexHarness := codex.New(codex.Options{TrustLaunchDirs: cfg.Harness.Codex.TrustLaunchDirs})
 			claudeHarness := claude.New("")
 			harnessRegistry, err := harness.NewRegistry(claudeHarness, codexHarness)
 			if err != nil {
 				return fmt.Errorf("failed to create registry: %w", err)
 			}
-
-			// Just make sure the default harness is registered. We're not using it here, but erroring early is helpful.
 			if _, err := harnessRegistry.GetByID(cfg.DefaultHarness); err != nil && app.configErr == nil {
 				app.configErr = fmt.Errorf("default_harness: %w", err)
 			}
-
-			manager := tmux.NewClient(env.TmuxSocket)
-
 			app.harnesses = harnessRegistry
+
 			app.marks = cfg.Marks
 			app.layout = cfg.Layout
 			app.logLevel = cfg.Log.Level
@@ -71,8 +69,11 @@ func NewRootCommand() *cobra.Command {
 			app.keys = cfg.Keybindings
 			app.defaultHarness = cfg.DefaultHarness
 			app.maxAgents = cfg.MaxAgents
+
+			manager := tmux.NewClient(env.TmuxSocket)
 			app.host = tmux.NewHost(manager)
 			app.tmux = tmux.NewServers(manager, app.host)
+
 			app.popup = ui.NewPopup(app.tmux, agents.ManagerSession)
 			app.contextPath, _ = cfg.ContextFile() // No context file is not an error
 			app.defaultFlags = map[string]string{  // Set up default flags for the harnesses provided by the user in their config file.
