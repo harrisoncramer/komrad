@@ -19,10 +19,10 @@ const builtinRoot = "builtin"
 const markerName = ".weave-builtins"
 
 // ErrDirNotAbsolute is what installing into a relative path is refused with.
-var ErrDirNotAbsolute = errors.New("the built-in actions directory is not an absolute path")
+var ErrDirNotAbsolute = errors.New("the directory is not an absolute path")
 
 // ErrDirNotOurs is what installing into a directory weave did not write is refused with.
-var ErrDirNotOurs = errors.New("the built-in actions directory holds files weave did not write")
+var ErrDirNotOurs = errors.New("the directory holds files weave did not write")
 
 //go:embed all:builtin
 var builtinFS embed.FS
@@ -32,9 +32,9 @@ var builtinFS embed.FS
 // script an older build shipped does not stay on offer.
 //
 // Emptying it is a recursive delete of a path that comes from the environment, so dir has
-// to be one weave owns: absolute, since a relative one means a different directory every
-// time the service is started somewhere new, and either empty or carrying the marker a
-// previous install left.
+// to be one weave owns. It has to be absolute, since a relative one names a different
+// directory every time the service is started somewhere new. It also has to be either
+// empty or carrying the marker a previous install left.
 func InstallBuiltins(dir string) error {
 	if !filepath.IsAbs(dir) {
 		return fmt.Errorf("failed to install the built-in actions into %s: %w", dir, ErrDirNotAbsolute)
@@ -48,8 +48,8 @@ func InstallBuiltins(dir string) error {
 		return fmt.Errorf("failed to create the built-in actions directory %s: %w", dir, err)
 	}
 
-	// Written before the scripts are, so an install that dies partway through still leaves
-	// the directory claimed and the next one able to clear it.
+	// The marker goes down before the scripts, so an install that dies partway through still
+	// leaves the directory claimed for the next one to clear.
 	marker := filepath.Join(dir, markerName)
 	if err := os.WriteFile(marker, nil, 0o644); err != nil {
 		return fmt.Errorf("failed to write %s: %w", marker, err)
@@ -87,10 +87,8 @@ func clearOwned(dir string) error {
 		return fmt.Errorf("failed to read the built-in actions directory %s: %w", dir, err)
 	}
 
-	if len(entries) > 0 {
-		if _, err := os.Stat(filepath.Join(dir, markerName)); err != nil {
-			return fmt.Errorf("failed to clear the built-in actions directory %s: %w", dir, ErrDirNotOurs)
-		}
+	if len(entries) > 0 && !hasMarker(entries) {
+		return fmt.Errorf("failed to clear the built-in actions directory %s: %w", dir, ErrDirNotOurs)
 	}
 
 	if err := os.RemoveAll(dir); err != nil {
@@ -98,4 +96,15 @@ func clearOwned(dir string) error {
 	}
 
 	return nil
+}
+
+// hasMarker says whether a previous install claimed the directory these entries came from.
+func hasMarker(entries []fs.DirEntry) bool {
+	for _, entry := range entries {
+		if entry.Name() == markerName {
+			return true
+		}
+	}
+
+	return false
 }

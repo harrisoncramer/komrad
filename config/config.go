@@ -56,7 +56,7 @@ func (c *Config) LogPath() string {
 func defaultCacheDir() (string, error) {
 	dir, err := os.UserCacheDir()
 	if err != nil {
-		return "", fmt.Errorf("failed to find a cache directory: %w: set WEAVE_CACHE_DIR to an absolute path weave can write to", err)
+		return "", fmt.Errorf("failed to find a cache directory, set WEAVE_CACHE_DIR to an absolute path weave can write to: %w", err)
 	}
 
 	return filepath.Join(dir, "weave"), nil

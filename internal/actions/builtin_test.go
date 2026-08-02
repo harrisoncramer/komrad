@@ -29,6 +29,7 @@ func TestInstallBuiltins(t *testing.T) {
 
 	assert.Contains(t, names, "_editor")
 	assert.Contains(t, names, "_terminal")
+	assert.NotContains(t, names, markerName, "the file claiming the directory is not something to run")
 }
 
 // TestInstallBuiltinsReplacesWhatWasThere covers a build that no longer ships a script. The
