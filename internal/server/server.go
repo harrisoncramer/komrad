@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"weave/config"
@@ -151,16 +152,27 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Schedules: scheduleStore,
 		Workflows: workflowStore,
 	})
+	// The actions weave ships are written out on every start, so the panel's own keys run
+	// this build's scripts rather than an older one's.
+	builtinActionsDir := filepath.Join(p.Env.CacheDir, "actions")
+	if err := actions.InstallBuiltins(builtinActionsDir); err != nil {
+		srv.Close()
+
+		return nil, err
+	}
+
 	// Shared with the agent service, which fires a workflow's actions around its agents'
 	// lives, so a person, a model, and a launch all hand a script the same payload.
 	actionService := agents.NewActionService(agents.ActionParams{
-		Agents:    agentStore,
-		Workflows: workflowStore,
-		Tmux:      p.Tmux,
-		Runner:    actions.NewRunner(),
-		Load:      loadConfig,
-		Addr:      p.Addr,
-		Socket:    p.Env.TmuxSocket,
+		Agents:     agentStore,
+		Workflows:  workflowStore,
+		Tmux:       p.Tmux,
+		Runner:     actions.NewRunner(),
+		Load:       loadConfig,
+		Addr:       p.Addr,
+		Socket:     p.Env.TmuxSocket,
+		BuiltinDir: builtinActionsDir,
+		Editor:     p.Env.Editor,
 	})
 	agentService := agents.NewAgentService(agents.NewAgentServiceParams{
 		Tmux:      p.Tmux,

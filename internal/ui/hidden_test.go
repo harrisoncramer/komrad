@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 
 	"weave/internal/appconfig"
@@ -8,6 +9,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,7 +18,7 @@ import (
 // agent and two hidden ones, and a second holding nothing hidden at all.
 func hiddenTree() model {
 	return model{
-		stage: NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		stage: NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
 		keys:  appconfig.DefaultKeybindings(),
 		tree: treeState{
 			workflows: []workflowstore.Workflow{
@@ -131,6 +133,54 @@ func TestHiddenTally(t *testing.T) {
 			}
 
 			assert.Contains(t, got, tt.want)
+		})
+	}
+}
+
+// TestHiddenHelpIsOneLine covers the legend for the two hidden keys, which share a line on
+// an agent and name the direction each would go. A workflow header takes only the toggle,
+// since nothing hides a folder.
+func TestHiddenHelpIsOneLine(t *testing.T) {
+	tests := []struct {
+		name        string
+		showHidden  bool
+		cursor      int
+		want        string
+		wantsAbsent []string
+	}{
+		{
+			name:        "on a workflow header",
+			want:        "show hidden",
+			wantsAbsent: []string{"hide/show hidden"},
+		},
+		{
+			name:        "on a listed agent",
+			cursor:      1,
+			want:        "hide/show hidden",
+			wantsAbsent: []string{"unhide"},
+		},
+		{
+			name:       "on a revealed agent",
+			showHidden: true,
+			cursor:     2,
+			want:       "unhide/put hidden away",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := hiddenTree()
+			m.tree.showHidden = tt.showHidden
+			m.tree.cursor = tt.cursor
+			m.helpExpanded = true
+
+			got := ansi.Strip(m.renderHelp(m.agentHelp()))
+			assert.Contains(t, got, tt.want)
+			assert.Equal(t, 1, strings.Count(got, "hidden away")+strings.Count(got, "show hidden"))
+
+			for _, absent := range tt.wantsAbsent {
+				assert.NotContains(t, got, absent)
+			}
 		})
 	}
 }

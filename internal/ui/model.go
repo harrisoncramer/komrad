@@ -45,13 +45,13 @@ const (
 	screenActions
 )
 
-// uiTmux is what the panel needs from tmux: enough to lay out its own panes, plus the
-// directory the client looking at it sits in and the session a window opened for the user
-// has to land in.
+// uiTmux is what the panel needs from tmux: enough to lay out its own panes, the directory
+// the client looking at it sits in, the session a window opened for the user has to land
+// in, and the options an action reads to find the panes the panel laid out.
 type uiTmux interface {
 	stageTmux
 	GetClientPath(client string) string
-	SplitBelow(anchorPane, dir string)
+	SetPanelGlobal(name, value string)
 	OpenWindow(client, name, dir string, argv ...string) error
 }
 
@@ -66,14 +66,12 @@ type Deps struct {
 	Keys        appconfig.Keybindings
 	// Marks are the marks the mark key steps an agent through, in the user's order.
 	Marks []appconfig.Mark
-	// Layout is how the popup's width is divided between the list and the stage.
+	// Layout is how the popup's width is divided between the list and the stage, and how
+	// much of the stage's height the pane under it takes when something opens there.
 	Layout appconfig.Layout
 	// Addr is where Client points, shown on the error screen when the service stops
 	// answering.
 	Addr string
-	// Editor is the command the editor key opens an agent's directory in, from the
-	// environment rather than the panel's own config.
-	Editor string
 	// LogViewer is the command the log key opens the log in, from the user's config. It
 	// runs through a shell, so it can be a pipeline.
 	LogViewer string
@@ -144,6 +142,11 @@ type model struct {
 	search    searchState
 	actions   actionState
 
+	// filter narrows whichever of those lists is on screen. It is one state rather than one
+	// per screen, since only the list being looked at can be narrowed and moving to another
+	// takes the pattern off.
+	filter filterState
+
 	// form is the open form, and it owns the input while it is up. values are what it
 	// writes into and target is the record it is working on, both cleared as it closes.
 	form   *huh.Form
@@ -153,14 +156,16 @@ type model struct {
 	// up until that write lands, so a refusal is answered on the fields as filled in.
 	pendingForm bool
 
-	// helpCollapsed is whether the help under a list is down to its one line, which the help
-	// key toggles. Defaults to false so the help is open.
-	helpCollapsed bool
+	// helpExpanded is whether the help under a list names every binding rather than the one
+	// line it opens as, which the help key toggles.
+	helpExpanded bool
+
+	// topHeld is whether the jump-to-top key has been pressed once and is waiting on the
+	// second press that acts, the way vim's gg waits. Any other key drops it.
+	topHeld bool
 
 	keys  appconfig.Keybindings
 	marks []appconfig.Mark
-	// editor is the command the editor key runs on an agent's directory.
-	editor string
 	// logPath is the service's log, logViewer is what the log key opens it in, and binary
 	// is this executable, which the viewer reaches through the environment.
 	logPath   string
@@ -173,9 +178,8 @@ func newModel(deps Deps) model {
 		api:        api{agents: deps.Agents, workflows: deps.Workflows, schedules: deps.Schedules, actions: deps.Actions},
 		popup:      deps.PopupWindow,
 		tmux:       deps.Tmux,
-		stage:      NewStage(deps.Tmux, deps.Layout.Split),
+		stage:      NewStage(deps.Tmux, deps.Layout),
 		addr:       deps.Addr,
-		editor:     deps.Editor,
 		logPath:    deps.LogPath,
 		logViewer:  deps.LogViewer,
 		binary:     deps.Binary,

@@ -20,6 +20,7 @@ type stageTmux interface {
 	IsPaneAlive(pane string) bool
 	GetPaneWidth(pane string) int
 	SplitRight(anchorPane, dir string, percent int) string
+	SplitBelow(anchorPane, dir string, percent int) string
 	ResizePane(pane string, percent int)
 	SwapPanes(src, dst string)
 	RespawnPane(pane, dir string, argv ...string)
@@ -38,29 +39,37 @@ const (
 	shownOther = "\x00other"
 )
 
-// Stage is the pane beside the nav list that shows whatever the cursor is on. navPane
-// anchors the split, pane is the one the stage drives, and agentPane is the agent pane
-// swapped into the slot, empty when the stage shows its own.
+// Stage is the right-hand column of the panel's window, in two slots. The main slot shows
+// whatever the cursor is on, and the secondary slot under it holds what the user asked
+// for: a shell, an editor, the server log, or a record read beside the agent it is about.
 //
-// shown is what the stage's own pane displays. The panel restages on every refresh tick
-// and redrawing means respawning the pane, so it does nothing when the two match.
+// navPane anchors the split, pane is the main slot's own pane, and agentPane is the agent
+// pane swapped into that slot, empty while the stage shows its own. secondary is the pane
+// under it, empty while that slot is closed. It is always the panel's own pane, never an
+// agent's, so respawning it can never take a running CLI down.
+//
+// shown and shownBelow are what each pane displays. The panel restages on every refresh
+// tick and redrawing means respawning a pane, so it does nothing when the two match.
 type Stage struct {
-	tmux      stageTmux
-	split     float64
-	navPane   string
-	pane      string
-	agentPane string
-	shown     string
+	tmux           stageTmux
+	split          float64
+	secondarySplit float64
+	navPane        string
+	pane           string
+	agentPane      string
+	shown          string
+	secondary      string
+	shownBelow     string
 	// hidden is whether the stage is zoomed away. The panel reconciles this on every
 	// message, so what was last asked for is remembered rather than paid for in a tmux
 	// round trip.
 	hidden bool
 }
 
-// NewStage builds a stage over a tmux client, dividing the width by split. It claims no
+// NewStage builds a stage over a tmux client, divided as the layout asks. It claims no
 // panes until Init.
-func NewStage(tmux stageTmux, split float64) *Stage {
-	return &Stage{tmux: tmux, split: split}
+func NewStage(tmux stageTmux, layout appconfig.Layout) *Stage {
+	return &Stage{tmux: tmux, split: layout.Split, secondarySplit: layout.SecondarySplit}
 }
 
 // share is the fraction of the width the nav list takes. A split outside the range the
@@ -79,12 +88,24 @@ func (s *Stage) percent() int {
 	return int(math.Round((1 - s.share()) * 100))
 }
 
-// wrap is how wide the stage pane is in columns, which is the width markdown renders to.
-// It comes from tmux rather than the configured split, since a pane the user dragged is no
-// longer the share the panel asked for and rendering wider leaves the pager folding every
-// line into three rows. A pane tmux cannot measure leaves the renderer on its default.
-func (s *Stage) wrap() int {
-	return s.tmux.GetPaneWidth(s.pane)
+// secondaryPercent is the share of the column's height the secondary slot opens at, as a
+// whole percentage. A configured share outside the range the loader allows falls back to
+// the default, since a stage built by hand has none.
+func (s *Stage) secondaryPercent() int {
+	share := s.secondarySplit
+	if share <= 0 || share >= 1 {
+		share = appconfig.DefaultSecondarySplit
+	}
+
+	return int(math.Round(share * 100))
+}
+
+// wrap is how wide a pane is in columns, which is the width markdown renders to. It comes
+// from tmux rather than the configured split, since a pane the user dragged is no longer
+// the share the panel asked for and rendering wider leaves the pager folding every line
+// into three rows. A pane tmux cannot measure leaves the renderer on its default.
+func (s *Stage) wrap(pane string) int {
+	return s.tmux.GetPaneWidth(pane)
 }
 
 // Init records the panel's own pane as the anchor and splits a stage pane to its right,
@@ -176,13 +197,91 @@ func (s *Stage) hasSlot() bool {
 }
 
 // abandon drops a stage that has lost its slot. Its own pane is killed while it is still
-// running, since by then it is away in another window and nothing will find it again.
+// running, since by then it is away in another window and nothing will find it again. The
+// secondary slot hangs off the main one, so it goes at the same time.
 func (s *Stage) abandon() {
 	if s.pane != "" && s.tmux.IsPaneAlive(s.pane) {
 		s.tmux.KillPane(s.pane)
 	}
 
+	s.CloseSecondary()
 	s.pane, s.agentPane, s.shown = "", "", ""
+}
+
+// OpenSecondary opens the slot under the main one and returns its pane, splitting one when
+// it is not there and answering with the pane already open otherwise. Everything that fills
+// that slot is respawned into this pane, whether the panel does it or an action does.
+func (s *Stage) OpenSecondary() string {
+	s.claim()
+	if s.pane == "" {
+		return ""
+	}
+	if s.IsSecondaryAlive() {
+		return s.secondary
+	}
+
+	home, _ := os.UserHomeDir()
+	s.secondary = s.tmux.SplitBelow(s.SlotPane(), home, s.secondaryPercent())
+	s.shownBelow = ""
+
+	return s.secondary
+}
+
+// CloseSecondary takes the slot away and gives the main one its height back.
+func (s *Stage) CloseSecondary() {
+	if s.secondary == "" {
+		return
+	}
+
+	s.tmux.KillPane(s.secondary)
+	s.secondary = ""
+	s.shownBelow = ""
+}
+
+// IsSecondaryAlive reports whether the slot is open and still holds a pane. It is false once
+// whatever was running down there has exited, since tmux takes the pane with it.
+func (s *Stage) IsSecondaryAlive() bool {
+	return s.secondary != "" && s.tmux.IsPaneAlive(s.secondary)
+}
+
+// SecondaryText shows markdown in the slot under the main one, the way Text does above it,
+// so a record reads beside the agent it is about rather than in place of it.
+func (s *Stage) SecondaryText(markdown string) {
+	pane := s.OpenSecondary()
+	if pane == "" || s.shownBelow == markdown {
+		return
+	}
+
+	home, _ := os.UserHomeDir()
+	path := filepath.Join(os.TempDir(), "weave-secondary.ansi")
+	if err := os.WriteFile(path, []byte(s.render(markdown, pane)), 0o644); err != nil {
+		return
+	}
+
+	s.tmux.RespawnPane(pane, home, pagerArgv(path, 0)...)
+	s.shownBelow = markdown
+}
+
+// SecondaryLog runs argv in the slot under the main one to read the file at path. argv
+// belongs to the caller, since the log is the one thing here whose reader the user chooses.
+// The path comes alongside only to tell one file from another, so a restage of the log
+// already up does not respawn the pane under somebody reading it.
+func (s *Stage) SecondaryLog(path string, argv []string) {
+	pane := s.OpenSecondary()
+	if pane == "" || len(argv) == 0 || s.shownBelow == shownLog+path {
+		return
+	}
+
+	home, _ := os.UserHomeDir()
+	s.tmux.RespawnPane(pane, home, argv...)
+	s.shownBelow = shownLog + path
+}
+
+// SecondaryClaimed records that something outside the panel has filled the slot, which is
+// what an action does. What it put there cannot be compared against anything, so the next
+// render of the panel's own content into that pane always goes through.
+func (s *Stage) SecondaryClaimed() {
+	s.shownBelow = shownOther
 }
 
 // Hide zooms the nav pane over the stage, and Hide(false) gives the stage its share of the
@@ -289,9 +388,9 @@ func (s *Stage) Log(path string, argv []string) {
 // answer off the same input the panel's event loop is reading. Nothing is lost by not
 // asking, because the palette draws from the sixteen the terminal maps and so suits a
 // light background and a dark one alike.
-func (s *Stage) render(markdown string) string {
+func (s *Stage) render(markdown, pane string) string {
 	options := []glamour.TermRendererOption{glamour.WithStyles(stageStyle)}
-	if wrap := s.wrap(); wrap > 0 {
+	if wrap := s.wrap(pane); wrap > 0 {
 		options = append(options, glamour.WithWordWrap(wrap))
 	}
 
@@ -323,7 +422,7 @@ func (s *Stage) Text(markdown string) {
 
 	home, _ := os.UserHomeDir()
 	path := filepath.Join(os.TempDir(), "weave-stage.ansi")
-	if err := os.WriteFile(path, []byte(s.render(markdown)), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(s.render(markdown, s.pane)), 0o644); err != nil {
 		return
 	}
 

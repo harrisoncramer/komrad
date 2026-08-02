@@ -21,6 +21,6 @@ adminURL() {
 # have no extension, so they are found by what `file` says they are rather than by
 # name, and the tmux entry point is named explicitly because it lives at the root.
 shell_scripts() {
-	find mise/tasks scripts -type f -exec file {} + | grep -i 'shell script' | cut -d: -f1
+	find mise/tasks scripts internal/actions/builtin -type f -exec file {} + | grep -i 'shell script' | cut -d: -f1
 	echo "weave.tmux"
 }

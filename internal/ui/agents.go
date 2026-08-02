@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"weave/internal/appconfig"
+	"weave/internal/tmux"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -24,6 +25,18 @@ var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one
 func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
+	// The ends of the list are answered ahead of everything else, since the top key holds a
+	// press and every other key on the screen has to drop what it held.
+	if m.takeTopPress(k) {
+		return m.jumpCursor(0), nil
+	}
+	if m.topHeld {
+		return m, nil
+	}
+	if isBound(k, m.keys.Nav.Bottom) {
+		return m.jumpCursor(len(m.agentRows()) - 1), nil
+	}
+
 	if sel, took := m.applySelectionKey(k, m.tree.selected, m.agentRows(), m.tree.cursor); took {
 		m.tree.selected = sel
 
@@ -39,6 +52,14 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// These act on the whole view rather than the row under the cursor, so they are
 	// checked before anything that reads the cursor.
+	if isBound(k, m.keys.Filter.Open) {
+		return m.openFilter()
+	}
+	// A narrowed list is a mode to leave before the screen is, so the back key clears the
+	// filter first rather than taking the panel down over it.
+	if m.filter.standing() && isBound(k, m.keys.Agents.Back) {
+		return m.clearFilter()
+	}
 	if isBound(k, m.keys.Workflows.New) {
 		return m.newWorkflowForm()
 	}
@@ -57,12 +78,6 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if isBound(k, m.keys.Agents.Logs) {
 		return m.openLogs()
 	}
-	// Before the workflow bindings below, since a header has a directory of its own and
-	// opening a shell in it is worth as much as opening one on an agent.
-	if isBound(k, m.keys.Agents.Terminal) {
-		return m.openTerminal()
-	}
-
 	// On a workflow header the workflow bindings act on that folder's workflow.
 	if workflow, ok := m.hoveredWorkflow(); ok {
 		return m.updateHoveredWorkflow(key, workflow)
@@ -80,15 +95,13 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, m.keys.Nav.Down):
 		return m.moveCursor(1), nil
 	case isBound(k, m.keys.Agents.Info):
-		if _, ok := m.selectedAgent(); !ok {
-			return m, nil
-		}
-		m.tree.infoPinned = !m.tree.infoPinned
-		m.stageSelection()
+		return m.toggleRecord()
 	case isBound(k, m.keys.Agents.Open):
 		return m.openAgent()
 	case isBound(k, m.keys.Agents.Editor):
-		return m.openEditor()
+		return m.runBelowAction(editorAction, "Could not open your editor")
+	case isBound(k, m.keys.Agents.Terminal):
+		return m.runBelowAction(terminalAction, "Could not open a shell")
 	case isBound(k, m.keys.Actions.Open):
 		return m.enterActions()
 	case isBound(k, m.keys.Agents.Mark):
@@ -138,7 +151,7 @@ func (m model) updateAgentsSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, m.keys.Agents.Mark):
 		return m.markSelection()
 	case isBound(k, m.keys.Agents.Archive):
-		return m.archiveAgents(chosenAgents(m.tree.selected, m.agentRows()))
+		return m.archiveAgents(chosenAgents(m.tree.selected, m.allAgentRows()))
 	case isBound(k, m.keys.Agents.ShowHidden):
 		return m.toggleHiddenAgents()
 	case isBound(k, m.keys.Nav.Up):
@@ -180,24 +193,33 @@ func (m model) moveCursor(delta int) model {
 	}
 
 	m.tree.cursor = next
-	m.tree.unpin()
+	m.stageSelection()
+
+	return m
+}
+
+// jumpCursor puts the tree cursor on a row by index, clamped to the list, which is how each
+// end of it is reached.
+func (m model) jumpCursor(idx int) model {
+	rows := m.agentRows()
+	if len(rows) == 0 {
+		return m
+	}
+
+	m.tree.cursor = clampCursor(idx, len(rows))
 	m.stageSelection()
 
 	return m
 }
 
 // openAgent acts on the hovered agent. A dormant one is restored and staged live, and a
-// live one is already staged from hovering, so opening it only unpins whatever was over it.
+// live one is already staged from hovering, so opening it has nothing left to do.
 func (m model) openAgent() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedAgent()
 	if !ok {
 		return m, nil
 	}
 	if item.alive {
-		if m.tree.infoPinned || m.tree.logsPinned {
-			m.tree.unpin()
-			m.stageSelection()
-		}
 		return m, nil
 	}
 
@@ -207,74 +229,79 @@ func (m model) openAgent() (tea.Model, tea.Cmd) {
 	})
 }
 
-// openEditor opens the hovered agent's directory in the user's editor and closes the panel
-// behind it. The window is created on the user's own tmux server, since an editor is
-// theirs to keep working in once the popup is gone.
+// The actions the panel's own keys run. Each is shipped with weave and replaced by a file
+// of the same name in the user's actions directory, which is how a key is given different
+// behaviour without a setting for it.
+const (
+	editorAction   = "_editor"
+	terminalAction = "_terminal"
+)
+
+// toggleRecord shows the hovered agent's stored record under the stage, and takes it away
+// again on a second press. It goes below rather than into the stage so the agent it is
+// about stays on screen beside it.
+func (m model) toggleRecord() (tea.Model, tea.Cmd) {
+	if m.tree.below == belowRecord {
+		return m.closeBelow(), nil
+	}
+	if _, ok := m.selectedAgent(); !ok {
+		return m, nil
+	}
+
+	m.tree.below = belowRecord
+	m.tree.belowAction = ""
+	m.stageSelection()
+
+	return m, nil
+}
+
+// runBelowAction fires one of the panel's own actions into the pane under the stage, and
+// takes that pane away when the key that opened it is pressed again.
 //
-// A failure leaves the popup up so the banner is readable.
-func (m model) openEditor() (tea.Model, tea.Cmd) {
+// The pane is opened here rather than by the script, since the panel is what knows how its
+// window is laid out. Its id is recorded on tmux for the script to read, the way the client
+// viewing the popup is, because an action is a process of its own and cannot be handed
+// anything else.
+func (m model) runBelowAction(name, summary string) (tea.Model, tea.Cmd) {
+	if m.tree.below == belowAction && m.tree.belowAction == name {
+		return m.closeBelow(), nil
+	}
+
 	item, ok := m.selectedAgent()
 	if !ok {
 		return m, nil
 	}
 
-	dir := item.agent.Cwd
-	err := m.tmux.OpenWindow(m.popup.InvokingClient(), item.agent.Name, dir, editorArgv(m.editor, dir)...)
-	m.report(fmt.Sprintf("Could not open %q in your editor", dir), err)
-
-	if err != nil {
+	pane := m.stage.OpenSecondary()
+	if pane == "" {
 		return m, nil
 	}
 
-	return m, m.hide()
+	m.tmux.SetPanelGlobal(tmux.SecondaryPaneOption, pane)
+	m.stage.SecondaryClaimed()
+	m.tree.below = belowAction
+	m.tree.belowAction = name
+
+	agentID := item.agent.ID
+
+	return m, m.writeCmd(summary, func(a api) error { return a.runAction(agentID, name) })
 }
 
-// openTerminal splits a shell under the stage, rooted where the hovered row runs, and
-// leaves the cursor in it. It goes under the stage rather than under the list so the shell
-// sits beneath the agent it is about, and the list keeps its full height.
-//
-// The pane is the user's from there: nothing follows the list afterwards and nothing here
-// closes it, so it is a tmux split like any other.
-func (m model) openTerminal() (tea.Model, tea.Cmd) {
-	anchor := m.stage.SlotPane()
-	if anchor == "" {
-		anchor = m.stage.NavPane()
-	}
+// closeBelow takes the pane under the stage away, whatever was in it. The recorded pane is
+// cleared with it, since tmux hands ids out again and an action reading a stale one would
+// respawn whatever holds it now.
+func (m model) closeBelow() model {
+	m.stage.CloseSecondary()
+	m.forgetBelow()
 
-	m.tmux.SplitBelow(anchor, m.hoveredDir())
-
-	return m, nil
+	return m
 }
 
-// hoveredDir is the directory the row under the cursor runs in. An empty list, or a row
-// carrying no directory, falls back to where the user was when they opened the panel.
-func (m model) hoveredDir() string {
-	rows := m.agentRows()
-	if m.tree.cursor < 0 || m.tree.cursor >= len(rows) {
-		return m.currentDir("")
-	}
-
-	row := rows[m.tree.cursor]
-	if row.header {
-		return m.currentDir(row.workflow.Cwd)
-	}
-
-	return m.currentDir(row.item.agent.Cwd)
-}
-
-// editorArgv is what the editor window runs, split on whitespace so an editor carrying its
-// own flags still works. tmux runs the result itself rather than through a shell.
-//
-// The directory is an argument as well as the window's working directory, since an editor
-// given nothing to open lands on an empty buffer. An empty editor leaves the argv empty,
-// which tmux reads as a plain shell rather than a command it cannot find.
-func editorArgv(editor, dir string) []string {
-	fields := strings.Fields(editor)
-	if len(fields) == 0 {
-		return nil
-	}
-
-	return append(fields, dir)
+// forgetBelow drops what the panel remembers about the pane under the stage.
+func (m *model) forgetBelow() {
+	m.tmux.SetPanelGlobal(tmux.SecondaryPaneOption, "")
+	m.tree.below = belowNothing
+	m.tree.belowAction = ""
 }
 
 // toggleHiddenAgents draws the hidden agents alongside the rest, or puts them away again.
@@ -290,7 +317,7 @@ func (m model) toggleHiddenAgents() (tea.Model, tea.Cmd) {
 	} else {
 		m.tree.cursor = clampCursor(m.tree.cursor, len(rows))
 	}
-	m.tree.selected = m.tree.selected.pruned(rows)
+	m.tree.selected = m.tree.selected.pruned(m.allAgentRows())
 	m.stageSelection()
 
 	return m, nil
@@ -310,7 +337,7 @@ func (m model) markAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 // anything if the next press still has the same agents to move.
 func (m model) markSelection() (tea.Model, tea.Cmd) {
 	ids := m.tree.selected.ids
-	next := nextSelectionMark(selectionMarks(m.tree.selected, m.agentRows()), m.marks)
+	next := nextSelectionMark(selectionMarks(m.tree.selected, m.allAgentRows()), m.marks)
 
 	return m, m.writeCmd(
 		fmt.Sprintf("Could not mark %d agents", len(ids)),
@@ -329,21 +356,16 @@ func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	return m, m.writeCmd(failure, func(a api) error { return a.setHidden(agent, !agent.Hidden) })
 }
 
-// stageSelection updates the stage pane to reflect what the cursor is on. A live agent's
-// pane is swapped in, a dormant agent and a workflow header show rendered markdown, and
-// anything else blanks the stage. With info pinned, an agent shows its stored record.
+// stageSelection updates the stage to reflect what the cursor is on. A live agent's pane is
+// swapped in, a dormant agent and a workflow header show rendered markdown, and anything
+// else blanks it. The stage follows the cursor and nothing else, so what the user opened
+// under it is drawn separately.
 func (m model) stageSelection() {
-	// The log is about the service rather than a row, so it is answered before the cursor
-	// is read at all, and shows from an empty list too, which is when it is worth most.
-	if m.tree.logsPinned {
-		m.stage.Log(m.logPath, logArgv(m.logViewer, m.logPath, m.binary))
-
-		return
-	}
-
 	rows := m.agentRows()
 	if m.tree.cursor < 0 || m.tree.cursor >= len(rows) {
 		m.stage.Blank()
+		m.stageBelow()
+
 		return
 	}
 
@@ -351,13 +373,44 @@ func (m model) stageSelection() {
 	switch {
 	case r.header:
 		m.stage.Text(workflowMarkdown(r.workflow, m.agentCount(r.workflow.ID)))
-	case m.tree.infoPinned:
-		m.stage.Text(agentMarkdown(r.item.agent, r.item.alive, m.scheduleName(r.item.agent)))
 	case r.item.alive:
 		m.stage.Agent(r.item.agent.Pane)
 	default:
 		m.stage.Text(agentMarkdown(r.item.agent, false, m.scheduleName(r.item.agent)))
 	}
+
+	m.stageBelow()
+}
+
+// stageBelow draws whatever the user opened under the stage. Only the record follows the
+// cursor, since it is about the row that is hovered now rather than the one it was opened
+// on. An action's pane is left alone, since what a script put there is the script's.
+func (m model) stageBelow() {
+	switch m.tree.below {
+	case belowRecord:
+		rows := m.agentRows()
+		if m.tree.cursor < 0 || m.tree.cursor >= len(rows) {
+			return
+		}
+
+		if r := rows[m.tree.cursor]; !r.header {
+			m.stage.SecondaryText(agentMarkdown(r.item.agent, r.item.alive, m.scheduleName(r.item.agent)))
+		}
+	case belowLogs:
+		m.stage.SecondaryLog(m.logPath, logArgv(m.logViewer, m.logPath, m.binary))
+	case belowNothing, belowAction:
+	}
+}
+
+// reconcileBelow forgets the pane under the stage once whatever was running in it has
+// exited, since tmux takes the pane away with it and the key that opened it would otherwise
+// read as closing something that is already gone.
+func (m *model) reconcileBelow() {
+	if m.tree.below == belowNothing || m.stage.IsSecondaryAlive() {
+		return
+	}
+
+	m.forgetBelow()
 }
 
 // nextMark is where the mark key moves an agent, stepping through the configured marks and
@@ -441,7 +494,7 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 // agentsView renders the nav list, the panel's own pane. The hovered resource shows in the
 // stage pane rather than here.
 func (m model) agentsView() string {
-	header := headerStyle.Render("Agents and Workflows") + "\n\n"
+	header := headerStyle.Render("Agents and Workflows") + "\n\n" + m.filterView()
 	help := "\n" + m.renderHelp(m.agentHelp())
 
 	all := m.agentRows()
@@ -455,29 +508,18 @@ func (m model) agentsView() string {
 		prefix = selectionGutter(!r.header && m.tree.selected.has(r.item.agent.ID)) + prefix
 
 		if r.header {
-			label := r.workflow.Name
-			if hovered {
-				label = cursorStyle.Render(label)
-			}
+			label := m.filter.highlight(r.workflow.Name, nameStyle(hovered, false))
 			rows = append(rows, prefix+dimStyle.Render(workflowIcon)+" "+label+hiddenTally(r.hiddenCount, m.tree.showHidden))
 			continue
 		}
 
 		item := r.item
-		name := item.agent.Name
-		if hovered {
-			name = cursorStyle.Render(name)
-		}
-
 		state := item.agent.State
 		if !item.alive {
 			state = agentstore.StateIdle // nothing runs in a pane that is gone
-			name = dimStyle.Render(item.agent.Name)
-			if hovered {
-				name = cursorStyle.Render(item.agent.Name)
-			}
 		}
 
+		name := m.filter.highlight(item.agent.Name, nameStyle(hovered, !item.alive))
 		icon := lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
 		rows = append(rows, prefix+"  "+icon+" "+name+scheduledMark(item.agent)+hiddenMark(item.agent.Hidden)+markGlyph(item.agent, m.marks))
 	}

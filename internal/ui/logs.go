@@ -49,36 +49,37 @@ func shellQuote(value string) string {
 // logsDesc is what the legend says the log key would do, naming the direction it would go
 // rather than the binding in the abstract, the way the info and hide lines read.
 func (m model) logsDesc() string {
-	if m.tree.logsPinned {
+	if m.tree.below == belowLogs {
 		return "hide server log"
 	}
 
 	return "server log"
 }
 
-// openLogs shows the service's log in the stage in place of whatever the cursor was on,
-// and pressing the key again puts the row back. It is pinned the way info is rather than
-// taking the screen, so the list stays beside it and moving the cursor is the other way
-// out.
+// openLogs shows the service's log in the pane under the stage, and pressing the key again
+// takes that pane away. It goes below rather than into the stage so the agent stays on
+// screen while the log is read.
 //
 // The log is read off disk rather than asked for over RPC, since it is opened when the
 // service is failing, which is when a call to that service is least likely to answer.
 //
-// A log that cannot be read is bannered rather than pinned. less given a path it cannot
-// open prints its complaint and exits, which takes the stage pane down with it and leaves
-// the key looking like it did nothing.
+// A log that cannot be read is bannered rather than opened. less given a path it cannot
+// open prints its complaint and exits, which takes the pane down with it and leaves the key
+// looking like it did nothing.
 func (m model) openLogs() (tea.Model, tea.Cmd) {
-	if !m.tree.logsPinned {
-		if _, err := os.Stat(m.logPath); err != nil {
-			m.report("Could not read the server log", err)
-
-			return m, nil
-		}
+	if m.tree.below == belowLogs {
+		return m.closeBelow(), nil
 	}
 
-	m.tree.logsPinned = !m.tree.logsPinned
-	m.tree.infoPinned = false
-	m.stageSelection()
+	if _, err := os.Stat(m.logPath); err != nil {
+		m.report("Could not read the server log", err)
+
+		return m, nil
+	}
+
+	m.tree.below = belowLogs
+	m.tree.belowAction = ""
+	m.stageBelow()
 
 	return m, nil
 }

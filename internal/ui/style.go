@@ -151,8 +151,28 @@ func scheduleColor(enabled bool) lipgloss.Color {
 }
 
 // matchStyle highlights the matched terms inside a result row's snippet, the
-// panel-side rendering of the markers the store wraps hits in.
+// panel-side rendering of the markers the store wraps hits in. The filter draws what its
+// pattern matched in the same colour, since both are a match under what was typed.
 var matchStyle = lipgloss.NewStyle().Foreground(colorWarning).Bold(true)
+
+// brokenStyle draws a filter pattern that will not compile, which is the only thing on screen
+// saying why a list that should have narrowed did not.
+var brokenStyle = lipgloss.NewStyle().Foreground(colorDanger)
+
+// nameStyle is how a row's name is drawn. A hovered row takes the cursor's blue whichever row
+// it is, and one the screen draws as inactive takes the grey. Every list reads its name style
+// from here, since the filter renders a name in pieces to colour its match and needs the style
+// the row would otherwise have had.
+func nameStyle(hovered, inactive bool) lipgloss.Style {
+	switch {
+	case hovered:
+		return cursorStyle
+	case inactive:
+		return dimStyle
+	default:
+		return lipgloss.NewStyle()
+	}
+}
 
 // selectionIcon is the bar a selected row carries, in green rather than the cursor's blue
 // so a row that is both chosen and hovered says both at once.

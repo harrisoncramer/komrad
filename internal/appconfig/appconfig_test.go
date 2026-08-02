@@ -218,9 +218,19 @@ func TestLoadLayout(t *testing.T) {
 			want: DefaultLayout(),
 		},
 		{
-			name: "the share the user chose",
+			name:    "a secondary share of the whole stage, which leaves the agent none of it",
+			file:    "[layout]\nsecondary_split = 1\n",
+			wantErr: true,
+		},
+		{
+			name: "the share the user chose, with the other left at the default",
 			file: "[layout]\nsplit = 0.45\n",
-			want: Layout{Split: 0.45},
+			want: Layout{Split: 0.45, SecondarySplit: DefaultSecondarySplit},
+		},
+		{
+			name: "the height the user chose for the pane under the stage",
+			file: "[layout]\nsecondary_split = 0.6\n",
+			want: Layout{Split: DefaultSplit, SecondarySplit: 0.6},
 		},
 	}
 

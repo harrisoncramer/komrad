@@ -45,10 +45,27 @@ func (m model) enterActions() (tea.Model, tea.Cmd) {
 	}
 
 	m.actions = actionState{agent: item.agent}
-	m.screen = screenActions
+	m.enterScreen(screenActions)
 	m.stageAction()
 
 	return m, m.listActionsCmd()
+}
+
+// actionRows are the actions the list draws, the listing less whatever the filter holds back.
+// The cursor indexes these rather than the listing, so run fires the script it is on.
+func (m model) actionRows() []actionItem {
+	if m.filter.pattern == nil {
+		return m.actions.items
+	}
+
+	rows := make([]actionItem, 0, len(m.actions.items))
+	for _, action := range m.actions.items {
+		if m.filter.doesMatch(action.name) {
+			rows = append(rows, action)
+		}
+	}
+
+	return rows
 }
 
 // listActionsCmd asks the service for the actions, off the render loop like every other
@@ -85,7 +102,7 @@ func (m *model) applyActions(result actionsResult) {
 	}
 
 	m.actions.items = result.actions
-	m.actions.cursor = clampCursor(m.actions.cursor, len(m.actions.items))
+	m.actions.cursor = clampCursor(m.actions.cursor, len(m.actionRows()))
 	m.stageAction()
 }
 
@@ -95,8 +112,12 @@ func (m model) updateActions(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
 	switch {
+	case isBound(k, m.keys.Filter.Open):
+		return m.openFilter()
 	case isBound(k, m.keys.Actions.Quit):
 		return m, m.hide()
+	case m.filter.standing() && isBound(k, m.keys.Actions.Back):
+		return m.clearFilter()
 	case isBound(k, m.keys.Actions.Back):
 		return m.returnToAgents()
 	case isBound(k, m.keys.Nav.Up):
@@ -105,7 +126,7 @@ func (m model) updateActions(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.stageAction()
 		}
 	case isBound(k, m.keys.Nav.Down):
-		if m.actions.cursor < len(m.actions.items)-1 {
+		if m.actions.cursor < len(m.actionRows())-1 {
 			m.actions.cursor++
 			m.stageAction()
 		}
@@ -118,11 +139,12 @@ func (m model) updateActions(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // selectedAction returns the action under the cursor, or false when there are none.
 func (m model) selectedAction() (actionItem, bool) {
-	if m.actions.cursor < 0 || m.actions.cursor >= len(m.actions.items) {
+	rows := m.actionRows()
+	if m.actions.cursor < 0 || m.actions.cursor >= len(rows) {
 		return actionItem{}, false
 	}
 
-	return m.actions.items[m.actions.cursor], true
+	return rows[m.actions.cursor], true
 }
 
 // runSelectedAction fires the action under the cursor at the agent the list was opened on.
@@ -173,26 +195,23 @@ func (m model) stageAction() {
 // acts on the row it was opened from rather than whatever the agents list is hovering by
 // now. A file without the executable bit is drawn dim, the way a dormant agent is.
 func (m model) actionsView() string {
-	header := headerStyle.Render("Actions on "+m.actions.agent.Name) + "\n\n"
+	header := headerStyle.Render("Run Action") + "\n\n" + m.filterView()
 	help := "\n" + m.renderHelp(m.actionHelp())
 
-	if len(m.actions.items) == 0 {
+	all := m.actionRows()
+	if len(all) == 0 {
 		return header + dimStyle.Render("no actions") + "\n" + help
 	}
 
-	rows := make([]string, 0, len(m.actions.items))
-	for i, action := range m.actions.items {
+	rows := make([]string, 0, len(all))
+	for i, action := range all {
+		hovered := i == m.actions.cursor
 		prefix := "  "
-		name := action.name
-		if !action.executable {
-			name = dimStyle.Render(name)
-		}
-		if i == m.actions.cursor {
+		if hovered {
 			prefix = cursorStyle.Render("› ")
-			name = cursorStyle.Render(action.name)
 		}
 
-		rows = append(rows, prefix+name)
+		rows = append(rows, prefix+m.filter.highlight(action.name, nameStyle(hovered, !action.executable)))
 	}
 
 	return header + renderList(rows, m.actions.cursor, m.listLines(header, help)) + help

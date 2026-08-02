@@ -1,8 +1,10 @@
 package ui
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"weave/internal/appconfig"
 	"weave/internal/weavetest"
@@ -53,7 +55,7 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 		},
 		tmux:   tmux,
 		popup:  NewPopupWindow(tmux, "test-session"),
-		stage:  NewStage(tmux, appconfig.DefaultSplit),
+		stage:  NewStage(tmux, appconfig.DefaultLayout()),
 		keys:   keys,
 		screen: screenAgents,
 	}
@@ -137,6 +139,91 @@ func TestStagedAgentExitsOnItsOwn(t *testing.T) {
 		"the panel is a nav pane and a stage pane again")
 }
 
+// TestTerminalKeyRunsTheShippedAction covers the terminal key through the whole path: the
+// panel opens the pane under the stage, the service finds the action weave ships, and the
+// script respawns that pane where the agent runs. Every part of that is outside the panel,
+// so a fake would only assert the panel asked.
+func TestTerminalKeyRunsTheShippedAction(t *testing.T) {
+	staged := newStagedPanel(t)
+
+	agent, err := staged.instance.Agents.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{
+		Id: staged.agentID,
+	}))
+	require.NoError(t, err)
+	cwd := agent.Msg.GetAgent().GetCwd()
+
+	updated, cmd := staged.panel.Update(keyMsg(appconfig.DefaultKeybindings().Agents.Terminal[0]))
+	pressed, ok := updated.(model)
+	require.True(t, ok)
+
+	panel := settle(t, pressed, cmd)
+	require.Nil(t, panel.banner)
+	require.Equal(t, belowAction, panel.tree.below)
+
+	below := panel.stage.secondary
+	require.NotEmpty(t, below)
+	assert.Contains(t, panesInPanel(t, staged.instance), below, "the pane sits in the panel's own window")
+
+	// The action is fired and nothing waits for it, so the shell it respawns the pane with
+	// arrives a moment after the key. tmux answers with the path as the kernel resolves it,
+	// which on a mac is not the one the agent was created under.
+	resolved, err := filepath.EvalSymlinks(cwd)
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		return staged.instance.Tmux.Run("display-message", "-p", "-t", below, "#{pane_current_path}") == resolved
+	}, settleTimeout, 50*time.Millisecond, "the shipped action roots the pane where the agent runs")
+}
+
+// TestTerminalKeyAfterTheEditor covers the pane below being handed from one action to the
+// next. tmux re-runs whatever a pane ran last when respawned with no command, so a shell
+// asked for over an editor has to name the shell rather than leave it out.
+func TestTerminalKeyAfterTheEditor(t *testing.T) {
+	staged := newStagedPanel(t)
+	keys := appconfig.DefaultKeybindings()
+
+	panel := pressAndSettle(t, staged.panel, keys.Agents.Editor[0])
+	below := panel.stage.secondary
+	require.NotEmpty(t, below)
+
+	// No EDITOR is configured here, so the shipped action falls back to vi, which is vim on
+	// most machines and reports itself as whichever it is.
+	require.Eventually(t, func() bool {
+		return strings.HasPrefix(paneCommand(staged, below), "vi")
+	}, settleTimeout, 50*time.Millisecond, "the editor claims the pane first")
+
+	panel = pressAndSettle(t, panel, keys.Agents.Terminal[0])
+
+	require.Equal(t, below, panel.stage.secondary, "the same pane is handed over rather than a second one opened")
+	require.Eventually(t, func() bool {
+		return !strings.HasPrefix(paneCommand(staged, below), "vi")
+	}, settleTimeout, 50*time.Millisecond, "the terminal key leaves a shell, not the editor again")
+}
+
+// pressAndSettle sends one key to the panel and runs whatever it asked for to completion.
+func pressAndSettle(t *testing.T, panel model, key string) model {
+	t.Helper()
+
+	updated, cmd := panel.Update(keyMsg(key))
+	pressed, ok := updated.(model)
+	require.True(t, ok)
+
+	settled := settle(t, pressed, cmd)
+	require.Nil(t, settled.banner)
+
+	return settled
+}
+
+// paneCommand is what a pane is running now, which is how a test tells one action's work
+// from the next one's in the same pane.
+func paneCommand(staged *stagedPanel, pane string) string {
+	return staged.instance.Tmux.Run("display-message", "-p", "-t", pane, "#{pane_current_command}")
+}
+
+// settleTimeout bounds waiting on an action that was fired and not waited for, which is
+// generous because it is only reached when something is wrong.
+const settleTimeout = 10 * time.Second
+
 // stagedPanel is a panel over the real service with one agent staged. That is the layout
 // every case here starts from, the agent's pane swapped into the slot beside the panel and
 // the stage's own pane away in the agent's window.
@@ -176,7 +263,7 @@ func newStagedPanel(t *testing.T) *stagedPanel {
 	navPane := instance.Tmux.Run("display-message", "-p", "-t", panelSession, "#{pane_id}")
 
 	client := instance.Tmux.Client()
-	stage := NewStage(client, appconfig.DefaultSplit)
+	stage := NewStage(client, appconfig.DefaultLayout())
 	stage.Init(navPane)
 
 	panel := model{

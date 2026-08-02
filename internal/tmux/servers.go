@@ -10,6 +10,20 @@ import (
 // every open, since only the open that created the session could set an environment.
 const hostSocketOption = "@weave_host_socket"
 
+// InvokingClientOption holds the tmux client that opened the current popup. The open
+// command writes it on each open, and it is read live, so anything that needs the invoking
+// client uses the one actually viewing the popup rather than one fixed when the persistent
+// panel first started.
+const InvokingClientOption = "@weave_client"
+
+// SecondaryPaneOption holds the pane under the panel's stage, the one an editor or a shell
+// opens in. The panel writes it before running an action, since how the panel laid itself
+// out is known nowhere else and a script filling that pane has to be told which it is.
+//
+// It lives on the manager's own server, where that pane is, rather than beside the options
+// the key binding reads on the user's.
+const SecondaryPaneOption = "@weave_secondary_pane"
+
 // tmuxEnvFields is how many fields tmux writes into TMUX for a pane it spawns: the
 // server's socket path, its pid, and the id of the session the pane belongs to.
 const tmuxEnvFields = 3
@@ -141,6 +155,13 @@ func (s *Servers) SetGlobal(name, value string) {
 // ShowGlobal reads from the user's server, for the same reason.
 func (s *Servers) ShowGlobal(name string) string {
 	return s.host.ShowGlobal(name)
+}
+
+// GetHostSocket is the socket path of the user's server, which an action reaching that
+// server needs. It comes off the manager's own server, where the open command records it,
+// rather than through ShowGlobal above, which asks the user's.
+func (s *Servers) GetHostSocket() string {
+	return s.Client.ShowGlobal(hostSocketOption)
 }
 
 // OpenWindow goes to the user's server, unlike NewWindow beside it, since a window meant

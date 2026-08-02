@@ -48,7 +48,7 @@ func (m model) updateHoveredWorkflow(key tea.KeyMsg, workflow workflowstore.Work
 // returnToAgents sends the user back to the agents view once a form, dialog, or other
 // screen closes, restaging for the current selection.
 func (m model) returnToAgents() (tea.Model, tea.Cmd) {
-	m.screen = screenAgents
+	m.enterScreen(screenAgents)
 	m.tree.cursor = clampCursor(m.tree.cursor, len(m.agentRows()))
 	m.stageSelection()
 

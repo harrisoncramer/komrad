@@ -26,24 +26,29 @@ type treeState struct {
 	// rather than anything stored, so every panel starts with them away.
 	showHidden bool
 
-	// infoPinned shows the hovered agent's stored record in the stage instead of the agent
-	// itself, which otherwise occupies the stage with its own pane.
-	infoPinned bool
-
-	// logsPinned shows the service's log in the stage in place of the row under the
-	// cursor, pinned and cleared the way info is.
-	logsPinned bool
+	// below is what the pane under the stage is holding, none while that pane is closed,
+	// and belowAction names the action holding it when one does, so the key that fired it
+	// is the key that takes it away.
+	below       belowKind
+	belowAction string
 
 	// selected are the agents taken into the selection on this tree.
 	selected selection
 }
 
-// unpin puts the stage back to following the cursor. Both pins show something other than
-// the row under the cursor, so a cursor that moves clears them together.
-func (t *treeState) unpin() {
-	t.infoPinned = false
-	t.logsPinned = false
-}
+// belowKind is what the panel has put in the pane under the stage. Only one thing is down
+// there at a time, and the key that opened it takes it away again.
+//
+// The stage above follows the cursor and this does not, apart from the record, which is
+// about whichever agent is hovered and so is redrawn as the cursor moves.
+type belowKind int
+
+const (
+	belowNothing belowKind = iota
+	belowRecord
+	belowLogs
+	belowAction
+)
 
 // agentRow is one line of a tree, either a workflow header or an agent nested beneath one.
 // The cursor moves over both but the per-row keys apply only to agent rows.
@@ -93,8 +98,15 @@ func treeRows(workflows []workflowstore.Workflow, agents []agentItem, showHidden
 	return rows
 }
 
-// agentRows is the agents screen's tree, the live workflows over the live agents.
+// agentRows is the agents screen's tree as it is drawn, the live workflows over the live
+// agents less whatever the filter holds back.
 func (m model) agentRows() []agentRow {
+	return m.filter.filterAgentRows(m.allAgentRows())
+}
+
+// allAgentRows is the whole tree, filter or no filter. The selection is kept against it, so a
+// pattern narrows what is on screen without dropping agents already chosen.
+func (m model) allAgentRows() []agentRow {
 	return treeRows(m.tree.workflows, m.tree.agents, m.tree.showHidden)
 }
 
@@ -163,6 +175,18 @@ func firstAgentRowIndex(rows []agentRow) int {
 func rowIndexOfAgentName(rows []agentRow, name string) int {
 	for i, r := range rows {
 		if !r.header && r.item.agent.Name == name {
+			return i
+		}
+	}
+
+	return -1
+}
+
+// rowIndexOfAgentID returns the row the agent is drawn at, or -1 when the tree has none for
+// it, which is how a jump to an agent the screen does not hold is answered.
+func rowIndexOfAgentID(rows []agentRow, id string) int {
+	for i, r := range rows {
+		if !r.header && r.item.agent.ID == id {
 			return i
 		}
 	}
@@ -271,5 +295,5 @@ func (m *model) placeTreeCursor(selected string) {
 	}
 
 	m.tree.placed = true
-	m.tree.selected = m.tree.selected.pruned(rows)
+	m.tree.selected = m.tree.selected.pruned(m.allAgentRows())
 }

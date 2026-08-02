@@ -240,7 +240,7 @@ func TestAvailableActionsSkipUnderscoredNames(t *testing.T) {
 // archived.
 func TestFailedWorkflowListKeepsTheTree(t *testing.T) {
 	m := model{
-		stage: NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		stage: NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
 		keys:  appconfig.DefaultKeybindings(),
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}},
@@ -304,7 +304,7 @@ func TestApplyWorkflows(t *testing.T) {
 // checked not to happen.
 func TestRefreshRestagesWorkflowContext(t *testing.T) {
 	tmux := &recordingTmux{}
-	stage := NewStage(tmux, appconfig.DefaultSplit)
+	stage := NewStage(tmux, appconfig.DefaultLayout())
 	stage.Init("%0")
 
 	// The cursor sits on the workflow's header, which is row 0.

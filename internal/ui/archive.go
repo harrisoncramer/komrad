@@ -23,21 +23,31 @@ type archiveState struct {
 	// selected are the agents taken into the selection on this tree. It is the archive's
 	// own, so choosing rows here leaves whatever is chosen on the agents screen alone.
 	selected selection
+
+	// focus is an agent the next listing should put the cursor on, consumed as it lands. A
+	// jump from the search screen names a row the archive has not listed yet, since it is
+	// listed only while its screen is up.
+	focus string
 }
 
 // enterArchive switches to the archive, what has been put away. It is its own screen
 // rather than a section of the agents tree because an archived agent is not
 // something to act on alongside live work.
 func (m model) enterArchive() (tea.Model, tea.Cmd) {
-	m.screen = screenArchive
+	m.enterScreen(screenArchive)
 	m.stageArchive()
 
 	return m, m.refreshCmd()
 }
 
-// archiveRows is the archive's tree. Nothing in it is alive, since archiving kills the
-// pane, and the hidden agents keep their rows, since the archive shows all it holds.
+// archiveRows is the archive's tree as it is drawn, less whatever the filter holds back.
 func (m model) archiveRows() []agentRow {
+	return m.filter.filterAgentRows(m.allArchiveRows())
+}
+
+// allArchiveRows is the whole archive. Nothing in it is alive, since archiving kills the pane,
+// and the hidden agents keep their rows, since the archive shows all it holds.
+func (m model) allArchiveRows() []agentRow {
 	items := make([]agentItem, 0, len(m.archive.agents))
 	for _, agent := range m.archive.agents {
 		items = append(items, agentItem{agent: agent})
@@ -88,8 +98,19 @@ func (m model) archiveHeaders() []workflowstore.Workflow {
 func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstore.Workflow, selected string) {
 	m.archive.agents, m.archive.workflows = agents, workflows
 
+	m.archive.selected = m.archive.selected.pruned(m.allArchiveRows())
+
+	// A row a jump asked for takes the cursor for this listing only, and it is named by id
+	// rather than by row key since the row carrying it only exists once this pass lands.
+	focus := m.archive.focus
+	m.archive.focus = ""
+
 	rows := m.archiveRows()
-	m.archive.selected = m.archive.selected.pruned(rows)
+	if idx := rowIndexOfAgentID(rows, focus); focus != "" && idx >= 0 {
+		m.archive.cursor = idx
+
+		return
+	}
 
 	if idx := rowIndexOfKey(rows, selected); idx >= 0 {
 		m.archive.cursor = idx
@@ -105,6 +126,18 @@ func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstor
 func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
+	// The ends of the list are answered ahead of everything else, since the top key holds a
+	// press and every other key on the screen has to drop what it held.
+	if m.takeTopPress(k) {
+		return m.jumpArchiveCursor(0), nil
+	}
+	if m.topHeld {
+		return m, nil
+	}
+	if isBound(k, m.keys.Nav.Bottom) {
+		return m.jumpArchiveCursor(len(m.archiveRows()) - 1), nil
+	}
+
 	if sel, took := m.applySelectionKey(k, m.archive.selected, m.archiveRows(), m.archive.cursor); took {
 		m.archive.selected = sel
 
@@ -116,8 +149,12 @@ func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch {
+	case isBound(k, m.keys.Filter.Open):
+		return m.openFilter()
 	case isBound(k, m.keys.Archive.Quit):
 		return m, m.hide()
+	case m.filter.standing() && isBound(k, m.keys.Archive.Back):
+		return m.clearFilter()
 	case isBound(k, m.keys.Archive.Back):
 		return m.returnToAgents()
 	case isBound(k, m.keys.Nav.Up):
@@ -149,9 +186,9 @@ func (m model) updateArchiveSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, m.keys.Archive.Quit):
 		return m, m.hide()
 	case isBound(k, m.keys.Archive.Restore):
-		return m.restoreAgents(chosenAgents(m.archive.selected, m.archiveRows()))
+		return m.restoreAgents(chosenAgents(m.archive.selected, m.allArchiveRows()))
 	case isBound(k, m.keys.Archive.Delete):
-		return m.deleteFromArchiveConfirm(chosenAgents(m.archive.selected, m.archiveRows()))
+		return m.deleteFromArchiveConfirm(chosenAgents(m.archive.selected, m.allArchiveRows()))
 	case isBound(k, m.keys.Nav.Up):
 		return m.moveArchiveCursor(-1), nil
 	case isBound(k, m.keys.Nav.Down):
@@ -170,6 +207,20 @@ func (m model) moveArchiveCursor(delta int) model {
 	}
 
 	m.archive.cursor = next
+	m.stageArchive()
+
+	return m
+}
+
+// jumpArchiveCursor puts the archive cursor on a row by index, clamped to the list, which is
+// how each end of it is reached.
+func (m model) jumpArchiveCursor(idx int) model {
+	rows := m.archiveRows()
+	if len(rows) == 0 {
+		return m
+	}
+
+	m.archive.cursor = clampCursor(idx, len(rows))
 	m.stageArchive()
 
 	return m
@@ -317,7 +368,7 @@ func (m model) archivedCount(workflowID string) int {
 
 // archiveView renders the archive's own pane, the tree of what has been put away.
 func (m model) archiveView() string {
-	header := headerStyle.Render("Archive") + "\n\n"
+	header := headerStyle.Render("Archive") + "\n\n" + m.filterView()
 	help := "\n" + m.renderHelp(m.archiveHelp())
 
 	all := m.archiveRows()
@@ -335,21 +386,14 @@ func (m model) archiveView() string {
 		prefix = selectionGutter(!r.header && m.archive.selected.has(r.item.agent.ID)) + prefix
 
 		if r.header {
-			label := r.workflow.Name
-			if hovered {
-				label = cursorStyle.Render(label)
-			}
+			label := m.filter.highlight(r.workflow.Name, nameStyle(hovered, false))
 			rows = append(rows, prefix+dimStyle.Render(workflowIcon)+" "+label+archivedTag(r.workflow))
 
 			continue
 		}
 
 		agent := r.item.agent
-		name := dimStyle.Render(agent.Name)
-		if hovered {
-			name = cursorStyle.Render(agent.Name)
-		}
-
+		name := m.filter.highlight(agent.Name, nameStyle(hovered, true))
 		rows = append(rows, prefix+"  "+name+scheduledMark(agent)+markGlyph(agent, m.marks))
 	}
 

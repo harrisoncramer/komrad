@@ -200,6 +200,7 @@ func TestScreensFitThePane(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			shown := m
 			shown.screen = tt.screen
+			shown.helpExpanded = true
 			view := shown.View()
 
 			// The renderer draws what follows the last newline as a line of its own, so
@@ -207,7 +208,7 @@ func TestScreensFitThePane(t *testing.T) {
 			assert.NotEqual(t, "\n", view[len(view)-1:], "the view ends without a trailing newline")
 			assert.LessOrEqual(t, len(lines(view)), height)
 			assert.Contains(t, view, "agent39", "the hovered row is on screen")
-			assert.Contains(t, view, "back", "the legend is on screen")
+			assert.Contains(t, view, "hide help", "the legend is on screen")
 			assert.Contains(t, view, tt.wantTitle, "the title is on screen")
 		})
 	}
