@@ -19,6 +19,7 @@ func Checks(settings Settings) []Check {
 		Database(),
 		Schema(),
 		ReadOnlyLogin(),
+		Server(),
 	}
 
 	for _, agent := range settings.Harnesses {

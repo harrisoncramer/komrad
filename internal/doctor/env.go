@@ -38,6 +38,9 @@ type Env struct {
 	// ConnectReadOnly opens the least-privilege login the same way the service does, so
 	// what passes here is what gets the service past the same call.
 	ConnectReadOnly func(ctx context.Context, url string) error
+	// ProbeServer asks the health route who holds the listen address. It never reports
+	// an error, since every way of not answering is itself the answer.
+	ProbeServer func(ctx context.Context, addr string) ServerStatus
 }
 
 // Probe is the little a check needs from a Postgres that is already open.
@@ -71,6 +74,10 @@ type Settings struct {
 	// ReadOnlyDatabaseURL is the least-privilege one the MCP query tools use.
 	DatabaseURL         string
 	ReadOnlyDatabaseURL string
+	// Addr is where the service listens, and Version is the build doing the checking,
+	// which is what a server on that address has to match to be reused.
+	Addr    string
+	Version string
 }
 
 // NewEnv is the env pointed at the machine this is running on.

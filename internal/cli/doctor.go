@@ -1,11 +1,13 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	"weave/internal/appconfig"
 	"weave/internal/doctor"
+	"weave/internal/version"
 
 	"github.com/spf13/cobra"
 )
@@ -41,7 +43,22 @@ func doctorCmd(state *app) *cobra.Command {
 				return err
 			}
 
-			report := doctor.Run(cmd.Context(), doctor.NewEnv(settings), doctor.Checks(settings))
+			env := doctor.NewEnv(settings)
+			// Supplied here rather than built in doctor, so the report and the panel
+			// agree about who holds the address: this is the same probe the panel
+			// uses to decide whether to reuse a server or replace it.
+			env.ProbeServer = func(_ context.Context, addr string) doctor.ServerStatus {
+				found := probeServer(addr)
+
+				return doctor.ServerStatus{
+					Answering: found.answering,
+					Ready:     found.ready,
+					Version:   found.version,
+					Current:   found.current,
+				}
+			}
+
+			report := doctor.Run(cmd.Context(), env, doctor.Checks(settings))
 
 			if asJSON {
 				err = doctor.WriteJSON(cmd.OutOrStdout(), report)
@@ -96,5 +113,7 @@ func (a *app) doctorSettings() (doctor.Settings, error) {
 		Harnesses:           harnesses,
 		DatabaseURL:         a.env.DatabaseURL,
 		ReadOnlyDatabaseURL: a.env.ReadOnlyDatabaseURL,
+		Addr:                a.env.Addr,
+		Version:             version.Version(),
 	}, nil
 }
