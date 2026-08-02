@@ -34,9 +34,9 @@ type app struct {
 	logLevel string
 	// layout is how the panel divides the popup between its list and the stage.
 	layout appconfig.Layout
-	// configErr is set when the user's config file would not parse. The panel shows
-	// it on its error screen; every other command ignores it, since none of them
-	// read keybindings.
+	// configErr is set when the user's config file would not parse. The panel shows it on
+	// its error screen and serve writes it to the log, since serve carries on with the
+	// defaults and is otherwise indistinguishable from one running on the user's file.
 	configErr error
 	// contextPath is the file holding the standing text every agent is started with,
 	// read from the config at startup.

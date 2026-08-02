@@ -31,6 +31,18 @@ func fakeServe(t *testing.T, output string) string {
 	return path
 }
 
+// fakeServeEchoingArgs is fakeServe for the cases about what the spawned server was
+// called with. It writes its own arguments where the reason for dying would go, so the
+// command line comes back through the error the same way a failure does.
+func fakeServeEchoingArgs(t *testing.T) string {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), "fake-serve")
+	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\necho \"$@\" >&2\nexit 1\n"), 0o700))
+
+	return path
+}
+
 // fakeServerParams is what a stand-in server answers with, where status and body are the
 // health route and stopPid is what its stop route reports having stopped.
 type fakeServerParams struct {
@@ -116,7 +128,7 @@ func TestEnsureServerReportsWhyItDied(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 	self := fakeServe(t, "failed to reach db: connection refused")
 
-	err := ensureServer(freeAddr(t), self, logPath)
+	err := ensureServer(ensureServerParams{Addr: freeAddr(t), Self: self, LogPath: logPath})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to reach db: connection refused")
@@ -131,7 +143,7 @@ func TestEnsureServerIgnoresOlderLogLines(t *testing.T) {
 
 	self := fakeServe(t, "failed to reach db: this run")
 
-	err := ensureServer(freeAddr(t), self, logPath)
+	err := ensureServer(ensureServerParams{Addr: freeAddr(t), Self: self, LogPath: logPath})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "this run")
@@ -145,7 +157,7 @@ func TestEnsureServerWithoutAReason(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 	self := fakeServe(t, "")
 
-	err := ensureServer(freeAddr(t), self, logPath)
+	err := ensureServer(ensureServerParams{Addr: freeAddr(t), Self: self, LogPath: logPath})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), logPath)
@@ -161,10 +173,59 @@ func TestEnsureServerWithAnUnwritableLog(t *testing.T) {
 
 	logPath := filepath.Join(blocked, "serve.log")
 
-	err := ensureServer(freeAddr(t), fakeServe(t, "should not run"), logPath)
+	err := ensureServer(ensureServerParams{
+		Addr:    freeAddr(t),
+		Self:    fakeServe(t, "should not run"),
+		LogPath: logPath,
+	})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), logPath, "the path that could not be opened is named")
+}
+
+// TestEnsureServerCarriesTheConfigPath covers the spawned server being told which config
+// file to read. It loads the file for itself rather than being handed what this process
+// parsed, so a path left off here is a server serving out of a different file than the one
+// the caller named.
+func TestEnsureServerCarriesTheConfigPath(t *testing.T) {
+	tests := []struct {
+		name       string
+		configPath string
+		want       string
+	}{
+		{
+			name:       "no path given",
+			configPath: "",
+			want:       "",
+		},
+		{
+			name:       "a path given",
+			configPath: "/tmp/somewhere/config.toml",
+			want:       "--config /tmp/somewhere/config.toml",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logPath := filepath.Join(t.TempDir(), "serve.log")
+
+			err := ensureServer(ensureServerParams{
+				Addr:       freeAddr(t),
+				Self:       fakeServeEchoingArgs(t),
+				LogPath:    logPath,
+				ConfigPath: tt.configPath,
+			})
+
+			require.Error(t, err, "the stand-in serve always fails")
+			if tt.want == "" {
+				assert.NotContains(t, err.Error(), "--config")
+
+				return
+			}
+
+			assert.Contains(t, err.Error(), tt.want)
+		})
+	}
 }
 
 // TestEnsureServerReusesItsOwnBuild covers that nothing is spawned when this build is already
@@ -194,7 +255,11 @@ func TestEnsureServerReusesItsOwnBuild(t *testing.T) {
 			})
 			logPath := filepath.Join(t.TempDir(), "serve.log")
 
-			require.NoError(t, ensureServer(addr, fakeServe(t, "should not run"), logPath))
+			require.NoError(t, ensureServer(ensureServerParams{
+				Addr:    addr,
+				Self:    fakeServe(t, "should not run"),
+				LogPath: logPath,
+			}))
 
 			_, statErr := os.Stat(logPath)
 			assert.True(t, os.IsNotExist(statErr), "no server was spawned, so nothing was logged")
@@ -212,7 +277,11 @@ func TestEnsureServerReplacesAnotherBuild(t *testing.T) {
 	})
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 
-	err := ensureServer(addr, fakeServe(t, "the replacement was spawned"), logPath)
+	err := ensureServer(ensureServerParams{
+		Addr:    addr,
+		Self:    fakeServe(t, "the replacement was spawned"),
+		LogPath: logPath,
+	})
 
 	require.Error(t, err, "the stand-in serve always fails")
 	assert.Contains(t, err.Error(), "the replacement was spawned",

@@ -1,0 +1,94 @@
+package cli
+
+import (
+	"strings"
+	"testing"
+
+	"weave/config"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// forwardedEnv is what a tmux command line sets with -e, keyed by variable name.
+func forwardedEnv(t *testing.T, args []string) map[string]string {
+	t.Helper()
+
+	forwarded := make(map[string]string)
+
+	for i, arg := range args {
+		if arg != "-e" {
+			continue
+		}
+
+		require.Less(t, i+1, len(args), "-e is the last argument, so it names nothing")
+
+		name, value, found := strings.Cut(args[i+1], "=")
+		require.True(t, found, "a forwarded variable is written name=value")
+
+		forwarded[name] = value
+	}
+
+	return forwarded
+}
+
+// TestBuildManagerSessionArgsForwardsTheEnvironment covers which variables the manager
+// session is created with. The panel and the server it spawns read their settings out of
+// that environment, and a tmux server hands every session the environment it was itself
+// started with, so a variable left out here is one that quietly keeps whatever value some
+// long-gone shell had for it.
+func TestBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) {
+	state := &app{env: &config.Config{
+		DatabaseURL:         "postgres://weave@db/weave",
+		ReadOnlyDatabaseURL: "postgres://weave_readonly@db/weave",
+		Addr:                "127.0.0.1:9999",
+		TmuxSocket:          "weave-test",
+		Editor:              "nvim",
+		CacheDir:            "/tmp/cache",
+	}}
+
+	args := buildManagerSessionArgs(state, "/usr/local/bin/weave")
+
+	assert.Equal(t, map[string]string{
+		"DATABASE_URL":                "postgres://weave@db/weave",
+		"WEAVE_READONLY_DATABASE_URL": "postgres://weave_readonly@db/weave",
+		"WEAVE_ADDR":                  "127.0.0.1:9999",
+		"WEAVE_TMUX_SOCKET":           "weave-test",
+		"EDITOR":                      "nvim",
+		"WEAVE_CACHE_DIR":             "/tmp/cache",
+	}, forwardedEnv(t, args))
+}
+
+// TestBuildManagerSessionArgsCarriesTheConfigPath covers the panel being told which config
+// file to read. It loads the file itself rather than being handed what this process parsed,
+// so a path left off here is a panel reading the default while the caller named another.
+func TestBuildManagerSessionArgsCarriesTheConfigPath(t *testing.T) {
+	tests := []struct {
+		name       string
+		configPath string
+		want       []string
+	}{
+		{
+			name:       "no path given",
+			configPath: "",
+			want:       []string{"--", "/usr/local/bin/weave", "panel"},
+		},
+		{
+			name:       "a path given",
+			configPath: "/tmp/somewhere/config.toml",
+			want:       []string{"--", "/usr/local/bin/weave", "panel", "--config", "/tmp/somewhere/config.toml"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := &app{env: &config.Config{}, configPath: tt.configPath}
+
+			args := buildManagerSessionArgs(state, "/usr/local/bin/weave")
+
+			separator := len(args) - len(tt.want)
+			require.GreaterOrEqual(t, separator, 0, "the command line is shorter than what it has to end with")
+			assert.Equal(t, tt.want, args[separator:])
+		})
+	}
+}

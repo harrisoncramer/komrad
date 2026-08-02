@@ -79,24 +79,14 @@ func openCmd(state *app) *cobra.Command {
 // after it ran.
 //
 // The panel runs as this session's command, so it inherits the tmux server's
-// environment rather than the popup's. The config it read is forwarded with -e so
-// the panel reads the same values this process did, including any shell overrides.
-// Only the open that creates the session sets them, since every later one finds it
-// already up.
+// environment rather than the popup's, which is why the session is created the way
+// buildManagerSessionArgs builds it.
 func ensureManagerSession(state *app) error {
 	if err := state.tmuxCommand("has-session", "-t", agents.ManagerSession).Run(); err == nil {
 		return nil
 	}
 
-	cmd := state.tmuxCommand(
-		"new-session", "-d", "-s", agents.ManagerSession,
-		"-e", "WEAVE_TMUX_SOCKET="+state.env.TmuxSocket,
-		"-e", "DATABASE_URL="+state.env.DatabaseURL,
-		"-e", "WEAVE_ADDR="+state.env.Addr,
-		"-e", "EDITOR="+state.env.Editor,
-		"-e", "WEAVE_CACHE_DIR="+state.env.CacheDir,
-		"--", getSelfPath(), "panel",
-	)
+	cmd := state.tmuxCommand(buildManagerSessionArgs(state, getSelfPath())...)
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
@@ -104,6 +94,37 @@ func ensureManagerSession(state *app) error {
 	}
 
 	return nil
+}
+
+// buildManagerSessionArgs is the tmux command line that creates the manager session,
+// with self as the binary the session runs.
+//
+// A tmux server hands every session the environment it was itself started with, so a
+// server that has been up for days is still handing out some shell nobody remembers.
+// Every variable the panel and the server it spawns read is therefore forwarded with -e
+// rather than left to that. Only the open that creates the session sets them, since every
+// later one finds it already up.
+//
+// The config path goes on the command line for the same reason: the panel loads the file
+// itself, and without being told which one it would read the default while this process
+// read whatever --config named.
+func buildManagerSessionArgs(state *app, self string) []string {
+	args := []string{
+		"new-session", "-d", "-s", agents.ManagerSession,
+		"-e", "WEAVE_TMUX_SOCKET=" + state.env.TmuxSocket,
+		"-e", "DATABASE_URL=" + state.env.DatabaseURL,
+		"-e", "WEAVE_READONLY_DATABASE_URL=" + state.env.ReadOnlyDatabaseURL,
+		"-e", "WEAVE_ADDR=" + state.env.Addr,
+		"-e", "EDITOR=" + state.env.Editor,
+		"-e", "WEAVE_CACHE_DIR=" + state.env.CacheDir,
+		"--", self, "panel",
+	}
+
+	if state.configPath != "" {
+		args = append(args, "--config", state.configPath)
+	}
+
+	return args
 }
 
 // tmuxCommand builds a tmux command against the manager's server with TMUX removed
