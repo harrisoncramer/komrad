@@ -84,22 +84,14 @@ run  = ["enter"]
 archive     = ["z"]
 # Step out of a workflow scope, or quit at the root.
 back        = ["esc"]
-# Open the hovered agent's directory in whatever EDITOR names, in the pane
-# under the stage, and press it again to close that pane. It runs the _editor
-# action, so writing your own _editor in your actions directory replaces what
+# Open the hovered agent's directory in your EDITOR.
 # the key does.
 editor      = ["e"]
-# Hide the hovered agent from this list, or unhide one while the hidden agents
-# are shown. Hiding stops nothing: the agent keeps running and every other
-# view still holds it.
+# Hide the hovered agent from this list.
 hide        = ["h"]
-# Show the hovered agent's stored record in the pane under the stage, so it
-# reads beside the agent rather than in place of it, and press it again to
-# close that pane.
+# Show the hovered agent's stored record in the pane under the stage.
 info        = ["i"]
-# Show the background service's log in the pane under the stage, and press it
-# again to close that pane. The service is spawned detached and writes to a
-# file, so nothing else shows what it is doing.
+# Show the background service's log in the pane under the stage.
 logs        = ["L"]
 # Move the hovered agent to the next mark in the marks list, and past the last
 # one back to unmarked. Nothing but you ever sets a mark.
@@ -112,17 +104,12 @@ open        = ["enter"]
 quit        = ["ctrl+c"]
 # Rename the hovered agent.
 rename      = ["r"]
-# Search every conversation the panel holds for what you type, the archived
-# ones included, and open the agent a hit belongs to.
+# Search every conversation the panel holds for what you type, the archived ones included.
 search      = ["s"]
-# Show the hidden agents alongside the rest, and press it again to put them
-# away. While they are away each workflow header carries the count of what it
-# is not showing.
+# Toggles visibility of hidden agents alongside the rest.
 show_hidden = ["H"]
-# Open a shell in the pane under the stage, in the hovered agent's directory,
-# and press it again to close that pane. It runs the _terminal action, so
-# writing your own _terminal in your actions directory replaces what the key
-# does.
+# Open a shell in the pane under the stage, in the hovered agent's directory.
+# This runs the _terminal action, write your own _terminal in your actions directory.
 terminal    = ["t"]
 
 # The archive screen, and the key that opens it from the agents list.
@@ -142,10 +129,7 @@ restore = ["r"]
 # The filter over whichever list is on screen, shared by every screen that
 # draws one.
 [keybindings.filter]
-# Narrow the list on screen to the rows matching what you type, as a regular
-# expression. A pattern in lower case matches either case and one carrying an
-# upper case letter matches exactly. esc closes the input and leaves the list
-# narrowed to act on, and the screen's back key clears it.
+# Narrow the list on screen to the rows matching what you type, as a regular expression.
 open = ["/"]
 
 # The new-agent, rename, and workflow forms.
