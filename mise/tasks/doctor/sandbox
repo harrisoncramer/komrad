@@ -13,6 +13,7 @@ usage() {
 	echo "  bare       the binary and nothing else (default)"
 	echo "  tmux-old   a tmux below the version the panel's key binding needs"
 	echo "  tmux       a tmux new enough"
+	echo "  postgres   a tmux new enough, with the local Postgres reachable"
 	echo
 	echo "Anything after -- is passed to the binary, so 'sh' opens a shell on the"
 	echo "same machine to set something up by hand."
@@ -50,8 +51,15 @@ esac
 # mount this rather than building it, so the loop is a rebuild and a rerun.
 CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -o bin/weave-linux .
 
+# The Postgres stage is a service rather than an image, since it needs the database
+# container beside it on a network.
+service="doctor-$stage"
+if [ "$stage" = "postgres" ]; then
+	service="doctor-postgres"
+fi
+
 # Built as its own step so the layer log does not land on top of the report, which is the
 # only output anyone runs this for.
-docker compose --profile doctor build --quiet "doctor-$stage"
+docker compose --profile doctor build --quiet "$service"
 
-exec docker compose --profile doctor run --rm "doctor-$stage" "$@"
+exec docker compose --profile doctor run --rm "$service" "$@"

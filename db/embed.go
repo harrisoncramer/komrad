@@ -74,21 +74,73 @@ func openMigrationFiles() (fs.FS, error) {
 	return files, nil
 }
 
-// isPending reports whether any migration has yet to run. A missing
-// schema_migrations table means none of them have.
-func isPending(ctx context.Context, pool *pgxpool.Pool, versions []string) (bool, error) {
-	var applied int
-	err := pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM schema_migrations WHERE version = ANY ($1)`, versions).Scan(&applied)
+// Pending lists the embedded migrations that have not run, in the order they would run in.
+// It is exported so a caller can report on a schema without being the caller that applies
+// it, and it writes nothing, so it is safe against a database opened read-only.
+func Pending(ctx context.Context, pool *pgxpool.Pool) ([]string, error) {
+	files, err := openMigrationFiles()
+	if err != nil {
+		return nil, err
+	}
 
+	versions, err := listMigrationVersions(files)
+	if err != nil {
+		return nil, err
+	}
+
+	return pendingVersions(ctx, pool, versions)
+}
+
+// isPending reports whether any migration has yet to run.
+func isPending(ctx context.Context, pool *pgxpool.Pool, versions []string) (bool, error) {
+	pending, err := pendingVersions(ctx, pool, versions)
+	if err != nil {
+		return false, err
+	}
+
+	return len(pending) > 0, nil
+}
+
+// pendingVersions is which of versions the database has no record of. A missing
+// schema_migrations table means it has no record of any of them.
+func pendingVersions(ctx context.Context, pool *pgxpool.Pool, versions []string) ([]string, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT version FROM schema_migrations WHERE version = ANY ($1)`, versions)
 	if IsUndefinedTable(err) {
-		return true, nil
+		return versions, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("failed to read applied migrations: %w", err)
+		return nil, fmt.Errorf("failed to read applied migrations: %w", err)
+	}
+	defer rows.Close()
+
+	applied := make(map[string]bool, len(versions))
+	for rows.Next() {
+		var version string
+		if err := rows.Scan(&version); err != nil {
+			return nil, fmt.Errorf("failed to read an applied migration: %w", err)
+		}
+
+		applied[version] = true
+	}
+	// The table can be missing on a database that has never been migrated, which the
+	// query above only reports once the rows are walked.
+	if err := rows.Err(); err != nil {
+		if IsUndefinedTable(err) {
+			return versions, nil
+		}
+
+		return nil, fmt.Errorf("failed to read applied migrations: %w", err)
 	}
 
-	return applied < len(versions), nil
+	var pending []string
+	for _, version := range versions {
+		if !applied[version] {
+			pending = append(pending, version)
+		}
+	}
+
+	return pending, nil
 }
 
 // migrationSet is the migrations to apply and where to read them from.

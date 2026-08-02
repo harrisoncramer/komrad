@@ -16,6 +16,9 @@ func Checks(settings Settings) []Check {
 		TmuxShell(),
 		Config(),
 		DefaultHarness(),
+		Database(),
+		Schema(),
+		ReadOnlyLogin(),
 	}
 
 	for _, agent := range settings.Harnesses {

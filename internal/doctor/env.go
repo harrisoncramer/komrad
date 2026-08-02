@@ -32,6 +32,19 @@ type Env struct {
 	// ConfigExists reports whether the config file is actually there, which Load does
 	// not say: a missing one is not an error and comes back as the defaults.
 	ConfigExists func() bool
+	// Connect opens a handle to the writable database that cannot write. Opening the
+	// store the ordinary way migrates, which a diagnostic must not do.
+	Connect func(ctx context.Context, url string) (Probe, error)
+	// ConnectReadOnly opens the least-privilege login the same way the service does, so
+	// what passes here is what gets the service past the same call.
+	ConnectReadOnly func(ctx context.Context, url string) error
+}
+
+// Probe is the little a check needs from a Postgres that is already open.
+type Probe interface {
+	// Pending lists the migrations this build ships that the database has not applied.
+	Pending(ctx context.Context) ([]string, error)
+	Close()
 }
 
 // HarnessInfo is one agent CLI this build can run: the id an agent is recorded under, and
@@ -54,6 +67,10 @@ type Settings struct {
 	ConfigPath string
 	// Harnesses is every agent CLI this build can run.
 	Harnesses []HarnessInfo
+	// DatabaseURL is the writable login everything weave stores lives behind, and
+	// ReadOnlyDatabaseURL is the least-privilege one the MCP query tools use.
+	DatabaseURL         string
+	ReadOnlyDatabaseURL string
 }
 
 // NewEnv is the env pointed at the machine this is running on.
@@ -68,6 +85,8 @@ func NewEnv(settings Settings) Env {
 
 			return err == nil
 		},
+		Connect:         connectProbe,
+		ConnectReadOnly: connectReadOnly,
 	}
 }
 

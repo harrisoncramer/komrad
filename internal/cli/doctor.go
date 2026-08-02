@@ -90,9 +90,11 @@ func (a *app) doctorSettings() (doctor.Settings, error) {
 	}
 
 	return doctor.Settings{
-		TmuxSocket: a.env.TmuxSocket,
-		InsideTmux: a.env.Tmux,
-		ConfigPath: configPath,
-		Harnesses:  harnesses,
+		TmuxSocket:          a.env.TmuxSocket,
+		InsideTmux:          a.env.Tmux,
+		ConfigPath:          configPath,
+		Harnesses:           harnesses,
+		DatabaseURL:         a.env.DatabaseURL,
+		ReadOnlyDatabaseURL: a.env.ReadOnlyDatabaseURL,
 	}, nil
 }
