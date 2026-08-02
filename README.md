@@ -1,13 +1,13 @@
 # weave
 
-Weave is a terminal-first agentic workflow manager. It lets you:
+Weave is a terminal-based agent manager. It lets you:
 
 - Quickly create agents backed by different CLIs, like Claude or Codex
 - Search and act upon agents from one unified view
 - Group agents into workflows with common behaviors and settings
 - Build custom actions using agent state
 - Schedule agents using cron-like syntax
-- Build "orchestrator" agents using Weave's MCP
+- Build "orchestrator" agents or agent pipelines using Weave's MCP
 
 ## Why Weave
 
