@@ -36,11 +36,42 @@ func TestInstallBuiltins(t *testing.T) {
 // staying on offer.
 func TestInstallBuiltinsReplacesWhatWasThere(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "actions")
-	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, InstallBuiltins(dir))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "_gone"), []byte("#!/bin/sh\n"), 0o755))
 
 	require.NoError(t, InstallBuiltins(dir))
 
 	_, err := os.Stat(filepath.Join(dir, "_gone"))
 	assert.True(t, os.IsNotExist(err), "a script this build does not ship is not left behind")
+}
+
+// TestInstallBuiltinsRefusesRelativePath covers the directory the install empties being
+// named relative to wherever the service happened to be started, which is a delete of
+// whatever that name means there rather than of weave's own directory.
+func TestInstallBuiltinsRefusesRelativePath(t *testing.T) {
+	work := t.TempDir()
+	t.Chdir(work)
+
+	theirs := filepath.Join(work, "actions")
+	require.NoError(t, os.MkdirAll(theirs, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(theirs, "deploy.sh"), []byte("#!/bin/sh\n"), 0o755))
+
+	err := InstallBuiltins(filepath.Join(".", "actions"))
+	require.ErrorIs(t, err, ErrDirNotAbsolute)
+
+	assert.FileExists(t, filepath.Join(theirs, "deploy.sh"), "a directory weave did not name is not emptied")
+}
+
+// TestInstallBuiltinsRefusesDirectoryItDoesNotOwn covers an absolute path that is somebody
+// else's directory, which is what a hand-set cache directory pointed at a project root
+// leaves the install aimed at.
+func TestInstallBuiltinsRefusesDirectoryItDoesNotOwn(t *testing.T) {
+	theirs := filepath.Join(t.TempDir(), "actions")
+	require.NoError(t, os.MkdirAll(theirs, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(theirs, "deploy.sh"), []byte("#!/bin/sh\n"), 0o755))
+
+	err := InstallBuiltins(theirs)
+	require.ErrorIs(t, err, ErrDirNotOurs)
+
+	assert.FileExists(t, filepath.Join(theirs, "deploy.sh"), "a directory weave did not write is not emptied")
 }

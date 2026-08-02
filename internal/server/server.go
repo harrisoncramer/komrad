@@ -153,8 +153,9 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Workflows: workflowStore,
 	})
 	// The actions weave ships are written out on every start, so the panel's own keys run
-	// this build's scripts rather than an older one's.
-	builtinActionsDir := filepath.Join(p.Env.CacheDir, "actions")
+	// this build's scripts rather than an older one's. The directory is named for what puts
+	// it there, since installing empties it and the cache directory can be pointed anywhere.
+	builtinActionsDir := filepath.Join(p.Env.CacheDir, "weave-builtin-actions")
 	if err := actions.InstallBuiltins(builtinActionsDir); err != nil {
 		srv.Close()
 
