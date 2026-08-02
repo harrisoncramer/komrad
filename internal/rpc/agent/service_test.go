@@ -14,6 +14,7 @@ import (
 	"weave/internal/caller"
 	"weave/internal/logging"
 	"weave/internal/logtest"
+	"weave/internal/store"
 	"weave/internal/storetest"
 	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -1083,9 +1084,12 @@ type fakeLauncher struct {
 	archived   []string
 	archiveErr error
 	restored   []string
-	restoreErr error
-	resumed    []string
-	resumeErr  error
+	// restoredAgents is what a restore hands back, defaulting to the one created agent
+	// for the cases that only care that the call went through.
+	restoredAgents []agentstore.Agent
+	restoreErr     error
+	resumed        []string
+	resumeErr      error
 	// runningCalls counts GetRunningAgents calls, which is what holds a listing to one
 	// liveness lookup.
 	runningCalls int
@@ -1133,6 +1137,9 @@ func (f *fakeLauncher) RestoreAgents(_ context.Context, ids []string) ([]agentst
 	f.restored = append(f.restored, ids...)
 	if f.restoreErr != nil {
 		return nil, f.restoreErr
+	}
+	if f.restoredAgents != nil {
+		return f.restoredAgents, nil
 	}
 
 	return []agentstore.Agent{*f.created}, nil
@@ -1214,4 +1221,155 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 	launcher := &fakeLauncher{created: &agentstore.Agent{ID: "id-1", Name: "spawned", Cwd: "/repo", State: agentstore.StateIdle}}
 
 	return NewService(st.Agents, st.Transcripts, launcher), st, launcher
+}
+
+// TestBatchLifecycleErrorsMapToCodes covers what a caller sees when a batch is refused.
+// All three are all or nothing, so the code has to say which condition stopped it and the
+// message has to name what is in the way, or a caller has nothing to fix before retrying.
+func TestBatchLifecycleErrorsMapToCodes(t *testing.T) {
+	tests := []struct {
+		name     string
+		call     func(t *testing.T, svc *Service) error
+		fail     func(l *fakeLauncher)
+		wantCode connect.Code
+	}{
+		{
+			name: "an archive naming an agent nobody holds",
+			call: func(t *testing.T, svc *Service) error {
+				_, err := svc.ArchiveAgents(t.Context(), connect.NewRequest(&agentv1.ArchiveAgentsRequest{
+					Ids: []string{"alpha", "ghost"},
+				}))
+
+				return err
+			},
+			fail:     func(l *fakeLauncher) { l.archiveErr = fmt.Errorf("%w: ghost", agents.ErrAgentNotFound) },
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name: "a delete naming one",
+			call: func(t *testing.T, svc *Service) error {
+				_, err := svc.DeleteAgents(t.Context(), connect.NewRequest(&agentv1.DeleteAgentsRequest{
+					Ids: []string{"alpha", "ghost"},
+				}))
+
+				return err
+			},
+			fail:     func(l *fakeLauncher) { l.deleteErr = fmt.Errorf("%w: ghost", agents.ErrAgentNotFound) },
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name: "a restore that would take the panel past its ceiling",
+			call: func(t *testing.T, svc *Service) error {
+				_, err := svc.RestoreAgents(t.Context(), connect.NewRequest(&agentv1.RestoreAgentsRequest{
+					Ids: []string{"alpha", "beta"},
+				}))
+
+				return err
+			},
+			fail:     func(l *fakeLauncher) { l.restoreErr = agents.ErrTooManyAgents },
+			wantCode: connect.CodeResourceExhausted,
+		},
+		{
+			name: "a restore onto a name a live agent has taken",
+			call: func(t *testing.T, svc *Service) error {
+				_, err := svc.RestoreAgents(t.Context(), connect.NewRequest(&agentv1.RestoreAgentsRequest{
+					Ids: []string{"alpha", "beta"},
+				}))
+
+				return err
+			},
+			fail:     func(l *fakeLauncher) { l.restoreErr = fmt.Errorf("%w: auth", store.ErrNameTaken) },
+			wantCode: connect.CodeAlreadyExists,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, _, launcher := serviceWithLauncher(t)
+			tt.fail(launcher)
+
+			err := tt.call(t, svc)
+			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+		})
+	}
+}
+
+// TestBatchLifecycleReachesTheService covers the whole list arriving at the thing that can
+// stop an agent, rather than the first id or the last. Each of the three is keyed on a
+// list now, so a handler dropping the tail would archive one agent out of twelve and
+// report success.
+func TestBatchLifecycleReachesTheService(t *testing.T) {
+	tests := []struct {
+		name       string
+		call       func(t *testing.T, svc *Service) error
+		wantCalled func(l *fakeLauncher) []string
+	}{
+		{
+			name: "archiving",
+			call: func(t *testing.T, svc *Service) error {
+				_, err := svc.ArchiveAgents(t.Context(), connect.NewRequest(&agentv1.ArchiveAgentsRequest{
+					Ids: []string{"a1", "a2", "a3"},
+				}))
+
+				return err
+			},
+			wantCalled: func(l *fakeLauncher) []string { return l.archived },
+		},
+		{
+			name: "deleting",
+			call: func(t *testing.T, svc *Service) error {
+				_, err := svc.DeleteAgents(t.Context(), connect.NewRequest(&agentv1.DeleteAgentsRequest{
+					Ids: []string{"a1", "a2", "a3"},
+				}))
+
+				return err
+			},
+			wantCalled: func(l *fakeLauncher) []string { return l.deleted },
+		},
+		{
+			name: "restoring",
+			call: func(t *testing.T, svc *Service) error {
+				_, err := svc.RestoreAgents(t.Context(), connect.NewRequest(&agentv1.RestoreAgentsRequest{
+					Ids: []string{"a1", "a2", "a3"},
+				}))
+
+				return err
+			},
+			wantCalled: func(l *fakeLauncher) []string { return l.restored },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, _, launcher := serviceWithLauncher(t)
+
+			require.NoError(t, tt.call(t, svc))
+			assert.Equal(t, []string{"a1", "a2", "a3"}, tt.wantCalled(launcher))
+		})
+	}
+}
+
+// TestRestoreAgentsRendersEveryAgent covers the response a restore hands back. The panel
+// re-lists after a write, so what matters here is that the batch comes back whole rather
+// than as the first agent restored.
+func TestRestoreAgentsRendersEveryAgent(t *testing.T) {
+	svc, st, launcher := serviceWithLauncher(t)
+	ctx := t.Context()
+
+	auth := st.SeedAgent(t, agentstore.Agent{Name: "auth", State: agentstore.StateIdle})
+	api := st.SeedAgent(t, agentstore.Agent{Name: "api", State: agentstore.StateIdle})
+	launcher.restoredAgents = []agentstore.Agent{*auth, *api}
+
+	restored, err := svc.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{
+		Ids: []string{auth.ID, api.ID},
+	}))
+	require.NoError(t, err)
+
+	names := make([]string, 0, len(restored.Msg.GetAgents()))
+	for _, agent := range restored.Msg.GetAgents() {
+		names = append(names, agent.GetName())
+	}
+
+	assert.Equal(t, []string{"auth", "api"}, names)
+	assert.Equal(t, 1, launcher.runningCalls, "liveness is read once for the batch, not once per agent")
 }

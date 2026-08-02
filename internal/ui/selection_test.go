@@ -1,18 +1,23 @@
 package ui
 
 import (
+	"context"
 	"strings"
 	"testing"
 
 	"weave/internal/appconfig"
+	agentv1 "weave/proto/gen/agent/v1"
+	"weave/proto/gen/agent/v1/agentv1connect"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 
+	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // selectionTree is the list the cases below work over, whose rows are 0 backend, 1 auth,
@@ -176,9 +181,8 @@ func TestSelectRange(t *testing.T) {
 	}
 }
 
-// TestSelectionKeysStandDown covers the mode itself. While a selection is up the keys that
-// act on one agent do nothing, since nothing acts on a selection yet, and the clear key is
-// the way back out.
+// TestSelectionKeysStandDown covers the mode itself. While a selection is up the keys with
+// nothing to say about a set of agents do nothing, and the clear key is the way back out.
 func TestSelectionKeysStandDown(t *testing.T) {
 	m := selectionTree()
 	m.tree.cursor = 1
@@ -405,4 +409,75 @@ func countRows(view, marker string) int {
 	}
 
 	return n
+}
+
+// TestArchiveSelectionFromTheTree covers the agents tree's archive key over a selection.
+// The whole set goes in one call, and the panes come out of the stage first, since killing
+// one while it is staged takes the stage down with it.
+func TestArchiveSelectionFromTheTree(t *testing.T) {
+	tests := []struct {
+		name     string
+		selected []string
+		cursor   int
+		wantIDs  []string
+	}{
+		{
+			name:    "with nothing selected the key still takes the hovered row",
+			cursor:  1,
+			wantIDs: []string{"a1"},
+		},
+		{
+			name:     "a selection is archived whole rather than the row under the cursor",
+			selected: []string{"a1", "a3"},
+			cursor:   2,
+			wantIDs:  []string{"a1", "a3"},
+		},
+		{
+			name:     "a selection spanning folders goes in one call",
+			selected: []string{"a1", "a4"},
+			cursor:   1,
+			wantIDs:  []string{"a1", "a4"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agents := &fakeTreeAgents{}
+			stage := &recordingTmux{}
+
+			m := selectionTree()
+			m.stage = NewStage(stage, appconfig.DefaultSplit)
+			m.api = api{agents: agents}
+			m.tree.cursor = tt.cursor
+			m.tree.selected = selection{ids: tt.selected}
+
+			for i := range m.tree.agents {
+				m.tree.agents[i].agent.Pane = "%" + m.tree.agents[i].agent.ID
+			}
+
+			next, cmd := m.updateAgents(keyMsg("z"))
+			require.NotNil(t, cmd)
+			cmd()
+
+			assert.Equal(t, tt.wantIDs, agents.archived)
+
+			after, ok := next.(model)
+			require.True(t, ok)
+			assert.Equal(t, tt.selected, after.tree.selected.ids,
+				"the rows come off the selection on the next listing rather than on the keypress")
+		})
+	}
+}
+
+// fakeTreeAgents records the archives the tree asks for. Every other method is left to the
+// embedded nil interface, so a press reaching one panics rather than passing.
+type fakeTreeAgents struct {
+	agentv1connect.AgentServiceClient
+	archived []string
+}
+
+func (f *fakeTreeAgents) ArchiveAgents(_ context.Context, req *connect.Request[agentv1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
+	f.archived = append(f.archived, req.Msg.GetIds()...)
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
