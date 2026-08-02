@@ -160,6 +160,13 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// The log is about the service rather than about the list on screen, so it is answered
+	// here rather than by each screen. It is wanted when the service is misbehaving, which is
+	// as likely to be noticed from the schedules or the archive as from the agents list.
+	if !m.isQueryOpen() && isBound(key.String(), m.keys.Logs.Open) {
+		return m.openLogs()
+	}
+
 	switch m.screen {
 	case screenSearch:
 		return m.updateSearch(key)

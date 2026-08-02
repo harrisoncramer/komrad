@@ -75,9 +75,6 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if isBound(k, m.keys.Agents.ShowHidden) {
 		return m.toggleHiddenAgents()
 	}
-	if isBound(k, m.keys.Agents.Logs) {
-		return m.openLogs()
-	}
 	// On a workflow header the workflow bindings act on that folder's workflow.
 	if workflow, ok := m.hoveredWorkflow(); ok {
 		return m.updateHoveredWorkflow(key, workflow)

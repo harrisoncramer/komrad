@@ -30,7 +30,7 @@ func logsModel(t *testing.T, tmux *recordingTmux) (model, string) {
 func pressLogs(t *testing.T, m model) model {
 	t.Helper()
 
-	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'L'}})
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
 	panel, ok := next.(model)
 	require.True(t, ok)
 
@@ -134,6 +134,48 @@ func TestLogsShowOnAnEmptyList(t *testing.T) {
 	assert.Equal(t, belowLogs, shown.tree.below)
 	require.Len(t, tmux.respawns, 1)
 	assert.Contains(t, tmux.respawns[0], "export WEAVE_LOG='"+path+"'")
+}
+
+// TestLogsOpenFromEveryScreen covers the key on the screens that list something other than
+// agents. The log is about the service, which is as likely to be doubted from the schedules
+// or the archive as from the agents list.
+func TestLogsOpenFromEveryScreen(t *testing.T) {
+	screens := map[string]screen{
+		"schedules": screenSchedules,
+		"archive":   screenArchive,
+		"actions":   screenActions,
+		"search":    screenSearch,
+	}
+
+	for name, from := range screens {
+		t.Run(name, func(t *testing.T) {
+			tmux := &recordingTmux{}
+			m, path := logsModel(t, tmux)
+			m.screen = from
+
+			shown := pressLogs(t, m)
+
+			assert.Equal(t, belowLogs, shown.tree.below)
+			assert.Equal(t, from, shown.screen, "the key opens the log without leaving the screen")
+			require.Len(t, tmux.respawns, 1)
+			assert.Contains(t, tmux.respawns[0], "export WEAVE_LOG='"+path+"'")
+		})
+	}
+}
+
+// TestLogsTypeIntoAnOpenQuery covers the key while the search screen's query line has it,
+// where a key bound to something has to type rather than act.
+func TestLogsTypeIntoAnOpenQuery(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, _ := logsModel(t, tmux)
+	m.screen = screenSearch
+	m.search.typing = true
+
+	shown := pressLogs(t, m)
+
+	assert.Equal(t, belowNothing, shown.tree.below)
+	assert.Equal(t, "l", shown.search.query)
+	assert.Empty(t, tmux.respawns)
 }
 
 // TestLogArgv covers the command the log key runs, which is the user's rather than the

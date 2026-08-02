@@ -145,6 +145,12 @@ func (m model) helpBinding() key.Binding {
 	return binding(m.keys.Help.Toggle, desc)
 }
 
+// globalHelp are the bindings every screen answers, which end each expanded legend rather
+// than being listed among the keys the screen binds itself.
+func (m model) globalHelp() []key.Binding {
+	return []key.Binding{binding(m.keys.Logs.Open, m.logsDesc()), m.helpBinding()}
+}
+
 // agentHelp lists the agents screen's bindings.
 func (m model) agentHelp() keyMap {
 	if m.tree.selected.active() {
@@ -165,7 +171,7 @@ func (m model) agentHelp() keyMap {
 		m.screenHelp(),
 		[]key.Binding{m.filterBinding(), m.moveBinding(), m.jumpBinding()},
 		m.clearFilterBinding(m.keys.Agents.Back),
-		[]key.Binding{m.helpBinding()},
+		m.globalHelp(),
 	)
 
 	return keyMap{short: []key.Binding{rows[0], m.helpBinding()}, full: full}
@@ -192,7 +198,8 @@ func (m model) selectionHelp(sel selection, hovered agentRow, extra ...key.Bindi
 	full := slices.Concat(
 		[]key.Binding{toggle, binding(m.keys.Selection.Range, "select to nearest"), clear},
 		extra,
-		[]key.Binding{m.moveBinding(), m.jumpBinding(), m.helpBinding()},
+		[]key.Binding{m.moveBinding(), m.jumpBinding()},
+		m.globalHelp(),
 	)
 
 	return keyMap{short: []key.Binding{toggle, clear, m.helpBinding()}, full: full}
@@ -295,7 +302,6 @@ func (m model) screenHelp() []key.Binding {
 	return []key.Binding{
 		binding(m.keys.Agents.Search, "search"),
 		binding(m.keys.Schedules.Open, "schedules"),
-		binding(m.keys.Agents.Logs, m.logsDesc()),
 	}
 }
 
@@ -318,7 +324,7 @@ func (m model) scheduleHelp() keyMap {
 			binding(m.keys.Schedules.Archive, "archive"),
 			m.filterBinding(),
 			m.moveBinding(),
-		}, clear, []key.Binding{m.helpBinding()}),
+		}, clear, m.globalHelp()),
 	}
 }
 
@@ -350,7 +356,7 @@ func (m model) archiveHelp() keyMap {
 			rows,
 			[]key.Binding{m.filterBinding(), m.moveBinding(), m.jumpBinding()},
 			clear,
-			[]key.Binding{m.helpBinding()},
+			m.globalHelp(),
 		),
 	}
 }
@@ -392,7 +398,7 @@ func (m model) actionHelp() keyMap {
 		full: slices.Concat(
 			[]key.Binding{run, m.filterBinding(), m.moveBinding()},
 			clear,
-			[]key.Binding{m.helpBinding()},
+			m.globalHelp(),
 		),
 	}
 }
@@ -409,7 +415,7 @@ func (m model) searchHelp() keyMap {
 
 		return keyMap{
 			short: []key.Binding{open, back, m.helpBinding()},
-			full:  []key.Binding{open, edit, m.moveBinding(), back, m.helpBinding()},
+			full:  slices.Concat([]key.Binding{open, edit, m.moveBinding(), back}, m.globalHelp()),
 		}
 	}
 

@@ -69,6 +69,9 @@ type Keybindings struct {
 	// The key that draws the legend under a list, shared by every screen for the
 	// same reason navigation is.
 	Help HelpKeys `mapstructure:"help"`
+	// The key that pages the service's log, shared by every screen since the log is
+	// about the service rather than about anything a screen lists.
+	Logs LogsKeys `mapstructure:"logs"`
 	// Navigation, shared by every menu so movement is the same everywhere.
 	Nav NavKeys `mapstructure:"nav"`
 	// The schedules screen, and the key that opens it from the agents list.
@@ -97,6 +100,14 @@ type NavKeys struct {
 type HelpKeys struct {
 	// Toggle for the keybindings
 	Toggle []string `mapstructure:"toggle"`
+}
+
+// LogsKeys is the binding that pages the background service's log. It is its own group
+// rather than one of a screen's, since the log is about the service and is wanted from
+// wherever the panel is when the service misbehaves.
+type LogsKeys struct {
+	// Show the background service's log in the pane under the stage.
+	Open []string `mapstructure:"open"`
 }
 
 // FilterKeys is the binding that narrows the list on screen. It is its own group rather than
@@ -147,8 +158,6 @@ type AgentsKeys struct {
 	Hide []string `mapstructure:"hide"`
 	// Show the hovered agent's stored record in the pane under the stage.
 	Info []string `mapstructure:"info"`
-	// Show the background service's log in the pane under the stage.
-	Logs []string `mapstructure:"logs"`
 	// Move the hovered agent to the next mark in the marks list, and past the last
 	// one back to unmarked. Nothing but you ever sets a mark.
 	Mark []string `mapstructure:"mark"`
@@ -417,7 +426,6 @@ func DefaultKeybindings() Keybindings {
 			Editor:     []string{"e"},
 			Hide:       []string{"h"},
 			Info:       []string{"i"},
-			Logs:       []string{"L"},
 			Mark:       []string{"m"},
 			New:        []string{"n"},
 			Open:       []string{"enter"},
@@ -444,6 +452,9 @@ func DefaultKeybindings() Keybindings {
 		},
 		Help: HelpKeys{
 			Toggle: []string{"?"},
+		},
+		Logs: LogsKeys{
+			Open: []string{"l"},
 		},
 		Nav: NavKeys{
 			Bottom: []string{"G"},
