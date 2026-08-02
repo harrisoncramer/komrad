@@ -126,7 +126,7 @@ func TestNewAgentFlagsFollowTheHarness(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
 
-	service := NewAgentService(AgentParams{
+	service := NewAgentService(NewAgentServiceParams{
 		Tmux:           tmux,
 		Agents:         st.Agents,
 		Workflows:      st.Workflows,

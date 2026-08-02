@@ -739,7 +739,7 @@ func TestDeleteAgentRunsCleanupFromAnArchivedWorkflow(t *testing.T) {
 // all, which is what a renamed script leaves behind.
 func TestRunCleanupLogsOneThatWouldNotStart(t *testing.T) {
 	lifecycle := &fakeLifecycle{cleanupErr: ErrActionNotFound}
-	manager := NewAgentService(AgentParams{Lifecycle: lifecycle})
+	manager := NewAgentService(NewAgentServiceParams{Lifecycle: lifecycle})
 	ctx, records := loggedContext(t)
 
 	manager.runCleanup(ctx, agentstore.Agent{ID: "a1", Cwd: "/repo/.worktrees/auth"}, "was-renamed")
@@ -753,7 +753,7 @@ func TestRunCleanupLogsOneThatWouldNotStart(t *testing.T) {
 // TestCleanupActionLogsAWorkflowThatWouldNotRead covers the read that breaks rather than
 // answering, which skips a teardown as quietly as a workflow naming none.
 func TestCleanupActionLogsAWorkflowThatWouldNotRead(t *testing.T) {
-	manager := NewAgentService(AgentParams{Workflows: brokenWorkflowReader{err: errors.New("connection refused")}})
+	manager := NewAgentService(NewAgentServiceParams{Workflows: brokenWorkflowReader{err: errors.New("connection refused")}})
 	ctx, records := loggedContext(t)
 
 	agent := agentstore.Agent{ID: "a1", Cwd: "/repo/.worktrees/auth", WorkflowID: "wf1"}
@@ -770,7 +770,7 @@ func TestCleanupActionLogsAWorkflowThatWouldNotRead(t *testing.T) {
 // workflow with no cleanup is not a fault and a line about one would be noise on every
 // delete.
 func TestCleanupActionSaysNothingAboutAWorkflowNamingNone(t *testing.T) {
-	manager := NewAgentService(AgentParams{Workflows: fakeWorkflowReader{}})
+	manager := NewAgentService(NewAgentServiceParams{Workflows: fakeWorkflowReader{}})
 	ctx, records := loggedContext(t)
 
 	assert.Empty(t, manager.cleanupAction(ctx, agentstore.Agent{ID: "a1", WorkflowID: "wf1"}))

@@ -47,7 +47,7 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 			actions:   instance.Actions,
 		},
 		tmux:   tmux,
-		popup:  NewPopup(tmux, "test-session"),
+		popup:  NewPopupWindow(tmux, "test-session"),
 		stage:  NewStage(tmux, appconfig.DefaultSplit),
 		keys:   keys,
 		screen: screenAgents,

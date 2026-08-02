@@ -294,7 +294,7 @@ func newAgentService(t *testing.T, stores *storetest.Stores) *agents.AgentServic
 	registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))
 	require.NoError(t, err)
 
-	return agents.NewAgentService(agents.AgentParams{
+	return agents.NewAgentService(agents.NewAgentServiceParams{
 		Tmux:           &stubTmux{},
 		Agents:         stores.Agents,
 		Workflows:      stores.Workflows,

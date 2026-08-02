@@ -56,13 +56,13 @@ type uiTmux interface {
 
 // Deps are what the panel needs to run.
 type Deps struct {
-	Popup     *Popup
-	Tmux      uiTmux
-	Agents    agentv1connect.AgentServiceClient
-	Workflows workflowv1connect.WorkflowServiceClient
-	Schedules schedulev1connect.ScheduleServiceClient
-	Actions   actionv1connect.ActionServiceClient
-	Keys      appconfig.Keybindings
+	PopupWindow *PopupWindow
+	Tmux        uiTmux
+	Agents      agentv1connect.AgentServiceClient
+	Workflows   workflowv1connect.WorkflowServiceClient
+	Schedules   schedulev1connect.ScheduleServiceClient
+	Actions     actionv1connect.ActionServiceClient
+	Keys        appconfig.Keybindings
 	// Marks are the marks the mark key steps an agent through, in the user's order.
 	Marks []appconfig.Mark
 	// Layout is how the popup's width is divided between the list and the stage.
@@ -97,7 +97,7 @@ type Deps struct {
 }
 
 type model struct {
-	popup *Popup
+	popup *PopupWindow
 	api   api
 	// tmux answers which directory the user is looking at, which is the one thing about a
 	// new agent the service cannot work out for itself.
@@ -170,7 +170,7 @@ type model struct {
 func newModel(deps Deps) model {
 	m := model{
 		api:        api{agents: deps.Agents, workflows: deps.Workflows, schedules: deps.Schedules, actions: deps.Actions},
-		popup:      deps.Popup,
+		popup:      deps.PopupWindow,
 		tmux:       deps.Tmux,
 		stage:      NewStage(deps.Tmux, deps.Layout.Split),
 		addr:       deps.Addr,

@@ -492,7 +492,7 @@ func formModel(sent *formRecorder) model {
 	return model{
 		api:   api{agents: sent, workflows: sent, schedules: sent, actions: sent},
 		tmux:  tmux,
-		popup: NewPopup(tmux, "test-session"),
+		popup: NewPopupWindow(tmux, "test-session"),
 		stage: NewStage(tmux, appconfig.DefaultSplit),
 		keys:  appconfig.DefaultKeybindings(),
 		tree: treeState{

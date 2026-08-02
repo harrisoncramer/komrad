@@ -12,19 +12,19 @@ type popupTmux interface {
 	DetachSession(name string)
 }
 
-// Popup is the chrome around the manager popup. Whether it is showing, which tmux
-// client opened it, and how it hides. It is the panel's own window rather than
-// anything about agents, and it holds no application state.
-type Popup struct {
+// PopupWindow is the popup as a window: whether it is showing, which tmux client
+// opened it, and how it hides. It is the panel's own window rather than anything
+// about agents, and it holds no application state.
+type PopupWindow struct {
 	tmux popupTmux
 	// session is the tmux session the panel runs in, the one Hide detaches from.
 	session string
 }
 
-// NewPopup builds the popup chrome over a tmux client, for the panel running in
-// the named tmux session.
-func NewPopup(tmux popupTmux, session string) *Popup {
-	return &Popup{tmux: tmux, session: session}
+// NewPopupWindow builds the popup's window over a tmux client, for the panel running
+// in the named tmux session.
+func NewPopupWindow(tmux popupTmux, session string) *PopupWindow {
+	return &PopupWindow{tmux: tmux, session: session}
 }
 
 // managerOpenFlag marks that the popup is currently shown, so the binding hides
@@ -52,7 +52,7 @@ const defaultPanelKey = "g"
 // popup is resolved by its bindings rather than the user's. That server sources the
 // user's tmux config as any new server does, which binds the key to opening the
 // popup, and inside the popup that would stack a second one on top of itself.
-func (p *Popup) BindHide() {
+func (p *PopupWindow) BindHide() {
 	key := p.tmux.ShowGlobal(managerKeyOption)
 	if key == "" {
 		key = defaultPanelKey
@@ -62,25 +62,25 @@ func (p *Popup) BindHide() {
 }
 
 // MarkOpen records that the popup is shown.
-func (p *Popup) MarkOpen() { p.tmux.SetGlobal(managerOpenFlag, "1") }
+func (p *PopupWindow) MarkOpen() { p.tmux.SetGlobal(managerOpenFlag, "1") }
 
 // MarkClosed records that the popup is hidden.
-func (p *Popup) MarkClosed() { p.tmux.SetGlobal(managerOpenFlag, "0") }
+func (p *PopupWindow) MarkClosed() { p.tmux.SetGlobal(managerOpenFlag, "0") }
 
 // SetInvokingClient records the tmux client that opened the current popup.
-func (p *Popup) SetInvokingClient(client string) {
+func (p *PopupWindow) SetInvokingClient(client string) {
 	p.tmux.SetGlobal(managerClientFlag, client)
 }
 
 // Hide closes the popup by detaching the client viewing the persistent manager
 // session. The session stays alive, so the next open restores it.
-func (p *Popup) Hide() { p.tmux.DetachSession(p.session) }
+func (p *PopupWindow) Hide() { p.tmux.DetachSession(p.session) }
 
 // SilenceStatus turns off a session's tmux status bar, so the manager panel and
 // the agents it opens fill the popup without a tmux footer under them.
-func (p *Popup) SilenceStatus(session string) {
+func (p *PopupWindow) SilenceStatus(session string) {
 	p.tmux.SetSessionOption(session, "status", "off")
 }
 
 // InvokingClient returns the tmux client that opened the current popup.
-func (p *Popup) InvokingClient() string { return p.tmux.ShowGlobal(managerClientFlag) }
+func (p *PopupWindow) InvokingClient() string { return p.tmux.ShowGlobal(managerClientFlag) }

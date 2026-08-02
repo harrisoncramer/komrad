@@ -162,7 +162,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Addr:      p.Addr,
 		Socket:    p.Env.TmuxSocket,
 	})
-	agentService := agents.NewAgentService(agents.AgentParams{
+	agentService := agents.NewAgentService(agents.NewAgentServiceParams{
 		Tmux:      p.Tmux,
 		Agents:    agentStore,
 		Workflows: workflowStore,

@@ -326,7 +326,7 @@ func (s *testStore) GetTranscript(ctx context.Context, agentID string) (transcri
 // agentService builds the service under test over these stores, the same way
 // the composition root does.
 func (s *testStore) agentService(tmux *fakeTmux, harnesses fakeHarnesses, addr, flags string) *AgentService {
-	return NewAgentService(AgentParams{
+	return NewAgentService(NewAgentServiceParams{
 		Tmux:           tmux,
 		Agents:         s.Agents,
 		Workflows:      s.Workflows,
@@ -342,7 +342,7 @@ func (s *testStore) agentService(tmux *fakeTmux, harnesses fakeHarnesses, addr, 
 // workflow runs around its agents' lives, which the plain builder leaves absent the way
 // a panel with no actions directory does.
 func (s *testStore) agentServiceWithLifecycle(tmux *fakeTmux, harnesses fakeHarnesses, lifecycle lifecycleActions) *AgentService {
-	return NewAgentService(AgentParams{
+	return NewAgentService(NewAgentServiceParams{
 		Tmux:           tmux,
 		Agents:         s.Agents,
 		Workflows:      s.Workflows,
@@ -357,7 +357,7 @@ func (s *testStore) agentServiceWithLifecycle(tmux *fakeTmux, harnesses fakeHarn
 // agentServiceCapped builds the service with a ceiling and the workflow actions wired,
 // since what a refused create must not do is run the setup action.
 func (s *testStore) agentServiceCapped(tmux *fakeTmux, lifecycle lifecycleActions, maxAgents int) *AgentService {
-	return NewAgentService(AgentParams{
+	return NewAgentService(NewAgentServiceParams{
 		Tmux:           tmux,
 		Agents:         s.Agents,
 		Workflows:      s.Workflows,

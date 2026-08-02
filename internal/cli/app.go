@@ -12,7 +12,7 @@ import (
 // it drives. Nothing here reaches the database: the panel is a client of the service,
 // and the service builds its own stores from what is resolved here.
 type app struct {
-	popup *ui.Popup
+	popup *ui.PopupWindow
 	env   *config.Config
 	keys  appconfig.Keybindings
 	// harnesses is every agent CLI this binary can run, which the services resolve an

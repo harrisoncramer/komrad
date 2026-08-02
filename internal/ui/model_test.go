@@ -177,13 +177,13 @@ func TestNewModelWiresTmux(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := &recordingTmux{path: clientPath}
 			m := newModel(Deps{
-				Popup:     NewPopup(tmux, "manager"),
-				Tmux:      tmux,
-				Agents:    refusingAgents{},
-				Workflows: emptyLists{},
-				Schedules: &fakeSchedules{},
-				Keys:      appconfig.DefaultKeybindings(),
-				Addr:      "127.0.0.1:8787",
+				PopupWindow: NewPopupWindow(tmux, "manager"),
+				Tmux:        tmux,
+				Agents:      refusingAgents{},
+				Workflows:   emptyLists{},
+				Schedules:   &fakeSchedules{},
+				Keys:        appconfig.DefaultKeybindings(),
+				Addr:        "127.0.0.1:8787",
 			})
 
 			require.NotNil(t, m.tmux, "the panel cannot answer a blank directory without tmux")

@@ -385,7 +385,7 @@ func actionsModel(client actionv1connect.ActionServiceClient, keys appconfig.Key
 	return model{
 		api:    api{actions: client},
 		tmux:   tmux,
-		popup:  NewPopup(tmux, "test-session"),
+		popup:  NewPopupWindow(tmux, "test-session"),
 		stage:  stage,
 		keys:   keys,
 		screen: screenActions,

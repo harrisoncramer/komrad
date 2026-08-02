@@ -415,7 +415,7 @@ func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys appconfi
 		tree: treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Cwd: "/work/api"}}},
 		// The new-schedule form asks the popup which client opened it, to prefill
 		// the directory, so the panel needs one even though nothing here reads it.
-		popup:  NewPopup(tmux, "test-session"),
+		popup:  NewPopupWindow(tmux, "test-session"),
 		stage:  NewStage(tmux, appconfig.DefaultSplit),
 		keys:   keys,
 		screen: screenSchedules,
