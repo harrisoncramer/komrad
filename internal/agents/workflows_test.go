@@ -361,7 +361,7 @@ func TestRestoreAgentRestoresItsWorkflow(t *testing.T) {
 
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, created.ID))
 
-	restored, err := manager.RestoreAgent(ctx, agent.ID)
+	restored, err := manager.RestoreAgents(ctx, []string{agent.ID})
 	require.NoError(t, err)
 	require.NotNil(t, restored)
 

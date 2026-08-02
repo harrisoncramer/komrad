@@ -127,21 +127,31 @@ func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, m.keys.Archive.Restore):
 		return m.restoreFromArchive()
 	case isBound(k, m.keys.Archive.Delete):
-		return m.deleteFromArchiveConfirm()
+		agent, ok := m.selectedArchived()
+		if !ok {
+			return m, nil
+		}
+
+		return m.deleteFromArchiveConfirm([]agentstore.Agent{agent})
 	}
 
 	return m, nil
 }
 
 // updateArchiveSelection is what the archive still answers while a selection is up. Restore
-// and delete stand down the way the agents tree's row keys do, since nothing acts on a
-// selection yet and either would take whichever chosen row the cursor happens to be on.
+// and delete act on the whole selection rather than on the row under the cursor, and the
+// folder restore stands down, since a folder the cursor happens to rest on is not what the
+// user chose.
 func (m model) updateArchiveSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
 	switch {
 	case isBound(k, m.keys.Archive.Quit):
 		return m, m.hide()
+	case isBound(k, m.keys.Archive.Restore):
+		return m.restoreAgents(chosenAgents(m.archive.selected, m.archiveRows()))
+	case isBound(k, m.keys.Archive.Delete):
+		return m.deleteFromArchiveConfirm(chosenAgents(m.archive.selected, m.archiveRows()))
 	case isBound(k, m.keys.Nav.Up):
 		return m.moveArchiveCursor(-1), nil
 	case isBound(k, m.keys.Nav.Down):
@@ -208,23 +218,32 @@ func (m model) restoreFromArchive() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m, m.writeCmd(
-		fmt.Sprintf("Could not restore agent %q", agent.Name),
-		func(a api) error { return a.restoreAgent(agent.ID) },
-	)
+	return m.restoreAgents([]agentstore.Agent{agent})
 }
 
-// deleteFromArchiveConfirm opens the prompt for destroying the hovered agent. This
-// is the one thing in the panel nothing undoes, so it is the only per-row key
-// that asks first.
-func (m model) deleteFromArchiveConfirm() (tea.Model, tea.Cmd) {
-	agent, ok := m.selectedArchived()
-	if !ok {
+// restoreAgents puts agents back in the panel, dormant. It is all or nothing on the service
+// side, so a refusal names what is in the way and the selection is still there once that is
+// cleared.
+func (m model) restoreAgents(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
+	if len(agents) == 0 {
 		return m, nil
 	}
 
-	m.target.deleteAgent = &agent
-	m.form, m.values.confirmed = deleteAgentForm(agent.Name, m.keys.Form)
+	return m, m.writeCmd(
+		fmt.Sprintf("Could not restore %s", describeAgents(agents)),
+		func(a api) error { return a.restoreAgents(agentIDs(agents)) },
+	)
+}
+
+// deleteFromArchiveConfirm opens the prompt for destroying agents. This is the one thing in
+// the panel nothing undoes, so it is the only key that asks first.
+func (m model) deleteFromArchiveConfirm(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
+	if len(agents) == 0 {
+		return m, nil
+	}
+
+	m.target.deleteAgents = agents
+	m.form, m.values.confirmed = deleteAgentsForm(agents, m.keys.Form)
 	m.screen = screenArchiveDelete
 
 	return m, m.form.Init()
@@ -243,19 +262,19 @@ func (m model) updateArchiveDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.form.State {
 	case huh.StateCompleted:
 		var write tea.Cmd
-		if target := m.target.deleteAgent; target != nil && m.wasConfirmed() {
+		if target := m.target.deleteAgents; len(target) > 0 && m.wasConfirmed() {
 			write = m.writeCmd(
-				fmt.Sprintf("Could not delete agent %q", target.Name),
-				func(a api) error { return a.deleteAgent(target.ID) },
+				fmt.Sprintf("Could not delete %s", describeAgents(target)),
+				func(a api) error { return a.deleteAgents(agentIDs(target)) },
 			)
 		}
-		m.target.deleteAgent = nil
+		m.target.deleteAgents = nil
 		m.values.confirmed = nil
 		entered, refresh := m.enterArchive()
 
 		return entered, tea.Batch(write, refresh)
 	case huh.StateAborted:
-		m.target.deleteAgent = nil
+		m.target.deleteAgents = nil
 		m.values.confirmed = nil
 		return m.enterArchive()
 	default:

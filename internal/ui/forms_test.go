@@ -247,9 +247,9 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			name: "the archive delete prompt",
 			open: func(m model) model {
 				m.archive.agents = []agentstore.Agent{{ID: "a1", Name: "api-refactor"}}
-				m.target.deleteAgent = &m.archive.agents[0]
+				m.target.deleteAgents = m.archive.agents
 				m.screen = screenArchiveDelete
-				m.form, m.values.confirmed = deleteAgentForm("api-refactor", m.keys.Form)
+				m.form, m.values.confirmed = deleteAgentsForm(m.archive.agents, m.keys.Form)
 				*m.values.confirmed = true
 				m.form.State = huh.StateCompleted
 
@@ -257,8 +257,8 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			},
 			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateArchiveDelete(keyMsg("enter")) },
 			check: func(t *testing.T, sent *formRecorder) {
-				require.NotNil(t, sent.deletedAgent)
-				assert.Equal(t, "a1", sent.deletedAgent.GetId())
+				require.NotNil(t, sent.deletedAgents)
+				assert.Equal(t, []string{"a1"}, sent.deletedAgents.GetIds())
 			},
 		},
 	}
@@ -518,7 +518,7 @@ type formRecorder struct {
 
 	createdAgent     *agentv1.CreateAgentRequest
 	renamedAgent     *agentv1.UpdateAgentRequest
-	deletedAgent     *agentv1.DeleteAgentRequest
+	deletedAgents    *agentv1.DeleteAgentsRequest
 	createdWorkflow  *workflowv1.CreateWorkflowRequest
 	updatedWorkflow  *workflowv1.UpdateWorkflowRequest
 	archivedWorkflow *workflowv1.ArchiveWorkflowRequest
@@ -555,12 +555,12 @@ func (f *formRecorder) UpdateAgent(_ context.Context, req *connect.Request[agent
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func (f *formRecorder) DeleteAgent(_ context.Context, req *connect.Request[agentv1.DeleteAgentRequest]) (*connect.Response[emptypb.Empty], error) {
+func (f *formRecorder) DeleteAgents(_ context.Context, req *connect.Request[agentv1.DeleteAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
 	if f.refuse != nil {
 		return nil, f.refuse
 	}
 
-	f.deletedAgent = req.Msg
+	f.deletedAgents = req.Msg
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }

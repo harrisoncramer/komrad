@@ -712,7 +712,7 @@ func TestDeleteTakesMetadata(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, changed)
 
-	require.NoError(t, st.Delete(ctx, created.ID))
+	require.NoError(t, st.Delete(ctx, []string{created.ID}))
 
 	orphaned, err := models.New(st.db).ListAgentMetadata(ctx, []string{created.ID})
 	require.NoError(t, err)
@@ -892,7 +892,7 @@ func TestActiveNameExists(t *testing.T) {
 				archived, err := st.GetInWorkflow(ctx, workflowID, "agent")
 				require.NoError(t, err)
 				require.NotNil(t, archived)
-				require.NoError(t, st.Archive(ctx, archived.ID))
+				require.NoError(t, st.Archive(ctx, []string{archived.ID}))
 			}
 
 			exists, err := st.ActiveNameExists(ctx, st.defaultWorkflow, "agent")
@@ -952,9 +952,9 @@ func TestRestore(t *testing.T) {
 				require.NoError(t, err)
 				require.True(t, changed)
 			}
-			require.NoError(t, st.Archive(ctx, original.ID))
+			require.NoError(t, st.Archive(ctx, []string{original.ID}))
 
-			require.NoError(t, st.Restore(ctx, original.ID))
+			require.NoError(t, st.Restore(ctx, []string{original.ID}))
 			restored := *original
 			restored.State = StateIdle
 			restored.Pane = "%9"
@@ -1011,7 +1011,7 @@ func TestDelete(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, created)
 
-				require.NoError(t, st.Delete(ctx, created.ID))
+				require.NoError(t, st.Delete(ctx, []string{created.ID}))
 			} else {
 				require.NoError(t, st.archiveByName(ctx, "alpha"))
 			}
@@ -1089,7 +1089,7 @@ func TestDeleteByIDPicksTheArchivedRow(t *testing.T) {
 	require.NoError(t, st.archiveByName(ctx, "shared"))
 	require.NoError(t, st.Create(ctx, Agent{Name: "shared", Pane: "%2", State: StateIdle}))
 
-	require.NoError(t, st.Delete(ctx, first.ID))
+	require.NoError(t, st.Delete(ctx, []string{first.ID}))
 
 	all, err := st.ListAll(ctx)
 	require.NoError(t, err)
@@ -1444,7 +1444,7 @@ func TestCountLive(t *testing.T) {
 					require.True(t, hidden)
 				}
 				if tt.archive {
-					require.NoError(t, st.Archive(ctx, written.ID))
+					require.NoError(t, st.Archive(ctx, []string{written.ID}))
 				}
 			}
 
@@ -1496,7 +1496,7 @@ func (f *fixture) archiveByName(ctx context.Context, name string) error {
 		return fmt.Errorf("no live agent called %q", name)
 	}
 
-	return f.Archive(ctx, agent.ID)
+	return f.Archive(ctx, []string{agent.ID})
 }
 
 // Create fills in the default workflow when the test did not name one.

@@ -279,13 +279,48 @@ func TestArchiveSelection(t *testing.T) {
 		assert.Equal(t, []string{"a1", "a2", "a3"}, after.archive.selected.ids)
 	})
 
-	t.Run("restore and delete stand down while a selection is up", func(t *testing.T) {
+	t.Run("restore takes the whole selection rather than the hovered row", func(t *testing.T) {
+		agents := &fakeArchiveAgents{}
 		m := archiveSelectionTree()
-		m.archive.cursor = 1
+		m.api = api{agents: agents}
+		m.archive.cursor = 3
+		m.archive.selected = selection{ids: []string{"a1", "a2"}}
+
+		next, cmd := m.updateArchive(keyMsg("r"))
+		require.NotNil(t, cmd)
+		cmd()
+
+		assert.Equal(t, []string{"a1", "a2"}, agents.restored, "the row under the cursor is not one of them")
+
+		after, ok := next.(model)
+		require.True(t, ok)
+		assert.Equal(t, []string{"a1", "a2"}, after.archive.selected.ids, "the selection outlives a refusal")
+	})
+
+	t.Run("delete opens the prompt on the whole selection", func(t *testing.T) {
+		m := archiveSelectionTree()
+		m.archive.cursor = 3
+		m.archive.selected = selection{ids: []string{"a1", "a2"}}
+
+		opened := pressArchive(t, m, keyMsg("d"))
+		assert.Equal(t, screenArchiveDelete, opened.screen)
+		assert.Equal(t, []string{"a1", "a2"}, agentIDs(opened.target.deleteAgents))
+	})
+
+	t.Run("a folder restore stands down, since a hovered header is not what was chosen", func(t *testing.T) {
+		workflows := &fakeArchiveWorkflows{}
+		m := archiveSelectionTree()
+		m.api = api{agents: &fakeArchiveAgents{}, workflows: workflows}
+		m.tree.workflows = nil
+		m.archive.workflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
+		m.archive.cursor = 0
 		m.archive.selected = selection{ids: []string{"a1"}}
 
-		assert.Equal(t, screenArchive, pressArchive(t, m, keyMsg("d")).screen, "delete opens no prompt")
-		assert.Equal(t, screenArchive, pressArchive(t, m, keyMsg("r")).screen)
+		_, cmd := m.updateArchive(keyMsg("r"))
+		require.NotNil(t, cmd)
+		cmd()
+
+		assert.Empty(t, workflows.restored, "the folder under the cursor is left alone")
 	})
 
 	t.Run("esc clears the selection rather than leaving the screen", func(t *testing.T) {

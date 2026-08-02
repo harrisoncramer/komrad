@@ -1,7 +1,10 @@
 package ui
 
 import (
+	"fmt"
 	"slices"
+
+	agentstore "weave/internal/store/agent"
 )
 
 // Multi-select over a tree of folders and agents. Both trees the panel draws use it, so it
@@ -184,6 +187,39 @@ func (m model) applySelectionKey(k string, sel selection, rows []agentRow, curso
 	}
 
 	return sel, false
+}
+
+// chosenAgents are the agents a selection holds, read off the rows so they come back in the
+// order the screen draws them and an agent with no row is not acted on.
+func chosenAgents(sel selection, rows []agentRow) []agentstore.Agent {
+	agents := make([]agentstore.Agent, 0, sel.count())
+	for _, row := range rows {
+		if !row.header && sel.has(row.item.agent.ID) {
+			agents = append(agents, row.item.agent)
+		}
+	}
+
+	return agents
+}
+
+// agentIDs is the ids of a set of agents, which is what the calls keyed on a list take.
+func agentIDs(agents []agentstore.Agent) []string {
+	ids := make([]string, 0, len(agents))
+	for _, agent := range agents {
+		ids = append(ids, agent.ID)
+	}
+
+	return ids
+}
+
+// describeAgents names what a key acted on, one agent by name and several by how many, so a
+// banner reads the same whether the key was pressed on a row or on a selection.
+func describeAgents(agents []agentstore.Agent) string {
+	if len(agents) == 1 {
+		return fmt.Sprintf("agent %q", agents[0].Name)
+	}
+
+	return fmt.Sprintf("%d agents", len(agents))
 }
 
 // workflowAgentIDs are the agents drawn under a folder. It reads the rows rather than a

@@ -293,7 +293,7 @@ func TestListAgentsArchived(t *testing.T) {
 			ctx := t.Context()
 
 			archived := st.SeedAgent(t, agentstore.Agent{Name: "archived", Pane: "%1", State: agentstore.StateThinking})
-			require.NoError(t, st.Agents.Archive(ctx, archived.ID))
+			require.NoError(t, st.Agents.Archive(ctx, []string{archived.ID}))
 			st.SeedAgent(t, agentstore.Agent{Name: "live", Pane: "%2", State: agentstore.StateThinking})
 
 			listed, err := svc.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{Archived: tt.archived}))
@@ -689,7 +689,7 @@ func TestSearchTranscripts(t *testing.T) {
 			agent := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking})
 			content := seedTranscript(t, st, agent.ID, tt.turns)
 			if tt.archive {
-				require.NoError(t, st.Agents.Archive(ctx, agent.ID))
+				require.NoError(t, st.Agents.Archive(ctx, []string{agent.ID}))
 			}
 
 			found, err := svc.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
@@ -996,7 +996,7 @@ func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 		{
 			name: "deleting an agent nobody holds",
 			call: func(t *testing.T, svc *Service) error {
-				_, err := svc.DeleteAgent(t.Context(), connect.NewRequest(&agentv1.DeleteAgentRequest{Id: "ghost"}))
+				_, err := svc.DeleteAgents(t.Context(), connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: []string{"ghost"}}))
 				return err
 			},
 			fail:     func(l *fakeLauncher) { l.deleteErr = agents.ErrAgentNotFound },
@@ -1005,7 +1005,7 @@ func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 		{
 			name: "archiving an agent nobody holds",
 			call: func(t *testing.T, svc *Service) error {
-				_, err := svc.ArchiveAgent(t.Context(), connect.NewRequest(&agentv1.ArchiveAgentRequest{Id: "ghost"}))
+				_, err := svc.ArchiveAgents(t.Context(), connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: []string{"ghost"}}))
 				return err
 			},
 			fail:     func(l *fakeLauncher) { l.archiveErr = agents.ErrAgentNotFound },
@@ -1014,7 +1014,7 @@ func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 		{
 			name: "restoring an id nobody holds",
 			call: func(t *testing.T, svc *Service) error {
-				_, err := svc.RestoreAgent(t.Context(), connect.NewRequest(&agentv1.RestoreAgentRequest{Id: "ghost"}))
+				_, err := svc.RestoreAgents(t.Context(), connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: []string{"ghost"}}))
 				return err
 			},
 			fail:     func(l *fakeLauncher) { l.restoreErr = agents.ErrAgentNotFound },
@@ -1023,7 +1023,7 @@ func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 		{
 			name: "deleting stops the agent",
 			call: func(t *testing.T, svc *Service) error {
-				_, err := svc.DeleteAgent(t.Context(), connect.NewRequest(&agentv1.DeleteAgentRequest{Id: "alpha"}))
+				_, err := svc.DeleteAgents(t.Context(), connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: []string{"alpha"}}))
 				return err
 			},
 			wantCalled: func(t *testing.T, l *fakeLauncher) {
@@ -1033,7 +1033,7 @@ func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 		{
 			name: "archiving stops the agent",
 			call: func(t *testing.T, svc *Service) error {
-				_, err := svc.ArchiveAgent(t.Context(), connect.NewRequest(&agentv1.ArchiveAgentRequest{Id: "alpha"}))
+				_, err := svc.ArchiveAgents(t.Context(), connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: []string{"alpha"}}))
 				return err
 			},
 			wantCalled: func(t *testing.T, l *fakeLauncher) {
@@ -1043,7 +1043,7 @@ func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 		{
 			name: "restoring relaunches it",
 			call: func(t *testing.T, svc *Service) error {
-				_, err := svc.RestoreAgent(t.Context(), connect.NewRequest(&agentv1.RestoreAgentRequest{Id: "id-1"}))
+				_, err := svc.RestoreAgents(t.Context(), connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: []string{"id-1"}}))
 				return err
 			},
 			wantCalled: func(t *testing.T, l *fakeLauncher) {
@@ -1117,25 +1117,25 @@ func (f *fakeLauncher) GetRunningAgents(_ context.Context, agents []agentstore.A
 	return running
 }
 
-func (f *fakeLauncher) DeleteAgent(_ context.Context, id string) error {
-	f.deleted = append(f.deleted, id)
+func (f *fakeLauncher) DeleteAgents(_ context.Context, ids []string) error {
+	f.deleted = append(f.deleted, ids...)
 
 	return f.deleteErr
 }
 
-func (f *fakeLauncher) ArchiveAgent(_ context.Context, name string) error {
-	f.archived = append(f.archived, name)
+func (f *fakeLauncher) ArchiveAgents(_ context.Context, ids []string) error {
+	f.archived = append(f.archived, ids...)
 
 	return f.archiveErr
 }
 
-func (f *fakeLauncher) RestoreAgent(_ context.Context, id string) (*agentstore.Agent, error) {
-	f.restored = append(f.restored, id)
+func (f *fakeLauncher) RestoreAgents(_ context.Context, ids []string) ([]agentstore.Agent, error) {
+	f.restored = append(f.restored, ids...)
 	if f.restoreErr != nil {
 		return nil, f.restoreErr
 	}
 
-	return f.created, nil
+	return []agentstore.Agent{*f.created}, nil
 }
 
 func (f *fakeLauncher) ResumeAgent(_ context.Context, id string) (*agentstore.Agent, error) {

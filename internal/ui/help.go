@@ -83,7 +83,13 @@ func (m model) agentHelp() keyMap {
 	if m.tree.selected.active() {
 		hovered, _ := rowAt(m.agentRows(), m.tree.cursor)
 
-		return m.selectionHelp(m.tree.selected, hovered, m.markSelectionBinding(), m.showHiddenBinding())
+		return m.selectionHelp(
+			m.tree.selected,
+			hovered,
+			m.markSelectionBinding(),
+			binding(m.keys.Agents.Archive, "archive all"),
+			m.showHiddenBinding(),
+		)
 	}
 
 	rows := m.rowHelp()
@@ -232,7 +238,12 @@ func (m model) archiveHelp() keyMap {
 	if m.archive.selected.active() {
 		hovered, _ := rowAt(m.archiveRows(), m.archive.cursor)
 
-		return m.selectionHelp(m.archive.selected, hovered)
+		return m.selectionHelp(
+			m.archive.selected,
+			hovered,
+			binding(m.keys.Archive.Restore, "restore all"),
+			binding(m.keys.Archive.Delete, "delete all for good"),
+		)
 	}
 
 	back := binding(m.keys.Archive.Back, "back")

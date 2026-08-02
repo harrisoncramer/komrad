@@ -217,7 +217,7 @@ func (m *model) resumeCmd(params resumeParams) tea.Cmd {
 
 	return func() tea.Msg {
 		if params.unarchiveFirst {
-			if err := clients.restoreAgent(params.id); err != nil {
+			if err := clients.restoreAgents([]string{params.id}); err != nil {
 				return writeResult{summary: params.summary, err: err}
 			}
 		}

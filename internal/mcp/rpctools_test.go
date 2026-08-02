@@ -65,7 +65,7 @@ func TestToolHints(t *testing.T) {
 		{method: "CreateAgent", readOnly: false, idempotent: false, wantDestructive: xptr.Ptr(false)},
 		{method: "SetMarks", readOnly: false, idempotent: true, wantDestructive: xptr.Ptr(false)},
 		{method: "UpdateAgent", readOnly: false, idempotent: true, wantDestructive: xptr.Ptr(false)},
-		{method: "DeleteAgent", readOnly: false, idempotent: true, wantDestructive: xptr.Ptr(true)},
+		{method: "DeleteAgents", readOnly: false, idempotent: true, wantDestructive: xptr.Ptr(true)},
 	}
 
 	service := agentv1.File_agent_v1_agent_proto.Services().Get(0)

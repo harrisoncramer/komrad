@@ -29,11 +29,11 @@ type agentManager interface {
 	GetInWorkflow(ctx context.Context, workflowID, name string) (*agentstore.Agent, error)
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 	GetByIdempotencyKey(ctx context.Context, key string) (*agentstore.Agent, error)
-	Exists(ctx context.Context, id string) (bool, error)
+	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
 	Create(ctx context.Context, agent agentstore.Agent) error
 	CountLive(ctx context.Context) (int64, error)
 	Update(ctx context.Context, agent agentstore.Agent) error
-	Archive(ctx context.Context, id string) error
+	Archive(ctx context.Context, ids []string) error
 	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
 }
 
@@ -316,7 +316,7 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 	}); err != nil {
 		// The pane and whatever setup built go with the unwind above. The row has to go
 		// too, or the agent lists as live with nothing running behind it.
-		if deleteErr := s.removeAgent(ctx, id); deleteErr != nil {
+		if deleteErr := s.removeAgents(ctx, []string{id}); deleteErr != nil {
 			return nil, fmt.Errorf("failed to launch the agent for %q (%w), and failed to clean up: %w", plan.name, err, deleteErr)
 		}
 
@@ -328,90 +328,163 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 	return created, nil
 }
 
-// DeleteAgent stops an agent and removes it, keyed by id so it reaches the archived
-// agents too. The workflow's cleanup action fires between the pane and the row: after
-// the pane so a script removing the directory is not racing a CLI still writing in it,
-// and before the row so the script is told what the panel held.
-func (s *AgentService) DeleteAgent(ctx context.Context, id string) error {
-	agent, err := s.getByID(ctx, id)
+// DeleteAgents stops agents and removes them, keyed by id so it reaches the archived
+// agents too. The workflow's cleanup action fires for each one between the pane and the
+// row: after the pane so a script removing the directory is not racing a CLI still
+// writing in it, and before the row so the script is told what the panel held.
+//
+// An id holding no agent refuses the whole batch, so a caller working from a stale
+// listing does not destroy the agents it did name while learning about the one it did
+// not.
+func (s *AgentService) DeleteAgents(ctx context.Context, ids []string) error {
+	agents, err := s.requireEveryAgent(ctx, ids)
 	if err != nil {
 		return err
 	}
 
-	s.killOwnedPane(*agent)
-	s.runCleanup(ctx, *agent, s.getCleanupAction(ctx, *agent))
+	s.killOwnedPanes(ctx, agents)
+	for _, agent := range agents {
+		s.runCleanup(ctx, agent, s.getCleanupAction(ctx, agent))
+	}
 
-	return s.removeAgent(ctx, id)
+	return s.removeAgents(ctx, ids)
 }
 
-// ArchiveAgent stops an agent and hides it from the panel, keeping its record and
-// transcript so it can be restored later. DeleteAgent is the irreversible half.
+// ArchiveAgents stops agents and hides them from the panel, keeping their records and
+// transcripts so they can be restored later. DeleteAgents is the irreversible half.
+//
+// The agents need not share a workflow, and an id holding no agent refuses the batch the
+// way it does a delete.
 //
 // The cleanup action does not fire here, since a restore relaunches in the directory
 // the row records without running setup again, and tearing down what setup built would
 // bring the agent back somewhere else without saying so.
-func (s *AgentService) ArchiveAgent(ctx context.Context, id string) error {
-	agent, err := s.getByID(ctx, id)
+func (s *AgentService) ArchiveAgents(ctx context.Context, ids []string) error {
+	agents, err := s.requireEveryAgent(ctx, ids)
 	if err != nil {
 		return err
 	}
 
-	s.killOwnedPane(*agent)
+	s.killOwnedPanes(ctx, agents)
 
-	if err := s.agents.Archive(ctx, id); err != nil {
-		return fmt.Errorf("failed to archive agent %q: %w", agent.Name, err)
+	if err := s.agents.Archive(ctx, ids); err != nil {
+		return fmt.Errorf("failed to archive %d agents: %w", len(ids), err)
 	}
 
 	return nil
 }
 
-// RestoreAgent takes an agent out of the archive and returns it as stored. The agent lands
+// RestoreAgents takes agents out of the archive and returns them as stored. They land
 // dormant, since starting anything is ResumeAgent's half. An unarchived agent holds a slot
 // whether or not it is running, so this is refused at the ceiling a create is.
 //
-// The agent's workflow comes back with it, on one transaction, since an agent listed
-// under a workflow nothing lists would get no row anywhere.
+// The workflows the agents belong to come back with them, on one transaction, since an
+// agent listed under a workflow nothing lists would get no row anywhere.
 //
-// A name a live agent has taken since is refused rather than worked around. The panel
-// would otherwise hand back an agent under a name nobody chose, and which of the two
-// keeps the name is the user's to decide.
-func (s *AgentService) RestoreAgent(ctx context.Context, id string) (*agentstore.Agent, error) {
-	agent, err := s.getByID(ctx, id)
+// It is all or nothing. A name a live agent has taken since is refused rather than worked
+// around, as is a batch too big for the ceiling: the panel would otherwise hand back an
+// agent under a name nobody chose, and which of the two keeps the name is the user's to
+// decide. The refusal names what is in the way so it can be cleared and the key pressed
+// again.
+func (s *AgentService) RestoreAgents(ctx context.Context, ids []string) ([]agentstore.Agent, error) {
+	agents, err := s.requireEveryAgent(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
 
-	// An agent that is not archived is already where a restore would put it.
-	if agent.ArchivedAt == nil {
-		return agent, nil
+	// Agents that are not archived are already where a restore would put them, and asking
+	// for room for them would refuse a batch over the slots they already hold.
+	archived := make([]agentstore.Agent, 0, len(agents))
+	for _, agent := range agents {
+		if agent.ArchivedAt != nil {
+			archived = append(archived, agent)
+		}
 	}
-
-	if err := s.requireRoomForAgent(ctx); err != nil {
-		return nil, err
-	}
-
-	// The unique-name index covers the unarchived in this workflow, so a name claimed
-	// there while the agent sat archived would collide on the way out.
-	taken, err := s.agents.ActiveNameExists(ctx, agent.WorkflowID, agent.Name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check the name of agent %q: %w", agent.Name, err)
-	}
-	if taken {
-		return nil, fmt.Errorf("%w: a live agent in this workflow is called %q, rename it to restore this one", store.ErrNameTaken, agent.Name)
+	if len(archived) == 0 {
+		return agents, nil
 	}
 
 	err = s.tx.InTx(ctx, func(db store.DBTX) error {
-		if err := agentstore.New(db).Restore(ctx, id); err != nil {
+		stored := agentstore.New(db)
+
+		if err := requireRoomForAgents(ctx, stored, s.maxAgents, len(archived)); err != nil {
+			return err
+		}
+		if err := requireNamesFree(ctx, stored, archived); err != nil {
+			return err
+		}
+		if err := stored.Restore(ctx, agentIDs(archived)); err != nil {
 			return err
 		}
 
-		return workflow.New(db).Restore(ctx, agent.WorkflowID)
+		workflows := workflow.New(db)
+		for _, id := range workflowIDs(archived) {
+			if err := workflows.Restore(ctx, id); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to restore agent %q: %w", agent.Name, err)
+		return nil, fmt.Errorf("failed to restore %d agents: %w", len(archived), err)
 	}
 
-	return s.getByID(ctx, id)
+	return s.agents.ListByID(ctx, ids)
+}
+
+// requireEveryAgent reads the agents a batch names and refuses unless every id found one.
+// A batch that acted on what it could find would leave the caller reading a success as
+// having covered the whole list, and there is no undoing the half that landed.
+func (s *AgentService) requireEveryAgent(ctx context.Context, ids []string) ([]agentstore.Agent, error) {
+	agents, err := s.agents.ListByID(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to look up %d agents: %w", len(ids), err)
+	}
+	if len(agents) == len(ids) {
+		return agents, nil
+	}
+
+	found := make(map[string]bool, len(agents))
+	for _, agent := range agents {
+		found[agent.ID] = true
+	}
+
+	var missing []string
+	for _, id := range ids {
+		if !found[id] {
+			missing = append(missing, id)
+		}
+	}
+
+	return nil, fmt.Errorf("%w: %s", ErrAgentNotFound, strings.Join(missing, ", "))
+}
+
+// agentIDs is the ids of a set of agents, which is what the calls keyed on a list take.
+func agentIDs(agents []agentstore.Agent) []string {
+	ids := make([]string, 0, len(agents))
+	for _, agent := range agents {
+		ids = append(ids, agent.ID)
+	}
+
+	return ids
+}
+
+// workflowIDs are the workflows a set of agents belongs to, each named once, so a batch
+// spanning four folders brings back four rather than one per agent.
+func workflowIDs(agents []agentstore.Agent) []string {
+	seen := make(map[string]bool, len(agents))
+
+	var ids []string
+	for _, agent := range agents {
+		if seen[agent.WorkflowID] {
+			continue
+		}
+		seen[agent.WorkflowID] = true
+		ids = append(ids, agent.WorkflowID)
+	}
+
+	return ids
 }
 
 // ResumeAgent opens a window for an agent and relaunches its CLI on the same
@@ -462,11 +535,15 @@ func isPaneOwnedBy(owner, agentID string) bool {
 	return agentID != "" && owner == agentID
 }
 
-// killOwnedPane tears down an agent's pane, but only while that pane is still the
-// agent's own, since a reissued id may now belong to another process.
-func (s *AgentService) killOwnedPane(agent agentstore.Agent) {
-	if s.IsAgentRunning(agent) {
-		s.tmux.KillPane(agent.Pane)
+// killOwnedPanes tears down the panes of a set of agents, but only while each pane is
+// still its agent's own, since a reissued id may now belong to another process. Liveness
+// comes off one tmux call for the whole set rather than one per agent.
+func (s *AgentService) killOwnedPanes(ctx context.Context, agents []agentstore.Agent) {
+	running := s.GetRunningAgents(ctx, agents)
+	for _, agent := range agents {
+		if running[agent.ID] {
+			s.tmux.KillPane(agent.Pane)
+		}
 	}
 }
 
@@ -482,23 +559,15 @@ func (s *AgentService) getByID(ctx context.Context, id string) (*agentstore.Agen
 	return agent, nil
 }
 
-// removeAgent deletes an agent and the transcript keyed to its id in one transaction,
+// removeAgents deletes agents and the transcripts keyed to their ids in one transaction,
 // so a removed agent leaves no conversation behind for the SQL tools to read.
-func (s *AgentService) removeAgent(ctx context.Context, id string) error {
-	exists, err := s.agents.Exists(ctx, id)
-	if err != nil {
-		return fmt.Errorf("failed to look up agent %q to delete: %w", id, err)
-	}
-	if !exists {
-		return ErrAgentNotFound
-	}
-
+func (s *AgentService) removeAgents(ctx context.Context, ids []string) error {
 	return s.tx.InTx(ctx, func(db store.DBTX) error {
-		if err := agentstore.New(db).Delete(ctx, id); err != nil {
+		if err := agentstore.New(db).Delete(ctx, ids); err != nil {
 			return err
 		}
 
-		return transcript.New(db).Delete(ctx, id)
+		return transcript.New(db).Delete(ctx, ids)
 	})
 }
 

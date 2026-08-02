@@ -385,10 +385,15 @@ type fakeSearchAgents struct {
 	resumed  []string
 }
 
-func (f *fakeSearchAgents) RestoreAgent(_ context.Context, req *connect.Request[agentv1.RestoreAgentRequest]) (*connect.Response[agentv1.RestoreAgentResponse], error) {
-	f.restored = append(f.restored, req.Msg.GetId())
+func (f *fakeSearchAgents) RestoreAgents(_ context.Context, req *connect.Request[agentv1.RestoreAgentsRequest]) (*connect.Response[agentv1.RestoreAgentsResponse], error) {
+	f.restored = append(f.restored, req.Msg.GetIds()...)
 
-	return connect.NewResponse(&agentv1.RestoreAgentResponse{Agent: &agentv1.Agent{Id: req.Msg.GetId(), Name: "api-refactor"}}), nil
+	response := &agentv1.RestoreAgentsResponse{}
+	for _, id := range req.Msg.GetIds() {
+		response.Agents = append(response.Agents, &agentv1.Agent{Id: id, Name: "api-refactor"})
+	}
+
+	return connect.NewResponse(response), nil
 }
 
 func (f *fakeSearchAgents) ResumeAgent(_ context.Context, req *connect.Request[agentv1.ResumeAgentRequest]) (*connect.Response[agentv1.ResumeAgentResponse], error) {

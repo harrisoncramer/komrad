@@ -171,18 +171,36 @@ message SetMetadataRequest {
   }];
 }
 
-// ArchiveAgentRequest hides an agent without destroying it. This is what the
+// ArchiveAgentsRequest hides agents without destroying them. This is what the
 // panel's archive key does.
-message ArchiveAgentRequest {
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+//
+// Ids rather than a filter, in this and in the two below. A caller that named what
+// to put away by predicate could not see what it was about to act on, and the set
+// the server matched a moment later need not be the set the caller meant.
+message ArchiveAgentsRequest {
+  repeated string ids = 1 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 100
+    unique: true
+    items: {
+      string: {min_len: 1}
+    }
+  }];
 }
 
-message RestoreAgentRequest {
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+message RestoreAgentsRequest {
+  repeated string ids = 1 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 100
+    unique: true
+    items: {
+      string: {min_len: 1}
+    }
+  }];
 }
 
-message RestoreAgentResponse {
-  Agent agent = 1;
+message RestoreAgentsResponse {
+  repeated Agent agents = 1;
 }
 
 // ResumeAgentRequest puts an agent's conversation back in a pane, which is what the
@@ -195,9 +213,20 @@ message ResumeAgentResponse {
   Agent agent = 1;
 }
 
-// DeleteAgentRequest removes an agent for good.
-message DeleteAgentRequest {
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+// DeleteAgentsRequest removes agents for good.
+//
+// It takes fewer ids than the other two. Nothing undoes a delete, and the archive it
+// is pressed on is the one screen that can hold hundreds of rows, so the ceiling is
+// what a person can see at once rather than what the database could manage.
+message DeleteAgentsRequest {
+  repeated string ids = 1 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 25
+    unique: true
+    items: {
+      string: {min_len: 1}
+    }
+  }];
 }
 
 message UpdateAgentRequest {
@@ -308,19 +337,19 @@ service AgentService {
       destructive: false
     };
   }
-  rpc ArchiveAgent(ArchiveAgentRequest) returns (google.protobuf.Empty) {
+  rpc ArchiveAgents(ArchiveAgentsRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
-      tool_name: "archive_agent"
-      description: "Stop an agent and hide it from the panel, keyed by id, keeping its record and transcript. Prefer this to delete_agent: it is reversible with restore_agent, and search_transcripts still finds the conversation. Returns not_found if no agent has that id."
+      tool_name: "archive_agents"
+      description: "Stop a list of agents and hide them from the panel, keyed by id, keeping their records and transcripts. Prefer this to delete_agents: it is reversible with restore_agents, and search_transcripts still finds the conversations. The agents need not share a workflow. Returns not_found, and archives nothing at all, if any id given holds no agent, so a batch either goes whole or does not go."
       destructive: false
     };
   }
-  rpc RestoreAgent(RestoreAgentRequest) returns (RestoreAgentResponse) {
+  rpc RestoreAgents(RestoreAgentsRequest) returns (RestoreAgentsResponse) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
-      tool_name: "restore_agent"
-      description: "Take an agent out of the archive, keyed by id. It comes back as a dormant row and nothing is started, so call resume_agent to put its conversation back in a pane. An agent that is not archived is returned as it stands. Returns already_exists when a live agent has taken the archived one's name, which you clear by renaming that agent, and is refused once the panel holds as many agents as it is configured to."
+      tool_name: "restore_agents"
+      description: "Take a list of agents out of the archive, keyed by id, along with the workflows they belong to. They come back as dormant rows and nothing is started, so call resume_agent on each one to put its conversation back in a pane. Agents that are not archived are returned as they stand. The batch either goes whole or does not go: it returns not_found if any id holds no agent, already_exists when a live agent has taken a returning agent's name or two returning agents want one name, and resource_exhausted when the panel has no room for all of them at once."
       destructive: false
     };
   }
@@ -332,11 +361,11 @@ service AgentService {
       destructive: false
     };
   }
-  rpc DeleteAgent(DeleteAgentRequest) returns (google.protobuf.Empty) {
+  rpc DeleteAgents(DeleteAgentsRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
-      tool_name: "delete_agent"
-      description: "Permanently remove an agent's record, keyed by id. This is a hard delete, not the panel's archive: the config and the transcript go with it and search will never find the conversation again. Prefer archive_agent, and prefer leaving agents alone unless asked to remove one."
+      tool_name: "delete_agents"
+      description: "Permanently remove a list of agents, keyed by id. This is a hard delete, not the panel's archive: the records and the transcripts go with them and search will never find the conversations again. The workflow's cleanup action fires for each one, so a batch can tear down real directories. Returns not_found, and deletes nothing at all, if any id given holds no agent. Prefer archive_agents, and prefer leaving agents alone unless asked to remove them."
       destructive: true
     };
   }

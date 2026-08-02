@@ -84,13 +84,13 @@ func (a api) createAgent(params createAgentParams) error {
 	return err
 }
 
-// archiveAgent stops an agent and hides it, keeping the record and transcript so search
-// still reaches it.
-func (a api) archiveAgent(agent agentstore.Agent) error {
+// archiveAgents stops agents and hides them, keeping the records and transcripts so search
+// still reaches them.
+func (a api) archiveAgents(ids []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	_, err := a.agents.ArchiveAgent(ctx, connect.NewRequest(&agentv1.ArchiveAgentRequest{Id: agent.ID}))
+	_, err := a.agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: ids}))
 
 	return err
 }
@@ -116,14 +116,14 @@ func (a api) setMarks(ids []string, mark *string) error {
 	return err
 }
 
-// restoreAgent takes an agent out of the archive, which starts nothing. Resuming it is a
+// restoreAgents takes agents out of the archive, which starts nothing. Resuming one is a
 // call of its own.
-func (a api) restoreAgent(id string) error {
+func (a api) restoreAgents(ids []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	if _, err := a.agents.RestoreAgent(ctx, connect.NewRequest(&agentv1.RestoreAgentRequest{Id: id})); err != nil {
-		return fmt.Errorf("failed to restore agent %q: %w", id, err)
+	if _, err := a.agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: ids})); err != nil {
+		return fmt.Errorf("failed to restore %d agents: %w", len(ids), err)
 	}
 
 	return nil
@@ -143,13 +143,13 @@ func (a api) resumeAgent(id string) (*agentv1.Agent, error) {
 	return resp.Msg.GetAgent(), nil
 }
 
-// deleteAgent destroys an agent for good, keyed by id since a name identifies at most one
+// deleteAgents destroys agents for good, keyed by id since a name identifies at most one
 // live agent, which is what a deleted one is not.
-func (a api) deleteAgent(id string) error {
+func (a api) deleteAgents(ids []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	_, err := a.agents.DeleteAgent(ctx, connect.NewRequest(&agentv1.DeleteAgentRequest{Id: id}))
+	_, err := a.agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: ids}))
 
 	return err
 }

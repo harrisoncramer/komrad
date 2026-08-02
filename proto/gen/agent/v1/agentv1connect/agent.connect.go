@@ -48,18 +48,18 @@ const (
 	// AgentServiceSetMetadataProcedure is the fully-qualified name of the AgentService's SetMetadata
 	// RPC.
 	AgentServiceSetMetadataProcedure = "/agent.v1.AgentService/SetMetadata"
-	// AgentServiceArchiveAgentProcedure is the fully-qualified name of the AgentService's ArchiveAgent
-	// RPC.
-	AgentServiceArchiveAgentProcedure = "/agent.v1.AgentService/ArchiveAgent"
-	// AgentServiceRestoreAgentProcedure is the fully-qualified name of the AgentService's RestoreAgent
-	// RPC.
-	AgentServiceRestoreAgentProcedure = "/agent.v1.AgentService/RestoreAgent"
+	// AgentServiceArchiveAgentsProcedure is the fully-qualified name of the AgentService's
+	// ArchiveAgents RPC.
+	AgentServiceArchiveAgentsProcedure = "/agent.v1.AgentService/ArchiveAgents"
+	// AgentServiceRestoreAgentsProcedure is the fully-qualified name of the AgentService's
+	// RestoreAgents RPC.
+	AgentServiceRestoreAgentsProcedure = "/agent.v1.AgentService/RestoreAgents"
 	// AgentServiceResumeAgentProcedure is the fully-qualified name of the AgentService's ResumeAgent
 	// RPC.
 	AgentServiceResumeAgentProcedure = "/agent.v1.AgentService/ResumeAgent"
-	// AgentServiceDeleteAgentProcedure is the fully-qualified name of the AgentService's DeleteAgent
+	// AgentServiceDeleteAgentsProcedure is the fully-qualified name of the AgentService's DeleteAgents
 	// RPC.
-	AgentServiceDeleteAgentProcedure = "/agent.v1.AgentService/DeleteAgent"
+	AgentServiceDeleteAgentsProcedure = "/agent.v1.AgentService/DeleteAgents"
 	// AgentServiceUpdateAgentProcedure is the fully-qualified name of the AgentService's UpdateAgent
 	// RPC.
 	AgentServiceUpdateAgentProcedure = "/agent.v1.AgentService/UpdateAgent"
@@ -79,10 +79,10 @@ type AgentServiceClient interface {
 	SetMarks(context.Context, *connect.Request[v1.SetMarksRequest]) (*connect.Response[emptypb.Empty], error)
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
-	ArchiveAgent(context.Context, *connect.Request[v1.ArchiveAgentRequest]) (*connect.Response[emptypb.Empty], error)
-	RestoreAgent(context.Context, *connect.Request[v1.RestoreAgentRequest]) (*connect.Response[v1.RestoreAgentResponse], error)
+	ArchiveAgents(context.Context, *connect.Request[v1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error)
+	RestoreAgents(context.Context, *connect.Request[v1.RestoreAgentsRequest]) (*connect.Response[v1.RestoreAgentsResponse], error)
 	ResumeAgent(context.Context, *connect.Request[v1.ResumeAgentRequest]) (*connect.Response[v1.ResumeAgentResponse], error)
-	DeleteAgent(context.Context, *connect.Request[v1.DeleteAgentRequest]) (*connect.Response[emptypb.Empty], error)
+	DeleteAgents(context.Context, *connect.Request[v1.DeleteAgentsRequest]) (*connect.Response[emptypb.Empty], error)
 	UpdateAgent(context.Context, *connect.Request[v1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error)
 	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)
 	GetTranscript(context.Context, *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error)
@@ -140,17 +140,17 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
-		archiveAgent: connect.NewClient[v1.ArchiveAgentRequest, emptypb.Empty](
+		archiveAgents: connect.NewClient[v1.ArchiveAgentsRequest, emptypb.Empty](
 			httpClient,
-			baseURL+AgentServiceArchiveAgentProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("ArchiveAgent")),
+			baseURL+AgentServiceArchiveAgentsProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("ArchiveAgents")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
-		restoreAgent: connect.NewClient[v1.RestoreAgentRequest, v1.RestoreAgentResponse](
+		restoreAgents: connect.NewClient[v1.RestoreAgentsRequest, v1.RestoreAgentsResponse](
 			httpClient,
-			baseURL+AgentServiceRestoreAgentProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("RestoreAgent")),
+			baseURL+AgentServiceRestoreAgentsProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("RestoreAgents")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
@@ -161,10 +161,10 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
-		deleteAgent: connect.NewClient[v1.DeleteAgentRequest, emptypb.Empty](
+		deleteAgents: connect.NewClient[v1.DeleteAgentsRequest, emptypb.Empty](
 			httpClient,
-			baseURL+AgentServiceDeleteAgentProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("DeleteAgent")),
+			baseURL+AgentServiceDeleteAgentsProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("DeleteAgents")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
@@ -200,10 +200,10 @@ type agentServiceClient struct {
 	setMarks          *connect.Client[v1.SetMarksRequest, emptypb.Empty]
 	setHidden         *connect.Client[v1.SetHiddenRequest, emptypb.Empty]
 	setMetadata       *connect.Client[v1.SetMetadataRequest, emptypb.Empty]
-	archiveAgent      *connect.Client[v1.ArchiveAgentRequest, emptypb.Empty]
-	restoreAgent      *connect.Client[v1.RestoreAgentRequest, v1.RestoreAgentResponse]
+	archiveAgents     *connect.Client[v1.ArchiveAgentsRequest, emptypb.Empty]
+	restoreAgents     *connect.Client[v1.RestoreAgentsRequest, v1.RestoreAgentsResponse]
 	resumeAgent       *connect.Client[v1.ResumeAgentRequest, v1.ResumeAgentResponse]
-	deleteAgent       *connect.Client[v1.DeleteAgentRequest, emptypb.Empty]
+	deleteAgents      *connect.Client[v1.DeleteAgentsRequest, emptypb.Empty]
 	updateAgent       *connect.Client[v1.UpdateAgentRequest, emptypb.Empty]
 	searchTranscripts *connect.Client[v1.SearchTranscriptsRequest, v1.SearchTranscriptsResponse]
 	getTranscript     *connect.Client[v1.GetTranscriptRequest, v1.GetTranscriptResponse]
@@ -239,14 +239,14 @@ func (c *agentServiceClient) SetMetadata(ctx context.Context, req *connect.Reque
 	return c.setMetadata.CallUnary(ctx, req)
 }
 
-// ArchiveAgent calls agent.v1.AgentService.ArchiveAgent.
-func (c *agentServiceClient) ArchiveAgent(ctx context.Context, req *connect.Request[v1.ArchiveAgentRequest]) (*connect.Response[emptypb.Empty], error) {
-	return c.archiveAgent.CallUnary(ctx, req)
+// ArchiveAgents calls agent.v1.AgentService.ArchiveAgents.
+func (c *agentServiceClient) ArchiveAgents(ctx context.Context, req *connect.Request[v1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.archiveAgents.CallUnary(ctx, req)
 }
 
-// RestoreAgent calls agent.v1.AgentService.RestoreAgent.
-func (c *agentServiceClient) RestoreAgent(ctx context.Context, req *connect.Request[v1.RestoreAgentRequest]) (*connect.Response[v1.RestoreAgentResponse], error) {
-	return c.restoreAgent.CallUnary(ctx, req)
+// RestoreAgents calls agent.v1.AgentService.RestoreAgents.
+func (c *agentServiceClient) RestoreAgents(ctx context.Context, req *connect.Request[v1.RestoreAgentsRequest]) (*connect.Response[v1.RestoreAgentsResponse], error) {
+	return c.restoreAgents.CallUnary(ctx, req)
 }
 
 // ResumeAgent calls agent.v1.AgentService.ResumeAgent.
@@ -254,9 +254,9 @@ func (c *agentServiceClient) ResumeAgent(ctx context.Context, req *connect.Reque
 	return c.resumeAgent.CallUnary(ctx, req)
 }
 
-// DeleteAgent calls agent.v1.AgentService.DeleteAgent.
-func (c *agentServiceClient) DeleteAgent(ctx context.Context, req *connect.Request[v1.DeleteAgentRequest]) (*connect.Response[emptypb.Empty], error) {
-	return c.deleteAgent.CallUnary(ctx, req)
+// DeleteAgents calls agent.v1.AgentService.DeleteAgents.
+func (c *agentServiceClient) DeleteAgents(ctx context.Context, req *connect.Request[v1.DeleteAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.deleteAgents.CallUnary(ctx, req)
 }
 
 // UpdateAgent calls agent.v1.AgentService.UpdateAgent.
@@ -282,10 +282,10 @@ type AgentServiceHandler interface {
 	SetMarks(context.Context, *connect.Request[v1.SetMarksRequest]) (*connect.Response[emptypb.Empty], error)
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
-	ArchiveAgent(context.Context, *connect.Request[v1.ArchiveAgentRequest]) (*connect.Response[emptypb.Empty], error)
-	RestoreAgent(context.Context, *connect.Request[v1.RestoreAgentRequest]) (*connect.Response[v1.RestoreAgentResponse], error)
+	ArchiveAgents(context.Context, *connect.Request[v1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error)
+	RestoreAgents(context.Context, *connect.Request[v1.RestoreAgentsRequest]) (*connect.Response[v1.RestoreAgentsResponse], error)
 	ResumeAgent(context.Context, *connect.Request[v1.ResumeAgentRequest]) (*connect.Response[v1.ResumeAgentResponse], error)
-	DeleteAgent(context.Context, *connect.Request[v1.DeleteAgentRequest]) (*connect.Response[emptypb.Empty], error)
+	DeleteAgents(context.Context, *connect.Request[v1.DeleteAgentsRequest]) (*connect.Response[emptypb.Empty], error)
 	UpdateAgent(context.Context, *connect.Request[v1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error)
 	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)
 	GetTranscript(context.Context, *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error)
@@ -339,17 +339,17 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
-	agentServiceArchiveAgentHandler := connect.NewUnaryHandler(
-		AgentServiceArchiveAgentProcedure,
-		svc.ArchiveAgent,
-		connect.WithSchema(agentServiceMethods.ByName("ArchiveAgent")),
+	agentServiceArchiveAgentsHandler := connect.NewUnaryHandler(
+		AgentServiceArchiveAgentsProcedure,
+		svc.ArchiveAgents,
+		connect.WithSchema(agentServiceMethods.ByName("ArchiveAgents")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
-	agentServiceRestoreAgentHandler := connect.NewUnaryHandler(
-		AgentServiceRestoreAgentProcedure,
-		svc.RestoreAgent,
-		connect.WithSchema(agentServiceMethods.ByName("RestoreAgent")),
+	agentServiceRestoreAgentsHandler := connect.NewUnaryHandler(
+		AgentServiceRestoreAgentsProcedure,
+		svc.RestoreAgents,
+		connect.WithSchema(agentServiceMethods.ByName("RestoreAgents")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
@@ -360,10 +360,10 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
-	agentServiceDeleteAgentHandler := connect.NewUnaryHandler(
-		AgentServiceDeleteAgentProcedure,
-		svc.DeleteAgent,
-		connect.WithSchema(agentServiceMethods.ByName("DeleteAgent")),
+	agentServiceDeleteAgentsHandler := connect.NewUnaryHandler(
+		AgentServiceDeleteAgentsProcedure,
+		svc.DeleteAgents,
+		connect.WithSchema(agentServiceMethods.ByName("DeleteAgents")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
@@ -402,14 +402,14 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceSetHiddenHandler.ServeHTTP(w, r)
 		case AgentServiceSetMetadataProcedure:
 			agentServiceSetMetadataHandler.ServeHTTP(w, r)
-		case AgentServiceArchiveAgentProcedure:
-			agentServiceArchiveAgentHandler.ServeHTTP(w, r)
-		case AgentServiceRestoreAgentProcedure:
-			agentServiceRestoreAgentHandler.ServeHTTP(w, r)
+		case AgentServiceArchiveAgentsProcedure:
+			agentServiceArchiveAgentsHandler.ServeHTTP(w, r)
+		case AgentServiceRestoreAgentsProcedure:
+			agentServiceRestoreAgentsHandler.ServeHTTP(w, r)
 		case AgentServiceResumeAgentProcedure:
 			agentServiceResumeAgentHandler.ServeHTTP(w, r)
-		case AgentServiceDeleteAgentProcedure:
-			agentServiceDeleteAgentHandler.ServeHTTP(w, r)
+		case AgentServiceDeleteAgentsProcedure:
+			agentServiceDeleteAgentsHandler.ServeHTTP(w, r)
 		case AgentServiceUpdateAgentProcedure:
 			agentServiceUpdateAgentHandler.ServeHTTP(w, r)
 		case AgentServiceSearchTranscriptsProcedure:
@@ -449,20 +449,20 @@ func (UnimplementedAgentServiceHandler) SetMetadata(context.Context, *connect.Re
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.SetMetadata is not implemented"))
 }
 
-func (UnimplementedAgentServiceHandler) ArchiveAgent(context.Context, *connect.Request[v1.ArchiveAgentRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ArchiveAgent is not implemented"))
+func (UnimplementedAgentServiceHandler) ArchiveAgents(context.Context, *connect.Request[v1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ArchiveAgents is not implemented"))
 }
 
-func (UnimplementedAgentServiceHandler) RestoreAgent(context.Context, *connect.Request[v1.RestoreAgentRequest]) (*connect.Response[v1.RestoreAgentResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.RestoreAgent is not implemented"))
+func (UnimplementedAgentServiceHandler) RestoreAgents(context.Context, *connect.Request[v1.RestoreAgentsRequest]) (*connect.Response[v1.RestoreAgentsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.RestoreAgents is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) ResumeAgent(context.Context, *connect.Request[v1.ResumeAgentRequest]) (*connect.Response[v1.ResumeAgentResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ResumeAgent is not implemented"))
 }
 
-func (UnimplementedAgentServiceHandler) DeleteAgent(context.Context, *connect.Request[v1.DeleteAgentRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.DeleteAgent is not implemented"))
+func (UnimplementedAgentServiceHandler) DeleteAgents(context.Context, *connect.Request[v1.DeleteAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.DeleteAgents is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) UpdateAgent(context.Context, *connect.Request[v1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error) {

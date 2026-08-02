@@ -234,7 +234,7 @@ func TestSearch(t *testing.T) {
 				archived, findErr := st.agents.GetInWorkflow(ctx, st.workflow, "one")
 				require.NoError(t, findErr)
 				require.NotNil(t, archived)
-				require.NoError(t, st.agents.Archive(ctx, archived.ID))
+				require.NoError(t, st.agents.Archive(ctx, []string{archived.ID}))
 			}
 
 			hits, err := st.Search(ctx, SearchParams{Query: tt.query, Limit: 10})
