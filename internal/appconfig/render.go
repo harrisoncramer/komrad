@@ -20,10 +20,9 @@ const preamble = `# weave configuration (github.com/harrisoncramer/weave).
 # change the struct's doc comments or DefaultKeybindings and run
 # 'mise run gen:config'.
 #
-# Every value below is the tool's built-in default, spelled out. Copy this file
-# to ~/.config/weave/config.toml and change what you like; anything you
-# delete falls back to the same default shown here. An unknown key is an error,
-# so nothing outside this file is configurable.
+# These are the built-in defaults. Do not copy this file over: write
+# ~/.config/weave/config.toml holding only what you are changing. An unknown key
+# is an error.
 `
 
 // RenderConfigTOML builds the documented config file from the Config struct. dir
