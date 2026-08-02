@@ -173,9 +173,60 @@ func TestRequestValidation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "a delete with no id is refused",
+			name: "a delete naming no agent is refused",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.DeleteAgent(t.Context(), connect.NewRequest(&agentv1.DeleteAgentRequest{Id: ""}))
+				_, err := c.DeleteAgents(t.Context(), connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: nil}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "so is one carrying an empty id among real ones",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.DeleteAgents(t.Context(), connect.NewRequest(&agentv1.DeleteAgentsRequest{
+					Ids: []string{uuid.NewString(), ""},
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a delete past the ceiling on how many go at once is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				ids := make([]string, 0, 26)
+				for range 26 {
+					ids = append(ids, uuid.NewString())
+				}
+
+				_, err := c.DeleteAgents(t.Context(), connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: ids}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "an archive naming the same agent twice is refused, since it says nothing twice",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				id := uuid.NewString()
+				_, err := c.ArchiveAgents(t.Context(), connect.NewRequest(&agentv1.ArchiveAgentsRequest{
+					Ids: []string{id, id},
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a restore past the ceiling on how many go at once is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				ids := make([]string, 0, 101)
+				for range 101 {
+					ids = append(ids, uuid.NewString())
+				}
+
+				_, err := c.RestoreAgents(t.Context(), connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: ids}))
 
 				return err
 			},

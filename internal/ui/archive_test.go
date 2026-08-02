@@ -280,7 +280,7 @@ func TestArchiveDeleteConfirm(t *testing.T) {
 			client := &fakeArchiveAgents{}
 			m := archiveModel(client, &fakeArchiveWorkflows{}, appconfig.DefaultKeybindings())
 
-			opened, _ := m.deleteFromArchiveConfirm()
+			opened, _ := m.deleteFromArchiveConfirm(m.archive.agents)
 			m, ok := opened.(model)
 			require.True(t, ok)
 			require.Equal(t, screenArchiveDelete, m.screen)
@@ -294,7 +294,7 @@ func TestArchiveDeleteConfirm(t *testing.T) {
 
 			assert.Equal(t, tt.wantDeleted, client.deleted)
 			assert.Equal(t, screenArchive, got.screen, "the prompt returns to the archive it was opened from")
-			assert.Nil(t, got.target.deleteAgent)
+			assert.Nil(t, got.target.deleteAgents)
 		})
 	}
 }
@@ -355,7 +355,7 @@ func TestRefusedArchiveWritesAreReported(t *testing.T) {
 			name: "a refused delete",
 			act: func(t *testing.T, m model) model {
 				t.Helper()
-				opened, _ := m.deleteFromArchiveConfirm()
+				opened, _ := m.deleteFromArchiveConfirm(m.archive.agents)
 				got, ok := opened.(model)
 				require.True(t, ok)
 
@@ -638,22 +638,25 @@ func (f *fakeArchiveAgents) ListAgents(_ context.Context, req *connect.Request[a
 	}), nil
 }
 
-func (f *fakeArchiveAgents) RestoreAgent(_ context.Context, req *connect.Request[agentv1.RestoreAgentRequest]) (*connect.Response[agentv1.RestoreAgentResponse], error) {
+func (f *fakeArchiveAgents) RestoreAgents(_ context.Context, req *connect.Request[agentv1.RestoreAgentsRequest]) (*connect.Response[agentv1.RestoreAgentsResponse], error) {
 	if f.err != nil {
 		return nil, f.err
 	}
-	f.restored = append(f.restored, req.Msg.GetId())
+	f.restored = append(f.restored, req.Msg.GetIds()...)
 
-	return connect.NewResponse(&agentv1.RestoreAgentResponse{
-		Agent: &agentv1.Agent{Id: req.Msg.GetId(), Name: "api-refactor"},
-	}), nil
+	response := &agentv1.RestoreAgentsResponse{}
+	for _, id := range req.Msg.GetIds() {
+		response.Agents = append(response.Agents, &agentv1.Agent{Id: id, Name: "api-refactor"})
+	}
+
+	return connect.NewResponse(response), nil
 }
 
-func (f *fakeArchiveAgents) DeleteAgent(_ context.Context, req *connect.Request[agentv1.DeleteAgentRequest]) (*connect.Response[emptypb.Empty], error) {
+func (f *fakeArchiveAgents) DeleteAgents(_ context.Context, req *connect.Request[agentv1.DeleteAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
 	if f.err != nil {
 		return nil, f.err
 	}
-	f.deleted = append(f.deleted, req.Msg.GetId())
+	f.deleted = append(f.deleted, req.Msg.GetIds()...)
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }

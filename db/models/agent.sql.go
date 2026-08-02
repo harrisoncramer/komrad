@@ -111,16 +111,6 @@ func (q *Queries) CountLiveScheduleAgents(ctx context.Context, scheduleID *strin
 	return count, err
 }
 
-const deleteAgentByID = `-- name: DeleteAgentByID :exec
-DELETE FROM agents
-WHERE id = $1
-`
-
-func (q *Queries) DeleteAgentByID(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, deleteAgentByID, id)
-	return err
-}
-
 const deleteAgentMetadata = `-- name: DeleteAgentMetadata :many
 DELETE FROM agent_metadata
 WHERE agent_id = $1
@@ -154,16 +144,6 @@ func (q *Queries) DeleteAgentMetadata(ctx context.Context, arg DeleteAgentMetada
 	return items, nil
 }
 
-const deleteAgentTranscript = `-- name: DeleteAgentTranscript :exec
-DELETE FROM agent_transcripts
-WHERE agent_id = $1
-`
-
-func (q *Queries) DeleteAgentTranscript(ctx context.Context, agentID string) error {
-	_, err := q.db.Exec(ctx, deleteAgentTranscript, agentID)
-	return err
-}
-
 const deleteAgentTranscriptChunks = `-- name: DeleteAgentTranscriptChunks :exec
 DELETE FROM agent_transcript_chunks
 WHERE agent_id = $1
@@ -171,6 +151,36 @@ WHERE agent_id = $1
 
 func (q *Queries) DeleteAgentTranscriptChunks(ctx context.Context, agentID string) error {
 	_, err := q.db.Exec(ctx, deleteAgentTranscriptChunks, agentID)
+	return err
+}
+
+const deleteAgentTranscripts = `-- name: DeleteAgentTranscripts :exec
+DELETE FROM agent_transcripts
+WHERE agent_id = ANY ($1::uuid[])
+`
+
+func (q *Queries) DeleteAgentTranscripts(ctx context.Context, agentIds []string) error {
+	_, err := q.db.Exec(ctx, deleteAgentTranscripts, agentIds)
+	return err
+}
+
+const deleteAgentsByID = `-- name: DeleteAgentsByID :exec
+DELETE FROM agents
+WHERE id = ANY ($1::uuid[])
+`
+
+func (q *Queries) DeleteAgentsByID(ctx context.Context, ids []string) error {
+	_, err := q.db.Exec(ctx, deleteAgentsByID, ids)
+	return err
+}
+
+const deleteAgentsTranscriptChunks = `-- name: DeleteAgentsTranscriptChunks :exec
+DELETE FROM agent_transcript_chunks
+WHERE agent_id = ANY ($1::uuid[])
+`
+
+func (q *Queries) DeleteAgentsTranscriptChunks(ctx context.Context, agentIds []string) error {
+	_, err := q.db.Exec(ctx, deleteAgentsTranscriptChunks, agentIds)
 	return err
 }
 
@@ -284,6 +294,55 @@ func (q *Queries) GetAgentInWorkflow(ctx context.Context, arg GetAgentInWorkflow
 		&i.UpdatedAt,
 	)
 	return &i, err
+}
+
+const getAgentsByID = `-- name: GetAgentsByID :many
+SELECT
+    id, name, cwd, flags, prompt, pane_id, state, harness, session_id, workflow_id, schedule_id, idempotency_key, archived_at, is_hidden, mark, created_at, updated_at
+FROM
+    agents s
+WHERE
+    s.id = ANY ($1::uuid[])
+ORDER BY
+    s.id DESC
+`
+
+func (q *Queries) GetAgentsByID(ctx context.Context, ids []string) ([]*Agent, error) {
+	rows, err := q.db.Query(ctx, getAgentsByID, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Agent
+	for rows.Next() {
+		var i Agent
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Cwd,
+			&i.Flags,
+			&i.Prompt,
+			&i.PaneID,
+			&i.State,
+			&i.Harness,
+			&i.SessionID,
+			&i.WorkflowID,
+			&i.ScheduleID,
+			&i.IdempotencyKey,
+			&i.ArchivedAt,
+			&i.IsHidden,
+			&i.Mark,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getTranscript = `-- name: GetTranscript :one
@@ -631,19 +690,19 @@ func (q *Queries) ListArchivedWorkflowAgents(ctx context.Context, workflowID str
 	return items, nil
 }
 
-const markAgentArchived = `-- name: MarkAgentArchived :exec
+const markAgentsArchived = `-- name: MarkAgentsArchived :exec
 UPDATE
     agents
 SET
     archived_at = NOW(),
     pane_id = ''
 WHERE
-    id = $1
+    id = ANY ($1::uuid[])
     AND archived_at IS NULL
 `
 
-func (q *Queries) MarkAgentArchived(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, markAgentArchived, id)
+func (q *Queries) MarkAgentsArchived(ctx context.Context, ids []string) error {
+	_, err := q.db.Exec(ctx, markAgentsArchived, ids)
 	return err
 }
 
@@ -734,18 +793,18 @@ func (q *Queries) RenameAgent(ctx context.Context, arg RenameAgentParams) ([]str
 	return items, nil
 }
 
-const restoreAgent = `-- name: RestoreAgent :exec
+const restoreAgents = `-- name: RestoreAgents :exec
 UPDATE
     agents
 SET
     is_hidden = FALSE,
     archived_at = NULL
 WHERE
-    id = $1
+    id = ANY ($1::uuid[])
 `
 
-func (q *Queries) RestoreAgent(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, restoreAgent, id)
+func (q *Queries) RestoreAgents(ctx context.Context, ids []string) error {
+	_, err := q.db.Exec(ctx, restoreAgents, ids)
 	return err
 }
 

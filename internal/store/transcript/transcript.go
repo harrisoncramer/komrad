@@ -157,14 +157,18 @@ func (s *Store) DeleteTurns(ctx context.Context, agentID string) error {
 	return nil
 }
 
-// Delete removes the transcript belonging to an agent, both the whole copy and the
-// indexed turns. It runs alongside the agent's own delete, in the same transaction.
-func (s *Store) Delete(ctx context.Context, agentID string) error {
-	if err := s.queries.DeleteAgentTranscript(ctx, agentID); err != nil {
-		return fmt.Errorf("failed to delete transcript for %q: %w", agentID, err)
+// Delete removes the transcripts belonging to agents, both the whole copies and the
+// indexed turns. It runs alongside the agents' own delete, in the same transaction.
+func (s *Store) Delete(ctx context.Context, agentIDs []string) error {
+	if len(agentIDs) == 0 {
+		return nil
 	}
-	if err := s.queries.DeleteAgentTranscriptChunks(ctx, agentID); err != nil {
-		return fmt.Errorf("failed to delete transcript chunks for %q: %w", agentID, err)
+
+	if err := s.queries.DeleteAgentTranscripts(ctx, agentIDs); err != nil {
+		return fmt.Errorf("failed to delete the transcripts of %d agents: %w", len(agentIDs), err)
+	}
+	if err := s.queries.DeleteAgentsTranscriptChunks(ctx, agentIDs); err != nil {
+		return fmt.Errorf("failed to delete the transcript chunks of %d agents: %w", len(agentIDs), err)
 	}
 
 	return nil

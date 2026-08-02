@@ -82,8 +82,8 @@ func TestAgentLifecycle(t *testing.T) {
 	})
 
 	t.Run("archiving takes the pane with it", func(t *testing.T) {
-		_, err := instance.Agents.ArchiveAgent(ctx, connect.NewRequest(&agentv1.ArchiveAgentRequest{
-			Id: agent.GetId(),
+		_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{
+			Ids: []string{agent.GetId()},
 		}))
 		require.NoError(t, err)
 
@@ -93,8 +93,8 @@ func TestAgentLifecycle(t *testing.T) {
 	})
 
 	t.Run("restoring puts it back with nothing running", func(t *testing.T) {
-		_, err := instance.Agents.RestoreAgent(ctx, connect.NewRequest(&agentv1.RestoreAgentRequest{
-			Id: agent.GetId(),
+		_, err := instance.Agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{
+			Ids: []string{agent.GetId()},
 		}))
 		require.NoError(t, err)
 
@@ -126,8 +126,8 @@ func TestAgentLifecycle(t *testing.T) {
 	})
 
 	t.Run("deleting leaves nothing behind", func(t *testing.T) {
-		_, err := instance.Agents.DeleteAgent(ctx, connect.NewRequest(&agentv1.DeleteAgentRequest{
-			Id: agent.GetId(),
+		_, err := instance.Agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{
+			Ids: []string{agent.GetId()},
 		}))
 		require.NoError(t, err)
 

@@ -28,11 +28,11 @@ type refusingAgents struct {
 	err error
 }
 
-func (r refusingAgents) ArchiveAgent(context.Context, *connect.Request[agentv1.ArchiveAgentRequest]) (*connect.Response[emptypb.Empty], error) {
+func (r refusingAgents) ArchiveAgents(context.Context, *connect.Request[agentv1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, r.err
 }
 
-func (r refusingAgents) RestoreAgent(context.Context, *connect.Request[agentv1.RestoreAgentRequest]) (*connect.Response[agentv1.RestoreAgentResponse], error) {
+func (r refusingAgents) RestoreAgents(context.Context, *connect.Request[agentv1.RestoreAgentsRequest]) (*connect.Response[agentv1.RestoreAgentsResponse], error) {
 	return nil, r.err
 }
 
@@ -136,7 +136,7 @@ type acceptingAgents struct {
 	agentv1connect.AgentServiceClient
 }
 
-func (acceptingAgents) ArchiveAgent(context.Context, *connect.Request[agentv1.ArchiveAgentRequest]) (*connect.Response[emptypb.Empty], error) {
+func (acceptingAgents) ArchiveAgents(context.Context, *connect.Request[agentv1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 

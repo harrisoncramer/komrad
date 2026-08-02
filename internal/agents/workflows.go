@@ -214,22 +214,27 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 // requireNamesFree refuses when the archived agents coming back would collide on a name. The
 // unique-name index covers the unarchived of one workflow, so a live agent may hold the
 // name, or two of the returning agents may hold it between them.
+//
+// A name is only taken within its own workflow, so the counting keys on both. A batch
+// restored by id can span folders, and two agents called auth in two of them are not a
+// clash.
 func requireNamesFree(ctx context.Context, agents agentNamer, archived []agentstore.Agent) error {
-	returning := make(map[string]int, len(archived))
+	returning := make(map[agentName]int, len(archived))
 	for _, agent := range archived {
-		returning[agent.Name]++
+		returning[agentName{workflowID: agent.WorkflowID, name: agent.Name}]++
 	}
 
 	var clashing []string
-	checked := make(map[string]bool, len(archived))
+	checked := make(map[agentName]bool, len(archived))
 
 	for _, agent := range archived {
-		if checked[agent.Name] {
+		claimed := agentName{workflowID: agent.WorkflowID, name: agent.Name}
+		if checked[claimed] {
 			continue
 		}
-		checked[agent.Name] = true
+		checked[claimed] = true
 
-		if returning[agent.Name] > 1 {
+		if returning[claimed] > 1 {
 			clashing = append(clashing, agent.Name)
 
 			continue
@@ -244,8 +249,15 @@ func requireNamesFree(ctx context.Context, agents agentNamer, archived []agentst
 		}
 	}
 	if len(clashing) > 0 {
-		return fmt.Errorf("%w: rename whatever holds %s before restoring this workflow", store.ErrNameTaken, strings.Join(clashing, ", "))
+		return fmt.Errorf("%w: rename whatever holds %s before restoring", store.ErrNameTaken, strings.Join(clashing, ", "))
 	}
 
 	return nil
+}
+
+// agentName is a name and the workflow it is unique inside, which is the pair the
+// unique-name index covers.
+type agentName struct {
+	workflowID string
+	name       string
 }

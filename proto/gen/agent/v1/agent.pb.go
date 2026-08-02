@@ -793,29 +793,33 @@ func (x *SetMetadataRequest) GetValue() string {
 	return ""
 }
 
-// ArchiveAgentRequest hides an agent without destroying it. This is what the
+// ArchiveAgentsRequest hides agents without destroying them. This is what the
 // panel's archive key does.
-type ArchiveAgentRequest struct {
+//
+// Ids rather than a filter, in this and in the two below. A caller that named what
+// to put away by predicate could not see what it was about to act on, and the set
+// the server matched a moment later need not be the set the caller meant.
+type ArchiveAgentsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ArchiveAgentRequest) Reset() {
-	*x = ArchiveAgentRequest{}
+func (x *ArchiveAgentsRequest) Reset() {
+	*x = ArchiveAgentsRequest{}
 	mi := &file_agent_v1_agent_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ArchiveAgentRequest) String() string {
+func (x *ArchiveAgentsRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ArchiveAgentRequest) ProtoMessage() {}
+func (*ArchiveAgentsRequest) ProtoMessage() {}
 
-func (x *ArchiveAgentRequest) ProtoReflect() protoreflect.Message {
+func (x *ArchiveAgentsRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_agent_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -827,39 +831,39 @@ func (x *ArchiveAgentRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ArchiveAgentRequest.ProtoReflect.Descriptor instead.
-func (*ArchiveAgentRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ArchiveAgentsRequest.ProtoReflect.Descriptor instead.
+func (*ArchiveAgentsRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{11}
 }
 
-func (x *ArchiveAgentRequest) GetId() string {
+func (x *ArchiveAgentsRequest) GetIds() []string {
 	if x != nil {
-		return x.Id
+		return x.Ids
 	}
-	return ""
+	return nil
 }
 
-type RestoreAgentRequest struct {
+type RestoreAgentsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *RestoreAgentRequest) Reset() {
-	*x = RestoreAgentRequest{}
+func (x *RestoreAgentsRequest) Reset() {
+	*x = RestoreAgentsRequest{}
 	mi := &file_agent_v1_agent_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *RestoreAgentRequest) String() string {
+func (x *RestoreAgentsRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*RestoreAgentRequest) ProtoMessage() {}
+func (*RestoreAgentsRequest) ProtoMessage() {}
 
-func (x *RestoreAgentRequest) ProtoReflect() protoreflect.Message {
+func (x *RestoreAgentsRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_agent_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -871,39 +875,39 @@ func (x *RestoreAgentRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RestoreAgentRequest.ProtoReflect.Descriptor instead.
-func (*RestoreAgentRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use RestoreAgentsRequest.ProtoReflect.Descriptor instead.
+func (*RestoreAgentsRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{12}
 }
 
-func (x *RestoreAgentRequest) GetId() string {
+func (x *RestoreAgentsRequest) GetIds() []string {
 	if x != nil {
-		return x.Id
+		return x.Ids
 	}
-	return ""
+	return nil
 }
 
-type RestoreAgentResponse struct {
+type RestoreAgentsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Agent         *Agent                 `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
+	Agents        []*Agent               `protobuf:"bytes,1,rep,name=agents,proto3" json:"agents,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *RestoreAgentResponse) Reset() {
-	*x = RestoreAgentResponse{}
+func (x *RestoreAgentsResponse) Reset() {
+	*x = RestoreAgentsResponse{}
 	mi := &file_agent_v1_agent_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *RestoreAgentResponse) String() string {
+func (x *RestoreAgentsResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*RestoreAgentResponse) ProtoMessage() {}
+func (*RestoreAgentsResponse) ProtoMessage() {}
 
-func (x *RestoreAgentResponse) ProtoReflect() protoreflect.Message {
+func (x *RestoreAgentsResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_agent_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -915,14 +919,14 @@ func (x *RestoreAgentResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RestoreAgentResponse.ProtoReflect.Descriptor instead.
-func (*RestoreAgentResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use RestoreAgentsResponse.ProtoReflect.Descriptor instead.
+func (*RestoreAgentsResponse) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{13}
 }
 
-func (x *RestoreAgentResponse) GetAgent() *Agent {
+func (x *RestoreAgentsResponse) GetAgents() []*Agent {
 	if x != nil {
-		return x.Agent
+		return x.Agents
 	}
 	return nil
 }
@@ -1017,28 +1021,32 @@ func (x *ResumeAgentResponse) GetAgent() *Agent {
 	return nil
 }
 
-// DeleteAgentRequest removes an agent for good.
-type DeleteAgentRequest struct {
+// DeleteAgentsRequest removes agents for good.
+//
+// It takes fewer ids than the other two. Nothing undoes a delete, and the archive it
+// is pressed on is the one screen that can hold hundreds of rows, so the ceiling is
+// what a person can see at once rather than what the database could manage.
+type DeleteAgentsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *DeleteAgentRequest) Reset() {
-	*x = DeleteAgentRequest{}
+func (x *DeleteAgentsRequest) Reset() {
+	*x = DeleteAgentsRequest{}
 	mi := &file_agent_v1_agent_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *DeleteAgentRequest) String() string {
+func (x *DeleteAgentsRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*DeleteAgentRequest) ProtoMessage() {}
+func (*DeleteAgentsRequest) ProtoMessage() {}
 
-func (x *DeleteAgentRequest) ProtoReflect() protoreflect.Message {
+func (x *DeleteAgentsRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_agent_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1050,16 +1058,16 @@ func (x *DeleteAgentRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use DeleteAgentRequest.ProtoReflect.Descriptor instead.
-func (*DeleteAgentRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use DeleteAgentsRequest.ProtoReflect.Descriptor instead.
+func (*DeleteAgentsRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{16}
 }
 
-func (x *DeleteAgentRequest) GetId() string {
+func (x *DeleteAgentsRequest) GetIds() []string {
 	if x != nil {
-		return x.Id
+		return x.Ids
 	}
-	return ""
+	return nil
 }
 
 type UpdateAgentRequest struct {
@@ -1505,19 +1513,19 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\bkey.slug\x12Ha metadata key must be lowercase letters, digits, underscores, or dashes\x1a\x1dthis.matches('^[a-z0-9_-]+$')r\x02\x18@R\x03key\x12\xcc\x01\n" +
 	"\x05value\x18\x03 \x01(\tB\xb0\x01\xbaH\xac\x01\xba\x01\xa8\x01\n" +
 	"\x0fvalue.printable\x12`a metadata value must be a single line of at most 2048 characters carrying no control characters\x1a3this.size() <= 2048 && !this.matches('[[:cntrl:]]')H\x00R\x05value\x88\x01\x01B\b\n" +
-	"\x06_value\".\n" +
-	"\x13ArchiveAgentRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\".\n" +
-	"\x13RestoreAgentRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"=\n" +
-	"\x14RestoreAgentResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"-\n" +
+	"\x06_value\"<\n" +
+	"\x14ArchiveAgentsRequest\x12$\n" +
+	"\x03ids\x18\x01 \x03(\tB\x12\xbaH\x0f\x92\x01\f\b\x01\x10d\x18\x01\"\x04r\x02\x10\x01R\x03ids\"<\n" +
+	"\x14RestoreAgentsRequest\x12$\n" +
+	"\x03ids\x18\x01 \x03(\tB\x12\xbaH\x0f\x92\x01\f\b\x01\x10d\x18\x01\"\x04r\x02\x10\x01R\x03ids\"@\n" +
+	"\x15RestoreAgentsResponse\x12'\n" +
+	"\x06agents\x18\x01 \x03(\v2\x0f.agent.v1.AgentR\x06agents\"-\n" +
 	"\x12ResumeAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"<\n" +
 	"\x13ResumeAgentResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"-\n" +
-	"\x12DeleteAgentRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"\xad\x02\n" +
+	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\";\n" +
+	"\x13DeleteAgentsRequest\x12$\n" +
+	"\x03ids\x18\x01 \x03(\tB\x12\xbaH\x0f\x92\x01\f\b\x01\x10\x19\x18\x01\"\x04r\x02\x10\x01R\x03ids\"\xad\x02\n" +
 	"\x12UpdateAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xfd\x01\n" +
 	"\x04name\x18\x02 \x01(\tB\xe8\x01\xbaH\xe4\x01\xba\x01\xd9\x01\n" +
@@ -1547,7 +1555,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14GetTranscriptRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"1\n" +
 	"\x15GetTranscriptResponse\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontent2\xba6\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent2\x8f:\n" +
 	"\fAgentService\x12\xe4\x03\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x9a\x03\x9a\xb5\x18\x92\x03\n" +
@@ -1561,15 +1569,15 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\tSetHidden\x12\x1a.agent.v1.SetHiddenRequest\x1a\x16.google.protobuf.Empty\"\x8e\x03\x9a\xb5\x18\x86\x03\n" +
 	"\x10set_agent_hidden\x12\xef\x02Hide an agent from the panel's list, keyed by its id, or unhide it by passing hidden false. This changes nothing about the agent: it keeps running, the reconciler keeps moving its state, and every tool still returns it. It only decides whether the person watching the panel sees a row for it, which is theirs to decide, so do not hide work you were not asked to hide. \x00\x90\x02\x02\x12\xd2\x06\n" +
 	"\vSetMetadata\x12\x1c.agent.v1.SetMetadataRequest\x1a\x16.google.protobuf.Empty\"\x8c\x06\x9a\xb5\x18\x84\x06\n" +
-	"\x12set_agent_metadata\x12\xeb\x05Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value. Use this on yourself as you work, whenever you learn something a person would want to jump to later: the Linear issue you are implementing, the pull request you opened, the branch you are on. Your own id is in the WEAVE_AGENT_ID environment variable. Store the full URL rather than a bare number, since the panel shows the value as it is. Keys are lowercase letters, digits, underscores, and dashes; call this once per key, which leaves every other key on the agent untouched. Do not record what the agent is currently doing, which is already its state, and do not paste findings here, which belong in your reply. \x00\x90\x02\x02\x12\xdf\x02\n" +
-	"\fArchiveAgent\x12\x1d.agent.v1.ArchiveAgentRequest\x1a\x16.google.protobuf.Empty\"\x97\x02\x9a\xb5\x18\x8f\x02\n" +
-	"\rarchive_agent\x12\xfb\x01Stop an agent and hide it from the panel, keyed by id, keeping its record and transcript. Prefer this to delete_agent: it is reversible with restore_agent, and search_transcripts still finds the conversation. Returns not_found if no agent has that id. \x00\x90\x02\x02\x12\x85\x04\n" +
-	"\fRestoreAgent\x12\x1d.agent.v1.RestoreAgentRequest\x1a\x1e.agent.v1.RestoreAgentResponse\"\xb5\x03\x9a\xb5\x18\xad\x03\n" +
-	"\rrestore_agent\x12\x99\x03Take an agent out of the archive, keyed by id. It comes back as a dormant row and nothing is started, so call resume_agent to put its conversation back in a pane. An agent that is not archived is returned as it stands. Returns already_exists when a live agent has taken the archived one's name, which you clear by renaming that agent, and is refused once the panel holds as many agents as it is configured to. \x00\x90\x02\x02\x12\xe8\x02\n" +
+	"\x12set_agent_metadata\x12\xeb\x05Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value. Use this on yourself as you work, whenever you learn something a person would want to jump to later: the Linear issue you are implementing, the pull request you opened, the branch you are on. Your own id is in the WEAVE_AGENT_ID environment variable. Store the full URL rather than a bare number, since the panel shows the value as it is. Keys are lowercase letters, digits, underscores, and dashes; call this once per key, which leaves every other key on the agent untouched. Do not record what the agent is currently doing, which is already its state, and do not paste findings here, which belong in your reply. \x00\x90\x02\x02\x12\xeb\x03\n" +
+	"\rArchiveAgents\x12\x1e.agent.v1.ArchiveAgentsRequest\x1a\x16.google.protobuf.Empty\"\xa1\x03\x9a\xb5\x18\x99\x03\n" +
+	"\x0earchive_agents\x12\x84\x03Stop a list of agents and hide them from the panel, keyed by id, keeping their records and transcripts. Prefer this to delete_agents: it is reversible with restore_agents, and search_transcripts still finds the conversations. The agents need not share a workflow. Returns not_found, and archives nothing at all, if any id given holds no agent, so a batch either goes whole or does not go. \x00\x90\x02\x02\x12\x99\x05\n" +
+	"\rRestoreAgents\x12\x1e.agent.v1.RestoreAgentsRequest\x1a\x1f.agent.v1.RestoreAgentsResponse\"\xc6\x04\x9a\xb5\x18\xbe\x04\n" +
+	"\x0erestore_agents\x12\xa9\x04Take a list of agents out of the archive, keyed by id, along with the workflows they belong to. They come back as dormant rows and nothing is started, so call resume_agent on each one to put its conversation back in a pane. Agents that are not archived are returned as they stand. The batch either goes whole or does not go: it returns not_found if any id holds no agent, already_exists when a live agent has taken a returning agent's name or two returning agents want one name, and resource_exhausted when the panel has no room for all of them at once. \x00\x90\x02\x02\x12\xe8\x02\n" +
 	"\vResumeAgent\x12\x1c.agent.v1.ResumeAgentRequest\x1a\x1d.agent.v1.ResumeAgentResponse\"\x9b\x02\x9a\xb5\x18\x93\x02\n" +
-	"\fresume_agent\x12\x80\x02Relaunch an agent's CLI on the same conversation, keyed by id, which is what reaches an agent whose pane has since died. An agent already running is returned as it stands rather than started twice. An archived agent is refused, so call restore_agent first. \x00\x90\x02\x02\x12\xf1\x02\n" +
-	"\vDeleteAgent\x12\x1c.agent.v1.DeleteAgentRequest\x1a\x16.google.protobuf.Empty\"\xab\x02\x9a\xb5\x18\xa3\x02\n" +
-	"\fdelete_agent\x12\x90\x02Permanently remove an agent's record, keyed by id. This is a hard delete, not the panel's archive: the config and the transcript go with it and search will never find the conversation again. Prefer archive_agent, and prefer leaving agents alone unless asked to remove one. \x01\x90\x02\x02\x12\xd7\x02\n" +
+	"\fresume_agent\x12\x80\x02Relaunch an agent's CLI on the same conversation, keyed by id, which is what reaches an agent whose pane has since died. An agent already running is returned as it stands rather than started twice. An archived agent is refused, so call restore_agent first. \x00\x90\x02\x02\x12\xa6\x04\n" +
+	"\fDeleteAgents\x12\x1d.agent.v1.DeleteAgentsRequest\x1a\x16.google.protobuf.Empty\"\xde\x03\x9a\xb5\x18\xd6\x03\n" +
+	"\rdelete_agents\x12\xc2\x03Permanently remove a list of agents, keyed by id. This is a hard delete, not the panel's archive: the records and the transcripts go with them and search will never find the conversations again. The workflow's cleanup action fires for each one, so a batch can tear down real directories. Returns not_found, and deletes nothing at all, if any id given holds no agent. Prefer archive_agents, and prefer leaving agents alone unless asked to remove them. \x01\x90\x02\x02\x12\xd7\x02\n" +
 	"\vUpdateAgent\x12\x1c.agent.v1.UpdateAgentRequest\x1a\x16.google.protobuf.Empty\"\x91\x02\x9a\xb5\x18\x89\x02\n" +
 	"\frename_agent\x12\xf6\x01Rename an agent, keyed by its id rather than its current name. The name is a display label the store keys on; the running tmux window keeps whatever it was called at launch. It may not contain spaces, colons, dots, slashes, or control characters. \x00\x90\x02\x02\x12\x9b\b\n" +
 	"\x11SearchTranscripts\x12\".agent.v1.SearchTranscriptsRequest\x1a#.agent.v1.SearchTranscriptsResponse\"\xbc\a\x9a\xb5\x18\xb4\a\n" +
@@ -1602,12 +1610,12 @@ var file_agent_v1_agent_proto_goTypes = []any{
 	(*SetMarksRequest)(nil),           // 8: agent.v1.SetMarksRequest
 	(*SetHiddenRequest)(nil),          // 9: agent.v1.SetHiddenRequest
 	(*SetMetadataRequest)(nil),        // 10: agent.v1.SetMetadataRequest
-	(*ArchiveAgentRequest)(nil),       // 11: agent.v1.ArchiveAgentRequest
-	(*RestoreAgentRequest)(nil),       // 12: agent.v1.RestoreAgentRequest
-	(*RestoreAgentResponse)(nil),      // 13: agent.v1.RestoreAgentResponse
+	(*ArchiveAgentsRequest)(nil),      // 11: agent.v1.ArchiveAgentsRequest
+	(*RestoreAgentsRequest)(nil),      // 12: agent.v1.RestoreAgentsRequest
+	(*RestoreAgentsResponse)(nil),     // 13: agent.v1.RestoreAgentsResponse
 	(*ResumeAgentRequest)(nil),        // 14: agent.v1.ResumeAgentRequest
 	(*ResumeAgentResponse)(nil),       // 15: agent.v1.ResumeAgentResponse
-	(*DeleteAgentRequest)(nil),        // 16: agent.v1.DeleteAgentRequest
+	(*DeleteAgentsRequest)(nil),       // 16: agent.v1.DeleteAgentsRequest
 	(*UpdateAgentRequest)(nil),        // 17: agent.v1.UpdateAgentRequest
 	(*SearchTranscriptsRequest)(nil),  // 18: agent.v1.SearchTranscriptsRequest
 	(*SearchHit)(nil),                 // 19: agent.v1.SearchHit
@@ -1623,7 +1631,7 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	0,  // 2: agent.v1.ListAgentsResponse.agents:type_name -> agent.v1.Agent
 	0,  // 3: agent.v1.CreateAgentResponse.agent:type_name -> agent.v1.Agent
 	0,  // 4: agent.v1.GetAgentResponse.agent:type_name -> agent.v1.Agent
-	0,  // 5: agent.v1.RestoreAgentResponse.agent:type_name -> agent.v1.Agent
+	0,  // 5: agent.v1.RestoreAgentsResponse.agents:type_name -> agent.v1.Agent
 	0,  // 6: agent.v1.ResumeAgentResponse.agent:type_name -> agent.v1.Agent
 	23, // 7: agent.v1.SearchTranscriptsRequest.pagination:type_name -> pagination.v1.Pagination
 	19, // 8: agent.v1.SearchTranscriptsResponse.hits:type_name -> agent.v1.SearchHit
@@ -1633,10 +1641,10 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	8,  // 12: agent.v1.AgentService.SetMarks:input_type -> agent.v1.SetMarksRequest
 	9,  // 13: agent.v1.AgentService.SetHidden:input_type -> agent.v1.SetHiddenRequest
 	10, // 14: agent.v1.AgentService.SetMetadata:input_type -> agent.v1.SetMetadataRequest
-	11, // 15: agent.v1.AgentService.ArchiveAgent:input_type -> agent.v1.ArchiveAgentRequest
-	12, // 16: agent.v1.AgentService.RestoreAgent:input_type -> agent.v1.RestoreAgentRequest
+	11, // 15: agent.v1.AgentService.ArchiveAgents:input_type -> agent.v1.ArchiveAgentsRequest
+	12, // 16: agent.v1.AgentService.RestoreAgents:input_type -> agent.v1.RestoreAgentsRequest
 	14, // 17: agent.v1.AgentService.ResumeAgent:input_type -> agent.v1.ResumeAgentRequest
-	16, // 18: agent.v1.AgentService.DeleteAgent:input_type -> agent.v1.DeleteAgentRequest
+	16, // 18: agent.v1.AgentService.DeleteAgents:input_type -> agent.v1.DeleteAgentsRequest
 	17, // 19: agent.v1.AgentService.UpdateAgent:input_type -> agent.v1.UpdateAgentRequest
 	18, // 20: agent.v1.AgentService.SearchTranscripts:input_type -> agent.v1.SearchTranscriptsRequest
 	21, // 21: agent.v1.AgentService.GetTranscript:input_type -> agent.v1.GetTranscriptRequest
@@ -1646,10 +1654,10 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	24, // 25: agent.v1.AgentService.SetMarks:output_type -> google.protobuf.Empty
 	24, // 26: agent.v1.AgentService.SetHidden:output_type -> google.protobuf.Empty
 	24, // 27: agent.v1.AgentService.SetMetadata:output_type -> google.protobuf.Empty
-	24, // 28: agent.v1.AgentService.ArchiveAgent:output_type -> google.protobuf.Empty
-	13, // 29: agent.v1.AgentService.RestoreAgent:output_type -> agent.v1.RestoreAgentResponse
+	24, // 28: agent.v1.AgentService.ArchiveAgents:output_type -> google.protobuf.Empty
+	13, // 29: agent.v1.AgentService.RestoreAgents:output_type -> agent.v1.RestoreAgentsResponse
 	15, // 30: agent.v1.AgentService.ResumeAgent:output_type -> agent.v1.ResumeAgentResponse
-	24, // 31: agent.v1.AgentService.DeleteAgent:output_type -> google.protobuf.Empty
+	24, // 31: agent.v1.AgentService.DeleteAgents:output_type -> google.protobuf.Empty
 	24, // 32: agent.v1.AgentService.UpdateAgent:output_type -> google.protobuf.Empty
 	20, // 33: agent.v1.AgentService.SearchTranscripts:output_type -> agent.v1.SearchTranscriptsResponse
 	22, // 34: agent.v1.AgentService.GetTranscript:output_type -> agent.v1.GetTranscriptResponse

@@ -117,13 +117,8 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if !ok {
 			return m, nil
 		}
-		// Killing a pane while it sits in the stage slot would take the stage down with it.
-		m.stage.Release(item.agent.Pane)
 
-		return m, m.writeCmd(
-			fmt.Sprintf("Could not archive agent %q", item.agent.Name),
-			func(a api) error { return a.archiveAgent(item.agent) },
-		)
+		return m.archiveAgents([]agentstore.Agent{item.agent})
 	}
 
 	return m, nil
@@ -131,9 +126,9 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // updateAgentsSelection is what the agents list still answers while a selection is up, past
 // the selection keys its caller has already taken. Movement and the way out stay live,
-// along with the mark key, which acts on the whole selection. So does the hidden toggle,
-// which changes what is drawn rather than acting on a row and is the one key that can put a
-// chosen agent off screen.
+// along with the mark and archive keys, which act on the whole selection. So does the hidden
+// toggle, which changes what is drawn rather than acting on a row and is the one key that
+// can put a chosen agent off screen.
 func (m model) updateAgentsSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -142,6 +137,8 @@ func (m model) updateAgentsSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.hide()
 	case isBound(k, m.keys.Agents.Mark):
 		return m.markSelection()
+	case isBound(k, m.keys.Agents.Archive):
+		return m.archiveAgents(chosenAgents(m.tree.selected, m.agentRows()))
 	case isBound(k, m.keys.Agents.ShowHidden):
 		return m.toggleHiddenAgents()
 	case isBound(k, m.keys.Nav.Up):
@@ -151,6 +148,27 @@ func (m model) updateAgentsSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// archiveAgents stops agents and moves them to the archive. The panes are taken out of the
+// stage first, since killing one while it sits in the stage slot would take the stage down
+// with it.
+//
+// The selection is left as it is. An agent that went loses its row and comes off the
+// selection on the next listing, and one the service refused is still chosen to try again.
+func (m model) archiveAgents(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
+	if len(agents) == 0 {
+		return m, nil
+	}
+
+	for _, agent := range agents {
+		m.stage.Release(agent.Pane)
+	}
+
+	return m, m.writeCmd(
+		fmt.Sprintf("Could not archive %s", describeAgents(agents)),
+		func(a api) error { return a.archiveAgents(agentIDs(agents)) },
+	)
 }
 
 // moveCursor steps the tree cursor and restages what it lands on, doing nothing at either
@@ -383,14 +401,13 @@ func nextSelectionMark(current []*string, marks []appconfig.Mark) *string {
 }
 
 // selectionMarks are the marks the chosen agents carry, one per agent, a nil standing for
-// an unmarked one. It reads the rows rather than a listing, so it sees what the user is
-// looking at.
+// an unmarked one.
 func selectionMarks(sel selection, rows []agentRow) []*string {
-	marks := make([]*string, 0, sel.count())
-	for _, row := range rows {
-		if !row.header && sel.has(row.item.agent.ID) {
-			marks = append(marks, row.item.agent.Mark)
-		}
+	agents := chosenAgents(sel, rows)
+
+	marks := make([]*string, 0, len(agents))
+	for _, agent := range agents {
+		marks = append(marks, agent.Mark)
 	}
 
 	return marks

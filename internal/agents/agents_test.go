@@ -696,9 +696,9 @@ func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
 			require.NoError(t, err)
 
 			if tt.archive {
-				require.NoError(t, manager.ArchiveAgent(t.Context(), agent.ID))
+				require.NoError(t, manager.ArchiveAgents(t.Context(), []string{agent.ID}))
 			} else {
-				require.NoError(t, manager.DeleteAgent(t.Context(), agent.ID))
+				require.NoError(t, manager.DeleteAgents(t.Context(), []string{agent.ID}))
 			}
 
 			assert.Equal(t, tt.wantCleanup, lifecycle.cleanup)
@@ -730,7 +730,7 @@ func TestDeleteAgentRunsCleanupFromAnArchivedWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, workflows.ArchiveWorkflow(t.Context(), created.ID))
-	require.NoError(t, manager.DeleteAgent(t.Context(), agent.ID))
+	require.NoError(t, manager.DeleteAgents(t.Context(), []string{agent.ID}))
 
 	assert.Equal(t, []string{"drop-worktree"}, lifecycle.cleanup)
 }
@@ -931,7 +931,7 @@ func TestArchiveAgent(t *testing.T) {
 				target = "00000000-0000-0000-0000-000000000000"
 			}
 
-			err := manager.ArchiveAgent(t.Context(), target)
+			err := manager.ArchiveAgents(t.Context(), []string{target})
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
 				return
@@ -996,7 +996,7 @@ func TestDeleteAgent(t *testing.T) {
 				require.NoError(t, st.SoftDelete(ctx, seeded.Name))
 			}
 
-			err := manager.DeleteAgent(ctx, tt.target(seeded))
+			err := manager.DeleteAgents(ctx, []string{tt.target(seeded)})
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
 
@@ -1052,13 +1052,13 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 
 	t.Run("archiving it leaves the pane running", func(t *testing.T) {
 		manager, _, tmux, dormant := setup(t)
-		require.NoError(t, manager.ArchiveAgent(t.Context(), dormant.ID))
+		require.NoError(t, manager.ArchiveAgents(t.Context(), []string{dormant.ID}))
 		assert.Empty(t, tmux.killedPanes, "killing by a stale id would stop the agent using that pane now")
 	})
 
 	t.Run("deleting it leaves the pane running", func(t *testing.T) {
 		manager, _, tmux, dormant := setup(t)
-		require.NoError(t, manager.DeleteAgent(t.Context(), dormant.ID))
+		require.NoError(t, manager.DeleteAgents(t.Context(), []string{dormant.ID}))
 		assert.Empty(t, tmux.killedPanes, "killing by a stale id would stop the agent using that pane now")
 	})
 
@@ -1134,11 +1134,11 @@ func TestRestore(t *testing.T) {
 				}))
 			}
 
-			_, err = manager.RestoreAgent(ctx, original.ID)
+			_, err = manager.RestoreAgents(ctx, []string{original.ID})
 
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
-				assert.ErrorContains(t, err, "rename it", "the refusal says what to do about it")
+				assert.ErrorContains(t, err, "rename whatever holds", "the refusal says what to do about it")
 
 				refused := agentByID(t, st, original.ID)
 				assert.NotNil(t, refused.ArchivedAt, "the agent stays in the archive")
@@ -1180,14 +1180,14 @@ func TestRestoreCeiling(t *testing.T) {
 	seed(t, st, "live-0", "%1", agentstore.StateThinking)
 	liveTwo := seed(t, st, "live-1", "%2", agentstore.StateThinking)
 
-	_, err := manager.RestoreAgent(ctx, archived.ID)
+	_, err := manager.RestoreAgents(ctx, []string{archived.ID})
 
 	require.ErrorIs(t, err, ErrTooManyAgents)
 	still := agentByID(t, st, archived.ID)
 	assert.NotNil(t, still.ArchivedAt, "the refused restore leaves it in the archive")
 
-	require.NoError(t, manager.ArchiveAgent(ctx, liveTwo.ID))
-	_, err = manager.RestoreAgent(ctx, archived.ID)
+	require.NoError(t, manager.ArchiveAgents(ctx, []string{liveTwo.ID}))
+	_, err = manager.RestoreAgents(ctx, []string{archived.ID})
 	require.NoError(t, err, "archiving one makes room again")
 }
 

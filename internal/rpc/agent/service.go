@@ -30,9 +30,9 @@ type agentLauncher interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
 	IsAgentRunning(agent agentstore.Agent) bool
 	GetRunningAgents(ctx context.Context, agents []agentstore.Agent) map[string]bool
-	DeleteAgent(ctx context.Context, id string) error
-	ArchiveAgent(ctx context.Context, id string) error
-	RestoreAgent(ctx context.Context, id string) (*agentstore.Agent, error)
+	DeleteAgents(ctx context.Context, ids []string) error
+	ArchiveAgents(ctx context.Context, ids []string) error
+	RestoreAgents(ctx context.Context, ids []string) ([]agentstore.Agent, error)
 	ResumeAgent(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
@@ -199,49 +199,56 @@ func (s *Service) SetMetadata(ctx context.Context, req *connect.Request[agentv1.
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// DeleteAgent stops an agent and removes it with its config and transcript. The manager
-// owns this rather than the store, since stopping the agent means killing its pane.
-func (s *Service) DeleteAgent(ctx context.Context, req *connect.Request[agentv1.DeleteAgentRequest]) (*connect.Response[emptypb.Empty], error) {
-	err := s.launcher.DeleteAgent(ctx, req.Msg.GetId())
+// DeleteAgents stops agents and removes them with their configs and transcripts. The
+// manager owns this rather than the store, since stopping an agent means killing its pane.
+func (s *Service) DeleteAgents(ctx context.Context, req *connect.Request[agentv1.DeleteAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
+	err := s.launcher.DeleteAgents(ctx, req.Msg.GetIds())
 	switch {
 	case errors.Is(err, agents.ErrAgentNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
+		return nil, connect.NewError(connect.CodeNotFound, err)
 	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete agent: %w", err))
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete agents: %w", err))
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// ArchiveAgent stops an agent and hides it, keeping the record and transcript. It is the
-// reversible half of removing an agent, and DeleteAgent the other.
-func (s *Service) ArchiveAgent(ctx context.Context, req *connect.Request[agentv1.ArchiveAgentRequest]) (*connect.Response[emptypb.Empty], error) {
-	err := s.launcher.ArchiveAgent(ctx, req.Msg.GetId())
+// ArchiveAgents stops agents and hides them, keeping the records and transcripts. It is the
+// reversible half of removing agents, and DeleteAgents the other.
+func (s *Service) ArchiveAgents(ctx context.Context, req *connect.Request[agentv1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
+	err := s.launcher.ArchiveAgents(ctx, req.Msg.GetIds())
 	switch {
 	case errors.Is(err, agents.ErrAgentNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
+		return nil, connect.NewError(connect.CodeNotFound, err)
 	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to archive agent: %w", err))
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to archive agents: %w", err))
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// RestoreAgent takes an agent out of the archive and returns it as stored, dormant.
-func (s *Service) RestoreAgent(ctx context.Context, req *connect.Request[agentv1.RestoreAgentRequest]) (*connect.Response[agentv1.RestoreAgentResponse], error) {
-	restored, err := s.launcher.RestoreAgent(ctx, req.Msg.GetId())
+// RestoreAgents takes agents out of the archive and returns them as stored, dormant.
+func (s *Service) RestoreAgents(ctx context.Context, req *connect.Request[agentv1.RestoreAgentsRequest]) (*connect.Response[agentv1.RestoreAgentsResponse], error) {
+	restored, err := s.launcher.RestoreAgents(ctx, req.Msg.GetIds())
 	switch {
 	case errors.Is(err, agents.ErrAgentNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
+		return nil, connect.NewError(connect.CodeNotFound, err)
 	case errors.Is(err, agents.ErrTooManyAgents):
 		return nil, connect.NewError(connect.CodeResourceExhausted, err)
 	case errors.Is(err, store.ErrNameTaken):
 		return nil, connect.NewError(connect.CodeAlreadyExists, err)
 	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to restore agent: %w", err))
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to restore agents: %w", err))
 	}
 
-	return connect.NewResponse(&agentv1.RestoreAgentResponse{Agent: renderAgent(*restored, s.launcher.IsAgentRunning(*restored)).Agent}), nil
+	running := s.launcher.GetRunningAgents(ctx, restored)
+
+	response := &agentv1.RestoreAgentsResponse{}
+	for _, agent := range restored {
+		response.Agents = append(response.Agents, renderAgent(agent, running[agent.ID]).Agent)
+	}
+
+	return connect.NewResponse(response), nil
 }
 
 // ResumeAgent relaunches an agent's CLI on its conversation and returns it as stored.

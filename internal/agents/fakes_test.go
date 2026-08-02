@@ -312,7 +312,7 @@ func (s *testStore) SoftDelete(ctx context.Context, name string) error {
 		return fmt.Errorf("no live agent called %q", name)
 	}
 
-	return s.Agents.Archive(ctx, agent.ID)
+	return s.Agents.Archive(ctx, []string{agent.ID})
 }
 
 func (s *testStore) GetWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error) {

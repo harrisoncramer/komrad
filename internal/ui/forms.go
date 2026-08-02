@@ -39,7 +39,7 @@ type formTarget struct {
 	archiveWorkflow  *workflowstore.Workflow
 	editSchedule     *schedulestore.Schedule
 	archiveSchedule  *schedulestore.Schedule
-	deleteAgent      *agentstore.Agent
+	deleteAgents     []agentstore.Agent
 }
 
 type agentFormValues struct {
@@ -193,15 +193,17 @@ func (s screen) isForm() bool {
 	}
 }
 
-// deleteAgentForm confirms destroying an agent, naming what goes with it since the
+// deleteAgentsForm confirms destroying agents, naming what goes with them since the
 // reversible delete on the agents list uses the same key and this one cannot be undone.
-func deleteAgentForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool) {
-	return confirmForm(
-		fmt.Sprintf("Permanently delete agent %q?", name),
-		"Its transcript goes with it and search will not find the conversation again.",
-		"Delete",
-		keys,
-	)
+func deleteAgentsForm(agents []agentstore.Agent, keys appconfig.FormKeys) (*huh.Form, *bool) {
+	title := fmt.Sprintf("Permanently delete %d agents?", len(agents))
+	warning := "Their transcripts go with them and search will not find the conversations again."
+	if len(agents) == 1 {
+		title = fmt.Sprintf("Permanently delete agent %q?", agents[0].Name)
+		warning = "Its transcript goes with it and search will not find the conversation again."
+	}
+
+	return confirmForm(title, warning, "Delete", keys)
 }
 
 // workflowForm asks for a name alone, which is what a rename is. It binds the same config

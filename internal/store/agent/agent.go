@@ -246,6 +246,39 @@ func (s *Store) GetByID(ctx context.Context, id string) (*Agent, error) {
 	return &agent, nil
 }
 
+// ListByID returns the agents holding the given ids, newest first, skipping any id no
+// agent holds. It spans the archived agents for the reason GetByID does, and is what a
+// call keyed on a list of ids reads before it writes.
+func (s *Store) ListByID(ctx context.Context, ids []string) ([]Agent, error) {
+	storable := keepStorableIDs(ids)
+	if len(storable) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.GetAgentsByID(ctx, storable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get %d agents: %w", len(storable), err)
+	}
+
+	agents := make([]Agent, 0, len(rows))
+	found := make([]string, 0, len(rows))
+	for _, row := range rows {
+		agents = append(agents, agentFromRow(*row))
+		found = append(found, row.ID)
+	}
+
+	metadata, err := s.metadataByAgent(ctx, found)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range agents {
+		agents[i].Metadata = metadata[agents[i].ID]
+	}
+
+	return agents, nil
+}
+
 // Exists reports whether any agent holds the given id, including archived ones.
 func (s *Store) Exists(ctx context.Context, id string) (bool, error) {
 	if !store.IsID(id) {
@@ -505,12 +538,17 @@ func (s *Store) CountLiveForSchedule(ctx context.Context, scheduleID string) (in
 	return count, nil
 }
 
-// Delete removes an agent, keyed by id so it reaches the archived rows too. The
-// transcript keyed to the same id is the transcript package's to remove, in the same
+// Delete removes agents, keyed by id so it reaches the archived rows too. The
+// transcripts keyed to the same ids are the transcript package's to remove, in the same
 // transaction.
-func (s *Store) Delete(ctx context.Context, id string) error {
-	if err := s.queries.DeleteAgentByID(ctx, id); err != nil {
-		return fmt.Errorf("failed to delete agent %q: %w", id, err)
+func (s *Store) Delete(ctx context.Context, ids []string) error {
+	storable := keepStorableIDs(ids)
+	if len(storable) == 0 {
+		return nil
+	}
+
+	if err := s.queries.DeleteAgentsByID(ctx, storable); err != nil {
+		return fmt.Errorf("failed to delete %d agents: %w", len(storable), err)
 	}
 
 	return nil
@@ -534,30 +572,32 @@ func (s *Store) Rename(ctx context.Context, id, name string) (bool, error) {
 	return len(renamed) > 0, nil
 }
 
-// Archive hides an agent from listings without dropping the row, keyed by id. The pane
-// goes with it, since the reconciler that would clear a stale id skips archived rows.
-func (s *Store) Archive(ctx context.Context, id string) error {
-	if !store.IsID(id) {
+// Archive hides agents from listings without dropping their rows, keyed by id. The panes
+// go with them, since the reconciler that would clear a stale id skips archived rows.
+func (s *Store) Archive(ctx context.Context, ids []string) error {
+	storable := keepStorableIDs(ids)
+	if len(storable) == 0 {
 		return nil
 	}
 
-	if err := s.queries.MarkAgentArchived(ctx, id); err != nil {
-		return fmt.Errorf("failed to archive agent %q: %w", id, err)
+	if err := s.queries.MarkAgentsArchived(ctx, storable); err != nil {
+		return fmt.Errorf("failed to archive %d agents: %w", len(storable), err)
 	}
 
 	return nil
 }
 
-// Restore clears an agent's archive time, keyed by id because an archived row can share a
-// name with a live agent. The hidden flag goes with it, since an agent that came back
+// Restore clears the archive time of agents, keyed by id because an archived row can share
+// a name with a live agent. The hidden flag goes with it, since an agent that came back
 // still hidden reads as a restore that did nothing.
-func (s *Store) Restore(ctx context.Context, id string) error {
-	if !store.IsID(id) {
+func (s *Store) Restore(ctx context.Context, ids []string) error {
+	storable := keepStorableIDs(ids)
+	if len(storable) == 0 {
 		return nil
 	}
 
-	if err := s.queries.RestoreAgent(ctx, id); err != nil {
-		return fmt.Errorf("failed to restore agent %q: %w", id, err)
+	if err := s.queries.RestoreAgents(ctx, storable); err != nil {
+		return fmt.Errorf("failed to restore %d agents: %w", len(storable), err)
 	}
 
 	return nil

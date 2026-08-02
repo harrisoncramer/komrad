@@ -712,7 +712,7 @@ func TestDeleteTakesMetadata(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, changed)
 
-	require.NoError(t, st.Delete(ctx, created.ID))
+	require.NoError(t, st.Delete(ctx, []string{created.ID}))
 
 	orphaned, err := models.New(st.db).ListAgentMetadata(ctx, []string{created.ID})
 	require.NoError(t, err)
@@ -892,7 +892,7 @@ func TestActiveNameExists(t *testing.T) {
 				archived, err := st.GetInWorkflow(ctx, workflowID, "agent")
 				require.NoError(t, err)
 				require.NotNil(t, archived)
-				require.NoError(t, st.Archive(ctx, archived.ID))
+				require.NoError(t, st.Archive(ctx, []string{archived.ID}))
 			}
 
 			exists, err := st.ActiveNameExists(ctx, st.defaultWorkflow, "agent")
@@ -952,9 +952,9 @@ func TestRestore(t *testing.T) {
 				require.NoError(t, err)
 				require.True(t, changed)
 			}
-			require.NoError(t, st.Archive(ctx, original.ID))
+			require.NoError(t, st.Archive(ctx, []string{original.ID}))
 
-			require.NoError(t, st.Restore(ctx, original.ID))
+			require.NoError(t, st.Restore(ctx, []string{original.ID}))
 			restored := *original
 			restored.State = StateIdle
 			restored.Pane = "%9"
@@ -1011,7 +1011,7 @@ func TestDelete(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, created)
 
-				require.NoError(t, st.Delete(ctx, created.ID))
+				require.NoError(t, st.Delete(ctx, []string{created.ID}))
 			} else {
 				require.NoError(t, st.archiveByName(ctx, "alpha"))
 			}
@@ -1089,7 +1089,7 @@ func TestDeleteByIDPicksTheArchivedRow(t *testing.T) {
 	require.NoError(t, st.archiveByName(ctx, "shared"))
 	require.NoError(t, st.Create(ctx, Agent{Name: "shared", Pane: "%2", State: StateIdle}))
 
-	require.NoError(t, st.Delete(ctx, first.ID))
+	require.NoError(t, st.Delete(ctx, []string{first.ID}))
 
 	all, err := st.ListAll(ctx)
 	require.NoError(t, err)
@@ -1444,7 +1444,7 @@ func TestCountLive(t *testing.T) {
 					require.True(t, hidden)
 				}
 				if tt.archive {
-					require.NoError(t, st.Archive(ctx, written.ID))
+					require.NoError(t, st.Archive(ctx, []string{written.ID}))
 				}
 			}
 
@@ -1496,7 +1496,7 @@ func (f *fixture) archiveByName(ctx context.Context, name string) error {
 		return fmt.Errorf("no live agent called %q", name)
 	}
 
-	return f.Archive(ctx, agent.ID)
+	return f.Archive(ctx, []string{agent.ID})
 }
 
 // Create fills in the default workflow when the test did not name one.
@@ -1548,4 +1548,180 @@ func seedSchedule(t *testing.T, st *fixture) string {
 	require.NoError(t, err)
 
 	return created.ID
+}
+
+// TestListByID covers the read a batch does before it writes. It is the one lookup that
+// has to say which of the ids it was given found nothing, so what it leaves out matters as
+// much as what it returns.
+func TestListByID(t *testing.T) {
+	tests := []struct {
+		name string
+		// create is the agents seeded, by name, before the lookup.
+		create []string
+		// ids picks what to look up out of the seeded agents and whatever strays the case
+		// adds of its own.
+		ids       func(seeded map[string]string) []string
+		wantNames []string
+	}{
+		{
+			name: "no ids at all",
+			ids:  func(map[string]string) []string { return nil },
+		},
+		{
+			name:   "an id nobody holds comes back missing rather than as an error",
+			create: []string{"auth"},
+			ids:    func(map[string]string) []string { return []string{uuid.NewString()} },
+		},
+		{
+			name:   "a value that is not an id, which Postgres would refuse the array over",
+			create: []string{"auth"},
+			ids: func(seeded map[string]string) []string {
+				return []string{"not-an-id", seeded["auth"]}
+			},
+			wantNames: []string{"auth"},
+		},
+		{
+			name:   "the agents that were found, whatever else was asked for",
+			create: []string{"auth", "api", "db"},
+			ids: func(seeded map[string]string) []string {
+				return []string{seeded["auth"], uuid.NewString(), seeded["db"]}
+			},
+			wantNames: []string{"auth", "db"},
+		},
+		{
+			name:   "an archived agent, since an id is the handle one of those still answers to",
+			create: []string{"auth"},
+			ids: func(seeded map[string]string) []string {
+				return []string{seeded["auth"]}
+			},
+			wantNames: []string{"auth"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			seeded := make(map[string]string, len(tt.create))
+			for _, name := range tt.create {
+				require.NoError(t, st.Create(ctx, Agent{Name: name, State: StateIdle}))
+
+				created, err := st.Get(ctx, name)
+				require.NoError(t, err)
+				require.NotNil(t, created)
+				seeded[name] = created.ID
+			}
+
+			got, err := st.ListByID(ctx, tt.ids(seeded))
+			require.NoError(t, err)
+
+			names := make([]string, 0, len(got))
+			for _, agent := range got {
+				names = append(names, agent.Name)
+			}
+
+			assert.ElementsMatch(t, tt.wantNames, names)
+		})
+	}
+}
+
+// TestListByIDCarriesMetadata pins the metadata coming back with a batch read, the way it
+// does for one agent and for a page. A restore hands its agents straight to the caller, so
+// what this leaves off is what the panel draws.
+func TestListByIDCarriesMetadata(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "auth", State: StateIdle}))
+	require.NoError(t, st.Create(ctx, Agent{Name: "api", State: StateIdle}))
+
+	auth, err := st.Get(ctx, "auth")
+	require.NoError(t, err)
+	require.NotNil(t, auth)
+	api, err := st.Get(ctx, "api")
+	require.NoError(t, err)
+	require.NotNil(t, api)
+
+	written, err := st.SetMetadata(ctx, SetMetadataParams{ID: auth.ID, Key: "pr", Value: xptr.Ptr("https://example.test/1")})
+	require.NoError(t, err)
+	require.True(t, written)
+
+	got, err := st.ListByID(ctx, []string{auth.ID, api.ID})
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+
+	byID := make(map[string][]Metadata, len(got))
+	for _, agent := range got {
+		byID[agent.ID] = agent.Metadata
+	}
+
+	assert.Equal(t, []Metadata{{Key: "pr", Value: "https://example.test/1"}}, byID[auth.ID])
+	assert.Empty(t, byID[api.ID], "an agent that recorded nothing carries nothing")
+}
+
+// TestArchiveAndRestoreInBatches covers the two writes a selection drives. Both are keyed
+// on a list of ids, so what they must not do is act on a row nobody named.
+func TestArchiveAndRestoreInBatches(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	other, err := st.workflows.Create(ctx, workflowstore.Config{Name: "frontend"})
+	require.NoError(t, err)
+
+	names := map[string]string{"auth": st.defaultWorkflow, "api": st.defaultWorkflow, "ui": other.ID}
+	ids := make(map[string]string, len(names))
+	for name, workflowID := range names {
+		require.NoError(t, st.Create(ctx, Agent{Name: name, Pane: "%1", State: StateIdle, WorkflowID: workflowID}))
+
+		created, err := st.GetInWorkflow(ctx, workflowID, name)
+		require.NoError(t, err)
+		require.NotNil(t, created)
+		ids[name] = created.ID
+	}
+
+	require.NoError(t, st.Archive(ctx, []string{ids["auth"], ids["ui"]}))
+
+	live, err := st.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, live, 1, "the agent nobody named is untouched")
+	assert.Equal(t, "api", live[0].Name)
+
+	for _, name := range []string{"auth", "ui"} {
+		archived, err := st.GetByID(ctx, ids[name])
+		require.NoError(t, err)
+		require.NotNil(t, archived)
+		assert.NotNil(t, archived.ArchivedAt, "%s is archived", name)
+		assert.Empty(t, archived.Pane, "and claims no pane")
+	}
+
+	require.NoError(t, st.Restore(ctx, []string{ids["auth"], ids["ui"]}))
+
+	live, err = st.List(ctx)
+	require.NoError(t, err)
+	assert.Len(t, live, 3, "the batch came back whole, across both workflows")
+}
+
+// TestDeleteInBatches covers the hard delete over a list, which is what emptying a
+// selection out of the archive does.
+func TestDeleteInBatches(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	ids := make([]string, 0, 3)
+	for _, name := range []string{"auth", "api", "db"} {
+		require.NoError(t, st.Create(ctx, Agent{Name: name, State: StateIdle}))
+
+		created, err := st.Get(ctx, name)
+		require.NoError(t, err)
+		require.NotNil(t, created)
+		ids = append(ids, created.ID)
+	}
+
+	require.NoError(t, st.Delete(ctx, []string{ids[0], "not-an-id", ids[2]}))
+
+	all, err := st.ListAll(ctx)
+	require.NoError(t, err)
+	require.Len(t, all, 1, "the id that could hold no row took nothing with it")
+	assert.Equal(t, "api", all[0].Name)
 }

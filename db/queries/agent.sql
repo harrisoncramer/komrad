@@ -48,6 +48,16 @@ WHERE
     s.id = @id
 LIMIT 1;
 
+-- name: GetAgentsByID :many
+SELECT
+    *
+FROM
+    agents s
+WHERE
+    s.id = ANY (@ids::uuid[])
+ORDER BY
+    s.id DESC;
+
 -- name: ActiveNameExists :one
 SELECT
     EXISTS (
@@ -268,13 +278,13 @@ ORDER BY
     agent_id,
     KEY;
 
--- name: DeleteAgentByID :exec
+-- name: DeleteAgentsByID :exec
 DELETE FROM agents
-WHERE id = @id;
+WHERE id = ANY (@ids::uuid[]);
 
--- name: DeleteAgentTranscript :exec
+-- name: DeleteAgentTranscripts :exec
 DELETE FROM agent_transcripts
-WHERE agent_id = @agent_id;
+WHERE agent_id = ANY (@agent_ids::uuid[]);
 
 -- RenameAgent returns the row it touched so the caller can tell an id that
 -- matches nothing from a rename to the name the agent already had.
@@ -288,24 +298,24 @@ WHERE
 RETURNING
     id;
 
--- name: MarkAgentArchived :exec
+-- name: MarkAgentsArchived :exec
 UPDATE
     agents
 SET
     archived_at = NOW(),
     pane_id = ''
 WHERE
-    id = @id
+    id = ANY (@ids::uuid[])
     AND archived_at IS NULL;
 
--- name: RestoreAgent :exec
+-- name: RestoreAgents :exec
 UPDATE
     agents
 SET
     is_hidden = FALSE,
     archived_at = NULL
 WHERE
-    id = @id;
+    id = ANY (@ids::uuid[]);
 
 -- name: GetTranscript :one
 SELECT
@@ -337,6 +347,10 @@ ON CONFLICT (
 -- name: DeleteAgentTranscriptChunks :exec
 DELETE FROM agent_transcript_chunks
 WHERE agent_id = @agent_id;
+
+-- name: DeleteAgentsTranscriptChunks :exec
+DELETE FROM agent_transcript_chunks
+WHERE agent_id = ANY (@agent_ids::uuid[]);
 
 -- NextTranscriptChunkSeq is the position the next appended turn takes, which is
 -- one past the highest already stored, or zero for an agent with no turns yet.
