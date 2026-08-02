@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"weave/internal/appconfig"
 	"weave/internal/logging"
 	agentstore "weave/internal/store/agent"
 )
@@ -23,7 +24,7 @@ type harnessRelocator interface {
 // a restore that gave up there would strand the one conversation the panel still
 // lists, so this always returns somewhere an agent can be started.
 func (s *AgentService) getResumeDir(ctx context.Context, agent agentstore.Agent, h harnessRelocator) string {
-	dir := expandHome(agent.Cwd)
+	dir := appconfig.ExpandHome(agent.Cwd)
 	if dir == "" {
 		dir, _ = os.UserHomeDir()
 	}

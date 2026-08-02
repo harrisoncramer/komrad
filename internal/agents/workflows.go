@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"weave/internal/appconfig"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	"weave/internal/store/workflow"
@@ -84,7 +85,7 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflow.Config) 
 		cfg.Name = "workflow"
 	}
 
-	cfg.Cwd = expandHome(strings.TrimSpace(cfg.Cwd))
+	cfg.Cwd = appconfig.ExpandHome(strings.TrimSpace(cfg.Cwd))
 	cfg.Flags = strings.TrimSpace(cfg.Flags)
 	cfg.SetupAction = strings.TrimSpace(cfg.SetupAction)
 	cfg.CleanupAction = strings.TrimSpace(cfg.CleanupAction)
@@ -113,7 +114,7 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 		cfg.Name = existing.Name
 	}
 
-	cfg.Cwd = expandHome(strings.TrimSpace(cfg.Cwd))
+	cfg.Cwd = appconfig.ExpandHome(strings.TrimSpace(cfg.Cwd))
 	cfg.Flags = strings.TrimSpace(cfg.Flags)
 	cfg.SetupAction = strings.TrimSpace(cfg.SetupAction)
 	cfg.CleanupAction = strings.TrimSpace(cfg.CleanupAction)
