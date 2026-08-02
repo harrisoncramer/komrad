@@ -791,6 +791,14 @@ func Load(path string) (*Config, error) {
 				return nil, fmt.Errorf("failed to read config %s: it is a symlink to %s, which does not exist", file, target)
 			}
 
+			// A file the caller named has to be there. Not having written one is the
+			// ordinary install, but a path someone typed is a config they believe they
+			// have, and coming up on the defaults instead looks exactly like a file
+			// that was read and then ignored.
+			if path != "" {
+				return nil, fmt.Errorf("failed to read config %s: there is no file there", file)
+			}
+
 			return Defaults(), nil
 		}
 

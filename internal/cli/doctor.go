@@ -81,6 +81,11 @@ func (a *app) buildDoctor() (doctor.Env, []doctor.Check, error) {
 
 	env := doctor.NewEnv(settings)
 
+	// The path as it was given rather than the one it resolves to, since the loader tells
+	// a config nobody wrote apart from one somebody named and is not there, and only the
+	// unresolved path still says which of the two this is.
+	env.LoadConfig = func() (*appconfig.Config, error) { return appconfig.Load(a.configPath) }
+
 	// The same probe the panel uses to decide whether to reuse a server or replace it, so
 	// the two cannot disagree about who holds the address.
 	env.ProbeServer = func(_ context.Context, addr string) doctor.ServerStatus {

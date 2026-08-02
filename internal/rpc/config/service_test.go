@@ -23,7 +23,8 @@ func TestGetConfig(t *testing.T) {
 	tests := []struct {
 		name string
 		// file is written to the config path before the call. An empty one writes
-		// nothing, so the loader gets a path that is not there.
+		// nothing and names no path, which is how the server runs on a machine that
+		// never wrote a config.
 		file  string
 		check func(t *testing.T, resp *configv1.GetConfigResponse)
 	}{
@@ -71,9 +72,12 @@ func TestGetConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "config.toml")
+			var path string
 			if tt.file != "" {
+				path = filepath.Join(t.TempDir(), "config.toml")
 				require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o600))
+			} else {
+				t.Setenv("HOME", t.TempDir())
 			}
 
 			svc := NewService(func() (*appconfig.Config, error) { return appconfig.Load(path) })
