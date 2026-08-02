@@ -519,7 +519,7 @@ func (m model) agentsView() string {
 			state = agentstore.StateIdle // nothing runs in a pane that is gone
 		}
 
-		name := m.filter.highlight(item.agent.Name, nameStyle(hovered, !item.alive))
+		name := m.filter.highlight(clipName(item.agent.Name), nameStyle(hovered, !item.alive))
 		icon := lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
 		rows = append(rows, prefix+"  "+icon+" "+name+scheduledMark(item.agent)+hiddenMark(item.agent.Hidden)+markGlyph(item.agent, m.marks))
 	}

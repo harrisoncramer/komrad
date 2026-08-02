@@ -350,7 +350,7 @@ func (m model) searchView() string {
 		labelled := ""
 		for i, hit := range m.search.hits {
 			if hit.name != labelled {
-				name := hit.name
+				name := clipName(hit.name)
 				if hit.archived {
 					name += dimStyle.Render(" (archived)")
 				}
