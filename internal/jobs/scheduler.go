@@ -145,13 +145,24 @@ func periodicJobFor(scheduleID string, cron river.PeriodicSchedule) *river.Perio
 	return river.NewPeriodicJob(
 		cron,
 		func() (river.JobArgs, *river.InsertOpts) {
-			return LaunchAgentArgs{
-				ScheduleID:   scheduleID,
-				ScheduledFor: occurrenceFor(cron, time.Now()),
-			}, nil
+			return launchArgsFor(scheduleID, cron, time.Now())
 		},
 		&river.PeriodicJobOpts{ID: scheduleID},
 	)
+}
+
+// launchArgsFor builds the arguments for one firing. Nil arguments tell River there is
+// nothing to insert, which is the answer for a schedule with no occurrence to name. Filing
+// the job under the zero time instead would stand for a firing that never happened, and
+// since the occurrence is what the unique index is built from, every later one would
+// collapse into it.
+func launchArgsFor(scheduleID string, cron river.PeriodicSchedule, now time.Time) (river.JobArgs, *river.InsertOpts) {
+	occurrence := occurrenceFor(cron, now)
+	if occurrence.IsZero() {
+		return nil, nil
+	}
+
+	return LaunchAgentArgs{ScheduleID: scheduleID, ScheduledFor: occurrence}, nil
 }
 
 // lateness is how long after a firing was due the job standing for it may still be built.
@@ -172,13 +183,21 @@ const skew = 5 * time.Second
 //
 // It walks forward rather than back because a cron schedule can only say what comes next,
 // starting far enough behind that no plausible lateness precedes it.
+//
+// A schedule with nothing left to fire on reports the zero time, which is never after the
+// cutoff. Both ends of the walk stop on it and hand it back, since there is no occurrence
+// to name.
 func occurrenceFor(cron river.PeriodicSchedule, now time.Time) time.Time {
 	cutoff := now.Add(skew)
 
 	occurrence := cron.Next(now.Add(-lateness))
+	if occurrence.IsZero() {
+		return occurrence
+	}
+
 	for {
 		next := cron.Next(occurrence)
-		if next.After(cutoff) {
+		if next.IsZero() || next.After(cutoff) {
 			return occurrence
 		}
 
