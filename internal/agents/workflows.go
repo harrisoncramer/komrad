@@ -192,7 +192,7 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 		if err != nil {
 			return err
 		}
-		if err := requireRoomForAgents(ctx, agents, w.maxAgents, len(archived)); err != nil {
+		if err := claimRoomForAgents(ctx, agents, w.maxAgents, len(archived)); err != nil {
 			return err
 		}
 		if err := requireNamesFree(ctx, agents, archived); err != nil {

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"weave/internal/logging"
 	"weave/internal/version"
 )
 
@@ -89,6 +91,8 @@ func ensureServer(params ensureServerParams) error {
 	// cleanly does not sit as a zombie for the life of this process.
 	exited := make(chan struct{})
 	go func() {
+		defer logging.LogAndRepanic(context.Background())
+
 		_ = cmd.Wait() //nolint:errcheck // a non-zero exit is the signal itself, and the reason comes from the log tail
 		close(exited)
 	}()

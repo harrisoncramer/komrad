@@ -35,4 +35,14 @@ func TestLoadCacheDir(t *testing.T) {
 		assert.Equal(t, "/var/tmp/weave-elsewhere", cfg.CacheDir)
 		assert.Equal(t, "/var/tmp/weave-elsewhere/weave.log", cfg.LogPath())
 	})
+
+	t.Run("a cache directory that cannot be resolved is refused", func(t *testing.T) {
+		t.Setenv("WEAVE_CACHE_DIR", "")
+		t.Setenv("XDG_CACHE_HOME", "")
+		t.Setenv("HOME", "")
+
+		_, err := Load()
+		require.Error(t, err, "a service started without a home has nowhere to cache, and the working directory is not an answer")
+		assert.Contains(t, err.Error(), "WEAVE_CACHE_DIR", "the refusal names what to set")
+	})
 }

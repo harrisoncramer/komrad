@@ -153,8 +153,9 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Workflows: workflowStore,
 	})
 	// The actions weave ships are written out on every start, so the panel's own keys run
-	// this build's scripts rather than an older one's.
-	builtinActionsDir := filepath.Join(p.Env.CacheDir, "actions")
+	// this build's scripts rather than an older one's. The directory is named for what puts
+	// it there, since installing empties it and the cache directory can be pointed anywhere.
+	builtinActionsDir := filepath.Join(p.Env.CacheDir, "weave-builtin-actions")
 	if err := actions.InstallBuiltins(builtinActionsDir); err != nil {
 		srv.Close()
 
@@ -203,19 +204,22 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		return nil, err
 	}
 
-	options := connect.WithInterceptors(interceptors.NewLogging(p.Logger), validation)
+	options := []connect.HandlerOption{
+		connect.WithInterceptors(interceptors.NewLogging(p.Logger), validation),
+		interceptors.NewRecovery(),
+	}
 
 	srv.Mux = http.NewServeMux()
 	srv.handle(agentv1connect.NewAgentServiceHandler(
-		rpcagent.NewService(agentStore, transcriptStore, agentService), options))
+		rpcagent.NewService(agentStore, transcriptStore, agentService), options...))
 	srv.handle(workflowv1connect.NewWorkflowServiceHandler(
-		rpcworkflow.NewService(workflowStore, workflowService), options))
+		rpcworkflow.NewService(workflowStore, workflowService), options...))
 	srv.handle(schedulev1connect.NewScheduleServiceHandler(
-		rpcschedule.NewService(scheduleStore, scheduleService), options))
+		rpcschedule.NewService(scheduleStore, scheduleService), options...))
 	srv.handle(configv1connect.NewConfigServiceHandler(
-		rpcconfig.NewService(loadConfig), options))
+		rpcconfig.NewService(loadConfig), options...))
 	srv.handle(actionv1connect.NewActionServiceHandler(
-		rpcaction.NewService(actionService), options))
+		rpcaction.NewService(actionService), options...))
 
 	// The MCP endpoint reads through its own read-only handle, opened as a least-privilege
 	// role, since what a statement may read is decided by the role and not by the flag.

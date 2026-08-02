@@ -51,10 +51,20 @@ message GetScheduleResponse {
 }
 
 message CreateScheduleRequest {
-  string name = 1 [(buf.validate.field).string = {
-    min_len: 1
-    max_len: 200
-  }];
+  // Control characters are refused rather than sanitised. A firing launches an agent
+  // under this name and the name becomes the tmux window name, so accepting one here
+  // would fail every occurrence of the schedule.
+  string name = 1 [
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 200
+    },
+    (buf.validate.field).cel = {
+      id: "name.printable"
+      message: "name must not contain control characters"
+      expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
+    }
+  ];
   string cron = 2 [(buf.validate.field).string = {
     min_len: 1
     [rules.v1.cron_expression]: true
@@ -75,10 +85,17 @@ message CreateScheduleResponse {
 
 message UpdateScheduleRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
-  string name = 2 [(buf.validate.field).string = {
-    min_len: 1
-    max_len: 200
-  }];
+  string name = 2 [
+    (buf.validate.field).string = {
+      min_len: 1
+      max_len: 200
+    },
+    (buf.validate.field).cel = {
+      id: "name.printable"
+      message: "name must not contain control characters"
+      expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
+    }
+  ];
   string cron = 3 [(buf.validate.field).string = {
     min_len: 1
     [rules.v1.cron_expression]: true

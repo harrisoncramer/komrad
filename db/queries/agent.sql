@@ -88,6 +88,14 @@ FROM
 WHERE
     archived_at IS NULL;
 
+-- LockAgentSlots serializes the callers claiming room under the agent ceiling.
+-- Counting the live agents and inserting under that count are separate statements, so
+-- without this every caller reads the same count and all of them decide there is room.
+-- The lock is held to the end of the transaction, so the count and insert share one.
+-- name: LockAgentSlots :exec
+SELECT
+    PG_ADVISORY_XACT_LOCK(@key::bigint);
+
 -- name: InsertAgent :one
 INSERT INTO agents(
     id,

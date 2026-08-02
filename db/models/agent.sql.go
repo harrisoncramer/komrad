@@ -690,6 +690,20 @@ func (q *Queries) ListArchivedWorkflowAgents(ctx context.Context, workflowID str
 	return items, nil
 }
 
+const lockAgentSlots = `-- name: LockAgentSlots :exec
+SELECT
+    PG_ADVISORY_XACT_LOCK($1::bigint)
+`
+
+// LockAgentSlots serializes the callers claiming room under the agent ceiling.
+// Counting the live agents and inserting under that count are separate statements, so
+// without this every caller reads the same count and all of them decide there is room.
+// The lock is held to the end of the transaction, so the count and insert share one.
+func (q *Queries) LockAgentSlots(ctx context.Context, key int64) error {
+	_, err := q.db.Exec(ctx, lockAgentSlots, key)
+	return err
+}
+
 const markAgentsArchived = `-- name: MarkAgentsArchived :exec
 UPDATE
     agents

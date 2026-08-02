@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"sync"
 	"testing"
 
 	"weave/internal/harness"
@@ -22,7 +23,12 @@ import (
 // and captures maps. Writes are appended to the recording slices so a test can
 // assert what the manager sent. It satisfies every tmux role this package
 // declares, from paneOwnerGetter up to the composed paneController.
+//
+// Every method touching its state takes the mutex, since the real client is a process
+// boundary several creates reach at once, and a test driving them concurrently would
+// otherwise be racing these maps rather than the code under test.
 type fakeTmux struct {
+	mu sync.Mutex
 	// owners maps a live pane to the agent stamped on it, which is how the real
 	// client answers whether a pane is still a given agent's. A pane present here
 	// exists; one absent is either gone or was never opened.
@@ -62,14 +68,50 @@ func newFakeTmux() *fakeTmux {
 	}
 }
 
-func (f *fakeTmux) SetGlobal(name, value string)    { f.globals[name] = value }
-func (f *fakeTmux) ShowGlobal(name string) string   { return f.globals[name] }
-func (f *fakeTmux) GetPaneOwner(pane string) string { return f.owners[pane] }
-func (f *fakeTmux) CapturePane(pane string) string  { return f.captures[pane] }
-func (f *fakeTmux) GetClientPath(string) string     { return f.clientDir }
-func (f *fakeTmux) DetachSession(name string)       { f.detached = append(f.detached, name) }
+func (f *fakeTmux) SetGlobal(name, value string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.globals[name] = value
+}
+
+func (f *fakeTmux) ShowGlobal(name string) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.globals[name]
+}
+
+func (f *fakeTmux) GetPaneOwner(pane string) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.owners[pane]
+}
+
+func (f *fakeTmux) CapturePane(pane string) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.captures[pane]
+}
+
+func (f *fakeTmux) GetClientPath(string) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.clientDir
+}
+
+func (f *fakeTmux) DetachSession(name string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.detached = append(f.detached, name)
+}
 
 func (f *fakeTmux) GetPaneOwners() (map[string]string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	if f.paneOwnersErr != nil {
 		return nil, f.paneOwnersErr
 	}
@@ -78,10 +120,15 @@ func (f *fakeTmux) GetPaneOwners() (map[string]string, error) {
 }
 
 func (f *fakeTmux) SetSessionOption(target, name, value string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.sessionOptions[target+"/"+name] = value
 }
 
 func (f *fakeTmux) SendKeys(target string, keys ...string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	if f.sendKeysErr != nil {
 		return f.sendKeysErr
 	}
@@ -101,6 +148,9 @@ func (f *fakeTmux) SplitRight(anchorPane, dir string) string { return "%stage" }
 // Setting newWindowErr makes it fail, standing in for tmux refusing a name it
 // cannot use.
 func (f *fakeTmux) NewWindow(session, name, dir string) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	if f.newWindowErr != nil {
 		return "", f.newWindowErr
 	}
@@ -115,6 +165,9 @@ func (f *fakeTmux) NewWindow(session, name, dir string) (string, error) {
 // SetPaneOwner stamps a pane with an agent id, which is what makes the pane answer
 // to that agent. Setting setOwnerErr makes it fail.
 func (f *fakeTmux) SetPaneOwner(pane, agentID string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	if f.setOwnerErr != nil {
 		return f.setOwnerErr
 	}
@@ -124,19 +177,30 @@ func (f *fakeTmux) SetPaneOwner(pane, agentID string) error {
 	return nil
 }
 
-func (f *fakeTmux) SwapPanes(src, dst string) { f.swaps = append(f.swaps, [2]string{src, dst}) }
+func (f *fakeTmux) SwapPanes(src, dst string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.swaps = append(f.swaps, [2]string{src, dst})
+}
 
 func (f *fakeTmux) RespawnPane(pane, dir string, argv ...string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.respawns = append(f.respawns, append([]string{pane}, argv...))
 }
 
 func (f *fakeTmux) KillPane(pane string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.killedPanes = append(f.killedPanes, pane)
 	delete(f.owners, pane)
 }
 
 // lastKeys returns the most recent SendKeys payload sent to target.
 func (f *fakeTmux) lastKeys(target string) []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	sends := f.sent[target]
 	if len(sends) == 0 {
 		return nil
@@ -163,7 +227,11 @@ const testHarnessID = "claude"
 // fakeHarness stands in for an agent CLI in the tests that are about the panel's
 // own behaviour rather than any one CLI's. It records what it was asked for, so a
 // test asserts on what the panel composed rather than on how a CLI would spell it.
+//
+// The recording methods take the mutex for the same reason fakeTmux does, since one
+// registry hands the same harness to every create a test runs at once.
 type fakeHarness struct {
+	mu sync.Mutex
 	// launches records every command the harness was asked to build.
 	launches []harness.Launch
 	// relocated records every conversation it was asked to carry, and to where.
@@ -180,6 +248,9 @@ func (f *fakeHarness) GetID() string     { return testHarnessID }
 func (f *fakeHarness) GetBinary() string { return testHarnessID }
 
 func (f *fakeHarness) BuildCommand(launch harness.Launch) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	f.launches = append(f.launches, launch)
 	if f.commandErr != nil {
 		return "", f.commandErr
@@ -204,6 +275,9 @@ func (f *fakeHarness) ReadActivity(frame string) harness.Activity {
 }
 
 func (f *fakeHarness) Relocate(sessionID, dir string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	f.relocated = append(f.relocated, [2]string{sessionID, dir})
 
 	return nil
