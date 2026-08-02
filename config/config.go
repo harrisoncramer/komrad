@@ -34,7 +34,12 @@ func Load() (*Config, error) {
 	}
 
 	if cfg.CacheDir == "" {
-		cfg.CacheDir = defaultCacheDir()
+		dir, err := defaultCacheDir()
+		if err != nil {
+			return nil, err
+		}
+
+		cfg.CacheDir = dir
 	}
 
 	return cfg, nil
@@ -45,12 +50,14 @@ func (c *Config) LogPath() string {
 	return filepath.Join(c.CacheDir, "weave.log")
 }
 
-// defaultCacheDir is where weave keeps what it generates, falling back to the working directory when the user's cache directory cannot be found at all.
-func defaultCacheDir() string {
+// defaultCacheDir is where weave keeps what it generates. A directory that cannot be found
+// is refused rather than stood in for, since the working directory is whatever the caller
+// happened to be in and everything under a cache directory is weave's to delete and rewrite.
+func defaultCacheDir() (string, error) {
 	dir, err := os.UserCacheDir()
 	if err != nil {
-		return "."
+		return "", fmt.Errorf("failed to find a cache directory, set WEAVE_CACHE_DIR to an absolute path weave can write to: %w", err)
 	}
 
-	return filepath.Join(dir, "weave")
+	return filepath.Join(dir, "weave"), nil
 }
