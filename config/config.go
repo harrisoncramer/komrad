@@ -20,6 +20,10 @@ type Config struct {
 	Tmux                string `env:"TMUX"`
 	CacheDir            string `env:"WEAVE_CACHE_DIR"`
 	TmuxPane            string `env:"TMUX_PANE"`
+	// Set in the environment of every pane the panel launches, so a call this binary makes
+	// on an agent's behalf is logged as that agent rather than as nobody.
+	AgentID   string `env:"WEAVE_AGENT_ID"`
+	SessionID string `env:"WEAVE_SESSION_ID"`
 }
 
 // Load reads the panel's configuration from the environment.
