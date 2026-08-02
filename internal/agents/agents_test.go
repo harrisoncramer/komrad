@@ -828,7 +828,7 @@ func TestUniqueAgentName(t *testing.T) {
 			wantName: "My-Agent--v1-0",
 		},
 		{
-			name:     "control characters tmux rejects are replaced",
+			name:     "control characters are replaced",
 			title:    "nightly\treview\x07",
 			wantName: "nightly-review-",
 		},
