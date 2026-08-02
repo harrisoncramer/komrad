@@ -7,8 +7,8 @@ set -euo pipefail
 usage() {
 	echo "Usage: mise run bash:check"
 	echo
-	echo "Finds every shell script under mise/tasks and scripts, plus the tmux entry"
-	echo "point, and runs shellcheck -x over them."
+	echo "Finds every shell script under mise/tasks and internal/actions/builtin, plus"
+	echo "the tmux entry point, and runs shellcheck -x over them."
 }
 
 for arg in "$@"; do
@@ -22,14 +22,23 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
+# Collected before the loop so a failure in shell_scripts is fatal. A process
+# substitution's exit status is not the caller's, so reading it inline would carry on
+# with whatever it managed to print.
+if ! listed="$(shell_scripts)"; then
+	exit 1
+fi
+
 scripts=()
 while IFS= read -r script; do
 	scripts+=("$script")
-done < <(shell_scripts)
+done <<<"$listed"
 
+# Finding nothing means the search is broken, not that the repo has no scripts.
 if ((${#scripts[@]} == 0)); then
-	echo "no shell scripts found"
-	exit 0
+	echo "no shell scripts found, which means this check is not checking anything" >&2
+
+	exit 1
 fi
 
 shellcheck -x "${scripts[@]}"
