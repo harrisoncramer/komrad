@@ -19,6 +19,22 @@ import (
 	"weave/internal/store/workflow"
 )
 
+// ErrAgentNotFound reports that no agent answers to the given name or id.
+var ErrAgentNotFound = errors.New("agent not found")
+
+// ErrWorkflowNotFound reports that an agent named a workflow that does not exist.
+var ErrWorkflowNotFound = errors.New("workflow not found")
+
+// ErrBadDirectory reports a working directory the agent could not be started in.
+var ErrBadDirectory = errors.New("unusable working directory")
+
+// ErrTooManyAgents reports a panel already holding as many agents as it is configured to,
+// as a sentinel so a caller can tell a ceiling from a create that broke and not retry.
+var ErrTooManyAgents = errors.New("too many agents")
+
+// ErrAgentArchived reports a resume aimed at an agent still in the archive.
+var ErrAgentArchived = errors.New("agent is archived")
+
 // expandHome expands a leading ~ or ~/ to the user's home, since tmux's new-session
 // -c does no tilde expansion of its own.
 func expandHome(dir string) string {
@@ -192,22 +208,6 @@ func (s *AgentService) killOwnedPane(agent agentstore.Agent) {
 		s.tmux.KillPane(agent.Pane)
 	}
 }
-
-// ErrAgentNotFound reports that no agent answers to the given name or id.
-var ErrAgentNotFound = errors.New("agent not found")
-
-// ErrWorkflowNotFound reports that an agent named a workflow that does not exist.
-var ErrWorkflowNotFound = errors.New("workflow not found")
-
-// ErrBadDirectory reports a working directory the agent could not be started in.
-var ErrBadDirectory = errors.New("unusable working directory")
-
-// ErrTooManyAgents reports a panel already holding as many agents as it is configured to,
-// as a sentinel so a caller can tell a ceiling from a create that broke and not retry.
-var ErrTooManyAgents = errors.New("too many agents")
-
-// ErrAgentArchived reports a resume aimed at an agent still in the archive.
-var ErrAgentArchived = errors.New("agent is archived")
 
 // DeleteAgent stops an agent and removes it, keyed by id so it reaches the archived
 // agents too. The workflow's cleanup action fires between the pane and the row: after
