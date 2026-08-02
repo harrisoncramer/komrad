@@ -15,7 +15,7 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	cli := it.Client()
 	st := newStore(t)
 	ctx := context.Background()
-	rec := NewReconciler(cli, mustRegistry(t, claude.New(t.TempDir())), st.Agents)
+	rec := NewReconciler(cli, mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})), st.Agents)
 
 	// A busy agent seeded idle. The pane keeps a realistic working line, so the
 	// reconciler must promote it to thinking.

@@ -133,7 +133,7 @@ func TestReadActivity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, New(t.TempDir()).ReadActivity(tt.frame))
+			assert.Equal(t, tt.want, NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).ReadActivity(tt.frame))
 		})
 	}
 }
@@ -160,7 +160,7 @@ func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, harness.ActivityIdle, New(t.TempDir()).ReadActivity(tt.frame),
+			assert.Equal(t, harness.ActivityIdle, NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).ReadActivity(tt.frame),
 				"prose must not read as a live prompt or as work")
 		})
 	}

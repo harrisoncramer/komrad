@@ -137,7 +137,7 @@ func TestTranscriptSyncer(t *testing.T) {
 				Agents:      st.Agents,
 				Sessions:    st.Agents,
 				Transcripts: st.Transcripts,
-				Harnesses:   mustRegistry(t, claude.New(projects)),
+				Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
 			})
 			require.NoError(t, syncer.Sync(ctx))
 
@@ -208,7 +208,7 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 		Agents:      st.Agents,
 		Sessions:    st.Agents,
 		Transcripts: store,
-		Harnesses:   mustRegistry(t, claude.New(projects)),
+		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
 	})
 
 	// The failure is still reported, so serve logs it rather than leaving an agent
@@ -308,7 +308,7 @@ func TestSyncReportsAnUnknownHarness(t *testing.T) {
 		Agents:      st.Agents,
 		Sessions:    st.Agents,
 		Transcripts: st.Transcripts,
-		Harnesses:   mustRegistry(t, claude.New(t.TempDir())),
+		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})),
 	})
 
 	err := syncer.Sync(ctx)
@@ -402,7 +402,7 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 		Agents:      st.Agents,
 		Sessions:    st.Agents,
 		Transcripts: st.Transcripts,
-		Harnesses:   mustRegistry(t, codex.New(codex.Options{SessionsDir: sessions})),
+		Harnesses:   mustRegistry(t, codex.NewHarness(codex.NewHarnessParams{SessionsDir: sessions})),
 	})
 
 	// The first pass adopts and reads in one go, since the rollout is already on disk.

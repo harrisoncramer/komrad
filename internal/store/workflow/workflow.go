@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"time"
 
+	"weave/db"
 	"weave/db/models"
 	"weave/internal/store"
 )
@@ -115,7 +116,7 @@ func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 	}
 
 	row, err := s.queries.GetWorkflow(ctx, id)
-	if store.NoRows(err) {
+	if db.NoRows(err) {
 		return nil, nil
 	}
 	if err != nil {
@@ -236,7 +237,7 @@ func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow,
 	}
 
 	row, err := s.queries.GetWorkflowIncludingArchived(ctx, id)
-	if store.NoRows(err) {
+	if db.NoRows(err) {
 		return nil, nil
 	}
 	if err != nil {

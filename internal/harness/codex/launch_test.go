@@ -80,7 +80,7 @@ func TestBuildCommand(t *testing.T) {
 			launch := tt.launch
 			launch.CacheDir = t.TempDir()
 
-			command, err := New(Options{SessionsDir: t.TempDir()}).BuildCommand(launch)
+			command, err := NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).BuildCommand(launch)
 			require.NoError(t, err)
 
 			for _, want := range tt.wantContain {
@@ -112,7 +112,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := New(Options{SessionsDir: t.TempDir()}).BuildCommand(harness.Launch{
+			command, err := NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).BuildCommand(harness.Launch{
 				CacheDir:    t.TempDir(),
 				SessionID:   "sess",
 				MCPEndpoint: "127.0.0.1:9999",
@@ -151,7 +151,7 @@ func TestBuildCommandQuotesFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := New(Options{SessionsDir: t.TempDir()}).BuildCommand(harness.Launch{Flags: tt.flags, Prompt: "go", CacheDir: t.TempDir()})
+			command, err := NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).BuildCommand(harness.Launch{Flags: tt.flags, Prompt: "go", CacheDir: t.TempDir()})
 			require.NoError(t, err)
 
 			assert.NotContains(t, command, tt.wantAbsent, "an unquoted flag would run in the pane")
@@ -191,7 +191,7 @@ func TestOpeningPrompt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harnessUnderTest := New(Options{SessionsDir: t.TempDir()})
+			harnessUnderTest := NewHarness(NewHarnessParams{SessionsDir: t.TempDir()})
 			assert.Equal(t, tt.want, harnessUnderTest.openingPrompt(tt.launch))
 
 			launch := tt.launch
@@ -271,7 +271,7 @@ func TestTOMLString(t *testing.T) {
 // env_http_headers is for, and it means the override is the same for every agent while the
 // values still differ per agent.
 func TestMCPHeadersNameTheEnvironment(t *testing.T) {
-	command, err := New(Options{}).BuildCommand(harness.Launch{
+	command, err := NewHarness(NewHarnessParams{}).BuildCommand(harness.Launch{
 		CacheDir:    t.TempDir(),
 		AgentID:     "agent-1",
 		SessionID:   "sess-1",
@@ -292,7 +292,7 @@ func TestMCPHeadersNameTheEnvironment(t *testing.T) {
 // nothing to put a header on, so no override is written rather than one pointing at
 // nothing.
 func TestMCPHeadersOnlyWithAnEndpoint(t *testing.T) {
-	command, err := New(Options{}).BuildCommand(harness.Launch{AgentID: "agent-1"})
+	command, err := NewHarness(NewHarnessParams{}).BuildCommand(harness.Launch{AgentID: "agent-1"})
 	require.NoError(t, err)
 
 	assert.NotContains(t, command, "env_http_headers")

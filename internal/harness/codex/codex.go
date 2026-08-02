@@ -52,8 +52,8 @@ type Harness struct {
 	trustLaunchDirs bool
 }
 
-// Options configures the Codex harness. The two paths default to Codex's own locations.
-type Options struct {
+// NewHarnessParams configures the Codex harness. The two paths default to Codex's own locations.
+type NewHarnessParams struct {
 	SessionsDir string
 	ConfigPath  string
 	// TrustLaunchDirs records each agent's directory as trusted before launching it.
@@ -62,8 +62,8 @@ type Options struct {
 	TrustLaunchDirs bool
 }
 
-// New builds a harness from opts.
-func New(opts Options) *Harness {
+// NewHarness builds a harness from opts.
+func NewHarness(opts NewHarnessParams) *Harness {
 	if opts.SessionsDir == "" {
 		opts.SessionsDir = DefaultSessionsDir()
 	}

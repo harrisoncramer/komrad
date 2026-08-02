@@ -58,7 +58,7 @@ func TestBuildCommand(t *testing.T) {
 			launch := tt.launch
 			launch.CacheDir = t.TempDir()
 
-			command, err := New(t.TempDir()).BuildCommand(launch)
+			command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(launch)
 			require.NoError(t, err)
 
 			assert.True(t, strings.HasPrefix(stripMCPConfig(command), tt.wantCommand),
@@ -92,7 +92,7 @@ func TestBuildCommandQuotesFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := New(t.TempDir()).BuildCommand(harness.Launch{Flags: tt.flags, SessionID: "sess", CacheDir: t.TempDir()})
+			command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{Flags: tt.flags, SessionID: "sess", CacheDir: t.TempDir()})
 			require.NoError(t, err)
 
 			assert.NotContains(t, command, tt.wantAbsent, "an unquoted flag would run in the pane")
@@ -133,7 +133,7 @@ func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 			launch := tt.launch
 			launch.CacheDir = t.TempDir()
 
-			command, err := New(t.TempDir()).BuildCommand(launch)
+			command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(launch)
 			require.NoError(t, err)
 
 			for _, want := range tt.wantContain {
@@ -158,7 +158,7 @@ func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 func TestBuildCommandStagesTextUnderTheCacheDir(t *testing.T) {
 	cache := t.TempDir()
 
-	_, err := New(t.TempDir()).BuildCommand(harness.Launch{
+	_, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{
 		SessionID: "sess",
 		Context:   "the briefing",
 		Prompt:    "do the thing",
@@ -193,7 +193,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 			home := t.TempDir()
 			t.Setenv("HOME", home)
 
-			command, err := New(t.TempDir()).BuildCommand(harness.Launch{
+			command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{
 				CacheDir:    t.TempDir(),
 				SessionID:   "sess",
 				MCPEndpoint: "127.0.0.1:9999",
@@ -267,7 +267,7 @@ func TestMCPConfigCarriesTheAgentsIdentity(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	command, err := New(t.TempDir()).BuildCommand(harness.Launch{
+	command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{
 		CacheDir:    t.TempDir(),
 		AgentID:     "agent-1",
 		SessionID:   "sess-1",

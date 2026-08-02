@@ -89,7 +89,7 @@ func TestTrustLaunchDirs(t *testing.T) {
 				require.NoError(t, os.WriteFile(path, []byte(tt.existing), 0o600))
 			}
 
-			harnessUnderTest := New(Options{
+			harnessUnderTest := NewHarness(NewHarnessParams{
 				SessionsDir:     t.TempDir(),
 				ConfigPath:      path,
 				TrustLaunchDirs: tt.enabled,

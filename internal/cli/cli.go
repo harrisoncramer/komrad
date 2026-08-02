@@ -50,10 +50,13 @@ func NewRootCommand() *cobra.Command {
 				cfg = appconfig.Defaults()
 			}
 
-			// Load in the harnesses and verify that we can reach them. Then attach to the app.
+			codexHarness := codex.NewHarness(codex.NewHarnessParams{
+				TrustLaunchDirs: cfg.Harness.Codex.TrustLaunchDirs,
+			})
+			claudeHarness := claude.NewHarness(claude.NewHarnessParams{
+				ProjectsDir: claude.DefaultProjectsDir(), // TBD, let folks give different claude dir?
+			})
 
-			codexHarness := codex.New(codex.Options{TrustLaunchDirs: cfg.Harness.Codex.TrustLaunchDirs})
-			claudeHarness := claude.New("")
 			harnessRegistry, err := harness.NewRegistry(claudeHarness, codexHarness)
 			if err != nil {
 				return fmt.Errorf("failed to create registry: %w", err)

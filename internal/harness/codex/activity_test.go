@@ -168,7 +168,7 @@ func TestReadActivity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, New(Options{SessionsDir: t.TempDir()}).ReadActivity(tt.frame))
+			assert.Equal(t, tt.want, NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).ReadActivity(tt.frame))
 		})
 	}
 }
@@ -195,7 +195,7 @@ func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, harness.ActivityIdle, New(Options{SessionsDir: t.TempDir()}).ReadActivity(tt.frame),
+			assert.Equal(t, harness.ActivityIdle, NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).ReadActivity(tt.frame),
 				"prose must not read as a live prompt or as work")
 		})
 	}
@@ -206,5 +206,5 @@ func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
 func TestReadActivityStripsANSI(t *testing.T) {
 	frame := "\x1b[38;5;39m•\x1b[39m \x1b[1mWorking\x1b[0m \x1b[2m(7s • esc to interrupt)\x1b[0m"
 
-	assert.Equal(t, harness.ActivityWorking, New(Options{SessionsDir: t.TempDir()}).ReadActivity(frame))
+	assert.Equal(t, harness.ActivityWorking, NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).ReadActivity(frame))
 }

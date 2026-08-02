@@ -11,7 +11,7 @@ import (
 // session id on the command line, so the panel cannot name a conversation before it
 // exists and has to adopt the one Codex chose.
 func TestMintSessionID(t *testing.T) {
-	assert.Empty(t, New(Options{SessionsDir: t.TempDir()}).MintSessionID())
+	assert.Empty(t, NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).MintSessionID())
 }
 
 // TestFindSession covers adopting that conversation. A rollout is an agent's when it
@@ -107,7 +107,7 @@ func TestFindSession(t *testing.T) {
 				writeRollout(t, sessions, "2026-07-30T"+r.stamp, r.id, body)
 			}
 
-			found, err := New(Options{SessionsDir: sessions}).FindSession(tt.agentID)
+			found, err := NewHarness(NewHarnessParams{SessionsDir: sessions}).FindSession(tt.agentID)
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, found)
 		})
@@ -118,5 +118,5 @@ func TestFindSession(t *testing.T) {
 // anywhere, so an agent brought back in a stand-in directory keeps its conversation
 // without the panel carrying anything across.
 func TestRelocate(t *testing.T) {
-	assert.NoError(t, New(Options{SessionsDir: t.TempDir()}).Relocate("sess-1", "/somewhere/else"))
+	assert.NoError(t, NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).Relocate("sess-1", "/somewhere/else"))
 }

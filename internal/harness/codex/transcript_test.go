@@ -189,7 +189,7 @@ func TestReadLog(t *testing.T) {
 				require.NoError(t, os.WriteFile(path, []byte(tt.body), 0o600))
 			}
 
-			read, err := New(Options{SessionsDir: t.TempDir()}).ReadLog(path, tt.offset)
+			read, err := NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).ReadLog(path, tt.offset)
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantTurns, read.Turns)
@@ -208,7 +208,7 @@ func TestGetLogPath(t *testing.T) {
 
 	path := writeRollout(t, sessions, "2026-07-30T12-41-39", id, metaRecord+"\n")
 
-	harnessUnderTest := New(Options{SessionsDir: sessions})
+	harnessUnderTest := NewHarness(NewHarnessParams{SessionsDir: sessions})
 	assert.Equal(t, path, harnessUnderTest.GetLogPath(id))
 	assert.Empty(t, harnessUnderTest.GetLogPath("019fb3e7-0000-0000-0000-000000000000"), "an id with no rollout has no path")
 	assert.Empty(t, harnessUnderTest.GetLogPath(""), "and neither does an agent with no session")

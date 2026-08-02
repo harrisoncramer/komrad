@@ -10,6 +10,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"weave/db"
 	"weave/db/models"
 	"weave/internal/store"
 )
@@ -75,7 +76,7 @@ func (s *Store) Get(ctx context.Context, agentID string) (Transcript, error) {
 	}
 
 	row, err := s.queries.GetTranscript(ctx, agentID)
-	if store.NoRows(err) {
+	if db.NoRows(err) {
 		return Transcript{}, nil
 	}
 	if err != nil {

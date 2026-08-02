@@ -17,13 +17,8 @@ import (
 	"weave/db/models"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
-
-// uniqueViolation is the SQLSTATE Postgres raises for a broken unique constraint.
-const uniqueViolation = "23505"
 
 // ErrNameTaken reports that a write collided with a name already held. Every
 // unique name in this schema is scoped to live rows, so this only ever means a
@@ -182,19 +177,4 @@ func NewID() (string, error) {
 	}
 
 	return id.String(), nil
-}
-
-// NoRows reports whether an error is Postgres finding nothing, which every
-// domain store turns into its own empty answer rather than an error.
-func NoRows(err error) bool {
-	return errors.Is(err, pgx.ErrNoRows)
-}
-
-// NameTaken reports whether an error is a unique index refusing a write. It reads the
-// driver's code rather than its message text, so the check does not depend on wording that
-// can change under it.
-func NameTaken(err error) bool {
-	var pgErr *pgconn.PgError
-
-	return errors.As(err, &pgErr) && pgErr.Code == uniqueViolation
 }

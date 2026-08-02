@@ -11,7 +11,7 @@ import (
 var ErrNotRegistered = errors.New("harness not registered")
 
 // Registry is every harness this binary can run, keyed by id. It is built once in
-// the composition root, so what an agent may name is decided in one place.
+// the main app root.
 type Registry struct {
 	harnesses map[string]Harness
 }
@@ -35,9 +35,7 @@ func NewRegistry(harnesses ...Harness) (*Registry, error) {
 	return &Registry{harnesses: indexed}, nil
 }
 
-// GetByID returns the harness answering to id, or ErrNotRegistered naming it. An
-// empty id is refused the same way, since which harness an agent runs is decided
-// before it is looked up.
+// GetByID returns the harness answering to id, or ErrNotRegistered naming it.
 func (r *Registry) GetByID(id string) (Harness, error) {
 	found, ok := r.harnesses[id]
 	if !ok {
@@ -47,8 +45,7 @@ func (r *Registry) GetByID(id string) (Harness, error) {
 	return found, nil
 }
 
-// ids are the registered harness ids, sorted so a message listing the choices
-// reads the same every time.
+// ids are the registered harness ids, sorted so a message listing the choices reads the same every time.
 func (r *Registry) ids() []string {
 	ids := make([]string, 0, len(r.harnesses))
 	for id := range r.harnesses {

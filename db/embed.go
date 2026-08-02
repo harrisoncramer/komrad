@@ -6,7 +6,6 @@ package db
 import (
 	"context"
 	"embed"
-	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -16,7 +15,6 @@ import (
 
 	"weave/internal/logging"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -83,8 +81,7 @@ func isPending(ctx context.Context, pool *pgxpool.Pool, versions []string) (bool
 	err := pool.QueryRow(ctx,
 		`SELECT COUNT(*) FROM schema_migrations WHERE version = ANY ($1)`, versions).Scan(&applied)
 
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == undefinedTable {
+	if UndefinedTable(err) {
 		return true, nil
 	}
 	if err != nil {
@@ -93,10 +90,6 @@ func isPending(ctx context.Context, pool *pgxpool.Pool, versions []string) (bool
 
 	return applied < len(versions), nil
 }
-
-// undefinedTable is the SQLSTATE Postgres raises for a query against a table
-// that does not exist, which on the first run is schema_migrations itself.
-const undefinedTable = "42P01"
 
 // migrationSet is the migrations to apply and where to read them from.
 type migrationSet struct {

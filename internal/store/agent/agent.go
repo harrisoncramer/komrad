@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/db"
 	"weave/db/models"
 	"weave/internal/store"
 )
@@ -191,7 +192,7 @@ func (s *Store) GetInWorkflow(ctx context.Context, workflowID, name string) (*Ag
 		WorkflowID: workflowID,
 		Name:       name,
 	})
-	if store.NoRows(err) {
+	if db.NoRows(err) {
 		return nil, nil
 	}
 	if err != nil {
@@ -218,7 +219,7 @@ func (s *Store) GetByID(ctx context.Context, id string) (*Agent, error) {
 	}
 
 	row, err := s.queries.GetAgentByID(ctx, id)
-	if store.NoRows(err) {
+	if db.NoRows(err) {
 		return nil, nil
 	}
 	if err != nil {
@@ -462,7 +463,7 @@ func (s *Store) GetByIdempotencyKey(ctx context.Context, key string) (*Agent, er
 	}
 
 	row, err := s.queries.GetAgentByIdempotencyKey(ctx, &key)
-	if store.NoRows(err) {
+	if db.NoRows(err) {
 		return nil, nil
 	}
 	if err != nil {
@@ -521,7 +522,7 @@ func (s *Store) Rename(ctx context.Context, id, name string) (bool, error) {
 	}
 
 	renamed, err := s.queries.RenameAgent(ctx, models.RenameAgentParams{ID: id, Name: name})
-	if store.NameTaken(err) {
+	if db.UniqueViolation(err) {
 		return false, store.ErrNameTaken
 	}
 	if err != nil {

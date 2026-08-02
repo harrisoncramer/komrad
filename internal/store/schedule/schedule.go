@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"time"
 
+	"weave/db"
 	"weave/db/models"
 	"weave/internal/store"
 )
@@ -115,7 +116,7 @@ func (s *Store) Get(ctx context.Context, id string) (*Schedule, error) {
 	}
 
 	row, err := s.queries.GetSchedule(ctx, id)
-	if store.NoRows(err) {
+	if db.NoRows(err) {
 		return nil, nil
 	}
 	if err != nil {
@@ -138,7 +139,7 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Schedule, error) {
 		Prompt:     cfg.Prompt,
 		WorkflowID: cfg.WorkflowID,
 	})
-	if store.NameTaken(err) {
+	if db.UniqueViolation(err) {
 		return nil, fmt.Errorf("%w: %q", store.ErrNameTaken, cfg.Name)
 	}
 	if err != nil {
@@ -166,7 +167,7 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 		Prompt:     cfg.Prompt,
 		WorkflowID: cfg.WorkflowID,
 	})
-	if store.NameTaken(err) {
+	if db.UniqueViolation(err) {
 		return fmt.Errorf("%w: %q", store.ErrNameTaken, cfg.Name)
 	}
 	if err != nil {
