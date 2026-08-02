@@ -3,7 +3,13 @@ package doctor
 import (
 	"context"
 	"fmt"
+	"net"
+	"strconv"
 )
+
+// maxPort is the highest port there is, so an address above it is refused rather than
+// reported as a server that is not answering.
+const maxPort = 65535
 
 // The ways the listen address can be wrong.
 var (
@@ -22,6 +28,10 @@ var (
 	ErrServerDown = &Problem{
 		Code:    "server_down",
 		Message: "nothing is serving",
+	}
+	ErrAddressUnusable = &Problem{
+		Code:    "address_unusable",
+		Message: "WEAVE_ADDR is not an address the server can listen on",
 	}
 )
 
@@ -47,6 +57,12 @@ func Server() Check {
 		Name:        "server",
 		Description: "the panel reads and changes agents through a local service",
 		Run: func(ctx context.Context, env Env) Result {
+			// Ahead of the probe, since an address nothing can bind answers a probe the
+			// same way an address nobody has started yet does.
+			if err := requireListenable(env.Addr); err != nil {
+				return fail(err, env.Addr, "set WEAVE_ADDR to a host and port, such as 127.0.0.1:8787")
+			}
+
 			status := env.ProbeServer(ctx, env.Addr)
 
 			switch {
@@ -85,6 +101,32 @@ func Server() Check {
 			return pass(env.Addr + " serving " + status.Version)
 		},
 	}
+}
+
+// requireListenable refuses an address the service could never bind. Go's listener takes a
+// service name in place of a number, so only a port that is neither a name nor a usable
+// number is refused. Port zero is refused with them, since it binds whatever is free and
+// leaves every client looking at the port nobody got.
+func requireListenable(addr string) error {
+	_, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return fmt.Errorf("%w: %q has no port", ErrAddressUnusable, addr)
+	}
+
+	number, err := strconv.Atoi(port)
+	if err != nil {
+		if _, err := net.LookupPort("tcp", port); err != nil {
+			return fmt.Errorf("%w: %q names no port", ErrAddressUnusable, port)
+		}
+
+		return nil
+	}
+
+	if number < 1 || number > maxPort {
+		return fmt.Errorf("%w: %d is not a port", ErrAddressUnusable, number)
+	}
+
+	return nil
 }
 
 // describeStaleServerFix is how to get onto the current build, which depends on whether the
