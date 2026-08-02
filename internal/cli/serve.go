@@ -61,6 +61,16 @@ func serveCmd(state *app) *cobra.Command {
 			}
 			slog.SetDefault(logger)
 
+			// The root command already fell back to the built-in defaults, and nothing
+			// else says so. This process is spawned detached and the panel shows the
+			// failure on a screen of its own, so without this line a service running on
+			// defaults is indistinguishable from one running on the user's file.
+			if state.configErr != nil {
+				logger.LogAttrs(cmd.Context(), slog.LevelError,
+					"the configuration could not be read, so the defaults are in force",
+					logging.Err(state.configErr)...)
+			}
+
 			ctx, stopSignals := shutdownSignal(cmd.Context())
 			defer stopSignals()
 

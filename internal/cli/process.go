@@ -20,13 +20,25 @@ const (
 	serveWaitInterval = 40 * time.Millisecond
 )
 
-// ensureServer makes sure a server from this build is reachable at addr, replacing one from
-// another build and spawning one when nothing is there.
+// ensureServerParams is what it takes to reach a server or spawn one. ConfigPath is carried
+// because the spawned process reads the config file for itself, so leaving it out serves a
+// panel started with --config out of a different file than the one it was pointed at.
+type ensureServerParams struct {
+	Addr       string
+	Self       string
+	LogPath    string
+	ConfigPath string
+}
+
+// ensureServer makes sure a server from this build is reachable at the address, replacing one
+// from another build and spawning one when nothing is there.
 //
 // The spawned process writes to a log rather than to this process's output, since it outlives
 // whoever started it, so the lines it wrote before dying are read back and carried in the
 // error rather than left unread in a file.
-func ensureServer(addr, self, logPath string) error {
+func ensureServer(params ensureServerParams) error {
+	addr, logPath := params.Addr, params.LogPath
+
 	probe := probeServer(addr)
 	if probe.answering {
 		if probe.current {
@@ -38,7 +50,12 @@ func ensureServer(addr, self, logPath string) error {
 		}
 	}
 
-	cmd := exec.Command(self, "serve", "--addr", addr)
+	args := []string{"serve", "--addr", addr}
+	if params.ConfigPath != "" {
+		args = append(args, "--config", params.ConfigPath)
+	}
+
+	cmd := exec.Command(params.Self, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 
 	// The log is the only place the spawned server can say anything, so failing to
