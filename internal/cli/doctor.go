@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"weave/internal/agents"
 	"weave/internal/appconfig"
 	"weave/internal/doctor"
 	"weave/internal/errui"
@@ -123,6 +124,7 @@ func (a *app) doctorSettings() (doctor.Settings, error) {
 	return doctor.Settings{
 		TmuxSocket:          a.env.TmuxSocket,
 		InsideTmux:          a.env.Tmux,
+		PanelSession:        agents.ManagerSession,
 		ConfigPath:          configPath,
 		Harnesses:           harnesses,
 		DatabaseURL:         a.env.DatabaseURL,

@@ -66,6 +66,10 @@ type Settings struct {
 	// InsideTmux is the user's tmux server as tmux names it in TMUX, empty when this is
 	// not running under tmux. It is a second server to ask when weave's is not up.
 	InsideTmux string
+	// PanelSession is the tmux session the panel runs in, which is also the session
+	// every agent gets a window in. Whether it is up decides whether stopping the
+	// server is a fix or a way to strand somebody.
+	PanelSession string
 	// ConfigPath is the config file that would be read, named whether or not it exists.
 	ConfigPath string
 	// Harnesses is every agent CLI this build can run.

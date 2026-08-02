@@ -71,18 +71,50 @@ func Server() Check {
 					fmt.Errorf("%w: %s is serving build %s and this is %s",
 						ErrServerStale, env.Addr, status.Version, env.Version),
 					env.Addr,
-					"weave stop, then reopen the panel",
+					staleServerFix(ctx, env),
 				)
 
 			case !status.Ready:
+				// No restart advice. The pool reconnects, so the server picks the
+				// database back up on its own and the panel clears within a poll.
 				return fail(
 					fmt.Errorf("%w: %s is up but reports it cannot reach its database", ErrServerNotReady, env.Addr),
 					env.Addr,
-					"weave stop, then reopen the panel once the database is up",
+					"bring the database back up, and the server will pick it up again",
 				)
 			}
 
 			return ok(env.Addr + " serving " + status.Version)
 		},
 	}
+}
+
+// staleServerFix is how to get onto the current build, which depends on whether the panel
+// is up.
+//
+// With no panel, stopping the server is the whole fix: the next open creates the session
+// and spawns the build doing the opening. With a panel, that same advice strands the user.
+// The panel runs ensureServer once, when its session is created, so re-opening the popup
+// re-attaches the process that is already there and nothing ever starts a server again.
+//
+// What is left in that case costs the agents. They are windows in the panel's own session,
+// so replacing the panel replaces them, and the fix says so rather than finding out later.
+func staleServerFix(ctx context.Context, env Env) string {
+	if !panelRunning(ctx, env) {
+		return "weave stop, then reopen the panel"
+	}
+
+	return "tmux -L " + env.TmuxSocket + " kill-server, then reopen the panel, which also restarts every agent"
+}
+
+// panelRunning reports whether the panel's tmux session is up. has-session is asked rather
+// than anything that would create a server, for the reason the shell check gives.
+func panelRunning(ctx context.Context, env Env) bool {
+	if env.TmuxSocket == "" || env.PanelSession == "" {
+		return false
+	}
+
+	_, err := env.Output(ctx, "tmux", "-L", env.TmuxSocket, "has-session", "-t", env.PanelSession)
+
+	return err == nil
 }
