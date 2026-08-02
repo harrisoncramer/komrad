@@ -296,7 +296,7 @@ func TestConfigErrorView(t *testing.T) {
 			name: "the error and the file it names reach the screen",
 			wantContain: []string{
 				"Your configuration could not be read",
-				"invalid keys: list",
+				"keybindings.list is not a setting",
 				"config.toml",
 			},
 			wantAbsent: []string{"should-not-render"},
@@ -312,7 +312,7 @@ func TestConfigErrorView(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{
-				configErr:   errors.New("failed to parse config /home/u/.config/weave/config.toml: 'keybindings' has invalid keys: list"),
+				configErr:   errors.New("failed to parse config /home/u/.config/weave/config.toml: keybindings.list is not a setting; [keybindings] takes actions, agents, archive, filter, form, help, nav, schedules, selection, workflows"),
 				unreachable: tt.unreachable,
 				addr:        "127.0.0.1:8787",
 				tree:        treeState{agents: []agentItem{{agent: agentstore.Agent{Name: "should-not-render", State: agentstore.StateIdle}}}},
