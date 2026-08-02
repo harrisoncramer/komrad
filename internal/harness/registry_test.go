@@ -14,6 +14,7 @@ type stub struct {
 }
 
 func (s stub) GetID() string                       { return s.id }
+func (s stub) GetBinary() string                   { return s.id }
 func (s stub) BuildCommand(Launch) (string, error) { return "", nil }
 func (s stub) MintSessionID() string               { return "" }
 
@@ -61,7 +62,7 @@ func TestNewRegistry(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Len(t, registry.ids(), len(tt.harnesses))
+			assert.Len(t, registry.IDs(), len(tt.harnesses))
 		})
 	}
 }
@@ -73,7 +74,7 @@ func TestRegistryGetByID(t *testing.T) {
 	registry, err := NewRegistry(stub{id: "codex"}, stub{id: "claude"})
 	require.NoError(t, err)
 
-	assert.Equal(t, []string{"claude", "codex"}, registry.ids(), "sorted, so a message reads the same every time")
+	assert.Equal(t, []string{"claude", "codex"}, registry.IDs(), "sorted, so a message reads the same every time")
 
 	found, err := registry.GetByID("codex")
 	require.NoError(t, err)

@@ -89,6 +89,10 @@ type Deps struct {
 	// often because its database is not up. It shows on the error screen for the reason
 	// ConfigErr does: exiting takes the message down with the popup.
 	StartupErr error
+	// StartupFindings are what the doctor found wrong when the server would not start.
+	// They are gathered by whoever tried to start it, since the panel has no business
+	// opening a database to find out why one could not be reached.
+	StartupFindings []errui.Finding
 	// Pane is the pane the panel runs in, read from the environment tmux gives that pane.
 	// The stage lays the window out around it, so it has to be this pane and not whichever
 	// one an attached client happens to be looking at.
@@ -120,8 +124,9 @@ type model struct {
 	pending int
 	// configErr and startupErr never clear, unlike unreachable, since the config is read
 	// once at startup and nothing retries the server.
-	configErr  error
-	startupErr error
+	configErr       error
+	startupErr      error
+	startupFindings []errui.Finding
 	// banner is the last write the service refused, shown over the screen it happened on.
 	// It is cleared by the next write and by esc, never by a poll, since a refused delete
 	// is still worth reading a second later.
@@ -175,19 +180,20 @@ type model struct {
 
 func newModel(deps Deps) model {
 	m := model{
-		api:        api{agents: deps.Agents, workflows: deps.Workflows, schedules: deps.Schedules, actions: deps.Actions},
-		popup:      deps.PopupWindow,
-		tmux:       deps.Tmux,
-		stage:      NewStage(deps.Tmux, deps.Layout),
-		addr:       deps.Addr,
-		logPath:    deps.LogPath,
-		logViewer:  deps.LogViewer,
-		binary:     deps.Binary,
-		keys:       deps.Keys,
-		marks:      deps.Marks,
-		configErr:  deps.ConfigErr,
-		startupErr: deps.StartupErr,
-		screen:     screenAgents,
+		api:             api{agents: deps.Agents, workflows: deps.Workflows, schedules: deps.Schedules, actions: deps.Actions},
+		popup:           deps.PopupWindow,
+		tmux:            deps.Tmux,
+		stage:           NewStage(deps.Tmux, deps.Layout),
+		addr:            deps.Addr,
+		logPath:         deps.LogPath,
+		logViewer:       deps.LogViewer,
+		binary:          deps.Binary,
+		keys:            deps.Keys,
+		marks:           deps.Marks,
+		configErr:       deps.ConfigErr,
+		startupErr:      deps.StartupErr,
+		startupFindings: deps.StartupFindings,
+		screen:          screenAgents,
 	}
 
 	// A failure that came up with the process shows its error in place of the panel, so

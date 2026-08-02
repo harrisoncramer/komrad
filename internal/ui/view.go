@@ -20,7 +20,7 @@ func (m model) View() string {
 	}
 
 	if m.startupErr != nil {
-		return errui.Startup(m.width, m.startupErr)
+		return errui.Startup(m.width, m.startupErr, m.startupFindings)
 	}
 
 	if m.unreachable != nil {

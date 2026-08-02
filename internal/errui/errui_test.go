@@ -59,6 +59,14 @@ func TestScreenSections(t *testing.T) {
 // the renderer above the panel cuts a line at.
 const narrowPane = 59
 
+// indent is the continuation prefix a value gets under a label that fits the column, which
+// is what the fold tests below hand it.
+var indent = strings.Repeat(" ", labelWidth)
+
+// widePane is a popup with room for a finding's reason and its fix on their own lines,
+// which is what the startup screen draws when the doctor found something.
+const widePane = 100
+
 // TestFold covers how text is folded to a pane. It wraps rather than truncating,
 // since the useful part of a dial error is at the end.
 func TestFold(t *testing.T) {
@@ -126,6 +134,14 @@ func TestScreensFitTheirPane(t *testing.T) {
 			rendered: Config(narrowPane, err),
 		},
 		{
+			name: "the startup screen",
+			rendered: Startup(narrowPane, err, []Finding{{
+				Name:   "readonly login",
+				Reason: `the least-privilege login the MCP tools connect as does not work: password authentication failed for user "weave_readonly"`,
+				Fix:    "weave readonly-role",
+			}}),
+		},
+		{
 			// A file with more than one key nothing answers to is reported a line per
 			// key, so the screen has to hold a detail that already has breaks in it.
 			name: "the config screen carrying a detail of several lines",
@@ -133,10 +149,6 @@ func TestScreensFitTheirPane(t *testing.T) {
 				"failed to parse config /home/u/.config/weave/config.toml: "+
 					"default_harnes is not a setting; the top level takes default_harness, max_agents\n"+
 					"layout.splitt is not a setting; [layout] takes split, secondary_split")),
-		},
-		{
-			name:     "the startup screen",
-			rendered: Startup(narrowPane, err),
 		},
 		{
 			name:     "the unreachable screen",
@@ -172,19 +184,38 @@ func TestConfig(t *testing.T) {
 	assert.Contains(t, rendered, "config.toml", "the file to go and fix is named")
 }
 
-// TestStartup covers the screen shown when the server would not start. The reason
-// it gave came out of its log and is the only thing on screen saying what to fix, so
-// it has to survive the render whole.
+// TestStartup covers the screen shown when the server would not start. The reason it gave
+// came out of its log and is the only thing on screen saying what failed, so it has to
+// survive the render whole.
 func TestStartup(t *testing.T) {
 	err := errors.New("the agent server stopped during startup: failed to reach db: dial tcp 127.0.0.1:5460: connect: connection refused")
 
 	// The error wraps at the screen width, so the text is compared with its line
 	// breaks flattened away.
-	rendered := strings.Join(strings.Fields(Startup(narrowPane, err)), " ")
+	rendered := strings.Join(strings.Fields(Startup(narrowPane, err, nil)), " ")
 
 	assert.Contains(t, rendered, "The agent server could not be started")
 	assert.Contains(t, rendered, "connect: connection refused")
-	assert.Contains(t, rendered, "mise run docker:up", "the way to bring the database up is named")
+	assert.Contains(t, rendered, "weave doctor",
+		"with nothing found, the command that would find something is named")
+}
+
+// TestStartupCarriesTheFindings covers the difference between this screen and a log tail.
+// The reason a server gave says what failed; the findings say which dependency is missing
+// and what repairs it, which is the only part anyone can act on.
+func TestStartupCarriesTheFindings(t *testing.T) {
+	err := errors.New("the agent server stopped during startup: failed to reach db read-only")
+
+	rendered := strings.Join(strings.Fields(Startup(widePane, err, []Finding{{
+		Name:   "readonly login",
+		Reason: "the least-privilege login the MCP tools connect as does not work",
+		Fix:    "weave readonly-role",
+	}})), " ")
+
+	assert.Contains(t, rendered, "readonly login")
+	assert.Contains(t, rendered, "weave readonly-role", "the command that repairs it is on screen")
+	assert.NotContains(t, rendered, "weave doctor",
+		"nothing points at the doctor once the doctor has already answered")
 }
 
 // TestUnreachable covers that the address is shown when there is one and left out

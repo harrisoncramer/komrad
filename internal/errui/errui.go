@@ -68,8 +68,11 @@ func (s Screen) Render() string {
 	}
 
 	for _, detail := range s.Details {
+		// A label wider than the column pushes its value right, so the fold is given
+		// the label actually written rather than the column it was meant to fit, or
+		// the first line of the value overruns the pane by the overflow.
 		label := fmt.Sprintf("%-*s", labelWidth, detail.Label)
-		b.WriteString(Dim.Render(label) + fold(detail.Value, width, indent) + "\n")
+		b.WriteString(Dim.Render(label) + fold(detail.Value, width, strings.Repeat(" ", len(label))) + "\n")
 	}
 
 	if len(s.Hints) > 0 {
@@ -88,10 +91,6 @@ const maxWidth = 120
 
 // labelWidth is the column values line up in.
 const labelWidth = 9
-
-// indent lines a wrapped value up under the first line of that value, built from the label
-// width so the two cannot drift apart.
-var indent = strings.Repeat(" ", labelWidth)
 
 // minWidth is the narrowest anything folds to. A pane too narrow for the label column and
 // a readable value beside it would otherwise fold to a column a word wide, which reads

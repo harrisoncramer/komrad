@@ -17,5 +17,68 @@ services:
     volumes:
       - weave-db:/var/lib/postgresql
 
+  # The machines weave doctor is written for, each the same image at a different stage of
+  # having been set up. They are the only way to see the first-run experience, since the
+  # machine this is developed on has every dependency already.
+  #
+  # They sit behind a profile so they are not started by docker:up, and they are run rather
+  # than brought up: each one runs the binary once and exits. Drive them with
+  # `mise run doctor:sandbox <stage>`, which builds the binary they mount first.
+  doctor-bare:
+    profiles: ["doctor"]
+    build: &doctor-sandbox-build
+      context: docker
+      dockerfile: doctor-sandbox.Dockerfile
+      target: bare
+    volumes: &doctor-sandbox-volumes
+      - ./bin/weave-linux:/usr/local/bin/weave:ro
+
+  doctor-tmux-old:
+    profiles: ["doctor"]
+    build:
+      <<: *doctor-sandbox-build
+      target: tmux-old
+    volumes: *doctor-sandbox-volumes
+
+  doctor-tmux:
+    profiles: ["doctor"]
+    build:
+      <<: *doctor-sandbox-build
+      target: tmux
+    volumes: *doctor-sandbox-volumes
+
+  # A Postgres of the sandbox's own, on no volume and no published port. It is not the db
+  # service above, because that one holds the panel's real state on a named volume, and a
+  # sandbox that tears itself down would take a developer's agents with it. This one starts
+  # empty every run, which is also what the checks want to see.
+  doctor-db:
+    profiles: ["doctor"]
+    image: postgres:18
+    environment:
+      POSTGRES_USER: weave
+      POSTGRES_PASSWORD: weave
+      POSTGRES_DB: weave
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "weave"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  # The same machine with a Postgres reachable, for the checks that need one to answer.
+  # Override DATABASE_URL on the run to point it at a database that is missing, unmigrated,
+  # or refusing the password.
+  doctor-postgres:
+    profiles: ["doctor"]
+    build:
+      <<: *doctor-sandbox-build
+      target: tmux
+    volumes: *doctor-sandbox-volumes
+    depends_on:
+      doctor-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://weave:weave@doctor-db:5432/weave?sslmode=disable
+      WEAVE_READONLY_DATABASE_URL: postgres://weave_readonly:weave_readonly@doctor-db:5432/weave?sslmode=disable
+
 volumes:
   weave-db:

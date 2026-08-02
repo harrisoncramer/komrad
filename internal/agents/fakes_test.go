@@ -176,7 +176,8 @@ type fakeHarness struct {
 	found string
 }
 
-func (f *fakeHarness) GetID() string { return testHarnessID }
+func (f *fakeHarness) GetID() string     { return testHarnessID }
+func (f *fakeHarness) GetBinary() string { return testHarnessID }
 
 func (f *fakeHarness) BuildCommand(launch harness.Launch) (string, error) {
 	f.launches = append(f.launches, launch)
