@@ -25,7 +25,7 @@ type tmuxProbe interface {
 // activityRegistry resolves the harness an agent is recorded against, since what a frame
 // means depends on which CLI drew it. A row naming one nothing implements settles nothing.
 type activityRegistry interface {
-	Resolve(id string) (harness.Harness, error)
+	GetByID(id string) (harness.Harness, error)
 }
 
 type stateStore interface {
@@ -48,7 +48,12 @@ type Reconciler struct {
 // NewReconciler builds a Reconciler over a tmux probe, the harnesses that read its
 // captures, and the state store.
 func NewReconciler(t tmuxProbe, harnesses activityRegistry, s stateStore) *Reconciler {
-	return &Reconciler{tmux: t, harnesses: harnesses, store: s, misses: map[string]int{}}
+	return &Reconciler{
+		tmux:      t,
+		harnesses: harnesses,
+		store:     s,
+		misses:    map[string]int{},
+	}
 }
 
 // Reconcile observes every tracked agent once and corrects any stored state reality has
@@ -109,7 +114,7 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 
 	// A harness this binary does not implement can say nothing about the frame, so the
 	// agent keeps the state it has.
-	resolved, err := r.harnesses.Resolve(agent.Harness)
+	resolved, err := r.harnesses.GetByID(agent.Harness)
 	if err != nil {
 		return
 	}

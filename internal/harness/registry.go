@@ -35,10 +35,10 @@ func NewRegistry(harnesses ...Harness) (*Registry, error) {
 	return &Registry{harnesses: indexed}, nil
 }
 
-// Resolve returns the harness answering to id, or ErrNotRegistered naming it. An
+// GetByID returns the harness answering to id, or ErrNotRegistered naming it. An
 // empty id is refused the same way, since which harness an agent runs is decided
 // before it is looked up.
-func (r *Registry) Resolve(id string) (Harness, error) {
+func (r *Registry) GetByID(id string) (Harness, error) {
 	found, ok := r.harnesses[id]
 	if !ok {
 		return nil, fmt.Errorf("%w: %q, known are %s", ErrNotRegistered, id, strings.Join(r.ids(), ", "))

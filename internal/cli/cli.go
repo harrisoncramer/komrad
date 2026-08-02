@@ -65,16 +65,16 @@ func NewRootCommand() *cobra.Command {
 				codexHarness.GetID():  cfg.Harness.Codex.Flags,
 			}
 
-			harnesses, err := harness.NewRegistry(claudeHarness, codexHarness)
+			harnessRegistry, err := harness.NewRegistry(claudeHarness, codexHarness)
 			if err != nil {
 				return fmt.Errorf("failed to create registry: %w", err)
 			}
 
-			if _, err := harnesses.Resolve(cfg.DefaultHarness); err != nil && app.configErr == nil {
+			if _, err := harnessRegistry.GetByID(cfg.DefaultHarness); err != nil && app.configErr == nil {
 				app.configErr = fmt.Errorf("default_harness: %w", err)
 			}
 
-			app.harnesses = harnesses
+			app.harnesses = harnessRegistry
 			app.marks = cfg.Marks
 			app.layout = cfg.Layout
 			app.logLevel = cfg.Log.Level

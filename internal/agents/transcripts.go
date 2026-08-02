@@ -33,7 +33,7 @@ type agentLister interface {
 // logRegistry resolves the harness that wrote an agent's log, which is the only thing that
 // knows where it is and how to read it.
 type logRegistry interface {
-	Resolve(id string) (harness.Harness, error)
+	GetByID(id string) (harness.Harness, error)
 }
 
 // TranscriptSyncer keeps each agent's searchable transcript in step with the log its CLI
@@ -108,7 +108,7 @@ func (ts *TranscriptSyncer) adoptSessions(ctx context.Context, agents []agentsto
 			continue
 		}
 
-		harness, err := ts.harnesses.Resolve(agent.Harness)
+		harness, err := ts.harnesses.GetByID(agent.Harness)
 		if err != nil {
 			continue
 		}
@@ -133,7 +133,7 @@ func (ts *TranscriptSyncer) adoptSessions(ctx context.Context, agents []agentsto
 func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent) error {
 	// An agent recorded against a harness this binary does not implement is reported
 	// rather than skipped, since its transcript will never advance again.
-	resolved, err := ts.harnesses.Resolve(agent.Harness)
+	resolved, err := ts.harnesses.GetByID(agent.Harness)
 	if err != nil {
 		return err
 	}

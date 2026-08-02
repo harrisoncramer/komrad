@@ -87,7 +87,7 @@ type agentTmux interface {
 
 // harnessRegistry resolves the CLI an agent names.
 type harnessRegistry interface {
-	Resolve(id string) (harness.Harness, error)
+	GetByID(id string) (harness.Harness, error)
 }
 
 // lifecycleActions runs the actions a workflow names around its agents' lives. It may
@@ -618,7 +618,7 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 		harnessID = s.defaultHarness
 	}
 
-	resolved, err := s.harnesses.Resolve(harnessID)
+	resolved, err := s.harnesses.GetByID(harnessID)
 	if err != nil {
 		return nil, err
 	}
@@ -768,7 +768,7 @@ func idempotencyKey(key string) *string {
 func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error {
 	// An agent recorded against a harness this binary no longer runs cannot be brought
 	// back, and saying so beats a pane running the wrong CLI on its conversation.
-	resolved, err := s.harnesses.Resolve(agent.Harness)
+	resolved, err := s.harnesses.GetByID(agent.Harness)
 	if err != nil {
 		return err
 	}
