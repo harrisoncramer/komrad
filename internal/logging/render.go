@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 // Reading the log back. The records are written as JSON because that is what a tool can
@@ -29,6 +30,10 @@ type column struct {
 	// short cuts an id to its first characters. An id is here to be recognised and to
 	// search the file by, not to be read, and a whole one is half a line.
 	short bool
+	// limit cuts a value to this many characters, zero for one kept whole. It is for a
+	// field with no length of its own, where short is for one whose length is known and
+	// only its head is worth showing.
+	limit int
 	// suffix is a unit the value reads better with.
 	suffix string
 }
@@ -42,19 +47,39 @@ type column struct {
 // id does, and one of them is enough to find the rest.
 var columns = []column{
 	{keys: []string{MCPTool}, label: "tool"},
+	{keys: []string{ActionName}, label: "action"},
+	{keys: []string{ActionTrigger}, label: "trigger"},
 	{keys: []string{RPCMethod, HTTPMethod}, label: "method"},
 	{keys: []string{Loop}, label: "loop"},
 	{keys: []string{AgentID}, label: "agent", short: true},
+	// The agent an action fired on is its own column rather than a second key on the one
+	// above, since a model firing an action on another agent writes both and folding them
+	// together would show one of the two under a label meaning the other.
+	{keys: []string{ActionAgentID}, label: "on", short: true},
 	{keys: []string{TraceID}, label: "trace", short: true},
 	{keys: []string{HTTPStatus, RPCErrorCode}, label: "status"},
+	{keys: []string{ExitCode}, label: "exit"},
 	{keys: []string{DurationMS}, label: "took", suffix: "ms"},
 	{keys: []string{Repeats}, label: "repeats"},
 	{keys: []string{ServerAddress}, label: "addr"},
 	{keys: []string{ErrorMessage}, label: "error"},
+	// Last, and cut, because it is the one field written by something other than this
+	// service: a script says whatever it likes at whatever length, and the tail of the
+	// line is where a long value costs the least.
+	{keys: []string{ActionStderr}, label: "said", limit: saidLimit},
 }
 
 // shortIDLen is how much of an id is enough to tell it from the others in one log.
 const shortIDLen = 8
+
+// saidLimit is how much of what a script wrote to stderr a line carries. The whole of it
+// is kept in the file and reached with -o json; what belongs here is enough to recognise
+// the failure by, since 64k of build output in a line is the record nobody can read again.
+const saidLimit = 200
+
+// cutMark ends a value that was cut, so a truncated one is not read as the whole of what
+// was written.
+const cutMark = "…"
 
 // severityColors are the escapes a level is drawn in, so a failure is findable by eye in a
 // page of ordinary traffic. They are the terminal's own sixteen rather than a palette, so
@@ -158,11 +183,28 @@ func value(raw any, col column) string {
 		out = out[:shortIDLen]
 	}
 
-	if strings.ContainsAny(out, " \t\"") {
+	if col.limit > 0 && len(out) > col.limit {
+		out = cut(out, col.limit)
+	}
+
+	// The newlines are here for the fields a script wrote. Quoting escapes them, which is
+	// what keeps one record on one line when what it carries was several.
+	if strings.ContainsAny(out, " \t\r\n\"") {
 		return strconv.Quote(out)
 	}
 
 	return out + col.suffix
+}
+
+// cut is the head of a value with a mark that there was more, pulled back off a partial
+// character so the end of a line is never half a rune.
+func cut(value string, limit int) string {
+	head := value[:limit]
+	for len(head) > 0 && !utf8.ValidString(head) {
+		head = head[:len(head)-1]
+	}
+
+	return head + cutMark
 }
 
 // text is a decoded JSON value as it should read in a line.

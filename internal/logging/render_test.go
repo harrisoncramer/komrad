@@ -53,6 +53,32 @@ func TestShort(t *testing.T) {
 			want: "18:45:48 WARN  http served method=GET status=405 took=0ms",
 		},
 		{
+			name: "a setup action that refused",
+			record: `{"timestamp":"2026-07-31T18:45:48.1-04:00","severity_text":"INFO","severity_number":9,` +
+				`"body":"action finished","service.name":"weave","weave.action.name":"wtc",` +
+				`"weave.action.trigger":"setup","weave.action.agent.id":"019fc3c2-3dfb-7c31-8e91-c78ab8c2c4ca",` +
+				`"weave.action.agent.cwd":"/Users/harrisoncramer/chariot/chariot","process.exit.code":1,` +
+				`"weave.action.stderr":"no Branch: line in the prompt","duration_ms":141}`,
+			want: `18:45:48 INFO  action finished action=wtc trigger=setup on=019fc3c2 exit=1 took=141ms said="no Branch: line in the prompt"`,
+		},
+		{
+			name: "an action that said more than a line holds",
+			record: `{"timestamp":"2026-07-31T18:45:48.1-04:00","severity_text":"ERROR","severity_number":17,` +
+				`"body":"action failed","service.name":"weave","weave.action.name":"wtc",` +
+				`"weave.action.trigger":"manual","process.exit.code":2,"weave.action.stderr":"` +
+				strings.Repeat("x", saidLimit+50) + `"}`,
+			want: "18:45:48 ERROR action failed action=wtc trigger=manual exit=2 said=" +
+				strings.Repeat("x", saidLimit) + cutMark,
+		},
+		{
+			name: "a model firing an action on another agent",
+			record: `{"timestamp":"2026-07-31T18:45:48.1-04:00","severity_text":"INFO","severity_number":9,` +
+				`"body":"action started","service.name":"weave","weave.action.name":"open-pr",` +
+				`"weave.action.trigger":"manual","weave.agent.id":"019fba5a-7777-8888-9999-aaaabbbbcccc",` +
+				`"weave.action.agent.id":"019fc3c2-3dfb-7c31-8e91-c78ab8c2c4ca"}`,
+			want: "18:45:48 INFO  action started action=open-pr trigger=manual agent=019fba5a on=019fc3c2",
+		},
+		{
 			name:   "something that is not a record of ours at all",
 			record: "panic: runtime error: invalid memory address",
 			want:   "panic: runtime error: invalid memory address",
