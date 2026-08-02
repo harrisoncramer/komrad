@@ -204,19 +204,22 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		return nil, err
 	}
 
-	options := connect.WithInterceptors(interceptors.NewLogging(p.Logger), validation)
+	options := []connect.HandlerOption{
+		connect.WithInterceptors(interceptors.NewLogging(p.Logger), validation),
+		interceptors.NewRecovery(),
+	}
 
 	srv.Mux = http.NewServeMux()
 	srv.handle(agentv1connect.NewAgentServiceHandler(
-		rpcagent.NewService(agentStore, transcriptStore, agentService), options))
+		rpcagent.NewService(agentStore, transcriptStore, agentService), options...))
 	srv.handle(workflowv1connect.NewWorkflowServiceHandler(
-		rpcworkflow.NewService(workflowStore, workflowService), options))
+		rpcworkflow.NewService(workflowStore, workflowService), options...))
 	srv.handle(schedulev1connect.NewScheduleServiceHandler(
-		rpcschedule.NewService(scheduleStore, scheduleService), options))
+		rpcschedule.NewService(scheduleStore, scheduleService), options...))
 	srv.handle(configv1connect.NewConfigServiceHandler(
-		rpcconfig.NewService(loadConfig), options))
+		rpcconfig.NewService(loadConfig), options...))
 	srv.handle(actionv1connect.NewActionServiceHandler(
-		rpcaction.NewService(actionService), options))
+		rpcaction.NewService(actionService), options...))
 
 	// The MCP endpoint reads through its own read-only handle, opened as a least-privilege
 	// role, since what a statement may read is decided by the role and not by the flag.
