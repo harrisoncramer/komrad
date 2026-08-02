@@ -1,9 +1,8 @@
 // Package cli builds the weave command tree and wires its dependencies.
 //
 // This file holds the root command and nothing else. Each subcommand lives in its
-// own file named for it, holding that command and only the helpers it uses. What
-// more than one command needs sits apart, in app.go for the shared state they are
-// wired from and process.go for finding this binary and starting the server.
+// own file named for it, holding that command and only the helpers it uses. The
+// shared state lives in app.go instead.
 package cli
 
 import (
@@ -27,7 +26,6 @@ func NewRootCommand() *cobra.Command {
 	state := &app{}
 	var configPath string
 
-	// One instance per CLI the binary implements, so every command shares it.
 	claudeHarness := claude.New("")
 	var codexHarness *codex.Harness
 
