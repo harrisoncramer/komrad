@@ -330,14 +330,17 @@ func (x *GetScheduleResponse) GetSchedule() *Schedule {
 }
 
 type CreateScheduleRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Cron          string                 `protobuf:"bytes,2,opt,name=cron,proto3" json:"cron,omitempty"`
-	Timezone      string                 `protobuf:"bytes,3,opt,name=timezone,proto3" json:"timezone,omitempty"`
-	Enabled       bool                   `protobuf:"varint,4,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	HideAgents    bool                   `protobuf:"varint,7,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
-	Prompt        string                 `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	WorkflowId    string                 `protobuf:"bytes,6,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Control characters are refused for the same reason an agent's title refuses
+	// them. A firing launches the agent under this name, so a name tmux cannot open
+	// a window for would fail every occurrence rather than just look wrong.
+	Name          string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Cron          string `protobuf:"bytes,2,opt,name=cron,proto3" json:"cron,omitempty"`
+	Timezone      string `protobuf:"bytes,3,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	Enabled       bool   `protobuf:"varint,4,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	HideAgents    bool   `protobuf:"varint,7,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
+	Prompt        string `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	WorkflowId    string `protobuf:"bytes,6,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -692,10 +695,10 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x12GetScheduleRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"H\n" +
 	"\x13GetScheduleResponse\x121\n" +
-	"\bschedule\x18\x01 \x01(\v2\x15.schedule.v1.ScheduleR\bschedule\"\x87\x02\n" +
-	"\x15CreateScheduleRequest\x12\x1e\n" +
-	"\x04name\x18\x01 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x12\x1f\n" +
+	"\bschedule\x18\x01 \x01(\v2\x15.schedule.v1.ScheduleR\bschedule\"\xe6\x02\n" +
+	"\x15CreateScheduleRequest\x12}\n" +
+	"\x04name\x18\x01 \x01(\tBi\xbaHf\xba\x01\\\n" +
+	"\x0ename.printable\x12(name must not contain control characters\x1a !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name\x12\x1f\n" +
 	"\x04cron\x18\x02 \x01(\tB\v\xbaH\br\x06\xb8\xbb\x18\x01\x10\x01R\x04cron\x12#\n" +
 	"\btimezone\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x18dR\btimezone\x12\x18\n" +
 	"\aenabled\x18\x04 \x01(\bR\aenabled\x12\x1f\n" +
@@ -705,11 +708,11 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\vworkflow_id\x18\x06 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
 	"workflowId\"K\n" +
 	"\x16CreateScheduleResponse\x121\n" +
-	"\bschedule\x18\x01 \x01(\v2\x15.schedule.v1.ScheduleR\bschedule\"\xa0\x02\n" +
+	"\bschedule\x18\x01 \x01(\v2\x15.schedule.v1.ScheduleR\bschedule\"\xff\x02\n" +
 	"\x15UpdateScheduleRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x1e\n" +
-	"\x04name\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x12\x1f\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12}\n" +
+	"\x04name\x18\x02 \x01(\tBi\xbaHf\xba\x01\\\n" +
+	"\x0ename.printable\x12(name must not contain control characters\x1a !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name\x12\x1f\n" +
 	"\x04cron\x18\x03 \x01(\tB\v\xbaH\br\x06\xb8\xbb\x18\x01\x10\x01R\x04cron\x12#\n" +
 	"\btimezone\x18\x04 \x01(\tB\a\xbaH\x04r\x02\x18dR\btimezone\x12\x18\n" +
 	"\aenabled\x18\x05 \x01(\bR\aenabled\x12#\n" +
