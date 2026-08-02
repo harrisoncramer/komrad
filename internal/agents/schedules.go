@@ -183,11 +183,10 @@ func normalize(cfg schedule.Config) (schedule.Config, error) {
 // laptop means. The zone is checked before parsing, so an unknown one is reported as such
 // rather than as a syntax error about the TZ prefix it is read through.
 //
-// Syntax is not enough on its own. A date the calendar never reaches, February the
-// thirtieth being the plain case, parses as readily as any other and then never comes
-// round, which the library reports as the zero time. Refusing it here means it is caught
-// where it is written rather than surviving in the table for everything downstream to trip
-// over.
+// Syntax is not enough on its own. A date the calendar never reaches, such as February the
+// thirtieth, reads as cleanly as any other and then never comes round, which the library
+// reports as the zero time. Refusing it here catches it where it is written rather than
+// leaving it in the table for everything downstream to trip over.
 func ParseCron(expression, timezone string) (cron.Schedule, error) {
 	if timezone != "" {
 		if _, err := time.LoadLocation(timezone); err != nil {

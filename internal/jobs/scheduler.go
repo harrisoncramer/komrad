@@ -144,15 +144,18 @@ func (s *Scheduler) Reconcile(ctx context.Context) error {
 func periodicJobFor(scheduleID string, cron river.PeriodicSchedule) *river.PeriodicJob {
 	return river.NewPeriodicJob(
 		cron,
-		func() (river.JobArgs, *river.InsertOpts) { return launchArgsFor(scheduleID, cron, time.Now()) },
+		func() (river.JobArgs, *river.InsertOpts) {
+			return launchArgsFor(scheduleID, cron, time.Now())
+		},
 		&river.PeriodicJobOpts{ID: scheduleID},
 	)
 }
 
-// launchArgsFor is what River's enqueuer builds each time the schedule comes round. A
-// schedule with no occurrence to name queues nothing, which River takes nil arguments to
-// mean, since a firing filed under the zero time stands for none and every later one would
-// dedup into the first.
+// launchArgsFor builds the arguments for one firing. Nil arguments tell River there is
+// nothing to insert, which is the answer for a schedule with no occurrence to name. Filing
+// the job under the zero time instead would stand for a firing that never happened, and
+// since the occurrence is what the unique index is built from, every later one would
+// collapse into it.
 func launchArgsFor(scheduleID string, cron river.PeriodicSchedule, now time.Time) (river.JobArgs, *river.InsertOpts) {
 	occurrence := occurrenceFor(cron, now)
 	if occurrence.IsZero() {
@@ -182,14 +185,14 @@ const skew = 5 * time.Second
 // starting far enough behind that no plausible lateness precedes it.
 //
 // A schedule with nothing left to fire on reports the zero time, which is never after the
-// cutoff, so both ends of the walk stop on it rather than asking for a step that cannot
-// come. There is no occurrence to name in that case, and the zero time says so.
+// cutoff. Both ends of the walk stop on it and hand it back, since there is no occurrence
+// to name.
 func occurrenceFor(cron river.PeriodicSchedule, now time.Time) time.Time {
 	cutoff := now.Add(skew)
 
 	occurrence := cron.Next(now.Add(-lateness))
 	if occurrence.IsZero() {
-		return time.Time{}
+		return occurrence
 	}
 
 	for {

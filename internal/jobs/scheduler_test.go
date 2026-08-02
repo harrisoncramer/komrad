@@ -16,6 +16,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// neverOccurring are dates the calendar does not have. They parse, and then the library
+// searches five years, finds nothing, and reports the zero time. They are built straight
+// from the library rather than through agents.ParseCron, which refuses them, since what is
+// under test is what happens when one reaches the scheduler anyway.
+var neverOccurring = []string{"0 0 30 2 *", "0 0 31 2 *", "0 0 31 4 *"}
+
 // TestSchedulerReconcile covers which schedules a pass registers with River and
 // which it takes back off. Registering is not idempotent from River's side, so a
 // pass that re-adds a schedule nothing changed about would leave two jobs firing
@@ -359,12 +365,6 @@ func TestOccurrenceFor(t *testing.T) {
 	}
 }
 
-// neverOccurring are dates the calendar does not have. They parse, and then the library
-// searches five years, finds nothing, and reports the zero time. The expressions are built
-// here rather than through agents.ParseCron, which refuses them, since what is under test
-// is what happens when one reaches the scheduler anyway.
-var neverOccurring = []string{"0 0 30 2 *", "0 0 31 2 *", "0 0 31 4 *"}
-
 // TestOccurrenceForNeverOccurs covers the walk over a schedule that has no occurrence.
 // Every step of it comes back as the zero time, which is never after the cutoff, so
 // without a stop the walk spins inside River's enqueuer and no schedule fires again.
@@ -381,15 +381,14 @@ func TestOccurrenceForNeverOccurs(t *testing.T) {
 			case got := <-returned:
 				assert.True(t, got.IsZero(), "a schedule with no occurrence names none")
 			case <-time.After(3 * time.Second):
-				t.Fatal("occurrenceFor did not return within 3s: it is spinning")
+				t.Fatal("occurrenceFor did not return within 3s, so it is spinning")
 			}
 		})
 	}
 }
 
-// TestLaunchArgsForNeverOccurs covers what such a schedule queues. Nothing, since a firing
-// filed under the zero time stands for no occurrence and every later one would dedup into
-// the first.
+// TestLaunchArgsForNeverOccurs covers what such a schedule queues. Nothing, since nil
+// arguments are how River is told there is no job to insert.
 func TestLaunchArgsForNeverOccurs(t *testing.T) {
 	for _, expression := range neverOccurring {
 		t.Run(expression, func(t *testing.T) {
