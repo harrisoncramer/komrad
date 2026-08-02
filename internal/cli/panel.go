@@ -28,7 +28,12 @@ func panelCmd(state *app) *cobra.Command {
 			// Carried into the panel rather than returned, since returning ends the
 			// session and tmux tears the pane down with the message still on it.
 			logPath := state.env.LogPath()
-			startupErr := ensureServer(state.env.Addr, getSelfPath(), logPath)
+			startupErr := ensureServer(ensureServerParams{
+				Addr:       state.env.Addr,
+				Self:       getSelfPath(),
+				LogPath:    logPath,
+				ConfigPath: state.configPath,
+			})
 
 			// Only on failure. The checks reach a database and a tmux server, which
 			// is not work to do on every open, and there is nothing to explain when
