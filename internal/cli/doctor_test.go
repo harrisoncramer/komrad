@@ -1,0 +1,60 @@
+package cli
+
+import (
+	"testing"
+
+	"weave/config"
+	"weave/internal/harness"
+	"weave/internal/harness/claude"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// TestDoctorReadsTheConfigTheUserNamed covers which path the config check is made against.
+// The resolved path is always a file name, so reading it cannot tell a config nobody wrote
+// apart from one somebody named and never created, and doctor has to report those two as
+// opposite things.
+func TestDoctorReadsTheConfigTheUserNamed(t *testing.T) {
+	tests := []struct {
+		name       string
+		configPath string
+		wantErr    bool
+	}{
+		{
+			name:       "a file named on the command line that is not there",
+			configPath: "/no/such/config.toml",
+			wantErr:    true,
+		},
+		{
+			name:       "no file and none named, which is every fresh install",
+			configPath: "",
+			wantErr:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("HOME", t.TempDir())
+
+			registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))
+			require.NoError(t, err)
+
+			state := &app{env: &config.Config{}, harnesses: registry, configPath: tt.configPath}
+
+			env, _, err := state.buildDoctor()
+			require.NoError(t, err)
+
+			_, err = env.LoadConfig()
+
+			if !tt.wantErr {
+				assert.NoError(t, err)
+
+				return
+			}
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.configPath, "the error names the file that is not there")
+		})
+	}
+}
