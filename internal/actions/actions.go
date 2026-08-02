@@ -14,6 +14,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"weave/internal/logging"
 )
 
 // ErrNotExecutable is what running a file without the executable bit is refused with. The
@@ -155,6 +157,8 @@ func (r Runner) Run(p RunParams) error {
 
 	// Run command in the background, send it's outcome to the Done helper.
 	go func() {
+		defer logging.LogAndRepanic(context.Background())
+
 		waitErr := cmd.Wait()
 		if p.Done == nil {
 			return

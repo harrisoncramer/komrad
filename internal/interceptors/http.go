@@ -59,7 +59,7 @@ func NewLoggingHandler(logger *slog.Logger, next http.Handler) http.Handler {
 		recorder.Header().Set(TraceHeader, trace)
 
 		start := time.Now()
-		next.ServeHTTP(recorder, r.WithContext(ctx))
+		serveAndRecover(recorder, r.WithContext(ctx), next)
 
 		attrs = append(attrs,
 			slog.Int(logging.HTTPStatus, recorder.status),

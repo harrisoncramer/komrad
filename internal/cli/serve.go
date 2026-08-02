@@ -125,6 +125,8 @@ func shutdownSignal(parent context.Context) (context.Context, func()) {
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
+		defer logging.LogAndRepanic(ctx)
+
 		select {
 		case <-signals:
 			signal.Stop(signals)
@@ -205,10 +207,18 @@ func serve(ctx context.Context, p serveParams) error {
 	httpServer := &http.Server{
 		Handler:           built.Handler(logger),
 		ReadHeaderTimeout: 5 * time.Second,
+		// net/http writes its own complaints through a log.Logger, which left unset is the
+		// standard one and puts plain text among the records. What it has to say is a panic it
+		// caught under our own recovery or a connection it could not read, both worth a record.
+		ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelError),
 	}
 
 	served := make(chan error, 1)
-	go func() { served <- httpServer.Serve(listener) }()
+	go func() {
+		defer logging.LogAndRepanic(ctx)
+
+		served <- httpServer.Serve(listener)
+	}()
 
 	// Being asked and being signalled are the same shutdown from here on, so both land in
 	// the same teardown below rather than each having one of their own.
@@ -283,6 +293,8 @@ func startBackground(ctx context.Context, p backgroundParams) (*backgroundWork, 
 
 		go func() {
 			defer loops.Done()
+			defer logging.LogAndRepanic(loopCtx)
+
 			runLoop(loopCtx, params)
 		}()
 	}
@@ -323,6 +335,8 @@ func closeWithin(logger *slog.Logger, what string, close func()) {
 func didFinishWithin(within time.Duration, wait func()) bool {
 	done := make(chan struct{})
 	go func() {
+		defer logging.LogAndRepanic(context.Background())
+
 		wait()
 		close(done)
 	}()
