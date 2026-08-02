@@ -17,15 +17,29 @@ const commandTimeout = 5 * time.Second
 // direct call, so a test can answer for a dependency the machine running it does not have
 // and the whole list stays runnable without tmux, Postgres, or a server.
 type Env struct {
+	Settings
+
 	// LookPath resolves a command on PATH and returns where it landed.
 	LookPath func(name string) (string, error)
 	// Output runs a command and returns what it wrote to stdout.
 	Output func(ctx context.Context, name string, args ...string) (string, error)
 }
 
+// Settings is what this build would run with, gathered before doctor is reached so no
+// check reads a file or an environment for itself.
+type Settings struct {
+	// TmuxSocket names weave's own tmux server, which is where agent panes are opened
+	// and so the server whose options decide whether a launch parses.
+	TmuxSocket string
+	// InsideTmux is the user's tmux server as tmux names it in TMUX, empty when this is
+	// not running under tmux. It is a second server to ask when weave's is not up.
+	InsideTmux string
+}
+
 // NewEnv is the env pointed at the machine this is running on.
-func NewEnv() Env {
+func NewEnv(settings Settings) Env {
 	return Env{
+		Settings: settings,
 		LookPath: exec.LookPath,
 		Output:   runOutput,
 	}

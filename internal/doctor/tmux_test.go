@@ -200,3 +200,116 @@ func TestTmuxVersionCheck(t *testing.T) {
 func TestTmuxVersionNeedsTheBinary(t *testing.T) {
 	assert.Contains(t, TmuxVersion().Needs, TmuxBinary().Name)
 }
+
+// tmuxServers fakes the tmux servers that are up. Keys are the socket flag a call carries,
+// "-L weave" for weave's own and "" for the user's, so a test says which servers answer
+// and what each one reports.
+func tmuxServers(answers map[string]string) Env {
+	return Env{
+		Settings: Settings{TmuxSocket: "weave", InsideTmux: "/tmp/tmux-501/default,1,0"},
+		LookPath: func(string) (string, error) { return "/usr/bin/tmux", nil },
+		Output: func(_ context.Context, _ string, args ...string) (string, error) {
+			socket := ""
+			if len(args) > 1 && args[0] == "-L" {
+				socket = args[0] + " " + args[1]
+			}
+
+			answer, running := answers[socket]
+			if !running {
+				return "", errors.New("no server running on that socket")
+			}
+
+			return answer, nil
+		},
+	}
+}
+
+// TestTmuxShellCheck covers what the option can say and which server was asked. The shell
+// decides whether an agent launches at all, and the service refuses to start over it, so a
+// wrong answer here sends someone looking at the wrong thing.
+func TestTmuxShellCheck(t *testing.T) {
+	tests := []struct {
+		name       string
+		answers    map[string]string
+		want       Status
+		wantCode   string
+		wantDetail string
+	}{
+		{
+			name:       "weave's own server names a shell an agent can launch from",
+			answers:    map[string]string{"-L weave": "/bin/zsh"},
+			want:       StatusOK,
+			wantDetail: "/bin/zsh (weave's tmux server)",
+		},
+		{
+			name:     "a shell that cannot parse the launch",
+			answers:  map[string]string{"-L weave": "/usr/bin/fish"},
+			want:     StatusFail,
+			wantCode: "tmux_shell_unsupported",
+		},
+		{
+			name:     "the same shell under a path tmux spelled differently",
+			answers:  map[string]string{"-L weave": "/opt/homebrew/bin/fish"},
+			want:     StatusFail,
+			wantCode: "tmux_shell_unsupported",
+		},
+		{
+			name:       "an option tmux does not have set",
+			answers:    map[string]string{"-L weave": ""},
+			want:       StatusOK,
+			wantDetail: "tmux names no default-shell, so panes take the system one",
+		},
+		{
+			name:       "weave's server is not up, so the user's answers",
+			answers:    map[string]string{"": "/bin/bash"},
+			want:       StatusOK,
+			wantDetail: "/bin/bash (your tmux server)",
+		},
+		{
+			name:     "no server is up at all",
+			answers:  map[string]string{},
+			want:     StatusWarn,
+			wantCode: "tmux_no_server",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := TmuxShell().Run(t.Context(), tmuxServers(tt.answers))
+
+			assert.Equal(t, tt.want, result.Status)
+			assert.Equal(t, tt.wantCode, CodeOf(result.Err))
+			if tt.wantDetail != "" {
+				assert.Equal(t, tt.wantDetail, result.Detail)
+			}
+		})
+	}
+}
+
+// TestTmuxShellStartsNoServer covers the promise doctor makes about itself. Asking tmux for
+// an option starts a server when none is running, so the call has to be one that cannot,
+// or a diagnostic would be creating the thing it reports on.
+func TestTmuxShellStartsNoServer(t *testing.T) {
+	var calls [][]string
+
+	env := Env{
+		Settings: Settings{TmuxSocket: "weave"},
+		LookPath: func(string) (string, error) { return "/usr/bin/tmux", nil },
+		Output: func(_ context.Context, _ string, args ...string) (string, error) {
+			calls = append(calls, args)
+
+			return "", errors.New("no server running on /tmp/tmux-501/weave")
+		},
+	}
+
+	TmuxShell().Run(t.Context(), env)
+
+	require.NotEmpty(t, calls)
+	for _, args := range calls {
+		assert.NotContains(t, args, "start-server", "doctor never starts a tmux server")
+		assert.NotContains(t, args, "new-session")
+		assert.Contains(t, args, "show-option", "reading an option is all it does")
+	}
+
+	assert.Len(t, calls, 1, "the user's server is not addressed when this is not running inside one")
+}

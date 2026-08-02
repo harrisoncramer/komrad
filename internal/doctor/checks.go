@@ -9,5 +9,6 @@ func Checks() []Check {
 	return []Check{
 		TmuxBinary(),
 		TmuxVersion(),
+		TmuxShell(),
 	}
 }

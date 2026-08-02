@@ -18,7 +18,7 @@ var ErrReported = errors.New("reported")
 // It repairs nothing. A command that changes what it is describing cannot be run to find
 // out what is wrong, and the failures it reports are the ones where the user has to decide
 // what to do about them.
-func doctorCmd() *cobra.Command {
+func doctorCmd(state *app) *cobra.Command {
 	var asJSON bool
 	var color string
 
@@ -34,7 +34,12 @@ func doctorCmd() *cobra.Command {
 				return err
 			}
 
-			report := doctor.Run(cmd.Context(), doctor.NewEnv(), doctor.Checks())
+			env := doctor.NewEnv(doctor.Settings{
+				TmuxSocket: state.env.TmuxSocket,
+				InsideTmux: state.env.Tmux,
+			})
+
+			report := doctor.Run(cmd.Context(), env, doctor.Checks())
 
 			if asJSON {
 				err = doctor.WriteJSON(cmd.OutOrStdout(), report)
