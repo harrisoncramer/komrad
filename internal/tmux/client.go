@@ -22,16 +22,14 @@ import (
 const paneOwnerOption = "@weave_agent_id"
 
 // queryTimeout bounds a single tmux call. Every command here is a request and an answer
-// over a local socket, so a healthy one costs milliseconds, and the bound is set orders of
-// magnitude above that to be tripped only by a server that has stopped answering rather
-// than by a loaded machine.
+// over a local socket, so a healthy one costs milliseconds and only a server that has
+// stopped answering trips this.
 const queryTimeout = 5 * time.Second
 
-// killGrace is how long a timed-out tmux is given after being killed before its output is
-// abandoned. Killing the process is not on its own enough to unblock the read: anything
-// else holding the inherited stdout keeps it open, and tmux leaves a daemonized server
-// doing exactly that, so without this the call still never returns.
-const killGrace = 100 * time.Millisecond
+// killDelay is how long a timed-out tmux gets after being killed before its output is
+// abandoned. Without it a daemonized server still holding the inherited stdout keeps the
+// read blocked, which is the hang the timeout was there to prevent.
+const killDelay = 100 * time.Millisecond
 
 // Client talks to one tmux server, addressed by socket name or socket path. The server
 // flags are held whole, since the two forms differ in flag as well as value.
@@ -329,11 +327,10 @@ func (c *Client) CapturePane(pane string) string {
 // failed and whatever tmux wrote to stderr, since an exit status on its own says neither
 // which call broke nor why, and these run on a loop where nobody is watching.
 //
-// The call is bounded for the same reason. Nobody watching also means nobody to notice a
-// tmux that never answers, and these run in a pass that finishes before its loop looks at
-// its context again, so one such call would stop every agent's state being read from then
-// on. A timeout gives up the answer instead, which the callers already treat as not having
-// read rather than as the pane being gone.
+// Nobody watching is also why the call is bounded. A reconcile pass runs to completion
+// before its loop looks at its context again, so a tmux that never answers would stop
+// every agent's state being read from then on. Giving up reads as not having read rather
+// than as the pane being gone, which is what the callers already do with a failure.
 func (c *Client) query(args ...string) (string, error) {
 	command := slices.Concat(c.server, args)
 
@@ -341,15 +338,14 @@ func (c *Client) query(args ...string) (string, error) {
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "tmux", command...)
-	cmd.WaitDelay = killGrace
+	cmd.WaitDelay = killDelay
 
 	out, err := cmd.Output()
 
-	// The timeout is reported ahead of the error the kill produced, which says only that
-	// something signalled the process and not that it had run out of time. Whatever tmux
-	// managed to write before it went is dropped, since a half-read frame answered as if it
-	// were whole is worse than no answer.
-	if ctx.Err() != nil {
+	// Running out of time is reported ahead of the error the kill produced, which says only
+	// that something signalled the process. Whatever tmux wrote before it went is dropped,
+	// since a half-read frame answered as if it were whole is worse than no answer.
+	if err != nil && ctx.Err() != nil {
 		return "", fmt.Errorf("tmux %s: gave up waiting after %s", strings.Join(command, " "), queryTimeout)
 	}
 
