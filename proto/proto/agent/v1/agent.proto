@@ -120,11 +120,22 @@ message GetAgentResponse {
   Agent agent = 1;
 }
 
-// SetMarkRequest marks an agent, and an unset mark clears it. It is keyed by id
-// rather than name because the mark outlives a rename, and the panel already holds
-// the id of the row it is looking at.
-message SetMarkRequest {
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+// SetMarksRequest puts one mark on every agent named, and an unset mark clears the
+// ones they carry. It is keyed by id rather than name because a mark outlives a
+// rename, and the panel already holds the ids of the rows it is looking at.
+//
+// One mark for the whole request rather than one per agent. The panel's mark key
+// steps a selection through the configured marks together, and a request carrying a
+// glyph per id would be a way to write marks nothing on screen can produce.
+message SetMarksRequest {
+  repeated string ids = 1 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 100
+    unique: true
+    items: {
+      string: {min_len: 1}
+    }
+  }];
   optional string mark = 2 [(buf.validate.field).cel = {
     id: "mark.glyph"
     message: "a mark must be a short glyph carrying no whitespace or control characters"
@@ -273,11 +284,11 @@ service AgentService {
       destructive: false
     };
   }
-  rpc SetMark(SetMarkRequest) returns (google.protobuf.Empty) {
+  rpc SetMarks(SetMarksRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
-      tool_name: "set_agent_mark"
-      description: "Put a mark on an agent, keyed by its id, or clear the one it carries by omitting the mark. A mark is a glyph the user reads off the row, meaning whatever they decided it means, such as needs review or dealt with. Use only the glyphs get_config returns under marks, since the panel's mark key cycles through those and can only clear anything else. What an agent is currently doing is already in its state, so do not mark that."
+      tool_name: "set_agent_marks"
+      description: "Put one mark on a list of agents, keyed by their ids, or clear the ones they carry by omitting the mark. Every id given takes the same glyph, so marking agents differently is a call each. A mark is a glyph the user reads off the row, meaning whatever they decided it means, such as needs review or dealt with. Use only the glyphs get_config returns under marks, since the panel's mark key cycles through those and can only clear anything else. Archived agents have no row to draw a mark on and are skipped, and returns not_found only when no id given reached a live agent. What an agent is currently doing is already in its state, so do not mark that."
       destructive: false
     };
   }

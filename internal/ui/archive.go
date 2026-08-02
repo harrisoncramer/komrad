@@ -105,14 +105,14 @@ func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstor
 func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
-	if m.archive.selected.active() {
-		return m.updateArchiveSelection(key)
-	}
-
 	if sel, took := m.applySelectionKey(k, m.archive.selected, m.archiveRows(), m.archive.cursor); took {
 		m.archive.selected = sel
 
 		return m, nil
+	}
+
+	if m.archive.selected.active() {
+		return m.updateArchiveSelection(key)
 	}
 
 	switch {
@@ -133,17 +133,11 @@ func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// updateArchiveSelection drives the archive while a selection is up. As on the agents tree,
-// only movement, the selection keys, and the way out stay live: nothing acts on a selection
-// yet, so restore and delete would act on whichever chosen row the cursor happens to be on.
+// updateArchiveSelection is what the archive still answers while a selection is up. Restore
+// and delete stand down the way the agents tree's row keys do, since nothing acts on a
+// selection yet and either would take whichever chosen row the cursor happens to be on.
 func (m model) updateArchiveSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
-
-	if sel, took := m.applySelectionKey(k, m.archive.selected, m.archiveRows(), m.archive.cursor); took {
-		m.archive.selected = sel
-
-		return m, nil
-	}
 
 	switch {
 	case isBound(k, m.keys.Archive.Quit):

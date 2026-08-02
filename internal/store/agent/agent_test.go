@@ -297,59 +297,80 @@ func TestSetStateByID(t *testing.T) {
 	}
 }
 
-// TestSetMark covers marking, changing a mark, clearing one, and who may carry one.
-// A write that silently landed on nothing would leave the caller believing they had
-// marked an agent that shows no mark.
-func TestSetMark(t *testing.T) {
+// TestSetMarks covers marking, changing a mark, clearing one, and who may carry one,
+// over one agent and over several at once. A write that silently landed on nothing
+// would leave the caller believing they had marked agents that show no mark.
+func TestSetMarks(t *testing.T) {
 	tests := []struct {
 		name    string
-		create  bool
+		create  int
 		archive bool
-		id      func(created Agent) string
-		// before is put on the agent ahead of the write, so a row can start from a
-		// mark rather than from nothing.
-		before      *string
-		mark        *string
-		wantChanged bool
+		ids     func(created []Agent) []string
+		// before is put on every created agent ahead of the write, so a row can start
+		// from a mark rather than from nothing.
+		before     *string
+		mark       *string
+		wantMarked int
 	}{
 		{
 			name: "an id no agent holds",
-			id:   func(Agent) string { return uuid.NewString() },
+			ids:  func([]Agent) []string { return []string{uuid.NewString()} },
 			mark: xptr.Ptr("●"),
 		},
 		{
 			name: "a value that is not an id at all",
-			id:   func(Agent) string { return "not-an-id" },
+			ids:  func([]Agent) []string { return []string{"not-an-id"} },
 			mark: xptr.Ptr("●"),
 		},
 		{
 			name:    "an archived agent, which has no listing to be marked in",
-			create:  true,
+			create:  1,
 			archive: true,
-			id:      func(created Agent) string { return created.ID },
+			ids:     func(created []Agent) []string { return []string{created[0].ID} },
 			mark:    xptr.Ptr("●"),
 		},
 		{
-			name:        "marking a live agent",
-			create:      true,
-			id:          func(created Agent) string { return created.ID },
-			mark:        xptr.Ptr("●"),
-			wantChanged: true,
+			name:       "a value that is not an id, which must not take the agent beside it down",
+			create:     1,
+			ids:        func(created []Agent) []string { return []string{"not-an-id", created[0].ID} },
+			mark:       xptr.Ptr("●"),
+			wantMarked: 1,
 		},
 		{
-			name:        "moving an agent from one mark to another",
-			create:      true,
-			id:          func(created Agent) string { return created.ID },
-			before:      xptr.Ptr("●"),
-			mark:        xptr.Ptr("✓"),
-			wantChanged: true,
+			name:       "an id nobody holds beside one somebody does",
+			create:     1,
+			ids:        func(created []Agent) []string { return []string{created[0].ID, uuid.NewString()} },
+			mark:       xptr.Ptr("●"),
+			wantMarked: 1,
 		},
 		{
-			name:        "clearing a live agent's mark",
-			create:      true,
-			id:          func(created Agent) string { return created.ID },
-			before:      xptr.Ptr("●"),
-			wantChanged: true,
+			name:       "marking a live agent",
+			create:     1,
+			ids:        agentIDs,
+			mark:       xptr.Ptr("●"),
+			wantMarked: 1,
+		},
+		{
+			name:       "marking several at once",
+			create:     3,
+			ids:        agentIDs,
+			mark:       xptr.Ptr("●"),
+			wantMarked: 3,
+		},
+		{
+			name:       "moving several agents from one mark to another",
+			create:     2,
+			ids:        agentIDs,
+			before:     xptr.Ptr("●"),
+			mark:       xptr.Ptr("✓"),
+			wantMarked: 2,
+		},
+		{
+			name:       "clearing the marks several agents carry",
+			create:     2,
+			ids:        agentIDs,
+			before:     xptr.Ptr("●"),
+			wantMarked: 2,
 		},
 	}
 
@@ -358,35 +379,41 @@ func TestSetMark(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			var created Agent
-			if tt.create {
-				require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
-				got, err := st.Get(ctx, "agent")
+			created := make([]Agent, 0, tt.create)
+			for i := range tt.create {
+				name := fmt.Sprintf("agent-%d", i)
+				require.NoError(t, st.Create(ctx, Agent{Name: name, State: StateIdle}))
+
+				got, err := st.Get(ctx, name)
 				require.NoError(t, err)
 				require.NotNil(t, got)
-				created = *got
+				created = append(created, *got)
 			}
 			if tt.before != nil {
-				changed, err := st.SetMark(ctx, created.ID, tt.before)
+				marked, err := st.SetMarks(ctx, agentIDs(created), tt.before)
 				require.NoError(t, err)
-				require.True(t, changed)
+				require.Equal(t, len(created), marked)
 			}
 			if tt.archive {
-				require.NoError(t, st.archiveByName(ctx, "agent"))
+				require.NoError(t, st.archiveByName(ctx, created[0].Name))
 			}
 
-			changed, err := st.SetMark(ctx, tt.id(created), tt.mark)
+			marked, err := st.SetMarks(ctx, tt.ids(created), tt.mark)
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantChanged, changed)
+			assert.Equal(t, tt.wantMarked, marked)
 
-			if !tt.wantChanged {
-				return
+			carrying := 0
+			for _, agent := range created {
+				after, err := st.GetByID(ctx, agent.ID)
+				require.NoError(t, err)
+				require.NotNil(t, after)
+
+				if assert.ObjectsAreEqual(tt.mark, after.Mark) {
+					carrying++
+				}
 			}
 
-			after, err := st.Get(ctx, "agent")
-			require.NoError(t, err)
-			require.NotNil(t, after)
-			assert.Equal(t, tt.mark, after.Mark)
+			assert.Equal(t, tt.wantMarked, carrying)
 		})
 	}
 }
@@ -704,9 +731,9 @@ func TestSetStateByIDKeepsTheMark(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, created)
 
-	changed, err := st.SetMark(ctx, created.ID, xptr.Ptr("●"))
+	marked, err := st.SetMarks(ctx, []string{created.ID}, xptr.Ptr("●"))
 	require.NoError(t, err)
-	require.True(t, changed)
+	require.Equal(t, 1, marked)
 
 	require.NoError(t, st.SetStateByID(ctx, created.ID, StateWaiting))
 
@@ -1444,6 +1471,16 @@ type fixture struct {
 
 // Get reads an agent back by name out of the default workflow, which is the scope a
 // name is unique in.
+// agentIDs is the ids of a set of agents, which is what the calls keyed on a list take.
+func agentIDs(agents []Agent) []string {
+	ids := make([]string, 0, len(agents))
+	for _, agent := range agents {
+		ids = append(ids, agent.ID)
+	}
+
+	return ids
+}
+
 func (f *fixture) Get(ctx context.Context, name string) (*Agent, error) {
 	return f.GetInWorkflow(ctx, f.defaultWorkflow, name)
 }

@@ -108,6 +108,18 @@ func (s *Stage) Init(pane string) {
 // NavPane is the pane the panel itself runs in, empty until Init has found it.
 func (s *Stage) NavPane() string { return s.navPane }
 
+// SlotPane is whichever pane fills the stage's slot beside the panel, the staged agent's
+// own while one is swapped in and the stage's otherwise. Anything laying itself out against
+// what is on screen anchors here rather than on the stage's own pane, which is away in the
+// agent's window for as long as a swap is up.
+func (s *Stage) SlotPane() string {
+	if s.agentPane != "" {
+		return s.agentPane
+	}
+
+	return s.pane
+}
+
 // reclaim clears the panel's window of whatever the last panel left in it. Which panes
 // the stage owns is remembered in this process and nowhere else, so a panel that was
 // replaced or that died leaves panes its successor cannot recognise, and ensure would

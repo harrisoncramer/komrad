@@ -113,9 +113,9 @@ func TestReconcileLeavesTheMark(t *testing.T) {
 	ctx := context.Background()
 	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
 
-	marked, err := st.Agents.SetMark(ctx, agent.ID, xptr.Ptr("●"))
+	marked, err := st.Agents.SetMarks(ctx, []string{agent.ID}, xptr.Ptr("●"))
 	require.NoError(t, err)
-	require.True(t, marked)
+	require.Equal(t, 1, marked)
 
 	tmux := newFakeTmux()
 	tmux.owners["%1"] = agent.ID

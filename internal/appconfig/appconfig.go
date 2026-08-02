@@ -158,6 +158,10 @@ type AgentsKeys struct {
 	// and press it again to put the row back. The service is spawned detached and writes to
 	// a file, so nothing else shows what it is doing.
 	Logs []string `mapstructure:"logs"`
+	// Split a shell under the stage, in the directory the hovered agent or workflow runs
+	// in, and put the cursor in it. The pane is yours from there: nothing follows the
+	// list afterwards, and closing it is a plain tmux exit.
+	Terminal []string `mapstructure:"terminal"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow. New is global. Rename,
@@ -448,6 +452,7 @@ func DefaultKeybindings() Keybindings {
 			Hide:       []string{"h"},
 			ShowHidden: []string{"H"},
 			Logs:       []string{"L"},
+			Terminal:   []string{"t"},
 		},
 		Workflows: WorkflowsKeys{
 			New:     []string{"W"},

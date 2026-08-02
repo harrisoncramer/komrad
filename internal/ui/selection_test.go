@@ -15,14 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// selectionTree is the list the cases below work over. Its rows are, in order:
-//
-//	0 backend      3 db
-//	1 auth         4 frontend
-//	2 api          5 ui
-//
-// backend also holds a hidden agent, and chores is a folder with nothing in it, since a
-// header acts on the rows it is drawing rather than on the whole listing.
+// selectionTree is the list the cases below work over, whose rows are 0 backend, 1 auth,
+// 2 api, 3 db, 4 frontend, 5 ui. backend holds a hidden agent as well, which takes no row
+// while the hidden ones are away and so is not the folder's to select.
 func selectionTree() model {
 	return model{
 		stage: NewStage(&recordingTmux{}, appconfig.DefaultSplit),
@@ -53,17 +48,6 @@ func press(t *testing.T, m model, key tea.KeyMsg) model {
 
 	return updated
 }
-
-// runes is a plain letter key, the form the select-range and row keys arrive in.
-func runes(s string) tea.KeyMsg {
-	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)}
-}
-
-// selectKey and rangeKey are the two selection keys, a pair the way vim's are.
-var (
-	selectKey = runes("v")
-	rangeKey  = runes("V")
-)
 
 // TestToggleSelection covers what the select key does from each kind of row. An agent is a
 // plain toggle, and a header is a checkbox over the folder: not wholly selected takes the
@@ -111,7 +95,7 @@ func TestToggleSelection(t *testing.T) {
 			m.tree.cursor = tt.cursor
 			m.tree.selected = selection{ids: tt.start}
 
-			assert.Equal(t, tt.want, press(t, m, selectKey).tree.selected.ids)
+			assert.Equal(t, tt.want, press(t, m, keyMsg("v")).tree.selected.ids)
 		})
 	}
 }
@@ -123,7 +107,7 @@ func TestToggleSelectionEmptyFolder(t *testing.T) {
 	m.tree.workflows = append(m.tree.workflows, workflowstore.Workflow{ID: "w3", Name: "chores"})
 	m.tree.cursor = len(m.agentRows()) - 1
 
-	after := press(t, m, selectKey)
+	after := press(t, m, keyMsg("v"))
 	assert.Empty(t, after.tree.selected.ids)
 	assert.False(t, after.tree.selected.active())
 }
@@ -150,6 +134,12 @@ func TestSelectRange(t *testing.T) {
 			want:   []string{"a1", "a2", "a3"},
 		},
 		{
+			name:   "a header takes no range once the mode is up, since only agents are selectable",
+			cursor: 0,
+			start:  []string{"a3"},
+			want:   []string{"a3"},
+		},
+		{
 			name:   "a selection above reaches down to the cursor",
 			cursor: 3,
 			start:  []string{"a1"},
@@ -173,12 +163,6 @@ func TestSelectRange(t *testing.T) {
 			start:  []string{"a1", "a3"},
 			want:   []string{"a1", "a2", "a3"},
 		},
-		{
-			name:   "a header takes no range once the mode is up, since only agents are selectable",
-			cursor: 0,
-			start:  []string{"a3"},
-			want:   []string{"a3"},
-		},
 	}
 
 	for _, tt := range tests {
@@ -187,7 +171,7 @@ func TestSelectRange(t *testing.T) {
 			m.tree.cursor = tt.cursor
 			m.tree.selected = selection{ids: tt.start}
 
-			assert.Equal(t, tt.want, press(t, m, rangeKey).tree.selected.ids)
+			assert.Equal(t, tt.want, press(t, m, keyMsg("V")).tree.selected.ids)
 		})
 	}
 }
@@ -200,14 +184,14 @@ func TestSelectionKeysStandDown(t *testing.T) {
 	m.tree.cursor = 1
 	m.tree.selected = selection{ids: []string{"a1"}}
 
-	renamed := press(t, m, runes("r"))
+	renamed := press(t, m, keyMsg("r"))
 	assert.Equal(t, screenAgents, renamed.screen, "rename does not open its form")
 	assert.Nil(t, renamed.form)
 
-	moved := press(t, m, runes("j"))
+	moved := press(t, m, keyMsg("j"))
 	assert.Equal(t, 2, moved.tree.cursor, "the cursor still moves")
 
-	cleared := press(t, m, tea.KeyMsg{Type: tea.KeyEsc})
+	cleared := press(t, m, keyMsg("esc"))
 	assert.Empty(t, cleared.tree.selected.ids)
 	assert.False(t, cleared.tree.selected.active())
 }
@@ -232,7 +216,7 @@ func TestPruneSelection(t *testing.T) {
 		m.tree.showHidden = true
 		m.tree.selected = selection{ids: []string{"a1", "a5"}}
 
-		away := press(t, m, runes("H"))
+		away := press(t, m, keyMsg("H"))
 		assert.Equal(t, []string{"a1"}, away.tree.selected.ids)
 	})
 }
@@ -274,7 +258,7 @@ func TestArchiveSelection(t *testing.T) {
 		m := archiveSelectionTree()
 		m.archive.cursor = 2
 
-		after := pressArchive(t, m, selectKey)
+		after := pressArchive(t, m, keyMsg("v"))
 		assert.Equal(t, []string{"a2"}, after.archive.selected.ids)
 		assert.Empty(t, after.tree.selected.ids, "the agents tree is left alone")
 	})
@@ -282,7 +266,7 @@ func TestArchiveSelection(t *testing.T) {
 	t.Run("a header takes its whole folder", func(t *testing.T) {
 		m := archiveSelectionTree()
 
-		after := pressArchive(t, m, selectKey)
+		after := pressArchive(t, m, keyMsg("v"))
 		assert.Equal(t, []string{"a1", "a2", "a3"}, after.archive.selected.ids)
 	})
 
@@ -291,7 +275,7 @@ func TestArchiveSelection(t *testing.T) {
 		m.archive.cursor = 3
 		m.archive.selected = selection{ids: []string{"a1"}}
 
-		after := pressArchive(t, m, rangeKey)
+		after := pressArchive(t, m, keyMsg("V"))
 		assert.Equal(t, []string{"a1", "a2", "a3"}, after.archive.selected.ids)
 	})
 
@@ -300,19 +284,19 @@ func TestArchiveSelection(t *testing.T) {
 		m.archive.cursor = 1
 		m.archive.selected = selection{ids: []string{"a1"}}
 
-		assert.Equal(t, screenArchive, pressArchive(t, m, runes("d")).screen, "delete opens no prompt")
-		assert.Equal(t, screenArchive, pressArchive(t, m, runes("r")).screen)
+		assert.Equal(t, screenArchive, pressArchive(t, m, keyMsg("d")).screen, "delete opens no prompt")
+		assert.Equal(t, screenArchive, pressArchive(t, m, keyMsg("r")).screen)
 	})
 
 	t.Run("esc clears the selection rather than leaving the screen", func(t *testing.T) {
 		m := archiveSelectionTree()
 		m.archive.selected = selection{ids: []string{"a1"}}
 
-		cleared := pressArchive(t, m, tea.KeyMsg{Type: tea.KeyEsc})
+		cleared := pressArchive(t, m, keyMsg("esc"))
 		assert.Empty(t, cleared.archive.selected.ids)
 		assert.Equal(t, screenArchive, cleared.screen)
 
-		left := pressArchive(t, cleared, tea.KeyMsg{Type: tea.KeyEsc})
+		left := pressArchive(t, cleared, keyMsg("esc"))
 		assert.Equal(t, screenAgents, left.screen, "and leaves once the mode is down")
 	})
 

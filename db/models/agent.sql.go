@@ -901,25 +901,25 @@ func (q *Queries) SetAgentHidden(ctx context.Context, arg SetAgentHiddenParams) 
 	return items, nil
 }
 
-const setAgentMark = `-- name: SetAgentMark :many
+const setAgentMarks = `-- name: SetAgentMarks :many
 UPDATE
     agents
 SET
     mark = $1
 WHERE
-    id = $2
+    id = ANY ($2::uuid[])
     AND archived_at IS NULL
 RETURNING
     id
 `
 
-type SetAgentMarkParams struct {
+type SetAgentMarksParams struct {
 	Mark *string
-	ID   string
+	Ids  []string
 }
 
-func (q *Queries) SetAgentMark(ctx context.Context, arg SetAgentMarkParams) ([]string, error) {
-	rows, err := q.db.Query(ctx, setAgentMark, arg.Mark, arg.ID)
+func (q *Queries) SetAgentMarks(ctx context.Context, arg SetAgentMarksParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, setAgentMarks, arg.Mark, arg.Ids)
 	if err != nil {
 		return nil, err
 	}

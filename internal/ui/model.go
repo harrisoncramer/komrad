@@ -51,6 +51,7 @@ const (
 type uiTmux interface {
 	stageTmux
 	GetClientPath(client string) string
+	SplitBelow(anchorPane, dir string)
 	OpenWindow(client, name, dir string, argv ...string) error
 }
 

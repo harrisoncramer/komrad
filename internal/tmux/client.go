@@ -167,6 +167,13 @@ func (c *Client) SplitRight(anchorPane, dir string, percent int) string {
 	return c.value("split-window", "-h", "-d", "-t", anchorPane, "-c", dir, "-l", size, "-P", "-F", "#{pane_id}")
 }
 
+// SplitBelow splits a shell under the anchor pane and moves focus into it, rooted at dir.
+// It is the panel's terminal key, so the pane is the user's from here: nothing tracks it,
+// and it lives until they close it or the next panel start clears the window.
+func (c *Client) SplitBelow(anchorPane, dir string) {
+	c.run("split-window", "-v", "-t", anchorPane, "-c", dir)
+}
+
 // ResizePane sets a pane's width to percent of the window.
 func (c *Client) ResizePane(pane string, percent int) {
 	c.run("resize-pane", "-t", pane, "-x", fmt.Sprintf("%d%%", percent))

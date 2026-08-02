@@ -184,9 +184,34 @@ func TestRequestValidation(t *testing.T) {
 		{
 			name: "a mark carrying whitespace is refused, since it is drawn into a row",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
-					Id:   uuid.NewString(),
+				_, err := c.SetMarks(t.Context(), connect.NewRequest(&agentv1.SetMarksRequest{
+					Ids:  []string{uuid.NewString()},
 					Mark: xptr.Ptr("two glyphs"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a mark with no agent to put it on is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMarks(t.Context(), connect.NewRequest(&agentv1.SetMarksRequest{
+					Ids:  nil,
+					Mark: xptr.Ptr("◐"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "the same agent named twice is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				id := uuid.NewString()
+				_, err := c.SetMarks(t.Context(), connect.NewRequest(&agentv1.SetMarksRequest{
+					Ids:  []string{id, id},
+					Mark: xptr.Ptr("◐"),
 				}))
 
 				return err
@@ -196,8 +221,8 @@ func TestRequestValidation(t *testing.T) {
 		{
 			name: "a glyph is not what the constraint stops",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
-					Id:   uuid.NewString(),
+				_, err := c.SetMarks(t.Context(), connect.NewRequest(&agentv1.SetMarksRequest{
+					Ids:  []string{uuid.NewString()},
 					Mark: xptr.Ptr("◐"),
 				}))
 

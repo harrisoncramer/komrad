@@ -372,19 +372,21 @@ func (s *Store) ClearPane(ctx context.Context, id string) error {
 	return nil
 }
 
-// SetMark puts a mark on an agent, keyed by id, and a nil mark clears it. It reports
-// whether a row was touched, so an id matching nothing is distinguishable.
-func (s *Store) SetMark(ctx context.Context, id string, mark *string) (bool, error) {
-	if !store.IsID(id) {
-		return false, nil
+// SetMarks puts one mark on every agent named, keyed by id, and a nil mark clears the
+// ones they carry. It reports how many rows were touched, so a call that reached
+// nothing is distinguishable from one that reached some of what it named.
+func (s *Store) SetMarks(ctx context.Context, ids []string, mark *string) (int, error) {
+	storable := keepStorableIDs(ids)
+	if len(storable) == 0 {
+		return 0, nil
 	}
 
-	updated, err := s.queries.SetAgentMark(ctx, models.SetAgentMarkParams{ID: id, Mark: mark})
+	updated, err := s.queries.SetAgentMarks(ctx, models.SetAgentMarksParams{Ids: storable, Mark: mark})
 	if err != nil {
-		return false, fmt.Errorf("failed to mark agent %q: %w", id, err)
+		return 0, fmt.Errorf("failed to mark %d agents: %w", len(storable), err)
 	}
 
-	return len(updated) > 0, nil
+	return len(updated), nil
 }
 
 // SetHidden hides an agent from the panel's list or brings it back, keyed by id.
@@ -595,6 +597,20 @@ func (s *Store) ListArchivedInWorkflow(ctx context.Context, workflowID string) (
 	}
 
 	return agents, nil
+}
+
+// keepStorableIDs drops the ids no row could hold. Postgres refuses a whole uuid array
+// carrying one member it cannot parse, so an id the caller made up would otherwise take
+// the agents alongside it down with it.
+func keepStorableIDs(ids []string) []string {
+	storable := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if store.IsID(id) {
+			storable = append(storable, id)
+		}
+	}
+
+	return storable
 }
 
 func agentFromRow(agent models.Agent) Agent {

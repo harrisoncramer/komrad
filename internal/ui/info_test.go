@@ -209,6 +209,10 @@ type recordingTmux struct {
 	// anchors are the panes the stage has been split beside, which is the pane the panel
 	// believes it is running in.
 	anchors []string
+	// belowAnchors are the panes the terminal key has split a shell under, and belowDirs
+	// the directories those shells were rooted at.
+	belowAnchors []string
+	belowDirs    []string
 }
 
 func (t *recordingTmux) SetGlobal(string, string)                {}
@@ -225,6 +229,11 @@ func (t *recordingTmux) SplitRight(anchor, _ string, _ int) string {
 	t.anchors = append(t.anchors, anchor)
 
 	return "%1"
+}
+
+func (t *recordingTmux) SplitBelow(anchor, dir string) {
+	t.belowAnchors = append(t.belowAnchors, anchor)
+	t.belowDirs = append(t.belowDirs, dir)
 }
 
 func (t *recordingTmux) SwapPanes(string, string)        { t.swaps++ }

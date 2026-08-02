@@ -40,7 +40,7 @@ type agentReadWriter interface {
 	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, archived bool) ([]agentstore.Agent, error)
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
-	SetMark(ctx context.Context, id string, mark *string) (bool, error)
+	SetMarks(ctx context.Context, ids []string, mark *string) (int, error)
 	SetHidden(ctx context.Context, id string, hidden bool) (bool, error)
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 	Rename(ctx context.Context, id, name string) (bool, error)
@@ -144,16 +144,20 @@ func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.Get
 	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, s.launcher.IsAgentRunning(*agent)).Agent}), nil
 }
 
-// SetMark marks an agent, and an unset mark clears it. An id matching nothing is an error
-// rather than a quiet success, which would leave the caller believing in a mark it never
-// made.
-func (s *Service) SetMark(ctx context.Context, req *connect.Request[agentv1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error) {
-	changed, err := s.agents.SetMark(ctx, req.Msg.GetId(), req.Msg.Mark)
+// SetMarks marks every agent named, and an unset mark clears the ones they carry. A
+// request that reached nothing at all is an error rather than a quiet success, which would
+// leave the caller believing in a mark it never made.
+//
+// One that reached some of its ids is not an error. A mark is drawn on a row and nothing
+// more, and an agent archived between the caller choosing it and the write landing has no
+// row left to draw one on.
+func (s *Service) SetMarks(ctx context.Context, req *connect.Request[agentv1.SetMarksRequest]) (*connect.Response[emptypb.Empty], error) {
+	marked, err := s.agents.SetMarks(ctx, req.Msg.GetIds(), req.Msg.Mark)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set the mark: %w", err))
 	}
-	if !changed {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
+	if marked == 0 {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("none of the %d ids given is a live agent", len(req.Msg.GetIds())))
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

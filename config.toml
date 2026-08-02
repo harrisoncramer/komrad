@@ -126,6 +126,10 @@ show_hidden = ["H"]
 # the cursor, and press it again to put the row back. The service is spawned
 # detached and writes to a file, so nothing else shows what it is doing.
 logs        = ["L"]
+# Split a shell under the stage, in the directory the hovered agent or
+# workflow runs in, and put the cursor in it. The pane is yours from there:
+# nothing follows the list afterwards, and closing it is a plain tmux exit.
+terminal    = ["t"]
 
 # The new-agent, rename, and workflow forms.
 [keybindings.form]

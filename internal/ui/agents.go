@@ -24,19 +24,17 @@ var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one
 func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
-	// A selection takes the list over: while one is up the keys that act on a single row
-	// stand down, since nothing acts on a selection yet and acting on the hovered one alone
-	// would be the wrong thing done quietly.
-	if m.tree.selected.active() {
-		return m.updateAgentsSelection(key)
-	}
-
-	// Either selection key opens the mode on the row under the cursor, so they are checked
-	// ahead of the row keys they would otherwise sit among.
 	if sel, took := m.applySelectionKey(k, m.tree.selected, m.agentRows(), m.tree.cursor); took {
 		m.tree.selected = sel
 
 		return m, nil
+	}
+
+	// A selection takes the list over. While one is up the keys that only make sense on a
+	// single row stand down, since acting on the hovered one alone would be the wrong thing
+	// done quietly.
+	if m.tree.selected.active() {
+		return m.updateAgentsSelection(key)
 	}
 
 	// These act on the whole view rather than the row under the cursor, so they are
@@ -58,6 +56,11 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	if isBound(k, m.keys.Agents.Logs) {
 		return m.openLogs()
+	}
+	// Before the workflow bindings below, since a header has a directory of its own and
+	// opening a shell in it is worth as much as opening one on an agent.
+	if isBound(k, m.keys.Agents.Terminal) {
+		return m.openTerminal()
 	}
 
 	// On a workflow header the workflow bindings act on that folder's workflow.
@@ -126,22 +129,19 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// updateAgentsSelection drives the agents list while a selection is up. Movement, the
-// selection keys, and the way out stay live, plus the hidden toggle, which changes what is
-// drawn rather than acting on a row and is the one key that can put a chosen agent off
-// screen. The rest stand down.
+// updateAgentsSelection is what the agents list still answers while a selection is up, past
+// the selection keys its caller has already taken. Movement and the way out stay live,
+// along with the mark key, which acts on the whole selection. So does the hidden toggle,
+// which changes what is drawn rather than acting on a row and is the one key that can put a
+// chosen agent off screen.
 func (m model) updateAgentsSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
-
-	if sel, took := m.applySelectionKey(k, m.tree.selected, m.agentRows(), m.tree.cursor); took {
-		m.tree.selected = sel
-
-		return m, nil
-	}
 
 	switch {
 	case isBound(k, m.keys.Agents.Quit):
 		return m, m.hide()
+	case isBound(k, m.keys.Agents.Mark):
+		return m.markSelection()
 	case isBound(k, m.keys.Agents.ShowHidden):
 		return m.toggleHiddenAgents()
 	case isBound(k, m.keys.Nav.Up):
@@ -211,6 +211,39 @@ func (m model) openEditor() (tea.Model, tea.Cmd) {
 	return m, m.hide()
 }
 
+// openTerminal splits a shell under the stage, rooted where the hovered row runs, and
+// leaves the cursor in it. It goes under the stage rather than under the list so the shell
+// sits beneath the agent it is about, and the list keeps its full height.
+//
+// The pane is the user's from there: nothing follows the list afterwards and nothing here
+// closes it, so it is a tmux split like any other.
+func (m model) openTerminal() (tea.Model, tea.Cmd) {
+	anchor := m.stage.SlotPane()
+	if anchor == "" {
+		anchor = m.stage.NavPane()
+	}
+
+	m.tmux.SplitBelow(anchor, m.hoveredDir())
+
+	return m, nil
+}
+
+// hoveredDir is the directory the row under the cursor runs in. An empty list, or a row
+// carrying no directory, falls back to where the user was when they opened the panel.
+func (m model) hoveredDir() string {
+	rows := m.agentRows()
+	if m.tree.cursor < 0 || m.tree.cursor >= len(rows) {
+		return m.currentDir("")
+	}
+
+	row := rows[m.tree.cursor]
+	if row.header {
+		return m.currentDir(row.workflow.Cwd)
+	}
+
+	return m.currentDir(row.item.agent.Cwd)
+}
+
 // editorArgv is what the editor window runs, split on whitespace so an editor carrying its
 // own flags still works. tmux runs the result itself rather than through a shell.
 //
@@ -250,7 +283,20 @@ func (m model) markAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 
 	return m, m.writeCmd(
 		fmt.Sprintf("Could not mark agent %q", agent.Name),
-		func(a api) error { return a.setMark(agent, next) },
+		func(a api) error { return a.setMarks([]string{agent.ID}, next) },
+	)
+}
+
+// markSelection steps every chosen agent onto the same mark. The selection stays up
+// afterwards, unlike the keys that take rows off the screen, since the cycle only means
+// anything if the next press still has the same agents to move.
+func (m model) markSelection() (tea.Model, tea.Cmd) {
+	ids := m.tree.selected.ids
+	next := nextSelectionMark(selectionMarks(m.tree.selected, m.agentRows()), m.marks)
+
+	return m, m.writeCmd(
+		fmt.Sprintf("Could not mark %d agents", len(ids)),
+		func(a api) error { return a.setMarks(ids, next) },
 	)
 }
 
@@ -314,6 +360,48 @@ func nextMark(current *string, marks []appconfig.Mark) *string {
 	}
 
 	return nil
+}
+
+// nextSelectionMark is where the mark key moves a whole selection, which carries no one
+// mark to step from. Agents already agreeing step on together, and agents that disagree
+// collapse onto the first mark, which leaves them agreeing for every press after.
+//
+// Collapsing onto the mark most of them hold would read the same on screen and answer
+// differently, since which one that is cannot be seen without counting glyphs.
+func nextSelectionMark(current []*string, marks []appconfig.Mark) *string {
+	if len(marks) == 0 || len(current) == 0 {
+		return nil
+	}
+
+	for _, mark := range current[1:] {
+		if !isSameMark(current[0], mark) {
+			return &marks[0].Glyph
+		}
+	}
+
+	return nextMark(current[0], marks)
+}
+
+// selectionMarks are the marks the chosen agents carry, one per agent, a nil standing for
+// an unmarked one. It reads the rows rather than a listing, so it sees what the user is
+// looking at.
+func selectionMarks(sel selection, rows []agentRow) []*string {
+	marks := make([]*string, 0, sel.count())
+	for _, row := range rows {
+		if !row.header && sel.has(row.item.agent.ID) {
+			marks = append(marks, row.item.agent.Mark)
+		}
+	}
+
+	return marks
+}
+
+func isSameMark(a, b *string) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+
+	return *a == *b
 }
 
 // scheduleName is the display name of the schedule that launched an agent, empty for one a

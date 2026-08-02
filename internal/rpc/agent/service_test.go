@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -447,38 +448,53 @@ func TestSetHidden(t *testing.T) {
 	}
 }
 
-// TestSetMarked covers the mark over the wire. The server writes the stamp, so the
-// request carries only a direction, and an id that matches nothing is refused rather
-// than reported as a mark that never landed.
-func TestSetMark(t *testing.T) {
+// TestSetMarks covers the mark over the wire, over one agent and over several. The
+// server writes the stamp, so the request carries only a direction. A call that reached
+// nothing is refused rather than reported as a mark that never landed, and one that
+// reached some of what it named is not, since the ids it missed have no row to draw on.
+func TestSetMarks(t *testing.T) {
 	tests := []struct {
 		name string
-		seed bool
-		// markFirst is put on the agent before the call, so changing and clearing a
-		// mark both have one to work from.
+		seed int
+		// strays are ids nobody holds, sent alongside whatever was seeded.
+		strays int
+		// markFirst is put on the seeded agents before the call, so changing and
+		// clearing a mark both have one to work from.
 		markFirst *string
 		mark      *string
 		wantCode  connect.Code
 	}{
 		{
 			name:     "an id nobody holds is not a quiet success",
+			strays:   1,
 			mark:     xptr.Ptr("●"),
 			wantCode: connect.CodeNotFound,
 		},
 		{
 			name: "an agent is marked",
-			seed: true,
+			seed: 1,
 			mark: xptr.Ptr("●"),
 		},
 		{
-			name:      "an agent moves from one mark to another",
-			seed:      true,
+			name: "several agents take one mark together",
+			seed: 3,
+			mark: xptr.Ptr("●"),
+		},
+		{
+			name:   "an id nobody holds does not refuse the agents beside it",
+			seed:   2,
+			strays: 1,
+			mark:   xptr.Ptr("●"),
+		},
+		{
+			name:      "several agents move from one mark to another",
+			seed:      2,
 			markFirst: xptr.Ptr("●"),
 			mark:      xptr.Ptr("✓"),
 		},
 		{
-			name:      "and the mark is cleared again",
-			seed:      true,
+			name:      "and the marks are cleared again",
+			seed:      2,
 			markFirst: xptr.Ptr("●"),
 		},
 	}
@@ -488,17 +504,23 @@ func TestSetMark(t *testing.T) {
 			svc, st := service(t)
 			ctx := t.Context()
 
-			id := uuid.NewString()
-			if tt.seed {
-				id = st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking}).ID
+			seeded := make([]string, 0, tt.seed)
+			for i := range tt.seed {
+				name := fmt.Sprintf("alpha-%d", i)
+				seeded = append(seeded, st.SeedAgent(t, agentstore.Agent{Name: name, State: agentstore.StateThinking}).ID)
 			}
 			if tt.markFirst != nil {
-				changed, err := st.Agents.SetMark(ctx, id, tt.markFirst)
+				marked, err := st.Agents.SetMarks(ctx, seeded, tt.markFirst)
 				require.NoError(t, err)
-				require.True(t, changed)
+				require.Equal(t, len(seeded), marked)
 			}
 
-			_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{Id: id, Mark: tt.mark}))
+			ids := slices.Clone(seeded)
+			for range tt.strays {
+				ids = append(ids, uuid.NewString())
+			}
+
+			_, err := svc.SetMarks(ctx, connect.NewRequest(&agentv1.SetMarksRequest{Ids: ids, Mark: tt.mark}))
 			if tt.wantCode != 0 {
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 				return
@@ -506,9 +528,11 @@ func TestSetMark(t *testing.T) {
 
 			require.NoError(t, err)
 
-			got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
-			require.NoError(t, err)
-			assert.Equal(t, tt.mark, got.Msg.GetAgent().Mark)
+			for _, id := range seeded {
+				got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
+				require.NoError(t, err)
+				assert.Equal(t, tt.mark, got.Msg.GetAgent().Mark)
+			}
 		})
 	}
 }
