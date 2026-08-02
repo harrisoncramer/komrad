@@ -88,8 +88,8 @@ const mcpURLPlaceholder = "{{MCP_URL}}"
 // file that holds it.
 const logPathPlaceholder = "{{LOG_PATH}}"
 
-// briefing is the doc with the paths this install actually runs on filled in.
-func (l *Launcher) briefing() string {
+// buildBriefing is the doc with the paths this install actually runs on filled in.
+func (l *Launcher) buildBriefing() string {
 	text := strings.ReplaceAll(briefingDoc, mcpURLPlaceholder, fmt.Sprintf("http://%s/mcp", l.serverAddr))
 
 	return strings.ReplaceAll(text, logPathPlaceholder, l.logPath)
@@ -100,7 +100,7 @@ func (l *Launcher) briefing() string {
 // general to specific, so a workflow reads as the last word on anything the file above it
 // also speaks to.
 func (l *Launcher) appendedSystemPrompt(workflowContext string) string {
-	parts := []string{l.briefing(), l.globalContext(), workflowContext}
+	parts := []string{l.buildBriefing(), l.globalContext(), workflowContext}
 
 	kept := make([]string, 0, len(parts))
 	for _, part := range parts {

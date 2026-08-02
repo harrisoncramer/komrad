@@ -27,7 +27,7 @@ func panelCmd(state *app) *cobra.Command {
 			// Carried into the panel rather than returned, since returning ends the
 			// session and tmux tears the pane down with the message still on it.
 			logPath := state.env.LogPath()
-			startupErr := ensureServer(state.env.Addr, selfPath(), logPath)
+			startupErr := ensureServer(state.env.Addr, getSelfPath(), logPath)
 
 			base := "http://" + state.env.Addr
 			agentClient := agentv1connect.NewAgentServiceClient(http.DefaultClient, base)
@@ -54,7 +54,7 @@ func panelCmd(state *app) *cobra.Command {
 				Editor:      state.env.Editor,
 				LogPath:     logPath,
 				LogViewer:   state.logViewer,
-				Binary:      selfPath(),
+				Binary:      getSelfPath(),
 				ConfigErr:   state.configErr,
 				StartupErr:  startupErr,
 				Pane:        state.env.TmuxPane,

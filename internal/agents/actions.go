@@ -36,7 +36,7 @@ type actionRunner interface {
 // actionTmux is the one thing this asks of tmux, which agent a pane belongs to, which is
 // what says whether the agent an action is fired on is running.
 type actionTmux interface {
-	PaneOwner(pane string) string
+	GetPaneOwner(pane string) string
 }
 
 // configLoader reads the user's config. The service holds the loader rather than a
@@ -342,7 +342,7 @@ func (s *ActionService) discover() (string, []actions.Action, error) {
 		return "", nil, fmt.Errorf("failed to read the config: %w", err)
 	}
 
-	dir, err := cfg.ActionsDir()
+	dir, err := cfg.GetActionsDir()
 	if err != nil {
 		return "", nil, err
 	}
@@ -394,7 +394,7 @@ func (s *ActionService) env(ctx context.Context, agent agentstore.Agent, dir, tr
 		ID:        agent.ID,
 		Name:      agent.Name,
 		State:     agent.State,
-		Alive:     isPaneOwnedBy(s.tmux.PaneOwner(agent.Pane), agent.ID),
+		Alive:     isPaneOwnedBy(s.tmux.GetPaneOwner(agent.Pane), agent.ID),
 		Cwd:       agent.Cwd,
 		Harness:   agent.Harness,
 		SessionID: agent.SessionID,

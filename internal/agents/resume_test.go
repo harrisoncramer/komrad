@@ -71,10 +71,10 @@ func TestResumeDir(t *testing.T) {
 
 			h := &fakeHarness{}
 			service := &AgentService{fallbackResumeRoot: fallbackResumeRoot}
-			got := service.resumeDir(agentstore.Agent{ID: "agent-id", Cwd: cwd, SessionID: sessionID}, h)
+			got := service.getResumeDir(agentstore.Agent{ID: "agent-id", Cwd: cwd, SessionID: sessionID}, h)
 
 			assert.Equal(t, tt.wantDir(root, fallbackResumeRoot), got)
-			require.NoError(t, usableDir(got), "a restore always gets a directory it can start in")
+			require.NoError(t, requireUsableDir(got), "a restore always gets a directory it can start in")
 
 			if !tt.wantMoved {
 				assert.Empty(t, h.relocated, "a directory the agent can be started in leaves the conversation alone")

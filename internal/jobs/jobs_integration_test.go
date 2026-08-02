@@ -38,10 +38,10 @@ func newRiverClient(t *testing.T) *river.Client[pgx.Tx] {
 
 	stores := storetest.Open(t)
 
-	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.Raw()))
+	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool()))
 
 	client, err := NewClient(ClientParams{
-		Pool:      stores.Pool.Raw(),
+		Pool:      stores.Pool.GetRawPool(),
 		Schedules: &fakeSchedules{},
 		Agents:    &fakeLauncher{},
 		Running:   &fakeRunning{},
@@ -341,11 +341,11 @@ func (s *stubTmux) KillPane(string) {}
 
 func (s *stubTmux) SetPaneOwner(string, string) error { return nil }
 
-func (s *stubTmux) PaneOwner(string) string { return "" }
+func (s *stubTmux) GetPaneOwner(string) string { return "" }
 
-func (s *stubTmux) PaneOwners() (map[string]string, error) { return map[string]string{}, nil }
+func (s *stubTmux) GetPaneOwners() (map[string]string, error) { return map[string]string{}, nil }
 
-func (s *stubTmux) ClientPath(string) string { return "" }
+func (s *stubTmux) GetClientPath(string) string { return "" }
 
 func (s *stubTmux) SendKeys(string, ...string) error { return nil }
 
@@ -374,12 +374,12 @@ func (b *blockingLauncher) NewAgent(ctx context.Context, p agents.NewAgentParams
 // than walk away.
 func TestStopWaitsForALaunchInFlight(t *testing.T) {
 	stores := storetest.Open(t)
-	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.Raw()))
+	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool()))
 
 	launcher := &blockingLauncher{started: make(chan struct{}), release: make(chan struct{})}
 
 	client, err := NewClient(ClientParams{
-		Pool:      stores.Pool.Raw(),
+		Pool:      stores.Pool.GetRawPool(),
 		Schedules: &fakeSchedules{schedule: &schedulestore.Schedule{ID: "s1", Name: "nightly", Enabled: true}},
 		Agents:    launcher,
 		Running:   &fakeRunning{},

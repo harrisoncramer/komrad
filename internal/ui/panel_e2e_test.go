@@ -35,7 +35,7 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 	require.NoError(t, err)
 
 	agent := created.Msg.GetAgent()
-	require.NotEmpty(t, instance.OwnedPane(agent.GetId()))
+	require.NotEmpty(t, instance.GetOwnedPane(agent.GetId()))
 
 	keys := appconfig.DefaultKeybindings()
 	tmux := &recordingTmux{}
@@ -70,7 +70,7 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 	require.Len(t, listed.Msg.GetAgents(), 1)
 	assert.Equal(t, agent.GetId(), listed.Msg.GetAgents()[0].GetId())
 
-	assert.Empty(t, instance.OwnedPane(agent.GetId()), "archiving from the panel stops what was running")
+	assert.Empty(t, instance.GetOwnedPane(agent.GetId()), "archiving from the panel stops what was running")
 
 	panel = settle(t, panel, panel.refreshCmd())
 	assert.Equal(t, []string{"header:backend"}, describeRows(panel.agentRows()),

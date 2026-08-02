@@ -134,10 +134,10 @@ func New(ctx context.Context, p Params) (*Server, error) {
 	srv := &Server{Pool: pool}
 	srv.closers = append(srv.closers, func() { _ = pool.Close() })
 
-	agentStore := agentstore.New(pool.DB())
-	workflowStore := workflowstore.New(pool.DB())
-	scheduleStore := schedulestore.New(pool.DB())
-	transcriptStore := transcriptstore.New(pool.DB())
+	agentStore := agentstore.New(pool.GetDB())
+	workflowStore := workflowstore.New(pool.GetDB())
+	scheduleStore := schedulestore.New(pool.GetDB())
+	transcriptStore := transcriptstore.New(pool.GetDB())
 
 	loadConfig := func() (*appconfig.Config, error) { return appconfig.Load(p.ConfigPath) }
 
@@ -225,14 +225,14 @@ func New(ctx context.Context, p Params) (*Server, error) {
 
 	// The service is the only thing that runs the queue, so it is the only thing that
 	// brings River's tables up. Opening the store did the application's schema.
-	if err := db.MigrateRiver(ctx, pool.Raw()); err != nil {
+	if err := db.MigrateRiver(ctx, pool.GetRawPool()); err != nil {
 		srv.Close()
 
 		return nil, err
 	}
 
 	srv.Jobs, err = jobs.NewClient(jobs.ClientParams{
-		Pool:      pool.Raw(),
+		Pool:      pool.GetRawPool(),
 		Schedules: scheduleStore,
 		Agents:    agentService,
 		Running:   agentStore,

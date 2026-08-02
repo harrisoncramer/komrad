@@ -42,8 +42,8 @@ func (c *Client) IsPaneAlive(pane string) bool {
 	return err == nil && id == pane
 }
 
-// PaneWidth returns how many columns wide a pane is, zero when it is gone.
-func (c *Client) PaneWidth(pane string) int {
+// GetPaneWidth returns how many columns wide a pane is, zero when it is gone.
+func (c *Client) GetPaneWidth(pane string) int {
 	if pane == "" {
 		return 0
 	}
@@ -74,8 +74,8 @@ func (c *Client) SetPaneOwner(pane, agentID string) error {
 	return nil
 }
 
-// PaneOwner returns the id of the agent whose pane this is.
-func (c *Client) PaneOwner(pane string) string {
+// GetPaneOwner returns the id of the agent whose pane this is.
+func (c *Client) GetPaneOwner(pane string) string {
 	if pane == "" {
 		return ""
 	}
@@ -85,8 +85,8 @@ func (c *Client) PaneOwner(pane string) string {
 	return owner
 }
 
-// PaneOwners returns every pane on the server keyed to its owner stamp.
-func (c *Client) PaneOwners() (map[string]string, error) {
+// GetPaneOwners returns every pane on the server keyed to its owner stamp.
+func (c *Client) GetPaneOwners() (map[string]string, error) {
 	out, err := c.query("list-panes", "-a", "-F", "#{pane_id} #{"+paneOwnerOption+"}")
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pane owners: %w", err)
@@ -103,14 +103,14 @@ func (c *Client) PaneOwners() (map[string]string, error) {
 	return owners, nil
 }
 
-// ClientPath returns a client's active pane working directory.
-func (c *Client) ClientPath(client string) string {
+// GetClientPath returns a client's active pane working directory.
+func (c *Client) GetClientPath(client string) string {
 	path, _ := c.query(append([]string{"display-message", "-p"}, append(clientTarget(client), "#{pane_current_path}")...)...)
 	return path
 }
 
-// SessionClient returns a client attached to the given session, empty when none is.
-func (c *Client) SessionClient(session string) string {
+// GetSessionClient returns a client attached to the given session, empty when none is.
+func (c *Client) GetSessionClient(session string) string {
 	clients, err := c.query("list-clients", "-t", session, "-F", "#{client_name}")
 	if err != nil || clients == "" {
 		return ""
@@ -121,8 +121,8 @@ func (c *Client) SessionClient(session string) string {
 	return first
 }
 
-// ClientSession returns the session a client is attached to, empty when tmux knows no such client.
-func (c *Client) ClientSession(client string) string {
+// GetClientSession returns the session a client is attached to, empty when tmux knows no such client.
+func (c *Client) GetClientSession(client string) string {
 	session, _ := c.query(append([]string{"display-message", "-p"}, append(clientTarget(client), "#{client_session}")...)...)
 	return session
 }
@@ -136,7 +136,7 @@ func (c *Client) OpenWindow(client, name, dir string, argv ...string) error {
 		return errors.New("refusing to open a window without a client to open it for")
 	}
 
-	session := c.ClientSession(client)
+	session := c.GetClientSession(client)
 	if session == "" {
 		return fmt.Errorf("tmux knows no client %q", client)
 	}

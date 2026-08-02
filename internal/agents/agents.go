@@ -43,9 +43,9 @@ type tmuxManager interface {
 	NewWindow(session, name, dir string) (string, error)
 	KillPane(pane string)
 	SetPaneOwner(pane, agentID string) error
-	PaneOwner(pane string) string
-	PaneOwners() (map[string]string, error)
-	ClientPath(client string) string
+	GetPaneOwner(pane string) string
+	GetPaneOwners() (map[string]string, error)
+	GetClientPath(client string) string
 }
 
 type liveWorkflowReader interface {
@@ -138,14 +138,14 @@ func NewAgentService(p NewAgentServiceParams) *AgentService {
 // pane stamped with that agent's id. tmux reissues pane ids from %0 after a server
 // restart, so the stored pane id alone routinely names somebody else's pane.
 func (s *AgentService) IsAgentRunning(agent agentstore.Agent) bool {
-	return isPaneOwnedBy(s.tmux.PaneOwner(agent.Pane), agent.ID)
+	return isPaneOwnedBy(s.tmux.GetPaneOwner(agent.Pane), agent.ID)
 }
 
-// AgentsRunning answers liveness for a whole listing off one tmux call, keyed by agent
+// GetRunningAgents answers liveness for a whole listing off one tmux call, keyed by agent
 // id. A tmux that will not answer reports every agent as not running, which is what
 // asking per agent already does when the server is unreachable.
-func (s *AgentService) AgentsRunning(agents []agentstore.Agent) map[string]bool {
-	owners, _ := s.tmux.PaneOwners()
+func (s *AgentService) GetRunningAgents(agents []agentstore.Agent) map[string]bool {
+	owners, _ := s.tmux.GetPaneOwners()
 
 	running := make(map[string]bool, len(agents))
 	for _, agent := range agents {
@@ -198,7 +198,7 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 
 	// After the key, since a retry that finds its agent creates nothing, and before
 	// anything is opened, so a refusal leaves no window, row, or setup action behind.
-	if err := s.roomForAgent(ctx); err != nil {
+	if err := s.requireRoomForAgent(ctx); err != nil {
 		return nil, err
 	}
 
@@ -328,13 +328,13 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 // the pane so a script removing the directory is not racing a CLI still writing in it,
 // and before the row so the script is told what the panel held.
 func (s *AgentService) DeleteAgent(ctx context.Context, id string) error {
-	agent, err := s.byID(ctx, id)
+	agent, err := s.getByID(ctx, id)
 	if err != nil {
 		return err
 	}
 
 	s.killOwnedPane(*agent)
-	s.runCleanup(ctx, *agent, s.cleanupAction(ctx, *agent))
+	s.runCleanup(ctx, *agent, s.getCleanupAction(ctx, *agent))
 
 	return s.removeAgent(ctx, id)
 }
@@ -346,7 +346,7 @@ func (s *AgentService) DeleteAgent(ctx context.Context, id string) error {
 // the row records without running setup again, and tearing down what setup built would
 // bring the agent back somewhere else without saying so.
 func (s *AgentService) ArchiveAgent(ctx context.Context, id string) error {
-	agent, err := s.byID(ctx, id)
+	agent, err := s.getByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -371,7 +371,7 @@ func (s *AgentService) ArchiveAgent(ctx context.Context, id string) error {
 // would otherwise hand back an agent under a name nobody chose, and which of the two
 // keeps the name is the user's to decide.
 func (s *AgentService) RestoreAgent(ctx context.Context, id string) (*agentstore.Agent, error) {
-	agent, err := s.byID(ctx, id)
+	agent, err := s.getByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -381,7 +381,7 @@ func (s *AgentService) RestoreAgent(ctx context.Context, id string) (*agentstore
 		return agent, nil
 	}
 
-	if err := s.roomForAgent(ctx); err != nil {
+	if err := s.requireRoomForAgent(ctx); err != nil {
 		return nil, err
 	}
 
@@ -406,7 +406,7 @@ func (s *AgentService) RestoreAgent(ctx context.Context, id string) (*agentstore
 		return nil, fmt.Errorf("failed to restore agent %q: %w", agent.Name, err)
 	}
 
-	return s.byID(ctx, id)
+	return s.getByID(ctx, id)
 }
 
 // ResumeAgent opens a window for an agent and relaunches its CLI on the same
@@ -414,7 +414,7 @@ func (s *AgentService) RestoreAgent(ctx context.Context, id string) (*agentstore
 // returned as it stands rather than started twice. An archived agent is refused, since
 // its pane would sit behind a row nothing lists.
 func (s *AgentService) ResumeAgent(ctx context.Context, id string) (*agentstore.Agent, error) {
-	agent, err := s.byID(ctx, id)
+	agent, err := s.getByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -430,7 +430,7 @@ func (s *AgentService) ResumeAgent(ctx context.Context, id string) (*agentstore.
 		return nil, err
 	}
 
-	return s.byID(ctx, id)
+	return s.getByID(ctx, id)
 }
 
 // expandHome expands a leading ~ or ~/ to the user's home, since tmux's new-session
@@ -465,7 +465,7 @@ func (s *AgentService) killOwnedPane(agent agentstore.Agent) {
 	}
 }
 
-func (s *AgentService) byID(ctx context.Context, id string) (*agentstore.Agent, error) {
+func (s *AgentService) getByID(ctx context.Context, id string) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -497,10 +497,10 @@ func (s *AgentService) removeAgent(ctx context.Context, id string) error {
 	})
 }
 
-// usableDir reports whether an agent can actually be started in dir. Existence is not
+// requireUsableDir reports whether an agent can actually be started in dir. Existence is not
 // enough: tmux silently falls back to its own default directory when it cannot enter
 // the one given to -c, leaving the agent somewhere other than its stored cwd.
-func usableDir(dir string) error {
+func requireUsableDir(dir string) error {
 	info, err := os.Stat(dir)
 	if err != nil {
 		return fmt.Errorf("%w %q: %w", ErrBadDirectory, dir, err)
@@ -518,16 +518,16 @@ func usableDir(dir string) error {
 	return nil
 }
 
-// roomForAgent refuses a create once the panel is full, since creating one is a tool a
+// requireRoomForAgent refuses a create once the panel is full, since creating one is a tool a
 // model can call in a loop and each agent is a real CLI in a real pane.
-func (s *AgentService) roomForAgent(ctx context.Context) error {
-	return roomForAgents(ctx, s.agents, s.maxAgents, 1)
+func (s *AgentService) requireRoomForAgent(ctx context.Context) error {
+	return requireRoomForAgents(ctx, s.agents, s.maxAgents, 1)
 }
 
-// roomForAgents refuses unless want more agents fit under the ceiling. A workflow restore
+// requireRoomForAgents refuses unless want more agents fit under the ceiling. A workflow restore
 // asks for its whole contents at once, since a folder that came back with some of its
 // runs would read as whole.
-func roomForAgents(ctx context.Context, agents agentCounter, maxAgents, want int) error {
+func requireRoomForAgents(ctx context.Context, agents agentCounter, maxAgents, want int) error {
 	if maxAgents <= 0 || want <= 0 {
 		return nil
 	}
@@ -596,13 +596,13 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 		dir = expandHome(strings.TrimSpace(wf.Cwd))
 	}
 	if dir == "" {
-		dir = s.tmux.ClientPath(p.Client)
+		dir = s.tmux.GetClientPath(p.Client)
 	}
 	if dir == "" {
 		dir, _ = os.UserHomeDir()
 	}
 
-	if err := usableDir(dir); err != nil {
+	if err := requireUsableDir(dir); err != nil {
 		return nil, err
 	}
 
@@ -664,7 +664,7 @@ func (s *AgentService) setupDir(planned, named string) (string, error) {
 	}
 
 	dir := expandHome(named)
-	if err := usableDir(dir); err != nil {
+	if err := requireUsableDir(dir); err != nil {
 		return "", fmt.Errorf("%w: a setup action named %q: %w", ErrSetupFailed, dir, err)
 	}
 
@@ -693,13 +693,13 @@ func (s *AgentService) runCleanup(ctx context.Context, agent agentstore.Agent, n
 	logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the cleanup action would not start", append(attrs, logging.Err(err)...)...)
 }
 
-// cleanupAction is the action an agent's workflow names, blank when it cannot be read.
+// getCleanupAction is the action an agent's workflow names, blank when it cannot be read.
 // It is read when it fires rather than at launch, so editing a workflow's cleanup
 // reaches the agents already inside it. The archive is read through too, since deleting
 // an agent out of an archived workflow is where the teardown matters most. A read that
 // breaks is logged rather than returned, since the delete has nothing left to abort and a
 // teardown skipped in silence reads as a workflow naming none.
-func (s *AgentService) cleanupAction(ctx context.Context, agent agentstore.Agent) string {
+func (s *AgentService) getCleanupAction(ctx context.Context, agent agentstore.Agent) string {
 	wf, err := s.workflows.GetIncludingArchived(ctx, agent.WorkflowID)
 	if err != nil {
 		attrs := []slog.Attr{
@@ -739,7 +739,7 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 		return err
 	}
 
-	dir := s.resumeDir(agent, hn)
+	dir := s.getResumeDir(agent, hn)
 
 	pane, err := s.tmux.NewWindow(ManagerSession, agent.Name, dir)
 	if err != nil {
@@ -753,7 +753,7 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 
 	agent.Pane = pane
 	agent.State = agentstore.StateIdle
-	// resumeDir may have moved the agent, and the row is what the panel shows and the
+	// getResumeDir may have moved the agent, and the row is what the panel shows and the
 	// next resume reads.
 	agent.Cwd = dir
 	if err := s.agents.Update(ctx, agent); err != nil {

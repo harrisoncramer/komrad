@@ -13,18 +13,18 @@ type relocateHarness interface {
 	Relocate(sessionID, dir string) error
 }
 
-// resumeDir picks the directory a restored agent is relaunched in, repairing
+// getResumeDir picks the directory a restored agent is relaunched in, repairing
 // the recorded one when it has to. A CLI may key a conversation to the directory
 // it ran in, so a session can be reachable only from the path the agent was
 // created in. That path is frequently a worktree that has since been deleted, and
 // a restore that gave up there would strand the one conversation the panel still
 // lists, so this always returns somewhere an agent can be started.
-func (s *AgentService) resumeDir(agent agentstore.Agent, h relocateHarness) string {
+func (s *AgentService) getResumeDir(agent agentstore.Agent, h relocateHarness) string {
 	dir := expandHome(agent.Cwd)
 	if dir == "" {
 		dir, _ = os.UserHomeDir()
 	}
-	if usableDir(dir) == nil {
+	if requireUsableDir(dir) == nil {
 		return dir
 	}
 
@@ -32,7 +32,7 @@ func (s *AgentService) resumeDir(agent agentstore.Agent, h relocateHarness) stri
 	// an empty directory in the same place still names the same directory to a
 	// harness that keys on it. It is also inert against the worktree flow that
 	// usually removed it: git checks a worktree back out over an empty directory.
-	if err := os.MkdirAll(dir, 0o755); err == nil && usableDir(dir) == nil {
+	if err := os.MkdirAll(dir, 0o755); err == nil && requireUsableDir(dir) == nil {
 		return dir
 	}
 
@@ -41,7 +41,7 @@ func (s *AgentService) resumeDir(agent agentstore.Agent, h relocateHarness) stri
 	// somewhere that is always ours and let the harness carry the conversation
 	// across, so a resume still has it to find.
 	standIn := filepath.Join(s.fallbackResumeRoot, agent.ID)
-	if err := os.MkdirAll(standIn, 0o755); err != nil || usableDir(standIn) != nil {
+	if err := os.MkdirAll(standIn, 0o755); err != nil || requireUsableDir(standIn) != nil {
 		home, _ := os.UserHomeDir()
 
 		return home

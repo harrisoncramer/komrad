@@ -86,8 +86,8 @@ func NewRootCommand() *cobra.Command {
 			app.tmux = tmux.NewServers(manager, app.host)
 
 			app.popup = ui.NewPopupWindow(app.tmux, agents.ManagerSession)
-			app.contextPath, _ = cfg.ContextFile() // No context file is not an error
-			app.defaultFlags = map[string]string{  // Set up default flags for the harnesses provided by the user in their config file.
+			app.contextPath, _ = cfg.GetContextFile() // No context file is not an error
+			app.defaultFlags = map[string]string{     // Set up default flags for the harnesses provided by the user in their config file.
 				claudeHarness.GetID(): cfg.Harness.Claude.Flags,
 				codexHarness.GetID():  cfg.Harness.Codex.Flags,
 			}

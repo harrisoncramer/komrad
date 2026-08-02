@@ -487,7 +487,7 @@ func TestContextFile(t *testing.T) {
 			cfg, err := Load(path)
 			require.NoError(t, err)
 
-			got, err := cfg.ContextFile()
+			got, err := cfg.GetContextFile()
 			require.NoError(t, err)
 
 			if tt.want != "" {

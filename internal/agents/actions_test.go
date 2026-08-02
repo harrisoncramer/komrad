@@ -675,7 +675,7 @@ type fakePaneOwner struct {
 	owner string
 }
 
-func (f fakePaneOwner) PaneOwner(string) string { return f.owner }
+func (f fakePaneOwner) GetPaneOwner(string) string { return f.owner }
 
 // recordingRunner stands in for starting a process, so the service's tests drive the whole path
 // without spawning anything. Only the last run's directory and environment are kept, since no

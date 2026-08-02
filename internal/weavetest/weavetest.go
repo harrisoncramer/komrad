@@ -64,9 +64,9 @@ type Instance struct {
 	// Stores read the same database the service writes, for asserting on what a call left
 	// behind rather than on what it returned.
 	Stores *storetest.Stores
-	// ActionsDir is where the actions the config points at live, for a test that writes
+	// GetActionsDir is where the actions the config points at live, for a test that writes
 	// one.
-	ActionsDir string
+	GetActionsDir string
 	// URL is where the service is listening.
 	URL string
 
@@ -146,18 +146,18 @@ func Start(t *testing.T, p Params) *Instance {
 	client, url := httpServer.Client(), httpServer.URL
 
 	return &Instance{
-		t:          t,
-		Agents:     agentv1connect.NewAgentServiceClient(client, url),
-		Workflows:  workflowv1connect.NewWorkflowServiceClient(client, url),
-		Schedules:  schedulev1connect.NewScheduleServiceClient(client, url),
-		Actions:    actionv1connect.NewActionServiceClient(client, url),
-		Config:     configv1connect.NewConfigServiceClient(client, url),
-		Harness:    fake,
-		Tmux:       tmuxServer,
-		Stores:     stores,
-		ActionsDir: actionsDir,
-		URL:        url,
-		server:     built,
+		t:             t,
+		Agents:        agentv1connect.NewAgentServiceClient(client, url),
+		Workflows:     workflowv1connect.NewWorkflowServiceClient(client, url),
+		Schedules:     schedulev1connect.NewScheduleServiceClient(client, url),
+		Actions:       actionv1connect.NewActionServiceClient(client, url),
+		Config:        configv1connect.NewConfigServiceClient(client, url),
+		Harness:       fake,
+		Tmux:          tmuxServer,
+		Stores:        stores,
+		GetActionsDir: actionsDir,
+		URL:           url,
+		server:        built,
 	}
 }
 
@@ -206,13 +206,13 @@ func (i *Instance) Settle(agentID string, activity harness.Activity, want string
 	i.t.Fatalf("agent %s never reached %q", agentID, want)
 }
 
-// OwnedPane is the pane an agent is running in, empty when none on the server is stamped
+// GetOwnedPane is the pane an agent is running in, empty when none on the server is stamped
 // with its id. It reads the stamp rather than the agent's recorded pane, so it answers
 // what is running rather than what the row claims.
-func (i *Instance) OwnedPane(agentID string) string {
+func (i *Instance) GetOwnedPane(agentID string) string {
 	i.t.Helper()
 
-	owners, err := i.Tmux.Client().PaneOwners()
+	owners, err := i.Tmux.Client().GetPaneOwners()
 	require.NoError(i.t, err)
 
 	for pane, owner := range owners {

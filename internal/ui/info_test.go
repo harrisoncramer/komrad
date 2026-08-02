@@ -180,14 +180,14 @@ func TestAgentMarkdown(t *testing.T) {
 // swapped-in agent pane from a respawned pager preview. Every other call is an
 // inert stub.
 type recordingTmux struct {
-	// path is what ClientPath reports, the directory the panel falls back to for
+	// path is what GetClientPath reports, the directory the panel falls back to for
 	// a form left blank.
 	path     string
 	swaps    int
 	respawns []string
 	// resizes are the widths the stage pane has been set to, as percentages.
 	resizes []int
-	// width is what PaneWidth reports for every pane, the columns markdown renders to.
+	// width is what GetPaneWidth reports for every pane, the columns markdown renders to.
 	width int
 	// zooms are the zoom states the nav pane has been put into, in order, which is how a
 	// test tells that a form took the whole width and gave it back.
@@ -216,10 +216,10 @@ func (t *recordingTmux) ShowGlobal(string) string                { return "" }
 func (t *recordingTmux) SetSessionOption(string, string, string) {}
 func (t *recordingTmux) DetachSession(string)                    { t.detaches++ }
 func (t *recordingTmux) BindKey(string, ...string)               {}
-func (t *recordingTmux) ClientPath(string) string                { return t.path }
+func (t *recordingTmux) GetClientPath(string) string             { return t.path }
 func (t *recordingTmux) SendKeys(string, ...string) error        { return nil }
 func (t *recordingTmux) IsPaneAlive(string) bool                 { return true }
-func (t *recordingTmux) PaneWidth(string) int                    { return t.width }
+func (t *recordingTmux) GetPaneWidth(string) int                 { return t.width }
 func (t *recordingTmux) CapturePane(string) string               { return "" }
 func (t *recordingTmux) SplitRight(anchor, _ string, _ int) string {
 	t.anchors = append(t.anchors, anchor)
@@ -229,7 +229,7 @@ func (t *recordingTmux) SplitRight(anchor, _ string, _ int) string {
 
 func (t *recordingTmux) SwapPanes(string, string)        { t.swaps++ }
 func (t *recordingTmux) GetSiblingPanes(string) []string { return t.siblings }
-func (t *recordingTmux) PaneOwner(pane string) string    { return t.owners[pane] }
+func (t *recordingTmux) GetPaneOwner(pane string) string { return t.owners[pane] }
 func (t *recordingTmux) BreakPane(pane string)           { t.broken = append(t.broken, pane) }
 func (t *recordingTmux) KillPane(pane string)            { t.killed = append(t.killed, pane) }
 

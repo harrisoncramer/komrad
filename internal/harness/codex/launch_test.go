@@ -29,7 +29,7 @@ func TestBuildCommand(t *testing.T) {
 				"codex resume",
 				"'019fb3e7-2cb6'",
 			},
-			// The briefing is the first thing said rather than a system prompt, so a
+			// The buildBriefing is the first thing said rather than a system prompt, so a
 			// resume has nothing to re-send.
 			wantAbsent: []string{"$(cat "},
 		},
@@ -54,7 +54,7 @@ func TestBuildCommand(t *testing.T) {
 		},
 		{
 			// It rides on the environment because it has to survive a resume, which the
-			// briefing does not.
+			// buildBriefing does not.
 			name:   "and it survives a resume",
 			launch: harness.Launch{AgentID: "id-1", SessionID: "sess", Resume: true},
 			wantContain: []string{
@@ -161,7 +161,7 @@ func TestBuildCommandQuotesFlags(t *testing.T) {
 }
 
 // TestOpeningPrompt covers what a spawned agent is actually told. Codex has no way to
-// append to its system prompt, so the briefing is the first thing said and arrives
+// append to its system prompt, so the buildBriefing is the first thing said and arrives
 // ahead of the prompt the agent was created with.
 func TestOpeningPrompt(t *testing.T) {
 	tests := []struct {
@@ -170,22 +170,22 @@ func TestOpeningPrompt(t *testing.T) {
 		want   string
 	}{
 		{
-			// Handing it the briefing alone would have it answer the briefing as though
+			// Handing it the buildBriefing alone would have it answer the buildBriefing as though
 			// that were the task.
 			name:   "an agent created with no prompt is left unbriefed",
-			launch: harness.Launch{Context: "the briefing"},
+			launch: harness.Launch{Context: "the buildBriefing"},
 			want:   "",
 		},
 		{
-			name:   "a prompt with no briefing is sent as it stands",
+			name:   "a prompt with no buildBriefing is sent as it stands",
 			launch: harness.Launch{Prompt: "do the thing"},
 			want:   "do the thing",
 		},
 		{
 			// Fenced so the flattener can drop it again rather than index it.
-			name:   "the briefing comes first, fenced, so the prompt reads as the task",
-			launch: harness.Launch{Context: "the briefing", Prompt: "do the thing"},
-			want:   "<panel_briefing>\nthe briefing\n</panel_briefing>\n\ndo the thing",
+			name:   "the buildBriefing comes first, fenced, so the prompt reads as the task",
+			launch: harness.Launch{Context: "the buildBriefing", Prompt: "do the thing"},
+			want:   "<panel_briefing>\nthe buildBriefing\n</panel_briefing>\n\ndo the thing",
 		},
 	}
 

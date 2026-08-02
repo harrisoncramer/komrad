@@ -150,7 +150,7 @@ func healthCheck(addr string) (*http.Response, error) {
 	return client.Get("http://" + addr + HealthPath)
 }
 
-func selfPath() string {
+func getSelfPath() string {
 	path, err := os.Executable()
 	if err != nil {
 		return "weave"

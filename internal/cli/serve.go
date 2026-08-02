@@ -159,7 +159,7 @@ func serve(ctx context.Context, p serveParams) error {
 	}
 	defer closeWithin(logger, "the database handles", built.Close)
 
-	built.Mux.Handle(HealthPath, newHealthHandler(built.Pool.Raw()))
+	built.Mux.Handle(HealthPath, newHealthHandler(built.Pool.GetRawPool()))
 
 	// Asking to stop goes through the logging middleware, unlike readiness above. A
 	// readiness check is asked on a loop and says nothing, where a request that stops the

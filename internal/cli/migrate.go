@@ -29,7 +29,7 @@ func migrateCmd(state *app) *cobra.Command {
 
 			// River's are not on the store's path, since only serve runs the queue, so
 			// migrating on purpose has to ask for them.
-			if err := db.MigrateRiver(cmd.Context(), pool.Raw()); err != nil {
+			if err := db.MigrateRiver(cmd.Context(), pool.GetRawPool()); err != nil {
 				return err
 			}
 

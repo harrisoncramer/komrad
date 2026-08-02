@@ -25,7 +25,7 @@ func TestServersRouting(t *testing.T) {
 
 	// Nothing recorded yet, so the user's server cannot be found and every question
 	// about it goes unanswered rather than being asked of the wrong one.
-	assert.Empty(t, servers.ClientPath(""), "with no host recorded there is no client to locate")
+	assert.Empty(t, servers.GetClientPath(""), "with no host recorded there is no client to locate")
 	servers.SetGlobal("@probe", "1")
 	assert.Empty(t, manager.ShowGlobal("@probe"), "an unrecorded host is not silently the manager")
 
@@ -46,7 +46,7 @@ func TestServersRouting(t *testing.T) {
 
 	// The invoking client's directory is a question only the server it is attached
 	// to can answer, so it is asked of the recorded host.
-	assert.NotEmpty(t, servers.ClientPath(""), "the recorded host answers where its client sits")
+	assert.NotEmpty(t, servers.GetClientPath(""), "the recorded host answers where its client sits")
 }
 
 // TestClientAtPath checks a client addressed by socket path reaches the same server

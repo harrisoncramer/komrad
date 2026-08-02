@@ -88,7 +88,7 @@ func TestLaunchPassesWhatThePanelKnows(t *testing.T) {
 	assert.Equal(t, "id-1", launch.AgentID)
 	assert.Equal(t, "127.0.0.1:9999", launch.MCPEndpoint, "the agent is told where the panel's own server is")
 	assert.True(t, launch.Resume)
-	// The briefing is handed over on a resume too. A harness that can only append a
+	// The buildBriefing is handed over on a resume too. A harness that can only append a
 	// system prompt drops it, but one that can re-inject it should.
 	assert.Contains(t, launch.Context, "http://127.0.0.1:9999/mcp")
 }
@@ -97,7 +97,7 @@ func TestLaunchPassesWhatThePanelKnows(t *testing.T) {
 // finding it for itself.
 const briefedLogPath = "/var/cache/weave/weave.log"
 
-// TestAppendedSystemPrompt covers what a spawned agent is told. The briefing
+// TestAppendedSystemPrompt covers what a spawned agent is told. The buildBriefing
 // comes first so a workflow's own context reads as an addition to it rather than
 // being buried inside it.
 func TestAppendedSystemPrompt(t *testing.T) {
@@ -108,12 +108,12 @@ func TestAppendedSystemPrompt(t *testing.T) {
 		wantAbsent  []string
 	}{
 		{
-			name: "an agent outside any workflow gets the briefing alone",
+			name: "an agent outside any workflow gets the buildBriefing alone",
 			wantContain: []string{
 				"http://127.0.0.1:9999/mcp",
 				"list_tables",
 				"agent_transcripts",
-				// The briefing has to name both halves or the agent has an id it never uses
+				// The buildBriefing has to name both halves or the agent has an id it never uses
 				// and a tool it does not know to reach for.
 				"WEAVE_AGENT_ID",
 				"set_agent_metadata",
@@ -151,14 +151,14 @@ func TestAppendedSystemPrompt(t *testing.T) {
 
 			if tt.context != "" {
 				assert.Less(t, strings.Index(prompt, "weave"), strings.Index(prompt, tt.context),
-					"the briefing comes first")
+					"the buildBriefing comes first")
 			}
 		})
 	}
 }
 
 // TestAppendedSystemPromptGlobalContext covers the standing text the user keeps for every
-// agent. It sits between the briefing and the workflow's own, so the three read general to
+// agent. It sits between the buildBriefing and the workflow's own, so the three read general to
 // specific, and a file that is not there is the ordinary case rather than a failed launch.
 func TestAppendedSystemPromptGlobalContext(t *testing.T) {
 	tests := []struct {

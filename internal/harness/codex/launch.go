@@ -89,14 +89,14 @@ func mcpHeaders() string {
 	)
 }
 
-// openingPrompt is the panel's briefing followed by the prompt the agent was created
+// openingPrompt is the panel's buildBriefing followed by the prompt the agent was created
 // with. Codex has no way to append to its system prompt. The one config override that
 // looks like it, instructions, replaces the CLI's own instructions wholesale and would
-// leave the agent without the rules it needs to use its tools. So the briefing is the
+// leave the agent without the rules it needs to use its tools. So the buildBriefing is the
 // first thing said instead, which means it does not survive a resume. The agent's own id
 // does, since that rides on the environment.
 //
-// An agent created with no prompt is left unbriefed rather than handed the briefing
+// An agent created with no prompt is left unbriefed rather than handed the buildBriefing
 // alone, which it would answer as though it were the task.
 func (h *Harness) openingPrompt(launch harness.Launch) string {
 	if launch.Prompt == "" {
@@ -106,7 +106,7 @@ func (h *Harness) openingPrompt(launch harness.Launch) string {
 		return launch.Prompt
 	}
 
-	// Tagged so the flattener can drop it again. Because the briefing arrives as a
+	// Tagged so the flattener can drop it again. Because the buildBriefing arrives as a
 	// message, Codex records it in the rollout like anything else, and left untagged it
 	// would be indexed as the longest thing the agent ever said and answer searches for
 	// every phrase in it. Codex fences its own injected context the same way.

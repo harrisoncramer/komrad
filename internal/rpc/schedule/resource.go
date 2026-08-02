@@ -44,7 +44,7 @@ func renderSchedule(s schedulestore.Schedule, now time.Time) schedule {
 		WorkflowId: s.WorkflowID,
 	}
 
-	if next := agents.NextRun(s, now); !next.IsZero() {
+	if next := agents.CalculateNextRun(s, now); !next.IsZero() {
 		rendered.NextRunAt = timestamppb.New(next)
 	}
 

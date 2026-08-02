@@ -1479,11 +1479,11 @@ func open(t *testing.T) *fixture {
 	t.Helper()
 	p := pool(t)
 
-	workflows := workflowstore.New(p.DB())
+	workflows := workflowstore.New(p.GetDB())
 	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default"})
 	require.NoError(t, err)
 
-	return &fixture{Store: New(p.DB()), db: p.DB(), workflows: workflows, defaultWorkflow: created.ID}
+	return &fixture{Store: New(p.GetDB()), db: p.GetDB(), workflows: workflows, defaultWorkflow: created.ID}
 }
 
 // pool opens the database itself, for the few tests that also need another

@@ -113,7 +113,7 @@ func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 	}{
 		{
 			name:       "a resume appends no system prompt, since it would not persist",
-			launch:     harness.Launch{SessionID: "sess", Context: "the briefing", Resume: true},
+			launch:     harness.Launch{SessionID: "sess", Context: "the buildBriefing", Resume: true},
 			wantAbsent: []string{"--append-system-prompt"},
 		},
 		{
@@ -123,7 +123,7 @@ func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 		},
 		{
 			name:        "the context the panel handed over is what gets appended",
-			launch:      harness.Launch{SessionID: "sess", Context: "the briefing"},
+			launch:      harness.Launch{SessionID: "sess", Context: "the buildBriefing"},
 			wantContain: []string{"--append-system-prompt"},
 		},
 	}
@@ -160,7 +160,7 @@ func TestBuildCommandStagesTextUnderTheCacheDir(t *testing.T) {
 
 	_, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{
 		SessionID: "sess",
-		Context:   "the briefing",
+		Context:   "the buildBriefing",
 		Prompt:    "do the thing",
 		CacheDir:  cache,
 	})
@@ -180,7 +180,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 		resume bool
 	}{
 		{
-			name:   "on a resume, since the briefing describing it does not persist",
+			name:   "on a resume, since the buildBriefing describing it does not persist",
 			resume: true,
 		},
 		{

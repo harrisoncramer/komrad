@@ -91,20 +91,20 @@ func TestFlattenRollout(t *testing.T) {
 			want: []harness.Turn{{Role: "user", Content: "before"}},
 		},
 		{
-			// The briefing reaches a Codex agent as a message, so it is in the rollout like
+			// The buildBriefing reaches a Codex agent as a message, so it is in the rollout like
 			// anything else. Indexed, it would be the longest thing the agent ever said and
 			// would answer searches for every phrase in it.
-			name: "the panel's own briefing is stripped from the turn it arrived on",
+			name: "the panel's own buildBriefing is stripped from the turn it arrived on",
 			in:   briefedRecord,
 			want: []harness.Turn{{Role: "user", Content: "how do I use trigram search"}},
 		},
 		{
-			name: "a turn that was nothing but the briefing is dropped",
+			name: "a turn that was nothing but the buildBriefing is dropped",
 			in:   briefingOnlyRecord,
 			want: nil,
 		},
 		{
-			name: "and so is one whose briefing never closed, since none of it was said",
+			name: "and so is one whose buildBriefing never closed, since none of it was said",
 			in:   unclosedBriefingRecord,
 			want: nil,
 		},

@@ -18,7 +18,7 @@ import (
 // through the agent API.
 type stageTmux interface {
 	IsPaneAlive(pane string) bool
-	PaneWidth(pane string) int
+	GetPaneWidth(pane string) int
 	SplitRight(anchorPane, dir string, percent int) string
 	ResizePane(pane string, percent int)
 	SwapPanes(src, dst string)
@@ -27,7 +27,7 @@ type stageTmux interface {
 	GetSiblingPanes(pane string) []string
 	BreakPane(pane string)
 	KillPane(pane string)
-	PaneOwner(pane string) string
+	GetPaneOwner(pane string) string
 }
 
 // shownBlank and shownOther are what the stage records for content it cannot compare
@@ -84,7 +84,7 @@ func (s *Stage) percent() int {
 // longer the share the panel asked for and rendering wider leaves the pager folding every
 // line into three rows. A pane tmux cannot measure leaves the renderer on its default.
 func (s *Stage) wrap() int {
-	return s.tmux.PaneWidth(s.pane)
+	return s.tmux.GetPaneWidth(s.pane)
 }
 
 // Init records the panel's own pane as the anchor and splits a stage pane to its right,
@@ -123,7 +123,7 @@ func (s *Stage) reclaim() {
 	}
 
 	for _, pane := range s.tmux.GetSiblingPanes(s.navPane) {
-		if s.tmux.PaneOwner(pane) != "" {
+		if s.tmux.GetPaneOwner(pane) != "" {
 			s.tmux.BreakPane(pane)
 
 			continue

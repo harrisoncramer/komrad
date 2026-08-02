@@ -613,11 +613,11 @@ func configHome() (string, error) {
 	return filepath.Join(home, ".config", "weave"), nil
 }
 
-// ActionsDir is where the actions live: the configured directory, or
+// GetActionsDir is where the actions live: the configured directory, or
 // ~/.config/weave/actions when the config names none. The default is filled in here rather
 // than filled into Config, since the generated config.toml spells every default out and one
 // machine's home directory would be wrong on every other machine.
-func (c Config) ActionsDir() (string, error) {
+func (c Config) GetActionsDir() (string, error) {
 	if dir := strings.TrimSpace(c.Actions.Dir); dir != "" {
 		return dir, nil
 	}
@@ -630,11 +630,11 @@ func (c Config) ActionsDir() (string, error) {
 	return filepath.Join(home, "actions"), nil
 }
 
-// ContextFile is the standing text every agent is started with: the configured file, or
+// GetContextFile is the standing text every agent is started with: the configured file, or
 // ~/.config/weave/context.md when the config names none. The default is filled in here for
 // the reason the actions directory's is, since one machine's home directory spelled into
 // the generated config would be wrong on every other machine.
-func (c Config) ContextFile() (string, error) {
+func (c Config) GetContextFile() (string, error) {
 	if file := strings.TrimSpace(c.Context.File); file != "" {
 		return file, nil
 	}

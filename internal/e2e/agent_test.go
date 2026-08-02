@@ -48,7 +48,7 @@ func TestAgentLifecycle(t *testing.T) {
 
 	// The pane is stamped with the agent's own id, which is what every later pass reads
 	// to tell this agent's pane from one tmux has since reissued.
-	assert.Equal(t, agent.GetPaneId(), instance.OwnedPane(agent.GetId()))
+	assert.Equal(t, agent.GetPaneId(), instance.GetOwnedPane(agent.GetId()))
 
 	t.Run("the reconciler follows what the pane shows", func(t *testing.T) {
 		instance.Settle(agent.GetId(), harness.ActivityWorking, agentstore.StateThinking)
@@ -89,7 +89,7 @@ func TestAgentLifecycle(t *testing.T) {
 
 		assert.Empty(t, liveNames(t, instance), "an archived agent is off the live listing")
 		assert.Equal(t, []string{"login-race"}, archivedNames(t, instance))
-		assert.Empty(t, instance.OwnedPane(agent.GetId()), "the pane goes with the agent")
+		assert.Empty(t, instance.GetOwnedPane(agent.GetId()), "the pane goes with the agent")
 	})
 
 	t.Run("restoring puts it back with nothing running", func(t *testing.T) {
@@ -111,7 +111,7 @@ func TestAgentLifecycle(t *testing.T) {
 		back := resumed.Msg.GetAgent()
 		assert.Equal(t, agent.GetSessionId(), back.GetSessionId(), "a resume reopens the conversation rather than starting one")
 		require.NotEmpty(t, back.GetPaneId())
-		assert.Equal(t, back.GetPaneId(), instance.OwnedPane(agent.GetId()))
+		assert.Equal(t, back.GetPaneId(), instance.GetOwnedPane(agent.GetId()))
 
 		// The agent records the resume in its own log, which is the only evidence from
 		// out here that the CLI was told to reopen rather than to start fresh.
@@ -133,7 +133,7 @@ func TestAgentLifecycle(t *testing.T) {
 
 		assert.Empty(t, liveNames(t, instance))
 		assert.Empty(t, archivedNames(t, instance))
-		assert.Empty(t, instance.OwnedPane(agent.GetId()), "a destroyed agent leaves no pane running")
+		assert.Empty(t, instance.GetOwnedPane(agent.GetId()), "a destroyed agent leaves no pane running")
 	})
 }
 

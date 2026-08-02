@@ -50,7 +50,7 @@ const (
 // has to land in.
 type uiTmux interface {
 	stageTmux
-	ClientPath(client string) string
+	GetClientPath(client string) string
 	OpenWindow(client, name, dir string, argv ...string) error
 }
 
@@ -206,7 +206,7 @@ func (m model) currentDir(dir string) string {
 	if trimmed := strings.TrimSpace(dir); trimmed != "" {
 		return trimmed
 	}
-	if path := m.tmux.ClientPath(m.popup.InvokingClient()); path != "" {
+	if path := m.tmux.GetClientPath(m.popup.InvokingClient()); path != "" {
 		return path
 	}
 

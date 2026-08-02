@@ -191,10 +191,10 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 		if err != nil {
 			return err
 		}
-		if err := roomForAgents(ctx, agents, w.maxAgents, len(archived)); err != nil {
+		if err := requireRoomForAgents(ctx, agents, w.maxAgents, len(archived)); err != nil {
 			return err
 		}
-		if err := namesFree(ctx, agents, archived); err != nil {
+		if err := requireNamesFree(ctx, agents, archived); err != nil {
 			return err
 		}
 
@@ -211,10 +211,10 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 	return w.store.Get(ctx, id)
 }
 
-// namesFree refuses when the archived agents coming back would collide on a name. The
+// requireNamesFree refuses when the archived agents coming back would collide on a name. The
 // unique-name index covers the unarchived of one workflow, so a live agent may hold the
 // name, or two of the returning agents may hold it between them.
-func namesFree(ctx context.Context, agents agentNamer, archived []agentstore.Agent) error {
+func requireNamesFree(ctx context.Context, agents agentNamer, archived []agentstore.Agent) error {
 	returning := make(map[string]int, len(archived))
 	for _, agent := range archived {
 		returning[agent.Name]++

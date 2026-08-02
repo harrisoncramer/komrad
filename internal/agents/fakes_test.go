@@ -47,7 +47,7 @@ type fakeTmux struct {
 	// sendKeysErr makes SendKeys fail, standing in for a launch that never reaches
 	// the pane's shell.
 	sendKeysErr error
-	// paneOwnersErr makes PaneOwners fail, standing in for tmux not answering at all.
+	// paneOwnersErr makes GetPaneOwners fail, standing in for tmux not answering at all.
 	paneOwnersErr error
 }
 
@@ -62,14 +62,14 @@ func newFakeTmux() *fakeTmux {
 	}
 }
 
-func (f *fakeTmux) SetGlobal(name, value string)   { f.globals[name] = value }
-func (f *fakeTmux) ShowGlobal(name string) string  { return f.globals[name] }
-func (f *fakeTmux) PaneOwner(pane string) string   { return f.owners[pane] }
-func (f *fakeTmux) CapturePane(pane string) string { return f.captures[pane] }
-func (f *fakeTmux) ClientPath(string) string       { return f.clientDir }
-func (f *fakeTmux) DetachSession(name string)      { f.detached = append(f.detached, name) }
+func (f *fakeTmux) SetGlobal(name, value string)    { f.globals[name] = value }
+func (f *fakeTmux) ShowGlobal(name string) string   { return f.globals[name] }
+func (f *fakeTmux) GetPaneOwner(pane string) string { return f.owners[pane] }
+func (f *fakeTmux) CapturePane(pane string) string  { return f.captures[pane] }
+func (f *fakeTmux) GetClientPath(string) string     { return f.clientDir }
+func (f *fakeTmux) DetachSession(name string)       { f.detached = append(f.detached, name) }
 
-func (f *fakeTmux) PaneOwners() (map[string]string, error) {
+func (f *fakeTmux) GetPaneOwners() (map[string]string, error) {
 	if f.paneOwnersErr != nil {
 		return nil, f.paneOwnersErr
 	}

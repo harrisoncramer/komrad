@@ -95,7 +95,7 @@ func ensureManagerSession(state *app) error {
 		"-e", "WEAVE_ADDR="+state.env.Addr,
 		"-e", "EDITOR="+state.env.Editor,
 		"-e", "WEAVE_CACHE_DIR="+state.env.CacheDir,
-		"--", selfPath(), "panel",
+		"--", getSelfPath(), "panel",
 	)
 	cmd.Stderr = os.Stderr
 
@@ -139,5 +139,5 @@ func invokingClient(socket, session string) string {
 		return ""
 	}
 
-	return tmux.NewClientAtPath(socket).SessionClient(session)
+	return tmux.NewClientAtPath(socket).GetSessionClient(session)
 }

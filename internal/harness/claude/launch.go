@@ -45,7 +45,7 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 		command += " " + quoted
 	}
 
-	// Both paths get the MCP config: the briefing describing it does not survive a
+	// Both paths get the MCP config: the buildBriefing describing it does not survive a
 	// resume, but the tools it describes should. A failure to write it drops the flag
 	// rather than the launch.
 	if path, err := h.writeMCPConfig(launch.MCPEndpoint); err == nil {

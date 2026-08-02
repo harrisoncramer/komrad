@@ -117,16 +117,16 @@ func refuseSuperuser(ctx context.Context, pool *pgxpool.Pool) error {
 			"WEAVE_READONLY_DATABASE_URL at the role it creates")
 }
 
-// DB returns the handle to build a domain store over for ordinary use, outside
+// GetDB returns the handle to build a domain store over for ordinary use, outside
 // any transaction.
-func (p *Pool) DB() DBTX {
+func (p *Pool) GetDB() DBTX {
 	return p.pool
 }
 
-// Raw returns the underlying pgx pool. It exists for River, whose driver takes the
+// GetRawPool returns the underlying pgx pool. It exists for River, whose driver takes the
 // concrete pool rather than an interface. Nothing else should reach for it, since a
 // domain store takes DBTX so a transaction can be swapped in underneath it.
-func (p *Pool) Raw() *pgxpool.Pool {
+func (p *Pool) GetRawPool() *pgxpool.Pool {
 	return p.pool
 }
 

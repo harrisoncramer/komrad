@@ -48,7 +48,7 @@ func readonlyRoleCmd(state *app) *cobra.Command {
 			defer func() { _ = pool.Close() }()
 
 			if err := db.GrantReadOnlyRole(
-				cmd.Context(), pool.Raw(), readOnly.User, readOnly.Password); err != nil {
+				cmd.Context(), pool.GetRawPool(), readOnly.User, readOnly.Password); err != nil {
 				return err
 			}
 

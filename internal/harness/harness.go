@@ -50,7 +50,7 @@ type Launch struct {
 	Flags string
 	// Prompt is the opening message, empty on a resume.
 	Prompt string
-	// Context is the panel's briefing followed by the agent's workflow context, which a
+	// Context is the panel's buildBriefing followed by the agent's workflow context, which a
 	// harness with somewhere to put it appends to the system prompt. It is handed over on
 	// a resume too, for a harness that can re-inject it.
 	Context string

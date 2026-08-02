@@ -107,17 +107,17 @@ func (m model) workflowFormFor(cfg workflowstore.Config) (*huh.Form, *workflowst
 	case m.target.renameWorkflow != nil:
 		return workflowForm(fmt.Sprintf("Rename %q to", m.target.renameWorkflow.Name), cfg, m.keys.Form)
 	case m.target.editWorkflow != nil:
-		return workflowConfigForm("Workflow name", cfg, m.availableActions(), m.keys.Form)
+		return workflowConfigForm("Workflow name", cfg, m.getAvailableActions(), m.keys.Form)
 	default:
-		return workflowConfigForm("New workflow name", cfg, m.availableActions(), m.keys.Form)
+		return workflowConfigForm("New workflow name", cfg, m.getAvailableActions(), m.keys.Form)
 	}
 }
 
-// availableActions is what the actions directory holds, which the workflow form's two
+// getAvailableActions is what the actions directory holds, which the workflow form's two
 // action fields are chosen from. It is fetched on the render loop because a form has
 // nothing to open on until the answer is in, and a listing that fails leaves the fields
 // offering none plus whatever the workflow already records.
-func (m model) availableActions() []string {
+func (m model) getAvailableActions() []string {
 	listed, err := m.api.listActions()
 	if err != nil {
 		return nil

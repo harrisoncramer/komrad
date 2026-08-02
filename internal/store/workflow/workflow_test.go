@@ -293,7 +293,7 @@ func open(t *testing.T) *Store {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
-	return New(pool.DB())
+	return New(pool.GetDB())
 }
 
 // TestGetIncludingArchived covers the read that ignores the archive, which is what an

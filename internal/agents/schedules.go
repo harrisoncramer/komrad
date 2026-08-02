@@ -198,9 +198,9 @@ func ParseCron(expression, timezone string) (cron.Schedule, error) {
 	return parsed, nil
 }
 
-// NextRun returns when a schedule next fires after from, or the zero time when it is
+// CalculateNextRun returns when a schedule next fires after from, or the zero time when it is
 // paused or its expression cannot be read, which the panel renders as a dash.
-func NextRun(s schedule.Schedule, from time.Time) time.Time {
+func CalculateNextRun(s schedule.Schedule, from time.Time) time.Time {
 	if !s.Enabled {
 		return time.Time{}
 	}

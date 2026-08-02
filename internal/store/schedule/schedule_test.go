@@ -439,7 +439,7 @@ func open(t *testing.T) *fixture {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
-	return &fixture{Store: New(pool.DB()), workflows: workflowstore.New(pool.DB())}
+	return &fixture{Store: New(pool.GetDB()), workflows: workflowstore.New(pool.GetDB())}
 }
 
 // seed creates a schedule and returns it, since the tests need the generated id

@@ -757,7 +757,7 @@ func TestCleanupActionLogsAWorkflowThatWouldNotRead(t *testing.T) {
 	ctx, records := loggedContext(t)
 
 	agent := agentstore.Agent{ID: "a1", Cwd: "/repo/.worktrees/auth", WorkflowID: "wf1"}
-	assert.Empty(t, manager.cleanupAction(ctx, agent))
+	assert.Empty(t, manager.getCleanupAction(ctx, agent))
 
 	got := recordFor(t, records(), "the cleanup action could not be read")
 	assert.Equal(t, "ERROR", got["severity_text"])
@@ -773,7 +773,7 @@ func TestCleanupActionSaysNothingAboutAWorkflowNamingNone(t *testing.T) {
 	manager := NewAgentService(NewAgentServiceParams{Workflows: fakeWorkflowReader{}})
 	ctx, records := loggedContext(t)
 
-	assert.Empty(t, manager.cleanupAction(ctx, agentstore.Agent{ID: "a1", WorkflowID: "wf1"}))
+	assert.Empty(t, manager.getCleanupAction(ctx, agentstore.Agent{ID: "a1", WorkflowID: "wf1"}))
 	assert.Empty(t, records())
 }
 

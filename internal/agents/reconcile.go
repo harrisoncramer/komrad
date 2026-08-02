@@ -18,7 +18,7 @@ const reconcileMisses = 3
 // pane's owner stamp rather than its existence, so a reissued pane id is not read as this
 // agent still running.
 type tmuxProbe interface {
-	PaneOwners() (map[string]string, error)
+	GetPaneOwners() (map[string]string, error)
 	CapturePane(pane string) string
 }
 
@@ -66,7 +66,7 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 
 	// Tmux failing to answer says nothing about any agent, and treating it as every pane
 	// being gone would clear every pane id and demote every agent in one pass.
-	owners, err := r.tmux.PaneOwners()
+	owners, err := r.tmux.GetPaneOwners()
 	if err != nil {
 		return fmt.Errorf("failed to read pane owners for reconcile: %w", err)
 	}

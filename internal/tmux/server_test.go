@@ -77,8 +77,8 @@ func TestNewWindowAlongsideASameNamedWindow(t *testing.T) {
 func TestSessionClientWithNothingAttached(t *testing.T) {
 	client := testServer(t, "detached")
 
-	assert.Empty(t, client.SessionClient("$0"))
-	assert.Empty(t, client.SessionClient("$99"))
+	assert.Empty(t, client.GetSessionClient("$0"))
+	assert.Empty(t, client.GetSessionClient("$99"))
 }
 
 // The server here stands in for the user's own rather than the manager's, since that is
@@ -123,13 +123,13 @@ func TestPaneOwners(t *testing.T) {
 	require.NoError(t, client.SetPaneOwner(killed, "agent-two"))
 	client.KillPane(killed)
 
-	owners, err := client.PaneOwners()
+	owners, err := client.GetPaneOwners()
 	require.NoError(t, err)
 
 	assert.Equal(t, "agent-one", owners[stamped], "a stamped pane answers to its agent")
 	assert.Empty(t, owners[bare], "an unstamped pane answers to nobody")
 	assert.NotContains(t, owners, killed, "a pane that is gone is absent rather than stale")
-	assert.Equal(t, client.PaneOwner(stamped), owners[stamped], "the batch agrees with the single lookup")
+	assert.Equal(t, client.GetPaneOwner(stamped), owners[stamped], "the batch agrees with the single lookup")
 }
 
 // TestZoomPaneIsIdempotent covers the zoom the panel puts a form behind. tmux offers only

@@ -29,7 +29,7 @@ import (
 type agentLauncher interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
 	IsAgentRunning(agent agentstore.Agent) bool
-	AgentsRunning(agents []agentstore.Agent) map[string]bool
+	GetRunningAgents(agents []agentstore.Agent) map[string]bool
 	DeleteAgent(ctx context.Context, id string) error
 	ArchiveAgent(ctx context.Context, id string) error
 	RestoreAgent(ctx context.Context, id string) (*agentstore.Agent, error)
@@ -111,7 +111,7 @@ func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.L
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list agents: %w", err))
 	}
 
-	running := s.launcher.AgentsRunning(agents)
+	running := s.launcher.GetRunningAgents(agents)
 
 	resources := make([]agent, 0, len(agents))
 	for _, agent := range agents {

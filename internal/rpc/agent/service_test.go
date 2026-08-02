@@ -1062,7 +1062,7 @@ type fakeLauncher struct {
 	restoreErr error
 	resumed    []string
 	resumeErr  error
-	// runningCalls counts AgentsRunning calls, which is what holds a listing to one
+	// runningCalls counts GetRunningAgents calls, which is what holds a listing to one
 	// liveness lookup.
 	runningCalls int
 }
@@ -1080,9 +1080,9 @@ func (f *fakeLauncher) NewAgent(_ context.Context, p agents.NewAgentParams) (*ag
 // is live exactly when the test says it is.
 func (f *fakeLauncher) IsAgentRunning(agentstore.Agent) bool { return f.alive }
 
-// AgentsRunning answers a whole listing the same way, recording the call so a test can
+// GetRunningAgents answers a whole listing the same way, recording the call so a test can
 // hold a listing to one lookup rather than one per agent.
-func (f *fakeLauncher) AgentsRunning(agents []agentstore.Agent) map[string]bool {
+func (f *fakeLauncher) GetRunningAgents(agents []agentstore.Agent) map[string]bool {
 	f.runningCalls++
 
 	running := make(map[string]bool, len(agents))

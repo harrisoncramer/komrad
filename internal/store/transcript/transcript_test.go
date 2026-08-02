@@ -546,11 +546,11 @@ func open(t *testing.T) *fixture {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = p.Close() })
 
-	workflows := workflowstore.New(p.DB())
+	workflows := workflowstore.New(p.GetDB())
 	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default"})
 	require.NoError(t, err)
 
-	return &fixture{Store: New(p.DB()), agents: agentstore.New(p.DB()), workflow: created.ID}
+	return &fixture{Store: New(p.GetDB()), agents: agentstore.New(p.GetDB()), workflow: created.ID}
 }
 
 // seedAgent inserts an agent and returns its generated id, so a transcript can
