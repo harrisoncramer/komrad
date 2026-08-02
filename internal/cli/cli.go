@@ -24,7 +24,10 @@ import (
 // subcommand opens the panel.
 func NewRootCommand() *cobra.Command {
 
-	app := &app{} // The app holds basically all of our application state, which drives the CLI commands and the bubbletea models.
+	// The app holds basically all of our application state, which drives the CLI commands and the bubbletea models.
+	// It's state is set by the root command which precedes every other subcommand in weave.
+
+	app := &app{}
 
 	var configPath string
 
