@@ -167,11 +167,12 @@ func (c *Client) SplitRight(anchorPane, dir string, percent int) string {
 	return c.value("split-window", "-h", "-d", "-t", anchorPane, "-c", dir, "-l", size, "-P", "-F", "#{pane_id}")
 }
 
-// SplitBelow splits a shell under the anchor pane and moves focus into it, rooted at dir.
-// It is the panel's terminal key, so the pane is the user's from here: nothing tracks it,
-// and it lives until they close it or the next panel start clears the window.
-func (c *Client) SplitBelow(anchorPane, dir string) {
-	c.run("split-window", "-v", "-t", anchorPane, "-c", dir)
+// SplitBelow splits a pane under the anchor, rooted at dir and taking percent of its
+// height, and returns the new pane's id. Focus stays where it was, since what goes in the
+// pane is decided after it exists and whoever put it there says whether to move.
+func (c *Client) SplitBelow(anchorPane, dir string, percent int) string {
+	size := fmt.Sprintf("%d%%", percent)
+	return c.value("split-window", "-v", "-d", "-t", anchorPane, "-c", dir, "-l", size, "-P", "-F", "#{pane_id}")
 }
 
 // ResizePane sets a pane's width to percent of the window.
@@ -272,6 +273,18 @@ func (c *Client) SetGlobal(name, value string) {
 // ShowGlobal returns a global tmux option's value, empty if it is unset.
 func (c *Client) ShowGlobal(name string) string {
 	return c.value("show-option", "-gqv", name)
+}
+
+// SetPanelGlobal records something about the panel's own layout, on the server the panel's
+// panes live on. Servers sends SetGlobal to the user's server, where the tmux key binding
+// reads, so a pane id written there would be answered by the wrong machine's option.
+func (c *Client) SetPanelGlobal(name, value string) {
+	c.SetGlobal(name, value)
+}
+
+// GetPanelGlobal reads one back, from the same server it was written on.
+func (c *Client) GetPanelGlobal(name string) string {
+	return c.ShowGlobal(name)
 }
 
 // SetSessionOption sets a session-scoped tmux option.

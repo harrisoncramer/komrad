@@ -238,6 +238,7 @@ func TestArchiveHelpSplitsOnTheRow(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, appconfig.DefaultKeybindings())
 			m.archive.cursor = tt.cursor
+			m.helpExpanded = true
 			if tt.archived {
 				m.tree.workflows = nil
 				m.archive.workflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
@@ -553,7 +554,7 @@ func archiveModel(agents agentv1connect.AgentServiceClient, workflows workflowv1
 		api:    api{agents: agents, workflows: workflows, schedules: emptyLists{}},
 		tmux:   tmux,
 		popup:  NewPopupWindow(tmux, "test-session"),
-		stage:  NewStage(tmux, appconfig.DefaultSplit),
+		stage:  NewStage(tmux, appconfig.DefaultLayout()),
 		keys:   keys,
 		screen: screenArchive,
 		tree:   treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}},

@@ -73,7 +73,7 @@ func produced(cmd tea.Cmd) []tea.Msg {
 // listing is how a slow call ends up costing the lists it has nothing to do with.
 func TestRefreshAppliesWhatAnswered(t *testing.T) {
 	m := model{
-		stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		stage:  NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
 		keys:   appconfig.DefaultKeybindings(),
 		screen: screenAgents,
 		tree:   treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}},
@@ -96,7 +96,7 @@ func TestRefreshAppliesWhatAnswered(t *testing.T) {
 // as a keypress that did nothing.
 func TestStaleRefreshIsDropped(t *testing.T) {
 	m := model{
-		stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		stage:  NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
 		keys:   appconfig.DefaultKeybindings(),
 		screen: screenAgents,
 		tree:   treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}},
@@ -134,7 +134,7 @@ func TestWriteStandsTheRefreshDown(t *testing.T) {
 // open on the workflow header above the agents.
 func TestFirstListingLandsOnTheFirstAgent(t *testing.T) {
 	m := model{
-		stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		stage:  NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
 		keys:   appconfig.DefaultKeybindings(),
 		screen: screenAgents,
 		tree:   treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}},
@@ -155,7 +155,7 @@ func TestFirstListingLandsOnTheFirstAgent(t *testing.T) {
 // cursor has to follow the folder it names rather than the index it was drawn at.
 func TestCursorHoldsItsFolderAcrossARefresh(t *testing.T) {
 	m := model{
-		stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		stage:  NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
 		keys:   appconfig.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{
@@ -184,7 +184,7 @@ func TestCursorHoldsItsFolderAcrossARefresh(t *testing.T) {
 // a cursor read after they have is read against a tree that is half of each pass.
 func TestCursorHoldsItsAgentWhenAFolderArrives(t *testing.T) {
 	m := model{
-		stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		stage:  NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
 		keys:   appconfig.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{
@@ -216,7 +216,7 @@ func TestCursorHoldsItsAgentWhenAFolderArrives(t *testing.T) {
 // land, so the row under the cursor has to be read before any of them do.
 func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 	m := model{
-		stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		stage:  NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
 		keys:   appconfig.DefaultKeybindings(),
 		screen: screenArchive,
 		tree: treeState{

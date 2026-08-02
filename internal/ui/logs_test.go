@@ -37,10 +37,10 @@ func pressLogs(t *testing.T, m model) model {
 	return panel
 }
 
-// TestLogsReplaceTheStagedAgent covers the log key. The cursor is on a live agent, whose
-// own pane is swapped into the stage, so showing the log has to put that pane back before
-// anything is drawn over the slot it was sitting in.
-func TestLogsReplaceTheStagedAgent(t *testing.T) {
+// TestLogsOpenBelowTheStagedAgent covers the log key. The cursor is on a live agent, whose
+// own pane is swapped into the stage, and the log opens under it rather than over it, so
+// the agent stays on screen while the log is read.
+func TestLogsOpenBelowTheStagedAgent(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, path := logsModel(t, tmux)
 
@@ -49,45 +49,45 @@ func TestLogsReplaceTheStagedAgent(t *testing.T) {
 
 	shown := pressLogs(t, m)
 
-	assert.True(t, shown.tree.logsPinned)
+	assert.Equal(t, belowLogs, shown.tree.below)
 	assert.Nil(t, shown.banner)
-	assert.Equal(t, 2, tmux.swaps, "the agent's pane goes back to its own window")
+	assert.Equal(t, 1, tmux.swaps, "the agent's pane is left where it is")
 	require.Len(t, tmux.respawns, 1)
+	assert.Equal(t, "%2", tmux.respawnPanes[0], "the log is paged into the pane below")
 	assert.Contains(t, tmux.respawns[0], "export WEAVE_LOG='"+path+"'")
 	assert.Contains(t, tmux.respawns[0], appconfig.DefaultLogViewer)
 	assert.Empty(t, tmux.zooms, "the stage keeps its share of the width")
 }
 
-// TestLogsToggleBackToTheRow covers the second press. The key is the way out as well as
-// the way in, so the stage goes back to the agent it was showing.
-func TestLogsToggleBackToTheRow(t *testing.T) {
+// TestLogsToggleClosesThePane covers the second press. The key is the way out as well as
+// the way in, and the way out is the pane going away.
+func TestLogsToggleClosesThePane(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
 
 	m.stageSelection()
-	require.Equal(t, 1, tmux.swaps, "the live agent is staged to begin with")
 
 	hidden := pressLogs(t, pressLogs(t, m))
 
-	assert.False(t, hidden.tree.logsPinned)
-	assert.Equal(t, 3, tmux.swaps, "the agent's pane goes out for the log and comes back after it")
+	assert.Equal(t, belowNothing, hidden.tree.below)
+	assert.Contains(t, tmux.killed, "%2", "the pane goes with it")
 }
 
-// TestLogsUnpinOnACursorMove covers moving off the row the log was opened from. The stage
-// follows the cursor unless something is pinned over it, so moving is the other way back
-// to the row, the way it is for info.
-func TestLogsUnpinOnACursorMove(t *testing.T) {
+// TestLogsSurviveACursorMove covers moving off the row the log was opened from. The log is
+// about the service rather than the row, so it stays where it is and the stage above it
+// follows the cursor on its own.
+func TestLogsSurviveACursorMove(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
 
 	shown := pressLogs(t, m)
-	require.True(t, shown.tree.logsPinned)
+	require.Equal(t, belowLogs, shown.tree.below)
 
 	moved, _ := shown.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
 	panel, ok := moved.(model)
 	require.True(t, ok)
 
-	assert.False(t, panel.tree.logsPinned)
+	assert.Equal(t, belowLogs, panel.tree.below)
 }
 
 // TestLogsSurviveARefresh covers the pass that restages every second the panel is open.
@@ -117,7 +117,7 @@ func TestLogsWithNoLogFile(t *testing.T) {
 	shown := pressLogs(t, m)
 
 	assert.NotNil(t, shown.banner)
-	assert.False(t, shown.tree.logsPinned)
+	assert.Equal(t, belowNothing, shown.tree.below)
 	assert.Empty(t, tmux.respawns)
 }
 
@@ -131,7 +131,7 @@ func TestLogsShowOnAnEmptyList(t *testing.T) {
 
 	shown := pressLogs(t, m)
 
-	assert.True(t, shown.tree.logsPinned)
+	assert.Equal(t, belowLogs, shown.tree.below)
 	require.Len(t, tmux.respawns, 1)
 	assert.Contains(t, tmux.respawns[0], "export WEAVE_LOG='"+path+"'")
 }
@@ -199,7 +199,7 @@ func TestLogsUseTheConfiguredViewer(t *testing.T) {
 
 	shown := pressLogs(t, m)
 
-	require.True(t, shown.tree.logsPinned)
+	require.Equal(t, belowLogs, shown.tree.below)
 	require.Len(t, tmux.respawns, 1)
 	assert.Contains(t, tmux.respawns[0], `$WEAVE_BIN logs | fzf --ansi --tac`)
 	assert.Contains(t, tmux.respawns[0], "export WEAVE_LOG='"+path+"'")

@@ -1,0 +1,14 @@
+#!/bin/sh
+# What the panel's editor key runs. Write your own _editor in your actions directory to
+# replace it.
+#
+# The pane under the stage belongs to the panel, so respawning it is safe in a way that
+# respawning the stage itself would not be: the stage can be the agent's own pane.
+set -eu
+
+tmux -L "$WEAVE_TMUX_SOCKET" respawn-pane -k \
+	-t "$WEAVE_SECONDARY_PANE" \
+	-c "${WEAVE_AGENT_CWD:-$HOME}" \
+	"${EDITOR:-vi} ."
+
+exec tmux -L "$WEAVE_TMUX_SOCKET" select-pane -t "$WEAVE_SECONDARY_PANE"

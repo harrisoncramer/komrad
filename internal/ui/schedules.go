@@ -31,11 +31,28 @@ type scheduleItem struct {
 // schedule forms closes. It is its own screen rather than part of the agents tree, since a
 // schedule is a record of future work with nothing running to stage beside it.
 func (m model) enterSchedules() (tea.Model, tea.Cmd) {
-	m.screen = screenSchedules
-	m.schedules.cursor = clampCursor(m.schedules.cursor, len(m.schedules.items))
+	m.enterScreen(screenSchedules)
+	m.schedules.cursor = clampCursor(m.schedules.cursor, len(m.scheduleRows()))
 	m.stageSchedule()
 
 	return m, nil
+}
+
+// scheduleRows are the schedules the list draws, the listing less whatever the filter holds
+// back. The cursor indexes these rather than the listing, so a key acts on the row it is on.
+func (m model) scheduleRows() []scheduleItem {
+	if m.filter.pattern == nil {
+		return m.schedules.items
+	}
+
+	rows := make([]scheduleItem, 0, len(m.schedules.items))
+	for _, item := range m.schedules.items {
+		if m.filter.doesMatch(item.schedule.Name) {
+			rows = append(rows, item)
+		}
+	}
+
+	return rows
 }
 
 // updateSchedules drives the schedules list. Arrows move the selection and
@@ -44,8 +61,12 @@ func (m model) updateSchedules(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
 	switch {
+	case isBound(k, m.keys.Filter.Open):
+		return m.openFilter()
 	case isBound(k, m.keys.Schedules.Quit):
 		return m, m.hide()
+	case m.filter.standing() && isBound(k, m.keys.Schedules.Back):
+		return m.clearFilter()
 	case isBound(k, m.keys.Schedules.Back):
 		return m.returnToAgents()
 	case isBound(k, m.keys.Nav.Up):
@@ -54,7 +75,7 @@ func (m model) updateSchedules(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.stageSchedule()
 		}
 	case isBound(k, m.keys.Nav.Down):
-		if m.schedules.cursor < len(m.schedules.items)-1 {
+		if m.schedules.cursor < len(m.scheduleRows())-1 {
 			m.schedules.cursor++
 			m.stageSchedule()
 		}
@@ -74,11 +95,12 @@ func (m model) updateSchedules(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 // selectedSchedule returns the schedule under the cursor, or false when the
 // list is empty.
 func (m model) selectedSchedule() (scheduleItem, bool) {
-	if m.schedules.cursor < 0 || m.schedules.cursor >= len(m.schedules.items) {
+	rows := m.scheduleRows()
+	if m.schedules.cursor < 0 || m.schedules.cursor >= len(rows) {
 		return scheduleItem{}, false
 	}
 
-	return m.schedules.items[m.schedules.cursor], true
+	return rows[m.schedules.cursor], true
 }
 
 // stageSchedule shows the hovered schedule's record in the stage. Nothing runs for a
@@ -266,29 +288,23 @@ func (m model) updateScheduleArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
 // schedulesView renders the list, each row a schedule with its cron expression and when it
 // next fires, which is what a person checks a schedule for.
 func (m model) schedulesView() string {
-	header := headerStyle.Render("Schedules") + "\n\n"
+	header := headerStyle.Render("Schedules") + "\n\n" + m.filterView()
 	help := "\n" + m.renderHelp(m.scheduleHelp())
 
-	if len(m.schedules.items) == 0 {
+	all := m.scheduleRows()
+	if len(all) == 0 {
 		return header + dimStyle.Render("  no schedules yet") + "\n" + help
 	}
 
-	rows := make([]string, 0, len(m.schedules.items))
-	for i, item := range m.schedules.items {
+	rows := make([]string, 0, len(all))
+	for i, item := range all {
 		selected := i == m.schedules.cursor
 		prefix := "  "
 		if selected {
 			prefix = cursorStyle.Render("› ")
 		}
 
-		name := item.schedule.Name
-		if !item.schedule.Enabled {
-			name = dimStyle.Render(name)
-		}
-		if selected {
-			name = cursorStyle.Render(item.schedule.Name)
-		}
-
+		name := m.filter.highlight(item.schedule.Name, nameStyle(selected, !item.schedule.Enabled))
 		icon := lipgloss.NewStyle().Foreground(scheduleColor(item.schedule.Enabled)).Render(scheduleIcon(item.schedule.Enabled))
 		rows = append(rows, prefix+"  "+icon+" "+name+"  "+dimStyle.Render(item.schedule.Cron))
 	}
@@ -307,7 +323,8 @@ func (m *model) applySchedules(fresh []scheduleItem) {
 
 	m.schedules.items = fresh
 
-	for i, item := range fresh {
+	rows := m.scheduleRows()
+	for i, item := range rows {
 		if item.schedule.ID == selected {
 			m.schedules.cursor = i
 
@@ -315,5 +332,5 @@ func (m *model) applySchedules(fresh []scheduleItem) {
 		}
 	}
 
-	m.schedules.cursor = clampCursor(m.schedules.cursor, len(fresh))
+	m.schedules.cursor = clampCursor(m.schedules.cursor, len(rows))
 }

@@ -7,6 +7,7 @@ import (
 
 	"weave/internal/appconfig"
 
+	agentstore "weave/internal/store/agent"
 	"weave/internal/store/transcript"
 
 	agentv1 "weave/proto/gen/agent/v1"
@@ -65,7 +66,7 @@ func TestApplySearchResults(t *testing.T) {
 			m := model{
 				screen: screenSearch,
 				search: searchState{query: tt.query},
-				stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+				stage:  NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
 			}
 
 			m.applySearch(tt.msg)
@@ -127,7 +128,11 @@ func TestUpdateSearchEditsQuery(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := model{screen: screenSearch, keys: appconfig.DefaultKeybindings()}
+			m := model{
+				screen: screenSearch,
+				keys:   appconfig.DefaultKeybindings(),
+				search: searchState{typing: true},
+			}
 
 			for _, key := range tt.keys {
 				next, _ := m.updateSearch(key)
@@ -331,48 +336,194 @@ func hits(names ...string) []searchHit {
 	return out
 }
 
-// TestOpenSearchHit covers what enter on a result does. Search is the one screen that
-// reaches archived conversations, so opening one there has to take it out of the archive
-// before resuming it, while a hit that is already listed is only resumed.
-func TestOpenSearchHit(t *testing.T) {
+// TestJumpToSearchHit covers what enter on a result does. It goes to where the conversation
+// already is rather than changing anything about it, so a live one lands on the agents tree and
+// an archived one in the archive, and neither is resumed or taken out of the archive on the way.
+func TestJumpToSearchHit(t *testing.T) {
 	tests := []struct {
-		name         string
-		archived     bool
-		wantRestored []string
+		name       string
+		hit        searchHit
+		hidden     bool
+		wantScreen screen
+		wantCursor string
 	}{
 		{
-			name:         "an archived hit is restored on the way",
-			archived:     true,
-			wantRestored: []string{"a1"},
+			name:       "a hit the panel holds no row for leaves the cursor alone",
+			hit:        searchHit{agentID: "gone", name: "gone"},
+			wantScreen: screenAgents,
+			wantCursor: "billing",
 		},
 		{
-			name: "a listed hit is resumed alone",
+			name:       "a live hit lands on its row in the tree",
+			hit:        searchHit{agentID: "a2", name: "payouts"},
+			wantScreen: screenAgents,
+			wantCursor: "payouts",
+		},
+		{
+			name:       "a hidden hit draws the hidden agents so its row exists",
+			hit:        searchHit{agentID: "a2", name: "payouts"},
+			hidden:     true,
+			wantScreen: screenAgents,
+			wantCursor: "payouts",
+		},
+		{
+			name:       "an archived hit lands in the archive",
+			hit:        searchHit{agentID: "a3", name: "old-work", archived: true},
+			wantScreen: screenArchive,
+			wantCursor: "old-work",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client := &fakeSearchAgents{}
-			tmux := &recordingTmux{}
-			m := model{
-				api:    api{agents: client, workflows: emptyLists{}, schedules: emptyLists{}},
-				tmux:   tmux,
-				popup:  NewPopupWindow(tmux, "test-session"),
-				stage:  NewStage(tmux, appconfig.DefaultSplit),
-				keys:   appconfig.DefaultKeybindings(),
-				screen: screenSearch,
-				search: searchState{hits: []searchHit{{agentID: "a1", name: "api-refactor", archived: tt.archived}}},
-			}
+			m := filterModel()
+			m.api = api{agents: client, workflows: emptyLists{}, schedules: emptyLists{}}
+			m.screen = screenSearch
+			m.search = searchState{query: "ledger", hits: []searchHit{tt.hit}, typing: true}
+			m.tree.agents[1].agent.Hidden = tt.hidden
+			m.archive.agents = []agentstore.Agent{{ID: "a3", Name: "old-work", WorkflowID: "w1"}}
 
-			updated, cmd := m.openSearchHit()
-			pressed, ok := updated.(model)
+			updated, _ := m.route(keyMsg("enter"))
+			got, ok := updated.(model)
 			require.True(t, ok)
 
-			got := settle(t, pressed, cmd)
+			require.Equal(t, tt.wantScreen, got.screen)
+			assert.Nil(t, client.restored, "nothing is taken out of the archive")
+			assert.Nil(t, client.resumed, "nothing is put back in a pane")
 
-			require.Nil(t, got.banner)
-			assert.Equal(t, tt.wantRestored, client.restored)
-			assert.Equal(t, []string{"a1"}, client.resumed, "the conversation is put back in a pane either way")
+			rows, cursor := got.agentRows(), got.tree.cursor
+			if got.screen == screenArchive {
+				// The archive is listed only while its screen is up, so the row the jump named
+				// arrives with the pass the entry asked for.
+				got.applyArchive(got.archive.agents, nil, "")
+				rows, cursor = got.archiveRows(), got.archive.cursor
+			}
+
+			require.Less(t, cursor, len(rows))
+			assert.Equal(t, tt.wantCursor, rows[cursor].item.agent.Name)
+		})
+	}
+}
+
+// TestSearchFreeze covers esc on the results. It shuts the query line rather than leaving the
+// screen, so the hits stay exactly as the query left them and the ordinary nav keys walk them.
+// A second esc is the way out, and a query that found nothing leaves on the first, since there
+// is nothing to walk.
+func TestSearchFreeze(t *testing.T) {
+	tests := []struct {
+		name       string
+		hits       []searchHit
+		keys       []string
+		wantScreen screen
+		wantTyping bool
+		wantCursor int
+	}{
+		{
+			name:       "esc over nothing leaves the screen",
+			keys:       []string{"esc"},
+			wantScreen: screenAgents,
+		},
+		{
+			name:       "esc over results shuts the query line and stays",
+			hits:       hits("a", "b", "c"),
+			keys:       []string{"esc"},
+			wantScreen: screenSearch,
+		},
+		{
+			name:       "the nav keys walk the frozen results",
+			hits:       hits("a", "b", "c"),
+			keys:       []string{"esc", "j", "j"},
+			wantScreen: screenSearch,
+			wantCursor: 2,
+		},
+		{
+			name:       "the nav keys stop at the end rather than wrapping",
+			hits:       hits("a", "b"),
+			keys:       []string{"esc", "j", "j", "j"},
+			wantScreen: screenSearch,
+			wantCursor: 1,
+		},
+		{
+			name:       "a second esc leaves",
+			hits:       hits("a", "b"),
+			keys:       []string{"esc", "esc"},
+			wantScreen: screenAgents,
+		},
+		{
+			name:       "the search key reopens the query line to edit it",
+			hits:       hits("a", "b"),
+			keys:       []string{"esc", "s"},
+			wantScreen: screenSearch,
+			wantTyping: true,
+		},
+		{
+			name:       "a letter typed at frozen results acts rather than querying",
+			hits:       hits("a", "b"),
+			keys:       []string{"esc", "k"},
+			wantScreen: screenSearch,
+			wantCursor: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := filterModel()
+			m.api = api{agents: &fakeSearchAgents{}, workflows: emptyLists{}, schedules: emptyLists{}}
+			m.screen = screenSearch
+			m.search = searchState{query: "ledger", hits: tt.hits, typing: true}
+
+			for _, k := range tt.keys {
+				updated, _ := m.route(keyMsg(k))
+				next, ok := updated.(model)
+				require.True(t, ok)
+				m = next
+			}
+
+			assert.Equal(t, tt.wantScreen, m.screen)
+			assert.Equal(t, tt.wantTyping, m.search.typing)
+			assert.Equal(t, tt.wantCursor, m.search.cursor)
+			assert.Equal(t, tt.hits, m.search.hits, "the results are left as the query found them")
+		})
+	}
+}
+
+// TestSearchQueryOwnsTheKeys covers the query line taking every key while it is open, which is
+// what keeps a letter bound elsewhere from acting instead of typing.
+func TestSearchQueryOwnsTheKeys(t *testing.T) {
+	tests := []struct {
+		name         string
+		typing       bool
+		key          string
+		wantQuery    string
+		wantExpanded bool
+	}{
+		{
+			name:      "the help key types while the line is open",
+			typing:    true,
+			key:       "?",
+			wantQuery: "ledger?",
+		},
+		{
+			name:         "the help key draws the legend once the line has shut",
+			key:          "?",
+			wantQuery:    "ledger",
+			wantExpanded: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := filterModel()
+			m.screen = screenSearch
+			m.search = searchState{query: "ledger", hits: hits("a"), typing: tt.typing}
+
+			updated, _ := m.route(keyMsg(tt.key))
+			got, ok := updated.(model)
+			require.True(t, ok)
+
+			assert.Equal(t, tt.wantQuery, got.search.query)
+			assert.Equal(t, tt.wantExpanded, got.helpExpanded)
 		})
 	}
 }

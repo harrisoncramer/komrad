@@ -25,7 +25,7 @@ import (
 // while the hidden ones are away and so is not the folder's to select.
 func selectionTree() model {
 	return model{
-		stage: NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		stage: NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
 		keys:  appconfig.DefaultKeybindings(),
 		tree: treeState{
 			workflows: []workflowstore.Workflow{
@@ -229,7 +229,7 @@ func TestPruneSelection(t *testing.T) {
 // three agents put away out of it. Its rows are the header at 0 and the agents at 1 to 3.
 func archiveSelectionTree() model {
 	return model{
-		stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		stage:  NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
 		keys:   appconfig.DefaultKeybindings(),
 		screen: screenArchive,
 		tree:   treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}},
@@ -446,7 +446,7 @@ func TestArchiveSelectionFromTheTree(t *testing.T) {
 			stage := &recordingTmux{}
 
 			m := selectionTree()
-			m.stage = NewStage(stage, appconfig.DefaultSplit)
+			m.stage = NewStage(stage, appconfig.DefaultLayout())
 			m.api = api{agents: agents}
 			m.tree.cursor = tt.cursor
 			m.tree.selected = selection{ids: tt.selected}

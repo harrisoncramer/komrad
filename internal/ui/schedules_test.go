@@ -379,7 +379,7 @@ func TestEnterSchedules(t *testing.T) {
 	}{
 		{
 			name:       "the schedules key opens the screen",
-			key:        "s",
+			key:        "S",
 			wantScreen: screenSchedules,
 		},
 		{
@@ -416,7 +416,7 @@ func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys appconfi
 		// The new-schedule form asks the popup which client opened it, to prefill
 		// the directory, so the panel needs one even though nothing here reads it.
 		popup:  NewPopupWindow(tmux, "test-session"),
-		stage:  NewStage(tmux, appconfig.DefaultSplit),
+		stage:  NewStage(tmux, appconfig.DefaultLayout()),
 		keys:   keys,
 		screen: screenSchedules,
 		schedules: scheduleState{

@@ -114,6 +114,10 @@ func (m *model) applyRefresh(result refreshResult) {
 
 	m.unreachable = result.err()
 
+	// Whatever was under the stage may have exited since the last pass, which tmux answers
+	// for by taking the pane away.
+	m.reconcileBelow()
+
 	// Both cursors are read off the trees still on screen. Every listing feeds one of them,
 	// so the first to land moves rows out from under a cursor not placed yet.
 	treeRow := rowKeyAt(m.agentRows(), m.tree.cursor)
@@ -204,9 +208,6 @@ func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {
 type resumeParams struct {
 	summary string
 	id      string
-	// unarchiveFirst restores the agent before resuming it, which is what search needs,
-	// since its hits reach archived conversations.
-	unarchiveFirst bool
 }
 
 // resumeCmd resumes an agent off the render loop and carries back what the panel needs of
@@ -216,12 +217,6 @@ func (m *model) resumeCmd(params resumeParams) tea.Cmd {
 	m.beginWrite()
 
 	return func() tea.Msg {
-		if params.unarchiveFirst {
-			if err := clients.restoreAgents([]string{params.id}); err != nil {
-				return writeResult{summary: params.summary, err: err}
-			}
-		}
-
 		agent, err := clients.resumeAgent(params.id)
 		if err != nil {
 			return writeResult{summary: params.summary, err: err}
@@ -251,10 +246,9 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	m.report(result.summary, result.err)
 
 	if result.resumed != nil {
-		m.screen = screenAgents
+		m.enterScreen(screenAgents)
 		// The pane came back with the agent, so it stages now. The cursor cannot move
 		// until a row carries the name it came back with, which is the pass below.
-		m.tree.unpin()
 		m.tree.focus = result.resumed.name
 		m.stage.Agent(result.resumed.pane)
 	}

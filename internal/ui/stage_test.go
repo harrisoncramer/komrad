@@ -42,7 +42,7 @@ func TestStagePercent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, NewStage(&recordingTmux{}, tt.split).percent())
+			assert.Equal(t, tt.want, NewStage(&recordingTmux{}, appconfig.Layout{Split: tt.split}).percent())
 		})
 	}
 }
@@ -53,7 +53,7 @@ func TestStagePercent(t *testing.T) {
 // sits on an agent would otherwise split its stage into that agent's window.
 func TestStageInitAnchorsToTheGivenPane(t *testing.T) {
 	tmux := &recordingTmux{}
-	stage := NewStage(tmux, appconfig.DefaultSplit)
+	stage := NewStage(tmux, appconfig.DefaultLayout())
 
 	stage.Init("%7")
 
@@ -66,7 +66,7 @@ func TestStageInitAnchorsToTheGivenPane(t *testing.T) {
 // split.
 func TestStageInitSizesThePane(t *testing.T) {
 	tmux := &recordingTmux{}
-	NewStage(tmux, 0.4).Init("%0")
+	NewStage(tmux, appconfig.Layout{Split: 0.4}).Init("%0")
 
 	assert.Equal(t, []int{60}, tmux.resizes)
 }
@@ -75,19 +75,73 @@ func TestStageInitSizesThePane(t *testing.T) {
 // stage pane as tmux reports it and not the share of the width the panel asked for.
 func TestStageWrapMeasuresThePane(t *testing.T) {
 	tmux := &recordingTmux{width: 216}
-	stage := NewStage(tmux, appconfig.DefaultSplit)
+	stage := NewStage(tmux, appconfig.DefaultLayout())
 	stage.Init("%0")
 
-	assert.Equal(t, 216, stage.wrap())
+	assert.Equal(t, 216, stage.wrap(stage.pane))
 }
 
 // TestStageWrapUnmeasurablePane covers a pane tmux gives no width for, which leaves
 // the renderer on its own default rather than rendering to nothing.
 func TestStageWrapUnmeasurablePane(t *testing.T) {
-	stage := NewStage(&recordingTmux{}, appconfig.DefaultSplit)
+	stage := NewStage(&recordingTmux{}, appconfig.DefaultLayout())
 	stage.Init("%0")
 
-	assert.Equal(t, 0, stage.wrap())
+	assert.Equal(t, 0, stage.wrap(stage.pane))
+}
+
+// TestStageSecondarySlot covers the pane under the stage. It is split beneath whatever fills
+// the stage's slot, opened once however many times it is asked for, and taken away whole.
+func TestStageSecondarySlot(t *testing.T) {
+	tmux := &recordingTmux{}
+	stage := NewStage(tmux, appconfig.DefaultLayout())
+	stage.Init("%0")
+	stage.Agent("%9")
+
+	pane := stage.OpenSecondary()
+
+	require.Equal(t, "%2", pane)
+	assert.Equal(t, []string{"%9"}, tmux.belowAnchors, "it hangs off the pane the stage slot holds")
+	assert.True(t, stage.IsSecondaryAlive())
+
+	assert.Equal(t, pane, stage.OpenSecondary(), "a second ask is the pane already open")
+	assert.Len(t, tmux.belowAnchors, 1, "and splits nothing")
+
+	stage.CloseSecondary()
+
+	assert.Contains(t, tmux.killed, pane)
+	assert.False(t, stage.IsSecondaryAlive())
+}
+
+// TestStageSecondaryTextLeavesThePagerAlone covers the pass that restages every second. The
+// pane below is compared against what it is already showing for the reason the stage is, so
+// a record left up is not respawned under somebody reading it.
+func TestStageSecondaryTextLeavesThePagerAlone(t *testing.T) {
+	tmux := &recordingTmux{}
+	stage := NewStage(tmux, appconfig.DefaultLayout())
+	stage.Init("%0")
+
+	stage.SecondaryText("# auth")
+	stage.SecondaryText("# auth")
+
+	assert.Len(t, tmux.respawns, 1)
+	assert.Equal(t, []string{"%2"}, tmux.respawnPanes, "the record goes below, never into the stage")
+}
+
+// TestStageSecondaryGoesWithARebuiltSlot covers the stage losing its slot with the pane below
+// still open. That pane hangs off the stage's own, so it cannot outlive it in a window
+// nothing will find again.
+func TestStageSecondaryGoesWithARebuiltSlot(t *testing.T) {
+	tmux := &recordingTmux{}
+	stage := NewStage(tmux, appconfig.DefaultLayout())
+	stage.Init("%0")
+	require.NotEmpty(t, stage.OpenSecondary())
+
+	tmux.deadPanes = map[string]bool{stage.pane: true}
+	stage.Text("# rebuilt")
+
+	assert.False(t, stage.IsSecondaryAlive())
+	assert.Contains(t, tmux.killed, "%2")
 }
 
 // TestStageHideOnlyTellsTmuxOnAChange covers the zoom that takes the stage away for a
@@ -95,7 +149,7 @@ func TestStageWrapUnmeasurablePane(t *testing.T) {
 // the stage is already in has to cost nothing.
 func TestStageHideOnlyTellsTmuxOnAChange(t *testing.T) {
 	tmux := &recordingTmux{}
-	stage := NewStage(tmux, appconfig.DefaultSplit)
+	stage := NewStage(tmux, appconfig.DefaultLayout())
 	stage.Init("%0")
 
 	stage.Hide(false)
@@ -203,7 +257,7 @@ func TestStageInitReclaimsTheWindow(t *testing.T) {
 		owners:   map[string]string{"%7": "019fbb22-3735-71a9-ad83-acf4aa537acb"},
 	}
 
-	NewStage(tmux, 0.4).Init("%0")
+	NewStage(tmux, appconfig.Layout{Split: 0.4}).Init("%0")
 
 	assert.Equal(t, []string{"%7"}, tmux.broken, "a staged agent is returned to its own window")
 	assert.Equal(t, []string{"%8"}, tmux.killed, "the last stage's own pane is not kept")
@@ -214,7 +268,7 @@ func TestStageInitReclaimsTheWindow(t *testing.T) {
 func TestStageInitLeavesAnEmptyWindowAlone(t *testing.T) {
 	tmux := &recordingTmux{}
 
-	NewStage(tmux, 0.4).Init("%0")
+	NewStage(tmux, appconfig.Layout{Split: 0.4}).Init("%0")
 
 	assert.Empty(t, tmux.broken)
 	assert.Empty(t, tmux.killed)

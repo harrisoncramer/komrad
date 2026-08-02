@@ -57,16 +57,107 @@ trust_launch_dirs = false
 # below one. The stage showing whatever the cursor is on takes the rest, so
 # the default leaves the greater part to the preview, which is where there is
 # something to read.
-split = 0.2
+split           = 0.2
+# The share of the stage's height taken by the pane that opens under it, as a
+# fraction above zero and below one. That pane is where the editor, a shell,
+# the server log, and a hovered agent's record open, so the agent above it
+# stays on screen while you read or work in it.
+secondary_split = 0.4
 
 # Panel keybindings, scoped to the screen each binding acts in.
 
-# Navigation, shared by every menu so movement is the same everywhere.
-[keybindings.nav]
-# Move the cursor up.
-up   = ["k"]
-# Move the cursor down.
-down = ["j"]
+# The actions list, and the key that opens it on the hovered agent.
+[keybindings.actions]
+# Leave the actions list for the agents list.
+back = ["esc"]
+# Open the actions list on the hovered agent. It acts on a row rather than on
+# the list, so this does nothing on a workflow header.
+open = ["a"]
+# Quit the panel.
+quit = ["ctrl+c"]
+# Run the script under the cursor on the agent the list was opened on.
+run  = ["enter"]
+
+# The agents list, the panel's main screen.
+[keybindings.agents]
+# Archive the hovered agent, which stops it and moves it to the archive screen
+# rather than destroying it.
+archive     = ["z"]
+# Step out of a workflow scope, or quit at the root.
+back        = ["esc"]
+# Open the hovered agent's directory in whatever EDITOR names, in the pane
+# under the stage, and press it again to close that pane. It runs the _editor
+# action, so writing your own _editor in your actions directory replaces what
+# the key does.
+editor      = ["e"]
+# Hide the hovered agent from this list, or unhide one while the hidden agents
+# are shown. Hiding stops nothing: the agent keeps running and every other
+# view still holds it.
+hide        = ["h"]
+# Show the hovered agent's stored record in the pane under the stage, so it
+# reads beside the agent rather than in place of it, and press it again to
+# close that pane.
+info        = ["i"]
+# Show the background service's log in the pane under the stage, and press it
+# again to close that pane. The service is spawned detached and writes to a
+# file, so nothing else shows what it is doing.
+logs        = ["L"]
+# Move the hovered agent to the next mark in the marks list, and past the last
+# one back to unmarked. Nothing but you ever sets a mark.
+mark        = ["m"]
+# Start a new agent.
+new         = ["n"]
+# Attach to the hovered agent.
+open        = ["enter"]
+# Quit the panel.
+quit        = ["ctrl+c"]
+# Rename the hovered agent.
+rename      = ["r"]
+# Search every conversation the panel holds for what you type, the archived
+# ones included, and open the agent a hit belongs to.
+search      = ["s"]
+# Show the hidden agents alongside the rest, and press it again to put them
+# away. While they are away each workflow header carries the count of what it
+# is not showing.
+show_hidden = ["H"]
+# Open a shell in the pane under the stage, in the hovered agent's directory,
+# and press it again to close that pane. It runs the _terminal action, so
+# writing your own _terminal in your actions directory replaces what the key
+# does.
+terminal    = ["t"]
+
+# The archive screen, and the key that opens it from the agents list.
+[keybindings.archive]
+# Leave the archive for the agents list.
+back    = ["esc"]
+# Destroy the agent under the cursor for good, with its transcript. This is
+# the one thing in the panel nothing undoes, so it asks first.
+delete  = ["d"]
+# Open the archive from the agents list.
+open    = ["Z"]
+# Quit the panel.
+quit    = ["ctrl+c"]
+# Put the agent under the cursor back in the panel.
+restore = ["r"]
+
+# The filter over whichever list is on screen, shared by every screen that
+# draws one.
+[keybindings.filter]
+# Narrow the list on screen to the rows matching what you type, as a regular
+# expression. A pattern in lower case matches either case and one carrying an
+# upper case letter matches exactly. esc closes the input and leaves the list
+# narrowed to act on, and the screen's back key clears it.
+open = ["/"]
+
+# The new-agent, rename, and workflow forms.
+[keybindings.form]
+# Abort the form without quitting the panel.
+back   = ["esc"]
+# Abort the form and quit the panel.
+quit   = ["ctrl+c"]
+# Submit the form. Plain enter belongs to the text inputs, so this is
+# deliberately something else.
+submit = ["ctrl+s"]
 
 # The key that draws the legend under a list, shared by every screen for the
 # same reason navigation is.
@@ -74,127 +165,59 @@ down = ["j"]
 # Toggle for the keybindings
 toggle = ["?"]
 
+# Navigation, shared by every menu so movement is the same everywhere.
+[keybindings.nav]
+# Jump to the last row.
+bottom = ["G"]
+# Move the cursor down.
+down   = ["j"]
+# Jump to the first row, pressed twice the way vim's gg is.
+top    = ["g"]
+# Move the cursor up.
+up     = ["k"]
+
+# The schedules screen, and the key that opens it from the agents list.
+[keybindings.schedules]
+# Archive the schedule under the cursor, which stops it firing. The agents it
+# launched are kept, and nothing brings the schedule back.
+archive = ["z"]
+# Leave the schedules screen for the agents list.
+back    = ["esc"]
+# Edit the schedule under the cursor.
+edit    = ["enter"]
+# Write a new schedule.
+new     = ["n"]
+# Open the schedules screen from the agents list.
+open    = ["S"]
+# Quit the panel.
+quit    = ["ctrl+c"]
+# Pause or resume the schedule under the cursor.
+toggle  = [" "]
+
 # Choosing several agents at once, shared by the two screens that draw a tree.
 [keybindings.selection]
-# Take the row under the cursor into the selection, or back out of it. On a
-# workflow header that is the whole folder: one not already wholly selected is
-# taken in whole, and one that is drops.
-toggle = ["v"]
+# Drop the whole selection, which is the way back out of multi-select mode.
+clear  = ["esc"]
 # Take in every agent between the cursor and the nearest already-selected one,
 # which is how a run is chosen without pressing toggle down the whole of it.
 # From a tree with nothing selected it does what toggle does, since there is
 # nothing yet for a range to reach back to.
 range  = ["V"]
-# Drop the whole selection, which is the way back out of multi-select mode.
-clear  = ["esc"]
-
-# The agents list, the panel's main screen.
-[keybindings.agents]
-# Quit the panel.
-quit        = ["ctrl+c"]
-# Step out of a workflow scope, or quit at the root.
-back        = ["esc"]
-# Attach to the hovered agent.
-open        = ["enter"]
-# Open the hovered agent's directory in whatever EDITOR names. The window is
-# created on your own tmux server rather than the panel's, and the panel
-# closes behind it, so you are left in the editor.
-editor      = ["e"]
-# Start a new agent.
-new         = ["n"]
-# Rename the hovered agent.
-rename      = ["r"]
-# Archive the hovered agent, which stops it and moves it to the archive screen
-# rather than destroying it.
-archive     = ["z"]
-# Filter the list by name.
-search      = ["/"]
-# Swap the hovered agent's stored record into the stage in place of the agent.
-info        = ["i"]
-# Move the hovered agent to the next mark in the marks list, and past the last
-# one back to unmarked. Nothing but you ever sets a mark.
-mark        = ["m"]
-# Hide the hovered agent from this list, or unhide one while the hidden agents
-# are shown. Hiding stops nothing: the agent keeps running and every other
-# view still holds it.
-hide        = ["h"]
-# Show the hidden agents alongside the rest, and press it again to put them
-# away. While they are away each workflow header carries the count of what it
-# is not showing.
-show_hidden = ["H"]
-# Show the background service's log in the stage, in place of the row under
-# the cursor, and press it again to put the row back. The service is spawned
-# detached and writes to a file, so nothing else shows what it is doing.
-logs        = ["L"]
-# Split a shell under the stage, in the directory the hovered agent or
-# workflow runs in, and put the cursor in it. The pane is yours from there:
-# nothing follows the list afterwards, and closing it is a plain tmux exit.
-terminal    = ["t"]
-
-# The new-agent, rename, and workflow forms.
-[keybindings.form]
-# Abort the form and quit the panel.
-quit   = ["ctrl+c"]
-# Abort the form without quitting the panel.
-back   = ["esc"]
-# Submit the form. Plain enter belongs to the text inputs, so this is
-# deliberately something else.
-submit = ["ctrl+s"]
+# Take the row under the cursor into the selection, or back out of it. On a
+# workflow header that is the whole folder: one not already wholly selected is
+# taken in whole, and one that is drops.
+toggle = ["v"]
 
 # The bindings that create and change workflows, from the agents list.
 [keybindings.workflows]
-# Create a workflow. Works from anywhere in the list.
-new     = ["W"]
-# Rename the workflow under the cursor.
-rename  = ["r"]
-# Edit the workflow under the cursor.
-edit    = ["e"]
 # Archive the workflow under the cursor, which archives the agents inside it.
 archive = ["z"]
-
-# The schedules screen, and the key that opens it from the agents list.
-[keybindings.schedules]
-# Open the schedules screen from the agents list.
-open    = ["s"]
-# Quit the panel.
-quit    = ["ctrl+c"]
-# Leave the schedules screen for the agents list.
-back    = ["esc"]
-# Write a new schedule.
-new     = ["n"]
-# Edit the schedule under the cursor.
-edit    = ["enter"]
-# Pause or resume the schedule under the cursor.
-toggle  = [" "]
-# Archive the schedule under the cursor, which stops it firing. The agents it
-# launched are kept, and nothing brings the schedule back.
-archive = ["z"]
-
-# The archive screen, and the key that opens it from the agents list.
-[keybindings.archive]
-# Open the archive from the agents list.
-open    = ["Z"]
-# Quit the panel.
-quit    = ["ctrl+c"]
-# Leave the archive for the agents list.
-back    = ["esc"]
-# Put the agent under the cursor back in the panel.
-restore = ["r"]
-# Destroy the agent under the cursor for good, with its transcript. This is
-# the one thing in the panel nothing undoes, so it asks first.
-delete  = ["d"]
-
-# The actions list, and the key that opens it on the hovered agent.
-[keybindings.actions]
-# Open the actions list on the hovered agent. It acts on a row rather than on
-# the list, so this does nothing on a workflow header.
-open = ["a"]
-# Quit the panel.
-quit = ["ctrl+c"]
-# Leave the actions list for the agents list.
-back = ["esc"]
-# Run the script under the cursor on the agent the list was opened on.
-run  = ["enter"]
+# Edit the workflow under the cursor.
+edit    = ["e"]
+# Create a workflow. Works from anywhere in the list.
+new     = ["w"]
+# Rename the workflow under the cursor.
+rename  = ["r"]
 
 # Where the panel finds the scripts its action key runs.
 [actions]
@@ -203,7 +226,10 @@ run  = ["enter"]
 # writing an action is dropping an executable in rather than an edit here. An
 # action runs on the agent it was chosen on, in that agent's directory, with
 # the agent as JSON in WEAVE_AGENT. Left empty this is
-# ~/.config/weave/actions, beside this file.
+# ~/.config/weave/actions, beside this file. Weave ships actions of its own
+# behind the panel's keys, such as _editor and _terminal. A file here of the
+# same name is used instead of the one shipped, which is how a key is given
+# different behaviour.
 dir = ""
 
 # The standing text every agent is started with, whatever workflow it is in.

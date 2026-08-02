@@ -148,8 +148,14 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.screen != screenSearch && isBound(key.String(), m.keys.Help.Toggle) {
-		m.helpCollapsed = !m.helpCollapsed
+	// An open filter input owns every key, ahead of the help toggle and the screens below,
+	// since a letter that acted as well as typed could be used for neither.
+	if m.filter.typing {
+		return m.updateFilterInput(key)
+	}
+
+	if !m.isQueryOpen() && isBound(key.String(), m.keys.Help.Toggle) {
+		m.helpExpanded = !m.helpExpanded
 
 		return m, nil
 	}
@@ -168,4 +174,10 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	default:
 		return m, nil
 	}
+}
+
+// isQueryOpen reports whether the search screen's query line has the keys, which is the one
+// state where a key bound to something has to type instead of acting.
+func (m model) isQueryOpen() bool {
+	return m.screen == screenSearch && m.search.typing
 }

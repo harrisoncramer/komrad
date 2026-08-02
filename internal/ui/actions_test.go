@@ -382,7 +382,7 @@ func TestActionsViewNamesTheAgentAndDimsWhatCannotRun(t *testing.T) {
 
 	view := m.actionsView()
 
-	assert.Contains(t, view, "Actions on auth")
+	assert.Contains(t, view, "Run Action")
 	assert.Contains(t, view, "open-pr")
 	assert.Contains(t, view, "unrunnable")
 	assert.Contains(t, view, "chmod +x to run", "the legend says what the run key wants")
@@ -401,7 +401,7 @@ func TestNoActionsSaysWhereToPutThem(t *testing.T) {
 func TestActionPreviewRedrawsOnlyOnAChange(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := actionsModel(&fakeActions{}, appconfig.DefaultKeybindings())
-	m.stage = NewStage(tmux, appconfig.DefaultSplit)
+	m.stage = NewStage(tmux, appconfig.DefaultLayout())
 	m.stage.Init("%0")
 
 	m.stageAction()
@@ -419,7 +419,7 @@ func TestActionPreviewRedrawsOnlyOnAChange(t *testing.T) {
 // and one that is not executable.
 func actionsModel(client actionv1connect.ActionServiceClient, keys appconfig.Keybindings) model {
 	tmux := &recordingTmux{}
-	stage := NewStage(tmux, appconfig.DefaultSplit)
+	stage := NewStage(tmux, appconfig.DefaultLayout())
 	stage.Init("%0")
 
 	return model{

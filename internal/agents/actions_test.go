@@ -14,6 +14,7 @@ import (
 	"weave/internal/actions"
 	"weave/internal/appconfig"
 	"weave/internal/logging"
+	"weave/internal/tmux"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -152,9 +153,15 @@ func TestRunActionPayload(t *testing.T) {
 	}
 
 	assert.Equal(t, "a1", values["WEAVE_AGENT_ID"])
+	assert.Equal(t, "/repo", values["WEAVE_AGENT_CWD"])
 	assert.Equal(t, "127.0.0.1:8787", values["WEAVE_ADDR"])
 	assert.Equal(t, "weave", values["WEAVE_TMUX_SOCKET"])
 	assert.Equal(t, dir, values["WEAVE_ACTIONS_DIR"])
+	assert.Equal(t, "%3", values["WEAVE_SECONDARY_PANE"], "the pane the panel laid out for a script to fill")
+	assert.Equal(t, "/tmp/host-socket", values["WEAVE_HOST_TMUX_SOCKET"])
+	assert.Equal(t, "/dev/ttys004", values["WEAVE_HOST_CLIENT"])
+	assert.Equal(t, "nvim", values["EDITOR"], "the configured editor, not whatever the service inherited")
+	assert.Equal(t, "/bin/zsh", values["WEAVE_SHELL"], "the shell tmux itself opens a pane with")
 
 	var payload actionPayload
 	require.NoError(t, json.Unmarshal([]byte(values["WEAVE_AGENT"]), &payload))
@@ -687,6 +694,50 @@ func recordFor(t *testing.T, records []map[string]any, body string) map[string]a
 	return nil
 }
 
+// TestListActionsReadsTheUserOverTheBuiltins covers the two directories behind the list. A
+// file the user writes stands in for the one weave ships of the same name, which is how a
+// key is given different behaviour, and the rest of both sets is offered alongside.
+func TestListActionsReadsTheUserOverTheBuiltins(t *testing.T) {
+	userDir, builtinDir := t.TempDir(), t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(userDir, "_editor"), []byte("#!/bin/sh\n# mine\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(userDir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(builtinDir, "_editor"), []byte("#!/bin/sh\n# shipped\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(builtinDir, "_terminal"), []byte("#!/bin/sh\n"), 0o755))
+
+	service := actionService(t, userDir, &recordingRunner{})
+	service.builtinDir = builtinDir
+
+	listed, err := service.ListActions()
+	require.NoError(t, err)
+	require.Len(t, listed, 3, "one name is claimed twice and counted once")
+
+	names := make([]string, 0, len(listed))
+	for _, action := range listed {
+		names = append(names, action.Name)
+	}
+	assert.Equal(t, []string{"_editor", "_terminal", "open-pr"}, names, "in name order across both")
+
+	assert.Contains(t, string(listed[0].Preview), "mine", "the user's file is the one on offer")
+}
+
+// TestRunActionRunsABuiltinAmongItsOwnSiblings covers firing a shipped action. It runs in the
+// directory it came out of rather than the user's, since that is where the scripts it sits
+// beside are.
+func TestRunActionRunsABuiltinAmongItsOwnSiblings(t *testing.T) {
+	userDir, builtinDir := t.TempDir(), t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(builtinDir, "_terminal"), []byte("#!/bin/sh\n"), 0o755))
+
+	runner := &recordingRunner{}
+	service := actionService(t, userDir, runner)
+	service.builtinDir = builtinDir
+
+	require.NoError(t, service.RunAction(context.Background(), "a1", "_terminal"))
+
+	require.Equal(t, []string{"_terminal"}, runner.ran)
+	assert.Equal(t, builtinDir, runner.dir)
+	assert.Contains(t, runner.env, "WEAVE_ACTIONS_DIR="+builtinDir)
+}
+
 func actionService(t *testing.T, dir string, runner actionRunner) *ActionService {
 	t.Helper()
 
@@ -701,8 +752,16 @@ func actionService(t *testing.T, dir string, runner actionRunner) *ActionService
 			Metadata:  []agentstore.Metadata{{Key: "pr", Value: "https://example.test/1"}},
 		}},
 		Workflows: fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "w1", Name: "backend"}},
-		Tmux:      fakePaneOwner{owner: "a1"},
-		Runner:    runner,
+		Tmux: fakePaneOwner{
+			owner:      "a1",
+			hostSocket: "/tmp/host-socket",
+			shell:      "/bin/zsh",
+			globals: map[string]string{
+				tmux.SecondaryPaneOption:  "%3",
+				tmux.InvokingClientOption: "/dev/ttys004",
+			},
+		},
+		Runner: runner,
 		Load: func() (*appconfig.Config, error) {
 			cfg := appconfig.Defaults()
 			cfg.Actions.Dir = dir
@@ -711,6 +770,7 @@ func actionService(t *testing.T, dir string, runner actionRunner) *ActionService
 		},
 		Addr:   "127.0.0.1:8787",
 		Socket: "weave",
+		Editor: "nvim",
 	})
 }
 
@@ -754,9 +814,19 @@ func (f fakeWorkflowReader) GetIncludingArchived(_ context.Context, id string) (
 // the agent is running.
 type fakePaneOwner struct {
 	owner string
+	// globals are the tmux options the panel records for an action to read.
+	globals map[string]string
+	// hostSocket is the user's own tmux server, which a script opening a window there needs.
+	hostSocket string
+	// shell is what tmux starts a pane's process with, which a script respawning one names.
+	shell string
 }
 
-func (f fakePaneOwner) GetPaneOwner(string) string { return f.owner }
+func (f fakePaneOwner) GetPaneOwner(string) string        { return f.owner }
+func (f fakePaneOwner) GetHostSocket() string             { return f.hostSocket }
+func (f fakePaneOwner) ShowGlobal(name string) string     { return f.globals[name] }
+func (f fakePaneOwner) GetPanelGlobal(name string) string { return f.globals[name] }
+func (f fakePaneOwner) DefaultShell() string              { return f.shell }
 
 // recordingRunner stands in for starting a process, so the service's tests drive the whole path
 // without spawning anything. Only the last run's directory and environment are kept, since no

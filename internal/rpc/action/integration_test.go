@@ -173,4 +173,8 @@ func (stubWorkflows) GetIncludingArchived(_ context.Context, id string) (*workfl
 
 type stubPanes struct{}
 
-func (stubPanes) GetPaneOwner(string) string { return "a1" }
+func (stubPanes) GetPaneOwner(string) string   { return "a1" }
+func (stubPanes) GetHostSocket() string        { return "" }
+func (stubPanes) ShowGlobal(string) string     { return "" }
+func (stubPanes) GetPanelGlobal(string) string { return "" }
+func (stubPanes) DefaultShell() string         { return "/bin/sh" }

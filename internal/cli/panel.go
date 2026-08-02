@@ -51,7 +51,6 @@ func panelCmd(state *app) *cobra.Command {
 				Marks:       state.marks,
 				Layout:      state.layout,
 				Addr:        state.env.Addr,
-				Editor:      state.env.Editor,
 				LogPath:     logPath,
 				LogViewer:   state.logViewer,
 				Binary:      getSelfPath(),

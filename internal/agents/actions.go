@@ -9,12 +9,15 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"slices"
+	"strings"
 	"time"
 	"unicode/utf8"
 
 	"weave/internal/actions"
 	"weave/internal/appconfig"
 	"weave/internal/logging"
+	"weave/internal/tmux"
 
 	agentstore "weave/internal/store/agent"
 )
@@ -25,12 +28,19 @@ type agentGetter interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
-// actionRunner finds actions and starts them. RunAndWait is for a caller with something
-// downstream of the action, and Run for one with nothing waiting.
-type paneOwnerGetter interface {
+// tmuxReader is what an action is told about tmux: who owns the agent's pane, the socket
+// of the user's own server, and the options the panel records for a script to lay itself
+// out against.
+type tmuxReader interface {
 	GetPaneOwner(pane string) string
+	GetHostSocket() string
+	GetPanelGlobal(name string) string
+	ShowGlobal(name string) string
+	DefaultShell() string
 }
 
+// actionRunner finds actions and starts them. RunAndWait is for a caller with something
+// downstream of the action, and Run for one with nothing waiting.
 type actionRunner interface {
 	Discover(dir string) ([]actions.Action, error)
 	Run(p actions.RunParams) error
@@ -65,44 +75,55 @@ const (
 	TriggerCleanup = "cleanup"
 )
 
-// ActionService lists and fires the executables the user keeps in their actions
-// directory. The WEAVE_AGENT payload is built here and nowhere else, so the panel firing
-// an action and a model firing one hand the script the same thing.
+// ActionService lists and fires the executables behind the panel's actions, the ones the
+// user has written and the ones weave ships. The WEAVE_AGENT payload is built here and
+// nowhere else, so the panel firing an action and a model firing one hand the script the
+// same thing.
 type ActionService struct {
 	agents agentGetter
 	// workflows is read for the name of the workflow an agent belongs to, which a script
 	// can use where the id it is stored under says nothing.
 	workflows storedWorkflowReader
-	tmux      paneOwnerGetter
+	tmux      tmuxReader
 	runner    actionRunner
 	load      configLoader
 	// addr and socket are what an action reaches back through, the address of this server
 	// and the tmux server every agent's pane lives on.
 	addr   string
 	socket string
+	// builtinDir holds the actions shipped with this build, which the user's own directory
+	// is read over.
+	builtinDir string
+	// editor is what an action opening one runs, since the service outlives the shell it
+	// was spawned from and cannot trust the environment it inherited.
+	editor string
 }
 
 // ActionParams carries the action service's dependencies.
 type ActionParams struct {
-	Agents    agentGetter
-	Workflows storedWorkflowReader
-	Tmux      paneOwnerGetter
-	Runner    actionRunner
-	Load      configLoader
-	Addr      string
-	Socket    string
+	Agents     agentGetter
+	Workflows  storedWorkflowReader
+	Tmux       tmuxReader
+	Runner     actionRunner
+	Load       configLoader
+	Addr       string
+	Socket     string
+	BuiltinDir string
+	Editor     string
 }
 
 // NewActionService builds the service from its dependencies.
 func NewActionService(p ActionParams) *ActionService {
 	return &ActionService{
-		agents:    p.Agents,
-		workflows: p.Workflows,
-		tmux:      p.Tmux,
-		runner:    p.Runner,
-		load:      p.Load,
-		addr:      p.Addr,
-		socket:    p.Socket,
+		agents:     p.Agents,
+		workflows:  p.Workflows,
+		tmux:       p.Tmux,
+		runner:     p.Runner,
+		load:       p.Load,
+		addr:       p.Addr,
+		socket:     p.Socket,
+		builtinDir: p.BuiltinDir,
+		editor:     p.Editor,
 	}
 }
 
@@ -125,8 +146,8 @@ type ListedAction struct {
 	Truncated bool
 }
 
-// ListActions is every file in the actions directory, in name order, each with the start
-// of its contents. A file that cannot be read is listed with an empty preview rather than
+// ListActions is every action on offer, in name order, each with the start of its
+// contents. A file that cannot be read is listed with an empty preview rather than
 // dropped, since it is still there and still nameable.
 func (s *ActionService) ListActions() ([]ListedAction, error) {
 	_, found, err := s.discover()
@@ -138,12 +159,12 @@ func (s *ActionService) ListActions() ([]ListedAction, error) {
 	for _, action := range found {
 		head, truncated, err := readHead(action.Path, maxActionPreview)
 		if err != nil {
-			listed = append(listed, ListedAction{Action: action})
+			listed = append(listed, ListedAction{Action: action.Action})
 
 			continue
 		}
 
-		listed = append(listed, ListedAction{Action: action, Preview: head, Truncated: truncated})
+		listed = append(listed, ListedAction{Action: action.Action, Preview: head, Truncated: truncated})
 	}
 
 	return listed, nil
@@ -166,19 +187,18 @@ func (s *ActionService) RunAction(ctx context.Context, agentID, name string) err
 		return ErrAgentNotFound
 	}
 
-	action, dir, err := s.find(name)
+	action, err := s.find(name)
 	if err != nil {
 		return err
 	}
 
-	env, err := s.env(ctx, *agent, dir, TriggerManual)
+	env, err := s.env(ctx, actionEnvParams{agent: *agent, dir: action.dir, trigger: TriggerManual})
 	if err != nil {
 		return err
 	}
 
 	return s.start(ctx, startParams{
 		action:  action,
-		dir:     dir,
 		env:     env,
 		agent:   *agent,
 		trigger: TriggerManual,
@@ -226,12 +246,12 @@ type awaitedActionParams struct {
 // than reported as one, since the refusal travels back to the caller and is theirs to tell
 // somebody about. The record is what says a run happened at all.
 func (s *ActionService) runAwaitedAction(ctx context.Context, p awaitedActionParams) (string, error) {
-	action, actionsDir, err := s.find(p.name)
+	action, err := s.find(p.name)
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrSetupFailed, err)
 	}
 
-	env, err := s.env(ctx, p.agent, actionsDir, p.trigger)
+	env, err := s.env(ctx, actionEnvParams{agent: p.agent, dir: action.dir, trigger: p.trigger})
 	if err != nil {
 		return "", err
 	}
@@ -243,7 +263,7 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p awaitedActionPar
 	logger.LogAttrs(ctx, slog.LevelInfo, "action started")
 	began := time.Now()
 
-	result, err := s.runner.RunAndWait(ctx, actions.RunParams{Action: action, Dir: actionsDir, Env: env})
+	result, err := s.runner.RunAndWait(ctx, actions.RunParams{Action: action.Action, Dir: action.dir, Env: env})
 
 	finished := []slog.Attr{
 		slog.Int(logging.ExitCode, result.ExitCode),
@@ -271,19 +291,18 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p awaitedActionPar
 // since nothing is downstream of a cleanup. The agent is taken as a value rather than
 // looked up, so a cleanup can fire for an agent whose row has already gone.
 func (s *ActionService) RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string) error {
-	action, dir, err := s.find(name)
+	action, err := s.find(name)
 	if err != nil {
 		return err
 	}
 
-	env, err := s.env(ctx, agent, dir, TriggerCleanup)
+	env, err := s.env(ctx, actionEnvParams{agent: agent, dir: action.dir, trigger: TriggerCleanup})
 	if err != nil {
 		return err
 	}
 
 	return s.start(ctx, startParams{
 		action:  action,
-		dir:     dir,
 		env:     env,
 		agent:   agent,
 		trigger: TriggerCleanup,
@@ -293,8 +312,7 @@ func (s *ActionService) RunCleanupAction(ctx context.Context, agent agentstore.A
 // startParams is one action about to be fired, with the agent and the trigger its record
 // is written against.
 type startParams struct {
-	action  actions.Action
-	dir     string
+	action  foundAction
 	env     []string
 	agent   agentstore.Agent
 	trigger string
@@ -307,8 +325,8 @@ func (s *ActionService) start(ctx context.Context, p startParams) error {
 	began := time.Now()
 
 	err := s.runner.Run(actions.RunParams{
-		Action: p.action,
-		Dir:    p.dir,
+		Action: p.action.Action,
+		Dir:    p.action.dir,
 		Env:    p.env,
 		Done: func(result actions.Result, err error) {
 			// Reported here rather than returned, since this is the path with nothing
@@ -384,43 +402,72 @@ func stderrDetail(stderr []byte) string {
 	return ": " + string(trimmed)
 }
 
-// find is the action by name, with the directory it was found in. The name is matched
-// against what the directory holds rather than joined onto its path, so a name that
-// climbs out finds nothing instead of some executable elsewhere on the machine.
-func (s *ActionService) find(name string) (actions.Action, string, error) {
+// foundAction is an action with the directory it came out of, since an action runs among
+// its own siblings and those are the user's for one file and this build's for another.
+type foundAction struct {
+	actions.Action
+	dir string
+}
+
+// find is the action by name. The name is matched against what the directories hold rather
+// than joined onto a path, so a name that climbs out finds nothing instead of some
+// executable elsewhere on the machine.
+func (s *ActionService) find(name string) (foundAction, error) {
 	dir, found, err := s.discover()
 	if err != nil {
-		return actions.Action{}, "", err
+		return foundAction{}, err
 	}
 
 	for _, action := range found {
 		if action.Name == name {
-			return action, dir, nil
+			return action, nil
 		}
 	}
 
-	return actions.Action{}, "", fmt.Errorf("%w: %q is not in %s", ErrActionNotFound, name, dir)
+	return foundAction{}, fmt.Errorf("%w: %q is not in %s", ErrActionNotFound, name, dir)
 }
 
-// discover is the actions directory and what it holds. The config is read here rather than
-// held, so a directory changed while the server runs takes effect without a restart.
-func (s *ActionService) discover() (string, []actions.Action, error) {
+// discover is the user's actions directory and every action on offer, theirs read over the
+// ones shipped with this build so a file they write of the same name is what runs. The
+// config is read here rather than held, so a directory changed while the server runs takes
+// effect without a restart.
+func (s *ActionService) discover() (string, []foundAction, error) {
 	cfg, err := s.load()
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to read the config: %w", err)
 	}
 
-	dir, err := cfg.GetActionsDir()
+	userDir, err := cfg.GetActionsDir()
 	if err != nil {
 		return "", nil, err
 	}
 
-	found, err := s.runner.Discover(dir)
-	if err != nil {
-		return "", nil, err
+	var found []foundAction
+	claimed := make(map[string]bool)
+
+	for _, dir := range []string{userDir, s.builtinDir} {
+		if dir == "" {
+			continue
+		}
+
+		listed, err := s.runner.Discover(dir)
+		if err != nil {
+			return "", nil, err
+		}
+
+		for _, action := range listed {
+			if claimed[action.Name] {
+				continue
+			}
+
+			claimed[action.Name] = true
+			found = append(found, foundAction{Action: action, dir: dir})
+		}
 	}
 
-	return dir, found, nil
+	slices.SortFunc(found, func(a, b foundAction) int { return strings.Compare(a.Name, b.Name) })
+
+	return userDir, found, nil
 }
 
 // actionPayload is what an action is told about the agent it was fired on, encoded into
@@ -449,6 +496,13 @@ type actionPayload struct {
 	Metadata        map[string]string `json:"metadata"`
 }
 
+// actionEnvParams is the one run an environment is being built for.
+type actionEnvParams struct {
+	agent   agentstore.Agent
+	dir     string
+	trigger string
+}
+
 // env is the environment an action runs with, over the server's own. The agent goes in
 // whole as JSON, beside the values a script reaches back through: this server's address,
 // the socket of the tmux server the agent's pane lives on, and the actions directory.
@@ -457,7 +511,13 @@ type actionPayload struct {
 // otherwise address the user's own server, where that pane id means something else. The
 // directory is how a script that cds elsewhere finds its siblings again, since its own
 // path is only reliable when it was not reached through a symlink.
-func (s *ActionService) env(ctx context.Context, agent agentstore.Agent, dir, trigger string) ([]string, error) {
+//
+// The rest is what a script drawing something on screen needs without parsing the payload:
+// the agent's directory, the pane under the panel's stage, the editor and shell to open in
+// it, and the user's own tmux server for a script that would rather open a window there.
+func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, error) {
+	agent, dir, trigger := p.agent, p.dir, p.trigger
+
 	payload := actionPayload{
 		ID:        agent.ID,
 		Name:      agent.Name,
@@ -491,10 +551,16 @@ func (s *ActionService) env(ctx context.Context, agent agentstore.Agent, dir, tr
 	return []string{
 		"WEAVE_AGENT=" + string(encoded),
 		"WEAVE_AGENT_ID=" + agent.ID,
+		"WEAVE_AGENT_CWD=" + agent.Cwd,
 		"WEAVE_ADDR=" + s.addr,
 		"WEAVE_TMUX_SOCKET=" + s.socket,
 		"WEAVE_ACTIONS_DIR=" + dir,
 		"WEAVE_TRIGGER=" + trigger,
+		"WEAVE_SECONDARY_PANE=" + s.tmux.GetPanelGlobal(tmux.SecondaryPaneOption),
+		"WEAVE_HOST_TMUX_SOCKET=" + s.tmux.GetHostSocket(),
+		"WEAVE_HOST_CLIENT=" + s.tmux.ShowGlobal(tmux.InvokingClientOption),
+		"EDITOR=" + s.editor,
+		"WEAVE_SHELL=" + s.tmux.DefaultShell(),
 	}, nil
 }
 

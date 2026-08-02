@@ -56,7 +56,7 @@ func TestRefusedWriteIsReported(t *testing.T) {
 			workflows: emptyLists{},
 		},
 		tmux:   &recordingTmux{},
-		stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		stage:  NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
 		keys:   appconfig.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{
@@ -88,7 +88,7 @@ func TestRefusedResumeIsReported(t *testing.T) {
 			workflows: emptyLists{},
 		},
 		tmux:   &recordingTmux{},
-		stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		stage:  NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
 		keys:   appconfig.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{
@@ -151,7 +151,7 @@ func TestSuccessfulWriteClearsTheBanner(t *testing.T) {
 	m := model{
 		api:    api{agents: acceptingAgents{}, workflows: emptyLists{}},
 		tmux:   &recordingTmux{},
-		stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+		stage:  NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
 		keys:   appconfig.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{
@@ -262,7 +262,7 @@ func TestBannerDismissal(t *testing.T) {
 				screen: tt.screen,
 				keys:   appconfig.DefaultKeybindings(),
 				tmux:   &recordingTmux{},
-				stage:  NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+				stage:  NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
 			}
 			if tt.screen == screenRename {
 				m.form, m.values.rename = renameForm("api-refactor", "", m.keys.Form)
@@ -448,7 +448,7 @@ func TestUnreachableView(t *testing.T) {
 				addr:        "127.0.0.1:8787",
 				unreachable: tt.start,
 				tree:        treeState{agents: []agentItem{{agent: agentstore.Agent{Name: "still-here", State: agentstore.StateIdle}}}},
-				stage:       NewStage(&recordingTmux{}, appconfig.DefaultSplit),
+				stage:       NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
 			}
 
 			updated, _ := m.Update(tt.msg)

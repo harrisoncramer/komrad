@@ -15,18 +15,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestInfoKey covers the info toggle. A live agent's pane occupies the stage, so
-// showing its stored record means putting the record there instead and putting
-// the pane back afterwards.
+// TestInfoKey covers the info toggle. The record opens under the stage rather than in it,
+// so the agent's own pane stays up beside it and nothing is swapped out to make room.
 func TestInfoKey(t *testing.T) {
 	tests := []struct {
-		name        string
-		cursor      int
-		presses     int
-		thenMove    bool
-		wantPinned  bool
-		wantRenders int
-		wantSwaps   int
+		name     string
+		cursor   int
+		presses  int
+		thenMove bool
+		wantOpen bool
+		// wantRecords is how many times a record has been paged into the pane below, and
+		// wantStaged whether the agent's own pane is still the one in the stage above it.
+		wantRecords int
+		wantStaged  bool
+		wantKilled  bool
 	}{
 		{
 			name:    "on a workflow header there is no record to show",
@@ -34,27 +36,30 @@ func TestInfoKey(t *testing.T) {
 			presses: 1,
 		},
 		{
-			name:        "one press puts the record in the stage",
+			name:        "one press puts the record under the stage",
 			cursor:      1,
 			presses:     1,
-			wantPinned:  true,
-			wantRenders: 1,
+			wantOpen:    true,
+			wantRecords: 1,
+			wantStaged:  true,
 		},
 		{
-			name:        "a second press swaps the agent's pane back in",
+			name:        "a second press takes the pane away",
 			cursor:      1,
 			presses:     2,
-			wantRenders: 1,
-			wantSwaps:   1,
+			wantRecords: 1,
+			wantStaged:  true,
+			wantKilled:  true,
 		},
 		{
-			// Two renders: the pinned record, then the workflow header the cursor
-			// lands on, which stages a record of its own.
-			name:        "moving the cursor unpins, so the record never outlives its row",
+			// The record is about whichever row is hovered, so moving to the header
+			// leaves the pane open with nothing new to draw in it.
+			name:        "the record follows the cursor rather than closing with it",
 			cursor:      1,
 			presses:     1,
 			thenMove:    true,
-			wantRenders: 2,
+			wantOpen:    true,
+			wantRecords: 1,
 		},
 	}
 
@@ -71,16 +76,17 @@ func TestInfoKey(t *testing.T) {
 				m = pressKey(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
 			}
 
-			assert.Equal(t, tt.wantPinned, m.tree.infoPinned)
-			assert.Equal(t, tt.wantSwaps, tmux.swaps, "swaps move the agent's own pane")
+			assert.Equal(t, tt.wantOpen, m.tree.below == belowRecord)
+			assert.Equal(t, tt.wantStaged, m.stage.agentPane == "%9", "the record never displaces the agent")
+			assert.Equal(t, tt.wantKilled, len(tmux.killed) > 0, "closing takes the pane with it")
 
-			renders := 0
-			for _, respawn := range tmux.respawns {
-				if strings.Contains(respawn, "less") {
-					renders++
+			records := 0
+			for i, respawn := range tmux.respawns {
+				if strings.Contains(respawn, "less") && tmux.respawnPanes[i] == "%2" {
+					records++
 				}
 			}
-			assert.Equal(t, tt.wantRenders, renders, "the record is paged into the stage")
+			assert.Equal(t, tt.wantRecords, records, "the record is paged into the pane below")
 		})
 	}
 }
@@ -209,20 +215,27 @@ type recordingTmux struct {
 	// anchors are the panes the stage has been split beside, which is the pane the panel
 	// believes it is running in.
 	anchors []string
-	// belowAnchors are the panes the terminal key has split a shell under, and belowDirs
-	// the directories those shells were rooted at.
+	// belowAnchors are the panes the slot under the stage has been split beneath, and
+	// belowDirs the directories those panes were rooted at.
 	belowAnchors []string
 	belowDirs    []string
+	// globals are the tmux options the panel has recorded, which is how an action is told
+	// which pane the panel laid out for it.
+	globals map[string]string
+	// respawnPanes are the panes each respawn went to, alongside the argv in respawns.
+	respawnPanes []string
+	// deadPanes are the panes IsPaneAlive answers no for, which is how a test stands a pane
+	// up and then takes it away.
+	deadPanes map[string]bool
 }
 
-func (t *recordingTmux) SetGlobal(string, string)                {}
 func (t *recordingTmux) ShowGlobal(string) string                { return "" }
 func (t *recordingTmux) SetSessionOption(string, string, string) {}
 func (t *recordingTmux) DetachSession(string)                    { t.detaches++ }
 func (t *recordingTmux) BindKey(string, ...string)               {}
 func (t *recordingTmux) GetClientPath(string) string             { return t.path }
 func (t *recordingTmux) SendKeys(string, ...string) error        { return nil }
-func (t *recordingTmux) IsPaneAlive(string) bool                 { return true }
+func (t *recordingTmux) IsPaneAlive(pane string) bool            { return !t.deadPanes[pane] }
 func (t *recordingTmux) GetPaneWidth(string) int                 { return t.width }
 func (t *recordingTmux) CapturePane(string) string               { return "" }
 func (t *recordingTmux) SplitRight(anchor, _ string, _ int) string {
@@ -231,9 +244,23 @@ func (t *recordingTmux) SplitRight(anchor, _ string, _ int) string {
 	return "%1"
 }
 
-func (t *recordingTmux) SplitBelow(anchor, dir string) {
+func (t *recordingTmux) SplitBelow(anchor, dir string, _ int) string {
 	t.belowAnchors = append(t.belowAnchors, anchor)
 	t.belowDirs = append(t.belowDirs, dir)
+
+	return "%2"
+}
+
+func (t *recordingTmux) SetPanelGlobal(name, value string) {
+	t.SetGlobal(name, value)
+}
+
+func (t *recordingTmux) SetGlobal(name, value string) {
+	if t.globals == nil {
+		t.globals = map[string]string{}
+	}
+
+	t.globals[name] = value
 }
 
 func (t *recordingTmux) SwapPanes(string, string)        { t.swaps++ }
@@ -264,17 +291,19 @@ func (t *recordingTmux) ZoomPane(_ string, zoom bool) {
 	t.zooms = append(t.zooms, zoom)
 }
 
-func (t *recordingTmux) RespawnPane(_, _ string, argv ...string) {
+func (t *recordingTmux) RespawnPane(pane, _ string, argv ...string) {
 	t.respawns = append(t.respawns, strings.Join(argv, " "))
+	t.respawnPanes = append(t.respawnPanes, pane)
 }
 
 // infoModel builds an agents model holding one live agent, with the cursor on
 // it. Row 0 is the workflow header the agent sits under, so the agent is row 1.
 func infoModel(tmux *recordingTmux) model {
-	stage := NewStage(tmux, appconfig.DefaultSplit)
+	stage := NewStage(tmux, appconfig.DefaultLayout())
 	stage.Init("%0")
 
 	return model{
+		tmux:   tmux,
 		stage:  stage,
 		keys:   appconfig.DefaultKeybindings(),
 		screen: screenAgents,

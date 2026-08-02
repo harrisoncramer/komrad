@@ -42,6 +42,11 @@ const DefaultHarness = "claude"
 // names none.
 const DefaultSplit = 0.2
 
+// DefaultSecondarySplit is the share of the stage's height the pane under it opens at when
+// the config names none. It is enough to work in without pushing the agent it is about off
+// the screen.
+const DefaultSecondarySplit = 0.4
+
 // DefaultMarkColor is the yellow a mark takes when its own colour is unset. It is the
 // plain yellow rather than the bright one the panel draws a thinking agent in, so a mark
 // left on the default cannot be read as a lifecycle state.
@@ -52,34 +57,40 @@ const DefaultMarkColor = "yellow"
 // single key, leaving the alternatives to you. A binding left unset falls back to
 // its built-in default.
 type Keybindings struct {
-	// Navigation, shared by every menu so movement is the same everywhere.
-	Nav NavKeys `mapstructure:"nav"`
+	// The actions list, and the key that opens it on the hovered agent.
+	Actions ActionsKeys `mapstructure:"actions"`
+	// The agents list, the panel's main screen.
+	Agents AgentsKeys `mapstructure:"agents"`
+	// The archive screen, and the key that opens it from the agents list.
+	Archive ArchiveKeys `mapstructure:"archive"`
+	// The filter over whichever list is on screen, shared by every screen that draws one.
+	Filter FilterKeys `mapstructure:"filter"`
+	// The new-agent, rename, and workflow forms.
+	Form FormKeys `mapstructure:"form"`
 	// The key that draws the legend under a list, shared by every screen for the same
 	// reason navigation is.
 	Help HelpKeys `mapstructure:"help"`
-	// Choosing several agents at once, shared by the two screens that draw a tree.
-	Selection SelectionKeys `mapstructure:"selection"`
-	// The agents list, the panel's main screen.
-	Agents AgentsKeys `mapstructure:"agents"`
-	// The new-agent, rename, and workflow forms.
-	Form FormKeys `mapstructure:"form"`
-	// The bindings that create and change workflows, from the agents list.
-	Workflows WorkflowsKeys `mapstructure:"workflows"`
+	// Navigation, shared by every menu so movement is the same everywhere.
+	Nav NavKeys `mapstructure:"nav"`
 	// The schedules screen, and the key that opens it from the agents list.
 	Schedules SchedulesKeys `mapstructure:"schedules"`
-	// The archive screen, and the key that opens it from the agents list.
-	Archive ArchiveKeys `mapstructure:"archive"`
-	// The actions list, and the key that opens it on the hovered agent.
-	Actions ActionsKeys `mapstructure:"actions"`
+	// Choosing several agents at once, shared by the two screens that draw a tree.
+	Selection SelectionKeys `mapstructure:"selection"`
+	// The bindings that create and change workflows, from the agents list.
+	Workflows WorkflowsKeys `mapstructure:"workflows"`
 }
 
 // NavKeys are the shared navigation bindings every menu uses, so movement is the
 // same everywhere rather than configured per menu.
 type NavKeys struct {
-	// Move the cursor up.
-	Up []string `mapstructure:"up"`
+	// Jump to the last row.
+	Bottom []string `mapstructure:"bottom"`
 	// Move the cursor down.
 	Down []string `mapstructure:"down"`
+	// Jump to the first row, pressed twice the way vim's gg is.
+	Top []string `mapstructure:"top"`
+	// Move the cursor up.
+	Up []string `mapstructure:"up"`
 }
 
 // HelpKeys is the binding that draws the legend under a list. It is its own group
@@ -89,31 +100,43 @@ type HelpKeys struct {
 	Toggle []string `mapstructure:"toggle"`
 }
 
+// FilterKeys is the binding that narrows the list on screen. It is its own group rather than
+// one of a screen's, since it acts the same on all of them. While the input is open every
+// other key types into the pattern, so the keys that close it are fixed rather than
+// configured.
+type FilterKeys struct {
+	// Narrow the list on screen to the rows matching what you type, as a regular
+	// expression. A pattern in lower case matches either case and one carrying an upper
+	// case letter matches exactly. esc closes the input and leaves the list narrowed to
+	// act on, and the screen's back key clears it.
+	Open []string `mapstructure:"open"`
+}
+
 // SelectionKeys are the bindings for choosing several agents at once. They are shared by
 // the agents list and the archive rather than set per screen, since the gesture is the same
 // on either tree. While anything is selected that screen is in multi-select mode, where a
 // gutter marks the chosen rows and the keys that act on one agent stand down.
 type SelectionKeys struct {
-	// Take the row under the cursor into the selection, or back out of it. On a workflow
-	// header that is the whole folder: one not already wholly selected is taken in whole,
-	// and one that is drops.
-	Toggle []string `mapstructure:"toggle"`
+	// Drop the whole selection, which is the way back out of multi-select mode.
+	Clear []string `mapstructure:"clear"`
 	// Take in every agent between the cursor and the nearest already-selected one, which
 	// is how a run is chosen without pressing toggle down the whole of it. From a tree
 	// with nothing selected it does what toggle does, since there is nothing yet for a
 	// range to reach back to.
 	Range []string `mapstructure:"range"`
-	// Drop the whole selection, which is the way back out of multi-select mode.
-	Clear []string `mapstructure:"clear"`
+	// Take the row under the cursor into the selection, or back out of it. On a workflow
+	// header that is the whole folder: one not already wholly selected is taken in whole,
+	// and one that is drops.
+	Toggle []string `mapstructure:"toggle"`
 }
 
 // FormKeys are the bindings for the new-agent and rename forms. Back and Quit both
 // abort the form, split apart so they can be rebound separately.
 type FormKeys struct {
-	// Abort the form and quit the panel.
-	Quit []string `mapstructure:"quit"`
 	// Abort the form without quitting the panel.
 	Back []string `mapstructure:"back"`
+	// Abort the form and quit the panel.
+	Quit []string `mapstructure:"quit"`
 	// Submit the form. Plain enter belongs to the text inputs, so this is
 	// deliberately something else.
 	Submit []string `mapstructure:"submit"`
@@ -122,110 +145,112 @@ type FormKeys struct {
 // AgentsKeys are the bindings for the agents list. Info toggles the hovered agent's
 // stored record into the stage in place of the agent itself.
 type AgentsKeys struct {
-	// Quit the panel.
-	Quit []string `mapstructure:"quit"`
-	// Step out of a workflow scope, or quit at the root.
-	Back []string `mapstructure:"back"`
-	// Attach to the hovered agent.
-	Open []string `mapstructure:"open"`
-	// Open the hovered agent's directory in whatever EDITOR names. The window is created
-	// on your own tmux server rather than the panel's, and the panel closes behind it, so
-	// you are left in the editor.
-	Editor []string `mapstructure:"editor"`
-	// Start a new agent.
-	New []string `mapstructure:"new"`
-	// Rename the hovered agent.
-	Rename []string `mapstructure:"rename"`
 	// Archive the hovered agent, which stops it and moves it to the archive screen
 	// rather than destroying it.
 	Archive []string `mapstructure:"archive"`
-	// Filter the list by name.
-	Search []string `mapstructure:"search"`
-	// Swap the hovered agent's stored record into the stage in place of the agent.
-	Info []string `mapstructure:"info"`
-	// Move the hovered agent to the next mark in the marks list, and past the last
-	// one back to unmarked. Nothing but you ever sets a mark.
-	Mark []string `mapstructure:"mark"`
+	// Step out of a workflow scope, or quit at the root.
+	Back []string `mapstructure:"back"`
+	// Open the hovered agent's directory in whatever EDITOR names, in the pane under the
+	// stage, and press it again to close that pane. It runs the _editor action, so writing
+	// your own _editor in your actions directory replaces what the key does.
+	Editor []string `mapstructure:"editor"`
 	// Hide the hovered agent from this list, or unhide one while the hidden agents
 	// are shown. Hiding stops nothing: the agent keeps running and every other view
 	// still holds it.
 	Hide []string `mapstructure:"hide"`
+	// Show the hovered agent's stored record in the pane under the stage, so it reads
+	// beside the agent rather than in place of it, and press it again to close that pane.
+	Info []string `mapstructure:"info"`
+	// Show the background service's log in the pane under the stage, and press it again to
+	// close that pane. The service is spawned detached and writes to a file, so nothing
+	// else shows what it is doing.
+	Logs []string `mapstructure:"logs"`
+	// Move the hovered agent to the next mark in the marks list, and past the last
+	// one back to unmarked. Nothing but you ever sets a mark.
+	Mark []string `mapstructure:"mark"`
+	// Start a new agent.
+	New []string `mapstructure:"new"`
+	// Attach to the hovered agent.
+	Open []string `mapstructure:"open"`
+	// Quit the panel.
+	Quit []string `mapstructure:"quit"`
+	// Rename the hovered agent.
+	Rename []string `mapstructure:"rename"`
+	// Search every conversation the panel holds for what you type, the archived ones
+	// included, and open the agent a hit belongs to.
+	Search []string `mapstructure:"search"`
 	// Show the hidden agents alongside the rest, and press it again to put them
 	// away. While they are away each workflow header carries the count of what it is
 	// not showing.
 	ShowHidden []string `mapstructure:"show_hidden"`
-	// Show the background service's log in the stage, in place of the row under the cursor,
-	// and press it again to put the row back. The service is spawned detached and writes to
-	// a file, so nothing else shows what it is doing.
-	Logs []string `mapstructure:"logs"`
-	// Split a shell under the stage, in the directory the hovered agent or workflow runs
-	// in, and put the cursor in it. The pane is yours from there: nothing follows the
-	// list afterwards, and closing it is a plain tmux exit.
+	// Open a shell in the pane under the stage, in the hovered agent's directory, and press
+	// it again to close that pane. It runs the _terminal action, so writing your own
+	// _terminal in your actions directory replaces what the key does.
 	Terminal []string `mapstructure:"terminal"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow. New is global. Rename,
 // edit, and archive apply while the cursor is on a workflow header.
 type WorkflowsKeys struct {
+	// Archive the workflow under the cursor, which archives the agents inside it.
+	Archive []string `mapstructure:"archive"`
+	// Edit the workflow under the cursor.
+	Edit []string `mapstructure:"edit"`
 	// Create a workflow. Works from anywhere in the list.
 	New []string `mapstructure:"new"`
 	// Rename the workflow under the cursor.
 	Rename []string `mapstructure:"rename"`
-	// Edit the workflow under the cursor.
-	Edit []string `mapstructure:"edit"`
-	// Archive the workflow under the cursor, which archives the agents inside it.
-	Archive []string `mapstructure:"archive"`
 }
 
 // SchedulesKeys are the bindings for the schedules screen, which is its own view
 // rather than part of the agents tree. Open enters it from the agents list, and
 // the rest act on the hovered schedule once inside.
 type SchedulesKeys struct {
+	// Archive the schedule under the cursor, which stops it firing. The agents it
+	// launched are kept, and nothing brings the schedule back.
+	Archive []string `mapstructure:"archive"`
+	// Leave the schedules screen for the agents list.
+	Back []string `mapstructure:"back"`
+	// Edit the schedule under the cursor.
+	Edit []string `mapstructure:"edit"`
+	// Write a new schedule.
+	New []string `mapstructure:"new"`
 	// Open the schedules screen from the agents list.
 	Open []string `mapstructure:"open"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit"`
-	// Leave the schedules screen for the agents list.
-	Back []string `mapstructure:"back"`
-	// Write a new schedule.
-	New []string `mapstructure:"new"`
-	// Edit the schedule under the cursor.
-	Edit []string `mapstructure:"edit"`
 	// Pause or resume the schedule under the cursor.
 	Toggle []string `mapstructure:"toggle"`
-	// Archive the schedule under the cursor, which stops it firing. The agents it
-	// launched are kept, and nothing brings the schedule back.
-	Archive []string `mapstructure:"archive"`
 }
 
 // ArchiveKeys are the bindings for the archive screen, which lists the agents
 // archived from the panel. Open enters it from the agents list, and the rest act
 // on the hovered agent once inside.
 type ArchiveKeys struct {
+	// Leave the archive for the agents list.
+	Back []string `mapstructure:"back"`
+	// Destroy the agent under the cursor for good, with its transcript. This is
+	// the one thing in the panel nothing undoes, so it asks first.
+	Delete []string `mapstructure:"delete"`
 	// Open the archive from the agents list.
 	Open []string `mapstructure:"open"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit"`
-	// Leave the archive for the agents list.
-	Back []string `mapstructure:"back"`
 	// Put the agent under the cursor back in the panel.
 	Restore []string `mapstructure:"restore"`
-	// Destroy the agent under the cursor for good, with its transcript. This is
-	// the one thing in the panel nothing undoes, so it asks first.
-	Delete []string `mapstructure:"delete"`
 }
 
 // ActionsKeys are the bindings for the actions list, the scripts you have written for
 // the panel to run. Open enters it on the hovered agent, and the rest act on the script
 // under the cursor once inside.
 type ActionsKeys struct {
+	// Leave the actions list for the agents list.
+	Back []string `mapstructure:"back"`
 	// Open the actions list on the hovered agent. It acts on a row rather than on the
 	// list, so this does nothing on a workflow header.
 	Open []string `mapstructure:"open"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit"`
-	// Leave the actions list for the agents list.
-	Back []string `mapstructure:"back"`
 	// Run the script under the cursor on the agent the list was opened on.
 	Run []string `mapstructure:"run"`
 }
@@ -237,6 +262,10 @@ type Actions struct {
 	// action is dropping an executable in rather than an edit here. An action runs on the
 	// agent it was chosen on, in that agent's directory, with the agent as JSON in
 	// WEAVE_AGENT. Left empty this is ~/.config/weave/actions, beside this file.
+	//
+	// Weave ships actions of its own behind the panel's keys, such as _editor and
+	// _terminal. A file here of the same name is used instead of the one shipped, which is
+	// how a key is given different behaviour.
 	Dir string `mapstructure:"dir"`
 }
 
@@ -258,6 +287,11 @@ type Layout struct {
 	// default leaves the greater part to the preview, which is where there is
 	// something to read.
 	Split float64 `mapstructure:"split"`
+	// The share of the stage's height taken by the pane that opens under it, as a
+	// fraction above zero and below one. That pane is where the editor, a shell, the
+	// server log, and a hovered agent's record open, so the agent above it stays on
+	// screen while you read or work in it.
+	SecondarySplit float64 `mapstructure:"secondary_split"`
 }
 
 // Harness is how one agent CLI is configured.
@@ -361,7 +395,7 @@ func Defaults() *Config {
 
 // DefaultLayout is the layout used when the config omits it.
 func DefaultLayout() Layout {
-	return Layout{Split: DefaultSplit}
+	return Layout{Split: DefaultSplit, SecondarySplit: DefaultSecondarySplit}
 }
 
 // Mark is one of the marks the mark key steps through. The glyph is what a row draws
@@ -426,66 +460,71 @@ func DefaultMarks() []Mark {
 // DefaultKeybindings are the bindings used when the config omits them.
 func DefaultKeybindings() Keybindings {
 	return Keybindings{
-		Nav: NavKeys{
-			Up:   []string{"k"},
-			Down: []string{"j"},
+		Actions: ActionsKeys{
+			Back: []string{"esc"},
+			Open: []string{"a"},
+			Quit: []string{"ctrl+c"},
+			Run:  []string{"enter"},
+		},
+		Agents: AgentsKeys{
+			Archive:    []string{"z"},
+			Back:       []string{"esc"},
+			Editor:     []string{"e"},
+			Hide:       []string{"h"},
+			Info:       []string{"i"},
+			Logs:       []string{"L"},
+			Mark:       []string{"m"},
+			New:        []string{"n"},
+			Open:       []string{"enter"},
+			Quit:       []string{"ctrl+c"},
+			Rename:     []string{"r"},
+			Search:     []string{"s"},
+			ShowHidden: []string{"H"},
+			Terminal:   []string{"t"},
+		},
+		Archive: ArchiveKeys{
+			Back:    []string{"esc"},
+			Delete:  []string{"d"},
+			Open:    []string{"Z"},
+			Quit:    []string{"ctrl+c"},
+			Restore: []string{"r"},
+		},
+		Filter: FilterKeys{
+			Open: []string{"/"},
+		},
+		Form: FormKeys{
+			Back:   []string{"esc"},
+			Quit:   []string{"ctrl+c"},
+			Submit: []string{"ctrl+s"},
 		},
 		Help: HelpKeys{
 			Toggle: []string{"?"},
 		},
-		Selection: SelectionKeys{
-			Toggle: []string{"v"},
-			Range:  []string{"V"},
-			Clear:  []string{"esc"},
-		},
-		Agents: AgentsKeys{
-			Quit:       []string{"ctrl+c"},
-			Back:       []string{"esc"},
-			Open:       []string{"enter"},
-			Editor:     []string{"e"},
-			New:        []string{"n"},
-			Rename:     []string{"r"},
-			Archive:    []string{"z"},
-			Search:     []string{"/"},
-			Info:       []string{"i"},
-			Mark:       []string{"m"},
-			Hide:       []string{"h"},
-			ShowHidden: []string{"H"},
-			Logs:       []string{"L"},
-			Terminal:   []string{"t"},
-		},
-		Workflows: WorkflowsKeys{
-			New:     []string{"W"},
-			Rename:  []string{"r"},
-			Edit:    []string{"e"},
-			Archive: []string{"z"},
+		Nav: NavKeys{
+			Bottom: []string{"G"},
+			Down:   []string{"j"},
+			Top:    []string{"g"},
+			Up:     []string{"k"},
 		},
 		Schedules: SchedulesKeys{
-			Open:    []string{"s"},
-			Quit:    []string{"ctrl+c"},
-			Back:    []string{"esc"},
-			New:     []string{"n"},
-			Edit:    []string{"enter"},
-			Toggle:  []string{" "},
 			Archive: []string{"z"},
-		},
-		Archive: ArchiveKeys{
-			Open:    []string{"Z"},
-			Quit:    []string{"ctrl+c"},
 			Back:    []string{"esc"},
-			Restore: []string{"r"},
-			Delete:  []string{"d"},
+			Edit:    []string{"enter"},
+			New:     []string{"n"},
+			Open:    []string{"S"},
+			Quit:    []string{"ctrl+c"},
+			Toggle:  []string{" "},
 		},
-		Actions: ActionsKeys{
-			Open: []string{"a"},
-			Quit: []string{"ctrl+c"},
-			Back: []string{"esc"},
-			Run:  []string{"enter"},
+		Selection: SelectionKeys{
+			Clear:  []string{"esc"},
+			Range:  []string{"V"},
+			Toggle: []string{"v"},
 		},
-		Form: FormKeys{
-			Quit:   []string{"ctrl+c"},
-			Back:   []string{"esc"},
-			Submit: []string{"ctrl+s"},
+		Workflows: WorkflowsKeys{
+			Archive: []string{"z"},
+			Edit:    []string{"e"},
+			New:     []string{"w"},
+			Rename:  []string{"r"},
 		},
 	}
 }
@@ -541,6 +580,9 @@ func validateLayout(layout Layout) error {
 	if layout.Split < 0 || layout.Split >= 1 {
 		return fmt.Errorf("layout split %v is not a fraction of the width above zero and below one", layout.Split)
 	}
+	if layout.SecondarySplit < 0 || layout.SecondarySplit >= 1 {
+		return fmt.Errorf("layout secondary split %v is not a fraction of the stage's height above zero and below one", layout.SecondarySplit)
+	}
 
 	return nil
 }
@@ -594,7 +636,10 @@ func (c Config) withDefaults() Config {
 		c.Marks = DefaultMarks()
 	}
 	if c.Layout.Split == 0 {
-		c.Layout = DefaultLayout()
+		c.Layout.Split = DefaultSplit
+	}
+	if c.Layout.SecondarySplit == 0 {
+		c.Layout.SecondarySplit = DefaultSecondarySplit
 	}
 	if strings.TrimSpace(c.Log.Level) == "" {
 		c.Log.Level = DefaultLogLevel

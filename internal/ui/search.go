@@ -2,7 +2,6 @@ package ui
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -20,6 +19,10 @@ type searchState struct {
 	query  string
 	hits   []searchHit
 	cursor int
+	// typing is whether the query line has the keys, which it takes whole so a letter bound
+	// elsewhere still types. It closes on esc, leaving the results where they are to be
+	// walked with the ordinary nav keys.
+	typing bool
 }
 
 // searchLimit caps how many hits a query returns. The screen shows one page and offers no
@@ -69,10 +72,11 @@ type previewResult struct {
 // enterSearch switches to the search screen with an empty query, blanking the
 // stage until the first result is hovered.
 func (m model) enterSearch() (tea.Model, tea.Cmd) {
-	m.screen = screenSearch
+	m.enterScreen(screenSearch)
 	m.search.query = ""
 	m.search.hits = nil
 	m.search.cursor = 0
+	m.search.typing = true
 	m.stage.Blank()
 
 	return m, nil
@@ -195,32 +199,33 @@ func (m *model) applyPreview(result previewResult) {
 	m.stage.Transcript(result.content, lineAtOffset(result.content, result.offset))
 }
 
-// updateSearch drives the search screen. Every key here is fixed rather than one of the
-// configurable bindings, whose letters would otherwise type into the query.
+// updateSearch drives the search screen while the query line is open, which is every key
+// except the arrows, since a configurable letter would otherwise type rather than act. esc
+// closes the line over its results rather than leaving, so what a query found can be read at
+// leisure, and closing it over nothing leaves, since there is nothing to read.
 func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if !m.search.typing {
+		return m.updateSearchResults(key)
+	}
+
 	k := key.String()
 
 	switch {
 	case k == "esc":
-		m.screen = screenAgents
-		m.stageSelection()
+		m.search.typing = false
+		if len(m.search.hits) == 0 {
+			return m.returnToAgents()
+		}
+
 		return m, nil
 	case k == "ctrl+c":
 		return m, m.hide()
 	case k == "up" || k == "ctrl+p":
-		if m.search.cursor > 0 {
-			m.search.cursor--
-			return m, m.previewCmd(m.search.hits[m.search.cursor])
-		}
-		return m, nil
+		return m.moveSearchCursor(-1)
 	case k == "down" || k == "ctrl+n":
-		if m.search.cursor < len(m.search.hits)-1 {
-			m.search.cursor++
-			return m, m.previewCmd(m.search.hits[m.search.cursor])
-		}
-		return m, nil
+		return m.moveSearchCursor(1)
 	case k == "enter":
-		return m.openSearchHit()
+		return m.jumpToSearchHit()
 	case k == "backspace":
 		if m.search.query != "" {
 			m.search.query = trimLastRune(m.search.query)
@@ -237,21 +242,89 @@ func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// openSearchHit opens the hovered result's agent and lands on the tree focused on it. An
-// archived hit is restored on the way, since search is the one screen that reaches those
-// conversations.
-func (m model) openSearchHit() (tea.Model, tea.Cmd) {
-	if m.search.cursor < 0 || m.search.cursor >= len(m.search.hits) {
+// updateSearchResults drives the results once the query line has closed. Nothing is re-run and
+// nothing moves, so the hits sit as the query left them and the ordinary nav keys walk them.
+// esc leaves the screen, since the line it would otherwise close is already shut.
+func (m model) updateSearchResults(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	k := key.String()
+
+	switch {
+	case k == "esc":
+		return m.returnToAgents()
+	case k == "ctrl+c":
+		return m, m.hide()
+	case k == "up" || k == "ctrl+p" || isBound(k, m.keys.Nav.Up):
+		return m.moveSearchCursor(-1)
+	case k == "down" || k == "ctrl+n" || isBound(k, m.keys.Nav.Down):
+		return m.moveSearchCursor(1)
+	case k == "enter":
+		return m.jumpToSearchHit()
+	case isBound(k, m.keys.Agents.Search):
+		m.search.typing = true
+
 		return m, nil
 	}
 
-	hit := m.search.hits[m.search.cursor]
+	return m, nil
+}
 
-	return m, m.resumeCmd(resumeParams{
-		summary:        fmt.Sprintf("Could not open agent %q", hit.name),
-		id:             hit.agentID,
-		unarchiveFirst: hit.archived,
-	})
+// moveSearchCursor steps to the next result and loads its transcript, doing nothing at either
+// end of the list.
+func (m model) moveSearchCursor(delta int) (tea.Model, tea.Cmd) {
+	next := m.search.cursor + delta
+	if next < 0 || next >= len(m.search.hits) {
+		return m, nil
+	}
+
+	m.search.cursor = next
+
+	return m, m.previewCmd(m.search.hits[next])
+}
+
+// hoveredHit is the result under the cursor, or false when the query found nothing.
+func (m model) hoveredHit() (searchHit, bool) {
+	if m.search.cursor < 0 || m.search.cursor >= len(m.search.hits) {
+		return searchHit{}, false
+	}
+
+	return m.search.hits[m.search.cursor], true
+}
+
+// jumpToSearchHit leaves the search on the row the hovered result belongs to, the agents tree
+// for a live conversation and the archive for one put away. Nothing is resumed or restored on
+// the way, since a search says where something is and the screen it lands on is where it is
+// acted on.
+func (m model) jumpToSearchHit() (tea.Model, tea.Cmd) {
+	hit, ok := m.hoveredHit()
+	if !ok {
+		return m, nil
+	}
+
+	if hit.archived {
+		m.archive.focus = hit.agentID
+
+		return m.enterArchive()
+	}
+
+	m.enterScreen(screenAgents)
+	m.revealAgent(hit.agentID)
+	m.stageSelection()
+
+	return m, nil
+}
+
+// revealAgent puts the tree's cursor on an agent, drawing the hidden ones when that is the only
+// way it has a row. An agent the tree has none for at all leaves the cursor where it was.
+func (m *model) revealAgent(id string) {
+	for _, item := range m.tree.agents {
+		if item.agent.ID == id && item.agent.Hidden {
+			m.tree.showHidden = true
+		}
+	}
+
+	if idx := rowIndexOfAgentID(m.agentRows(), id); idx >= 0 {
+		m.tree.cursor = idx
+	}
 }
 
 // searchView renders the search screen's own pane. The query line sits above the list of
@@ -259,7 +332,11 @@ func (m model) openSearchHit() (tea.Model, tea.Cmd) {
 func (m model) searchView() string {
 	var b strings.Builder
 	b.WriteString(headerStyle.Render("Search") + "\n\n")
-	b.WriteString(cursorStyle.Render("/") + " " + m.search.query + cursorStyle.Render("▏") + "\n\n")
+	query := cursorStyle.Render("/") + " " + m.search.query
+	if m.search.typing {
+		query += cursorStyle.Render("▏")
+	}
+	b.WriteString(query + "\n\n")
 
 	switch {
 	case strings.TrimSpace(m.search.query) == "":
