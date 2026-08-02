@@ -696,11 +696,9 @@ SELECT
 `
 
 // LockAgentSlots serializes the callers claiming room under the agent ceiling.
-// Counting the live agents and writing under that count are separate statements,
-// and Postgres reads committed, so without this every concurrent caller reads the
-// same count and every one of them decides there is room. The lock is held until
-// the transaction ends, which is why the count and the write it guards have to
-// share one.
+// Counting the live agents and inserting under that count are separate statements, so
+// without this every caller reads the same count and all of them decide there is room.
+// The lock is held to the end of the transaction, so the count and insert share one.
 func (q *Queries) LockAgentSlots(ctx context.Context, key int64) error {
 	_, err := q.db.Exec(ctx, lockAgentSlots, key)
 	return err

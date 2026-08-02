@@ -9,14 +9,16 @@ import (
 )
 
 // TestNewAgentCeilingUnderConcurrency drives more creates than fit, all at once, which is
-// how the panel is actually driven: an orchestrator issuing several create_agent calls in
+// how the panel is actually driven. An orchestrator issues several create_agent calls in
 // one turn. Each agent past the ceiling is a real CLI in a real pane nobody agreed to, so
 // what is asserted is the count rather than any one caller's answer.
 func TestNewAgentCeilingUnderConcurrency(t *testing.T) {
 	t.Parallel()
 
-	const ceiling = 2
-	const callers = 8
+	const (
+		ceiling = 2
+		callers = 8
+	)
 
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -58,5 +60,7 @@ func TestNewAgentCeilingUnderConcurrency(t *testing.T) {
 
 	// A caller refused after its window was open has to take the window with it, or the
 	// ceiling holds in the table while the panes it was counting run anyway.
-	require.Len(t, tmux.owners, ceiling)
+	owners, err := tmux.GetPaneOwners()
+	require.NoError(t, err)
+	require.Len(t, owners, ceiling)
 }

@@ -24,8 +24,8 @@ import (
 // assert what the manager sent. It satisfies every tmux role this package
 // declares, from paneOwnerGetter up to the composed paneController.
 //
-// Every method takes the mutex, since the real client is a process boundary that
-// several creates reach at once and a test driving them concurrently would
+// Every method touching its state takes the mutex, since the real client is a process
+// boundary several creates reach at once, and a test driving them concurrently would
 // otherwise be racing these maps rather than the code under test.
 type fakeTmux struct {
 	mu sync.Mutex
@@ -227,7 +227,11 @@ const testHarnessID = "claude"
 // fakeHarness stands in for an agent CLI in the tests that are about the panel's
 // own behaviour rather than any one CLI's. It records what it was asked for, so a
 // test asserts on what the panel composed rather than on how a CLI would spell it.
+//
+// The recording methods take the mutex for the same reason fakeTmux does, since one
+// registry hands the same harness to every create a test runs at once.
 type fakeHarness struct {
+	mu sync.Mutex
 	// launches records every command the harness was asked to build.
 	launches []harness.Launch
 	// relocated records every conversation it was asked to carry, and to where.
@@ -244,6 +248,9 @@ func (f *fakeHarness) GetID() string     { return testHarnessID }
 func (f *fakeHarness) GetBinary() string { return testHarnessID }
 
 func (f *fakeHarness) BuildCommand(launch harness.Launch) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	f.launches = append(f.launches, launch)
 	if f.commandErr != nil {
 		return "", f.commandErr
@@ -268,6 +275,9 @@ func (f *fakeHarness) ReadActivity(frame string) harness.Activity {
 }
 
 func (f *fakeHarness) Relocate(sessionID, dir string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	f.relocated = append(f.relocated, [2]string{sessionID, dir})
 
 	return nil

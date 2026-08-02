@@ -80,7 +80,7 @@ type agentCounter interface {
 }
 
 // agentClaimer counts the live agents and can hold that count still, which is what a
-// caller about to write under the ceiling needs and a caller only reporting on it does not.
+// caller about to write under the ceiling needs.
 type agentClaimer interface {
 	agentCounter
 	LockSlots(ctx context.Context) error
@@ -210,7 +210,9 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 
 	// After the key, since a retry that finds its agent creates nothing, and before
 	// anything is opened, so a refusal leaves no window, row, or setup action behind.
-	if err := s.requireRoomForAgent(ctx); err != nil {
+	// Creating an agent is a tool a model can call in a loop and each one is a real CLI
+	// in a real pane. Holding the count still is the claim at the insert below.
+	if err := requireRoomForAgents(ctx, s.agents, s.maxAgents, 1); err != nil {
 		return nil, err
 	}
 
@@ -280,10 +282,9 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		return nil, fmt.Errorf("failed to stamp the pane for %q: %w", plan.name, err)
 	}
 
-	// The ceiling is claimed here rather than at the check above because the claim has to
-	// be held to the insert, and everything in between runs a setup action that may
-	// provision a worktree and opens a window, neither of which a transaction can span. A
-	// create that loses the claim here unwinds through the defers above.
+	// The ceiling is claimed at the insert rather than at the check above, because a
+	// transaction cannot be held across the setup action that may provision a worktree.
+	// A create that loses the claim here unwinds through the defers above.
 	if err := s.createUnderCeiling(ctx, agentstore.Agent{
 		ID:             id,
 		Name:           plan.name,
@@ -577,7 +578,7 @@ func (s *AgentService) removeAgents(ctx context.Context, ids []string) error {
 	})
 }
 
-// createUnderCeiling records an agent on the same transaction that claims its slot, so a
+// createUnderCeiling records an agent on the same transaction that claims its slot, so the
 // create that found room is the one that takes it and a caller that arrived with the panel
 // already full is refused rather than landing beside the others.
 func (s *AgentService) createUnderCeiling(ctx context.Context, agent agentstore.Agent) error {
@@ -619,16 +620,6 @@ func requireUsableDir(dir string) error {
 	return nil
 }
 
-// requireRoomForAgent refuses a create once the panel is full, since creating one is a tool a
-// model can call in a loop and each agent is a real CLI in a real pane.
-//
-// It is the cheap refusal rather than the guarantee. Nothing holds the count still between
-// here and the insert, which is claimRoomForAgents' half; this earns its place by refusing
-// before a setup action has provisioned anything.
-func (s *AgentService) requireRoomForAgent(ctx context.Context) error {
-	return requireRoomForAgents(ctx, s.agents, s.maxAgents, 1)
-}
-
 // claimRoomForAgents takes room for want more agents and holds it until the caller's
 // transaction ends, so the count and the write it guards act as one. It has to be given a
 // store bound to that same transaction, or the lock is released before the write lands.
@@ -645,7 +636,8 @@ func claimRoomForAgents(ctx context.Context, agents agentClaimer, maxAgents, wan
 
 // requireRoomForAgents refuses unless want more agents fit under the ceiling. A workflow restore
 // asks for its whole contents at once, since a folder that came back with some of its
-// runs would read as whole.
+// runs would read as whole. It only reads the count, so a caller about to write under it
+// goes through claimRoomForAgents instead.
 func requireRoomForAgents(ctx context.Context, agents agentCounter, maxAgents, want int) error {
 	if maxAgents <= 0 || want <= 0 {
 		return nil

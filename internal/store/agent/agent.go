@@ -528,8 +528,8 @@ func (s *Store) CountLive(ctx context.Context) (int64, error) {
 
 // LockSlots holds the live count still until the caller's transaction ends, so counting
 // the agents and writing under that count act as one. Every caller claiming room under
-// the ceiling takes it, and it guards nothing on its own: taken outside a transaction it
-// is released by the statement that took it.
+// the ceiling takes it. Outside a transaction it guards nothing, since the statement that
+// takes the lock also releases it.
 func (s *Store) LockSlots(ctx context.Context) error {
 	if err := s.queries.LockAgentSlots(ctx, slotsLock); err != nil {
 		return fmt.Errorf("failed to lock the agent slots: %w", err)
