@@ -4,6 +4,7 @@
 package tmux
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"weave/internal/logging"
 )
@@ -18,6 +20,16 @@ import (
 // paneOwnerOption is the pane-scoped tmux option an agent's pane is stamped with. The @
 // prefix is what tmux reserves for user options, so it cannot collide with its own.
 const paneOwnerOption = "@weave_agent_id"
+
+// queryTimeout bounds a single tmux call. Every command here is a request and an answer
+// over a local socket, so a healthy one costs milliseconds and only a server that has
+// stopped answering trips this.
+const queryTimeout = 5 * time.Second
+
+// killDelay is how long a timed-out tmux gets after being killed before its output is
+// abandoned. Without it a daemonized server still holding the inherited stdout keeps the
+// read blocked, which is the hang the timeout was there to prevent.
+const killDelay = 100 * time.Millisecond
 
 // Client talks to one tmux server, addressed by socket name or socket path. The server
 // flags are held whole, since the two forms differ in flag as well as value.
@@ -314,11 +326,32 @@ func (c *Client) CapturePane(pane string) string {
 // query runs a tmux command and returns its stdout. A failure carries the command that
 // failed and whatever tmux wrote to stderr, since an exit status on its own says neither
 // which call broke nor why, and these run on a loop where nobody is watching.
+//
+// Nobody watching is also why the call is bounded. A reconcile pass runs to completion
+// before its loop looks at its context again, so a tmux that never answers would stop
+// every agent's state being read from then on. Giving up reads as not having read rather
+// than as the pane being gone, which is what the callers already do with a failure.
 func (c *Client) query(args ...string) (string, error) {
-	out, err := exec.Command("tmux", slices.Concat(c.server, args)...).Output()
+	command := slices.Concat(c.server, args)
+
+	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "tmux", command...)
+	cmd.WaitDelay = killDelay
+
+	out, err := cmd.Output()
+
+	// Running out of time is reported ahead of the error the kill produced, which says only
+	// that something signalled the process. Whatever tmux wrote before it went is dropped,
+	// since a half-read frame answered as if it were whole is worse than no answer.
+	if err != nil && ctx.Err() != nil {
+		return "", fmt.Errorf("tmux %s: gave up waiting after %s", strings.Join(command, " "), queryTimeout)
+	}
+
 	if err != nil {
 		return strings.TrimSpace(string(out)), fmt.Errorf("tmux %s: %w%s",
-			strings.Join(slices.Concat(c.server, args), " "), err, stderrDetail(err))
+			strings.Join(command, " "), err, stderrDetail(err))
 	}
 
 	return strings.TrimSpace(string(out)), nil
