@@ -25,10 +25,13 @@ const DefaultLogLevel = "info"
 
 // DefaultLogViewer is what the log key opens the log in when the config names nothing. It
 // reads through this binary's own logs command, so what lands in the pane is a line per
-// record rather than the JSON the file holds, and it pages that with the flags a preview
-// uses plus -S, which leaves a long line running off the edge rather than wrapping it into
-// four rows of one record.
-const DefaultLogViewer = `"$WEAVE_BIN" logs --color=always | less -RSX +G`
+// record rather than the JSON the file holds.
+//
+// Long lines wrap. The pane the log opens in is half a screen wide, and the fields that
+// run past it are the ones worth opening the log for: what a failure said and what a
+// script wrote about refusing. Chopping puts those off the right edge, where reading one
+// means scrolling a pager sideways.
+const DefaultLogViewer = `"$WEAVE_BIN" logs --color=always | less -RX +G`
 
 // DefaultMaxAgents is how many agents may exist at once when the config names no number,
 // well above what anyone opens by hand and low enough to catch a caller in a loop.

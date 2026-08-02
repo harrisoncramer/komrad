@@ -62,13 +62,13 @@ func TestShort(t *testing.T) {
 			want: `18:45:48 INFO  action finished action=wtc trigger=setup on=019fc3c2 exit=1 took=141ms said="no Branch: line in the prompt"`,
 		},
 		{
-			name: "an action that said more than a line holds",
+			name: "an action that said more than a line holds keeps what it said last",
 			record: `{"timestamp":"2026-07-31T18:45:48.1-04:00","severity_text":"ERROR","severity_number":17,` +
 				`"body":"action failed","service.name":"weave","weave.action.name":"wtc",` +
 				`"weave.action.trigger":"manual","process.exit.code":2,"weave.action.stderr":"` +
-				strings.Repeat("x", saidLimit+50) + `"}`,
+				strings.Repeat("x", 50) + strings.Repeat("y", saidLimit) + `"}`,
 			want: "18:45:48 ERROR action failed action=wtc trigger=manual exit=2 said=" +
-				strings.Repeat("x", saidLimit) + cutMark,
+				cutMark + strings.Repeat("y", saidLimit),
 		},
 		{
 			name: "a model firing an action on another agent",

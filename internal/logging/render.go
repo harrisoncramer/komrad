@@ -34,6 +34,9 @@ type column struct {
 	// field with no length of its own, where short is for one whose length is known and
 	// only its head is worth showing.
 	limit int
+	// tail keeps the end of a cut value rather than its start, for a field where what a
+	// run is opened for is the last thing written and the start of it is the setting out.
+	tail bool
 	// suffix is a unit the value reads better with.
 	suffix string
 }
@@ -63,10 +66,10 @@ var columns = []column{
 	{keys: []string{Repeats}, label: "repeats"},
 	{keys: []string{ServerAddress}, label: "addr"},
 	{keys: []string{ErrorMessage}, label: "error"},
-	// Last, and cut, because it is the one field written by something other than this
-	// service: a script says whatever it likes at whatever length, and the tail of the
-	// line is where a long value costs the least.
-	{keys: []string{ActionStderr}, label: "said", limit: saidLimit},
+	// Last, and cut to its end, because it is the one field written by something other
+	// than this service: a script says whatever it likes at whatever length, and what it
+	// said last is what it said about stopping.
+	{keys: []string{ActionStderr}, label: "said", limit: saidLimit, tail: true},
 }
 
 // shortIDLen is how much of an id is enough to tell it from the others in one log.
@@ -77,8 +80,8 @@ const shortIDLen = 8
 // the failure by, since 64k of build output in a line is the record nobody can read again.
 const saidLimit = 200
 
-// cutMark ends a value that was cut, so a truncated one is not read as the whole of what
-// was written.
+// cutMark marks the side of a value the rest was dropped from, so a cut one is not read
+// as the whole of what was written.
 const cutMark = "…"
 
 // severityColors are the escapes a level is drawn in, so a failure is findable by eye in a
@@ -184,7 +187,7 @@ func value(raw any, col column) string {
 	}
 
 	if col.limit > 0 && len(out) > col.limit {
-		out = cut(out, col.limit)
+		out = cut(out, col)
 	}
 
 	// The newlines are here for the fields a script wrote. Quoting escapes them, which is
@@ -196,15 +199,24 @@ func value(raw any, col column) string {
 	return out + col.suffix
 }
 
-// cut is the head of a value with a mark that there was more, pulled back off a partial
-// character so the end of a line is never half a rune.
-func cut(value string, limit int) string {
-	head := value[:limit]
-	for len(head) > 0 && !utf8.ValidString(head) {
-		head = head[:len(head)-1]
+// cut is the end a column asked for with a mark on the side the rest was dropped from,
+// pulled back off a partial character so neither end of it is ever half a rune.
+func cut(value string, col column) string {
+	if col.tail {
+		kept := value[len(value)-col.limit:]
+		for len(kept) > 0 && !utf8.ValidString(kept) {
+			kept = kept[1:]
+		}
+
+		return cutMark + kept
 	}
 
-	return head + cutMark
+	kept := value[:col.limit]
+	for len(kept) > 0 && !utf8.ValidString(kept) {
+		kept = kept[:len(kept)-1]
+	}
+
+	return kept + cutMark
 }
 
 // text is a decoded JSON value as it should read in a line.
