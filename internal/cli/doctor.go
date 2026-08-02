@@ -2,7 +2,9 @@ package cli
 
 import (
 	"errors"
+	"fmt"
 
+	"weave/internal/appconfig"
 	"weave/internal/doctor"
 
 	"github.com/spf13/cobra"
@@ -34,12 +36,12 @@ func doctorCmd(state *app) *cobra.Command {
 				return err
 			}
 
-			env := doctor.NewEnv(doctor.Settings{
-				TmuxSocket: state.env.TmuxSocket,
-				InsideTmux: state.env.Tmux,
-			})
+			settings, err := state.doctorSettings()
+			if err != nil {
+				return err
+			}
 
-			report := doctor.Run(cmd.Context(), env, doctor.Checks())
+			report := doctor.Run(cmd.Context(), doctor.NewEnv(settings), doctor.Checks(settings))
 
 			if asJSON {
 				err = doctor.WriteJSON(cmd.OutOrStdout(), report)
@@ -64,4 +66,33 @@ func doctorCmd(state *app) *cobra.Command {
 	cmd.Flags().StringVar(&color, "color", "auto", "auto, always, or never")
 
 	return cmd
+}
+
+// doctorSettings is what this build would run with, gathered here so no check reads a file
+// or an environment for itself.
+//
+// The harnesses come from the registry rather than a list written twice, so a build that
+// gains a third agent CLI gains a line in the report without this being touched.
+func (a *app) doctorSettings() (doctor.Settings, error) {
+	configPath, err := appconfig.ResolvePath(a.configPath)
+	if err != nil {
+		return doctor.Settings{}, fmt.Errorf("failed to work out where the config lives: %w", err)
+	}
+
+	harnesses := make([]doctor.HarnessInfo, 0)
+	for _, id := range a.harnesses.IDs() {
+		found, err := a.harnesses.GetByID(id)
+		if err != nil {
+			return doctor.Settings{}, err
+		}
+
+		harnesses = append(harnesses, doctor.HarnessInfo{ID: found.GetID(), Binary: found.GetBinary()})
+	}
+
+	return doctor.Settings{
+		TmuxSocket: a.env.TmuxSocket,
+		InsideTmux: a.env.Tmux,
+		ConfigPath: configPath,
+		Harnesses:  harnesses,
+	}, nil
 }

@@ -16,6 +16,10 @@ import (
 	"weave/internal/harness"
 )
 
+// binary is the CLI this harness runs, which is also the id an agent running it is
+// recorded under.
+const binary = "codex"
+
 // originatorEnv is what Codex calls the client that started a conversation, overridden per
 // launch so the panel can recognize its own. Codex writes it into the rollout's opening
 // record, the only place an agent's id and the conversation id Codex minted appear
@@ -83,7 +87,10 @@ func NewHarness(opts NewHarnessParams) *Harness {
 var _ harness.Harness = (*Harness)(nil)
 
 // GetID is the name an agent running Codex is recorded under.
-func (h *Harness) GetID() string { return "codex" }
+func (h *Harness) GetID() string { return binary }
+
+// GetBinary is the CLI a pane's shell has to resolve to start an agent.
+func (h *Harness) GetBinary() string { return binary }
 
 // MintSessionID returns empty, since Codex takes no session id on the command line and
 // names the conversation itself, which the panel adopts afterwards through FindSession.

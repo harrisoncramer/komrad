@@ -18,13 +18,13 @@ var statusColors = map[Status]string{
 
 const colorReset = "\033[0m"
 
-// markers are what a status is drawn as. They are ASCII rather than glyphs because this
-// output's second home is a pasted issue, where a terminal's idea of a symbol is not the
-// reader's.
 // markerWidth is how wide every marker is, which they all share so the columns after them
 // do not move with the status.
 const markerWidth = 2
 
+// markers are what a status is drawn as. They are ASCII rather than glyphs because this
+// output's second home is a pasted issue, where a terminal's idea of a symbol is not the
+// reader's.
 var markers = map[Status]string{
 	StatusOK:   "ok",
 	StatusWarn: "--",
@@ -82,23 +82,25 @@ func WriteText(out io.Writer, report Report, color bool) error {
 	return nil
 }
 
-// line is what a check reports beside its name.
+// line is what a check reports beside its name: what it saw when that is the answer, and
+// why it is wrong when it is.
 //
-// A failure shows only the reason, which every problem writes to stand on its own, since
-// pairing it with the observation it was drawn from says the same thing twice. A warning
-// shows both, because there the observation is the point and the reason is why it could
-// not be judged.
+// Anything not ok shows the reason alone. Every problem is written to stand on its own, so
+// pairing it with the observation it was drawn from would say the same thing twice. The
+// observation is still in the report for a reader of the JSON.
 func line(finding Finding) string {
-	switch {
-	case finding.Status == StatusFail:
-		return finding.Error
-	case finding.Status == StatusWarn && finding.Detail != "":
-		return finding.Detail + ", " + finding.Error
-	case finding.Status == StatusWarn:
-		return finding.Error
-	default:
-		return finding.Detail
+	if finding.Error != "" {
+		return oneLine(finding.Error)
 	}
+
+	return oneLine(finding.Detail)
+}
+
+// oneLine folds a reason onto the row it has to fit on. A parser reports what it objected
+// to over several lines, and one of those landing in the middle of the table takes the
+// columns with it. The unfolded text is still in the JSON.
+func oneLine(text string) string {
+	return strings.Join(strings.Fields(text), " ")
 }
 
 // nameWidth is how wide the name column has to be for the details to line up down the
@@ -146,4 +148,17 @@ func dim(text string, color bool) string {
 	}
 
 	return "\033[90m" + text + colorReset
+}
+
+// joinWords lists names the way a sentence would, so a message offering choices reads as
+// one rather than as a slice printed out.
+func joinWords(names []string) string {
+	switch len(names) {
+	case 0:
+		return "none"
+	case 1:
+		return names[0]
+	default:
+		return strings.Join(names[:len(names)-1], ", ") + " or " + names[len(names)-1]
+	}
 }

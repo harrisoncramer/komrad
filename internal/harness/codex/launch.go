@@ -26,7 +26,7 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	// itself to the panel and where the headers configured below read their values from.
 	// The originator goes on beside them, which is how the conversation Codex is about to
 	// mint is recognized as this agent's once it appears on disk.
-	command := harness.EnvPrefix(launch) + originatorPrefix(launch.AgentID) + "codex"
+	command := harness.EnvPrefix(launch) + originatorPrefix(launch.AgentID) + binary
 
 	resuming := launch.Resume && launch.SessionID != ""
 	if resuming {

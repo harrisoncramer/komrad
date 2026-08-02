@@ -722,6 +722,22 @@ func (c Config) GetContextFile() (string, error) {
 	return filepath.Join(home, "context.md"), nil
 }
 
+// ResolvePath is the file Load would read: the one named, or the default beside the user's
+// other configuration. It is exported because a caller reporting on a config has to name
+// the file, and a missing one has no error to read the path out of.
+func ResolvePath(path string) (string, error) {
+	if path != "" {
+		return path, nil
+	}
+
+	dir, err := configHome()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(dir, "config.toml"), nil
+}
+
 // Load reads the config from path when given, otherwise from
 // ~/.config/weave/config.toml. A missing file is not an error and yields the defaults, but
 // a symlink pointing at nothing is, since that is a config someone meant to have.
@@ -734,14 +750,9 @@ func Load(path string) (*Config, error) {
 
 	// The full path is named in the errors below, since what went wrong is not
 	// actionable without knowing which file to edit.
-	file := path
-	if file == "" {
-		dir, err := configHome()
-		if err != nil {
-			return nil, err
-		}
-
-		file = filepath.Join(dir, "config.toml")
+	file, err := ResolvePath(path)
+	if err != nil {
+		return nil, err
 	}
 
 	viperCfg.SetConfigFile(file)

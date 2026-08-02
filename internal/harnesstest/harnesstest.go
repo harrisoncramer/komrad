@@ -88,6 +88,10 @@ func New(root string) (*Harness, error) {
 // GetID is the name an agent running this harness is recorded under.
 func (h *Harness) GetID() string { return ID }
 
+// GetBinary is the script this harness runs, which is a path rather than a name on PATH
+// since the whole point of the fake is that it is written into a test's own directory.
+func (h *Harness) GetBinary() string { return h.script }
+
 // MintSessionID names the conversation before it exists, the way a CLI that takes an id on
 // its command line lets the panel do.
 func (h *Harness) MintSessionID() string { return uuid.NewString() }

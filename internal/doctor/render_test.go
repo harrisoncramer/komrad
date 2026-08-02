@@ -20,7 +20,7 @@ func sample() Report {
 			Fix: "upgrade tmux",
 		},
 		{Name: "db", Status: StatusSkip, Detail: "not checked, tmux has to pass first"},
-		{Name: "codex", Status: StatusWarn, Detail: "not on PATH", Error: "no codex agent can start"},
+		{Name: "codex", Status: StatusWarn, Detail: "not on PATH", Error: "codex is not on PATH, so only agents set to it are affected"},
 	}
 
 	return Report{Findings: findings, Summary: summarize(findings)}

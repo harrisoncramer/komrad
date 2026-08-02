@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
+
+	"weave/internal/appconfig"
 )
 
 // commandTimeout bounds any tool doctor shells out to. Everything it runs answers at once
@@ -23,6 +26,19 @@ type Env struct {
 	LookPath func(name string) (string, error)
 	// Output runs a command and returns what it wrote to stdout.
 	Output func(ctx context.Context, name string, args ...string) (string, error)
+	// LoadConfig parses the user's config file, the same call the root command makes,
+	// so doctor and the panel's error screen cannot disagree about it.
+	LoadConfig func() (*appconfig.Config, error)
+	// ConfigExists reports whether the config file is actually there, which Load does
+	// not say: a missing one is not an error and comes back as the defaults.
+	ConfigExists func() bool
+}
+
+// HarnessInfo is one agent CLI this build can run: the id an agent is recorded under, and
+// the command a pane's shell has to resolve to start it.
+type HarnessInfo struct {
+	ID     string
+	Binary string
 }
 
 // Settings is what this build would run with, gathered before doctor is reached so no
@@ -34,14 +50,24 @@ type Settings struct {
 	// InsideTmux is the user's tmux server as tmux names it in TMUX, empty when this is
 	// not running under tmux. It is a second server to ask when weave's is not up.
 	InsideTmux string
+	// ConfigPath is the config file that would be read, named whether or not it exists.
+	ConfigPath string
+	// Harnesses is every agent CLI this build can run.
+	Harnesses []HarnessInfo
 }
 
 // NewEnv is the env pointed at the machine this is running on.
 func NewEnv(settings Settings) Env {
 	return Env{
-		Settings: settings,
-		LookPath: exec.LookPath,
-		Output:   runOutput,
+		Settings:   settings,
+		LookPath:   exec.LookPath,
+		Output:     runOutput,
+		LoadConfig: func() (*appconfig.Config, error) { return appconfig.Load(settings.ConfigPath) },
+		ConfigExists: func() bool {
+			_, err := os.Stat(settings.ConfigPath)
+
+			return err == nil
+		},
 	}
 }
 

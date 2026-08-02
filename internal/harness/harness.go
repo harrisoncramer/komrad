@@ -116,6 +116,9 @@ type LogRead struct {
 type Harness interface {
 	// GetID is the name an agent's harness is recorded under.
 	GetID() string
+	// GetBinary is the command BuildCommand puts at the head of the line, which is what
+	// a pane's shell has to resolve for an agent to start at all.
+	GetBinary() string
 	// BuildCommand renders the command line a pane's shell runs to put the agent up.
 	BuildCommand(Launch) (string, error)
 	// MintSessionID mints the id a fresh conversation should be filed under, or empty

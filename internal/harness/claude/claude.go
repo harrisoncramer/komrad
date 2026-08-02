@@ -13,6 +13,10 @@ import (
 	"github.com/google/uuid"
 )
 
+// binary is the CLI this harness runs, which is also the id an agent running it is
+// recorded under.
+const binary = "claude"
+
 // Harness puts Claude Code up in a pane and reads back what happened in it.
 type Harness struct {
 	// projectsDir is Claude's ~/.claude/projects, where it writes one conversation
@@ -36,7 +40,10 @@ func NewHarness(params NewHarnessParams) *Harness {
 }
 
 // GetID is the name an agent running Claude Code is recorded under.
-func (h *Harness) GetID() string { return "claude" }
+func (h *Harness) GetID() string { return binary }
+
+// GetBinary is the CLI a pane's shell has to resolve to start an agent.
+func (h *Harness) GetBinary() string { return binary }
 
 // MintSessionID names the conversation a fresh launch will hold. Claude takes one on
 // the command line, so the panel names it before it exists, and every later resume,

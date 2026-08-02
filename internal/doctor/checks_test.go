@@ -13,7 +13,10 @@ import (
 // meant to be skipped, and a duplicated name would make the whole mechanism read the wrong
 // check's conclusion. Neither shows up at runtime as anything but a confusing report.
 func TestChecksAreWellFormed(t *testing.T) {
-	checks := Checks()
+	checks := Checks(Settings{Harnesses: []HarnessInfo{
+		{ID: "claude", Binary: "claude"},
+		{ID: "codex", Binary: "codex"},
+	}})
 	require.NotEmpty(t, checks)
 
 	seen := make(map[string]bool, len(checks))

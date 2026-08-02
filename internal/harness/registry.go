@@ -39,14 +39,14 @@ func NewRegistry(harnesses ...Harness) (*Registry, error) {
 func (r *Registry) GetByID(id string) (Harness, error) {
 	found, ok := r.harnesses[id]
 	if !ok {
-		return nil, fmt.Errorf("%w: %q, known are %s", ErrNotRegistered, id, strings.Join(r.ids(), ", "))
+		return nil, fmt.Errorf("%w: %q, known are %s", ErrNotRegistered, id, strings.Join(r.IDs(), ", "))
 	}
 
 	return found, nil
 }
 
-// ids are the registered harness ids, sorted so a message listing the choices reads the same every time.
-func (r *Registry) ids() []string {
+// IDs are the registered harness ids, sorted so a message listing the choices reads the same every time.
+func (r *Registry) IDs() []string {
 	ids := make([]string, 0, len(r.harnesses))
 	for id := range r.harnesses {
 		ids = append(ids, id)
