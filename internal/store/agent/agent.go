@@ -25,6 +25,11 @@ var ErrTooManyMetadataKeys = errors.New("too many metadata keys")
 // rather than in the proto because it needs a count of what is already stored.
 const maxMetadataKeys = 32
 
+// slotsLock is the advisory lock key the agent ceiling is claimed under. The number is
+// arbitrary, but it is the whole of what makes two claimants wait for each other, so it
+// must never change and nothing else may take it.
+const slotsLock int64 = 7_240_116
+
 // Agent states. There are three because there are only three things a person watching
 // the panel acts on differently: an agent generating, one blocked on an answer they owe
 // it, and one doing neither. An agent that has not started and one that has stopped share
@@ -519,6 +524,18 @@ func (s *Store) CountLive(ctx context.Context) (int64, error) {
 	}
 
 	return count, nil
+}
+
+// LockSlots holds the live count still until the caller's transaction ends, so counting
+// the agents and writing under that count act as one. Every caller claiming room under
+// the ceiling takes it. Outside a transaction it guards nothing, since the statement that
+// takes the lock also releases it.
+func (s *Store) LockSlots(ctx context.Context) error {
+	if err := s.queries.LockAgentSlots(ctx, slotsLock); err != nil {
+		return fmt.Errorf("failed to lock the agent slots: %w", err)
+	}
+
+	return nil
 }
 
 // CountLiveForSchedule reports how many of a schedule's agents are still working, which
