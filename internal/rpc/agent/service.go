@@ -85,15 +85,10 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 	switch {
 	case errors.Is(err, agents.ErrWorkflowNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, err)
-	// Ahead of the directory case, which this wraps when the directory the action named
-	// was the part that was wrong. Either way the workflow's setup needs editing, so the
-	// code should not depend on which half of the action refused.
 	case errors.Is(err, agents.ErrSetupFailed):
 		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, agents.ErrBadDirectory), errors.Is(err, harness.ErrNotRegistered):
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	// Exhausted rather than a precondition, since nothing about the request is wrong and
-	// the same call works once there is room.
 	case errors.Is(err, agents.ErrTooManyAgents):
 		return nil, connect.NewError(connect.CodeResourceExhausted, err)
 	case err != nil:
