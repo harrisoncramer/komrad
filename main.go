@@ -15,7 +15,9 @@ func main() {
 		return
 	}
 
-	if !errors.Is(err, cli.ErrLogged) {
+	// Both sentinels mean the failure has already been put in front of somebody, one in
+	// the service log and one on the command's own output.
+	if !errors.Is(err, cli.ErrLogged) && !errors.Is(err, cli.ErrReported) {
 		fmt.Fprintln(os.Stderr, err)
 	}
 

@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+#MISE description="Run weave doctor on a container that has just installed it."
+set -euo pipefail
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+
+usage() {
+	echo "Usage: mise run doctor:sandbox [stage] [-- args...]"
+	echo
+	echo "Runs the doctor against a machine with nothing set up on it, which is the"
+	echo "only way to see what a first run looks like from a checkout that has"
+	echo "everything already. The stage says how much of what weave needs is there:"
+	echo
+	echo "  bare       the binary and nothing else (default)"
+	echo "  tmux-old   a tmux below the version the panel's key binding needs"
+	echo "  tmux       a tmux new enough"
+	echo
+	echo "Anything after -- is passed to the binary, so 'sh' opens a shell on the"
+	echo "same machine to set something up by hand."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+stage="${1:-bare}"
+shift || true
+if [ "${1:-}" = "--" ]; then
+	shift
+fi
+
+# Built for whichever architecture the daemon runs containers on, spelled the way Go
+# spells it rather than the way docker reports it.
+case "$(docker info --format '{{.Architecture}}')" in
+aarch64 | arm64) arch=arm64 ;;
+x86_64 | amd64) arch=amd64 ;;
+*)
+	echo "unsupported docker architecture: $(docker info --format '{{.Architecture}}')" >&2
+	exit 1
+	;;
+esac
+
+# Static, so it runs on an image carrying no libc it was built against. The containers
+# mount this rather than building it, so the loop is a rebuild and a rerun.
+CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -o bin/weave-linux .
+
+# Built as its own step so the layer log does not land on top of the report, which is the
+# only output anyone runs this for.
+docker compose --profile doctor build --quiet "doctor-$stage"
+
+exec docker compose --profile doctor run --rm "doctor-$stage" "$@"
