@@ -148,6 +148,47 @@ func TestActionOpensOnTheHoveredAgent(t *testing.T) {
 	assert.Contains(t, stagedDocument(t), "echo hello", "the file's own text is what the stage shows")
 }
 
+// TestActionItemsSkipUnderscoredNames covers the naming convention that keeps an action off the
+// list. A script written for a workflow to run around an agent's life, or for a model to fire
+// through run_action, is still an action the service offers, and prefixing it is how the user
+// says nobody should be picking it by hand.
+func TestActionItemsSkipUnderscoredNames(t *testing.T) {
+	tests := []struct {
+		name   string
+		listed []*actionv1.Action
+		want   []string
+	}{
+		{
+			name:   "an underscored action is left out",
+			listed: []*actionv1.Action{{Name: "_setup"}},
+			want:   []string{},
+		},
+		{
+			name:   "an underscore inside a name is not a prefix",
+			listed: []*actionv1.Action{{Name: "open_pr"}},
+			want:   []string{"open_pr"},
+		},
+		{
+			name:   "the rest of the directory is listed around one",
+			listed: []*actionv1.Action{{Name: "open-pr"}, {Name: "_setup"}, {Name: "close-pr"}},
+			want:   []string{"open-pr", "close-pr"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			items := actionItemsFrom(tt.listed)
+
+			got := make([]string, 0, len(items))
+			for _, item := range items {
+				got = append(got, item.name)
+			}
+
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 // TestActionOnAWorkflowHeaderDoesNothing pins that the key needs a row. Every other per-row key
 // behaves this way on a header, and there is no such thing as an action on a workflow.
 func TestActionOnAWorkflowHeaderDoesNothing(t *testing.T) {
@@ -396,12 +437,13 @@ func actionsModel(client actionv1connect.ActionServiceClient, keys appconfig.Key
 	}
 }
 
-// listedActions is what the fake service answers with, one action that will run and one waiting
-// on a chmod.
+// listedActions is what the fake service answers with, one action that will run, one waiting
+// on a chmod, and one underscored, which the service offers and the list leaves out.
 func listedActions() []*actionv1.Action {
 	return []*actionv1.Action{
 		{Name: "open-pr", Executable: true, Preview: []byte("#!/bin/sh\necho hello\n")},
 		{Name: "unrunnable", Preview: []byte("#!/bin/sh\necho hello\n")},
+		{Name: "_internal", Executable: true, Preview: []byte("#!/bin/sh\necho hello\n")},
 	}
 }
 

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"slices"
+	"strings"
 	"time"
 
 	actionv1 "weave/proto/gen/action/v1"
@@ -51,10 +52,16 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 	}
 }
 
-// actionItemsFrom renders listed actions into the items the screen is written against.
+// actionItemsFrom renders listed actions into the items the screen is written against. A
+// name starting with an underscore is left out, which is how an action written for a
+// workflow or a model to fire stays out of the list a person picks from.
 func actionItemsFrom(listed []*actionv1.Action) []actionItem {
 	items := make([]actionItem, 0, len(listed))
 	for _, action := range listed {
+		if strings.HasPrefix(action.GetName(), "_") {
+			continue
+		}
+
 		items = append(items, actionItem{
 			name:       action.GetName(),
 			executable: action.GetExecutable(),
