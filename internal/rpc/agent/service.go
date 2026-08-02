@@ -63,7 +63,11 @@ type Service struct {
 // NewService constructs the handler from the stores it reads and the manager that launches
 // agents.
 func NewService(agents agentStore, transcripts transcriptStore, launcher agentLauncher) *Service {
-	return &Service{agents: agents, transcripts: transcripts, launcher: launcher}
+	return &Service{
+		agents:      agents,
+		transcripts: transcripts,
+		launcher:    launcher,
+	}
 }
 
 // CreateAgent launches a background agent and returns it as stored. A request reaching
