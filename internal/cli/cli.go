@@ -35,44 +35,31 @@ func NewRootCommand() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
-			env, err := config.Load()
+
+			env, err := config.Load() // Loads the environment, tmux socket name, cache directory, etc.
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}
 
-			// A config that will not parse is carried into the panel and shown on its
-			// error screen rather than ending the process here.
-			cfg, err := appconfig.Load(configPath)
+			cfg, err := appconfig.Load(configPath) // Loads the user's configuration -- keybindings, marks, etc.
 			if err != nil {
 				app.configErr = err
 				cfg = appconfig.Defaults()
 			}
 
-			app.env = env
-			app.keys = cfg.Keybindings
-			app.defaultHarness = cfg.DefaultHarness
-			app.maxAgents = cfg.MaxAgents
-
-			// No context file is not an error
-			app.contextPath, _ = cfg.ContextFile()
-
 			codexHarness := codex.New(codex.Options{TrustLaunchDirs: cfg.Harness.Codex.TrustLaunchDirs})
 			claudeHarness := claude.New("")
-
-			// Set up default flags for the harnesses provided by the user in their config file.
-			app.defaultFlags = map[string]string{
-				claudeHarness.GetID(): cfg.Harness.Claude.Flags,
-				codexHarness.GetID():  cfg.Harness.Codex.Flags,
-			}
-
 			harnessRegistry, err := harness.NewRegistry(claudeHarness, codexHarness)
 			if err != nil {
 				return fmt.Errorf("failed to create registry: %w", err)
 			}
 
+			// Just make sure the default harness is registered. We're not using it here, but erroring early is helpful.
 			if _, err := harnessRegistry.GetByID(cfg.DefaultHarness); err != nil && app.configErr == nil {
 				app.configErr = fmt.Errorf("default_harness: %w", err)
 			}
+
+			manager := tmux.NewClient(env.TmuxSocket)
 
 			app.harnesses = harnessRegistry
 			app.marks = cfg.Marks
@@ -80,16 +67,18 @@ func NewRootCommand() *cobra.Command {
 			app.logLevel = cfg.Log.Level
 			app.logViewer = cfg.Log.Viewer
 			app.configPath = configPath
-
-			// Weave uses two tmux servers: the manager's server owns the
-			// session, its windows, and its panes. The user's server answers where the
-			// client viewing the popup is sitting, and holds the options the plugin's
-			// key binding reads.
-
-			manager := tmux.NewClient(env.TmuxSocket)
+			app.env = env
+			app.keys = cfg.Keybindings
+			app.defaultHarness = cfg.DefaultHarness
+			app.maxAgents = cfg.MaxAgents
 			app.host = tmux.NewHost(manager)
 			app.tmux = tmux.NewServers(manager, app.host)
 			app.popup = ui.NewPopup(app.tmux, agents.ManagerSession)
+			app.contextPath, _ = cfg.ContextFile() // No context file is not an error
+			app.defaultFlags = map[string]string{  // Set up default flags for the harnesses provided by the user in their config file.
+				claudeHarness.GetID(): cfg.Harness.Claude.Flags,
+				codexHarness.GetID():  cfg.Harness.Codex.Flags,
+			}
 
 			return nil
 		},
