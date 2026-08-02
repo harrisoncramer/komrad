@@ -1,0 +1,106 @@
+// Package tmuxtest hands a test a tmux server of its own.
+//
+// The panel's whole model of what an agent is doing comes from capturing a pane, so a test
+// that fakes tmux asserts the Go around the capture and says nothing about the capture. A
+// private server per test costs a process and buys the real thing, and it can never touch
+// the user's own agents because it is reached by a socket of its own.
+package tmuxtest
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"weave/internal/tmux"
+)
+
+// created counts the servers this process has started, so their sockets cannot collide
+// within a run. The pid keeps them apart between concurrent runs, which is how
+// `go test ./...` behaves, one process per package, all at once.
+var created atomic.Int64
+
+// Server is one tmux server, torn down when the test ends.
+type Server struct {
+	t      *testing.T
+	socket string
+}
+
+// New starts a tmux server for this test and returns it, skipping the test when tmux is
+// not installed. A skipped run is not a passing one, so a suite that has to exercise tmux
+// checks that tmux is there rather than reading the skip as success.
+func New(t *testing.T) *Server {
+	t.Helper()
+
+	if _, err := exec.LookPath("tmux"); err != nil {
+		t.Skip("tmux not installed")
+	}
+
+	// A slash-free socket name, kept unique by the pid and a counter rather than by
+	// anything derived from the test. Go numbers temp directories per test, so two
+	// packages running at once produce the same name, and the second server to be named
+	// that is the first one's, whose kill-server takes both.
+	server := &Server{t: t, socket: fmt.Sprintf("weavetest-%d-%d", os.Getpid(), created.Add(1))}
+	t.Cleanup(func() { _ = exec.Command("tmux", "-L", server.socket, "kill-server").Run() })
+
+	return server
+}
+
+// Socket is the name this server is reached by.
+func (s *Server) Socket() string { return s.socket }
+
+// Client is a tmux client bound to this server.
+func (s *Server) Client() *tmux.Client { return tmux.NewClient(s.socket) }
+
+// Run runs a tmux command against this server and returns its output, failing the test
+// when tmux refuses.
+func (s *Server) Run(args ...string) string {
+	s.t.Helper()
+
+	out, err := exec.Command("tmux", append([]string{"-L", s.socket}, args...)...).Output()
+	if err != nil {
+		s.t.Fatalf("tmux %v: %v", args, err)
+	}
+
+	return strings.TrimSpace(string(out))
+}
+
+// NewSession starts a detached session, which is what a pane can be opened in afterwards.
+func (s *Server) NewSession(name string) {
+	s.t.Helper()
+	s.Run("new-session", "-d", "-s", name, "-c", s.t.TempDir())
+}
+
+// Spawn starts a detached session running command and returns its pane id.
+func (s *Server) Spawn(name, command string) string {
+	s.t.Helper()
+	s.Run("new-session", "-d", "-s", name, "-c", s.t.TempDir(), command)
+
+	return s.Run("display-message", "-p", "-t", name, "#{pane_id}")
+}
+
+// Kill tears down a session, which is what an agent's pane going away looks like.
+func (s *Server) Kill(name string) {
+	s.t.Helper()
+	s.Run("kill-session", "-t", name)
+}
+
+// WaitForFrame polls a pane until its capture contains want, so a test never races the
+// shell's first render.
+func (s *Server) WaitForFrame(pane, want string) {
+	s.t.Helper()
+
+	client := s.Client()
+	for range 100 {
+		if strings.Contains(client.CapturePane(pane), want) {
+			return
+		}
+
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	s.t.Fatalf("pane %s never showed %q; last frame:\n%s", pane, want, client.CapturePane(pane))
+}

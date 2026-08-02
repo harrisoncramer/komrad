@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"weave/db"
+	"weave/internal/store"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/spf13/cobra"
@@ -40,12 +41,14 @@ func readonlyRoleCmd(state *app) *cobra.Command {
 				return fmt.Errorf("the read-only database url names no user")
 			}
 
-			if err := state.openStore(cmd.Context()); err != nil {
+			pool, err := store.Open(cmd.Context(), state.env.DatabaseURL)
+			if err != nil {
 				return err
 			}
+			defer func() { _ = pool.Close() }()
 
 			if err := db.GrantReadOnlyRole(
-				cmd.Context(), state.pool.Raw(), readOnly.User, readOnly.Password); err != nil {
+				cmd.Context(), pool.Raw(), readOnly.User, readOnly.Password); err != nil {
 				return err
 			}
 
