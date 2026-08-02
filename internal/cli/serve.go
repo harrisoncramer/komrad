@@ -74,7 +74,11 @@ func serveCmd(state *app) *cobra.Command {
 			ctx, stopSignals := shutdownSignal(cmd.Context())
 			defer stopSignals()
 
-			err = serve(ctx, serveParams{App: state, Logger: logger, Addr: addr})
+			err = serve(ctx, serveParams{
+				App:    state,
+				Logger: logger,
+				Addr:   resolveServeAddr(addr, state.env.Addr),
+			})
 
 			// A signal landing partway through startup fails whichever step was reaching
 			// for the database at the time. That is the shutdown arriving early rather
@@ -98,9 +102,23 @@ func serveCmd(state *app) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&addr, "addr", "127.0.0.1:8787", "listen address")
+	// No default, so an unset flag is distinguishable from one that was typed. The
+	// address to fall back on is read from the environment by the root command, which
+	// has not run yet at the point flags are registered.
+	cmd.Flags().StringVar(&addr, "addr", "", "listen address, defaulting to WEAVE_ADDR")
 
 	return cmd
+}
+
+// resolveServeAddr is where the service listens. The flag wins when it was given, and
+// otherwise the address the rest of weave talks to, so a serve started by hand lands where
+// the panel and the CLI are already looking.
+func resolveServeAddr(flag, configured string) string {
+	if flag != "" {
+		return flag
+	}
+
+	return configured
 }
 
 // serveLogger builds the service's logger at the configured level. A config that would

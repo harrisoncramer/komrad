@@ -67,6 +67,17 @@ func TestConfigCheck(t *testing.T) {
 		assert.Equal(t, "config_unreadable", CodeOf(result.Err))
 		assert.Contains(t, result.Err.Error(), "invalid keys",
 			"what the parser objected to is carried, since that is the only part naming the typo")
+		assert.Contains(t, result.Fix, "fix or delete")
+	})
+
+	t.Run("a file that was named but never written", func(t *testing.T) {
+		missing := errors.New("failed to read config /home/u/.config/weave/config.toml: there is no file there")
+		result := Config().Run(t.Context(), configEnv(nil, missing, false))
+
+		assert.Equal(t, StatusFail, result.Status)
+		assert.NotContains(t, result.Fix, "fix or delete",
+			"editing a path with nothing at it sends the user looking for a file they never wrote")
+		assert.Contains(t, result.Fix, "--config")
 	})
 }
 

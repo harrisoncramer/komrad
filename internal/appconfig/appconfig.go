@@ -644,13 +644,33 @@ func configHome() (string, error) {
 	return filepath.Join(home, ".config", "weave"), nil
 }
 
+// ExpandHome expands a leading ~ or ~/ to the user's home directory, since nothing below a
+// config does it for itself. tmux's new-session -c takes the path literally, and so does
+// every open of a file weave was pointed at. A home directory that cannot be read leaves
+// the path as written.
+func ExpandHome(path string) string {
+	if path != "~" && !strings.HasPrefix(path, "~/") {
+		return path
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return path
+	}
+	if path == "~" {
+		return home
+	}
+
+	return filepath.Join(home, path[len("~/"):])
+}
+
 // GetActionsDir is where the actions live: the configured directory, or
 // ~/.config/weave/actions when the config names none. The default is filled in here rather
 // than filled into Config, since the generated config.toml spells every default out and one
 // machine's home directory would be wrong on every other machine.
 func (c Config) GetActionsDir() (string, error) {
 	if dir := strings.TrimSpace(c.Actions.Dir); dir != "" {
-		return dir, nil
+		return ExpandHome(dir), nil
 	}
 
 	home, err := configHome()
@@ -667,7 +687,7 @@ func (c Config) GetActionsDir() (string, error) {
 // the generated config would be wrong on every other machine.
 func (c Config) GetContextFile() (string, error) {
 	if file := strings.TrimSpace(c.Context.File); file != "" {
-		return file, nil
+		return ExpandHome(file), nil
 	}
 
 	home, err := configHome()
@@ -725,6 +745,14 @@ func Load(path string) (*Config, error) {
 			// config the user believes they have.
 			if target, linkErr := os.Readlink(file); linkErr == nil {
 				return nil, fmt.Errorf("failed to read config %s: it is a symlink to %s, which does not exist", file, target)
+			}
+
+			// A file the caller named has to be there. Not having written one is the
+			// ordinary install, but a path someone typed is a config they believe they
+			// have, and coming up on the defaults instead looks exactly like a file
+			// that was read and then ignored.
+			if path != "" {
+				return nil, fmt.Errorf("failed to read config %s: there is no file there", file)
 			}
 
 			return Defaults(), nil

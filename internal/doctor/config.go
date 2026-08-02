@@ -35,7 +35,7 @@ func Config() Check {
 				return fail(
 					fmt.Errorf("%w: %w", ErrConfigUnreadable, err),
 					env.ConfigPath,
-					"fix or delete "+env.ConfigPath+", since every key in it has a default",
+					describeConfigFix(env),
 				)
 			}
 
@@ -49,6 +49,17 @@ func Config() Check {
 			return pass(env.ConfigPath)
 		},
 	}
+}
+
+// describeConfigFix is what to do about a config that would not load, which turns on
+// whether the file is there at all. Telling somebody to edit a path with nothing at it
+// sends them looking for a file they never wrote.
+func describeConfigFix(env Env) string {
+	if !env.DoesConfigExist() {
+		return "write " + env.ConfigPath + ", or drop --config to run on the defaults"
+	}
+
+	return "fix or delete " + env.ConfigPath + ", since every key in it has a default"
 }
 
 // DefaultHarness asserts the CLI a new agent runs is one this build knows how to run. The

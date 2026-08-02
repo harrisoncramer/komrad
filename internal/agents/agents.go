@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"strings"
 
+	"weave/internal/appconfig"
 	"weave/internal/logging"
 	"weave/internal/store"
 	"weave/lib/xstr"
@@ -526,24 +526,6 @@ func (s *AgentService) ResumeAgent(ctx context.Context, id string) (*agentstore.
 	return s.getByID(ctx, id)
 }
 
-// expandHome expands a leading ~ or ~/ to the user's home, since tmux's new-session
-// -c does no tilde expansion of its own.
-func expandHome(dir string) string {
-	if dir != "~" && !strings.HasPrefix(dir, "~/") {
-		return dir
-	}
-
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return dir
-	}
-	if dir == "~" {
-		return home
-	}
-
-	return filepath.Join(home, dir[len("~/"):])
-}
-
 // isPaneOwnedBy compares a pane's stamp against the agent that claims it. An agent with
 // no id owns nothing, so an unstamped pane cannot match by both sides being empty.
 func isPaneOwnedBy(owner, agentID string) bool {
@@ -680,9 +662,9 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 
 	// What the caller asked for wins, then the workflow's default, then where the user
 	// is looking. A scheduled launch supplies neither of the first two.
-	dir := expandHome(strings.TrimSpace(p.Dir))
+	dir := appconfig.ExpandHome(strings.TrimSpace(p.Dir))
 	if dir == "" {
-		dir = expandHome(strings.TrimSpace(wf.Cwd))
+		dir = appconfig.ExpandHome(strings.TrimSpace(wf.Cwd))
 	}
 	if dir == "" {
 		dir = s.tmux.GetClientPath(p.Client)
@@ -773,7 +755,7 @@ func namedDir(named string) (string, error) {
 		return "", nil
 	}
 
-	dir := expandHome(named)
+	dir := appconfig.ExpandHome(named)
 	if err := requireUsableDir(dir); err != nil {
 		return "", fmt.Errorf("%w: a setup action named %q: %w", ErrSetupFailed, dir, err)
 	}
