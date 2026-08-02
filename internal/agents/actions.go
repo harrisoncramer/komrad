@@ -221,6 +221,10 @@ type awaitedActionParams struct {
 // runAwaitedAction runs the setup action to completion. The directory the agent should run
 // in is whatever the action trims to on stdout, ordinarily nothing. Progress belongs on
 // stderr, so a script that chats on stdout is refused rather than taken at its word.
+//
+// Both ends reach the log at info, and a failure is recorded as the end of the run rather
+// than reported as one, since the refusal travels back to the caller and is theirs to tell
+// somebody about. The record is what says a run happened at all.
 func (s *ActionService) runAwaitedAction(ctx context.Context, p awaitedActionParams) (string, error) {
 	action, actionsDir, err := s.find(p.name)
 	if err != nil {
@@ -235,7 +239,22 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p awaitedActionPar
 	ctx, cancel := context.WithTimeout(ctx, setupTimeout)
 	defer cancel()
 
+	logger := s.actionLogger(ctx, actionRecord{name: p.name, trigger: p.trigger, agent: p.agent})
+	logger.LogAttrs(ctx, slog.LevelInfo, "action started")
+	began := time.Now()
+
 	result, err := s.runner.RunAndWait(ctx, actions.RunParams{Action: action, Dir: actionsDir, Env: env})
+
+	finished := []slog.Attr{
+		slog.Int(logging.ExitCode, result.ExitCode),
+		slog.Int64(logging.DurationMS, elapsedMS(began)),
+	}
+	if said := bytes.TrimSpace(result.Stderr); len(said) > 0 {
+		finished = append(finished, slog.String(logging.ActionStderr, string(said)))
+	}
+
+	logger.LogAttrs(ctx, slog.LevelInfo, "action finished", finished...)
+
 	if err != nil {
 		return "", fmt.Errorf("%w: %w%s", ErrSetupFailed, err, stderrDetail(result.Stderr))
 	}
@@ -283,26 +302,28 @@ type startParams struct {
 
 // start fires an action and arranges for what it did to reach the log.
 func (s *ActionService) start(ctx context.Context, p startParams) error {
-	logger := logging.From(ctx).With(logging.Attrs([]slog.Attr{
-		slog.String(logging.ActionName, p.action.Name),
-		slog.String(logging.ActionTrigger, p.trigger),
-		slog.String(logging.ActionAgentID, p.agent.ID),
-		slog.String(logging.ActionAgentCwd, p.agent.Cwd),
-	})...)
+	logger := s.actionLogger(ctx, actionRecord{name: p.action.Name, trigger: p.trigger, agent: p.agent})
 	ctx = context.WithoutCancel(ctx)
+	began := time.Now()
 
 	err := s.runner.Run(actions.RunParams{
 		Action: p.action,
 		Dir:    p.dir,
 		Env:    p.env,
 		Done: func(result actions.Result, err error) {
+			// Reported here rather than returned, since this is the path with nothing
+			// downstream: the caller answered the moment the process existed, so a
+			// failure that is not written here is never told to anybody.
 			if err != nil {
-				logger.LogAttrs(ctx, slog.LevelError, "action failed", failedAction(result, err)...)
+				logger.LogAttrs(ctx, slog.LevelError, "action failed",
+					append(failedAction(result, err), slog.Int64(logging.DurationMS, elapsedMS(began)))...)
 
 				return
 			}
 
-			logger.LogAttrs(ctx, slog.LevelDebug, "action finished", slog.Int(logging.ExitCode, result.ExitCode))
+			logger.LogAttrs(ctx, slog.LevelInfo, "action finished",
+				slog.Int(logging.ExitCode, result.ExitCode),
+				slog.Int64(logging.DurationMS, elapsedMS(began)))
 		},
 	})
 	if err != nil {
@@ -310,9 +331,33 @@ func (s *ActionService) start(ctx context.Context, p startParams) error {
 	}
 
 	// Written once the process exists, so it never claims a run that never happened.
-	logger.LogAttrs(ctx, slog.LevelDebug, "action started")
+	logger.LogAttrs(ctx, slog.LevelInfo, "action started")
 
 	return nil
+}
+
+// actionRecord names the run a logger is being built for.
+type actionRecord struct {
+	name    string
+	trigger string
+	agent   agentstore.Agent
+}
+
+// actionLogger carries the fields every record about one run of an action shares, so a run
+// is followed by filtering on the action, the trigger, or the agent it fired on rather than
+// by reading the messages.
+func (s *ActionService) actionLogger(ctx context.Context, r actionRecord) *slog.Logger {
+	return logging.From(ctx).With(logging.Attrs([]slog.Attr{
+		slog.String(logging.ActionName, r.name),
+		slog.String(logging.ActionTrigger, r.trigger),
+		slog.String(logging.ActionAgentID, r.agent.ID),
+		slog.String(logging.ActionAgentCwd, r.agent.Cwd),
+	})...)
+}
+
+// elapsedMS is how long a run took, for a field that sorts and thresholds as a number.
+func elapsedMS(began time.Time) int64 {
+	return time.Since(began).Milliseconds()
 }
 
 // failedAction is what a failed run adds to its record, with the exit status pulled out of
