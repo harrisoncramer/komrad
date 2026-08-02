@@ -116,7 +116,7 @@ func markGlyph(agent agentstore.Agent, marks []appconfig.Mark) string {
 }
 
 // markedColor is what a mark is drawn in when its config names no colour of its own.
-var markedColor = lipgloss.Color(appconfig.ResolveColor(appconfig.DefaultMarkColor))
+var markedColor = lipgloss.Color(appconfig.GetColor(appconfig.DefaultMarkColor))
 
 // markColor is the colour a glyph is drawn in. One the config does not list, or one
 // listed with no colour of its own, falls back rather than going undrawn. The colour goes
@@ -125,7 +125,7 @@ var markedColor = lipgloss.Color(appconfig.ResolveColor(appconfig.DefaultMarkCol
 func markColor(glyph string, marks []appconfig.Mark) lipgloss.Color {
 	for _, mark := range marks {
 		if mark.Glyph == glyph && mark.Color != "" {
-			return lipgloss.Color(appconfig.ResolveColor(mark.Color))
+			return lipgloss.Color(appconfig.GetColor(mark.Color))
 		}
 	}
 
@@ -153,3 +153,20 @@ func scheduleColor(enabled bool) lipgloss.Color {
 // matchStyle highlights the matched terms inside a result row's snippet, the
 // panel-side rendering of the markers the store wraps hits in.
 var matchStyle = lipgloss.NewStyle().Foreground(colorWarning).Bold(true)
+
+// selectionIcon is the bar a selected row carries, in green rather than the cursor's blue
+// so a row that is both chosen and hovered says both at once.
+const selectionIcon = "▌"
+
+var selectionStyle = lipgloss.NewStyle().Foreground(colorSuccess)
+
+// selectionGutter is the column down the left of the tree. It holds the bar or a blank of
+// the same width, and it is drawn on every row whether or not anything is selected, since a
+// gutter that opened with the first selection would push every row sideways.
+func selectionGutter(selected bool) string {
+	if !selected {
+		return "  "
+	}
+
+	return selectionStyle.Render(selectionIcon) + " "
+}

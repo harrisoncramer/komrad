@@ -91,20 +91,20 @@ func TestFlattenRollout(t *testing.T) {
 			want: []harness.Turn{{Role: "user", Content: "before"}},
 		},
 		{
-			// The briefing reaches a Codex agent as a message, so it is in the rollout like
+			// The buildBriefing reaches a Codex agent as a message, so it is in the rollout like
 			// anything else. Indexed, it would be the longest thing the agent ever said and
 			// would answer searches for every phrase in it.
-			name: "the panel's own briefing is stripped from the turn it arrived on",
+			name: "the panel's own buildBriefing is stripped from the turn it arrived on",
 			in:   briefedRecord,
 			want: []harness.Turn{{Role: "user", Content: "how do I use trigram search"}},
 		},
 		{
-			name: "a turn that was nothing but the briefing is dropped",
+			name: "a turn that was nothing but the buildBriefing is dropped",
 			in:   briefingOnlyRecord,
 			want: nil,
 		},
 		{
-			name: "and so is one whose briefing never closed, since none of it was said",
+			name: "and so is one whose buildBriefing never closed, since none of it was said",
 			in:   unclosedBriefingRecord,
 			want: nil,
 		},
@@ -189,7 +189,7 @@ func TestReadLog(t *testing.T) {
 				require.NoError(t, os.WriteFile(path, []byte(tt.body), 0o600))
 			}
 
-			read, err := New(Options{SessionsDir: t.TempDir()}).ReadLog(path, tt.offset)
+			read, err := NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).ReadLog(path, tt.offset)
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantTurns, read.Turns)
@@ -200,7 +200,7 @@ func TestReadLog(t *testing.T) {
 }
 
 // TestGetLogPath covers finding a conversation by the id Codex gave it. The id is
-// globbed for inside the filename rather than resolved through the SQLite index beside
+// globbed for inside the filename rather than looked up through the SQLite index beside
 // the rollouts, so nothing here depends on that schema.
 func TestGetLogPath(t *testing.T) {
 	sessions := t.TempDir()
@@ -208,7 +208,7 @@ func TestGetLogPath(t *testing.T) {
 
 	path := writeRollout(t, sessions, "2026-07-30T12-41-39", id, metaRecord+"\n")
 
-	harnessUnderTest := New(Options{SessionsDir: sessions})
+	harnessUnderTest := NewHarness(NewHarnessParams{SessionsDir: sessions})
 	assert.Equal(t, path, harnessUnderTest.GetLogPath(id))
 	assert.Empty(t, harnessUnderTest.GetLogPath("019fb3e7-0000-0000-0000-000000000000"), "an id with no rollout has no path")
 	assert.Empty(t, harnessUnderTest.GetLogPath(""), "and neither does an agent with no session")

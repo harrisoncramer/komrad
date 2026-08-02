@@ -148,6 +148,46 @@ func TestActionOpensOnTheHoveredAgent(t *testing.T) {
 	assert.Contains(t, stagedDocument(t), "echo hello", "the file's own text is what the stage shows")
 }
 
+// TestActionItemsSkipUnderscoredNames covers the naming convention that keeps a file off the
+// list. Shell an action sources for a shared function is still a file the service offers, and
+// prefixing it is how the user says it is not something to run on its own.
+func TestActionItemsSkipUnderscoredNames(t *testing.T) {
+	tests := []struct {
+		name   string
+		listed []*actionv1.Action
+		want   []string
+	}{
+		{
+			name:   "an underscored action is left out",
+			listed: []*actionv1.Action{{Name: "_setup"}},
+			want:   []string{},
+		},
+		{
+			name:   "an underscore inside a name is not a prefix",
+			listed: []*actionv1.Action{{Name: "open_pr"}},
+			want:   []string{"open_pr"},
+		},
+		{
+			name:   "the rest of the directory is listed around one",
+			listed: []*actionv1.Action{{Name: "open-pr"}, {Name: "_setup"}, {Name: "close-pr"}},
+			want:   []string{"open-pr", "close-pr"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			items := actionItemsFrom(tt.listed)
+
+			got := make([]string, 0, len(items))
+			for _, item := range items {
+				got = append(got, item.name)
+			}
+
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 // TestActionOnAWorkflowHeaderDoesNothing pins that the key needs a row. Every other per-row key
 // behaves this way on a header, and there is no such thing as an action on a workflow.
 func TestActionOnAWorkflowHeaderDoesNothing(t *testing.T) {
@@ -348,7 +388,7 @@ func TestActionsViewNamesTheAgentAndDimsWhatCannotRun(t *testing.T) {
 	assert.Contains(t, view, "chmod +x to run", "the legend says what the run key wants")
 }
 
-// TestNoActionsSaysWhereToPutThem covers the empty case. The panel no longer resolves the
+// TestNoActionsSaysWhereToPutThem covers the empty case. The panel no longer finds the
 // directory, so the pane beside an empty list says what an action is and where the default lives.
 func TestNoActionsSaysWhereToPutThem(t *testing.T) {
 	assert.Contains(t, noActionsMarkdown, ".config/weave/actions")
@@ -385,7 +425,7 @@ func actionsModel(client actionv1connect.ActionServiceClient, keys appconfig.Key
 	return model{
 		api:    api{actions: client},
 		tmux:   tmux,
-		popup:  NewPopup(tmux, "test-session"),
+		popup:  NewPopupWindow(tmux, "test-session"),
 		stage:  stage,
 		keys:   keys,
 		screen: screenActions,
@@ -396,12 +436,13 @@ func actionsModel(client actionv1connect.ActionServiceClient, keys appconfig.Key
 	}
 }
 
-// listedActions is what the fake service answers with, one action that will run and one waiting
-// on a chmod.
+// listedActions is what the fake service answers with, one action that will run, one waiting
+// on a chmod, and one underscored, which the service offers and the list leaves out.
 func listedActions() []*actionv1.Action {
 	return []*actionv1.Action{
 		{Name: "open-pr", Executable: true, Preview: []byte("#!/bin/sh\necho hello\n")},
 		{Name: "unrunnable", Preview: []byte("#!/bin/sh\necho hello\n")},
+		{Name: "_internal", Executable: true, Preview: []byte("#!/bin/sh\necho hello\n")},
 	}
 }
 

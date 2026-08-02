@@ -95,21 +95,21 @@ func (m model) updateActions(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
 	switch {
-	case bound(k, m.keys.Actions.Quit):
+	case isBound(k, m.keys.Actions.Quit):
 		return m, m.hide()
-	case bound(k, m.keys.Actions.Back):
+	case isBound(k, m.keys.Actions.Back):
 		return m.returnToAgents()
-	case bound(k, m.keys.Nav.Up):
+	case isBound(k, m.keys.Nav.Up):
 		if m.actions.cursor > 0 {
 			m.actions.cursor--
 			m.stageAction()
 		}
-	case bound(k, m.keys.Nav.Down):
+	case isBound(k, m.keys.Nav.Down):
 		if m.actions.cursor < len(m.actions.items)-1 {
 			m.actions.cursor++
 			m.stageAction()
 		}
-	case bound(k, m.keys.Actions.Run):
+	case isBound(k, m.keys.Actions.Run):
 		return m.runSelectedAction()
 	}
 
@@ -152,7 +152,9 @@ const noActionsMarkdown = "# Actions\n\n_nothing here yet_\n\n" +
 	"An action is any executable file in your actions directory, which is " +
 	"`~/.config/weave/actions` unless your config names another.\n\n" +
 	"It runs on the agent you opened this list from, in that directory rather than the " +
-	"agent's, with the agent as JSON in `WEAVE_AGENT`. Where its output goes is up to it.\n"
+	"agent's, with the agent as JSON in `WEAVE_AGENT`. Where its output goes is up to it.\n\n" +
+	"A file whose name starts with `_` is left off this list and out of the workflow form, " +
+	"which is how shell your other actions source stays out of the way.\n"
 
 // stageAction shows the action under the cursor in the stage. The service sends the start
 // of each file with the listing, so hovering costs nothing.

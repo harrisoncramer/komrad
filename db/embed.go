@@ -6,7 +6,6 @@ package db
 import (
 	"context"
 	"embed"
-	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -16,7 +15,6 @@ import (
 
 	"weave/internal/logging"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -37,7 +35,7 @@ const migrateLock int64 = 7_240_115
 // lands and is marked or does neither. The whole pass is serialized on an
 // advisory lock, which makes a concurrent start wait rather than race.
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
-	files, err := migrationFiles()
+	files, err := openMigrationFiles()
 	if err != nil {
 		return err
 	}
@@ -49,7 +47,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 // real run and a written-out one under test, where how a pass behaves across
 // several files is what is being checked.
 func migrate(ctx context.Context, pool *pgxpool.Pool, files fs.FS) error {
-	versions, err := migrationVersions(files)
+	versions, err := listMigrationVersions(files)
 	if err != nil {
 		return err
 	}
@@ -65,9 +63,9 @@ func migrate(ctx context.Context, pool *pgxpool.Pool, files fs.FS) error {
 	return apply(ctx, pool, migrationSet{files: files, versions: versions})
 }
 
-// migrationFiles opens the embedded migrations rooted at the directory holding
+// openMigrationFiles opens the embedded migrations rooted at the directory holding
 // them, so a version is the bare file name both here and under test.
-func migrationFiles() (fs.FS, error) {
+func openMigrationFiles() (fs.FS, error) {
 	files, err := fs.Sub(migrationsFS, "migrations")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open the embedded migrations: %w", err)
@@ -83,8 +81,7 @@ func isPending(ctx context.Context, pool *pgxpool.Pool, versions []string) (bool
 	err := pool.QueryRow(ctx,
 		`SELECT COUNT(*) FROM schema_migrations WHERE version = ANY ($1)`, versions).Scan(&applied)
 
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == undefinedTable {
+	if IsUndefinedTable(err) {
 		return true, nil
 	}
 	if err != nil {
@@ -93,10 +90,6 @@ func isPending(ctx context.Context, pool *pgxpool.Pool, versions []string) (bool
 
 	return applied < len(versions), nil
 }
-
-// undefinedTable is the SQLSTATE Postgres raises for a query against a table
-// that does not exist, which on the first run is schema_migrations itself.
-const undefinedTable = "42P01"
 
 // migrationSet is the migrations to apply and where to read them from.
 type migrationSet struct {
@@ -172,10 +165,10 @@ func releaseMigrateLock(ctx context.Context, conn *pgxpool.Conn) {
 	}
 }
 
-// migrationVersions lists the embedded migration file names in the order they
+// listMigrationVersions lists the embedded migration file names in the order they
 // must run, which is filename order because Atlas prefixes each with the
 // timestamp it was authored at.
-func migrationVersions(files fs.FS) ([]string, error) {
+func listMigrationVersions(files fs.FS) ([]string, error) {
 	entries, err := fs.ReadDir(files, ".")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read migrations: %w", err)

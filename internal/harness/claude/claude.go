@@ -21,19 +21,19 @@ type Harness struct {
 	projectsDir string
 }
 
-// New builds a harness reading conversation logs from projectsDir, which is
-// Claude's own location when it is left empty.
-func New(projectsDir string) *Harness {
-	if projectsDir == "" {
-		projectsDir = DefaultProjectsDir()
-	}
+var _ harness.Harness = (*Harness)(nil)
 
-	return &Harness{projectsDir: projectsDir}
+type NewHarnessParams struct {
+	ProjectsDir string
 }
 
-// The panel reaches Claude Code only through the interface, so a method missing here
-// is a compile error rather than a nil call on one of serve's loops.
-var _ harness.Harness = (*Harness)(nil)
+// NewHarness builds a harness reading conversation logs from projectsDir, which is
+// Claude's own location when it is left empty.
+func NewHarness(params NewHarnessParams) *Harness {
+	return &Harness{
+		projectsDir: params.ProjectsDir,
+	}
+}
 
 // GetID is the name an agent running Claude Code is recorded under.
 func (h *Harness) GetID() string { return "claude" }
@@ -44,11 +44,11 @@ func (h *Harness) GetID() string { return "claude" }
 func (h *Harness) MintSessionID() string { return uuid.NewString() }
 
 // FindSession has nothing to find. Claude is told the id of every conversation it
-// starts, so a session is never discovered after the fact.
+// starts, so a session is never discovered after the fact. This is only relevant for Codex.
 func (h *Harness) FindSession(string) (string, error) { return "", nil }
 
-// DefaultProjectsDir is where Claude Code writes its JSONL logs. An unresolvable
-// home yields a relative path, which matches no logs rather than erroring.
+// DefaultProjectsDir is where Claude Code writes its JSONL logs. A home that
+// cannot be read yields a relative path, which matches no logs rather than erroring.
 func DefaultProjectsDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {

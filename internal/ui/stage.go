@@ -17,17 +17,17 @@ import (
 // panel's own two panes on every cursor move, so it talks to tmux directly rather than
 // through the agent API.
 type stageTmux interface {
-	PaneAlive(pane string) bool
-	PaneWidth(pane string) int
+	IsPaneAlive(pane string) bool
+	GetPaneWidth(pane string) int
 	SplitRight(anchorPane, dir string, percent int) string
 	ResizePane(pane string, percent int)
 	SwapPanes(src, dst string)
 	RespawnPane(pane, dir string, argv ...string)
 	ZoomPane(pane string, zoom bool)
-	SiblingPanes(pane string) []string
+	GetSiblingPanes(pane string) []string
 	BreakPane(pane string)
 	KillPane(pane string)
-	PaneOwner(pane string) string
+	GetPaneOwner(pane string) string
 }
 
 // shownBlank and shownOther are what the stage records for content it cannot compare
@@ -84,14 +84,14 @@ func (s *Stage) percent() int {
 // longer the share the panel asked for and rendering wider leaves the pager folding every
 // line into three rows. A pane tmux cannot measure leaves the renderer on its default.
 func (s *Stage) wrap() int {
-	return s.tmux.PaneWidth(s.pane)
+	return s.tmux.GetPaneWidth(s.pane)
 }
 
 // Init records the panel's own pane as the anchor and splits a stage pane to its right,
 // rooted at home. A live stage is left alone so a panel restart does not stack splits, but
 // resized either way, so an edited split takes effect on the next start.
 //
-// The pane is passed in rather than asked of tmux. tmux resolves a pane query against the
+// The pane is passed in rather than asked of tmux. tmux reads a pane query against the
 // attached client, which answers for whatever pane that client is looking at and fails
 // outright when the session is running detached, and everything below rearranges the
 // window around this pane.
@@ -108,6 +108,18 @@ func (s *Stage) Init(pane string) {
 // NavPane is the pane the panel itself runs in, empty until Init has found it.
 func (s *Stage) NavPane() string { return s.navPane }
 
+// SlotPane is whichever pane fills the stage's slot beside the panel, the staged agent's
+// own while one is swapped in and the stage's otherwise. Anything laying itself out against
+// what is on screen anchors here rather than on the stage's own pane, which is away in the
+// agent's window for as long as a swap is up.
+func (s *Stage) SlotPane() string {
+	if s.agentPane != "" {
+		return s.agentPane
+	}
+
+	return s.pane
+}
+
 // reclaim clears the panel's window of whatever the last panel left in it. Which panes
 // the stage owns is remembered in this process and nowhere else, so a panel that was
 // replaced or that died leaves panes its successor cannot recognise, and ensure would
@@ -122,8 +134,8 @@ func (s *Stage) reclaim() {
 		return
 	}
 
-	for _, pane := range s.tmux.SiblingPanes(s.navPane) {
-		if s.tmux.PaneOwner(pane) != "" {
+	for _, pane := range s.tmux.GetSiblingPanes(s.navPane) {
+		if s.tmux.GetPaneOwner(pane) != "" {
 			s.tmux.BreakPane(pane)
 
 			continue
@@ -140,7 +152,7 @@ func (s *Stage) ensure() {
 	if s.navPane == "" {
 		return
 	}
-	if s.pane != "" && s.tmux.PaneAlive(s.pane) {
+	if s.pane != "" && s.tmux.IsPaneAlive(s.pane) {
 		return
 	}
 

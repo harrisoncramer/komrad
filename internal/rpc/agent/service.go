@@ -28,46 +28,46 @@ import (
 // than writing the record itself.
 type agentLauncher interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
-	// AgentRunning answers whether an agent is still running, which is read at
-	// response time rather than stored so a client needs no tmux of its own.
-	AgentRunning(agent agentstore.Agent) bool
-	// AgentsRunning answers the same for a whole listing at once, since resolving it per
-	// agent costs a tmux subprocess each and the panel re-lists every second.
-	AgentsRunning(agents []agentstore.Agent) map[string]bool
+	IsAgentRunning(agent agentstore.Agent) bool
+	GetRunningAgents(ctx context.Context, agents []agentstore.Agent) map[string]bool
 	DeleteAgent(ctx context.Context, id string) error
 	ArchiveAgent(ctx context.Context, id string) error
 	RestoreAgent(ctx context.Context, id string) (*agentstore.Agent, error)
 	ResumeAgent(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
-type agentStore interface {
+type agentReadWriter interface {
 	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, archived bool) ([]agentstore.Agent, error)
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
-	SetMark(ctx context.Context, id string, mark *string) (bool, error)
+	SetMarks(ctx context.Context, ids []string, mark *string) (int, error)
 	SetHidden(ctx context.Context, id string, hidden bool) (bool, error)
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 	Rename(ctx context.Context, id, name string) (bool, error)
 }
 
-// transcriptStore is the part of the transcript store this handler reads. One RPC surface
+// transcriptReader is the part of the transcript store this handler reads. One RPC surface
 // covers both domains, but each store is held separately.
-type transcriptStore interface {
+type transcriptReader interface {
 	Get(ctx context.Context, agentID string) (transcriptstore.Transcript, error)
 	Search(ctx context.Context, params transcriptstore.SearchParams) ([]transcriptstore.SearchHit, error)
 }
 
 // Service implements agentv1connect.AgentServiceHandler.
 type Service struct {
-	agents      agentStore
-	transcripts transcriptStore
+	agents      agentReadWriter
+	transcripts transcriptReader
 	launcher    agentLauncher
 }
 
 // NewService constructs the handler from the stores it reads and the manager that launches
 // agents.
-func NewService(agents agentStore, transcripts transcriptStore, launcher agentLauncher) *Service {
-	return &Service{agents: agents, transcripts: transcripts, launcher: launcher}
+func NewService(agents agentReadWriter, transcripts transcriptReader, launcher agentLauncher) *Service {
+	return &Service{
+		agents:      agents,
+		transcripts: transcripts,
+		launcher:    launcher,
+	}
 }
 
 // CreateAgent launches a background agent and returns it as stored. A request reaching
@@ -85,22 +85,17 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 	switch {
 	case errors.Is(err, agents.ErrWorkflowNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, err)
-	// Ahead of the directory case, which this wraps when the directory the action named
-	// was the part that was wrong. Either way the workflow's setup needs editing, so the
-	// code should not depend on which half of the action refused.
 	case errors.Is(err, agents.ErrSetupFailed):
 		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
 	case errors.Is(err, agents.ErrBadDirectory), errors.Is(err, harness.ErrNotRegistered):
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	// Exhausted rather than a precondition, since nothing about the request is wrong and
-	// the same call works once there is room.
 	case errors.Is(err, agents.ErrTooManyAgents):
 		return nil, connect.NewError(connect.CodeResourceExhausted, err)
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create agent: %w", err))
 	}
 
-	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, s.launcher.AgentRunning(*created)).Agent}), nil
+	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, s.launcher.IsAgentRunning(*created)).Agent}), nil
 }
 
 // ListAgents returns one page of stored agents, newest first. The request picks which set
@@ -116,7 +111,7 @@ func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.L
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list agents: %w", err))
 	}
 
-	running := s.launcher.AgentsRunning(agents)
+	running := s.launcher.GetRunningAgents(ctx, agents)
 
 	resources := make([]agent, 0, len(agents))
 	for _, agent := range agents {
@@ -146,19 +141,23 @@ func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.Get
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
 	}
 
-	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, s.launcher.AgentRunning(*agent)).Agent}), nil
+	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, s.launcher.IsAgentRunning(*agent)).Agent}), nil
 }
 
-// SetMark marks an agent, and an unset mark clears it. An id matching nothing is an error
-// rather than a quiet success, which would leave the caller believing in a mark it never
-// made.
-func (s *Service) SetMark(ctx context.Context, req *connect.Request[agentv1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error) {
-	changed, err := s.agents.SetMark(ctx, req.Msg.GetId(), req.Msg.Mark)
+// SetMarks marks every agent named, and an unset mark clears the ones they carry. A
+// request that reached nothing at all is an error rather than a quiet success, which would
+// leave the caller believing in a mark it never made.
+//
+// One that reached some of its ids is not an error. A mark is drawn on a row and nothing
+// more, and an agent archived between the caller choosing it and the write landing has no
+// row left to draw one on.
+func (s *Service) SetMarks(ctx context.Context, req *connect.Request[agentv1.SetMarksRequest]) (*connect.Response[emptypb.Empty], error) {
+	marked, err := s.agents.SetMarks(ctx, req.Msg.GetIds(), req.Msg.Mark)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set the mark: %w", err))
 	}
-	if !changed {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
+	if marked == 0 {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("none of the %d ids given is a live agent", len(req.Msg.GetIds())))
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -242,7 +241,7 @@ func (s *Service) RestoreAgent(ctx context.Context, req *connect.Request[agentv1
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to restore agent: %w", err))
 	}
 
-	return connect.NewResponse(&agentv1.RestoreAgentResponse{Agent: renderAgent(*restored, s.launcher.AgentRunning(*restored)).Agent}), nil
+	return connect.NewResponse(&agentv1.RestoreAgentResponse{Agent: renderAgent(*restored, s.launcher.IsAgentRunning(*restored)).Agent}), nil
 }
 
 // ResumeAgent relaunches an agent's CLI on its conversation and returns it as stored.
@@ -257,7 +256,7 @@ func (s *Service) ResumeAgent(ctx context.Context, req *connect.Request[agentv1.
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to resume agent: %w", err))
 	}
 
-	return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: renderAgent(*resumed, s.launcher.AgentRunning(*resumed)).Agent}), nil
+	return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: renderAgent(*resumed, s.launcher.IsAgentRunning(*resumed)).Agent}), nil
 }
 
 // UpdateAgent renames the agent with the given id. A name a live agent already holds is a

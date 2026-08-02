@@ -26,7 +26,7 @@ extend buf.validate.StringRules {
     expression: "!rule || !this.matches('[;&|<>`$\\\\\\n]')"
   }];
 
-  // A path that resolves the same wherever it is read from.
+  // A path that means the same wherever it is read from.
   bool absolute_path = 50101 [(buf.validate.predefined).cel = {
     id: "string.absolute_path"
     message: "must be an absolute path or start with ~"

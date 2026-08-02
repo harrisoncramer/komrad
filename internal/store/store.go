@@ -17,10 +17,13 @@ import (
 	"weave/db/models"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// ErrNameTaken reports that a write collided with a name already held. Every
+// unique name in this schema is scoped to live rows, so this only ever means a
+// record currently listed answers to that name, never one sitting in the archive.
+var ErrNameTaken = errors.New("name already taken")
 
 // DBTX is what a domain store runs its queries against, either the pool or a
 // transaction, which is what lets one be rebound onto the other.
@@ -114,16 +117,16 @@ func refuseSuperuser(ctx context.Context, pool *pgxpool.Pool) error {
 			"WEAVE_READONLY_DATABASE_URL at the role it creates")
 }
 
-// DB returns the handle to build a domain store over for ordinary use, outside
+// GetDB returns the handle to build a domain store over for ordinary use, outside
 // any transaction.
-func (p *Pool) DB() DBTX {
+func (p *Pool) GetDB() DBTX {
 	return p.pool
 }
 
-// Raw returns the underlying pgx pool. It exists for River, whose driver takes the
+// GetRawPool returns the underlying pgx pool. It exists for River, whose driver takes the
 // concrete pool rather than an interface. Nothing else should reach for it, since a
 // domain store takes DBTX so a transaction can be swapped in underneath it.
-func (p *Pool) Raw() *pgxpool.Pool {
+func (p *Pool) GetRawPool() *pgxpool.Pool {
 	return p.pool
 }
 
@@ -174,27 +177,4 @@ func NewID() (string, error) {
 	}
 
 	return id.String(), nil
-}
-
-// NoRows reports whether an error is Postgres finding nothing, which every
-// domain store turns into its own empty answer rather than an error.
-func NoRows(err error) bool {
-	return errors.Is(err, pgx.ErrNoRows)
-}
-
-// ErrNameTaken reports that a write collided with a name already held. Every
-// unique name in this schema is scoped to live rows, so this only ever means a
-// record currently listed answers to that name, never one sitting in the archive.
-var ErrNameTaken = errors.New("name already taken")
-
-// uniqueViolation is the SQLSTATE Postgres raises for a broken unique constraint.
-const uniqueViolation = "23505"
-
-// NameTaken reports whether an error is a unique index refusing a write. It reads the
-// driver's code rather than its message text, so the check does not depend on wording that
-// can change under it.
-func NameTaken(err error) bool {
-	var pgErr *pgconn.PgError
-
-	return errors.As(err, &pgErr) && pgErr.Code == uniqueViolation
 }

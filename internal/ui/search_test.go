@@ -357,7 +357,7 @@ func TestOpenSearchHit(t *testing.T) {
 			m := model{
 				api:    api{agents: client, workflows: emptyLists{}, schedules: emptyLists{}},
 				tmux:   tmux,
-				popup:  NewPopup(tmux, "test-session"),
+				popup:  NewPopupWindow(tmux, "test-session"),
 				stage:  NewStage(tmux, appconfig.DefaultSplit),
 				keys:   appconfig.DefaultKeybindings(),
 				screen: screenSearch,

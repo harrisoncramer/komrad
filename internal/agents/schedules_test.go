@@ -103,7 +103,7 @@ func TestNextRun(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NextRun(tt.schedule, from)
+			got := CalculateNextRun(tt.schedule, from)
 
 			if tt.want.IsZero() {
 				assert.True(t, got.IsZero())

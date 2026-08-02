@@ -10,7 +10,7 @@ import (
 // Relocate moves a conversation's log into the projects folder that belongs to
 // dir, so a claude started there resumes it rather than opening an empty session.
 // Claude keeps a conversation under a folder named after the directory it ran in
-// and resolves --resume against that folder alone, so a session is otherwise only
+// and matches --resume against that folder alone, so a session is otherwise only
 // reachable from the path the agent was created in.
 //
 // It moves rather than copies because a log is found by globbing for the session

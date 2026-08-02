@@ -62,7 +62,7 @@ func TestToolHints(t *testing.T) {
 		{method: "SearchTranscripts", readOnly: true, idempotent: true},
 		{method: "GetTranscript", readOnly: true, idempotent: true},
 		{method: "CreateAgent", readOnly: false, idempotent: false, wantDestructive: xptr.Ptr(false)},
-		{method: "SetMark", readOnly: false, idempotent: true, wantDestructive: xptr.Ptr(false)},
+		{method: "SetMarks", readOnly: false, idempotent: true, wantDestructive: xptr.Ptr(false)},
 		{method: "UpdateAgent", readOnly: false, idempotent: true, wantDestructive: xptr.Ptr(false)},
 		{method: "DeleteAgent", readOnly: false, idempotent: true, wantDestructive: xptr.Ptr(true)},
 	}

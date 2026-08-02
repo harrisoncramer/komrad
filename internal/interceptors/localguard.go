@@ -43,30 +43,30 @@ const originHeader = "Origin"
 
 // refusal is why a request should be refused, or empty for one that should be served.
 func refusal(r *http.Request) string {
-	if servedOnLoopback(r) && !loopbackHost(r.Host) {
+	if isServedOnLoopback(r) && !isLoopbackHost(r.Host) {
 		return "the Host header is not a loopback address"
 	}
 
-	if origin := r.Header.Get(originHeader); origin != "" && !loopbackOrigin(origin) {
+	if origin := r.Header.Get(originHeader); origin != "" && !isLoopbackOrigin(origin) {
 		return "the Origin header is not a loopback address"
 	}
 
 	return ""
 }
 
-// servedOnLoopback reports whether the connection the request arrived on was addressed to
+// isServedOnLoopback reports whether the connection the request arrived on was addressed to
 // this machine.
-func servedOnLoopback(r *http.Request) bool {
+func isServedOnLoopback(r *http.Request) bool {
 	local, ok := r.Context().Value(http.LocalAddrContextKey).(net.Addr)
 	if !ok || local == nil {
 		return true
 	}
 
-	return loopbackHost(local.String())
+	return isLoopbackHost(local.String())
 }
 
-// loopbackHost reports whether a host, with or without a port, names this machine.
-func loopbackHost(host string) bool {
+// isLoopbackHost reports whether a host, with or without a port, names this machine.
+func isLoopbackHost(host string) bool {
 	if hostname, _, err := net.SplitHostPort(host); err == nil {
 		host = hostname
 	}
@@ -82,12 +82,12 @@ func loopbackHost(host string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
-// loopbackOrigin reports whether an Origin header names this machine.
-func loopbackOrigin(origin string) bool {
+// isLoopbackOrigin reports whether an Origin header names this machine.
+func isLoopbackOrigin(origin string) bool {
 	parsed, err := url.Parse(origin)
 	if err != nil || parsed.Host == "" {
 		return false
 	}
 
-	return loopbackHost(parsed.Host)
+	return isLoopbackHost(parsed.Host)
 }

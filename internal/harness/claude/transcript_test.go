@@ -148,7 +148,7 @@ func TestReadLog(t *testing.T) {
 				require.NoError(t, os.WriteFile(path, []byte(tt.body), 0o600))
 			}
 
-			read, err := New(t.TempDir()).ReadLog(path, tt.offset)
+			read, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).ReadLog(path, tt.offset)
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantTurns, read.Turns)
@@ -159,7 +159,7 @@ func TestReadLog(t *testing.T) {
 }
 
 // TestGetLogPath covers finding a conversation by its session id. The id is globbed
-// for rather than resolved through Claude's directory-name encoding, so a log lands
+// for rather than derived from Claude's directory-name encoding, so a log lands
 // whichever folder it was written in.
 func TestGetLogPath(t *testing.T) {
 	projects := t.TempDir()
@@ -167,7 +167,7 @@ func TestGetLogPath(t *testing.T) {
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "sess-1.jsonl"), []byte("{}\n"), 0o600))
 
-	h := New(projects)
+	h := NewHarness(NewHarnessParams{ProjectsDir: projects})
 	assert.Equal(t, filepath.Join(dir, "sess-1.jsonl"), h.GetLogPath("sess-1"))
 	assert.Empty(t, h.GetLogPath("sess-2"), "a session with no log on disk has no path")
 	assert.Empty(t, h.GetLogPath(""), "and neither does an agent with no session")

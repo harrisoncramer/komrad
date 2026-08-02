@@ -616,31 +616,35 @@ func (x *GetAgentResponse) GetAgent() *Agent {
 	return nil
 }
 
-// SetMarkRequest marks an agent, and an unset mark clears it. It is keyed by id
-// rather than name because the mark outlives a rename, and the panel already holds
-// the id of the row it is looking at.
-type SetMarkRequest struct {
+// SetMarksRequest puts one mark on every agent named, and an unset mark clears the
+// ones they carry. It is keyed by id rather than name because a mark outlives a
+// rename, and the panel already holds the ids of the rows it is looking at.
+//
+// One mark for the whole request rather than one per agent. The panel's mark key
+// steps a selection through the configured marks together, and a request carrying a
+// glyph per id would be a way to write marks nothing on screen can produce.
+type SetMarksRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
 	Mark          *string                `protobuf:"bytes,2,opt,name=mark,proto3,oneof" json:"mark,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SetMarkRequest) Reset() {
-	*x = SetMarkRequest{}
+func (x *SetMarksRequest) Reset() {
+	*x = SetMarksRequest{}
 	mi := &file_agent_v1_agent_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SetMarkRequest) String() string {
+func (x *SetMarksRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SetMarkRequest) ProtoMessage() {}
+func (*SetMarksRequest) ProtoMessage() {}
 
-func (x *SetMarkRequest) ProtoReflect() protoreflect.Message {
+func (x *SetMarksRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_agent_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -652,19 +656,19 @@ func (x *SetMarkRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SetMarkRequest.ProtoReflect.Descriptor instead.
-func (*SetMarkRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use SetMarksRequest.ProtoReflect.Descriptor instead.
+func (*SetMarksRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *SetMarkRequest) GetId() string {
+func (x *SetMarksRequest) GetIds() []string {
 	if x != nil {
-		return x.Id
+		return x.Ids
 	}
-	return ""
+	return nil
 }
 
-func (x *SetMarkRequest) GetMark() string {
+func (x *SetMarksRequest) GetMark() string {
 	if x != nil && x.Mark != nil {
 		return *x.Mark
 	}
@@ -1485,9 +1489,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x0fGetAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"9\n" +
 	"\x10GetAgentResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\xed\x01\n" +
-	"\x0eSetMarkRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xb8\x01\n" +
+	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\xfb\x01\n" +
+	"\x0fSetMarksRequest\x12$\n" +
+	"\x03ids\x18\x01 \x03(\tB\x12\xbaH\x0f\x92\x01\f\b\x01\x10d\x18\x01\"\x04r\x02\x10\x01R\x03ids\x12\xb8\x01\n" +
 	"\x04mark\x18\x02 \x01(\tB\x9e\x01\xbaH\x9a\x01\xba\x01\x96\x01\n" +
 	"\n" +
 	"mark.glyph\x12Ia mark must be a short glyph carrying no whitespace or control characters\x1a=this.size() <= 16 && !this.matches('[[:space:]]|[[:cntrl:]]')H\x00R\x04mark\x88\x01\x01B\a\n" +
@@ -1543,17 +1547,17 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14GetTranscriptRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"1\n" +
 	"\x15GetTranscriptResponse\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontent2\xd74\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent2\xba6\n" +
 	"\fAgentService\x12\xe4\x03\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x9a\x03\x9a\xb5\x18\x92\x03\n" +
 	"\vlist_agents\x12\x82\x03List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow. Archived agents are excluded unless archived is set, which lists those and only those. Returns one page, most recently updated first; pass the response's nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs.\x90\x02\x01\x12\xaf\x02\n" +
 	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"\xeb\x01\x9a\xb5\x18\xe3\x01\n" +
-	"\tget_agent\x12\xd5\x01Fetch one agent by id, including whatever metadata it has recorded about its own work. Spans the archived agents too, since an id is the one handle those still answer to. Returns not_found if no agent has that id.\x90\x02\x01\x12\xe0\x04\n" +
-	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\x93\x04\x9a\xb5\x18\x8e\x04\n" +
-	"\fcreate_agent\x12\xfb\x03Launch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would resolve somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again. \x00\x12\x84\x04\n" +
-	"\aSetMark\x12\x18.agent.v1.SetMarkRequest\x1a\x16.google.protobuf.Empty\"\xc6\x03\x9a\xb5\x18\xbe\x03\n" +
-	"\x0eset_agent_mark\x12\xa9\x03Put a mark on an agent, keyed by its id, or clear the one it carries by omitting the mark. A mark is a glyph the user reads off the row, meaning whatever they decided it means, such as needs review or dealt with. Use only the glyphs get_config returns under marks, since the panel's mark key cycles through those and can only clear anything else. What an agent is currently doing is already in its state, so do not mark that. \x00\x90\x02\x02\x12\xd0\x03\n" +
+	"\tget_agent\x12\xd5\x01Fetch one agent by id, including whatever metadata it has recorded about its own work. Spans the archived agents too, since an id is the one handle those still answer to. Returns not_found if no agent has that id.\x90\x02\x01\x12\xde\x04\n" +
+	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\x91\x04\x9a\xb5\x18\x8c\x04\n" +
+	"\fcreate_agent\x12\xf9\x03Launch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would point somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again. \x00\x12\xe9\x05\n" +
+	"\bSetMarks\x12\x19.agent.v1.SetMarksRequest\x1a\x16.google.protobuf.Empty\"\xa9\x05\x9a\xb5\x18\xa1\x05\n" +
+	"\x0fset_agent_marks\x12\x8b\x05Put one mark on a list of agents, keyed by their ids, or clear the ones they carry by omitting the mark. Every id given takes the same glyph, so marking agents differently is a call each. A mark is a glyph the user reads off the row, meaning whatever they decided it means, such as needs review or dealt with. Use only the glyphs get_config returns under marks, since the panel's mark key cycles through those and can only clear anything else. Archived agents have no row to draw a mark on and are skipped, and returns not_found only when no id given reached a live agent. What an agent is currently doing is already in its state, so do not mark that. \x00\x90\x02\x02\x12\xd0\x03\n" +
 	"\tSetHidden\x12\x1a.agent.v1.SetHiddenRequest\x1a\x16.google.protobuf.Empty\"\x8e\x03\x9a\xb5\x18\x86\x03\n" +
 	"\x10set_agent_hidden\x12\xef\x02Hide an agent from the panel's list, keyed by its id, or unhide it by passing hidden false. This changes nothing about the agent: it keeps running, the reconciler keeps moving its state, and every tool still returns it. It only decides whether the person watching the panel sees a row for it, which is theirs to decide, so do not hide work you were not asked to hide. \x00\x90\x02\x02\x12\xd2\x06\n" +
 	"\vSetMetadata\x12\x1c.agent.v1.SetMetadataRequest\x1a\x16.google.protobuf.Empty\"\x8c\x06\x9a\xb5\x18\x84\x06\n" +
@@ -1595,7 +1599,7 @@ var file_agent_v1_agent_proto_goTypes = []any{
 	(*CreateAgentResponse)(nil),       // 5: agent.v1.CreateAgentResponse
 	(*GetAgentRequest)(nil),           // 6: agent.v1.GetAgentRequest
 	(*GetAgentResponse)(nil),          // 7: agent.v1.GetAgentResponse
-	(*SetMarkRequest)(nil),            // 8: agent.v1.SetMarkRequest
+	(*SetMarksRequest)(nil),           // 8: agent.v1.SetMarksRequest
 	(*SetHiddenRequest)(nil),          // 9: agent.v1.SetHiddenRequest
 	(*SetMetadataRequest)(nil),        // 10: agent.v1.SetMetadataRequest
 	(*ArchiveAgentRequest)(nil),       // 11: agent.v1.ArchiveAgentRequest
@@ -1626,7 +1630,7 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	2,  // 9: agent.v1.AgentService.ListAgents:input_type -> agent.v1.ListAgentsRequest
 	6,  // 10: agent.v1.AgentService.GetAgent:input_type -> agent.v1.GetAgentRequest
 	4,  // 11: agent.v1.AgentService.CreateAgent:input_type -> agent.v1.CreateAgentRequest
-	8,  // 12: agent.v1.AgentService.SetMark:input_type -> agent.v1.SetMarkRequest
+	8,  // 12: agent.v1.AgentService.SetMarks:input_type -> agent.v1.SetMarksRequest
 	9,  // 13: agent.v1.AgentService.SetHidden:input_type -> agent.v1.SetHiddenRequest
 	10, // 14: agent.v1.AgentService.SetMetadata:input_type -> agent.v1.SetMetadataRequest
 	11, // 15: agent.v1.AgentService.ArchiveAgent:input_type -> agent.v1.ArchiveAgentRequest
@@ -1639,7 +1643,7 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	3,  // 22: agent.v1.AgentService.ListAgents:output_type -> agent.v1.ListAgentsResponse
 	7,  // 23: agent.v1.AgentService.GetAgent:output_type -> agent.v1.GetAgentResponse
 	5,  // 24: agent.v1.AgentService.CreateAgent:output_type -> agent.v1.CreateAgentResponse
-	24, // 25: agent.v1.AgentService.SetMark:output_type -> google.protobuf.Empty
+	24, // 25: agent.v1.AgentService.SetMarks:output_type -> google.protobuf.Empty
 	24, // 26: agent.v1.AgentService.SetHidden:output_type -> google.protobuf.Empty
 	24, // 27: agent.v1.AgentService.SetMetadata:output_type -> google.protobuf.Empty
 	24, // 28: agent.v1.AgentService.ArchiveAgent:output_type -> google.protobuf.Empty

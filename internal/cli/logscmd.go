@@ -34,7 +34,7 @@ func logsCmd(state *app) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			colored, err := colorize(color, cmd.OutOrStdout())
+			colored, err := shouldColorize(color, cmd.OutOrStdout())
 			if err != nil {
 				return err
 			}
@@ -69,7 +69,6 @@ func writeLog(out io.Writer, in io.Reader, short, color bool) error {
 	scanner.Buffer(make([]byte, 0, 64*1024), maxRecordBytes)
 
 	writer := bufio.NewWriter(out)
-	defer func() { _ = writer.Flush() }()
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -86,6 +85,12 @@ func writeLog(out io.Writer, in io.Reader, short, color bool) error {
 		return fmt.Errorf("failed to read the service log: %w", err)
 	}
 
+	// Checked rather than deferred, since what is still buffered here is output the caller
+	// asked for, and dropping this would end a truncated read on a zero exit code.
+	if err := writer.Flush(); err != nil {
+		return fmt.Errorf("failed to write the service log: %w", err)
+	}
+
 	return nil
 }
 
@@ -93,11 +98,11 @@ func writeLog(out io.Writer, in io.Reader, short, color bool) error {
 // long case, and a line past this is not one this can usefully render anyway.
 const maxRecordBytes = 1024 * 1024
 
-// colorize decides whether to write escapes. Auto asks whether anything reading this can
+// shouldColorize decides whether to write escapes. Auto asks whether anything reading this can
 // show them, which a pipe cannot, so a log piped into grep is plain and the same command
 // in a terminal is not. A pager reading colour wants it asked for outright, since to this
 // process a pager is a pipe like any other.
-func colorize(mode string, out io.Writer) (bool, error) {
+func shouldColorize(mode string, out io.Writer) (bool, error) {
 	switch mode {
 	case "always":
 		return true, nil

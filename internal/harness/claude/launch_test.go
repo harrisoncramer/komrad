@@ -58,7 +58,7 @@ func TestBuildCommand(t *testing.T) {
 			launch := tt.launch
 			launch.CacheDir = t.TempDir()
 
-			command, err := New(t.TempDir()).BuildCommand(launch)
+			command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(launch)
 			require.NoError(t, err)
 
 			assert.True(t, strings.HasPrefix(stripMCPConfig(command), tt.wantCommand),
@@ -92,7 +92,7 @@ func TestBuildCommandQuotesFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := New(t.TempDir()).BuildCommand(harness.Launch{Flags: tt.flags, SessionID: "sess", CacheDir: t.TempDir()})
+			command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{Flags: tt.flags, SessionID: "sess", CacheDir: t.TempDir()})
 			require.NoError(t, err)
 
 			assert.NotContains(t, command, tt.wantAbsent, "an unquoted flag would run in the pane")
@@ -113,7 +113,7 @@ func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 	}{
 		{
 			name:       "a resume appends no system prompt, since it would not persist",
-			launch:     harness.Launch{SessionID: "sess", Context: "the briefing", Resume: true},
+			launch:     harness.Launch{SessionID: "sess", Context: "the buildBriefing", Resume: true},
 			wantAbsent: []string{"--append-system-prompt"},
 		},
 		{
@@ -123,7 +123,7 @@ func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 		},
 		{
 			name:        "the context the panel handed over is what gets appended",
-			launch:      harness.Launch{SessionID: "sess", Context: "the briefing"},
+			launch:      harness.Launch{SessionID: "sess", Context: "the buildBriefing"},
 			wantContain: []string{"--append-system-prompt"},
 		},
 	}
@@ -133,7 +133,7 @@ func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 			launch := tt.launch
 			launch.CacheDir = t.TempDir()
 
-			command, err := New(t.TempDir()).BuildCommand(launch)
+			command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(launch)
 			require.NoError(t, err)
 
 			for _, want := range tt.wantContain {
@@ -158,9 +158,9 @@ func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 func TestBuildCommandStagesTextUnderTheCacheDir(t *testing.T) {
 	cache := t.TempDir()
 
-	_, err := New(t.TempDir()).BuildCommand(harness.Launch{
+	_, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{
 		SessionID: "sess",
-		Context:   "the briefing",
+		Context:   "the buildBriefing",
 		Prompt:    "do the thing",
 		CacheDir:  cache,
 	})
@@ -180,7 +180,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 		resume bool
 	}{
 		{
-			name:   "on a resume, since the briefing describing it does not persist",
+			name:   "on a resume, since the buildBriefing describing it does not persist",
 			resume: true,
 		},
 		{
@@ -193,7 +193,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 			home := t.TempDir()
 			t.Setenv("HOME", home)
 
-			command, err := New(t.TempDir()).BuildCommand(harness.Launch{
+			command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{
 				CacheDir:    t.TempDir(),
 				SessionID:   "sess",
 				MCPEndpoint: "127.0.0.1:9999",
@@ -267,7 +267,7 @@ func TestMCPConfigCarriesTheAgentsIdentity(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	command, err := New(t.TempDir()).BuildCommand(harness.Launch{
+	command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{
 		CacheDir:    t.TempDir(),
 		AgentID:     "agent-1",
 		SessionID:   "sess-1",

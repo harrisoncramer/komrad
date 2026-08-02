@@ -19,7 +19,7 @@ import (
 
 // TestNewAgent covers a launch end to end. A refused launch has to record
 // nothing. A row pointing at a pane that does not exist reads as a live agent
-// forever, and tmux resolves an empty pane target to whatever the user is
+// forever, and tmux reads an empty pane target as whatever the user is
 // looking at.
 func TestNewAgent(t *testing.T) {
 	tests := []struct {
@@ -156,7 +156,7 @@ func TestNewAgent(t *testing.T) {
 			assert.NotEmpty(t, stored.SessionID, "a conversation id is pinned at launch")
 			assert.NotEmpty(t, tmux.lastKeys("%My-Agent"), "the agent is launched into the new pane")
 			assert.Equal(t, stored.ID, tmux.owners["%My-Agent"], "the pane is stamped with the agent it is running")
-			assert.True(t, manager.AgentRunning(*stored), "and the agent reads as running in it")
+			assert.True(t, manager.IsAgentRunning(*stored), "and the agent reads as running in it")
 		})
 	}
 }
@@ -229,10 +229,10 @@ func TestNewAgentIdempotency(t *testing.T) {
 	}
 }
 
-// TestNewAgentResolvesDirectory covers where an agent starts. tmux does no tilde
+// TestNewAgentGetsDirectory covers where an agent starts. tmux does no tilde
 // expansion, so a ~ path has to be absolute before the window is opened or the
 // stored cwd would not be where the agent is running.
-func TestNewAgentResolvesDirectory(t *testing.T) {
+func TestNewAgentGetsDirectory(t *testing.T) {
 	tests := []struct {
 		name string
 		dir  string
@@ -739,7 +739,7 @@ func TestDeleteAgentRunsCleanupFromAnArchivedWorkflow(t *testing.T) {
 // all, which is what a renamed script leaves behind.
 func TestRunCleanupLogsOneThatWouldNotStart(t *testing.T) {
 	lifecycle := &fakeLifecycle{cleanupErr: ErrActionNotFound}
-	manager := NewAgentService(AgentParams{Lifecycle: lifecycle})
+	manager := NewAgentService(NewAgentServiceParams{Lifecycle: lifecycle})
 	ctx, records := loggedContext(t)
 
 	manager.runCleanup(ctx, agentstore.Agent{ID: "a1", Cwd: "/repo/.worktrees/auth"}, "was-renamed")
@@ -753,13 +753,13 @@ func TestRunCleanupLogsOneThatWouldNotStart(t *testing.T) {
 // TestCleanupActionLogsAWorkflowThatWouldNotRead covers the read that breaks rather than
 // answering, which skips a teardown as quietly as a workflow naming none.
 func TestCleanupActionLogsAWorkflowThatWouldNotRead(t *testing.T) {
-	manager := NewAgentService(AgentParams{Workflows: brokenWorkflowReader{err: errors.New("connection refused")}})
+	manager := NewAgentService(NewAgentServiceParams{Workflows: brokenWorkflowReader{err: errors.New("connection refused")}})
 	ctx, records := loggedContext(t)
 
 	agent := agentstore.Agent{ID: "a1", Cwd: "/repo/.worktrees/auth", WorkflowID: "wf1"}
-	assert.Empty(t, manager.cleanupAction(ctx, agent))
+	assert.Empty(t, manager.getCleanupAction(ctx, agent))
 
-	got := recordFor(t, records(), "the cleanup action could not be read")
+	got := recordFor(t, records(), "the workflow behind an agent could not be read")
 	assert.Equal(t, "ERROR", got["severity_text"])
 	assert.Equal(t, "wf1", got["weave.workflow.id"])
 	assert.Equal(t, "a1", got["weave.action.agent.id"])
@@ -770,10 +770,10 @@ func TestCleanupActionLogsAWorkflowThatWouldNotRead(t *testing.T) {
 // workflow with no cleanup is not a fault and a line about one would be noise on every
 // delete.
 func TestCleanupActionSaysNothingAboutAWorkflowNamingNone(t *testing.T) {
-	manager := NewAgentService(AgentParams{Workflows: fakeWorkflowReader{}})
+	manager := NewAgentService(NewAgentServiceParams{Workflows: fakeWorkflowReader{}})
 	ctx, records := loggedContext(t)
 
-	assert.Empty(t, manager.cleanupAction(ctx, agentstore.Agent{ID: "a1", WorkflowID: "wf1"}))
+	assert.Empty(t, manager.getCleanupAction(ctx, agentstore.Agent{ID: "a1", WorkflowID: "wf1"}))
 	assert.Empty(t, records())
 }
 
@@ -891,7 +891,7 @@ func TestNameTaken(t *testing.T) {
 				scope = other
 			}
 
-			assert.Equal(t, tt.want, manager.nameTaken(t.Context(), scope, tt.check))
+			assert.Equal(t, tt.want, manager.isNameTaken(t.Context(), scope, tt.check))
 		})
 	}
 }
@@ -1047,7 +1047,7 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 
 	t.Run("the dormant agent does not read as running", func(t *testing.T) {
 		manager, _, _, dormant := setup(t)
-		assert.False(t, manager.AgentRunning(dormant))
+		assert.False(t, manager.IsAgentRunning(dormant))
 	})
 
 	t.Run("archiving it leaves the pane running", func(t *testing.T) {
@@ -1155,12 +1155,12 @@ func TestRestore(t *testing.T) {
 			assert.Equal(t, agentstore.StateIdle, restored.State)
 			assert.Equal(t, "sess-old", restored.SessionID, "the conversation is preserved")
 			assert.Empty(t, tmux.owners, "a restore starts nothing, so no pane was opened")
-			assert.False(t, manager.AgentRunning(restored), "it comes back dormant, waiting to be resumed")
+			assert.False(t, manager.IsAgentRunning(restored), "it comes back dormant, waiting to be resumed")
 
 			resumed, err := manager.ResumeAgent(ctx, original.ID)
 			require.NoError(t, err)
 			assert.Equal(t, original.ID, tmux.owners[resumed.Pane], "resuming stamps the pane it came back in")
-			assert.True(t, manager.AgentRunning(*resumed), "so it reads as running again")
+			assert.True(t, manager.IsAgentRunning(*resumed), "so it reads as running again")
 		})
 	}
 }
@@ -1193,6 +1193,108 @@ func TestRestoreCeiling(t *testing.T) {
 
 // TestResumeRefusesArchived covers resuming an agent that is still in the archive. The
 // pane would sit behind a row nothing lists, so it is refused and names the way out.
+// TestResumeRunsTheSetupAction covers the workflow's setup action firing again on the way
+// back up. Archive leaves whatever setup built alone and a restore only takes the row out of
+// the archive, so resume is the moment a workspace has to exist again, and a script that
+// makes one is reached with the agent's recorded directory to work from.
+func TestResumeRunsTheSetupAction(t *testing.T) {
+	tests := []struct {
+		name string
+		// named is the directory the action prints, empty for one that prints none.
+		named      string
+		resumeErr  error
+		wantWindow bool
+		wantErr    string
+	}{
+		{
+			name:      "an action that refuses keeps the agent dormant",
+			resumeErr: errors.New("fatal: 'auth' is already checked out"),
+			wantErr:   "already checked out",
+		},
+		{
+			name:    "an action naming somewhere that is not a directory is refused",
+			named:   "/definitely/not/here",
+			wantErr: "a setup action named",
+		},
+		{
+			name:       "an action naming nowhere leaves the recorded directory alone",
+			wantWindow: true,
+		},
+		{
+			name:       "an action naming a directory brings the agent back up in it",
+			named:      "named",
+			wantWindow: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			tmux := newFakeTmux()
+			ctx := t.Context()
+
+			recorded := t.TempDir()
+			named := tt.named
+			if named == "named" {
+				named = t.TempDir()
+			}
+
+			lifecycle := &fakeLifecycle{resumeDir: named, resumeErr: tt.resumeErr}
+			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+			created, err := st.Workflows.Create(ctx, workflow.Config{
+				Name:        "resume-" + tt.name,
+				SetupAction: "make-worktree",
+			})
+			require.NoError(t, err)
+
+			agent := seedInWorkflow(t, st, created.ID, "auth", "%0", agentstore.StateIdle)
+			agent.Cwd = recorded
+			require.NoError(t, st.Agents.Update(ctx, agent))
+
+			resumed, err := manager.ResumeAgent(ctx, agent.ID)
+
+			assert.Equal(t, []string{"make-worktree"}, lifecycle.resumed, "the workflow's own action is what fired")
+
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.ErrorContains(t, err, tt.wantErr)
+				assert.Empty(t, tmux.newWindows, "a refused action opens no window")
+				assert.Equal(t, recorded, agentByID(t, st, agent.ID).Cwd, "and moves nobody")
+
+				return
+			}
+
+			require.NoError(t, err)
+			require.True(t, tt.wantWindow)
+
+			want := recorded
+			if named != "" {
+				want = named
+			}
+
+			assert.Equal(t, want, resumed.Cwd)
+			assert.Equal(t, want, tmux.newWindows["auth"], "the window opens where the action said")
+		})
+	}
+}
+
+// TestResumeWithoutASetupActionFiresNothing covers the ordinary workflow, which names no
+// setup action and comes back up the way it always has.
+func TestResumeWithoutASetupActionFiresNothing(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	lifecycle := &fakeLifecycle{}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+	agent := seed(t, st, "auth", "%0", agentstore.StateIdle)
+
+	_, err := manager.ResumeAgent(t.Context(), agent.ID)
+
+	require.NoError(t, err)
+	assert.Empty(t, lifecycle.resumed)
+}
+
 func TestResumeRefusesArchived(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)

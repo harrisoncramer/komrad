@@ -2,6 +2,7 @@ package ui
 
 import (
 	"slices"
+	"strings"
 	"time"
 
 	actionv1 "weave/proto/gen/action/v1"
@@ -19,7 +20,7 @@ import (
 // is what keeps the wire format out of them.
 
 func protoToAgent(s *agentv1.Agent) agentstore.Agent {
-	created, _ := time.Parse(time.RFC3339, s.GetCreatedAt())
+	created, _ := time.Parse(time.RFC3339, s.GetCreatedAt()) //nolint:errcheck // a timestamp that will not parse renders as the zero time
 
 	var archived *time.Time
 	if parsed, err := time.Parse(time.RFC3339, s.GetArchivedAt()); err == nil {
@@ -51,10 +52,22 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 	}
 }
 
-// actionItemsFrom renders listed actions into the items the screen is written against.
+// isInternalAction says a file in the actions directory is shell the user keeps for other
+// actions to reuse rather than an action itself. An underscore in front of the name is how
+// they say so, and nothing the panel offers to pick carries one.
+func isInternalAction(name string) bool {
+	return strings.HasPrefix(name, "_")
+}
+
+// actionItemsFrom renders listed actions into the items the screen is written against,
+// leaving out the ones written to be sourced rather than run.
 func actionItemsFrom(listed []*actionv1.Action) []actionItem {
 	items := make([]actionItem, 0, len(listed))
 	for _, action := range listed {
+		if isInternalAction(action.GetName()) {
+			continue
+		}
+
 		items = append(items, actionItem{
 			name:       action.GetName(),
 			executable: action.GetExecutable(),

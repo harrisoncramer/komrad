@@ -26,7 +26,7 @@ func startCmd(state *app) *cobra.Command {
 				return nil
 			}
 
-			if err := ensureServer(addr, selfPath(), state.env.LogPath()); err != nil {
+			if err := ensureServer(addr, getSelfPath(), state.env.LogPath()); err != nil {
 				return err
 			}
 

@@ -54,9 +54,9 @@ func (h *Harness) ReadActivity(frame string) harness.Activity {
 	switch {
 	case frame == "":
 		return harness.ActivityUnknown
-	case frameShowsWork(frame):
+	case doesFrameShowWork(frame):
 		return harness.ActivityWorking
-	case frameShowsWaiting(frame):
+	case doesFrameShowWaiting(frame):
 		return harness.ActivityWaiting
 	default:
 		return harness.ActivityIdle
@@ -76,16 +76,16 @@ func tailLines(frame string, n int) string {
 	return strings.Join(lines, "\n")
 }
 
-// frameShowsWork reports whether the frame's live region shows Codex working, as
+// doesFrameShowWork reports whether the frame's live region shows Codex working, as
 // opposed to sitting at its input box.
-func frameShowsWork(frame string) bool {
+func doesFrameShowWork(frame string) bool {
 	region := tailLines(frame, liveRegionLines)
 
 	return workingLine.MatchString(region) || strings.Contains(region, interruptHint)
 }
 
-// frameShowsWaiting reports whether the frame's live region shows Codex blocked on the
+// doesFrameShowWaiting reports whether the frame's live region shows Codex blocked on the
 // user, at an approval, the directory-trust question, or the sign-in screen.
-func frameShowsWaiting(frame string) bool {
+func doesFrameShowWaiting(frame string) bool {
 	return waitingFooter.MatchString(tailLines(frame, waitingRegionLines))
 }

@@ -224,6 +224,17 @@ func TestWorkflowWrites(t *testing.T) {
 	}
 }
 
+// TestAvailableActionsSkipUnderscoredNames covers what the workflow form's setup and cleanup
+// fields are chosen from. A workflow naming a file that only exists to be sourced would run a
+// fragment on its own, so the picker offers the same list a person sees on the actions screen.
+func TestAvailableActionsSkipUnderscoredNames(t *testing.T) {
+	m := model{api: api{actions: &fakeActions{}}}
+
+	got := m.getAvailableActions()
+
+	assert.Equal(t, []string{"open-pr", "unrunnable"}, got)
+}
+
 // TestFailedWorkflowListKeepsTheTree covers a workflow list that does not answer.
 // The tree stays as it was, since blanking it would say every workflow had just been
 // archived.

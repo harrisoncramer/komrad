@@ -1,13 +1,13 @@
 // Package cli builds the weave command tree and wires its dependencies.
 //
 // This file holds the root command and nothing else. Each subcommand lives in its
-// own file named for it, holding that command and only the helpers it uses. What
-// more than one command needs sits apart, in app.go for the shared state they are
-// wired from and process.go for finding this binary and starting the server.
+// own file named for it, holding that command and only the helpers it uses. The
+// shared state lives in app.go instead.
 package cli
 
 import (
 	"fmt"
+	"log/slog"
 
 	"weave/config"
 	"weave/internal/agents"
@@ -15,6 +15,7 @@ import (
 	"weave/internal/harness"
 	"weave/internal/harness/claude"
 	"weave/internal/harness/codex"
+	"weave/internal/logging"
 	"weave/internal/tmux"
 	"weave/internal/ui"
 
@@ -24,12 +25,13 @@ import (
 // NewRootCommand builds the weave command tree. Running it with no
 // subcommand opens the panel.
 func NewRootCommand() *cobra.Command {
-	state := &app{}
-	var configPath string
 
-	// One instance per CLI the binary implements, so every command shares it.
-	claudeHarness := claude.New("")
-	var codexHarness *codex.Harness
+	// The app holds basically all of our application state, which drives the CLI commands and the bubbletea models.
+	// It's state is set by the root command which precedes every other subcommand in weave.
+
+	app := &app{}
+
+	var configPath string
 
 	root := &cobra.Command{
 		Use:           "weave",
@@ -37,66 +39,69 @@ func NewRootCommand() *cobra.Command {
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
-			env, err := config.Load()
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+
+			env, err := config.Load() // Loads the environment, tmux socket name, cache directory, etc.
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to load config: %w", err)
 			}
 
-			// A config that will not parse is carried into the panel and shown on its
-			// error screen rather than ending the process here. Exiting wrote the
-			// message to a popup tmux tore down in the same instant, so the only way
-			// to read it was to run the binary by hand. The panel runs on the built-in
-			// keybindings meanwhile, which is what it would have used anyway.
-			cfg, err := appconfig.Load(configPath)
+			cfg, err := appconfig.Load(configPath) // Loads the user's configuration -- keybindings, marks, etc.
 			if err != nil {
-				state.configErr = err
+				app.configErr = err
 				cfg = appconfig.Defaults()
 			}
 
-			state.env = env
-			state.keys = cfg.Keybindings
-			state.defaultHarness = cfg.DefaultHarness
-			state.maxAgents = cfg.MaxAgents
+			codexHarness := codex.NewHarness(codex.NewHarnessParams{
+				TrustLaunchDirs: cfg.Harness.Codex.TrustLaunchDirs,
+			})
+			claudeHarness := claude.NewHarness(claude.NewHarnessParams{
+				ProjectsDir: claude.DefaultProjectsDir(), // TBD, let folks give different claude dir?
+			})
 
-			// Resolved once, though the file behind it is read per launch. A home
-			// directory this cannot resolve leaves the path empty, which is the same as
-			// keeping no standing context and is not worth refusing to start over.
-			state.contextPath, _ = cfg.ContextFile()
+			harnessRegistry, err := harness.NewRegistry(claudeHarness, codexHarness)
+			if err != nil {
+				return fmt.Errorf("failed to create registry: %w", err)
+			}
+			if _, err := harnessRegistry.GetByID(cfg.DefaultHarness); err != nil && app.configErr == nil {
+				app.configErr = fmt.Errorf("default_harness: %w", err)
+			}
+			app.harnesses = harnessRegistry
 
-			// Codex is built here rather than beside claude because one of its settings is
-			// the user's to make, and the config is only loaded once the command runs.
-			codexHarness = codex.New(codex.Options{TrustLaunchDirs: cfg.Harness.Codex.TrustLaunchDirs})
-			state.defaultFlags = map[string]string{
+			app.marks = cfg.Marks
+			app.layout = cfg.Layout
+			app.logLevel = cfg.Log.Level
+			app.logViewer = cfg.Log.Viewer
+			app.configPath = configPath
+			app.env = env
+			app.keys = cfg.Keybindings
+			app.defaultHarness = cfg.DefaultHarness
+			app.maxAgents = cfg.MaxAgents
+
+			//  A tmux server is one long-lived process that owns sessions, windows, and panes. You reach it through a unix socket.
+			//  Every tmux command you run is a short-lived client process that connects to that socket.
+			//  Weave starts a second server, and connects to it with a client (called manager). Any command issued through the manager will be routed to
+			//  that other tmux server. This is why nothing in your regular tmux server can see weave sessions or state. To see them, run `tmux -L weave ls`
+
+			manager := tmux.NewClient(env.TmuxSocket)
+			app.host = tmux.NewHost(manager)
+			app.tmux = tmux.NewServers(manager, app.host)
+
+			app.popup = ui.NewPopupWindow(app.tmux, agents.ManagerSession)
+			contextPath, err := cfg.GetContextFile()
+			if err != nil {
+				ctx := cmd.Context()
+				// Only reached when the config directory cannot be worked out at all. Agents
+				// then start with no standing context, which is worth a line rather than a
+				// silent difference in what every agent is told.
+				logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "failed to resolve the context file", logging.Err(err)...)
+			}
+
+			app.contextPath = contextPath
+			app.defaultFlags = map[string]string{ // Set up default flags for the harnesses provided by the user in their config file.
 				claudeHarness.GetID(): cfg.Harness.Claude.Flags,
 				codexHarness.GetID():  cfg.Harness.Codex.Flags,
 			}
-
-			// The registry decides what an agent may name, so a configured default it does
-			// not hold is a config error like any other and reaches the panel's error screen
-			// rather than ending the process here.
-			harnesses, err := harness.NewRegistry(claudeHarness, codexHarness)
-			if err != nil {
-				return err
-			}
-			if _, err := harnesses.Resolve(cfg.DefaultHarness); err != nil && state.configErr == nil {
-				state.configErr = fmt.Errorf("default_harness: %w", err)
-			}
-			state.harnesses = harnesses
-			state.marks = cfg.Marks
-			state.layout = cfg.Layout
-			state.logLevel = cfg.Log.Level
-			state.logViewer = cfg.Log.Viewer
-			state.configPath = configPath
-			// Two tmux servers, held as one client. The manager's own server owns the
-			// session, its windows, and its panes. The user's server answers where the
-			// client viewing the popup is sitting and holds the options the plugin's
-			// key binding reads, and is found through a socket path the manager server
-			// records on every open.
-			manager := tmux.NewClient(env.TmuxSocket)
-			state.host = tmux.NewHost(manager)
-			state.tmux = tmux.NewServers(manager, state.host)
-			state.popup = ui.NewPopup(state.tmux, agents.ManagerSession)
 
 			return nil
 		},
@@ -104,16 +109,16 @@ func NewRootCommand() *cobra.Command {
 
 	root.PersistentFlags().StringVar(&configPath, "config", "", "path to config TOML")
 	root.AddCommand(
-		logsCmd(state),
-		panelCmd(state),
-		openCmd(state),
-		hideCmd(state),
-		serveCmd(state),
-		startCmd(state),
-		stopCmd(state),
-		versionCmd(state),
-		migrateCmd(state),
-		readonlyRoleCmd(state),
+		logsCmd(app),
+		panelCmd(app),
+		openCmd(app),
+		hideCmd(app),
+		serveCmd(app),
+		startCmd(app),
+		stopCmd(app),
+		versionCmd(app),
+		migrateCmd(app),
+		readonlyRoleCmd(app),
 	)
 
 	return root

@@ -52,8 +52,8 @@ type Harness struct {
 	trustLaunchDirs bool
 }
 
-// Options configures the Codex harness. The two paths default to Codex's own locations.
-type Options struct {
+// NewHarnessParams configures the Codex harness. The two paths default to Codex's own locations.
+type NewHarnessParams struct {
 	SessionsDir string
 	ConfigPath  string
 	// TrustLaunchDirs records each agent's directory as trusted before launching it.
@@ -62,8 +62,8 @@ type Options struct {
 	TrustLaunchDirs bool
 }
 
-// New builds a harness from opts.
-func New(opts Options) *Harness {
+// NewHarness builds a harness from opts.
+func NewHarness(opts NewHarnessParams) *Harness {
 	if opts.SessionsDir == "" {
 		opts.SessionsDir = DefaultSessionsDir()
 	}
@@ -89,8 +89,8 @@ func (h *Harness) GetID() string { return "codex" }
 // names the conversation itself, which the panel adopts afterwards through FindSession.
 func (h *Harness) MintSessionID() string { return "" }
 
-// DefaultSessionsDir is where Codex records its rollouts. An unresolvable home
-// yields a relative path, which matches no rollouts rather than erroring.
+// DefaultSessionsDir is where Codex records its rollouts. A home that cannot be
+// read yields a relative path, which matches no rollouts rather than erroring.
 func DefaultSessionsDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {

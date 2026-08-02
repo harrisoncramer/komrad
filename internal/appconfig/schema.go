@@ -24,7 +24,7 @@ func Schema(dir string) (*jsonschema.Schema, error) {
 	reflector := &jsonschema.Reflector{
 		FieldNameTag: "mapstructure",
 		// The schema is walked, not published, so inline every definition rather
-		// than emitting $refs the renderer would have to resolve.
+		// than emitting $refs the renderer would have to follow.
 		DoNotReference: true,
 		ExpandedStruct: true,
 	}

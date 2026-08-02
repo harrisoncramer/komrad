@@ -148,7 +148,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.screen != screenSearch && bound(key.String(), m.keys.Help.Toggle) {
+	if m.screen != screenSearch && isBound(key.String(), m.keys.Help.Toggle) {
 		m.helpCollapsed = !m.helpCollapsed
 
 		return m, nil

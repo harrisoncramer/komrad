@@ -28,7 +28,7 @@ func SocketFromEnv(value string) string {
 }
 
 // SessionFromEnv returns the session a TMUX value belongs to, as the id target tmux
-// resolves it by, which unlike a bare name cannot be confused with a window's.
+// reads it by, which unlike a bare name cannot be confused with a window's.
 func SessionFromEnv(value string) string {
 	fields := strings.Split(value, ",")
 	if len(fields) != tmuxEnvFields || fields[tmuxEnvFields-1] == "" {
@@ -76,14 +76,14 @@ func (h *Host) client() *Client {
 	return NewClientAtPath(path)
 }
 
-// ClientPath returns a client's active pane working directory.
-func (h *Host) ClientPath(client string) string {
+// GetClientPath returns a client's active pane working directory.
+func (h *Host) GetClientPath(client string) string {
 	host := h.client()
 	if host == nil {
 		return ""
 	}
 
-	return host.ClientPath(client)
+	return host.GetClientPath(client)
 }
 
 // SetGlobal sets a global tmux option on the user's server.
@@ -128,9 +128,9 @@ func NewServers(manager *Client, host *Host) *Servers {
 	return &Servers{Client: manager, host: host}
 }
 
-// ClientPath asks the user's server, the only one the invoking client exists on.
-func (s *Servers) ClientPath(client string) string {
-	return s.host.ClientPath(client)
+// GetClientPath asks the user's server, the only one the invoking client exists on.
+func (s *Servers) GetClientPath(client string) string {
+	return s.host.GetClientPath(client)
 }
 
 // SetGlobal writes on the user's server, where the tmux key binding reads it.

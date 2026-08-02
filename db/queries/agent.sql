@@ -192,13 +192,13 @@ SET
 WHERE
     id = @id;
 
--- name: SetAgentMark :many
+-- name: SetAgentMarks :many
 UPDATE
     agents
 SET
     mark = sqlc.narg(mark)
 WHERE
-    id = @id
+    id = ANY (@ids::uuid[])
     AND archived_at IS NULL
 RETURNING
     id;

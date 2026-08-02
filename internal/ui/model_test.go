@@ -115,7 +115,7 @@ func TestApplyAgents(t *testing.T) {
 
 			if tt.wantLen == 0 {
 				// Acting on the empty list must be a safe no-op rather than an index
-				// panic, since the handlers resolve a selection through selectedAgent.
+				// panic, since the handlers get a selection through selectedAgent.
 				_, _ = m.updateAgents(tea.KeyMsg{Type: tea.KeyEnter})
 				assert.Equal(t, screenAgents, m.screen)
 
@@ -177,13 +177,13 @@ func TestNewModelWiresTmux(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := &recordingTmux{path: clientPath}
 			m := newModel(Deps{
-				Popup:     NewPopup(tmux, "manager"),
-				Tmux:      tmux,
-				Agents:    refusingAgents{},
-				Workflows: emptyLists{},
-				Schedules: &fakeSchedules{},
-				Keys:      appconfig.DefaultKeybindings(),
-				Addr:      "127.0.0.1:8787",
+				PopupWindow: NewPopupWindow(tmux, "manager"),
+				Tmux:        tmux,
+				Agents:      refusingAgents{},
+				Workflows:   emptyLists{},
+				Schedules:   &fakeSchedules{},
+				Keys:        appconfig.DefaultKeybindings(),
+				Addr:        "127.0.0.1:8787",
 			})
 
 			require.NotNil(t, m.tmux, "the panel cannot answer a blank directory without tmux")

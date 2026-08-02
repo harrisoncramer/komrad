@@ -60,10 +60,10 @@ func Open(t *testing.T) *Stores {
 		URL:         dbURL,
 		ReadOnlyURL: grantReadOnly(t, pool, dbURL),
 		Pool:        pool,
-		Agents:      agentstore.New(pool.DB()),
-		Workflows:   workflowstore.New(pool.DB()),
-		Schedules:   schedulestore.New(pool.DB()),
-		Transcripts: transcriptstore.New(pool.DB()),
+		Agents:      agentstore.New(pool.GetDB()),
+		Workflows:   workflowstore.New(pool.GetDB()),
+		Schedules:   schedulestore.New(pool.GetDB()),
+		Transcripts: transcriptstore.New(pool.GetDB()),
 	}
 }
 
@@ -83,7 +83,7 @@ func grantReadOnly(t *testing.T, pool *store.Pool, dbURL string) string {
 	readOnly, err := pgconn.ParseConfig(cfg.ReadOnlyDatabaseURL)
 	require.NoError(t, err)
 
-	require.NoError(t, db.GrantReadOnlyRole(t.Context(), pool.Raw(), readOnly.User, readOnly.Password))
+	require.NoError(t, db.GrantReadOnlyRole(t.Context(), pool.GetRawPool(), readOnly.User, readOnly.Password))
 
 	parsed, err := url.Parse(dbURL)
 	require.NoError(t, err)

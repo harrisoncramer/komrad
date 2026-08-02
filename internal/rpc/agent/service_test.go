@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -215,7 +216,7 @@ func TestListAgents(t *testing.T) {
 				assert.Equal(t, tt.alive, s.GetAlive())
 			}
 
-			assert.Equal(t, 1, launcher.runningCalls, "liveness is resolved once for the page, not once per agent")
+			assert.Equal(t, 1, launcher.runningCalls, "liveness is read once for the page, not once per agent")
 		})
 	}
 }
@@ -382,7 +383,7 @@ func TestUpdateAgent(t *testing.T) {
 
 			stale, err := st.LiveAgentByName(ctx, tt.rename)
 			require.NoError(t, err)
-			assert.Nil(t, stale, "the old name no longer resolves")
+			assert.Nil(t, stale, "the old name no longer finds anything")
 		})
 	}
 }
@@ -447,38 +448,53 @@ func TestSetHidden(t *testing.T) {
 	}
 }
 
-// TestSetMarked covers the mark over the wire. The server writes the stamp, so the
-// request carries only a direction, and an id that matches nothing is refused rather
-// than reported as a mark that never landed.
-func TestSetMark(t *testing.T) {
+// TestSetMarks covers the mark over the wire, over one agent and over several. The
+// server writes the stamp, so the request carries only a direction. A call that reached
+// nothing is refused rather than reported as a mark that never landed, and one that
+// reached some of what it named is not, since the ids it missed have no row to draw on.
+func TestSetMarks(t *testing.T) {
 	tests := []struct {
 		name string
-		seed bool
-		// markFirst is put on the agent before the call, so changing and clearing a
-		// mark both have one to work from.
+		seed int
+		// strays are ids nobody holds, sent alongside whatever was seeded.
+		strays int
+		// markFirst is put on the seeded agents before the call, so changing and
+		// clearing a mark both have one to work from.
 		markFirst *string
 		mark      *string
 		wantCode  connect.Code
 	}{
 		{
 			name:     "an id nobody holds is not a quiet success",
+			strays:   1,
 			mark:     xptr.Ptr("●"),
 			wantCode: connect.CodeNotFound,
 		},
 		{
 			name: "an agent is marked",
-			seed: true,
+			seed: 1,
 			mark: xptr.Ptr("●"),
 		},
 		{
-			name:      "an agent moves from one mark to another",
-			seed:      true,
+			name: "several agents take one mark together",
+			seed: 3,
+			mark: xptr.Ptr("●"),
+		},
+		{
+			name:   "an id nobody holds does not refuse the agents beside it",
+			seed:   2,
+			strays: 1,
+			mark:   xptr.Ptr("●"),
+		},
+		{
+			name:      "several agents move from one mark to another",
+			seed:      2,
 			markFirst: xptr.Ptr("●"),
 			mark:      xptr.Ptr("✓"),
 		},
 		{
-			name:      "and the mark is cleared again",
-			seed:      true,
+			name:      "and the marks are cleared again",
+			seed:      2,
 			markFirst: xptr.Ptr("●"),
 		},
 	}
@@ -488,17 +504,23 @@ func TestSetMark(t *testing.T) {
 			svc, st := service(t)
 			ctx := t.Context()
 
-			id := uuid.NewString()
-			if tt.seed {
-				id = st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking}).ID
+			seeded := make([]string, 0, tt.seed)
+			for i := range tt.seed {
+				name := fmt.Sprintf("alpha-%d", i)
+				seeded = append(seeded, st.SeedAgent(t, agentstore.Agent{Name: name, State: agentstore.StateThinking}).ID)
 			}
 			if tt.markFirst != nil {
-				changed, err := st.Agents.SetMark(ctx, id, tt.markFirst)
+				marked, err := st.Agents.SetMarks(ctx, seeded, tt.markFirst)
 				require.NoError(t, err)
-				require.True(t, changed)
+				require.Equal(t, len(seeded), marked)
 			}
 
-			_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{Id: id, Mark: tt.mark}))
+			ids := slices.Clone(seeded)
+			for range tt.strays {
+				ids = append(ids, uuid.NewString())
+			}
+
+			_, err := svc.SetMarks(ctx, connect.NewRequest(&agentv1.SetMarksRequest{Ids: ids, Mark: tt.mark}))
 			if tt.wantCode != 0 {
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 				return
@@ -506,9 +528,11 @@ func TestSetMark(t *testing.T) {
 
 			require.NoError(t, err)
 
-			got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
-			require.NoError(t, err)
-			assert.Equal(t, tt.mark, got.Msg.GetAgent().Mark)
+			for _, id := range seeded {
+				got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
+				require.NoError(t, err)
+				assert.Equal(t, tt.mark, got.Msg.GetAgent().Mark)
+			}
 		})
 	}
 }
@@ -1062,7 +1086,7 @@ type fakeLauncher struct {
 	restoreErr error
 	resumed    []string
 	resumeErr  error
-	// runningCalls counts AgentsRunning calls, which is what holds a listing to one
+	// runningCalls counts GetRunningAgents calls, which is what holds a listing to one
 	// liveness lookup.
 	runningCalls int
 }
@@ -1076,13 +1100,13 @@ func (f *fakeLauncher) NewAgent(_ context.Context, p agents.NewAgentParams) (*ag
 	return f.created, nil
 }
 
-// AgentRunning answers for the fake's agents. Nothing here runs tmux, so an agent
+// IsAgentRunning answers for the fake's agents. Nothing here runs tmux, so an agent
 // is live exactly when the test says it is.
-func (f *fakeLauncher) AgentRunning(agentstore.Agent) bool { return f.alive }
+func (f *fakeLauncher) IsAgentRunning(agentstore.Agent) bool { return f.alive }
 
-// AgentsRunning answers a whole listing the same way, recording the call so a test can
+// GetRunningAgents answers a whole listing the same way, recording the call so a test can
 // hold a listing to one lookup rather than one per agent.
-func (f *fakeLauncher) AgentsRunning(agents []agentstore.Agent) map[string]bool {
+func (f *fakeLauncher) GetRunningAgents(_ context.Context, agents []agentstore.Agent) map[string]bool {
 	f.runningCalls++
 
 	running := make(map[string]bool, len(agents))

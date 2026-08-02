@@ -14,44 +14,12 @@ import (
 	"syscall"
 	"time"
 
-	"weave/db"
-	"weave/internal/agents"
-	"weave/internal/appconfig"
-	"weave/internal/harness"
 	"weave/internal/interceptors"
-	"weave/internal/jobs"
 	"weave/internal/logging"
-	"weave/internal/mcp"
-	rpcaction "weave/internal/rpc/action"
-	rpcagent "weave/internal/rpc/agent"
-	rpcconfig "weave/internal/rpc/config"
-	rpcschedule "weave/internal/rpc/schedule"
-	rpcworkflow "weave/internal/rpc/workflow"
-	"weave/internal/store"
-	"weave/proto/gen/action/v1/actionv1connect"
-	"weave/proto/gen/agent/v1/agentv1connect"
-	"weave/proto/gen/config/v1/configv1connect"
-	"weave/proto/gen/schedule/v1/schedulev1connect"
-	"weave/proto/gen/workflow/v1/workflowv1connect"
+	"weave/internal/server"
 
-	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
 )
-
-// reconcileInterval is how often serve re-observes every agent and writes its state. It
-// stays brisk enough that starting or finishing work shows within a couple of seconds,
-// while the tmux captures stay cheap.
-const reconcileInterval = 2 * time.Second
-
-// scheduleReconcileInterval is how often serve re-reads the schedules table and makes
-// River's periodic jobs match it, since River holds those in memory. It is slow because a
-// schedule is a record of future work, where the same lag on agent state would show.
-const scheduleReconcileInterval = 10 * time.Second
-
-// transcriptSyncInterval is how often serve folds new transcript text into the search
-// index. A stale search corpus is harmless where a stale state count is not, and each pass
-// re-indexes potentially large logs, so it stays off the hot path.
-const transcriptSyncInterval = 15 * time.Second
 
 // The teardown gives each stage its own budget rather than sharing one, so a stage that
 // runs long cannot spend what the next one needs.
@@ -168,110 +136,36 @@ type serveParams struct {
 	Addr   string
 }
 
-// serve builds the handlers, starts the background loops, and listens until the context
+// serve builds the service, starts the background loops, and listens until the context
 // is cancelled or serving fails. A shutdown that was asked for returns nil, since
 // something spawned this process and reads its status.
 func serve(ctx context.Context, p serveParams) error {
 	state, logger, addr := p.App, p.Logger, p.Addr
 
-	// The manager server's shell, since agent panes are created there, and checked ahead of
-	// everything else so a server that cannot start an agent says so once rather than
-	// leaving each launch to fail in a pane nobody is watching.
-	if err := harness.RequirePOSIXShell(state.tmux.DefaultShell()); err != nil {
-		return err
-	}
-
-	if err := state.openStore(ctx); err != nil {
-		return err
-	}
-	defer closeWithin(logger, "the store", func() { _ = state.pool.Close() })
-
-	// Requests are checked against the constraints declared in the proto before any
-	// handler sees them, so a malformed payload is rejected in one place.
-	validation, err := interceptors.NewValidation()
-	if err != nil {
-		return err
-	}
-
-	// Connect options are logging and validation through CEL expressions
-	options := connect.WithInterceptors(interceptors.NewLogging(logger), validation)
-
-	mux := http.NewServeMux()
-	path, handler := agentv1connect.NewAgentServiceHandler(
-		rpcagent.NewService(state.agents, state.transcripts, state.agentService),
-		options,
-	)
-	mux.Handle(path, handler)
-
-	workflowPath, workflowHandler := workflowv1connect.NewWorkflowServiceHandler(
-		rpcworkflow.NewService(state.workflows, state.workflowService),
-		options,
-	)
-	mux.Handle(workflowPath, workflowHandler)
-
-	schedulePath, scheduleHandler := schedulev1connect.NewScheduleServiceHandler(
-		rpcschedule.NewService(state.schedules, state.scheduleService),
-		options,
-	)
-	mux.Handle(schedulePath, scheduleHandler)
-
-	// The config service reads the file per call, so it takes the path rather than the
-	// config this process parsed at startup.
-	loadConfig := func() (*appconfig.Config, error) { return appconfig.Load(state.configPath) }
-
-	configPath, configHandler := configv1connect.NewConfigServiceHandler(
-		rpcconfig.NewService(loadConfig),
-		options,
-	)
-	mux.Handle(configPath, configHandler)
-
-	actionPath, actionHandler := actionv1connect.NewActionServiceHandler(
-		rpcaction.NewService(state.actionService),
-		options,
-	)
-	mux.Handle(actionPath, actionHandler)
-
-	// The MCP endpoint reads through its own read-only handle, opened as a least-privilege
-	// role, since what a statement may read is decided by the role and not by the flag.
-	readOnly, err := store.OpenReadOnly(ctx, state.env.ReadOnlyDatabaseURL)
-	if err != nil {
-		return err
-	}
-	defer closeWithin(logger, "the read-only store", readOnly.Close)
-
-	mcpHandler, err := mcp.NewHandler(mcp.NewHandlerParams{
-		DB:      readOnly,
-		BaseURL: "http://" + addr,
+	built, err := server.New(ctx, server.Params{
+		Env:            state.env,
+		ConfigPath:     state.configPath,
+		Logger:         logger,
+		Addr:           addr,
+		Tmux:           state.tmux,
+		Harnesses:      state.harnesses,
+		DefaultHarness: state.defaultHarness,
+		DefaultFlags:   state.defaultFlags,
+		MaxAgents:      state.maxAgents,
+		ContextPath:    state.contextPath,
 	})
 	if err != nil {
 		return err
 	}
+	defer closeWithin(logger, "the database handles", built.Close)
 
-	mux.Handle("/mcp", interceptors.NewLoggingHandler(logger, mcpHandler))
-
-	mux.Handle(HealthPath, newHealthHandler(state.pool.Raw()))
+	built.Mux.Handle(HealthPath, newHealthHandler(built.Pool.GetRawPool()))
 
 	// Asking to stop goes through the logging middleware, unlike readiness above. A
 	// readiness check is asked on a loop and says nothing, where a request that stops the
 	// service is the last thing in the log and the reason for everything after it.
 	stopRequested := make(chan struct{}, 1)
-	mux.Handle(StopPath, interceptors.NewLoggingHandler(logger, newStopHandler(stopRequested)))
-
-	// Serve is the only process that runs the queue, so it is the only one that brings
-	// River's tables up. Opening the store does the application's schema for everybody.
-	if err := db.MigrateRiver(ctx, state.pool.Raw()); err != nil {
-		return err
-	}
-
-	jobRunner, err := jobs.NewClient(jobs.ClientParams{
-		Pool:      state.pool.Raw(),
-		Schedules: state.schedules,
-		Agents:    state.agentService,
-		Running:   state.agents,
-	})
-	if err != nil {
-		return err
-	}
+	built.Mux.Handle(StopPath, interceptors.NewLoggingHandler(logger, newStopHandler(stopRequested)))
 
 	// The socket is claimed before the background work starts, so a port already taken is
 	// reported without anything having to be stopped again on the way out.
@@ -280,36 +174,17 @@ func serve(ctx context.Context, p serveParams) error {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
 	}
 
-	periodic := jobs.NewRiverPeriodic(jobRunner.PeriodicJobs())
+	loops := make([]runLoopParams, 0, len(built.Loops))
+	for _, loop := range built.Loops {
+		loops = append(loops, runLoopParams{
+			Name:     loop.Name,
+			Interval: loop.Interval,
+			Pass:     loop.Pass,
+			Logger:   logger,
+		})
+	}
 
-	work, err := startBackground(ctx, backgroundParams{
-		Runner: jobRunner,
-		Loops: []runLoopParams{
-			{
-				Name:     "schedule reconcile",
-				Interval: scheduleReconcileInterval,
-				Pass:     jobs.NewScheduler(state.schedules, periodic).Reconcile,
-				Logger:   logger,
-			},
-			{
-				Name:     "reconcile",
-				Interval: reconcileInterval,
-				Pass:     agents.NewReconciler(state.tmux, state.harnesses, state.agents).Reconcile,
-				Logger:   logger,
-			},
-			{
-				Name:     "transcript sync",
-				Interval: transcriptSyncInterval,
-				Pass: agents.NewTranscriptSyncer(agents.TranscriptSyncerParams{
-					Agents:      state.agents,
-					Sessions:    state.agents,
-					Transcripts: state.transcripts,
-					Harnesses:   state.harnesses,
-				}).Sync,
-				Logger: logger,
-			},
-		},
-	})
+	work, err := startBackground(ctx, backgroundParams{Runner: built.Jobs, Loops: loops})
 	if err != nil {
 		return err
 	}
@@ -317,13 +192,13 @@ func serve(ctx context.Context, p serveParams) error {
 	logger.LogAttrs(ctx, slog.LevelInfo, "the server is listening",
 		slog.String(logging.ServerAddress, listener.Addr().String()))
 
-	server := &http.Server{
-		Handler:           interceptors.NewLocalGuard(logger, mux),
+	httpServer := &http.Server{
+		Handler:           built.Handler(logger),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	served := make(chan error, 1)
-	go func() { served <- server.Serve(listener) }()
+	go func() { served <- httpServer.Serve(listener) }()
 
 	// Being asked and being signalled are the same shutdown from here on, so both land in
 	// the same teardown below rather than each having one of their own.
@@ -341,7 +216,7 @@ func serve(ctx context.Context, p serveParams) error {
 
 	// The listener goes first, so nothing new arrives against a dependency that is
 	// already being torn down.
-	if err := server.Shutdown(drain); err != nil {
+	if err := httpServer.Shutdown(drain); err != nil {
 		logger.LogAttrs(ctx, slog.LevelError, "the server would not shut down cleanly", logging.Err(err)...)
 	}
 
@@ -411,7 +286,7 @@ func startBackground(ctx context.Context, p backgroundParams) (*backgroundWork, 
 func (b *backgroundWork) stop(ctx context.Context, logger *slog.Logger) {
 	b.stopLoops()
 
-	if !awaitWithin(loopStopTimeout, b.loops.Wait) {
+	if !didFinishWithin(loopStopTimeout, b.loops.Wait) {
 		logger.LogAttrs(ctx, slog.LevelWarn, "a background loop did not stop in time")
 	}
 
@@ -426,16 +301,16 @@ func (b *backgroundWork) stop(ctx context.Context, logger *slog.Logger) {
 // closeWithin closes a database handle without letting a query still running hold the
 // process open. What did not close goes when the process does.
 func closeWithin(logger *slog.Logger, what string, close func()) {
-	if !awaitWithin(closeTimeout, close) {
+	if !didFinishWithin(closeTimeout, close) {
 		logger.LogAttrs(context.Background(), slog.LevelWarn, "a database handle did not close in time",
 			slog.String(logging.Handle, what))
 	}
 }
 
-// awaitWithin runs wait and reports whether it finished inside the budget. Whatever is
+// didFinishWithin runs wait and reports whether it finished inside the budget. Whatever is
 // being waited on carries on in the background if it does not, since the point here is
 // only that the teardown moves on rather than stalling on it.
-func awaitWithin(within time.Duration, wait func()) bool {
+func didFinishWithin(within time.Duration, wait func()) bool {
 	done := make(chan struct{})
 	go func() {
 		wait()

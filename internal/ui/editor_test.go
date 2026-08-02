@@ -86,7 +86,7 @@ func editorModel(tmux *recordingTmux, editor string, cursor int) model {
 
 	return model{
 		tmux:   tmux,
-		popup:  NewPopup(tmux, "test-session"),
+		popup:  NewPopupWindow(tmux, "test-session"),
 		stage:  stage,
 		keys:   appconfig.DefaultKeybindings(),
 		editor: editor,

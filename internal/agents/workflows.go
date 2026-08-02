@@ -16,9 +16,9 @@ import (
 // directory and flags come from.
 var ErrWorkflowHasSchedules = errors.New("workflow still has schedules")
 
-// workflowStore is the part of the workflow store this service reads and writes.
+// workflowReadWriter is the part of the workflow store this service reads and writes.
 // Workflows are pure organisation, so this touches no tmux.
-type workflowStore interface {
+type workflowReadWriter interface {
 	List(ctx context.Context) ([]workflow.Workflow, error)
 	Get(ctx context.Context, id string) (*workflow.Workflow, error)
 	GetIncludingArchived(ctx context.Context, id string) (*workflow.Workflow, error)
@@ -39,7 +39,7 @@ type scheduleCounter interface {
 // Deleting one archives the agents inside it, and those rows belong to the agent
 // domain, so that write runs through a transaction the two stores share.
 type WorkflowService struct {
-	store     workflowStore
+	store     workflowReadWriter
 	schedules scheduleCounter
 	tx        txRunner
 	// maxAgents is the ceiling a restore has to fit the workflow's archived agents
@@ -49,7 +49,7 @@ type WorkflowService struct {
 
 // WorkflowParams carries the workflow service's dependencies.
 type WorkflowParams struct {
-	Workflows workflowStore
+	Workflows workflowReadWriter
 	Schedules scheduleCounter
 	Tx        txRunner
 	MaxAgents int
@@ -191,10 +191,10 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 		if err != nil {
 			return err
 		}
-		if err := roomForAgents(ctx, agents, w.maxAgents, len(archived)); err != nil {
+		if err := requireRoomForAgents(ctx, agents, w.maxAgents, len(archived)); err != nil {
 			return err
 		}
-		if err := namesFree(ctx, agents, archived); err != nil {
+		if err := requireNamesFree(ctx, agents, archived); err != nil {
 			return err
 		}
 
@@ -211,10 +211,10 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 	return w.store.Get(ctx, id)
 }
 
-// namesFree refuses when the archived agents coming back would collide on a name. The
+// requireNamesFree refuses when the archived agents coming back would collide on a name. The
 // unique-name index covers the unarchived of one workflow, so a live agent may hold the
 // name, or two of the returning agents may hold it between them.
-func namesFree(ctx context.Context, agents agentNamer, archived []agentstore.Agent) error {
+func requireNamesFree(ctx context.Context, agents agentNamer, archived []agentstore.Agent) error {
 	returning := make(map[string]int, len(archived))
 	for _, agent := range archived {
 		returning[agent.Name]++

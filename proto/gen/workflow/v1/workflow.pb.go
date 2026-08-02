@@ -39,9 +39,10 @@ type Workflow struct {
 	Flags   string `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
 	// Which CLI agents in this workflow run, blank when they take the user's configured default.
 	Harness string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
-	// The action run before an agent in this workflow starts, blank for none. It blocks and
-	// a failure abandons the launch. A file in the actions directory names it, so nothing
-	// here promises it still exists.
+	// The action run before an agent in this workflow starts, blank for none. It runs again
+	// before a dormant agent is resumed, which WEAVE_TRIGGER tells it apart. It blocks and a
+	// failure abandons the launch. A file in the actions directory names it, so nothing here
+	// promises it still exists.
 	SetupAction string `protobuf:"bytes,7,opt,name=setup_action,json=setupAction,proto3" json:"setup_action,omitempty"`
 	// The action run once an agent in this workflow is deleted, blank for none. Nothing
 	// waits on it.
@@ -351,7 +352,7 @@ type CreateWorkflowRequest struct {
 	// Which CLI agents created inside this workflow run. Blank leaves them on the
 	// user's configured default.
 	Harness string `protobuf:"bytes,5,opt,name=harness,proto3" json:"harness,omitempty"`
-	// The action to run before an agent in this workflow starts, blank for none.
+	// The action to run before an agent in this workflow starts or is resumed, blank for none.
 	SetupAction string `protobuf:"bytes,6,opt,name=setup_action,json=setupAction,proto3" json:"setup_action,omitempty"`
 	// The action to run once an agent in this workflow is deleted, blank for none.
 	CleanupAction string `protobuf:"bytes,7,opt,name=cleanup_action,json=cleanupAction,proto3" json:"cleanup_action,omitempty"`
@@ -496,7 +497,7 @@ type UpdateWorkflowRequest struct {
 	// them on the user's configured default. Agents already spawned keep the harness
 	// they started on, which is recorded against each of them.
 	Harness string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
-	// The action run before an agent in this workflow starts, blank for none.
+	// The action run before an agent in this workflow starts or is resumed, blank for none.
 	SetupAction string `protobuf:"bytes,7,opt,name=setup_action,json=setupAction,proto3" json:"setup_action,omitempty"`
 	// The action run once an agent in this workflow is deleted, blank for none.
 	CleanupAction string `protobuf:"bytes,8,opt,name=cleanup_action,json=cleanupAction,proto3" json:"cleanup_action,omitempty"`

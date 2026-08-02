@@ -9,6 +9,22 @@ linters:
     - exhaustive
     - agentslinter
   settings:
+    errcheck:
+      # A discarded error is the same bug whether it went to _ or nowhere, so the blank
+      # form is checked too. What is excluded below is the handful of calls where the zero
+      # value genuinely is the answer.
+      check-blank: true
+      exclude-functions:
+        # Cleanup that runs in a defer, where the caller has already returned and there is
+        # nothing left to report the failure to.
+        - (github.com/jackc/pgx/v5.Tx).Rollback
+        - (*github.com/jackc/pgx/v5.Conn).Close
+        - (*weave/internal/store.Pool).Close
+        - (*os.File).Close
+        - (io.Closer).Close
+        # Fails only with no HOME, and every caller treats the empty string as the fallback
+        # it would have chosen anyway.
+        - os.UserHomeDir
     staticcheck:
       checks:
         - all
@@ -26,6 +42,13 @@ linters:
             skip: false
           comment_prefix:
             skip: false
+  exclusions:
+    rules:
+      # Tests and the fixtures they share discard errors in t.Cleanup teardown, where a
+      # failure means the throwaway server or file is already gone.
+      - path: (_test\.go|internal/(pgtest|tmuxtest|storetest|harnesstest|logtest|weavetest)/)
+        linters:
+          - errcheck
 formatters:
   enable:
     - gofmt

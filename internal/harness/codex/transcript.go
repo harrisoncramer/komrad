@@ -56,7 +56,7 @@ type contentBlock struct {
 // model rather than said by anyone, so it is dropped the way the developer turns are.
 const environmentContext = "<environment_context>"
 
-// briefingOpen and briefingClose fence the panel's own briefing, which reaches a Codex
+// briefingOpen and briefingClose fence the panel's own buildBriefing, which reaches a Codex
 // agent as the opening message because there is nowhere else to put it. It is addressed
 // to the model rather than said by anyone, so it is dropped here for the same reason.
 const (
@@ -105,8 +105,8 @@ func flattenRollout(data []byte) []harness.Turn {
 	return turns
 }
 
-// withoutBriefing strips the panel's briefing from an opening turn, leaving whatever the
-// agent was actually asked to do. A turn that was nothing but the briefing comes back
+// withoutBriefing strips the panel's buildBriefing from an opening turn, leaving whatever the
+// agent was actually asked to do. A turn that was nothing but the buildBriefing comes back
 // empty and is dropped.
 func withoutBriefing(text string) string {
 	if !strings.HasPrefix(text, briefingOpen) {

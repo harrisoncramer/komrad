@@ -7,6 +7,22 @@ import (
 	"strings"
 )
 
+// ErrShellUnsupported reports a pane shell that cannot parse a launch command.
+var ErrShellUnsupported = errors.New("unsupported pane shell")
+
+// posixShells are the shell basenames that parse the two POSIX forms a harness emits, a
+// command substitution and a leading VAR=value assignment.
+var posixShells = map[string]bool{
+	"ash":   true,
+	"bash":  true,
+	"dash":  true,
+	"ksh":   true,
+	"ksh93": true,
+	"mksh":  true,
+	"sh":    true,
+	"zsh":   true,
+}
+
 // SplitArgs breaks a flag string into arguments the way a shell would, honoring single
 // and double quotes so a flag whose value contains a space stays one argument.
 func SplitArgs(flags string) []string {
@@ -68,22 +84,6 @@ func QuoteFlags(flags string) string {
 	}
 
 	return strings.Join(quoted, " ")
-}
-
-// ErrShellUnsupported reports a pane shell that cannot parse a launch command.
-var ErrShellUnsupported = errors.New("unsupported pane shell")
-
-// posixShells are the shell basenames that parse the two POSIX forms a harness emits, a
-// command substitution and a leading VAR=value assignment.
-var posixShells = map[string]bool{
-	"ash":   true,
-	"bash":  true,
-	"dash":  true,
-	"ksh":   true,
-	"ksh93": true,
-	"mksh":  true,
-	"sh":    true,
-	"zsh":   true,
 }
 
 // RequirePOSIXShell refuses a shell that would leave a launch as a parse error in the

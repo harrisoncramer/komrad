@@ -19,10 +19,7 @@ type Config struct {
 	Editor              string `env:"EDITOR" envDefault:"vi"`
 	Tmux                string `env:"TMUX"`
 	CacheDir            string `env:"WEAVE_CACHE_DIR"`
-	// TmuxPane is the pane this process runs in, which tmux puts in the environment of
-	// every pane it starts. It is the only answer that does not depend on a client being
-	// attached and looking at that pane.
-	TmuxPane string `env:"TMUX_PANE"`
+	TmuxPane            string `env:"TMUX_PANE"`
 }
 
 // Load reads the panel's configuration from the environment.
@@ -44,7 +41,7 @@ func (c *Config) LogPath() string {
 	return filepath.Join(c.CacheDir, "weave.log")
 }
 
-// defaultCacheDir is where weave keeps what it generates, falling back to the working directory when the user's cache directory cannot be resolved at all.
+// defaultCacheDir is where weave keeps what it generates, falling back to the working directory when the user's cache directory cannot be found at all.
 func defaultCacheDir() string {
 	dir, err := os.UserCacheDir()
 	if err != nil {

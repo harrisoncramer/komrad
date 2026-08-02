@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -79,14 +80,15 @@ func (m model) helpBinding() key.Binding {
 
 // agentHelp lists the agents screen's bindings.
 func (m model) agentHelp() keyMap {
-	showHiddenDesc := "show hidden"
-	if m.tree.showHidden {
-		showHiddenDesc = "put hidden away"
+	if m.tree.selected.active() {
+		hovered, _ := rowAt(m.agentRows(), m.tree.cursor)
+
+		return m.selectionHelp(m.tree.selected, hovered, m.markSelectionBinding(), m.showHiddenBinding())
 	}
 
 	rows := m.rowHelp()
 	full := slices.Concat(rows, m.screenHelp(), []key.Binding{
-		binding(m.keys.Agents.ShowHidden, showHiddenDesc),
+		m.showHiddenBinding(),
 		m.moveBinding(),
 		binding(m.keys.Agents.Back, "back"),
 		m.helpBinding(),
@@ -95,12 +97,61 @@ func (m model) agentHelp() keyMap {
 	return keyMap{short: []key.Binding{rows[0], m.helpBinding()}, full: full}
 }
 
+// selectionHelp lists what is live while a selection is up, which both trees show. It
+// replaces the row bindings rather than joining them, since those keys stand down in this
+// mode, and it names how many rows are held so the count is on screen without a line of its
+// own. A screen with a key of its own still live in the mode passes it as an extra.
+//
+// An empty list hands in the zero row, which carries no id and so reads as unselected.
+func (m model) selectionHelp(sel selection, hovered agentRow, extra ...key.Binding) keyMap {
+	toggleDesc := "select"
+	switch {
+	case hovered.header:
+		toggleDesc = "select folder"
+	case sel.has(hovered.item.agent.ID):
+		toggleDesc = "deselect"
+	}
+
+	toggle := binding(m.keys.Selection.Toggle, toggleDesc)
+	clear := binding(m.keys.Selection.Clear, fmt.Sprintf("clear %d selected", sel.count()))
+
+	full := slices.Concat(
+		[]key.Binding{toggle, binding(m.keys.Selection.Range, "select to nearest"), clear},
+		extra,
+		[]key.Binding{m.moveBinding(), m.helpBinding()},
+	)
+
+	return keyMap{short: []key.Binding{toggle, clear, m.helpBinding()}, full: full}
+}
+
+// markSelectionBinding is the mark key while a selection is up, named for the glyph the
+// press would leave every chosen agent carrying.
+func (m model) markSelectionBinding() key.Binding {
+	desc := "unmark all"
+	if next := nextSelectionMark(selectionMarks(m.tree.selected, m.agentRows()), m.marks); next != nil {
+		desc = "mark all " + *next
+	}
+
+	return binding(m.keys.Agents.Mark, desc)
+}
+
+// showHiddenBinding is the hidden toggle, which names the direction it would go.
+func (m model) showHiddenBinding() key.Binding {
+	desc := "show hidden"
+	if m.tree.showHidden {
+		desc = "put hidden away"
+	}
+
+	return binding(m.keys.Agents.ShowHidden, desc)
+}
+
 // rowHelp are the bindings that act on the row under the cursor, which is a
 // workflow header or an agent.
 func (m model) rowHelp() []key.Binding {
 	if _, hoveringWorkflow := m.hoveredWorkflow(); hoveringWorkflow {
 		return []key.Binding{
 			binding(m.keys.Agents.New, "new agent"),
+			binding(m.keys.Selection.Toggle, "select folder"),
 			binding(m.keys.Workflows.New, "new workflow"),
 			binding(m.keys.Workflows.Rename, "rename"),
 			binding(m.keys.Workflows.Edit, "edit"),
@@ -127,7 +178,9 @@ func (m model) rowHelp() []key.Binding {
 
 	return []key.Binding{
 		binding(m.keys.Agents.Open, "open"),
+		binding(m.keys.Selection.Toggle, "select"),
 		binding(m.keys.Agents.Editor, "editor"),
+		binding(m.keys.Agents.Terminal, "terminal"),
 		binding(m.keys.Agents.Info, infoDesc),
 		binding(m.keys.Actions.Open, "actions"),
 		binding(m.keys.Agents.Mark, markDesc),
@@ -176,6 +229,12 @@ func (m model) scheduleHelp() keyMap {
 // archiveHelp lists the archive screen's bindings, which differ by what the cursor is on
 // the way the agents screen's do.
 func (m model) archiveHelp() keyMap {
+	if m.archive.selected.active() {
+		hovered, _ := rowAt(m.archiveRows(), m.archive.cursor)
+
+		return m.selectionHelp(m.archive.selected, hovered)
+	}
+
 	back := binding(m.keys.Archive.Back, "back")
 	rows := m.archiveRowHelp()
 
@@ -196,7 +255,10 @@ func (m model) archiveHelp() keyMap {
 // out of it.
 func (m model) archiveRowHelp() []key.Binding {
 	if _, ok := m.hoveredArchivedWorkflow(); ok {
-		return []key.Binding{binding(m.keys.Archive.Restore, "restore workflow")}
+		return []key.Binding{
+			binding(m.keys.Archive.Restore, "restore workflow"),
+			binding(m.keys.Selection.Toggle, "select folder"),
+		}
 	}
 	if _, ok := m.selectedArchived(); !ok {
 		return nil
@@ -204,6 +266,7 @@ func (m model) archiveRowHelp() []key.Binding {
 
 	return []key.Binding{
 		binding(m.keys.Archive.Restore, "restore"),
+		binding(m.keys.Selection.Toggle, "select"),
 		binding(m.keys.Archive.Delete, "delete for good"),
 	}
 }

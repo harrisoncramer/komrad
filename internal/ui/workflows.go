@@ -12,33 +12,33 @@ import (
 
 // updateHoveredWorkflow handles keys while the agents-tree cursor is on a workflow header.
 // The workflow bindings act on that folder's workflow, while nav still moves the tree
-// cursor. The workflow is resolved once and handed to whatever the key opens, so nothing
+// cursor. The workflow is read once and handed to whatever the key opens, so nothing
 // has to hold which folder was hovered between keypresses.
 func (m model) updateHoveredWorkflow(key tea.KeyMsg, workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	k := key.String()
 
 	switch {
-	case bound(k, m.keys.Agents.Quit):
+	case isBound(k, m.keys.Agents.Quit):
 		return m, m.hide()
-	case bound(k, m.keys.Agents.Back):
+	case isBound(k, m.keys.Agents.Back):
 		return m, m.hide()
-	case bound(k, m.keys.Nav.Up):
+	case isBound(k, m.keys.Nav.Up):
 		if m.tree.cursor > 0 {
 			m.tree.cursor--
 			m.stageSelection()
 		}
-	case bound(k, m.keys.Nav.Down):
+	case isBound(k, m.keys.Nav.Down):
 		if m.tree.cursor < len(m.agentRows())-1 {
 			m.tree.cursor++
 			m.stageSelection()
 		}
-	case bound(k, m.keys.Agents.New):
+	case isBound(k, m.keys.Agents.New):
 		return m.openNewAgent(&workflow)
-	case bound(k, m.keys.Workflows.Rename):
+	case isBound(k, m.keys.Workflows.Rename):
 		return m.renameWorkflowForm(workflow)
-	case bound(k, m.keys.Workflows.Edit):
+	case isBound(k, m.keys.Workflows.Edit):
 		return m.editWorkflowForm(workflow)
-	case bound(k, m.keys.Workflows.Archive):
+	case isBound(k, m.keys.Workflows.Archive):
 		return m.archiveWorkflowConfirm(workflow)
 	}
 
@@ -107,17 +107,20 @@ func (m model) workflowFormFor(cfg workflowstore.Config) (*huh.Form, *workflowst
 	case m.target.renameWorkflow != nil:
 		return workflowForm(fmt.Sprintf("Rename %q to", m.target.renameWorkflow.Name), cfg, m.keys.Form)
 	case m.target.editWorkflow != nil:
-		return workflowConfigForm("Workflow name", cfg, m.availableActions(), m.keys.Form)
+		return workflowConfigForm("Workflow name", cfg, m.getAvailableActions(), m.keys.Form)
 	default:
-		return workflowConfigForm("New workflow name", cfg, m.availableActions(), m.keys.Form)
+		return workflowConfigForm("New workflow name", cfg, m.getAvailableActions(), m.keys.Form)
 	}
 }
 
-// availableActions is what the actions directory holds, which the workflow form's two
+// getAvailableActions is what the actions directory holds, which the workflow form's two
 // action fields are chosen from. It is fetched on the render loop because a form has
 // nothing to open on until the answer is in, and a listing that fails leaves the fields
 // offering none plus whatever the workflow already records.
-func (m model) availableActions() []string {
+//
+// Shell written to be reused by other actions is left out, the same as it is on the actions
+// list. A workflow naming one would run a fragment on its own.
+func (m model) getAvailableActions() []string {
 	listed, err := m.api.listActions()
 	if err != nil {
 		return nil
@@ -125,6 +128,10 @@ func (m model) availableActions() []string {
 
 	names := make([]string, 0, len(listed))
 	for _, action := range listed {
+		if isInternalAction(action.GetName()) {
+			continue
+		}
+
 		names = append(names, action.GetName())
 	}
 
@@ -175,7 +182,7 @@ func (m model) updateWorkflowArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
 // updateWorkflowForm drives the create/rename form, submitting on the configured
 // submit key or on completion and aborting back to the agents view.
 func (m model) updateWorkflowForm(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if key, ok := msg.(tea.KeyMsg); ok && bound(key.String(), m.keys.Form.Submit) {
+	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), m.keys.Form.Submit) {
 		return m.submitWorkflowForm()
 	}
 

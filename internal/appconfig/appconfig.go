@@ -18,6 +18,35 @@ import (
 	"github.com/spf13/viper"
 )
 
+// DefaultLogLevel is how much the service writes when the config says nothing. Failures
+// are written at error and everything else at debug, so the file stays empty while the
+// service works.
+const DefaultLogLevel = "info"
+
+// DefaultLogViewer is what the log key opens the log in when the config names nothing. It
+// reads through this binary's own logs command, so what lands in the pane is a line per
+// record rather than the JSON the file holds, and it pages that with the flags a preview
+// uses plus -S, which leaves a long line running off the edge rather than wrapping it into
+// four rows of one record.
+const DefaultLogViewer = `"$WEAVE_BIN" logs --color=always | less -RSX +G`
+
+// DefaultMaxAgents is how many agents may exist at once when the config names no number,
+// well above what anyone opens by hand and low enough to catch a caller in a loop.
+const DefaultMaxAgents = 50
+
+// DefaultHarness is the CLI a new agent runs when the config names none, spelled here
+// rather than taken from the registry since this is a default a user overrides.
+const DefaultHarness = "claude"
+
+// DefaultSplit is the share of the width the panel's list takes when the config
+// names none.
+const DefaultSplit = 0.2
+
+// DefaultMarkColor is the yellow a mark takes when its own colour is unset. It is the
+// plain yellow rather than the bright one the panel draws a thinking agent in, so a mark
+// left on the default cannot be read as a lifecycle state.
+const DefaultMarkColor = "yellow"
+
 // Keybindings scopes bindings to the screen they act in. Each binding is a list of
 // bubbletea key strings such as "enter", "ctrl+d", or "esc". Every default is a
 // single key, leaving the alternatives to you. A binding left unset falls back to
@@ -28,6 +57,8 @@ type Keybindings struct {
 	// The key that draws the legend under a list, shared by every screen for the same
 	// reason navigation is.
 	Help HelpKeys `mapstructure:"help"`
+	// Choosing several agents at once, shared by the two screens that draw a tree.
+	Selection SelectionKeys `mapstructure:"selection"`
 	// The agents list, the panel's main screen.
 	Agents AgentsKeys `mapstructure:"agents"`
 	// The new-agent, rename, and workflow forms.
@@ -56,6 +87,24 @@ type NavKeys struct {
 type HelpKeys struct {
 	// Toggle for the keybindings
 	Toggle []string `mapstructure:"toggle"`
+}
+
+// SelectionKeys are the bindings for choosing several agents at once. They are shared by
+// the agents list and the archive rather than set per screen, since the gesture is the same
+// on either tree. While anything is selected that screen is in multi-select mode, where a
+// gutter marks the chosen rows and the keys that act on one agent stand down.
+type SelectionKeys struct {
+	// Take the row under the cursor into the selection, or back out of it. On a workflow
+	// header that is the whole folder: one not already wholly selected is taken in whole,
+	// and one that is drops.
+	Toggle []string `mapstructure:"toggle"`
+	// Take in every agent between the cursor and the nearest already-selected one, which
+	// is how a run is chosen without pressing toggle down the whole of it. From a tree
+	// with nothing selected it does what toggle does, since there is nothing yet for a
+	// range to reach back to.
+	Range []string `mapstructure:"range"`
+	// Drop the whole selection, which is the way back out of multi-select mode.
+	Clear []string `mapstructure:"clear"`
 }
 
 // FormKeys are the bindings for the new-agent and rename forms. Back and Quit both
@@ -109,6 +158,10 @@ type AgentsKeys struct {
 	// and press it again to put the row back. The service is spawned detached and writes to
 	// a file, so nothing else shows what it is doing.
 	Logs []string `mapstructure:"logs"`
+	// Split a shell under the stage, in the directory the hovered agent or workflow runs
+	// in, and put the cursor in it. The pane is yours from there: nothing follows the
+	// list afterwards, and closing it is a plain tmux exit.
+	Terminal []string `mapstructure:"terminal"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow. New is global. Rename,
@@ -306,30 +359,6 @@ func Defaults() *Config {
 	}
 }
 
-// DefaultLogLevel is how much the service writes when the config says nothing. Failures
-// are written at error and everything else at debug, so the file stays empty while the
-// service works.
-const DefaultLogLevel = "info"
-
-// DefaultLogViewer is what the log key opens the log in when the config names nothing. It
-// reads through this binary's own logs command, so what lands in the pane is a line per
-// record rather than the JSON the file holds, and it pages that with the flags a preview
-// uses plus -S, which leaves a long line running off the edge rather than wrapping it into
-// four rows of one record.
-const DefaultLogViewer = `"$WEAVE_BIN" logs --color=always | less -RSX +G`
-
-// DefaultMaxAgents is how many agents may exist at once when the config names no number,
-// well above what anyone opens by hand and low enough to catch a caller in a loop.
-const DefaultMaxAgents = 50
-
-// DefaultHarness is the CLI a new agent runs when the config names none, spelled here
-// rather than taken from the registry since this is a default a user overrides.
-const DefaultHarness = "claude"
-
-// DefaultSplit is the share of the width the panel's list takes when the config
-// names none.
-const DefaultSplit = 0.2
-
 // DefaultLayout is the layout used when the config omits it.
 func DefaultLayout() Layout {
 	return Layout{Split: DefaultSplit}
@@ -351,11 +380,6 @@ type Mark struct {
 	// Left empty the mark takes DefaultMarkColor.
 	Color string `mapstructure:"color" json:"color"`
 }
-
-// DefaultMarkColor is the yellow a mark takes when its own colour is unset. It is the
-// plain yellow rather than the bright one the panel draws a thinking agent in, so a mark
-// left on the default cannot be read as a lifecycle state.
-const DefaultMarkColor = "yellow"
 
 // ansiColors are the sixteen colours a terminal's scheme maps, keyed by the name a config
 // names one by and valued by the index lipgloss draws it as. The panel is drawn from the
@@ -379,9 +403,9 @@ var ansiColors = map[string]string{
 	"brightwhite":   "15",
 }
 
-// ResolveColor is a configured colour in the form lipgloss reads it: a name becomes the
+// GetColor is a configured colour in the form lipgloss reads it: a name becomes the
 // index lipgloss maps onto the terminal's scheme, and a hex value passes through.
-func ResolveColor(color string) string {
+func GetColor(color string) string {
 	if index, ok := ansiColors[color]; ok {
 		return index
 	}
@@ -409,6 +433,11 @@ func DefaultKeybindings() Keybindings {
 		Help: HelpKeys{
 			Toggle: []string{"?"},
 		},
+		Selection: SelectionKeys{
+			Toggle: []string{"v"},
+			Range:  []string{"V"},
+			Clear:  []string{"esc"},
+		},
 		Agents: AgentsKeys{
 			Quit:       []string{"ctrl+c"},
 			Back:       []string{"esc"},
@@ -423,6 +452,7 @@ func DefaultKeybindings() Keybindings {
 			Hide:       []string{"h"},
 			ShowHidden: []string{"H"},
 			Logs:       []string{"L"},
+			Terminal:   []string{"t"},
 		},
 		Workflows: WorkflowsKeys{
 			New:     []string{"W"},
@@ -468,9 +498,9 @@ const maxMarkLen = 16
 // else renders as no colour at all, so a typo would silently lose the mark's colour.
 var hexColor = regexp.MustCompile(`^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
 
-// validColor reports whether the panel could draw a colour. The names are a closed set, so
+// isValidColor reports whether the panel could draw a colour. The names are a closed set, so
 // a colour spelled wrongly is refused here rather than drawn as no colour.
-func validColor(color string) bool {
+func isValidColor(color string) bool {
 	if _, ok := ansiColors[color]; ok {
 		return true
 	}
@@ -495,7 +525,7 @@ func validateMarks(marks []Mark) error {
 			return fmt.Errorf("mark %q carries whitespace or control characters", mark.Glyph)
 		case seen[mark.Glyph]:
 			return fmt.Errorf("mark %q is listed twice", mark.Glyph)
-		case mark.Color != "" && !validColor(mark.Color):
+		case mark.Color != "" && !isValidColor(mark.Color):
 			return fmt.Errorf("mark %q has colour %q, which is neither one of the sixteen such as \"yellow\" nor a hex colour such as \"#DCA561\"", mark.Glyph, mark.Color)
 		}
 
@@ -552,7 +582,7 @@ func validateLog(log Log) error {
 // rather than choices to be honoured.
 func (c Config) withDefaults() Config {
 	c.Keybindings = c.Keybindings.withDefaults()
-	// Every launch resolves through this id, so leaving it empty would refuse every
+	// Every launch goes through this id, so leaving it empty would refuse every
 	// create rather than fall back.
 	if strings.TrimSpace(c.DefaultHarness) == "" {
 		c.DefaultHarness = DefaultHarness
@@ -607,17 +637,17 @@ func fillBindings(configured, def reflect.Value) {
 func configHome() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve home directory: %w", err)
+		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
 
 	return filepath.Join(home, ".config", "weave"), nil
 }
 
-// ActionsDir is where the actions live: the configured directory, or
-// ~/.config/weave/actions when the config names none. The default is resolved here rather
+// GetActionsDir is where the actions live: the configured directory, or
+// ~/.config/weave/actions when the config names none. The default is filled in here rather
 // than filled into Config, since the generated config.toml spells every default out and one
 // machine's home directory would be wrong on every other machine.
-func (c Config) ActionsDir() (string, error) {
+func (c Config) GetActionsDir() (string, error) {
 	if dir := strings.TrimSpace(c.Actions.Dir); dir != "" {
 		return dir, nil
 	}
@@ -630,11 +660,11 @@ func (c Config) ActionsDir() (string, error) {
 	return filepath.Join(home, "actions"), nil
 }
 
-// ContextFile is the standing text every agent is started with: the configured file, or
-// ~/.config/weave/context.md when the config names none. The default is resolved here for
+// GetContextFile is the standing text every agent is started with: the configured file, or
+// ~/.config/weave/context.md when the config names none. The default is filled in here for
 // the reason the actions directory's is, since one machine's home directory spelled into
 // the generated config would be wrong on every other machine.
-func (c Config) ContextFile() (string, error) {
+func (c Config) GetContextFile() (string, error) {
 	if file := strings.TrimSpace(c.Context.File); file != "" {
 		return file, nil
 	}
@@ -649,7 +679,7 @@ func (c Config) ContextFile() (string, error) {
 
 // Load reads the config from path when given, otherwise from
 // ~/.config/weave/config.toml. A missing file is not an error and yields the defaults, but
-// a symlink resolving to nothing is, since that is a config someone meant to have.
+// a symlink pointing at nothing is, since that is a config someone meant to have.
 //
 // A key the Config struct does not know about is an error rather than silently dropped, so
 // a typo is reported rather than quietly doing nothing.
@@ -657,7 +687,7 @@ func Load(path string) (*Config, error) {
 	viperCfg := viper.New()
 	viperCfg.SetConfigType("toml")
 
-	// The resolved path is named in the errors below, since what went wrong is not
+	// The full path is named in the errors below, since what went wrong is not
 	// actionable without knowing which file to edit.
 	file := path
 	if file == "" {

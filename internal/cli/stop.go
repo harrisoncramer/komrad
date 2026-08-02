@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -11,6 +12,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"weave/internal/logging"
 
 	"github.com/spf13/cobra"
 )
@@ -55,7 +58,11 @@ func newStopHandler(requested chan<- struct{}) http.Handler {
 		// server had stopped while it was still draining, which is the guess that asking
 		// rather than signalling exists to avoid.
 		w.WriteHeader(http.StatusAccepted)
-		_, _ = fmt.Fprint(w, os.Getpid())
+		if _, err := fmt.Fprint(w, os.Getpid()); err != nil {
+			// The status is already on the wire, so this is the caller having gone away.
+			ctx := r.Context()
+			logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "failed to write the pid to a stop request", logging.Err(err)...)
+		}
 	})
 }
 
@@ -155,7 +162,7 @@ func awaitStopped(pid int, within time.Duration) error {
 	deadline := time.Now().Add(within)
 
 	for time.Now().Before(deadline) {
-		if !processAlive(pid) {
+		if !isProcessAlive(pid) {
 			return nil
 		}
 
@@ -165,9 +172,9 @@ func awaitStopped(pid int, within time.Duration) error {
 	return fmt.Errorf("the server was asked to stop and process %d is still running after %s", pid, within)
 }
 
-// processAlive reports whether a process still exists. Signal zero is delivered to nothing
+// isProcessAlive reports whether a process still exists. Signal zero is delivered to nothing
 // and only reports whether it could have been.
-func processAlive(pid int) bool {
+func isProcessAlive(pid int) bool {
 	process, err := os.FindProcess(pid)
 	if err != nil {
 		return false

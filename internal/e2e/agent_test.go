@@ -1,0 +1,170 @@
+// Package e2e drives the whole service the way a caller does, over the wire, against a
+// real database and a real tmux server.
+//
+// A scenario here is one of the panel's core workflows end to end. What it asserts on is
+// the observable surface a person or a model would read: what the API answers, what the
+// store holds, and what is running on the tmux server. Nothing reaches inside a service.
+package e2e
+
+import (
+	"testing"
+
+	"weave/internal/harness"
+	agentstore "weave/internal/store/agent"
+	"weave/internal/weavetest"
+	agentv1 "weave/proto/gen/agent/v1"
+	workflowv1 "weave/proto/gen/workflow/v1"
+
+	"connectrpc.com/connect"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// TestAgentLifecycle is the whole life of an agent: created into a workflow, worked,
+// renamed, put away, brought back, resumed, and destroyed. Each step is asserted against
+// the pane as well as the row, since the two parting company is the failure that shows up
+// as an agent nobody can reach or a pane nobody owns.
+func TestAgentLifecycle(t *testing.T) {
+	instance := weavetest.Start(t, weavetest.Params{})
+	ctx := t.Context()
+
+	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+		Name: "backend",
+		Cwd:  t.TempDir(),
+	}))
+	require.NoError(t, err)
+
+	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
+		Prompt:     "fix the flaky login test",
+		Title:      "login",
+		WorkflowId: workflow.Msg.GetWorkflow().GetId(),
+	}))
+	require.NoError(t, err)
+
+	agent := created.Msg.GetAgent()
+	assert.Equal(t, "login", agent.GetName())
+	assert.Equal(t, workflow.Msg.GetWorkflow().GetId(), agent.GetWorkflowId())
+	require.NotEmpty(t, agent.GetPaneId())
+
+	// The pane is stamped with the agent's own id, which is what every later pass reads
+	// to tell this agent's pane from one tmux has since reissued.
+	assert.Equal(t, agent.GetPaneId(), instance.GetOwnedPane(agent.GetId()))
+
+	t.Run("the reconciler follows what the pane shows", func(t *testing.T) {
+		instance.Settle(agent.GetId(), harness.ActivityWorking, agentstore.StateThinking)
+		instance.Settle(agent.GetId(), harness.ActivityWaiting, agentstore.StateWaiting)
+		instance.Settle(agent.GetId(), harness.ActivityIdle, agentstore.StateIdle)
+	})
+
+	t.Run("what was said is searchable", func(t *testing.T) {
+		require.NoError(t, instance.Harness.Say(agent.GetSessionId(), "assistant", "the login test races the token refresh"))
+		instance.SyncTranscripts()
+
+		hits, err := instance.Agents.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
+			Query: "token refresh",
+		}))
+		require.NoError(t, err)
+
+		require.Len(t, hits.Msg.GetHits(), 1)
+		assert.Equal(t, agent.GetId(), hits.Msg.GetHits()[0].GetAgentId())
+	})
+
+	t.Run("a rename keeps the same agent", func(t *testing.T) {
+		_, err := instance.Agents.UpdateAgent(ctx, connect.NewRequest(&agentv1.UpdateAgentRequest{
+			Id:   agent.GetId(),
+			Name: "login-race",
+		}))
+		require.NoError(t, err)
+
+		got, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agent.GetId()}))
+		require.NoError(t, err)
+		assert.Equal(t, "login-race", got.Msg.GetAgent().GetName())
+	})
+
+	t.Run("archiving takes the pane with it", func(t *testing.T) {
+		_, err := instance.Agents.ArchiveAgent(ctx, connect.NewRequest(&agentv1.ArchiveAgentRequest{
+			Id: agent.GetId(),
+		}))
+		require.NoError(t, err)
+
+		assert.Empty(t, liveNames(t, instance), "an archived agent is off the live listing")
+		assert.Equal(t, []string{"login-race"}, archivedNames(t, instance))
+		assert.Empty(t, instance.GetOwnedPane(agent.GetId()), "the pane goes with the agent")
+	})
+
+	t.Run("restoring puts it back with nothing running", func(t *testing.T) {
+		_, err := instance.Agents.RestoreAgent(ctx, connect.NewRequest(&agentv1.RestoreAgentRequest{
+			Id: agent.GetId(),
+		}))
+		require.NoError(t, err)
+
+		assert.Equal(t, []string{"login-race"}, liveNames(t, instance))
+		assert.Empty(t, archivedNames(t, instance))
+	})
+
+	t.Run("resuming reopens the same conversation", func(t *testing.T) {
+		resumed, err := instance.Agents.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{
+			Id: agent.GetId(),
+		}))
+		require.NoError(t, err)
+
+		back := resumed.Msg.GetAgent()
+		assert.Equal(t, agent.GetSessionId(), back.GetSessionId(), "a resume reopens the conversation rather than starting one")
+		require.NotEmpty(t, back.GetPaneId())
+		assert.Equal(t, back.GetPaneId(), instance.GetOwnedPane(agent.GetId()))
+
+		// The agent records the resume in its own log, which is the only evidence from
+		// out here that the CLI was told to reopen rather than to start fresh.
+		instance.Tmux.WaitForFrame(back.GetPaneId(), "fake:")
+		instance.SyncTranscripts()
+
+		transcript, err := instance.Agents.GetTranscript(ctx, connect.NewRequest(&agentv1.GetTranscriptRequest{
+			AgentId: agent.GetId(),
+		}))
+		require.NoError(t, err)
+		assert.Contains(t, transcript.Msg.GetContent(), "resumed")
+	})
+
+	t.Run("deleting leaves nothing behind", func(t *testing.T) {
+		_, err := instance.Agents.DeleteAgent(ctx, connect.NewRequest(&agentv1.DeleteAgentRequest{
+			Id: agent.GetId(),
+		}))
+		require.NoError(t, err)
+
+		assert.Empty(t, liveNames(t, instance))
+		assert.Empty(t, archivedNames(t, instance))
+		assert.Empty(t, instance.GetOwnedPane(agent.GetId()), "a destroyed agent leaves no pane running")
+	})
+}
+
+// liveNames is every agent on the live listing, by name, which is what most assertions
+// here are about rather than the rows themselves.
+func liveNames(t *testing.T, instance *weavetest.Instance) []string {
+	t.Helper()
+
+	return names(t, instance, false)
+}
+
+// archivedNames is the same for the archive. The two listings never mix, so a test that
+// asserts on one has to ask for the other separately.
+func archivedNames(t *testing.T, instance *weavetest.Instance) []string {
+	t.Helper()
+
+	return names(t, instance, true)
+}
+
+func names(t *testing.T, instance *weavetest.Instance, archived bool) []string {
+	t.Helper()
+
+	listed, err := instance.Agents.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{
+		Archived: archived,
+	}))
+	require.NoError(t, err)
+
+	found := make([]string, 0, len(listed.Msg.GetAgents()))
+	for _, agent := range listed.Msg.GetAgents() {
+		found = append(found, agent.GetName())
+	}
+
+	return found
+}

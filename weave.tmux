@@ -37,4 +37,4 @@ key="$(get '@weave_key')"
 tmux set-option -g @weave_open 0
 tmux bind-key "$key" if-shell -F '#{==:#{@weave_open},1}' \
 	"run-shell -b '$BIN hide'" \
-	"display-popup -w 95% -h 95% -x C -y C -T ' weave ' -EE '$BIN open'"
+	"display-popup -w 100% -h 100% -x C -y C -T ' weave ' -EE '$BIN open'"

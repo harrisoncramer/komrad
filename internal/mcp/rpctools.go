@@ -177,7 +177,7 @@ func messageSchema(message protoreflect.MessageDescriptor, enclosing map[protore
 
 		name := field.JSONName()
 		properties[name] = property
-		if rejectsEmpty(field) {
+		if doesRejectEmpty(field) {
 			required = append(required, name)
 		}
 	}
@@ -190,11 +190,11 @@ func messageSchema(message protoreflect.MessageDescriptor, enclosing map[protore
 	return schema, nil
 }
 
-// rejectsEmpty reports whether the validation rules on a field would refuse an
+// doesRejectEmpty reports whether the validation rules on a field would refuse an
 // empty value, which is what makes it required from a caller's point of view. A
 // field the proto marks optional is never required, since leaving it out is the
 // point of the keyword and its rules apply only once it is present.
-func rejectsEmpty(field protoreflect.FieldDescriptor) bool {
+func doesRejectEmpty(field protoreflect.FieldDescriptor) bool {
 	if field.HasOptionalKeyword() {
 		return false
 	}

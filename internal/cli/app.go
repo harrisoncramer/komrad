@@ -1,50 +1,21 @@
 package cli
 
 import (
-	"context"
-
 	"weave/config"
-	"weave/internal/actions"
-	"weave/internal/agents"
 	"weave/internal/appconfig"
 	"weave/internal/harness"
-	"weave/internal/store"
-	agentstore "weave/internal/store/agent"
-	schedulestore "weave/internal/store/schedule"
-	transcriptstore "weave/internal/store/transcript"
-	workflowstore "weave/internal/store/workflow"
 	"weave/internal/tmux"
 	"weave/internal/ui"
 )
 
 // app is what every subcommand is wired from. Each command holds only the part
-// it drives.
+// it drives. Nothing here reaches the database: the panel is a client of the service,
+// and the service builds its own stores from what is gathered here.
 type app struct {
-	// The services and their stores are built on demand by openStore, since only
-	// the commands that serve or write need them. The panel is a client of the
-	// service, so opening a pool it never queries would put a second writer on
-	// the database.
-	agentService    *agents.AgentService
-	workflowService *agents.WorkflowService
-	scheduleService *agents.ScheduleService
-	// actionService is shared with the agent service, which fires a workflow's actions
-	// around its agents' lives, so a person, a model, and a launch all hand a script the
-	// same payload.
-	actionService *agents.ActionService
-
-	// The composition root. The pool is opened once and each domain gets its own
-	// store over it, so what a service can reach is decided here. The pool is
-	// handed on only as the transaction boundary for writes spanning two domains.
-	pool        *store.Pool
-	agents      *agentstore.Store
-	workflows   *workflowstore.Store
-	schedules   *schedulestore.Store
-	transcripts *transcriptstore.Store
-
-	popup *ui.Popup
+	popup *ui.PopupWindow
 	env   *config.Config
 	keys  appconfig.Keybindings
-	// harnesses is every agent CLI this binary can run, which the services resolve an
+	// harnesses is every agent CLI this binary can run, which the services get an
 	// agent's own harness through.
 	harnesses *harness.Registry
 	// defaultHarness is the CLI an agent runs when neither it nor its workflow names
@@ -68,7 +39,7 @@ type app struct {
 	// read keybindings.
 	configErr error
 	// contextPath is the file holding the standing text every agent is started with,
-	// resolved from the config at startup.
+	// read from the config at startup.
 	contextPath string
 	// configPath is the file the user pointed at, empty for the default location.
 	// Serve keeps the path rather than the config parsed from it, since it reads the
@@ -81,67 +52,4 @@ type app struct {
 	// host is the user's tmux server, kept alongside so the open command can record
 	// which one opened the popup. Every other use of it goes through tmux.
 	host *tmux.Host
-}
-
-// openStore connects to the database and builds the services over it. Calling it
-// twice is harmless, so a command can ask without knowing whether something
-// already did.
-func (a *app) openStore(ctx context.Context) error {
-	if a.pool != nil {
-		return nil
-	}
-
-	pool, err := store.Open(ctx, a.env.DatabaseURL)
-	if err != nil {
-		return err
-	}
-
-	a.pool = pool
-	a.agents = agentstore.New(pool.DB())
-	a.workflows = workflowstore.New(pool.DB())
-	a.schedules = schedulestore.New(pool.DB())
-	a.transcripts = transcriptstore.New(pool.DB())
-
-	a.workflowService = agents.NewWorkflowService(agents.WorkflowParams{
-		Workflows: a.workflows,
-		Schedules: a.schedules,
-		Tx:        pool,
-		MaxAgents: a.maxAgents,
-	})
-	a.scheduleService = agents.NewScheduleService(agents.ScheduleParams{
-		Schedules: a.schedules,
-		Workflows: a.workflows,
-	})
-	// Built here rather than where it is served, since the agent service needs the same
-	// one. It reads the config per call, so an actions directory changed while this
-	// process runs takes effect without a restart.
-	a.actionService = agents.NewActionService(agents.ActionParams{
-		Agents:    a.agents,
-		Workflows: a.workflows,
-		Tmux:      a.tmux,
-		Runner:    actions.NewRunner(),
-		Load:      func() (*appconfig.Config, error) { return appconfig.Load(a.configPath) },
-		Addr:      a.env.Addr,
-		Socket:    a.env.TmuxSocket,
-	})
-	a.agentService = agents.NewAgentService(agents.AgentParams{
-		Tmux:      a.tmux,
-		Agents:    a.agents,
-		Workflows: a.workflows,
-		Tx:        pool,
-		Launcher: agents.NewLauncher(agents.LauncherParams{
-			Tmux:        a.tmux,
-			Addr:        a.env.Addr,
-			CacheDir:    a.env.CacheDir,
-			LogPath:     a.env.LogPath(),
-			ContextPath: a.contextPath,
-		}),
-		Harnesses:      a.harnesses,
-		Lifecycle:      a.actionService,
-		DefaultHarness: a.defaultHarness,
-		DefaultFlags:   a.defaultFlags,
-		MaxAgents:      a.maxAgents,
-	})
-
-	return nil
 }

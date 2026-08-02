@@ -552,7 +552,7 @@ func archiveModel(agents agentv1connect.AgentServiceClient, workflows workflowv1
 	return model{
 		api:    api{agents: agents, workflows: workflows, schedules: emptyLists{}},
 		tmux:   tmux,
-		popup:  NewPopup(tmux, "test-session"),
+		popup:  NewPopupWindow(tmux, "test-session"),
 		stage:  NewStage(tmux, appconfig.DefaultSplit),
 		keys:   keys,
 		screen: screenArchive,

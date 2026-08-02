@@ -48,7 +48,7 @@ func TestStagePercent(t *testing.T) {
 }
 
 // TestStageInitAnchorsToTheGivenPane covers which pane the stage is laid out beside. It is
-// the one the panel was told it runs in, never one resolved from tmux, which answers for
+// the one the panel was told it runs in, never one read from tmux, which answers for
 // whatever window the session is currently looking at. A panel restarted while the session
 // sits on an agent would otherwise split its stage into that agent's window.
 func TestStageInitAnchorsToTheGivenPane(t *testing.T) {

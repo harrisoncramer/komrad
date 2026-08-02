@@ -140,7 +140,7 @@ func TestMigrateResumes(t *testing.T) {
 		"20260101000000_first.sql":  {Data: []byte(`CREATE TABLE resume_probe (id int PRIMARY KEY)`)},
 		"20260102000000_second.sql": {Data: []byte(`ALTER TABLE resume_probe ADD COLUMN extra int`)},
 	}
-	versions, err := migrationVersions(files)
+	versions, err := listMigrationVersions(files)
 	require.NoError(t, err)
 	require.Len(t, versions, 2)
 
@@ -309,7 +309,7 @@ func connect(t *testing.T, url string) *pgx.Conn {
 func embeddedFiles(t *testing.T) fs.FS {
 	t.Helper()
 
-	files, err := migrationFiles()
+	files, err := openMigrationFiles()
 	require.NoError(t, err)
 
 	return files
@@ -318,7 +318,7 @@ func embeddedFiles(t *testing.T) fs.FS {
 func allVersions(t *testing.T) []string {
 	t.Helper()
 
-	versions, err := migrationVersions(embeddedFiles(t))
+	versions, err := listMigrationVersions(embeddedFiles(t))
 	require.NoError(t, err)
 	require.NotEmpty(t, versions)
 

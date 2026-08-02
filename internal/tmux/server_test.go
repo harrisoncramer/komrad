@@ -51,11 +51,11 @@ func windowNames(t *testing.T, c *Client, session string) []string {
 // TestNewWindowAlongsideASameNamedWindow is the case the panel actually runs in. The
 // manager session and its own window carry the same name, and tmux matches a bare target
 // against window names in preference to session names, so targeting the session by name
-// alone resolves to that window and tmux then refuses to create at an index that is by
+// alone lands on that window and tmux then refuses to create at an index that is by
 // definition already taken.
 //
 // This needs a real tmux server: the target is a string the panel hands over and tmux
-// resolves, so nothing standing in for tmux can disagree with it.
+// reads, so nothing standing in for tmux can disagree with it.
 func TestNewWindowAlongsideASameNamedWindow(t *testing.T) {
 	client := testServer(t, "weave")
 
@@ -68,7 +68,7 @@ func TestNewWindowAlongsideASameNamedWindow(t *testing.T) {
 
 // TestOpenWindowWithoutAClient covers the two ways there is no session to open into: no
 // client named at all, and one tmux does not know. Both are refused rather than left to
-// tmux, which would resolve the target to whatever it holds as current and put the window
+// tmux, which would read the target as whatever it holds as current and put the window
 // over a session nobody named.
 // TestSessionClientWithNothingAttached covers looking for the client viewing a popup on a
 // server nobody is attached to, and on a session that is not there. Both answer nothing,
@@ -77,8 +77,8 @@ func TestNewWindowAlongsideASameNamedWindow(t *testing.T) {
 func TestSessionClientWithNothingAttached(t *testing.T) {
 	client := testServer(t, "detached")
 
-	assert.Empty(t, client.SessionClient("$0"))
-	assert.Empty(t, client.SessionClient("$99"))
+	assert.Empty(t, client.GetSessionClient("$0"))
+	assert.Empty(t, client.GetSessionClient("$99"))
 }
 
 // The server here stands in for the user's own rather than the manager's, since that is
@@ -106,7 +106,7 @@ func TestNewWindowRepeatedly(t *testing.T) {
 	assert.Equal(t, []string{"weave", "agent-one", "agent-two", "agent-three"}, windowNames(t, client, "weave"))
 }
 
-// TestPaneOwners covers the batched lookup a whole listing resolves through, where a pane
+// TestPaneOwners covers the batched lookup a whole listing goes through, where a pane
 // that is gone has to be absent rather than reported under a stale stamp.
 func TestPaneOwners(t *testing.T) {
 	client := testServer(t, "weave")
@@ -123,13 +123,13 @@ func TestPaneOwners(t *testing.T) {
 	require.NoError(t, client.SetPaneOwner(killed, "agent-two"))
 	client.KillPane(killed)
 
-	owners, err := client.PaneOwners()
+	owners, err := client.GetPaneOwners()
 	require.NoError(t, err)
 
 	assert.Equal(t, "agent-one", owners[stamped], "a stamped pane answers to its agent")
 	assert.Empty(t, owners[bare], "an unstamped pane answers to nobody")
 	assert.NotContains(t, owners, killed, "a pane that is gone is absent rather than stale")
-	assert.Equal(t, client.PaneOwner(stamped), owners[stamped], "the batch agrees with the single lookup")
+	assert.Equal(t, client.GetPaneOwner(stamped), owners[stamped], "the batch agrees with the single lookup")
 }
 
 // TestZoomPaneIsIdempotent covers the zoom the panel puts a form behind. tmux offers only
@@ -169,7 +169,7 @@ func TestZoomPaneIsIdempotent(t *testing.T) {
 // TestSiblingPanesFindsTheRestOfTheWindow covers the panel asking what else is sitting in
 // its window, which is how a restarted panel finds what the last one left. tmux is asked
 // with the panel's own pane as the target, so this needs a real server to confirm tmux
-// resolves a pane id to the window holding it rather than refusing it.
+// maps a pane id to the window holding it rather than refusing it.
 func TestSiblingPanesFindsTheRestOfTheWindow(t *testing.T) {
 	client := testServer(t, "weave")
 
@@ -181,7 +181,7 @@ func TestSiblingPanesFindsTheRestOfTheWindow(t *testing.T) {
 	require.NotEmpty(t, first)
 	require.NotEmpty(t, second)
 
-	siblings := client.SiblingPanes(panel)
+	siblings := client.GetSiblingPanes(panel)
 
 	assert.ElementsMatch(t, []string{first, second}, siblings, "every pane but the one asked about")
 	assert.NotContains(t, siblings, panel, "the pane asked about is not its own sibling")
@@ -193,7 +193,7 @@ func TestSiblingPanesFindsTheRestOfTheWindow(t *testing.T) {
 func TestSiblingPanesOfNothing(t *testing.T) {
 	client := testServer(t, "weave")
 
-	assert.Empty(t, client.SiblingPanes(""))
+	assert.Empty(t, client.GetSiblingPanes(""))
 }
 
 // TestBreakPaneKeepsTheID covers a staged agent being returned to a window of its own. The
@@ -210,7 +210,7 @@ func TestBreakPaneKeepsTheID(t *testing.T) {
 
 	client.BreakPane(staged)
 
-	assert.True(t, client.PaneAlive(staged), "the pane survives being broken out")
-	assert.Empty(t, client.SiblingPanes(panel), "and is no longer in the panel's window")
+	assert.True(t, client.IsPaneAlive(staged), "the pane survives being broken out")
+	assert.Empty(t, client.GetSiblingPanes(panel), "and is no longer in the panel's window")
 	assert.Len(t, windowNames(t, client, "weave"), 2, "it is a window of its own now")
 }

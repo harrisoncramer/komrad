@@ -38,10 +38,10 @@ func newRiverClient(t *testing.T) *river.Client[pgx.Tx] {
 
 	stores := storetest.Open(t)
 
-	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.Raw()))
+	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool()))
 
 	client, err := NewClient(ClientParams{
-		Pool:      stores.Pool.Raw(),
+		Pool:      stores.Pool.GetRawPool(),
 		Schedules: &fakeSchedules{},
 		Agents:    &fakeLauncher{},
 		Running:   &fakeRunning{},
@@ -291,18 +291,18 @@ const claudeHarnessID = "claude"
 func newAgentService(t *testing.T, stores *storetest.Stores) *agents.AgentService {
 	t.Helper()
 
-	registry, err := harness.NewRegistry(claude.New(t.TempDir()))
+	registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))
 	require.NoError(t, err)
 
-	return agents.NewAgentService(agents.AgentParams{
-		Tmux:           &stubTmux{},
-		Agents:         stores.Agents,
-		Workflows:      stores.Workflows,
-		Tx:             stores.Pool,
-		Launcher:       agents.NewLauncher(agents.LauncherParams{Tmux: &stubTmux{}, Addr: "127.0.0.1:8787"}),
-		Harnesses:      registry,
-		DefaultHarness: claudeHarnessID,
-		RestoreRoot:    t.TempDir(),
+	return agents.NewAgentService(agents.NewAgentServiceParams{
+		Tmux:               &stubTmux{},
+		Agents:             stores.Agents,
+		Workflows:          stores.Workflows,
+		Tx:                 stores.Pool,
+		Launcher:           agents.NewLauncher(agents.LauncherParams{Tmux: &stubTmux{}, Addr: "127.0.0.1:8787"}),
+		Harnesses:          registry,
+		UserDefaultHarness: claudeHarnessID,
+		FallbackResumeRoot: t.TempDir(),
 	})
 }
 
@@ -341,11 +341,11 @@ func (s *stubTmux) KillPane(string) {}
 
 func (s *stubTmux) SetPaneOwner(string, string) error { return nil }
 
-func (s *stubTmux) PaneOwner(string) string { return "" }
+func (s *stubTmux) GetPaneOwner(string) string { return "" }
 
-func (s *stubTmux) PaneOwners() (map[string]string, error) { return map[string]string{}, nil }
+func (s *stubTmux) GetPaneOwners() (map[string]string, error) { return map[string]string{}, nil }
 
-func (s *stubTmux) ClientPath(string) string { return "" }
+func (s *stubTmux) GetClientPath(string) string { return "" }
 
 func (s *stubTmux) SendKeys(string, ...string) error { return nil }
 
@@ -374,12 +374,12 @@ func (b *blockingLauncher) NewAgent(ctx context.Context, p agents.NewAgentParams
 // than walk away.
 func TestStopWaitsForALaunchInFlight(t *testing.T) {
 	stores := storetest.Open(t)
-	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.Raw()))
+	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool()))
 
 	launcher := &blockingLauncher{started: make(chan struct{}), release: make(chan struct{})}
 
 	client, err := NewClient(ClientParams{
-		Pool:      stores.Pool.Raw(),
+		Pool:      stores.Pool.GetRawPool(),
 		Schedules: &fakeSchedules{schedule: &schedulestore.Schedule{ID: "s1", Name: "nightly", Enabled: true}},
 		Agents:    launcher,
 		Running:   &fakeRunning{},

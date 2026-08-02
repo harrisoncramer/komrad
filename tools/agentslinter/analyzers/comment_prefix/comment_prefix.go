@@ -37,7 +37,7 @@ func NewAnalyzer(_ config.CommentPrefixConfig) *analysis.Analyzer {
 						continue
 					}
 					name := fn.Name.Name
-					if !startsWithWord(text, name) {
+					if !doesStartWithWord(text, name) {
 						pass.Report(analysis.Diagnostic{
 							Pos:     fn.Doc.Pos(),
 							Message: fmt.Sprintf("doc comment for exported %s %q must begin with %q", funcKind(fn), name, name),
@@ -50,9 +50,9 @@ func NewAnalyzer(_ config.CommentPrefixConfig) *analysis.Analyzer {
 	}
 }
 
-// startsWithWord reports whether text begins with word as a whole word, i.e. word
+// doesStartWithWord reports whether text begins with word as a whole word, i.e. word
 // is not immediately followed by another identifier character.
-func startsWithWord(text, word string) bool {
+func doesStartWithWord(text, word string) bool {
 	if !strings.HasPrefix(text, word) {
 		return false
 	}

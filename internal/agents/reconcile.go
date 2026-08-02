@@ -3,8 +3,10 @@ package agents
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"weave/internal/harness"
+	"weave/internal/logging"
 	agentstore "weave/internal/store/agent"
 )
 
@@ -14,21 +16,15 @@ import (
 // stale state lingering a few seconds.
 const reconcileMisses = 3
 
-// tmuxProbe is the part of the tmux client the reconciler observes through. It keys on the
+// paneObserver is how the reconciler watches a pane. It keys on the
 // pane's owner stamp rather than its existence, so a reissued pane id is not read as this
 // agent still running.
-type tmuxProbe interface {
-	PaneOwners() (map[string]string, error)
+type paneObserver interface {
+	GetPaneOwners() (map[string]string, error)
 	CapturePane(pane string) string
 }
 
-// activityRegistry resolves the harness an agent is recorded against, since what a frame
-// means depends on which CLI drew it. A row naming one nothing implements settles nothing.
-type activityRegistry interface {
-	Resolve(id string) (harness.Harness, error)
-}
-
-type stateStore interface {
+type agentStateWriter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	SetStateByID(ctx context.Context, id, state string) error
 	ClearPane(ctx context.Context, id string) error
@@ -39,16 +35,21 @@ type stateStore interface {
 // it observes each agent from tmux on a timer and writes the state that implies. Reading
 // ground truth every pass means a wrong state cannot outlive the interval.
 type Reconciler struct {
-	tmux      tmuxProbe
-	harnesses activityRegistry
-	store     stateStore
+	tmux      paneObserver
+	harnesses harnessGetter
+	store     agentStateWriter
 	misses    map[string]int // agent id to consecutive idle observations
 }
 
 // NewReconciler builds a Reconciler over a tmux probe, the harnesses that read its
 // captures, and the state store.
-func NewReconciler(t tmuxProbe, harnesses activityRegistry, s stateStore) *Reconciler {
-	return &Reconciler{tmux: t, harnesses: harnesses, store: s, misses: map[string]int{}}
+func NewReconciler(t paneObserver, harnesses harnessGetter, s agentStateWriter) *Reconciler {
+	return &Reconciler{
+		tmux:      t,
+		harnesses: harnesses,
+		store:     s,
+		misses:    map[string]int{},
+	}
 }
 
 // Reconcile observes every tracked agent once and corrects any stored state reality has
@@ -61,7 +62,7 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 
 	// Tmux failing to answer says nothing about any agent, and treating it as every pane
 	// being gone would clear every pane id and demote every agent in one pass.
-	owners, err := r.tmux.PaneOwners()
+	owners, err := r.tmux.GetPaneOwners()
 	if err != nil {
 		return fmt.Errorf("failed to read pane owners for reconcile: %w", err)
 	}
@@ -87,12 +88,15 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent, owner string) {
 	// A pane that is not this agent's means the agent is dormant, whether its pane died or
 	// the tmux server has since given that id to somebody else.
-	if !paneOwnedBy(owner, agent.ID) {
+	if !isPaneOwnedBy(owner, agent.ID) {
 		// A pane id kept on a dormant row is the one that collides after a server restart,
 		// so forgetting it stops a later pass, a preview, or a kill from landing on
 		// another agent's pane.
 		if agent.Pane != "" {
-			_ = r.store.ClearPane(ctx, agent.ID)
+			if err := r.store.ClearPane(ctx, agent.ID); err != nil {
+				logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to forget a dormant agent's pane",
+					append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+			}
 		}
 		r.apply(ctx, agent, agentstore.StateIdle)
 
@@ -109,12 +113,12 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 
 	// A harness this binary does not implement can say nothing about the frame, so the
 	// agent keeps the state it has.
-	resolved, err := r.harnesses.Resolve(agent.Harness)
+	hn, err := r.harnesses.GetByID(agent.Harness)
 	if err != nil {
 		return
 	}
 
-	switch resolved.ReadActivity(frame) {
+	switch hn.ReadActivity(frame) {
 	case harness.ActivityWorking:
 		r.apply(ctx, agent, agentstore.StateThinking)
 	case harness.ActivityWaiting:
@@ -146,5 +150,11 @@ func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state st
 		return
 	}
 
-	_ = r.store.SetStateByID(ctx, agent.ID, state)
+	if err := r.store.SetStateByID(ctx, agent.ID, state); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to write an agent's reconciled state",
+			append([]slog.Attr{
+				slog.String(logging.AgentID, agent.ID),
+				slog.String(logging.AgentState, state),
+			}, logging.Err(err)...)...)
+	}
 }

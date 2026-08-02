@@ -415,7 +415,7 @@ func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys appconfi
 		tree: treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Cwd: "/work/api"}}},
 		// The new-schedule form asks the popup which client opened it, to prefill
 		// the directory, so the panel needs one even though nothing here reads it.
-		popup:  NewPopup(tmux, "test-session"),
+		popup:  NewPopupWindow(tmux, "test-session"),
 		stage:  NewStage(tmux, appconfig.DefaultSplit),
 		keys:   keys,
 		screen: screenSchedules,
@@ -543,7 +543,7 @@ func TestScheduledMark(t *testing.T) {
 	}
 }
 
-// TestScheduleName resolves the schedule an agent came from against the list
+// TestScheduleName covers matching the schedule an agent came from against the list
 // the panel polls, which is what the record in the stage names.
 func TestScheduleName(t *testing.T) {
 	tests := []struct {
@@ -552,18 +552,18 @@ func TestScheduleName(t *testing.T) {
 		want  string
 	}{
 		{
-			name:  "a schedule still listed resolves to its name",
+			name:  "a schedule still listed maps to its name",
 			agent: agentstore.Agent{ScheduleID: xptr.Ptr("s1")},
 			want:  "morning-ci",
 		},
 		{
 			// The row keeps its schedule id after the schedule is deleted, so this
 			// has to come back empty rather than render a dangling id.
-			name:  "a schedule since deleted resolves to nothing",
+			name:  "a schedule since deleted maps to nothing",
 			agent: agentstore.Agent{ScheduleID: xptr.Ptr("gone")},
 		},
 		{
-			name:  "an agent with no schedule resolves to nothing",
+			name:  "an agent with no schedule maps to nothing",
 			agent: agentstore.Agent{},
 		},
 	}

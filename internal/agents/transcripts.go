@@ -11,29 +11,19 @@ import (
 	"weave/internal/store/transcript"
 )
 
-// sessionStore is how the syncer records the conversation an agent turned out to be
-// holding, which is the only thing about an agent it changes.
-type sessionStore interface {
+type sessionIDSetter interface {
 	SetSessionID(ctx context.Context, id, sessionID string) error
 }
 
-type transcriptStore interface {
+type transcriptReadWriter interface {
 	Get(ctx context.Context, agentID string) (transcript.Transcript, error)
 	Upsert(ctx context.Context, params transcript.UpsertParams) error
 	AppendTurns(ctx context.Context, agentID string, turns []transcript.Turn) error
 	DeleteTurns(ctx context.Context, agentID string) error
 }
 
-// agentLister is all the syncer needs from the agent domain. Archived agents are included,
-// since their transcripts stay searchable.
 type agentLister interface {
 	ListAll(ctx context.Context) ([]agentstore.Agent, error)
-}
-
-// logRegistry resolves the harness that wrote an agent's log, which is the only thing that
-// knows where it is and how to read it.
-type logRegistry interface {
-	Resolve(id string) (harness.Harness, error)
 }
 
 // TranscriptSyncer keeps each agent's searchable transcript in step with the log its CLI
@@ -41,17 +31,17 @@ type logRegistry interface {
 // reads the log on a timer, so missing a pass loses nothing.
 type TranscriptSyncer struct {
 	agents    agentLister
-	sessions  sessionStore
-	store     transcriptStore
-	harnesses logRegistry
+	sessions  sessionIDSetter
+	store     transcriptReadWriter
+	harnesses harnessGetter
 }
 
 // TranscriptSyncerParams carries the syncer's dependencies.
 type TranscriptSyncerParams struct {
 	Agents      agentLister
-	Sessions    sessionStore
-	Transcripts transcriptStore
-	Harnesses   logRegistry
+	Sessions    sessionIDSetter
+	Transcripts transcriptReadWriter
+	Harnesses   harnessGetter
 }
 
 // NewTranscriptSyncer builds a syncer over the store, reading each agent's log
@@ -108,7 +98,7 @@ func (ts *TranscriptSyncer) adoptSessions(ctx context.Context, agents []agentsto
 			continue
 		}
 
-		harness, err := ts.harnesses.Resolve(agent.Harness)
+		harness, err := ts.harnesses.GetByID(agent.Harness)
 		if err != nil {
 			continue
 		}
@@ -133,12 +123,12 @@ func (ts *TranscriptSyncer) adoptSessions(ctx context.Context, agents []agentsto
 func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent) error {
 	// An agent recorded against a harness this binary does not implement is reported
 	// rather than skipped, since its transcript will never advance again.
-	resolved, err := ts.harnesses.Resolve(agent.Harness)
+	hn, err := ts.harnesses.GetByID(agent.Harness)
 	if err != nil {
 		return err
 	}
 
-	path := resolved.GetLogPath(agent.SessionID)
+	path := hn.GetLogPath(agent.SessionID)
 	if path == "" {
 		return nil
 	}
@@ -148,7 +138,7 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 		return err
 	}
 
-	read, err := resolved.ReadLog(path, tr.SyncedOffset)
+	read, err := hn.ReadLog(path, tr.SyncedOffset)
 	if err != nil {
 		return err
 	}

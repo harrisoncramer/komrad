@@ -11,9 +11,19 @@ import (
 	"strings"
 	"time"
 
+	"weave/db"
 	"weave/db/models"
 	"weave/internal/store"
 )
+
+// ErrTooManyMetadataKeys reports that an agent already holds as many keys as it is
+// allowed. It is a sentinel so a caller can tell a ceiling apart from a broken write.
+var ErrTooManyMetadataKeys = errors.New("too many metadata keys")
+
+// maxMetadataKeys caps how many facts one agent may record, since the keys are the
+// agent's own invention and a looping agent would fill the table. It is checked here
+// rather than in the proto because it needs a count of what is already stored.
+const maxMetadataKeys = 32
 
 // Agent states. There are three because there are only three things a person watching
 // the panel acts on differently: an agent generating, one blocked on an answer they owe
@@ -43,7 +53,7 @@ type Agent struct {
 	State  string
 	// Harness names the CLI this agent runs, which decides how it is launched, how its
 	// state is read off its pane, and where its conversation log is found. It is
-	// resolved at create and never empty.
+	// set at create and never empty.
 	Harness string
 	// SessionID is the conversation the agent's harness files its own log under and
 	// reopens on a resume.
@@ -191,7 +201,7 @@ func (s *Store) GetInWorkflow(ctx context.Context, workflowID, name string) (*Ag
 		WorkflowID: workflowID,
 		Name:       name,
 	})
-	if store.NoRows(err) {
+	if db.IsNoRows(err) {
 		return nil, nil
 	}
 	if err != nil {
@@ -218,7 +228,7 @@ func (s *Store) GetByID(ctx context.Context, id string) (*Agent, error) {
 	}
 
 	row, err := s.queries.GetAgentByID(ctx, id)
-	if store.NoRows(err) {
+	if db.IsNoRows(err) {
 		return nil, nil
 	}
 	if err != nil {
@@ -362,19 +372,21 @@ func (s *Store) ClearPane(ctx context.Context, id string) error {
 	return nil
 }
 
-// SetMark puts a mark on an agent, keyed by id, and a nil mark clears it. It reports
-// whether a row was touched, so an id matching nothing is distinguishable.
-func (s *Store) SetMark(ctx context.Context, id string, mark *string) (bool, error) {
-	if !store.IsID(id) {
-		return false, nil
+// SetMarks puts one mark on every agent named, keyed by id, and a nil mark clears the
+// ones they carry. It reports how many rows were touched, so a call that reached
+// nothing is distinguishable from one that reached some of what it named.
+func (s *Store) SetMarks(ctx context.Context, ids []string, mark *string) (int, error) {
+	storable := keepStorableIDs(ids)
+	if len(storable) == 0 {
+		return 0, nil
 	}
 
-	updated, err := s.queries.SetAgentMark(ctx, models.SetAgentMarkParams{ID: id, Mark: mark})
+	updated, err := s.queries.SetAgentMarks(ctx, models.SetAgentMarksParams{Ids: storable, Mark: mark})
 	if err != nil {
-		return false, fmt.Errorf("failed to mark agent %q: %w", id, err)
+		return 0, fmt.Errorf("failed to mark %d agents: %w", len(storable), err)
 	}
 
-	return len(updated) > 0, nil
+	return len(updated), nil
 }
 
 // SetHidden hides an agent from the panel's list or brings it back, keyed by id.
@@ -392,15 +404,6 @@ func (s *Store) SetHidden(ctx context.Context, id string, hidden bool) (bool, er
 
 	return len(updated) > 0, nil
 }
-
-// ErrTooManyMetadataKeys reports that an agent already holds as many keys as it is
-// allowed. It is a sentinel so a caller can tell a ceiling apart from a broken write.
-var ErrTooManyMetadataKeys = errors.New("too many metadata keys")
-
-// maxMetadataKeys caps how many facts one agent may record, since the keys are the
-// agent's own invention and a looping agent would fill the table. It is checked here
-// rather than in the proto because it needs a count of what is already stored.
-const maxMetadataKeys = 32
 
 // SetMetadataParams identifies the fact being recorded. A nil Value clears the key
 // rather than storing an empty one.
@@ -462,7 +465,7 @@ func (s *Store) GetByIdempotencyKey(ctx context.Context, key string) (*Agent, er
 	}
 
 	row, err := s.queries.GetAgentByIdempotencyKey(ctx, &key)
-	if store.NoRows(err) {
+	if db.IsNoRows(err) {
 		return nil, nil
 	}
 	if err != nil {
@@ -521,7 +524,7 @@ func (s *Store) Rename(ctx context.Context, id, name string) (bool, error) {
 	}
 
 	renamed, err := s.queries.RenameAgent(ctx, models.RenameAgentParams{ID: id, Name: name})
-	if store.NameTaken(err) {
+	if db.IsUniqueViolation(err) {
 		return false, store.ErrNameTaken
 	}
 	if err != nil {
@@ -594,6 +597,20 @@ func (s *Store) ListArchivedInWorkflow(ctx context.Context, workflowID string) (
 	}
 
 	return agents, nil
+}
+
+// keepStorableIDs drops the ids no row could hold. Postgres refuses a whole uuid array
+// carrying one member it cannot parse, so an id the caller made up would otherwise take
+// the agents alongside it down with it.
+func keepStorableIDs(ids []string) []string {
+	storable := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if store.IsID(id) {
+			storable = append(storable, id)
+		}
+	}
+
+	return storable
 }
 
 func agentFromRow(agent models.Agent) Agent {

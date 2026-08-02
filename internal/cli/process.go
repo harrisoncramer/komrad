@@ -72,7 +72,7 @@ func ensureServer(addr, self, logPath string) error {
 	// cleanly does not sit as a zombie for the life of this process.
 	exited := make(chan struct{})
 	go func() {
-		_ = cmd.Wait()
+		_ = cmd.Wait() //nolint:errcheck // a non-zero exit is the signal itself, and the reason comes from the log tail
 		close(exited)
 	}()
 
@@ -150,7 +150,7 @@ func healthCheck(addr string) (*http.Response, error) {
 	return client.Get("http://" + addr + HealthPath)
 }
 
-func selfPath() string {
+func getSelfPath() string {
 	path, err := os.Executable()
 	if err != nil {
 		return "weave"

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"weave/db"
+	"weave/internal/store"
 
 	"github.com/spf13/cobra"
 )
@@ -20,13 +21,15 @@ func migrateCmd(state *app) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := state.openStore(cmd.Context()); err != nil {
+			pool, err := store.Open(cmd.Context(), state.env.DatabaseURL)
+			if err != nil {
 				return err
 			}
+			defer func() { _ = pool.Close() }()
 
 			// River's are not on the store's path, since only serve runs the queue, so
 			// migrating on purpose has to ask for them.
-			if err := db.MigrateRiver(cmd.Context(), state.pool.Raw()); err != nil {
+			if err := db.MigrateRiver(cmd.Context(), pool.GetRawPool()); err != nil {
 				return err
 			}
 

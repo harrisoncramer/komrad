@@ -137,7 +137,7 @@ func TestTranscriptSyncer(t *testing.T) {
 				Agents:      st.Agents,
 				Sessions:    st.Agents,
 				Transcripts: st.Transcripts,
-				Harnesses:   mustRegistry(t, claude.New(projects)),
+				Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
 			})
 			require.NoError(t, syncer.Sync(ctx))
 
@@ -203,12 +203,12 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 	writeLogFor(t, projects, "claude-readable", `{"type":"user","message":{"content":"a turn worth keeping"}}`+"\n")
 	writeLogFor(t, projects, "claude-unsyncable", `{"type":"user","message":{"content":"never accepted"}}`+"\n")
 
-	store := failingTranscripts{transcriptStore: st.Transcripts, failFor: unsyncable.ID}
+	store := failingTranscripts{transcriptReadWriter: st.Transcripts, failFor: unsyncable.ID}
 	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
 		Agents:      st.Agents,
 		Sessions:    st.Agents,
 		Transcripts: store,
-		Harnesses:   mustRegistry(t, claude.New(projects)),
+		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
 	})
 
 	// The failure is still reported, so serve logs it rather than leaving an agent
@@ -229,7 +229,7 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 // failingTranscripts refuses one agent's writes and passes every other call
 // through to the real store.
 type failingTranscripts struct {
-	transcriptStore
+	transcriptReadWriter
 	failFor string
 }
 
@@ -238,7 +238,7 @@ func (f failingTranscripts) Upsert(ctx context.Context, params transcript.Upsert
 		return errors.New("this log will never be accepted")
 	}
 
-	return f.transcriptStore.Upsert(ctx, params)
+	return f.transcriptReadWriter.Upsert(ctx, params)
 }
 
 // testSessionID is the claude session id every test log is keyed to. The store id
@@ -308,7 +308,7 @@ func TestSyncReportsAnUnknownHarness(t *testing.T) {
 		Agents:      st.Agents,
 		Sessions:    st.Agents,
 		Transcripts: st.Transcripts,
-		Harnesses:   mustRegistry(t, claude.New(t.TempDir())),
+		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})),
 	})
 
 	err := syncer.Sync(ctx)
@@ -402,7 +402,7 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 		Agents:      st.Agents,
 		Sessions:    st.Agents,
 		Transcripts: st.Transcripts,
-		Harnesses:   mustRegistry(t, codex.New(codex.Options{SessionsDir: sessions})),
+		Harnesses:   mustRegistry(t, codex.NewHarness(codex.NewHarnessParams{SessionsDir: sessions})),
 	})
 
 	// The first pass adopts and reads in one go, since the rollout is already on disk.

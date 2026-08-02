@@ -22,9 +22,10 @@ message Workflow {
   string flags = 5;
   // Which CLI agents in this workflow run, blank when they take the user's configured default.
   string harness = 6;
-  // The action run before an agent in this workflow starts, blank for none. It blocks and
-  // a failure abandons the launch. A file in the actions directory names it, so nothing
-  // here promises it still exists.
+  // The action run before an agent in this workflow starts, blank for none. It runs again
+  // before a dormant agent is resumed, which WEAVE_TRIGGER tells it apart. It blocks and a
+  // failure abandons the launch. A file in the actions directory names it, so nothing here
+  // promises it still exists.
   string setup_action = 7;
   // The action run once an agent in this workflow is deleted, blank for none. Nothing
   // waits on it.
@@ -76,7 +77,7 @@ message CreateWorkflowRequest {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
-  // The action to run before an agent in this workflow starts, blank for none.
+  // The action to run before an agent in this workflow starts or is resumed, blank for none.
   string setup_action = 6 [(buf.validate.field).string = {
     max_len: 255
     [rules.v1.action_name_or_blank]: true
@@ -117,7 +118,7 @@ message UpdateWorkflowRequest {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
-  // The action run before an agent in this workflow starts, blank for none.
+  // The action run before an agent in this workflow starts or is resumed, blank for none.
   string setup_action = 7 [(buf.validate.field).string = {
     max_len: 255
     [rules.v1.action_name_or_blank]: true
