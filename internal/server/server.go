@@ -83,9 +83,9 @@ type Params struct {
 	MaxAgents int
 	// ContextPath is the file holding the standing text every agent is started with.
 	ContextPath string
-	// RestoreRoot is where an agent runs when the directory it was created in cannot be
+	// FallbackResumeRoot is where an agent runs when the directory it was created in cannot be
 	// brought back. Empty takes the default beside the user's own agent state.
-	RestoreRoot string
+	FallbackResumeRoot string
 }
 
 // Loop is one pass the service re-runs on an interval. How it is run, logged, and stopped
@@ -174,12 +174,12 @@ func New(ctx context.Context, p Params) (*Server, error) {
 			LogPath:     p.Env.LogPath(),
 			ContextPath: p.ContextPath,
 		}),
-		Harnesses:      p.Harnesses,
-		Lifecycle:      actionService,
-		DefaultHarness: p.DefaultHarness,
-		DefaultFlags:   p.DefaultFlags,
-		MaxAgents:      p.MaxAgents,
-		RestoreRoot:    p.RestoreRoot,
+		Harnesses:          p.Harnesses,
+		Lifecycle:          actionService,
+		UserDefaultHarness: p.DefaultHarness,
+		UserDefaultFlags:   p.DefaultFlags,
+		MaxAgents:          p.MaxAgents,
+		FallbackResumeRoot: p.FallbackResumeRoot,
 	})
 
 	// Requests are checked against the constraints declared in the proto before any

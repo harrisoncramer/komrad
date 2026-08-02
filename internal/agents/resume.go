@@ -40,7 +40,7 @@ func (s *AgentService) resumeDir(agent agentstore.Agent, h relocateHarness) stri
 	// or under a directory the user cannot write looks like. Run the agent
 	// somewhere that is always ours and let the harness carry the conversation
 	// across, so a resume still has it to find.
-	standIn := filepath.Join(s.restoreRoot, agent.ID)
+	standIn := filepath.Join(s.fallbackResumeRoot, agent.ID)
 	if err := os.MkdirAll(standIn, 0o755); err != nil || usableDir(standIn) != nil {
 		home, _ := os.UserHomeDir()
 

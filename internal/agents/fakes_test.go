@@ -327,46 +327,46 @@ func (s *testStore) GetTranscript(ctx context.Context, agentID string) (transcri
 // the composition root does.
 func (s *testStore) agentService(tmux *fakeTmux, harnesses fakeHarnesses, addr, flags string) *AgentService {
 	return NewAgentService(NewAgentServiceParams{
-		Tmux:           tmux,
-		Agents:         s.Agents,
-		Workflows:      s.Workflows,
-		Tx:             s.Pool,
-		Launcher:       NewLauncher(LauncherParams{Tmux: tmux, Addr: addr}),
-		Harnesses:      harnesses,
-		DefaultHarness: testHarnessID,
-		DefaultFlags:   map[string]string{testHarnessID: flags},
+		Tmux:               tmux,
+		Agents:             s.Agents,
+		Workflows:          s.Workflows,
+		Tx:                 s.Pool,
+		Launcher:           NewLauncher(LauncherParams{Tmux: tmux, Addr: addr}),
+		Harnesses:          harnesses,
+		UserDefaultHarness: testHarnessID,
+		UserDefaultFlags:   map[string]string{testHarnessID: flags},
 	})
 }
 
 // agentServiceWithLifecycle builds the service with a stand-in for the actions a
 // workflow runs around its agents' lives, which the plain builder leaves absent the way
 // a panel with no actions directory does.
-func (s *testStore) agentServiceWithLifecycle(tmux *fakeTmux, harnesses fakeHarnesses, lifecycle lifecycleActions) *AgentService {
+func (s *testStore) agentServiceWithLifecycle(tmux *fakeTmux, harnesses fakeHarnesses, lifecycle lifecycleActioner) *AgentService {
 	return NewAgentService(NewAgentServiceParams{
-		Tmux:           tmux,
-		Agents:         s.Agents,
-		Workflows:      s.Workflows,
-		Tx:             s.Pool,
-		Launcher:       NewLauncher(LauncherParams{Tmux: tmux, Addr: "127.0.0.1:9999"}),
-		Harnesses:      harnesses,
-		Lifecycle:      lifecycle,
-		DefaultHarness: testHarnessID,
+		Tmux:               tmux,
+		Agents:             s.Agents,
+		Workflows:          s.Workflows,
+		Tx:                 s.Pool,
+		Launcher:           NewLauncher(LauncherParams{Tmux: tmux, Addr: "127.0.0.1:9999"}),
+		Harnesses:          harnesses,
+		Lifecycle:          lifecycle,
+		UserDefaultHarness: testHarnessID,
 	})
 }
 
 // agentServiceCapped builds the service with a ceiling and the workflow actions wired,
 // since what a refused create must not do is run the setup action.
-func (s *testStore) agentServiceCapped(tmux *fakeTmux, lifecycle lifecycleActions, maxAgents int) *AgentService {
+func (s *testStore) agentServiceCapped(tmux *fakeTmux, lifecycle lifecycleActioner, maxAgents int) *AgentService {
 	return NewAgentService(NewAgentServiceParams{
-		Tmux:           tmux,
-		Agents:         s.Agents,
-		Workflows:      s.Workflows,
-		Tx:             s.Pool,
-		Launcher:       NewLauncher(LauncherParams{Tmux: tmux, Addr: "127.0.0.1:9999"}),
-		Harnesses:      fakeHarnesses{harness: &fakeHarness{}},
-		Lifecycle:      lifecycle,
-		DefaultHarness: testHarnessID,
-		MaxAgents:      maxAgents,
+		Tmux:               tmux,
+		Agents:             s.Agents,
+		Workflows:          s.Workflows,
+		Tx:                 s.Pool,
+		Launcher:           NewLauncher(LauncherParams{Tmux: tmux, Addr: "127.0.0.1:9999"}),
+		Harnesses:          fakeHarnesses{harness: &fakeHarness{}},
+		Lifecycle:          lifecycle,
+		UserDefaultHarness: testHarnessID,
+		MaxAgents:          maxAgents,
 	})
 }
 

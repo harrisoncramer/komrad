@@ -127,14 +127,14 @@ func TestNewAgentFlagsFollowTheHarness(t *testing.T) {
 	tmux := newFakeTmux()
 
 	service := NewAgentService(NewAgentServiceParams{
-		Tmux:           tmux,
-		Agents:         st.Agents,
-		Workflows:      st.Workflows,
-		Tx:             st.Pool,
-		Launcher:       NewLauncher(LauncherParams{Tmux: tmux}),
-		Harnesses:      fakeHarnesses{harness: &fakeHarness{}},
-		DefaultHarness: testHarnessID,
-		DefaultFlags: map[string]string{
+		Tmux:               tmux,
+		Agents:             st.Agents,
+		Workflows:          st.Workflows,
+		Tx:                 st.Pool,
+		Launcher:           NewLauncher(LauncherParams{Tmux: tmux}),
+		Harnesses:          fakeHarnesses{harness: &fakeHarness{}},
+		UserDefaultHarness: testHarnessID,
+		UserDefaultFlags: map[string]string{
 			testHarnessID: "--model opus",
 			"codex":       "--sandbox read-only",
 		},

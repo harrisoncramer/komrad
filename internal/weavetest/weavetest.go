@@ -127,14 +127,14 @@ func Start(t *testing.T, p Params) *Instance {
 			TmuxSocket:          tmuxServer.Socket(),
 			CacheDir:            filepath.Join(root, "cache"),
 		},
-		ConfigPath:     configPath,
-		Logger:         logger,
-		Addr:           addr,
-		Tmux:           tmux.NewServers(manager, tmux.NewHost(manager)),
-		Harnesses:      harnesses,
-		DefaultHarness: harnesstest.ID,
-		MaxAgents:      p.MaxAgents,
-		RestoreRoot:    filepath.Join(root, "restored"),
+		ConfigPath:         configPath,
+		Logger:             logger,
+		Addr:               addr,
+		Tmux:               tmux.NewServers(manager, tmux.NewHost(manager)),
+		Harnesses:          harnesses,
+		DefaultHarness:     harnesstest.ID,
+		MaxAgents:          p.MaxAgents,
+		FallbackResumeRoot: filepath.Join(root, "restored"),
 	})
 	require.NoError(t, err)
 	t.Cleanup(built.Close)

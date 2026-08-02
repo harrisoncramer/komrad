@@ -295,14 +295,14 @@ func newAgentService(t *testing.T, stores *storetest.Stores) *agents.AgentServic
 	require.NoError(t, err)
 
 	return agents.NewAgentService(agents.NewAgentServiceParams{
-		Tmux:           &stubTmux{},
-		Agents:         stores.Agents,
-		Workflows:      stores.Workflows,
-		Tx:             stores.Pool,
-		Launcher:       agents.NewLauncher(agents.LauncherParams{Tmux: &stubTmux{}, Addr: "127.0.0.1:8787"}),
-		Harnesses:      registry,
-		DefaultHarness: claudeHarnessID,
-		RestoreRoot:    t.TempDir(),
+		Tmux:               &stubTmux{},
+		Agents:             stores.Agents,
+		Workflows:          stores.Workflows,
+		Tx:                 stores.Pool,
+		Launcher:           agents.NewLauncher(agents.LauncherParams{Tmux: &stubTmux{}, Addr: "127.0.0.1:8787"}),
+		Harnesses:          registry,
+		UserDefaultHarness: claudeHarnessID,
+		FallbackResumeRoot: t.TempDir(),
 	})
 }
 

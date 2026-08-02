@@ -25,7 +25,7 @@ var ErrBadDirectory = errors.New("unusable working directory")
 var ErrTooManyAgents = errors.New("too many agents")
 var ErrAgentArchived = errors.New("agent is archived")
 
-type agentStore interface {
+type agentManager interface {
 	GetInWorkflow(ctx context.Context, workflowID, name string) (*agentstore.Agent, error)
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 	GetByIdempotencyKey(ctx context.Context, key string) (*agentstore.Agent, error)
@@ -37,6 +37,15 @@ type agentStore interface {
 	Archive(ctx context.Context, id string) error
 	Restore(ctx context.Context, id string) error
 	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
+}
+
+type tmuxManager interface {
+	NewWindow(session, name, dir string) (string, error)
+	KillPane(pane string)
+	SetPaneOwner(pane, agentID string) error
+	PaneOwner(pane string) string
+	PaneOwners() (map[string]string, error)
+	ClientPath(client string) string
 }
 
 type liveWorkflowReader interface {
@@ -56,20 +65,11 @@ type txRunner interface {
 	InTx(ctx context.Context, fn func(store.DBTX) error) error
 }
 
-type agentTmux interface {
-	NewWindow(session, name, dir string) (string, error)
-	KillPane(pane string)
-	SetPaneOwner(pane, agentID string) error
-	PaneOwner(pane string) string
-	PaneOwners() (map[string]string, error)
-	ClientPath(client string) string
-}
-
-type harnessRegistry interface {
+type harnessGetter interface {
 	GetByID(id string) (harness.Harness, error)
 }
 
-type lifecycleActions interface {
+type lifecycleActioner interface {
 	RunSetupAction(ctx context.Context, agent agentstore.Agent, name string) (string, error)
 	RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string) error
 }
@@ -85,61 +85,52 @@ type agentNamer interface {
 // AgentService owns an agent's lifecycle, coordinating the store with tmux and
 // delegating the command line to the launcher.
 type AgentService struct {
-	tmux      agentTmux
-	agents    agentStore
-	workflows workflowReader
-	tx        txRunner
-	launcher  *Launcher
-	harnesses harnessRegistry
-	lifecycle lifecycleActions
-	// defaultHarness is the CLI an agent runs when neither it nor its workflow names
-	// one, and defaultFlags are the configured flags per harness id, prepended to an
-	// agent's own.
-	defaultHarness string
-	defaultFlags   map[string]string
-	// maxAgents is how many unarchived agents may exist at once, zero for no ceiling.
-	maxAgents int
-	// restoreRoot is where a restore rebuilds a working directory that is gone. It is
-	// a field so a test can point it somewhere other than the user's home.
-	restoreRoot string
+	tmux               tmuxManager
+	agents             agentManager
+	workflows          workflowReader
+	tx                 txRunner
+	launcher           *Launcher
+	harnesses          harnessGetter
+	lifecycle          lifecycleActioner
+	userDefaultHarness string
+	userDefaultFlags   map[string]string
+	maxAgents          int
+	fallbackResumeRoot string
 }
 
 // NewAgentServiceParams carries the agent service's dependencies.
 type NewAgentServiceParams struct {
-	Tmux           agentTmux
-	Agents         agentStore
-	Workflows      workflowReader
-	Tx             txRunner
-	Launcher       *Launcher
-	Harnesses      harnessRegistry
-	Lifecycle      lifecycleActions
-	DefaultHarness string
-	DefaultFlags   map[string]string
-	// MaxAgents is the ceiling on unarchived agents, zero for a build that configures none.
-	MaxAgents int
-	// RestoreRoot is where an agent runs when its recorded directory cannot be
-	// recreated, defaulting to the real location when left empty.
-	RestoreRoot string
+	Tmux               tmuxManager
+	Agents             agentManager
+	Workflows          workflowReader
+	Tx                 txRunner
+	Launcher           *Launcher
+	Harnesses          harnessGetter
+	Lifecycle          lifecycleActioner
+	UserDefaultHarness string
+	UserDefaultFlags   map[string]string
+	MaxAgents          int
+	FallbackResumeRoot string
 }
 
 // NewAgentService builds the service from its dependencies.
 func NewAgentService(p NewAgentServiceParams) *AgentService {
-	if p.RestoreRoot == "" {
-		p.RestoreRoot = DefaultRestoreRoot()
+	if p.FallbackResumeRoot == "" {
+		p.FallbackResumeRoot = DefaultFallbackResumeRoot()
 	}
 
 	return &AgentService{
-		tmux:           p.Tmux,
-		agents:         p.Agents,
-		workflows:      p.Workflows,
-		tx:             p.Tx,
-		launcher:       p.Launcher,
-		harnesses:      p.Harnesses,
-		lifecycle:      p.Lifecycle,
-		defaultHarness: p.DefaultHarness,
-		defaultFlags:   p.DefaultFlags,
-		maxAgents:      p.MaxAgents,
-		restoreRoot:    p.RestoreRoot,
+		tmux:               p.Tmux,
+		agents:             p.Agents,
+		workflows:          p.Workflows,
+		tx:                 p.Tx,
+		launcher:           p.Launcher,
+		harnesses:          p.Harnesses,
+		lifecycle:          p.Lifecycle,
+		userDefaultHarness: p.UserDefaultHarness,
+		userDefaultFlags:   p.UserDefaultFlags,
+		maxAgents:          p.MaxAgents,
+		fallbackResumeRoot: p.FallbackResumeRoot,
 	}
 }
 
@@ -590,7 +581,7 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 		harnessID = strings.TrimSpace(wf.Harness)
 	}
 	if harnessID == "" {
-		harnessID = s.defaultHarness
+		harnessID = s.userDefaultHarness
 	}
 
 	resolved, err := s.harnesses.GetByID(harnessID)
@@ -627,7 +618,7 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 		harness:         resolved,
 		harnessID:       harnessID,
 		dir:             dir,
-		flags:           strings.TrimSpace(s.defaultFlags[harnessID] + " " + agentFlags),
+		flags:           strings.TrimSpace(s.userDefaultFlags[harnessID] + " " + agentFlags),
 		workflowContext: wf.Context,
 		setupAction:     wf.SetupAction,
 		cleanupAction:   wf.CleanupAction,
