@@ -351,6 +351,16 @@ table "agents" {
     type    = text
     default = "idle"
   }
+  # When the agent entered the state it holds. Only a write that changes state
+  # moves it, since the reconciler writes the state it observed every pass and a
+  # stamp that moved with every write would say when the agent was last looked at.
+  # It is how long an agent has been blocked or working, which is what a listing
+  # orders by to put the ones wanting attention first.
+  column "state_changed_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
   # Which agent CLI this agent runs, which decides how it is launched, how its
   # state is read off its pane, and where its conversation log is found. Never
   # empty: an agent whose harness nothing implements cannot be relaunched or
