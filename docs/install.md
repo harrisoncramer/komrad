@@ -124,18 +124,17 @@ Only the checkout with `mise run docker:up` skips all of this. Everything else l
 
 ### Point weave at a database
 
-Weave needs two connection strings, not one.
+One connection string.
 
 ```sh
 export DATABASE_URL='postgres://weave:secret@localhost:5432/weave?sslmode=disable'
-export WEAVE_READONLY_DATABASE_URL='postgres://weave_readonly:secret@localhost:5432/weave?sslmode=disable'
 ```
 
-The first is the ordinary one, and weave migrates the schema through it on the way in, so an empty database is all you have to create.
+Weave migrates the schema through it on the way in, so an empty database is all you have to create.
 
-The second is a least-privilege login that weave's [MCP](mcp.md) query tools connect as. That separation is not decorative: the MCP surface hands a model a SQL prompt, and what a statement is allowed to read is decided by the role's privileges rather than by anything weave can inspect. Weave refuses to start if that URL names a superuser, because a superuser is exempt from the privilege checks on the catalogs and on the file-reading functions and both are reachable from a plain `SELECT`.
+Weave connects twice, though. The second login is a least-privilege one that weave's [MCP](mcp.md) query tools use, and by default it is that URL with `weave_readonly` in place of your login, on the same server and the same database. That separation is not decorative: the MCP surface hands a model a SQL prompt, and what a statement is allowed to read is decided by the role's privileges rather than by anything weave can inspect. Weave refuses to start if that login is a superuser, because a superuser is exempt from the privilege checks on the catalogs and on the file-reading functions and both are reachable from a plain `SELECT`. Set [WEAVE_READONLY_DATABASE_URL](configuration.md#weave_readonly_database_url) when it needs its own password or reaches the database another way.
 
-The built-in defaults point at `localhost:5460`, which is the port the repository's docker-compose publishes. That is right for a checkout and wrong for a brew-installed Postgres, which listens on 5432, so if you skip this step on any other channel your first run fails against a port nothing is on.
+The built-in default points at `localhost:5460`, which is the port the repository's docker-compose publishes. That is right for a checkout and wrong for a brew-installed Postgres, which listens on 5432, so if you skip this step on any other channel your first run fails against a port nothing is on.
 
 ### Create the read-only login
 
@@ -143,7 +142,7 @@ The built-in defaults point at `localhost:5460`, which is the port the repositor
 weave readonly-role
 ```
 
-This connects as `DATABASE_URL`, creates the role named in `WEAVE_READONLY_DATABASE_URL`, and grants it read on the application tables and nothing else. It needs `CREATEROLE` on the writable login. Run it after the schema exists, so the grant covers the tables that are there; it also sets default privileges, so tables added by later migrations are covered too. Running it again is free.
+This connects as `DATABASE_URL`, creates the read-only role, and grants it read on the application tables and nothing else. It needs `CREATEROLE` on the writable login. Run it after the schema exists, so the grant covers the tables that are there; it also sets default privileges, so tables added by later migrations are covered too. Running it again is free.
 
 Do not skip it. The service opens that second pool during startup and aborts if it cannot, so an install that got everything else right and missed this step gets a panel that will not open.
 

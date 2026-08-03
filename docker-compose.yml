@@ -78,7 +78,6 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://weave:weave@doctor-db:5432/weave?sslmode=disable
-      WEAVE_READONLY_DATABASE_URL: postgres://weave_readonly:weave_readonly@doctor-db:5432/weave?sslmode=disable
 
 volumes:
   weave-db:
