@@ -159,10 +159,22 @@ WHERE
 UPDATE
     agents
 SET
-    archived_at = NOW()
+    archived_at = NOW(),
+    pane_id = ''
 WHERE
     workflow_id = @workflow_id
     AND archived_at IS NULL;
+
+-- name: ListLiveWorkflowAgents :many
+SELECT
+    *
+FROM
+    agents
+WHERE
+    workflow_id = @workflow_id
+    AND archived_at IS NULL
+ORDER BY
+    id DESC;
 
 -- name: MarkWorkflowAgentsRestored :exec
 UPDATE

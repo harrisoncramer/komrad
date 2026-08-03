@@ -490,16 +490,18 @@ func (f *fakeLifecycle) RunCleanupAction(_ context.Context, _ agentstore.Agent, 
 }
 
 // workflowService builds the workflow service over these stores.
-func (s *testStore) workflowService() *WorkflowService {
-	return s.workflowServiceCapped(0)
+func (s *testStore) workflowService(tmux *fakeTmux) *WorkflowService {
+	return s.workflowServiceCapped(tmux, 0)
 }
 
 // workflowServiceCapped is the same with an agent ceiling, for the restore that has to
 // fit a whole workflow's archived agents under it.
-func (s *testStore) workflowServiceCapped(maxAgents int) *WorkflowService {
+func (s *testStore) workflowServiceCapped(tmux *fakeTmux, maxAgents int) *WorkflowService {
 	return NewWorkflowService(WorkflowParams{
 		Workflows: s.Workflows,
+		Agents:    s.Agents,
 		Schedules: s.Schedules,
+		Tmux:      tmux,
 		Tx:        s.Pool,
 		MaxAgents: maxAgents,
 	})
@@ -573,10 +575,12 @@ func newManager(tmux *fakeTmux, st *testStore, flags string) *AgentService {
 	return service
 }
 
-// workflowsFor builds the workflow service over the same store, for the tests
-// that set an agent's workflow up before acting on the agent.
-func workflowsFor(st *testStore) *WorkflowService {
-	return st.workflowService()
+// workflowsFor builds the workflow service over the same store and tmux, for the tests
+// that set an agent's workflow up before acting on the agent. The tmux is shared with the
+// manager rather than made here, since an archive that read a different one would find
+// none of the panes the test seeded.
+func workflowsFor(st *testStore, tmux *fakeTmux) *WorkflowService {
+	return st.workflowService(tmux)
 }
 
 // newManagerWithHarness is the same, handing back the harness as well, for a test

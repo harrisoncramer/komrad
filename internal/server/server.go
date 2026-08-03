@@ -144,7 +144,9 @@ func New(ctx context.Context, p Params) (*Server, error) {
 
 	workflowService := agents.NewWorkflowService(agents.WorkflowParams{
 		Workflows: workflowStore,
+		Agents:    agentStore,
 		Schedules: scheduleStore,
+		Tmux:      p.Tmux,
 		Tx:        pool,
 		MaxAgents: p.MaxAgents,
 	})

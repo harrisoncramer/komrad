@@ -658,6 +658,22 @@ func (s *Store) RestoreWorkflowAgents(ctx context.Context, workflowID string) er
 	return nil
 }
 
+// ListLiveInWorkflow is the unarchived agents belonging to one workflow, which is what a
+// workflow archive has to tear the panes down of before it writes.
+func (s *Store) ListLiveInWorkflow(ctx context.Context, workflowID string) ([]Agent, error) {
+	rows, err := s.queries.ListLiveWorkflowAgents(ctx, workflowID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list live agents of workflow %q: %w", workflowID, err)
+	}
+
+	agents := make([]Agent, 0, len(rows))
+	for _, row := range rows {
+		agents = append(agents, agentFromRow(*row))
+	}
+
+	return agents, nil
+}
+
 // ListArchivedInWorkflow is the archived agents belonging to one workflow, which is what
 // a workflow restore has to make room and free names for before it writes.
 func (s *Store) ListArchivedInWorkflow(ctx context.Context, workflowID string) ([]Agent, error) {

@@ -407,6 +407,14 @@ func TestListWorkflowsRefusesAMangledToken(t *testing.T) {
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 }
 
+// idlePanes stands in for a tmux server holding nothing. Archiving a workflow stops the
+// agents inside it, and none of the workflows these handler tests build has ever launched
+// one, so every pane the archive asks about is somebody else's.
+type idlePanes struct{}
+
+func (idlePanes) GetPaneOwners() (map[string]string, error) { return nil, nil }
+func (idlePanes) KillPane(string)                           {}
+
 // The handler never sees an agent store, but deleting a workflow settles the
 // agents inside it, so those cases reach for one.
 func service(t *testing.T) (*Service, *storetest.Stores) {
@@ -415,7 +423,9 @@ func service(t *testing.T) (*Service, *storetest.Stores) {
 	st := storetest.Open(t)
 	manager := agents.NewWorkflowService(agents.WorkflowParams{
 		Workflows: st.Workflows,
+		Agents:    st.Agents,
 		Schedules: st.Schedules,
+		Tmux:      idlePanes{},
 		Tx:        st.Pool,
 	})
 
