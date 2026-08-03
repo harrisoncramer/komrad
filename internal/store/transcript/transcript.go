@@ -183,6 +183,18 @@ type Cursor struct {
 	Seq     int32   `json:"s"`
 }
 
+// Validate refuses a cursor holding anything but an agent id, since the column it is
+// compared against is a uuid and would fail the query rather than match nothing. The
+// rank and the sequence are checked by their own types on the way in and are compared
+// as numbers, so either one out of place narrows the page rather than breaking it.
+func (c Cursor) Validate() error {
+	if !store.IsID(c.AgentID) {
+		return fmt.Errorf("cursor agent id %q is not an id", c.AgentID)
+	}
+
+	return nil
+}
+
 // SearchParams is one page of a transcript search, where AgentID narrows it to one agent's
 // conversation and nil searches every one of them.
 type SearchParams struct {

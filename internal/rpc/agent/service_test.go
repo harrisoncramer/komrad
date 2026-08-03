@@ -793,6 +793,57 @@ func TestSearchTranscriptsScope(t *testing.T) {
 	}
 }
 
+// TestPagedReadsRefuseAMangledToken covers what the two paged reads here answer a
+// caller whose token decodes into the right shape while holding an id no row can have.
+// Every one of these is a tool a model drives, and one that garbled or invented a token
+// has made its own mistake, so it is told that rather than handed the database's
+// complaint about the value it sent.
+func TestPagedReadsRefuseAMangledToken(t *testing.T) {
+	// Base64 of {"i":"not-an-id"} and of {"r":0.5,"i":"not-an-id","s":1}, the two cursor
+	// shapes these reads mint, each carrying a string the uuid column cannot compare.
+	const (
+		listToken   = "eyJpIjoibm90LWFuLWlkIn0="
+		searchToken = "eyJyIjowLjUsImkiOiJub3QtYW4taWQiLCJzIjoxfQ=="
+	)
+
+	tests := []struct {
+		name  string
+		token string
+		call  func(t *testing.T, svc *Service, page *paginationv1.Pagination) error
+	}{
+		{
+			name:  "listing agents",
+			token: listToken,
+			call: func(t *testing.T, svc *Service, page *paginationv1.Pagination) error {
+				_, err := svc.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{Pagination: page}))
+				return err
+			},
+		},
+		{
+			name:  "searching transcripts",
+			token: searchToken,
+			call: func(t *testing.T, svc *Service, page *paginationv1.Pagination) error {
+				_, err := svc.SearchTranscripts(t.Context(), connect.NewRequest(&agentv1.SearchTranscriptsRequest{
+					Query:      "reconciler",
+					Pagination: page,
+				}))
+				return err
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, _ := service(t)
+
+			err := tt.call(t, svc, &paginationv1.Pagination{Cursor: proto.String(tt.token)})
+			require.Error(t, err)
+			assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+			assert.NotContains(t, err.Error(), "SQLSTATE")
+		})
+	}
+}
+
 // TestSearchTranscriptsScopeSurvivesACursor covers the second page of a scoped search,
 // which a replayed token must not widen.
 func TestSearchTranscriptsScopeSurvivesACursor(t *testing.T) {
