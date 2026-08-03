@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Regenerate the command reference under docs/reference."
+
+usage() {
+	echo "Usage: mise run gen:docs"
+	echo
+	echo "Rewrites docs/reference from weave's cobra command tree, one markdown file"
+	echo "per command. The commands are the source of truth; the pages are output, so"
+	echo "a thin help text is fixed by editing the command's Short and Long in"
+	echo "internal/cli and running this rather than by editing the page."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+go run ./cmd/gen-docs docs/reference

@@ -12,8 +12,15 @@ import (
 // than started twice.
 func startCmd(state *app) *cobra.Command {
 	return &cobra.Command{
-		Use:           "start",
-		Short:         "Start the server if it is not already running",
+		Use:   "start",
+		Short: "Start the service in the background if it is not already running",
+		Long: "Start the service in the background if it is not already running.\n\n" +
+			"It asks the configured address who is there first. A server of this build is left\n" +
+			"alone; one of another build is asked to stop and replaced, so a rebuilt binary is\n" +
+			"the one answering. Otherwise `weave serve` is spawned detached, with its output\n" +
+			"going to the log file, and this waits for the address to answer before returning.\n\n" +
+			"Opening the panel does the same thing on its own, so this is for scripts and for\n" +
+			"bringing the service up without a panel.",
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,

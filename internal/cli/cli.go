@@ -34,8 +34,16 @@ func NewRootCommand() *cobra.Command {
 	var configPath string
 
 	root := &cobra.Command{
-		Use:           "weave",
-		Short:         "tmux panel and CLI for background coding agents",
+		Use:   "weave",
+		Short: "tmux panel and CLI for background coding agents",
+		Long: "Weave runs coding agents in tmux panes and keeps track of them.\n\n" +
+			"There are two processes. `weave serve` is the long-lived service that owns the\n" +
+			"database, answers the API and the MCP endpoint, and watches every pane. The panel\n" +
+			"is a client of it, which is why it can be closed and reopened without stopping\n" +
+			"anything. Every other command here is a client of the same service.\n\n" +
+			"The panel is normally reached through the tmux key binding rather than by name,\n" +
+			"and the commands below are for the times something has to be done by hand: check\n" +
+			"the machine, start or stop the service, or call an endpoint from a script.",
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,

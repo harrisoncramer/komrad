@@ -50,7 +50,15 @@ func serveCmd(state *app) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "serve",
-		Short: "Serve the agent store over ConnectRPC/HTTP",
+		Short: "Run the weave service in the foreground",
+		Long: "Run the weave service in the foreground.\n\n" +
+			"It opens the database, mounts the Connect handlers and the MCP endpoint on one\n" +
+			"address, and runs the loops that read each pane's state, reconcile schedules, and\n" +
+			"sync transcripts. The panel and the rest of these commands are clients of it, so\n" +
+			"nothing works without it.\n\n" +
+			"`weave start` spawns this detached with its output going to the log file, which is\n" +
+			"how it usually runs. Run it here to watch that output directly. It stops on an\n" +
+			"interrupt, or when `weave stop` asks it to.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 
 			// The logger is built before anything that could fail, so a service that

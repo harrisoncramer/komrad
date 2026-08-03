@@ -10,8 +10,13 @@ import (
 // manager's.
 func hideCmd(state *app) *cobra.Command {
 	return &cobra.Command{
-		Use:           "hide",
-		Short:         "Hide the manager popup",
+		Use:   "hide",
+		Short: "Hide the panel popup without stopping anything",
+		Long: "Hide the panel popup.\n\n" +
+			"It detaches the client the popup is holding, which closes the popup. The manager\n" +
+			"session stays up, so the next `weave open` comes back to the panel where it was, and\n" +
+			"the service and the agents are untouched.\n\n" +
+			"This is what the panel key runs while the popup is open, so it is rarely typed.",
 		Args:          cobra.NoArgs,
 		Hidden:        true,
 		SilenceUsage:  true,

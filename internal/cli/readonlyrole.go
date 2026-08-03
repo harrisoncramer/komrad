@@ -21,8 +21,17 @@ import (
 // are the same.
 func readonlyRoleCmd(state *app) *cobra.Command {
 	return &cobra.Command{
-		Use:           "readonly-role",
-		Short:         "create the least-privilege role the MCP query tools connect as",
+		Use:   "readonly-role",
+		Short: "Create the least-privilege role the MCP query tools connect as",
+		Long: "Create the least-privilege role the MCP query tools connect as.\n\n" +
+			"The SQL half of the MCP endpoint runs whatever an agent asks it to, so it connects\n" +
+			"as a login that can read the application tables and nothing else. That is enforced\n" +
+			"by Postgres rather than by inspecting the query. This creates or updates that role\n" +
+			"from the user and password in WEAVE_READONLY_DATABASE_URL, using DATABASE_URL to do\n" +
+			"the granting.\n\n" +
+			"It refuses when the two URLs name the same login, since then the read-only path would\n" +
+			"have the owner's privileges. Run it once when setting a database up. Tables a later\n" +
+			"migration adds are covered on their own, and running it again is harmless.",
 		Args:          cobra.NoArgs,
 		Hidden:        true,
 		SilenceUsage:  true,

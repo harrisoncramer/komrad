@@ -18,8 +18,14 @@ import (
 // and by hand it would put a second panel outside the session and popup it expects.
 func panelCmd(state *app) *cobra.Command {
 	return &cobra.Command{
-		Use:           "panel",
-		Short:         "Run the panel (the manager session's own command)",
+		Use:   "panel",
+		Short: "Run the panel itself, as the manager session's own command",
+		Long: "Run the panel itself.\n\n" +
+			"This is the command the manager tmux session runs, not the one to type. It starts\n" +
+			"the service if nothing is answering, then draws the panel and talks to that service\n" +
+			"over the API like any other client. Run by hand outside the manager session it will\n" +
+			"draw, but the popup and the key bindings around it will not be there.\n\n" +
+			"Use `weave open` to bring the panel up.",
 		Args:          cobra.NoArgs,
 		Hidden:        true,
 		SilenceUsage:  true,

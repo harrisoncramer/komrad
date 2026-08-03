@@ -25,8 +25,16 @@ import (
 // popup's command and an unexpanded one is a comment to the shell that runs it.
 func openCmd(state *app) *cobra.Command {
 	return &cobra.Command{
-		Use:           "open",
-		Short:         "Open the manager popup (create or attach its persistent session)",
+		Use:   "open",
+		Short: "Open the panel popup, creating or attaching its persistent session",
+		Long: "Open the panel popup over the current tmux session.\n\n" +
+			"It creates the manager session if it is not there and attaches either way, so the\n" +
+			"panel keeps its place between opens rather than starting over. The manager session\n" +
+			"lives on weave's own tmux server, so it does not show up in `tmux ls`.\n\n" +
+			"The tmux plugin runs this as the popup's command, so it blocks until the client\n" +
+			"detaches, which is what closes the popup. Pressing the panel key again runs\n" +
+			"`weave hide`. Run by hand outside a popup it attaches the manager session in the\n" +
+			"terminal instead, which is the panel without the popup around it.",
 		Args:          cobra.ArbitraryArgs,
 		Hidden:        true,
 		SilenceUsage:  true,

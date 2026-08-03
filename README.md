@@ -30,7 +30,7 @@ Weave is different from existing solutions like Conductor, Happy, or WorkMux in 
 
 1. It is unopinionated.
 
-Weave provides the primitives behind agentic workflows as resources that you manage directly: [workflows](docs/workflows.md), [agents](docs/agents.md), [actions](docs/actions.md), and [schedules](docs/schedules.md). It also provides an [MCP layer](docs/mcp.md) and a [CLI](docs/cli.md) so that you can have weave agents manage other agents. But it doesn't tell you how to use them: that's your call.
+Weave provides the primitives behind agentic workflows as resources that you manage directly: [workflows](docs/workflows.md), [agents](docs/agents.md), [actions](docs/actions.md), and [schedules](docs/schedules.md). It also provides an [MCP layer](docs/mcp.md) and a [CLI](docs/commands.md) so that you can have weave agents manage other agents. But it doesn't tell you how to use them: that's your call.
 
 Weave is optimized for software development with [https://git-scm.com/docs/git-worktree](worktrees), but is equally capable of handling other automations, like production incidents or triaging, or even Slack or email automations. Let weave automate the parts of your job you dislike.
 
@@ -46,6 +46,8 @@ Concepts and guides:
 - [Configuration](docs/configuration.md): environment variables and the TOML app config
 - [Development](docs/development.md): mise tasks, the live rebuild loop, generated code, and the custom linter
 - [How it works](docs/concepts.md): the state model, the store and server, the reconciler, and agents
+
+Terminology:
 
 - [workflows](docs/workflows.md): The shared templates for agents
 - [agents](docs/agents.md): The core resource of weave
