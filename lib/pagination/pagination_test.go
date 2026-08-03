@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// testCursor stands in for a real cursor: an id-shaped field the query compares
-// against a column that only accepts some of the strings that can arrive in it.
+// testCursor stands in for a real cursor, whose id field takes only some of the strings
+// that can arrive in it.
 type testCursor struct {
 	ID string `json:"i"`
 }
@@ -39,16 +39,31 @@ func token(t *testing.T, raw string) string {
 	return base64.URLEncoding.EncodeToString([]byte(raw))
 }
 
-// TestNewCursor covers the three ways a page token can be wrong. All of them are the
-// caller handing back something other than what it was given, so all of them are its
-// own mistake rather than the server's, and a cursor that decodes into a value the
-// query cannot use is no different from one that would not decode at all.
+// TestNewCursor covers the three ways a page token can be wrong. Each of them is the
+// caller handing back something other than what it was given, so a cursor that decodes
+// into a value the query cannot use is refused like one that would not decode at all.
 func TestNewCursor(t *testing.T) {
 	tests := []struct {
-		name   string
-		cursor string
-		want   *testCursor
+		name    string
+		cursor  string
+		want    *testCursor
+		wantErr bool
 	}{
+		{
+			name:    "a token that is not base64 is refused",
+			cursor:  "not base64!",
+			wantErr: true,
+		},
+		{
+			name:    "a token that is not the cursor's shape is refused",
+			cursor:  token(t, `["valid"]`),
+			wantErr: true,
+		},
+		{
+			name:    "a token the cursor itself refuses is refused",
+			cursor:  token(t, `{"i":"not-an-id"}`),
+			wantErr: true,
+		},
 		{
 			name: "no token is the first page",
 		},
@@ -57,25 +72,13 @@ func TestNewCursor(t *testing.T) {
 			cursor: token(t, `{"i":"valid"}`),
 			want:   &testCursor{ID: "valid"},
 		},
-		{
-			name:   "a token that is not base64 is refused",
-			cursor: "not base64!",
-		},
-		{
-			name:   "a token that is not the cursor's shape is refused",
-			cursor: token(t, `["valid"]`),
-		},
-		{
-			name:   "a token the cursor itself refuses is refused",
-			cursor: token(t, `{"i":"not-an-id"}`),
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			paginator, err := New[testCursor, testResource](&paginationv1.Pagination{Cursor: &tt.cursor})
 
-			if tt.cursor != "" && tt.want == nil {
+			if tt.wantErr {
 				require.Error(t, err)
 				assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 				return
@@ -89,7 +92,7 @@ func TestNewCursor(t *testing.T) {
 
 // TestNewCursorErrorCarriesTheReason pins that the cursor's own complaint reaches the
 // caller. The token is opaque, so a caller told only that it is invalid has nothing to
-// tell it apart from a token it mangled, replayed, or built itself.
+// work from.
 func TestNewCursorErrorCarriesTheReason(t *testing.T) {
 	cursor := token(t, `{"i":"not-an-id"}`)
 
@@ -101,16 +104,18 @@ func TestNewCursorErrorCarriesTheReason(t *testing.T) {
 	assert.Contains(t, connectErr.Message(), `cursor id "not-an-id" is not an id`)
 }
 
-// TestNextTokenRoundTrips pins that the token a page ends with is one the next request
-// is served from, which is what makes the cursor's own refusal above safe to apply to
-// every token that arrives.
+// TestNextTokenRoundTrips pins that the token a page ends with is one the next request is
+// served from, which is what makes refusing every other token safe.
 func TestNextTokenRoundTrips(t *testing.T) {
 	limit := int32(2)
 
 	paginator, err := New[testCursor, testResource](&paginationv1.Pagination{Limit: &limit})
 	require.NoError(t, err)
 
-	next, err := paginator.NextToken([]testResource{{cursor: testCursor{ID: "first"}}, {cursor: testCursor{ID: "valid"}}})
+	next, err := paginator.NextToken([]testResource{
+		{cursor: testCursor{ID: "first"}},
+		{cursor: testCursor{ID: "valid"}},
+	})
 	require.NoError(t, err)
 	require.NotNil(t, next)
 

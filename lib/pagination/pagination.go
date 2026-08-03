@@ -24,11 +24,8 @@ import (
 	"connectrpc.com/connect"
 )
 
-// Cursor is a decoded cursor that can say whether it holds a position this server
-// could have handed out. The token is opaque and comes back verbatim, so a cursor
-// that decodes into the right shape while holding a value no query can compare
-// against is a mangled token rather than a place in a listing, and belongs with the
-// tokens that would not decode at all.
+// Cursor is a decoded cursor that can say whether it holds a position this server could
+// have handed out. One that cannot is a mangled token rather than a place in a listing.
 type Cursor interface {
 	Validate() error
 }
@@ -58,9 +55,9 @@ const (
 // New builds a Paginator from a request's pagination. A nil pagination is the
 // first page at the default size, so a caller that omits the field entirely is
 // served rather than refused. A malformed cursor is the caller's mistake and comes
-// back as InvalidArgument, whether it would not decode at all or decoded into a
-// position its own cursor type refuses. A limit past the ceiling is clamped, since a
-// caller asking for too much still wants a page.
+// back as InvalidArgument, whether it will not decode at all or decodes into a position
+// its own cursor type refuses. A limit past the ceiling is clamped, since a caller
+// asking for too much still wants a page.
 func New[C Cursor, M Cursorable[C]](p *paginationv1.Pagination) (*Paginator[C, M], error) {
 	cursor, err := decode[C](p.GetCursor())
 	if err != nil {
@@ -109,8 +106,7 @@ func (p *Paginator[C, M]) NextToken(resources []M) (*string, error) {
 }
 
 // decode unpacks a base64 JSON token into a cursor, or nil when the token is
-// empty. A cursor that unpacks is put to its own Validate before it is handed on,
-// so the three ways a token can be wrong all come back as one error to the caller.
+// empty. A cursor that unpacks is put to its own Validate before it is handed on.
 func decode[C Cursor](token string) (*C, error) {
 	if token == "" {
 		return nil, nil
