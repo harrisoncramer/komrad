@@ -271,8 +271,7 @@ WHERE
 ON CONFLICT (agent_id,
     KEY)
     DO UPDATE SET
-        value = @value,
-        updated_at = NOW()
+        value = @value
     RETURNING
         agent_id;
 

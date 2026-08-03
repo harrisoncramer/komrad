@@ -1083,8 +1083,7 @@ WHERE
 ON CONFLICT (agent_id,
     KEY)
     DO UPDATE SET
-        value = $3,
-        updated_at = NOW()
+        value = $3
     RETURNING
         agent_id
 `

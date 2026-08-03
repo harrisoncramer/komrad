@@ -1,0 +1,137 @@
+package store
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"weave/internal/pgtest"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// untriggered names the public tables that carry updated_at and have no trigger
+// stamping it. The trigger has to be BEFORE UPDATE and FOR EACH ROW to be the one
+// meant, so the type bits are checked rather than the name: a trigger firing AFTER
+// cannot change the row, and one firing per statement never sees it.
+const untriggered = `
+SELECT
+    c.relname
+FROM
+    pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    JOIN pg_attribute a ON a.attrelid = c.oid
+WHERE
+    n.nspname = 'public'
+    AND c.relkind = 'r'
+    AND a.attname = 'updated_at'
+    AND NOT a.attisdropped
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            pg_trigger t
+        WHERE
+            t.tgrelid = c.oid
+            AND NOT t.tgisinternal
+            AND t.tgfoid = 'set_updated_at'::regproc
+            AND (t.tgtype & 1) <> 0
+            AND (t.tgtype & 2) <> 0
+            AND (t.tgtype & 16) <> 0)
+ORDER BY
+    c.relname`
+
+// stamped names the public tables that carry updated_at, whether or not anything
+// stamps it. It exists so the check above cannot pass by finding no tables at all.
+const stamped = `
+SELECT
+    c.relname
+FROM
+    pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    JOIN pg_attribute a ON a.attrelid = c.oid
+WHERE
+    n.nspname = 'public'
+    AND c.relkind = 'r'
+    AND a.attname = 'updated_at'
+    AND NOT a.attisdropped`
+
+// TestUpdatedAtTriggers is the guarantee the migration makes, checked against the
+// schema rather than against a list written here: a table added later that carries
+// the column and is not covered fails this, which is what stands in for the event
+// trigger Postgres will not let a non-superuser install.
+func TestUpdatedAtTriggers(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	pool := open(ctx, t)
+
+	covered := tableNames(ctx, t, pool, stamped)
+	require.NotEmpty(t, covered, "no table carries updated_at, so this test proves nothing")
+
+	missing := tableNames(ctx, t, pool, untriggered)
+	assert.Empty(t, missing,
+		"these tables have an updated_at column and nothing stamping it; "+
+			"end your migration with SELECT attach_updated_at_triggers()")
+}
+
+// TestUpdatedAtStamped is the trigger doing its work, on a write that names neither
+// updated_at nor the trigger. workflow_configs stands in for all of them because it
+// is the one table with no foreign key to satisfy first.
+func TestUpdatedAtStamped(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	pool := open(ctx, t)
+	db := pool.GetRawPool()
+
+	// An hour back rather than now(), so the assertion rests on the trigger having run
+	// and not on two statements landing in different microseconds.
+	var id string
+	require.NoError(t, db.QueryRow(ctx, `
+		INSERT INTO workflow_configs (harness, created_at, updated_at)
+		VALUES ('claude', now() - interval '1 hour', now() - interval '1 hour')
+		RETURNING id`).Scan(&id))
+
+	_, err := db.Exec(ctx, `UPDATE workflow_configs SET harness = 'codex' WHERE id = $1`, id)
+	require.NoError(t, err)
+
+	var createdAt, updatedAt time.Time
+	require.NoError(t, db.QueryRow(ctx,
+		`SELECT created_at, updated_at FROM workflow_configs WHERE id = $1`, id).
+		Scan(&createdAt, &updatedAt))
+
+	assert.True(t, updatedAt.After(createdAt),
+		"updated_at %s did not move past created_at %s", updatedAt, createdAt)
+}
+
+// open brings up a database of this test's own with the migrations applied.
+func open(ctx context.Context, t *testing.T) *Pool {
+	t.Helper()
+
+	pool, err := Open(ctx, pgtest.URL(t))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = pool.Close() })
+
+	return pool
+}
+
+// tableNames runs a query returning one table name per row.
+func tableNames(ctx context.Context, t *testing.T, pool *Pool, query string) []string {
+	t.Helper()
+
+	rows, err := pool.GetRawPool().Query(ctx, query)
+	require.NoError(t, err)
+	defer rows.Close()
+
+	var names []string
+	for rows.Next() {
+		var name string
+		require.NoError(t, rows.Scan(&name))
+		names = append(names, name)
+	}
+	require.NoError(t, rows.Err())
+
+	return names
+}
