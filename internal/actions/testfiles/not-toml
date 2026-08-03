@@ -1,0 +1,5 @@
+#!/bin/sh
+#WEAVE description = just words, unquoted
+set -eu
+
+echo "declared"

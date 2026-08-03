@@ -131,14 +131,33 @@ func longestBacktickRun(body string) int {
 	return longest
 }
 
-// actionMarkdown renders an action for the stage, its name over the start of its own text.
-// An action is as readily a compiled program as a script, so the body goes through
-// fencedBlock rather than spilling a binary into the pane.
+// actionMarkdown renders an action for the stage: its name, what its header declares, and
+// the start of its own text. An action is as readily a compiled program as a script, so the
+// body goes through fencedBlock rather than spilling a binary into the pane.
+//
+// A file that declares nothing says nothing here, rather than carrying a line about each
+// field it left out, since the text below is the whole answer for one of those.
 func actionMarkdown(action actionItem) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", action.name)
 	if !action.executable {
 		b.WriteString("_not executable — chmod +x to run it_\n\n")
+	}
+	if action.description != "" {
+		b.WriteString(action.description + "\n\n")
+	}
+	if action.timeout > 0 {
+		fmt.Fprintf(&b, "_gives up after %s_\n\n", action.timeout)
+	}
+	// The lines weave could not read. They are shown because the run went ahead without
+	// them, so a timeout that was spelled wrong is otherwise a limit the user believes they
+	// set and nothing ever applies.
+	if len(action.problems) > 0 {
+		b.WriteString("_some of its header was not understood_\n\n")
+		for _, problem := range action.problems {
+			fmt.Fprintf(&b, "- %s\n", problem)
+		}
+		b.WriteString("\n")
 	}
 
 	b.WriteString(fencedBlock(action.preview))

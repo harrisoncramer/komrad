@@ -209,8 +209,9 @@ func (s *ActionService) RunAction(ctx context.Context, agentID, name string) err
 // launched. It is the one action failure something else is downstream of.
 var ErrSetupFailed = errors.New("the setup action failed")
 
-// setupTimeout bounds how long a setup action may take, since a launch waits on it. It is
-// generous because the ordinary case is installing dependencies over a network.
+// setupTimeout bounds how long a setup action that declares no timeout of its own may
+// take, since a launch waits on it. It is generous because the ordinary case is installing
+// dependencies over a network.
 const setupTimeout = 10 * time.Minute
 
 // maxSetupDir bounds what a setup action may name as the directory to run in, matching
@@ -256,14 +257,16 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p awaitedActionPar
 		return "", err
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, setupTimeout)
-	defer cancel()
-
 	logger := s.actionLogger(ctx, actionRecord{name: p.name, trigger: p.trigger, agent: p.agent})
 	logger.LogAttrs(ctx, slog.LevelInfo, "action started")
 	began := time.Now()
 
-	result, err := s.runner.RunAndWait(ctx, actions.RunParams{Action: action.Action, Dir: action.dir, Env: env})
+	result, err := s.runner.RunAndWait(ctx, actions.RunParams{
+		Action:  action.Action,
+		Dir:     action.dir,
+		Env:     env,
+		Timeout: timeoutFor(action, setupTimeout),
+	})
 
 	finished := []slog.Attr{
 		slog.Int(logging.ExitCode, result.ExitCode),
@@ -328,6 +331,9 @@ func (s *ActionService) start(ctx context.Context, p startParams) error {
 		Action: p.action.Action,
 		Dir:    p.action.dir,
 		Env:    p.env,
+		// Nothing is waiting, so there is no default to fall back to: an action that
+		// declared a timeout is held to it, and one that did not runs as long as it likes.
+		Timeout: timeoutFor(p.action, 0),
 		Done: func(result actions.Result, err error) {
 			// Reported here rather than returned, since this is the path with nothing
 			// downstream: the caller answered the moment the process existed, so a
@@ -425,6 +431,17 @@ func (s *ActionService) find(name string) (foundAction, error) {
 	}
 
 	return foundAction{}, fmt.Errorf("%w: %q is not in %s", ErrActionNotFound, name, dir)
+}
+
+// timeoutFor is how long one run of an action gets. What the file declares wins, since it
+// is the only statement anybody made about this particular script, and fallback is what an
+// action that declared nothing gets from the caller.
+func timeoutFor(action foundAction, fallback time.Duration) time.Duration {
+	if action.Header.Timeout > 0 {
+		return action.Header.Timeout
+	}
+
+	return fallback
 }
 
 // discover is the user's actions directory and every action on offer, theirs read over the

@@ -1,0 +1,7 @@
+#!/bin/sh
+#WEAVE description="Declared in the header, where a declaration belongs."
+set -eu
+
+# The line below is a comment about this code rather than a declaration about the file.
+#WEAVE timeout="30s"
+echo "declared"

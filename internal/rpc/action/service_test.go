@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"weave/internal/actions"
 	"weave/internal/agents"
@@ -103,10 +104,21 @@ func TestRunActionPassesWhatItWasAsked(t *testing.T) {
 // TestListActions covers the listing rendered onto the wire. The preview is bytes rather than a
 // string because an action is as readily a compiled program as a script, and the first page of one
 // is not valid UTF-8, which proto3 would refuse.
+//
+// What a file declares travels with it, and an action that declared no timeout leaves the field
+// unset rather than sending zero, which a caller would otherwise read as a run with no time at
+// all rather than as a file that said nothing.
 func TestListActions(t *testing.T) {
 	manager := &fakeActions{listed: []agents.ListedAction{
 		{
-			Action:    actions.Action{Name: "open-pr", Path: "/actions/open-pr", Executable: true},
+			Action: actions.Action{
+				Name: "open-pr", Path: "/actions/open-pr", Executable: true,
+				Header: actions.Header{
+					Description: "Open the pull request this agent recorded.",
+					Timeout:     45 * time.Second,
+					Problems:    []string{"line 4: nope is not a directive weave knows"},
+				},
+			},
 			Preview:   []byte("#!/bin/sh\n"),
 			Truncated: false,
 		},
@@ -127,9 +139,14 @@ func TestListActions(t *testing.T) {
 	assert.True(t, listed[0].GetExecutable())
 	assert.Equal(t, []byte("#!/bin/sh\n"), listed[0].GetPreview())
 	assert.False(t, listed[0].GetPreviewTruncated())
+	assert.Equal(t, "Open the pull request this agent recorded.", listed[0].GetDescription())
+	assert.Equal(t, 45*time.Second, listed[0].GetTimeout().AsDuration())
+	assert.Equal(t, []string{"line 4: nope is not a directive weave knows"}, listed[0].GetHeaderProblems())
 
 	assert.Equal(t, []byte{0x7f, 'E', 'L', 'F', 0x00}, listed[1].GetPreview(), "bytes no string could carry")
 	assert.True(t, listed[1].GetPreviewTruncated())
+	assert.Empty(t, listed[1].GetDescription())
+	assert.Nil(t, listed[1].GetTimeout(), "a file that declared no timeout sends none")
 }
 
 // TestListActionsFailure covers a directory that could not be read at all, which is the server's

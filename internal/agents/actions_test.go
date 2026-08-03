@@ -738,6 +738,92 @@ func TestRunActionRunsABuiltinAmongItsOwnSiblings(t *testing.T) {
 	assert.Contains(t, runner.env, "WEAVE_ACTIONS_DIR="+builtinDir)
 }
 
+// TestActionTimeouts covers how long a run gets. What the file declares wins wherever it was
+// fired from, and what an action that declares nothing falls back to depends on whether
+// anything is waiting: a launch blocked on a setup action needs a ceiling, and a run nobody
+// waits for is left alone rather than cut off partway through whatever it opened.
+func TestActionTimeouts(t *testing.T) {
+	agent := agentstore.Agent{ID: "a1", Cwd: "/repo"}
+
+	tests := []struct {
+		name   string
+		action string
+		fire   func(*ActionService, string) error
+		want   time.Duration
+	}{
+		{
+			name:   "a manual run of an action that declares nothing is unbounded",
+			action: "bare",
+			fire: func(s *ActionService, name string) error {
+				return s.RunAction(context.Background(), "a1", name)
+			},
+			want: 0,
+		},
+		{
+			name:   "a cleanup that declares nothing is unbounded too",
+			action: "bare",
+			fire: func(s *ActionService, name string) error {
+				return s.RunCleanupAction(context.Background(), agent, name)
+			},
+			want: 0,
+		},
+		{
+			name:   "a setup action that declares nothing keeps the ceiling a launch needs",
+			action: "bare",
+			fire: func(s *ActionService, name string) error {
+				_, err := s.RunSetupAction(context.Background(), agent, name)
+
+				return err
+			},
+			want: setupTimeout,
+		},
+		{
+			name:   "a setup action that declares one is held to what it declared",
+			action: "declared",
+			fire: func(s *ActionService, name string) error {
+				_, err := s.RunSetupAction(context.Background(), agent, name)
+
+				return err
+			},
+			want: 30 * time.Second,
+		},
+		{
+			name:   "a resume runs the same setup action under the same declaration",
+			action: "declared",
+			fire: func(s *ActionService, name string) error {
+				_, err := s.RunResumeAction(context.Background(), agent, name)
+
+				return err
+			},
+			want: 30 * time.Second,
+		},
+		{
+			name:   "a manual run of an action that declares one is bounded by it",
+			action: "declared",
+			fire: func(s *ActionService, name string) error {
+				return s.RunAction(context.Background(), "a1", name)
+			},
+			want: 30 * time.Second,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "bare"), []byte("#!/bin/sh\n"), 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "declared"), []byte(
+				"#!/bin/sh\n#WEAVE timeout=\"30s\"\n",
+			), 0o755))
+
+			runner := &recordingRunner{}
+			require.NoError(t, tt.fire(actionService(t, dir, runner), tt.action))
+
+			require.Equal(t, []string{tt.action}, runner.ran)
+			assert.Equal(t, tt.want, runner.timeout)
+		})
+	}
+}
+
 func actionService(t *testing.T, dir string, runner actionRunner) *ActionService {
 	t.Helper()
 
@@ -839,6 +925,7 @@ type recordingRunner struct {
 	ran     []string
 	dir     string
 	env     []string
+	timeout time.Duration
 	results map[string]runResult
 }
 
@@ -864,7 +951,7 @@ func (r *recordingRunner) Run(p actions.RunParams) error {
 	}
 
 	r.ran = append(r.ran, p.Action.Name)
-	r.dir, r.env = p.Dir, p.Env
+	r.dir, r.env, r.timeout = p.Dir, p.Env, p.Timeout
 
 	if p.Done != nil {
 		answer := r.results[p.Action.Name]
@@ -880,7 +967,7 @@ func (r *recordingRunner) RunAndWait(_ context.Context, p actions.RunParams) (ac
 	}
 
 	r.ran = append(r.ran, p.Action.Name)
-	r.dir, r.env = p.Dir, p.Env
+	r.dir, r.env, r.timeout = p.Dir, p.Env, p.Timeout
 
 	answer := r.results[p.Action.Name]
 

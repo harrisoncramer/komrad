@@ -1,0 +1,5 @@
+#!/bin/sh
+# An ordinary comment about what this does, which is not a directive.
+set -eu
+
+echo "nothing declared"

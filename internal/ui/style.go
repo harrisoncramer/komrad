@@ -184,12 +184,22 @@ const nameWidth = 30
 // dropped. Filtering still reads the whole name, so a row can match on a word the list
 // does not draw.
 func clipName(name string) string {
-	runes := []rune(name)
-	if len(runes) <= nameWidth {
-		return name
+	return clip(name, nameWidth)
+}
+
+// descriptionWidth is how much of what an action says about itself a list row draws. It is
+// wider than a name because a sentence is longer than a word, and the whole of it is in the
+// pane beside the list either way.
+const descriptionWidth = 44
+
+// clip cuts text down to width, ending in an ellipsis where anything was dropped.
+func clip(text string, width int) string {
+	runes := []rune(text)
+	if len(runes) <= width {
+		return text
 	}
 
-	return string(runes[:nameWidth-1]) + "…"
+	return string(runes[:width-1]) + "…"
 }
 
 // selectionIcon is the bar a selected row carries, in green rather than the cursor's blue

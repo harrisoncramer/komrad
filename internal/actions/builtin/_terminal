@@ -1,4 +1,5 @@
 #!/bin/sh
+#WEAVE description="Open a shell in the agent's directory, beside its pane."
 # What the panel's terminal key runs. Write your own _terminal in your actions directory
 # to replace it.
 #

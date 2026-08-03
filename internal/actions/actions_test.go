@@ -100,6 +100,24 @@ func TestDiscover(t *testing.T) {
 	assert.Equal(t, []string{"linked", "not-executable", "open-pr"}, names, "listed by name")
 }
 
+// TestDiscoverReadsWhatAFileDeclares covers the header arriving with the listing rather than
+// being read again later, which is what keeps the timeout a caller shows and the timeout a run
+// is given from being two different answers.
+func TestDiscoverReadsWhatAFileDeclares(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "open-pr"), []byte(
+		"#!/bin/sh\n#WEAVE description=\"Open the pull request.\"\n#WEAVE timeout=\"45s\"\n",
+	), 0o755))
+	write(t, filepath.Join(dir, "silent"), 0o755)
+
+	found, err := NewRunner().Discover(dir)
+	require.NoError(t, err)
+	require.Len(t, found, 2)
+
+	assert.Equal(t, Header{Description: "Open the pull request.", Timeout: 45 * time.Second}, found[0].Header)
+	assert.Equal(t, Header{}, found[1].Header, "a file that declares nothing carries nothing")
+}
+
 // TestDiscoverMissingDirectory covers the ordinary case of never having written one.
 // Nothing is wrong, so nothing is reported: the panel says where it looked on screen.
 func TestDiscoverMissingDirectory(t *testing.T) {
@@ -380,6 +398,60 @@ func TestRunAndWaitStopsAtTheDeadline(t *testing.T) {
 	_, err = NewRunner().RunAndWait(ctx, RunParams{Action: found[0], Dir: dir})
 
 	require.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.Less(t, time.Since(started), 30*time.Second, "the action is killed rather than waited out")
+}
+
+// TestRunStopsAtItsOwnDeadline covers a timeout on a run nothing is waiting for. Run answers
+// as soon as the process exists, so the deadline has to be enforced by the run itself rather
+// than by a caller holding a context, and what it did reaches the outcome instead of a
+// return value.
+func TestRunStopsAtItsOwnDeadline(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "hangs"), []byte(
+		"#!/bin/sh\nsleep 60\n",
+	), 0o755))
+
+	found, err := NewRunner().Discover(dir)
+	require.NoError(t, err)
+	require.Len(t, found, 1)
+
+	failed := make(chan error, 1)
+	started := time.Now()
+	require.NoError(t, NewRunner().Run(RunParams{
+		Action:  found[0],
+		Dir:     dir,
+		Timeout: 100 * time.Millisecond,
+		Done:    func(_ Result, err error) { failed <- err },
+	}))
+
+	select {
+	case err := <-failed:
+		require.ErrorIs(t, err, ErrFailed)
+		assert.Contains(t, err.Error(), context.DeadlineExceeded.Error(), "the outcome says the deadline is what stopped it")
+		assert.Less(t, time.Since(started), 30*time.Second, "the action is killed rather than waited out")
+	case <-time.After(30 * time.Second):
+		t.Fatal("the run was never reported as finished")
+	}
+}
+
+// TestRunAndWaitStopsAtItsOwnDeadline covers an awaited run bounded by the timeout it was
+// given rather than by the context it was handed, so what an action declares reaches it the
+// same way on both paths.
+func TestRunAndWaitStopsAtItsOwnDeadline(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "hangs"), []byte(
+		"#!/bin/sh\nsleep 60\n",
+	), 0o755))
+
+	found, err := NewRunner().Discover(dir)
+	require.NoError(t, err)
+	require.Len(t, found, 1)
+
+	started := time.Now()
+	_, err = NewRunner().RunAndWait(t.Context(), RunParams{Action: found[0], Dir: dir, Timeout: 100 * time.Millisecond})
+
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.Contains(t, err.Error(), "gave up after 100ms", "the refusal names the limit it passed")
 	assert.Less(t, time.Since(started), 30*time.Second, "the action is killed rather than waited out")
 }
 

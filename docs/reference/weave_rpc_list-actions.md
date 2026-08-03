@@ -4,7 +4,7 @@ List the actions the user has written, which are executable files in their actio
 
 ### Synopsis
 
-List the actions the user has written, which are executable files in their actions directory. An action is a script or program that takes one agent as its input and does whatever the user wrote it to do, such as opening the pull request that agent recorded. The name is what run_action takes. A file listed with executable false cannot be run until the user chmods it, and the preview is the start of the file so you can see what one does before firing it.
+List the actions the user has written, which are executable files in their actions directory. An action is a script or program that takes one agent as its input and does whatever the user wrote it to do, such as opening the pull request that agent recorded. The name is what run_action takes. A file listed with executable false cannot be run until the user chmods it, the description is what the file's own header comments say it is for, and the preview is the start of the file so you can see what one does before firing it.
 
 ```
 weave rpc list-actions [flags]

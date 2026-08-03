@@ -227,7 +227,7 @@ func workflowForm(title string, cfg workflowstore.Config, keys appconfig.FormKey
 //
 // available is what the actions directory holds, which the two action fields are picked
 // from rather than typed, so a name matching no file cannot be written from here.
-func workflowConfigForm(nameTitle string, cfg workflowstore.Config, available []string, keys appconfig.FormKeys) (*huh.Form, *workflowstore.Config) {
+func workflowConfigForm(nameTitle string, cfg workflowstore.Config, available []actionChoice, keys appconfig.FormKeys) (*huh.Form, *workflowstore.Config) {
 	values := cfg
 
 	form := huh.NewForm(
@@ -249,20 +249,45 @@ func workflowConfigForm(nameTitle string, cfg workflowstore.Config, available []
 	return form, &values
 }
 
+// actionChoice is one action an action field may be set to, with what its header says it is
+// for, so the picker reads as a list of what these scripts do rather than a list of
+// filenames.
+type actionChoice struct {
+	name        string
+	description string
+}
+
 // actionOptions is what an action field offers: none, then every action the directory
 // holds. A stored name the directory no longer holds is offered too, so opening the form on
 // a workflow whose script was renamed shows what is recorded rather than resetting it.
-func actionOptions(available []string, current string) []huh.Option[string] {
+//
+// The value of an option is always the bare name, since that is what the workflow stores
+// and what the service is later asked to run. Only the label carries the description.
+func actionOptions(available []actionChoice, current string) []huh.Option[string] {
 	options := make([]huh.Option[string], 0, len(available)+2)
 	options = append(options, huh.NewOption("none", ""))
-	for _, name := range available {
-		options = append(options, huh.NewOption(name, name))
+
+	for _, action := range available {
+		options = append(options, huh.NewOption(actionChoiceLabel(action), action.name))
 	}
-	if current != "" && !slices.Contains(available, current) {
+
+	offered := slices.ContainsFunc(available, func(a actionChoice) bool { return a.name == current })
+	if current != "" && !offered {
 		options = append(options, huh.NewOption(current+"  (missing)", current))
 	}
 
 	return options
+}
+
+// actionChoiceLabel is how one action reads in a picker. The description is clipped rather
+// than wrapped, since a row that grows taller than the others makes the list harder to read
+// than a sentence cut short does.
+func actionChoiceLabel(action actionChoice) string {
+	if action.description == "" {
+		return action.name
+	}
+
+	return action.name + "  " + clip(action.description, descriptionWidth)
 }
 
 // archiveWorkflowForm confirms an archive. The agents inside go with it, since every agent
