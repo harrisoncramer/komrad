@@ -187,8 +187,8 @@ func clipName(name string) string {
 	return clip(name, nameWidth)
 }
 
-// descriptionWidth is how much of what an action says about itself a list row draws. The pane
-// beside the list carries the whole of it.
+// descriptionWidth is how much of what an action says about itself a picker option draws,
+// clipped so that no option grows taller than the others.
 const descriptionWidth = 44
 
 // clip cuts text down to width, ending in an ellipsis where anything was dropped.
