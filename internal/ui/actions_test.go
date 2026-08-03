@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"weave/internal/appconfig"
 	actionv1 "weave/proto/gen/action/v1"
@@ -17,6 +18,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -348,6 +350,16 @@ func TestActionMarkdown(t *testing.T) {
 			wantContain: []string{"only the start of the file is shown"},
 		},
 		{
+			name: "a header that did not read says which lines were skipped",
+			action: actionItem{
+				name:       "half-declared",
+				executable: true,
+				preview:    []byte("#!/bin/sh\n"),
+				problems:   []string{`line 2: "soon" is not a duration`},
+			},
+			wantContain: []string{"was not understood", `- line 2: "soon" is not a duration`},
+		},
+		{
 			name: "a runnable script is its name over its own text",
 			action: actionItem{
 				name:       "open-pr",
@@ -355,7 +367,18 @@ func TestActionMarkdown(t *testing.T) {
 				preview:    []byte("#!/bin/sh\nopen \"$url\"\n"),
 			},
 			wantContain: []string{"# open-pr", "```\n#!/bin/sh"},
-			wantAbsent:  []string{"chmod", "only the start"},
+			wantAbsent:  []string{"chmod", "only the start", "gives up after"},
+		},
+		{
+			name: "what the file declares sits above its text",
+			action: actionItem{
+				name:        "open-pr",
+				executable:  true,
+				preview:     []byte("#!/bin/sh\nopen \"$url\"\n"),
+				description: "Open the pull request this agent recorded.",
+				timeout:     45 * time.Second,
+			},
+			wantContain: []string{"Open the pull request this agent recorded.", "gives up after 45s"},
 		},
 	}
 
@@ -379,13 +402,28 @@ func TestActionMarkdown(t *testing.T) {
 func TestActionsViewNamesTheAgentAndDimsWhatCannotRun(t *testing.T) {
 	m := actionsModel(&fakeActions{}, appconfig.DefaultKeybindings())
 	m.actions.cursor = 1
+	m.width = 60
 
 	view := m.actionsView()
 
 	assert.Contains(t, view, "Run Action")
 	assert.Contains(t, view, "open-pr")
 	assert.Contains(t, view, "unrunnable")
+	assert.Contains(t, view, "Open the pull request", "a row says what its action is for")
 	assert.Contains(t, view, "chmod +x to run", "the legend says what the run key wants")
+}
+
+// TestActionsViewDropsTheSummaryInANarrowPane covers the list in the narrow column the panel
+// actually gets. A summary wider than the room left over would be cut by the edge of the pane
+// rather than by an ellipsis, so a pane with no room draws the name alone.
+func TestActionsViewDropsTheSummaryInANarrowPane(t *testing.T) {
+	m := actionsModel(&fakeActions{}, appconfig.DefaultKeybindings())
+
+	m.width = 40
+	assert.Contains(t, m.actionsView(), "Open the pull request this a…", "clipped to what is left after the name")
+
+	m.width = 18
+	assert.NotContains(t, m.actionsView(), "Open the", "too little room to say anything useful")
 }
 
 // TestNoActionsSaysWhereToPutThem covers the empty case. The panel no longer finds the
@@ -436,12 +474,23 @@ func actionsModel(client actionv1connect.ActionServiceClient, keys appconfig.Key
 	}
 }
 
-// listedActions is what the fake service answers with, one action that will run, one waiting
-// on a chmod, and one underscored, which the service offers and the list leaves out.
+// listedActions is what the fake service answers with, one action that will run and declares
+// itself, one waiting on a chmod whose header did not read, and one underscored, which the
+// service offers and the list leaves out.
 func listedActions() []*actionv1.Action {
 	return []*actionv1.Action{
-		{Name: "open-pr", Executable: true, Preview: []byte("#!/bin/sh\necho hello\n")},
-		{Name: "unrunnable", Preview: []byte("#!/bin/sh\necho hello\n")},
+		{
+			Name:        "open-pr",
+			Executable:  true,
+			Preview:     []byte("#!/bin/sh\necho hello\n"),
+			Description: "Open the pull request this agent recorded.",
+			Timeout:     durationpb.New(45 * time.Second),
+		},
+		{
+			Name:           "unrunnable",
+			Preview:        []byte("#!/bin/sh\necho hello\n"),
+			HeaderProblems: []string{`line 2: "soon" is not a duration`},
+		},
 		{Name: "_internal", Executable: true, Preview: []byte("#!/bin/sh\necho hello\n")},
 	}
 }

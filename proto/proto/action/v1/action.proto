@@ -4,14 +4,15 @@ package action.v1;
 
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
+import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 import "rules/v1/rules.proto";
 
 option go_package = "weave/proto/gen/action/v1;actionv1";
 
 // Action is one executable in the user's actions directory. The name is the file's
-// own name, which is the whole of what identifies it, since nothing is parsed out of
-// the file.
+// own name, which is what identifies it, and the fields below the preview are what
+// the comments at the top of the file declare about it.
 message Action {
   // The name of the file
   string name = 1;
@@ -22,6 +23,14 @@ message Action {
   bytes preview = 3;
   // Whether the file is longer than the preview carries.
   bool preview_truncated = 4;
+  // What the file's header says the action is for.
+  string description = 5;
+  // How long one run of it gets before weave kills it. Unset means the file declared
+  // none, and what that falls back to depends on how the action was fired.
+  optional google.protobuf.Duration timeout = 6;
+  // The directives in the header that could not be read, each naming its line. The
+  // lines were skipped rather than the action refused, so it still runs.
+  repeated string header_problems = 7;
 }
 
 message ListActionsResponse {
@@ -46,7 +55,7 @@ service ActionService {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "list_actions"
-      description: "List the actions the user has written, which are executable files in their actions directory. An action is a script or program that takes one agent as its input and does whatever the user wrote it to do, such as opening the pull request that agent recorded. The name is what run_action takes. A file listed with executable false cannot be run until the user chmods it, and the preview is the start of the file so you can see what one does before firing it."
+      description: "List the actions the user has written, which are executable files in their actions directory. An action is a script or program that takes one agent as its input and does whatever the user wrote it to do, such as opening the pull request that agent recorded. The name is what run_action takes. A file listed with executable false cannot be run until the user chmods it, the description is what the file's own header comments say it is for, and the preview is the start of the file so you can see what one does before firing it."
     };
   }
 

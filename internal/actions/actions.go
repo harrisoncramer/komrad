@@ -46,13 +46,15 @@ const killDelay = 2 * time.Second
 // script that prints without stopping would otherwise cost the server its memory.
 const outputLimit = 64 << 10
 
-// Action is one file in the actions directory, identified by its own name, since nothing
-// is read out of the file. A file without the executable bit is still listed, so a script
+// Action is one file in the actions directory, identified by its own name, which is what
+// anything else calls it. A file without the executable bit is still listed, so a script
 // missing a chmod appears rather than reading as the feature being broken.
 type Action struct {
 	Name       string
 	Path       string
 	Executable bool
+	// Header is what the comments at the top of the file declare about it.
+	Header Header
 }
 
 // Runner finds actions and starts them as processes. It holds nothing, and exists so a
@@ -65,12 +67,16 @@ func NewRunner() Runner {
 	return Runner{}
 }
 
-// Discover lists the actions in dir by name. A directory that does not exist yields no
-// actions and no error, since not having written one is the ordinary case.
+// Discover lists the actions in dir by name, each with what its header declares. A
+// directory that does not exist yields no actions and no error, since not having written
+// one is the ordinary case.
 //
 // Only regular files are offered, so an action is always one file and a fifo cannot hang
 // the caller that reads it. Each entry is stated rather than read off its directory entry,
 // so a symlink into a dotfiles repo is judged by what it points at.
+//
+// The header is read here rather than on demand, so the timeout a caller shows and the
+// timeout a run is given cannot be read by two different readers.
 func (Runner) Discover(dir string) ([]Action, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -99,6 +105,7 @@ func (Runner) Discover(dir string) ([]Action, error) {
 			Name:       entry.Name(),
 			Path:       path,
 			Executable: info.Mode().Perm()&0o111 != 0,
+			Header:     readHeader(path),
 		})
 	}
 
@@ -113,6 +120,10 @@ type RunParams struct {
 	Dir string
 	// The environment values passed to the process, from the parent environment.
 	Env []string
+	// Timeout is how long the process gets before its group is killed, and zero is no limit.
+	// It is the caller's rather than the header's, so what an undeclared one falls back to is
+	// decided above this.
+	Timeout time.Duration
 	// Done is handed what the process did, once, and may be nil. RunAndWait returns the
 	// result instead and never calls it.
 	Done func(Result, error)
@@ -144,22 +155,40 @@ func (r Runner) Run(p RunParams) error {
 
 	var stderr tail
 
-	cmd := exec.Command(p.Action.Path)
+	// A run nothing waits for is still held to the timeout it was given, so an action that
+	// declared one is bounded however it was fired. One with no timeout is left unbounded,
+	// since nothing downstream is blocked and cutting off a script somebody fired by hand is
+	// worse than letting it run long.
+	ctx := context.Background()
+	cancel := func() {}
+	if p.Timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, p.Timeout)
+	}
+
+	cmd := exec.CommandContext(ctx, p.Action.Path)
 	cmd.Dir = p.Dir
 	cmd.Env = append(os.Environ(), p.Env...)
 	cmd.Stderr = &stderr
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = killGroup(cmd)
 	cmd.WaitDelay = killDelay
 
 	if err := cmd.Start(); err != nil {
+		cancel()
+
 		return fmt.Errorf("failed to run action %s: %w: %v", p.Action.Name, ErrNotStartable, err)
 	}
 
 	// Run command in the background, send it's outcome to the Done helper.
 	go func() {
 		defer logging.LogAndRepanic(context.Background())
+		defer cancel()
 
 		waitErr := cmd.Wait()
+		if expired := ctx.Err(); expired != nil {
+			waitErr = fmt.Errorf("%w after %s: %v", expired, p.Timeout, waitErr)
+		}
+
 		if p.Done == nil {
 			return
 		}
@@ -191,6 +220,12 @@ func (r Runner) RunAndWait(ctx context.Context, p RunParams) (Result, error) {
 		return Result{}, fmt.Errorf("failed to run action %s in %s: %w", p.Action.Name, p.Dir, ErrDirMissing)
 	}
 
+	if p.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, p.Timeout)
+		defer cancel()
+	}
+
 	var stdout, stderr tail
 
 	cmd := exec.CommandContext(ctx, p.Action.Path)
@@ -199,12 +234,7 @@ func (r Runner) RunAndWait(ctx context.Context, p RunParams) (Result, error) {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-
-	// The group, not the process. CommandContext's own kill reaches the leader only,
-	// leaving whatever it spawned running and holding the pipes open.
-	cmd.Cancel = func() error {
-		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-	}
+	cmd.Cancel = killGroup(cmd)
 	cmd.WaitDelay = killDelay
 
 	err := cmd.Run()
@@ -212,7 +242,7 @@ func (r Runner) RunAndWait(ctx context.Context, p RunParams) (Result, error) {
 
 	switch {
 	case ctx.Err() != nil:
-		return result, fmt.Errorf("failed to run action %s: %w", p.Action.Name, ctx.Err())
+		return result, fmt.Errorf("failed to run action %s: %w%s", p.Action.Name, ctx.Err(), gaveUpAfter(p.Timeout))
 	case errors.As(err, new(*exec.ExitError)):
 		return result, fmt.Errorf("failed to run action %s: %w: %v", p.Action.Name, ErrFailed, err)
 	case err != nil:
@@ -220,6 +250,24 @@ func (r Runner) RunAndWait(ctx context.Context, p RunParams) (Result, error) {
 	}
 
 	return result, nil
+}
+
+// killGroup kills the process group rather than the process. CommandContext's own kill
+// reaches the leader only, leaving whatever it spawned running and holding the pipes open.
+func killGroup(cmd *exec.Cmd) func() error {
+	return func() error {
+		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	}
+}
+
+// gaveUpAfter names the deadline a run passed, since the context error alone does not say
+// what the limit was or that weave set it.
+func gaveUpAfter(timeout time.Duration) string {
+	if timeout <= 0 {
+		return ""
+	}
+
+	return fmt.Sprintf(": gave up after %s", timeout)
 }
 
 type outcomeParams struct {

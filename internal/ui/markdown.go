@@ -131,14 +131,29 @@ func longestBacktickRun(body string) int {
 	return longest
 }
 
-// actionMarkdown renders an action for the stage, its name over the start of its own text.
-// An action is as readily a compiled program as a script, so the body goes through
-// fencedBlock rather than spilling a binary into the pane.
+// actionMarkdown renders an action for the stage: its name, what its header declares, and the
+// start of its own text. An action is as readily a compiled program as a script, so the body
+// goes through fencedBlock rather than spilling a binary into the pane.
 func actionMarkdown(action actionItem) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", action.name)
 	if !action.executable {
 		b.WriteString("_not executable — chmod +x to run it_\n\n")
+	}
+	if action.description != "" {
+		b.WriteString(action.description + "\n\n")
+	}
+	if action.timeout > 0 {
+		fmt.Fprintf(&b, "_gives up after %s_\n\n", action.timeout)
+	}
+	// The run goes ahead without the lines that did not read, so a timeout spelled wrong is
+	// shown rather than left as a limit nothing applies.
+	if len(action.problems) > 0 {
+		b.WriteString("_some of its header was not understood_\n\n")
+		for _, problem := range action.problems {
+			fmt.Fprintf(&b, "- %s\n", problem)
+		}
+		b.WriteString("\n")
 	}
 
 	b.WriteString(fencedBlock(action.preview))

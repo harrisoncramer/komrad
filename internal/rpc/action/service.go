@@ -4,12 +4,14 @@ package action
 import (
 	"context"
 	"errors"
+	"time"
 
 	"weave/internal/actions"
 	"weave/internal/agents"
 	actionv1 "weave/proto/gen/action/v1"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -46,6 +48,9 @@ func (s *Service) ListActions(_ context.Context, _ *connect.Request[emptypb.Empt
 			Executable:       action.Executable,
 			Preview:          action.Preview,
 			PreviewTruncated: action.Truncated,
+			Description:      action.Header.Description,
+			Timeout:          declaredTimeout(action.Header.Timeout),
+			HeaderProblems:   action.Header.Problems,
 		})
 	}
 
@@ -72,4 +77,15 @@ func (s *Service) RunAction(ctx context.Context, req *connect.Request[actionv1.R
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// declaredTimeout is the timeout an action declared, and nothing for one that declared none.
+// Zero on the wire would read as a run with no time at all rather than as a file that said
+// nothing.
+func declaredTimeout(timeout time.Duration) *durationpb.Duration {
+	if timeout <= 0 {
+		return nil
+	}
+
+	return durationpb.New(timeout)
 }

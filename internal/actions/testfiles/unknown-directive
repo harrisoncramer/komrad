@@ -1,0 +1,6 @@
+#!/bin/sh
+#WEAVE descriptoin="A key nobody spelled right."
+#WEAVE tools.node="20"
+set -eu
+
+echo "declared"

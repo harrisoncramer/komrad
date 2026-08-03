@@ -90,7 +90,10 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			name: "the new-workflow form",
 			open: func(m model) model {
 				m.screen = screenWorkflowForm
-				m.form, m.values.workflow = workflowConfigForm("New workflow name", workflowstore.Config{}, []string{"make-worktree", "drop-worktree"}, m.keys.Form)
+				m.form, m.values.workflow = workflowConfigForm("New workflow name", workflowstore.Config{}, []actionChoice{
+					{name: "make-worktree", description: "Cut a worktree for the agent."},
+					{name: "drop-worktree"},
+				}, m.keys.Form)
 				m.values.workflow.Name = "web"
 				m.values.workflow.Context = "the frontend"
 				m.values.workflow.Cwd = "/work/web"
@@ -125,7 +128,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 					Cwd:         target.Cwd,
 					Flags:       target.Flags,
 					SetupAction: "make-worktree",
-				}, []string{"make-worktree"}, m.keys.Form)
+				}, []actionChoice{{name: "make-worktree"}}, m.keys.Form)
 				m.values.workflow.Cwd = "/work/api-v2"
 
 				return m

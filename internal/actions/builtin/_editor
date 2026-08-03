@@ -1,4 +1,5 @@
 #!/bin/sh
+#WEAVE description="Open the agent's directory in your editor, beside its pane."
 # What the panel's editor key runs. Write your own _editor in your actions directory to
 # replace it.
 #

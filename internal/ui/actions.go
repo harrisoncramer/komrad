@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"time"
 
 	agentstore "weave/internal/store/agent"
 
@@ -20,13 +21,17 @@ type actionState struct {
 	agent  agentstore.Agent
 }
 
-// actionItem is one of the user's actions as the panel holds it. The preview is the start
-// of the file, read by the service since the panel never touches the actions directory.
+// actionItem is one of the user's actions as the panel holds it. The preview is the start of
+// the file, read by the service since the panel never touches the actions directory, and the
+// rest is what the file's own header declares.
 type actionItem struct {
-	name       string
-	executable bool
-	preview    []byte
-	truncated  bool
+	name        string
+	executable  bool
+	preview     []byte
+	truncated   bool
+	description string
+	timeout     time.Duration
+	problems    []string
 }
 
 // actionsResult is a finished listing, its own message rather than part of the refresh
@@ -175,6 +180,8 @@ const noActionsMarkdown = "# Actions\n\n_nothing here yet_\n\n" +
 	"`~/.config/weave/actions` unless your config names another.\n\n" +
 	"It runs on the agent you opened this list from, in that directory rather than the " +
 	"agent's, with the agent as JSON in `WEAVE_AGENT`. Where its output goes is up to it.\n\n" +
+	"A comment at the top of the file saying `#WEAVE description=\"what it does\"` shows up " +
+	"here, and `#WEAVE timeout=\"90s\"` is how long it gets before weave stops it.\n\n" +
 	"A file whose name starts with `_` is left off this list and out of the workflow form, " +
 	"which is how shell your other actions source stays out of the way.\n"
 
@@ -189,6 +196,21 @@ func (m model) stageAction() {
 	}
 
 	m.stage.Text(actionMarkdown(action))
+}
+
+// minSummaryWidth is the least room a description is worth drawing in. Below it a row shows
+// the name alone, since three words of a sentence are no help.
+const minSummaryWidth = 12
+
+// actionSummary is what a row says beside a name, so a list of files reads as a list of what
+// they do. room is what the list has left over, since anything longer is cut by the edge of
+// the pane instead of by an ellipsis.
+func actionSummary(description string, room int) string {
+	if description == "" || room < minSummaryWidth {
+		return ""
+	}
+
+	return "  " + dimStyle.Render(clip(description, min(room, descriptionWidth)))
 }
 
 // actionsView renders the actions list, naming the agent they would run on, since the list
@@ -211,7 +233,10 @@ func (m model) actionsView() string {
 			prefix = cursorStyle.Render("› ")
 		}
 
-		rows = append(rows, prefix+m.filter.highlight(action.name, nameStyle(hovered, !action.executable)))
+		name := m.filter.highlight(action.name, nameStyle(hovered, !action.executable))
+		// Two cells for the prefix, two for the gap before the summary.
+		room := m.width - len([]rune(action.name)) - 4
+		rows = append(rows, prefix+name+actionSummary(action.description, room))
 	}
 
 	return header + renderList(rows, m.actions.cursor, m.listLines(header, help)) + help

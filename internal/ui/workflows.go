@@ -120,22 +120,22 @@ func (m model) workflowFormFor(cfg workflowstore.Config) (*huh.Form, *workflowst
 //
 // Shell written to be reused by other actions is left out, the same as it is on the actions
 // list. A workflow naming one would run a fragment on its own.
-func (m model) getAvailableActions() []string {
+func (m model) getAvailableActions() []actionChoice {
 	listed, err := m.api.listActions()
 	if err != nil {
 		return nil
 	}
 
-	names := make([]string, 0, len(listed))
+	choices := make([]actionChoice, 0, len(listed))
 	for _, action := range listed {
 		if isInternalAction(action.GetName()) {
 			continue
 		}
 
-		names = append(names, action.GetName())
+		choices = append(choices, actionChoice{name: action.GetName(), description: action.GetDescription()})
 	}
 
-	return names
+	return choices
 }
 
 // archiveWorkflowConfirm opens the archive prompt for the highlighted workflow,

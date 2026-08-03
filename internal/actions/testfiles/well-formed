@@ -1,0 +1,5 @@
+#WEAVE description="Open the pull request this agent recorded."
+#WEAVE timeout="45s"
+set -eu
+
+gh pr view "$1" --web
