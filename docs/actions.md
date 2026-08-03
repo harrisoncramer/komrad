@@ -55,7 +55,7 @@ Press `a` on an agent in the panel to see every action (except for those prefixe
 
 You can also interact with actions via the [MCP](mcp.md) tools, `list_actions` and `run_action`, and via the CLI:
 
-```sh
+```bash
 weave rpc list-actions
 weave rpc run-action --agent-id <id> --action open-pr
 ```
@@ -66,7 +66,7 @@ Agents can also run actions, for instance to trigger external system, fire alert
 
 Create an executable file called `create-worktree`:
 
-```sh
+```bash
 #!/bin/sh
 set -eu
 
@@ -89,7 +89,7 @@ printf '%s' "$tree"
 
 In the workflow manager, set it as a workflow's setup action. Every agent spawned under that workflow will now get a new worktree. This matching cleanup action called `cleanup-worktree` can be used to remove it when the agent is deleted:
 
-```sh
+```bash
 #!/bin/sh
 set -eu
 
@@ -108,7 +108,7 @@ Agents can be instructed to record their own work as metadata via the MCP, such 
 
 Open the agent manager and press `a` to view your actions, then select it:
 
-```sh
+```bash
 #!/bin/sh
 set -eu
 
