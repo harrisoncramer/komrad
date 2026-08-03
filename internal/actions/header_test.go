@@ -11,13 +11,11 @@ import (
 )
 
 // fixtureDir holds one real action file per case, since a header is read off a file on disk
-// and a string in a table is not one: a fixture carries the shebang, the trailing newline,
-// and the bytes a text editor would actually write.
+// and a string in a table carries neither the shebang nor the bytes an editor would write.
 const fixtureDir = "testfiles"
 
-// TestReadHeader covers what a file is taken to declare about itself. Each row names a file
-// in testfiles, and the last check refuses a file that no row names, so adding a case is
-// adding a file and being told to describe it.
+// TestReadHeader covers what a file is taken to declare about itself. Each row names a file in
+// testfiles, and the last check refuses a fixture no row names.
 func TestReadHeader(t *testing.T) {
 	tests := []struct {
 		name string
@@ -35,8 +33,6 @@ func TestReadHeader(t *testing.T) {
 			want: Header{},
 		},
 		{
-			// The header is what the file says about itself, and a compiled program says it
-			// in whatever its source did rather than in bytes that happen to read as text.
 			name: "a file that is not text is not scanned",
 			file: "not-text",
 			want: Header{},
@@ -59,8 +55,8 @@ func TestReadHeader(t *testing.T) {
 			},
 		},
 		{
-			// The description still stands, since one bad line is no reason to drop the
-			// good one beside it.
+			// The description still stands, since one bad line is no reason to drop the good
+			// one beside it.
 			name: "a duration nothing can read leaves the timeout unset",
 			file: "malformed-duration",
 			want: Header{
@@ -136,9 +132,8 @@ func TestReadHeader(t *testing.T) {
 	assert.ElementsMatch(t, files, described, "every file in %s wants a row of its own", fixtureDir)
 }
 
-// TestReadHeaderUnreadable covers a file weave cannot open, which comes back as no header
-// rather than an error, since Discover offers the file either way and a caller has nothing
-// to do about it.
+// TestReadHeaderUnreadable covers a file weave cannot open, which reads as no header rather
+// than an error, since Discover offers the file either way.
 func TestReadHeaderUnreadable(t *testing.T) {
 	assert.Equal(t, Header{}, readHeader(filepath.Join(t.TempDir(), "not-there")))
 }

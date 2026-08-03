@@ -331,8 +331,7 @@ func (s *ActionService) start(ctx context.Context, p startParams) error {
 		Action: p.action.Action,
 		Dir:    p.action.dir,
 		Env:    p.env,
-		// Nothing is waiting, so there is no default to fall back to: an action that
-		// declared a timeout is held to it, and one that did not runs as long as it likes.
+		// Nothing is waiting, so an action that declared no timeout runs as long as it likes.
 		Timeout: timeoutFor(p.action, 0),
 		Done: func(result actions.Result, err error) {
 			// Reported here rather than returned, since this is the path with nothing
@@ -433,9 +432,8 @@ func (s *ActionService) find(name string) (foundAction, error) {
 	return foundAction{}, fmt.Errorf("%w: %q is not in %s", ErrActionNotFound, name, dir)
 }
 
-// timeoutFor is how long one run of an action gets. What the file declares wins, since it
-// is the only statement anybody made about this particular script, and fallback is what an
-// action that declared nothing gets from the caller.
+// timeoutFor is how long one run of an action gets. What the file declares wins, and
+// fallback is what an action that declared nothing gets.
 func timeoutFor(action foundAction, fallback time.Duration) time.Duration {
 	if action.Header.Timeout > 0 {
 		return action.Header.Timeout

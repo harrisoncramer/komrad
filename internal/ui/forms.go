@@ -249,9 +249,8 @@ func workflowConfigForm(nameTitle string, cfg workflowstore.Config, available []
 	return form, &values
 }
 
-// actionChoice is one action an action field may be set to, with what its header says it is
-// for, so the picker reads as a list of what these scripts do rather than a list of
-// filenames.
+// actionChoice is one action an action field may be set to, with what its header says it does
+// so the picker is not a list of bare filenames.
 type actionChoice struct {
 	name        string
 	description string
@@ -261,8 +260,8 @@ type actionChoice struct {
 // holds. A stored name the directory no longer holds is offered too, so opening the form on
 // a workflow whose script was renamed shows what is recorded rather than resetting it.
 //
-// The value of an option is always the bare name, since that is what the workflow stores
-// and what the service is later asked to run. Only the label carries the description.
+// An option's value is the bare name, which is what the workflow stores. Only the label
+// carries the description.
 func actionOptions(available []actionChoice, current string) []huh.Option[string] {
 	options := make([]huh.Option[string], 0, len(available)+2)
 	options = append(options, huh.NewOption("none", ""))
@@ -279,9 +278,8 @@ func actionOptions(available []actionChoice, current string) []huh.Option[string
 	return options
 }
 
-// actionChoiceLabel is how one action reads in a picker. The description is clipped rather
-// than wrapped, since a row that grows taller than the others makes the list harder to read
-// than a sentence cut short does.
+// actionChoiceLabel is how one action reads in a picker. The description is clipped so that
+// no row grows taller than the others.
 func actionChoiceLabel(action actionChoice) string {
 	if action.description == "" {
 		return action.name

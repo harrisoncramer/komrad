@@ -101,8 +101,7 @@ func TestDiscover(t *testing.T) {
 }
 
 // TestDiscoverReadsWhatAFileDeclares covers the header arriving with the listing rather than
-// being read again later, which is what keeps the timeout a caller shows and the timeout a run
-// is given from being two different answers.
+// being read again later.
 func TestDiscoverReadsWhatAFileDeclares(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "open-pr"), []byte(
@@ -401,10 +400,9 @@ func TestRunAndWaitStopsAtTheDeadline(t *testing.T) {
 	assert.Less(t, time.Since(started), 30*time.Second, "the action is killed rather than waited out")
 }
 
-// TestRunStopsAtItsOwnDeadline covers a timeout on a run nothing is waiting for. Run answers
-// as soon as the process exists, so the deadline has to be enforced by the run itself rather
-// than by a caller holding a context, and what it did reaches the outcome instead of a
-// return value.
+// TestRunStopsAtItsOwnDeadline covers a timeout on a run nothing is waiting for. Run answers as
+// soon as the process exists, so the deadline is the run's own to enforce and what it did
+// reaches the outcome rather than a return value.
 func TestRunStopsAtItsOwnDeadline(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "hangs"), []byte(
@@ -434,9 +432,8 @@ func TestRunStopsAtItsOwnDeadline(t *testing.T) {
 	}
 }
 
-// TestRunAndWaitStopsAtItsOwnDeadline covers an awaited run bounded by the timeout it was
-// given rather than by the context it was handed, so what an action declares reaches it the
-// same way on both paths.
+// TestRunAndWaitStopsAtItsOwnDeadline covers an awaited run bounded by the timeout it was given
+// rather than by the context it was handed.
 func TestRunAndWaitStopsAtItsOwnDeadline(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "hangs"), []byte(

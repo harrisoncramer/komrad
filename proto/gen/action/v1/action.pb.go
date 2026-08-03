@@ -27,8 +27,8 @@ const (
 )
 
 // Action is one executable in the user's actions directory. The name is the file's
-// own name, which is what identifies it, and the rest of the fields below the preview
-// are what the comments at the top of the file declare about it.
+// own name, which is what identifies it, and the fields below the preview are what
+// the comments at the top of the file declare about it.
 type Action struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The name of the file
@@ -40,16 +40,13 @@ type Action struct {
 	Preview []byte `protobuf:"bytes,3,opt,name=preview,proto3" json:"preview,omitempty"`
 	// Whether the file is longer than the preview carries.
 	PreviewTruncated bool `protobuf:"varint,4,opt,name=preview_truncated,json=previewTruncated,proto3" json:"preview_truncated,omitempty"`
-	// What the file's own header says the action is for, and empty for one that says
-	// nothing.
+	// What the file's header says the action is for.
 	Description string `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
-	// How long one run of it gets before weave kills it, from the same header. Unset
-	// means the file declared none, and what that falls back to depends on how the
-	// action was fired.
+	// How long one run of it gets before weave kills it. Unset means the file declared
+	// none, and what that falls back to depends on how the action was fired.
 	Timeout *durationpb.Duration `protobuf:"bytes,6,opt,name=timeout,proto3,oneof" json:"timeout,omitempty"`
-	// The directives in the header that could not be read, each naming its line. An
-	// action with these still runs; the lines were skipped rather than the file
-	// refused.
+	// The directives in the header that could not be read, each naming its line. The
+	// lines were skipped rather than the action refused, so it still runs.
 	HeaderProblems []string `protobuf:"bytes,7,rep,name=header_problems,json=headerProblems,proto3" json:"header_problems,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache

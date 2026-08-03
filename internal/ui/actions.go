@@ -21,9 +21,9 @@ type actionState struct {
 	agent  agentstore.Agent
 }
 
-// actionItem is one of the user's actions as the panel holds it. The preview is the start
-// of the file, read by the service since the panel never touches the actions directory, and
-// the rest below it is what the file's own header declares.
+// actionItem is one of the user's actions as the panel holds it. The preview is the start of
+// the file, read by the service since the panel never touches the actions directory, and the
+// rest is what the file's own header declares.
 type actionItem struct {
 	name        string
 	executable  bool
@@ -198,14 +198,13 @@ func (m model) stageAction() {
 	m.stage.Text(actionMarkdown(action))
 }
 
-// minSummaryWidth is the least room a description is worth drawing in. Below it a row says
-// the name and nothing else, since three words of a sentence are no help and the pane beside
-// the list is carrying the whole of it.
+// minSummaryWidth is the least room a description is worth drawing in. Below it a row shows
+// the name alone, since three words of a sentence are no help.
 const minSummaryWidth = 12
 
-// actionSummary is what a row says beside a name, so a list of files reads as a list of the
-// things they do. room is what the list has left after the name, since a summary longer than
-// that is cut by the edge of the pane rather than by the ellipsis that says it was cut.
+// actionSummary is what a row says beside a name, so a list of files reads as a list of what
+// they do. room is what the list has left over, since anything longer is cut by the edge of
+// the pane instead of by an ellipsis.
 func actionSummary(description string, room int) string {
 	if description == "" || room < minSummaryWidth {
 		return ""
@@ -235,8 +234,7 @@ func (m model) actionsView() string {
 		}
 
 		name := m.filter.highlight(action.name, nameStyle(hovered, !action.executable))
-		// The prefix is two cells wide however it is styled, and the two after the name are
-		// the gap the summary opens with.
+		// Two cells for the prefix, two for the gap before the summary.
 		room := m.width - len([]rune(action.name)) - 4
 		rows = append(rows, prefix+name+actionSummary(action.description, room))
 	}

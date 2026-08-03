@@ -350,8 +350,6 @@ func TestActionMarkdown(t *testing.T) {
 			wantContain: []string{"only the start of the file is shown"},
 		},
 		{
-			// A header weave could not read is shown, since the run went ahead without it
-			// and a timeout that was spelled wrong is otherwise a limit nothing applies.
 			name: "a header that did not read says which lines were skipped",
 			action: actionItem{
 				name:       "half-declared",
@@ -415,10 +413,9 @@ func TestActionsViewNamesTheAgentAndDimsWhatCannotRun(t *testing.T) {
 	assert.Contains(t, view, "chmod +x to run", "the legend says what the run key wants")
 }
 
-// TestActionsViewDropsTheSummaryInANarrowPane covers the list in the column the panel
-// actually gets, which is narrow. A summary wider than the room left over is cut by the edge
-// of the pane rather than by the ellipsis that says it was cut, so a pane with no room for
-// one draws the name alone and leaves the sentence to the pane beside it.
+// TestActionsViewDropsTheSummaryInANarrowPane covers the list in the narrow column the panel
+// actually gets. A summary wider than the room left over would be cut by the edge of the pane
+// rather than by an ellipsis, so a pane with no room draws the name alone.
 func TestActionsViewDropsTheSummaryInANarrowPane(t *testing.T) {
 	m := actionsModel(&fakeActions{}, appconfig.DefaultKeybindings())
 

@@ -105,9 +105,8 @@ func TestRunActionPassesWhatItWasAsked(t *testing.T) {
 // string because an action is as readily a compiled program as a script, and the first page of one
 // is not valid UTF-8, which proto3 would refuse.
 //
-// What a file declares travels with it, and an action that declared no timeout leaves the field
-// unset rather than sending zero, which a caller would otherwise read as a run with no time at
-// all rather than as a file that said nothing.
+// An action that declared no timeout leaves the field unset rather than sending zero, which a
+// caller would read as a run with no time at all.
 func TestListActions(t *testing.T) {
 	manager := &fakeActions{listed: []agents.ListedAction{
 		{

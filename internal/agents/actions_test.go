@@ -739,9 +739,8 @@ func TestRunActionRunsABuiltinAmongItsOwnSiblings(t *testing.T) {
 }
 
 // TestActionTimeouts covers how long a run gets. What the file declares wins wherever it was
-// fired from, and what an action that declares nothing falls back to depends on whether
-// anything is waiting: a launch blocked on a setup action needs a ceiling, and a run nobody
-// waits for is left alone rather than cut off partway through whatever it opened.
+// fired from, and an action that declares nothing falls back to a ceiling only where a launch
+// is blocked on it.
 func TestActionTimeouts(t *testing.T) {
 	agent := agentstore.Agent{ID: "a1", Cwd: "/repo"}
 

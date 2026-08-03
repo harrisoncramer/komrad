@@ -11,8 +11,8 @@ import "rules/v1/rules.proto";
 option go_package = "weave/proto/gen/action/v1;actionv1";
 
 // Action is one executable in the user's actions directory. The name is the file's
-// own name, which is what identifies it, and the rest of the fields below the preview
-// are what the comments at the top of the file declare about it.
+// own name, which is what identifies it, and the fields below the preview are what
+// the comments at the top of the file declare about it.
 message Action {
   // The name of the file
   string name = 1;
@@ -23,16 +23,13 @@ message Action {
   bytes preview = 3;
   // Whether the file is longer than the preview carries.
   bool preview_truncated = 4;
-  // What the file's own header says the action is for, and empty for one that says
-  // nothing.
+  // What the file's header says the action is for.
   string description = 5;
-  // How long one run of it gets before weave kills it, from the same header. Unset
-  // means the file declared none, and what that falls back to depends on how the
-  // action was fired.
+  // How long one run of it gets before weave kills it. Unset means the file declared
+  // none, and what that falls back to depends on how the action was fired.
   optional google.protobuf.Duration timeout = 6;
-  // The directives in the header that could not be read, each naming its line. An
-  // action with these still runs; the lines were skipped rather than the file
-  // refused.
+  // The directives in the header that could not be read, each naming its line. The
+  // lines were skipped rather than the action refused, so it still runs.
   repeated string header_problems = 7;
 }
 

@@ -53,8 +53,7 @@ type Action struct {
 	Name       string
 	Path       string
 	Executable bool
-	// Header is what the comments at the top of the file declare about it, and is the zero
-	// value for a file that declares nothing.
+	// Header is what the comments at the top of the file declare about it.
 	Header Header
 }
 
@@ -76,9 +75,8 @@ func NewRunner() Runner {
 // the caller that reads it. Each entry is stated rather than read off its directory entry,
 // so a symlink into a dotfiles repo is judged by what it points at.
 //
-// The header is read here rather than on demand so that everything downstream has it from
-// the one place actions are found, which is what keeps the timeout the panel shows and the
-// timeout a run is given from being read by two different readers.
+// The header is read here rather than on demand, so the timeout a caller shows and the
+// timeout a run is given cannot be read by two different readers.
 func (Runner) Discover(dir string) ([]Action, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -122,9 +120,9 @@ type RunParams struct {
 	Dir string
 	// The environment values passed to the process, from the parent environment.
 	Env []string
-	// Timeout is how long the process gets before its group is killed, and zero is no
-	// limit. It is the caller's rather than the header's so that what an action declares
-	// and what an undeclared one falls back to are decided in one place, above this.
+	// Timeout is how long the process gets before its group is killed, and zero is no limit.
+	// It is the caller's rather than the header's, so what an undeclared one falls back to is
+	// decided above this.
 	Timeout time.Duration
 	// Done is handed what the process did, once, and may be nil. RunAndWait returns the
 	// result instead and never calls it.
@@ -157,11 +155,10 @@ func (r Runner) Run(p RunParams) error {
 
 	var stderr tail
 
-	// A run nothing waits for still takes its deadline from the same field an awaited one
-	// does, so an action that declared a timeout is held to it however it was fired. A run
-	// with no timeout is left unbounded rather than given a default: nothing downstream is
-	// blocked on it, and a person who fired an action by hand watching it get cut off is a
-	// worse answer than a script that runs long.
+	// A run nothing waits for is still held to the timeout it was given, so an action that
+	// declared one is bounded however it was fired. One with no timeout is left unbounded,
+	// since nothing downstream is blocked and cutting off a script somebody fired by hand is
+	// worse than letting it run long.
 	ctx := context.Background()
 	cancel := func() {}
 	if p.Timeout > 0 {
@@ -255,17 +252,16 @@ func (r Runner) RunAndWait(ctx context.Context, p RunParams) (Result, error) {
 	return result, nil
 }
 
-// killGroup is what a cancelled run kills: the group, not the process. CommandContext's own
-// kill reaches the leader only, leaving whatever it spawned running and holding the pipes
-// open.
+// killGroup kills the process group rather than the process. CommandContext's own kill
+// reaches the leader only, leaving whatever it spawned running and holding the pipes open.
 func killGroup(cmd *exec.Cmd) func() error {
 	return func() error {
 		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	}
 }
 
-// gaveUpAfter names the deadline a run of our own making passed, since the context error
-// alone says a deadline was hit and not what it was or that weave set it.
+// gaveUpAfter names the deadline a run passed, since the context error alone does not say
+// what the limit was or that weave set it.
 func gaveUpAfter(timeout time.Duration) string {
 	if timeout <= 0 {
 		return ""

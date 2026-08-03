@@ -228,8 +228,8 @@ func TestWorkflowWrites(t *testing.T) {
 // fields are chosen from. A workflow naming a file that only exists to be sourced would run a
 // fragment on its own, so the picker offers the same list a person sees on the actions screen.
 //
-// What each file declares comes with it, so choosing a setup action is reading what the
-// scripts do rather than guessing from their filenames.
+// What each file declares comes with it, so choosing a setup action means reading what the
+// scripts do rather than guessing from filenames.
 func TestAvailableActionsSkipUnderscoredNames(t *testing.T) {
 	m := model{api: api{actions: &fakeActions{}}}
 
@@ -242,8 +242,8 @@ func TestAvailableActionsSkipUnderscoredNames(t *testing.T) {
 }
 
 // TestActionOptionsLabelsCarryDescriptions covers the labels the setup and cleanup pickers
-// draw. The value of an option stays the bare name whatever the label says, since that is
-// what the workflow stores and what the service is later asked to run.
+// draw. An option's value stays the bare name whatever its label says, since that is what the
+// workflow stores.
 func TestActionOptionsLabelsCarryDescriptions(t *testing.T) {
 	options := actionOptions([]actionChoice{
 		{name: "make-worktree", description: "Cut a worktree for the agent."},

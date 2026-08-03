@@ -79,9 +79,9 @@ func (s *Service) RunAction(ctx context.Context, req *connect.Request[actionv1.R
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// declaredTimeout is the timeout an action declared, and nothing for one that declared
-// none. The field is left unset rather than sent as zero, since zero on the wire reads as a
-// run with no time at all rather than as a file that said nothing.
+// declaredTimeout is the timeout an action declared, and nothing for one that declared none.
+// Zero on the wire would read as a run with no time at all rather than as a file that said
+// nothing.
 func declaredTimeout(timeout time.Duration) *durationpb.Duration {
 	if timeout <= 0 {
 		return nil
