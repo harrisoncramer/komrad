@@ -9,54 +9,47 @@
 Weave is a terminal-based agent manager. It lets you:
 
 - Quickly create agents backed by different CLIs, like Claude or Codex
-- Search and act upon agents from one unified view
-- Group agents into workflows with common behaviors and settings
-- Build custom actions using agent state
-- Schedule agents
-- Build orchestrator agents or agent pipelines using Weave's MCP
+- Build orchestrators or agent pipelines with Weave's MCP
+- Build custom actions and triggers tied to agent lifecycles
+- Group agents into workflows with common behaviors and contexts
+- Enforce agent schedules
 
-If you're a Neovim or Emacs user, love tools like FZF, or just enjoy working from your terminal, weave is for you.
+If you're a Neovim or Emacs user, or just enjoy working from your terminal, weave is for you.
 
 ## Quickstart
 
-1. Configure a Postgres database and set a `DATABASE_URL` in your weave configuration file.
-2. Install the tmux plugin. With TPM, add to `~/.tmux.conf`, and press your installation command, typically `prefix + I`:
-
-```tmux
-set -g @plugin 'git@github.com:harrisoncramer/weave'
-```
-
+1. Configure a Postgres database and set a `DATABASE_URL` in your weave [configuration file](docs/configuration.md).
+2. Install weave. See [installation](docs/install.md) for the full setup guide.
 3. Press `prefix + g` to toggle the agent manager panel. Press `w` to create your first workflow, and then `w` to add your first agent.
-
-See [installation](docs/install.md) for the full setup guide.
 
 ## Why Weave
 
-Keeping track of multiple agent sessions is difficult. Weave's persistent tmux panel (`prefix + g`) lets you browse, search, andw interact with them more easily than juggling multiple terminal panels. Weave is different from existing solutions like Conductor, Happy, or WorkMux in a few important ways:
+Keeping track of multiple agent sessions is difficult. Weave's persistent agent manager lets you browse, search, and interact with them more easily than juggling multiple terminal panels.
+
+Weave is different from existing solutions like Conductor, Happy, or WorkMux in a few important ways:
 
 1. It is unopinionated.
 
-Weave provides the primitives behind agentic workflows: agents, workflows, actions, schedules, and an MCP layer. You decide how to use them.
+Weave provides the primitives behind agentic workflows as resources that you manage directly: [workflows](docs/workflows.md), [agents](docs/agents.md), [actions](docs/actions.md), and [schedules](docs/schedules.md). It also provides an [MCP layer](docs/mcp.md) and a [CLI](docs/cli.md) so that you can have weave agents manage other agents. But it doesn't tell you how to use them: that's your call.
 
-Weave is an excellent software development environment using Git worktrees. But it's also equally capable of handling other automations: bug reports, Slack messages, or emails. Let weave take over the parts of your job you dislike, not the parts you do.
+Weave is optimized for software development with [https://git-scm.com/docs/git-worktree](worktrees), but is equally capable of handling other automations, like production incidents or triaging, or even Slack or email automations. Let weave automate the parts of your job you dislike.
 
 2. It terminal (tmux) based.
 
-Weave's purpose is narrow: providing an a local agentic platform for terminal power users. It does not aspire to be a remote coding environment.
-
-If I'm away from my computer, it's because I don't want to be thinking about work.
+Weave is a terminal tool, intended for power users. It does not aspire to be a remote coding environment or a standalone application. It meets you where you are: in the terminal.
 
 ## Documentation
 
 Concepts and guides:
 
-- [How it works](docs/concepts.md): the state model, the store and server, the reconciler, and dormant agents
-- [The panel](docs/panel.md): the popup, the picker, and the agents browser
-- [Commands](docs/commands.md): what `serve` and `migrate` are for
 - [Installation](docs/install.md): the tmux plugin setup
 - [Configuration](docs/configuration.md): environment variables and the TOML app config
 - [Development](docs/development.md): mise tasks, the live rebuild loop, generated code, and the custom linter
+- [How it works](docs/concepts.md): the state model, the store and server, the reconciler, and agents
 
-Command reference, with the usage line and every flag for each command:
-
-- [reference/](docs/reference/weave.md)
+- [workflows](docs/workflows.md): The shared templates for agents
+- [agents](docs/agents.md): The core resource of weave
+- [actions](docs/actions.md): Custom scripts or binaries that your agents can invoke
+- [schedules](docs/schedules.md): Durable schedules for running your workflows at prefined times or intervals
+- [MCP](docs/mcp.md): Lets agents spawn or manage other agents
+- [CLI](docs/commands.md): The CLI tool and commands
