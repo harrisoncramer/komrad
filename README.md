@@ -12,14 +12,14 @@ Weave is a terminal-based agent manager. It lets you:
 - Search and act upon agents from one unified view
 - Group agents into workflows with common behaviors and settings
 - Build custom actions using agent state
-- Schedule agents using cron-like syntax
-- Build "orchestrator" agents or agent pipelines using Weave's MCP
+- Schedule agents
+- Build orchestrator agents or agent pipelines using Weave's MCP
 
-Weave's intended audience is terminal junkies. If you're a Neovim or Emacs user, love tools like FZF, or enjoy scripting your own tools, weave is for you.
+If you're a Neovim or Emacs user, love tools like FZF, or just enjoy working from your terminal, weave is for you.
 
 ## Quickstart
 
-1. Configure a Postgres database and set a `DATABASE_URL` in your weave configuration file. Weave stores it's state in Postgres.
+1. Configure a Postgres database and set a `DATABASE_URL` in your weave configuration file.
 2. Install the tmux plugin. With TPM, add to `~/.tmux.conf`, and press your installation command, typically `prefix + I`:
 
 ```tmux
