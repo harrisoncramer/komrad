@@ -198,15 +198,20 @@ func (m model) stageAction() {
 	m.stage.Text(actionMarkdown(action))
 }
 
-// actionSummary is what a row says beside a name, so a list of files reads as a list of
-// things they do. A file that declares nothing adds nothing, since a row is better bare
-// than padded.
-func actionSummary(description string) string {
-	if description == "" {
+// minSummaryWidth is the least room a description is worth drawing in. Below it a row says
+// the name and nothing else, since three words of a sentence are no help and the pane beside
+// the list is carrying the whole of it.
+const minSummaryWidth = 12
+
+// actionSummary is what a row says beside a name, so a list of files reads as a list of the
+// things they do. room is what the list has left after the name, since a summary longer than
+// that is cut by the edge of the pane rather than by the ellipsis that says it was cut.
+func actionSummary(description string, room int) string {
+	if description == "" || room < minSummaryWidth {
 		return ""
 	}
 
-	return "  " + dimStyle.Render(clip(description, descriptionWidth))
+	return "  " + dimStyle.Render(clip(description, min(room, descriptionWidth)))
 }
 
 // actionsView renders the actions list, naming the agent they would run on, since the list
@@ -230,7 +235,10 @@ func (m model) actionsView() string {
 		}
 
 		name := m.filter.highlight(action.name, nameStyle(hovered, !action.executable))
-		rows = append(rows, prefix+name+actionSummary(action.description))
+		// The prefix is two cells wide however it is styled, and the two after the name are
+		// the gap the summary opens with.
+		room := m.width - len([]rune(action.name)) - 4
+		rows = append(rows, prefix+name+actionSummary(action.description, room))
 	}
 
 	return header + renderList(rows, m.actions.cursor, m.listLines(header, help)) + help

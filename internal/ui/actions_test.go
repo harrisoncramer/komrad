@@ -404,6 +404,7 @@ func TestActionMarkdown(t *testing.T) {
 func TestActionsViewNamesTheAgentAndDimsWhatCannotRun(t *testing.T) {
 	m := actionsModel(&fakeActions{}, appconfig.DefaultKeybindings())
 	m.actions.cursor = 1
+	m.width = 60
 
 	view := m.actionsView()
 
@@ -412,6 +413,20 @@ func TestActionsViewNamesTheAgentAndDimsWhatCannotRun(t *testing.T) {
 	assert.Contains(t, view, "unrunnable")
 	assert.Contains(t, view, "Open the pull request", "a row says what its action is for")
 	assert.Contains(t, view, "chmod +x to run", "the legend says what the run key wants")
+}
+
+// TestActionsViewDropsTheSummaryInANarrowPane covers the list in the column the panel
+// actually gets, which is narrow. A summary wider than the room left over is cut by the edge
+// of the pane rather than by the ellipsis that says it was cut, so a pane with no room for
+// one draws the name alone and leaves the sentence to the pane beside it.
+func TestActionsViewDropsTheSummaryInANarrowPane(t *testing.T) {
+	m := actionsModel(&fakeActions{}, appconfig.DefaultKeybindings())
+
+	m.width = 40
+	assert.Contains(t, m.actionsView(), "Open the pull request this a…", "clipped to what is left after the name")
+
+	m.width = 18
+	assert.NotContains(t, m.actionsView(), "Open the", "too little room to say anything useful")
 }
 
 // TestNoActionsSaysWhereToPutThem covers the empty case. The panel no longer finds the
