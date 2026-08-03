@@ -1,83 +1,33 @@
 # Configuration
 
-Weave has two layers of configuration, and they do not overlap.
+Two layers, and they do not overlap. A TOML file at `~/.config/weave/config.toml` holds the panel's settings: which CLI to run, per-CLI flags, keybindings, marks, layout, log level. A handful of environment variables hold the database URL, the listen address, the tmux socket, and the cache directory.
 
-The first is a TOML file at `~/.config/weave/config.toml`. That is where the panel's own settings live: which agent CLI to run, per-CLI flags, keybindings, marks, layout, the log level.
-
-The second is a handful of environment variables. That is where the database URL, the address the service listens on, the tmux socket, and the cache directory live. These decide which weave you are talking to, so they have to be settable per shell and per checkout, which a file in your home directory cannot do.
-
-The rule of thumb: if you would set it once and forget it, it goes in the file. If it identifies an instance, it is an environment variable.
-
-TODO TODO TODO: Write config file.
+The rule of thumb: if you set it once and forget it, it goes in the file. If it identifies an instance, it is an environment variable.
 
 ## The config file
 
-Weave reads `~/.config/weave/config.toml`. It does not have to exist. With no file at all every default applies and the panel works fine, which is the ordinary install.
+The file does not have to exist. With no file at all every default applies, which is the ordinary install. Write only the settings you are changing; anything you leave out falls back.
 
-Write the file yourself and put only the settings you are changing in it. Anything you leave out falls back to its built-in default. There is no init command; `touch ~/.config/weave/config.toml` and start typing.
-
-A key weave does not recognise is an error, not a line quietly ignored. That is deliberate: a typo that does nothing is a setting you will spend twenty minutes deciding is broken. The error names the key and lists what its table actually takes:
+A key weave does not recognise is an error rather than a line quietly ignored, since a typo that does nothing is a setting you will spend twenty minutes deciding is broken. The error names the key and lists what the table takes:
 
 ```
-failed to parse config /Users/you/.config/weave/config.toml:
-max_agent is not a setting; the top level takes default_harness, max_agents, harness, layout, marks, keybindings, actions, context, log
+max_agent is not a setting; the top level takes default_harness, max_agents,
+harness, layout, marks, keybindings, actions, context, log
 ```
 
-When the file will not parse, the panel replaces itself with an error screen carrying that message, and the background service logs the same thing and carries on with the defaults. So a broken config does not stop your agents, but the flags you set are not being applied while it is broken. Fix the key and reopen the panel.
+A file that will not parse puts an error screen in the panel and leaves the service running on defaults, so a broken config does not stop your agents, but your settings are not applied while it is broken. `weave doctor` says which file is being read and whether it parses.
 
-`weave doctor` tells you which file is being read, whether it parses, and whether `default_harness` names a CLI you actually have installed. Run that first when a setting is not taking effect.
+`--config` names a different file, and is forwarded to the panel session and the service so all three read the same one. A `--config` path that is missing is an error, unlike the default path.
 
-### Pointing at a different file
-
-`--config` names a file instead of the default. It is a persistent flag, so it goes before or after the subcommand:
-
-```sh
-weave --config /path/to/other.toml open
-```
-
-The path is forwarded to the panel session and to the background service it spawns, so all three read the same file. Useful for a second instance, or for testing a config without touching your real one.
-
-A file that is named with `--config` and is not there is an error, unlike the default path. If you point at a file you believe you have, weave says it is missing rather than silently running on defaults.
-
-### About config.toml in the repo
-
-The `config.toml` at the root of the weave repository is generated. It is rendered from the `Config` struct in `internal/appconfig`, taking each key's description from the Go doc comment above it, by `mise run gen:config`.
-
-It is a reference, not a template. Do not copy it into `~/.config/weave/`. Two reasons. Editing the repo file changes nothing, because weave never reads it, and the next `mise run gen:config` overwrites your edits. And copying all of it leaves you holding every key weave has, so a rename in a later version breaks your config even for settings you never touched.
-
-Read it, take the two lines you want, leave the rest.
+The `config.toml` at the root of the repo is generated from the Go struct and is a reference, not a template. Do not copy it into place: weave never reads it, and holding every key means a later rename breaks settings you never touched.
 
 ## Top level
 
-### default_harness
+`default_harness` is which CLI a new agent runs when neither the agent nor its [workflow](workflows.md) names one. Default `"claude"`, and it has to be one of the names under `[harness]`.
 
-Which agent CLI a new agent runs when neither the agent nor its [workflow](workflows.md) names one. Default `"claude"`. It has to be a harness this build implements, which is one of the names under `[harness]` below, so `"claude"` or `"codex"`.
+`max_agents` is how many unarchived agents may exist at once, default `50`. It is a backstop against a caller in a loop rather than a statement about your machine: drive weave from an orchestrator over [MCP](mcp.md) and a bug can otherwise spawn panes until tmux gives up.
 
-Change it if you mostly use Codex. Getting it wrong is caught at startup rather than at the first create, and `weave doctor` names the ones your build has.
-
-### max_agents
-
-How many unarchived agents may exist at once. Default `50`. Past this a create is refused.
-
-The number is not about your machine, it is a backstop against a caller in a loop. If you drive weave from an orchestrator through the [MCP layer](mcp.md), a bug in the orchestrator can otherwise spawn panes until tmux gives up. Raise it if you legitimately run more; lower it if you want the loop caught sooner.
-
-### marks
-
-The marks the mark key cycles through, in order. Press the key on an agent and it steps to the next mark, and past the last one back to unmarked. Nothing but you ever sets a mark, so they mean whatever you decide.
-
-```toml
-marks = [
-  { glyph = "●", color = "yellow" },
-  { glyph = "◐", color = "yellow" },
-  { glyph = "✓", color = "yellow" },
-]
-```
-
-A colour is either one of the sixteen your terminal's own scheme maps, named as `"red"` or `"brightred"`, or a hex value like `"#DCA561"`. Prefer a name. The panel draws itself out of those sixteen, so a named mark stays in the same scheme as everything around it, while hex is the same in every terminal whether that terminal's scheme agrees or not.
-
-The glyph is what a row draws and what gets stored, so it is the mark's identity. Weave refuses a glyph that is empty, longer than sixteen bytes, carries whitespace or control characters, or is listed twice.
-
-A useful set is one per thing you are waiting on:
+`marks` is what the mark key cycles through, in order, and past the last one back to unmarked. Nothing but you ever sets a mark, so they mean whatever you decide.
 
 ```toml
 marks = [
@@ -87,52 +37,28 @@ marks = [
 ]
 ```
 
+A colour is one of the sixteen your terminal's scheme maps, named as `"red"` or `"brightred"`, or a hex value like `"#DCA561"`. Prefer a name, so the mark stays in the same scheme as the rest of the panel. The glyph is the mark's identity, and weave refuses one that is empty, over sixteen bytes, carries whitespace or control characters, or is listed twice.
+
 ## harness
 
-Per-CLI settings. There is a table per agent CLI weave implements, and a table for one it does not is an error, so this section doubles as the list of what can be run.
-
-### harness.claude.flags
-
-Flags appended to every Claude agent's command line, ahead of whatever flags that agent carries itself. Default empty.
+A table per CLI weave implements, so this section doubles as the list of what can be run. A table for one it does not implement is an error.
 
 ```toml
 [harness.claude]
 flags = "--permission-mode acceptEdits"
-```
 
-This is the place for the flag you would otherwise retype into every create. Flags are split into arguments and quoted before they reach the shell, so they are data rather than shell text; you cannot smuggle a pipeline through here.
-
-### harness.codex.flags
-
-The same thing for Codex.
-
-```toml
 [harness.codex]
-flags = "-m gpt-5.6 -s read-only"
-```
-
-### harness.codex.trust_launch_dirs
-
-Whether to record each agent's directory as trusted in Codex's own config before launching it. Default `false`.
-
-Codex asks whether a directory is trusted the first time it runs there, and waits for an answer it will only read from its own config file. So an agent in a fresh worktree starts blocked on that question and shows up in the panel as waiting for a human, which is not what you wanted from a background agent.
-
-Turn it on if you run Codex agents in new worktrees, which is most of the point of [worktrees](agents.md). Know what it does first: it edits `~/.codex/config.toml` on your behalf, adding each directory weave launches into.
-
-```toml
-[harness.codex]
+flags = "-s workspace-write"
 trust_launch_dirs = true
 ```
 
+`flags` go ahead of whatever flags an agent carries itself. They are split and quoted before reaching the shell, so they are data; you cannot smuggle a pipeline through here.
+
+`trust_launch_dirs` answers Codex's directory-trust question in advance, default `false`. Codex asks it the first time it runs somewhere new and only reads the answer from its own config, so an agent in a fresh worktree starts blocked and shows in the panel as waiting. Turning it on edits `~/.codex/config.toml` on your behalf.
+
 ## layout
 
-How the popup is divided.
-
-`split` is the share of the width the panel's list takes, default `0.2`. The rest is the stage beside it, which is where the agent you are hovering is drawn.
-
-`secondary_split` is the share of the stage's height taken by the pane that opens under it, default `0.4`. That pane is where the log, the shell, and the agent's record appear.
-
-Both are fractions above zero and below one. Anything else is refused at load rather than handed to tmux.
+`split` is the share of the width the panel's list takes, default `0.2`. The rest is the stage, where the agent you are hovering is drawn. `secondary_split` is the share of the stage's height taken by the pane that opens under it, default `0.4`, which is where the log, the shell, and the agent's record appear. Both are fractions above zero and below one.
 
 ```toml
 [layout]
@@ -140,171 +66,81 @@ split = 0.3
 secondary_split = 0.5
 ```
 
-Widen the split if your agent names are long or you keep a lot of workflows open. Narrow it if you mostly want to read the agent.
-
 ## keybindings
 
-Bindings are scoped to the screen they act in, so the same key can mean different things in the agents list and in the archive. Each binding is a list of key strings such as `"enter"`, `"ctrl+d"`, `"esc"`, or `" "` for space.
+Bindings are scoped to the screen they act in, so the same key can mean different things in the agents list and the archive. Each is a list of key strings like `"enter"`, `"ctrl+d"`, `"esc"`, or `" "` for space.
 
-Every default is a single key, which leaves you the alternatives. Setting a binding replaces its default rather than adding to it, so list both if you want both:
+Setting a binding replaces its default rather than adding to it, so list both if you want both. The fallback is per binding, so writing one key does not blank the others in its table.
 
 ```toml
 [keybindings.agents]
 new = ["n", "c"]
 ```
 
-A binding you do not set keeps its built-in default, and the fallback is per binding rather than per table. Writing one key under `[keybindings.agents]` does not blank the other twelve.
+The groups are `actions`, `agents`, `archive`, `filter`, `form`, `help`, `logs`, `nav`, `schedules`, `selection`, and `workflows`. Four are shared rather than per screen: `nav` is movement everywhere, `help` draws the legend, `logs` opens the service log, `filter` narrows whichever list is on screen.
 
-The groups are `actions`, `agents`, `archive`, `filter`, `form`, `help`, `logs`, `nav`, `schedules`, `selection`, and `workflows`. Three of them are shared rather than belonging to a screen: `nav` is movement everywhere, `help` is the legend, `logs` opens the service log, and `filter` narrows whichever list is on screen. Movement being configured once is on purpose, since a panel where `j` moves down on one screen and not another is worse than one you cannot rebind.
+`?` in the panel draws the legend for the screen you are on, which is the honest list of what is bound right now. Two things are not configurable: the keys that close the filter input, since while it is open every other key types into the pattern, and the form's submit, which is `ctrl+s` because plain enter belongs to the text inputs.
 
-`?` in the panel draws the legend for the screen you are on, which is the honest list of what is bound right now. The generated `config.toml` in the repo spells out every group and every default if you would rather read them all at once.
-
-Two things are not configurable. The keys that close the filter input are fixed, because while it is open every other key types into the pattern. And the form's submit is `ctrl+s` rather than enter, because plain enter belongs to the text inputs.
-
-## actions
-
-### actions.dir
-
-Where the panel finds the scripts its action key runs. Default `~/.config/weave/actions`.
-
-One executable file per action, named after the action. They run in the agent's directory with the agent as JSON in `WEAVE_AGENT`. A file here overrides a built-in action of the same name, which is how you replace `_terminal` with your own shell. See [actions](actions.md).
+## actions, context, log
 
 ```toml
 [actions]
 dir = "~/dotfiles/weave/actions"
-```
 
-A leading `~` is expanded. Set this if you keep your scripts in a dotfiles repo rather than in the config directory.
-
-## context
-
-### context.file
-
-The file holding standing text every agent is started with, whatever workflow it is in. Default `~/.config/weave/context.md`.
-
-This is where facts about your machine and how you want to be worked with go, so they do not have to be pasted into every workflow. It is read at each launch, so editing it changes what the next agent is told without restarting anything.
-
-The file not existing is not an error. Leaving this key empty means the default path, not no context.
-
-```toml
 [context]
 file = "~/dotfiles/weave/context.md"
-```
 
-## log
-
-### log.level
-
-How much the background service writes about itself. One of `debug`, `info`, `warn`, `error`. Default `"info"`. A level weave does not know is refused at load, because an unchecked typo would otherwise decode as debug and turn the log up rather than telling you the word was wrong.
-
-Turn it to `debug` when you are working out why an agent did not launch, and put it back.
-
-### log.viewer
-
-The command the panel's log key runs. Default:
-
-```toml
 [log]
-viewer = 'less -R +F "$WEAVE_LOG"'
-```
-
-The path to the log is exported as `WEAVE_LOG` rather than substituted into your command, so you can write anything a shell can. That matters for the tools people actually want here: fzf's own `{}` means the selected line, and a panel that rewrote `{}` before fzf saw it would make half the recipes in fzf's manual impossible.
-
-The log is one JSON record per line, so:
-
-```toml
-[log]
+level = "debug"
 viewer = 'jq -c . "$WEAVE_LOG" | fzf --ansi --tac'
 ```
 
-Where the log is written is not configurable. The process that spawns the service points its output at the file and the log key pages the same file, and a path those two could disagree about is a log nobody can find. It is `weave.log` under the cache directory, so `~/Library/Caches/weave/weave.log` on a Mac and `~/.cache/weave/weave.log` on Linux.
+`actions.dir` is where the panel finds the scripts its action key runs, default `~/.config/weave/actions`. One executable per action, named after it, and a file here overrides a built-in of the same name. See [actions](actions.md).
+
+`context.file` is standing text every agent is started with whatever workflow it is in, default `~/.config/weave/context.md`. Read at each launch, so editing it reaches the next agent without restarting anything. The file not existing is fine.
+
+`log.level` is one of `debug`, `info`, `warn`, `error`, default `"info"`. A level weave does not know is refused rather than decoded as debug.
+
+`log.viewer` is the command the log key runs, default `less -R +F "$WEAVE_LOG"`. The path is exported as `WEAVE_LOG` rather than substituted into your command, so fzf's own `{}` still means what fzf means by it. Where the log is written is not configurable: it is `weave.log` under the cache directory, since a path the writer and the viewer could disagree about is a log nobody can find.
 
 ## Environment variables
 
-These are read from the environment only. There is no config file key for them.
+These are read from the environment only, with no config file key.
 
-### DATABASE_URL
+`DATABASE_URL` is the Postgres weave stores everything in. Defaults to `postgres://weave:weave@localhost:5460/weave?sslmode=disable`, what `mise run docker:up` starts. Weave migrates the schema itself on startup.
 
-The Postgres weave stores everything in: agents, workflows, schedules, transcripts. Defaults to `postgres://weave:weave@localhost:5460/weave?sslmode=disable`, which is what `mise run docker:up` starts in this repo.
+`WEAVE_READONLY_DATABASE_URL` is the read-only login the [MCP](mcp.md) query tools connect as. Set nothing and weave derives it from `DATABASE_URL`, keeping the host, port, database, and options and putting the login `weave_readonly` in place of yours, so moving `DATABASE_URL` to another server moves both halves. Set it when that login needs its own password or reaches the database another way.
 
-Weave brings the schema up to date itself when the service starts. There is no migration step to run by hand.
+Weave connects twice because the MCP surface lets a model run SQL, and read-only stops writes and only writes; what a `SELECT` may see is decided by the role's privileges. It refuses to start if that login is a superuser, since a superuser is exempt from the checks on the catalogs and the file-reading functions, both reachable from a plain `SELECT`. Create the role with `weave readonly-role`, which grants through `DATABASE_URL` and needs `CREATEROLE`. `weave doctor` reports a pair landing on two different databases rather than refusing, since a pooler or a second hostname can be the same database under another name.
 
-### WEAVE_READONLY_DATABASE_URL
+`WEAVE_ADDR` is where the service listens, default `127.0.0.1:8787`. Change it to run two weaves on one machine, or they will keep replacing each other's server.
 
-A second login into the same database, for reading only.
+`WEAVE_TMUX_SOCKET` is the socket weave runs its own tmux server on, default `weave`. Your normal tmux sees none of this; look at it with `tmux -L weave ls`.
 
-Set nothing and weave derives it from `DATABASE_URL`, keeping the host, the port, the database, and the options exactly as you wrote them and putting the login `weave_readonly` in place of yours. So moving `DATABASE_URL` to another server moves both halves, and the two can only land on different databases if you say so here.
+`WEAVE_CACHE_DIR` is where weave keeps the log, the built-in action scripts it rewrites on every start, and the temp files a harness passes a prompt through. Everything under it is weave's to delete, so nothing of yours belongs there.
 
-Weave needs two logins rather than one because the [MCP](mcp.md) surface lets a model run SQL. The connection is opened read-only, but read-only stops writes and only writes; what a `SELECT` is allowed to see is decided by the role's privileges. So the query tools connect as a role that has read on the application tables and nothing else.
+`EDITOR` is what the editor key opens an agent's directory in, default `vi`.
 
-Weave refuses to start if that URL lands on a superuser, and says so rather than warning, because a superuser is exempt from the privilege checks on the catalogs and on the file-reading functions, and both are reachable through a plain `SELECT` that writes nothing.
+`WEAVE_AGENT_ID` and `WEAVE_SESSION_ID` are set by weave into every pane it launches so a call back through MCP is attributed to that agent. `TMUX` and `TMUX_PANE` come from tmux. Do not set any of these yourself.
 
-Set it when the read-only login needs a password of its own, or reaches the database by another route:
+## When changes take effect
 
-```sh
-export DATABASE_URL='postgres://weave:secret@db.internal:5432/weave?sslmode=require'
-export WEAVE_READONLY_DATABASE_URL='postgres://weave_readonly:other@db.internal:5432/weave?sslmode=require'
-weave readonly-role
-```
+A tmux server takes its environment once and hands that to every session afterwards, and weave's server is long-lived. So exporting a new `DATABASE_URL` and reopening the panel reaches nothing. Weave forwards the variables above with `-e` when it creates the manager session, but only the open that creates it does that.
 
-`weave readonly-role` creates the role named in the read-only URL, with the password in it, and grants it read on the application tables. It connects as `DATABASE_URL` and needs `CREATEROLE`. Run it once, and again after an upgrade that adds a table. It refuses to run if the two URLs name the same login, since that would be a read-only role with your write privileges.
+After changing any of them:
 
-`weave doctor` reports a pair naming two different databases, since both halves connect and nothing else would say the panel and the query tools are reading different rows. It reports rather than refuses, because an address weave cannot match up may still be the same database behind a connection pooler or a second name for the host.
-
-### WEAVE_ADDR
-
-Where the background service listens. Default `127.0.0.1:8787`. The panel, the CLI, and the MCP endpoint all talk to this address.
-
-Change it when you run two weaves on one machine. Two instances on the same address will keep replacing each other's server, because the panel refuses to talk to a server built from a different version and restarts it.
-
-`weave serve --addr` overrides it for a service started by hand.
-
-### WEAVE_TMUX_SOCKET
-
-The tmux socket weave runs its own server on. Default `weave`.
-
-Weave does not use your tmux server. It starts a second one and puts the manager session and every agent pane on it, which is why nothing in your normal tmux sees any of this. To look at it directly:
-
-```sh
-tmux -L weave ls
-```
-
-Change this along with `WEAVE_ADDR` and `DATABASE_URL` when you want a second, isolated instance.
-
-### WEAVE_CACHE_DIR
-
-Where weave keeps what it generates: the service log, the built-in action scripts it writes out on every start, and the temp files a harness passes a prompt through. Defaults to `~/Library/Caches/weave` on a Mac and `~/.cache/weave` on Linux.
-
-Everything under it is weave's to delete and rewrite, so nothing of yours belongs here. Set it if your cache directory is not writable, or to keep a second instance's log out of the first one's.
-
-### EDITOR
-
-The editor the panel's editor key opens an agent's directory in. Default `vi`. This is your existing environment variable and weave does not ask for it twice.
-
-### Set by tmux and by weave
-
-`TMUX` and `TMUX_PANE` are set by tmux, and weave reads them to work out which of your clients opened the popup. `WEAVE_AGENT_ID` and `WEAVE_SESSION_ID` are set by weave into every pane it launches, so a call an agent makes back through the MCP endpoint is attributed to that agent rather than to nobody. Do not set any of these yourself.
-
-## When environment changes take effect
-
-A tmux server takes its environment once, from whatever shell started it, and hands that to every session created afterwards. Weave's server is long-lived. So exporting a new `DATABASE_URL` and reopening the panel reaches nothing: the panel session already exists and is still running under an environment that could be weeks old.
-
-Weave works around this by forwarding the six variables above with `-e` when it creates the manager session, so they pick up the shell that opened the popup. But only the open that creates the session does that. Every later one finds it already up.
-
-So after changing any of them, restart:
-
-```sh
+```bash
 weave stop
 tmux -L weave kill-server
 ```
 
-Then press `prefix + g` again. This kills the tmux server weave runs its agents on, so anything mid-turn loses its pane. The records and transcripts are in Postgres and survive.
+Then press `prefix + g` again. That kills the tmux server your agents run on, so anything mid-turn loses its pane. The records and transcripts are in Postgres and survive.
 
-The TOML file is different. It is read at startup by the panel and by the service, so changing it takes effect when you reopen the panel, without killing anything.
+The TOML file is different. It is read at startup by the panel and the service, so it takes effect when you reopen the panel, without killing anything.
 
 ## A minimal config
 
-Most people's config is three or four lines. This one runs Codex by default and accepts edits without asking:
+Most people's is three or four lines. This one runs Codex by default and stops it asking about worktrees:
 
 ```toml
 default_harness = "codex"
@@ -316,60 +152,4 @@ trust_launch_dirs = true
 flags = "--permission-mode acceptEdits"
 ```
 
-## A fuller one
-
-Everything below is optional and every key shown is at something other than its default, so this is a config that actually changes things rather than a copy of the built-ins.
-
-```toml
-# claude or codex, for agents whose workflow names neither
-default_harness = "claude"
-
-# refuse a create past this many live agents, in case an orchestrator loops
-max_agents = 25
-
-# what the mark key cycles through: broken, waiting on me, done
-marks = [
-  { glyph = "!", color = "red" },
-  { glyph = "?", color = "yellow" },
-  { glyph = "✓", color = "green" },
-]
-
-[harness.claude]
-flags = "--permission-mode acceptEdits"
-
-[harness.codex]
-flags = "-s workspace-write"
-# answer Codex's trust prompt for us, by editing ~/.codex/config.toml
-trust_launch_dirs = true
-
-[layout]
-# a wider list, since the workflow names are long
-split = 0.3
-secondary_split = 0.5
-
-[keybindings.agents]
-# keep n, add c for muscle memory from elsewhere
-new = ["n", "c"]
-# enter attaches; also allow l, since j and k already move
-open = ["enter", "l"]
-
-[keybindings.nav]
-# vim keys plus the arrows
-down = ["j", "down"]
-up = ["k", "up"]
-
-[actions]
-# scripts live in dotfiles so they follow me between machines
-dir = "~/dotfiles/weave/actions"
-
-[context]
-file = "~/dotfiles/weave/context.md"
-
-[log]
-level = "debug"
-viewer = 'jq -c . "$WEAVE_LOG" | fzf --ansi --tac'
-```
-
-## See also
-
-[Installation](install.md) for getting Postgres and the tmux plugin in place. [Actions](actions.md) for what goes in the actions directory. [Workflows](workflows.md) for the flags and context an agent inherits above these defaults. [Development](development.md) for `mise run gen:config` and how the reference file is produced.
+[Installation](install.md) covers Postgres and the tmux plugin, [actions](actions.md) what goes in the actions directory, [workflows](workflows.md) the flags and context an agent inherits above these defaults.
