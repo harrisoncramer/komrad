@@ -26,10 +26,6 @@ Archiving puts it away for good. Nothing brings an archived schedule back yet. B
 
 Hidden runs are the other switch worth knowing: `hide_agents` starts this schedule's agents hidden from the panel's list. They still run, they just do not take a row, which is what makes a chatty every-fifteen-minutes job something you can leave armed.
 
-## From the panel
-
-`S` opens the schedules screen. On it: `n` writes a new one, `enter` edits, space pauses or resumes, `z` archives, `esc` goes back. The detail beside the list shows when each one next fires, derived from the expression rather than stored, so it cannot go stale.
-
 ## From the CLI and MCP
 
 Same operations either way: `list_schedules`, `get_schedule`, `create_schedule`, `update_schedule`, `set_schedule_enabled`, `archive_schedule`.
@@ -42,9 +38,7 @@ Same operations either way: `list_schedules`, `get_schedule`, `create_schedule`,
       --prompt "Read the issues opened since yesterday, label them, and comment on anything that looks like a duplicate." \
       --enabled
 
-Get the workflow id from `weave rpc list-workflows`. Leave `--enabled` off to write one down without arming it, which is a good way to get the prompt right first. Add `--hide-agents` for a job that mostly finds nothing.
-
-Update replaces every field, so read the schedule first. To pause one without touching anything else:
+Get the workflow id from `weave rpc list-workflows`. Leave `--enabled` off to write one down without arming it. Update replaces every field, so read the schedule first. To pause one without touching anything else:
 
     weave rpc set-schedule-enabled --id "$SCHEDULE" --enabled=false
 
