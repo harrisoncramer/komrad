@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -296,6 +297,54 @@ func TestLoadMaxAgents(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, cfg.MaxAgents)
+		})
+	}
+}
+
+// TestLoadArchivePurge covers the horizon the archive is emptied on, where zero is never and
+// a negative count is refused rather than inverted.
+func TestLoadArchivePurge(t *testing.T) {
+	tests := []struct {
+		name    string
+		file    string
+		want    time.Duration
+		wantErr bool
+	}{
+		{
+			name: "a file naming none keeps the archive forever",
+			file: "default_harness = \"claude\"\n",
+		},
+		{
+			name: "zero is the same as saying nothing",
+			file: "[archive]\npurge_after_inactivity = 0\n",
+		},
+		{
+			name: "the hours the user chose",
+			file: "[archive]\npurge_after_inactivity = 720\n",
+			want: 720 * time.Hour,
+		},
+		{
+			// A cutoff in the future is every archived agent there is.
+			name:    "a negative horizon is refused rather than read as a cutoff ahead of now",
+			file:    "[archive]\npurge_after_inactivity = -1\n",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.toml")
+			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
+
+			cfg, err := Load(path)
+			if tt.wantErr {
+				require.Error(t, err)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, cfg.Archive.PurgeAfter())
 		})
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/go-viper/mapstructure/v2"
@@ -308,6 +309,19 @@ type Log struct {
 	Viewer string `mapstructure:"viewer"`
 }
 
+// Archive is when weave stops keeping the agents you have put away.
+type Archive struct {
+	// How many hours an agent and its data may sit in the archive before it is deleted for
+	// good. If unset (or zero) the archive will never delete agent data.
+	PurgeAfterInactivity int `mapstructure:"purge_after_inactivity"`
+}
+
+// PurgeAfter is the horizon as a duration, zero when the archive is kept forever. It counts
+// hours because Go's duration parser has no day unit.
+func (a Archive) PurgeAfter() time.Duration {
+	return time.Duration(a.PurgeAfterInactivity) * time.Hour
+}
+
 // Config is the user's customization.
 type Config struct {
 	// Which agent CLI a new agent runs when neither the agent nor its workflow
@@ -332,6 +346,8 @@ type Config struct {
 	Context Context `mapstructure:"context"`
 	// The log the background service writes, which the panel's log key pages.
 	Log Log `mapstructure:"log"`
+	// When the agents you have archived are deleted for good.
+	Archive Archive `mapstructure:"archive"`
 }
 
 // Defaults is the configuration a user who has written nothing runs on, and what the
@@ -556,6 +572,10 @@ func (c Config) validate() error {
 	// one thing while the panel does another.
 	if c.MaxAgents < 0 {
 		return fmt.Errorf("max_agents: %d is not a number of agents", c.MaxAgents)
+	}
+	// A negative horizon is a cutoff in the future, which is every archived agent there is.
+	if c.Archive.PurgeAfterInactivity < 0 {
+		return fmt.Errorf("archive.purge_after_inactivity: %d is not a number of hours", c.Archive.PurgeAfterInactivity)
 	}
 
 	return validateLayout(c.Layout)

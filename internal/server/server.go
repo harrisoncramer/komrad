@@ -82,6 +82,8 @@ type Params struct {
 	DefaultFlags map[string]string
 	// MaxAgents is how many live agents the panel holds at once.
 	MaxAgents int
+	// PurgeArchiveAfter is how long an archived agent is kept, zero arming no purge.
+	PurgeArchiveAfter time.Duration
 	// ContextPath is the file holding the standing text every agent is started with.
 	ContextPath string
 	// FallbackResumeRoot is where an agent runs when the directory it was created in cannot be
@@ -250,11 +252,15 @@ func New(ctx context.Context, p Params) (*Server, error) {
 	}
 
 	srv.Jobs, err = jobs.NewClient(jobs.ClientParams{
-		Pool:      pool.GetRawPool(),
-		Schedules: scheduleStore,
-		Agents:    agentService,
-		Running:   agentStore,
-		Logger:    p.Logger,
+		Pool:       pool.GetRawPool(),
+		Schedules:  scheduleStore,
+		Agents:     agentService,
+		Running:    agentStore,
+		Logger:     p.Logger,
+		Archive:    agentStore,
+		Purger:     agentService,
+		Tables:     pool,
+		PurgeAfter: p.PurgeArchiveAfter,
 	})
 	if err != nil {
 		srv.Close()

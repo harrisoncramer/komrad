@@ -201,3 +201,9 @@ file = ""
 level  = "info"
 # The default log viewer. Switch with fzf, rg, etc.
 viewer = "less -R +F \"$WEAVE_LOG\""
+
+# When the agents you have archived are deleted for good.
+[archive]
+# How many hours an agent and its data may sit in the archive before it is deleted for
+# good. If unset (or zero) the archive will never delete agent data.
+purge_after_inactivity = 0

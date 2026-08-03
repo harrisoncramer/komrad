@@ -181,16 +181,17 @@ func serve(ctx context.Context, p serveParams) error {
 	state, logger, addr := p.App, p.Logger, p.Addr
 
 	built, err := server.New(ctx, server.Params{
-		Env:            state.env,
-		ConfigPath:     state.configPath,
-		Logger:         logger,
-		Addr:           addr,
-		Tmux:           state.tmux,
-		Harnesses:      state.harnesses,
-		DefaultHarness: state.defaultHarness,
-		DefaultFlags:   state.defaultFlags,
-		MaxAgents:      state.maxAgents,
-		ContextPath:    state.contextPath,
+		Env:               state.env,
+		ConfigPath:        state.configPath,
+		Logger:            logger,
+		Addr:              addr,
+		Tmux:              state.tmux,
+		Harnesses:         state.harnesses,
+		DefaultHarness:    state.defaultHarness,
+		DefaultFlags:      state.defaultFlags,
+		MaxAgents:         state.maxAgents,
+		ContextPath:       state.contextPath,
+		PurgeArchiveAfter: state.purgeArchiveAfter,
 	})
 	if err != nil {
 		return err

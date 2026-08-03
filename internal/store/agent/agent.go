@@ -622,6 +622,21 @@ func (s *Store) Archive(ctx context.Context, ids []string) error {
 	return nil
 }
 
+// ListArchivedBefore is the ids of at most limit agents archived before cutoff, oldest
+// first, which is the batch a purge takes. A live agent has no archive time, so none is
+// ever returned.
+func (s *Store) ListArchivedBefore(ctx context.Context, cutoff time.Time, limit int32) ([]string, error) {
+	ids, err := s.queries.ListArchivedAgentsBefore(ctx, models.ListArchivedAgentsBeforeParams{
+		Cutoff: cutoff,
+		Lim:    limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the agents archived before %s: %w", cutoff.Format(time.RFC3339), err)
+	}
+
+	return ids, nil
+}
+
 // Restore clears the archive time of agents, keyed by id because an archived row can share
 // a name with a live agent. The hidden flag goes with it, since an agent that came back
 // still hidden reads as a restore that did nothing.

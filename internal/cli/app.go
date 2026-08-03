@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"time"
+
 	"weave/config"
 	"weave/internal/appconfig"
 	"weave/internal/harness"
@@ -24,6 +26,8 @@ type app struct {
 	defaultHarness string
 	defaultFlags   map[string]string
 	maxAgents      int
+	// purgeArchiveAfter is how long an archived agent is kept, zero to keep it forever.
+	purgeArchiveAfter time.Duration
 	// marks are the marks the panel's mark key steps an agent through.
 	marks []appconfig.Mark
 	// logViewer is what the panel's log key opens the log in, the user's own command.

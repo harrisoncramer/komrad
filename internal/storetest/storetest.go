@@ -14,6 +14,7 @@ import (
 	"context"
 	"net/url"
 	"testing"
+	"time"
 
 	"weave/config"
 	"weave/db"
@@ -110,6 +111,19 @@ func (s *Stores) SeedAgent(t *testing.T, agent agentstore.Agent) *agentstore.Age
 	require.NotNil(t, stored)
 
 	return stored
+}
+
+// ArchiveAgentsInThePast archives agents and backdates when that happened, since the
+// archive write stamps NOW() and a test cannot wait out a horizon measured in hours.
+func (s *Stores) ArchiveAgentsInThePast(t *testing.T, ids []string, ago time.Duration) {
+	t.Helper()
+
+	require.NoError(t, s.Agents.Archive(t.Context(), ids))
+
+	_, err := s.Pool.GetRawPool().Exec(t.Context(),
+		`UPDATE agents SET archived_at = $1 WHERE id = ANY($2::uuid[])`,
+		time.Now().Add(-ago), ids)
+	require.NoError(t, err)
 }
 
 // LiveAgentByName finds the one live agent holding a name, nil when none does. Nothing in

@@ -26,6 +26,8 @@ Archiving an agent (the `z` key by default) stops the agent, kills its pane, and
 
 To see the full archive press the `Z` key. You can restore agents from the archive, or permanently delete them. Be careful: deletion destroys the row, the metadata, the flattened transcript, and its search index, and it fires the workflow's cleanup action, so a delete can tear down real directories on disk. Search will never find that conversation again. All actions can also be done in bulk via API, or via the panel, by selecting multiple agents.
 
+Nothing empties the archive on its own unless you ask it to. Set `archive.purge_after_inactivity` in the [config](configuration.md) and the service deletes archived agents once they have sat there that many hours, which is the same delete as the key, cleanup action and all.
+
 ## What an agent knows about itself
 
 Every agent is launched with two environment variables. The `WEAVE_AGENT_ID` value is weave's own id for that agent. The `WEAVE_SESSION_ID` is the id of the conversation it is in.

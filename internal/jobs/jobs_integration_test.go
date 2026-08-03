@@ -423,3 +423,69 @@ func TestStopWaitsForALaunchInFlight(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, rivertype.JobStateCompleted, job.State, "the firing is finished rather than left stuck as running")
 }
+
+// TestPurgePassOverTheArchive covers the purge against a real database, where the predicate,
+// the cascade, and the vacuum are, none of which a fake says anything about.
+func TestPurgePassOverTheArchive(t *testing.T) {
+	stores := storetest.Open(t)
+	ctx := t.Context()
+
+	workflow := stores.SeedWorkflow(t, workflowstore.Config{Name: "purged"})
+
+	live := stores.SeedAgent(t, agentstore.Agent{Name: "live", State: agentstore.StateIdle, WorkflowID: workflow.ID})
+	recent := stores.SeedAgent(t, agentstore.Agent{Name: "recent", State: agentstore.StateIdle, WorkflowID: workflow.ID})
+	old := stores.SeedAgent(t, agentstore.Agent{Name: "old", State: agentstore.StateIdle, WorkflowID: workflow.ID})
+
+	stores.ArchiveAgentsInThePast(t, []string{recent.ID}, time.Hour)
+	stores.ArchiveAgentsInThePast(t, []string{old.ID}, 48*time.Hour)
+
+	worker := NewPurgeArchiveWorker(PurgeArchiveParams{
+		Archive: stores.Agents,
+		Purger:  storeDeleter{agents: stores.Agents},
+		Tables:  stores.Pool,
+		Logger:  newDiscardLogger(),
+	})
+
+	require.NoError(t, worker.Work(ctx, &river.Job[PurgeArchiveArgs]{
+		Args: PurgeArchiveArgs{After: 24 * time.Hour},
+	}))
+
+	remaining, err := stores.Agents.ListAll(ctx)
+	require.NoError(t, err)
+
+	names := make([]string, 0, len(remaining))
+	for _, agent := range remaining {
+		names = append(names, agent.Name)
+	}
+
+	assert.ElementsMatch(t, []string{live.Name, recent.Name}, names,
+		"only the agent archived past the horizon left")
+}
+
+// TestPurgeIsQueuedOnce covers River's side of the purge, where a tick landing while a pass
+// is still queued has to collapse into it rather than line up behind it.
+func TestPurgeIsQueuedOnce(t *testing.T) {
+	client := newRiverClient(t)
+
+	first, err := client.Insert(t.Context(), PurgeArchiveArgs{After: 24 * time.Hour}, nil)
+	require.NoError(t, err)
+	require.False(t, first.UniqueSkippedAsDuplicate)
+
+	second, err := client.Insert(t.Context(), PurgeArchiveArgs{After: 24 * time.Hour}, nil)
+	require.NoError(t, err)
+	assert.True(t, second.UniqueSkippedAsDuplicate, "the same horizon queued twice is one pass")
+
+	changed, err := client.Insert(t.Context(), PurgeArchiveArgs{After: 48 * time.Hour}, nil)
+	require.NoError(t, err)
+	assert.False(t, changed.UniqueSkippedAsDuplicate, "a horizon the user edited is its own pass")
+}
+
+// storeDeleter removes the rows the agent service's delete ends up removing. The service
+// needs a tmux server this test has no use for, and an archived agent owns no pane anyway.
+type storeDeleter struct {
+	agents *agentstore.Store
+}
+
+func (d storeDeleter) DeleteAgents(ctx context.Context, ids []string) error {
+	return d.agents.Delete(ctx, ids)
+}

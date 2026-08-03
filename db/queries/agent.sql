@@ -328,6 +328,18 @@ WHERE
     id = ANY (@ids::uuid[])
     AND archived_at IS NULL;
 
+-- name: ListArchivedAgentsBefore :many
+SELECT
+    id
+FROM
+    agents
+WHERE
+    archived_at IS NOT NULL
+    AND archived_at < @cutoff::timestamptz
+ORDER BY
+    archived_at
+LIMIT @lim;
+
 -- name: RestoreAgents :exec
 UPDATE
     agents

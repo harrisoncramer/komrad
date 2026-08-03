@@ -7,6 +7,7 @@ package models
 
 import (
 	"context"
+	"time"
 )
 
 const activeNameExists = `-- name: ActiveNameExists :one
@@ -633,6 +634,44 @@ func (q *Queries) ListAllAgents(ctx context.Context) ([]*Agent, error) {
 			return nil, err
 		}
 		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listArchivedAgentsBefore = `-- name: ListArchivedAgentsBefore :many
+SELECT
+    id
+FROM
+    agents
+WHERE
+    archived_at IS NOT NULL
+    AND archived_at < $1::timestamptz
+ORDER BY
+    archived_at
+LIMIT $2
+`
+
+type ListArchivedAgentsBeforeParams struct {
+	Cutoff time.Time
+	Lim    int32
+}
+
+func (q *Queries) ListArchivedAgentsBefore(ctx context.Context, arg ListArchivedAgentsBeforeParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, listArchivedAgentsBefore, arg.Cutoff, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

@@ -85,6 +85,7 @@ func NewRootCommand() *cobra.Command {
 			app.keys = cfg.Keybindings
 			app.defaultHarness = cfg.DefaultHarness
 			app.maxAgents = cfg.MaxAgents
+			app.purgeArchiveAfter = cfg.Archive.PurgeAfter()
 
 			//  A tmux server is one long-lived process that owns sessions, windows, and panes. You reach it through a unix socket.
 			//  Every tmux command you run is a short-lived client process that connects to that socket.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"weave/db/models"
 	"weave/internal/pgtest"
@@ -1739,4 +1740,90 @@ func TestDeleteInBatches(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, all, 1, "the id that could hold no row took nothing with it")
 	assert.Equal(t, "api", all[0].Name)
+}
+
+// TestListArchivedBefore covers the read a purge chooses its batch from, where the cutoff
+// decides which archived rows are named and a live agent is never one.
+func TestListArchivedBefore(t *testing.T) {
+	tests := []struct {
+		name string
+		// archive names which of the three seeded agents are put away before the read.
+		archive []string
+		// cutoff is where the read looks from, negative for a moment already past.
+		cutoff time.Duration
+		limit  int32
+		want   int
+	}{
+		{
+			name:   "a live agent is never named, however far ahead the cutoff",
+			cutoff: time.Hour,
+			limit:  10,
+		},
+		{
+			name:    "an agent archived before the cutoff",
+			archive: []string{"auth"},
+			cutoff:  time.Hour,
+			limit:   10,
+			want:    1,
+		},
+		{
+			name:    "an agent archived after it is left where it is",
+			archive: []string{"auth"},
+			cutoff:  -time.Hour,
+			limit:   10,
+		},
+		{
+			name:    "the batch is bounded by the limit",
+			archive: []string{"auth", "api", "db"},
+			cutoff:  time.Hour,
+			limit:   2,
+			want:    2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			for _, name := range []string{"auth", "api", "db"} {
+				require.NoError(t, st.Create(ctx, Agent{Name: name, State: StateIdle}))
+			}
+			for _, name := range tt.archive {
+				require.NoError(t, st.archiveByName(ctx, name))
+			}
+
+			ids, err := st.ListArchivedBefore(ctx, time.Now().Add(tt.cutoff), tt.limit)
+			require.NoError(t, err)
+			assert.Len(t, ids, tt.want)
+		})
+	}
+}
+
+// TestListArchivedBeforeTakesTheOldestFirst covers the order, which is what makes a bounded
+// batch the front of the queue rather than an arbitrary handful.
+func TestListArchivedBeforeTakesTheOldestFirst(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	// One at a time, since each write takes its own transaction timestamp.
+	archived := []string{"first", "second", "third"}
+	for _, name := range archived {
+		require.NoError(t, st.Create(ctx, Agent{Name: name, State: StateIdle}))
+		require.NoError(t, st.archiveByName(ctx, name))
+	}
+
+	ids, err := st.ListArchivedBefore(ctx, time.Now().Add(time.Hour), 2)
+	require.NoError(t, err)
+	require.Len(t, ids, 2)
+
+	names := make([]string, 0, len(ids))
+	for _, id := range ids {
+		agent, err := st.GetByID(ctx, id)
+		require.NoError(t, err)
+		require.NotNil(t, agent)
+		names = append(names, agent.Name)
+	}
+
+	assert.Equal(t, archived[:2], names)
 }

@@ -68,6 +68,15 @@ const (
 	ActionStderr = "weave.action.stderr"
 	// WorkflowID names the workflow a line is about.
 	WorkflowID = "weave.workflow.id"
+	// PurgedAgents and PurgeCutoff are how many agents an archive purge deleted and the
+	// archive time it took them for being older than. A purge runs with nobody watching, so
+	// its line is the only account of what left.
+	PurgedAgents = "weave.purge.agents"
+	PurgeCutoff  = "weave.purge.cutoff"
+	// BytesBefore and BytesAfter are what the purged tables measured either side of the
+	// vacuum, which is what says whether the archive is holding at a plateau.
+	BytesBefore = "weave.purge.bytes_before"
+	BytesAfter  = "weave.purge.bytes_after"
 	// ExitCode is what a process exited with.
 	ExitCode = "process.exit.code"
 	// DurationMS is how long the call took, in milliseconds, named rather than left as a

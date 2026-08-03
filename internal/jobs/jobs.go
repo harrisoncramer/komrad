@@ -36,6 +36,10 @@ const maxAttempts = 5
 // rather than slow.
 const jobTimeout = 2 * time.Minute
 
+// PurgeArchiveInterval is how often the archive is swept. The horizon is a number of hours,
+// so an hourly pass is as fine as the setting it obeys.
+const PurgeArchiveInterval = time.Hour
+
 // ClientParams are what the background worker needs. The pool River runs on, the
 // schedules it reads, and the service that actually launches an agent.
 type ClientParams struct {
@@ -44,24 +48,39 @@ type ClientParams struct {
 	Agents    AgentLauncher
 	Running   RunningAgentCounter
 	Logger    *slog.Logger
+	// Archive, Purger, and Tables are the read, the delete, and the vacuum a purge is made
+	// of. PurgeAfter is how long an archived agent is kept, zero registering no purge.
+	Archive    ArchiveReader
+	Purger     AgentPurger
+	Tables     TableMaintainer
+	PurgeAfter time.Duration
 }
 
-// NewClient builds the River client with the launch worker registered. It starts
-// no periodic jobs. Those are added by the reconciler from the schedules table,
-// since which ones exist is a question only the database can answer.
+// NewClient builds the River client with the launch and purge workers registered, and arms
+// the purge when the config asks for one. Launches are not armed here, since which schedules
+// exist is a question only the database can answer.
 func NewClient(p ClientParams) (*river.Client[pgx.Tx], error) {
+	logger := cmp.Or(p.Logger, slog.Default())
+
 	workers := river.NewWorkers()
 	river.AddWorker(workers, NewLaunchAgentWorker(p.Schedules, p.Agents, p.Running))
+	river.AddWorker(workers, NewPurgeArchiveWorker(PurgeArchiveParams{
+		Archive: p.Archive,
+		Purger:  p.Purger,
+		Tables:  p.Tables,
+		Logger:  logger,
+	}))
 
 	client, err := river.NewClient(riverpgxv5.New(p.Pool), &river.Config{
-		Schema:      db.RiverSchema,
-		Workers:     workers,
-		Logger:      cmp.Or(p.Logger, slog.Default()),
-		MaxAttempts: maxAttempts,
-		JobTimeout:  jobTimeout,
+		Schema:       db.RiverSchema,
+		Workers:      workers,
+		Logger:       logger,
+		MaxAttempts:  maxAttempts,
+		JobTimeout:   jobTimeout,
+		PeriodicJobs: buildPurgeJobs(p.PurgeAfter),
 		Queues: map[string]river.QueueConfig{
-			// One at a time. Every job here opens a tmux window, and a burst of
-			// them racing would fight over the same manager session.
+			// One at a time. A launch opens a tmux window, and a purge deletes the rows a
+			// launch is writing beside.
 			river.QueueDefault: {MaxWorkers: 1},
 		},
 	})
@@ -70,6 +89,25 @@ func NewClient(p ClientParams) (*river.Client[pgx.Tx], error) {
 	}
 
 	return client, nil
+}
+
+// buildPurgeJobs is the purge as River's registration, and nothing at all when the horizon
+// is zero. It runs on start as well as on the interval, since River does not backfill a
+// firing the machine slept through and this is a laptop.
+func buildPurgeJobs(after time.Duration) []*river.PeriodicJob {
+	if after <= 0 {
+		return nil
+	}
+
+	return []*river.PeriodicJob{
+		river.NewPeriodicJob(
+			river.PeriodicInterval(PurgeArchiveInterval),
+			func() (river.JobArgs, *river.InsertOpts) {
+				return PurgeArchiveArgs{After: after}, nil
+			},
+			&river.PeriodicJobOpts{RunOnStart: true},
+		),
+	}
 }
 
 // ScheduleReader is the read side of the schedule store the background work
@@ -91,4 +129,24 @@ type AgentLauncher interface {
 // rather than anything about launching.
 type RunningAgentCounter interface {
 	CountLiveForSchedule(ctx context.Context, scheduleID string) (int64, error)
+}
+
+// ArchiveReader is the two reads a purge makes: the batch it is about to take, and the same
+// batch again to catch a restore that landed in between.
+type ArchiveReader interface {
+	ListArchivedBefore(ctx context.Context, cutoff time.Time, limit int32) ([]string, error)
+	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
+}
+
+// AgentPurger is how an agent is destroyed, which is the agent service rather than the
+// store, so a purge takes one out through the call the archive's delete key makes.
+type AgentPurger interface {
+	DeleteAgents(ctx context.Context, ids []string) error
+}
+
+// TableMaintainer is what a purge needs of the database once it has deleted rows. Neither
+// call is about any row, which is why they are the pool's rather than a store's.
+type TableMaintainer interface {
+	TotalRelationSize(ctx context.Context, tables ...string) (int64, error)
+	Vacuum(ctx context.Context, tables ...string) error
 }

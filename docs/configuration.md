@@ -20,7 +20,7 @@ A key weave does not recognise is an error, not a line quietly ignored. That is 
 
 ```
 failed to parse config /Users/you/.config/weave/config.toml:
-max_agent is not a setting; the top level takes default_harness, max_agents, harness, layout, marks, keybindings, actions, context, log
+max_agent is not a setting; the top level takes default_harness, max_agents, harness, layout, marks, keybindings, actions, context, log, archive
 ```
 
 When the file will not parse, the panel replaces itself with an error screen carrying that message, and the background service logs the same thing and carries on with the defaults. So a broken config does not stop your agents, but the flags you set are not being applied while it is broken. Fix the key and reopen the panel.
@@ -218,6 +218,23 @@ viewer = 'jq -c . "$WEAVE_LOG" | fzf --ansi --tac'
 ```
 
 Where the log is written is not configurable. The process that spawns the service points its output at the file and the log key pages the same file, and a path those two could disagree about is a log nobody can find. It is `weave.log` under the cache directory, so `~/Library/Caches/weave/weave.log` on a Mac and `~/.cache/weave/weave.log` on Linux.
+
+## archive
+
+### archive.purge_after_inactivity
+
+How many hours an agent may sit in the archive before the service deletes it outright. Default `0`, which keeps the archive forever, so nothing changes for you unless you ask for it.
+
+```toml
+[archive]
+purge_after_inactivity = 720
+```
+
+The hours count from when the agent was archived, since that is the point it stopped doing anything. An agent past the horizon is destroyed with its conversation, its search index and everything it recorded about its own work, which is the same delete the archive screen's delete key makes. Nothing brings it back.
+
+Set it if your archive is growing faster than you will ever read it. The transcripts and the two indexes over them are most of what weave's database holds, and search walks every one of them, so an archive nobody empties makes search slower and the disk bigger for every run anybody ever finished.
+
+The sweep runs hourly and writes what it took to the log, since it happens with nobody watching.
 
 ## Environment variables
 

@@ -140,6 +140,18 @@ func (p *Pool) GetRawPool() *pgxpool.Pool {
 	return p.pool
 }
 
+// Vacuum makes the space a delete freed in the named tables reusable. It is on the pool
+// because it cannot run inside the transaction InTx opens.
+func (p *Pool) Vacuum(ctx context.Context, tables ...string) error {
+	return db.Vacuum(ctx, p.pool, tables...)
+}
+
+// TotalRelationSize is what the named tables occupy on disk, for a caller reporting what a
+// delete freed.
+func (p *Pool) TotalRelationSize(ctx context.Context, tables ...string) (int64, error) {
+	return db.TotalRelationSize(ctx, p.pool, tables...)
+}
+
 // Close releases the connection pool.
 func (p *Pool) Close() error {
 	p.pool.Close()
