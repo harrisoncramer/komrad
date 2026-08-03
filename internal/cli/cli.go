@@ -149,23 +149,12 @@ func NewRootCommand() *cobra.Command {
 // commandsSurvivingBadConfig are the commands that still run on a config that will not parse.
 // Everything else refuses, since the file names the database now and falling back to the
 // built-in default would quietly connect somewhere else and write there.
-//
-// doctor is here because it is the command a broken config is diagnosed with, and taking the
-// diagnosis down with the thing it diagnoses leaves nobody to ask. version answers about the
-// build and touches nothing. panel is here because a panel that exits writes its error into a
-// popup tmux destroys in the same instant, so it shows the error on a screen instead.
 var commandsSurvivingBadConfig = map[string]bool{
 	"doctor":  true,
 	"version": true,
 	"panel":   true,
 }
 
-// resolveConfigPaths is the layer list this process runs on: the flags when any were given,
-// otherwise WEAVE_CONFIG, otherwise nothing, which leaves the loader on its default path.
-//
-// Each source replaces the one below it rather than adding to it. Being able to say "these
-// files and nothing else" is what lets a second instance be isolated from the first one's
-// config, and appending would leave a checkout unable to drop a layer the shell exported.
 func resolveConfigPaths(flags []string) []string {
 	if len(flags) > 0 {
 		return flags

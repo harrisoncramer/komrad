@@ -22,11 +22,8 @@ const (
 )
 
 // layerVariable is the environment's way of saying --config, holding the same list of paths
-// separated by colons the way PATH is.
-//
-// It exists because some things can set a variable and nothing else. mise.test.toml is an
-// [env] block, so it can give the throwaway instance its own database and tmux socket but has
-// no way to add a flag to whatever command you happen to run.
+// separated by colons the way PATH is. It is also the only way layering reaches the panel
+// opened from the tmux binding, which is a fixed command line with nowhere to put a flag.
 const layerVariable = "WEAVE_CONFIG"
 
 func LayerPaths() []string {
@@ -74,20 +71,16 @@ func Load(file *appconfig.Config) (*Config, error) {
 		file = appconfig.Defaults()
 	}
 
-	cfg := &Config{}
+	valuesFromEnvironment := map[string]bool{}
 
-	// OnSet is used only to learn which variables the library looked at. Its isDefault
-	// argument answers "did this value come from envDefault", which is not the same question
-	// as "was the variable set": for a field with no envDefault it is false either way. So
-	// the answer comes from the environment itself. An exported empty string counts as
-	// unset, which is how the library treats one for a field that does have a default.
-	set := map[string]bool{}
 	options := env.Options{
 		OnSet: func(tag string, _ any, _ bool) {
 			value, present := os.LookupEnv(tag)
-			set[tag] = present && value != ""
+			valuesFromEnvironment[tag] = present && value != ""
 		},
 	}
+
+	cfg := &Config{}
 
 	if err := env.ParseWithOptions(cfg, options); err != nil {
 		return nil, fmt.Errorf("failed to load config from the environment: %w", err)
@@ -95,7 +88,7 @@ func Load(file *appconfig.Config) (*Config, error) {
 
 	cfg.Sources = map[string]Source{}
 	for _, setting := range cfg.connectionSettings(file) {
-		if set[setting.variable] {
+		if valuesFromEnvironment[setting.variable] {
 			cfg.Sources[setting.key] = SourceEnvironment
 
 			continue

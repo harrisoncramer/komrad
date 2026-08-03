@@ -59,17 +59,21 @@ A file you named with `--config` and is not there is an error, naming which one.
 
 The layer list is forwarded to the panel session and to the background service it spawns, so all three read the same files in the same order.
 
-### Layering for good rather than per command
+### WEAVE_CONFIG, for layering you want every time
 
-Typing two flags every time is not a config. `WEAVE_CONFIG` holds the list for a shell, several paths separated by colons the way `PATH` is:
+Typing two flags on every command is not a configuration. `WEAVE_CONFIG` holds the list for a shell, several paths separated by colons the way `PATH` is:
 
 ```sh
-export WEAVE_CONFIG="$HOME/.config/weave/config.toml:$HOME/dotfiles/weave-work.toml"
+export WEAVE_CONFIG="$HOME/.config/weave/config.toml:$HOME/dotfiles/weave-machine.toml"
 ```
 
-Put that in your profile and you have a permanent two-layer setup: a base you share or check in, and a file holding the parts that are true of one machine. Which is the thing people usually want layers for, and it lives somewhere you can read rather than in a convention weave invented.
+Put that in your shell profile and you have a permanent two-layer setup: a base you share or check in, and a file holding the parts that are true of one machine. This is the same thing `KUBECONFIG` and `COMPOSE_FILE` do, and it is the normal way to tell a tool which config files to read when you do not want to say so on every invocation.
+
+If you use layers, put it in your profile. That is not a workaround, it is the mechanism. In particular it is how layering reaches the panel opened with `prefix + g`, since the tmux binding is a fixed command line with nowhere to add a flag. Weave reads the variable from the shell that opened the popup, so exporting it in your profile is enough and there is nothing to configure in tmux.
 
 Flag beats variable beats the default path, and exactly one of the three is in force. `--config` replaces `WEAVE_CONFIG` rather than appending to it, so a checkout can drop a layer your shell exported instead of being stuck with it.
+
+One thing to know, which is the same for every setting under [connection]: the panel session takes its environment when it is created. Exporting `WEAVE_CONFIG` and pressing `prefix + g` will not reach a panel session that is already running. See [when a change takes effect](#when-a-change-takes-effect).
 
 ### How layers combine
 
