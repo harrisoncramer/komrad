@@ -45,7 +45,6 @@ Concepts and guides:
 - [Installation](docs/install.md): the tmux plugin setup
 - [Configuration](docs/configuration.md): environment variables and the TOML app config
 - [Development](docs/development.md): mise tasks, the live rebuild loop, generated code, and the custom linter
-- [How it works](docs/concepts.md): the state model, the store and server, the reconciler, and agents
 
 Terminology:
 
