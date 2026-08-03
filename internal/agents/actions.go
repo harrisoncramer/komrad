@@ -181,6 +181,60 @@ func (s *ActionService) RunAction(ctx context.Context, agentID, name string) err
 	})
 }
 
+// ErrNotEditable reports that an action's file is a compiled program, so there is nothing
+// in it to open in an editor.
+var ErrNotEditable = errors.New("the file is not text, so there is nothing to edit")
+
+// editActionName is the action that opens another action's file. It is fired like any
+// other, so a user who wants their editor opened differently writes their own.
+const editActionName = "_edit_action"
+
+// editPathVar is how the file to open reaches the editing action, which takes a path
+// rather than a name because the panel names an action and the server is what knows which
+// directory that name was found in.
+const editPathVar = "WEAVE_EDIT_PATH"
+
+// EditAction opens an action's own file in the user's editor, by firing the editing action
+// on the agent the panel's list was opened on. It returns once that process exists, the way
+// RunAction does, since the editor it opens belongs to whoever is reading the pane.
+//
+// A compiled program is refused rather than opened, since an editor handed one shows a
+// screen of bytes and the file it would write back is not a program any more.
+func (s *ActionService) EditAction(ctx context.Context, agentID, name string) error {
+	agent, err := s.agents.GetByID(ctx, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to read agent %q: %w", agentID, err)
+	}
+	if agent == nil {
+		return ErrAgentNotFound
+	}
+
+	target, err := s.find(name)
+	if err != nil {
+		return err
+	}
+	if !target.Text {
+		return fmt.Errorf("failed to edit action %s: %w", name, ErrNotEditable)
+	}
+
+	editor, err := s.find(editActionName)
+	if err != nil {
+		return err
+	}
+
+	env, err := s.env(ctx, actionEnvParams{agent: *agent, dir: editor.dir, trigger: TriggerManual})
+	if err != nil {
+		return err
+	}
+
+	return s.start(ctx, startParams{
+		action:  editor,
+		env:     append(env, editPathVar+"="+target.Path),
+		agent:   *agent,
+		trigger: TriggerManual,
+	})
+}
+
 // ErrSetupFailed reports that a workflow's setup action refused, so the agent was never
 // launched. It is the one action failure something else is downstream of.
 var ErrSetupFailed = errors.New("the setup action failed")

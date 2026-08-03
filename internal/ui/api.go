@@ -358,3 +358,18 @@ func (a api) runAction(agentID, name string) error {
 
 	return err
 }
+
+// editAction opens an action's file in the user's editor, in the pane the panel has already
+// opened under its stage. The service resolves the name to a path, since which directory an
+// action was found in is not something the panel knows.
+func (a api) editAction(agentID, name string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+
+	_, err := a.actions.EditAction(ctx, connect.NewRequest(&actionv1.EditActionRequest{
+		AgentId: agentID,
+		Action:  name,
+	}))
+
+	return err
+}

@@ -50,14 +50,17 @@ secondary_split = 0.4
 # The actions list, and the key that opens it on the hovered agent.
 [keybindings.actions]
 # Leave the actions list for the agents list.
-back = ["esc"]
+back   = ["esc"]
+# Open the script under the cursor in your editor, in the pane under the stage, and
+# close that pane on a second press. A compiled program has nothing to edit.
+editor = ["e"]
 # Open the actions list on the hovered agent. It acts on a row rather than on
 # the list, so this does nothing on a workflow header.
-open = ["a"]
+open   = ["a"]
 # Quit the panel.
-quit = ["ctrl+c"]
+quit   = ["ctrl+c"]
 # Run the script under the cursor on the agent the list was opened on.
-run  = ["enter"]
+run    = ["enter"]
 
 # The agents list, the panel's main screen.
 [keybindings.agents]

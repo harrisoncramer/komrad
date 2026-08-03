@@ -129,7 +129,7 @@ exec open "$url"
 
 ## The builtins, and replacing one
 
-Weave ships some actions by default: `_editor` and `_terminal`. They're what the panel's `e` and `t` keys run.
+Weave ships some actions by default: `_editor`, `_terminal`, and `_edit_action`. The first two are what the panel's `e` and `t` keys run on the agents list. The third is what `e` runs on the actions list, which opens the script under the cursor in your editor so you can change it without leaving weave. It's told which file to open in `WEAVE_EDIT_PATH`, since the name you pressed the key on can come from either your own directory or the one weave ships. A file with no text in it is not offered, since there is nothing in a compiled program to edit.
 
 To provide a custom terminal or edtior over the builtin one, add your own `_editor` action. Action names starting with underscores like these are left out of the panel's action list.
 

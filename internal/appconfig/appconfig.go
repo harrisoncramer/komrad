@@ -235,6 +235,9 @@ type ArchiveKeys struct {
 type ActionsKeys struct {
 	// Leave the actions list for the agents list.
 	Back []string `mapstructure:"back"`
+	// Open the script under the cursor in your editor, in the pane under the stage, and
+	// close that pane on a second press. A compiled program has nothing to edit.
+	Editor []string `mapstructure:"editor"`
 	// Open the actions list on the hovered agent. It acts on a row rather than on
 	// the list, so this does nothing on a workflow header.
 	Open []string `mapstructure:"open"`
@@ -415,10 +418,11 @@ func DefaultMarks() []Mark {
 func DefaultKeybindings() Keybindings {
 	return Keybindings{
 		Actions: ActionsKeys{
-			Back: []string{"esc"},
-			Open: []string{"a"},
-			Quit: []string{"ctrl+c"},
-			Run:  []string{"enter"},
+			Back:   []string{"esc"},
+			Editor: []string{"e"},
+			Open:   []string{"a"},
+			Quit:   []string{"ctrl+c"},
+			Run:    []string{"enter"},
 		},
 		Agents: AgentsKeys{
 			Archive:    []string{"z"},

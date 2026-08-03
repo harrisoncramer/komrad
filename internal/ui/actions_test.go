@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"weave/internal/appconfig"
+	"weave/internal/tmux"
 	actionv1 "weave/proto/gen/action/v1"
 	"weave/proto/gen/action/v1/actionv1connect"
 
@@ -145,7 +146,7 @@ func TestActionOpensOnTheHoveredAgent(t *testing.T) {
 
 	got := settle(t, opened, cmd)
 
-	require.Len(t, got.actions.items, 2, "the list is filled in from the service")
+	require.Len(t, got.actions.items, 3, "the list is filled in from the service")
 	assert.Equal(t, "open-pr", got.actions.items[0].name)
 	assert.Contains(t, stagedDocument(t), "Open the pull request", "what the file declares is what the stage shows")
 }
@@ -355,6 +356,127 @@ func TestNoActionsSaysWhereToPutThem(t *testing.T) {
 	assert.Contains(t, noActionsMarkdown, "WEAVE_AGENT")
 }
 
+// TestEditActionKey covers opening the file under the cursor. The pane the panel opens is
+// asserted alongside the call, since the panel decides the shape of the pane and a script is
+// what fills it.
+func TestEditActionKey(t *testing.T) {
+	recorder := &recordingTmux{}
+	client := &fakeActions{}
+	m := actionsModel(client, appconfig.DefaultKeybindings())
+	m.tmux = recorder
+	m.stage = NewStage(recorder, appconfig.DefaultLayout())
+	m.stage.Init("%0")
+
+	updated, cmd := m.updateActions(keyMsg("e"))
+	pressed, ok := updated.(model)
+	require.True(t, ok)
+
+	got := settle(t, pressed, cmd)
+
+	assert.Equal(t, []string{"a1/open-pr"}, client.edited)
+	assert.Equal(t, belowEdit, got.tree.below)
+	assert.Equal(t, "open-pr", got.tree.belowAction, "the file down there is what the key closes")
+	assert.Equal(t, "%2", recorder.globals[tmux.SecondaryPaneOption], "the script is told which pane to fill")
+	assert.Nil(t, got.banner)
+	assert.Empty(t, client.fired, "editing a file runs none of the user's actions")
+}
+
+// TestEditActionKeyClosesOnASecondPress covers the key that opened the editor taking it away,
+// which is the only way back to a full-height stage.
+func TestEditActionKeyClosesOnASecondPress(t *testing.T) {
+	recorder := &recordingTmux{}
+	client := &fakeActions{}
+	m := actionsModel(client, appconfig.DefaultKeybindings())
+	m.tmux = recorder
+	m.stage = NewStage(recorder, appconfig.DefaultLayout())
+	m.stage.Init("%0")
+
+	opened, cmd := m.updateActions(keyMsg("e"))
+	pressed, ok := opened.(model)
+	require.True(t, ok)
+	settled := settle(t, pressed, cmd)
+	require.Equal(t, belowEdit, settled.tree.below)
+
+	closed, _ := settled.updateActions(keyMsg("e"))
+	got, ok := closed.(model)
+	require.True(t, ok)
+
+	assert.Equal(t, belowNothing, got.tree.below)
+	assert.Equal(t, []string{"a1/open-pr"}, client.edited, "the second press opens nothing")
+	assert.Contains(t, recorder.killed, "%2", "the pane goes with it")
+}
+
+// TestEditActionKeyOnAnotherRowSwitchesFiles covers moving the cursor with the editor open. The
+// key means the file under the cursor, so a second row opens that row's file rather than closing
+// the editor showing the first.
+func TestEditActionKeyOnAnotherRowSwitchesFiles(t *testing.T) {
+	recorder := &recordingTmux{}
+	client := &fakeActions{}
+	m := actionsModel(client, appconfig.DefaultKeybindings())
+	m.tmux = recorder
+	m.stage = NewStage(recorder, appconfig.DefaultLayout())
+	m.stage.Init("%0")
+
+	opened, cmd := m.updateActions(keyMsg("e"))
+	pressed, ok := opened.(model)
+	require.True(t, ok)
+	settled := settle(t, pressed, cmd)
+
+	moved, _ := settled.updateActions(keyMsg("j"))
+	settled, ok = moved.(model)
+	require.True(t, ok)
+
+	again, cmd := settled.updateActions(keyMsg("e"))
+	pressed, ok = again.(model)
+	require.True(t, ok)
+
+	got := settle(t, pressed, cmd)
+
+	assert.Equal(t, []string{"a1/open-pr", "a1/unrunnable"}, client.edited)
+	assert.Equal(t, belowEdit, got.tree.below)
+	assert.Equal(t, "unrunnable", got.tree.belowAction)
+}
+
+// TestEditActionKeyRefusesACompiledProgram covers the one file the key will not open. An editor
+// handed a program shows a screen of bytes and writes back something that is no longer one, and
+// the listing already says which files are text, so the panel answers rather than asking.
+func TestEditActionKeyRefusesACompiledProgram(t *testing.T) {
+	recorder := &recordingTmux{}
+	client := &fakeActions{}
+	m := actionsModel(client, appconfig.DefaultKeybindings())
+	m.tmux = recorder
+	m.stage = NewStage(recorder, appconfig.DefaultLayout())
+	m.stage.Init("%0")
+	m.actions.cursor = 2
+
+	updated, cmd := m.updateActions(keyMsg("e"))
+	pressed, ok := updated.(model)
+	require.True(t, ok)
+
+	got := settle(t, pressed, cmd)
+
+	assert.Empty(t, client.edited, "nothing was asked of the service")
+	assert.Equal(t, belowNothing, got.tree.below, "no pane was opened for an editor that cannot run")
+	require.NotNil(t, got.banner)
+	assert.Contains(t, got.banner.Summary, "compiled")
+	assert.Contains(t, got.banner.Detail, "not text")
+}
+
+// TestActionEditorLegendNamesWhatTheKeyWouldDo covers the legend under the list. The key acts
+// on the row under the cursor, so what the legend says follows the cursor rather than naming
+// the binding in the abstract.
+func TestActionEditorLegendNamesWhatTheKeyWouldDo(t *testing.T) {
+	m := actionsModel(&fakeActions{}, appconfig.DefaultKeybindings())
+
+	assert.Equal(t, "edit", m.actionEditorDesc())
+
+	m.tree.below, m.tree.belowAction = belowEdit, "open-pr"
+	assert.Equal(t, "close editor", m.actionEditorDesc())
+
+	m.actions.cursor = 2
+	assert.Equal(t, "not a text file", m.actionEditorDesc())
+}
+
 // TestActionDocumentRedrawsOnlyOnAChange covers the stage leaving its pane alone while what it
 // holds is unchanged, which is what keeps a restage from restarting the pager. The document
 // carries what the file declares, so a listing that came back changed is a different document.
@@ -396,22 +518,25 @@ func actionsModel(client actionv1connect.ActionServiceClient, keys appconfig.Key
 	}
 }
 
-// listedActions is what the fake service answers with, one action that will run and declares
-// itself, one waiting on a chmod whose header did not read, and one underscored, which the
-// service offers and the list leaves out.
+// listedActions is what the fake service answers with. One action will run and declares
+// itself, one is waiting on a chmod and its header did not read, one is a compiled program,
+// and one is underscored, which the service offers and the list leaves out.
 func listedActions() []*actionv1.Action {
 	return []*actionv1.Action{
 		{
 			Name:        "open-pr",
 			Executable:  true,
+			Text:        true,
 			Description: "Open the pull request this agent recorded.",
 			Timeout:     durationpb.New(45 * time.Second),
 		},
 		{
 			Name:           "unrunnable",
+			Text:           true,
 			HeaderProblems: []string{`line 2: "soon" is not a duration`},
 		},
-		{Name: "_internal", Executable: true},
+		{Name: "compiled", Executable: true},
+		{Name: "_internal", Executable: true, Text: true},
 	}
 }
 
@@ -425,6 +550,9 @@ type fakeActions struct {
 	err     error
 	listErr error
 	fired   []string
+	// edited is what the editor key asked to open, kept apart from fired so a case can tell
+	// a file opened from a script run.
+	edited []string
 }
 
 func (f *fakeActions) ListActions(_ context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[actionv1.ListActionsResponse], error) {
@@ -440,6 +568,15 @@ func (f *fakeActions) RunAction(_ context.Context, req *connect.Request[actionv1
 		return nil, f.err
 	}
 	f.fired = append(f.fired, req.Msg.GetAgentId()+"/"+req.Msg.GetAction())
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (f *fakeActions) EditAction(_ context.Context, req *connect.Request[actionv1.EditActionRequest]) (*connect.Response[emptypb.Empty], error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	f.edited = append(f.edited, req.Msg.GetAgentId()+"/"+req.Msg.GetAction())
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
