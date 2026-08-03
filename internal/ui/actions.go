@@ -239,21 +239,6 @@ func (m model) stageAction() {
 	m.stage.Text(actionMarkdown(action))
 }
 
-// minSummaryWidth is the least room a description is worth drawing in. Below it a row shows
-// the name alone, since three words of a sentence are no help.
-const minSummaryWidth = 12
-
-// actionSummary is what a row says beside a name, so a list of files reads as a list of what
-// they do. room is what the list has left over, since anything longer is cut by the edge of
-// the pane instead of by an ellipsis.
-func actionSummary(description string, room int) string {
-	if description == "" || room < minSummaryWidth {
-		return ""
-	}
-
-	return "  " + dimStyle.Render(clip(description, min(room, descriptionWidth)))
-}
-
 // actionsView renders the actions list, naming the agent they would run on, since the list
 // acts on the row it was opened from rather than whatever the agents list is hovering by
 // now. A file without the executable bit is drawn dim, the way a dormant agent is.
@@ -275,9 +260,7 @@ func (m model) actionsView() string {
 		}
 
 		name := m.filter.highlight(action.name, nameStyle(hovered, !action.executable))
-		// Two cells for the prefix, two for the gap before the summary.
-		room := m.width - len([]rune(action.name)) - 4
-		rows = append(rows, prefix+name+actionSummary(action.description, room))
+		rows = append(rows, prefix+name)
 	}
 
 	return header + renderList(rows, m.actions.cursor, m.listLines(header, help)) + help

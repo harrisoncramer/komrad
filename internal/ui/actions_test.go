@@ -332,21 +332,7 @@ func TestActionsViewNamesTheAgentAndDimsWhatCannotRun(t *testing.T) {
 	assert.Contains(t, view, "Run Action")
 	assert.Contains(t, view, "open-pr")
 	assert.Contains(t, view, "unrunnable")
-	assert.Contains(t, view, "Open the pull request", "a row says what its action is for")
 	assert.Contains(t, view, "chmod +x to run", "the legend says what the run key wants")
-}
-
-// TestActionsViewDropsTheSummaryInANarrowPane covers the list in the narrow column the panel
-// actually gets. A summary wider than the room left over would be cut by the edge of the pane
-// rather than by an ellipsis, so a pane with no room draws the name alone.
-func TestActionsViewDropsTheSummaryInANarrowPane(t *testing.T) {
-	m := actionsModel(&fakeActions{}, appconfig.DefaultKeybindings())
-
-	m.width = 40
-	assert.Contains(t, m.actionsView(), "Open the pull request this a…", "clipped to what is left after the name")
-
-	m.width = 18
-	assert.NotContains(t, m.actionsView(), "Open the", "too little room to say anything useful")
 }
 
 // TestNoActionsSaysWhereToPutThem covers the empty case. The panel no longer finds the
