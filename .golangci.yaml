@@ -44,6 +44,12 @@ linters:
             skip: false
   exclusions:
     rules:
+      # The config package is where configuration is read from the environment, which is
+      # the thing forbidgetenv exists to funnel through it. It cannot follow its own advice.
+      - path: ^config/
+        linters:
+          - agentslinter
+        text: forbidgetenv
       # Tests and the fixtures they share discard errors in t.Cleanup teardown, where a
       # failure means the throwaway server or file is already gone.
       - path: (_test\.go|internal/(pgtest|tmuxtest|storetest|harnesstest|logtest|weavetest)/)

@@ -18,6 +18,10 @@ import (
 	"github.com/spf13/viper"
 )
 
+// errLayerAbsent marks a config layer that is not on disk. It is answered rather than
+// raised for the default path, since not having written a config is the ordinary install.
+var errLayerAbsent = errors.New("config layer is absent")
+
 // DefaultLogLevel is how much the service writes when the config says nothing. Failures
 // are written at error and everything else at debug, so the file stays empty while the
 // service works.
@@ -31,6 +35,23 @@ const DefaultLogViewer = `less -R +F "$WEAVE_LOG"`
 // DefaultMaxAgents is how many agents may exist at once when the config names no number,
 // well above what anyone opens by hand and low enough to catch a caller in a loop.
 const DefaultMaxAgents = 50
+
+// The connection settings a config that names none runs on. They live here rather than as
+// envDefault tags on the runtime config so that the built-in default sits underneath the
+// file, which is where the precedence chain wants it. A tag default would sit beside the
+// environment instead and there would be no way to tell it apart from a value someone set.
+//
+// ReadOnlyDatabaseURL and CacheDir have no constant because neither is a fixed string: one
+// is derived from whichever database url wins and the other from the platform's cache
+// directory, both after the file and the environment have been resolved.
+const (
+	// The Postgres `mise run docker:up` starts, so a checkout works with nothing exported.
+	DefaultDatabaseURL = "postgres://weave:weave@localhost:5460/weave?sslmode=disable"
+	// Loopback, because the endpoint has no auth and its writes can spawn agents.
+	DefaultAddr = "127.0.0.1:8787"
+	// The socket weave's own tmux server listens on, named for the tool.
+	DefaultTmuxSocket = "weave"
+)
 
 // DefaultHarness is the CLI a new agent runs when the config names none, spelled here
 // rather than taken from the registry since this is a default a user overrides.
@@ -308,6 +329,35 @@ type Log struct {
 	Viewer string `mapstructure:"viewer"`
 }
 
+// Connection is which weave you are talking to: the database it writes, the address it
+// serves, the tmux server it runs agents on, and the directory it generates into. Every
+// one of these also has a WEAVE_-prefixed environment variable, and the variable wins when
+// it is set, so one shell or one checkout can point somewhere else without editing a file.
+//
+// These are the settings a second instance is isolated by, which is why they are a table
+// rather than four keys at the top level. Overriding the table is overriding the instance.
+type Connection struct {
+	// The Postgres weave keeps every agent, workflow, schedule and transcript in.
+	// Weave migrates the schema itself on the way in, so an empty database is enough.
+	DatabaseURL string `mapstructure:"database_url"`
+	// The least-privilege login the MCP query tools connect as.
+	// Left empty this is database_url with the weave_readonly login in place of yours,
+	// on the same server and the same database, so moving one moves both.
+	// Set it when that login needs its own password or reaches the database another way.
+	ReadOnlyDatabaseURL string `mapstructure:"readonly_database_url"`
+	// Where the background service listens, and where the panel, the CLI and the MCP
+	// endpoint all reach it. Change it to run two weaves on one machine.
+	Addr string `mapstructure:"addr"`
+	// The tmux socket weave runs its own server on. Nothing in your normal tmux sees
+	// that server, which is why `tmux -L weave ls` is how you look at it directly.
+	TmuxSocket string `mapstructure:"tmux_socket"`
+	// Where weave keeps what it generates: the service log, the built-in actions it
+	// writes out on every start, and the temp files a harness passes a prompt through.
+	// Left empty this is ~/Library/Caches/weave on a Mac and ~/.cache/weave on Linux.
+	// Everything under it is weave's to delete and rewrite, so nothing of yours belongs here.
+	CacheDir string `mapstructure:"cache_dir"`
+}
+
 // Config is the user's customization.
 type Config struct {
 	// Which agent CLI a new agent runs when neither the agent nor its workflow
@@ -332,6 +382,8 @@ type Config struct {
 	Context Context `mapstructure:"context"`
 	// The log the background service writes, which the panel's log key pages.
 	Log Log `mapstructure:"log"`
+	// Which weave this is: the database, the address, the tmux socket, the cache.
+	Connection Connection `mapstructure:"connection"`
 }
 
 // Defaults is the configuration a user who has written nothing runs on, and what the
@@ -344,6 +396,16 @@ func Defaults() *Config {
 		Marks:          DefaultMarks(),
 		Keybindings:    DefaultKeybindings(),
 		Log:            Log{Level: DefaultLogLevel, Viewer: DefaultLogViewer},
+		Connection:     DefaultConnection(),
+	}
+}
+
+// DefaultConnection is the instance a config that names none points at.
+func DefaultConnection() Connection {
+	return Connection{
+		DatabaseURL: DefaultDatabaseURL,
+		Addr:        DefaultAddr,
+		TmuxSocket:  DefaultTmuxSocket,
 	}
 }
 
@@ -603,6 +665,15 @@ func (c Config) withDefaults() Config {
 	if strings.TrimSpace(c.Log.Viewer) == "" {
 		c.Log.Viewer = DefaultLogViewer
 	}
+	if strings.TrimSpace(c.Connection.DatabaseURL) == "" {
+		c.Connection.DatabaseURL = DefaultDatabaseURL
+	}
+	if strings.TrimSpace(c.Connection.Addr) == "" {
+		c.Connection.Addr = DefaultAddr
+	}
+	if strings.TrimSpace(c.Connection.TmuxSocket) == "" {
+		c.Connection.TmuxSocket = DefaultTmuxSocket
+	}
 
 	return c
 }
@@ -698,90 +769,218 @@ func (c Config) GetContextFile() (string, error) {
 	return filepath.Join(home, "context.md"), nil
 }
 
-// ResolvePath is the file Load would read: the one named, or the default beside the user's
-// other configuration. It is exported because a caller reporting on a config has to name
-// the file, and a missing one has no error to read the path out of.
-func ResolvePath(path string) (string, error) {
-	if path != "" {
-		return path, nil
+// Layer is one file in the stack, and whether it was asked for by name. A named layer that
+// is not there is an error, since a path someone typed is a config they believe they have,
+// while the default path is allowed to be absent because not writing one is the ordinary
+// install.
+type Layer struct {
+	Path  string
+	Named bool
+}
+
+// ResolveLayers is the files Load would read, weakest first. Given paths, that is exactly
+// those paths, since naming any replaces the default rather than adding to it: being able
+// to say "this file and nothing else" is what lets a second instance be isolated from the
+// first one's config. Given none, it is the one default path.
+//
+// Weave never looks for a file it was not asked for. There is no sibling convention and
+// nothing per directory, so which files are read depends on what was asked for rather than
+// on what happens to be lying around.
+//
+// It is exported because a caller reporting on a config has to name the files, and a
+// missing one has no error to read the path out of.
+func ResolveLayers(paths []string) ([]Layer, error) {
+	if len(paths) > 0 {
+		layers := make([]Layer, 0, len(paths))
+		for _, path := range paths {
+			if strings.TrimSpace(path) == "" {
+				return nil, errors.New("--config was given an empty path")
+			}
+
+			layers = append(layers, Layer{Path: ExpandHome(path), Named: true})
+		}
+
+		return layers, nil
 	}
 
 	dir, err := configHome()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return filepath.Join(dir, "config.toml"), nil
+	return []Layer{{Path: filepath.Join(dir, "config.toml")}}, nil
 }
 
-// Load reads the config from path when given, otherwise from
-// ~/.config/weave/config.toml. A missing file is not an error and yields the defaults, but
-// a symlink pointing at nothing is, since that is a config someone meant to have.
+// ParseLayerList splits a colon-separated list of paths the way PATH is written, which is
+// how WEAVE_CONFIG carries a stack to a process that cannot be passed flags. Empty entries
+// are dropped rather than refused, so a trailing colon is not an error.
+func ParseLayerList(value string) []string {
+	var paths []string
+	for _, path := range strings.Split(value, string(os.PathListSeparator)) {
+		if strings.TrimSpace(path) != "" {
+			paths = append(paths, path)
+		}
+	}
+
+	return paths
+}
+
+// Load reads the layers in order and merges them, weakest first, so a later file wins where
+// two overlap. A missing file among them is not an error unless it was named, and yields
+// nothing rather than the defaults, but a symlink pointing at nothing is, since that is a
+// config someone meant to have.
 //
 // A key the Config struct does not know about is an error rather than silently dropped, so
-// a typo is reported rather than quietly doing nothing. The error names it beside what its
-// table does take, since the panel shows that error in place of itself and nothing else.
-func Load(path string) (*Config, error) {
-	viperCfg := viper.New()
-	viperCfg.SetConfigType("toml")
-
-	// The full path is named in the errors below, since what went wrong is not
-	// actionable without knowing which file to edit.
-	file, err := ResolvePath(path)
+// a typo is reported rather than quietly doing nothing. The error names the file it is in
+// beside what its table does take, since the panel shows that error in place of itself and
+// nothing else.
+func Load(paths []string) (*Config, error) {
+	layers, err := ResolveLayers(paths)
 	if err != nil {
 		return nil, err
 	}
 
-	viperCfg.SetConfigFile(file)
+	// Each layer is checked on its own before anything is merged, because the merged
+	// settings map has no record of which file a key came from and an error that cannot
+	// name the file is worse than one file's worth of error. Decoding a layer by itself
+	// also catches a value the merge would drop in silence, which is what happens when
+	// two files disagree about whether a key is a table.
+	if err := checkLayers(layers); err != nil {
+		return nil, err
+	}
 
-	if err := viperCfg.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			return Defaults(), nil
-		}
-		if os.IsNotExist(err) {
-			// A dangling symlink and a path with nothing at it fail the same way, so
-			// both arrive here. Readlink does not follow the link and so succeeds only
-			// in the dangling case, which is the one worth naming: a broken link is a
-			// config the user believes they have.
-			if target, linkErr := os.Readlink(file); linkErr == nil {
-				return nil, fmt.Errorf("failed to read config %s: it is a symlink to %s, which does not exist", file, target)
+	merged := viper.New()
+	merged.SetConfigType("toml")
+
+	read := 0
+	for _, layer := range layers {
+		merged.SetConfigFile(layer.Path)
+
+		if err := merged.MergeInConfig(); err != nil {
+			if readErr := classifyLayerRead(layer, err); !errors.Is(readErr, errLayerAbsent) {
+				return nil, readErr
 			}
 
-			// A file the caller named has to be there. Not having written one is the
-			// ordinary install, but a path someone typed is a config they believe they
-			// have, and coming up on the defaults instead looks exactly like a file
-			// that was read and then ignored.
-			if path != "" {
-				return nil, fmt.Errorf("failed to read config %s: there is no file there", file)
-			}
-
-			return Defaults(), nil
+			continue
 		}
 
-		return nil, fmt.Errorf("failed to read config %s: %w", file, err)
+		read++
+	}
+
+	if read == 0 {
+		return Defaults(), nil
 	}
 
 	// The decoder is asked what it did not use rather than told to fail on it, since the
 	// error it raises for itself names the table as '' at the top level and lists nothing a
-	// key could have been instead.
+	// key could have been instead. checkLayers has already reported those per file, so this
+	// decode only has to produce the values.
 	var cfg Config
-	var decoded mapstructure.Metadata
-
-	if err := viperCfg.Unmarshal(&cfg, func(dc *mapstructure.DecoderConfig) {
-		dc.Metadata = &decoded
-	}); err != nil {
-		return nil, fmt.Errorf("failed to parse config %s: %w", file, err)
-	}
-
-	if err := reportUnknownKeys(decoded.Unused); err != nil {
-		return nil, fmt.Errorf("failed to parse config %s: %w", file, err)
+	if err := merged.Unmarshal(&cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
 	if err := cfg.validate(); err != nil {
-		return nil, fmt.Errorf("failed to parse config %s: %w", file, err)
+		return nil, fmt.Errorf("failed to parse config %s: %w", describeLayers(layers), err)
 	}
 
 	cfg = cfg.withDefaults()
 
 	return &cfg, nil
+}
+
+// checkLayers decodes each layer alone and reports every one that has a key nothing answers
+// to, or a value of the wrong shape, grouped by file and in layer order. Every bad layer is
+// named in one go rather than stopping at the first, since fixing one file and being told
+// about the next is the same work done twice.
+func checkLayers(layers []Layer) error {
+	var problems []string
+
+	for _, layer := range layers {
+		single := viper.New()
+		single.SetConfigType("toml")
+		single.SetConfigFile(layer.Path)
+
+		if err := single.ReadInConfig(); err != nil {
+			if readErr := classifyLayerRead(layer, err); !errors.Is(readErr, errLayerAbsent) {
+				return readErr
+			}
+
+			continue
+		}
+
+		var cfg Config
+		var decoded mapstructure.Metadata
+
+		err := single.Unmarshal(&cfg, func(dc *mapstructure.DecoderConfig) {
+			dc.Metadata = &decoded
+		})
+		if err != nil {
+			problems = append(problems, indentUnder(layer.Path, err.Error()))
+
+			continue
+		}
+
+		if err := reportUnknownKeys(decoded.Unused); err != nil {
+			problems = append(problems, indentUnder(layer.Path, err.Error()))
+		}
+	}
+
+	if len(problems) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("failed to parse config:\n%s", strings.Join(problems, "\n"))
+}
+
+// classifyLayerRead turns a failure to read one layer into what the caller should do about
+// it: errLayerAbsent when the file is simply not there and the layer contributes nothing,
+// and anything else is fatal.
+func classifyLayerRead(layer Layer, err error) error {
+	var notFound viper.ConfigFileNotFoundError
+	if errors.As(err, &notFound) && !layer.Named {
+		return errLayerAbsent
+	}
+
+	if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to read config %s: %w", layer.Path, err)
+	}
+
+	// A dangling symlink and a path with nothing at it fail the same way, so both arrive
+	// here. Readlink does not follow the link and so succeeds only in the dangling case,
+	// which is the one worth naming: a broken link is a config the user believes they have.
+	if target, linkErr := os.Readlink(layer.Path); linkErr == nil {
+		return fmt.Errorf("failed to read config %s: it is a symlink to %s, which does not exist", layer.Path, target)
+	}
+
+	// A file the caller named has to be there. Not having written one is the ordinary
+	// install, but a path someone typed is a config they believe they have, and coming up
+	// on the defaults instead looks exactly like a file that was read and then ignored.
+	if layer.Named {
+		return fmt.Errorf("failed to read config %s: there is no file there", layer.Path)
+	}
+
+	return errLayerAbsent
+}
+
+// indentUnder puts a file's problems under its name, so a reader scanning several layers
+// sees which file each line belongs to before reading the line.
+func indentUnder(path, body string) string {
+	lines := strings.Split(strings.TrimRight(body, "\n"), "\n")
+	for i, line := range lines {
+		lines[i] = "    " + line
+	}
+
+	return "  " + path + "\n" + strings.Join(lines, "\n")
+}
+
+// describeLayers names the files a value could have come from, for the errors raised on the
+// merged config where no single file is to blame.
+func describeLayers(layers []Layer) string {
+	paths := make([]string, 0, len(layers))
+	for _, layer := range layers {
+		paths = append(paths, layer.Path)
+	}
+
+	return strings.Join(paths, ", ")
 }

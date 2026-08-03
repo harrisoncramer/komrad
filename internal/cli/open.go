@@ -113,14 +113,16 @@ func ensureManagerSession(state *app) error {
 // rather than left to that. Only the open that creates the session sets them, since every
 // later one finds it already up.
 //
-// The config path goes on the command line for the same reason: the panel loads the file
-// itself, and without being told which one it would read the default while this process
-// read whatever --config named.
+// The config paths go on the command line for the same reason: the panel loads the files
+// itself, and without being told which ones it would read the default while this process
+// read whatever --config named. The resolved list is forwarded rather than the flags as
+// written, so the child is told the paths instead of working them out and the two cannot
+// disagree about what they are running on.
 func buildManagerSessionArgs(state *app, self string) []string {
 	args := []string{
 		"new-session", "-d", "-s", agents.ManagerSession,
 		"-e", "WEAVE_TMUX_SOCKET=" + state.env.TmuxSocket,
-		"-e", "DATABASE_URL=" + state.env.DatabaseURL,
+		"-e", "WEAVE_DATABASE_URL=" + state.env.DatabaseURL,
 		"-e", "WEAVE_READONLY_DATABASE_URL=" + state.env.ReadOnlyDatabaseURL,
 		"-e", "WEAVE_ADDR=" + state.env.Addr,
 		"-e", "EDITOR=" + state.env.Editor,
@@ -128,8 +130,8 @@ func buildManagerSessionArgs(state *app, self string) []string {
 		"--", self, "panel",
 	}
 
-	if state.configPath != "" {
-		args = append(args, "--config", state.configPath)
+	for _, path := range state.configPaths {
+		args = append(args, "--config", path)
 	}
 
 	return args

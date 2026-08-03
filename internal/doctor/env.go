@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/config"
 	"weave/internal/appconfig"
 )
 
@@ -28,9 +29,9 @@ type Env struct {
 	// LoadConfig parses the user's config file, the same call the root command makes, so
 	// doctor and the panel's error screen cannot disagree about it.
 	LoadConfig func() (*appconfig.Config, error)
-	// DoesConfigExist reports whether the file is there, which Load does not say, since a
-	// missing one is not an error and comes back as the defaults.
-	DoesConfigExist func() bool
+	// DoesLayerExist reports whether one layer's file is there, which Load does not say,
+	// since a missing one is not an error and contributes nothing.
+	DoesLayerExist func(path string) bool
 	// PingDatabase reaches the writable login without writing to it.
 	PingDatabase func(ctx context.Context, url string) error
 	// ReadPendingMigrations lists the migrations this build ships that the database has
@@ -63,8 +64,12 @@ type Settings struct {
 	// PanelSession is the tmux session the panel runs in, which is also the session every
 	// agent gets a window in.
 	PanelSession string
-	// ConfigPath is the config file that would be read, named whether or not it exists.
-	ConfigPath string
+	// ConfigLayers is every config file that would be read, weakest first, each named
+	// whether or not it exists.
+	ConfigLayers []appconfig.Layer
+	// Sources is where each connection setting was resolved from, keyed by its config file
+	// key, so the check can say which layer or variable a value in force came from.
+	Sources map[string]config.Source
 	// Harnesses is every agent CLI this build can run.
 	Harnesses []HarnessInfo
 	// DatabaseURL is the writable login everything weave stores lives behind, and
@@ -77,15 +82,28 @@ type Settings struct {
 	Version string
 }
 
+// configPaths is the layer list as Load takes it, which is the paths when any were resolved
+// and nothing when doctor is reporting on the default path.
+func (s Settings) configPaths() []string {
+	paths := make([]string, 0, len(s.ConfigLayers))
+	for _, layer := range s.ConfigLayers {
+		if layer.Named {
+			paths = append(paths, layer.Path)
+		}
+	}
+
+	return paths
+}
+
 // NewEnv is the env pointed at the machine this is running on.
 func NewEnv(settings Settings) Env {
 	return Env{
 		Settings:   settings,
 		LookPath:   exec.LookPath,
 		Output:     runOutput,
-		LoadConfig: func() (*appconfig.Config, error) { return appconfig.Load(settings.ConfigPath) },
-		DoesConfigExist: func() bool {
-			_, err := os.Stat(settings.ConfigPath)
+		LoadConfig: func() (*appconfig.Config, error) { return appconfig.Load(settings.configPaths()) },
+		DoesLayerExist: func(path string) bool {
+			_, err := os.Stat(path)
 
 			return err == nil
 		},

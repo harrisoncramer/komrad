@@ -30,7 +30,7 @@ weave rpc update-workflow [flags]
 ### Options inherited from parent commands
 
 ```
-      --config string   path to config TOML
+      --config stringArray   path to a config TOML, repeatable, later files win over earlier ones
 ```
 
 ### SEE ALSO

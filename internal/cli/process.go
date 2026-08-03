@@ -22,14 +22,14 @@ const (
 	serveWaitInterval = 40 * time.Millisecond
 )
 
-// ensureServerParams is what it takes to reach a server or spawn one. ConfigPath is carried
-// because the spawned process reads the config file for itself, so leaving it out serves a
-// panel started with --config out of a different file than the one it was pointed at.
+// ensureServerParams is what it takes to reach a server or spawn one. ConfigPaths is carried
+// because the spawned process reads the config files for itself, so leaving them out serves a
+// panel started with --config out of different files than the ones it was pointed at.
 type ensureServerParams struct {
-	Addr       string
-	Self       string
-	LogPath    string
-	ConfigPath string
+	Addr        string
+	Self        string
+	LogPath     string
+	ConfigPaths []string
 }
 
 // ensureServer makes sure a server from this build is reachable at the address, replacing one
@@ -52,9 +52,10 @@ func ensureServer(params ensureServerParams) error {
 		}
 	}
 
+	// One --config per layer, in order, since the order is what decides which file wins.
 	args := []string{"serve", "--addr", addr}
-	if params.ConfigPath != "" {
-		args = append(args, "--config", params.ConfigPath)
+	for _, path := range params.ConfigPaths {
+		args = append(args, "--config", path)
 	}
 
 	cmd := exec.Command(params.Self, args...)

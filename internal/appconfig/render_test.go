@@ -33,7 +33,7 @@ func TestRenderedConfigLoadsAsTheDefaults(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	require.NoError(t, os.WriteFile(path, rendered, 0o644))
 
-	cfg, err := Load(path)
+	cfg, err := Load([]string{path})
 	require.NoError(t, err)
 	assert.Empty(t, cfg.Harness.Claude.Flags)
 	assert.Equal(t, DefaultHarness, cfg.DefaultHarness)

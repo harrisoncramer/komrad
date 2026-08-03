@@ -77,7 +77,7 @@ func Open(t *testing.T) *Stores {
 func grantReadOnly(t *testing.T, pool *store.Pool, dbURL string) string {
 	t.Helper()
 
-	cfg, err := config.Load()
+	cfg, err := config.Load(nil)
 	require.NoError(t, err)
 
 	readOnly, err := pgconn.ParseConfig(cfg.ReadOnlyDatabaseURL)

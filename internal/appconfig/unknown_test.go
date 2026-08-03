@@ -59,7 +59,7 @@ func TestLoadNamesWhatTheTableTakes(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
 			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
 
-			_, err := Load(path)
+			_, err := Load([]string{path})
 
 			require.Error(t, err, "an unknown key is rejected rather than silently dropped")
 			assert.Contains(t, err.Error(), path, "the file to go and edit is named")
@@ -77,7 +77,7 @@ func TestLoadStillRejectsAValueItCannotRead(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	require.NoError(t, os.WriteFile(path, []byte("max_agents = \"lots\"\n"), 0o644))
 
-	_, err := Load(path)
+	_, err := Load([]string{path})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "max_agents")

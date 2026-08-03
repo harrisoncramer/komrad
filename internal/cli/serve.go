@@ -182,7 +182,7 @@ func serve(ctx context.Context, p serveParams) error {
 
 	built, err := server.New(ctx, server.Params{
 		Env:            state.env,
-		ConfigPath:     state.configPath,
+		ConfigPaths:    state.configPaths,
 		Logger:         logger,
 		Addr:           addr,
 		Tmux:           state.tmux,

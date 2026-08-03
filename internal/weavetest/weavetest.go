@@ -127,7 +127,7 @@ func Start(t *testing.T, p Params) *Instance {
 			TmuxSocket:          tmuxServer.Socket(),
 			CacheDir:            filepath.Join(root, "cache"),
 		},
-		ConfigPath:         configPath,
+		ConfigPaths:        []string{configPath},
 		Logger:             logger,
 		Addr:               addr,
 		Tmux:               tmux.NewServers(manager, tmux.NewHost(manager)),

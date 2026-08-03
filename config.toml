@@ -201,3 +201,25 @@ file = ""
 level  = "info"
 # The default log viewer. Switch with fzf, rg, etc.
 viewer = "less -R +F \"$WEAVE_LOG\""
+
+# Which weave this is: the database, the address, the tmux socket, the cache.
+[connection]
+# The Postgres weave keeps every agent, workflow, schedule and transcript in.
+# Weave migrates the schema itself on the way in, so an empty database is enough.
+database_url          = "postgres://weave:weave@localhost:5460/weave?sslmode=disable"
+# The least-privilege login the MCP query tools connect as.
+# Left empty this is database_url with the weave_readonly login in place of yours,
+# on the same server and the same database, so moving one moves both.
+# Set it when that login needs its own password or reaches the database another way.
+readonly_database_url = ""
+# Where the background service listens, and where the panel, the CLI and the MCP
+# endpoint all reach it. Change it to run two weaves on one machine.
+addr                  = "127.0.0.1:8787"
+# The tmux socket weave runs its own server on. Nothing in your normal tmux sees
+# that server, which is why `tmux -L weave ls` is how you look at it directly.
+tmux_socket           = "weave"
+# Where weave keeps what it generates: the service log, the built-in actions it
+# writes out on every start, and the temp files a harness passes a prompt through.
+# Left empty this is ~/Library/Caches/weave on a Mac and ~/.cache/weave on Linux.
+# Everything under it is weave's to delete and rewrite, so nothing of yours belongs here.
+cache_dir             = ""

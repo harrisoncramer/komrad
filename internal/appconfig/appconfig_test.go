@@ -1,6 +1,7 @@
 package appconfig
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -83,15 +84,16 @@ func TestLoad(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var path string
+			var paths []string
 			if tt.file != "" {
-				path = filepath.Join(t.TempDir(), "config.toml")
+				path := filepath.Join(t.TempDir(), "config.toml")
 				require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
+				paths = []string{path}
 			} else {
 				t.Setenv("HOME", t.TempDir())
 			}
 
-			cfg, err := Load(path)
+			cfg, err := Load(paths)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantFlags, cfg.Harness.Claude.Flags)
 			assert.Equal(t, DefaultHarness, cfg.DefaultHarness, "a launch goes through this, so it is never empty")
@@ -175,7 +177,7 @@ func TestLoadMarks(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
 			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
 
-			cfg, err := Load(path)
+			cfg, err := Load([]string{path})
 			if tt.wantErr {
 				require.Error(t, err)
 				return
@@ -239,7 +241,7 @@ func TestLoadLayout(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
 			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
 
-			cfg, err := Load(path)
+			cfg, err := Load([]string{path})
 			if tt.wantErr {
 				require.Error(t, err)
 				return
@@ -288,7 +290,7 @@ func TestLoadMaxAgents(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
 			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
 
-			cfg, err := Load(path)
+			cfg, err := Load([]string{path})
 			if tt.wantErr {
 				require.Error(t, err)
 				return
@@ -324,7 +326,7 @@ func TestLoadRejectsUnknownKeys(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
 			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
 
-			_, err := Load(path)
+			_, err := Load([]string{path})
 			require.Error(t, err, "an unknown key is rejected rather than silently dropped")
 			assert.Contains(t, err.Error(), "failed to parse config")
 		})
@@ -357,7 +359,7 @@ func TestLoadErrorNamesTheFile(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
 			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
 
-			_, err := Load(path)
+			_, err := Load([]string{path})
 
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.want)
@@ -377,7 +379,7 @@ func TestLoadDanglingSymlink(t *testing.T) {
 	target := filepath.Join(dir, "missing", "config.toml")
 	require.NoError(t, os.Symlink(target, path))
 
-	_, err := Load(path)
+	_, err := Load([]string{path})
 
 	require.Error(t, err, "a link pointing at nothing is not the same as having no config")
 	assert.Contains(t, err.Error(), path, "the link to go and repoint is named")
@@ -390,7 +392,7 @@ func TestLoadDanglingSymlink(t *testing.T) {
 func TestLoadAbsentFileDefaults(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	cfg, err := Load("")
+	cfg, err := Load(nil)
 
 	require.NoError(t, err, "an install with no config file comes up on the defaults")
 	assert.Equal(t, DefaultKeybindings().Nav.Up, cfg.Keybindings.Nav.Up)
@@ -448,7 +450,7 @@ func TestLoadLogLevel(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
 			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
 
-			cfg, err := Load(path)
+			cfg, err := Load([]string{path})
 			if tt.wantErr {
 				require.Error(t, err)
 				return
@@ -494,7 +496,7 @@ func TestContextFile(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
 			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
 
-			cfg, err := Load(path)
+			cfg, err := Load([]string{path})
 			require.NoError(t, err)
 
 			got, err := cfg.GetContextFile()
@@ -517,7 +519,7 @@ func TestContextFile(t *testing.T) {
 func TestLoadNamedFileMustExist(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 
-	_, err := Load(path)
+	_, err := Load([]string{path})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), path, "the error names the file that is not there")
@@ -569,13 +571,235 @@ func TestConfiguredPathsExpandHome(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
 			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
 
-			cfg, err := Load(path)
+			cfg, err := Load([]string{path})
 			require.NoError(t, err)
 
 			got, err := tt.read(*cfg)
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.want(home), got)
+		})
+	}
+}
+
+// TestLoadMergesLayers covers the merge rule per value kind, which is the whole of what
+// layering means to somebody writing two files. A table has to merge key by key or a local
+// file changing one thing would blank its neighbours, and a list has to be replaced whole or
+// there would be no way to drop an entry a lower layer put there.
+func TestLoadMergesLayers(t *testing.T) {
+	tests := []struct {
+		name  string
+		files []string
+		check func(t *testing.T, cfg *Config)
+	}{
+		{
+			name:  "a later layer wins a scalar",
+			files: []string{"max_agents = 10\n", "max_agents = 99\n"},
+			check: func(t *testing.T, cfg *Config) {
+				assert.Equal(t, 99, cfg.MaxAgents)
+			},
+		},
+		{
+			name:  "a scalar only the first layer sets survives",
+			files: []string{"default_harness = \"codex\"\n", "max_agents = 99\n"},
+			check: func(t *testing.T, cfg *Config) {
+				assert.Equal(t, "codex", cfg.DefaultHarness)
+				assert.Equal(t, 99, cfg.MaxAgents)
+			},
+		},
+		{
+			name:  "a table merges key by key",
+			files: []string{"[log]\nlevel = \"warn\"\nviewer = \"less\"\n", "[log]\nlevel = \"debug\"\n"},
+			check: func(t *testing.T, cfg *Config) {
+				assert.Equal(t, "debug", cfg.Log.Level, "the later layer wins the key it set")
+				assert.Equal(t, "less", cfg.Log.Viewer, "and leaves alone the key it did not mention")
+			},
+		},
+		{
+			name:  "a list is replaced whole rather than appended to",
+			files: []string{"marks = [{ glyph = \"a\" }, { glyph = \"b\" }]\n", "marks = [{ glyph = \"c\" }]\n"},
+			check: func(t *testing.T, cfg *Config) {
+				require.Len(t, cfg.Marks, 1, "appending would leave no way to drop a mark a base file set")
+				assert.Equal(t, "c", cfg.Marks[0].Glyph)
+			},
+		},
+		{
+			name: "a list the later layer does not mention is not reset",
+			files: []string{
+				"marks = [{ glyph = \"a\" }]\n",
+				"max_agents = 5\n",
+			},
+			check: func(t *testing.T, cfg *Config) {
+				require.Len(t, cfg.Marks, 1)
+				assert.Equal(t, "a", cfg.Marks[0].Glyph)
+			},
+		},
+		{
+			name: "each keybinding is replaced on its own",
+			files: []string{
+				"[keybindings.agents]\nnew = [\"a\"]\nrename = [\"b\"]\n",
+				"[keybindings.agents]\nnew = [\"c\"]\n",
+			},
+			check: func(t *testing.T, cfg *Config) {
+				assert.Equal(t, []string{"c"}, cfg.Keybindings.Agents.New)
+				assert.Equal(t, []string{"b"}, cfg.Keybindings.Agents.Rename,
+					"a binding the later layer did not mention keeps the earlier one's")
+				assert.Equal(t, []string{"z"}, cfg.Keybindings.Agents.Archive,
+					"and one no layer mentioned keeps its built-in default")
+			},
+		},
+		{
+			name: "three layers resolve each key to the last that set it",
+			files: []string{
+				"[connection]\ndatabase_url = \"postgres://one/db\"\naddr = \"1.1.1.1:1\"\n",
+				"[connection]\naddr = \"2.2.2.2:2\"\n",
+				"[connection]\ntmux_socket = \"three\"\n",
+			},
+			check: func(t *testing.T, cfg *Config) {
+				assert.Equal(t, "postgres://one/db", cfg.Connection.DatabaseURL)
+				assert.Equal(t, "2.2.2.2:2", cfg.Connection.Addr)
+				assert.Equal(t, "three", cfg.Connection.TmuxSocket)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+
+			paths := make([]string, 0, len(tt.files))
+			for i, body := range tt.files {
+				path := filepath.Join(dir, fmt.Sprintf("layer%d.toml", i))
+				require.NoError(t, os.WriteFile(path, []byte(body), 0o644))
+				paths = append(paths, path)
+			}
+
+			cfg, err := Load(paths)
+			require.NoError(t, err)
+
+			tt.check(t, cfg)
+		})
+	}
+}
+
+// TestLoadNamesTheLayerAKeyIsIn covers the reason the layers are decoded separately before
+// being merged. The merged settings map has no record of which file a key came from, and an
+// error that cannot name the file sends the reader to the wrong one.
+func TestLoadNamesTheLayerAKeyIsIn(t *testing.T) {
+	dir := t.TempDir()
+
+	good := filepath.Join(dir, "base.toml")
+	require.NoError(t, os.WriteFile(good, []byte("max_agents = 10\n"), 0o644))
+
+	bad := filepath.Join(dir, "local.toml")
+	require.NoError(t, os.WriteFile(bad, []byte("[log]\nlevl = \"warn\"\n"), 0o644))
+
+	_, err := Load([]string{good, bad})
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), bad, "the file holding the bad key is named")
+	assert.NotContains(t, err.Error(), good, "and the file that is fine is not")
+	assert.Contains(t, err.Error(), "levl is not a setting")
+}
+
+// TestLoadReportsEveryBadLayer covers that fixing one file does not just reveal the next.
+func TestLoadReportsEveryBadLayer(t *testing.T) {
+	dir := t.TempDir()
+
+	first := filepath.Join(dir, "first.toml")
+	require.NoError(t, os.WriteFile(first, []byte("max_agent = 10\n"), 0o644))
+
+	second := filepath.Join(dir, "second.toml")
+	require.NoError(t, os.WriteFile(second, []byte("[log]\nlevl = \"warn\"\n"), 0o644))
+
+	_, err := Load([]string{first, second})
+	require.Error(t, err)
+
+	assert.Contains(t, err.Error(), first)
+	assert.Contains(t, err.Error(), second)
+}
+
+// TestLoadCatchesAValueTheMergeWouldDrop covers the one hole in viper's merge. A key that is
+// a table in one file and a scalar in another is resolved by keeping the table and dropping
+// the other value in silence, with no error anywhere, so the layer has to be decoded on its
+// own for the mistake to be visible at all.
+func TestLoadCatchesAValueTheMergeWouldDrop(t *testing.T) {
+	dir := t.TempDir()
+
+	base := filepath.Join(dir, "base.toml")
+	require.NoError(t, os.WriteFile(base, []byte("[log]\nlevel = \"debug\"\n"), 0o644))
+
+	local := filepath.Join(dir, "local.toml")
+	require.NoError(t, os.WriteFile(local, []byte("log = \"nonsense\"\n"), 0o644))
+
+	_, err := Load([]string{base, local})
+	require.Error(t, err, "the merge alone would return no error and silently keep the base's table")
+
+	assert.Contains(t, err.Error(), local)
+}
+
+// TestResolveLayers covers which files get read. Weave looks for exactly one, and naming any
+// replaces it rather than adding to it, since being able to say "this file and nothing else"
+// is what lets a second instance be isolated from the first one's config.
+func TestResolveLayers(t *testing.T) {
+	t.Run("no paths is the one default file", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+
+		layers, err := ResolveLayers(nil)
+		require.NoError(t, err)
+
+		require.Len(t, layers, 1, "weave looks for one file and never goes hunting for a second")
+		assert.Equal(t, filepath.Join(home, ".config", "weave", "config.toml"), layers[0].Path)
+		assert.False(t, layers[0].Named, "an absent default is the ordinary install rather than an error")
+	})
+
+	t.Run("named paths replace the default entirely", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+
+		layers, err := ResolveLayers([]string{"/one.toml", "/two.toml"})
+		require.NoError(t, err)
+
+		require.Len(t, layers, 2)
+		assert.Equal(t, "/one.toml", layers[0].Path)
+		assert.Equal(t, "/two.toml", layers[1].Path)
+		assert.True(t, layers[0].Named, "a path someone typed has to be there")
+	})
+
+	t.Run("an empty path is a mistake rather than a request for the defaults", func(t *testing.T) {
+		_, err := ResolveLayers([]string{""})
+		require.Error(t, err)
+	})
+}
+
+// TestParseLayerList covers WEAVE_CONFIG, which is how a shell that cannot pass flags names a
+// stack. It is colon-separated the way PATH is, so nobody has to be told the separator.
+func TestParseLayerList(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want []string
+	}{
+		{
+			name: "empty is no layers at all",
+			in:   "",
+			want: nil,
+		},
+		{
+			name: "a trailing separator does not make an empty layer",
+			in:   "/one.toml:",
+			want: []string{"/one.toml"},
+		},
+		{
+			name: "several paths keep their order",
+			in:   "/one.toml:/two.toml",
+			want: []string{"/one.toml", "/two.toml"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, ParseLayerList(tt.in))
 		})
 	}
 }
