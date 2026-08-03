@@ -342,33 +342,36 @@ func TestOccurrenceFor(t *testing.T) {
 			want: nine,
 		},
 		{
-			name: "an hour and a half late belongs to it too",
+			// Past what is worth running, so there is nothing to name. Naming the
+			// firing still to come is what this guards against, since the run would
+			// take that firing's place and no agent would start when it arrived.
+			name: "one built later than staleness allows names nothing",
 			cron: "0 9 * * *",
 			at:   nine.Add(90 * time.Minute),
-			want: nine,
+			want: time.Time{},
 		},
 		{
-			// A laptop shut overnight and opened in the afternoon, which is the
-			// ordinary way this tool is used.
-			name: "and so does one built most of a day late",
+			// The far edge is exclusive, because the walk starts strictly after where
+			// it is pointed.
+			name: "and so does one built exactly a staleness late",
 			cron: "0 9 * * *",
-			at:   nine.Add(20 * time.Hour),
-			want: nine,
+			at:   nine.Add(staleness),
+			want: time.Time{},
 		},
 		{
-			// Late enough that a firing has been missed outright. The job stands for
-			// the occurrence it is closest behind, not the one before that.
-			name: "one built after the following firing belongs to that one",
+			// A laptop shut overnight and opened the next morning. Yesterday's firing
+			// is gone rather than run hours after anyone wanted it.
+			name: "nor does a machine opened the following morning run yesterday's firing",
 			cron: "0 9 * * *",
-			at:   nine.Add(30 * time.Hour),
-			want: nine.AddDate(0, 0, 1),
+			at:   nine.Add(23 * time.Hour),
+			want: time.Time{},
 		},
 		{
-			// A yearly schedule's previous occurrence is months back, which no
-			// window sized for a late enqueuer would reach.
-			name: "a yearly schedule names the year that has been, not the one to come",
+			// Lateness is the enqueuer's, not the schedule's, so an infrequent
+			// schedule is reached on the same window as a daily one.
+			name: "a yearly schedule built promptly names its own firing",
 			cron: "0 9 1 1 *",
-			at:   time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC),
+			at:   time.Date(2026, time.January, 1, 9, 30, 0, 0, time.UTC),
 			want: time.Date(2026, time.January, 1, 9, 0, 0, 0, time.UTC),
 		},
 		{
@@ -395,101 +398,27 @@ func TestOccurrenceFor(t *testing.T) {
 	}
 }
 
-// TestOccurrenceForNeverNamesTheFuture covers the one invariant the whole function rests on,
-// that the firing a job stands for has already come. A stamp in the future is the next
-// firing's name, and since the arguments are unique by value and cover every terminal state,
-// wearing it means that firing's own insert dedups into this one and never launches. One
-// late run would silently swallow the next.
-func TestOccurrenceForNeverNamesTheFuture(t *testing.T) {
-	// Every row measures its delay from this moment. It is a firing of the daily
-	// schedules and not of the others, which does not matter here, since all that is
-	// asserted is that whatever gets named has already come.
-	base := time.Date(2026, time.August, 2, 9, 0, 0, 0, time.UTC)
-
-	tests := []struct {
-		name string
-		cron string
-		// delay is how long after base the job was built.
-		delay time.Duration
-	}{
-		{
-			name:  "an hour and a half after a daily firing",
-			cron:  "0 9 * * *",
-			delay: 90 * time.Minute,
-		},
-		{
-			name:  "three hours after it",
-			cron:  "0 9 * * *",
-			delay: 3 * time.Hour,
-		},
-		{
-			name:  "a machine opened in the evening",
-			cron:  "0 9 * * *",
-			delay: 11 * time.Hour,
-		},
-		{
-			name:  "one opened an afternoon a week later",
-			cron:  "0 9 * * *",
-			delay: 7*24*time.Hour + 5*time.Hour,
-		},
-		{
-			name:  "a weekly schedule a fortnight on",
-			cron:  "0 9 * * 1",
-			delay: 14 * 24 * time.Hour,
-		},
-		{
-			name:  "a monthly one a quarter on",
-			cron:  "0 9 1 * *",
-			delay: 90 * 24 * time.Hour,
-		},
-		{
-			name:  "and a minutely one, which was never at risk",
-			cron:  "* * * * *",
-			delay: 90 * time.Minute,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cron, err := agents.ParseCron(tt.cron, "UTC")
-			require.NoError(t, err)
-
-			builtAt := base.Add(tt.delay)
-			got := occurrenceFor(cron, builtAt).UTC()
-			require.False(t, got.IsZero(), "a recurring schedule has an occurrence to name")
-
-			assert.False(t, got.After(builtAt.Add(skew)),
-				"named %s, which is still to come at %s", got, builtAt)
-		})
-	}
-}
-
-// TestLaunchArgsForLateBuildDoesNotClaimTheNextFiring covers the consequence of a future
-// stamp from the other side. The arguments are unique by value, so a late run wearing the
-// next firing's name is not a cosmetic error. The insert for that firing carries identical
-// arguments, collapses into the late one, and no agent starts.
-func TestLaunchArgsForLateBuildDoesNotClaimTheNextFiring(t *testing.T) {
+// TestLaunchArgsForStaleBuildLeavesTheNextFiringAlone covers why a stale build has to queue
+// nothing rather than take the name of the firing to come. The arguments are unique by value
+// across every terminal state, so a run wearing that name means the firing's own insert
+// carries identical arguments, collapses into it, and starts no agent. The next firing has to
+// arrive to its own name and its own idempotency key.
+func TestLaunchArgsForStaleBuildLeavesTheNextFiringAlone(t *testing.T) {
 	nine := time.Date(2026, time.August, 2, 9, 0, 0, 0, time.UTC)
 	tomorrow := nine.AddDate(0, 0, 1)
 
 	cron, err := agents.ParseCron("0 9 * * *", "UTC")
 	require.NoError(t, err)
 
-	late, _ := launchArgsFor("s1", cron, nine.Add(3*time.Hour))
-	lateArgs, ok := late.(LaunchAgentArgs)
-	require.True(t, ok)
+	stale, _ := launchArgsFor("s1", cron, nine.Add(3*time.Hour))
+	assert.Nil(t, stale, "a firing nobody was around for is not worth queueing")
 
 	onTime, _ := launchArgsFor("s1", cron, tomorrow.Add(time.Second))
-	onTimeArgs, ok := onTime.(LaunchAgentArgs)
-	require.True(t, ok)
+	args, ok := onTime.(LaunchAgentArgs)
+	require.True(t, ok, "the next firing still queues")
 
-	assert.Equal(t, nine, lateArgs.ScheduledFor.UTC(), "the late run stands for the firing it missed")
-	assert.Equal(t, tomorrow, onTimeArgs.ScheduledFor.UTC(), "and the next firing for its own")
-	assert.NotEqual(t, lateArgs, onTimeArgs, "identical arguments dedup, so the second firing would never launch")
-	assert.NotEqual(t,
-		LaunchKey("s1", lateArgs.ScheduledFor),
-		LaunchKey("s1", onTimeArgs.ScheduledFor),
-		"and a shared idempotency key hands the second firing the first one's agent")
+	assert.Equal(t, tomorrow, args.ScheduledFor.UTC(), "under its own name")
+	assert.Equal(t, LaunchKey("s1", tomorrow), LaunchKey("s1", args.ScheduledFor))
 }
 
 // TestOccurrenceForNeverOccurs covers the walk over a schedule that has no occurrence.

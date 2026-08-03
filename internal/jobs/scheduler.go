@@ -165,54 +165,33 @@ func launchArgsFor(scheduleID string, cron river.PeriodicSchedule, now time.Time
 	return LaunchAgentArgs{ScheduleID: scheduleID, ScheduledFor: occurrence}, nil
 }
 
-// firstWindow is how far back the search starts looking. It is not a bound on how late the
-// job may be built, only where the walk begins, since the search doubles the window back
-// when it holds nothing. An hour keeps a minutely schedule to sixty steps.
-const firstWindow = time.Hour
-
-// horizon is as far back as the search reaches. The cron library looks five years forward
-// from wherever it is asked, so nothing further back than this can be found however wide the
-// window grows.
-const horizon = 5 * 365 * 24 * time.Hour
+// staleness is how late a firing may be and still be worth running. River works out when a
+// schedule is next due and inserts then, so an ordinary firing is only as late as the
+// enqueuer itself. What pushes a job well past its firing is a machine asleep through it,
+// and a run that stale is one nobody was around for.
+const staleness = time.Hour
 
 // skew is how far ahead of an occurrence the construction may run and still be counted
 // as standing for it, covering a firing that lands a hair before the boundary.
 const skew = 5 * time.Second
 
-// occurrenceFor names the firing a job stands for: the schedule's last occurrence at or
-// before now. It has to come from the schedule, since the clock alone cannot tell a job
+// occurrenceFor names the firing a job stands for, which is the schedule's last occurrence at
+// or before now. It has to come from the schedule, since the clock alone cannot tell a job
 // built late for one occurrence from one built early for the next, and naming the wrong one
 // either collides with the previous firing on the unique index and vanishes, or blocks the
 // firing that follows.
 //
 // It walks forward rather than back because a cron schedule can only say what comes next, so
-// reaching an occurrence means starting behind it. How far behind depends on the schedule and
-// not on the clock. A yearly firing's last occurrence is months back whether the job was built
-// promptly or not, so the search doubles its window back until one window holds an occurrence
-// rather than assuming a fixed distance covers it.
+// reaching an occurrence means starting behind it. Starting a whole staleness behind is what
+// makes a late firing reachable at all, and the cutoff is what stops the walk running past
+// now onto a firing still to come.
 //
-// A schedule with no occurrence to reach reports the zero time, which covers both a date the
-// calendar does not have and a last firing further back than the library will look.
+// The zero time means there is nothing to name, and queues nothing. That covers a schedule
+// with no occurrence left, and one whose last firing is staler than this will run.
 func occurrenceFor(cron river.PeriodicSchedule, now time.Time) time.Time {
 	cutoff := now.Add(skew)
 
-	for window := firstWindow; ; window = min(window*2, horizon) {
-		if occurrence := findLastOccurrenceBetween(cron, now.Add(-window), cutoff); !occurrence.IsZero() {
-			return occurrence
-		}
-
-		if window == horizon {
-			return time.Time{}
-		}
-	}
-}
-
-// findLastOccurrenceBetween returns the schedule's latest occurrence after from and at or
-// before cutoff, or the zero time when that window holds none. A schedule that has run out
-// reports the zero time, which is never after the cutoff, so the walk stops on it rather
-// than asking for a step that cannot come.
-func findLastOccurrenceBetween(cron river.PeriodicSchedule, from, cutoff time.Time) time.Time {
-	occurrence := cron.Next(from)
+	occurrence := cron.Next(now.Add(-staleness))
 	if occurrence.IsZero() || occurrence.After(cutoff) {
 		return time.Time{}
 	}
