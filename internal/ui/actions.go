@@ -21,14 +21,12 @@ type actionState struct {
 	agent  agentstore.Agent
 }
 
-// actionItem is one of the user's actions as the panel holds it. The preview is the start of
-// the file, read by the service since the panel never touches the actions directory, and the
-// rest is what the file's own header declares.
+// actionItem is one of the user's actions as the panel holds it, listed by the service since
+// the panel never touches the actions directory. Everything under the name is what the file's
+// own header declares.
 type actionItem struct {
 	name        string
 	executable  bool
-	preview     []byte
-	truncated   bool
 	description string
 	timeout     time.Duration
 	problems    []string

@@ -27,27 +27,22 @@ const (
 )
 
 // Action is one executable in the user's actions directory. The name is the file's
-// own name, which is what identifies it, and the fields below the preview are what
-// the comments at the top of the file declare about it.
+// own name, which is what identifies it, and the fields below it are what the comments
+// at the top of the file declare about it.
 type Action struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The name of the file
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// If the action is executable (valid to run) or not.
 	Executable bool `protobuf:"varint,2,opt,name=executable,proto3" json:"executable,omitempty"`
-	// The start of the file, for a caller that wants to show it. Bytes rather than a
-	// string because an action can be a binary.
-	Preview []byte `protobuf:"bytes,3,opt,name=preview,proto3" json:"preview,omitempty"`
-	// Whether the file is longer than the preview carries.
-	PreviewTruncated bool `protobuf:"varint,4,opt,name=preview_truncated,json=previewTruncated,proto3" json:"preview_truncated,omitempty"`
 	// What the file's header says the action is for.
-	Description string `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
+	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
 	// How long one run of it gets before weave kills it. Unset means the file declared
 	// none, and what that falls back to depends on how the action was fired.
-	Timeout *durationpb.Duration `protobuf:"bytes,6,opt,name=timeout,proto3,oneof" json:"timeout,omitempty"`
+	Timeout *durationpb.Duration `protobuf:"bytes,4,opt,name=timeout,proto3,oneof" json:"timeout,omitempty"`
 	// The directives in the header that could not be read, each naming its line. The
 	// lines were skipped rather than the action refused, so it still runs.
-	HeaderProblems []string `protobuf:"bytes,7,rep,name=header_problems,json=headerProblems,proto3" json:"header_problems,omitempty"`
+	HeaderProblems []string `protobuf:"bytes,5,rep,name=header_problems,json=headerProblems,proto3" json:"header_problems,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -92,20 +87,6 @@ func (x *Action) GetName() string {
 func (x *Action) GetExecutable() bool {
 	if x != nil {
 		return x.Executable
-	}
-	return false
-}
-
-func (x *Action) GetPreview() []byte {
-	if x != nil {
-		return x.Preview
-	}
-	return nil
-}
-
-func (x *Action) GetPreviewTruncated() bool {
-	if x != nil {
-		return x.PreviewTruncated
 	}
 	return false
 }
@@ -232,27 +213,25 @@ var File_action_v1_action_proto protoreflect.FileDescriptor
 
 const file_action_v1_action_proto_rawDesc = "" +
 	"\n" +
-	"\x16action/v1/action.proto\x12\taction.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x14rules/v1/rules.proto\"\x94\x02\n" +
+	"\x16action/v1/action.proto\x12\taction.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x14rules/v1/rules.proto\"\xcd\x01\n" +
 	"\x06Action\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1e\n" +
 	"\n" +
 	"executable\x18\x02 \x01(\bR\n" +
-	"executable\x12\x18\n" +
-	"\apreview\x18\x03 \x01(\fR\apreview\x12+\n" +
-	"\x11preview_truncated\x18\x04 \x01(\bR\x10previewTruncated\x12 \n" +
-	"\vdescription\x18\x05 \x01(\tR\vdescription\x128\n" +
-	"\atimeout\x18\x06 \x01(\v2\x19.google.protobuf.DurationH\x00R\atimeout\x88\x01\x01\x12'\n" +
-	"\x0fheader_problems\x18\a \x03(\tR\x0eheaderProblemsB\n" +
+	"executable\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x128\n" +
+	"\atimeout\x18\x04 \x01(\v2\x19.google.protobuf.DurationH\x00R\atimeout\x88\x01\x01\x12'\n" +
+	"\x0fheader_problems\x18\x05 \x03(\tR\x0eheaderProblemsB\n" +
 	"\n" +
 	"\b_timeout\"B\n" +
 	"\x13ListActionsResponse\x12+\n" +
 	"\aactions\x18\x01 \x03(\v2\x11.action.v1.ActionR\aactions\"\\\n" +
 	"\x10RunActionRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12$\n" +
-	"\x06action\x18\x02 \x01(\tB\f\xbaH\tr\a\xc0\xbb\x18\x01\x18\xff\x01R\x06action2\xb9\t\n" +
-	"\rActionService\x12\xef\x04\n" +
-	"\vListActions\x12\x16.google.protobuf.Empty\x1a\x1e.action.v1.ListActionsResponse\"\xa7\x04\x9a\xb5\x18\x9f\x04\n" +
-	"\flist_actions\x12\x8e\x04List the actions the user has written, which are executable files in their actions directory. An action is a script or program that takes one agent as its input and does whatever the user wrote it to do, such as opening the pull request that agent recorded. The name is what run_action takes. A file listed with executable false cannot be run until the user chmods it, the description is what the file's own header comments say it is for, and the preview is the start of the file so you can see what one does before firing it.\x90\x02\x01\x12\xb5\x04\n" +
+	"\x06action\x18\x02 \x01(\tB\f\xbaH\tr\a\xc0\xbb\x18\x01\x18\xff\x01R\x06action2\xf5\b\n" +
+	"\rActionService\x12\xab\x04\n" +
+	"\vListActions\x12\x16.google.protobuf.Empty\x1a\x1e.action.v1.ListActionsResponse\"\xe3\x03\x9a\xb5\x18\xdb\x03\n" +
+	"\flist_actions\x12\xca\x03List the actions the user has written, which are executable files in their actions directory. An action is a script or program that takes one agent as its input and does whatever the user wrote it to do, such as opening the pull request that agent recorded. The name is what run_action takes. A file listed with executable false cannot be run until the user chmods it, and the description and timeout are what the file's own header comments declare about it.\x90\x02\x01\x12\xb5\x04\n" +
 	"\tRunAction\x12\x1b.action.v1.RunActionRequest\x1a\x16.google.protobuf.Empty\"\xf2\x03\x9a\xb5\x18\xed\x03\n" +
 	"\n" +
 	"run_action\x12\xde\x03Fire one of the user's actions on an agent, naming the action as list_actions reports it and the agent by id. The action is started and nothing waits for it, so a successful call means the process began and says nothing about what it did or whether it worked. Where its output goes is the action's own business. An error means it never started: no such action, no such agent, or a file the user has not made executable. Your own id is in the WEAVE_AGENT_ID environment variable.B$Z\"weave/proto/gen/action/v1;actionv1b\x06proto3"

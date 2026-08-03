@@ -44,7 +44,7 @@ func TestActionServiceOverHTTP(t *testing.T) {
 
 	client := actionClient(t, dir, work)
 
-	t.Run("a listing carries each file and the start of its text", func(t *testing.T) {
+	t.Run("a listing carries each file and what it declares", func(t *testing.T) {
 		resp, err := client.ListActions(context.Background(), connect.NewRequest(&emptypb.Empty{}))
 		require.NoError(t, err)
 
@@ -52,7 +52,6 @@ func TestActionServiceOverHTTP(t *testing.T) {
 		require.Len(t, listed, 2)
 		assert.Equal(t, "record", listed[0].GetName())
 		assert.True(t, listed[0].GetExecutable())
-		assert.Contains(t, string(listed[0].GetPreview()), "WEAVE_AGENT")
 		assert.False(t, listed[1].GetExecutable(), "the file waiting on a chmod is listed too")
 	})
 

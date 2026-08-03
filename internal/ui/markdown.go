@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"bytes"
 	"fmt"
 	"strings"
 
@@ -86,54 +85,9 @@ func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) string {
 	return b.String()
 }
 
-// isTextual reports whether bytes are text the stage can show, deciding on a NUL byte the
-// way less itself does.
-func isTextual(text []byte) bool {
-	return bytes.IndexByte(text, 0) < 0
-}
-
-// fencedBlock is a block of text somebody else wrote, ready to sit in a stage document.
-// The renderer leaves what is inside a fence alone, so the text shows as it was written
-// rather than reflowed to the pane.
-//
-// The fence is three backticks, or one longer than the longest run inside the text, since
-// text carrying a fence of its own would otherwise close the block early.
-func fencedBlock(text []byte) string {
-	if !isTextual(text) {
-		return "_not text, so there is nothing to show_\n"
-	}
-
-	body := strings.TrimRight(string(text), "\n")
-	if body == "" {
-		return "_empty_\n"
-	}
-
-	fence := strings.Repeat("`", max(3, longestBacktickRun(body)+1))
-
-	return fmt.Sprintf("%s\n%s\n%s\n", fence, body, fence)
-}
-
-// longestBacktickRun is the longest unbroken run of backticks in a string, which a fence
-// around it has to beat.
-func longestBacktickRun(body string) int {
-	longest, run := 0, 0
-	for _, char := range body {
-		if char != '`' {
-			run = 0
-
-			continue
-		}
-
-		run++
-		longest = max(longest, run)
-	}
-
-	return longest
-}
-
-// actionMarkdown renders an action for the stage: its name, what its header declares, and the
-// start of its own text. An action is as readily a compiled program as a script, so the body
-// goes through fencedBlock rather than spilling a binary into the pane.
+// actionMarkdown renders an action's record for the stage: its name and what its own header
+// declares about it. The file's text is not shown, since an action is as readily a compiled
+// program as a script.
 func actionMarkdown(action actionItem) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", action.name)
@@ -142,23 +96,23 @@ func actionMarkdown(action actionItem) string {
 	}
 	if action.description != "" {
 		b.WriteString(action.description + "\n\n")
+	} else {
+		b.WriteString("_no description declared_\n\n")
 	}
+	b.WriteString("---\n\n")
 	if action.timeout > 0 {
-		fmt.Fprintf(&b, "_gives up after %s_\n\n", action.timeout)
+		fmt.Fprintf(&b, "- timeout: %s\n", action.timeout)
+	} else {
+		b.WriteString("- timeout: — (none declared)\n")
 	}
+
 	// The run goes ahead without the lines that did not read, so a timeout spelled wrong is
 	// shown rather than left as a limit nothing applies.
 	if len(action.problems) > 0 {
-		b.WriteString("_some of its header was not understood_\n\n")
+		b.WriteString("\n_some of its header was not understood_\n\n")
 		for _, problem := range action.problems {
 			fmt.Fprintf(&b, "- %s\n", problem)
 		}
-		b.WriteString("\n")
-	}
-
-	b.WriteString(fencedBlock(action.preview))
-	if action.truncated && isTextual(action.preview) {
-		b.WriteString("\n_only the start of the file is shown_\n")
 	}
 
 	return b.String()

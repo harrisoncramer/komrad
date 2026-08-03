@@ -6,9 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
-	"os"
 	"slices"
 	"strings"
 	"time"
@@ -127,44 +125,22 @@ func NewActionService(p ActionParams) *ActionService {
 	}
 }
 
-// maxActionPreview bounds how much of an action is read for the preview, since an action
-// can be a compiled program of any size and a caller renders whatever it is given.
-const maxActionPreview = 8 * 1024
-
 // maxActionPrompt bounds how much of an agent's prompt the payload carries. Everything an
 // exec is handed shares one kernel limit, and the prompt is the only field here with no
 // bound of its own, so a long enough one would fail the run at exec.
 const maxActionPrompt = 16 * 1024
 
-// ListedAction is an action with the start of its own text, which is what a caller
-// showing one needs.
-type ListedAction struct {
-	actions.Action
-	// Preview is the head of the file, empty for one that could not be read.
-	Preview []byte
-	// Truncated says the file is longer than Preview carries.
-	Truncated bool
-}
-
-// ListActions is every action on offer, in name order, each with the start of its
-// contents. A file that cannot be read is listed with an empty preview rather than
-// dropped, since it is still there and still nameable.
-func (s *ActionService) ListActions() ([]ListedAction, error) {
+// ListActions is every action on offer, in name order, each with what its own header
+// declares about it.
+func (s *ActionService) ListActions() ([]actions.Action, error) {
 	_, found, err := s.discover()
 	if err != nil {
 		return nil, err
 	}
 
-	listed := make([]ListedAction, 0, len(found))
+	listed := make([]actions.Action, 0, len(found))
 	for _, action := range found {
-		head, truncated, err := readHead(action.Path, maxActionPreview)
-		if err != nil {
-			listed = append(listed, ListedAction{Action: action.Action})
-
-			continue
-		}
-
-		listed = append(listed, ListedAction{Action: action.Action, Preview: head, Truncated: truncated})
+		listed = append(listed, action.Action)
 	}
 
 	return listed, nil
@@ -604,32 +580,4 @@ func head(s string, limit int) (string, bool) {
 	}
 
 	return cut, true
-}
-
-// readHead reads up to limit bytes of a file and reports whether there was more. A
-// truncated read is cut back to its last complete line, which keeps a preview from ending
-// mid-character and reading as a file that is not text at all.
-func readHead(path string, limit int) ([]byte, bool, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, false, fmt.Errorf("failed to open %s: %w", path, err)
-	}
-	defer func() { _ = file.Close() }()
-
-	head := make([]byte, limit+1)
-	read, err := io.ReadFull(file, head)
-	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
-		return nil, false, fmt.Errorf("failed to read %s: %w", path, err)
-	}
-
-	if read <= limit {
-		return head[:read], false, nil
-	}
-
-	head = head[:limit]
-	if lastLine := bytes.LastIndexByte(head, '\n'); lastLine > 0 {
-		head = head[:lastLine]
-	}
-
-	return head, true, nil
 }

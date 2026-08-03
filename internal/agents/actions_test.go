@@ -25,11 +25,11 @@ import (
 
 // TestListActions covers the listing the panel and a model both read. A file that cannot be run
 // is still listed, since a script written and forgotten should show up wanting a chmod rather
-// than never appearing, and each carries the start of its own text so a caller showing one needs
-// no access to the file.
+// than never appearing, and each carries what its own header declares so a caller showing one
+// needs no access to the file.
 func TestListActions(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "open-pr"), []byte("#!/bin/sh\necho hello\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "open-pr"), []byte("#!/bin/sh\n#WEAVE description=\"open it\"\n"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "unrunnable"), []byte("#!/bin/sh\n"), 0o644))
 
 	listed, err := actionService(t, dir, &recordingRunner{}).ListActions()
@@ -38,34 +38,10 @@ func TestListActions(t *testing.T) {
 
 	assert.Equal(t, "open-pr", listed[0].Name)
 	assert.True(t, listed[0].Executable)
-	assert.Equal(t, "#!/bin/sh\necho hello\n", string(listed[0].Preview))
-	assert.False(t, listed[0].Truncated)
+	assert.Equal(t, "open it", listed[0].Header.Description)
 
 	assert.Equal(t, "unrunnable", listed[1].Name)
 	assert.False(t, listed[1].Executable)
-}
-
-// TestListActionsTruncatesALongFile covers the bound on the preview. An action can be a compiled
-// program of any size, and a caller renders the whole document it is handed, so the head is cut
-// back to its last complete line rather than sent whole.
-func TestListActionsTruncatesALongFile(t *testing.T) {
-	dir := t.TempDir()
-	long := "#!/bin/sh\n"
-	for len(long) < maxActionPreview*2 {
-		long += "echo a line of a script that goes on for a while\n"
-	}
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "long"), []byte(long), 0o755))
-
-	listed, err := actionService(t, dir, &recordingRunner{}).ListActions()
-	require.NoError(t, err)
-	require.Len(t, listed, 1)
-
-	preview := listed[0].Preview
-	assert.True(t, listed[0].Truncated)
-	assert.LessOrEqual(t, len(preview), maxActionPreview)
-	require.NotEmpty(t, preview)
-	assert.Equal(t, long[:len(preview)], string(preview), "the head is the start of the file as it is")
-	assert.Equal(t, byte('\n'), long[len(preview)], "cut at a line boundary, never mid-character")
 }
 
 // TestListActionsWithNoDirectory covers never having written one, which is the ordinary case
@@ -717,7 +693,7 @@ func TestListActionsReadsTheUserOverTheBuiltins(t *testing.T) {
 	}
 	assert.Equal(t, []string{"_editor", "_terminal", "open-pr"}, names, "in name order across both")
 
-	assert.Contains(t, string(listed[0].Preview), "mine", "the user's file is the one on offer")
+	assert.Equal(t, filepath.Join(userDir, "_editor"), listed[0].Path, "the user's file is the one on offer")
 }
 
 // TestRunActionRunsABuiltinAmongItsOwnSiblings covers firing a shipped action. It runs in the
