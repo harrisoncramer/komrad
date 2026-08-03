@@ -74,6 +74,7 @@ func actionItemsFrom(listed []*actionv1.Action) []actionItem {
 			description: action.GetDescription(),
 			timeout:     action.GetTimeout().AsDuration(),
 			problems:    action.GetHeaderProblems(),
+			text:        action.GetText(),
 		})
 	}
 

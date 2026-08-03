@@ -14,23 +14,27 @@ import (
 // and a string in a table carries neither the shebang nor the bytes an editor would write.
 const fixtureDir = "testfiles"
 
-// TestReadHeader covers what a file is taken to declare about itself. Each row names a file in
-// testfiles, and the last check refuses a fixture no row names.
+// TestReadHeader covers what a file is taken to declare about itself, and whether it is text
+// at all. Each row names a file in testfiles, and the last check refuses a fixture no row
+// names.
 func TestReadHeader(t *testing.T) {
 	tests := []struct {
-		name string
-		file string
-		want Header
+		name     string
+		file     string
+		want     Header
+		wantText bool
 	}{
 		{
-			name: "a file with nothing in it declares nothing",
-			file: "empty",
-			want: Header{},
+			name:     "a file with nothing in it declares nothing",
+			file:     "empty",
+			wantText: true,
+			want:     Header{},
 		},
 		{
-			name: "comments that are not directives are only comments",
-			file: "no-header",
-			want: Header{},
+			name:     "comments that are not directives are only comments",
+			file:     "no-header",
+			wantText: true,
+			want:     Header{},
 		},
 		{
 			name: "a file that is not text is not scanned",
@@ -38,15 +42,17 @@ func TestReadHeader(t *testing.T) {
 			want: Header{},
 		},
 		{
-			name: "an unquoted value is not TOML and is skipped",
-			file: "not-toml",
+			name:     "an unquoted value is not TOML and is skipped",
+			file:     "not-toml",
+			wantText: true,
 			want: Header{
 				Problems: []string{`line 2: "description = just words, unquoted" is not one TOML key and value`},
 			},
 		},
 		{
-			name: "a key weave does not know is reported rather than ignored",
-			file: "unknown-directive",
+			name:     "a key weave does not know is reported rather than ignored",
+			file:     "unknown-directive",
+			wantText: true,
 			want: Header{
 				Problems: []string{
 					"line 2: descriptoin is not a directive weave knows",
@@ -57,54 +63,61 @@ func TestReadHeader(t *testing.T) {
 		{
 			// The description still stands, since one bad line is no reason to drop the good
 			// one beside it.
-			name: "a duration nothing can read leaves the timeout unset",
-			file: "malformed-duration",
+			name:     "a duration nothing can read leaves the timeout unset",
+			file:     "malformed-duration",
+			wantText: true,
 			want: Header{
 				Description: "Names a duration nothing can read.",
 				Problems:    []string{`line 3: "soon" is not a duration: time: invalid duration "soon"`},
 			},
 		},
 		{
-			name: "a directive below the first line of code does not count",
-			file: "below-code",
+			name:     "a directive below the first line of code does not count",
+			file:     "below-code",
+			wantText: true,
 			want: Header{
 				Description: "Declared in the header, where a declaration belongs.",
 			},
 		},
 		{
-			name: "quotes and unicode survive the way TOML says they do",
-			file: "quoted-unicode",
+			name:     "quotes and unicode survive the way TOML says they do",
+			file:     "quoted-unicode",
+			wantText: true,
 			want: Header{
 				Description: "Says \"hello\" to the ✨ agent — em dash and all",
 			},
 		},
 		{
-			name: "directives are read from the first line down",
-			file: "well-formed",
+			name:     "directives are read from the first line down",
+			file:     "well-formed",
+			wantText: true,
 			want: Header{
 				Description: "Open the pull request this agent recorded.",
 				Timeout:     45 * time.Second,
 			},
 		},
 		{
-			name: "a shebang is passed over rather than ending the header",
-			file: "after-shebang",
+			name:     "a shebang is passed over rather than ending the header",
+			file:     "after-shebang",
+			wantText: true,
 			want: Header{
 				Description: "Declares itself under a shebang.",
 				Timeout:     2 * time.Minute,
 			},
 		},
 		{
-			name: "ordinary comments and blank lines are passed over too",
-			file: "interleaved-comments",
+			name:     "ordinary comments and blank lines are passed over too",
+			file:     "interleaved-comments",
+			wantText: true,
 			want: Header{
 				Description: "Declared among ordinary comments.",
 				Timeout:     90 * time.Second,
 			},
 		},
 		{
-			name: "slashes start a comment as readily as a hash",
-			file: "slash-comments",
+			name:     "slashes start a comment as readily as a hash",
+			file:     "slash-comments",
+			wantText: true,
 			want: Header{
 				Description: "Declared in a language whose comments are slashes.",
 				Timeout:     time.Minute,
@@ -117,7 +130,10 @@ func TestReadHeader(t *testing.T) {
 		described = append(described, tt.file)
 
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, readHeader(filepath.Join(fixtureDir, tt.file)))
+			header, text := readHeader(filepath.Join(fixtureDir, tt.file))
+
+			assert.Equal(t, tt.want, header)
+			assert.Equal(t, tt.wantText, text)
 		})
 	}
 
@@ -133,7 +149,11 @@ func TestReadHeader(t *testing.T) {
 }
 
 // TestReadHeaderUnreadable covers a file weave cannot open, which reads as no header rather
-// than an error, since Discover offers the file either way.
+// than an error, since Discover offers the file either way. It is not text either, since
+// nothing was read to say otherwise.
 func TestReadHeaderUnreadable(t *testing.T) {
-	assert.Equal(t, Header{}, readHeader(filepath.Join(t.TempDir(), "not-there")))
+	header, text := readHeader(filepath.Join(t.TempDir(), "not-there"))
+
+	assert.Equal(t, Header{}, header)
+	assert.False(t, text)
 }

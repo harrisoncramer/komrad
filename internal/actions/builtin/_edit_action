@@ -1,0 +1,25 @@
+#!/bin/sh
+#WEAVE description="Open an action's own file in your editor, beside the list."
+# What the actions list's editor key runs. Write your own _edit_action in your actions
+# directory to replace it.
+#
+# WEAVE_EDIT_PATH is the file to open, resolved by the server from the name the panel asked
+# for, so nothing here joins a name onto a directory.
+#
+# It reaches the editor through the pane's own environment rather than through the command
+# string, since tmux parses that string itself and an actions directory is as readily a path
+# with a space in it as not.
+set -eu
+
+# The pane's own shell is what expands these, so they stay unexpanded here.
+# shellcheck disable=SC2016
+open='sh -c "\"$EDITOR\" \"$WEAVE_EDIT_PATH\""'
+
+tmux -L "$WEAVE_TMUX_SOCKET" respawn-pane -k \
+	-t "$WEAVE_SECONDARY_PANE" \
+	-c "$(dirname "$WEAVE_EDIT_PATH")" \
+	-e "WEAVE_EDIT_PATH=$WEAVE_EDIT_PATH" \
+	-e "EDITOR=${EDITOR:-vi}" \
+	"$open"
+
+exec tmux -L "$WEAVE_TMUX_SOCKET" select-pane -t "$WEAVE_SECONDARY_PANE"

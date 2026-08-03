@@ -53,6 +53,9 @@ type Action struct {
 	Name       string
 	Path       string
 	Executable bool
+	// Text says the file is text rather than a compiled program, which is what a caller
+	// offering to open one in an editor needs.
+	Text bool
 	// Header is what the comments at the top of the file declare about it.
 	Header Header
 }
@@ -101,11 +104,13 @@ func (Runner) Discover(dir string) ([]Action, error) {
 			continue
 		}
 
+		header, text := readHeader(path)
 		found = append(found, Action{
 			Name:       entry.Name(),
 			Path:       path,
 			Executable: info.Mode().Perm()&0o111 != 0,
-			Header:     readHeader(path),
+			Text:       text,
+			Header:     header,
 		})
 	}
 

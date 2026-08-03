@@ -26,6 +26,9 @@ message Action {
   // The directives in the header that could not be read, each naming its line. The
   // lines were skipped rather than the action refused, so it still runs.
   repeated string header_problems = 5;
+  // Whether the file is text rather than a compiled program, which is what says
+  // whether it can be opened in an editor.
+  bool text = 6;
 }
 
 message ListActionsResponse {
@@ -34,6 +37,16 @@ message ListActionsResponse {
 
 // RunActionRequest names the action to fire and the agent to fire it on.
 message RunActionRequest {
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  string action = 2 [(buf.validate.field).string = {
+    max_len: 255
+    [rules.v1.action_name]: true
+  }];
+}
+
+// EditActionRequest names the action whose file to open, and the agent the editor is
+// opened beside, which is the one the panel's list was opened on.
+message EditActionRequest {
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
   string action = 2 [(buf.validate.field).string = {
     max_len: 255
@@ -62,4 +75,10 @@ service ActionService {
       description: "Fire one of the user's actions on an agent, naming the action as list_actions reports it and the agent by id. The action is started and nothing waits for it, so a successful call means the process began and says nothing about what it did or whether it worked. Where its output goes is the action's own business. An error means it never started: no such action, no such agent, or a file the user has not made executable. Your own id is in the WEAVE_AGENT_ID environment variable."
     };
   }
+
+  // Open an action's file in the user's editor, in the pane the panel keeps under its
+  // stage. It is the panel's own key rather than something to offer a model, so it
+  // carries no tool annotation: a model editing a script reads and writes the file
+  // itself. A file that is not text is refused rather than opened.
+  rpc EditAction(EditActionRequest) returns (google.protobuf.Empty) {}
 }
