@@ -33,9 +33,7 @@ func LayerPaths() []string {
 	return appconfig.ParseLayerList(os.Getenv(layerVariable))
 }
 
-// Source is where a resolved value came from. It exists because with several config layers
-// and an environment on top, nothing else can answer why weave is on the database it is on,
-// and that is the question a misconfigured instance is diagnosed by.
+// Source is where a resolved value came from. Used for debugging.
 type Source string
 
 const (
@@ -51,34 +49,26 @@ const (
 // variable. None of them carries an envDefault, deliberately: the built-in default belongs
 // underneath the file, and a tag default would sit beside the environment where nothing
 // could tell it apart from a value somebody set.
-//
-// Editor stays environment-only. Every machine has an EDITOR, it is the same answer there
-// for every tool, and asking for it twice buys nothing.
 type Config struct {
+	ConnectionSettingsConfig
+	Tmux      string `env:"TMUX"`
+	TmuxPane  string `env:"TMUX_PANE"`
+	AgentID   string `env:"WEAVE_AGENT_ID"`
+	SessionID string `env:"WEAVE_SESSION_ID"`
+	Editor    string `env:"EDITOR" envDefault:"vi"`
+	Sources   map[string]Source
+}
+
+type ConnectionSettingsConfig struct {
 	DatabaseURL         string `env:"WEAVE_DATABASE_URL"`
 	ReadOnlyDatabaseURL string `env:"WEAVE_READONLY_DATABASE_URL"`
 	Addr                string `env:"WEAVE_ADDR"`
 	TmuxSocket          string `env:"WEAVE_TMUX_SOCKET"`
 	CacheDir            string `env:"WEAVE_CACHE_DIR"`
-	Editor              string `env:"EDITOR" envDefault:"vi"`
-	Tmux                string `env:"TMUX"`
-	TmuxPane            string `env:"TMUX_PANE"`
-	// Set in the environment of every pane the panel launches, so a call this binary makes
-	// on an agent's behalf is logged as that agent rather than as nobody.
-	AgentID   string `env:"WEAVE_AGENT_ID"`
-	SessionID string `env:"WEAVE_SESSION_ID"`
-	// Sources is where each connection setting was resolved from, keyed by its config file
-	// key. Nothing but reporting reads it.
-	Sources map[string]Source
 }
 
 // Load resolves the panel's configuration from the file config and the environment, with the
 // environment winning wherever a variable is genuinely set.
-//
-// The files are loaded by the caller and passed in rather than read here, because a config
-// that will not parse has to stop the commands that would otherwise go on to connect to a
-// database on the built-in default. A nil file resolves against the built-in defaults, which
-// is what a command that does not care about the user's config wants.
 func Load(file *appconfig.Config) (*Config, error) {
 	if file == nil {
 		file = appconfig.Defaults()
