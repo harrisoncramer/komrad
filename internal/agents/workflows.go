@@ -33,15 +33,25 @@ type scheduleCounter interface {
 	CountLive(ctx context.Context, workflowID string) (int64, error)
 }
 
+// workflowAgentReader reads the agents filed under a workflow, which an archive needs
+// before it writes so it knows whose CLIs to stop.
+type workflowAgentReader interface {
+	ListLiveInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
+}
+
 // WorkflowService manages the named buckets agents are grouped into. A workflow
 // runs nothing. It holds a display name, shared context injected into the agents
 // spawned inside it, and the cwd and flags those agents start from.
 //
 // Deleting one archives the agents inside it, and those rows belong to the agent
-// domain, so that write runs through a transaction the two stores share.
+// domain, so that write runs through a transaction the two stores share. Archiving
+// is also what stops those agents, which is why a service over pure organisation
+// holds tmux at all.
 type WorkflowService struct {
 	store     workflowReadWriter
+	agents    workflowAgentReader
 	schedules scheduleCounter
+	tmux      paneKiller
 	tx        txRunner
 	// maxAgents is the ceiling a restore has to fit the workflow's archived agents
 	// under, zero for no ceiling.
@@ -51,7 +61,9 @@ type WorkflowService struct {
 // WorkflowParams carries the workflow service's dependencies.
 type WorkflowParams struct {
 	Workflows workflowReadWriter
+	Agents    workflowAgentReader
 	Schedules scheduleCounter
+	Tmux      paneKiller
 	Tx        txRunner
 	MaxAgents int
 }
@@ -60,7 +72,9 @@ type WorkflowParams struct {
 func NewWorkflowService(p WorkflowParams) *WorkflowService {
 	return &WorkflowService{
 		store:     p.Workflows,
+		agents:    p.Agents,
 		schedules: p.Schedules,
+		tmux:      p.Tmux,
 		tx:        p.Tx,
 		maxAgents: p.MaxAgents,
 	}
@@ -130,6 +144,12 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 // it rather than being orphaned, since every agent belongs to a workflow and there
 // is nowhere for one to be left.
 //
+// The agents' CLIs are stopped on the way, the same as archiving them by id, so nothing
+// is left generating in a pane the panel no longer lists. The panes come down before the
+// transaction rather than after, since an archive that killed them and then failed to
+// commit leaves rows the reconciler already tidies, where one that committed and then
+// died would hide a running CLI for good.
+//
 // A workflow still holding live schedules is refused. Archiving it would either
 // strand them with nowhere to run or switch them off silently, so the schedules
 // have to be turned off first, deliberately.
@@ -154,6 +174,12 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 	if scheduled > 0 {
 		return fmt.Errorf("%w: %q has %d", ErrWorkflowHasSchedules, existing.Name, scheduled)
 	}
+
+	inside, err := w.agents.ListLiveInWorkflow(ctx, id)
+	if err != nil {
+		return err
+	}
+	killOwnedPanes(ctx, w.tmux, inside)
 
 	err = w.tx.InTx(ctx, func(db store.DBTX) error {
 		if err := workflow.New(db).Archive(ctx, id); err != nil {

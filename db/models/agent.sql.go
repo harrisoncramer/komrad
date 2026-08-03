@@ -690,6 +690,56 @@ func (q *Queries) ListArchivedWorkflowAgents(ctx context.Context, workflowID str
 	return items, nil
 }
 
+const listLiveWorkflowAgents = `-- name: ListLiveWorkflowAgents :many
+SELECT
+    id, name, cwd, flags, prompt, pane_id, state, harness, session_id, workflow_id, schedule_id, idempotency_key, archived_at, is_hidden, mark, created_at, updated_at
+FROM
+    agents
+WHERE
+    workflow_id = $1
+    AND archived_at IS NULL
+ORDER BY
+    id DESC
+`
+
+func (q *Queries) ListLiveWorkflowAgents(ctx context.Context, workflowID string) ([]*Agent, error) {
+	rows, err := q.db.Query(ctx, listLiveWorkflowAgents, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Agent
+	for rows.Next() {
+		var i Agent
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Cwd,
+			&i.Flags,
+			&i.Prompt,
+			&i.PaneID,
+			&i.State,
+			&i.Harness,
+			&i.SessionID,
+			&i.WorkflowID,
+			&i.ScheduleID,
+			&i.IdempotencyKey,
+			&i.ArchivedAt,
+			&i.IsHidden,
+			&i.Mark,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockAgentSlots = `-- name: LockAgentSlots :exec
 SELECT
     PG_ADVISORY_XACT_LOCK($1::bigint)
@@ -724,7 +774,8 @@ const markWorkflowAgentsArchived = `-- name: MarkWorkflowAgentsArchived :exec
 UPDATE
     agents
 SET
-    archived_at = NOW()
+    archived_at = NOW(),
+    pane_id = ''
 WHERE
     workflow_id = $1
     AND archived_at IS NULL

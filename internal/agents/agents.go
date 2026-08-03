@@ -37,12 +37,24 @@ type agentManager interface {
 	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
 }
 
-type paneController interface {
-	NewWindow(session, name, dir string) (string, error)
+// paneOwnerGetter reads which agent every live pane is stamped with, so a whole
+// listing's liveness comes off one tmux call.
+type paneOwnerGetter interface {
+	GetPaneOwners() (map[string]string, error)
+}
+
+// paneKiller is the tmux stopping a set of agents needs. The owner stamps say whose
+// pane is whose, and the kill takes it down.
+type paneKiller interface {
+	paneOwnerGetter
 	KillPane(pane string)
+}
+
+type paneController interface {
+	paneKiller
+	NewWindow(session, name, dir string) (string, error)
 	SetPaneOwner(pane, agentID string) error
 	GetPaneOwner(pane string) string
-	GetPaneOwners() (map[string]string, error)
 	GetClientPath(client string) string
 }
 
@@ -153,7 +165,11 @@ func (s *AgentService) IsAgentRunning(agent agentstore.Agent) bool {
 // id. A tmux that will not answer reports every agent as not running, which is what
 // asking per agent already does when the server is unreachable.
 func (s *AgentService) GetRunningAgents(ctx context.Context, agents []agentstore.Agent) map[string]bool {
-	owners, err := s.tmux.GetPaneOwners()
+	return getRunningAgents(ctx, s.tmux, agents)
+}
+
+func getRunningAgents(ctx context.Context, tmux paneOwnerGetter, agents []agentstore.Agent) map[string]bool {
+	owners, err := tmux.GetPaneOwners()
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "failed to read pane owners, reporting every agent as not running",
 			logging.Err(err)...)
@@ -352,7 +368,7 @@ func (s *AgentService) DeleteAgents(ctx context.Context, ids []string) error {
 		return err
 	}
 
-	s.killOwnedPanes(ctx, agents)
+	killOwnedPanes(ctx, s.tmux, agents)
 	for _, agent := range agents {
 		s.runCleanup(ctx, agent, s.getCleanupAction(ctx, agent))
 	}
@@ -375,7 +391,7 @@ func (s *AgentService) ArchiveAgents(ctx context.Context, ids []string) error {
 		return err
 	}
 
-	s.killOwnedPanes(ctx, agents)
+	killOwnedPanes(ctx, s.tmux, agents)
 
 	if err := s.agents.Archive(ctx, ids); err != nil {
 		return fmt.Errorf("failed to archive %d agents: %w", len(ids), err)
@@ -545,11 +561,14 @@ func isPaneOwnedBy(owner, agentID string) bool {
 // killOwnedPanes tears down the panes of a set of agents, but only while each pane is
 // still its agent's own, since a reissued id may now belong to another process. Liveness
 // comes off one tmux call for the whole set rather than one per agent.
-func (s *AgentService) killOwnedPanes(ctx context.Context, agents []agentstore.Agent) {
-	running := s.GetRunningAgents(ctx, agents)
+//
+// It is a function rather than a method because archiving an agent by id and archiving
+// the workflow around it stop the same CLIs from two different services.
+func killOwnedPanes(ctx context.Context, tmux paneKiller, agents []agentstore.Agent) {
+	running := getRunningAgents(ctx, tmux, agents)
 	for _, agent := range agents {
 		if running[agent.ID] {
-			s.tmux.KillPane(agent.Pane)
+			tmux.KillPane(agent.Pane)
 		}
 	}
 }
