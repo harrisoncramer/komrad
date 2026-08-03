@@ -147,7 +147,7 @@ func TestActionOpensOnTheHoveredAgent(t *testing.T) {
 
 	require.Len(t, got.actions.items, 2, "the list is filled in from the service")
 	assert.Equal(t, "open-pr", got.actions.items[0].name)
-	assert.Contains(t, stagedDocument(t), "echo hello", "the file's own text is what the stage shows")
+	assert.Contains(t, stagedDocument(t), "Open the pull request", "what the file declares is what the stage shows")
 }
 
 // TestActionItemsSkipUnderscoredNames covers the naming convention that keeps a file off the
@@ -261,61 +261,9 @@ func TestActionListingFailureAfterTheScreenWasLeftIsSilent(t *testing.T) {
 	assert.Nil(t, got.banner, "nothing banners over a screen the failure is not about")
 }
 
-// TestFencedBlock covers the shared block any screen wraps somebody else's text in. The fence has
-// to beat whatever is inside it, or text carrying a fence of its own closes the block early and
-// leaves the rest of itself rendering as prose.
-func TestFencedBlock(t *testing.T) {
-	tests := []struct {
-		name        string
-		text        []byte
-		wantContain []string
-		wantAbsent  []string
-	}{
-		{
-			name:        "a compiled program has nothing to read",
-			text:        []byte{0x7f, 'E', 'L', 'F', 0x00, 0x01},
-			wantContain: []string{"not text"},
-			wantAbsent:  []string{"```", "ELF"},
-		},
-		{
-			name:        "nothing at all says so rather than drawing an empty block",
-			text:        []byte("\n"),
-			wantContain: []string{"_empty_"},
-			wantAbsent:  []string{"```"},
-		},
-		{
-			name:        "text carrying a fence is wrapped in a longer one",
-			text:        []byte("echo '```go'\n"),
-			wantContain: []string{"````\necho '```go'\n````"},
-		},
-		{
-			name:        "text carrying a longer fence is wrapped in a longer one still",
-			text:        []byte("````\n"),
-			wantContain: []string{"`````\n````\n`````"},
-		},
-		{
-			name:        "plain text goes in as it was written",
-			text:        []byte("#!/bin/sh\nopen \"$url\"\n"),
-			wantContain: []string{"```\n#!/bin/sh\nopen \"$url\"\n```"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := fencedBlock(tt.text)
-
-			for _, want := range tt.wantContain {
-				assert.Contains(t, got, want)
-			}
-			for _, absent := range tt.wantAbsent {
-				assert.NotContains(t, got, absent)
-			}
-		})
-	}
-}
-
-// TestActionMarkdown covers what the action document adds around the shared block, which is the
-// name, the chmod a file without the bit wants, and whether the service read the file whole.
+// TestActionMarkdown covers the document the stage shows beside a hovered action, which is what
+// the file declares about itself: its name, the chmod a file without the bit wants, and the
+// timeout one run of it gets.
 func TestActionMarkdown(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -325,60 +273,34 @@ func TestActionMarkdown(t *testing.T) {
 	}{
 		{
 			name:        "a file without the executable bit says what it wants",
-			action:      actionItem{name: "unrunnable", preview: []byte("#!/bin/sh\n")},
+			action:      actionItem{name: "unrunnable"},
 			wantContain: []string{"# unrunnable", "chmod +x"},
 		},
 		{
-			name: "a binary read to the limit does not claim to be a partial script",
-			action: actionItem{
-				name:       "compiled",
-				executable: true,
-				preview:    []byte{0x7f, 'E', 'L', 'F', 0x00},
-				truncated:  true,
-			},
-			wantContain: []string{"not text"},
-			wantAbsent:  []string{"only the start"},
-		},
-		{
-			name: "a head of a longer file says it is only the start",
-			action: actionItem{
-				name:       "long",
-				executable: true,
-				preview:    []byte("#!/bin/sh\necho one\n"),
-				truncated:  true,
-			},
-			wantContain: []string{"only the start of the file is shown"},
+			name:        "a file that declares nothing says so rather than sitting blank",
+			action:      actionItem{name: "bare", executable: true},
+			wantContain: []string{"# bare", "_no description declared_", "timeout: —"},
+			wantAbsent:  []string{"chmod", "was not understood"},
 		},
 		{
 			name: "a header that did not read says which lines were skipped",
 			action: actionItem{
 				name:       "half-declared",
 				executable: true,
-				preview:    []byte("#!/bin/sh\n"),
 				problems:   []string{`line 2: "soon" is not a duration`},
 			},
 			wantContain: []string{"was not understood", `- line 2: "soon" is not a duration`},
 		},
 		{
-			name: "a runnable script is its name over its own text",
-			action: actionItem{
-				name:       "open-pr",
-				executable: true,
-				preview:    []byte("#!/bin/sh\nopen \"$url\"\n"),
-			},
-			wantContain: []string{"# open-pr", "```\n#!/bin/sh"},
-			wantAbsent:  []string{"chmod", "only the start", "gives up after"},
-		},
-		{
-			name: "what the file declares sits above its text",
+			name: "what the file declares is the whole of the document",
 			action: actionItem{
 				name:        "open-pr",
 				executable:  true,
-				preview:     []byte("#!/bin/sh\nopen \"$url\"\n"),
 				description: "Open the pull request this agent recorded.",
 				timeout:     45 * time.Second,
 			},
-			wantContain: []string{"Open the pull request this agent recorded.", "gives up after 45s"},
+			wantContain: []string{"# open-pr", "Open the pull request this agent recorded.", "timeout: 45s"},
+			wantAbsent:  []string{"chmod", "was not understood"},
 		},
 	}
 
@@ -433,10 +355,10 @@ func TestNoActionsSaysWhereToPutThem(t *testing.T) {
 	assert.Contains(t, noActionsMarkdown, "WEAVE_AGENT")
 }
 
-// TestActionPreviewRedrawsOnlyOnAChange covers the stage leaving its pane alone while what it
+// TestActionDocumentRedrawsOnlyOnAChange covers the stage leaving its pane alone while what it
 // holds is unchanged, which is what keeps a restage from restarting the pager. The document
-// carries the file's text, so a listing that came back changed is a different document.
-func TestActionPreviewRedrawsOnlyOnAChange(t *testing.T) {
+// carries what the file declares, so a listing that came back changed is a different document.
+func TestActionDocumentRedrawsOnlyOnAChange(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := actionsModel(&fakeActions{}, appconfig.DefaultKeybindings())
 	m.stage = NewStage(tmux, appconfig.DefaultLayout())
@@ -446,11 +368,11 @@ func TestActionPreviewRedrawsOnlyOnAChange(t *testing.T) {
 	m.stageAction()
 	require.Len(t, tmux.respawns, 1, "showing the same document twice draws once")
 
-	m.actions.items[0].preview = []byte("#!/bin/sh\necho edited\n")
+	m.actions.items[0].description = "Open the pull request, and say so in Slack."
 	m.stageAction()
 
 	require.Len(t, tmux.respawns, 2, "an edited file is a different document")
-	assert.Contains(t, stagedDocument(t), "echo edited")
+	assert.Contains(t, stagedDocument(t), "and say so in Slack")
 }
 
 // actionsModel builds the panel sitting on the actions list of one agent, with a runnable action
@@ -482,16 +404,14 @@ func listedActions() []*actionv1.Action {
 		{
 			Name:        "open-pr",
 			Executable:  true,
-			Preview:     []byte("#!/bin/sh\necho hello\n"),
 			Description: "Open the pull request this agent recorded.",
 			Timeout:     durationpb.New(45 * time.Second),
 		},
 		{
 			Name:           "unrunnable",
-			Preview:        []byte("#!/bin/sh\necho hello\n"),
 			HeaderProblems: []string{`line 2: "soon" is not a duration`},
 		},
-		{Name: "_internal", Executable: true, Preview: []byte("#!/bin/sh\necho hello\n")},
+		{Name: "_internal", Executable: true},
 	}
 }
 

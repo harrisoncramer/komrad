@@ -18,7 +18,7 @@ import (
 // actionRunner is the part of the action service the handlers drive. The handlers translate
 // and nothing more. What an action is and what it is told lives behind this.
 type actionRunner interface {
-	ListActions() ([]agents.ListedAction, error)
+	ListActions() ([]actions.Action, error)
 	RunAction(ctx context.Context, agentID, name string) error
 }
 
@@ -44,13 +44,11 @@ func (s *Service) ListActions(_ context.Context, _ *connect.Request[emptypb.Empt
 	resources := make([]*actionv1.Action, 0, len(listed))
 	for _, action := range listed {
 		resources = append(resources, &actionv1.Action{
-			Name:             action.Name,
-			Executable:       action.Executable,
-			Preview:          action.Preview,
-			PreviewTruncated: action.Truncated,
-			Description:      action.Header.Description,
-			Timeout:          declaredTimeout(action.Header.Timeout),
-			HeaderProblems:   action.Header.Problems,
+			Name:           action.Name,
+			Executable:     action.Executable,
+			Description:    action.Header.Description,
+			Timeout:        declaredTimeout(action.Header.Timeout),
+			HeaderProblems: action.Header.Problems,
 		})
 	}
 

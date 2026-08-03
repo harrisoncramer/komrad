@@ -101,31 +101,20 @@ func TestRunActionPassesWhatItWasAsked(t *testing.T) {
 	assert.Equal(t, "open-linear", manager.action)
 }
 
-// TestListActions covers the listing rendered onto the wire. The preview is bytes rather than a
-// string because an action is as readily a compiled program as a script, and the first page of one
-// is not valid UTF-8, which proto3 would refuse.
-//
-// An action that declared no timeout leaves the field unset rather than sending zero, which a
-// caller would read as a run with no time at all.
+// TestListActions covers the listing rendered onto the wire. An action that declared no timeout
+// leaves the field unset rather than sending zero, which a caller would read as a run with no
+// time at all.
 func TestListActions(t *testing.T) {
-	manager := &fakeActions{listed: []agents.ListedAction{
+	manager := &fakeActions{listed: []actions.Action{
 		{
-			Action: actions.Action{
-				Name: "open-pr", Path: "/actions/open-pr", Executable: true,
-				Header: actions.Header{
-					Description: "Open the pull request this agent recorded.",
-					Timeout:     45 * time.Second,
-					Problems:    []string{"line 4: nope is not a directive weave knows"},
-				},
+			Name: "open-pr", Path: "/actions/open-pr", Executable: true,
+			Header: actions.Header{
+				Description: "Open the pull request this agent recorded.",
+				Timeout:     45 * time.Second,
+				Problems:    []string{"line 4: nope is not a directive weave knows"},
 			},
-			Preview:   []byte("#!/bin/sh\n"),
-			Truncated: false,
 		},
-		{
-			Action:    actions.Action{Name: "compiled", Path: "/actions/compiled", Executable: true},
-			Preview:   []byte{0x7f, 'E', 'L', 'F', 0x00},
-			Truncated: true,
-		},
+		{Name: "compiled", Path: "/actions/compiled", Executable: true},
 	}}
 
 	resp, err := NewService(manager).ListActions(context.Background(), connect.NewRequest(&emptypb.Empty{}))
@@ -136,14 +125,10 @@ func TestListActions(t *testing.T) {
 
 	assert.Equal(t, "open-pr", listed[0].GetName())
 	assert.True(t, listed[0].GetExecutable())
-	assert.Equal(t, []byte("#!/bin/sh\n"), listed[0].GetPreview())
-	assert.False(t, listed[0].GetPreviewTruncated())
 	assert.Equal(t, "Open the pull request this agent recorded.", listed[0].GetDescription())
 	assert.Equal(t, 45*time.Second, listed[0].GetTimeout().AsDuration())
 	assert.Equal(t, []string{"line 4: nope is not a directive weave knows"}, listed[0].GetHeaderProblems())
 
-	assert.Equal(t, []byte{0x7f, 'E', 'L', 'F', 0x00}, listed[1].GetPreview(), "bytes no string could carry")
-	assert.True(t, listed[1].GetPreviewTruncated())
 	assert.Empty(t, listed[1].GetDescription())
 	assert.Nil(t, listed[1].GetTimeout(), "a file that declared no timeout sends none")
 }
@@ -162,14 +147,14 @@ func TestListActionsFailure(t *testing.T) {
 // fakeActions stands in for the service the handlers translate for, recording what it was asked
 // to fire so a case can assert the handler passed it through unchanged.
 type fakeActions struct {
-	listed  []agents.ListedAction
+	listed  []actions.Action
 	listErr error
 	err     error
 	agentID string
 	action  string
 }
 
-func (f *fakeActions) ListActions() ([]agents.ListedAction, error) {
+func (f *fakeActions) ListActions() ([]actions.Action, error) {
 	if f.listErr != nil {
 		return nil, f.listErr
 	}

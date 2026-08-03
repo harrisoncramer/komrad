@@ -330,9 +330,9 @@ func (a api) restoreWorkflow(id string) error {
 	return nil
 }
 
-// listActions is the user's actions as the service finds them, each with the start of its
-// own text for the preview. The panel never reads the directory itself, so what it lists
-// and what a model lists are one call.
+// listActions is the user's actions as the service finds them, each with what its own header
+// declares. The panel never reads the directory itself, so what it lists and what a model
+// lists are one call.
 func (a api) listActions() ([]*actionv1.Action, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()

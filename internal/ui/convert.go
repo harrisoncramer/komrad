@@ -71,8 +71,6 @@ func actionItemsFrom(listed []*actionv1.Action) []actionItem {
 		items = append(items, actionItem{
 			name:        action.GetName(),
 			executable:  action.GetExecutable(),
-			preview:     action.GetPreview(),
-			truncated:   action.GetPreviewTruncated(),
 			description: action.GetDescription(),
 			timeout:     action.GetTimeout().AsDuration(),
 			problems:    action.GetHeaderProblems(),
