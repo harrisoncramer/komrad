@@ -221,6 +221,30 @@ func TestReadOnlyLoginCheck(t *testing.T) {
 			"the reason names the login, since that is what has to be created")
 	})
 
+	t.Run("a login on another server", func(t *testing.T) {
+		env := dbEnv(fakeSchema{}, nil, nil)
+		env.ReadOnlyDatabaseURL = "postgres://weave_readonly:weave_readonly@localhost:5461/weave?sslmode=disable"
+
+		result := ReadOnlyLogin().Run(t.Context(), env)
+
+		require.Equal(t, StatusWarn, result.Status,
+			"both logins connect, so nothing else in the report says the MCP tools are reading somewhere else")
+		assert.Equal(t, "readonly_login_elsewhere", CodeOf(result.Err))
+		assert.Contains(t, result.Err.Error(), "localhost:5460",
+			"the reason names the address the panel writes to, since that is the one the pair should agree on")
+	})
+
+	t.Run("no read-only login to connect as", func(t *testing.T) {
+		env := dbEnv(fakeSchema{}, nil, nil)
+		env.ReadOnlyDatabaseURL = ""
+
+		result := ReadOnlyLogin().Run(t.Context(), env)
+
+		require.Equal(t, StatusFail, result.Status,
+			"an empty url connects as whoever is running weave, so it cannot be handed to the pool")
+		assert.Equal(t, "readonly_login_unset", CodeOf(result.Err))
+	})
+
 	t.Run("one login doing both jobs", func(t *testing.T) {
 		env := dbEnv(fakeSchema{}, nil, nil)
 		env.ReadOnlyDatabaseURL = env.DatabaseURL

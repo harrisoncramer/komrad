@@ -9,8 +9,9 @@ Create the least-privilege role the MCP query tools connect as.
 The SQL half of the MCP endpoint runs whatever an agent asks it to, so it connects
 as a login that can read the application tables and nothing else. That is enforced
 by Postgres rather than by inspecting the query. This creates or updates that role
-from the user and password in WEAVE_READONLY_DATABASE_URL, using DATABASE_URL to do
-the granting.
+from the user and password in the read-only url, which is WEAVE_READONLY_DATABASE_URL
+when it is set and DATABASE_URL with the weave_readonly login otherwise, using
+DATABASE_URL to do the granting.
 
 It refuses when the two URLs name the same login, since then the read-only path would
 have the owner's privileges. Run it once when setting a database up. Tables a later

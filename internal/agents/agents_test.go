@@ -278,7 +278,7 @@ func TestNewAgentGetsDirectory(t *testing.T) {
 			st := newStore(t)
 			manager := newManager(tmux, st, "")
 
-			created, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{Name: "backend", Cwd: tt.workflowCwd})
+			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflow.Config{Name: "backend", Cwd: tt.workflowCwd})
 			require.NoError(t, err)
 
 			_, err = manager.NewAgent(t.Context(), NewAgentParams{
@@ -328,7 +328,7 @@ func TestNewAgentInsideWorkflow(t *testing.T) {
 			st := newStore(t)
 			manager, h := newManagerWithHarness(tmux, st, "")
 
-			created, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{
+			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflow.Config{
 				Name:    "backend",
 				Context: tt.context,
 			})
@@ -411,7 +411,7 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 			h := &fakeHarness{}
 			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: h}, lifecycle)
 
-			created, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{
+			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflow.Config{
 				Name:        "backend",
 				SetupAction: tt.action,
 			})
@@ -496,7 +496,7 @@ func TestNewAgentCeiling(t *testing.T) {
 			lifecycle := &fakeLifecycle{}
 			manager := st.agentServiceCapped(tmux, lifecycle, tt.maxAgents)
 
-			workflow, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{
+			workflow, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflow.Config{
 				Name:        "backend",
 				SetupAction: "make-worktree",
 			})
@@ -606,7 +606,7 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 			lifecycle := &fakeLifecycle{dir: tt.answered}
 			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
-			created, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{
+			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflow.Config{
 				Name:          "backend",
 				SetupAction:   "make-worktree",
 				CleanupAction: "drop-worktree",
@@ -639,7 +639,7 @@ func TestNewAgentDoesNotCleanUpASetupThatRefused(t *testing.T) {
 	lifecycle := &fakeLifecycle{setupErr: ErrSetupFailed}
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
-	created, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{
+	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflow.Config{
 		Name:          "backend",
 		SetupAction:   "make-worktree",
 		CleanupAction: "drop-worktree",
@@ -682,7 +682,7 @@ func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
 			lifecycle := &fakeLifecycle{}
 			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
-			created, err := workflowsFor(st).NewWorkflow(t.Context(), workflow.Config{
+			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflow.Config{
 				Name:          "backend",
 				CleanupAction: "drop-worktree",
 			})
@@ -714,7 +714,7 @@ func TestDeleteAgentRunsCleanupFromAnArchivedWorkflow(t *testing.T) {
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{}
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
-	workflows := workflowsFor(st)
+	workflows := workflowsFor(st, tmux)
 
 	created, err := workflows.NewWorkflow(t.Context(), workflow.Config{
 		Name:          "backend",

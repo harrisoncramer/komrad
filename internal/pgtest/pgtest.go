@@ -37,9 +37,9 @@ func URL(t *testing.T) string {
 
 	// The test database is created on the server the application would have
 	// connected to, read through the same config, so `mise run docker:up` is the only
-	// setup a test run needs and a CI runner redirects both at once by setting
-	// DATABASE_URL. Only the server is borrowed. The database named in the url is
-	// never touched.
+	// setup a test run needs and a CI runner redirects the whole run by setting
+	// DATABASE_URL, the read-only login included, since that one is derived from it.
+	// Only the server is borrowed. The database named in the url is never touched.
 	cfg, err := config.Load()
 	if err != nil {
 		t.Fatalf("failed to load config for the test database: %v", err)

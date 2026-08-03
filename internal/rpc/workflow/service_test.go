@@ -390,6 +390,30 @@ func TestListWorkflows(t *testing.T) {
 	}
 }
 
+// TestListWorkflowsRefusesAMangledToken covers a token that decodes into the right shape
+// while holding an id no row can have. The token is the server's own artifact handed back
+// verbatim, so one carrying an unusable value is the caller's mistake rather than a
+// database failure.
+func TestListWorkflowsRefusesAMangledToken(t *testing.T) {
+	svc, _ := service(t)
+
+	// Base64 of {"i":"not-an-id"}.
+	const token = "eyJpIjoibm90LWFuLWlkIn0="
+
+	_, err := svc.ListWorkflows(t.Context(), connect.NewRequest(&workflowv1.ListWorkflowsRequest{
+		Pagination: &paginationv1.Pagination{Cursor: proto.String(token)},
+	}))
+	require.Error(t, err)
+	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+}
+
+// idlePanes stands in for a tmux server holding no panes at all. Archiving a workflow
+// stops the agents inside it, and nothing these handler tests build has ever launched one.
+type idlePanes struct{}
+
+func (idlePanes) GetPaneOwners() (map[string]string, error) { return nil, nil }
+func (idlePanes) KillPane(string)                           {}
+
 // The handler never sees an agent store, but deleting a workflow settles the
 // agents inside it, so those cases reach for one.
 func service(t *testing.T) (*Service, *storetest.Stores) {
@@ -398,7 +422,9 @@ func service(t *testing.T) (*Service, *storetest.Stores) {
 	st := storetest.Open(t)
 	manager := agents.NewWorkflowService(agents.WorkflowParams{
 		Workflows: st.Workflows,
+		Agents:    st.Agents,
 		Schedules: st.Schedules,
+		Tmux:      idlePanes{},
 		Tx:        st.Pool,
 	})
 

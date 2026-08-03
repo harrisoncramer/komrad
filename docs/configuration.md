@@ -231,21 +231,25 @@ Weave brings the schema up to date itself when the service starts. There is no m
 
 ### WEAVE_READONLY_DATABASE_URL
 
-A second login into the same database, for reading only. Defaults to `postgres://weave_readonly:weave_readonly@localhost:5460/weave?sslmode=disable`.
+A second login into the same database, for reading only.
 
-Weave needs two URLs rather than one because the [MCP](mcp.md) surface lets a model run SQL. The connection is opened read-only, but read-only stops writes and only writes; what a `SELECT` is allowed to see is decided by the role's privileges. So the query tools connect as a role that has read on the application tables and nothing else.
+Set nothing and weave derives it from `DATABASE_URL`, keeping the host, the port, the database, and the options exactly as you wrote them and putting the login `weave_readonly` in place of yours. So moving `DATABASE_URL` to another server moves both halves, and the two can only land on different databases if you say so here.
+
+Weave needs two logins rather than one because the [MCP](mcp.md) surface lets a model run SQL. The connection is opened read-only, but read-only stops writes and only writes; what a `SELECT` is allowed to see is decided by the role's privileges. So the query tools connect as a role that has read on the application tables and nothing else.
 
 Weave refuses to start if that URL lands on a superuser, and says so rather than warning, because a superuser is exempt from the privilege checks on the catalogs and on the file-reading functions, and both are reachable through a plain `SELECT` that writes nothing.
 
-`weave readonly-role` creates the role named in this URL, with the password in it, and grants it read on the application tables:
+Set it when the read-only login needs a password of its own, or reaches the database by another route:
 
 ```sh
 export DATABASE_URL='postgres://weave:secret@db.internal:5432/weave?sslmode=require'
-export WEAVE_READONLY_DATABASE_URL='postgres://weave_readonly:secret@db.internal:5432/weave?sslmode=require'
+export WEAVE_READONLY_DATABASE_URL='postgres://weave_readonly:other@db.internal:5432/weave?sslmode=require'
 weave readonly-role
 ```
 
-It connects as the first URL and needs `CREATEROLE`. Run it once, and again after an upgrade that adds a table. It refuses to run if the two URLs name the same login, since that would be a read-only role with your write privileges.
+`weave readonly-role` creates the role named in the read-only URL, with the password in it, and grants it read on the application tables. It connects as `DATABASE_URL` and needs `CREATEROLE`. Run it once, and again after an upgrade that adds a table. It refuses to run if the two URLs name the same login, since that would be a read-only role with your write privileges.
+
+`weave doctor` reports a pair naming two different databases, since both halves connect and nothing else would say the panel and the query tools are reading different rows. It reports rather than refuses, because an address weave cannot match up may still be the same database behind a connection pooler or a second name for the host.
 
 ### WEAVE_ADDR
 

@@ -9,7 +9,9 @@
 // its own token format.
 //
 // The token is an opaque base64 of the JSON-encoded cursor. Callers hand it back
-// verbatim, and the shape inside it is the server's business and may change.
+// verbatim, and the shape inside it is the server's business and may change. A cursor
+// type says through Validate what it will take back, so a token holding something the
+// query cannot use is refused here rather than by the database.
 package pagination
 
 import (
@@ -22,16 +24,22 @@ import (
 	"connectrpc.com/connect"
 )
 
+// Cursor is a decoded cursor that can say whether it holds a position this server could
+// have handed out. One that cannot is a mangled token rather than a place in a listing.
+type Cursor interface {
+	Validate() error
+}
+
 // Cursorable is a resource that can say where it sits in a listing. C is the cursor
 // type, whatever the query orders by, which is a sort key plus an id for anything
 // whose sort key can tie.
-type Cursorable[C any] interface {
+type Cursorable[C Cursor] interface {
 	Cursor() (C, error)
 }
 
 // Paginator carries the decoded request cursor and the clamped limit for one
 // listing over resources of type M.
-type Paginator[C any, M Cursorable[C]] struct {
+type Paginator[C Cursor, M Cursorable[C]] struct {
 	limit  int64
 	cursor *C
 }
@@ -47,9 +55,10 @@ const (
 // New builds a Paginator from a request's pagination. A nil pagination is the
 // first page at the default size, so a caller that omits the field entirely is
 // served rather than refused. A malformed cursor is the caller's mistake and comes
-// back as InvalidArgument. A limit past the ceiling is clamped, since a caller
+// back as InvalidArgument, whether it will not decode at all or decodes into a position
+// its own cursor type refuses. A limit past the ceiling is clamped, since a caller
 // asking for too much still wants a page.
-func New[C any, M Cursorable[C]](p *paginationv1.Pagination) (*Paginator[C, M], error) {
+func New[C Cursor, M Cursorable[C]](p *paginationv1.Pagination) (*Paginator[C, M], error) {
 	cursor, err := decode[C](p.GetCursor())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid pagination cursor: %w", err))
@@ -97,8 +106,8 @@ func (p *Paginator[C, M]) NextToken(resources []M) (*string, error) {
 }
 
 // decode unpacks a base64 JSON token into a cursor, or nil when the token is
-// empty.
-func decode[C any](token string) (*C, error) {
+// empty. A cursor that unpacks is put to its own Validate before it is handed on.
+func decode[C Cursor](token string) (*C, error) {
 	if token == "" {
 		return nil, nil
 	}
@@ -111,6 +120,10 @@ func decode[C any](token string) (*C, error) {
 	var cursor C
 	if err := json.Unmarshal(raw, &cursor); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal page token: %w", err)
+	}
+
+	if err := cursor.Validate(); err != nil {
+		return nil, err
 	}
 
 	return &cursor, nil

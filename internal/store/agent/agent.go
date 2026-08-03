@@ -136,6 +136,15 @@ type Cursor struct {
 	ID string `json:"i"`
 }
 
+// Validate refuses a cursor holding anything but an id, which is what the listing pages by.
+func (c Cursor) Validate() error {
+	if !store.IsID(c.ID) {
+		return fmt.Errorf("cursor id %q is not an id", c.ID)
+	}
+
+	return nil
+}
+
 // ListPage returns one page of agents, newest first, resuming after cursor when one is
 // given. archived picks the live agents or the archived ones and never both, since an
 // archived agent may share a name with a live one. Paging keys on the id rather than
@@ -647,6 +656,22 @@ func (s *Store) RestoreWorkflowAgents(ctx context.Context, workflowID string) er
 	}
 
 	return nil
+}
+
+// ListLiveInWorkflow is the unarchived agents belonging to one workflow, whose panes a
+// workflow archive tears down before it writes.
+func (s *Store) ListLiveInWorkflow(ctx context.Context, workflowID string) ([]Agent, error) {
+	rows, err := s.queries.ListLiveWorkflowAgents(ctx, workflowID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list live agents of workflow %q: %w", workflowID, err)
+	}
+
+	agents := make([]Agent, 0, len(rows))
+	for _, row := range rows {
+		agents = append(agents, agentFromRow(*row))
+	}
+
+	return agents, nil
 }
 
 // ListArchivedInWorkflow is the archived agents belonging to one workflow, which is what

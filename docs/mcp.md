@@ -44,17 +44,17 @@ The other half is the panel's own RPCs, exposed as tools. Every one of them is a
 
 ## The read-only role, and why it is a role
 
-The `query` tool does not connect as the login weave writes with. It connects as a separate least-privilege Postgres role, named by `WEAVE_READONLY_DATABASE_URL`, which holds `CONNECT`, `USAGE` on `public`, and `SELECT` on the application's tables. Nothing else.
+The `query` tool does not connect as the login weave writes with. It connects as a separate least-privilege Postgres role, `weave_readonly` on the database `DATABASE_URL` names, which holds `CONNECT`, `USAGE` on `public`, and `SELECT` on the application's tables. Nothing else.
 
 That is not belt-and-braces. It is the actual boundary. The text validator, the `LIMIT` wrapper, and the read-only transaction all bound what a statement may *change*; none of them bound what it may *read*. `SELECT pg_read_file('/etc/passwd', 0, 120)` is a single `SELECT` with no forbidden verb in it, so it passes every one of those checks, and on a typical local install the writable login is a superuser, so it returns the file. As the read-only role the same statement fails with `permission denied for function pg_read_file`. The reasoning and the evidence are in [rfcs/0007-managed-postgres.md](../rfcs/0007-managed-postgres.md).
 
 So this cannot be a flag or a config toggle. A flag is something weave checks; the role is something Postgres enforces, against a list of superuser-reachable functions weave does not get to enumerate correctly forever.
 
-Practically: point `WEAVE_READONLY_DATABASE_URL` at its own login, and create it with
+Practically: create it with
 
     weave readonly-role
 
-which reads the name and password out of that URL, so the credentials it creates are the credentials the service connects with. It needs the writable login to hold `CREATE ROLE`. It is a separate command rather than a migration because a role is a cluster object and the binary should not have to hold that privilege on the path every other command takes. `weave doctor` checks all of this. Without a working read-only login the service refuses to start at all, rather than falling back to the writable one.
+which reads the name and password out of the read-only URL, derived or set, so the credentials it creates are the credentials the service connects with. It needs the writable login to hold `CREATE ROLE`. It is a separate command rather than a migration because a role is a cluster object and the binary should not have to hold that privilege on the path every other command takes. `weave doctor` checks all of this. Without a working read-only login the service refuses to start at all, rather than falling back to the writable one.
 
 ## The tool groups
 

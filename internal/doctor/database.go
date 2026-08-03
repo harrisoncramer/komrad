@@ -49,6 +49,14 @@ var (
 		Code:    "readonly_login_shared",
 		Message: "WEAVE_READONLY_DATABASE_URL names the same login as DATABASE_URL",
 	}
+	ErrReadOnlyLoginUnset = &Problem{
+		Code:    "readonly_login_unset",
+		Message: "there is no read-only login, and DATABASE_URL is not a url one can be derived from",
+	}
+	ErrReadOnlyLoginElsewhere = &Problem{
+		Code:    "readonly_login_elsewhere",
+		Message: "the MCP query tools read a different database than the panel writes to",
+	}
 	ErrReadOnlyLoginUnusable = &Problem{
 		Code:    "readonly_login_unusable",
 		Message: "the least-privilege login the MCP tools connect as does not work",
@@ -119,6 +127,17 @@ func ReadOnlyLogin() Check {
 		Description: "the MCP query tools read through a login that can only read",
 		Needs:       []string{"database"},
 		Run: func(ctx context.Context, env Env) Result {
+			// An empty url is not a missing setting the way an empty cache directory is.
+			// Postgres reads it as every default, so the pool would open as whoever is
+			// running weave rather than refuse.
+			if env.ReadOnlyDatabaseURL == "" {
+				return fail(
+					ErrReadOnlyLoginUnset,
+					"",
+					"set WEAVE_READONLY_DATABASE_URL to a postgres:// url, then run weave readonly-role",
+				)
+			}
+
 			// Checked before connecting, since one login for both would connect cleanly
 			// and hand the MCP endpoint the writable role.
 			if env.ReadOnlyDatabaseURL == env.DatabaseURL {
@@ -134,6 +153,17 @@ func ReadOnlyLogin() Check {
 					fmt.Errorf("%w: %s", ErrReadOnlyLoginUnusable, describeDatabaseReason(err)),
 					redactDSN(env.ReadOnlyDatabaseURL),
 					"weave readonly-role",
+				)
+			}
+
+			// Both connect, so nothing else in the report says the two halves disagree.
+			// Reported rather than refused, since an address weave cannot match up may
+			// still be the same database behind a pooler or a second name for the host, and
+			// only whoever wrote the url can say.
+			if where := describeStoreMismatch(env.DatabaseURL, env.ReadOnlyDatabaseURL); where != "" {
+				return warn(
+					fmt.Errorf("%w: %s", ErrReadOnlyLoginElsewhere, where),
+					redactDSN(env.ReadOnlyDatabaseURL),
 				)
 			}
 
@@ -165,6 +195,36 @@ func classifyDatabaseFailure(err error, url, detail string) Result {
 		detail,
 		"start Postgres "+describeHostPort(url)+", or point DATABASE_URL at one that is running",
 	)
+}
+
+// describeStoreMismatch names the two addresses when the pair of logins does not land on
+// one database, and is empty when it does. Either url being unreadable is empty too, since
+// that is a failure of its own reported elsewhere and not a mismatch.
+//
+// The login is left out of the comparison on purpose. Two logins is the whole point of the
+// pair. What has to match is the rows they reach.
+func describeStoreMismatch(databaseURL, readOnlyURL string) string {
+	writable, err := pgconn.ParseConfig(databaseURL)
+	if err != nil {
+		return ""
+	}
+
+	readOnly, err := pgconn.ParseConfig(readOnlyURL)
+	if err != nil {
+		return ""
+	}
+
+	if writable.Host == readOnly.Host && writable.Port == readOnly.Port && writable.Database == readOnly.Database {
+		return ""
+	}
+
+	return fmt.Sprintf("DATABASE_URL is %s and this is %s",
+		describeStore(writable), describeStore(readOnly))
+}
+
+// describeStore is the database a config reaches, with the login left out.
+func describeStore(cfg *pgconn.Config) string {
+	return cfg.Host + ":" + strconv.Itoa(int(cfg.Port)) + "/" + cfg.Database
 }
 
 // describeDatabaseReason is what went wrong in the words Postgres or the network used.
@@ -222,7 +282,7 @@ func redactDSN(url string) string {
 		return "(unparseable)"
 	}
 
-	return "postgres://" + cfg.User + "@" + cfg.Host + ":" + strconv.Itoa(int(cfg.Port)) + "/" + cfg.Database
+	return "postgres://" + cfg.User + "@" + describeStore(cfg)
 }
 
 // describeMigrationCount writes a number of migrations as a phrase, so the line reads as a
