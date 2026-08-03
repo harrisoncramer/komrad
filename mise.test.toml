@@ -6,12 +6,13 @@
 # means `mise run restart` in the throwaway checkout cannot reach the agents or the data in
 # the one being developed against.
 [env]
-# Its own Postgres. The port is what docker-compose publishes and what the two connection
-# strings point at, and the compose project is named after the directory, so `docker:up`
-# brings up a container of its own rather than colliding on the other instance's.
+# Its own Postgres. The port is what docker-compose publishes and what the connection string
+# points at, and the compose project is named after the directory, so `docker:up` brings up a
+# container of its own rather than colliding on the other instance's. The read-only login the
+# MCP tools connect as is derived from this url, so there is nothing else here to keep in step
+# with the port.
 DB_PORT = "5461"
 DATABASE_URL = "postgres://weave:weave@localhost:5461/weave?sslmode=disable"
-WEAVE_READONLY_DATABASE_URL = "postgres://weave_readonly:weave_readonly@localhost:5461/weave?sslmode=disable"
 
 # Its own server, so both can run at once and neither adopts the other's.
 WEAVE_ADDR = "127.0.0.1:8790"

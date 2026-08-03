@@ -67,6 +67,13 @@ func Open(ctx context.Context, url string) (*Pool, error) {
 // everything a statement can read. That is why this takes its own url rather than the
 // writable one.
 func OpenReadOnly(ctx context.Context, url string) (*pgxpool.Pool, error) {
+	// Refused by name, because Postgres reads an empty string as every default and would
+	// connect as whoever is running weave, on a database nobody named.
+	if url == "" {
+		return nil, fmt.Errorf(
+			"no read-only database url: set WEAVE_READONLY_DATABASE_URL, since one could not be derived from DATABASE_URL")
+	}
+
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse database url: %w", err)
