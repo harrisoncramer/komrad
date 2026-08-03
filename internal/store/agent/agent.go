@@ -56,6 +56,9 @@ type Agent struct {
 	Flags  string
 	Prompt string
 	State  string
+	// StateChangedAt is when the agent entered the state it holds, moved only by a write
+	// that changed that state. It is what orders the agents blocked longest first.
+	StateChangedAt time.Time
 	// Harness names the CLI this agent runs, which decides how it is launched, how its
 	// state is read off its pane, and where its conversation log is found. It is
 	// set at create and never empty.
@@ -713,6 +716,7 @@ func agentFromRow(agent models.Agent) Agent {
 		Flags:          agent.Flags,
 		Prompt:         agent.Prompt,
 		State:          agent.State,
+		StateChangedAt: agent.StateChangedAt,
 		Harness:        agent.Harness,
 		SessionID:      agent.SessionID,
 		WorkflowID:     agent.WorkflowID,
