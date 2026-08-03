@@ -1,10 +1,11 @@
 # Actions
 
-Weave doesn't by default know how to configure worktrees, or how to open a finished agent's pull request in your browser. Actions are where you say so.
 
-An action is a script or a binary, meant to be executed by an agent, or on it's behalf via the agent manager panel.
+An action is a script or a binary, meant to be executed by an agent, on it's behalf by you, or automatically on certain lifecycle events.
 
 Nothing about an action is specific to weave. It's just an executable file, which gets told which agent it's running for through the `WEAVE_AGENT` environment variable.
+
+Use actions, for instance, to configure or clean up worktrees, or to open a finished agent's pull request in your browser.
 
 ## Where they live
 
