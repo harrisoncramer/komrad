@@ -37,16 +37,16 @@ type agentManager interface {
 	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
 }
 
-// paneOwnerReader reads which agent every live pane is stamped with, which is the one
-// call a whole listing's liveness comes off.
-type paneOwnerReader interface {
+// paneOwnerGetter reads which agent every live pane is stamped with, so a whole
+// listing's liveness comes off one tmux call.
+type paneOwnerGetter interface {
 	GetPaneOwners() (map[string]string, error)
 }
 
-// paneKiller is what stopping a set of agents needs: the stamps to tell whose pane is
-// whose, and the kill itself.
+// paneKiller is the tmux stopping a set of agents needs. The owner stamps say whose
+// pane is whose, and the kill takes it down.
 type paneKiller interface {
-	paneOwnerReader
+	paneOwnerGetter
 	KillPane(pane string)
 }
 
@@ -165,10 +165,10 @@ func (s *AgentService) IsAgentRunning(agent agentstore.Agent) bool {
 // id. A tmux that will not answer reports every agent as not running, which is what
 // asking per agent already does when the server is unreachable.
 func (s *AgentService) GetRunningAgents(ctx context.Context, agents []agentstore.Agent) map[string]bool {
-	return runningAgents(ctx, s.tmux, agents)
+	return getRunningAgents(ctx, s.tmux, agents)
 }
 
-func runningAgents(ctx context.Context, tmux paneOwnerReader, agents []agentstore.Agent) map[string]bool {
+func getRunningAgents(ctx context.Context, tmux paneOwnerGetter, agents []agentstore.Agent) map[string]bool {
 	owners, err := tmux.GetPaneOwners()
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "failed to read pane owners, reporting every agent as not running",
@@ -563,10 +563,9 @@ func isPaneOwnedBy(owner, agentID string) bool {
 // comes off one tmux call for the whole set rather than one per agent.
 //
 // It is a function rather than a method because archiving an agent by id and archiving
-// the workflow around it have to stop the same CLIs, and those two paths sit on different
-// services.
+// the workflow around it stop the same CLIs from two different services.
 func killOwnedPanes(ctx context.Context, tmux paneKiller, agents []agentstore.Agent) {
-	running := runningAgents(ctx, tmux, agents)
+	running := getRunningAgents(ctx, tmux, agents)
 	for _, agent := range agents {
 		if running[agent.ID] {
 			tmux.KillPane(agent.Pane)

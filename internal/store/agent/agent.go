@@ -658,8 +658,8 @@ func (s *Store) RestoreWorkflowAgents(ctx context.Context, workflowID string) er
 	return nil
 }
 
-// ListLiveInWorkflow is the unarchived agents belonging to one workflow, which is what a
-// workflow archive has to tear the panes down of before it writes.
+// ListLiveInWorkflow is the unarchived agents belonging to one workflow, whose panes a
+// workflow archive tears down before it writes.
 func (s *Store) ListLiveInWorkflow(ctx context.Context, workflowID string) ([]Agent, error) {
 	rows, err := s.queries.ListLiveWorkflowAgents(ctx, workflowID)
 	if err != nil {

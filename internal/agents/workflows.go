@@ -17,8 +17,8 @@ import (
 // directory and flags come from.
 var ErrWorkflowHasSchedules = errors.New("workflow still has schedules")
 
-// workflowReadWriter is the part of the workflow store this service reads and writes. A
-// workflow is a name and a blueprint, so none of it reaches tmux.
+// workflowReadWriter is the part of the workflow store this service reads and writes.
+// Workflows are pure organisation, so this touches no tmux.
 type workflowReadWriter interface {
 	List(ctx context.Context) ([]workflow.Workflow, error)
 	Get(ctx context.Context, id string) (*workflow.Workflow, error)
@@ -144,11 +144,11 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 // it rather than being orphaned, since every agent belongs to a workflow and there
 // is nowhere for one to be left.
 //
-// The agents' CLIs are stopped as they go, the way archiving them by id stops them, or a
-// bucket of five would leave five models generating in panes the panel no longer lists.
-// tmux is not part of the transaction, so the panes are torn down first: an archive that
-// killed the panes and then failed to commit leaves rows the reconciler already knows how
-// to tidy, where one that committed and then died would hide running CLIs for good.
+// The agents' CLIs are stopped on the way, the same as archiving them by id, so nothing
+// is left generating in a pane the panel no longer lists. The panes come down before the
+// transaction rather than after, since an archive that killed them and then failed to
+// commit leaves rows the reconciler already tidies, where one that committed and then
+// died would hide a running CLI for good.
 //
 // A workflow still holding live schedules is refused. Archiving it would either
 // strand them with nowhere to run or switch them off silently, so the schedules

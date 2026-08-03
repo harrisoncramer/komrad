@@ -407,9 +407,8 @@ func TestListWorkflowsRefusesAMangledToken(t *testing.T) {
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 }
 
-// idlePanes stands in for a tmux server holding nothing. Archiving a workflow stops the
-// agents inside it, and none of the workflows these handler tests build has ever launched
-// one, so every pane the archive asks about is somebody else's.
+// idlePanes stands in for a tmux server holding no panes at all. Archiving a workflow
+// stops the agents inside it, and nothing these handler tests build has ever launched one.
 type idlePanes struct{}
 
 func (idlePanes) GetPaneOwners() (map[string]string, error) { return nil, nil }
