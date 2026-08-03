@@ -81,7 +81,7 @@ func Database() Check {
 				)
 			}
 
-			target := dsn.Redact(env.DatabaseURL)
+			target := dsn.Redact(env.DatabaseURL) + describeSource(env, "database_url")
 
 			if err := env.PingDatabase(ctx, env.DatabaseURL); err != nil {
 				return classifyDatabaseFailure(err, env.DatabaseURL, target)
@@ -169,7 +169,7 @@ func ReadOnlyLogin() Check {
 				)
 			}
 
-			return pass(dsn.Redact(env.ReadOnlyDatabaseURL))
+			return pass(dsn.Redact(env.ReadOnlyDatabaseURL) + describeSource(env, "readonly_database_url"))
 		},
 	}
 }

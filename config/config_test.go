@@ -219,3 +219,19 @@ func TestLoadWithoutAFileUsesTheDefaults(t *testing.T) {
 	assert.Equal(t, appconfig.DefaultAddr, cfg.Addr)
 	assert.Equal(t, appconfig.DefaultTmuxSocket, cfg.TmuxSocket)
 }
+
+// TestLoadDoesNotCreditTheFileForADefault covers a value that is only in the file config
+// because the loader put it there. appconfig fills the connection table from the built-ins, so
+// a default arrives at Load looking exactly like something a person wrote, and doctor telling
+// somebody their config file names a database when it does not sends them to edit a file that
+// has nothing in it.
+func TestLoadDoesNotCreditTheFileForADefault(t *testing.T) {
+	clearConnectionEnv(t)
+
+	cfg, err := Load(appconfig.Defaults())
+	require.NoError(t, err)
+
+	assert.Equal(t, appconfig.DefaultDatabaseURL, cfg.DatabaseURL)
+	assert.Equal(t, SourceDefault, cfg.Sources["database_url"],
+		"the file only holds this because withDefaults filled it")
+}

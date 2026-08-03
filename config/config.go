@@ -115,7 +115,16 @@ func Load(file *appconfig.Config) (*Config, error) {
 		// was not genuinely set is overwritten here rather than merged.
 		if setting.fromFile != "" {
 			*setting.field = setting.fromFile
+
+			// A file value equal to the built-in is reported as the built-in. The loader
+			// fills the connection table with the defaults, so a value that came from
+			// withDefaults arrives here looking exactly like one somebody wrote, and
+			// claiming a file said something it did not is worse than under-reporting a
+			// file that agrees with the default anyway.
 			cfg.Sources[setting.key] = SourceFile
+			if setting.fromFile == setting.builtin {
+				cfg.Sources[setting.key] = SourceDefault
+			}
 
 			continue
 		}

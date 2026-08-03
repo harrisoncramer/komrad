@@ -852,7 +852,7 @@ func Load(paths []string) (*Config, error) {
 	merged := viper.New()
 	merged.SetConfigType("toml")
 
-	read := 0
+	layersRead := 0
 	for _, layer := range layers {
 		merged.SetConfigFile(layer.Path)
 
@@ -864,10 +864,10 @@ func Load(paths []string) (*Config, error) {
 			continue
 		}
 
-		read++
+		layersRead++
 	}
 
-	if read == 0 {
+	if layersRead == 0 {
 		return Defaults(), nil
 	}
 

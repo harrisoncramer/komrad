@@ -55,9 +55,9 @@ func TestConfigCheck(t *testing.T) {
 		result := Config().Run(t.Context(), configEnv(appconfig.Defaults(), nil, true))
 
 		assert.Equal(t, StatusOK, result.Status)
-		assert.Contains(t, result.Detail, "/home/u/.config/weave/config.toml",
+		assert.Equal(t, "/home/u/.config/weave/config.toml", result.Detail,
 			"the path is reported, since a config problem is not actionable without knowing which file")
-		assert.Contains(t, result.Detail, "(read)")
+		assert.NotContains(t, result.Detail, "(absent)", "only a file that is missing is marked")
 	})
 
 	t.Run("a file that does not parse", func(t *testing.T) {

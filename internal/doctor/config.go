@@ -8,16 +8,6 @@ import (
 	"weave/internal/appconfig"
 )
 
-// connectionKeys are the settings the file and the environment both speak to, in the order
-// the generated reference lists them, so doctor reports where each one was resolved from.
-var connectionKeys = []string{
-	"database_url",
-	"readonly_database_url",
-	"addr",
-	"tmux_socket",
-	"cache_dir",
-}
-
 // The ways the config can be wrong.
 var (
 	ErrConfigUnreadable = &Problem{
@@ -62,34 +52,42 @@ func Config() Check {
 	}
 }
 
-// describeLayers is the layer list in merge order, each marked present or absent, with the
-// connection settings' sources after it. It is one line per layer so the order is readable,
-// since the order is what decides which file wins.
+// describeLayers is the layer list in merge order, with any file that is not there marked so.
+// The order is the whole of what it says, since the order is what decides which file wins a
+// key the layers disagree about.
+//
+// Where each connection setting came from is reported by the check about that setting rather
+// than here, since a person asking why weave is on the wrong database is reading the database
+// line, not this one.
 func describeLayers(env Env) string {
 	if len(env.ConfigLayers) == 0 {
 		return "no config files"
 	}
 
-	lines := make([]string, 0, len(env.ConfigLayers)+len(connectionKeys))
-	for i, layer := range env.ConfigLayers {
-		state := "absent"
+	described := make([]string, 0, len(env.ConfigLayers))
+	for _, layer := range env.ConfigLayers {
 		if env.DoesLayerExist(layer.Path) {
-			state = "read"
-		}
+			described = append(described, layer.Path)
 
-		lines = append(lines, fmt.Sprintf("%d %s (%s)", i+1, layer.Path, state))
-	}
-
-	for _, key := range connectionKeys {
-		source, ok := env.Sources[key]
-		if !ok {
 			continue
 		}
 
-		lines = append(lines, fmt.Sprintf("%s from the %s", key, source))
+		described = append(described, layer.Path+" (absent)")
 	}
 
-	return strings.Join(lines, "\n")
+	return strings.Join(described, ", ")
+}
+
+// describeSource names where a setting was resolved from, as a phrase to hang off the value it
+// explains. Empty when nothing recorded it, so a caller that did not resolve through the
+// config package prints the value alone rather than a dangling "from the".
+func describeSource(env Env, key string) string {
+	source, ok := env.Sources[key]
+	if !ok {
+		return ""
+	}
+
+	return " from the " + string(source)
 }
 
 // describeConfigFix is what to do about a config that would not load, which turns on whether
