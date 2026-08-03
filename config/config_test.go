@@ -11,8 +11,8 @@ import (
 
 // TestLoadReadOnlyDatabaseURL covers the two logins landing on one database. The panel
 // writes through the first and the MCP query tools read through the second, so a pair
-// pointing at two servers answers an agent's question out of a database nothing writes to,
-// and every part of that is a working connection nothing else would object to.
+// pointing at two servers answers an agent's question out of a database nothing writes to.
+// Both halves connect, so nothing else in weave objects.
 func TestLoadReadOnlyDatabaseURL(t *testing.T) {
 	t.Run("derived from DATABASE_URL when it is not set", func(t *testing.T) {
 		t.Setenv("WEAVE_READONLY_DATABASE_URL", "")
@@ -24,7 +24,7 @@ func TestLoadReadOnlyDatabaseURL(t *testing.T) {
 		assert.Equal(t,
 			"postgres://weave_readonly:weave_readonly@db.internal:5432/panel?sslmode=require",
 			cfg.ReadOnlyDatabaseURL,
-			"the host, port, database, and options are the writable url's; only the login differs")
+			"the host, port, database, and options are the writable url's, and only the login differs")
 	})
 
 	t.Run("an override is taken as it stands", func(t *testing.T) {

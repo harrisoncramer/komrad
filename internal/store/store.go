@@ -25,6 +25,12 @@ import (
 // record currently listed answers to that name, never one sitting in the archive.
 var ErrNameTaken = errors.New("name already taken")
 
+// ErrNoReadOnlyURL reports that there is no url for the read-only pool to open. Postgres
+// reads an empty string as every default, so this has to be refused by name rather than
+// connecting as whoever is running weave, on a database nobody named.
+var ErrNoReadOnlyURL = errors.New(
+	"no read-only database url: set WEAVE_READONLY_DATABASE_URL, or a DATABASE_URL one can be derived from")
+
 // DBTX is what a domain store runs its queries against, either the pool or a
 // transaction, which is what lets one be rebound onto the other.
 type DBTX = models.DBTX
@@ -67,11 +73,8 @@ func Open(ctx context.Context, url string) (*Pool, error) {
 // everything a statement can read. That is why this takes its own url rather than the
 // writable one.
 func OpenReadOnly(ctx context.Context, url string) (*pgxpool.Pool, error) {
-	// Refused by name, because Postgres reads an empty string as every default and would
-	// connect as whoever is running weave, on a database nobody named.
 	if url == "" {
-		return nil, fmt.Errorf(
-			"no read-only database url: set WEAVE_READONLY_DATABASE_URL, since one could not be derived from DATABASE_URL")
+		return nil, ErrNoReadOnlyURL
 	}
 
 	cfg, err := pgxpool.ParseConfig(url)

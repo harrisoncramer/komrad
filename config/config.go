@@ -11,9 +11,9 @@ import (
 	"github.com/caarlos0/env/v10"
 )
 
-// The login the MCP query tools connect as, when it is not configured. Only the name and
-// the password are weave's to pick. Where it connects is DATABASE_URL's to say, since this
-// is a second role on the same rows rather than a second store.
+// The login the MCP query tools connect as when none is configured. Only the name and the
+// password are weave's to pick. Where it connects is DATABASE_URL's to say, since this is a
+// second role on the same rows rather than a second store.
 const (
 	readOnlyUser     = "weave_readonly"
 	readOnlyPassword = "weave_readonly"
@@ -52,10 +52,9 @@ func Load() (*Config, error) {
 	}
 
 	if cfg.ReadOnlyDatabaseURL == "" {
-		// A DATABASE_URL this cannot rewrite is left as no read-only url at all, rather
-		// than refused here. Refusing would take `weave doctor` down with it, and doctor is
-		// the command a connection string that does not parse is diagnosed with. The
-		// service and doctor both name an empty one for what it is.
+		// A DATABASE_URL this cannot rewrite leaves no read-only url rather than refusing
+		// here. `weave doctor` is the command a connection string that does not parse is
+		// diagnosed with, and refusing would take doctor down with it.
 		cfg.ReadOnlyDatabaseURL = deriveReadOnlyURL(cfg.DatabaseURL)
 	}
 
@@ -67,10 +66,9 @@ func Load() (*Config, error) {
 // since the two logins reach the same rows on the same server and differ only in what they
 // may do to them.
 //
-// Empty when the url is not one this can rewrite, which is anything that is not a
-// postgres:// url. Postgres also accepts a space-separated keyword list, and weave has no
-// way to swap a login into one of those without parsing and rebuilding a string whose
-// options it would then have to reproduce.
+// Empty for anything that is not a postgres:// url. Postgres also accepts a space-separated
+// keyword list, and swapping a login into one of those means rebuilding a string whose
+// options weave would then have to reproduce.
 func deriveReadOnlyURL(databaseURL string) string {
 	parsed, err := url.Parse(databaseURL)
 	if err != nil {

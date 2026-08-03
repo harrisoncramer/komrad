@@ -38,12 +38,10 @@ func readonlyRoleCmd(state *app) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-
-			// Before the parse, since Postgres reads an empty string as every default and
-			// this would go on to grant read to whoever is running weave.
+			// Checked before the parse, since Postgres reads an empty string as every
+			// default and this would go on to grant read to whoever is running weave.
 			if state.env.ReadOnlyDatabaseURL == "" {
-				return fmt.Errorf(
-					"no read-only database url: set WEAVE_READONLY_DATABASE_URL, since one could not be derived from DATABASE_URL")
+				return store.ErrNoReadOnlyURL
 			}
 
 			if state.env.ReadOnlyDatabaseURL == state.env.DatabaseURL {

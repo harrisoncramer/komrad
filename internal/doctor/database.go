@@ -156,10 +156,10 @@ func ReadOnlyLogin() Check {
 				)
 			}
 
-			// Both connect, so nothing else in the report is going to say the two halves
-			// disagree. Reported rather than refused, since an address weave cannot match
-			// up may still be the same database behind a pooler or a second name for the
-			// host, and that is a judgement only the person who wrote the url can make.
+			// Both connect, so nothing else in the report says the two halves disagree.
+			// Reported rather than refused, since an address weave cannot match up may
+			// still be the same database behind a pooler or a second name for the host, and
+			// only whoever wrote the url can say.
 			if where := describeStoreMismatch(env.DatabaseURL, env.ReadOnlyDatabaseURL); where != "" {
 				return warn(
 					fmt.Errorf("%w: %s", ErrReadOnlyLoginElsewhere, where),
@@ -201,8 +201,8 @@ func classifyDatabaseFailure(err error, url, detail string) Result {
 // one database, and is empty when it does. Either url being unreadable is empty too, since
 // that is a failure of its own reported elsewhere and not a mismatch.
 //
-// The login is deliberately not part of the comparison. Two logins is the whole point of the
-// pair; what has to match is the rows they reach.
+// The login is left out of the comparison on purpose. Two logins is the whole point of the
+// pair. What has to match is the rows they reach.
 func describeStoreMismatch(databaseURL, readOnlyURL string) string {
 	writable, err := pgconn.ParseConfig(databaseURL)
 	if err != nil {
@@ -282,7 +282,7 @@ func redactDSN(url string) string {
 		return "(unparseable)"
 	}
 
-	return "postgres://" + cfg.User + "@" + cfg.Host + ":" + strconv.Itoa(int(cfg.Port)) + "/" + cfg.Database
+	return "postgres://" + cfg.User + "@" + describeStore(cfg)
 }
 
 // describeMigrationCount writes a number of migrations as a phrase, so the line reads as a
