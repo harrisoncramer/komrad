@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"weave/internal/appconfig"
 
@@ -89,7 +90,7 @@ func Load(file *appconfig.Config) (*Config, error) {
 	cfg.Sources = map[string]Source{}
 	for _, setting := range cfg.connectionSettings(file) {
 		if valuesFromEnvironment[setting.variable] {
-			cfg.Sources[setting.key] = SourceEnvironment
+			cfg.Sources[setting.key()] = SourceEnvironment
 
 			continue
 		}
@@ -104,16 +105,16 @@ func Load(file *appconfig.Config) (*Config, error) {
 			// withDefaults arrives here looking exactly like one somebody wrote, and
 			// claiming a file said something it did not is worse than under-reporting a
 			// file that agrees with the default anyway.
-			cfg.Sources[setting.key] = SourceFile
+			cfg.Sources[setting.key()] = SourceFile
 			if setting.fromFile == setting.builtin {
-				cfg.Sources[setting.key] = SourceDefault
+				cfg.Sources[setting.key()] = SourceDefault
 			}
 
 			continue
 		}
 
 		*setting.field = setting.builtin
-		cfg.Sources[setting.key] = SourceDefault
+		cfg.Sources[setting.key()] = SourceDefault
 	}
 
 	// The two derivations run after the file and the environment have both had their say, so
@@ -140,53 +141,47 @@ func Load(file *appconfig.Config) (*Config, error) {
 	return cfg, nil
 }
 
-// connectionSetting is one setting's three candidate values and where the winner goes. Every
-// level of the precedence chain is named here, so the loop that resolves them is the chain
-// written once rather than per setting.
+// connectionSetting is one setting's candidate values and where the winner goes
 type connectionSetting struct {
-	key      string
 	variable string
 	field    *string
 	fromFile string
-	// builtin is empty for the two that are derived rather than defaulted, which happens
-	// after this because both follow whichever value won above.
-	builtin string
+	builtin  string
 }
 
-// connectionSettings is the five settings the file and the environment both speak to, in the
-// order the generated reference lists them. Building the list rather than resolving each by
-// hand means a sixth setting is one entry here and nothing else.
+// key is the config file key, which is the variable without its prefix and lower cased.
+func (s connectionSetting) key() string {
+	return strings.ToLower(strings.TrimPrefix(s.variable, "WEAVE_"))
+}
+
+// connectionSettings is the five settings the file and the environment both speak to. The
+// variable is the env tag from ConnectionSettingsConfig, so the name is written once.
 func (c *Config) connectionSettings(file *appconfig.Config) []connectionSetting {
 	return []connectionSetting{
 		{
-			key:      "database_url",
 			variable: "WEAVE_DATABASE_URL",
 			field:    &c.DatabaseURL,
 			fromFile: file.Connection.DatabaseURL,
 			builtin:  appconfig.DefaultDatabaseURL,
 		},
 		{
-			key:      "readonly_database_url",
 			variable: "WEAVE_READONLY_DATABASE_URL",
 			field:    &c.ReadOnlyDatabaseURL,
 			fromFile: file.Connection.ReadOnlyDatabaseURL,
 		},
 		{
-			key:      "addr",
 			variable: "WEAVE_ADDR",
 			field:    &c.Addr,
 			fromFile: file.Connection.Addr,
 			builtin:  appconfig.DefaultAddr,
 		},
 		{
-			key:      "tmux_socket",
 			variable: "WEAVE_TMUX_SOCKET",
 			field:    &c.TmuxSocket,
 			fromFile: file.Connection.TmuxSocket,
 			builtin:  appconfig.DefaultTmuxSocket,
 		},
 		{
-			key:      "cache_dir",
 			variable: "WEAVE_CACHE_DIR",
 			field:    &c.CacheDir,
 			fromFile: file.Connection.CacheDir,
