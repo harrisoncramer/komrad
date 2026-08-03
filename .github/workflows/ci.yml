@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     # The store tests run against a real Postgres rather than a fake, and
-    # internal/pgtest creates a database per test off the server DATABASE_URL
+    # internal/pgtest creates a database per test off the server WEAVE_DATABASE_URL
     # points at. Credentials match docker-compose so nothing else has to change.
     services:
       postgres:
@@ -28,7 +28,7 @@ jobs:
           --health-retries 15
 
     env:
-      DATABASE_URL: postgres://weave:weave@localhost:5460/weave?sslmode=disable
+      WEAVE_DATABASE_URL: postgres://weave:weave@localhost:5460/weave?sslmode=disable
 
     steps:
       - uses: actions/checkout@v4

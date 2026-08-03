@@ -40,7 +40,7 @@ Agents use the tools to take actions, as they allow writes, and the general SQL 
 
 ## The read-only role
 
-The `query` tool connects as a least-privilege Postgres role, `weave_readonly` on the database `DATABASE_URL` names.
+The `query` tool connects as a least-privilege Postgres role, `weave_readonly` on the same database weave writes to.
 
 It's created by the `weave readonly-role` CLI tool, which reads the name and password out of the read-only URL. It needs the writable login to hold `CREATEROLE`. Without a working read-only login the service refuses to start.
 

@@ -23,7 +23,7 @@ mise run docker:up
 
 Postgres 18 is a hard floor. The schema uses the built-in `uuidv7()` for primary keys, which does not exist before it, and transcript search needs `pg_trgm`, which the binary creates itself on first run.
 
-Nothing else needs configuring for a plain checkout. The mise task helpers default `DATABASE_URL` to the compose Postgres on port 5460, so an unexported environment works. Setting `DATABASE_URL` points everything, including the tests, at your own instance instead. See [configuration](configuration.md) for the rest.
+Nothing else needs configuring for a plain checkout. The mise task helpers default `WEAVE_DATABASE_URL` to the compose Postgres on port 5460, so an unexported environment works. Setting `WEAVE_DATABASE_URL` points everything, including the tests, at your own instance instead, and the helpers derive the plain `DATABASE_URL` that Atlas and psql read from it. See [configuration](configuration.md) for the rest.
 
 Now build, start the service, and open the panel.
 
@@ -69,7 +69,7 @@ Every task lives in `mise/tasks/` as a shell script with a `#MISE description=` 
 
 Everything: `check` runs the whole suite. It runs every step and reports which ones failed rather than stopping at the first, so one run tells you everything that is wrong. Nothing in it rewrites the tree; the formatters are called in their reporting mode.
 
-Database: `db:apply` applies pending migrations to whatever `DATABASE_URL` points at. `db:migrate <name>` authors a new migration by diffing `db/schema` against the existing ones. `db:validate` checks `db/migrations` against `atlas.sum`. `db:sqlc` regenerates the query bindings. `db:fmt` formats the queries and the schema. `db:connect` opens psql inside the compose container, so you do not need a local client. `db:readonly-role` creates the least-privilege role behind the MCP SQL tools.
+Database: `db:apply` applies pending migrations to whatever `WEAVE_DATABASE_URL` points at. `db:migrate <name>` authors a new migration by diffing `db/schema` against the existing ones. `db:validate` checks `db/migrations` against `atlas.sum`. `db:sqlc` regenerates the query bindings. `db:fmt` formats the queries and the schema. `db:connect` opens psql inside the compose container, so you do not need a local client. `db:readonly-role` creates the least-privilege role behind the MCP SQL tools.
 
 Docker: `docker:up` starts Postgres, migrates it, and grants the read-only role. `docker:down` stops it; `docker:down -v` also drops the volume, which deletes every agent you have.
 

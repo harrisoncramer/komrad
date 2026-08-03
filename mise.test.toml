@@ -11,8 +11,9 @@
 # then keeps the panel settings apart too, since that file can now name a database of its own.
 [env]
 # Its own config, so the throwaway instance is not reading the panel settings of the checkout
-# being developed against. Naming it here replaces the discovery of ~/.config/weave entirely,
-# which is the point: nothing outside this checkout reaches the test instance.
+# being developed against. Naming a file here replaces ~/.config/weave/config.toml rather than
+# layering on top of it, which is the point. Nothing outside this checkout reaches the test
+# instance.
 WEAVE_CONFIG = "{{config_root}}/weave.test.toml"
 
 # Its own Postgres. The port is what docker-compose publishes and what the connection string
@@ -20,7 +21,7 @@ WEAVE_CONFIG = "{{config_root}}/weave.test.toml"
 # container of its own rather than colliding on the other instance's. The read-only login is
 # derived from this url, so there is nothing else here to keep in step with the port.
 DB_PORT = "5461"
-DATABASE_URL = "postgres://weave:weave@localhost:5461/weave?sslmode=disable"
+WEAVE_DATABASE_URL = "postgres://weave:weave@localhost:5461/weave?sslmode=disable"
 
 # Its own server, so both can run at once and neither adopts the other's.
 WEAVE_ADDR = "127.0.0.1:8790"

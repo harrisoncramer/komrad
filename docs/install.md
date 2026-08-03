@@ -41,7 +41,7 @@ If you do not have a Postgres already, the checkout ships one:
 mise run docker:up
 ```
 
-That starts Postgres 18 in Docker on port 5460, applies the migrations, and creates the read-only login. Port 5460 is not an accident: it is what the built-in `DATABASE_URL` default points at, so a checkout with the compose database up needs no environment at all. That default is wrong for every other channel, which is called out below.
+That starts Postgres 18 in Docker on port 5460, applies the migrations, and creates the read-only login. Port 5460 is not an accident: it is what the built-in `connection.database_url` default points at, so a checkout with the compose database up needs no environment at all. That default is wrong for every other channel, which is called out below.
 
 Then either press `prefix + g` if you have the tmux plugin wired up, or open the panel directly:
 
@@ -127,14 +127,15 @@ Only the checkout with `mise run docker:up` skips all of this. Everything else l
 One connection string, in your config file:
 
 ```toml
+[connection]
 database_url = "postgres://weave:secret@localhost:5432/weave?sslmode=disable"
 ```
 
-That goes in `~/.config/weave/config.local.toml`, which weave reads after `config.toml` and which is the layer to keep a password in. An environment variable does the same job and beats the file, so `export DATABASE_URL=...` still works and is the better choice for one shell rather than for good.
+That goes in `~/.config/weave/config.toml`, which is the file weave reads. An environment variable does the same job and beats the file, so `export WEAVE_DATABASE_URL=...` still works and is the better choice for one shell rather than for good.
 
 Weave migrates the schema through it on the way in, so an empty database is all you have to create.
 
-Weave connects twice, though. The second login is a least-privilege one that weave's [MCP](mcp.md) query tools use, and by default it is that URL with `weave_readonly` in place of your login, on the same server and the same database. That separation is not decorative: the MCP surface hands a model a SQL prompt, and what a statement is allowed to read is decided by the role's privileges rather than by anything weave can inspect. Weave refuses to start if that login is a superuser, because a superuser is exempt from the privilege checks on the catalogs and on the file-reading functions and both are reachable from a plain `SELECT`. Set [readonly_database_url](configuration.md#readonly_database_url-weave_readonly_database_url) when it needs its own password or reaches the database another way.
+Weave connects twice, though. The second login is a least-privilege one that weave's [MCP](mcp.md) query tools use, and by default it is that URL with `weave_readonly` in place of your login, on the same server and the same database. That separation is not decorative: the MCP surface hands a model a SQL prompt, and what a statement is allowed to read is decided by the role's privileges rather than by anything weave can inspect. Weave refuses to start if that login is a superuser, because a superuser is exempt from the privilege checks on the catalogs and on the file-reading functions and both are reachable from a plain `SELECT`. Set [connection.readonly_database_url](configuration.md#connectionreadonly_database_url-weave_readonly_database_url) when it needs its own password or reaches the database another way.
 
 The built-in default points at `localhost:5460`, which is the port the repository's docker-compose publishes. That is right for a checkout and wrong for a brew-installed Postgres, which listens on 5432, so if you skip this step on any other channel your first run fails against a port nothing is on.
 
@@ -202,6 +203,6 @@ weave open
 
 If `weave version` reports one build for this binary and a different one for the server, you have upgraded and something is still running the old one. `weave stop` and then `weave start` sorts the service out. If the panel itself is stale, it is a session on weave's own tmux server, so `tmux -L weave kill-server` and another `prefix + g` gets you a fresh one. Your agents live on that server too, so that kills them; their records and transcripts survive in the database.
 
-One thing that catches people who change where weave connects: the connection settings are read once, when the panel session is created, and reused after that. Editing `database_url` or exporting a new `DATABASE_URL` and pressing `prefix + g` will not reach a panel session that is already running. Restart the tmux server as above.
+One thing that catches people who change where weave connects: the connection settings are read once, when the panel session is created, and reused after that. Editing `connection.database_url` or exporting a new `WEAVE_DATABASE_URL` and pressing `prefix + g` will not reach a panel session that is already running. Restart the tmux server as above.
 
 From here, [configuration](configuration.md) covers the config files, layering them, and the environment, [commands](commands.md) covers the CLI, and [how it works](concepts.md) covers the two tmux servers and why the panel can be closed without anything stopping.
