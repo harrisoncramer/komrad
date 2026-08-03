@@ -21,14 +21,14 @@ const (
 	readOnlyPassword = "weave_readonly"
 )
 
-// layerVariable carries a config layer list to a process that cannot be passed flags, which
-// is how mise.test.toml points the throwaway instance at a config of its own.
+// layerVariable is the environment's way of saying --config, holding the same list of paths
+// separated by colons the way PATH is.
+//
+// It exists because some things can set a variable and nothing else. mise.test.toml is an
+// [env] block, so it can give the throwaway instance its own database and tmux socket but has
+// no way to add a flag to whatever command you happen to run.
 const layerVariable = "WEAVE_CONFIG"
 
-// LayerPaths is the config layer list named in the environment, and nothing when the variable
-// is unset. It lives here rather than beside the flag it competes with because this is the
-// package that reads the environment, and a second reader elsewhere is how the two end up
-// disagreeing about what is configured.
 func LayerPaths() []string {
 	return appconfig.ParseLayerList(os.Getenv(layerVariable))
 }

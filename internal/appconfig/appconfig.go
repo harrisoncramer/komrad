@@ -1,6 +1,7 @@
-// Package appconfig loads the user's customization from a TOML file via viper.
-// It covers which CLI agents run and the flags it takes, the marks an agent can be
-// given, and the panel keybindings.
+// Package appconfig loads the user's customization from one or more TOML files via viper,
+// merged in order so a later file wins. It covers which CLI agents run and the flags it
+// takes, the marks an agent can be given, the panel keybindings, and which database, address
+// and tmux server this weave is.
 package appconfig
 
 import (
@@ -811,12 +812,10 @@ func ResolveLayers(paths []string) ([]Layer, error) {
 	return []Layer{{Path: filepath.Join(dir, "config.toml")}}, nil
 }
 
-// ParseLayerList splits a colon-separated list of paths the way PATH is written, which is
-// how WEAVE_CONFIG carries a stack to a process that cannot be passed flags. Empty entries
-// are dropped rather than refused, so a trailing colon is not an error.
+// ParseLayerList splits a colon-separated list of paths.
 func ParseLayerList(value string) []string {
 	var paths []string
-	for _, path := range strings.Split(value, string(os.PathListSeparator)) {
+	for path := range strings.SplitSeq(value, string(os.PathListSeparator)) {
 		if strings.TrimSpace(path) != "" {
 			paths = append(paths, path)
 		}
