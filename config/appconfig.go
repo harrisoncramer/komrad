@@ -771,7 +771,7 @@ const (
 	SourceDefault     Source = "built-in default"
 	SourceFile        Source = "config file"
 	SourceEnvironment Source = "environment"
-	SourceDerived     Source = "derived"
+	SourceDerived     Source = "derived default"
 )
 
 // Report describes how a configuration was resolved without mixing provenance into Config.

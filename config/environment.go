@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const layerVariable = "WEAVE_CONFIG"
@@ -24,14 +25,25 @@ type Environment struct {
 }
 
 // LayerPaths returns the config stack named by WEAVE_CONFIG using the platform's path-list
-// separator, the same convention used by PATH and KUBECONFIG.
+// separator, the same convention used by PATH and KUBECONFIG. Empty elements are dropped
+// rather than handed on: PATH and KUBECONFIG both tolerate them, and the ordinary shell idiom
+// for adding to an unset variable, `$WEAVE_CONFIG:$new`, produces a leading one on every
+// machine that has not already exported the variable.
 func LayerPaths() []string {
 	value := os.Getenv(layerVariable)
 	if value == "" {
 		return nil
 	}
 
-	return filepath.SplitList(value)
+	split := filepath.SplitList(value)
+	paths := make([]string, 0, len(split))
+	for _, path := range split {
+		if strings.TrimSpace(path) != "" {
+			paths = append(paths, path)
+		}
+	}
+
+	return paths
 }
 
 // LoadEnvironment adds transient process context to connection values Viper has already resolved.
