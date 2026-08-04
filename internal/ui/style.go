@@ -120,7 +120,7 @@ var markedColor = lipgloss.Color(config.GetColor(config.DefaultMarkColor))
 
 // markColor is the colour a glyph is drawn in. One the config does not list, or one
 // listed with no colour of its own, falls back rather than going undrawn. The colour goes
-// through appconfig on the way out, since a config names one of the sixteen by name and
+// through config on the way out, since a config names one of the sixteen by name and
 // lipgloss knows it only by index.
 func markColor(glyph string, marks []config.Mark) lipgloss.Color {
 	for _, mark := range marks {

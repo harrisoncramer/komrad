@@ -11,7 +11,7 @@ usage() {
 	echo "rewrites the tree; the formatters are called in their reporting mode."
 	echo
 	echo "The tests need Postgres, so run 'mise run docker:up' first. Drift in"
-	echo "config.toml is caught by the appconfig tests, which regenerate it in memory"
+	echo "config.toml is caught by the config tests, which regenerate it in memory"
 	echo "and compare, so a stale file fails here without needing a clean git tree."
 	echo "gen:check covers the sqlc and buf output too, but only when those paths"
 	echo "have no uncommitted edits."

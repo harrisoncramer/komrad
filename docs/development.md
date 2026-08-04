@@ -111,7 +111,7 @@ Config. `config.toml` at the repo root is generated from the `Config` struct in 
 mise run gen:config
 ```
 
-Drift. `gen:check` reruns sqlc, buf, and the config generator and fails if any committed output moved. It skips the comparison when `config.toml`, `db/models`, or `proto/gen` already differ from HEAD, since then a difference says nothing about whether the generators are in sync. Config drift is caught a second way regardless: the appconfig tests regenerate the file in memory and compare, so a stale `config.toml` fails `go:test` even on a dirty tree.
+Drift. `gen:check` reruns sqlc, buf, and the config generator and fails if any committed output moved. It skips the comparison when `config.toml`, `db/models`, or `proto/gen` already differ from HEAD, since then a difference says nothing about whether the generators are in sync. Config drift is caught a second way regardless: the config tests regenerate the file in memory and compare, so a stale `config.toml` fails `go:test` even on a dirty tree.
 
 ## Checking your work
 
