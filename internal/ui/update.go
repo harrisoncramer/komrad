@@ -92,27 +92,8 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	switch msg := msg.(type) {
-	case refreshTickMsg:
-		return m, tea.Batch(m.refreshCmd(), refreshTick())
-	case refreshResult:
-		m.applyRefresh(msg)
-
-		return m, nil
-	case writeResult:
-		return m.applyWrite(msg)
-	case searchSettledMsg:
-		return m, m.runSettledSearch(msg)
-	case searchResult:
-		return m, m.applySearch(msg)
-	case actionsResult:
-		m.applyActions(msg)
-
-		return m, nil
-	case previewResult:
-		m.applyPreview(msg)
-
-		return m, nil
+	if next, cmd, handled := m.routeAsyncMessage(msg); handled {
+		return next, cmd
 	}
 
 	// A form waiting on its write takes no keys, so a second submit cannot send the same
@@ -122,25 +103,8 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// The form screens take every message, since a form lays itself out from a resize
-	// as much as it reads a keypress.
-	switch m.screen {
-	case screenForm:
-		return m.updateForm(msg)
-	case screenRename:
-		return m.updateRename(msg)
-	case screenWorkflowForm:
-		return m.updateWorkflowForm(msg)
-	case screenWorkflowArchive:
-		return m.updateWorkflowArchive(msg)
-	case screenScheduleForm:
-		return m.updateScheduleForm(msg)
-	case screenScheduleArchive:
-		return m.updateScheduleArchive(msg)
-	case screenArchiveDelete:
-		return m.updateArchiveDelete(msg)
-	default:
-		// The list screens act on keys alone, which are dispatched below.
+	if m.screen.isForm() {
+		return m.routeFormMessage(msg)
 	}
 
 	key, ok := msg.(tea.KeyMsg)
@@ -178,6 +142,56 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateActions(key)
 	case screenAgents:
 		return m.updateAgents(key)
+	default:
+		return m, nil
+	}
+}
+
+func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
+	switch msg := msg.(type) {
+	case refreshTickMsg:
+		return m, tea.Batch(m.refreshCmd(), refreshTick()), true
+	case refreshResult:
+		m.applyRefresh(msg)
+
+		return m, nil, true
+	case writeResult:
+		next, cmd := m.applyWrite(msg)
+
+		return next, cmd, true
+	case searchSettledMsg:
+		return m, m.runSettledSearch(msg), true
+	case searchResult:
+		return m, m.applySearch(msg), true
+	case actionsResult:
+		m.applyActions(msg)
+
+		return m, nil, true
+	case previewResult:
+		m.applyPreview(msg)
+
+		return m, nil, true
+	default:
+		return m, nil, false
+	}
+}
+
+func (m model) routeFormMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch m.screen {
+	case screenForm:
+		return m.updateForm(msg)
+	case screenRename:
+		return m.updateRename(msg)
+	case screenWorkflowForm:
+		return m.updateWorkflowForm(msg)
+	case screenWorkflowArchive:
+		return m.updateWorkflowArchive(msg)
+	case screenScheduleForm:
+		return m.updateScheduleForm(msg)
+	case screenScheduleArchive:
+		return m.updateScheduleArchive(msg)
+	case screenArchiveDelete:
+		return m.updateArchiveDelete(msg)
 	default:
 		return m, nil
 	}
