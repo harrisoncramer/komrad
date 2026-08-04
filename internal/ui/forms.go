@@ -71,7 +71,7 @@ func blueprintFields(titlePrefix string, harness, dir, flags *string) []huh.Fiel
 // prefill is the enclosing workflow's blueprint (harness, directory, flags), so an agent
 // created inside a workflow starts from it and can override any part, or everything a
 // refused submit is putting back.
-func newAgentForm(keys config.FormKeys, prefill agentFormValues, workflowSetupAction, workflowCleanupAction string, available []actionChoice) (*huh.Form, *agentFormValues) {
+func newAgentForm(keys config.FormKeys, prefill agentFormValues, available []actionChoice) (*huh.Form, *agentFormValues) {
 	values := &prefill
 
 	fields := append([]huh.Field{
@@ -81,9 +81,9 @@ func newAgentForm(keys config.FormKeys, prefill agentFormValues, workflowSetupAc
 
 	fields = append(fields,
 		huh.NewSelect[string]().Key("setup").Title("Setup action").
-			Value(&values.SetupAction).Options(agentActionOptions(available, workflowSetupAction)...),
+			Value(&values.SetupAction).Options(agentActionOptions(available)...),
 		huh.NewSelect[string]().Key("cleanup").Title("Cleanup action").
-			Value(&values.CleanupAction).Options(agentActionOptions(available, workflowCleanupAction)...),
+			Value(&values.CleanupAction).Options(agentActionOptions(available)...),
 	)
 
 	form := huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
@@ -176,11 +176,7 @@ func (m *model) holdForm() tea.Cmd {
 func (m *model) rebuildForm() tea.Cmd {
 	switch {
 	case m.screen == screenForm && m.values.agent != nil:
-		var setupAction, cleanupAction string
-		if wf := m.target.newAgentWorkflow; wf != nil {
-			setupAction, cleanupAction = wf.SetupAction, wf.CleanupAction
-		}
-		m.form, m.values.agent = newAgentForm(m.keys.Form, *m.values.agent, setupAction, cleanupAction, m.getAvailableActions())
+		m.form, m.values.agent = newAgentForm(m.keys.Form, *m.values.agent, m.getAvailableActions())
 	case m.screen == screenRename && m.values.rename != nil:
 		m.form, m.values.rename = renameForm(m.target.renameAgent.Name, *m.values.rename, m.keys.Form)
 	case m.screen == screenWorkflowForm && m.values.workflow != nil:
@@ -312,14 +308,9 @@ func actionOptions(available []actionChoice, current string) []huh.Option[string
 	return options
 }
 
-func agentActionOptions(available []actionChoice, workflowAction string) []huh.Option[string] {
+func agentActionOptions(available []actionChoice) []huh.Option[string] {
 	label := "Same as workflow"
-	if workflowAction != "" {
-		label = "Same as workflow  (" + workflowAction + ")"
-	}
-
 	options := []huh.Option[string]{huh.NewOption(label, inheritAction)}
-
 	return append(options, actionOptions(available, "")...)
 }
 

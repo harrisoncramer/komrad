@@ -381,8 +381,8 @@ func TestActionSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
 	)
 	agentForm.Init()
 	agentView := agentForm.View()
-	assert.Contains(t, agentView, "> Same as workflow  (make-worktree)", "the setup field opens with what it inherits marked as picked")
-	assert.Contains(t, agentView, "> Same as workflow  (drop-worktree)", "the cleanup field opens with what it inherits marked as picked")
+	assert.Contains(t, agentView, "> Same as workflow", "the setup field opens with what it inherits marked as picked")
+	assert.Contains(t, agentView, "> Same as workflow", "the cleanup field opens with what it inherits marked as picked")
 
 	workflowForm, _ := workflowConfigForm("Workflow name", workflowstore.Config{
 		SetupAction:   "make-worktree",

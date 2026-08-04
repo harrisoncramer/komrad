@@ -520,7 +520,7 @@ func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cm
 		SetupAction:   inheritAction,
 		CleanupAction: inheritAction,
 	}
-	m.form, m.values.agent = newAgentForm(m.keys.Form, prefill, workflow.SetupAction, workflow.CleanupAction, m.getAvailableActions())
+	m.form, m.values.agent = newAgentForm(m.keys.Form, prefill, m.getAvailableActions())
 	m.screen = screenForm
 
 	return m, m.form.Init()

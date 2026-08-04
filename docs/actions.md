@@ -45,7 +45,7 @@ You can provide certain metadata to an action by adding _headers_ to the top of 
 # Add whatever logic you want here.
 # Failures on stdout will get captured by weave's log automatically
 # You can also send messages to the log manually, like this:
-weave rpc log --message 'Hello world'
+weave rpc log --message 'Hello world' --id "$WEAVE_AGENT_ID"
 ```
 
 This action will abort and fail if it cannot execute within 1 second.
@@ -78,12 +78,12 @@ weave rpc run-action --agent-id <id> --action open-pr
 To report progress on purpose, from an action or from anywhere else acting on an agent's behalf, there is also `log`:
 
 ```sh
-weave rpc log --id <id> --message "on my way"
+weave rpc log --message 'Some custom message' --id "$WEAVE_AGENT_ID"
 ```
 
 Agents can also run actions, for instance to trigger external system, fire alerts, or manage the filesystem.
 
-## Example: create a worktree for each agent
+## Example: create a worktree
 
 Create an executable file called `create-worktree`:
 
@@ -95,20 +95,19 @@ repo="$HOME/code/weave"
 name=$(printf '%s' "$WEAVE_AGENT" | jq -r .name)
 tree="$repo/.worktrees/$name"
 
-weave rpc log --id "$WEAVE_AGENT_ID" --message "preparing $tree"
+weave rpc log --message "Preparing $tree" --id "$WEAVE_AGENT_ID"
 
-# Skipped when the tree is already there, which is what makes this safe to
-# reach again on resume.
 if [ ! -d "$tree" ]; then
 	git -C "$repo" fetch --quiet origin main
 	git -C "$repo" worktree add --quiet -B "agent/$name" "$tree" origin/main
 fi
 
-# The only thing on stdout: where the agent runs.
-printf '%s' "$tree"
+weave rpc log --message "Prepared $tree" --id "$WEAVE_AGENT_ID"
 ```
 
-In the workflow manager, set it as a workflow's setup action. Every agent spawned under that workflow will now get a new worktree. This matching cleanup action called `cleanup-worktree` can be used to remove it when the agent is deleted:
+In the workflow manager, set it as a workflow's setup action.
+
+Every agent spawned under that workflow will now get a new worktree. This matching cleanup action called `cleanup-worktree` can be used to remove it when the agent is deleted:
 
 ```sh
 #!/bin/sh
@@ -119,7 +118,7 @@ tree="$WEAVE_AGENT_CWD"
 
 case "$tree" in
 "$repo/.worktrees/"*) git -C "$repo" worktree remove --force "$tree" ;;
-*) echo "refusing to remove $tree" >&2 ; exit 1 ;;
+*) weave rpc log --message "Failed to prepare $tree" --id "$WEAVE_AGENT_ID"
 esac
 ```
 
@@ -132,9 +131,6 @@ Open the agent manager and press `a` to view your actions, then select it:
 ```sh
 #!/bin/sh
 set -eu
-
-# The service may be older than this shell, so don't trust its PATH.
-export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 url=$(printf '%s' "$WEAVE_AGENT" | jq -r '.metadata.pr // empty')
 
