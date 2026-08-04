@@ -178,8 +178,6 @@ func (m model) updateAlerts(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
 	switch {
-	case isBound(k, m.keys.Alerts.Quit):
-		return m, m.hide()
 	case isBound(k, m.keys.Alerts.Back):
 		return m.returnToAgents()
 	case isBound(k, m.keys.Nav.Up):

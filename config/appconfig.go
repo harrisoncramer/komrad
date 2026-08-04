@@ -267,8 +267,6 @@ type AlertsKeys struct {
 	Back []string `mapstructure:"back"`
 	// Open the alert history from the agents list.
 	Open []string `mapstructure:"open"`
-	// Quit the panel.
-	Quit []string `mapstructure:"quit"`
 }
 
 // ActionsKeys are the bindings for the actions list, the scripts you have written for
@@ -569,7 +567,6 @@ func DefaultKeybindings() Keybindings {
 		Alerts: AlertsKeys{
 			Back: []string{"esc"},
 			Open: []string{"A"},
-			Quit: []string{"ctrl+c"},
 		},
 	}
 }

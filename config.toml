@@ -191,8 +191,6 @@ rename  = ["r"]
 back = ["esc"]
 # Open the alert history from the agents list.
 open = ["A"]
-# Quit the panel.
-quit = ["ctrl+c"]
 
 # Where the panel finds the scripts its action key runs.
 [actions]
