@@ -3,6 +3,9 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
+
+	"weave/lib/xslice"
 )
 
 const layerVariable = "WEAVE_CONFIG"
@@ -23,15 +26,18 @@ type Environment struct {
 	Editor              string
 }
 
-// LayerPaths returns the config stack named by WEAVE_CONFIG using the platform's path-list
-// separator, the same convention used by PATH and KUBECONFIG.
+// LayerPaths returns the config stack named by WEAVE_CONFIG using the platform's path-list separator, the same convention used by PATH.
 func LayerPaths() []string {
 	value := os.Getenv(layerVariable)
 	if value == "" {
 		return nil
 	}
 
-	return filepath.SplitList(value)
+	// Only include valid paths.
+	trimmed := xslice.Map(filepath.SplitList(value), strings.TrimSpace)
+	return xslice.Filter(trimmed, func(path string) bool {
+		return path != ""
+	})
 }
 
 // LoadEnvironment adds transient process context to connection values Viper has already resolved.

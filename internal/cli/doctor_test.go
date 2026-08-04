@@ -58,3 +58,23 @@ func TestDoctorReadsTheConfigTheUserNamed(t *testing.T) {
 		})
 	}
 }
+
+// TestDoctorSurvivesAnEmptyLayerElement covers doctor's place in commandsSurvivingBadConfig:
+// a layer list that will not resolve still has to reach a report rather than aborting RunE,
+// since a report is the whole point of the command. An empty element reaches ResolveLayers
+// this way when WEAVE_CONFIG held one, which the append idiom produces on an unset variable.
+func TestDoctorSurvivesAnEmptyLayerElement(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))
+	require.NoError(t, err)
+
+	state := &app{env: &config.Environment{}, harnesses: registry, configPaths: []string{"", "/no/such/config.toml"}}
+
+	env, _, err := state.buildDoctor()
+	require.NoError(t, err, "doctor has to reach a report rather than aborting before any check runs")
+
+	_, loadErr := env.LoadConfig()
+	require.Error(t, loadErr, "the config check has to be the one that reports the broken layer list")
+	assert.Contains(t, loadErr.Error(), "empty path")
+}

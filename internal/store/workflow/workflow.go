@@ -14,6 +14,7 @@ import (
 	"weave/db"
 	"weave/db/models"
 	"weave/internal/store"
+	"weave/lib/xslice"
 )
 
 // Workflow is a named bucket of related agents. It runs nothing. Its default
@@ -73,12 +74,9 @@ func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 		return nil, fmt.Errorf("failed to list workflows: %w", err)
 	}
 
-	workflows := make([]Workflow, 0, len(rows))
-	for _, row := range rows {
-		workflows = append(workflows, workflowFromRow(row.Workflow, row.Harness, row.Cwd, row.Flags))
-	}
-
-	return workflows, nil
+	return xslice.Map(rows, func(row *models.ListWorkflowsRow) Workflow {
+		return workflowFromRow(row.Workflow, row.Harness, row.Cwd, row.Flags)
+	}), nil
 }
 
 // Cursor locates a workflow within a listing. The id is the sort key and is unique,
@@ -109,12 +107,9 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 		return nil, fmt.Errorf("failed to list a page of workflows: %w", err)
 	}
 
-	workflows := make([]Workflow, 0, len(rows))
-	for _, row := range rows {
-		workflows = append(workflows, workflowFromRow(row.Workflow, row.Harness, row.Cwd, row.Flags))
-	}
-
-	return workflows, nil
+	return xslice.Map(rows, func(row *models.ListWorkflowsPageRow) Workflow {
+		return workflowFromRow(row.Workflow, row.Harness, row.Cwd, row.Flags)
+	}), nil
 }
 
 // Get returns a workflow by id, nil when none exists, or an error for a real

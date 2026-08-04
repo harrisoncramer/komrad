@@ -12,6 +12,7 @@ import (
 	"weave/db"
 	"weave/db/models"
 	"weave/internal/store"
+	"weave/lib/xslice"
 )
 
 // ErrTooManyMetadataKeys reports that an agent has reached its metadata limit.
@@ -88,12 +89,7 @@ func (s *Store) List(ctx context.Context) ([]Agent, error) {
 		return nil, fmt.Errorf("failed to list agents: %w", err)
 	}
 
-	agents := make([]Agent, 0, len(rows))
-	for _, row := range rows {
-		agents = append(agents, agentFromRow(*row))
-	}
-
-	return agents, nil
+	return xslice.Map(rows, func(row *models.Agent) Agent { return agentFromRow(*row) }), nil
 }
 
 // Cursor locates an agent within a paginated listing.
@@ -170,12 +166,7 @@ func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
 		return nil, fmt.Errorf("failed to list all agents: %w", err)
 	}
 
-	agents := make([]Agent, 0, len(rows))
-	for _, row := range rows {
-		agents = append(agents, agentFromRow(*row))
-	}
-
-	return agents, nil
+	return xslice.Map(rows, func(row *models.Agent) Agent { return agentFromRow(*row) }), nil
 }
 
 // GetInWorkflow returns a live agent by workflow and name.
@@ -564,12 +555,7 @@ func (s *Store) ListLiveInWorkflow(ctx context.Context, workflowID string) ([]Ag
 		return nil, fmt.Errorf("failed to list live agents of workflow %q: %w", workflowID, err)
 	}
 
-	agents := make([]Agent, 0, len(rows))
-	for _, row := range rows {
-		agents = append(agents, agentFromRow(*row))
-	}
-
-	return agents, nil
+	return xslice.Map(rows, func(row *models.Agent) Agent { return agentFromRow(*row) }), nil
 }
 
 // ListArchivedInWorkflow returns the archived agents in a workflow.
@@ -579,24 +565,12 @@ func (s *Store) ListArchivedInWorkflow(ctx context.Context, workflowID string) (
 		return nil, fmt.Errorf("failed to list archived agents of workflow %q: %w", workflowID, err)
 	}
 
-	agents := make([]Agent, 0, len(rows))
-	for _, row := range rows {
-		agents = append(agents, agentFromRow(*row))
-	}
-
-	return agents, nil
+	return xslice.Map(rows, func(row *models.Agent) Agent { return agentFromRow(*row) }), nil
 }
 
 // PostgreSQL rejects the entire UUID array when any element is invalid.
 func keepStorableIDs(ids []string) []string {
-	storable := make([]string, 0, len(ids))
-	for _, id := range ids {
-		if store.IsID(id) {
-			storable = append(storable, id)
-		}
-	}
-
-	return storable
+	return xslice.Filter(ids, store.IsID)
 }
 
 func agentFromRow(agent models.Agent) Agent {

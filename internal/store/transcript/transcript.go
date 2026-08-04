@@ -13,6 +13,7 @@ import (
 	"weave/db"
 	"weave/db/models"
 	"weave/internal/store"
+	"weave/lib/xslice"
 )
 
 // Transcript is an agent's stored transcript, the flattened text plus how far into
@@ -249,14 +250,13 @@ func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, e
 		return nil, fmt.Errorf("failed to search transcripts for %q: %w", query, err)
 	}
 
-	hits := make([]SearchHit, 0, len(rows))
-	for _, row := range rows {
+	hits := xslice.Map(rows, func(row *models.SearchTranscriptsRow) SearchHit {
 		snippet := row.Snippet
 		if row.Rank == 0 {
 			snippet = markMatches(snippet, query)
 		}
 
-		hits = append(hits, SearchHit{
+		return SearchHit{
 			AgentID:       row.AgentID,
 			Name:          row.Name,
 			Archived:      row.Archived,
@@ -265,8 +265,8 @@ func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, e
 			ContentOffset: row.ContentOffset,
 			Snippet:       snippet,
 			Rank:          row.Rank,
-		})
-	}
+		}
+	})
 
 	return hits, nil
 }

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"weave/config"
+	"weave/lib/xslice"
 )
 
 // commandTimeout bounds any tool doctor shells out to. Everything it runs answers at once
@@ -84,14 +85,9 @@ type Settings struct {
 // configPaths is the layer list as Load takes it, which is the paths when any were resolved
 // and nothing when doctor is reporting on the default path.
 func (s Settings) configPaths() []string {
-	paths := make([]string, 0, len(s.ConfigLayers))
-	for _, layer := range s.ConfigLayers {
-		if layer.Named {
-			paths = append(paths, layer.Path)
-		}
-	}
+	named := xslice.Filter(s.ConfigLayers, func(layer config.Layer) bool { return layer.Named })
 
-	return paths
+	return xslice.Map(named, func(layer config.Layer) string { return layer.Path })
 }
 
 // NewEnv is the env pointed at the machine this is running on.

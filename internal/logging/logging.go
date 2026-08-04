@@ -14,6 +14,8 @@ import (
 	"io"
 	"log/slog"
 	"strings"
+
+	"weave/lib/xslice"
 )
 
 // The attribute keys, spelled once here rather than at each call site, since a typo in one
@@ -193,12 +195,7 @@ func Err(err error) []slog.Attr {
 // Attrs is a list of attributes as With takes them, which is where slog's typed
 // attributes and its loose fluent values meet.
 func Attrs(attrs []slog.Attr) []any {
-	loose := make([]any, 0, len(attrs))
-	for _, attr := range attrs {
-		loose = append(loose, attr)
-	}
-
-	return loose
+	return xslice.Map(attrs, func(attr slog.Attr) any { return attr })
 }
 
 // loggerKey is what a request's own logger is held under. It is an unexported type so

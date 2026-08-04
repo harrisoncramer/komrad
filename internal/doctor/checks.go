@@ -1,5 +1,7 @@
 package doctor
 
+import "weave/lib/xslice"
+
 // Checks is every assertion doctor makes, in the order it reports them.
 //
 // The order is what a person reads down, so it runs from the dependencies weave cannot
@@ -22,9 +24,7 @@ func Checks(settings Settings) []Check {
 		Server(),
 	}
 
-	for _, agent := range settings.Harnesses {
-		checks = append(checks, HarnessBinary(agent))
-	}
+	checks = append(checks, xslice.Map(settings.Harnesses, HarnessBinary)...)
 
 	return checks
 }

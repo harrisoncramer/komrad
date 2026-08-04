@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"weave/internal/logging"
+	"weave/lib/xslice"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -133,12 +134,7 @@ func pendingVersions(ctx context.Context, pool *pgxpool.Pool, versions []string)
 		return nil, fmt.Errorf("failed to read applied migrations: %w", err)
 	}
 
-	var pending []string
-	for _, version := range versions {
-		if !applied[version] {
-			pending = append(pending, version)
-		}
-	}
+	pending := xslice.Filter(versions, func(version string) bool { return !applied[version] })
 
 	return pending, nil
 }
@@ -226,12 +222,8 @@ func listMigrationVersions(files fs.FS) ([]string, error) {
 		return nil, fmt.Errorf("failed to read migrations: %w", err)
 	}
 
-	versions := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		if strings.HasSuffix(entry.Name(), ".sql") {
-			versions = append(versions, entry.Name())
-		}
-	}
+	sqlFiles := xslice.Filter(entries, func(entry fs.DirEntry) bool { return strings.HasSuffix(entry.Name(), ".sql") })
+	versions := xslice.Map(sqlFiles, func(entry fs.DirEntry) string { return entry.Name() })
 	sort.Strings(versions)
 
 	return versions, nil

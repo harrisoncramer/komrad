@@ -5,6 +5,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 )
 
@@ -41,10 +42,9 @@ func renderAgent(stored agentstore.Agent, alive bool) agent {
 		archived = &formatted
 	}
 
-	metadata := make([]*agentv1.AgentMetadata, 0, len(stored.Metadata))
-	for _, entry := range stored.Metadata {
-		metadata = append(metadata, &agentv1.AgentMetadata{Key: entry.Key, Value: entry.Value})
-	}
+	metadata := xslice.Map(stored.Metadata, func(entry agentstore.Metadata) *agentv1.AgentMetadata {
+		return &agentv1.AgentMetadata{Key: entry.Key, Value: entry.Value}
+	})
 
 	return agent{
 		Agent: &agentv1.Agent{

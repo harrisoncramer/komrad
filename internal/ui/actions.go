@@ -6,6 +6,7 @@ import (
 	"time"
 
 	agentstore "weave/internal/store/agent"
+	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -69,14 +70,9 @@ func (m model) actionRows() []actionItem {
 		return m.actions.items
 	}
 
-	rows := make([]actionItem, 0, len(m.actions.items))
-	for _, action := range m.actions.items {
-		if m.filter.doesMatch(action.name) {
-			rows = append(rows, action)
-		}
-	}
-
-	return rows
+	return xslice.Filter(m.actions.items, func(action actionItem) bool {
+		return m.filter.doesMatch(action.name)
+	})
 }
 
 // listActionsCmd asks the service for the actions, off the render loop like every other

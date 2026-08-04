@@ -97,6 +97,16 @@ func TestResolveConfigPaths(t *testing.T) {
 			variable: "/one.toml:/two.toml",
 			want:     []string{"/only.toml"},
 		},
+		{
+			name:     "the shell append idiom on an unset variable leaves a leading empty element",
+			variable: ":/one.toml",
+			want:     []string{"/one.toml"},
+		},
+		{
+			name:     "a trailing separator leaves a dangling empty element",
+			variable: "/one.toml:",
+			want:     []string{"/one.toml"},
+		},
 	}
 
 	for _, tt := range tests {

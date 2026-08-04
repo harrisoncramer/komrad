@@ -14,6 +14,7 @@ import (
 	"weave/internal/logging"
 	"weave/internal/store"
 	"weave/lib/pagination"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	agentstore "weave/internal/store/agent"
@@ -113,10 +114,7 @@ func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.L
 
 	running := s.launcher.GetRunningAgents(ctx, agents)
 
-	resources := make([]agent, 0, len(agents))
-	for _, agent := range agents {
-		resources = append(resources, renderAgent(agent, running[agent.ID]))
-	}
+	resources := xslice.Map(agents, func(a agentstore.Agent) agent { return renderAgent(a, running[a.ID]) })
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {
@@ -124,9 +122,7 @@ func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.L
 	}
 
 	response := &agentv1.ListAgentsResponse{NextPageToken: next}
-	for _, resource := range resources {
-		response.Agents = append(response.Agents, resource.Agent)
-	}
+	response.Agents = xslice.Map(resources, func(resource agent) *agentv1.Agent { return resource.Agent })
 
 	return connect.NewResponse(response), nil
 }
@@ -243,9 +239,8 @@ func (s *Service) RestoreAgents(ctx context.Context, req *connect.Request[agentv
 
 	running := s.launcher.GetRunningAgents(ctx, restored)
 
-	response := &agentv1.RestoreAgentsResponse{}
-	for _, agent := range restored {
-		response.Agents = append(response.Agents, renderAgent(agent, running[agent.ID]).Agent)
+	response := &agentv1.RestoreAgentsResponse{
+		Agents: xslice.Map(restored, func(a agentstore.Agent) *agentv1.Agent { return renderAgent(a, running[a.ID]).Agent }),
 	}
 
 	return connect.NewResponse(response), nil
@@ -310,10 +305,7 @@ func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[ag
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to search transcripts: %w", err))
 	}
 
-	resources := make([]searchHit, 0, len(hits))
-	for _, hit := range hits {
-		resources = append(resources, renderSearchHit(hit))
-	}
+	resources := xslice.Map(hits, renderSearchHit)
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {
@@ -321,9 +313,7 @@ func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[ag
 	}
 
 	response := &agentv1.SearchTranscriptsResponse{NextPageToken: next}
-	for _, resource := range resources {
-		response.Hits = append(response.Hits, resource.SearchHit)
-	}
+	response.Hits = xslice.Map(resources, func(resource searchHit) *agentv1.SearchHit { return resource.SearchHit })
 
 	return connect.NewResponse(response), nil
 }

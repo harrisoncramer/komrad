@@ -12,6 +12,7 @@ import (
 	"weave/internal/doctor"
 	"weave/internal/errui"
 	"weave/internal/version"
+	"weave/lib/xslice"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -119,9 +120,13 @@ func (a *app) buildDoctor() (doctor.Env, []doctor.Check, error) {
 // file or an environment for itself. The harnesses come from the registry, so a build that
 // gains a third agent CLI gains a line in the report without this being touched.
 func (a *app) buildDoctorSettings() (doctor.Settings, error) {
+	// A layer list that will not resolve is precisely what the config check exists to
+	// report, so it is left for LoadConfig to raise there rather than aborting here: doctor
+	// is in commandsSurvivingBadConfig, and a command that aborted before running a check
+	// would never reach the report that is the whole point of running it.
 	layers, err := config.ResolveLayers(a.configPaths)
 	if err != nil {
-		return doctor.Settings{}, fmt.Errorf("failed to work out where the config lives: %w", err)
+		layers = nil
 	}
 
 	harnesses := make([]doctor.HarnessInfo, 0, len(a.harnesses.IDs()))
@@ -174,20 +179,13 @@ func (a *app) diagnose(ctx context.Context) []errui.Finding {
 
 	report := doctor.Run(ctx, env, checks)
 
-	var found []errui.Finding
-	for _, finding := range report.Findings {
-		// Failures only. A warning was true before the server failed to start and
-		// will be true after it works.
-		if finding.Status != doctor.StatusFail {
-			continue
-		}
+	// Failures only. A warning was true before the server failed to start and will be
+	// true after it works.
+	failed := xslice.Filter(report.Findings, func(finding doctor.Finding) bool {
+		return finding.Status == doctor.StatusFail
+	})
 
-		found = append(found, errui.Finding{
-			Name:   finding.Name,
-			Reason: finding.Error,
-			Fix:    finding.Fix,
-		})
-	}
-
-	return found
+	return xslice.Map(failed, func(finding doctor.Finding) errui.Finding {
+		return errui.Finding{Name: finding.Name, Reason: finding.Error, Fix: finding.Fix}
+	})
 }

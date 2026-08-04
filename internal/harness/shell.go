@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"weave/lib/xslice"
 )
 
 // ErrShellUnsupported reports a pane shell that cannot parse a launch command.
@@ -78,12 +80,7 @@ func QuoteFlags(flags string) string {
 		return ""
 	}
 
-	quoted := make([]string, len(args))
-	for i, arg := range args {
-		quoted[i] = QuoteArg(arg)
-	}
-
-	return strings.Join(quoted, " ")
+	return strings.Join(xslice.Map(args, QuoteArg), " ")
 }
 
 // RequirePOSIXShell refuses a shell that would leave a launch as a parse error in the

@@ -8,6 +8,7 @@ import (
 
 	"weave/internal/agents"
 	"weave/internal/tmux"
+	"weave/lib/xslice"
 
 	"github.com/spf13/cobra"
 )
@@ -150,15 +151,7 @@ func (a *app) tmuxCommand(args ...string) *exec.Cmd {
 // envWithoutTmux returns the current environment with TMUX removed, so a tmux
 // command run from inside a tmux client is not refused as a nested session.
 func envWithoutTmux() []string {
-	full := os.Environ()
-	filtered := make([]string, 0, len(full))
-	for _, entry := range full {
-		if !strings.HasPrefix(entry, "TMUX=") {
-			filtered = append(filtered, entry)
-		}
-	}
-
-	return filtered
+	return xslice.Filter(os.Environ(), func(entry string) bool { return !strings.HasPrefix(entry, "TMUX=") })
 }
 
 // invokingClient is the client viewing this popup, found by asking the user's server

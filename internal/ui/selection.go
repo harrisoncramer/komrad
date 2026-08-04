@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	agentstore "weave/internal/store/agent"
+	"weave/lib/xslice"
 )
 
 // Multi-select over a tree of folders and agents. Both trees the panel draws use it, so it
@@ -77,12 +78,8 @@ func (s selection) extend(rows []agentRow, cursor int) selection {
 		first, last = min(anchor, cursor), max(anchor, cursor)
 	}
 
-	var ids []string
-	for _, r := range rows[first : last+1] {
-		if !r.header {
-			ids = append(ids, r.item.agent.ID)
-		}
-	}
+	unheadered := xslice.Filter(rows[first:last+1], func(r agentRow) bool { return !r.header })
+	ids := xslice.Map(unheadered, func(r agentRow) string { return r.item.agent.ID })
 
 	return s.with(ids...)
 }
@@ -102,12 +99,7 @@ func (s selection) pruned(rows []agentRow) selection {
 		}
 	}
 
-	kept := make([]string, 0, len(s.ids))
-	for _, id := range s.ids {
-		if onScreen[id] {
-			kept = append(kept, id)
-		}
-	}
+	kept := xslice.Filter(s.ids, func(id string) bool { return onScreen[id] })
 
 	return selection{ids: kept}
 }
@@ -192,24 +184,16 @@ func (m model) applySelectionKey(k string, sel selection, rows []agentRow, curso
 // chosenAgents are the agents a selection holds, read off the rows so they come back in the
 // order the screen draws them and an agent with no row is not acted on.
 func chosenAgents(sel selection, rows []agentRow) []agentstore.Agent {
-	agents := make([]agentstore.Agent, 0, sel.count())
-	for _, row := range rows {
-		if !row.header && sel.has(row.item.agent.ID) {
-			agents = append(agents, row.item.agent)
-		}
-	}
+	chosen := xslice.Filter(rows, func(row agentRow) bool {
+		return !row.header && sel.has(row.item.agent.ID)
+	})
 
-	return agents
+	return xslice.Map(chosen, func(row agentRow) agentstore.Agent { return row.item.agent })
 }
 
 // agentIDs is the ids of a set of agents, which is what the calls keyed on a list take.
 func agentIDs(agents []agentstore.Agent) []string {
-	ids := make([]string, 0, len(agents))
-	for _, agent := range agents {
-		ids = append(ids, agent.ID)
-	}
-
-	return ids
+	return xslice.Map(agents, func(agent agentstore.Agent) string { return agent.ID })
 }
 
 // describeAgents names what a key acted on, one agent by name and several by how many, so a
