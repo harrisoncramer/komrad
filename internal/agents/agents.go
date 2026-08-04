@@ -226,7 +226,7 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		}
 	}()
 
-	if err := launch.openPane(ctx); err != nil {
+	if err := launch.openPane(); err != nil {
 		return nil, err
 	}
 
@@ -249,9 +249,6 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 	return created, nil
 }
 
-// agentLaunch drives the steps that create and start a new agent. It tracks
-// which of those steps actually ran, so a failure partway through only unwinds
-// the pane and setup action it actually produced, instead of everything.
 type agentLaunch struct {
 	svc       *AgentService
 	params    NewAgentParams
@@ -259,7 +256,6 @@ type agentLaunch struct {
 	id        string
 	sessionID string
 	agent     agentstore.Agent
-
 	setupName string
 	setupRan  bool
 	pane      string
@@ -291,7 +287,7 @@ func (l *agentLaunch) runSetup(ctx context.Context) error {
 
 // openPane resolves the working directory, opens the tmux window, and stamps
 // it with the agent's ID.
-func (l *agentLaunch) openPane(ctx context.Context) error {
+func (l *agentLaunch) openPane() error {
 	dir, err := l.svc.setupDir(l.plan.dir, l.setupName)
 	if err != nil {
 		return err
