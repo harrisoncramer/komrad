@@ -24,11 +24,7 @@ type Environment struct {
 	Editor              string
 }
 
-// LayerPaths returns the config stack named by WEAVE_CONFIG using the platform's path-list
-// separator, the same convention used by PATH and KUBECONFIG. Empty elements are dropped
-// rather than handed on: PATH and KUBECONFIG both tolerate them, and the ordinary shell idiom
-// for adding to an unset variable, `$WEAVE_CONFIG:$new`, produces a leading one on every
-// machine that has not already exported the variable.
+// LayerPaths returns the config stack named by WEAVE_CONFIG using the platform's path-list separator, the same convention used by PATH.
 func LayerPaths() []string {
 	value := os.Getenv(layerVariable)
 	if value == "" {
