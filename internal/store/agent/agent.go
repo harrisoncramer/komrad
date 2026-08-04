@@ -164,6 +164,10 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 		return nil, fmt.Errorf("failed to list a page of agents: %w", err)
 	}
 
+	return s.buildAgentsWithMetadata(ctx, rows)
+}
+
+func (s *Store) buildAgentsWithMetadata(ctx context.Context, rows []*models.Agent) ([]Agent, error) {
 	agents := make([]Agent, 0, len(rows))
 	ids := make([]string, 0, len(rows))
 	for _, row := range rows {
@@ -234,15 +238,12 @@ func (s *Store) GetInWorkflow(ctx context.Context, workflowID, name string) (*Ag
 		return nil, fmt.Errorf("failed to get agent %q in workflow %q: %w", name, workflowID, err)
 	}
 
-	metadata, err := s.metadataByAgent(ctx, []string{row.ID})
+	agents, err := s.buildAgentsWithMetadata(ctx, []*models.Agent{row})
 	if err != nil {
 		return nil, err
 	}
 
-	agent := agentFromRow(*row)
-	agent.Metadata = metadata[agent.ID]
-
-	return &agent, nil
+	return &agents[0], nil
 }
 
 // GetByID returns an agent by id, nil when none holds it. It spans the archived agents,
@@ -261,15 +262,12 @@ func (s *Store) GetByID(ctx context.Context, id string) (*Agent, error) {
 		return nil, fmt.Errorf("failed to get agent %q: %w", id, err)
 	}
 
-	metadata, err := s.metadataByAgent(ctx, []string{row.ID})
+	agents, err := s.buildAgentsWithMetadata(ctx, []*models.Agent{row})
 	if err != nil {
 		return nil, err
 	}
 
-	agent := agentFromRow(*row)
-	agent.Metadata = metadata[agent.ID]
-
-	return &agent, nil
+	return &agents[0], nil
 }
 
 // ListByID returns the agents holding the given ids, newest first, skipping any id no
@@ -286,23 +284,7 @@ func (s *Store) ListByID(ctx context.Context, ids []string) ([]Agent, error) {
 		return nil, fmt.Errorf("failed to get %d agents: %w", len(storable), err)
 	}
 
-	agents := make([]Agent, 0, len(rows))
-	found := make([]string, 0, len(rows))
-	for _, row := range rows {
-		agents = append(agents, agentFromRow(*row))
-		found = append(found, row.ID)
-	}
-
-	metadata, err := s.metadataByAgent(ctx, found)
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range agents {
-		agents[i].Metadata = metadata[agents[i].ID]
-	}
-
-	return agents, nil
+	return s.buildAgentsWithMetadata(ctx, rows)
 }
 
 // Exists reports whether any agent holds the given id, including archived ones.
