@@ -81,9 +81,9 @@ func newAgentForm(keys config.FormKeys, prefill agentFormValues, workflowSetupAc
 
 	fields = append(fields,
 		huh.NewSelect[string]().Key("setup").Title("Setup action").
-			Options(agentActionOptions(available, workflowSetupAction)...).Value(&values.SetupAction),
+			Value(&values.SetupAction).Options(agentActionOptions(available, workflowSetupAction)...),
 		huh.NewSelect[string]().Key("cleanup").Title("Cleanup action").
-			Options(agentActionOptions(available, workflowCleanupAction)...).Value(&values.CleanupAction),
+			Value(&values.CleanupAction).Options(agentActionOptions(available, workflowCleanupAction)...),
 	)
 
 	form := huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
@@ -275,9 +275,9 @@ func workflowConfigForm(nameTitle string, cfg workflowstore.Config, available []
 
 	fields = append(fields,
 		huh.NewSelect[string]().Key("setup").Title("Setup action").
-			Options(actionOptions(available, cfg.SetupAction)...).Value(&values.SetupAction),
+			Value(&values.SetupAction).Options(actionOptions(available, cfg.SetupAction)...),
 		huh.NewSelect[string]().Key("cleanup").Title("Cleanup action").
-			Options(actionOptions(available, cfg.CleanupAction)...).Value(&values.CleanupAction),
+			Value(&values.CleanupAction).Options(actionOptions(available, cfg.CleanupAction)...),
 	)
 
 	form := huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
@@ -357,7 +357,7 @@ func scheduleForm(cfg schedulestore.Config, workflows []workflowstore.Workflow, 
 			huh.NewInput().Key("cron").Title("Cron").Placeholder("0 9 * * 1-5").Description("minute hour day month weekday").Value(&values.Cron),
 			huh.NewInput().Key("timezone").Title("Timezone").Placeholder("America/New_York").Description("blank = this machine's zone").Value(&values.Timezone),
 			huh.NewText().Key("prompt").Title("Prompt").Description("what each launched agent is asked to do").Value(&values.Prompt),
-			huh.NewSelect[string]().Key("workflow").Title("Workflow").Description("supplies the directory, flags, and context").Options(options...).Value(&values.WorkflowID),
+			huh.NewSelect[string]().Key("workflow").Title("Workflow").Description("supplies the directory, flags, and context").Value(&values.WorkflowID).Options(options...),
 			// huh centres the buttons under the field's own prompt, and a field with a
 			// description is as wide as that description, so its buttons would sit
 			// indented from the ones above by however long the sentence is.
