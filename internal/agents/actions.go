@@ -16,6 +16,7 @@ import (
 	"weave/internal/actions"
 	"weave/internal/logging"
 	"weave/internal/tmux"
+	"weave/lib/xslice"
 
 	agentstore "weave/internal/store/agent"
 )
@@ -138,12 +139,7 @@ func (s *ActionService) ListActions() ([]actions.Action, error) {
 		return nil, err
 	}
 
-	listed := make([]actions.Action, 0, len(found))
-	for _, action := range found {
-		listed = append(listed, action.Action)
-	}
-
-	return listed, nil
+	return xslice.Map(found, func(action foundAction) actions.Action { return action.Action }), nil
 }
 
 // RunAction fires an action on an agent and returns once the process exists. Nothing

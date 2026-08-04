@@ -10,6 +10,7 @@ import (
 	"weave/internal/agents"
 	"weave/internal/store"
 	"weave/lib/pagination"
+	"weave/lib/xslice"
 	schedulev1 "weave/proto/gen/schedule/v1"
 
 	schedulestore "weave/internal/store/schedule"
@@ -63,10 +64,7 @@ func (s *Service) ListSchedules(ctx context.Context, req *connect.Request[schedu
 	// the same next run rather than times a microsecond apart.
 	now := time.Now()
 
-	resources := make([]schedule, 0, len(page))
-	for _, stored := range page {
-		resources = append(resources, renderSchedule(stored, now))
-	}
+	resources := xslice.Map(page, func(stored schedulestore.Schedule) schedule { return renderSchedule(stored, now) })
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {
@@ -74,9 +72,7 @@ func (s *Service) ListSchedules(ctx context.Context, req *connect.Request[schedu
 	}
 
 	response := &schedulev1.ListSchedulesResponse{NextPageToken: next}
-	for _, resource := range resources {
-		response.Schedules = append(response.Schedules, resource.Schedule)
-	}
+	response.Schedules = xslice.Map(resources, func(resource schedule) *schedulev1.Schedule { return resource.Schedule })
 
 	return connect.NewResponse(response), nil
 }

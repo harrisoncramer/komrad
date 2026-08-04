@@ -6,6 +6,7 @@ import (
 
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -45,14 +46,9 @@ func (m model) scheduleRows() []scheduleItem {
 		return m.schedules.items
 	}
 
-	rows := make([]scheduleItem, 0, len(m.schedules.items))
-	for _, item := range m.schedules.items {
-		if m.filter.doesMatch(item.schedule.Name) {
-			rows = append(rows, item)
-		}
-	}
-
-	return rows
+	return xslice.Filter(m.schedules.items, func(item scheduleItem) bool {
+		return m.filter.doesMatch(item.schedule.Name)
+	})
 }
 
 // updateSchedules drives the schedules list. Arrows move the selection and

@@ -12,6 +12,7 @@ import (
 	"weave/internal/doctor"
 	"weave/internal/errui"
 	"weave/internal/version"
+	"weave/lib/xslice"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -178,20 +179,13 @@ func (a *app) diagnose(ctx context.Context) []errui.Finding {
 
 	report := doctor.Run(ctx, env, checks)
 
-	var found []errui.Finding
-	for _, finding := range report.Findings {
-		// Failures only. A warning was true before the server failed to start and
-		// will be true after it works.
-		if finding.Status != doctor.StatusFail {
-			continue
-		}
+	// Failures only. A warning was true before the server failed to start and will be
+	// true after it works.
+	failed := xslice.Filter(report.Findings, func(finding doctor.Finding) bool {
+		return finding.Status == doctor.StatusFail
+	})
 
-		found = append(found, errui.Finding{
-			Name:   finding.Name,
-			Reason: finding.Error,
-			Fix:    finding.Fix,
-		})
-	}
-
-	return found
+	return xslice.Map(failed, func(finding doctor.Finding) errui.Finding {
+		return errui.Finding{Name: finding.Name, Reason: finding.Error, Fix: finding.Fix}
+	})
 }

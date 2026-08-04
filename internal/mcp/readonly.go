@@ -9,7 +9,10 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"weave/lib/xslice"
+
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 const (
@@ -186,11 +189,7 @@ func (d *dbTools) query(ctx context.Context, statement string) (*queryResult, er
 	}
 	defer rows.Close()
 
-	fields := rows.FieldDescriptions()
-	cols := make([]string, len(fields))
-	for i, f := range fields {
-		cols[i] = f.Name
-	}
+	cols := xslice.Map(rows.FieldDescriptions(), func(f pgconn.FieldDescription) string { return f.Name })
 
 	out := make([]map[string]any, 0)
 	truncated := false

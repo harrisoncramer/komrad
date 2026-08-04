@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"weave/internal/harness"
+	"weave/lib/xslice"
 )
 
 // briefingDoc is what every spawned agent is told about the panel running it: what it can
@@ -102,12 +103,8 @@ func (l *Launcher) buildBriefing() string {
 func (l *Launcher) appendedSystemPrompt(workflowContext string) string {
 	parts := []string{l.buildBriefing(), l.globalContext(), workflowContext}
 
-	kept := make([]string, 0, len(parts))
-	for _, part := range parts {
-		if strings.TrimSpace(part) != "" {
-			kept = append(kept, strings.TrimSpace(part))
-		}
-	}
+	trimmed := xslice.Map(parts, strings.TrimSpace)
+	kept := xslice.Filter(trimmed, func(s string) bool { return s != "" })
 
 	return strings.Join(kept, "\n\n")
 }

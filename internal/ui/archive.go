@@ -7,6 +7,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -48,10 +49,7 @@ func (m model) archiveRows() []agentRow {
 // allArchiveRows is the whole archive. Nothing in it is alive, since archiving kills the pane,
 // and the hidden agents keep their rows, since the archive shows all it holds.
 func (m model) allArchiveRows() []agentRow {
-	items := make([]agentItem, 0, len(m.archive.agents))
-	for _, agent := range m.archive.agents {
-		items = append(items, agentItem{agent: agent})
-	}
+	items := xslice.Map(m.archive.agents, func(agent agentstore.Agent) agentItem { return agentItem{agent: agent} })
 
 	return treeRows(m.archiveHeaders(), items, true)
 }

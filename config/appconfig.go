@@ -15,6 +15,8 @@ import (
 	"strings"
 	"unicode"
 
+	"weave/lib/xslice"
+
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/viper"
 )
@@ -985,10 +987,5 @@ func classifyLayerRead(layer Layer, err error) error {
 // describeLayers names the files a value could have come from, for the errors raised on the
 // merged config where no single file is to blame.
 func describeLayers(layers []Layer) string {
-	paths := make([]string, 0, len(layers))
-	for _, layer := range layers {
-		paths = append(paths, layer.Path)
-	}
-
-	return strings.Join(paths, ", ")
+	return strings.Join(xslice.Map(layers, func(layer Layer) string { return layer.Path }), ", ")
 }

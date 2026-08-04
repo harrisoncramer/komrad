@@ -9,6 +9,7 @@ import (
 	"weave/internal/agents"
 	"weave/internal/store"
 	"weave/lib/pagination"
+	"weave/lib/xslice"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
 	workflowstore "weave/internal/store/workflow"
@@ -57,10 +58,7 @@ func (s *Service) ListWorkflows(ctx context.Context, req *connect.Request[workfl
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list workflows: %w", err))
 	}
 
-	resources := make([]workflow, 0, len(stored))
-	for _, w := range stored {
-		resources = append(resources, renderWorkflow(w))
-	}
+	resources := xslice.Map(stored, renderWorkflow)
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {
@@ -68,9 +66,7 @@ func (s *Service) ListWorkflows(ctx context.Context, req *connect.Request[workfl
 	}
 
 	response := &workflowv1.ListWorkflowsResponse{NextPageToken: next}
-	for _, resource := range resources {
-		response.Workflows = append(response.Workflows, resource.Workflow)
-	}
+	response.Workflows = xslice.Map(resources, func(resource workflow) *workflowv1.Workflow { return resource.Workflow })
 
 	return connect.NewResponse(response), nil
 }

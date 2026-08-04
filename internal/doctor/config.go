@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"weave/config"
+	"weave/lib/xslice"
 )
 
 // The ways the config can be wrong.
@@ -185,10 +186,5 @@ func effectiveDefaultHarness(env Env) string {
 
 // listNames is the registered harness ids as a sentence fragment.
 func listNames(harnesses []HarnessInfo) string {
-	names := make([]string, 0, len(harnesses))
-	for _, agent := range harnesses {
-		names = append(names, agent.ID)
-	}
-
-	return joinWords(names)
+	return joinWords(xslice.Map(harnesses, func(agent HarnessInfo) string { return agent.ID }))
 }

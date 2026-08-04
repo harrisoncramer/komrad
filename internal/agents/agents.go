@@ -11,6 +11,7 @@ import (
 	"weave/config"
 	"weave/internal/logging"
 	"weave/internal/store"
+	"weave/lib/xslice"
 	"weave/lib/xstr"
 
 	"weave/internal/harness"
@@ -409,12 +410,7 @@ func (s *AgentService) RestoreAgents(ctx context.Context, ids []string) ([]agent
 
 	// Agents that are not archived are already where a restore would put them, and asking
 	// for room for them would refuse a batch over the slots they already hold.
-	archived := make([]agentstore.Agent, 0, len(agents))
-	for _, agent := range agents {
-		if agent.ArchivedAt != nil {
-			archived = append(archived, agent)
-		}
-	}
+	archived := xslice.Filter(agents, func(agent agentstore.Agent) bool { return agent.ArchivedAt != nil })
 	if len(archived) == 0 {
 		return agents, nil
 	}
@@ -464,12 +460,7 @@ func (s *AgentService) requireEveryAgent(ctx context.Context, ids []string) ([]a
 		found[agent.ID] = true
 	}
 
-	var missing []string
-	for _, id := range ids {
-		if !found[id] {
-			missing = append(missing, id)
-		}
-	}
+	missing := xslice.Filter(ids, func(id string) bool { return !found[id] })
 
 	return nil, fmt.Errorf("%w: %s", ErrAgentNotFound, describeMissing(missing))
 }
@@ -492,12 +483,7 @@ func describeMissing(missing []string) string {
 
 // agentIDs is the ids of a set of agents, which is what the calls keyed on a list take.
 func agentIDs(agents []agentstore.Agent) []string {
-	ids := make([]string, 0, len(agents))
-	for _, agent := range agents {
-		ids = append(ids, agent.ID)
-	}
-
-	return ids
+	return xslice.Map(agents, func(agent agentstore.Agent) string { return agent.ID })
 }
 
 // workflowIDs are the workflows a set of agents belongs to, each named once, so a batch

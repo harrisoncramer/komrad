@@ -14,6 +14,7 @@ import (
 	"weave/db"
 	"weave/db/models"
 	"weave/internal/store"
+	"weave/lib/xslice"
 )
 
 // ErrTooManyMetadataKeys reports that an agent already holds as many keys as it is
@@ -125,12 +126,7 @@ func (s *Store) List(ctx context.Context) ([]Agent, error) {
 		return nil, fmt.Errorf("failed to list agents: %w", err)
 	}
 
-	agents := make([]Agent, 0, len(rows))
-	for _, row := range rows {
-		agents = append(agents, agentFromRow(*row))
-	}
-
-	return agents, nil
+	return xslice.Map(rows, func(row *models.Agent) Agent { return agentFromRow(*row) }), nil
 }
 
 // Cursor locates an agent within a listing. The id alone is enough, since it is unique
@@ -215,12 +211,7 @@ func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
 		return nil, fmt.Errorf("failed to list all agents: %w", err)
 	}
 
-	agents := make([]Agent, 0, len(rows))
-	for _, row := range rows {
-		agents = append(agents, agentFromRow(*row))
-	}
-
-	return agents, nil
+	return xslice.Map(rows, func(row *models.Agent) Agent { return agentFromRow(*row) }), nil
 }
 
 // GetInWorkflow returns the live agent a workflow holds under a name, nil when it holds
@@ -651,12 +642,7 @@ func (s *Store) ListLiveInWorkflow(ctx context.Context, workflowID string) ([]Ag
 		return nil, fmt.Errorf("failed to list live agents of workflow %q: %w", workflowID, err)
 	}
 
-	agents := make([]Agent, 0, len(rows))
-	for _, row := range rows {
-		agents = append(agents, agentFromRow(*row))
-	}
-
-	return agents, nil
+	return xslice.Map(rows, func(row *models.Agent) Agent { return agentFromRow(*row) }), nil
 }
 
 // ListArchivedInWorkflow is the archived agents belonging to one workflow, which is what
@@ -667,26 +653,14 @@ func (s *Store) ListArchivedInWorkflow(ctx context.Context, workflowID string) (
 		return nil, fmt.Errorf("failed to list archived agents of workflow %q: %w", workflowID, err)
 	}
 
-	agents := make([]Agent, 0, len(rows))
-	for _, row := range rows {
-		agents = append(agents, agentFromRow(*row))
-	}
-
-	return agents, nil
+	return xslice.Map(rows, func(row *models.Agent) Agent { return agentFromRow(*row) }), nil
 }
 
 // keepStorableIDs drops the ids no row could hold. Postgres refuses a whole uuid array
 // carrying one member it cannot parse, so an id the caller made up would otherwise take
 // the agents alongside it down with it.
 func keepStorableIDs(ids []string) []string {
-	storable := make([]string, 0, len(ids))
-	for _, id := range ids {
-		if store.IsID(id) {
-			storable = append(storable, id)
-		}
-	}
-
-	return storable
+	return xslice.Filter(ids, store.IsID)
 }
 
 func agentFromRow(agent models.Agent) Agent {

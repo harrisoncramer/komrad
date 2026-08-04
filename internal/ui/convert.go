@@ -13,6 +13,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
 )
 
 // The panel is written against the store types rather than the protos, so a listing is
@@ -27,10 +28,9 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 		archived = &parsed
 	}
 
-	metadata := make([]agentstore.Metadata, 0, len(s.GetMetadata()))
-	for _, entry := range s.GetMetadata() {
-		metadata = append(metadata, agentstore.Metadata{Key: entry.GetKey(), Value: entry.GetValue()})
-	}
+	metadata := xslice.Map(s.GetMetadata(), func(entry *agentv1.AgentMetadata) agentstore.Metadata {
+		return agentstore.Metadata{Key: entry.GetKey(), Value: entry.GetValue()}
+	})
 
 	return agentstore.Agent{
 		ID:         s.GetId(),
@@ -62,47 +62,40 @@ func isInternalAction(name string) bool {
 // actionItemsFrom renders listed actions into the items the screen is written against,
 // leaving out the ones written to be sourced rather than run.
 func actionItemsFrom(listed []*actionv1.Action) []actionItem {
-	items := make([]actionItem, 0, len(listed))
-	for _, action := range listed {
-		if isInternalAction(action.GetName()) {
-			continue
-		}
+	external := xslice.Filter(listed, func(action *actionv1.Action) bool {
+		return !isInternalAction(action.GetName())
+	})
 
-		items = append(items, actionItem{
+	return xslice.Map(external, func(action *actionv1.Action) actionItem {
+		return actionItem{
 			name:        action.GetName(),
 			executable:  action.GetExecutable(),
 			description: action.GetDescription(),
 			timeout:     action.GetTimeout().AsDuration(),
 			problems:    action.GetHeaderProblems(),
 			text:        action.GetText(),
-		})
-	}
-
-	return items
+		}
+	})
 }
 
 // agentItemsFrom maps listed agents to agent items, marking which panes are live.
 func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
-	items := make([]agentItem, 0, len(listed))
-	for _, agent := range listed {
-		items = append(items, agentItem{agent: protoToAgent(agent), alive: agent.GetAlive()})
-	}
-
-	return items
+	return xslice.Map(listed, func(agent *agentv1.Agent) agentItem {
+		return agentItem{agent: protoToAgent(agent), alive: agent.GetAlive()}
+	})
 }
 
 // workflowsFrom renders listed workflows into the store type the tree is written
 // against. The archive time comes with them, since the archive draws an archived folder
 // differently from a live one.
 func workflowsFrom(listed []*workflowv1.Workflow) []workflowstore.Workflow {
-	workflows := make([]workflowstore.Workflow, 0, len(listed))
-	for _, w := range listed {
+	return xslice.Map(listed, func(w *workflowv1.Workflow) workflowstore.Workflow {
 		var archived *time.Time
 		if parsed, err := time.Parse(time.RFC3339, w.GetArchivedAt()); err == nil {
 			archived = &parsed
 		}
 
-		workflows = append(workflows, workflowstore.Workflow{
+		return workflowstore.Workflow{
 			ID:            w.GetId(),
 			Name:          w.GetName(),
 			Context:       w.GetContext(),
@@ -112,10 +105,8 @@ func workflowsFrom(listed []*workflowv1.Workflow) []workflowstore.Workflow {
 			SetupAction:   w.GetSetupAction(),
 			CleanupAction: w.GetCleanupAction(),
 			ArchivedAt:    archived,
-		})
-	}
-
-	return workflows
+		}
+	})
 }
 
 // archivedAgentsFrom renders listed agents into the store type the screen is
@@ -129,10 +120,7 @@ func workflowsFrom(listed []*workflowv1.Workflow) []workflowstore.Workflow {
 // stay exact. A row archived before the column existed carries no time and sorts
 // below the ones that do, by id, which is the order the listing already arrived in.
 func archivedAgentsFrom(listed []*agentv1.Agent) []agentstore.Agent {
-	agents := make([]agentstore.Agent, 0, len(listed))
-	for _, agent := range listed {
-		agents = append(agents, protoToAgent(agent))
-	}
+	agents := xslice.Map(listed, protoToAgent)
 
 	archivedAt := func(agent agentstore.Agent) time.Time {
 		if agent.ArchivedAt == nil {
@@ -152,16 +140,14 @@ func archivedAgentsFrom(listed []*agentv1.Agent) []agentstore.Agent {
 // scheduleItemsFrom maps listed schedules into the items the list is written
 // against, carrying the next run the service derived.
 func scheduleItemsFrom(listed []*schedulev1.Schedule) []scheduleItem {
-	items := make([]scheduleItem, 0, len(listed))
-	for _, s := range listed {
+	return xslice.Map(listed, func(s *schedulev1.Schedule) scheduleItem {
 		item := scheduleItem{schedule: scheduleFromProto(s)}
 		if next := s.GetNextRunAt(); next != nil {
 			item.nextRun = next.AsTime().Local()
 		}
-		items = append(items, item)
-	}
 
-	return items
+		return item
+	})
 }
 
 // scheduleFromProto renders a listed schedule into the store type the screen is

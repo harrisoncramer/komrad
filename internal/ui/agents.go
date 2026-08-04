@@ -10,6 +10,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -458,12 +459,7 @@ func nextSelectionMark(current []*string, marks []config.Mark) *string {
 func selectionMarks(sel selection, rows []agentRow) []*string {
 	agents := chosenAgents(sel, rows)
 
-	marks := make([]*string, 0, len(agents))
-	for _, agent := range agents {
-		marks = append(marks, agent.Mark)
-	}
-
-	return marks
+	return xslice.Map(agents, func(agent agentstore.Agent) *string { return agent.Mark })
 }
 
 func isSameMark(a, b *string) bool {
