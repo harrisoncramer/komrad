@@ -19,42 +19,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeTmux is a scripted, recording tmux client. Reads are served from the owners
-// and captures maps. Writes are appended to the recording slices so a test can
-// assert what the manager sent. It satisfies every tmux role this package
-// declares, from paneOwnerGetter up to the composed paneController.
-//
-// Every method touching its state takes the mutex, since the real client is a process
-// boundary several creates reach at once, and a test driving them concurrently would
-// otherwise be racing these maps rather than the code under test.
 type fakeTmux struct {
-	mu sync.Mutex
-	// owners maps a live pane to the agent stamped on it, which is how the real
-	// client answers whether a pane is still a given agent's. A pane present here
-	// exists; one absent is either gone or was never opened.
+	mu        sync.Mutex
 	owners    map[string]string
 	captures  map[string]string
 	clientDir string
 
 	sent           map[string][][]string
 	globals        map[string]string
-	newWindows     map[string]string // window name to dir
-	swaps          [][2]string       // {src, dst}
-	respawns       [][]string        // pane + argv per respawn
+	newWindows     map[string]string
+	swaps          [][2]string
+	respawns       [][]string
 	killedPanes    []string
 	detached       []string
 	sessionOptions map[string]string
-	// newWindowErr makes NewWindow fail, standing in for tmux refusing to open
-	// a window.
-	newWindowErr error
-	// setOwnerErr makes SetPaneOwner fail, standing in for tmux refusing to stamp
-	// the pane a launch was about to run in.
-	setOwnerErr error
-	// sendKeysErr makes SendKeys fail, standing in for a launch that never reaches
-	// the pane's shell.
-	sendKeysErr error
-	// paneOwnersErr makes GetPaneOwners fail, standing in for tmux not answering at all.
-	paneOwnersErr error
+	newWindowErr   error
+	setOwnerErr    error
+	sendKeysErr    error
+	paneOwnersErr  error
 }
 
 func newFakeTmux() *fakeTmux {
@@ -140,13 +122,8 @@ func (f *fakeTmux) SendKeys(target string, keys ...string) error {
 	return nil
 }
 
-// SplitRight records the anchor and returns a fixed stage pane id.
 func (f *fakeTmux) SplitRight(anchorPane, dir string) string { return "%stage" }
 
-// NewWindow records the window and returns a synthetic pane id. The pane is not
-// owned by anybody until it is stamped, which is what the service does next.
-// Setting newWindowErr makes it fail, standing in for tmux refusing a name it
-// cannot use.
 func (f *fakeTmux) NewWindow(session, name, dir string) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -162,8 +139,6 @@ func (f *fakeTmux) NewWindow(session, name, dir string) (string, error) {
 	return pane, nil
 }
 
-// SetPaneOwner stamps a pane with an agent id, which is what makes the pane answer
-// to that agent. Setting setOwnerErr makes it fail.
 func (f *fakeTmux) SetPaneOwner(pane, agentID string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -196,7 +171,6 @@ func (f *fakeTmux) KillPane(pane string) {
 	delete(f.owners, pane)
 }
 
-// lastKeys returns the most recent SendKeys payload sent to target.
 func (f *fakeTmux) lastKeys(target string) []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -224,24 +198,12 @@ const (
 // the tests that drive the fake seed their agents the same way.
 const testHarnessID = "claude"
 
-// fakeHarness stands in for an agent CLI in the tests that are about the panel's
-// own behaviour rather than any one CLI's. It records what it was asked for, so a
-// test asserts on what the panel composed rather than on how a CLI would spell it.
-//
-// The recording methods take the mutex for the same reason fakeTmux does, since one
-// registry hands the same harness to every create a test runs at once.
 type fakeHarness struct {
-	mu sync.Mutex
-	// launches records every command the harness was asked to build.
-	launches []harness.Launch
-	// relocated records every conversation it was asked to carry, and to where.
-	relocated [][2]string
-	// commandErr makes building the command line fail, standing in for a harness
-	// that cannot assemble one.
+	mu         sync.Mutex
+	launches   []harness.Launch
+	relocated  [][2]string
 	commandErr error
-	// found is the conversation FindSession reports, for the adoption path a harness
-	// that names its own sessions goes through.
-	found string
+	found      string
 }
 
 func (f *fakeHarness) GetID() string     { return testHarnessID }
@@ -283,13 +245,8 @@ func (f *fakeHarness) Relocate(sessionID, dir string) error {
 	return nil
 }
 
-// The log half is here to satisfy the interface a registry hands back. The syncer's
-// own tests drive a real harness over a real log, since the format is the point
-// there.
 func (f *fakeHarness) GetLogPath(string) string { return "" }
 
-// found is what FindSession answers with, for a test about adopting the id a harness
-// named itself. Empty means this fake pre-mints like claude does.
 func (f *fakeHarness) FindSession(string) (string, error) {
 	return f.found, nil
 }
@@ -298,9 +255,6 @@ func (f *fakeHarness) ReadLog(string, int64) (harness.LogRead, error) {
 	return harness.LogRead{}, nil
 }
 
-// fakeHarnesses is a registry over one fake harness. It answers for every id, since
-// most tests here are not about which CLI an agent named; a test that is about that
-// sets only, and every other id then gets ErrNotRegistered.
 type fakeHarnesses struct {
 	harness *fakeHarness
 	only    []string
@@ -398,61 +352,51 @@ func (s *testStore) GetTranscript(ctx context.Context, agentID string) (transcri
 	return s.Transcripts.Get(ctx, agentID)
 }
 
-// agentService builds the service under test over these stores, the same way
-// the composition root does.
-func (s *testStore) agentService(tmux *fakeTmux, harnesses fakeHarnesses, addr, flags string) *AgentService {
+type agentServiceOptions struct {
+	tmux      *fakeTmux
+	harnesses fakeHarnesses
+	addr      string
+	flags     string
+	lifecycle lifecycleActioner
+	maxAgents int
+}
+
+func (s *testStore) agentService(options agentServiceOptions) *AgentService {
 	return NewAgentService(NewAgentServiceParams{
-		Tmux:               tmux,
+		Tmux:               options.tmux,
 		Agents:             s.Agents,
 		Workflows:          s.Workflows,
 		Tx:                 s.Pool,
-		Launcher:           NewLauncher(LauncherParams{Tmux: tmux, Addr: addr}),
-		Harnesses:          harnesses,
+		Launcher:           NewLauncher(LauncherParams{Tmux: options.tmux, Addr: options.addr}),
+		Harnesses:          options.harnesses,
+		Lifecycle:          options.lifecycle,
 		UserDefaultHarness: testHarnessID,
-		UserDefaultFlags:   map[string]string{testHarnessID: flags},
+		UserDefaultFlags:   map[string]string{testHarnessID: options.flags},
+		MaxAgents:          options.maxAgents,
 	})
 }
 
-// agentServiceWithLifecycle builds the service with a stand-in for the actions a
-// workflow runs around its agents' lives, which the plain builder leaves absent the way
-// a panel with no actions directory does.
 func (s *testStore) agentServiceWithLifecycle(tmux *fakeTmux, harnesses fakeHarnesses, lifecycle lifecycleActioner) *AgentService {
-	return NewAgentService(NewAgentServiceParams{
-		Tmux:               tmux,
-		Agents:             s.Agents,
-		Workflows:          s.Workflows,
-		Tx:                 s.Pool,
-		Launcher:           NewLauncher(LauncherParams{Tmux: tmux, Addr: "127.0.0.1:9999"}),
-		Harnesses:          harnesses,
-		Lifecycle:          lifecycle,
-		UserDefaultHarness: testHarnessID,
+	return s.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: harnesses,
+		addr:      "127.0.0.1:9999",
+		lifecycle: lifecycle,
 	})
 }
 
-// agentServiceCapped builds the service with a ceiling and the workflow actions wired,
-// since what a refused create must not do is run the setup action.
 func (s *testStore) agentServiceCapped(tmux *fakeTmux, lifecycle lifecycleActioner, maxAgents int) *AgentService {
-	return NewAgentService(NewAgentServiceParams{
-		Tmux:               tmux,
-		Agents:             s.Agents,
-		Workflows:          s.Workflows,
-		Tx:                 s.Pool,
-		Launcher:           NewLauncher(LauncherParams{Tmux: tmux, Addr: "127.0.0.1:9999"}),
-		Harnesses:          fakeHarnesses{harness: &fakeHarness{}},
-		Lifecycle:          lifecycle,
-		UserDefaultHarness: testHarnessID,
-		MaxAgents:          maxAgents,
+	return s.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		addr:      "127.0.0.1:9999",
+		lifecycle: lifecycle,
+		maxAgents: maxAgents,
 	})
 }
 
-// fakeLifecycle stands in for running a workflow's actions, so a create's tests drive the
-// whole path without an actions directory or a process. It records what it was asked for,
-// which is what says the workflow's own choice reached it.
 type fakeLifecycle struct {
-	// dir is what setup names as the directory to run in, empty for setup that names none.
-	dir string
-	// resumeDir is what the same action names on a resume, falling back to dir so a case
-	// that does not care about the difference states it once.
+	dir        string
 	resumeDir  string
 	setupErr   error
 	resumeErr  error
@@ -590,7 +534,12 @@ func workflowsFor(st *testStore, tmux *fakeTmux) *WorkflowService {
 func newManagerWithHarness(tmux *fakeTmux, st *testStore, flags string) (*AgentService, *fakeHarness) {
 	h := &fakeHarness{}
 
-	return st.agentService(tmux, fakeHarnesses{harness: h}, "127.0.0.1:9999", flags), h
+	return st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: fakeHarnesses{harness: h},
+		addr:      "127.0.0.1:9999",
+		flags:     flags,
+	}), h
 }
 
 // agentByID finds an agent among every row, archived ones included, since a test

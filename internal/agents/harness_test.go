@@ -47,7 +47,10 @@ func TestNewAgentGetsHarness(t *testing.T) {
 			st := newStore(t)
 			tmux := newFakeTmux()
 			// Every id is found here, so this is about which one is chosen.
-			service := st.agentService(tmux, fakeHarnesses{harness: &fakeHarness{}}, "", "")
+			service := st.agentService(agentServiceOptions{
+				tmux:      tmux,
+				harnesses: fakeHarnesses{harness: &fakeHarness{}},
+			})
 
 			created, err := st.Workflows.Create(t.Context(), workflowstore.Config{
 				Name:    "workflow-" + uuid.NewString(),
@@ -77,7 +80,10 @@ func TestNewAgentGetsHarness(t *testing.T) {
 func TestNewAgentRefusesUnknownHarness(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
-	service := st.agentService(tmux, fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}}, "", "")
+	service := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}},
+	})
 
 	_, err := service.NewAgent(t.Context(), NewAgentParams{
 		Title:      "agent",
@@ -101,7 +107,10 @@ func TestNewAgentRefusesUnknownHarness(t *testing.T) {
 func TestResumeRefusesUnknownHarness(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
-	service := st.agentService(tmux, fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}}, "", "")
+	service := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}},
+	})
 
 	require.NoError(t, st.Create(t.Context(), agentstore.Agent{
 		Name:      "dormant",
