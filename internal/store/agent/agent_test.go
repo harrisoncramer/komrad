@@ -696,14 +696,12 @@ func TestSetMetadataCeilingUnderConcurrency(t *testing.T) {
 	errs := make([]error, writers)
 
 	for i := range writers {
-		wg.Add(1)
 
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 
 			_, err := st.SetMetadata(ctx, SetMetadataParams{ID: created.ID, Key: fmt.Sprintf("racer-%d", i), Value: xptr.Ptr("v")})
 			errs[i] = err
-		}()
+		})
 	}
 
 	wg.Wait()
