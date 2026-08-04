@@ -214,7 +214,7 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 
 	sessionID := plan.harness.MintSessionID()
 
-	planned := plan.agent(p, id, sessionID)
+	planned := plan.agent(p, id, sessionID, plan.dir, "")
 
 	named, err := s.runSetup(ctx, planned, plan.setupAction)
 	if err != nil {
@@ -234,8 +234,6 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		return nil, err
 	}
 
-	planned.Cwd = dir
-
 	pane, err := s.tmux.NewWindow(ManagerSession, plan.name, dir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open a window for %q: %w", plan.name, err)
@@ -247,8 +245,7 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		}
 	}()
 
-	agent := planned
-	agent.Pane = pane
+	agent := plan.agent(p, id, sessionID, dir, pane)
 
 	if err := s.tmux.SetPaneOwner(pane, id); err != nil {
 		return nil, fmt.Errorf("failed to stamp the pane for %q: %w", plan.name, err)
@@ -597,11 +594,15 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 	}, nil
 }
 
-func (plan *launchPlan) agent(params NewAgentParams, id, sessionID string) agentstore.Agent {
+// agent builds the complete row for a launching agent. It is the single place that
+// assembles the record; callers pass in whatever they've resolved so far and get back
+// the full shape, rather than constructing a partial value and patching fields onto it.
+func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane string) agentstore.Agent {
 	return agentstore.Agent{
 		ID:             id,
 		Name:           plan.name,
-		Cwd:            plan.dir,
+		Pane:           pane,
+		Cwd:            dir,
 		Flags:          plan.flags,
 		Prompt:         params.Prompt,
 		State:          agentstore.StateIdle,
