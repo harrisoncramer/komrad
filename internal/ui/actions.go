@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -8,6 +9,10 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+// errNotText is why the editor key does nothing on a compiled program. The panel answers
+// this itself rather than asking, since the listing already says which files are text.
+var errNotText = errors.New("the file is not text, so there is nothing to edit")
 
 // actionState is the actions screen, the scripts the user has written for the panel to
 // run. The list is asked for on the way in rather than polled, since a directory does not
@@ -30,6 +35,9 @@ type actionItem struct {
 	description string
 	timeout     time.Duration
 	problems    []string
+	// text says the file is a script rather than a compiled program, which is what decides
+	// whether the editor key has anything to open.
+	text bool
 }
 
 // actionsResult is a finished listing, its own message rather than part of the refresh
@@ -135,6 +143,8 @@ func (m model) updateActions(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case isBound(k, m.keys.Actions.Run):
 		return m.runSelectedAction()
+	case isBound(k, m.keys.Actions.Editor):
+		return m.editSelectedAction()
 	}
 
 	return m, nil
@@ -170,6 +180,39 @@ func (m model) runSelectedAction() (tea.Model, tea.Cmd) {
 	)
 }
 
+// editSelectedAction opens the file under the cursor in the user's editor, in the pane under
+// the stage, and takes that pane away when the key is pressed again on the same file. Moving
+// to another action and pressing the key there opens that one instead.
+//
+// The editor is opened by an action rather than by the panel, so a user who writes their own
+// gets it here and on the agents list both. The service resolves the name to a path, since
+// which of the two actions directories a name was found in is not the panel's to know.
+func (m model) editSelectedAction() (tea.Model, tea.Cmd) {
+	action, ok := m.selectedAction()
+	if !ok {
+		return m, nil
+	}
+
+	if m.tree.below == belowEdit && m.tree.belowAction == action.name {
+		return m.closeBelow(), nil
+	}
+
+	summary := fmt.Sprintf("Could not edit action %q", action.name)
+	if !action.text {
+		m.report(summary, errNotText)
+
+		return m, nil
+	}
+
+	if !m.claimBelow(belowEdit, action.name) {
+		return m, nil
+	}
+
+	agentID, name := m.actions.agent.ID, action.name
+
+	return m, m.writeCmd(summary, func(a api) error { return a.editAction(agentID, name) })
+}
+
 // noActionsMarkdown is what the stage shows with nothing to list, so the pane says what an
 // action is rather than sitting blank. It names no directory, since the config is where
 // that answer lives.
@@ -196,21 +239,6 @@ func (m model) stageAction() {
 	m.stage.Text(actionMarkdown(action))
 }
 
-// minSummaryWidth is the least room a description is worth drawing in. Below it a row shows
-// the name alone, since three words of a sentence are no help.
-const minSummaryWidth = 12
-
-// actionSummary is what a row says beside a name, so a list of files reads as a list of what
-// they do. room is what the list has left over, since anything longer is cut by the edge of
-// the pane instead of by an ellipsis.
-func actionSummary(description string, room int) string {
-	if description == "" || room < minSummaryWidth {
-		return ""
-	}
-
-	return "  " + dimStyle.Render(clip(description, min(room, descriptionWidth)))
-}
-
 // actionsView renders the actions list, naming the agent they would run on, since the list
 // acts on the row it was opened from rather than whatever the agents list is hovering by
 // now. A file without the executable bit is drawn dim, the way a dormant agent is.
@@ -232,9 +260,7 @@ func (m model) actionsView() string {
 		}
 
 		name := m.filter.highlight(action.name, nameStyle(hovered, !action.executable))
-		// Two cells for the prefix, two for the gap before the summary.
-		room := m.width - len([]rune(action.name)) - 4
-		rows = append(rows, prefix+name+actionSummary(action.description, room))
+		rows = append(rows, prefix+name)
 	}
 
 	return header + renderList(rows, m.actions.cursor, m.listLines(header, help)) + help

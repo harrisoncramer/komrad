@@ -383,6 +383,21 @@ func (m model) archiveRowHelp() []key.Binding {
 	}
 }
 
+// actionEditorDesc is what the legend says the editor key would do to the row under the
+// cursor. It names the direction the key would go, the way the info and log lines do, and
+// says why it would do nothing at all on a file with no text in it.
+func (m model) actionEditorDesc() string {
+	action, ok := m.selectedAction()
+	switch {
+	case ok && !action.text:
+		return "not a text file"
+	case ok && m.tree.below == belowEdit && m.tree.belowAction == action.name:
+		return "close editor"
+	default:
+		return "edit"
+	}
+}
+
 // actionHelp lists the actions screen's bindings.
 func (m model) actionHelp() keyMap {
 	runDesc := "run"
@@ -391,12 +406,13 @@ func (m model) actionHelp() keyMap {
 	}
 
 	run := binding(m.keys.Actions.Run, runDesc)
+	editor := binding(m.keys.Actions.Editor, m.actionEditorDesc())
 	clear := m.clearFilterBinding(m.keys.Actions.Back)
 
 	return keyMap{
-		short: slices.Concat([]key.Binding{run}, clear, []key.Binding{m.helpBinding()}),
+		short: slices.Concat([]key.Binding{run, editor}, clear, []key.Binding{m.helpBinding()}),
 		full: slices.Concat(
-			[]key.Binding{run, m.filterBinding(), m.moveBinding()},
+			[]key.Binding{run, editor, m.filterBinding(), m.moveBinding()},
 			clear,
 			m.globalHelp(),
 		),

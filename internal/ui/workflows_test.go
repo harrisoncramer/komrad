@@ -238,6 +238,7 @@ func TestAvailableActionsSkipUnderscoredNames(t *testing.T) {
 	assert.Equal(t, []actionChoice{
 		{name: "open-pr", description: "Open the pull request this agent recorded."},
 		{name: "unrunnable"},
+		{name: "compiled"},
 	}, got)
 }
 

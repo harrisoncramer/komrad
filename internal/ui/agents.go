@@ -256,9 +256,7 @@ func (m model) toggleRecord() (tea.Model, tea.Cmd) {
 // takes that pane away when the key that opened it is pressed again.
 //
 // The pane is opened here rather than by the script, since the panel is what knows how its
-// window is laid out. Its id is recorded on tmux for the script to read, the way the client
-// viewing the popup is, because an action is a process of its own and cannot be handed
-// anything else.
+// window is laid out.
 func (m model) runBelowAction(name, summary string) (tea.Model, tea.Cmd) {
 	if m.tree.below == belowAction && m.tree.belowAction == name {
 		return m.closeBelow(), nil
@@ -269,19 +267,33 @@ func (m model) runBelowAction(name, summary string) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	pane := m.stage.OpenSecondary()
-	if pane == "" {
+	if !m.claimBelow(belowAction, name) {
 		return m, nil
 	}
-
-	m.tmux.SetPanelGlobal(tmux.SecondaryPaneOption, pane)
-	m.stage.SecondaryClaimed()
-	m.tree.below = belowAction
-	m.tree.belowAction = name
 
 	agentID := item.agent.ID
 
 	return m, m.writeCmd(summary, func(a api) error { return a.runAction(agentID, name) })
+}
+
+// claimBelow opens the pane under the stage for an action to fill and records what the pane
+// is about. It reports false when there is no pane to open, which is nothing to fire an
+// action into.
+//
+// The pane's id is recorded on tmux for the script to read, the way the client viewing the
+// popup is, because an action is a process of its own and cannot be handed anything else.
+func (m *model) claimBelow(kind belowKind, name string) bool {
+	pane := m.stage.OpenSecondary()
+	if pane == "" {
+		return false
+	}
+
+	m.tmux.SetPanelGlobal(tmux.SecondaryPaneOption, pane)
+	m.stage.SecondaryClaimed()
+	m.tree.below = kind
+	m.tree.belowAction = name
+
+	return true
 }
 
 // closeBelow takes the pane under the stage away, whatever was in it. The recorded pane is
@@ -381,7 +393,8 @@ func (m model) stageSelection() {
 
 // stageBelow draws whatever the user opened under the stage. Only the record follows the
 // cursor, since it is about the row that is hovered now rather than the one it was opened
-// on. An action's pane is left alone, since what a script put there is the script's.
+// on. An action's pane is left alone, since what a script put there is the script's, and so
+// is an editor, which holds a file somebody is part way through changing.
 func (m model) stageBelow() {
 	switch m.tree.below {
 	case belowRecord:
@@ -395,7 +408,7 @@ func (m model) stageBelow() {
 		}
 	case belowLogs:
 		m.stage.SecondaryLog(m.logPath, logArgv(m.logViewer, m.logPath))
-	case belowNothing, belowAction:
+	case belowNothing, belowAction, belowEdit:
 	}
 }
 

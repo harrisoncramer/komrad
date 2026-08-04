@@ -17,10 +17,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// panelOnly are the methods deliberately left off the tool surface, each because it acts on
+// the panel's own window rather than on anything a model has. EditAction opens an editor in a
+// pane of the popup, which is a person's screen. A model changing a script reads and writes
+// the file itself.
+var panelOnly = map[protoreflect.Name]bool{"EditAction": true}
+
 // TestEveryMethodIsAnnotated confirms the tool surface keeps up with the
 // services. A new RPC added without a tool annotation is invisible to a model,
 // which is the safe default but is easy to do by accident, so this fails loudly
-// enough to be a decision rather than an oversight.
+// enough to be a decision rather than an oversight. Leaving one out means naming
+// it in panelOnly, which is that decision written down.
 func TestEveryMethodIsAnnotated(t *testing.T) {
 	tests := []struct {
 		name string
@@ -39,6 +46,11 @@ func TestEveryMethodIsAnnotated(t *testing.T) {
 
 			for i := range service.Methods().Len() {
 				method := service.Methods().Get(i)
+				if panelOnly[method.Name()] {
+					assert.Nil(t, rpcapi.GetToolAnnotation(method), "method %s is named as panel-only", method.Name())
+
+					continue
+				}
 
 				annotation := rpcapi.GetToolAnnotation(method)
 				require.NotNil(t, annotation, "method %s has no tool annotation", method.Name())

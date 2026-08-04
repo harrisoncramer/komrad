@@ -714,6 +714,90 @@ func TestRunActionRunsABuiltinAmongItsOwnSiblings(t *testing.T) {
 	assert.Contains(t, runner.env, "WEAVE_ACTIONS_DIR="+builtinDir)
 }
 
+// TestEditAction covers opening an action's own file. The editing action is what runs, since
+// the panel opens the pane and a script fills it, and the file it opens is named as a path,
+// which is the one part of this the panel cannot work out for itself.
+func TestEditAction(t *testing.T) {
+	userDir, builtinDir := t.TempDir(), t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(userDir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(builtinDir, editActionName), []byte("#!/bin/sh\n"), 0o755))
+
+	runner := &recordingRunner{}
+	service := actionService(t, userDir, runner)
+	service.builtinDir = builtinDir
+
+	require.NoError(t, service.EditAction(context.Background(), "a1", "open-pr"))
+
+	require.Equal(t, []string{editActionName}, runner.ran)
+	assert.Equal(t, builtinDir, runner.dir, "the editing action runs among its own siblings")
+	assert.Contains(t, runner.env, editPathVar+"="+filepath.Join(userDir, "open-pr"))
+	assert.Contains(t, runner.env, "EDITOR=nvim", "the editor is the one the server was started with")
+}
+
+// TestEditActionRefusals covers what will not open. A compiled program is refused rather than
+// handed to an editor, which would show a screen of bytes and write back something that is no
+// longer a program.
+func TestEditActionRefusals(t *testing.T) {
+	tests := []struct {
+		name    string
+		agentID string
+		action  string
+		wantErr error
+	}{
+		{
+			name:    "an agent that is not there",
+			agentID: "gone",
+			action:  "open-pr",
+			wantErr: ErrAgentNotFound,
+		},
+		{
+			name:    "an action nobody wrote",
+			agentID: "a1",
+			action:  "never-written",
+			wantErr: ErrActionNotFound,
+		},
+		{
+			name:    "a compiled program",
+			agentID: "a1",
+			action:  "compiled",
+			wantErr: ErrNotEditable,
+		},
+	}
+
+	userDir, builtinDir := t.TempDir(), t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(userDir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(userDir, "compiled"), []byte{0x7f, 'E', 'L', 'F', 0x00}, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(builtinDir, editActionName), []byte("#!/bin/sh\n"), 0o755))
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := &recordingRunner{}
+			service := actionService(t, userDir, runner)
+			service.builtinDir = builtinDir
+
+			err := service.EditAction(context.Background(), tt.agentID, tt.action)
+
+			require.ErrorIs(t, err, tt.wantErr)
+			assert.Empty(t, runner.ran, "nothing is started for a refusal")
+		})
+	}
+}
+
+// TestEditActionWithoutTheEditingAction covers a build whose shipped actions are not installed
+// and a user who has written no _edit_action either. There is nothing to open the file with, so
+// the name that answers to nothing is the one reported.
+func TestEditActionWithoutTheEditingAction(t *testing.T) {
+	userDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(userDir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
+
+	runner := &recordingRunner{}
+	err := actionService(t, userDir, runner).EditAction(context.Background(), "a1", "open-pr")
+
+	require.ErrorIs(t, err, ErrActionNotFound)
+	assert.Contains(t, err.Error(), editActionName)
+	assert.Empty(t, runner.ran)
+}
+
 // TestActionTimeouts covers how long a run gets. What the file declares wins wherever it was
 // fired from, and an action that declares nothing falls back to a ceiling only where a launch
 // is blocked on it.

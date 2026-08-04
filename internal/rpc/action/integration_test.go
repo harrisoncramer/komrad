@@ -41,6 +41,12 @@ func TestActionServiceOverHTTP(t *testing.T) {
 		"#!/bin/sh\nprintf '%s' \"$WEAVE_AGENT\" > payload.json\n",
 	), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "unrunnable"), []byte("#!/bin/sh\n"), 0o644))
+	// The editing action the panel's editor key reaches, written here rather than shipped, so
+	// this also covers a user's own file standing in for the built-in one.
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "_edit_action"), []byte(
+		"#!/bin/sh\nprintf '%s' \"$WEAVE_EDIT_PATH\" > edited.txt\n",
+	), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "compiled"), []byte{0x7f, 'E', 'L', 'F', 0x00}, 0o755))
 
 	client := actionClient(t, dir, work)
 
@@ -49,10 +55,12 @@ func TestActionServiceOverHTTP(t *testing.T) {
 		require.NoError(t, err)
 
 		listed := resp.Msg.GetActions()
-		require.Len(t, listed, 2)
-		assert.Equal(t, "record", listed[0].GetName())
-		assert.True(t, listed[0].GetExecutable())
-		assert.False(t, listed[1].GetExecutable(), "the file waiting on a chmod is listed too")
+		require.Len(t, listed, 4)
+		assert.Equal(t, []string{"_edit_action", "compiled", "record", "unrunnable"}, names(listed))
+		assert.True(t, listed[2].GetExecutable())
+		assert.True(t, listed[2].GetText())
+		assert.False(t, listed[1].GetText(), "a compiled program is listed as what it is")
+		assert.False(t, listed[3].GetExecutable(), "the file waiting on a chmod is listed too")
 	})
 
 	t.Run("a name reaching out of the directory is refused before the handler", func(t *testing.T) {
@@ -110,6 +118,46 @@ func TestActionServiceOverHTTP(t *testing.T) {
 		// started at all despite the agent's own directory being gone.
 		assert.Contains(t, string(written), `"cwd":"`+work+`"`)
 	})
+
+	t.Run("editing hands the editing action the path the name resolved to", func(t *testing.T) {
+		_, err := client.EditAction(context.Background(), connect.NewRequest(&actionv1.EditActionRequest{
+			AgentId: "a1",
+			Action:  "record",
+		}))
+		require.NoError(t, err)
+
+		edited := filepath.Join(dir, "edited.txt")
+
+		var written []byte
+		require.Eventually(t, func() bool {
+			read, err := os.ReadFile(edited)
+			written = read
+
+			return err == nil && len(read) > 0
+		}, 5*time.Second, 10*time.Millisecond, "the editing action never wrote %s", edited)
+
+		assert.Equal(t, filepath.Join(dir, "record"), string(written))
+	})
+
+	t.Run("a compiled program is refused rather than opened", func(t *testing.T) {
+		_, err := client.EditAction(context.Background(), connect.NewRequest(&actionv1.EditActionRequest{
+			AgentId: "a1",
+			Action:  "compiled",
+		}))
+
+		require.Error(t, err)
+		assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
+	})
+}
+
+// names is what a listing holds, in the order it arrived.
+func names(listed []*actionv1.Action) []string {
+	found := make([]string, 0, len(listed))
+	for _, action := range listed {
+		found = append(found, action.GetName())
+	}
+
+	return found
 }
 
 // actionClient stands the service up behind a real server, with the validation interceptor the

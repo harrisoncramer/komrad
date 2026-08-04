@@ -45,21 +45,28 @@ type Header struct {
 }
 
 // readHeader is what the file at path declares about itself, read out of the head of the
-// file. One that cannot be read comes back as no header, since Discover offers it either way.
-func readHeader(path string) Header {
+// file, and whether that head is text at all. One that cannot be read comes back as no
+// header and not text, since Discover offers it either way.
+func readHeader(path string) (Header, bool) {
 	file, err := os.Open(path)
 	if err != nil {
-		return Header{}
+		return Header{}, false
 	}
 	defer func() { _ = file.Close() }()
 
 	head := make([]byte, headerLimit)
 	read, err := io.ReadFull(file, head)
 	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
-		return Header{}
+		return Header{}, false
 	}
 
-	return scanHeader(head[:read])
+	return scanHeader(head[:read]), isText(head[:read])
+}
+
+// isText reports whether the head of a file is text, deciding on a NUL byte the way less
+// itself does.
+func isText(head []byte) bool {
+	return bytes.IndexByte(head, 0) < 0
 }
 
 // scanHeader reads the directives out of the top of a file, passing over blank lines, a
@@ -71,7 +78,7 @@ func readHeader(path string) Header {
 // less does. The last of two directives naming the same key is the one that stands.
 func scanHeader(text []byte) Header {
 	var header Header
-	if bytes.IndexByte(text, 0) >= 0 {
+	if !isText(text) {
 		return header
 	}
 

@@ -20,6 +20,7 @@ import (
 type actionRunner interface {
 	ListActions() ([]actions.Action, error)
 	RunAction(ctx context.Context, agentID, name string) error
+	EditAction(ctx context.Context, agentID, name string) error
 }
 
 // Service implements actionv1connect.ActionServiceHandler.
@@ -49,6 +50,7 @@ func (s *Service) ListActions(_ context.Context, _ *connect.Request[emptypb.Empt
 			Description:    action.Header.Description,
 			Timeout:        declaredTimeout(action.Header.Timeout),
 			HeaderProblems: action.Header.Problems,
+			Text:           action.Text,
 		})
 	}
 
@@ -69,6 +71,26 @@ func (s *Service) RunAction(ctx context.Context, req *connect.Request[actionv1.R
 		return nil, connect.NewError(connect.CodeNotFound, err)
 	case errors.Is(err, actions.ErrNotExecutable), errors.Is(err, actions.ErrNotStartable),
 		errors.Is(err, actions.ErrDirMissing):
+		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
+	case err != nil:
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// EditAction opens an action's file in the user's editor and answers as soon as that process
+// exists, since what happens in the pane afterwards belongs to whoever is reading it.
+//
+// It refuses what RunAction refuses, for the same reasons, plus FailedPrecondition for a
+// compiled program, which is there and readable and simply has nothing to edit.
+func (s *Service) EditAction(ctx context.Context, req *connect.Request[actionv1.EditActionRequest]) (*connect.Response[emptypb.Empty], error) {
+	err := s.actions.EditAction(ctx, req.Msg.GetAgentId(), req.Msg.GetAction())
+	switch {
+	case errors.Is(err, agents.ErrAgentNotFound), errors.Is(err, agents.ErrActionNotFound):
+		return nil, connect.NewError(connect.CodeNotFound, err)
+	case errors.Is(err, agents.ErrNotEditable), errors.Is(err, actions.ErrNotExecutable),
+		errors.Is(err, actions.ErrNotStartable), errors.Is(err, actions.ErrDirMissing):
 		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, err)

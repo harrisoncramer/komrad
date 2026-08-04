@@ -27,8 +27,9 @@ type treeState struct {
 	showHidden bool
 
 	// below is what the pane under the stage is holding, none while that pane is closed,
-	// and belowAction names the action holding it when one does, so the key that fired it
-	// is the key that takes it away.
+	// and belowAction names the action the pane is about, so the key that opened it is the
+	// key that takes it away. That is the action that filled the pane, or the one whose
+	// file is open in the editor down there.
 	below       belowKind
 	belowAction string
 
@@ -48,6 +49,10 @@ const (
 	belowRecord
 	belowLogs
 	belowAction
+	// belowEdit is an action's own file open in the user's editor. It is a kind of its own
+	// because the key that closes it is decided by which file is down there rather than by
+	// which script put it there.
+	belowEdit
 )
 
 // agentRow is one line of a tree, either a workflow header or an agent nested beneath one.
