@@ -32,7 +32,7 @@ func NewStage(tmux stageTmux, layout config.Layout) *Stage {
 // claimMain ensures the main stage pane exists, forgetting what was last shown
 // in it (and below it) whenever that meant rebuilding it from scratch.
 func (s *Stage) claimMain() {
-	if s.panes.claim() {
+	if s.claim() {
 		s.shown, s.shownBelow = "", ""
 	}
 }
@@ -41,7 +41,7 @@ func (s *Stage) claimMain() {
 func (s *Stage) OpenSecondary() string {
 	s.claimMain()
 
-	pane, rebuilt := s.panes.openSecondary()
+	pane, rebuilt := s.openSecondary()
 	if rebuilt {
 		s.shownBelow = ""
 	}
@@ -51,7 +51,7 @@ func (s *Stage) OpenSecondary() string {
 
 // CloseSecondary closes the pane below the main stage.
 func (s *Stage) CloseSecondary() {
-	s.panes.closeSecondary()
+	s.closeSecondary()
 	s.shownBelow = ""
 }
 
@@ -63,11 +63,11 @@ func (s *Stage) SecondaryText(markdown string) {
 	}
 
 	path := filepath.Join(os.TempDir(), "weave-secondary.ansi")
-	if !writeStageFile(path, render(markdown, s.panes.wrap(pane))) {
+	if !writeStageFile(path, render(markdown, s.wrap(pane))) {
 		return
 	}
 
-	s.panes.run(pane, pagerArgv(path, 0)...)
+	s.run(pane, pagerArgv(path, 0)...)
 	s.shownBelow = markdown
 }
 
@@ -78,7 +78,7 @@ func (s *Stage) SecondaryLog(path string, argv []string) {
 		return
 	}
 
-	s.panes.run(pane, argv...)
+	s.run(pane, argv...)
 	s.shownBelow = shownLog + path
 }
 
@@ -89,7 +89,7 @@ func (s *Stage) SecondaryClaimed() {
 
 // Agent displays a live agent pane in the stage.
 func (s *Stage) Agent(pane string) {
-	if s.panes.agent(pane) {
+	if s.agent(pane) {
 		s.shown = shownOther
 	}
 }
@@ -97,31 +97,31 @@ func (s *Stage) Agent(pane string) {
 // Log displays a log in the main stage pane.
 func (s *Stage) Log(path string, argv []string) {
 	s.claimMain()
-	if s.panes.pane == "" || len(argv) == 0 || (s.panes.agentPane == "" && s.shown == shownLog+path) {
+	if s.pane == "" || len(argv) == 0 || (s.agentPane == "" && s.shown == shownLog+path) {
 		return
 	}
 
-	s.panes.restore()
+	s.restore()
 
-	s.panes.run(s.panes.pane, argv...)
+	s.run(s.pane, argv...)
 	s.shown = shownLog + path
 }
 
 // Text renders markdown in the main stage pane.
 func (s *Stage) Text(markdown string) {
 	s.claimMain()
-	if s.panes.pane == "" || (s.panes.agentPane == "" && s.shown == markdown) {
+	if s.pane == "" || (s.agentPane == "" && s.shown == markdown) {
 		return
 	}
 
-	s.panes.restore()
+	s.restore()
 
 	path := filepath.Join(os.TempDir(), "weave-stage.ansi")
-	if !writeStageFile(path, render(markdown, s.panes.wrap(s.panes.pane))) {
+	if !writeStageFile(path, render(markdown, s.wrap(s.pane))) {
 		return
 	}
 
-	s.panes.run(s.panes.pane, pagerArgv(path, 0)...)
+	s.run(s.pane, pagerArgv(path, 0)...)
 	s.shown = markdown
 }
 
@@ -133,11 +133,11 @@ func (s *Stage) Transcript(content string, highlightLine int) {
 	}
 
 	s.claimMain()
-	if s.panes.pane == "" {
+	if s.pane == "" {
 		return
 	}
 
-	s.panes.restore()
+	s.restore()
 
 	path := filepath.Join(os.TempDir(), "weave-stage.txt")
 	if !writeStageFile(path, highlighted(content, highlightLine)) {
@@ -149,18 +149,18 @@ func (s *Stage) Transcript(content string, highlightLine int) {
 		open = max(highlightLine-transcriptPreviewBefore, 1)
 	}
 
-	s.panes.run(s.panes.pane, pagerArgv(path, open)...)
+	s.run(s.pane, pagerArgv(path, open)...)
 	s.shown = shownOther
 }
 
 // Blank clears the main stage pane.
 func (s *Stage) Blank() {
 	s.claimMain()
-	if s.panes.pane == "" || (s.panes.agentPane == "" && s.shown == shownBlank) {
+	if s.pane == "" || (s.agentPane == "" && s.shown == shownBlank) {
 		return
 	}
 
-	s.panes.restore()
-	s.panes.run(s.panes.pane)
+	s.restore()
+	s.run(s.pane)
 	s.shown = shownBlank
 }
