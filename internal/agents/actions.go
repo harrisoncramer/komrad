@@ -184,22 +184,16 @@ const maxSetupDir = 4096
 
 // RunSetupAction runs a setup action before creating an agent.
 func (s *ActionService) RunSetupAction(ctx context.Context, agent agentstore.Agent, name string) (string, error) {
-	return s.runAwaitedAction(ctx, awaitedActionParams{agent: agent, name: name, trigger: TriggerSetup})
+	return s.runAwaitedAction(ctx, prepareParams{agent: agent, name: name, trigger: TriggerSetup})
 }
 
 // RunResumeAction reruns a setup action before resuming an agent.
 func (s *ActionService) RunResumeAction(ctx context.Context, agent agentstore.Agent, name string) (string, error) {
-	return s.runAwaitedAction(ctx, awaitedActionParams{agent: agent, name: name, trigger: TriggerResume})
+	return s.runAwaitedAction(ctx, prepareParams{agent: agent, name: name, trigger: TriggerResume})
 }
 
-type awaitedActionParams struct {
-	agent   agentstore.Agent
-	name    string
-	trigger string
-}
-
-func (s *ActionService) runAwaitedAction(ctx context.Context, p awaitedActionParams) (string, error) {
-	prepared, err := s.prepare(ctx, prepareParams{agent: p.agent, name: p.name, trigger: p.trigger})
+func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams) (string, error) {
+	prepared, err := s.prepare(ctx, p)
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrSetupFailed, err)
 	}
