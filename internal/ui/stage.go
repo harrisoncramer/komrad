@@ -252,13 +252,12 @@ func (s *Stage) SecondaryText(markdown string) {
 		return
 	}
 
-	home, _ := os.UserHomeDir()
 	path := filepath.Join(os.TempDir(), "weave-secondary.ansi")
-	if err := os.WriteFile(path, []byte(s.render(markdown, pane)), 0o644); err != nil {
+	if !writeStageFile(path, s.render(markdown, pane)) {
 		return
 	}
 
-	s.tmux.RespawnPane(pane, home, pagerArgv(path, 0)...)
+	s.displayCommand(pane, pagerArgv(path, 0)...)
 	s.shownBelow = markdown
 }
 
@@ -272,8 +271,7 @@ func (s *Stage) SecondaryLog(path string, argv []string) {
 		return
 	}
 
-	home, _ := os.UserHomeDir()
-	s.tmux.RespawnPane(pane, home, argv...)
+	s.displayCommand(pane, argv...)
 	s.shownBelow = shownLog + path
 }
 
@@ -369,17 +367,13 @@ const shownLog = "\x00log:"
 // the log already up does not respawn the pane under somebody reading it.
 func (s *Stage) Log(path string, argv []string) {
 	s.claim()
-	if s.pane == "" || len(argv) == 0 {
-		return
-	}
-	if s.agentPane == "" && s.shown == shownLog+path {
+	if s.pane == "" || len(argv) == 0 || (s.agentPane == "" && s.shown == shownLog+path) {
 		return
 	}
 
 	s.restore()
 
-	home, _ := os.UserHomeDir()
-	s.tmux.RespawnPane(s.pane, home, argv...)
+	s.displayCommand(s.pane, argv...)
 	s.shown = shownLog + path
 }
 
@@ -411,22 +405,18 @@ func (s *Stage) render(markdown, pane string) string {
 // file, which is how a workflow's info and a dormant agent's placeholder render.
 func (s *Stage) Text(markdown string) {
 	s.claim()
-	if s.pane == "" {
-		return
-	}
-	if s.agentPane == "" && s.shown == markdown {
+	if s.pane == "" || (s.agentPane == "" && s.shown == markdown) {
 		return
 	}
 
 	s.restore()
 
-	home, _ := os.UserHomeDir()
 	path := filepath.Join(os.TempDir(), "weave-stage.ansi")
-	if err := os.WriteFile(path, []byte(s.render(markdown, s.pane)), 0o644); err != nil {
+	if !writeStageFile(path, s.render(markdown, s.pane)) {
 		return
 	}
 
-	s.tmux.RespawnPane(s.pane, home, pagerArgv(path, 0)...)
+	s.displayCommand(s.pane, pagerArgv(path, 0)...)
 	s.shown = markdown
 }
 
@@ -470,9 +460,8 @@ func (s *Stage) Transcript(content string, highlightLine int) {
 
 	s.restore()
 
-	home, _ := os.UserHomeDir()
 	path := filepath.Join(os.TempDir(), "weave-stage.txt")
-	if err := os.WriteFile(path, []byte(highlighted(content, highlightLine)), 0o644); err != nil {
+	if !writeStageFile(path, highlighted(content, highlightLine)) {
 		return
 	}
 
@@ -481,22 +470,27 @@ func (s *Stage) Transcript(content string, highlightLine int) {
 		open = max(highlightLine-transcriptPreviewBefore, 1)
 	}
 
-	s.tmux.RespawnPane(s.pane, home, pagerArgv(path, open)...)
+	s.displayCommand(s.pane, pagerArgv(path, open)...)
 	s.shown = shownOther
 }
 
 // Blank clears the stage back to an empty shell.
 func (s *Stage) Blank() {
 	s.claim()
-	if s.pane == "" {
-		return
-	}
-	if s.agentPane == "" && s.shown == shownBlank {
+	if s.pane == "" || (s.agentPane == "" && s.shown == shownBlank) {
 		return
 	}
 
 	s.restore()
-	home, _ := os.UserHomeDir()
-	s.tmux.RespawnPane(s.pane, home)
+	s.displayCommand(s.pane)
 	s.shown = shownBlank
+}
+
+func writeStageFile(path, content string) bool {
+	return os.WriteFile(path, []byte(content), 0o644) == nil
+}
+
+func (s *Stage) displayCommand(pane string, argv ...string) {
+	home, _ := os.UserHomeDir()
+	s.tmux.RespawnPane(pane, home, argv...)
 }
