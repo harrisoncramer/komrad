@@ -138,9 +138,10 @@ func (m model) wasConfirmed() bool {
 
 // confirmForm asks a yes-or-no question and returns the answer its buttons write into.
 // Every prompt in the panel goes through this, so only the wording differs. affirmative
-// names what saying yes does, since one prompt archives and the others destroy.
+// names what saying yes does, since one prompt archives and the others destroy. It starts
+// on the affirmative button, so a submit alone confirms rather than needing a move first.
 func confirmForm(title, description, affirmative string, keys config.FormKeys) (*huh.Form, *bool) {
-	var confirmed bool
+	confirmed := true
 
 	form := huh.NewForm(
 		huh.NewGroup(
