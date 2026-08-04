@@ -433,10 +433,7 @@ func DefaultLayout() Layout {
 type Mark struct {
 	Glyph string `mapstructure:"glyph" json:"glyph"`
 	// The colour the glyph is drawn in, either one of the sixteen a terminal's own
-	// scheme maps, named as "red" or "brightred", or a hex value such as "#DCA561" with
-	// three or six digits. A name follows whatever your colour scheme holds in that
-	// slot, the way the rest of the panel does, while hex is the same in every terminal.
-	// Left empty the mark takes DefaultMarkColor.
+	// scheme maps, named as "red" or "brightred", or a hex value such as "#DCA561"
 	Color string `mapstructure:"color" json:"color"`
 }
 
