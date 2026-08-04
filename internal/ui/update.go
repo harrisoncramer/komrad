@@ -182,6 +182,8 @@ func (m model) routeFormMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateForm(msg)
 	case screenRename:
 		return m.updateRename(msg)
+	case screenAgentArchive:
+		return m.updateAgentArchive(msg)
 	case screenWorkflowForm:
 		return m.updateWorkflowForm(msg)
 	case screenWorkflowArchive:

@@ -232,6 +232,23 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			},
 		},
 		{
+			name: "the agent archive prompt",
+			open: func(m model) model {
+				m.target.archiveAgents = []agentstore.Agent{{ID: "a1", Name: "api-refactor"}}
+				m.screen = screenAgentArchive
+				m.form, m.values.confirmed = archiveAgentsForm(m.target.archiveAgents, m.keys.Form)
+				*m.values.confirmed = true
+				m.form.State = huh.StateCompleted
+
+				return m
+			},
+			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateAgentArchive(keyMsg("enter")) },
+			check: func(t *testing.T, sent *formRecorder) {
+				require.NotNil(t, sent.archivedAgents)
+				assert.Equal(t, []string{"a1"}, sent.archivedAgents.GetIds())
+			},
+		},
+		{
 			name: "the schedule delete prompt",
 			open: func(m model) model {
 				m.target.archiveSchedule = &schedulestore.Schedule{ID: "s1", Name: "sweeper"}
@@ -524,6 +541,7 @@ type formRecorder struct {
 	createdAgent     *agentv1.CreateAgentRequest
 	renamedAgent     *agentv1.UpdateAgentRequest
 	deletedAgents    *agentv1.DeleteAgentsRequest
+	archivedAgents   *agentv1.ArchiveAgentsRequest
 	createdWorkflow  *workflowv1.CreateWorkflowRequest
 	updatedWorkflow  *workflowv1.UpdateWorkflowRequest
 	archivedWorkflow *workflowv1.ArchiveWorkflowRequest
@@ -571,6 +589,16 @@ func (f *formRecorder) DeleteAgents(_ context.Context, req *connect.Request[agen
 	}
 
 	f.deletedAgents = req.Msg
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (f *formRecorder) ArchiveAgents(_ context.Context, req *connect.Request[agentv1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
+	if f.refuse != nil {
+		return nil, f.refuse
+	}
+
+	f.archivedAgents = req.Msg
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }

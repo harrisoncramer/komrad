@@ -12,6 +12,7 @@ import (
 	workflowv1 "weave/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
+	"github.com/charmbracelet/huh"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -67,10 +68,19 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 	// same key on the header archives the whole workflow.
 	panel.tree.cursor = 1
 
-	updated, cmd := panel.Update(keyMsg(keys.Agents.Archive[0]))
+	updated, _ := panel.Update(keyMsg(keys.Agents.Archive[0]))
 	pressed, ok := updated.(model)
 	require.True(t, ok)
-	panel = settle(t, pressed, cmd)
+	require.Equal(t, screenAgentArchive, pressed.screen, "the key opens the confirm prompt rather than archiving outright")
+
+	// Answering the prompt is what actually archives it; huh's own keystrokes for that are
+	// exercised in the confirm field's own tests, not here.
+	*pressed.values.confirmed = true
+	pressed.form.State = huh.StateCompleted
+	confirmed, cmd := pressed.updateAgentArchive(keyMsg("enter"))
+	panel, ok = confirmed.(model)
+	require.True(t, ok)
+	panel = settle(t, panel, cmd)
 
 	listed, err := instance.Agents.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{Archived: true}))
 	require.NoError(t, err)

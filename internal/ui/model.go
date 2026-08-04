@@ -34,6 +34,7 @@ const (
 	screenAgents screen = iota
 	screenForm
 	screenRename
+	screenAgentArchive
 	screenWorkflowForm
 	screenWorkflowArchive
 	screenSearch

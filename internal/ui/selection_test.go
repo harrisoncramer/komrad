@@ -14,6 +14,7 @@ import (
 
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -412,8 +413,8 @@ func countRows(view, marker string) int {
 }
 
 // TestArchiveSelectionFromTheTree covers the agents tree's archive key over a selection.
-// The whole set goes in one call, and the panes come out of the stage first, since killing
-// one while it is staged takes the stage down with it.
+// The key only opens the confirm prompt; the whole set is not asked for archiving, nor
+// do any panes come out of the stage, until that prompt is answered yes.
 func TestArchiveSelectionFromTheTree(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -455,7 +456,17 @@ func TestArchiveSelectionFromTheTree(t *testing.T) {
 				m.tree.agents[i].agent.Pane = "%" + m.tree.agents[i].agent.ID
 			}
 
-			next, cmd := m.updateAgents(keyMsg("z"))
+			opened, _ := m.updateAgents(keyMsg("z"))
+			pressed, ok := opened.(model)
+			require.True(t, ok)
+			assert.Equal(t, screenAgentArchive, pressed.screen, "the key opens the prompt rather than archiving outright")
+			assert.Equal(t, tt.wantIDs, agentIDs(pressed.target.archiveAgents))
+			assert.Empty(t, agents.archived, "nothing is sent until the prompt is confirmed")
+
+			*pressed.values.confirmed = true
+			pressed.form.State = huh.StateCompleted
+
+			next, cmd := pressed.updateAgentArchive(keyMsg("enter"))
 			require.NotNil(t, cmd)
 			cmd()
 

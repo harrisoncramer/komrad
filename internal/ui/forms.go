@@ -40,6 +40,7 @@ type formTarget struct {
 	editSchedule     *schedulestore.Schedule
 	archiveSchedule  *schedulestore.Schedule
 	deleteAgents     []agentstore.Agent
+	archiveAgents    []agentstore.Agent
 }
 
 type agentFormValues struct {
@@ -89,14 +90,13 @@ func renameForm(current, prefill string, keys config.FormKeys) (*huh.Form, *stri
 		huh.NewGroup(
 			huh.NewInput().Key("name").Title(fmt.Sprintf("Rename %q to", current)).Value(&name),
 		),
-	).WithShowHelp(true).WithKeyMap(formKeyMap(keys)).WithTheme(formTheme())
+	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 
 	return form, &name
 }
 
 // formKeyMap is the default form keymap with the configured back and quit keys bound to
-// abort, so esc backs out of a form the same way it leaves other screens. Enter still
-// submits, which is what a one-field form and a yes-or-no prompt want.
+// abort, so esc backs out of a form the same way it leaves other screens.
 func formKeyMap(keys config.FormKeys) *huh.KeyMap {
 	quit := append(append([]string{}, keys.Back...), keys.Quit...)
 
@@ -105,9 +105,8 @@ func formKeyMap(keys config.FormKeys) *huh.KeyMap {
 	return km
 }
 
-// multiFieldKeyMap is the keymap for the forms with fields to fill in, where enter moves
-// between them and only the submit key submits. An enter from the last field otherwise
-// completes the form, and huh cannot resume a completed one.
+// multiFieldKeyMap is every form's keymap, binding submit to the configured key alone so
+// enter never doubles as a send.
 func multiFieldKeyMap(keys config.FormKeys) *huh.KeyMap {
 	submit := key.NewBinding(key.WithKeys(keys.Submit...), key.WithHelp(keyLabel(keys.Submit), "submit"))
 
@@ -142,7 +141,7 @@ func confirmForm(title, description, affirmative string, keys config.FormKeys) (
 				Negative("Cancel").
 				Value(&confirmed),
 		),
-	).WithShowHelp(true).WithKeyMap(formKeyMap(keys)).WithTheme(formTheme())
+	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 
 	return form, &confirmed
 }
@@ -197,7 +196,7 @@ func (m model) closeForm() (tea.Model, tea.Cmd) {
 // the form or the panel's chrome, and whether a form or a list is drawn.
 func (s screen) isForm() bool {
 	switch s {
-	case screenForm, screenRename, screenWorkflowForm, screenWorkflowArchive,
+	case screenForm, screenRename, screenAgentArchive, screenWorkflowForm, screenWorkflowArchive,
 		screenScheduleForm, screenScheduleArchive, screenArchiveDelete:
 		return true
 	default:
@@ -218,6 +217,17 @@ func deleteAgentsForm(agents []agentstore.Agent, keys config.FormKeys) (*huh.For
 	return confirmForm(title, warning, "Delete", keys)
 }
 
+// archiveAgentsForm confirms putting agents away. It is reversible from the archive screen,
+// so the wording says so rather than warning the way the delete prompt does.
+func archiveAgentsForm(agents []agentstore.Agent, keys config.FormKeys) (*huh.Form, *bool) {
+	title := fmt.Sprintf("Archive %d agents?", len(agents))
+	if len(agents) == 1 {
+		title = fmt.Sprintf("Archive agent %q?", agents[0].Name)
+	}
+
+	return confirmForm(title, "Their transcripts are kept and stay searchable; restore them from the archive.", "Archive", keys)
+}
+
 // workflowForm asks for a name alone, which is what a rename is. It binds the same config
 // shape the fuller form does, so one submit path reads either.
 func workflowForm(title string, cfg workflowstore.Config, keys config.FormKeys) (*huh.Form, *workflowstore.Config) {
@@ -227,7 +237,7 @@ func workflowForm(title string, cfg workflowstore.Config, keys config.FormKeys) 
 		huh.NewGroup(
 			huh.NewInput().Key("name").Title(title).Value(&values.Name),
 		),
-	).WithShowHelp(true).WithKeyMap(formKeyMap(keys)).WithTheme(formTheme())
+	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 
 	return form, &values
 }

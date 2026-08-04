@@ -119,7 +119,7 @@ func (m model) updateHoveredAgent(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 			return m, m.form.Init()
 		case isBound(k, m.keys.Agents.Archive):
-			return m.archiveAgents([]agentstore.Agent{item.agent})
+			return m.archiveAgentsConfirm([]agentstore.Agent{item.agent})
 		}
 
 		return m, nil
@@ -146,7 +146,7 @@ func (m model) updateAgentsSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, m.keys.Agents.Mark):
 		return m.markSelection()
 	case isBound(k, m.keys.Agents.Archive):
-		return m.archiveAgents(chosenAgents(m.tree.selected, m.allAgentRows()))
+		return m.archiveAgentsConfirm(chosenAgents(m.tree.selected, m.allAgentRows()))
 	case isBound(k, m.keys.Agents.ShowHidden):
 		return m.toggleHiddenAgents()
 	case isBound(k, m.keys.Nav.Up):
@@ -156,6 +156,48 @@ func (m model) updateAgentsSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// archiveAgentsConfirm opens the archive prompt for one or more agents. Nothing is
+// archived until the prompt is answered yes.
+func (m model) archiveAgentsConfirm(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
+	if len(agents) == 0 {
+		return m, nil
+	}
+
+	m.target.archiveAgents = agents
+	m.form, m.values.confirmed = archiveAgentsForm(agents, m.keys.Form)
+	m.screen = screenAgentArchive
+
+	return m, m.form.Init()
+}
+
+// updateAgentArchive drives the archive prompt. Confirming archives the agents, and
+// anything else leaves them where they are. Both outcomes return to the agents view.
+func (m model) updateAgentArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
+	form, cmd := m.form.Update(msg)
+	if updated, ok := form.(*huh.Form); ok {
+		m.form = updated
+	}
+
+	switch m.form.State {
+	case huh.StateCompleted:
+		var write tea.Cmd
+		if target := m.target.archiveAgents; len(target) > 0 && m.wasConfirmed() {
+			_, write = m.archiveAgents(target)
+		}
+		m.target.archiveAgents = nil
+		m.values.confirmed = nil
+		returned, refresh := m.returnToAgents()
+
+		return returned, tea.Batch(write, refresh)
+	case huh.StateAborted:
+		m.target.archiveAgents = nil
+		m.values.confirmed = nil
+		return m.returnToAgents()
+	default:
+		return m, cmd
+	}
 }
 
 // A staged pane must be released before the service kills it.
