@@ -294,6 +294,8 @@ func (s *AgentService) openLaunchPane(l *agentLaunch) error {
 		return err
 	}
 
+	l.agent = l.plan.agent(l.params, l.id, l.sessionID, dir, "")
+
 	pane, err := s.tmux.NewWindow(ManagerSession, l.plan.name, dir)
 	if err != nil {
 		return fmt.Errorf("failed to open a window for %q: %w", l.plan.name, err)
