@@ -24,14 +24,14 @@ The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`,
 
 - `WEAVE_AGENT_ID` and `WEAVE_AGENT_CWD`, the two fields most scripts want.
 - `WEAVE_ADDR`, this server's address, for calling back into the API or the [CLI](commands.md).
-- `WEAVE_TMUX_SOCKET`, the tmux server every agent's pane lives on. Send keys to the pane in the payload through this one, not through your own server, where that pane id means something else entirely.
+- `WEAVE_TMUX_SOCKET`, the tmux server every agent's pane lives on
 - `WEAVE_ACTIONS_DIR`, the directory the action came out of, which is how a script that cds elsewhere finds its siblings again.
 - `WEAVE_TRIGGER`, what set the action off. One of `manual`, `setup`, `resume`, or `cleanup`.
 - `WEAVE_SECONDARY_PANE`, the pane under the panel's stage, for a script that wants to draw something where the panel's own actions do.
-- `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup, for a script that wants to open a window or say something where you'll see it.
-- `EDITOR` and `WEAVE_SHELL`.
+- `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup.
+- `EDITOR` and `WEAVE_SHELL`
 
-An action runs in the actions directory it was found in, not in the agent's directory, and stdin and stdout go to the null device. To communicate back to weave, print on stderr: the last 64 KiB of it is captured and written to weave's log.
+An action runs in the actions directory it was found in.
 
 ## Action Metadata
 
@@ -41,7 +41,11 @@ You can provide certain metadata to an action by adding _headers_ to the top of 
 #!/bin/sh
 #WEAVE description="This is my custom action"
 #WEAVE timeout="1s"
-printf 'Hello world' >&2
+
+# Add whatever logic you want here.
+# Failures on stdout will get captured by weave's log automatically
+# You can also send messages to the log manually, like this:
+weave rpc log --message 'Hello world'
 ```
 
 This action will abort and fail if it cannot execute within 1 second. Actions print their output to weave's logfile.
@@ -72,46 +76,6 @@ weave rpc run-action --agent-id <id> --action open-pr
 ```
 
 Agents can also run actions, for instance to trigger external system, fire alerts, or manage the filesystem.
-
-## Example: create a worktree for each agent
-
-Create an executable file called `create-worktree`:
-
-```sh
-#!/bin/sh
-set -eu
-
-repo="$HOME/code/weave"
-name=$(printf '%s' "$WEAVE_AGENT" | jq -r .name)
-tree="$repo/.worktrees/$name"
-
-echo "preparing $tree" >&2
-
-# Skipped when the tree is already there, which is what makes this safe to
-# reach again on resume.
-if [ ! -d "$tree" ]; then
-	git -C "$repo" fetch --quiet origin main
-	git -C "$repo" worktree add --quiet -B "agent/$name" "$tree" origin/main
-fi
-
-# The only thing on stdout: where the agent runs.
-printf '%s' "$tree"
-```
-
-In the workflow manager, set it as a workflow's setup action. Every agent spawned under that workflow will now get a new worktree. This matching cleanup action called `cleanup-worktree` can be used to remove it when the agent is deleted:
-
-```sh
-#!/bin/sh
-set -eu
-
-repo="$HOME/code/weave"
-tree="$WEAVE_AGENT_CWD"
-
-case "$tree" in
-"$repo/.worktrees/"*) git -C "$repo" worktree remove --force "$tree" ;;
-*) echo "refusing to remove $tree" >&2 ; exit 1 ;;
-esac
-```
 
 ## Example: open the pull request an agent recorded
 
