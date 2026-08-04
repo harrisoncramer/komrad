@@ -33,8 +33,7 @@ func workflowMarkdown(w workflowstore.Workflow, agents int) string {
 	}
 	b.WriteString("---\n\n")
 	fmt.Fprintf(&b, "- agents: %d\n", agents)
-	fmt.Fprintf(&b, "- directory: %s\n", orDash(w.Cwd))
-	fmt.Fprintf(&b, "- flags: %s\n", orDash(w.Flags))
+	writeWorkflowConfigMarkdown(&b, w)
 
 	return b.String()
 }
@@ -158,10 +157,18 @@ func scheduleMarkdown(item scheduleItem, workflow *workflowstore.Workflow) strin
 	}
 
 	fmt.Fprintf(&b, "- workflow: %s\n", workflow.Name)
-	fmt.Fprintf(&b, "- directory: %s\n", orDash(workflow.Cwd))
-	fmt.Fprintf(&b, "- flags: %s\n", orDash(workflow.Flags))
+	writeWorkflowConfigMarkdown(&b, *workflow)
 
 	return b.String()
+}
+
+// writeWorkflowConfigMarkdown renders the workflow defaults that future agents inherit.
+func writeWorkflowConfigMarkdown(b *strings.Builder, w workflowstore.Workflow) {
+	fmt.Fprintf(b, "- default agent: %s\n", orDash(w.Harness))
+	fmt.Fprintf(b, "- directory: %s\n", orDash(w.Cwd))
+	fmt.Fprintf(b, "- flags: %s\n", orDash(w.Flags))
+	fmt.Fprintf(b, "- setup: %s\n", orDash(w.SetupAction))
+	fmt.Fprintf(b, "- cleanup: %s\n", orDash(w.CleanupAction))
 }
 
 // emptyArchiveMarkdown is what the stage shows with nothing in the archive, so the pane
