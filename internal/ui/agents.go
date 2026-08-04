@@ -81,9 +81,7 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch {
-	case isBound(k, m.keys.Agents.Quit):
-		return m, m.hide()
-	case isBound(k, m.keys.Agents.Back):
+	case isBound(k, m.keys.Agents.Quit), isBound(k, m.keys.Agents.Back):
 		return m, m.hide()
 	case isBound(k, m.keys.Agents.New):
 		return m.openNewAgent(m.enclosingWorkflow())
@@ -101,33 +99,25 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.runBelowAction(terminalAction, "Could not open a shell")
 	case isBound(k, m.keys.Actions.Open):
 		return m.enterActions()
+	}
+
+	item, ok := m.selectedAgent()
+	if !ok {
+		return m, nil
+	}
+
+	switch {
 	case isBound(k, m.keys.Agents.Mark):
-		item, ok := m.selectedAgent()
-		if !ok {
-			return m, nil
-		}
 		return m.markAgent(item.agent)
 	case isBound(k, m.keys.Agents.Hide):
-		item, ok := m.selectedAgent()
-		if !ok {
-			return m, nil
-		}
 		return m.hideAgent(item.agent)
 	case isBound(k, m.keys.Agents.Rename):
-		item, ok := m.selectedAgent()
-		if !ok {
-			return m, nil
-		}
 		m.target.renameAgent = item.agent
 		m.form, m.values.rename = renameForm(item.agent.Name, "", m.keys.Form)
 		m.screen = screenRename
+
 		return m, m.form.Init()
 	case isBound(k, m.keys.Agents.Archive):
-		item, ok := m.selectedAgent()
-		if !ok {
-			return m, nil
-		}
-
 		return m.archiveAgents([]agentstore.Agent{item.agent})
 	}
 
