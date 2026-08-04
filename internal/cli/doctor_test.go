@@ -40,7 +40,7 @@ func TestDoctorReadsTheConfigTheUserNamed(t *testing.T) {
 			registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))
 			require.NoError(t, err)
 
-			state := &app{env: &config.Config{}, harnesses: registry, configPaths: tt.configPaths}
+			state := &app{env: &config.Environment{}, harnesses: registry, configPaths: tt.configPaths}
 
 			env, _, err := state.buildDoctor()
 			require.NoError(t, err)

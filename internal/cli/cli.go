@@ -54,7 +54,7 @@ func NewRootCommand() *cobra.Command {
 			// The files come first, since the environment resolves on top of them and a
 			// config that will not parse has to stop most commands before anything opens a
 			// database on the built-in defaults.
-			cfg, err := appconfig.Load(configPaths) // The user's configuration -- keybindings, marks, connection.
+			cfg, report, err := appconfig.LoadWithReport(configPaths)
 			if err != nil {
 				if isConfigFatal(cmd) {
 					return err
@@ -62,12 +62,16 @@ func NewRootCommand() *cobra.Command {
 
 				app.configErr = err
 				cfg = appconfig.Defaults()
+				report = &appconfig.Report{Sources: map[string]appconfig.Source{}}
 			}
 
-			env, err := config.Load(cfg) // The resolved runtime view: database, socket, cache directory.
-			if err != nil {
-				return fmt.Errorf("failed to load config: %w", err)
-			}
+			env := config.Load(config.Environment{
+				DatabaseURL:         cfg.Connection.DatabaseURL,
+				ReadOnlyDatabaseURL: cfg.Connection.ReadOnlyDatabaseURL,
+				Addr:                cfg.Connection.Addr,
+				TmuxSocket:          cfg.Connection.TmuxSocket,
+				CacheDir:            cfg.Connection.CacheDir,
+			})
 
 			codexHarness := codex.NewHarness(codex.NewHarnessParams{
 				TrustLaunchDirs: cfg.Harness.Codex.TrustLaunchDirs,
@@ -91,6 +95,7 @@ func NewRootCommand() *cobra.Command {
 			app.logViewer = cfg.Log.Viewer
 			app.configPaths = configPaths
 			app.env = env
+			app.configSources = report.Sources
 			app.keys = cfg.Keybindings
 			app.defaultHarness = cfg.DefaultHarness
 			app.maxAgents = cfg.MaxAgents

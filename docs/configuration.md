@@ -16,18 +16,15 @@ You can hand it more files than that, layered in order, but weave will not go lo
 
 Write the file yourself and put only the settings you are changing in it. Anything you leave out falls back to its built-in default. There is no init command; `touch ~/.config/weave/config.toml` and start typing.
 
-A key weave does not recognise is an error, not a line quietly ignored. That is deliberate: a typo that does nothing is a setting you will spend twenty minutes deciding is broken. The error names the file, the key, and what that key's table actually takes:
+A key weave does not recognise is an error, not a line quietly ignored. That is deliberate: a typo that does nothing is a setting you will spend twenty minutes deciding is broken. The error names the files in the stack, the key, and what that key's table actually takes:
 
 ```
-failed to parse config:
-  /Users/you/.config/weave/config.toml
-    max_agent is not a setting; the top level takes default_harness, max_agents,
-    harness, layout, marks, keybindings, actions, context, log
-  /Users/you/dotfiles/weave-work.toml
-    log.levl is not a setting; [log] takes level, viewer
+failed to parse config /Users/you/.config/weave/config.toml, /Users/you/dotfiles/weave-work.toml:
+max_agent is not a setting; the top level takes default_harness, max_agents,
+harness, layout, marks, keybindings, actions, context, log, connection
 ```
 
-Every layer that has a bad key is named in one go, rather than stopping at the first, so you fix them in one pass instead of rerunning and being told about the next one.
+Viper validates the merged result once. The error therefore names the ordered stack rather than attributing an unknown key to one layer; search those files for the key it reports.
 
 `weave doctor` prints which files are being read, in order, which of them exist, and where each of the connection settings ended up coming from. Run that first when a setting is not taking effect.
 
@@ -85,7 +82,7 @@ A list is replaced whole by the last layer that sets it, and each list is its ow
 
 Lists are not appended to. There would be no way to remove an entry a lower layer put there, and for `marks` the order is the order the mark key cycles through, which is yours to decide rather than something a base file gets the first say in.
 
-There is no way to say "no marks at all". An empty list reads as unset and falls back to the built-in three.
+An explicit empty list clears the value from lower layers and the built-in defaults. For example, `marks = []` means there are no marks. This is also how a higher layer removes a keybinding supplied below it.
 
 ### About config.toml in the repo
 

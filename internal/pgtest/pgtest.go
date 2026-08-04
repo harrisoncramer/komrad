@@ -18,7 +18,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"weave/config"
+	"weave/internal/appconfig"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -43,11 +43,11 @@ func URL(t *testing.T) string {
 	//
 	// Resolved against the built-in defaults rather than the user's config files, since a
 	// test run must not depend on what happens to be in the developer's home directory.
-	cfg, err := config.Load(nil)
+	cfg, err := appconfig.Load(nil)
 	if err != nil {
 		t.Fatalf("failed to load config for the test database: %v", err)
 	}
-	baseURL := cfg.DatabaseURL
+	baseURL := cfg.Connection.DatabaseURL
 
 	name := fmt.Sprintf("weave_test_%d_%d", os.Getpid(), created.Add(1))
 

@@ -11,40 +11,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestWithDefaults(t *testing.T) {
-	tests := []struct {
-		name string
-		in   Keybindings
-		want Keybindings
-	}{
-		{
-			name: "an empty config becomes the full defaults",
-			in:   Keybindings{},
-			want: DefaultKeybindings(),
-		},
-		{
-			name: "a set binding is kept while the rest fill in",
-			in:   Keybindings{Nav: NavKeys{Up: []string{"w"}}},
-			want: withNavUp(DefaultKeybindings(), "w"),
-		},
-		{
-			name: "an override in one panel leaves the other panels alone",
-			in:   Keybindings{Workflows: WorkflowsKeys{Archive: []string{"x"}}},
-			want: withWorkflowArchive(DefaultKeybindings(), "x"),
-		},
-		{
-			// A binding written out as an empty list is a binding nobody set, not a
-			// request for a key that does nothing.
-			name: "a binding set to no keys at all falls back like an absent one",
-			in:   Keybindings{Nav: NavKeys{Up: []string{}}},
-			want: DefaultKeybindings(),
-		},
-	}
+func clearConnectionEnvironment(t *testing.T) {
+	t.Helper()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.in.withDefaults())
-		})
+	for _, name := range []string{
+		"WEAVE_DATABASE_URL",
+		"WEAVE_READONLY_DATABASE_URL",
+		"WEAVE_ADDR",
+		"WEAVE_TMUX_SOCKET",
+		"WEAVE_CACHE_DIR",
+	} {
+		t.Setenv(name, "")
 	}
 }
 
@@ -398,22 +375,6 @@ func TestLoadAbsentFileDefaults(t *testing.T) {
 	assert.Equal(t, DefaultKeybindings().Nav.Up, cfg.Keybindings.Nav.Up)
 }
 
-// withNavUp is the defaults with one navigation binding replaced, which is what
-// a config that overrides only that binding should come out as.
-func withNavUp(k Keybindings, keys ...string) Keybindings {
-	k.Nav.Up = keys
-
-	return k
-}
-
-// withWorkflowArchive is the same idea for a binding in another panel, so a case
-// can show that overriding one panel does not disturb the others.
-func withWorkflowArchive(k Keybindings, keys ...string) Keybindings {
-	k.Workflows.Archive = keys
-
-	return k
-}
-
 // TestLoadLogLevel covers the level the service logs at. A word slog has no answer for
 // would decode as debug and turn the log all the way up, so it is refused here rather
 // than left to surprise somebody reading a file four times the size they expected.
@@ -665,6 +626,7 @@ func TestLoadMergesLayers(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			clearConnectionEnvironment(t)
 			dir := t.TempDir()
 
 			paths := make([]string, 0, len(tt.files))
@@ -682,60 +644,54 @@ func TestLoadMergesLayers(t *testing.T) {
 	}
 }
 
-// TestLoadNamesTheLayerAKeyIsIn covers the reason the layers are decoded separately before
-// being merged. The merged settings map has no record of which file a key came from, and an
-// error that cannot name the file sends the reader to the wrong one.
-func TestLoadNamesTheLayerAKeyIsIn(t *testing.T) {
+func TestLoadConnectionPrecedence(t *testing.T) {
+	clearConnectionEnvironment(t)
 	dir := t.TempDir()
-
-	good := filepath.Join(dir, "base.toml")
-	require.NoError(t, os.WriteFile(good, []byte("max_agents = 10\n"), 0o644))
-
-	bad := filepath.Join(dir, "local.toml")
-	require.NoError(t, os.WriteFile(bad, []byte("[log]\nlevl = \"warn\"\n"), 0o644))
-
-	_, err := Load([]string{good, bad})
-	require.Error(t, err)
-
-	assert.Contains(t, err.Error(), bad, "the file holding the bad key is named")
-	assert.NotContains(t, err.Error(), good, "and the file that is fine is not")
-	assert.Contains(t, err.Error(), "levl is not a setting")
-}
-
-// TestLoadReportsEveryBadLayer covers that fixing one file does not just reveal the next.
-func TestLoadReportsEveryBadLayer(t *testing.T) {
-	dir := t.TempDir()
-
-	first := filepath.Join(dir, "first.toml")
-	require.NoError(t, os.WriteFile(first, []byte("max_agent = 10\n"), 0o644))
-
-	second := filepath.Join(dir, "second.toml")
-	require.NoError(t, os.WriteFile(second, []byte("[log]\nlevl = \"warn\"\n"), 0o644))
-
-	_, err := Load([]string{first, second})
-	require.Error(t, err)
-
-	assert.Contains(t, err.Error(), first)
-	assert.Contains(t, err.Error(), second)
-}
-
-// TestLoadCatchesAValueTheMergeWouldDrop covers the one hole in viper's merge. A key that is
-// a table in one file and a scalar in another is resolved by keeping the table and dropping
-// the other value in silence, with no error anywhere, so the layer has to be decoded on its
-// own for the mistake to be visible at all.
-func TestLoadCatchesAValueTheMergeWouldDrop(t *testing.T) {
-	dir := t.TempDir()
-
 	base := filepath.Join(dir, "base.toml")
-	require.NoError(t, os.WriteFile(base, []byte("[log]\nlevel = \"debug\"\n"), 0o644))
-
 	local := filepath.Join(dir, "local.toml")
-	require.NoError(t, os.WriteFile(local, []byte("log = \"nonsense\"\n"), 0o644))
+	require.NoError(t, os.WriteFile(base, []byte("[connection]\naddr = \"1.1.1.1:1\"\n"), 0o644))
+	require.NoError(t, os.WriteFile(local, []byte("[connection]\naddr = \"2.2.2.2:2\"\n"), 0o644))
+	t.Setenv("WEAVE_ADDR", "3.3.3.3:3")
 
-	_, err := Load([]string{base, local})
-	require.Error(t, err, "the merge alone would return no error and silently keep the base's table")
+	cfg, report, err := LoadWithReport([]string{base, local})
+	require.NoError(t, err)
 
-	assert.Contains(t, err.Error(), local)
+	assert.Equal(t, "3.3.3.3:3", cfg.Connection.Addr)
+	assert.Equal(t, SourceEnvironment, report.Sources["addr"])
+}
+
+func TestLoadDerivesConnectionValuesAfterPrecedence(t *testing.T) {
+	clearConnectionEnvironment(t)
+	path := filepath.Join(t.TempDir(), "config.toml")
+	require.NoError(t, os.WriteFile(path, []byte(
+		"[connection]\ndatabase_url = \"postgres://weave:secret@db.internal:5432/panel?sslmode=require\"\n",
+	), 0o644))
+	t.Setenv("WEAVE_DATABASE_URL", "")
+	t.Setenv("WEAVE_READONLY_DATABASE_URL", "")
+	t.Setenv("WEAVE_CACHE_DIR", "")
+
+	cfg, report, err := LoadWithReport([]string{path})
+	require.NoError(t, err)
+
+	assert.Equal(t,
+		"postgres://weave_readonly:weave_readonly@db.internal:5432/panel?sslmode=require",
+		cfg.Connection.ReadOnlyDatabaseURL,
+	)
+	assert.Equal(t, SourceDerived, report.Sources["readonly_database_url"])
+	assert.NotEmpty(t, cfg.Connection.CacheDir)
+	assert.Equal(t, SourceDerived, report.Sources["cache_dir"])
+}
+
+func TestLoadExplicitEmptyCollectionReplacesDefault(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	require.NoError(t, os.WriteFile(path, []byte("marks = []\n[keybindings.nav]\nup = []\n"), 0o644))
+
+	cfg, err := Load([]string{path})
+	require.NoError(t, err)
+
+	assert.Empty(t, cfg.Marks)
+	assert.Empty(t, cfg.Keybindings.Nav.Up)
+	assert.Equal(t, DefaultKeybindings().Nav.Down, cfg.Keybindings.Nav.Down)
 }
 
 // TestResolveLayers covers which files get read. Weave looks for exactly one, and naming any
@@ -770,36 +726,4 @@ func TestResolveLayers(t *testing.T) {
 		_, err := ResolveLayers([]string{""})
 		require.Error(t, err)
 	})
-}
-
-// TestParseLayerList covers WEAVE_CONFIG, which is how a shell that cannot pass flags names a
-// stack. It is colon-separated the way PATH is, so nobody has to be told the separator.
-func TestParseLayerList(t *testing.T) {
-	tests := []struct {
-		name string
-		in   string
-		want []string
-	}{
-		{
-			name: "empty is no layers at all",
-			in:   "",
-			want: nil,
-		},
-		{
-			name: "a trailing separator does not make an empty layer",
-			in:   "/one.toml:",
-			want: []string{"/one.toml"},
-		},
-		{
-			name: "several paths keep their order",
-			in:   "/one.toml:/two.toml",
-			want: []string{"/one.toml", "/two.toml"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, ParseLayerList(tt.in))
-		})
-	}
 }

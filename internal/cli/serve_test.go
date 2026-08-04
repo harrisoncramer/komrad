@@ -394,7 +394,7 @@ func TestServeListensWhereEverythingElseTalks(t *testing.T) {
 // TestServeAddrFlagCarriesNoDefault covers the flag itself. A default spelled into it is
 // indistinguishable from one the user typed, so the fallback above would never be reached.
 func TestServeAddrFlagCarriesNoDefault(t *testing.T) {
-	flag := serveCmd(&app{env: &config.Config{ConnectionSettingsConfig: config.ConnectionSettingsConfig{Addr: "127.0.0.1:9999"}}}).Flags().Lookup("addr")
+	flag := serveCmd(&app{env: &config.Environment{Addr: "127.0.0.1:9999"}}).Flags().Lookup("addr")
 
 	require.NotNil(t, flag)
 	assert.Empty(t, flag.DefValue, "a default here shadows WEAVE_ADDR")

@@ -38,15 +38,13 @@ func forwardedEnv(t *testing.T, args []string) map[string]string {
 // started with, so a variable left out here is one that quietly keeps whatever value some
 // long-gone shell had for it.
 func TestBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) {
-	state := &app{env: &config.Config{
-		ConnectionSettingsConfig: config.ConnectionSettingsConfig{
-			DatabaseURL:         "postgres://weave@db/weave",
-			ReadOnlyDatabaseURL: "postgres://weave_readonly@db/weave",
-			Addr:                "127.0.0.1:9999",
-			TmuxSocket:          "weave-test",
-			CacheDir:            "/tmp/cache",
-		},
-		Editor: "nvim",
+	state := &app{env: &config.Environment{
+		DatabaseURL:         "postgres://weave@db/weave",
+		ReadOnlyDatabaseURL: "postgres://weave_readonly@db/weave",
+		Addr:                "127.0.0.1:9999",
+		TmuxSocket:          "weave-test",
+		CacheDir:            "/tmp/cache",
+		Editor:              "nvim",
 	}}
 
 	args := buildManagerSessionArgs(state, "/usr/local/bin/weave")
@@ -84,7 +82,7 @@ func TestBuildManagerSessionArgsCarriesTheConfigPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			state := &app{env: &config.Config{}, configPaths: tt.configPaths}
+			state := &app{env: &config.Environment{}, configPaths: tt.configPaths}
 
 			args := buildManagerSessionArgs(state, "/usr/local/bin/weave")
 

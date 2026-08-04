@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"weave/config"
 	"weave/internal/appconfig"
 )
 
@@ -69,7 +68,7 @@ type Settings struct {
 	ConfigLayers []appconfig.Layer
 	// Sources is where each connection setting was resolved from, keyed by its config file
 	// key, so the check can say which layer or variable a value in force came from.
-	Sources map[string]config.Source
+	Sources map[string]appconfig.Source
 	// Harnesses is every agent CLI this build can run.
 	Harnesses []HarnessInfo
 	// DatabaseURL is the writable login everything weave stores lives behind, and

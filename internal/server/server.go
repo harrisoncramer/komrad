@@ -63,7 +63,7 @@ const TranscriptSyncInterval = 15 * time.Second
 // this is reached, so nothing here reads a file, an environment, or a flag.
 type Params struct {
 	// Env is the process configuration the connection strings and paths come from.
-	Env *config.Config
+	Env *config.Environment
 	// ConfigPaths is the user's config layers, weakest first, and empty for the default
 	// path. The paths are kept rather than the config parsed from them, since the config
 	// service and the action service both read the files per request.

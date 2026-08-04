@@ -7,13 +7,15 @@ package appconfig
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"slices"
 	"strings"
 	"unicode"
+
+	"weave/config"
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/viper"
@@ -22,6 +24,11 @@ import (
 // errLayerAbsent marks a config layer that is not on disk. It is answered rather than
 // raised for the default path, since not having written a config is the ordinary install.
 var errLayerAbsent = errors.New("config layer is absent")
+
+const (
+	readOnlyUser     = "weave_readonly"
+	readOnlyPassword = "weave_readonly"
+)
 
 // DefaultLogLevel is how much the service writes when the config says nothing. Failures
 // are written at error and everything else at debug, so the file stays empty while the
@@ -638,74 +645,6 @@ func validateLog(log Log) error {
 	return fmt.Errorf("log.level: %q is not one of %s", log.Level, strings.Join(logLevels, ", "))
 }
 
-// withDefaults fills anything the file left unset from the built-ins. An omitted value
-// reads as its zero, which is why a blank marks list and a zero split are unset here
-// rather than choices to be honoured.
-func (c Config) withDefaults() Config {
-	c.Keybindings = c.Keybindings.withDefaults()
-	// Every launch goes through this id, so leaving it empty would refuse every
-	// create rather than fall back.
-	if strings.TrimSpace(c.DefaultHarness) == "" {
-		c.DefaultHarness = DefaultHarness
-	}
-	if c.MaxAgents == 0 {
-		c.MaxAgents = DefaultMaxAgents
-	}
-	if len(c.Marks) == 0 {
-		c.Marks = DefaultMarks()
-	}
-	if c.Layout.Split == 0 {
-		c.Layout.Split = DefaultSplit
-	}
-	if c.Layout.SecondarySplit == 0 {
-		c.Layout.SecondarySplit = DefaultSecondarySplit
-	}
-	if strings.TrimSpace(c.Log.Level) == "" {
-		c.Log.Level = DefaultLogLevel
-	}
-	if strings.TrimSpace(c.Log.Viewer) == "" {
-		c.Log.Viewer = DefaultLogViewer
-	}
-	if strings.TrimSpace(c.Connection.DatabaseURL) == "" {
-		c.Connection.DatabaseURL = DefaultDatabaseURL
-	}
-	if strings.TrimSpace(c.Connection.Addr) == "" {
-		c.Connection.Addr = DefaultAddr
-	}
-	if strings.TrimSpace(c.Connection.TmuxSocket) == "" {
-		c.Connection.TmuxSocket = DefaultTmuxSocket
-	}
-
-	return c
-}
-
-// withDefaults fills any unset binding from the defaults, so a user who sets
-// only some keys keeps the built-ins for the rest.
-func (k Keybindings) withDefaults() Keybindings {
-	filled := k
-	fillBindings(reflect.ValueOf(&filled).Elem(), reflect.ValueOf(DefaultKeybindings()))
-
-	return filled
-}
-
-// fillBindings copies the default into every key list the config left empty, walking the
-// groups as it goes: a group is a struct and a binding a slice of keys. It reads the struct
-// rather than naming each binding, so adding one is an edit to the struct and nothing else.
-func fillBindings(configured, def reflect.Value) {
-	for i := range configured.NumField() {
-		field := configured.Field(i)
-
-		if field.Kind() == reflect.Struct {
-			fillBindings(field, def.Field(i))
-
-			continue
-		}
-		if field.Kind() == reflect.Slice && field.Len() == 0 {
-			field.Set(def.Field(i))
-		}
-	}
-}
-
 // configHome is the directory the panel keeps its own files in, ~/.config/weave.
 func configHome() (string, error) {
 	home, err := os.UserHomeDir()
@@ -812,124 +751,206 @@ func ResolveLayers(paths []string) ([]Layer, error) {
 	return []Layer{{Path: filepath.Join(dir, "config.toml")}}, nil
 }
 
-// ParseLayerList splits a colon-separated list of paths.
-func ParseLayerList(value string) []string {
-	var paths []string
-	for path := range strings.SplitSeq(value, string(os.PathListSeparator)) {
-		if strings.TrimSpace(path) != "" {
-			paths = append(paths, path)
-		}
-	}
-
-	return paths
-}
-
 // Load reads the layers in order and merges them, weakest first, so a later file wins where
 // two overlap. A missing file among them is not an error unless it was named, and yields
 // nothing rather than the defaults, but a symlink pointing at nothing is, since that is a
 // config someone meant to have.
 //
 // A key the Config struct does not know about is an error rather than silently dropped, so
-// a typo is reported rather than quietly doing nothing. The error names the file it is in
-// beside what its table does take, since the panel shows that error in place of itself and
-// nothing else.
+// a typo is reported rather than quietly doing nothing. The error names the ordered file
+// stack beside what the key's table does take.
 func Load(paths []string) (*Config, error) {
+	cfg, _, err := LoadWithReport(paths)
+
+	return cfg, err
+}
+
+// Source is the precedence layer that supplied a resolved connection setting.
+type Source string
+
+const (
+	SourceDefault     Source = "built-in default"
+	SourceFile        Source = "config file"
+	SourceEnvironment Source = "environment"
+	SourceDerived     Source = "derived"
+)
+
+// Report describes how a configuration was resolved without mixing provenance into Config.
+type Report struct {
+	Layers  []Layer
+	Sources map[string]Source
+}
+
+// LoadWithReport resolves the configuration and reports where connection values came from.
+func LoadWithReport(paths []string) (*Config, *Report, error) {
 	layers, err := ResolveLayers(paths)
 	if err != nil {
-		return nil, err
-	}
-
-	// Each layer is checked on its own before anything is merged, because the merged
-	// settings map has no record of which file a key came from and an error that cannot
-	// name the file is worse than one file's worth of error. Decoding a layer by itself
-	// also catches a value the merge would drop in silence, which is what happens when
-	// two files disagree about whether a key is a table.
-	if err := checkLayers(layers); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	merged := viper.New()
 	merged.SetConfigType("toml")
+	if err := registerDefaults(merged); err != nil {
+		return nil, nil, err
+	}
+	if err := bindEnvironment(merged); err != nil {
+		return nil, nil, err
+	}
 
-	layersRead := 0
 	for _, layer := range layers {
 		merged.SetConfigFile(layer.Path)
 
 		if err := merged.MergeInConfig(); err != nil {
 			if readErr := classifyLayerRead(layer, err); !errors.Is(readErr, errLayerAbsent) {
-				return nil, readErr
+				return nil, nil, readErr
 			}
 
 			continue
 		}
-
-		layersRead++
 	}
 
-	if layersRead == 0 {
-		return Defaults(), nil
-	}
-
-	// The decoder is asked what it did not use rather than told to fail on it, since the
-	// error it raises for itself names the table as '' at the top level and lists nothing a
-	// key could have been instead. checkLayers has already reported those per file, so this
-	// decode only has to produce the values.
 	var cfg Config
-	if err := merged.Unmarshal(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse config: %w", err)
+	var decoded mapstructure.Metadata
+	if err := merged.Unmarshal(&cfg, func(dc *mapstructure.DecoderConfig) {
+		dc.Metadata = &decoded
+	}); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse config %s: %w", describeLayers(layers), err)
+	}
+	if err := reportUnknownKeys(decoded.Unused); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse config %s: %w", describeLayers(layers), err)
+	}
+
+	cfg.normalizeZeroValues()
+
+	report := &Report{Layers: layers, Sources: connectionSources(merged)}
+	if err := cfg.resolveDerived(report); err != nil {
+		return nil, nil, err
 	}
 
 	if err := cfg.validate(); err != nil {
-		return nil, fmt.Errorf("failed to parse config %s: %w", describeLayers(layers), err)
+		return nil, nil, fmt.Errorf("failed to parse config %s: %w", describeLayers(layers), err)
 	}
 
-	cfg = cfg.withDefaults()
-
-	return &cfg, nil
+	return &cfg, report, nil
 }
 
-// checkLayers decodes each layer alone and reports every one that has a key nothing answers
-// to, or a value of the wrong shape, grouped by file and in layer order. Every bad layer is
-// named in one go rather than stopping at the first, since fixing one file and being told
-// about the next is the same work done twice.
-func checkLayers(layers []Layer) error {
-	var problems []string
+// normalizeZeroValues keeps the settings whose zero has historically meant "unset" on
+// their built-in values. Collections are deliberately excluded: an explicit empty list
+// clears a list supplied by a default or lower layer.
+func (c *Config) normalizeZeroValues() {
+	if strings.TrimSpace(c.DefaultHarness) == "" {
+		c.DefaultHarness = DefaultHarness
+	}
+	if c.MaxAgents == 0 {
+		c.MaxAgents = DefaultMaxAgents
+	}
+	if c.Layout.Split == 0 {
+		c.Layout.Split = DefaultSplit
+	}
+	if c.Layout.SecondarySplit == 0 {
+		c.Layout.SecondarySplit = DefaultSecondarySplit
+	}
+	if strings.TrimSpace(c.Log.Level) == "" {
+		c.Log.Level = DefaultLogLevel
+	}
+	if strings.TrimSpace(c.Log.Viewer) == "" {
+		c.Log.Viewer = DefaultLogViewer
+	}
+}
 
-	for _, layer := range layers {
-		single := viper.New()
-		single.SetConfigType("toml")
-		single.SetConfigFile(layer.Path)
+func registerDefaults(cfg *viper.Viper) error {
+	values := map[string]any{}
+	if err := mapstructure.Decode(Defaults(), &values); err != nil {
+		return fmt.Errorf("register config defaults: %w", err)
+	}
 
-		if err := single.ReadInConfig(); err != nil {
-			if readErr := classifyLayerRead(layer, err); !errors.Is(readErr, errLayerAbsent) {
-				return readErr
-			}
+	registerDefaultValues(cfg, "", values)
 
+	return nil
+}
+
+func registerDefaultValues(cfg *viper.Viper, prefix string, values map[string]any) {
+	for key, value := range values {
+		path := key
+		if prefix != "" {
+			path = prefix + "." + key
+		}
+
+		if nested, ok := value.(map[string]any); ok {
+			registerDefaultValues(cfg, path, nested)
 			continue
 		}
 
-		var cfg Config
-		var decoded mapstructure.Metadata
+		cfg.SetDefault(path, value)
+	}
+}
 
-		err := single.Unmarshal(&cfg, func(dc *mapstructure.DecoderConfig) {
-			dc.Metadata = &decoded
-		})
+var connectionEnvironment = map[string]string{
+	"connection.database_url":          "WEAVE_DATABASE_URL",
+	"connection.readonly_database_url": "WEAVE_READONLY_DATABASE_URL",
+	"connection.addr":                  "WEAVE_ADDR",
+	"connection.tmux_socket":           "WEAVE_TMUX_SOCKET",
+	"connection.cache_dir":             "WEAVE_CACHE_DIR",
+}
+
+func bindEnvironment(cfg *viper.Viper) error {
+	for key, variable := range connectionEnvironment {
+		if err := cfg.BindEnv(key, variable); err != nil {
+			return fmt.Errorf("bind %s to %s: %w", key, variable, err)
+		}
+	}
+
+	return nil
+}
+
+func connectionSources(cfg *viper.Viper) map[string]Source {
+	sources := make(map[string]Source, len(connectionEnvironment))
+	for path, variable := range connectionEnvironment {
+		key := strings.TrimPrefix(path, "connection.")
+		if _, set := config.LookupEnv(variable); set {
+			sources[key] = SourceEnvironment
+		} else if cfg.InConfig(path) {
+			sources[key] = SourceFile
+		} else {
+			sources[key] = SourceDefault
+		}
+	}
+
+	return sources
+}
+
+func (c *Config) resolveDerived(report *Report) error {
+	if c.Connection.CacheDir == "" {
+		dir, err := os.UserCacheDir()
 		if err != nil {
-			problems = append(problems, indentUnder(layer.Path, err.Error()))
-
-			continue
+			return fmt.Errorf("failed to find a cache directory, set WEAVE_CACHE_DIR to an absolute path weave can write to: %w", err)
 		}
 
-		if err := reportUnknownKeys(decoded.Unused); err != nil {
-			problems = append(problems, indentUnder(layer.Path, err.Error()))
-		}
+		c.Connection.CacheDir = filepath.Join(dir, "weave")
+		report.Sources["cache_dir"] = SourceDerived
 	}
 
-	if len(problems) == 0 {
-		return nil
+	if c.Connection.ReadOnlyDatabaseURL == "" {
+		c.Connection.ReadOnlyDatabaseURL = deriveReadOnlyURL(c.Connection.DatabaseURL)
+		report.Sources["readonly_database_url"] = SourceDerived
 	}
 
-	return fmt.Errorf("failed to parse config:\n%s", strings.Join(problems, "\n"))
+	return nil
+}
+
+func deriveReadOnlyURL(databaseURL string) string {
+	parsed, err := url.Parse(databaseURL)
+	if err != nil {
+		return ""
+	}
+
+	if parsed.Scheme != "postgres" && parsed.Scheme != "postgresql" {
+		return ""
+	}
+
+	parsed.User = url.UserPassword(readOnlyUser, readOnlyPassword)
+
+	return parsed.String()
 }
 
 // classifyLayerRead turns a failure to read one layer into what the caller should do about
@@ -960,17 +981,6 @@ func classifyLayerRead(layer Layer, err error) error {
 	}
 
 	return errLayerAbsent
-}
-
-// indentUnder puts a file's problems under its name, so a reader scanning several layers
-// sees which file each line belongs to before reading the line.
-func indentUnder(path, body string) string {
-	lines := strings.Split(strings.TrimRight(body, "\n"), "\n")
-	for i, line := range lines {
-		lines[i] = "    " + line
-	}
-
-	return "  " + path + "\n" + strings.Join(lines, "\n")
 }
 
 // describeLayers names the files a value could have come from, for the errors raised on the

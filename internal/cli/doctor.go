@@ -139,7 +139,7 @@ func (a *app) buildDoctorSettings() (doctor.Settings, error) {
 		InsideTmux:          a.env.Tmux,
 		PanelSession:        agents.ManagerSession,
 		ConfigLayers:        layers,
-		Sources:             a.env.Sources,
+		Sources:             a.configSources,
 		Harnesses:           harnesses,
 		DatabaseURL:         a.env.DatabaseURL,
 		ReadOnlyDatabaseURL: a.env.ReadOnlyDatabaseURL,

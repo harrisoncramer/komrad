@@ -120,14 +120,12 @@ func Start(t *testing.T, p Params) *Instance {
 	logger := logging.New(io.Discard, slog.LevelError)
 
 	built, err := server.New(t.Context(), server.Params{
-		Env: &config.Config{
-			ConnectionSettingsConfig: config.ConnectionSettingsConfig{
-				DatabaseURL:         stores.URL,
-				ReadOnlyDatabaseURL: stores.ReadOnlyURL,
-				Addr:                addr,
-				TmuxSocket:          tmuxServer.Socket(),
-				CacheDir:            filepath.Join(root, "cache"),
-			},
+		Env: &config.Environment{
+			DatabaseURL:         stores.URL,
+			ReadOnlyDatabaseURL: stores.ReadOnlyURL,
+			Addr:                addr,
+			TmuxSocket:          tmuxServer.Socket(),
+			CacheDir:            filepath.Join(root, "cache"),
 		},
 		ConfigPaths:        []string{configPath},
 		Logger:             logger,

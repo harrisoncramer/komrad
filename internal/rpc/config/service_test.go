@@ -209,6 +209,10 @@ func harnessFlags(t *testing.T, resp *configv1.GetConfigResponse, id string) any
 // caller sees. The file can hold a database password now, and this endpoint is exposed to the
 // MCP surface, so an unredacted answer hands that password to any model that asks.
 func TestGetConfigRedactsTheConnectionStrings(t *testing.T) {
+	for _, name := range []string{"WEAVE_DATABASE_URL", "WEAVE_READONLY_DATABASE_URL"} {
+		t.Setenv(name, "")
+	}
+
 	path := filepath.Join(t.TempDir(), "config.toml")
 	body := "[connection]\n" +
 		"database_url = \"postgres://weave:hunter2@db.internal:5432/panel\"\n" +

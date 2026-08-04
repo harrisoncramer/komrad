@@ -1,230 +1,65 @@
-// Package config resolves the panel's runtime configuration: the user's config files
-// underneath, the environment on top.
+// Package config reads process context that is not part of the user's TOML configuration.
 package config
 
 import (
-	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
-
-	"weave/internal/appconfig"
-
-	"github.com/caarlos0/env/v10"
 )
 
-// The login the MCP query tools connect as when none is configured. Only the name and the
-// password are weave's to pick. Where it connects is the database url's to say, since this
-// is a second role on the same rows rather than a second store.
-const (
-	readOnlyUser     = "weave_readonly"
-	readOnlyPassword = "weave_readonly"
-)
-
-// layerVariable is the environment's way of saying --config, holding the same list of paths
-// separated by colons the way PATH is. It is also the only way layering reaches the panel
-// opened from the tmux binding, which is a fixed command line with nowhere to put a flag.
 const layerVariable = "WEAVE_CONFIG"
 
+// Environment is the process context weave receives from its shell, tmux, or a launched
+// agent. Its connection fields are copied from the values Viper already resolved; this
+// package does not apply a second configuration precedence scheme.
+type Environment struct {
+	DatabaseURL         string
+	ReadOnlyDatabaseURL string
+	Addr                string
+	TmuxSocket          string
+	CacheDir            string
+	Tmux                string
+	TmuxPane            string
+	AgentID             string
+	SessionID           string
+	Editor              string
+}
+
+// LayerPaths returns the config stack named by WEAVE_CONFIG using the platform's path-list
+// separator, the same convention used by PATH and KUBECONFIG.
 func LayerPaths() []string {
-	return appconfig.ParseLayerList(os.Getenv(layerVariable))
+	value := os.Getenv(layerVariable)
+	if value == "" {
+		return nil
+	}
+
+	return filepath.SplitList(value)
 }
 
-// Source is where a resolved value came from. Used for debugging.
-type Source string
+// Load adds transient process context to connection values Viper has already resolved.
+func Load(connection Environment) *Environment {
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = "vi"
+	}
 
-const (
-	SourceDefault     Source = "built-in default"
-	SourceFile        Source = "config file"
-	SourceEnvironment Source = "environment"
-	SourceDerived     Source = "derived"
-)
+	connection.Tmux = os.Getenv("TMUX")
+	connection.TmuxPane = os.Getenv("TMUX_PANE")
+	connection.AgentID = os.Getenv("WEAVE_AGENT_ID")
+	connection.SessionID = os.Getenv("WEAVE_SESSION_ID")
+	connection.Editor = editor
 
-// Config holds the panel's runtime configuration, resolved.
-//
-// The connection settings each have a config file key and a WEAVE_-prefixed environment
-// variable. None of them carries an envDefault, deliberately: the built-in default belongs
-// underneath the file, and a tag default would sit beside the environment where nothing
-// could tell it apart from a value somebody set.
-type Config struct {
-	ConnectionSettingsConfig
-	Tmux      string `env:"TMUX"`
-	TmuxPane  string `env:"TMUX_PANE"`
-	AgentID   string `env:"WEAVE_AGENT_ID"`
-	SessionID string `env:"WEAVE_SESSION_ID"`
-	Editor    string `env:"EDITOR" envDefault:"vi"`
-	Sources   map[string]Source
+	return &connection
 }
 
-type ConnectionSettingsConfig struct {
-	DatabaseURL         string `env:"WEAVE_DATABASE_URL"`
-	ReadOnlyDatabaseURL string `env:"WEAVE_READONLY_DATABASE_URL"`
-	Addr                string `env:"WEAVE_ADDR"`
-	TmuxSocket          string `env:"WEAVE_TMUX_SOCKET"`
-	CacheDir            string `env:"WEAVE_CACHE_DIR"`
-}
+// LookupEnv reports an environment value and whether it is non-empty. Configuration
+// packages use this instead of reading the process environment outside this package.
+func LookupEnv(name string) (string, bool) {
+	value, set := os.LookupEnv(name)
 
-// Load resolves the panel's configuration from the file config and the environment, with the
-// environment winning wherever a variable is genuinely set.
-func Load(file *appconfig.Config) (*Config, error) {
-	if file == nil {
-		file = appconfig.Defaults()
-	}
-
-	valuesFromEnvironment := map[string]bool{}
-
-	options := env.Options{
-		OnSet: func(tag string, _ any, _ bool) {
-			value, present := os.LookupEnv(tag)
-			valuesFromEnvironment[tag] = present && value != ""
-		},
-	}
-
-	cfg := &Config{}
-
-	if err := env.ParseWithOptions(cfg, options); err != nil {
-		return nil, fmt.Errorf("failed to load config from the environment: %w", err)
-	}
-
-	cfg.Sources = map[string]Source{}
-	for _, setting := range cfg.connectionSettings(file) {
-		if valuesFromEnvironment[setting.variable] {
-			cfg.Sources[setting.key()] = SourceEnvironment
-
-			continue
-		}
-
-		// The environment parse already wrote its answer into the field, so a variable that
-		// was not genuinely set is overwritten here rather than merged.
-		if setting.fromFile != "" {
-			*setting.field = setting.fromFile
-
-			// A file value equal to the built-in is reported as the built-in. The loader
-			// fills the connection table with the defaults, so a value that came from
-			// withDefaults arrives here looking exactly like one somebody wrote, and
-			// claiming a file said something it did not is worse than under-reporting a
-			// file that agrees with the default anyway.
-			cfg.Sources[setting.key()] = SourceFile
-			if setting.fromFile == setting.builtin {
-				cfg.Sources[setting.key()] = SourceDefault
-			}
-
-			continue
-		}
-
-		*setting.field = setting.builtin
-		cfg.Sources[setting.key()] = SourceDefault
-	}
-
-	// The two derivations run after the file and the environment have both had their say, so
-	// that a config naming only a database gets a cache directory and a read-only login that
-	// follow it rather than ones built off the default connection string.
-	if cfg.CacheDir == "" {
-		dir, err := defaultCacheDir()
-		if err != nil {
-			return nil, err
-		}
-
-		cfg.CacheDir = dir
-		cfg.Sources["cache_dir"] = SourceDerived
-	}
-
-	if cfg.ReadOnlyDatabaseURL == "" {
-		// A database url this cannot rewrite leaves no read-only url rather than refusing
-		// here. `weave doctor` is the command a connection string that does not parse is
-		// diagnosed with, and refusing would take doctor down with it.
-		cfg.ReadOnlyDatabaseURL = deriveReadOnlyURL(cfg.DatabaseURL)
-		cfg.Sources["readonly_database_url"] = SourceDerived
-	}
-
-	return cfg, nil
-}
-
-// connectionSetting is one setting's candidate values and where the winner goes
-type connectionSetting struct {
-	variable string
-	field    *string
-	fromFile string
-	builtin  string
-}
-
-// key is the config file key, which is the variable without its prefix and lower cased.
-func (s connectionSetting) key() string {
-	return strings.ToLower(strings.TrimPrefix(s.variable, "WEAVE_"))
-}
-
-// connectionSettings is the five settings the file and the environment both speak to. The
-// variable is the env tag from ConnectionSettingsConfig, so the name is written once.
-func (c *Config) connectionSettings(file *appconfig.Config) []connectionSetting {
-	return []connectionSetting{
-		{
-			variable: "WEAVE_DATABASE_URL",
-			field:    &c.DatabaseURL,
-			fromFile: file.Connection.DatabaseURL,
-			builtin:  appconfig.DefaultDatabaseURL,
-		},
-		{
-			variable: "WEAVE_READONLY_DATABASE_URL",
-			field:    &c.ReadOnlyDatabaseURL,
-			fromFile: file.Connection.ReadOnlyDatabaseURL,
-		},
-		{
-			variable: "WEAVE_ADDR",
-			field:    &c.Addr,
-			fromFile: file.Connection.Addr,
-			builtin:  appconfig.DefaultAddr,
-		},
-		{
-			variable: "WEAVE_TMUX_SOCKET",
-			field:    &c.TmuxSocket,
-			fromFile: file.Connection.TmuxSocket,
-			builtin:  appconfig.DefaultTmuxSocket,
-		},
-		{
-			variable: "WEAVE_CACHE_DIR",
-			field:    &c.CacheDir,
-			fromFile: file.Connection.CacheDir,
-		},
-	}
-}
-
-// deriveReadOnlyURL is the database url with the least-privilege login in place of the
-// owner's. The host, port, database, and connection options are kept exactly as they were
-// written, since the two logins reach the same rows on the same server and differ only in
-// what they may do to them.
-//
-// Empty for anything that is not a postgres:// url. Postgres also accepts a space-separated
-// keyword list, and swapping a login into one of those means rebuilding a string whose
-// options weave would then have to reproduce.
-func deriveReadOnlyURL(databaseURL string) string {
-	parsed, err := url.Parse(databaseURL)
-	if err != nil {
-		return ""
-	}
-
-	if parsed.Scheme != "postgres" && parsed.Scheme != "postgresql" {
-		return ""
-	}
-
-	parsed.User = url.UserPassword(readOnlyUser, readOnlyPassword)
-
-	return parsed.String()
+	return value, set && value != ""
 }
 
 // LogPath is the file the background service writes to.
-func (c *Config) LogPath() string {
-	return filepath.Join(c.CacheDir, "weave.log")
-}
-
-// defaultCacheDir is where weave keeps what it generates. A directory that cannot be found
-// is refused rather than stood in for, since the working directory is whatever the caller
-// happened to be in and everything under a cache directory is weave's to delete and rewrite.
-func defaultCacheDir() (string, error) {
-	dir, err := os.UserCacheDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to find a cache directory, set WEAVE_CACHE_DIR to an absolute path weave can write to: %w", err)
-	}
-
-	return filepath.Join(dir, "weave"), nil
+func (e *Environment) LogPath() string {
+	return filepath.Join(e.CacheDir, "weave.log")
 }
