@@ -212,9 +212,9 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		return nil, err
 	}
 
-	launch := newAgentLaunch(s, p, plan, id, plan.harness.MintSessionID())
+	launch := newAgentLaunch(p, plan, id, plan.harness.MintSessionID())
 
-	if err := launch.runSetup(ctx); err != nil {
+	if err := s.runLaunchSetup(ctx, launch); err != nil {
 		return nil, err
 	}
 
@@ -222,22 +222,22 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 	launched := false
 	defer func() {
 		if !launched {
-			launch.unwind(ctx)
+			s.unwindLaunch(ctx, launch)
 		}
 	}()
 
-	if err := launch.openPane(); err != nil {
+	if err := s.openLaunchPane(launch); err != nil {
 		return nil, err
 	}
 
 	// Claim the slot with the insert because setup cannot run inside the transaction.
-	created, err := launch.createRow(ctx)
+	created, err := s.createLaunchRow(ctx, launch)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := launch.start(); err != nil {
-		if deleteErr := launch.removeRow(ctx); deleteErr != nil {
+	if err := s.startLaunch(launch); err != nil {
+		if deleteErr := s.removeLaunchRow(ctx, launch); deleteErr != nil {
 			return nil, fmt.Errorf("failed to launch the agent for %q (%w), and failed to clean up: %w", plan.name, err, deleteErr)
 		}
 
@@ -249,8 +249,10 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 	return created, nil
 }
 
+// agentLaunch tracks the state and progress of a single agent being created,
+// so a failure partway through unwinds only the pane and setup action that
+// actually ran instead of everything.
 type agentLaunch struct {
-	svc       *AgentService
 	params    NewAgentParams
 	plan      *launchPlan
 	id        string
@@ -261,9 +263,8 @@ type agentLaunch struct {
 	pane      string
 }
 
-func newAgentLaunch(svc *AgentService, params NewAgentParams, plan *launchPlan, id, sessionID string) *agentLaunch {
+func newAgentLaunch(params NewAgentParams, plan *launchPlan, id, sessionID string) *agentLaunch {
 	return &agentLaunch{
-		svc:       svc,
 		params:    params,
 		plan:      plan,
 		id:        id,
@@ -272,9 +273,9 @@ func newAgentLaunch(svc *AgentService, params NewAgentParams, plan *launchPlan, 
 	}
 }
 
-// runSetup runs the workflow's setup action, if any, against the planned agent.
-func (l *agentLaunch) runSetup(ctx context.Context) error {
-	named, err := l.svc.runSetup(ctx, l.agent, l.plan.setupAction)
+// runLaunchSetup runs the workflow's setup action, if any, against the planned agent.
+func (s *AgentService) runLaunchSetup(ctx context.Context, l *agentLaunch) error {
+	named, err := s.runSetup(ctx, l.agent, l.plan.setupAction)
 	if err != nil {
 		return err
 	}
@@ -285,37 +286,37 @@ func (l *agentLaunch) runSetup(ctx context.Context) error {
 	return nil
 }
 
-// openPane resolves the working directory, opens the tmux window, and stamps
-// it with the agent's ID.
-func (l *agentLaunch) openPane() error {
-	dir, err := l.svc.setupDir(l.plan.dir, l.setupName)
+// openLaunchPane resolves the working directory, opens the tmux window, and
+// stamps it with the agent's ID.
+func (s *AgentService) openLaunchPane(l *agentLaunch) error {
+	dir, err := s.setupDir(l.plan.dir, l.setupName)
 	if err != nil {
 		return err
 	}
 	l.agent.Cwd = dir
 
-	pane, err := l.svc.tmux.NewWindow(ManagerSession, l.plan.name, dir)
+	pane, err := s.tmux.NewWindow(ManagerSession, l.plan.name, dir)
 	if err != nil {
 		return fmt.Errorf("failed to open a window for %q: %w", l.plan.name, err)
 	}
 	l.pane = pane
 	l.agent.Pane = pane
 
-	if err := l.svc.tmux.SetPaneOwner(pane, l.id); err != nil {
+	if err := s.tmux.SetPaneOwner(pane, l.id); err != nil {
 		return fmt.Errorf("failed to stamp the pane for %q: %w", l.plan.name, err)
 	}
 
 	return nil
 }
 
-// createRow claims a capacity slot and inserts the agent record in one
+// createLaunchRow claims a capacity slot and inserts the agent record in one
 // transaction, then reads the row back.
-func (l *agentLaunch) createRow(ctx context.Context) (*agentstore.Agent, error) {
-	if err := l.svc.createUnderCeiling(ctx, l.agent); err != nil {
+func (s *AgentService) createLaunchRow(ctx context.Context, l *agentLaunch) (*agentstore.Agent, error) {
+	if err := s.createUnderCeiling(ctx, l.agent); err != nil {
 		return nil, err
 	}
 
-	created, err := l.svc.agents.GetInWorkflow(ctx, l.params.WorkflowID, l.plan.name)
+	created, err := s.agents.GetInWorkflow(ctx, l.params.WorkflowID, l.plan.name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read back agent %q: %w", l.plan.name, err)
 	}
@@ -326,9 +327,9 @@ func (l *agentLaunch) createRow(ctx context.Context) (*agentstore.Agent, error) 
 	return created, nil
 }
 
-// start hands the pane to the harness launcher.
-func (l *agentLaunch) start() error {
-	return l.svc.launcher.launch(l.plan.harness, launchParams{
+// startLaunch hands the pane to the harness launcher.
+func (s *AgentService) startLaunch(l *agentLaunch) error {
+	return s.launcher.launch(l.plan.harness, launchParams{
 		Pane:            l.pane,
 		Dir:             l.agent.Cwd,
 		Flags:           l.plan.flags,
@@ -339,20 +340,20 @@ func (l *agentLaunch) start() error {
 	})
 }
 
-// unwind reverses whatever of the pane and setup action actually ran. The
-// agent row is removed separately, by removeRow, only once launching has
-// actually failed.
-func (l *agentLaunch) unwind(ctx context.Context) {
+// unwindLaunch reverses whatever of the pane and setup action actually ran.
+// The agent row is removed separately, by removeLaunchRow, only once
+// launching has actually failed.
+func (s *AgentService) unwindLaunch(ctx context.Context, l *agentLaunch) {
 	if l.pane != "" {
-		l.svc.tmux.KillPane(l.pane)
+		s.tmux.KillPane(l.pane)
 	}
 	if l.setupRan {
-		l.svc.runCleanup(ctx, l.agent, l.plan.cleanupAction)
+		s.runCleanup(ctx, l.agent, l.plan.cleanupAction)
 	}
 }
 
-func (l *agentLaunch) removeRow(ctx context.Context) error {
-	return l.svc.removeAgents(ctx, []string{l.id})
+func (s *AgentService) removeLaunchRow(ctx context.Context, l *agentLaunch) error {
+	return s.removeAgents(ctx, []string{l.id})
 }
 
 // DeleteAgents stops and permanently removes agents by ID.
