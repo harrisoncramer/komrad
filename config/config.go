@@ -1,4 +1,3 @@
-// Package config reads process context that is not part of the user's TOML configuration.
 package config
 
 import (
