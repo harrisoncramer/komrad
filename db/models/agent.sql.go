@@ -749,15 +749,23 @@ func (q *Queries) ListLiveWorkflowAgents(ctx context.Context, workflowID string)
 	return items, nil
 }
 
+const lockAgentMetadata = `-- name: LockAgentMetadata :exec
+SELECT
+    PG_ADVISORY_XACT_LOCK(HASHTEXTEXTENDED($1::text, 0))
+`
+
+// LockAgentMetadata serializes the callers writing one agent's metadata.
+func (q *Queries) LockAgentMetadata(ctx context.Context, agentID string) error {
+	_, err := q.db.Exec(ctx, lockAgentMetadata, agentID)
+	return err
+}
+
 const lockAgentSlots = `-- name: LockAgentSlots :exec
 SELECT
     PG_ADVISORY_XACT_LOCK($1::bigint)
 `
 
 // LockAgentSlots serializes the callers claiming room under the agent ceiling.
-// Counting the live agents and inserting under that count are separate statements, so
-// without this every caller reads the same count and all of them decide there is room.
-// The lock is held to the end of the transaction, so the count and insert share one.
 func (q *Queries) LockAgentSlots(ctx context.Context, key int64) error {
 	_, err := q.db.Exec(ctx, lockAgentSlots, key)
 	return err
