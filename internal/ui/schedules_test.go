@@ -226,8 +226,27 @@ func TestScheduleMarkdown(t *testing.T) {
 				},
 				nextRun: next,
 			},
-			workflow: &workflowstore.Workflow{Name: "api", Cwd: "/work/api"},
-			wants:    []string{"morning-ci", "next run", "check CI", "0 9 * * 1-5", "America/New_York", "api", "/work/api"},
+			workflow: &workflowstore.Workflow{
+				Name:          "api",
+				Harness:       "codex",
+				Cwd:           "/work/api",
+				Flags:         "--model opus",
+				SetupAction:   "bootstrap",
+				CleanupAction: "teardown",
+			},
+			wants: []string{
+				"morning-ci",
+				"next run",
+				"check CI",
+				"0 9 * * 1-5",
+				"America/New_York",
+				"api",
+				"codex",
+				"/work/api",
+				"--model opus",
+				"bootstrap",
+				"teardown",
+			},
 			notWants: []string{"paused"},
 		},
 		{
@@ -235,7 +254,7 @@ func TestScheduleMarkdown(t *testing.T) {
 			item: scheduleItem{
 				schedule: schedulestore.Schedule{Name: "draft", Cron: "0 9 * * *", Prompt: "later"},
 			},
-			workflow: &workflowstore.Workflow{Name: "api", Cwd: "/work/api"},
+			workflow: &workflowstore.Workflow{Name: "api"},
 			wants:    []string{"draft", "paused"},
 			notWants: []string{"next run"},
 		},
@@ -247,6 +266,20 @@ func TestScheduleMarkdown(t *testing.T) {
 				"bare",
 				"no prompt set",
 				"—", // the dash the empty fields fall back to
+			},
+		},
+		{
+			name: "a schedule whose workflow has no defaults still renders dashes",
+			item: scheduleItem{schedule: schedulestore.Schedule{Name: "defaults", Enabled: true}},
+			workflow: &workflowstore.Workflow{
+				Name: "api",
+			},
+			wants: []string{
+				"- default agent: —",
+				"- directory: —",
+				"- flags: —",
+				"- setup: —",
+				"- cleanup: —",
 			},
 		},
 		{
