@@ -59,7 +59,8 @@ func TestBelowActionKeys(t *testing.T) {
 
 			assert.Equal(t, tt.wantFired, client.fired)
 			assert.Equal(t, tt.wantPane, recorder.globals[tmux.SecondaryPaneOption])
-			assert.Nil(t, got.banner, "nothing here was refused")
+			_, ok = got.newestAlert()
+			assert.False(t, ok, "nothing here was refused")
 		})
 	}
 }

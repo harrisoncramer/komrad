@@ -70,6 +70,9 @@ func (m model) updateAgentsBrowsing(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if isBound(k, m.keys.Archive.Open) {
 		return m.enterArchive()
 	}
+	if isBound(k, m.keys.Alerts.Open) {
+		return m.enterAlertHistory()
+	}
 	if isBound(k, m.keys.Agents.ShowHidden) {
 		return m.toggleHiddenAgents()
 	}

@@ -167,7 +167,8 @@ func TestTerminalKeyRunsTheShippedAction(t *testing.T) {
 	require.True(t, ok)
 
 	panel := settle(t, pressed, cmd)
-	require.Nil(t, panel.banner)
+	_, ok = panel.newestAlert()
+	require.False(t, ok)
 	require.Equal(t, belowAction, panel.tree.below)
 
 	below := panel.stage.secondary
@@ -219,7 +220,8 @@ func pressAndSettle(t *testing.T, panel model, key string) model {
 	require.True(t, ok)
 
 	settled := settle(t, pressed, cmd)
-	require.Nil(t, settled.banner)
+	_, ok = settled.newestAlert()
+	require.False(t, ok)
 
 	return settled
 }

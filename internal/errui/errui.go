@@ -13,12 +13,17 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Both colours are indexes into the sixteen a terminal's own scheme maps rather than hex
-// values, so an error screen is drawn in the colours the terminal is already running.
+// Every colour here is an index into the sixteen a terminal's own scheme maps rather than a
+// hex value, so an error screen is drawn in the colours the terminal is already running.
 var (
 	// Red is the headline colour, the same red the agent list uses for a row that needs
 	// attention.
 	Red = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
+	// Yellow is a warn alert's colour, the same yellow the agent list uses for one still
+	// thinking.
+	Yellow = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true)
+	// Blue is an info alert's colour, the same blue the panel's own headers take.
+	Blue = lipgloss.NewStyle().Foreground(lipgloss.Color("4")).Bold(true)
 	// Dim is the colour of anything secondary: labels, hints, and the panel's own chrome,
 	// which shares it so the two cannot drift apart.
 	Dim = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))

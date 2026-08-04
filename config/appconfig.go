@@ -109,6 +109,8 @@ type Keybindings struct {
 	Selection SelectionKeys `mapstructure:"selection"`
 	// The bindings that create and change workflows, from the agents list.
 	Workflows WorkflowsKeys `mapstructure:"workflows"`
+	// The alert history screen, and the key that opens it from the agents list.
+	Alerts AlertsKeys `mapstructure:"alerts"`
 }
 
 // NavKeys are the shared navigation bindings every menu uses, so movement is the
@@ -256,6 +258,17 @@ type ArchiveKeys struct {
 	Quit []string `mapstructure:"quit"`
 	// Put the agent under the cursor back in the panel.
 	Restore []string `mapstructure:"restore"`
+}
+
+// AlertsKeys are the bindings for the alert history screen, the dismissed and expired
+// alerts kept after they leave the queue. Open enters it from the agents list.
+type AlertsKeys struct {
+	// Leave the alert history for the agents list.
+	Back []string `mapstructure:"back"`
+	// Open the alert history from the agents list.
+	Open []string `mapstructure:"open"`
+	// Quit the panel.
+	Quit []string `mapstructure:"quit"`
 }
 
 // ActionsKeys are the bindings for the actions list, the scripts you have written for
@@ -552,6 +565,11 @@ func DefaultKeybindings() Keybindings {
 			Edit:    []string{"e"},
 			New:     []string{"w"},
 			Rename:  []string{"r"},
+		},
+		Alerts: AlertsKeys{
+			Back: []string{"esc"},
+			Open: []string{"A"},
+			Quit: []string{"ctrl+c"},
 		},
 	}
 }

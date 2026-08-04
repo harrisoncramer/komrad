@@ -185,6 +185,15 @@ new     = ["w"]
 # Rename the workflow under the cursor.
 rename  = ["r"]
 
+# The alert history screen, and the key that opens it from the agents list.
+[keybindings.alerts]
+# Leave the alert history for the agents list.
+back = ["esc"]
+# Open the alert history from the agents list.
+open = ["A"]
+# Quit the panel.
+quit = ["ctrl+c"]
+
 # Where the panel finds the scripts its action key runs.
 [actions]
 # Directory for actions: one executable file per action, named after the action.

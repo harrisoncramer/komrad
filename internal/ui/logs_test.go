@@ -50,7 +50,8 @@ func TestLogsOpenBelowTheStagedAgent(t *testing.T) {
 	shown := pressLogs(t, m)
 
 	assert.Equal(t, belowLogs, shown.tree.below)
-	assert.Nil(t, shown.banner)
+	_, ok := shown.newestAlert()
+	assert.False(t, ok)
 	assert.Equal(t, 1, tmux.swaps, "the agent's pane is left where it is")
 	require.Len(t, tmux.respawns, 1)
 	assert.Equal(t, "%2", tmux.respawnPanes[0], "the log is paged into the pane below")
@@ -116,7 +117,8 @@ func TestLogsWithNoLogFile(t *testing.T) {
 
 	shown := pressLogs(t, m)
 
-	assert.NotNil(t, shown.banner)
+	_, ok := shown.newestAlert()
+	assert.True(t, ok)
 	assert.Equal(t, belowNothing, shown.tree.below)
 	assert.Empty(t, tmux.respawns)
 }

@@ -77,7 +77,8 @@ func TestActionKeys(t *testing.T) {
 
 			assert.Equal(t, tt.wantScreen, got.screen)
 			assert.Equal(t, tt.wantFired, client.fired)
-			assert.Nil(t, got.banner, "nothing here was refused")
+			_, ok = got.newestAlert()
+			assert.False(t, ok, "nothing here was refused")
 		})
 	}
 }
@@ -125,9 +126,10 @@ func TestActionRunIsReported(t *testing.T) {
 	got := settle(t, pressed, cmd)
 
 	assert.Equal(t, screenActions, got.screen, "the list stays up so the row can be seen")
-	require.NotNil(t, got.banner)
-	assert.Contains(t, got.banner.Summary, "open-pr")
-	assert.Contains(t, got.banner.Detail, "chmod", "the reason comes off the service, not the panel")
+	alert, ok := got.newestAlert()
+	require.True(t, ok)
+	assert.Contains(t, alert.Summary, "open-pr")
+	assert.Contains(t, alert.Detail, "chmod", "the reason comes off the service, not the panel")
 }
 
 // TestActionOpensOnTheHoveredAgent covers the list being opened from a row. It carries the agent
@@ -215,8 +217,9 @@ func TestActionListingFailureIsReported(t *testing.T) {
 	got := settle(t, m, m.listActionsCmd())
 
 	assert.Empty(t, got.actions.items)
-	require.NotNil(t, got.banner)
-	assert.Contains(t, got.banner.Summary, "Could not read your actions")
+	alert, ok := got.newestAlert()
+	require.True(t, ok)
+	assert.Contains(t, alert.Summary, "Could not read your actions")
 }
 
 // TestActionListingArrivingAfterTheScreenWasLeft covers the listing outliving the visit that
@@ -259,7 +262,8 @@ func TestActionListingFailureAfterTheScreenWasLeftIsSilent(t *testing.T) {
 	got := settle(t, departed, pending)
 
 	assert.Equal(t, screenAgents, got.screen)
-	assert.Nil(t, got.banner, "nothing banners over a screen the failure is not about")
+	_, ok = got.newestAlert()
+	assert.False(t, ok, "nothing alerts over a screen the failure is not about")
 }
 
 // TestActionMarkdown covers the document the stage shows beside a hovered action, which is what
@@ -363,7 +367,8 @@ func TestEditActionKey(t *testing.T) {
 	assert.Equal(t, belowEdit, got.tree.below)
 	assert.Equal(t, "open-pr", got.tree.belowAction, "the file down there is what the key closes")
 	assert.Equal(t, "%2", recorder.globals[tmux.SecondaryPaneOption], "the script is told which pane to fill")
-	assert.Nil(t, got.banner)
+	_, ok = got.newestAlert()
+	assert.False(t, ok)
 	assert.Empty(t, client.fired, "editing a file runs none of the user's actions")
 }
 
@@ -443,9 +448,10 @@ func TestEditActionKeyRefusesACompiledProgram(t *testing.T) {
 
 	assert.Empty(t, client.edited, "nothing was asked of the service")
 	assert.Equal(t, belowNothing, got.tree.below, "no pane was opened for an editor that cannot run")
-	require.NotNil(t, got.banner)
-	assert.Contains(t, got.banner.Summary, "compiled")
-	assert.Contains(t, got.banner.Detail, "not text")
+	alert, ok := got.newestAlert()
+	require.True(t, ok)
+	assert.Contains(t, alert.Summary, "compiled")
+	assert.Contains(t, alert.Detail, "not text")
 }
 
 // TestActionEditorLegendNamesWhatTheKeyWouldDo covers the legend under the list. The key acts

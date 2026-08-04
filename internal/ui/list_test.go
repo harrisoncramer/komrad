@@ -215,7 +215,7 @@ func TestScreensFitThePane(t *testing.T) {
 }
 
 // TestListLines covers the room a screen's list is left with. The chrome around it
-// and the banner over it both come off the pane, and a pane too short to hold even
+// and the alert queue over it both come off the pane, and a pane too short to hold even
 // that keeps one line for the hovered row.
 func TestListLines(t *testing.T) {
 	header := "Archive\n\n"
@@ -224,7 +224,7 @@ func TestListLines(t *testing.T) {
 	tests := []struct {
 		name   string
 		height int
-		banner *errui.Banner
+		alert  bool
 		want   int
 	}{
 		{
@@ -238,9 +238,9 @@ func TestListLines(t *testing.T) {
 			want:   1,
 		},
 		{
-			name:   "a banner takes its lines too",
+			name:   "an alert takes its lines too",
 			height: 20,
-			banner: &errui.Banner{Summary: "nope"},
+			alert:  true,
 			want:   10,
 		},
 		{
@@ -252,7 +252,10 @@ func TestListLines(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := model{height: tt.height, banner: tt.banner}
+			m := model{height: tt.height}
+			if tt.alert {
+				m.alerts.push(errui.LevelError, "nope", "")
+			}
 
 			assert.Equal(t, tt.want, m.listLines(header, help))
 		})

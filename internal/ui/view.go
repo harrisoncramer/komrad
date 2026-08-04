@@ -12,8 +12,8 @@ import (
 // that would not parse outranks a server that would not start, which outranks a service
 // that stopped answering.
 //
-// A refused write banners over the screen it happened on rather than replacing it, since
-// what the error is about is a row in the list underneath.
+// An alert renders over the screen it happened on rather than replacing it, since what it
+// is about is a row in the list underneath.
 func (m model) View() string {
 	if m.configErr != nil {
 		return errui.Config(m.width, m.configErr)
@@ -27,14 +27,13 @@ func (m model) View() string {
 		return errui.Unreachable(m.width, m.addr, m.unreachable)
 	}
 
-	// A form waiting on its write is frozen, so it says so. It takes the banner's place,
+	// A form waiting on its write is frozen, so it says so. It takes the alert's place,
 	// which reads as the refusal being retried.
 	var chrome string
-	switch {
-	case m.pendingForm:
+	if m.pendingForm {
 		chrome = dimStyle.Render("  submitting…") + "\n\n"
-	case m.banner != nil:
-		chrome = m.banner.Render(m.width)
+	} else {
+		chrome = m.alertChrome()
 	}
 
 	// Every block a screen builds ends in a newline, and the renderer draws what
@@ -59,6 +58,8 @@ func (m model) screenView() string {
 		return m.archiveView()
 	case screenActions:
 		return m.actionsView()
+	case screenAlerts:
+		return m.alertsView()
 	default:
 		return m.agentsView()
 	}

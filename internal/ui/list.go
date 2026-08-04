@@ -5,10 +5,10 @@ import (
 	"strings"
 )
 
-// listLines is how many lines a screen's list has to draw into: the pane less the banner
-// over it and the chrome around it. The chrome is measured from what the screen already
-// rendered, since the legends differ per screen and the agents one differs by what the
-// cursor is on.
+// listLines is how many lines a screen's list has to draw into: the pane less the alert
+// queue over it and the chrome around it. The chrome is measured from what the screen
+// already rendered, since the legends differ per screen and the agents one differs by what
+// the cursor is on.
 //
 // Zero means the panel has not been told its size yet, which the lists read as unbounded,
 // since clipping against a height nothing measured is worse than overflowing.
@@ -17,7 +17,7 @@ func (m model) listLines(chrome ...string) int {
 		return 0
 	}
 
-	lines := m.height - m.bannerLines()
+	lines := m.height - m.alertLines()
 	for _, part := range chrome {
 		lines -= strings.Count(part, "\n")
 	}
@@ -27,14 +27,10 @@ func (m model) listLines(chrome ...string) int {
 	return max(lines, 1)
 }
 
-// bannerLines is how much of the pane a refused write is taking, which the list below has
-// that much less room for while one is up.
-func (m model) bannerLines() int {
-	if m.banner == nil {
-		return 0
-	}
-
-	return strings.Count(m.banner.Render(m.width), "\n")
+// alertLines is how much of the pane the alert queue is taking, which the list below has
+// that much less room for while one is showing.
+func (m model) alertLines() int {
+	return strings.Count(m.alertChrome(), "\n")
 }
 
 // renderList draws rows clipped to the lines it was given, keeping the row under the cursor

@@ -54,7 +54,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				m.target.newAgentWorkflow = &workflow
 				m.screen = screenForm
 				prefill := agentFormValues{Harness: workflow.Harness, Dir: workflow.Cwd, Flags: workflow.Flags, SetupAction: inheritAction, CleanupAction: inheritAction}
-				m.form, m.values.agent = newAgentForm(m.keys.Form, prefill, workflow.SetupAction, workflow.CleanupAction, nil)
+				m.form, m.values.agent = newAgentForm(m.keys.Form, prefill, nil)
 				m.values.agent.Prompt = "check CI"
 				m.values.agent.Title = "ci"
 				m.values.agent.Harness = "codex"
@@ -301,7 +301,8 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 
 			got := settle(t, submitted, cmd)
 
-			require.Nil(t, got.banner, "the service accepted the write")
+			_, ok = got.newestAlert()
+			require.False(t, ok, "the service accepted the write")
 			assert.False(t, got.screen.isForm(), "a write the service took closes the form")
 			tt.check(t, sent)
 		})
@@ -377,7 +378,7 @@ func TestActionSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
 
 	agentForm, _ := newAgentForm(config.DefaultKeybindings().Form,
 		agentFormValues{SetupAction: inheritAction, CleanupAction: inheritAction},
-		"make-worktree", "drop-worktree", available,
+		available,
 	)
 	agentForm.Init()
 	agentView := agentForm.View()
@@ -480,9 +481,10 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 			updated, cmd := tt.submit(m)
 			got := settle(t, asModel(t, updated), cmd)
 
-			require.NotNil(t, got.banner, "a refused write is reported")
-			assert.Equal(t, "not allowed", got.banner.Detail)
-			assert.Equal(t, "fix and submit again", got.banner.Hint, "esc backs out of the form rather than clearing the banner")
+			alert, ok := got.newestAlert()
+			require.True(t, ok, "a refused write is reported")
+			assert.Equal(t, "not allowed", alert.Detail)
+			assert.Equal(t, "fix and submit again", alert.Hint, "esc backs out of the form rather than clearing the alert")
 			assert.Equal(t, tt.screen, got.screen, "the form still owns the screen")
 			assert.Equal(t, tt.typed, tt.held(got), "and still holds what was filled in")
 			assert.NotEqual(t, huh.StateCompleted, got.form.State, "a completed form draws as nothing, so the form is built back")
@@ -522,7 +524,11 @@ func TestFormResubmitsAfterARefusal(t *testing.T) {
 	require.NotNil(t, sent.createdAgent)
 	assert.Equal(t, "check CI", sent.createdAgent.GetPrompt(), "the prompt survived the refusal")
 	assert.Equal(t, "--model opus", sent.createdAgent.GetFlags(), "and the field that was fixed is what went")
-	assert.Nil(t, got.banner)
+	// The alert from the first, refused attempt is still queued: the second attempt succeeding
+	// does not clear it, since a success no longer wipes what came before it.
+	alert, ok := got.newestAlert()
+	require.True(t, ok)
+	assert.Equal(t, "bad flags", alert.Detail)
 	assert.Equal(t, screenAgents, got.screen, "the accepted write closes the form")
 }
 
@@ -768,7 +774,7 @@ func (f *formRecorder) ArchiveSchedule(_ context.Context, req *connect.Request[s
 func TestOnlyTheSubmitKeySubmitsAForm(t *testing.T) {
 	keys := config.DefaultKeybindings().Form
 
-	agent, _ := newAgentForm(keys, agentFormValues{}, "", "", nil)
+	agent, _ := newAgentForm(keys, agentFormValues{}, nil)
 	agent.Init()
 	for range 6 {
 		agent.Update(huh.NextField())

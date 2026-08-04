@@ -115,7 +115,8 @@ func TestScheduleKeys(t *testing.T) {
 
 			assert.Equal(t, tt.wantScreen, got.screen)
 			assert.Equal(t, tt.wantWrites, client.writes)
-			assert.Equal(t, tt.wantReported, got.banner != nil, "whether the panel had something to say")
+			_, reported := got.newestAlert()
+			assert.Equal(t, tt.wantReported, reported, "whether the panel had something to say")
 		})
 	}
 }
@@ -396,8 +397,9 @@ func TestScheduleWriteFailure(t *testing.T) {
 
 			got := tt.act(t, m)
 
-			require.NotNil(t, got.banner, "a refused write has to be reported")
-			assert.Contains(t, got.banner.Render(got.width), tt.wantErr)
+			alert, ok := got.newestAlert()
+			require.True(t, ok, "a refused write has to be reported")
+			assert.Contains(t, alert.Render(got.width), tt.wantErr)
 		})
 	}
 }

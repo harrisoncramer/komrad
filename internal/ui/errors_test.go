@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -79,9 +80,10 @@ func TestRefusedWriteIsReported(t *testing.T) {
 
 	m = settle(t, pressed, cmd)
 
-	require.NotNil(t, m.banner, "a refused archive is reported rather than swallowed")
-	assert.Equal(t, `Could not archive agent "api-refactor"`, m.banner.Summary)
-	assert.Equal(t, "already archived", m.banner.Detail,
+	alert, ok := m.newestAlert()
+	require.True(t, ok, "a refused archive is reported rather than swallowed")
+	assert.Equal(t, `Could not archive agent "api-refactor"`, alert.Summary)
+	assert.Equal(t, "already archived", alert.Detail,
 		"the service's message is shown rather than the connect code in front of it")
 }
 
@@ -113,21 +115,22 @@ func TestRefusedResumeIsReported(t *testing.T) {
 
 	got := settle(t, pressed, cmd)
 
-	require.NotNil(t, got.banner)
-	assert.Equal(t, `Could not resume agent "api-refactor"`, got.banner.Summary)
-	assert.Equal(t, "no such agent", got.banner.Detail,
+	alert, ok := got.newestAlert()
+	require.True(t, ok)
+	assert.Equal(t, `Could not resume agent "api-refactor"`, alert.Summary)
+	assert.Equal(t, "no such agent", alert.Detail,
 		"the wrapper the panel put around the call is not what the reader is shown")
 }
 
-// TestBannerSurvivesTheFormItWasReportedFrom covers a failure reported by a form,
-// which returns to the agents screen as it closes. The banner is chrome above
+// TestAlertSurvivesTheFormItWasReportedFrom covers a failure reported by a form,
+// which returns to the agents screen as it closes. The alert is chrome above
 // whatever screen the panel lands on, so it outlives the form that caused it.
-func TestBannerSurvivesTheFormItWasReportedFrom(t *testing.T) {
+func TestAlertSurvivesTheFormItWasReportedFrom(t *testing.T) {
 	m := model{
-		banner: &errui.Banner{Summary: `Could not rename agent "api-refactor"`, Detail: "name is taken"},
 		screen: screenRename,
 		keys:   config.DefaultKeybindings(),
 	}
+	m.alerts.push(errui.LevelError, `Could not rename agent "api-refactor"`, "name is taken")
 	m.form, m.values.rename = renameForm("api-refactor", "", m.keys.Form)
 	m.form.Init()
 
@@ -135,10 +138,11 @@ func TestBannerSurvivesTheFormItWasReportedFrom(t *testing.T) {
 
 	assert.Contains(t, view, "Could not rename agent")
 	assert.Contains(t, view, "name is taken")
-	assert.Contains(t, view, "Rename", "the form is still on screen under the banner")
+	assert.Contains(t, view, "Rename", "the form is still on screen under the alert")
 }
 
-// acceptingAgents accepts writes, for the case where a banner should clear.
+// acceptingAgents accepts writes, for the case where a write succeeds alongside an
+// already-queued alert.
 type acceptingAgents struct {
 	agentv1connect.AgentServiceClient
 }
@@ -151,10 +155,10 @@ func (acceptingAgents) ListAgents(context.Context, *connect.Request[agentv1.List
 	return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
 }
 
-// TestSuccessfulWriteClearsTheBanner covers the other half of report. Clearing is
-// folded into the same call that sets, so a write cannot succeed and leave the
-// previous failure sitting on screen.
-func TestSuccessfulWriteClearsTheBanner(t *testing.T) {
+// TestSuccessfulWriteLeavesEarlierAlertsQueued covers the point of the queue over the single
+// slot it replaced: a second failure used to silently destroy the first, and a success used
+// to clear it outright. Neither happens now, since report only ever pushes on a refusal.
+func TestSuccessfulWriteLeavesEarlierAlertsQueued(t *testing.T) {
 	m := model{
 		api:    api{agents: acceptingAgents{}, workflows: emptyLists{}},
 		tmux:   &recordingTmux{},
@@ -167,8 +171,8 @@ func TestSuccessfulWriteClearsTheBanner(t *testing.T) {
 				{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateIdle, WorkflowID: "w1"}},
 			},
 		},
-		banner: &errui.Banner{Summary: "Could not archive agent \"gone\"", Detail: "stale"},
 	}
+	m.alerts.push(errui.LevelError, `Could not archive agent "gone"`, "stale")
 	m.tree.cursor = firstAgentRowIndex(m.agentRows())
 
 	opened, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
@@ -183,15 +187,16 @@ func TestSuccessfulWriteClearsTheBanner(t *testing.T) {
 
 	got := settle(t, pressed, cmd)
 
-	assert.Nil(t, got.banner, "a write that succeeded clears the previous failure")
+	alert, ok := got.newestAlert()
+	require.True(t, ok, "the earlier alert is still queued, since a success does not clear it")
+	assert.Equal(t, `Could not archive agent "gone"`, alert.Summary)
 }
 
-// TestBannerRendersOverTheList covers that a refused write reports without
-// taking the screen, unlike the config and unreachable screens. The row the error
-// is about is in the list underneath, so hiding the list would lose the context.
-func TestBannerRendersOverTheList(t *testing.T) {
+// TestAlertRendersOverTheList covers that an alert reports without taking the screen,
+// unlike the config and unreachable screens. The row it is about is in the list
+// underneath, so hiding the list would lose the context.
+func TestAlertRendersOverTheList(t *testing.T) {
 	m := model{
-		banner: &errui.Banner{Summary: `Could not archive agent "api-refactor"`, Detail: "already archived"},
 		screen: screenAgents,
 		keys:   config.DefaultKeybindings(),
 		tree: treeState{
@@ -201,39 +206,44 @@ func TestBannerRendersOverTheList(t *testing.T) {
 			},
 		},
 	}
+	m.alerts.push(errui.LevelError, `Could not archive agent "api-refactor"`, "already archived")
 
 	view := m.View()
 
 	assert.Contains(t, view, "Could not archive agent")
 	assert.Contains(t, view, "already archived")
 	assert.Contains(t, view, "esc to dismiss")
-	assert.Contains(t, view, "api-refactor", "the list is still on screen under the banner")
+	assert.Contains(t, view, "api-refactor", "the list is still on screen under the alert")
 }
 
-// TestBannerYieldsToTakeoverScreens pins the precedence. A banner over a list
-// that cannot be trusted would be reporting one failed write while every row behind
-// it was stale.
-func TestBannerYieldsToTakeoverScreens(t *testing.T) {
+// TestAlertYieldsToTakeoverScreens pins the precedence. An alert over a list that
+// cannot be trusted would be reporting one failed write while every row behind it was
+// stale.
+func TestAlertYieldsToTakeoverScreens(t *testing.T) {
 	tests := []struct {
-		name string
-		m    model
-		want string
+		name        string
+		unreachable error
+		configErr   error
+		want        string
 	}{
 		{
-			name: "an unreachable service takes the screen from the banner",
-			m:    model{banner: &errui.Banner{Summary: "Could not delete"}, unreachable: errors.New("refused")},
-			want: "Cannot reach the server",
+			name:        "an unreachable service takes the screen from the alert",
+			unreachable: errors.New("refused"),
+			want:        "Cannot reach the server",
 		},
 		{
-			name: "and so does a config error",
-			m:    model{banner: &errui.Banner{Summary: "Could not delete"}, configErr: errors.New("bad")},
-			want: "Your configuration could not be read",
+			name:      "and so does a config error",
+			configErr: errors.New("bad"),
+			want:      "Your configuration could not be read",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			view := tt.m.View()
+			m := model{unreachable: tt.unreachable, configErr: tt.configErr}
+			m.alerts.push(errui.LevelError, "Could not delete", "")
+
+			view := m.View()
 
 			assert.Contains(t, view, tt.want)
 			assert.NotContains(t, view, "Could not delete")
@@ -241,9 +251,9 @@ func TestBannerYieldsToTakeoverScreens(t *testing.T) {
 	}
 }
 
-// TestBannerDismissal covers what clears the banner. It is chrome rather than
-// a screen, so esc dismisses it, but a form owns its own esc and has to keep it.
-func TestBannerDismissal(t *testing.T) {
+// TestAlertDismissal covers what dismisses the alert on screen. It is chrome rather
+// than a screen, so esc dismisses it, but a form owns its own esc and has to keep it.
+func TestAlertDismissal(t *testing.T) {
 	tests := []struct {
 		name      string
 		screen    screen
@@ -251,7 +261,7 @@ func TestBannerDismissal(t *testing.T) {
 		wantClear bool
 	}{
 		{
-			name:      "esc clears the banner",
+			name:      "esc dismisses the alert",
 			screen:    screenAgents,
 			key:       tea.KeyMsg{Type: tea.KeyEsc},
 			wantClear: true,
@@ -271,12 +281,12 @@ func TestBannerDismissal(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{
-				banner: &errui.Banner{Summary: "Could not delete", Detail: "nope"},
 				screen: tt.screen,
 				keys:   config.DefaultKeybindings(),
 				tmux:   &recordingTmux{},
 				stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
 			}
+			m.alerts.push(errui.LevelError, "Could not delete", "nope")
 			if tt.screen == screenRename {
 				m.form, m.values.rename = renameForm("api-refactor", "", m.keys.Form)
 			}
@@ -285,13 +295,152 @@ func TestBannerDismissal(t *testing.T) {
 			got, ok := updated.(model)
 			require.True(t, ok)
 
-			if tt.wantClear {
-				assert.Nil(t, got.banner)
-			} else {
-				assert.NotNil(t, got.banner)
-			}
+			_, stillThere := got.newestAlert()
+			assert.Equal(t, !tt.wantClear, stillThere)
 		})
 	}
+}
+
+// TestAlertQueueReplacement covers the point of the queue over the single slot it
+// replaced: a second alert no longer destroys the first, it renders over it and the
+// first is revealed again once the second is dismissed.
+func TestAlertQueueReplacement(t *testing.T) {
+	var q alertQueue
+
+	q.push(errui.LevelError, "first failure", "")
+	q.push(errui.LevelError, "second failure", "")
+
+	alert, behind, ok := q.newest()
+	require.True(t, ok)
+	assert.Equal(t, "second failure", alert.Summary, "the newest alert is what renders")
+	assert.Equal(t, 1, behind, "the first is queued behind it rather than gone")
+
+	q.dismissNewest()
+
+	alert, behind, ok = q.newest()
+	require.True(t, ok)
+	assert.Equal(t, "first failure", alert.Summary, "dismissing reveals what was behind it")
+	assert.Equal(t, 0, behind)
+}
+
+// TestAlertQueueCoalescing covers identical alerts collapsing into one entry with a
+// count, rather than stacking a duplicate a chatty caller would otherwise flood the
+// queue with. Two alerts sharing a summary but not a detail are different failures,
+// so they still queue separately.
+func TestAlertQueueCoalescing(t *testing.T) {
+	var q alertQueue
+
+	q.push(errui.LevelWarn, "action failed", "timeout")
+	q.push(errui.LevelWarn, "action failed", "timeout")
+	q.push(errui.LevelWarn, "action failed", "timeout")
+
+	alert, behind, ok := q.newest()
+	require.True(t, ok)
+	assert.Equal(t, 0, behind, "identical alerts coalesce rather than queueing a duplicate")
+	assert.Equal(t, "action failed (×3)", alert.Summary, "the count is on the summary rather than hidden")
+
+	q.push(errui.LevelWarn, "action failed", "a different reason")
+
+	_, behind, ok = q.newest()
+	require.True(t, ok)
+	assert.Equal(t, 1, behind, "a matching summary with a different detail is a different failure")
+}
+
+// TestAlertQueueDismissOrder covers the order alerts are read in: newest first, and
+// dismissing walks back to what happened first, last.
+func TestAlertQueueDismissOrder(t *testing.T) {
+	var q alertQueue
+
+	q.push(errui.LevelError, "first", "")
+	q.push(errui.LevelError, "second", "")
+	q.push(errui.LevelError, "third", "")
+
+	var seen []string
+	for {
+		alert, _, ok := q.newest()
+		if !ok {
+			break
+		}
+		seen = append(seen, alert.Summary)
+		q.dismissNewest()
+	}
+
+	assert.Equal(t, []string{"third", "second", "first"}, seen)
+	assert.Equal(t, []string{"first", "second", "third"}, historySummaries(q),
+		"history holds them oldest-dismissed-last, newest-dismissed-first")
+}
+
+// historySummaries pulls the summaries off a queue's history, in the order it holds them.
+func historySummaries(q alertQueue) []string {
+	summaries := make([]string, len(q.history))
+	for i, a := range q.history {
+		summaries[i] = a.Summary
+	}
+
+	return summaries
+}
+
+// TestAlertQueueStaleTickDropped covers the safeguard an info alert's expiry needs: the
+// tick is named for the sequence number it was scheduled against, so one landing after its
+// alert already left the queue some other way is dropped rather than expiring whatever
+// happens to be on screen by then.
+func TestAlertQueueStaleTickDropped(t *testing.T) {
+	var q alertQueue
+
+	tick := q.push(errui.LevelInfo, "saved", "")
+	require.NotNil(t, tick, "an info alert schedules its own expiry")
+	staleSeq := q.queue[0].seq
+
+	// The alert is dismissed by hand before its own tick ever fires, the way esc would.
+	q.dismissNewest()
+
+	// A second, unrelated alert takes the front the first alert's tick knows nothing about.
+	q.push(errui.LevelError, "a later failure", "")
+
+	q.expire(staleSeq)
+
+	alert, _, ok := q.newest()
+	require.True(t, ok, "the stale tick did not touch the alert actually on screen")
+	assert.Equal(t, "a later failure", alert.Summary)
+}
+
+// TestAlertQueueExpiry covers an info alert leaving the queue on its own tick, landing in
+// history so it is still readable even though nobody dismissed it.
+func TestAlertQueueExpiry(t *testing.T) {
+	var q alertQueue
+
+	q.push(errui.LevelInfo, "saved", "")
+	seq := q.queue[0].seq
+
+	q.expire(seq)
+
+	_, _, ok := q.newest()
+	assert.False(t, ok, "the expired alert is off the queue")
+	assert.Equal(t, []string{"saved"}, historySummaries(q), "and still readable in history")
+}
+
+// TestAlertQueuePushOnlySchedulesATickForInfo covers that warn and error alerts get no
+// tick of their own, since they stay until esc dismisses them rather than expiring.
+func TestAlertQueuePushOnlySchedulesATickForInfo(t *testing.T) {
+	var q alertQueue
+
+	assert.Nil(t, q.push(errui.LevelError, "an error", ""), "an error stays until dismissed")
+	assert.Nil(t, q.push(errui.LevelWarn, "a warning", ""), "so does a warning")
+	assert.NotNil(t, q.push(errui.LevelInfo, "an info", ""), "only info schedules its own expiry")
+}
+
+// TestAlertChromeStaysOneLineForTheQueueBehind covers the count line staying a single line
+// no matter how deep the queue runs, since a queue that rendered a line per alert behind
+// the newest would eat rows the list below it needs.
+func TestAlertChromeStaysOneLineForTheQueueBehind(t *testing.T) {
+	var m model
+	for i := range 5 {
+		m.alerts.push(errui.LevelError, fmt.Sprintf("failure %d", i), "")
+	}
+
+	chrome := m.alertChrome()
+
+	assert.Equal(t, 1, strings.Count(chrome, "more queued"), "one line names how many are behind, not one per alert")
 }
 
 // TestConfigErrorView covers the screen shown when the config file will not parse.

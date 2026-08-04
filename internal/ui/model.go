@@ -44,6 +44,7 @@ const (
 	screenArchive
 	screenArchiveDelete
 	screenActions
+	screenAlerts
 )
 
 // uiTmux is what the panel needs from tmux: enough to lay out its own panes, the directory
@@ -125,10 +126,13 @@ type model struct {
 	configErr       error
 	startupErr      error
 	startupFindings []errui.Finding
-	// banner is the last write the service refused, shown over the screen it happened on.
-	// It is cleared by the next write and by esc, never by a poll, since a refused delete
-	// is still worth reading a second later.
-	banner *errui.Banner
+	// alerts is the panel's alert queue: the newest shown over the screen it happened on,
+	// whatever else is queued behind it, and the bounded history of what has left the queue
+	// either way. It is never cleared by a poll, since a refused delete is still worth
+	// reading a second later.
+	alerts alertQueue
+	// alertHistory is the alert history screen's own state.
+	alertHistory alertHistoryState
 
 	screen screen
 

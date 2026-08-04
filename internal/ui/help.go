@@ -302,6 +302,7 @@ func (m model) screenHelp() []key.Binding {
 	return []key.Binding{
 		binding(m.keys.Agents.Search, "search"),
 		binding(m.keys.Schedules.Open, "schedules"),
+		binding(m.keys.Alerts.Open, "alert history"),
 	}
 }
 
@@ -416,6 +417,17 @@ func (m model) actionHelp() keyMap {
 			clear,
 			m.globalHelp(),
 		),
+	}
+}
+
+// alertsHelp lists the alert history screen's bindings. It is read-only, so nav and back
+// are the whole of it.
+func (m model) alertsHelp() keyMap {
+	back := binding(m.keys.Alerts.Back, "back")
+
+	return keyMap{
+		short: []key.Binding{back, m.helpBinding()},
+		full:  slices.Concat([]key.Binding{m.moveBinding(), back}, m.globalHelp()),
 	}
 }
 

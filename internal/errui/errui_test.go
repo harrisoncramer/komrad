@@ -155,8 +155,8 @@ func TestScreensFitTheirPane(t *testing.T) {
 			rendered: Unreachable(narrowPane, "127.0.0.1:8787", err),
 		},
 		{
-			name:     "a refused write's banner",
-			rendered: Banner{Summary: `Could not rename agent "api-refactor"`, Detail: Reason(err)}.Render(narrowPane),
+			name:     "a refused write's alert",
+			rendered: Alert{Summary: `Could not rename agent "api-refactor"`, Detail: Reason(err)}.Render(narrowPane),
 		},
 	}
 
@@ -247,13 +247,39 @@ func TestUnreachable(t *testing.T) {
 	}
 }
 
-// TestBannerRendersWithoutAReason covers a service that fails without saying why,
-// which would otherwise render as a red line with nothing under it.
-func TestBannerRendersWithoutAReason(t *testing.T) {
-	rendered := Banner{Summary: "Could not delete the agent"}.Render(narrowPane)
+// TestAlertRendersWithoutAReason covers a service that fails without saying why,
+// which would otherwise render as a coloured line with nothing under it.
+func TestAlertRendersWithoutAReason(t *testing.T) {
+	rendered := Alert{Summary: "Could not delete the agent"}.Render(narrowPane)
 
 	assert.Contains(t, rendered, "no reason given")
 	assert.NotContains(t, strings.Split(rendered, "\n")[1], "esc", "the reason line is its own line")
+}
+
+// TestAlertLevels covers the marker and colour each level draws, and that a level left
+// unset reads as an error, since every caller before levels existed was reporting one.
+func TestAlertLevels(t *testing.T) {
+	tests := []struct {
+		name       string
+		level      Level
+		wantMarker string
+		wantStyle  lipgloss.Style
+	}{
+		{name: "the zero value is an error", level: Level(0), wantMarker: "✗", wantStyle: Red},
+		{name: "error", level: LevelError, wantMarker: "✗", wantStyle: Red},
+		{name: "warn", level: LevelWarn, wantMarker: "⚠", wantStyle: Yellow},
+		{name: "info", level: LevelInfo, wantMarker: "i", wantStyle: Blue},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.wantMarker, tt.level.Marker())
+			assert.Equal(t, tt.wantStyle, tt.level.Style())
+
+			rendered := Alert{Level: tt.level, Summary: "something happened"}.Render(narrowPane)
+			assert.Contains(t, rendered, tt.wantMarker+" something happened")
+		})
+	}
 }
 
 // TestReason covers reducing a service error to the part worth reading.

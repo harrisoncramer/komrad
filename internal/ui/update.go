@@ -80,13 +80,13 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// The banner is chrome rather than a screen, so it is dismissed with esc as a
-	// literal rather than through the rebindable back binding: back also carries
-	// left and h, and navigation keys should move the cursor, not clear an error.
-	// Form screens keep their own esc, which aborts the form.
-	if m.banner != nil && !m.screen.isForm() {
+	// The alert on screen is chrome rather than a screen, so it is dismissed with esc as a
+	// literal rather than through the rebindable back binding: back also carries left and
+	// h, and navigation keys should move the cursor, not clear an alert. Form screens keep
+	// their own esc, which aborts the form.
+	if len(m.alerts.queue) > 0 && !m.screen.isForm() {
 		if key, ok := msg.(tea.KeyMsg); ok && key.String() == "esc" {
-			m.banner = nil
+			m.alerts.dismissNewest()
 
 			return m, nil
 		}
@@ -140,6 +140,8 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateArchive(key)
 	case screenActions:
 		return m.updateActions(key)
+	case screenAlerts:
+		return m.updateAlerts(key)
 	case screenAgents:
 		return m.updateAgents(key)
 	default:
@@ -169,6 +171,10 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		return m, nil, true
 	case previewResult:
 		m.applyPreview(msg)
+
+		return m, nil, true
+	case alertExpiredMsg:
+		m.alerts.expire(msg.seq)
 
 		return m, nil, true
 	default:

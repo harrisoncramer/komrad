@@ -286,9 +286,9 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(cmd, m.refreshCmd())
 		}
 
-		// esc backs out of the form rather than clearing the banner, so the hint says what
+		// esc backs out of the form rather than clearing the alert, so the hint says what
 		// actually clears this one.
-		m.banner.Hint = "fix and submit again"
+		m.alerts.setNewestHint("fix and submit again")
 	}
 
 	return m, m.refreshCmd()
