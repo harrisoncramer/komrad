@@ -68,20 +68,24 @@ type createAgentParams struct {
 	WorkflowID string
 }
 
-// createAgent launches an agent.
-func (a api) createAgent(params createAgentParams) error {
+// createAgent launches an agent and returns it as the service now holds it, since the panel
+// needs its id to focus the row the next listing brings in.
+func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	_, err := a.agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
+	resp, err := a.agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
 		Prompt:     params.Prompt,
 		Title:      params.Title,
 		Dir:        params.Dir,
 		Flags:      params.Flags,
 		WorkflowId: params.WorkflowID,
 	}))
+	if err != nil {
+		return nil, err
+	}
 
-	return err
+	return resp.Msg.GetAgent(), nil
 }
 
 // archiveAgents stops agents and hides them, keeping the records and transcripts so search
