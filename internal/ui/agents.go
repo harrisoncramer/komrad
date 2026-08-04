@@ -19,6 +19,8 @@ import (
 
 var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one first")
 
+// updateAgents handles the keys common to both agents-screen modes, then hands off to
+// whichever mode the tree is currently in.
 func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -41,6 +43,14 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.tree.selected.active() {
 		return m.updateAgentsSelection(key)
 	}
+
+	return m.updateAgentsBrowsing(key)
+}
+
+// updateAgentsBrowsing handles the agents screen when no rows are selected: screen-level
+// keys, then whatever the cursor is hovering over, then keys that act on the hovered agent.
+func (m model) updateAgentsBrowsing(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	k := key.String()
 
 	if isBound(k, m.keys.Filter.Open) {
 		return m.openFilter()
@@ -88,27 +98,43 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.enterActions()
 	}
 
+	return m.updateHoveredAgent(key)
+}
+
+// updateHoveredAgent handles keys that act on the agent under the cursor. It is a no-op
+// when the cursor is on a workflow header rather than an agent.
+func (m model) updateHoveredAgent(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	k := key.String()
+
+	return m.withSelectedAgent(func(item agentItem) (tea.Model, tea.Cmd) {
+		switch {
+		case isBound(k, m.keys.Agents.Mark):
+			return m.markAgent(item.agent)
+		case isBound(k, m.keys.Agents.Hide):
+			return m.hideAgent(item.agent)
+		case isBound(k, m.keys.Agents.Rename):
+			m.target.renameAgent = item.agent
+			m.form, m.values.rename = renameForm(item.agent.Name, "", m.keys.Form)
+			m.screen = screenRename
+
+			return m, m.form.Init()
+		case isBound(k, m.keys.Agents.Archive):
+			return m.archiveAgents([]agentstore.Agent{item.agent})
+		}
+
+		return m, nil
+	})
+}
+
+// withSelectedAgent runs fn against the agent under the cursor, or is a no-op when the
+// cursor is on a workflow header or the list is empty.
+func (m model) withSelectedAgent(fn func(agentItem) (tea.Model, tea.Cmd)) (tea.Model, tea.Cmd) {
 	item, ok := m.selectedAgent()
 	if !ok {
 		return m, nil
 	}
 
-	switch {
-	case isBound(k, m.keys.Agents.Mark):
-		return m.markAgent(item.agent)
-	case isBound(k, m.keys.Agents.Hide):
-		return m.hideAgent(item.agent)
-	case isBound(k, m.keys.Agents.Rename):
-		m.target.renameAgent = item.agent
-		m.form, m.values.rename = renameForm(item.agent.Name, "", m.keys.Form)
-		m.screen = screenRename
-
-		return m, m.form.Init()
-	case isBound(k, m.keys.Agents.Archive):
-		return m.archiveAgents([]agentstore.Agent{item.agent})
-	}
-
-	return m, nil
+	return fn(item)
 }
 
 func (m model) updateAgentsSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -173,17 +199,15 @@ func (m model) jumpCursor(idx int) model {
 }
 
 func (m model) openAgent() (tea.Model, tea.Cmd) {
-	item, ok := m.selectedAgent()
-	if !ok {
-		return m, nil
-	}
-	if item.alive {
-		return m, nil
-	}
+	return m.withSelectedAgent(func(item agentItem) (tea.Model, tea.Cmd) {
+		if item.alive {
+			return m, nil
+		}
 
-	return m, m.resumeCmd(resumeParams{
-		summary: fmt.Sprintf("Could not resume agent %q", item.agent.Name),
-		id:      item.agent.ID,
+		return m, m.resumeCmd(resumeParams{
+			summary: fmt.Sprintf("Could not resume agent %q", item.agent.Name),
+			id:      item.agent.ID,
+		})
 	})
 }
 
@@ -196,15 +220,14 @@ func (m model) toggleRecord() (tea.Model, tea.Cmd) {
 	if m.tree.below == belowRecord {
 		return m.closeBelow(), nil
 	}
-	if _, ok := m.selectedAgent(); !ok {
+
+	return m.withSelectedAgent(func(agentItem) (tea.Model, tea.Cmd) {
+		m.tree.below = belowRecord
+		m.tree.belowAction = ""
+		m.stageSelection()
+
 		return m, nil
-	}
-
-	m.tree.below = belowRecord
-	m.tree.belowAction = ""
-	m.stageSelection()
-
-	return m, nil
+	})
 }
 
 func (m model) runBelowAction(name, summary string) (tea.Model, tea.Cmd) {
@@ -212,18 +235,15 @@ func (m model) runBelowAction(name, summary string) (tea.Model, tea.Cmd) {
 		return m.closeBelow(), nil
 	}
 
-	item, ok := m.selectedAgent()
-	if !ok {
-		return m, nil
-	}
+	return m.withSelectedAgent(func(item agentItem) (tea.Model, tea.Cmd) {
+		if !m.claimBelow(belowAction, name) {
+			return m, nil
+		}
 
-	if !m.claimBelow(belowAction, name) {
-		return m, nil
-	}
+		agentID := item.agent.ID
 
-	agentID := item.agent.ID
-
-	return m, m.writeCmd(summary, func(a api) error { return a.runAction(agentID, name) })
+		return m, m.writeCmd(summary, func(a api) error { return a.runAction(agentID, name) })
+	})
 }
 
 // Actions run out of process and read their target pane from tmux.
