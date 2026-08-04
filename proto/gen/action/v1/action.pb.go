@@ -273,61 +273,6 @@ func (x *EditActionRequest) GetAction() string {
 	return ""
 }
 
-// LogRequest names the agent an action is running on and what it wants written to weave's
-// log, the channel a script uses to say what it did on purpose rather than leaving it to
-// stderr, which weave only keeps when the action fails.
-type LogRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *LogRequest) Reset() {
-	*x = LogRequest{}
-	mi := &file_action_v1_action_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *LogRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*LogRequest) ProtoMessage() {}
-
-func (x *LogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_action_v1_action_proto_msgTypes[4]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use LogRequest.ProtoReflect.Descriptor instead.
-func (*LogRequest) Descriptor() ([]byte, []int) {
-	return file_action_v1_action_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *LogRequest) GetAgentId() string {
-	if x != nil {
-		return x.AgentId
-	}
-	return ""
-}
-
-func (x *LogRequest) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
 var File_action_v1_action_proto protoreflect.FileDescriptor
 
 const file_action_v1_action_proto_rawDesc = "" +
@@ -351,11 +296,7 @@ const file_action_v1_action_proto_rawDesc = "" +
 	"\x06action\x18\x02 \x01(\tB\f\xbaH\tr\a\xc0\xbb\x18\x01\x18\xff\x01R\x06action\"]\n" +
 	"\x11EditActionRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12$\n" +
-	"\x06action\x18\x02 \x01(\tB\f\xbaH\tr\a\xc0\xbb\x18\x01\x18\xff\x01R\x06action\"S\n" +
-	"\n" +
-	"LogRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12!\n" +
-	"\amessage\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\amessage2\xbc\f\n" +
+	"\x06action\x18\x02 \x01(\tB\f\xbaH\tr\a\xc0\xbb\x18\x01\x18\xff\x01R\x06action2\xbb\t\n" +
 	"\rActionService\x12\xab\x04\n" +
 	"\vListActions\x12\x16.google.protobuf.Empty\x1a\x1e.action.v1.ListActionsResponse\"\xe3\x03\x9a\xb5\x18\xdb\x03\n" +
 	"\flist_actions\x12\xca\x03List the actions the user has written, which are executable files in their actions directory. An action is a script or program that takes one agent as its input and does whatever the user wrote it to do, such as opening the pull request that agent recorded. The name is what run_action takes. A file listed with executable false cannot be run until the user chmods it, and the description and timeout are what the file's own header comments declare about it.\x90\x02\x01\x12\xb5\x04\n" +
@@ -363,10 +304,7 @@ const file_action_v1_action_proto_rawDesc = "" +
 	"\n" +
 	"run_action\x12\xde\x03Fire one of the user's actions on an agent, naming the action as list_actions reports it and the agent by id. The action is started and nothing waits for it, so a successful call means the process began and says nothing about what it did or whether it worked. Where its output goes is the action's own business. An error means it never started: no such action, no such agent, or a file the user has not made executable. Your own id is in the WEAVE_AGENT_ID environment variable.\x12D\n" +
 	"\n" +
-	"EditAction\x12\x1c.action.v1.EditActionRequest\x1a\x16.google.protobuf.Empty\"\x00\x12\xfe\x02\n" +
-	"\x03Log\x12\x15.action.v1.LogRequest\x1a\x16.google.protobuf.Empty\"\xc7\x02\x9a\xb5\x18\xc2\x02\n" +
-	"\n" +
-	"log_action\x12\xaf\x02Write a line to weave's log, tagged to the given agent. This is how a running action reports progress on purpose: stderr is only read back when an action fails, so anything worth seeing while it runs, or after it succeeds, belongs here instead. Your own id is in the WEAVE_AGENT_ID environment variable. \x00(\x00B$Z\"weave/proto/gen/action/v1;actionv1b\x06proto3"
+	"EditAction\x12\x1c.action.v1.EditActionRequest\x1a\x16.google.protobuf.Empty\"\x00B$Z\"weave/proto/gen/action/v1;actionv1b\x06proto3"
 
 var (
 	file_action_v1_action_proto_rawDescOnce sync.Once
@@ -380,29 +318,26 @@ func file_action_v1_action_proto_rawDescGZIP() []byte {
 	return file_action_v1_action_proto_rawDescData
 }
 
-var file_action_v1_action_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_action_v1_action_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_action_v1_action_proto_goTypes = []any{
 	(*Action)(nil),              // 0: action.v1.Action
 	(*ListActionsResponse)(nil), // 1: action.v1.ListActionsResponse
 	(*RunActionRequest)(nil),    // 2: action.v1.RunActionRequest
 	(*EditActionRequest)(nil),   // 3: action.v1.EditActionRequest
-	(*LogRequest)(nil),          // 4: action.v1.LogRequest
-	(*durationpb.Duration)(nil), // 5: google.protobuf.Duration
-	(*emptypb.Empty)(nil),       // 6: google.protobuf.Empty
+	(*durationpb.Duration)(nil), // 4: google.protobuf.Duration
+	(*emptypb.Empty)(nil),       // 5: google.protobuf.Empty
 }
 var file_action_v1_action_proto_depIdxs = []int32{
-	5, // 0: action.v1.Action.timeout:type_name -> google.protobuf.Duration
+	4, // 0: action.v1.Action.timeout:type_name -> google.protobuf.Duration
 	0, // 1: action.v1.ListActionsResponse.actions:type_name -> action.v1.Action
-	6, // 2: action.v1.ActionService.ListActions:input_type -> google.protobuf.Empty
+	5, // 2: action.v1.ActionService.ListActions:input_type -> google.protobuf.Empty
 	2, // 3: action.v1.ActionService.RunAction:input_type -> action.v1.RunActionRequest
 	3, // 4: action.v1.ActionService.EditAction:input_type -> action.v1.EditActionRequest
-	4, // 5: action.v1.ActionService.Log:input_type -> action.v1.LogRequest
-	1, // 6: action.v1.ActionService.ListActions:output_type -> action.v1.ListActionsResponse
-	6, // 7: action.v1.ActionService.RunAction:output_type -> google.protobuf.Empty
-	6, // 8: action.v1.ActionService.EditAction:output_type -> google.protobuf.Empty
-	6, // 9: action.v1.ActionService.Log:output_type -> google.protobuf.Empty
-	6, // [6:10] is the sub-list for method output_type
-	2, // [2:6] is the sub-list for method input_type
+	1, // 5: action.v1.ActionService.ListActions:output_type -> action.v1.ListActionsResponse
+	5, // 6: action.v1.ActionService.RunAction:output_type -> google.protobuf.Empty
+	5, // 7: action.v1.ActionService.EditAction:output_type -> google.protobuf.Empty
+	5, // [5:8] is the sub-list for method output_type
+	2, // [2:5] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
 	2, // [2:2] is the sub-list for extension extendee
 	0, // [0:2] is the sub-list for field type_name
@@ -420,7 +355,7 @@ func file_action_v1_action_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_action_v1_action_proto_rawDesc), len(file_action_v1_action_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

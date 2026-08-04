@@ -31,13 +31,7 @@ The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`,
 - `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup, for a script that wants to open a window or say something where you'll see it.
 - `EDITOR` and `WEAVE_SHELL`.
 
-An action runs in the actions directory it was found in, not in the agent's directory, and stdin and stdout go to the null device. Progress a script wants someone to see belongs on `weave rpc log-action`, not stderr:
-
-```sh
-weave rpc log-action --agent-id "$WEAVE_AGENT_ID" --message "fetched origin/main"
-```
-
-Stderr is diagnostic rather than a progress channel: weave keeps the last 64 KiB of it and writes that to its own log only when the action fails.
+An action runs in the actions directory it was found in, not in the agent's directory, and stdin and stdout go to the null device. To communicate back to weave, print on stderr: the last 64 KiB of it is captured and written to weave's log.
 
 ## Action Metadata
 
@@ -47,10 +41,10 @@ You can provide certain metadata to an action by adding _headers_ to the top of 
 #!/bin/sh
 #WEAVE description="This is my custom action"
 #WEAVE timeout="1s"
-weave rpc log-action --agent-id "$WEAVE_AGENT_ID" --message "Hello world"
+printf 'Hello world' >&2
 ```
 
-This action will abort and fail if it cannot execute within 1 second.
+This action will abort and fail if it cannot execute within 1 second. Actions print their output to weave's logfile.
 
 ## The three ways an action runs
 
@@ -70,12 +64,11 @@ Cleanup fires on delete, and on a failed launch. It does not fire on archive.
 
 Press `a` on an agent in the panel to see every action (except for those prefixed with `_`), and press `enter` to fire the one under the cursor.
 
-You can also interact with actions via the [MCP](mcp.md) tools, `list_actions`, `run_action`, and `log_action`, and via the CLI:
+You can also interact with actions via the [MCP](mcp.md) tools, `list_actions` and `run_action`, and via the CLI:
 
 ```sh
 weave rpc list-actions
 weave rpc run-action --agent-id <id> --action open-pr
-weave rpc log-action --agent-id <id> --message "on my way"
 ```
 
 Agents can also run actions, for instance to trigger external system, fire alerts, or manage the filesystem.
@@ -92,7 +85,7 @@ repo="$HOME/code/weave"
 name=$(printf '%s' "$WEAVE_AGENT" | jq -r .name)
 tree="$repo/.worktrees/$name"
 
-weave rpc log-action --agent-id "$WEAVE_AGENT_ID" --message "preparing $tree"
+echo "preparing $tree" >&2
 
 # Skipped when the tree is already there, which is what makes this safe to
 # reach again on resume.

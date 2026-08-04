@@ -137,26 +137,6 @@ func (s *ActionService) RunAction(ctx context.Context, agentID, name string) err
 	})
 }
 
-// LogAction writes a line to weave's log on a running action's behalf. It is the channel a
-// script uses to say what it did on purpose, since stderr is only read back when the action
-// fails.
-func (s *ActionService) LogAction(ctx context.Context, agentID, message string) error {
-	agent, err := s.agents.GetByID(ctx, agentID)
-	if err != nil {
-		return fmt.Errorf("failed to read agent %q: %w", agentID, err)
-	}
-	if agent == nil {
-		return ErrAgentNotFound
-	}
-
-	logging.From(ctx).With(logging.Attrs([]slog.Attr{
-		slog.String(logging.ActionAgentID, agent.ID),
-		slog.String(logging.ActionAgentCwd, agent.Cwd),
-	})...).LogAttrs(ctx, slog.LevelInfo, message)
-
-	return nil
-}
-
 // ErrNotEditable reports that an action is not a text file.
 var ErrNotEditable = errors.New("the file is not text, so there is nothing to edit")
 

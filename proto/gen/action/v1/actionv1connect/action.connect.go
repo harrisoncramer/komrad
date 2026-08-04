@@ -42,8 +42,6 @@ const (
 	// ActionServiceEditActionProcedure is the fully-qualified name of the ActionService's EditAction
 	// RPC.
 	ActionServiceEditActionProcedure = "/action.v1.ActionService/EditAction"
-	// ActionServiceLogProcedure is the fully-qualified name of the ActionService's Log RPC.
-	ActionServiceLogProcedure = "/action.v1.ActionService/Log"
 )
 
 // ActionServiceClient is a client for the action.v1.ActionService service.
@@ -58,10 +56,6 @@ type ActionServiceClient interface {
 	// carries no tool annotation: a model editing a script reads and writes the file
 	// itself. A file that is not text is refused rather than opened.
 	EditAction(context.Context, *connect.Request[v1.EditActionRequest]) (*connect.Response[emptypb.Empty], error)
-	// Write a line to weave's log on the running action's behalf. Progress a script wants
-	// someone to see belongs here rather than on stderr, which weave only reads back when
-	// the action fails.
-	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewActionServiceClient constructs a client for the action.v1.ActionService service. By default,
@@ -94,12 +88,6 @@ func NewActionServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(actionServiceMethods.ByName("EditAction")),
 			connect.WithClientOptions(opts...),
 		),
-		log: connect.NewClient[v1.LogRequest, emptypb.Empty](
-			httpClient,
-			baseURL+ActionServiceLogProcedure,
-			connect.WithSchema(actionServiceMethods.ByName("Log")),
-			connect.WithClientOptions(opts...),
-		),
 	}
 }
 
@@ -108,7 +96,6 @@ type actionServiceClient struct {
 	listActions *connect.Client[emptypb.Empty, v1.ListActionsResponse]
 	runAction   *connect.Client[v1.RunActionRequest, emptypb.Empty]
 	editAction  *connect.Client[v1.EditActionRequest, emptypb.Empty]
-	log         *connect.Client[v1.LogRequest, emptypb.Empty]
 }
 
 // ListActions calls action.v1.ActionService.ListActions.
@@ -126,11 +113,6 @@ func (c *actionServiceClient) EditAction(ctx context.Context, req *connect.Reque
 	return c.editAction.CallUnary(ctx, req)
 }
 
-// Log calls action.v1.ActionService.Log.
-func (c *actionServiceClient) Log(ctx context.Context, req *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error) {
-	return c.log.CallUnary(ctx, req)
-}
-
 // ActionServiceHandler is an implementation of the action.v1.ActionService service.
 type ActionServiceHandler interface {
 	// The directory is read on every call, so an action written while the server runs is listed without a restart.
@@ -143,10 +125,6 @@ type ActionServiceHandler interface {
 	// carries no tool annotation: a model editing a script reads and writes the file
 	// itself. A file that is not text is refused rather than opened.
 	EditAction(context.Context, *connect.Request[v1.EditActionRequest]) (*connect.Response[emptypb.Empty], error)
-	// Write a line to weave's log on the running action's behalf. Progress a script wants
-	// someone to see belongs here rather than on stderr, which weave only reads back when
-	// the action fails.
-	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewActionServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -175,12 +153,6 @@ func NewActionServiceHandler(svc ActionServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(actionServiceMethods.ByName("EditAction")),
 		connect.WithHandlerOptions(opts...),
 	)
-	actionServiceLogHandler := connect.NewUnaryHandler(
-		ActionServiceLogProcedure,
-		svc.Log,
-		connect.WithSchema(actionServiceMethods.ByName("Log")),
-		connect.WithHandlerOptions(opts...),
-	)
 	return "/action.v1.ActionService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ActionServiceListActionsProcedure:
@@ -189,8 +161,6 @@ func NewActionServiceHandler(svc ActionServiceHandler, opts ...connect.HandlerOp
 			actionServiceRunActionHandler.ServeHTTP(w, r)
 		case ActionServiceEditActionProcedure:
 			actionServiceEditActionHandler.ServeHTTP(w, r)
-		case ActionServiceLogProcedure:
-			actionServiceLogHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -210,8 +180,4 @@ func (UnimplementedActionServiceHandler) RunAction(context.Context, *connect.Req
 
 func (UnimplementedActionServiceHandler) EditAction(context.Context, *connect.Request[v1.EditActionRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("action.v1.ActionService.EditAction is not implemented"))
-}
-
-func (UnimplementedActionServiceHandler) Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("action.v1.ActionService.Log is not implemented"))
 }

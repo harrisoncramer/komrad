@@ -21,7 +21,6 @@ type actionRunner interface {
 	ListActions() ([]actions.Action, error)
 	RunAction(ctx context.Context, agentID, name string) error
 	EditAction(ctx context.Context, agentID, name string) error
-	LogAction(ctx context.Context, agentID, message string) error
 }
 
 // Service implements actionv1connect.ActionServiceHandler.
@@ -93,22 +92,6 @@ func (s *Service) EditAction(ctx context.Context, req *connect.Request[actionv1.
 	case errors.Is(err, agents.ErrNotEditable), errors.Is(err, actions.ErrNotExecutable),
 		errors.Is(err, actions.ErrNotStartable), errors.Is(err, actions.ErrDirMissing):
 		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
-	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
-// Log writes a line to weave's log tagged to the given agent, the channel a running action
-// uses to report progress on purpose rather than leaving it to stderr.
-//
-// A missing agent is NotFound, the same as it is for RunAction and EditAction.
-func (s *Service) Log(ctx context.Context, req *connect.Request[actionv1.LogRequest]) (*connect.Response[emptypb.Empty], error) {
-	err := s.actions.LogAction(ctx, req.Msg.GetAgentId(), req.Msg.GetMessage())
-	switch {
-	case errors.Is(err, agents.ErrAgentNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, err)
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

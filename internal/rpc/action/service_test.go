@@ -160,68 +160,6 @@ func TestEditActionCodes(t *testing.T) {
 	}
 }
 
-// TestLogCodes covers what a caller is told when a log line cannot be written: NotFound for an
-// agent that answers to nothing, Internal for anything else.
-func TestLogCodes(t *testing.T) {
-	tests := []struct {
-		name     string
-		err      error
-		wantCode connect.Code
-	}{
-		{
-			name:     "an agent that is not there",
-			err:      agents.ErrAgentNotFound,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "anything else is ours rather than theirs",
-			err:      errors.New("the log could not be written"),
-			wantCode: connect.CodeInternal,
-		},
-		{
-			name:     "a written line answers with nothing to say",
-			err:      nil,
-			wantCode: 0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := NewService(&fakeActions{err: tt.err})
-
-			_, err := service.Log(context.Background(), connect.NewRequest(&actionv1.LogRequest{
-				AgentId: "a1",
-				Message: "creating the worktree",
-			}))
-
-			if tt.wantCode == 0 {
-				require.NoError(t, err)
-
-				return
-			}
-
-			require.Error(t, err)
-			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-		})
-	}
-}
-
-// TestLogPassesWhatItWasAsked covers the handler translating and nothing more. Which agent and
-// what to say are the caller's to decide.
-func TestLogPassesWhatItWasAsked(t *testing.T) {
-	manager := &fakeActions{}
-	service := NewService(manager)
-
-	_, err := service.Log(context.Background(), connect.NewRequest(&actionv1.LogRequest{
-		AgentId: "a7",
-		Message: "fetched origin/main",
-	}))
-
-	require.NoError(t, err)
-	assert.Equal(t, "a7", manager.agentID)
-	assert.Equal(t, "fetched origin/main", manager.message)
-}
-
 // TestListActions covers the listing rendered onto the wire. An action that declared no timeout
 // leaves the field unset rather than sending zero, which a caller would read as a run with no
 // time at all.
@@ -275,7 +213,6 @@ type fakeActions struct {
 	err     error
 	agentID string
 	action  string
-	message string
 }
 
 func (f *fakeActions) ListActions() ([]actions.Action, error) {
@@ -294,12 +231,6 @@ func (f *fakeActions) RunAction(_ context.Context, agentID, name string) error {
 
 func (f *fakeActions) EditAction(_ context.Context, agentID, name string) error {
 	f.agentID, f.action = agentID, name
-
-	return f.err
-}
-
-func (f *fakeActions) LogAction(_ context.Context, agentID, message string) error {
-	f.agentID, f.message = agentID, message
 
 	return f.err
 }

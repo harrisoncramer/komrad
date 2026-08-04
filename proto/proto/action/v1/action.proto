@@ -54,14 +54,6 @@ message EditActionRequest {
   }];
 }
 
-// LogRequest names the agent an action is running on and what it wants written to weave's
-// log, the channel a script uses to say what it did on purpose rather than leaving it to
-// stderr, which weave only keeps when the action fails.
-message LogRequest {
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
-  string message = 2 [(buf.validate.field).string.min_len = 1];
-}
-
 // ActionService lists and fires the executables the user keeps in their actions
 // directory. An action runs in that directory, with the agent it was fired on using
 // WEAVE_AGENT environment variable as JSON.
@@ -89,16 +81,4 @@ service ActionService {
   // carries no tool annotation: a model editing a script reads and writes the file
   // itself. A file that is not text is refused rather than opened.
   rpc EditAction(EditActionRequest) returns (google.protobuf.Empty) {}
-
-  // Write a line to weave's log on the running action's behalf. Progress a script wants
-  // someone to see belongs here rather than on stderr, which weave only reads back when
-  // the action fails.
-  rpc Log(LogRequest) returns (google.protobuf.Empty) {
-    option (annotation.v1.tool) = {
-      tool_name: "log_action"
-      description: "Write a line to weave's log, tagged to the given agent. This is how a running action reports progress on purpose: stderr is only read back when an action fails, so anything worth seeing while it runs, or after it succeeds, belongs here instead. Your own id is in the WEAVE_AGENT_ID environment variable."
-      destructive: false
-      idempotent: false
-    };
-  }
 }
