@@ -63,6 +63,7 @@ func (a api) renameAgent(agent agentstore.Agent, name string) error {
 type createAgentParams struct {
 	Prompt     string
 	Title      string
+	Harness    string
 	Dir        string
 	Flags      string
 	WorkflowID string
@@ -77,6 +78,7 @@ func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
 	resp, err := a.agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
 		Prompt:     params.Prompt,
 		Title:      params.Title,
+		Harness:    params.Harness,
 		Dir:        params.Dir,
 		Flags:      params.Flags,
 		WorkflowId: params.WorkflowID,

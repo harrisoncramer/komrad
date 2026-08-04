@@ -471,7 +471,7 @@ func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cm
 	}
 
 	m.target.newAgentWorkflow = workflow
-	m.form, m.values.agent = newAgentForm(m.keys.Form, agentFormValues{Dir: workflow.Cwd, Flags: workflow.Flags})
+	m.form, m.values.agent = newAgentForm(m.keys.Form, agentFormValues{Harness: workflow.Harness, Dir: workflow.Cwd, Flags: workflow.Flags})
 	m.screen = screenForm
 
 	return m, m.form.Init()
@@ -517,6 +517,7 @@ func (m model) submitAgent() (tea.Model, tea.Cmd) {
 	params := createAgentParams{
 		Prompt:     m.values.agent.Prompt,
 		Title:      m.values.agent.Title,
+		Harness:    m.values.agent.Harness,
 		Dir:        m.currentDir(m.values.agent.Dir),
 		Flags:      m.values.agent.Flags,
 		WorkflowID: m.target.newAgentWorkflow.ID,

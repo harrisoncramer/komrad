@@ -43,26 +43,38 @@ type formTarget struct {
 }
 
 type agentFormValues struct {
-	Prompt string
-	Title  string
-	Dir    string
-	Flags  string
+	Prompt  string
+	Title   string
+	Harness string
+	Dir     string
+	Flags   string
+}
+
+// blueprintFields is the harness, directory, and flags inputs shared by the new-agent form
+// and the workflow form, since both are setting the same three things: which CLI runs, where
+// it starts, and what flags it takes. titlePrefix and the two descriptions distinguish a
+// workflow setting its own blueprint from an agent overriding one it was prefilled with.
+func blueprintFields(titlePrefix, harnessDesc, dirDesc string, harness, dir, flags *string) []huh.Field {
+	return []huh.Field{
+		huh.NewInput().Key("harness").Title(titlePrefix + "Agent").Description(harnessDesc).Placeholder("claude").Value(harness),
+		huh.NewInput().Key("dir").Title(titlePrefix + "Directory").Description(dirDesc).Value(dir),
+		huh.NewInput().Key("flags").Title(titlePrefix + "Flags").Placeholder("--model opus").Value(flags),
+	}
 }
 
 // newAgentForm builds the new-agent form and returns the values its fields write into.
-// prefill is the enclosing workflow's directory and flags, so an agent created inside a
-// workflow starts from its blueprint, or everything a refused submit is putting back.
+// prefill is the enclosing workflow's blueprint (harness, directory, flags), so an agent
+// created inside a workflow starts from it and can override any part, or everything a
+// refused submit is putting back.
 func newAgentForm(keys config.FormKeys, prefill agentFormValues) (*huh.Form, *agentFormValues) {
 	values := &prefill
 
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewText().Key("prompt").Title("Initial prompt").Description(fmt.Sprintf("ctrl+e opens $EDITOR; %s submits", keyLabel(keys.Submit))).Value(&values.Prompt),
-			huh.NewInput().Key("title").Title("Title").Description("optional; named from the prompt if blank").Value(&values.Title),
-			huh.NewInput().Key("dir").Title("Directory").Description("blank = current").Value(&values.Dir),
-			huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
-		),
-	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
+	fields := append([]huh.Field{
+		huh.NewText().Key("prompt").Title("Initial prompt").Description(fmt.Sprintf("ctrl+e opens $EDITOR; %s submits", keyLabel(keys.Submit))).Value(&values.Prompt),
+		huh.NewInput().Key("title").Title("Title").Description("optional; named from the prompt if blank").Value(&values.Title),
+	}, blueprintFields("", "blank = the workflow's default", "blank = the workflow's directory", &values.Harness, &values.Dir, &values.Flags)...)
+
+	form := huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 
 	return form, values
 }
@@ -230,21 +242,21 @@ func workflowForm(title string, cfg workflowstore.Config, keys config.FormKeys) 
 func workflowConfigForm(nameTitle string, cfg workflowstore.Config, available []actionChoice, keys config.FormKeys) (*huh.Form, *workflowstore.Config) {
 	values := cfg
 
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().Key("name").Title(nameTitle).Value(&values.Name),
-			huh.NewText().Key("context").Title("Context").Description("shared notes for this workflow; ctrl+e opens $EDITOR").Value(&values.Context),
-			huh.NewInput().Key("harness").Title("Default agent").Description("blank = the configured default").Placeholder("claude").Value(&values.Harness),
-			huh.NewInput().Key("dir").Title("Default directory").Description("blank = current").Value(&values.Cwd),
-			huh.NewInput().Key("flags").Title("Default flags").Placeholder("--model opus").Value(&values.Flags),
-			huh.NewSelect[string]().Key("setup").Title("Setup action").
-				Description("runs before each agent starts; a failure stops the launch").
-				Options(actionOptions(available, cfg.SetupAction)...).Value(&values.SetupAction),
-			huh.NewSelect[string]().Key("cleanup").Title("Cleanup action").
-				Description("runs once an agent here is deleted").
-				Options(actionOptions(available, cfg.CleanupAction)...).Value(&values.CleanupAction),
-		),
-	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
+	fields := append([]huh.Field{
+		huh.NewInput().Key("name").Title(nameTitle).Value(&values.Name),
+		huh.NewText().Key("context").Title("Context").Description("shared notes for this workflow; ctrl+e opens $EDITOR").Value(&values.Context),
+	}, blueprintFields("Default ", "blank = the configured default", "blank = current", &values.Harness, &values.Cwd, &values.Flags)...)
+
+	fields = append(fields,
+		huh.NewSelect[string]().Key("setup").Title("Setup action").
+			Description("runs before each agent starts; a failure stops the launch").
+			Options(actionOptions(available, cfg.SetupAction)...).Value(&values.SetupAction),
+		huh.NewSelect[string]().Key("cleanup").Title("Cleanup action").
+			Description("runs once an agent here is deleted").
+			Options(actionOptions(available, cfg.CleanupAction)...).Value(&values.CleanupAction),
+	)
+
+	form := huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 
 	return form, &values
 }
