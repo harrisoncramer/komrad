@@ -212,12 +212,9 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		return nil, err
 	}
 
-	sessionID := plan.harness.MintSessionID()
+	launch := newAgentLaunch(p, plan, id, plan.harness.MintSessionID())
 
-	planned := plan.agent(p, id, sessionID, plan.dir, "")
-
-	named, err := s.runSetup(ctx, planned, plan.setupAction)
-	if err != nil {
+	if err := s.runLaunchSetup(ctx, launch); err != nil {
 		return nil, err
 	}
 
@@ -225,55 +222,22 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 	launched := false
 	defer func() {
 		if !launched {
-			s.runCleanup(ctx, planned, plan.cleanupAction)
+			s.unwindLaunch(ctx, launch)
 		}
 	}()
 
-	dir, err := s.setupDir(plan.dir, named)
-	if err != nil {
+	if err := s.openLaunchPane(launch); err != nil {
 		return nil, err
-	}
-
-	pane, err := s.tmux.NewWindow(ManagerSession, plan.name, dir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open a window for %q: %w", plan.name, err)
-	}
-
-	defer func() {
-		if !launched {
-			s.tmux.KillPane(pane)
-		}
-	}()
-
-	agent := plan.agent(p, id, sessionID, dir, pane)
-
-	if err := s.tmux.SetPaneOwner(pane, id); err != nil {
-		return nil, fmt.Errorf("failed to stamp the pane for %q: %w", plan.name, err)
 	}
 
 	// Claim the slot with the insert because setup cannot run inside the transaction.
-	if err := s.createUnderCeiling(ctx, agent); err != nil {
+	created, err := s.createLaunchRow(ctx, launch)
+	if err != nil {
 		return nil, err
 	}
 
-	created, err := s.agents.GetInWorkflow(ctx, p.WorkflowID, plan.name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read back agent %q: %w", plan.name, err)
-	}
-	if created == nil {
-		return nil, fmt.Errorf("agent %q vanished after being recorded", plan.name)
-	}
-
-	if err := s.launcher.launch(plan.harness, launchParams{
-		Pane:            pane,
-		Dir:             dir,
-		Flags:           plan.flags,
-		Prompt:          p.Prompt,
-		WorkflowContext: plan.workflowContext,
-		SessionID:       sessionID,
-		AgentID:         id,
-	}); err != nil {
-		if deleteErr := s.removeAgents(ctx, []string{id}); deleteErr != nil {
+	if err := s.startLaunch(launch); err != nil {
+		if deleteErr := s.removeLaunchRow(ctx, launch); deleteErr != nil {
 			return nil, fmt.Errorf("failed to launch the agent for %q (%w), and failed to clean up: %w", plan.name, err, deleteErr)
 		}
 
@@ -283,6 +247,112 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 	launched = true
 
 	return created, nil
+}
+
+// agentLaunch tracks the state and progress of a single agent being created,
+// so a failure partway through unwinds only the pane and setup action that
+// actually ran instead of everything.
+type agentLaunch struct {
+	params    NewAgentParams
+	plan      *launchPlan
+	id        string
+	sessionID string
+	agent     agentstore.Agent
+	setupName string
+	setupRan  bool
+	pane      string
+}
+
+func newAgentLaunch(params NewAgentParams, plan *launchPlan, id, sessionID string) *agentLaunch {
+	return &agentLaunch{
+		params:    params,
+		plan:      plan,
+		id:        id,
+		sessionID: sessionID,
+		agent:     plan.agent(params, id, sessionID, plan.dir, ""),
+	}
+}
+
+// runLaunchSetup runs the workflow's setup action, if any, against the planned agent.
+func (s *AgentService) runLaunchSetup(ctx context.Context, l *agentLaunch) error {
+	named, err := s.runSetup(ctx, l.agent, l.plan.setupAction)
+	if err != nil {
+		return err
+	}
+
+	l.setupName = named
+	l.setupRan = true
+
+	return nil
+}
+
+// openLaunchPane resolves the working directory, opens the tmux window, and
+// stamps it with the agent's ID.
+func (s *AgentService) openLaunchPane(l *agentLaunch) error {
+	dir, err := s.setupDir(l.plan.dir, l.setupName)
+	if err != nil {
+		return err
+	}
+
+	pane, err := s.tmux.NewWindow(ManagerSession, l.plan.name, dir)
+	if err != nil {
+		return fmt.Errorf("failed to open a window for %q: %w", l.plan.name, err)
+	}
+	l.pane = pane
+	l.agent = l.plan.agent(l.params, l.id, l.sessionID, dir, pane)
+
+	if err := s.tmux.SetPaneOwner(pane, l.id); err != nil {
+		return fmt.Errorf("failed to stamp the pane for %q: %w", l.plan.name, err)
+	}
+
+	return nil
+}
+
+// createLaunchRow claims a capacity slot and inserts the agent record in one
+// transaction, then reads the row back.
+func (s *AgentService) createLaunchRow(ctx context.Context, l *agentLaunch) (*agentstore.Agent, error) {
+	if err := s.createUnderCeiling(ctx, l.agent); err != nil {
+		return nil, err
+	}
+
+	created, err := s.agents.GetInWorkflow(ctx, l.params.WorkflowID, l.plan.name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read back agent %q: %w", l.plan.name, err)
+	}
+	if created == nil {
+		return nil, fmt.Errorf("agent %q vanished after being recorded", l.plan.name)
+	}
+
+	return created, nil
+}
+
+// startLaunch hands the pane to the harness launcher.
+func (s *AgentService) startLaunch(l *agentLaunch) error {
+	return s.launcher.launch(l.plan.harness, launchParams{
+		Pane:            l.pane,
+		Dir:             l.agent.Cwd,
+		Flags:           l.plan.flags,
+		Prompt:          l.params.Prompt,
+		WorkflowContext: l.plan.workflowContext,
+		SessionID:       l.sessionID,
+		AgentID:         l.id,
+	})
+}
+
+// unwindLaunch reverses whatever of the pane and setup action actually ran.
+// The agent row is removed separately, by removeLaunchRow, only once
+// launching has actually failed.
+func (s *AgentService) unwindLaunch(ctx context.Context, l *agentLaunch) {
+	if l.pane != "" {
+		s.tmux.KillPane(l.pane)
+	}
+	if l.setupRan {
+		s.runCleanup(ctx, l.agent, l.plan.cleanupAction)
+	}
+}
+
+func (s *AgentService) removeLaunchRow(ctx context.Context, l *agentLaunch) error {
+	return s.removeAgents(ctx, []string{l.id})
 }
 
 // DeleteAgents stops and permanently removes agents by ID.
