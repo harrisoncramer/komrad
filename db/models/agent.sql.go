@@ -749,6 +749,21 @@ func (q *Queries) ListLiveWorkflowAgents(ctx context.Context, workflowID string)
 	return items, nil
 }
 
+const lockAgentMetadata = `-- name: LockAgentMetadata :exec
+SELECT
+    PG_ADVISORY_XACT_LOCK(HASHTEXTEXTENDED($1::text, 0))
+`
+
+// LockAgentMetadata serializes the callers writing one agent's metadata. Counting its
+// existing keys and inserting under that count are separate statements, so without this
+// two callers writing different new keys could each read the same count and both slip
+// past the limit. Keyed by the agent id rather than a fixed constant like
+// LockAgentSlots, so unrelated agents' writes never wait on each other.
+func (q *Queries) LockAgentMetadata(ctx context.Context, agentID string) error {
+	_, err := q.db.Exec(ctx, lockAgentMetadata, agentID)
+	return err
+}
+
 const lockAgentSlots = `-- name: LockAgentSlots :exec
 SELECT
     PG_ADVISORY_XACT_LOCK($1::bigint)

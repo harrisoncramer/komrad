@@ -13,6 +13,8 @@ import (
 	"weave/db/models"
 	"weave/internal/store"
 	"weave/lib/xslice"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // ErrTooManyMetadataKeys reports that an agent has reached its metadata limit.
@@ -75,11 +77,20 @@ func SanitizeName(name string) string {
 // Store reads and writes agents.
 type Store struct {
 	queries *models.Queries
+	db      store.DBTX
 }
 
 // New builds an agent store over a pool or transaction.
 func New(db store.DBTX) *Store {
-	return &Store{queries: models.New(db)}
+	return &Store{queries: models.New(db), db: db}
+}
+
+// txBeginner is satisfied by a pool or by an existing transaction, either of which can open
+// a nested scope. SetMetadata uses it to hold the metadata lock only around its own
+// check-then-write, so a check reading the same row count another caller is about to insert
+// past can't happen without every caller having to manage a transaction of its own.
+type txBeginner interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
 }
 
 // List returns every persisted agent, newest first.
@@ -394,8 +405,27 @@ func (s *Store) SetMetadata(ctx context.Context, params SetMetadataParams) (bool
 		return len(deleted) > 0, nil
 	}
 
+	beginner, ok := s.db.(txBeginner)
+	if !ok {
+		return false, fmt.Errorf("agent store has no transaction-capable connection to record metadata %q on agent %q", params.Key, params.ID)
+	}
+
+	tx, err := beginner.Begin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to begin metadata transaction for agent %q: %w", params.ID, err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	queries := models.New(tx)
+
+	// Locking here, before counting, is what keeps two callers writing different new keys
+	// from both reading the same count and both slipping past the limit.
+	if err := queries.LockAgentMetadata(ctx, params.ID); err != nil {
+		return false, fmt.Errorf("failed to lock metadata for agent %q: %w", params.ID, err)
+	}
+
 	// Existing keys remain writable after the agent reaches the key limit.
-	held, err := s.queries.ListAgentMetadata(ctx, []string{params.ID})
+	held, err := queries.ListAgentMetadata(ctx, []string{params.ID})
 	if err != nil {
 		return false, fmt.Errorf("failed to read metadata on agent %q: %w", params.ID, err)
 	}
@@ -407,13 +437,17 @@ func (s *Store) SetMetadata(ctx context.Context, params SetMetadataParams) (bool
 		return false, ErrTooManyMetadataKeys
 	}
 
-	written, err := s.queries.SetAgentMetadata(ctx, models.SetAgentMetadataParams{
+	written, err := queries.SetAgentMetadata(ctx, models.SetAgentMetadataParams{
 		AgentID: params.ID,
 		Key:     params.Key,
 		Value:   *params.Value,
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to record metadata %q on agent %q: %w", params.Key, params.ID, err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("failed to commit metadata for agent %q: %w", params.ID, err)
 	}
 
 	return len(written) > 0, nil
