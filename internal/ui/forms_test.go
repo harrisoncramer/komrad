@@ -671,11 +671,11 @@ func (f *formRecorder) ArchiveSchedule(_ context.Context, req *connect.Request[s
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// TestOnlyTheSubmitKeySubmitsAMultiFieldForm covers the keymap the fillable forms use.
-// Enter from the last field would complete the form, which huh cannot resume, so a refusal
-// would have nowhere to come back to. The one-field forms keep enter, since there is no
-// cursor to lose in them.
-func TestOnlyTheSubmitKeySubmitsAMultiFieldForm(t *testing.T) {
+// TestOnlyTheSubmitKeySubmitsAForm covers the keymap every form uses. Enter would complete
+// a form on the spot, which huh cannot resume, so a refusal would have nowhere to come back
+// to. That risk is the same for a one-field form as a multi-field one, so enter never
+// submits either, only the configured key does.
+func TestOnlyTheSubmitKeySubmitsAForm(t *testing.T) {
 	keys := config.DefaultKeybindings().Form
 
 	agent, _ := newAgentForm(keys, agentFormValues{})
@@ -691,7 +691,10 @@ func TestOnlyTheSubmitKeySubmitsAMultiFieldForm(t *testing.T) {
 	rename.Init()
 
 	pump(t, rename, keyMsg("enter"))
-	assert.Equal(t, huh.StateCompleted, rename.State, "a one-field form still submits on enter")
+	assert.NotEqual(t, huh.StateCompleted, rename.State, "enter leaves a one-field form alone too")
+
+	pump(t, rename, keyMsg(keys.Submit[0]))
+	assert.Equal(t, huh.StateCompleted, rename.State, "the configured key still submits it")
 }
 
 // TestFormTakesNoKeysWhileItsWriteIsInFlight covers the second ctrl+s landing before the

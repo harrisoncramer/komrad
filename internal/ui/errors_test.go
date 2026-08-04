@@ -15,6 +15,7 @@ import (
 
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -66,8 +67,14 @@ func TestRefusedWriteIsReported(t *testing.T) {
 	}
 	m.tree.cursor = firstAgentRowIndex(m.agentRows())
 
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
-	pressed, ok := updated.(model)
+	opened, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
+	pressed, ok := opened.(model)
+	require.True(t, ok)
+
+	*pressed.values.confirmed = true
+	pressed.form.State = huh.StateCompleted
+	updated, cmd := pressed.updateAgentArchive(keyMsg("enter"))
+	pressed, ok = updated.(model)
 	require.True(t, ok)
 
 	m = settle(t, pressed, cmd)
@@ -164,8 +171,14 @@ func TestSuccessfulWriteClearsTheBanner(t *testing.T) {
 	}
 	m.tree.cursor = firstAgentRowIndex(m.agentRows())
 
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
-	pressed, ok := updated.(model)
+	opened, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
+	pressed, ok := opened.(model)
+	require.True(t, ok)
+
+	*pressed.values.confirmed = true
+	pressed.form.State = huh.StateCompleted
+	updated, cmd := pressed.updateAgentArchive(keyMsg("enter"))
+	pressed, ok = updated.(model)
 	require.True(t, ok)
 
 	got := settle(t, pressed, cmd)
