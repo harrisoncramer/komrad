@@ -197,6 +197,25 @@ func (s *Service) SetMetadata(ctx context.Context, req *connect.Request[agentv1.
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
+// Log writes one line to weave's log, tagged to the given agent. It is the channel a
+// running action, or anything else acting on an agent's behalf, uses to say what it did on
+// purpose, since an action's own stdout goes nowhere and its stderr is read back only when
+// it fails.
+func (s *Service) Log(ctx context.Context, req *connect.Request[agentv1.LogRequest]) (*connect.Response[emptypb.Empty], error) {
+	agent, err := s.agents.GetByID(ctx, req.Msg.GetId())
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get agent: %w", err))
+	}
+	if agent == nil {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
+	}
+
+	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, req.Msg.GetMessage(),
+		slog.String(logging.TargetAgentID, agent.ID))
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
 // DeleteAgents stops agents and removes them with their configs and transcripts. The
 // manager owns this rather than the store, since stopping an agent means killing its pane.
 func (s *Service) DeleteAgents(ctx context.Context, req *connect.Request[agentv1.DeleteAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
