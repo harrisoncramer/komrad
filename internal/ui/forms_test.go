@@ -52,9 +52,10 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				workflow := m.tree.workflows[0]
 				m.target.newAgentWorkflow = &workflow
 				m.screen = screenForm
-				m.form, m.values.agent = newAgentForm(m.keys.Form, agentFormValues{Dir: workflow.Cwd, Flags: workflow.Flags})
+				m.form, m.values.agent = newAgentForm(m.keys.Form, agentFormValues{Harness: workflow.Harness, Dir: workflow.Cwd, Flags: workflow.Flags})
 				m.values.agent.Prompt = "check CI"
 				m.values.agent.Title = "ci"
+				m.values.agent.Harness = "codex"
 
 				return m
 			},
@@ -63,6 +64,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				require.NotNil(t, sent.createdAgent)
 				assert.Equal(t, "check CI", sent.createdAgent.GetPrompt())
 				assert.Equal(t, "ci", sent.createdAgent.GetTitle())
+				assert.Equal(t, "codex", sent.createdAgent.GetHarness(), "the workflow's harness is prefilled and can be overridden")
 				assert.Equal(t, "/work/api", sent.createdAgent.GetDir(), "the workflow's directory is prefilled and kept")
 				assert.Equal(t, "--model opus", sent.createdAgent.GetFlags())
 				assert.Equal(t, "w1", sent.createdAgent.GetWorkflowId())
@@ -499,7 +501,7 @@ func formModel(sent *formRecorder) model {
 		stage: NewStage(tmux, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
 		tree: treeState{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Cwd: "/work/api", Flags: "--model opus"}},
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Harness: "claude", Cwd: "/work/api", Flags: "--model opus"}},
 		},
 	}
 }
@@ -650,7 +652,7 @@ func TestOnlyTheSubmitKeySubmitsAMultiFieldForm(t *testing.T) {
 
 	agent, _ := newAgentForm(keys, agentFormValues{})
 	agent.Init()
-	for range 3 {
+	for range 4 {
 		agent.Update(huh.NextField())
 	}
 
