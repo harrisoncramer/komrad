@@ -31,10 +31,10 @@ The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`,
 - `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup, for a script that wants to open a window or say something where you'll see it.
 - `EDITOR` and `WEAVE_SHELL`.
 
-An action runs in the actions directory it was found in, not in the agent's directory, and stdin and stdout go to the null device. Progress a script wants someone to see belongs on `weave rpc log-agent`, not stderr:
+An action runs in the actions directory it was found in, not in the agent's directory, and stdin and stdout go to the null device. Progress a script wants someone to see belongs on `weave rpc log`, not stderr:
 
 ```sh
-weave rpc log-agent --id "$WEAVE_AGENT_ID" --message "fetched origin/main"
+weave rpc log --id "$WEAVE_AGENT_ID" --message "fetched origin/main"
 ```
 
 Stderr is diagnostic rather than a progress channel: weave keeps the last 64 KiB of it and writes that to its own log only when the action fails.
@@ -47,7 +47,7 @@ You can provide certain metadata to an action by adding _headers_ to the top of 
 #!/bin/sh
 #WEAVE description="This is my custom action"
 #WEAVE timeout="1s"
-weave rpc log-agent --id "$WEAVE_AGENT_ID" --message "Hello world"
+weave rpc log --id "$WEAVE_AGENT_ID" --message "Hello world"
 ```
 
 This action will abort and fail if it cannot execute within 1 second.
@@ -77,10 +77,10 @@ weave rpc list-actions
 weave rpc run-action --agent-id <id> --action open-pr
 ```
 
-To report progress on purpose, from an action or from anywhere else acting on an agent's behalf, there is also `log_agent`:
+To report progress on purpose, from an action or from anywhere else acting on an agent's behalf, there is also `log`:
 
 ```sh
-weave rpc log-agent --id <id> --message "on my way"
+weave rpc log --id <id> --message "on my way"
 ```
 
 Agents can also run actions, for instance to trigger external system, fire alerts, or manage the filesystem.
@@ -97,7 +97,7 @@ repo="$HOME/code/weave"
 name=$(printf '%s' "$WEAVE_AGENT" | jq -r .name)
 tree="$repo/.worktrees/$name"
 
-weave rpc log-agent --id "$WEAVE_AGENT_ID" --message "preparing $tree"
+weave rpc log --id "$WEAVE_AGENT_ID" --message "preparing $tree"
 
 # Skipped when the tree is already there, which is what makes this safe to
 # reach again on resume.

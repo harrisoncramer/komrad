@@ -363,7 +363,7 @@ service AgentService {
   }
   rpc Log(LogRequest) returns (google.protobuf.Empty) {
     option (annotation.v1.tool) = {
-      tool_name: "log_agent"
+      tool_name: "log"
       description: "Write one line to weave's log, tagged to the given agent id. An action fired on an agent runs with its own stdout and stdin sent nowhere, and its stderr read back only when it fails, so this is how a running action, or anything else acting on an agent's behalf, says what it is doing on purpose. Your own id is in the WEAVE_AGENT_ID environment variable."
       destructive: false
       idempotent: false
