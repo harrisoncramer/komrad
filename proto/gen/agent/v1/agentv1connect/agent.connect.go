@@ -48,6 +48,8 @@ const (
 	// AgentServiceSetMetadataProcedure is the fully-qualified name of the AgentService's SetMetadata
 	// RPC.
 	AgentServiceSetMetadataProcedure = "/agent.v1.AgentService/SetMetadata"
+	// AgentServiceLogProcedure is the fully-qualified name of the AgentService's Log RPC.
+	AgentServiceLogProcedure = "/agent.v1.AgentService/Log"
 	// AgentServiceArchiveAgentsProcedure is the fully-qualified name of the AgentService's
 	// ArchiveAgents RPC.
 	AgentServiceArchiveAgentsProcedure = "/agent.v1.AgentService/ArchiveAgents"
@@ -79,6 +81,7 @@ type AgentServiceClient interface {
 	SetMarks(context.Context, *connect.Request[v1.SetMarksRequest]) (*connect.Response[emptypb.Empty], error)
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
+	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
 	ArchiveAgents(context.Context, *connect.Request[v1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error)
 	RestoreAgents(context.Context, *connect.Request[v1.RestoreAgentsRequest]) (*connect.Response[v1.RestoreAgentsResponse], error)
 	ResumeAgent(context.Context, *connect.Request[v1.ResumeAgentRequest]) (*connect.Response[v1.ResumeAgentResponse], error)
@@ -138,6 +141,12 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			baseURL+AgentServiceSetMetadataProcedure,
 			connect.WithSchema(agentServiceMethods.ByName("SetMetadata")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
+		log: connect.NewClient[v1.LogRequest, emptypb.Empty](
+			httpClient,
+			baseURL+AgentServiceLogProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("Log")),
 			connect.WithClientOptions(opts...),
 		),
 		archiveAgents: connect.NewClient[v1.ArchiveAgentsRequest, emptypb.Empty](
@@ -200,6 +209,7 @@ type agentServiceClient struct {
 	setMarks          *connect.Client[v1.SetMarksRequest, emptypb.Empty]
 	setHidden         *connect.Client[v1.SetHiddenRequest, emptypb.Empty]
 	setMetadata       *connect.Client[v1.SetMetadataRequest, emptypb.Empty]
+	log               *connect.Client[v1.LogRequest, emptypb.Empty]
 	archiveAgents     *connect.Client[v1.ArchiveAgentsRequest, emptypb.Empty]
 	restoreAgents     *connect.Client[v1.RestoreAgentsRequest, v1.RestoreAgentsResponse]
 	resumeAgent       *connect.Client[v1.ResumeAgentRequest, v1.ResumeAgentResponse]
@@ -237,6 +247,11 @@ func (c *agentServiceClient) SetHidden(ctx context.Context, req *connect.Request
 // SetMetadata calls agent.v1.AgentService.SetMetadata.
 func (c *agentServiceClient) SetMetadata(ctx context.Context, req *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error) {
 	return c.setMetadata.CallUnary(ctx, req)
+}
+
+// Log calls agent.v1.AgentService.Log.
+func (c *agentServiceClient) Log(ctx context.Context, req *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.log.CallUnary(ctx, req)
 }
 
 // ArchiveAgents calls agent.v1.AgentService.ArchiveAgents.
@@ -282,6 +297,7 @@ type AgentServiceHandler interface {
 	SetMarks(context.Context, *connect.Request[v1.SetMarksRequest]) (*connect.Response[emptypb.Empty], error)
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
+	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
 	ArchiveAgents(context.Context, *connect.Request[v1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error)
 	RestoreAgents(context.Context, *connect.Request[v1.RestoreAgentsRequest]) (*connect.Response[v1.RestoreAgentsResponse], error)
 	ResumeAgent(context.Context, *connect.Request[v1.ResumeAgentRequest]) (*connect.Response[v1.ResumeAgentResponse], error)
@@ -337,6 +353,12 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		svc.SetMetadata,
 		connect.WithSchema(agentServiceMethods.ByName("SetMetadata")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceLogHandler := connect.NewUnaryHandler(
+		AgentServiceLogProcedure,
+		svc.Log,
+		connect.WithSchema(agentServiceMethods.ByName("Log")),
 		connect.WithHandlerOptions(opts...),
 	)
 	agentServiceArchiveAgentsHandler := connect.NewUnaryHandler(
@@ -402,6 +424,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceSetHiddenHandler.ServeHTTP(w, r)
 		case AgentServiceSetMetadataProcedure:
 			agentServiceSetMetadataHandler.ServeHTTP(w, r)
+		case AgentServiceLogProcedure:
+			agentServiceLogHandler.ServeHTTP(w, r)
 		case AgentServiceArchiveAgentsProcedure:
 			agentServiceArchiveAgentsHandler.ServeHTTP(w, r)
 		case AgentServiceRestoreAgentsProcedure:
@@ -447,6 +471,10 @@ func (UnimplementedAgentServiceHandler) SetHidden(context.Context, *connect.Requ
 
 func (UnimplementedAgentServiceHandler) SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.SetMetadata is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.Log is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) ArchiveAgents(context.Context, *connect.Request[v1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error) {

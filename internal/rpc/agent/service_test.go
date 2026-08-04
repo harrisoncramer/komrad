@@ -635,6 +635,52 @@ func TestSetMetadata(t *testing.T) {
 	}
 }
 
+// TestLog covers the channel a running action, or anything else acting on an agent's
+// behalf, uses to say what it did on purpose. An id nobody holds is refused the same way
+// SetMetadata refuses one, rather than writing a line nobody can trace back to an agent.
+func TestLog(t *testing.T) {
+	tests := []struct {
+		name     string
+		seed     bool
+		wantCode connect.Code
+	}{
+		{
+			name:     "an id nobody holds is not a quiet success",
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name: "an agent's line is written under its own id",
+			seed: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, st := service(t)
+
+			id := uuid.NewString()
+			if tt.seed {
+				id = st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking}).ID
+			}
+
+			var written strings.Builder
+			ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelInfo))
+
+			_, err := svc.Log(ctx, connect.NewRequest(&agentv1.LogRequest{Id: id, Message: "fetched origin/main"}))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+				return
+			}
+
+			require.NoError(t, err)
+
+			record := logtest.Record(t, written.String())
+			assert.Equal(t, "fetched origin/main", record["body"])
+			assert.Equal(t, id, record[logging.TargetAgentID])
+		})
+	}
+}
+
 // TestSearchTranscripts covers what a hit carries back to the caller.
 //
 // Every field on it is load-bearing. The turn's position and its byte offset are
