@@ -294,6 +294,9 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		}
 	}()
 
+	agent := planned
+	agent.Pane = pane
+
 	if err := s.tmux.SetPaneOwner(pane, id); err != nil {
 		return nil, fmt.Errorf("failed to stamp the pane for %q: %w", plan.name, err)
 	}
@@ -301,21 +304,7 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 	// The ceiling is claimed at the insert rather than at the check above, because a
 	// transaction cannot be held across the setup action that may provision a worktree.
 	// A create that loses the claim here unwinds through the defers above.
-	if err := s.createUnderCeiling(ctx, agentstore.Agent{
-		ID:             id,
-		Name:           plan.name,
-		Pane:           pane,
-		Cwd:            dir,
-		Flags:          plan.flags,
-		Prompt:         p.Prompt,
-		State:          agentstore.StateIdle,
-		Harness:        plan.harnessID,
-		SessionID:      sessionID,
-		WorkflowID:     p.WorkflowID,
-		ScheduleID:     p.ScheduleID,
-		IdempotencyKey: idempotencyKey(p.IdempotencyKey),
-		Hidden:         p.Hidden,
-	}); err != nil {
+	if err := s.createUnderCeiling(ctx, agent); err != nil {
 		return nil, err
 	}
 
@@ -760,16 +749,18 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 // most of the launch happens before the row exists.
 func (plan *launchPlan) agent(params NewAgentParams, id, sessionID string) agentstore.Agent {
 	return agentstore.Agent{
-		ID:         id,
-		Name:       plan.name,
-		Cwd:        plan.dir,
-		Flags:      plan.flags,
-		Prompt:     params.Prompt,
-		State:      agentstore.StateIdle,
-		Harness:    plan.harnessID,
-		SessionID:  sessionID,
-		WorkflowID: params.WorkflowID,
-		Hidden:     params.Hidden,
+		ID:             id,
+		Name:           plan.name,
+		Cwd:            plan.dir,
+		Flags:          plan.flags,
+		Prompt:         params.Prompt,
+		State:          agentstore.StateIdle,
+		Harness:        plan.harnessID,
+		SessionID:      sessionID,
+		WorkflowID:     params.WorkflowID,
+		ScheduleID:     params.ScheduleID,
+		IdempotencyKey: idempotencyKey(params.IdempotencyKey),
+		Hidden:         params.Hidden,
 	}
 }
 
