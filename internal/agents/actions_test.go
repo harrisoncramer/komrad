@@ -611,6 +611,29 @@ func TestSetupActionLogsBothEnds(t *testing.T) {
 	}
 }
 
+// TestLogActionRefusesAMissingAgent covers the one way LogAction can fail: nobody to tag the
+// line with.
+func TestLogActionRefusesAMissingAgent(t *testing.T) {
+	err := actionService(t, t.TempDir(), &recordingRunner{}).LogAction(context.Background(), "missing", "fetched origin/main")
+
+	require.ErrorIs(t, err, ErrAgentNotFound)
+}
+
+// TestLogActionWritesToTheLog covers the channel a script uses to say what it did on purpose,
+// tagged to the agent it ran on rather than to an action name or trigger, neither of which the
+// caller carries.
+func TestLogActionWritesToTheLog(t *testing.T) {
+	ctx, records := loggedContext(t)
+
+	require.NoError(t, actionService(t, t.TempDir(), &recordingRunner{}).
+		LogAction(ctx, "a1", "fetched origin/main"))
+
+	got := recordFor(t, records(), "fetched origin/main")
+	assert.Equal(t, "INFO", got["severity_text"])
+	assert.Equal(t, "a1", got["weave.action.agent.id"])
+	assert.Equal(t, "/repo", got["weave.action.agent.cwd"])
+}
+
 // TestRunCleanupActionLogsUnderItsOwnTrigger covers the field that separates the two
 // fire-and-forget paths in a log.
 func TestRunCleanupActionLogsUnderItsOwnTrigger(t *testing.T) {
