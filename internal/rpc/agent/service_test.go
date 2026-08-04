@@ -642,15 +642,29 @@ func TestLog(t *testing.T) {
 	tests := []struct {
 		name     string
 		seed     bool
+		explicit bool
+		callerIs bool
 		wantCode connect.Code
 	}{
 		{
 			name:     "an id nobody holds is not a quiet success",
+			explicit: true,
 			wantCode: connect.CodeNotFound,
 		},
 		{
-			name: "an agent's line is written under its own id",
-			seed: true,
+			name:     "an explicit id is used as given",
+			seed:     true,
+			explicit: true,
+		},
+		{
+			name:     "an unset id falls back to the caller's own",
+			seed:     true,
+			callerIs: true,
+		},
+		{
+			name:     "an unset id with no caller identity is refused",
+			seed:     true,
+			wantCode: connect.CodeInvalidArgument,
 		},
 	}
 
@@ -660,13 +674,23 @@ func TestLog(t *testing.T) {
 
 			id := uuid.NewString()
 			if tt.seed {
-				id = st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking}).ID
+				id = st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateThinking}).ID
+			}
+
+			ctx := t.Context()
+			if tt.callerIs {
+				ctx = caller.With(ctx, caller.Caller{AgentID: id})
 			}
 
 			var written strings.Builder
-			ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelInfo))
+			ctx = logging.WithLogger(ctx, logging.New(&written, slog.LevelInfo))
 
-			_, err := svc.Log(ctx, connect.NewRequest(&agentv1.LogRequest{Id: id, Message: "fetched origin/main"}))
+			req := &agentv1.LogRequest{Message: "fetched origin/main"}
+			if tt.explicit {
+				req.Id = &id
+			}
+
+			_, err := svc.Log(ctx, connect.NewRequest(req))
 			if tt.wantCode != 0 {
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 				return
@@ -677,8 +701,28 @@ func TestLog(t *testing.T) {
 			record := logtest.Record(t, written.String())
 			assert.Equal(t, "fetched origin/main", record["body"])
 			assert.Equal(t, id, record[logging.TargetAgentID])
+			assert.Equal(t, "/repo", record[logging.ActionAgentCwd])
+			assert.NotContains(t, record, logging.ActionName, "no action was given")
 		})
 	}
+}
+
+// TestLogTagsTheAction covers the action field, which is unset for anything that is not a
+// running action and, when given, is worth its own field rather than folded into the
+// message.
+func TestLogTagsTheAction(t *testing.T) {
+	svc, st := service(t)
+	id := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateThinking}).ID
+
+	var written strings.Builder
+	ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelInfo))
+
+	action := "create-worktree"
+	_, err := svc.Log(ctx, connect.NewRequest(&agentv1.LogRequest{Id: &id, Message: "preparing", Action: &action}))
+	require.NoError(t, err)
+
+	record := logtest.Record(t, written.String())
+	assert.Equal(t, "create-worktree", record[logging.ActionName])
 }
 
 // TestSearchTranscripts covers what a hit carries back to the caller.

@@ -41,7 +41,7 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc list-agents](weave_rpc_list-agents.md)	 - List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow.
 * [weave rpc list-schedules](weave_rpc_list-schedules.md)	 - List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, and next run time.
 * [weave rpc list-workflows](weave_rpc_list-workflows.md)	 - List the workflows agents are grouped into, most recently updated first, with each one's shared context, the working directory and flags its agents start from, and the action run before its agents start and the one run after they are deleted.
-* [weave rpc log](weave_rpc_log.md)	 - Write one line to weave's log, tagged to the given agent id.
+* [weave rpc log](weave_rpc_log.md)	 - Write one line to weave's log, tagged to an agent.
 * [weave rpc rename-agent](weave_rpc_rename-agent.md)	 - Rename an agent, keyed by its id rather than its current name.
 * [weave rpc restore-agents](weave_rpc_restore-agents.md)	 - Take a list of agents out of the archive, keyed by id, along with the workflows they belong to.
 * [weave rpc restore-workflow](weave_rpc_restore-workflow.md)	 - Take a workflow out of the archive, keyed by id, along with every agent archived inside it.

@@ -354,7 +354,7 @@ func (s *ActionService) prepare(ctx context.Context, p prepareParams) (preparedA
 		return preparedAction{}, err
 	}
 
-	env, err := s.env(ctx, actionEnvParams{agent: p.agent, dir: action.dir, trigger: p.trigger})
+	env, err := s.env(ctx, actionEnvParams{agent: p.agent, dir: action.dir, trigger: p.trigger, action: action.Name})
 	if err != nil {
 		return preparedAction{}, err
 	}
@@ -506,6 +506,7 @@ type actionEnvParams struct {
 	agent   agentstore.Agent
 	dir     string
 	trigger string
+	action  string
 }
 
 // Actions need the managed tmux socket because pane IDs are scoped to a tmux server.
@@ -550,6 +551,7 @@ func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, e
 		"WEAVE_TMUX_SOCKET=" + s.socket,
 		"WEAVE_ACTIONS_DIR=" + dir,
 		"WEAVE_TRIGGER=" + trigger,
+		"WEAVE_ACTION=" + p.action,
 		"WEAVE_SECONDARY_PANE=" + s.tmux.GetPanelGlobal(tmux.SecondaryPaneOption),
 		"WEAVE_HOST_TMUX_SOCKET=" + s.tmux.GetHostSocket(),
 		"WEAVE_HOST_CLIENT=" + s.tmux.ShowGlobal(tmux.InvokingClientOption),

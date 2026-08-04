@@ -27,6 +27,7 @@ The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`,
 - `WEAVE_TMUX_SOCKET`, the tmux server every agent's pane lives on
 - `WEAVE_ACTIONS_DIR`, the directory the action came out of, which is how a script that cds elsewhere finds its siblings again.
 - `WEAVE_TRIGGER`, what set the action off. One of `manual`, `setup`, `resume`, or `cleanup`.
+- `WEAVE_ACTION`, this action's own name, for tagging its own log lines.
 - `WEAVE_SECONDARY_PANE`, the pane under the panel's stage, for a script that wants to draw something where the panel's own actions do.
 - `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup.
 - `EDITOR` and `WEAVE_SHELL`
@@ -45,8 +46,10 @@ You can provide certain metadata to an action by adding _headers_ to the top of 
 # Add whatever logic you want here.
 # Failures on stdout will get captured by weave's log automatically
 # You can also send messages to the log manually, like this:
-weave rpc log --message 'Hello world' --id "$WEAVE_AGENT_ID"
+weave rpc log --message 'Hello world' --action "$WEAVE_ACTION"
 ```
+
+`--id` defaults to your own agent, read off `WEAVE_AGENT_ID` the same way every `weave rpc` call already does, so it only needs stating to log about a different agent. `--action` has no such default: pass `WEAVE_ACTION` explicitly to tag which action's run a line belongs to.
 
 This action will abort and fail if it cannot execute within 1 second.
 
@@ -78,7 +81,7 @@ weave rpc run-action --agent-id <id> --action open-pr
 To report progress on purpose, from an action or from anywhere else acting on an agent's behalf, there is also `log`:
 
 ```sh
-weave rpc log --message 'Some custom message' --id "$WEAVE_AGENT_ID"
+weave rpc log --message 'Some custom message'
 ```
 
 Agents can also run actions, for instance to trigger external system, fire alerts, or manage the filesystem.
@@ -95,14 +98,14 @@ repo="$HOME/code/weave"
 name=$(printf '%s' "$WEAVE_AGENT" | jq -r .name)
 tree="$repo/.worktrees/$name"
 
-weave rpc log --message "Preparing $tree" --id "$WEAVE_AGENT_ID"
+weave rpc log --message "Preparing $tree" --action "$WEAVE_ACTION"
 
 if [ ! -d "$tree" ]; then
 	git -C "$repo" fetch --quiet origin main
 	git -C "$repo" worktree add --quiet -B "agent/$name" "$tree" origin/main
 fi
 
-weave rpc log --message "Prepared $tree" --id "$WEAVE_AGENT_ID"
+weave rpc log --message "Prepared $tree" --action "$WEAVE_ACTION"
 ```
 
 In the workflow manager, set it as a workflow's setup action.
@@ -118,7 +121,7 @@ tree="$WEAVE_AGENT_CWD"
 
 case "$tree" in
 "$repo/.worktrees/"*) git -C "$repo" worktree remove --force "$tree" ;;
-*) weave rpc log --message "Failed to prepare $tree" --id "$WEAVE_AGENT_ID"
+*) weave rpc log --message "Failed to prepare $tree" --action "$WEAVE_ACTION"
 esac
 ```
 
