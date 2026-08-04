@@ -182,6 +182,38 @@ func TestAgentMarkdown(t *testing.T) {
 	}
 }
 
+// TestWorkflowMarkdown covers the record the stage shows for a workflow. The stage is
+// the one place a person can read the stored defaults without opening the edit form.
+func TestWorkflowMarkdown(t *testing.T) {
+	workflow := workflowstore.Workflow{
+		ID:            "w1",
+		Name:          "api",
+		Context:       "shared notes",
+		Harness:       "codex",
+		Cwd:           "/repo/api",
+		Flags:         "--model opus",
+		SetupAction:   "bootstrap",
+		CleanupAction: "teardown",
+	}
+
+	got := workflowMarkdown(workflow, 3)
+
+	wantContain := []string{
+		"# api",
+		"shared notes",
+		"- agents: 3",
+		"- default agent: codex",
+		"- directory: /repo/api",
+		"- flags: --model opus",
+		"- setup: bootstrap",
+		"- cleanup: teardown",
+	}
+
+	for _, want := range wantContain {
+		assert.Contains(t, got, want)
+	}
+}
+
 // recordingTmux records only what the stage does, so a test can tell a
 // swapped-in agent pane from a respawned pager preview. Every other call is an
 // inert stub.
