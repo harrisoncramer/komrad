@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"weave/internal/appconfig"
+	"weave/config"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -103,7 +103,7 @@ func TestApplyAgents(t *testing.T) {
 					cursor:    tt.cursor,
 					placed:    true,
 				},
-				keys: appconfig.DefaultKeybindings(),
+				keys: config.DefaultKeybindings(),
 			}
 
 			was := rowKeyAt(m.agentRows(), m.tree.cursor)
@@ -182,7 +182,7 @@ func TestNewModelWiresTmux(t *testing.T) {
 				Agents:      refusingAgents{},
 				Workflows:   emptyLists{},
 				Schedules:   &fakeSchedules{},
-				Keys:        appconfig.DefaultKeybindings(),
+				Keys:        config.DefaultKeybindings(),
 				Addr:        "127.0.0.1:8787",
 			})
 

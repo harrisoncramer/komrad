@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"weave/internal/appconfig"
+	"weave/config"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -23,7 +23,7 @@ const logEnvPath = "WEAVE_LOG"
 func logArgv(viewer, path string) []string {
 	command := strings.TrimSpace(viewer)
 	if command == "" {
-		command = appconfig.DefaultLogViewer
+		command = config.DefaultLogViewer
 	}
 
 	exports := fmt.Sprintf("export %s=%s; ", logEnvPath, shellQuote(path))

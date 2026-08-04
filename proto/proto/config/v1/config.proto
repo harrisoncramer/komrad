@@ -11,7 +11,7 @@ option go_package = "weave/proto/gen/config/v1;configv1";
 message GetConfigResponse {
   // The configuration in force, keyed exactly as the user's TOML file is. It is an
   // open blob rather than a message per setting because the Config struct in
-  // internal/appconfig decides the shape.
+  // config decides the shape.
   // The config is read on every call, so a configuration edited while the server runs is picked up without a restart.
   google.protobuf.Struct config = 1;
   // Why the user's config file would not parse, unset when it did.

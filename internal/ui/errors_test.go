@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/appconfig"
+	"weave/config"
 	"weave/internal/errui"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -56,8 +56,8 @@ func TestRefusedWriteIsReported(t *testing.T) {
 			workflows: emptyLists{},
 		},
 		tmux:   &recordingTmux{},
-		stage:  NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
-		keys:   appconfig.DefaultKeybindings(),
+		stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
@@ -88,8 +88,8 @@ func TestRefusedResumeIsReported(t *testing.T) {
 			workflows: emptyLists{},
 		},
 		tmux:   &recordingTmux{},
-		stage:  NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
-		keys:   appconfig.DefaultKeybindings(),
+		stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
@@ -119,7 +119,7 @@ func TestBannerSurvivesTheFormItWasReportedFrom(t *testing.T) {
 	m := model{
 		banner: &errui.Banner{Summary: `Could not rename agent "api-refactor"`, Detail: "name is taken"},
 		screen: screenRename,
-		keys:   appconfig.DefaultKeybindings(),
+		keys:   config.DefaultKeybindings(),
 	}
 	m.form, m.values.rename = renameForm("api-refactor", "", m.keys.Form)
 	m.form.Init()
@@ -151,8 +151,8 @@ func TestSuccessfulWriteClearsTheBanner(t *testing.T) {
 	m := model{
 		api:    api{agents: acceptingAgents{}, workflows: emptyLists{}},
 		tmux:   &recordingTmux{},
-		stage:  NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
-		keys:   appconfig.DefaultKeybindings(),
+		stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
@@ -180,7 +180,7 @@ func TestBannerRendersOverTheList(t *testing.T) {
 	m := model{
 		banner: &errui.Banner{Summary: `Could not archive agent "api-refactor"`, Detail: "already archived"},
 		screen: screenAgents,
-		keys:   appconfig.DefaultKeybindings(),
+		keys:   config.DefaultKeybindings(),
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
 			agents: []agentItem{
@@ -260,9 +260,9 @@ func TestBannerDismissal(t *testing.T) {
 			m := model{
 				banner: &errui.Banner{Summary: "Could not delete", Detail: "nope"},
 				screen: tt.screen,
-				keys:   appconfig.DefaultKeybindings(),
+				keys:   config.DefaultKeybindings(),
 				tmux:   &recordingTmux{},
-				stage:  NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
+				stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
 			}
 			if tt.screen == screenRename {
 				m.form, m.values.rename = renameForm("api-refactor", "", m.keys.Form)
@@ -448,7 +448,7 @@ func TestUnreachableView(t *testing.T) {
 				addr:        "127.0.0.1:8787",
 				unreachable: tt.start,
 				tree:        treeState{agents: []agentItem{{agent: agentstore.Agent{Name: "still-here", State: agentstore.StateIdle}}}},
-				stage:       NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
+				stage:       NewStage(&recordingTmux{}, config.DefaultLayout()),
 			}
 
 			updated, _ := m.Update(tt.msg)

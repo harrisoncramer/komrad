@@ -3,7 +3,7 @@ package ui
 import (
 	"fmt"
 
-	"weave/internal/appconfig"
+	"weave/config"
 	"weave/internal/errui"
 
 	agentstore "weave/internal/store/agent"
@@ -107,7 +107,7 @@ func hiddenTally(count int, showing bool) string {
 // markGlyph is the glyph the user marked an agent with, drawn after the row rather
 // than in the state column so it reads as their own mark and not another lifecycle
 // state. It takes the colour that mark carries in the config.
-func markGlyph(agent agentstore.Agent, marks []appconfig.Mark) string {
+func markGlyph(agent agentstore.Agent, marks []config.Mark) string {
 	if agent.Mark == nil {
 		return ""
 	}
@@ -116,16 +116,16 @@ func markGlyph(agent agentstore.Agent, marks []appconfig.Mark) string {
 }
 
 // markedColor is what a mark is drawn in when its config names no colour of its own.
-var markedColor = lipgloss.Color(appconfig.GetColor(appconfig.DefaultMarkColor))
+var markedColor = lipgloss.Color(config.GetColor(config.DefaultMarkColor))
 
 // markColor is the colour a glyph is drawn in. One the config does not list, or one
 // listed with no colour of its own, falls back rather than going undrawn. The colour goes
 // through appconfig on the way out, since a config names one of the sixteen by name and
 // lipgloss knows it only by index.
-func markColor(glyph string, marks []appconfig.Mark) lipgloss.Color {
+func markColor(glyph string, marks []config.Mark) lipgloss.Color {
 	for _, mark := range marks {
 		if mark.Glyph == glyph && mark.Color != "" {
-			return lipgloss.Color(appconfig.GetColor(mark.Color))
+			return lipgloss.Color(config.GetColor(mark.Color))
 		}
 	}
 

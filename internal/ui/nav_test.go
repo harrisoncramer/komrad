@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"weave/internal/appconfig"
+	"weave/config"
 	workflowstore "weave/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
@@ -68,8 +68,8 @@ func TestJumpKeys(t *testing.T) {
 // and jumping to it would put the cursor off the list.
 func TestJumpKeysOnEmptyTree(t *testing.T) {
 	m := model{
-		stage: NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
-		keys:  appconfig.DefaultKeybindings(),
+		stage: NewStage(&recordingTmux{}, config.DefaultLayout()),
+		keys:  config.DefaultKeybindings(),
 	}
 
 	assert.Equal(t, 0, press(t, m, keyMsg("G")).tree.cursor)

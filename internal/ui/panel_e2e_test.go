@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/appconfig"
+	"weave/config"
 	"weave/internal/weavetest"
 	agentv1 "weave/proto/gen/agent/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -44,7 +44,7 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 	agent := created.Msg.GetAgent()
 	require.NotEmpty(t, instance.GetOwnedPane(agent.GetId()))
 
-	keys := appconfig.DefaultKeybindings()
+	keys := config.DefaultKeybindings()
 	tmux := &recordingTmux{}
 	panel := model{
 		api: api{
@@ -55,7 +55,7 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 		},
 		tmux:   tmux,
 		popup:  NewPopupWindow(tmux, "test-session"),
-		stage:  NewStage(tmux, appconfig.DefaultLayout()),
+		stage:  NewStage(tmux, config.DefaultLayout()),
 		keys:   keys,
 		screen: screenAgents,
 	}
@@ -152,7 +152,7 @@ func TestTerminalKeyRunsTheShippedAction(t *testing.T) {
 	require.NoError(t, err)
 	cwd := agent.Msg.GetAgent().GetCwd()
 
-	updated, cmd := staged.panel.Update(keyMsg(appconfig.DefaultKeybindings().Agents.Terminal[0]))
+	updated, cmd := staged.panel.Update(keyMsg(config.DefaultKeybindings().Agents.Terminal[0]))
 	pressed, ok := updated.(model)
 	require.True(t, ok)
 
@@ -180,7 +180,7 @@ func TestTerminalKeyRunsTheShippedAction(t *testing.T) {
 // asked for over an editor has to name the shell rather than leave it out.
 func TestTerminalKeyAfterTheEditor(t *testing.T) {
 	staged := newStagedPanel(t)
-	keys := appconfig.DefaultKeybindings()
+	keys := config.DefaultKeybindings()
 
 	panel := pressAndSettle(t, staged.panel, keys.Agents.Editor[0])
 	below := panel.stage.secondary
@@ -263,7 +263,7 @@ func newStagedPanel(t *testing.T) *stagedPanel {
 	navPane := instance.Tmux.Run("display-message", "-p", "-t", panelSession, "#{pane_id}")
 
 	client := instance.Tmux.Client()
-	stage := NewStage(client, appconfig.DefaultLayout())
+	stage := NewStage(client, config.DefaultLayout())
 	stage.Init(navPane)
 
 	panel := model{
@@ -275,7 +275,7 @@ func newStagedPanel(t *testing.T) *stagedPanel {
 		},
 		tmux:   client,
 		stage:  stage,
-		keys:   appconfig.DefaultKeybindings(),
+		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 	}
 

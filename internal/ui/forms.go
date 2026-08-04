@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"slices"
 
-	"weave/internal/appconfig"
+	"weave/config"
 
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
@@ -52,7 +52,7 @@ type agentFormValues struct {
 // newAgentForm builds the new-agent form and returns the values its fields write into.
 // prefill is the enclosing workflow's directory and flags, so an agent created inside a
 // workflow starts from its blueprint, or everything a refused submit is putting back.
-func newAgentForm(keys appconfig.FormKeys, prefill agentFormValues) (*huh.Form, *agentFormValues) {
+func newAgentForm(keys config.FormKeys, prefill agentFormValues) (*huh.Form, *agentFormValues) {
 	values := &prefill
 
 	form := huh.NewForm(
@@ -70,7 +70,7 @@ func newAgentForm(keys appconfig.FormKeys, prefill agentFormValues) (*huh.Form, 
 // renameForm asks for a new name, starting blank rather than on the current one so the
 // old name is there to read while the new one is typed. prefill is what the field opens
 // on, blank except when a refused submit is putting it back.
-func renameForm(current, prefill string, keys appconfig.FormKeys) (*huh.Form, *string) {
+func renameForm(current, prefill string, keys config.FormKeys) (*huh.Form, *string) {
 	name := prefill
 
 	form := huh.NewForm(
@@ -85,7 +85,7 @@ func renameForm(current, prefill string, keys appconfig.FormKeys) (*huh.Form, *s
 // formKeyMap is the default form keymap with the configured back and quit keys bound to
 // abort, so esc backs out of a form the same way it leaves other screens. Enter still
 // submits, which is what a one-field form and a yes-or-no prompt want.
-func formKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
+func formKeyMap(keys config.FormKeys) *huh.KeyMap {
 	quit := append(append([]string{}, keys.Back...), keys.Quit...)
 
 	km := huh.NewDefaultKeyMap()
@@ -96,7 +96,7 @@ func formKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
 // multiFieldKeyMap is the keymap for the forms with fields to fill in, where enter moves
 // between them and only the submit key submits. An enter from the last field otherwise
 // completes the form, and huh cannot resume a completed one.
-func multiFieldKeyMap(keys appconfig.FormKeys) *huh.KeyMap {
+func multiFieldKeyMap(keys config.FormKeys) *huh.KeyMap {
 	submit := key.NewBinding(key.WithKeys(keys.Submit...), key.WithHelp(keyLabel(keys.Submit), "submit"))
 
 	km := formKeyMap(keys)
@@ -117,7 +117,7 @@ func (m model) wasConfirmed() bool {
 // confirmForm asks a yes-or-no question and returns the answer its buttons write into.
 // Every prompt in the panel goes through this, so only the wording differs. affirmative
 // names what saying yes does, since one prompt archives and the others destroy.
-func confirmForm(title, description, affirmative string, keys appconfig.FormKeys) (*huh.Form, *bool) {
+func confirmForm(title, description, affirmative string, keys config.FormKeys) (*huh.Form, *bool) {
 	var confirmed bool
 
 	form := huh.NewForm(
@@ -195,7 +195,7 @@ func (s screen) isForm() bool {
 
 // deleteAgentsForm confirms destroying agents, naming what goes with them since the
 // reversible delete on the agents list uses the same key and this one cannot be undone.
-func deleteAgentsForm(agents []agentstore.Agent, keys appconfig.FormKeys) (*huh.Form, *bool) {
+func deleteAgentsForm(agents []agentstore.Agent, keys config.FormKeys) (*huh.Form, *bool) {
 	title := fmt.Sprintf("Permanently delete %d agents?", len(agents))
 	warning := "Their transcripts go with them and search will not find the conversations again."
 	if len(agents) == 1 {
@@ -208,7 +208,7 @@ func deleteAgentsForm(agents []agentstore.Agent, keys appconfig.FormKeys) (*huh.
 
 // workflowForm asks for a name alone, which is what a rename is. It binds the same config
 // shape the fuller form does, so one submit path reads either.
-func workflowForm(title string, cfg workflowstore.Config, keys appconfig.FormKeys) (*huh.Form, *workflowstore.Config) {
+func workflowForm(title string, cfg workflowstore.Config, keys config.FormKeys) (*huh.Form, *workflowstore.Config) {
 	values := cfg
 
 	form := huh.NewForm(
@@ -227,7 +227,7 @@ func workflowForm(title string, cfg workflowstore.Config, keys appconfig.FormKey
 //
 // available is what the actions directory holds, which the two action fields are picked
 // from rather than typed, so a name matching no file cannot be written from here.
-func workflowConfigForm(nameTitle string, cfg workflowstore.Config, available []actionChoice, keys appconfig.FormKeys) (*huh.Form, *workflowstore.Config) {
+func workflowConfigForm(nameTitle string, cfg workflowstore.Config, available []actionChoice, keys config.FormKeys) (*huh.Form, *workflowstore.Config) {
 	values := cfg
 
 	form := huh.NewForm(
@@ -290,7 +290,7 @@ func actionChoiceLabel(action actionChoice) string {
 
 // archiveWorkflowForm confirms an archive. The agents inside go with it, since every agent
 // belongs to a workflow and there is nowhere else to leave one.
-func archiveWorkflowForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool) {
+func archiveWorkflowForm(name string, keys config.FormKeys) (*huh.Form, *bool) {
 	return confirmForm(
 		fmt.Sprintf("Archive workflow %q and its agents?", name),
 		"Their transcripts are kept and stay searchable.",
@@ -302,7 +302,7 @@ func archiveWorkflowForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool
 // scheduleForm collects everything a schedule holds, prefilled so it serves create and
 // edit alike. There is no directory or flags field, since those come off the workflow when
 // the schedule fires, which is why picking the workflow picks where the agent runs.
-func scheduleForm(cfg schedulestore.Config, workflows []workflowstore.Workflow, keys appconfig.FormKeys) (*huh.Form, *schedulestore.Config) {
+func scheduleForm(cfg schedulestore.Config, workflows []workflowstore.Workflow, keys config.FormKeys) (*huh.Form, *schedulestore.Config) {
 	values := cfg
 
 	options := make([]huh.Option[string], 0, len(workflows))
@@ -330,7 +330,7 @@ func scheduleForm(cfg schedulestore.Config, workflows []workflowstore.Workflow, 
 
 // archiveScheduleForm confirms an archive, saying the agents it already launched are kept
 // so the choice is not read as bigger than it is.
-func archiveScheduleForm(name string, keys appconfig.FormKeys) (*huh.Form, *bool) {
+func archiveScheduleForm(name string, keys config.FormKeys) (*huh.Form, *bool) {
 	return confirmForm(
 		fmt.Sprintf("Archive schedule %q?", name),
 		"The agents it already launched are kept, and nothing brings the schedule back.",

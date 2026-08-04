@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"weave/internal/appconfig"
+	"weave/config"
 	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
@@ -19,7 +19,7 @@ import (
 
 // marks are the configured marks the cases below step through, each in a colour of
 // its own so a row drawing the wrong one shows up.
-var marks = []appconfig.Mark{
+var marks = []config.Mark{
 	{Glyph: "●", Color: "#F932A1"},
 	{Glyph: "◐", Color: "#0f0"},
 	{Glyph: "✓", Color: ""},
@@ -31,7 +31,7 @@ func TestNextMark(t *testing.T) {
 	tests := []struct {
 		name    string
 		current *string
-		marks   []appconfig.Mark
+		marks   []config.Mark
 		want    *string
 	}{
 		{
@@ -71,7 +71,7 @@ func TestNextMark(t *testing.T) {
 		{
 			name:    "one configured mark leaves the key a toggle",
 			current: xptr.Ptr("●"),
-			marks:   []appconfig.Mark{{Glyph: "●"}},
+			marks:   []config.Mark{{Glyph: "●"}},
 			want:    nil,
 		},
 	}
@@ -90,7 +90,7 @@ func TestMarkColor(t *testing.T) {
 	tests := []struct {
 		name  string
 		glyph string
-		marks []appconfig.Mark
+		marks []config.Mark
 		want  string
 	}{
 		{
@@ -120,7 +120,7 @@ func TestMarkColor(t *testing.T) {
 		{
 			name:  "a colour named rather than given in hex draws as its index",
 			glyph: "◆",
-			marks: []appconfig.Mark{{Glyph: "◆", Color: "brightcyan"}},
+			marks: []config.Mark{{Glyph: "◆", Color: "brightcyan"}},
 			want:  "14",
 		},
 	}
@@ -177,7 +177,7 @@ func TestNextSelectionMark(t *testing.T) {
 	tests := []struct {
 		name    string
 		current []*string
-		marks   []appconfig.Mark
+		marks   []config.Mark
 		want    *string
 	}{
 		{

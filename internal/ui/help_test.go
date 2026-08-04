@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"weave/internal/appconfig"
+	"weave/config"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 
@@ -59,7 +59,7 @@ func TestHelpToggleOnSearch(t *testing.T) {
 // helpModel is a panel hovering an agent, which is the row whose help has the most on it.
 func helpModel() model {
 	return model{
-		keys:   appconfig.DefaultKeybindings(),
+		keys:   config.DefaultKeybindings(),
 		height: 24,
 		width:  46,
 		tree: treeState{

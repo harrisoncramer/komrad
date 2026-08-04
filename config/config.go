@@ -35,8 +35,8 @@ func LayerPaths() []string {
 	return filepath.SplitList(value)
 }
 
-// Load adds transient process context to connection values Viper has already resolved.
-func Load(connection Environment) *Environment {
+// LoadEnvironment adds transient process context to connection values Viper has already resolved.
+func LoadEnvironment(connection Environment) *Environment {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = "vi"

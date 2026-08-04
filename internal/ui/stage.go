@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"weave/internal/appconfig"
+	"weave/config"
 
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/x/ansi"
@@ -68,7 +68,7 @@ type Stage struct {
 
 // NewStage builds a stage over a tmux client, divided as the layout asks. It claims no
 // panes until Init.
-func NewStage(tmux stageTmux, layout appconfig.Layout) *Stage {
+func NewStage(tmux stageTmux, layout config.Layout) *Stage {
 	return &Stage{tmux: tmux, split: layout.Split, secondarySplit: layout.SecondarySplit}
 }
 
@@ -76,7 +76,7 @@ func NewStage(tmux stageTmux, layout appconfig.Layout) *Stage {
 // loader allows falls back to the default, since a stage built by hand has none.
 func (s *Stage) share() float64 {
 	if s.split <= 0 || s.split >= 1 {
-		return appconfig.DefaultSplit
+		return config.DefaultSplit
 	}
 
 	return s.split
@@ -94,7 +94,7 @@ func (s *Stage) percent() int {
 func (s *Stage) secondaryPercent() int {
 	share := s.secondarySplit
 	if share <= 0 || share >= 1 {
-		share = appconfig.DefaultSecondarySplit
+		share = config.DefaultSecondarySplit
 	}
 
 	return int(math.Round(share * 100))

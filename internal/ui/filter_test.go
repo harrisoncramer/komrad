@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/appconfig"
+	"weave/config"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -370,8 +370,8 @@ func filterModel() model {
 	return model{
 		tmux:   tmux,
 		popup:  NewPopupWindow(tmux, "test-session"),
-		stage:  NewStage(tmux, appconfig.DefaultLayout()),
-		keys:   appconfig.DefaultKeybindings(),
+		stage:  NewStage(tmux, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{
 			workflows: []workflowstore.Workflow{workflow},

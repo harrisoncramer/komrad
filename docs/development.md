@@ -105,7 +105,7 @@ mise run db:migrate add_agent_marks
 
 Atlas authors migrations and never applies them. Applying is the binary's job, through `weave migrate` and its own embedded runner, so one thing writes the schema and one ledger records what it wrote. If both applied, Atlas's revision table and the binary's would each hold half the history and neither would agree the schema was current. `migrate diff` only needs the throwaway dev container Atlas starts for itself, so authoring a migration needs Docker but not a running development database.
 
-Config. `config.toml` at the repo root is generated from the `Config` struct in `internal/appconfig`, taking each key's documentation from its Go doc comment and each default from the code. The struct is the source of truth, so a config change is a struct change followed by:
+Config. `config.toml` at the repo root is generated from the `Config` struct in `config`, taking each key's documentation from its Go doc comment and each default from the code. The struct is the source of truth, so a config change is a struct change followed by:
 
 ```sh
 mise run gen:config

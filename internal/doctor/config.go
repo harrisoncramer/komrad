@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"weave/internal/appconfig"
+	"weave/config"
 )
 
 // The ways the config can be wrong.
@@ -177,7 +177,7 @@ func HarnessBinary(agent HarnessInfo) Check {
 func effectiveDefaultHarness(env Env) string {
 	cfg, err := env.LoadConfig()
 	if err != nil {
-		return appconfig.DefaultHarness
+		return config.DefaultHarness
 	}
 
 	return cfg.DefaultHarness

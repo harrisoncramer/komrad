@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"weave/internal/appconfig"
+	"weave/config"
 	"weave/internal/tmux"
 
 	agentstore "weave/internal/store/agent"
@@ -425,7 +425,7 @@ func (m *model) reconcileBelow() {
 
 // nextMark is where the mark key moves an agent, stepping through the configured marks and
 // past the last one back to unmarked. A mark that is not configured clears.
-func nextMark(current *string, marks []appconfig.Mark) *string {
+func nextMark(current *string, marks []config.Mark) *string {
 	if len(marks) == 0 {
 		return nil
 	}
@@ -449,7 +449,7 @@ func nextMark(current *string, marks []appconfig.Mark) *string {
 //
 // Collapsing onto the mark most of them hold would read the same on screen and answer
 // differently, since which one that is cannot be seen without counting glyphs.
-func nextSelectionMark(current []*string, marks []appconfig.Mark) *string {
+func nextSelectionMark(current []*string, marks []config.Mark) *string {
 	if len(marks) == 0 || len(current) == 0 {
 		return nil
 	}

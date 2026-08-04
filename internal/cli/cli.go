@@ -11,7 +11,6 @@ import (
 
 	"weave/config"
 	"weave/internal/agents"
-	"weave/internal/appconfig"
 	"weave/internal/harness"
 	"weave/internal/harness/claude"
 	"weave/internal/harness/codex"
@@ -54,18 +53,18 @@ func NewRootCommand() *cobra.Command {
 			// The files come first, since the environment resolves on top of them and a
 			// config that will not parse has to stop most commands before anything opens a
 			// database on the built-in defaults.
-			cfg, report, err := appconfig.LoadWithReport(configPaths)
+			cfg, report, err := config.LoadWithReport(configPaths)
 			if err != nil {
 				if isConfigFatal(cmd) {
 					return err
 				}
 
 				app.configErr = err
-				cfg = appconfig.Defaults()
-				report = &appconfig.Report{Sources: map[string]appconfig.Source{}}
+				cfg = config.Defaults()
+				report = &config.Report{Sources: map[string]config.Source{}}
 			}
 
-			env := config.Load(config.Environment{
+			env := config.LoadEnvironment(config.Environment{
 				DatabaseURL:         cfg.Connection.DatabaseURL,
 				ReadOnlyDatabaseURL: cfg.Connection.ReadOnlyDatabaseURL,
 				Addr:                cfg.Connection.Addr,

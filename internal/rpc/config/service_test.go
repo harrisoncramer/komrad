@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/appconfig"
+	weaveconfig "weave/config"
 	"weave/internal/version"
 	configv1 "weave/proto/gen/config/v1"
 
@@ -81,7 +81,7 @@ func TestGetConfig(t *testing.T) {
 				t.Setenv("HOME", t.TempDir())
 			}
 
-			svc := NewService(func() (*appconfig.Config, error) { return appconfig.Load(paths) })
+			svc := NewService(func() (*weaveconfig.Config, error) { return weaveconfig.Load(paths) })
 
 			resp, err := svc.GetConfig(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 			require.NoError(t, err)
@@ -94,7 +94,7 @@ func TestGetConfig(t *testing.T) {
 // config. An agent reaches this server over MCP and has no build of its own to compare
 // against, so this answer is the only way it can say which server it was talking to.
 func TestGetConfigReportsTheBuild(t *testing.T) {
-	svc := NewService(func() (*appconfig.Config, error) { return appconfig.Defaults(), nil })
+	svc := NewService(func() (*weaveconfig.Config, error) { return weaveconfig.Defaults(), nil })
 
 	resp, err := svc.GetConfig(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 
@@ -145,8 +145,8 @@ func TestGetConfigKeysMatchTheFile(t *testing.T) {
 		},
 	}
 
-	svc := NewService(func() (*appconfig.Config, error) {
-		return &appconfig.Config{Keybindings: appconfig.DefaultKeybindings()}, nil
+	svc := NewService(func() (*weaveconfig.Config, error) {
+		return &weaveconfig.Config{Keybindings: weaveconfig.DefaultKeybindings()}, nil
 	})
 
 	resp, err := svc.GetConfig(t.Context(), connect.NewRequest(&emptypb.Empty{}))
@@ -219,7 +219,7 @@ func TestGetConfigRedactsTheConnectionStrings(t *testing.T) {
 		"readonly_database_url = \"postgres://reader:alsosecret@db.internal:5432/panel\"\n"
 	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
 
-	svc := NewService(func() (*appconfig.Config, error) { return appconfig.Load([]string{path}) })
+	svc := NewService(func() (*weaveconfig.Config, error) { return weaveconfig.Load([]string{path}) })
 
 	resp, err := svc.GetConfig(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)

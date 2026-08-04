@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/appconfig"
+	"weave/config"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -299,13 +299,13 @@ func (t *recordingTmux) RespawnPane(pane, _ string, argv ...string) {
 // infoModel builds an agents model holding one live agent, with the cursor on
 // it. Row 0 is the workflow header the agent sits under, so the agent is row 1.
 func infoModel(tmux *recordingTmux) model {
-	stage := NewStage(tmux, appconfig.DefaultLayout())
+	stage := NewStage(tmux, config.DefaultLayout())
 	stage.Init("%0")
 
 	return model{
 		tmux:   tmux,
 		stage:  stage,
-		keys:   appconfig.DefaultKeybindings(),
+		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},

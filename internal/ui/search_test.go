@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/appconfig"
+	"weave/config"
 
 	agentstore "weave/internal/store/agent"
 	"weave/internal/store/transcript"
@@ -66,7 +66,7 @@ func TestApplySearchResults(t *testing.T) {
 			m := model{
 				screen: screenSearch,
 				search: searchState{query: tt.query},
-				stage:  NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
+				stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
 			}
 
 			m.applySearch(tt.msg)
@@ -130,7 +130,7 @@ func TestUpdateSearchEditsQuery(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{
 				screen: screenSearch,
-				keys:   appconfig.DefaultKeybindings(),
+				keys:   config.DefaultKeybindings(),
 				search: searchState{typing: true},
 			}
 

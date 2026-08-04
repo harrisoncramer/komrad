@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/appconfig"
+	"weave/config"
 	"weave/internal/errui"
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
@@ -157,7 +157,7 @@ func TestScreensFitThePane(t *testing.T) {
 	)
 
 	m := model{
-		keys:   appconfig.DefaultKeybindings(),
+		keys:   config.DefaultKeybindings(),
 		height: height,
 		tree:   treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "everything"}}},
 	}

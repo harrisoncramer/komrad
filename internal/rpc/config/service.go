@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"weave/internal/appconfig"
+	weaveconfig "weave/config"
 	"weave/internal/version"
 	configv1 "weave/proto/gen/config/v1"
 
@@ -18,7 +18,7 @@ import (
 // parsed config so the file is read per call. The server is spawned once and
 // outlives many panel opens, so a config edited in between would otherwise stay
 // invisible until somebody restarted it.
-type loader func() (*appconfig.Config, error)
+type loader func() (*weaveconfig.Config, error)
 
 // Service implements configv1connect.ConfigServiceHandler.
 type Service struct {
@@ -39,7 +39,7 @@ func (s *Service) GetConfig(_ context.Context, _ *connect.Request[emptypb.Empty]
 
 	cfg, err := s.load()
 	if err != nil {
-		cfg = appconfig.Defaults()
+		cfg = weaveconfig.Defaults()
 		configError = proto.String(err.Error())
 	}
 

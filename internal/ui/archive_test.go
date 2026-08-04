@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/appconfig"
+	"weave/config"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -32,7 +32,7 @@ import (
 // on an agent. Restore means the folder on one and the agent on the other, and delete is
 // an agent key that a header has to swallow rather than act on.
 func TestArchiveKeys(t *testing.T) {
-	keys := appconfig.DefaultKeybindings()
+	keys := config.DefaultKeybindings()
 
 	tests := []struct {
 		name string
@@ -191,7 +191,7 @@ func TestArchiveRows(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{
-				keys:    appconfig.DefaultKeybindings(),
+				keys:    config.DefaultKeybindings(),
 				tree:    treeState{workflows: tt.live},
 				archive: archiveState{agents: tt.agents, workflows: tt.archived},
 			}
@@ -236,7 +236,7 @@ func TestArchiveHelpSplitsOnTheRow(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, appconfig.DefaultKeybindings())
+			m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 			m.archive.cursor = tt.cursor
 			m.helpExpanded = true
 			if tt.archived {
@@ -279,7 +279,7 @@ func TestArchiveDeleteConfirm(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client := &fakeArchiveAgents{}
-			m := archiveModel(client, &fakeArchiveWorkflows{}, appconfig.DefaultKeybindings())
+			m := archiveModel(client, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 
 			opened, _ := m.deleteFromArchiveConfirm(m.archive.agents)
 			m, ok := opened.(model)
@@ -372,7 +372,7 @@ func TestRefusedArchiveWritesAreReported(t *testing.T) {
 			m := archiveModel(
 				&fakeArchiveAgents{err: refusal},
 				&fakeArchiveWorkflows{err: refusal},
-				appconfig.DefaultKeybindings(),
+				config.DefaultKeybindings(),
 			)
 			if tt.onFolder {
 				m.tree.workflows = nil
@@ -434,7 +434,7 @@ func TestArchiveView(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, appconfig.DefaultKeybindings())
+			m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 			m.tree.workflows = tt.live
 			m.archive = archiveState{agents: tt.agents, workflows: tt.archived}
 
@@ -526,7 +526,7 @@ func TestArchiveIsListedSeparatelyFromTheAgents(t *testing.T) {
 	workflows := &fakeArchiveWorkflows{
 		archived: []*workflowv1.Workflow{archivedProtoWorkflow("w9", "retired", "2026-07-30T09:00:00Z")},
 	}
-	m := archiveModel(agents, workflows, appconfig.DefaultKeybindings())
+	m := archiveModel(agents, workflows, config.DefaultKeybindings())
 	m.archive.agents = nil
 
 	entered, cmd := m.enterArchive()
@@ -547,14 +547,14 @@ func TestArchiveIsListedSeparatelyFromTheAgents(t *testing.T) {
 
 // archiveModel builds the panel sitting on the archive with one agent archived out of a
 // workflow that is still live, the cursor on the agent rather than on the header over it.
-func archiveModel(agents agentv1connect.AgentServiceClient, workflows workflowv1connect.WorkflowServiceClient, keys appconfig.Keybindings) model {
+func archiveModel(agents agentv1connect.AgentServiceClient, workflows workflowv1connect.WorkflowServiceClient, keys config.Keybindings) model {
 	tmux := &recordingTmux{}
 
 	return model{
 		api:    api{agents: agents, workflows: workflows, schedules: emptyLists{}},
 		tmux:   tmux,
 		popup:  NewPopupWindow(tmux, "test-session"),
-		stage:  NewStage(tmux, appconfig.DefaultLayout()),
+		stage:  NewStage(tmux, config.DefaultLayout()),
 		keys:   keys,
 		screen: screenArchive,
 		tree:   treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}},

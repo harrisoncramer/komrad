@@ -15,8 +15,8 @@ import (
 	"net/url"
 	"testing"
 
+	"weave/config"
 	"weave/db"
-	"weave/internal/appconfig"
 	"weave/internal/pgtest"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
@@ -77,7 +77,7 @@ func Open(t *testing.T) *Stores {
 func grantReadOnly(t *testing.T, pool *store.Pool, dbURL string) string {
 	t.Helper()
 
-	cfg, err := appconfig.Load(nil)
+	cfg, err := config.Load(nil)
 	require.NoError(t, err)
 
 	readOnly, err := pgconn.ParseConfig(cfg.Connection.ReadOnlyDatabaseURL)

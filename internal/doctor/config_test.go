@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"testing"
 
-	"weave/internal/appconfig"
+	"weave/config"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -20,10 +20,10 @@ var claudeAndCodex = []HarnessInfo{
 
 // configEnv answers for a config file and a PATH without either being on disk. installed
 // lists the commands that resolve.
-func configEnv(cfg *appconfig.Config, loadErr error, exists bool, installed ...string) Env {
+func configEnv(cfg *config.Config, loadErr error, exists bool, installed ...string) Env {
 	return Env{
 		Settings: Settings{
-			ConfigLayers: []appconfig.Layer{{Path: "/home/u/.config/weave/config.toml"}},
+			ConfigLayers: []config.Layer{{Path: "/home/u/.config/weave/config.toml"}},
 			Harnesses:    claudeAndCodex,
 		},
 		LookPath: func(name string) (string, error) {
@@ -36,7 +36,7 @@ func configEnv(cfg *appconfig.Config, loadErr error, exists bool, installed ...s
 			return "", exec.ErrNotFound
 		},
 		Output:         func(context.Context, string, ...string) (string, error) { return "", errors.New("no server") },
-		LoadConfig:     func() (*appconfig.Config, error) { return cfg, loadErr },
+		LoadConfig:     func() (*config.Config, error) { return cfg, loadErr },
 		DoesLayerExist: func(string) bool { return exists },
 	}
 }
@@ -45,14 +45,14 @@ func configEnv(cfg *appconfig.Config, loadErr error, exists bool, installed ...s
 // finding, and that a file which will not parse is the failure it is.
 func TestConfigCheck(t *testing.T) {
 	t.Run("no file at all", func(t *testing.T) {
-		result := Config().Run(t.Context(), configEnv(appconfig.Defaults(), nil, false))
+		result := Config().Run(t.Context(), configEnv(config.Defaults(), nil, false))
 
 		assert.Equal(t, StatusOK, result.Status, "the default install has no config file")
 		assert.Contains(t, result.Detail, "(absent)")
 	})
 
 	t.Run("a file that parses", func(t *testing.T) {
-		result := Config().Run(t.Context(), configEnv(appconfig.Defaults(), nil, true))
+		result := Config().Run(t.Context(), configEnv(config.Defaults(), nil, true))
 
 		assert.Equal(t, StatusOK, result.Status)
 		assert.Equal(t, "/home/u/.config/weave/config.toml", result.Detail,
@@ -117,7 +117,7 @@ func TestDefaultHarnessCheck(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := appconfig.Defaults()
+			cfg := config.Defaults()
 			cfg.DefaultHarness = tt.harness
 
 			result := DefaultHarness().Run(t.Context(), configEnv(cfg, nil, true))
@@ -179,7 +179,7 @@ func TestHarnessBinaryCheck(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := appconfig.Defaults()
+			cfg := config.Defaults()
 			cfg.DefaultHarness = tt.configured
 
 			result := HarnessBinary(tt.agent).Run(t.Context(), configEnv(cfg, nil, true, tt.installed...))

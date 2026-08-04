@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/appconfig"
+	"weave/config"
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
@@ -28,7 +28,7 @@ import (
 // hovered row must do nothing at all on an empty list rather than act on a row that
 // is not there.
 func TestScheduleKeys(t *testing.T) {
-	keys := appconfig.DefaultKeybindings()
+	keys := config.DefaultKeybindings()
 
 	tests := []struct {
 		name string
@@ -152,7 +152,7 @@ func TestSchedulesView(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := scheduleModel(&fakeSchedules{}, appconfig.DefaultKeybindings())
+			m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
 			m.schedules.items = tt.schedules
 			m.schedules.cursor = 0
 
@@ -175,7 +175,7 @@ func TestSchedulesView(t *testing.T) {
 func TestScheduleFormButtonsLineUp(t *testing.T) {
 	form, _ := scheduleForm(schedulestore.Config{
 		Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep", Enabled: true, WorkflowID: "w1",
-	}, []workflowstore.Workflow{{ID: "w1", Name: "api", Cwd: "/work/api"}}, appconfig.DefaultKeybindings().Form)
+	}, []workflowstore.Workflow{{ID: "w1", Name: "api", Cwd: "/work/api"}}, config.DefaultKeybindings().Form)
 	form.Init()
 	form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
 
@@ -307,7 +307,7 @@ func TestApplySchedules(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := scheduleModel(&fakeSchedules{}, appconfig.DefaultKeybindings())
+			m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
 			m.schedules.items = tt.start
 			m.schedules.cursor = tt.cursor
 
@@ -345,7 +345,7 @@ func TestScheduleWriteFailure(t *testing.T) {
 			act: func(t *testing.T, m model) model {
 				t.Helper()
 				m.target.editSchedule = nil
-				m.form, m.values.schedule = scheduleForm(schedulestore.Config{Name: "x", Cron: "0 9 * * *"}, nil, appconfig.DefaultKeybindings().Form)
+				m.form, m.values.schedule = scheduleForm(schedulestore.Config{Name: "x", Cron: "0 9 * * *"}, nil, config.DefaultKeybindings().Form)
 				updated, cmd := m.submitScheduleForm()
 				submitted, ok := updated.(model)
 				require.True(t, ok)
@@ -359,7 +359,7 @@ func TestScheduleWriteFailure(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client := &fakeSchedules{err: errors.New("cron must be five fields")}
-			m := scheduleModel(client, appconfig.DefaultKeybindings())
+			m := scheduleModel(client, config.DefaultKeybindings())
 
 			got := tt.act(t, m)
 
@@ -391,7 +391,7 @@ func TestEnterSchedules(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := scheduleModel(&fakeSchedules{}, appconfig.DefaultKeybindings())
+			m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
 			m.screen = screenAgents
 
 			updated, _ := m.updateAgents(keyMsg(tt.key))
@@ -405,7 +405,7 @@ func TestEnterSchedules(t *testing.T) {
 
 // scheduleModel builds a panel sitting on the schedules screen with one armed
 // schedule under the cursor, which is the state most of the cases act from.
-func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys appconfig.Keybindings) model {
+func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys config.Keybindings) model {
 	tmux := &recordingTmux{}
 
 	return model{
@@ -416,7 +416,7 @@ func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys appconfi
 		// The new-schedule form asks the popup which client opened it, to prefill
 		// the directory, so the panel needs one even though nothing here reads it.
 		popup:  NewPopupWindow(tmux, "test-session"),
-		stage:  NewStage(tmux, appconfig.DefaultLayout()),
+		stage:  NewStage(tmux, config.DefaultLayout()),
 		keys:   keys,
 		screen: screenSchedules,
 		schedules: scheduleState{
@@ -570,7 +570,7 @@ func TestScheduleName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := scheduleModel(&fakeSchedules{}, appconfig.DefaultKeybindings())
+			m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
 
 			assert.Equal(t, tt.want, m.scheduleName(tt.agent))
 		})

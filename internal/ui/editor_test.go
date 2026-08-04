@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"weave/internal/appconfig"
+	"weave/config"
 	"weave/internal/tmux"
 
 	agentstore "weave/internal/store/agent"
@@ -89,7 +89,7 @@ func TestBelowActionKeyClosesOnSecondPress(t *testing.T) {
 // belowActionModel builds the panel on a list of one agent under one workflow header, with
 // the cursor where the test puts it. Row 0 is the header and row 1 the agent.
 func belowActionModel(recorder *recordingTmux, client *fakeActions, cursor int) model {
-	stage := NewStage(recorder, appconfig.DefaultLayout())
+	stage := NewStage(recorder, config.DefaultLayout())
 	stage.Init("%0")
 
 	return model{
@@ -97,7 +97,7 @@ func belowActionModel(recorder *recordingTmux, client *fakeActions, cursor int) 
 		tmux:   recorder,
 		popup:  NewPopupWindow(recorder, "test-session"),
 		stage:  stage,
-		keys:   appconfig.DefaultKeybindings(),
+		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},

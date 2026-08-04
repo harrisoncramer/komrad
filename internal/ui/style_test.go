@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/appconfig"
+	"weave/config"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 
@@ -30,8 +30,8 @@ func TestClipName(t *testing.T) {
 // branchTree is one agent named after its branch, which is the case the clip is for.
 func branchTree() model {
 	return model{
-		stage: NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
-		keys:  appconfig.DefaultKeybindings(),
+		stage: NewStage(&recordingTmux{}, config.DefaultLayout()),
+		keys:  config.DefaultKeybindings(),
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}},
 			agents: []agentItem{

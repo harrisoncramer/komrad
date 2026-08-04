@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"weave/config"
 	"weave/internal/actions"
-	"weave/internal/appconfig"
 	"weave/internal/logging"
 	"weave/internal/tmux"
 
@@ -907,8 +907,8 @@ func actionService(t *testing.T, dir string, runner actionRunner) *ActionService
 			},
 		},
 		Runner: runner,
-		Load: func() (*appconfig.Config, error) {
-			cfg := appconfig.Defaults()
+		Load: func() (*config.Config, error) {
+			cfg := config.Defaults()
 			cfg.Actions.Dir = dir
 
 			return cfg, nil

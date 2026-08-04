@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"weave/internal/appconfig"
+	weaveconfig "weave/config"
 	"weave/internal/dsn"
 
 	"github.com/go-viper/mapstructure/v2"
@@ -23,7 +23,7 @@ import (
 // password would otherwise reach every reader of this endpoint, the MCP surface included.
 // Redacting here rather than in the loader is deliberate: the loader's output is what opens
 // the connection, so a redacted value there would be a connection that does not work.
-func renderConfig(cfg *appconfig.Config) (*structpb.Struct, error) {
+func renderConfig(cfg *weaveconfig.Config) (*structpb.Struct, error) {
 	shown := *cfg
 	shown.Connection.DatabaseURL = dsn.Redact(shown.Connection.DatabaseURL)
 	shown.Connection.ReadOnlyDatabaseURL = dsn.Redact(shown.Connection.ReadOnlyDatabaseURL)

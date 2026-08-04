@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/appconfig"
+	"weave/config"
 )
 
 // commandTimeout bounds any tool doctor shells out to. Everything it runs answers at once
@@ -27,7 +27,7 @@ type Env struct {
 	Output func(ctx context.Context, name string, args ...string) (string, error)
 	// LoadConfig parses the user's config file, the same call the root command makes, so
 	// doctor and the panel's error screen cannot disagree about it.
-	LoadConfig func() (*appconfig.Config, error)
+	LoadConfig func() (*config.Config, error)
 	// DoesLayerExist reports whether one layer's file is there, which Load does not say,
 	// since a missing one is not an error and contributes nothing.
 	DoesLayerExist func(path string) bool
@@ -65,10 +65,10 @@ type Settings struct {
 	PanelSession string
 	// ConfigLayers is every config file that would be read, weakest first, each named
 	// whether or not it exists.
-	ConfigLayers []appconfig.Layer
+	ConfigLayers []config.Layer
 	// Sources is where each connection setting was resolved from, keyed by its config file
 	// key, so the check can say which layer or variable a value in force came from.
-	Sources map[string]appconfig.Source
+	Sources map[string]config.Source
 	// Harnesses is every agent CLI this build can run.
 	Harnesses []HarnessInfo
 	// DatabaseURL is the writable login everything weave stores lives behind, and
@@ -100,7 +100,7 @@ func NewEnv(settings Settings) Env {
 		Settings:   settings,
 		LookPath:   exec.LookPath,
 		Output:     runOutput,
-		LoadConfig: func() (*appconfig.Config, error) { return appconfig.Load(settings.configPaths()) },
+		LoadConfig: func() (*config.Config, error) { return config.Load(settings.configPaths()) },
 		DoesLayerExist: func(path string) bool {
 			_, err := os.Stat(path)
 

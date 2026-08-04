@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"weave/internal/appconfig"
+	"weave/config"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
@@ -55,7 +55,7 @@ func TestLogsOpenBelowTheStagedAgent(t *testing.T) {
 	require.Len(t, tmux.respawns, 1)
 	assert.Equal(t, "%2", tmux.respawnPanes[0], "the log is paged into the pane below")
 	assert.Contains(t, tmux.respawns[0], "export WEAVE_LOG='"+path+"'")
-	assert.Contains(t, tmux.respawns[0], appconfig.DefaultLogViewer)
+	assert.Contains(t, tmux.respawns[0], config.DefaultLogViewer)
 	assert.Empty(t, tmux.zooms, "the stage keeps its share of the width")
 }
 
@@ -192,7 +192,7 @@ func TestLogArgv(t *testing.T) {
 		{
 			name: "nothing configured falls back to a pager on the file",
 			path: "/tmp/weave.log",
-			want: appconfig.DefaultLogViewer,
+			want: config.DefaultLogViewer,
 		},
 		{
 			name:   "a pipeline is left exactly as it was written",
@@ -204,7 +204,7 @@ func TestLogArgv(t *testing.T) {
 			name:   "a viewer that is only whitespace is no viewer at all",
 			viewer: "   ",
 			path:   "/tmp/weave.log",
-			want:   appconfig.DefaultLogViewer,
+			want:   config.DefaultLogViewer,
 		},
 	}
 

@@ -17,7 +17,7 @@ func TestLoadAddsProcessEnvironment(t *testing.T) {
 
 	connection := Environment{Addr: "127.0.0.1:9999", CacheDir: "/tmp/weave-cache"}
 
-	got := Load(connection)
+	got := LoadEnvironment(connection)
 
 	assert.Equal(t, connection.Addr, got.Addr)
 	assert.Equal(t, connection.CacheDir, got.CacheDir)
@@ -32,7 +32,7 @@ func TestLoadAddsProcessEnvironment(t *testing.T) {
 func TestLoadDefaultsEditor(t *testing.T) {
 	t.Setenv("EDITOR", "")
 
-	assert.Equal(t, "vi", Load(Environment{}).Editor)
+	assert.Equal(t, "vi", LoadEnvironment(Environment{}).Editor)
 }
 
 func TestLayerPathsUsesPlatformPathList(t *testing.T) {

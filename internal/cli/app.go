@@ -2,7 +2,6 @@ package cli
 
 import (
 	"weave/config"
-	"weave/internal/appconfig"
 	"weave/internal/harness"
 	"weave/internal/tmux"
 	"weave/internal/ui"
@@ -14,7 +13,7 @@ import (
 type app struct {
 	popup *ui.PopupWindow
 	env   *config.Environment
-	keys  appconfig.Keybindings
+	keys  config.Keybindings
 	// harnesses is every agent CLI this binary can run, which the services get an
 	// agent's own harness through.
 	harnesses *harness.Registry
@@ -25,7 +24,7 @@ type app struct {
 	defaultFlags   map[string]string
 	maxAgents      int
 	// marks are the marks the panel's mark key steps an agent through.
-	marks []appconfig.Mark
+	marks []config.Mark
 	// logViewer is what the panel's log key opens the log in, the user's own command.
 	logViewer string
 	// logLevel is how much the served process writes to its log. It is read here with the
@@ -33,7 +32,7 @@ type app struct {
 	// setting rather than reading the file again.
 	logLevel string
 	// layout is how the panel divides the popup between its list and the stage.
-	layout appconfig.Layout
+	layout config.Layout
 	// configErr is set when the user's config file would not parse. The panel shows it on
 	// its error screen and serve writes it to the log, since serve carries on with the
 	// defaults and is otherwise indistinguishable from one running on the user's file.
@@ -46,7 +45,7 @@ type app struct {
 	// parsed from them, since it reads the files again per request.
 	configPaths []string
 	// configSources is loader metadata used by doctor to explain precedence.
-	configSources map[string]appconfig.Source
+	configSources map[string]config.Source
 	// tmux is shared with the services. The UI needs it directly for the stage,
 	// which is its own layout rather than anything the agent API owns. It covers
 	// both tmux servers, sending each call to the one that can answer it.

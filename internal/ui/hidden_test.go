@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"weave/internal/appconfig"
+	"weave/config"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -18,8 +18,8 @@ import (
 // agent and two hidden ones, and a second holding nothing hidden at all.
 func hiddenTree() model {
 	return model{
-		stage: NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
-		keys:  appconfig.DefaultKeybindings(),
+		stage: NewStage(&recordingTmux{}, config.DefaultLayout()),
+		keys:  config.DefaultKeybindings(),
 		tree: treeState{
 			workflows: []workflowstore.Workflow{
 				{ID: "w1", Name: "backend"},

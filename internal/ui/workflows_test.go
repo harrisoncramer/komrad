@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"weave/internal/appconfig"
+	"weave/config"
 	"weave/internal/errui"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -272,8 +272,8 @@ func TestActionOptionsLabelsCarryDescriptions(t *testing.T) {
 // archived.
 func TestFailedWorkflowListKeepsTheTree(t *testing.T) {
 	m := model{
-		stage: NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
-		keys:  appconfig.DefaultKeybindings(),
+		stage: NewStage(&recordingTmux{}, config.DefaultLayout()),
+		keys:  config.DefaultKeybindings(),
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}},
 		},
@@ -336,13 +336,13 @@ func TestApplyWorkflows(t *testing.T) {
 // checked not to happen.
 func TestRefreshRestagesWorkflowContext(t *testing.T) {
 	tmux := &recordingTmux{}
-	stage := NewStage(tmux, appconfig.DefaultLayout())
+	stage := NewStage(tmux, config.DefaultLayout())
 	stage.Init("%0")
 
 	// The cursor sits on the workflow's header, which is row 0.
 	m := model{
 		stage:  stage,
-		keys:   appconfig.DefaultKeybindings(),
+		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Context: "old notes"}},

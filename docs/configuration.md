@@ -86,7 +86,7 @@ An explicit empty list clears the value from lower layers and the built-in defau
 
 ### About config.toml in the repo
 
-The `config.toml` at the root of the weave repository is generated. It is rendered from the `Config` struct in `internal/appconfig`, taking each key's description from the Go doc comment above it, by `mise run gen:config`.
+The `config.toml` at the root of the weave repository is generated. It is rendered from the `Config` struct in `config`, taking each key's description from the Go doc comment above it, by `mise run gen:config`.
 
 It is a reference, not a template. Do not copy it into `~/.config/weave/`. Three reasons now. Editing the repo file changes nothing, because weave never reads it, and the next `mise run gen:config` overwrites your edits. Copying all of it leaves you holding every key weave has, so a rename in a later version breaks your config even for settings you never touched. And it spells out `connection.database_url` at its built-in default, which is the local Docker Postgres from this repo, so copying the file wholesale is a way to point weave at a database you did not mean.
 

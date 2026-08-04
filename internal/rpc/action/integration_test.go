@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"weave/config"
 	"weave/internal/actions"
 	"weave/internal/agents"
-	"weave/internal/appconfig"
 	"weave/internal/interceptors"
 	actionv1 "weave/proto/gen/action/v1"
 	"weave/proto/gen/action/v1/actionv1connect"
@@ -174,8 +174,8 @@ func actionClient(t *testing.T, dir, work string) actionv1connect.ActionServiceC
 		Workflows: stubWorkflows{},
 		Tmux:      stubPanes{},
 		Runner:    actions.NewRunner(),
-		Load: func() (*appconfig.Config, error) {
-			cfg := appconfig.Defaults()
+		Load: func() (*config.Config, error) {
+			cfg := config.Defaults()
 			cfg.Actions.Dir = dir
 
 			return cfg, nil

@@ -28,7 +28,7 @@ type GetConfigResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The configuration in force, keyed exactly as the user's TOML file is. It is an
 	// open blob rather than a message per setting because the Config struct in
-	// internal/appconfig decides the shape.
+	// config decides the shape.
 	// The config is read on every call, so a configuration edited while the server runs is picked up without a restart.
 	Config *structpb.Struct `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
 	// Why the user's config file would not parse, unset when it did.

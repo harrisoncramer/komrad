@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"weave/internal/appconfig"
+	"weave/config"
 	"weave/internal/logging"
 	"weave/internal/store"
 	"weave/lib/xstr"
@@ -721,9 +721,9 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 
 	// What the caller asked for wins, then the workflow's default, then where the user
 	// is looking. A scheduled launch supplies neither of the first two.
-	dir := appconfig.ExpandHome(strings.TrimSpace(p.Dir))
+	dir := config.ExpandHome(strings.TrimSpace(p.Dir))
 	if dir == "" {
-		dir = appconfig.ExpandHome(strings.TrimSpace(wf.Cwd))
+		dir = config.ExpandHome(strings.TrimSpace(wf.Cwd))
 	}
 	if dir == "" {
 		dir = s.tmux.GetClientPath(p.Client)
@@ -814,7 +814,7 @@ func namedDir(named string) (string, error) {
 		return "", nil
 	}
 
-	dir := appconfig.ExpandHome(named)
+	dir := config.ExpandHome(named)
 	if err := requireUsableDir(dir); err != nil {
 		return "", fmt.Errorf("%w: a setup action named %q: %w", ErrSetupFailed, dir, err)
 	}

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"weave/internal/appconfig"
+	"weave/config"
 	actionv1 "weave/proto/gen/action/v1"
 	"weave/proto/gen/action/v1/actionv1connect"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -476,7 +476,7 @@ func TestFormResultsAreNotWhatIsSubmitted(t *testing.T) {
 	form, values := scheduleForm(schedulestore.Config{
 		Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep",
 		Enabled: true, HideAgents: true,
-	}, nil, appconfig.DefaultKeybindings().Form)
+	}, nil, config.DefaultKeybindings().Form)
 	form.Init()
 
 	assert.Empty(t, form.GetString("name"), "huh has recorded nothing the cursor has not left")
@@ -496,8 +496,8 @@ func formModel(sent *formRecorder) model {
 		api:   api{agents: sent, workflows: sent, schedules: sent, actions: sent},
 		tmux:  tmux,
 		popup: NewPopupWindow(tmux, "test-session"),
-		stage: NewStage(tmux, appconfig.DefaultLayout()),
-		keys:  appconfig.DefaultKeybindings(),
+		stage: NewStage(tmux, config.DefaultLayout()),
+		keys:  config.DefaultKeybindings(),
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Cwd: "/work/api", Flags: "--model opus"}},
 		},
@@ -646,7 +646,7 @@ func (f *formRecorder) ArchiveSchedule(_ context.Context, req *connect.Request[s
 // would have nowhere to come back to. The one-field forms keep enter, since there is no
 // cursor to lose in them.
 func TestOnlyTheSubmitKeySubmitsAMultiFieldForm(t *testing.T) {
-	keys := appconfig.DefaultKeybindings().Form
+	keys := config.DefaultKeybindings().Form
 
 	agent, _ := newAgentForm(keys, agentFormValues{})
 	agent.Init()

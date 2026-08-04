@@ -1,4 +1,4 @@
-package appconfig
+package config
 
 import (
 	"bytes"
@@ -11,7 +11,7 @@ import (
 
 const preamble = `# weave configuration (github.com/harrisoncramer/weave).
 #
-# Generated from the Config struct in internal/appconfig. Do not edit by hand;
+# Generated from the Config struct in config. Do not edit by hand;
 # change the struct's doc comments or DefaultKeybindings and run
 # 'mise run gen:config'.
 #

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/appconfig"
+	"weave/config"
 	"weave/internal/tmux"
 	actionv1 "weave/proto/gen/action/v1"
 	"weave/proto/gen/action/v1/actionv1connect"
@@ -27,7 +27,7 @@ import (
 // list, since firing an action is closer to a webhook than to opening something, so there is
 // nowhere to navigate to and the cursor stays on the agent to fire a second one at.
 func TestActionKeys(t *testing.T) {
-	keys := appconfig.DefaultKeybindings()
+	keys := config.DefaultKeybindings()
 
 	tests := []struct {
 		name string
@@ -87,7 +87,7 @@ func TestActionKeys(t *testing.T) {
 // after the first would mean walking back to the same row to fire the second.
 func TestActionsFireInSuccession(t *testing.T) {
 	client := &fakeActions{}
-	m := actionsModel(client, appconfig.DefaultKeybindings())
+	m := actionsModel(client, config.DefaultKeybindings())
 
 	fired, cmd := m.updateActions(keyMsg("enter"))
 	m, ok := fired.(model)
@@ -116,7 +116,7 @@ func TestActionRunIsReported(t *testing.T) {
 		connect.CodeFailedPrecondition,
 		errors.New("the file is not executable: run chmod +x on it"),
 	)}
-	m := actionsModel(client, appconfig.DefaultKeybindings())
+	m := actionsModel(client, config.DefaultKeybindings())
 
 	updated, cmd := m.updateActions(keyMsg("enter"))
 	pressed, ok := updated.(model)
@@ -209,7 +209,7 @@ func TestActionOnAWorkflowHeaderDoesNothing(t *testing.T) {
 // empty, and the banner says so rather than the stage claiming the directory holds nothing.
 func TestActionListingFailureIsReported(t *testing.T) {
 	client := &fakeActions{listErr: errors.New("connection refused")}
-	m := actionsModel(client, appconfig.DefaultKeybindings())
+	m := actionsModel(client, config.DefaultKeybindings())
 	m.actions.items = nil
 
 	got := settle(t, m, m.listActionsCmd())
@@ -225,7 +225,7 @@ func TestActionListingFailureIsReported(t *testing.T) {
 // panel has moved past, or it writes the stage of whichever screen is up by then.
 func TestActionListingArrivingAfterTheScreenWasLeft(t *testing.T) {
 	client := &fakeActions{}
-	m := actionsModel(client, appconfig.DefaultKeybindings())
+	m := actionsModel(client, config.DefaultKeybindings())
 	pending := m.listActionsCmd()
 
 	// The list carries a row of its own, so a listing that lands writes over something
@@ -249,7 +249,7 @@ func TestActionListingArrivingAfterTheScreenWasLeft(t *testing.T) {
 // nothing at all over a screen it says nothing about.
 func TestActionListingFailureAfterTheScreenWasLeftIsSilent(t *testing.T) {
 	client := &fakeActions{listErr: errors.New("connection refused")}
-	m := actionsModel(client, appconfig.DefaultKeybindings())
+	m := actionsModel(client, config.DefaultKeybindings())
 	pending := m.listActionsCmd()
 
 	left, _ := m.updateActions(keyMsg("esc"))
@@ -323,7 +323,7 @@ func TestActionMarkdown(t *testing.T) {
 // because the list acts on the row it was opened from rather than on whatever the agents list is
 // hovering later, and the legend names the chmod, since a dim row cannot say why it is dim.
 func TestActionsViewNamesTheAgentAndDimsWhatCannotRun(t *testing.T) {
-	m := actionsModel(&fakeActions{}, appconfig.DefaultKeybindings())
+	m := actionsModel(&fakeActions{}, config.DefaultKeybindings())
 	m.actions.cursor = 1
 	m.width = 60
 
@@ -348,9 +348,9 @@ func TestNoActionsSaysWhereToPutThem(t *testing.T) {
 func TestEditActionKey(t *testing.T) {
 	recorder := &recordingTmux{}
 	client := &fakeActions{}
-	m := actionsModel(client, appconfig.DefaultKeybindings())
+	m := actionsModel(client, config.DefaultKeybindings())
 	m.tmux = recorder
-	m.stage = NewStage(recorder, appconfig.DefaultLayout())
+	m.stage = NewStage(recorder, config.DefaultLayout())
 	m.stage.Init("%0")
 
 	updated, cmd := m.updateActions(keyMsg("e"))
@@ -372,9 +372,9 @@ func TestEditActionKey(t *testing.T) {
 func TestEditActionKeyClosesOnASecondPress(t *testing.T) {
 	recorder := &recordingTmux{}
 	client := &fakeActions{}
-	m := actionsModel(client, appconfig.DefaultKeybindings())
+	m := actionsModel(client, config.DefaultKeybindings())
 	m.tmux = recorder
-	m.stage = NewStage(recorder, appconfig.DefaultLayout())
+	m.stage = NewStage(recorder, config.DefaultLayout())
 	m.stage.Init("%0")
 
 	opened, cmd := m.updateActions(keyMsg("e"))
@@ -398,9 +398,9 @@ func TestEditActionKeyClosesOnASecondPress(t *testing.T) {
 func TestEditActionKeyOnAnotherRowSwitchesFiles(t *testing.T) {
 	recorder := &recordingTmux{}
 	client := &fakeActions{}
-	m := actionsModel(client, appconfig.DefaultKeybindings())
+	m := actionsModel(client, config.DefaultKeybindings())
 	m.tmux = recorder
-	m.stage = NewStage(recorder, appconfig.DefaultLayout())
+	m.stage = NewStage(recorder, config.DefaultLayout())
 	m.stage.Init("%0")
 
 	opened, cmd := m.updateActions(keyMsg("e"))
@@ -429,9 +429,9 @@ func TestEditActionKeyOnAnotherRowSwitchesFiles(t *testing.T) {
 func TestEditActionKeyRefusesACompiledProgram(t *testing.T) {
 	recorder := &recordingTmux{}
 	client := &fakeActions{}
-	m := actionsModel(client, appconfig.DefaultKeybindings())
+	m := actionsModel(client, config.DefaultKeybindings())
 	m.tmux = recorder
-	m.stage = NewStage(recorder, appconfig.DefaultLayout())
+	m.stage = NewStage(recorder, config.DefaultLayout())
 	m.stage.Init("%0")
 	m.actions.cursor = 2
 
@@ -452,7 +452,7 @@ func TestEditActionKeyRefusesACompiledProgram(t *testing.T) {
 // on the row under the cursor, so what the legend says follows the cursor rather than naming
 // the binding in the abstract.
 func TestActionEditorLegendNamesWhatTheKeyWouldDo(t *testing.T) {
-	m := actionsModel(&fakeActions{}, appconfig.DefaultKeybindings())
+	m := actionsModel(&fakeActions{}, config.DefaultKeybindings())
 
 	assert.Equal(t, "edit", m.actionEditorDesc())
 
@@ -468,8 +468,8 @@ func TestActionEditorLegendNamesWhatTheKeyWouldDo(t *testing.T) {
 // carries what the file declares, so a listing that came back changed is a different document.
 func TestActionDocumentRedrawsOnlyOnAChange(t *testing.T) {
 	tmux := &recordingTmux{}
-	m := actionsModel(&fakeActions{}, appconfig.DefaultKeybindings())
-	m.stage = NewStage(tmux, appconfig.DefaultLayout())
+	m := actionsModel(&fakeActions{}, config.DefaultKeybindings())
+	m.stage = NewStage(tmux, config.DefaultLayout())
 	m.stage.Init("%0")
 
 	m.stageAction()
@@ -485,9 +485,9 @@ func TestActionDocumentRedrawsOnlyOnAChange(t *testing.T) {
 
 // actionsModel builds the panel sitting on the actions list of one agent, with a runnable action
 // and one that is not executable.
-func actionsModel(client actionv1connect.ActionServiceClient, keys appconfig.Keybindings) model {
+func actionsModel(client actionv1connect.ActionServiceClient, keys config.Keybindings) model {
 	tmux := &recordingTmux{}
-	stage := NewStage(tmux, appconfig.DefaultLayout())
+	stage := NewStage(tmux, config.DefaultLayout())
 	stage.Init("%0")
 
 	return model{

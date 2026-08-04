@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"weave/internal/appconfig"
+	"weave/config"
 	"weave/internal/errui"
 	"weave/proto/gen/action/v1/actionv1connect"
 	"weave/proto/gen/agent/v1/agentv1connect"
@@ -63,12 +63,12 @@ type Deps struct {
 	Workflows   workflowv1connect.WorkflowServiceClient
 	Schedules   schedulev1connect.ScheduleServiceClient
 	Actions     actionv1connect.ActionServiceClient
-	Keys        appconfig.Keybindings
+	Keys        config.Keybindings
 	// Marks are the marks the mark key steps an agent through, in the user's order.
-	Marks []appconfig.Mark
+	Marks []config.Mark
 	// Layout is how the popup's width is divided between the list and the stage, and how
 	// much of the stage's height the pane under it takes when something opens there.
-	Layout appconfig.Layout
+	Layout config.Layout
 	// Addr is where Client points, shown on the error screen when the service stops
 	// answering.
 	Addr string
@@ -166,8 +166,8 @@ type model struct {
 	// second press that acts, the way vim's gg waits. Any other key drops it.
 	topHeld bool
 
-	keys  appconfig.Keybindings
-	marks []appconfig.Mark
+	keys  config.Keybindings
+	marks []config.Mark
 	// logPath is the service's log and logViewer is what the log key opens it in.
 	logPath   string
 	logViewer string

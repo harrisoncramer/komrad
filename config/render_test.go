@@ -1,4 +1,4 @@
-package appconfig
+package config
 
 import (
 	"os"
@@ -10,7 +10,7 @@ import (
 )
 
 // configTOMLPath is the checked-in file, relative to this package.
-const configTOMLPath = "../../config.toml"
+const configTOMLPath = "../config.toml"
 
 func TestConfigTOMLIsUpToDate(t *testing.T) {
 	rendered, err := RenderConfigTOML(".")

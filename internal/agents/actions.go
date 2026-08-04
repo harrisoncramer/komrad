@@ -12,8 +12,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"weave/config"
 	"weave/internal/actions"
-	"weave/internal/appconfig"
 	"weave/internal/logging"
 	"weave/internal/tmux"
 
@@ -48,7 +48,7 @@ type actionRunner interface {
 // configLoader reads the user's config. The service holds the loader rather than a
 // parsed config so a directory changed while the server runs takes effect without a
 // restart.
-type configLoader func() (*appconfig.Config, error)
+type configLoader func() (*config.Config, error)
 
 // ErrActionNotFound reports that the actions directory holds no file by that name.
 var ErrActionNotFound = errors.New("action not found")

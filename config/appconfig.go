@@ -1,8 +1,8 @@
-// Package appconfig loads the user's customization from one or more TOML files via viper,
+// Package config loads the user's customization from one or more TOML files via viper,
 // merged in order so a later file wins. It covers which CLI agents run and the flags it
 // takes, the marks an agent can be given, the panel keybindings, and which database, address
 // and tmux server this weave is.
-package appconfig
+package config
 
 import (
 	"errors"
@@ -14,8 +14,6 @@ import (
 	"slices"
 	"strings"
 	"unicode"
-
-	"weave/config"
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/viper"
@@ -911,7 +909,7 @@ func connectionSources(cfg *viper.Viper) map[string]Source {
 	sources := make(map[string]Source, len(connectionEnvironment))
 	for path, variable := range connectionEnvironment {
 		key := strings.TrimPrefix(path, "connection.")
-		if _, set := config.LookupEnv(variable); set {
+		if _, set := LookupEnv(variable); set {
 			sources[key] = SourceEnvironment
 		} else if cfg.InConfig(path) {
 			sources[key] = SourceFile

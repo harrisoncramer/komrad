@@ -16,7 +16,6 @@ import (
 	"weave/db"
 	"weave/internal/actions"
 	"weave/internal/agents"
-	"weave/internal/appconfig"
 	"weave/internal/harness"
 	"weave/internal/interceptors"
 	"weave/internal/jobs"
@@ -140,7 +139,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 	scheduleStore := schedulestore.New(pool.GetDB())
 	transcriptStore := transcriptstore.New(pool.GetDB())
 
-	loadConfig := func() (*appconfig.Config, error) { return appconfig.Load(p.ConfigPaths) }
+	loadConfig := func() (*config.Config, error) { return config.Load(p.ConfigPaths) }
 
 	workflowService := agents.NewWorkflowService(agents.WorkflowParams{
 		Workflows: workflowStore,
