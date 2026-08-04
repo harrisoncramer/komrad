@@ -149,7 +149,7 @@ func renderDim(text string, color bool) string {
 func joinWords(names []string) string {
 	switch len(names) {
 	case 0:
-		return "none"
+		return "None"
 	case 1:
 		return names[0]
 	default:

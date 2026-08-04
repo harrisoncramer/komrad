@@ -294,7 +294,7 @@ type actionChoice struct {
 // carries the description.
 func actionOptions(available []actionChoice, current string) []huh.Option[string] {
 	options := make([]huh.Option[string], 0, len(available)+2)
-	options = append(options, huh.NewOption("none", ""))
+	options = append(options, huh.NewOption("None", ""))
 
 	for _, action := range available {
 		options = append(options, huh.NewOption(actionChoiceLabel(action), action.name))

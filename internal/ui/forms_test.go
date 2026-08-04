@@ -54,7 +54,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				m.target.newAgentWorkflow = &workflow
 				m.screen = screenForm
 				prefill := agentFormValues{Harness: workflow.Harness, Dir: workflow.Cwd, Flags: workflow.Flags, SetupAction: inheritAction, CleanupAction: inheritAction}
-				m.form, m.values.agent = newAgentForm(m.keys.Form, prefill, workflow.SetupAction, workflow.CleanupAction, nil)
+				m.form, m.values.agent = newAgentForm(m.keys.Form, prefill, nil)
 				m.values.agent.Prompt = "check CI"
 				m.values.agent.Title = "ci"
 				m.values.agent.Harness = "codex"
@@ -377,7 +377,7 @@ func TestActionSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
 
 	agentForm, _ := newAgentForm(config.DefaultKeybindings().Form,
 		agentFormValues{SetupAction: inheritAction, CleanupAction: inheritAction},
-		"make-worktree", "drop-worktree", available,
+		available,
 	)
 	agentForm.Init()
 	agentView := agentForm.View()
@@ -768,7 +768,7 @@ func (f *formRecorder) ArchiveSchedule(_ context.Context, req *connect.Request[s
 func TestOnlyTheSubmitKeySubmitsAForm(t *testing.T) {
 	keys := config.DefaultKeybindings().Form
 
-	agent, _ := newAgentForm(keys, agentFormValues{}, "", "", nil)
+	agent, _ := newAgentForm(keys, agentFormValues{}, nil)
 	agent.Init()
 	for range 6 {
 		agent.Update(huh.NextField())
