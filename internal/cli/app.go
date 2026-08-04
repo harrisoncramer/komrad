@@ -13,7 +13,7 @@ import (
 // and the service builds its own stores from what is gathered here.
 type app struct {
 	popup *ui.PopupWindow
-	env   *config.Config
+	env   *config.Environment
 	keys  appconfig.Keybindings
 	// harnesses is every agent CLI this binary can run, which the services get an
 	// agent's own harness through.
@@ -41,10 +41,12 @@ type app struct {
 	// contextPath is the file holding the standing text every agent is started with,
 	// read from the config at startup.
 	contextPath string
-	// configPath is the file the user pointed at, empty for the default location.
-	// Serve keeps the path rather than the config parsed from it, since it reads the
-	// file again per request.
-	configPath string
+	// configPaths is the layer list this process resolved, weakest first, and empty when
+	// the loader is on its default path. Serve keeps the paths rather than the config
+	// parsed from them, since it reads the files again per request.
+	configPaths []string
+	// configSources is loader metadata used by doctor to explain precedence.
+	configSources map[string]appconfig.Source
 	// tmux is shared with the services. The UI needs it directly for the stage,
 	// which is its own layout rather than anything the agent API owns. It covers
 	// both tmux servers, sending each call to the one that can answer it.

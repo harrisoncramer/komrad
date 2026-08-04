@@ -72,15 +72,16 @@ func TestGetConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var path string
+			var paths []string
 			if tt.file != "" {
-				path = filepath.Join(t.TempDir(), "config.toml")
+				path := filepath.Join(t.TempDir(), "config.toml")
 				require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o600))
+				paths = []string{path}
 			} else {
 				t.Setenv("HOME", t.TempDir())
 			}
 
-			svc := NewService(func() (*appconfig.Config, error) { return appconfig.Load(path) })
+			svc := NewService(func() (*appconfig.Config, error) { return appconfig.Load(paths) })
 
 			resp, err := svc.GetConfig(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 			require.NoError(t, err)
@@ -202,4 +203,30 @@ func harnessFlags(t *testing.T, resp *configv1.GetConfigResponse, id string) any
 	require.True(t, ok, "the blob carries harness.%s.flags", id)
 
 	return flags
+}
+
+// TestGetConfigRedactsTheConnectionStrings covers the one place the config becomes something a
+// caller sees. The file can hold a database password now, and this endpoint is exposed to the
+// MCP surface, so an unredacted answer hands that password to any model that asks.
+func TestGetConfigRedactsTheConnectionStrings(t *testing.T) {
+	for _, name := range []string{"WEAVE_DATABASE_URL", "WEAVE_READONLY_DATABASE_URL"} {
+		t.Setenv(name, "")
+	}
+
+	path := filepath.Join(t.TempDir(), "config.toml")
+	body := "[connection]\n" +
+		"database_url = \"postgres://weave:hunter2@db.internal:5432/panel\"\n" +
+		"readonly_database_url = \"postgres://reader:alsosecret@db.internal:5432/panel\"\n"
+	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
+
+	svc := NewService(func() (*appconfig.Config, error) { return appconfig.Load([]string{path}) })
+
+	resp, err := svc.GetConfig(t.Context(), connect.NewRequest(&emptypb.Empty{}))
+	require.NoError(t, err)
+
+	rendered := resp.Msg.GetConfig().String()
+	assert.NotContains(t, rendered, "hunter2")
+	assert.NotContains(t, rendered, "alsosecret")
+	assert.Contains(t, rendered, "postgres://weave@db.internal:5432/panel",
+		"the login and the address are kept, since those are what a bug report needs")
 }

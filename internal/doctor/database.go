@@ -7,6 +7,8 @@ import (
 	"net"
 	"strconv"
 
+	"weave/internal/dsn"
+
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -23,7 +25,7 @@ const (
 var (
 	ErrDatabaseURLInvalid = &Problem{
 		Code:    "database_url_invalid",
-		Message: "DATABASE_URL is not a connection string Postgres accepts",
+		Message: "the database url is not a connection string Postgres accepts",
 	}
 	ErrDatabaseUnreachable = &Problem{
 		Code:    "database_unreachable",
@@ -31,7 +33,7 @@ var (
 	}
 	ErrDatabaseAuthFailed = &Problem{
 		Code:    "database_auth_failed",
-		Message: "the database refused the user or password in DATABASE_URL",
+		Message: "the database refused the user or password in the database url",
 	}
 	ErrDatabaseMissing = &Problem{
 		Code:    "database_missing",
@@ -51,7 +53,7 @@ var (
 	}
 	ErrReadOnlyLoginUnset = &Problem{
 		Code:    "readonly_login_unset",
-		Message: "there is no read-only login, and DATABASE_URL is not a url one can be derived from",
+		Message: "there is no read-only login, and the database url is not one it can be derived from",
 	}
 	ErrReadOnlyLoginElsewhere = &Problem{
 		Code:    "readonly_login_elsewhere",
@@ -75,11 +77,11 @@ func Database() Check {
 				return fail(
 					fmt.Errorf("%w: %w", ErrDatabaseURLInvalid, err),
 					"",
-					"set DATABASE_URL to a postgres:// url",
+					"set connection.database_url, or WEAVE_DATABASE_URL, to a postgres:// url",
 				)
 			}
 
-			target := redactDSN(env.DatabaseURL)
+			target := dsn.Redact(env.DatabaseURL) + describeSource(env, "database_url")
 
 			if err := env.PingDatabase(ctx, env.DatabaseURL); err != nil {
 				return classifyDatabaseFailure(err, env.DatabaseURL, target)
@@ -143,7 +145,7 @@ func ReadOnlyLogin() Check {
 			if env.ReadOnlyDatabaseURL == env.DatabaseURL {
 				return fail(
 					ErrReadOnlyLoginShared,
-					redactDSN(env.ReadOnlyDatabaseURL),
+					dsn.Redact(env.ReadOnlyDatabaseURL),
 					"point WEAVE_READONLY_DATABASE_URL at its own login, then run weave readonly-role",
 				)
 			}
@@ -151,7 +153,7 @@ func ReadOnlyLogin() Check {
 			if err := env.ConnectReadOnly(ctx, env.ReadOnlyDatabaseURL); err != nil {
 				return fail(
 					fmt.Errorf("%w: %s", ErrReadOnlyLoginUnusable, describeDatabaseReason(err)),
-					redactDSN(env.ReadOnlyDatabaseURL),
+					dsn.Redact(env.ReadOnlyDatabaseURL),
 					"weave readonly-role",
 				)
 			}
@@ -163,11 +165,11 @@ func ReadOnlyLogin() Check {
 			if where := describeStoreMismatch(env.DatabaseURL, env.ReadOnlyDatabaseURL); where != "" {
 				return warn(
 					fmt.Errorf("%w: %s", ErrReadOnlyLoginElsewhere, where),
-					redactDSN(env.ReadOnlyDatabaseURL),
+					dsn.Redact(env.ReadOnlyDatabaseURL),
 				)
 			}
 
-			return pass(redactDSN(env.ReadOnlyDatabaseURL))
+			return pass(dsn.Redact(env.ReadOnlyDatabaseURL) + describeSource(env, "readonly_database_url"))
 		},
 	}
 }
@@ -181,10 +183,10 @@ func classifyDatabaseFailure(err error, url, detail string) Result {
 		switch pgErr.Code {
 		case pgAuthFailed, pgAuthUnspecified:
 			return fail(fmt.Errorf("%w: %s", ErrDatabaseAuthFailed, pgErr.Message), detail,
-				"check the user and password in DATABASE_URL")
+				"check the user and password in the database url")
 		case pgDatabaseMissing:
 			return fail(fmt.Errorf("%w: %s", ErrDatabaseMissing, pgErr.Message), detail,
-				"createdb "+readDatabaseName(url)+", or point DATABASE_URL at one that exists")
+				"createdb "+readDatabaseName(url)+", or point the database url at one that exists")
 		}
 	}
 
@@ -193,7 +195,7 @@ func classifyDatabaseFailure(err error, url, detail string) Result {
 	return fail(
 		fmt.Errorf("%w %s: %s", ErrDatabaseUnreachable, describeHostPort(url), describeNetworkReason(err)),
 		detail,
-		"start Postgres "+describeHostPort(url)+", or point DATABASE_URL at one that is running",
+		"start Postgres "+describeHostPort(url)+", or point the database url at one that is running",
 	)
 }
 
@@ -218,7 +220,7 @@ func describeStoreMismatch(databaseURL, readOnlyURL string) string {
 		return ""
 	}
 
-	return fmt.Sprintf("DATABASE_URL is %s and this is %s",
+	return fmt.Sprintf("the database url is %s and this is %s",
 		describeStore(writable), describeStore(readOnly))
 }
 
@@ -272,17 +274,6 @@ func readDatabaseName(url string) string {
 	}
 
 	return cfg.Database
-}
-
-// redactDSN is the connection string without the password, since a report gets pasted into
-// issues and the address is the part worth reading.
-func redactDSN(url string) string {
-	cfg, err := pgconn.ParseConfig(url)
-	if err != nil {
-		return "(unparseable)"
-	}
-
-	return "postgres://" + cfg.User + "@" + describeStore(cfg)
 }
 
 // describeMigrationCount writes a number of migrations as a phrase, so the line reads as a

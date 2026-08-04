@@ -62,7 +62,7 @@ func TestDatabaseCheckTellsTheFailuresApart(t *testing.T) {
 			connectErr: refused(),
 			want:       StatusFail,
 			wantCode:   "database_unreachable",
-			wantFix:    "start Postgres at localhost:5460, or point DATABASE_URL at one that is running",
+			wantFix:    "start Postgres at localhost:5460, or point the database url at one that is running",
 		},
 		{
 			name:       "a password the server rejected",
@@ -130,17 +130,17 @@ func TestDatabaseFixAssumesNoCheckout(t *testing.T) {
 		{
 			name: "the address the checked-in compose file happens to use",
 			url:  writableURL,
-			want: "start Postgres at localhost:5460, or point DATABASE_URL at one that is running",
+			want: "start Postgres at localhost:5460, or point the database url at one that is running",
 		},
 		{
 			name: "somebody else's Postgres on the standard port",
 			url:  "postgres://weave:weave@localhost:5432/weave",
-			want: "start Postgres at localhost:5432, or point DATABASE_URL at one that is running",
+			want: "start Postgres at localhost:5432, or point the database url at one that is running",
 		},
 		{
 			name: "a Postgres on another host",
 			url:  "postgres://weave:weave@db.internal:5460/weave",
-			want: "start Postgres at db.internal:5460, or point DATABASE_URL at one that is running",
+			want: "start Postgres at db.internal:5460, or point the database url at one that is running",
 		},
 	}
 
@@ -162,7 +162,7 @@ func TestDatabaseMissingFixNamesTheDatabase(t *testing.T) {
 	missing := &pgconn.PgError{Code: "3D000", Message: `database "weave" does not exist`}
 	result := Database().Run(t.Context(), dbEnv(fakeSchema{}, missing, nil))
 
-	assert.Equal(t, "createdb weave, or point DATABASE_URL at one that exists", result.Fix)
+	assert.Equal(t, "createdb weave, or point the database url at one that exists", result.Fix)
 }
 
 // TestSchemaCheck covers that being behind is reported rather than treated as broken, since

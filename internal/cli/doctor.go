@@ -94,10 +94,10 @@ func (a *app) buildDoctor() (doctor.Env, []doctor.Check, error) {
 
 	env := doctor.NewEnv(settings)
 
-	// The path as it was given rather than the one it resolves to, since the loader tells
-	// a config nobody wrote apart from one somebody named and is not there, and only the
-	// unresolved path still says which of the two this is.
-	env.LoadConfig = func() (*appconfig.Config, error) { return appconfig.Load(a.configPath) }
+	// The paths as they were given rather than the ones they resolve to, since the loader
+	// tells a config nobody wrote apart from one somebody named and is not there, and only
+	// the unresolved list still says which of the two this is.
+	env.LoadConfig = func() (*appconfig.Config, error) { return appconfig.Load(a.configPaths) }
 
 	// The same probe the panel uses to decide whether to reuse a server or replace it, so
 	// the two cannot disagree about who holds the address.
@@ -119,7 +119,7 @@ func (a *app) buildDoctor() (doctor.Env, []doctor.Check, error) {
 // file or an environment for itself. The harnesses come from the registry, so a build that
 // gains a third agent CLI gains a line in the report without this being touched.
 func (a *app) buildDoctorSettings() (doctor.Settings, error) {
-	configPath, err := appconfig.ResolvePath(a.configPath)
+	layers, err := appconfig.ResolveLayers(a.configPaths)
 	if err != nil {
 		return doctor.Settings{}, fmt.Errorf("failed to work out where the config lives: %w", err)
 	}
@@ -138,7 +138,8 @@ func (a *app) buildDoctorSettings() (doctor.Settings, error) {
 		TmuxSocket:          a.env.TmuxSocket,
 		InsideTmux:          a.env.Tmux,
 		PanelSession:        agents.ManagerSession,
-		ConfigPath:          configPath,
+		ConfigLayers:        layers,
+		Sources:             a.configSources,
 		Harnesses:           harnesses,
 		DatabaseURL:         a.env.DatabaseURL,
 		ReadOnlyDatabaseURL: a.env.ReadOnlyDatabaseURL,

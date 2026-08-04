@@ -34,10 +34,10 @@ func startCmd(state *app) *cobra.Command {
 			}
 
 			if err := ensureServer(ensureServerParams{
-				Addr:       addr,
-				Self:       getSelfPath(),
-				LogPath:    state.env.LogPath(),
-				ConfigPath: state.configPath,
+				Addr:        addr,
+				Self:        getSelfPath(),
+				LogPath:     state.env.LogPath(),
+				ConfigPaths: state.configPaths,
 			}); err != nil {
 				return err
 			}

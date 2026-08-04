@@ -18,8 +18,8 @@ the machine, start or stop the service, or call an endpoint from a script.
 ### Options
 
 ```
-      --config string   path to config TOML
-  -h, --help            help for weave
+      --config stringArray   path to a config TOML, repeatable, later files win over earlier ones
+  -h, --help                 help for weave
 ```
 
 ### SEE ALSO

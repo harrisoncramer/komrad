@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 # Shared helpers for mise tasks. Sourced, not run directly.
 #
-# Host-side tasks that reach the database (Atlas, sqlc's dev container, psql)
-# read DATABASE_URL from the environment. When it is not set they fall back to
-# the local docker-compose Postgres, so a plain checkout works after
-# `mise run docker:up` with nothing else exported. A deployed environment sets
-# DATABASE_URL to its own instance and never uses the fallback.
+# WEAVE_DATABASE_URL is the one place the database is named. Weave reads it, and so do
+# the tests. When it is not set it falls back to the local docker-compose Postgres, so a
+# plain checkout works after `mise run docker:up` with nothing else exported.
+#
+# DATABASE_URL is then derived from it rather than read, because Atlas, sqlc's dev
+# container and psql only know that name. Deriving it means the tools and weave cannot end
+# up pointed at different databases, which is what would happen if each read its own
+# variable and only one of them was exported.
 : "${DB_PORT:=5460}"
 export DB_PORT
-export DATABASE_URL="${DATABASE_URL:-postgres://weave:weave@localhost:${DB_PORT}/weave?sslmode=disable}"
+export WEAVE_DATABASE_URL="${WEAVE_DATABASE_URL:-postgres://weave:weave@localhost:${DB_PORT}/weave?sslmode=disable}"
+export DATABASE_URL="$WEAVE_DATABASE_URL"
 
 # adminURL rewrites DATABASE_URL to point at the server's default database,
 # which is where a throwaway test database has to be created from since you

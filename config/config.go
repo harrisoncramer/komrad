@@ -1,88 +1,65 @@
-// Package config defines the panel's runtime configuration, loaded from the
-// environment.
+// Package config reads process context that is not part of the user's TOML configuration.
 package config
 
 import (
-	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
-
-	"github.com/caarlos0/env/v10"
 )
 
-// The login the MCP query tools connect as when none is configured. Only the name and the
-// password are weave's to pick. Where it connects is DATABASE_URL's to say, since this is a
-// second role on the same rows rather than a second store.
-const (
-	readOnlyUser     = "weave_readonly"
-	readOnlyPassword = "weave_readonly"
-)
+const layerVariable = "WEAVE_CONFIG"
 
-// Config holds the panel's runtime configuration.
-type Config struct {
-	DatabaseURL         string `env:"DATABASE_URL" envDefault:"postgres://weave:weave@localhost:5460/weave?sslmode=disable"`
-	ReadOnlyDatabaseURL string `env:"WEAVE_READONLY_DATABASE_URL"`
-	Addr                string `env:"WEAVE_ADDR" envDefault:"127.0.0.1:8787"`
-	TmuxSocket          string `env:"WEAVE_TMUX_SOCKET" envDefault:"weave"`
-	Editor              string `env:"EDITOR" envDefault:"vi"`
-	Tmux                string `env:"TMUX"`
-	CacheDir            string `env:"WEAVE_CACHE_DIR"`
-	TmuxPane            string `env:"TMUX_PANE"`
-	AgentID             string `env:"WEAVE_AGENT_ID"`
-	SessionID           string `env:"WEAVE_SESSION_ID"`
+// Environment is the process context weave receives from its shell, tmux, or a launched
+// agent. Its connection fields are copied from the values Viper already resolved; this
+// package does not apply a second configuration precedence scheme.
+type Environment struct {
+	DatabaseURL         string
+	ReadOnlyDatabaseURL string
+	Addr                string
+	TmuxSocket          string
+	CacheDir            string
+	Tmux                string
+	TmuxPane            string
+	AgentID             string
+	SessionID           string
+	Editor              string
 }
 
-// Load reads the panel's configuration from the environment.
-func Load() (*Config, error) {
-	cfg := &Config{}
-	if err := env.Parse(cfg); err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
+// LayerPaths returns the config stack named by WEAVE_CONFIG using the platform's path-list
+// separator, the same convention used by PATH and KUBECONFIG.
+func LayerPaths() []string {
+	value := os.Getenv(layerVariable)
+	if value == "" {
+		return nil
 	}
 
-	if cfg.CacheDir == "" {
-		dir, err := defaultCacheDir()
-		if err != nil {
-			return nil, err
-		}
-
-		cfg.CacheDir = dir
-	}
-
-	if cfg.ReadOnlyDatabaseURL == "" {
-		cfg.ReadOnlyDatabaseURL = deriveReadOnlyURL(cfg.DatabaseURL)
-	}
-
-	return cfg, nil
+	return filepath.SplitList(value)
 }
 
-// deriveReadOnlyURL is DATABASE_URL with the least-privilege login in place of the owner's.
-func deriveReadOnlyURL(databaseURL string) string {
-	parsed, err := url.Parse(databaseURL)
-	if err != nil {
-		return ""
+// Load adds transient process context to connection values Viper has already resolved.
+func Load(connection Environment) *Environment {
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = "vi"
 	}
 
-	if parsed.Scheme != "postgres" && parsed.Scheme != "postgresql" {
-		return ""
-	}
+	connection.Tmux = os.Getenv("TMUX")
+	connection.TmuxPane = os.Getenv("TMUX_PANE")
+	connection.AgentID = os.Getenv("WEAVE_AGENT_ID")
+	connection.SessionID = os.Getenv("WEAVE_SESSION_ID")
+	connection.Editor = editor
 
-	parsed.User = url.UserPassword(readOnlyUser, readOnlyPassword)
+	return &connection
+}
 
-	return parsed.String()
+// LookupEnv reports an environment value and whether it is non-empty. Configuration
+// packages use this instead of reading the process environment outside this package.
+func LookupEnv(name string) (string, bool) {
+	value, set := os.LookupEnv(name)
+
+	return value, set && value != ""
 }
 
 // LogPath is the file the background service writes to.
-func (c *Config) LogPath() string {
-	return filepath.Join(c.CacheDir, "weave.log")
-}
-
-// defaultCacheDir is where weave keeps what it generates.
-func defaultCacheDir() (string, error) {
-	dir, err := os.UserCacheDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to find a cache directory, set WEAVE_CACHE_DIR to an absolute path weave can write to: %w", err)
-	}
-
-	return filepath.Join(dir, "weave"), nil
+func (e *Environment) LogPath() string {
+	return filepath.Join(e.CacheDir, "weave.log")
 }

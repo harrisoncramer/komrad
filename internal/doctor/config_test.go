@@ -23,8 +23,8 @@ var claudeAndCodex = []HarnessInfo{
 func configEnv(cfg *appconfig.Config, loadErr error, exists bool, installed ...string) Env {
 	return Env{
 		Settings: Settings{
-			ConfigPath: "/home/u/.config/weave/config.toml",
-			Harnesses:  claudeAndCodex,
+			ConfigLayers: []appconfig.Layer{{Path: "/home/u/.config/weave/config.toml"}},
+			Harnesses:    claudeAndCodex,
 		},
 		LookPath: func(name string) (string, error) {
 			for _, have := range installed {
@@ -35,9 +35,9 @@ func configEnv(cfg *appconfig.Config, loadErr error, exists bool, installed ...s
 
 			return "", exec.ErrNotFound
 		},
-		Output:          func(context.Context, string, ...string) (string, error) { return "", errors.New("no server") },
-		LoadConfig:      func() (*appconfig.Config, error) { return cfg, loadErr },
-		DoesConfigExist: func() bool { return exists },
+		Output:         func(context.Context, string, ...string) (string, error) { return "", errors.New("no server") },
+		LoadConfig:     func() (*appconfig.Config, error) { return cfg, loadErr },
+		DoesLayerExist: func(string) bool { return exists },
 	}
 }
 
@@ -48,7 +48,7 @@ func TestConfigCheck(t *testing.T) {
 		result := Config().Run(t.Context(), configEnv(appconfig.Defaults(), nil, false))
 
 		assert.Equal(t, StatusOK, result.Status, "the default install has no config file")
-		assert.Contains(t, result.Detail, "every default applies")
+		assert.Contains(t, result.Detail, "(absent)")
 	})
 
 	t.Run("a file that parses", func(t *testing.T) {
@@ -57,6 +57,7 @@ func TestConfigCheck(t *testing.T) {
 		assert.Equal(t, StatusOK, result.Status)
 		assert.Equal(t, "/home/u/.config/weave/config.toml", result.Detail,
 			"the path is reported, since a config problem is not actionable without knowing which file")
+		assert.NotContains(t, result.Detail, "(absent)", "only a file that is missing is marked")
 	})
 
 	t.Run("a file that does not parse", func(t *testing.T) {

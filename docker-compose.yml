@@ -65,7 +65,7 @@ services:
       retries: 15
 
   # The same machine with a Postgres reachable, for the checks that need one to answer.
-  # Override DATABASE_URL on the run to point it at a database that is missing, unmigrated,
+  # Override WEAVE_DATABASE_URL on the run to point it at a database that is missing, unmigrated,
   # or refusing the password.
   doctor-postgres:
     profiles: ["doctor"]
@@ -77,7 +77,7 @@ services:
       doctor-db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://weave:weave@doctor-db:5432/weave?sslmode=disable
+      WEAVE_DATABASE_URL: postgres://weave:weave@doctor-db:5432/weave?sslmode=disable
 
 volumes:
   weave-db:

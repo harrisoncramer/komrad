@@ -63,11 +63,11 @@ const TranscriptSyncInterval = 15 * time.Second
 // this is reached, so nothing here reads a file, an environment, or a flag.
 type Params struct {
 	// Env is the process configuration the connection strings and paths come from.
-	Env *config.Config
-	// ConfigPath is the user's config file, empty for the default location. The path is
-	// kept rather than the config parsed from it, since the config service and the action
-	// service both read the file per request.
-	ConfigPath string
+	Env *config.Environment
+	// ConfigPaths is the user's config layers, weakest first, and empty for the default
+	// path. The paths are kept rather than the config parsed from them, since the config
+	// service and the action service both read the files per request.
+	ConfigPaths []string
 	// Logger is what the served handlers write their request lines to.
 	Logger *slog.Logger
 	// Addr is where the process listens, which agents are told so they can call back.
@@ -140,7 +140,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 	scheduleStore := schedulestore.New(pool.GetDB())
 	transcriptStore := transcriptstore.New(pool.GetDB())
 
-	loadConfig := func() (*appconfig.Config, error) { return appconfig.Load(p.ConfigPath) }
+	loadConfig := func() (*appconfig.Config, error) { return appconfig.Load(p.ConfigPaths) }
 
 	workflowService := agents.NewWorkflowService(agents.WorkflowParams{
 		Workflows: workflowStore,

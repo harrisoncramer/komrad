@@ -38,19 +38,19 @@ func forwardedEnv(t *testing.T, args []string) map[string]string {
 // started with, so a variable left out here is one that quietly keeps whatever value some
 // long-gone shell had for it.
 func TestBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) {
-	state := &app{env: &config.Config{
+	state := &app{env: &config.Environment{
 		DatabaseURL:         "postgres://weave@db/weave",
 		ReadOnlyDatabaseURL: "postgres://weave_readonly@db/weave",
 		Addr:                "127.0.0.1:9999",
 		TmuxSocket:          "weave-test",
-		Editor:              "nvim",
 		CacheDir:            "/tmp/cache",
+		Editor:              "nvim",
 	}}
 
 	args := buildManagerSessionArgs(state, "/usr/local/bin/weave")
 
 	assert.Equal(t, map[string]string{
-		"DATABASE_URL":                "postgres://weave@db/weave",
+		"WEAVE_DATABASE_URL":          "postgres://weave@db/weave",
 		"WEAVE_READONLY_DATABASE_URL": "postgres://weave_readonly@db/weave",
 		"WEAVE_ADDR":                  "127.0.0.1:9999",
 		"WEAVE_TMUX_SOCKET":           "weave-test",
@@ -64,25 +64,25 @@ func TestBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) {
 // so a path left off here is a panel reading the default while the caller named another.
 func TestBuildManagerSessionArgsCarriesTheConfigPath(t *testing.T) {
 	tests := []struct {
-		name       string
-		configPath string
-		want       []string
+		name        string
+		configPaths []string
+		want        []string
 	}{
 		{
-			name:       "no path given",
-			configPath: "",
-			want:       []string{"--", "/usr/local/bin/weave", "panel"},
+			name:        "no path given",
+			configPaths: nil,
+			want:        []string{"--", "/usr/local/bin/weave", "panel"},
 		},
 		{
-			name:       "a path given",
-			configPath: "/tmp/somewhere/config.toml",
-			want:       []string{"--", "/usr/local/bin/weave", "panel", "--config", "/tmp/somewhere/config.toml"},
+			name:        "a path given",
+			configPaths: []string{"/tmp/somewhere/config.toml"},
+			want:        []string{"--", "/usr/local/bin/weave", "panel", "--config", "/tmp/somewhere/config.toml"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			state := &app{env: &config.Config{}, configPath: tt.configPath}
+			state := &app{env: &config.Environment{}, configPaths: tt.configPaths}
 
 			args := buildManagerSessionArgs(state, "/usr/local/bin/weave")
 

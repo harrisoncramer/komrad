@@ -18,7 +18,7 @@ import (
 //
 // The role's name and password are read out of the read-only url rather than taken as
 // flags, so the credentials this creates and the credentials serve connects with are the
-// same, whether that url was set or derived from DATABASE_URL.
+// same, whether that url was set or derived from the writable one.
 func readonlyRoleCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "readonly-role",
@@ -28,8 +28,8 @@ func readonlyRoleCmd(state *app) *cobra.Command {
 			"as a login that can read the application tables and nothing else. That is enforced\n" +
 			"by Postgres rather than by inspecting the query. This creates or updates that role\n" +
 			"from the user and password in the read-only url, which is WEAVE_READONLY_DATABASE_URL\n" +
-			"when it is set and DATABASE_URL with the weave_readonly login otherwise, using\n" +
-			"DATABASE_URL to do the granting.\n\n" +
+			"when it is set and the writable url with the weave_readonly login otherwise, using\n" +
+			"the writable url to do the granting.\n\n" +
 			"It refuses when the two URLs name the same login, since then the read-only path would\n" +
 			"have the owner's privileges. Run it once when setting a database up. Tables a later\n" +
 			"migration adds are covered on their own, and running it again is harmless.",

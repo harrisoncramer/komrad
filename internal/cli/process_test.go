@@ -189,19 +189,19 @@ func TestEnsureServerWithAnUnwritableLog(t *testing.T) {
 // the caller named.
 func TestEnsureServerCarriesTheConfigPath(t *testing.T) {
 	tests := []struct {
-		name       string
-		configPath string
-		want       string
+		name        string
+		configPaths []string
+		want        string
 	}{
 		{
-			name:       "no path given",
-			configPath: "",
-			want:       "",
+			name:        "no path given",
+			configPaths: nil,
+			want:        "",
 		},
 		{
-			name:       "a path given",
-			configPath: "/tmp/somewhere/config.toml",
-			want:       "--config /tmp/somewhere/config.toml",
+			name:        "a path given",
+			configPaths: []string{"/tmp/somewhere/config.toml"},
+			want:        "--config /tmp/somewhere/config.toml",
 		},
 	}
 
@@ -210,10 +210,10 @@ func TestEnsureServerCarriesTheConfigPath(t *testing.T) {
 			logPath := filepath.Join(t.TempDir(), "serve.log")
 
 			err := ensureServer(ensureServerParams{
-				Addr:       freeAddr(t),
-				Self:       fakeServeEchoingArgs(t),
-				LogPath:    logPath,
-				ConfigPath: tt.configPath,
+				Addr:        freeAddr(t),
+				Self:        fakeServeEchoingArgs(t),
+				LogPath:     logPath,
+				ConfigPaths: tt.configPaths,
 			})
 
 			require.Error(t, err, "the stand-in serve always fails")

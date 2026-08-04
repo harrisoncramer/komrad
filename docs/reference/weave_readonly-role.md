@@ -10,8 +10,8 @@ The SQL half of the MCP endpoint runs whatever an agent asks it to, so it connec
 as a login that can read the application tables and nothing else. That is enforced
 by Postgres rather than by inspecting the query. This creates or updates that role
 from the user and password in the read-only url, which is WEAVE_READONLY_DATABASE_URL
-when it is set and DATABASE_URL with the weave_readonly login otherwise, using
-DATABASE_URL to do the granting.
+when it is set and the writable url with the weave_readonly login otherwise, using
+the writable url to do the granting.
 
 It refuses when the two URLs name the same login, since then the read-only path would
 have the owner's privileges. Run it once when setting a database up. Tables a later
@@ -30,7 +30,7 @@ weave readonly-role [flags]
 ### Options inherited from parent commands
 
 ```
-      --config string   path to config TOML
+      --config stringArray   path to a config TOML, repeatable, later files win over earlier ones
 ```
 
 ### SEE ALSO

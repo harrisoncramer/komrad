@@ -3,6 +3,7 @@ package doctor
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"weave/internal/appconfig"
 )
@@ -23,43 +24,87 @@ var (
 	}
 )
 
-// Config asserts the user's config file parses. An unknown key is an error rather than a
-// dropped line, so a typo takes the whole panel down to an error screen. Having no file is
-// the ordinary install and passes.
+// Config asserts the user's config layers parse, and names them in the order they are
+// merged. An unknown key is an error rather than a dropped line, so a typo takes the whole
+// panel down to an error screen. Having no file is the ordinary install and passes.
+//
+// Naming the layers is most of the point of this check. One file a person can read for
+// themselves, but with several the loader is the only thing that knows which one a value
+// came from, so a config that resolved to something surprising is otherwise undiagnosable.
 func Config() Check {
 	return Check{
 		Name:        "config",
-		Description: "the panel reads its keybindings and defaults from a TOML file",
+		Description: "the panel reads its keybindings, defaults and connection from TOML files",
 		Run: func(_ context.Context, env Env) Result {
 			if _, err := env.LoadConfig(); err != nil {
 				return fail(
 					fmt.Errorf("%w: %w", ErrConfigUnreadable, err),
-					env.ConfigPath,
+					describeLayers(env),
 					describeConfigFix(env),
 				)
 			}
 
-			// Whether the file is there is not worth its own status. Both answers
-			// are correct installs, and which one this is only matters when a
-			// setting is not taking effect, so it is said rather than judged.
-			if !env.DoesConfigExist() {
-				return pass("no file at " + env.ConfigPath + ", so every default applies")
-			}
-
-			return pass(env.ConfigPath)
+			// Whether a file is there is not worth its own status. Both answers are correct
+			// installs, and which one this is only matters when a setting is not taking
+			// effect, so it is said rather than judged.
+			return pass(describeLayers(env))
 		},
 	}
 }
 
-// describeConfigFix is what to do about a config that would not load, which turns on
-// whether the file is there at all. Telling somebody to edit a path with nothing at it
-// sends them looking for a file they never wrote.
-func describeConfigFix(env Env) string {
-	if !env.DoesConfigExist() {
-		return "write " + env.ConfigPath + ", or drop --config to run on the defaults"
+// describeLayers is the layer list in merge order, with any file that is not there marked so.
+// The order is the whole of what it says, since the order is what decides which file wins a
+// key the layers disagree about.
+//
+// Where each connection setting came from is reported by the check about that setting rather
+// than here, since a person asking why weave is on the wrong database is reading the database
+// line, not this one.
+func describeLayers(env Env) string {
+	if len(env.ConfigLayers) == 0 {
+		return "no config files"
 	}
 
-	return "fix or delete " + env.ConfigPath + ", since every key in it has a default"
+	described := make([]string, 0, len(env.ConfigLayers))
+	for _, layer := range env.ConfigLayers {
+		if env.DoesLayerExist(layer.Path) {
+			described = append(described, layer.Path)
+
+			continue
+		}
+
+		described = append(described, layer.Path+" (absent)")
+	}
+
+	return strings.Join(described, ", ")
+}
+
+// describeSource names where a setting was resolved from, as a phrase to hang off the value it
+// explains. Empty when nothing recorded it, so a caller that did not resolve through the
+// config package prints the value alone rather than a dangling "from the".
+func describeSource(env Env, key string) string {
+	source, ok := env.Sources[key]
+	if !ok {
+		return ""
+	}
+
+	return " from the " + string(source)
+}
+
+// describeConfigFix is what to do about a config that would not load, which turns on whether
+// any of the layers is there at all. Telling somebody to edit a path with nothing at it sends
+// them looking for a file they never wrote.
+func describeConfigFix(env Env) string {
+	for _, layer := range env.ConfigLayers {
+		if env.DoesLayerExist(layer.Path) {
+			return "fix or delete the file named above, since every key in it has a default"
+		}
+	}
+
+	if len(env.ConfigLayers) == 0 {
+		return "drop --config, or WEAVE_CONFIG, to run on the defaults"
+	}
+
+	return "write " + env.ConfigLayers[0].Path + ", or drop --config to run on the defaults"
 }
 
 // DefaultHarness asserts the CLI a new agent runs is one this build knows how to run. The

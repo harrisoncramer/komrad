@@ -17,19 +17,19 @@ import (
 // opposite things.
 func TestDoctorReadsTheConfigTheUserNamed(t *testing.T) {
 	tests := []struct {
-		name       string
-		configPath string
-		wantErr    bool
+		name        string
+		configPaths []string
+		wantErr     bool
 	}{
 		{
-			name:       "a file named on the command line that is not there",
-			configPath: "/no/such/config.toml",
-			wantErr:    true,
+			name:        "a file named on the command line that is not there",
+			configPaths: []string{"/no/such/config.toml"},
+			wantErr:     true,
 		},
 		{
-			name:       "no file and none named, which is every fresh install",
-			configPath: "",
-			wantErr:    false,
+			name:        "no file and none named, which is every fresh install",
+			configPaths: nil,
+			wantErr:     false,
 		},
 	}
 
@@ -40,7 +40,7 @@ func TestDoctorReadsTheConfigTheUserNamed(t *testing.T) {
 			registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))
 			require.NoError(t, err)
 
-			state := &app{env: &config.Config{}, harnesses: registry, configPath: tt.configPath}
+			state := &app{env: &config.Environment{}, harnesses: registry, configPaths: tt.configPaths}
 
 			env, _, err := state.buildDoctor()
 			require.NoError(t, err)
@@ -54,7 +54,7 @@ func TestDoctorReadsTheConfigTheUserNamed(t *testing.T) {
 			}
 
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), tt.configPath, "the error names the file that is not there")
+			assert.Contains(t, err.Error(), tt.configPaths[0], "the error names the file that is not there")
 		})
 	}
 }

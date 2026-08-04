@@ -1,49 +1,94 @@
 # Configuration
 
-Weave has two layers of configuration, and they do not overlap.
+Everything weave has is a key in a TOML file. Which agent CLI to run, per-CLI flags, keybindings, marks, layout, the log level, and under `[connection]` the database it connects to, the address it serves on, the tmux socket it runs its own server on, and where it keeps its cache.
 
-The first is a TOML file at `~/.config/weave/config.toml`. That is where the panel's own settings live: which agent CLI to run, per-CLI flags, keybindings, marks, layout, the log level.
+You can also set the `[connection]` ones from the environment, and the environment wins. That is what makes a second instance possible: a shell with `WEAVE_DATABASE_URL` and `WEAVE_TMUX_SOCKET` exported gets its own database and its own tmux server without touching the file your usual weave reads.
 
-The second is a handful of environment variables. That is where the database URL, the address the service listens on, the tmux socket, and the cache directory live. These decide which weave you are talking to, so they have to be settable per shell and per checkout, which a file in your home directory cannot do.
+And the file can be several files, layered in order. That is for keeping a base you share or check in, with the machine-specific parts in a file layered above it that never leaves the machine.
 
-The rule of thumb: if you would set it once and forget it, it goes in the file. If it identifies an instance, it is an environment variable.
-
-TODO TODO TODO: Write config file.
+So the whole of it, weakest first: the built-in default, then each file in the order it was given, then the environment.
 
 ## The config file
 
-Weave reads `~/.config/weave/config.toml`. It does not have to exist. With no file at all every default applies and the panel works fine, which is the ordinary install.
+Weave reads `~/.config/weave/config.toml`. That is the only file it looks for on its own, and it does not have to exist. With no file at all every default applies and the panel works fine, which is the ordinary install.
+
+You can hand it more files than that, layered in order, but weave will not go looking for them. Nothing is read that you did not either write at that path or name yourself.
 
 Write the file yourself and put only the settings you are changing in it. Anything you leave out falls back to its built-in default. There is no init command; `touch ~/.config/weave/config.toml` and start typing.
 
-A key weave does not recognise is an error, not a line quietly ignored. That is deliberate: a typo that does nothing is a setting you will spend twenty minutes deciding is broken. The error names the key and lists what its table actually takes:
+A key weave does not recognise is an error, not a line quietly ignored. That is deliberate: a typo that does nothing is a setting you will spend twenty minutes deciding is broken. The error names the files in the stack, the key, and what that key's table actually takes:
 
 ```
-failed to parse config /Users/you/.config/weave/config.toml:
-max_agent is not a setting; the top level takes default_harness, max_agents, harness, layout, marks, keybindings, actions, context, log
+failed to parse config /Users/you/.config/weave/config.toml, /Users/you/dotfiles/weave-work.toml:
+max_agent is not a setting; the top level takes default_harness, max_agents,
+harness, layout, marks, keybindings, actions, context, log, connection
 ```
 
-When the file will not parse, the panel replaces itself with an error screen carrying that message, and the background service logs the same thing and carries on with the defaults. So a broken config does not stop your agents, but the flags you set are not being applied while it is broken. Fix the key and reopen the panel.
+Viper validates the merged result once. The error therefore names the ordered stack rather than attributing an unknown key to one layer; search those files for the key it reports.
 
-`weave doctor` tells you which file is being read, whether it parses, and whether `default_harness` names a CLI you actually have installed. Run that first when a setting is not taking effect.
+`weave doctor` prints which files are being read, in order, which of them exist, and where each of the connection settings ended up coming from. Run that first when a setting is not taking effect.
 
-### Pointing at a different file
+### What happens when it will not parse
 
-`--config` names a file instead of the default. It is a persistent flag, so it goes before or after the subcommand:
+Most commands refuse to run. That includes `weave serve`, `weave open` and `weave start`, so nothing connects to a database on a config it could not read. This matters more than it used to: the file can name your database now, and falling back to built-in defaults would quietly point weave at a different one, possibly an old local Postgres, and write there.
+
+The panel is the exception, and shows an error screen naming the file and the key instead of exiting, because a panel that exits takes its own error message with it when tmux closes the popup. Nothing about your agents has changed and nothing has connected anywhere. Fix the key and press `prefix + g` again.
+
+`weave doctor` and `weave version` also still run, since a broken config is the thing you want to ask doctor about.
+
+### Layering several files
+
+`--config` names a layer, and you can pass it as many times as you like. Order is the order you write, last wins:
 
 ```sh
-weave --config /path/to/other.toml open
+weave --config ~/.config/weave/config.toml --config ./weave.toml open
 ```
 
-The path is forwarded to the panel session and to the background service it spawns, so all three read the same file. Useful for a second instance, or for testing a config without touching your real one.
+Passing `--config` at all replaces the default, so `~/.config/weave/config.toml` is not read unless you name it. That is why it is named explicitly above. It reads as redundant until you want the opposite:
 
-A file that is named with `--config` and is not there is an error, unlike the default path. If you point at a file you believe you have, weave says it is missing rather than silently running on defaults.
+```sh
+weave --config ./only-this.toml open
+```
+
+That runs on `./only-this.toml` and the built-in defaults, with your usual config nowhere in it. Being able to say that is the reason the flag replaces rather than adds. A second weave that inherited your real config could not be isolated from it.
+
+A file you named with `--config` and is not there is an error, naming which one. The default path not being there is not, because not having written one is the ordinary install.
+
+The layer list is forwarded to the panel session and to the background service it spawns, so all three read the same files in the same order.
+
+### WEAVE_CONFIG, for layering you want every time
+
+Typing two flags on every command is not a configuration. `WEAVE_CONFIG` holds the list for a shell, several paths separated by colons the way `PATH` is:
+
+```sh
+export WEAVE_CONFIG="$HOME/.config/weave/config.toml:$HOME/dotfiles/weave-machine.toml"
+```
+
+Put that in your shell profile and you have a permanent two-layer setup: a base you share or check in, and a file holding the parts that are true of one machine. This is the same thing `KUBECONFIG` and `COMPOSE_FILE` do, and it is the normal way to tell a tool which config files to read when you do not want to say so on every invocation.
+
+If you use layers, put it in your profile. That is not a workaround, it is the mechanism. In particular it is how layering reaches the panel opened with `prefix + g`, since the tmux binding is a fixed command line with nowhere to add a flag. Weave reads the variable from the shell that opened the popup, so exporting it in your profile is enough and there is nothing to configure in tmux.
+
+Flag beats variable beats the default path, and exactly one of the three is in force. `--config` replaces `WEAVE_CONFIG` rather than appending to it, so a checkout can drop a layer your shell exported instead of being stuck with it.
+
+One thing to know, which is the same for every setting under [connection]: the panel session takes its environment when it is created. Exporting `WEAVE_CONFIG` and pressing `prefix + g` will not reach a panel session that is already running. See [when a change takes effect](#when-a-change-takes-effect).
+
+### How layers combine
+
+A plain value is replaced by the last layer that sets it.
+
+A table is merged key by key, so a later layer changing `log.level` leaves `log.viewer` alone.
+
+A list is replaced whole by the last layer that sets it, and each list is its own unit. A layer that sets `marks` replaces the marks and does not touch your keybindings. A layer that sets `keybindings.agents.new` replaces that one binding and leaves the other twelve alone.
+
+Lists are not appended to. There would be no way to remove an entry a lower layer put there, and for `marks` the order is the order the mark key cycles through, which is yours to decide rather than something a base file gets the first say in.
+
+An explicit empty list clears the value from lower layers and the built-in defaults. For example, `marks = []` means there are no marks. This is also how a higher layer removes a keybinding supplied below it.
 
 ### About config.toml in the repo
 
 The `config.toml` at the root of the weave repository is generated. It is rendered from the `Config` struct in `internal/appconfig`, taking each key's description from the Go doc comment above it, by `mise run gen:config`.
 
-It is a reference, not a template. Do not copy it into `~/.config/weave/`. Two reasons. Editing the repo file changes nothing, because weave never reads it, and the next `mise run gen:config` overwrites your edits. And copying all of it leaves you holding every key weave has, so a rename in a later version breaks your config even for settings you never touched.
+It is a reference, not a template. Do not copy it into `~/.config/weave/`. Three reasons now. Editing the repo file changes nothing, because weave never reads it, and the next `mise run gen:config` overwrites your edits. Copying all of it leaves you holding every key weave has, so a rename in a later version breaks your config even for settings you never touched. And it spells out `connection.database_url` at its built-in default, which is the local Docker Postgres from this repo, so copying the file wholesale is a way to point weave at a database you did not mean.
 
 Read it, take the two lines you want, leave the rest.
 
@@ -219,47 +264,83 @@ viewer = 'jq -c . "$WEAVE_LOG" | fzf --ansi --tac'
 
 Where the log is written is not configurable. The process that spawns the service points its output at the file and the log key pages the same file, and a path those two could disagree about is a log nobody can find. It is `weave.log` under the cache directory, so `~/Library/Caches/weave/weave.log` on a Mac and `~/.cache/weave/weave.log` on Linux.
 
-## Environment variables
+## Connection and instance settings
 
-These are read from the environment only. There is no config file key for them.
+These six decide which weave you are talking to. Each has a key in the file and an environment variable, and the variable wins when it is set to something non-empty.
 
-### DATABASE_URL
+Both exist because they answer different questions. The file is where you write down the database you always use, so it survives a new shell and is not buried in a profile. The variable is how you point one shell, or one checkout, somewhere else without editing anything.
+
+They live in a `[connection]` table, and the key and the variable for each are:
+
+```
+connection.database_url           WEAVE_DATABASE_URL
+connection.readonly_database_url  WEAVE_READONLY_DATABASE_URL
+connection.addr                   WEAVE_ADDR
+connection.tmux_socket            WEAVE_TMUX_SOCKET
+connection.cache_dir              WEAVE_CACHE_DIR
+```
+
+So a file naming its own database and server:
+
+```toml
+[connection]
+database_url = "postgres://weave:secret@db.internal:5432/weave?sslmode=require"
+addr = "127.0.0.1:8790"
+tmux_socket = "weave-work"
+```
+
+Every variable is prefixed `WEAVE_`, the database one included. A bare `DATABASE_URL` is a name half the tools on a developer's machine already use, so a shell exported for something else would otherwise reach into weave and decide which database it writes to. Weave ignores `DATABASE_URL` entirely.
+
+An empty variable counts as unset, so `WEAVE_DATABASE_URL=` falls through to the file rather than blanking it.
+
+Passwords in a file are worth a thought. `~/.config/weave` is yours, but the two connection strings are the one part of your config that is a secret. If you keep a base file somewhere shared or checked in, they belong in a layer above it rather than in the base, and that layer belongs in `.gitignore`. Weave redacts both down to login and host anywhere it hands your config back, so `weave rpc get-config` and the [MCP](mcp.md) `get_config` tool show `postgres://weave@db.internal:5432/weave` and never the password.
+
+### connection.database_url, WEAVE_DATABASE_URL
 
 The Postgres weave stores everything in: agents, workflows, schedules, transcripts. Defaults to `postgres://weave:weave@localhost:5460/weave?sslmode=disable`, which is what `mise run docker:up` starts in this repo.
 
 Weave brings the schema up to date itself when the service starts. There is no migration step to run by hand.
 
-### WEAVE_READONLY_DATABASE_URL
+### connection.readonly_database_url, WEAVE_READONLY_DATABASE_URL
 
 A second login into the same database, for reading only.
 
-Set nothing and weave derives it from `DATABASE_URL`, keeping the host, the port, the database, and the options exactly as you wrote them and putting the login `weave_readonly` in place of yours. So moving `DATABASE_URL` to another server moves both halves, and the two can only land on different databases if you say so here.
+Set nothing and weave derives it from whichever database URL is in force, keeping the host, the port, the database, and the options exactly as you wrote them and putting the login `weave_readonly` in place of yours. The derivation happens after the file and the environment have been resolved, so a file that sets only `connection.database_url` gets a read-only login on that database rather than on the built-in default. Moving the database moves both halves, and the two can only land on different databases if you say so here.
 
 Weave needs two logins rather than one because the [MCP](mcp.md) surface lets a model run SQL. The connection is opened read-only, but read-only stops writes and only writes; what a `SELECT` is allowed to see is decided by the role's privileges. So the query tools connect as a role that has read on the application tables and nothing else.
 
 Weave refuses to start if that URL lands on a superuser, and says so rather than warning, because a superuser is exempt from the privilege checks on the catalogs and on the file-reading functions, and both are reachable through a plain `SELECT` that writes nothing.
 
-Set it when the read-only login needs a password of its own, or reaches the database by another route:
+Set it when the read-only login needs a password of its own, or reaches the database by another route. In a file:
 
-```sh
-export DATABASE_URL='postgres://weave:secret@db.internal:5432/weave?sslmode=require'
-export WEAVE_READONLY_DATABASE_URL='postgres://weave_readonly:other@db.internal:5432/weave?sslmode=require'
-weave readonly-role
+```toml
+[connection]
+database_url = "postgres://weave:secret@db.internal:5432/weave?sslmode=require"
+readonly_database_url = "postgres://weave_readonly:other@db.internal:5432/weave?sslmode=require"
 ```
 
-`weave readonly-role` creates the role named in the read-only URL, with the password in it, and grants it read on the application tables. It connects as `DATABASE_URL` and needs `CREATEROLE`. Run it once, and again after an upgrade that adds a table. It refuses to run if the two URLs name the same login, since that would be a read-only role with your write privileges.
+Or for one shell:
+
+```sh
+export WEAVE_DATABASE_URL='postgres://weave:secret@db.internal:5432/weave?sslmode=require'
+export WEAVE_READONLY_DATABASE_URL='postgres://weave_readonly:other@db.internal:5432/weave?sslmode=require'
+```
+
+Either way, run `weave readonly-role` once afterwards.
+
+`weave readonly-role` creates the role named in the read-only URL, with the password in it, and grants it read on the application tables. It connects as the writable URL and needs `CREATEROLE`. Run it once, and again after an upgrade that adds a table. It refuses to run if the two URLs name the same login, since that would be a read-only role with your write privileges.
 
 `weave doctor` reports a pair naming two different databases, since both halves connect and nothing else would say the panel and the query tools are reading different rows. It reports rather than refuses, because an address weave cannot match up may still be the same database behind a connection pooler or a second name for the host.
 
-### WEAVE_ADDR
+### connection.addr, WEAVE_ADDR
 
 Where the background service listens. Default `127.0.0.1:8787`. The panel, the CLI, and the MCP endpoint all talk to this address.
 
 Change it when you run two weaves on one machine. Two instances on the same address will keep replacing each other's server, because the panel refuses to talk to a server built from a different version and restarts it.
 
-`weave serve --addr` overrides it for a service started by hand.
+`weave serve --addr` overrides it for a service started by hand, above both the file and the variable.
 
-### WEAVE_TMUX_SOCKET
+### connection.tmux_socket, WEAVE_TMUX_SOCKET
 
 The tmux socket weave runs its own server on. Default `weave`.
 
@@ -269,29 +350,43 @@ Weave does not use your tmux server. It starts a second one and puts the manager
 tmux -L weave ls
 ```
 
-Change this along with `WEAVE_ADDR` and `DATABASE_URL` when you want a second, isolated instance.
+Change this along with `addr` and `database_url` when you want a second, isolated instance. Those three together are what isolation means here, and a layer holding all of `[connection]` is the tidiest way to keep one:
 
-### WEAVE_CACHE_DIR
+```toml
+[connection]
+database_url = "postgres://weave:weave@localhost:5461/weave?sslmode=disable"
+addr = "127.0.0.1:8790"
+tmux_socket = "weave-test"
+cache_dir = "~/Library/Caches/weave-test"
+```
+
+### connection.cache_dir, WEAVE_CACHE_DIR
 
 Where weave keeps what it generates: the service log, the built-in action scripts it writes out on every start, and the temp files a harness passes a prompt through. Defaults to `~/Library/Caches/weave` on a Mac and `~/.cache/weave` on Linux.
 
 Everything under it is weave's to delete and rewrite, so nothing of yours belongs here. Set it if your cache directory is not writable, or to keep a second instance's log out of the first one's.
 
+## Read from the environment only
+
 ### EDITOR
 
-The editor the panel's editor key opens an agent's directory in. Default `vi`. This is your existing environment variable and weave does not ask for it twice.
+The editor the panel's editor key opens an agent's directory in. Default `vi`.
+
+There is no config key for this one. Every machine already has an `EDITOR`, it is the same answer for every tool on that machine, and weave does not need to ask for it twice.
 
 ### Set by tmux and by weave
 
 `TMUX` and `TMUX_PANE` are set by tmux, and weave reads them to work out which of your clients opened the popup. `WEAVE_AGENT_ID` and `WEAVE_SESSION_ID` are set by weave into every pane it launches, so a call an agent makes back through the MCP endpoint is attributed to that agent rather than to nobody. Do not set any of these yourself.
 
-## When environment changes take effect
+## When a change takes effect
 
-A tmux server takes its environment once, from whatever shell started it, and hands that to every session created afterwards. Weave's server is long-lived. So exporting a new `DATABASE_URL` and reopening the panel reaches nothing: the panel session already exists and is still running under an environment that could be weeks old.
+Most settings take effect when you reopen the panel. The files are read at startup by the panel and by the service, so changing a keybinding or a harness flag needs nothing killed.
 
-Weave works around this by forwarding the six variables above with `-e` when it creates the manager session, so they pick up the shell that opened the popup. But only the open that creates the session does that. Every later one finds it already up.
+The six connection settings are the exception, whether you set them in a file or in the environment. They are read once, when the panel session is created, and reused from then on.
 
-So after changing any of them, restart:
+The reason is tmux. A tmux server takes its environment once, from whatever shell started it, and hands that to every session created afterwards. Weave's server is long-lived, so that environment could be weeks old. Weave works around it by resolving all six itself and forwarding the resolved values into the manager session with `-e`, which pins them to the shell that opened the popup. Only the open that creates the session does that. Every later one finds it already up.
+
+So after changing any of the six, restart:
 
 ```sh
 weave stop
@@ -300,7 +395,7 @@ tmux -L weave kill-server
 
 Then press `prefix + g` again. This kills the tmux server weave runs its agents on, so anything mid-turn loses its pane. The records and transcripts are in Postgres and survive.
 
-The TOML file is different. It is read at startup by the panel and by the service, so changing it takes effect when you reopen the panel, without killing anything.
+One consequence worth knowing: because the resolved values are forwarded into the tmux server's environment, `tmux -L weave show-environment` will show them, database password included, and every pane inherits them. That is the cost of pinning them, and it is why the panel does not re-read them per pane.
 
 ## A minimal config
 
@@ -369,6 +464,51 @@ file = "~/dotfiles/weave/context.md"
 level = "debug"
 viewer = 'jq -c . "$WEAVE_LOG" | fzf --ansi --tac'
 ```
+
+## A layered pair
+
+The reason to split a config is that one half is worth sharing and the other is not. Here the base is the part you would check into a dotfiles repo, and the second file is the part that is true of one machine.
+
+Weave does not find the second one on its own, so name both:
+
+```sh
+export WEAVE_CONFIG="$HOME/.config/weave/config.toml:$HOME/.config/weave/machine.toml"
+```
+
+`~/.config/weave/config.toml`:
+
+```toml
+default_harness = "codex"
+max_agents = 25
+
+marks = [
+  { glyph = "!", color = "red" },
+  { glyph = "?", color = "yellow" },
+  { glyph = "✓", color = "green" },
+]
+
+[harness.codex]
+trust_launch_dirs = true
+
+[keybindings.agents]
+new = ["n", "c"]
+
+[log]
+level = "info"
+```
+
+`~/.config/weave/machine.toml`, which stays on the machine:
+
+```toml
+[connection]
+database_url = "postgres://weave:secret@db.internal:5432/weave?sslmode=require"
+cache_dir = "/fast-ssd/weave"
+
+[log]
+level = "debug"
+```
+
+What weave ends up running: `log.level` is `debug` from the second file, and `log.viewer` is still the built-in, because merging a table does not disturb the keys it does not mention. `marks` is the base's three, since the second file said nothing about them. `keybindings.agents.new` is `["n", "c"]` and every other binding is its built-in default. `connection.database_url` is the second file's, unless `WEAVE_DATABASE_URL` is exported in the shell you opened the panel from, in which case that wins.
 
 ## See also
 

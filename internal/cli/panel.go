@@ -34,12 +34,20 @@ func panelCmd(state *app) *cobra.Command {
 			// Carried into the panel rather than returned, since returning ends the
 			// session and tmux tears the pane down with the message still on it.
 			logPath := state.env.LogPath()
-			startupErr := ensureServer(ensureServerParams{
-				Addr:       state.env.Addr,
-				Self:       getSelfPath(),
-				LogPath:    logPath,
-				ConfigPath: state.configPath,
-			})
+
+			// No server on a config that would not parse. Serve refuses that config too, so
+			// spawning would fail and the panel would show the startup screen, which is about
+			// the server, in place of the config screen, which is about the file the user has
+			// to go and fix. Nothing has connected to a database at this point.
+			var startupErr error
+			if state.configErr == nil {
+				startupErr = ensureServer(ensureServerParams{
+					Addr:        state.env.Addr,
+					Self:        getSelfPath(),
+					LogPath:     logPath,
+					ConfigPaths: state.configPaths,
+				})
+			}
 
 			// Only on failure. The checks reach a database and a tmux server, which
 			// is not work to do on every open, and there is nothing to explain when

@@ -18,7 +18,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"weave/config"
+	"weave/internal/appconfig"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -38,13 +38,16 @@ func URL(t *testing.T) string {
 	// The test database is created on the server the application would have
 	// connected to, read through the same config, so `mise run docker:up` is the only
 	// setup a test run needs and a CI runner redirects the whole run by setting
-	// DATABASE_URL, the read-only login included, since that one is derived from it.
+	// WEAVE_DATABASE_URL, the read-only login included, since that one is derived from it.
 	// Only the server is borrowed. The database named in the url is never touched.
-	cfg, err := config.Load()
+	//
+	// Resolved against the built-in defaults rather than the user's config files, since a
+	// test run must not depend on what happens to be in the developer's home directory.
+	cfg, err := appconfig.Load(nil)
 	if err != nil {
 		t.Fatalf("failed to load config for the test database: %v", err)
 	}
-	baseURL := cfg.DatabaseURL
+	baseURL := cfg.Connection.DatabaseURL
 
 	name := fmt.Sprintf("weave_test_%d_%d", os.Getpid(), created.Add(1))
 
