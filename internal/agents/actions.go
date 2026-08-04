@@ -124,14 +124,14 @@ func (s *ActionService) RunAction(ctx context.Context, agentID, name string) err
 		return ErrAgentNotFound
 	}
 
-	resolved, err := s.resolve(ctx, resolveParams{agent: *agent, name: name, trigger: TriggerManual})
+	prepared, err := s.prepare(ctx, prepareParams{agent: *agent, name: name, trigger: TriggerManual})
 	if err != nil {
 		return err
 	}
 
 	return s.start(ctx, startParams{
-		action:  resolved.action,
-		env:     resolved.env,
+		action:  prepared.action,
+		env:     prepared.env,
 		agent:   *agent,
 		trigger: TriggerManual,
 	})
@@ -162,14 +162,14 @@ func (s *ActionService) EditAction(ctx context.Context, agentID, name string) er
 		return fmt.Errorf("failed to edit action %s: %w", name, ErrNotEditable)
 	}
 
-	resolved, err := s.resolve(ctx, resolveParams{agent: *agent, name: editActionName, trigger: TriggerManual})
+	prepared, err := s.prepare(ctx, prepareParams{agent: *agent, name: editActionName, trigger: TriggerManual})
 	if err != nil {
 		return err
 	}
 
 	return s.start(ctx, startParams{
-		action:  resolved.action,
-		env:     append(resolved.env, editPathVar+"="+target.Path),
+		action:  prepared.action,
+		env:     append(prepared.env, editPathVar+"="+target.Path),
 		agent:   *agent,
 		trigger: TriggerManual,
 	})
@@ -199,11 +199,11 @@ type awaitedActionParams struct {
 }
 
 func (s *ActionService) runAwaitedAction(ctx context.Context, p awaitedActionParams) (string, error) {
-	resolved, err := s.resolve(ctx, resolveParams{agent: p.agent, name: p.name, trigger: p.trigger})
+	prepared, err := s.prepare(ctx, prepareParams{agent: p.agent, name: p.name, trigger: p.trigger})
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrSetupFailed, err)
 	}
-	action, env := resolved.action, resolved.env
+	action, env := prepared.action, prepared.env
 
 	logger := s.actionLogger(ctx, actionRecord{name: p.name, trigger: p.trigger, agent: p.agent})
 	logger.LogAttrs(ctx, slog.LevelInfo, "action started")
@@ -240,14 +240,14 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p awaitedActionPar
 
 // RunCleanupAction starts a cleanup action without waiting for it to finish.
 func (s *ActionService) RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string) error {
-	resolved, err := s.resolve(ctx, resolveParams{agent: agent, name: name, trigger: TriggerCleanup})
+	prepared, err := s.prepare(ctx, prepareParams{agent: agent, name: name, trigger: TriggerCleanup})
 	if err != nil {
 		return err
 	}
 
 	return s.start(ctx, startParams{
-		action:  resolved.action,
-		env:     resolved.env,
+		action:  prepared.action,
+		env:     prepared.env,
 		agent:   agent,
 		trigger: TriggerCleanup,
 	})
@@ -337,35 +337,35 @@ type foundAction struct {
 	dir string
 }
 
-// resolvedAction is an action together with the environment a run of it needs, the two
+// preparedAction is an action together with the environment a run of it needs, the two
 // things every caller works out before it can start one.
-type resolvedAction struct {
+type preparedAction struct {
 	action foundAction
 	env    []string
 }
 
-type resolveParams struct {
+type prepareParams struct {
 	agent   agentstore.Agent
 	name    string
 	trigger string
 }
 
-// resolve finds the named action and builds the environment a run of it is handed. Every
-// caller does both before starting anything, so this is where that resolving happens,
+// prepare finds the named action and builds the environment a run of it is handed. Every
+// caller does both before starting anything, so this is where that preparation happens,
 // leaving the actual start of the process to whichever of start or RunAndWait the caller
 // needs.
-func (s *ActionService) resolve(ctx context.Context, p resolveParams) (resolvedAction, error) {
+func (s *ActionService) prepare(ctx context.Context, p prepareParams) (preparedAction, error) {
 	action, err := s.find(p.name)
 	if err != nil {
-		return resolvedAction{}, err
+		return preparedAction{}, err
 	}
 
 	env, err := s.env(ctx, actionEnvParams{agent: p.agent, dir: action.dir, trigger: p.trigger})
 	if err != nil {
-		return resolvedAction{}, err
+		return preparedAction{}, err
 	}
 
-	return resolvedAction{action: action, env: env}, nil
+	return preparedAction{action: action, env: env}, nil
 }
 
 // Match discovered names instead of joining untrusted input onto a path.
@@ -440,7 +440,7 @@ type dirScan struct {
 }
 
 // scan lists the actions in dir, reusing what an earlier call found there as long as the
-// directory's own mtime has not moved. Every action invocation resolves through here, and
+// directory's own mtime has not moved. Every action invocation works through here, and
 // each entry's header is read off disk, so rescanning on every one of them would mean
 // re-reading every action's file to run any single one. A directory gains or loses an mtime
 // bump only when a file is added, removed, or renamed inside it, which is the change this
