@@ -13,6 +13,8 @@ import (
 	"weave/db/models"
 	"weave/internal/store"
 	"weave/lib/xslice"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // ErrTooManyMetadataKeys reports that an agent has reached its metadata limit.
@@ -75,11 +77,16 @@ func SanitizeName(name string) string {
 // Store reads and writes agents.
 type Store struct {
 	queries *models.Queries
+	db      store.DBTX
 }
 
 // New builds an agent store over a pool or transaction.
 func New(db store.DBTX) *Store {
-	return &Store{queries: models.New(db)}
+	return &Store{queries: models.New(db), db: db}
+}
+
+type txBeginner interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
 }
 
 // List returns every persisted agent, newest first.
@@ -89,7 +96,7 @@ func (s *Store) List(ctx context.Context) ([]Agent, error) {
 		return nil, fmt.Errorf("failed to list agents: %w", err)
 	}
 
-	return xslice.Map(rows, func(row *models.Agent) Agent { return agentFromRow(*row) }), nil
+	return s.hydrateAgents(ctx, rows)
 }
 
 // Cursor locates an agent within a paginated listing.
@@ -118,10 +125,12 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 		return nil, fmt.Errorf("failed to list a page of agents: %w", err)
 	}
 
-	return s.buildAgentsWithMetadata(ctx, rows)
+	return s.hydrateAgents(ctx, rows)
 }
 
-func (s *Store) buildAgentsWithMetadata(ctx context.Context, rows []*models.Agent) ([]Agent, error) {
+// hydrateAgents is the single loader for fully hydrated agents, metadata included.
+// Every list/get method routes through it so callers never stitch metadata back in themselves.
+func (s *Store) hydrateAgents(ctx context.Context, rows []*models.Agent) ([]Agent, error) {
 	agents := make([]Agent, 0, len(rows))
 	ids := make([]string, 0, len(rows))
 	for _, row := range rows {
@@ -139,6 +148,16 @@ func (s *Store) buildAgentsWithMetadata(ctx context.Context, rows []*models.Agen
 	}
 
 	return agents, nil
+}
+
+// hydrateAgent is hydrateAgents for the single-row get paths.
+func (s *Store) hydrateAgent(ctx context.Context, row *models.Agent) (*Agent, error) {
+	agents, err := s.hydrateAgents(ctx, []*models.Agent{row})
+	if err != nil {
+		return nil, err
+	}
+
+	return &agents[0], nil
 }
 
 func (s *Store) metadataByAgent(ctx context.Context, ids []string) (map[string][]Metadata, error) {
@@ -166,7 +185,7 @@ func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
 		return nil, fmt.Errorf("failed to list all agents: %w", err)
 	}
 
-	return xslice.Map(rows, func(row *models.Agent) Agent { return agentFromRow(*row) }), nil
+	return s.hydrateAgents(ctx, rows)
 }
 
 // GetInWorkflow returns a live agent by workflow and name.
@@ -182,12 +201,7 @@ func (s *Store) GetInWorkflow(ctx context.Context, workflowID, name string) (*Ag
 		return nil, fmt.Errorf("failed to get agent %q in workflow %q: %w", name, workflowID, err)
 	}
 
-	agents, err := s.buildAgentsWithMetadata(ctx, []*models.Agent{row})
-	if err != nil {
-		return nil, err
-	}
-
-	return &agents[0], nil
+	return s.hydrateAgent(ctx, row)
 }
 
 // GetByID returns a live or archived agent by ID.
@@ -204,12 +218,7 @@ func (s *Store) GetByID(ctx context.Context, id string) (*Agent, error) {
 		return nil, fmt.Errorf("failed to get agent %q: %w", id, err)
 	}
 
-	agents, err := s.buildAgentsWithMetadata(ctx, []*models.Agent{row})
-	if err != nil {
-		return nil, err
-	}
-
-	return &agents[0], nil
+	return s.hydrateAgent(ctx, row)
 }
 
 // ListByID returns live and archived agents matching the given IDs.
@@ -224,7 +233,7 @@ func (s *Store) ListByID(ctx context.Context, ids []string) ([]Agent, error) {
 		return nil, fmt.Errorf("failed to get %d agents: %w", len(storable), err)
 	}
 
-	return s.buildAgentsWithMetadata(ctx, rows)
+	return s.hydrateAgents(ctx, rows)
 }
 
 // Exists reports whether any agent holds the given id, including archived ones.
@@ -394,8 +403,27 @@ func (s *Store) SetMetadata(ctx context.Context, params SetMetadataParams) (bool
 		return len(deleted) > 0, nil
 	}
 
+	beginner, ok := s.db.(txBeginner)
+	if !ok {
+		return false, fmt.Errorf("agent store has no transaction-capable connection to record metadata %q on agent %q", params.Key, params.ID)
+	}
+
+	tx, err := beginner.Begin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to begin metadata transaction for agent %q: %w", params.ID, err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	queries := models.New(tx)
+
+	// Locking here, before counting, is what keeps two callers writing different new keys
+	// from both reading the same count and both slipping past the limit.
+	if err := queries.LockAgentMetadata(ctx, params.ID); err != nil {
+		return false, fmt.Errorf("failed to lock metadata for agent %q: %w", params.ID, err)
+	}
+
 	// Existing keys remain writable after the agent reaches the key limit.
-	held, err := s.queries.ListAgentMetadata(ctx, []string{params.ID})
+	held, err := queries.ListAgentMetadata(ctx, []string{params.ID})
 	if err != nil {
 		return false, fmt.Errorf("failed to read metadata on agent %q: %w", params.ID, err)
 	}
@@ -407,13 +435,17 @@ func (s *Store) SetMetadata(ctx context.Context, params SetMetadataParams) (bool
 		return false, ErrTooManyMetadataKeys
 	}
 
-	written, err := s.queries.SetAgentMetadata(ctx, models.SetAgentMetadataParams{
+	written, err := queries.SetAgentMetadata(ctx, models.SetAgentMetadataParams{
 		AgentID: params.ID,
 		Key:     params.Key,
 		Value:   *params.Value,
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to record metadata %q on agent %q: %w", params.Key, params.ID, err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("failed to commit metadata for agent %q: %w", params.ID, err)
 	}
 
 	return len(written) > 0, nil
@@ -433,9 +465,7 @@ func (s *Store) GetByIdempotencyKey(ctx context.Context, key string) (*Agent, er
 		return nil, fmt.Errorf("failed to get the agent for idempotency key %q: %w", key, err)
 	}
 
-	agent := agentFromRow(*row)
-
-	return &agent, nil
+	return s.hydrateAgent(ctx, row)
 }
 
 // CountLive returns the number of unarchived agents.
@@ -555,7 +585,7 @@ func (s *Store) ListLiveInWorkflow(ctx context.Context, workflowID string) ([]Ag
 		return nil, fmt.Errorf("failed to list live agents of workflow %q: %w", workflowID, err)
 	}
 
-	return xslice.Map(rows, func(row *models.Agent) Agent { return agentFromRow(*row) }), nil
+	return s.hydrateAgents(ctx, rows)
 }
 
 // ListArchivedInWorkflow returns the archived agents in a workflow.
@@ -565,7 +595,7 @@ func (s *Store) ListArchivedInWorkflow(ctx context.Context, workflowID string) (
 		return nil, fmt.Errorf("failed to list archived agents of workflow %q: %w", workflowID, err)
 	}
 
-	return xslice.Map(rows, func(row *models.Agent) Agent { return agentFromRow(*row) }), nil
+	return s.hydrateAgents(ctx, rows)
 }
 
 // PostgreSQL rejects the entire UUID array when any element is invalid.

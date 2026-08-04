@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 
 	"weave/db/models"
@@ -668,6 +669,53 @@ func TestSetMetadataCeiling(t *testing.T) {
 	changed, err := st.SetMetadata(ctx, SetMetadataParams{ID: created.ID, Key: "key-0", Value: xptr.Ptr("revised")})
 	require.NoError(t, err, "revising a key the agent already holds is not a new key")
 	assert.True(t, changed)
+}
+
+// TestSetMetadataCeilingUnderConcurrency drives more writers at one agent's key limit than fit, testing locking.
+func TestSetMetadataCeilingUnderConcurrency(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, created)
+
+	const (
+		room    = 4
+		writers = 16
+	)
+
+	for i := range maxMetadataKeys - room {
+		changed, err := st.SetMetadata(ctx, SetMetadataParams{ID: created.ID, Key: fmt.Sprintf("key-%d", i), Value: xptr.Ptr("v")})
+		require.NoError(t, err)
+		require.True(t, changed)
+	}
+
+	var wg sync.WaitGroup
+	errs := make([]error, writers)
+
+	for i := range writers {
+
+		wg.Go(func() {
+
+			_, err := st.SetMetadata(ctx, SetMetadataParams{ID: created.ID, Key: fmt.Sprintf("racer-%d", i), Value: xptr.Ptr("v")})
+			errs[i] = err
+		})
+	}
+
+	wg.Wait()
+
+	for i, err := range errs {
+		if err != nil {
+			require.ErrorIs(t, err, ErrTooManyMetadataKeys, "writer %d", i)
+		}
+	}
+
+	after, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, after)
+	assert.Len(t, after.Metadata, maxMetadataKeys, "only room many racers should have gotten past the limit")
 }
 
 // TestListPageHydratesMetadata pins that a listing carries each agent's own facts and

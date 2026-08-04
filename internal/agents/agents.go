@@ -269,7 +269,7 @@ func newAgentLaunch(params NewAgentParams, plan *launchPlan, id, sessionID strin
 		plan:      plan,
 		id:        id,
 		sessionID: sessionID,
-		agent:     plan.agent(params, id, sessionID),
+		agent:     plan.agent(params, id, sessionID, plan.dir, ""),
 	}
 }
 
@@ -293,14 +293,13 @@ func (s *AgentService) openLaunchPane(l *agentLaunch) error {
 	if err != nil {
 		return err
 	}
-	l.agent.Cwd = dir
 
 	pane, err := s.tmux.NewWindow(ManagerSession, l.plan.name, dir)
 	if err != nil {
 		return fmt.Errorf("failed to open a window for %q: %w", l.plan.name, err)
 	}
 	l.pane = pane
-	l.agent.Pane = pane
+	l.agent = l.plan.agent(l.params, l.id, l.sessionID, dir, pane)
 
 	if err := s.tmux.SetPaneOwner(pane, l.id); err != nil {
 		return fmt.Errorf("failed to stamp the pane for %q: %w", l.plan.name, err)
@@ -665,11 +664,15 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 	}, nil
 }
 
-func (plan *launchPlan) agent(params NewAgentParams, id, sessionID string) agentstore.Agent {
+// agent builds the complete row for a launching agent. It is the single place that
+// assembles the record; callers pass in whatever they've resolved so far and get back
+// the full shape, rather than constructing a partial value and patching fields onto it.
+func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane string) agentstore.Agent {
 	return agentstore.Agent{
 		ID:             id,
 		Name:           plan.name,
-		Cwd:            plan.dir,
+		Pane:           pane,
+		Cwd:            dir,
 		Flags:          plan.flags,
 		Prompt:         params.Prompt,
 		State:          agentstore.StateIdle,
