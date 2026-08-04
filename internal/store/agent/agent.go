@@ -85,10 +85,6 @@ func New(db store.DBTX) *Store {
 	return &Store{queries: models.New(db), db: db}
 }
 
-// txBeginner is satisfied by a pool or by an existing transaction, either of which can open
-// a nested scope. SetMetadata uses it to hold the metadata lock only around its own
-// check-then-write, so a check reading the same row count another caller is about to insert
-// past can't happen without every caller having to manage a transaction of its own.
 type txBeginner interface {
 	Begin(ctx context.Context) (pgx.Tx, error)
 }

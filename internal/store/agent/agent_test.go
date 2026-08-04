@@ -671,10 +671,7 @@ func TestSetMetadataCeiling(t *testing.T) {
 	assert.True(t, changed)
 }
 
-// TestSetMetadataCeilingUnderConcurrency drives more writers at one agent's key limit than
-// fit, all at once. Counting the held keys and inserting under that count are separate
-// statements, so without a lock serializing them, two writers adding different new keys
-// could each count the same rows and both slip past the limit.
+// TestSetMetadataCeilingUnderConcurrency drives more writers at one agent's key limit than fit, testing locking.
 func TestSetMetadataCeilingUnderConcurrency(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()

@@ -89,18 +89,11 @@ WHERE
     archived_at IS NULL;
 
 -- LockAgentSlots serializes the callers claiming room under the agent ceiling.
--- Counting the live agents and inserting under that count are separate statements, so
--- without this every caller reads the same count and all of them decide there is room.
--- The lock is held to the end of the transaction, so the count and insert share one.
 -- name: LockAgentSlots :exec
 SELECT
     PG_ADVISORY_XACT_LOCK(@key::bigint);
 
--- LockAgentMetadata serializes the callers writing one agent's metadata. Counting its
--- existing keys and inserting under that count are separate statements, so without this
--- two callers writing different new keys could each read the same count and both slip
--- past the limit. Keyed by the agent id rather than a fixed constant like
--- LockAgentSlots, so unrelated agents' writes never wait on each other.
+-- LockAgentMetadata serializes the callers writing one agent's metadata.
 -- name: LockAgentMetadata :exec
 SELECT
     PG_ADVISORY_XACT_LOCK(HASHTEXTEXTENDED(@agent_id::text, 0));
