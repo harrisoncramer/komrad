@@ -759,6 +759,32 @@ func TestSetStateByIDKeepsTheMark(t *testing.T) {
 	assert.Equal(t, "●", *after.Mark, "a state write leaves the user's mark standing")
 }
 
+// TestSetStateByIDStampsOnlyOnAChange covers what state_changed_at means. The
+// reconciler writes the state it observed every pass, so a stamp that moved on every
+// write would say when the agent was last looked at rather than when it entered the
+// state it holds.
+func TestSetStateByIDStampsOnlyOnAChange(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, created)
+
+	require.NoError(t, st.SetStateByID(ctx, created.ID, StateThinking))
+	moved, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, moved)
+	assert.True(t, moved.StateChangedAt.After(created.StateChangedAt), "entering a new state stamps it")
+
+	require.NoError(t, st.SetStateByID(ctx, created.ID, StateThinking))
+	again, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, again)
+	assert.Equal(t, moved.StateChangedAt, again.StateChangedAt, "observing the same state again leaves it")
+}
+
 // TestRename covers renaming by id, including the collision. A name is unique
 // among live agents only, so a rename onto one that a live agent holds has to come
 // back as the caller's mistake rather than as a driver error the handler would have

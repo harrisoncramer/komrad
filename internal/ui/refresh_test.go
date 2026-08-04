@@ -150,6 +150,55 @@ func TestFirstListingLandsOnTheFirstAgent(t *testing.T) {
 	assert.Equal(t, "api-refactor", selected.agent.Name)
 }
 
+// TestCreatedAgentReceivesFocus covers the write result carrying the created agent back
+// to the panel. Its row does not exist when the form closes, so the id has to survive until
+// the listing that includes it arrives.
+func TestCreatedAgentReceivesFocus(t *testing.T) {
+	agents := &formRecorder{}
+	m := model{
+		api:    api{agents: agents},
+		stage:  NewStage(&recordingTmux{}, appconfig.DefaultLayout()),
+		keys:   appconfig.DefaultKeybindings(),
+		screen: screenAgents,
+		tree: treeState{
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}},
+			agents: []agentItem{{agent: agentstore.Agent{
+				ID: "old", Name: "api-refactor", WorkflowID: "w1",
+			}}},
+			cursor: 1,
+			placed: true,
+		},
+	}
+
+	workflow := m.tree.workflows[0]
+	opened, _ := m.openNewAgent(&workflow)
+	m = asModel(t, opened)
+	m.values.agent.Title = "api-tests"
+	m.values.agent.Dir = "/work/api"
+	submitted, cmd := m.submitAgent()
+	m = asModel(t, submitted)
+
+	for _, msg := range produced(cmd) {
+		if result, ok := msg.(writeResult); ok {
+			updated, _ := m.applyWrite(result)
+			m = asModel(t, updated)
+		}
+	}
+
+	m.applyRefresh(refreshResult{
+		epoch:     m.epoch,
+		workflows: m.tree.workflows,
+		agents: []agentItem{
+			{agent: agentstore.Agent{ID: "old", Name: "api-refactor", WorkflowID: "w1"}},
+			{agent: agentstore.Agent{ID: "new", Name: "api-tests", WorkflowID: "w1"}},
+		},
+	})
+
+	selected, ok := m.selectedAgent()
+	require.True(t, ok)
+	assert.Equal(t, "new", selected.agent.ID)
+}
+
 // TestCursorHoldsItsFolderAcrossARefresh covers a folder archived from somewhere else
 // while the cursor sits on a folder below it. A header is a row like any other, so the
 // cursor has to follow the folder it names rather than the index it was drawn at.

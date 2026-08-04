@@ -583,10 +583,6 @@ func (m model) submitRename() (tea.Model, tea.Cmd) {
 		fmt.Sprintf("Could not rename agent %q", target.Name),
 		func(a api) error { return a.renameAgent(target, name) },
 	)
-	// The row the cursor is on is about to be listed under a different name, so the
-	// cursor follows the name rather than being left to clamp.
-	m.tree.focus = name
-
 	return m, tea.Batch(cmd, m.holdForm())
 }
 
@@ -610,7 +606,7 @@ func (m model) submitAgent() (tea.Model, tea.Cmd) {
 
 	// A launch failure leaves the list unchanged, which reads the same as a form that
 	// never submitted, so it has to be reported.
-	cmd := m.writeCmd("Could not start the agent", func(a api) error { return a.createAgent(params) })
+	cmd := m.createCmd(params)
 
 	return m, tea.Batch(cmd, m.holdForm())
 }

@@ -13,9 +13,8 @@ type treeState struct {
 	workflows []workflowstore.Workflow
 	cursor    int
 
-	// focus is an agent the next listing should put the cursor on, consumed as it lands.
-	// A restore can hand back a different name than it went in with, and the row under
-	// that name only exists once the listing carrying it arrives.
+	// focus is the id of an agent the next listing should put the cursor on, consumed as
+	// it lands. A newly-created agent has no row until that listing arrives.
 	focus string
 
 	// placed says a listing has put the cursor somewhere, so the first one lands on the
@@ -175,18 +174,6 @@ func firstAgentRowIndex(rows []agentRow) int {
 	return 0
 }
 
-// rowIndexOfAgentName returns the row of the named agent, or -1 when it is gone, so
-// a refresh can keep the cursor on the same agent as the tree is rebuilt.
-func rowIndexOfAgentName(rows []agentRow, name string) int {
-	for i, r := range rows {
-		if !r.header && r.item.agent.Name == name {
-			return i
-		}
-	}
-
-	return -1
-}
-
 // rowIndexOfAgentID returns the row the agent is drawn at, or -1 when the tree has none for
 // it, which is how a jump to an agent the screen does not hold is answered.
 func rowIndexOfAgentID(rows []agentRow, id string) int {
@@ -271,8 +258,7 @@ func (m *model) applyAgents(fresh []agentItem) {
 // The caller reads selected before the pass starts landing, since a cursor cannot be
 // placed against a tree that is half this pass and half the last.
 func (m *model) placeTreeCursor(selected string) {
-	// A row a write asked to be shown takes the cursor for this listing only. It is named
-	// rather than keyed, since a restore can hand back a name the panel has no row for yet.
+	// A row a write asked to be shown takes the cursor for this listing only.
 	focus := m.tree.focus
 	m.tree.focus = ""
 
@@ -287,7 +273,7 @@ func (m *model) placeTreeCursor(selected string) {
 
 	idx := rowIndexOfKey(rows, selected)
 	if focus != "" {
-		idx = rowIndexOfAgentName(rows, focus)
+		idx = rowIndexOfAgentID(rows, focus)
 	}
 
 	switch {

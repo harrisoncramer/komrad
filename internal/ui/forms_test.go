@@ -545,7 +545,12 @@ func (f *formRecorder) CreateAgent(_ context.Context, req *connect.Request[agent
 
 	f.createdAgent = req.Msg
 
-	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: &agentv1.Agent{Id: "new"}}), nil
+	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: &agentv1.Agent{
+		Id:         "new",
+		Name:       req.Msg.GetTitle(),
+		PaneId:     "%new",
+		WorkflowId: req.Msg.GetWorkflowId(),
+	}}), nil
 }
 
 func (f *formRecorder) UpdateAgent(_ context.Context, req *connect.Request[agentv1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error) {

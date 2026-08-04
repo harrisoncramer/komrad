@@ -146,6 +146,11 @@ SET
     prompt = @prompt,
     pane_id = @pane_id,
     state = @state,
+    state_changed_at = CASE WHEN state IS DISTINCT FROM @state THEN
+        NOW()
+    ELSE
+        state_changed_at
+    END,
     session_id = CASE WHEN @session_id != '' THEN
         @session_id
     ELSE
@@ -201,7 +206,12 @@ ORDER BY
 UPDATE
     agents
 SET
-    state = @state
+    state = @state,
+    state_changed_at = CASE WHEN state IS DISTINCT FROM @state THEN
+        NOW()
+    ELSE
+        state_changed_at
+    END
 WHERE
     id = @id;
 

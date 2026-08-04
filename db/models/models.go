@@ -27,6 +27,7 @@ type Agent struct {
 	Mark           *string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+	StateChangedAt time.Time
 }
 
 // Key/value facts an agent recorded about its own work.
