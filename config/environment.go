@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"weave/lib/xslice"
 )
 
 const layerVariable = "WEAVE_CONFIG"
@@ -31,15 +33,11 @@ func LayerPaths() []string {
 		return nil
 	}
 
-	split := filepath.SplitList(value)
-	paths := make([]string, 0, len(split))
-	for _, path := range split {
-		if strings.TrimSpace(path) != "" {
-			paths = append(paths, path)
-		}
-	}
-
-	return paths
+	// Only include valid paths.
+	trimmed := xslice.Map(filepath.SplitList(value), strings.TrimSpace)
+	return xslice.Filter(trimmed, func(path string) bool {
+		return path != ""
+	})
 }
 
 // LoadEnvironment adds transient process context to connection values Viper has already resolved.
