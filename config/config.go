@@ -29,10 +29,8 @@ type Config struct {
 	Tmux                string `env:"TMUX"`
 	CacheDir            string `env:"WEAVE_CACHE_DIR"`
 	TmuxPane            string `env:"TMUX_PANE"`
-	// Set in the environment of every pane the panel launches, so a call this binary makes
-	// on an agent's behalf is logged as that agent rather than as nobody.
-	AgentID   string `env:"WEAVE_AGENT_ID"`
-	SessionID string `env:"WEAVE_SESSION_ID"`
+	AgentID             string `env:"WEAVE_AGENT_ID"`
+	SessionID           string `env:"WEAVE_SESSION_ID"`
 }
 
 // Load reads the panel's configuration from the environment.
@@ -52,9 +50,6 @@ func Load() (*Config, error) {
 	}
 
 	if cfg.ReadOnlyDatabaseURL == "" {
-		// A DATABASE_URL this cannot rewrite leaves no read-only url rather than refusing
-		// here. `weave doctor` is the command a connection string that does not parse is
-		// diagnosed with, and refusing would take doctor down with it.
 		cfg.ReadOnlyDatabaseURL = deriveReadOnlyURL(cfg.DatabaseURL)
 	}
 
@@ -62,13 +57,6 @@ func Load() (*Config, error) {
 }
 
 // deriveReadOnlyURL is DATABASE_URL with the least-privilege login in place of the owner's.
-// The host, port, database, and connection options are kept exactly as they were written,
-// since the two logins reach the same rows on the same server and differ only in what they
-// may do to them.
-//
-// Empty for anything that is not a postgres:// url. Postgres also accepts a space-separated
-// keyword list, and swapping a login into one of those means rebuilding a string whose
-// options weave would then have to reproduce.
 func deriveReadOnlyURL(databaseURL string) string {
 	parsed, err := url.Parse(databaseURL)
 	if err != nil {
@@ -89,9 +77,7 @@ func (c *Config) LogPath() string {
 	return filepath.Join(c.CacheDir, "weave.log")
 }
 
-// defaultCacheDir is where weave keeps what it generates. A directory that cannot be found
-// is refused rather than stood in for, since the working directory is whatever the caller
-// happened to be in and everything under a cache directory is weave's to delete and rewrite.
+// defaultCacheDir is where weave keeps what it generates.
 func defaultCacheDir() (string, error) {
 	dir, err := os.UserCacheDir()
 	if err != nil {

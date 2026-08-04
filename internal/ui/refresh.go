@@ -180,15 +180,15 @@ type writeResult struct {
 	// not, which clears whatever the last one said.
 	summary string
 	err     error
-	// resumed is set by the one write whose result the panel needs, and nil for the rest.
-	resumed *resumedAgent
+	// agent is set by a write that returns the agent it started, and nil for the rest.
+	agent *writtenAgent
 }
 
-// resumedAgent is what a resume hands back, the pane to stage and the name to put the
-// cursor on, which may not be the one the agent went in with.
-type resumedAgent struct {
+// writtenAgent is what a create or resume hands back: the pane to stage now and the id of
+// the row the next listing should put the cursor on.
+type writtenAgent struct {
+	id   string
 	pane string
-	name string
 }
 
 // writeCmd runs a write off the render loop and returns the message that reports it,
@@ -224,7 +224,26 @@ func (m *model) resumeCmd(params resumeParams) tea.Cmd {
 
 		return writeResult{
 			summary: params.summary,
-			resumed: &resumedAgent{pane: agent.GetPaneId(), name: agent.GetName()},
+			agent:   &writtenAgent{id: agent.GetId(), pane: agent.GetPaneId()},
+		}
+	}
+}
+
+// createCmd creates an agent off the render loop and carries back what the panel needs to
+// stage and focus it.
+func (m *model) createCmd(params createAgentParams) tea.Cmd {
+	clients := m.api
+	m.beginWrite()
+
+	return func() tea.Msg {
+		agent, err := clients.createAgent(params)
+		if err != nil {
+			return writeResult{summary: "Could not start the agent", err: err}
+		}
+
+		return writeResult{
+			summary: "Could not start the agent",
+			agent:   &writtenAgent{id: agent.GetId(), pane: agent.GetPaneId()},
 		}
 	}
 }
@@ -245,12 +264,12 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	m.pending--
 	m.report(result.summary, result.err)
 
-	if result.resumed != nil {
+	if result.agent != nil {
 		m.enterScreen(screenAgents)
-		// The pane came back with the agent, so it stages now. The cursor cannot move
-		// until a row carries the name it came back with, which is the pass below.
-		m.tree.focus = result.resumed.name
-		m.stage.Agent(result.resumed.pane)
+		// The write returned the agent's pane, so it stages now. The cursor cannot move
+		// until a row carries its id, which is the pass below.
+		m.tree.focus = result.agent.id
+		m.stage.Agent(result.agent.pane)
 	}
 
 	if m.pendingForm {
