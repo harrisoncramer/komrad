@@ -809,11 +809,16 @@ func (x *SetMetadataRequest) GetValue() string {
 	return ""
 }
 
-// LogRequest names the agent a line of weave's log is about, and what to say.
+// LogRequest names the agent a line of weave's log is about, and what to say. Unset id
+// defaults to the caller's own, the same fallback SearchTranscripts uses, so a running
+// action needs nothing beyond WEAVE_AGENT_ID to say it is talking about itself.
 type LogRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Id      *string                `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
+	Message string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	// The action whose run this line belongs to, unset for a caller that is not one.
+	// WEAVE_ACTION carries a running action's own name for this.
+	Action        *string `protobuf:"bytes,3,opt,name=action,proto3,oneof" json:"action,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -849,8 +854,8 @@ func (*LogRequest) Descriptor() ([]byte, []int) {
 }
 
 func (x *LogRequest) GetId() string {
-	if x != nil {
-		return x.Id
+	if x != nil && x.Id != nil {
+		return *x.Id
 	}
 	return ""
 }
@@ -858,6 +863,13 @@ func (x *LogRequest) GetId() string {
 func (x *LogRequest) GetMessage() string {
 	if x != nil {
 		return x.Message
+	}
+	return ""
+}
+
+func (x *LogRequest) GetAction() string {
+	if x != nil && x.Action != nil {
+		return *x.Action
 	}
 	return ""
 }
@@ -1586,12 +1598,15 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\bkey.slug\x12Ha metadata key must be lowercase letters, digits, underscores, or dashes\x1a\x1dthis.matches('^[a-z0-9_-]+$')r\x02\x18@R\x03key\x12\xcc\x01\n" +
 	"\x05value\x18\x03 \x01(\tB\xb0\x01\xbaH\xac\x01\xba\x01\xa8\x01\n" +
 	"\x0fvalue.printable\x12`a metadata value must be a single line of at most 2048 characters carrying no control characters\x1a3this.size() <= 2048 && !this.matches('[[:cntrl:]]')H\x00R\x05value\x88\x01\x01B\b\n" +
-	"\x06_value\"\xb0\x01\n" +
+	"\x06_value\"\xf2\x01\n" +
 	"\n" +
-	"LogRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x88\x01\n" +
+	"LogRequest\x12\x1c\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x02id\x88\x01\x01\x12\x88\x01\n" +
 	"\amessage\x18\x02 \x01(\tBn\xbaHk\xba\x01a\n" +
-	"\x11message.printable\x12.a log message must carry no control characters\x1a\x1c!this.matches('[[:cntrl:]]')r\x05\x10\x01\x18\x80\x10R\amessage\"<\n" +
+	"\x11message.printable\x12.a log message must carry no control characters\x1a\x1c!this.matches('[[:cntrl:]]')r\x05\x10\x01\x18\x80\x10R\amessage\x12)\n" +
+	"\x06action\x18\x03 \x01(\tB\f\xbaH\tr\a\xc0\xbb\x18\x01\x18\xff\x01H\x01R\x06action\x88\x01\x01B\x05\n" +
+	"\x03_idB\t\n" +
+	"\a_action\"<\n" +
 	"\x14ArchiveAgentsRequest\x12$\n" +
 	"\x03ids\x18\x01 \x03(\tB\x12\xbaH\x0f\x92\x01\f\b\x01\x10d\x18\x01\"\x04r\x02\x10\x01R\x03ids\"<\n" +
 	"\x14RestoreAgentsRequest\x12$\n" +
@@ -1633,7 +1648,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14GetTranscriptRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"1\n" +
 	"\x15GetTranscriptResponse\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontent2\xbb=\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent2\xc7>\n" +
 	"\fAgentService\x12\xe4\x03\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x9a\x03\x9a\xb5\x18\x92\x03\n" +
@@ -1647,9 +1662,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\tSetHidden\x12\x1a.agent.v1.SetHiddenRequest\x1a\x16.google.protobuf.Empty\"\x8e\x03\x9a\xb5\x18\x86\x03\n" +
 	"\x10set_agent_hidden\x12\xef\x02Hide an agent from the panel's list, keyed by its id, or unhide it by passing hidden false. This changes nothing about the agent: it keeps running, the reconciler keeps moving its state, and every tool still returns it. It only decides whether the person watching the panel sees a row for it, which is theirs to decide, so do not hide work you were not asked to hide. \x00\x90\x02\x02\x12\xd2\x06\n" +
 	"\vSetMetadata\x12\x1c.agent.v1.SetMetadataRequest\x1a\x16.google.protobuf.Empty\"\x8c\x06\x9a\xb5\x18\x84\x06\n" +
-	"\x12set_agent_metadata\x12\xeb\x05Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value. Use this on yourself as you work, whenever you learn something a person would want to jump to later: the Linear issue you are implementing, the pull request you opened, the branch you are on. Your own id is in the WEAVE_AGENT_ID environment variable. Store the full URL rather than a bare number, since the panel shows the value as it is. Keys are lowercase letters, digits, underscores, and dashes; call this once per key, which leaves every other key on the agent untouched. Do not record what the agent is currently doing, which is already its state, and do not paste findings here, which belong in your reply. \x00\x90\x02\x02\x12\xa9\x03\n" +
-	"\x03Log\x12\x14.agent.v1.LogRequest\x1a\x16.google.protobuf.Empty\"\xf3\x02\x9a\xb5\x18\xee\x02\n" +
-	"\x03log\x12\xe2\x02Write one line to weave's log, tagged to the given agent id. An action fired on an agent runs with its own stdout and stdin sent nowhere, and its stderr read back only when it fails, so this is how a running action, or anything else acting on an agent's behalf, says what it is doing on purpose. Your own id is in the WEAVE_AGENT_ID environment variable. \x00(\x00\x12\xeb\x03\n" +
+	"\x12set_agent_metadata\x12\xeb\x05Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value. Use this on yourself as you work, whenever you learn something a person would want to jump to later: the Linear issue you are implementing, the pull request you opened, the branch you are on. Your own id is in the WEAVE_AGENT_ID environment variable. Store the full URL rather than a bare number, since the panel shows the value as it is. Keys are lowercase letters, digits, underscores, and dashes; call this once per key, which leaves every other key on the agent untouched. Do not record what the agent is currently doing, which is already its state, and do not paste findings here, which belong in your reply. \x00\x90\x02\x02\x12\xb5\x04\n" +
+	"\x03Log\x12\x14.agent.v1.LogRequest\x1a\x16.google.protobuf.Empty\"\xff\x03\x9a\xb5\x18\xfa\x03\n" +
+	"\x03log\x12\xee\x03Write one line to weave's log, tagged to an agent. An action fired on an agent runs with its own stdout and stdin sent nowhere, and its stderr read back only when it fails, so this is how a running action, or anything else acting on an agent's behalf, says what it is doing on purpose. id defaults to your own, which is in the WEAVE_AGENT_ID environment variable; give another agent's id to log about it instead. action names the action whose run this line belongs to, which is in WEAVE_ACTION. \x00(\x00\x12\xeb\x03\n" +
 	"\rArchiveAgents\x12\x1e.agent.v1.ArchiveAgentsRequest\x1a\x16.google.protobuf.Empty\"\xa1\x03\x9a\xb5\x18\x99\x03\n" +
 	"\x0earchive_agents\x12\x84\x03Stop a list of agents and hide them from the panel, keyed by id, keeping their records and transcripts. Prefer this to delete_agents: it is reversible with restore_agents, and search_transcripts still finds the conversations. The agents need not share a workflow. Returns not_found, and archives nothing at all, if any id given holds no agent, so a batch either goes whole or does not go. \x00\x90\x02\x02\x12\x99\x05\n" +
 	"\rRestoreAgents\x12\x1e.agent.v1.RestoreAgentsRequest\x1a\x1f.agent.v1.RestoreAgentsResponse\"\xc6\x04\x9a\xb5\x18\xbe\x04\n" +
@@ -1762,6 +1777,7 @@ func file_agent_v1_agent_proto_init() {
 	file_agent_v1_agent_proto_msgTypes[4].OneofWrappers = []any{}
 	file_agent_v1_agent_proto_msgTypes[8].OneofWrappers = []any{}
 	file_agent_v1_agent_proto_msgTypes[10].OneofWrappers = []any{}
+	file_agent_v1_agent_proto_msgTypes[11].OneofWrappers = []any{}
 	file_agent_v1_agent_proto_msgTypes[19].OneofWrappers = []any{}
 	file_agent_v1_agent_proto_msgTypes[21].OneofWrappers = []any{}
 	type x struct{}

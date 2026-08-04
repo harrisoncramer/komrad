@@ -202,18 +202,40 @@ func (s *Service) SetMetadata(ctx context.Context, req *connect.Request[agentv1.
 // purpose, since an action's own stdout goes nowhere and its stderr is read back only when
 // it fails.
 func (s *Service) Log(ctx context.Context, req *connect.Request[agentv1.LogRequest]) (*connect.Response[emptypb.Empty], error) {
-	agent, err := s.agents.GetByID(ctx, req.Msg.GetId())
+	id := logScope(ctx, req.Msg.GetId())
+	if id == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("no id given, and the caller has none of its own to fall back to"))
+	}
+
+	agent, err := s.agents.GetByID(ctx, id)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get agent: %w", err))
 	}
 	if agent == nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", id))
 	}
 
-	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, req.Msg.GetMessage(),
-		slog.String(logging.TargetAgentID, agent.ID))
+	attrs := []slog.Attr{
+		slog.String(logging.TargetAgentID, agent.ID),
+		slog.String(logging.ActionAgentCwd, agent.Cwd),
+	}
+	if action := req.Msg.GetAction(); action != "" {
+		attrs = append(attrs, slog.String(logging.ActionName, action))
+	}
+
+	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, req.Msg.GetMessage(), attrs...)
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// logScope is the agent a line is about: the one named, or the caller's own when none is,
+// the same fallback searchScope gives a search naming nobody.
+func logScope(ctx context.Context, requested string) string {
+	if requested != "" {
+		return requested
+	}
+
+	return caller.From(ctx).AgentID
 }
 
 // DeleteAgents stops agents and removes them with their configs and transcripts. The

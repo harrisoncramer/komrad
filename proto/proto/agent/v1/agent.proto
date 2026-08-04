@@ -179,9 +179,11 @@ message SetMetadataRequest {
   }];
 }
 
-// LogRequest names the agent a line of weave's log is about, and what to say.
+// LogRequest names the agent a line of weave's log is about, and what to say. Unset id
+// defaults to the caller's own, the same fallback SearchTranscripts uses, so a running
+// action needs nothing beyond WEAVE_AGENT_ID to say it is talking about itself.
 message LogRequest {
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  optional string id = 1 [(buf.validate.field).string.min_len = 1];
   string message = 2 [
     (buf.validate.field).string = {
       min_len: 1
@@ -193,6 +195,12 @@ message LogRequest {
       expression: "!this.matches('[[:cntrl:]]')"
     }
   ];
+  // The action whose run this line belongs to, unset for a caller that is not one.
+  // WEAVE_ACTION carries a running action's own name for this.
+  optional string action = 3 [(buf.validate.field).string = {
+    max_len: 255
+    [rules.v1.action_name]: true
+  }];
 }
 
 // ArchiveAgentsRequest hides agents without destroying them. This is what the
@@ -364,7 +372,7 @@ service AgentService {
   rpc Log(LogRequest) returns (google.protobuf.Empty) {
     option (annotation.v1.tool) = {
       tool_name: "log"
-      description: "Write one line to weave's log, tagged to the given agent id. An action fired on an agent runs with its own stdout and stdin sent nowhere, and its stderr read back only when it fails, so this is how a running action, or anything else acting on an agent's behalf, says what it is doing on purpose. Your own id is in the WEAVE_AGENT_ID environment variable."
+      description: "Write one line to weave's log, tagged to an agent. An action fired on an agent runs with its own stdout and stdin sent nowhere, and its stderr read back only when it fails, so this is how a running action, or anything else acting on an agent's behalf, says what it is doing on purpose. id defaults to your own, which is in the WEAVE_AGENT_ID environment variable; give another agent's id to log about it instead. action names the action whose run this line belongs to, which is in WEAVE_ACTION."
       destructive: false
       idempotent: false
     };
