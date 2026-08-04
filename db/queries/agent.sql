@@ -112,7 +112,9 @@ INSERT INTO agents(
     workflow_id,
     schedule_id,
     idempotency_key,
-    is_hidden)
+    is_hidden,
+    setup_action,
+    cleanup_action)
 VALUES (
     @id,
     @name,
@@ -126,7 +128,9 @@ VALUES (
     @workflow_id,
     sqlc.narg('schedule_id'),
     sqlc.narg('idempotency_key'),
-    @is_hidden)
+    @is_hidden,
+    sqlc.narg('setup_action'),
+    sqlc.narg('cleanup_action'))
 RETURNING
     id;
 

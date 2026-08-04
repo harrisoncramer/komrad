@@ -40,13 +40,15 @@ type Metadata struct {
 
 // Agent is a persisted background agent.
 type Agent struct {
-	ID     string
-	Name   string
-	Pane   string
-	Cwd    string
-	Flags  string
-	Prompt string
-	State  string
+	ID            string
+	Name          string
+	Pane          string
+	Cwd           string
+	Flags         string
+	SetupAction   *string
+	CleanupAction *string
+	Prompt        string
+	State         string
 	// StateChangedAt changes only when State changes.
 	StateChangedAt time.Time
 	Harness        string
@@ -288,6 +290,8 @@ func (s *Store) Create(ctx context.Context, agent Agent) error {
 		ScheduleID:     agent.ScheduleID,
 		IdempotencyKey: agent.IdempotencyKey,
 		IsHidden:       agent.Hidden,
+		SetupAction:    agent.SetupAction,
+		CleanupAction:  agent.CleanupAction,
 	}); err != nil {
 		return fmt.Errorf("failed to insert agent %q: %w", agent.Name, err)
 	}
@@ -610,6 +614,8 @@ func agentFromRow(agent models.Agent) Agent {
 		Pane:           agent.PaneID,
 		Cwd:            agent.Cwd,
 		Flags:          agent.Flags,
+		SetupAction:    agent.SetupAction,
+		CleanupAction:  agent.CleanupAction,
 		Prompt:         agent.Prompt,
 		State:          agent.State,
 		StateChangedAt: agent.StateChangedAt,

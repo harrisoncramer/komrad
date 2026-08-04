@@ -333,6 +333,14 @@ table "agents" {
     type    = text
     default = ""
   }
+  column "setup_action" {
+    null = true
+    type = text
+  }
+  column "cleanup_action" {
+    null = true
+    type = text
+  }
   column "prompt" {
     null    = false
     type    = text

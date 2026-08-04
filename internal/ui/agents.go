@@ -513,7 +513,14 @@ func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cm
 	}
 
 	m.target.newAgentWorkflow = workflow
-	m.form, m.values.agent = newAgentForm(m.keys.Form, agentFormValues{Harness: workflow.Harness, Dir: workflow.Cwd, Flags: workflow.Flags})
+	prefill := agentFormValues{
+		Harness:       workflow.Harness,
+		Dir:           workflow.Cwd,
+		Flags:         workflow.Flags,
+		SetupAction:   inheritAction,
+		CleanupAction: inheritAction,
+	}
+	m.form, m.values.agent = newAgentForm(m.keys.Form, prefill, workflow.SetupAction, workflow.CleanupAction, m.getAvailableActions())
 	m.screen = screenForm
 
 	return m, m.form.Init()
@@ -557,17 +564,27 @@ func (m model) submitAgent() (tea.Model, tea.Cmd) {
 	}
 
 	params := createAgentParams{
-		Prompt:     m.values.agent.Prompt,
-		Title:      m.values.agent.Title,
-		Harness:    m.values.agent.Harness,
-		Dir:        m.currentDir(m.values.agent.Dir),
-		Flags:      m.values.agent.Flags,
-		WorkflowID: m.target.newAgentWorkflow.ID,
+		Prompt:        m.values.agent.Prompt,
+		Title:         m.values.agent.Title,
+		Harness:       m.values.agent.Harness,
+		Dir:           m.currentDir(m.values.agent.Dir),
+		Flags:         m.values.agent.Flags,
+		SetupAction:   actionOverride(m.values.agent.SetupAction),
+		CleanupAction: actionOverride(m.values.agent.CleanupAction),
+		WorkflowID:    m.target.newAgentWorkflow.ID,
 	}
 
 	cmd := m.createCmd(params)
 
 	return m, tea.Batch(cmd, m.holdForm())
+}
+
+func actionOverride(selected string) *string {
+	if selected == inheritAction {
+		return nil
+	}
+
+	return &selected
 }
 
 func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {

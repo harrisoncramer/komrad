@@ -106,6 +106,14 @@ message CreateAgentRequest {
     min_len: 1
     max_len: 200
   }];
+  optional string setup_action = 8 [(buf.validate.field).string = {
+    max_len: 255
+    [rules.v1.action_name_or_blank]: true
+  }];
+  optional string cleanup_action = 9 [(buf.validate.field).string = {
+    max_len: 255
+    [rules.v1.action_name_or_blank]: true
+  }];
 }
 
 message CreateAgentResponse {

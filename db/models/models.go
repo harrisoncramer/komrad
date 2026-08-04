@@ -28,6 +28,8 @@ type Agent struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	StateChangedAt time.Time
+	SetupAction    *string
+	CleanupAction  *string
 }
 
 // Key/value facts an agent recorded about its own work.

@@ -44,21 +44,25 @@ type formTarget struct {
 }
 
 type agentFormValues struct {
-	Prompt  string
-	Title   string
-	Harness string
-	Dir     string
-	Flags   string
+	Prompt        string
+	Title         string
+	Harness       string
+	Dir           string
+	Flags         string
+	SetupAction   string
+	CleanupAction string
 }
+
+const inheritAction = "\x00inherit"
 
 // blueprintFields is the harness, directory, and flags inputs shared by the new-agent form
 // and the workflow form, since both are setting the same three things: which CLI runs, where
 // it starts, and what flags it takes. titlePrefix and the two descriptions distinguish a
 // workflow setting its own blueprint from an agent overriding one it was prefilled with.
-func blueprintFields(titlePrefix, harnessDesc, dirDesc string, harness, dir, flags *string) []huh.Field {
+func blueprintFields(titlePrefix string, harness, dir, flags *string) []huh.Field {
 	return []huh.Field{
-		huh.NewInput().Key("harness").Title(titlePrefix + "Agent").Description(harnessDesc).Placeholder("claude").Value(harness),
-		huh.NewInput().Key("dir").Title(titlePrefix + "Directory").Description(dirDesc).Value(dir),
+		huh.NewInput().Key("harness").Title(titlePrefix + "Agent").Placeholder("claude").Value(harness),
+		huh.NewInput().Key("dir").Title(titlePrefix + "Directory").Value(dir),
 		huh.NewInput().Key("flags").Title(titlePrefix + "Flags").Placeholder("--model opus").Value(flags),
 	}
 }
@@ -67,13 +71,20 @@ func blueprintFields(titlePrefix, harnessDesc, dirDesc string, harness, dir, fla
 // prefill is the enclosing workflow's blueprint (harness, directory, flags), so an agent
 // created inside a workflow starts from it and can override any part, or everything a
 // refused submit is putting back.
-func newAgentForm(keys config.FormKeys, prefill agentFormValues) (*huh.Form, *agentFormValues) {
+func newAgentForm(keys config.FormKeys, prefill agentFormValues, workflowSetupAction, workflowCleanupAction string, available []actionChoice) (*huh.Form, *agentFormValues) {
 	values := &prefill
 
 	fields := append([]huh.Field{
 		huh.NewText().Key("prompt").Title("Initial prompt").Description(fmt.Sprintf("ctrl+e opens $EDITOR; %s submits", keyLabel(keys.Submit))).Value(&values.Prompt),
-		huh.NewInput().Key("title").Title("Title").Description("optional; named from the prompt if blank").Value(&values.Title),
-	}, blueprintFields("", "blank = the workflow's default", "blank = the workflow's directory", &values.Harness, &values.Dir, &values.Flags)...)
+		huh.NewInput().Key("title").Title("Title").Value(&values.Title),
+	}, blueprintFields("", &values.Harness, &values.Dir, &values.Flags)...)
+
+	fields = append(fields,
+		huh.NewSelect[string]().Key("setup").Title("Setup action").
+			Options(agentActionOptions(available, workflowSetupAction)...).Value(&values.SetupAction),
+		huh.NewSelect[string]().Key("cleanup").Title("Cleanup action").
+			Options(agentActionOptions(available, workflowCleanupAction)...).Value(&values.CleanupAction),
+	)
 
 	form := huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 
@@ -164,7 +175,11 @@ func (m *model) holdForm() tea.Cmd {
 func (m *model) rebuildForm() tea.Cmd {
 	switch {
 	case m.screen == screenForm && m.values.agent != nil:
-		m.form, m.values.agent = newAgentForm(m.keys.Form, *m.values.agent)
+		var setupAction, cleanupAction string
+		if wf := m.target.newAgentWorkflow; wf != nil {
+			setupAction, cleanupAction = wf.SetupAction, wf.CleanupAction
+		}
+		m.form, m.values.agent = newAgentForm(m.keys.Form, *m.values.agent, setupAction, cleanupAction, m.getAvailableActions())
 	case m.screen == screenRename && m.values.rename != nil:
 		m.form, m.values.rename = renameForm(m.target.renameAgent.Name, *m.values.rename, m.keys.Form)
 	case m.screen == screenWorkflowForm && m.values.workflow != nil:
@@ -255,14 +270,12 @@ func workflowConfigForm(nameTitle string, cfg workflowstore.Config, available []
 	fields := append([]huh.Field{
 		huh.NewInput().Key("name").Title(nameTitle).Value(&values.Name),
 		huh.NewText().Key("context").Title("Context").Description("shared notes for this workflow; ctrl+e opens $EDITOR").Value(&values.Context),
-	}, blueprintFields("Default ", "blank = the configured default", "blank = current", &values.Harness, &values.Cwd, &values.Flags)...)
+	}, blueprintFields("Default ", &values.Harness, &values.Cwd, &values.Flags)...)
 
 	fields = append(fields,
 		huh.NewSelect[string]().Key("setup").Title("Setup action").
-			Description("runs before each agent starts; a failure stops the launch").
 			Options(actionOptions(available, cfg.SetupAction)...).Value(&values.SetupAction),
 		huh.NewSelect[string]().Key("cleanup").Title("Cleanup action").
-			Description("runs once an agent here is deleted").
 			Options(actionOptions(available, cfg.CleanupAction)...).Value(&values.CleanupAction),
 	)
 
@@ -271,11 +284,9 @@ func workflowConfigForm(nameTitle string, cfg workflowstore.Config, available []
 	return form, &values
 }
 
-// actionChoice is one action an action field may be set to, with what its header says it does
-// so the picker is not a list of bare filenames.
+// actionChoice is one action an action field may be set to
 type actionChoice struct {
-	name        string
-	description string
+	name string
 }
 
 // actionOptions is what an action field offers: none, then every action the directory
@@ -300,14 +311,21 @@ func actionOptions(available []actionChoice, current string) []huh.Option[string
 	return options
 }
 
+func agentActionOptions(available []actionChoice, workflowAction string) []huh.Option[string] {
+	label := "Same as workflow"
+	if workflowAction != "" {
+		label = "Same as workflow  (" + workflowAction + ")"
+	}
+
+	options := []huh.Option[string]{huh.NewOption(label, inheritAction)}
+
+	return append(options, actionOptions(available, "")...)
+}
+
 // actionChoiceLabel is how one action reads in a picker. The description is clipped so that
 // no row grows taller than the others.
 func actionChoiceLabel(action actionChoice) string {
-	if action.description == "" {
-		return action.name
-	}
-
-	return action.name + "  " + clip(action.description, descriptionWidth)
+	return action.name
 }
 
 // archiveWorkflowForm confirms an archive. The agents inside go with it, since every agent

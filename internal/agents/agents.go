@@ -177,6 +177,8 @@ type NewAgentParams struct {
 	Title          string
 	Dir            string
 	Flags          string
+	SetupAction    *string
+	CleanupAction  *string
 	Prompt         string
 	Harness        string
 	WorkflowID     string
@@ -652,6 +654,16 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 		agentFlags = strings.TrimSpace(wf.Flags)
 	}
 
+	setupAction := wf.SetupAction
+	if p.SetupAction != nil {
+		setupAction = strings.TrimSpace(*p.SetupAction)
+	}
+
+	cleanupAction := wf.CleanupAction
+	if p.CleanupAction != nil {
+		cleanupAction = strings.TrimSpace(*p.CleanupAction)
+	}
+
 	return &launchPlan{
 		name:            s.uniqueAgentName(ctx, p.WorkflowID, p.Title, p.Prompt),
 		harness:         hn,
@@ -659,8 +671,8 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 		dir:             dir,
 		flags:           strings.TrimSpace(s.userDefaultFlags[harnessID] + " " + agentFlags),
 		workflowContext: wf.Context,
-		setupAction:     wf.SetupAction,
-		cleanupAction:   wf.CleanupAction,
+		setupAction:     setupAction,
+		cleanupAction:   cleanupAction,
 	}, nil
 }
 
@@ -674,6 +686,8 @@ func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane st
 		Pane:           pane,
 		Cwd:            dir,
 		Flags:          plan.flags,
+		SetupAction:    params.SetupAction,
+		CleanupAction:  params.CleanupAction,
 		Prompt:         params.Prompt,
 		State:          agentstore.StateIdle,
 		Harness:        plan.harnessID,
@@ -743,6 +757,10 @@ func (s *AgentService) runCleanup(ctx context.Context, agent agentstore.Agent, n
 }
 
 func (s *AgentService) getCleanupAction(ctx context.Context, agent agentstore.Agent) string {
+	if agent.CleanupAction != nil {
+		return *agent.CleanupAction
+	}
+
 	wf := s.getWorkflowFor(ctx, agent)
 	if wf == nil {
 		return ""
@@ -752,6 +770,10 @@ func (s *AgentService) getCleanupAction(ctx context.Context, agent agentstore.Ag
 }
 
 func (s *AgentService) getSetupAction(ctx context.Context, agent agentstore.Agent) string {
+	if agent.SetupAction != nil {
+		return *agent.SetupAction
+	}
+
 	wf := s.getWorkflowFor(ctx, agent)
 	if wf == nil {
 		return ""

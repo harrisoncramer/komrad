@@ -78,6 +78,8 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 		Title:          req.Msg.GetTitle(),
 		Dir:            req.Msg.GetDir(),
 		Flags:          req.Msg.GetFlags(),
+		SetupAction:    req.Msg.SetupAction,
+		CleanupAction:  req.Msg.CleanupAction,
 		Prompt:         req.Msg.GetPrompt(),
 		WorkflowID:     req.Msg.GetWorkflowId(),
 		Harness:        req.Msg.GetHarness(),

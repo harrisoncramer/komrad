@@ -156,7 +156,7 @@ func TestFirstListingLandsOnTheFirstAgent(t *testing.T) {
 func TestCreatedAgentReceivesFocus(t *testing.T) {
 	agents := &formRecorder{}
 	m := model{
-		api:    api{agents: agents},
+		api:    api{agents: agents, actions: agents},
 		stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,

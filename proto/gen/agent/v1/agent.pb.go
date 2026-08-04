@@ -401,6 +401,8 @@ type CreateAgentRequest struct {
 	// Which CLI to run this agent on.
 	Harness        string  `protobuf:"bytes,7,opt,name=harness,proto3" json:"harness,omitempty"`
 	IdempotencyKey *string `protobuf:"bytes,6,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
+	SetupAction    *string `protobuf:"bytes,8,opt,name=setup_action,json=setupAction,proto3,oneof" json:"setup_action,omitempty"`
+	CleanupAction  *string `protobuf:"bytes,9,opt,name=cleanup_action,json=cleanupAction,proto3,oneof" json:"cleanup_action,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -480,6 +482,20 @@ func (x *CreateAgentRequest) GetHarness() string {
 func (x *CreateAgentRequest) GetIdempotencyKey() string {
 	if x != nil && x.IdempotencyKey != nil {
 		return *x.IdempotencyKey
+	}
+	return ""
+}
+
+func (x *CreateAgentRequest) GetSetupAction() string {
+	if x != nil && x.SetupAction != nil {
+		return *x.SetupAction
+	}
+	return ""
+}
+
+func (x *CreateAgentRequest) GetCleanupAction() string {
+	if x != nil && x.CleanupAction != nil {
+		return *x.CleanupAction
 	}
 	return ""
 }
@@ -1479,7 +1495,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12ListAgentsResponse\x12'\n" +
 	"\x06agents\x18\x01 \x03(\v2\x0f.agent.v1.AgentR\x06agents\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"\xa7\x03\n" +
+	"\x10_next_page_token\"\xbb\x04\n" +
 	"\x12CreateAgentRequest\x12#\n" +
 	"\x06prompt\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12\x7f\n" +
 	"\x05title\x18\x02 \x01(\tBi\xbaHf\xba\x01^\n" +
@@ -1490,8 +1506,12 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"workflowId\x12/\n" +
 	"\aharness\x18\a \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x128\n" +
 	"\x0fidempotency_key\x18\x06 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x00R\x0eidempotencyKey\x88\x01\x01B\x12\n" +
-	"\x10_idempotency_key\"<\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x00R\x0eidempotencyKey\x88\x01\x01\x124\n" +
+	"\fsetup_action\x18\b \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01H\x01R\vsetupAction\x88\x01\x01\x128\n" +
+	"\x0ecleanup_action\x18\t \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01H\x02R\rcleanupAction\x88\x01\x01B\x12\n" +
+	"\x10_idempotency_keyB\x0f\n" +
+	"\r_setup_actionB\x11\n" +
+	"\x0f_cleanup_action\"<\n" +
 	"\x13CreateAgentResponse\x12%\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"*\n" +
 	"\x0fGetAgentRequest\x12\x17\n" +

@@ -132,7 +132,7 @@ func (m model) getAvailableActions() []actionChoice {
 			continue
 		}
 
-		choices = append(choices, actionChoice{name: action.GetName(), description: action.GetDescription()})
+		choices = append(choices, actionChoice{name: action.GetName()})
 	}
 
 	return choices

@@ -236,35 +236,10 @@ func TestAvailableActionsSkipUnderscoredNames(t *testing.T) {
 	got := m.getAvailableActions()
 
 	assert.Equal(t, []actionChoice{
-		{name: "open-pr", description: "Open the pull request this agent recorded."},
+		{name: "open-pr"},
 		{name: "unrunnable"},
 		{name: "compiled"},
 	}, got)
-}
-
-// TestActionOptionsLabelsCarryDescriptions covers the labels the setup and cleanup pickers
-// draw. An option's value stays the bare name whatever its label says, since that is what the
-// workflow stores.
-func TestActionOptionsLabelsCarryDescriptions(t *testing.T) {
-	options := actionOptions([]actionChoice{
-		{name: "make-worktree", description: "Cut a worktree for the agent."},
-		{name: "drop-worktree"},
-	}, "renamed-away")
-
-	labels := make([]string, 0, len(options))
-	values := make([]string, 0, len(options))
-	for _, option := range options {
-		labels = append(labels, option.Key)
-		values = append(values, option.Value)
-	}
-
-	assert.Equal(t, []string{
-		"none",
-		"make-worktree  Cut a worktree for the agent.",
-		"drop-worktree",
-		"renamed-away  (missing)",
-	}, labels)
-	assert.Equal(t, []string{"", "make-worktree", "drop-worktree", "renamed-away"}, values)
 }
 
 // TestFailedWorkflowListKeepsTheTree covers a workflow list that does not answer.

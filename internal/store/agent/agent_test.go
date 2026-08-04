@@ -145,6 +145,41 @@ func TestCreateAndUpdate(t *testing.T) {
 	}
 }
 
+func TestCreateWithActionOverride(t *testing.T) {
+	tests := []struct {
+		name  string
+		agent Agent
+	}{
+		{
+			name:  "no override reads back nil",
+			agent: Agent{Name: "agent"},
+		},
+		{
+			name:  "an override of none reads back an empty string, not nil",
+			agent: Agent{Name: "agent", SetupAction: xptr.Ptr(""), CleanupAction: xptr.Ptr("")},
+		},
+		{
+			name:  "a named override reads back the name",
+			agent: Agent{Name: "agent", SetupAction: xptr.Ptr("install-deps"), CleanupAction: xptr.Ptr("drop-worktree")},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := open(t)
+			ctx := t.Context()
+
+			require.NoError(t, f.Create(ctx, tt.agent))
+			stored, err := f.Get(ctx, tt.agent.Name)
+			require.NoError(t, err)
+			require.NotNil(t, stored)
+
+			assert.Equal(t, tt.agent.SetupAction, stored.SetupAction)
+			assert.Equal(t, tt.agent.CleanupAction, stored.CleanupAction)
+		})
+	}
+}
+
 // TestArchiveAndReuse covers who a name belongs to over an agent's life. An
 // archived row keeps its name, so reusing it has to create a fresh row rather
 // than resurrect the dead one, and state events keyed by name must land on the

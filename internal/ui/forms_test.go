@@ -18,6 +18,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xptr"
 
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
@@ -52,7 +53,8 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				workflow := m.tree.workflows[0]
 				m.target.newAgentWorkflow = &workflow
 				m.screen = screenForm
-				m.form, m.values.agent = newAgentForm(m.keys.Form, agentFormValues{Harness: workflow.Harness, Dir: workflow.Cwd, Flags: workflow.Flags})
+				prefill := agentFormValues{Harness: workflow.Harness, Dir: workflow.Cwd, Flags: workflow.Flags, SetupAction: inheritAction, CleanupAction: inheritAction}
+				m.form, m.values.agent = newAgentForm(m.keys.Form, prefill, workflow.SetupAction, workflow.CleanupAction, nil)
 				m.values.agent.Prompt = "check CI"
 				m.values.agent.Title = "ci"
 				m.values.agent.Harness = "codex"
@@ -68,6 +70,8 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				assert.Equal(t, "/work/api", sent.createdAgent.GetDir(), "the workflow's directory is prefilled and kept")
 				assert.Equal(t, "--model opus", sent.createdAgent.GetFlags())
 				assert.Equal(t, "w1", sent.createdAgent.GetWorkflowId())
+				assert.Nil(t, sent.createdAgent.SetupAction, "left on the default, the agent takes no override of its own")
+				assert.Nil(t, sent.createdAgent.CleanupAction, "left on the default, the agent takes no override of its own")
 			},
 		},
 		{
@@ -93,7 +97,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			open: func(m model) model {
 				m.screen = screenWorkflowForm
 				m.form, m.values.workflow = workflowConfigForm("New workflow name", workflowstore.Config{}, []actionChoice{
-					{name: "make-worktree", description: "Cut a worktree for the agent."},
+					{name: "make-worktree"},
 					{name: "drop-worktree"},
 				}, m.keys.Form)
 				m.values.workflow.Name = "web"
@@ -300,6 +304,65 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			require.Nil(t, got.banner, "the service accepted the write")
 			assert.False(t, got.screen.isForm(), "a write the service took closes the form")
 			tt.check(t, sent)
+		})
+	}
+}
+
+// TestNewAgentFormActionOverride covers the tri-state the action fields carry: left on
+// the default the agent takes no override at all, and any other choice, including
+// explicitly picking none, is sent as one.
+func TestNewAgentFormActionOverride(t *testing.T) {
+	tests := []struct {
+		name          string
+		setupAction   string
+		wantSetup     *string
+		cleanupAction string
+		wantCleanup   *string
+	}{
+		{
+			name:          "left on the default, neither field is sent",
+			setupAction:   inheritAction,
+			wantSetup:     nil,
+			cleanupAction: inheritAction,
+			wantCleanup:   nil,
+		},
+		{
+			name:          "an explicit none is sent as an empty override, not nothing",
+			setupAction:   "",
+			wantSetup:     xptr.Ptr(""),
+			cleanupAction: "",
+			wantCleanup:   xptr.Ptr(""),
+		},
+		{
+			name:          "a named choice is sent as itself",
+			setupAction:   "install-deps",
+			wantSetup:     xptr.Ptr("install-deps"),
+			cleanupAction: "drop-worktree",
+			wantCleanup:   xptr.Ptr("drop-worktree"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sent := &formRecorder{}
+			m := formModel(sent)
+			m.tree.workflows[0].SetupAction = "make-worktree"
+			m.tree.workflows[0].CleanupAction = "drop-worktree"
+			workflow := m.tree.workflows[0]
+
+			opened, _ := m.openNewAgent(&workflow)
+			m = asModel(t, opened)
+			m.values.agent.SetupAction = tt.setupAction
+			m.values.agent.CleanupAction = tt.cleanupAction
+
+			updated, cmd := m.submitAgent()
+			submitted, ok := updated.(model)
+			require.True(t, ok)
+			settle(t, submitted, cmd)
+
+			require.NotNil(t, sent.createdAgent)
+			assert.Equal(t, tt.wantSetup, sent.createdAgent.SetupAction)
+			assert.Equal(t, tt.wantCleanup, sent.createdAgent.CleanupAction)
 		})
 	}
 }
@@ -678,9 +741,9 @@ func (f *formRecorder) ArchiveSchedule(_ context.Context, req *connect.Request[s
 func TestOnlyTheSubmitKeySubmitsAForm(t *testing.T) {
 	keys := config.DefaultKeybindings().Form
 
-	agent, _ := newAgentForm(keys, agentFormValues{})
+	agent, _ := newAgentForm(keys, agentFormValues{}, "", "", nil)
 	agent.Init()
-	for range 4 {
+	for range 6 {
 		agent.Update(huh.NextField())
 	}
 

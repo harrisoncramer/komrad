@@ -12,6 +12,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
 	"weave/internal/store/workflow"
+	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -454,6 +455,66 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 	}
 }
 
+func TestNewAgentSetupActionOverride(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	lifecycle := &fakeLifecycle{}
+	h := &fakeHarness{}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: h}, lifecycle)
+
+	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflow.Config{
+		Name:        "backend",
+		SetupAction: "make-worktree",
+	})
+	require.NoError(t, err)
+
+	_, err = manager.NewAgent(t.Context(), NewAgentParams{
+		Title:       "agent",
+		Dir:         t.TempDir(),
+		WorkflowID:  created.ID,
+		SetupAction: xptr.Ptr("install-deps"),
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"install-deps"}, lifecycle.setup, "the agent's own choice runs instead of the workflow's")
+
+	stored, err := st.Get(t.Context(), "agent")
+	require.NoError(t, err)
+	require.NotNil(t, stored)
+	require.NotNil(t, stored.SetupAction)
+	assert.Equal(t, "install-deps", *stored.SetupAction, "the override is what gets persisted, not the workflow's action")
+}
+
+func TestNewAgentSetupActionOverrideToNone(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	lifecycle := &fakeLifecycle{}
+	h := &fakeHarness{}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: h}, lifecycle)
+
+	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflow.Config{
+		Name:        "backend",
+		SetupAction: "make-worktree",
+	})
+	require.NoError(t, err)
+
+	_, err = manager.NewAgent(t.Context(), NewAgentParams{
+		Title:       "agent",
+		Dir:         t.TempDir(),
+		WorkflowID:  created.ID,
+		SetupAction: xptr.Ptr(""),
+	})
+	require.NoError(t, err)
+
+	assert.Empty(t, lifecycle.setup, "an explicit none refuses the workflow's action too")
+
+	stored, err := st.Get(t.Context(), "agent")
+	require.NoError(t, err)
+	require.NotNil(t, stored)
+	require.NotNil(t, stored.SetupAction)
+	assert.Empty(t, *stored.SetupAction)
+}
+
 // TestNewAgentCeiling covers the ceiling, which has to refuse before anything is opened or
 // a create refused after its workflow built a worktree leaves one behind every time.
 func TestNewAgentCeiling(t *testing.T) {
@@ -775,6 +836,38 @@ func TestCleanupActionSaysNothingAboutAWorkflowNamingNone(t *testing.T) {
 
 	assert.Empty(t, manager.getCleanupAction(ctx, agentstore.Agent{ID: "a1", WorkflowID: "wf1"}))
 	assert.Empty(t, records())
+}
+
+func TestCleanupActionOverridesTheWorkflow(t *testing.T) {
+	manager := NewAgentService(NewAgentServiceParams{
+		Workflows: fakeWorkflowReader{workflow: &workflow.Workflow{ID: "wf1", CleanupAction: "drop-worktree"}},
+	})
+	got := manager.getCleanupAction(context.Background(), agentstore.Agent{ID: "a1", WorkflowID: "wf1", CleanupAction: xptr.Ptr("custom-cleanup")})
+	assert.Equal(t, "custom-cleanup", got)
+}
+
+func TestCleanupActionOverrideToNoneWinsOverTheWorkflow(t *testing.T) {
+	manager := NewAgentService(NewAgentServiceParams{
+		Workflows: fakeWorkflowReader{workflow: &workflow.Workflow{ID: "wf1", CleanupAction: "drop-worktree"}},
+	})
+	got := manager.getCleanupAction(context.Background(), agentstore.Agent{ID: "a1", WorkflowID: "wf1", CleanupAction: xptr.Ptr("")})
+	assert.Empty(t, got)
+}
+
+func TestSetupActionOverridesTheWorkflow(t *testing.T) {
+	manager := NewAgentService(NewAgentServiceParams{
+		Workflows: fakeWorkflowReader{workflow: &workflow.Workflow{ID: "wf1", SetupAction: "make-worktree"}},
+	})
+	got := manager.getSetupAction(context.Background(), agentstore.Agent{ID: "a1", WorkflowID: "wf1", SetupAction: xptr.Ptr("custom-setup")})
+	assert.Equal(t, "custom-setup", got)
+}
+
+func TestSetupActionOverrideToNoneWinsOverTheWorkflow(t *testing.T) {
+	manager := NewAgentService(NewAgentServiceParams{
+		Workflows: fakeWorkflowReader{workflow: &workflow.Workflow{ID: "wf1", SetupAction: "make-worktree"}},
+	})
+	got := manager.getSetupAction(context.Background(), agentstore.Agent{ID: "a1", WorkflowID: "wf1", SetupAction: xptr.Ptr("")})
+	assert.Empty(t, got)
 }
 
 // brokenWorkflowReader fails every read, which is what a store whose database has gone

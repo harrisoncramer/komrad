@@ -61,12 +61,14 @@ func (a api) renameAgent(agent agentstore.Agent, name string) error {
 // createAgentParams is a launch: the workflow's blueprint as the form left it, plus the
 // workflow the agent lands in.
 type createAgentParams struct {
-	Prompt     string
-	Title      string
-	Harness    string
-	Dir        string
-	Flags      string
-	WorkflowID string
+	Prompt        string
+	Title         string
+	Harness       string
+	Dir           string
+	Flags         string
+	SetupAction   *string
+	CleanupAction *string
+	WorkflowID    string
 }
 
 // createAgent launches an agent and returns it as the service now holds it, since the panel
@@ -76,12 +78,14 @@ func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
 	defer cancel()
 
 	resp, err := a.agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
-		Prompt:     params.Prompt,
-		Title:      params.Title,
-		Harness:    params.Harness,
-		Dir:        params.Dir,
-		Flags:      params.Flags,
-		WorkflowId: params.WorkflowID,
+		Prompt:        params.Prompt,
+		Title:         params.Title,
+		Harness:       params.Harness,
+		Dir:           params.Dir,
+		Flags:         params.Flags,
+		SetupAction:   params.SetupAction,
+		CleanupAction: params.CleanupAction,
+		WorkflowId:    params.WorkflowID,
 	}))
 	if err != nil {
 		return nil, err

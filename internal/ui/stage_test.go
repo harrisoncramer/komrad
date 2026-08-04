@@ -166,6 +166,7 @@ func TestStageHideOnlyTellsTmuxOnAChange(t *testing.T) {
 func TestFormTakesTheWholeWidth(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := infoModel(tmux)
+	m.api.actions = &fakeActions{}
 
 	opened, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
 	form, ok := opened.(model)
