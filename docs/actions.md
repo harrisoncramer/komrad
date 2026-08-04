@@ -1,9 +1,7 @@
 # Actions
 
+An action is a script or a binary meant to be executed by an agent, you, or automatically on lifecycle events.
 
-An action is a script or a binary, meant to be executed by an agent, on it's behalf by you, or automatically on certain lifecycle events.
-
-Nothing about an action is specific to weave. It's just an executable file, which gets told which agent it's running for through the `WEAVE_AGENT` environment variable.
 
 Use actions, for instance, to configure or clean up worktrees, or to open a finished agent's pull request in your browser.
 
@@ -20,7 +18,7 @@ The directory is read on every call, so an action you write while the service is
 
 ## What an action is told
 
-An action gets no arguments. Everything arrives in the environment, over whatever the service itself is running with.
+Actions get values through the environment, over whatever the service itself is running with.
 
 The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`, `state`,`cwd`, `harness`, `session_id`, and other information about the agent. Other environment variables are:
 
@@ -34,6 +32,19 @@ The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`,
 - `EDITOR` and `WEAVE_SHELL`.
 
 An action runs in the actions directory it was found in, not in the agent's directory, and stdin and stdout go to the null device. To communicate back to weave, print on stderr: the last 64 KiB of it is captured and written to weave's log.
+
+## Action Metadata
+
+You can provide certain metadata to an action by adding _headers_ to the top of the file.
+
+```bash
+#!/bin/sh
+#WEAVE description="This is my custom action"
+#WEAVE timeout="1s"
+printf 'Hello world' >&2
+```
+
+This action will abort and fail if it cannot execute within 1 second. Actions print their output to weave's logfile.
 
 ## The three ways an action runs
 
