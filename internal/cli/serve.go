@@ -21,28 +21,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// The teardown gives each stage its own budget rather than sharing one, so a stage that
-// runs long cannot spend what the next one needs.
-
-// httpDrainTimeout bounds the wait for the requests already in flight. It is the shortest
-// of the three because whoever was asking will ask again.
 const httpDrainTimeout = 5 * time.Second
 
-// loopStopTimeout bounds the wait for a background loop to finish the pass it is in.
-// Abandoning a pass costs nothing, since the next start redoes it, but a moment's wait
-// keeps one from writing to a database that is closing under it. It is bounded because a
-// pass talks to tmux, and a tmux server that is not answering would otherwise hold the
-// process open for good.
 const loopStopTimeout = 2 * time.Second
 
-// jobStopTimeout is how long a launch in flight is given to finish, and it is the one
-// that matters. A job abandoned here stays marked running until River's rescuer comes
-// back for it over an hour later.
+// River leaves an interrupted job running until its rescuer retries it.
 const jobStopTimeout = 10 * time.Second
 
-// closeTimeout bounds the wait for the database handles. A pool closes by waiting for its
-// connections to come back, so a query still running would otherwise hold the process
-// open past every deadline above it.
 const closeTimeout = 2 * time.Second
 
 func serveCmd(state *app) *cobra.Command {
@@ -61,18 +46,12 @@ func serveCmd(state *app) *cobra.Command {
 			"interrupt, or when `weave stop` asks it to.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 
-			// The logger is built before anything that could fail, so a service that
-			// cannot start says why in the same shape as one that is running.
 			logger, err := serveLogger(state.logLevel)
 			if err != nil {
 				return err
 			}
 			slog.SetDefault(logger)
 
-			// The root command already fell back to the built-in defaults, and nothing
-			// else says so. This process is spawned detached and the panel shows the
-			// failure on a screen of its own, so without this line a service running on
-			// defaults is indistinguishable from one running on the user's file.
 			if state.configErr != nil {
 				logger.LogAttrs(cmd.Context(), slog.LevelError,
 					"the configuration could not be read, so the defaults are in force",
@@ -88,10 +67,7 @@ func serveCmd(state *app) *cobra.Command {
 				Addr:   resolveServeAddr(addr, state.env.Addr),
 			})
 
-			// A signal landing partway through startup fails whichever step was reaching
-			// for the database at the time. That is the shutdown arriving early rather
-			// than something going wrong, and reporting it as a failure would have
-			// whoever spawned this process read a reload as a crash.
+			// Cancellation during startup is a requested shutdown, not a startup failure.
 			if err != nil && ctx.Err() != nil {
 				logger.LogAttrs(context.WithoutCancel(ctx), slog.LevelInfo, "the server stopped before it had started")
 
@@ -101,8 +77,6 @@ func serveCmd(state *app) *cobra.Command {
 			if err != nil {
 				logger.LogAttrs(cmd.Context(), slog.LevelError, "the server stopped", logging.Err(err)...)
 
-				// The failure is on the record now, so it is marked as said rather than
-				// printed again by main.
 				return fmt.Errorf("%w: %w", ErrLogged, err)
 			}
 
@@ -110,17 +84,11 @@ func serveCmd(state *app) *cobra.Command {
 		},
 	}
 
-	// No default, so an unset flag is distinguishable from one that was typed. The
-	// address to fall back on is read from the environment by the root command, which
-	// has not run yet at the point flags are registered.
 	cmd.Flags().StringVar(&addr, "addr", "", "listen address, defaulting to WEAVE_ADDR")
 
 	return cmd
 }
 
-// resolveServeAddr is where the service listens. The flag wins when it was given, and
-// otherwise the address the rest of weave talks to, so a serve started by hand lands where
-// the panel and the CLI are already looking.
 func resolveServeAddr(flag, configured string) string {
 	if flag != "" {
 		return flag
@@ -129,9 +97,6 @@ func resolveServeAddr(flag, configured string) string {
 	return configured
 }
 
-// serveLogger builds the service's logger at the configured level. A config that would
-// not load at all leaves the level empty, which parses as the default rather than
-// stopping the service over a log setting.
 func serveLogger(level string) (*slog.Logger, error) {
 	parsed, err := logging.ParseLevel(level)
 	if err != nil {
@@ -141,9 +106,7 @@ func serveLogger(level string) (*slog.Logger, error) {
 	return logging.New(os.Stderr, parsed), nil
 }
 
-// shutdownSignal returns a context cancelled by the first interrupt or termination
-// signal. The handler is released as that signal lands, so a second one gets the default
-// disposition and kills the process outright.
+// Releasing the handler after the first signal lets a second signal kill the process.
 func shutdownSignal(parent context.Context) (context.Context, func()) {
 	ctx, cancel := context.WithCancel(parent)
 
@@ -167,16 +130,12 @@ func shutdownSignal(parent context.Context) (context.Context, func()) {
 	}
 }
 
-// serveParams is what serve needs to build the service and run it.
 type serveParams struct {
 	App    *app
 	Logger *slog.Logger
 	Addr   string
 }
 
-// serve builds the service, starts the background loops, and listens until the context
-// is cancelled or serving fails. A shutdown that was asked for returns nil, since
-// something spawned this process and reads its status.
 func serve(ctx context.Context, p serveParams) error {
 	state, logger, addr := p.App, p.Logger, p.Addr
 
@@ -199,14 +158,10 @@ func serve(ctx context.Context, p serveParams) error {
 
 	built.Mux.Handle(HealthPath, newHealthHandler(built.Pool.GetRawPool()))
 
-	// Asking to stop goes through the logging middleware, unlike readiness above. A
-	// readiness check is asked on a loop and says nothing, where a request that stops the
-	// service is the last thing in the log and the reason for everything after it.
 	stopRequested := make(chan struct{}, 1)
 	built.Mux.Handle(StopPath, interceptors.NewLoggingHandler(logger, newStopHandler(stopRequested)))
 
-	// The socket is claimed before the background work starts, so a port already taken is
-	// reported without anything having to be stopped again on the way out.
+	// Claim the socket before starting work that would need teardown on failure.
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
@@ -243,8 +198,6 @@ func serve(ctx context.Context, p serveParams) error {
 		served <- httpServer.Serve(listener)
 	}()
 
-	// Being asked and being signalled are the same shutdown from here on, so both land in
-	// the same teardown below rather than each having one of their own.
 	var failure error
 	select {
 	case failure = <-served:
@@ -257,8 +210,7 @@ func serve(ctx context.Context, p serveParams) error {
 	drain, cancelDrain := shutdownDeadline(ctx, httpDrainTimeout)
 	defer cancelDrain()
 
-	// The listener goes first, so nothing new arrives against a dependency that is
-	// already being torn down.
+	// Stop accepting requests before tearing down their dependencies.
 	if err := httpServer.Shutdown(drain); err != nil {
 		logger.LogAttrs(ctx, slog.LevelError, "the server would not shut down cleanly", logging.Err(err)...)
 	}
@@ -272,35 +224,27 @@ func serve(ctx context.Context, p serveParams) error {
 	return failure
 }
 
-// shutdownDeadline gives one stage of the teardown its budget, on a context the signal
-// that started the teardown does not reach.
 func shutdownDeadline(ctx context.Context, within time.Duration) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.WithoutCancel(ctx), within)
 }
 
-// jobRunner is what serve needs of River, which is only the two ends of its life.
 type jobRunner interface {
 	Start(ctx context.Context) error
 	Stop(ctx context.Context) error
 }
 
-// backgroundParams is the work that runs behind the listener rather than in answer to a
-// request.
 type backgroundParams struct {
 	Runner jobRunner
 	Loops  []runLoopParams
 }
 
-// backgroundWork is that work once started, held so serve can stop it in order.
 type backgroundWork struct {
 	runner    jobRunner
 	stopLoops context.CancelFunc
 	loops     *sync.WaitGroup
 }
 
-// startBackground starts River and the loops on a context the signal deliberately does
-// not reach. Cancelling the context River was started on is a hard stop, which would cut
-// a launch off mid-flight rather than waiting for it to finish.
+// River's startup context must survive shutdown so Stop can drain active jobs.
 func startBackground(ctx context.Context, p backgroundParams) (*backgroundWork, error) {
 	uncancelled := context.WithoutCancel(ctx)
 
@@ -325,9 +269,7 @@ func startBackground(ctx context.Context, p backgroundParams) (*backgroundWork, 
 	return &backgroundWork{runner: p.Runner, stopLoops: stopLoops, loops: &loops}, nil
 }
 
-// stop ends the loops and then waits for River, which waits in turn for a launch in
-// flight. A job still running at the deadline is left where it is rather than cancelled,
-// since a launch cut off partway through leaves a pane no row names.
+// Stop loops before River so they cannot enqueue more work while jobs drain.
 func (b *backgroundWork) stop(ctx context.Context, logger *slog.Logger) {
 	b.stopLoops()
 
@@ -343,8 +285,6 @@ func (b *backgroundWork) stop(ctx context.Context, logger *slog.Logger) {
 	}
 }
 
-// closeWithin closes a database handle without letting a query still running hold the
-// process open. What did not close goes when the process does.
 func closeWithin(logger *slog.Logger, what string, close func()) {
 	if !didFinishWithin(closeTimeout, close) {
 		logger.LogAttrs(context.Background(), slog.LevelWarn, "a database handle did not close in time",
@@ -352,9 +292,6 @@ func closeWithin(logger *slog.Logger, what string, close func()) {
 	}
 }
 
-// didFinishWithin runs wait and reports whether it finished inside the budget. Whatever is
-// being waited on carries on in the background if it does not, since the point here is
-// only that the teardown moves on rather than stalling on it.
 func didFinishWithin(within time.Duration, wait func()) bool {
 	done := make(chan struct{})
 	go func() {
@@ -375,8 +312,6 @@ func didFinishWithin(within time.Duration, wait func()) bool {
 	}
 }
 
-// runLoopParams is what one of serve's background loops needs. Name is carried on every
-// line the loop writes, so a failed pass says which of the three it came from.
 type runLoopParams struct {
 	Name     string
 	Interval time.Duration
@@ -384,11 +319,6 @@ type runLoopParams struct {
 	Logger   *slog.Logger
 }
 
-// runLoop re-runs a pass on a fixed interval until the context is cancelled. Every loop
-// serve owns is one of these: correct what you own, wait, correct it again.
-//
-// A pass that panics is a failing pass too, for the reasons on runPass, so it folds and
-// counts the same way rather than ending the process.
 func runLoop(ctx context.Context, params runLoopParams) {
 	ticker := time.NewTicker(params.Interval)
 	defer ticker.Stop()
@@ -401,9 +331,6 @@ func runLoop(ctx context.Context, params runLoopParams) {
 	for {
 		err := runPass(ctx, params.Pass)
 
-		// A pass cut short by the shutdown is not a failure. Every store call it makes
-		// takes this context, so without this a clean stop writes one last error naming
-		// every agent the pass had left to do.
 		if ctx.Err() != nil {
 			return
 		}
@@ -428,10 +355,7 @@ func runLoop(ctx context.Context, params runLoopParams) {
 	}
 }
 
-// runPass runs one pass, turning a panic into a failed pass rather than the end of the
-// process. Go ends the program on a panic in any goroutine that does not catch one, and
-// every loop here is one, so without this a single bad pass takes the other two loops, the
-// RPC surface, and the MCP endpoint with it.
+// Recover inside the loop goroutine so one bad pass does not stop the service.
 func runPass(ctx context.Context, pass func(context.Context) error) (err error) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
@@ -442,8 +366,6 @@ func runPass(ctx context.Context, pass func(context.Context) error) (err error) 
 	return pass(ctx)
 }
 
-// panicError is a panic a pass raised, carried as an error so it is reported through the
-// same path a returned failure is.
 type panicError struct {
 	value any
 	stack string

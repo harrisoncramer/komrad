@@ -16,17 +16,11 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// errNoWorkflow is what the panel reports when a create is attempted with no
-// workflow to put the agent in, which only happens when none exist at all.
 var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one first")
 
-// updateAgents drives the nav list. The nav keys move the selection and restage,
-// and letter keys act on the hovered agent or workflow.
 func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
-	// The ends of the list are answered ahead of everything else, since the top key holds a
-	// press and every other key on the screen has to drop what it held.
 	if m.takeTopPress(k) {
 		return m.jumpCursor(0), nil
 	}
@@ -43,20 +37,13 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// A selection takes the list over. While one is up the keys that only make sense on a
-	// single row stand down, since acting on the hovered one alone would be the wrong thing
-	// done quietly.
 	if m.tree.selected.active() {
 		return m.updateAgentsSelection(key)
 	}
 
-	// These act on the whole view rather than the row under the cursor, so they are
-	// checked before anything that reads the cursor.
 	if isBound(k, m.keys.Filter.Open) {
 		return m.openFilter()
 	}
-	// A narrowed list is a mode to leave before the screen is, so the back key clears the
-	// filter first rather than taking the panel down over it.
 	if m.filter.standing() && isBound(k, m.keys.Agents.Back) {
 		return m.clearFilter()
 	}
@@ -75,7 +62,6 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if isBound(k, m.keys.Agents.ShowHidden) {
 		return m.toggleHiddenAgents()
 	}
-	// On a workflow header the workflow bindings act on that folder's workflow.
 	if workflow, ok := m.hoveredWorkflow(); ok {
 		return m.updateHoveredWorkflow(key, workflow)
 	}
@@ -124,11 +110,6 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// updateAgentsSelection is what the agents list still answers while a selection is up, past
-// the selection keys its caller has already taken. Movement and the way out stay live,
-// along with the mark and archive keys, which act on the whole selection. So does the hidden
-// toggle, which changes what is drawn rather than acting on a row and is the one key that
-// can put a chosen agent off screen.
 func (m model) updateAgentsSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -150,12 +131,7 @@ func (m model) updateAgentsSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// archiveAgents stops agents and moves them to the archive. The panes are taken out of the
-// stage first, since killing one while it sits in the stage slot would take the stage down
-// with it.
-//
-// The selection is left as it is. An agent that went loses its row and comes off the
-// selection on the next listing, and one the service refused is still chosen to try again.
+// A staged pane must be released before the service kills it.
 func (m model) archiveAgents(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
 	if len(agents) == 0 {
 		return m, nil
@@ -171,8 +147,6 @@ func (m model) archiveAgents(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
 	)
 }
 
-// moveCursor steps the tree cursor and restages what it lands on, doing nothing at either
-// end of the list.
 func (m model) moveCursor(delta int) model {
 	next := m.tree.cursor + delta
 	if next < 0 || next >= len(m.agentRows()) {
@@ -185,8 +159,6 @@ func (m model) moveCursor(delta int) model {
 	return m
 }
 
-// jumpCursor puts the tree cursor on a row by index, clamped to the list, which is how each
-// end of it is reached.
 func (m model) jumpCursor(idx int) model {
 	rows := m.agentRows()
 	if len(rows) == 0 {
@@ -199,8 +171,6 @@ func (m model) jumpCursor(idx int) model {
 	return m
 }
 
-// openAgent acts on the hovered agent. A dormant one is restored and staged live, and a
-// live one is already staged from hovering, so opening it has nothing left to do.
 func (m model) openAgent() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedAgent()
 	if !ok {
@@ -216,17 +186,11 @@ func (m model) openAgent() (tea.Model, tea.Cmd) {
 	})
 }
 
-// The actions the panel's own keys run. Each is shipped with weave and replaced by a file
-// of the same name in the user's actions directory, which is how a key is given different
-// behaviour without a setting for it.
 const (
 	editorAction   = "_editor"
 	terminalAction = "_terminal"
 )
 
-// toggleRecord shows the hovered agent's stored record under the stage, and takes it away
-// again on a second press. It goes below rather than into the stage so the agent it is
-// about stays on screen beside it.
 func (m model) toggleRecord() (tea.Model, tea.Cmd) {
 	if m.tree.below == belowRecord {
 		return m.closeBelow(), nil
@@ -242,11 +206,6 @@ func (m model) toggleRecord() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// runBelowAction fires one of the panel's own actions into the pane under the stage, and
-// takes that pane away when the key that opened it is pressed again.
-//
-// The pane is opened here rather than by the script, since the panel is what knows how its
-// window is laid out.
 func (m model) runBelowAction(name, summary string) (tea.Model, tea.Cmd) {
 	if m.tree.below == belowAction && m.tree.belowAction == name {
 		return m.closeBelow(), nil
@@ -266,12 +225,7 @@ func (m model) runBelowAction(name, summary string) (tea.Model, tea.Cmd) {
 	return m, m.writeCmd(summary, func(a api) error { return a.runAction(agentID, name) })
 }
 
-// claimBelow opens the pane under the stage for an action to fill and records what the pane
-// is about. It reports false when there is no pane to open, which is nothing to fire an
-// action into.
-//
-// The pane's id is recorded on tmux for the script to read, the way the client viewing the
-// popup is, because an action is a process of its own and cannot be handed anything else.
+// Actions run out of process and read their target pane from tmux.
 func (m *model) claimBelow(kind belowKind, name string) bool {
 	pane := m.stage.OpenSecondary()
 	if pane == "" {
@@ -286,9 +240,7 @@ func (m *model) claimBelow(kind belowKind, name string) bool {
 	return true
 }
 
-// closeBelow takes the pane under the stage away, whatever was in it. The recorded pane is
-// cleared with it, since tmux hands ids out again and an action reading a stale one would
-// respawn whatever holds it now.
+// Clear the pane option because tmux can reuse pane IDs.
 func (m model) closeBelow() model {
 	m.stage.CloseSecondary()
 	m.forgetBelow()
@@ -296,15 +248,13 @@ func (m model) closeBelow() model {
 	return m
 }
 
-// forgetBelow drops what the panel remembers about the pane under the stage.
 func (m *model) forgetBelow() {
 	m.tmux.SetPanelGlobal(tmux.SecondaryPaneOption, "")
 	m.tree.below = belowNothing
 	m.tree.belowAction = ""
 }
 
-// toggleHiddenAgents draws the hidden agents alongside the rest, or puts them away again.
-// Rows appear and vanish above the cursor, so it follows the row rather than the index.
+// Preserve the selected row when hidden rows change the list indexes.
 func (m model) toggleHiddenAgents() (tea.Model, tea.Cmd) {
 	selected := rowKeyAt(m.agentRows(), m.tree.cursor)
 
@@ -331,9 +281,6 @@ func (m model) markAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	)
 }
 
-// markSelection steps every chosen agent onto the same mark. The selection stays up
-// afterwards, unlike the keys that take rows off the screen, since the cycle only means
-// anything if the next press still has the same agents to move.
 func (m model) markSelection() (tea.Model, tea.Cmd) {
 	ids := m.tree.selected.ids
 	next := nextSelectionMark(selectionMarks(m.tree.selected, m.allAgentRows()), m.marks)
@@ -344,8 +291,6 @@ func (m model) markSelection() (tea.Model, tea.Cmd) {
 	)
 }
 
-// hideAgent takes the hovered agent out of the list, or puts a revealed one back. One key
-// does both directions, so the failure message comes off the row.
 func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	failure := fmt.Sprintf("Could not hide agent %q", agent.Name)
 	if agent.Hidden {
@@ -355,10 +300,6 @@ func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	return m, m.writeCmd(failure, func(a api) error { return a.setHidden(agent, !agent.Hidden) })
 }
 
-// stageSelection updates the stage to reflect what the cursor is on. A live agent's pane is
-// swapped in, a dormant agent and a workflow header show rendered markdown, and anything
-// else blanks it. The stage follows the cursor and nothing else, so what the user opened
-// under it is drawn separately.
 func (m model) stageSelection() {
 	rows := m.agentRows()
 	if m.tree.cursor < 0 || m.tree.cursor >= len(rows) {
@@ -381,10 +322,6 @@ func (m model) stageSelection() {
 	m.stageBelow()
 }
 
-// stageBelow draws whatever the user opened under the stage. Only the record follows the
-// cursor, since it is about the row that is hovered now rather than the one it was opened
-// on. An action's pane is left alone, since what a script put there is the script's, and so
-// is an editor, which holds a file somebody is part way through changing.
 func (m model) stageBelow() {
 	switch m.tree.below {
 	case belowRecord:
@@ -402,9 +339,6 @@ func (m model) stageBelow() {
 	}
 }
 
-// reconcileBelow forgets the pane under the stage once whatever was running in it has
-// exited, since tmux takes the pane away with it and the key that opened it would otherwise
-// read as closing something that is already gone.
 func (m *model) reconcileBelow() {
 	if m.tree.below == belowNothing || m.stage.IsSecondaryAlive() {
 		return
@@ -413,8 +347,6 @@ func (m *model) reconcileBelow() {
 	m.forgetBelow()
 }
 
-// nextMark is where the mark key moves an agent, stepping through the configured marks and
-// past the last one back to unmarked. A mark that is not configured clears.
 func nextMark(current *string, marks []config.Mark) *string {
 	if len(marks) == 0 {
 		return nil
@@ -433,12 +365,7 @@ func nextMark(current *string, marks []config.Mark) *string {
 	return nil
 }
 
-// nextSelectionMark is where the mark key moves a whole selection, which carries no one
-// mark to step from. Agents already agreeing step on together, and agents that disagree
-// collapse onto the first mark, which leaves them agreeing for every press after.
-//
-// Collapsing onto the mark most of them hold would read the same on screen and answer
-// differently, since which one that is cannot be seen without counting glyphs.
+// Mixed selections collapse to the first mark so their next state is deterministic.
 func nextSelectionMark(current []*string, marks []config.Mark) *string {
 	if len(marks) == 0 || len(current) == 0 {
 		return nil
@@ -453,8 +380,6 @@ func nextSelectionMark(current []*string, marks []config.Mark) *string {
 	return nextMark(current[0], marks)
 }
 
-// selectionMarks are the marks the chosen agents carry, one per agent, a nil standing for
-// an unmarked one.
 func selectionMarks(sel selection, rows []agentRow) []*string {
 	agents := chosenAgents(sel, rows)
 
@@ -474,9 +399,6 @@ func isSameMark(a, b *string) bool {
 	return *a == *b
 }
 
-// scheduleName is the display name of the schedule that launched an agent, empty for one a
-// person started. It reads the list the panel already polls, so a schedule deleted since
-// shows nothing rather than a stale name.
 func (m model) scheduleName(agent agentstore.Agent) string {
 	if agent.ScheduleID == nil {
 		return ""
@@ -491,8 +413,6 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 	return ""
 }
 
-// agentsView renders the nav list, the panel's own pane. The hovered resource shows in the
-// stage pane rather than here.
 func (m model) agentsView() string {
 	header := headerStyle.Render("Agents and Workflows") + "\n\n" + m.filterView()
 	help := "\n" + m.renderHelp(m.agentHelp())
@@ -516,7 +436,7 @@ func (m model) agentsView() string {
 		item := r.item
 		state := item.agent.State
 		if !item.alive {
-			state = agentstore.StateIdle // nothing runs in a pane that is gone
+			state = agentstore.StateIdle
 		}
 
 		name := m.filter.highlight(clipName(item.agent.Name), nameStyle(hovered, !item.alive))
@@ -527,9 +447,6 @@ func (m model) agentsView() string {
 	return header + renderList(rows, m.tree.cursor, m.listLines(header, help)) + help
 }
 
-// openNewAgent opens the new-agent form, seeded from the given workflow's blueprint, and
-// records that workflow so the created agent lands in it. A nil workflow means there are
-// none, which is reported rather than opening a form whose submit could go nowhere.
 func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	if workflow == nil {
 		m.report("Could not start an agent", errNoWorkflow)
@@ -561,8 +478,6 @@ func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) submitRename() (tea.Model, tea.Cmd) {
-	// The form writes into a value the panel handed it, so a submit without one is a
-	// submit for a form that was never opened.
 	if m.values.rename == nil {
 		return m.closeForm()
 	}
@@ -577,9 +492,6 @@ func (m model) submitRename() (tea.Model, tea.Cmd) {
 }
 
 func (m model) submitAgent() (tea.Model, tea.Cmd) {
-	// The form is only reachable from inside a workflow, so this holds one by the time a
-	// submit happens. It is checked rather than dereferenced because saying so here costs
-	// a round trip less than the refusal from the service.
 	if m.target.newAgentWorkflow == nil || m.values.agent == nil {
 		m.report("Could not start the agent", errNoWorkflow)
 
@@ -594,8 +506,6 @@ func (m model) submitAgent() (tea.Model, tea.Cmd) {
 		WorkflowID: m.target.newAgentWorkflow.ID,
 	}
 
-	// A launch failure leaves the list unchanged, which reads the same as a form that
-	// never submitted, so it has to be reported.
 	cmd := m.createCmd(params)
 
 	return m, tea.Batch(cmd, m.holdForm())
