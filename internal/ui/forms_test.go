@@ -367,6 +367,33 @@ func TestNewAgentFormActionOverride(t *testing.T) {
 	}
 }
 
+// TestActionSelectShowsTheCurrentChoiceOnOpen covers the option an action field opens on
+// actually being visible rather than scrolled out of the list. huh.Select only sizes its
+// viewport to the option a field's value matched when Options was called, so binding
+// Value after Options left the pointed-to option, and everything above it, off-screen even
+// though the field's own reported value was already correct.
+func TestActionSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
+	available := []actionChoice{{name: "make-worktree"}, {name: "drop-worktree"}, {name: "install-deps"}}
+
+	agentForm, _ := newAgentForm(config.DefaultKeybindings().Form,
+		agentFormValues{SetupAction: inheritAction, CleanupAction: inheritAction},
+		"make-worktree", "drop-worktree", available,
+	)
+	agentForm.Init()
+	agentView := agentForm.View()
+	assert.Contains(t, agentView, "> Same as workflow  (make-worktree)", "the setup field opens with what it inherits marked as picked")
+	assert.Contains(t, agentView, "> Same as workflow  (drop-worktree)", "the cleanup field opens with what it inherits marked as picked")
+
+	workflowForm, _ := workflowConfigForm("Workflow name", workflowstore.Config{
+		SetupAction:   "make-worktree",
+		CleanupAction: "drop-worktree",
+	}, available, config.DefaultKeybindings().Form)
+	workflowForm.Init()
+	workflowView := workflowForm.View()
+	assert.Contains(t, workflowView, "> make-worktree", "editing a workflow opens with its own stored setup action marked as the one picked, not none")
+	assert.Contains(t, workflowView, "> drop-worktree", "editing a workflow opens with its own stored cleanup action marked as the one picked, not none")
+}
+
 // TestRefusedSubmitKeepsTheForm covers what a refused write leaves on screen. The form
 // stays up carrying what was filled in, since the field that caused the refusal is fixed
 // from there and closing would cost every other field with it.

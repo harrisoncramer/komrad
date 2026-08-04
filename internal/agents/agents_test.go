@@ -645,14 +645,17 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 		},
 		{
 			name:      "a window tmux refuses",
+			answered:  t.TempDir(),
 			windowErr: errors.New("tmux refused the window name"),
 		},
 		{
 			name:        "a pane tmux refuses to stamp",
+			answered:    t.TempDir(),
 			setOwnerErr: errors.New("tmux refused the option"),
 		},
 		{
 			name:        "a launch that never reaches the pane's shell",
+			answered:    t.TempDir(),
 			sendKeysErr: errors.New("tmux dropped the keys"),
 		},
 	}
@@ -683,6 +686,11 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 			require.Error(t, err)
 			assert.Equal(t, []string{"make-worktree"}, lifecycle.setup)
 			assert.Equal(t, []string{"drop-worktree"}, lifecycle.cleanup, "what setup built is taken back")
+
+			if tt.windowErr != nil || tt.setOwnerErr != nil || tt.sendKeysErr != nil {
+				require.Len(t, lifecycle.cleanupCwd, 1)
+				assert.Equal(t, tt.answered, lifecycle.cleanupCwd[0], "cleanup runs against what setup actually built, not the workflow's planned dir")
+			}
 
 			agents, listErr := st.List(t.Context())
 			require.NoError(t, listErr)

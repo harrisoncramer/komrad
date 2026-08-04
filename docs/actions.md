@@ -24,20 +24,14 @@ The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`,
 
 - `WEAVE_AGENT_ID` and `WEAVE_AGENT_CWD`, the two fields most scripts want.
 - `WEAVE_ADDR`, this server's address, for calling back into the API or the [CLI](commands.md).
-- `WEAVE_TMUX_SOCKET`, the tmux server every agent's pane lives on. Send keys to the pane in the payload through this one, not through your own server, where that pane id means something else entirely.
+- `WEAVE_TMUX_SOCKET`, the tmux server every agent's pane lives on
 - `WEAVE_ACTIONS_DIR`, the directory the action came out of, which is how a script that cds elsewhere finds its siblings again.
 - `WEAVE_TRIGGER`, what set the action off. One of `manual`, `setup`, `resume`, or `cleanup`.
 - `WEAVE_SECONDARY_PANE`, the pane under the panel's stage, for a script that wants to draw something where the panel's own actions do.
-- `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup, for a script that wants to open a window or say something where you'll see it.
-- `EDITOR` and `WEAVE_SHELL`.
+- `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup.
+- `EDITOR` and `WEAVE_SHELL`
 
-An action runs in the actions directory it was found in, not in the agent's directory, and stdin and stdout go to the null device. Progress a script wants someone to see belongs on `weave rpc log`, not stderr:
-
-```sh
-weave rpc log --id "$WEAVE_AGENT_ID" --message "fetched origin/main"
-```
-
-Stderr is diagnostic rather than a progress channel: weave keeps the last 64 KiB of it and writes that to its own log only when the action fails.
+An action runs in the actions directory it was found in.
 
 ## Action Metadata
 
@@ -47,7 +41,11 @@ You can provide certain metadata to an action by adding _headers_ to the top of 
 #!/bin/sh
 #WEAVE description="This is my custom action"
 #WEAVE timeout="1s"
-weave rpc log --id "$WEAVE_AGENT_ID" --message "Hello world"
+
+# Add whatever logic you want here.
+# Failures on stdout will get captured by weave's log automatically
+# You can also send messages to the log manually, like this:
+weave rpc log --message 'Hello world'
 ```
 
 This action will abort and fail if it cannot execute within 1 second.

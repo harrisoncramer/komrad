@@ -13,6 +13,7 @@ weave rpc create-agent [flags]
 ### Options
 
 ```
+      --cleanup-action string    string, at most 255 characters
       --compact                  print the response on one line
       --dir string               string, at most 4096 characters
       --flags string             string, at most 500 characters
@@ -21,6 +22,7 @@ weave rpc create-agent [flags]
       --idempotency-key string   string, at most 200 characters
       --prompt string            string, required, at most 50000 characters
       --request-json string      the whole request as JSON, which the flags above are laid over
+      --setup-action string      string, at most 255 characters
       --timeout duration         how long to wait for the call (default 30s)
       --title string             string, at most 200 characters
       --workflow-id string       string, required
