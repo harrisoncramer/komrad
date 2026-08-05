@@ -177,6 +177,7 @@ func TestTryCopyRecordValueFlashesTheFieldsLine(t *testing.T) {
 				assert.Equal(t, shownOther, stage.shown, "the flash bypasses Text's own change check")
 			case surfaceSecondary:
 				assert.Equal(t, shownOther, stage.shownBelow, "the flash bypasses SecondaryText's own change check")
+			case surfaceNone:
 			}
 		})
 	}
