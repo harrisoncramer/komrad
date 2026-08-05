@@ -125,6 +125,25 @@ func TestEnterOnNothingFiresNothing(t *testing.T) {
 	assert.NoError(t, shown.failure)
 }
 
+// TestMovingOverAnEmptyListFiresNothing covers a user with no actions written yet, where every
+// key has to land on a list with no rows in it and do nothing.
+func TestMovingOverAnEmptyListFiresNothing(t *testing.T) {
+	fired := 0
+
+	shown := press(t, newModel(RunParams{
+		Fire: func(string) error {
+			fired++
+
+			return nil
+		},
+	}), "down", "down", "enter")
+
+	assert.Zero(t, fired)
+	assert.Zero(t, shown.cursor, "the cursor never leaves the row a list of none would start at")
+	assert.NoError(t, shown.failure)
+	assert.Contains(t, shown.View(), "no actions")
+}
+
 // TestViewDrawsTheAgentAndWhatIsHovered covers the popup saying what it is about to act on,
 // since the pane it was opened over is the only thing that decided that.
 func TestViewDrawsTheAgentAndWhatIsHovered(t *testing.T) {

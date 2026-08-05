@@ -112,7 +112,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case k == "up" || k == "ctrl+p":
 		m.cursor = max(m.cursor-1, 0)
 	case k == "down" || k == "ctrl+n":
-		m.cursor = min(m.cursor+1, len(m.rows())-1)
+		if last := len(m.rows()) - 1; m.cursor < last {
+			m.cursor++
+		}
 	case k == "backspace":
 		return m.typeQuery(trimLastRune(m.query)), nil
 	case key.Type == tea.KeySpace:
