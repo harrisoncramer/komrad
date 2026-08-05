@@ -67,8 +67,7 @@ func TestSendMessageRefusals(t *testing.T) {
 			svc := NewMessageService(NewMessageServiceParams{
 				MessageReadWriter: mailbox,
 				AgentFinder:       newFakeDirectory(),
-				DeadlineReader:    fakeDeadline{},
-				HopLimitReader:    fakeHopLimit(config.DefaultMaxHops),
+				Config:            fakeMessageConfig{maxHops: config.DefaultMaxHops},
 			})
 
 			sent, err := svc.SendMessage(t.Context(), tt.params)
@@ -84,8 +83,7 @@ func TestSendMessageStampsTheSender(t *testing.T) {
 	svc := NewMessageService(NewMessageServiceParams{
 		MessageReadWriter: mailbox,
 		AgentFinder:       newFakeDirectory(),
-		DeadlineReader:    fakeDeadline{},
-		HopLimitReader:    fakeHopLimit(config.DefaultMaxHops),
+		Config:            fakeMessageConfig{maxHops: config.DefaultMaxHops},
 	})
 
 	sent, err := svc.SendMessage(t.Context(), SendMessageParams{
@@ -110,8 +108,7 @@ func TestSendMessageFromNobody(t *testing.T) {
 	svc := NewMessageService(NewMessageServiceParams{
 		MessageReadWriter: mailbox,
 		AgentFinder:       newFakeDirectory(),
-		DeadlineReader:    fakeDeadline{},
-		HopLimitReader:    fakeHopLimit(config.DefaultMaxHops),
+		Config:            fakeMessageConfig{maxHops: config.DefaultMaxHops},
 	})
 
 	_, err := svc.SendMessage(t.Context(), SendMessageParams{ToAgentID: "agent-b", Body: "hello"})
@@ -126,8 +123,7 @@ func TestSendMessageRefusesPastTheHopLimit(t *testing.T) {
 	svc := NewMessageService(NewMessageServiceParams{
 		MessageReadWriter: mailbox,
 		AgentFinder:       newFakeDirectory(),
-		DeadlineReader:    fakeDeadline{},
-		HopLimitReader:    fakeHopLimit(2),
+		Config:            fakeMessageConfig{maxHops: 2},
 	})
 
 	first, err := svc.SendMessage(t.Context(), SendMessageParams{From: "agent-a", ToAgentID: "agent-b", Body: "which column?"})
@@ -158,8 +154,7 @@ func TestSendMessageSystemNoticeIsAlwaysAFreshThread(t *testing.T) {
 	svc := NewMessageService(NewMessageServiceParams{
 		MessageReadWriter: mailbox,
 		AgentFinder:       newFakeDirectory(),
-		DeadlineReader:    fakeDeadline{},
-		HopLimitReader:    fakeHopLimit(1),
+		Config:            fakeMessageConfig{maxHops: 1},
 	})
 
 	sent, err := svc.SendSystemMessage(t.Context(), "agent-a", "your delegate was archived")
@@ -175,8 +170,7 @@ func TestSendSystemMessageStampsWeaveAsTheSender(t *testing.T) {
 	svc := NewMessageService(NewMessageServiceParams{
 		MessageReadWriter: mailbox,
 		AgentFinder:       newFakeDirectory(),
-		DeadlineReader:    fakeDeadline{},
-		HopLimitReader:    fakeHopLimit(config.DefaultMaxHops),
+		Config:            fakeMessageConfig{maxHops: config.DefaultMaxHops},
 	})
 
 	sent, err := svc.SendSystemMessage(t.Context(), "agent-a", "your delegate was archived")
@@ -210,8 +204,7 @@ func TestClaimMessages(t *testing.T) {
 			svc := NewMessageService(NewMessageServiceParams{
 				MessageReadWriter: mailbox,
 				AgentFinder:       newFakeDirectory(),
-				DeadlineReader:    fakeDeadline{},
-				HopLimitReader:    fakeHopLimit(config.DefaultMaxHops),
+				Config:            fakeMessageConfig{maxHops: config.DefaultMaxHops},
 			})
 
 			claimed, err := svc.ClaimMessages(t.Context(), tt.agentID)
@@ -229,16 +222,16 @@ func TestClaimMessages(t *testing.T) {
 	}
 }
 
-type fakeDeadline struct{}
+type fakeMessageConfig struct {
+	maxHops int
+}
 
-func (fakeDeadline) GetDeliveryDeadline() (time.Duration, error) {
+func (fakeMessageConfig) GetDeliveryDeadline() (time.Duration, error) {
 	return time.Hour, nil
 }
 
-type fakeHopLimit int
-
-func (f fakeHopLimit) GetMaxHops() (int, error) {
-	return int(f), nil
+func (f fakeMessageConfig) GetMaxHops() (int, error) {
+	return f.maxHops, nil
 }
 
 type fakeMailbox struct {

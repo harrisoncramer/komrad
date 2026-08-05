@@ -1,186 +1,346 @@
 package agents
 
 import (
-	_ "embed"
+	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
+	"weave/config"
 	"weave/internal/harness"
-	"weave/lib/xslice"
+	"weave/internal/logging"
+	"weave/internal/store"
+	agentstore "weave/internal/store/agent"
+	"weave/lib/xstr"
 )
 
-// briefingDoc is what every spawned agent is told about the panel running it: what it can
-// look up rather than guess at, what the panel reads out of its pane, and where to find
-// the log when the panel is behaving oddly. It stops at what an agent needs to work under
-// weave, since most agents are working on something else entirely and how this repo builds
-// itself is no use to them. It is prose in a file rather than a string constant because
-// editing it should not mean reading around Go quoting, and it names only the tools an
-// agent would not think to go looking for. The rest of the surface is in the tool list its
-// client already has.
-//
-//go:embed briefing.md
-var briefingDoc string
-
-// mcpURLPlaceholder is where the briefing names the panel's own endpoint. It is
-// substituted rather than formatted, since a %s in prose about a shell command line is
-// too easy to write by accident.
-const mcpURLPlaceholder = "{{MCP_URL}}"
-
-// logPathPlaceholder is where the briefing names the service's log, found the same way
-// the service that writes it does, so an agent sent looking for a failure is sent to the
-// file that holds it.
-const logPathPlaceholder = "{{LOG_PATH}}"
-
-// keySender is all a launch needs from tmux, somewhere to type. The command is not
-// executed directly: it is typed into a pane and parsed by the shell running there, which
-// is why the harness that assembles it quotes everything interpolated into it.
-type keySender interface {
-	SendKeys(target string, keys ...string) error
+// launchPlan is what NewAgent resolves before it creates anything: which harness runs the
+// agent, where it runs, what it is told, and the unique name it will hold.
+type launchPlan struct {
+	name            string
+	harness         harness.Harness
+	harnessID       string
+	dir             string
+	flags           string
+	workflowContext string
+	setupAction     string
+	cleanupAction   string
 }
 
-// harnessCommandBuilder is all a launch needs from the harness, the command line that puts
-// the agent's CLI up.
-type harnessCommandBuilder interface {
-	BuildCommand(harness.Launch) (string, error)
-}
-
-// Launcher turns an agent into a running CLI process. It owns what a spawned agent
-// is told and nothing else, with no store, no lifecycle, and no knowledge of what
-// an agent is. How any of it is spelled on a command line belongs to the harness,
-// which arrives per launch because which CLI an agent runs is the agent's own.
-type Launcher struct {
-	tmux keySender
-	// serverAddr is where serve listens, which is also where the MCP endpoint
-	// lives. Agents are told about it at launch.
-	serverAddr string
-	// cacheDir is where a harness writes the temp files it passes a prompt through, and
-	// logPath is the service's log, which the briefing sends an agent to.
-	cacheDir string
-	logPath  string
-	// contextPath is the file holding the standing text every agent is started with. The
-	// path is fixed at startup but the file is read per launch, so editing it reaches the
-	// next agent without restarting the service.
-	contextPath string
-	// hookCommand is what an agent CLI's hooks run to reach the panel, which is this
-	// binary. Empty leaves an agent launched with no hooks registered.
-	hookCommand string
-}
-
-// LauncherParams is where a launcher reads the addresses and directories it hands on. Only
-// Tmux has no sensible zero, since a launcher with nowhere to type cannot launch.
-type LauncherParams struct {
-	Tmux        keySender
-	Addr        string
-	CacheDir    string
-	LogPath     string
-	ContextPath string
-	HookCommand string
-}
-
-// NewLauncher builds a launcher that points spawned agents at the given address.
-func NewLauncher(p LauncherParams) *Launcher {
-	if p.Addr == "" {
-		p.Addr = defaultServerAddr
-	}
-
-	return &Launcher{
-		tmux:        p.Tmux,
-		serverAddr:  p.Addr,
-		cacheDir:    p.CacheDir,
-		logPath:     p.LogPath,
-		contextPath: p.ContextPath,
-		hookCommand: p.HookCommand,
-	}
-}
-
-// buildBriefing is the doc with the paths this install actually runs on filled in.
-func (l *Launcher) buildBriefing() string {
-	text := strings.ReplaceAll(briefingDoc, mcpURLPlaceholder, fmt.Sprintf("http://%s/mcp", l.serverAddr))
-
-	return strings.ReplaceAll(text, logPathPlaceholder, l.logPath)
-}
-
-// appendedSystemPrompt is what the panel has to say to an agent it is starting. The
-// standing briefing and who spawned it are weave's own voice, so they come first rather
-// than competing for the last word; the user's standing context and the workflow's follow,
-// and between those two a workflow reads as the last word on anything the user's also
-// speaks to.
-func (l *Launcher) appendedSystemPrompt(workflowContext, spawnedByAgentID, spawnedByName string) string {
-	parts := []string{l.buildBriefing(), delegateBriefing(spawnedByAgentID, spawnedByName), l.globalContext(), workflowContext}
-
-	trimmed := xslice.Map(parts, strings.TrimSpace)
-	kept := xslice.Filter(trimmed, func(s string) bool { return s != "" })
-
-	return strings.Join(kept, "\n\n")
-}
-
-// delegateBriefing is what a spawned agent is told about the agent that started it, empty
-// for one a person started from the panel. Every delegate gets the same wording whether or
-// not the agent that spawned it thought to say so itself in the opening prompt.
-func delegateBriefing(spawnedByAgentID, spawnedByName string) string {
-	if spawnedByAgentID == "" {
-		return ""
-	}
-
-	return fmt.Sprintf(
-		"You were spawned by agent %s (%s) to do this piece of work. Answer its messages as they arrive, and tell it when you are done rather than waiting to be asked.",
-		spawnedByName, spawnedByAgentID)
-}
-
-// globalContext is the user's standing text, empty when they keep none. A file that is not
-// there is the ordinary case rather than a problem, and one that cannot be read is not
-// worth refusing a launch over, so both come back empty.
-func (l *Launcher) globalContext() string {
-	if l.contextPath == "" {
-		return ""
-	}
-
-	text, err := os.ReadFile(l.contextPath)
+// planLaunch resolves a new agent's harness, directory, flags, and setup and cleanup
+// actions, falling back from the request to the workflow to the panel's own defaults.
+func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launchPlan, error) {
+	wf, err := s.workflows.Get(ctx, p.WorkflowID)
 	if err != nil {
-		return ""
+		return nil, fmt.Errorf("failed to look up workflow %q: %w", p.WorkflowID, err)
+	}
+	if wf == nil {
+		return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, p.WorkflowID)
 	}
 
-	return string(text)
+	harnessID := strings.TrimSpace(p.Harness)
+	if harnessID == "" {
+		harnessID = strings.TrimSpace(wf.Harness)
+	}
+	if harnessID == "" {
+		harnessID = s.userDefaultHarness
+	}
+
+	hn, err := s.harnesses.GetByID(harnessID)
+	if err != nil {
+		return nil, err
+	}
+
+	dir := config.ExpandHome(strings.TrimSpace(p.Dir))
+	if dir == "" {
+		dir = config.ExpandHome(strings.TrimSpace(wf.Cwd))
+	}
+	if dir == "" {
+		dir = s.tmux.GetClientPath(p.Client)
+	}
+	if dir == "" {
+		dir, _ = os.UserHomeDir()
+	}
+
+	if err := requireUsableDir(dir); err != nil {
+		return nil, err
+	}
+
+	agentFlags := strings.TrimSpace(p.Flags)
+	if agentFlags == "" {
+		agentFlags = strings.TrimSpace(wf.Flags)
+	}
+
+	setupAction := wf.SetupAction
+	if p.SetupAction != nil {
+		setupAction = strings.TrimSpace(*p.SetupAction)
+	}
+
+	cleanupAction := wf.CleanupAction
+	if p.CleanupAction != nil {
+		cleanupAction = strings.TrimSpace(*p.CleanupAction)
+	}
+
+	return &launchPlan{
+		name:            s.uniqueAgentName(ctx, p.WorkflowID, p.Title, p.Prompt),
+		harness:         hn,
+		harnessID:       harnessID,
+		dir:             dir,
+		flags:           strings.TrimSpace(s.userDefaultFlags[harnessID] + " " + agentFlags),
+		workflowContext: wf.Context,
+		setupAction:     setupAction,
+		cleanupAction:   cleanupAction,
+	}, nil
 }
 
-type launchParams struct {
-	Pane            string
-	Dir             string
-	Flags           string
-	Prompt          string
-	WorkflowContext string
-	SessionID       string
-	AgentID         string
-	// SpawnedByAgentID and SpawnedByName are both empty for an agent a person started.
-	SpawnedByAgentID string
-	SpawnedByName    string
-	Resume           bool
+// agent builds the complete row for a launching agent. It is the single place that
+// assembles the record; callers pass in whatever they've resolved so far and get back
+// the full shape, rather than constructing a partial value and patching fields onto it.
+func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane string, spawner *agentstore.Agent) agentstore.Agent {
+	var spawnedBy *string
+	if spawner != nil {
+		spawnedBy = &spawner.ID
+	}
+
+	return agentstore.Agent{
+		ID:               id,
+		Name:             plan.name,
+		Pane:             pane,
+		Cwd:              dir,
+		Flags:            plan.flags,
+		SetupAction:      params.SetupAction,
+		CleanupAction:    params.CleanupAction,
+		Prompt:           params.Prompt,
+		State:            agentstore.StateIdle,
+		Harness:          plan.harnessID,
+		SessionID:        sessionID,
+		WorkflowID:       params.WorkflowID,
+		ScheduleID:       params.ScheduleID,
+		IdempotencyKey:   idempotencyKey(params.IdempotencyKey),
+		SpawnedByAgentID: spawnedBy,
+		Hidden:           params.Hidden,
+	}
 }
 
-// launch types the command that puts an agent up into its pane. What that command
-// is comes from the harness; whether the briefing survives a resume, and how the
-// prompt reaches the CLI, are its business rather than the launcher's.
-func (l *Launcher) launch(h harnessCommandBuilder, params launchParams) error {
-	command, err := h.BuildCommand(harness.Launch{
-		Flags:       params.Flags,
-		Prompt:      params.Prompt,
-		Dir:         params.Dir,
-		Context:     l.appendedSystemPrompt(params.WorkflowContext, params.SpawnedByAgentID, params.SpawnedByName),
-		SessionID:   params.SessionID,
-		AgentID:     params.AgentID,
-		MCPEndpoint: l.serverAddr,
-		CacheDir:    l.cacheDir,
-		HookCommand: l.hookCommand,
-		Resume:      params.Resume,
+// launchAgent plans, sets up, opens a pane for, records, and starts a new agent. A failure
+// partway through unwinds only whatever actually ran: the deferred cleanup is registered
+// the moment setup has run, so it always has something to look at when it fires, and it
+// reads the pane and agent variables live rather than a snapshot taken when it was
+// registered.
+func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawner *agentstore.Agent) (*agentstore.Agent, error) {
+	plan, err := s.planLaunch(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+
+	// The pane must be stamped with the agent ID before the reconciler can see it.
+	id, err := store.NewID()
+	if err != nil {
+		return nil, err
+	}
+	sessionID := plan.harness.MintSessionID()
+	agent := plan.agent(p, id, sessionID, plan.dir, "", spawner)
+
+	setupName, err := s.runSetup(ctx, agent, plan.setupAction)
+	if err != nil {
+		return nil, err
+	}
+
+	// Setup may have created resources before any agent row exists, so a failure from
+	// here on unwinds whichever of the pane and the setup action actually ran.
+	var pane string
+	launched := false
+	defer func() {
+		if launched {
+			return
+		}
+		if pane != "" {
+			s.tmux.KillPane(pane)
+		}
+		s.runCleanup(ctx, agent, plan.cleanupAction)
+	}()
+
+	dir, err := s.setupDir(plan.dir, setupName)
+	if err != nil {
+		return nil, err
+	}
+	agent = plan.agent(p, id, sessionID, dir, "", spawner)
+
+	pane, err = s.tmux.NewWindow(ManagerSession, plan.name, dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open a window for %q: %w", plan.name, err)
+	}
+	agent = plan.agent(p, id, sessionID, dir, pane, spawner)
+
+	if err := s.tmux.SetPaneOwner(pane, id); err != nil {
+		return nil, fmt.Errorf("failed to stamp the pane for %q: %w", plan.name, err)
+	}
+
+	// Claim the slot with the insert because setup cannot run inside the transaction.
+	if err := s.createUnderCeiling(ctx, agent); err != nil {
+		return nil, err
+	}
+
+	created, err := s.agents.GetInWorkflow(ctx, p.WorkflowID, plan.name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read back agent %q: %w", plan.name, err)
+	}
+	if created == nil {
+		return nil, fmt.Errorf("agent %q vanished after being recorded", plan.name)
+	}
+
+	params := launchParams{
+		Pane:            pane,
+		Dir:             agent.Cwd,
+		Flags:           plan.flags,
+		Prompt:          p.Prompt,
+		WorkflowContext: plan.workflowContext,
+		SessionID:       sessionID,
+		AgentID:         id,
+	}
+	if spawner != nil {
+		params.SpawnedByAgentID = spawner.ID
+		params.SpawnedByName = spawner.Name
+	}
+
+	if err := s.launcher.launch(plan.harness, params); err != nil {
+		if deleteErr := s.removeAgents(ctx, []string{id}); deleteErr != nil {
+			return nil, fmt.Errorf("failed to launch the agent for %q (%w), and failed to clean up: %w", plan.name, err, deleteErr)
+		}
+
+		return nil, fmt.Errorf("failed to launch the agent for %q: %w", plan.name, err)
+	}
+
+	launched = true
+
+	return created, nil
+}
+
+func (s *AgentService) runSetup(ctx context.Context, planned agentstore.Agent, name string) (string, error) {
+	if s.lifecycle == nil || name == "" {
+		return "", nil
+	}
+
+	return s.lifecycle.RunSetupAction(ctx, planned, name)
+}
+
+func (s *AgentService) setupDir(planned, named string) (string, error) {
+	if named == "" {
+		return planned, nil
+	}
+
+	return namedDir(named)
+}
+
+func namedDir(named string) (string, error) {
+	if named == "" {
+		return "", nil
+	}
+
+	dir := config.ExpandHome(named)
+	if err := requireUsableDir(dir); err != nil {
+		return "", fmt.Errorf("%w: a setup action named %q: %w", ErrSetupFailed, dir, err)
+	}
+
+	return dir, nil
+}
+
+// Claim the capacity slot and insert the agent in one transaction.
+func (s *AgentService) createUnderCeiling(ctx context.Context, agent agentstore.Agent) error {
+	return s.tx.InTx(ctx, func(db store.DBTX) error {
+		agentStore := agentstore.New(db)
+
+		if err := claimRoomForAgents(ctx, agentStore, s.maxAgents, 1); err != nil {
+			return err
+		}
+
+		if err := agentStore.Create(ctx, agent); err != nil {
+			return fmt.Errorf("failed to record agent %q: %w", agent.Name, err)
+		}
+
+		return nil
 	})
+}
+
+// tmux silently falls back to its default directory when it cannot enter the requested one.
+func requireUsableDir(dir string) error {
+	info, err := os.Stat(dir)
 	if err != nil {
-		return fmt.Errorf("failed to build the launch command: %w", err)
+		return fmt.Errorf("%w %q: %w", ErrBadDirectory, dir, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("%w: %q is not a directory", ErrBadDirectory, dir)
 	}
 
-	if err := l.tmux.SendKeys(params.Pane, command, "Enter"); err != nil {
-		return fmt.Errorf("failed to type the launch command: %w", err)
+	handle, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("%w %q: %w", ErrBadDirectory, dir, err)
+	}
+	_ = handle.Close()
+
+	return nil
+}
+
+// The store must use the transaction holding the slot lock.
+func claimRoomForAgents(ctx context.Context, agents agentManager, maxAgents, want int) error {
+	if maxAgents <= 0 || want <= 0 {
+		return nil
+	}
+	if err := agents.LockSlots(ctx); err != nil {
+		return err
+	}
+
+	return requireRoomForAgents(ctx, agents, maxAgents, want)
+}
+
+func requireRoomForAgents(ctx context.Context, agents agentManager, maxAgents, want int) error {
+	if maxAgents <= 0 || want <= 0 {
+		return nil
+	}
+
+	live, err := agents.CountLive(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to count the agents already running: %w", err)
+	}
+	if live+int64(want) > int64(maxAgents) {
+		return fmt.Errorf("%w: max number of concurrent agents reached (%d of %d), please archive one to continue", ErrTooManyAgents, live, maxAgents)
 	}
 
 	return nil
+}
+
+func (s *AgentService) uniqueAgentName(ctx context.Context, workflowID, title, prompt string) string {
+	base := agentstore.SanitizeName(strings.TrimSpace(title))
+	if base == "" {
+		base = xstr.Slug(xstr.FirstLine(prompt), 24)
+	}
+	if base == "" {
+		base = "agent"
+	}
+
+	name := base
+	for i := 2; s.isNameTaken(ctx, workflowID, name); i++ {
+		name = fmt.Sprintf("%s-%d", base, i)
+	}
+
+	return name
+}
+
+func (s *AgentService) isNameTaken(ctx context.Context, workflowID, name string) bool {
+	taken, err := s.agents.ActiveNameExists(ctx, workflowID, name)
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to check whether an agent name is taken",
+			append([]slog.Attr{slog.String(logging.WorkflowID, workflowID)}, logging.Err(err)...)...)
+	}
+
+	return taken
+}
+
+func idempotencyKey(key string) *string {
+	if key == "" {
+		return nil
+	}
+
+	return &key
 }

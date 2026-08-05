@@ -804,8 +804,7 @@ func TestSendMessagePastTheHopLimitIsResourceExhausted(t *testing.T) {
 	messages := agents.NewMessageService(agents.NewMessageServiceParams{
 		MessageReadWriter: st.Messages,
 		AgentFinder:       st.Agents,
-		DeadlineReader:    stubDeadline{},
-		HopLimitReader:    stubHopLimit(1),
+		Config:            stubMessageConfig(1),
 	})
 	svc := NewService(NewServiceParams{Agents: st.Agents, Transcripts: st.Transcripts, Messages: messages})
 
@@ -1509,13 +1508,11 @@ func (f *fakeLauncher) ResumeAgent(_ context.Context, id string) (*agentstore.Ag
 	return f.created, nil
 }
 
-type stubDeadline struct{}
+type stubMessageConfig int
 
-func (stubDeadline) GetDeliveryDeadline() (time.Duration, error) { return time.Hour, nil }
+func (stubMessageConfig) GetDeliveryDeadline() (time.Duration, error) { return time.Hour, nil }
 
-type stubHopLimit int
-
-func (s stubHopLimit) GetMaxHops() (int, error) { return int(s), nil }
+func (s stubMessageConfig) GetMaxHops() (int, error) { return int(s), nil }
 
 func service(t *testing.T) (*Service, *storetest.Stores) {
 	t.Helper()
@@ -1586,8 +1583,7 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 	messages := agents.NewMessageService(agents.NewMessageServiceParams{
 		MessageReadWriter: st.Messages,
 		AgentFinder:       st.Agents,
-		DeadlineReader:    stubDeadline{},
-		HopLimitReader:    stubHopLimit(config.DefaultMaxHops),
+		Config:            stubMessageConfig(config.DefaultMaxHops),
 	})
 
 	return NewService(NewServiceParams{

@@ -16,9 +16,8 @@ import (
 // stale state lingering a few seconds.
 const reconcileMisses = 3
 
-// paneObserver is how the reconciler watches a pane. It keys on the
-// pane's owner stamp rather than its existence, so a reissued pane id is not read as this
-// agent still running.
+// paneObserver is how the reconciler watches a pane. It keys on the pane's owner stamp
+// rather than its existence, so a reissued pane id is not read as this agent still running.
 type paneObserver interface {
 	GetPaneOwners() (map[string]string, error)
 	CapturePane(pane string) string

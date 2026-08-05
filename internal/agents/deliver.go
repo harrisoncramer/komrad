@@ -38,14 +38,9 @@ type paneReader interface {
 	IsAgentRunning(agent agentstore.Agent) bool
 }
 
-// paneWriter is how delivery types at an agent.
-type paneWriter interface {
-	SendKeys(target string, keys ...string) error
-}
-
 // nudgeClaimer reads an agent and takes the right to tell it about waiting mail.
 type nudgeClaimer interface {
-	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
+	agentFinder
 	ClaimNudge(ctx context.Context, id string) (bool, error)
 }
 

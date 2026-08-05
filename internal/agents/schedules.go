@@ -36,13 +36,13 @@ var ErrBadCron = errors.New("unreadable cron expression")
 type ScheduleService struct {
 	store scheduleReadWriter
 	// workflows is read to confirm a schedule launches into a workflow that is there.
-	workflows liveWorkflowReader
+	workflows workflowReader
 }
 
 // ScheduleParams carries the schedule service's dependencies.
 type ScheduleParams struct {
 	Schedules scheduleReadWriter
-	Workflows liveWorkflowReader
+	Workflows workflowReader
 }
 
 // NewScheduleService builds the service from its dependencies.
