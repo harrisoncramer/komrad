@@ -71,15 +71,8 @@ type paneWriter interface {
 	SendKeys(target string, keys ...string) error
 }
 
-// storedWorkflowReader is the one-method view an action needs: a workflow's blueprint
-// whether or not it has since been archived.
-type storedWorkflowReader interface {
-	GetIncludingArchived(ctx context.Context, id string) (*workflow.Workflow, error)
-}
-
-// workflowReader is the workflow store as AgentService and ScheduleService need it: a
-// live workflow to launch into, and an archived one's blueprint to fall back on its
-// setup and cleanup.
+// workflowReader is the workflow store as the services over it read it: a live workflow to
+// launch into, and an archived one's blueprint to fall back on its setup and cleanup.
 type workflowReader interface {
 	Get(ctx context.Context, id string) (*workflow.Workflow, error)
 	GetIncludingArchived(ctx context.Context, id string) (*workflow.Workflow, error)

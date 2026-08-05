@@ -53,7 +53,7 @@ const (
 // ActionService lists and runs built-in and user-defined actions.
 type ActionService struct {
 	agents     agentGetter
-	workflows  storedWorkflowReader
+	workflows  workflowReader
 	tmux       tmuxReader
 	runner     actionRunner
 	load       configLoader
@@ -69,7 +69,7 @@ type ActionService struct {
 // ActionParams carries the action service's dependencies.
 type ActionParams struct {
 	Agents     agentGetter
-	Workflows  storedWorkflowReader
+	Workflows  workflowReader
 	Tmux       tmuxReader
 	Runner     actionRunner
 	Load       configLoader
