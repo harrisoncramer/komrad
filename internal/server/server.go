@@ -1,12 +1,11 @@
 // Package server assembles the service: the stores, the domain services over them, the
-// handlers those are served through, and the background loops that correct what the panel
-// shows. It holds the wiring and nothing about how the process is started, so the same
-// service a user runs can be stood up inside a test.
+// handlers those are served through, and the background work that keeps what the panel
+// shows correct. It starts and stops that work itself, so the same service a user runs can
+// be stood up inside a test.
 package server
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"path/filepath"
@@ -123,23 +122,13 @@ func (load messagesConfig) GetMaxHops() (int, error) {
 	return cfg.Messages.GetMaxHops()
 }
 
-// Loop is one pass the service re-runs on an interval. How it is run, logged, and stopped
-// belongs to whoever is running the service rather than here.
-type Loop struct {
-	Name     string
-	Interval time.Duration
-	Pass     func(context.Context) error
-}
-
-// Server is the assembled service, held so its owner can serve it, run its loops, and take
-// it back down in that order.
+// Server is the assembled service, held so its owner can serve it, run its background work,
+// and take it back down in that order.
 type Server struct {
-	// Mux carries the RPC handlers and the MCP endpoint. Whatever is serving it adds the
-	// routes that belong to the process rather than the service, such as readiness.
+	// Mux carries the RPC handlers, the MCP endpoint, and the service's own routes such as
+	// readiness. Whatever serves it adds nothing but a guard in front.
 	Mux *http.ServeMux
-	// Loops is the background work, in no particular order.
-	Loops []Loop
-	// Jobs is the queue behind the schedules, started and stopped by the owner because a
+	// Jobs is the queue behind the schedules, started and stopped by Start and Stop because a
 	// launch in flight has to be waited for rather than cut off.
 	Jobs *river.Client[pgx.Tx]
 	// Periodic is River's registration bundle, which the schedule loop keeps in step with
@@ -151,7 +140,25 @@ type Server struct {
 	// can step it the way it steps a loop.
 	Delivery *agents.DeliveryService
 
-	closers []func()
+	// ScheduleReconcile keeps River's periodic registrations in step with the schedules table.
+	ScheduleReconcile Loop
+	// Reconcile re-observes every agent's pane and writes what it saw.
+	Reconcile Loop
+	// MailDelivery finds mail nobody has read yet and gets it in front of whoever it is for.
+	MailDelivery Loop
+	// TranscriptSync folds each agent's new transcript text into the search index.
+	TranscriptSync Loop
+
+	logger        *slog.Logger
+	stopRequested chan struct{}
+	background    *backgroundWork
+	closers       []func()
+}
+
+// loops is every background loop Start has to run, so a loop added above joins this list in
+// the same glance.
+func (s *Server) loops() []Loop {
+	return []Loop{s.ScheduleReconcile, s.Reconcile, s.MailDelivery, s.TranscriptSync}
 }
 
 // New builds the service. Nothing is listening and no loop is running when it returns; the
@@ -169,7 +176,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		return nil, err
 	}
 
-	srv := &Server{Pool: pool}
+	srv := &Server{Pool: pool, logger: p.Logger, stopRequested: make(chan struct{}, 1)}
 	srv.closers = append(srv.closers, func() { _ = pool.Close() })
 
 	agentStore := agentstore.New(pool.GetDB())
@@ -293,6 +300,8 @@ func New(ctx context.Context, p Params) (*Server, error) {
 	}
 
 	srv.Mux = http.NewServeMux()
+	srv.handle(HealthPath, newHealthHandler(pool.GetRawPool()))
+	srv.handle(StopPath, interceptors.NewLoggingHandler(p.Logger, newStopHandler(srv.stopRequested)))
 	srv.handle(agentv1connect.NewAgentServiceHandler(
 		rpcagent.NewService(rpcagent.NewServiceParams{
 			Agents:      agentStore,
@@ -328,55 +337,38 @@ func New(ctx context.Context, p Params) (*Server, error) {
 	srv.Mux.Handle("/mcp", interceptors.NewLoggingHandler(p.Logger, mcpHandler))
 
 	srv.Periodic = jobs.NewRiverPeriodic(srv.Jobs.PeriodicJobs())
-	srv.Loops = []Loop{
-		{
-			Name:     "schedule reconcile",
-			Interval: ScheduleReconcileInterval,
-			Pass:     jobs.NewScheduler(scheduleStore, srv.Periodic).Reconcile,
-		},
-		{
-			Name:     "reconcile",
-			Interval: ReconcileInterval,
-			Pass:     agents.NewReconciler(p.Tmux, p.Harnesses, agentStore).Reconcile,
-		},
-		{
-			Name:     "mail delivery",
-			Interval: MailDeliveryInterval,
-			Pass:     srv.Delivery.DeliverAll,
-		},
-		{
-			Name:     "transcript sync",
-			Interval: TranscriptSyncInterval,
-			Pass: agents.NewTranscriptSyncer(agents.TranscriptSyncerParams{
-				Agents:      agentStore,
-				Sessions:    agentStore,
-				Transcripts: transcriptStore,
-				Harnesses:   p.Harnesses,
-			}).Sync,
-		},
+	srv.ScheduleReconcile = Loop{
+		Name:     "schedule reconcile",
+		Interval: ScheduleReconcileInterval,
+		Pass:     jobs.NewScheduler(scheduleStore, srv.Periodic).Reconcile,
+	}
+	srv.Reconcile = Loop{
+		Name:     "reconcile",
+		Interval: ReconcileInterval,
+		Pass:     agents.NewReconciler(p.Tmux, p.Harnesses, agentStore).Reconcile,
+	}
+	srv.MailDelivery = Loop{
+		Name:     "mail delivery",
+		Interval: MailDeliveryInterval,
+		Pass:     srv.Delivery.DeliverAll,
+	}
+	srv.TranscriptSync = Loop{
+		Name:     "transcript sync",
+		Interval: TranscriptSyncInterval,
+		Pass: agents.NewTranscriptSyncer(agents.TranscriptSyncerParams{
+			Agents:      agentStore,
+			Sessions:    agentStore,
+			Transcripts: transcriptStore,
+			Harnesses:   p.Harnesses,
+		}).Sync,
 	}
 
 	return srv, nil
 }
 
-// Handler is the mux behind the guard that refuses anything not from this machine. It is
-// taken once the owner has added its own routes, since the guard has to sit outside those
-// too.
-func (s *Server) Handler(logger *slog.Logger) http.Handler {
-	return interceptors.NewLocalGuard(logger, s.Mux)
-}
-
-// LoopNamed returns one loop's pass by name, for a caller that runs the loops itself
-// rather than on their intervals. It panics on a name no loop holds, since that is a typo
-// in the caller rather than anything that happens at runtime.
-func (s *Server) LoopNamed(name string) func(context.Context) error {
-	for _, loop := range s.Loops {
-		if loop.Name == name {
-			return loop.Pass
-		}
-	}
-
-	panic(fmt.Sprintf("no loop named %q", name))
+// Handler is the mux behind the guard that refuses anything not from this machine.
+func (s *Server) Handler() http.Handler {
+	return interceptors.NewLocalGuard(s.logger, s.Mux)
 }
 
 // Close releases the database handles, in the reverse of the order they were opened.

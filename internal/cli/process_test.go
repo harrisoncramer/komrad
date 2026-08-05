@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"weave/internal/server"
 	"weave/internal/version"
 
 	"github.com/stretchr/testify/assert"
@@ -56,28 +57,28 @@ type fakeServerParams struct {
 func fakeServer(t *testing.T, params fakeServerParams) string {
 	t.Helper()
 
-	var server *httptest.Server
+	var testServer *httptest.Server
 
 	mux := http.NewServeMux()
-	mux.HandleFunc(HealthPath, func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc(server.HealthPath, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(params.status)
 		_, _ = w.Write([]byte(params.body))
 	})
 
-	mux.HandleFunc(StopPath, func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc(server.StopPath, func(w http.ResponseWriter, _ *http.Request) {
 		// The stand-in stops by dropping its listener and this connection with it, since the
 		// caller's pool would otherwise keep answering over a socket already accepted.
-		_ = server.Listener.Close()
+		_ = testServer.Listener.Close()
 		w.Header().Set("Connection", "close")
 
 		w.WriteHeader(http.StatusAccepted)
 		_, _ = fmt.Fprint(w, params.stopPid)
 	})
 
-	server = httptest.NewServer(mux)
-	t.Cleanup(server.Close)
+	testServer = httptest.NewServer(mux)
+	t.Cleanup(testServer.Close)
 
-	return strippedHost(t, server.URL)
+	return strippedHost(t, testServer.URL)
 }
 
 // healthJSON is a health body reporting the given build, so a test can serve one that looks
@@ -85,7 +86,7 @@ func fakeServer(t *testing.T, params fakeServerParams) string {
 func healthJSON(t *testing.T, build string) string {
 	t.Helper()
 
-	body, err := json.Marshal(health{Status: "ok", Version: build})
+	body, err := json.Marshal(server.Health{Status: "ok", Version: build})
 	require.NoError(t, err)
 
 	return string(body)
