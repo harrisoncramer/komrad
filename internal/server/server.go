@@ -192,6 +192,14 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Schedules: scheduleStore,
 		Workflows: workflowStore,
 	})
+	// Built ahead of the agent service, which hands it off as the way to tell a spawning
+	// agent its delegate is gone.
+	messageService := agents.NewMessageService(agents.NewMessageServiceParams{
+		MessageReadWriter: messageStore,
+		AgentFinder:       agentStore,
+		DeadlineReader:    messagesConfig(loadConfig),
+		HopLimitReader:    messagesConfig(loadConfig),
+	})
 	// The actions weave ships are written out on every start, so the panel's own keys run
 	// this build's scripts rather than an older one's. The directory is named for what puts
 	// it there, since installing empties it and the cache directory can be pointed anywhere.
@@ -234,6 +242,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		UserDefaultFlags:   p.DefaultFlags,
 		MaxAgents:          p.MaxAgents,
 		FallbackResumeRoot: p.FallbackResumeRoot,
+		Notifier:           messageService,
 	})
 
 	// Delivery types at an agent that has stopped and would otherwise never look at its
@@ -266,13 +275,6 @@ func New(ctx context.Context, p Params) (*Server, error) {
 
 		return nil, err
 	}
-
-	messageService := agents.NewMessageService(agents.NewMessageServiceParams{
-		MessageReadWriter: messageStore,
-		AgentFinder:       agentStore,
-		DeadlineReader:    messagesConfig(loadConfig),
-		HopLimitReader:    messagesConfig(loadConfig),
-	})
 
 	// Requests are checked against the constraints declared in the proto before any
 	// handler sees them, so a malformed payload is rejected in one place.

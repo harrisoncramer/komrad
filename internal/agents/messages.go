@@ -26,6 +26,10 @@ var ErrThreadCapped = errors.New("this thread has reached its hop limit")
 
 var ErrReplyToNotFound = errors.New("no message holds that id")
 
+// weaveSenderName marks a message as weave's own voice rather than the panel operator's,
+// since both send with no agent id and nothing else tells them apart downstream.
+const weaveSenderName = "weave"
+
 type messageReadWriter interface {
 	Send(ctx context.Context, params messagestore.SendParams) (*messagestore.Message, error)
 	GetByID(ctx context.Context, id string) (*messagestore.Message, error)
@@ -77,6 +81,10 @@ type SendMessageParams struct {
 	ToAgentID string
 	Body      string
 	ReplyTo   *string
+	// System marks the message as weave's own, not a person's or another agent's. Nothing
+	// outside this package may set it: the tool surface that lets an agent or the panel send
+	// mail has no such field, so this is reachable only from weave's own Go callers.
+	System bool
 }
 
 func (s *MessageService) SendMessage(ctx context.Context, params SendMessageParams) (*messagestore.Message, error) {
@@ -142,6 +150,8 @@ func (s *MessageService) SendMessage(ctx context.Context, params SendMessagePara
 	if sender != nil {
 		send.FromAgentID = &sender.ID
 		send.FromName = sender.Name
+	} else if params.System {
+		send.FromName = weaveSenderName
 	}
 
 	sent, err := s.messageReadWriter.Send(ctx, send)

@@ -17,6 +17,7 @@ import (
 
 	"weave/internal/harness"
 	agentstore "weave/internal/store/agent"
+	messagestore "weave/internal/store/message"
 	"weave/internal/store/transcript"
 	"weave/internal/store/workflow"
 )
@@ -97,6 +98,12 @@ type agentNamer interface {
 	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
 }
 
+// parentNotifier tells a spawning agent its delegate is gone, the same way any other
+// message reaches a mailbox.
+type parentNotifier interface {
+	SendMessage(ctx context.Context, params SendMessageParams) (*messagestore.Message, error)
+}
+
 // AgentService manages agent records, panes, and lifecycle actions.
 type AgentService struct {
 	tmux               paneController
@@ -110,6 +117,7 @@ type AgentService struct {
 	userDefaultFlags   map[string]string
 	maxAgents          int
 	fallbackResumeRoot string
+	notifier           parentNotifier
 }
 
 // NewAgentServiceParams carries the agent service's dependencies.
@@ -125,6 +133,7 @@ type NewAgentServiceParams struct {
 	UserDefaultFlags   map[string]string
 	MaxAgents          int
 	FallbackResumeRoot string
+	Notifier           parentNotifier
 }
 
 // NewAgentService builds the service from its dependencies.
@@ -145,6 +154,7 @@ func NewAgentService(p NewAgentServiceParams) *AgentService {
 		userDefaultFlags:   p.UserDefaultFlags,
 		maxAgents:          p.MaxAgents,
 		fallbackResumeRoot: p.FallbackResumeRoot,
+		notifier:           p.Notifier,
 	}
 }
 
@@ -407,7 +417,13 @@ func (s *AgentService) DeleteAgents(ctx context.Context, ids []string) error {
 		s.runCleanup(ctx, agent, s.getCleanupAction(ctx, agent))
 	}
 
-	return s.removeAgents(ctx, ids)
+	if err := s.removeAgents(ctx, ids); err != nil {
+		return err
+	}
+
+	s.notifyParents(ctx, agents, "deleted")
+
+	return nil
 }
 
 // ArchiveAgents stops agents while preserving their records and workspaces.
@@ -423,7 +439,32 @@ func (s *AgentService) ArchiveAgents(ctx context.Context, ids []string) error {
 		return fmt.Errorf("failed to archive %d agents: %w", len(ids), err)
 	}
 
+	s.notifyParents(ctx, agents, "archived")
+
 	return nil
+}
+
+// notifyParents tells each agent's spawner it is gone, one message per delegate that had
+// one. A person asked for these agents to go away; a mailbox that refuses the news, or a
+// parent that went away in the same batch and no longer accepts mail, is not a reason to
+// undo that, so failures are logged rather than returned.
+func (s *AgentService) notifyParents(ctx context.Context, agents []agentstore.Agent, reason string) {
+	for _, agent := range agents {
+		if agent.SpawnedByAgentID == nil {
+			continue
+		}
+
+		body := fmt.Sprintf("Your delegate %q (%s) was %s.", agent.Name, agent.ID, reason)
+		_, err := s.notifier.SendMessage(ctx, SendMessageParams{
+			ToAgentID: *agent.SpawnedByAgentID,
+			Body:      body,
+			System:    true,
+		})
+		if err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, fmt.Sprintf("could not tell agent %q it was %s", agent.ID, reason),
+				append([]slog.Attr{slog.String(logging.TargetAgentID, *agent.SpawnedByAgentID)}, logging.Err(err)...)...)
+		}
+	}
 }
 
 // RestoreAgents returns archived agents and their workflows to live listings.
