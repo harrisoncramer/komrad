@@ -216,7 +216,7 @@ func (m model) archiveAgents(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
 }
 
 func (m model) moveCursor(delta int) model {
-	next, ok := m.tree.move(delta, m.agentRows())
+	next, ok := m.tree.move(delta, len(m.agentRows()))
 	if !ok {
 		return m
 	}
@@ -228,7 +228,7 @@ func (m model) moveCursor(delta int) model {
 }
 
 func (m model) jumpCursor(idx int) model {
-	next, ok := m.tree.jump(idx, m.agentRows())
+	next, ok := m.tree.jump(idx, len(m.agentRows()))
 	if !ok {
 		return m
 	}

@@ -154,8 +154,8 @@ type rowCursor struct {
 	focus    string
 }
 
-func (c rowCursor) move(delta int, rows []agentRow) (rowCursor, bool) {
-	next, ok := stepCursor(c.cursor, delta, len(rows))
+func (c rowCursor) move(delta, length int) (rowCursor, bool) {
+	next, ok := stepCursor(c.cursor, delta, length)
 	if !ok {
 		return c, false
 	}
@@ -164,8 +164,8 @@ func (c rowCursor) move(delta int, rows []agentRow) (rowCursor, bool) {
 	return c, true
 }
 
-func (c rowCursor) jump(idx int, rows []agentRow) (rowCursor, bool) {
-	next, ok := landCursor(idx, len(rows))
+func (c rowCursor) jump(idx, length int) (rowCursor, bool) {
+	next, ok := landCursor(idx, length)
 	if !ok {
 		return c, false
 	}

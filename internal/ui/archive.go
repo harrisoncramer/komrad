@@ -195,7 +195,7 @@ func (m model) updateArchiveSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 // moveArchiveCursor steps the archive cursor and restages what it lands on, doing nothing at
 // either end of the list.
 func (m model) moveArchiveCursor(delta int) model {
-	next, ok := m.archive.move(delta, m.archiveRows())
+	next, ok := m.archive.move(delta, len(m.archiveRows()))
 	if !ok {
 		return m
 	}
@@ -209,7 +209,7 @@ func (m model) moveArchiveCursor(delta int) model {
 // jumpArchiveCursor puts the archive cursor on a row by index, clamped to the list, which is
 // how each end of it is reached.
 func (m model) jumpArchiveCursor(idx int) model {
-	next, ok := m.archive.jump(idx, m.archiveRows())
+	next, ok := m.archive.jump(idx, len(m.archiveRows()))
 	if !ok {
 		return m
 	}
