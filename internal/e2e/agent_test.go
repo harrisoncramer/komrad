@@ -9,6 +9,7 @@ package e2e
 import (
 	"testing"
 
+	"weave/internal/caller"
 	"weave/internal/harness"
 	agentstore "weave/internal/store/agent"
 	"weave/internal/weavetest"
@@ -134,6 +135,45 @@ func TestAgentLifecycle(t *testing.T) {
 		assert.Empty(t, liveNames(t, instance))
 		assert.Empty(t, archivedNames(t, instance))
 		assert.Empty(t, instance.GetOwnedPane(agent.GetId()), "a destroyed agent leaves no pane running")
+	})
+}
+
+// TestCreateAgentRecordsSpawnedBy covers the parent an agent records when another agent
+// calls create_agent, over the wire the way a real request carries it: in the caller
+// header a request from an agent's own CLI arrives with. A create with no such header,
+// which is every create the panel itself makes, records no parent.
+func TestCreateAgentRecordsSpawnedBy(t *testing.T) {
+	instance := weavetest.Start(t, weavetest.Params{})
+	ctx := t.Context()
+
+	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+		Name: "backend",
+		Cwd:  t.TempDir(),
+	}))
+	require.NoError(t, err)
+	workflowID := workflow.Msg.GetWorkflow().GetId()
+
+	t.Run("a person creating from the panel records no parent", func(t *testing.T) {
+		agent := createAgent(t, instance, workflowID, "solo")
+		assert.Nil(t, agent.SpawnedByAgentId)
+	})
+
+	t.Run("an agent creating another records its own id", func(t *testing.T) {
+		parent := createAgent(t, instance, workflowID, "implementer")
+
+		req := connect.NewRequest(&agentv1.CreateAgentRequest{
+			Prompt:     "review the diff",
+			Title:      "reviewer",
+			WorkflowId: workflowID,
+		})
+		caller.Caller{AgentID: parent.GetId()}.SetHeader(req.Header())
+
+		created, err := instance.Agents.CreateAgent(ctx, req)
+		require.NoError(t, err)
+
+		child := created.Msg.GetAgent()
+		require.NotNil(t, child.SpawnedByAgentId)
+		assert.Equal(t, parent.GetId(), child.GetSpawnedByAgentId())
 	})
 }
 

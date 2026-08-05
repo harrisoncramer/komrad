@@ -180,6 +180,81 @@ func TestCreateWithActionOverride(t *testing.T) {
 	}
 }
 
+// TestSpawnedByAgentID covers the parent an agent records when another agent created it.
+// One a person started through the panel carries no caller header at all, so it has to
+// read back nil rather than some sentinel standing in for nobody.
+func TestSpawnedByAgentID(t *testing.T) {
+	f := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, f.Create(ctx, Agent{Name: "parent"}))
+	parent, err := f.Get(ctx, "parent")
+	require.NoError(t, err)
+	require.NotNil(t, parent)
+
+	tests := []struct {
+		name           string
+		spawnedByAgent bool
+	}{
+		{
+			name: "an agent a person started records no parent",
+		},
+		{
+			name:           "an agent another agent started records its id",
+			spawnedByAgent: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			child := Agent{Name: "child-" + uuid.NewString()}
+			if tt.spawnedByAgent {
+				child.SpawnedByAgentID = &parent.ID
+			}
+
+			require.NoError(t, f.Create(ctx, child))
+			stored, err := f.Get(ctx, child.Name)
+			require.NoError(t, err)
+			require.NotNil(t, stored)
+
+			if !tt.spawnedByAgent {
+				assert.Nil(t, stored.SpawnedByAgentID)
+
+				return
+			}
+
+			require.NotNil(t, stored.SpawnedByAgentID)
+			assert.Equal(t, parent.ID, *stored.SpawnedByAgentID)
+		})
+	}
+}
+
+// TestDeleteNullsSpawnedByAgentID covers what happens to a child when its parent is
+// removed for good. Losing a parent must not take the work its children did with it, so
+// the reference is nulled rather than the child row going with it.
+func TestDeleteNullsSpawnedByAgentID(t *testing.T) {
+	f := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, f.Create(ctx, Agent{Name: "parent"}))
+	parent, err := f.Get(ctx, "parent")
+	require.NoError(t, err)
+	require.NotNil(t, parent)
+
+	require.NoError(t, f.Create(ctx, Agent{Name: "child", SpawnedByAgentID: &parent.ID}))
+	child, err := f.Get(ctx, "child")
+	require.NoError(t, err)
+	require.NotNil(t, child)
+	require.NotNil(t, child.SpawnedByAgentID)
+
+	require.NoError(t, f.Delete(ctx, []string{parent.ID}))
+
+	stillThere, err := f.GetByID(ctx, child.ID)
+	require.NoError(t, err)
+	require.NotNil(t, stillThere, "the child survives its parent's deletion")
+	assert.Nil(t, stillThere.SpawnedByAgentID, "the reference is nulled rather than left dangling")
+}
+
 // TestArchiveAndReuse covers who a name belongs to over an agent's life. An
 // archived row keeps its name, so reusing it has to create a fresh row rather
 // than resurrect the dead one, and state events keyed by name must land on the

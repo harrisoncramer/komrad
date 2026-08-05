@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"weave/internal/caller"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
@@ -226,6 +227,87 @@ func TestNewAgentIdempotency(t *testing.T) {
 
 			assert.NotEqual(t, first.ID, second.ID)
 			assert.Len(t, agents, 2)
+		})
+	}
+}
+
+// TestNewAgentRecordsWhoSpawnedIt covers the header a request calling create_agent
+// arrives with. An agent calling back through its own tools carries its own id in the
+// caller header, which weave records as the new agent's parent and repeats to it in its
+// launch context; the panel calls with no header at all, so what it creates has no parent.
+func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
+	tests := []struct {
+		name string
+		// spawnerName seeds a parent agent under that name and puts its id on the
+		// context as the caller; empty means the call carries no caller at all.
+		spawnerName string
+		// unknownSpawner puts an id on the context that names no agent at all,
+		// which is a call weave cannot attribute rather than one it should trust.
+		unknownSpawner bool
+		wantErrIs      error
+	}{
+		{
+			name:           "a caller header naming no agent is refused",
+			unknownSpawner: true,
+			wantErrIs:      ErrSpawnerUnknown,
+		},
+		{
+			name: "a person creating from the panel records no parent",
+		},
+		{
+			name:        "an agent creating another records its own id as the parent",
+			spawnerName: "reviewer",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := newFakeTmux()
+			st := newStore(t)
+			manager, h := newManagerWithHarness(tmux, st, "")
+
+			ctx := t.Context()
+			var spawner *agentstore.Agent
+			switch {
+			case tt.unknownSpawner:
+				ctx = caller.With(ctx, caller.Caller{AgentID: "no-such-agent"})
+			case tt.spawnerName != "":
+				seeded := seed(t, st, tt.spawnerName, "%"+tt.spawnerName, agentstore.StateIdle)
+				spawner = &seeded
+				ctx = caller.With(ctx, caller.Caller{AgentID: seeded.ID})
+			}
+
+			created, err := manager.NewAgent(ctx, NewAgentParams{
+				Title: "delegate", Dir: t.TempDir(), Prompt: "do the thing",
+				WorkflowID: seedWorkflow(t, st),
+			})
+
+			if tt.wantErrIs != nil {
+				require.ErrorIs(t, err, tt.wantErrIs)
+				assert.Empty(t, tmux.sent, "nothing is typed when the caller cannot be attributed")
+
+				agents, listErr := st.List(t.Context())
+				require.NoError(t, listErr)
+				assert.Empty(t, agents, "a refused create records nothing")
+
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, created)
+			require.Len(t, h.launches, 1)
+			launch := h.launches[0]
+
+			if spawner == nil {
+				assert.Nil(t, created.SpawnedByAgentID, "a create with no caller header names no parent")
+				assert.NotContains(t, launch.Context, "You were spawned by", "a delegate briefing with nothing to say names nobody")
+
+				return
+			}
+
+			require.NotNil(t, created.SpawnedByAgentID)
+			assert.Equal(t, spawner.ID, *created.SpawnedByAgentID)
+			assert.Contains(t, launch.Context, fmt.Sprintf("spawned by agent %s (%s)", spawner.Name, spawner.ID))
+			assert.Contains(t, launch.Context, "tell it when you are done")
 		})
 	}
 }

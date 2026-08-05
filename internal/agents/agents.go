@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"weave/config"
+	"weave/internal/caller"
 	"weave/internal/logging"
 	"weave/internal/store"
 	"weave/lib/xslice"
@@ -25,6 +26,7 @@ var ErrWorkflowNotFound = errors.New("workflow not found")
 var ErrBadDirectory = errors.New("unusable working directory")
 var ErrTooManyAgents = errors.New("too many agents")
 var ErrAgentArchived = errors.New("agent is archived")
+var ErrSpawnerUnknown = errors.New("the spawning agent is not one this panel knows")
 
 type agentManager interface {
 	GetInWorkflow(ctx context.Context, workflowID, name string) (*agentstore.Agent, error)
@@ -199,6 +201,11 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		}
 	}
 
+	spawner, err := s.findSpawner(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := requireRoomForAgents(ctx, s.agents, s.maxAgents, 1); err != nil {
 		return nil, err
 	}
@@ -214,7 +221,7 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 		return nil, err
 	}
 
-	launch := newAgentLaunch(p, plan, id, plan.harness.MintSessionID())
+	launch := newAgentLaunch(p, plan, id, plan.harness.MintSessionID(), spawner)
 
 	if err := s.runLaunchSetup(ctx, launch); err != nil {
 		return nil, err
@@ -251,6 +258,27 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 	return created, nil
 }
 
+// findSpawner is the agent named on the request's caller header, or nil for a create the
+// panel itself made. Its id is recorded as the new agent's parent and its name is what the
+// delegate briefing calls it, so an id that names no agent this panel knows fails the
+// create rather than recording a reference nothing can resolve.
+func (s *AgentService) findSpawner(ctx context.Context) (*agentstore.Agent, error) {
+	id := caller.From(ctx).AgentID
+	if id == "" {
+		return nil, nil
+	}
+
+	spawner, err := s.agents.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if spawner == nil {
+		return nil, fmt.Errorf("%w: %q", ErrSpawnerUnknown, id)
+	}
+
+	return spawner, nil
+}
+
 // agentLaunch tracks the state and progress of a single agent being created,
 // so a failure partway through unwinds only the pane and setup action that
 // actually ran instead of everything.
@@ -259,19 +287,21 @@ type agentLaunch struct {
 	plan      *launchPlan
 	id        string
 	sessionID string
+	spawner   *agentstore.Agent
 	agent     agentstore.Agent
 	setupName string
 	setupRan  bool
 	pane      string
 }
 
-func newAgentLaunch(params NewAgentParams, plan *launchPlan, id, sessionID string) *agentLaunch {
+func newAgentLaunch(params NewAgentParams, plan *launchPlan, id, sessionID string, spawner *agentstore.Agent) *agentLaunch {
 	return &agentLaunch{
 		params:    params,
 		plan:      plan,
 		id:        id,
 		sessionID: sessionID,
-		agent:     plan.agent(params, id, sessionID, plan.dir, ""),
+		spawner:   spawner,
+		agent:     plan.agent(params, id, sessionID, plan.dir, "", spawner),
 	}
 }
 
@@ -296,14 +326,14 @@ func (s *AgentService) openLaunchPane(l *agentLaunch) error {
 		return err
 	}
 
-	l.agent = l.plan.agent(l.params, l.id, l.sessionID, dir, "")
+	l.agent = l.plan.agent(l.params, l.id, l.sessionID, dir, "", l.spawner)
 
 	pane, err := s.tmux.NewWindow(ManagerSession, l.plan.name, dir)
 	if err != nil {
 		return fmt.Errorf("failed to open a window for %q: %w", l.plan.name, err)
 	}
 	l.pane = pane
-	l.agent = l.plan.agent(l.params, l.id, l.sessionID, dir, pane)
+	l.agent = l.plan.agent(l.params, l.id, l.sessionID, dir, pane, l.spawner)
 
 	if err := s.tmux.SetPaneOwner(pane, l.id); err != nil {
 		return fmt.Errorf("failed to stamp the pane for %q: %w", l.plan.name, err)
@@ -332,7 +362,7 @@ func (s *AgentService) createLaunchRow(ctx context.Context, l *agentLaunch) (*ag
 
 // startLaunch hands the pane to the harness launcher.
 func (s *AgentService) startLaunch(l *agentLaunch) error {
-	return s.launcher.launch(l.plan.harness, launchParams{
+	params := launchParams{
 		Pane:            l.pane,
 		Dir:             l.agent.Cwd,
 		Flags:           l.plan.flags,
@@ -340,7 +370,13 @@ func (s *AgentService) startLaunch(l *agentLaunch) error {
 		WorkflowContext: l.plan.workflowContext,
 		SessionID:       l.sessionID,
 		AgentID:         l.id,
-	})
+	}
+	if l.spawner != nil {
+		params.SpawnedByAgentID = l.spawner.ID
+		params.SpawnedByName = l.spawner.Name
+	}
+
+	return s.launcher.launch(l.plan.harness, params)
 }
 
 // unwindLaunch reverses whatever of the pane and setup action actually ran.
@@ -681,23 +717,29 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 // agent builds the complete row for a launching agent. It is the single place that
 // assembles the record; callers pass in whatever they've resolved so far and get back
 // the full shape, rather than constructing a partial value and patching fields onto it.
-func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane string) agentstore.Agent {
+func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane string, spawner *agentstore.Agent) agentstore.Agent {
+	var spawnedBy *string
+	if spawner != nil {
+		spawnedBy = &spawner.ID
+	}
+
 	return agentstore.Agent{
-		ID:             id,
-		Name:           plan.name,
-		Pane:           pane,
-		Cwd:            dir,
-		Flags:          plan.flags,
-		SetupAction:    params.SetupAction,
-		CleanupAction:  params.CleanupAction,
-		Prompt:         params.Prompt,
-		State:          agentstore.StateIdle,
-		Harness:        plan.harnessID,
-		SessionID:      sessionID,
-		WorkflowID:     params.WorkflowID,
-		ScheduleID:     params.ScheduleID,
-		IdempotencyKey: idempotencyKey(params.IdempotencyKey),
-		Hidden:         params.Hidden,
+		ID:               id,
+		Name:             plan.name,
+		Pane:             pane,
+		Cwd:              dir,
+		Flags:            plan.flags,
+		SetupAction:      params.SetupAction,
+		CleanupAction:    params.CleanupAction,
+		Prompt:           params.Prompt,
+		State:            agentstore.StateIdle,
+		Harness:          plan.harnessID,
+		SessionID:        sessionID,
+		WorkflowID:       params.WorkflowID,
+		ScheduleID:       params.ScheduleID,
+		IdempotencyKey:   idempotencyKey(params.IdempotencyKey),
+		SpawnedByAgentID: spawnedBy,
+		Hidden:           params.Hidden,
 	}
 }
 

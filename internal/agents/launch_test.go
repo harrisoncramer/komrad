@@ -140,7 +140,7 @@ func TestAppendedSystemPrompt(t *testing.T) {
 				LogPath: briefedLogPath,
 			})
 
-			prompt := launcher.appendedSystemPrompt(tt.context)
+			prompt := launcher.appendedSystemPrompt(tt.context, "", "")
 
 			for _, want := range tt.wantContain {
 				assert.Contains(t, prompt, want)
@@ -152,6 +152,49 @@ func TestAppendedSystemPrompt(t *testing.T) {
 			if tt.context != "" {
 				assert.Less(t, strings.Index(prompt, "weave"), strings.Index(prompt, tt.context),
 					"the buildBriefing comes first")
+			}
+		})
+	}
+}
+
+// TestAppendedSystemPromptDelegateBriefing covers what a spawned agent is told about
+// whatever agent started it. weave writes this itself so every delegate gets the same
+// wording whether or not the agent that spawned it thought to say so in the prompt.
+func TestAppendedSystemPromptDelegateBriefing(t *testing.T) {
+	tests := []struct {
+		name             string
+		spawnedByAgentID string
+		spawnedByName    string
+		wantContain      []string
+		wantAbsent       []string
+	}{
+		{
+			name:       "an agent a person started carries no delegate briefing",
+			wantAbsent: []string{"You were spawned by"},
+		},
+		{
+			name:             "a spawned agent is told who spawned it and to report back",
+			spawnedByAgentID: "parent-id-1",
+			spawnedByName:    "reviewer",
+			wantContain:      []string{"spawned by agent reviewer (parent-id-1)", "Answer its messages", "tell it when you are done"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			launcher := NewLauncher(LauncherParams{
+				Tmux:    newFakeTmux(),
+				Addr:    "127.0.0.1:9999",
+				LogPath: briefedLogPath,
+			})
+
+			prompt := launcher.appendedSystemPrompt("", tt.spawnedByAgentID, tt.spawnedByName)
+
+			for _, want := range tt.wantContain {
+				assert.Contains(t, prompt, want)
+			}
+			for _, absent := range tt.wantAbsent {
+				assert.NotContains(t, prompt, absent)
 			}
 		})
 	}
@@ -210,7 +253,7 @@ func TestAppendedSystemPromptGlobalContext(t *testing.T) {
 				ContextPath: path,
 			})
 
-			prompt := launcher.appendedSystemPrompt(tt.workflowContext)
+			prompt := launcher.appendedSystemPrompt(tt.workflowContext, "", "")
 
 			for _, want := range tt.wantContain {
 				assert.Contains(t, prompt, want)
@@ -241,11 +284,11 @@ func TestGlobalContextIsReadPerLaunch(t *testing.T) {
 		LogPath:     briefedLogPath,
 		ContextPath: path,
 	})
-	require.Contains(t, launcher.appendedSystemPrompt(""), "before-the-edit")
+	require.Contains(t, launcher.appendedSystemPrompt("", "", ""), "before-the-edit")
 
 	require.NoError(t, os.WriteFile(path, []byte("after-the-edit"), 0o600))
 
-	prompt := launcher.appendedSystemPrompt("")
+	prompt := launcher.appendedSystemPrompt("", "", "")
 	assert.Contains(t, prompt, "after-the-edit")
 	assert.NotContains(t, prompt, "before-the-edit")
 }

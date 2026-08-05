@@ -101,17 +101,31 @@ func (l *Launcher) buildBriefing() string {
 	return strings.ReplaceAll(text, logPathPlaceholder, l.logPath)
 }
 
-// appendedSystemPrompt is what the panel has to say to an agent it is starting: the
-// standing briefing, then the user's own standing context, then the workflow's. They run
-// general to specific, so a workflow reads as the last word on anything the file above it
-// also speaks to.
-func (l *Launcher) appendedSystemPrompt(workflowContext string) string {
-	parts := []string{l.buildBriefing(), l.globalContext(), workflowContext}
+// appendedSystemPrompt is what the panel has to say to an agent it is starting. The
+// standing briefing and who spawned it are weave's own voice, so they come first rather
+// than competing for the last word; the user's standing context and the workflow's follow,
+// and between those two a workflow reads as the last word on anything the user's also
+// speaks to.
+func (l *Launcher) appendedSystemPrompt(workflowContext, spawnedByAgentID, spawnedByName string) string {
+	parts := []string{l.buildBriefing(), delegateBriefing(spawnedByAgentID, spawnedByName), l.globalContext(), workflowContext}
 
 	trimmed := xslice.Map(parts, strings.TrimSpace)
 	kept := xslice.Filter(trimmed, func(s string) bool { return s != "" })
 
 	return strings.Join(kept, "\n\n")
+}
+
+// delegateBriefing is what a spawned agent is told about the agent that started it, empty
+// for one a person started from the panel. Every delegate gets the same wording whether or
+// not the agent that spawned it thought to say so itself in the opening prompt.
+func delegateBriefing(spawnedByAgentID, spawnedByName string) string {
+	if spawnedByAgentID == "" {
+		return ""
+	}
+
+	return fmt.Sprintf(
+		"You were spawned by agent %s (%s) to do this piece of work. Answer its messages as they arrive, and tell it when you are done rather than waiting to be asked.",
+		spawnedByName, spawnedByAgentID)
 }
 
 // globalContext is the user's standing text, empty when they keep none. A file that is not
@@ -138,7 +152,10 @@ type launchParams struct {
 	WorkflowContext string
 	SessionID       string
 	AgentID         string
-	Resume          bool
+	// SpawnedByAgentID and SpawnedByName are both empty for an agent a person started.
+	SpawnedByAgentID string
+	SpawnedByName    string
+	Resume           bool
 }
 
 // launch types the command that puts an agent up into its pane. What that command
@@ -149,7 +166,7 @@ func (l *Launcher) launch(h harnessCommandBuilder, params launchParams) error {
 		Flags:       params.Flags,
 		Prompt:      params.Prompt,
 		Dir:         params.Dir,
-		Context:     l.appendedSystemPrompt(params.WorkflowContext),
+		Context:     l.appendedSystemPrompt(params.WorkflowContext, params.SpawnedByAgentID, params.SpawnedByName),
 		SessionID:   params.SessionID,
 		AgentID:     params.AgentID,
 		MCPEndpoint: l.serverAddr,

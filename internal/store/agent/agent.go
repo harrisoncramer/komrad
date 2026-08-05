@@ -40,28 +40,29 @@ type Metadata struct {
 
 // Agent is a persisted background agent.
 type Agent struct {
-	ID             string
-	Name           string
-	Pane           string
-	Cwd            string
-	Flags          string
-	SetupAction    *string
-	CleanupAction  *string
-	Prompt         string
-	State          string
-	StateChangedAt time.Time
-	Harness        string
-	SessionID      string
-	WorkflowID     string
-	ScheduleID     *string
-	IdempotencyKey *string
-	ArchivedAt     *time.Time
-	NudgedAt       *time.Time
-	Hidden         bool
-	Mark           *string
-	Metadata       []Metadata
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID               string
+	Name             string
+	Pane             string
+	Cwd              string
+	Flags            string
+	SetupAction      *string
+	CleanupAction    *string
+	Prompt           string
+	State            string
+	StateChangedAt   time.Time
+	Harness          string
+	SessionID        string
+	WorkflowID       string
+	ScheduleID       *string
+	IdempotencyKey   *string
+	ArchivedAt       *time.Time
+	NudgedAt         *time.Time
+	Hidden           bool
+	Mark             *string
+	Metadata         []Metadata
+	SpawnedByAgentID *string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 // SanitizeName maps a name to characters tmux accepts in session names.
@@ -277,21 +278,22 @@ func (s *Store) Create(ctx context.Context, agent Agent) error {
 	}
 
 	if _, err := s.queries.InsertAgent(ctx, models.InsertAgentParams{
-		ID:             agent.ID,
-		Name:           agent.Name,
-		Cwd:            agent.Cwd,
-		Flags:          agent.Flags,
-		Prompt:         agent.Prompt,
-		PaneID:         agent.Pane,
-		State:          agent.State,
-		Harness:        agent.Harness,
-		SessionID:      agent.SessionID,
-		WorkflowID:     agent.WorkflowID,
-		ScheduleID:     agent.ScheduleID,
-		IdempotencyKey: agent.IdempotencyKey,
-		IsHidden:       agent.Hidden,
-		SetupAction:    agent.SetupAction,
-		CleanupAction:  agent.CleanupAction,
+		ID:               agent.ID,
+		Name:             agent.Name,
+		Cwd:              agent.Cwd,
+		Flags:            agent.Flags,
+		Prompt:           agent.Prompt,
+		PaneID:           agent.Pane,
+		State:            agent.State,
+		Harness:          agent.Harness,
+		SessionID:        agent.SessionID,
+		WorkflowID:       agent.WorkflowID,
+		ScheduleID:       agent.ScheduleID,
+		IdempotencyKey:   agent.IdempotencyKey,
+		IsHidden:         agent.Hidden,
+		SetupAction:      agent.SetupAction,
+		CleanupAction:    agent.CleanupAction,
+		SpawnedByAgentID: agent.SpawnedByAgentID,
 	}); err != nil {
 		return fmt.Errorf("failed to insert agent %q: %w", agent.Name, err)
 	}
@@ -625,26 +627,27 @@ func keepStorableIDs(ids []string) []string {
 
 func agentFromRow(agent models.Agent) Agent {
 	return Agent{
-		ID:             agent.ID,
-		Name:           agent.Name,
-		Pane:           agent.PaneID,
-		Cwd:            agent.Cwd,
-		Flags:          agent.Flags,
-		SetupAction:    agent.SetupAction,
-		CleanupAction:  agent.CleanupAction,
-		Prompt:         agent.Prompt,
-		State:          agent.State,
-		StateChangedAt: agent.StateChangedAt,
-		Harness:        agent.Harness,
-		SessionID:      agent.SessionID,
-		WorkflowID:     agent.WorkflowID,
-		ScheduleID:     agent.ScheduleID,
-		IdempotencyKey: agent.IdempotencyKey,
-		ArchivedAt:     agent.ArchivedAt,
-		NudgedAt:       agent.NudgedAt,
-		Hidden:         agent.IsHidden,
-		Mark:           agent.Mark,
-		CreatedAt:      agent.CreatedAt,
-		UpdatedAt:      agent.UpdatedAt,
+		ID:               agent.ID,
+		Name:             agent.Name,
+		Pane:             agent.PaneID,
+		Cwd:              agent.Cwd,
+		Flags:            agent.Flags,
+		SetupAction:      agent.SetupAction,
+		CleanupAction:    agent.CleanupAction,
+		Prompt:           agent.Prompt,
+		State:            agent.State,
+		StateChangedAt:   agent.StateChangedAt,
+		Harness:          agent.Harness,
+		SessionID:        agent.SessionID,
+		WorkflowID:       agent.WorkflowID,
+		ScheduleID:       agent.ScheduleID,
+		IdempotencyKey:   agent.IdempotencyKey,
+		ArchivedAt:       agent.ArchivedAt,
+		NudgedAt:         agent.NudgedAt,
+		Hidden:           agent.IsHidden,
+		Mark:             agent.Mark,
+		SpawnedByAgentID: agent.SpawnedByAgentID,
+		CreatedAt:        agent.CreatedAt,
+		UpdatedAt:        agent.UpdatedAt,
 	}
 }
