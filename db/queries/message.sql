@@ -82,5 +82,4 @@ SELECT DISTINCT
 FROM
     agent_messages m
 WHERE
-    m.claimed_at IS NULL
-    AND m.expires_at > NOW();
+    m.claimed_at IS NULL;

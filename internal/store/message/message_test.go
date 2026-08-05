@@ -214,6 +214,19 @@ func TestExpiredMailIsNeitherDeliveredNorRead(t *testing.T) {
 	assert.Equal(t, "too late", expired[0].Body)
 }
 
+func TestListPendingMailboxesIncludesAMailboxWhoseOnlyMailHasExpired(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+
+	_, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "too late", ExpiresAt: time.Now().Add(-time.Minute)})
+	require.NoError(t, err)
+
+	mailboxes, err := st.ListPendingMailboxes(ctx)
+	require.NoError(t, err)
+	assert.Contains(t, mailboxes, recipient)
+}
+
 type fixture struct {
 	*Store
 	agents   *agentstore.Store

@@ -118,8 +118,10 @@ func (s *Store) CountPending(ctx context.Context, toAgentID string) (int64, erro
 	return count, nil
 }
 
-// ListPendingMailboxes is every agent holding mail that is neither claimed nor expired, so
-// the sweep can find a mailbox whose own delivery job is gone.
+// ListPendingMailboxes is every agent holding unclaimed mail, live or expired, so the sweep
+// finds a mailbox whose own delivery job is gone as well as one whose only mail timed out
+// unseen. Deliver tells the two cases apart itself via CountPending, which excludes expired
+// mail.
 func (s *Store) ListPendingMailboxes(ctx context.Context) ([]string, error) {
 	rows, err := s.queries.ListMailboxesWithPendingMail(ctx)
 	if err != nil {

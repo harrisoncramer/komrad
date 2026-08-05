@@ -232,7 +232,6 @@ FROM
     agent_messages m
 WHERE
     m.claimed_at IS NULL
-    AND m.expires_at > NOW()
 `
 
 func (q *Queries) ListMailboxesWithPendingMail(ctx context.Context) ([]string, error) {
