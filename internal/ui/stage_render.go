@@ -12,6 +12,13 @@ import (
 
 // Terminal style detection would compete with the panel event loop for input.
 func render(markdown string, wrap int) string {
+	return renderFlash(markdown, wrap, 0)
+}
+
+// renderFlash is render, but the flashField-th record field (1-based, 0 for none) has
+// its whole line reversed instead of just its marker dimmed: the brief flash that
+// confirms which field a digit key just copied.
+func renderFlash(markdown string, wrap, flashField int) string {
 	options := []glamour.TermRendererOption{glamour.WithStyles(stageStyle)}
 	if wrap > 0 {
 		options = append(options, glamour.WithWordWrap(wrap))
@@ -27,7 +34,7 @@ func render(markdown string, wrap int) string {
 		return markdown
 	}
 
-	return dimNumbers(rendered)
+	return styleNumberedLines(rendered, flashField)
 }
 
 // numberStyle is how a record field's leading "N)" is drawn once glamour has laid the
@@ -39,15 +46,29 @@ func render(markdown string, wrap int) string {
 var numberStyle = ansi.NewStyle().Faint()
 
 // numberPrefix matches a record field's rendered "N) " marker, glamour's own left
-// margin ahead of it included, so dimNumbers can dim just the marker and leave that
-// margin and everything after it alone.
+// margin ahead of it included, so styleNumberedLines can style just the marker (or
+// the whole line, for a flash) and leave that margin where it is.
 var numberPrefix = regexp.MustCompile(`^(\s*)(\d+\)) `)
 
-// dimNumbers dims every record field's leading "N)" in already-rendered text. It is a
-// no-op on a document with no such line, which is every document that is not a record.
-func dimNumbers(rendered string) string {
+// styleNumberedLines dims every record field's leading "N)" in already-rendered text,
+// except flashField's own line (1-based, counting only numbered lines; 0 flashes
+// none), which is reversed in full instead. It is a no-op on a document with no
+// numbered lines, which is every document that is not a record.
+func styleNumberedLines(rendered string, flashField int) string {
 	lines := strings.Split(rendered, "\n")
+	seen := 0
+
 	for i, line := range lines {
+		if !numberPrefix.MatchString(line) {
+			continue
+		}
+
+		seen++
+		if seen == flashField {
+			lines[i] = reverseLine(line)
+			continue
+		}
+
 		lines[i] = numberPrefix.ReplaceAllStringFunc(line, func(match string) string {
 			groups := numberPrefix.FindStringSubmatch(match)
 
@@ -70,6 +91,17 @@ func highlighted(content string, line int) string {
 	lines[line-1] = highlightStyle.Styled(lines[line-1])
 
 	return strings.Join(lines, "\n")
+}
+
+// reverseLine reverses a whole already-rendered line, reasserting the reversal after
+// every reset the line already carries (the numbered marker's own dimming, in
+// practice) so that reset does not cancel the reversal partway through the line.
+func reverseLine(line string) string {
+	reverse := highlightStyle.String()
+	out := strings.ReplaceAll(line, "\x1b[0m", "\x1b[0m"+reverse)
+	out = strings.ReplaceAll(out, "\x1b[m", "\x1b[m"+reverse)
+
+	return reverse + out + "\x1b[0m"
 }
 
 func writeStageFile(path, content string) bool {

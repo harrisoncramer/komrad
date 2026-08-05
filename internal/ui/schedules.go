@@ -109,14 +109,14 @@ func (m *model) stageSchedule() {
 	item, ok := m.selectedSchedule()
 	if !ok {
 		m.stage.Text(noSchedulesMarkdown)
-		m.recordValues = nil
+		m.clearRecord()
 
 		return
 	}
 
 	rec := scheduleMarkdown(item, m.workflowByID(item.schedule.WorkflowID))
 	m.stage.Text(rec.markdown)
-	m.recordValues = rec.values
+	m.setRecord(rec, surfaceMain)
 }
 
 // workflowByID finds a workflow in the list the panel already polls, nil when none holds

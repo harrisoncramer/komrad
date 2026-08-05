@@ -345,7 +345,7 @@ func (m *model) stageSelection() {
 	rows := m.agentRows()
 	if m.tree.cursor < 0 || m.tree.cursor >= len(rows) {
 		m.stage.Blank()
-		m.recordValues = nil
+		m.clearRecord()
 		m.stageBelow()
 
 		return
@@ -356,14 +356,14 @@ func (m *model) stageSelection() {
 	case r.header:
 		rec := workflowMarkdown(r.workflow, m.agentCount(r.workflow.ID))
 		m.stage.Text(rec.markdown)
-		m.recordValues = rec.values
+		m.setRecord(rec, surfaceMain)
 	case r.item.alive:
 		m.stage.Agent(r.item.agent.Pane)
-		m.recordValues = nil
+		m.clearRecord()
 	default:
 		rec := agentMarkdown(r.item.agent, false, m.scheduleName(r.item.agent))
 		m.stage.Text(rec.markdown)
-		m.recordValues = rec.values
+		m.setRecord(rec, surfaceMain)
 	}
 
 	m.stageBelow()
@@ -380,7 +380,7 @@ func (m *model) stageBelow() {
 		if r := rows[m.tree.cursor]; !r.header {
 			rec := agentMarkdown(r.item.agent, r.item.alive, m.scheduleName(r.item.agent))
 			m.stage.SecondaryText(rec.markdown)
-			m.recordValues = rec.values
+			m.setRecord(rec, surfaceSecondary)
 		}
 	case belowLogs:
 		m.stage.SecondaryLog(m.logPath, logArgv(m.logViewer, m.logPath))

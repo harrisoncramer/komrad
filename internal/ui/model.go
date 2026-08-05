@@ -172,12 +172,11 @@ type model struct {
 	// logPath is the service's log and logViewer is what the log key opens it in.
 	logPath   string
 	logViewer string
-
-	// recordValues are the values behind whatever record is currently on screen, in
-	// the order its fields are numbered, so a digit key copies the one it names.
-	// Whichever screen renders a record keeps this current as it restages, and it is
-	// nil whenever nothing with numbered fields is showing.
-	recordValues []string
+	// activeRecord is whatever record is currently on screen.
+	activeRecord record
+	// recordSurface is which pane activeRecord is drawn in, so a flash and its
+	// eventual revert redraw the right one.
+	recordSurface recordSurface
 	// clip is how a copied record value reaches the system clipboard.
 	clip clipboardWriter
 }

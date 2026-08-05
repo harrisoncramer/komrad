@@ -341,7 +341,7 @@ func (m *model) stageArchive() {
 	rows := m.archiveRows()
 	if m.archive.cursor < 0 || m.archive.cursor >= len(rows) {
 		m.stage.Text(emptyArchiveMarkdown)
-		m.recordValues = nil
+		m.clearRecord()
 
 		return
 	}
@@ -350,14 +350,14 @@ func (m *model) stageArchive() {
 	if r.header {
 		rec := workflowMarkdown(r.workflow, m.archivedCount(r.workflow.ID))
 		m.stage.Text(rec.markdown)
-		m.recordValues = rec.values
+		m.setRecord(rec, surfaceMain)
 
 		return
 	}
 
 	rec := archiveMarkdown(r.item.agent, m.scheduleName(r.item.agent))
 	m.stage.Text(rec.markdown)
-	m.recordValues = rec.values
+	m.setRecord(rec, surfaceMain)
 }
 
 // archivedCount is how many archived agents sit under a workflow, which is what a folder

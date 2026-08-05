@@ -71,6 +71,25 @@ func (s *Stage) SecondaryText(markdown string) {
 	s.shownBelow = markdown
 }
 
+// SecondaryTextFlash is SecondaryText, but with field's line (1-based) reversed for a
+// moment. It always redraws rather than skipping a markdown that looks unchanged, and
+// leaves shownBelow pointing at nothing a plain markdown ever matches, so the plain
+// SecondaryText call that ends the flash is never itself skipped as a no-op.
+func (s *Stage) SecondaryTextFlash(markdown string, field int) {
+	pane := s.OpenSecondary()
+	if pane == "" {
+		return
+	}
+
+	path := filepath.Join(os.TempDir(), "weave-secondary.ansi")
+	if !writeStageFile(path, renderFlash(markdown, s.wrap(pane), field)) {
+		return
+	}
+
+	s.run(pane, pagerArgv(path, 0)...)
+	s.shownBelow = shownOther
+}
+
 // SecondaryLog displays a log in the secondary pane.
 func (s *Stage) SecondaryLog(path string, argv []string) {
 	pane := s.OpenSecondary()
@@ -123,6 +142,27 @@ func (s *Stage) Text(markdown string) {
 
 	s.run(s.pane, pagerArgv(path, 0)...)
 	s.shown = markdown
+}
+
+// TextFlash is Text, but with field's line (1-based) reversed for a moment. It always
+// redraws rather than skipping a markdown that looks unchanged, and leaves shown
+// pointing at nothing a plain markdown ever matches, so the plain Text call that ends
+// the flash is never itself skipped as a no-op.
+func (s *Stage) TextFlash(markdown string, field int) {
+	s.claimMain()
+	if s.pane == "" {
+		return
+	}
+
+	s.restore()
+
+	path := filepath.Join(os.TempDir(), "weave-stage.ansi")
+	if !writeStageFile(path, renderFlash(markdown, s.wrap(s.pane), field)) {
+		return
+	}
+
+	s.run(s.pane, pagerArgv(path, 0)...)
+	s.shown = shownOther
 }
 
 // Transcript displays a transcript with an optional highlighted line.

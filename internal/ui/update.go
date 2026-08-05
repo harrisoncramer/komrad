@@ -172,7 +172,11 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 
 		return m, nil, true
 	case copyResult:
-		m.report("Could not copy to your clipboard", msg.err)
+		m.applyCopy(msg)
+
+		return m, nil, true
+	case flashRevertMsg:
+		m.applyFlashRevert()
 
 		return m, nil, true
 	default:
