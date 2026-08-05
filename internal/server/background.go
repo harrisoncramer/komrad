@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"weave/internal/logging"
+	"weave/lib/xsync"
 )
 
 const loopStopTimeout = 2 * time.Second
@@ -94,7 +95,12 @@ func startBackground(ctx context.Context, runner jobRunner, loops []Loop, logger
 func (b *backgroundWork) stop(ctx context.Context) {
 	b.stopLoops()
 
-	if !didFinishWithin(loopStopTimeout, b.loops.Wait) {
+	finished := xsync.WithinTimeout(loopStopTimeout, func() {
+		defer logging.LogAndRepanic(context.Background())
+
+		b.loops.Wait()
+	})
+	if !finished {
 		b.logger.LogAttrs(ctx, slog.LevelWarn, "a background loop did not stop in time")
 	}
 
@@ -108,26 +114,6 @@ func (b *backgroundWork) stop(ctx context.Context) {
 
 func shutdownDeadline(ctx context.Context, within time.Duration) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.WithoutCancel(ctx), within)
-}
-
-func didFinishWithin(within time.Duration, wait func()) bool {
-	done := make(chan struct{})
-	go func() {
-		defer logging.LogAndRepanic(context.Background())
-
-		wait()
-		close(done)
-	}()
-
-	timer := time.NewTimer(within)
-	defer timer.Stop()
-
-	select {
-	case <-done:
-		return true
-	case <-timer.C:
-		return false
-	}
 }
 
 func runLoop(ctx context.Context, loop Loop, logger *slog.Logger) {

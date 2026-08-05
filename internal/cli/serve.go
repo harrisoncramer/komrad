@@ -14,6 +14,7 @@ import (
 
 	"weave/internal/logging"
 	"weave/internal/server"
+	"weave/lib/xsync"
 
 	"github.com/spf13/cobra"
 )
@@ -219,28 +220,13 @@ func serve(ctx context.Context, p serveParams) error {
 }
 
 func closeWithin(logger *slog.Logger, what string, close func()) {
-	if !didFinishWithin(closeTimeout, close) {
-		logger.LogAttrs(context.Background(), slog.LevelWarn, "a database handle did not close in time",
-			slog.String(logging.Handle, what))
-	}
-}
-
-func didFinishWithin(within time.Duration, wait func()) bool {
-	done := make(chan struct{})
-	go func() {
+	finished := xsync.WithinTimeout(closeTimeout, func() {
 		defer logging.LogAndRepanic(context.Background())
 
-		wait()
-		close(done)
-	}()
-
-	timer := time.NewTimer(within)
-	defer timer.Stop()
-
-	select {
-	case <-done:
-		return true
-	case <-timer.C:
-		return false
+		close()
+	})
+	if !finished {
+		logger.LogAttrs(context.Background(), slog.LevelWarn, "a database handle did not close in time",
+			slog.String(logging.Handle, what))
 	}
 }

@@ -293,15 +293,3 @@ func TestShutdownDeadlineOutlivesTheSignal(t *testing.T) {
 	require.True(t, ok, "the stage is bounded rather than waiting forever")
 	assert.WithinDuration(t, time.Now().Add(jobStopTimeout), at, time.Second)
 }
-
-// TestAwaitWithinGivesUp covers the teardown moving on from something that will not
-// finish. A loop pass talking to a tmux server that stopped answering, or a pool waiting
-// on a query that will not end, would otherwise hold the process open for good.
-func TestAwaitWithinGivesUp(t *testing.T) {
-	assert.True(t, didFinishWithin(5*time.Second, func() {}), "work that finishes is waited for")
-
-	blocked := make(chan struct{})
-	defer close(blocked)
-
-	assert.False(t, didFinishWithin(10*time.Millisecond, func() { <-blocked }), "work that hangs is left behind")
-}

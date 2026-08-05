@@ -96,15 +96,3 @@ func TestServeAddrFlagCarriesNoDefault(t *testing.T) {
 	require.NotNil(t, flag)
 	assert.Empty(t, flag.DefValue, "a default here shadows WEAVE_ADDR")
 }
-
-// TestAwaitWithinGivesUp covers the teardown moving on from something that will not
-// finish. A pool waiting on a query that will not end would otherwise hold the process
-// open for good.
-func TestAwaitWithinGivesUp(t *testing.T) {
-	assert.True(t, didFinishWithin(5*time.Second, func() {}), "work that finishes is waited for")
-
-	blocked := make(chan struct{})
-	defer close(blocked)
-
-	assert.False(t, didFinishWithin(10*time.Millisecond, func() { <-blocked }), "work that hangs is left behind")
-}
