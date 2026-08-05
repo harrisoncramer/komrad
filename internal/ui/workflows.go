@@ -241,7 +241,7 @@ func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 			func(a api) error { return a.updateWorkflow(edited) },
 		)
 	default:
-		write = m.writeCmd("Could not create the workflow", func(a api) error { return a.createWorkflow(values) })
+		write = m.createWorkflowCmd(values)
 	}
 
 	// A rename to the name it already has writes nothing, and a form with no write has

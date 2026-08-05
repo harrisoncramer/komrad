@@ -13,8 +13,8 @@ type treeState struct {
 	workflows []workflowstore.Workflow
 	cursor    int
 
-	// focus is the id of an agent the next listing should put the cursor on, consumed as
-	// it lands. A newly-created agent has no row until that listing arrives.
+	// focus is the row key the next listing should put the cursor on, consumed as it lands.
+	// A newly-created agent or workflow has no row until that listing arrives.
 	focus string
 
 	// placed says a listing has put the cursor somewhere, so the first one lands on the
@@ -191,10 +191,20 @@ func rowIndexOfAgentID(rows []agentRow, id string) int {
 // same as an agent, since a folder appearing or going takes every row below it with it.
 func rowKey(row agentRow) string {
 	if row.header {
-		return "workflow:" + row.workflow.ID
+		return workflowRowKey(row.workflow.ID)
 	}
 
-	return "agent:" + row.item.agent.ID
+	return agentRowKey(row.item.agent.ID)
+}
+
+// agentRowKey and workflowRowKey are the keys of rows a write asks to be shown, which it
+// names by id because the row carrying it only exists once the next listing lands.
+func agentRowKey(id string) string {
+	return "agent:" + id
+}
+
+func workflowRowKey(id string) string {
+	return "workflow:" + id
 }
 
 // rowKeyAt is the key of the row a cursor is on, or empty when it is on nothing.
@@ -273,7 +283,7 @@ func (m *model) placeTreeCursor(selected string) {
 
 	idx := rowIndexOfKey(rows, selected)
 	if focus != "" {
-		idx = rowIndexOfAgentID(rows, focus)
+		idx = rowIndexOfKey(rows, focus)
 	}
 
 	switch {
