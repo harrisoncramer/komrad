@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package agent.v1;
+
+import "buf/validate/validate.proto";
+
+option go_package = "weave/proto/gen/agent/v1;agentv1";
+
+message Message {
+  string id = 1;
+  optional string from_agent_id = 2;
+  string from_name = 3;
+  string to_agent_id = 4;
+  string body = 5;
+  optional string reply_to = 6;
+  string created_at = 7;
+}
+
+message SendMessageRequest {
+  string to_agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  string body = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 10000
+  }];
+  optional string reply_to = 3 [(buf.validate.field).string.min_len = 1];
+}
+
+message SendMessageResponse {
+  Message message = 1;
+}
+
+message ReadMessagesRequest {
+  optional string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message ReadMessagesResponse {
+  repeated Message messages = 1;
+}

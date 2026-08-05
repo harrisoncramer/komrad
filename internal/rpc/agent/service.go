@@ -18,6 +18,7 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 
 	agentstore "weave/internal/store/agent"
+	messagestore "weave/internal/store/message"
 	transcriptstore "weave/internal/store/transcript"
 
 	"connectrpc.com/connect"
@@ -54,20 +55,34 @@ type transcriptReader interface {
 	Search(ctx context.Context, params transcriptstore.SearchParams) ([]transcriptstore.SearchHit, error)
 }
 
+type messenger interface {
+	SendMessage(ctx context.Context, params agents.SendMessageParams) (*messagestore.Message, error)
+	ClaimMessages(ctx context.Context, agentID string) ([]messagestore.Message, error)
+}
+
 // Service implements agentv1connect.AgentServiceHandler.
 type Service struct {
 	agents      agentReadWriter
 	transcripts transcriptReader
+	messages    messenger
 	launcher    agentLauncher
+}
+
+type NewServiceParams struct {
+	Agents      agentReadWriter
+	Transcripts transcriptReader
+	Messages    messenger
+	Launcher    agentLauncher
 }
 
 // NewService constructs the handler from the stores it reads and the manager that launches
 // agents.
-func NewService(agents agentReadWriter, transcripts transcriptReader, launcher agentLauncher) *Service {
+func NewService(p NewServiceParams) *Service {
 	return &Service{
-		agents:      agents,
-		transcripts: transcripts,
-		launcher:    launcher,
+		agents:      p.Agents,
+		transcripts: p.Transcripts,
+		messages:    p.Messages,
+		launcher:    p.Launcher,
 	}
 }
 
@@ -202,7 +217,7 @@ func (s *Service) SetMetadata(ctx context.Context, req *connect.Request[agentv1.
 // purpose, since an action's own stdout goes nowhere and its stderr is read back only when
 // it fails.
 func (s *Service) Log(ctx context.Context, req *connect.Request[agentv1.LogRequest]) (*connect.Response[emptypb.Empty], error) {
-	id := logScope(ctx, req.Msg.GetId())
+	id := callerScope(ctx, req.Msg.GetId())
 	if id == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("no id given, and the caller has none of its own to fall back to"))
 	}
@@ -228,14 +243,58 @@ func (s *Service) Log(ctx context.Context, req *connect.Request[agentv1.LogReque
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// logScope is the agent a line is about: the one named, or the caller's own when none is,
+// callerScope is the agent a call is about: the one named, or the caller's own when none is,
 // the same fallback searchScope gives a search naming nobody.
-func logScope(ctx context.Context, requested string) string {
+func callerScope(ctx context.Context, requested string) string {
 	if requested != "" {
 		return requested
 	}
 
 	return caller.From(ctx).AgentID
+}
+
+func (s *Service) SendMessage(ctx context.Context, req *connect.Request[agentv1.SendMessageRequest]) (*connect.Response[agentv1.SendMessageResponse], error) {
+	sent, err := s.messages.SendMessage(ctx, agents.SendMessageParams{
+		From:      caller.From(ctx).AgentID,
+		ToAgentID: req.Msg.GetToAgentId(),
+		Body:      req.Msg.GetBody(),
+		ReplyTo:   req.Msg.ReplyTo,
+	})
+	switch {
+	case errors.Is(err, agents.ErrRecipientNotFound):
+		return nil, connect.NewError(connect.CodeNotFound, err)
+	case errors.Is(err, agents.ErrAgentArchived):
+		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
+	case errors.Is(err, agents.ErrSelfAddressed), errors.Is(err, agents.ErrSenderUnknown):
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	case errors.Is(err, agents.ErrMailboxFull):
+		return nil, connect.NewError(connect.CodeResourceExhausted, err)
+	case err != nil:
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to send the message: %w", err))
+	}
+
+	return connect.NewResponse(&agentv1.SendMessageResponse{Message: renderMessage(*sent)}), nil
+}
+
+func (s *Service) ReadMessages(ctx context.Context, req *connect.Request[agentv1.ReadMessagesRequest]) (*connect.Response[agentv1.ReadMessagesResponse], error) {
+	id := callerScope(ctx, req.Msg.GetId())
+	if id == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("no id given, and the caller has none of its own to fall back to"))
+	}
+
+	logCrossAgentRead(ctx, id, "agent read another agent's mail")
+
+	claimed, err := s.messages.ClaimMessages(ctx, id)
+	switch {
+	case errors.Is(err, agents.ErrAgentNotFound):
+		return nil, connect.NewError(connect.CodeNotFound, err)
+	case err != nil:
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to read the mail: %w", err))
+	}
+
+	return connect.NewResponse(&agentv1.ReadMessagesResponse{
+		Messages: xslice.Map(claimed, renderMessage),
+	}), nil
 }
 
 // DeleteAgents stops agents and removes them with their configs and transcripts. The
@@ -335,7 +394,7 @@ func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[ag
 
 	scope := searchScope(ctx, req.Msg.GetAgentId())
 	if scope != nil {
-		logCrossAgentRead(ctx, *scope)
+		logCrossAgentRead(ctx, *scope, "agent read another agent's transcript")
 	}
 
 	hits, err := s.transcripts.Search(ctx, transcriptstore.SearchParams{
@@ -365,7 +424,7 @@ func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[ag
 // show a match in its surrounding conversation. An id that matches no agent is not_found
 // rather than empty content, which would read as an agent with nothing stored yet.
 func (s *Service) GetTranscript(ctx context.Context, req *connect.Request[agentv1.GetTranscriptRequest]) (*connect.Response[agentv1.GetTranscriptResponse], error) {
-	logCrossAgentRead(ctx, req.Msg.GetAgentId())
+	logCrossAgentRead(ctx, req.Msg.GetAgentId(), "agent read another agent's transcript")
 
 	exists, err := s.agents.Exists(ctx, req.Msg.GetAgentId())
 	if err != nil {
@@ -401,12 +460,12 @@ func searchScope(ctx context.Context, requested string) *string {
 
 // logCrossAgentRead records an agent reading a conversation other than its own, which is
 // what a scoping keyed on a header a caller sets about itself leaves worth having.
-func logCrossAgentRead(ctx context.Context, target string) {
+func logCrossAgentRead(ctx context.Context, target, message string) {
 	from := caller.From(ctx)
 	if from.AgentID == "" || from.AgentID == target {
 		return
 	}
 
-	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "agent read another agent's transcript",
+	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, message,
 		slog.String(logging.TargetAgentID, target))
 }

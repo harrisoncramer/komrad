@@ -27,6 +27,7 @@ import (
 	rpcworkflow "weave/internal/rpc/workflow"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+	messagestore "weave/internal/store/message"
 	schedulestore "weave/internal/store/schedule"
 	transcriptstore "weave/internal/store/transcript"
 	workflowstore "weave/internal/store/workflow"
@@ -138,8 +139,14 @@ func New(ctx context.Context, p Params) (*Server, error) {
 	workflowStore := workflowstore.New(pool.GetDB())
 	scheduleStore := schedulestore.New(pool.GetDB())
 	transcriptStore := transcriptstore.New(pool.GetDB())
+	messageStore := messagestore.New(pool.GetDB())
 
 	loadConfig := func() (*config.Config, error) { return config.Load(p.ConfigPaths) }
+
+	messageService := agents.NewMessageService(agents.NewMessageServiceParams{
+		MessageReadWriter: messageStore,
+		AgentFinder:       agentStore,
+	})
 
 	workflowService := agents.NewWorkflowService(agents.WorkflowParams{
 		Workflows: workflowStore,
@@ -212,7 +219,12 @@ func New(ctx context.Context, p Params) (*Server, error) {
 
 	srv.Mux = http.NewServeMux()
 	srv.handle(agentv1connect.NewAgentServiceHandler(
-		rpcagent.NewService(agentStore, transcriptStore, agentService), options...))
+		rpcagent.NewService(rpcagent.NewServiceParams{
+			Agents:      agentStore,
+			Transcripts: transcriptStore,
+			Messages:    messageService,
+			Launcher:    agentService,
+		}), options...))
 	srv.handle(workflowv1connect.NewWorkflowServiceHandler(
 		rpcworkflow.NewService(workflowStore, workflowService), options...))
 	srv.handle(schedulev1connect.NewScheduleServiceHandler(

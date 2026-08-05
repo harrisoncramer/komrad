@@ -50,6 +50,12 @@ const (
 	AgentServiceSetMetadataProcedure = "/agent.v1.AgentService/SetMetadata"
 	// AgentServiceLogProcedure is the fully-qualified name of the AgentService's Log RPC.
 	AgentServiceLogProcedure = "/agent.v1.AgentService/Log"
+	// AgentServiceSendMessageProcedure is the fully-qualified name of the AgentService's SendMessage
+	// RPC.
+	AgentServiceSendMessageProcedure = "/agent.v1.AgentService/SendMessage"
+	// AgentServiceReadMessagesProcedure is the fully-qualified name of the AgentService's ReadMessages
+	// RPC.
+	AgentServiceReadMessagesProcedure = "/agent.v1.AgentService/ReadMessages"
 	// AgentServiceArchiveAgentsProcedure is the fully-qualified name of the AgentService's
 	// ArchiveAgents RPC.
 	AgentServiceArchiveAgentsProcedure = "/agent.v1.AgentService/ArchiveAgents"
@@ -82,6 +88,8 @@ type AgentServiceClient interface {
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
 	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
+	SendMessage(context.Context, *connect.Request[v1.SendMessageRequest]) (*connect.Response[v1.SendMessageResponse], error)
+	ReadMessages(context.Context, *connect.Request[v1.ReadMessagesRequest]) (*connect.Response[v1.ReadMessagesResponse], error)
 	ArchiveAgents(context.Context, *connect.Request[v1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error)
 	RestoreAgents(context.Context, *connect.Request[v1.RestoreAgentsRequest]) (*connect.Response[v1.RestoreAgentsResponse], error)
 	ResumeAgent(context.Context, *connect.Request[v1.ResumeAgentRequest]) (*connect.Response[v1.ResumeAgentResponse], error)
@@ -149,6 +157,18 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(agentServiceMethods.ByName("Log")),
 			connect.WithClientOptions(opts...),
 		),
+		sendMessage: connect.NewClient[v1.SendMessageRequest, v1.SendMessageResponse](
+			httpClient,
+			baseURL+AgentServiceSendMessageProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("SendMessage")),
+			connect.WithClientOptions(opts...),
+		),
+		readMessages: connect.NewClient[v1.ReadMessagesRequest, v1.ReadMessagesResponse](
+			httpClient,
+			baseURL+AgentServiceReadMessagesProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("ReadMessages")),
+			connect.WithClientOptions(opts...),
+		),
 		archiveAgents: connect.NewClient[v1.ArchiveAgentsRequest, emptypb.Empty](
 			httpClient,
 			baseURL+AgentServiceArchiveAgentsProcedure,
@@ -210,6 +230,8 @@ type agentServiceClient struct {
 	setHidden         *connect.Client[v1.SetHiddenRequest, emptypb.Empty]
 	setMetadata       *connect.Client[v1.SetMetadataRequest, emptypb.Empty]
 	log               *connect.Client[v1.LogRequest, emptypb.Empty]
+	sendMessage       *connect.Client[v1.SendMessageRequest, v1.SendMessageResponse]
+	readMessages      *connect.Client[v1.ReadMessagesRequest, v1.ReadMessagesResponse]
 	archiveAgents     *connect.Client[v1.ArchiveAgentsRequest, emptypb.Empty]
 	restoreAgents     *connect.Client[v1.RestoreAgentsRequest, v1.RestoreAgentsResponse]
 	resumeAgent       *connect.Client[v1.ResumeAgentRequest, v1.ResumeAgentResponse]
@@ -252,6 +274,16 @@ func (c *agentServiceClient) SetMetadata(ctx context.Context, req *connect.Reque
 // Log calls agent.v1.AgentService.Log.
 func (c *agentServiceClient) Log(ctx context.Context, req *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error) {
 	return c.log.CallUnary(ctx, req)
+}
+
+// SendMessage calls agent.v1.AgentService.SendMessage.
+func (c *agentServiceClient) SendMessage(ctx context.Context, req *connect.Request[v1.SendMessageRequest]) (*connect.Response[v1.SendMessageResponse], error) {
+	return c.sendMessage.CallUnary(ctx, req)
+}
+
+// ReadMessages calls agent.v1.AgentService.ReadMessages.
+func (c *agentServiceClient) ReadMessages(ctx context.Context, req *connect.Request[v1.ReadMessagesRequest]) (*connect.Response[v1.ReadMessagesResponse], error) {
+	return c.readMessages.CallUnary(ctx, req)
 }
 
 // ArchiveAgents calls agent.v1.AgentService.ArchiveAgents.
@@ -298,6 +330,8 @@ type AgentServiceHandler interface {
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
 	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
+	SendMessage(context.Context, *connect.Request[v1.SendMessageRequest]) (*connect.Response[v1.SendMessageResponse], error)
+	ReadMessages(context.Context, *connect.Request[v1.ReadMessagesRequest]) (*connect.Response[v1.ReadMessagesResponse], error)
 	ArchiveAgents(context.Context, *connect.Request[v1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error)
 	RestoreAgents(context.Context, *connect.Request[v1.RestoreAgentsRequest]) (*connect.Response[v1.RestoreAgentsResponse], error)
 	ResumeAgent(context.Context, *connect.Request[v1.ResumeAgentRequest]) (*connect.Response[v1.ResumeAgentResponse], error)
@@ -359,6 +393,18 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		AgentServiceLogProcedure,
 		svc.Log,
 		connect.WithSchema(agentServiceMethods.ByName("Log")),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceSendMessageHandler := connect.NewUnaryHandler(
+		AgentServiceSendMessageProcedure,
+		svc.SendMessage,
+		connect.WithSchema(agentServiceMethods.ByName("SendMessage")),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceReadMessagesHandler := connect.NewUnaryHandler(
+		AgentServiceReadMessagesProcedure,
+		svc.ReadMessages,
+		connect.WithSchema(agentServiceMethods.ByName("ReadMessages")),
 		connect.WithHandlerOptions(opts...),
 	)
 	agentServiceArchiveAgentsHandler := connect.NewUnaryHandler(
@@ -426,6 +472,10 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceSetMetadataHandler.ServeHTTP(w, r)
 		case AgentServiceLogProcedure:
 			agentServiceLogHandler.ServeHTTP(w, r)
+		case AgentServiceSendMessageProcedure:
+			agentServiceSendMessageHandler.ServeHTTP(w, r)
+		case AgentServiceReadMessagesProcedure:
+			agentServiceReadMessagesHandler.ServeHTTP(w, r)
 		case AgentServiceArchiveAgentsProcedure:
 			agentServiceArchiveAgentsHandler.ServeHTTP(w, r)
 		case AgentServiceRestoreAgentsProcedure:
@@ -475,6 +525,14 @@ func (UnimplementedAgentServiceHandler) SetMetadata(context.Context, *connect.Re
 
 func (UnimplementedAgentServiceHandler) Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.Log is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) SendMessage(context.Context, *connect.Request[v1.SendMessageRequest]) (*connect.Response[v1.SendMessageResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.SendMessage is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) ReadMessages(context.Context, *connect.Request[v1.ReadMessagesRequest]) (*connect.Response[v1.ReadMessagesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ReadMessages is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) ArchiveAgents(context.Context, *connect.Request[v1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error) {

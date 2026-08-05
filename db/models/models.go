@@ -32,6 +32,19 @@ type Agent struct {
 	CleanupAction  *string
 }
 
+// One message from one agent to another, held until the recipient claims it.
+type AgentMessage struct {
+	ID          string
+	FromAgentID *string
+	FromName    string
+	ToAgentID   string
+	Body        string
+	ReplyTo     *string
+	ClaimedAt   *time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
 // Key/value facts an agent recorded about its own work.
 type AgentMetadatum struct {
 	AgentID   string

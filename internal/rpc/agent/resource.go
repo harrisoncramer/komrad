@@ -4,6 +4,7 @@ import (
 	"time"
 
 	agentstore "weave/internal/store/agent"
+	messagestore "weave/internal/store/message"
 	transcriptstore "weave/internal/store/transcript"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -68,6 +69,23 @@ func renderAgent(stored agentstore.Agent, alive bool) agent {
 			IdempotencyKey: stored.IdempotencyKey,
 		},
 		cursor: agentstore.Cursor{ID: stored.ID},
+	}
+}
+
+func renderMessage(stored messagestore.Message) *agentv1.Message {
+	created := ""
+	if !stored.CreatedAt.IsZero() {
+		created = stored.CreatedAt.Format(time.RFC3339)
+	}
+
+	return &agentv1.Message{
+		Id:          stored.ID,
+		FromAgentId: stored.FromAgentID,
+		FromName:    stored.FromName,
+		ToAgentId:   stored.ToAgentID,
+		Body:        stored.Body,
+		ReplyTo:     stored.ReplyTo,
+		CreatedAt:   created,
 	}
 }
 

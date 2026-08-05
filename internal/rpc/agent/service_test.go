@@ -707,6 +707,189 @@ func TestLog(t *testing.T) {
 	}
 }
 
+func TestSendMessage(t *testing.T) {
+	tests := []struct {
+		name     string
+		to       string
+		callerIs string
+		wantCode connect.Code
+	}{
+		{
+			name:     "an id no agent holds",
+			to:       missingID,
+			callerIs: "alpha",
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "a name rather than an id",
+			to:       "beta",
+			callerIs: "alpha",
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "an agent addressing itself",
+			to:       "alpha",
+			callerIs: "alpha",
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "a caller claiming an agent that does not exist",
+			to:       "beta-id",
+			callerIs: uuid.NewString(),
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "an agent messaging another by id",
+			to:       "beta-id",
+			callerIs: "alpha",
+		},
+		{
+			name: "the panel messaging an agent as nobody",
+			to:   "beta-id",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, st := service(t)
+			alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
+			beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
+
+			to := tt.to
+			switch to {
+			case "alpha":
+				to = alpha.ID
+			case "beta-id":
+				to = beta.ID
+			}
+
+			ctx := t.Context()
+			switch tt.callerIs {
+			case "":
+			case "alpha":
+				ctx = caller.With(ctx, caller.Caller{AgentID: alpha.ID})
+			default:
+				ctx = caller.With(ctx, caller.Caller{AgentID: tt.callerIs})
+			}
+
+			sent, err := svc.SendMessage(ctx, connect.NewRequest(&agentv1.SendMessageRequest{
+				ToAgentId: to,
+				Body:      "which column holds the refund?",
+			}))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, beta.ID, sent.Msg.GetMessage().GetToAgentId())
+			assert.Equal(t, "which column holds the refund?", sent.Msg.GetMessage().GetBody())
+
+			if tt.callerIs == "alpha" {
+				assert.Equal(t, alpha.ID, sent.Msg.GetMessage().GetFromAgentId())
+				assert.Equal(t, "alpha", sent.Msg.GetMessage().GetFromName())
+
+				return
+			}
+
+			assert.Empty(t, sent.Msg.GetMessage().GetFromAgentId())
+		})
+	}
+}
+
+func TestReadMessages(t *testing.T) {
+	svc, st := service(t)
+	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
+	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
+
+	asAlpha := caller.With(t.Context(), caller.Caller{AgentID: alpha.ID})
+	_, err := svc.SendMessage(asAlpha, connect.NewRequest(&agentv1.SendMessageRequest{
+		ToAgentId: beta.ID,
+		Body:      "refunded_cents",
+	}))
+	require.NoError(t, err)
+
+	asBeta := caller.With(t.Context(), caller.Caller{AgentID: beta.ID})
+	read, err := svc.ReadMessages(asBeta, connect.NewRequest(&agentv1.ReadMessagesRequest{}))
+	require.NoError(t, err)
+	require.Len(t, read.Msg.GetMessages(), 1)
+	assert.Equal(t, "refunded_cents", read.Msg.GetMessages()[0].GetBody())
+	assert.Equal(t, "alpha", read.Msg.GetMessages()[0].GetFromName())
+
+	again, err := svc.ReadMessages(asBeta, connect.NewRequest(&agentv1.ReadMessagesRequest{}))
+	require.NoError(t, err)
+	assert.Empty(t, again.Msg.GetMessages(), "a claimed message is not handed out twice")
+}
+
+func TestReadMessagesScope(t *testing.T) {
+	tests := []struct {
+		name     string
+		explicit bool
+		callerIs bool
+		wantCode connect.Code
+	}{
+		{
+			name:     "no id and no caller identity is refused",
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "an id nobody holds is not a quiet success",
+			explicit: true,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "an unset id falls back to the caller's own",
+			callerIs: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, st := service(t)
+			seeded := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
+
+			ctx := t.Context()
+			if tt.callerIs {
+				ctx = caller.With(ctx, caller.Caller{AgentID: seeded.ID})
+			}
+
+			req := &agentv1.ReadMessagesRequest{}
+			if tt.explicit {
+				ghost := uuid.NewString()
+				req.Id = &ghost
+			}
+
+			read, err := svc.ReadMessages(ctx, connect.NewRequest(req))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Empty(t, read.Msg.GetMessages())
+		})
+	}
+}
+
+func TestCrossAgentMailReadIsRecorded(t *testing.T) {
+	svc, st := service(t)
+	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
+	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
+
+	var written strings.Builder
+	ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelInfo))
+	ctx = caller.With(ctx, caller.Caller{AgentID: alpha.ID})
+
+	_, err := svc.ReadMessages(ctx, connect.NewRequest(&agentv1.ReadMessagesRequest{Id: &beta.ID}))
+	require.NoError(t, err)
+
+	record := logtest.Record(t, written.String())
+	assert.Equal(t, "agent read another agent's mail", record["body"])
+	assert.Equal(t, beta.ID, record[logging.TargetAgentID])
+}
+
 // TestLogTagsTheAction covers the action field, which is unset for anything that is not a
 // running action and, when given, is worth its own field rather than folded into the
 // message.
@@ -1359,7 +1542,17 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 	st := storetest.Open(t)
 	launcher := &fakeLauncher{created: &agentstore.Agent{ID: "id-1", Name: "spawned", Cwd: "/repo", State: agentstore.StateIdle}}
 
-	return NewService(st.Agents, st.Transcripts, launcher), st, launcher
+	messages := agents.NewMessageService(agents.NewMessageServiceParams{
+		MessageReadWriter: st.Messages,
+		AgentFinder:       st.Agents,
+	})
+
+	return NewService(NewServiceParams{
+		Agents:      st.Agents,
+		Transcripts: st.Transcripts,
+		Messages:    messages,
+		Launcher:    launcher,
+	}), st, launcher
 }
 
 // TestBatchLifecycleErrorsMapToCodes covers what a caller sees when a batch is refused.

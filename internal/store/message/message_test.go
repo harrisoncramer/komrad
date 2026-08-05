@@ -1,0 +1,176 @@
+package message
+
+import (
+	"testing"
+
+	"weave/internal/pgtest"
+	"weave/internal/store"
+	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestSendAndClaim(t *testing.T) {
+	tests := []struct {
+		name      string
+		bodies    []string
+		limit     int32
+		wantFirst []string
+		wantLeft  int64
+	}{
+		{
+			name:     "an empty mailbox claims nothing",
+			limit:    10,
+			wantLeft: 0,
+		},
+		{
+			name:      "mail comes back oldest first",
+			bodies:    []string{"first", "second", "third"},
+			limit:     10,
+			wantFirst: []string{"first", "second", "third"},
+			wantLeft:  0,
+		},
+		{
+			name:      "a limit leaves the rest waiting",
+			bodies:    []string{"first", "second", "third"},
+			limit:     2,
+			wantFirst: []string{"first", "second"},
+			wantLeft:  1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+			sender := seedAgent(t, st, "sender")
+			recipient := seedAgent(t, st, "recipient")
+
+			for _, body := range tt.bodies {
+				_, err := st.Send(ctx, SendParams{
+					FromAgentID: &sender,
+					FromName:    "sender",
+					ToAgentID:   recipient,
+					Body:        body,
+				})
+				require.NoError(t, err)
+			}
+
+			claimed, err := st.Claim(ctx, recipient, tt.limit)
+			require.NoError(t, err)
+
+			var bodies []string
+			for _, message := range claimed {
+				bodies = append(bodies, message.Body)
+				assert.NotNil(t, message.ClaimedAt)
+				assert.Equal(t, "sender", message.FromName)
+			}
+			assert.Equal(t, tt.wantFirst, bodies)
+
+			left, err := st.CountPending(ctx, recipient)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantLeft, left)
+		})
+	}
+}
+
+func TestClaimTakesEachMessageOnce(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+
+	_, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "only once"})
+	require.NoError(t, err)
+
+	first, err := st.Claim(ctx, recipient, 10)
+	require.NoError(t, err)
+	require.Len(t, first, 1)
+
+	second, err := st.Claim(ctx, recipient, 10)
+	require.NoError(t, err)
+	assert.Empty(t, second)
+}
+
+func TestClaimIgnoresOtherMailboxes(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	mine := seedAgent(t, st, "mine")
+	theirs := seedAgent(t, st, "theirs")
+
+	_, err := st.Send(ctx, SendParams{ToAgentID: theirs, Body: "not for you"})
+	require.NoError(t, err)
+
+	claimed, err := st.Claim(ctx, mine, 10)
+	require.NoError(t, err)
+	assert.Empty(t, claimed)
+
+	left, err := st.CountPending(ctx, theirs)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), left)
+}
+
+func TestClaimToleratesAnIDNoColumnCouldHold(t *testing.T) {
+	st := open(t)
+
+	claimed, err := st.Claim(t.Context(), "not-an-id", 10)
+	require.NoError(t, err)
+	assert.Empty(t, claimed)
+
+	left, err := st.CountPending(t.Context(), "not-an-id")
+	require.NoError(t, err)
+	assert.Zero(t, left)
+}
+
+func TestReplyToThreadsAMessage(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	asker := seedAgent(t, st, "asker")
+	answerer := seedAgent(t, st, "answerer")
+
+	asked, err := st.Send(ctx, SendParams{FromAgentID: &asker, ToAgentID: answerer, Body: "which column?"})
+	require.NoError(t, err)
+
+	answered, err := st.Send(ctx, SendParams{
+		FromAgentID: &answerer,
+		ToAgentID:   asker,
+		Body:        "refunded_cents",
+		ReplyTo:     &asked.ID,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, answered.ReplyTo)
+	assert.Equal(t, asked.ID, *answered.ReplyTo)
+}
+
+type fixture struct {
+	*Store
+	agents   *agentstore.Store
+	workflow string
+}
+
+func open(t *testing.T) *fixture {
+	t.Helper()
+	p, err := store.Open(t.Context(), pgtest.URL(t))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = p.Close() })
+
+	workflows := workflowstore.New(p.GetDB())
+	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default"})
+	require.NoError(t, err)
+
+	return &fixture{Store: New(p.GetDB()), agents: agentstore.New(p.GetDB()), workflow: created.ID}
+}
+
+func seedAgent(t *testing.T, st *fixture, name string) string {
+	t.Helper()
+	ctx := t.Context()
+	require.NoError(t, st.agents.Create(ctx, agentstore.Agent{
+		Name: name, State: agentstore.StateIdle, WorkflowID: st.workflow,
+	}))
+	got, err := st.agents.GetInWorkflow(ctx, st.workflow, name)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+
+	return got.ID
+}

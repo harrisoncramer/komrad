@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package agent.v1;
+
+import "buf/validate/validate.proto";
+import "pagination/v1/pagination.proto";
+
+option go_package = "weave/proto/gen/agent/v1;agentv1";
+
+message SearchTranscriptsRequest {
+  string query = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 500
+  }];
+  optional pagination.v1.Pagination pagination = 2;
+  // The one agent to search, defaulting to the caller's own conversation when the caller
+  // is an agent and to every conversation when it is not.
+  optional string agent_id = 3 [(buf.validate.field).string.min_len = 1];
+}
+
+// SearchHit is one turn of a transcript matched by a search.
+message SearchHit {
+  string agent_id = 1;
+  string snippet = 2;
+  string name = 4;
+  bool archived = 5;
+  // Cover density of the matched turn, higher being a better match. It compares
+  // only against the other hits for the same query and carries no meaning of its
+  // own.
+  double score = 6;
+  // Position of the matched turn within the transcript, counting from zero.
+  int32 seq = 7;
+  // Who spoke the matched turn, user or assistant.
+  string role = 8;
+  // Byte offset where the matched turn begins in the full transcript, so a caller
+  // holding that text can scroll to the hit without searching for it again.
+  int64 content_offset = 9;
+}
+
+message SearchTranscriptsResponse {
+  repeated SearchHit hits = 1;
+  optional string next_page_token = 2;
+}
+
+message GetTranscriptRequest {
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message GetTranscriptResponse {
+  // The full flattened transcript, empty when the agent has none synced yet.
+  string content = 1;
+}

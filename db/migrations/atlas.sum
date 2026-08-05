@@ -1,5 +1,6 @@
-h1:m+idezU+T+PjDYbH3YNWnhDdwoqEHQpdtT+zYh+svWk=
+h1:NOH6DmM7jVNpCJii/sGnOoE/9f/dZOAlMYl1JNTRyVw=
 20260727000000_initial.sql h1:owzcMjTU5jO8l1Z6RNCtolWwzOORs36gXDV1kMxSX9o=
 20260803000000_updated_at_triggers.sql h1:O6ZGmxsS3Ot7vgk30pR34f0OT4WGI8FkGe+zdlIKVDQ=
 20260803175945_agent_state_changed_at.sql h1:uO5yr6DfYelk5MzZlL2gO9qYePkZghWUN1Zjv4FfSU8=
 20260804180113_agent_action_override.sql h1:OdGD2S+eqp8wHwK9wXZ7uUmQ2HqaNJVdW2vgs81lSsY=
+20260804234740_agent_messages.sql h1:cSRMK26ZlPF9b7zuF1Y8mIp67AKscb6ZwjgHodHAQYQ=
