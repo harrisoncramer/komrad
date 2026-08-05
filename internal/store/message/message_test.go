@@ -261,6 +261,25 @@ func TestListPendingMailboxesDropsAMailboxOnceItsExpiredMailIsReported(t *testin
 	assert.NotContains(t, mailboxes, recipient, "a mailbox whose only mail was already reported should not keep coming back to the sweep")
 }
 
+func TestListPendingMailboxesKeepsAMailboxWithLiveMailAfterItsExpiredMailIsReported(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+
+	_, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "too late", ExpiresAt: time.Now().Add(-time.Minute)})
+	require.NoError(t, err)
+	_, err = st.Send(ctx, SendParams{ToAgentID: recipient, Body: "still live", ExpiresAt: time.Now().Add(time.Hour)})
+	require.NoError(t, err)
+
+	expired, err := st.ListExpired(ctx, recipient)
+	require.NoError(t, err)
+	require.Len(t, expired, 1)
+
+	mailboxes, err := st.ListPendingMailboxes(ctx)
+	require.NoError(t, err)
+	assert.Contains(t, mailboxes, recipient, "the mailbox still holds live mail, so it must stay in the sweep")
+}
+
 type fixture struct {
 	*Store
 	agents   *agentstore.Store
