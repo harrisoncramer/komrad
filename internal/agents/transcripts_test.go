@@ -135,7 +135,6 @@ func TestTranscriptSyncer(t *testing.T) {
 
 			syncer := NewTranscriptSyncer(TranscriptSyncerParams{
 				Agents:      st.Agents,
-				Sessions:    st.Agents,
 				Transcripts: st.Transcripts,
 				Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
 			})
@@ -206,7 +205,6 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 	store := failingTranscripts{transcriptReadWriter: st.Transcripts, failFor: unsyncable.ID}
 	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
 		Agents:      st.Agents,
-		Sessions:    st.Agents,
 		Transcripts: store,
 		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
 	})
@@ -306,7 +304,6 @@ func TestSyncReportsAnUnknownHarness(t *testing.T) {
 
 	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
 		Agents:      st.Agents,
-		Sessions:    st.Agents,
 		Transcripts: st.Transcripts,
 		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})),
 	})
@@ -356,7 +353,6 @@ func TestSyncAdoptsSessions(t *testing.T) {
 
 			syncer := NewTranscriptSyncer(TranscriptSyncerParams{
 				Agents:      st.Agents,
-				Sessions:    st.Agents,
 				Transcripts: st.Transcripts,
 				Harnesses:   fakeHarnesses{harness: &fakeHarness{found: tt.found}},
 			})
@@ -400,7 +396,6 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 
 	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
 		Agents:      st.Agents,
-		Sessions:    st.Agents,
 		Transcripts: st.Transcripts,
 		Harnesses:   mustRegistry(t, codex.NewHarness(codex.NewHarnessParams{SessionsDir: sessions})),
 	})

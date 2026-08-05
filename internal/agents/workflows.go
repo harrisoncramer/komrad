@@ -252,7 +252,7 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 // A name is only taken within its own workflow, so the counting keys on both. A batch
 // restored by id can span folders, and two agents called auth in two of them are not a
 // clash.
-func requireNamesFree(ctx context.Context, agents agentNamer, archived []agentstore.Agent) error {
+func requireNamesFree(ctx context.Context, agents agentManager, archived []agentstore.Agent) error {
 	returning := make(map[agentName]int, len(archived))
 	for _, agent := range archived {
 		returning[agentName{workflowID: agent.WorkflowID, name: agent.Name}]++

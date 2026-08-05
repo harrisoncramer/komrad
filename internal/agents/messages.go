@@ -39,42 +39,31 @@ type messageReadWriter interface {
 	CountPending(ctx context.Context, toAgentID string) (int64, error)
 }
 
-// deadlineReader is how long a message stays deliverable, read per send so editing the
-// config reaches the next message rather than the next restart.
-type deadlineReader interface {
+// messageConfigReader is the message policy config, read per send so editing it reaches
+// the next message rather than the next restart: how long a message stays deliverable,
+// and how many messages may pass along one reply thread.
+type messageConfigReader interface {
 	GetDeliveryDeadline() (time.Duration, error)
-}
-
-// hopLimitReader is how many messages may pass along one reply thread, read per send the
-// way the deadline is.
-type hopLimitReader interface {
 	GetMaxHops() (int, error)
-}
-
-type agentFinder interface {
-	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
 type MessageService struct {
 	messageReadWriter messageReadWriter
 	agentFinder       agentFinder
-	deadlineReader    deadlineReader
-	hopLimitReader    hopLimitReader
+	config            messageConfigReader
 }
 
 type NewMessageServiceParams struct {
 	MessageReadWriter messageReadWriter
 	AgentFinder       agentFinder
-	DeadlineReader    deadlineReader
-	HopLimitReader    hopLimitReader
+	Config            messageConfigReader
 }
 
 func NewMessageService(p NewMessageServiceParams) *MessageService {
 	return &MessageService{
 		messageReadWriter: p.MessageReadWriter,
 		agentFinder:       p.AgentFinder,
-		deadlineReader:    p.DeadlineReader,
-		hopLimitReader:    p.HopLimitReader,
+		config:            p.Config,
 	}
 }
 
@@ -136,7 +125,7 @@ func (s *MessageService) send(ctx context.Context, params SendMessageParams, sys
 		hops = parent.Hops + 1
 	}
 
-	maxHops, err := s.hopLimitReader.GetMaxHops()
+	maxHops, err := s.config.GetMaxHops()
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +133,7 @@ func (s *MessageService) send(ctx context.Context, params SendMessageParams, sys
 		return nil, fmt.Errorf("%w: %d hops is the limit for this thread, say so and stop rather than replying again", ErrThreadCapped, maxHops)
 	}
 
-	deadline, err := s.deadlineReader.GetDeliveryDeadline()
+	deadline, err := s.config.GetDeliveryDeadline()
 	if err != nil {
 		return nil, err
 	}

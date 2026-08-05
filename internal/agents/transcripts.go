@@ -11,10 +11,6 @@ import (
 	"weave/internal/store/transcript"
 )
 
-type sessionIDSetter interface {
-	SetSessionID(ctx context.Context, id, sessionID string) error
-}
-
 type transcriptReadWriter interface {
 	Get(ctx context.Context, agentID string) (transcript.Transcript, error)
 	Upsert(ctx context.Context, params transcript.UpsertParams) error
@@ -22,24 +18,25 @@ type transcriptReadWriter interface {
 	DeleteTurns(ctx context.Context, agentID string) error
 }
 
-type agentLister interface {
+// agentSessionLister is the agent store as TranscriptSyncer needs it: every agent to
+// walk, and the session id to stamp once a harness names one.
+type agentSessionLister interface {
 	ListAll(ctx context.Context) ([]agentstore.Agent, error)
+	SetSessionID(ctx context.Context, id, sessionID string) error
 }
 
 // TranscriptSyncer keeps each agent's searchable transcript in step with the log its CLI
 // writes to disk. Rather than hook into that CLI's lifecycle, which fires unreliably, it
 // reads the log on a timer, so missing a pass loses nothing.
 type TranscriptSyncer struct {
-	agents    agentLister
-	sessions  sessionIDSetter
+	agents    agentSessionLister
 	store     transcriptReadWriter
 	harnesses harnessGetter
 }
 
 // TranscriptSyncerParams carries the syncer's dependencies.
 type TranscriptSyncerParams struct {
-	Agents      agentLister
-	Sessions    sessionIDSetter
+	Agents      agentSessionLister
 	Transcripts transcriptReadWriter
 	Harnesses   harnessGetter
 }
@@ -49,7 +46,6 @@ type TranscriptSyncerParams struct {
 func NewTranscriptSyncer(p TranscriptSyncerParams) *TranscriptSyncer {
 	return &TranscriptSyncer{
 		agents:    p.Agents,
-		sessions:  p.Sessions,
 		store:     p.Transcripts,
 		harnesses: p.Harnesses,
 	}
@@ -107,7 +103,7 @@ func (ts *TranscriptSyncer) adoptSessions(ctx context.Context, agents []agentsto
 		if err != nil || found == "" {
 			continue
 		}
-		if err := ts.sessions.SetSessionID(ctx, agent.ID, found); err != nil {
+		if err := ts.agents.SetSessionID(ctx, agent.ID, found); err != nil {
 			continue
 		}
 

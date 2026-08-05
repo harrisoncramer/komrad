@@ -192,8 +192,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 	messageService := agents.NewMessageService(agents.NewMessageServiceParams{
 		MessageReadWriter: messageStore,
 		AgentFinder:       agentStore,
-		DeadlineReader:    messagesConfig(loadConfig),
-		HopLimitReader:    messagesConfig(loadConfig),
+		Config:            messagesConfig(loadConfig),
 	})
 	workflowService := agents.NewWorkflowService(agents.WorkflowParams{
 		Workflows: workflowStore,
@@ -357,7 +356,6 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Interval: TranscriptSyncInterval,
 		Pass: agents.NewTranscriptSyncer(agents.TranscriptSyncerParams{
 			Agents:      agentStore,
-			Sessions:    agentStore,
 			Transcripts: transcriptStore,
 			Harnesses:   p.Harnesses,
 		}).Sync,
