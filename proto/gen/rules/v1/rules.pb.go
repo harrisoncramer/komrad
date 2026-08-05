@@ -87,7 +87,9 @@ var (
 	//
 	// optional bool absolute_path_or_blank = 50102;
 	E_AbsolutePathOrBlank = &file_rules_v1_rules_proto_extTypes[2]
-	// The shape of an action's file name.
+	// The shape of an action's file name. A file name never has a legitimate reason
+	// to carry a control character, and an action name flows into logs and the
+	// panel's own display, so this rejects them the same way message.printable does.
 	//
 	// optional bool action_name = 50104;
 	E_ActionName = &file_rules_v1_rules_proto_extTypes[3]
@@ -117,14 +119,14 @@ const file_rules_v1_rules_proto_rawDesc = "" +
 	"\x14string.absolute_path\x12(must be an absolute path or start with ~\x1a5!rule || this.startsWith('/') || this.startsWith('~')R\fabsolutePath:\xe8\x01\n" +
 	"\x16absolute_path_or_blank\x12\x19.buf.validate.StringRules\x18\xb6\x87\x03 \x01(\bB\x95\x01\xc2H\x91\x01\n" +
 	"\x8e\x01\n" +
-	"\x1dstring.absolute_path_or_blank\x12(must be blank, absolute, or start with ~\x1aC!rule || this == '' || this.startsWith('/') || this.startsWith('~')R\x13absolutePathOrBlank:\xd8\x01\n" +
-	"\vaction_name\x12\x19.buf.validate.StringRules\x18\xb8\x87\x03 \x01(\bB\x99\x01\xc2H\x95\x01\n" +
-	"\x92\x01\n" +
-	"\x12string.action_name\x125must be a file name, with no slash and no leading dot\x1aE!rule || (this != '' && !this.contains('/') && !this.startsWith('.'))R\n" +
-	"actionName:\xfa\x01\n" +
-	"\x14action_name_or_blank\x12\x19.buf.validate.StringRules\x18\xb9\x87\x03 \x01(\bB\xab\x01\xc2H\xa7\x01\n" +
-	"\xa4\x01\n" +
-	"\x1bstring.action_name_or_blank\x12>must be blank or a file name, with no slash and no leading dot\x1aE!rule || this == '' || (!this.contains('/') && !this.startsWith('.'))R\x11actionNameOrBlank:\xe0\x01\n" +
+	"\x1dstring.absolute_path_or_blank\x12(must be blank, absolute, or start with ~\x1aC!rule || this == '' || this.startsWith('/') || this.startsWith('~')R\x13absolutePathOrBlank:\x90\x02\n" +
+	"\vaction_name\x12\x19.buf.validate.StringRules\x18\xb8\x87\x03 \x01(\bB\xd1\x01\xc2H\xcd\x01\n" +
+	"\xca\x01\n" +
+	"\x12string.action_name\x12Mmust be a file name, with no slash, no leading dot, and no control characters\x1ae!rule || (this != '' && !this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))R\n" +
+	"actionName:\xb2\x02\n" +
+	"\x14action_name_or_blank\x12\x19.buf.validate.StringRules\x18\xb9\x87\x03 \x01(\bB\xe3\x01\xc2H\xdf\x01\n" +
+	"\xdc\x01\n" +
+	"\x1bstring.action_name_or_blank\x12Vmust be blank or a file name, with no slash, no leading dot, and no control characters\x1ae!rule || this == '' || (!this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))R\x11actionNameOrBlank:\xe0\x01\n" +
 	"\x0fcron_expression\x12\x19.buf.validate.StringRules\x18\xb7\x87\x03 \x01(\bB\x99\x01\xc2H\x95\x01\n" +
 	"\x92\x01\n" +
 	"\x16string.cron_expression\x12?must be five whitespace-separated fields, such as '0 9 * * 1-5'\x1a7!rule || this.split(' ').filter(f, f != '').size() == 5R\x0ecronExpressionB\"Z weave/proto/gen/rules/v1;rulesv1b\beditionsp\xe8\a"
