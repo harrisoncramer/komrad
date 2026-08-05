@@ -50,7 +50,9 @@ type nudgeClaimer interface {
 }
 
 // mailboxReader is what delivery needs to know about an agent's mail without taking it.
-// Nothing here claims: what a recipient reads is the recipient's own call.
+// Nothing here claims mail: what a recipient reads is the recipient's own call. ListExpired is
+// the one exception to "reader" in the name — it marks what it reports, so a message is only
+// ever logged as expired once.
 type mailboxReader interface {
 	ListPendingMailboxes(ctx context.Context) ([]string, error)
 	CountPending(ctx context.Context, toAgentID string) (int64, error)

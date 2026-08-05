@@ -64,17 +64,33 @@ WHERE
     AND m.claimed_at IS NULL
     AND m.expires_at > NOW();
 
--- name: ListExpiredAgentMessages :many
-SELECT
-    *
-FROM
+-- name: ReportExpiredAgentMessages :many
+WITH unreported AS (
+    SELECT
+        m.id
+    FROM
+        agent_messages m
+    WHERE
+        m.to_agent_id = @to_agent_id
+        AND m.claimed_at IS NULL
+        AND m.reported_at IS NULL
+        AND m.expires_at <= NOW()
+    ORDER BY
+        m.id
+    FOR UPDATE
+        SKIP LOCKED)
+UPDATE
     agent_messages m
+SET
+    reported_at = NOW()
 WHERE
-    m.to_agent_id = @to_agent_id
-    AND m.claimed_at IS NULL
-    AND m.expires_at <= NOW()
-ORDER BY
-    m.id;
+    m.id IN (
+        SELECT
+            unreported.id
+        FROM
+            unreported)
+    RETURNING
+        *;
 
 -- name: ListMailboxesWithPendingMail :many
 SELECT DISTINCT
@@ -82,4 +98,6 @@ SELECT DISTINCT
 FROM
     agent_messages m
 WHERE
-    m.claimed_at IS NULL;
+    m.claimed_at IS NULL
+    AND (m.expires_at > NOW()
+        OR m.reported_at IS NULL);
