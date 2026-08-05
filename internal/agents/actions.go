@@ -86,10 +86,7 @@ type ActionParams struct {
 	Socket     string
 	BuiltinDir string
 	Editor     string
-	// BinPath is this binary's own path, the same one hooks are registered with. Its
-	// directory goes on every action's PATH, so a script that calls `weave` finds it
-	// whether or not the directory holding this build is on the caller's own PATH.
-	BinPath string
+	BinPath    string
 }
 
 // NewActionService builds the service from its dependencies.
@@ -566,8 +563,6 @@ func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, e
 		"WEAVE_SHELL=" + s.tmux.DefaultShell(),
 	}
 
-	// A script that shells out to `weave` should find it whether or not the directory
-	// holding this build is on the caller's own PATH, so it goes on first here.
 	if s.binPath != "" {
 		existing, _ := config.LookupEnv("PATH")
 		env = append(env, "PATH="+filepath.Dir(s.binPath)+string(os.PathListSeparator)+existing)
