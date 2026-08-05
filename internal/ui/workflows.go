@@ -141,42 +141,14 @@ func (m model) getAvailableActions() []actionChoice {
 // archiveWorkflowConfirm opens the archive prompt for the highlighted workflow,
 // asking whether its agents should go with it.
 func (m model) archiveWorkflowConfirm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
-	m.target.archiveWorkflow = &workflow
-	m.form, m.values.confirmed = archiveWorkflowForm(workflow.Name, m.keys.Form)
-	m.screen = screenWorkflowArchive
+	form, confirmed := archiveWorkflowForm(workflow.Name, m.keys.Form)
 
-	return m, m.form.Init()
-}
-
-// updateWorkflowArchive drives the archive prompt. Confirming archives the workflow with
-// its agents, and anything else leaves it untouched. All outcomes return to the agents view.
-func (m model) updateWorkflowArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
-	form, cmd := m.form.Update(msg)
-	if updated, ok := form.(*huh.Form); ok {
-		m.form = updated
-	}
-
-	switch m.form.State {
-	case huh.StateCompleted:
-		var write tea.Cmd
-		if target := m.target.archiveWorkflow; target != nil && m.wasConfirmed() {
-			write = m.writeCmd(
-				fmt.Sprintf("Could not archive workflow %q", target.Name),
-				func(a api) error { return a.archiveWorkflow(target.ID) },
-			)
-		}
-		m.target.archiveWorkflow = nil
-		m.values.confirmed = nil
-		returned, refresh := m.returnToAgents()
-
-		return returned, tea.Batch(write, refresh)
-	case huh.StateAborted:
-		m.target.archiveWorkflow = nil
-		m.values.confirmed = nil
-		return m.returnToAgents()
-	default:
-		return m, cmd
-	}
+	return m.openConfirm(form, confirmed, func(m *model) tea.Cmd {
+		return m.writeCmd(
+			fmt.Sprintf("Could not archive workflow %q", workflow.Name),
+			func(a api) error { return a.archiveWorkflow(workflow.ID) },
+		)
+	}, model.returnToAgents)
 }
 
 // updateWorkflowForm drives the create/rename form, submitting on the configured

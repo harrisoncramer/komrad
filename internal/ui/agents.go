@@ -164,52 +164,24 @@ func (m model) archiveAgentsConfirm(agents []agentstore.Agent) (tea.Model, tea.C
 		return m, nil
 	}
 
-	m.target.archiveAgents = agents
-	m.form, m.values.confirmed = archiveAgentsForm(agents, m.keys.Form)
-	m.screen = screenAgentArchive
+	form, confirmed := archiveAgentsForm(agents, m.keys.Form)
 
-	return m, m.form.Init()
-}
-
-// updateAgentArchive drives the archive prompt. Confirming archives the agents, and
-// anything else leaves them where they are. Both outcomes return to the agents view.
-func (m model) updateAgentArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
-	form, cmd := m.form.Update(msg)
-	if updated, ok := form.(*huh.Form); ok {
-		m.form = updated
-	}
-
-	switch m.form.State {
-	case huh.StateCompleted:
-		var write tea.Cmd
-		if target := m.target.archiveAgents; len(target) > 0 && m.wasConfirmed() {
-			_, write = m.archiveAgents(target)
-		}
-		m.target.archiveAgents = nil
-		m.values.confirmed = nil
-		returned, refresh := m.returnToAgents()
-
-		return returned, tea.Batch(write, refresh)
-	case huh.StateAborted:
-		m.target.archiveAgents = nil
-		m.values.confirmed = nil
-		return m.returnToAgents()
-	default:
-		return m, cmd
-	}
+	return m.openConfirm(form, confirmed, func(m *model) tea.Cmd {
+		return m.archiveAgents(agents)
+	}, model.returnToAgents)
 }
 
 // A staged pane must be released before the service kills it.
-func (m model) archiveAgents(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
+func (m *model) archiveAgents(agents []agentstore.Agent) tea.Cmd {
 	if len(agents) == 0 {
-		return m, nil
+		return nil
 	}
 
 	for _, agent := range agents {
 		m.stage.Release(agent.Pane)
 	}
 
-	return m, m.writeCmd(
+	return m.writeCmd(
 		fmt.Sprintf("Could not archive %s", describeAgents(agents)),
 		func(a api) error { return a.archiveAgents(agentIDs(agents)) },
 	)

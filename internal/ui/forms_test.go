@@ -221,15 +221,14 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			name: "the workflow archive prompt",
 			open: func(m model) model {
 				target := m.tree.workflows[0]
-				m.target.archiveWorkflow = &target
-				m.screen = screenWorkflowArchive
-				m.form, m.values.confirmed = archiveWorkflowForm(target.Name, m.keys.Form)
-				*m.values.confirmed = true
+				opened, _ := m.archiveWorkflowConfirm(target)
+				m = asModel(t, opened)
+				*m.confirm.confirmed = true
 				m.form.State = huh.StateCompleted
 
 				return m
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateWorkflowArchive(keyMsg("enter")) },
+			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateConfirm(keyMsg("enter")) },
 			check: func(t *testing.T, sent *formRecorder) {
 				require.NotNil(t, sent.archivedWorkflow)
 				assert.Equal(t, "w1", sent.archivedWorkflow.GetId())
@@ -238,15 +237,14 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the agent archive prompt",
 			open: func(m model) model {
-				m.target.archiveAgents = []agentstore.Agent{{ID: "a1", Name: "api-refactor"}}
-				m.screen = screenAgentArchive
-				m.form, m.values.confirmed = archiveAgentsForm(m.target.archiveAgents, m.keys.Form)
-				*m.values.confirmed = true
+				opened, _ := m.archiveAgentsConfirm([]agentstore.Agent{{ID: "a1", Name: "api-refactor"}})
+				m = asModel(t, opened)
+				*m.confirm.confirmed = true
 				m.form.State = huh.StateCompleted
 
 				return m
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateAgentArchive(keyMsg("enter")) },
+			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateConfirm(keyMsg("enter")) },
 			check: func(t *testing.T, sent *formRecorder) {
 				require.NotNil(t, sent.archivedAgents)
 				assert.Equal(t, []string{"a1"}, sent.archivedAgents.GetIds())
@@ -255,15 +253,15 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the schedule delete prompt",
 			open: func(m model) model {
-				m.target.archiveSchedule = &schedulestore.Schedule{ID: "s1", Name: "sweeper"}
-				m.screen = screenScheduleArchive
-				m.form, m.values.confirmed = archiveScheduleForm("sweeper", m.keys.Form)
-				*m.values.confirmed = true
+				m.schedules.items = []scheduleItem{{schedule: schedulestore.Schedule{ID: "s1", Name: "sweeper"}}}
+				opened, _ := m.archiveScheduleConfirm()
+				m = asModel(t, opened)
+				*m.confirm.confirmed = true
 				m.form.State = huh.StateCompleted
 
 				return m
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateScheduleArchive(keyMsg("enter")) },
+			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateConfirm(keyMsg("enter")) },
 			check: func(t *testing.T, sent *formRecorder) {
 				require.NotNil(t, sent.archivedSchedule)
 				assert.Equal(t, "s1", sent.archivedSchedule.GetId())
@@ -273,15 +271,14 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			name: "the archive delete prompt",
 			open: func(m model) model {
 				m.archive.agents = []agentstore.Agent{{ID: "a1", Name: "api-refactor"}}
-				m.target.deleteAgents = m.archive.agents
-				m.screen = screenArchiveDelete
-				m.form, m.values.confirmed = deleteAgentsForm(m.archive.agents, m.keys.Form)
-				*m.values.confirmed = true
+				opened, _ := m.deleteFromArchiveConfirm(m.archive.agents)
+				m = asModel(t, opened)
+				*m.confirm.confirmed = true
 				m.form.State = huh.StateCompleted
 
 				return m
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateArchiveDelete(keyMsg("enter")) },
+			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateConfirm(keyMsg("enter")) },
 			check: func(t *testing.T, sent *formRecorder) {
 				require.NotNil(t, sent.deletedAgents)
 				assert.Equal(t, []string{"a1"}, sent.deletedAgents.GetIds())

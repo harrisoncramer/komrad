@@ -190,18 +190,12 @@ func (m model) routeFormMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateForm(msg)
 	case screenRename:
 		return m.updateRename(msg)
-	case screenAgentArchive:
-		return m.updateAgentArchive(msg)
 	case screenWorkflowForm:
 		return m.updateWorkflowForm(msg)
-	case screenWorkflowArchive:
-		return m.updateWorkflowArchive(msg)
 	case screenScheduleForm:
 		return m.updateScheduleForm(msg)
-	case screenScheduleArchive:
-		return m.updateScheduleArchive(msg)
-	case screenArchiveDelete:
-		return m.updateArchiveDelete(msg)
+	case screenConfirm:
+		return m.updateConfirm(msg)
 	default:
 		return m, nil
 	}

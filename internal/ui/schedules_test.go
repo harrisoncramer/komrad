@@ -59,7 +59,7 @@ func TestScheduleKeys(t *testing.T) {
 		{
 			name:       "archive opens the confirm prompt",
 			key:        "z",
-			wantScreen: screenScheduleArchive,
+			wantScreen: screenConfirm,
 		},
 		{
 			name:       "toggle writes straight through, with no form in between",

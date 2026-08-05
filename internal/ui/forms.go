@@ -21,11 +21,10 @@ import (
 // from partway down would read every field below as blank. Binding the fields here instead
 // means a submit reads what is on screen however it was reached.
 type formValues struct {
-	agent     *agentFormValues
-	rename    *string
-	workflow  *workflowstore.Config
-	schedule  *schedulestore.Config
-	confirmed *bool
+	agent    *agentFormValues
+	rename   *string
+	workflow *workflowstore.Config
+	schedule *schedulestore.Config
 }
 
 // formTarget is the record the open form is working on, nil while none is, which for the
@@ -36,11 +35,49 @@ type formTarget struct {
 	newAgentWorkflow *workflowstore.Workflow
 	renameWorkflow   *workflowstore.Workflow
 	editWorkflow     *workflowstore.Workflow
-	archiveWorkflow  *workflowstore.Workflow
 	editSchedule     *schedulestore.Schedule
-	archiveSchedule  *schedulestore.Schedule
-	deleteAgents     []agentstore.Agent
-	archiveAgents    []agentstore.Agent
+}
+
+// confirmPending is what the open confirm prompt writes and where it leaves to.
+type confirmPending struct {
+	confirmed *bool
+	write     func(*model) tea.Cmd
+	leave     func(model) (tea.Model, tea.Cmd)
+}
+
+func (m model) openConfirm(form *huh.Form, confirmed *bool, write func(*model) tea.Cmd, leave func(model) (tea.Model, tea.Cmd)) (tea.Model, tea.Cmd) {
+	m.form = form
+	m.confirm = &confirmPending{confirmed: confirmed, write: write, leave: leave}
+	m.screen = screenConfirm
+
+	return m, m.form.Init()
+}
+
+func (m model) updateConfirm(msg tea.Msg) (tea.Model, tea.Cmd) {
+	form, cmd := m.form.Update(msg)
+	if updated, ok := form.(*huh.Form); ok {
+		m.form = updated
+	}
+
+	pending := m.confirm
+
+	switch m.form.State {
+	case huh.StateCompleted:
+		var write tea.Cmd
+		if pending.confirmed != nil && *pending.confirmed {
+			write = pending.write(&m)
+		}
+		m.confirm = nil
+		next, refresh := pending.leave(m)
+
+		return next, tea.Batch(write, refresh)
+	case huh.StateAborted:
+		m.confirm = nil
+
+		return pending.leave(m)
+	default:
+		return m, cmd
+	}
 }
 
 type agentFormValues struct {
@@ -130,12 +167,6 @@ func multiFieldKeyMap(keys config.FormKeys) *huh.KeyMap {
 	return km
 }
 
-// wasConfirmed reports whether the open prompt was answered yes. A prompt that is not open
-// reads as no, so a destructive half only ever runs off an answer somebody gave.
-func (m model) wasConfirmed() bool {
-	return m.values.confirmed != nil && *m.values.confirmed
-}
-
 // confirmForm asks a yes-or-no question and returns the answer its buttons write into.
 // Every prompt in the panel goes through this, so only the wording differs. affirmative
 // names what saying yes does, since one prompt archives and the others destroy. It starts
@@ -208,8 +239,7 @@ func (m model) closeForm() (tea.Model, tea.Cmd) {
 // the form or the panel's chrome, and whether a form or a list is drawn.
 func (s screen) isForm() bool {
 	switch s {
-	case screenForm, screenRename, screenAgentArchive, screenWorkflowForm, screenWorkflowArchive,
-		screenScheduleForm, screenScheduleArchive, screenArchiveDelete:
+	case screenForm, screenRename, screenWorkflowForm, screenScheduleForm, screenConfirm:
 		return true
 	default:
 		return false

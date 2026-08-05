@@ -34,16 +34,13 @@ const (
 	screenAgents screen = iota
 	screenForm
 	screenRename
-	screenAgentArchive
 	screenWorkflowForm
-	screenWorkflowArchive
 	screenSearch
 	screenSchedules
 	screenScheduleForm
-	screenScheduleArchive
 	screenArchive
-	screenArchiveDelete
 	screenActions
+	screenConfirm
 )
 
 // uiTmux is what the panel needs from tmux: enough to lay out its own panes, the directory
@@ -155,6 +152,8 @@ type model struct {
 	form   *huh.Form
 	values formValues
 	target formTarget
+	// confirm is what the open confirm prompt does once answered, nil while none is up.
+	confirm *confirmPending
 	// pendingForm is whether the open form is waiting on the write it submitted. It stays
 	// up until that write lands, so a refusal is answered on the fields as filled in.
 	pendingForm bool

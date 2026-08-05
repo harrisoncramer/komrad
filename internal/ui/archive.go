@@ -10,7 +10,6 @@ import (
 	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
 )
 
 // archiveState is the archive screen, the same tree of folders and agents the agents
@@ -287,44 +286,14 @@ func (m model) deleteFromArchiveConfirm(agents []agentstore.Agent) (tea.Model, t
 		return m, nil
 	}
 
-	m.target.deleteAgents = agents
-	m.form, m.values.confirmed = deleteAgentsForm(agents, m.keys.Form)
-	m.screen = screenArchiveDelete
+	form, confirmed := deleteAgentsForm(agents, m.keys.Form)
 
-	return m, m.form.Init()
-}
-
-// updateArchiveDelete drives the delete prompt. Confirming destroys the agent,
-// declining and aborting leave it in the archive, and all three return to the
-// archive rather than to the agents list, since that is where the key was pressed.
-// Re-entering re-reads the list, so a destroyed agent is gone from it.
-func (m model) updateArchiveDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
-	form, cmd := m.form.Update(msg)
-	if updated, ok := form.(*huh.Form); ok {
-		m.form = updated
-	}
-
-	switch m.form.State {
-	case huh.StateCompleted:
-		var write tea.Cmd
-		if target := m.target.deleteAgents; len(target) > 0 && m.wasConfirmed() {
-			write = m.writeCmd(
-				fmt.Sprintf("Could not delete %s", describeAgents(target)),
-				func(a api) error { return a.deleteAgents(agentIDs(target)) },
-			)
-		}
-		m.target.deleteAgents = nil
-		m.values.confirmed = nil
-		entered, refresh := m.enterArchive()
-
-		return entered, tea.Batch(write, refresh)
-	case huh.StateAborted:
-		m.target.deleteAgents = nil
-		m.values.confirmed = nil
-		return m.enterArchive()
-	default:
-		return m, cmd
-	}
+	return m.openConfirm(form, confirmed, func(m *model) tea.Cmd {
+		return m.writeCmd(
+			fmt.Sprintf("Could not delete %s", describeAgents(agents)),
+			func(a api) error { return a.deleteAgents(agentIDs(agents)) },
+		)
+	}, model.enterArchive)
 }
 
 // stageArchive shows the hovered row's stored record in the stage. Nothing in the archive

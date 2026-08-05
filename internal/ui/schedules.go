@@ -196,11 +196,14 @@ func (m model) archiveScheduleConfirm() (tea.Model, tea.Cmd) {
 	}
 
 	target := item.schedule
-	m.target.archiveSchedule = &target
-	m.form, m.values.confirmed = archiveScheduleForm(target.Name, m.keys.Form)
-	m.screen = screenScheduleArchive
+	form, confirmed := archiveScheduleForm(target.Name, m.keys.Form)
 
-	return m, m.form.Init()
+	return m.openConfirm(form, confirmed, func(m *model) tea.Cmd {
+		return m.writeCmd(
+			fmt.Sprintf("Could not archive schedule %q", target.Name),
+			func(a api) error { return a.archiveSchedule(target.ID) },
+		)
+	}, model.enterSchedules)
 }
 
 // updateScheduleForm drives the create and edit form, submitting on the configured key or
@@ -247,38 +250,6 @@ func (m model) submitScheduleForm() (tea.Model, tea.Cmd) {
 	}
 
 	return m, tea.Batch(write, m.holdForm())
-}
-
-// updateScheduleArchive drives the archive prompt. Confirming puts the schedule
-// away, and both outcomes return to the list.
-func (m model) updateScheduleArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
-	form, cmd := m.form.Update(msg)
-	if updated, ok := form.(*huh.Form); ok {
-		m.form = updated
-	}
-
-	switch m.form.State {
-	case huh.StateCompleted:
-		var write tea.Cmd
-		if target := m.target.archiveSchedule; target != nil && m.wasConfirmed() {
-			write = m.writeCmd(
-				fmt.Sprintf("Could not archive schedule %q", target.Name),
-				func(a api) error { return a.archiveSchedule(target.ID) },
-			)
-		}
-		m.target.archiveSchedule = nil
-		m.values.confirmed = nil
-		entered, refresh := m.enterSchedules()
-
-		return entered, tea.Batch(write, refresh)
-	case huh.StateAborted:
-		m.target.archiveSchedule = nil
-		m.values.confirmed = nil
-
-		return m.enterSchedules()
-	default:
-		return m, cmd
-	}
 }
 
 // schedulesView renders the list, each row a schedule with its cron expression and when it
