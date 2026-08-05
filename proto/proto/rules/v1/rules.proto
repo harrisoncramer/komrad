@@ -41,19 +41,21 @@ extend buf.validate.StringRules {
     expression: "!rule || this == '' || this.startsWith('/') || this.startsWith('~')"
   }];
 
-  // The shape of an action's file name.
+  // The shape of an action's file name. A file name never has a legitimate reason
+  // to carry a control character, and an action name flows into logs and the
+  // panel's own display, so this rejects them the same way message.printable does.
   bool action_name = 50104 [(buf.validate.predefined).cel = {
     id: "string.action_name"
-    message: "must be a file name, with no slash and no leading dot"
-    expression: "!rule || (this != '' && !this.contains('/') && !this.startsWith('.'))"
+    message: "must be a file name, with no slash, no leading dot, and no control characters"
+    expression: "!rule || (this != '' && !this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))"
   }];
 
   // The same rule where blank is a meaningful answer, standing for no action chosen
   // rather than for a file with no name.
   bool action_name_or_blank = 50105 [(buf.validate.predefined).cel = {
     id: "string.action_name_or_blank"
-    message: "must be blank or a file name, with no slash and no leading dot"
-    expression: "!rule || this == '' || (!this.contains('/') && !this.startsWith('.'))"
+    message: "must be blank or a file name, with no slash, no leading dot, and no control characters"
+    expression: "!rule || this == '' || (!this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))"
   }];
 
   // The shape of a cron expression, five whitespace-separated fields. Whether the

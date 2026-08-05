@@ -287,6 +287,22 @@ func TestRequestValidation(t *testing.T) {
 			},
 		},
 		{
+			// The action is written into the log as a structured attribute, the same
+			// concern that already guards the message field.
+			name: "a log action carrying a control character is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				action := "run\x1b[31mred"
+				_, err := c.Log(t.Context(), connect.NewRequest(&agentv1.LogRequest{
+					Id:      xptr.Ptr(uuid.NewString()),
+					Message: "starting",
+					Action:  &action,
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
 			name: "a transcript read with no agent id is refused",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.GetTranscript(t.Context(), connect.NewRequest(&agentv1.GetTranscriptRequest{AgentId: ""}))
