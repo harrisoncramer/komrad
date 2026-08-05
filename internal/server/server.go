@@ -98,10 +98,11 @@ type Params struct {
 	FallbackResumeRoot string
 }
 
-// messagesConfig reads the delivery deadline out of the user's config per send, so editing
-// the file reaches the next message rather than the next restart. A config that will not
-// load falls back to the built-in default, since refusing to send mail over an unreadable
-// file would be a worse answer than sending it with the deadline everyone else gets.
+// messagesConfig reads the delivery deadline and the thread hop limit out of the user's
+// config per send, so editing the file reaches the next message rather than the next
+// restart. A config that will not load falls back to the built-in default, since refusing
+// to send mail over an unreadable file would be a worse answer than sending it with the
+// settings everyone else gets.
 type messagesConfig func() (*config.Config, error)
 
 func (load messagesConfig) GetDeliveryDeadline() (time.Duration, error) {
@@ -111,6 +112,15 @@ func (load messagesConfig) GetDeliveryDeadline() (time.Duration, error) {
 	}
 
 	return cfg.Messages.GetDeliveryDeadline()
+}
+
+func (load messagesConfig) GetMaxHops() (int, error) {
+	cfg, err := load()
+	if err != nil {
+		return config.Messages{}.GetMaxHops()
+	}
+
+	return cfg.Messages.GetMaxHops()
 }
 
 // Loop is one pass the service re-runs on an interval. How it is run, logged, and stopped
@@ -261,6 +271,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		MessageReadWriter: messageStore,
 		AgentFinder:       agentStore,
 		DeadlineReader:    messagesConfig(loadConfig),
+		HopLimitReader:    messagesConfig(loadConfig),
 	})
 
 	// Requests are checked against the constraints declared in the proto before any

@@ -27,6 +27,11 @@ table "agent_messages" {
     null = true
     type = uuid
   }
+  column "hops" {
+    null    = false
+    type    = int
+    default = 1
+  }
   column "claimed_at" {
     null = true
     type = timestamptz

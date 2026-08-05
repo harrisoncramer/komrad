@@ -9,6 +9,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -144,6 +145,51 @@ func TestReplyToThreadsAMessage(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, answered.ReplyTo)
 	assert.Equal(t, asked.ID, *answered.ReplyTo)
+}
+
+func TestGetByID(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+
+	tests := []struct {
+		name   string
+		lookup func(sent Message) string
+		wantOK bool
+	}{
+		{
+			name:   "an id that is not well-formed",
+			lookup: func(Message) string { return "not-an-id" },
+		},
+		{
+			name:   "a well-formed id nothing holds",
+			lookup: func(Message) string { return uuid.NewString() },
+		},
+		{
+			name:   "a message that was sent",
+			lookup: func(sent Message) string { return sent.ID },
+			wantOK: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sent, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "which column?", Hops: 3, ExpiresAt: time.Now().Add(time.Hour)})
+			require.NoError(t, err)
+
+			got, err := st.GetByID(ctx, tt.lookup(*sent))
+			require.NoError(t, err)
+			if !tt.wantOK {
+				assert.Nil(t, got)
+
+				return
+			}
+
+			require.NotNil(t, got)
+			assert.Equal(t, sent.ID, got.ID)
+			assert.Equal(t, int32(3), got.Hops)
+		})
+	}
 }
 
 func TestExpiredMailIsNeitherDeliveredNorRead(t *testing.T) {
