@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -68,6 +69,7 @@ type ActionService struct {
 	socket     string
 	builtinDir string
 	editor     string
+	binPath    string
 
 	scanMu    sync.Mutex
 	scanCache map[string]dirScan
@@ -84,6 +86,7 @@ type ActionParams struct {
 	Socket     string
 	BuiltinDir string
 	Editor     string
+	BinPath    string
 }
 
 // NewActionService builds the service from its dependencies.
@@ -98,6 +101,7 @@ func NewActionService(p ActionParams) *ActionService {
 		socket:     p.Socket,
 		builtinDir: p.BuiltinDir,
 		editor:     p.Editor,
+		binPath:    p.BinPath,
 	}
 }
 
@@ -543,7 +547,7 @@ func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, e
 		return nil, fmt.Errorf("failed to encode agent %q: %w", agent.ID, err)
 	}
 
-	return []string{
+	env := []string{
 		"WEAVE_AGENT=" + string(encoded),
 		"WEAVE_AGENT_ID=" + agent.ID,
 		"WEAVE_AGENT_CWD=" + agent.Cwd,
@@ -557,7 +561,14 @@ func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, e
 		"WEAVE_HOST_CLIENT=" + s.tmux.ShowGlobal(tmux.InvokingClientOption),
 		"EDITOR=" + s.editor,
 		"WEAVE_SHELL=" + s.tmux.DefaultShell(),
-	}, nil
+	}
+
+	if s.binPath != "" {
+		existing, _ := config.LookupEnv("PATH")
+		env = append(env, "PATH="+filepath.Dir(s.binPath)+string(os.PathListSeparator)+existing)
+	}
+
+	return env, nil
 }
 
 func (s *ActionService) workflowName(ctx context.Context, id string) string {
