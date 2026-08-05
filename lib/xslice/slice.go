@@ -22,3 +22,15 @@ func Filter[T any](in []T, keep func(T) bool) []T {
 
 	return out
 }
+
+// Count is how many elements of in satisfy keep, without allocating the slice Filter would.
+func Count[T any](in []T, keep func(T) bool) int {
+	n := 0
+	for _, v := range in {
+		if keep(v) {
+			n++
+		}
+	}
+
+	return n
+}

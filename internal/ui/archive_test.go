@@ -559,8 +559,8 @@ func archiveModel(agents agentv1connect.AgentServiceClient, workflows workflowv1
 		screen: screenArchive,
 		tree:   treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}},
 		archive: archiveState{
-			agents: []agentstore.Agent{{ID: "a1", Name: "api-refactor", WorkflowID: "w1"}},
-			cursor: 1,
+			agents:    []agentstore.Agent{{ID: "a1", Name: "api-refactor", WorkflowID: "w1"}},
+			rowCursor: rowCursor{cursor: 1},
 		},
 	}
 }

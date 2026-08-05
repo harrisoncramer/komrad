@@ -15,20 +15,12 @@ import (
 
 // archiveState is the archive screen, the same tree of folders and agents the agents
 // screen draws over what has been put away. Both listings are their own rather than a
-// filter over the tree's, which holds the live rows only.
+// filter over the tree's, which holds the live rows only. Its focus is a raw agent id
+// rather than a row key, since the archive draws no header worth landing a jump on.
 type archiveState struct {
 	agents    []agentstore.Agent
 	workflows []workflowstore.Workflow
-	cursor    int
-
-	// selected are the agents taken into the selection on this tree. It is the archive's
-	// own, so choosing rows here leaves whatever is chosen on the agents screen alone.
-	selected selection
-
-	// focus is an agent the next listing should put the cursor on, consumed as it lands. A
-	// jump from the search screen names a row the archive has not listed yet, since it is
-	// listed only while its screen is up.
-	focus string
+	rowCursor
 }
 
 // enterArchive switches to the archive, what has been put away. It is its own screen
@@ -203,12 +195,12 @@ func (m model) updateArchiveSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 // moveArchiveCursor steps the archive cursor and restages what it lands on, doing nothing at
 // either end of the list.
 func (m model) moveArchiveCursor(delta int) model {
-	next := m.archive.cursor + delta
-	if next < 0 || next >= len(m.archiveRows()) {
+	next, ok := m.archive.move(delta, len(m.archiveRows()))
+	if !ok {
 		return m
 	}
 
-	m.archive.cursor = next
+	m.archive.rowCursor = next
 	m.stageArchive()
 
 	return m
@@ -217,12 +209,12 @@ func (m model) moveArchiveCursor(delta int) model {
 // jumpArchiveCursor puts the archive cursor on a row by index, clamped to the list, which is
 // how each end of it is reached.
 func (m model) jumpArchiveCursor(idx int) model {
-	rows := m.archiveRows()
-	if len(rows) == 0 {
+	next, ok := m.archive.jump(idx, len(m.archiveRows()))
+	if !ok {
 		return m
 	}
 
-	m.archive.cursor = clampCursor(idx, len(rows))
+	m.archive.rowCursor = next
 	m.stageArchive()
 
 	return m
@@ -231,12 +223,12 @@ func (m model) jumpArchiveCursor(idx int) model {
 // selectedArchived returns the archived agent under the cursor, or false when the cursor
 // is on a workflow header or the archive is empty.
 func (m model) selectedArchived() (agentstore.Agent, bool) {
-	rows := m.archiveRows()
-	if m.archive.cursor < 0 || m.archive.cursor >= len(rows) || rows[m.archive.cursor].header {
+	row, ok := rowAt(m.archiveRows(), m.archive.cursor)
+	if !ok || row.header {
 		return agentstore.Agent{}, false
 	}
 
-	return rows[m.archive.cursor].item.agent, true
+	return row.item.agent, true
 }
 
 // hoveredArchivedWorkflow returns the archived workflow whose header the cursor is on. A
@@ -338,49 +330,35 @@ func (m model) updateArchiveDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 // stageArchive shows the hovered row's stored record in the stage. Nothing in the archive
 // is running, so there is never a pane to swap in.
 func (m *model) stageArchive() {
-	rows := m.archiveRows()
-	if m.archive.cursor < 0 || m.archive.cursor >= len(rows) {
-		m.stage.Text(emptyArchiveMarkdown)
-		m.clearRecord()
+	r, ok := rowAt(m.archiveRows(), m.archive.cursor)
+	if !ok {
+		m.stagePlaceholder(emptyArchiveMarkdown)
 
 		return
 	}
 
-	r := rows[m.archive.cursor]
 	if r.header {
-		rec := workflowMarkdown(r.workflow, m.archivedCount(r.workflow.ID))
-		m.stage.Text(rec.markdown)
-		m.setRecord(rec, surfaceMain)
+		m.stageRecord(workflowMarkdown(r.workflow, m.archivedCount(r.workflow.ID)), surfaceMain)
 
 		return
 	}
 
-	rec := archiveMarkdown(r.item.agent, m.scheduleName(r.item.agent))
-	m.stage.Text(rec.markdown)
-	m.setRecord(rec, surfaceMain)
+	m.stageRecord(archiveMarkdown(r.item.agent, m.scheduleName(r.item.agent)), surfaceMain)
 }
 
 // archivedCount is how many archived agents sit under a workflow, which is what a folder
 // reports here rather than the live count the agents screen shows for the same folder.
 func (m model) archivedCount(workflowID string) int {
-	n := 0
-	for _, agent := range m.archive.agents {
-		if agent.WorkflowID == workflowID {
-			n++
-		}
-	}
-
-	return n
+	return xslice.Count(m.archive.agents, func(agent agentstore.Agent) bool { return agent.WorkflowID == workflowID })
 }
 
 // archiveView renders the archive's own pane, the tree of what has been put away.
 func (m model) archiveView() string {
-	header := headerStyle.Render("Archive") + "\n\n" + m.filterView()
 	help := "\n" + m.renderHelp(m.archiveHelp())
 
 	all := m.archiveRows()
 	if len(all) == 0 {
-		return header + dimStyle.Render("nothing archived") + "\n" + help
+		return m.listView("Archive", []string{dimStyle.Render("nothing archived")}, 0, help)
 	}
 
 	rows := make([]string, 0, len(all))
@@ -404,5 +382,5 @@ func (m model) archiveView() string {
 		rows = append(rows, prefix+"  "+name+scheduledMark(agent)+markGlyph(agent, m.marks))
 	}
 
-	return header + renderList(rows, m.archive.cursor, m.listLines(header, help)) + help
+	return m.listView("Archive", rows, m.archive.cursor, help)
 }

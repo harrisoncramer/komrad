@@ -325,7 +325,6 @@ func TestRefreshRestagesWorkflowContext(t *testing.T) {
 		screen: screenAgents,
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Context: "old notes"}},
-			cursor:    0,
 		},
 	}
 	m.stageSelection()

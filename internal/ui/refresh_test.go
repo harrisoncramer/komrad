@@ -165,8 +165,8 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 			agents: []agentItem{{agent: agentstore.Agent{
 				ID: "old", Name: "api-refactor", WorkflowID: "w1",
 			}}},
-			cursor: 1,
-			placed: true,
+			rowCursor: rowCursor{cursor: 1},
+			placed:    true,
 		},
 	}
 
@@ -211,7 +211,6 @@ func TestCreatedWorkflowReceivesFocus(t *testing.T) {
 		screen: screenAgents,
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}},
-			cursor:    0,
 			placed:    true,
 		},
 	}
@@ -256,8 +255,8 @@ func TestCursorHoldsItsFolderAcrossARefresh(t *testing.T) {
 				{agent: agentstore.Agent{ID: "a1", Name: "api-refactor", WorkflowID: "w1"}},
 				{agent: agentstore.Agent{ID: "a2", Name: "infra-audit", WorkflowID: "w2"}},
 			},
-			cursor: 2,
-			placed: true,
+			rowCursor: rowCursor{cursor: 2},
+			placed:    true,
 		},
 	}
 
@@ -285,8 +284,8 @@ func TestCursorHoldsItsAgentWhenAFolderArrives(t *testing.T) {
 				{agent: agentstore.Agent{ID: "b1", Name: "infra-audit", WorkflowID: "w2"}},
 				{agent: agentstore.Agent{ID: "b2", Name: "infra-upgrade", WorkflowID: "w2"}},
 			},
-			cursor: 2,
-			placed: true,
+			rowCursor: rowCursor{cursor: 2},
+			placed:    true,
 		},
 	}
 
@@ -320,7 +319,7 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 				{ID: "x2", Name: "infra-audit", WorkflowID: "w2"},
 				{ID: "x3", Name: "infra-upgrade", WorkflowID: "w2"},
 			},
-			cursor: 3,
+			rowCursor: rowCursor{cursor: 3},
 		},
 	}
 
