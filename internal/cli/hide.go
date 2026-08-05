@@ -23,6 +23,7 @@ func hideCmd(state *app) *cobra.Command {
 		SilenceErrors: true,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			state.popup.Hide()
+			state.popup.MarkClosed()
 
 			return nil
 		},

@@ -29,7 +29,8 @@ func NewPopupWindow(tmux popupTmux, session string) *PopupWindow {
 
 // managerOpenFlag marks that the popup is currently shown, so the binding hides
 // it rather than opening a second one. The open command sets it while the popup
-// is up and clears it on close. The tmux plugin reads it.
+// is up. Both open's own exit and hide clear it, so a stuck flag from a killed
+// or crashed open self-heals on the next hide attempt. The tmux plugin reads it.
 const managerOpenFlag = "@weave_open"
 
 // managerClientFlag holds the tmux client that opened the current popup. The open
