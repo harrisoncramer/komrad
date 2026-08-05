@@ -180,6 +180,14 @@ func New(ctx context.Context, p Params) (*Server, error) {
 
 	loadConfig := func() (*config.Config, error) { return config.Load(p.ConfigPaths) }
 
+	// Built ahead of the workflow and agent services, which both hand it off as the way to
+	// tell a spawning agent its delegate is gone.
+	messageService := agents.NewMessageService(agents.NewMessageServiceParams{
+		MessageReadWriter: messageStore,
+		AgentFinder:       agentStore,
+		DeadlineReader:    messagesConfig(loadConfig),
+		HopLimitReader:    messagesConfig(loadConfig),
+	})
 	workflowService := agents.NewWorkflowService(agents.WorkflowParams{
 		Workflows: workflowStore,
 		Agents:    agentStore,
@@ -187,6 +195,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Tmux:      p.Tmux,
 		Tx:        pool,
 		MaxAgents: p.MaxAgents,
+		Notifier:  messageService,
 	})
 	scheduleService := agents.NewScheduleService(agents.ScheduleParams{
 		Schedules: scheduleStore,
@@ -235,6 +244,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		UserDefaultFlags:   p.DefaultFlags,
 		MaxAgents:          p.MaxAgents,
 		FallbackResumeRoot: p.FallbackResumeRoot,
+		Notifier:           messageService,
 	})
 
 	// Delivery types at an agent that has stopped and would otherwise never look at its
@@ -267,13 +277,6 @@ func New(ctx context.Context, p Params) (*Server, error) {
 
 		return nil, err
 	}
-
-	messageService := agents.NewMessageService(agents.NewMessageServiceParams{
-		MessageReadWriter: messageStore,
-		AgentFinder:       agentStore,
-		DeadlineReader:    messagesConfig(loadConfig),
-		HopLimitReader:    messagesConfig(loadConfig),
-	})
 
 	// Requests are checked against the constraints declared in the proto before any
 	// handler sees them, so a malformed payload is rejected in one place.

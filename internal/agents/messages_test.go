@@ -150,6 +150,41 @@ func TestSendMessageRefusesPastTheHopLimit(t *testing.T) {
 	assert.Equal(t, int32(1), unrelated.Hops)
 }
 
+// TestSendMessageSystemNoticeIsAlwaysAFreshThread proves, rather than assumes, that a
+// lifecycle notice cannot be refused by the hop cap: it carries no reply_to, so it always
+// takes hops 1, which clears even the tightest limit a panel could configure.
+func TestSendMessageSystemNoticeIsAlwaysAFreshThread(t *testing.T) {
+	mailbox := &fakeMailbox{}
+	svc := NewMessageService(NewMessageServiceParams{
+		MessageReadWriter: mailbox,
+		AgentFinder:       newFakeDirectory(),
+		DeadlineReader:    fakeDeadline{},
+		HopLimitReader:    fakeHopLimit(1),
+	})
+
+	sent, err := svc.SendSystemMessage(t.Context(), "agent-a", "your delegate was archived")
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, sent.Hops)
+}
+
+// TestSendSystemMessageStampsWeaveAsTheSender proves the join the framing in hook.go relies
+// on: a lifecycle notice lands with weave's name and no agent id, which is what tells the
+// stop hook this was not the panel operator talking.
+func TestSendSystemMessageStampsWeaveAsTheSender(t *testing.T) {
+	mailbox := &fakeMailbox{}
+	svc := NewMessageService(NewMessageServiceParams{
+		MessageReadWriter: mailbox,
+		AgentFinder:       newFakeDirectory(),
+		DeadlineReader:    fakeDeadline{},
+		HopLimitReader:    fakeHopLimit(config.DefaultMaxHops),
+	})
+
+	sent, err := svc.SendSystemMessage(t.Context(), "agent-a", "your delegate was archived")
+	require.NoError(t, err)
+	assert.Equal(t, WeaveSenderName, sent.FromName)
+	assert.Nil(t, sent.FromAgentID)
+}
+
 func TestClaimMessages(t *testing.T) {
 	tests := []struct {
 		name    string

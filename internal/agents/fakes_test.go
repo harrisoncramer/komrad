@@ -359,6 +359,7 @@ type agentServiceOptions struct {
 	flags     string
 	lifecycle lifecycleActioner
 	maxAgents int
+	notifier  parentNotifier
 }
 
 func (s *testStore) agentService(options agentServiceOptions) *AgentService {
@@ -373,6 +374,7 @@ func (s *testStore) agentService(options agentServiceOptions) *AgentService {
 		UserDefaultHarness: testHarnessID,
 		UserDefaultFlags:   map[string]string{testHarnessID: options.flags},
 		MaxAgents:          options.maxAgents,
+		Notifier:           options.notifier,
 	})
 }
 
@@ -443,6 +445,12 @@ func (s *testStore) workflowService(tmux *fakeTmux) *WorkflowService {
 // workflowServiceCapped is the same with an agent ceiling, for the restore that has to
 // fit a whole workflow's archived agents under it.
 func (s *testStore) workflowServiceCapped(tmux *fakeTmux, maxAgents int) *WorkflowService {
+	return s.workflowServiceWithNotifier(tmux, maxAgents, nil)
+}
+
+// workflowServiceWithNotifier is the same, for a test that cares whether archiving a
+// workflow told anything outside it that a delegate was gone.
+func (s *testStore) workflowServiceWithNotifier(tmux *fakeTmux, maxAgents int, notifier parentNotifier) *WorkflowService {
 	return NewWorkflowService(WorkflowParams{
 		Workflows: s.Workflows,
 		Agents:    s.Agents,
@@ -450,6 +458,7 @@ func (s *testStore) workflowServiceCapped(tmux *fakeTmux, maxAgents int) *Workfl
 		Tmux:      tmux,
 		Tx:        s.Pool,
 		MaxAgents: maxAgents,
+		Notifier:  notifier,
 	})
 }
 
@@ -502,6 +511,28 @@ func seedRunning(t *testing.T, st *testStore, tmux paneStamper, name, pane, stat
 	require.NoError(t, tmux.SetPaneOwner(pane, agent.ID))
 
 	return agent
+}
+
+// seedSpawned inserts a delegate named "child" on pane "%child", recording parentID as its
+// spawner, the way a real delegate launch does.
+func seedSpawned(t *testing.T, st *testStore, parentID string) agentstore.Agent {
+	t.Helper()
+	ctx := t.Context()
+	workflowID := seedWorkflow(t, st)
+
+	require.NoError(t, st.Create(ctx, agentstore.Agent{
+		Name:             "child",
+		Pane:             "%child",
+		State:            agentstore.StateThinking,
+		WorkflowID:       workflowID,
+		SpawnedByAgentID: &parentID,
+	}))
+
+	got, err := st.Agents.GetInWorkflow(ctx, workflowID, "child")
+	require.NoError(t, err)
+	require.NotNil(t, got)
+
+	return *got
 }
 
 func stateOf(t *testing.T, st *testStore, name string) string {

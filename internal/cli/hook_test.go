@@ -68,6 +68,16 @@ func TestStopHookDeliversMail(t *testing.T) {
 			wantSent: true,
 			wantText: []string{"From the panel, message message-1"},
 		},
+		{
+			name:    "a lifecycle notice from weave is not framed as the user talking",
+			agentID: "agent-a",
+			payload: `{"stop_hook_active":false}`,
+			messages: []deliveredMessage{
+				{ID: "message-1", FromName: "weave", Body: `Your delegate "child" (agent-c) was archived.`},
+			},
+			wantSent: true,
+			wantText: []string{"From weave, message message-1", "Weave sent this itself"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -107,6 +117,53 @@ func TestStopHookDeliversMail(t *testing.T) {
 			for _, want := range tt.wantText {
 				assert.Contains(t, printed.HookSpecificOutput.AdditionalContext, want)
 			}
+		})
+	}
+}
+
+func TestMailPostamble(t *testing.T) {
+	tests := []struct {
+		name     string
+		messages []deliveredMessage
+		want     string
+	}{
+		{
+			name:     "weave's own notice, alone",
+			messages: []deliveredMessage{{FromName: "weave", Body: "your delegate was deleted"}},
+			want:     mailFromWeave,
+		},
+		{
+			name:     "the panel operator, alone",
+			messages: []deliveredMessage{{Body: "stand down"}},
+			want:     mailFromPerson,
+		},
+		{
+			name:     "another agent, alone",
+			messages: []deliveredMessage{{FromAgent: "agent-b", FromName: "migrations", Body: "hi"}},
+			want:     mailFromAgent,
+		},
+		{
+			name: "a person's message outranks a weave notice in the same batch",
+			messages: []deliveredMessage{
+				{FromName: "weave", Body: "your delegate was archived"},
+				{Body: "stand down"},
+			},
+			want: mailFromPerson,
+		},
+		{
+			name: "an agent's message outranks everything else in the same batch",
+			messages: []deliveredMessage{
+				{FromName: "weave", Body: "your delegate was archived"},
+				{Body: "stand down"},
+				{FromAgent: "agent-b", FromName: "migrations", Body: "hi"},
+			},
+			want: mailFromAgent,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, mailPostamble(tt.messages))
 		})
 	}
 }

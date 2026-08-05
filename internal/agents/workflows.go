@@ -56,6 +56,7 @@ type WorkflowService struct {
 	// maxAgents is the ceiling a restore has to fit the workflow's archived agents
 	// under, zero for no ceiling.
 	maxAgents int
+	notifier  parentNotifier
 }
 
 // WorkflowParams carries the workflow service's dependencies.
@@ -66,6 +67,7 @@ type WorkflowParams struct {
 	Tmux      paneKiller
 	Tx        txRunner
 	MaxAgents int
+	Notifier  parentNotifier
 }
 
 // NewWorkflowService builds the service from its dependencies.
@@ -77,6 +79,7 @@ func NewWorkflowService(p WorkflowParams) *WorkflowService {
 		tmux:      p.Tmux,
 		tx:        p.Tx,
 		maxAgents: p.MaxAgents,
+		notifier:  p.Notifier,
 	}
 }
 
@@ -191,6 +194,10 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 	if err != nil {
 		return fmt.Errorf("failed to archive workflow %q: %w", id, err)
 	}
+
+	// A delegate spawned into this workflow can have a parent sitting in another one,
+	// which archiving here would otherwise strand with no word its child is gone.
+	notifyParents(ctx, w.notifier, inside, "archived")
 
 	return nil
 }

@@ -26,6 +26,12 @@ var ErrThreadCapped = errors.New("this thread has reached its hop limit")
 
 var ErrReplyToNotFound = errors.New("no message holds that id")
 
+// WeaveSenderName marks a message as weave's own voice rather than the panel operator's,
+// since both send with no agent id and nothing else tells them apart downstream. The stop
+// hook reads this same value to frame a lifecycle notice as something to read and act on,
+// not as an instruction from the person running the panel.
+const WeaveSenderName = "weave"
+
 type messageReadWriter interface {
 	Send(ctx context.Context, params messagestore.SendParams) (*messagestore.Message, error)
 	GetByID(ctx context.Context, id string) (*messagestore.Message, error)
@@ -80,6 +86,17 @@ type SendMessageParams struct {
 }
 
 func (s *MessageService) SendMessage(ctx context.Context, params SendMessageParams) (*messagestore.Message, error) {
+	return s.send(ctx, params, false)
+}
+
+// SendSystemMessage sends a message as weave itself, for a lifecycle notice no RPC surface
+// asks for on a caller's behalf. The recipient still goes through every check an ordinary
+// send does: archived, mailbox full, hop cap.
+func (s *MessageService) SendSystemMessage(ctx context.Context, toAgentID, body string) (*messagestore.Message, error) {
+	return s.send(ctx, SendMessageParams{ToAgentID: toAgentID, Body: body}, true)
+}
+
+func (s *MessageService) send(ctx context.Context, params SendMessageParams, system bool) (*messagestore.Message, error) {
 	recipient, err := s.agentFinder.GetByID(ctx, params.ToAgentID)
 	if err != nil {
 		return nil, err
@@ -142,6 +159,8 @@ func (s *MessageService) SendMessage(ctx context.Context, params SendMessagePara
 	if sender != nil {
 		send.FromAgentID = &sender.ID
 		send.FromName = sender.Name
+	} else if system {
+		send.FromName = WeaveSenderName
 	}
 
 	sent, err := s.messageReadWriter.Send(ctx, send)
