@@ -70,13 +70,13 @@ func (m model) updateSchedules(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, m.keys.Schedules.Back):
 		return m.returnToAgents()
 	case isBound(k, m.keys.Nav.Up):
-		if m.schedules.cursor > 0 {
-			m.schedules.cursor--
+		if next, ok := stepCursor(m.schedules.cursor, -1, len(m.scheduleRows())); ok {
+			m.schedules.cursor = next
 			m.stageSchedule()
 		}
 	case isBound(k, m.keys.Nav.Down):
-		if m.schedules.cursor < len(m.scheduleRows())-1 {
-			m.schedules.cursor++
+		if next, ok := stepCursor(m.schedules.cursor, 1, len(m.scheduleRows())); ok {
+			m.schedules.cursor = next
 			m.stageSchedule()
 		}
 	case isBound(k, m.keys.Schedules.New):
@@ -95,12 +95,7 @@ func (m model) updateSchedules(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 // selectedSchedule returns the schedule under the cursor, or false when the
 // list is empty.
 func (m model) selectedSchedule() (scheduleItem, bool) {
-	rows := m.scheduleRows()
-	if m.schedules.cursor < 0 || m.schedules.cursor >= len(rows) {
-		return scheduleItem{}, false
-	}
-
-	return rows[m.schedules.cursor], true
+	return rowAt(m.scheduleRows(), m.schedules.cursor)
 }
 
 // stageSchedule shows the hovered schedule's record in the stage. Nothing runs for a
@@ -108,15 +103,12 @@ func (m model) selectedSchedule() (scheduleItem, bool) {
 func (m *model) stageSchedule() {
 	item, ok := m.selectedSchedule()
 	if !ok {
-		m.stage.Text(noSchedulesMarkdown)
-		m.clearRecord()
+		m.stagePlaceholder(noSchedulesMarkdown)
 
 		return
 	}
 
-	rec := scheduleMarkdown(item, m.workflowByID(item.schedule.WorkflowID))
-	m.stage.Text(rec.markdown)
-	m.setRecord(rec, surfaceMain)
+	m.stageRecord(scheduleMarkdown(item, m.workflowByID(item.schedule.WorkflowID)), surfaceMain)
 }
 
 // workflowByID finds a workflow in the list the panel already polls, nil when none holds
@@ -292,12 +284,11 @@ func (m model) updateScheduleArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
 // schedulesView renders the list, each row a schedule with its cron expression and when it
 // next fires, which is what a person checks a schedule for.
 func (m model) schedulesView() string {
-	header := headerStyle.Render("Schedules") + "\n\n" + m.filterView()
 	help := "\n" + m.renderHelp(m.scheduleHelp())
 
 	all := m.scheduleRows()
 	if len(all) == 0 {
-		return header + dimStyle.Render("  no schedules yet") + "\n" + help
+		return m.listView("Schedules", []string{dimStyle.Render("  no schedules yet")}, 0, help)
 	}
 
 	rows := make([]string, 0, len(all))
@@ -313,7 +304,7 @@ func (m model) schedulesView() string {
 		rows = append(rows, prefix+"  "+icon+" "+name+"  "+dimStyle.Render(item.schedule.Cron))
 	}
 
-	return header + renderList(rows, m.schedules.cursor, m.listLines(header, help)) + help
+	return m.listView("Schedules", rows, m.schedules.cursor, help)
 }
 
 // applySchedules takes a freshly-listed set as the on-screen schedules, keeping the cursor

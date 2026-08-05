@@ -3,19 +3,17 @@ package ui
 import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
 )
 
 // treeState is the agents screen, a tree of workflow folders with their agents nested
 // beneath. A header and an agent are rows of the same list, so the cursor indexes rows
-// rather than either listing.
+// rather than either listing. Its focus is a row key, since a jump can land on either a
+// header or an agent.
 type treeState struct {
 	agents    []agentItem
 	workflows []workflowstore.Workflow
-	cursor    int
-
-	// focus is the row key the next listing should put the cursor on, consumed as it lands.
-	// A newly-created agent or workflow has no row until that listing arrives.
-	focus string
+	rowCursor
 
 	// placed says a listing has put the cursor somewhere, so the first one lands on the
 	// first agent rather than on a workflow header.
@@ -31,9 +29,6 @@ type treeState struct {
 	// file is open in the editor down there.
 	below       belowKind
 	belowAction string
-
-	// selected are the agents taken into the selection on this tree.
-	selected selection
 }
 
 // belowKind is what the panel has put in the pane under the stage. Only one thing is down
@@ -116,12 +111,12 @@ func (m model) allAgentRows() []agentRow {
 // selectedAgent returns the agent under the cursor, or false when the cursor is on
 // a workflow header or the list is empty.
 func (m model) selectedAgent() (agentItem, bool) {
-	rows := m.agentRows()
-	if m.tree.cursor < 0 || m.tree.cursor >= len(rows) || rows[m.tree.cursor].header {
+	row, ok := rowAt(m.agentRows(), m.tree.cursor)
+	if !ok || row.header {
 		return agentItem{}, false
 	}
 
-	return rows[m.tree.cursor].item, true
+	return row.item, true
 }
 
 // hoveredWorkflow returns the workflow whose header the cursor is on, or false when the
@@ -130,35 +125,26 @@ func (m model) hoveredWorkflow() (workflowstore.Workflow, bool) {
 	return hoveredHeader(m.agentRows(), m.tree.cursor)
 }
 
-// rowAt is the row a cursor is on, or false when it is on nothing. Both trees index their
-// rows through it rather than each bounds-checking its own cursor.
-func rowAt(rows []agentRow, cursor int) (agentRow, bool) {
-	if cursor < 0 || cursor >= len(rows) {
-		return agentRow{}, false
-	}
-
-	return rows[cursor], true
-}
-
 // hoveredHeader returns the workflow the cursor's header names, or false when the cursor
 // is not on a header.
 func hoveredHeader(rows []agentRow, cursor int) (workflowstore.Workflow, bool) {
-	if cursor < 0 || cursor >= len(rows) || !rows[cursor].header {
+	row, ok := rowAt(rows, cursor)
+	if !ok || !row.header {
 		return workflowstore.Workflow{}, false
 	}
 
-	return rows[cursor].workflow, true
+	return row.workflow, true
 }
 
 // enclosingWorkflow is the workflow the cursor is inside, header or agent alike, so a new
 // agent started from anywhere in the tree lands in the workflow it was started from.
 func (m model) enclosingWorkflow() *workflowstore.Workflow {
-	rows := m.agentRows()
-	if m.tree.cursor < 0 || m.tree.cursor >= len(rows) {
+	row, ok := rowAt(m.agentRows(), m.tree.cursor)
+	if !ok {
 		return nil
 	}
 
-	return &rows[m.tree.cursor].workflow
+	return &row.workflow
 }
 
 // firstAgentRowIndex returns the index of the first agent row, skipping a leading
@@ -232,14 +218,7 @@ func rowIndexOfKey(rows []agentRow, key string) int {
 
 // agentCount returns how many listed agents belong to the given workflow id.
 func (m model) agentCount(workflowID string) int {
-	n := 0
-	for _, it := range m.tree.agents {
-		if it.agent.WorkflowID == workflowID {
-			n++
-		}
-	}
-
-	return n
+	return xslice.Count(m.tree.agents, func(it agentItem) bool { return it.agent.WorkflowID == workflowID })
 }
 
 // agentItem is a stored agent plus whether its tmux pane is currently alive. A dormant

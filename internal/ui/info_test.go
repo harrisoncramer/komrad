@@ -350,7 +350,7 @@ func infoModel(tmux *recordingTmux) model {
 			agents: []agentItem{
 				{agent: agentstore.Agent{Name: "auth", Pane: "%9", Cwd: "/repo", WorkflowID: "w1"}, alive: true},
 			},
-			cursor: 1,
+			rowCursor: rowCursor{cursor: 1},
 		},
 	}
 }

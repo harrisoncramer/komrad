@@ -189,10 +189,9 @@ func (m *model) applyPreview(result previewResult) {
 	if result.query != m.search.query {
 		return
 	}
-	if m.search.cursor < 0 || m.search.cursor >= len(m.search.hits) {
-		return
-	}
-	if m.search.hits[m.search.cursor].agentID != result.agentID {
+
+	hit, ok := m.hoveredHit()
+	if !ok || hit.agentID != result.agentID {
 		return
 	}
 
@@ -271,8 +270,8 @@ func (m model) updateSearchResults(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 // moveSearchCursor steps to the next result and loads its transcript, doing nothing at either
 // end of the list.
 func (m model) moveSearchCursor(delta int) (tea.Model, tea.Cmd) {
-	next := m.search.cursor + delta
-	if next < 0 || next >= len(m.search.hits) {
+	next, ok := stepCursor(m.search.cursor, delta, len(m.search.hits))
+	if !ok {
 		return m, nil
 	}
 
@@ -283,11 +282,7 @@ func (m model) moveSearchCursor(delta int) (tea.Model, tea.Cmd) {
 
 // hoveredHit is the result under the cursor, or false when the query found nothing.
 func (m model) hoveredHit() (searchHit, bool) {
-	if m.search.cursor < 0 || m.search.cursor >= len(m.search.hits) {
-		return searchHit{}, false
-	}
-
-	return m.search.hits[m.search.cursor], true
+	return rowAt(m.search.hits, m.search.cursor)
 }
 
 // jumpToSearchHit leaves the search on the row the hovered result belongs to, the agents tree

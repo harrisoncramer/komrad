@@ -65,7 +65,7 @@ func helpModel() model {
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "everything"}},
 			agents:    []agentItem{{agent: agentstore.Agent{Name: "api-refactor", WorkflowID: "w1"}}},
-			cursor:    1,
+			rowCursor: rowCursor{cursor: 1},
 		},
 	}
 }

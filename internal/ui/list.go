@@ -117,3 +117,79 @@ func windowStart(cursor, total, visible int) int {
 
 	return max(min(cursor-visible/2, total-visible), 0)
 }
+
+func rowAt[T any](rows []T, cursor int) (T, bool) {
+	if cursor < 0 || cursor >= len(rows) {
+		var zero T
+
+		return zero, false
+	}
+
+	return rows[cursor], true
+}
+
+func stepCursor(cursor, delta, length int) (int, bool) {
+	next := cursor + delta
+	if next < 0 || next >= length {
+		return cursor, false
+	}
+
+	return next, true
+}
+
+func landCursor(idx, length int) (int, bool) {
+	if length == 0 {
+		return 0, false
+	}
+
+	return clampCursor(idx, length), true
+}
+
+// rowCursor is the cursor, selection, and pending focus a screen walking agentRow rows
+// keeps. The tree and the archive each embed one, since both are a cursor over the same
+// row shape.
+type rowCursor struct {
+	cursor   int
+	selected selection
+	focus    string
+}
+
+func (c rowCursor) move(delta int, rows []agentRow) (rowCursor, bool) {
+	next, ok := stepCursor(c.cursor, delta, len(rows))
+	if !ok {
+		return c, false
+	}
+	c.cursor = next
+
+	return c, true
+}
+
+func (c rowCursor) jump(idx int, rows []agentRow) (rowCursor, bool) {
+	next, ok := landCursor(idx, len(rows))
+	if !ok {
+		return c, false
+	}
+	c.cursor = next
+
+	return c, true
+}
+
+func (m *model) stageRecord(rec record, surface recordSurface) {
+	if surface == surfaceSecondary {
+		m.stage.SecondaryText(rec.markdown)
+	} else {
+		m.stage.Text(rec.markdown)
+	}
+	m.setRecord(rec, surface)
+}
+
+func (m *model) stagePlaceholder(markdown string) {
+	m.stage.Text(markdown)
+	m.clearRecord()
+}
+
+func (m model) listView(title string, rows []string, cursor int, help string) string {
+	header := headerStyle.Render(title) + "\n\n" + m.filterView()
+
+	return header + renderList(rows, cursor, m.listLines(header, help)) + help
+}

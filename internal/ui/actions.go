@@ -128,13 +128,13 @@ func (m model) updateActions(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, m.keys.Actions.Back):
 		return m.returnToAgents()
 	case isBound(k, m.keys.Nav.Up):
-		if m.actions.cursor > 0 {
-			m.actions.cursor--
+		if next, ok := stepCursor(m.actions.cursor, -1, len(m.actionRows())); ok {
+			m.actions.cursor = next
 			m.stageAction()
 		}
 	case isBound(k, m.keys.Nav.Down):
-		if m.actions.cursor < len(m.actionRows())-1 {
-			m.actions.cursor++
+		if next, ok := stepCursor(m.actions.cursor, 1, len(m.actionRows())); ok {
+			m.actions.cursor = next
 			m.stageAction()
 		}
 	case isBound(k, m.keys.Actions.Run):
@@ -148,12 +148,7 @@ func (m model) updateActions(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // selectedAction returns the action under the cursor, or false when there are none.
 func (m model) selectedAction() (actionItem, bool) {
-	rows := m.actionRows()
-	if m.actions.cursor < 0 || m.actions.cursor >= len(rows) {
-		return actionItem{}, false
-	}
-
-	return rows[m.actions.cursor], true
+	return rowAt(m.actionRows(), m.actions.cursor)
 }
 
 // runSelectedAction fires the action under the cursor at the agent the list was opened on.
@@ -239,12 +234,11 @@ func (m model) stageAction() {
 // acts on the row it was opened from rather than whatever the agents list is hovering by
 // now. A file without the executable bit is drawn dim, the way a dormant agent is.
 func (m model) actionsView() string {
-	header := headerStyle.Render("Run Action") + "\n\n" + m.filterView()
 	help := "\n" + m.renderHelp(m.actionHelp())
 
 	all := m.actionRows()
 	if len(all) == 0 {
-		return header + dimStyle.Render("no actions") + "\n" + help
+		return m.listView("Run Action", []string{dimStyle.Render("no actions")}, 0, help)
 	}
 
 	rows := make([]string, 0, len(all))
@@ -259,5 +253,5 @@ func (m model) actionsView() string {
 		rows = append(rows, prefix+name)
 	}
 
-	return header + renderList(rows, m.actions.cursor, m.listLines(header, help)) + help
+	return m.listView("Run Action", rows, m.actions.cursor, help)
 }

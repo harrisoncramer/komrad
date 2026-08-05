@@ -216,24 +216,24 @@ func (m model) archiveAgents(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
 }
 
 func (m model) moveCursor(delta int) model {
-	next := m.tree.cursor + delta
-	if next < 0 || next >= len(m.agentRows()) {
+	next, ok := m.tree.move(delta, m.agentRows())
+	if !ok {
 		return m
 	}
 
-	m.tree.cursor = next
+	m.tree.rowCursor = next
 	m.stageSelection()
 
 	return m
 }
 
 func (m model) jumpCursor(idx int) model {
-	rows := m.agentRows()
-	if len(rows) == 0 {
+	next, ok := m.tree.jump(idx, m.agentRows())
+	if !ok {
 		return m
 	}
 
-	m.tree.cursor = clampCursor(idx, len(rows))
+	m.tree.rowCursor = next
 	m.stageSelection()
 
 	return m
@@ -342,8 +342,8 @@ func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) stageSelection() {
-	rows := m.agentRows()
-	if m.tree.cursor < 0 || m.tree.cursor >= len(rows) {
+	r, ok := rowAt(m.agentRows(), m.tree.cursor)
+	if !ok {
 		m.stage.Blank()
 		m.clearRecord()
 		m.stageBelow()
@@ -351,19 +351,14 @@ func (m *model) stageSelection() {
 		return
 	}
 
-	r := rows[m.tree.cursor]
 	switch {
 	case r.header:
-		rec := workflowMarkdown(r.workflow, m.agentCount(r.workflow.ID))
-		m.stage.Text(rec.markdown)
-		m.setRecord(rec, surfaceMain)
+		m.stageRecord(workflowMarkdown(r.workflow, m.agentCount(r.workflow.ID)), surfaceMain)
 	case r.item.alive:
 		m.stage.Agent(r.item.agent.Pane)
 		m.clearRecord()
 	default:
-		rec := agentMarkdown(r.item.agent, false, m.scheduleName(r.item.agent))
-		m.stage.Text(rec.markdown)
-		m.setRecord(rec, surfaceMain)
+		m.stageRecord(agentMarkdown(r.item.agent, false, m.scheduleName(r.item.agent)), surfaceMain)
 	}
 
 	m.stageBelow()
@@ -372,16 +367,12 @@ func (m *model) stageSelection() {
 func (m *model) stageBelow() {
 	switch m.tree.below {
 	case belowRecord:
-		rows := m.agentRows()
-		if m.tree.cursor < 0 || m.tree.cursor >= len(rows) {
+		r, ok := rowAt(m.agentRows(), m.tree.cursor)
+		if !ok || r.header {
 			return
 		}
 
-		if r := rows[m.tree.cursor]; !r.header {
-			rec := agentMarkdown(r.item.agent, r.item.alive, m.scheduleName(r.item.agent))
-			m.stage.SecondaryText(rec.markdown)
-			m.setRecord(rec, surfaceSecondary)
-		}
+		m.stageRecord(agentMarkdown(r.item.agent, r.item.alive, m.scheduleName(r.item.agent)), surfaceSecondary)
 	case belowLogs:
 		m.stage.SecondaryLog(m.logPath, logArgv(m.logViewer, m.logPath))
 	case belowNothing, belowEdit:
@@ -458,7 +449,6 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 }
 
 func (m model) agentsView() string {
-	header := headerStyle.Render("Agents and Workflows") + "\n\n" + m.filterView()
 	help := "\n" + m.renderHelp(m.agentHelp())
 
 	all := m.agentRows()
@@ -488,7 +478,7 @@ func (m model) agentsView() string {
 		rows = append(rows, prefix+"  "+icon+" "+name+scheduledMark(item.agent)+hiddenMark(item.agent.Hidden)+markGlyph(item.agent, m.marks))
 	}
 
-	return header + renderList(rows, m.tree.cursor, m.listLines(header, help)) + help
+	return m.listView("Agents and Workflows", rows, m.tree.cursor, help)
 }
 
 func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {

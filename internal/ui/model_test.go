@@ -100,7 +100,7 @@ func TestApplyAgents(t *testing.T) {
 				tree: treeState{
 					workflows: []workflowstore.Workflow{{ID: testWorkflowID, Name: "backend"}},
 					agents:    tt.start,
-					cursor:    tt.cursor,
+					rowCursor: rowCursor{cursor: tt.cursor},
 					placed:    true,
 				},
 				keys: config.DefaultKeybindings(),

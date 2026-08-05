@@ -379,7 +379,7 @@ func filterModel() model {
 				{agent: agentstore.Agent{ID: "a1", Name: "billing", WorkflowID: "w1"}},
 				{agent: agentstore.Agent{ID: "a2", Name: "payouts", WorkflowID: "w1"}},
 			},
-			cursor: 1,
+			rowCursor: rowCursor{cursor: 1},
 		},
 	}
 }
