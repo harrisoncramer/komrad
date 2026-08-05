@@ -71,9 +71,9 @@ func TestRefusedWriteIsReported(t *testing.T) {
 	pressed, ok := opened.(model)
 	require.True(t, ok)
 
-	*pressed.values.confirmed = true
+	*pressed.confirm.confirmed = true
 	pressed.form.State = huh.StateCompleted
-	updated, cmd := pressed.updateAgentArchive(keyMsg("enter"))
+	updated, cmd := pressed.updateConfirm(keyMsg("enter"))
 	pressed, ok = updated.(model)
 	require.True(t, ok)
 
@@ -175,9 +175,9 @@ func TestSuccessfulWriteClearsTheBanner(t *testing.T) {
 	pressed, ok := opened.(model)
 	require.True(t, ok)
 
-	*pressed.values.confirmed = true
+	*pressed.confirm.confirmed = true
 	pressed.form.State = huh.StateCompleted
-	updated, cmd := pressed.updateAgentArchive(keyMsg("enter"))
+	updated, cmd := pressed.updateConfirm(keyMsg("enter"))
 	pressed, ok = updated.(model)
 	require.True(t, ok)
 

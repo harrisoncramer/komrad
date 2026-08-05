@@ -69,13 +69,13 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 	updated, _ := panel.Update(keyMsg(keys.Agents.Archive[0]))
 	pressed, ok := updated.(model)
 	require.True(t, ok)
-	require.Equal(t, screenAgentArchive, pressed.screen, "the key opens the confirm prompt rather than archiving outright")
+	require.Equal(t, screenConfirm, pressed.screen, "the key opens the confirm prompt rather than archiving outright")
 
 	// Answering the prompt is what actually archives it; huh's own keystrokes for that are
 	// exercised in the confirm field's own tests, not here.
-	*pressed.values.confirmed = true
+	*pressed.confirm.confirmed = true
 	pressed.form.State = huh.StateCompleted
-	confirmed, cmd := pressed.updateAgentArchive(keyMsg("enter"))
+	confirmed, cmd := pressed.updateConfirm(keyMsg("enter"))
 	panel, ok = confirmed.(model)
 	require.True(t, ok)
 	panel = settle(t, panel, cmd)

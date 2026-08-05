@@ -68,7 +68,7 @@ func TestArchiveKeys(t *testing.T) {
 			name:       "delete opens the confirm prompt rather than destroying",
 			key:        "d",
 			cursor:     1,
-			wantScreen: screenArchiveDelete,
+			wantScreen: screenConfirm,
 		},
 		{
 			name:                 "restore on an archived folder restores the workflow",
@@ -284,7 +284,7 @@ func TestArchiveDeleteConfirm(t *testing.T) {
 			opened, _ := m.deleteFromArchiveConfirm(m.archive.agents)
 			m, ok := opened.(model)
 			require.True(t, ok)
-			require.Equal(t, screenArchiveDelete, m.screen)
+			require.Equal(t, screenConfirm, m.screen)
 
 			answer := "n"
 			if tt.confirm {
@@ -295,7 +295,7 @@ func TestArchiveDeleteConfirm(t *testing.T) {
 
 			assert.Equal(t, tt.wantDeleted, client.deleted)
 			assert.Equal(t, screenArchive, got.screen, "the prompt returns to the archive it was opened from")
-			assert.Nil(t, got.target.deleteAgents)
+			assert.Nil(t, got.confirm)
 		})
 	}
 }
@@ -310,7 +310,7 @@ func answerPrompt(t *testing.T, m model, key string) model {
 
 	var msg tea.Msg = keyMsg(key)
 	for range 8 {
-		updated, cmd := m.updateArchiveDelete(msg)
+		updated, cmd := m.updateConfirm(msg)
 		next, ok := updated.(model)
 		require.True(t, ok)
 
@@ -318,7 +318,7 @@ func answerPrompt(t *testing.T, m model, key string) model {
 		if cmd == nil {
 			return m
 		}
-		if m.screen != screenArchiveDelete {
+		if m.screen != screenConfirm {
 			return settle(t, m, cmd)
 		}
 

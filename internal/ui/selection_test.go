@@ -303,13 +303,19 @@ func TestArchiveSelection(t *testing.T) {
 	})
 
 	t.Run("delete opens the prompt on the whole selection", func(t *testing.T) {
+		agents := &fakeArchiveAgents{}
 		m := archiveSelectionTree()
+		m.api = api{agents: agents, workflows: emptyLists{}, schedules: emptyLists{}}
 		m.archive.cursor = 3
 		m.archive.selected = selection{ids: []string{"a1", "a2"}}
 
 		opened := pressArchive(t, m, keyMsg("d"))
-		assert.Equal(t, screenArchiveDelete, opened.screen)
-		assert.Equal(t, []string{"a1", "a2"}, agentIDs(opened.target.deleteAgents))
+		require.Equal(t, screenConfirm, opened.screen)
+
+		got := answerPrompt(t, opened, "y")
+
+		assert.Equal(t, []string{"a1", "a2"}, agents.deleted, "the whole selection was targeted, not the hovered row")
+		assert.Equal(t, screenArchive, got.screen)
 	})
 
 	t.Run("a folder restore stands down, since a hovered header is not what was chosen", func(t *testing.T) {
@@ -459,14 +465,13 @@ func TestArchiveSelectionFromTheTree(t *testing.T) {
 			opened, _ := m.updateAgents(keyMsg("z"))
 			pressed, ok := opened.(model)
 			require.True(t, ok)
-			assert.Equal(t, screenAgentArchive, pressed.screen, "the key opens the prompt rather than archiving outright")
-			assert.Equal(t, tt.wantIDs, agentIDs(pressed.target.archiveAgents))
+			assert.Equal(t, screenConfirm, pressed.screen, "the key opens the prompt rather than archiving outright")
 			assert.Empty(t, agents.archived, "nothing is sent until the prompt is confirmed")
 
-			*pressed.values.confirmed = true
+			*pressed.confirm.confirmed = true
 			pressed.form.State = huh.StateCompleted
 
-			next, cmd := pressed.updateAgentArchive(keyMsg("enter"))
+			next, cmd := pressed.updateConfirm(keyMsg("enter"))
 			require.NotNil(t, cmd)
 			cmd()
 
