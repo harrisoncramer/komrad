@@ -195,6 +195,7 @@ func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawne
 		Dir:             agent.Cwd,
 		Flags:           plan.flags,
 		Prompt:          p.Prompt,
+		WorkflowID:      p.WorkflowID,
 		WorkflowContext: plan.workflowContext,
 		SessionID:       sessionID,
 		AgentID:         id,
@@ -204,7 +205,7 @@ func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawne
 		params.SpawnedByName = spawner.Name
 	}
 
-	if err := s.launcher.launch(plan.harness, params); err != nil {
+	if err := s.launcher.launch(ctx, plan.harness, params); err != nil {
 		if deleteErr := s.removeAgents(ctx, []string{id}); deleteErr != nil {
 			return nil, fmt.Errorf("failed to launch the agent for %q (%w), and failed to clean up: %w", plan.name, err, deleteErr)
 		}

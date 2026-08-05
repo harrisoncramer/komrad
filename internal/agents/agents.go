@@ -47,6 +47,13 @@ type agentManager interface {
 	LockSlots(ctx context.Context) error
 }
 
+// workflowAgentReader reads the agents filed under a workflow. An archive reads it before it
+// writes, so it knows whose CLIs to stop, and a launch reads it to tell the agent it is
+// starting who it is starting alongside.
+type workflowAgentReader interface {
+	ListLiveInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
+}
+
 // paneKiller is the tmux surface a workflow archive needs: which agents are still
 // running, and stopping the ones that are.
 type paneKiller interface {
@@ -562,13 +569,14 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 		return fmt.Errorf("failed to resume agent %q: %w", agent.Name, err)
 	}
 
-	if err := s.launcher.launch(hn, launchParams{
-		Pane:      pane,
-		Dir:       dir,
-		Flags:     agent.Flags,
-		SessionID: agent.SessionID,
-		AgentID:   agent.ID,
-		Resume:    true,
+	if err := s.launcher.launch(ctx, hn, launchParams{
+		Pane:       pane,
+		Dir:        dir,
+		Flags:      agent.Flags,
+		WorkflowID: agent.WorkflowID,
+		SessionID:  agent.SessionID,
+		AgentID:    agent.ID,
+		Resume:     true,
 	}); err != nil {
 		return fmt.Errorf("failed to relaunch the agent for %q: %w", agent.Name, err)
 	}

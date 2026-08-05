@@ -2,10 +2,13 @@ package agents
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	agentstore "weave/internal/store/agent"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -45,7 +48,7 @@ func TestLaunchTypesTheHarnessCommand(t *testing.T) {
 			h := &fakeHarness{commandErr: tt.commandErr}
 			launcher := NewLauncher(LauncherParams{Tmux: tmux, Addr: "127.0.0.1:9999"})
 
-			err := launcher.launch(h, launchParams{Pane: "pane", SessionID: "sess"})
+			err := launcher.launch(t.Context(), h, launchParams{Pane: "pane", SessionID: "sess"})
 
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
@@ -71,7 +74,7 @@ func TestLaunchPassesWhatThePanelKnows(t *testing.T) {
 	h := &fakeHarness{}
 	launcher := NewLauncher(LauncherParams{Tmux: tmux, Addr: "127.0.0.1:9999"})
 
-	require.NoError(t, launcher.launch(h, launchParams{
+	require.NoError(t, launcher.launch(t.Context(), h, launchParams{
 		Pane:      "pane",
 		Flags:     "--model opus",
 		Prompt:    "do the thing",
@@ -140,7 +143,7 @@ func TestAppendedSystemPrompt(t *testing.T) {
 				LogPath: briefedLogPath,
 			})
 
-			prompt := launcher.appendedSystemPrompt(tt.context, "", "")
+			prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{WorkflowContext: tt.context})
 
 			for _, want := range tt.wantContain {
 				assert.Contains(t, prompt, want)
@@ -188,7 +191,10 @@ func TestAppendedSystemPromptDelegateBriefing(t *testing.T) {
 				LogPath: briefedLogPath,
 			})
 
-			prompt := launcher.appendedSystemPrompt("", tt.spawnedByAgentID, tt.spawnedByName)
+			prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{
+				SpawnedByAgentID: tt.spawnedByAgentID,
+				SpawnedByName:    tt.spawnedByName,
+			})
 
 			for _, want := range tt.wantContain {
 				assert.Contains(t, prompt, want)
@@ -198,6 +204,110 @@ func TestAppendedSystemPromptDelegateBriefing(t *testing.T) {
 			}
 		})
 	}
+}
+
+// launchingAgentID is the agent whose prompt is being composed. Its own row is already in the
+// workflow by the time it is launched, so a briefing that did not drop it would introduce the
+// agent to itself.
+const launchingAgentID = "self-id"
+
+// TestAppendedSystemPromptSiblingBriefing covers what an agent is told about the workflow it
+// is joining. It is the one part of the prompt that is different every launch, so an empty
+// workflow, a read that failed, and a workflow too full to list are all its ordinary cases.
+func TestAppendedSystemPromptSiblingBriefing(t *testing.T) {
+	tests := []struct {
+		name string
+		// live is what the store hands back for the workflow, the launching agent's own row
+		// included, and listErr is a read that failed instead.
+		live    []agentstore.Agent
+		listErr error
+		// noWorkflow launches an agent filed under no workflow at all.
+		noWorkflow  bool
+		wantContain []string
+		wantAbsent  []string
+	}{
+		{
+			name:       "an agent in no workflow is told nothing about anyone",
+			noWorkflow: true,
+			live:       []agentstore.Agent{{ID: "other-id", Name: "reviewer", State: agentstore.StateThinking}},
+			wantAbsent: []string{"reviewer", "your workflow"},
+		},
+		{
+			name:       "a read that fails briefs nothing rather than failing the launch",
+			listErr:    errors.New("no database for you"),
+			wantAbsent: []string{"your workflow"},
+		},
+		{
+			name:        "an agent alone in its workflow is told it is alone",
+			live:        []agentstore.Agent{{ID: launchingAgentID, Name: "builder", State: agentstore.StateIdle}},
+			wantContain: []string{"only agent in your workflow"},
+			wantAbsent:  []string{"builder"},
+		},
+		{
+			name: "one sibling is named with what the panel last saw it doing",
+			live: []agentstore.Agent{
+				{ID: launchingAgentID, Name: "builder", State: agentstore.StateIdle},
+				{ID: "other-id", Name: "reviewer", State: agentstore.StateThinking},
+			},
+			wantContain: []string{"reviewer (thinking)"},
+			wantAbsent:  []string{"builder", "only agent in your workflow", "more"},
+		},
+		{
+			name: "several siblings are named in one line",
+			live: []agentstore.Agent{
+				{ID: launchingAgentID, Name: "builder", State: agentstore.StateIdle},
+				{ID: "other-id", Name: "reviewer", State: agentstore.StateThinking},
+				{ID: "third-id", Name: "docs-pass", State: agentstore.StateWaiting},
+			},
+			wantContain: []string{"reviewer (thinking), docs-pass (waiting)"},
+			wantAbsent:  []string{"more"},
+		},
+		{
+			name:        "a workflow past the cap names some and counts the rest",
+			live:        append([]agentstore.Agent{{ID: launchingAgentID}}, manySiblings(briefedSiblings+3)...),
+			wantContain: []string{"sibling-1 (idle)", fmt.Sprintf("sibling-%d (idle)", briefedSiblings), "and 3 more"},
+			wantAbsent:  []string{fmt.Sprintf("sibling-%d", briefedSiblings+1)},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			launcher := NewLauncher(LauncherParams{
+				Tmux:    newFakeTmux(),
+				Agents:  fakeWorkflowAgents{live: tt.live, listErr: tt.listErr},
+				Addr:    "127.0.0.1:9999",
+				LogPath: briefedLogPath,
+			})
+
+			params := launchParams{AgentID: launchingAgentID, WorkflowID: "workflow-id"}
+			if tt.noWorkflow {
+				params.WorkflowID = ""
+			}
+
+			prompt := launcher.appendedSystemPrompt(t.Context(), params)
+
+			for _, want := range tt.wantContain {
+				assert.Contains(t, prompt, want)
+			}
+			for _, absent := range tt.wantAbsent {
+				assert.NotContains(t, prompt, absent)
+			}
+		})
+	}
+}
+
+// manySiblings is a workflow with more agents in it than a briefing names.
+func manySiblings(count int) []agentstore.Agent {
+	siblings := make([]agentstore.Agent, 0, count)
+	for i := 1; i <= count; i++ {
+		siblings = append(siblings, agentstore.Agent{
+			ID:    fmt.Sprintf("sibling-id-%d", i),
+			Name:  fmt.Sprintf("sibling-%d", i),
+			State: agentstore.StateIdle,
+		})
+	}
+
+	return siblings
 }
 
 // TestAppendedSystemPromptGlobalContext covers the standing text the user keeps for every
@@ -253,7 +363,7 @@ func TestAppendedSystemPromptGlobalContext(t *testing.T) {
 				ContextPath: path,
 			})
 
-			prompt := launcher.appendedSystemPrompt(tt.workflowContext, "", "")
+			prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{WorkflowContext: tt.workflowContext})
 
 			for _, want := range tt.wantContain {
 				assert.Contains(t, prompt, want)
@@ -284,11 +394,11 @@ func TestGlobalContextIsReadPerLaunch(t *testing.T) {
 		LogPath:     briefedLogPath,
 		ContextPath: path,
 	})
-	require.Contains(t, launcher.appendedSystemPrompt("", "", ""), "before-the-edit")
+	require.Contains(t, launcher.appendedSystemPrompt(t.Context(), launchParams{}), "before-the-edit")
 
 	require.NoError(t, os.WriteFile(path, []byte("after-the-edit"), 0o600))
 
-	prompt := launcher.appendedSystemPrompt("", "", "")
+	prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{})
 	assert.Contains(t, prompt, "after-the-edit")
 	assert.NotContains(t, prompt, "before-the-edit")
 }

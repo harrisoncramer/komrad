@@ -198,6 +198,21 @@ const (
 // the tests that drive the fake seed their agents the same way.
 const testHarnessID = "claude"
 
+// fakeWorkflowAgents is what a launch is told is already in the workflow it is joining. It
+// carries no store, since what the launcher makes of those rows is the whole question.
+type fakeWorkflowAgents struct {
+	live    []agentstore.Agent
+	listErr error
+}
+
+func (f fakeWorkflowAgents) ListLiveInWorkflow(context.Context, string) ([]agentstore.Agent, error) {
+	if f.listErr != nil {
+		return nil, f.listErr
+	}
+
+	return f.live, nil
+}
+
 type fakeHarness struct {
 	mu         sync.Mutex
 	launches   []harness.Launch
@@ -368,7 +383,7 @@ func (s *testStore) agentService(options agentServiceOptions) *AgentService {
 		Agents:             s.Agents,
 		Workflows:          s.Workflows,
 		Tx:                 s.Pool,
-		Launcher:           NewLauncher(LauncherParams{Tmux: options.tmux, Addr: options.addr}),
+		Launcher:           NewLauncher(LauncherParams{Tmux: options.tmux, Agents: s.Agents, Addr: options.addr}),
 		Harnesses:          options.harnesses,
 		Lifecycle:          options.lifecycle,
 		UserDefaultHarness: testHarnessID,

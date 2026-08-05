@@ -238,6 +238,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Tx:        pool,
 		Launcher: agents.NewLauncher(agents.LauncherParams{
 			Tmux:        p.Tmux,
+			Agents:      agentStore,
 			Addr:        p.Addr,
 			CacheDir:    p.Env.CacheDir,
 			LogPath:     p.Env.LogPath(),

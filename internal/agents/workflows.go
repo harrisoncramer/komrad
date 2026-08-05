@@ -33,12 +33,6 @@ type scheduleCounter interface {
 	CountLive(ctx context.Context, workflowID string) (int64, error)
 }
 
-// workflowAgentReader reads the agents filed under a workflow, which an archive needs
-// before it writes so it knows whose CLIs to stop.
-type workflowAgentReader interface {
-	ListLiveInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
-}
-
 // WorkflowService manages the named buckets agents are grouped into. A workflow
 // runs nothing. It holds a display name, shared context injected into the agents
 // spawned inside it, and the cwd and flags those agents start from.

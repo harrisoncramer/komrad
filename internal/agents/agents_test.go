@@ -380,6 +380,26 @@ func TestNewAgentGetsDirectory(t *testing.T) {
 	}
 }
 
+// TestNewAgentIsBriefedOnItsWorkflow covers the sibling briefing over a real store, which is
+// the only place the launching agent's own row is there to be dropped. The row is inserted
+// before the CLI is started, so a briefing composed off the store rather than off the request
+// sees the agent it is being written for.
+func TestNewAgentIsBriefedOnItsWorkflow(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager, h := newManagerWithHarness(tmux, st, "")
+	workflowID := seedWorkflow(t, st)
+	seedInWorkflow(t, st, workflowID, "reviewer", "%reviewer", agentstore.StateThinking)
+
+	_, err := manager.NewAgent(t.Context(), NewAgentParams{Title: "builder", Dir: t.TempDir(), WorkflowID: workflowID})
+	require.NoError(t, err)
+
+	require.Len(t, h.launches, 1)
+	prompt := h.launches[0].Context
+	assert.Contains(t, prompt, "reviewer (thinking)")
+	assert.NotContains(t, prompt, "builder", "an agent is not introduced to itself")
+}
+
 // TestNewAgentInsideWorkflow covers what an agent inherits from the bucket it is
 // created in. The context is a snapshot taken at launch, so a later edit reaches
 // only agents spawned after it.
