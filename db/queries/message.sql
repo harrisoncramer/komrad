@@ -4,13 +4,15 @@ INSERT INTO agent_messages(
     from_name,
     to_agent_id,
     body,
-    reply_to)
+    reply_to,
+    expires_at)
 VALUES (
     sqlc.narg('from_agent_id'),
     @from_name,
     @to_agent_id,
     @body,
-    sqlc.narg('reply_to'))
+    sqlc.narg('reply_to'),
+    @expires_at)
 RETURNING
     *;
 
@@ -23,6 +25,7 @@ WITH pending AS (
     WHERE
         m.to_agent_id = @to_agent_id
         AND m.claimed_at IS NULL
+        AND m.expires_at > NOW()
     ORDER BY
         m.id
     LIMIT @lim
@@ -48,4 +51,26 @@ FROM
     agent_messages m
 WHERE
     m.to_agent_id = @to_agent_id
-    AND m.claimed_at IS NULL;
+    AND m.claimed_at IS NULL
+    AND m.expires_at > NOW();
+
+-- name: ListExpiredAgentMessages :many
+SELECT
+    *
+FROM
+    agent_messages m
+WHERE
+    m.to_agent_id = @to_agent_id
+    AND m.claimed_at IS NULL
+    AND m.expires_at <= NOW()
+ORDER BY
+    m.id;
+
+-- name: ListMailboxesWithPendingMail :many
+SELECT DISTINCT
+    m.to_agent_id
+FROM
+    agent_messages m
+WHERE
+    m.claimed_at IS NULL
+    AND m.expires_at > NOW();

@@ -20,6 +20,7 @@ type Message struct {
 	Body        string
 	ReplyTo     *string
 	ClaimedAt   *time.Time
+	ExpiresAt   time.Time
 	CreatedAt   time.Time
 }
 
@@ -37,6 +38,7 @@ type SendParams struct {
 	ToAgentID   string
 	Body        string
 	ReplyTo     *string
+	ExpiresAt   time.Time
 }
 
 func (s *Store) Send(ctx context.Context, params SendParams) (*Message, error) {
@@ -46,6 +48,7 @@ func (s *Store) Send(ctx context.Context, params SendParams) (*Message, error) {
 		ToAgentID:   params.ToAgentID,
 		Body:        params.Body,
 		ReplyTo:     params.ReplyTo,
+		ExpiresAt:   params.ExpiresAt,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to send a message to agent %q: %w", params.ToAgentID, err)
@@ -93,6 +96,32 @@ func (s *Store) CountPending(ctx context.Context, toAgentID string) (int64, erro
 	return count, nil
 }
 
+// ListPendingMailboxes is every agent holding mail that is neither claimed nor expired, so
+// the sweep can find a mailbox whose own delivery job is gone.
+func (s *Store) ListPendingMailboxes(ctx context.Context) ([]string, error) {
+	rows, err := s.queries.ListMailboxesWithPendingMail(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the mailboxes holding mail: %w", err)
+	}
+
+	return rows, nil
+}
+
+func (s *Store) ListExpired(ctx context.Context, toAgentID string) ([]Message, error) {
+	if !store.IsID(toAgentID) {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListExpiredAgentMessages(ctx, toAgentID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the expired mail for agent %q: %w", toAgentID, err)
+	}
+
+	return xslice.Map(rows, func(row *models.AgentMessage) Message {
+		return messageFromRow(*row)
+	}), nil
+}
+
 func messageFromRow(row models.AgentMessage) Message {
 	return Message{
 		ID:          row.ID,
@@ -102,6 +131,7 @@ func messageFromRow(row models.AgentMessage) Message {
 		Body:        row.Body,
 		ReplyTo:     row.ReplyTo,
 		ClaimedAt:   row.ClaimedAt,
+		ExpiresAt:   row.ExpiresAt,
 		CreatedAt:   row.CreatedAt,
 	}
 }

@@ -31,6 +31,10 @@ table "agent_messages" {
     null = true
     type = timestamptz
   }
+  column "expires_at" {
+    null = false
+    type = timestamptz
+  }
   column "created_at" {
     null    = false
     type    = timestamptz

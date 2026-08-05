@@ -30,6 +30,7 @@ type Agent struct {
 	StateChangedAt time.Time
 	SetupAction    *string
 	CleanupAction  *string
+	NudgedAt       *time.Time
 }
 
 // One message from one agent to another, held until the recipient claims it.
@@ -43,6 +44,7 @@ type AgentMessage struct {
 	ClaimedAt   *time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	ExpiresAt   time.Time
 }
 
 // Key/value facts an agent recorded about its own work.

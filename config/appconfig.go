@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 	"unicode"
 
 	"weave/lib/xslice"
@@ -39,6 +40,11 @@ const DefaultLogLevel = "info"
 // pager on the file itself, opened in the pager's own follow so the log is watched rather
 // than read once.
 const DefaultLogViewer = `less -R +F "$WEAVE_LOG"`
+
+// DefaultDeliveryDeadline is how long a message stays deliverable when the config names no
+// duration. Long enough that an agent left alone over lunch still gets its mail, short
+// enough that nothing chases a recipient nobody is coming back to.
+const DefaultDeliveryDeadline = "3h"
 
 // DefaultMaxAgents is how many agents may exist at once when the config names no number,
 // well above what anyone opens by hand and low enough to catch a caller in a loop.
@@ -329,6 +335,36 @@ type Harnesses struct {
 	Codex  Codex   `mapstructure:"codex"`
 }
 
+// Messages is how long weave keeps trying to hand a message to the agent it was addressed
+// to. Delivery waits on the recipient: an agent that is busy gets its mail as its turn
+// ends, and one that has stopped is nudged, so an agent nobody is running holds mail until
+// it comes back or the deadline passes.
+type Messages struct {
+	// How long a message stays deliverable, as a Go duration such as "3h" or "45m". A
+	// message past it is neither delivered nor readable, and the row is kept as a record
+	// that it never arrived.
+	DeliveryDeadline string `mapstructure:"delivery_deadline"`
+}
+
+// GetDeliveryDeadline is how long a message stays deliverable, parsed. A duration that will
+// not parse is an error rather than the default, since a deadline somebody wrote and weave
+// quietly ignored is worse than one it refuses.
+func (m Messages) GetDeliveryDeadline() (time.Duration, error) {
+	if m.DeliveryDeadline == "" {
+		m.DeliveryDeadline = DefaultDeliveryDeadline
+	}
+
+	parsed, err := time.ParseDuration(strings.TrimSpace(m.DeliveryDeadline))
+	if err != nil {
+		return 0, fmt.Errorf("unreadable delivery deadline %q: %w", m.DeliveryDeadline, err)
+	}
+	if parsed <= 0 {
+		return 0, fmt.Errorf("the delivery deadline must be positive, not %q", m.DeliveryDeadline)
+	}
+
+	return parsed, nil
+}
+
 // Log is how much the background service writes about itself. Where it writes is not
 // configurable. The process that spawns the service points its output at the log and the
 // panel's log key pages the same file, and a path the two could disagree about is a log
@@ -391,6 +427,8 @@ type Config struct {
 	Actions Actions `mapstructure:"actions"`
 	// The standing text every agent is started with, whatever workflow it is in.
 	Context Context `mapstructure:"context"`
+	// How mail between agents is delivered.
+	Messages Messages `mapstructure:"messages"`
 	// The log the background service writes, which the panel's log key pages.
 	Log Log `mapstructure:"log"`
 	// Which weave this is: the database, the address, the tmux socket, the cache.
@@ -406,6 +444,7 @@ func Defaults() *Config {
 		Layout:         DefaultLayout(),
 		Marks:          DefaultMarks(),
 		Keybindings:    DefaultKeybindings(),
+		Messages:       Messages{DeliveryDeadline: DefaultDeliveryDeadline},
 		Log:            Log{Level: DefaultLogLevel, Viewer: DefaultLogViewer},
 		Connection:     DefaultConnection(),
 	}

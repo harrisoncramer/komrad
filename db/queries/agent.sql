@@ -208,6 +208,19 @@ WHERE
 ORDER BY
     id DESC;
 
+-- name: ClaimAgentNudge :many
+UPDATE
+    agents
+SET
+    nudged_at = NOW()
+WHERE
+    id = @id
+    AND archived_at IS NULL
+    AND (nudged_at IS NULL
+        OR state_changed_at > nudged_at)
+RETURNING
+    id;
+
 -- name: SetAgentStateByID :exec
 UPDATE
     agents

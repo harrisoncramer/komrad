@@ -198,6 +198,13 @@ dir = ""
 # Left empty this is ~/.config/weave/context.md, but will not trigger a failure if left blank.
 file = ""
 
+# How messages between agents are delivered.
+[messages]
+# How long a message stays deliverable, as a Go duration such as "3h" or "45m". A
+# message past it is neither delivered nor readable, and the row is kept as a record
+# that it never arrived.
+delivery_deadline = "3h"
+
 # The log the background service writes, which the panel's log key pages.
 [log]
 # How much is written, one of debug, info, warn, or error.

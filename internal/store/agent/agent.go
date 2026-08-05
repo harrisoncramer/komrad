@@ -56,6 +56,7 @@ type Agent struct {
 	ScheduleID     *string
 	IdempotencyKey *string
 	ArchivedAt     *time.Time
+	NudgedAt       *time.Time
 	Hidden         bool
 	Mark           *string
 	Metadata       []Metadata
@@ -314,6 +315,22 @@ func (s *Store) Update(ctx context.Context, agent Agent) error {
 	}
 
 	return nil
+}
+
+// ClaimNudge takes the right to tell an agent about waiting mail, reporting false when
+// somebody already has it for this stretch of the agent sitting idle. The check and the
+// stamp are one statement, so two passes racing cannot both go on to type.
+func (s *Store) ClaimNudge(ctx context.Context, id string) (bool, error) {
+	if !store.IsID(id) {
+		return false, nil
+	}
+
+	claimed, err := s.queries.ClaimAgentNudge(ctx, id)
+	if err != nil {
+		return false, fmt.Errorf("failed to claim the nudge for agent %q: %w", id, err)
+	}
+
+	return len(claimed) > 0, nil
 }
 
 // SetStateByID updates an agent's state by ID.
@@ -624,6 +641,7 @@ func agentFromRow(agent models.Agent) Agent {
 		ScheduleID:     agent.ScheduleID,
 		IdempotencyKey: agent.IdempotencyKey,
 		ArchivedAt:     agent.ArchivedAt,
+		NudgedAt:       agent.NudgedAt,
 		Hidden:         agent.IsHidden,
 		Mark:           agent.Mark,
 		CreatedAt:      agent.CreatedAt,

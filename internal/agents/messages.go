@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	agentstore "weave/internal/store/agent"
 	messagestore "weave/internal/store/message"
@@ -27,6 +28,12 @@ type messageReadWriter interface {
 	CountPending(ctx context.Context, toAgentID string) (int64, error)
 }
 
+// deadlineReader is how long a message stays deliverable, read per send so editing the
+// config reaches the next message rather than the next restart.
+type deadlineReader interface {
+	GetDeliveryDeadline() (time.Duration, error)
+}
+
 type agentFinder interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 }
@@ -34,17 +41,20 @@ type agentFinder interface {
 type MessageService struct {
 	messageReadWriter messageReadWriter
 	agentFinder       agentFinder
+	deadlineReader    deadlineReader
 }
 
 type NewMessageServiceParams struct {
 	MessageReadWriter messageReadWriter
 	AgentFinder       agentFinder
+	DeadlineReader    deadlineReader
 }
 
 func NewMessageService(p NewMessageServiceParams) *MessageService {
 	return &MessageService{
 		messageReadWriter: p.MessageReadWriter,
 		agentFinder:       p.AgentFinder,
+		deadlineReader:    p.DeadlineReader,
 	}
 }
 
@@ -83,10 +93,16 @@ func (s *MessageService) SendMessage(ctx context.Context, params SendMessagePara
 		return nil, fmt.Errorf("%w: %q is holding %d unread", ErrMailboxFull, recipient.Name, pending)
 	}
 
+	deadline, err := s.deadlineReader.GetDeliveryDeadline()
+	if err != nil {
+		return nil, err
+	}
+
 	send := messagestore.SendParams{
 		ToAgentID: recipient.ID,
 		Body:      params.Body,
 		ReplyTo:   params.ReplyTo,
+		ExpiresAt: time.Now().Add(deadline),
 	}
 	if sender != nil {
 		send.FromAgentID = &sender.ID

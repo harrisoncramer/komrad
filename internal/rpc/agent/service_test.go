@@ -1476,6 +1476,10 @@ func (f *fakeLauncher) ResumeAgent(_ context.Context, id string) (*agentstore.Ag
 	return f.created, nil
 }
 
+type stubDeadline struct{}
+
+func (stubDeadline) GetDeliveryDeadline() (time.Duration, error) { return time.Hour, nil }
+
 func service(t *testing.T) (*Service, *storetest.Stores) {
 	t.Helper()
 	svc, st, _ := serviceWithLauncher(t)
@@ -1545,6 +1549,7 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 	messages := agents.NewMessageService(agents.NewMessageServiceParams{
 		MessageReadWriter: st.Messages,
 		AgentFinder:       st.Agents,
+		DeadlineReader:    stubDeadline{},
 	})
 
 	return NewService(NewServiceParams{

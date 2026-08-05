@@ -53,6 +53,7 @@ func TestSendMessageRefusals(t *testing.T) {
 			svc := NewMessageService(NewMessageServiceParams{
 				MessageReadWriter: mailbox,
 				AgentFinder:       newFakeDirectory(),
+				DeadlineReader:    fakeDeadline{},
 			})
 
 			sent, err := svc.SendMessage(t.Context(), tt.params)
@@ -68,6 +69,7 @@ func TestSendMessageStampsTheSender(t *testing.T) {
 	svc := NewMessageService(NewMessageServiceParams{
 		MessageReadWriter: mailbox,
 		AgentFinder:       newFakeDirectory(),
+		DeadlineReader:    fakeDeadline{},
 	})
 
 	sent, err := svc.SendMessage(t.Context(), SendMessageParams{
@@ -92,6 +94,7 @@ func TestSendMessageFromNobody(t *testing.T) {
 	svc := NewMessageService(NewMessageServiceParams{
 		MessageReadWriter: mailbox,
 		AgentFinder:       newFakeDirectory(),
+		DeadlineReader:    fakeDeadline{},
 	})
 
 	_, err := svc.SendMessage(t.Context(), SendMessageParams{ToAgentID: "agent-b", Body: "hello"})
@@ -126,6 +129,7 @@ func TestClaimMessages(t *testing.T) {
 			svc := NewMessageService(NewMessageServiceParams{
 				MessageReadWriter: mailbox,
 				AgentFinder:       newFakeDirectory(),
+				DeadlineReader:    fakeDeadline{},
 			})
 
 			claimed, err := svc.ClaimMessages(t.Context(), tt.agentID)
@@ -141,6 +145,12 @@ func TestClaimMessages(t *testing.T) {
 			assert.Equal(t, int32(maxClaimedMessages), mailbox.claimLimit)
 		})
 	}
+}
+
+type fakeDeadline struct{}
+
+func (fakeDeadline) GetDeliveryDeadline() (time.Duration, error) {
+	return time.Hour, nil
 }
 
 type fakeMailbox struct {

@@ -97,6 +97,10 @@ func TestAgentsMessageEachOther(t *testing.T) {
 	})
 }
 
+func callAs[T any](req *connect.Request[T], agentID string) {
+	caller.Caller{AgentID: agentID}.SetHeader(req.Header())
+}
+
 func createAgent(t *testing.T, instance *weavetest.Instance, workflowID, name string) *agentv1.Agent {
 	t.Helper()
 

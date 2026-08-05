@@ -43,7 +43,8 @@ const tailLines = 5
 const agentScript = `#!/bin/sh
 log="$FAKE_ROOT/logs/$FAKE_SESSION.jsonl"
 state="$FAKE_ROOT/state/$WEAVE_AGENT_ID"
-mkdir -p "$FAKE_ROOT/logs" "$FAKE_ROOT/state"
+typed="$FAKE_ROOT/typed/$WEAVE_AGENT_ID"
+mkdir -p "$FAKE_ROOT/logs" "$FAKE_ROOT/state" "$FAKE_ROOT/typed"
 
 if [ -n "$FAKE_RESUME" ]; then
 	printf 'assistant\tresumed\n' >>"$log"
@@ -51,9 +52,17 @@ elif [ -n "$FAKE_PROMPT_FILE" ]; then
 	printf 'user\t%s\n' "$(cat "$FAKE_PROMPT_FILE")" >>"$log"
 fi
 
-while :; do
-	printf '%s\n' "$(cat "$state" 2>/dev/null || printf '` + idleLine + `')"
-	sleep 0.2
+(
+	while :; do
+		printf '%s\n' "$(cat "$state" 2>/dev/null || printf '` + idleLine + `')"
+		sleep 0.2
+	done
+) &
+
+while IFS= read -r line; do
+	[ -n "$line" ] || continue
+	printf '%s\n' "$line" >>"$typed"
+	printf 'user\t%s\n' "$line" >>"$log"
 done
 `
 
@@ -193,6 +202,28 @@ func (h *Harness) SetActivity(agentID string, activity harness.Activity) error {
 	}
 
 	return nil
+}
+
+// Typed is every line that has been typed at an agent's pane, oldest first. The agent reads
+// its own stdin, so this is what actually reached it rather than what tmux was asked to
+// send.
+func (h *Harness) Typed(agentID string) ([]string, error) {
+	raw, err := os.ReadFile(filepath.Join(h.root, "typed", agentID))
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read what was typed at agent %q: %w", agentID, err)
+	}
+
+	var typed []string
+	for _, line := range strings.Split(strings.TrimRight(string(raw), "\n"), "\n") {
+		if strings.TrimSpace(line) != "" {
+			typed = append(typed, line)
+		}
+	}
+
+	return typed, nil
 }
 
 // Frame is the pane line an agent shows in the given activity, so a test can wait for the

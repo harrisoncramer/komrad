@@ -420,6 +420,13 @@ table "agents" {
     type    = boolean
     default = false
   }
+  # When weave last typed at this agent to tell it about waiting messages, null for one it has
+  # never nudged. Compared against state_changed_at, so an agent is nudged once per stretch
+  # of sitting idle rather than every time the delivery job comes round.
+  column "nudged_at" {
+    null = true
+    type = timestamptz
+  }
   # The mark the user put on this agent, null when it carries none. It holds the
   # glyph itself, since which glyphs exist is their config and the glyph is the
   # whole meaning. Only the person writes it, never the reconciler, since what an

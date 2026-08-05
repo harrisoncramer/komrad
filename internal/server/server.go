@@ -54,6 +54,11 @@ const ReconcileInterval = 2 * time.Second
 // show.
 const ScheduleReconcileInterval = 10 * time.Second
 
+// MailDeliveryInterval is how often the service looks for mail somebody has not read. It is
+// brisk because it is the path every message takes: a pass asks the database which mailboxes
+// hold anything, which is an indexed read that usually finds nothing.
+const MailDeliveryInterval = 2 * time.Second
+
 // TranscriptSyncInterval is how often the service folds new transcript text into the
 // search index. A stale search corpus is harmless where a stale state count is not, and
 // each pass re-indexes potentially large logs, so it stays off the hot path.
@@ -93,6 +98,21 @@ type Params struct {
 	FallbackResumeRoot string
 }
 
+// messagesConfig reads the delivery deadline out of the user's config per send, so editing
+// the file reaches the next message rather than the next restart. A config that will not
+// load falls back to the built-in default, since refusing to send mail over an unreadable
+// file would be a worse answer than sending it with the deadline everyone else gets.
+type messagesConfig func() (*config.Config, error)
+
+func (load messagesConfig) GetDeliveryDeadline() (time.Duration, error) {
+	cfg, err := load()
+	if err != nil {
+		return config.Messages{}.GetDeliveryDeadline()
+	}
+
+	return cfg.Messages.GetDeliveryDeadline()
+}
+
 // Loop is one pass the service re-runs on an interval. How it is run, logged, and stopped
 // belongs to whoever is running the service rather than here.
 type Loop struct {
@@ -117,6 +137,9 @@ type Server struct {
 	Periodic *jobs.RiverPeriodic
 	// Pool is the writable database handle, exposed for the readiness check.
 	Pool *store.Pool
+	// Delivery is what the queue runs to get an agent to read its mail, exposed so a test
+	// can step it the way it steps a loop.
+	Delivery *agents.DeliveryService
 
 	closers []func()
 }
@@ -146,11 +169,6 @@ func New(ctx context.Context, p Params) (*Server, error) {
 	messageStore := messagestore.New(pool.GetDB())
 
 	loadConfig := func() (*config.Config, error) { return config.Load(p.ConfigPaths) }
-
-	messageService := agents.NewMessageService(agents.NewMessageServiceParams{
-		MessageReadWriter: messageStore,
-		AgentFinder:       agentStore,
-	})
 
 	workflowService := agents.NewWorkflowService(agents.WorkflowParams{
 		Workflows: workflowStore,
@@ -208,6 +226,43 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		FallbackResumeRoot: p.FallbackResumeRoot,
 	})
 
+	// Delivery types at an agent that has stopped and would otherwise never look at its
+	// mail. It reads panes through the agent service, which is the one thing that knows
+	// whether a pane is still an agent's own.
+	srv.Delivery = agents.NewDeliveryService(agents.NewDeliveryServiceParams{
+		MailboxReader: messageStore,
+		NudgeClaimer:  agentStore,
+		PaneReader:    agentService,
+		PaneWriter:    p.Tmux,
+	})
+
+	// The service is the only thing that runs the queue, so it is the only thing that
+	// brings River's tables up. Opening the store did the application's schema.
+	if err := db.MigrateRiver(ctx, pool.GetRawPool()); err != nil {
+		srv.Close()
+
+		return nil, err
+	}
+
+	srv.Jobs, err = jobs.NewClient(jobs.ClientParams{
+		Pool:      pool.GetRawPool(),
+		Schedules: scheduleStore,
+		Agents:    agentService,
+		Running:   agentStore,
+		Logger:    p.Logger,
+	})
+	if err != nil {
+		srv.Close()
+
+		return nil, err
+	}
+
+	messageService := agents.NewMessageService(agents.NewMessageServiceParams{
+		MessageReadWriter: messageStore,
+		AgentFinder:       agentStore,
+		DeadlineReader:    messagesConfig(loadConfig),
+	})
+
 	// Requests are checked against the constraints declared in the proto before any
 	// handler sees them, so a malformed payload is rejected in one place.
 	validation, err := interceptors.NewValidation()
@@ -257,27 +312,6 @@ func New(ctx context.Context, p Params) (*Server, error) {
 	}
 	srv.Mux.Handle("/mcp", interceptors.NewLoggingHandler(p.Logger, mcpHandler))
 
-	// The service is the only thing that runs the queue, so it is the only thing that
-	// brings River's tables up. Opening the store did the application's schema.
-	if err := db.MigrateRiver(ctx, pool.GetRawPool()); err != nil {
-		srv.Close()
-
-		return nil, err
-	}
-
-	srv.Jobs, err = jobs.NewClient(jobs.ClientParams{
-		Pool:      pool.GetRawPool(),
-		Schedules: scheduleStore,
-		Agents:    agentService,
-		Running:   agentStore,
-		Logger:    p.Logger,
-	})
-	if err != nil {
-		srv.Close()
-
-		return nil, err
-	}
-
 	srv.Periodic = jobs.NewRiverPeriodic(srv.Jobs.PeriodicJobs())
 	srv.Loops = []Loop{
 		{
@@ -289,6 +323,11 @@ func New(ctx context.Context, p Params) (*Server, error) {
 			Name:     "reconcile",
 			Interval: ReconcileInterval,
 			Pass:     agents.NewReconciler(p.Tmux, p.Harnesses, agentStore).Reconcile,
+		},
+		{
+			Name:     "mail delivery",
+			Interval: MailDeliveryInterval,
+			Pass:     srv.Delivery.DeliverAll,
 		},
 		{
 			Name:     "transcript sync",

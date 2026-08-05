@@ -2,6 +2,7 @@ package message
 
 import (
 	"testing"
+	"time"
 
 	"weave/internal/pgtest"
 	"weave/internal/store"
@@ -54,6 +55,7 @@ func TestSendAndClaim(t *testing.T) {
 					FromName:    "sender",
 					ToAgentID:   recipient,
 					Body:        body,
+					ExpiresAt:   time.Now().Add(time.Hour),
 				})
 				require.NoError(t, err)
 			}
@@ -81,7 +83,7 @@ func TestClaimTakesEachMessageOnce(t *testing.T) {
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
 
-	_, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "only once"})
+	_, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "only once", ExpiresAt: time.Now().Add(time.Hour)})
 	require.NoError(t, err)
 
 	first, err := st.Claim(ctx, recipient, 10)
@@ -99,7 +101,7 @@ func TestClaimIgnoresOtherMailboxes(t *testing.T) {
 	mine := seedAgent(t, st, "mine")
 	theirs := seedAgent(t, st, "theirs")
 
-	_, err := st.Send(ctx, SendParams{ToAgentID: theirs, Body: "not for you"})
+	_, err := st.Send(ctx, SendParams{ToAgentID: theirs, Body: "not for you", ExpiresAt: time.Now().Add(time.Hour)})
 	require.NoError(t, err)
 
 	claimed, err := st.Claim(ctx, mine, 10)
@@ -129,7 +131,7 @@ func TestReplyToThreadsAMessage(t *testing.T) {
 	asker := seedAgent(t, st, "asker")
 	answerer := seedAgent(t, st, "answerer")
 
-	asked, err := st.Send(ctx, SendParams{FromAgentID: &asker, ToAgentID: answerer, Body: "which column?"})
+	asked, err := st.Send(ctx, SendParams{FromAgentID: &asker, ToAgentID: answerer, Body: "which column?", ExpiresAt: time.Now().Add(time.Hour)})
 	require.NoError(t, err)
 
 	answered, err := st.Send(ctx, SendParams{
@@ -137,10 +139,33 @@ func TestReplyToThreadsAMessage(t *testing.T) {
 		ToAgentID:   asker,
 		Body:        "refunded_cents",
 		ReplyTo:     &asked.ID,
+		ExpiresAt:   time.Now().Add(time.Hour),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, answered.ReplyTo)
 	assert.Equal(t, asked.ID, *answered.ReplyTo)
+}
+
+func TestExpiredMailIsNeitherDeliveredNorRead(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+
+	_, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "too late", ExpiresAt: time.Now().Add(-time.Minute)})
+	require.NoError(t, err)
+
+	claimed, err := st.Claim(ctx, recipient, 10)
+	require.NoError(t, err)
+	assert.Empty(t, claimed)
+
+	pending, err := st.CountPending(ctx, recipient)
+	require.NoError(t, err)
+	assert.Zero(t, pending)
+
+	expired, err := st.ListExpired(ctx, recipient)
+	require.NoError(t, err)
+	require.Len(t, expired, 1)
+	assert.Equal(t, "too late", expired[0].Body)
 }
 
 type fixture struct {

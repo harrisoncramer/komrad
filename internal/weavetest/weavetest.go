@@ -25,6 +25,7 @@ import (
 
 	"weave/config"
 	"weave/internal/agents"
+	"weave/internal/caller"
 	"weave/internal/harness"
 	"weave/internal/harnesstest"
 	"weave/internal/logging"
@@ -33,11 +34,13 @@ import (
 	"weave/internal/tmux"
 	"weave/internal/tmuxtest"
 	"weave/proto/gen/action/v1/actionv1connect"
+	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/config/v1/configv1connect"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
+	"connectrpc.com/connect"
 	"github.com/stretchr/testify/require"
 )
 
@@ -79,6 +82,10 @@ type Params struct {
 	// MaxAgents is how many live agents the panel holds at once, defaulting to enough
 	// that no test hits the limit without meaning to.
 	MaxAgents int
+	// DeliveryDeadline is how long a message stays deliverable, as a Go duration. It
+	// defaults to the config's own, and a test sets it to something already past to watch
+	// mail expire without waiting.
+	DeliveryDeadline string
 }
 
 // Start builds the service and returns it running, torn down when the test ends.
@@ -104,9 +111,13 @@ func Start(t *testing.T, p Params) *Instance {
 	actionsDir := filepath.Join(root, "actions")
 	require.NoError(t, os.MkdirAll(actionsDir, 0o755))
 
+	settings := fmt.Sprintf("[actions]\ndir = %q\n", actionsDir)
+	if p.DeliveryDeadline != "" {
+		settings += fmt.Sprintf("\n[messages]\ndelivery_deadline = %q\n", p.DeliveryDeadline)
+	}
+
 	configPath := filepath.Join(root, "config.toml")
-	require.NoError(t, os.WriteFile(configPath, fmt.Appendf(nil,
-		"[actions]\ndir = %q\n", actionsDir), 0o600))
+	require.NoError(t, os.WriteFile(configPath, []byte(settings), 0o600))
 
 	// Unstarted, so the address the agents are told is the one the service ends up on
 	// rather than a port guessed ahead of it.
@@ -204,6 +215,73 @@ func (i *Instance) Settle(agentID string, activity harness.Activity, want string
 	}
 
 	i.t.Fatalf("agent %s never reached %q", agentID, want)
+}
+
+// Deliver runs one pass of the work the delivery queue does for an agent, which is what
+// gets a message to somebody who has stopped and would otherwise never look.
+func (i *Instance) Deliver(agentID string) agents.Delivery {
+	i.t.Helper()
+
+	delivery, err := i.server.Delivery.Deliver(i.t.Context(), agentID)
+	require.NoError(i.t, err)
+
+	return delivery
+}
+
+// EndTurn stands in for the stop hook an agent CLI runs as its turn ends: it takes whatever
+// mail is waiting, as that agent, and records it as something the agent was told. The real
+// hook is a subcommand of this binary calling the same endpoint, so what is exercised here
+// is the panel's half of it.
+func (i *Instance) EndTurn(agentID string) []*agentv1.Message {
+	i.t.Helper()
+
+	stored, err := i.Stores.Agents.GetByID(i.t.Context(), agentID)
+	require.NoError(i.t, err)
+	require.NotNil(i.t, stored)
+
+	req := connect.NewRequest(&agentv1.ReadMessagesRequest{})
+	caller.Caller{AgentID: agentID, SessionID: stored.SessionID}.SetHeader(req.Header())
+
+	read, err := i.Agents.ReadMessages(i.t.Context(), req)
+	require.NoError(i.t, err)
+
+	for _, message := range read.Msg.GetMessages() {
+		require.NoError(i.t, i.Harness.Say(stored.SessionID, "user", message.GetBody()))
+	}
+
+	return read.Msg.GetMessages()
+}
+
+// Typed is every line weave has typed into an agent's pane, read back from the agent
+// itself, so a test asserts on what the agent received rather than on what was sent.
+func (i *Instance) Typed(agentID string) []string {
+	i.t.Helper()
+
+	typed, err := i.Harness.Typed(agentID)
+	require.NoError(i.t, err)
+
+	return typed
+}
+
+// WaitForTyped waits for an agent to have received the given number of typed lines. Typing
+// at a pane and the agent reading its own stdin are two processes apart, so a test says what
+// it is waiting for rather than sleeping.
+func (i *Instance) WaitForTyped(agentID string, lines int) []string {
+	i.t.Helper()
+
+	deadline := time.Now().Add(settleTimeout)
+	for time.Now().Before(deadline) {
+		typed := i.Typed(agentID)
+		if len(typed) >= lines {
+			return typed
+		}
+
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	i.t.Fatalf("agent %s was never typed at %d time(s)", agentID, lines)
+
+	return nil
 }
 
 // GetOwnedPane is the pane an agent is running in, empty when none on the server is stamped
