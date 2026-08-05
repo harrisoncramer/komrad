@@ -36,7 +36,7 @@ WHERE
         FROM
             pending)
 RETURNING
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, created_at, updated_at, expires_at
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, created_at, updated_at, expires_at, hops
 `
 
 type ClaimAgentMessagesParams struct {
@@ -64,6 +64,7 @@ func (q *Queries) ClaimAgentMessages(ctx context.Context, arg ClaimAgentMessages
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ExpiresAt,
+			&i.Hops,
 		); err != nil {
 			return nil, err
 		}
@@ -93,6 +94,34 @@ func (q *Queries) CountPendingAgentMessages(ctx context.Context, toAgentID strin
 	return count, err
 }
 
+const getAgentMessage = `-- name: GetAgentMessage :one
+SELECT
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, created_at, updated_at, expires_at, hops
+FROM
+    agent_messages m
+WHERE
+    m.id = $1
+`
+
+func (q *Queries) GetAgentMessage(ctx context.Context, id string) (*AgentMessage, error) {
+	row := q.db.QueryRow(ctx, getAgentMessage, id)
+	var i AgentMessage
+	err := row.Scan(
+		&i.ID,
+		&i.FromAgentID,
+		&i.FromName,
+		&i.ToAgentID,
+		&i.Body,
+		&i.ReplyTo,
+		&i.ClaimedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ExpiresAt,
+		&i.Hops,
+	)
+	return &i, err
+}
+
 const insertAgentMessage = `-- name: InsertAgentMessage :one
 INSERT INTO agent_messages(
     from_agent_id,
@@ -100,6 +129,7 @@ INSERT INTO agent_messages(
     to_agent_id,
     body,
     reply_to,
+    hops,
     expires_at)
 VALUES (
     $1,
@@ -107,9 +137,10 @@ VALUES (
     $3,
     $4,
     $5,
-    $6)
+    $6,
+    $7)
 RETURNING
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, created_at, updated_at, expires_at
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, created_at, updated_at, expires_at, hops
 `
 
 type InsertAgentMessageParams struct {
@@ -118,6 +149,7 @@ type InsertAgentMessageParams struct {
 	ToAgentID   string
 	Body        string
 	ReplyTo     *string
+	Hops        int32
 	ExpiresAt   time.Time
 }
 
@@ -128,6 +160,7 @@ func (q *Queries) InsertAgentMessage(ctx context.Context, arg InsertAgentMessage
 		arg.ToAgentID,
 		arg.Body,
 		arg.ReplyTo,
+		arg.Hops,
 		arg.ExpiresAt,
 	)
 	var i AgentMessage
@@ -142,13 +175,14 @@ func (q *Queries) InsertAgentMessage(ctx context.Context, arg InsertAgentMessage
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ExpiresAt,
+		&i.Hops,
 	)
 	return &i, err
 }
 
 const listExpiredAgentMessages = `-- name: ListExpiredAgentMessages :many
 SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, created_at, updated_at, expires_at
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, created_at, updated_at, expires_at, hops
 FROM
     agent_messages m
 WHERE
@@ -179,6 +213,7 @@ func (q *Queries) ListExpiredAgentMessages(ctx context.Context, toAgentID string
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ExpiresAt,
+			&i.Hops,
 		); err != nil {
 			return nil, err
 		}

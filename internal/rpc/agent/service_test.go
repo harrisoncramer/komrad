@@ -798,6 +798,38 @@ func TestSendMessage(t *testing.T) {
 	}
 }
 
+func TestSendMessagePastTheHopLimitIsResourceExhausted(t *testing.T) {
+	st := storetest.Open(t)
+	messages := agents.NewMessageService(agents.NewMessageServiceParams{
+		MessageReadWriter: st.Messages,
+		AgentFinder:       st.Agents,
+		DeadlineReader:    stubDeadline{},
+		HopLimitReader:    stubHopLimit{max: 1},
+	})
+	svc := NewService(NewServiceParams{Agents: st.Agents, Transcripts: st.Transcripts, Messages: messages})
+
+	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
+	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
+
+	asAlpha := caller.With(t.Context(), caller.Caller{AgentID: alpha.ID})
+	first, err := svc.SendMessage(asAlpha, connect.NewRequest(&agentv1.SendMessageRequest{
+		ToAgentId: beta.ID,
+		Body:      "which column?",
+	}))
+	require.NoError(t, err)
+
+	asBeta := caller.With(t.Context(), caller.Caller{AgentID: beta.ID})
+	replyTo := first.Msg.GetMessage().GetId()
+	_, err = svc.SendMessage(asBeta, connect.NewRequest(&agentv1.SendMessageRequest{
+		ToAgentId: alpha.ID,
+		Body:      "refunded_cents",
+		ReplyTo:   &replyTo,
+	}))
+	require.Error(t, err)
+	assert.Equal(t, connect.CodeResourceExhausted, connect.CodeOf(err))
+	assert.ErrorIs(t, err, agents.ErrThreadCapped)
+}
+
 func TestReadMessages(t *testing.T) {
 	svc, st := service(t)
 	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
@@ -1480,6 +1512,16 @@ type stubDeadline struct{}
 
 func (stubDeadline) GetDeliveryDeadline() (time.Duration, error) { return time.Hour, nil }
 
+type stubHopLimit struct{ max int }
+
+func (s stubHopLimit) GetMaxHops() (int, error) {
+	if s.max == 0 {
+		return 20, nil
+	}
+
+	return s.max, nil
+}
+
 func service(t *testing.T) (*Service, *storetest.Stores) {
 	t.Helper()
 	svc, st, _ := serviceWithLauncher(t)
@@ -1550,6 +1592,7 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 		MessageReadWriter: st.Messages,
 		AgentFinder:       st.Agents,
 		DeadlineReader:    stubDeadline{},
+		HopLimitReader:    stubHopLimit{},
 	})
 
 	return NewService(NewServiceParams{

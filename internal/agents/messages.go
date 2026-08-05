@@ -22,8 +22,13 @@ var ErrSelfAddressed = errors.New("an agent cannot send itself a message")
 
 var ErrMailboxFull = errors.New("the recipient's mailbox is full")
 
+// ErrThreadCapped is returned rather than silently letting a reply thread run forever, so a
+// sender that hits it can say the thread is over instead of assuming weave is broken.
+var ErrThreadCapped = errors.New("this thread has reached its hop limit")
+
 type messageReadWriter interface {
 	Send(ctx context.Context, params messagestore.SendParams) (*messagestore.Message, error)
+	GetByID(ctx context.Context, id string) (*messagestore.Message, error)
 	Claim(ctx context.Context, toAgentID string, limit int32) ([]messagestore.Message, error)
 	CountPending(ctx context.Context, toAgentID string) (int64, error)
 }
@@ -34,6 +39,12 @@ type deadlineReader interface {
 	GetDeliveryDeadline() (time.Duration, error)
 }
 
+// hopLimitReader is how many messages may pass along one reply thread, read per send the
+// way the deadline is.
+type hopLimitReader interface {
+	GetMaxHops() (int, error)
+}
+
 type agentFinder interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 }
@@ -42,12 +53,14 @@ type MessageService struct {
 	messageReadWriter messageReadWriter
 	agentFinder       agentFinder
 	deadlineReader    deadlineReader
+	hopLimitReader    hopLimitReader
 }
 
 type NewMessageServiceParams struct {
 	MessageReadWriter messageReadWriter
 	AgentFinder       agentFinder
 	DeadlineReader    deadlineReader
+	HopLimitReader    hopLimitReader
 }
 
 func NewMessageService(p NewMessageServiceParams) *MessageService {
@@ -55,6 +68,7 @@ func NewMessageService(p NewMessageServiceParams) *MessageService {
 		messageReadWriter: p.MessageReadWriter,
 		agentFinder:       p.AgentFinder,
 		deadlineReader:    p.DeadlineReader,
+		hopLimitReader:    p.HopLimitReader,
 	}
 }
 
@@ -93,6 +107,25 @@ func (s *MessageService) SendMessage(ctx context.Context, params SendMessagePara
 		return nil, fmt.Errorf("%w: %q is holding %d unread", ErrMailboxFull, recipient.Name, pending)
 	}
 
+	hops := int32(1)
+	if params.ReplyTo != nil {
+		parent, err := s.messageReadWriter.GetByID(ctx, *params.ReplyTo)
+		if err != nil {
+			return nil, err
+		}
+		if parent != nil {
+			hops = parent.Hops + 1
+		}
+	}
+
+	maxHops, err := s.hopLimitReader.GetMaxHops()
+	if err != nil {
+		return nil, err
+	}
+	if int(hops) > maxHops {
+		return nil, fmt.Errorf("%w: %d hops is the limit for this thread, say so and stop rather than replying again", ErrThreadCapped, maxHops)
+	}
+
 	deadline, err := s.deadlineReader.GetDeliveryDeadline()
 	if err != nil {
 		return nil, err
@@ -102,6 +135,7 @@ func (s *MessageService) SendMessage(ctx context.Context, params SendMessagePara
 		ToAgentID: recipient.ID,
 		Body:      params.Body,
 		ReplyTo:   params.ReplyTo,
+		Hops:      hops,
 		ExpiresAt: time.Now().Add(deadline),
 	}
 	if sender != nil {

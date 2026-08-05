@@ -46,6 +46,10 @@ const DefaultLogViewer = `less -R +F "$WEAVE_LOG"`
 // enough that nothing chases a recipient nobody is coming back to.
 const DefaultDeliveryDeadline = "3h"
 
+// DefaultMaxHops is how many messages may pass along one reply thread when the config
+// names no limit, ten rounds each way between two agents.
+const DefaultMaxHops = 20
+
 // DefaultMaxAgents is how many agents may exist at once when the config names no number,
 // well above what anyone opens by hand and low enough to catch a caller in a loop.
 const DefaultMaxAgents = 50
@@ -338,6 +342,10 @@ type Messages struct {
 	// message past it is neither delivered nor readable, and the row is kept as a record
 	// that it never arrived.
 	DeliveryDeadline string `mapstructure:"delivery_deadline"`
+	// How many messages may pass along one reply thread before a send is refused. A reply
+	// takes its parent's hop count plus one, so this caps a back-and-forth rather than the
+	// total mail between two agents.
+	MaxHops int `mapstructure:"max_hops"`
 }
 
 // GetDeliveryDeadline is how long a message stays deliverable, parsed. A duration that will
@@ -357,6 +365,21 @@ func (m Messages) GetDeliveryDeadline() (time.Duration, error) {
 	}
 
 	return parsed, nil
+}
+
+// GetMaxHops is how many messages may pass along one reply thread, defaulted. A limit that
+// is not positive is an error rather than the default, for the same reason an unparseable
+// deadline is: a config somebody wrote and weave quietly ignored is worse than one it
+// refuses.
+func (m Messages) GetMaxHops() (int, error) {
+	if m.MaxHops == 0 {
+		m.MaxHops = DefaultMaxHops
+	}
+	if m.MaxHops < 0 {
+		return 0, fmt.Errorf("the message hop limit must be positive, not %d", m.MaxHops)
+	}
+
+	return m.MaxHops, nil
 }
 
 // Log is how much the background service writes about itself. Where it writes is not
@@ -438,7 +461,7 @@ func Defaults() *Config {
 		Layout:         DefaultLayout(),
 		Marks:          DefaultMarks(),
 		Keybindings:    DefaultKeybindings(),
-		Messages:       Messages{DeliveryDeadline: DefaultDeliveryDeadline},
+		Messages:       Messages{DeliveryDeadline: DefaultDeliveryDeadline, MaxHops: DefaultMaxHops},
 		Log:            Log{Level: DefaultLogLevel, Viewer: DefaultLogViewer},
 		Connection:     DefaultConnection(),
 	}
