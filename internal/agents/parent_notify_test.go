@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/internal/caller"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 
@@ -153,6 +154,57 @@ func TestDeleteTellsAParentItsDelegateIsGone(t *testing.T) {
 			assert.Equal(t, WeaveSenderName, claimed[0].FromName, "a lifecycle notice reads as weave's own voice")
 			assert.Nil(t, claimed[0].FromAgentID)
 			assert.Contains(t, claimed[0].Body, "deleted")
+		})
+	}
+}
+
+// TestNotifyParentsSkipsTheActorsOwnDelegate covers the noise case: a parent that archived
+// or deleted its own delegate already knows, since it just did it, so mailing it back would
+// spend a turn reading news it made happen. Anyone else acting on that delegate, including
+// the panel operator, still produces the notice.
+func TestNotifyParentsSkipsTheActorsOwnDelegate(t *testing.T) {
+	tests := []struct {
+		name        string
+		actor       func(parentID, otherID string) string
+		wantMessage bool
+	}{
+		{
+			name:        "the parent archiving its own delegate hears nothing",
+			actor:       func(parentID, _ string) string { return parentID },
+			wantMessage: false,
+		},
+		{
+			name:        "the panel operator archiving the same delegate still tells the parent",
+			actor:       func(_, _ string) string { return "" },
+			wantMessage: true,
+		},
+		{
+			name:        "another agent archiving somebody else's delegate still tells the parent",
+			actor:       func(_, otherID string) string { return otherID },
+			wantMessage: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := newFakeTmux()
+			st := newStore(t)
+			manager := newManagerWithNotifier(tmux, st, newNotifier(st))
+
+			parent := seedRunning(t, st, tmux, "parent", "%parent", agentstore.StateIdle)
+			other := seedRunning(t, st, tmux, "other", "%other", agentstore.StateIdle)
+			child := seedSpawned(t, st, parent.ID)
+
+			ctx := caller.With(t.Context(), caller.Caller{AgentID: tt.actor(parent.ID, other.ID)})
+			require.NoError(t, manager.ArchiveAgents(ctx, []string{child.ID}))
+
+			claimed, err := st.Messages.Claim(t.Context(), parent.ID, 10)
+			require.NoError(t, err)
+			if tt.wantMessage {
+				assert.Len(t, claimed, 1)
+			} else {
+				assert.Empty(t, claimed)
+			}
 		})
 	}
 }

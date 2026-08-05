@@ -449,9 +449,15 @@ func (s *AgentService) ArchiveAgents(ctx context.Context, ids []string) error {
 // one. A person or a tool asked for these agents to go away; a mailbox that refuses the
 // news, or a parent that went away in the same batch and no longer accepts mail, is not a
 // reason to undo that, so failures are logged rather than returned.
+//
+// A parent acting on its own delegate is skipped: it already knows, since it just did it,
+// and mailing it anyway would spend a turn reading news it made happen. Anyone else acting
+// on that delegate, including a person at the panel, still produces the notice.
 func notifyParents(ctx context.Context, notifier parentNotifier, agents []agentstore.Agent, reason string) {
+	actor := caller.From(ctx).AgentID
+
 	for _, agent := range agents {
-		if agent.SpawnedByAgentID == nil {
+		if agent.SpawnedByAgentID == nil || *agent.SpawnedByAgentID == actor {
 			continue
 		}
 
