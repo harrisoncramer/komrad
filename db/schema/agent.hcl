@@ -406,6 +406,13 @@ table "agents" {
     null = true
     type = text
   }
+  # The agent that called create_agent to launch this one, null for one a person started
+  # from the panel. Set null rather than cascaded on delete: losing a parent must not take
+  # the work its children did with it.
+  column "spawned_by_agent_id" {
+    null = true
+    type = uuid
+  }
   # When the row was archived, null while it is live.
   column "archived_at" {
     null = true
@@ -458,6 +465,12 @@ table "agents" {
     columns     = [column.schedule_id]
     ref_columns = [table.schedules.column.id]
     on_delete   = RESTRICT
+    on_update   = NO_ACTION
+  }
+  foreign_key "agents_spawned_by_agent_id_fkey" {
+    columns     = [column.spawned_by_agent_id]
+    ref_columns = [table.agents.column.id]
+    on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
   # Unique per workflow, among live records only. A name is a label the panel renders

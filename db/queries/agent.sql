@@ -114,7 +114,8 @@ INSERT INTO agents(
     idempotency_key,
     is_hidden,
     setup_action,
-    cleanup_action)
+    cleanup_action,
+    spawned_by_agent_id)
 VALUES (
     @id,
     @name,
@@ -130,7 +131,8 @@ VALUES (
     sqlc.narg('idempotency_key'),
     @is_hidden,
     sqlc.narg('setup_action'),
-    sqlc.narg('cleanup_action'))
+    sqlc.narg('cleanup_action'),
+    sqlc.narg('spawned_by_agent_id'))
 RETURNING
     id;
 

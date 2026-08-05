@@ -49,6 +49,9 @@ message Agent {
   repeated AgentMetadata metadata = 16;
   // The key the creator claimed this agent under, unset for one created without a claim.
   optional string idempotency_key = 17;
+  // The agent that called create_agent to launch this one, unset for one a person started
+  // from the panel.
+  optional string spawned_by_agent_id = 20;
 }
 
 // AgentMetadata is one fact an agent recorded about its own work: the issue it is

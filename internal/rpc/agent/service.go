@@ -105,7 +105,7 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 		return nil, connect.NewError(connect.CodeNotFound, err)
 	case errors.Is(err, agents.ErrSetupFailed):
 		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
-	case errors.Is(err, agents.ErrBadDirectory), errors.Is(err, harness.ErrNotRegistered):
+	case errors.Is(err, agents.ErrBadDirectory), errors.Is(err, harness.ErrNotRegistered), errors.Is(err, agents.ErrSpawnerUnknown):
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	case errors.Is(err, agents.ErrTooManyAgents):
 		return nil, connect.NewError(connect.CodeResourceExhausted, err)

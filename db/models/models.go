@@ -10,27 +10,28 @@ import (
 
 // One background Claude agent, everything needed to restore it.
 type Agent struct {
-	ID             string
-	Name           string
-	Cwd            string
-	Flags          string
-	Prompt         string
-	PaneID         string
-	State          string
-	Harness        string
-	SessionID      string
-	WorkflowID     string
-	ScheduleID     *string
-	IdempotencyKey *string
-	ArchivedAt     *time.Time
-	IsHidden       bool
-	Mark           *string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	StateChangedAt time.Time
-	SetupAction    *string
-	CleanupAction  *string
-	NudgedAt       *time.Time
+	ID               string
+	Name             string
+	Cwd              string
+	Flags            string
+	Prompt           string
+	PaneID           string
+	State            string
+	Harness          string
+	SessionID        string
+	WorkflowID       string
+	ScheduleID       *string
+	IdempotencyKey   *string
+	ArchivedAt       *time.Time
+	IsHidden         bool
+	Mark             *string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	StateChangedAt   time.Time
+	SetupAction      *string
+	CleanupAction    *string
+	NudgedAt         *time.Time
+	SpawnedByAgentID *string
 }
 
 // One message from one agent to another, held until the recipient claims it.
