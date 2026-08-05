@@ -127,10 +127,11 @@ func TestAgentMarkdown(t *testing.T) {
 			name:  "a live agent claims no dormancy and lists its record",
 			alive: true,
 			wantContain: []string{
-				"- directory: /repo",
-				"- agent_id: a1",
-				"- session_id: abc",
-				"- flags: —",
+				"1. agent: —",
+				"2. directory: /repo",
+				"3. flags: —",
+				"4. agent_id: a1",
+				"5. session_id: abc",
 			},
 			wantAbsent: []string{"dormant", "Press open to resume"},
 		},
@@ -138,7 +139,7 @@ func TestAgentMarkdown(t *testing.T) {
 			name:        "an agent a schedule launched names the schedule",
 			alive:       true,
 			schedule:    "morning-ci",
-			wantContain: []string{"- launched by: morning-ci"},
+			wantContain: []string{"launched by: morning-ci"},
 		},
 		{
 			name:       "one a person started claims no schedule",
@@ -146,21 +147,20 @@ func TestAgentMarkdown(t *testing.T) {
 			wantAbsent: []string{"launched by"},
 		},
 		{
-			name:       "an agent that recorded nothing draws no heading for it",
+			name:       "an agent that recorded nothing adds nothing for it",
 			alive:      true,
-			wantAbsent: []string{"metadata"},
+			wantAbsent: []string{"branch", "pull"},
 		},
 		{
-			name:  "what the agent recorded is listed under its own heading",
+			name:  "what the agent recorded is numbered in with the rest and copyable",
 			alive: true,
 			metadata: []agentstore.Metadata{
 				{Key: "branch", Value: "harry/rate-limits"},
 				{Key: "pr", Value: "https://github.com/o/r/pull/312"},
 			},
 			wantContain: []string{
-				"## metadata",
-				"- branch: harry/rate-limits",
-				"- pr: https://github.com/o/r/pull/312",
+				"branch: harry/rate-limits",
+				"pr: https://github.com/o/r/pull/312",
 			},
 		},
 	}
@@ -173,10 +173,15 @@ func TestAgentMarkdown(t *testing.T) {
 			got := agentMarkdown(agent, tt.alive, tt.schedule)
 
 			for _, want := range tt.wantContain {
-				assert.Contains(t, got, want)
+				assert.Contains(t, got.markdown, want)
 			}
 			for _, absent := range tt.wantAbsent {
-				assert.NotContains(t, got, absent)
+				assert.NotContains(t, got.markdown, absent)
+			}
+
+			if len(tt.metadata) > 0 {
+				assert.Contains(t, got.values, "harry/rate-limits", "the metadata value is copyable")
+				assert.Contains(t, got.values, "https://github.com/o/r/pull/312", "the metadata value is copyable")
 			}
 		})
 	}
@@ -201,17 +206,18 @@ func TestWorkflowMarkdown(t *testing.T) {
 	wantContain := []string{
 		"# api",
 		"shared notes",
-		"- agents: 3",
-		"- default agent: codex",
-		"- directory: /repo/api",
-		"- flags: --model opus",
-		"- setup: bootstrap",
-		"- cleanup: teardown",
+		"1. agents: 3",
+		"2. default agent: codex",
+		"3. directory: /repo/api",
+		"4. flags: --model opus",
+		"5. setup: bootstrap",
+		"6. cleanup: teardown",
 	}
 
 	for _, want := range wantContain {
-		assert.Contains(t, got, want)
+		assert.Contains(t, got.markdown, want)
 	}
+	assert.Equal(t, []string{"3", "codex", "/repo/api", "--model opus", "bootstrap", "teardown"}, got.values)
 }
 
 // recordingTmux records only what the stage does, so a test can tell a

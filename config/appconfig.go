@@ -186,9 +186,6 @@ type AgentsKeys struct {
 	Archive []string `mapstructure:"archive"`
 	// Step out of a workflow scope, or quit at the root.
 	Back []string `mapstructure:"back"`
-	// Open the hovered agent's directory in your EDITOR.
-	// the key does.
-	Editor []string `mapstructure:"editor"`
 	// Hide the hovered agent from this list.
 	Hide []string `mapstructure:"hide"`
 	// Show the hovered agent's stored record in the pane under the stage.
@@ -208,9 +205,6 @@ type AgentsKeys struct {
 	Search []string `mapstructure:"search"`
 	// Toggles visibility of hidden agents alongside the rest.
 	ShowHidden []string `mapstructure:"show_hidden"`
-	// Open a shell in the pane under the stage, in the hovered agent's directory.
-	// This runs the _terminal action, write your own _terminal in your actions directory.
-	Terminal []string `mapstructure:"terminal"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow. New is global. Rename,
@@ -533,7 +527,6 @@ func DefaultKeybindings() Keybindings {
 		Agents: AgentsKeys{
 			Archive:    []string{"z"},
 			Back:       []string{"esc"},
-			Editor:     []string{"e"},
 			Hide:       []string{"h"},
 			Info:       []string{"i"},
 			Mark:       []string{"m"},
@@ -543,7 +536,6 @@ func DefaultKeybindings() Keybindings {
 			Rename:     []string{"r"},
 			Search:     []string{"s"},
 			ShowHidden: []string{"H"},
-			Terminal:   []string{"t"},
 		},
 		Archive: ArchiveKeys{
 			Back:    []string{"esc"},

@@ -171,6 +171,10 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.applyPreview(msg)
 
 		return m, nil, true
+	case copyResult:
+		m.report("Could not copy to your clipboard", msg.err)
+
+		return m, nil, true
 	default:
 		return m, nil, false
 	}

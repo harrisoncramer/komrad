@@ -47,7 +47,6 @@ const (
 	belowNothing belowKind = iota
 	belowRecord
 	belowLogs
-	belowAction
 	// belowEdit is an action's own file open in the user's editor. It is a kind of its own
 	// because the key that closes it is decided by which file is down there rather than by
 	// which script put it there.

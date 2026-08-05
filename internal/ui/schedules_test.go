@@ -275,11 +275,11 @@ func TestScheduleMarkdown(t *testing.T) {
 				Name: "api",
 			},
 			wants: []string{
-				"- default agent: —",
-				"- directory: —",
-				"- flags: —",
-				"- setup: —",
-				"- cleanup: —",
+				"4. default agent: —",
+				"5. directory: —",
+				"6. flags: —",
+				"7. setup: —",
+				"8. cleanup: —",
 			},
 		},
 		{
@@ -293,7 +293,7 @@ func TestScheduleMarkdown(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rendered := scheduleMarkdown(tt.item, tt.workflow)
+			rendered := scheduleMarkdown(tt.item, tt.workflow).markdown
 
 			for _, want := range tt.wants {
 				assert.Contains(t, rendered, want)

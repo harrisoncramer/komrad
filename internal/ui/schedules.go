@@ -56,6 +56,10 @@ func (m model) scheduleRows() []scheduleItem {
 func (m model) updateSchedules(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
+	if cmd, ok := m.tryCopyRecordValue(k); ok {
+		return m, cmd
+	}
+
 	switch {
 	case isBound(k, m.keys.Filter.Open):
 		return m.openFilter()
@@ -101,14 +105,18 @@ func (m model) selectedSchedule() (scheduleItem, bool) {
 
 // stageSchedule shows the hovered schedule's record in the stage. Nothing runs for a
 // schedule, so there is never a pane to swap in.
-func (m model) stageSchedule() {
+func (m *model) stageSchedule() {
 	item, ok := m.selectedSchedule()
 	if !ok {
 		m.stage.Text(noSchedulesMarkdown)
+		m.recordValues = nil
+
 		return
 	}
 
-	m.stage.Text(scheduleMarkdown(item, m.workflowByID(item.schedule.WorkflowID)))
+	rec := scheduleMarkdown(item, m.workflowByID(item.schedule.WorkflowID))
+	m.stage.Text(rec.markdown)
+	m.recordValues = rec.values
 }
 
 // workflowByID finds a workflow in the list the panel already polls, nil when none holds

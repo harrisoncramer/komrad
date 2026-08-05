@@ -52,6 +52,9 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) updateAgentsBrowsing(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
+	if cmd, ok := m.tryCopyRecordValue(k); ok {
+		return m, cmd
+	}
 	if isBound(k, m.keys.Filter.Open) {
 		return m.openFilter()
 	}
@@ -90,10 +93,6 @@ func (m model) updateAgentsBrowsing(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.toggleRecord()
 	case isBound(k, m.keys.Agents.Open):
 		return m.openAgent()
-	case isBound(k, m.keys.Agents.Editor):
-		return m.runBelowAction(editorAction, "Could not open your editor")
-	case isBound(k, m.keys.Agents.Terminal):
-		return m.runBelowAction(terminalAction, "Could not open a shell")
 	case isBound(k, m.keys.Actions.Open):
 		return m.enterActions()
 	}
@@ -253,11 +252,6 @@ func (m model) openAgent() (tea.Model, tea.Cmd) {
 	})
 }
 
-const (
-	editorAction   = "_editor"
-	terminalAction = "_terminal"
-)
-
 func (m model) toggleRecord() (tea.Model, tea.Cmd) {
 	if m.tree.below == belowRecord {
 		return m.closeBelow(), nil
@@ -269,22 +263,6 @@ func (m model) toggleRecord() (tea.Model, tea.Cmd) {
 		m.stageSelection()
 
 		return m, nil
-	})
-}
-
-func (m model) runBelowAction(name, summary string) (tea.Model, tea.Cmd) {
-	if m.tree.below == belowAction && m.tree.belowAction == name {
-		return m.closeBelow(), nil
-	}
-
-	return m.withSelectedAgent(func(item agentItem) (tea.Model, tea.Cmd) {
-		if !m.claimBelow(belowAction, name) {
-			return m, nil
-		}
-
-		agentID := item.agent.ID
-
-		return m, m.writeCmd(summary, func(a api) error { return a.runAction(agentID, name) })
 	})
 }
 
@@ -363,10 +341,11 @@ func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	return m, m.writeCmd(failure, func(a api) error { return a.setHidden(agent, !agent.Hidden) })
 }
 
-func (m model) stageSelection() {
+func (m *model) stageSelection() {
 	rows := m.agentRows()
 	if m.tree.cursor < 0 || m.tree.cursor >= len(rows) {
 		m.stage.Blank()
+		m.recordValues = nil
 		m.stageBelow()
 
 		return
@@ -375,17 +354,22 @@ func (m model) stageSelection() {
 	r := rows[m.tree.cursor]
 	switch {
 	case r.header:
-		m.stage.Text(workflowMarkdown(r.workflow, m.agentCount(r.workflow.ID)))
+		rec := workflowMarkdown(r.workflow, m.agentCount(r.workflow.ID))
+		m.stage.Text(rec.markdown)
+		m.recordValues = rec.values
 	case r.item.alive:
 		m.stage.Agent(r.item.agent.Pane)
+		m.recordValues = nil
 	default:
-		m.stage.Text(agentMarkdown(r.item.agent, false, m.scheduleName(r.item.agent)))
+		rec := agentMarkdown(r.item.agent, false, m.scheduleName(r.item.agent))
+		m.stage.Text(rec.markdown)
+		m.recordValues = rec.values
 	}
 
 	m.stageBelow()
 }
 
-func (m model) stageBelow() {
+func (m *model) stageBelow() {
 	switch m.tree.below {
 	case belowRecord:
 		rows := m.agentRows()
@@ -394,11 +378,13 @@ func (m model) stageBelow() {
 		}
 
 		if r := rows[m.tree.cursor]; !r.header {
-			m.stage.SecondaryText(agentMarkdown(r.item.agent, r.item.alive, m.scheduleName(r.item.agent)))
+			rec := agentMarkdown(r.item.agent, r.item.alive, m.scheduleName(r.item.agent))
+			m.stage.SecondaryText(rec.markdown)
+			m.recordValues = rec.values
 		}
 	case belowLogs:
 		m.stage.SecondaryLog(m.logPath, logArgv(m.logViewer, m.logPath))
-	case belowNothing, belowAction, belowEdit:
+	case belowNothing, belowEdit:
 	}
 }
 

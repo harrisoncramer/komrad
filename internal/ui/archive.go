@@ -146,6 +146,10 @@ func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.updateArchiveSelection(key)
 	}
 
+	if cmd, ok := m.tryCopyRecordValue(k); ok {
+		return m, cmd
+	}
+
 	switch {
 	case isBound(k, m.keys.Filter.Open):
 		return m.openFilter()
@@ -333,22 +337,27 @@ func (m model) updateArchiveDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // stageArchive shows the hovered row's stored record in the stage. Nothing in the archive
 // is running, so there is never a pane to swap in.
-func (m model) stageArchive() {
+func (m *model) stageArchive() {
 	rows := m.archiveRows()
 	if m.archive.cursor < 0 || m.archive.cursor >= len(rows) {
 		m.stage.Text(emptyArchiveMarkdown)
+		m.recordValues = nil
 
 		return
 	}
 
 	r := rows[m.archive.cursor]
 	if r.header {
-		m.stage.Text(workflowMarkdown(r.workflow, m.archivedCount(r.workflow.ID)))
+		rec := workflowMarkdown(r.workflow, m.archivedCount(r.workflow.ID))
+		m.stage.Text(rec.markdown)
+		m.recordValues = rec.values
 
 		return
 	}
 
-	m.stage.Text(archiveMarkdown(r.item.agent, m.scheduleName(r.item.agent)))
+	rec := archiveMarkdown(r.item.agent, m.scheduleName(r.item.agent))
+	m.stage.Text(rec.markdown)
+	m.recordValues = rec.values
 }
 
 // archivedCount is how many archived agents sit under a workflow, which is what a folder

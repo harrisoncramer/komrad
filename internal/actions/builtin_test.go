@@ -19,7 +19,7 @@ func TestInstallBuiltins(t *testing.T) {
 
 	found, err := NewRunner().Discover(dir)
 	require.NoError(t, err)
-	require.NotEmpty(t, found, "this build ships at least the editor and the shell")
+	require.NotEmpty(t, found, "this build ships at least the action editor")
 
 	names := make([]string, 0, len(found))
 	for _, action := range found {
@@ -27,8 +27,7 @@ func TestInstallBuiltins(t *testing.T) {
 		assert.True(t, action.Executable, "%s reached disk without the executable bit", action.Name)
 	}
 
-	assert.Contains(t, names, "_editor")
-	assert.Contains(t, names, "_terminal")
+	assert.Contains(t, names, "_edit_action")
 	assert.NotContains(t, names, markerName, "the file claiming the directory is not something to run")
 }
 

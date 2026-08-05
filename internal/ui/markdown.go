@@ -7,6 +7,7 @@ import (
 	"weave/lib/dates"
 
 	agentstore "weave/internal/store/agent"
+	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
 )
 
@@ -22,66 +23,132 @@ func orDash(v string) string {
 	return v
 }
 
-// workflowMarkdown renders a workflow's name, shared context, and config for the stage.
-func workflowMarkdown(w workflowstore.Workflow, agents int) string {
+// recordField is one line of a record's numbered fields: a label and the value a digit
+// key copies to the clipboard.
+type recordField struct {
+	label string
+	value string
+}
+
+// record is a screen's rendered document alongside the values its numbered fields
+// copy, in the order they are numbered, so a digit key can act on whichever one it
+// names without re-parsing the markdown it produced.
+type record struct {
+	markdown string
+	values   []string
+}
+
+// renderRecord builds a record: a title, an optional one-line notice under it, the
+// numbered fields in order, then free-form prose such as a workflow's context or a
+// schedule's prompt, then a closing footer note. The fields come first because they
+// are what a digit key copies and what most presses of the info key are after, while
+// the prose beneath them can run long.
+func renderRecord(title, notice string, fields []recordField, prose, footer string) record {
 	var b strings.Builder
-	fmt.Fprintf(&b, "# %s\n\n", w.Name)
-	if strings.TrimSpace(w.Context) != "" {
-		b.WriteString(w.Context + "\n\n")
-	} else {
-		b.WriteString("_no shared context set_\n\n")
+	fmt.Fprintf(&b, "# %s\n\n", title)
+	if notice != "" {
+		b.WriteString(notice + "\n\n")
 	}
 	b.WriteString("---\n\n")
-	fmt.Fprintf(&b, "- agents: %d\n", agents)
-	writeWorkflowConfigMarkdown(&b, w)
 
-	return b.String()
+	values := make([]string, 0, len(fields))
+	for i, f := range fields {
+		fmt.Fprintf(&b, "%d. %s: %s\n", i+1, f.label, f.value)
+		values = append(values, f.value)
+	}
+
+	if prose != "" {
+		b.WriteString("\n" + prose + "\n")
+	}
+	if footer != "" {
+		b.WriteString("\n" + footer + "\n")
+	}
+
+	return record{markdown: b.String(), values: values}
+}
+
+// workflowFields are a workflow's own numbered fields: how many agents it holds, then
+// the defaults future agents under it inherit.
+func workflowFields(w workflowstore.Workflow, agentCount int) []recordField {
+	return append([]recordField{{"agents", fmt.Sprintf("%d", agentCount)}}, workflowConfigFields(w)...)
+}
+
+// workflowConfigFields are the defaults a workflow hands to the agents it starts,
+// shared between a workflow's own record and a schedule's, which fires into the same
+// workflow.
+func workflowConfigFields(w workflowstore.Workflow) []recordField {
+	return []recordField{
+		{"default agent", orDash(w.Harness)},
+		{"directory", orDash(w.Cwd)},
+		{"flags", orDash(w.Flags)},
+		{"setup", orDash(w.SetupAction)},
+		{"cleanup", orDash(w.CleanupAction)},
+	}
+}
+
+// workflowMarkdown renders a workflow's name, its numbered fields, and its shared
+// context for the stage.
+func workflowMarkdown(w workflowstore.Workflow, agentCount int) record {
+	prose := "_no shared context set_"
+	if strings.TrimSpace(w.Context) != "" {
+		prose = w.Context
+	}
+
+	return renderRecord(w.Name, "", workflowFields(w, agentCount), prose, "")
+}
+
+// agentFields are an agent's own numbered fields, in the order they were launched
+// with, plus whatever it has since recorded about its own work under metadata. The
+// metadata values go in bare, since they are mostly URLs and markdown link syntax
+// would hide the target this section exists to show.
+func agentFields(agent agentstore.Agent, schedule string) []recordField {
+	fields := []recordField{
+		{"agent", orDash(agent.Harness)},
+		{"directory", orDash(agent.Cwd)},
+		{"flags", orDash(agent.Flags)},
+		// Both ids are shown because both get typed into something: the agent id is
+		// what the panel and its tools call this agent, and the session id is what
+		// its CLI calls the conversation, which is what a resume by hand takes.
+		{"agent_id", orDash(agent.ID)},
+		{"session_id", orDash(agent.SessionID)},
+	}
+	if schedule != "" {
+		fields = append(fields, recordField{"launched by", schedule})
+	}
+	if created := dates.Friendly(agent.CreatedAt); created != "" {
+		fields = append(fields, recordField{"created", created})
+	}
+	if agent.Mark != nil {
+		fields = append(fields, recordField{"mark", *agent.Mark})
+	}
+	for _, entry := range agent.Metadata {
+		fields = append(fields, recordField{entry.Key, entry.Value})
+	}
+
+	return fields
 }
 
 // agentMarkdown renders an agent's stored record for the stage, which is all there is of a
 // dormant agent and what a live one shows on demand, since its pane otherwise hides the
 // cwd and flags it was launched with. The values are as stored at launch.
-func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "# %s\n\n", agent.Name)
+func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) record {
+	var notice string
 	if !alive {
-		b.WriteString("_dormant — not running_\n\n")
-	}
-	b.WriteString("---\n\n")
-	fmt.Fprintf(&b, "- agent: %s\n", orDash(agent.Harness))
-	fmt.Fprintf(&b, "- directory: %s\n", orDash(agent.Cwd))
-	fmt.Fprintf(&b, "- flags: %s\n", orDash(agent.Flags))
-	// Both ids are shown because both get typed into something: the agent id is what the
-	// panel and its tools call this agent, and the session id is what its CLI calls the
-	// conversation, which is what a resume by hand takes.
-	fmt.Fprintf(&b, "- agent_id: %s\n", orDash(agent.ID))
-	fmt.Fprintf(&b, "- session_id: %s\n", orDash(agent.SessionID))
-	if schedule != "" {
-		fmt.Fprintf(&b, "- launched by: %s\n", schedule)
-	}
-	if created := dates.Friendly(agent.CreatedAt); created != "" {
-		fmt.Fprintf(&b, "- created: %s\n", created)
-	}
-	if agent.Mark != nil {
-		fmt.Fprintf(&b, "- mark: %s\n", *agent.Mark)
-	}
-	if agent.Hidden {
-		b.WriteString("- hidden from the list\n")
-	}
-	// What the agent recorded about its own work, the one part of this record it wrote
-	// rather than took at launch. The values go in bare, since they are mostly URLs and
-	// markdown link syntax would hide the target this section exists to show.
-	if len(agent.Metadata) > 0 {
-		b.WriteString("\n## metadata\n\n")
-		for _, entry := range agent.Metadata {
-			fmt.Fprintf(&b, "- %s: %s\n", entry.Key, entry.Value)
-		}
-	}
-	if !alive {
-		b.WriteString("\nPress open to resume.\n")
+		notice = "_dormant — not running_"
 	}
 
-	return b.String()
+	var footer string
+	if agent.Hidden {
+		footer = "Hidden from the list."
+	}
+	if !alive {
+		if footer != "" {
+			footer += "\n\n"
+		}
+		footer += "Press open to resume."
+	}
+
+	return renderRecord(agent.Name, notice, agentFields(agent, schedule), "", footer)
 }
 
 // actionMarkdown renders an action's record for the stage: its name and what its own header
@@ -123,52 +190,45 @@ const noSchedulesMarkdown = "# Schedules\n\n" +
 	"A schedule launches an agent on a cron expression.\n\n" +
 	"Press the new key to write one.\n"
 
-// scheduleMarkdown renders a schedule's record for the stage.
-func scheduleMarkdown(item scheduleItem, workflow *workflowstore.Workflow) string {
-	sched := item.schedule
-
-	var b strings.Builder
-	fmt.Fprintf(&b, "# %s\n\n", sched.Name)
-	if sched.Enabled {
-		fmt.Fprintf(&b, "_next run %s_\n\n", orDash(dates.Friendly(item.nextRun)))
-	} else {
-		b.WriteString("_paused — will not run_\n\n")
+// scheduleFields are a schedule's own numbered fields, its own settings first and then
+// whatever the workflow it fires into hands each run.
+func scheduleFields(sched schedulestore.Schedule, workflow *workflowstore.Workflow) []recordField {
+	fields := []recordField{
+		{"cron", orDash(sched.Cron)},
+		{"timezone", orDash(sched.Timezone)},
 	}
 
-	if strings.TrimSpace(sched.Prompt) != "" {
-		b.WriteString(sched.Prompt + "\n\n")
-	} else {
-		b.WriteString("_no prompt set_\n\n")
-	}
-
-	b.WriteString("---\n\n")
-	fmt.Fprintf(&b, "- cron: %s\n", orDash(sched.Cron))
-	fmt.Fprintf(&b, "- timezone: %s\n", orDash(sched.Timezone))
-	if sched.HideAgents {
-		b.WriteString("- its runs start hidden\n")
-	}
-
-	// The directory and flags belong to the workflow and are read as the schedule fires,
-	// so they show under the workflow rather than as settings of the schedule.
 	if workflow == nil {
-		b.WriteString("- workflow: — (archived)\n")
-
-		return b.String()
+		return append(fields, recordField{"workflow", "— (archived)"})
 	}
 
-	fmt.Fprintf(&b, "- workflow: %s\n", workflow.Name)
-	writeWorkflowConfigMarkdown(&b, *workflow)
+	fields = append(fields, recordField{"workflow", workflow.Name})
 
-	return b.String()
+	return append(fields, workflowConfigFields(*workflow)...)
 }
 
-// writeWorkflowConfigMarkdown renders the workflow defaults that future agents inherit.
-func writeWorkflowConfigMarkdown(b *strings.Builder, w workflowstore.Workflow) {
-	fmt.Fprintf(b, "- default agent: %s\n", orDash(w.Harness))
-	fmt.Fprintf(b, "- directory: %s\n", orDash(w.Cwd))
-	fmt.Fprintf(b, "- flags: %s\n", orDash(w.Flags))
-	fmt.Fprintf(b, "- setup: %s\n", orDash(w.SetupAction))
-	fmt.Fprintf(b, "- cleanup: %s\n", orDash(w.CleanupAction))
+// scheduleMarkdown renders a schedule's record for the stage.
+func scheduleMarkdown(item scheduleItem, workflow *workflowstore.Workflow) record {
+	sched := item.schedule
+
+	var notice string
+	if sched.Enabled {
+		notice = fmt.Sprintf("_next run %s_", orDash(dates.Friendly(item.nextRun)))
+	} else {
+		notice = "_paused — will not run_"
+	}
+
+	prose := "_no prompt set_"
+	if strings.TrimSpace(sched.Prompt) != "" {
+		prose = sched.Prompt
+	}
+
+	var footer string
+	if sched.HideAgents {
+		footer = "Its runs start hidden."
+	}
+
+	return renderRecord(sched.Name, notice, scheduleFields(sched, workflow), prose, footer)
 }
 
 // emptyArchiveMarkdown is what the stage shows with nothing in the archive, so the pane
@@ -177,28 +237,26 @@ const emptyArchiveMarkdown = "# Archive\n\n_nothing archived_\n\nAgents archived
 
 // archiveMarkdown renders an archived agent's stored record for the stage: what the agents
 // list shows, minus the liveness, plus what the two keys here would do to it.
-func archiveMarkdown(agent agentstore.Agent, schedule string) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "# %s\n\n", agent.Name)
-	b.WriteString("_archived — kept until deleted_\n\n")
-	b.WriteString("---\n\n")
-	fmt.Fprintf(&b, "- agent: %s\n", orDash(agent.Harness))
-	fmt.Fprintf(&b, "- directory: %s\n", orDash(agent.Cwd))
-	fmt.Fprintf(&b, "- flags: %s\n", orDash(agent.Flags))
-	fmt.Fprintf(&b, "- agent_id: %s\n", orDash(agent.ID))
-	fmt.Fprintf(&b, "- session_id: %s\n", orDash(agent.SessionID))
+func archiveMarkdown(agent agentstore.Agent, schedule string) record {
+	fields := []recordField{
+		{"agent", orDash(agent.Harness)},
+		{"directory", orDash(agent.Cwd)},
+		{"flags", orDash(agent.Flags)},
+		{"agent_id", orDash(agent.ID)},
+		{"session_id", orDash(agent.SessionID)},
+	}
 	if schedule != "" {
-		fmt.Fprintf(&b, "- launched by: %s\n", schedule)
+		fields = append(fields, recordField{"launched by", schedule})
 	}
 	if created := dates.Friendly(agent.CreatedAt); created != "" {
-		fmt.Fprintf(&b, "- created: %s\n", created)
+		fields = append(fields, recordField{"created", created})
 	}
 	if agent.ArchivedAt != nil {
 		if archived := dates.Friendly(*agent.ArchivedAt); archived != "" {
-			fmt.Fprintf(&b, "- archived: %s\n", archived)
+			fields = append(fields, recordField{"archived", archived})
 		}
 	}
-	b.WriteString("\nRestore brings it back and picks the conversation up where it stopped.\n")
 
-	return b.String()
+	return renderRecord(agent.Name, "_archived — kept until deleted_", fields, "",
+		"Restore brings it back and picks the conversation up where it stopped.")
 }

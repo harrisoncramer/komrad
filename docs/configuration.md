@@ -212,7 +212,7 @@ Two things are not configurable. The keys that close the filter input are fixed,
 
 Where the panel finds the scripts its action key runs. Default `~/.config/weave/actions`.
 
-One executable file per action, named after the action. They run in the agent's directory with the agent as JSON in `WEAVE_AGENT`. A file here overrides a built-in action of the same name, which is how you replace `_terminal` with your own shell. See [actions](actions.md).
+One executable file per action, named after the action. They run in the agent's directory with the agent as JSON in `WEAVE_AGENT`. A file here overrides a built-in action of the same name, which is how you replace `_edit_action` with your own editor. See [actions](actions.md).
 
 ```toml
 [actions]
@@ -370,7 +370,7 @@ Everything under it is weave's to delete and rewrite, so nothing of yours belong
 
 ### EDITOR
 
-The editor the panel's editor key opens an agent's directory in. Default `vi`.
+The editor the actions list's editor key opens an action's own script in. Default `vi`.
 
 There is no config key for this one. Every machine already has an `EDITOR`, it is the same answer for every tool on that machine, and weave does not need to ask for it twice.
 

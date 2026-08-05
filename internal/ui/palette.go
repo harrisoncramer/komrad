@@ -112,6 +112,10 @@ var stageStyle = func() ansi.StyleConfig {
 	style.BlockQuote.Color = ansiColor(colorMuted)
 	style.Item.Color = ansiColor(colorSuccess)
 	style.Enumeration.Color = ansiColor(colorSuccess)
+	// A record's numbered fields read as "1)" rather than glamour's own "1.", and are
+	// dimmed by dimNumbers in stage_render.go after glamour renders, since glamour's
+	// own marker colour never reaches this text (see the comment on numberStyle).
+	style.Enumeration.BlockPrefix = ") "
 	style.Task.Color = ansiColor(colorSuccess)
 	style.Emph.Color = ansiColor(colorWarning)
 	style.Strong.Color = ansiColor(colorWarning)

@@ -68,9 +68,6 @@ run    = ["enter"]
 archive     = ["z"]
 # Step out of a workflow scope, or quit at the root.
 back        = ["esc"]
-# Open the hovered agent's directory in your EDITOR.
-# the key does.
-editor      = ["e"]
 # Hide the hovered agent from this list.
 hide        = ["h"]
 # Show the hovered agent's stored record in the pane under the stage.
@@ -90,9 +87,6 @@ rename      = ["r"]
 search      = ["s"]
 # Toggles visibility of hidden agents alongside the rest.
 show_hidden = ["H"]
-# Open a shell in the pane under the stage, in the hovered agent's directory.
-# This runs the _terminal action, write your own _terminal in your actions directory.
-terminal    = ["t"]
 
 # The archive screen, and the key that opens it from the agents list.
 [keybindings.archive]
@@ -198,7 +192,7 @@ dir = ""
 # Left empty this is ~/.config/weave/context.md, but will not trigger a failure if left blank.
 file = ""
 
-# How messages between agents are delivered.
+# How mail between agents is delivered.
 [messages]
 # How long a message stays deliverable, as a Go duration such as "3h" or "45m". A
 # message past it is neither delivered nor readable, and the row is kept as a record

@@ -285,8 +285,6 @@ func (m model) rowHelp() []key.Binding {
 	return []key.Binding{
 		binding(m.keys.Agents.Open, "open"),
 		binding(m.keys.Selection.Toggle, "select"),
-		binding(m.keys.Agents.Editor, "editor"),
-		binding(m.keys.Agents.Terminal, "terminal"),
 		binding(m.keys.Agents.Info, infoDesc),
 		binding(m.keys.Actions.Open, "actions"),
 		binding(m.keys.Agents.Mark, "cycle mark"),

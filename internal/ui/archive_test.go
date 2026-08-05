@@ -457,7 +457,7 @@ func TestArchiveMarkdown(t *testing.T) {
 	got := archiveMarkdown(agentstore.Agent{
 		Name: "api-refactor", Cwd: "/work/api", Flags: "--model opus", SessionID: "sess-1",
 		ArchivedAt: &archivedAt,
-	}, "nightly")
+	}, "nightly").markdown
 
 	assert.Contains(t, got, "api-refactor")
 	assert.Contains(t, got, "archived")

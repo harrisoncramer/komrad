@@ -172,12 +172,21 @@ type model struct {
 	// logPath is the service's log and logViewer is what the log key opens it in.
 	logPath   string
 	logViewer string
+
+	// recordValues are the values behind whatever record is currently on screen, in
+	// the order its fields are numbered, so a digit key copies the one it names.
+	// Whichever screen renders a record keeps this current as it restages, and it is
+	// nil whenever nothing with numbered fields is showing.
+	recordValues []string
+	// clip is how a copied record value reaches the system clipboard.
+	clip clipboardWriter
 }
 
 func newModel(deps Deps) model {
 	m := model{
 		api:             api{agents: deps.Agents, workflows: deps.Workflows, schedules: deps.Schedules, actions: deps.Actions},
 		popup:           deps.PopupWindow,
+		clip:            systemClipboard{},
 		tmux:            deps.Tmux,
 		stage:           NewStage(deps.Tmux, deps.Layout),
 		addr:            deps.Addr,
