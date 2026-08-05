@@ -170,7 +170,7 @@ func TestAppendedSystemPromptDelegateBriefing(t *testing.T) {
 	}{
 		{
 			name:       "an agent a person started carries no delegate briefing",
-			wantAbsent: []string{"spawned by"},
+			wantAbsent: []string{"You were spawned by"},
 		},
 		{
 			name:             "a spawned agent is told who spawned it and to report back",

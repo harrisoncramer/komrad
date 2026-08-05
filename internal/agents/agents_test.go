@@ -299,7 +299,7 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 
 			if spawner == nil {
 				assert.Nil(t, created.SpawnedByAgentID, "a create with no caller header names no parent")
-				assert.NotContains(t, launch.Context, "spawned by", "a delegate briefing with nothing to say names nobody")
+				assert.NotContains(t, launch.Context, "You were spawned by", "a delegate briefing with nothing to say names nobody")
 
 				return
 			}

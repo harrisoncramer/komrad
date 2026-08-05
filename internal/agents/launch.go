@@ -151,9 +151,7 @@ type launchParams struct {
 	WorkflowContext string
 	SessionID       string
 	AgentID         string
-	// SpawnedByAgentID and SpawnedByName name the agent that called create_agent to start
-	// this one, both empty for one a person started from the panel. Set together: the id
-	// is what a reply is addressed to, the name is what the briefing calls it by.
+	// SpawnedByAgentID and SpawnedByName are both empty for an agent a person started.
 	SpawnedByAgentID string
 	SpawnedByName    string
 	Resume           bool
