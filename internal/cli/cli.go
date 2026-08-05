@@ -146,6 +146,7 @@ func NewRootCommand() *cobra.Command {
 		readonlyRoleCmd(app),
 		rpcCmd(app),
 		hookCmd(app),
+		paletteCmd(app),
 	)
 
 	return root

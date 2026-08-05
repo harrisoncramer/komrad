@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"weave/internal/actions"
+
 	workflowstore "weave/internal/store/workflow"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -128,7 +130,7 @@ func (m model) getAvailableActions() []actionChoice {
 
 	choices := make([]actionChoice, 0, len(listed))
 	for _, action := range listed {
-		if isInternalAction(action.GetName()) {
+		if actions.IsInternal(action.GetName()) {
 			continue
 		}
 

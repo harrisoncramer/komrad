@@ -132,6 +132,26 @@ func TestPaneOwners(t *testing.T) {
 	assert.Equal(t, client.GetPaneOwner(stamped), owners[stamped], "the batch agrees with the single lookup")
 }
 
+// TestActivePaneIsTheOneTheSessionIsOn covers how the palette popup finds the pane it was
+// opened over, which is the only thing that says which agent it acts on.
+func TestActivePaneIsTheOneTheSessionIsOn(t *testing.T) {
+	client := testServer(t, "weave")
+
+	pane, err := client.NewWindow("weave", "agent", t.TempDir())
+	require.NoError(t, err)
+	require.NoError(t, client.SetPaneOwner(pane, "agent-one"))
+
+	_, err = client.query("select-window", "-t", "weave:agent")
+	require.NoError(t, err)
+
+	assert.Equal(t, pane, client.GetActivePane("weave"),
+		"a session named after its own first window still answers with the window it is on")
+	assert.Equal(t, "agent-one", client.GetPaneOwner(client.GetActivePane("weave")),
+		"the stamp on the active pane is what names the agent")
+	assert.Empty(t, client.GetActivePane("never-created"), "a session tmux does not know answers with nothing")
+	assert.Empty(t, client.GetActivePane(""), "no session is asked about at all")
+}
+
 // TestZoomPaneIsIdempotent covers the zoom the panel puts a form behind. tmux offers only
 // a toggle, so asking for the state the window is already in has to leave it alone rather
 // than flipping it.

@@ -48,6 +48,20 @@ const managerKeyOption = "@weave_key"
 // carries the same default, since it binds the key on the user's server.
 const defaultPanelKey = "g"
 
+// paletteKeyOption holds the user's chosen palette key, read off their own server beside
+// the panel key.
+const paletteKeyOption = "@weave_palette_key"
+
+// defaultPaletteKey is the palette key when the user has chosen none.
+const defaultPaletteKey = "a"
+
+// The popup the palette is drawn in, wide enough for an action's description and tall enough
+// for a list worth narrowing.
+const (
+	palettePopupWidth  = "60"
+	palettePopupHeight = "60%"
+)
+
 // BindHide binds the panel key on the manager's own tmux server to hiding the
 // popup. The popup's client is attached to that server, so a keypress inside the
 // popup is read by its bindings rather than the user's. That server sources the
@@ -60,6 +74,43 @@ func (p *PopupWindow) BindHide() {
 	}
 
 	p.tmux.BindKey(key, "detach-client", "-s", p.session)
+}
+
+// BindPaletteParams is what binding the palette key takes: the binary the popup runs and the
+// config layers this process resolved, so the palette reads the files the panel was started
+// on rather than working them out again.
+type BindPaletteParams struct {
+	Self        string
+	ConfigPaths []string
+}
+
+// BindPalette binds the palette key on the manager's own tmux server to a popup running the
+// palette. It is bound there rather than on the user's server because an agent's pane is the
+// manager's, and the palette acts on the agent whose pane the key was pressed in.
+//
+// The pane is not passed on the command line, since tmux expands no format in a popup's
+// command. The palette reads it back off the server instead.
+func (p *PopupWindow) BindPalette(params BindPaletteParams) {
+	key := p.tmux.ShowGlobal(paletteKeyOption)
+	if key == "" {
+		key = defaultPaletteKey
+	}
+
+	// -EE keeps the popup up when the command exits non-zero, so a pane holding no agent and
+	// an action that would not start say so rather than closing over the message.
+	command := []string{
+		"display-popup",
+		"-w", palettePopupWidth,
+		"-h", palettePopupHeight,
+		"-x", "C", "-y", "C",
+		"-T", " actions ",
+		"-EE", params.Self, "palette",
+	}
+	for _, path := range params.ConfigPaths {
+		command = append(command, "--config", path)
+	}
+
+	p.tmux.BindKey(key, command...)
 }
 
 // MarkOpen records that the popup is shown.

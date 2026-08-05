@@ -8,6 +8,7 @@ import (
 
 	"weave/internal/agents"
 	"weave/internal/tmux"
+	"weave/internal/ui"
 	"weave/lib/xslice"
 
 	"github.com/spf13/cobra"
@@ -67,6 +68,13 @@ func openCmd(state *app) *cobra.Command {
 			// open rather than once at creation, so changing the key takes effect
 			// without restarting the panel.
 			state.popup.BindHide()
+
+			// The palette key is bound on that server for the same reason, and per open so a
+			// changed key or a rebuilt binary takes effect without restarting the panel.
+			state.popup.BindPalette(ui.BindPaletteParams{
+				Self:        getSelfPath(),
+				ConfigPaths: state.configPaths,
+			})
 
 			attach := state.tmuxCommand("attach-session", "-t", agents.ManagerSession)
 			attach.Stdin = os.Stdin
