@@ -162,13 +162,27 @@ func TestSendMessageSystemNoticeIsAlwaysAFreshThread(t *testing.T) {
 		HopLimitReader:    fakeHopLimit(1),
 	})
 
-	sent, err := svc.SendMessage(t.Context(), SendMessageParams{
-		ToAgentID: "agent-a",
-		Body:      "your delegate was archived",
-		System:    true,
-	})
+	sent, err := svc.SendSystemMessage(t.Context(), "agent-a", "your delegate was archived")
 	require.NoError(t, err)
 	assert.EqualValues(t, 1, sent.Hops)
+}
+
+// TestSendSystemMessageStampsWeaveAsTheSender proves the join the framing in hook.go relies
+// on: a lifecycle notice lands with weave's name and no agent id, which is what tells the
+// stop hook this was not the panel operator talking.
+func TestSendSystemMessageStampsWeaveAsTheSender(t *testing.T) {
+	mailbox := &fakeMailbox{}
+	svc := NewMessageService(NewMessageServiceParams{
+		MessageReadWriter: mailbox,
+		AgentFinder:       newFakeDirectory(),
+		DeadlineReader:    fakeDeadline{},
+		HopLimitReader:    fakeHopLimit(config.DefaultMaxHops),
+	})
+
+	sent, err := svc.SendSystemMessage(t.Context(), "agent-a", "your delegate was archived")
+	require.NoError(t, err)
+	assert.Equal(t, WeaveSenderName, sent.FromName)
+	assert.Nil(t, sent.FromAgentID)
 }
 
 func TestClaimMessages(t *testing.T) {

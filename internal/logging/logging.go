@@ -52,6 +52,12 @@ const (
 	SessionID = "weave.session.id"
 	// TargetAgentID names the agent a call reached for rather than the one that made it.
 	TargetAgentID = "weave.target_agent.id"
+	// DelegateAgentID names the agent a lifecycle notice is about: the one archived or
+	// deleted, rather than TargetAgentID, the parent the notice reached for.
+	DelegateAgentID = "weave.delegate_agent.id"
+	// LifecycleReason is what happened to a delegate a notice is about, archived or
+	// deleted.
+	LifecycleReason = "weave.lifecycle.reason"
 	// AgentState is the state the reconciler decided an agent is in.
 	AgentState = "weave.agent.state"
 	// MCPTool is the tool a model asked for. The path is /mcp whatever it wanted, so this

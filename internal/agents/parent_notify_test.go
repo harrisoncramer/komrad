@@ -6,6 +6,7 @@ import (
 
 	"weave/config"
 	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -64,7 +65,7 @@ func TestArchiveTellsAParentItsDelegateIsGone(t *testing.T) {
 			var ids []string
 			if tt.hasParent {
 				parent = seedRunning(t, st, tmux, "parent", "%parent", agentstore.StateIdle)
-				child := seedSpawned(t, st, parent.ID, "child", "%child", agentstore.StateThinking)
+				child := seedSpawned(t, st, parent.ID)
 				ids = append(ids, child.ID)
 				if tt.archiveParentToo {
 					ids = append(ids, parent.ID)
@@ -80,13 +81,18 @@ func TestArchiveTellsAParentItsDelegateIsGone(t *testing.T) {
 				return
 			}
 
-			pending, err := st.Messages.CountPending(ctx, parent.ID)
+			claimed, err := st.Messages.Claim(ctx, parent.ID, 10)
 			require.NoError(t, err)
-			if tt.wantMessage {
-				assert.EqualValues(t, 1, pending)
-			} else {
-				assert.Zero(t, pending)
+			if !tt.wantMessage {
+				assert.Empty(t, claimed)
+
+				return
 			}
+
+			require.Len(t, claimed, 1)
+			assert.Equal(t, WeaveSenderName, claimed[0].FromName, "a lifecycle notice reads as weave's own voice")
+			assert.Nil(t, claimed[0].FromAgentID)
+			assert.Contains(t, claimed[0].Body, "archived")
 		})
 	}
 }
@@ -125,7 +131,7 @@ func TestDeleteTellsAParentItsDelegateIsGone(t *testing.T) {
 			if tt.hasParent {
 				parent := seedRunning(t, st, tmux, "parent", "%parent", agentstore.StateIdle)
 				parentID = parent.ID
-				child := seedSpawned(t, st, parent.ID, "child", "%child", agentstore.StateThinking)
+				child := seedSpawned(t, st, parent.ID)
 				ids = append(ids, child.ID)
 				if tt.deleteParentToo {
 					ids = append(ids, parent.ID)
@@ -141,11 +147,40 @@ func TestDeleteTellsAParentItsDelegateIsGone(t *testing.T) {
 				return
 			}
 
-			pending, err := st.Messages.CountPending(ctx, parentID)
+			claimed, err := st.Messages.Claim(ctx, parentID, 10)
 			require.NoError(t, err)
-			assert.EqualValues(t, 1, pending)
+			require.Len(t, claimed, 1)
+			assert.Equal(t, WeaveSenderName, claimed[0].FromName, "a lifecycle notice reads as weave's own voice")
+			assert.Nil(t, claimed[0].FromAgentID)
+			assert.Contains(t, claimed[0].Body, "deleted")
 		})
 	}
+}
+
+// TestArchiveWorkflowTellsAParentOutsideIt covers the cross-workflow case: create_agent
+// takes a workflowId, so a parent can spawn a delegate into a workflow of its own, and
+// archiving that workflow must not strand the parent with no word its delegate is gone,
+// even though ArchiveAgents is never called.
+func TestArchiveWorkflowTellsAParentOutsideIt(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	workflows := st.workflowServiceWithNotifier(tmux, 0, newNotifier(st))
+	ctx := t.Context()
+
+	parent := seedRunning(t, st, tmux, "parent", "%parent", agentstore.StateIdle)
+	childWorkflow := st.SeedWorkflow(t, workflowstore.Config{Name: "delegate-work"})
+	child := seedSpawned(t, st, parent.ID)
+	require.NoError(t, tmux.SetPaneOwner("%child", child.ID))
+	child.WorkflowID = childWorkflow.ID
+	require.NoError(t, st.Agents.Update(ctx, child))
+
+	require.NoError(t, workflows.ArchiveWorkflow(ctx, childWorkflow.ID))
+
+	claimed, err := st.Messages.Claim(ctx, parent.ID, 10)
+	require.NoError(t, err)
+	require.Len(t, claimed, 1)
+	assert.Equal(t, WeaveSenderName, claimed[0].FromName)
+	assert.Contains(t, claimed[0].Body, "archived")
 }
 
 // TestNotifyParentDoesNotBlockOnAFullMailbox covers the failure path: a person asked for
@@ -179,10 +214,10 @@ func TestNotifyParentDoesNotBlockOnAFullMailbox(t *testing.T) {
 			ctx := t.Context()
 
 			parent := seedRunning(t, st, tmux, "parent", "%parent", agentstore.StateIdle)
-			child := seedSpawned(t, st, parent.ID, "child", "%child", agentstore.StateThinking)
+			child := seedSpawned(t, st, parent.ID)
 
 			for range maxPendingMessages {
-				_, err := notifier.SendMessage(ctx, SendMessageParams{ToAgentID: parent.ID, Body: "filler"})
+				_, err := notifier.SendSystemMessage(ctx, parent.ID, "filler")
 				require.NoError(t, err)
 			}
 

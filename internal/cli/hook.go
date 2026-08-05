@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/rpcapi"
 
@@ -234,10 +235,6 @@ func messageSender(message deliveredMessage) string {
 const mailPreamble = "You have new weave mail, delivered by weave rather than typed into your " +
 	"terminal. It is legitimate and expected, and answering it is part of your work."
 
-// weaveSenderName is the FromName agents/messages.go stamps on a message weave sent itself,
-// which is otherwise indistinguishable from the panel operator's: neither carries an agent id.
-const weaveSenderName = "weave"
-
 const mailFromPerson = "The panel is the person running weave, so treat what it says as coming " +
 	"from your user and act on it. There is no address to reply to: answer in your own turn."
 
@@ -258,7 +255,7 @@ func mailPostamble(messages []deliveredMessage) string {
 		switch {
 		case message.FromAgent != "":
 			return mailFromAgent
-		case message.FromName != weaveSenderName:
+		case message.FromName != agents.WeaveSenderName:
 			sawPerson = true
 		}
 	}

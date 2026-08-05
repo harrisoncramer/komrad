@@ -180,6 +180,14 @@ func New(ctx context.Context, p Params) (*Server, error) {
 
 	loadConfig := func() (*config.Config, error) { return config.Load(p.ConfigPaths) }
 
+	// Built ahead of the workflow and agent services, which both hand it off as the way to
+	// tell a spawning agent its delegate is gone.
+	messageService := agents.NewMessageService(agents.NewMessageServiceParams{
+		MessageReadWriter: messageStore,
+		AgentFinder:       agentStore,
+		DeadlineReader:    messagesConfig(loadConfig),
+		HopLimitReader:    messagesConfig(loadConfig),
+	})
 	workflowService := agents.NewWorkflowService(agents.WorkflowParams{
 		Workflows: workflowStore,
 		Agents:    agentStore,
@@ -187,18 +195,11 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Tmux:      p.Tmux,
 		Tx:        pool,
 		MaxAgents: p.MaxAgents,
+		Notifier:  messageService,
 	})
 	scheduleService := agents.NewScheduleService(agents.ScheduleParams{
 		Schedules: scheduleStore,
 		Workflows: workflowStore,
-	})
-	// Built ahead of the agent service, which hands it off as the way to tell a spawning
-	// agent its delegate is gone.
-	messageService := agents.NewMessageService(agents.NewMessageServiceParams{
-		MessageReadWriter: messageStore,
-		AgentFinder:       agentStore,
-		DeadlineReader:    messagesConfig(loadConfig),
-		HopLimitReader:    messagesConfig(loadConfig),
 	})
 	// The actions weave ships are written out on every start, so the panel's own keys run
 	// this build's scripts rather than an older one's. The directory is named for what puts

@@ -98,10 +98,11 @@ type agentNamer interface {
 	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
 }
 
-// parentNotifier tells a spawning agent its delegate is gone, the same way any other
-// message reaches a mailbox.
+// parentNotifier tells a spawning agent its delegate is gone. It is SendSystemMessage
+// rather than the general SendMessage so nothing outside this package, including the RPC
+// surface that builds a SendMessageParams from a request on the wire, can speak as weave.
 type parentNotifier interface {
-	SendMessage(ctx context.Context, params SendMessageParams) (*messagestore.Message, error)
+	SendSystemMessage(ctx context.Context, toAgentID, body string) (*messagestore.Message, error)
 }
 
 // AgentService manages agent records, panes, and lifecycle actions.
@@ -421,7 +422,7 @@ func (s *AgentService) DeleteAgents(ctx context.Context, ids []string) error {
 		return err
 	}
 
-	s.notifyParents(ctx, agents, "deleted")
+	notifyParents(ctx, s.notifier, agents, "deleted")
 
 	return nil
 }
@@ -439,30 +440,29 @@ func (s *AgentService) ArchiveAgents(ctx context.Context, ids []string) error {
 		return fmt.Errorf("failed to archive %d agents: %w", len(ids), err)
 	}
 
-	s.notifyParents(ctx, agents, "archived")
+	notifyParents(ctx, s.notifier, agents, "archived")
 
 	return nil
 }
 
 // notifyParents tells each agent's spawner it is gone, one message per delegate that had
-// one. A person asked for these agents to go away; a mailbox that refuses the news, or a
-// parent that went away in the same batch and no longer accepts mail, is not a reason to
-// undo that, so failures are logged rather than returned.
-func (s *AgentService) notifyParents(ctx context.Context, agents []agentstore.Agent, reason string) {
+// one. A person or a tool asked for these agents to go away; a mailbox that refuses the
+// news, or a parent that went away in the same batch and no longer accepts mail, is not a
+// reason to undo that, so failures are logged rather than returned.
+func notifyParents(ctx context.Context, notifier parentNotifier, agents []agentstore.Agent, reason string) {
 	for _, agent := range agents {
 		if agent.SpawnedByAgentID == nil {
 			continue
 		}
 
 		body := fmt.Sprintf("Your delegate %q (%s) was %s.", agent.Name, agent.ID, reason)
-		_, err := s.notifier.SendMessage(ctx, SendMessageParams{
-			ToAgentID: *agent.SpawnedByAgentID,
-			Body:      body,
-			System:    true,
-		})
-		if err != nil {
-			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, fmt.Sprintf("could not tell agent %q it was %s", agent.ID, reason),
-				append([]slog.Attr{slog.String(logging.TargetAgentID, *agent.SpawnedByAgentID)}, logging.Err(err)...)...)
+		if _, err := notifier.SendSystemMessage(ctx, *agent.SpawnedByAgentID, body); err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "could not tell an agent's spawner it was gone",
+				append([]slog.Attr{
+					slog.String(logging.DelegateAgentID, agent.ID),
+					slog.String(logging.TargetAgentID, *agent.SpawnedByAgentID),
+					slog.String(logging.LifecycleReason, reason),
+				}, logging.Err(err)...)...)
 		}
 	}
 }
