@@ -9,12 +9,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"runtime/debug"
-	"sync"
 	"syscall"
 	"time"
 
-	"weave/internal/interceptors"
 	"weave/internal/logging"
 	"weave/internal/server"
 
@@ -22,11 +19,6 @@ import (
 )
 
 const httpDrainTimeout = 5 * time.Second
-
-const loopStopTimeout = 2 * time.Second
-
-// River leaves an interrupted job running until its rescuer retries it.
-const jobStopTimeout = 10 * time.Second
 
 const closeTimeout = 2 * time.Second
 
@@ -174,29 +166,13 @@ func serve(ctx context.Context, p serveParams) error {
 	}
 	defer closeWithin(logger, "the database handles", built.Close)
 
-	built.Mux.Handle(HealthPath, newHealthHandler(built.Pool.GetRawPool()))
-
-	stopRequested := make(chan struct{}, 1)
-	built.Mux.Handle(StopPath, interceptors.NewLoggingHandler(logger, newStopHandler(stopRequested)))
-
 	// Claim the socket before starting work that would need teardown on failure.
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
 	}
 
-	loops := make([]runLoopParams, 0, len(built.Loops))
-	for _, loop := range built.Loops {
-		loops = append(loops, runLoopParams{
-			Name:     loop.Name,
-			Interval: loop.Interval,
-			Pass:     loop.Pass,
-			Logger:   logger,
-		})
-	}
-
-	work, err := startBackground(ctx, backgroundParams{Runner: built.Jobs, Loops: loops})
-	if err != nil {
+	if err := built.Start(ctx); err != nil {
 		return err
 	}
 
@@ -204,7 +180,7 @@ func serve(ctx context.Context, p serveParams) error {
 		slog.String(logging.ServerAddress, listener.Addr().String()))
 
 	httpServer := &http.Server{
-		Handler:           built.Handler(logger),
+		Handler:           built.Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 		ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelError),
 	}
@@ -221,11 +197,11 @@ func serve(ctx context.Context, p serveParams) error {
 	case failure = <-served:
 	case <-ctx.Done():
 		logger.LogAttrs(ctx, slog.LevelInfo, "the server is stopping")
-	case <-stopRequested:
+	case <-built.StopRequested():
 		logger.LogAttrs(ctx, slog.LevelInfo, "the server was asked to stop")
 	}
 
-	drain, cancelDrain := shutdownDeadline(ctx, httpDrainTimeout)
+	drain, cancelDrain := context.WithTimeout(context.WithoutCancel(ctx), httpDrainTimeout)
 	defer cancelDrain()
 
 	// Stop accepting requests before tearing down their dependencies.
@@ -233,74 +209,13 @@ func serve(ctx context.Context, p serveParams) error {
 		logger.LogAttrs(ctx, slog.LevelError, "the server would not shut down cleanly", logging.Err(err)...)
 	}
 
-	work.stop(context.WithoutCancel(ctx), logger)
+	built.Stop(context.WithoutCancel(ctx))
 
 	if errors.Is(failure, http.ErrServerClosed) {
 		return nil
 	}
 
 	return failure
-}
-
-func shutdownDeadline(ctx context.Context, within time.Duration) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.WithoutCancel(ctx), within)
-}
-
-type jobRunner interface {
-	Start(ctx context.Context) error
-	Stop(ctx context.Context) error
-}
-
-type backgroundParams struct {
-	Runner jobRunner
-	Loops  []runLoopParams
-}
-
-type backgroundWork struct {
-	runner    jobRunner
-	stopLoops context.CancelFunc
-	loops     *sync.WaitGroup
-}
-
-// River's startup context must survive shutdown so Stop can drain active jobs.
-func startBackground(ctx context.Context, p backgroundParams) (*backgroundWork, error) {
-	uncancelled := context.WithoutCancel(ctx)
-
-	if err := p.Runner.Start(uncancelled); err != nil {
-		return nil, fmt.Errorf("failed to start the job runner: %w", err)
-	}
-
-	loopCtx, stopLoops := context.WithCancel(uncancelled)
-
-	var loops sync.WaitGroup
-	for _, params := range p.Loops {
-		loops.Add(1)
-
-		go func() {
-			defer loops.Done()
-			defer logging.LogAndRepanic(loopCtx)
-
-			runLoop(loopCtx, params)
-		}()
-	}
-
-	return &backgroundWork{runner: p.Runner, stopLoops: stopLoops, loops: &loops}, nil
-}
-
-// Stop loops before River so they cannot enqueue more work while jobs drain.
-func (b *backgroundWork) stop(ctx context.Context, logger *slog.Logger) {
-	b.stopLoops()
-
-	if !didFinishWithin(loopStopTimeout, b.loops.Wait) {
-		logger.LogAttrs(ctx, slog.LevelWarn, "a background loop did not stop in time")
-	}
-
-	deadline, cancel := shutdownDeadline(ctx, jobStopTimeout)
-	defer cancel()
-
-	if err := b.runner.Stop(deadline); err != nil {
-		logger.LogAttrs(ctx, slog.LevelError, "gave up waiting for a job to finish", logging.Err(err)...)
-	}
 }
 
 func closeWithin(logger *slog.Logger, what string, close func()) {
@@ -328,78 +243,4 @@ func didFinishWithin(within time.Duration, wait func()) bool {
 	case <-timer.C:
 		return false
 	}
-}
-
-type runLoopParams struct {
-	Name     string
-	Interval time.Duration
-	Pass     func(context.Context) error
-	Logger   *slog.Logger
-}
-
-func runLoop(ctx context.Context, params runLoopParams) {
-	ticker := time.NewTicker(params.Interval)
-	defer ticker.Stop()
-
-	logger := params.Logger.With(slog.String(logging.Loop, params.Name))
-
-	var failing string
-	var repeats int
-
-	for {
-		err := runPass(ctx, params.Pass)
-
-		if ctx.Err() != nil {
-			return
-		}
-
-		switch {
-		case err == nil && failing != "":
-			logger.LogAttrs(ctx, slog.LevelInfo, "loop recovered", slog.Int(logging.Repeats, repeats))
-			failing, repeats = "", 0
-		case err != nil && err.Error() == failing:
-			repeats++
-			logger.LogAttrs(ctx, slog.LevelDebug, "loop still failing", slog.Int(logging.Repeats, repeats))
-		case err != nil:
-			failing, repeats = err.Error(), 1
-			logger.LogAttrs(ctx, slog.LevelError, "loop pass failed", failureAttrs(err)...)
-		}
-
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-		}
-	}
-}
-
-// Recover inside the loop goroutine so one bad pass does not stop the service.
-func runPass(ctx context.Context, pass func(context.Context) error) (err error) {
-	defer func() {
-		if recovered := recover(); recovered != nil {
-			err = &panicError{value: recovered, stack: string(debug.Stack())}
-		}
-	}()
-
-	return pass(ctx)
-}
-
-type panicError struct {
-	value any
-	stack string
-}
-
-func (e *panicError) Error() string {
-	return fmt.Sprintf("the pass panicked: %v", e.value)
-}
-
-func failureAttrs(err error) []slog.Attr {
-	attrs := logging.Err(err)
-
-	var panicked *panicError
-	if errors.As(err, &panicked) {
-		attrs = append(attrs, slog.String(logging.StackTrace, panicked.stack))
-	}
-
-	return attrs
 }

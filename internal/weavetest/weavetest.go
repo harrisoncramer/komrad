@@ -150,7 +150,7 @@ func Start(t *testing.T, p Params) *Instance {
 	require.NoError(t, err)
 	t.Cleanup(built.Close)
 
-	httpServer.Config = &http.Server{Handler: built.Handler(logger), ReadHeaderTimeout: 5 * time.Second}
+	httpServer.Config = &http.Server{Handler: built.Handler(), ReadHeaderTimeout: 5 * time.Second}
 	httpServer.Start()
 	t.Cleanup(httpServer.Close)
 
@@ -175,20 +175,20 @@ func Start(t *testing.T, p Params) *Instance {
 // Reconcile runs one pass of the loop that writes agent state.
 func (i *Instance) Reconcile() {
 	i.t.Helper()
-	require.NoError(i.t, i.server.LoopNamed("reconcile")(i.t.Context()))
+	require.NoError(i.t, i.server.Reconcile.Pass(i.t.Context()))
 }
 
 // SyncTranscripts runs one pass of the loop that folds what was said into the search index.
 func (i *Instance) SyncTranscripts() {
 	i.t.Helper()
-	require.NoError(i.t, i.server.LoopNamed("transcript sync")(i.t.Context()))
+	require.NoError(i.t, i.server.TranscriptSync.Pass(i.t.Context()))
 }
 
 // ReconcileSchedules runs one pass of the loop that makes River's registrations match the
 // schedules table.
 func (i *Instance) ReconcileSchedules() {
 	i.t.Helper()
-	require.NoError(i.t, i.server.LoopNamed("schedule reconcile")(i.t.Context()))
+	require.NoError(i.t, i.server.ScheduleReconcile.Pass(i.t.Context()))
 }
 
 // Settle moves an agent to an activity and reconciles until the store agrees. The agent

@@ -1,4 +1,4 @@
-package cli
+package server
 
 import (
 	"context"
@@ -20,8 +20,8 @@ const HealthPath = "/healthz"
 // start the panel against.
 const healthTimeout = 2 * time.Second
 
-// health is what the health route answers.
-type health struct {
+// Health is what the health route answers.
+type Health struct {
 	Status  string `json:"status"`
 	Version string `json:"version"`
 	Error   string `json:"error,omitempty"`
@@ -29,16 +29,16 @@ type health struct {
 
 // healthBody is the answer and the status to send it with, carrying the version either way,
 // since a stale build whose database is down still has to be replaced rather than waited for.
-func healthBody(pingErr error) (health, int) {
+func healthBody(pingErr error) (Health, int) {
 	if pingErr != nil {
-		return health{
+		return Health{
 			Status:  "unavailable",
 			Version: version.Version(),
 			Error:   "database unreachable: " + pingErr.Error(),
 		}, http.StatusServiceUnavailable
 	}
 
-	return health{Status: "ok", Version: version.Version()}, http.StatusOK
+	return Health{Status: "ok", Version: version.Version()}, http.StatusOK
 }
 
 // newHealthHandler answers whether the service can serve, reaching the database rather than
