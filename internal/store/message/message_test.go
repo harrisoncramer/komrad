@@ -214,6 +214,23 @@ func TestExpiredMailIsNeitherDeliveredNorRead(t *testing.T) {
 	assert.Equal(t, "too late", expired[0].Body)
 }
 
+func TestExpiredMailIsNotListedAgainOnceReported(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+
+	_, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "too late", ExpiresAt: time.Now().Add(-time.Minute)})
+	require.NoError(t, err)
+
+	first, err := st.ListExpired(ctx, recipient)
+	require.NoError(t, err)
+	require.Len(t, first, 1, "the message is expired and unclaimed, so it is due to be reported")
+
+	second, err := st.ListExpired(ctx, recipient)
+	require.NoError(t, err)
+	assert.Empty(t, second, "a message already reported must not be reported again")
+}
+
 func TestListPendingMailboxesIncludesAMailboxWhoseOnlyMailHasExpired(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -225,6 +242,23 @@ func TestListPendingMailboxesIncludesAMailboxWhoseOnlyMailHasExpired(t *testing.
 	mailboxes, err := st.ListPendingMailboxes(ctx)
 	require.NoError(t, err)
 	assert.Contains(t, mailboxes, recipient)
+}
+
+func TestListPendingMailboxesDropsAMailboxOnceItsExpiredMailIsReported(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+
+	_, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "too late", ExpiresAt: time.Now().Add(-time.Minute)})
+	require.NoError(t, err)
+
+	expired, err := st.ListExpired(ctx, recipient)
+	require.NoError(t, err)
+	require.Len(t, expired, 1)
+
+	mailboxes, err := st.ListPendingMailboxes(ctx)
+	require.NoError(t, err)
+	assert.NotContains(t, mailboxes, recipient, "a mailbox whose only mail was already reported should not keep coming back to the sweep")
 }
 
 type fixture struct {

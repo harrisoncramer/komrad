@@ -118,10 +118,11 @@ func (s *Store) CountPending(ctx context.Context, toAgentID string) (int64, erro
 	return count, nil
 }
 
-// ListPendingMailboxes is every agent holding unclaimed mail, live or expired, so the sweep
-// finds a mailbox whose own delivery job is gone as well as one whose only mail timed out
-// unseen. Deliver tells the two cases apart itself via CountPending, which excludes expired
-// mail.
+// ListPendingMailboxes is every agent holding unclaimed mail, live or not yet reported as
+// expired, so the sweep finds a mailbox whose own delivery job is gone as well as one whose
+// only mail timed out unseen. Deliver tells the two cases apart itself via CountPending, which
+// excludes expired mail. Once ListExpired has reported a mailbox's expired mail, it drops out
+// of this list on its own.
 func (s *Store) ListPendingMailboxes(ctx context.Context) ([]string, error) {
 	rows, err := s.queries.ListMailboxesWithPendingMail(ctx)
 	if err != nil {
@@ -131,14 +132,16 @@ func (s *Store) ListPendingMailboxes(ctx context.Context) ([]string, error) {
 	return rows, nil
 }
 
+// ListExpired reports the mail that ran out of time before the recipient claimed it, and marks
+// it reported so the next call does not hand back the same message again.
 func (s *Store) ListExpired(ctx context.Context, toAgentID string) ([]Message, error) {
 	if !store.IsID(toAgentID) {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListExpiredAgentMessages(ctx, toAgentID)
+	rows, err := s.queries.ReportExpiredAgentMessages(ctx, toAgentID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the expired mail for agent %q: %w", toAgentID, err)
+		return nil, fmt.Errorf("failed to report the expired mail for agent %q: %w", toAgentID, err)
 	}
 
 	return xslice.Map(rows, func(row *models.AgentMessage) Message {

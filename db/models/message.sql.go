@@ -36,7 +36,7 @@ WHERE
         FROM
             pending)
 RETURNING
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, created_at, updated_at, expires_at, hops
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, created_at, updated_at, expires_at, hops, reported_at
 `
 
 type ClaimAgentMessagesParams struct {
@@ -65,6 +65,7 @@ func (q *Queries) ClaimAgentMessages(ctx context.Context, arg ClaimAgentMessages
 			&i.UpdatedAt,
 			&i.ExpiresAt,
 			&i.Hops,
+			&i.ReportedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -96,7 +97,7 @@ func (q *Queries) CountPendingAgentMessages(ctx context.Context, toAgentID strin
 
 const getAgentMessage = `-- name: GetAgentMessage :one
 SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, created_at, updated_at, expires_at, hops
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, created_at, updated_at, expires_at, hops, reported_at
 FROM
     agent_messages m
 WHERE
@@ -118,6 +119,7 @@ func (q *Queries) GetAgentMessage(ctx context.Context, id string) (*AgentMessage
 		&i.UpdatedAt,
 		&i.ExpiresAt,
 		&i.Hops,
+		&i.ReportedAt,
 	)
 	return &i, err
 }
@@ -140,7 +142,7 @@ VALUES (
     $6,
     $7)
 RETURNING
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, created_at, updated_at, expires_at, hops
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, created_at, updated_at, expires_at, hops, reported_at
 `
 
 type InsertAgentMessageParams struct {
@@ -176,25 +178,73 @@ func (q *Queries) InsertAgentMessage(ctx context.Context, arg InsertAgentMessage
 		&i.UpdatedAt,
 		&i.ExpiresAt,
 		&i.Hops,
+		&i.ReportedAt,
 	)
 	return &i, err
 }
 
-const listExpiredAgentMessages = `-- name: ListExpiredAgentMessages :many
-SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, created_at, updated_at, expires_at, hops
+const listMailboxesWithPendingMail = `-- name: ListMailboxesWithPendingMail :many
+SELECT DISTINCT
+    m.to_agent_id
 FROM
     agent_messages m
 WHERE
-    m.to_agent_id = $1
-    AND m.claimed_at IS NULL
-    AND m.expires_at <= NOW()
-ORDER BY
-    m.id
+    m.claimed_at IS NULL
+    AND (m.expires_at > NOW()
+        OR m.reported_at IS NULL)
 `
 
-func (q *Queries) ListExpiredAgentMessages(ctx context.Context, toAgentID string) ([]*AgentMessage, error) {
-	rows, err := q.db.Query(ctx, listExpiredAgentMessages, toAgentID)
+func (q *Queries) ListMailboxesWithPendingMail(ctx context.Context) ([]string, error) {
+	rows, err := q.db.Query(ctx, listMailboxesWithPendingMail)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var to_agent_id string
+		if err := rows.Scan(&to_agent_id); err != nil {
+			return nil, err
+		}
+		items = append(items, to_agent_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const reportExpiredAgentMessages = `-- name: ReportExpiredAgentMessages :many
+WITH unreported AS (
+    SELECT
+        m.id
+    FROM
+        agent_messages m
+    WHERE
+        m.to_agent_id = $1
+        AND m.claimed_at IS NULL
+        AND m.reported_at IS NULL
+        AND m.expires_at <= NOW()
+    ORDER BY
+        m.id
+    FOR UPDATE
+        SKIP LOCKED)
+UPDATE
+    agent_messages m
+SET
+    reported_at = NOW()
+WHERE
+    m.id IN (
+        SELECT
+            unreported.id
+        FROM
+            unreported)
+    RETURNING
+        id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, created_at, updated_at, expires_at, hops, reported_at
+`
+
+func (q *Queries) ReportExpiredAgentMessages(ctx context.Context, toAgentID string) ([]*AgentMessage, error) {
+	rows, err := q.db.Query(ctx, reportExpiredAgentMessages, toAgentID)
 	if err != nil {
 		return nil, err
 	}
@@ -214,39 +264,11 @@ func (q *Queries) ListExpiredAgentMessages(ctx context.Context, toAgentID string
 			&i.UpdatedAt,
 			&i.ExpiresAt,
 			&i.Hops,
+			&i.ReportedAt,
 		); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listMailboxesWithPendingMail = `-- name: ListMailboxesWithPendingMail :many
-SELECT DISTINCT
-    m.to_agent_id
-FROM
-    agent_messages m
-WHERE
-    m.claimed_at IS NULL
-`
-
-func (q *Queries) ListMailboxesWithPendingMail(ctx context.Context) ([]string, error) {
-	rows, err := q.db.Query(ctx, listMailboxesWithPendingMail)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var to_agent_id string
-		if err := rows.Scan(&to_agent_id); err != nil {
-			return nil, err
-		}
-		items = append(items, to_agent_id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
