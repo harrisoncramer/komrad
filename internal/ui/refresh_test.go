@@ -199,6 +199,49 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 	assert.Equal(t, "new", selected.agent.ID)
 }
 
+// TestCreatedWorkflowReceivesFocus covers the same for a folder. A workflow made from the
+// panel is the one the user is about to fill, so the cursor lands on its header rather than
+// staying on whatever it was hovering when the form opened.
+func TestCreatedWorkflowReceivesFocus(t *testing.T) {
+	recorder := &formRecorder{}
+	m := model{
+		api:    api{agents: recorder, workflows: recorder, actions: recorder},
+		stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenAgents,
+		tree: treeState{
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}},
+			cursor:    0,
+			placed:    true,
+		},
+	}
+
+	opened, _ := m.newWorkflowForm()
+	m = asModel(t, opened)
+	m.values.workflow.Name = "web"
+	submitted, cmd := m.submitWorkflowForm()
+	m = asModel(t, submitted)
+
+	for _, msg := range produced(cmd) {
+		if result, ok := msg.(writeResult); ok {
+			updated, _ := m.applyWrite(result)
+			m = asModel(t, updated)
+		}
+	}
+
+	m.applyRefresh(refreshResult{
+		epoch: m.epoch,
+		workflows: []workflowstore.Workflow{
+			{ID: "w1", Name: "api"},
+			{ID: "new", Name: "web"},
+		},
+	})
+
+	hovered, ok := m.hoveredWorkflow()
+	require.True(t, ok, "the cursor is on a folder header")
+	assert.Equal(t, "new", hovered.ID)
+}
+
 // TestCursorHoldsItsFolderAcrossARefresh covers a folder archived from somewhere else
 // while the cursor sits on a folder below it. A header is a row like any other, so the
 // cursor has to follow the folder it names rather than the index it was drawn at.

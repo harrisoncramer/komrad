@@ -180,14 +180,15 @@ type writeResult struct {
 	// not, which clears whatever the last one said.
 	summary string
 	err     error
-	// agent is set by a write that returns the agent it started, and nil for the rest.
-	agent *writtenAgent
+	// written is set by a write that made something for the panel to land on, and nil for
+	// the rest.
+	written *written
 }
 
-// writtenAgent is what a create or resume hands back: the pane to stage now and the id of
-// the row the next listing should put the cursor on.
-type writtenAgent struct {
-	id   string
+// written is what a write that created something hands back: the tree row the next listing
+// should put the cursor on, and the pane to stage now when the write opened one.
+type written struct {
+	row  string
 	pane string
 }
 
@@ -224,7 +225,7 @@ func (m *model) resumeCmd(params resumeParams) tea.Cmd {
 
 		return writeResult{
 			summary: params.summary,
-			agent:   &writtenAgent{id: agent.GetId(), pane: agent.GetPaneId()},
+			written: &written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()},
 		}
 	}
 }
@@ -243,7 +244,29 @@ func (m *model) createCmd(params createAgentParams) tea.Cmd {
 
 		return writeResult{
 			summary: "Could not start the agent",
-			agent:   &writtenAgent{id: agent.GetId(), pane: agent.GetPaneId()},
+			written: &written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()},
+		}
+	}
+}
+
+// createWorkflowCmd creates a workflow off the render loop and carries back the folder row
+// the next listing should land the cursor on, since a workflow made from the panel is the
+// one the user is about to fill.
+func (m *model) createWorkflowCmd(cfg workflowstore.Config) tea.Cmd {
+	clients := m.api
+	m.beginWrite()
+
+	return func() tea.Msg {
+		const summary = "Could not create the workflow"
+
+		workflow, err := clients.createWorkflow(cfg)
+		if err != nil {
+			return writeResult{summary: summary, err: err}
+		}
+
+		return writeResult{
+			summary: summary,
+			written: &written{row: workflowRowKey(workflow.GetId())},
 		}
 	}
 }
@@ -264,12 +287,14 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	m.pending--
 	m.report(result.summary, result.err)
 
-	if result.agent != nil {
+	if result.written != nil {
 		m.enterScreen(screenAgents)
-		// The write returned the agent's pane, so it stages now. The cursor cannot move
-		// until a row carries its id, which is the pass below.
-		m.tree.focus = result.agent.id
-		m.stage.Agent(result.agent.pane)
+		// The cursor cannot move until a row carries what the write made, which is the pass
+		// below. A write that opened a pane returned it, so that much stages now.
+		m.tree.focus = result.written.row
+		if result.written.pane != "" {
+			m.stage.Agent(result.written.pane)
+		}
 	}
 
 	if m.pendingForm {

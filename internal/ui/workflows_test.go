@@ -181,8 +181,12 @@ func TestWorkflowWrites(t *testing.T) {
 		wantReason string
 	}{
 		{
-			name:       "a refused create",
-			call:       func(m model) error { return m.api.createWorkflow(workflowstore.Config{Name: "api"}) },
+			name: "a refused create",
+			call: func(m model) error {
+				_, err := m.api.createWorkflow(workflowstore.Config{Name: "api"})
+
+				return err
+			},
 			wantWrites: 1,
 			wantReason: "quota reached",
 		},

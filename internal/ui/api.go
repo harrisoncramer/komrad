@@ -269,8 +269,9 @@ func (a api) getWorkflow(id string) (*workflowstore.Workflow, error) {
 }
 
 // createWorkflow adds a workflow, defaulting a blank name so the list always has a label
-// to render.
-func (a api) createWorkflow(cfg workflowstore.Config) error {
+// to render. It returns the workflow as the service now holds it, since the panel needs its
+// id to land the cursor on the folder the next listing brings in.
+func (a api) createWorkflow(cfg workflowstore.Config) (*workflowv1.Workflow, error) {
 	name := strings.TrimSpace(cfg.Name)
 	if name == "" {
 		name = "workflow"
@@ -279,7 +280,7 @@ func (a api) createWorkflow(cfg workflowstore.Config) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	_, err := a.workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+	resp, err := a.workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
 		Name:          name,
 		Context:       cfg.Context,
 		Harness:       cfg.Harness,
@@ -288,8 +289,11 @@ func (a api) createWorkflow(cfg workflowstore.Config) error {
 		SetupAction:   cfg.SetupAction,
 		CleanupAction: cfg.CleanupAction,
 	}))
+	if err != nil {
+		return nil, err
+	}
 
-	return err
+	return resp.Msg.GetWorkflow(), nil
 }
 
 // updateWorkflow writes every field back, since the service replaces rather than patches.
