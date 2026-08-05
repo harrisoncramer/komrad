@@ -32,6 +32,8 @@ The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`,
 - `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup.
 - `EDITOR` and `WEAVE_SHELL`
 
+`PATH` has this build's own directory placed in front, ahead of whatever the service inherited, so `weave rpc ...` calls from a script resolve to this binary even if its directory is not on your own PATH.
+
 An action runs in the actions directory it was found in.
 
 ## Action Metadata

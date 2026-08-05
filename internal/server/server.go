@@ -214,6 +214,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Socket:     p.Env.TmuxSocket,
 		BuiltinDir: builtinActionsDir,
 		Editor:     p.Env.Editor,
+		BinPath:    p.HookCommand,
 	})
 	agentService := agents.NewAgentService(agents.NewAgentServiceParams{
 		Tmux:      p.Tmux,

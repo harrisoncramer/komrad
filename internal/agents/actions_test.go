@@ -139,6 +139,8 @@ func TestRunActionPayload(t *testing.T) {
 	assert.Equal(t, "/dev/ttys004", values["WEAVE_HOST_CLIENT"])
 	assert.Equal(t, "nvim", values["EDITOR"], "the configured editor, not whatever the service inherited")
 	assert.Equal(t, "/bin/zsh", values["WEAVE_SHELL"], "the shell tmux itself opens a pane with")
+	assert.True(t, strings.HasPrefix(values["PATH"], "/opt/weave/bin"+string(os.PathListSeparator)),
+		"a script that shells out to weave finds this build's own binary first")
 
 	var payload actionPayload
 	require.NoError(t, json.Unmarshal([]byte(values["WEAVE_AGENT"]), &payload))
@@ -914,9 +916,10 @@ func actionService(t *testing.T, dir string, runner actionRunner) *ActionService
 
 			return cfg, nil
 		},
-		Addr:   "127.0.0.1:8787",
-		Socket: "weave",
-		Editor: "nvim",
+		Addr:    "127.0.0.1:8787",
+		Socket:  "weave",
+		Editor:  "nvim",
+		BinPath: "/opt/weave/bin/weave",
 	})
 }
 
