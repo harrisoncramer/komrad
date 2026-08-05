@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"weave/internal/logging"
-	"weave/internal/server"
+	serverPkg "weave/internal/server"
 	"weave/lib/xsync"
 
 	"github.com/spf13/cobra"
@@ -129,11 +129,8 @@ type serveParams struct {
 	Addr   string
 }
 
-// hookCommand is what an agent CLI's hooks run to reach this panel, which is this binary
-// itself. A build that cannot say where it lives launches agents with no hooks rather than
-// registering a command a hook would fail to run, so mail waits to be read instead of
-// being delivered.
-func hookCommand(ctx context.Context) string {
+// getStopHookBinaryPath is what an agent CLI's hooks run to reach this panel, which is this binary itself.
+func getStopHookBinaryPath(ctx context.Context) string {
 	path, err := os.Executable()
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn,
@@ -149,7 +146,7 @@ func hookCommand(ctx context.Context) string {
 func serve(ctx context.Context, p serveParams) error {
 	state, logger, addr := p.App, p.Logger, p.Addr
 
-	built, err := server.New(ctx, server.Params{
+	server, err := serverPkg.New(ctx, serverPkg.Params{
 		Env:            state.env,
 		ConfigPaths:    state.configPaths,
 		Logger:         logger,
@@ -160,12 +157,12 @@ func serve(ctx context.Context, p serveParams) error {
 		DefaultFlags:   state.defaultFlags,
 		MaxAgents:      state.maxAgents,
 		ContextPath:    state.contextPath,
-		HookCommand:    hookCommand(ctx),
+		HookCommand:    getStopHookBinaryPath(ctx),
 	})
 	if err != nil {
 		return err
 	}
-	defer closeWithin(logger, "the database handles", built.Close)
+	defer closeWithin(logger, "the database handles", server.Close)
 
 	// Claim the socket before starting work that would need teardown on failure.
 	listener, err := net.Listen("tcp", addr)
@@ -173,7 +170,7 @@ func serve(ctx context.Context, p serveParams) error {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
 	}
 
-	if err := built.Start(ctx); err != nil {
+	if err := server.Start(ctx); err != nil {
 		return err
 	}
 
@@ -181,7 +178,7 @@ func serve(ctx context.Context, p serveParams) error {
 		slog.String(logging.ServerAddress, listener.Addr().String()))
 
 	httpServer := &http.Server{
-		Handler:           built.Handler(),
+		Handler:           server.Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 		ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelError),
 	}
@@ -198,7 +195,7 @@ func serve(ctx context.Context, p serveParams) error {
 	case failure = <-served:
 	case <-ctx.Done():
 		logger.LogAttrs(ctx, slog.LevelInfo, "the server is stopping")
-	case <-built.StopRequested():
+	case <-server.StopRequested():
 		logger.LogAttrs(ctx, slog.LevelInfo, "the server was asked to stop")
 	}
 
@@ -210,7 +207,7 @@ func serve(ctx context.Context, p serveParams) error {
 		logger.LogAttrs(ctx, slog.LevelError, "the server would not shut down cleanly", logging.Err(err)...)
 	}
 
-	built.Stop(context.WithoutCancel(ctx))
+	server.Stop(context.WithoutCancel(ctx))
 
 	if errors.Is(failure, http.ErrServerClosed) {
 		return nil
