@@ -1,10 +1,10 @@
 ## weave rpc get-agent
 
-Fetch one agent by id, including whatever metadata it has recorded about its own work.
+Fetch one agent by id or by its short ref, including whatever metadata it has recorded about its own work.
 
 ### Synopsis
 
-Fetch one agent by id, including whatever metadata it has recorded about its own work. Spans the archived agents too, since an id is the one handle those still answer to. Returns not_found if no agent has that id.
+Fetch one agent by id or by its short ref, including whatever metadata it has recorded about its own work. A ref is the handle the panel prints beside a name, and the last few characters of one are enough as long as they name a single agent. Spans the archived agents too, since both handles outlive a row being archived. Returns not_found if nothing holds what you gave, and invalid_argument if it is too short or names more than one agent.
 
 ```
 weave rpc get-agent [flags]

@@ -54,6 +54,17 @@ func archivedTag(w workflowstore.Workflow) string {
 	return " " + dimStyle.Render("archived")
 }
 
+// agentRefLabel is the short handle drawn in front of an agent's name, which is what a
+// person reads off the row to address that agent in a tool call or on the command line. It
+// goes before the name rather than after so every ref lines up in a column of its own.
+func agentRefLabel(agent agentstore.Agent) string {
+	if agent.Ref == "" {
+		return ""
+	}
+
+	return dimStyle.Render(agent.Ref) + " "
+}
+
 const scheduledIcon = "◷"
 
 func scheduledMark(agent agentstore.Agent) string {

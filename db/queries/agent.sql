@@ -98,10 +98,35 @@ SELECT
 SELECT
     PG_ADVISORY_XACT_LOCK(HASHTEXTEXTENDED(@agent_id::text, 0));
 
+-- name: AgentRefExists :one
+SELECT
+    EXISTS (
+        SELECT
+            1
+        FROM
+            agents
+        WHERE
+            ref = @ref);
+
+-- ListAgentsByRefSuffix finds the agents whose ref ends in what somebody typed, live
+-- and archived alike. It returns more than one so the caller can say what a suffix
+-- naming several agents matched instead of picking one of them.
+-- name: ListAgentsByRefSuffix :many
+SELECT
+    *
+FROM
+    agents s
+WHERE
+    RIGHT (s.ref, LENGTH(@suffix::text)) = @suffix
+ORDER BY
+    s.id DESC
+LIMIT @lim;
+
 -- name: InsertAgent :one
 INSERT INTO agents(
     id,
     name,
+    ref,
     cwd,
     flags,
     prompt,
@@ -119,6 +144,7 @@ INSERT INTO agents(
 VALUES (
     @id,
     @name,
+    @ref,
     @cwd,
     @flags,
     @prompt,

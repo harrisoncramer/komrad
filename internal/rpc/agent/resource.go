@@ -51,6 +51,7 @@ func renderAgent(stored agentstore.Agent, alive bool) agent {
 		Agent: &agentv1.Agent{
 			Id:               stored.ID,
 			Name:             stored.Name,
+			Ref:              stored.Ref,
 			Cwd:              stored.Cwd,
 			Flags:            stored.Flags,
 			Prompt:           stored.Prompt,

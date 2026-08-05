@@ -32,6 +32,7 @@ type Agent struct {
 	CleanupAction    *string
 	NudgedAt         *time.Time
 	SpawnedByAgentID *string
+	Ref              string
 }
 
 // One message from one agent to another, held until the recipient claims it.

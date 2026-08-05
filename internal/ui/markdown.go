@@ -106,9 +106,11 @@ func agentFields(agent agentstore.Agent, schedule string) []recordField {
 		{"agent", orDash(agent.Harness)},
 		{"directory", orDash(agent.Cwd)},
 		{"flags", orDash(agent.Flags)},
-		// Both ids are shown because both get typed into something: the agent id is
-		// what the panel and its tools call this agent, and the session id is what
-		// its CLI calls the conversation, which is what a resume by hand takes.
+		// All three handles are shown because each gets typed into something: the ref
+		// is the short one a person addresses this agent by, the agent id is what the
+		// panel and its tools store it under, and the session id is what its CLI calls
+		// the conversation, which is what a resume by hand takes.
+		{"ref", orDash(agent.Ref)},
 		{"agent_id", orDash(agent.ID)},
 		{"session_id", orDash(agent.SessionID)},
 	}

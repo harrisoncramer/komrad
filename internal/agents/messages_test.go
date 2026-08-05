@@ -3,6 +3,7 @@ package agents
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -66,7 +67,7 @@ func TestSendMessageRefusals(t *testing.T) {
 			mailbox := &fakeMailbox{pending: tt.pending}
 			svc := NewMessageService(NewMessageServiceParams{
 				MessageReadWriter: mailbox,
-				AgentFinder:       newFakeDirectory(),
+				Agents:            newFakeDirectory(),
 				Config:            fakeMessageConfig{maxHops: config.DefaultMaxHops},
 			})
 
@@ -82,7 +83,7 @@ func TestSendMessageStampsTheSender(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMessageService(NewMessageServiceParams{
 		MessageReadWriter: mailbox,
-		AgentFinder:       newFakeDirectory(),
+		Agents:            newFakeDirectory(),
 		Config:            fakeMessageConfig{maxHops: config.DefaultMaxHops},
 	})
 
@@ -107,7 +108,7 @@ func TestSendMessageFromNobody(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMessageService(NewMessageServiceParams{
 		MessageReadWriter: mailbox,
-		AgentFinder:       newFakeDirectory(),
+		Agents:            newFakeDirectory(),
 		Config:            fakeMessageConfig{maxHops: config.DefaultMaxHops},
 	})
 
@@ -122,7 +123,7 @@ func TestSendMessageRefusesPastTheHopLimit(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMessageService(NewMessageServiceParams{
 		MessageReadWriter: mailbox,
-		AgentFinder:       newFakeDirectory(),
+		Agents:            newFakeDirectory(),
 		Config:            fakeMessageConfig{maxHops: 2},
 	})
 
@@ -153,7 +154,7 @@ func TestSendMessageSystemNoticeIsAlwaysAFreshThread(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMessageService(NewMessageServiceParams{
 		MessageReadWriter: mailbox,
-		AgentFinder:       newFakeDirectory(),
+		Agents:            newFakeDirectory(),
 		Config:            fakeMessageConfig{maxHops: 1},
 	})
 
@@ -169,7 +170,7 @@ func TestSendSystemMessageStampsWeaveAsTheSender(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMessageService(NewMessageServiceParams{
 		MessageReadWriter: mailbox,
-		AgentFinder:       newFakeDirectory(),
+		Agents:            newFakeDirectory(),
 		Config:            fakeMessageConfig{maxHops: config.DefaultMaxHops},
 	})
 
@@ -203,7 +204,7 @@ func TestClaimMessages(t *testing.T) {
 			mailbox := &fakeMailbox{claimed: []messagestore.Message{{ID: "message-1", Body: "hello"}}}
 			svc := NewMessageService(NewMessageServiceParams{
 				MessageReadWriter: mailbox,
-				AgentFinder:       newFakeDirectory(),
+				Agents:            newFakeDirectory(),
 				Config:            fakeMessageConfig{maxHops: config.DefaultMaxHops},
 			})
 
@@ -287,10 +288,10 @@ type fakeDirectory struct {
 }
 
 func newFakeDirectory() *fakeDirectory {
-	api := agentstore.Agent{ID: "agent-a", Name: "api"}
-	migrations := agentstore.Agent{ID: "agent-b", Name: "migrations"}
+	api := agentstore.Agent{ID: "agent-a", Name: "api", Ref: "AAA111"}
+	migrations := agentstore.Agent{ID: "agent-b", Name: "migrations", Ref: "BBB222"}
 	archivedAt := time.Date(2026, time.August, 4, 9, 0, 0, 0, time.UTC)
-	archived := agentstore.Agent{ID: "agent-archived", Name: "old", ArchivedAt: &archivedAt}
+	archived := agentstore.Agent{ID: "agent-archived", Name: "old", Ref: "CCC333", ArchivedAt: &archivedAt}
 
 	return &fakeDirectory{
 		byID: map[string]agentstore.Agent{
@@ -308,4 +309,18 @@ func (f *fakeDirectory) GetByID(_ context.Context, id string) (*agentstore.Agent
 	}
 
 	return &found, nil
+}
+
+func (f *fakeDirectory) Resolve(ctx context.Context, ref string) (*agentstore.Agent, error) {
+	if found, err := f.GetByID(ctx, ref); found != nil || err != nil {
+		return found, err
+	}
+
+	for _, agent := range f.byID {
+		if agent.Ref != "" && strings.HasSuffix(agent.Ref, strings.ToUpper(ref)) {
+			return &agent, nil
+		}
+	}
+
+	return nil, nil
 }

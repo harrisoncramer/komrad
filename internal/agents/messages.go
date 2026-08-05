@@ -14,7 +14,7 @@ const maxPendingMessages = 100
 
 const maxClaimedMessages = 20
 
-var ErrRecipientNotFound = errors.New("no agent holds that id")
+var ErrRecipientNotFound = errors.New("no agent holds that id or ref")
 
 var ErrSenderUnknown = errors.New("the sender is not an agent this panel knows")
 
@@ -49,20 +49,20 @@ type messageConfigReader interface {
 
 type MessageService struct {
 	messageReadWriter messageReadWriter
-	agentFinder       agentFinder
+	agents            agentResolver
 	config            messageConfigReader
 }
 
 type NewMessageServiceParams struct {
 	MessageReadWriter messageReadWriter
-	AgentFinder       agentFinder
+	Agents            agentResolver
 	Config            messageConfigReader
 }
 
 func NewMessageService(p NewMessageServiceParams) *MessageService {
 	return &MessageService{
 		messageReadWriter: p.MessageReadWriter,
-		agentFinder:       p.AgentFinder,
+		agents:            p.Agents,
 		config:            p.Config,
 	}
 }
@@ -86,7 +86,7 @@ func (s *MessageService) SendSystemMessage(ctx context.Context, toAgentID, body 
 }
 
 func (s *MessageService) send(ctx context.Context, params SendMessageParams, system bool) (*messagestore.Message, error) {
-	recipient, err := s.agentFinder.GetByID(ctx, params.ToAgentID)
+	recipient, err := s.agents.Resolve(ctx, params.ToAgentID)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +161,7 @@ func (s *MessageService) send(ctx context.Context, params SendMessageParams, sys
 }
 
 func (s *MessageService) ClaimMessages(ctx context.Context, agentID string) ([]messagestore.Message, error) {
-	agent, err := s.agentFinder.GetByID(ctx, agentID)
+	agent, err := s.agents.GetByID(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +182,7 @@ func (s *MessageService) findSender(ctx context.Context, from string) (*agentsto
 		return nil, nil
 	}
 
-	sender, err := s.agentFinder.GetByID(ctx, from)
+	sender, err := s.agents.GetByID(ctx, from)
 	if err != nil {
 		return nil, err
 	}

@@ -177,6 +177,70 @@ func TestGetAgent(t *testing.T) {
 	}
 }
 
+// TestResolvesRefs covers the surfaces a person or an agent types a handle into by hand.
+// Each takes an id or a ref through the same resolution, so what matters here is that all
+// three reach the agent and that all three refuse a ref naming several agents the same way.
+func TestResolvesRefs(t *testing.T) {
+	tests := []struct {
+		name string
+		// call names an agent through one of the surfaces that resolve a ref.
+		call func(ctx context.Context, svc *Service, from *agentstore.Agent, typed string) error
+	}{
+		{
+			name: "get_agent",
+			call: func(ctx context.Context, svc *Service, _ *agentstore.Agent, typed string) error {
+				_, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: typed}))
+
+				return err
+			},
+		},
+		{
+			name: "rename_agent",
+			call: func(ctx context.Context, svc *Service, _ *agentstore.Agent, typed string) error {
+				_, err := svc.UpdateAgent(ctx, connect.NewRequest(&agentv1.UpdateAgentRequest{Id: typed, Name: "renamed"}))
+
+				return err
+			},
+		},
+		{
+			name: "send_message",
+			call: func(ctx context.Context, svc *Service, from *agentstore.Agent, typed string) error {
+				ctx = caller.With(ctx, caller.Caller{AgentID: from.ID})
+				_, err := svc.SendMessage(ctx, connect.NewRequest(&agentv1.SendMessageRequest{
+					ToAgentId: typed,
+					Body:      "which column holds the refund?",
+				}))
+
+				return err
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, st := service(t)
+			ctx := t.Context()
+
+			sender := st.SeedAgent(t, agentstore.Agent{Name: "sender", Ref: "11111Z", State: agentstore.StateIdle})
+			st.SeedAgent(t, agentstore.Agent{Name: "target", Ref: "7KQ9AB", State: agentstore.StateIdle})
+			st.SeedAgent(t, agentstore.Agent{Name: "other", Ref: "XX39AB", State: agentstore.StateIdle})
+
+			require.NoError(t, tt.call(ctx, svc, sender, "q9ab"), "a suffix only one agent ends with")
+
+			err := tt.call(ctx, svc, sender, "9AB")
+			assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err), "a suffix two agents share")
+			assert.ErrorIs(t, err, agentstore.ErrAmbiguousRef)
+
+			err = tt.call(ctx, svc, sender, "AB")
+			assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err), "a suffix under the minimum")
+			assert.ErrorIs(t, err, agentstore.ErrRefTooShort)
+
+			err = tt.call(ctx, svc, sender, "ZZZZZZ")
+			assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err), "a ref nothing holds")
+		})
+	}
+}
+
 // TestListAgents covers the listing and the liveness flag on it, which is
 // observed at read time so a client can tell a running agent from a dormant one
 // without tmux of its own.
@@ -803,7 +867,7 @@ func TestSendMessagePastTheHopLimitIsResourceExhausted(t *testing.T) {
 	st := storetest.Open(t)
 	messages := agents.NewMessageService(agents.NewMessageServiceParams{
 		MessageReadWriter: st.Messages,
-		AgentFinder:       st.Agents,
+		Agents:            st.Agents,
 		Config:            stubMessageConfig(1),
 	})
 	svc := NewService(NewServiceParams{Agents: st.Agents, Transcripts: st.Transcripts, Messages: messages})
@@ -1582,7 +1646,7 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 
 	messages := agents.NewMessageService(agents.NewMessageServiceParams{
 		MessageReadWriter: st.Messages,
-		AgentFinder:       st.Agents,
+		Agents:            st.Agents,
 		Config:            stubMessageConfig(config.DefaultMaxHops),
 	})
 

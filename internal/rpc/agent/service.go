@@ -41,6 +41,7 @@ type agentLauncher interface {
 type agentReadWriter interface {
 	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, archived bool) ([]agentstore.Agent, error)
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
+	Resolve(ctx context.Context, ref string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
 	SetMarks(ctx context.Context, ids []string, mark *string) (int, error)
 	SetHidden(ctx context.Context, id string, hidden bool) (bool, error)
@@ -144,17 +145,32 @@ func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.L
 	return connect.NewResponse(response), nil
 }
 
-// GetAgent returns one agent by id, archived or not.
+// GetAgent returns one agent by id or short ref, archived or not.
 func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.GetAgentRequest]) (*connect.Response[agentv1.GetAgentResponse], error) {
-	agent, err := s.agents.GetByID(ctx, req.Msg.GetId())
+	agent, err := s.resolveAgent(ctx, req.Msg.GetId())
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get agent: %w", err))
-	}
-	if agent == nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
+		return nil, err
 	}
 
 	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, s.launcher.IsAgentRunning(*agent)).Agent}), nil
+}
+
+// resolveAgent is the agent a request named, by id or by ref. A ref naming nothing is
+// not_found like an unknown id. One that is too short or names several agents is
+// invalid_argument instead, since what the caller sent cannot pick out an agent however
+// many there are to look through.
+func (s *Service) resolveAgent(ctx context.Context, ref string) (*agentstore.Agent, error) {
+	agent, err := s.agents.Resolve(ctx, ref)
+	switch {
+	case errors.Is(err, agentstore.ErrAmbiguousRef), errors.Is(err, agentstore.ErrRefTooShort):
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	case err != nil:
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get agent: %w", err))
+	case agent == nil:
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id or ref %q", ref))
+	}
+
+	return agent, nil
 }
 
 // SetMarks marks every agent named, and an unset mark clears the ones they carry. A
@@ -265,7 +281,8 @@ func (s *Service) SendMessage(ctx context.Context, req *connect.Request[agentv1.
 		return nil, connect.NewError(connect.CodeNotFound, err)
 	case errors.Is(err, agents.ErrAgentArchived):
 		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
-	case errors.Is(err, agents.ErrSelfAddressed), errors.Is(err, agents.ErrSenderUnknown), errors.Is(err, agents.ErrReplyToNotFound):
+	case errors.Is(err, agents.ErrSelfAddressed), errors.Is(err, agents.ErrSenderUnknown), errors.Is(err, agents.ErrReplyToNotFound),
+		errors.Is(err, agentstore.ErrAmbiguousRef), errors.Is(err, agentstore.ErrRefTooShort):
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	case errors.Is(err, agents.ErrMailboxFull), errors.Is(err, agents.ErrThreadCapped):
 		return nil, connect.NewError(connect.CodeResourceExhausted, err)
@@ -363,11 +380,16 @@ func (s *Service) ResumeAgent(ctx context.Context, req *connect.Request[agentv1.
 	return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: renderAgent(*resumed, s.launcher.IsAgentRunning(*resumed)).Agent}), nil
 }
 
-// UpdateAgent renames the agent with the given id. A name a live agent already holds is a
-// conflict rather than a server fault, since reporting the unique index's refusal as
-// internal would leak a database message to a caller who picked a taken name.
+// UpdateAgent renames the agent with the given id or short ref. A name a live agent already
+// holds is a conflict rather than a server fault, since reporting the unique index's refusal
+// as internal would leak a database message to a caller who picked a taken name.
 func (s *Service) UpdateAgent(ctx context.Context, req *connect.Request[agentv1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error) {
-	renamed, err := s.agents.Rename(ctx, req.Msg.GetId(), req.Msg.GetName())
+	agent, err := s.resolveAgent(ctx, req.Msg.GetId())
+	if err != nil {
+		return nil, err
+	}
+
+	renamed, err := s.agents.Rename(ctx, agent.ID, req.Msg.GetName())
 	switch {
 	case errors.Is(err, store.ErrNameTaken):
 		return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("an agent named %q already exists", req.Msg.GetName()))

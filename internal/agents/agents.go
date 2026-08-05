@@ -32,6 +32,13 @@ type agentFinder interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
+// agentResolver is the view for a collaborator handed whatever a caller typed, which may be
+// an id or the short ref a person reads off the panel.
+type agentResolver interface {
+	agentFinder
+	Resolve(ctx context.Context, ref string) (*agentstore.Agent, error)
+}
+
 // agentManager is the agent store as the service and its launch machinery use it,
 // whether held on AgentService itself or opened fresh inside a transaction.
 type agentManager interface {

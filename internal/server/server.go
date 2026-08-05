@@ -191,7 +191,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 	// tell a spawning agent its delegate is gone.
 	messageService := agents.NewMessageService(agents.NewMessageServiceParams{
 		MessageReadWriter: messageStore,
-		AgentFinder:       agentStore,
+		Agents:            agentStore,
 		Config:            messagesConfig(loadConfig),
 	})
 	workflowService := agents.NewWorkflowService(agents.WorkflowParams{

@@ -35,6 +35,7 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 	return agentstore.Agent{
 		ID:         s.GetId(),
 		Name:       s.GetName(),
+		Ref:        s.GetRef(),
 		Pane:       s.GetPaneId(),
 		Cwd:        s.GetCwd(),
 		Flags:      s.GetFlags(),

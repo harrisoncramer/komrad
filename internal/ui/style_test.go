@@ -35,7 +35,7 @@ func branchTree() model {
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}},
 			agents: []agentItem{
-				{agent: agentstore.Agent{ID: "a1", Name: branchName, WorkflowID: "w1"}},
+				{agent: agentstore.Agent{ID: "a1", Ref: "7KQ9AB", Name: branchName, WorkflowID: "w1"}},
 			},
 		},
 	}
@@ -53,4 +53,15 @@ func TestAgentsViewClipsName(t *testing.T) {
 
 	m.filter.setQuery("0825676")
 	assert.Len(t, m.agentRows(), 2, "the workflow header and the row that matched")
+}
+
+// TestAgentsViewShowsTheRef covers the handle a person reads off the row to address the
+// agent elsewhere. A row from before refs existed carries none and is drawn without one
+// rather than with a gap where it would go.
+func TestAgentsViewShowsTheRef(t *testing.T) {
+	m := branchTree()
+	assert.Contains(t, m.agentsView(), "7KQ9AB")
+
+	m.tree.agents[0].agent.Ref = ""
+	assert.NotContains(t, m.agentsView(), "7KQ9AB")
 }

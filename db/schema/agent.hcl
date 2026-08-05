@@ -320,6 +320,15 @@ table "agents" {
     null = false
     type = text
   }
+  # A short handle for the agent, Crockford Base32, minted by the service alongside the id.
+  # It exists because the id is a uuid and nobody types one of those: a person reading the
+  # panel, or an agent addressing another in a tool call, needs something they can say out
+  # loud. The name cannot serve, since it is unique only within a workflow.
+  column "ref" {
+    null    = false
+    type    = text
+    default = ""
+  }
   # Where the agent runs and the flags it was launched with. A restore reads both
   # back to bring the agent up the same way, so they are the agent's own columns
   # rather than a row it points at.
@@ -481,6 +490,12 @@ table "agents" {
     unique  = true
     columns = [column.workflow_id, column.name]
     where   = "archived_at IS NULL"
+  }
+  # Unique across live and archived rows alike, since a ref a person typed has to name one
+  # agent whichever set it is in, and an archived agent keeps the ref it was known by.
+  index "agents_ref" {
+    unique  = true
+    columns = [column.ref]
   }
   # Scoped listings filter by workflow, so index the foreign key.
   index "agents_workflow_id" {

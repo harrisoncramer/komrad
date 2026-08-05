@@ -1,10 +1,10 @@
 ## weave rpc rename-agent
 
-Rename an agent, keyed by its id rather than its current name.
+Rename an agent, keyed by its id or its short ref rather than by its current name.
 
 ### Synopsis
 
-Rename an agent, keyed by its id rather than its current name. The name is a display label the store keys on; the running tmux window keeps whatever it was called at launch. It may not contain spaces, colons, dots, slashes, or control characters.
+Rename an agent, keyed by its id or its short ref rather than by its current name. The name is a display label the store keys on; the running tmux window keeps whatever it was called at launch. It may not contain spaces, colons, dots, slashes, or control characters.
 
 ```
 weave rpc rename-agent [flags]

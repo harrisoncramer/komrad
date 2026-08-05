@@ -16,6 +16,10 @@ option go_package = "weave/proto/gen/agent/v1;agentv1";
 message Agent {
   string id = 1;
   string name = 2;
+  // The short handle this agent answers to alongside its id, minted at creation. Every
+  // tool taking an id takes one of these too, and a tail of one is enough as long as no
+  // other agent's ref ends the same way.
+  string ref = 21;
   string cwd = 3;
   string flags = 4;
   string prompt = 5;
@@ -289,14 +293,14 @@ service AgentService {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "list_agents"
-      description: "List the agents the panel tracks, live and dormant, with each one\'s name, state, working directory, flags, and workflow. Archived agents are excluded unless archived is set, which lists those and only those. Returns one page, most recently updated first; pass the response\'s nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs."
+      description: "List the agents the panel tracks, live and dormant, with each one\'s name, state, working directory, flags, and workflow. Archived agents are excluded unless archived is set, which lists those and only those. Returns one page, most recently updated first; pass the response\'s nextPageToken back as pagination.cursor for the next one. Start here to find the id, ref, or name another tool needs."
     };
   }
   rpc GetAgent(GetAgentRequest) returns (GetAgentResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "get_agent"
-      description: "Fetch one agent by id, including whatever metadata it has recorded about its own work. Spans the archived agents too, since an id is the one handle those still answer to. Returns not_found if no agent has that id."
+      description: "Fetch one agent by id or by its short ref, including whatever metadata it has recorded about its own work. A ref is the handle the panel prints beside a name, and the last few characters of one are enough as long as they name a single agent. Spans the archived agents too, since both handles outlive a row being archived. Returns not_found if nothing holds what you gave, and invalid_argument if it is too short or names more than one agent."
     };
   }
   rpc CreateAgent(CreateAgentRequest) returns (CreateAgentResponse) {
@@ -341,7 +345,7 @@ service AgentService {
   rpc SendMessage(SendMessageRequest) returns (SendMessageResponse) {
     option (annotation.v1.tool) = {
       tool_name: "send_message"
-      description: "Send one message to another agent, addressed by its id. Names are not accepted, since two workflows may each hold an agent of the same name; call list_agents to turn a name into the id it stands for. Nothing is delivered to a pane: the message waits in the panel until the recipient reads its mail, so the recipient will not see it while it is busy and may not see it for a while. Use this to ask an agent working alongside you something only it knows, or to hand it a result it is waiting on, and say who you are and what you need in the message itself. Set replyTo to the id of the message you are answering so the two read as a thread, but a thread can only run so many hops before a send is refused, so wind it up with a clear answer or a decision rather than another round once it feels like it is dragging. Each call sends another message, so do not retry a call that may have succeeded, and do not send to yourself, which is refused. Returns not_found when no agent holds that id, failed_precondition when the recipient is archived, and resource_exhausted when the recipient is already holding a full mailbox of unread mail or when the thread has hit its hop limit."
+      description: "Send one message to another agent, addressed by its id or by its short ref, which is the handle the panel prints beside a name and which the last few characters of are enough to name. Names are not accepted, since two workflows may each hold an agent of the same name; call list_agents to turn a name into the ref or id it stands for. Nothing is delivered to a pane: the message waits in the panel until the recipient reads its mail, so the recipient will not see it while it is busy and may not see it for a while. Use this to ask an agent working alongside you something only it knows, or to hand it a result it is waiting on, and say who you are and what you need in the message itself. Set replyTo to the id of the message you are answering so the two read as a thread, but a thread can only run so many hops before a send is refused, so wind it up with a clear answer or a decision rather than another round once it feels like it is dragging. Each call sends another message, so do not retry a call that may have succeeded, and do not send to yourself, which is refused. Returns not_found when nothing holds what you addressed it to, invalid_argument when a ref is too short or names more than one agent, failed_precondition when the recipient is archived, and resource_exhausted when the recipient is already holding a full mailbox of unread mail or when the thread has hit its hop limit."
       destructive: false
       idempotent: false
     };
@@ -390,7 +394,7 @@ service AgentService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "rename_agent"
-      description: "Rename an agent, keyed by its id rather than its current name. The name is a display label the store keys on; the running tmux window keeps whatever it was called at launch. It may not contain spaces, colons, dots, slashes, or control characters."
+      description: "Rename an agent, keyed by its id or its short ref rather than by its current name. The name is a display label the store keys on; the running tmux window keeps whatever it was called at launch. It may not contain spaces, colons, dots, slashes, or control characters."
       destructive: false
     };
   }

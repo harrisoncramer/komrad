@@ -4,7 +4,7 @@ List the agents the panel tracks, live and dormant, with each one's name, state,
 
 ### Synopsis
 
-List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow. Archived agents are excluded unless archived is set, which lists those and only those. Returns one page, most recently updated first; pass the response's nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs.
+List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow. Archived agents are excluded unless archived is set, which lists those and only those. Returns one page, most recently updated first; pass the response's nextPageToken back as pagination.cursor for the next one. Start here to find the id, ref, or name another tool needs.
 
 ```
 weave rpc list-agents [flags]

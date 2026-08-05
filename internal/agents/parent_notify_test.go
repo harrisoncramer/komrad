@@ -18,7 +18,7 @@ import (
 func newNotifier(st *testStore) *MessageService {
 	return NewMessageService(NewMessageServiceParams{
 		MessageReadWriter: st.Messages,
-		AgentFinder:       st.Agents,
+		Agents:            st.Agents,
 		Config:            fakeMessageConfig{maxHops: config.DefaultMaxHops},
 	})
 }

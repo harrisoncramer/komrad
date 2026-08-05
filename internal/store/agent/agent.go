@@ -42,6 +42,7 @@ type Metadata struct {
 type Agent struct {
 	ID               string
 	Name             string
+	Ref              string
 	Pane             string
 	Cwd              string
 	Flags            string
@@ -277,9 +278,19 @@ func (s *Store) Create(ctx context.Context, agent Agent) error {
 		agent.ID = id
 	}
 
+	if agent.Ref == "" {
+		ref, err := s.mintRef(ctx)
+		if err != nil {
+			return err
+		}
+
+		agent.Ref = ref
+	}
+
 	if _, err := s.queries.InsertAgent(ctx, models.InsertAgentParams{
 		ID:               agent.ID,
 		Name:             agent.Name,
+		Ref:              agent.Ref,
 		Cwd:              agent.Cwd,
 		Flags:            agent.Flags,
 		Prompt:           agent.Prompt,
@@ -629,6 +640,7 @@ func agentFromRow(agent models.Agent) Agent {
 	return Agent{
 		ID:               agent.ID,
 		Name:             agent.Name,
+		Ref:              agent.Ref,
 		Pane:             agent.PaneID,
 		Cwd:              agent.Cwd,
 		Flags:            agent.Flags,
