@@ -9,9 +9,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"slices"
-	"strings"
-	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -19,7 +16,6 @@ import (
 	"weave/internal/actions"
 	"weave/internal/logging"
 	"weave/internal/tmux"
-	"weave/lib/xslice"
 
 	agentstore "weave/internal/store/agent"
 )
@@ -37,15 +33,11 @@ type tmuxReader interface {
 }
 
 type actionRunner interface {
-	Discover(dir string) ([]actions.Action, error)
 	Run(p actions.RunParams) error
 	RunAndWait(ctx context.Context, p actions.RunParams) (actions.Result, error)
 }
 
 type configLoader func() (*config.Config, error)
-
-// ErrActionNotFound reports that the actions directory holds no file by that name.
-var ErrActionNotFound = errors.New("action not found")
 
 const (
 	// TriggerManual identifies an action started directly by a person or model.
@@ -71,8 +63,7 @@ type ActionService struct {
 	editor     string
 	binPath    string
 
-	scanMu    sync.Mutex
-	scanCache map[string]dirScan
+	catalog *actions.Catalog
 }
 
 // ActionParams carries the action service's dependencies.
@@ -102,6 +93,7 @@ func NewActionService(p ActionParams) *ActionService {
 		builtinDir: p.BuiltinDir,
 		editor:     p.Editor,
 		binPath:    p.BinPath,
+		catalog:    actions.NewCatalog(),
 	}
 }
 
@@ -110,12 +102,12 @@ const maxActionPrompt = 16 * 1024
 
 // ListActions returns the available actions in name order.
 func (s *ActionService) ListActions() ([]actions.Action, error) {
-	_, found, err := s.discover()
+	dirs, err := s.actionDirs()
 	if err != nil {
 		return nil, err
 	}
 
-	return xslice.Map(found, func(action foundAction) actions.Action { return action.Action }), nil
+	return s.catalog.List(dirs...)
 }
 
 // RunAction starts an action for an agent without waiting for it to finish.
@@ -128,14 +120,14 @@ func (s *ActionService) RunAction(ctx context.Context, agentID, name string) err
 		return ErrAgentNotFound
 	}
 
-	prepared, err := s.prepare(ctx, prepareParams{agent: *agent, name: name, trigger: TriggerManual})
+	action, env, err := s.prepare(ctx, prepareParams{agent: *agent, name: name, trigger: TriggerManual})
 	if err != nil {
 		return err
 	}
 
 	return s.start(ctx, startParams{
-		action:  prepared.action,
-		env:     prepared.env,
+		action:  action,
+		env:     env,
 		agent:   *agent,
 		trigger: TriggerManual,
 	})
@@ -166,14 +158,14 @@ func (s *ActionService) EditAction(ctx context.Context, agentID, name string) er
 		return fmt.Errorf("failed to edit action %s: %w", name, ErrNotEditable)
 	}
 
-	prepared, err := s.prepare(ctx, prepareParams{agent: *agent, name: editActionName, trigger: TriggerManual})
+	action, env, err := s.prepare(ctx, prepareParams{agent: *agent, name: editActionName, trigger: TriggerManual})
 	if err != nil {
 		return err
 	}
 
 	return s.start(ctx, startParams{
-		action:  prepared.action,
-		env:     append(prepared.env, editPathVar+"="+target.Path),
+		action:  action,
+		env:     append(env, editPathVar+"="+target.Path),
 		agent:   *agent,
 		trigger: TriggerManual,
 	})
@@ -197,21 +189,20 @@ func (s *ActionService) RunResumeAction(ctx context.Context, agent agentstore.Ag
 }
 
 func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams) (string, error) {
-	prepared, err := s.prepare(ctx, p)
+	action, env, err := s.prepare(ctx, p)
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrSetupFailed, err)
 	}
-	action, env := prepared.action, prepared.env
 
-	logger := s.actionLogger(ctx, actionRecord{name: p.name, trigger: p.trigger, agent: p.agent})
+	logger := s.actionLogger(ctx, p.name, p.trigger, p.agent)
 	logger.LogAttrs(ctx, slog.LevelInfo, "action started")
 	began := time.Now()
 
 	result, err := s.runner.RunAndWait(ctx, actions.RunParams{
-		Action:  action.Action,
-		Dir:     action.dir,
+		Action:  action,
+		Dir:     action.GetDir(),
 		Env:     env,
-		Timeout: timeoutFor(action, setupTimeout),
+		Timeout: action.Header.TimeoutOr(setupTimeout),
 	})
 
 	finished := []slog.Attr{
@@ -238,37 +229,37 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams) (
 
 // RunCleanupAction starts a cleanup action without waiting for it to finish.
 func (s *ActionService) RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string) error {
-	prepared, err := s.prepare(ctx, prepareParams{agent: agent, name: name, trigger: TriggerCleanup})
+	action, env, err := s.prepare(ctx, prepareParams{agent: agent, name: name, trigger: TriggerCleanup})
 	if err != nil {
 		return err
 	}
 
 	return s.start(ctx, startParams{
-		action:  prepared.action,
-		env:     prepared.env,
+		action:  action,
+		env:     env,
 		agent:   agent,
 		trigger: TriggerCleanup,
 	})
 }
 
 type startParams struct {
-	action  foundAction
+	action  actions.Action
 	env     []string
 	agent   agentstore.Agent
 	trigger string
 }
 
 func (s *ActionService) start(ctx context.Context, p startParams) error {
-	logger := s.actionLogger(ctx, actionRecord{name: p.action.Name, trigger: p.trigger, agent: p.agent})
+	logger := s.actionLogger(ctx, p.action.Name, p.trigger, p.agent)
 	ctx = context.WithoutCancel(ctx)
 	began := time.Now()
 
 	err := s.runner.Run(actions.RunParams{
-		Action: p.action.Action,
-		Dir:    p.action.dir,
+		Action: p.action,
+		Dir:    p.action.GetDir(),
 		Env:    p.env,
 		// Nothing is waiting, so an action that declared no timeout runs as long as it likes.
-		Timeout: timeoutFor(p.action, 0),
+		Timeout: p.action.Header.TimeoutOr(0),
 		Done: func(result actions.Result, err error) {
 			if err != nil {
 				logger.LogAttrs(ctx, slog.LevelError, "action failed",
@@ -291,18 +282,12 @@ func (s *ActionService) start(ctx context.Context, p startParams) error {
 	return nil
 }
 
-type actionRecord struct {
-	name    string
-	trigger string
-	agent   agentstore.Agent
-}
-
-func (s *ActionService) actionLogger(ctx context.Context, r actionRecord) *slog.Logger {
+func (s *ActionService) actionLogger(ctx context.Context, name, trigger string, agent agentstore.Agent) *slog.Logger {
 	return logging.From(ctx).With(logging.Attrs([]slog.Attr{
-		slog.String(logging.ActionName, r.name),
-		slog.String(logging.ActionTrigger, r.trigger),
-		slog.String(logging.ActionAgentID, r.agent.ID),
-		slog.String(logging.ActionAgentCwd, r.agent.Cwd),
+		slog.String(logging.ActionName, name),
+		slog.String(logging.ActionTrigger, trigger),
+		slog.String(logging.ActionAgentID, agent.ID),
+		slog.String(logging.ActionAgentCwd, agent.Cwd),
 	})...)
 }
 
@@ -330,161 +315,47 @@ func stderrDetail(stderr []byte) string {
 	return ": " + string(trimmed)
 }
 
-type foundAction struct {
-	actions.Action
-	dir string
-}
-
-// preparedAction is an action together with the environment a run of it needs, the two
-// things every caller works out before it can start one.
-type preparedAction struct {
-	action foundAction
-	env    []string
-}
-
 type prepareParams struct {
 	agent   agentstore.Agent
 	name    string
 	trigger string
 }
 
-// prepare finds the named action and builds the environment a run of it is handed. Every
-// caller does both before starting anything, so this is where that preparation happens,
-// leaving the actual start of the process to whichever of start or RunAndWait the caller
-// needs.
-func (s *ActionService) prepare(ctx context.Context, p prepareParams) (preparedAction, error) {
+func (s *ActionService) prepare(ctx context.Context, p prepareParams) (actions.Action, []string, error) {
 	action, err := s.find(p.name)
 	if err != nil {
-		return preparedAction{}, err
+		return actions.Action{}, nil, err
 	}
 
-	env, err := s.env(ctx, actionEnvParams{agent: p.agent, dir: action.dir, trigger: p.trigger, action: action.Name})
+	env, err := s.env(ctx, actionEnvParams{agent: p.agent, dir: action.GetDir(), trigger: p.trigger, action: action.Name})
 	if err != nil {
-		return preparedAction{}, err
+		return actions.Action{}, nil, err
 	}
 
-	return preparedAction{action: action, env: env}, nil
+	return action, env, nil
 }
 
-// Match discovered names instead of joining untrusted input onto a path.
-func (s *ActionService) find(name string) (foundAction, error) {
-	dir, found, err := s.discover()
+func (s *ActionService) find(name string) (actions.Action, error) {
+	dirs, err := s.actionDirs()
 	if err != nil {
-		return foundAction{}, err
+		return actions.Action{}, err
 	}
 
-	for _, action := range found {
-		if action.Name == name {
-			return action, nil
-		}
-	}
-
-	return foundAction{}, fmt.Errorf("%w: %q is not in %s", ErrActionNotFound, name, dir)
+	return s.catalog.Find(name, dirs...)
 }
 
-func timeoutFor(action foundAction, fallback time.Duration) time.Duration {
-	if action.Header.Timeout > 0 {
-		return action.Header.Timeout
-	}
-
-	return fallback
-}
-
-// Reload config so action directory changes take effect without a restart.
-func (s *ActionService) discover() (string, []foundAction, error) {
+func (s *ActionService) actionDirs() ([]string, error) {
 	cfg, err := s.load()
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to read the config: %w", err)
+		return nil, fmt.Errorf("failed to read the config: %w", err)
 	}
 
 	userDir, err := cfg.GetActionsDir()
 	if err != nil {
-		return "", nil, err
-	}
-
-	var found []foundAction
-	claimed := make(map[string]bool)
-
-	for _, dir := range []string{userDir, s.builtinDir} {
-		if dir == "" {
-			continue
-		}
-
-		listed, err := s.scan(dir)
-		if err != nil {
-			return "", nil, err
-		}
-
-		for _, action := range listed {
-			if claimed[action.Name] {
-				continue
-			}
-
-			claimed[action.Name] = true
-			found = append(found, foundAction{Action: action, dir: dir})
-		}
-	}
-
-	slices.SortFunc(found, func(a, b foundAction) int { return strings.Compare(a.Name, b.Name) })
-
-	return userDir, found, nil
-}
-
-// dirScan is what scan last found in a directory, kept beside the directory's own mtime so
-// a later call can tell whether anything has been added or removed since.
-type dirScan struct {
-	modTime time.Time
-	actions []actions.Action
-}
-
-// scan lists the actions in dir, reusing what an earlier call found there as long as the
-// directory's own mtime has not moved. Every action invocation works through here, and
-// each entry's header is read off disk, so rescanning on every one of them would mean
-// re-reading every action's file to run any single one. A directory gains or loses an mtime
-// bump only when a file is added, removed, or renamed inside it, which is the change this
-// is meant to catch; a script edited in place keeps its old mtime and is picked up the next
-// time something else in the directory changes.
-func (s *ActionService) scan(dir string) ([]actions.Action, error) {
-	modTime, err := dirModTime(dir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to stat the actions directory %s: %w", dir, err)
-	}
-
-	s.scanMu.Lock()
-	cached, ok := s.scanCache[dir]
-	s.scanMu.Unlock()
-	if ok && cached.modTime.Equal(modTime) {
-		return cached.actions, nil
-	}
-
-	listed, err := s.runner.Discover(dir)
-	if err != nil {
 		return nil, err
 	}
 
-	s.scanMu.Lock()
-	if s.scanCache == nil {
-		s.scanCache = make(map[string]dirScan)
-	}
-	s.scanCache[dir] = dirScan{modTime: modTime, actions: listed}
-	s.scanMu.Unlock()
-
-	return listed, nil
-}
-
-// dirModTime is a directory's own mtime, or the zero time for one that does not exist,
-// which Discover treats the same way: as holding nothing rather than as an error.
-func dirModTime(dir string) (time.Time, error) {
-	info, err := os.Stat(dir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return time.Time{}, nil
-		}
-
-		return time.Time{}, err
-	}
-
-	return info.ModTime(), nil
+	return []string{userDir, s.builtinDir}, nil
 }
 
 type actionPayload struct {

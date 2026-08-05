@@ -17,7 +17,7 @@ func TestInstallBuiltins(t *testing.T) {
 
 	require.NoError(t, InstallBuiltins(dir))
 
-	found, err := NewRunner().Discover(dir)
+	found, err := Discover(dir)
 	require.NoError(t, err)
 	require.NotEmpty(t, found, "this build ships at least the action editor")
 

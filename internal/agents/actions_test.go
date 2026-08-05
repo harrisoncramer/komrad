@@ -73,13 +73,13 @@ func TestRunActionRefusals(t *testing.T) {
 			name:    "an action the directory does not hold",
 			agentID: "a1",
 			action:  "never-written",
-			wantIs:  ErrActionNotFound,
+			wantIs:  actions.ErrActionNotFound,
 		},
 		{
 			name:    "a name climbing out of the directory finds nothing",
 			agentID: "a1",
 			action:  "../../../../bin/echo",
-			wantIs:  ErrActionNotFound,
+			wantIs:  actions.ErrActionNotFound,
 		},
 		{
 			name:    "a file the user has not made executable",
@@ -472,7 +472,7 @@ func TestRunCleanupActionRefusesOneThatIsGone(t *testing.T) {
 	err := actionService(t, t.TempDir(), &recordingRunner{}).
 		RunCleanupAction(t.Context(), agentstore.Agent{ID: "a1"}, "was-renamed")
 
-	require.ErrorIs(t, err, ErrActionNotFound)
+	require.ErrorIs(t, err, actions.ErrActionNotFound)
 }
 
 // TestRunActionLogsWhatItDid covers the only account there is of an action nothing waits on.
@@ -757,7 +757,7 @@ func TestEditActionRefusals(t *testing.T) {
 			name:    "an action nobody wrote",
 			agentID: "a1",
 			action:  "never-written",
-			wantErr: ErrActionNotFound,
+			wantErr: actions.ErrActionNotFound,
 		},
 		{
 			name:    "a compiled program",
@@ -796,7 +796,7 @@ func TestEditActionWithoutTheEditingAction(t *testing.T) {
 	runner := &recordingRunner{}
 	err := actionService(t, userDir, runner).EditAction(context.Background(), "a1", "open-pr")
 
-	require.ErrorIs(t, err, ErrActionNotFound)
+	require.ErrorIs(t, err, actions.ErrActionNotFound)
 	assert.Contains(t, err.Error(), editActionName)
 	assert.Empty(t, runner.ran)
 }
@@ -1002,12 +1002,6 @@ type runResult struct {
 
 // Run answers the outcome inline, so a case asserting what reached the log has nothing to
 // wait for.
-// Discover is the real thing, since a case's actions directory is a temp directory it
-// wrote and what a fake would answer is what the directory already says.
-func (r *recordingRunner) Discover(dir string) ([]actions.Action, error) {
-	return actions.NewRunner().Discover(dir)
-}
-
 func (r *recordingRunner) Run(p actions.RunParams) error {
 	if !p.Action.Executable {
 		return actions.ErrNotExecutable

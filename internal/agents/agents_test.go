@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"weave/internal/actions"
 	"weave/internal/caller"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
@@ -889,7 +890,7 @@ func TestDeleteAgentRunsCleanupFromAnArchivedWorkflow(t *testing.T) {
 // TestRunCleanupLogsOneThatWouldNotStart covers the cleanup that never becomes a process at
 // all, which is what a renamed script leaves behind.
 func TestRunCleanupLogsOneThatWouldNotStart(t *testing.T) {
-	lifecycle := &fakeLifecycle{cleanupErr: ErrActionNotFound}
+	lifecycle := &fakeLifecycle{cleanupErr: actions.ErrActionNotFound}
 	manager := NewAgentService(NewAgentServiceParams{Lifecycle: lifecycle})
 	ctx, records := loggedContext(t)
 

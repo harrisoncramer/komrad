@@ -67,7 +67,7 @@ func (s *Service) ListActions(_ context.Context, _ *connect.Request[emptypb.Empt
 func (s *Service) RunAction(ctx context.Context, req *connect.Request[actionv1.RunActionRequest]) (*connect.Response[emptypb.Empty], error) {
 	err := s.actions.RunAction(ctx, req.Msg.GetAgentId(), req.Msg.GetAction())
 	switch {
-	case errors.Is(err, agents.ErrAgentNotFound), errors.Is(err, agents.ErrActionNotFound):
+	case errors.Is(err, agents.ErrAgentNotFound), errors.Is(err, actions.ErrActionNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, err)
 	case errors.Is(err, actions.ErrNotExecutable), errors.Is(err, actions.ErrNotStartable),
 		errors.Is(err, actions.ErrDirMissing):
@@ -87,7 +87,7 @@ func (s *Service) RunAction(ctx context.Context, req *connect.Request[actionv1.R
 func (s *Service) EditAction(ctx context.Context, req *connect.Request[actionv1.EditActionRequest]) (*connect.Response[emptypb.Empty], error) {
 	err := s.actions.EditAction(ctx, req.Msg.GetAgentId(), req.Msg.GetAction())
 	switch {
-	case errors.Is(err, agents.ErrAgentNotFound), errors.Is(err, agents.ErrActionNotFound):
+	case errors.Is(err, agents.ErrAgentNotFound), errors.Is(err, actions.ErrActionNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, err)
 	case errors.Is(err, agents.ErrNotEditable), errors.Is(err, actions.ErrNotExecutable),
 		errors.Is(err, actions.ErrNotStartable), errors.Is(err, actions.ErrDirMissing):

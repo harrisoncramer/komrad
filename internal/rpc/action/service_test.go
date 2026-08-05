@@ -32,7 +32,7 @@ func TestRunActionCodes(t *testing.T) {
 		},
 		{
 			name:     "an action the directory does not hold",
-			err:      agents.ErrActionNotFound,
+			err:      actions.ErrActionNotFound,
 			wantCode: connect.CodeNotFound,
 		},
 		{
@@ -112,7 +112,7 @@ func TestEditActionCodes(t *testing.T) {
 	}{
 		{
 			name:     "an action the directory does not hold",
-			err:      agents.ErrActionNotFound,
+			err:      actions.ErrActionNotFound,
 			wantCode: connect.CodeNotFound,
 		},
 		{

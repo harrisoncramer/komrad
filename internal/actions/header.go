@@ -44,6 +44,15 @@ type Header struct {
 	Problems []string
 }
 
+// TimeoutOr is the header's declared timeout, or fallback where the file declared none.
+func (h Header) TimeoutOr(fallback time.Duration) time.Duration {
+	if h.Timeout > 0 {
+		return h.Timeout
+	}
+
+	return fallback
+}
+
 // readHeader is what the file at path declares about itself, read out of the head of the
 // file, and whether that head is text at all. One that cannot be read comes back as no
 // header and not text, since Discover offers it either way.

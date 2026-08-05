@@ -60,9 +60,13 @@ type Action struct {
 	Header Header
 }
 
-// Runner finds actions and starts them as processes. It holds nothing, and exists so a
-// caller can take running one as an interface and stand something else in its place under
-// test.
+// GetDir is the directory an action runs in.
+func (a Action) GetDir() string {
+	return filepath.Dir(a.Path)
+}
+
+// Runner starts actions as processes. It holds nothing, and exists so a caller can take
+// running one as an interface and stand something else in its place under test.
 type Runner struct{}
 
 // NewRunner builds the runner.
@@ -73,14 +77,7 @@ func NewRunner() Runner {
 // Discover lists the actions in dir by name, each with what its header declares. A
 // directory that does not exist yields no actions and no error, since not having written
 // one is the ordinary case.
-//
-// Only regular files are offered, so an action is always one file and a fifo cannot hang
-// the caller that reads it. Each entry is stated rather than read off its directory entry,
-// so a symlink into a dotfiles repo is judged by what it points at.
-//
-// The header is read here rather than on demand, so the timeout a caller shows and the
-// timeout a run is given cannot be read by two different readers.
-func (Runner) Discover(dir string) ([]Action, error) {
+func Discover(dir string) ([]Action, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
