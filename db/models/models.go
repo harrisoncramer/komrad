@@ -46,6 +46,7 @@ type AgentMessage struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	ExpiresAt   time.Time
+	Hops        int32
 }
 
 // Key/value facts an agent recorded about its own work.

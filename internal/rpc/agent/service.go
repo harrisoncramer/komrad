@@ -265,9 +265,9 @@ func (s *Service) SendMessage(ctx context.Context, req *connect.Request[agentv1.
 		return nil, connect.NewError(connect.CodeNotFound, err)
 	case errors.Is(err, agents.ErrAgentArchived):
 		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
-	case errors.Is(err, agents.ErrSelfAddressed), errors.Is(err, agents.ErrSenderUnknown):
+	case errors.Is(err, agents.ErrSelfAddressed), errors.Is(err, agents.ErrSenderUnknown), errors.Is(err, agents.ErrReplyToNotFound):
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	case errors.Is(err, agents.ErrMailboxFull):
+	case errors.Is(err, agents.ErrMailboxFull), errors.Is(err, agents.ErrThreadCapped):
 		return nil, connect.NewError(connect.CodeResourceExhausted, err)
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to send the message: %w", err))

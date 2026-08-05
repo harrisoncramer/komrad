@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/db"
 	"weave/db/models"
 	"weave/internal/store"
 	"weave/lib/xslice"
@@ -19,6 +20,7 @@ type Message struct {
 	ToAgentID   string
 	Body        string
 	ReplyTo     *string
+	Hops        int32
 	ClaimedAt   *time.Time
 	ExpiresAt   time.Time
 	CreatedAt   time.Time
@@ -38,6 +40,7 @@ type SendParams struct {
 	ToAgentID   string
 	Body        string
 	ReplyTo     *string
+	Hops        int32
 	ExpiresAt   time.Time
 }
 
@@ -48,6 +51,7 @@ func (s *Store) Send(ctx context.Context, params SendParams) (*Message, error) {
 		ToAgentID:   params.ToAgentID,
 		Body:        params.Body,
 		ReplyTo:     params.ReplyTo,
+		Hops:        params.Hops,
 		ExpiresAt:   params.ExpiresAt,
 	})
 	if err != nil {
@@ -57,6 +61,24 @@ func (s *Store) Send(ctx context.Context, params SendParams) (*Message, error) {
 	sent := messageFromRow(*row)
 
 	return &sent, nil
+}
+
+func (s *Store) GetByID(ctx context.Context, id string) (*Message, error) {
+	if !store.IsID(id) {
+		return nil, nil
+	}
+
+	row, err := s.queries.GetAgentMessage(ctx, id)
+	if db.IsNoRows(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get message %q: %w", id, err)
+	}
+
+	got := messageFromRow(*row)
+
+	return &got, nil
 }
 
 func (s *Store) Claim(ctx context.Context, toAgentID string, limit int32) ([]Message, error) {
@@ -130,6 +152,7 @@ func messageFromRow(row models.AgentMessage) Message {
 		ToAgentID:   row.ToAgentID,
 		Body:        row.Body,
 		ReplyTo:     row.ReplyTo,
+		Hops:        row.Hops,
 		ClaimedAt:   row.ClaimedAt,
 		ExpiresAt:   row.ExpiresAt,
 		CreatedAt:   row.CreatedAt,

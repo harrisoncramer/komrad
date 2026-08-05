@@ -5,6 +5,7 @@ INSERT INTO agent_messages(
     to_agent_id,
     body,
     reply_to,
+    hops,
     expires_at)
 VALUES (
     sqlc.narg('from_agent_id'),
@@ -12,9 +13,18 @@ VALUES (
     @to_agent_id,
     @body,
     sqlc.narg('reply_to'),
+    @hops,
     @expires_at)
 RETURNING
     *;
+
+-- name: GetAgentMessage :one
+SELECT
+    *
+FROM
+    agent_messages m
+WHERE
+    m.id = @id;
 
 -- name: ClaimAgentMessages :many
 WITH pending AS (
