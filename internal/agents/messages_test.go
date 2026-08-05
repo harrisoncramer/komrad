@@ -150,6 +150,27 @@ func TestSendMessageRefusesPastTheHopLimit(t *testing.T) {
 	assert.Equal(t, int32(1), unrelated.Hops)
 }
 
+// TestSendMessageSystemNoticeIsAlwaysAFreshThread proves, rather than assumes, that a
+// lifecycle notice cannot be refused by the hop cap: it carries no reply_to, so it always
+// takes hops 1, which clears even the tightest limit a panel could configure.
+func TestSendMessageSystemNoticeIsAlwaysAFreshThread(t *testing.T) {
+	mailbox := &fakeMailbox{}
+	svc := NewMessageService(NewMessageServiceParams{
+		MessageReadWriter: mailbox,
+		AgentFinder:       newFakeDirectory(),
+		DeadlineReader:    fakeDeadline{},
+		HopLimitReader:    fakeHopLimit(1),
+	})
+
+	sent, err := svc.SendMessage(t.Context(), SendMessageParams{
+		ToAgentID: "agent-a",
+		Body:      "your delegate was archived",
+		System:    true,
+	})
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, sent.Hops)
+}
+
 func TestClaimMessages(t *testing.T) {
 	tests := []struct {
 		name    string

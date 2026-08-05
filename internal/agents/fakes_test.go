@@ -359,6 +359,7 @@ type agentServiceOptions struct {
 	flags     string
 	lifecycle lifecycleActioner
 	maxAgents int
+	notifier  parentNotifier
 }
 
 func (s *testStore) agentService(options agentServiceOptions) *AgentService {
@@ -373,6 +374,7 @@ func (s *testStore) agentService(options agentServiceOptions) *AgentService {
 		UserDefaultHarness: testHarnessID,
 		UserDefaultFlags:   map[string]string{testHarnessID: options.flags},
 		MaxAgents:          options.maxAgents,
+		Notifier:           options.notifier,
 	})
 }
 
@@ -502,6 +504,28 @@ func seedRunning(t *testing.T, st *testStore, tmux paneStamper, name, pane, stat
 	require.NoError(t, tmux.SetPaneOwner(pane, agent.ID))
 
 	return agent
+}
+
+// seedSpawned inserts a delegate recording parentID as its spawner, the way a real
+// delegate launch does.
+func seedSpawned(t *testing.T, st *testStore, parentID, name, pane, state string) agentstore.Agent {
+	t.Helper()
+	ctx := t.Context()
+	workflowID := seedWorkflow(t, st)
+
+	require.NoError(t, st.Create(ctx, agentstore.Agent{
+		Name:             name,
+		Pane:             pane,
+		State:            state,
+		WorkflowID:       workflowID,
+		SpawnedByAgentID: &parentID,
+	}))
+
+	got, err := st.Agents.GetInWorkflow(ctx, workflowID, name)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+
+	return *got
 }
 
 func stateOf(t *testing.T, st *testStore, name string) string {
