@@ -154,8 +154,7 @@ func TestSendMessageSystemNoticeIsAlwaysAFreshThread(t *testing.T) {
 	svc := NewMessageService(NewMessageServiceParams{
 		MessageReadWriter: mailbox,
 		AgentFinder:       newFakeDirectory(),
-		DeadlineReader:    fakeDeadline{},
-		HopLimitReader:    fakeHopLimit(1),
+		Config:            fakeMessageConfig{maxHops: 1},
 	})
 
 	sent, err := svc.SendSystemMessage(t.Context(), "agent-a", "your delegate was archived")
@@ -171,8 +170,7 @@ func TestSendSystemMessageStampsWeaveAsTheSender(t *testing.T) {
 	svc := NewMessageService(NewMessageServiceParams{
 		MessageReadWriter: mailbox,
 		AgentFinder:       newFakeDirectory(),
-		DeadlineReader:    fakeDeadline{},
-		HopLimitReader:    fakeHopLimit(config.DefaultMaxHops),
+		Config:            fakeMessageConfig{maxHops: config.DefaultMaxHops},
 	})
 
 	sent, err := svc.SendSystemMessage(t.Context(), "agent-a", "your delegate was archived")

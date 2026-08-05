@@ -19,8 +19,7 @@ func newNotifier(st *testStore) *MessageService {
 	return NewMessageService(NewMessageServiceParams{
 		MessageReadWriter: st.Messages,
 		AgentFinder:       st.Agents,
-		DeadlineReader:    fakeDeadline{},
-		HopLimitReader:    fakeHopLimit(config.DefaultMaxHops),
+		Config:            fakeMessageConfig{maxHops: config.DefaultMaxHops},
 	})
 }
 
