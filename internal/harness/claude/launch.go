@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,6 +24,11 @@ import (
 const mcpConfigJSON = `{"mcpServers":{"weave":{"type":"http","url":"http://%s/mcp",` +
 	`"headers":{"` + caller.AgentHeader + `":"${` + harness.AgentIDEnv + `:-}",` +
 	`"` + caller.SessionHeader + `":"${` + harness.SessionIDEnv + `:-}"}}}}`
+
+// settingsJSON is the settings file every agent launches with, registering the Stop hook
+// that hands an agent its weave mail as its turn ends. It is passed with --settings, which
+// layers over the user's own settings for this session alone rather than writing to them.
+const settingsJSON = `{"hooks":{"Stop":[{"hooks":[{"type":"command","command":%s}]}]}}`
 
 // BuildCommand renders the command line that puts Claude up. It is not executed
 // directly: it is typed into a pane and parsed by the shell running there, which
@@ -52,6 +58,15 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 		command += fmt.Sprintf(" --mcp-config '%s'", path)
 	}
 
+	// A resume gets the hook too, since mail arriving is not tied to the launch that
+	// registered it. A failure to write the file drops the flag rather than the launch,
+	// which costs delivery rather than the agent.
+	if launch.HookCommand != "" {
+		if path, err := h.writeSettings(launch.HookCommand); err == nil {
+			command += fmt.Sprintf(" --settings '%s'", path)
+		}
+	}
+
 	switch {
 	case launch.Resume && launch.SessionID != "":
 		command += " --resume " + harness.QuoteArg(launch.SessionID)
@@ -77,6 +92,33 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	}
 
 	return command, nil
+}
+
+// writeSettings writes the settings file beside Claude's other state and returns its path.
+// Claude reads it as it starts and keeps no copy, so unlike the prompt temp files it stays
+// where it is rather than being removed as the command runs.
+func (h *Harness) writeSettings(hookCommand string) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	dir := filepath.Join(home, ".claude")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("failed to create the settings dir: %w", err)
+	}
+
+	command, err := json.Marshal(hookCommand + " hook stop")
+	if err != nil {
+		return "", fmt.Errorf("failed to encode the hook command: %w", err)
+	}
+
+	path := filepath.Join(dir, "weave-settings.json")
+	if err := os.WriteFile(path, []byte(fmt.Sprintf(settingsJSON, command)), 0o644); err != nil {
+		return "", fmt.Errorf("failed to write the settings: %w", err)
+	}
+
+	return path, nil
 }
 
 // writeMCPConfig writes the MCP client config beside Claude's other state and

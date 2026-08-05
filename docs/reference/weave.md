@@ -26,6 +26,7 @@ the machine, start or stop the service, or call an endpoint from a script.
 
 * [weave doctor](weave_doctor.md)	 - Check that this machine has everything weave needs
 * [weave hide](weave_hide.md)	 - Hide the panel popup without stopping anything
+* [weave hook](weave_hook.md)	 - Run one of the agent CLI hooks weave installs
 * [weave migrate](weave_migrate.md)	 - Apply any pending database migrations
 * [weave open](weave_open.md)	 - Open the panel popup, creating or attaching its persistent session
 * [weave panel](weave_panel.md)	 - Run the panel itself, as the manager session's own command

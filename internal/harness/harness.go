@@ -67,6 +67,10 @@ type Launch struct {
 	// harness needs it only for a CLI that has to be told separately, such as one that
 	// asks whether the directory is trusted.
 	Dir string
+	// HookCommand is the weave command a CLI's own hooks run, empty when the panel could
+	// not work out what to call itself. A harness with somewhere to register a hook points
+	// it at this and appends the event it wants.
+	HookCommand string
 	// Resume asks for the prior conversation rather than a new one.
 	Resume bool
 }

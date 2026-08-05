@@ -299,3 +299,75 @@ func TestMCPConfigCarriesTheAgentsIdentity(t *testing.T) {
 	assert.Contains(t, command, "WEAVE_AGENT_ID='agent-1'")
 	assert.Contains(t, command, "WEAVE_SESSION_ID='sess-1'")
 }
+
+func TestBuildCommandRegistersTheStopHook(t *testing.T) {
+	tests := []struct {
+		name        string
+		hookCommand string
+		resume      bool
+		wantHook    bool
+	}{
+		{
+			name:     "a build that could not name itself registers nothing",
+			wantHook: false,
+		},
+		{
+			name:        "a fresh launch",
+			hookCommand: "/usr/local/bin/weave",
+			wantHook:    true,
+		},
+		{
+			name:        "a resume, since mail arrives whether or not the agent was just started",
+			hookCommand: "/usr/local/bin/weave",
+			resume:      true,
+			wantHook:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+
+			command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{
+				CacheDir:    t.TempDir(),
+				SessionID:   "sess",
+				HookCommand: tt.hookCommand,
+				Resume:      tt.resume,
+			})
+			require.NoError(t, err)
+
+			match := settingsRef.FindStringSubmatch(command)
+			if !tt.wantHook {
+				assert.Empty(t, match, "no settings are passed")
+
+				return
+			}
+
+			require.Len(t, match, 2, "the launch carries a settings path")
+			assert.Equal(t, filepath.Join(home, ".claude", "weave-settings.json"), match[1])
+
+			raw, err := os.ReadFile(match[1])
+			require.NoError(t, err)
+
+			var settings struct {
+				Hooks map[string][]struct {
+					Hooks []struct {
+						Type    string `json:"type"`
+						Command string `json:"command"`
+					} `json:"hooks"`
+				} `json:"hooks"`
+			}
+			require.NoError(t, json.Unmarshal(raw, &settings))
+
+			stop, ok := settings.Hooks["Stop"]
+			require.True(t, ok, "the Stop event is hooked")
+			require.Len(t, stop, 1)
+			require.Len(t, stop[0].Hooks, 1)
+			assert.Equal(t, "command", stop[0].Hooks[0].Type)
+			assert.Equal(t, tt.hookCommand+" hook stop", stop[0].Hooks[0].Command)
+		})
+	}
+}
+
+var settingsRef = regexp.MustCompile(` --settings '([^']+)'`)

@@ -136,6 +136,23 @@ type serveParams struct {
 	Addr   string
 }
 
+// hookCommand is what an agent CLI's hooks run to reach this panel, which is this binary
+// itself. A build that cannot say where it lives launches agents with no hooks rather than
+// registering a command a hook would fail to run, so mail waits to be read instead of
+// being delivered.
+func hookCommand(ctx context.Context) string {
+	path, err := os.Executable()
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn,
+			"failed to locate this binary, so agents launch with no hooks and nothing delivers their mail",
+			logging.Err(err)...)
+
+		return ""
+	}
+
+	return path
+}
+
 func serve(ctx context.Context, p serveParams) error {
 	state, logger, addr := p.App, p.Logger, p.Addr
 
@@ -150,6 +167,7 @@ func serve(ctx context.Context, p serveParams) error {
 		DefaultFlags:   state.defaultFlags,
 		MaxAgents:      state.maxAgents,
 		ContextPath:    state.contextPath,
+		HookCommand:    hookCommand(ctx),
 	})
 	if err != nil {
 		return err

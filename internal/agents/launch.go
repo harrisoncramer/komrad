@@ -62,6 +62,9 @@ type Launcher struct {
 	// path is fixed at startup but the file is read per launch, so editing it reaches the
 	// next agent without restarting the service.
 	contextPath string
+	// hookCommand is what an agent CLI's hooks run to reach the panel, which is this
+	// binary. Empty leaves an agent launched with no hooks registered.
+	hookCommand string
 }
 
 // LauncherParams is where a launcher reads the addresses and directories it hands on. Only
@@ -72,6 +75,7 @@ type LauncherParams struct {
 	CacheDir    string
 	LogPath     string
 	ContextPath string
+	HookCommand string
 }
 
 // NewLauncher builds a launcher that points spawned agents at the given address.
@@ -86,6 +90,7 @@ func NewLauncher(p LauncherParams) *Launcher {
 		cacheDir:    p.CacheDir,
 		logPath:     p.LogPath,
 		contextPath: p.ContextPath,
+		hookCommand: p.HookCommand,
 	}
 }
 
@@ -149,6 +154,7 @@ func (l *Launcher) launch(h harnessCommandBuilder, params launchParams) error {
 		AgentID:     params.AgentID,
 		MCPEndpoint: l.serverAddr,
 		CacheDir:    l.cacheDir,
+		HookCommand: l.hookCommand,
 		Resume:      params.Resume,
 	})
 	if err != nil {

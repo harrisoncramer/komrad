@@ -84,6 +84,10 @@ type Params struct {
 	MaxAgents int
 	// ContextPath is the file holding the standing text every agent is started with.
 	ContextPath string
+	// HookCommand is what an agent CLI's hooks run to reach the panel, which is this
+	// binary's own path. Empty launches agents with no hooks registered, so nothing
+	// delivers their mail.
+	HookCommand string
 	// FallbackResumeRoot is where an agent runs when the directory it was created in cannot be
 	// brought back. Empty takes the default beside the user's own agent state.
 	FallbackResumeRoot string
@@ -194,6 +198,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 			CacheDir:    p.Env.CacheDir,
 			LogPath:     p.Env.LogPath(),
 			ContextPath: p.ContextPath,
+			HookCommand: p.HookCommand,
 		}),
 		Harnesses:          p.Harnesses,
 		Lifecycle:          actionService,

@@ -1,0 +1,29 @@
+## weave hook
+
+Run one of the agent CLI hooks weave installs
+
+### Synopsis
+
+Run one of the agent CLI hooks weave installs.
+
+An agent CLI runs these itself at a point in its own loop. They read the hook
+payload on stdin and write whatever that CLI expects on stdout. Nothing here is
+meant to be run by hand.
+
+### Options
+
+```
+  -h, --help   help for hook
+```
+
+### Options inherited from parent commands
+
+```
+      --config stringArray   path to a config TOML, repeatable, later files win over earlier ones
+```
+
+### SEE ALSO
+
+* [weave](weave.md)	 - tmux panel and CLI for background coding agents
+* [weave hook stop](weave_hook_stop.md)	 - Deliver an agent's unread messages as its turn ends
+
