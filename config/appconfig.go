@@ -367,10 +367,10 @@ func (m Messages) GetDeliveryDeadline() (time.Duration, error) {
 	return parsed, nil
 }
 
-// GetMaxHops is how many messages may pass along one reply thread, defaulted. A limit that
-// is not positive is an error rather than the default, for the same reason an unparseable
-// deadline is: a config somebody wrote and weave quietly ignored is worse than one it
-// refuses.
+// GetMaxHops is how many messages may pass along one reply thread. An unset limit takes the
+// default; a negative one is an error rather than the default, for the same reason an
+// unparseable deadline is: a config somebody wrote and weave quietly ignored is worse than
+// one it refuses.
 func (m Messages) GetMaxHops() (int, error) {
 	if m.MaxHops == 0 {
 		m.MaxHops = DefaultMaxHops

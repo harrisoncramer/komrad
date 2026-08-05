@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/config"
 	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/logging"
@@ -804,7 +805,7 @@ func TestSendMessagePastTheHopLimitIsResourceExhausted(t *testing.T) {
 		MessageReadWriter: st.Messages,
 		AgentFinder:       st.Agents,
 		DeadlineReader:    stubDeadline{},
-		HopLimitReader:    stubHopLimit{max: 1},
+		HopLimitReader:    stubHopLimit(1),
 	})
 	svc := NewService(NewServiceParams{Agents: st.Agents, Transcripts: st.Transcripts, Messages: messages})
 
@@ -1512,15 +1513,9 @@ type stubDeadline struct{}
 
 func (stubDeadline) GetDeliveryDeadline() (time.Duration, error) { return time.Hour, nil }
 
-type stubHopLimit struct{ max int }
+type stubHopLimit int
 
-func (s stubHopLimit) GetMaxHops() (int, error) {
-	if s.max == 0 {
-		return 20, nil
-	}
-
-	return s.max, nil
-}
+func (s stubHopLimit) GetMaxHops() (int, error) { return int(s), nil }
 
 func service(t *testing.T) (*Service, *storetest.Stores) {
 	t.Helper()
@@ -1592,7 +1587,7 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 		MessageReadWriter: st.Messages,
 		AgentFinder:       st.Agents,
 		DeadlineReader:    stubDeadline{},
-		HopLimitReader:    stubHopLimit{},
+		HopLimitReader:    stubHopLimit(config.DefaultMaxHops),
 	})
 
 	return NewService(NewServiceParams{

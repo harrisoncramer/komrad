@@ -9,6 +9,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -157,8 +158,12 @@ func TestGetByID(t *testing.T) {
 		wantOK bool
 	}{
 		{
-			name:   "an id nothing holds",
+			name:   "an id that is not well-formed",
 			lookup: func(Message) string { return "not-an-id" },
+		},
+		{
+			name:   "a well-formed id nothing holds",
+			lookup: func(Message) string { return uuid.NewString() },
 		},
 		{
 			name:   "a message that was sent",

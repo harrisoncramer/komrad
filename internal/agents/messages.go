@@ -22,9 +22,9 @@ var ErrSelfAddressed = errors.New("an agent cannot send itself a message")
 
 var ErrMailboxFull = errors.New("the recipient's mailbox is full")
 
-// ErrThreadCapped is returned rather than silently letting a reply thread run forever, so a
-// sender that hits it can say the thread is over instead of assuming weave is broken.
 var ErrThreadCapped = errors.New("this thread has reached its hop limit")
+
+var ErrReplyToNotFound = errors.New("no message holds that id")
 
 type messageReadWriter interface {
 	Send(ctx context.Context, params messagestore.SendParams) (*messagestore.Message, error)
@@ -113,9 +113,10 @@ func (s *MessageService) SendMessage(ctx context.Context, params SendMessagePara
 		if err != nil {
 			return nil, err
 		}
-		if parent != nil {
-			hops = parent.Hops + 1
+		if parent == nil {
+			return nil, fmt.Errorf("%w: %q", ErrReplyToNotFound, *params.ReplyTo)
 		}
+		hops = parent.Hops + 1
 	}
 
 	maxHops, err := s.hopLimitReader.GetMaxHops()

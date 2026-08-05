@@ -6,9 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"weave/config"
 	agentstore "weave/internal/store/agent"
 	messagestore "weave/internal/store/message"
+	"weave/lib/xptr"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -46,6 +49,16 @@ func TestSendMessageRefusals(t *testing.T) {
 			pending: maxPendingMessages,
 			wantErr: ErrMailboxFull,
 		},
+		{
+			name:    "a reply_to that is not a well-formed id",
+			params:  SendMessageParams{From: "agent-a", ToAgentID: "agent-b", Body: "hello", ReplyTo: xptr.Ptr("not-an-id")},
+			wantErr: ErrReplyToNotFound,
+		},
+		{
+			name:    "a reply_to naming a well-formed id nothing holds",
+			params:  SendMessageParams{From: "agent-a", ToAgentID: "agent-b", Body: "hello", ReplyTo: xptr.Ptr(uuid.NewString())},
+			wantErr: ErrReplyToNotFound,
+		},
 	}
 
 	for _, tt := range tests {
@@ -55,7 +68,7 @@ func TestSendMessageRefusals(t *testing.T) {
 				MessageReadWriter: mailbox,
 				AgentFinder:       newFakeDirectory(),
 				DeadlineReader:    fakeDeadline{},
-				HopLimitReader:    fakeHopLimit{},
+				HopLimitReader:    fakeHopLimit(config.DefaultMaxHops),
 			})
 
 			sent, err := svc.SendMessage(t.Context(), tt.params)
@@ -72,7 +85,7 @@ func TestSendMessageStampsTheSender(t *testing.T) {
 		MessageReadWriter: mailbox,
 		AgentFinder:       newFakeDirectory(),
 		DeadlineReader:    fakeDeadline{},
-		HopLimitReader:    fakeHopLimit{},
+		HopLimitReader:    fakeHopLimit(config.DefaultMaxHops),
 	})
 
 	sent, err := svc.SendMessage(t.Context(), SendMessageParams{
@@ -98,7 +111,7 @@ func TestSendMessageFromNobody(t *testing.T) {
 		MessageReadWriter: mailbox,
 		AgentFinder:       newFakeDirectory(),
 		DeadlineReader:    fakeDeadline{},
-		HopLimitReader:    fakeHopLimit{},
+		HopLimitReader:    fakeHopLimit(config.DefaultMaxHops),
 	})
 
 	_, err := svc.SendMessage(t.Context(), SendMessageParams{ToAgentID: "agent-b", Body: "hello"})
@@ -114,7 +127,7 @@ func TestSendMessageRefusesPastTheHopLimit(t *testing.T) {
 		MessageReadWriter: mailbox,
 		AgentFinder:       newFakeDirectory(),
 		DeadlineReader:    fakeDeadline{},
-		HopLimitReader:    fakeHopLimit{max: 2},
+		HopLimitReader:    fakeHopLimit(2),
 	})
 
 	first, err := svc.SendMessage(t.Context(), SendMessageParams{From: "agent-a", ToAgentID: "agent-b", Body: "which column?"})
@@ -163,7 +176,7 @@ func TestClaimMessages(t *testing.T) {
 				MessageReadWriter: mailbox,
 				AgentFinder:       newFakeDirectory(),
 				DeadlineReader:    fakeDeadline{},
-				HopLimitReader:    fakeHopLimit{},
+				HopLimitReader:    fakeHopLimit(config.DefaultMaxHops),
 			})
 
 			claimed, err := svc.ClaimMessages(t.Context(), tt.agentID)
@@ -187,16 +200,10 @@ func (fakeDeadline) GetDeliveryDeadline() (time.Duration, error) {
 	return time.Hour, nil
 }
 
-type fakeHopLimit struct {
-	max int
-}
+type fakeHopLimit int
 
 func (f fakeHopLimit) GetMaxHops() (int, error) {
-	if f.max == 0 {
-		return 20, nil
-	}
-
-	return f.max, nil
+	return int(f), nil
 }
 
 type fakeMailbox struct {
