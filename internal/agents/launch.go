@@ -101,10 +101,11 @@ func (l *Launcher) buildBriefing() string {
 	return strings.ReplaceAll(text, logPathPlaceholder, l.logPath)
 }
 
-// appendedSystemPrompt is what the panel has to say to an agent it is starting: the
-// standing briefing, who spawned it, the user's own standing context, then the
-// workflow's. They run general to specific, so a workflow reads as the last word on
-// anything the file above it also speaks to.
+// appendedSystemPrompt is what the panel has to say to an agent it is starting. The
+// standing briefing and who spawned it are weave's own voice, so they come first rather
+// than competing for the last word; the user's standing context and the workflow's follow,
+// and between those two a workflow reads as the last word on anything the user's also
+// speaks to.
 func (l *Launcher) appendedSystemPrompt(workflowContext, spawnedByAgentID, spawnedByName string) string {
 	parts := []string{l.buildBriefing(), delegateBriefing(spawnedByAgentID, spawnedByName), l.globalContext(), workflowContext}
 
