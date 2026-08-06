@@ -105,5 +105,7 @@ func (m *model) restageScreen() {
 		m.stageSchedule()
 	case screenArchive:
 		m.stageArchive()
+	// A form takes the whole screen and the rest stage nothing of their own.
+	default:
 	}
 }
