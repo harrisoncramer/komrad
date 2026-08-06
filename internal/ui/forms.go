@@ -26,6 +26,7 @@ type formValues struct {
 	workflow  *workflowstore.Config
 	schedule  *schedulestore.Config
 	confirmed *bool
+	archive   *archiveChoice
 }
 
 // formTarget is the record the open form is working on, nil while none is, which for the
@@ -229,15 +230,52 @@ func deleteAgentsForm(agents []agentstore.Agent, keys config.FormKeys) (*huh.For
 	return confirmForm(title, warning, "Delete", keys)
 }
 
-// archiveAgentsForm confirms putting agents away. It is reversible from the archive screen,
-// so the wording says so rather than warning the way the delete prompt does.
-func archiveAgentsForm(agents []agentstore.Agent, keys config.FormKeys) (*huh.Form, *bool) {
+// archiveChoice is how an archive prompt was answered, cancel as the zero value so a prompt
+// nobody answered does nothing.
+type archiveChoice string
+
+const (
+	archiveChoiceCancel        archiveChoice = ""
+	archiveChoiceArchive       archiveChoice = "archive"
+	archiveChoiceArchiveDelete archiveChoice = "archive+delete"
+)
+
+// archiveAgentsForm asks what to do with agents being put away, opening on the reversible
+// answer so only a move down destroys anything. The value is bound before the options are
+// given, since huh scrolls its list to whatever is bound at the time.
+func archiveAgentsForm(agents []agentstore.Agent, keys config.FormKeys) (*huh.Form, *archiveChoice) {
 	title := fmt.Sprintf("Archive %d agents?", len(agents))
 	if len(agents) == 1 {
 		title = fmt.Sprintf("Archive agent %q?", agents[0].Name)
 	}
 
-	return confirmForm(title, "Their transcripts are kept and stay searchable; restore them from the archive.", "Archive", keys)
+	choice := archiveChoiceArchive
+
+	field := huh.NewSelect[archiveChoice]().
+		Key("archive").
+		Title(title).
+		Description("Archiving keeps their transcripts searchable and is undone from the archive screen; deleting takes the transcripts with them and search will not find the conversations again.").
+		Value(&choice).
+		Options(
+			huh.NewOption("Archive", archiveChoiceArchive),
+			huh.NewOption("Archive and delete", archiveChoiceArchiveDelete),
+			huh.NewOption("Cancel", archiveChoiceCancel),
+		)
+
+	form := huh.NewForm(huh.NewGroup(field)).
+		WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
+
+	return form, &choice
+}
+
+// archiveAnswer is what the open archive prompt was answered with, cancel when none is up so
+// the destructive answer only ever runs off one somebody gave.
+func (m model) archiveAnswer() archiveChoice {
+	if m.values.archive == nil {
+		return archiveChoiceCancel
+	}
+
+	return *m.values.archive
 }
 
 // workflowForm asks for a name alone, which is what a rename is. It binds the same config

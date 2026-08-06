@@ -463,7 +463,7 @@ func TestArchiveSelectionFromTheTree(t *testing.T) {
 			assert.Equal(t, tt.wantIDs, agentIDs(pressed.target.archiveAgents))
 			assert.Empty(t, agents.archived, "nothing is sent until the prompt is confirmed")
 
-			*pressed.values.confirmed = true
+			*pressed.values.archive = archiveChoiceArchive
 			pressed.form.State = huh.StateCompleted
 
 			next, cmd := pressed.updateAgentArchive(keyMsg("enter"))
