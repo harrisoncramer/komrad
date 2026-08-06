@@ -268,12 +268,31 @@ func (m *model) claimBelow(kind belowKind, name string) bool {
 // Clear the pane option because tmux can reuse pane IDs. Restaging afterward is what lets
 // the agents list open its info pane back up when a log or an edit closes on an agent row,
 // rather than leaving it closed until the next unrelated redraw finds it that way.
+//
+// The pane is left standing when restaging is about to fill it again. Killing it and
+// splitting a new one in its place reflows the window twice, and a CLI in the stage answers
+// each reflow with a full redraw, which is seen as the panes stuttering as the pane goes.
 func (m model) closeBelow() model {
-	m.stage.CloseSecondary()
+	if !m.reclaimsBelow() {
+		m.stage.CloseSecondary()
+	}
+
 	m.forgetBelow()
 	m.restageScreen()
 
 	return m
+}
+
+// reclaimsBelow reports whether restaging would put something back in the pane under the
+// stage, which is the agents list drawing a hovered agent's record there.
+func (m model) reclaimsBelow() bool {
+	if m.screen != screenAgents || m.tree.infoClosed {
+		return false
+	}
+
+	r, ok := rowAt(m.agentRows(), m.tree.cursor)
+
+	return ok && !r.header
 }
 
 func (m *model) forgetBelow() {
