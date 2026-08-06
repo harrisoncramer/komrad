@@ -36,20 +36,6 @@ func New(tmux Tmux, layout config.Layout) *Frame {
 	return &Frame{tmux: tmux, spec: NewSpec(layout), shown: map[Region]shown{}}
 }
 
-// Relayout moves the frame to a geometry the config now asks for. It sizes whatever is on
-// screen rather than the main region's own pane, since a guest swapped in has taken that
-// pane's place and the one to widen is the one being looked at. The bottom region keeps the
-// height it was opened at, since resizing a pager somebody is reading to a share they
-// changed for the next one is not what they asked for.
-func (f *Frame) Relayout(layout config.Layout) {
-	f.spec = NewSpec(layout)
-	f.claimMain()
-
-	if pane := f.getDisplayedPane(); pane != "" {
-		f.tmux.ResizePane(pane, f.spec.getMainPercent())
-	}
-}
-
 // Attach anchors the frame to the pane the panel runs in and lays the regions out around it.
 // That pane is the one the panel was told it runs in rather than one read back from tmux,
 // which answers for whatever window the session is currently looking at.

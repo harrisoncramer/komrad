@@ -109,9 +109,6 @@ type Keybindings struct {
 	Agents AgentsKeys `mapstructure:"agents"`
 	// The archive screen, and the key that opens it from the agents list.
 	Archive ArchiveKeys `mapstructure:"archive"`
-	// The key that re-reads this file, shared by every screen since the config is about
-	// the panel rather than about anything a screen lists.
-	Config ConfigKeys `mapstructure:"config"`
 	// The filter over whichever list is on screen, shared by every screen that
 	// draws one.
 	Filter FilterKeys `mapstructure:"filter"`
@@ -151,17 +148,6 @@ type NavKeys struct {
 type HelpKeys struct {
 	// Toggle for the keybindings
 	Toggle []string `mapstructure:"toggle"`
-}
-
-// ConfigKeys is the binding that re-reads the user's config file. It is its own group
-// rather than one of a screen's, since what it reloads belongs to the panel rather than to
-// whichever list is on screen.
-type ConfigKeys struct {
-	// Re-read the config file and apply what the panel can change while it runs: its
-	// keybindings, its marks, its layout, and its log viewer. It lands back on the agents
-	// list. The database, the address, and the tmux socket are what this process is, so a
-	// change to those is reported rather than applied.
-	Reload []string `mapstructure:"reload"`
 }
 
 // LogsKeys is the binding that pages the background service's log. It is its own group
@@ -595,9 +581,6 @@ func DefaultKeybindings() Keybindings {
 			Open:    []string{"Z"},
 			Quit:    []string{"ctrl+c"},
 			Restore: []string{"r"},
-		},
-		Config: ConfigKeys{
-			Reload: []string{"ctrl+r"},
 		},
 		Filter: FilterKeys{
 			Open: []string{"/"},

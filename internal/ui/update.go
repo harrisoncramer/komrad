@@ -122,13 +122,6 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.openLogs()
 	}
 
-	// The config is about the panel rather than about the list on screen, so it is answered
-	// here for the reason the log is. It is taken ahead of the screens because the bindings
-	// it is about are the ones they would read it with.
-	if !m.isQueryOpen() && isBound(key.String(), m.keys.Config.Reload) {
-		return m, m.reloadCmd()
-	}
-
 	switch m.screen {
 	case screenSearch:
 		return m.updateSearch(key)
@@ -177,10 +170,6 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.restageScreen()
 
 		return m, nil, true
-	case reloadResult:
-		next, cmd := m.applyReload(msg)
-
-		return next, cmd, true
 	default:
 		return m, nil, false
 	}

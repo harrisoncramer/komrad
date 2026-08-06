@@ -71,12 +71,6 @@ type Deps struct {
 	// Layout is how the popup's width is divided between the list and the stage, and how
 	// much of the stage's height the pane under it takes when something opens there.
 	Layout config.Layout
-	// ConfigPaths is the layers this process read its config from, weakest first, which the
-	// reload key reads again. Empty is the loader's own default path.
-	ConfigPaths []string
-	// Connection is the instance this panel was started against. A reload compares the file's
-	// against it, since those settings cannot change under a running process.
-	Connection config.Connection
 	// Addr is where Client points, shown on the error screen when the service stops
 	// answering.
 	Addr string
@@ -182,10 +176,6 @@ type model struct {
 
 	keys  config.Keybindings
 	marks []config.Mark
-	// configPaths is what the reload key re-reads, and connection is the instance this panel
-	// was started against, which a reload cannot change.
-	configPaths []string
-	connection  config.Connection
 	// logPath is the service's log and logViewer is what the log key opens it in.
 	logPath   string
 	logViewer string
@@ -210,8 +200,6 @@ func newModel(deps Deps) model {
 		logViewer:       deps.LogViewer,
 		keys:            deps.Keys,
 		marks:           deps.Marks,
-		configPaths:     deps.ConfigPaths,
-		connection:      deps.Connection,
 		configErr:       deps.ConfigErr,
 		startupErr:      deps.StartupErr,
 		startupFindings: deps.StartupFindings,
