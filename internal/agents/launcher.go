@@ -111,7 +111,7 @@ func delegateBriefing(spawnedByAgentID, spawnedByName string) string {
 	}
 
 	return fmt.Sprintf(
-		"You were spawned by agent %s (%s) to do this piece of work. Answer its messages as they arrive, and tell it when you are done rather than waiting to be asked.",
+		"You were spawned by agent %s (%s) to do this piece of work. Answer its mail as it arrives, and tell it when you are done rather than waiting to be asked.",
 		spawnedByName, spawnedByAgentID)
 }
 

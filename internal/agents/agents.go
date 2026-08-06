@@ -14,7 +14,7 @@ import (
 
 	"weave/internal/harness"
 	agentstore "weave/internal/store/agent"
-	messagestore "weave/internal/store/message"
+	mailstore "weave/internal/store/mail"
 	"weave/internal/store/transcript"
 	"weave/internal/store/workflow"
 )
@@ -92,11 +92,11 @@ type lifecycleActioner interface {
 	RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string) error
 }
 
-// parentNotifier tells a spawning agent its delegate is gone. It is SendSystemMessage
-// rather than the general SendMessage so nothing outside this package, including the RPC
-// surface that builds a SendMessageParams from a request on the wire, can speak as weave.
+// parentNotifier tells a spawning agent its delegate is gone. It is SendSystemMail
+// rather than the general SendMail so nothing outside this package, including the RPC
+// surface that builds a SendMailParams from a request on the wire, can speak as weave.
 type parentNotifier interface {
-	SendSystemMessage(ctx context.Context, toAgentID, body string) (*messagestore.Message, error)
+	SendSystemMail(ctx context.Context, toAgentID, body string) (*mailstore.Mail, error)
 }
 
 // AgentService manages agent records, panes, and lifecycle actions.
@@ -278,8 +278,8 @@ func (s *AgentService) ArchiveAgents(ctx context.Context, ids []string) error {
 	return nil
 }
 
-// notifyParents tells each agent's spawner it is gone, one message per delegate that had
-// one. A person or a tool asked for these agents to go away; a mailbox that refuses the
+// notifyParents tells each agent's spawner it is gone, one piece of mail per delegate that
+// had one. A person or a tool asked for these agents to go away; a mailbox that refuses the
 // news, or a parent that went away in the same batch and no longer accepts mail, is not a
 // reason to undo that, so failures are logged rather than returned.
 //
@@ -295,7 +295,7 @@ func notifyParents(ctx context.Context, notifier parentNotifier, agents []agents
 		}
 
 		body := fmt.Sprintf("Your delegate %q (%s) was %s.", agent.Name, agent.ID, reason)
-		if _, err := notifier.SendSystemMessage(ctx, *agent.SpawnedByAgentID, body); err != nil {
+		if _, err := notifier.SendSystemMail(ctx, *agent.SpawnedByAgentID, body); err != nil {
 			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "could not tell an agent's spawner it was gone",
 				append([]slog.Attr{
 					slog.String(logging.DelegateAgentID, agent.ID),

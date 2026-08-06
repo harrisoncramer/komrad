@@ -708,7 +708,7 @@ func TestLog(t *testing.T) {
 	}
 }
 
-func TestSendMessage(t *testing.T) {
+func TestSendMail(t *testing.T) {
 	tests := []struct {
 		name     string
 		to       string
@@ -773,7 +773,7 @@ func TestSendMessage(t *testing.T) {
 				ctx = caller.With(ctx, caller.Caller{AgentID: tt.callerIs})
 			}
 
-			sent, err := svc.SendMessage(ctx, connect.NewRequest(&agentv1.SendMessageRequest{
+			sent, err := svc.SendMail(ctx, connect.NewRequest(&agentv1.SendMailRequest{
 				ToAgentId: to,
 				Body:      "which column holds the refund?",
 			}))
@@ -784,43 +784,43 @@ func TestSendMessage(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, beta.ID, sent.Msg.GetMessage().GetToAgentId())
-			assert.Equal(t, "which column holds the refund?", sent.Msg.GetMessage().GetBody())
+			assert.Equal(t, beta.ID, sent.Msg.GetMail().GetToAgentId())
+			assert.Equal(t, "which column holds the refund?", sent.Msg.GetMail().GetBody())
 
 			if tt.callerIs == "alpha" {
-				assert.Equal(t, alpha.ID, sent.Msg.GetMessage().GetFromAgentId())
-				assert.Equal(t, "alpha", sent.Msg.GetMessage().GetFromName())
+				assert.Equal(t, alpha.ID, sent.Msg.GetMail().GetFromAgentId())
+				assert.Equal(t, "alpha", sent.Msg.GetMail().GetFromName())
 
 				return
 			}
 
-			assert.Empty(t, sent.Msg.GetMessage().GetFromAgentId())
+			assert.Empty(t, sent.Msg.GetMail().GetFromAgentId())
 		})
 	}
 }
 
-func TestSendMessagePastTheHopLimitIsResourceExhausted(t *testing.T) {
+func TestSendMailPastTheHopLimitIsResourceExhausted(t *testing.T) {
 	st := storetest.Open(t)
-	messages := agents.NewMessageService(agents.NewMessageServiceParams{
-		MessageReadWriter: st.Messages,
-		AgentFinder:       st.Agents,
-		Config:            stubMessageConfig(1),
+	mail := agents.NewMailService(agents.NewMailServiceParams{
+		MailReadWriter: st.Mail,
+		AgentFinder:    st.Agents,
+		Config:         stubMailConfig(1),
 	})
-	svc := NewService(NewServiceParams{Agents: st.Agents, Transcripts: st.Transcripts, Messages: messages})
+	svc := NewService(NewServiceParams{Agents: st.Agents, Transcripts: st.Transcripts, Mail: mail})
 
 	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
 	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
 
 	asAlpha := caller.With(t.Context(), caller.Caller{AgentID: alpha.ID})
-	first, err := svc.SendMessage(asAlpha, connect.NewRequest(&agentv1.SendMessageRequest{
+	first, err := svc.SendMail(asAlpha, connect.NewRequest(&agentv1.SendMailRequest{
 		ToAgentId: beta.ID,
 		Body:      "which column?",
 	}))
 	require.NoError(t, err)
 
 	asBeta := caller.With(t.Context(), caller.Caller{AgentID: beta.ID})
-	replyTo := first.Msg.GetMessage().GetId()
-	_, err = svc.SendMessage(asBeta, connect.NewRequest(&agentv1.SendMessageRequest{
+	replyTo := first.Msg.GetMail().GetId()
+	_, err = svc.SendMail(asBeta, connect.NewRequest(&agentv1.SendMailRequest{
 		ToAgentId: alpha.ID,
 		Body:      "refunded_cents",
 		ReplyTo:   &replyTo,
@@ -830,31 +830,31 @@ func TestSendMessagePastTheHopLimitIsResourceExhausted(t *testing.T) {
 	assert.ErrorIs(t, err, agents.ErrThreadCapped)
 }
 
-func TestReadMessages(t *testing.T) {
+func TestReadMail(t *testing.T) {
 	svc, st := service(t)
 	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
 	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
 
 	asAlpha := caller.With(t.Context(), caller.Caller{AgentID: alpha.ID})
-	_, err := svc.SendMessage(asAlpha, connect.NewRequest(&agentv1.SendMessageRequest{
+	_, err := svc.SendMail(asAlpha, connect.NewRequest(&agentv1.SendMailRequest{
 		ToAgentId: beta.ID,
 		Body:      "refunded_cents",
 	}))
 	require.NoError(t, err)
 
 	asBeta := caller.With(t.Context(), caller.Caller{AgentID: beta.ID})
-	read, err := svc.ReadMessages(asBeta, connect.NewRequest(&agentv1.ReadMessagesRequest{}))
+	read, err := svc.ReadMail(asBeta, connect.NewRequest(&agentv1.ReadMailRequest{}))
 	require.NoError(t, err)
-	require.Len(t, read.Msg.GetMessages(), 1)
-	assert.Equal(t, "refunded_cents", read.Msg.GetMessages()[0].GetBody())
-	assert.Equal(t, "alpha", read.Msg.GetMessages()[0].GetFromName())
+	require.Len(t, read.Msg.GetMail(), 1)
+	assert.Equal(t, "refunded_cents", read.Msg.GetMail()[0].GetBody())
+	assert.Equal(t, "alpha", read.Msg.GetMail()[0].GetFromName())
 
-	again, err := svc.ReadMessages(asBeta, connect.NewRequest(&agentv1.ReadMessagesRequest{}))
+	again, err := svc.ReadMail(asBeta, connect.NewRequest(&agentv1.ReadMailRequest{}))
 	require.NoError(t, err)
-	assert.Empty(t, again.Msg.GetMessages(), "a claimed message is not handed out twice")
+	assert.Empty(t, again.Msg.GetMail(), "claimed mail is not handed out twice")
 }
 
-func TestReadMessagesScope(t *testing.T) {
+func TestReadMailScope(t *testing.T) {
 	tests := []struct {
 		name     string
 		explicit bool
@@ -886,13 +886,13 @@ func TestReadMessagesScope(t *testing.T) {
 				ctx = caller.With(ctx, caller.Caller{AgentID: seeded.ID})
 			}
 
-			req := &agentv1.ReadMessagesRequest{}
+			req := &agentv1.ReadMailRequest{}
 			if tt.explicit {
 				ghost := uuid.NewString()
 				req.Id = &ghost
 			}
 
-			read, err := svc.ReadMessages(ctx, connect.NewRequest(req))
+			read, err := svc.ReadMail(ctx, connect.NewRequest(req))
 			if tt.wantCode != 0 {
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 
@@ -900,7 +900,7 @@ func TestReadMessagesScope(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Empty(t, read.Msg.GetMessages())
+			assert.Empty(t, read.Msg.GetMail())
 		})
 	}
 }
@@ -914,7 +914,7 @@ func TestCrossAgentMailReadIsRecorded(t *testing.T) {
 	ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelInfo))
 	ctx = caller.With(ctx, caller.Caller{AgentID: alpha.ID})
 
-	_, err := svc.ReadMessages(ctx, connect.NewRequest(&agentv1.ReadMessagesRequest{Id: &beta.ID}))
+	_, err := svc.ReadMail(ctx, connect.NewRequest(&agentv1.ReadMailRequest{Id: &beta.ID}))
 	require.NoError(t, err)
 
 	record := logtest.Record(t, written.String())
@@ -1508,11 +1508,11 @@ func (f *fakeLauncher) ResumeAgent(_ context.Context, id string) (*agentstore.Ag
 	return f.created, nil
 }
 
-type stubMessageConfig int
+type stubMailConfig int
 
-func (stubMessageConfig) GetDeliveryDeadline() (time.Duration, error) { return time.Hour, nil }
+func (stubMailConfig) GetDeliveryDeadline() (time.Duration, error) { return time.Hour, nil }
 
-func (s stubMessageConfig) GetMaxHops() (int, error) { return int(s), nil }
+func (s stubMailConfig) GetMaxHops() (int, error) { return int(s), nil }
 
 func service(t *testing.T) (*Service, *storetest.Stores) {
 	t.Helper()
@@ -1580,16 +1580,16 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 	st := storetest.Open(t)
 	launcher := &fakeLauncher{created: &agentstore.Agent{ID: "id-1", Name: "spawned", Cwd: "/repo", State: agentstore.StateIdle}}
 
-	messages := agents.NewMessageService(agents.NewMessageServiceParams{
-		MessageReadWriter: st.Messages,
-		AgentFinder:       st.Agents,
-		Config:            stubMessageConfig(config.DefaultMaxHops),
+	mail := agents.NewMailService(agents.NewMailServiceParams{
+		MailReadWriter: st.Mail,
+		AgentFinder:    st.Agents,
+		Config:         stubMailConfig(config.DefaultMaxHops),
 	})
 
 	return NewService(NewServiceParams{
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
-		Messages:    messages,
+		Mail:        mail,
 		Launcher:    launcher,
 	}), st, launcher
 }

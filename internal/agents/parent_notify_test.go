@@ -13,13 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// newNotifier builds a real message service over a test's own store, the same type the
+// newNotifier builds a real mail service over a test's own store, the same type the
 // server wires in as the agent service's notifier.
-func newNotifier(st *testStore) *MessageService {
-	return NewMessageService(NewMessageServiceParams{
-		MessageReadWriter: st.Messages,
-		AgentFinder:       st.Agents,
-		Config:            fakeMessageConfig{maxHops: config.DefaultMaxHops},
+func newNotifier(st *testStore) *MailService {
+	return NewMailService(NewMailServiceParams{
+		MailReadWriter: st.Mail,
+		AgentFinder:    st.Agents,
+		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
 	})
 }
 
@@ -37,7 +37,7 @@ func TestArchiveTellsAParentItsDelegateIsGone(t *testing.T) {
 		name             string
 		hasParent        bool
 		archiveParentToo bool
-		wantMessage      bool
+		wantMail         bool
 	}{
 		{
 			name: "an agent with no parent tells nobody",
@@ -48,9 +48,9 @@ func TestArchiveTellsAParentItsDelegateIsGone(t *testing.T) {
 			archiveParentToo: true,
 		},
 		{
-			name:        "a live parent hears its delegate was archived",
-			hasParent:   true,
-			wantMessage: true,
+			name:      "a live parent hears its delegate was archived",
+			hasParent: true,
+			wantMail:  true,
 		},
 	}
 
@@ -81,9 +81,9 @@ func TestArchiveTellsAParentItsDelegateIsGone(t *testing.T) {
 				return
 			}
 
-			claimed, err := st.Messages.Claim(ctx, parent.ID, 10)
+			claimed, err := st.Mail.Claim(ctx, parent.ID, 10)
 			require.NoError(t, err)
-			if !tt.wantMessage {
+			if !tt.wantMail {
 				assert.Empty(t, claimed)
 
 				return
@@ -102,7 +102,7 @@ func TestDeleteTellsAParentItsDelegateIsGone(t *testing.T) {
 		name            string
 		hasParent       bool
 		deleteParentToo bool
-		wantMessage     bool
+		wantMail        bool
 	}{
 		{
 			name: "an agent with no parent tells nobody",
@@ -113,9 +113,9 @@ func TestDeleteTellsAParentItsDelegateIsGone(t *testing.T) {
 			deleteParentToo: true,
 		},
 		{
-			name:        "a live parent hears its delegate was deleted",
-			hasParent:   true,
-			wantMessage: true,
+			name:      "a live parent hears its delegate was deleted",
+			hasParent: true,
+			wantMail:  true,
 		},
 	}
 
@@ -147,7 +147,7 @@ func TestDeleteTellsAParentItsDelegateIsGone(t *testing.T) {
 				return
 			}
 
-			claimed, err := st.Messages.Claim(ctx, parentID, 10)
+			claimed, err := st.Mail.Claim(ctx, parentID, 10)
 			require.NoError(t, err)
 			require.Len(t, claimed, 1)
 			assert.Equal(t, WeaveSenderName, claimed[0].FromName, "a lifecycle notice reads as weave's own voice")
@@ -163,24 +163,24 @@ func TestDeleteTellsAParentItsDelegateIsGone(t *testing.T) {
 // the panel operator, still produces the notice.
 func TestNotifyParentsSkipsTheActorsOwnDelegate(t *testing.T) {
 	tests := []struct {
-		name        string
-		actor       func(parentID, otherID string) string
-		wantMessage bool
+		name     string
+		actor    func(parentID, otherID string) string
+		wantMail bool
 	}{
 		{
-			name:        "the parent archiving its own delegate hears nothing",
-			actor:       func(parentID, _ string) string { return parentID },
-			wantMessage: false,
+			name:     "the parent archiving its own delegate hears nothing",
+			actor:    func(parentID, _ string) string { return parentID },
+			wantMail: false,
 		},
 		{
-			name:        "the panel operator archiving the same delegate still tells the parent",
-			actor:       func(_, _ string) string { return "" },
-			wantMessage: true,
+			name:     "the panel operator archiving the same delegate still tells the parent",
+			actor:    func(_, _ string) string { return "" },
+			wantMail: true,
 		},
 		{
-			name:        "another agent archiving somebody else's delegate still tells the parent",
-			actor:       func(_, otherID string) string { return otherID },
-			wantMessage: true,
+			name:     "another agent archiving somebody else's delegate still tells the parent",
+			actor:    func(_, otherID string) string { return otherID },
+			wantMail: true,
 		},
 	}
 
@@ -197,9 +197,9 @@ func TestNotifyParentsSkipsTheActorsOwnDelegate(t *testing.T) {
 			ctx := caller.With(t.Context(), caller.Caller{AgentID: tt.actor(parent.ID, other.ID)})
 			require.NoError(t, manager.ArchiveAgents(ctx, []string{child.ID}))
 
-			claimed, err := st.Messages.Claim(t.Context(), parent.ID, 10)
+			claimed, err := st.Mail.Claim(t.Context(), parent.ID, 10)
 			require.NoError(t, err)
-			if tt.wantMessage {
+			if tt.wantMail {
 				assert.Len(t, claimed, 1)
 			} else {
 				assert.Empty(t, claimed)
@@ -227,7 +227,7 @@ func TestArchiveWorkflowTellsAParentOutsideIt(t *testing.T) {
 
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, childWorkflow.ID))
 
-	claimed, err := st.Messages.Claim(ctx, parent.ID, 10)
+	claimed, err := st.Mail.Claim(ctx, parent.ID, 10)
 	require.NoError(t, err)
 	require.Len(t, claimed, 1)
 	assert.Equal(t, WeaveSenderName, claimed[0].FromName)
@@ -267,16 +267,16 @@ func TestNotifyParentDoesNotBlockOnAFullMailbox(t *testing.T) {
 			parent := seedRunning(t, st, tmux, "parent", "%parent", agentstore.StateIdle)
 			child := seedSpawned(t, st, parent.ID)
 
-			for range maxPendingMessages {
-				_, err := notifier.SendSystemMessage(ctx, parent.ID, "filler")
+			for range maxPendingMail {
+				_, err := notifier.SendSystemMail(ctx, parent.ID, "filler")
 				require.NoError(t, err)
 			}
 
 			require.NoError(t, tt.action(manager, ctx, child.ID))
 
-			pending, err := st.Messages.CountPending(ctx, parent.ID)
+			pending, err := st.Mail.CountPending(ctx, parent.ID)
 			require.NoError(t, err)
-			assert.EqualValues(t, maxPendingMessages, pending, "a refused notice is not retried into a stray extra message")
+			assert.EqualValues(t, maxPendingMail, pending, "a refused notice is not retried into a stray extra message")
 		})
 	}
 }

@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAgentsMessageEachOther(t *testing.T) {
+func TestAgentsMailEachOther(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 
@@ -30,21 +30,21 @@ func TestAgentsMessageEachOther(t *testing.T) {
 	var sentID string
 
 	t.Run("an agent addresses another by id", func(t *testing.T) {
-		req := connect.NewRequest(&agentv1.SendMessageRequest{
+		req := connect.NewRequest(&agentv1.SendMailRequest{
 			ToAgentId: migrations.GetId(),
 			Body:      "what is the refund column called?",
 		})
 		caller.Caller{AgentID: api.GetId()}.SetHeader(req.Header())
 
-		sent, err := instance.Agents.SendMessage(ctx, req)
+		sent, err := instance.Agents.SendMail(ctx, req)
 		require.NoError(t, err)
 
-		message := sent.Msg.GetMessage()
-		assert.Equal(t, migrations.GetId(), message.GetToAgentId())
-		assert.Equal(t, api.GetId(), message.GetFromAgentId())
-		assert.Equal(t, "api", message.GetFromName())
-		require.NotEmpty(t, message.GetId())
-		sentID = message.GetId()
+		mail := sent.Msg.GetMail()
+		assert.Equal(t, migrations.GetId(), mail.GetToAgentId())
+		assert.Equal(t, api.GetId(), mail.GetFromAgentId())
+		assert.Equal(t, "api", mail.GetFromName())
+		require.NotEmpty(t, mail.GetId())
+		sentID = mail.GetId()
 	})
 
 	t.Run("the recipient reads it once", func(t *testing.T) {
@@ -57,18 +57,18 @@ func TestAgentsMessageEachOther(t *testing.T) {
 		require.NoError(t, err)
 		assert.WithinDuration(t, time.Now(), sentAt, time.Minute)
 
-		assert.Empty(t, readMail(t, instance, migrations.GetId()), "a message read once is not waiting again")
+		assert.Empty(t, readMail(t, instance, migrations.GetId()), "mail read once is not waiting again")
 	})
 
 	t.Run("the answer comes back on the same thread", func(t *testing.T) {
-		req := connect.NewRequest(&agentv1.SendMessageRequest{
+		req := connect.NewRequest(&agentv1.SendMailRequest{
 			ToAgentId: api.GetId(),
 			Body:      "refunded_cents",
 			ReplyTo:   &sentID,
 		})
 		caller.Caller{AgentID: migrations.GetId()}.SetHeader(req.Header())
 
-		_, err := instance.Agents.SendMessage(ctx, req)
+		_, err := instance.Agents.SendMail(ctx, req)
 		require.NoError(t, err)
 
 		read := readMail(t, instance, api.GetId())
@@ -79,9 +79,9 @@ func TestAgentsMessageEachOther(t *testing.T) {
 	})
 
 	t.Run("mail dies with the agent it was addressed to", func(t *testing.T) {
-		req := connect.NewRequest(&agentv1.SendMessageRequest{ToAgentId: migrations.GetId(), Body: "still there?"})
+		req := connect.NewRequest(&agentv1.SendMailRequest{ToAgentId: migrations.GetId(), Body: "still there?"})
 		caller.Caller{AgentID: api.GetId()}.SetHeader(req.Header())
-		_, err := instance.Agents.SendMessage(ctx, req)
+		_, err := instance.Agents.SendMail(ctx, req)
 		require.NoError(t, err)
 
 		_, err = instance.Agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{
@@ -90,7 +90,7 @@ func TestAgentsMessageEachOther(t *testing.T) {
 		require.NoError(t, err)
 
 		gone := migrations.GetId()
-		_, err = instance.Agents.ReadMessages(ctx, connect.NewRequest(&agentv1.ReadMessagesRequest{
+		_, err = instance.Agents.ReadMail(ctx, connect.NewRequest(&agentv1.ReadMailRequest{
 			Id: &gone,
 		}))
 		assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
@@ -114,14 +114,14 @@ func createAgent(t *testing.T, instance *weavetest.Instance, workflowID, name st
 	return created.Msg.GetAgent()
 }
 
-func readMail(t *testing.T, instance *weavetest.Instance, agentID string) []*agentv1.Message {
+func readMail(t *testing.T, instance *weavetest.Instance, agentID string) []*agentv1.Mail {
 	t.Helper()
 
-	req := connect.NewRequest(&agentv1.ReadMessagesRequest{})
+	req := connect.NewRequest(&agentv1.ReadMailRequest{})
 	caller.Caller{AgentID: agentID}.SetHeader(req.Header())
 
-	read, err := instance.Agents.ReadMessages(t.Context(), req)
+	read, err := instance.Agents.ReadMail(t.Context(), req)
 	require.NoError(t, err)
 
-	return read.Msg.GetMessages()
+	return read.Msg.GetMail()
 }

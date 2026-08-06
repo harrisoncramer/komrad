@@ -176,7 +176,7 @@ func TestAppendedSystemPromptDelegateBriefing(t *testing.T) {
 			name:             "a spawned agent is told who spawned it and to report back",
 			spawnedByAgentID: "parent-id-1",
 			spawnedByName:    "reviewer",
-			wantContain:      []string{"spawned by agent reviewer (parent-id-1)", "Answer its messages", "tell it when you are done"},
+			wantContain:      []string{"spawned by agent reviewer (parent-id-1)", "Answer its mail", "tell it when you are done"},
 		},
 	}
 

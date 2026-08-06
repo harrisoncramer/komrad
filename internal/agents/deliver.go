@@ -8,7 +8,7 @@ import (
 
 	"weave/internal/logging"
 	agentstore "weave/internal/store/agent"
-	messagestore "weave/internal/store/message"
+	mailstore "weave/internal/store/mail"
 )
 
 // Delivery is what one pass at an agent's mailbox achieved, which is what decides when the
@@ -46,12 +46,12 @@ type nudgeClaimer interface {
 
 // mailboxReader is what delivery needs to know about an agent's mail without taking it.
 // Nothing here claims mail: what a recipient reads is the recipient's own call. ListExpired is
-// the one exception to "reader" in the name — it marks what it reports, so a message is only
-// ever logged as expired once.
+// the one exception to "reader" in the name — it marks what it reports, so a piece of mail is
+// only ever logged as expired once.
 type mailboxReader interface {
 	ListPendingMailboxes(ctx context.Context) ([]string, error)
 	CountPending(ctx context.Context, toAgentID string) (int64, error)
-	ListExpired(ctx context.Context, toAgentID string) ([]messagestore.Message, error)
+	ListExpired(ctx context.Context, toAgentID string) ([]mailstore.Mail, error)
 }
 
 // DeliveryService gets an agent to read its mail. It does not deliver the mail itself: the
@@ -151,7 +151,7 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 // stays in the store: a long or multi-line message typed at a pane is what corrupts, and
 // the agent can fetch it in full over the API.
 func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pending int64) error {
-	line := fmt.Sprintf("weave: %d unread message(s), call read_messages", pending)
+	line := fmt.Sprintf("weave: %d piece(s) of unread mail, call read_mail", pending)
 
 	if err := s.paneWriter.SendKeys(agent.Pane, line); err != nil {
 		return fmt.Errorf("failed to type at agent %q: %w", agent.ID, err)
@@ -165,22 +165,22 @@ func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pen
 
 	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "told an agent to read its mail",
 		slog.String(logging.TargetAgentID, agent.ID),
-		slog.Int64(logging.UnreadMessages, pending))
+		slog.Int64(logging.UnreadMail, pending))
 
 	return nil
 }
 
-// reportExpired writes a line for each message that ran out of time, since a message nobody
-// ever saw is otherwise indistinguishable from one that was never sent.
+// reportExpired writes a line for each piece of mail that ran out of time, since mail nobody
+// ever saw is otherwise indistinguishable from mail that was never sent.
 func (s *DeliveryService) reportExpired(ctx context.Context, agent agentstore.Agent) {
 	expired, err := s.mailboxReader.ListExpired(ctx, agent.ID)
 	if err != nil || len(expired) == 0 {
 		return
 	}
 
-	for _, message := range expired {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "a message expired before it was read",
+	for _, item := range expired {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "a piece of mail expired before it was read",
 			slog.String(logging.TargetAgentID, agent.ID),
-			slog.String(logging.MessageID, message.ID))
+			slog.String(logging.MailID, item.ID))
 	}
 }

@@ -82,7 +82,7 @@ type Params struct {
 	// MaxAgents is how many live agents the panel holds at once, defaulting to enough
 	// that no test hits the limit without meaning to.
 	MaxAgents int
-	// DeliveryDeadline is how long a message stays deliverable, as a Go duration. It
+	// DeliveryDeadline is how long mail stays deliverable, as a Go duration. It
 	// defaults to the config's own, and a test sets it to something already past to watch
 	// mail expire without waiting.
 	DeliveryDeadline string
@@ -113,7 +113,7 @@ func Start(t *testing.T, p Params) *Instance {
 
 	settings := fmt.Sprintf("[actions]\ndir = %q\n", actionsDir)
 	if p.DeliveryDeadline != "" {
-		settings += fmt.Sprintf("\n[messages]\ndelivery_deadline = %q\n", p.DeliveryDeadline)
+		settings += fmt.Sprintf("\n[mail]\ndelivery_deadline = %q\n", p.DeliveryDeadline)
 	}
 
 	configPath := filepath.Join(root, "config.toml")
@@ -218,7 +218,7 @@ func (i *Instance) Settle(agentID string, activity harness.Activity, want string
 }
 
 // Deliver runs one pass of the work the delivery queue does for an agent, which is what
-// gets a message to somebody who has stopped and would otherwise never look.
+// gets mail to somebody who has stopped and would otherwise never look.
 func (i *Instance) Deliver(agentID string) agents.Delivery {
 	i.t.Helper()
 
@@ -232,24 +232,24 @@ func (i *Instance) Deliver(agentID string) agents.Delivery {
 // mail is waiting, as that agent, and records it as something the agent was told. The real
 // hook is a subcommand of this binary calling the same endpoint, so what is exercised here
 // is the panel's half of it.
-func (i *Instance) EndTurn(agentID string) []*agentv1.Message {
+func (i *Instance) EndTurn(agentID string) []*agentv1.Mail {
 	i.t.Helper()
 
 	stored, err := i.Stores.Agents.GetByID(i.t.Context(), agentID)
 	require.NoError(i.t, err)
 	require.NotNil(i.t, stored)
 
-	req := connect.NewRequest(&agentv1.ReadMessagesRequest{})
+	req := connect.NewRequest(&agentv1.ReadMailRequest{})
 	caller.Caller{AgentID: agentID, SessionID: stored.SessionID}.SetHeader(req.Header())
 
-	read, err := i.Agents.ReadMessages(i.t.Context(), req)
+	read, err := i.Agents.ReadMail(i.t.Context(), req)
 	require.NoError(i.t, err)
 
-	for _, message := range read.Msg.GetMessages() {
-		require.NoError(i.t, i.Harness.Say(stored.SessionID, "user", message.GetBody()))
+	for _, item := range read.Msg.GetMail() {
+		require.NoError(i.t, i.Harness.Say(stored.SessionID, "user", item.GetBody()))
 	}
 
-	return read.Msg.GetMessages()
+	return read.Msg.GetMail()
 }
 
 // Typed is every line weave has typed into an agent's pane, read back from the agent

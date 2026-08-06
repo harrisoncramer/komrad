@@ -1,10 +1,10 @@
 ## weave hook stop
 
-Deliver an agent's unread messages as its turn ends
+Deliver an agent's unread mail as its turn ends
 
 ### Synopsis
 
-Deliver an agent's unread messages as its turn ends.
+Deliver an agent's unread mail as its turn ends.
 
 The agent CLI runs this on its Stop event. It reads the agent's mail and prints it
 back as additional context, which the CLI hands the model as another turn. An

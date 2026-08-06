@@ -1,5 +1,5 @@
--- name: InsertAgentMessage :one
-INSERT INTO agent_messages(
+-- name: InsertMail :one
+INSERT INTO mail(
     from_agent_id,
     from_name,
     to_agent_id,
@@ -18,20 +18,20 @@ VALUES (
 RETURNING
     *;
 
--- name: GetAgentMessage :one
+-- name: GetMail :one
 SELECT
     *
 FROM
-    agent_messages m
+    mail m
 WHERE
     m.id = @id;
 
--- name: ClaimAgentMessages :many
+-- name: ClaimMail :many
 WITH pending AS (
     SELECT
         m.id
     FROM
-        agent_messages m
+        mail m
     WHERE
         m.to_agent_id = @to_agent_id
         AND m.claimed_at IS NULL
@@ -42,7 +42,7 @@ WITH pending AS (
     FOR UPDATE
         SKIP LOCKED)
 UPDATE
-    agent_messages m
+    mail m
 SET
     claimed_at = NOW()
 WHERE
@@ -54,22 +54,22 @@ WHERE
 RETURNING
     *;
 
--- name: CountPendingAgentMessages :one
+-- name: CountPendingMail :one
 SELECT
     COUNT(*)
 FROM
-    agent_messages m
+    mail m
 WHERE
     m.to_agent_id = @to_agent_id
     AND m.claimed_at IS NULL
     AND m.expires_at > NOW();
 
--- name: ReportExpiredAgentMessages :many
+-- name: ReportExpiredMail :many
 WITH unreported AS (
     SELECT
         m.id
     FROM
-        agent_messages m
+        mail m
     WHERE
         m.to_agent_id = @to_agent_id
         AND m.claimed_at IS NULL
@@ -80,7 +80,7 @@ WITH unreported AS (
     FOR UPDATE
         SKIP LOCKED)
 UPDATE
-    agent_messages m
+    mail m
 SET
     reported_at = NOW()
 WHERE
@@ -96,7 +96,7 @@ WHERE
 SELECT DISTINCT
     m.to_agent_id
 FROM
-    agent_messages m
+    mail m
 WHERE
     m.claimed_at IS NULL
     AND (m.expires_at > NOW()

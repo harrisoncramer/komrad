@@ -4,7 +4,7 @@ import (
 	"time"
 
 	agentstore "weave/internal/store/agent"
-	messagestore "weave/internal/store/message"
+	mailstore "weave/internal/store/mail"
 	transcriptstore "weave/internal/store/transcript"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -73,13 +73,13 @@ func renderAgent(stored agentstore.Agent, alive bool) agent {
 	}
 }
 
-func renderMessage(stored messagestore.Message) *agentv1.Message {
+func renderMail(stored mailstore.Mail) *agentv1.Mail {
 	created := ""
 	if !stored.CreatedAt.IsZero() {
 		created = stored.CreatedAt.Format(time.RFC3339)
 	}
 
-	return &agentv1.Message{
+	return &agentv1.Mail{
 		Id:          stored.ID,
 		FromAgentId: stored.FromAgentID,
 		FromName:    stored.FromName,

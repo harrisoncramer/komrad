@@ -26,7 +26,7 @@ import (
 	rpcworkflow "weave/internal/rpc/workflow"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
-	messagestore "weave/internal/store/message"
+	mailstore "weave/internal/store/mail"
 	schedulestore "weave/internal/store/schedule"
 	transcriptstore "weave/internal/store/transcript"
 	workflowstore "weave/internal/store/workflow"
@@ -54,8 +54,8 @@ const ReconcileInterval = 2 * time.Second
 const ScheduleReconcileInterval = 10 * time.Second
 
 // MailDeliveryInterval is how often the service looks for mail somebody has not read. It is
-// brisk because it is the path every message takes: a pass asks the database which mailboxes
-// hold anything, which is an indexed read that usually finds nothing.
+// brisk because it is the path every piece of mail takes: a pass asks the database which
+// mailboxes hold anything, which is an indexed read that usually finds nothing.
 const MailDeliveryInterval = 2 * time.Second
 
 // TranscriptSyncInterval is how often the service folds new transcript text into the
@@ -97,29 +97,29 @@ type Params struct {
 	FallbackResumeRoot string
 }
 
-// messagesConfig reads the delivery deadline and the thread hop limit out of the user's
-// config per send, so editing the file reaches the next message rather than the next
+// mailConfig reads the delivery deadline and the thread hop limit out of the user's
+// config per send, so editing the file reaches the next send rather than the next
 // restart. A config that will not load falls back to the built-in default, since refusing
 // to send mail over an unreadable file would be a worse answer than sending it with the
 // settings everyone else gets.
-type messagesConfig func() (*config.Config, error)
+type mailConfig func() (*config.Config, error)
 
-func (load messagesConfig) GetDeliveryDeadline() (time.Duration, error) {
+func (load mailConfig) GetDeliveryDeadline() (time.Duration, error) {
 	cfg, err := load()
 	if err != nil {
-		return config.Messages{}.GetDeliveryDeadline()
+		return config.Mail{}.GetDeliveryDeadline()
 	}
 
-	return cfg.Messages.GetDeliveryDeadline()
+	return cfg.Mail.GetDeliveryDeadline()
 }
 
-func (load messagesConfig) GetMaxHops() (int, error) {
+func (load mailConfig) GetMaxHops() (int, error) {
 	cfg, err := load()
 	if err != nil {
-		return config.Messages{}.GetMaxHops()
+		return config.Mail{}.GetMaxHops()
 	}
 
-	return cfg.Messages.GetMaxHops()
+	return cfg.Mail.GetMaxHops()
 }
 
 // Server is the assembled service, held so its owner can serve it, run its background work,
@@ -183,16 +183,16 @@ func New(ctx context.Context, p Params) (*Server, error) {
 	workflowStore := workflowstore.New(pool.GetDB())
 	scheduleStore := schedulestore.New(pool.GetDB())
 	transcriptStore := transcriptstore.New(pool.GetDB())
-	messageStore := messagestore.New(pool.GetDB())
+	mailStore := mailstore.New(pool.GetDB())
 
 	loadConfig := func() (*config.Config, error) { return config.Load(p.ConfigPaths) }
 
 	// Built ahead of the workflow and agent services, which both hand it off as the way to
 	// tell a spawning agent its delegate is gone.
-	messageService := agents.NewMessageService(agents.NewMessageServiceParams{
-		MessageReadWriter: messageStore,
-		AgentFinder:       agentStore,
-		Config:            messagesConfig(loadConfig),
+	mailService := agents.NewMailService(agents.NewMailServiceParams{
+		MailReadWriter: mailStore,
+		AgentFinder:    agentStore,
+		Config:         mailConfig(loadConfig),
 	})
 	workflowService := agents.NewWorkflowService(agents.WorkflowParams{
 		Workflows: workflowStore,
@@ -201,7 +201,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Tmux:      p.Tmux,
 		Tx:        pool,
 		MaxAgents: p.MaxAgents,
-		Notifier:  messageService,
+		Notifier:  mailService,
 	})
 	scheduleService := agents.NewScheduleService(agents.ScheduleParams{
 		Schedules: scheduleStore,
@@ -250,14 +250,14 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		UserDefaultFlags:   p.DefaultFlags,
 		MaxAgents:          p.MaxAgents,
 		FallbackResumeRoot: p.FallbackResumeRoot,
-		Notifier:           messageService,
+		Notifier:           mailService,
 	})
 
 	// Delivery types at an agent that has stopped and would otherwise never look at its
 	// mail. It reads panes through the agent service, which is the one thing that knows
 	// whether a pane is still an agent's own.
 	srv.Delivery = agents.NewDeliveryService(agents.NewDeliveryServiceParams{
-		MailboxReader: messageStore,
+		MailboxReader: mailStore,
 		NudgeClaimer:  agentStore,
 		PaneReader:    agentService,
 		PaneWriter:    p.Tmux,
@@ -305,7 +305,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		rpcagent.NewService(rpcagent.NewServiceParams{
 			Agents:      agentStore,
 			Transcripts: transcriptStore,
-			Messages:    messageService,
+			Mail:        mailService,
 			Launcher:    agentService,
 		}), options...))
 	srv.handle(workflowv1connect.NewWorkflowServiceHandler(

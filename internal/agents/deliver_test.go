@@ -6,7 +6,7 @@ import (
 	"time"
 
 	agentstore "weave/internal/store/agent"
-	messagestore "weave/internal/store/message"
+	mailstore "weave/internal/store/mail"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,7 +32,7 @@ func TestDeliver(t *testing.T) {
 			want: DeliveryDone,
 		},
 		{
-			name:    "an agent archived since the message was sent",
+			name:    "an agent archived since the mail was sent",
 			agent:   &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateIdle, ArchivedAt: &archivedAt},
 			pending: 1,
 			alive:   true,
@@ -118,7 +118,7 @@ func TestDeliver(t *testing.T) {
 			}
 
 			require.Len(t, panes.typed, 2, "the line and the newline that submits it go separately")
-			assert.Contains(t, panes.typed[0], "read_messages")
+			assert.Contains(t, panes.typed[0], "read_mail")
 			assert.Equal(t, "Enter", panes.typed[1])
 			assert.True(t, agents.taken, "the right to type is claimed before anything is typed")
 		})
@@ -127,7 +127,7 @@ func TestDeliver(t *testing.T) {
 
 func TestDeliverReportsExpiredMail(t *testing.T) {
 	agents := &fakeAgents{agent: &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateIdle}}
-	mailbox := &fakeMailboxReader{expired: []messagestore.Message{{ID: "message-1"}}}
+	mailbox := &fakeMailboxReader{expired: []mailstore.Mail{{ID: "mail-1"}}}
 	panes := &fakePanes{alive: true}
 
 	svc := NewDeliveryService(NewDeliveryServiceParams{
@@ -147,7 +147,7 @@ func TestDeliverReportsExpiredMail(t *testing.T) {
 type fakeMailboxReader struct {
 	mailboxes   []string
 	pending     int64
-	expired     []messagestore.Message
+	expired     []mailstore.Mail
 	readExpired bool
 }
 
@@ -159,7 +159,7 @@ func (f *fakeMailboxReader) CountPending(context.Context, string) (int64, error)
 	return f.pending, nil
 }
 
-func (f *fakeMailboxReader) ListExpired(context.Context, string) ([]messagestore.Message, error) {
+func (f *fakeMailboxReader) ListExpired(context.Context, string) ([]mailstore.Mail, error) {
 	f.readExpired = true
 
 	return f.expired, nil

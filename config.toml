@@ -195,14 +195,14 @@ dir = ""
 file = ""
 
 # How mail between agents is delivered.
-[messages]
-# How long a message stays deliverable, as a Go duration such as "3h" or "45m". A
-# message past it is neither delivered nor readable, and the row is kept as a record
-# that it never arrived.
+[mail]
+# How long mail stays deliverable, as a Go duration such as "3h" or "45m". Mail past
+# it is neither delivered nor readable, and the row is kept as a record that it never
+# arrived.
 delivery_deadline = "3h"
-# How many messages may pass along one reply thread before a send is refused. A reply
-# takes its parent's hop count plus one, so this caps a back-and-forth rather than the
-# total mail between two agents.
+# How many pieces of mail may pass along one reply thread before a send is refused. A
+# reply takes its parent's hop count plus one, so this caps a back-and-forth rather
+# than the total mail between two agents.
 max_hops          = 20
 
 # The log the background service writes, which the panel's log key pages.

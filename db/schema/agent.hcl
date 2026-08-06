@@ -427,7 +427,7 @@ table "agents" {
     type    = boolean
     default = false
   }
-  # When weave last typed at this agent to tell it about waiting messages, null for one it has
+  # When weave last typed at this agent to tell it about waiting mail, null for one it has
   # never nudged. Compared against state_changed_at, so an agent is nudged once per stretch
   # of sitting idle rather than every time the delivery job comes round.
   column "nudged_at" {

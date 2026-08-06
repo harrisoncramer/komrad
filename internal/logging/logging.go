@@ -74,10 +74,10 @@ const (
 	// carries it whether or not it worked, since stderr is where its progress belongs and
 	// that is worth keeping; one nothing waits on carries it only when it failed.
 	ActionStderr = "weave.action.stderr"
-	// MessageID names one message between agents, and UnreadMessages is how many were
+	// MailID names one piece of mail between agents, and UnreadMail is how much was
 	// waiting when weave last looked.
-	MessageID      = "weave.message.id"
-	UnreadMessages = "weave.messages.unread"
+	MailID     = "weave.mail.id"
+	UnreadMail = "weave.mail.unread"
 	// WorkflowID names the workflow a line is about.
 	WorkflowID = "weave.workflow.id"
 	// ExitCode is what a process exited with.

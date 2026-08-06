@@ -34,22 +34,6 @@ type Agent struct {
 	SpawnedByAgentID *string
 }
 
-// One message from one agent to another, held until the recipient claims it.
-type AgentMessage struct {
-	ID          string
-	FromAgentID *string
-	FromName    string
-	ToAgentID   string
-	Body        string
-	ReplyTo     *string
-	ClaimedAt   *time.Time
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	ExpiresAt   time.Time
-	Hops        int32
-	ReportedAt  *time.Time
-}
-
 // Key/value facts an agent recorded about its own work.
 type AgentMetadatum struct {
 	AgentID   string
@@ -75,6 +59,22 @@ type AgentTranscriptChunk struct {
 	Content       string
 	ContentOffset int64
 	Tsv           interface{}
+}
+
+// One piece of mail from one agent to another, held until the recipient claims it.
+type Mail struct {
+	ID          string
+	FromAgentID *string
+	FromName    string
+	ToAgentID   string
+	Body        string
+	ReplyTo     *string
+	Hops        int32
+	ClaimedAt   *time.Time
+	ReportedAt  *time.Time
+	ExpiresAt   time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 // A cron-driven agent launch: when to fire and what to ask for.

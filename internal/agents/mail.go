@@ -7,85 +7,85 @@ import (
 	"time"
 
 	agentstore "weave/internal/store/agent"
-	messagestore "weave/internal/store/message"
+	mailstore "weave/internal/store/mail"
 )
 
-const maxPendingMessages = 100
+const maxPendingMail = 100
 
-const maxClaimedMessages = 20
+const maxClaimedMail = 20
 
 var ErrRecipientNotFound = errors.New("no agent holds that id")
 
 var ErrSenderUnknown = errors.New("the sender is not an agent this panel knows")
 
-var ErrSelfAddressed = errors.New("an agent cannot send itself a message")
+var ErrSelfAddressed = errors.New("an agent cannot send itself mail")
 
 var ErrMailboxFull = errors.New("the recipient's mailbox is full")
 
 var ErrThreadCapped = errors.New("this thread has reached its hop limit")
 
-var ErrReplyToNotFound = errors.New("no message holds that id")
+var ErrReplyToNotFound = errors.New("no mail holds that id")
 
-// WeaveSenderName marks a message as weave's own voice rather than the panel operator's,
+// WeaveSenderName marks mail as weave's own voice rather than the panel operator's,
 // since both send with no agent id and nothing else tells them apart downstream. The stop
 // hook reads this same value to frame a lifecycle notice as something to read and act on,
 // not as an instruction from the person running the panel.
 const WeaveSenderName = "weave"
 
-type messageReadWriter interface {
-	Send(ctx context.Context, params messagestore.SendParams) (*messagestore.Message, error)
-	GetByID(ctx context.Context, id string) (*messagestore.Message, error)
-	Claim(ctx context.Context, toAgentID string, limit int32) ([]messagestore.Message, error)
+type mailReadWriter interface {
+	Send(ctx context.Context, params mailstore.SendParams) (*mailstore.Mail, error)
+	GetByID(ctx context.Context, id string) (*mailstore.Mail, error)
+	Claim(ctx context.Context, toAgentID string, limit int32) ([]mailstore.Mail, error)
 	CountPending(ctx context.Context, toAgentID string) (int64, error)
 }
 
-// messageConfigReader is the message policy config, read per send so editing it reaches
-// the next message rather than the next restart: how long a message stays deliverable,
-// and how many messages may pass along one reply thread.
-type messageConfigReader interface {
+// mailConfigReader is the mail policy config, read per send so editing it reaches the
+// next send rather than the next restart: how long mail stays deliverable, and how many
+// pieces of mail may pass along one reply thread.
+type mailConfigReader interface {
 	GetDeliveryDeadline() (time.Duration, error)
 	GetMaxHops() (int, error)
 }
 
-type MessageService struct {
-	messageReadWriter messageReadWriter
-	agentFinder       agentFinder
-	config            messageConfigReader
+type MailService struct {
+	mailReadWriter mailReadWriter
+	agentFinder    agentFinder
+	config         mailConfigReader
 }
 
-type NewMessageServiceParams struct {
-	MessageReadWriter messageReadWriter
-	AgentFinder       agentFinder
-	Config            messageConfigReader
+type NewMailServiceParams struct {
+	MailReadWriter mailReadWriter
+	AgentFinder    agentFinder
+	Config         mailConfigReader
 }
 
-func NewMessageService(p NewMessageServiceParams) *MessageService {
-	return &MessageService{
-		messageReadWriter: p.MessageReadWriter,
-		agentFinder:       p.AgentFinder,
-		config:            p.Config,
+func NewMailService(p NewMailServiceParams) *MailService {
+	return &MailService{
+		mailReadWriter: p.MailReadWriter,
+		agentFinder:    p.AgentFinder,
+		config:         p.Config,
 	}
 }
 
-type SendMessageParams struct {
+type SendMailParams struct {
 	From      string
 	ToAgentID string
 	Body      string
 	ReplyTo   *string
 }
 
-func (s *MessageService) SendMessage(ctx context.Context, params SendMessageParams) (*messagestore.Message, error) {
+func (s *MailService) SendMail(ctx context.Context, params SendMailParams) (*mailstore.Mail, error) {
 	return s.send(ctx, params, false)
 }
 
-// SendSystemMessage sends a message as weave itself, for a lifecycle notice no RPC surface
-// asks for on a caller's behalf. The recipient still goes through every check an ordinary
-// send does: archived, mailbox full, hop cap.
-func (s *MessageService) SendSystemMessage(ctx context.Context, toAgentID, body string) (*messagestore.Message, error) {
-	return s.send(ctx, SendMessageParams{ToAgentID: toAgentID, Body: body}, true)
+// SendSystemMail sends mail as weave itself, for a lifecycle notice no RPC surface asks
+// for on a caller's behalf. The recipient still goes through every check an ordinary send
+// does: archived, mailbox full, hop cap.
+func (s *MailService) SendSystemMail(ctx context.Context, toAgentID, body string) (*mailstore.Mail, error) {
+	return s.send(ctx, SendMailParams{ToAgentID: toAgentID, Body: body}, true)
 }
 
-func (s *MessageService) send(ctx context.Context, params SendMessageParams, system bool) (*messagestore.Message, error) {
+func (s *MailService) send(ctx context.Context, params SendMailParams, system bool) (*mailstore.Mail, error) {
 	recipient, err := s.agentFinder.GetByID(ctx, params.ToAgentID)
 	if err != nil {
 		return nil, err
@@ -105,17 +105,17 @@ func (s *MessageService) send(ctx context.Context, params SendMessageParams, sys
 		return nil, ErrSelfAddressed
 	}
 
-	pending, err := s.messageReadWriter.CountPending(ctx, recipient.ID)
+	pending, err := s.mailReadWriter.CountPending(ctx, recipient.ID)
 	if err != nil {
 		return nil, err
 	}
-	if pending >= maxPendingMessages {
+	if pending >= maxPendingMail {
 		return nil, fmt.Errorf("%w: %q is holding %d unread", ErrMailboxFull, recipient.Name, pending)
 	}
 
 	hops := int32(1)
 	if params.ReplyTo != nil {
-		parent, err := s.messageReadWriter.GetByID(ctx, *params.ReplyTo)
+		parent, err := s.mailReadWriter.GetByID(ctx, *params.ReplyTo)
 		if err != nil {
 			return nil, err
 		}
@@ -138,7 +138,7 @@ func (s *MessageService) send(ctx context.Context, params SendMessageParams, sys
 		return nil, err
 	}
 
-	send := messagestore.SendParams{
+	send := mailstore.SendParams{
 		ToAgentID: recipient.ID,
 		Body:      params.Body,
 		ReplyTo:   params.ReplyTo,
@@ -152,7 +152,7 @@ func (s *MessageService) send(ctx context.Context, params SendMessageParams, sys
 		send.FromName = WeaveSenderName
 	}
 
-	sent, err := s.messageReadWriter.Send(ctx, send)
+	sent, err := s.mailReadWriter.Send(ctx, send)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func (s *MessageService) send(ctx context.Context, params SendMessageParams, sys
 	return sent, nil
 }
 
-func (s *MessageService) ClaimMessages(ctx context.Context, agentID string) ([]messagestore.Message, error) {
+func (s *MailService) ClaimMail(ctx context.Context, agentID string) ([]mailstore.Mail, error) {
 	agent, err := s.agentFinder.GetByID(ctx, agentID)
 	if err != nil {
 		return nil, err
@@ -169,7 +169,7 @@ func (s *MessageService) ClaimMessages(ctx context.Context, agentID string) ([]m
 		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
 	}
 
-	claimed, err := s.messageReadWriter.Claim(ctx, agent.ID, maxClaimedMessages)
+	claimed, err := s.mailReadWriter.Claim(ctx, agent.ID, maxClaimedMail)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +177,7 @@ func (s *MessageService) ClaimMessages(ctx context.Context, agentID string) ([]m
 	return claimed, nil
 }
 
-func (s *MessageService) findSender(ctx context.Context, from string) (*agentstore.Agent, error) {
+func (s *MailService) findSender(ctx context.Context, from string) (*agentstore.Agent, error) {
 	if from == "" {
 		return nil, nil
 	}

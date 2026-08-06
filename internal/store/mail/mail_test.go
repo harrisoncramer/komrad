@@ -1,4 +1,4 @@
-package message
+package mail
 
 import (
 	"testing"
@@ -65,10 +65,10 @@ func TestSendAndClaim(t *testing.T) {
 			require.NoError(t, err)
 
 			var bodies []string
-			for _, message := range claimed {
-				bodies = append(bodies, message.Body)
-				assert.NotNil(t, message.ClaimedAt)
-				assert.Equal(t, "sender", message.FromName)
+			for _, item := range claimed {
+				bodies = append(bodies, item.Body)
+				assert.NotNil(t, item.ClaimedAt)
+				assert.Equal(t, "sender", item.FromName)
 			}
 			assert.Equal(t, tt.wantFirst, bodies)
 
@@ -79,7 +79,7 @@ func TestSendAndClaim(t *testing.T) {
 	}
 }
 
-func TestClaimTakesEachMessageOnce(t *testing.T) {
+func TestClaimTakesEachMailOnce(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
@@ -126,7 +126,7 @@ func TestClaimToleratesAnIDNoColumnCouldHold(t *testing.T) {
 	assert.Zero(t, left)
 }
 
-func TestReplyToThreadsAMessage(t *testing.T) {
+func TestReplyToThreadsMail(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	asker := seedAgent(t, st, "asker")
@@ -154,20 +154,20 @@ func TestGetByID(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		lookup func(sent Message) string
+		lookup func(sent Mail) string
 		wantOK bool
 	}{
 		{
 			name:   "an id that is not well-formed",
-			lookup: func(Message) string { return "not-an-id" },
+			lookup: func(Mail) string { return "not-an-id" },
 		},
 		{
 			name:   "a well-formed id nothing holds",
-			lookup: func(Message) string { return uuid.NewString() },
+			lookup: func(Mail) string { return uuid.NewString() },
 		},
 		{
-			name:   "a message that was sent",
-			lookup: func(sent Message) string { return sent.ID },
+			name:   "mail that was sent",
+			lookup: func(sent Mail) string { return sent.ID },
 			wantOK: true,
 		},
 	}
@@ -224,11 +224,11 @@ func TestExpiredMailIsNotListedAgainOnceReported(t *testing.T) {
 
 	first, err := st.ListExpired(ctx, recipient)
 	require.NoError(t, err)
-	require.Len(t, first, 1, "the message is expired and unclaimed, so it is due to be reported")
+	require.Len(t, first, 1, "the mail is expired and unclaimed, so it is due to be reported")
 
 	second, err := st.ListExpired(ctx, recipient)
 	require.NoError(t, err)
-	assert.Empty(t, second, "a message already reported must not be reported again")
+	assert.Empty(t, second, "mail already reported must not be reported again")
 }
 
 func TestListPendingMailboxesIncludesAMailboxWhoseOnlyMailHasExpired(t *testing.T) {

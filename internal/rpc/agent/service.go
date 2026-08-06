@@ -18,7 +18,7 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 
 	agentstore "weave/internal/store/agent"
-	messagestore "weave/internal/store/message"
+	mailstore "weave/internal/store/mail"
 	transcriptstore "weave/internal/store/transcript"
 
 	"connectrpc.com/connect"
@@ -55,23 +55,23 @@ type transcriptReader interface {
 	Search(ctx context.Context, params transcriptstore.SearchParams) ([]transcriptstore.SearchHit, error)
 }
 
-type messenger interface {
-	SendMessage(ctx context.Context, params agents.SendMessageParams) (*messagestore.Message, error)
-	ClaimMessages(ctx context.Context, agentID string) ([]messagestore.Message, error)
+type mailer interface {
+	SendMail(ctx context.Context, params agents.SendMailParams) (*mailstore.Mail, error)
+	ClaimMail(ctx context.Context, agentID string) ([]mailstore.Mail, error)
 }
 
 // Service implements agentv1connect.AgentServiceHandler.
 type Service struct {
 	agents      agentReadWriter
 	transcripts transcriptReader
-	messages    messenger
+	mail        mailer
 	launcher    agentLauncher
 }
 
 type NewServiceParams struct {
 	Agents      agentReadWriter
 	Transcripts transcriptReader
-	Messages    messenger
+	Mail        mailer
 	Launcher    agentLauncher
 }
 
@@ -81,7 +81,7 @@ func NewService(p NewServiceParams) *Service {
 	return &Service{
 		agents:      p.Agents,
 		transcripts: p.Transcripts,
-		messages:    p.Messages,
+		mail:        p.Mail,
 		launcher:    p.Launcher,
 	}
 }
@@ -253,8 +253,8 @@ func callerScope(ctx context.Context, requested string) string {
 	return caller.From(ctx).AgentID
 }
 
-func (s *Service) SendMessage(ctx context.Context, req *connect.Request[agentv1.SendMessageRequest]) (*connect.Response[agentv1.SendMessageResponse], error) {
-	sent, err := s.messages.SendMessage(ctx, agents.SendMessageParams{
+func (s *Service) SendMail(ctx context.Context, req *connect.Request[agentv1.SendMailRequest]) (*connect.Response[agentv1.SendMailResponse], error) {
+	sent, err := s.mail.SendMail(ctx, agents.SendMailParams{
 		From:      caller.From(ctx).AgentID,
 		ToAgentID: req.Msg.GetToAgentId(),
 		Body:      req.Msg.GetBody(),
@@ -270,13 +270,13 @@ func (s *Service) SendMessage(ctx context.Context, req *connect.Request[agentv1.
 	case errors.Is(err, agents.ErrMailboxFull), errors.Is(err, agents.ErrThreadCapped):
 		return nil, connect.NewError(connect.CodeResourceExhausted, err)
 	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to send the message: %w", err))
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to send the mail: %w", err))
 	}
 
-	return connect.NewResponse(&agentv1.SendMessageResponse{Message: renderMessage(*sent)}), nil
+	return connect.NewResponse(&agentv1.SendMailResponse{Mail: renderMail(*sent)}), nil
 }
 
-func (s *Service) ReadMessages(ctx context.Context, req *connect.Request[agentv1.ReadMessagesRequest]) (*connect.Response[agentv1.ReadMessagesResponse], error) {
+func (s *Service) ReadMail(ctx context.Context, req *connect.Request[agentv1.ReadMailRequest]) (*connect.Response[agentv1.ReadMailResponse], error) {
 	id := callerScope(ctx, req.Msg.GetId())
 	if id == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("no id given, and the caller has none of its own to fall back to"))
@@ -284,7 +284,7 @@ func (s *Service) ReadMessages(ctx context.Context, req *connect.Request[agentv1
 
 	logCrossAgentRead(ctx, id, "agent read another agent's mail")
 
-	claimed, err := s.messages.ClaimMessages(ctx, id)
+	claimed, err := s.mail.ClaimMail(ctx, id)
 	switch {
 	case errors.Is(err, agents.ErrAgentNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, err)
@@ -292,8 +292,8 @@ func (s *Service) ReadMessages(ctx context.Context, req *connect.Request[agentv1
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to read the mail: %w", err))
 	}
 
-	return connect.NewResponse(&agentv1.ReadMessagesResponse{
-		Messages: xslice.Map(claimed, renderMessage),
+	return connect.NewResponse(&agentv1.ReadMailResponse{
+		Mail: xslice.Map(claimed, renderMail),
 	}), nil
 }
 

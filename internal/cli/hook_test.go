@@ -20,7 +20,7 @@ func TestStopHookDeliversMail(t *testing.T) {
 		name     string
 		agentID  string
 		payload  string
-		messages []deliveredMessage
+		mail     []mailItem
 		wantSent bool
 		wantText []string
 	}{
@@ -28,14 +28,14 @@ func TestStopHookDeliversMail(t *testing.T) {
 			name:    "a hook already running is not answered again",
 			agentID: "agent-a",
 			payload: `{"stop_hook_active":true}`,
-			messages: []deliveredMessage{
-				{ID: "message-1", FromName: "api", Body: "which column?"},
+			mail: []mailItem{
+				{ID: "mail-1", FromName: "api", Body: "which column?"},
 			},
 		},
 		{
-			name:     "a caller that is not an agent has no mailbox",
-			payload:  `{"stop_hook_active":false}`,
-			messages: []deliveredMessage{{ID: "message-1", Body: "hello"}},
+			name:    "a caller that is not an agent has no mailbox",
+			payload: `{"stop_hook_active":false}`,
+			mail:    []mailItem{{ID: "mail-1", Body: "hello"}},
 		},
 		{
 			name:     "an empty mailbox lets the turn end",
@@ -47,36 +47,36 @@ func TestStopHookDeliversMail(t *testing.T) {
 			name:    "mail is handed back as context",
 			agentID: "agent-a",
 			payload: `{"stop_hook_active":false}`,
-			messages: []deliveredMessage{
-				{ID: "message-1", FromAgent: "agent-b", FromName: "migrations", Body: "refunded_cents"},
-				{ID: "message-2", FromAgent: "agent-b", FromName: "migrations", Body: "and it is not null", ReplyTo: "message-0"},
+			mail: []mailItem{
+				{ID: "mail-1", FromAgent: "agent-b", FromName: "migrations", Body: "refunded_cents"},
+				{ID: "mail-2", FromAgent: "agent-b", FromName: "migrations", Body: "and it is not null", ReplyTo: "mail-0"},
 			},
 			wantSent: true,
 			wantText: []string{
-				"From migrations (agent-b), message message-1",
+				"From migrations (agent-b), mail mail-1",
 				"refunded_cents",
-				"answering message-0",
+				"answering mail-0",
 				"and it is not null",
-				"send_message",
+				"send_mail",
 			},
 		},
 		{
-			name:     "a message from the panel names it as the sender",
+			name:     "mail from the panel names it as the sender",
 			agentID:  "agent-a",
 			payload:  `{"stop_hook_active":false}`,
-			messages: []deliveredMessage{{ID: "message-1", Body: "stand down"}},
+			mail:     []mailItem{{ID: "mail-1", Body: "stand down"}},
 			wantSent: true,
-			wantText: []string{"From the panel, message message-1"},
+			wantText: []string{"From the panel, mail mail-1"},
 		},
 		{
 			name:    "a lifecycle notice from weave is not framed as the user talking",
 			agentID: "agent-a",
 			payload: `{"stop_hook_active":false}`,
-			messages: []deliveredMessage{
-				{ID: "message-1", FromName: "weave", Body: `Your delegate "child" (agent-c) was archived.`},
+			mail: []mailItem{
+				{ID: "mail-1", FromName: "weave", Body: `Your delegate "child" (agent-c) was archived.`},
 			},
 			wantSent: true,
-			wantText: []string{"From weave, message message-1", "Weave sent this itself"},
+			wantText: []string{"From weave, mail mail-1", "Weave sent this itself"},
 		},
 	}
 
@@ -84,7 +84,7 @@ func TestStopHookDeliversMail(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var asked caller.Caller
 			var logged []string
-			addr := fakeMailServer(t, fakeMailParams{messages: tt.messages, asked: &asked, logged: &logged})
+			addr := fakeMailServer(t, fakeMailParams{mail: tt.mail, asked: &asked, logged: &logged})
 
 			state := &app{env: &config.Environment{Addr: addr, AgentID: tt.agentID}}
 
@@ -105,9 +105,9 @@ func TestStopHookDeliversMail(t *testing.T) {
 			}
 
 			require.Len(t, logged, 1, "a delivery is logged where a person can find it")
-			assert.Contains(t, logged[0], fmt.Sprintf("delivered %d message(s)", len(tt.messages)))
-			for _, message := range tt.messages {
-				assert.Contains(t, logged[0], message.ID)
+			assert.Contains(t, logged[0], fmt.Sprintf("delivered %d piece(s) of mail", len(tt.mail)))
+			for _, item := range tt.mail {
+				assert.Contains(t, logged[0], item.ID)
 			}
 
 			var printed stopHookOutput
@@ -123,36 +123,36 @@ func TestStopHookDeliversMail(t *testing.T) {
 
 func TestMailPostamble(t *testing.T) {
 	tests := []struct {
-		name     string
-		messages []deliveredMessage
-		want     string
+		name string
+		mail []mailItem
+		want string
 	}{
 		{
-			name:     "weave's own notice, alone",
-			messages: []deliveredMessage{{FromName: "weave", Body: "your delegate was deleted"}},
-			want:     mailFromWeave,
+			name: "weave's own notice, alone",
+			mail: []mailItem{{FromName: "weave", Body: "your delegate was deleted"}},
+			want: mailFromWeave,
 		},
 		{
-			name:     "the panel operator, alone",
-			messages: []deliveredMessage{{Body: "stand down"}},
-			want:     mailFromPerson,
+			name: "the panel operator, alone",
+			mail: []mailItem{{Body: "stand down"}},
+			want: mailFromPerson,
 		},
 		{
-			name:     "another agent, alone",
-			messages: []deliveredMessage{{FromAgent: "agent-b", FromName: "migrations", Body: "hi"}},
-			want:     mailFromAgent,
+			name: "another agent, alone",
+			mail: []mailItem{{FromAgent: "agent-b", FromName: "migrations", Body: "hi"}},
+			want: mailFromAgent,
 		},
 		{
-			name: "a person's message outranks a weave notice in the same batch",
-			messages: []deliveredMessage{
+			name: "a person's mail outranks a weave notice in the same batch",
+			mail: []mailItem{
 				{FromName: "weave", Body: "your delegate was archived"},
 				{Body: "stand down"},
 			},
 			want: mailFromPerson,
 		},
 		{
-			name: "an agent's message outranks everything else in the same batch",
-			messages: []deliveredMessage{
+			name: "an agent's mail outranks everything else in the same batch",
+			mail: []mailItem{
 				{FromName: "weave", Body: "your delegate was archived"},
 				{Body: "stand down"},
 				{FromAgent: "agent-b", FromName: "migrations", Body: "hi"},
@@ -163,7 +163,7 @@ func TestMailPostamble(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, mailPostamble(tt.messages))
+			assert.Equal(t, tt.want, mailPostamble(tt.mail))
 		})
 	}
 }
@@ -186,15 +186,15 @@ func TestStopHookSurvivesAServerThatIsNotThere(t *testing.T) {
 }
 
 type fakeMailParams struct {
-	messages []deliveredMessage
-	asked    *caller.Caller
-	logged   *[]string
+	mail   []mailItem
+	asked  *caller.Caller
+	logged *[]string
 }
 
 func fakeMailServer(t *testing.T, params fakeMailParams) string {
 	t.Helper()
 
-	mailPath, err := toolPath(readMessagesTool)
+	mailPath, err := toolPath(readMailTool)
 	require.NoError(t, err)
 
 	logPath, err := toolPath(logTool)
@@ -205,7 +205,7 @@ func fakeMailServer(t *testing.T, params fakeMailParams) string {
 		*params.asked = caller.FromHeader(r.Header)
 
 		w.Header().Set("Content-Type", "application/json")
-		require.NoError(t, json.NewEncoder(w).Encode(deliveredMail{Messages: params.messages}))
+		require.NoError(t, json.NewEncoder(w).Encode(deliveredMail{Mail: params.mail}))
 	})
 
 	mux.HandleFunc(logPath, func(w http.ResponseWriter, r *http.Request) {

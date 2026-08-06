@@ -16,7 +16,7 @@ import (
 )
 
 // TestMailReachesAnAgentThatHadAlreadyStopped is the case the hooks alone cannot cover. The
-// recipient is sitting idle when the message is sent, so no turn is ending and nothing runs
+// recipient is sitting idle when the mail is sent, so no turn is ending and nothing runs
 // on its behalf. Delivery has to notice, type at it, and stand down once the mail is read.
 func TestMailReachesAnAgentThatHadAlreadyStopped(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
@@ -35,16 +35,16 @@ func TestMailReachesAnAgentThatHadAlreadyStopped(t *testing.T) {
 
 	var sentID string
 
-	t.Run("a message is sent to an agent that has already stopped", func(t *testing.T) {
-		req := connect.NewRequest(&agentv1.SendMessageRequest{
+	t.Run("mail is sent to an agent that has already stopped", func(t *testing.T) {
+		req := connect.NewRequest(&agentv1.SendMailRequest{
 			ToAgentId: migrations.GetId(),
 			Body:      "what is the refund column called?",
 		})
 		callAs(req, api.GetId())
 
-		sent, err := instance.Agents.SendMessage(ctx, req)
+		sent, err := instance.Agents.SendMail(ctx, req)
 		require.NoError(t, err)
-		sentID = sent.Msg.GetMessage().GetId()
+		sentID = sent.Msg.GetMail().GetId()
 
 		assert.Empty(t, instance.Typed(migrations.GetId()), "sending types nothing at anybody")
 	})
@@ -54,7 +54,7 @@ func TestMailReachesAnAgentThatHadAlreadyStopped(t *testing.T) {
 
 		typed := instance.WaitForTyped(migrations.GetId(), 1)
 		require.Len(t, typed, 1, "the agent received exactly one line")
-		assert.Contains(t, typed[0], "read_messages")
+		assert.Contains(t, typed[0], "read_mail")
 		assert.Contains(t, typed[0], "1 unread")
 		assert.NotContains(t, typed[0], "refund column", "the mail itself stays in the panel")
 	})
@@ -103,12 +103,12 @@ func TestDeliveryLeavesABusyAgentAlone(t *testing.T) {
 
 	instance.Settle(migrations.GetId(), harness.ActivityWorking, agentstore.StateThinking)
 
-	req := connect.NewRequest(&agentv1.SendMessageRequest{
+	req := connect.NewRequest(&agentv1.SendMailRequest{
 		ToAgentId: migrations.GetId(),
 		Body:      "refunded_cents",
 	})
 	callAs(req, api.GetId())
-	_, err = instance.Agents.SendMessage(ctx, req)
+	_, err = instance.Agents.SendMail(ctx, req)
 	require.NoError(t, err)
 
 	assert.Equal(t, agents.DeliverySoon, instance.Deliver(migrations.GetId()))
@@ -135,12 +135,12 @@ func TestDeliveryNeverTypesAtAnAgentOnAPrompt(t *testing.T) {
 
 	instance.Settle(migrations.GetId(), harness.ActivityWaiting, agentstore.StateWaiting)
 
-	req := connect.NewRequest(&agentv1.SendMessageRequest{
+	req := connect.NewRequest(&agentv1.SendMailRequest{
 		ToAgentId: migrations.GetId(),
 		Body:      "are you stuck?",
 	})
 	callAs(req, api.GetId())
-	_, err = instance.Agents.SendMessage(ctx, req)
+	_, err = instance.Agents.SendMail(ctx, req)
 	require.NoError(t, err)
 
 	assert.Equal(t, agents.DeliveryLater, instance.Deliver(migrations.GetId()))
@@ -164,12 +164,12 @@ func TestExpiredMailIsGivenUpOn(t *testing.T) {
 
 	instance.Settle(migrations.GetId(), harness.ActivityIdle, agentstore.StateIdle)
 
-	req := connect.NewRequest(&agentv1.SendMessageRequest{
+	req := connect.NewRequest(&agentv1.SendMailRequest{
 		ToAgentId: migrations.GetId(),
 		Body:      "too late",
 	})
 	callAs(req, api.GetId())
-	_, err = instance.Agents.SendMessage(ctx, req)
+	_, err = instance.Agents.SendMail(ctx, req)
 	require.NoError(t, err)
 
 	assert.Equal(t, agents.DeliveryDone, instance.Deliver(migrations.GetId()))

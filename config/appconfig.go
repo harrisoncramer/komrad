@@ -42,12 +42,12 @@ const DefaultLogLevel = "info"
 // than read once.
 const DefaultLogViewer = `less -R +F "$WEAVE_LOG"`
 
-// DefaultDeliveryDeadline is how long a message stays deliverable when the config names no
+// DefaultDeliveryDeadline is how long mail stays deliverable when the config names no
 // duration. Long enough that an agent left alone over lunch still gets its mail, short
 // enough that nothing chases a recipient nobody is coming back to.
 const DefaultDeliveryDeadline = "3h"
 
-// DefaultMaxHops is how many messages may pass along one reply thread when the config
+// DefaultMaxHops is how many pieces of mail may pass along one reply thread when the config
 // names no limit, ten rounds each way between two agents.
 const DefaultMaxHops = 20
 
@@ -344,25 +344,25 @@ type Harnesses struct {
 	Codex  Codex   `mapstructure:"codex"`
 }
 
-// Messages is how long weave keeps trying to hand a message to the agent it was addressed
+// Mail is how long weave keeps trying to hand mail to the agent it was addressed
 // to. Delivery waits on the recipient: an agent that is busy gets its mail as its turn
 // ends, and one that has stopped is nudged, so an agent nobody is running holds mail until
 // it comes back or the deadline passes.
-type Messages struct {
-	// How long a message stays deliverable, as a Go duration such as "3h" or "45m". A
-	// message past it is neither delivered nor readable, and the row is kept as a record
-	// that it never arrived.
+type Mail struct {
+	// How long mail stays deliverable, as a Go duration such as "3h" or "45m". Mail past
+	// it is neither delivered nor readable, and the row is kept as a record that it never
+	// arrived.
 	DeliveryDeadline string `mapstructure:"delivery_deadline"`
-	// How many messages may pass along one reply thread before a send is refused. A reply
-	// takes its parent's hop count plus one, so this caps a back-and-forth rather than the
-	// total mail between two agents.
+	// How many pieces of mail may pass along one reply thread before a send is refused. A
+	// reply takes its parent's hop count plus one, so this caps a back-and-forth rather
+	// than the total mail between two agents.
 	MaxHops int `mapstructure:"max_hops"`
 }
 
-// GetDeliveryDeadline is how long a message stays deliverable, parsed. A duration that will
+// GetDeliveryDeadline is how long mail stays deliverable, parsed. A duration that will
 // not parse is an error rather than the default, since a deadline somebody wrote and weave
 // quietly ignored is worse than one it refuses.
-func (m Messages) GetDeliveryDeadline() (time.Duration, error) {
+func (m Mail) GetDeliveryDeadline() (time.Duration, error) {
 	if m.DeliveryDeadline == "" {
 		m.DeliveryDeadline = DefaultDeliveryDeadline
 	}
@@ -378,16 +378,16 @@ func (m Messages) GetDeliveryDeadline() (time.Duration, error) {
 	return parsed, nil
 }
 
-// GetMaxHops is how many messages may pass along one reply thread. An unset limit takes the
-// default; a negative one is an error rather than the default, for the same reason an
-// unparseable deadline is: a config somebody wrote and weave quietly ignored is worse than
-// one it refuses.
-func (m Messages) GetMaxHops() (int, error) {
+// GetMaxHops is how many pieces of mail may pass along one reply thread. An unset limit
+// takes the default; a negative one is an error rather than the default, for the same
+// reason an unparseable deadline is: a config somebody wrote and weave quietly ignored is
+// worse than one it refuses.
+func (m Mail) GetMaxHops() (int, error) {
 	if m.MaxHops == 0 {
 		m.MaxHops = DefaultMaxHops
 	}
 	if m.MaxHops < 0 {
-		return 0, fmt.Errorf("the message hop limit must be positive, not %d", m.MaxHops)
+		return 0, fmt.Errorf("the mail hop limit must be positive, not %d", m.MaxHops)
 	}
 
 	return m.MaxHops, nil
@@ -456,7 +456,7 @@ type Config struct {
 	// The standing text every agent is started with, whatever workflow it is in.
 	Context Context `mapstructure:"context"`
 	// How mail between agents is delivered.
-	Messages Messages `mapstructure:"messages"`
+	Mail Mail `mapstructure:"mail"`
 	// The log the background service writes, which the panel's log key pages.
 	Log Log `mapstructure:"log"`
 	// Which weave this is: the database, the address, the tmux socket, the cache.
@@ -472,7 +472,7 @@ func Defaults() *Config {
 		Layout:         DefaultLayout(),
 		Marks:          DefaultMarks(),
 		Keybindings:    DefaultKeybindings(),
-		Messages:       Messages{DeliveryDeadline: DefaultDeliveryDeadline, MaxHops: DefaultMaxHops},
+		Mail:           Mail{DeliveryDeadline: DefaultDeliveryDeadline, MaxHops: DefaultMaxHops},
 		Log:            Log{Level: DefaultLogLevel, Viewer: DefaultLogViewer},
 		Connection:     DefaultConnection(),
 	}

@@ -25,5 +25,5 @@ meant to be run by hand.
 ### SEE ALSO
 
 * [weave](weave.md)	 - tmux panel and CLI for background coding agents
-* [weave hook stop](weave_hook_stop.md)	 - Deliver an agent's unread messages as its turn ends
+* [weave hook stop](weave_hook_stop.md)	 - Deliver an agent's unread mail as its turn ends
 

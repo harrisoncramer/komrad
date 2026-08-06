@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.6
 // 	protoc        (unknown)
-// source: agent/v1/message.proto
+// source: agent/v1/mail.proto
 
 package agentv1
 
@@ -22,7 +22,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type Message struct {
+type Mail struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	FromAgentId   *string                `protobuf:"bytes,2,opt,name=from_agent_id,json=fromAgentId,proto3,oneof" json:"from_agent_id,omitempty"`
@@ -35,21 +35,21 @@ type Message struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Message) Reset() {
-	*x = Message{}
-	mi := &file_agent_v1_message_proto_msgTypes[0]
+func (x *Mail) Reset() {
+	*x = Mail{}
+	mi := &file_agent_v1_mail_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Message) String() string {
+func (x *Mail) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Message) ProtoMessage() {}
+func (*Mail) ProtoMessage() {}
 
-func (x *Message) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_message_proto_msgTypes[0]
+func (x *Mail) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_mail_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -60,61 +60,61 @@ func (x *Message) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Message.ProtoReflect.Descriptor instead.
-func (*Message) Descriptor() ([]byte, []int) {
-	return file_agent_v1_message_proto_rawDescGZIP(), []int{0}
+// Deprecated: Use Mail.ProtoReflect.Descriptor instead.
+func (*Mail) Descriptor() ([]byte, []int) {
+	return file_agent_v1_mail_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *Message) GetId() string {
+func (x *Mail) GetId() string {
 	if x != nil {
 		return x.Id
 	}
 	return ""
 }
 
-func (x *Message) GetFromAgentId() string {
+func (x *Mail) GetFromAgentId() string {
 	if x != nil && x.FromAgentId != nil {
 		return *x.FromAgentId
 	}
 	return ""
 }
 
-func (x *Message) GetFromName() string {
+func (x *Mail) GetFromName() string {
 	if x != nil {
 		return x.FromName
 	}
 	return ""
 }
 
-func (x *Message) GetToAgentId() string {
+func (x *Mail) GetToAgentId() string {
 	if x != nil {
 		return x.ToAgentId
 	}
 	return ""
 }
 
-func (x *Message) GetBody() string {
+func (x *Mail) GetBody() string {
 	if x != nil {
 		return x.Body
 	}
 	return ""
 }
 
-func (x *Message) GetReplyTo() string {
+func (x *Mail) GetReplyTo() string {
 	if x != nil && x.ReplyTo != nil {
 		return *x.ReplyTo
 	}
 	return ""
 }
 
-func (x *Message) GetCreatedAt() string {
+func (x *Mail) GetCreatedAt() string {
 	if x != nil {
 		return x.CreatedAt
 	}
 	return ""
 }
 
-type SendMessageRequest struct {
+type SendMailRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ToAgentId     string                 `protobuf:"bytes,1,opt,name=to_agent_id,json=toAgentId,proto3" json:"to_agent_id,omitempty"`
 	Body          string                 `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
@@ -123,21 +123,21 @@ type SendMessageRequest struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SendMessageRequest) Reset() {
-	*x = SendMessageRequest{}
-	mi := &file_agent_v1_message_proto_msgTypes[1]
+func (x *SendMailRequest) Reset() {
+	*x = SendMailRequest{}
+	mi := &file_agent_v1_mail_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SendMessageRequest) String() string {
+func (x *SendMailRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SendMessageRequest) ProtoMessage() {}
+func (*SendMailRequest) ProtoMessage() {}
 
-func (x *SendMessageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_message_proto_msgTypes[1]
+func (x *SendMailRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_mail_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -148,54 +148,54 @@ func (x *SendMessageRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SendMessageRequest.ProtoReflect.Descriptor instead.
-func (*SendMessageRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_message_proto_rawDescGZIP(), []int{1}
+// Deprecated: Use SendMailRequest.ProtoReflect.Descriptor instead.
+func (*SendMailRequest) Descriptor() ([]byte, []int) {
+	return file_agent_v1_mail_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *SendMessageRequest) GetToAgentId() string {
+func (x *SendMailRequest) GetToAgentId() string {
 	if x != nil {
 		return x.ToAgentId
 	}
 	return ""
 }
 
-func (x *SendMessageRequest) GetBody() string {
+func (x *SendMailRequest) GetBody() string {
 	if x != nil {
 		return x.Body
 	}
 	return ""
 }
 
-func (x *SendMessageRequest) GetReplyTo() string {
+func (x *SendMailRequest) GetReplyTo() string {
 	if x != nil && x.ReplyTo != nil {
 		return *x.ReplyTo
 	}
 	return ""
 }
 
-type SendMessageResponse struct {
+type SendMailResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Message       *Message               `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	Mail          *Mail                  `protobuf:"bytes,1,opt,name=mail,proto3" json:"mail,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SendMessageResponse) Reset() {
-	*x = SendMessageResponse{}
-	mi := &file_agent_v1_message_proto_msgTypes[2]
+func (x *SendMailResponse) Reset() {
+	*x = SendMailResponse{}
+	mi := &file_agent_v1_mail_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SendMessageResponse) String() string {
+func (x *SendMailResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SendMessageResponse) ProtoMessage() {}
+func (*SendMailResponse) ProtoMessage() {}
 
-func (x *SendMessageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_message_proto_msgTypes[2]
+func (x *SendMailResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_mail_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -206,40 +206,40 @@ func (x *SendMessageResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SendMessageResponse.ProtoReflect.Descriptor instead.
-func (*SendMessageResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_message_proto_rawDescGZIP(), []int{2}
+// Deprecated: Use SendMailResponse.ProtoReflect.Descriptor instead.
+func (*SendMailResponse) Descriptor() ([]byte, []int) {
+	return file_agent_v1_mail_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *SendMessageResponse) GetMessage() *Message {
+func (x *SendMailResponse) GetMail() *Mail {
 	if x != nil {
-		return x.Message
+		return x.Mail
 	}
 	return nil
 }
 
-type ReadMessagesRequest struct {
+type ReadMailRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            *string                `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ReadMessagesRequest) Reset() {
-	*x = ReadMessagesRequest{}
-	mi := &file_agent_v1_message_proto_msgTypes[3]
+func (x *ReadMailRequest) Reset() {
+	*x = ReadMailRequest{}
+	mi := &file_agent_v1_mail_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ReadMessagesRequest) String() string {
+func (x *ReadMailRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ReadMessagesRequest) ProtoMessage() {}
+func (*ReadMailRequest) ProtoMessage() {}
 
-func (x *ReadMessagesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_message_proto_msgTypes[3]
+func (x *ReadMailRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_mail_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -250,40 +250,40 @@ func (x *ReadMessagesRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ReadMessagesRequest.ProtoReflect.Descriptor instead.
-func (*ReadMessagesRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_message_proto_rawDescGZIP(), []int{3}
+// Deprecated: Use ReadMailRequest.ProtoReflect.Descriptor instead.
+func (*ReadMailRequest) Descriptor() ([]byte, []int) {
+	return file_agent_v1_mail_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *ReadMessagesRequest) GetId() string {
+func (x *ReadMailRequest) GetId() string {
 	if x != nil && x.Id != nil {
 		return *x.Id
 	}
 	return ""
 }
 
-type ReadMessagesResponse struct {
+type ReadMailResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Messages      []*Message             `protobuf:"bytes,1,rep,name=messages,proto3" json:"messages,omitempty"`
+	Mail          []*Mail                `protobuf:"bytes,1,rep,name=mail,proto3" json:"mail,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ReadMessagesResponse) Reset() {
-	*x = ReadMessagesResponse{}
-	mi := &file_agent_v1_message_proto_msgTypes[4]
+func (x *ReadMailResponse) Reset() {
+	*x = ReadMailResponse{}
+	mi := &file_agent_v1_mail_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ReadMessagesResponse) String() string {
+func (x *ReadMailResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ReadMessagesResponse) ProtoMessage() {}
+func (*ReadMailResponse) ProtoMessage() {}
 
-func (x *ReadMessagesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_message_proto_msgTypes[4]
+func (x *ReadMailResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_mail_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -294,24 +294,24 @@ func (x *ReadMessagesResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ReadMessagesResponse.ProtoReflect.Descriptor instead.
-func (*ReadMessagesResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_message_proto_rawDescGZIP(), []int{4}
+// Deprecated: Use ReadMailResponse.ProtoReflect.Descriptor instead.
+func (*ReadMailResponse) Descriptor() ([]byte, []int) {
+	return file_agent_v1_mail_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *ReadMessagesResponse) GetMessages() []*Message {
+func (x *ReadMailResponse) GetMail() []*Mail {
 	if x != nil {
-		return x.Messages
+		return x.Mail
 	}
 	return nil
 }
 
-var File_agent_v1_message_proto protoreflect.FileDescriptor
+var File_agent_v1_mail_proto protoreflect.FileDescriptor
 
-const file_agent_v1_message_proto_rawDesc = "" +
+const file_agent_v1_mail_proto_rawDesc = "" +
 	"\n" +
-	"\x16agent/v1/message.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xf1\x01\n" +
-	"\aMessage\x12\x0e\n" +
+	"\x13agent/v1/mail.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xee\x01\n" +
+	"\x04Mail\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12'\n" +
 	"\rfrom_agent_id\x18\x02 \x01(\tH\x00R\vfromAgentId\x88\x01\x01\x12\x1b\n" +
 	"\tfrom_name\x18\x03 \x01(\tR\bfromName\x12\x1e\n" +
@@ -321,44 +321,44 @@ const file_agent_v1_message_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\a \x01(\tR\tcreatedAtB\x10\n" +
 	"\x0e_from_agent_idB\v\n" +
-	"\t_reply_to\"\x93\x01\n" +
-	"\x12SendMessageRequest\x12'\n" +
+	"\t_reply_to\"\x90\x01\n" +
+	"\x0fSendMailRequest\x12'\n" +
 	"\vto_agent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\ttoAgentId\x12\x1e\n" +
 	"\x04body\x18\x02 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x90NR\x04body\x12'\n" +
 	"\breply_to\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\areplyTo\x88\x01\x01B\v\n" +
-	"\t_reply_to\"B\n" +
-	"\x13SendMessageResponse\x12+\n" +
-	"\amessage\x18\x01 \x01(\v2\x11.agent.v1.MessageR\amessage\":\n" +
-	"\x13ReadMessagesRequest\x12\x1c\n" +
+	"\t_reply_to\"6\n" +
+	"\x10SendMailResponse\x12\"\n" +
+	"\x04mail\x18\x01 \x01(\v2\x0e.agent.v1.MailR\x04mail\"6\n" +
+	"\x0fReadMailRequest\x12\x1c\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x02id\x88\x01\x01B\x05\n" +
-	"\x03_id\"E\n" +
-	"\x14ReadMessagesResponse\x12-\n" +
-	"\bmessages\x18\x01 \x03(\v2\x11.agent.v1.MessageR\bmessagesB\"Z weave/proto/gen/agent/v1;agentv1b\x06proto3"
+	"\x03_id\"6\n" +
+	"\x10ReadMailResponse\x12\"\n" +
+	"\x04mail\x18\x01 \x03(\v2\x0e.agent.v1.MailR\x04mailB\"Z weave/proto/gen/agent/v1;agentv1b\x06proto3"
 
 var (
-	file_agent_v1_message_proto_rawDescOnce sync.Once
-	file_agent_v1_message_proto_rawDescData []byte
+	file_agent_v1_mail_proto_rawDescOnce sync.Once
+	file_agent_v1_mail_proto_rawDescData []byte
 )
 
-func file_agent_v1_message_proto_rawDescGZIP() []byte {
-	file_agent_v1_message_proto_rawDescOnce.Do(func() {
-		file_agent_v1_message_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_agent_v1_message_proto_rawDesc), len(file_agent_v1_message_proto_rawDesc)))
+func file_agent_v1_mail_proto_rawDescGZIP() []byte {
+	file_agent_v1_mail_proto_rawDescOnce.Do(func() {
+		file_agent_v1_mail_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_agent_v1_mail_proto_rawDesc), len(file_agent_v1_mail_proto_rawDesc)))
 	})
-	return file_agent_v1_message_proto_rawDescData
+	return file_agent_v1_mail_proto_rawDescData
 }
 
-var file_agent_v1_message_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
-var file_agent_v1_message_proto_goTypes = []any{
-	(*Message)(nil),              // 0: agent.v1.Message
-	(*SendMessageRequest)(nil),   // 1: agent.v1.SendMessageRequest
-	(*SendMessageResponse)(nil),  // 2: agent.v1.SendMessageResponse
-	(*ReadMessagesRequest)(nil),  // 3: agent.v1.ReadMessagesRequest
-	(*ReadMessagesResponse)(nil), // 4: agent.v1.ReadMessagesResponse
+var file_agent_v1_mail_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_agent_v1_mail_proto_goTypes = []any{
+	(*Mail)(nil),             // 0: agent.v1.Mail
+	(*SendMailRequest)(nil),  // 1: agent.v1.SendMailRequest
+	(*SendMailResponse)(nil), // 2: agent.v1.SendMailResponse
+	(*ReadMailRequest)(nil),  // 3: agent.v1.ReadMailRequest
+	(*ReadMailResponse)(nil), // 4: agent.v1.ReadMailResponse
 }
-var file_agent_v1_message_proto_depIdxs = []int32{
-	0, // 0: agent.v1.SendMessageResponse.message:type_name -> agent.v1.Message
-	0, // 1: agent.v1.ReadMessagesResponse.messages:type_name -> agent.v1.Message
+var file_agent_v1_mail_proto_depIdxs = []int32{
+	0, // 0: agent.v1.SendMailResponse.mail:type_name -> agent.v1.Mail
+	0, // 1: agent.v1.ReadMailResponse.mail:type_name -> agent.v1.Mail
 	2, // [2:2] is the sub-list for method output_type
 	2, // [2:2] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
@@ -366,29 +366,29 @@ var file_agent_v1_message_proto_depIdxs = []int32{
 	0, // [0:2] is the sub-list for field type_name
 }
 
-func init() { file_agent_v1_message_proto_init() }
-func file_agent_v1_message_proto_init() {
-	if File_agent_v1_message_proto != nil {
+func init() { file_agent_v1_mail_proto_init() }
+func file_agent_v1_mail_proto_init() {
+	if File_agent_v1_mail_proto != nil {
 		return
 	}
-	file_agent_v1_message_proto_msgTypes[0].OneofWrappers = []any{}
-	file_agent_v1_message_proto_msgTypes[1].OneofWrappers = []any{}
-	file_agent_v1_message_proto_msgTypes[3].OneofWrappers = []any{}
+	file_agent_v1_mail_proto_msgTypes[0].OneofWrappers = []any{}
+	file_agent_v1_mail_proto_msgTypes[1].OneofWrappers = []any{}
+	file_agent_v1_mail_proto_msgTypes[3].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_v1_message_proto_rawDesc), len(file_agent_v1_message_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_v1_mail_proto_rawDesc), len(file_agent_v1_mail_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_agent_v1_message_proto_goTypes,
-		DependencyIndexes: file_agent_v1_message_proto_depIdxs,
-		MessageInfos:      file_agent_v1_message_proto_msgTypes,
+		GoTypes:           file_agent_v1_mail_proto_goTypes,
+		DependencyIndexes: file_agent_v1_mail_proto_depIdxs,
+		MessageInfos:      file_agent_v1_mail_proto_msgTypes,
 	}.Build()
-	File_agent_v1_message_proto = out.File
-	file_agent_v1_message_proto_goTypes = nil
-	file_agent_v1_message_proto_depIdxs = nil
+	File_agent_v1_mail_proto = out.File
+	file_agent_v1_mail_proto_goTypes = nil
+	file_agent_v1_mail_proto_depIdxs = nil
 }

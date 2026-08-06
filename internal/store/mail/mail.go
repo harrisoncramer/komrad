@@ -1,4 +1,4 @@
-package message
+package mail
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"weave/lib/xslice"
 )
 
-type Message struct {
+type Mail struct {
 	ID          string
 	FromAgentID *string
 	FromName    string
@@ -44,8 +44,8 @@ type SendParams struct {
 	ExpiresAt   time.Time
 }
 
-func (s *Store) Send(ctx context.Context, params SendParams) (*Message, error) {
-	row, err := s.queries.InsertAgentMessage(ctx, models.InsertAgentMessageParams{
+func (s *Store) Send(ctx context.Context, params SendParams) (*Mail, error) {
+	row, err := s.queries.InsertMail(ctx, models.InsertMailParams{
 		FromAgentID: params.FromAgentID,
 		FromName:    params.FromName,
 		ToAgentID:   params.ToAgentID,
@@ -55,38 +55,38 @@ func (s *Store) Send(ctx context.Context, params SendParams) (*Message, error) {
 		ExpiresAt:   params.ExpiresAt,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to send a message to agent %q: %w", params.ToAgentID, err)
+		return nil, fmt.Errorf("failed to send mail to agent %q: %w", params.ToAgentID, err)
 	}
 
-	sent := messageFromRow(*row)
+	sent := mailFromRow(*row)
 
 	return &sent, nil
 }
 
-func (s *Store) GetByID(ctx context.Context, id string) (*Message, error) {
+func (s *Store) GetByID(ctx context.Context, id string) (*Mail, error) {
 	if !store.IsID(id) {
 		return nil, nil
 	}
 
-	row, err := s.queries.GetAgentMessage(ctx, id)
+	row, err := s.queries.GetMail(ctx, id)
 	if db.IsNoRows(err) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get message %q: %w", id, err)
+		return nil, fmt.Errorf("failed to get mail %q: %w", id, err)
 	}
 
-	got := messageFromRow(*row)
+	got := mailFromRow(*row)
 
 	return &got, nil
 }
 
-func (s *Store) Claim(ctx context.Context, toAgentID string, limit int32) ([]Message, error) {
+func (s *Store) Claim(ctx context.Context, toAgentID string, limit int32) ([]Mail, error) {
 	if !store.IsID(toAgentID) {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ClaimAgentMessages(ctx, models.ClaimAgentMessagesParams{
+	rows, err := s.queries.ClaimMail(ctx, models.ClaimMailParams{
 		ToAgentID: toAgentID,
 		Lim:       limit,
 	})
@@ -94,11 +94,11 @@ func (s *Store) Claim(ctx context.Context, toAgentID string, limit int32) ([]Mes
 		return nil, fmt.Errorf("failed to claim the mail for agent %q: %w", toAgentID, err)
 	}
 
-	claimed := xslice.Map(rows, func(row *models.AgentMessage) Message {
-		return messageFromRow(*row)
+	claimed := xslice.Map(rows, func(row *models.Mail) Mail {
+		return mailFromRow(*row)
 	})
 
-	slices.SortFunc(claimed, func(a, b Message) int {
+	slices.SortFunc(claimed, func(a, b Mail) int {
 		return strings.Compare(a.ID, b.ID)
 	})
 
@@ -110,7 +110,7 @@ func (s *Store) CountPending(ctx context.Context, toAgentID string) (int64, erro
 		return 0, nil
 	}
 
-	count, err := s.queries.CountPendingAgentMessages(ctx, toAgentID)
+	count, err := s.queries.CountPendingMail(ctx, toAgentID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count the mail waiting for agent %q: %w", toAgentID, err)
 	}
@@ -133,24 +133,24 @@ func (s *Store) ListPendingMailboxes(ctx context.Context) ([]string, error) {
 }
 
 // ListExpired reports the mail that ran out of time before the recipient claimed it, and marks
-// it reported so the next call does not hand back the same message again.
-func (s *Store) ListExpired(ctx context.Context, toAgentID string) ([]Message, error) {
+// it reported so the next call does not hand back the same mail again.
+func (s *Store) ListExpired(ctx context.Context, toAgentID string) ([]Mail, error) {
 	if !store.IsID(toAgentID) {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ReportExpiredAgentMessages(ctx, toAgentID)
+	rows, err := s.queries.ReportExpiredMail(ctx, toAgentID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to report the expired mail for agent %q: %w", toAgentID, err)
 	}
 
-	return xslice.Map(rows, func(row *models.AgentMessage) Message {
-		return messageFromRow(*row)
+	return xslice.Map(rows, func(row *models.Mail) Mail {
+		return mailFromRow(*row)
 	}), nil
 }
 
-func messageFromRow(row models.AgentMessage) Message {
-	return Message{
+func mailFromRow(row models.Mail) Mail {
+	return Mail{
 		ID:          row.ID,
 		FromAgentID: row.FromAgentID,
 		FromName:    row.FromName,

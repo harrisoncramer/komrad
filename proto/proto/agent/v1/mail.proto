@@ -6,7 +6,7 @@ import "buf/validate/validate.proto";
 
 option go_package = "weave/proto/gen/agent/v1;agentv1";
 
-message Message {
+message Mail {
   string id = 1;
   optional string from_agent_id = 2;
   string from_name = 3;
@@ -16,7 +16,7 @@ message Message {
   string created_at = 7;
 }
 
-message SendMessageRequest {
+message SendMailRequest {
   string to_agent_id = 1 [(buf.validate.field).string.min_len = 1];
   string body = 2 [(buf.validate.field).string = {
     min_len: 1
@@ -25,14 +25,14 @@ message SendMessageRequest {
   optional string reply_to = 3 [(buf.validate.field).string.min_len = 1];
 }
 
-message SendMessageResponse {
-  Message message = 1;
+message SendMailResponse {
+  Mail mail = 1;
 }
 
-message ReadMessagesRequest {
+message ReadMailRequest {
   optional string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
-message ReadMessagesResponse {
-  repeated Message messages = 1;
+message ReadMailResponse {
+  repeated Mail mail = 1;
 }

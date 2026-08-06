@@ -42,14 +42,14 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc list-schedules](weave_rpc_list-schedules.md)	 - List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, and next run time.
 * [weave rpc list-workflows](weave_rpc_list-workflows.md)	 - List the workflows agents are grouped into, most recently updated first, with each one's shared context, the working directory and flags its agents start from, and the action run before its agents start and the one run after they are deleted.
 * [weave rpc log](weave_rpc_log.md)	 - Write one line to weave's log, tagged to an agent.
-* [weave rpc read-messages](weave_rpc_read-messages.md)	 - Take the unread messages other agents have sent you, oldest first.
+* [weave rpc read-mail](weave_rpc_read-mail.md)	 - Take the unread mail other agents have sent you, oldest first.
 * [weave rpc rename-agent](weave_rpc_rename-agent.md)	 - Rename an agent, keyed by its id rather than its current name.
 * [weave rpc restore-agents](weave_rpc_restore-agents.md)	 - Take a list of agents out of the archive, keyed by id, along with the workflows they belong to.
 * [weave rpc restore-workflow](weave_rpc_restore-workflow.md)	 - Take a workflow out of the archive, keyed by id, along with every agent archived inside it.
 * [weave rpc resume-agent](weave_rpc_resume-agent.md)	 - Relaunch an agent's CLI on the same conversation, keyed by id, which is what reaches an agent whose pane has since died.
 * [weave rpc run-action](weave_rpc_run-action.md)	 - Fire one of the user's actions on an agent, naming the action as list_actions reports it and the agent by id.
 * [weave rpc search-transcripts](weave_rpc_search-transcripts.md)	 - Full-text search over conversations, including archived ones, returning one hit per matching turn with the matched text marked.
-* [weave rpc send-message](weave_rpc_send-message.md)	 - Send one message to another agent, addressed by its id.
+* [weave rpc send-mail](weave_rpc_send-mail.md)	 - Send one piece of mail to another agent, addressed by its id.
 * [weave rpc set-agent-hidden](weave_rpc_set-agent-hidden.md)	 - Hide an agent from the panel's sidebar, keyed by its id, or unhide it by passing hidden false.
 * [weave rpc set-agent-marks](weave_rpc_set-agent-marks.md)	 - Put one mark on a list of agents, keyed by their ids, or clear the ones they carry by omitting the mark.
 * [weave rpc set-agent-metadata](weave_rpc_set-agent-metadata.md)	 - Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value.

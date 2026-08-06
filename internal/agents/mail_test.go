@@ -8,7 +8,7 @@ import (
 
 	"weave/config"
 	agentstore "weave/internal/store/agent"
-	messagestore "weave/internal/store/message"
+	mailstore "weave/internal/store/mail"
 	"weave/lib/xptr"
 
 	"github.com/google/uuid"
@@ -16,47 +16,47 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSendMessageRefusals(t *testing.T) {
+func TestSendMailRefusals(t *testing.T) {
 	tests := []struct {
 		name    string
-		params  SendMessageParams
+		params  SendMailParams
 		pending int64
 		wantErr error
 	}{
 		{
 			name:    "an address nothing answers to",
-			params:  SendMessageParams{From: "agent-a", ToAgentID: "ghost", Body: "hello"},
+			params:  SendMailParams{From: "agent-a", ToAgentID: "ghost", Body: "hello"},
 			wantErr: ErrRecipientNotFound,
 		},
 		{
 			name:    "a recipient that has been archived",
-			params:  SendMessageParams{From: "agent-a", ToAgentID: "agent-archived", Body: "hello"},
+			params:  SendMailParams{From: "agent-a", ToAgentID: "agent-archived", Body: "hello"},
 			wantErr: ErrAgentArchived,
 		},
 		{
 			name:    "a sender naming an agent that does not exist",
-			params:  SendMessageParams{From: "agent-ghost", ToAgentID: "agent-b", Body: "hello"},
+			params:  SendMailParams{From: "agent-ghost", ToAgentID: "agent-b", Body: "hello"},
 			wantErr: ErrSenderUnknown,
 		},
 		{
 			name:    "an agent addressing itself",
-			params:  SendMessageParams{From: "agent-a", ToAgentID: "agent-a", Body: "hello"},
+			params:  SendMailParams{From: "agent-a", ToAgentID: "agent-a", Body: "hello"},
 			wantErr: ErrSelfAddressed,
 		},
 		{
 			name:    "a recipient already holding a full mailbox",
-			params:  SendMessageParams{From: "agent-a", ToAgentID: "agent-b", Body: "hello"},
-			pending: maxPendingMessages,
+			params:  SendMailParams{From: "agent-a", ToAgentID: "agent-b", Body: "hello"},
+			pending: maxPendingMail,
 			wantErr: ErrMailboxFull,
 		},
 		{
 			name:    "a reply_to that is not a well-formed id",
-			params:  SendMessageParams{From: "agent-a", ToAgentID: "agent-b", Body: "hello", ReplyTo: xptr.Ptr("not-an-id")},
+			params:  SendMailParams{From: "agent-a", ToAgentID: "agent-b", Body: "hello", ReplyTo: xptr.Ptr("not-an-id")},
 			wantErr: ErrReplyToNotFound,
 		},
 		{
 			name:    "a reply_to naming a well-formed id nothing holds",
-			params:  SendMessageParams{From: "agent-a", ToAgentID: "agent-b", Body: "hello", ReplyTo: xptr.Ptr(uuid.NewString())},
+			params:  SendMailParams{From: "agent-a", ToAgentID: "agent-b", Body: "hello", ReplyTo: xptr.Ptr(uuid.NewString())},
 			wantErr: ErrReplyToNotFound,
 		},
 	}
@@ -64,13 +64,13 @@ func TestSendMessageRefusals(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mailbox := &fakeMailbox{pending: tt.pending}
-			svc := NewMessageService(NewMessageServiceParams{
-				MessageReadWriter: mailbox,
-				AgentFinder:       newFakeDirectory(),
-				Config:            fakeMessageConfig{maxHops: config.DefaultMaxHops},
+			svc := NewMailService(NewMailServiceParams{
+				MailReadWriter: mailbox,
+				AgentFinder:    newFakeDirectory(),
+				Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
 			})
 
-			sent, err := svc.SendMessage(t.Context(), tt.params)
+			sent, err := svc.SendMail(t.Context(), tt.params)
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Nil(t, sent)
 			assert.Empty(t, mailbox.sent)
@@ -78,15 +78,15 @@ func TestSendMessageRefusals(t *testing.T) {
 	}
 }
 
-func TestSendMessageStampsTheSender(t *testing.T) {
+func TestSendMailStampsTheSender(t *testing.T) {
 	mailbox := &fakeMailbox{}
-	svc := NewMessageService(NewMessageServiceParams{
-		MessageReadWriter: mailbox,
-		AgentFinder:       newFakeDirectory(),
-		Config:            fakeMessageConfig{maxHops: config.DefaultMaxHops},
+	svc := NewMailService(NewMailServiceParams{
+		MailReadWriter: mailbox,
+		AgentFinder:    newFakeDirectory(),
+		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
 	})
 
-	sent, err := svc.SendMessage(t.Context(), SendMessageParams{
+	sent, err := svc.SendMail(t.Context(), SendMailParams{
 		From:      "agent-a",
 		ToAgentID: "agent-b",
 		Body:      "which column holds the refund?",
@@ -103,83 +103,83 @@ func TestSendMessageStampsTheSender(t *testing.T) {
 	assert.Equal(t, "which column holds the refund?", wrote.Body)
 }
 
-func TestSendMessageFromNobody(t *testing.T) {
+func TestSendMailFromNobody(t *testing.T) {
 	mailbox := &fakeMailbox{}
-	svc := NewMessageService(NewMessageServiceParams{
-		MessageReadWriter: mailbox,
-		AgentFinder:       newFakeDirectory(),
-		Config:            fakeMessageConfig{maxHops: config.DefaultMaxHops},
+	svc := NewMailService(NewMailServiceParams{
+		MailReadWriter: mailbox,
+		AgentFinder:    newFakeDirectory(),
+		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
 	})
 
-	_, err := svc.SendMessage(t.Context(), SendMessageParams{ToAgentID: "agent-b", Body: "hello"})
+	_, err := svc.SendMail(t.Context(), SendMailParams{ToAgentID: "agent-b", Body: "hello"})
 	require.NoError(t, err)
 	require.Len(t, mailbox.sent, 1)
 	assert.Nil(t, mailbox.sent[0].FromAgentID)
 	assert.Empty(t, mailbox.sent[0].FromName)
 }
 
-func TestSendMessageRefusesPastTheHopLimit(t *testing.T) {
+func TestSendMailRefusesPastTheHopLimit(t *testing.T) {
 	mailbox := &fakeMailbox{}
-	svc := NewMessageService(NewMessageServiceParams{
-		MessageReadWriter: mailbox,
-		AgentFinder:       newFakeDirectory(),
-		Config:            fakeMessageConfig{maxHops: 2},
+	svc := NewMailService(NewMailServiceParams{
+		MailReadWriter: mailbox,
+		AgentFinder:    newFakeDirectory(),
+		Config:         fakeMailConfig{maxHops: 2},
 	})
 
-	first, err := svc.SendMessage(t.Context(), SendMessageParams{From: "agent-a", ToAgentID: "agent-b", Body: "which column?"})
+	first, err := svc.SendMail(t.Context(), SendMailParams{From: "agent-a", ToAgentID: "agent-b", Body: "which column?"})
 	require.NoError(t, err)
 	assert.Equal(t, int32(1), first.Hops)
 
-	second, err := svc.SendMessage(t.Context(), SendMessageParams{
+	second, err := svc.SendMail(t.Context(), SendMailParams{
 		From: "agent-b", ToAgentID: "agent-a", Body: "refunded_cents", ReplyTo: &first.ID,
 	})
 	require.NoError(t, err)
 	assert.Equal(t, int32(2), second.Hops)
 
-	_, err = svc.SendMessage(t.Context(), SendMessageParams{
+	_, err = svc.SendMail(t.Context(), SendMailParams{
 		From: "agent-a", ToAgentID: "agent-b", Body: "one more thing", ReplyTo: &second.ID,
 	})
 	require.ErrorIs(t, err, ErrThreadCapped)
 
-	unrelated, err := svc.SendMessage(t.Context(), SendMessageParams{From: "agent-a", ToAgentID: "agent-b", Body: "unrelated ping"})
+	unrelated, err := svc.SendMail(t.Context(), SendMailParams{From: "agent-a", ToAgentID: "agent-b", Body: "unrelated ping"})
 	require.NoError(t, err)
 	assert.Equal(t, int32(1), unrelated.Hops)
 }
 
-// TestSendMessageSystemNoticeIsAlwaysAFreshThread proves, rather than assumes, that a
+// TestSendMailSystemNoticeIsAlwaysAFreshThread proves, rather than assumes, that a
 // lifecycle notice cannot be refused by the hop cap: it carries no reply_to, so it always
 // takes hops 1, which clears even the tightest limit a panel could configure.
-func TestSendMessageSystemNoticeIsAlwaysAFreshThread(t *testing.T) {
+func TestSendMailSystemNoticeIsAlwaysAFreshThread(t *testing.T) {
 	mailbox := &fakeMailbox{}
-	svc := NewMessageService(NewMessageServiceParams{
-		MessageReadWriter: mailbox,
-		AgentFinder:       newFakeDirectory(),
-		Config:            fakeMessageConfig{maxHops: 1},
+	svc := NewMailService(NewMailServiceParams{
+		MailReadWriter: mailbox,
+		AgentFinder:    newFakeDirectory(),
+		Config:         fakeMailConfig{maxHops: 1},
 	})
 
-	sent, err := svc.SendSystemMessage(t.Context(), "agent-a", "your delegate was archived")
+	sent, err := svc.SendSystemMail(t.Context(), "agent-a", "your delegate was archived")
 	require.NoError(t, err)
 	assert.EqualValues(t, 1, sent.Hops)
 }
 
-// TestSendSystemMessageStampsWeaveAsTheSender proves the join the framing in hook.go relies
+// TestSendSystemMailStampsWeaveAsTheSender proves the join the framing in hook.go relies
 // on: a lifecycle notice lands with weave's name and no agent id, which is what tells the
 // stop hook this was not the panel operator talking.
-func TestSendSystemMessageStampsWeaveAsTheSender(t *testing.T) {
+func TestSendSystemMailStampsWeaveAsTheSender(t *testing.T) {
 	mailbox := &fakeMailbox{}
-	svc := NewMessageService(NewMessageServiceParams{
-		MessageReadWriter: mailbox,
-		AgentFinder:       newFakeDirectory(),
-		Config:            fakeMessageConfig{maxHops: config.DefaultMaxHops},
+	svc := NewMailService(NewMailServiceParams{
+		MailReadWriter: mailbox,
+		AgentFinder:    newFakeDirectory(),
+		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
 	})
 
-	sent, err := svc.SendSystemMessage(t.Context(), "agent-a", "your delegate was archived")
+	sent, err := svc.SendSystemMail(t.Context(), "agent-a", "your delegate was archived")
 	require.NoError(t, err)
 	assert.Equal(t, WeaveSenderName, sent.FromName)
 	assert.Nil(t, sent.FromAgentID)
 }
 
-func TestClaimMessages(t *testing.T) {
+func TestClaimMail(t *testing.T) {
 	tests := []struct {
 		name    string
 		agentID string
@@ -200,14 +200,14 @@ func TestClaimMessages(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mailbox := &fakeMailbox{claimed: []messagestore.Message{{ID: "message-1", Body: "hello"}}}
-			svc := NewMessageService(NewMessageServiceParams{
-				MessageReadWriter: mailbox,
-				AgentFinder:       newFakeDirectory(),
-				Config:            fakeMessageConfig{maxHops: config.DefaultMaxHops},
+			mailbox := &fakeMailbox{claimed: []mailstore.Mail{{ID: "mail-1", Body: "hello"}}}
+			svc := NewMailService(NewMailServiceParams{
+				MailReadWriter: mailbox,
+				AgentFinder:    newFakeDirectory(),
+				Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
 			})
 
-			claimed, err := svc.ClaimMessages(t.Context(), tt.agentID)
+			claimed, err := svc.ClaimMail(t.Context(), tt.agentID)
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 				assert.Empty(t, claimed)
@@ -217,36 +217,36 @@ func TestClaimMessages(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Len(t, claimed, tt.wantLen)
-			assert.Equal(t, int32(maxClaimedMessages), mailbox.claimLimit)
+			assert.Equal(t, int32(maxClaimedMail), mailbox.claimLimit)
 		})
 	}
 }
 
-type fakeMessageConfig struct {
+type fakeMailConfig struct {
 	maxHops int
 }
 
-func (fakeMessageConfig) GetDeliveryDeadline() (time.Duration, error) {
+func (fakeMailConfig) GetDeliveryDeadline() (time.Duration, error) {
 	return time.Hour, nil
 }
 
-func (f fakeMessageConfig) GetMaxHops() (int, error) {
+func (f fakeMailConfig) GetMaxHops() (int, error) {
 	return f.maxHops, nil
 }
 
 type fakeMailbox struct {
-	sent       []messagestore.SendParams
+	sent       []mailstore.SendParams
 	pending    int64
-	claimed    []messagestore.Message
+	claimed    []mailstore.Mail
 	claimLimit int32
-	byID       map[string]messagestore.Message
+	byID       map[string]mailstore.Mail
 }
 
-func (f *fakeMailbox) Send(_ context.Context, params messagestore.SendParams) (*messagestore.Message, error) {
+func (f *fakeMailbox) Send(_ context.Context, params mailstore.SendParams) (*mailstore.Mail, error) {
 	f.sent = append(f.sent, params)
 
-	sent := messagestore.Message{
-		ID:          fmt.Sprintf("message-%d", len(f.sent)),
+	sent := mailstore.Mail{
+		ID:          fmt.Sprintf("mail-%d", len(f.sent)),
 		FromAgentID: params.FromAgentID,
 		FromName:    params.FromName,
 		ToAgentID:   params.ToAgentID,
@@ -256,14 +256,14 @@ func (f *fakeMailbox) Send(_ context.Context, params messagestore.SendParams) (*
 	}
 
 	if f.byID == nil {
-		f.byID = map[string]messagestore.Message{}
+		f.byID = map[string]mailstore.Mail{}
 	}
 	f.byID[sent.ID] = sent
 
 	return &sent, nil
 }
 
-func (f *fakeMailbox) GetByID(_ context.Context, id string) (*messagestore.Message, error) {
+func (f *fakeMailbox) GetByID(_ context.Context, id string) (*mailstore.Mail, error) {
 	found, ok := f.byID[id]
 	if !ok {
 		return nil, nil
@@ -272,7 +272,7 @@ func (f *fakeMailbox) GetByID(_ context.Context, id string) (*messagestore.Messa
 	return &found, nil
 }
 
-func (f *fakeMailbox) Claim(_ context.Context, _ string, limit int32) ([]messagestore.Message, error) {
+func (f *fakeMailbox) Claim(_ context.Context, _ string, limit int32) ([]mailstore.Mail, error) {
 	f.claimLimit = limit
 
 	return f.claimed, nil
