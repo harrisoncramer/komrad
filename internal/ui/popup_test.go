@@ -60,19 +60,29 @@ func (t *panelKeyRecorder) BindKeyChecked(key string, command ...string) error {
 // the same key hides the panel rather than stacking a second popup on it.
 func TestBindPanelKey(t *testing.T) {
 	tests := []struct {
-		name    string
-		chosen  string
-		wantKey string
+		name     string
+		chosen   string
+		open     string
+		wantKey  string
+		wantOpen string
 	}{
 		{
-			name:    "no chosen key falls back to the default",
-			chosen:  "",
-			wantKey: defaultPanelKey,
+			name:     "no chosen key falls back to the default",
+			chosen:   "",
+			wantKey:  defaultPanelKey,
+			wantOpen: "0",
 		},
 		{
-			name:    "the user's own key wins",
-			chosen:  "w",
-			wantKey: "w",
+			name:     "the user's own key wins",
+			chosen:   "w",
+			wantKey:  "w",
+			wantOpen: "0",
+		},
+		{
+			name:     "a popup that is already up keeps saying so",
+			open:     "1",
+			wantKey:  defaultPanelKey,
+			wantOpen: "1",
 		},
 	}
 
@@ -82,13 +92,18 @@ func TestBindPanelKey(t *testing.T) {
 			if tt.chosen != "" {
 				tmux.SetGlobal(managerKeyOption, tt.chosen)
 			}
+			if tt.open != "" {
+				tmux.SetGlobal(managerOpenFlag, tt.open)
+			}
 
 			require.NoError(t, BindPanelKey(tmux, "/usr/local/bin/weave"))
 
 			command, bound := tmux.bound[tt.wantKey]
 			require.True(t, bound, "the panel key is not bound")
 
-			assert.Equal(t, "0", tmux.globals[managerOpenFlag], "the popup starts out closed")
+			// Binding by hand while the panel is up must not report it closed, since the next
+			// press would then stack a second popup rather than hiding the one there.
+			assert.Equal(t, tt.wantOpen, tmux.globals[managerOpenFlag])
 			assert.Equal(t, []string{
 				"if-shell", "-F", "#{==:#{@weave_open},1}",
 				"run-shell -b '/usr/local/bin/weave hide'",

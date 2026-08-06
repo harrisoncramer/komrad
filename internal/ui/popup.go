@@ -149,8 +149,13 @@ func BindPanelKey(t panelKeyTmux, self string) error {
 		key = defaultPanelKey
 	}
 
-	if err := t.SetGlobalChecked(managerOpenFlag, "0"); err != nil {
-		return err
+	// Only when the flag has never been set, which is what an empty value means. This command
+	// is run by hand, including while the panel is up, and writing 0 over a popup that is open
+	// would make the next press stack a second one on it rather than hiding it.
+	if t.ShowGlobal(managerOpenFlag) == "" {
+		if err := t.SetGlobalChecked(managerOpenFlag, "0"); err != nil {
+			return err
+		}
 	}
 
 	// Each branch is one argument, since tmux parses an if-shell branch as a command of its

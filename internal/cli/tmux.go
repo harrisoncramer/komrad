@@ -53,9 +53,9 @@ func tmuxCmd(state *app) *cobra.Command {
 // panelKeyServer is a client for the tmux server the panel key belongs on, found by asking
 // weave's own server which socket it is on and which one the panel last opened from.
 //
-// Both questions are asked only when the answer can matter, since tmux starts a server for a
-// command like show-option rather than refusing it, and a stray server on weave's socket would
-// have sourced the user's whole tmux config to answer a question about which server to use.
+// Neither question is asked before the answer can change anything. A shell outside tmux is the
+// common case and settles on the first line, so the usual run of this command spawns no tmux at
+// all rather than two that only rule out being the popup.
 func panelKeyServer(state *app) (*tmux.Client, error) {
 	socket, err := panelKeySocket(state.env.Tmux, func() string {
 		// An error here is weave's own server not running, which means this cannot be its
@@ -83,8 +83,8 @@ func panelKeyServer(state *app) (*tmux.Client, error) {
 // shell inside a tmux pane, which is what a config's run-shell is, means the server that pane
 // belongs to. The popup means the user's server, which the panel records on every open.
 //
-// The two servers are looked up through functions rather than passed, so nothing is asked of
-// weave's own server in the first case, which is the common one.
+// The two servers are looked up through functions rather than passed, so the first case, which
+// is the common one, asks nothing of weave's own server.
 func panelKeySocket(env string, manager, host func() string) (tmuxSocket, error) {
 	socket := tmux.SocketFromEnv(env)
 	if socket == "" {

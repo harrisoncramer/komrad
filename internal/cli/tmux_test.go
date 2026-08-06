@@ -56,9 +56,8 @@ func TestPanelKeySocket(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Counted because tmux starts a server for a question rather than refusing it, so
-			// asking weave's own server one it does not need to answer leaves a stray server
-			// behind that has sourced the user's whole tmux config.
+			// Counted because every question here is a tmux process, and the case that needs
+			// none of them is the one this command is usually run in.
 			asked := 0
 			manager := func() string { asked++; return managerPath }
 			host := func() string { asked++; return tt.host }

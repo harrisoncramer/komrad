@@ -77,7 +77,7 @@ jobs:
           if gh release view tip >/dev/null 2>&1; then
             gh release edit tip --prerelease --notes "$NOTES"
           else
-            gh release create tip --prerelease --title main --notes "$NOTES"
+            gh release create tip --prerelease --title "tip of main" --notes "$NOTES"
           fi
 
           gh release upload tip dist/* --clobber
