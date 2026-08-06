@@ -6,17 +6,11 @@ Weave is one statically linked binary. Installing it is a download, a `chmod`, a
 
 ## Requirements
 
-None of these are things a binary can bring with it.
-
-A Mac or a Linux machine. Weave shells out to tmux for everything, so it is not containerised and there is no Windows build.
-
-tmux 3.3 or newer. The panel is a `display-popup`, which arrived in 3.2, and the binding sets the popup title with `-T`, which arrived in 3.3. Check with `tmux -V`.
-
-A POSIX shell as tmux's `default-shell`. Weave types a command line into a pane to start an agent, and fish and nushell parse that line differently, so the server refuses to start rather than leaving you with half-launched agents. `set -g default-shell /bin/sh` in your tmux config is enough, and it does not change the shell you get in a normal pane.
-
-PostgreSQL 18 or newer, reachable from your machine. Eighteen is a floor rather than a preference: the schema defaults its primary keys to `uuidv7()`, which does not exist before 18. The database is yours, and weave migrates the schema inside it.
-
-At least one agent CLI on your `PATH`, already logged in. Weave drives `claude` and `codex`. It does not manage their credentials.
+- Mac or a Linux machine. Weave shells out to tmux for everything, so it is not containerised and there is no Windows build.
+- tmux 3.3 or newer
+- A POSIX shell as tmux's `default-shell`. Weave types a command line into a pane to start an agent, and fish and nushell parse that line differently, so the server refuses to start rather than leaving you with half-launched agents. `set -g default-shell /bin/sh` in your tmux config is enough.
+- PostgreSQL 18 or newer, reachable from your machine
+- At least one agent CLI on your `PATH`, already logged in. Weave drives `claude` and `codex`. It does not manage their credentials.
 
 ## Install the binary
 
@@ -29,46 +23,13 @@ weave-linux-amd64
 weave-linux-arm64
 ```
 
-The URL never changes, because the tag never moves off the name `tip`:
-
-```sh
-curl -fsSL -o ~/.local/bin/weave \
-  https://github.com/harrisoncramer/weave/releases/download/tip/weave-darwin-arm64
-chmod +x ~/.local/bin/weave
-```
-
-Anywhere on your `PATH` works; `~/.local/bin` is a habit rather than a requirement. There is no archive to unpack and no second file to install.
-
-To check the download arrived intact, fetch `checksums.txt` from the same release and verify against it. Save the binary under its release name for this, since that is the name the checksums use:
+To check the download arrived intact, fetch `checksums.txt` from the same release and verify against it:
 
 ```sh
 curl -fsSL -O https://github.com/harrisoncramer/weave/releases/download/tip/weave-darwin-arm64
 curl -fsSL -O https://github.com/harrisoncramer/weave/releases/download/tip/checksums.txt
 shasum -a 256 -c checksums.txt --ignore-missing
 mv weave-darwin-arm64 ~/.local/bin/weave && chmod +x ~/.local/bin/weave
-```
-
-Be clear about what that buys you. The checksums come from the same host as the binary, so they catch a corrupted transfer and not a compromised release.
-
-What this channel is: the tip of main, rebuilt on every merge. It makes no version promise, there is no changelog, and a binary you download today may be a few commits ahead of one you downloaded this morning. `weave version` reports it as `v0.0.0-main.<shortsha>`.
-
-### On a Mac
-
-Use the `curl`, not the releases page in a browser. A binary fetched with `curl` is not quarantined and runs. A binary downloaded through a browser is quarantined by LaunchServices, and macOS then refuses it with `operation not permitted` and no dialog explaining why. If that happens:
-
-```sh
-xattr -d com.apple.quarantine ~/.local/bin/weave
-```
-
-The binaries are not signed with a Developer ID. The arm64 one is ad-hoc signed by the Go linker, which is what Apple Silicon requires to run a binary at all, and that is enough for the `curl` path.
-
-### Private repository, for now
-
-While the repository is private, a release asset needs an authenticated request, so the `curl` above will 404. With the [gh CLI](https://cli.github.com) logged in:
-
-```sh
-gh release download tip --repo harrisoncramer/weave --pattern weave-darwin-arm64 --output ~/.local/bin/weave
-chmod +x ~/.local/bin/weave
 ```
 
 ## Bind the panel key
