@@ -76,18 +76,30 @@ func openCmd(state *app) *cobra.Command {
 				ConfigPaths: state.configPaths,
 			})
 
-			attach := state.tmuxCommand("attach-session", "-t", agents.ManagerSession)
-			attach.Stdin = os.Stdin
-			attach.Stdout = os.Stdout
-			attach.Stderr = os.Stderr
-
-			if err := attach.Run(); err != nil {
-				return fmt.Errorf("failed to open manager popup: %w", err)
-			}
-
-			return nil
+			return attachManagerSession(state)
 		},
 	}
+}
+
+// attachManagerSession hands this process's terminal to the panel's session, blocking until
+// the client detaches. In a popup that is what closes it, and in a terminal it is what returns
+// the prompt.
+func attachManagerSession(state *app) error {
+	attach := state.tmuxCommand("attach-session", "-t", agents.ManagerSession)
+	attach.Stdin = os.Stdin
+	attach.Stdout = os.Stdout
+	attach.Stderr = os.Stderr
+
+	if err := attach.Run(); err != nil {
+		return fmt.Errorf("failed to attach the panel: %w", err)
+	}
+
+	return nil
+}
+
+// managerSessionRunning reports whether the panel's session is up.
+func managerSessionRunning(state *app) bool {
+	return state.tmuxCommand("has-session", "-t", agents.ManagerSession).Run() == nil
 }
 
 // ensureManagerSession brings the manager session up detached, doing nothing when it
@@ -99,7 +111,7 @@ func openCmd(state *app) *cobra.Command {
 // environment rather than the popup's, which is why the session is created the way
 // buildManagerSessionArgs builds it.
 func ensureManagerSession(state *app) error {
-	if err := state.tmuxCommand("has-session", "-t", agents.ManagerSession).Run(); err == nil {
+	if managerSessionRunning(state) {
 		return nil
 	}
 

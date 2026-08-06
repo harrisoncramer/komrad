@@ -62,6 +62,8 @@ run-shell 'weave tmux'
 
 `prefix + g` opens the panel and hides it again. Hiding is not quitting: the panel and every agent in it keep running. Change it with `set -g @weave_key 'w'` above the `run-shell` line, then run `weave tmux` to rebind without restarting tmux. Inside the panel, `prefix + k` opens the command palette; change that with `set -g @weave_palette_key 'x'`.
 
+To use the panel in a plain terminal rather than the popup, `weave attach` shows the running one there, and the panel key detaches it. It attaches a panel that is up rather than starting one.
+
 ## The database
 
 Weave needs an empty database and a read-only login beside it. Export `WEAVE_DATABASE_URL`, or put it in `~/.config/weave/config.toml`:
