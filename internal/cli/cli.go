@@ -90,6 +90,7 @@ func NewRootCommand() *cobra.Command {
 
 			app.marks = cfg.Marks
 			app.layout = cfg.Layout
+			app.connection = cfg.Connection
 			app.logLevel = cfg.Log.Level
 			app.logViewer = cfg.Log.Viewer
 			app.configPaths = configPaths
