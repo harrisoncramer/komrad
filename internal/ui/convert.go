@@ -2,9 +2,8 @@ package ui
 
 import (
 	"slices"
+	"strings"
 	"time"
-
-	"weave/internal/actions"
 
 	actionv1 "weave/proto/gen/action/v1"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -53,11 +52,18 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 	}
 }
 
+// isInternalAction says a file in the actions directory is shell the user keeps for other
+// actions to reuse rather than an action itself. An underscore in front of the name is how
+// they say so, and nothing the panel offers to pick carries one.
+func isInternalAction(name string) bool {
+	return strings.HasPrefix(name, "_")
+}
+
 // actionItemsFrom renders listed actions into the items the screen is written against,
 // leaving out the ones written to be sourced rather than run.
 func actionItemsFrom(listed []*actionv1.Action) []actionItem {
 	external := xslice.Filter(listed, func(action *actionv1.Action) bool {
-		return !actions.IsInternal(action.GetName())
+		return !isInternalAction(action.GetName())
 	})
 
 	return xslice.Map(external, func(action *actionv1.Action) actionItem {

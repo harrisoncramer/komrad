@@ -98,20 +98,6 @@ func (c *Client) GetPaneOwner(pane string) string {
 	return c.value("show-options", "-p", "-qv", "-t", pane, paneOwnerOption)
 }
 
-// GetActivePane returns the pane a session is currently on, empty when tmux knows no such
-// session. It is how a popup finds the pane it was opened over, since the key binding that
-// opened it could not carry one.
-//
-// The target carries the trailing colon that makes it a session's, since a bare name tmux can
-// read as a window's is answered with that window's pane instead.
-func (c *Client) GetActivePane(session string) string {
-	if session == "" {
-		return ""
-	}
-
-	return c.value("display-message", "-p", "-t", session+":", "#{pane_id}")
-}
-
 // GetPaneOwners returns every pane on the server keyed to its owner stamp.
 func (c *Client) GetPaneOwners() (map[string]string, error) {
 	out, err := c.query("list-panes", "-a", "-F", "#{pane_id} #{"+paneOwnerOption+"}")

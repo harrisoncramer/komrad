@@ -65,13 +65,6 @@ func (a Action) GetDir() string {
 	return filepath.Dir(a.Path)
 }
 
-// IsInternal says a file in the actions directory is shell the user keeps for other actions
-// to reuse rather than an action itself. An underscore in front of the name is how they say
-// so, and nothing weave offers to pick carries one.
-func IsInternal(name string) bool {
-	return strings.HasPrefix(name, "_")
-}
-
 // Runner starts actions as processes. It holds nothing, and exists so a caller can take
 // running one as an interface and stand something else in its place under test.
 type Runner struct{}

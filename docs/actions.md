@@ -73,8 +73,6 @@ Cleanup fires on delete, and on a failed launch. It does not fire on archive.
 
 Press `a` on an agent in the panel to see every action (except for those prefixed with `_`), and press `enter` to fire the one under the cursor.
 
-While you are inside an agent's pane, typing to the agent rather than driving the panel, `prefix + a` opens the same list as a popup over that pane. It acts on whichever agent is running in the pane you pressed it in, so there is nothing to select. Type to narrow the list, press `enter` to fire what the cursor is on, and the popup closes. Rebind it with `set -g @weave_palette_key 'x'` in your tmux config.
-
 You can also interact with actions via the [MCP](mcp.md) tools, `list_actions` and `run_action`, and via the CLI:
 
 ```sh

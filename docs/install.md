@@ -86,7 +86,7 @@ run-shell /path/to/weave/weave.tmux
 
 The binding is `prefix + g`. Press it to open the panel, press it again to hide it. Hiding is not quitting: the panel keeps running with its state intact, and so does every agent in it. Rebind with `set -g @weave_key 'w'` before the plugin line.
 
-Inside the panel there is a second binding, `prefix + a`, which opens the [action](actions.md) palette over the pane you press it in. It is bound on weave's own tmux server rather than yours, so it exists only inside the popup and cannot take a key away from your own sessions. Rebind it with `set -g @weave_palette_key 'x'`.
+Inside the panel there is a second binding, `prefix + a`, which opens the command palette, and escape closes it. It is bound on weave's own tmux server rather than yours, so it exists only inside the popup and cannot take a key away from your own sessions. Rebind it with `set -g @weave_palette_key 'x'`. The palette is a skeleton at the moment: it opens, it takes what you type, and nothing is wired up behind it yet.
 
 One honest warning about the current script. It hardcodes the binary to `bin/weave` inside the plugin directory and builds it with `go build ... || true` when it is missing, which means a machine with no Go toolchain, or a checkout that does not compile, gets a silent no-op and a key bound to a path with nothing at it. Pressing the key then opens a popup that fails. If `prefix + g` does nothing useful, that is the first thing to check. The intended fix is for the plugin to search for a `weave` on `PATH` and in the usual install locations, and to bind the key to a visible complaint when it cannot find one.
 
