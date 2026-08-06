@@ -24,7 +24,7 @@ Disabling pauses a schedule and keeps everything. The next reconcile pass takes 
 
 Archiving puts it away for good. Nothing brings an archived schedule back yet. Both leave already-launched agents alone.
 
-Hidden runs are the other switch worth knowing: `hide_agents` starts this schedule's agents hidden from the panel's list. They still run, they just do not take a row, which is what makes a chatty every-fifteen-minutes job something you can leave armed.
+Hidden runs are the other switch worth knowing: `hide_agents` starts this schedule's agents hidden from the panel's sidebar. They still run, they just do not take a row, which is what makes a chatty every-fifteen-minutes job something you can leave armed.
 
 ## From the CLI and MCP
 

@@ -173,23 +173,38 @@ func (c *Client) SendKeys(target string, keys ...string) error {
 	return nil
 }
 
-// SplitRight splits the anchor pane horizontally.
-func (c *Client) SplitRight(anchorPane, dir string, percent int) string {
-	size := fmt.Sprintf("%d%%", percent)
-	return c.value("split-window", "-h", "-d", "-t", anchorPane, "-c", dir, "-l", size, "-P", "-F", "#{pane_id}")
+// SplitRight splits a pane right of the anchor, rooted at dir and sized as tmux takes it,
+// either a count of cells or a percentage such as "40%". Focus stays where it was, since what
+// goes in the pane is decided after it exists and whoever put it there says whether to move.
+func (c *Client) SplitRight(anchorPane, dir, size string) string {
+	return c.split(anchorPane, dir, size, "-h")
 }
 
-// SplitBelow splits a pane under the anchor, rooted at dir and taking percent of its
-// height, and returns the new pane's id. Focus stays where it was, since what goes in the
-// pane is decided after it exists and whoever put it there says whether to move.
-func (c *Client) SplitBelow(anchorPane, dir string, percent int) string {
-	size := fmt.Sprintf("%d%%", percent)
-	return c.value("split-window", "-v", "-d", "-t", anchorPane, "-c", dir, "-l", size, "-P", "-F", "#{pane_id}")
+// SplitLeft splits a pane left of the anchor.
+func (c *Client) SplitLeft(anchorPane, dir, size string) string {
+	return c.split(anchorPane, dir, size, "-h", "-b")
 }
 
-// ResizePane sets a pane's width to percent of the window.
-func (c *Client) ResizePane(pane string, percent int) {
-	c.run("resize-pane", "-t", pane, "-x", fmt.Sprintf("%d%%", percent))
+// SplitBelow splits a pane under the anchor.
+func (c *Client) SplitBelow(anchorPane, dir, size string) string {
+	return c.split(anchorPane, dir, size, "-v")
+}
+
+// SplitAbove splits a pane over the anchor.
+func (c *Client) SplitAbove(anchorPane, dir, size string) string {
+	return c.split(anchorPane, dir, size, "-v", "-b")
+}
+
+func (c *Client) split(anchorPane, dir, size string, flags ...string) string {
+	argv := append([]string{"split-window"}, flags...)
+	argv = append(argv, "-d", "-t", anchorPane, "-c", dir, "-l", size, "-P", "-F", "#{pane_id}")
+
+	return c.value(argv...)
+}
+
+// ResizePane sets a pane's width, as a count of columns or a percentage of the window.
+func (c *Client) ResizePane(pane, width string) {
+	c.run("resize-pane", "-t", pane, "-x", width)
 }
 
 // NewWindow creates a detached window in a session, rooted at dir and titled name, and

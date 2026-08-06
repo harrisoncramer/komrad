@@ -7,6 +7,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"math"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -75,14 +76,22 @@ const (
 // rather than taken from the registry since this is a default a user overrides.
 const DefaultHarness = "claude"
 
-// DefaultSplit is the share of the width the panel's list takes when the config
-// names none.
-const DefaultSplit = 0.2
+// The layout the panel lays itself out at when the config names none. The info pane opens
+// tall enough to work in without pushing the agent it is about off the screen.
+const (
+	DefaultSidebarSide  = SidebarSideLeft
+	DefaultSidebarWidth = 0.2
+	DefaultInfoSide     = InfoSideBelow
+	DefaultInfoHeight   = 0.4
+)
 
-// DefaultSecondarySplit is the share of the stage's height the pane under it opens at when
-// the config names none. It is enough to work in without pushing the agent it is about off
-// the screen.
-const DefaultSecondarySplit = 0.4
+// Where each region of the panel's layout can sit.
+const (
+	SidebarSideLeft  = "left"
+	SidebarSideRight = "right"
+	InfoSideBelow    = "below"
+	InfoSideAbove    = "above"
+)
 
 // DefaultMarkColor is the yellow a mark takes when its own colour is unset. It is the
 // plain yellow rather than the bright one the panel draws a thinking agent in, so a mark
@@ -159,7 +168,7 @@ type ConfigKeys struct {
 // rather than one of a screen's, since the log is about the service and is wanted from
 // wherever the panel is when the service misbehaves.
 type LogsKeys struct {
-	// Show the background service's log in the pane under the stage.
+	// Show the background service's log in the info pane.
 	Open []string `mapstructure:"open"`
 }
 
@@ -279,7 +288,7 @@ type ArchiveKeys struct {
 type ActionsKeys struct {
 	// Leave the actions list for the agents list.
 	Back []string `mapstructure:"back"`
-	// Open the script under the cursor in your editor, in the pane under the stage, and
+	// Open the script under the cursor in your editor, in the info pane, and
 	// close that pane on a second press. A compiled program has nothing to edit.
 	Editor []string `mapstructure:"editor"`
 	// Open the actions list on the hovered agent. It acts on a row rather than on
@@ -308,13 +317,18 @@ type Context struct {
 	File string `mapstructure:"file"`
 }
 
-// Layout is how the panel divides the popup between its own list and the stage
-// pane beside it.
+// Layout is how the panel divides the popup between its own list, the stage beside it, and
+// the info pane that opens under the stage. A size below one is read as a share of what it
+// divides, and one at or above it as a count of cells.
 type Layout struct {
-	// The share of the width the panel's list takes.
-	Split float64 `mapstructure:"split"`
-	// The share of the stage's height taken by the pane that opens under it.
-	SecondarySplit float64 `mapstructure:"secondary_split"`
+	// Which side of the popup the panel's sidebar sits on, "left" or "right".
+	SidebarSide string `mapstructure:"sidebar_side"`
+	// How wide the panel's sidebar is, either a share of the popup's width below one or a whole number of columns.
+	SidebarWidth float64 `mapstructure:"sidebar_width"`
+	// Which side of the stage the info pane opens on, "below" or "above". That pane is where a record, the server log, and an editor are drawn.
+	InfoSide string `mapstructure:"info_side"`
+	// How tall the info pane opens, either a share of the stage's height below one or a whole number of rows.
+	InfoHeight float64 `mapstructure:"info_height"`
 }
 
 // Harness is how one agent CLI is configured.
@@ -442,7 +456,7 @@ type Config struct {
 	// How many unarchived agents may exist at once, past which a create is refused.
 	MaxAgents int       `mapstructure:"max_agents"`
 	Harness   Harnesses `mapstructure:"harness"`
-	// How the popup's width is divided between the panel and the stage beside it.
+	// Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the popup each takes.
 	Layout Layout `mapstructure:"layout"`
 	// The marks the mark key cycles through, in order.
 	// A colour is either one of the sixteen your terminal's own scheme maps, named as "red" or "brightred",
@@ -489,7 +503,12 @@ func DefaultConnection() Connection {
 
 // DefaultLayout is the layout used when the config omits it.
 func DefaultLayout() Layout {
-	return Layout{Split: DefaultSplit, SecondarySplit: DefaultSecondarySplit}
+	return Layout{
+		SidebarSide:  DefaultSidebarSide,
+		SidebarWidth: DefaultSidebarWidth,
+		InfoSide:     DefaultInfoSide,
+		InfoHeight:   DefaultInfoHeight,
+	}
 }
 
 // Mark is one of the marks the mark key steps through. The glyph is what a row draws
@@ -668,17 +687,43 @@ func validateMarks(marks []Mark) error {
 	return nil
 }
 
-// validateLayout rejects a split tmux could not lay the two panes out at. Zero is how an
-// omitted key reads, so it falls back to the default rather than being called a mistake.
+// validateLayout rejects a layout tmux could not lay the panes out at. Zero is how an omitted
+// size reads, so it falls back to the default rather than being called a mistake.
 func validateLayout(layout Layout) error {
-	if layout.Split < 0 || layout.Split >= 1 {
-		return fmt.Errorf("layout split %v is not a fraction of the width above zero and below one", layout.Split)
+	if err := validatePaneSize("layout.sidebar_width", layout.SidebarWidth); err != nil {
+		return err
 	}
-	if layout.SecondarySplit < 0 || layout.SecondarySplit >= 1 {
-		return fmt.Errorf("layout secondary split %v is not a fraction of the stage's height above zero and below one", layout.SecondarySplit)
+	if err := validatePaneSize("layout.info_height", layout.InfoHeight); err != nil {
+		return err
+	}
+	if err := validateSide("layout.sidebar_side", layout.SidebarSide, SidebarSideLeft, SidebarSideRight); err != nil {
+		return err
+	}
+
+	return validateSide("layout.info_side", layout.InfoSide, InfoSideBelow, InfoSideAbove)
+}
+
+// validatePaneSize rejects a size that is neither a share of what it divides nor a whole
+// number of cells, since tmux is given one or the other and 1.5 columns is neither.
+func validatePaneSize(key string, size float64) error {
+	switch {
+	case size < 0:
+		return fmt.Errorf("%s: %v is not a size", key, size)
+	case size >= 1 && size != math.Trunc(size):
+		return fmt.Errorf("%s: %v is neither a share below one nor a whole number of cells", key, size)
 	}
 
 	return nil
+}
+
+// validateSide rejects a side that names neither of the two a region can sit on.
+func validateSide(key, side string, allowed ...string) error {
+	trimmed := strings.TrimSpace(side)
+	if trimmed == "" || slices.Contains(allowed, trimmed) {
+		return nil
+	}
+
+	return fmt.Errorf("%s: %q is not one of %s", key, side, strings.Join(allowed, ", "))
 }
 
 // validate rejects the settings the panel could not run on, so a config that cannot work
@@ -912,11 +957,17 @@ func (c *Config) normalizeZeroValues() {
 	if c.MaxAgents == 0 {
 		c.MaxAgents = DefaultMaxAgents
 	}
-	if c.Layout.Split == 0 {
-		c.Layout.Split = DefaultSplit
+	if c.Layout.SidebarWidth == 0 {
+		c.Layout.SidebarWidth = DefaultSidebarWidth
 	}
-	if c.Layout.SecondarySplit == 0 {
-		c.Layout.SecondarySplit = DefaultSecondarySplit
+	if c.Layout.InfoHeight == 0 {
+		c.Layout.InfoHeight = DefaultInfoHeight
+	}
+	if strings.TrimSpace(c.Layout.SidebarSide) == "" {
+		c.Layout.SidebarSide = DefaultSidebarSide
+	}
+	if strings.TrimSpace(c.Layout.InfoSide) == "" {
+		c.Layout.InfoSide = DefaultInfoSide
 	}
 	if strings.TrimSpace(c.Log.Level) == "" {
 		c.Log.Level = DefaultLogLevel

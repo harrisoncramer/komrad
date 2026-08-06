@@ -176,7 +176,7 @@ func (s *Service) SetMarks(ctx context.Context, req *connect.Request[agentv1.Set
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// SetHidden hides an agent from the panel's list or brings it back. An id matching nothing
+// SetHidden hides an agent from the panel's sidebar or brings it back. An id matching nothing
 // is an error, for the reason it is on a mark.
 func (s *Service) SetHidden(ctx context.Context, req *connect.Request[agentv1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error) {
 	changed, err := s.agents.SetHidden(ctx, req.Msg.GetId(), req.Msg.GetHidden())

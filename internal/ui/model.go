@@ -19,7 +19,7 @@ import (
 )
 
 // Run launches the panel and blocks for the life of the persistent manager tmux session.
-// The panel is the nav pane, the resource it hovers is shown in a sibling stage pane, and
+// The panel is the sidebar, the resource it hovers is shown in a sibling stage pane, and
 // focus moves between the two with the user's own tmux bindings.
 func Run(deps Deps) error {
 	if _, err := tea.NewProgram(newModel(deps), tea.WithAltScreen()).Run(); err != nil {
@@ -146,10 +146,10 @@ type model struct {
 	height int
 	width  int
 
-	// bottom is what the pane under the stage is holding. It is the panel's own rather than
+	// bottom is what the info pane is holding. It is the panel's own rather than
 	// any one screen's, since a log or an editor opened down there stays put as the user
 	// moves between the lists above it.
-	bottom bottomState
+	info infoState
 
 	// The screens, each holding the rows it draws and where its cursor is.
 	tree      treeState

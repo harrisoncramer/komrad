@@ -13,10 +13,10 @@ type Frame struct {
 	tmux Tmux
 	spec Spec
 
-	nav    string
-	main   string
-	bottom string
-	// guest is a pane somebody else owns that has been swapped into the main region, an
+	sidebar string
+	stage   string
+	info    string
+	// guest is a pane somebody else owns that has been swapped into the stage, an
 	// agent's own pane being the one thing the panel shows without owning it.
 	guest string
 
@@ -53,19 +53,23 @@ func (f *Frame) Relayout(layout config.Layout) {
 // Attach anchors the frame to the pane the panel runs in and lays the regions out around it.
 // That pane is the one the panel was told it runs in rather than one read back from tmux,
 // which answers for whatever window the session is currently looking at.
-func (f *Frame) Attach(nav string) {
-	f.nav = nav
+func (f *Frame) Attach(sidebar string) {
+	f.sidebar = sidebar
 	f.reclaim()
 	f.Apply()
 }
 
-// Apply brings the frame to its spec, opening the main region and sizing it. It is idempotent,
-// so it is safe to run again whenever the frame may have been moved out from under the panel.
+// Apply brings the frame to its spec, opening the stage and putting the sidebar at the width
+// the config asks for. It is idempotent, so it is safe to run again whenever the frame may
+// have been moved out from under the panel.
+//
+// The sidebar is what gets resized rather than the stage, since that is the one the config
+// states a width for and tmux gives the space it loses to its neighbour either way.
 func (f *Frame) Apply() {
-	f.claimMain()
+	f.claimStage()
 
-	if f.main != "" {
-		f.tmux.ResizePane(f.main, f.spec.getMainPercent())
+	if f.stage != "" {
+		f.tmux.ResizePane(f.sidebar, f.spec.sidebarSize)
 	}
 }
 
@@ -74,31 +78,31 @@ func (f *Frame) Apply() {
 // exchanges where two panes sit rather than taking either away.
 func (f *Frame) Pane(region Region) string {
 	switch region {
-	case RegionNav:
-		return f.nav
-	case RegionMain:
-		return f.main
-	case RegionBottom:
-		return f.bottom
+	case RegionSidebar:
+		return f.sidebar
+	case RegionStage:
+		return f.stage
+	case RegionInfo:
+		return f.info
 	case RegionNone:
 	}
 
 	return ""
 }
 
-// GuestPane is the pane somebody else owns currently swapped into the main region.
+// GuestPane is the pane somebody else owns currently swapped into the stage.
 func (f *Frame) GuestPane() string { return f.guest }
 
 // Open opens a region and returns the pane it landed in. Every region hangs off the main one,
 // so that is opened on the way to any of them.
 func (f *Frame) Open(region Region) string {
 	switch region {
-	case RegionMain:
-		f.claimMain()
-	case RegionBottom:
-		f.claimMain()
-		f.claimBottom()
-	case RegionNav, RegionNone:
+	case RegionStage:
+		f.claimStage()
+	case RegionInfo:
+		f.claimStage()
+		f.claimInfo()
+	case RegionSidebar, RegionNone:
 	}
 
 	return f.Pane(region)
@@ -112,11 +116,11 @@ func (f *Frame) IsOpen(region Region) bool {
 	return pane != "" && f.tmux.IsPaneAlive(pane)
 }
 
-// Close takes a region away. Only the bottom region is ever closed, since the nav region is
-// the panel itself and the main region is the frame the rest of it hangs off.
+// Close takes a region away. Only the info pane is ever closed, since the sidebar is
+// the panel itself and the stage is the frame the rest of it hangs off.
 func (f *Frame) Close(region Region) {
-	if region == RegionBottom {
-		f.closeBottom()
+	if region == RegionInfo {
+		f.closeInfo()
 	}
 }
 
@@ -124,18 +128,18 @@ func (f *Frame) Close(region Region) {
 // rather than skipped as already shown.
 func (f *Frame) Claimed(region Region) { f.forget(region) }
 
-// Show draws content in a region, opening the region if it is not already there. The nav
-// region is the panel's own pane and is refused, since filling it would replace the process
-// asking for it.
+// Show draws content in a region, opening the region if it is not already there. The sidebar
+// is the panel's own pane and is refused, since filling it would replace the process asking
+// for it.
 func (f *Frame) Show(region Region, content Content) {
-	if region != RegionMain && region != RegionBottom {
+	if region != RegionStage && region != RegionInfo {
 		return
 	}
 
 	f.Open(region)
 
-	// The main region cannot hold a guest and a document at once.
-	if region == RegionMain {
+	// The stage cannot hold a guest and a document at once.
+	if region == RegionStage {
 		f.restoreGuest()
 	}
 
@@ -162,17 +166,17 @@ func (f *Frame) Show(region Region, content Content) {
 	f.shown[region] = shown{key: content.Key, width: target.Width}
 }
 
-// ShowGuest swaps a pane somebody else owns into the main region.
+// ShowGuest swaps a pane somebody else owns into the stage.
 func (f *Frame) ShowGuest(pane string) {
-	f.claimMain()
-	if f.main == "" || pane == "" || pane == f.guest {
+	f.claimStage()
+	if f.stage == "" || pane == "" || pane == f.guest {
 		return
 	}
 
 	f.restoreGuest()
-	f.tmux.SwapPanes(pane, f.main)
+	f.tmux.SwapPanes(pane, f.stage)
 	f.guest = pane
-	f.forget(RegionMain)
+	f.forget(RegionStage)
 }
 
 // ReleaseGuest returns a guest pane to where it came from before it is killed, so the main
@@ -195,17 +199,17 @@ func (f *Frame) isShowing(region Region, content Content, width int) bool {
 	return was.key == content.Key && (!content.Wraps || was.width == width)
 }
 
-// getDisplayedPane is the pane on screen in the main region, which is the guest's while one is
+// getDisplayedPane is the pane on screen in the stage, which is the guest's while one is
 // swapped in.
 func (f *Frame) getDisplayedPane() string {
 	if f.guest != "" {
 		return f.guest
 	}
 
-	return f.main
+	return f.stage
 }
 
-// restoreGuest puts the guest pane back where it came from, leaving the main region holding
+// restoreGuest puts the guest pane back where it came from, leaving the stage holding
 // nothing the frame knows about since the swap took what it drew there off screen.
 func (f *Frame) restoreGuest() {
 	if f.guest == "" {
@@ -213,21 +217,21 @@ func (f *Frame) restoreGuest() {
 	}
 
 	if f.tmux.IsPaneAlive(f.guest) {
-		f.tmux.SwapPanes(f.main, f.guest)
+		f.tmux.SwapPanes(f.stage, f.guest)
 	}
 
 	f.guest = ""
-	f.forget(RegionMain)
+	f.forget(RegionStage)
 }
 
 // reclaim clears the panes a previous panel left in the window. A pane an agent owns is broken
 // out into a window of its own rather than killed, since the agent in it is still running.
 func (f *Frame) reclaim() {
-	if f.nav == "" {
+	if f.sidebar == "" {
 		return
 	}
 
-	for _, pane := range f.tmux.GetSiblingPanes(f.nav) {
+	for _, pane := range f.tmux.GetSiblingPanes(f.sidebar) {
 		if f.tmux.GetPaneOwner(pane) != "" {
 			f.tmux.BreakPane(pane)
 
@@ -238,56 +242,71 @@ func (f *Frame) reclaim() {
 	}
 }
 
-// claimMain opens the main region, rebuilding it when it or the guest pane it was minding has
-// died. Whatever was drawn in it, and in the region under it, goes with it.
-func (f *Frame) claimMain() {
-	if f.nav == "" || f.hasMain() {
+// claimStage opens the stage, rebuilding it when it or the guest pane it was minding has died.
+// Whatever was drawn in it, and in the info pane against it, goes with it.
+func (f *Frame) claimStage() {
+	if f.sidebar == "" || f.hasStage() {
 		return
 	}
 
-	f.abandonMain()
+	f.abandonStage()
 
-	f.main = f.tmux.SplitRight(f.nav, getHomeDir(), f.spec.getMainPercent())
-	f.forget(RegionMain)
-	f.forget(RegionBottom)
+	f.stage = f.splitStage()
+	f.forget(RegionStage)
+	f.forget(RegionInfo)
 }
 
-func (f *Frame) hasMain() bool {
-	if f.main == "" || !f.tmux.IsPaneAlive(f.main) {
+// splitStage puts the stage on whichever side of the sidebar the config left for it.
+func (f *Frame) splitStage() string {
+	if f.spec.sidebarOnRight {
+		return f.tmux.SplitLeft(f.sidebar, getHomeDir(), f.spec.stageSize)
+	}
+
+	return f.tmux.SplitRight(f.sidebar, getHomeDir(), f.spec.stageSize)
+}
+
+func (f *Frame) hasStage() bool {
+	if f.stage == "" || !f.tmux.IsPaneAlive(f.stage) {
 		return false
 	}
 
 	return f.guest == "" || f.tmux.IsPaneAlive(f.guest)
 }
 
-func (f *Frame) abandonMain() {
-	if f.main != "" && f.tmux.IsPaneAlive(f.main) {
-		f.tmux.KillPane(f.main)
+func (f *Frame) abandonStage() {
+	if f.stage != "" && f.tmux.IsPaneAlive(f.stage) {
+		f.tmux.KillPane(f.stage)
 	}
 
-	f.closeBottom()
-	f.main, f.guest = "", ""
+	f.closeInfo()
+	f.stage, f.guest = "", ""
 }
 
-// claimBottom opens the bottom region under whatever the main one is showing, a guest pane
+// claimInfo opens the info pane against whatever the main one is showing, a guest pane
 // included, so the two move together.
-func (f *Frame) claimBottom() {
-	if f.main == "" || f.IsOpen(RegionBottom) {
+func (f *Frame) claimInfo() {
+	if f.stage == "" || f.IsOpen(RegionInfo) {
 		return
 	}
 
-	f.bottom = f.tmux.SplitBelow(f.getDisplayedPane(), getHomeDir(), f.spec.getBottomPercent())
-	f.forget(RegionBottom)
+	anchor, home := f.getDisplayedPane(), getHomeDir()
+	if f.spec.infoAbove {
+		f.info = f.tmux.SplitAbove(anchor, home, f.spec.infoSize)
+	} else {
+		f.info = f.tmux.SplitBelow(anchor, home, f.spec.infoSize)
+	}
+
+	f.forget(RegionInfo)
 }
 
-func (f *Frame) closeBottom() {
-	if f.bottom == "" {
+func (f *Frame) closeInfo() {
+	if f.info == "" {
 		return
 	}
 
-	f.tmux.KillPane(f.bottom)
-	f.bottom = ""
-	f.forget(RegionBottom)
+	f.tmux.KillPane(f.info)
+	f.info = ""
+	f.forget(RegionInfo)
 }
 
 func (f *Frame) forget(region Region) { delete(f.shown, region) }

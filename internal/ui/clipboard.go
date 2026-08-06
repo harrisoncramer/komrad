@@ -53,14 +53,14 @@ func (m *model) tryCopyRecordValue(key string) (tea.Cmd, bool) {
 	return tea.Batch(m.copyCmd(m.activeRecord.values[idx]), flashRevertTick()), true
 }
 
-// flashRecordField flashes the copied field's line in the region under the stage, when that is
+// flashRecordField flashes the copied field's line in the info pane, when that is
 // where the record on screen is drawn. A record staged in the main region copies silently.
 func (m *model) flashRecordField(idx int) {
-	if m.recordRegion != layout.RegionBottom {
+	if m.recordRegion != layout.RegionInfo {
 		return
 	}
 
-	m.frame.Show(layout.RegionBottom, newFlashContent(m.activeRecord.markdown, idx+1))
+	m.frame.Show(layout.RegionInfo, newFlashContent(m.activeRecord.markdown, idx+1))
 }
 
 func (m *model) copyCmd(value string) tea.Cmd {
@@ -86,7 +86,7 @@ func flashRevertTick() tea.Cmd {
 
 // restageScreen redraws whatever the current screen shows for the row or item under its own
 // cursor, the same content a screen already draws on every refresh. It is also how the flash
-// reverts to plain, and how the pane under the stage reappearing after a log or an edit
+// reverts to plain, and how the info pane reappearing after a log or an edit
 // closes finds its way back to whatever the current screen would normally have there.
 func (m *model) restageScreen() {
 	switch m.screen {

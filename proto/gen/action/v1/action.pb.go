@@ -220,7 +220,7 @@ func (x *RunActionRequest) GetAction() string {
 }
 
 // EditActionRequest names the action whose file to open, and the agent the editor is
-// opened beside, which is the one the panel's list was opened on.
+// opened beside, which is the one the panel's sidebar was opened on.
 type EditActionRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`

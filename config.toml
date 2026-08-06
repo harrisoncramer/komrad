@@ -38,12 +38,16 @@ flags             = ""
 # here as waiting. Turning this on edits ~/.codex/config.toml on your behalf.
 trust_launch_dirs = false
 
-# How the popup's width is divided between the panel and the stage beside it.
+# Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the popup each takes.
 [layout]
-# The share of the width the panel's list takes.
-split           = 0.2
-# The share of the stage's height taken by the pane that opens under it.
-secondary_split = 0.4
+# Which side of the popup the panel's sidebar sits on, "left" or "right".
+sidebar_side  = "left"
+# How wide the panel's sidebar is, either a share of the popup's width below one or a whole number of columns.
+sidebar_width = 0.2
+# Which side of the stage the info pane opens on, "below" or "above". That pane is where a record, the server log, and an editor are drawn.
+info_side     = "below"
+# How tall the info pane opens, either a share of the stage's height below one or a whole number of rows.
+info_height   = 0.4
 
 # Panel keybindings, scoped to the screen each binding acts in.
 
@@ -51,7 +55,7 @@ secondary_split = 0.4
 [keybindings.actions]
 # Leave the actions list for the agents list.
 back   = ["esc"]
-# Open the script under the cursor in your editor, in the pane under the stage, and
+# Open the script under the cursor in your editor, in the info pane, and
 # close that pane on a second press. A compiled program has nothing to edit.
 editor = ["e"]
 # Open the actions list on the hovered agent. It acts on a row rather than on
@@ -134,7 +138,7 @@ toggle = ["?"]
 # The key that pages the service's log, shared by every screen since the log is
 # about the service rather than about anything a screen lists.
 [keybindings.logs]
-# Show the background service's log in the pane under the stage.
+# Show the background service's log in the info pane.
 open = ["l"]
 
 # Navigation, shared by every menu so movement is the same everywhere.

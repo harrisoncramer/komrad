@@ -361,9 +361,9 @@ func TestEditActionKey(t *testing.T) {
 	got := settle(t, pressed, cmd)
 
 	assert.Equal(t, []string{"a1/open-pr"}, client.edited)
-	assert.Equal(t, bottomEdit, got.bottom.kind)
-	assert.Equal(t, "open-pr", got.bottom.action, "the file down there is what the key closes")
-	assert.Equal(t, "%2", recorder.globals[tmux.SecondaryPaneOption], "the script is told which pane to fill")
+	assert.Equal(t, infoEdit, got.info.kind)
+	assert.Equal(t, "open-pr", got.info.action, "the file down there is what the key closes")
+	assert.Equal(t, "%2", recorder.globals[tmux.InfoPaneOption], "the script is told which pane to fill")
 	assert.Nil(t, got.banner)
 	assert.Empty(t, client.fired, "editing a file runs none of the user's actions")
 }
@@ -382,13 +382,13 @@ func TestEditActionKeyClosesOnASecondPress(t *testing.T) {
 	pressed, ok := opened.(model)
 	require.True(t, ok)
 	settled := settle(t, pressed, cmd)
-	require.Equal(t, bottomEdit, settled.bottom.kind)
+	require.Equal(t, infoEdit, settled.info.kind)
 
 	closed, _ := settled.updateActions(keyMsg("e"))
 	got, ok := closed.(model)
 	require.True(t, ok)
 
-	assert.Equal(t, bottomNothing, got.bottom.kind)
+	assert.Equal(t, infoNothing, got.info.kind)
 	assert.Equal(t, []string{"a1/open-pr"}, client.edited, "the second press opens nothing")
 	assert.Contains(t, recorder.killed, "%2", "the pane goes with it")
 }
@@ -420,8 +420,8 @@ func TestEditActionKeyOnAnotherRowSwitchesFiles(t *testing.T) {
 	got := settle(t, pressed, cmd)
 
 	assert.Equal(t, []string{"a1/open-pr", "a1/unrunnable"}, client.edited)
-	assert.Equal(t, bottomEdit, got.bottom.kind)
-	assert.Equal(t, "unrunnable", got.bottom.action)
+	assert.Equal(t, infoEdit, got.info.kind)
+	assert.Equal(t, "unrunnable", got.info.action)
 }
 
 // TestEditActionKeyRefusesACompiledProgram covers the one file the key will not open. An editor
@@ -443,7 +443,7 @@ func TestEditActionKeyRefusesACompiledProgram(t *testing.T) {
 	got := settle(t, pressed, cmd)
 
 	assert.Empty(t, client.edited, "nothing was asked of the service")
-	assert.Equal(t, bottomNothing, got.bottom.kind, "no pane was opened for an editor that cannot run")
+	assert.Equal(t, infoNothing, got.info.kind, "no pane was opened for an editor that cannot run")
 	require.NotNil(t, got.banner)
 	assert.Contains(t, got.banner.Summary, "compiled")
 	assert.Contains(t, got.banner.Detail, "not text")
@@ -457,7 +457,7 @@ func TestActionEditorLegendNamesWhatTheKeyWouldDo(t *testing.T) {
 
 	assert.Equal(t, "edit", m.actionEditorDesc())
 
-	m.bottom.kind, m.bottom.action = bottomEdit, "open-pr"
+	m.info.kind, m.info.action = infoEdit, "open-pr"
 	assert.Equal(t, "close editor", m.actionEditorDesc())
 
 	m.actions.cursor = 2

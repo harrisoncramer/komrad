@@ -45,7 +45,7 @@ message RunActionRequest {
 }
 
 // EditActionRequest names the action whose file to open, and the agent the editor is
-// opened beside, which is the one the panel's list was opened on.
+// opened beside, which is the one the panel's sidebar was opened on.
 message EditActionRequest {
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
   string action = 2 [(buf.validate.field).string = {

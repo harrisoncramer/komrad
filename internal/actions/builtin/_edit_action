@@ -16,10 +16,10 @@ set -eu
 open='sh -c "\"$EDITOR\" \"$WEAVE_EDIT_PATH\""'
 
 tmux -L "$WEAVE_TMUX_SOCKET" respawn-pane -k \
-	-t "$WEAVE_SECONDARY_PANE" \
+	-t "$WEAVE_INFO_PANE" \
 	-c "$(dirname "$WEAVE_EDIT_PATH")" \
 	-e "WEAVE_EDIT_PATH=$WEAVE_EDIT_PATH" \
 	-e "EDITOR=${EDITOR:-vi}" \
 	"$open"
 
-exec tmux -L "$WEAVE_TMUX_SOCKET" select-pane -t "$WEAVE_SECONDARY_PANE"
+exec tmux -L "$WEAVE_TMUX_SOCKET" select-pane -t "$WEAVE_INFO_PANE"

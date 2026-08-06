@@ -1,10 +1,10 @@
 ## weave rpc set-agent-hidden
 
-Hide an agent from the panel's list, keyed by its id, or unhide it by passing hidden false.
+Hide an agent from the panel's sidebar, keyed by its id, or unhide it by passing hidden false.
 
 ### Synopsis
 
-Hide an agent from the panel's list, keyed by its id, or unhide it by passing hidden false. This changes nothing about the agent: it keeps running, the reconciler keeps moving its state, and every tool still returns it. It only decides whether the person watching the panel sees a row for it, which is theirs to decide, so do not hide work you were not asked to hide.
+Hide an agent from the panel's sidebar, keyed by its id, or unhide it by passing hidden false. This changes nothing about the agent: it keeps running, the reconciler keeps moving its state, and every tool still returns it. It only decides whether the person watching the panel sees a row for it, which is theirs to decide, so do not hide work you were not asked to hide.
 
 ```
 weave rpc set-agent-hidden [flags]

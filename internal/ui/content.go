@@ -91,8 +91,8 @@ func newBlankContent() layout.Content {
 // writes its own file, so a document being read in one is not overwritten by the other.
 func getTextPath(region layout.Region) string {
 	name := "weave-stage.ansi"
-	if region == layout.RegionBottom {
-		name = "weave-secondary.ansi"
+	if region == layout.RegionInfo {
+		name = "weave-info.ansi"
 	}
 
 	return filepath.Join(os.TempDir(), name)

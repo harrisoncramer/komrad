@@ -24,7 +24,7 @@ message Schedule {
   string timezone = 4;
   // False pauses the schedule. It keeps its record and stops firing.
   bool enabled = 5;
-  // Whether the agents this schedule launches start hidden from the panel's list.
+  // Whether the agents this schedule launches start hidden from the panel's sidebar.
   bool hide_agents = 8;
   string prompt = 6;
   // The workflow this schedule launches into.
@@ -137,7 +137,7 @@ service ScheduleService {
   rpc CreateSchedule(CreateScheduleRequest) returns (CreateScheduleResponse) {
     option (annotation.v1.tool) = {
       tool_name: "create_schedule"
-      description: "Create a recurring agent launch inside a workflow. Nothing runs at create time; the agent is spawned when the cron expression next matches, and again on every match after that. The workflow supplies the directory, flags, and shared context each launch uses, so only the prompt and the timing are set here. Create it with enabled false to write it down without arming it, or with hideAgents true to keep its runs out of the panel's list while they still run."
+      description: "Create a recurring agent launch inside a workflow. Nothing runs at create time; the agent is spawned when the cron expression next matches, and again on every match after that. The workflow supplies the directory, flags, and shared context each launch uses, so only the prompt and the timing are set here. Create it with enabled false to write it down without arming it, or with hideAgents true to keep its runs out of the panel's sidebar while they still run."
       destructive: false
     };
   }

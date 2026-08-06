@@ -41,14 +41,14 @@ func shellQuote(value string) string {
 // logsDesc is what the legend says the log key would do, naming the direction it would go
 // rather than the binding in the abstract, the way the info and hide lines read.
 func (m model) logsDesc() string {
-	if m.bottom.kind == bottomLogs {
+	if m.info.kind == infoLogs {
 		return "hide server log"
 	}
 
 	return "server log"
 }
 
-// openLogs shows the service's log in the pane under the stage, and pressing the key again
+// openLogs shows the service's log in the info pane, and pressing the key again
 // takes that pane away. It goes below rather than into the stage so the agent stays on
 // screen while the log is read.
 //
@@ -59,8 +59,8 @@ func (m model) logsDesc() string {
 // open prints its complaint and exits, which takes the pane down with it and leaves the key
 // looking like it did nothing.
 func (m model) openLogs() (tea.Model, tea.Cmd) {
-	if m.bottom.kind == bottomLogs {
-		return m.closeBottom(), nil
+	if m.info.kind == infoLogs {
+		return m.closeInfo(), nil
 	}
 
 	if _, err := os.Stat(m.logPath); err != nil {
@@ -69,9 +69,9 @@ func (m model) openLogs() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.bottom.kind = bottomLogs
-	m.bottom.action = ""
-	m.stageBottom()
+	m.info.kind = infoLogs
+	m.info.action = ""
+	m.stageInfo()
 
 	return m, nil
 }

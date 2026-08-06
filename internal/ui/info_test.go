@@ -26,7 +26,7 @@ func TestInfoDefault(t *testing.T) {
 
 		m.stageSelection()
 
-		assert.Equal(t, bottomRecord, m.bottom.kind)
+		assert.Equal(t, infoRecord, m.info.kind)
 		assert.Equal(t, m.frame.GuestPane(), "%9", "the record never displaces the agent")
 		require.Len(t, tmux.respawns, 1)
 		assert.Contains(t, tmux.respawns[0], "less")
@@ -40,7 +40,7 @@ func TestInfoDefault(t *testing.T) {
 
 		m.stageSelection()
 
-		assert.Equal(t, bottomNothing, m.bottom.kind)
+		assert.Equal(t, infoNothing, m.info.kind)
 		assert.NotContains(t, tmux.respawnPanes, "%2", "nothing is paged into the pane below")
 	})
 
@@ -48,12 +48,12 @@ func TestInfoDefault(t *testing.T) {
 		tmux := &recordingTmux{}
 		m := infoModel(tmux)
 		m.stageSelection()
-		require.Equal(t, bottomRecord, m.bottom.kind)
+		require.Equal(t, infoRecord, m.info.kind)
 
 		m.tree.cursor = 0
 		m.stageSelection()
 
-		assert.Equal(t, bottomNothing, m.bottom.kind)
+		assert.Equal(t, infoNothing, m.info.kind)
 		assert.Contains(t, tmux.killed, "%2", "the pane goes with it")
 	})
 
@@ -61,16 +61,16 @@ func TestInfoDefault(t *testing.T) {
 		tmux := &recordingTmux{}
 		m := infoModel(tmux)
 		m.stageSelection()
-		require.Equal(t, bottomRecord, m.bottom.kind)
+		require.Equal(t, infoRecord, m.info.kind)
 
 		tmux.deadPanes = map[string]bool{"%2": true}
-		m.reconcileBottom()
+		m.reconcileInfo()
 
-		assert.Equal(t, bottomNothing, m.bottom.kind)
-		assert.True(t, m.bottom.dismissed)
+		assert.Equal(t, infoNothing, m.info.kind)
+		assert.True(t, m.info.dismissed)
 
 		m.stageSelection()
-		assert.Equal(t, bottomNothing, m.bottom.kind, "an agent row does not reopen it")
+		assert.Equal(t, infoNothing, m.info.kind, "an agent row does not reopen it")
 	})
 }
 
@@ -223,7 +223,7 @@ type recordingTmux struct {
 	detaches int
 	// killed are the panes that have been torn down.
 	killed []string
-	// belowAnchors are the panes the region under the stage has been split beneath.
+	// belowAnchors are the panes the info pane has been split beneath.
 	belowAnchors []string
 	// globals are the tmux options the panel has recorded, which is how an action is told
 	// which pane the panel laid out for it.
@@ -238,18 +238,25 @@ type recordingTmux struct {
 	resizes []int
 }
 
-func (t *recordingTmux) ShowGlobal(string) string                { return "" }
-func (t *recordingTmux) SetSessionOption(string, string, string) {}
-func (t *recordingTmux) DetachSession(string)                    { t.detaches++ }
-func (t *recordingTmux) BindKey(string, ...string)               {}
-func (t *recordingTmux) GetClientPath(string) string             { return t.path }
-func (t *recordingTmux) SendKeys(string, ...string) error        { return nil }
-func (t *recordingTmux) IsPaneAlive(pane string) bool            { return !t.deadPanes[pane] }
-func (t *recordingTmux) GetPaneWidth(string) int                 { return t.width }
-func (t *recordingTmux) CapturePane(string) string               { return "" }
-func (t *recordingTmux) SplitRight(string, string, int) string   { return "%1" }
+func (t *recordingTmux) ShowGlobal(string) string                 { return "" }
+func (t *recordingTmux) SetSessionOption(string, string, string)  {}
+func (t *recordingTmux) DetachSession(string)                     { t.detaches++ }
+func (t *recordingTmux) BindKey(string, ...string)                {}
+func (t *recordingTmux) GetClientPath(string) string              { return t.path }
+func (t *recordingTmux) SendKeys(string, ...string) error         { return nil }
+func (t *recordingTmux) IsPaneAlive(pane string) bool             { return !t.deadPanes[pane] }
+func (t *recordingTmux) GetPaneWidth(string) int                  { return t.width }
+func (t *recordingTmux) CapturePane(string) string                { return "" }
+func (t *recordingTmux) SplitRight(string, string, string) string { return "%1" }
+func (t *recordingTmux) SplitLeft(string, string, string) string  { return "%1" }
 
-func (t *recordingTmux) SplitBelow(anchor, _ string, _ int) string {
+func (t *recordingTmux) SplitBelow(anchor, _, _ string) string {
+	t.belowAnchors = append(t.belowAnchors, anchor)
+
+	return "%2"
+}
+
+func (t *recordingTmux) SplitAbove(anchor, _, _ string) string {
 	t.belowAnchors = append(t.belowAnchors, anchor)
 
 	return "%2"

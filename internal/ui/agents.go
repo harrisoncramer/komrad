@@ -341,9 +341,9 @@ func (m *model) stageSelection() {
 	m.syncRecordDefault(ok && !r.header)
 
 	if !ok {
-		m.frame.Show(layout.RegionMain, newBlankContent())
+		m.frame.Show(layout.RegionStage, newBlankContent())
 		m.clearRecord()
-		m.stageBottom()
+		m.stageInfo()
 
 		return
 	}
@@ -351,7 +351,7 @@ func (m *model) stageSelection() {
 	switch {
 	case r.header:
 		// A workflow has no chat of its own, so its record fills the main pane instead.
-		m.stageRecord(workflowMarkdown(r.workflow, m.agentCount(r.workflow.ID)), layout.RegionMain)
+		m.stageRecord(workflowMarkdown(r.workflow, m.agentCount(r.workflow.ID)), layout.RegionStage)
 	case r.item.alive:
 		m.frame.ShowGuest(r.item.agent.Pane)
 		m.clearRecord()
@@ -359,7 +359,7 @@ func (m *model) stageSelection() {
 		m.stagePlaceholder(dormantPlaceholder)
 	}
 
-	m.stageBottom()
+	m.stageInfo()
 }
 
 func nextMark(current *string, marks []config.Mark) *string {

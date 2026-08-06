@@ -40,7 +40,7 @@ message Agent {
   bool alive = 11;
   // The glyph the user marked this agent with, unset when it carries no mark.
   optional string mark = 14;
-  // Whether the user has hidden this agent from the panel's list. It is not a
+  // Whether the user has hidden this agent from the panel's sidebar. It is not a
   // deletion and says nothing about the agent, which runs and is reconciled the
   // same either way. Listings return hidden agents like any other, since only the
   // panel suppresses them.
@@ -318,7 +318,7 @@ service AgentService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "set_agent_hidden"
-      description: "Hide an agent from the panel's list, keyed by its id, or unhide it by passing hidden false. This changes nothing about the agent: it keeps running, the reconciler keeps moving its state, and every tool still returns it. It only decides whether the person watching the panel sees a row for it, which is theirs to decide, so do not hide work you were not asked to hide."
+      description: "Hide an agent from the panel's sidebar, keyed by its id, or unhide it by passing hidden false. This changes nothing about the agent: it keeps running, the reconciler keeps moving its state, and every tool still returns it. It only decides whether the person watching the panel sees a row for it, which is theirs to decide, so do not hide work you were not asked to hide."
       destructive: false
     };
   }
