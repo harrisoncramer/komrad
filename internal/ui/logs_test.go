@@ -60,7 +60,6 @@ func TestLogsOpenBelowTheStagedAgent(t *testing.T) {
 	assert.Equal(t, "%2", tmux.respawnPanes[last], "the log is paged into the pane below")
 	assert.Contains(t, tmux.respawns[last], "export WEAVE_LOG='"+path+"'")
 	assert.Contains(t, tmux.respawns[last], config.DefaultLogViewer)
-	assert.Empty(t, tmux.zooms, "the stage keeps its share of the width")
 }
 
 // TestLogsToggleReturnsTheRecordInPlace covers the second press. The key is the way out as

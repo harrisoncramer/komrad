@@ -192,20 +192,6 @@ func (c *Client) ResizePane(pane string, percent int) {
 	c.run("resize-pane", "-t", pane, "-x", fmt.Sprintf("%d%%", percent))
 }
 
-// ZoomPane zooms a pane to fill its window, or restores the window's layout when zoom is false.
-func (c *Client) ZoomPane(pane string, zoom bool) {
-	if pane == "" {
-		return
-	}
-
-	flag, err := c.query("display-message", "-p", "-t", pane, "#{window_zoomed_flag}")
-	if err != nil || (flag == "1") == zoom {
-		return
-	}
-
-	c.run("resize-pane", "-Z", "-t", pane)
-}
-
 // NewWindow creates a detached window in a session, rooted at dir and titled name, and
 // returns its pane id.
 func (c *Client) NewWindow(session, name, dir string) (string, error) {

@@ -132,40 +132,6 @@ func TestPaneOwners(t *testing.T) {
 	assert.Equal(t, client.GetPaneOwner(stamped), owners[stamped], "the batch agrees with the single lookup")
 }
 
-// TestZoomPaneIsIdempotent covers the zoom the panel puts a form behind. tmux offers only
-// a toggle, so asking for the state the window is already in has to leave it alone rather
-// than flipping it.
-func TestZoomPaneIsIdempotent(t *testing.T) {
-	client := testServer(t, "weave")
-
-	pane, err := client.query("display-message", "-p", "-t", "weave:", "#{pane_id}")
-	require.NoError(t, err)
-
-	// A window with one pane cannot zoom, so there has to be something to zoom over.
-	require.NotEmpty(t, client.SplitRight(pane, t.TempDir(), 50))
-
-	zoomed := func() string {
-		flag, err := client.query("display-message", "-p", "-t", pane, "#{window_zoomed_flag}")
-		require.NoError(t, err)
-
-		return flag
-	}
-
-	require.Equal(t, "0", zoomed())
-
-	client.ZoomPane(pane, true)
-	assert.Equal(t, "1", zoomed())
-
-	client.ZoomPane(pane, true)
-	assert.Equal(t, "1", zoomed(), "asking for the zoom it already has must not toggle it off")
-
-	client.ZoomPane(pane, false)
-	assert.Equal(t, "0", zoomed())
-
-	client.ZoomPane(pane, false)
-	assert.Equal(t, "0", zoomed())
-}
-
 // TestSiblingPanesFindsTheRestOfTheWindow covers the panel asking what else is sitting in
 // its window, which is how a restarted panel finds what the last one left. tmux is asked
 // with the panel's own pane as the target, so this needs a real server to confirm tmux

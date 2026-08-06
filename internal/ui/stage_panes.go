@@ -15,7 +15,6 @@ type stageTmux interface {
 	ResizePane(pane string, percent int)
 	SwapPanes(src, dst string)
 	RespawnPane(pane, dir string, argv ...string)
-	ZoomPane(pane string, zoom bool)
 	GetSiblingPanes(pane string) []string
 	BreakPane(pane string)
 	KillPane(pane string)
@@ -32,7 +31,6 @@ type panes struct {
 	pane           string
 	agentPane      string
 	secondary      string
-	hidden         bool
 }
 
 func newPanes(tmux stageTmux, layout config.Layout) panes {
@@ -164,16 +162,6 @@ func (p *panes) closeSecondary() {
 // IsSecondaryAlive reports whether the secondary pane is still running.
 func (p *panes) IsSecondaryAlive() bool {
 	return p.secondary != "" && p.tmux.IsPaneAlive(p.secondary)
-}
-
-// Hide toggles whether the navigation pane is zoomed over the stage.
-func (p *panes) Hide(hide bool) {
-	if p.navPane == "" || p.hidden == hide {
-		return
-	}
-
-	p.hidden = hide
-	p.tmux.ZoomPane(p.navPane, hide)
 }
 
 func (p *panes) restore() {

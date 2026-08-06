@@ -5,7 +5,6 @@ import (
 
 	"weave/config"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -142,43 +141,6 @@ func TestStageSecondaryGoesWithARebuiltSlot(t *testing.T) {
 
 	assert.False(t, stage.IsSecondaryAlive())
 	assert.Contains(t, tmux.killed, "%2")
-}
-
-// TestStageHideOnlyTellsTmuxOnAChange covers the zoom that takes the stage away for a
-// form. The panel reconciles it from the screen on every message, so asking for the state
-// the stage is already in has to cost nothing.
-func TestStageHideOnlyTellsTmuxOnAChange(t *testing.T) {
-	tmux := &recordingTmux{}
-	stage := NewStage(tmux, config.DefaultLayout())
-	stage.Init("%0")
-
-	stage.Hide(false)
-	stage.Hide(true)
-	stage.Hide(true)
-	stage.Hide(false)
-
-	assert.Equal(t, []bool{true, false}, tmux.zooms)
-}
-
-// TestFormTakesTheWholeWidth covers a form opening and being abandoned. A form has
-// nothing to preview, so the stage is zoomed away while it is up and comes back as the
-// screen behind it does.
-func TestFormTakesTheWholeWidth(t *testing.T) {
-	tmux := &recordingTmux{}
-	m := infoModel(tmux)
-	m.api.actions = &fakeActions{}
-
-	opened, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
-	form, ok := opened.(model)
-	require.True(t, ok)
-	require.True(t, form.screen.isForm())
-	assert.Equal(t, []bool{true}, tmux.zooms)
-
-	aborted, _ := form.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	closed, ok := aborted.(model)
-	require.True(t, ok)
-	require.False(t, closed.screen.isForm())
-	assert.Equal(t, []bool{true, false}, tmux.zooms)
 }
 
 // TestPagerArgv covers the command the stage pane runs, which carries the line to

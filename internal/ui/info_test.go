@@ -215,9 +215,6 @@ type recordingTmux struct {
 	resizes []int
 	// width is what GetPaneWidth reports for every pane, the columns markdown renders to.
 	width int
-	// zooms are the zoom states the nav pane has been put into, in order, which is how a
-	// test tells that a form took the whole width and gave it back.
-	zooms []bool
 	// windows are the windows opened for the user's own client, each recorded as its
 	// directory followed by the argv it runs. openWindowErr makes the next one fail.
 	windows       []string
@@ -305,10 +302,6 @@ func (t *recordingTmux) OpenWindow(_, _, dir string, argv ...string) error {
 
 func (t *recordingTmux) ResizePane(_ string, percent int) {
 	t.resizes = append(t.resizes, percent)
-}
-
-func (t *recordingTmux) ZoomPane(_ string, zoom bool) {
-	t.zooms = append(t.zooms, zoom)
 }
 
 func (t *recordingTmux) RespawnPane(pane, _ string, argv ...string) {
