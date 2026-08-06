@@ -282,7 +282,7 @@ func TestSetEnabled(t *testing.T) {
 }
 
 // TestHideAgents covers the flag deciding whether the agents a schedule launches start
-// hidden from the panel's list. It is the schedule's answer for its runs and the only
+// hidden from the panel's sidebar. It is the schedule's answer for its runs and the only
 // hiding a schedule has a say in, so it has to survive a write and be editable back off
 // again.
 func TestHideAgents(t *testing.T) {

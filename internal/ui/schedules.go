@@ -109,7 +109,7 @@ func (m *model) stageSchedule() {
 		return
 	}
 
-	m.stageRecord(scheduleMarkdown(item, m.workflowByID(item.schedule.WorkflowID)), layout.RegionMain)
+	m.stageRecord(scheduleMarkdown(item, m.workflowByID(item.schedule.WorkflowID)), layout.RegionStage)
 }
 
 // workflowByID finds a workflow in the list the panel already polls, nil when none holds

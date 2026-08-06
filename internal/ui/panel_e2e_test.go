@@ -99,7 +99,7 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 // pane is away in the agent's window where nothing on screen can reach it.
 func TestStagedAgentArchivedElsewhere(t *testing.T) {
 	staged := newStagedPanel(t)
-	stagePane := staged.panel.frame.Pane(layout.RegionMain)
+	stagePane := staged.panel.frame.Pane(layout.RegionStage)
 
 	_, err := staged.instance.Agents.ArchiveAgents(t.Context(), connect.NewRequest(&agentv1.ArchiveAgentsRequest{
 		Ids: []string{staged.agentID},
@@ -110,7 +110,7 @@ func TestStagedAgentArchivedElsewhere(t *testing.T) {
 
 	require.False(t, staged.panel.tmux.IsPaneAlive(staged.agentPane), "the archive stopped what was running")
 	assert.False(t, staged.panel.tmux.IsPaneAlive(stagePane), "the pane left in the agent's window is not left running")
-	assert.Equal(t, []string{staged.navPane, staged.panel.frame.Pane(layout.RegionMain)}, panesInPanel(t, staged.instance),
+	assert.Equal(t, []string{staged.navPane, staged.panel.frame.Pane(layout.RegionStage)}, panesInPanel(t, staged.instance),
 		"the panel is a nav pane and a stage pane again")
 
 	// Recovering the layout is only half of it. A stage that still believes it holds the slot
@@ -138,14 +138,14 @@ func TestStagedAgentArchivedElsewhere(t *testing.T) {
 // while that agent is staged the pane it takes down is in the panel's window.
 func TestStagedAgentExitsOnItsOwn(t *testing.T) {
 	staged := newStagedPanel(t)
-	stagePane := staged.panel.frame.Pane(layout.RegionMain)
+	stagePane := staged.panel.frame.Pane(layout.RegionStage)
 
 	staged.panel.tmux.KillPane(staged.agentPane)
 	staged.panel = settle(t, staged.panel, staged.panel.refreshCmd())
 
 	assert.False(t, staged.panel.tmux.IsPaneAlive(stagePane), "the pane left in the agent's window is not left running")
 	assert.Equal(t,
-		[]string{staged.navPane, staged.panel.frame.Pane(layout.RegionMain), staged.panel.frame.Pane(layout.RegionBottom)},
+		[]string{staged.navPane, staged.panel.frame.Pane(layout.RegionStage), staged.panel.frame.Pane(layout.RegionInfo)},
 		panesInPanel(t, staged.instance),
 		"the panel is a nav pane and a stage pane again, the now-dormant agent's info pane open by default beside it")
 }

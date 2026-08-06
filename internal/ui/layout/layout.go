@@ -1,7 +1,7 @@
 // Package layout owns the tmux panes the panel lays out around itself and what is drawn in
-// them. The nav region is the panel's own pane, the one it was started in and the only one it
-// does not create. The main region is the stage beside it, and the bottom region hangs under
-// the main one. A screen that wants something on the frame names a region and hands over
+// them. The sidebar is the panel's own pane, the one it was started in and the only one it does
+// not create. The stage beside it is where a hovered agent is shown, and the info pane opens
+// against the stage. A screen that wants something on the frame names a region and hands over
 // content rather than driving tmux itself.
 package layout
 
@@ -10,18 +10,20 @@ type Region int
 
 const (
 	RegionNone Region = iota
-	RegionNav
-	RegionMain
-	RegionBottom
+	RegionSidebar
+	RegionStage
+	RegionInfo
 )
 
 // Tmux is the pane half of the panel's tmux client.
 type Tmux interface {
 	IsPaneAlive(pane string) bool
 	GetPaneWidth(pane string) int
-	SplitRight(anchorPane, dir string, percent int) string
-	SplitBelow(anchorPane, dir string, percent int) string
-	ResizePane(pane string, percent int)
+	SplitRight(anchorPane, dir, size string) string
+	SplitLeft(anchorPane, dir, size string) string
+	SplitBelow(anchorPane, dir, size string) string
+	SplitAbove(anchorPane, dir, size string) string
+	ResizePane(pane, width string)
 	SwapPanes(src, dst string)
 	RespawnPane(pane, dir string, argv ...string)
 	GetSiblingPanes(pane string) []string

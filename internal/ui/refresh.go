@@ -116,7 +116,7 @@ func (m *model) applyRefresh(result refreshResult) {
 
 	// Whatever was under the stage may have exited since the last pass, which tmux answers
 	// for by taking the pane away.
-	m.reconcileBottom()
+	m.reconcileInfo()
 
 	// Both cursors are read off the trees still on screen. Every listing feeds one of them,
 	// so the first to land moves rows out from under a cursor not placed yet.

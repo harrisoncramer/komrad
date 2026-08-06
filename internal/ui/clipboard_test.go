@@ -156,11 +156,11 @@ func TestTryCopyRecordValueFlashesTheFieldsLine(t *testing.T) {
 	}{
 		{
 			name:   "the main pane copies silently",
-			region: layout.RegionMain,
+			region: layout.RegionStage,
 		},
 		{
 			name:        "the info pane flashes",
-			region:      layout.RegionBottom,
+			region:      layout.RegionInfo,
 			wantFlashed: []string{"%2"},
 		},
 	}
@@ -185,7 +185,7 @@ func TestTryCopyRecordValueFlashesTheFieldsLine(t *testing.T) {
 
 			// A flash leaves the region holding nothing a plain document matches, so the
 			// redraw that ends it is not skipped as showing what is already there.
-			m.frame.Show(layout.RegionBottom, newTextContent(md))
+			m.frame.Show(layout.RegionInfo, newTextContent(md))
 
 			assert.Len(t, recorder.respawnPanes, len(tt.wantFlashed)+1)
 		})

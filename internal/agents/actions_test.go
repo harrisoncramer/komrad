@@ -134,7 +134,7 @@ func TestRunActionPayload(t *testing.T) {
 	assert.Equal(t, "weave", values["WEAVE_TMUX_SOCKET"])
 	assert.Equal(t, dir, values["WEAVE_ACTIONS_DIR"])
 	assert.Equal(t, "open-pr", values["WEAVE_ACTION"], "its own name, for a script that wants to tag its own log lines")
-	assert.Equal(t, "%3", values["WEAVE_SECONDARY_PANE"], "the pane the panel laid out for a script to fill")
+	assert.Equal(t, "%3", values["WEAVE_INFO_PANE"], "the pane the panel laid out for a script to fill")
 	assert.Equal(t, "/tmp/host-socket", values["WEAVE_HOST_TMUX_SOCKET"])
 	assert.Equal(t, "/dev/ttys004", values["WEAVE_HOST_CLIENT"])
 	assert.Equal(t, "nvim", values["EDITOR"], "the configured editor, not whatever the service inherited")
@@ -905,7 +905,7 @@ func actionService(t *testing.T, dir string, runner actionRunner) *ActionService
 			hostSocket: "/tmp/host-socket",
 			shell:      "/bin/zsh",
 			globals: map[string]string{
-				tmux.SecondaryPaneOption:  "%3",
+				tmux.InfoPaneOption:  "%3",
 				tmux.InvokingClientOption: "/dev/ttys004",
 			},
 		},

@@ -185,8 +185,8 @@ func (m model) editSelectedAction() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.bottom.kind == bottomEdit && m.bottom.action == action.name {
-		return m.closeBottom(), nil
+	if m.info.kind == infoEdit && m.info.action == action.name {
+		return m.closeInfo(), nil
 	}
 
 	summary := fmt.Sprintf("Could not edit action %q", action.name)
@@ -196,7 +196,7 @@ func (m model) editSelectedAction() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if !m.claimBottom(bottomEdit, action.name) {
+	if !m.claimInfo(infoEdit, action.name) {
 		return m, nil
 	}
 
@@ -223,12 +223,12 @@ const noActionsMarkdown = "# Actions\n\n_nothing here yet_\n\n" +
 func (m model) stageAction() {
 	action, ok := m.selectedAction()
 	if !ok {
-		m.frame.Show(layout.RegionMain, newTextContent(noActionsMarkdown))
+		m.frame.Show(layout.RegionStage, newTextContent(noActionsMarkdown))
 
 		return
 	}
 
-	m.frame.Show(layout.RegionMain, newTextContent(actionMarkdown(action)))
+	m.frame.Show(layout.RegionStage, newTextContent(actionMarkdown(action)))
 }
 
 // actionsView renders the actions list, naming the agent they would run on, since the list

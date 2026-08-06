@@ -52,7 +52,7 @@ func TestLogsOpenBelowTheStagedAgent(t *testing.T) {
 
 	shown := pressLogs(t, m)
 
-	assert.Equal(t, bottomLogs, shown.bottom.kind)
+	assert.Equal(t, infoLogs, shown.info.kind)
 	assert.Nil(t, shown.banner)
 	assert.Equal(t, 1, tmux.swaps, "the agent's pane is left where it is")
 	require.Len(t, tmux.respawns, 2)
@@ -76,7 +76,7 @@ func TestLogsToggleReturnsTheRecordInPlace(t *testing.T) {
 
 	hidden := pressLogs(t, pressLogs(t, m))
 
-	assert.Equal(t, bottomRecord, hidden.bottom.kind)
+	assert.Equal(t, infoRecord, hidden.info.kind)
 	assert.NotContains(t, tmux.killed, "%2", "the pane the log was read in stays")
 	assert.Len(t, tmux.belowAnchors, 1, "and nothing is split to replace it")
 	last := len(tmux.respawns) - 1
@@ -94,7 +94,7 @@ func TestLogsToggleClosesThePaneWithNothingToPutBack(t *testing.T) {
 
 	hidden := pressLogs(t, pressLogs(t, m))
 
-	assert.Equal(t, bottomNothing, hidden.bottom.kind)
+	assert.Equal(t, infoNothing, hidden.info.kind)
 	assert.Contains(t, tmux.killed, "%2", "the log's own pane goes with it")
 }
 
@@ -106,13 +106,13 @@ func TestLogsSurviveACursorMove(t *testing.T) {
 	m, _ := logsModel(t, tmux)
 
 	shown := pressLogs(t, m)
-	require.Equal(t, bottomLogs, shown.bottom.kind)
+	require.Equal(t, infoLogs, shown.info.kind)
 
 	moved, _ := shown.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
 	panel, ok := moved.(model)
 	require.True(t, ok)
 
-	assert.Equal(t, bottomLogs, panel.bottom.kind)
+	assert.Equal(t, infoLogs, panel.info.kind)
 }
 
 // TestLogsSurviveARefresh covers the pass that restages every second the panel is open.
@@ -142,7 +142,7 @@ func TestLogsWithNoLogFile(t *testing.T) {
 	shown := pressLogs(t, m)
 
 	assert.NotNil(t, shown.banner)
-	assert.Equal(t, bottomNothing, shown.bottom.kind)
+	assert.Equal(t, infoNothing, shown.info.kind)
 	assert.Empty(t, tmux.respawns)
 }
 
@@ -156,7 +156,7 @@ func TestLogsShowOnAnEmptyList(t *testing.T) {
 
 	shown := pressLogs(t, m)
 
-	assert.Equal(t, bottomLogs, shown.bottom.kind)
+	assert.Equal(t, infoLogs, shown.info.kind)
 	require.Len(t, tmux.respawns, 1)
 	assert.Contains(t, tmux.respawns[0], "export WEAVE_LOG='"+path+"'")
 }
@@ -180,7 +180,7 @@ func TestLogsOpenFromEveryScreen(t *testing.T) {
 
 			shown := pressLogs(t, m)
 
-			assert.Equal(t, bottomLogs, shown.bottom.kind)
+			assert.Equal(t, infoLogs, shown.info.kind)
 			assert.Equal(t, from, shown.screen, "the key opens the log without leaving the screen")
 			require.Len(t, tmux.respawns, 1)
 			assert.Contains(t, tmux.respawns[0], "export WEAVE_LOG='"+path+"'")
@@ -198,7 +198,7 @@ func TestLogsTypeIntoAnOpenQuery(t *testing.T) {
 
 	shown := pressLogs(t, m)
 
-	assert.Equal(t, bottomNothing, shown.bottom.kind)
+	assert.Equal(t, infoNothing, shown.info.kind)
 	assert.Equal(t, "l", shown.search.query)
 	assert.Empty(t, tmux.respawns)
 }
@@ -262,7 +262,7 @@ func TestLogsUseTheConfiguredViewer(t *testing.T) {
 
 	shown := pressLogs(t, m)
 
-	require.Equal(t, bottomLogs, shown.bottom.kind)
+	require.Equal(t, infoLogs, shown.info.kind)
 	require.Len(t, tmux.respawns, 1)
 	assert.Contains(t, tmux.respawns[0], `jq -c . "$WEAVE_LOG" | fzf --ansi --tac`)
 	assert.Contains(t, tmux.respawns[0], "export WEAVE_LOG='"+path+"'")

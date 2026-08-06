@@ -166,9 +166,9 @@ func TestLoadMarks(t *testing.T) {
 	}
 }
 
-// TestLoadLayout covers the split the panel lays its two panes out at. A share of
-// the whole width or more is the case worth watching, since tmux would be asked to
-// leave the list nothing.
+// TestLoadLayout covers the sizes and sides the panel lays its panes out at. A size that is
+// neither a share of what it divides nor a whole number of cells is the case worth watching,
+// since tmux is given one or the other.
 func TestLoadLayout(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -177,18 +177,28 @@ func TestLoadLayout(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "the whole width, which leaves the list none of it",
-			file:    "[layout]\nsplit = 1\n",
+			name:    "a negative width, which is not a size at all",
+			file:    "[layout]\nsidebar_width = -0.2\n",
 			wantErr: true,
 		},
 		{
-			name:    "more than the width there is",
-			file:    "[layout]\nsplit = 1.5\n",
+			name:    "a width between a share and a column count",
+			file:    "[layout]\nsidebar_width = 1.5\n",
 			wantErr: true,
 		},
 		{
-			name:    "a negative share, which is not a share at all",
-			file:    "[layout]\nsplit = -0.2\n",
+			name:    "a height between a share and a row count",
+			file:    "[layout]\ninfo_height = 2.5\n",
+			wantErr: true,
+		},
+		{
+			name:    "a side the list cannot sit on",
+			file:    "[layout]\nsidebar_side = \"top\"\n",
+			wantErr: true,
+		},
+		{
+			name:    "a side the info pane cannot open on",
+			file:    "[layout]\ninfo_side = \"right\"\n",
 			wantErr: true,
 		},
 		{
@@ -197,19 +207,44 @@ func TestLoadLayout(t *testing.T) {
 			want: DefaultLayout(),
 		},
 		{
-			name:    "a secondary share of the whole stage, which leaves the agent none of it",
-			file:    "[layout]\nsecondary_split = 1\n",
-			wantErr: true,
+			name: "the share the user chose, with the rest left at the defaults",
+			file: "[layout]\nsidebar_width = 0.45\n",
+			want: Layout{
+				SidebarSide:  DefaultSidebarSide,
+				SidebarWidth: 0.45,
+				InfoSide:     DefaultInfoSide,
+				InfoHeight:   DefaultInfoHeight,
+			},
 		},
 		{
-			name: "the share the user chose, with the other left at the default",
-			file: "[layout]\nsplit = 0.45\n",
-			want: Layout{Split: 0.45, SecondarySplit: DefaultSecondarySplit},
+			name: "a width in columns rather than a share of the popup",
+			file: "[layout]\nsidebar_width = 40\n",
+			want: Layout{
+				SidebarSide:  DefaultSidebarSide,
+				SidebarWidth: 40,
+				InfoSide:     DefaultInfoSide,
+				InfoHeight:   DefaultInfoHeight,
+			},
 		},
 		{
-			name: "the height the user chose for the pane under the stage",
-			file: "[layout]\nsecondary_split = 0.6\n",
-			want: Layout{Split: DefaultSplit, SecondarySplit: 0.6},
+			name: "the sides the user chose for the list and the info pane",
+			file: "[layout]\nsidebar_side = \"right\"\ninfo_side = \"above\"\n",
+			want: Layout{
+				SidebarSide:  SidebarSideRight,
+				SidebarWidth: DefaultSidebarWidth,
+				InfoSide:     InfoSideAbove,
+				InfoHeight:   DefaultInfoHeight,
+			},
+		},
+		{
+			name: "the height the user chose for the info pane",
+			file: "[layout]\ninfo_height = 0.6\n",
+			want: Layout{
+				SidebarSide:  DefaultSidebarSide,
+				SidebarWidth: DefaultSidebarWidth,
+				InfoSide:     DefaultInfoSide,
+				InfoHeight:   0.6,
+			},
 		},
 	}
 

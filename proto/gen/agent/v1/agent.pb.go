@@ -55,7 +55,7 @@ type Agent struct {
 	Alive bool `protobuf:"varint,11,opt,name=alive,proto3" json:"alive,omitempty"`
 	// The glyph the user marked this agent with, unset when it carries no mark.
 	Mark *string `protobuf:"bytes,14,opt,name=mark,proto3,oneof" json:"mark,omitempty"`
-	// Whether the user has hidden this agent from the panel's list. It is not a
+	// Whether the user has hidden this agent from the panel's sidebar. It is not a
 	// deletion and says nothing about the agent, which runs and is reconciled the
 	// same either way. Listings return hidden agents like any other, since only the
 	// panel suppresses them.
@@ -1323,7 +1323,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12UpdateAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xfd\x01\n" +
 	"\x04name\x18\x02 \x01(\tB\xe8\x01\xbaH\xe4\x01\xba\x01\xd9\x01\n" +
-	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\xe9N\n" +
+	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\xecN\n" +
 	"\fAgentService\x12\xe4\x03\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x9a\x03\x9a\xb5\x18\x92\x03\n" +
@@ -1333,9 +1333,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\x91\x04\x9a\xb5\x18\x8c\x04\n" +
 	"\fcreate_agent\x12\xf9\x03Launch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would point somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again. \x00\x12\xe9\x05\n" +
 	"\bSetMarks\x12\x19.agent.v1.SetMarksRequest\x1a\x16.google.protobuf.Empty\"\xa9\x05\x9a\xb5\x18\xa1\x05\n" +
-	"\x0fset_agent_marks\x12\x8b\x05Put one mark on a list of agents, keyed by their ids, or clear the ones they carry by omitting the mark. Every id given takes the same glyph, so marking agents differently is a call each. A mark is a glyph the user reads off the row, meaning whatever they decided it means, such as needs review or dealt with. Use only the glyphs get_config returns under marks, since the panel's mark key cycles through those and can only clear anything else. Archived agents have no row to draw a mark on and are skipped, and returns not_found only when no id given reached a live agent. What an agent is currently doing is already in its state, so do not mark that. \x00\x90\x02\x02\x12\xd0\x03\n" +
-	"\tSetHidden\x12\x1a.agent.v1.SetHiddenRequest\x1a\x16.google.protobuf.Empty\"\x8e\x03\x9a\xb5\x18\x86\x03\n" +
-	"\x10set_agent_hidden\x12\xef\x02Hide an agent from the panel's list, keyed by its id, or unhide it by passing hidden false. This changes nothing about the agent: it keeps running, the reconciler keeps moving its state, and every tool still returns it. It only decides whether the person watching the panel sees a row for it, which is theirs to decide, so do not hide work you were not asked to hide. \x00\x90\x02\x02\x12\xd2\x06\n" +
+	"\x0fset_agent_marks\x12\x8b\x05Put one mark on a list of agents, keyed by their ids, or clear the ones they carry by omitting the mark. Every id given takes the same glyph, so marking agents differently is a call each. A mark is a glyph the user reads off the row, meaning whatever they decided it means, such as needs review or dealt with. Use only the glyphs get_config returns under marks, since the panel's mark key cycles through those and can only clear anything else. Archived agents have no row to draw a mark on and are skipped, and returns not_found only when no id given reached a live agent. What an agent is currently doing is already in its state, so do not mark that. \x00\x90\x02\x02\x12\xd3\x03\n" +
+	"\tSetHidden\x12\x1a.agent.v1.SetHiddenRequest\x1a\x16.google.protobuf.Empty\"\x91\x03\x9a\xb5\x18\x89\x03\n" +
+	"\x10set_agent_hidden\x12\xf2\x02Hide an agent from the panel's sidebar, keyed by its id, or unhide it by passing hidden false. This changes nothing about the agent: it keeps running, the reconciler keeps moving its state, and every tool still returns it. It only decides whether the person watching the panel sees a row for it, which is theirs to decide, so do not hide work you were not asked to hide. \x00\x90\x02\x02\x12\xd2\x06\n" +
 	"\vSetMetadata\x12\x1c.agent.v1.SetMetadataRequest\x1a\x16.google.protobuf.Empty\"\x8c\x06\x9a\xb5\x18\x84\x06\n" +
 	"\x12set_agent_metadata\x12\xeb\x05Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value. Use this on yourself as you work, whenever you learn something a person would want to jump to later: the Linear issue you are implementing, the pull request you opened, the branch you are on. Your own id is in the WEAVE_AGENT_ID environment variable. Store the full URL rather than a bare number, since the panel shows the value as it is. Keys are lowercase letters, digits, underscores, and dashes; call this once per key, which leaves every other key on the agent untouched. Do not record what the agent is currently doing, which is already its state, and do not paste findings here, which belong in your reply. \x00\x90\x02\x02\x12\xb5\x04\n" +
 	"\x03Log\x12\x14.agent.v1.LogRequest\x1a\x16.google.protobuf.Empty\"\xff\x03\x9a\xb5\x18\xfa\x03\n" +

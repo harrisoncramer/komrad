@@ -427,7 +427,7 @@ func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, e
 		"WEAVE_ACTIONS_DIR=" + dir,
 		"WEAVE_TRIGGER=" + trigger,
 		"WEAVE_ACTION=" + p.action,
-		"WEAVE_SECONDARY_PANE=" + s.tmux.GetPanelGlobal(tmux.SecondaryPaneOption),
+		"WEAVE_INFO_PANE=" + s.tmux.GetPanelGlobal(tmux.InfoPaneOption),
 		"WEAVE_HOST_TMUX_SOCKET=" + s.tmux.GetHostSocket(),
 		"WEAVE_HOST_CLIENT=" + s.tmux.ShowGlobal(tmux.InvokingClientOption),
 		"EDITOR=" + s.editor,

@@ -148,7 +148,7 @@ func TestScreensFitTheirPane(t *testing.T) {
 			rendered: Config(narrowPane, errors.New(
 				"failed to parse config /home/u/.config/weave/config.toml: "+
 					"default_harnes is not a setting; the top level takes default_harness, max_agents\n"+
-					"layout.splitt is not a setting; [layout] takes split, secondary_split")),
+					"layout.splitt is not a setting; [layout] takes sidebar_side, sidebar_width, info_side, info_height")),
 		},
 		{
 			name:     "the unreachable screen",

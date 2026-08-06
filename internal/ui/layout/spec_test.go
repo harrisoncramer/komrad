@@ -8,71 +8,101 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestSpecMainPercent covers the width the main region is given. The configured split is the
-// nav region's share, so what tmux is told is the remainder of it.
-func TestSpecMainPercent(t *testing.T) {
+// TestNewSpecSizes covers the sizes tmux is handed. A share becomes a percentage, and the
+// stage takes what the sidebar leaves, so the two together are the whole window.
+func TestNewSpecSizes(t *testing.T) {
 	tests := []struct {
-		name  string
-		split float64
-		want  int
+		name     string
+		layout   config.Layout
+		wantNav  string
+		wantMain string
+		wantInfo string
 	}{
 		{
-			name:  "a spec built with no split at all falls back to the default",
-			split: 0,
-			want:  80,
+			name:     "a layout naming nothing falls back to the defaults",
+			layout:   config.Layout{},
+			wantNav:  "20%",
+			wantMain: "80%",
+			wantInfo: "40%",
 		},
 		{
-			name:  "so does one no window could be divided at",
-			split: 1.5,
-			want:  80,
+			name:     "a share that does not land on a whole percent rounds",
+			layout:   config.Layout{SidebarWidth: 0.335},
+			wantNav:  "34%",
+			wantMain: "66%",
+			wantInfo: "40%",
 		},
 		{
-			name:  "a share that does not land on a whole percent rounds",
-			split: 0.335,
-			want:  67,
+			name:     "a width in columns is handed over as it is",
+			layout:   config.Layout{SidebarWidth: 40},
+			wantNav:  "40",
+			wantMain: "50%",
+			wantInfo: "40%",
 		},
 		{
-			name:  "the default leaves the stage the greater part",
-			split: config.DefaultSplit,
-			want:  80,
+			name:     "so is a height in rows",
+			layout:   config.Layout{InfoHeight: 12},
+			wantNav:  "20%",
+			wantMain: "80%",
+			wantInfo: "12",
 		},
 		{
-			name:  "an even split",
-			split: 0.5,
-			want:  50,
+			name:     "an even split",
+			layout:   config.Layout{SidebarWidth: 0.5, InfoHeight: 0.5},
+			wantNav:  "50%",
+			wantMain: "50%",
+			wantInfo: "50%",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, NewSpec(config.Layout{Split: tt.split}).getMainPercent())
+			spec := NewSpec(tt.layout)
+
+			assert.Equal(t, tt.wantNav, spec.sidebarSize)
+			assert.Equal(t, tt.wantMain, spec.stageSize)
+			assert.Equal(t, tt.wantInfo, spec.infoSize)
 		})
 	}
 }
 
-// TestSpecBottomPercent covers the height the bottom region opens at, which is the share of the
-// main region the config asks for as it stands.
-func TestSpecBottomPercent(t *testing.T) {
+// TestNewSpecSides covers which side each region sits on, where anything the config does not
+// name is the side the panel has always put it.
+func TestNewSpecSides(t *testing.T) {
 	tests := []struct {
-		name  string
-		split float64
-		want  int
+		name            string
+		layout          config.Layout
+		wantNavOnRight  bool
+		wantBottomAbove bool
 	}{
 		{
-			name:  "an omitted share is the default",
-			split: 0,
-			want:  40,
+			name:   "a layout naming no sides keeps the sidebar left and the info pane below",
+			layout: config.Layout{},
 		},
 		{
-			name:  "a configured share is taken as it is",
-			split: 0.6,
-			want:  60,
+			name:           "the sidebar on the right",
+			layout:         config.Layout{SidebarSide: config.SidebarSideRight},
+			wantNavOnRight: true,
+		},
+		{
+			name:            "the info pane above the stage",
+			layout:          config.Layout{InfoSide: config.InfoSideAbove},
+			wantBottomAbove: true,
+		},
+		{
+			name:            "both moved at once",
+			layout:          config.Layout{SidebarSide: config.SidebarSideRight, InfoSide: config.InfoSideAbove},
+			wantNavOnRight:  true,
+			wantBottomAbove: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, NewSpec(config.Layout{SecondarySplit: tt.split}).getBottomPercent())
+			spec := NewSpec(tt.layout)
+
+			assert.Equal(t, tt.wantNavOnRight, spec.sidebarOnRight)
+			assert.Equal(t, tt.wantBottomAbove, spec.infoAbove)
 		})
 	}
 }

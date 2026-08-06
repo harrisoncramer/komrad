@@ -142,8 +142,8 @@ func TestSiblingPanesFindsTheRestOfTheWindow(t *testing.T) {
 	panel, err := client.query("display-message", "-p", "-t", "weave:", "#{pane_id}")
 	require.NoError(t, err)
 
-	first := client.SplitRight(panel, "/tmp", 50)
-	second := client.SplitRight(panel, "/tmp", 50)
+	first := client.SplitRight(panel, "/tmp", "50%")
+	second := client.SplitRight(panel, "/tmp", "50%")
 	require.NotEmpty(t, first)
 	require.NotEmpty(t, second)
 
@@ -171,7 +171,7 @@ func TestBreakPaneKeepsTheID(t *testing.T) {
 	panel, err := client.query("display-message", "-p", "-t", "weave:", "#{pane_id}")
 	require.NoError(t, err)
 
-	staged := client.SplitRight(panel, "/tmp", 50)
+	staged := client.SplitRight(panel, "/tmp", "50%")
 	require.NotEmpty(t, staged)
 
 	client.BreakPane(staged)

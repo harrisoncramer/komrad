@@ -41,7 +41,7 @@ type Schedule struct {
 	Timezone string `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
 	// False pauses the schedule. It keeps its record and stops firing.
 	Enabled bool `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// Whether the agents this schedule launches start hidden from the panel's list.
+	// Whether the agents this schedule launches start hidden from the panel's sidebar.
 	HideAgents bool   `protobuf:"varint,8,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
 	Prompt     string `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
 	// The workflow this schedule launches into.
@@ -725,14 +725,14 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x18\n" +
 	"\aenabled\x18\x02 \x01(\bR\aenabled\"1\n" +
 	"\x16ArchiveScheduleRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xfb\x10\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xfe\x10\n" +
 	"\x0fScheduleService\x12\xd5\x02\n" +
 	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\xfc\x01\x9a\xb5\x18\xf4\x01\n" +
 	"\x0elist_schedules\x12\xe1\x01List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, and next run time. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
 	"\vGetSchedule\x12\x1f.schedule.v1.GetScheduleRequest\x1a .schedule.v1.GetScheduleResponse\"^\x9a\xb5\x18W\n" +
-	"\fget_schedule\x12GFetch one schedule by id. Returns not_found if no schedule has that id.\x90\x02\x01\x12\xc0\x04\n" +
-	"\x0eCreateSchedule\x12\".schedule.v1.CreateScheduleRequest\x1a#.schedule.v1.CreateScheduleResponse\"\xe4\x03\x9a\xb5\x18\xdf\x03\n" +
-	"\x0fcreate_schedule\x12\xc9\x03Create a recurring agent launch inside a workflow. Nothing runs at create time; the agent is spawned when the cron expression next matches, and again on every match after that. The workflow supplies the directory, flags, and shared context each launch uses, so only the prompt and the timing are set here. Create it with enabled false to write it down without arming it, or with hideAgents true to keep its runs out of the panel's list while they still run. \x00\x12\x9c\x03\n" +
+	"\fget_schedule\x12GFetch one schedule by id. Returns not_found if no schedule has that id.\x90\x02\x01\x12\xc3\x04\n" +
+	"\x0eCreateSchedule\x12\".schedule.v1.CreateScheduleRequest\x1a#.schedule.v1.CreateScheduleResponse\"\xe7\x03\x9a\xb5\x18\xe2\x03\n" +
+	"\x0fcreate_schedule\x12\xcc\x03Create a recurring agent launch inside a workflow. Nothing runs at create time; the agent is spawned when the cron expression next matches, and again on every match after that. The workflow supplies the directory, flags, and shared context each launch uses, so only the prompt and the timing are set here. Create it with enabled false to write it down without arming it, or with hideAgents true to keep its runs out of the panel's sidebar while they still run. \x00\x12\x9c\x03\n" +
 	"\x0eUpdateSchedule\x12\".schedule.v1.UpdateScheduleRequest\x1a\x16.google.protobuf.Empty\"\xcd\x02\x9a\xb5\x18\xc5\x02\n" +
 	"\x0fupdate_schedule\x12\xaf\x02Replace a schedule's name, cron expression, timezone, prompt, workflow, and whether the agents it launches start hidden from the panel. Every field is written, so read the schedule first and send back the ones you are not changing. Agents already launched are untouched, including their own hidden flag. \x00\x90\x02\x02\x12\xfa\x01\n" +
 	"\x12SetScheduleEnabled\x12&.schedule.v1.SetScheduleEnabledRequest\x1a\x16.google.protobuf.Empty\"\xa3\x01\x9a\xb5\x18\x9b\x01\n" +

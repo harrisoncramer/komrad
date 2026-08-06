@@ -171,21 +171,21 @@ trust_launch_dirs = true
 
 ## layout
 
-How the popup is divided.
+Where the panel puts its three panes and how much of the popup each one takes. The list is the panel itself, the stage beside it is where the agent you are hovering is drawn, and the info pane is where a record, the server log, and an editor open.
 
-`split` is the share of the width the panel's list takes, default `0.2`. The rest is the stage beside it, which is where the agent you are hovering is drawn.
+`sidebar_width` is how wide the list is, default `0.2`. `info_height` is how tall the info pane opens, default `0.4`.
 
-`secondary_split` is the share of the stage's height taken by the pane that opens under it, default `0.4`. That pane is where the log, the shell, and the agent's record appear.
+Both take either form. A number below one is a share of what it divides, so `0.3` is three tenths of the popup's width. A whole number is a count of cells, so `40` is forty columns whatever size the popup is. A number that is neither, such as `1.5`, is refused at load rather than handed to tmux.
 
-Both are fractions above zero and below one. Anything else is refused at load rather than handed to tmux.
+`sidebar_side` is `"left"` or `"right"`, default `"left"`. `info_side` is `"below"` or `"above"`, default `"below"`, and is read against the stage rather than the window.
 
 ```toml
 [layout]
-split = 0.3
-secondary_split = 0.5
+sidebar_width = 0.3
+info_height = 0.5
 ```
 
-Widen the split if your agent names are long or you keep a lot of workflows open. Narrow it if you mostly want to read the agent.
+Widen the list if your agent names are long or you keep a lot of workflows open. Narrow it if you mostly want to read the agent. Give it a column count rather than a share if you move between a laptop screen and a monitor and want the names to take the same room on both.
 
 ## keybindings
 
@@ -439,8 +439,8 @@ trust_launch_dirs = true
 
 [layout]
 # a wider list, since the workflow names are long
-split = 0.3
-secondary_split = 0.5
+sidebar_width = 0.3
+info_height = 0.5
 
 [keybindings.agents]
 # keep n, add c for muscle memory from elsewhere

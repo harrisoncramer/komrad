@@ -151,7 +151,7 @@ func TestLaunchAgentParams(t *testing.T) {
 		},
 		{
 			// A schedule set to hide its runs starts each agent hidden, which is what
-			// lets a frequent job stay armed without filling the panel's list.
+			// lets a frequent job stay armed without filling the panel's sidebar.
 			name: "a schedule hiding its runs launches a hidden agent",
 			schedule: schedulestore.Schedule{
 				ID: "s1", Name: "sweeper", Prompt: "sweep", WorkflowID: "w1",

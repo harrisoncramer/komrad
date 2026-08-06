@@ -335,12 +335,12 @@ func (m *model) stageArchive() {
 	}
 
 	if r.header {
-		m.stageRecord(workflowMarkdown(r.workflow, m.archivedCount(r.workflow.ID)), layout.RegionMain)
+		m.stageRecord(workflowMarkdown(r.workflow, m.archivedCount(r.workflow.ID)), layout.RegionStage)
 
 		return
 	}
 
-	m.stageRecord(archiveMarkdown(r.item.agent, m.scheduleName(r.item.agent)), layout.RegionMain)
+	m.stageRecord(archiveMarkdown(r.item.agent, m.scheduleName(r.item.agent)), layout.RegionStage)
 }
 
 // archivedCount is how many archived agents sit under a workflow, which is what a folder

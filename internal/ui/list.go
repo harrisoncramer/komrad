@@ -182,7 +182,7 @@ func (m *model) stageRecord(rec record, region layout.Region) {
 }
 
 func (m *model) stagePlaceholder(markdown string) {
-	m.frame.Show(layout.RegionMain, newTextContent(markdown))
+	m.frame.Show(layout.RegionStage, newTextContent(markdown))
 	m.clearRecord()
 }
 

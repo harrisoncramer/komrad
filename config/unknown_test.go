@@ -27,7 +27,7 @@ func TestLoadNamesWhatTheTableTakes(t *testing.T) {
 		{
 			name: "a misspelled key inside a table",
 			file: "[layout]\nsplitt = 0.3\n",
-			want: []string{"layout.splitt is not a setting; [layout] takes split, secondary_split"},
+			want: []string{"layout.splitt is not a setting; [layout] takes sidebar_side, sidebar_width, info_side, info_height"},
 		},
 		{
 			name: "a table the panel does not have",
@@ -49,7 +49,7 @@ func TestLoadNamesWhatTheTableTakes(t *testing.T) {
 			file: "default_harnes = \"codex\"\n[layout]\nsplitt = 0.3\n",
 			want: []string{
 				"default_harnes is not a setting",
-				"layout.splitt is not a setting; [layout] takes split, secondary_split",
+				"layout.splitt is not a setting; [layout] takes sidebar_side, sidebar_width, info_side, info_height",
 			},
 		},
 	}

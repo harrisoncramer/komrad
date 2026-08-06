@@ -79,7 +79,7 @@ func (m model) enterSearch() (tea.Model, tea.Cmd) {
 	m.search.hits = nil
 	m.search.cursor = 0
 	m.search.typing = true
-	m.frame.Show(layout.RegionMain, newBlankContent())
+	m.frame.Show(layout.RegionStage, newBlankContent())
 
 	return m, nil
 }
@@ -152,7 +152,7 @@ func (m *model) applySearch(result searchResult) tea.Cmd {
 	m.search.hits = result.hits
 	m.search.cursor = clampCursor(m.search.cursor, len(m.search.hits))
 	if len(m.search.hits) == 0 {
-		m.frame.Show(layout.RegionMain, newBlankContent())
+		m.frame.Show(layout.RegionStage, newBlankContent())
 		return nil
 	}
 
@@ -207,12 +207,12 @@ const noTranscriptMarkdown = "_no transcript yet_"
 // stageTranscript shows a conversation in the stage, opened at the matched line.
 func (m *model) stageTranscript(conversation string, line int) {
 	if strings.TrimSpace(conversation) == "" {
-		m.frame.Show(layout.RegionMain, newTextContent(noTranscriptMarkdown))
+		m.frame.Show(layout.RegionStage, newTextContent(noTranscriptMarkdown))
 
 		return
 	}
 
-	m.frame.Show(layout.RegionMain, newTranscriptContent(conversation, line))
+	m.frame.Show(layout.RegionStage, newTranscriptContent(conversation, line))
 }
 
 // updateSearch drives the search screen while the query line is open, which is every key
