@@ -162,24 +162,40 @@ func (m model) archiveAgentsConfirm(agents []agentstore.Agent) (tea.Model, tea.C
 	}
 
 	m.target.archiveAgents = agents
-	m.form, m.values.confirmed = archiveAgentsForm(agents, m.keys.Form)
+	m.form, m.values.archive = archiveAgentsForm(agents, m.keys.Form)
 	m.screen = screenAgentArchive
 
 	return m, m.form.Init()
 }
 
-// updateAgentArchive drives the archive prompt. Confirming archives the agents, and
-// anything else leaves them where they are. Both outcomes return to the agents view.
+// updateAgentArchive drives the archive prompt. The answer decides whether the agents are put
+// away, put away and then destroyed, or left alone, and every outcome returns to the list.
 func (m model) updateAgentArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m.updateConfirmForm(msg, confirmFormActions{
 		write: func(m model) tea.Cmd {
-			_, write := m.archiveAgents(m.target.archiveAgents)
+			target := m.target.archiveAgents
+			if len(target) == 0 {
+				return nil
+			}
 
-			return write
+			switch m.archiveAnswer() {
+			case archiveChoiceArchive:
+				_, write := m.archiveAgents(target)
+
+				return write
+			case archiveChoiceArchiveDelete:
+				_, write := m.archiveAndDeleteAgents(target)
+
+				return write
+			case archiveChoiceCancel:
+				return nil
+			}
+
+			return nil
 		},
 		clear: func(m model) model {
 			m.target.archiveAgents = nil
-			m.values.confirmed = nil
+			m.values.archive = nil
 
 			return m
 		},
@@ -189,20 +205,47 @@ func (m model) updateAgentArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
 	})
 }
 
-// A staged pane must be released before the service kills it.
 func (m model) archiveAgents(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
 	if len(agents) == 0 {
 		return m, nil
 	}
 
-	for _, agent := range agents {
-		m.frame.ReleaseGuest(agent.Pane)
-	}
+	m.releasePanes(agents)
 
 	return m, m.writeCmd(
 		fmt.Sprintf("Could not archive %s", describeAgents(agents)),
 		func(a api) error { return a.archiveAgents(agentIDs(agents)) },
 	)
+}
+
+// archiveAndDeleteAgents puts agents away and then destroys them, the two calls in one write
+// so a refused archive leaves the records alone rather than destroying what was never stopped.
+func (m model) archiveAndDeleteAgents(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
+	if len(agents) == 0 {
+		return m, nil
+	}
+
+	m.releasePanes(agents)
+
+	ids := agentIDs(agents)
+
+	return m, m.writeCmd(
+		fmt.Sprintf("Could not archive and delete %s", describeAgents(agents)),
+		func(a api) error {
+			if err := a.archiveAgents(ids); err != nil {
+				return err
+			}
+
+			return a.deleteAgents(ids)
+		},
+	)
+}
+
+// A staged pane must be released before the service kills it.
+func (m model) releasePanes(agents []agentstore.Agent) {
+	for _, agent := range agents {
+		m.frame.ReleaseGuest(agent.Pane)
+	}
 }
 
 func (m model) moveCursor(delta int) model {

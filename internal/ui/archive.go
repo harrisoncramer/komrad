@@ -303,7 +303,7 @@ func (m model) updateArchiveDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m.updateConfirmForm(msg, confirmFormActions{
 		write: func(m model) tea.Cmd {
 			target := m.target.deleteAgents
-			if len(target) == 0 {
+			if len(target) == 0 || !m.wasConfirmed() {
 				return nil
 			}
 

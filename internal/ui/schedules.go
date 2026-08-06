@@ -240,7 +240,7 @@ func (m model) updateScheduleArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m.updateConfirmForm(msg, confirmFormActions{
 		write: func(m model) tea.Cmd {
 			target := m.target.archiveSchedule
-			if target == nil {
+			if target == nil || !m.wasConfirmed() {
 				return nil
 			}
 

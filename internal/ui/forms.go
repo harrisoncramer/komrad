@@ -26,6 +26,7 @@ type formValues struct {
 	workflow  *workflowstore.Config
 	schedule  *schedulestore.Config
 	confirmed *bool
+	archive   *archiveChoice
 }
 
 // formTarget is the record the open form is working on, nil while none is, which for the
@@ -215,19 +216,20 @@ func (m model) updateSubmitForm(msg tea.Msg, submit func(model) (tea.Model, tea.
 	}
 }
 
-// confirmFormActions is what a confirm prompt does once it settles. write runs only on a
-// completed, affirmative answer; clear drops whatever the prompt was holding either way,
-// since a declined or aborted prompt is done with its target the same as a confirmed one;
-// and returnTo is the screen the prompt was raised over, which completing and aborting
-// land on alike.
+// confirmFormActions is what a confirm prompt does once it settles. write reads the answer and
+// returns nothing when it says to do nothing, which is how a prompt offering more than yes and
+// no decides between its own answers. clear drops whatever the prompt was holding either way,
+// since a declined or aborted prompt is done with its target the same as an accepted one, and
+// returnTo is the screen the prompt was raised over, which completing and aborting land on
+// alike.
 type confirmFormActions struct {
 	write    func(model) tea.Cmd
 	clear    func(model) model
 	returnTo func(model) (tea.Model, tea.Cmd)
 }
 
-// updateConfirmForm drives a yes/no prompt: the huh dance shared by every archive and
-// delete confirmation.
+// updateConfirmForm drives a prompt that settles once, the huh dance shared by every archive
+// and delete confirmation.
 func (m model) updateConfirmForm(msg tea.Msg, actions confirmFormActions) (tea.Model, tea.Cmd) {
 	form, cmd := m.form.Update(msg)
 	if updated, ok := form.(*huh.Form); ok {
@@ -236,10 +238,7 @@ func (m model) updateConfirmForm(msg tea.Msg, actions confirmFormActions) (tea.M
 
 	switch m.form.State {
 	case huh.StateCompleted:
-		var writeCmd tea.Cmd
-		if m.wasConfirmed() {
-			writeCmd = actions.write(m)
-		}
+		writeCmd := actions.write(m)
 		next, refresh := actions.returnTo(actions.clear(m))
 
 		return next, tea.Batch(writeCmd, refresh)
@@ -289,15 +288,52 @@ func deleteAgentsForm(agents []agentstore.Agent, keys config.FormKeys) (*huh.For
 	return confirmForm(title, warning, "Delete", keys)
 }
 
-// archiveAgentsForm confirms putting agents away. It is reversible from the archive screen,
-// so the wording says so rather than warning the way the delete prompt does.
-func archiveAgentsForm(agents []agentstore.Agent, keys config.FormKeys) (*huh.Form, *bool) {
+// archiveChoice is how an archive prompt was answered, cancel as the zero value so a prompt
+// nobody answered does nothing.
+type archiveChoice string
+
+const (
+	archiveChoiceCancel        archiveChoice = ""
+	archiveChoiceArchive       archiveChoice = "archive"
+	archiveChoiceArchiveDelete archiveChoice = "archive+delete"
+)
+
+// archiveAgentsForm asks what to do with agents being put away, opening on the reversible
+// answer so only a move down destroys anything. The value is bound before the options are
+// given, since huh scrolls its list to whatever is bound at the time.
+func archiveAgentsForm(agents []agentstore.Agent, keys config.FormKeys) (*huh.Form, *archiveChoice) {
 	title := fmt.Sprintf("Archive %d agents?", len(agents))
 	if len(agents) == 1 {
 		title = fmt.Sprintf("Archive agent %q?", agents[0].Name)
 	}
 
-	return confirmForm(title, "Their transcripts are kept and stay searchable; restore them from the archive.", "Archive", keys)
+	choice := archiveChoiceArchive
+
+	field := huh.NewSelect[archiveChoice]().
+		Key("archive").
+		Title(title).
+		Description("Archiving keeps their transcripts searchable and is undone from the archive screen; deleting takes the transcripts with them and search will not find the conversations again.").
+		Value(&choice).
+		Options(
+			huh.NewOption("Archive", archiveChoiceArchive),
+			huh.NewOption("Archive and delete", archiveChoiceArchiveDelete),
+			huh.NewOption("Cancel", archiveChoiceCancel),
+		)
+
+	form := huh.NewForm(huh.NewGroup(field)).
+		WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
+
+	return form, &choice
+}
+
+// archiveAnswer is what the open archive prompt was answered with, cancel when none is up so
+// the destructive answer only ever runs off one somebody gave.
+func (m model) archiveAnswer() archiveChoice {
+	if m.values.archive == nil {
+		return archiveChoiceCancel
+	}
+
+	return *m.values.archive
 }
 
 // workflowForm asks for a name alone, which is what a rename is. It binds the same config

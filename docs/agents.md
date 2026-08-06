@@ -24,6 +24,8 @@ The panel shows those beside the agent, and agents write them with `set_agent_me
 
 Archiving an agent (the `z` key by default) stops the agent, kills its pane, and takes it off the panel, keeping the row, the metadata, and the transcript. Archiving is the ordinary way to finish with an agent.
 
+The prompt that key opens offers archiving and "Archive and delete", which archives and then destroys the agent outright, so something you have no intention of coming back to takes one answer rather than a second trip through the archive screen. It opens on plain archiving, so the destructive choice is a deliberate move down.
+
 To see the full archive press the `Z` key. You can restore agents from the archive, or permanently delete them. Be careful: deletion destroys the row, the metadata, the flattened transcript, and its search index, and it fires the workflow's cleanup action, so a delete can tear down real directories on disk. Search will never find that conversation again. All actions can also be done in bulk via API, or via the panel, by selecting multiple agents.
 
 ## What an agent knows about itself
