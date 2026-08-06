@@ -144,27 +144,6 @@ func (s *Stage) Text(markdown string) {
 	s.shown = markdown
 }
 
-// TextFlash is Text, but with field's line (1-based) reversed for a moment. It always
-// redraws rather than skipping a markdown that looks unchanged, and leaves shown
-// pointing at nothing a plain markdown ever matches, so the plain Text call that ends
-// the flash is never itself skipped as a no-op.
-func (s *Stage) TextFlash(markdown string, field int) {
-	s.claimMain()
-	if s.pane == "" {
-		return
-	}
-
-	s.restore()
-
-	path := filepath.Join(os.TempDir(), "weave-stage.ansi")
-	if !writeStageFile(path, renderFlash(markdown, s.wrap(s.pane), field)) {
-		return
-	}
-
-	s.run(s.pane, pagerArgv(path, 0)...)
-	s.shown = shownOther
-}
-
 // Transcript displays a transcript with an optional highlighted line.
 func (s *Stage) Transcript(content string, highlightLine int) {
 	if strings.TrimSpace(content) == "" {

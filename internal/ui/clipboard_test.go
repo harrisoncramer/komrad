@@ -143,17 +143,21 @@ func TestCopyResultReportsOnFailureAndClearsOnSuccess(t *testing.T) {
 }
 
 // TestTryCopyRecordValueFlashesTheFieldsLine covers the copied field's own line
-// reversing in the pane it is drawn in, main or secondary, and the pane being told to
-// redraw rather than skip because the markdown looks unchanged.
+// reversing in the info pane when that is where the record on screen is drawn, and
+// the pane being told to redraw rather than skip because the markdown looks
+// unchanged. A record staged directly in the main pane copies without a flash: the
+// main pane is not the info pane, so nothing there should visibly react.
 func TestTryCopyRecordValueFlashesTheFieldsLine(t *testing.T) {
 	md := "# agent\n\n---\n\n1. agent_id: a1\n2. directory: /repo\n"
 
 	tests := []struct {
-		name    string
-		surface recordSurface
+		name      string
+		surface   recordSurface
+		wantShown string
+		wantBelow string
 	}{
-		{name: "the main pane flashes", surface: surfaceMain},
-		{name: "the secondary pane flashes", surface: surfaceSecondary},
+		{name: "the info pane flashes", surface: surfaceSecondary, wantBelow: shownOther},
+		{name: "the main pane copies silently", surface: surfaceMain},
 	}
 
 	for _, tt := range tests {
@@ -172,13 +176,8 @@ func TestTryCopyRecordValueFlashesTheFieldsLine(t *testing.T) {
 			_, handled := m.tryCopyRecordValue("2")
 			require.True(t, handled)
 
-			switch tt.surface {
-			case surfaceMain:
-				assert.Equal(t, shownOther, stage.shown, "the flash bypasses Text's own change check")
-			case surfaceSecondary:
-				assert.Equal(t, shownOther, stage.shownBelow, "the flash bypasses SecondaryText's own change check")
-			case surfaceNone:
-			}
+			assert.Equal(t, tt.wantShown, stage.shown, "the main pane never flashes")
+			assert.Equal(t, tt.wantBelow, stage.shownBelow, "only the info pane's own change check is bypassed by a flash")
 		})
 	}
 }

@@ -61,14 +61,15 @@ func (m *model) tryCopyRecordValue(key string) (tea.Cmd, bool) {
 	return tea.Batch(m.copyCmd(m.activeRecord.values[idx]), flashRevertTick()), true
 }
 
+// flashRecordField flashes the copied field's line in the info pane, when that is
+// where the record on screen is drawn. A record staged directly in the main pane
+// copies silently: the main pane is not the info pane, so nothing there flashes.
 func (m *model) flashRecordField(idx int) {
-	switch m.recordSurface {
-	case surfaceMain:
-		m.stage.TextFlash(m.activeRecord.markdown, idx+1)
-	case surfaceSecondary:
-		m.stage.SecondaryTextFlash(m.activeRecord.markdown, idx+1)
-	case surfaceNone:
+	if m.recordSurface != surfaceSecondary {
+		return
 	}
+
+	m.stage.SecondaryTextFlash(m.activeRecord.markdown, idx+1)
 }
 
 func (m *model) copyCmd(value string) tea.Cmd {

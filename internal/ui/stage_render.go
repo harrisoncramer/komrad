@@ -7,7 +7,9 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/glamour"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/muesli/termenv"
 )
 
 // Terminal style detection would compete with the panel event loop for input.
@@ -16,8 +18,8 @@ func render(markdown string, wrap int) string {
 }
 
 // renderFlash is render, but the flashField-th record field (1-based, 0 for none) has
-// its whole line reversed instead of just its marker dimmed: the brief flash that
-// confirms which field a digit key just copied.
+// its whole line highlighted instead of just its marker dimmed: the brief flash
+// that confirms which field a digit key just copied.
 func renderFlash(markdown string, wrap, flashField int) string {
 	options := []glamour.TermRendererOption{glamour.WithStyles(stageStyle)}
 	if wrap > 0 {
@@ -52,7 +54,7 @@ var numberPrefix = regexp.MustCompile(`^(\s*)(\d+\)) `)
 
 // styleNumberedLines dims every record field's leading "N)" in already-rendered text,
 // except flashField's own line (1-based, counting only numbered lines; 0 flashes
-// none), which is reversed in full instead. It is a no-op on a document with no
+// none), which is highlighted in full instead. It is a no-op on a document with no
 // numbered lines, which is every document that is not a record.
 func styleNumberedLines(rendered string, flashField int) string {
 	lines := strings.Split(rendered, "\n")
@@ -64,16 +66,15 @@ func styleNumberedLines(rendered string, flashField int) string {
 		}
 
 		seen++
-		if seen == flashField {
-			lines[i] = reverseLine(line)
-			continue
-		}
-
 		lines[i] = numberPrefix.ReplaceAllStringFunc(line, func(match string) string {
 			groups := numberPrefix.FindStringSubmatch(match)
 
 			return groups[1] + numberStyle.Styled(groups[2]) + " "
 		})
+
+		if seen == flashField {
+			lines[i] = flashValue(lines[i])
+		}
 	}
 
 	return strings.Join(lines, "\n")
@@ -93,15 +94,50 @@ func highlighted(content string, line int) string {
 	return strings.Join(lines, "\n")
 }
 
-// reverseLine reverses a whole already-rendered line, reasserting the reversal after
-// every reset the line already carries (the numbered marker's own dimming, in
-// practice) so that reset does not cancel the reversal partway through the line.
-func reverseLine(line string) string {
-	reverse := highlightStyle.String()
-	out := strings.ReplaceAll(line, "\x1b[0m", "\x1b[0m"+reverse)
-	out = strings.ReplaceAll(out, "\x1b[m", "\x1b[m"+reverse)
+// flashStyle is the copy flash: the palette's accent as a background, the same
+// pairing FocusedButton uses for the one other thing on screen you have just
+// acted on. It is forced onto termenv's ANSI profile so lipgloss emits it
+// unconditionally, rather than gating it behind detecting weave's own terminal,
+// which is not the tmux pane a flash actually renders into.
+var flashStyle = func() lipgloss.Style {
+	renderer := lipgloss.NewRenderer(nil)
+	renderer.SetColorProfile(termenv.ANSI)
 
-	return reverse + out + "\x1b[0m"
+	return renderer.NewStyle().Background(colorAccent).Foreground(lipgloss.Color("0"))
+}()
+
+// lineReset matches a reset an already-rendered line carries partway through it,
+// the point past which flashing a span as a whole would leave it plain.
+var lineReset = regexp.MustCompile(`\x1b\[0?m`)
+
+// flashLine highlights a whole already-rendered span by styling each piece between
+// its own resets on its own, so that reset does not cancel the highlight partway
+// through it.
+func flashLine(line string) string {
+	spans := lineReset.Split(line, -1)
+	for i, span := range spans {
+		spans[i] = flashStyle.Render(span)
+	}
+
+	return strings.Join(spans, "")
+}
+
+// flashValue highlights only a record field line's value, the "label: " ahead of
+// it (renderRecord's own separator) left in its usual dimmed-marker, plain-label
+// styling. It is the value alone a digit key copies, so it is the only part of the
+// line that flashes. Glamour pads a line's value out to the wrap width with plain
+// trailing spaces, which is left alone rather than swept into the flash.
+func flashValue(line string) string {
+	sep := strings.Index(line, ": ")
+	if sep < 0 {
+		return flashLine(line)
+	}
+
+	head, rest := line[:sep+2], line[sep+2:]
+	value := strings.TrimRight(rest, " ")
+	padding := rest[len(value):]
+
+	return head + flashLine(value) + padding
 }
 
 func writeStageFile(path, content string) bool {
