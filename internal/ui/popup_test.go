@@ -96,7 +96,10 @@ func TestBindPanelKey(t *testing.T) {
 				tmux.SetGlobal(managerOpenFlag, tt.open)
 			}
 
-			require.NoError(t, BindPanelKey(tmux, "/usr/local/bin/weave"))
+			require.NoError(t, BindPanelKey(tmux, BindPanelKeyParams{
+				Self:        "/usr/local/bin/weave",
+				ConfigPaths: []string{"/etc/weave.toml", "/home/dev/weave.toml"},
+			}))
 
 			command, bound := tmux.bound[tt.wantKey]
 			require.True(t, bound, "the panel key is not bound")
@@ -106,8 +109,9 @@ func TestBindPanelKey(t *testing.T) {
 			assert.Equal(t, tt.wantOpen, tmux.globals[managerOpenFlag])
 			assert.Equal(t, []string{
 				"if-shell", "-F", "#{==:#{@weave_open},1}",
-				"run-shell -b '/usr/local/bin/weave hide'",
-				"display-popup -w 100% -h 100% -x C -y C -T ' weave ' -EE '/usr/local/bin/weave open'",
+				"run-shell -b '/usr/local/bin/weave hide --config /etc/weave.toml --config /home/dev/weave.toml'",
+				"display-popup -w 100% -h 100% -x C -y C -T ' weave ' " +
+					"-EE '/usr/local/bin/weave open --config /etc/weave.toml --config /home/dev/weave.toml'",
 			}, command)
 		})
 	}
@@ -119,7 +123,7 @@ func TestBindPanelKey(t *testing.T) {
 func TestBindPanelKeyReportsRefusal(t *testing.T) {
 	tmux := &panelKeyRecorder{err: assert.AnError}
 
-	assert.Error(t, BindPanelKey(tmux, "/usr/local/bin/weave"))
+	assert.Error(t, BindPanelKey(tmux, BindPanelKeyParams{Self: "/usr/local/bin/weave"}))
 }
 
 // TestBindPalette covers the binding the palette is reached by, which is the only way in.

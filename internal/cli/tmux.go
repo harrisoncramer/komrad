@@ -45,7 +45,10 @@ func tmuxCmd(state *app) *cobra.Command {
 					"tmux config: %w", err)
 			}
 
-			return ui.BindPanelKey(server, getSelfPath())
+			return ui.BindPanelKey(server, ui.BindPanelKeyParams{
+				Self:        getSelfPath(),
+				ConfigPaths: state.configPaths,
+			})
 		},
 	}
 }
