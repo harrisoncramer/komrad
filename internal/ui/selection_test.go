@@ -11,6 +11,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/layout"
 
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
@@ -26,7 +27,7 @@ import (
 // while the hidden ones are away and so is not the folder's to select.
 func selectionTree() model {
 	return model{
-		stage: NewStage(&recordingTmux{}, config.DefaultLayout()),
+		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
 		tree: treeState{
 			workflows: []workflowstore.Workflow{
@@ -230,7 +231,7 @@ func TestPruneSelection(t *testing.T) {
 // three agents put away out of it. Its rows are the header at 0 and the agents at 1 to 3.
 func archiveSelectionTree() model {
 	return model{
-		stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenArchive,
 		tree:   treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}},
@@ -447,7 +448,7 @@ func TestArchiveSelectionFromTheTree(t *testing.T) {
 			stage := &recordingTmux{}
 
 			m := selectionTree()
-			m.stage = NewStage(stage, config.DefaultLayout())
+			m.frame = layout.New(stage, config.DefaultLayout())
 			m.api = api{agents: agents}
 			m.tree.cursor = tt.cursor
 			m.tree.selected = selection{ids: tt.selected}

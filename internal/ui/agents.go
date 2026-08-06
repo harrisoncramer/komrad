@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"weave/config"
-	"weave/internal/tmux"
+	"weave/internal/ui/layout"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -196,7 +196,7 @@ func (m model) archiveAgents(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
 	}
 
 	for _, agent := range agents {
-		m.stage.Release(agent.Pane)
+		m.frame.ReleaseGuest(agent.Pane)
 	}
 
 	return m, m.writeCmd(
@@ -240,57 +240,6 @@ func (m model) openAgent() (tea.Model, tea.Cmd) {
 			id:      item.agent.ID,
 		})
 	})
-}
-
-// Actions run out of process and read their target pane from tmux.
-func (m *model) claimBelow(kind belowKind, name string) bool {
-	pane := m.stage.OpenSecondary()
-	if pane == "" {
-		return false
-	}
-
-	m.tmux.SetPanelGlobal(tmux.SecondaryPaneOption, pane)
-	m.stage.SecondaryClaimed()
-	m.tree.below = kind
-	m.tree.belowAction = name
-
-	return true
-}
-
-// Clear the pane option because tmux can reuse pane IDs. Restaging afterward is what lets
-// the agents list open its info pane back up when a log or an edit closes on an agent row,
-// rather than leaving it closed until the next unrelated redraw finds it that way.
-//
-// The pane is left standing when restaging is about to fill it again. Killing it and
-// splitting a new one in its place reflows the window twice, and a CLI in the stage answers
-// each reflow with a full redraw, which is seen as the panes stuttering as the pane goes.
-func (m model) closeBelow() model {
-	if !m.reclaimsBelow() {
-		m.stage.CloseSecondary()
-	}
-
-	m.forgetBelow()
-	m.restageScreen()
-
-	return m
-}
-
-// reclaimsBelow reports whether restaging would put something back in the pane under the
-// stage, which is the agents list drawing a hovered agent's record there.
-func (m model) reclaimsBelow() bool {
-	if m.screen != screenAgents || m.tree.infoClosed {
-		return false
-	}
-
-	r, ok := rowAt(m.agentRows(), m.tree.cursor)
-
-	return ok && !r.header
-}
-
-func (m *model) forgetBelow() {
-	m.tmux.SetPanelGlobal(tmux.SecondaryPaneOption, "")
-	m.tree.below = belowNothing
-	m.tree.belowAction = ""
 }
 
 // Preserve the selected row when hidden rows change the list indexes.
@@ -346,12 +295,12 @@ const dormantPlaceholder = "_dormant — not running_\n\nPress open to resume."
 
 func (m *model) stageSelection() {
 	r, ok := rowAt(m.agentRows(), m.tree.cursor)
-	m.syncInfoDefault(ok && !r.header)
+	m.syncRecordDefault(ok && !r.header)
 
 	if !ok {
-		m.stage.Blank()
+		m.frame.Show(layout.RegionMain, newBlankContent())
 		m.clearRecord()
-		m.stageBelow()
+		m.stageBottom()
 
 		return
 	}
@@ -359,69 +308,15 @@ func (m *model) stageSelection() {
 	switch {
 	case r.header:
 		// A workflow has no chat of its own, so its record fills the main pane instead.
-		m.stageRecord(workflowMarkdown(r.workflow, m.agentCount(r.workflow.ID)), surfaceMain)
+		m.stageRecord(workflowMarkdown(r.workflow, m.agentCount(r.workflow.ID)), layout.RegionMain)
 	case r.item.alive:
-		m.stage.Agent(r.item.agent.Pane)
+		m.frame.ShowGuest(r.item.agent.Pane)
 		m.clearRecord()
 	default:
 		m.stagePlaceholder(dormantPlaceholder)
 	}
 
-	m.stageBelow()
-}
-
-// syncInfoDefault keeps the info pane's default open state in step with the row under the
-// cursor. It opens on an agent row unless the user has dismissed it this session, and closes
-// on a workflow header, which has no record of its own to hold there.
-func (m *model) syncInfoDefault(onAgent bool) {
-	switch {
-	case onAgent && !m.tree.infoClosed && m.tree.below == belowNothing:
-		m.tree.below = belowRecord
-	case !onAgent:
-		m.closeInfo()
-	}
-}
-
-// closeInfo takes the info pane away if a record is what it is holding. A workflow header,
-// and every screen but the agents list, has nothing of its own to put there, so this is what
-// keeps the pane from holding onto whatever the agents list last opened in it.
-func (m *model) closeInfo() {
-	if m.tree.below != belowRecord {
-		return
-	}
-
-	m.stage.CloseSecondary()
-	m.forgetBelow()
-}
-
-func (m *model) stageBelow() {
-	switch m.tree.below {
-	case belowRecord:
-		r, ok := rowAt(m.agentRows(), m.tree.cursor)
-		if !ok || r.header {
-			return
-		}
-
-		m.stageRecord(agentMarkdown(r.item.agent, r.item.alive, m.scheduleName(r.item.agent)), surfaceSecondary)
-	case belowLogs:
-		m.stage.SecondaryLog(m.logPath, logArgv(m.logViewer, m.logPath))
-	case belowNothing, belowEdit:
-	}
-}
-
-// reconcileBelow notices a pane under the stage that has exited on its own, tmux's own way
-// of taking it away. A record closed this way is the user's way of dismissing it, so it is
-// not put back the next time an agent is hovered.
-func (m *model) reconcileBelow() {
-	if m.tree.below == belowNothing || m.stage.IsSecondaryAlive() {
-		return
-	}
-
-	if m.tree.below == belowRecord {
-		m.tree.infoClosed = true
-	}
-
-	m.forgetBelow()
+	m.stageBottom()
 }
 
 func nextMark(current *string, marks []config.Mark) *string {

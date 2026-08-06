@@ -10,6 +10,7 @@ import (
 	"weave/internal/errui"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/layout"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
@@ -57,7 +58,7 @@ func TestRefusedWriteIsReported(t *testing.T) {
 			workflows: emptyLists{},
 		},
 		tmux:   &recordingTmux{},
-		stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{
@@ -95,7 +96,7 @@ func TestRefusedResumeIsReported(t *testing.T) {
 			workflows: emptyLists{},
 		},
 		tmux:   &recordingTmux{},
-		stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{
@@ -158,7 +159,7 @@ func TestSuccessfulWriteClearsTheBanner(t *testing.T) {
 	m := model{
 		api:    api{agents: acceptingAgents{}, workflows: emptyLists{}},
 		tmux:   &recordingTmux{},
-		stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{
@@ -275,7 +276,7 @@ func TestBannerDismissal(t *testing.T) {
 				screen: tt.screen,
 				keys:   config.DefaultKeybindings(),
 				tmux:   &recordingTmux{},
-				stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
+				frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 			}
 			if tt.screen == screenRename {
 				m.form, m.values.rename = renameForm("api-refactor", "", m.keys.Form)
@@ -461,7 +462,7 @@ func TestUnreachableView(t *testing.T) {
 				addr:        "127.0.0.1:8787",
 				unreachable: tt.start,
 				tree:        treeState{agents: []agentItem{{agent: agentstore.Agent{Name: "still-here", State: agentstore.StateIdle}}}},
-				stage:       NewStage(&recordingTmux{}, config.DefaultLayout()),
+				frame:       layout.New(&recordingTmux{}, config.DefaultLayout()),
 			}
 
 			updated, _ := m.Update(tt.msg)

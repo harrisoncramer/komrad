@@ -10,6 +10,7 @@ import (
 	"weave/config"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/layout"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -554,7 +555,7 @@ func archiveModel(agents agentv1connect.AgentServiceClient, workflows workflowv1
 		api:    api{agents: agents, workflows: workflows, schedules: emptyLists{}},
 		tmux:   tmux,
 		popup:  NewPopupWindow(tmux, "test-session"),
-		stage:  NewStage(tmux, config.DefaultLayout()),
+		frame:  layout.New(tmux, config.DefaultLayout()),
 		keys:   keys,
 		screen: screenArchive,
 		tree:   treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}},

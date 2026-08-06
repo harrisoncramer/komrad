@@ -7,6 +7,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/layout"
 	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -27,7 +28,7 @@ type archiveState struct {
 // something to act on alongside live work.
 func (m model) enterArchive() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenArchive)
-	m.closeInfo()
+	m.closeRecord()
 	m.stageArchive()
 
 	return m, m.refreshCmd()
@@ -334,12 +335,12 @@ func (m *model) stageArchive() {
 	}
 
 	if r.header {
-		m.stageRecord(workflowMarkdown(r.workflow, m.archivedCount(r.workflow.ID)), surfaceMain)
+		m.stageRecord(workflowMarkdown(r.workflow, m.archivedCount(r.workflow.ID)), layout.RegionMain)
 
 		return
 	}
 
-	m.stageRecord(archiveMarkdown(r.item.agent, m.scheduleName(r.item.agent)), surfaceMain)
+	m.stageRecord(archiveMarkdown(r.item.agent, m.scheduleName(r.item.agent)), layout.RegionMain)
 }
 
 // archivedCount is how many archived agents sit under a workflow, which is what a folder

@@ -383,7 +383,7 @@ func (m model) actionEditorDesc() string {
 	switch {
 	case ok && !action.text:
 		return "not a text file"
-	case ok && m.tree.below == belowEdit && m.tree.belowAction == action.name:
+	case ok && m.bottom.kind == bottomEdit && m.bottom.action == action.name:
 		return "close editor"
 	default:
 		return "edit"

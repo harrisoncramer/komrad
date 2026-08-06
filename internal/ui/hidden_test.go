@@ -8,6 +8,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/layout"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -18,7 +19,7 @@ import (
 // agent and two hidden ones, and a second holding nothing hidden at all.
 func hiddenTree() model {
 	return model{
-		stage: NewStage(&recordingTmux{}, config.DefaultLayout()),
+		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
 		tree: treeState{
 			workflows: []workflowstore.Workflow{

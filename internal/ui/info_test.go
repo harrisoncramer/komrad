@@ -9,6 +9,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/layout"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,8 +26,8 @@ func TestInfoDefault(t *testing.T) {
 
 		m.stageSelection()
 
-		assert.Equal(t, belowRecord, m.tree.below)
-		assert.Equal(t, m.stage.agentPane, "%9", "the record never displaces the agent")
+		assert.Equal(t, bottomRecord, m.bottom.kind)
+		assert.Equal(t, m.frame.GuestPane(), "%9", "the record never displaces the agent")
 		require.Len(t, tmux.respawns, 1)
 		assert.Contains(t, tmux.respawns[0], "less")
 		assert.Equal(t, "%2", tmux.respawnPanes[0], "the record is paged into the pane below")
@@ -39,7 +40,7 @@ func TestInfoDefault(t *testing.T) {
 
 		m.stageSelection()
 
-		assert.Equal(t, belowNothing, m.tree.below)
+		assert.Equal(t, bottomNothing, m.bottom.kind)
 		assert.NotContains(t, tmux.respawnPanes, "%2", "nothing is paged into the pane below")
 	})
 
@@ -47,12 +48,12 @@ func TestInfoDefault(t *testing.T) {
 		tmux := &recordingTmux{}
 		m := infoModel(tmux)
 		m.stageSelection()
-		require.Equal(t, belowRecord, m.tree.below)
+		require.Equal(t, bottomRecord, m.bottom.kind)
 
 		m.tree.cursor = 0
 		m.stageSelection()
 
-		assert.Equal(t, belowNothing, m.tree.below)
+		assert.Equal(t, bottomNothing, m.bottom.kind)
 		assert.Contains(t, tmux.killed, "%2", "the pane goes with it")
 	})
 
@@ -60,16 +61,16 @@ func TestInfoDefault(t *testing.T) {
 		tmux := &recordingTmux{}
 		m := infoModel(tmux)
 		m.stageSelection()
-		require.Equal(t, belowRecord, m.tree.below)
+		require.Equal(t, bottomRecord, m.bottom.kind)
 
 		tmux.deadPanes = map[string]bool{"%2": true}
-		m.reconcileBelow()
+		m.reconcileBottom()
 
-		assert.Equal(t, belowNothing, m.tree.below)
-		assert.True(t, m.tree.infoClosed)
+		assert.Equal(t, bottomNothing, m.bottom.kind)
+		assert.True(t, m.bottom.dismissed)
 
 		m.stageSelection()
-		assert.Equal(t, belowNothing, m.tree.below, "an agent row does not reopen it")
+		assert.Equal(t, bottomNothing, m.bottom.kind, "an agent row does not reopen it")
 	})
 }
 
@@ -202,17 +203,16 @@ func TestWorkflowMarkdown(t *testing.T) {
 	assert.Equal(t, []string{"3", "codex", "/repo/api", "--model opus", "bootstrap", "teardown"}, got.values)
 }
 
-// recordingTmux records only what the stage does, so a test can tell a
-// swapped-in agent pane from a respawned pager preview. Every other call is an
-// inert stub.
+// recordingTmux records what the panel puts on its frame, so a test can tell a swapped-in
+// agent pane from a respawned pager preview. How the frame itself is laid out is the layout
+// package's own to cover, so nothing about splits or sizes is kept here. Every other call is
+// an inert stub.
 type recordingTmux struct {
 	// path is what GetClientPath reports, the directory the panel falls back to for
 	// a form left blank.
 	path     string
 	swaps    int
 	respawns []string
-	// resizes are the widths the stage pane has been set to, as percentages.
-	resizes []int
 	// width is what GetPaneWidth reports for every pane, the columns markdown renders to.
 	width int
 	// windows are the windows opened for the user's own client, each recorded as its
@@ -221,21 +221,10 @@ type recordingTmux struct {
 	openWindowErr error
 	// detaches counts the sessions the popup has been closed by detaching from.
 	detaches int
-	// siblings are the panes SiblingPanes reports beside the panel's own, and owners
-	// says which of them carry an agent's stamp. Together they are the window a
-	// replaced panel left behind.
-	siblings []string
-	owners   map[string]string
-	// broken and killed are what reclaim did with those panes.
-	broken []string
+	// killed are the panes that have been torn down.
 	killed []string
-	// anchors are the panes the stage has been split beside, which is the pane the panel
-	// believes it is running in.
-	anchors []string
-	// belowAnchors are the panes the slot under the stage has been split beneath, and
-	// belowDirs the directories those panes were rooted at.
+	// belowAnchors are the panes the region under the stage has been split beneath.
 	belowAnchors []string
-	belowDirs    []string
 	// globals are the tmux options the panel has recorded, which is how an action is told
 	// which pane the panel laid out for it.
 	globals map[string]string
@@ -255,15 +244,10 @@ func (t *recordingTmux) SendKeys(string, ...string) error        { return nil }
 func (t *recordingTmux) IsPaneAlive(pane string) bool            { return !t.deadPanes[pane] }
 func (t *recordingTmux) GetPaneWidth(string) int                 { return t.width }
 func (t *recordingTmux) CapturePane(string) string               { return "" }
-func (t *recordingTmux) SplitRight(anchor, _ string, _ int) string {
-	t.anchors = append(t.anchors, anchor)
+func (t *recordingTmux) SplitRight(string, string, int) string   { return "%1" }
 
-	return "%1"
-}
-
-func (t *recordingTmux) SplitBelow(anchor, dir string, _ int) string {
+func (t *recordingTmux) SplitBelow(anchor, _ string, _ int) string {
 	t.belowAnchors = append(t.belowAnchors, anchor)
-	t.belowDirs = append(t.belowDirs, dir)
 
 	return "%2"
 }
@@ -281,9 +265,9 @@ func (t *recordingTmux) SetGlobal(name, value string) {
 }
 
 func (t *recordingTmux) SwapPanes(string, string)        { t.swaps++ }
-func (t *recordingTmux) GetSiblingPanes(string) []string { return t.siblings }
-func (t *recordingTmux) GetPaneOwner(pane string) string { return t.owners[pane] }
-func (t *recordingTmux) BreakPane(pane string)           { t.broken = append(t.broken, pane) }
+func (t *recordingTmux) GetSiblingPanes(string) []string { return nil }
+func (t *recordingTmux) GetPaneOwner(string) string      { return "" }
+func (t *recordingTmux) BreakPane(string)                {}
 func (t *recordingTmux) KillPane(pane string)            { t.killed = append(t.killed, pane) }
 
 func (t *recordingTmux) NewWindow(string, string, string) (string, error) {
@@ -300,9 +284,7 @@ func (t *recordingTmux) OpenWindow(_, _, dir string, argv ...string) error {
 	return nil
 }
 
-func (t *recordingTmux) ResizePane(_ string, percent int) {
-	t.resizes = append(t.resizes, percent)
-}
+func (t *recordingTmux) ResizePane(string, int) {}
 
 func (t *recordingTmux) RespawnPane(pane, _ string, argv ...string) {
 	t.respawns = append(t.respawns, strings.Join(argv, " "))
@@ -312,12 +294,12 @@ func (t *recordingTmux) RespawnPane(pane, _ string, argv ...string) {
 // infoModel builds an agents model holding one live agent, with the cursor on
 // it. Row 0 is the workflow header the agent sits under, so the agent is row 1.
 func infoModel(tmux *recordingTmux) model {
-	stage := NewStage(tmux, config.DefaultLayout())
-	stage.Init("%0")
+	frame := layout.New(tmux, config.DefaultLayout())
+	frame.Attach("%0")
 
 	return model{
 		tmux:   tmux,
-		stage:  stage,
+		frame:  frame,
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{

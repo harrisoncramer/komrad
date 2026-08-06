@@ -22,36 +22,7 @@ type treeState struct {
 	// showHidden draws the hidden agents alongside the rest. It is the panel's own state
 	// rather than anything stored, so every panel starts with them away.
 	showHidden bool
-
-	// below is what the pane under the stage is holding, none while that pane is closed,
-	// and belowAction names the action the pane is about, so the key that opened it is the
-	// key that takes it away. That is the action that filled the pane, or the one whose
-	// file is open in the editor down there.
-	below       belowKind
-	belowAction string
-
-	// infoClosed says the hovered agent's record has been dismissed by killing the pane it
-	// was in, so it is not reopened on the next agent hovered. It is the panel's own state
-	// rather than anything stored, the same as showHidden, so it starts open every session.
-	infoClosed bool
 }
-
-// belowKind is what the panel has put in the pane under the stage. Only one thing is down
-// there at a time, and the key that opened it takes it away again.
-//
-// The stage above follows the cursor and this does not, apart from the record, which is
-// about whichever agent is hovered and so is redrawn as the cursor moves.
-type belowKind int
-
-const (
-	belowNothing belowKind = iota
-	belowRecord
-	belowLogs
-	// belowEdit is an action's own file open in the user's editor. It is a kind of its own
-	// because the key that closes it is decided by which file is down there rather than by
-	// which script put it there.
-	belowEdit
-)
 
 // agentRow is one line of a tree, either a workflow header or an agent nested beneath one.
 // The cursor moves over both but the per-row keys apply only to agent rows.

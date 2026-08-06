@@ -116,7 +116,7 @@ func (m *model) applyRefresh(result refreshResult) {
 
 	// Whatever was under the stage may have exited since the last pass, which tmux answers
 	// for by taking the pane away.
-	m.reconcileBelow()
+	m.reconcileBottom()
 
 	// Both cursors are read off the trees still on screen. Every listing feeds one of them,
 	// so the first to land moves rows out from under a cursor not placed yet.
@@ -293,7 +293,7 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		// below. A write that opened a pane returned it, so that much stages now.
 		m.tree.focus = result.written.row
 		if result.written.pane != "" {
-			m.stage.Agent(result.written.pane)
+			m.frame.ShowGuest(result.written.pane)
 		}
 	}
 

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	agentstore "weave/internal/store/agent"
+	"weave/internal/ui/layout"
 	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -184,8 +185,8 @@ func (m model) editSelectedAction() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.tree.below == belowEdit && m.tree.belowAction == action.name {
-		return m.closeBelow(), nil
+	if m.bottom.kind == bottomEdit && m.bottom.action == action.name {
+		return m.closeBottom(), nil
 	}
 
 	summary := fmt.Sprintf("Could not edit action %q", action.name)
@@ -195,7 +196,7 @@ func (m model) editSelectedAction() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if !m.claimBelow(belowEdit, action.name) {
+	if !m.claimBottom(bottomEdit, action.name) {
 		return m, nil
 	}
 
@@ -222,12 +223,12 @@ const noActionsMarkdown = "# Actions\n\n_nothing here yet_\n\n" +
 func (m model) stageAction() {
 	action, ok := m.selectedAction()
 	if !ok {
-		m.stage.Text(noActionsMarkdown)
+		m.frame.Show(layout.RegionMain, newTextContent(noActionsMarkdown))
 
 		return
 	}
 
-	m.stage.Text(actionMarkdown(action))
+	m.frame.Show(layout.RegionMain, newTextContent(actionMarkdown(action)))
 }
 
 // actionsView renders the actions list, naming the agent they would run on, since the list

@@ -7,6 +7,7 @@ import (
 	"weave/config"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/layout"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -30,7 +31,7 @@ func TestClipName(t *testing.T) {
 // branchTree is one agent named after its branch, which is the case the clip is for.
 func branchTree() model {
 	return model{
-		stage: NewStage(&recordingTmux{}, config.DefaultLayout()),
+		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}},

@@ -11,6 +11,7 @@ import (
 	"weave/internal/errui"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/layout"
 	workflowv1 "weave/proto/gen/workflow/v1"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
@@ -251,7 +252,7 @@ func TestAvailableActionsSkipUnderscoredNames(t *testing.T) {
 // archived.
 func TestFailedWorkflowListKeepsTheTree(t *testing.T) {
 	m := model{
-		stage: NewStage(&recordingTmux{}, config.DefaultLayout()),
+		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}},
@@ -314,12 +315,12 @@ func TestApplyWorkflows(t *testing.T) {
 // respawn the pane every tick, so that is checked not to happen.
 func TestRefreshRestagesWorkflowContext(t *testing.T) {
 	tmux := &recordingTmux{}
-	stage := NewStage(tmux, config.DefaultLayout())
-	stage.Init("%0")
+	frame := layout.New(tmux, config.DefaultLayout())
+	frame.Attach("%0")
 
 	// The cursor sits on the workflow's header, which is row 0.
 	m := model{
-		stage:  stage,
+		frame:  frame,
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{

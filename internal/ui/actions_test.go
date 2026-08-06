@@ -14,6 +14,7 @@ import (
 	"weave/proto/gen/action/v1/actionv1connect"
 
 	agentstore "weave/internal/store/agent"
+	"weave/internal/ui/layout"
 
 	"connectrpc.com/connect"
 	"github.com/charmbracelet/x/ansi"
@@ -350,8 +351,8 @@ func TestEditActionKey(t *testing.T) {
 	client := &fakeActions{}
 	m := actionsModel(client, config.DefaultKeybindings())
 	m.tmux = recorder
-	m.stage = NewStage(recorder, config.DefaultLayout())
-	m.stage.Init("%0")
+	m.frame = layout.New(recorder, config.DefaultLayout())
+	m.frame.Attach("%0")
 
 	updated, cmd := m.updateActions(keyMsg("e"))
 	pressed, ok := updated.(model)
@@ -360,8 +361,8 @@ func TestEditActionKey(t *testing.T) {
 	got := settle(t, pressed, cmd)
 
 	assert.Equal(t, []string{"a1/open-pr"}, client.edited)
-	assert.Equal(t, belowEdit, got.tree.below)
-	assert.Equal(t, "open-pr", got.tree.belowAction, "the file down there is what the key closes")
+	assert.Equal(t, bottomEdit, got.bottom.kind)
+	assert.Equal(t, "open-pr", got.bottom.action, "the file down there is what the key closes")
 	assert.Equal(t, "%2", recorder.globals[tmux.SecondaryPaneOption], "the script is told which pane to fill")
 	assert.Nil(t, got.banner)
 	assert.Empty(t, client.fired, "editing a file runs none of the user's actions")
@@ -374,20 +375,20 @@ func TestEditActionKeyClosesOnASecondPress(t *testing.T) {
 	client := &fakeActions{}
 	m := actionsModel(client, config.DefaultKeybindings())
 	m.tmux = recorder
-	m.stage = NewStage(recorder, config.DefaultLayout())
-	m.stage.Init("%0")
+	m.frame = layout.New(recorder, config.DefaultLayout())
+	m.frame.Attach("%0")
 
 	opened, cmd := m.updateActions(keyMsg("e"))
 	pressed, ok := opened.(model)
 	require.True(t, ok)
 	settled := settle(t, pressed, cmd)
-	require.Equal(t, belowEdit, settled.tree.below)
+	require.Equal(t, bottomEdit, settled.bottom.kind)
 
 	closed, _ := settled.updateActions(keyMsg("e"))
 	got, ok := closed.(model)
 	require.True(t, ok)
 
-	assert.Equal(t, belowNothing, got.tree.below)
+	assert.Equal(t, bottomNothing, got.bottom.kind)
 	assert.Equal(t, []string{"a1/open-pr"}, client.edited, "the second press opens nothing")
 	assert.Contains(t, recorder.killed, "%2", "the pane goes with it")
 }
@@ -400,8 +401,8 @@ func TestEditActionKeyOnAnotherRowSwitchesFiles(t *testing.T) {
 	client := &fakeActions{}
 	m := actionsModel(client, config.DefaultKeybindings())
 	m.tmux = recorder
-	m.stage = NewStage(recorder, config.DefaultLayout())
-	m.stage.Init("%0")
+	m.frame = layout.New(recorder, config.DefaultLayout())
+	m.frame.Attach("%0")
 
 	opened, cmd := m.updateActions(keyMsg("e"))
 	pressed, ok := opened.(model)
@@ -419,8 +420,8 @@ func TestEditActionKeyOnAnotherRowSwitchesFiles(t *testing.T) {
 	got := settle(t, pressed, cmd)
 
 	assert.Equal(t, []string{"a1/open-pr", "a1/unrunnable"}, client.edited)
-	assert.Equal(t, belowEdit, got.tree.below)
-	assert.Equal(t, "unrunnable", got.tree.belowAction)
+	assert.Equal(t, bottomEdit, got.bottom.kind)
+	assert.Equal(t, "unrunnable", got.bottom.action)
 }
 
 // TestEditActionKeyRefusesACompiledProgram covers the one file the key will not open. An editor
@@ -431,8 +432,8 @@ func TestEditActionKeyRefusesACompiledProgram(t *testing.T) {
 	client := &fakeActions{}
 	m := actionsModel(client, config.DefaultKeybindings())
 	m.tmux = recorder
-	m.stage = NewStage(recorder, config.DefaultLayout())
-	m.stage.Init("%0")
+	m.frame = layout.New(recorder, config.DefaultLayout())
+	m.frame.Attach("%0")
 	m.actions.cursor = 2
 
 	updated, cmd := m.updateActions(keyMsg("e"))
@@ -442,7 +443,7 @@ func TestEditActionKeyRefusesACompiledProgram(t *testing.T) {
 	got := settle(t, pressed, cmd)
 
 	assert.Empty(t, client.edited, "nothing was asked of the service")
-	assert.Equal(t, belowNothing, got.tree.below, "no pane was opened for an editor that cannot run")
+	assert.Equal(t, bottomNothing, got.bottom.kind, "no pane was opened for an editor that cannot run")
 	require.NotNil(t, got.banner)
 	assert.Contains(t, got.banner.Summary, "compiled")
 	assert.Contains(t, got.banner.Detail, "not text")
@@ -456,7 +457,7 @@ func TestActionEditorLegendNamesWhatTheKeyWouldDo(t *testing.T) {
 
 	assert.Equal(t, "edit", m.actionEditorDesc())
 
-	m.tree.below, m.tree.belowAction = belowEdit, "open-pr"
+	m.bottom.kind, m.bottom.action = bottomEdit, "open-pr"
 	assert.Equal(t, "close editor", m.actionEditorDesc())
 
 	m.actions.cursor = 2
@@ -469,8 +470,8 @@ func TestActionEditorLegendNamesWhatTheKeyWouldDo(t *testing.T) {
 func TestActionDocumentRedrawsOnlyOnAChange(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := actionsModel(&fakeActions{}, config.DefaultKeybindings())
-	m.stage = NewStage(tmux, config.DefaultLayout())
-	m.stage.Init("%0")
+	m.frame = layout.New(tmux, config.DefaultLayout())
+	m.frame.Attach("%0")
 
 	m.stageAction()
 	m.stageAction()
@@ -487,14 +488,14 @@ func TestActionDocumentRedrawsOnlyOnAChange(t *testing.T) {
 // and one that is not executable.
 func actionsModel(client actionv1connect.ActionServiceClient, keys config.Keybindings) model {
 	tmux := &recordingTmux{}
-	stage := NewStage(tmux, config.DefaultLayout())
-	stage.Init("%0")
+	frame := layout.New(tmux, config.DefaultLayout())
+	frame.Attach("%0")
 
 	return model{
 		api:    api{actions: client},
 		tmux:   tmux,
 		popup:  NewPopupWindow(tmux, "test-session"),
-		stage:  stage,
+		frame:  frame,
 		keys:   keys,
 		screen: screenActions,
 		actions: actionState{

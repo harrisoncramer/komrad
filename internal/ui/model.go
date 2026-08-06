@@ -8,6 +8,7 @@ import (
 
 	"weave/config"
 	"weave/internal/errui"
+	"weave/internal/ui/layout"
 	"weave/proto/gen/action/v1/actionv1connect"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
@@ -50,7 +51,7 @@ const (
 // the client looking at it sits in, the session a window opened for the user has to land
 // in, and the options an action reads to find the panes the panel laid out.
 type uiTmux interface {
-	stageTmux
+	layout.Tmux
 	GetClientPath(client string) string
 	SetPanelGlobal(name, value string)
 	OpenWindow(client, name, dir string, argv ...string) error
@@ -103,9 +104,10 @@ type model struct {
 	// tmux answers which directory the user is looking at, which is the one thing about a
 	// new agent the service cannot work out for itself.
 	tmux uiTmux
-	// stage is the preview pane beside the list. It is the panel's own layout, so it
-	// drives tmux directly rather than paying a round trip per keypress.
-	stage *Stage
+	// frame is the layout the panel lays out around itself, the stage beside the list and
+	// the pane under it. It is the panel's own, so it drives tmux directly rather than
+	// paying a round trip per keypress.
+	frame *layout.Frame
 
 	addr string
 	// unreachable is the error from the last failed listing, nil while the service is
@@ -137,6 +139,11 @@ type model struct {
 	// against a size nothing measured.
 	height int
 	width  int
+
+	// bottom is what the pane under the stage is holding. It is the panel's own rather than
+	// any one screen's, since a log or an editor opened down there stays put as the user
+	// moves between the lists above it.
+	bottom bottomState
 
 	// The screens, each holding the rows it draws and where its cursor is.
 	tree      treeState
@@ -174,9 +181,9 @@ type model struct {
 	logViewer string
 	// activeRecord is whatever record is currently on screen.
 	activeRecord record
-	// recordSurface is which pane activeRecord is drawn in, so a flash and its
-	// eventual revert redraw the right one.
-	recordSurface recordSurface
+	// recordRegion is which region of the frame activeRecord is drawn in, so a flash and
+	// its eventual revert redraw the right one.
+	recordRegion layout.Region
 	// clip is how a copied record value reaches the system clipboard.
 	clip clipboardWriter
 }
@@ -187,7 +194,7 @@ func newModel(deps Deps) model {
 		popup:           deps.PopupWindow,
 		clip:            systemClipboard{},
 		tmux:            deps.Tmux,
-		stage:           NewStage(deps.Tmux, deps.Layout),
+		frame:           layout.New(deps.Tmux, deps.Layout),
 		addr:            deps.Addr,
 		logPath:         deps.LogPath,
 		logViewer:       deps.LogViewer,
@@ -208,7 +215,7 @@ func newModel(deps Deps) model {
 	// There is nothing to stage yet: the first listing is a command like any other, so the
 	// panel paints its empty tree rather than holding the first frame back for a round
 	// trip.
-	m.stage.Init(deps.Pane)
+	m.frame.Attach(deps.Pane)
 
 	return m
 }

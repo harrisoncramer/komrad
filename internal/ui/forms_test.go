@@ -18,6 +18,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/layout"
 	"weave/lib/xptr"
 
 	"connectrpc.com/connect"
@@ -605,7 +606,7 @@ func formModel(sent *formRecorder) model {
 		api:   api{agents: sent, workflows: sent, schedules: sent, actions: sent},
 		tmux:  tmux,
 		popup: NewPopupWindow(tmux, "test-session"),
-		stage: NewStage(tmux, config.DefaultLayout()),
+		frame: layout.New(tmux, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
 		tree: treeState{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Harness: "claude", Cwd: "/work/api", Flags: "--model opus"}},

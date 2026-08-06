@@ -3,6 +3,8 @@ package ui
 import (
 	"fmt"
 	"strings"
+
+	"weave/internal/ui/layout"
 )
 
 // listLines is how many lines a screen's list has to draw into: the pane less the banner
@@ -174,17 +176,13 @@ func (c rowCursor) jump(idx, length int) (rowCursor, bool) {
 	return c, true
 }
 
-func (m *model) stageRecord(rec record, surface recordSurface) {
-	if surface == surfaceSecondary {
-		m.stage.SecondaryText(rec.markdown)
-	} else {
-		m.stage.Text(rec.markdown)
-	}
-	m.setRecord(rec, surface)
+func (m *model) stageRecord(rec record, region layout.Region) {
+	m.frame.Show(region, newTextContent(rec.markdown))
+	m.setRecord(rec, region)
 }
 
 func (m *model) stagePlaceholder(markdown string) {
-	m.stage.Text(markdown)
+	m.frame.Show(layout.RegionMain, newTextContent(markdown))
 	m.clearRecord()
 }
 

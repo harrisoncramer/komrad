@@ -12,6 +12,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/layout"
 	"weave/lib/xptr"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
@@ -449,7 +450,7 @@ func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys config.K
 		// The new-schedule form asks the popup which client opened it, to prefill
 		// the directory, so the panel needs one even though nothing here reads it.
 		popup:  NewPopupWindow(tmux, "test-session"),
-		stage:  NewStage(tmux, config.DefaultLayout()),
+		frame:  layout.New(tmux, config.DefaultLayout()),
 		keys:   keys,
 		screen: screenSchedules,
 		schedules: scheduleState{

@@ -6,6 +6,7 @@ import (
 
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/layout"
 	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -32,7 +33,7 @@ type scheduleItem struct {
 // schedule is a record of future work with nothing running to stage beside it.
 func (m model) enterSchedules() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenSchedules)
-	m.closeInfo()
+	m.closeRecord()
 	m.schedules.cursor = clampCursor(m.schedules.cursor, len(m.scheduleRows()))
 	m.stageSchedule()
 
@@ -108,7 +109,7 @@ func (m *model) stageSchedule() {
 		return
 	}
 
-	m.stageRecord(scheduleMarkdown(item, m.workflowByID(item.schedule.WorkflowID)), surfaceMain)
+	m.stageRecord(scheduleMarkdown(item, m.workflowByID(item.schedule.WorkflowID)), layout.RegionMain)
 }
 
 // workflowByID finds a workflow in the list the panel already polls, nil when none holds

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/internal/ui/layout"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
@@ -45,7 +46,7 @@ func (f *fakeClipboard) WriteAll(text string) error {
 
 // TestTryCopyRecordValue covers the digit key copying whichever field it names off
 // the record currently on screen, and doing nothing for a key or an index the record
-// does not have. recordSurface is surfaceNone throughout, since these cases are about
+// does not have. recordRegion is layout.RegionNone throughout, since these cases are about
 // the copy itself rather than the flash, which is covered on its own below.
 func TestTryCopyRecordValue(t *testing.T) {
 	tests := []struct {
@@ -142,42 +143,51 @@ func TestCopyResultReportsOnFailureAndClearsOnSuccess(t *testing.T) {
 	assert.Nil(t, final.banner)
 }
 
-// TestTryCopyRecordValueFlashesTheFieldsLine covers the copied field's own line
-// reversing in the info pane when that is where the record on screen is drawn, and
-// the pane being told to redraw rather than skip because the markdown looks
-// unchanged. A record staged directly in the main pane copies without a flash: the
-// main pane is not the info pane, so nothing there should visibly react.
+// TestTryCopyRecordValueFlashesTheFieldsLine covers the copied field's own line reversing in
+// the info pane when that is where the record on screen is drawn. A record staged in the main
+// pane copies without a flash, since nothing there should visibly react.
 func TestTryCopyRecordValueFlashesTheFieldsLine(t *testing.T) {
 	md := "# agent\n\n---\n\n1. agent_id: a1\n2. directory: /repo\n"
 
 	tests := []struct {
-		name      string
-		surface   recordSurface
-		wantShown string
-		wantBelow string
+		name        string
+		region      layout.Region
+		wantFlashed []string
 	}{
-		{name: "the info pane flashes", surface: surfaceSecondary, wantBelow: shownOther},
-		{name: "the main pane copies silently", surface: surfaceMain},
+		{
+			name:   "the main pane copies silently",
+			region: layout.RegionMain,
+		},
+		{
+			name:        "the info pane flashes",
+			region:      layout.RegionBottom,
+			wantFlashed: []string{"%2"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			recorder := &recordingTmux{}
-			stage := NewStage(recorder, config.DefaultLayout())
-			stage.Init("%0")
+			frame := layout.New(recorder, config.DefaultLayout())
+			frame.Attach("%0")
 
 			m := model{
-				activeRecord:  record{markdown: md, values: []string{"a1", "/repo"}},
-				recordSurface: tt.surface,
-				stage:         stage,
-				clip:          &fakeClipboard{},
+				activeRecord: record{markdown: md, values: []string{"a1", "/repo"}},
+				recordRegion: tt.region,
+				frame:        frame,
+				clip:         &fakeClipboard{},
 			}
 
 			_, handled := m.tryCopyRecordValue("2")
 			require.True(t, handled)
 
-			assert.Equal(t, tt.wantShown, stage.shown, "the main pane never flashes")
-			assert.Equal(t, tt.wantBelow, stage.shownBelow, "only the info pane's own change check is bypassed by a flash")
+			assert.Equal(t, tt.wantFlashed, recorder.respawnPanes, "the stage never flashes")
+
+			// A flash leaves the region holding nothing a plain document matches, so the
+			// redraw that ends it is not skipped as showing what is already there.
+			m.frame.Show(layout.RegionBottom, newTextContent(md))
+
+			assert.Len(t, recorder.respawnPanes, len(tt.wantFlashed)+1)
 		})
 	}
 }

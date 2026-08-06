@@ -10,6 +10,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	"weave/internal/store/transcript"
 
+	"weave/internal/ui/layout"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
@@ -66,7 +67,7 @@ func TestApplySearchResults(t *testing.T) {
 			m := model{
 				screen: screenSearch,
 				search: searchState{query: tt.query},
-				stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
+				frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 			}
 
 			m.applySearch(tt.msg)

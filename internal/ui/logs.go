@@ -41,7 +41,7 @@ func shellQuote(value string) string {
 // logsDesc is what the legend says the log key would do, naming the direction it would go
 // rather than the binding in the abstract, the way the info and hide lines read.
 func (m model) logsDesc() string {
-	if m.tree.below == belowLogs {
+	if m.bottom.kind == bottomLogs {
 		return "hide server log"
 	}
 
@@ -59,8 +59,8 @@ func (m model) logsDesc() string {
 // open prints its complaint and exits, which takes the pane down with it and leaves the key
 // looking like it did nothing.
 func (m model) openLogs() (tea.Model, tea.Cmd) {
-	if m.tree.below == belowLogs {
-		return m.closeBelow(), nil
+	if m.bottom.kind == bottomLogs {
+		return m.closeBottom(), nil
 	}
 
 	if _, err := os.Stat(m.logPath); err != nil {
@@ -69,9 +69,9 @@ func (m model) openLogs() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.tree.below = belowLogs
-	m.tree.belowAction = ""
-	m.stageBelow()
+	m.bottom.kind = bottomLogs
+	m.bottom.action = ""
+	m.stageBottom()
 
 	return m, nil
 }

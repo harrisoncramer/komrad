@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/internal/ui/layout"
 	"weave/internal/weavetest"
 	agentv1 "weave/proto/gen/agent/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -54,7 +55,7 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 		},
 		tmux:   tmux,
 		popup:  NewPopupWindow(tmux, "test-session"),
-		stage:  NewStage(tmux, config.DefaultLayout()),
+		frame:  layout.New(tmux, config.DefaultLayout()),
 		keys:   keys,
 		screen: screenAgents,
 	}
@@ -98,7 +99,7 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 // pane is away in the agent's window where nothing on screen can reach it.
 func TestStagedAgentArchivedElsewhere(t *testing.T) {
 	staged := newStagedPanel(t)
-	stagePane := staged.panel.stage.pane
+	stagePane := staged.panel.frame.Pane(layout.RegionMain)
 
 	_, err := staged.instance.Agents.ArchiveAgents(t.Context(), connect.NewRequest(&agentv1.ArchiveAgentsRequest{
 		Ids: []string{staged.agentID},
@@ -109,7 +110,7 @@ func TestStagedAgentArchivedElsewhere(t *testing.T) {
 
 	require.False(t, staged.panel.tmux.IsPaneAlive(staged.agentPane), "the archive stopped what was running")
 	assert.False(t, staged.panel.tmux.IsPaneAlive(stagePane), "the pane left in the agent's window is not left running")
-	assert.Equal(t, []string{staged.navPane, staged.panel.stage.pane}, panesInPanel(t, staged.instance),
+	assert.Equal(t, []string{staged.navPane, staged.panel.frame.Pane(layout.RegionMain)}, panesInPanel(t, staged.instance),
 		"the panel is a nav pane and a stage pane again")
 
 	// Recovering the layout is only half of it. A stage that still believes it holds the slot
@@ -137,14 +138,14 @@ func TestStagedAgentArchivedElsewhere(t *testing.T) {
 // while that agent is staged the pane it takes down is in the panel's window.
 func TestStagedAgentExitsOnItsOwn(t *testing.T) {
 	staged := newStagedPanel(t)
-	stagePane := staged.panel.stage.pane
+	stagePane := staged.panel.frame.Pane(layout.RegionMain)
 
 	staged.panel.tmux.KillPane(staged.agentPane)
 	staged.panel = settle(t, staged.panel, staged.panel.refreshCmd())
 
 	assert.False(t, staged.panel.tmux.IsPaneAlive(stagePane), "the pane left in the agent's window is not left running")
 	assert.Equal(t,
-		[]string{staged.navPane, staged.panel.stage.pane, staged.panel.stage.secondary},
+		[]string{staged.navPane, staged.panel.frame.Pane(layout.RegionMain), staged.panel.frame.Pane(layout.RegionBottom)},
 		panesInPanel(t, staged.instance),
 		"the panel is a nav pane and a stage pane again, the now-dormant agent's info pane open by default beside it")
 }
@@ -188,8 +189,8 @@ func newStagedPanel(t *testing.T) *stagedPanel {
 	navPane := instance.Tmux.Run("display-message", "-p", "-t", panelSession, "#{pane_id}")
 
 	client := instance.Tmux.Client()
-	stage := NewStage(client, config.DefaultLayout())
-	stage.Init(navPane)
+	frame := layout.New(client, config.DefaultLayout())
+	frame.Attach(navPane)
 
 	panel := model{
 		api: api{
@@ -199,7 +200,7 @@ func newStagedPanel(t *testing.T) *stagedPanel {
 			actions:   instance.Actions,
 		},
 		tmux:   client,
-		stage:  stage,
+		frame:  frame,
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 	}
@@ -210,7 +211,7 @@ func newStagedPanel(t *testing.T) *stagedPanel {
 	// Row 0 is the folder the agent is nested under, so the agent itself is row 1.
 	panel.tree.cursor = 1
 	panel.stageSelection()
-	require.Equal(t, agentPane, stage.agentPane, "the agent's own pane is swapped into the slot")
+	require.Equal(t, agentPane, frame.GuestPane(), "the agent's own pane is swapped into the slot")
 	require.Contains(t, panesInPanel(t, instance), agentPane)
 
 	return &stagedPanel{

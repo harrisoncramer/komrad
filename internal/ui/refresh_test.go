@@ -8,6 +8,7 @@ import (
 	"weave/config"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/layout"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	schedulev1 "weave/proto/gen/schedule/v1"
@@ -73,7 +74,7 @@ func produced(cmd tea.Cmd) []tea.Msg {
 // listing is how a slow call ends up costing the lists it has nothing to do with.
 func TestRefreshAppliesWhatAnswered(t *testing.T) {
 	m := model{
-		stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		tree:   treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}},
@@ -96,7 +97,7 @@ func TestRefreshAppliesWhatAnswered(t *testing.T) {
 // as a keypress that did nothing.
 func TestStaleRefreshIsDropped(t *testing.T) {
 	m := model{
-		stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		tree:   treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}},
@@ -134,7 +135,7 @@ func TestWriteStandsTheRefreshDown(t *testing.T) {
 // open on the workflow header above the agents.
 func TestFirstListingLandsOnTheFirstAgent(t *testing.T) {
 	m := model{
-		stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		tree:   treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}},
@@ -159,7 +160,7 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 	m := model{
 		api:    api{agents: agents, actions: agents},
 		tmux:   tmux,
-		stage:  NewStage(tmux, config.DefaultLayout()),
+		frame:  layout.New(tmux, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{
@@ -208,7 +209,7 @@ func TestCreatedWorkflowReceivesFocus(t *testing.T) {
 	recorder := &formRecorder{}
 	m := model{
 		api:    api{agents: recorder, workflows: recorder, actions: recorder},
-		stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{
@@ -248,7 +249,7 @@ func TestCreatedWorkflowReceivesFocus(t *testing.T) {
 // cursor has to follow the folder it names rather than the index it was drawn at.
 func TestCursorHoldsItsFolderAcrossARefresh(t *testing.T) {
 	m := model{
-		stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{
@@ -277,7 +278,7 @@ func TestCursorHoldsItsFolderAcrossARefresh(t *testing.T) {
 // a cursor read after they have is read against a tree that is half of each pass.
 func TestCursorHoldsItsAgentWhenAFolderArrives(t *testing.T) {
 	m := model{
-		stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{
@@ -309,7 +310,7 @@ func TestCursorHoldsItsAgentWhenAFolderArrives(t *testing.T) {
 // land, so the row under the cursor has to be read before any of them do.
 func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 	m := model{
-		stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenArchive,
 		tree: treeState{

@@ -3,6 +3,8 @@ package ui
 import (
 	"time"
 
+	"weave/internal/ui/layout"
+
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -19,26 +21,16 @@ func (systemClipboard) WriteAll(text string) error {
 	return clipboard.WriteAll(text)
 }
 
-// recordSurface is which pane a record is drawn in, so a flash and its revert know
-// which one to redraw.
-type recordSurface int
-
-const (
-	surfaceNone recordSurface = iota
-	surfaceMain
-	surfaceSecondary
-)
-
-func (m *model) setRecord(rec record, surface recordSurface) {
+func (m *model) setRecord(rec record, region layout.Region) {
 	m.activeRecord = rec
-	m.recordSurface = surface
+	m.recordRegion = region
 }
 
 // clearRecord is what a screen with nothing numbered on it sets, so a stray digit
 // press finds no record to act on.
 func (m *model) clearRecord() {
 	m.activeRecord = record{}
-	m.recordSurface = surfaceNone
+	m.recordRegion = layout.RegionNone
 }
 
 const flashDuration = 300 * time.Millisecond
@@ -61,15 +53,14 @@ func (m *model) tryCopyRecordValue(key string) (tea.Cmd, bool) {
 	return tea.Batch(m.copyCmd(m.activeRecord.values[idx]), flashRevertTick()), true
 }
 
-// flashRecordField flashes the copied field's line in the info pane, when that is
-// where the record on screen is drawn. A record staged directly in the main pane
-// copies silently: the main pane is not the info pane, so nothing there flashes.
+// flashRecordField flashes the copied field's line in the region under the stage, when that is
+// where the record on screen is drawn. A record staged in the main region copies silently.
 func (m *model) flashRecordField(idx int) {
-	if m.recordSurface != surfaceSecondary {
+	if m.recordRegion != layout.RegionBottom {
 		return
 	}
 
-	m.stage.SecondaryTextFlash(m.activeRecord.markdown, idx+1)
+	m.frame.Show(layout.RegionBottom, newFlashContent(m.activeRecord.markdown, idx+1))
 }
 
 func (m *model) copyCmd(value string) tea.Cmd {

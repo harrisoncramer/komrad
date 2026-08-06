@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/internal/ui/layout"
 	agentv1 "weave/proto/gen/agent/v1"
 	paginationv1 "weave/proto/gen/pagination/v1"
 
@@ -73,12 +74,12 @@ type previewResult struct {
 // stage until the first result is hovered.
 func (m model) enterSearch() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenSearch)
-	m.closeInfo()
+	m.closeRecord()
 	m.search.query = ""
 	m.search.hits = nil
 	m.search.cursor = 0
 	m.search.typing = true
-	m.stage.Blank()
+	m.frame.Show(layout.RegionMain, newBlankContent())
 
 	return m, nil
 }
@@ -151,7 +152,7 @@ func (m *model) applySearch(result searchResult) tea.Cmd {
 	m.search.hits = result.hits
 	m.search.cursor = clampCursor(m.search.cursor, len(m.search.hits))
 	if len(m.search.hits) == 0 {
-		m.stage.Blank()
+		m.frame.Show(layout.RegionMain, newBlankContent())
 		return nil
 	}
 
@@ -196,7 +197,22 @@ func (m *model) applyPreview(result previewResult) {
 		return
 	}
 
-	m.stage.Transcript(result.content, lineAtOffset(result.content, result.offset))
+	m.stageTranscript(result.content, lineAtOffset(result.content, result.offset))
+}
+
+// noTranscriptMarkdown is what the stage says for an agent that has not written one yet, so
+// the pane answers rather than sitting blank on a hit whose transcript has since gone.
+const noTranscriptMarkdown = "_no transcript yet_"
+
+// stageTranscript shows a conversation in the stage, opened at the matched line.
+func (m *model) stageTranscript(conversation string, line int) {
+	if strings.TrimSpace(conversation) == "" {
+		m.frame.Show(layout.RegionMain, newTextContent(noTranscriptMarkdown))
+
+		return
+	}
+
+	m.frame.Show(layout.RegionMain, newTranscriptContent(conversation, line))
 }
 
 // updateSearch drives the search screen while the query line is open, which is every key
