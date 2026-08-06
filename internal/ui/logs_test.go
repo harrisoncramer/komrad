@@ -63,18 +63,39 @@ func TestLogsOpenBelowTheStagedAgent(t *testing.T) {
 	assert.Empty(t, tmux.zooms, "the stage keeps its share of the width")
 }
 
-// TestLogsToggleClosesThePane covers the second press. The key is the way out as well as
-// the way in, and on an agent row the way out finds the info pane's own record waiting under
-// the log, its default state, rather than leaving the pane closed.
-func TestLogsToggleClosesThePane(t *testing.T) {
+// TestLogsToggleReturnsTheRecordInPlace covers the second press. The key is the way out as
+// well as the way in, and on an agent row the way out finds the info pane's own record
+// waiting under the log, its default state, rather than leaving the pane closed. The record
+// comes back to the pane the log was read in: killing that pane and splitting another in its
+// place reflows the window twice, which whatever the stage is showing redraws in full.
+func TestLogsToggleReturnsTheRecordInPlace(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
+
+	m.stageSelection()
+	require.Len(t, tmux.belowAnchors, 1, "the info pane is open to begin with")
+
+	hidden := pressLogs(t, pressLogs(t, m))
+
+	assert.Equal(t, belowRecord, hidden.tree.below)
+	assert.NotContains(t, tmux.killed, "%2", "the pane the log was read in stays")
+	assert.Len(t, tmux.belowAnchors, 1, "and nothing is split to replace it")
+	last := len(tmux.respawns) - 1
+	assert.Equal(t, "%2", tmux.respawnPanes[last], "the record is drawn back into it")
+}
+
+// TestLogsToggleClosesThePaneWithNothingToPutBack covers the same press on a workflow header,
+// which has no record of its own. Nothing is waiting to take the pane over, so it goes.
+func TestLogsToggleClosesThePaneWithNothingToPutBack(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, _ := logsModel(t, tmux)
+	m.tree.cursor = 0
 
 	m.stageSelection()
 
 	hidden := pressLogs(t, pressLogs(t, m))
 
-	assert.Equal(t, belowRecord, hidden.tree.below)
+	assert.Equal(t, belowNothing, hidden.tree.below)
 	assert.Contains(t, tmux.killed, "%2", "the log's own pane goes with it")
 }
 

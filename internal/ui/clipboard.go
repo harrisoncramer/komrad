@@ -105,5 +105,7 @@ func (m *model) restageScreen() {
 		m.stageSchedule()
 	case screenArchive:
 		m.stageArchive()
+	default:
+		// Search, the actions list, and the forms put the stage to their own use.
 	}
 }
