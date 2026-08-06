@@ -151,54 +151,34 @@ func (m model) archiveWorkflowConfirm(workflow workflowstore.Workflow) (tea.Mode
 // updateWorkflowArchive drives the archive prompt. Confirming archives the workflow with
 // its agents, and anything else leaves it untouched. All outcomes return to the agents view.
 func (m model) updateWorkflowArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
-	form, cmd := m.form.Update(msg)
-	if updated, ok := form.(*huh.Form); ok {
-		m.form = updated
-	}
+	return m.updateConfirmForm(msg, confirmFormActions{
+		write: func(m model) tea.Cmd {
+			target := m.target.archiveWorkflow
+			if target == nil {
+				return nil
+			}
 
-	switch m.form.State {
-	case huh.StateCompleted:
-		var write tea.Cmd
-		if target := m.target.archiveWorkflow; target != nil && m.wasConfirmed() {
-			write = m.writeCmd(
+			return m.writeCmd(
 				fmt.Sprintf("Could not archive workflow %q", target.Name),
 				func(a api) error { return a.archiveWorkflow(target.ID) },
 			)
-		}
-		m.target.archiveWorkflow = nil
-		m.values.confirmed = nil
-		returned, refresh := m.returnToAgents()
+		},
+		clear: func(m model) model {
+			m.target.archiveWorkflow = nil
+			m.values.confirmed = nil
 
-		return returned, tea.Batch(write, refresh)
-	case huh.StateAborted:
-		m.target.archiveWorkflow = nil
-		m.values.confirmed = nil
-		return m.returnToAgents()
-	default:
-		return m, cmd
-	}
+			return m
+		},
+		returnTo: func(m model) (tea.Model, tea.Cmd) {
+			return m.returnToAgents()
+		},
+	})
 }
 
 // updateWorkflowForm drives the create/rename form, submitting on the configured
 // submit key or on completion and aborting back to the agents view.
 func (m model) updateWorkflowForm(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), m.keys.Form.Submit) {
-		return m.submitWorkflowForm()
-	}
-
-	form, cmd := m.form.Update(msg)
-	if updated, ok := form.(*huh.Form); ok {
-		m.form = updated
-	}
-
-	switch m.form.State {
-	case huh.StateCompleted:
-		return m.submitWorkflowForm()
-	case huh.StateAborted:
-		return m.closeForm()
-	default:
-		return m, cmd
-	}
+	return m.updateSubmitForm(msg, model.submitWorkflowForm)
 }
 
 // submitWorkflowForm applies the form, renaming a workflow, editing its config, or

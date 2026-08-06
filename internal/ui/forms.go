@@ -190,6 +190,66 @@ func (m *model) rebuildForm() tea.Cmd {
 	return m.form.Init()
 }
 
+// updateSubmitForm drives a form that submits rather than closes on completion: the huh
+// dance shared by every create/edit form. The submit key is checked ahead of the form's
+// own state, since a huh.Text field takes the configured key as a literal rather than
+// completing the group on it, and the field the cursor is on otherwise decides whether a
+// press submits or types.
+func (m model) updateSubmitForm(msg tea.Msg, submit func(model) (tea.Model, tea.Cmd)) (tea.Model, tea.Cmd) {
+	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), m.keys.Form.Submit) {
+		return submit(m)
+	}
+
+	form, cmd := m.form.Update(msg)
+	if updated, ok := form.(*huh.Form); ok {
+		m.form = updated
+	}
+
+	switch m.form.State {
+	case huh.StateCompleted:
+		return submit(m)
+	case huh.StateAborted:
+		return m.closeForm()
+	default:
+		return m, cmd
+	}
+}
+
+// confirmFormActions is what a confirm prompt does once it settles. write runs only on a
+// completed, affirmative answer; clear drops whatever the prompt was holding either way,
+// since a declined or aborted prompt is done with its target the same as a confirmed one;
+// and returnTo is the screen the prompt was raised over, which completing and aborting
+// land on alike.
+type confirmFormActions struct {
+	write    func(model) tea.Cmd
+	clear    func(model) model
+	returnTo func(model) (tea.Model, tea.Cmd)
+}
+
+// updateConfirmForm drives a yes/no prompt: the huh dance shared by every archive and
+// delete confirmation.
+func (m model) updateConfirmForm(msg tea.Msg, actions confirmFormActions) (tea.Model, tea.Cmd) {
+	form, cmd := m.form.Update(msg)
+	if updated, ok := form.(*huh.Form); ok {
+		m.form = updated
+	}
+
+	switch m.form.State {
+	case huh.StateCompleted:
+		var writeCmd tea.Cmd
+		if m.wasConfirmed() {
+			writeCmd = actions.write(m)
+		}
+		next, refresh := actions.returnTo(actions.clear(m))
+
+		return next, tea.Batch(writeCmd, refresh)
+	case huh.StateAborted:
+		return actions.returnTo(actions.clear(m))
+	default:
+		return m, cmd
+	}
+}
+
 // closeForm leaves the open form and lands on the screen it was opened from, dropping
 // what it was working on.
 func (m model) closeForm() (tea.Model, tea.Cmd) {

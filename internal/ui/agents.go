@@ -13,7 +13,6 @@ import (
 	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -172,29 +171,22 @@ func (m model) archiveAgentsConfirm(agents []agentstore.Agent) (tea.Model, tea.C
 // updateAgentArchive drives the archive prompt. Confirming archives the agents, and
 // anything else leaves them where they are. Both outcomes return to the agents view.
 func (m model) updateAgentArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
-	form, cmd := m.form.Update(msg)
-	if updated, ok := form.(*huh.Form); ok {
-		m.form = updated
-	}
+	return m.updateConfirmForm(msg, confirmFormActions{
+		write: func(m model) tea.Cmd {
+			_, write := m.archiveAgents(m.target.archiveAgents)
 
-	switch m.form.State {
-	case huh.StateCompleted:
-		var write tea.Cmd
-		if target := m.target.archiveAgents; len(target) > 0 && m.wasConfirmed() {
-			_, write = m.archiveAgents(target)
-		}
-		m.target.archiveAgents = nil
-		m.values.confirmed = nil
-		returned, refresh := m.returnToAgents()
+			return write
+		},
+		clear: func(m model) model {
+			m.target.archiveAgents = nil
+			m.values.confirmed = nil
 
-		return returned, tea.Batch(write, refresh)
-	case huh.StateAborted:
-		m.target.archiveAgents = nil
-		m.values.confirmed = nil
-		return m.returnToAgents()
-	default:
-		return m, cmd
-	}
+			return m
+		},
+		returnTo: func(m model) (tea.Model, tea.Cmd) {
+			return m.returnToAgents()
+		},
+	})
 }
 
 // A staged pane must be released before the service kills it.
@@ -548,19 +540,7 @@ func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cm
 }
 
 func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
-	form, cmd := m.form.Update(msg)
-	if updated, ok := form.(*huh.Form); ok {
-		m.form = updated
-	}
-
-	switch m.form.State {
-	case huh.StateCompleted:
-		return m.submitRename()
-	case huh.StateAborted:
-		return m.closeForm()
-	default:
-		return m, cmd
-	}
+	return m.updateSubmitForm(msg, model.submitRename)
 }
 
 func (m model) submitRename() (tea.Model, tea.Cmd) {
@@ -609,21 +589,5 @@ func actionOverride(selected string) *string {
 }
 
 func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), m.keys.Form.Submit) {
-		return m.submitAgent()
-	}
-
-	form, cmd := m.form.Update(msg)
-	if updated, ok := form.(*huh.Form); ok {
-		m.form = updated
-	}
-
-	switch m.form.State {
-	case huh.StateCompleted:
-		return m.submitAgent()
-	case huh.StateAborted:
-		return m.closeForm()
-	default:
-		return m, cmd
-	}
+	return m.updateSubmitForm(msg, model.submitAgent)
 }

@@ -9,7 +9,6 @@ import (
 	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -207,23 +206,7 @@ func (m model) archiveScheduleConfirm() (tea.Model, tea.Cmd) {
 // updateScheduleForm drives the create and edit form, submitting on the configured key or
 // on completion and aborting back to the list.
 func (m model) updateScheduleForm(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), m.keys.Form.Submit) {
-		return m.submitScheduleForm()
-	}
-
-	form, cmd := m.form.Update(msg)
-	if updated, ok := form.(*huh.Form); ok {
-		m.form = updated
-	}
-
-	switch m.form.State {
-	case huh.StateCompleted:
-		return m.submitScheduleForm()
-	case huh.StateAborted:
-		return m.closeForm()
-	default:
-		return m, cmd
-	}
+	return m.updateSubmitForm(msg, model.submitScheduleForm)
 }
 
 // submitScheduleForm applies the form, editing the target schedule or creating one. A
@@ -253,33 +236,28 @@ func (m model) submitScheduleForm() (tea.Model, tea.Cmd) {
 // updateScheduleArchive drives the archive prompt. Confirming puts the schedule
 // away, and both outcomes return to the list.
 func (m model) updateScheduleArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
-	form, cmd := m.form.Update(msg)
-	if updated, ok := form.(*huh.Form); ok {
-		m.form = updated
-	}
+	return m.updateConfirmForm(msg, confirmFormActions{
+		write: func(m model) tea.Cmd {
+			target := m.target.archiveSchedule
+			if target == nil {
+				return nil
+			}
 
-	switch m.form.State {
-	case huh.StateCompleted:
-		var write tea.Cmd
-		if target := m.target.archiveSchedule; target != nil && m.wasConfirmed() {
-			write = m.writeCmd(
+			return m.writeCmd(
 				fmt.Sprintf("Could not archive schedule %q", target.Name),
 				func(a api) error { return a.archiveSchedule(target.ID) },
 			)
-		}
-		m.target.archiveSchedule = nil
-		m.values.confirmed = nil
-		entered, refresh := m.enterSchedules()
+		},
+		clear: func(m model) model {
+			m.target.archiveSchedule = nil
+			m.values.confirmed = nil
 
-		return entered, tea.Batch(write, refresh)
-	case huh.StateAborted:
-		m.target.archiveSchedule = nil
-		m.values.confirmed = nil
-
-		return m.enterSchedules()
-	default:
-		return m, cmd
-	}
+			return m
+		},
+		returnTo: func(m model) (tea.Model, tea.Cmd) {
+			return m.enterSchedules()
+		},
+	})
 }
 
 // schedulesView renders the list, each row a schedule with its cron expression and when it
