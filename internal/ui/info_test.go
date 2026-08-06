@@ -10,85 +10,67 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestInfoKey covers the info toggle. The record opens under the stage rather than in it,
-// so the agent's own pane stays up beside it and nothing is swapped out to make room.
-func TestInfoKey(t *testing.T) {
-	tests := []struct {
-		name     string
-		cursor   int
-		presses  int
-		thenMove bool
-		wantOpen bool
-		// wantRecords is how many times a record has been paged into the pane below, and
-		// wantStaged whether the agent's own pane is still the one in the stage above it.
-		wantRecords int
-		wantStaged  bool
-		wantKilled  bool
-	}{
-		{
-			name:    "on a workflow header there is no record to show",
-			cursor:  0,
-			presses: 1,
-		},
-		{
-			name:        "one press puts the record under the stage",
-			cursor:      1,
-			presses:     1,
-			wantOpen:    true,
-			wantRecords: 1,
-			wantStaged:  true,
-		},
-		{
-			name:        "a second press takes the pane away",
-			cursor:      1,
-			presses:     2,
-			wantRecords: 1,
-			wantStaged:  true,
-			wantKilled:  true,
-		},
-		{
-			// The record is about whichever row is hovered, so moving to the header
-			// leaves the pane open with nothing new to draw in it.
-			name:        "the record follows the cursor rather than closing with it",
-			cursor:      1,
-			presses:     1,
-			thenMove:    true,
-			wantOpen:    true,
-			wantRecords: 1,
-		},
-	}
+// TestInfoDefault covers the info pane's automatic open and close. It opens on an agent row
+// unless it has been dismissed, stays closed on a workflow header, which has no record of
+// its own, and is dismissed for good once the pane itself is killed rather than reopened the
+// next time an agent is hovered.
+func TestInfoDefault(t *testing.T) {
+	t.Run("an agent row opens the record below by default", func(t *testing.T) {
+		tmux := &recordingTmux{}
+		m := infoModel(tmux)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmux := &recordingTmux{}
-			m := infoModel(tmux)
-			m.tree.cursor = tt.cursor
+		m.stageSelection()
 
-			for range tt.presses {
-				m = pressKey(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("i")})
-			}
-			if tt.thenMove {
-				m = pressKey(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
-			}
+		assert.Equal(t, belowRecord, m.tree.below)
+		assert.Equal(t, m.stage.agentPane, "%9", "the record never displaces the agent")
+		require.Len(t, tmux.respawns, 1)
+		assert.Contains(t, tmux.respawns[0], "less")
+		assert.Equal(t, "%2", tmux.respawnPanes[0], "the record is paged into the pane below")
+	})
 
-			assert.Equal(t, tt.wantOpen, m.tree.below == belowRecord)
-			assert.Equal(t, tt.wantStaged, m.stage.agentPane == "%9", "the record never displaces the agent")
-			assert.Equal(t, tt.wantKilled, len(tmux.killed) > 0, "closing takes the pane with it")
+	t.Run("a workflow header has no record of its own to show", func(t *testing.T) {
+		tmux := &recordingTmux{}
+		m := infoModel(tmux)
+		m.tree.cursor = 0
 
-			records := 0
-			for i, respawn := range tmux.respawns {
-				if strings.Contains(respawn, "less") && tmux.respawnPanes[i] == "%2" {
-					records++
-				}
-			}
-			assert.Equal(t, tt.wantRecords, records, "the record is paged into the pane below")
-		})
-	}
+		m.stageSelection()
+
+		assert.Equal(t, belowNothing, m.tree.below)
+		assert.NotContains(t, tmux.respawnPanes, "%2", "nothing is paged into the pane below")
+	})
+
+	t.Run("moving from an agent to a header closes what was open", func(t *testing.T) {
+		tmux := &recordingTmux{}
+		m := infoModel(tmux)
+		m.stageSelection()
+		require.Equal(t, belowRecord, m.tree.below)
+
+		m.tree.cursor = 0
+		m.stageSelection()
+
+		assert.Equal(t, belowNothing, m.tree.below)
+		assert.Contains(t, tmux.killed, "%2", "the pane goes with it")
+	})
+
+	t.Run("killing the pane dismisses it for the rest of the session", func(t *testing.T) {
+		tmux := &recordingTmux{}
+		m := infoModel(tmux)
+		m.stageSelection()
+		require.Equal(t, belowRecord, m.tree.below)
+
+		tmux.deadPanes = map[string]bool{"%2": true}
+		m.reconcileBelow()
+
+		assert.Equal(t, belowNothing, m.tree.below)
+		assert.True(t, m.tree.infoClosed)
+
+		m.stageSelection()
+		assert.Equal(t, belowNothing, m.tree.below, "an agent row does not reopen it")
+	})
 }
 
 // TestAgentMarkdown covers the record the stage shows for an agent. A dormant one
@@ -353,15 +335,4 @@ func infoModel(tmux *recordingTmux) model {
 			rowCursor: rowCursor{cursor: 1},
 		},
 	}
-}
-
-// pressKey feeds one key to the agents screen and returns the model it produced.
-func pressKey(t *testing.T, m model, key tea.KeyMsg) model {
-	t.Helper()
-
-	next, _ := m.updateAgents(key)
-	updated, ok := next.(model)
-	require.True(t, ok, "want a panel model back, got %T", next)
-
-	return updated
 }

@@ -73,6 +73,7 @@ type previewResult struct {
 // stage until the first result is hovered.
 func (m model) enterSearch() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenSearch)
+	m.closeInfo()
 	m.search.query = ""
 	m.search.hits = nil
 	m.search.cursor = 0

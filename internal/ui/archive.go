@@ -28,6 +28,7 @@ type archiveState struct {
 // something to act on alongside live work.
 func (m model) enterArchive() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenArchive)
+	m.closeInfo()
 	m.stageArchive()
 
 	return m, m.refreshCmd()

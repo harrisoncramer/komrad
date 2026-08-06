@@ -33,6 +33,7 @@ type scheduleItem struct {
 // schedule is a record of future work with nothing running to stage beside it.
 func (m model) enterSchedules() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenSchedules)
+	m.closeInfo()
 	m.schedules.cursor = clampCursor(m.schedules.cursor, len(m.scheduleRows()))
 	m.stageSchedule()
 

@@ -39,28 +39,33 @@ func pressLogs(t *testing.T, m model) model {
 
 // TestLogsOpenBelowTheStagedAgent covers the log key. The cursor is on a live agent, whose
 // own pane is swapped into the stage, and the log opens under it rather than over it, so
-// the agent stays on screen while the log is read.
+// the agent stays on screen while the log is read. That pane is already open on the agent's
+// own record, the info pane's default, so the log key replaces it rather than being the
+// pane's first occupant.
 func TestLogsOpenBelowTheStagedAgent(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, path := logsModel(t, tmux)
 
 	m.stageSelection()
 	require.Equal(t, 1, tmux.swaps, "the live agent is staged to begin with")
+	require.Len(t, tmux.respawns, 1, "the info pane opens on the agent's record by default")
 
 	shown := pressLogs(t, m)
 
 	assert.Equal(t, belowLogs, shown.tree.below)
 	assert.Nil(t, shown.banner)
 	assert.Equal(t, 1, tmux.swaps, "the agent's pane is left where it is")
-	require.Len(t, tmux.respawns, 1)
-	assert.Equal(t, "%2", tmux.respawnPanes[0], "the log is paged into the pane below")
-	assert.Contains(t, tmux.respawns[0], "export WEAVE_LOG='"+path+"'")
-	assert.Contains(t, tmux.respawns[0], config.DefaultLogViewer)
+	require.Len(t, tmux.respawns, 2)
+	last := len(tmux.respawns) - 1
+	assert.Equal(t, "%2", tmux.respawnPanes[last], "the log is paged into the pane below")
+	assert.Contains(t, tmux.respawns[last], "export WEAVE_LOG='"+path+"'")
+	assert.Contains(t, tmux.respawns[last], config.DefaultLogViewer)
 	assert.Empty(t, tmux.zooms, "the stage keeps its share of the width")
 }
 
 // TestLogsToggleClosesThePane covers the second press. The key is the way out as well as
-// the way in, and the way out is the pane going away.
+// the way in, and on an agent row the way out finds the info pane's own record waiting under
+// the log, its default state, rather than leaving the pane closed.
 func TestLogsToggleClosesThePane(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
@@ -69,8 +74,8 @@ func TestLogsToggleClosesThePane(t *testing.T) {
 
 	hidden := pressLogs(t, pressLogs(t, m))
 
-	assert.Equal(t, belowNothing, hidden.tree.below)
-	assert.Contains(t, tmux.killed, "%2", "the pane goes with it")
+	assert.Equal(t, belowRecord, hidden.tree.below)
+	assert.Contains(t, tmux.killed, "%2", "the log's own pane goes with it")
 }
 
 // TestLogsSurviveACursorMove covers moving off the row the log was opened from. The log is

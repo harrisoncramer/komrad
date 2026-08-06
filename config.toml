@@ -70,8 +70,6 @@ archive     = ["z"]
 back        = ["esc"]
 # Hide the hovered agent from this list.
 hide        = ["h"]
-# Show the hovered agent's stored record in the pane under the stage.
-info        = ["i"]
 # Move the hovered agent to the next mark in the marks list, and past the last
 # one back to unmarked. Nothing but you ever sets a mark.
 mark        = ["m"]

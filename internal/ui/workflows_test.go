@@ -308,11 +308,10 @@ func TestApplyWorkflows(t *testing.T) {
 	}
 }
 
-// TestRefreshRestagesWorkflowContext covers the reason the refresh carries
-// workflows at all. A context edited through the MCP tools or another panel only
-// reaches this one through the listing, and the stage has to redraw for it to be
-// seen. Restaging identical text would respawn the pane every tick, so that is
-// checked not to happen.
+// TestRefreshRestagesWorkflowContext covers the reason the refresh carries workflows at
+// all. A context edited through the MCP tools or another panel only reaches this one through
+// the listing, and the stage has to redraw for it to be seen. Restaging identical text would
+// respawn the pane every tick, so that is checked not to happen.
 func TestRefreshRestagesWorkflowContext(t *testing.T) {
 	tmux := &recordingTmux{}
 	stage := NewStage(tmux, config.DefaultLayout())

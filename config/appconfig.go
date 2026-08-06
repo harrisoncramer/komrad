@@ -183,8 +183,7 @@ type FormKeys struct {
 	Submit []string `mapstructure:"submit"`
 }
 
-// AgentsKeys are the bindings for the agents list. Info toggles the hovered agent's
-// stored record into the stage in place of the agent itself.
+// AgentsKeys are the bindings for the agents list.
 type AgentsKeys struct {
 	// Archive the hovered agent, which stops it and moves it to the archive screen rather than destroying it.
 	Archive []string `mapstructure:"archive"`
@@ -192,8 +191,6 @@ type AgentsKeys struct {
 	Back []string `mapstructure:"back"`
 	// Hide the hovered agent from this list.
 	Hide []string `mapstructure:"hide"`
-	// Show the hovered agent's stored record in the pane under the stage.
-	Info []string `mapstructure:"info"`
 	// Move the hovered agent to the next mark in the marks list, and past the last
 	// one back to unmarked. Nothing but you ever sets a mark.
 	Mark []string `mapstructure:"mark"`
@@ -551,7 +548,6 @@ func DefaultKeybindings() Keybindings {
 			Archive:    []string{"z"},
 			Back:       []string{"esc"},
 			Hide:       []string{"h"},
-			Info:       []string{"i"},
 			Mark:       []string{"m"},
 			New:        []string{"n"},
 			Open:       []string{"enter"},

@@ -277,15 +277,9 @@ func (m model) rowHelp() []key.Binding {
 		}
 	}
 
-	infoDesc := "info"
-	if m.tree.below == belowRecord {
-		infoDesc = "hide info"
-	}
-
 	return []key.Binding{
 		binding(m.keys.Agents.Open, "open"),
 		binding(m.keys.Selection.Toggle, "select"),
-		binding(m.keys.Agents.Info, infoDesc),
 		binding(m.keys.Actions.Open, "actions"),
 		binding(m.keys.Agents.Mark, "cycle mark"),
 		m.hideBinding(),

@@ -155,9 +155,11 @@ func TestFirstListingLandsOnTheFirstAgent(t *testing.T) {
 // the listing that includes it arrives.
 func TestCreatedAgentReceivesFocus(t *testing.T) {
 	agents := &formRecorder{}
+	tmux := &recordingTmux{}
 	m := model{
 		api:    api{agents: agents, actions: agents},
-		stage:  NewStage(&recordingTmux{}, config.DefaultLayout()),
+		tmux:   tmux,
+		stage:  NewStage(tmux, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		tree: treeState{

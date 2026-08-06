@@ -93,8 +93,11 @@ func flashRevertTick() tea.Cmd {
 	return tea.Tick(flashDuration, func(time.Time) tea.Msg { return flashRevertMsg{} })
 }
 
-// applyFlashRevert redraws the current screen's record plainly.
-func (m *model) applyFlashRevert() {
+// restageScreen redraws whatever the current screen shows for the row or item under its own
+// cursor, the same content a screen already draws on every refresh. It is also how the flash
+// reverts to plain, and how the pane under the stage reappearing after a log or an edit
+// closes finds its way back to whatever the current screen would normally have there.
+func (m *model) restageScreen() {
 	switch m.screen {
 	case screenAgents:
 		m.stageSelection()
@@ -102,8 +105,5 @@ func (m *model) applyFlashRevert() {
 		m.stageSchedule()
 	case screenArchive:
 		m.stageArchive()
-	default:
-		// Not a relevant screen
-		return
 	}
 }

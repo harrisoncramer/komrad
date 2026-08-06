@@ -29,6 +29,11 @@ type treeState struct {
 	// file is open in the editor down there.
 	below       belowKind
 	belowAction string
+
+	// infoClosed says the hovered agent's record has been dismissed by killing the pane it
+	// was in, so it is not reopened on the next agent hovered. It is the panel's own state
+	// rather than anything stored, the same as showHidden, so it starts open every session.
+	infoClosed bool
 }
 
 // belowKind is what the panel has put in the pane under the stage. Only one thing is down

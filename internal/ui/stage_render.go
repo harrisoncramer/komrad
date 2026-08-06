@@ -122,11 +122,9 @@ func flashLine(line string) string {
 	return strings.Join(spans, "")
 }
 
-// flashValue highlights only a record field line's value, the "label: " ahead of
-// it (renderRecord's own separator) left in its usual dimmed-marker, plain-label
-// styling. It is the value alone a digit key copies, so it is the only part of the
-// line that flashes. Glamour pads a line's value out to the wrap width with plain
-// trailing spaces, which is left alone rather than swept into the flash.
+// flashValue highlights only a record field line's value, the part a digit key actually
+// copies, leaving its leading marker and label in their usual styling. Glamour's own
+// trailing padding past the value is left alone too, rather than swept into the flash.
 func flashValue(line string) string {
 	sep := strings.Index(line, ": ")
 	if sep < 0 {
