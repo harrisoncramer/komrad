@@ -1,5 +1,7 @@
 package ui
 
+import "fmt"
+
 // popupTmux is what the popup needs from tmux, the global options it uses as flags
 // plus the ability to bind a key and detach a client. The client behind it spans two
 // tmux servers. Options are the user's, since the plugin's key binding reads them
@@ -111,6 +113,57 @@ func (p *PopupWindow) BindPalette(params BindPaletteParams) {
 	}
 
 	p.tmux.BindKey(key, command...)
+}
+
+// panelKeyTmux is what binding the panel key on the user's own server needs. Both calls go to
+// the one server the caller chose, unlike the binds above, which span two, and both report a
+// failure, since somebody ran the command that got here and is reading what it says.
+type panelKeyTmux interface {
+	ShowGlobal(name string) string
+	SetGlobalChecked(name, value string) error
+	BindKeyChecked(key string, command ...string) error
+}
+
+// BindPanelKey binds the panel key on the user's own tmux server, where it is pressed.
+//
+// The manager lives in a persistent tmux session shown through a popup. Pressing the key while
+// the popup is up hides it by detaching that session's client, which leaves the panel running
+// so reopening restores the exact view. Pressing it while hidden opens the popup, attaching to
+// the persistent session. The open command owns the flag the binding branches on: it sets it
+// while the popup is up and clears it when the popup closes.
+//
+// That session lives on a tmux server of its own, so it stays out of this server's session
+// list and cannot be attached to outside the popup. Hiding therefore goes through the binary,
+// which knows that server's socket. Open finds this server for itself, out of the TMUX
+// variable tmux sets in the popup, because nothing can be handed over in the binding: tmux
+// does not expand a #{format} in a popup command, and the shell running the command reads the
+// unexpanded text as a comment.
+//
+// -EE, rather than -E, closes the popup only when the command succeeds. Detaching to hide the
+// panel is a success, so that still closes it, but a startup failure leaves the popup up with
+// its error on screen instead of destroying the popup in the same instant the message is
+// written. Dismiss a held-open popup with Escape or C-c.
+func BindPanelKey(t panelKeyTmux, self string) error {
+	key := t.ShowGlobal(managerKeyOption)
+	if key == "" {
+		key = defaultPanelKey
+	}
+
+	// Only when the flag has never been set, which is what an empty value means. This command
+	// is run by hand, including while the panel is up, and writing 0 over a popup that is open
+	// would make the next press stack a second one on it rather than hiding it.
+	if t.ShowGlobal(managerOpenFlag) == "" {
+		if err := t.SetGlobalChecked(managerOpenFlag, "0"); err != nil {
+			return err
+		}
+	}
+
+	// Each branch is one argument, since tmux parses an if-shell branch as a command of its
+	// own rather than reading the rest of this line as arguments.
+	hide := fmt.Sprintf("run-shell -b '%s hide'", self)
+	open := fmt.Sprintf("display-popup -w 100%% -h 100%% -x C -y C -T ' weave ' -EE '%s open'", self)
+
+	return t.BindKeyChecked(key, "if-shell", "-F", fmt.Sprintf("#{==:#{%s},1}", managerOpenFlag), hide, open)
 }
 
 // MarkOpen records that the popup is shown.

@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+#MISE description="Cross-compile the release binaries into dist/ with their checksums."
+set -euo pipefail
+
+usage() {
+	echo "Usage: mise run go:release"
+	echo
+	echo "Builds one static binary per supported platform into dist/, stamped with the"
+	echo "version the release workflow publishes, plus a checksums.txt covering them."
+	echo
+	echo "The stamp is 'v0.0.0-main.<shortsha>' unless WEAVE_VERSION names another one."
+	echo "It has to differ between builds: the panel reuses a running server only when"
+	echo "its version matches this binary's exactly, so two builds reporting the same"
+	echo "string would leave a stale server in place after an upgrade."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+VERSION="${WEAVE_VERSION:-v0.0.0-main.$(git rev-parse --short HEAD)}"
+
+# The four targets cross-compile from any host with CGO off, macOS included: the Go linker
+# ad-hoc signs a darwin/arm64 binary itself, which is what Apple Silicon refuses to run
+# without, so no macOS builder is involved.
+TARGETS=(
+	darwin/arm64
+	darwin/amd64
+	linux/amd64
+	linux/arm64
+)
+
+rm -rf dist
+mkdir dist
+
+for TARGET in "${TARGETS[@]}"; do
+	os="${TARGET%/*}"
+	arch="${TARGET#*/}"
+	out="dist/weave-$os-$arch"
+
+	gum log --level info "building $out at $VERSION"
+
+	CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build \
+		-trimpath \
+		-ldflags "-s -w -X weave/internal/version.stamped=$VERSION" \
+		-o "$out" .
+done
+
+# Named relative to dist, so a checksum file is verified from the directory holding the
+# binaries rather than only from the root of a checkout.
+cd dist
+if command -v sha256sum >/dev/null 2>&1; then
+	sha256sum weave-* >checksums.txt
+else
+	shasum -a 256 weave-* >checksums.txt
+fi
+
+gum log --level info "wrote dist/checksums.txt"

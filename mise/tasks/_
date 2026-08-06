@@ -23,7 +23,7 @@ adminURL() {
 
 # shell_scripts lists every shell script the repo owns, one per line. The scripts
 # have no extension, so they are found by what `file` says they are rather than by
-# name, and the tmux entry point is named explicitly because it lives at the root.
+# name.
 #
 # A missing directory is fatal rather than a warning on stderr. find keeps going and
 # reports through an exit status the pipeline below discards, so a root that gets
@@ -31,7 +31,6 @@ adminURL() {
 # claim to.
 shell_scripts() {
 	local roots=(mise/tasks internal/actions/builtin)
-	local entrypoint=weave.tmux
 
 	for root in "${roots[@]}"; do
 		if [ ! -d "$root" ]; then
@@ -41,12 +40,5 @@ shell_scripts() {
 		fi
 	done
 
-	if [ ! -f "$entrypoint" ]; then
-		echo "shell_scripts: no file at $entrypoint" >&2
-
-		return 1
-	fi
-
 	find "${roots[@]}" -type f -exec file {} + | grep -i 'shell script' | cut -d: -f1
-	echo "$entrypoint"
 }

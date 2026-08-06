@@ -37,6 +37,10 @@ type Client struct {
 	server []string
 }
 
+// DefaultSocket is the socket tmux uses when nothing names one, so it is the server a
+// command run from a shell outside tmux means.
+const DefaultSocket = "default"
+
 // NewClient returns a Client bound to a tmux server by socket name, which is how the manager's own server is reached.
 func NewClient(socket string) *Client {
 	return &Client{server: []string{"-L", socket}} // The -L passes commands to a specific socket
@@ -278,9 +282,42 @@ func (c *Client) BindKey(key string, command ...string) {
 	c.run(append([]string{"bind-key", key}, command...)...)
 }
 
+// BindKeyChecked binds a key like BindKey and says why tmux refused. The panel binds keys on
+// its way past, where nothing can be done about a failure, while a person who typed a command
+// to bind one is reading its output and has to be told when the server it named is not there.
+func (c *Client) BindKeyChecked(key string, command ...string) error {
+	if _, err := c.query(append([]string{"bind-key", key}, command...)...); err != nil {
+		return fmt.Errorf("failed to bind %q: %w", key, err)
+	}
+
+	return nil
+}
+
 // SetGlobal sets a global tmux option.
 func (c *Client) SetGlobal(name, value string) {
 	c.run("set-option", "-g", name, value)
+}
+
+// SetGlobalChecked sets a global tmux option and says why tmux refused, for the same reason
+// BindKeyChecked does.
+func (c *Client) SetGlobalChecked(name, value string) error {
+	if _, err := c.query("set-option", "-g", name, value); err != nil {
+		return fmt.Errorf("failed to set %s: %w", name, err)
+	}
+
+	return nil
+}
+
+// SocketPath is the path of the socket this client's server listens on, and an error when no
+// server is listening there. It is how a socket path read out of TMUX is told apart from the
+// server weave runs the panel on, which is otherwise the same server under two spellings.
+func (c *Client) SocketPath() (string, error) {
+	path, err := c.query("display-message", "-p", "#{socket_path}")
+	if err != nil {
+		return "", err
+	}
+
+	return path, nil
 }
 
 // ShowGlobal returns a global tmux option's value, empty if it is unset.

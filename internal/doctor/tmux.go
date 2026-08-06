@@ -39,7 +39,7 @@ var (
 )
 
 // minTmux is the oldest tmux the panel's key binding works on. display-popup arrived in
-// 3.2, but weave.tmux passes it -T for the popup title, which arrived in 3.3.
+// 3.2, but the binding passes it -T for the popup title, which arrived in 3.3.
 var minTmux = tmuxVersion{major: 3, minor: 3}
 
 // TmuxBinary asserts tmux is installed. The popup, the agent panes, and the manager server

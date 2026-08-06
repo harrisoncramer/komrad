@@ -24,6 +24,7 @@ the machine, start or stop the service, or call an endpoint from a script.
 
 ### SEE ALSO
 
+* [weave attach](weave_attach.md)	 - Attach the running panel in this terminal
 * [weave doctor](weave_doctor.md)	 - Check that this machine has everything weave needs
 * [weave hide](weave_hide.md)	 - Hide the panel popup without stopping anything
 * [weave hook](weave_hook.md)	 - Run one of the agent CLI hooks weave installs
@@ -36,5 +37,6 @@ the machine, start or stop the service, or call an endpoint from a script.
 * [weave serve](weave_serve.md)	 - Run the weave service in the foreground
 * [weave start](weave_start.md)	 - Start the service in the background if it is not already running
 * [weave stop](weave_stop.md)	 - Ask the running service to stop, and wait until it is gone
+* [weave tmux](weave_tmux.md)	 - Bind the panel key on your tmux server
 * [weave version](weave_version.md)	 - Print which build this binary is, and which one is serving
 

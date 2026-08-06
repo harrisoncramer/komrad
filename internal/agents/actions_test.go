@@ -905,7 +905,7 @@ func actionService(t *testing.T, dir string, runner actionRunner) *ActionService
 			hostSocket: "/tmp/host-socket",
 			shell:      "/bin/zsh",
 			globals: map[string]string{
-				tmux.InfoPaneOption:  "%3",
+				tmux.InfoPaneOption:       "%3",
 				tmux.InvokingClientOption: "/dev/ttys004",
 			},
 		},
