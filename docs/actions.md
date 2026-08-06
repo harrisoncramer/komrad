@@ -2,7 +2,6 @@
 
 An action is a script or a binary meant to be executed by an agent, you, or automatically on lifecycle events.
 
-
 Use actions, for instance, to configure or clean up worktrees, or to open a finished agent's pull request in your browser.
 
 ## Where they live
