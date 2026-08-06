@@ -100,6 +100,15 @@ quit    = ["ctrl+c"]
 # Put the agent under the cursor back in the panel.
 restore = ["r"]
 
+# The key that re-reads this file, shared by every screen since the config is about
+# the panel rather than about anything a screen lists.
+[keybindings.config]
+# Re-read the config file and apply what the panel can change while it runs: its
+# keybindings, its marks, its layout, and its log viewer. It lands back on the agents
+# list. The database, the address, and the tmux socket are what this process is, so a
+# change to those is reported rather than applied.
+reload = ["ctrl+r"]
+
 # The filter over whichever list is on screen, shared by every screen that
 # draws one.
 [keybindings.filter]

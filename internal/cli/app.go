@@ -33,6 +33,9 @@ type app struct {
 	logLevel string
 	// layout is how the panel divides the popup between its list and the stage.
 	layout config.Layout
+	// connection is the instance this process was started against, carried into the panel so
+	// a reload can tell that the file now names another one.
+	connection config.Connection
 	// configErr is set when the user's config file would not parse. The panel shows it on
 	// its error screen and serve writes it to the log, since serve carries on with the
 	// defaults and is otherwise indistinguishable from one running on the user's file.

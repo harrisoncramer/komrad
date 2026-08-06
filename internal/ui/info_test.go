@@ -233,6 +233,9 @@ type recordingTmux struct {
 	// deadPanes are the panes IsPaneAlive answers no for, which is how a test stands a pane
 	// up and then takes it away.
 	deadPanes map[string]bool
+	// resizes are the shares the stage has been sized to, which is how a re-read layout is
+	// seen to have reached tmux.
+	resizes []int
 }
 
 func (t *recordingTmux) ShowGlobal(string) string                { return "" }
@@ -284,7 +287,9 @@ func (t *recordingTmux) OpenWindow(_, _, dir string, argv ...string) error {
 	return nil
 }
 
-func (t *recordingTmux) ResizePane(string, int) {}
+func (t *recordingTmux) ResizePane(_ string, percent int) {
+	t.resizes = append(t.resizes, percent)
+}
 
 func (t *recordingTmux) RespawnPane(pane, _ string, argv ...string) {
 	t.respawns = append(t.respawns, strings.Join(argv, " "))

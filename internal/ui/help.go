@@ -148,7 +148,11 @@ func (m model) helpBinding() key.Binding {
 // globalHelp are the bindings every screen answers, which end each expanded legend rather
 // than being listed among the keys the screen binds itself.
 func (m model) globalHelp() []key.Binding {
-	return []key.Binding{binding(m.keys.Logs.Open, m.logsDesc()), m.helpBinding()}
+	return []key.Binding{
+		binding(m.keys.Logs.Open, m.logsDesc()),
+		binding(m.keys.Config.Reload, "reload config"),
+		m.helpBinding(),
+	}
 }
 
 // agentHelp lists the agents screen's bindings.

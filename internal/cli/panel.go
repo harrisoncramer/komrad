@@ -78,6 +78,8 @@ func panelCmd(state *app) *cobra.Command {
 				Actions:         actionClient,
 				Marks:           state.marks,
 				Layout:          state.layout,
+				ConfigPaths:     state.configPaths,
+				Connection:      state.connection,
 				Addr:            state.env.Addr,
 				LogPath:         logPath,
 				LogViewer:       state.logViewer,
