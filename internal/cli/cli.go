@@ -138,6 +138,7 @@ func NewRootCommand() *cobra.Command {
 		panelCmd(app),
 		openCmd(app),
 		hideCmd(app),
+		tmuxCmd(app),
 		serveCmd(app),
 		startCmd(app),
 		stopCmd(app),

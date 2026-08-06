@@ -1,0 +1,83 @@
+name: main-release
+
+# The tip of main, published as one rolling prerelease whose tag never moves off the name
+# `tip`, so the download URL is fixed forever and installing is a single curl. It is
+# deliberately not a release: no version promise, no changelog, and every merge replaces it.
+#
+# The tag is `tip` rather than `main` because a tag sharing a branch's name is ambiguous to
+# git. It is reachable from the branch, so it is fetched by default, and every rev-parse,
+# checkout, and log naming it then warns, for every contributor, forever.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+# Two merges landing close together would otherwise publish against the same tag and the same
+# asset names, and could interleave into a tag at one commit with binaries from another. The
+# newer merge wins instead, since the older build's output was going to be overwritten anyway.
+concurrency:
+  group: main-release
+  cancel-in-progress: true
+
+jobs:
+  # The same checks a pull request runs, called rather than copied, since they need a
+  # Postgres service, a tmux, and the custom linter cache. It does mean they run twice on a
+  # merge, once for the push and once for this call, which is the price of not publishing a
+  # binary nothing gated.
+  check:
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jdx/mise-action@v2
+        with:
+          install: true
+          cache: true
+
+      # All four targets, macOS included, build here with CGO off. The Go linker ad-hoc
+      # signs the darwin/arm64 binary, which is what Apple Silicon refuses to run without,
+      # so no macOS runner is involved.
+      - name: Build
+        run: mise run go:release
+
+      # The tag is force-moved to this commit by full ref, so a tag and a branch of the same
+      # name can never be confused for one another on the push side either.
+      #
+      # Assets are replaced in place rather than added, so storage stays constant and the
+      # per-file URLs keep working. The release is edited instead of recreated so that
+      # deleting it is a decision somebody makes rather than something a merge does.
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTES: |
+            The tip of main, rebuilt on every merge, currently ${{ github.sha }}.
+
+            This is not a release. It makes no version promise, it changes without notice,
+            and it is whatever the last commit to merge left behind.
+
+            ```sh
+            curl -fsSL -o ~/.local/bin/weave \
+              https://github.com/${{ github.repository }}/releases/download/tip/weave-darwin-arm64
+            chmod +x ~/.local/bin/weave
+            ```
+
+            checksums.txt is same-origin. It catches a corrupted download, not a
+            compromised release.
+        run: |
+          git tag -f tip
+          git push -f origin refs/tags/tip
+
+          if gh release view tip >/dev/null 2>&1; then
+            gh release edit tip --prerelease --notes "$NOTES"
+          else
+            gh release create tip --prerelease --title main --notes "$NOTES"
+          fi
+
+          gh release upload tip dist/* --clobber
