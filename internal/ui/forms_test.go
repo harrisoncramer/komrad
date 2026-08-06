@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"weave/config"
@@ -23,6 +24,7 @@ import (
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -240,8 +242,8 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			open: func(m model) model {
 				m.target.archiveAgents = []agentstore.Agent{{ID: "a1", Name: "api-refactor"}}
 				m.screen = screenAgentArchive
-				m.form, m.values.confirmed = archiveAgentsForm(m.target.archiveAgents, m.keys.Form)
-				*m.values.confirmed = true
+				m.form, m.values.archive = archiveAgentsForm(m.target.archiveAgents, m.keys.Form)
+				*m.values.archive = archiveChoiceArchive
 				m.form.State = huh.StateCompleted
 
 				return m
@@ -250,6 +252,26 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			check: func(t *testing.T, sent *formRecorder) {
 				require.NotNil(t, sent.archivedAgents)
 				assert.Equal(t, []string{"a1"}, sent.archivedAgents.GetIds())
+				assert.Nil(t, sent.deletedAgents, "archiving alone keeps the record")
+			},
+		},
+		{
+			name: "the agent archive prompt answered archive and delete",
+			open: func(m model) model {
+				m.target.archiveAgents = []agentstore.Agent{{ID: "a1", Name: "api-refactor"}}
+				m.screen = screenAgentArchive
+				m.form, m.values.archive = archiveAgentsForm(m.target.archiveAgents, m.keys.Form)
+				*m.values.archive = archiveChoiceArchiveDelete
+				m.form.State = huh.StateCompleted
+
+				return m
+			},
+			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateAgentArchive(keyMsg("enter")) },
+			check: func(t *testing.T, sent *formRecorder) {
+				require.NotNil(t, sent.archivedAgents)
+				assert.Equal(t, []string{"a1"}, sent.archivedAgents.GetIds())
+				require.NotNil(t, sent.deletedAgents, "the delete follows the archive")
+				assert.Equal(t, []string{"a1"}, sent.deletedAgents.GetIds())
 			},
 		},
 		{
@@ -492,6 +514,95 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 	}
 }
 
+// TestArchivePromptChoices covers the three ways the archive prompt can be answered, driven
+// by the keys that answer it. It opens on archiving, which is reversible, so a submit alone
+// never destroys anything and the choice that does is a move away.
+func TestArchivePromptChoices(t *testing.T) {
+	tests := []struct {
+		name string
+		// down is how many rows the cursor is moved before the submit.
+		down         int
+		wantArchived []string
+		wantDeleted  []string
+	}{
+		{
+			name:         "submitting without moving archives and keeps the record",
+			wantArchived: []string{"a1"},
+		},
+		{
+			name:         "one row down archives and then destroys",
+			down:         1,
+			wantArchived: []string{"a1"},
+			wantDeleted:  []string{"a1"},
+		},
+		{
+			name: "the last row leaves them where they are",
+			down: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sent := &formRecorder{}
+
+			opened, cmd := formModel(sent).archiveAgentsConfirm([]agentstore.Agent{{ID: "a1", Name: "api-refactor"}})
+			m := delivered(t, asModel(t, opened), cmd)
+
+			for range tt.down {
+				m = deliver(t, m, keyMsg("down"))
+			}
+
+			got := deliver(t, m, keyMsg("ctrl+s"))
+
+			require.Nil(t, got.banner)
+			assert.Equal(t, screenAgents, got.screen, "every answer lands back on the list")
+			assert.Equal(t, tt.wantArchived, sent.archivedAgents.GetIds())
+			assert.Equal(t, tt.wantDeleted, sent.deletedAgents.GetIds())
+		})
+	}
+}
+
+// TestArchivePromptOpensOnArchive covers the prompt as it is first drawn. huh scrolls its
+// list to whatever value is bound, so a prompt that opened anywhere else would take a submit
+// for an answer nobody chose.
+func TestArchivePromptOpensOnArchive(t *testing.T) {
+	form, choice := archiveAgentsForm([]agentstore.Agent{{ID: "a1", Name: "api-refactor"}}, config.DefaultKeybindings().Form)
+	form.Init()
+	form.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+
+	assert.Equal(t, archiveChoiceArchive, *choice, "the reversible answer is what a submit alone gives")
+
+	var rows []string
+	for _, line := range strings.Split(ansi.Strip(form.View()), "\n") {
+		if row := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "┃")); row != "" {
+			rows = append(rows, row)
+		}
+	}
+
+	assert.Contains(t, rows, "> Archive", "and it is the row the cursor is on")
+	assert.Contains(t, rows, "Archive and delete")
+	assert.Contains(t, rows, "Cancel")
+}
+
+// TestArchivePromptKeepsTheRecordWhenTheArchiveIsRefused covers the destructive answer
+// meeting a refusal. The delete only follows an archive that landed, so a refused archive
+// leaves an agent that is still there rather than one destroyed without being stopped.
+func TestArchivePromptKeepsTheRecordWhenTheArchiveIsRefused(t *testing.T) {
+	sent := &formRecorder{refuse: connect.NewError(connect.CodeFailedPrecondition, errors.New("already archived"))}
+
+	opened, _ := formModel(sent).archiveAgentsConfirm([]agentstore.Agent{{ID: "a1", Name: "api-refactor"}})
+	m := asModel(t, opened)
+	*m.values.archive = archiveChoiceArchiveDelete
+	m.form.State = huh.StateCompleted
+
+	submitted, cmd := m.updateAgentArchive(keyMsg("enter"))
+	got := settle(t, asModel(t, submitted), cmd)
+
+	require.NotNil(t, got.banner, "the refusal is reported")
+	assert.Equal(t, `Could not archive and delete agent "api-refactor"`, got.banner.Summary)
+	assert.Nil(t, sent.deletedAgents, "nothing was destroyed")
+}
+
 // TestFormResubmitsAfterARefusal covers the point of keeping the form. The fields it kept
 // are what the second attempt sends, so a refusal costs the keystroke that caused it
 // rather than the whole form.
@@ -524,6 +635,28 @@ func TestFormResubmitsAfterARefusal(t *testing.T) {
 	assert.Equal(t, "--model opus", sent.createdAgent.GetFlags(), "and the field that was fixed is what went")
 	assert.Nil(t, got.banner)
 	assert.Equal(t, screenAgents, got.screen, "the accepted write closes the form")
+}
+
+// deliver hands a message to the panel and then hands back everything it produced, the way
+// the bubbletea loop does. A form reaches its submitted state through a message of its own,
+// so a key alone leaves it partway there.
+func deliver(t *testing.T, m model, msg tea.Msg) model {
+	t.Helper()
+
+	updated, cmd := m.Update(msg)
+
+	return delivered(t, asModel(t, updated), cmd)
+}
+
+// delivered runs a command and hands every message it made back to the panel.
+func delivered(t *testing.T, m model, cmd tea.Cmd) model {
+	t.Helper()
+
+	for _, msg := range produced(cmd) {
+		m = deliver(t, m, msg)
+	}
+
+	return m
 }
 
 // asModel unwraps what an update handed back, which is the panel's model in every case.

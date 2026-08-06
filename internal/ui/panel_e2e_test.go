@@ -71,9 +71,9 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, screenAgentArchive, pressed.screen, "the key opens the confirm prompt rather than archiving outright")
 
-	// Answering the prompt is what actually archives it; huh's own keystrokes for that are
-	// exercised in the confirm field's own tests, not here.
-	*pressed.values.confirmed = true
+	// Answering the prompt is what actually archives it; the keystrokes that answer it are
+	// exercised in the prompt's own tests, not here.
+	*pressed.values.archive = archiveChoiceArchive
 	pressed.form.State = huh.StateCompleted
 	confirmed, cmd := pressed.updateAgentArchive(keyMsg("enter"))
 	panel, ok = confirmed.(model)
