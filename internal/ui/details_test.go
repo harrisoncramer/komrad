@@ -420,72 +420,84 @@ func TestAgentFields(t *testing.T) {
 	}
 }
 
-// TestDetailsFocusNeedsRoomToDrawIn covers the focus key pressed at a pane too short for the
-// section to be drawn at all. The keys stay with the list rather than going to a block that
-// is not on screen.
-func TestDetailsFocusNeedsRoomToDrawIn(t *testing.T) {
+// strandedModel is a details model with a second agent under the cursor, so the list has a row
+// to move onto. The bug being covered is the list going deaf while the section holds the keys
+// off screen, which cannot be seen on a cursor already sitting at the last row.
+func strandedModel() model {
 	m := detailsModel(&recordingTmux{})
-	m.height = 8
+	m.listing.agents = append(m.listing.agents, agentItem{
+		agent: agentstore.Agent{ID: "a2", Name: "billing", Pane: "%10", Cwd: "/repo", WorkflowID: "w1"},
+		alive: true,
+	})
+
+	return m
+}
+
+// assertKeysWithTheList checks what a section holding the keys off screen got wrong, none of
+// it read off the focus itself: the list answers movement, no cursor runs down fields that are
+// not drawn, the accent stays on the list, and the legend is still the list's own.
+func assertKeysWithTheList(t *testing.T, m model) {
+	t.Helper()
+
 	require.Empty(t, m.detailsView(), "the section must draw nothing for this to prove anything")
 
-	focused := send(t, m, "ctrl+t")
+	moved := send(t, m, "j")
 
-	assert.False(t, focused.detailsFocused(), "the keys stay with the list")
+	assert.Equal(t, 2, moved.tree.cursor, "the list answers movement")
+	assert.Equal(t, m.details.cursor, moved.details.cursor, "no cursor runs down fields that are not drawn")
+	assert.Equal(t, colorAccent, m.titleStyle().GetForeground(), "the list keeps the accent")
+	assert.Equal(t, colorAccent, m.rowCursorStyle().GetForeground())
+	assert.NotContains(t, m.renderHelp(m.agentHelp()), "back to the list", "and the legend is its own")
+}
 
-	moved := send(t, focused, "j")
+// TestDetailsFocusNeedsRoomToDrawIn covers the focus key pressed at a pane too short for the
+// section to be drawn at all. The keys stay with the list rather than going to a block that is
+// not on screen.
+func TestDetailsFocusNeedsRoomToDrawIn(t *testing.T) {
+	m := strandedModel()
+	m.height = 8
 
-	assert.Equal(t, 1, moved.tree.cursor, "the list still answers movement")
+	assertKeysWithTheList(t, send(t, m, "ctrl+t"))
 }
 
 // TestDetailsFocusGivenUpWhenThePaneShrinks covers the terminal shrinking under a focused
 // section, which takes the section off screen without anyone pressing a key. The keys go back
-// to the list at once, since the accent is on the list and there is nothing else to point at.
+// to the list at once rather than a keypress being spent taking them back.
 func TestDetailsFocusGivenUpWhenThePaneShrinks(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-
-	focused := send(t, m, "ctrl+t")
-	require.True(t, focused.detailsFocused())
+	focused := send(t, strandedModel(), "ctrl+t")
 	require.NotEmpty(t, focused.detailsView())
 
-	shrunk := asModel(t, resize(focused, 40, 8))
-	require.Empty(t, shrunk.detailsView(), "the section is no longer drawn")
-
-	assert.False(t, shrunk.detailsFocused(), "so it no longer holds the keys")
-
-	moved := send(t, shrunk, "j")
-
-	assert.Equal(t, 1, moved.tree.cursor, "the list answers movement without a key spent taking it back")
-}
-
-// TestDetailsFocusReturnsWithTheSection covers the terminal growing back. The section is drawn
-// again with the field cursor where it was left, so the accent that says where the keys are
-// goes back with it rather than the focus being spent by a resize.
-func TestDetailsFocusReturnsWithTheSection(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
-
-	focused := send(t, send(t, m, "ctrl+t"), "j")
-	require.Equal(t, 1, focused.details.cursor)
-
-	shrunk := asModel(t, resize(focused, 40, 8))
-	require.False(t, shrunk.detailsFocused())
-
-	grown := asModel(t, resize(shrunk, 40, 24))
-
-	assert.True(t, grown.detailsFocused())
-	assert.Equal(t, 1, grown.detailsCursor(grown.hoveredDetails()))
+	assertKeysWithTheList(t, asModel(t, resize(focused, 40, 8)))
 }
 
 // TestDetailsShareTooSmallToDrawAField covers a configured share that rounds down to no field
 // lines in a pane with room to spare, which a small details_height does without any resize.
 func TestDetailsShareTooSmallToDrawAField(t *testing.T) {
-	m := detailsModel(&recordingTmux{})
+	m := strandedModel()
 	m.height, m.detailsHeight = 19, 0.05
 	require.Equal(t, 0, m.detailsLines(), "the share rounds down to nothing while half the pane would hold five lines")
 
-	focused := send(t, m, "ctrl+t")
+	assertKeysWithTheList(t, send(t, m, "ctrl+t"))
+}
 
-	assert.False(t, focused.detailsFocused())
-	assert.Empty(t, focused.detailsView())
+// TestDetailsFocusReturnsWithTheSection covers the terminal shrinking and being pulled back
+// out. The keys go to the list while the section is off screen and come back to the section
+// with it, on the field they were left on, rather than the focus being spent by the resize.
+func TestDetailsFocusReturnsWithTheSection(t *testing.T) {
+	focused := send(t, send(t, strandedModel(), "ctrl+t"), "j")
+	require.Equal(t, 1, focused.details.cursor)
+
+	shrunk := asModel(t, resize(focused, 40, 8))
+	assertKeysWithTheList(t, shrunk)
+
+	grown := asModel(t, resize(shrunk, 40, 24))
+	require.NotEmpty(t, grown.detailsView())
+
+	moved := send(t, grown, "j")
+
+	assert.Equal(t, 2, moved.details.cursor, "the keys are back on the fields")
+	assert.Equal(t, 1, moved.tree.cursor, "and off the list")
+	assert.Equal(t, colorMuted, grown.titleStyle().GetForeground(), "the accent goes back with them")
 }
 
 func resize(m model, width, height int) tea.Model {
