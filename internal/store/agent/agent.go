@@ -66,6 +66,9 @@ type Agent struct {
 	// Branch is the branch checked out at Cwd, nil when Cwd is not a git worktree or has
 	// not been looked at yet. Written only by the branch syncer, never by anything else.
 	Branch *string
+	// WorktreeRemoved reports whether Cwd no longer exists on disk, false until a periodic
+	// pass has looked and found it gone. Written only by the worktree syncer.
+	WorktreeRemoved bool
 }
 
 // SanitizeName maps a name to characters tmux accepts in session names.
@@ -359,6 +362,20 @@ func (s *Store) SetBranchByID(ctx context.Context, id string, branch *string) er
 
 	if err := s.queries.SetAgentBranchByID(ctx, models.SetAgentBranchByIDParams{ID: id, Branch: branch}); err != nil {
 		return fmt.Errorf("failed to set the branch for id %q: %w", id, err)
+	}
+
+	return nil
+}
+
+// SetWorktreeRemovedByID records whether an agent's cwd no longer exists on disk. Written
+// only by the worktree syncer's periodic pass.
+func (s *Store) SetWorktreeRemovedByID(ctx context.Context, id string, removed bool) error {
+	if !store.IsID(id) {
+		return nil
+	}
+
+	if err := s.queries.SetAgentWorktreeRemovedByID(ctx, models.SetAgentWorktreeRemovedByIDParams{ID: id, WorktreeRemoved: removed}); err != nil {
+		return fmt.Errorf("failed to set worktree_removed for id %q: %w", id, err)
 	}
 
 	return nil
@@ -666,5 +683,6 @@ func agentFromRow(agent models.Agent) Agent {
 		CreatedAt:        agent.CreatedAt,
 		UpdatedAt:        agent.UpdatedAt,
 		Branch:           agent.Branch,
+		WorktreeRemoved:  agent.WorktreeRemoved,
 	}
 }

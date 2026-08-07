@@ -472,7 +472,7 @@ func (m model) agentsView() string {
 
 		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, !item.alive))
 		icon := lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
-		rows = append(rows, prefix+"  "+icon+" "+name+branchMark(item.agent)+scheduledMark(item.agent)+hiddenMark(item.agent.Hidden)+tagGlyph(item.agent, m.tags)+unreadMailMark(item.unreadMail))
+		rows = append(rows, prefix+"  "+icon+" "+name+branchMark(item.agent)+worktreeRemovedMark(item.agent)+scheduledMark(item.agent)+hiddenMark(item.agent.Hidden)+tagGlyph(item.agent, m.tags)+unreadMailMark(item.unreadMail))
 	}
 
 	return m.listView("Agents and Workflows", rows, m.tree.cursor, below)

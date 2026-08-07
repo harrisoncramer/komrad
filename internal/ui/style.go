@@ -142,6 +142,19 @@ func branchMark(agent agentstore.Agent) string {
 	return " " + dimStyle.Render(branchIcon) + " "
 }
 
+const worktreeRemovedIcon = "⊘"
+
+// worktreeRemovedMark flags an agent whose cwd the worktree syncer has found gone from
+// disk, in the same danger colour the waiting state uses, since both mean the row needs a
+// person's attention.
+func worktreeRemovedMark(agent agentstore.Agent) string {
+	if !agent.WorktreeRemoved {
+		return ""
+	}
+
+	return " " + lipgloss.NewStyle().Foreground(colorDanger).Render(worktreeRemovedIcon)
+}
+
 func tagGlyph(agent agentstore.Agent, tags []config.Tag) string {
 	if agent.Tag == nil {
 		return ""

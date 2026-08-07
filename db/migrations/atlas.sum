@@ -1,4 +1,5 @@
-h1:IQb5EPG77te8oVI+75fiWIUSgOj/+HMD6AvEBUhvCAU=
+h1:L0P0Kx23hkUZMWeOcGGJ6GOn9KrQAZNogmMYcTwl4Dc=
 20260727000000_initial.sql h1:xA8FiiyYkOVmKl8yKJZRKOlym1MYvRHsB/0Lkpr9ugE=
 20260807135307_rename_agent_mark_to_tag.sql h1:7XFYubNzKaIi4wVzgUE+1ltdYkNteZY6NawdMuaVrmQ=
 20260807180000_add_worktree_support.sql h1:u0l7TvcCrO3WI+HiRYbnoLIw3a3rsbmsDq/b0qJez7c=
+20260807192959_add_agents_worktree_removed.sql h1:7K93MaF7jRiy6SjV/ByBBTn/d6Ct+0lnBkS9frc9wEU=

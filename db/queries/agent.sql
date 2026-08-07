@@ -244,6 +244,14 @@ SET
 WHERE
     id = @id;
 
+-- name: SetAgentWorktreeRemovedByID :exec
+UPDATE
+    agents
+SET
+    worktree_removed = @worktree_removed
+WHERE
+    id = @id;
+
 -- name: SetAgentSessionID :exec
 UPDATE
     agents

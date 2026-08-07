@@ -33,6 +33,7 @@ type Agent struct {
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	Branch           *string
+	WorktreeRemoved  bool
 }
 
 // Key/value facts an agent recorded about its own work.
