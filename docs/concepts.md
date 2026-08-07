@@ -2,25 +2,19 @@
 
 Weave has two programs: the service (server) and the panel (client).
 
-The `weave serve` command starts the service. It owns the datbase connection, API, MCP, and
-runs the background loops that watch every agent. It is long-lived. Closing your terminal does not stop it,
-nor does stopping the panel.
+The `weave serve` command starts the service. It owns the datbase connection, API, MCP, and runs the background loops that watch every agent. It is long-lived. Closing your terminal does not stop it, nor does stopping the panel.
 
 The `weave panel` command starts the terminal interface. It is an ordinary client.
 
 The panel starts the service if nothing is answering automatically, then talks to it over HTTP.
 
-## Two tmux servers
+## Tmux
 
-A tmux server is a long-lived process that owns sessions, windows, and panes, and you reach it
-through a unix socket. Weave runs one.
+A tmux server is a long-lived process that owns sessions, windows, and panes, and you reach it through a unix socket. Weave runs one.
 
-Your own server is where you work. Weave's server, named by `WEAVE_TMUX_SOCKET` and defaulting
-to `weave`, holds one session called the "manager" session, which the panel runs inside.
+Your own server is where you work. Weave's server, named by `WEAVE_TMUX_SOCKET` and defaulting to `weave`, holds one session called the "manager" session, which the panel runs inside.
 
-The panel reaches you through a popup. Pressing the weave keybinding runs a tmux popup on _your_ server
-whose command _attaches to the manager session_ on weave's server. Hiding the panel detaches
-that client. This leaves the session and every agent running in the background.
+The panel reaches you through a popup. Pressing the weave keybinding runs a tmux popup on _your_ server whose command _attaches to the manager session_ on weave's server. Hiding the panel detaches that client. This leaves the session and every agent running in the background.
 
 ## Weave's API
 
@@ -36,19 +30,15 @@ The practical consequence of this, is that adding an endpoint gives you a CLI co
 
 Weave's architecture is built in a series of layers.
 
-The first is the ConnectRPC handlers, the MCP server, and the CLI. These layers parse, validate, and
-translate. The interceptors in `internal/interceptors` are cross-cutting rules that do validation and payload
-manipulation logic.
+The first is the ConnectRPC handlers, the MCP server, and the CLI. These layers parse, validate, and translate. The interceptors in `internal/interceptors` are cross-cutting rules that do validation and payload manipulation logic.
 
-The next layer, services, are `internal/agents` and `internal/rpc/*`. These indicate which RPCs trigger
-which logic. The business logic lives here.
+The next layer, services, are `internal/agents` and `internal/rpc/*`. These indicate which RPCs trigger which logic. The business logic lives here.
 
 The stores, which hold data, are in `internal/store` and the packages beneath it, one per domain. This package also holds database transactions.
 
 Separately, adapters are in `internal/tmux`, `internal/harness`, and `internal/actions`. Each one is a seam in front of something weave does not own. For instance, the `harness` package is where the boundary between different CLI agents (Claude vs. Codex) is kept.
 
-One known violation, recorded rather than hidden: `internal/ui/info.go` imports
-`internal/tmux` directly instead of taking what it needs as a dependency the way the rest of
+One known violation, recorded rather than hidden: `internal/ui/info.go` imports `internal/tmux` directly instead of taking what it needs as a dependency the way the rest of
 the panel does.
 
 ## Postgres
