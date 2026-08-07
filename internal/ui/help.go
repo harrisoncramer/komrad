@@ -129,14 +129,14 @@ func (m model) filterBinding() key.Binding {
 	return binding(m.keys.Filter.Open, "filter")
 }
 
-// clearFilterBinding is a screen's way out while a filter stands, since the press clears the
-// pattern rather than leaving the screen. Leaving needs no line of its own.
-func (m model) clearFilterBinding(keys []string) []key.Binding {
+// editFilterBinding is a screen's back key while a filter stands, since the press puts the
+// keys back in the input rather than leaving the screen. Leaving needs no line of its own.
+func (m model) editFilterBinding(keys []string) []key.Binding {
 	if !m.filter.standing() {
 		return nil
 	}
 
-	return []key.Binding{binding(keys, "clear filter")}
+	return []key.Binding{binding(keys, "edit filter")}
 }
 
 // helpBinding is the key that draws the help itself, which ends every screen's help in both
@@ -175,7 +175,7 @@ func (m model) agentHelp() keyMap {
 		rows,
 		m.screenHelp(),
 		[]key.Binding{m.detailsBinding(), m.filterBinding(), m.moveBinding(), m.jumpBinding()},
-		m.clearFilterBinding(m.keys.Agents.Back),
+		m.editFilterBinding(m.keys.Agents.Back),
 		m.globalHelp(),
 	)
 
@@ -334,10 +334,10 @@ func (m model) scheduleHelp() keyMap {
 	}
 
 	edit := binding(m.keys.Schedules.Edit, "edit")
-	clear := m.clearFilterBinding(m.keys.Schedules.Back)
+	editFilter := m.editFilterBinding(m.keys.Schedules.Back)
 
 	return keyMap{
-		short: slices.Concat([]key.Binding{edit}, clear, []key.Binding{m.helpBinding()}),
+		short: slices.Concat([]key.Binding{edit}, editFilter, []key.Binding{m.helpBinding()}),
 		full: slices.Concat([]key.Binding{
 			binding(m.keys.Schedules.New, "new schedule"),
 			edit,
@@ -346,7 +346,7 @@ func (m model) scheduleHelp() keyMap {
 			m.detailsBinding(),
 			m.filterBinding(),
 			m.moveBinding(),
-		}, clear, m.globalHelp()),
+		}, editFilter, m.globalHelp()),
 	}
 }
 
@@ -364,10 +364,10 @@ func (m model) archiveHelp() keyMap {
 		)
 	}
 
-	clear := m.clearFilterBinding(m.keys.Archive.Back)
+	editFilter := m.editFilterBinding(m.keys.Archive.Back)
 	rows := m.archiveRowHelp()
 
-	short := slices.Concat(clear, []key.Binding{m.helpBinding()})
+	short := slices.Concat(editFilter, []key.Binding{m.helpBinding()})
 	if len(rows) > 0 {
 		short = slices.Concat(rows[:1], short)
 	}
@@ -377,7 +377,7 @@ func (m model) archiveHelp() keyMap {
 		full: slices.Concat(
 			rows,
 			[]key.Binding{m.detailsBinding(), m.filterBinding(), m.moveBinding(), m.jumpBinding()},
-			clear,
+			editFilter,
 			m.globalHelp(),
 		),
 	}
@@ -429,28 +429,38 @@ func (m model) actionHelp() keyMap {
 
 	run := binding(m.keys.Actions.Run, runDesc)
 	editor := binding(m.keys.Actions.Editor, m.actionEditorDesc())
-	clear := m.clearFilterBinding(m.keys.Actions.Back)
+	editFilter := m.editFilterBinding(m.keys.Actions.Back)
 
 	return keyMap{
-		short: slices.Concat([]key.Binding{run, editor}, clear, []key.Binding{m.helpBinding()}),
+		short: slices.Concat([]key.Binding{run, editor}, editFilter, []key.Binding{m.helpBinding()}),
 		full: slices.Concat(
 			[]key.Binding{run, editor, m.filterBinding(), m.moveBinding()},
-			clear,
+			editFilter,
 			m.globalHelp(),
 		),
 	}
 }
 
-// searchHelp lists the search screen's bindings. Every key goes into the query, so the legend
-// names only the fixed ones the line leaves alone and there is no help key to expand it.
+// searchHelp lists the search screen's bindings, which are the query line's while it holds
+// the keys and the hits' once it has handed them over. The line names only the two keys it
+// leaves alone, since everything else types.
 func (m model) searchHelp() keyMap {
+	if m.search.typing {
+		done := binding([]string{"enter"}, "keep it, then move through the hits")
+		leave := binding([]string{"esc"}, "back")
+
+		return keyMap{short: []key.Binding{done, leave}, full: []key.Binding{done, leave}}
+	}
+
 	open := binding([]string{"enter"}, "go to it")
-	move := binding([]string{"up", "down"}, "move")
-	back := binding([]string{"esc"}, "back")
+	edit := binding(slices.Concat([]string{"esc"}, m.keys.Filter.Open), "edit the query")
 
 	return keyMap{
-		short: []key.Binding{open, back},
-		full:  []key.Binding{open, move, back},
+		short: []key.Binding{open, edit, m.helpBinding()},
+		full: slices.Concat(
+			[]key.Binding{open, edit, m.moveBinding(), m.jumpBinding()},
+			m.globalHelp(),
+		),
 	}
 }
 

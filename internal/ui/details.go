@@ -36,7 +36,10 @@ type detailsState struct {
 type details struct {
 	// id is what the record belongs to, so the cursor can tell a new row from a redraw of
 	// the one it is already on.
-	id     string
+	id string
+	// kind is what sort of thing the record describes, which the title leads with: the same
+	// name can be an agent on one row and the workflow it sits under on another.
+	kind   string
 	title  string
 	fields []recordField
 }
@@ -179,10 +182,15 @@ func (m model) detailsLines() int {
 	return min(lines, m.height/2)
 }
 
-// detailsMinLines is the shortest the section is worth drawing: a title and a field under it.
-// A pane too short for that keeps the list instead, since a list with nowhere to stand is
-// worse than a record that has to be read by moving the cursor.
-const detailsMinLines = 2
+// detailsChromeLines is what the section spends on everything that is not a field: the rule
+// that separates it from the list, the title, the blank line under the title, and the rule
+// that closes it off from the legend below.
+const detailsChromeLines = 4
+
+// detailsMinLines is the shortest the section is worth drawing: its chrome and one field
+// beneath it. A pane too short for that keeps the list instead, since a list with nowhere to
+// stand is worse than a record that has to be read by moving the cursor.
+const detailsMinLines = detailsChromeLines + 1
 
 // detailsView draws the section under the list: a rule, the row's title, then its fields,
 // clipped to the share of the pane the layout gives it. Fields past that share are windowed
@@ -204,13 +212,17 @@ func (m model) detailsView() string {
 	cursor := m.detailsCursor(held)
 	rows := m.detailFieldRows(held.fields, cursor)
 
-	// The rule and the title are chrome the fields draw beneath, so they come out of the
+	// The rules and the title are chrome the fields draw between, so they come out of the
 	// section's own height rather than being drawn on top of it.
-	return m.detailsRule() + m.detailsTitle(held.title) + renderList(rows, cursor, lines-2)
+	return m.detailsRule() +
+		m.detailsTitle(held) +
+		renderList(rows, cursor, lines-detailsChromeLines) +
+		m.detailsRule()
 }
 
-// detailsRule separates the section from the list above it, drawn to the pane's width. A pane
-// that has not been measured yet gets a rule of nothing rather than one of a guessed width.
+// detailsRule is the line the section is drawn between, which separates it from the list above
+// and the legend below. It is drawn to the pane's width; a pane that has not been measured yet
+// gets a rule of nothing rather than one of a guessed width.
 func (m model) detailsRule() string {
 	if m.width <= 0 {
 		return "\n"
@@ -219,15 +231,16 @@ func (m model) detailsRule() string {
 	return dimStyle.Render(strings.Repeat("─", m.width)) + "\n"
 }
 
-// detailsTitle names what the fields below belong to, in the accent while the section holds
-// the keys so which half of the sidebar a keypress would reach is on screen.
-func (m model) detailsTitle(title string) string {
-	style := dimStyle
-	if m.details.focused {
-		style = headerStyle
+// detailsTitle names what the fields below belong to, led by what sort of thing it is, in the
+// accent while the section holds the keys so which half of the sidebar a keypress would reach
+// is on screen. It ends in the blank line a list's own title stands above.
+func (m model) detailsTitle(held details) string {
+	title := held.title
+	if held.kind != "" {
+		title = held.kind + ": " + title
 	}
 
-	return style.Render(clip(title, m.lineWidth())) + "\n"
+	return titleStyleFor(m.details.focused).Render(clip(title, m.lineWidth())) + "\n\n"
 }
 
 // detailFieldRows draws one line per field: its label, then its value in the room left over.
@@ -242,9 +255,11 @@ func (m model) detailFieldRows(fields []recordField, cursor int) []string {
 	const gutter = 2
 
 	for i, field := range fields {
+		// The field the cursor is on stays marked while the list above holds the keys, the
+		// way the row up there stays marked while these do, and gives up the accent to it.
 		prefix := "  "
-		if m.details.focused && i == cursor {
-			prefix = cursorStyle.Render("› ")
+		if i == cursor {
+			prefix = cursorStyleFor(m.details.focused).Render("› ")
 		}
 
 		label := dimStyle.Render(padRight(field.label, labels))

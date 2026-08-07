@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -71,6 +72,19 @@ func TestDetailsDrawTheHoveredRow(t *testing.T) {
 	assert.Contains(t, header, "backend")
 	assert.Contains(t, header, "agents")
 	assert.NotContains(t, header, "session_id", "a workflow has no session of its own")
+}
+
+// TestDetailsTitleNamesWhatItIsAbout covers the line over the fields. The same name can be an
+// agent on one row and the workflow it sits under on the next, so the title says which, and it
+// stands over a blank line the way a list's own title does.
+func TestDetailsTitleNamesWhatItIsAbout(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+
+	assert.Contains(t, m.detailsView(), "Agent: auth\n\n")
+
+	m.tree.cursor = 0
+
+	assert.Contains(t, m.detailsView(), "Workflow: backend\n\n")
 }
 
 // TestDetailsFollowTheCursor covers moving between rows, which puts the field cursor back at
@@ -190,6 +204,18 @@ func TestDetailsCopyReportsAFailure(t *testing.T) {
 	assert.EqualError(t, copyResultFrom(t, cmd).err, "no clipboard utility found")
 }
 
+// TestDetailsAreDrawnBetweenTwoRules covers the lines that fence the section off: one under
+// the list above it and one over the legend below, so the block reads as its own half of the
+// sidebar rather than as more rows.
+func TestDetailsAreDrawnBetweenTwoRules(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+
+	view := m.detailsView()
+
+	assert.True(t, strings.HasPrefix(view, strings.Repeat("─", m.width)), "the section opens on a rule")
+	assert.True(t, strings.HasSuffix(view, strings.Repeat("─", m.width)+"\n"), "and closes on one")
+}
+
 // TestDetailsHeightLeavesTheListRoom covers the share the layout gives the section, which is
 // never more than half the pane however tall the configured share is.
 func TestDetailsHeightLeavesTheListRoom(t *testing.T) {
@@ -225,7 +251,7 @@ func TestDetailsOnTheOtherLists(t *testing.T) {
 
 		view := m.detailsView()
 
-		assert.Contains(t, view, "morning-ci")
+		assert.Contains(t, view, "Schedule: morning-ci")
 		assert.Contains(t, view, "cron")
 		assert.Contains(t, view, "0 9 * * 1-5")
 
@@ -241,8 +267,8 @@ func TestDetailsOnTheOtherLists(t *testing.T) {
 
 		view := m.detailsView()
 
-		assert.Contains(t, view, "api-refactor")
-		assert.Contains(t, view, "agent_id")
+		assert.Contains(t, view, "Agent: api-refactor")
+		assert.Contains(t, view, "directory")
 
 		focused := send(t, m, "ctrl+t")
 
