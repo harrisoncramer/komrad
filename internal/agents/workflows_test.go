@@ -5,8 +5,8 @@ import (
 
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
-	"weave/internal/store/schedule"
-	"weave/internal/store/workflow"
+	schedulestore "weave/internal/store/schedule"
+	workflowstore "weave/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,17 +15,17 @@ import (
 func TestNewWorkflow(t *testing.T) {
 	tests := []struct {
 		name     string
-		cfg      workflow.Config
+		cfg      workflowstore.Config
 		wantName string
 	}{
 		{
 			name:     "a blank name falls back to a label, so the list never renders an empty row",
-			cfg:      workflow.Config{Name: "   "},
+			cfg:      workflowstore.Config{Name: "   "},
 			wantName: "workflow",
 		},
 		{
 			name:     "a given name is kept",
-			cfg:      workflow.Config{Name: "backend"},
+			cfg:      workflowstore.Config{Name: "backend"},
 			wantName: "backend",
 		},
 	}
@@ -44,25 +44,25 @@ func TestUpdateWorkflow(t *testing.T) {
 	tests := []struct {
 		name      string
 		create    bool
-		cfg       workflow.Config
+		cfg       workflowstore.Config
 		wantErrIs error
 		wantName  string
 	}{
 		{
 			name:      "an id nobody holds",
-			cfg:       workflow.Config{Name: "ghost"},
+			cfg:       workflowstore.Config{Name: "ghost"},
 			wantErrIs: ErrWorkflowNotFound,
 		},
 		{
 			name:     "a blank name keeps the one it had",
 			create:   true,
-			cfg:      workflow.Config{Name: "   "},
+			cfg:      workflowstore.Config{Name: "   "},
 			wantName: "backend",
 		},
 		{
 			name:     "a new name is written",
 			create:   true,
-			cfg:      workflow.Config{Name: "platform"},
+			cfg:      workflowstore.Config{Name: "platform"},
 			wantName: "platform",
 		},
 	}
@@ -74,7 +74,7 @@ func TestUpdateWorkflow(t *testing.T) {
 
 			id := "00000000-0000-0000-0000-000000000000"
 			if tt.create {
-				created, err := workflows.NewWorkflow(t.Context(), workflow.Config{Name: "backend"})
+				created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{Name: "backend"})
 				require.NoError(t, err)
 				id = created.ID
 			}
@@ -137,7 +137,7 @@ func TestArchiveWorkflow(t *testing.T) {
 
 			id := "00000000-0000-0000-0000-000000000000"
 			if tt.create {
-				created, err := workflows.NewWorkflow(ctx, workflow.Config{Name: "backend"})
+				created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
 				require.NoError(t, err)
 				id = created.ID
 
@@ -149,7 +149,7 @@ func TestArchiveWorkflow(t *testing.T) {
 				require.NoError(t, err)
 			}
 			if tt.withSchedule {
-				st.SeedSchedule(t, schedule.Config{
+				st.SeedSchedule(t, schedulestore.Config{
 					Name: "nightly", Cron: "0 2 * * *", Prompt: "sweep", Enabled: true, WorkflowID: id,
 				})
 			}
@@ -232,7 +232,7 @@ func TestRestoreWorkflow(t *testing.T) {
 
 			id := "00000000-0000-0000-0000-000000000000"
 			if tt.name != "an id nobody holds" {
-				created, err := workflows.NewWorkflow(ctx, workflow.Config{Name: "backend"})
+				created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
 				require.NoError(t, err)
 				id = created.ID
 
@@ -312,7 +312,7 @@ func TestRestoreWorkflowCeiling(t *testing.T) {
 	workflows := st.workflowServiceCapped(tmux, 3)
 	ctx := t.Context()
 
-	created, err := workflows.NewWorkflow(ctx, workflow.Config{Name: "backend"})
+	created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
 	require.NoError(t, err)
 
 	for _, title := range []string{"one", "two"} {
@@ -321,7 +321,7 @@ func TestRestoreWorkflowCeiling(t *testing.T) {
 	}
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, created.ID))
 
-	elsewhere, err := workflows.NewWorkflow(ctx, workflow.Config{Name: "frontend"})
+	elsewhere, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "frontend"})
 	require.NoError(t, err)
 	for _, title := range []string{"live-one", "live-two"} {
 		_, err := manager.NewAgent(ctx, NewAgentParams{Title: title, Dir: t.TempDir(), WorkflowID: elsewhere.ID})
@@ -342,7 +342,7 @@ func TestRestoreWorkflowCeiling(t *testing.T) {
 }
 
 // workflowNames is the names of a listing, for asserting which workflows a read holds.
-func workflowNames(listed []workflow.Workflow) []string {
+func workflowNames(listed []workflowstore.Workflow) []string {
 	names := make([]string, 0, len(listed))
 	for _, w := range listed {
 		names = append(names, w.Name)
@@ -361,7 +361,7 @@ func TestRestoreAgentRestoresItsWorkflow(t *testing.T) {
 	workflows := workflowsFor(st, tmux)
 	ctx := t.Context()
 
-	created, err := workflows.NewWorkflow(ctx, workflow.Config{Name: "backend"})
+	created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
 	require.NoError(t, err)
 
 	agent, err := manager.NewAgent(ctx, NewAgentParams{Title: "one", Dir: t.TempDir(), WorkflowID: created.ID})
@@ -393,7 +393,7 @@ func TestRestoreWorkflowRefusesTwoArchivedNamesakes(t *testing.T) {
 	workflows := workflowsFor(st, newFakeTmux())
 	ctx := t.Context()
 
-	created, err := workflows.NewWorkflow(ctx, workflow.Config{Name: "backend"})
+	created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
 	require.NoError(t, err)
 
 	for range 2 {

@@ -5,8 +5,8 @@ import (
 	"time"
 
 	agentstore "weave/internal/store/agent"
-	"weave/internal/store/schedule"
-	"weave/internal/store/workflow"
+	schedulestore "weave/internal/store/schedule"
+	workflowstore "weave/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -100,26 +100,26 @@ func TestNextRun(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		schedule schedule.Schedule
+		schedule schedulestore.Schedule
 		want     time.Time
 	}{
 		{
 			name:     "the next hour",
-			schedule: schedule.Schedule{Cron: "0 * * * *", Timezone: "UTC", Enabled: true},
+			schedule: schedulestore.Schedule{Cron: "0 * * * *", Timezone: "UTC", Enabled: true},
 			want:     time.Date(2026, time.July, 27, 11, 0, 0, 0, time.UTC),
 		},
 		{
 			name:     "tomorrow morning, since today's has passed",
-			schedule: schedule.Schedule{Cron: "0 9 * * *", Timezone: "UTC", Enabled: true},
+			schedule: schedulestore.Schedule{Cron: "0 9 * * *", Timezone: "UTC", Enabled: true},
 			want:     time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC),
 		},
 		{
 			name:     "a paused schedule has no next run",
-			schedule: schedule.Schedule{Cron: "0 * * * *", Timezone: "UTC"},
+			schedule: schedulestore.Schedule{Cron: "0 * * * *", Timezone: "UTC"},
 		},
 		{
 			name:     "nor does one that cannot be parsed",
-			schedule: schedule.Schedule{Cron: "0 99 * * *", Timezone: "UTC", Enabled: true},
+			schedule: schedulestore.Schedule{Cron: "0 99 * * *", Timezone: "UTC", Enabled: true},
 		},
 	}
 
@@ -143,33 +143,33 @@ func TestNextRun(t *testing.T) {
 func TestNewSchedule(t *testing.T) {
 	tests := []struct {
 		name     string
-		cfg      schedule.Config
+		cfg      schedulestore.Config
 		wantErr  error
 		wantName string
 	}{
 		{
 			name:     "a schedule is stored as written",
-			cfg:      schedule.Config{Name: "morning-ci", Cron: "0 9 * * 1-5", Prompt: "check CI"},
+			cfg:      schedulestore.Config{Name: "morning-ci", Cron: "0 9 * * 1-5", Prompt: "check CI"},
 			wantName: "morning-ci",
 		},
 		{
 			name:     "surrounding whitespace is trimmed",
-			cfg:      schedule.Config{Name: "  spaced  ", Cron: "  0 9 * * *  ", Prompt: " go "},
+			cfg:      schedulestore.Config{Name: "  spaced  ", Cron: "  0 9 * * *  ", Prompt: " go "},
 			wantName: "spaced",
 		},
 		{
 			name:    "an unparseable expression never reaches the store",
-			cfg:     schedule.Config{Name: "broken", Cron: "0 99 * * *", Prompt: "go"},
+			cfg:     schedulestore.Config{Name: "broken", Cron: "0 99 * * *", Prompt: "go"},
 			wantErr: ErrBadCron,
 		},
 		{
 			name:    "nor does an unknown timezone",
-			cfg:     schedule.Config{Name: "elsewhere", Cron: "0 9 * * *", Timezone: "Mars/Olympus", Prompt: "go"},
+			cfg:     schedulestore.Config{Name: "elsewhere", Cron: "0 9 * * *", Timezone: "Mars/Olympus", Prompt: "go"},
 			wantErr: ErrBadCron,
 		},
 		{
 			name:    "nor does a date the calendar never reaches",
-			cfg:     schedule.Config{Name: "never", Cron: "0 0 30 2 *", Prompt: "go"},
+			cfg:     schedulestore.Config{Name: "never", Cron: "0 0 30 2 *", Prompt: "go"},
 			wantErr: ErrBadCron,
 		},
 	}
@@ -179,7 +179,7 @@ func TestNewSchedule(t *testing.T) {
 			st := newStore(t)
 			svc := NewScheduleService(ScheduleParams{Schedules: st.Schedules, Workflows: st.Workflows})
 
-			workflowID := st.SeedWorkflow(t, workflow.Config{Name: "backend"}).ID
+			workflowID := st.SeedWorkflow(t, workflowstore.Config{Name: "backend"}).ID
 			cfg := tt.cfg
 			cfg.WorkflowID = workflowID
 
@@ -236,24 +236,24 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 
 			// A live workflow to move an existing schedule off of, so the update case
 			// starts from a schedule that is valid.
-			live := st.SeedWorkflow(t, workflow.Config{Name: "backend"}).ID
-			existing, err := svc.NewSchedule(ctx, schedule.Config{
+			live := st.SeedWorkflow(t, workflowstore.Config{Name: "backend"}).ID
+			existing, err := svc.NewSchedule(ctx, schedulestore.Config{
 				Name: "nightly", Cron: "0 9 * * *", Prompt: "go", WorkflowID: live,
 			})
 			require.NoError(t, err)
 
 			target := tt.workflowID
 			if tt.archiveWorkflow {
-				target = st.SeedWorkflow(t, workflow.Config{Name: "gone"}).ID
+				target = st.SeedWorkflow(t, workflowstore.Config{Name: "gone"}).ID
 				require.NoError(t, st.Workflows.Archive(ctx, target))
 			}
 
-			_, err = svc.NewSchedule(ctx, schedule.Config{
+			_, err = svc.NewSchedule(ctx, schedulestore.Config{
 				Name: "morning", Cron: "0 9 * * *", Prompt: "go", WorkflowID: target,
 			})
 			require.ErrorIs(t, err, ErrWorkflowNotFound, "a schedule is not created into a workflow that is not there")
 
-			err = svc.UpdateSchedule(ctx, existing.ID, schedule.Config{
+			err = svc.UpdateSchedule(ctx, existing.ID, schedulestore.Config{
 				Name: "nightly", Cron: "0 9 * * *", Prompt: "go", WorkflowID: target,
 			})
 			require.ErrorIs(t, err, ErrWorkflowNotFound, "nor is one moved into it")
@@ -317,7 +317,7 @@ func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
 			st := newStore(t)
 			ctx := t.Context()
 
-			schedule := st.SeedSchedule(t, schedule.Config{Name: "nightly", Cron: "0 2 * * *", Prompt: "sweep"})
+			schedule := st.SeedSchedule(t, schedulestore.Config{Name: "nightly", Cron: "0 2 * * *", Prompt: "sweep"})
 			run := st.SeedAgent(t, agentstore.Agent{
 				Name: "nightly-run", Pane: "%1", State: tt.state,
 				WorkflowID: schedule.WorkflowID, ScheduleID: &schedule.ID,
@@ -359,7 +359,7 @@ func TestScheduleNotFound(t *testing.T) {
 			name: "updating",
 			call: func(t *testing.T, svc *ScheduleService) error {
 				return svc.UpdateSchedule(t.Context(), missingScheduleID,
-					schedule.Config{Name: "x", Cron: "0 9 * * *", Prompt: "go", WorkflowID: "w1"})
+					schedulestore.Config{Name: "x", Cron: "0 9 * * *", Prompt: "go", WorkflowID: "w1"})
 			},
 		},
 		{

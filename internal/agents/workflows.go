@@ -9,7 +9,7 @@ import (
 	"weave/config"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
-	"weave/internal/store/workflow"
+	workflowstore "weave/internal/store/workflow"
 )
 
 // ErrWorkflowHasSchedules reports that a workflow still has schedules launching
@@ -20,11 +20,11 @@ var ErrWorkflowHasSchedules = errors.New("workflow still has schedules")
 // workflowReadWriter is the part of the workflow store this service reads and writes.
 // Workflows are pure organisation, so this touches no tmux.
 type workflowReadWriter interface {
-	List(ctx context.Context) ([]workflow.Workflow, error)
-	Get(ctx context.Context, id string) (*workflow.Workflow, error)
-	GetIncludingArchived(ctx context.Context, id string) (*workflow.Workflow, error)
-	Create(ctx context.Context, cfg workflow.Config) (*workflow.Workflow, error)
-	Update(ctx context.Context, id string, cfg workflow.Config) error
+	List(ctx context.Context) ([]workflowstore.Workflow, error)
+	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
+	GetIncludingArchived(ctx context.Context, id string) (*workflowstore.Workflow, error)
+	Create(ctx context.Context, cfg workflowstore.Config) (*workflowstore.Workflow, error)
+	Update(ctx context.Context, id string, cfg workflowstore.Config) error
 }
 
 // scheduleCounter answers whether anything is still scheduled into a workflow,
@@ -84,7 +84,7 @@ func NewWorkflowService(p WorkflowParams) *WorkflowService {
 }
 
 // GetWorkflow returns a workflow by id, or nil when none has that id.
-func (w *WorkflowService) GetWorkflow(ctx context.Context, id string) (*workflow.Workflow, error) {
+func (w *WorkflowService) GetWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error) {
 	found, err := w.store.Get(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
@@ -96,7 +96,7 @@ func (w *WorkflowService) GetWorkflow(ctx context.Context, id string) (*workflow
 // NewWorkflow creates a workflow, defaulting a blank name so the list always has
 // a label to render. The cwd is home-expanded so the stored blueprint matches
 // what an agent launch would use.
-func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflow.Config) (*workflow.Workflow, error) {
+func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Config) (*workflowstore.Workflow, error) {
 	cfg.Name = strings.TrimSpace(cfg.Name)
 	if cfg.Name == "" {
 		cfg.Name = "workflow"
@@ -117,7 +117,7 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflow.Config) 
 
 // UpdateWorkflow replaces a workflow's editable fields. A blank name falls back
 // to the one it already has, so the list never renders an unlabelled bucket.
-func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg workflow.Config) error {
+func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg workflowstore.Config) error {
 	existing, err := w.GetWorkflow(ctx, id)
 	if err != nil {
 		return err
@@ -185,7 +185,7 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 	killOwnedPanes(ctx, w.tmux, inside)
 
 	err = w.tx.InTx(ctx, func(db store.DBTX) error {
-		if err := workflow.New(db).Archive(ctx, id); err != nil {
+		if err := workflowstore.New(db).Archive(ctx, id); err != nil {
 			return err
 		}
 
@@ -209,7 +209,7 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 // It is all or nothing, under the agent ceiling and against the names live agents hold,
 // since a workflow back with some of its runs would read as whole. A refusal names what
 // is in the way so the user can clear it and press restore again.
-func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*workflow.Workflow, error) {
+func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error) {
 	existing, err := w.store.GetIncludingArchived(ctx, id)
 	if err != nil {
 		return nil, err
@@ -232,7 +232,7 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 			return err
 		}
 
-		if err := workflow.New(db).Restore(ctx, id); err != nil {
+		if err := workflowstore.New(db).Restore(ctx, id); err != nil {
 			return err
 		}
 

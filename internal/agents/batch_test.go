@@ -6,7 +6,7 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
-	"weave/internal/store/workflow"
+	workflowstore "weave/internal/store/workflow"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -95,9 +95,9 @@ func TestDeleteAgentsFiresEveryWorkflowsCleanup(t *testing.T) {
 	workflows := workflowsFor(st, tmux)
 	ctx := t.Context()
 
-	backend, err := workflows.NewWorkflow(ctx, workflow.Config{Name: "backend", CleanupAction: "drop-worktree"})
+	backend, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend", CleanupAction: "drop-worktree"})
 	require.NoError(t, err)
-	frontend, err := workflows.NewWorkflow(ctx, workflow.Config{Name: "frontend", CleanupAction: "drop-container"})
+	frontend, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "frontend", CleanupAction: "drop-container"})
 	require.NoError(t, err)
 
 	auth, err := manager.NewAgent(ctx, NewAgentParams{Title: "auth", Dir: t.TempDir(), WorkflowID: backend.ID})
@@ -151,7 +151,7 @@ func TestDeleteAgentsRefusesTheWholeBatch(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 	ctx := t.Context()
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(ctx, workflow.Config{Name: "backend", CleanupAction: "drop-worktree"})
+	created, err := workflowsFor(st, tmux).NewWorkflow(ctx, workflowstore.Config{Name: "backend", CleanupAction: "drop-worktree"})
 	require.NoError(t, err)
 
 	agent, err := manager.NewAgent(ctx, NewAgentParams{Title: "auth", Dir: t.TempDir(), WorkflowID: created.ID})
@@ -178,9 +178,9 @@ func TestRestoreAgentsBringsBackEveryWorkflow(t *testing.T) {
 	workflows := workflowsFor(st, tmux)
 	ctx := t.Context()
 
-	backend, err := workflows.NewWorkflow(ctx, workflow.Config{Name: "backend"})
+	backend, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
 	require.NoError(t, err)
-	frontend, err := workflows.NewWorkflow(ctx, workflow.Config{Name: "frontend"})
+	frontend, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "frontend"})
 	require.NoError(t, err)
 
 	auth := seedInWorkflow(t, st, backend.ID, "auth", "", agentstore.StateIdle)

@@ -13,7 +13,7 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
-	"weave/internal/store/workflow"
+	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
@@ -362,7 +362,7 @@ func TestNewAgentGetsDirectory(t *testing.T) {
 			st := newStore(t)
 			manager := newManager(tmux, st, "")
 
-			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflow.Config{Name: "backend", Cwd: tt.workflowCwd})
+			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{Name: "backend", Cwd: tt.workflowCwd})
 			require.NoError(t, err)
 
 			_, err = manager.NewAgent(t.Context(), NewAgentParams{
@@ -412,7 +412,7 @@ func TestNewAgentInsideWorkflow(t *testing.T) {
 			st := newStore(t)
 			manager, h := newManagerWithHarness(tmux, st, "")
 
-			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflow.Config{
+			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 				Name:    "backend",
 				Context: tt.context,
 			})
@@ -495,7 +495,7 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 			h := &fakeHarness{}
 			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: h}, lifecycle)
 
-			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflow.Config{
+			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 				Name:        "backend",
 				SetupAction: tt.action,
 			})
@@ -545,7 +545,7 @@ func TestNewAgentSetupActionOverride(t *testing.T) {
 	h := &fakeHarness{}
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: h}, lifecycle)
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflow.Config{
+	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:        "backend",
 		SetupAction: "make-worktree",
 	})
@@ -575,7 +575,7 @@ func TestNewAgentSetupActionOverrideToNone(t *testing.T) {
 	h := &fakeHarness{}
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: h}, lifecycle)
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflow.Config{
+	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:        "backend",
 		SetupAction: "make-worktree",
 	})
@@ -640,7 +640,7 @@ func TestNewAgentCeiling(t *testing.T) {
 			lifecycle := &fakeLifecycle{}
 			manager := st.agentServiceCapped(tmux, lifecycle, tt.maxAgents)
 
-			workflow, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflow.Config{
+			workflow, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 				Name:        "backend",
 				SetupAction: "make-worktree",
 			})
@@ -753,7 +753,7 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 			lifecycle := &fakeLifecycle{dir: tt.answered}
 			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
-			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflow.Config{
+			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 				Name:          "backend",
 				SetupAction:   "make-worktree",
 				CleanupAction: "drop-worktree",
@@ -791,7 +791,7 @@ func TestNewAgentDoesNotCleanUpASetupThatRefused(t *testing.T) {
 	lifecycle := &fakeLifecycle{setupErr: ErrSetupFailed}
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflow.Config{
+	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:          "backend",
 		SetupAction:   "make-worktree",
 		CleanupAction: "drop-worktree",
@@ -832,7 +832,7 @@ func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
 			lifecycle := &fakeLifecycle{}
 			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
-			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflow.Config{
+			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 				Name:          "backend",
 				CleanupAction: "drop-worktree",
 			})
@@ -866,7 +866,7 @@ func TestDeleteAgentRunsCleanupFromAnArchivedWorkflow(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 	workflows := workflowsFor(st, tmux)
 
-	created, err := workflows.NewWorkflow(t.Context(), workflow.Config{
+	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
 		Name:          "backend",
 		CleanupAction: "drop-worktree",
 	})
@@ -929,7 +929,7 @@ func TestCleanupActionSaysNothingAboutAWorkflowNamingNone(t *testing.T) {
 
 func TestCleanupActionOverridesTheWorkflow(t *testing.T) {
 	manager := NewAgentService(NewAgentServiceParams{
-		Workflows: fakeWorkflowReader{workflow: &workflow.Workflow{ID: "wf1", CleanupAction: "drop-worktree"}},
+		Workflows: fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", CleanupAction: "drop-worktree"}},
 	})
 	got := manager.getCleanupAction(context.Background(), agentstore.Agent{ID: "a1", WorkflowID: "wf1", CleanupAction: xptr.Ptr("custom-cleanup")})
 	assert.Equal(t, "custom-cleanup", got)
@@ -937,7 +937,7 @@ func TestCleanupActionOverridesTheWorkflow(t *testing.T) {
 
 func TestCleanupActionOverrideToNoneWinsOverTheWorkflow(t *testing.T) {
 	manager := NewAgentService(NewAgentServiceParams{
-		Workflows: fakeWorkflowReader{workflow: &workflow.Workflow{ID: "wf1", CleanupAction: "drop-worktree"}},
+		Workflows: fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", CleanupAction: "drop-worktree"}},
 	})
 	got := manager.getCleanupAction(context.Background(), agentstore.Agent{ID: "a1", WorkflowID: "wf1", CleanupAction: xptr.Ptr("")})
 	assert.Empty(t, got)
@@ -945,7 +945,7 @@ func TestCleanupActionOverrideToNoneWinsOverTheWorkflow(t *testing.T) {
 
 func TestSetupActionOverridesTheWorkflow(t *testing.T) {
 	manager := NewAgentService(NewAgentServiceParams{
-		Workflows: fakeWorkflowReader{workflow: &workflow.Workflow{ID: "wf1", SetupAction: "make-worktree"}},
+		Workflows: fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", SetupAction: "make-worktree"}},
 	})
 	got := manager.getSetupAction(context.Background(), agentstore.Agent{ID: "a1", WorkflowID: "wf1", SetupAction: xptr.Ptr("custom-setup")})
 	assert.Equal(t, "custom-setup", got)
@@ -953,7 +953,7 @@ func TestSetupActionOverridesTheWorkflow(t *testing.T) {
 
 func TestSetupActionOverrideToNoneWinsOverTheWorkflow(t *testing.T) {
 	manager := NewAgentService(NewAgentServiceParams{
-		Workflows: fakeWorkflowReader{workflow: &workflow.Workflow{ID: "wf1", SetupAction: "make-worktree"}},
+		Workflows: fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", SetupAction: "make-worktree"}},
 	})
 	got := manager.getSetupAction(context.Background(), agentstore.Agent{ID: "a1", WorkflowID: "wf1", SetupAction: xptr.Ptr("")})
 	assert.Empty(t, got)
@@ -965,11 +965,11 @@ type brokenWorkflowReader struct {
 	err error
 }
 
-func (b brokenWorkflowReader) Get(ctx context.Context, id string) (*workflow.Workflow, error) {
+func (b brokenWorkflowReader) Get(ctx context.Context, id string) (*workflowstore.Workflow, error) {
 	return b.GetIncludingArchived(ctx, id)
 }
 
-func (b brokenWorkflowReader) GetIncludingArchived(context.Context, string) (*workflow.Workflow, error) {
+func (b brokenWorkflowReader) GetIncludingArchived(context.Context, string) (*workflowstore.Workflow, error) {
 	return nil, b.err
 }
 
@@ -1429,7 +1429,7 @@ func TestResumeRunsTheSetupAction(t *testing.T) {
 			lifecycle := &fakeLifecycle{resumeDir: named, resumeErr: tt.resumeErr}
 			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
-			created, err := st.Workflows.Create(ctx, workflow.Config{
+			created, err := st.Workflows.Create(ctx, workflowstore.Config{
 				Name:        "resume-" + tt.name,
 				SetupAction: "make-worktree",
 			})

@@ -8,7 +8,7 @@ import (
 	"weave/config"
 
 	agentstore "weave/internal/store/agent"
-	"weave/internal/store/transcript"
+	transcriptstore "weave/internal/store/transcript"
 
 	"weave/internal/ui/layout"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -192,12 +192,12 @@ func TestRenderSnippet(t *testing.T) {
 		},
 		{
 			name:        "a marked match survives as text",
-			in:          "before " + transcript.SnippetOpen + "match" + transcript.SnippetClose + " after",
+			in:          "before " + transcriptstore.SnippetOpen + "match" + transcriptstore.SnippetClose + " after",
 			wantContain: "match",
 		},
 		{
 			name:        "newlines are collapsed",
-			in:          "first" + transcript.SnippetOpen + "match" + transcript.SnippetClose + "\nsecond",
+			in:          "first" + transcriptstore.SnippetOpen + "match" + transcriptstore.SnippetClose + "\nsecond",
 			wantContain: "second",
 		},
 	}
@@ -207,8 +207,8 @@ func TestRenderSnippet(t *testing.T) {
 			out := renderSnippet(tt.in, 0)
 
 			assert.Contains(t, out, tt.wantContain)
-			assert.NotContains(t, out, transcript.SnippetOpen, "the markers are consumed")
-			assert.NotContains(t, out, transcript.SnippetClose)
+			assert.NotContains(t, out, transcriptstore.SnippetOpen, "the markers are consumed")
+			assert.NotContains(t, out, transcriptstore.SnippetClose)
 			assert.NotContains(t, out, "\n", "the snippet occupies one row")
 		})
 	}
@@ -224,7 +224,7 @@ func TestClipToMatch(t *testing.T) {
 	)
 
 	marked := func(match string) string {
-		return transcript.SnippetOpen + match + transcript.SnippetClose
+		return transcriptstore.SnippetOpen + match + transcriptstore.SnippetClose
 	}
 
 	tests := []struct {
@@ -275,8 +275,8 @@ func TestClipToMatch(t *testing.T) {
 					"the rendered row fits the pane")
 			}
 
-			opens := strings.Count(out, transcript.SnippetOpen)
-			assert.Equal(t, opens, strings.Count(out, transcript.SnippetClose),
+			opens := strings.Count(out, transcriptstore.SnippetOpen)
+			assert.Equal(t, opens, strings.Count(out, transcriptstore.SnippetClose),
 				"every marker left in the snippet is paired")
 		})
 	}

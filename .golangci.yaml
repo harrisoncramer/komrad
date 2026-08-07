@@ -9,6 +9,7 @@ linters:
     - exhaustive
     - agentslinter
     - depguard
+    - importas
   settings:
     errcheck:
       # A discarded error is the same bug whether it went to _ or nowhere, so the blank
@@ -51,8 +52,6 @@ linters:
               desc: the panel holds no database connection
         transport:
           files:
-            # Not tests: an integration test at this layer stands the real stack up, which
-            # means constructing the adapters the handlers themselves never name.
             - "!$test"
             - "**/internal/rpc/**"
             - "**/internal/mcp/**"
@@ -104,6 +103,13 @@ linters:
           deny:
             - pkg: weave/internal
               desc: config is read by everything and so may depend on nothing
+    importas:
+      no-unaliased: true
+      alias:
+        - pkg: weave/internal/store/(\w+)
+          alias: ${1}store
+        - pkg: weave/proto/gen/(\w+)/v1
+          alias: ${1}v1
     exhaustive:
       check:
         - switch

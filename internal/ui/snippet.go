@@ -3,7 +3,7 @@ package ui
 import (
 	"strings"
 
-	"weave/internal/store/transcript"
+	transcriptstore "weave/internal/store/transcript"
 )
 
 // A search hit arrives with the store's markers around whatever matched. Turning that
@@ -45,7 +45,7 @@ func clipToMatch(snippet string, width int) string {
 
 	const ellipsis = "…"
 
-	openMark, closeMark := rune(transcript.SnippetOpen[0]), rune(transcript.SnippetClose[0])
+	openMark, closeMark := rune(transcriptstore.SnippetOpen[0]), rune(transcriptstore.SnippetClose[0])
 	runes := []rune(snippet)
 
 	visible, matchAt := 0, -1
@@ -110,7 +110,7 @@ func clipToMatch(snippet string, width int) string {
 			// The window opened partway through a marked run, so the marker that began
 			// it fell outside it and is reissued here.
 			if marked && !wrapped {
-				b.WriteString(transcript.SnippetOpen)
+				b.WriteString(transcriptstore.SnippetOpen)
 				wrapped = true
 			}
 			b.WriteRune(r)
@@ -119,7 +119,7 @@ func clipToMatch(snippet string, width int) string {
 	}
 
 	if wrapped {
-		b.WriteString(transcript.SnippetClose)
+		b.WriteString(transcriptstore.SnippetClose)
 	}
 	if start+budget < visible {
 		b.WriteString(ellipsis)
@@ -136,21 +136,21 @@ func renderSnippet(s string, width int) string {
 
 	var b strings.Builder
 	for {
-		i := strings.Index(s, transcript.SnippetOpen)
+		i := strings.Index(s, transcriptstore.SnippetOpen)
 		if i < 0 {
 			b.WriteString(s)
 			break
 		}
 		b.WriteString(s[:i])
 
-		rest := s[i+len(transcript.SnippetOpen):]
-		j := strings.Index(rest, transcript.SnippetClose)
+		rest := s[i+len(transcriptstore.SnippetOpen):]
+		j := strings.Index(rest, transcriptstore.SnippetClose)
 		if j < 0 {
 			b.WriteString(rest)
 			break
 		}
 		b.WriteString(matchStyle.Render(rest[:j]))
-		s = rest[j+len(transcript.SnippetClose):]
+		s = rest[j+len(transcriptstore.SnippetClose):]
 	}
 
 	return b.String()

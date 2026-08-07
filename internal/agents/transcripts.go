@@ -8,13 +8,13 @@ import (
 
 	"weave/internal/harness"
 	agentstore "weave/internal/store/agent"
-	"weave/internal/store/transcript"
+	transcriptstore "weave/internal/store/transcript"
 )
 
 type transcriptReadWriter interface {
-	Get(ctx context.Context, agentID string) (transcript.Transcript, error)
-	Upsert(ctx context.Context, params transcript.UpsertParams) error
-	AppendTurns(ctx context.Context, agentID string, turns []transcript.Turn) error
+	Get(ctx context.Context, agentID string) (transcriptstore.Transcript, error)
+	Upsert(ctx context.Context, params transcriptstore.UpsertParams) error
+	AppendTurns(ctx context.Context, agentID string, turns []transcriptstore.Turn) error
 	DeleteTurns(ctx context.Context, agentID string) error
 }
 
@@ -159,7 +159,7 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 
 	content, turns := appendTurns(content, read.Turns)
 
-	if err := ts.store.Upsert(ctx, transcript.UpsertParams{
+	if err := ts.store.Upsert(ctx, transcriptstore.UpsertParams{
 		AgentID: agent.ID,
 		Content: content,
 		Offset:  offset + read.Consumed,
@@ -173,17 +173,17 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 // appendTurns joins newly-synced turns onto the transcript so far, blank-line separated,
 // and returns the grown text alongside the turns ready to index. Each turn carries where it
 // landed, which is what the panel reads back to scroll a hit into view.
-func appendTurns(existing string, turns []harness.Turn) (string, []transcript.Turn) {
+func appendTurns(existing string, turns []harness.Turn) (string, []transcriptstore.Turn) {
 	var content strings.Builder
 	content.WriteString(existing)
 
-	indexed := make([]transcript.Turn, 0, len(turns))
+	indexed := make([]transcriptstore.Turn, 0, len(turns))
 	for _, t := range turns {
 		if content.Len() > 0 {
 			content.WriteString("\n\n")
 		}
 
-		indexed = append(indexed, transcript.Turn{
+		indexed = append(indexed, transcriptstore.Turn{
 			Role:    t.Role,
 			Content: t.Content,
 			Offset:  int64(content.Len()),

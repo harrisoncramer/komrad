@@ -8,7 +8,7 @@ import (
 	"weave/internal/storetest"
 
 	agentstore "weave/internal/store/agent"
-	"weave/internal/store/transcript"
+	transcriptstore "weave/internal/store/transcript"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -27,7 +27,7 @@ func openTools(t *testing.T) *dbTools {
 		Cwd:   "/repo",
 		State: agentstore.StateWaiting,
 	})
-	require.NoError(t, st.Transcripts.Upsert(t.Context(), transcript.UpsertParams{
+	require.NoError(t, st.Transcripts.Upsert(t.Context(), transcriptstore.UpsertParams{
 		AgentID: agent.ID,
 		Content: "we should update the parser",
 		Offset:  0,

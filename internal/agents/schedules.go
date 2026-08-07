@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/store/schedule"
+	schedulestore "weave/internal/store/schedule"
 
 	"github.com/robfig/cron/v3"
 )
@@ -15,9 +15,9 @@ import (
 // scheduleReadWriter is the part of the schedule store this service reads and writes. A
 // schedule is only a record until something fires it, so this touches no tmux.
 type scheduleReadWriter interface {
-	Get(ctx context.Context, id string) (*schedule.Schedule, error)
-	Create(ctx context.Context, cfg schedule.Config) (*schedule.Schedule, error)
-	Update(ctx context.Context, id string, cfg schedule.Config) error
+	Get(ctx context.Context, id string) (*schedulestore.Schedule, error)
+	Create(ctx context.Context, cfg schedulestore.Config) (*schedulestore.Schedule, error)
+	Update(ctx context.Context, id string, cfg schedulestore.Config) error
 	SetEnabled(ctx context.Context, id string, enabled bool) error
 	Archive(ctx context.Context, id string) error
 }
@@ -51,7 +51,7 @@ func NewScheduleService(p ScheduleParams) *ScheduleService {
 }
 
 // GetSchedule returns a schedule by id, or nil when none has that id.
-func (s *ScheduleService) GetSchedule(ctx context.Context, id string) (*schedule.Schedule, error) {
+func (s *ScheduleService) GetSchedule(ctx context.Context, id string) (*schedulestore.Schedule, error) {
 	found, err := s.store.Get(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get schedule %q: %w", id, err)
@@ -62,7 +62,7 @@ func (s *ScheduleService) GetSchedule(ctx context.Context, id string) (*schedule
 
 // NewSchedule records a recurring launch. The cron expression is parsed before the write,
 // so a schedule that could never fire is refused at creation.
-func (s *ScheduleService) NewSchedule(ctx context.Context, cfg schedule.Config) (*schedule.Schedule, error) {
+func (s *ScheduleService) NewSchedule(ctx context.Context, cfg schedulestore.Config) (*schedulestore.Schedule, error) {
 	normalized, err := normalize(cfg)
 	if err != nil {
 		return nil, err
@@ -81,7 +81,7 @@ func (s *ScheduleService) NewSchedule(ctx context.Context, cfg schedule.Config) 
 
 // UpdateSchedule replaces a schedule's editable fields. A blank name falls back to the one
 // it already has, so the list never renders an unlabelled row.
-func (s *ScheduleService) UpdateSchedule(ctx context.Context, id string, cfg schedule.Config) error {
+func (s *ScheduleService) UpdateSchedule(ctx context.Context, id string, cfg schedulestore.Config) error {
 	existing, err := s.GetSchedule(ctx, id)
 	if err != nil {
 		return err
@@ -165,14 +165,14 @@ func (s *ScheduleService) requireWorkflow(ctx context.Context, workflowID string
 
 // normalize trims the config and parses the cron expression, so an unreadable one never
 // reaches the database.
-func normalize(cfg schedule.Config) (schedule.Config, error) {
+func normalize(cfg schedulestore.Config) (schedulestore.Config, error) {
 	cfg.Name = strings.TrimSpace(cfg.Name)
 	cfg.Cron = strings.TrimSpace(cfg.Cron)
 	cfg.Timezone = strings.TrimSpace(cfg.Timezone)
 	cfg.Prompt = strings.TrimSpace(cfg.Prompt)
 
 	if _, err := ParseCron(cfg.Cron, cfg.Timezone); err != nil {
-		return schedule.Config{}, err
+		return schedulestore.Config{}, err
 	}
 
 	return cfg, nil
@@ -209,7 +209,7 @@ func ParseCron(expression, timezone string) (cron.Schedule, error) {
 
 // CalculateNextRun returns when a schedule next fires after from, or the zero time when it is
 // paused or its expression cannot be read, which the panel renders as a dash.
-func CalculateNextRun(s schedule.Schedule, from time.Time) time.Time {
+func CalculateNextRun(s schedulestore.Schedule, from time.Time) time.Time {
 	if !s.Enabled {
 		return time.Time{}
 	}

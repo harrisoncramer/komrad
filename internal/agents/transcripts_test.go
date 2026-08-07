@@ -11,7 +11,7 @@ import (
 	"weave/internal/harness/claude"
 	"weave/internal/harness/codex"
 	agentstore "weave/internal/store/agent"
-	"weave/internal/store/transcript"
+	transcriptstore "weave/internal/store/transcript"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -161,7 +161,7 @@ func TestTranscriptSyncer(t *testing.T) {
 			assert.Equal(t, tt.want, tr.Content)
 
 			if tt.want == "" {
-				assert.Equal(t, transcript.Transcript{}, tr)
+				assert.Equal(t, transcriptstore.Transcript{}, tr)
 				return
 			}
 			assert.Positive(t, tr.SyncedOffset)
@@ -171,7 +171,7 @@ func TestTranscriptSyncer(t *testing.T) {
 			}
 
 			if tt.searchFor != "" {
-				hits, err := st.Transcripts.Search(ctx, transcript.SearchParams{Query: tt.searchFor, Limit: 10})
+				hits, err := st.Transcripts.Search(ctx, transcriptstore.SearchParams{Query: tt.searchFor, Limit: 10})
 				require.NoError(t, err)
 				require.Len(t, hits, 1)
 				assert.Equal(t, agent.ID, hits[0].AgentID)
@@ -231,7 +231,7 @@ type failingTranscripts struct {
 	failFor string
 }
 
-func (f failingTranscripts) Upsert(ctx context.Context, params transcript.UpsertParams) error {
+func (f failingTranscripts) Upsert(ctx context.Context, params transcriptstore.UpsertParams) error {
 	if params.AgentID == f.failFor {
 		return errors.New("this log will never be accepted")
 	}

@@ -16,8 +16,8 @@ import (
 	"weave/internal/harness"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
-	"weave/internal/store/transcript"
-	"weave/internal/store/workflow"
+	transcriptstore "weave/internal/store/transcript"
+	workflowstore "weave/internal/store/workflow"
 )
 
 var ErrAgentNotFound = errors.New("agent not found")
@@ -93,8 +93,8 @@ type paneWriter interface {
 // workflowReader is the workflow store as the services over it read it: a live workflow to
 // launch into, and an archived one's blueprint to fall back on its setup and cleanup.
 type workflowReader interface {
-	Get(ctx context.Context, id string) (*workflow.Workflow, error)
-	GetIncludingArchived(ctx context.Context, id string) (*workflow.Workflow, error)
+	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
+	GetIncludingArchived(ctx context.Context, id string) (*workflowstore.Workflow, error)
 }
 
 type txRunner interface {
@@ -340,7 +340,7 @@ func (s *AgentService) RestoreAgents(ctx context.Context, ids []string) ([]agent
 	}
 
 	err = s.tx.InTx(ctx, func(db store.DBTX) error {
-		agentStore, workflowStore := agentstore.New(db), workflow.New(db)
+		agentStore, workflowStore := agentstore.New(db), workflowstore.New(db)
 
 		if err := claimRoomForAgents(ctx, agentStore, s.maxAgents, len(archived)); err != nil {
 			return err
@@ -470,7 +470,7 @@ func (s *AgentService) removeAgents(ctx context.Context, ids []string) error {
 			return err
 		}
 
-		return transcript.New(db).Delete(ctx, ids)
+		return transcriptstore.New(db).Delete(ctx, ids)
 	})
 }
 
@@ -528,7 +528,7 @@ func (s *AgentService) getSetupAction(ctx context.Context, agent agentstore.Agen
 	return wf.SetupAction
 }
 
-func (s *AgentService) getWorkflowFor(ctx context.Context, agent agentstore.Agent) *workflow.Workflow {
+func (s *AgentService) getWorkflowFor(ctx context.Context, agent agentstore.Agent) *workflowstore.Workflow {
 	wf, err := s.workflows.GetIncludingArchived(ctx, agent.WorkflowID)
 	if err != nil {
 		attrs := []slog.Attr{
