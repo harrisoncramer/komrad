@@ -105,17 +105,17 @@ func TestReconcileSinglePass(t *testing.T) {
 	}
 }
 
-// TestReconcileLeavesTheMark pins who the mark belongs to. The reconciler writes
-// what it observes, and a mark is not something it can observe. The user sets it and
+// TestReconcileLeavesTheTag pins who the tag belongs to. The reconciler writes
+// what it observes, and a tag is not something it can observe. The user sets it and
 // only the user clears it, so a pass that moves an agent's state leaves it standing.
-func TestReconcileLeavesTheMark(t *testing.T) {
+func TestReconcileLeavesTheTag(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
 	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
 
-	marked, err := st.Agents.SetMarks(ctx, []string{agent.ID}, xptr.Ptr("●"))
+	tagged, err := st.Agents.SetTags(ctx, []string{agent.ID}, xptr.Ptr("●"))
 	require.NoError(t, err)
-	require.Equal(t, 1, marked)
+	require.Equal(t, 1, tagged)
 
 	tmux := newFakeTmux()
 	tmux.owners["%1"] = agent.ID
@@ -128,7 +128,7 @@ func TestReconcileLeavesTheMark(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, after)
 	assert.Equal(t, agentstore.StateThinking, after.State, "the pass wrote a state")
-	assert.Equal(t, "●", *after.Mark, "the user's mark survives a state write")
+	assert.Equal(t, "●", *after.Tag, "the user's tag survives a state write")
 }
 
 // TestReconcileOverPasses covers what only shows up across several passes, the

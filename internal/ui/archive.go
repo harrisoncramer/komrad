@@ -7,7 +7,6 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
-	"weave/internal/ui/layout"
 	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -25,7 +24,6 @@ type archiveState struct {
 // archived agent is not something to act on alongside live work.
 func (m model) enterArchive() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenArchive)
-	m.closeRecord()
 	m.stageArchive()
 
 	return m, m.refreshCmd()
@@ -48,21 +46,16 @@ func (m model) allArchiveRows() []agentRow {
 // agent, as the folder those agents belong to. A live workflow is a header on both screens
 // at once, carrying its live agents on one and its put-away ones here.
 func (m model) archiveHeaders() []workflowstore.Workflow {
-	holding := make(map[string]bool, len(m.archive.agents))
-	for _, agent := range m.archive.agents {
-		holding[agent.WorkflowID] = true
-	}
-
-	archived := make(map[string]bool, len(m.archive.workflows))
-	for _, w := range m.archive.workflows {
-		archived[w.ID] = true
-	}
+	holding := xslice.KeyBy(m.archive.agents, func(agent agentstore.Agent) string { return agent.WorkflowID })
+	archived := xslice.KeyBy(m.archive.workflows, func(w workflowstore.Workflow) string { return w.ID })
 
 	headers := slices.Clone(m.archive.workflows)
 	for _, w := range m.listing.workflows {
 		// The two listings run at once, so a workflow restored between them can come back
 		// in both, and a folder drawn twice would nest its agents twice.
-		if holding[w.ID] && !archived[w.ID] {
+		_, isHolding := holding[w.ID]
+		_, isArchived := archived[w.ID]
+		if isHolding && !isArchived {
 			headers = append(headers, w)
 		}
 	}
@@ -131,17 +124,13 @@ func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.updateArchiveSelection(key)
 	}
 
-	if cmd, ok := m.tryCopyRecordValue(k); ok {
-		return m, cmd
-	}
-
 	switch {
 	case isBound(k, m.keys.Filter.Open):
 		return m.openFilter()
 	case isBound(k, m.keys.Archive.Quit):
 		return m, m.hide()
 	case m.filter.standing() && isBound(k, m.keys.Archive.Back):
-		return m.clearFilter()
+		return m.openFilter()
 	case isBound(k, m.keys.Archive.Back):
 		return m.returnToAgents()
 	case isBound(k, m.keys.Nav.Up):
@@ -306,23 +295,48 @@ func (m model) updateArchiveDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 	})
 }
 
+// archiveDetails is what the row under the archive's cursor holds. A folder here is drawn
+// only to hold the agents put away out of it, so it carries the same fields it does live.
+func (m model) archiveDetails() details {
+	r, ok := rowAt(m.archiveRows(), m.archive.cursor)
+	if !ok {
+		return details{}
+	}
+
+	if r.header {
+		return details{
+			id:     r.workflow.ID,
+			kind:   "Workflow",
+			title:  r.workflow.Name,
+			fields: workflowFields(r.workflow, m.archivedCount(r.workflow.ID)),
+		}
+	}
+
+	return details{
+		id:     r.item.agent.ID,
+		kind:   "Agent",
+		title:  r.item.agent.Name,
+		fields: archiveFields(r.item.agent, m.scheduleName(r.item.agent)),
+	}
+}
+
 // stageArchive shows the hovered row's stored record in the stage. Nothing in the archive
 // is running, so there is never a pane to swap in.
 func (m *model) stageArchive() {
 	r, ok := rowAt(m.archiveRows(), m.archive.cursor)
 	if !ok {
-		m.stagePlaceholder(emptyArchiveMarkdown)
+		m.stageDocument(emptyArchiveMarkdown)
 
 		return
 	}
 
 	if r.header {
-		m.stageRecord(workflowMarkdown(r.workflow, m.archivedCount(r.workflow.ID)), layout.RegionStage)
+		m.stageDocument(workflowContextMarkdown(r.workflow))
 
 		return
 	}
 
-	m.stageRecord(archiveMarkdown(r.item.agent, m.scheduleName(r.item.agent)), layout.RegionStage)
+	m.stageDocument(archiveMarkdown(r.item.agent))
 }
 
 // archivedCount is how many archived agents sit under a workflow, which is what a folder
@@ -332,11 +346,11 @@ func (m model) archivedCount(workflowID string) int {
 }
 
 func (m model) archiveView() string {
-	help := "\n" + m.renderHelp(m.archiveHelp())
+	below := m.detailsView() + "\n" + m.renderHelp(m.archiveHelp())
 
 	all := m.archiveRows()
 	if len(all) == 0 {
-		return m.listView("Archive", []string{dimStyle.Render("nothing archived")}, 0, help)
+		return m.listView("Archive", []string{dimStyle.Render("nothing archived")}, 0, below)
 	}
 
 	rows := make([]string, 0, len(all))
@@ -344,21 +358,21 @@ func (m model) archiveView() string {
 		hovered := i == m.archive.cursor
 		prefix := "  "
 		if hovered {
-			prefix = cursorStyle.Render("› ")
+			prefix = m.rowCursorStyle().Render("› ")
 		}
 		prefix = selectionGutter(!r.header && m.archive.selected.has(r.item.agent.ID)) + prefix
 
 		if r.header {
-			label := m.filter.highlight(r.workflow.Name, nameStyle(hovered, false))
+			label := m.filter.highlight(r.workflow.Name, m.nameStyle(hovered, false))
 			rows = append(rows, prefix+dimStyle.Render(workflowIcon)+" "+label+archivedTag(r.workflow))
 
 			continue
 		}
 
 		agent := r.item.agent
-		name := m.filter.highlight(clipName(agent.Name), nameStyle(hovered, true))
-		rows = append(rows, prefix+"  "+name+scheduledMark(agent)+markGlyph(agent, m.marks))
+		name := m.filter.highlight(clipName(agent.Name), m.nameStyle(hovered, true))
+		rows = append(rows, prefix+"  "+name+scheduledMark(agent)+tagGlyph(agent, m.tags))
 	}
 
-	return m.listView("Archive", rows, m.archive.cursor, help)
+	return m.listView("Archive", rows, m.archive.cursor, below)
 }

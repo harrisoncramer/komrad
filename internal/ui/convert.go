@@ -46,7 +46,7 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 		ScheduleID: s.ScheduleId,
 		CreatedAt:  created,
 		ArchivedAt: archived,
-		Mark:       s.Mark,
+		Tag:        s.Tag,
 		Hidden:     s.GetHidden(),
 		Metadata:   metadata,
 	}
@@ -80,7 +80,7 @@ func actionItemsFrom(listed []*actionv1.Action) []actionItem {
 
 func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
 	return xslice.Map(listed, func(agent *agentv1.Agent) agentItem {
-		return agentItem{agent: protoToAgent(agent), alive: agent.GetAlive()}
+		return agentItem{agent: protoToAgent(agent), alive: agent.GetAlive(), unreadMail: agent.GetUnreadMail()}
 	})
 }
 

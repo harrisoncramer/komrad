@@ -81,71 +81,71 @@ func TestLoad(t *testing.T) {
 	}
 }
 
-// TestLoadMarks covers the marks list. A glyph goes into a rendered row, so it
+// TestLoadTags covers the tags list. A glyph goes into a rendered row, so it
 // cannot carry anything a terminal would read as an instruction, and a colour has to
-// be one lipgloss understands or the mark would quietly lose it.
-func TestLoadMarks(t *testing.T) {
+// be one lipgloss understands or the tag would quietly lose it.
+func TestLoadTags(t *testing.T) {
 	tests := []struct {
 		name    string
 		file    string
-		want    []Mark
+		want    []Tag
 		wantErr bool
 	}{
 		{
 			name:    "a glyph carrying a tab, which would break the row it is drawn on",
-			file:    "marks = [{ glyph = \"a\\tb\" }]\n",
+			file:    "tags = [{ glyph = \"a\\tb\" }]\n",
 			wantErr: true,
 		},
 		{
 			name:    "an empty glyph, which would draw as nothing at all",
-			file:    "marks = [{ glyph = \"\" }]\n",
+			file:    "tags = [{ glyph = \"\" }]\n",
 			wantErr: true,
 		},
 		{
 			name:    "the same glyph twice, which would sit twice in the cycle",
-			file:    "marks = [{ glyph = \"●\" }, { glyph = \"●\" }]\n",
+			file:    "tags = [{ glyph = \"●\" }, { glyph = \"●\" }]\n",
 			wantErr: true,
 		},
 		{
 			name:    "a colour that is neither a name nor hex",
-			file:    "marks = [{ glyph = \"●\", color = \"hot pink\" }]\n",
+			file:    "tags = [{ glyph = \"●\", color = \"hot pink\" }]\n",
 			wantErr: true,
 		},
 		{
 			name:    "a colour missing its hash",
-			file:    "marks = [{ glyph = \"●\", color = \"F932A1\" }]\n",
+			file:    "tags = [{ glyph = \"●\", color = \"F932A1\" }]\n",
 			wantErr: true,
 		},
 		{
 			name:    "a colour named as an index rather than by name, which is the panel's own spelling and not a config's",
-			file:    "marks = [{ glyph = \"●\", color = \"4\" }]\n",
+			file:    "tags = [{ glyph = \"●\", color = \"4\" }]\n",
 			wantErr: true,
 		},
 		{
 			name: "a file that names none falls back to the defaults",
 			file: "default_harness = \"claude\"\n",
-			want: DefaultMarks(),
+			want: DefaultTags(),
 		},
 		{
 			name: "the glyphs the user chose, in their order, with their colours",
-			file: "marks = [{ glyph = \"◐\", color = \"#F932A1\" }, { glyph = \"✓\", color = \"#0f0\" }]\n",
-			want: []Mark{
+			file: "tags = [{ glyph = \"◐\", color = \"#F932A1\" }, { glyph = \"✓\", color = \"#0f0\" }]\n",
+			want: []Tag{
 				{Glyph: "◐", Color: "#F932A1"},
 				{Glyph: "✓", Color: "#0f0"},
 			},
 		},
 		{
 			name: "colours named from the sixteen, which follow the terminal's own scheme",
-			file: "marks = [{ glyph = \"◐\", color = \"blue\" }, { glyph = \"✓\", color = \"brightmagenta\" }]\n",
-			want: []Mark{
+			file: "tags = [{ glyph = \"◐\", color = \"blue\" }, { glyph = \"✓\", color = \"brightmagenta\" }]\n",
+			want: []Tag{
 				{Glyph: "◐", Color: "blue"},
 				{Glyph: "✓", Color: "brightmagenta"},
 			},
 		},
 		{
 			name: "a glyph with no colour of its own, which the panel draws in the default",
-			file: "[[marks]]\nglyph = \"⚑\"\n",
-			want: []Mark{{Glyph: "⚑"}},
+			file: "[[tags]]\nglyph = \"⚑\"\n",
+			want: []Tag{{Glyph: "⚑"}},
 		},
 	}
 
@@ -161,7 +161,7 @@ func TestLoadMarks(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, tt.want, cfg.Marks)
+			assert.Equal(t, tt.want, cfg.Tags)
 		})
 	}
 }
@@ -210,41 +210,61 @@ func TestLoadLayout(t *testing.T) {
 			name: "the share the user chose, with the rest left at the defaults",
 			file: "[layout]\nsidebar_width = 0.45\n",
 			want: Layout{
-				SidebarSide:  DefaultSidebarSide,
-				SidebarWidth: 0.45,
-				InfoSide:     DefaultInfoSide,
-				InfoHeight:   DefaultInfoHeight,
+				SidebarSide:   DefaultSidebarSide,
+				SidebarWidth:  0.45,
+				InfoSide:      DefaultInfoSide,
+				InfoHeight:    DefaultInfoHeight,
+				DetailsHeight: DefaultDetailsHeight,
 			},
 		},
 		{
 			name: "a width in columns rather than a share of the popup",
 			file: "[layout]\nsidebar_width = 40\n",
 			want: Layout{
-				SidebarSide:  DefaultSidebarSide,
-				SidebarWidth: 40,
-				InfoSide:     DefaultInfoSide,
-				InfoHeight:   DefaultInfoHeight,
+				SidebarSide:   DefaultSidebarSide,
+				SidebarWidth:  40,
+				InfoSide:      DefaultInfoSide,
+				InfoHeight:    DefaultInfoHeight,
+				DetailsHeight: DefaultDetailsHeight,
 			},
 		},
 		{
 			name: "the sides the user chose for the list and the info pane",
 			file: "[layout]\nsidebar_side = \"right\"\ninfo_side = \"above\"\n",
 			want: Layout{
-				SidebarSide:  SidebarSideRight,
-				SidebarWidth: DefaultSidebarWidth,
-				InfoSide:     InfoSideAbove,
-				InfoHeight:   DefaultInfoHeight,
+				SidebarSide:   SidebarSideRight,
+				SidebarWidth:  DefaultSidebarWidth,
+				InfoSide:      InfoSideAbove,
+				InfoHeight:    DefaultInfoHeight,
+				DetailsHeight: DefaultDetailsHeight,
 			},
 		},
 		{
 			name: "the height the user chose for the info pane",
 			file: "[layout]\ninfo_height = 0.6\n",
 			want: Layout{
-				SidebarSide:  DefaultSidebarSide,
-				SidebarWidth: DefaultSidebarWidth,
-				InfoSide:     DefaultInfoSide,
-				InfoHeight:   0.6,
+				SidebarSide:   DefaultSidebarSide,
+				SidebarWidth:  DefaultSidebarWidth,
+				InfoSide:      DefaultInfoSide,
+				InfoHeight:    0.6,
+				DetailsHeight: DefaultDetailsHeight,
 			},
+		},
+		{
+			name: "the height the user chose for the details under the list",
+			file: "[layout]\ndetails_height = 12\n",
+			want: Layout{
+				SidebarSide:   DefaultSidebarSide,
+				SidebarWidth:  DefaultSidebarWidth,
+				InfoSide:      DefaultInfoSide,
+				InfoHeight:    DefaultInfoHeight,
+				DetailsHeight: 12,
+			},
+		},
+		{
+			name:    "a details height between a share and a row count",
+			file:    "[layout]\ndetails_height = 2.5\n",
+			wantErr: true,
 		},
 	}
 
@@ -619,21 +639,21 @@ func TestLoadMergesLayers(t *testing.T) {
 		},
 		{
 			name:  "a list is replaced whole rather than appended to",
-			files: []string{"marks = [{ glyph = \"a\" }, { glyph = \"b\" }]\n", "marks = [{ glyph = \"c\" }]\n"},
+			files: []string{"tags = [{ glyph = \"a\" }, { glyph = \"b\" }]\n", "tags = [{ glyph = \"c\" }]\n"},
 			check: func(t *testing.T, cfg *Config) {
-				require.Len(t, cfg.Marks, 1, "appending would leave no way to drop a mark a base file set")
-				assert.Equal(t, "c", cfg.Marks[0].Glyph)
+				require.Len(t, cfg.Tags, 1, "appending would leave no way to drop a tag a base file set")
+				assert.Equal(t, "c", cfg.Tags[0].Glyph)
 			},
 		},
 		{
 			name: "a list the later layer does not mention is not reset",
 			files: []string{
-				"marks = [{ glyph = \"a\" }]\n",
+				"tags = [{ glyph = \"a\" }]\n",
 				"max_agents = 5\n",
 			},
 			check: func(t *testing.T, cfg *Config) {
-				require.Len(t, cfg.Marks, 1)
-				assert.Equal(t, "a", cfg.Marks[0].Glyph)
+				require.Len(t, cfg.Tags, 1)
+				assert.Equal(t, "a", cfg.Tags[0].Glyph)
 			},
 		},
 		{
@@ -725,12 +745,12 @@ func TestLoadDerivesConnectionValuesAfterPrecedence(t *testing.T) {
 
 func TestLoadExplicitEmptyCollectionReplacesDefault(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	require.NoError(t, os.WriteFile(path, []byte("marks = []\n[keybindings.nav]\nup = []\n"), 0o644))
+	require.NoError(t, os.WriteFile(path, []byte("tags = []\n[keybindings.nav]\nup = []\n"), 0o644))
 
 	cfg, err := Load([]string{path})
 	require.NoError(t, err)
 
-	assert.Empty(t, cfg.Marks)
+	assert.Empty(t, cfg.Tags)
 	assert.Empty(t, cfg.Keybindings.Nav.Up)
 	assert.Equal(t, DefaultKeybindings().Nav.Down, cfg.Keybindings.Nav.Down)
 }

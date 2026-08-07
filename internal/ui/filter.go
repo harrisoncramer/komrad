@@ -167,11 +167,11 @@ func (m *model) enterScreen(next screen) {
 	m.screen = next
 }
 
-// updateFilterInput drives the input, which owns every key while it is open. esc drops the
-// pattern along with the input, since a press that only shut the line over a list still
-// narrowed by it read as the key doing nothing, and enter is what keeps the narrowing to act
-// on. Nothing else here acts on a row, since a key that typed and acted at once could not be
-// used for either.
+// updateFilterInput drives the input, which owns every key while it is open. enter keeps the
+// pattern and hands the keys to the rows it left, and esc drops both, since the screen's back
+// key opens the input again rather than clearing it: esc is the one step out of the filter
+// altogether. Nothing else here acts on a row, since a key that typed and acted at once could
+// not be used for either.
 func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch k := key.String(); {
 	case k == "esc":

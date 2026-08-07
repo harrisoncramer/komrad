@@ -223,6 +223,53 @@ func TestListAgents(t *testing.T) {
 	}
 }
 
+// TestListAgentsReportsUnreadMail covers the unread flag, which is observed from the
+// mailbox at read time rather than stored on the row, the same as liveness.
+func TestListAgentsReportsUnreadMail(t *testing.T) {
+	svc, st := service(t)
+	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
+	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
+
+	_, err := svc.SendMail(t.Context(), connect.NewRequest(&agentv1.SendMailRequest{
+		ToAgentId: beta.ID,
+		Body:      "refunded_cents",
+	}))
+	require.NoError(t, err)
+
+	listed, err := svc.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{}))
+	require.NoError(t, err)
+	require.Len(t, listed.Msg.GetAgents(), 2)
+
+	unread := make(map[string]bool, 2)
+	for _, a := range listed.Msg.GetAgents() {
+		unread[a.GetId()] = a.GetUnreadMail()
+	}
+	assert.False(t, unread[alpha.ID], "alpha sent the mail, it did not receive any")
+	assert.True(t, unread[beta.ID], "beta has not read what alpha sent")
+}
+
+// TestGetAgentReportsUnreadMail mirrors TestListAgentsReportsUnreadMail for the single-agent
+// lookup, which reads the mailbox the same way rather than through a different path.
+func TestGetAgentReportsUnreadMail(t *testing.T) {
+	svc, st := service(t)
+	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
+	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
+
+	_, err := svc.SendMail(t.Context(), connect.NewRequest(&agentv1.SendMailRequest{
+		ToAgentId: beta.ID,
+		Body:      "refunded_cents",
+	}))
+	require.NoError(t, err)
+
+	got, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: beta.ID}))
+	require.NoError(t, err)
+	assert.True(t, got.Msg.GetAgent().GetUnreadMail())
+
+	got, err = svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: alpha.ID}))
+	require.NoError(t, err)
+	assert.False(t, got.Msg.GetAgent().GetUnreadMail())
+}
+
 // TestListAgentsIdempotencyKey covers the creator's key reaching the listing. A
 // caller that dispatched a batch of work under keys of its own has nothing else to
 // match a listed agent back to the piece of work it covers, since the name is the
@@ -450,54 +497,54 @@ func TestSetHidden(t *testing.T) {
 	}
 }
 
-// TestSetMarks covers the mark over the wire, over one agent and over several. The
+// TestSetTags covers the tag over the wire, over one agent and over several. The
 // server writes the stamp, so the request carries only a direction. A call that reached
-// nothing is refused rather than reported as a mark that never landed, and one that
+// nothing is refused rather than reported as a tag that never landed, and one that
 // reached some of what it named is not, since the ids it missed have no row to draw on.
-func TestSetMarks(t *testing.T) {
+func TestSetTags(t *testing.T) {
 	tests := []struct {
 		name string
 		seed int
 		// strays are ids nobody holds, sent alongside whatever was seeded.
 		strays int
-		// markFirst is put on the seeded agents before the call, so changing and
-		// clearing a mark both have one to work from.
-		markFirst *string
-		mark      *string
-		wantCode  connect.Code
+		// tagFirst is put on the seeded agents before the call, so changing and
+		// clearing a tag both have one to work from.
+		tagFirst *string
+		tag      *string
+		wantCode connect.Code
 	}{
 		{
 			name:     "an id nobody holds is not a quiet success",
 			strays:   1,
-			mark:     xptr.Ptr("●"),
+			tag:      xptr.Ptr("●"),
 			wantCode: connect.CodeNotFound,
 		},
 		{
-			name: "an agent is marked",
+			name: "an agent is tagged",
 			seed: 1,
-			mark: xptr.Ptr("●"),
+			tag:  xptr.Ptr("●"),
 		},
 		{
-			name: "several agents take one mark together",
+			name: "several agents take one tag together",
 			seed: 3,
-			mark: xptr.Ptr("●"),
+			tag:  xptr.Ptr("●"),
 		},
 		{
 			name:   "an id nobody holds does not refuse the agents beside it",
 			seed:   2,
 			strays: 1,
-			mark:   xptr.Ptr("●"),
+			tag:    xptr.Ptr("●"),
 		},
 		{
-			name:      "several agents move from one mark to another",
-			seed:      2,
-			markFirst: xptr.Ptr("●"),
-			mark:      xptr.Ptr("✓"),
+			name:     "several agents move from one tag to another",
+			seed:     2,
+			tagFirst: xptr.Ptr("●"),
+			tag:      xptr.Ptr("✓"),
 		},
 		{
-			name:      "and the marks are cleared again",
-			seed:      2,
-			markFirst: xptr.Ptr("●"),
+			name:     "and the tags are cleared again",
+			seed:     2,
+			tagFirst: xptr.Ptr("●"),
 		},
 	}
 
@@ -511,10 +558,10 @@ func TestSetMarks(t *testing.T) {
 				name := fmt.Sprintf("alpha-%d", i)
 				seeded = append(seeded, st.SeedAgent(t, agentstore.Agent{Name: name, State: agentstore.StateThinking}).ID)
 			}
-			if tt.markFirst != nil {
-				marked, err := st.Agents.SetMarks(ctx, seeded, tt.markFirst)
+			if tt.tagFirst != nil {
+				tagged, err := st.Agents.SetTags(ctx, seeded, tt.tagFirst)
 				require.NoError(t, err)
-				require.Equal(t, len(seeded), marked)
+				require.Equal(t, len(seeded), tagged)
 			}
 
 			ids := slices.Clone(seeded)
@@ -522,7 +569,7 @@ func TestSetMarks(t *testing.T) {
 				ids = append(ids, uuid.NewString())
 			}
 
-			_, err := svc.SetMarks(ctx, connect.NewRequest(&agentv1.SetMarksRequest{Ids: ids, Mark: tt.mark}))
+			_, err := svc.SetTags(ctx, connect.NewRequest(&agentv1.SetTagsRequest{Ids: ids, Tag: tt.tag}))
 			if tt.wantCode != 0 {
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 				return
@@ -533,7 +580,7 @@ func TestSetMarks(t *testing.T) {
 			for _, id := range seeded {
 				got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
 				require.NoError(t, err)
-				assert.Equal(t, tt.mark, got.Msg.GetAgent().Mark)
+				assert.Equal(t, tt.tag, got.Msg.GetAgent().Tag)
 			}
 		})
 	}
@@ -920,6 +967,131 @@ func TestCrossAgentMailReadIsRecorded(t *testing.T) {
 	record := logtest.Record(t, written.String())
 	assert.Equal(t, "agent read another agent's mail", record["body"])
 	assert.Equal(t, beta.ID, record[logging.TargetAgentID])
+}
+
+func TestListMail(t *testing.T) {
+	svc, st := service(t)
+	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
+	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
+
+	asAlpha := caller.With(t.Context(), caller.Caller{AgentID: alpha.ID})
+	_, err := svc.SendMail(asAlpha, connect.NewRequest(&agentv1.SendMailRequest{
+		ToAgentId: beta.ID,
+		Body:      "refunded_cents",
+	}))
+	require.NoError(t, err)
+
+	asBeta := caller.With(t.Context(), caller.Caller{AgentID: beta.ID})
+	listed, err := svc.ListMail(asBeta, connect.NewRequest(&agentv1.ListMailRequest{}))
+	require.NoError(t, err)
+	require.Len(t, listed.Msg.GetMail(), 1)
+	assert.Equal(t, "refunded_cents", listed.Msg.GetMail()[0].GetBody())
+	assert.Nil(t, listed.Msg.GetMail()[0].ClaimedAt, "listing does not claim the mail")
+
+	again, err := svc.ListMail(asBeta, connect.NewRequest(&agentv1.ListMailRequest{}))
+	require.NoError(t, err)
+	require.Len(t, again.Msg.GetMail(), 1, "listing twice still finds the mail, unlike reading")
+}
+
+func TestListMailScope(t *testing.T) {
+	tests := []struct {
+		name     string
+		explicit bool
+		callerIs bool
+		wantCode connect.Code
+	}{
+		{
+			name:     "no id and no caller identity is refused",
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "an id nobody holds is not a quiet success",
+			explicit: true,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "an unset id falls back to the caller's own",
+			callerIs: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, st := service(t)
+			seeded := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
+
+			ctx := t.Context()
+			if tt.callerIs {
+				ctx = caller.With(ctx, caller.Caller{AgentID: seeded.ID})
+			}
+
+			req := &agentv1.ListMailRequest{}
+			if tt.explicit {
+				ghost := uuid.NewString()
+				req.Id = &ghost
+			}
+
+			listed, err := svc.ListMail(ctx, connect.NewRequest(req))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Empty(t, listed.Msg.GetMail())
+		})
+	}
+}
+
+func TestCrossAgentMailListIsRecorded(t *testing.T) {
+	svc, st := service(t)
+	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
+	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
+
+	var written strings.Builder
+	ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelInfo))
+	ctx = caller.With(ctx, caller.Caller{AgentID: alpha.ID})
+
+	_, err := svc.ListMail(ctx, connect.NewRequest(&agentv1.ListMailRequest{Id: &beta.ID}))
+	require.NoError(t, err)
+
+	record := logtest.Record(t, written.String())
+	assert.Equal(t, "agent listed another agent's mail", record["body"])
+	assert.Equal(t, beta.ID, record[logging.TargetAgentID])
+}
+
+func TestDeleteMail(t *testing.T) {
+	svc, st := service(t)
+	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
+	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
+
+	asAlpha := caller.With(t.Context(), caller.Caller{AgentID: alpha.ID})
+	sent, err := svc.SendMail(asAlpha, connect.NewRequest(&agentv1.SendMailRequest{
+		ToAgentId: beta.ID,
+		Body:      "refunded_cents",
+	}))
+	require.NoError(t, err)
+
+	_, err = svc.DeleteMail(t.Context(), connect.NewRequest(&agentv1.DeleteMailRequest{
+		Ids: []string{sent.Msg.GetMail().GetId()},
+	}))
+	require.NoError(t, err)
+
+	asBeta := caller.With(t.Context(), caller.Caller{AgentID: beta.ID})
+	read, err := svc.ReadMail(asBeta, connect.NewRequest(&agentv1.ReadMailRequest{}))
+	require.NoError(t, err)
+	assert.Empty(t, read.Msg.GetMail(), "deleted mail is never delivered")
+}
+
+func TestDeleteMailUnknownIDIsNotFound(t *testing.T) {
+	svc, _ := service(t)
+
+	_, err := svc.DeleteMail(t.Context(), connect.NewRequest(&agentv1.DeleteMailRequest{
+		Ids: []string{uuid.NewString()},
+	}))
+	require.Error(t, err)
+	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
 }
 
 // TestLogTagsTheAction covers the action field, which is unset for anything that is not a

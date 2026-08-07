@@ -1,6 +1,6 @@
 // Package config loads the user's customization from one or more TOML files via viper,
 // merged in order so a later file wins. It covers which CLI agents run and the flags it
-// takes, the marks an agent can be given, the panel keybindings, and which database, address
+// takes, the tags an agent can be given, the panel keybindings, and which database, address
 // and tmux server this weave is.
 package config
 
@@ -77,12 +77,15 @@ const (
 const DefaultHarness = "claude"
 
 // The layout the panel lays itself out at when the config names none. The info pane opens
-// tall enough to work in without pushing the agent it is about off the screen.
+// tall enough to read a log in without pushing the agent above it off the screen.
 const (
 	DefaultSidebarSide  = SidebarSideLeft
 	DefaultSidebarWidth = 0.2
 	DefaultInfoSide     = InfoSideBelow
 	DefaultInfoHeight   = 0.4
+	// DefaultDetailsHeight leaves the list twice the room the record under it takes, which
+	// holds an agent's fields without the list it belongs to shrinking to a handful of rows.
+	DefaultDetailsHeight = 0.33
 )
 
 // Where each region of the panel's layout can sit.
@@ -93,10 +96,10 @@ const (
 	InfoSideAbove    = "above"
 )
 
-// DefaultMarkColor is the yellow a mark takes when its own colour is unset. It is the
-// plain yellow rather than the bright one the panel draws a thinking agent in, so a mark
+// DefaultTagColor is the yellow a tag takes when its own colour is unset. It is the
+// plain yellow rather than the bright one the panel draws a thinking agent in, so a tag
 // left on the default cannot be read as a lifecycle state.
-const DefaultMarkColor = "yellow"
+const DefaultTagColor = "yellow"
 
 // Keybindings scopes bindings to the screen they act in. Each binding is a list of
 // bubbletea key strings such as "enter", "ctrl+d", or "esc". Every default is a
@@ -109,6 +112,9 @@ type Keybindings struct {
 	Agents AgentsKeys `mapstructure:"agents"`
 	// The archive screen, and the key that opens it from the agents list.
 	Archive ArchiveKeys `mapstructure:"archive"`
+	// The details under whichever list is on screen: the key that hands them the
+	// cursor, and the key that copies the field it lands on.
+	Details DetailsKeys `mapstructure:"details"`
 	// The filter over whichever list is on screen, shared by every screen that
 	// draws one.
 	Filter FilterKeys `mapstructure:"filter"`
@@ -148,6 +154,17 @@ type NavKeys struct {
 type HelpKeys struct {
 	// Toggle for the keybindings
 	Toggle []string `mapstructure:"toggle"`
+}
+
+// DetailsKeys are the bindings for the details drawn under a list. Focus moves the cursor
+// between the list and the record below it, and while the record holds it the shared
+// navigation keys run down its fields rather than the rows above them. The agents list, the
+// schedules, and the archive all draw one.
+type DetailsKeys struct {
+	// Copy the field the details cursor is on to the system clipboard.
+	Copy []string `mapstructure:"copy"`
+	// Move the cursor between the list on screen and the details under it.
+	Focus []string `mapstructure:"focus"`
 }
 
 // LogsKeys is the binding that pages the background service's log. It is its own group
@@ -200,9 +217,9 @@ type AgentsKeys struct {
 	Back []string `mapstructure:"back"`
 	// Hide the hovered agent from this list.
 	Hide []string `mapstructure:"hide"`
-	// Move the hovered agent to the next mark in the marks list, and past the last
-	// one back to unmarked. Nothing but you ever sets a mark.
-	Mark []string `mapstructure:"mark"`
+	// Move the hovered agent to the next tag in the tags list, and past the last
+	// one back to untagged. Nothing but you ever sets a tag.
+	Tag []string `mapstructure:"tag"`
 	// Start a new agent.
 	New []string `mapstructure:"new"`
 	// Attach to the hovered agent.
@@ -311,18 +328,20 @@ type Context struct {
 	File string `mapstructure:"file"`
 }
 
-// Layout is how the panel divides the popup between its own list, the stage beside it, and
-// the info pane that opens under the stage. A size below one is read as a share of what it
-// divides, and one at or above it as a count of cells.
+// Layout is how the panel divides the popup between its own list, the details under that
+// list, the stage beside them, and the info pane that opens under the stage. A size below
+// one is read as a share of what it divides, and one at or above it as a count of cells.
 type Layout struct {
 	// Which side of the popup the panel's sidebar sits on, "left" or "right".
 	SidebarSide string `mapstructure:"sidebar_side"`
 	// How wide the panel's sidebar is, either a share of the popup's width below one or a whole number of columns.
 	SidebarWidth float64 `mapstructure:"sidebar_width"`
-	// Which side of the stage the info pane opens on, "below" or "above". That pane is where a record, the server log, and an editor are drawn.
+	// Which side of the stage the info pane opens on, "below" or "above". That pane is where the server log and an editor are drawn.
 	InfoSide string `mapstructure:"info_side"`
 	// How tall the info pane opens, either a share of the stage's height below one or a whole number of rows.
 	InfoHeight float64 `mapstructure:"info_height"`
+	// How many lines of fields the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The chrome around them is added on top, and the two together never take more than half the sidebar's height.
+	DetailsHeight float64 `mapstructure:"details_height"`
 }
 
 // Harness is how one agent CLI is configured.
@@ -452,11 +471,11 @@ type Config struct {
 	Harness   Harnesses `mapstructure:"harness"`
 	// Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the popup each takes.
 	Layout Layout `mapstructure:"layout"`
-	// The marks the mark key cycles through, in order.
+	// The tags the tag key cycles through, in order.
 	// A colour is either one of the sixteen your terminal's own scheme maps, named as "red" or "brightred",
 	// or a hex value such as "#DCA561". The panel draws itself from the sixteen,
-	// so a name is what keeps a mark in the same scheme as everything around it.
-	Marks []Mark `mapstructure:"marks"`
+	// so a name is what keeps a tag in the same scheme as everything around it.
+	Tags []Tag `mapstructure:"tags"`
 	// Panel keybindings, scoped to the screen each binding acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`
 	// Where the panel finds the scripts its action key runs.
@@ -480,7 +499,7 @@ func Defaults() *Config {
 		DefaultHarness: DefaultHarness,
 		MaxAgents:      DefaultMaxAgents,
 		Layout:         DefaultLayout(),
-		Marks:          DefaultMarks(),
+		Tags:           DefaultTags(),
 		Keybindings:    DefaultKeybindings(),
 		Mail:           Mail{DeliveryDeadline: DefaultDeliveryDeadline, MaxHops: DefaultMaxHops},
 		Log:            Log{Level: DefaultLogLevel, Viewer: DefaultLogViewer},
@@ -500,21 +519,22 @@ func DefaultConnection() Connection {
 // DefaultLayout is the layout used when the config omits it.
 func DefaultLayout() Layout {
 	return Layout{
-		SidebarSide:  DefaultSidebarSide,
-		SidebarWidth: DefaultSidebarWidth,
-		InfoSide:     DefaultInfoSide,
-		InfoHeight:   DefaultInfoHeight,
+		SidebarSide:   DefaultSidebarSide,
+		SidebarWidth:  DefaultSidebarWidth,
+		InfoSide:      DefaultInfoSide,
+		InfoHeight:    DefaultInfoHeight,
+		DetailsHeight: DefaultDetailsHeight,
 	}
 }
 
-// Mark is one of the marks the mark key steps through. The glyph is what a row draws
-// and what the store keeps, so it is the mark's identity, while the colour is the
+// Tag is one of the tags the tag key steps through. The glyph is what a row draws
+// and what the store keeps, so it is the tag's identity, while the colour is the
 // panel's alone and is never stored.
 //
-// The json tags are the names get_config reports a mark under, spelled out because
+// The json tags are the names get_config reports a tag under, spelled out because
 // the encoder behind it follows the mapstructure tags as far as the slice and no
 // further.
-type Mark struct {
+type Tag struct {
 	Glyph string `mapstructure:"glyph" json:"glyph"`
 	// The colour the glyph is drawn in, either one of the sixteen a terminal's own
 	// scheme maps, named as "red" or "brightred", or a hex value such as "#DCA561"
@@ -523,7 +543,7 @@ type Mark struct {
 
 // ansiColors are the sixteen colours a terminal's scheme maps, keyed by the name a config
 // names one by and valued by the index lipgloss draws it as. The panel is drawn from the
-// same palette, so a mark named this way sits in the scheme around it.
+// same palette, so a tag named this way sits in the scheme around it.
 var ansiColors = map[string]string{
 	"black":         "0",
 	"red":           "1",
@@ -553,13 +573,13 @@ func GetColor(color string) string {
 	return color
 }
 
-// DefaultMarks are the marks stepped through when the config names none. They share one
+// DefaultTags are the tags stepped through when the config names none. They share one
 // colour, leaving the glyph to carry the meaning until someone colours them apart.
-func DefaultMarks() []Mark {
-	return []Mark{
-		{Glyph: "●", Color: DefaultMarkColor},
-		{Glyph: "◐", Color: DefaultMarkColor},
-		{Glyph: "✓", Color: DefaultMarkColor},
+func DefaultTags() []Tag {
+	return []Tag{
+		{Glyph: "●", Color: DefaultTagColor},
+		{Glyph: "◐", Color: DefaultTagColor},
+		{Glyph: "✓", Color: DefaultTagColor},
 	}
 }
 
@@ -577,7 +597,7 @@ func DefaultKeybindings() Keybindings {
 			Archive:    []string{"z"},
 			Back:       []string{"esc"},
 			Hide:       []string{"h"},
-			Mark:       []string{"m"},
+			Tag:        []string{"t"},
 			New:        []string{"n"},
 			Open:       []string{"enter"},
 			Quit:       []string{"ctrl+c"},
@@ -591,6 +611,10 @@ func DefaultKeybindings() Keybindings {
 			Open:    []string{"Z"},
 			Quit:    []string{"ctrl+c"},
 			Restore: []string{"r"},
+		},
+		Details: DetailsKeys{
+			Copy:  []string{"y"},
+			Focus: []string{"ctrl+t"},
 		},
 		Filter: FilterKeys{
 			Open: []string{"/"},
@@ -635,12 +659,12 @@ func DefaultKeybindings() Keybindings {
 	}
 }
 
-// maxMarkLen bounds a mark in bytes. A glyph runs to a handful even with modifiers on it,
+// maxTagLen bounds a tag in bytes. A glyph runs to a handful even with modifiers on it,
 // so anything longer is not the one character the panel can draw.
-const maxMarkLen = 16
+const maxTagLen = 16
 
 // hexColor matches the colours lipgloss reads, three or six digits behind a hash. Anything
-// else renders as no colour at all, so a typo would silently lose the mark's colour.
+// else renders as no colour at all, so a typo would silently lose the tag's colour.
 var hexColor = regexp.MustCompile(`^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
 
 // isValidColor reports whether the panel could draw a colour. The names are a closed set, so
@@ -653,28 +677,28 @@ func isValidColor(color string) bool {
 	return hexColor.MatchString(color)
 }
 
-// validateMarks rejects marks the panel could not draw. A glyph goes straight into a
+// validateTags rejects tags the panel could not draw. A glyph goes straight into a
 // rendered frame, so whitespace or a control character would break its row, and a glyph
 // listed twice could never be stepped past.
-func validateMarks(marks []Mark) error {
+func validateTags(tags []Tag) error {
 	unprintable := func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }
-	seen := make(map[string]bool, len(marks))
+	seen := make(map[string]bool, len(tags))
 
-	for _, mark := range marks {
+	for _, tag := range tags {
 		switch {
-		case mark.Glyph == "":
-			return errors.New("a mark cannot be empty")
-		case len(mark.Glyph) > maxMarkLen:
-			return fmt.Errorf("mark %q is longer than %d bytes, so it is not one glyph", mark.Glyph, maxMarkLen)
-		case strings.ContainsFunc(mark.Glyph, unprintable):
-			return fmt.Errorf("mark %q carries whitespace or control characters", mark.Glyph)
-		case seen[mark.Glyph]:
-			return fmt.Errorf("mark %q is listed twice", mark.Glyph)
-		case mark.Color != "" && !isValidColor(mark.Color):
-			return fmt.Errorf("mark %q has colour %q, which is neither one of the sixteen such as \"yellow\" nor a hex colour such as \"#DCA561\"", mark.Glyph, mark.Color)
+		case tag.Glyph == "":
+			return errors.New("a tag cannot be empty")
+		case len(tag.Glyph) > maxTagLen:
+			return fmt.Errorf("tag %q is longer than %d bytes, so it is not one glyph", tag.Glyph, maxTagLen)
+		case strings.ContainsFunc(tag.Glyph, unprintable):
+			return fmt.Errorf("tag %q carries whitespace or control characters", tag.Glyph)
+		case seen[tag.Glyph]:
+			return fmt.Errorf("tag %q is listed twice", tag.Glyph)
+		case tag.Color != "" && !isValidColor(tag.Color):
+			return fmt.Errorf("tag %q has colour %q, which is neither one of the sixteen such as \"yellow\" nor a hex colour such as \"#DCA561\"", tag.Glyph, tag.Color)
 		}
 
-		seen[mark.Glyph] = true
+		seen[tag.Glyph] = true
 	}
 
 	return nil
@@ -687,6 +711,9 @@ func validateLayout(layout Layout) error {
 		return err
 	}
 	if err := validatePaneSize("layout.info_height", layout.InfoHeight); err != nil {
+		return err
+	}
+	if err := validatePaneSize("layout.details_height", layout.DetailsHeight); err != nil {
 		return err
 	}
 	if err := validateSide("layout.sidebar_side", layout.SidebarSide, SidebarSideLeft, SidebarSideRight); err != nil {
@@ -722,7 +749,7 @@ func validateSide(key, side string, allowed ...string) error {
 // validate rejects the settings the panel could not run on, so a config that cannot work
 // says so when it is read rather than when something tries to draw with it.
 func (c Config) validate() error {
-	if err := validateMarks(c.Marks); err != nil {
+	if err := validateTags(c.Tags); err != nil {
 		return err
 	}
 	if err := validateLog(c.Log); err != nil {
@@ -972,6 +999,9 @@ func (c *Config) normalizeZeroValues() {
 	}
 	if c.Layout.InfoHeight == 0 {
 		c.Layout.InfoHeight = DefaultInfoHeight
+	}
+	if c.Layout.DetailsHeight == 0 {
+		c.Layout.DetailsHeight = DefaultDetailsHeight
 	}
 	if strings.TrimSpace(c.Layout.SidebarSide) == "" {
 		c.Layout.SidebarSide = DefaultSidebarSide

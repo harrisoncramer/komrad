@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	"weave/internal/agents"
 	"weave/internal/caller"
@@ -41,7 +42,7 @@ type agentReadWriter interface {
 	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, archived bool) ([]agentstore.Agent, error)
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
-	SetMarks(ctx context.Context, ids []string, mark *string) (int, error)
+	SetTags(ctx context.Context, ids []string, tag *string) (int, error)
 	SetHidden(ctx context.Context, id string, hidden bool) (bool, error)
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 	Rename(ctx context.Context, id, name string) (bool, error)
@@ -57,6 +58,9 @@ type transcriptReader interface {
 type mailer interface {
 	SendMail(ctx context.Context, params agents.SendMailParams) (*mailstore.Mail, error)
 	ClaimMail(ctx context.Context, agentID string) ([]mailstore.Mail, error)
+	ListMail(ctx context.Context, agentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
+	DeleteMail(ctx context.Context, ids []string) error
+	ListUnreadMailboxes(ctx context.Context) ([]string, error)
 }
 
 // Service implements agentv1connect.AgentServiceHandler.
@@ -112,7 +116,7 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create agent: %w", err))
 	}
 
-	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, s.launcher.IsAgentRunning(*created)).Agent}), nil
+	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, s.launcher.IsAgentRunning(*created), false).Agent}), nil
 }
 
 // ListAgents returns one page of stored agents, newest first. The request picks which set
@@ -130,7 +134,17 @@ func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.L
 
 	running := s.launcher.GetRunningAgents(ctx, agents)
 
-	resources := xslice.Map(agents, func(a agentstore.Agent) agent { return renderAgent(a, running[a.ID]) })
+	unreadMailboxes, err := s.mail.ListUnreadMailboxes(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list the mailboxes holding unread mail: %w", err))
+	}
+	unread := xslice.KeyBy(unreadMailboxes, func(id string) string { return id })
+
+	resources := xslice.Map(agents, func(a agentstore.Agent) agent {
+		_, hasUnread := unread[a.ID]
+
+		return renderAgent(a, running[a.ID], hasUnread)
+	})
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {
@@ -153,22 +167,28 @@ func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.Get
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
 	}
 
-	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, s.launcher.IsAgentRunning(*agent)).Agent}), nil
+	unreadMailboxes, err := s.mail.ListUnreadMailboxes(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list the mailboxes holding unread mail: %w", err))
+	}
+	hasUnread := slices.Contains(unreadMailboxes, agent.ID)
+
+	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, s.launcher.IsAgentRunning(*agent), hasUnread).Agent}), nil
 }
 
-// SetMarks marks every agent named, and an unset mark clears the ones they carry. A
+// SetTags tags every agent named, and an unset tag clears the ones they carry. A
 // request that reached nothing at all is an error rather than a quiet success, which would
-// leave the caller believing in a mark it never made.
+// leave the caller believing in a tag it never made.
 //
-// One that reached some of its ids is not an error. A mark is drawn on a row and nothing
+// One that reached some of its ids is not an error. A tag is drawn on a row and nothing
 // more, and an agent archived between the caller choosing it and the write landing has no
 // row left to draw one on.
-func (s *Service) SetMarks(ctx context.Context, req *connect.Request[agentv1.SetMarksRequest]) (*connect.Response[emptypb.Empty], error) {
-	marked, err := s.agents.SetMarks(ctx, req.Msg.GetIds(), req.Msg.Mark)
+func (s *Service) SetTags(ctx context.Context, req *connect.Request[agentv1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error) {
+	tagged, err := s.agents.SetTags(ctx, req.Msg.GetIds(), req.Msg.Tag)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set the mark: %w", err))
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set the tag: %w", err))
 	}
-	if marked == 0 {
+	if tagged == 0 {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("none of the %d ids given is a live agent", len(req.Msg.GetIds())))
 	}
 
@@ -176,7 +196,7 @@ func (s *Service) SetMarks(ctx context.Context, req *connect.Request[agentv1.Set
 }
 
 // SetHidden hides an agent from the panel's sidebar or brings it back. An id matching nothing
-// is an error, for the reason it is on a mark.
+// is an error, for the reason it is on a tag.
 func (s *Service) SetHidden(ctx context.Context, req *connect.Request[agentv1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error) {
 	changed, err := s.agents.SetHidden(ctx, req.Msg.GetId(), req.Msg.GetHidden())
 	if err != nil {
@@ -190,7 +210,7 @@ func (s *Service) SetHidden(ctx context.Context, req *connect.Request[agentv1.Se
 }
 
 // SetMetadata records one fact an agent found out about its own work, or clears the key
-// when the value is unset. An id matching nothing is an error, as it is on a mark, but
+// when the value is unset. An id matching nothing is an error, as it is on a tag, but
 // clearing a key nothing held is not: the agent asked for that key to be gone and it is.
 func (s *Service) SetMetadata(ctx context.Context, req *connect.Request[agentv1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error) {
 	changed, err := s.agents.SetMetadata(ctx, agentstore.SetMetadataParams{
@@ -296,6 +316,54 @@ func (s *Service) ReadMail(ctx context.Context, req *connect.Request[agentv1.Rea
 	}), nil
 }
 
+func (s *Service) ListMail(ctx context.Context, req *connect.Request[agentv1.ListMailRequest]) (*connect.Response[agentv1.ListMailResponse], error) {
+	id := callerScope(ctx, req.Msg.GetId())
+	if id == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("no id given, and the caller has none of its own to fall back to"))
+	}
+
+	logCrossAgentRead(ctx, id, "agent listed another agent's mail")
+
+	paginator, err := pagination.New[mailstore.Cursor, mail](req.Msg.GetPagination())
+	if err != nil {
+		return nil, err
+	}
+
+	listed, err := s.mail.ListMail(ctx, id, int32(paginator.Limit()), paginator.Cursor())
+	switch {
+	case errors.Is(err, agents.ErrAgentNotFound):
+		return nil, connect.NewError(connect.CodeNotFound, err)
+	case err != nil:
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list the mail: %w", err))
+	}
+
+	resources := xslice.Map(listed, renderMailPage)
+
+	next, err := paginator.NextToken(resources)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to build the next page token: %w", err))
+	}
+
+	response := &agentv1.ListMailResponse{NextPageToken: next}
+	response.Mail = xslice.Map(resources, func(resource mail) *agentv1.Mail { return resource.Mail })
+
+	return connect.NewResponse(response), nil
+}
+
+// DeleteMail permanently removes mail, keyed by id. It does not claim the mail as
+// read on the way out; the recipient simply never sees it.
+func (s *Service) DeleteMail(ctx context.Context, req *connect.Request[agentv1.DeleteMailRequest]) (*connect.Response[emptypb.Empty], error) {
+	err := s.mail.DeleteMail(ctx, req.Msg.GetIds())
+	switch {
+	case errors.Is(err, agents.ErrMailNotFound):
+		return nil, connect.NewError(connect.CodeNotFound, err)
+	case err != nil:
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete mail: %w", err))
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
 // DeleteAgents stops agents and removes them with their configs and transcripts. The
 // manager owns this rather than the store, since stopping an agent means killing its pane.
 func (s *Service) DeleteAgents(ctx context.Context, req *connect.Request[agentv1.DeleteAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
@@ -340,8 +408,18 @@ func (s *Service) RestoreAgents(ctx context.Context, req *connect.Request[agentv
 
 	running := s.launcher.GetRunningAgents(ctx, restored)
 
+	unreadMailboxes, err := s.mail.ListUnreadMailboxes(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list the mailboxes holding unread mail: %w", err))
+	}
+	unread := xslice.KeyBy(unreadMailboxes, func(id string) string { return id })
+
 	response := &agentv1.RestoreAgentsResponse{
-		Agents: xslice.Map(restored, func(a agentstore.Agent) *agentv1.Agent { return renderAgent(a, running[a.ID]).Agent }),
+		Agents: xslice.Map(restored, func(a agentstore.Agent) *agentv1.Agent {
+			_, hasUnread := unread[a.ID]
+
+			return renderAgent(a, running[a.ID], hasUnread).Agent
+		}),
 	}
 
 	return connect.NewResponse(response), nil
@@ -359,7 +437,13 @@ func (s *Service) ResumeAgent(ctx context.Context, req *connect.Request[agentv1.
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to resume agent: %w", err))
 	}
 
-	return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: renderAgent(*resumed, s.launcher.IsAgentRunning(*resumed)).Agent}), nil
+	unreadMailboxes, err := s.mail.ListUnreadMailboxes(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list the mailboxes holding unread mail: %w", err))
+	}
+	hasUnread := slices.Contains(unreadMailboxes, resumed.ID)
+
+	return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: renderAgent(*resumed, s.launcher.IsAgentRunning(*resumed), hasUnread).Agent}), nil
 }
 
 // UpdateAgent renames the agent with the given id. A name a live agent already holds is a

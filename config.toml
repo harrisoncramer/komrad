@@ -14,11 +14,11 @@
 default_harness = "claude"
 # How many unarchived agents may exist at once, past which a create is refused.
 max_agents      = 50
-# The marks the mark key cycles through, in order.
+# The tags the tag key cycles through, in order.
 # A colour is either one of the sixteen your terminal's own scheme maps, named as "red" or "brightred",
 # or a hex value such as "#DCA561". The panel draws itself from the sixteen,
-# so a name is what keeps a mark in the same scheme as everything around it.
-marks = [
+# so a name is what keeps a tag in the same scheme as everything around it.
+tags = [
   { glyph = "●", color = "yellow" },
   { glyph = "◐", color = "yellow" },
   { glyph = "✓", color = "yellow" },
@@ -41,13 +41,15 @@ trust_launch_dirs = false
 # Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the popup each takes.
 [layout]
 # Which side of the popup the panel's sidebar sits on, "left" or "right".
-sidebar_side  = "left"
+sidebar_side   = "left"
 # How wide the panel's sidebar is, either a share of the popup's width below one or a whole number of columns.
-sidebar_width = 0.2
-# Which side of the stage the info pane opens on, "below" or "above". That pane is where a record, the server log, and an editor are drawn.
-info_side     = "below"
+sidebar_width  = 0.2
+# Which side of the stage the info pane opens on, "below" or "above". That pane is where the server log and an editor are drawn.
+info_side      = "below"
 # How tall the info pane opens, either a share of the stage's height below one or a whole number of rows.
-info_height   = 0.4
+info_height    = 0.4
+# How many lines of fields the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The chrome around them is added on top, and the two together never take more than half the sidebar's height.
+details_height = 0.33
 
 # Panel keybindings, scoped to the screen each binding acts in.
 
@@ -74,9 +76,9 @@ archive     = ["z"]
 back        = ["esc"]
 # Hide the hovered agent from this list.
 hide        = ["h"]
-# Move the hovered agent to the next mark in the marks list, and past the last
-# one back to unmarked. Nothing but you ever sets a mark.
-mark        = ["m"]
+# Move the hovered agent to the next tag in the tags list, and past the last
+# one back to untagged. Nothing but you ever sets a tag.
+tag         = ["t"]
 # Start a new agent.
 new         = ["n"]
 # Attach to the hovered agent.
@@ -103,6 +105,14 @@ open    = ["Z"]
 quit    = ["ctrl+c"]
 # Put the agent under the cursor back in the panel.
 restore = ["r"]
+
+# The details under whichever list is on screen: the key that hands them the
+# cursor, and the key that copies the field it lands on.
+[keybindings.details]
+# Copy the field the details cursor is on to the system clipboard.
+copy  = ["y"]
+# Move the cursor between the list on screen and the details under it.
+focus = ["ctrl+t"]
 
 # The filter over whichever list is on screen, shared by every screen that
 # draws one.

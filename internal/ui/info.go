@@ -11,7 +11,6 @@ type infoKind int
 
 const (
 	infoNothing infoKind = iota
-	infoRecord
 	infoLogs
 	// infoEdit is an action's own file open in the user's editor, a kind of its own because
 	// the key that closes it is decided by which file is down there rather than by which
@@ -19,16 +18,13 @@ const (
 	infoEdit
 )
 
-// infoState is what the frame's info pane is holding. The stage above follows the cursor
-// and this does not, apart from the record, which is about whichever agent is hovered.
+// infoState is what the frame's info pane is holding. Nothing here follows the cursor: the
+// pane stays put as the user moves between the lists above it.
 type infoState struct {
 	kind infoKind
 	// action names the action whose file is open in the editor down there, so the key that
 	// opened it is the key that takes it away.
 	action string
-	// dismissed says the hovered agent's record has been closed by killing the pane it was in,
-	// so it is not reopened on the next agent hovered.
-	dismissed bool
 }
 
 // claimInfo opens the region for something that fills it out of process, which actions do
@@ -47,31 +43,14 @@ func (m *model) claimInfo(kind infoKind, action string) bool {
 	return true
 }
 
-// closeInfo takes away whatever the region is holding, then restages so a hovered agent's
-// record can open back up. The pane is left standing when restaging is about to fill it again,
-// since killing it and splitting a new one in its place reflows the window twice, which a CLI
-// in the stage answers with a full redraw each time and shows as the panes stuttering.
+// closeInfo takes the pane away and restages, since the stage reflows into the room the
+// pane leaves behind and whatever is paged in it is laid out for the old height.
 func (m model) closeInfo() model {
-	if !m.doesRestageFillInfo() {
-		m.frame.Close(layout.RegionInfo)
-	}
-
+	m.frame.Close(layout.RegionInfo)
 	m.forgetInfo()
 	m.restageScreen()
 
 	return m
-}
-
-// doesRestageFillInfo reports whether restaging would put something back in the region, which
-// is the agents list drawing a hovered agent's record there.
-func (m model) doesRestageFillInfo() bool {
-	if m.screen != screenAgents || m.info.dismissed {
-		return false
-	}
-
-	_, ok := m.selectedAgent()
-
-	return ok
 }
 
 // forgetInfo clears the pane option, since tmux can reuse pane ids.
@@ -81,39 +60,10 @@ func (m *model) forgetInfo() {
 	m.info.action = ""
 }
 
-// syncRecordDefault keeps the record's default open state in step with the row under the cursor,
-// opening on an agent row unless the user has dismissed it and closing on a workflow header.
-func (m *model) syncRecordDefault(onAgent bool) {
-	switch {
-	case onAgent && !m.info.dismissed && m.info.kind == infoNothing:
-		m.info.kind = infoRecord
-	case !onAgent:
-		m.closeRecord()
-	}
-}
-
-// closeRecord takes the region away if a record is what it is holding, which is what keeps it
-// from holding onto whatever the agents list last opened while a log or an edit is down there.
-func (m *model) closeRecord() {
-	if m.info.kind != infoRecord {
-		return
-	}
-
-	m.frame.Close(layout.RegionInfo)
-	m.forgetInfo()
-}
-
 // stageInfo draws whatever the region is holding, leaving an edit alone since the process
 // that claimed the pane is what fills it.
 func (m *model) stageInfo() {
 	switch m.info.kind {
-	case infoRecord:
-		item, ok := m.selectedAgent()
-		if !ok {
-			return
-		}
-
-		m.stageRecord(agentMarkdown(item.agent, item.alive, m.scheduleName(item.agent)), layout.RegionInfo)
 	case infoLogs:
 		m.frame.Show(layout.RegionInfo, newLogContent(m.logPath, logArgv(m.logViewer, m.logPath)))
 	case infoNothing, infoEdit:
@@ -121,15 +71,10 @@ func (m *model) stageInfo() {
 }
 
 // reconcileInfo notices a pane under the stage that has exited on its own, tmux's own way of
-// taking it away. A record closed this way is the user dismissing it, so it is not put back the
-// next time an agent is hovered.
+// taking it away.
 func (m *model) reconcileInfo() {
 	if m.info.kind == infoNothing || m.frame.IsOpen(layout.RegionInfo) {
 		return
-	}
-
-	if m.info.kind == infoRecord {
-		m.info.dismissed = true
 	}
 
 	m.forgetInfo()

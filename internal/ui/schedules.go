@@ -6,7 +6,6 @@ import (
 
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
-	"weave/internal/ui/layout"
 	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -30,7 +29,6 @@ type scheduleItem struct {
 // a record of future work with nothing running to stage beside it.
 func (m model) enterSchedules() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenSchedules)
-	m.closeRecord()
 	m.schedules.cursor = clampCursor(m.schedules.cursor, len(m.scheduleRows()))
 	m.stageSchedule()
 
@@ -52,17 +50,13 @@ func (m model) scheduleRows() []scheduleItem {
 func (m model) updateSchedules(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
-	if cmd, ok := m.tryCopyRecordValue(k); ok {
-		return m, cmd
-	}
-
 	switch {
 	case isBound(k, m.keys.Filter.Open):
 		return m.openFilter()
 	case isBound(k, m.keys.Schedules.Quit):
 		return m, m.hide()
 	case m.filter.standing() && isBound(k, m.keys.Schedules.Back):
-		return m.clearFilter()
+		return m.openFilter()
 	case isBound(k, m.keys.Schedules.Back):
 		return m.returnToAgents()
 	case isBound(k, m.keys.Nav.Up):
@@ -92,17 +86,33 @@ func (m model) selectedSchedule() (scheduleItem, bool) {
 	return rowAt(m.scheduleRows(), m.schedules.cursor)
 }
 
+// schedulesDetails is what the schedule under the cursor holds: when it fires, and the
+// defaults of the workflow it fires into, which is what each run is launched with.
+func (m model) schedulesDetails() details {
+	item, ok := m.selectedSchedule()
+	if !ok {
+		return details{}
+	}
+
+	return details{
+		id:     item.schedule.ID,
+		kind:   "Schedule",
+		title:  item.schedule.Name,
+		fields: scheduleFields(item.schedule, m.workflowByID(item.schedule.WorkflowID)),
+	}
+}
+
 // stageSchedule shows the hovered schedule's record in the stage; nothing runs for a
 // schedule, so there is never a pane to swap in.
 func (m *model) stageSchedule() {
 	item, ok := m.selectedSchedule()
 	if !ok {
-		m.stagePlaceholder(noSchedulesMarkdown)
+		m.stageDocument(noSchedulesMarkdown)
 
 		return
 	}
 
-	m.stageRecord(scheduleMarkdown(item, m.workflowByID(item.schedule.WorkflowID)), layout.RegionStage)
+	m.stageDocument(scheduleMarkdown(item))
 }
 
 // workflowByID returns nil when none holds that id, which means it was archived.
@@ -248,11 +258,11 @@ func (m model) updateScheduleArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) schedulesView() string {
-	help := "\n" + m.renderHelp(m.scheduleHelp())
+	below := m.detailsView() + "\n" + m.renderHelp(m.scheduleHelp())
 
 	all := m.scheduleRows()
 	if len(all) == 0 {
-		return m.listView("Schedules", []string{dimStyle.Render("  no schedules yet")}, 0, help)
+		return m.listView("Schedules", []string{dimStyle.Render("  no schedules yet")}, 0, below)
 	}
 
 	rows := make([]string, 0, len(all))
@@ -260,15 +270,15 @@ func (m model) schedulesView() string {
 		selected := i == m.schedules.cursor
 		prefix := "  "
 		if selected {
-			prefix = cursorStyle.Render("› ")
+			prefix = m.rowCursorStyle().Render("› ")
 		}
 
-		name := m.filter.highlight(item.schedule.Name, nameStyle(selected, !item.schedule.Enabled))
+		name := m.filter.highlight(item.schedule.Name, m.nameStyle(selected, !item.schedule.Enabled))
 		icon := lipgloss.NewStyle().Foreground(scheduleColor(item.schedule.Enabled)).Render(scheduleIcon(item.schedule.Enabled))
 		rows = append(rows, prefix+"  "+icon+" "+name+"  "+dimStyle.Render(item.schedule.Cron))
 	}
 
-	return m.listView("Schedules", rows, m.schedules.cursor, help)
+	return m.listView("Schedules", rows, m.schedules.cursor, below)
 }
 
 // applySchedules keeps the cursor on the schedule it was on, since a schedule archived from

@@ -3,6 +3,7 @@ syntax = "proto3";
 package agent.v1;
 
 import "buf/validate/validate.proto";
+import "pagination/v1/pagination.proto";
 
 option go_package = "weave/proto/gen/agent/v1;agentv1";
 
@@ -14,6 +15,10 @@ message Mail {
   string body = 5;
   optional string reply_to = 6;
   string created_at = 7;
+  // Unset while the mail is still waiting in the recipient's mailbox.
+  optional string claimed_at = 8;
+  // Past this time, unclaimed mail is swept as expired rather than delivered.
+  string expires_at = 9;
 }
 
 message SendMailRequest {
@@ -35,4 +40,18 @@ message ReadMailRequest {
 
 message ReadMailResponse {
   repeated Mail mail = 1;
+}
+
+message ListMailRequest {
+  optional string id = 1 [(buf.validate.field).string.min_len = 1];
+  optional pagination.v1.Pagination pagination = 2;
+}
+
+message ListMailResponse {
+  repeated Mail mail = 1;
+  optional string next_page_token = 2;
+}
+
+message DeleteMailRequest {
+  repeated string ids = 1 [(buf.validate.field).repeated.min_items = 1];
 }

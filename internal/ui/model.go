@@ -66,8 +66,8 @@ type Deps struct {
 	Schedules   schedulev1connect.ScheduleServiceClient
 	Actions     actionv1connect.ActionServiceClient
 	Keys        config.Keybindings
-	// Marks are the marks the mark key steps an agent through, in the user's order.
-	Marks []config.Mark
+	// Tags are the tags the tag key steps an agent through, in the user's order.
+	Tags []config.Tag
 	// Layout is how the popup's width is divided between the list and the stage, and how
 	// much of the stage's height the pane under it takes when something opens there.
 	Layout config.Layout
@@ -145,6 +145,11 @@ type model struct {
 	// moves between the lists above it.
 	info infoState
 
+	// details is the section under the agents list and where its own cursor sits, and
+	// detailsHeight is the share of the pane the layout gives it.
+	details       detailsState
+	detailsHeight float64
+
 	// listing is what the last refresh brought back. It is the panel's rather than any one
 	// screen's: the schedule form and the archive both draw the workflows the agents list
 	// happens to have fetched, and reaching into another screen's state for them is how
@@ -180,16 +185,12 @@ type model struct {
 	// second press that acts, the way vim's gg waits. Any other key drops it.
 	topHeld bool
 
-	keys  config.Keybindings
-	marks []config.Mark
+	keys config.Keybindings
+	tags []config.Tag
 	// logPath is the service's log and logViewer is what the log key opens it in.
-	logPath      string
-	logViewer    string
-	activeRecord record
-	// recordRegion is which region of the frame activeRecord is drawn in, so a flash and
-	// its eventual revert redraw the right one.
-	recordRegion layout.Region
-	// clip is how a copied record value reaches the system clipboard.
+	logPath   string
+	logViewer string
+	// clip is how a copied field reaches the system clipboard.
 	clip clipboardWriter
 }
 
@@ -200,11 +201,12 @@ func newModel(deps Deps) model {
 		clip:            systemClipboard{},
 		tmux:            deps.Tmux,
 		frame:           layout.New(deps.Tmux, deps.Layout),
+		detailsHeight:   deps.Layout.DetailsHeight,
 		addr:            deps.Addr,
 		logPath:         deps.LogPath,
 		logViewer:       deps.LogViewer,
 		keys:            deps.Keys,
-		marks:           deps.Marks,
+		tags:            deps.Tags,
 		configErr:       deps.ConfigErr,
 		startupErr:      deps.StartupErr,
 		startupFindings: deps.StartupFindings,

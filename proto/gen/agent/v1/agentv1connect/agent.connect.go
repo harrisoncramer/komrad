@@ -41,8 +41,8 @@ const (
 	// AgentServiceCreateAgentProcedure is the fully-qualified name of the AgentService's CreateAgent
 	// RPC.
 	AgentServiceCreateAgentProcedure = "/agent.v1.AgentService/CreateAgent"
-	// AgentServiceSetMarksProcedure is the fully-qualified name of the AgentService's SetMarks RPC.
-	AgentServiceSetMarksProcedure = "/agent.v1.AgentService/SetMarks"
+	// AgentServiceSetTagsProcedure is the fully-qualified name of the AgentService's SetTags RPC.
+	AgentServiceSetTagsProcedure = "/agent.v1.AgentService/SetTags"
 	// AgentServiceSetHiddenProcedure is the fully-qualified name of the AgentService's SetHidden RPC.
 	AgentServiceSetHiddenProcedure = "/agent.v1.AgentService/SetHidden"
 	// AgentServiceSetMetadataProcedure is the fully-qualified name of the AgentService's SetMetadata
@@ -54,6 +54,10 @@ const (
 	AgentServiceSendMailProcedure = "/agent.v1.AgentService/SendMail"
 	// AgentServiceReadMailProcedure is the fully-qualified name of the AgentService's ReadMail RPC.
 	AgentServiceReadMailProcedure = "/agent.v1.AgentService/ReadMail"
+	// AgentServiceListMailProcedure is the fully-qualified name of the AgentService's ListMail RPC.
+	AgentServiceListMailProcedure = "/agent.v1.AgentService/ListMail"
+	// AgentServiceDeleteMailProcedure is the fully-qualified name of the AgentService's DeleteMail RPC.
+	AgentServiceDeleteMailProcedure = "/agent.v1.AgentService/DeleteMail"
 	// AgentServiceArchiveAgentsProcedure is the fully-qualified name of the AgentService's
 	// ArchiveAgents RPC.
 	AgentServiceArchiveAgentsProcedure = "/agent.v1.AgentService/ArchiveAgents"
@@ -82,12 +86,14 @@ type AgentServiceClient interface {
 	ListAgents(context.Context, *connect.Request[v1.ListAgentsRequest]) (*connect.Response[v1.ListAgentsResponse], error)
 	GetAgent(context.Context, *connect.Request[v1.GetAgentRequest]) (*connect.Response[v1.GetAgentResponse], error)
 	CreateAgent(context.Context, *connect.Request[v1.CreateAgentRequest]) (*connect.Response[v1.CreateAgentResponse], error)
-	SetMarks(context.Context, *connect.Request[v1.SetMarksRequest]) (*connect.Response[emptypb.Empty], error)
+	SetTags(context.Context, *connect.Request[v1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error)
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
 	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
 	SendMail(context.Context, *connect.Request[v1.SendMailRequest]) (*connect.Response[v1.SendMailResponse], error)
 	ReadMail(context.Context, *connect.Request[v1.ReadMailRequest]) (*connect.Response[v1.ReadMailResponse], error)
+	ListMail(context.Context, *connect.Request[v1.ListMailRequest]) (*connect.Response[v1.ListMailResponse], error)
+	DeleteMail(context.Context, *connect.Request[v1.DeleteMailRequest]) (*connect.Response[emptypb.Empty], error)
 	ArchiveAgents(context.Context, *connect.Request[v1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error)
 	RestoreAgents(context.Context, *connect.Request[v1.RestoreAgentsRequest]) (*connect.Response[v1.RestoreAgentsResponse], error)
 	ResumeAgent(context.Context, *connect.Request[v1.ResumeAgentRequest]) (*connect.Response[v1.ResumeAgentResponse], error)
@@ -128,10 +134,10 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(agentServiceMethods.ByName("CreateAgent")),
 			connect.WithClientOptions(opts...),
 		),
-		setMarks: connect.NewClient[v1.SetMarksRequest, emptypb.Empty](
+		setTags: connect.NewClient[v1.SetTagsRequest, emptypb.Empty](
 			httpClient,
-			baseURL+AgentServiceSetMarksProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("SetMarks")),
+			baseURL+AgentServiceSetTagsProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("SetTags")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
@@ -165,6 +171,20 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			httpClient,
 			baseURL+AgentServiceReadMailProcedure,
 			connect.WithSchema(agentServiceMethods.ByName("ReadMail")),
+			connect.WithClientOptions(opts...),
+		),
+		listMail: connect.NewClient[v1.ListMailRequest, v1.ListMailResponse](
+			httpClient,
+			baseURL+AgentServiceListMailProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("ListMail")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		deleteMail: connect.NewClient[v1.DeleteMailRequest, emptypb.Empty](
+			httpClient,
+			baseURL+AgentServiceDeleteMailProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("DeleteMail")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
 		archiveAgents: connect.NewClient[v1.ArchiveAgentsRequest, emptypb.Empty](
@@ -224,12 +244,14 @@ type agentServiceClient struct {
 	listAgents        *connect.Client[v1.ListAgentsRequest, v1.ListAgentsResponse]
 	getAgent          *connect.Client[v1.GetAgentRequest, v1.GetAgentResponse]
 	createAgent       *connect.Client[v1.CreateAgentRequest, v1.CreateAgentResponse]
-	setMarks          *connect.Client[v1.SetMarksRequest, emptypb.Empty]
+	setTags           *connect.Client[v1.SetTagsRequest, emptypb.Empty]
 	setHidden         *connect.Client[v1.SetHiddenRequest, emptypb.Empty]
 	setMetadata       *connect.Client[v1.SetMetadataRequest, emptypb.Empty]
 	log               *connect.Client[v1.LogRequest, emptypb.Empty]
 	sendMail          *connect.Client[v1.SendMailRequest, v1.SendMailResponse]
 	readMail          *connect.Client[v1.ReadMailRequest, v1.ReadMailResponse]
+	listMail          *connect.Client[v1.ListMailRequest, v1.ListMailResponse]
+	deleteMail        *connect.Client[v1.DeleteMailRequest, emptypb.Empty]
 	archiveAgents     *connect.Client[v1.ArchiveAgentsRequest, emptypb.Empty]
 	restoreAgents     *connect.Client[v1.RestoreAgentsRequest, v1.RestoreAgentsResponse]
 	resumeAgent       *connect.Client[v1.ResumeAgentRequest, v1.ResumeAgentResponse]
@@ -254,9 +276,9 @@ func (c *agentServiceClient) CreateAgent(ctx context.Context, req *connect.Reque
 	return c.createAgent.CallUnary(ctx, req)
 }
 
-// SetMarks calls agent.v1.AgentService.SetMarks.
-func (c *agentServiceClient) SetMarks(ctx context.Context, req *connect.Request[v1.SetMarksRequest]) (*connect.Response[emptypb.Empty], error) {
-	return c.setMarks.CallUnary(ctx, req)
+// SetTags calls agent.v1.AgentService.SetTags.
+func (c *agentServiceClient) SetTags(ctx context.Context, req *connect.Request[v1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.setTags.CallUnary(ctx, req)
 }
 
 // SetHidden calls agent.v1.AgentService.SetHidden.
@@ -282,6 +304,16 @@ func (c *agentServiceClient) SendMail(ctx context.Context, req *connect.Request[
 // ReadMail calls agent.v1.AgentService.ReadMail.
 func (c *agentServiceClient) ReadMail(ctx context.Context, req *connect.Request[v1.ReadMailRequest]) (*connect.Response[v1.ReadMailResponse], error) {
 	return c.readMail.CallUnary(ctx, req)
+}
+
+// ListMail calls agent.v1.AgentService.ListMail.
+func (c *agentServiceClient) ListMail(ctx context.Context, req *connect.Request[v1.ListMailRequest]) (*connect.Response[v1.ListMailResponse], error) {
+	return c.listMail.CallUnary(ctx, req)
+}
+
+// DeleteMail calls agent.v1.AgentService.DeleteMail.
+func (c *agentServiceClient) DeleteMail(ctx context.Context, req *connect.Request[v1.DeleteMailRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.deleteMail.CallUnary(ctx, req)
 }
 
 // ArchiveAgents calls agent.v1.AgentService.ArchiveAgents.
@@ -324,12 +356,14 @@ type AgentServiceHandler interface {
 	ListAgents(context.Context, *connect.Request[v1.ListAgentsRequest]) (*connect.Response[v1.ListAgentsResponse], error)
 	GetAgent(context.Context, *connect.Request[v1.GetAgentRequest]) (*connect.Response[v1.GetAgentResponse], error)
 	CreateAgent(context.Context, *connect.Request[v1.CreateAgentRequest]) (*connect.Response[v1.CreateAgentResponse], error)
-	SetMarks(context.Context, *connect.Request[v1.SetMarksRequest]) (*connect.Response[emptypb.Empty], error)
+	SetTags(context.Context, *connect.Request[v1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error)
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
 	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
 	SendMail(context.Context, *connect.Request[v1.SendMailRequest]) (*connect.Response[v1.SendMailResponse], error)
 	ReadMail(context.Context, *connect.Request[v1.ReadMailRequest]) (*connect.Response[v1.ReadMailResponse], error)
+	ListMail(context.Context, *connect.Request[v1.ListMailRequest]) (*connect.Response[v1.ListMailResponse], error)
+	DeleteMail(context.Context, *connect.Request[v1.DeleteMailRequest]) (*connect.Response[emptypb.Empty], error)
 	ArchiveAgents(context.Context, *connect.Request[v1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error)
 	RestoreAgents(context.Context, *connect.Request[v1.RestoreAgentsRequest]) (*connect.Response[v1.RestoreAgentsResponse], error)
 	ResumeAgent(context.Context, *connect.Request[v1.ResumeAgentRequest]) (*connect.Response[v1.ResumeAgentResponse], error)
@@ -366,10 +400,10 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(agentServiceMethods.ByName("CreateAgent")),
 		connect.WithHandlerOptions(opts...),
 	)
-	agentServiceSetMarksHandler := connect.NewUnaryHandler(
-		AgentServiceSetMarksProcedure,
-		svc.SetMarks,
-		connect.WithSchema(agentServiceMethods.ByName("SetMarks")),
+	agentServiceSetTagsHandler := connect.NewUnaryHandler(
+		AgentServiceSetTagsProcedure,
+		svc.SetTags,
+		connect.WithSchema(agentServiceMethods.ByName("SetTags")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
@@ -403,6 +437,20 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		AgentServiceReadMailProcedure,
 		svc.ReadMail,
 		connect.WithSchema(agentServiceMethods.ByName("ReadMail")),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceListMailHandler := connect.NewUnaryHandler(
+		AgentServiceListMailProcedure,
+		svc.ListMail,
+		connect.WithSchema(agentServiceMethods.ByName("ListMail")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceDeleteMailHandler := connect.NewUnaryHandler(
+		AgentServiceDeleteMailProcedure,
+		svc.DeleteMail,
+		connect.WithSchema(agentServiceMethods.ByName("DeleteMail")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
 	agentServiceArchiveAgentsHandler := connect.NewUnaryHandler(
@@ -462,8 +510,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceGetAgentHandler.ServeHTTP(w, r)
 		case AgentServiceCreateAgentProcedure:
 			agentServiceCreateAgentHandler.ServeHTTP(w, r)
-		case AgentServiceSetMarksProcedure:
-			agentServiceSetMarksHandler.ServeHTTP(w, r)
+		case AgentServiceSetTagsProcedure:
+			agentServiceSetTagsHandler.ServeHTTP(w, r)
 		case AgentServiceSetHiddenProcedure:
 			agentServiceSetHiddenHandler.ServeHTTP(w, r)
 		case AgentServiceSetMetadataProcedure:
@@ -474,6 +522,10 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceSendMailHandler.ServeHTTP(w, r)
 		case AgentServiceReadMailProcedure:
 			agentServiceReadMailHandler.ServeHTTP(w, r)
+		case AgentServiceListMailProcedure:
+			agentServiceListMailHandler.ServeHTTP(w, r)
+		case AgentServiceDeleteMailProcedure:
+			agentServiceDeleteMailHandler.ServeHTTP(w, r)
 		case AgentServiceArchiveAgentsProcedure:
 			agentServiceArchiveAgentsHandler.ServeHTTP(w, r)
 		case AgentServiceRestoreAgentsProcedure:
@@ -509,8 +561,8 @@ func (UnimplementedAgentServiceHandler) CreateAgent(context.Context, *connect.Re
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.CreateAgent is not implemented"))
 }
 
-func (UnimplementedAgentServiceHandler) SetMarks(context.Context, *connect.Request[v1.SetMarksRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.SetMarks is not implemented"))
+func (UnimplementedAgentServiceHandler) SetTags(context.Context, *connect.Request[v1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.SetTags is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error) {
@@ -531,6 +583,14 @@ func (UnimplementedAgentServiceHandler) SendMail(context.Context, *connect.Reque
 
 func (UnimplementedAgentServiceHandler) ReadMail(context.Context, *connect.Request[v1.ReadMailRequest]) (*connect.Response[v1.ReadMailResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ReadMail is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) ListMail(context.Context, *connect.Request[v1.ListMailRequest]) (*connect.Response[v1.ListMailResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ListMail is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) DeleteMail(context.Context, *connect.Request[v1.DeleteMailRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.DeleteMail is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) ArchiveAgents(context.Context, *connect.Request[v1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error) {

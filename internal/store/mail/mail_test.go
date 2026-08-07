@@ -280,6 +280,140 @@ func TestListPendingMailboxesKeepsAMailboxWithLiveMailAfterItsExpiredMailIsRepor
 	assert.Contains(t, mailboxes, recipient, "the mailbox still holds live mail, so it must stay in the sweep")
 }
 
+func TestListUnreadMailboxesExcludesExpiredMail(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+
+	_, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "too late", ExpiresAt: time.Now().Add(-time.Minute)})
+	require.NoError(t, err)
+
+	mailboxes, err := st.ListUnreadMailboxes(ctx)
+	require.NoError(t, err)
+	assert.NotContains(t, mailboxes, recipient, "expired mail cannot be read, so it does not count as unread")
+}
+
+func TestListUnreadMailboxesExcludesClaimedMail(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+
+	_, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "already read", ExpiresAt: time.Now().Add(time.Hour)})
+	require.NoError(t, err)
+	_, err = st.Claim(ctx, recipient, 10)
+	require.NoError(t, err)
+
+	mailboxes, err := st.ListUnreadMailboxes(ctx)
+	require.NoError(t, err)
+	assert.NotContains(t, mailboxes, recipient)
+}
+
+func TestListUnreadMailboxesIncludesLiveUnclaimedMail(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+
+	_, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "still live", ExpiresAt: time.Now().Add(time.Hour)})
+	require.NoError(t, err)
+
+	mailboxes, err := st.ListUnreadMailboxes(ctx)
+	require.NoError(t, err)
+	assert.Contains(t, mailboxes, recipient)
+}
+
+func TestListPage(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+	other := seedAgent(t, st, "other")
+
+	_, err := st.Send(ctx, SendParams{ToAgentID: other, Body: "not for you", ExpiresAt: time.Now().Add(time.Hour)})
+	require.NoError(t, err)
+
+	first, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "first", ExpiresAt: time.Now().Add(time.Hour)})
+	require.NoError(t, err)
+	second, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "second", ExpiresAt: time.Now().Add(time.Hour)})
+	require.NoError(t, err)
+
+	_, err = st.Claim(ctx, recipient, 10)
+	require.NoError(t, err)
+
+	page, err := st.ListPage(ctx, recipient, 10, nil)
+	require.NoError(t, err)
+	require.Len(t, page, 2, "claiming does not remove mail from the listing")
+	assert.Equal(t, second.ID, page[0].ID, "newest first")
+	assert.Equal(t, first.ID, page[1].ID)
+	assert.NotNil(t, page[0].ClaimedAt)
+	assert.NotNil(t, page[1].ClaimedAt)
+}
+
+func TestListPageCursorTakesTheNextPage(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+
+	var sent []*Mail
+	for _, body := range []string{"first", "second", "third"} {
+		mail, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: body, ExpiresAt: time.Now().Add(time.Hour)})
+		require.NoError(t, err)
+		sent = append(sent, mail)
+	}
+
+	firstPage, err := st.ListPage(ctx, recipient, 2, nil)
+	require.NoError(t, err)
+	require.Len(t, firstPage, 2)
+	assert.Equal(t, sent[2].ID, firstPage[0].ID)
+	assert.Equal(t, sent[1].ID, firstPage[1].ID)
+
+	secondPage, err := st.ListPage(ctx, recipient, 2, &Cursor{ID: firstPage[1].ID})
+	require.NoError(t, err)
+	require.Len(t, secondPage, 1)
+	assert.Equal(t, sent[0].ID, secondPage[0].ID)
+}
+
+func TestListPageIgnoresOtherMailboxes(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	mine := seedAgent(t, st, "mine")
+	theirs := seedAgent(t, st, "theirs")
+
+	_, err := st.Send(ctx, SendParams{ToAgentID: theirs, Body: "not for you", ExpiresAt: time.Now().Add(time.Hour)})
+	require.NoError(t, err)
+
+	page, err := st.ListPage(ctx, mine, 10, nil)
+	require.NoError(t, err)
+	assert.Empty(t, page)
+}
+
+func TestListByID(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+
+	sent, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "which column?", ExpiresAt: time.Now().Add(time.Hour)})
+	require.NoError(t, err)
+
+	found, err := st.ListByID(ctx, []string{sent.ID, uuid.NewString(), "not-an-id"})
+	require.NoError(t, err)
+	require.Len(t, found, 1, "only the id that holds mail comes back")
+	assert.Equal(t, sent.ID, found[0].ID)
+}
+
+func TestDelete(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+
+	sent, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "which column?", ExpiresAt: time.Now().Add(time.Hour)})
+	require.NoError(t, err)
+
+	require.NoError(t, st.Delete(ctx, []string{sent.ID}))
+
+	got, err := st.GetByID(ctx, sent.ID)
+	require.NoError(t, err)
+	assert.Nil(t, got, "deleted mail is gone, not just claimed")
+}
+
 type fixture struct {
 	*Store
 	agents   *agentstore.Store
