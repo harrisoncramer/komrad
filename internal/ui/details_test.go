@@ -10,6 +10,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -417,4 +418,78 @@ func TestAgentFields(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestDetailsFocusNeedsRoomToDrawIn covers the focus key pressed at a pane too short for the
+// section to be drawn at all. The keys stay with the list rather than going to a block that
+// is not on screen.
+func TestDetailsFocusNeedsRoomToDrawIn(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.height = 8
+	require.Empty(t, m.detailsView(), "the section must draw nothing for this to prove anything")
+
+	focused := send(t, m, "ctrl+t")
+
+	assert.False(t, focused.detailsFocused(), "the keys stay with the list")
+
+	moved := send(t, focused, "j")
+
+	assert.Equal(t, 1, moved.tree.cursor, "the list still answers movement")
+}
+
+// TestDetailsFocusGivenUpWhenThePaneShrinks covers the terminal shrinking under a focused
+// section, which takes the section off screen without anyone pressing a key. The keys go back
+// to the list at once, since the accent is on the list and there is nothing else to point at.
+func TestDetailsFocusGivenUpWhenThePaneShrinks(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+
+	focused := send(t, m, "ctrl+t")
+	require.True(t, focused.detailsFocused())
+	require.NotEmpty(t, focused.detailsView())
+
+	shrunk := asModel(t, resize(focused, 40, 8))
+	require.Empty(t, shrunk.detailsView(), "the section is no longer drawn")
+
+	assert.False(t, shrunk.detailsFocused(), "so it no longer holds the keys")
+
+	moved := send(t, shrunk, "j")
+
+	assert.Equal(t, 1, moved.tree.cursor, "the list answers movement without a key spent taking it back")
+}
+
+// TestDetailsFocusReturnsWithTheSection covers the terminal growing back. The section is drawn
+// again with the field cursor where it was left, so the accent that says where the keys are
+// goes back with it rather than the focus being spent by a resize.
+func TestDetailsFocusReturnsWithTheSection(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+
+	focused := send(t, send(t, m, "ctrl+t"), "j")
+	require.Equal(t, 1, focused.details.cursor)
+
+	shrunk := asModel(t, resize(focused, 40, 8))
+	require.False(t, shrunk.detailsFocused())
+
+	grown := asModel(t, resize(shrunk, 40, 24))
+
+	assert.True(t, grown.detailsFocused())
+	assert.Equal(t, 1, grown.detailsCursor(grown.hoveredDetails()))
+}
+
+// TestDetailsShareTooSmallToDrawAField covers a configured share that rounds down to no field
+// lines in a pane with room to spare, which a small details_height does without any resize.
+func TestDetailsShareTooSmallToDrawAField(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.height, m.detailsHeight = 19, 0.05
+	require.Equal(t, 0, m.detailsLines(), "the share rounds down to nothing while half the pane would hold five lines")
+
+	focused := send(t, m, "ctrl+t")
+
+	assert.False(t, focused.detailsFocused())
+	assert.Empty(t, focused.detailsView())
+}
+
+func resize(m model, width, height int) tea.Model {
+	next, _ := m.Update(tea.WindowSizeMsg{Width: width, Height: height})
+
+	return next
 }

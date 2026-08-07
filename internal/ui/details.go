@@ -83,17 +83,33 @@ func (m model) detailsCursor(held details) int {
 	return min(m.details.cursor, max(len(held.fields)-1, 0))
 }
 
-// toggleDetailsFocus hands the keys to the section, or takes them back. A row with no fields
-// has nothing to point at, so the key does nothing there rather than focusing an empty block.
+// detailsDrawn reports whether the section is on screen, which takes both a record with
+// something to say and a pane with room to draw a field of it. Everything that asks whether
+// the section has the keys goes through here, so a section that cannot be seen cannot be
+// holding them however it came to be off screen.
+func (m model) detailsDrawn(held details) bool {
+	return len(held.fields) > 0 && m.detailsLines() > 0
+}
+
+// detailsFocused reports whether the section holds the keys, which is the focus it was given
+// and the section still being drawn. The focus is kept rather than spent when the section goes
+// off screen, so a terminal shrunk and pulled back out lands where it was left.
+func (m model) detailsFocused() bool {
+	return m.details.focused && m.detailsDrawn(m.hoveredDetails())
+}
+
+// toggleDetailsFocus hands the keys to the section, or takes them back. A section that is not
+// drawn has nothing to point at, so the key does nothing there rather than focusing a block
+// that is not on screen.
 func (m model) toggleDetailsFocus() (tea.Model, tea.Cmd) {
-	if m.details.focused {
+	if m.detailsFocused() {
 		m.details.focused = false
 
 		return m, nil
 	}
 
 	held := m.hoveredDetails()
-	if len(held.fields) == 0 {
+	if !m.detailsDrawn(held) {
 		return m, nil
 	}
 
@@ -111,9 +127,9 @@ func (m model) updateDetails(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 	held := m.hoveredDetails()
 
-	// A record that emptied under the cursor, which a refresh can do, leaves nothing to hold
-	// the keys for.
-	if len(held.fields) == 0 {
+	// A section that stopped being drawn under the cursor, which a refresh emptying the record
+	// does, leaves nothing to hold the keys for.
+	if !m.detailsDrawn(held) {
 		m.details.focused = false
 
 		return m, nil
@@ -212,15 +228,11 @@ const detailsChromeLines = 4
 // takes its height out of the same budget.
 func (m model) detailsView() string {
 	held := m.hoveredDetails()
-	if len(held.fields) == 0 {
+	if !m.detailsDrawn(held) {
 		return ""
 	}
 
 	lines := m.detailsLines()
-	if lines < 1 {
-		return ""
-	}
-
 	cursor := m.detailsCursor(held)
 	rows := m.detailFieldRows(held.fields, cursor)
 

@@ -45,7 +45,7 @@ func (m model) renderHelp(k keyMap) string {
 	// An open filter input has taken the screen's keys, so its legend replaces theirs here
 	// rather than at each screen's own help, which would otherwise be four places to forget.
 	// The details under a list take them the same way, from whichever screen drew them.
-	if m.details.focused {
+	if m.detailsFocused() {
 		k = m.detailsHelp()
 	}
 	if m.filter.typing {
@@ -186,7 +186,7 @@ func (m model) agentHelp() keyMap {
 // direction the key would go, the way the log and hide lines do.
 func (m model) detailsBinding() key.Binding {
 	desc := "details"
-	if m.details.focused {
+	if m.detailsFocused() {
 		desc = "back to the list"
 	}
 
