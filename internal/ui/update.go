@@ -126,7 +126,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// answered here rather than by each screen, since the section is one section wherever it
 	// is drawn.
 	if !m.isQueryOpen() && m.detailsScreen() {
-		if m.details.focused {
+		if m.detailsFocused() {
 			return m.updateDetails(key)
 		}
 		if isBound(key.String(), m.keys.Details.Focus) {

@@ -31,14 +31,14 @@ var (
 // titleStyle is how the list's own title is drawn: in the accent while the list has the keys,
 // and grey while the details under it do.
 func (m model) titleStyle() lipgloss.Style {
-	return titleStyleFor(!m.details.focused)
+	return titleStyleFor(!m.detailsFocused())
 }
 
 // rowCursorStyle is how the marker beside the row under the list cursor is drawn. The row
 // stays marked while the details below hold the keys, since it is the row they are about, but
 // it gives up the accent to them.
 func (m model) rowCursorStyle() lipgloss.Style {
-	return cursorStyleFor(!m.details.focused)
+	return cursorStyleFor(!m.detailsFocused())
 }
 
 // titleStyleFor and cursorStyleFor are the two halves of the sidebar asking the same question,

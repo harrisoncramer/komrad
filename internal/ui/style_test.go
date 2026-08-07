@@ -169,7 +169,7 @@ func rowNamed(rows []string, name string) (string, bool) {
 // title and its cursor in the accent, and the other keeps both in place without it, its title
 // grey and its cursor in the terminal's own foreground.
 func TestFocusColours(t *testing.T) {
-	m := model{}
+	m := detailsModel(&recordingTmux{})
 
 	assert.Equal(t, colorAccent, m.titleStyle().GetForeground(), "the list has the keys to begin with")
 	assert.Equal(t, colorAccent, m.rowCursorStyle().GetForeground())

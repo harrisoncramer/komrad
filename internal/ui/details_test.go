@@ -10,6 +10,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -417,4 +418,90 @@ func TestAgentFields(t *testing.T) {
 			}
 		})
 	}
+}
+
+// strandedModel is a details model with a second agent under the cursor, so the list has a row
+// to move onto. The bug being covered is the list going deaf while the section holds the keys
+// off screen, which cannot be seen on a cursor already sitting at the last row.
+func strandedModel() model {
+	m := detailsModel(&recordingTmux{})
+	m.listing.agents = append(m.listing.agents, agentItem{
+		agent: agentstore.Agent{ID: "a2", Name: "billing", Pane: "%10", Cwd: "/repo", WorkflowID: "w1"},
+		alive: true,
+	})
+
+	return m
+}
+
+// assertKeysWithTheList checks what a section holding the keys off screen got wrong, none of
+// it read off the focus itself: the list answers movement, no cursor runs down fields that are
+// not drawn, the accent stays on the list, and the legend is still the list's own.
+func assertKeysWithTheList(t *testing.T, m model) {
+	t.Helper()
+
+	require.Empty(t, m.detailsView(), "the section must draw nothing for this to prove anything")
+
+	moved := send(t, m, "j")
+
+	assert.Equal(t, 2, moved.tree.cursor, "the list answers movement")
+	assert.Equal(t, m.details.cursor, moved.details.cursor, "no cursor runs down fields that are not drawn")
+	assert.Equal(t, colorAccent, m.titleStyle().GetForeground(), "the list keeps the accent")
+	assert.Equal(t, colorAccent, m.rowCursorStyle().GetForeground())
+	assert.NotContains(t, m.renderHelp(m.agentHelp()), "back to the list", "and the legend is its own")
+}
+
+// TestDetailsFocusNeedsRoomToDrawIn covers the focus key pressed at a pane too short for the
+// section to be drawn at all. The keys stay with the list rather than going to a block that is
+// not on screen.
+func TestDetailsFocusNeedsRoomToDrawIn(t *testing.T) {
+	m := strandedModel()
+	m.height = 8
+
+	assertKeysWithTheList(t, send(t, m, "ctrl+t"))
+}
+
+// TestDetailsFocusGivenUpWhenThePaneShrinks covers the terminal shrinking under a focused
+// section, which takes the section off screen without anyone pressing a key. The keys go back
+// to the list at once rather than a keypress being spent taking them back.
+func TestDetailsFocusGivenUpWhenThePaneShrinks(t *testing.T) {
+	focused := send(t, strandedModel(), "ctrl+t")
+	require.NotEmpty(t, focused.detailsView())
+
+	assertKeysWithTheList(t, asModel(t, resize(focused, 40, 8)))
+}
+
+// TestDetailsShareTooSmallToDrawAField covers a configured share that rounds down to no field
+// lines in a pane with room to spare, which a small details_height does without any resize.
+func TestDetailsShareTooSmallToDrawAField(t *testing.T) {
+	m := strandedModel()
+	m.height, m.detailsHeight = 19, 0.05
+	require.Equal(t, 0, m.detailsLines(), "the share rounds down to nothing while half the pane would hold five lines")
+
+	assertKeysWithTheList(t, send(t, m, "ctrl+t"))
+}
+
+// TestDetailsFocusReturnsWithTheSection covers the terminal shrinking and being pulled back
+// out. The keys go to the list while the section is off screen and come back to the section
+// with it, on the field they were left on, rather than the focus being spent by the resize.
+func TestDetailsFocusReturnsWithTheSection(t *testing.T) {
+	focused := send(t, send(t, strandedModel(), "ctrl+t"), "j")
+	require.Equal(t, 1, focused.details.cursor)
+
+	shrunk := asModel(t, resize(focused, 40, 8))
+	assertKeysWithTheList(t, shrunk)
+
+	grown := asModel(t, resize(shrunk, 40, 24))
+	require.NotEmpty(t, grown.detailsView())
+
+	moved := send(t, grown, "j")
+
+	assert.Equal(t, 2, moved.details.cursor, "the keys are back on the fields")
+	assert.Equal(t, 1, moved.tree.cursor, "and off the list")
+	assert.Equal(t, colorMuted, grown.titleStyle().GetForeground(), "the accent goes back with them")
+}
+
+func resize(m model, width, height int) tea.Model {
+	next, _ := m.Update(tea.WindowSizeMsg{Width: width, Height: height})
+
+	return next
 }
