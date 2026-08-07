@@ -16,9 +16,7 @@ A working directory and flags. These are the defaults prefilled into the new-age
 
 A harness. Which CLI the agents here run, `claude` or `codex`. Blank means they take whatever you configured as your default. Agents already spawned keep the harness they started on, so changing this only affects new ones.
 
-A setup action and a cleanup action. Both name a file in your actions directory. Setup runs before an agent in this workflow starts, and again before a dormant one is resumed. Cleanup runs once one of them is deleted. See [actions](actions.md) for how those scripts are found and what they are handed.
-
-A worktree toggle. Turned on, weave writes the setup and cleanup actions above for you: every agent in the workflow gets its own git worktree off the directory, on its own branch, gone when the agent is deleted. See "A worktree per agent" below.
+A setup type, and either a setup and cleanup action or a worktree config, depending which it is set to. Setup runs before an agent in this workflow starts, and again before a dormant one is resumed; cleanup runs once one of them is deleted. See [actions](actions.md) for how a hand-written pair is found and what it is handed, and "A worktree per agent" below for the other answer.
 
 ## Why context lives here
 
@@ -53,7 +51,7 @@ One action each rather than a list, because an action is a script and a script a
 
 ## A worktree per agent
 
-The common shape: every agent in the workflow gets its own git worktree, works there, and the worktree goes away when the agent is deleted. Turn the toggle on rather than writing the setup and cleanup actions yourself.
+The common shape: every agent in the workflow gets its own git worktree, works there, and the worktree goes away when the agent is deleted. This is the default setup type, rather than something you turn on: a new workflow opens with it already chosen, and the setup and cleanup actions are the other setup type, `Custom`, not a separate toggle alongside it. The two are exclusive, since the worktree fields and the action pickers fill the same role, and the form shows one set or the other depending which you have picked.
 
 In the panel, `w`, with the directory set to the repo the worktrees are added off:
 
@@ -66,23 +64,23 @@ Context              Work only inside the worktree you were started in.
 Default agent        claude
 Default directory    ~/myrepo
 Default flags        --model opus
-Git worktree per agent   Enabled
+Setup type           Worktree: a git worktree per agent
 Worktree base branch     (blank for the repo's default branch)
 Worktree copy paths      .env
 Worktree symlink paths   node_modules
 ```
 
-Submitting writes two action scripts, named after the workflow so two worktree-enabled workflows never collide, and points `Setup action` and `Cleanup action` at them. Nothing else about the workflow's lifecycle changes: setup still blocks a launch and its stdout still names the directory the agent opens in, cleanup still runs best-effort on delete. You can see the generated scripts in your actions directory, but you should not need to open them; editing this workflow's worktree settings again rewrites both in full.
+Submitting points the workflow's setup and cleanup actions at two built-in scripts, `_worktree_setup` and `_worktree_cleanup`, shipped with weave the same way `_edit_action` is rather than written out per workflow. Nothing else about the workflow's lifecycle changes: setup still blocks a launch and its stdout still names the directory the agent opens in, cleanup still runs best-effort on delete. The base branch and the two path lists live on the workflow's own row and are what those two scripts read at the moment they run; they are not settings on the actions themselves, since one pair of built-ins serves every worktree workflow.
 
 Setup fetches the base branch when the repo has a remote, adds the worktree at a path under your `[worktrees].dir` (`~/.local/state/weave/worktrees` unless you have configured otherwise) named after the agent's id, and is a no-op past that point on `WEAVE_TRIGGER=resume` if the worktree is still there. It then applies the copy and symlink paths, one repo-relative path per line: a copy path is a file such as `.env` written fresh into the worktree every run, and a symlink path is a directory such as `node_modules` linked back to the repo instead of duplicated. A path that is not in the repo is skipped with a warning on stderr rather than failing the whole setup. Cleanup removes the worktree and its branch, both best-effort, since a workflow's cleanup action must not block a delete.
 
-Turning the toggle back off after it was on clears `Setup action` and `Cleanup action` if they still name the generated scripts, leaving them alone if you have since pointed the workflow at something else.
+Switching the setup type to `Custom` clears `Setup action` and `Cleanup action` if they still name the two built-ins, leaving them alone if you had already pointed the workflow at something else. The base branch and the two path lists are not cleared either way, so switching back to `Worktree` later hands them back rather than starting over blank.
 
 Press `n` with the cursor anywhere in that workflow to start an agent in it. It gets its own worktree, its own branch, and the context above on top of its prompt. Any agent whose directory looks like a git checkout, however it got one, shows its current branch beside its name in the tree.
 
-### By hand, if the toggle does not cover it
+### By hand, if the built-in scripts don't cover it
 
-The toggle is sugar over the setup and cleanup action seam, not a new lifecycle, so writing the same thing yourself still works, and is the way to reach anything the toggle's copy and symlink lists do not cover, such as a hook or a database migration run once the worktree exists.
+The built-in setup and cleanup scripts are sugar over the setup and cleanup action seam, not a new lifecycle, so writing your own still works under `Custom`, and is the way to reach anything the built-ins' copy and symlink lists do not cover, such as a hook or a database migration run once the worktree exists.
 
 Write `~/.config/weave/actions/make-worktree`, executable:
 
@@ -114,13 +112,13 @@ git -C "$repo" worktree remove --force "$HOME/trees/$WEAVE_AGENT_ID" || true
 git -C "$repo" branch -D "agent/$WEAVE_AGENT_ID" || true
 ```
 
-Set both as the workflow's setup and cleanup actions, with the toggle left off, the same way any hand-written pair is set.
+Set both as the workflow's setup and cleanup actions, with the setup type set to `Custom`, the same way any hand-written pair is set.
 
 ## From the panel
 
 `w` creates a workflow from anywhere in the agents list. `e` on a workflow header opens the same form prefilled, so you can change any of it. `r` renames. `z` archives.
 
-The two action fields are pickers, not text inputs, listing what your actions directory actually holds. You cannot type the name of a script that does not exist. If a workflow names a script you later renamed, the form shows it marked `(missing)` rather than silently dropping it. They still take a value when the worktree toggle is on, since that is what shows you the two names weave generated; you cannot point them at anything else while it is on.
+Setup type picks between the worktree fields and a pair of action pickers. The pickers list what your actions directory actually holds; you cannot type the name of a script that does not exist, and if a workflow names one you later renamed, the form shows it marked `(missing)` rather than silently dropping it. Switching the setup type swaps which set of fields is on screen, rather than showing both or graying one out.
 
 Long context is painful in a text box, so `ctrl+e` in that field opens `$EDITOR`. The two worktree path fields take the same kind of text, one path per line rather than one field per path.
 

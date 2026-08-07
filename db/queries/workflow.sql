@@ -3,10 +3,17 @@ SELECT
     sqlc.embed(w),
     wc.harness,
     wc.cwd,
-    wc.flags
+    wc.flags,
+    ac.setup_action,
+    ac.cleanup_action,
+    ac.worktree_enabled,
+    ac.worktree_base_branch,
+    ac.worktree_copy_paths,
+    ac.worktree_symlink_paths
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
+    JOIN workflow_action_configs ac ON ac.id = w.action_config_id
 WHERE (@archived::boolean) =(w.archived_at IS NOT NULL)
     AND (sqlc.narg('cursor_id')::uuid IS NULL
         OR w.id < sqlc.narg('cursor_id'))
@@ -19,10 +26,17 @@ SELECT
     sqlc.embed(w),
     wc.harness,
     wc.cwd,
-    wc.flags
+    wc.flags,
+    ac.setup_action,
+    ac.cleanup_action,
+    ac.worktree_enabled,
+    ac.worktree_base_branch,
+    ac.worktree_copy_paths,
+    ac.worktree_symlink_paths
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
+    JOIN workflow_action_configs ac ON ac.id = w.action_config_id
 WHERE
     w.archived_at IS NULL
 ORDER BY
@@ -33,10 +47,17 @@ SELECT
     sqlc.embed(w),
     wc.harness,
     wc.cwd,
-    wc.flags
+    wc.flags,
+    ac.setup_action,
+    ac.cleanup_action,
+    ac.worktree_enabled,
+    ac.worktree_base_branch,
+    ac.worktree_copy_paths,
+    ac.worktree_symlink_paths
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
+    JOIN workflow_action_configs ac ON ac.id = w.action_config_id
 WHERE
     w.id = @id
     AND w.archived_at IS NULL
@@ -54,27 +75,35 @@ VALUES (
 RETURNING
     id;
 
--- name: InsertWorkflow :one
-INSERT INTO workflows(
-    name,
-    context,
+-- name: InsertWorkflowActionConfig :one
+INSERT INTO workflow_action_configs(
     setup_action,
     cleanup_action,
     worktree_enabled,
     worktree_base_branch,
     worktree_copy_paths,
-    worktree_symlink_paths,
-    workflow_config_id)
+    worktree_symlink_paths)
 VALUES (
-    @name,
-    @context,
     @setup_action,
     @cleanup_action,
     @worktree_enabled,
     @worktree_base_branch,
     @worktree_copy_paths,
-    @worktree_symlink_paths,
-    @workflow_config_id)
+    @worktree_symlink_paths)
+RETURNING
+    id;
+
+-- name: InsertWorkflow :one
+INSERT INTO workflows(
+    name,
+    context,
+    workflow_config_id,
+    action_config_id)
+VALUES (
+    @name,
+    @context,
+    @workflow_config_id,
+    @action_config_id)
 RETURNING
     *;
 
@@ -96,7 +125,7 @@ WHERE
 
 -- name: SetWorkflowActions :exec
 UPDATE
-    workflows
+    workflow_action_configs
 SET
     setup_action = @setup_action,
     cleanup_action = @cleanup_action,
@@ -105,7 +134,13 @@ SET
     worktree_copy_paths = @worktree_copy_paths,
     worktree_symlink_paths = @worktree_symlink_paths
 WHERE
-    id = @id;
+    id =(
+        SELECT
+            action_config_id
+        FROM
+            workflows
+        WHERE
+            workflows.id = @workflow_id);
 
 -- name: UpdateWorkflowConfig :exec
 UPDATE
@@ -145,10 +180,17 @@ SELECT
     sqlc.embed(w),
     wc.harness,
     wc.cwd,
-    wc.flags
+    wc.flags,
+    ac.setup_action,
+    ac.cleanup_action,
+    ac.worktree_enabled,
+    ac.worktree_base_branch,
+    ac.worktree_copy_paths,
+    ac.worktree_symlink_paths
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
+    JOIN workflow_action_configs ac ON ac.id = w.action_config_id
 WHERE
     w.id = @id
 LIMIT 1;

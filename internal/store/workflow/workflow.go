@@ -93,7 +93,14 @@ func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 	}
 
 	return xslice.Map(rows, func(row *models.ListWorkflowsRow) Workflow {
-		return workflowFromRow(row.Workflow, row.Harness, row.Cwd, row.Flags)
+		return workflowFromRow(row.Workflow, workflowConfigFields{Harness: row.Harness, Cwd: row.Cwd, Flags: row.Flags}, actionConfigFields{
+			SetupAction:          row.SetupAction,
+			CleanupAction:        row.CleanupAction,
+			WorktreeEnabled:      row.WorktreeEnabled,
+			WorktreeBaseBranch:   row.WorktreeBaseBranch,
+			WorktreeCopyPaths:    row.WorktreeCopyPaths,
+			WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
+		})
 	}), nil
 }
 
@@ -126,7 +133,14 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 	}
 
 	return xslice.Map(rows, func(row *models.ListWorkflowsPageRow) Workflow {
-		return workflowFromRow(row.Workflow, row.Harness, row.Cwd, row.Flags)
+		return workflowFromRow(row.Workflow, workflowConfigFields{Harness: row.Harness, Cwd: row.Cwd, Flags: row.Flags}, actionConfigFields{
+			SetupAction:          row.SetupAction,
+			CleanupAction:        row.CleanupAction,
+			WorktreeEnabled:      row.WorktreeEnabled,
+			WorktreeBaseBranch:   row.WorktreeBaseBranch,
+			WorktreeCopyPaths:    row.WorktreeCopyPaths,
+			WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
+		})
 	}), nil
 }
 
@@ -145,12 +159,20 @@ func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
 	}
 
-	workflow := workflowFromRow(row.Workflow, row.Harness, row.Cwd, row.Flags)
+	workflow := workflowFromRow(row.Workflow, workflowConfigFields{Harness: row.Harness, Cwd: row.Cwd, Flags: row.Flags}, actionConfigFields{
+		SetupAction:          row.SetupAction,
+		CleanupAction:        row.CleanupAction,
+		WorktreeEnabled:      row.WorktreeEnabled,
+		WorktreeBaseBranch:   row.WorktreeBaseBranch,
+		WorktreeCopyPaths:    row.WorktreeCopyPaths,
+		WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
+	})
 	return &workflow, nil
 }
 
-// Create inserts a workflow together with the config row holding the harness, cwd,
-// and flags new agents inside it inherit, and returns it. Both rows must land
+// Create inserts a workflow together with the config row holding the harness, cwd, and
+// flags new agents inside it inherit, and the action config row holding its setup and
+// cleanup actions and worktree settings, and returns it. All three rows must land
 // together, so a caller outside a transaction gets one through InTx.
 func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 	configID, err := s.queries.InsertWorkflowConfig(ctx, models.InsertWorkflowConfigParams{
@@ -162,22 +184,36 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 		return nil, fmt.Errorf("failed to insert config for workflow %q: %w", cfg.Name, err)
 	}
 
-	row, err := s.queries.InsertWorkflow(ctx, models.InsertWorkflowParams{
-		Name:                 cfg.Name,
-		Context:              cfg.Context,
+	actionConfigID, err := s.queries.InsertWorkflowActionConfig(ctx, models.InsertWorkflowActionConfigParams{
 		SetupAction:          cfg.SetupAction,
 		CleanupAction:        cfg.CleanupAction,
 		WorktreeEnabled:      cfg.Worktree.Enabled,
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
 		WorktreeSymlinkPaths: orEmpty(cfg.Worktree.SymlinkPaths),
-		WorkflowConfigID:     configID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to insert action config for workflow %q: %w", cfg.Name, err)
+	}
+
+	row, err := s.queries.InsertWorkflow(ctx, models.InsertWorkflowParams{
+		Name:             cfg.Name,
+		Context:          cfg.Context,
+		WorkflowConfigID: configID,
+		ActionConfigID:   actionConfigID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workflow %q: %w", cfg.Name, err)
 	}
 
-	workflow := workflowFromRow(*row, cfg.Harness, cfg.Cwd, cfg.Flags)
+	workflow := workflowFromRow(*row, workflowConfigFields{Harness: cfg.Harness, Cwd: cfg.Cwd, Flags: cfg.Flags}, actionConfigFields{
+		SetupAction:          cfg.SetupAction,
+		CleanupAction:        cfg.CleanupAction,
+		WorktreeEnabled:      cfg.Worktree.Enabled,
+		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
+		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
+		WorktreeSymlinkPaths: orEmpty(cfg.Worktree.SymlinkPaths),
+	})
 	return &workflow, nil
 }
 
@@ -213,7 +249,7 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 	}
 
 	if err := s.queries.SetWorkflowActions(ctx, models.SetWorkflowActionsParams{
-		ID:                   id,
+		WorkflowID:           id,
 		SetupAction:          cfg.SetupAction,
 		CleanupAction:        cfg.CleanupAction,
 		WorktreeEnabled:      cfg.Worktree.Enabled,
@@ -278,7 +314,14 @@ func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow,
 		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
 	}
 
-	workflow := workflowFromRow(row.Workflow, row.Harness, row.Cwd, row.Flags)
+	workflow := workflowFromRow(row.Workflow, workflowConfigFields{Harness: row.Harness, Cwd: row.Cwd, Flags: row.Flags}, actionConfigFields{
+		SetupAction:          row.SetupAction,
+		CleanupAction:        row.CleanupAction,
+		WorktreeEnabled:      row.WorktreeEnabled,
+		WorktreeBaseBranch:   row.WorktreeBaseBranch,
+		WorktreeCopyPaths:    row.WorktreeCopyPaths,
+		WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
+	})
 
 	return &workflow, nil
 }
@@ -293,21 +336,38 @@ func orEmpty(paths []string) []string {
 	return paths
 }
 
-func workflowFromRow(w models.Workflow, harness, cwd, flags string) Workflow {
+// workflowConfigFields is what a listing or get joins in from workflow_configs.
+type workflowConfigFields struct {
+	Harness string
+	Cwd     string
+	Flags   string
+}
+
+// actionConfigFields is what a listing or get joins in from workflow_action_configs.
+type actionConfigFields struct {
+	SetupAction          string
+	CleanupAction        string
+	WorktreeEnabled      bool
+	WorktreeBaseBranch   string
+	WorktreeCopyPaths    []string
+	WorktreeSymlinkPaths []string
+}
+
+func workflowFromRow(w models.Workflow, cfg workflowConfigFields, ac actionConfigFields) Workflow {
 	return Workflow{
 		ID:            w.ID,
 		Name:          w.Name,
 		Context:       w.Context,
-		Harness:       harness,
-		Cwd:           cwd,
-		Flags:         flags,
-		SetupAction:   w.SetupAction,
-		CleanupAction: w.CleanupAction,
+		Harness:       cfg.Harness,
+		Cwd:           cfg.Cwd,
+		Flags:         cfg.Flags,
+		SetupAction:   ac.SetupAction,
+		CleanupAction: ac.CleanupAction,
 		Worktree: WorktreeConfig{
-			Enabled:      w.WorktreeEnabled,
-			BaseBranch:   w.WorktreeBaseBranch,
-			CopyPaths:    w.WorktreeCopyPaths,
-			SymlinkPaths: w.WorktreeSymlinkPaths,
+			Enabled:      ac.WorktreeEnabled,
+			BaseBranch:   ac.WorktreeBaseBranch,
+			CopyPaths:    ac.WorktreeCopyPaths,
+			SymlinkPaths: ac.WorktreeSymlinkPaths,
 		},
 		ArchivedAt: w.ArchivedAt,
 		UpdatedAt:  w.UpdatedAt,

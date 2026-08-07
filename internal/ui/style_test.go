@@ -15,39 +15,40 @@ import (
 )
 
 // TestBranchMark covers the git branch shown beside an agent's row: nothing for one the
-// branch syncer has not found a branch for, and the branch itself, icon included, for one
-// it has.
+// branch syncer has not found a branch for, and just the icon, no branch name, for one it
+// has.
 func TestBranchMark(t *testing.T) {
 	tests := []struct {
 		name   string
 		branch *string
-		want   string
+		want   bool
 	}{
 		{
 			name: "no branch found is drawn as nothing",
 		},
 		{
-			name:   "a found branch is drawn with its icon",
+			name:   "a found branch is drawn with the icon alone",
 			branch: xptr.Ptr("feature/worktrees"),
-			want:   " " + branchIcon + " feature/worktrees",
+			want:   true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := branchMark(agentstore.Agent{Branch: tt.branch})
-			if tt.want == "" {
+			if !tt.want {
 				assert.Empty(t, got)
 				return
 			}
 
-			assert.Contains(t, got, tt.want)
+			assert.Contains(t, got, branchIcon)
+			assert.NotContains(t, got, "feature/worktrees", "the branch name itself is not drawn, only the icon")
 		})
 	}
 }
 
 // TestAgentsViewShowsBranch covers the row itself: an agent the branch syncer found a
-// branch for shows it beside its name, and one it has not draws the row without it.
+// branch for shows the icon beside its name, and one it has not draws the row without it.
 func TestAgentsViewShowsBranch(t *testing.T) {
 	m := model{
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
@@ -58,10 +59,15 @@ func TestAgentsViewShowsBranch(t *testing.T) {
 		}},
 	}
 
-	view := m.agentsView()
-	assert.Contains(t, view, "worker")
-	assert.Contains(t, view, branchIcon+" agent/a1")
-	assert.Contains(t, view, "reviewer")
+	rows := strings.Split(m.agentsView(), "\n")
+	worker, ok := rowNamed(rows, "worker")
+	require.True(t, ok)
+	assert.Contains(t, worker, branchIcon)
+	assert.NotContains(t, worker, "agent/a1", "the branch name itself is not drawn, only the icon")
+
+	reviewer, ok := rowNamed(rows, "reviewer")
+	require.True(t, ok)
+	assert.NotContains(t, reviewer, branchIcon)
 }
 
 func TestUnreadMailMark(t *testing.T) {

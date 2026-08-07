@@ -99,7 +99,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			name: "the new-workflow form",
 			open: func(m model) model {
 				m.screen = screenWorkflowForm
-				m.form, m.values.workflow = workflowConfigForm("New workflow name", workflowFormValues{}, []actionChoice{
+				m.form, m.values.workflow, _ = workflowConfigForm("New workflow name", workflowFormValues{}, []actionChoice{
 					{name: "make-worktree"},
 					{name: "drop-worktree"},
 				}, m.keys.Form)
@@ -107,6 +107,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				m.values.workflow.Context = "the frontend"
 				m.values.workflow.Cwd = "/work/web"
 				m.values.workflow.Flags = "--model sonnet"
+				m.values.workflow.SetupType = setupTypeCustom
 				m.values.workflow.SetupAction = "make-worktree"
 				m.values.workflow.CleanupAction = "drop-worktree"
 
@@ -127,10 +128,9 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			name: "the new-workflow form with worktree enabled",
 			open: func(m model) model {
 				m.screen = screenWorkflowForm
-				m.form, m.values.workflow = workflowConfigForm("New workflow name", workflowFormValues{}, nil, m.keys.Form)
+				m.form, m.values.workflow, _ = workflowConfigForm("New workflow name", workflowFormValues{}, nil, m.keys.Form)
 				m.values.workflow.Name = "web"
 				m.values.workflow.Cwd = "/work/web"
-				m.values.workflow.WorktreeEnabled = true
 				m.values.workflow.WorktreeBaseBranch = "develop"
 				m.values.workflow.WorktreeCopyPaths = ".env\n\nconfig/local.json\n"
 				m.values.workflow.WorktreeSymlinkPaths = "node_modules"
@@ -156,7 +156,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				target := m.listing.workflows[0]
 				m.target.editWorkflow = &target
 				m.screen = screenWorkflowForm
-				m.form, m.values.workflow = workflowConfigForm("Workflow name", workflowFormValuesFrom(workflowstore.Config{
+				m.form, m.values.workflow, _ = workflowConfigForm("Workflow name", workflowFormValuesFrom(workflowstore.Config{
 					Name:        target.Name,
 					Context:     "shared notes",
 					Cwd:         target.Cwd,
@@ -432,7 +432,8 @@ func TestActionSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
 	assert.Contains(t, agentView, "> Same as workflow", "the setup field opens with what it inherits marked as picked")
 	assert.Contains(t, agentView, "> Same as workflow", "the cleanup field opens with what it inherits marked as picked")
 
-	workflowForm, _ := workflowConfigForm("Workflow name", workflowFormValues{
+	workflowForm, _, _ := workflowConfigForm("Workflow name", workflowFormValues{
+		SetupType:     setupTypeCustom,
 		SetupAction:   "make-worktree",
 		CleanupAction: "drop-worktree",
 	}, available, config.DefaultKeybindings().Form)
@@ -538,6 +539,48 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 			assert.False(t, got.pendingForm, "and takes keys again, since the write it was waiting on has landed")
 		})
 	}
+}
+
+// TestSetupTypeRebuildsTheForm checks that switching setup type swaps the worktree fields
+// for the action pickers by rebuilding the form, and hands back whatever was typed into
+// the worktree fields if the setup type switches back.
+func TestSetupTypeRebuildsTheForm(t *testing.T) {
+	sent := &formRecorder{}
+	m := formModel(sent)
+
+	form, values, toggleIndex := m.workflowFormFor(workflowFormValues{})
+	m.form = form
+	m.values.workflow = values
+	m.screen = screenWorkflowForm
+	m.form.Init()
+	for range toggleIndex {
+		m.form.NextField()
+	}
+
+	worktreeView := m.form.View()
+	assert.Equal(t, setupTypeWorktree, m.values.workflow.SetupType, "worktree is the default")
+	assert.Contains(t, worktreeView, "Worktree base branch", "worktree is the default, so its fields are already on screen")
+	assert.Contains(t, worktreeView, "Worktree copy paths")
+	assert.Contains(t, worktreeView, "Worktree symlink paths")
+	assert.NotContains(t, worktreeView, "Setup action")
+
+	m.values.workflow.WorktreeCopyPaths = ".env"
+
+	updated, _ := m.updateWorkflowForm(keyMsg("down"))
+	m = asModel(t, updated)
+
+	require.Equal(t, setupTypeCustom, m.values.workflow.SetupType, "the keypress switched it")
+	customView := m.form.View()
+	assert.NotContains(t, customView, "Worktree base branch", "switching to custom removes the worktree fields, not blanks them")
+	assert.Contains(t, customView, "Setup action", "and adds the action pickers instead")
+	assert.Contains(t, customView, "Cleanup action")
+
+	updated, _ = m.updateWorkflowForm(keyMsg("up"))
+	m = asModel(t, updated)
+
+	assert.Equal(t, setupTypeWorktree, m.values.workflow.SetupType)
+	assert.Equal(t, ".env", m.values.workflow.WorktreeCopyPaths, "switching back hands back what was typed before")
+	assert.Contains(t, m.form.View(), "Worktree copy paths")
 }
 
 // TestArchivePromptChoices covers the three ways the archive prompt can be answered, driven

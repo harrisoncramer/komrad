@@ -57,7 +57,7 @@ func (m model) returnToAgents() (tea.Model, tea.Cmd) {
 func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
 	m.target.renameWorkflow = nil
 	m.target.editWorkflow = nil
-	m.form, m.values.workflow = m.workflowFormFor(workflowFormValues{})
+	m.form, m.values.workflow, _ = m.workflowFormFor(workflowFormValues{})
 	m.screen = screenWorkflowForm
 
 	return m, m.form.Init()
@@ -66,7 +66,7 @@ func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
 func (m model) renameWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	m.target.renameWorkflow = &workflow
 	m.target.editWorkflow = nil
-	m.form, m.values.workflow = m.workflowFormFor(workflowFormValues{})
+	m.form, m.values.workflow, _ = m.workflowFormFor(workflowFormValues{})
 	m.screen = screenWorkflowForm
 
 	return m, m.form.Init()
@@ -80,7 +80,7 @@ func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea
 	}
 	m.target.editWorkflow = &workflow
 	m.target.renameWorkflow = nil
-	m.form, m.values.workflow = m.workflowFormFor(workflowFormValuesFrom(workflowstore.Config{
+	m.form, m.values.workflow, _ = m.workflowFormFor(workflowFormValuesFrom(workflowstore.Config{
 		Name:          workflow.Name,
 		Context:       workflow.Context,
 		Harness:       workflow.Harness,
@@ -96,16 +96,43 @@ func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea
 }
 
 // workflowFormFor is decided here rather than at each opener, so a refused submit can put
-// the same form back.
-func (m model) workflowFormFor(values workflowFormValues) (*huh.Form, *workflowFormValues) {
+// the same form back. The third return is where the setup type field landed in the built
+// form, -1 for the rename form which carries no such field. updateWorkflowForm reads it to
+// put the cursor back there after a rebuild the field itself triggered.
+func (m model) workflowFormFor(values workflowFormValues) (*huh.Form, *workflowFormValues, int) {
 	switch {
 	case m.target.renameWorkflow != nil:
-		return workflowForm(fmt.Sprintf("Rename %q to", m.target.renameWorkflow.Name), values, m.keys.Form)
+		form, out := workflowForm(fmt.Sprintf("Rename %q to", m.target.renameWorkflow.Name), values, m.keys.Form)
+
+		return form, out, -1
 	case m.target.editWorkflow != nil:
 		return workflowConfigForm("Workflow name", values, m.getAvailableActions(), m.keys.Form)
 	default:
 		return workflowConfigForm("New workflow name", values, m.getAvailableActions(), m.keys.Form)
 	}
+}
+
+// rebuildWorkflowForm replaces the open workflow form with a fresh one built from the
+// current values, swapping in the worktree detail fields or the action pickers to match
+// the setup type that just changed, and puts the cursor back on that field since huh has
+// no way to add or remove a field from a form already on screen without rebuilding it
+// whole.
+func (m model) rebuildWorkflowForm() (model, tea.Cmd) {
+	if m.values.workflow == nil {
+		return m, nil
+	}
+
+	form, values, toggleIndex := m.workflowFormFor(*m.values.workflow)
+
+	cmds := []tea.Cmd{form.Init()}
+	for range toggleIndex {
+		cmds = append(cmds, form.NextField())
+	}
+
+	m.form = form
+	m.values.workflow = values
+
+	return m, tea.Batch(cmds...)
 }
 
 // getAvailableActions lists what the workflow form's action fields are chosen from; a
@@ -165,8 +192,40 @@ func (m model) updateWorkflowArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
 	})
 }
 
+// updateWorkflowForm is its own update rather than the shared updateSubmitForm, since this
+// is the one form that can grow or lose fields mid-edit. Changing the setup type between
+// worktree and custom changes what the rest of the form holds, which is checked after
+// every keystroke here and rebuilt for if it changed.
 func (m model) updateWorkflowForm(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return m.updateSubmitForm(msg, model.submitWorkflowForm)
+	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), m.keys.Form.Submit) {
+		return m.submitWorkflowForm()
+	}
+
+	if m.values.workflow == nil {
+		return m.closeForm()
+	}
+	wasSetupType := m.values.workflow.SetupType
+
+	form, cmd := m.form.Update(msg)
+	if updated, ok := form.(*huh.Form); ok {
+		m.form = updated
+	}
+
+	switch m.form.State {
+	case huh.StateCompleted:
+		return m.submitWorkflowForm()
+	case huh.StateAborted:
+		return m.closeForm()
+	case huh.StateNormal:
+	}
+
+	if m.values.workflow.SetupType != wasSetupType {
+		var rebuildCmd tea.Cmd
+		m, rebuildCmd = m.rebuildWorkflowForm()
+		cmd = tea.Batch(cmd, rebuildCmd)
+	}
+
+	return m, cmd
 }
 
 func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {

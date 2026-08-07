@@ -97,7 +97,7 @@ func (s *Service) CreateWorkflow(ctx context.Context, req *connect.Request[workf
 		Worktree:      worktreeConfigFromProto(req.Msg.GetWorktree()),
 	})
 	switch {
-	case errors.Is(err, agents.ErrWorktreeNeedsCwd), errors.Is(err, agents.ErrWorktreeOwnsActions):
+	case errors.Is(err, agents.ErrWorktreeNeedsCwd), errors.Is(err, agents.ErrWorktreeOwnsActions), errors.Is(err, agents.ErrWorktreeActionsReserved):
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create workflow: %w", err))
@@ -121,7 +121,7 @@ func (s *Service) UpdateWorkflow(ctx context.Context, req *connect.Request[workf
 	switch {
 	case errors.Is(err, agents.ErrWorkflowNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no workflow with id %q", req.Msg.GetId()))
-	case errors.Is(err, agents.ErrWorktreeNeedsCwd), errors.Is(err, agents.ErrWorktreeOwnsActions):
+	case errors.Is(err, agents.ErrWorktreeNeedsCwd), errors.Is(err, agents.ErrWorktreeOwnsActions), errors.Is(err, agents.ErrWorktreeActionsReserved):
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update workflow: %w", err))
