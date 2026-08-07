@@ -21,3 +21,7 @@ Each agent has a mailbox in Postgres. When agents need to send mail, they write 
 Agents check their mailboxes for any pending mail at the end of each turn. Mail is therefore not an "interrupt" activity. If you need to urgently interrupt a running agent and tell it something, you should switch into the CLI view and halt the process.
 
 If an agent is dormant when a mail item is written, it'll get "nudged" the next time it wakes up to check it's mailbox. Mail cannot be send to agents that have been archived.
+
+Because delivery happens as a turn ends, an agent cannot wait for mail inside a turn. Sitting in a sleep or a loop waiting for a reply is the one thing that stops the reply arriving. Agents are told to finish their turn instead.
+
+> Note, in the future, mail may be supplanted by or supplemented with [channels](https://code.claude.com/docs/en/channels), which push events into a running session rather than waiting for it to end a turn. They are a research preview today, plugin-only and behind an Anthropic allowlist, so the Stop hook remains how mail arrives.
