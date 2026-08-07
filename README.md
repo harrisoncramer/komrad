@@ -28,13 +28,13 @@ Keeping track of multiple agent sessions is difficult. Weave's persistent agent 
 
 Weave is different from existing solutions like Conductor, Happy, or WorkMux in a few important ways:
 
-1. It is unopinionated.
+### It is unopinionated.
 
 Weave provides the primitives behind agentic workflows as resources that you manage directly: [workflows](docs/workflows.md), [agents](docs/agents.md), [actions](docs/actions.md), and [schedules](docs/schedules.md). It also provides an [MCP layer](docs/mcp.md) and a [CLI](docs/commands.md) so that you can have weave agents manage other agents. But it doesn't tell you how to use them: that's your call.
 
 Weave is optimized for software development with [https://git-scm.com/docs/git-worktree](worktrees), but is equally capable of handling other automations, like production incidents or triaging, or even Slack or email automations. Let weave automate the parts of your job you dislike.
 
-2. It terminal (tmux) based.
+### It terminal (tmux) based.
 
 Weave is a terminal tool, intended for power users. It does not aspire to be a remote coding environment or a standalone application, and meets you in the terminal.
 
