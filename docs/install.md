@@ -40,29 +40,11 @@ weave-linux-amd64
 weave-linux-arm64
 ```
 
-`weave version` reports them as `v0.0.0-main.<shortsha>`. This channel is the tip of main, with no version promise and no changelog.
-
-To verify a download, fetch `checksums.txt` from the same release and check against it. Same host as the binary, so it catches a corrupted transfer and not a compromised release.
+To verify a download, fetch `checksums.txt` from the same release and check against it.
 
 ```sh
 shasum -a 256 -c checksums.txt --ignore-missing
 ```
-
-On a Mac, use `curl` rather than the releases page. A browser download is quarantined and dies with `operation not permitted` and no dialog. Undo it with `xattr -d com.apple.quarantine ~/.local/bin/weave`.
-
-## The panel key
-
-The binary binds the key itself, so there is no tmux plugin to install:
-
-```tmux
-run-shell 'weave tmux'
-```
-
-`weave` has to be on `PATH` when tmux parses the config, since the key is bound to the absolute path resolved at that moment.
-
-`prefix + g` opens the panel and hides it again. Hiding is not quitting: the panel and every agent in it keep running. Change it with `set -g @weave_key 'w'` above the `run-shell` line, then run `weave tmux` to rebind without restarting tmux. Inside the panel, `prefix + k` opens the command palette; change that with `set -g @weave_palette_key 'x'`.
-
-To use the panel in a plain terminal rather than the popup, `weave attach` shows the running one there, and the panel key detaches it. It attaches a panel that is up rather than starting one.
 
 ## The database
 
@@ -92,18 +74,6 @@ tmux -L weave kill-server
 
 Then `prefix + g` for a fresh panel. That kills the agents in it; their records and transcripts survive in the database.
 
-## When it does not work
-
-`weave doctor` is one line per dependency, with the fix under any that fail. It exits non-zero when something will stop the panel working, and `--json` prints the report instead. After that, the service log at `~/Library/Caches/weave/weave.log`, or `~/.cache/weave/weave.log` on Linux.
-
-If `prefix + g` does nothing, the key is not bound. `tmux list-keys -T prefix | grep weave` shows it if it is there; if not, weave was not on `PATH` when tmux parsed the config, so fix that and run `weave tmux`.
-
-A popup that flashes and vanishes takes its error with it. Run `weave open` by hand to read it.
-
-If `weave version` disagrees with itself about the binary and the server, see [upgrading](#upgrading).
-
-Connection settings are read once, when the panel session is created. Editing `database_url` and pressing `prefix + g` does not reach a panel that is already up; restart weave's tmux server as above.
-
 ## From a checkout
 
 The contributor path, which needs Go 1.25.1 or newer.
@@ -115,9 +85,3 @@ mise install
 mise run go:build
 mise run docker:up
 ```
-
-That leaves the binary at `bin/weave` and a Postgres 18 on port 5460 with migrations and the read-only login applied, which is where the built-in default points, so a checkout needs no configuration. Open the panel with `prefix + g` or `mise run panel`. See [development](development.md) for the rest of the tasks.
-
-A source build reports a pseudo-version off the commit rather than the `main` stamp, and the panel replaces any service built from a different version, so two checkouts on one machine need separate addresses with `WEAVE_ADDR`.
-
-From here, [configuration](configuration.md) covers the config files and the environment, [commands](commands.md) covers the CLI, and [how it works](concepts.md) covers the two tmux servers.
