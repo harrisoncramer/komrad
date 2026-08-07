@@ -145,6 +145,11 @@ type model struct {
 	// moves between the lists above it.
 	info infoState
 
+	// details is the section under the agents list and where its own cursor sits, and
+	// detailsHeight is the share of the pane the layout gives it.
+	details       detailsState
+	detailsHeight float64
+
 	// listing is what the last refresh brought back. It is the panel's rather than any one
 	// screen's: the schedule form and the archive both draw the workflows the agents list
 	// happens to have fetched, and reaching into another screen's state for them is how
@@ -197,6 +202,7 @@ func newModel(deps Deps) model {
 		clip:            systemClipboard{},
 		tmux:            deps.Tmux,
 		frame:           layout.New(deps.Tmux, deps.Layout),
+		detailsHeight:   deps.Layout.DetailsHeight,
 		addr:            deps.Addr,
 		logPath:         deps.LogPath,
 		logViewer:       deps.LogViewer,

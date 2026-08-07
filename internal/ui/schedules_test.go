@@ -546,8 +546,9 @@ func keyMsg(key string) tea.KeyMsg {
 
 // namedKeys are the non-rune keys the cases press.
 var namedKeys = map[string]tea.KeyType{
-	"esc":   tea.KeyEsc,
-	"enter": tea.KeyEnter,
+	"esc":    tea.KeyEsc,
+	"enter":  tea.KeyEnter,
+	"ctrl+t": tea.KeyCtrlT,
 }
 
 // TestScheduledMark covers the clock the agents list puts beside a row a schedule
