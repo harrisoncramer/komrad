@@ -468,11 +468,13 @@ func workflowName(workflow *workflowstore.Workflow) string {
 
 // worktreeEnv is what the built-in worktree setup and cleanup actions read their config
 // from, since a workflow's worktree settings live in the database rather than in the
-// script itself. The repo the worktrees are added off is named outright rather than left
-// to WEAVE_AGENT_CWD, which stops being the repo the moment setup replaces it with the
-// worktree and so would be wrong every time setup runs again on a resume. Cleanup asks for
-// none of this, since a worktree's own git-common-dir names the repo it came from.
+// script itself. The repo comes from the workflow rather than from WEAVE_AGENT_CWD, which
+// names the worktree itself from the moment setup returns and would send a resume looking
+// for the repo inside the tree it is meant to be rebuilding. Cleanup reads none of these,
+// since a worktree's own git-common-dir names the repo it came from.
 func (s *ActionService) worktreeEnv(workflow workflowstore.Workflow) ([]string, error) {
+	cfg := workflow.Worktree
+
 	loaded, err := s.load()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the config: %w", err)
@@ -482,8 +484,6 @@ func (s *ActionService) worktreeEnv(workflow workflowstore.Workflow) ([]string, 
 	if err != nil {
 		return nil, err
 	}
-
-	cfg := workflow.Worktree
 
 	return []string{
 		"WEAVE_WORKTREE_REPO=" + config.ExpandHome(strings.TrimSpace(workflow.Cwd)),

@@ -50,9 +50,9 @@ else
 	echo "creating a worktree at $tree from $point" >&2
 	git -C "$repo" worktree add -B "agent/$WEAVE_AGENT_ID" "$tree" "$point" >&2
 
-	# Only a worktree this run made is furnished. One that was already there holds
-	# whatever the agent has done to it since, and copying a directory over one that
-	# is already present nests it a level deeper every time.
+	# Only a worktree this run made gets these. One that was already there holds the
+	# agent's own work, and copying or linking over a directory that is already there
+	# nests it a level deeper every time.
 	apply_paths "$WEAVE_WORKTREE_COPY_PATHS" copy || true
 	apply_paths "$WEAVE_WORKTREE_SYMLINK_PATHS" symlink || true
 fi
