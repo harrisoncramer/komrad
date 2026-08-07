@@ -14,24 +14,24 @@ type Agent struct {
 	Name             string
 	Cwd              string
 	Flags            string
+	SetupAction      *string
+	CleanupAction    *string
 	Prompt           string
 	PaneID           string
 	State            string
+	StateChangedAt   time.Time
 	Harness          string
 	SessionID        string
 	WorkflowID       string
 	ScheduleID       *string
 	IdempotencyKey   *string
+	SpawnedByAgentID *string
 	ArchivedAt       *time.Time
 	IsHidden         bool
+	NudgedAt         *time.Time
 	Mark             *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
-	StateChangedAt   time.Time
-	SetupAction      *string
-	CleanupAction    *string
-	NudgedAt         *time.Time
-	SpawnedByAgentID *string
 }
 
 // Key/value facts an agent recorded about its own work.
