@@ -143,11 +143,11 @@ func (m model) updateDetails(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // setDetailsCursor points the section at a field of the record it is drawing, held inside
-// that record's own fields. The record is recorded alongside the cursor, since the two only
-// mean anything together: a cursor left under a record that is no longer there is what the
+// that record's own fields. The record is written alongside the cursor, since the two only
+// mean anything together: a cursor under a record that is no longer there is what the
 // section reads as a row it was never set against.
 func (m model) setDetailsCursor(held details, idx int) model {
-	m.details.cursor = min(max(idx, 0), len(held.fields)-1)
+	m.details.cursor = clampCursor(idx, len(held.fields))
 	m.details.row = held.id
 
 	return m
@@ -168,9 +168,9 @@ func (m model) quitKeys() []string {
 }
 
 // copyDetailsField copies the value the cursor names and flashes its line while the write
-// runs, the panel's only answer to a key that otherwise changes nothing on screen. It takes
-// the field rather than reading it again, since copying does not move the cursor and so has
-// no business saying which record the cursor was set against.
+// runs, the panel's only answer to a key that otherwise changes nothing on screen. The field
+// comes from the caller, since copying does not move the cursor and so has no business
+// saying which record the cursor was set against.
 func (m model) copyDetailsField(held details, idx int) (tea.Model, tea.Cmd) {
 	m.details.flashed = idx + 1
 
