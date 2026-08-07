@@ -1,6 +1,9 @@
 package ui
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // popupTmux is what the popup needs from tmux, the global options it uses as flags
 // plus the ability to bind a key and detach a client. The client behind it spans two
@@ -124,6 +127,15 @@ type panelKeyTmux interface {
 	BindKeyChecked(key string, command ...string) error
 }
 
+// BindPanelKeyParams is what binding the panel key takes: the binary the two branches run and
+// the config layers this process resolved, since each branch is a new process that would
+// otherwise read the default files and reach a different tmux server and service than the one
+// this binding was asked for.
+type BindPanelKeyParams struct {
+	Self        string
+	ConfigPaths []string
+}
+
 // BindPanelKey binds the panel key on the user's own tmux server, where it is pressed.
 //
 // The manager lives in a persistent tmux session shown through a popup. Pressing the key while
@@ -143,7 +155,7 @@ type panelKeyTmux interface {
 // panel is a success, so that still closes it, but a startup failure leaves the popup up with
 // its error on screen instead of destroying the popup in the same instant the message is
 // written. Dismiss a held-open popup with Escape or C-c.
-func BindPanelKey(t panelKeyTmux, self string) error {
+func BindPanelKey(t panelKeyTmux, params BindPanelKeyParams) error {
 	key := t.ShowGlobal(managerKeyOption)
 	if key == "" {
 		key = defaultPanelKey
@@ -160,10 +172,23 @@ func BindPanelKey(t panelKeyTmux, self string) error {
 
 	// Each branch is one argument, since tmux parses an if-shell branch as a command of its
 	// own rather than reading the rest of this line as arguments.
-	hide := fmt.Sprintf("run-shell -b '%s hide'", self)
-	open := fmt.Sprintf("display-popup -w 100%% -h 100%% -x C -y C -T ' weave ' -EE '%s open'", self)
+	hide := fmt.Sprintf("run-shell -b '%s'", panelCommand(params, "hide"))
+	open := fmt.Sprintf("display-popup -w 100%% -h 100%% -x C -y C -T ' weave ' -EE '%s'",
+		panelCommand(params, "open"))
 
 	return t.BindKeyChecked(key, "if-shell", "-F", fmt.Sprintf("#{==:#{%s},1}", managerOpenFlag), hide, open)
+}
+
+// panelCommand is the shell command one branch of the binding runs: this binary, the subcommand,
+// and the config layers behind them. Both branches carry them, since hide has to find the same
+// tmux server the popup is on and open has to reach the same service.
+func panelCommand(params BindPanelKeyParams, subcommand string) string {
+	words := []string{params.Self, subcommand}
+	for _, path := range params.ConfigPaths {
+		words = append(words, "--config", path)
+	}
+
+	return strings.Join(words, " ")
 }
 
 // MarkOpen records that the popup is shown.
