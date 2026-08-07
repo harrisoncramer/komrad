@@ -139,7 +139,7 @@ func branchMark(agent agentstore.Agent) string {
 		return ""
 	}
 
-	return " " + dimStyle.Render(branchIcon+" "+*agent.Branch)
+	return " " + dimStyle.Render(branchIcon)
 }
 
 func tagGlyph(agent agentstore.Agent, tags []config.Tag) string {
