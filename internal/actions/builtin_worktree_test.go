@@ -209,6 +209,93 @@ func TestBuiltinWorktreeSetupCopiesADirectory(t *testing.T) {
 	assert.Equal(t, "AFTER=1\n", string(after))
 }
 
+// TestBuiltinWorktreeSetupCopiesOverATrackedPath covers a copy path that git tracks, so
+// the fresh worktree already holds a checkout of it: the copy has to replace that checkout
+// rather than land inside it, and the agent has to end up with the repo's copy of the path
+// rather than the committed one.
+func TestBuiltinWorktreeSetupCopiesOverATrackedPath(t *testing.T) {
+	repo := initRepo(t)
+	require.NoError(t, os.Mkdir(filepath.Join(repo, "config"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "config", "app.toml"), []byte("committed\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "settings.json"), []byte("committed\n"), 0o644))
+	commitAll(t, repo)
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "config", "app.toml"), []byte("local\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "settings.json"), []byte("local\n"), 0o644))
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-tracked-copy",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+		copyPaths:    []string{"config", "settings.json"},
+	})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+
+	tree := strings.TrimSpace(string(result.Stdout))
+	assert.NoDirExists(t, filepath.Join(tree, "config", "config"), "the copy replaces the checked-out directory rather than nesting inside it")
+
+	dir, err := os.ReadFile(filepath.Join(tree, "config", "app.toml"))
+	require.NoError(t, err)
+	assert.Equal(t, "local\n", string(dir), "the agent gets the repo's copy of a tracked directory")
+
+	file, err := os.ReadFile(filepath.Join(tree, "settings.json"))
+	require.NoError(t, err)
+	assert.Equal(t, "local\n", string(file), "the agent gets the repo's copy of a tracked file")
+}
+
+// TestBuiltinWorktreeSetupSymlinksOverATrackedPath covers the symlink arm of the same case:
+// ln into an existing directory makes the link a level down, which leaves the agent with
+// the committed contents and a stray link nobody asked for.
+func TestBuiltinWorktreeSetupSymlinksOverATrackedPath(t *testing.T) {
+	repo := initRepo(t)
+	require.NoError(t, os.Mkdir(filepath.Join(repo, "vendor"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "vendor", "lib.txt"), []byte("dep\n"), 0o644))
+	commitAll(t, repo)
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-tracked-link",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+		symlinkPaths: []string{"vendor"},
+	})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+
+	tree := strings.TrimSpace(string(result.Stdout))
+	assert.NoFileExists(t, filepath.Join(tree, "vendor", "vendor"), "the link replaces the checked-out directory rather than being made inside it")
+
+	link, err := os.Readlink(filepath.Join(tree, "vendor"))
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(repo, "vendor"), link)
+}
+
+// TestBuiltinWorktreeSetupRefusesAPathOutsideTheWorktree covers what clearing a destination
+// costs: a path that resolves out of the worktree, or names the worktree itself, would have
+// setup delete something it was never pointed at.
+func TestBuiltinWorktreeSetupRefusesAPathOutsideTheWorktree(t *testing.T) {
+	repo := initRepo(t)
+	worktreesDir := t.TempDir()
+	require.NoError(t, os.Mkdir(filepath.Join(filepath.Dir(repo), "sibling"), 0o755))
+
+	outside := filepath.Join(worktreesDir, "sibling")
+	require.NoError(t, os.Mkdir(outside, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(outside, "keep.txt"), []byte("keep\n"), 0o644))
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-escape",
+		repo:         repo,
+		worktreesDir: worktreesDir,
+		copyPaths:    []string{"../sibling"},
+		symlinkPaths: []string{"/"},
+	})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+
+	assert.Contains(t, string(result.Stderr), "not a path inside the worktree")
+	assert.FileExists(t, filepath.Join(outside, "keep.txt"), "a path that leaves the worktree is refused rather than removed")
+
+	info, err := os.Lstat(strings.TrimSpace(string(result.Stdout)))
+	require.NoError(t, err)
+	assert.True(t, info.IsDir(), "a path naming the worktree itself is refused rather than replacing it")
+}
+
 // TestBuiltinWorktreeCleanupRefusesAPlainCheckout covers WEAVE_AGENT_CWD pointing at a
 // checkout that is not a linked worktree at all, such as the repo weave itself lives in:
 // cleanup must not run worktree remove or branch -D against it.
@@ -384,6 +471,15 @@ func initRepo(t *testing.T) string {
 	runGit(t, dir, "commit", "--quiet", "-m", "initial")
 
 	return dir
+}
+
+// commitAll commits everything in dir, so a path the test just made is one git checks out
+// into a fresh worktree rather than one only the repo has.
+func commitAll(t *testing.T, dir string) {
+	t.Helper()
+
+	runGit(t, dir, "add", "-A")
+	runGit(t, dir, "commit", "--quiet", "-m", "add fixtures")
 }
 
 func initBareRepo(t *testing.T) string {

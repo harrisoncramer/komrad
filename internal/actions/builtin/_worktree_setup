@@ -18,7 +18,30 @@ apply_paths() {
 			echo "worktree setup: $p not found in $repo, skipping $kind" >&2
 			continue
 		fi
+
+		# The destination is cleared before it is applied, so a path that names
+		# something other than a place inside the worktree is refused rather
+		# than removed.
+		outside=
+		case "/$p/" in
+		*/../*) outside=yes ;;
+		*[!/.]*) ;;
+		*) outside=yes ;;
+		esac
+		if [ -n "$outside" ]; then
+			echo "worktree setup: $p is not a path inside the worktree, skipping $kind" >&2
+			continue
+		fi
+
 		mkdir -p "$(dirname "$dest")"
+
+		# git worktree add has already checked out every tracked path, so a
+		# destination that is a directory would swallow the copy or the symlink
+		# a level down instead of becoming it.
+		if ! rm -rf "$dest"; then
+			echo "worktree setup: could not clear $dest, skipping $kind of $p" >&2
+			continue
+		fi
 		if [ "$kind" = copy ]; then
 			cp -rf "$src" "$dest" || echo "worktree setup: failed to copy $p" >&2
 		else
