@@ -53,8 +53,8 @@ type Agent struct {
 	ScheduleId *string `protobuf:"bytes,12,opt,name=schedule_id,json=scheduleId,proto3,oneof" json:"schedule_id,omitempty"`
 	// Whether the agent's tmux pane is still running.
 	Alive bool `protobuf:"varint,11,opt,name=alive,proto3" json:"alive,omitempty"`
-	// The glyph the user marked this agent with, unset when it carries no mark.
-	Mark *string `protobuf:"bytes,14,opt,name=mark,proto3,oneof" json:"mark,omitempty"`
+	// The glyph the user tagged this agent with, unset when it carries no tag.
+	Tag *string `protobuf:"bytes,14,opt,name=tag,proto3,oneof" json:"tag,omitempty"`
 	// Whether the user has hidden this agent from the panel's sidebar. It is not a
 	// deletion and says nothing about the agent, which runs and is reconciled the
 	// same either way. Listings return hidden agents like any other, since only the
@@ -199,9 +199,9 @@ func (x *Agent) GetAlive() bool {
 	return false
 }
 
-func (x *Agent) GetMark() string {
-	if x != nil && x.Mark != nil {
-		return *x.Mark
+func (x *Agent) GetTag() string {
+	if x != nil && x.Tag != nil {
+		return *x.Tag
 	}
 	return ""
 }
@@ -642,35 +642,35 @@ func (x *GetAgentResponse) GetAgent() *Agent {
 	return nil
 }
 
-// SetMarksRequest puts one mark on every agent named, and an unset mark clears the
-// ones they carry. It is keyed by id rather than name because a mark outlives a
+// SetTagsRequest puts one tag on every agent named, and an unset tag clears the
+// ones they carry. It is keyed by id rather than name because a tag outlives a
 // rename, and the panel already holds the ids of the rows it is looking at.
 //
-// One mark for the whole request rather than one per agent. The panel's mark key
-// steps a selection through the configured marks together, and a request carrying a
-// glyph per id would be a way to write marks nothing on screen can produce.
-type SetMarksRequest struct {
+// One tag for the whole request rather than one per agent. The panel's tag key
+// steps a selection through the configured tags together, and a request carrying a
+// glyph per id would be a way to write tags nothing on screen can produce.
+type SetTagsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
-	Mark          *string                `protobuf:"bytes,2,opt,name=mark,proto3,oneof" json:"mark,omitempty"`
+	Tag           *string                `protobuf:"bytes,2,opt,name=tag,proto3,oneof" json:"tag,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SetMarksRequest) Reset() {
-	*x = SetMarksRequest{}
+func (x *SetTagsRequest) Reset() {
+	*x = SetTagsRequest{}
 	mi := &file_agent_v1_agent_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SetMarksRequest) String() string {
+func (x *SetTagsRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SetMarksRequest) ProtoMessage() {}
+func (*SetTagsRequest) ProtoMessage() {}
 
-func (x *SetMarksRequest) ProtoReflect() protoreflect.Message {
+func (x *SetTagsRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_agent_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -682,21 +682,21 @@ func (x *SetMarksRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SetMarksRequest.ProtoReflect.Descriptor instead.
-func (*SetMarksRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use SetTagsRequest.ProtoReflect.Descriptor instead.
+func (*SetTagsRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *SetMarksRequest) GetIds() []string {
+func (x *SetTagsRequest) GetIds() []string {
 	if x != nil {
 		return x.Ids
 	}
 	return nil
 }
 
-func (x *SetMarksRequest) GetMark() string {
-	if x != nil && x.Mark != nil {
-		return *x.Mark
+func (x *SetTagsRequest) GetTag() string {
+	if x != nil && x.Tag != nil {
+		return *x.Tag
 	}
 	return ""
 }
@@ -1217,7 +1217,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\x92\x05\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\x8f\x05\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -1238,15 +1238,15 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"archivedAt\x88\x01\x01\x12$\n" +
 	"\vschedule_id\x18\f \x01(\tH\x01R\n" +
 	"scheduleId\x88\x01\x01\x12\x14\n" +
-	"\x05alive\x18\v \x01(\bR\x05alive\x12\x17\n" +
-	"\x04mark\x18\x0e \x01(\tH\x02R\x04mark\x88\x01\x01\x12\x16\n" +
+	"\x05alive\x18\v \x01(\bR\x05alive\x12\x15\n" +
+	"\x03tag\x18\x0e \x01(\tH\x02R\x03tag\x88\x01\x01\x12\x16\n" +
 	"\x06hidden\x18\x0f \x01(\bR\x06hidden\x123\n" +
 	"\bmetadata\x18\x10 \x03(\v2\x17.agent.v1.AgentMetadataR\bmetadata\x12,\n" +
 	"\x0fidempotency_key\x18\x11 \x01(\tH\x03R\x0eidempotencyKey\x88\x01\x01\x122\n" +
 	"\x13spawned_by_agent_id\x18\x14 \x01(\tH\x04R\x10spawnedByAgentId\x88\x01\x01B\x0e\n" +
 	"\f_archived_atB\x0e\n" +
-	"\f_schedule_idB\a\n" +
-	"\x05_markB\x12\n" +
+	"\f_schedule_idB\x06\n" +
+	"\x04_tagB\x12\n" +
 	"\x10_idempotency_keyB\x16\n" +
 	"\x14_spawned_by_agent_id\"7\n" +
 	"\rAgentMetadata\x12\x10\n" +
@@ -1283,13 +1283,12 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x0fGetAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"9\n" +
 	"\x10GetAgentResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\xfb\x01\n" +
-	"\x0fSetMarksRequest\x12$\n" +
-	"\x03ids\x18\x01 \x03(\tB\x12\xbaH\x0f\x92\x01\f\b\x01\x10d\x18\x01\"\x04r\x02\x10\x01R\x03ids\x12\xb8\x01\n" +
-	"\x04mark\x18\x02 \x01(\tB\x9e\x01\xbaH\x9a\x01\xba\x01\x96\x01\n" +
-	"\n" +
-	"mark.glyph\x12Ia mark must be a short glyph carrying no whitespace or control characters\x1a=this.size() <= 16 && !this.matches('[[:space:]]|[[:cntrl:]]')H\x00R\x04mark\x88\x01\x01B\a\n" +
-	"\x05_mark\"C\n" +
+	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\xf5\x01\n" +
+	"\x0eSetTagsRequest\x12$\n" +
+	"\x03ids\x18\x01 \x03(\tB\x12\xbaH\x0f\x92\x01\f\b\x01\x10d\x18\x01\"\x04r\x02\x10\x01R\x03ids\x12\xb4\x01\n" +
+	"\x03tag\x18\x02 \x01(\tB\x9c\x01\xbaH\x98\x01\xba\x01\x94\x01\n" +
+	"\ttag.glyph\x12Ha tag must be a short glyph carrying no whitespace or control characters\x1a=this.size() <= 16 && !this.matches('[[:space:]]|[[:cntrl:]]')H\x00R\x03tag\x88\x01\x01B\x06\n" +
+	"\x04_tag\"C\n" +
 	"\x10SetHiddenRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x16\n" +
 	"\x06hidden\x18\x02 \x01(\bR\x06hidden\"\x98\x03\n" +
@@ -1323,7 +1322,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12UpdateAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xfd\x01\n" +
 	"\x04name\x18\x02 \x01(\tB\xe8\x01\xbaH\xe4\x01\xba\x01\xd9\x01\n" +
-	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\xecV\n" +
+	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\xe2V\n" +
 	"\fAgentService\x12\xe4\x03\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x9a\x03\x9a\xb5\x18\x92\x03\n" +
@@ -1331,9 +1330,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"\xeb\x01\x9a\xb5\x18\xe3\x01\n" +
 	"\tget_agent\x12\xd5\x01Fetch one agent by id, including whatever metadata it has recorded about its own work. Spans the archived agents too, since an id is the one handle those still answer to. Returns not_found if no agent has that id.\x90\x02\x01\x12\xde\x04\n" +
 	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\x91\x04\x9a\xb5\x18\x8c\x04\n" +
-	"\fcreate_agent\x12\xf9\x03Launch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would point somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again. \x00\x12\xe9\x05\n" +
-	"\bSetMarks\x12\x19.agent.v1.SetMarksRequest\x1a\x16.google.protobuf.Empty\"\xa9\x05\x9a\xb5\x18\xa1\x05\n" +
-	"\x0fset_agent_marks\x12\x8b\x05Put one mark on a list of agents, keyed by their ids, or clear the ones they carry by omitting the mark. Every id given takes the same glyph, so marking agents differently is a call each. A mark is a glyph the user reads off the row, meaning whatever they decided it means, such as needs review or dealt with. Use only the glyphs get_config returns under marks, since the panel's mark key cycles through those and can only clear anything else. Archived agents have no row to draw a mark on and are skipped, and returns not_found only when no id given reached a live agent. What an agent is currently doing is already in its state, so do not mark that. \x00\x90\x02\x02\x12\xd3\x03\n" +
+	"\fcreate_agent\x12\xf9\x03Launch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would point somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again. \x00\x12\xdf\x05\n" +
+	"\aSetTags\x12\x18.agent.v1.SetTagsRequest\x1a\x16.google.protobuf.Empty\"\xa1\x05\x9a\xb5\x18\x99\x05\n" +
+	"\x0eset_agent_tags\x12\x84\x05Put one tag on a list of agents, keyed by their ids, or clear the ones they carry by omitting the tag. Every id given takes the same glyph, so tagging agents differently is a call each. A tag is a glyph the user reads off the row, meaning whatever they decided it means, such as needs review or dealt with. Use only the glyphs get_config returns under tags, since the panel's tag key cycles through those and can only clear anything else. Archived agents have no row to draw a tag on and are skipped, and returns not_found only when no id given reached a live agent. What an agent is currently doing is already in its state, so do not tag that. \x00\x90\x02\x02\x12\xd3\x03\n" +
 	"\tSetHidden\x12\x1a.agent.v1.SetHiddenRequest\x1a\x16.google.protobuf.Empty\"\x91\x03\x9a\xb5\x18\x89\x03\n" +
 	"\x10set_agent_hidden\x12\xf2\x02Hide an agent from the panel's sidebar, keyed by its id, or unhide it by passing hidden false. This changes nothing about the agent: it keeps running, the reconciler keeps moving its state, and every tool still returns it. It only decides whether the person watching the panel sees a row for it, which is theirs to decide, so do not hide work you were not asked to hide. \x00\x90\x02\x02\x12\xd2\x06\n" +
 	"\vSetMetadata\x12\x1c.agent.v1.SetMetadataRequest\x1a\x16.google.protobuf.Empty\"\x8c\x06\x9a\xb5\x18\x84\x06\n" +
@@ -1386,7 +1385,7 @@ var file_agent_v1_agent_proto_goTypes = []any{
 	(*CreateAgentResponse)(nil),       // 5: agent.v1.CreateAgentResponse
 	(*GetAgentRequest)(nil),           // 6: agent.v1.GetAgentRequest
 	(*GetAgentResponse)(nil),          // 7: agent.v1.GetAgentResponse
-	(*SetMarksRequest)(nil),           // 8: agent.v1.SetMarksRequest
+	(*SetTagsRequest)(nil),            // 8: agent.v1.SetTagsRequest
 	(*SetHiddenRequest)(nil),          // 9: agent.v1.SetHiddenRequest
 	(*SetMetadataRequest)(nil),        // 10: agent.v1.SetMetadataRequest
 	(*LogRequest)(nil),                // 11: agent.v1.LogRequest
@@ -1422,7 +1421,7 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	2,  // 7: agent.v1.AgentService.ListAgents:input_type -> agent.v1.ListAgentsRequest
 	6,  // 8: agent.v1.AgentService.GetAgent:input_type -> agent.v1.GetAgentRequest
 	4,  // 9: agent.v1.AgentService.CreateAgent:input_type -> agent.v1.CreateAgentRequest
-	8,  // 10: agent.v1.AgentService.SetMarks:input_type -> agent.v1.SetMarksRequest
+	8,  // 10: agent.v1.AgentService.SetTags:input_type -> agent.v1.SetTagsRequest
 	9,  // 11: agent.v1.AgentService.SetHidden:input_type -> agent.v1.SetHiddenRequest
 	10, // 12: agent.v1.AgentService.SetMetadata:input_type -> agent.v1.SetMetadataRequest
 	11, // 13: agent.v1.AgentService.Log:input_type -> agent.v1.LogRequest
@@ -1440,7 +1439,7 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	3,  // 25: agent.v1.AgentService.ListAgents:output_type -> agent.v1.ListAgentsResponse
 	7,  // 26: agent.v1.AgentService.GetAgent:output_type -> agent.v1.GetAgentResponse
 	5,  // 27: agent.v1.AgentService.CreateAgent:output_type -> agent.v1.CreateAgentResponse
-	26, // 28: agent.v1.AgentService.SetMarks:output_type -> google.protobuf.Empty
+	26, // 28: agent.v1.AgentService.SetTags:output_type -> google.protobuf.Empty
 	26, // 29: agent.v1.AgentService.SetHidden:output_type -> google.protobuf.Empty
 	26, // 30: agent.v1.AgentService.SetMetadata:output_type -> google.protobuf.Empty
 	26, // 31: agent.v1.AgentService.Log:output_type -> google.protobuf.Empty

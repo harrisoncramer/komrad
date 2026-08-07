@@ -41,8 +41,8 @@ const (
 	// AgentServiceCreateAgentProcedure is the fully-qualified name of the AgentService's CreateAgent
 	// RPC.
 	AgentServiceCreateAgentProcedure = "/agent.v1.AgentService/CreateAgent"
-	// AgentServiceSetMarksProcedure is the fully-qualified name of the AgentService's SetMarks RPC.
-	AgentServiceSetMarksProcedure = "/agent.v1.AgentService/SetMarks"
+	// AgentServiceSetTagsProcedure is the fully-qualified name of the AgentService's SetTags RPC.
+	AgentServiceSetTagsProcedure = "/agent.v1.AgentService/SetTags"
 	// AgentServiceSetHiddenProcedure is the fully-qualified name of the AgentService's SetHidden RPC.
 	AgentServiceSetHiddenProcedure = "/agent.v1.AgentService/SetHidden"
 	// AgentServiceSetMetadataProcedure is the fully-qualified name of the AgentService's SetMetadata
@@ -86,7 +86,7 @@ type AgentServiceClient interface {
 	ListAgents(context.Context, *connect.Request[v1.ListAgentsRequest]) (*connect.Response[v1.ListAgentsResponse], error)
 	GetAgent(context.Context, *connect.Request[v1.GetAgentRequest]) (*connect.Response[v1.GetAgentResponse], error)
 	CreateAgent(context.Context, *connect.Request[v1.CreateAgentRequest]) (*connect.Response[v1.CreateAgentResponse], error)
-	SetMarks(context.Context, *connect.Request[v1.SetMarksRequest]) (*connect.Response[emptypb.Empty], error)
+	SetTags(context.Context, *connect.Request[v1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error)
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
 	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
@@ -134,10 +134,10 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(agentServiceMethods.ByName("CreateAgent")),
 			connect.WithClientOptions(opts...),
 		),
-		setMarks: connect.NewClient[v1.SetMarksRequest, emptypb.Empty](
+		setTags: connect.NewClient[v1.SetTagsRequest, emptypb.Empty](
 			httpClient,
-			baseURL+AgentServiceSetMarksProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("SetMarks")),
+			baseURL+AgentServiceSetTagsProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("SetTags")),
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
@@ -244,7 +244,7 @@ type agentServiceClient struct {
 	listAgents        *connect.Client[v1.ListAgentsRequest, v1.ListAgentsResponse]
 	getAgent          *connect.Client[v1.GetAgentRequest, v1.GetAgentResponse]
 	createAgent       *connect.Client[v1.CreateAgentRequest, v1.CreateAgentResponse]
-	setMarks          *connect.Client[v1.SetMarksRequest, emptypb.Empty]
+	setTags           *connect.Client[v1.SetTagsRequest, emptypb.Empty]
 	setHidden         *connect.Client[v1.SetHiddenRequest, emptypb.Empty]
 	setMetadata       *connect.Client[v1.SetMetadataRequest, emptypb.Empty]
 	log               *connect.Client[v1.LogRequest, emptypb.Empty]
@@ -276,9 +276,9 @@ func (c *agentServiceClient) CreateAgent(ctx context.Context, req *connect.Reque
 	return c.createAgent.CallUnary(ctx, req)
 }
 
-// SetMarks calls agent.v1.AgentService.SetMarks.
-func (c *agentServiceClient) SetMarks(ctx context.Context, req *connect.Request[v1.SetMarksRequest]) (*connect.Response[emptypb.Empty], error) {
-	return c.setMarks.CallUnary(ctx, req)
+// SetTags calls agent.v1.AgentService.SetTags.
+func (c *agentServiceClient) SetTags(ctx context.Context, req *connect.Request[v1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.setTags.CallUnary(ctx, req)
 }
 
 // SetHidden calls agent.v1.AgentService.SetHidden.
@@ -356,7 +356,7 @@ type AgentServiceHandler interface {
 	ListAgents(context.Context, *connect.Request[v1.ListAgentsRequest]) (*connect.Response[v1.ListAgentsResponse], error)
 	GetAgent(context.Context, *connect.Request[v1.GetAgentRequest]) (*connect.Response[v1.GetAgentResponse], error)
 	CreateAgent(context.Context, *connect.Request[v1.CreateAgentRequest]) (*connect.Response[v1.CreateAgentResponse], error)
-	SetMarks(context.Context, *connect.Request[v1.SetMarksRequest]) (*connect.Response[emptypb.Empty], error)
+	SetTags(context.Context, *connect.Request[v1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error)
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
 	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
@@ -400,10 +400,10 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(agentServiceMethods.ByName("CreateAgent")),
 		connect.WithHandlerOptions(opts...),
 	)
-	agentServiceSetMarksHandler := connect.NewUnaryHandler(
-		AgentServiceSetMarksProcedure,
-		svc.SetMarks,
-		connect.WithSchema(agentServiceMethods.ByName("SetMarks")),
+	agentServiceSetTagsHandler := connect.NewUnaryHandler(
+		AgentServiceSetTagsProcedure,
+		svc.SetTags,
+		connect.WithSchema(agentServiceMethods.ByName("SetTags")),
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
@@ -510,8 +510,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceGetAgentHandler.ServeHTTP(w, r)
 		case AgentServiceCreateAgentProcedure:
 			agentServiceCreateAgentHandler.ServeHTTP(w, r)
-		case AgentServiceSetMarksProcedure:
-			agentServiceSetMarksHandler.ServeHTTP(w, r)
+		case AgentServiceSetTagsProcedure:
+			agentServiceSetTagsHandler.ServeHTTP(w, r)
 		case AgentServiceSetHiddenProcedure:
 			agentServiceSetHiddenHandler.ServeHTTP(w, r)
 		case AgentServiceSetMetadataProcedure:
@@ -561,8 +561,8 @@ func (UnimplementedAgentServiceHandler) CreateAgent(context.Context, *connect.Re
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.CreateAgent is not implemented"))
 }
 
-func (UnimplementedAgentServiceHandler) SetMarks(context.Context, *connect.Request[v1.SetMarksRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.SetMarks is not implemented"))
+func (UnimplementedAgentServiceHandler) SetTags(context.Context, *connect.Request[v1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.SetTags is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error) {

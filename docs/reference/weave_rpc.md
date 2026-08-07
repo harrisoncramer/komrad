@@ -53,8 +53,8 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc search-transcripts](weave_rpc_search-transcripts.md)	 - Full-text search over conversations, including archived ones, returning one hit per matching turn with the matched text marked.
 * [weave rpc send-mail](weave_rpc_send-mail.md)	 - Send one piece of mail to another agent, addressed by its id.
 * [weave rpc set-agent-hidden](weave_rpc_set-agent-hidden.md)	 - Hide an agent from the panel's sidebar, keyed by its id, or unhide it by passing hidden false.
-* [weave rpc set-agent-marks](weave_rpc_set-agent-marks.md)	 - Put one mark on a list of agents, keyed by their ids, or clear the ones they carry by omitting the mark.
 * [weave rpc set-agent-metadata](weave_rpc_set-agent-metadata.md)	 - Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value.
+* [weave rpc set-agent-tags](weave_rpc_set-agent-tags.md)	 - Put one tag on a list of agents, keyed by their ids, or clear the ones they carry by omitting the tag.
 * [weave rpc set-schedule-enabled](weave_rpc_set-schedule-enabled.md)	 - Pause or resume one schedule without editing anything else.
 * [weave rpc update-schedule](weave_rpc_update-schedule.md)	 - Replace a schedule's name, cron expression, timezone, prompt, workflow, and whether the agents it launches start hidden from the panel.
 * [weave rpc update-workflow](weave_rpc_update-workflow.md)	 - Replace a workflow's name, context, directory, flags, and the actions run around its agents' lives.

@@ -116,12 +116,12 @@ func (a api) setHidden(agent agentstore.Agent, hidden bool) error {
 	return err
 }
 
-// setMarks puts one mark on every agent given, and a nil mark clears the ones they carry.
-func (a api) setMarks(ids []string, mark *string) error {
+// setTags puts one tag on every agent given, and a nil tag clears the ones they carry.
+func (a api) setTags(ids []string, tag *string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	_, err := a.agents.SetMarks(ctx, connect.NewRequest(&agentv1.SetMarksRequest{Ids: ids, Mark: mark}))
+	_, err := a.agents.SetTags(ctx, connect.NewRequest(&agentv1.SetTagsRequest{Ids: ids, Tag: tag}))
 
 	return err
 }

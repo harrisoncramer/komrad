@@ -63,7 +63,7 @@ func renderAgent(stored agentstore.Agent, alive bool) agent {
 			CreatedAt:        created,
 			ArchivedAt:       archived,
 			Alive:            alive,
-			Mark:             stored.Mark,
+			Tag:              stored.Tag,
 			Hidden:           stored.Hidden,
 			Metadata:         metadata,
 			IdempotencyKey:   stored.IdempotencyKey,

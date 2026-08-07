@@ -12,7 +12,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// How a row is drawn: its state, its marks, and the chrome around them. Every glyph
+// How a row is drawn: its state, its tags, and the chrome around them. Every glyph
 // here is single-width, since an emoji one renders double in some terminals and pushes
 // the column out of line.
 
@@ -82,24 +82,24 @@ func hiddenTally(count int, showing bool) string {
 	return " " + dimStyle.Render(fmt.Sprintf("+%d", count))
 }
 
-func markGlyph(agent agentstore.Agent, marks []config.Mark) string {
-	if agent.Mark == nil {
+func tagGlyph(agent agentstore.Agent, tags []config.Tag) string {
+	if agent.Tag == nil {
 		return ""
 	}
 
-	return " " + lipgloss.NewStyle().Foreground(markColor(*agent.Mark, marks)).Render(*agent.Mark)
+	return " " + lipgloss.NewStyle().Foreground(tagColor(*agent.Tag, tags)).Render(*agent.Tag)
 }
 
-var markedColor = lipgloss.Color(config.GetColor(config.DefaultMarkColor))
+var taggedColor = lipgloss.Color(config.GetColor(config.DefaultTagColor))
 
-func markColor(glyph string, marks []config.Mark) lipgloss.Color {
-	for _, mark := range marks {
-		if mark.Glyph == glyph && mark.Color != "" {
-			return lipgloss.Color(config.GetColor(mark.Color))
+func tagColor(glyph string, tags []config.Tag) lipgloss.Color {
+	for _, tag := range tags {
+		if tag.Glyph == glyph && tag.Color != "" {
+			return lipgloss.Color(config.GetColor(tag.Color))
 		}
 	}
 
-	return markedColor
+	return taggedColor
 }
 
 func scheduleIcon(enabled bool) string {
