@@ -41,13 +41,15 @@ trust_launch_dirs = false
 # Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the popup each takes.
 [layout]
 # Which side of the popup the panel's sidebar sits on, "left" or "right".
-sidebar_side  = "left"
+sidebar_side   = "left"
 # How wide the panel's sidebar is, either a share of the popup's width below one or a whole number of columns.
-sidebar_width = 0.2
-# Which side of the stage the info pane opens on, "below" or "above". That pane is where a record, the server log, and an editor are drawn.
-info_side     = "below"
+sidebar_width  = 0.2
+# Which side of the stage the info pane opens on, "below" or "above". That pane is where the server log and an editor are drawn.
+info_side      = "below"
 # How tall the info pane opens, either a share of the stage's height below one or a whole number of rows.
-info_height   = 0.4
+info_height    = 0.4
+# How tall the details under the panel's list are, either a share of the sidebar's height below one or a whole number of rows. They never take more than half of it.
+details_height = 0.33
 
 # Panel keybindings, scoped to the screen each binding acts in.
 
@@ -103,6 +105,14 @@ open    = ["Z"]
 quit    = ["ctrl+c"]
 # Put the agent under the cursor back in the panel.
 restore = ["r"]
+
+# The details under the agents list: the key that hands them the cursor, and the
+# key that copies the field it lands on.
+[keybindings.details]
+# Copy the field the details cursor is on to the system clipboard.
+copy  = ["y"]
+# Move the cursor between the agents list and the details under it.
+focus = ["ctrl+t"]
 
 # The filter over whichever list is on screen, shared by every screen that
 # draws one.

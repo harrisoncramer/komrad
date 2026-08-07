@@ -240,6 +240,7 @@ type fakeMailbox struct {
 	claimed    []mailstore.Mail
 	claimLimit int32
 	byID       map[string]mailstore.Mail
+	deleted    []string
 }
 
 func (f *fakeMailbox) Send(_ context.Context, params mailstore.SendParams) (*mailstore.Mail, error) {
@@ -280,6 +281,98 @@ func (f *fakeMailbox) Claim(_ context.Context, _ string, limit int32) ([]mailsto
 
 func (f *fakeMailbox) CountPending(context.Context, string) (int64, error) {
 	return f.pending, nil
+}
+
+func (f *fakeMailbox) ListPage(_ context.Context, toAgentID string, _ int32, _ *mailstore.Cursor) ([]mailstore.Mail, error) {
+	var page []mailstore.Mail
+	for _, m := range f.byID {
+		if m.ToAgentID == toAgentID {
+			page = append(page, m)
+		}
+	}
+
+	return page, nil
+}
+
+func (f *fakeMailbox) ListByID(_ context.Context, ids []string) ([]mailstore.Mail, error) {
+	var found []mailstore.Mail
+	for _, id := range ids {
+		if m, ok := f.byID[id]; ok {
+			found = append(found, m)
+		}
+	}
+
+	return found, nil
+}
+
+func (f *fakeMailbox) Delete(_ context.Context, ids []string) error {
+	f.deleted = append(f.deleted, ids...)
+	for _, id := range ids {
+		delete(f.byID, id)
+	}
+
+	return nil
+}
+
+func TestListMailChecksTheAgentExists(t *testing.T) {
+	mailbox := &fakeMailbox{}
+	svc := NewMailService(NewMailServiceParams{
+		MailReadWriter: mailbox,
+		AgentFinder:    newFakeDirectory(),
+		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
+	})
+
+	_, err := svc.ListMail(t.Context(), "ghost", 10, nil)
+	require.ErrorIs(t, err, ErrAgentNotFound)
+}
+
+func TestListMailReturnsWhatIsAddressedToTheAgent(t *testing.T) {
+	mailbox := &fakeMailbox{byID: map[string]mailstore.Mail{
+		"mail-1": {ID: "mail-1", ToAgentID: "agent-a", Body: "for alpha"},
+		"mail-2": {ID: "mail-2", ToAgentID: "agent-b", Body: "for beta"},
+	}}
+	svc := NewMailService(NewMailServiceParams{
+		MailReadWriter: mailbox,
+		AgentFinder:    newFakeDirectory(),
+		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
+	})
+
+	listed, err := svc.ListMail(t.Context(), "agent-a", 10, nil)
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.Equal(t, "for alpha", listed[0].Body)
+}
+
+func TestDeleteMailGoesWholeOrNotAtAll(t *testing.T) {
+	mailbox := &fakeMailbox{byID: map[string]mailstore.Mail{
+		"mail-1": {ID: "mail-1"},
+	}}
+	svc := NewMailService(NewMailServiceParams{
+		MailReadWriter: mailbox,
+		AgentFinder:    newFakeDirectory(),
+		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
+	})
+
+	err := svc.DeleteMail(t.Context(), []string{"mail-1", "ghost"})
+	require.ErrorIs(t, err, ErrMailNotFound)
+	assert.Empty(t, mailbox.deleted, "a batch that is not whole deletes nothing")
+	assert.Contains(t, mailbox.byID, "mail-1")
+}
+
+func TestDeleteMailDeletesEveryIDGiven(t *testing.T) {
+	mailbox := &fakeMailbox{byID: map[string]mailstore.Mail{
+		"mail-1": {ID: "mail-1"},
+		"mail-2": {ID: "mail-2"},
+	}}
+	svc := NewMailService(NewMailServiceParams{
+		MailReadWriter: mailbox,
+		AgentFinder:    newFakeDirectory(),
+		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
+	})
+
+	err := svc.DeleteMail(t.Context(), []string{"mail-1", "mail-2"})
+	require.NoError(t, err)
+	assert.Empty(t, mailbox.byID)
 }
 
 type fakeDirectory struct {

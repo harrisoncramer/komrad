@@ -57,6 +57,8 @@ type transcriptReader interface {
 type mailer interface {
 	SendMail(ctx context.Context, params agents.SendMailParams) (*mailstore.Mail, error)
 	ClaimMail(ctx context.Context, agentID string) ([]mailstore.Mail, error)
+	ListMail(ctx context.Context, agentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
+	DeleteMail(ctx context.Context, ids []string) error
 }
 
 // Service implements agentv1connect.AgentServiceHandler.
@@ -294,6 +296,54 @@ func (s *Service) ReadMail(ctx context.Context, req *connect.Request[agentv1.Rea
 	return connect.NewResponse(&agentv1.ReadMailResponse{
 		Mail: xslice.Map(claimed, renderMail),
 	}), nil
+}
+
+func (s *Service) ListMail(ctx context.Context, req *connect.Request[agentv1.ListMailRequest]) (*connect.Response[agentv1.ListMailResponse], error) {
+	id := callerScope(ctx, req.Msg.GetId())
+	if id == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("no id given, and the caller has none of its own to fall back to"))
+	}
+
+	logCrossAgentRead(ctx, id, "agent listed another agent's mail")
+
+	paginator, err := pagination.New[mailstore.Cursor, mail](req.Msg.GetPagination())
+	if err != nil {
+		return nil, err
+	}
+
+	listed, err := s.mail.ListMail(ctx, id, int32(paginator.Limit()), paginator.Cursor())
+	switch {
+	case errors.Is(err, agents.ErrAgentNotFound):
+		return nil, connect.NewError(connect.CodeNotFound, err)
+	case err != nil:
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list the mail: %w", err))
+	}
+
+	resources := xslice.Map(listed, renderMailPage)
+
+	next, err := paginator.NextToken(resources)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to build the next page token: %w", err))
+	}
+
+	response := &agentv1.ListMailResponse{NextPageToken: next}
+	response.Mail = xslice.Map(resources, func(resource mail) *agentv1.Mail { return resource.Mail })
+
+	return connect.NewResponse(response), nil
+}
+
+// DeleteMail permanently removes mail, keyed by id. It does not claim the mail as
+// read on the way out; the recipient simply never sees it.
+func (s *Service) DeleteMail(ctx context.Context, req *connect.Request[agentv1.DeleteMailRequest]) (*connect.Response[emptypb.Empty], error) {
+	err := s.mail.DeleteMail(ctx, req.Msg.GetIds())
+	switch {
+	case errors.Is(err, agents.ErrMailNotFound):
+		return nil, connect.NewError(connect.CodeNotFound, err)
+	case err != nil:
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete mail: %w", err))
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 // DeleteAgents stops agents and removes them with their configs and transcripts. The

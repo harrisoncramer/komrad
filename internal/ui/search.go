@@ -62,7 +62,6 @@ type previewResult struct {
 
 func (m model) enterSearch() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenSearch)
-	m.closeRecord()
 	m.search.query = ""
 	m.search.hits = nil
 	m.search.cursor = 0

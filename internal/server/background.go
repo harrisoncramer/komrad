@@ -127,22 +127,28 @@ func runLoop(ctx context.Context, loop Loop, logger *slog.Logger) {
 	for {
 		// Traced like a request, so following one pass in the log doesn't mean reading four
 		// loops interleaved.
-		err := runPass(tracedPass(ctx, logger), loop.Pass)
+		traced := tracedPass(ctx, logger)
+
+		err := runPass(traced, loop.Pass)
 
 		if ctx.Err() != nil {
 			return
 		}
 
+		// How a pass ended goes under the pass's own id. Most passes say nothing until they
+		// break, so the outcome is usually the only line their trace has.
+		passLogger := logging.From(traced)
+
 		switch {
 		case err == nil && failing != "":
-			logger.LogAttrs(ctx, slog.LevelInfo, "loop recovered", slog.Int(logging.Repeats, repeats))
+			passLogger.LogAttrs(traced, slog.LevelInfo, "loop recovered", slog.Int(logging.Repeats, repeats))
 			failing, repeats = "", 0
 		case err != nil && err.Error() == failing:
 			repeats++
-			logger.LogAttrs(ctx, slog.LevelDebug, "loop still failing", slog.Int(logging.Repeats, repeats))
+			passLogger.LogAttrs(traced, slog.LevelDebug, "loop still failing", slog.Int(logging.Repeats, repeats))
 		case err != nil:
 			failing, repeats = err.Error(), 1
-			logger.LogAttrs(ctx, slog.LevelError, "loop pass failed", failureAttrs(err)...)
+			passLogger.LogAttrs(traced, slog.LevelError, "loop pass failed", failureAttrs(err)...)
 		}
 
 		select {

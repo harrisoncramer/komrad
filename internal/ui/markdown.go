@@ -89,12 +89,23 @@ func workflowConfigFields(w workflowstore.Workflow) []recordField {
 // workflowMarkdown renders a workflow's name, its numbered fields, and its shared
 // context for the stage.
 func workflowMarkdown(w workflowstore.Workflow, agentCount int) record {
-	prose := "_no shared context set_"
-	if strings.TrimSpace(w.Context) != "" {
-		prose = w.Context
+	return renderRecord(w.Name, "", workflowFields(w, agentCount), workflowProse(w), "")
+}
+
+// workflowContextMarkdown is a workflow's shared context alone, which is what the stage
+// holds while the fields beside it are drawn in the sidebar. The context is the one thing
+// about a workflow that runs long enough to want a pane of its own.
+func workflowContextMarkdown(w workflowstore.Workflow) string {
+	return "# " + w.Name + "\n\n" + workflowProse(w) + "\n"
+}
+
+// workflowProse is the context an agent started here inherits, or a note that none is set.
+func workflowProse(w workflowstore.Workflow) string {
+	if strings.TrimSpace(w.Context) == "" {
+		return "_no shared context set_"
 	}
 
-	return renderRecord(w.Name, "", workflowFields(w, agentCount), prose, "")
+	return w.Context
 }
 
 // agentFields are an agent's own numbered fields, in the order they were launched
@@ -126,29 +137,6 @@ func agentFields(agent agentstore.Agent, schedule string) []recordField {
 	}
 
 	return fields
-}
-
-// agentMarkdown renders an agent's stored record for the stage, which is all there is of a
-// dormant agent and what a live one shows on demand, since its pane otherwise hides the
-// cwd and flags it was launched with. The values are as stored at launch.
-func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) record {
-	var notice string
-	if !alive {
-		notice = "_dormant — not running_"
-	}
-
-	var footer string
-	if agent.Hidden {
-		footer = "Hidden from the list."
-	}
-	if !alive {
-		if footer != "" {
-			footer += "\n\n"
-		}
-		footer += "Press open to resume."
-	}
-
-	return renderRecord(agent.Name, notice, agentFields(agent, schedule), "", footer)
 }
 
 // actionMarkdown renders an action's record for the stage: its name and what its own header

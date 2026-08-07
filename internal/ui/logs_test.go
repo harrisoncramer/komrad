@@ -39,56 +39,31 @@ func pressLogs(t *testing.T, m model) model {
 
 // TestLogsOpenBelowTheStagedAgent covers the log key. The cursor is on a live agent, whose
 // own pane is swapped into the stage, and the log opens under it rather than over it, so
-// the agent stays on screen while the log is read. That pane is already open on the agent's
-// own record, the info pane's default, so the log key replaces it rather than being the
-// pane's first occupant.
+// the agent stays on screen while the log is read.
 func TestLogsOpenBelowTheStagedAgent(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, path := logsModel(t, tmux)
 
 	m.stageSelection()
 	require.Equal(t, 1, tmux.swaps, "the live agent is staged to begin with")
-	require.Len(t, tmux.respawns, 1, "the info pane opens on the agent's record by default")
+	require.Empty(t, tmux.respawns, "nothing is open below it")
 
 	shown := pressLogs(t, m)
 
 	assert.Equal(t, infoLogs, shown.info.kind)
 	assert.Nil(t, shown.banner)
 	assert.Equal(t, 1, tmux.swaps, "the agent's pane is left where it is")
-	require.Len(t, tmux.respawns, 2)
-	last := len(tmux.respawns) - 1
-	assert.Equal(t, "%2", tmux.respawnPanes[last], "the log is paged into the pane below")
-	assert.Contains(t, tmux.respawns[last], "export WEAVE_LOG='"+path+"'")
-	assert.Contains(t, tmux.respawns[last], config.DefaultLogViewer)
+	require.Len(t, tmux.respawns, 1)
+	assert.Equal(t, "%2", tmux.respawnPanes[0], "the log is paged into the pane below")
+	assert.Contains(t, tmux.respawns[0], "export WEAVE_LOG='"+path+"'")
+	assert.Contains(t, tmux.respawns[0], config.DefaultLogViewer)
 }
 
-// TestLogsToggleReturnsTheRecordInPlace covers the second press. The key is the way out as
-// well as the way in, and on an agent row the way out finds the info pane's own record
-// waiting under the log, its default state, rather than leaving the pane closed. The record
-// comes back to the pane the log was read in: killing that pane and splitting another in its
-// place reflows the window twice, which whatever the stage is showing redraws in full.
-func TestLogsToggleReturnsTheRecordInPlace(t *testing.T) {
+// TestLogsToggleClosesThePane covers the second press. The key is the way out as well as the
+// way in, and the log is the only thing that pane holds, so the way out takes the pane with it.
+func TestLogsToggleClosesThePane(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
-
-	m.stageSelection()
-	require.Len(t, tmux.belowAnchors, 1, "the info pane is open to begin with")
-
-	hidden := pressLogs(t, pressLogs(t, m))
-
-	assert.Equal(t, infoRecord, hidden.info.kind)
-	assert.NotContains(t, tmux.killed, "%2", "the pane the log was read in stays")
-	assert.Len(t, tmux.belowAnchors, 1, "and nothing is split to replace it")
-	last := len(tmux.respawns) - 1
-	assert.Equal(t, "%2", tmux.respawnPanes[last], "the record is drawn back into it")
-}
-
-// TestLogsToggleClosesThePaneWithNothingToPutBack covers the same press on a workflow header,
-// which has no record of its own. Nothing is waiting to take the pane over, so it goes.
-func TestLogsToggleClosesThePaneWithNothingToPutBack(t *testing.T) {
-	tmux := &recordingTmux{}
-	m, _ := logsModel(t, tmux)
-	m.tree.cursor = 0
 
 	m.stageSelection()
 

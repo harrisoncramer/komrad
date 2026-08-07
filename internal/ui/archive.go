@@ -7,7 +7,6 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
-	"weave/internal/ui/layout"
 	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -25,7 +24,6 @@ type archiveState struct {
 // archived agent is not something to act on alongside live work.
 func (m model) enterArchive() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenArchive)
-	m.closeRecord()
 	m.stageArchive()
 
 	return m, m.refreshCmd()
@@ -48,21 +46,16 @@ func (m model) allArchiveRows() []agentRow {
 // agent, as the folder those agents belong to. A live workflow is a header on both screens
 // at once, carrying its live agents on one and its put-away ones here.
 func (m model) archiveHeaders() []workflowstore.Workflow {
-	holding := make(map[string]bool, len(m.archive.agents))
-	for _, agent := range m.archive.agents {
-		holding[agent.WorkflowID] = true
-	}
-
-	archived := make(map[string]bool, len(m.archive.workflows))
-	for _, w := range m.archive.workflows {
-		archived[w.ID] = true
-	}
+	holding := xslice.KeyBy(m.archive.agents, func(agent agentstore.Agent) string { return agent.WorkflowID })
+	archived := xslice.KeyBy(m.archive.workflows, func(w workflowstore.Workflow) string { return w.ID })
 
 	headers := slices.Clone(m.archive.workflows)
 	for _, w := range m.listing.workflows {
 		// The two listings run at once, so a workflow restored between them can come back
 		// in both, and a folder drawn twice would nest its agents twice.
-		if holding[w.ID] && !archived[w.ID] {
+		_, isHolding := holding[w.ID]
+		_, isArchived := archived[w.ID]
+		if isHolding && !isArchived {
 			headers = append(headers, w)
 		}
 	}
@@ -317,12 +310,12 @@ func (m *model) stageArchive() {
 	}
 
 	if r.header {
-		m.stageRecord(workflowMarkdown(r.workflow, m.archivedCount(r.workflow.ID)), layout.RegionStage)
+		m.stageRecord(workflowMarkdown(r.workflow, m.archivedCount(r.workflow.ID)))
 
 		return
 	}
 
-	m.stageRecord(archiveMarkdown(r.item.agent, m.scheduleName(r.item.agent)), layout.RegionStage)
+	m.stageRecord(archiveMarkdown(r.item.agent, m.scheduleName(r.item.agent)))
 }
 
 // archivedCount is how many archived agents sit under a workflow, which is what a folder

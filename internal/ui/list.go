@@ -176,9 +176,9 @@ func (c rowCursor) jump(idx, length int) (rowCursor, bool) {
 	return c, true
 }
 
-func (m *model) stageRecord(rec record, region layout.Region) {
-	m.frame.Show(region, newTextContent(rec.markdown))
-	m.setRecord(rec, region)
+func (m *model) stageRecord(rec record) {
+	m.frame.Show(layout.RegionStage, newTextContent(rec.markdown))
+	m.setRecord(rec)
 }
 
 func (m *model) stagePlaceholder(markdown string) {

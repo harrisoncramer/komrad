@@ -24,27 +24,28 @@ func TestFrameAttachAnchorsToTheGivenPane(t *testing.T) {
 	assert.Equal(t, "%7", frame.Pane(RegionSidebar))
 }
 
-// TestFrameApplySizesTheMainRegion covers a stage pane that outlived the panel. It is not
-// split again, so the resize is the only thing that puts it at the configured split.
-func TestFrameApplySizesTheMainRegion(t *testing.T) {
+// TestFrameSizesTheNavPane covers which of the two panes a split leaves is put at the width
+// the config states, which is the sidebar, since that is the one the width is stated for.
+func TestFrameSizesTheNavPane(t *testing.T) {
 	tmux := &recordingTmux{}
 	New(tmux, config.Layout{SidebarWidth: 0.4}).Attach("%0")
 
 	assert.Equal(t, []string{"%0 40%"}, tmux.resizes, "the sidebar is what is put at the configured width")
 }
 
-// TestFrameApplyIsIdempotent covers running the reconcile again over a frame already laid
-// out, which is what lets anything that suspects the frame has moved just ask for it to be
-// squared rather than working out whether it needs to be.
-func TestFrameApplyIsIdempotent(t *testing.T) {
+// TestFrameOpenLeavesAStandingFrameAlone covers asking for a region that is already there,
+// which is what lets anything that suspects the frame has moved just ask for it rather than
+// working out whether it needs to.
+func TestFrameOpenLeavesAStandingFrameAlone(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
 	frame.Attach("%0")
 
-	frame.Apply()
-	frame.Apply()
+	frame.Open(RegionStage)
+	frame.Open(RegionStage)
 
 	assert.Len(t, tmux.anchors, 1, "the stage is split once")
+	assert.Len(t, tmux.resizes, 1, "and the sidebar is not resized under a frame already at its width")
 	assert.Empty(t, tmux.killed, "and nothing already standing is torn down")
 }
 
@@ -92,14 +93,30 @@ func TestFrameLaysRegionsOutOnTheConfiguredSides(t *testing.T) {
 	}
 }
 
-// TestFrameApplySizesTheNavPaneInColumns covers a width the config states in columns, which
+// TestFrameSizesTheNavPaneInColumns covers a width the config states in columns, which
 // tmux cannot be asked for as the remainder of a split and so is set on the pane itself.
-func TestFrameApplySizesTheNavPaneInColumns(t *testing.T) {
+func TestFrameSizesTheNavPaneInColumns(t *testing.T) {
 	tmux := &recordingTmux{}
 
 	New(tmux, config.Layout{SidebarWidth: 40}).Attach("%0")
 
 	assert.Equal(t, []string{"%0 40"}, tmux.resizes)
+}
+
+// TestFrameSizesTheNavPaneInColumnsAgainAfterARebuild covers the stage losing its pane, which
+// a pager the user quit or a staged agent that exited does routinely. A rebuilt stage is split
+// evenly whatever the config says, so a width in columns only survives if the rebuild is sized
+// the same way the first stage was.
+func TestFrameSizesTheNavPaneInColumnsAgainAfterARebuild(t *testing.T) {
+	tmux := &recordingTmux{}
+	frame := New(tmux, config.Layout{SidebarWidth: 40})
+	frame.Attach("%0")
+
+	tmux.deadPanes = map[string]bool{frame.Pane(RegionStage): true}
+	frame.Show(RegionStage, newDocument("# rebuilt"))
+
+	require.Len(t, tmux.splits, 2, "the dead stage was split again")
+	assert.Equal(t, []string{"%0 40", "%0 40"}, tmux.resizes)
 }
 
 // TestFrameShowMeasuresThePane covers the width content is laid out to, which is the pane it

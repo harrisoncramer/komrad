@@ -166,6 +166,7 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 
 		return m, nil, true
 	case flashRevertMsg:
+		m.details.flashed = 0
 		m.restageScreen()
 
 		return m, nil, true

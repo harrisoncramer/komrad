@@ -8,6 +8,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
+	"weave/lib/xslice"
 )
 
 const maxPendingMail = 100
@@ -26,6 +27,8 @@ var ErrThreadCapped = errors.New("this thread has reached its hop limit")
 
 var ErrReplyToNotFound = errors.New("no mail holds that id")
 
+var ErrMailNotFound = errors.New("no mail holds that id, deleting nothing")
+
 // WeaveSenderName marks mail as weave's own voice rather than the panel operator's,
 // since both send with no agent id and nothing else tells them apart downstream. The stop
 // hook reads this same value to frame a lifecycle notice as something to read and act on,
@@ -37,6 +40,9 @@ type mailReadWriter interface {
 	GetByID(ctx context.Context, id string) (*mailstore.Mail, error)
 	Claim(ctx context.Context, toAgentID string, limit int32) ([]mailstore.Mail, error)
 	CountPending(ctx context.Context, toAgentID string) (int64, error)
+	ListPage(ctx context.Context, toAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
+	ListByID(ctx context.Context, ids []string) ([]mailstore.Mail, error)
+	Delete(ctx context.Context, ids []string) error
 }
 
 // mailConfigReader is the mail policy config, read per send so editing it reaches the
@@ -175,6 +181,51 @@ func (s *MailService) ClaimMail(ctx context.Context, agentID string) ([]mailstor
 	}
 
 	return claimed, nil
+}
+
+// ListMail returns one page of the mail addressed to an agent, most recent first,
+// without claiming any of it.
+func (s *MailService) ListMail(ctx context.Context, agentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error) {
+	agent, err := s.agentFinder.GetByID(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+	if agent == nil {
+		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
+	}
+
+	listed, err := s.mailReadWriter.ListPage(ctx, agent.ID, limit, cursor)
+	if err != nil {
+		return nil, err
+	}
+
+	return listed, nil
+}
+
+// DeleteMail permanently removes a batch of mail by id. The batch either goes whole or
+// does not go: every id must hold mail or nothing is deleted.
+func (s *MailService) DeleteMail(ctx context.Context, ids []string) error {
+	found, err := s.mailReadWriter.ListByID(ctx, ids)
+	if err != nil {
+		return fmt.Errorf("failed to look up %d mail: %w", len(ids), err)
+	}
+	if len(found) != len(ids) {
+		present := xslice.KeyBy(found, func(mail mailstore.Mail) string { return mail.ID })
+
+		missing := xslice.Filter(ids, func(id string) bool {
+			_, ok := present[id]
+
+			return !ok
+		})
+
+		return fmt.Errorf("%w: %s", ErrMailNotFound, describeMissing(missing))
+	}
+
+	if err := s.mailReadWriter.Delete(ctx, ids); err != nil {
+		return fmt.Errorf("failed to delete %d mail: %w", len(ids), err)
+	}
+
+	return nil
 }
 
 func (s *MailService) findSender(ctx context.Context, from string) (*agentstore.Agent, error) {

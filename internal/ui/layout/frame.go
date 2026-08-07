@@ -42,21 +42,7 @@ func New(tmux Tmux, layout config.Layout) *Frame {
 func (f *Frame) Attach(sidebar string) {
 	f.sidebar = sidebar
 	f.reclaim()
-	f.Apply()
-}
-
-// Apply brings the frame to its spec, opening the stage and putting the sidebar at the width
-// the config asks for. It is idempotent, so it is safe to run again whenever the frame may
-// have been moved out from under the panel.
-//
-// The sidebar is what gets resized rather than the stage, since that is the one the config
-// states a width for and tmux gives the space it loses to its neighbour either way.
-func (f *Frame) Apply() {
 	f.claimStage()
-
-	if f.stage != "" {
-		f.tmux.ResizePane(f.sidebar, f.spec.sidebarSize)
-	}
 }
 
 // Pane is the pane the frame holds for a region, empty when the region is not open. The main
@@ -230,6 +216,8 @@ func (f *Frame) reclaim() {
 
 // claimStage opens the stage, rebuilding it when it or the guest pane it was minding has died.
 // Whatever was drawn in it, and in the info pane against it, goes with it.
+// The sidebar is resized after every split rather than only the first, since a width stated in
+// columns is not a remainder the split itself can be asked for.
 func (f *Frame) claimStage() {
 	if f.sidebar == "" || f.hasStage() {
 		return
@@ -240,6 +228,10 @@ func (f *Frame) claimStage() {
 	f.stage = f.splitStage()
 	f.forget(RegionStage)
 	f.forget(RegionInfo)
+
+	if f.stage != "" {
+		f.tmux.ResizePane(f.sidebar, f.spec.sidebarSize)
+	}
 }
 
 func (f *Frame) splitStage() string {
