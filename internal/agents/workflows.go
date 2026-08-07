@@ -233,7 +233,10 @@ func setWorktreeActions(cfg *workflowstore.Config) error {
 	if cfg.Cwd == "" {
 		return ErrWorktreeNeedsCwd
 	}
-	if cfg.SetupAction != "" || cfg.CleanupAction != "" {
+	if cfg.SetupAction != "" && cfg.SetupAction != worktreeSetupAction {
+		return ErrWorktreeOwnsActions
+	}
+	if cfg.CleanupAction != "" && cfg.CleanupAction != worktreeCleanupAction {
 		return ErrWorktreeOwnsActions
 	}
 

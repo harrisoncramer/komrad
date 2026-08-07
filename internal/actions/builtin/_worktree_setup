@@ -12,7 +12,7 @@ else
 	if [ -z "$base" ]; then
 		base=$(git -C "$repo" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@') || true
 		if [ -z "$base" ]; then
-			base=main
+			base=$(git -C "$repo" rev-parse --abbrev-ref HEAD)
 		fi
 	fi
 
@@ -26,7 +26,7 @@ else
 
 	mkdir -p "$WEAVE_WORKTREES_DIR"
 	echo "creating a worktree at $tree from $point" >&2
-	git -C "$repo" worktree add -b "agent/$WEAVE_AGENT_ID" "$tree" "$point" >&2
+	git -C "$repo" worktree add -B "agent/$WEAVE_AGENT_ID" "$tree" "$point" >&2
 fi
 
 apply_paths() {
@@ -44,9 +44,9 @@ apply_paths() {
 		fi
 		mkdir -p "$(dirname "$dest")"
 		if [ "$kind" = copy ]; then
-			cp -f "$src" "$dest"
+			cp -rf "$src" "$dest" || echo "worktree setup: failed to copy $p" >&2
 		else
-			ln -sfn "$src" "$dest"
+			ln -sfn "$src" "$dest" || echo "worktree setup: failed to symlink $p" >&2
 		fi
 	done
 }

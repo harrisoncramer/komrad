@@ -201,6 +201,37 @@ func TestUpdateWorkflowWorktree(t *testing.T) {
 	assert.Empty(t, afterDisable.CleanupAction, "disabling clears the built-in cleanup action")
 }
 
+// TestUpdateWorkflowWorktreeRoundTripsTheBuiltinActions covers a caller that reads a
+// worktree-enabled workflow back and sends the whole thing right back unchanged, actions
+// included: SetupAction and CleanupAction come back from GetWorkflow already set to the
+// built-in pair, and sending those same values back with Worktree.Enabled still true must
+// not be mistaken for a hand-written conflict.
+func TestUpdateWorkflowWorktreeRoundTripsTheBuiltinActions(t *testing.T) {
+	st := newStore(t)
+	workflows := workflowsFor(st, newFakeTmux())
+
+	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
+		Name:     "backend",
+		Cwd:      "/repo",
+		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+	})
+	require.NoError(t, err)
+
+	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
+		Name:          created.Name,
+		Cwd:           created.Cwd,
+		SetupAction:   created.SetupAction,
+		CleanupAction: created.CleanupAction,
+		Worktree:      created.Worktree,
+	})
+	require.NoError(t, err)
+
+	got, err := st.GetWorkflow(t.Context(), created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, worktreeSetupAction, got.SetupAction)
+	assert.Equal(t, worktreeCleanupAction, got.CleanupAction)
+}
+
 // TestUpdateWorkflowWorktreeDisablePreservesTheDetails checks that disabling worktree
 // support leaves the base branch and the two path lists alone, so re-enabling later hands
 // them back rather than starting blank.

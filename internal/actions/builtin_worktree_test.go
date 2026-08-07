@@ -68,6 +68,94 @@ func TestBuiltinWorktreeSetupIsIdempotentOnResume(t *testing.T) {
 	assert.Equal(t, 1, strings.Count(string(listed), tree), "only one worktree exists after the resume")
 }
 
+// TestBuiltinWorktreeSetupFallsBackToTheRepoOwnBranchNotAHardcodedMain covers a repo with
+// no origin and a default branch that is not main: a blank base has nothing to read
+// origin/HEAD from, so it must fall back to whatever branch the repo is actually on rather
+// than a literal "main" that would not exist there.
+func TestBuiltinWorktreeSetupFallsBackToTheRepoOwnBranchNotAHardcodedMain(t *testing.T) {
+	dir := t.TempDir()
+	runGit(t, dir, "init", "--quiet", "-b", "trunk")
+	runGit(t, dir, "config", "user.email", "test@weave.test")
+	runGit(t, dir, "config", "user.name", "weave test")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "README.md"), []byte("hello\n"), 0o644))
+	runGit(t, dir, "add", "README.md")
+	runGit(t, dir, "commit", "--quiet", "-m", "initial")
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-trunk",
+		agentCwd:     dir,
+		worktreesDir: t.TempDir(),
+	})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+	assertIsDir(t, strings.TrimSpace(string(result.Stdout)))
+}
+
+// TestBuiltinWorktreeSetupResumesAfterTheDirectoryIsGoneButTheBranchIsNot covers cleanup
+// having removed the worktree directory but left the branch behind, or anything else
+// deleting just the directory: setup has to be able to rebuild the worktree rather than
+// failing with "branch already exists".
+func TestBuiltinWorktreeSetupResumesAfterTheDirectoryIsGoneButTheBranchIsNot(t *testing.T) {
+	repo := initRepo(t)
+	worktreesDir := t.TempDir()
+	env := worktreeEnv{agentID: "agent-g", agentCwd: repo, worktreesDir: worktreesDir}
+
+	first, err := runBuiltin(t, "_worktree_setup", env)
+	require.NoError(t, err, "stderr: %s", first.Stderr)
+	tree := strings.TrimSpace(string(first.Stdout))
+
+	runGit(t, repo, "worktree", "remove", "--force", tree)
+
+	branches, err := exec.Command("git", "-C", repo, "branch", "--list", "agent/agent-g").Output()
+	require.NoError(t, err)
+	require.NotEmpty(t, strings.TrimSpace(string(branches)), "the branch is still there after only the directory was removed")
+
+	second, err := runBuiltin(t, "_worktree_setup", env)
+	require.NoError(t, err, "stderr: %s", second.Stderr)
+	assertIsDir(t, strings.TrimSpace(string(second.Stdout)))
+}
+
+// TestBuiltinWorktreeSetupCopiesADirectory covers a copy path naming a directory rather
+// than a file: cp without -r would fail and silently drop the rest of the list.
+func TestBuiltinWorktreeSetupCopiesADirectory(t *testing.T) {
+	repo := initRepo(t)
+	require.NoError(t, os.Mkdir(filepath.Join(repo, "assets"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "assets", "logo.png"), []byte("fake-png"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "after.env"), []byte("AFTER=1\n"), 0o644))
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-h",
+		agentCwd:     repo,
+		worktreesDir: t.TempDir(),
+		copyPaths:    []string{"assets", "after.env"},
+	})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+
+	tree := strings.TrimSpace(string(result.Stdout))
+	copied, err := os.ReadFile(filepath.Join(tree, "assets", "logo.png"))
+	require.NoError(t, err)
+	assert.Equal(t, "fake-png", string(copied))
+
+	after, err := os.ReadFile(filepath.Join(tree, "after.env"))
+	require.NoError(t, err, "a directory copy must not stop the entries listed after it")
+	assert.Equal(t, "AFTER=1\n", string(after))
+}
+
+// TestBuiltinWorktreeCleanupRefusesAPlainCheckout covers WEAVE_AGENT_CWD pointing at a
+// checkout that is not a linked worktree at all, such as the repo weave itself lives in:
+// cleanup must not run worktree remove or branch -D against it.
+func TestBuiltinWorktreeCleanupRefusesAPlainCheckout(t *testing.T) {
+	repo := initRepo(t)
+	runGit(t, repo, "branch", "agent/agent-i")
+
+	result, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-i", agentCwd: repo})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+
+	assertIsDir(t, repo)
+	branches, err := exec.Command("git", "-C", repo, "branch", "--list", "agent/agent-i").Output()
+	require.NoError(t, err)
+	assert.NotEmpty(t, strings.TrimSpace(string(branches)), "the branch survives since this was never a linked worktree")
+}
+
 // TestBuiltinWorktreeSetupCopyMissingSourceIsNonFatal covers a copy or symlink entry
 // naming a file the repo does not have: setup warns on stderr and keeps going rather than
 // aborting, since the worktree it already made is worth more than one missing file.

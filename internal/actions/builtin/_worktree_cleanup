@@ -4,7 +4,7 @@ set -eu
 
 tree="$WEAVE_AGENT_CWD"
 
-if [ ! -d "$tree" ]; then
+if [ ! -d "$tree" ] || [ ! -f "$tree/.git" ]; then
 	exit 0
 fi
 

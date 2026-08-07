@@ -1,2 +1,4 @@
-h1:jV0kzeIBtpx5rLJQKZSUPt6lKR+yRIC2NiCsS2Anuwk=
-20260727000000_initial.sql h1:cPR90p5asmg++OOFcrzydPkKYRXAXnU5MGqtgaGf+Bo=
+h1:IQb5EPG77te8oVI+75fiWIUSgOj/+HMD6AvEBUhvCAU=
+20260727000000_initial.sql h1:xA8FiiyYkOVmKl8yKJZRKOlym1MYvRHsB/0Lkpr9ugE=
+20260807135307_rename_agent_mark_to_tag.sql h1:7XFYubNzKaIi4wVzgUE+1ltdYkNteZY6NawdMuaVrmQ=
+20260807180000_add_worktree_support.sql h1:u0l7TvcCrO3WI+HiRYbnoLIw3a3rsbmsDq/b0qJez7c=
