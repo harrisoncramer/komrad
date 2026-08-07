@@ -202,10 +202,12 @@ func (m model) agentCount(workflowID string) int {
 	return xslice.Count(m.listing.agents, func(it agentItem) bool { return it.agent.WorkflowID == workflowID })
 }
 
-// agentItem is a stored agent plus whether its tmux pane is currently alive.
+// agentItem is a stored agent plus whether its tmux pane is currently alive and whether
+// its mailbox holds mail nobody has read yet, neither of which the row itself stores.
 type agentItem struct {
-	agent agentstore.Agent
-	alive bool
+	agent      agentstore.Agent
+	alive      bool
+	unreadMail bool
 }
 
 // applyWorkflows takes a freshly-listed set as the on-screen workflows. The listing sorts

@@ -13,6 +13,21 @@ import (
 	"weave/lib/xslice"
 )
 
+// Cursor locates one piece of mail in a keyset page, the same shape agentstore.Cursor
+// uses: the id alone, since ids are UUIDv7 and sort in the order they were created.
+type Cursor struct {
+	ID string `json:"i"`
+}
+
+// Validate checks that the cursor contains a mail ID.
+func (c Cursor) Validate() error {
+	if !store.IsID(c.ID) {
+		return fmt.Errorf("cursor id %q is not an id", c.ID)
+	}
+
+	return nil
+}
+
 type Mail struct {
 	ID          string
 	FromAgentID *string
@@ -105,6 +120,61 @@ func (s *Store) Claim(ctx context.Context, toAgentID string, limit int32) ([]Mai
 	return claimed, nil
 }
 
+// ListPage returns one page of the mail addressed to an agent, newest first, whether or
+// not it has been claimed. Unlike Claim, this never marks anything as read.
+func (s *Store) ListPage(ctx context.Context, toAgentID string, limit int32, cursor *Cursor) ([]Mail, error) {
+	if !store.IsID(toAgentID) {
+		return nil, nil
+	}
+
+	params := models.ListMailPageParams{ToAgentID: toAgentID, Lim: limit}
+	if cursor != nil {
+		params.CursorID = &cursor.ID
+	}
+
+	rows, err := s.queries.ListMailPage(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list a page of mail for agent %q: %w", toAgentID, err)
+	}
+
+	return xslice.Map(rows, func(row *models.Mail) Mail {
+		return mailFromRow(*row)
+	}), nil
+}
+
+// ListByID returns whichever of the given ids hold mail, in no particular order. A caller
+// checking a batch for completeness compares its length against the ids it asked for.
+func (s *Store) ListByID(ctx context.Context, ids []string) ([]Mail, error) {
+	storable := keepStorableIDs(ids)
+	if len(storable) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.GetMailByID(ctx, storable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get %d mail: %w", len(storable), err)
+	}
+
+	return xslice.Map(rows, func(row *models.Mail) Mail {
+		return mailFromRow(*row)
+	}), nil
+}
+
+// Delete permanently removes mail by id. It does not check that every id given holds
+// mail; a caller that needs the batch to go whole or not at all checks with ListByID first.
+func (s *Store) Delete(ctx context.Context, ids []string) error {
+	storable := keepStorableIDs(ids)
+	if len(storable) == 0 {
+		return nil
+	}
+
+	if err := s.queries.DeleteMailByID(ctx, storable); err != nil {
+		return fmt.Errorf("failed to delete %d mail: %w", len(storable), err)
+	}
+
+	return nil
+}
+
 func (s *Store) CountPending(ctx context.Context, toAgentID string) (int64, error) {
 	if !store.IsID(toAgentID) {
 		return 0, nil
@@ -132,6 +202,18 @@ func (s *Store) ListPendingMailboxes(ctx context.Context) ([]string, error) {
 	return rows, nil
 }
 
+// ListUnreadMailboxes is every agent holding mail it could claim right now: unclaimed
+// and not yet expired. Unlike ListPendingMailboxes, a mailbox whose only mail has timed
+// out drops off this list, since read_mail could not hand that mail back either.
+func (s *Store) ListUnreadMailboxes(ctx context.Context) ([]string, error) {
+	rows, err := s.queries.ListMailboxesWithUnreadMail(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the mailboxes holding unread mail: %w", err)
+	}
+
+	return rows, nil
+}
+
 // ListExpired reports the mail that ran out of time before the recipient claimed it, and marks
 // it reported so the next call does not hand back the same mail again.
 func (s *Store) ListExpired(ctx context.Context, toAgentID string) ([]Mail, error) {
@@ -147,6 +229,10 @@ func (s *Store) ListExpired(ctx context.Context, toAgentID string) ([]Mail, erro
 	return xslice.Map(rows, func(row *models.Mail) Mail {
 		return mailFromRow(*row)
 	}), nil
+}
+
+func keepStorableIDs(ids []string) []string {
+	return xslice.Filter(ids, store.IsID)
 }
 
 func mailFromRow(row models.Mail) Mail {

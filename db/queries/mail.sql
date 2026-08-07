@@ -64,6 +64,15 @@ WHERE
     AND m.claimed_at IS NULL
     AND m.expires_at > NOW();
 
+-- name: ListMailboxesWithUnreadMail :many
+SELECT DISTINCT
+    m.to_agent_id
+FROM
+    mail m
+WHERE
+    m.claimed_at IS NULL
+    AND m.expires_at > NOW();
+
 -- name: ReportExpiredMail :many
 WITH unreported AS (
     SELECT
@@ -91,6 +100,31 @@ WHERE
             unreported)
     RETURNING
         *;
+
+-- name: ListMailPage :many
+SELECT
+    *
+FROM
+    mail m
+WHERE
+    m.to_agent_id = @to_agent_id
+    AND (sqlc.narg('cursor_id')::uuid IS NULL
+        OR m.id < sqlc.narg('cursor_id'))
+ORDER BY
+    m.id DESC
+LIMIT @lim;
+
+-- name: GetMailByID :many
+SELECT
+    *
+FROM
+    mail m
+WHERE
+    m.id = ANY (@ids::uuid[]);
+
+-- name: DeleteMailByID :exec
+DELETE FROM mail
+WHERE id = ANY (@ids::uuid[]);
 
 -- name: ListMailboxesWithPendingMail :many
 SELECT DISTINCT

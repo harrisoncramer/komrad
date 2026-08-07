@@ -1,3 +1,4 @@
-h1:X+MbIicoXf+e66KyyD1cPB7oiwjhmBuRPIKg9cM9uUc=
+h1:UxMUialnqBTIgbciNn/osWHpFsWvUf0HgnAFIsKubdw=
 20260727000000_initial.sql h1:xA8FiiyYkOVmKl8yKJZRKOlym1MYvRHsB/0Lkpr9ugE=
 20260807131212_add_worktree_config_and_agent_branch.sql h1:wvd4QPvJoYrdQaiP6VyCS18QpMZyqNXziA2Hy4szJFs=
+20260807135307_rename_agent_mark_to_tag.sql h1:guQTSCzd8I5KBmPkBoXXzky9Pl4u3knwKkn4K1iUHY0=

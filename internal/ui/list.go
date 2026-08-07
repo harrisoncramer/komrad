@@ -176,18 +176,14 @@ func (c rowCursor) jump(idx, length int) (rowCursor, bool) {
 	return c, true
 }
 
-func (m *model) stageRecord(rec record, region layout.Region) {
-	m.frame.Show(region, newTextContent(rec.markdown))
-	m.setRecord(rec, region)
-}
-
-func (m *model) stagePlaceholder(markdown string) {
+// stageDocument pages a rendered document in the stage, which is what a screen shows for a
+// row with no pane of its own.
+func (m *model) stageDocument(markdown string) {
 	m.frame.Show(layout.RegionStage, newTextContent(markdown))
-	m.clearRecord()
 }
 
 func (m model) listView(title string, rows []string, cursor int, help string) string {
-	header := headerStyle.Render(title) + "\n\n" + m.filterView()
+	header := m.titleStyle().Render(title) + "\n\n" + m.filterView()
 
 	return header + renderList(rows, cursor, m.listLines(header, help)) + help
 }

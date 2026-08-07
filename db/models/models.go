@@ -29,7 +29,7 @@ type Agent struct {
 	ArchivedAt       *time.Time
 	IsHidden         bool
 	NudgedAt         *time.Time
-	Mark             *string
+	Tag              *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	Branch           *string

@@ -133,14 +133,14 @@ func renderValue(value any) (string, error) {
 		}
 
 		return "[" + strings.Join(quoted, ", ") + "]", nil
-	case []Mark:
-		// One inline table per line rather than a [[marks]] block each, so the marks
+	case []Tag:
+		// One inline table per line rather than a [[tags]] block each, so the tags
 		// stay one value in a file whose every other value is one line too. A reader
 		// who prefers the block form can write it and it parses the same.
 		var buf strings.Builder
 		buf.WriteString("[\n")
-		for _, mark := range typed {
-			fmt.Fprintf(&buf, "  { glyph = %s, color = %s },\n", strconv.Quote(mark.Glyph), strconv.Quote(mark.Color))
+		for _, tag := range typed {
+			fmt.Fprintf(&buf, "  { glyph = %s, color = %s },\n", strconv.Quote(tag.Glyph), strconv.Quote(tag.Color))
 		}
 		buf.WriteString("]")
 

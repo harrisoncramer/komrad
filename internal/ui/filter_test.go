@@ -195,8 +195,15 @@ func TestFilterInput(t *testing.T) {
 			wantRows:   []string{"core", "billing", "payouts"},
 		},
 		{
-			name:       "back clears a filter the input left behind",
+			name:       "back opens the input again over a filter it left behind",
 			keys:       []string{"/", "p", "a", "enter", "esc"},
+			wantTyping: true,
+			wantQuery:  "pa",
+			wantRows:   []string{"core", "payouts"},
+		},
+		{
+			name:       "a second back drops the filter along with the input",
+			keys:       []string{"/", "p", "a", "enter", "esc", "esc"},
 			wantTyping: false,
 			wantQuery:  "",
 			wantRows:   []string{"core", "billing", "payouts"},

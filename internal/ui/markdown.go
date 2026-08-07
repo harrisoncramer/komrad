@@ -11,9 +11,9 @@ import (
 	workflowstore "weave/internal/store/workflow"
 )
 
-// The stage shows a resource with no pane of its own as rendered markdown. These build
-// those documents, and nothing here reads the model: a document is a function of the
-// record it describes.
+// What a resource is made of, in two halves. The fields are label and value pairs, which the
+// details under the list draw and copy from, and the documents are the prose the stage pages
+// beside them. Nothing here reads the model: both are a function of the record they describe.
 
 func orDash(v string) string {
 	if strings.TrimSpace(v) == "" {
@@ -23,52 +23,35 @@ func orDash(v string) string {
 	return v
 }
 
-// recordField is one line of a record's numbered fields: a label and the value a digit
-// key copies to the clipboard.
+// recordField is one line of the details under the list: a label and the value the copy
+// key takes.
 type recordField struct {
 	label string
 	value string
 }
 
-// record is a screen's rendered document alongside the values its numbered fields
-// copy, in the order they are numbered, so a digit key can act on whichever one it
-// names without re-parsing the markdown it produced.
-type record struct {
-	markdown string
-	values   []string
-}
-
-// renderRecord builds a record: a title, an optional one-line notice under it, the
-// numbered fields in order, then free-form prose such as a workflow's context or a
-// schedule's prompt, then a closing footer note. The fields come first because they
-// are what a digit key copies and what most presses of the info key are after, while
-// the prose beneath them can run long.
-func renderRecord(title, notice string, fields []recordField, prose, footer string) record {
+// renderDocument builds what the stage pages: a title, an optional one-line notice under it,
+// free-form prose such as a workflow's context or a schedule's prompt, then a closing footer
+// note. The fields a resource carries are not in here; they are drawn beside this, in the
+// details under the list.
+func renderDocument(title, notice, prose, footer string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", title)
 	if notice != "" {
 		b.WriteString(notice + "\n\n")
 	}
-	b.WriteString("---\n\n")
-
-	values := make([]string, 0, len(fields))
-	for i, f := range fields {
-		fmt.Fprintf(&b, "%d. %s: %s\n", i+1, f.label, f.value)
-		values = append(values, f.value)
-	}
-
 	if prose != "" {
-		b.WriteString("\n" + prose + "\n")
+		b.WriteString(prose + "\n")
 	}
 	if footer != "" {
 		b.WriteString("\n" + footer + "\n")
 	}
 
-	return record{markdown: b.String(), values: values}
+	return b.String()
 }
 
-// workflowFields are a workflow's own numbered fields: how many agents it holds, then
-// the defaults future agents under it inherit.
+// workflowFields are a workflow's own fields: how many agents it holds, then the defaults
+// future agents under it inherit.
 func workflowFields(w workflowstore.Workflow, agentCount int) []recordField {
 	return append([]recordField{{"agents", fmt.Sprintf("%d", agentCount)}}, workflowConfigFields(w)...)
 }
@@ -86,18 +69,23 @@ func workflowConfigFields(w workflowstore.Workflow) []recordField {
 	}
 }
 
-// workflowMarkdown renders a workflow's name, its numbered fields, and its shared
-// context for the stage.
-func workflowMarkdown(w workflowstore.Workflow, agentCount int) record {
-	prose := "_no shared context set_"
-	if strings.TrimSpace(w.Context) != "" {
-		prose = w.Context
-	}
-
-	return renderRecord(w.Name, "", workflowFields(w, agentCount), prose, "")
+// workflowContextMarkdown is a workflow's shared context, which is what the stage holds
+// while the fields beside it are drawn in the details. The context is the one thing about a
+// workflow that runs long enough to want a pane of its own.
+func workflowContextMarkdown(w workflowstore.Workflow) string {
+	return renderDocument(w.Name, "", workflowProse(w), "")
 }
 
-// agentFields are an agent's own numbered fields, in the order they were launched
+// workflowProse is the context an agent started here inherits, or a note that none is set.
+func workflowProse(w workflowstore.Workflow) string {
+	if strings.TrimSpace(w.Context) == "" {
+		return "_no shared context set_"
+	}
+
+	return w.Context
+}
+
+// agentFields are an agent's own fields, in the order they were launched
 // with, plus whatever it has since recorded about its own work under metadata. The
 // metadata values go in bare, since they are mostly URLs and markdown link syntax
 // would hide the target this section exists to show.
@@ -118,37 +106,14 @@ func agentFields(agent agentstore.Agent, schedule string) []recordField {
 	if created := dates.Friendly(agent.CreatedAt); created != "" {
 		fields = append(fields, recordField{"created", created})
 	}
-	if agent.Mark != nil {
-		fields = append(fields, recordField{"mark", *agent.Mark})
+	if agent.Tag != nil {
+		fields = append(fields, recordField{"tag", *agent.Tag})
 	}
 	for _, entry := range agent.Metadata {
 		fields = append(fields, recordField{entry.Key, entry.Value})
 	}
 
 	return fields
-}
-
-// agentMarkdown renders an agent's stored record for the stage, which is all there is of a
-// dormant agent and what a live one shows on demand, since its pane otherwise hides the
-// cwd and flags it was launched with. The values are as stored at launch.
-func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) record {
-	var notice string
-	if !alive {
-		notice = "_dormant — not running_"
-	}
-
-	var footer string
-	if agent.Hidden {
-		footer = "Hidden from the list."
-	}
-	if !alive {
-		if footer != "" {
-			footer += "\n\n"
-		}
-		footer += "Press open to resume."
-	}
-
-	return renderRecord(agent.Name, notice, agentFields(agent, schedule), "", footer)
 }
 
 // actionMarkdown renders an action's record for the stage: its name and what its own header
@@ -190,7 +155,7 @@ const noSchedulesMarkdown = "# Schedules\n\n" +
 	"A schedule launches an agent on a cron expression.\n\n" +
 	"Press the new key to write one.\n"
 
-// scheduleFields are a schedule's own numbered fields, its own settings first and then
+// scheduleFields are a schedule's own fields, its own settings first and then
 // whatever the workflow it fires into hands each run.
 func scheduleFields(sched schedulestore.Schedule, workflow *workflowstore.Workflow) []recordField {
 	fields := []recordField{
@@ -207,15 +172,15 @@ func scheduleFields(sched schedulestore.Schedule, workflow *workflowstore.Workfl
 	return append(fields, workflowConfigFields(*workflow)...)
 }
 
-// scheduleMarkdown renders a schedule's record for the stage.
-func scheduleMarkdown(item scheduleItem, workflow *workflowstore.Workflow) record {
+// scheduleMarkdown renders the prompt a schedule fires with for the stage, under when it
+// next runs. The prompt is the part of a schedule that runs long, which is why it is here
+// rather than in the details beside it.
+func scheduleMarkdown(item scheduleItem) string {
 	sched := item.schedule
 
-	var notice string
+	notice := "_paused — will not run_"
 	if sched.Enabled {
 		notice = fmt.Sprintf("_next run %s_", orDash(dates.Friendly(item.nextRun)))
-	} else {
-		notice = "_paused — will not run_"
 	}
 
 	prose := "_no prompt set_"
@@ -228,16 +193,23 @@ func scheduleMarkdown(item scheduleItem, workflow *workflowstore.Workflow) recor
 		footer = "Its runs start hidden."
 	}
 
-	return renderRecord(sched.Name, notice, scheduleFields(sched, workflow), prose, footer)
+	return renderDocument(sched.Name, notice, prose, footer)
 }
 
 // emptyArchiveMarkdown is what the stage shows with nothing in the archive, so the pane
 // says why it is blank.
 const emptyArchiveMarkdown = "# Archive\n\n_nothing archived_\n\nAgents archived from the panel are kept here until you delete them.\n"
 
-// archiveMarkdown renders an archived agent's stored record for the stage: what the agents
-// list shows, minus the liveness, plus what the two keys here would do to it.
-func archiveMarkdown(agent agentstore.Agent, schedule string) record {
+// archiveMarkdown says why an archived agent's pane is empty and what the keys here would do
+// to it. What it was launched with is in the details beside this.
+func archiveMarkdown(agent agentstore.Agent) string {
+	return renderDocument(agent.Name, "_archived — kept until deleted_", "",
+		"Restore brings it back and picks the conversation up where it stopped.")
+}
+
+// archiveFields are an archived agent's own fields: what the agents list shows for a live
+// one, plus when it was put away.
+func archiveFields(agent agentstore.Agent, schedule string) []recordField {
 	fields := []recordField{
 		{"agent", orDash(agent.Harness)},
 		{"directory", orDash(agent.Cwd)},
@@ -257,6 +229,5 @@ func archiveMarkdown(agent agentstore.Agent, schedule string) record {
 		}
 	}
 
-	return renderRecord(agent.Name, "_archived — kept until deleted_", fields, "",
-		"Restore brings it back and picks the conversation up where it stopped.")
+	return fields
 }

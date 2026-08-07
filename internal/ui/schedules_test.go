@@ -204,97 +204,48 @@ func plain(rendered string) string {
 
 var colourEscape = regexp.MustCompile("\x1b\\[[0-9;]*m")
 
-// TestScheduleMarkdown covers the record shown in the stage beside the list.
-// Nothing runs for a schedule, so the record is all there is to see.
+// TestScheduleMarkdown covers the document the stage pages beside the list: when the schedule
+// next fires, and the prompt each run is launched with, which is the part of a schedule long
+// enough to want a pane of its own.
 func TestScheduleMarkdown(t *testing.T) {
 	next := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.Local)
 
 	tests := []struct {
-		name string
-		item scheduleItem
-		// workflow is what the schedule launches into, nil for one whose workflow
-		// has been archived.
-		workflow *workflowstore.Workflow
+		name     string
+		item     scheduleItem
 		wants    []string
 		notWants []string
 	}{
 		{
 			name: "an armed schedule leads with when it next fires",
 			item: scheduleItem{
-				schedule: schedulestore.Schedule{
-					Name: "morning-ci", Cron: "0 9 * * 1-5", Timezone: "America/New_York",
-					Enabled: true, Prompt: "check CI",
-				},
-				nextRun: next,
+				schedule: schedulestore.Schedule{Name: "morning-ci", Enabled: true, Prompt: "check CI"},
+				nextRun:  next,
 			},
-			workflow: &workflowstore.Workflow{
-				Name:          "api",
-				Harness:       "codex",
-				Cwd:           "/work/api",
-				Flags:         "--model opus",
-				SetupAction:   "bootstrap",
-				CleanupAction: "teardown",
-			},
-			wants: []string{
-				"morning-ci",
-				"next run",
-				"check CI",
-				"0 9 * * 1-5",
-				"America/New_York",
-				"api",
-				"codex",
-				"/work/api",
-				"--model opus",
-				"bootstrap",
-				"teardown",
-			},
+			wants:    []string{"morning-ci", "next run", "check CI"},
 			notWants: []string{"paused"},
 		},
 		{
-			name: "a paused one says it will not run",
-			item: scheduleItem{
-				schedule: schedulestore.Schedule{Name: "draft", Cron: "0 9 * * *", Prompt: "later"},
-			},
-			workflow: &workflowstore.Workflow{Name: "api"},
+			name:     "a paused one says it will not run",
+			item:     scheduleItem{schedule: schedulestore.Schedule{Name: "draft", Prompt: "later"}},
 			wants:    []string{"draft", "paused"},
 			notWants: []string{"next run"},
 		},
 		{
-			name:     "a schedule with nothing filled in still renders",
-			item:     scheduleItem{schedule: schedulestore.Schedule{Name: "bare", Enabled: true}},
-			workflow: &workflowstore.Workflow{Name: "api"},
-			wants: []string{
-				"bare",
-				"no prompt set",
-				"—", // the dash the empty fields fall back to
-			},
+			name:  "a schedule with no prompt says so rather than paging a blank",
+			item:  scheduleItem{schedule: schedulestore.Schedule{Name: "bare", Enabled: true}},
+			wants: []string{"bare", "no prompt set"},
 		},
 		{
-			name: "a schedule whose workflow has no defaults still renders dashes",
-			item: scheduleItem{schedule: schedulestore.Schedule{Name: "defaults", Enabled: true}},
-			workflow: &workflowstore.Workflow{
-				Name: "api",
-			},
-			wants: []string{
-				"4. default agent: —",
-				"5. directory: —",
-				"6. flags: —",
-				"7. setup: —",
-				"8. cleanup: —",
-			},
-		},
-		{
-			// The schedule keeps its workflow id after the workflow is archived, so
-			// this has to read as gone rather than render a blank directory.
-			name:  "a schedule whose workflow was archived says so",
-			item:  scheduleItem{schedule: schedulestore.Schedule{Name: "orphan", Cron: "0 9 * * *", Enabled: true}},
-			wants: []string{"orphan", "archived"},
+			name:  "one whose runs start hidden says where they will not appear",
+			item:  scheduleItem{schedule: schedulestore.Schedule{Name: "quiet", Enabled: true, HideAgents: true}},
+			wants: []string{"quiet", "start hidden"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rendered := scheduleMarkdown(tt.item, tt.workflow).markdown
+			rendered := scheduleMarkdown(tt.item)
 
 			for _, want := range tt.wants {
 				assert.Contains(t, rendered, want)
@@ -304,6 +255,51 @@ func TestScheduleMarkdown(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestScheduleFields covers what the details under the list draw for a schedule: its own
+// settings first, then the defaults of the workflow it fires into, which is what each run is
+// launched with.
+func TestScheduleFields(t *testing.T) {
+	sched := schedulestore.Schedule{
+		Name: "morning-ci", Cron: "0 9 * * 1-5", Timezone: "America/New_York", Enabled: true,
+	}
+
+	t.Run("its own settings, then what the workflow hands each run", func(t *testing.T) {
+		fields := scheduleFields(sched, &workflowstore.Workflow{
+			Name:          "api",
+			Harness:       "codex",
+			Cwd:           "/work/api",
+			Flags:         "--model opus",
+			SetupAction:   "bootstrap",
+			CleanupAction: "teardown",
+		})
+
+		assert.Equal(t, []recordField{
+			{"cron", "0 9 * * 1-5"},
+			{"timezone", "America/New_York"},
+			{"workflow", "api"},
+			{"default agent", "codex"},
+			{"directory", "/work/api"},
+			{"flags", "--model opus"},
+			{"setup", "bootstrap"},
+			{"cleanup", "teardown"},
+		}, fields)
+	})
+
+	t.Run("a workflow with no defaults falls back to dashes", func(t *testing.T) {
+		fields := scheduleFields(sched, &workflowstore.Workflow{Name: "api"})
+
+		assert.Contains(t, fields, recordField{"directory", "—"})
+		assert.Contains(t, fields, recordField{"cleanup", "—"})
+	})
+
+	t.Run("a schedule whose workflow was archived says so rather than showing a blank", func(t *testing.T) {
+		fields := scheduleFields(sched, nil)
+
+		assert.Contains(t, fields, recordField{"workflow", "— (archived)"})
+		assert.NotContains(t, fields, recordField{"directory", "—"}, "an archived workflow hands out no defaults")
+	})
 }
 
 // TestApplySchedules covers what a refresh does to the cursor. A schedule
@@ -546,8 +542,9 @@ func keyMsg(key string) tea.KeyMsg {
 
 // namedKeys are the non-rune keys the cases press.
 var namedKeys = map[string]tea.KeyType{
-	"esc":   tea.KeyEsc,
-	"enter": tea.KeyEnter,
+	"esc":    tea.KeyEsc,
+	"enter":  tea.KeyEnter,
+	"ctrl+t": tea.KeyCtrlT,
 }
 
 // TestScheduledMark covers the clock the agents list puts beside a row a schedule

@@ -233,11 +233,11 @@ func TestRequestValidation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "a mark carrying whitespace is refused, since it is drawn into a row",
+			name: "a tag carrying whitespace is refused, since it is drawn into a row",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetMarks(t.Context(), connect.NewRequest(&agentv1.SetMarksRequest{
-					Ids:  []string{uuid.NewString()},
-					Mark: xptr.Ptr("two glyphs"),
+				_, err := c.SetTags(t.Context(), connect.NewRequest(&agentv1.SetTagsRequest{
+					Ids: []string{uuid.NewString()},
+					Tag: xptr.Ptr("two glyphs"),
 				}))
 
 				return err
@@ -245,11 +245,11 @@ func TestRequestValidation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "a mark with no agent to put it on is refused",
+			name: "a tag with no agent to put it on is refused",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetMarks(t.Context(), connect.NewRequest(&agentv1.SetMarksRequest{
-					Ids:  nil,
-					Mark: xptr.Ptr("◐"),
+				_, err := c.SetTags(t.Context(), connect.NewRequest(&agentv1.SetTagsRequest{
+					Ids: nil,
+					Tag: xptr.Ptr("◐"),
 				}))
 
 				return err
@@ -260,9 +260,9 @@ func TestRequestValidation(t *testing.T) {
 			name: "the same agent named twice is refused",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				id := uuid.NewString()
-				_, err := c.SetMarks(t.Context(), connect.NewRequest(&agentv1.SetMarksRequest{
-					Ids:  []string{id, id},
-					Mark: xptr.Ptr("◐"),
+				_, err := c.SetTags(t.Context(), connect.NewRequest(&agentv1.SetTagsRequest{
+					Ids: []string{id, id},
+					Tag: xptr.Ptr("◐"),
 				}))
 
 				return err
@@ -272,12 +272,12 @@ func TestRequestValidation(t *testing.T) {
 		{
 			name: "a glyph is not what the constraint stops",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetMarks(t.Context(), connect.NewRequest(&agentv1.SetMarksRequest{
-					Ids:  []string{uuid.NewString()},
-					Mark: xptr.Ptr("◐"),
+				_, err := c.SetTags(t.Context(), connect.NewRequest(&agentv1.SetTagsRequest{
+					Ids: []string{uuid.NewString()},
+					Tag: xptr.Ptr("◐"),
 				}))
 
-				// The id is nobody's, so the handler answers not_found once the mark
+				// The id is nobody's, so the handler answers not_found once the tag
 				// itself has been let through.
 				if connect.CodeOf(err) == connect.CodeNotFound {
 					return nil

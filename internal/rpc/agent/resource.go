@@ -29,9 +29,10 @@ func (s agent) Cursor() (agentstore.Cursor, error) {
 }
 
 // renderAgent renders a stored agent into the resource the API returns. Liveness
-// is observed rather than stored, so it is passed in by whoever can ask tmux. The
-// row itself cannot know whether its pane is still there.
-func renderAgent(stored agentstore.Agent, alive bool) agent {
+// is observed rather than stored, so it is passed in by whoever can ask tmux, and
+// unreadMail the same way by whoever can ask the mailbox. Neither is something the
+// row itself knows.
+func renderAgent(stored agentstore.Agent, alive, unreadMail bool) agent {
 	created := ""
 	if !stored.CreatedAt.IsZero() {
 		created = stored.CreatedAt.Format(time.RFC3339)
@@ -63,7 +64,8 @@ func renderAgent(stored agentstore.Agent, alive bool) agent {
 			CreatedAt:        created,
 			ArchivedAt:       archived,
 			Alive:            alive,
-			Mark:             stored.Mark,
+			UnreadMail:       unreadMail,
+			Tag:              stored.Tag,
 			Hidden:           stored.Hidden,
 			Metadata:         metadata,
 			IdempotencyKey:   stored.IdempotencyKey,
@@ -80,6 +82,17 @@ func renderMail(stored mailstore.Mail) *agentv1.Mail {
 		created = stored.CreatedAt.Format(time.RFC3339)
 	}
 
+	var claimed *string
+	if stored.ClaimedAt != nil {
+		formatted := stored.ClaimedAt.Format(time.RFC3339)
+		claimed = &formatted
+	}
+
+	expires := ""
+	if !stored.ExpiresAt.IsZero() {
+		expires = stored.ExpiresAt.Format(time.RFC3339)
+	}
+
 	return &agentv1.Mail{
 		Id:          stored.ID,
 		FromAgentId: stored.FromAgentID,
@@ -88,7 +101,26 @@ func renderMail(stored mailstore.Mail) *agentv1.Mail {
 		Body:        stored.Body,
 		ReplyTo:     stored.ReplyTo,
 		CreatedAt:   created,
+		ClaimedAt:   claimed,
+		ExpiresAt:   expires,
 	}
+}
+
+// mail is a rendered piece of mail, the proto sent to the caller plus the cursor that
+// finds it again in a listing.
+type mail struct {
+	*agentv1.Mail
+	cursor mailstore.Cursor
+}
+
+// Cursor returns the keyset cursor locating this mail.
+func (m mail) Cursor() (mailstore.Cursor, error) {
+	return m.cursor, nil
+}
+
+// renderMailPage renders stored mail into the resource a listing returns.
+func renderMailPage(stored mailstore.Mail) mail {
+	return mail{Mail: renderMail(stored), cursor: mailstore.Cursor{ID: stored.ID}}
 }
 
 // searchHit is a rendered transcript match, the proto sent to the caller plus the

@@ -15,6 +15,11 @@ import (
 )
 
 type searchState struct {
+	// typing is whether the query line has the keys, which it takes whole so a letter bound
+	// elsewhere still types, the same way the filter's input does.
+	typing bool
+	// query is what has been typed, kept once the line hands the keys over so the hits below
+	// stay put for the keys that act on them.
 	query  string
 	hits   []searchHit
 	cursor int
@@ -62,11 +67,16 @@ type previewResult struct {
 
 func (m model) enterSearch() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenSearch)
-	m.closeRecord()
-	m.search.query = ""
-	m.search.hits = nil
-	m.search.cursor = 0
+	m.search = searchState{typing: true}
 	m.frame.Show(layout.RegionStage, newBlankContent())
+
+	return m, nil
+}
+
+// openSearchInput hands the keys back to the query line, leaving what was typed to be edited
+// and the hits below it standing.
+func (m model) openSearchInput() (tea.Model, tea.Cmd) {
+	m.search.typing = true
 
 	return m, nil
 }
@@ -199,34 +209,77 @@ func (m *model) stageTranscript(conversation string, line int) {
 	m.frame.Show(layout.RegionStage, newTranscriptContent(conversation, line))
 }
 
-// updateSearch owns every key except the arrows, since a configurable letter would
-// otherwise type rather than act; esc still leaves the screen, since it means back
-// everywhere else in the panel.
+// updateSearch splits the screen the way the filter splits a list: the query line has the
+// keys while it is being typed into, and the hits below it have them once it hands them over.
 func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	k := key.String()
+	if m.search.typing {
+		return m.updateSearchInput(key)
+	}
 
-	switch {
+	return m.updateSearchHits(key)
+}
+
+// updateSearchInput drives the query line, which owns every key while it holds them, since a
+// configurable letter would otherwise act rather than type. enter hands the keys to the hits
+// and esc leaves the screen, there being nothing behind the line to go back to.
+func (m model) updateSearchInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch k := key.String(); {
 	case k == "esc":
+		m.search = searchState{}
+
 		return m.returnToAgents()
+	case k == "enter":
+		m.search.typing = false
+
+		return m, nil
 	case k == "ctrl+c":
 		return m, m.hide()
-	case k == "up" || k == "ctrl+p":
-		return m.moveSearchCursor(-1)
-	case k == "down" || k == "ctrl+n":
-		return m.moveSearchCursor(1)
-	case k == "enter":
-		return m.jumpToSearchHit()
 	case k == "backspace":
 		if m.search.query != "" {
 			m.search.query = trimLastRune(m.search.query)
 		}
+
 		return m, m.debounceSearchCmd(m.search.query)
 	case key.Type == tea.KeySpace:
 		m.search.query += " "
+
 		return m, m.debounceSearchCmd(m.search.query)
 	case key.Type == tea.KeyRunes:
 		m.search.query += string(key.Runes)
+
 		return m, m.debounceSearchCmd(m.search.query)
+	}
+
+	return m, nil
+}
+
+// updateSearchHits drives the results once the query line has let go of the keys, where the
+// shared navigation keys run down them and enter lands on the one under the cursor. Both the
+// back key and the filter key put the keys back in the line, so a query is edited rather than
+// retyped.
+func (m model) updateSearchHits(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	k := key.String()
+
+	if m.takeTopPress(k) {
+		return m.placeSearchCursor(0)
+	}
+	if m.topHeld {
+		return m, nil
+	}
+
+	switch {
+	case k == "esc", isBound(k, m.keys.Filter.Open):
+		return m.openSearchInput()
+	case k == "ctrl+c":
+		return m, m.hide()
+	case isBound(k, m.keys.Nav.Up):
+		return m.moveSearchCursor(-1)
+	case isBound(k, m.keys.Nav.Down):
+		return m.moveSearchCursor(1)
+	case isBound(k, m.keys.Nav.Bottom):
+		return m.placeSearchCursor(len(m.search.hits) - 1)
+	case k == "enter":
+		return m.jumpToSearchHit()
 	}
 
 	return m, nil
@@ -241,6 +294,16 @@ func (m model) moveSearchCursor(delta int) (tea.Model, tea.Cmd) {
 	m.search.cursor = next
 
 	return m, m.previewCmd(m.search.hits[next])
+}
+
+func (m model) placeSearchCursor(index int) (tea.Model, tea.Cmd) {
+	if len(m.search.hits) == 0 {
+		return m, nil
+	}
+
+	m.search.cursor = clampCursor(index, len(m.search.hits))
+
+	return m, m.previewCmd(m.search.hits[m.search.cursor])
 }
 
 func (m model) hoveredHit() (searchHit, bool) {
@@ -271,8 +334,11 @@ func (m model) jumpToSearchHit() (tea.Model, tea.Cmd) {
 
 func (m model) searchView() string {
 	var b strings.Builder
-	b.WriteString(headerStyle.Render("Search") + "\n\n")
-	query := cursorStyle.Render("/") + " " + m.search.query + cursorStyle.Render("▏")
+	b.WriteString(m.titleStyle().Render("Search") + "\n\n")
+	query := cursorStyle.Render("/") + " " + m.search.query
+	if m.search.typing {
+		query += cursorStyle.Render("▏")
+	}
 	b.WriteString(query + "\n\n")
 
 	switch {
@@ -297,7 +363,7 @@ func (m model) searchView() string {
 
 			prefix := "    "
 			if i == m.search.cursor {
-				prefix = "  " + cursorStyle.Render("› ")
+				prefix = "  " + m.rowCursorStyle().Render("› ")
 			}
 
 			b.WriteString(prefix + dimStyle.Render(renderSnippet(hit.snippet, m.width-snippetIndent)) + "\n")

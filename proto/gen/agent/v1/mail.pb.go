@@ -13,6 +13,7 @@ import (
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+	v1 "weave/proto/gen/pagination/v1"
 )
 
 const (
@@ -23,14 +24,18 @@ const (
 )
 
 type Mail struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	FromAgentId   *string                `protobuf:"bytes,2,opt,name=from_agent_id,json=fromAgentId,proto3,oneof" json:"from_agent_id,omitempty"`
-	FromName      string                 `protobuf:"bytes,3,opt,name=from_name,json=fromName,proto3" json:"from_name,omitempty"`
-	ToAgentId     string                 `protobuf:"bytes,4,opt,name=to_agent_id,json=toAgentId,proto3" json:"to_agent_id,omitempty"`
-	Body          string                 `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
-	ReplyTo       *string                `protobuf:"bytes,6,opt,name=reply_to,json=replyTo,proto3,oneof" json:"reply_to,omitempty"`
-	CreatedAt     string                 `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Id          string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	FromAgentId *string                `protobuf:"bytes,2,opt,name=from_agent_id,json=fromAgentId,proto3,oneof" json:"from_agent_id,omitempty"`
+	FromName    string                 `protobuf:"bytes,3,opt,name=from_name,json=fromName,proto3" json:"from_name,omitempty"`
+	ToAgentId   string                 `protobuf:"bytes,4,opt,name=to_agent_id,json=toAgentId,proto3" json:"to_agent_id,omitempty"`
+	Body        string                 `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
+	ReplyTo     *string                `protobuf:"bytes,6,opt,name=reply_to,json=replyTo,proto3,oneof" json:"reply_to,omitempty"`
+	CreatedAt   string                 `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// Unset while the mail is still waiting in the recipient's mailbox.
+	ClaimedAt *string `protobuf:"bytes,8,opt,name=claimed_at,json=claimedAt,proto3,oneof" json:"claimed_at,omitempty"`
+	// Past this time, unclaimed mail is swept as expired rather than delivered.
+	ExpiresAt     string `protobuf:"bytes,9,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -110,6 +115,20 @@ func (x *Mail) GetReplyTo() string {
 func (x *Mail) GetCreatedAt() string {
 	if x != nil {
 		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *Mail) GetClaimedAt() string {
+	if x != nil && x.ClaimedAt != nil {
+		return *x.ClaimedAt
+	}
+	return ""
+}
+
+func (x *Mail) GetExpiresAt() string {
+	if x != nil {
+		return x.ExpiresAt
 	}
 	return ""
 }
@@ -306,11 +325,159 @@ func (x *ReadMailResponse) GetMail() []*Mail {
 	return nil
 }
 
+type ListMailRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            *string                `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
+	Pagination    *v1.Pagination         `protobuf:"bytes,2,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMailRequest) Reset() {
+	*x = ListMailRequest{}
+	mi := &file_agent_v1_mail_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMailRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMailRequest) ProtoMessage() {}
+
+func (x *ListMailRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_mail_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMailRequest.ProtoReflect.Descriptor instead.
+func (*ListMailRequest) Descriptor() ([]byte, []int) {
+	return file_agent_v1_mail_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ListMailRequest) GetId() string {
+	if x != nil && x.Id != nil {
+		return *x.Id
+	}
+	return ""
+}
+
+func (x *ListMailRequest) GetPagination() *v1.Pagination {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
+type ListMailResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Mail          []*Mail                `protobuf:"bytes,1,rep,name=mail,proto3" json:"mail,omitempty"`
+	NextPageToken *string                `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMailResponse) Reset() {
+	*x = ListMailResponse{}
+	mi := &file_agent_v1_mail_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMailResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMailResponse) ProtoMessage() {}
+
+func (x *ListMailResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_mail_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMailResponse.ProtoReflect.Descriptor instead.
+func (*ListMailResponse) Descriptor() ([]byte, []int) {
+	return file_agent_v1_mail_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ListMailResponse) GetMail() []*Mail {
+	if x != nil {
+		return x.Mail
+	}
+	return nil
+}
+
+func (x *ListMailResponse) GetNextPageToken() string {
+	if x != nil && x.NextPageToken != nil {
+		return *x.NextPageToken
+	}
+	return ""
+}
+
+type DeleteMailRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteMailRequest) Reset() {
+	*x = DeleteMailRequest{}
+	mi := &file_agent_v1_mail_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteMailRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteMailRequest) ProtoMessage() {}
+
+func (x *DeleteMailRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_mail_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteMailRequest.ProtoReflect.Descriptor instead.
+func (*DeleteMailRequest) Descriptor() ([]byte, []int) {
+	return file_agent_v1_mail_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *DeleteMailRequest) GetIds() []string {
+	if x != nil {
+		return x.Ids
+	}
+	return nil
+}
+
 var File_agent_v1_mail_proto protoreflect.FileDescriptor
 
 const file_agent_v1_mail_proto_rawDesc = "" +
 	"\n" +
-	"\x13agent/v1/mail.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xee\x01\n" +
+	"\x13agent/v1/mail.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\"\xc0\x02\n" +
 	"\x04Mail\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12'\n" +
 	"\rfrom_agent_id\x18\x02 \x01(\tH\x00R\vfromAgentId\x88\x01\x01\x12\x1b\n" +
@@ -319,9 +486,14 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\x04body\x18\x05 \x01(\tR\x04body\x12\x1e\n" +
 	"\breply_to\x18\x06 \x01(\tH\x01R\areplyTo\x88\x01\x01\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\a \x01(\tR\tcreatedAtB\x10\n" +
+	"created_at\x18\a \x01(\tR\tcreatedAt\x12\"\n" +
+	"\n" +
+	"claimed_at\x18\b \x01(\tH\x02R\tclaimedAt\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"expires_at\x18\t \x01(\tR\texpiresAtB\x10\n" +
 	"\x0e_from_agent_idB\v\n" +
-	"\t_reply_to\"\x90\x01\n" +
+	"\t_reply_toB\r\n" +
+	"\v_claimed_at\"\x90\x01\n" +
 	"\x0fSendMailRequest\x12'\n" +
 	"\vto_agent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\ttoAgentId\x12\x1e\n" +
 	"\x04body\x18\x02 \x01(\tB\n" +
@@ -334,7 +506,20 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x02id\x88\x01\x01B\x05\n" +
 	"\x03_id\"6\n" +
 	"\x10ReadMailResponse\x12\"\n" +
-	"\x04mail\x18\x01 \x03(\v2\x0e.agent.v1.MailR\x04mailB\"Z weave/proto/gen/agent/v1;agentv1b\x06proto3"
+	"\x04mail\x18\x01 \x03(\v2\x0e.agent.v1.MailR\x04mail\"\x85\x01\n" +
+	"\x0fListMailRequest\x12\x1c\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x02id\x88\x01\x01\x12>\n" +
+	"\n" +
+	"pagination\x18\x02 \x01(\v2\x19.pagination.v1.PaginationH\x01R\n" +
+	"pagination\x88\x01\x01B\x05\n" +
+	"\x03_idB\r\n" +
+	"\v_pagination\"w\n" +
+	"\x10ListMailResponse\x12\"\n" +
+	"\x04mail\x18\x01 \x03(\v2\x0e.agent.v1.MailR\x04mail\x12+\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
+	"\x10_next_page_token\"/\n" +
+	"\x11DeleteMailRequest\x12\x1a\n" +
+	"\x03ids\x18\x01 \x03(\tB\b\xbaH\x05\x92\x01\x02\b\x01R\x03idsB\"Z weave/proto/gen/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_agent_v1_mail_proto_rawDescOnce sync.Once
@@ -348,22 +533,28 @@ func file_agent_v1_mail_proto_rawDescGZIP() []byte {
 	return file_agent_v1_mail_proto_rawDescData
 }
 
-var file_agent_v1_mail_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_agent_v1_mail_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_agent_v1_mail_proto_goTypes = []any{
-	(*Mail)(nil),             // 0: agent.v1.Mail
-	(*SendMailRequest)(nil),  // 1: agent.v1.SendMailRequest
-	(*SendMailResponse)(nil), // 2: agent.v1.SendMailResponse
-	(*ReadMailRequest)(nil),  // 3: agent.v1.ReadMailRequest
-	(*ReadMailResponse)(nil), // 4: agent.v1.ReadMailResponse
+	(*Mail)(nil),              // 0: agent.v1.Mail
+	(*SendMailRequest)(nil),   // 1: agent.v1.SendMailRequest
+	(*SendMailResponse)(nil),  // 2: agent.v1.SendMailResponse
+	(*ReadMailRequest)(nil),   // 3: agent.v1.ReadMailRequest
+	(*ReadMailResponse)(nil),  // 4: agent.v1.ReadMailResponse
+	(*ListMailRequest)(nil),   // 5: agent.v1.ListMailRequest
+	(*ListMailResponse)(nil),  // 6: agent.v1.ListMailResponse
+	(*DeleteMailRequest)(nil), // 7: agent.v1.DeleteMailRequest
+	(*v1.Pagination)(nil),     // 8: pagination.v1.Pagination
 }
 var file_agent_v1_mail_proto_depIdxs = []int32{
 	0, // 0: agent.v1.SendMailResponse.mail:type_name -> agent.v1.Mail
 	0, // 1: agent.v1.ReadMailResponse.mail:type_name -> agent.v1.Mail
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	8, // 2: agent.v1.ListMailRequest.pagination:type_name -> pagination.v1.Pagination
+	0, // 3: agent.v1.ListMailResponse.mail:type_name -> agent.v1.Mail
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_agent_v1_mail_proto_init() }
@@ -374,13 +565,15 @@ func file_agent_v1_mail_proto_init() {
 	file_agent_v1_mail_proto_msgTypes[0].OneofWrappers = []any{}
 	file_agent_v1_mail_proto_msgTypes[1].OneofWrappers = []any{}
 	file_agent_v1_mail_proto_msgTypes[3].OneofWrappers = []any{}
+	file_agent_v1_mail_proto_msgTypes[5].OneofWrappers = []any{}
+	file_agent_v1_mail_proto_msgTypes[6].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_v1_mail_proto_rawDesc), len(file_agent_v1_mail_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
