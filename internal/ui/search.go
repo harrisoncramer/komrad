@@ -15,15 +15,12 @@ import (
 )
 
 // searchState is the search screen, the live query with its hits and which one is
-// hovered.
+// hovered. The query line has the keys for as long as the screen is up, taking them whole so
+// a letter bound elsewhere still types, and the arrows walk the hits under it.
 type searchState struct {
 	query  string
 	hits   []searchHit
 	cursor int
-	// typing is whether the query line has the keys, which it takes whole so a letter bound
-	// elsewhere still types. It closes on esc, leaving the results where they are to be
-	// walked with the ordinary nav keys.
-	typing bool
 }
 
 // searchLimit caps how many hits a query returns. The screen shows one page and offers no
@@ -78,7 +75,6 @@ func (m model) enterSearch() (tea.Model, tea.Cmd) {
 	m.search.query = ""
 	m.search.hits = nil
 	m.search.cursor = 0
-	m.search.typing = true
 	m.frame.Show(layout.RegionStage, newBlankContent())
 
 	return m, nil
@@ -215,25 +211,16 @@ func (m *model) stageTranscript(conversation string, line int) {
 	m.frame.Show(layout.RegionStage, newTranscriptContent(conversation, line))
 }
 
-// updateSearch drives the search screen while the query line is open, which is every key
-// except the arrows, since a configurable letter would otherwise type rather than act. esc
-// closes the line over its results rather than leaving, so what a query found can be read at
-// leisure, and closing it over nothing leaves, since there is nothing to read.
+// updateSearch drives the search screen, which owns every key except the arrows, since a
+// configurable letter would otherwise type rather than act. esc leaves the screen outright:
+// it is the one key that means back everywhere else in the panel, and a press that only shut
+// the line over its own results read as the key doing nothing.
 func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if !m.search.typing {
-		return m.updateSearchResults(key)
-	}
-
 	k := key.String()
 
 	switch {
 	case k == "esc":
-		m.search.typing = false
-		if len(m.search.hits) == 0 {
-			return m.returnToAgents()
-		}
-
-		return m, nil
+		return m.returnToAgents()
 	case k == "ctrl+c":
 		return m, m.hide()
 	case k == "up" || k == "ctrl+p":
@@ -253,32 +240,6 @@ func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Type == tea.KeyRunes:
 		m.search.query += string(key.Runes)
 		return m, m.debounceSearchCmd(m.search.query)
-	}
-
-	return m, nil
-}
-
-// updateSearchResults drives the results once the query line has closed. Nothing is re-run and
-// nothing moves, so the hits sit as the query left them and the ordinary nav keys walk them.
-// esc leaves the screen, since the line it would otherwise close is already shut.
-func (m model) updateSearchResults(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	k := key.String()
-
-	switch {
-	case k == "esc":
-		return m.returnToAgents()
-	case k == "ctrl+c":
-		return m, m.hide()
-	case k == "up" || k == "ctrl+p" || isBound(k, m.keys.Nav.Up):
-		return m.moveSearchCursor(-1)
-	case k == "down" || k == "ctrl+n" || isBound(k, m.keys.Nav.Down):
-		return m.moveSearchCursor(1)
-	case k == "enter":
-		return m.jumpToSearchHit()
-	case isBound(k, m.keys.Agents.Search):
-		m.search.typing = true
-
-		return m, nil
 	}
 
 	return m, nil
@@ -344,10 +305,7 @@ func (m *model) revealAgent(id string) {
 func (m model) searchView() string {
 	var b strings.Builder
 	b.WriteString(headerStyle.Render("Search") + "\n\n")
-	query := cursorStyle.Render("/") + " " + m.search.query
-	if m.search.typing {
-		query += cursorStyle.Render("▏")
-	}
+	query := cursorStyle.Render("/") + " " + m.search.query + cursorStyle.Render("▏")
 	b.WriteString(query + "\n\n")
 
 	switch {

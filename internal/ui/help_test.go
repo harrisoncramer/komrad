@@ -46,7 +46,6 @@ func TestHelpToggle(t *testing.T) {
 func TestHelpToggleOnSearch(t *testing.T) {
 	m := helpModel()
 	m.screen = screenSearch
-	m.search.typing = true
 
 	next, _ := m.route(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("?")})
 	searched, ok := next.(model)

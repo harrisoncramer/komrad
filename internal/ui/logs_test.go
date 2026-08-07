@@ -169,7 +169,6 @@ func TestLogsOpenFromEveryScreen(t *testing.T) {
 		"schedules": screenSchedules,
 		"archive":   screenArchive,
 		"actions":   screenActions,
-		"search":    screenSearch,
 	}
 
 	for name, from := range screens {
@@ -194,7 +193,6 @@ func TestLogsTypeIntoAnOpenQuery(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
 	m.screen = screenSearch
-	m.search.typing = true
 
 	shown := pressLogs(t, m)
 

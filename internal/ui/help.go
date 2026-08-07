@@ -107,11 +107,12 @@ func doubledLabel(keys []string) string {
 }
 
 // filterHelp is the legend under a list while the filter input is open. Everything else on the
-// screen types into the pattern, so the only key it names is the one that closes it.
+// screen types into the pattern, so the only keys it names are the two that close the input.
 func filterHelp() keyMap {
-	done := binding([]string{"esc"}, "done, then act on what is left")
+	done := binding([]string{"enter"}, "keep it, then act on what is left")
+	drop := binding([]string{"esc"}, "cancel")
 
-	return keyMap{short: []key.Binding{done}, full: []key.Binding{done}}
+	return keyMap{short: []key.Binding{done, drop}, full: []key.Binding{done, drop}}
 }
 
 // filterBinding is the key that opens the filter input, naming the pattern already narrowing
@@ -411,32 +412,16 @@ func (m model) actionHelp() keyMap {
 	}
 }
 
-// searchHelp lists the search screen's bindings, which differ by whether the query line is
-// still open. While it is, every key goes into the query, so the legend names only the fixed
-// ones the line leaves alone and there is no help key to expand it.
+// searchHelp lists the search screen's bindings. Every key goes into the query, so the legend
+// names only the fixed ones the line leaves alone and there is no help key to expand it.
 func (m model) searchHelp() keyMap {
 	open := binding([]string{"enter"}, "go to it")
-
-	if !m.search.typing {
-		back := binding([]string{"esc"}, "back")
-		edit := binding(m.keys.Agents.Search, "edit search")
-
-		return keyMap{
-			short: []key.Binding{open, back, m.helpBinding()},
-			full:  slices.Concat([]key.Binding{open, edit, m.moveBinding(), back}, m.globalHelp()),
-		}
-	}
-
 	move := binding([]string{"up", "down"}, "move")
-
-	var done []key.Binding
-	if len(m.search.hits) > 0 {
-		done = []key.Binding{binding([]string{"esc"}, "done, then walk the results")}
-	}
+	back := binding([]string{"esc"}, "back")
 
 	return keyMap{
-		short: slices.Concat([]key.Binding{open}, done),
-		full:  slices.Concat([]key.Binding{open, move}, done),
+		short: []key.Binding{open, back},
+		full:  []key.Binding{open, move, back},
 	}
 }
 

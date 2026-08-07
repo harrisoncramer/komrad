@@ -201,5 +201,5 @@ func (m model) routeFormMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 // isQueryOpen reports whether the search screen's query line has the keys, which is the one
 // state where a key bound to something has to type instead of acting.
 func (m model) isQueryOpen() bool {
-	return m.screen == screenSearch && m.search.typing
+	return m.screen == screenSearch
 }
