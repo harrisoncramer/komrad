@@ -286,20 +286,6 @@ func (m model) jumpToSearchHit() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// revealAgent puts the tree's cursor on an agent, drawing the hidden ones when that is the only
-// way it has a row. An agent the tree has none for at all leaves the cursor where it was.
-func (m *model) revealAgent(id string) {
-	for _, item := range m.listing.agents {
-		if item.agent.ID == id && item.agent.Hidden {
-			m.tree.showHidden = true
-		}
-	}
-
-	if idx := rowIndexOfAgentID(m.agentRows(), id); idx >= 0 {
-		m.tree.cursor = idx
-	}
-}
-
 // searchView renders the search screen's own pane. The query line sits above the list of
 // matching agents, each with a one-line snippet of its match.
 func (m model) searchView() string {

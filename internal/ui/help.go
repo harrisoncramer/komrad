@@ -155,7 +155,7 @@ func (m model) globalHelp() []key.Binding {
 // agentHelp lists the agents screen's bindings.
 func (m model) agentHelp() keyMap {
 	if m.tree.selected.active() {
-		hovered, _ := rowAt(m.agentRows(), m.tree.cursor)
+		hovered, _ := m.hoveredRow()
 
 		return m.selectionHelp(
 			m.tree.selected,

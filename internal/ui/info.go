@@ -72,9 +72,9 @@ func (m model) doesRestageFillInfo() bool {
 		return false
 	}
 
-	r, ok := rowAt(m.agentRows(), m.tree.cursor)
+	_, ok := m.selectedAgent()
 
-	return ok && !r.header
+	return ok
 }
 
 // forgetInfo clears the pane option, since tmux can reuse pane ids.
@@ -111,12 +111,12 @@ func (m *model) closeRecord() {
 func (m *model) stageInfo() {
 	switch m.info.kind {
 	case infoRecord:
-		r, ok := rowAt(m.agentRows(), m.tree.cursor)
-		if !ok || r.header {
+		item, ok := m.selectedAgent()
+		if !ok {
 			return
 		}
 
-		m.stageRecord(agentMarkdown(r.item.agent, r.item.alive, m.scheduleName(r.item.agent)), layout.RegionInfo)
+		m.stageRecord(agentMarkdown(item.agent, item.alive, m.scheduleName(item.agent)), layout.RegionInfo)
 	case infoLogs:
 		m.frame.Show(layout.RegionInfo, newLogContent(m.logPath, logArgv(m.logViewer, m.logPath)))
 	case infoNothing, infoEdit:

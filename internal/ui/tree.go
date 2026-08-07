@@ -82,6 +82,13 @@ func (m model) allAgentRows() []agentRow {
 	return treeRows(m.listing.workflows, m.listing.agents, m.tree.showHidden)
 }
 
+// hoveredRow is the row under the cursor on the agents list, a workflow header as readily
+// as an agent. It is how anything outside this screen asks what is hovered without reaching
+// for the cursor itself.
+func (m model) hoveredRow() (agentRow, bool) {
+	return rowAt(m.agentRows(), m.tree.cursor)
+}
+
 // selectedAgent returns the agent under the cursor, or false when the cursor is on
 // a workflow header or the list is empty.
 func (m model) selectedAgent() (agentItem, bool) {
@@ -255,4 +262,18 @@ func (m *model) placeTreeCursor(selected string) {
 type listing struct {
 	agents    []agentItem
 	workflows []workflowstore.Workflow
+}
+
+// revealAgent puts the tree's cursor on an agent, drawing the hidden ones when that is the only
+// way it has a row. An agent the tree has none for at all leaves the cursor where it was.
+func (m *model) revealAgent(id string) {
+	for _, item := range m.listing.agents {
+		if item.agent.ID == id && item.agent.Hidden {
+			m.tree.showHidden = true
+		}
+	}
+
+	if idx := rowIndexOfAgentID(m.agentRows(), id); idx >= 0 {
+		m.tree.cursor = idx
+	}
 }
