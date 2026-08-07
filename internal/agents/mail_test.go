@@ -314,6 +314,17 @@ func (f *fakeMailbox) Delete(_ context.Context, ids []string) error {
 	return nil
 }
 
+func (f *fakeMailbox) ListUnreadMailboxes(context.Context) ([]string, error) {
+	var unread []string
+	for _, mail := range f.byID {
+		if mail.ClaimedAt == nil {
+			unread = append(unread, mail.ToAgentID)
+		}
+	}
+
+	return unread, nil
+}
+
 func TestListMailChecksTheAgentExists(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMailService(NewMailServiceParams{

@@ -111,6 +111,16 @@ func hiddenMark(hidden bool) string {
 	return " " + dimStyle.Render(hiddenIcon)
 }
 
+const unreadMailIcon = "✉"
+
+func unreadMailMark(unread bool) string {
+	if !unread {
+		return ""
+	}
+
+	return " " + lipgloss.NewStyle().Foreground(colorAccent).Render(unreadMailIcon)
+}
+
 func hiddenTally(count int, showing bool) string {
 	if count == 0 || showing {
 		return ""

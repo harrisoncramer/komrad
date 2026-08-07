@@ -223,6 +223,53 @@ func TestListAgents(t *testing.T) {
 	}
 }
 
+// TestListAgentsReportsUnreadMail covers the unread flag, which is observed from the
+// mailbox at read time rather than stored on the row, the same as liveness.
+func TestListAgentsReportsUnreadMail(t *testing.T) {
+	svc, st := service(t)
+	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
+	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
+
+	_, err := svc.SendMail(t.Context(), connect.NewRequest(&agentv1.SendMailRequest{
+		ToAgentId: beta.ID,
+		Body:      "refunded_cents",
+	}))
+	require.NoError(t, err)
+
+	listed, err := svc.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{}))
+	require.NoError(t, err)
+	require.Len(t, listed.Msg.GetAgents(), 2)
+
+	unread := make(map[string]bool, 2)
+	for _, a := range listed.Msg.GetAgents() {
+		unread[a.GetId()] = a.GetUnreadMail()
+	}
+	assert.False(t, unread[alpha.ID], "alpha sent the mail, it did not receive any")
+	assert.True(t, unread[beta.ID], "beta has not read what alpha sent")
+}
+
+// TestGetAgentReportsUnreadMail mirrors TestListAgentsReportsUnreadMail for the single-agent
+// lookup, which reads the mailbox the same way rather than through a different path.
+func TestGetAgentReportsUnreadMail(t *testing.T) {
+	svc, st := service(t)
+	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
+	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
+
+	_, err := svc.SendMail(t.Context(), connect.NewRequest(&agentv1.SendMailRequest{
+		ToAgentId: beta.ID,
+		Body:      "refunded_cents",
+	}))
+	require.NoError(t, err)
+
+	got, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: beta.ID}))
+	require.NoError(t, err)
+	assert.True(t, got.Msg.GetAgent().GetUnreadMail())
+
+	got, err = svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: alpha.ID}))
+	require.NoError(t, err)
+	assert.False(t, got.Msg.GetAgent().GetUnreadMail())
+}
+
 // TestListAgentsIdempotencyKey covers the creator's key reaching the listing. A
 // caller that dispatched a batch of work under keys of its own has nothing else to
 // match a listed agent back to the piece of work it covers, since the name is the

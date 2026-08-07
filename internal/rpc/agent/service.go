@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 
 	"weave/internal/agents"
 	"weave/internal/caller"
@@ -59,6 +60,7 @@ type mailer interface {
 	ClaimMail(ctx context.Context, agentID string) ([]mailstore.Mail, error)
 	ListMail(ctx context.Context, agentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
 	DeleteMail(ctx context.Context, ids []string) error
+	ListUnreadMailboxes(ctx context.Context) ([]string, error)
 }
 
 // Service implements agentv1connect.AgentServiceHandler.
@@ -114,7 +116,7 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create agent: %w", err))
 	}
 
-	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, s.launcher.IsAgentRunning(*created)).Agent}), nil
+	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, s.launcher.IsAgentRunning(*created), false).Agent}), nil
 }
 
 // ListAgents returns one page of stored agents, newest first. The request picks which set
@@ -132,7 +134,17 @@ func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.L
 
 	running := s.launcher.GetRunningAgents(ctx, agents)
 
-	resources := xslice.Map(agents, func(a agentstore.Agent) agent { return renderAgent(a, running[a.ID]) })
+	unreadMailboxes, err := s.mail.ListUnreadMailboxes(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list the mailboxes holding unread mail: %w", err))
+	}
+	unread := xslice.KeyBy(unreadMailboxes, func(id string) string { return id })
+
+	resources := xslice.Map(agents, func(a agentstore.Agent) agent {
+		_, hasUnread := unread[a.ID]
+
+		return renderAgent(a, running[a.ID], hasUnread)
+	})
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {
@@ -155,7 +167,13 @@ func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.Get
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
 	}
 
-	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, s.launcher.IsAgentRunning(*agent)).Agent}), nil
+	unreadMailboxes, err := s.mail.ListUnreadMailboxes(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list the mailboxes holding unread mail: %w", err))
+	}
+	hasUnread := slices.Contains(unreadMailboxes, agent.ID)
+
+	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, s.launcher.IsAgentRunning(*agent), hasUnread).Agent}), nil
 }
 
 // SetTags tags every agent named, and an unset tag clears the ones they carry. A
@@ -390,8 +408,18 @@ func (s *Service) RestoreAgents(ctx context.Context, req *connect.Request[agentv
 
 	running := s.launcher.GetRunningAgents(ctx, restored)
 
+	unreadMailboxes, err := s.mail.ListUnreadMailboxes(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list the mailboxes holding unread mail: %w", err))
+	}
+	unread := xslice.KeyBy(unreadMailboxes, func(id string) string { return id })
+
 	response := &agentv1.RestoreAgentsResponse{
-		Agents: xslice.Map(restored, func(a agentstore.Agent) *agentv1.Agent { return renderAgent(a, running[a.ID]).Agent }),
+		Agents: xslice.Map(restored, func(a agentstore.Agent) *agentv1.Agent {
+			_, hasUnread := unread[a.ID]
+
+			return renderAgent(a, running[a.ID], hasUnread).Agent
+		}),
 	}
 
 	return connect.NewResponse(response), nil
@@ -409,7 +437,13 @@ func (s *Service) ResumeAgent(ctx context.Context, req *connect.Request[agentv1.
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to resume agent: %w", err))
 	}
 
-	return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: renderAgent(*resumed, s.launcher.IsAgentRunning(*resumed)).Agent}), nil
+	unreadMailboxes, err := s.mail.ListUnreadMailboxes(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list the mailboxes holding unread mail: %w", err))
+	}
+	hasUnread := slices.Contains(unreadMailboxes, resumed.ID)
+
+	return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: renderAgent(*resumed, s.launcher.IsAgentRunning(*resumed), hasUnread).Agent}), nil
 }
 
 // UpdateAgent renames the agent with the given id. A name a live agent already holds is a

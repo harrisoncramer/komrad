@@ -43,6 +43,7 @@ type mailReadWriter interface {
 	ListPage(ctx context.Context, toAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
 	ListByID(ctx context.Context, ids []string) ([]mailstore.Mail, error)
 	Delete(ctx context.Context, ids []string) error
+	ListUnreadMailboxes(ctx context.Context) ([]string, error)
 }
 
 // mailConfigReader is the mail policy config, read per send so editing it reaches the
@@ -226,6 +227,16 @@ func (s *MailService) DeleteMail(ctx context.Context, ids []string) error {
 	}
 
 	return nil
+}
+
+// ListUnreadMailboxes is every agent holding mail nobody has read yet.
+func (s *MailService) ListUnreadMailboxes(ctx context.Context) ([]string, error) {
+	unread, err := s.mailReadWriter.ListUnreadMailboxes(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the mailboxes holding unread mail: %w", err)
+	}
+
+	return unread, nil
 }
 
 func (s *MailService) findSender(ctx context.Context, from string) (*agentstore.Agent, error) {

@@ -53,6 +53,9 @@ type Agent struct {
 	ScheduleId *string `protobuf:"bytes,12,opt,name=schedule_id,json=scheduleId,proto3,oneof" json:"schedule_id,omitempty"`
 	// Whether the agent's tmux pane is still running.
 	Alive bool `protobuf:"varint,11,opt,name=alive,proto3" json:"alive,omitempty"`
+	// Whether this agent is holding mail nobody has read yet. Observed from the mailbox
+	// rather than stored, the same as alive.
+	UnreadMail bool `protobuf:"varint,21,opt,name=unread_mail,json=unreadMail,proto3" json:"unread_mail,omitempty"`
 	// The glyph the user tagged this agent with, unset when it carries no tag.
 	Tag *string `protobuf:"bytes,14,opt,name=tag,proto3,oneof" json:"tag,omitempty"`
 	// Whether the user has hidden this agent from the panel's sidebar. It is not a
@@ -195,6 +198,13 @@ func (x *Agent) GetScheduleId() string {
 func (x *Agent) GetAlive() bool {
 	if x != nil {
 		return x.Alive
+	}
+	return false
+}
+
+func (x *Agent) GetUnreadMail() bool {
+	if x != nil {
+		return x.UnreadMail
 	}
 	return false
 }
@@ -1217,7 +1227,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\x8f\x05\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xb0\x05\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -1238,7 +1248,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"archivedAt\x88\x01\x01\x12$\n" +
 	"\vschedule_id\x18\f \x01(\tH\x01R\n" +
 	"scheduleId\x88\x01\x01\x12\x14\n" +
-	"\x05alive\x18\v \x01(\bR\x05alive\x12\x15\n" +
+	"\x05alive\x18\v \x01(\bR\x05alive\x12\x1f\n" +
+	"\vunread_mail\x18\x15 \x01(\bR\n" +
+	"unreadMail\x12\x15\n" +
 	"\x03tag\x18\x0e \x01(\tH\x02R\x03tag\x88\x01\x01\x12\x16\n" +
 	"\x06hidden\x18\x0f \x01(\bR\x06hidden\x123\n" +
 	"\bmetadata\x18\x10 \x03(\v2\x17.agent.v1.AgentMetadataR\bmetadata\x12,\n" +

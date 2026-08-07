@@ -29,9 +29,10 @@ func (s agent) Cursor() (agentstore.Cursor, error) {
 }
 
 // renderAgent renders a stored agent into the resource the API returns. Liveness
-// is observed rather than stored, so it is passed in by whoever can ask tmux. The
-// row itself cannot know whether its pane is still there.
-func renderAgent(stored agentstore.Agent, alive bool) agent {
+// is observed rather than stored, so it is passed in by whoever can ask tmux, and
+// unreadMail the same way by whoever can ask the mailbox. Neither is something the
+// row itself knows.
+func renderAgent(stored agentstore.Agent, alive, unreadMail bool) agent {
 	created := ""
 	if !stored.CreatedAt.IsZero() {
 		created = stored.CreatedAt.Format(time.RFC3339)
@@ -63,6 +64,7 @@ func renderAgent(stored agentstore.Agent, alive bool) agent {
 			CreatedAt:        created,
 			ArchivedAt:       archived,
 			Alive:            alive,
+			UnreadMail:       unreadMail,
 			Tag:              stored.Tag,
 			Hidden:           stored.Hidden,
 			Metadata:         metadata,
