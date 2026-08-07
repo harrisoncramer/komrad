@@ -14,19 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// branchTree is one agent named after its branch, which is the case the clip is for.
-func branchTree() model {
-	return model{
-		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:  config.DefaultKeybindings(),
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}}, agents: []agentItem{
-			{
-				agent: agentstore.Agent{ID: "a1", WorkflowID: "w1"},
-			},
-		}},
-	}
-}
-
 // TestBranchMark covers the git branch shown beside an agent's row: nothing for one the
 // branch syncer has not found a branch for, and the branch itself, icon included, for one
 // it has.
