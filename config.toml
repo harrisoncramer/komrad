@@ -44,7 +44,7 @@ trust_launch_dirs = false
 sidebar_side  = "left"
 # How wide the panel's sidebar is, either a share of the popup's width below one or a whole number of columns.
 sidebar_width = 0.2
-# Which side of the stage the info pane opens on, "below" or "above". That pane is where a record, the server log, and an editor are drawn.
+# Which side of the stage the info pane opens on, "below" or "above". That pane is where the server log and an editor are drawn.
 info_side     = "below"
 # How tall the info pane opens, either a share of the stage's height below one or a whole number of rows.
 info_height   = 0.4

@@ -21,16 +21,14 @@ func (systemClipboard) WriteAll(text string) error {
 	return clipboard.WriteAll(text)
 }
 
-func (m *model) setRecord(rec record, region layout.Region) {
+func (m *model) setRecord(rec record) {
 	m.activeRecord = rec
-	m.recordRegion = region
 }
 
 // clearRecord is what a screen with nothing numbered on it sets, so a stray digit
 // press finds no record to act on.
 func (m *model) clearRecord() {
 	m.activeRecord = record{}
-	m.recordRegion = layout.RegionNone
 }
 
 const flashDuration = 300 * time.Millisecond
@@ -53,14 +51,10 @@ func (m *model) tryCopyRecordValue(key string) (tea.Cmd, bool) {
 	return tea.Batch(m.copyCmd(m.activeRecord.values[idx]), flashRevertTick()), true
 }
 
-// flashRecordField flashes the copied field's line in the info pane, when that is
-// where the record on screen is drawn. A record staged in the main region copies silently.
+// flashRecordField flashes the copied field's line in the stage, which is where every
+// record the panel draws is drawn.
 func (m *model) flashRecordField(idx int) {
-	if m.recordRegion != layout.RegionInfo {
-		return
-	}
-
-	m.frame.Show(layout.RegionInfo, newFlashContent(m.activeRecord.markdown, idx+1))
+	m.frame.Show(layout.RegionStage, newFlashContent(m.activeRecord.markdown, idx+1))
 }
 
 func (m *model) copyCmd(value string) tea.Cmd {
@@ -86,8 +80,8 @@ func flashRevertTick() tea.Cmd {
 
 // restageScreen redraws whatever the current screen shows for the row or item under its own
 // cursor, the same content a screen already draws on every refresh. It is also how the flash
-// reverts to plain, and how the info pane reappearing after a log or an edit
-// closes finds its way back to whatever the current screen would normally have there.
+// reverts to plain, and how the stage lays itself out again for the room a closed info
+// pane gives back to it.
 func (m *model) restageScreen() {
 	switch m.screen {
 	case screenAgents:

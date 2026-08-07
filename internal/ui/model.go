@@ -186,9 +186,6 @@ type model struct {
 	logPath      string
 	logViewer    string
 	activeRecord record
-	// recordRegion is which region of the frame activeRecord is drawn in, so a flash and
-	// its eventual revert redraw the right one.
-	recordRegion layout.Region
 	// clip is how a copied record value reaches the system clipboard.
 	clip clipboardWriter
 }

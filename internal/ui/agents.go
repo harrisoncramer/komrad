@@ -331,13 +331,8 @@ func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	return m, m.writeCmd(failure, func(a api) error { return a.setHidden(agent, !agent.Hidden) })
 }
 
-// dormantPlaceholder must match the record's own dormant notice and footer word for word.
-const dormantPlaceholder = "_dormant — not running_\n\nPress open to resume."
-
 func (m *model) stageSelection() {
 	r, ok := rowAt(m.agentRows(), m.tree.cursor)
-	m.syncRecordDefault(ok && !r.header)
-
 	if !ok {
 		m.frame.Show(layout.RegionStage, newBlankContent())
 		m.clearRecord()
@@ -349,12 +344,13 @@ func (m *model) stageSelection() {
 	switch {
 	case r.header:
 		// A workflow has no chat of its own, so its record fills the main pane instead.
-		m.stageRecord(workflowMarkdown(r.workflow, m.agentCount(r.workflow.ID)), layout.RegionStage)
+		m.stageRecord(workflowMarkdown(r.workflow, m.agentCount(r.workflow.ID)))
 	case r.item.alive:
 		m.frame.ShowGuest(r.item.agent.Pane)
 		m.clearRecord()
 	default:
-		m.stagePlaceholder(dormantPlaceholder)
+		// A dormant agent has no pane to swap in, so its stored record is what the stage holds.
+		m.stageRecord(agentMarkdown(r.item.agent, m.scheduleName(r.item.agent)))
 	}
 
 	m.stageInfo()

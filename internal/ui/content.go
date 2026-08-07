@@ -11,6 +11,9 @@ import (
 // and the command that fills a pane with it. render.go draws the text and the layout package
 // is where it lands.
 
+// stageTextPath is where the stage's rendered text is written for its pager to read.
+var stageTextPath = filepath.Join(os.TempDir(), "weave-stage.ansi")
+
 // transcriptPreviewBefore is how many lines of the conversation a preview opens above the
 // matched line, so a hit is read in context rather than at the top of the pane.
 const transcriptPreviewBefore = 12
@@ -21,12 +24,11 @@ func newTextContent(markdown string) layout.Content {
 		Key:   "text:" + markdown,
 		Wraps: true,
 		Render: func(target layout.Target) ([]string, bool) {
-			path := getTextPath(target.Region)
-			if !writeStageFile(path, render(markdown, target.Width)) {
+			if !writeStageFile(stageTextPath, render(markdown, target.Width)) {
 				return nil, false
 			}
 
-			return pagerArgv(path, 0), true
+			return pagerArgv(stageTextPath, 0), true
 		},
 	}
 }
@@ -38,12 +40,11 @@ func newFlashContent(markdown string, field int) layout.Content {
 	return layout.Content{
 		Wraps: true,
 		Render: func(target layout.Target) ([]string, bool) {
-			path := getTextPath(target.Region)
-			if !writeStageFile(path, renderFlash(markdown, target.Width, field)) {
+			if !writeStageFile(stageTextPath, renderFlash(markdown, target.Width, field)) {
 				return nil, false
 			}
 
-			return pagerArgv(path, 0), true
+			return pagerArgv(stageTextPath, 0), true
 		},
 	}
 }
@@ -85,15 +86,4 @@ func newBlankContent() layout.Content {
 		Key:    "blank",
 		Render: func(layout.Target) ([]string, bool) { return nil, true },
 	}
-}
-
-// getTextPath is where a region's rendered text is written for its pager to read. Each region
-// writes its own file, so a document being read in one is not overwritten by the other.
-func getTextPath(region layout.Region) string {
-	name := "weave-stage.ansi"
-	if region == layout.RegionInfo {
-		name = "weave-info.ansi"
-	}
-
-	return filepath.Join(os.TempDir(), name)
 }

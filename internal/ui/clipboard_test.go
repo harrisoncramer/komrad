@@ -46,8 +46,8 @@ func (f *fakeClipboard) WriteAll(text string) error {
 
 // TestTryCopyRecordValue covers the digit key copying whichever field it names off
 // the record currently on screen, and doing nothing for a key or an index the record
-// does not have. recordRegion is layout.RegionNone throughout, since these cases are about
-// the copy itself rather than the flash, which is covered on its own below.
+// does not have. These cases are about the copy itself; the flash is covered on its own
+// below.
 func TestTryCopyRecordValue(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -93,7 +93,7 @@ func TestTryCopyRecordValue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			clip := &fakeClipboard{}
-			m := model{activeRecord: record{values: tt.values}, clip: clip}
+			m := model{activeRecord: record{values: tt.values}, frame: stageFrame(&recordingTmux{}), clip: clip}
 
 			cmd, handled := m.tryCopyRecordValue(tt.key)
 
@@ -115,7 +115,7 @@ func TestTryCopyRecordValue(t *testing.T) {
 // write, such as no clipboard utility being on the machine's PATH.
 func TestTryCopyRecordValueReportsAFailure(t *testing.T) {
 	clip := &fakeClipboard{err: errors.New("no clipboard utility found")}
-	m := model{activeRecord: record{values: []string{"claude"}}, clip: clip}
+	m := model{activeRecord: record{values: []string{"claude"}}, frame: stageFrame(&recordingTmux{}), clip: clip}
 
 	cmd, handled := m.tryCopyRecordValue("1")
 	require.True(t, handled)
@@ -144,50 +144,34 @@ func TestCopyResultReportsOnFailureAndClearsOnSuccess(t *testing.T) {
 }
 
 // TestTryCopyRecordValueFlashesTheFieldsLine covers the copied field's own line reversing in
-// the info pane when that is where the record on screen is drawn. A record staged in the main
-// pane copies without a flash, since nothing there should visibly react.
+// the stage, which is the only sign a digit key registered.
 func TestTryCopyRecordValueFlashesTheFieldsLine(t *testing.T) {
 	md := "# agent\n\n---\n\n1. agent_id: a1\n2. directory: /repo\n"
 
-	tests := []struct {
-		name        string
-		region      layout.Region
-		wantFlashed []string
-	}{
-		{
-			name:   "the main pane copies silently",
-			region: layout.RegionStage,
-		},
-		{
-			name:        "the info pane flashes",
-			region:      layout.RegionInfo,
-			wantFlashed: []string{"%2"},
-		},
+	recorder := &recordingTmux{}
+	m := model{
+		activeRecord: record{markdown: md, values: []string{"a1", "/repo"}},
+		frame:        stageFrame(recorder),
+		clip:         &fakeClipboard{},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			recorder := &recordingTmux{}
-			frame := layout.New(recorder, config.DefaultLayout())
-			frame.Attach("%0")
+	_, handled := m.tryCopyRecordValue("2")
+	require.True(t, handled)
 
-			m := model{
-				activeRecord: record{markdown: md, values: []string{"a1", "/repo"}},
-				recordRegion: tt.region,
-				frame:        frame,
-				clip:         &fakeClipboard{},
-			}
+	assert.Equal(t, []string{"%1"}, recorder.respawnPanes, "the field flashes in the pane the record is in")
 
-			_, handled := m.tryCopyRecordValue("2")
-			require.True(t, handled)
+	// A flash leaves the region holding nothing a plain document matches, so the
+	// redraw that ends it is not skipped as showing what is already there.
+	m.frame.Show(layout.RegionStage, newTextContent(md))
 
-			assert.Equal(t, tt.wantFlashed, recorder.respawnPanes, "the stage never flashes")
+	assert.Len(t, recorder.respawnPanes, 2)
+}
 
-			// A flash leaves the region holding nothing a plain document matches, so the
-			// redraw that ends it is not skipped as showing what is already there.
-			m.frame.Show(layout.RegionInfo, newTextContent(md))
+// stageFrame is a frame attached to a sidebar pane, so a record shown in the stage lands in
+// a pane of its own.
+func stageFrame(tmux *recordingTmux) *layout.Frame {
+	frame := layout.New(tmux, config.DefaultLayout())
+	frame.Attach("%0")
 
-			assert.Len(t, recorder.respawnPanes, len(tt.wantFlashed)+1)
-		})
-	}
+	return frame
 }

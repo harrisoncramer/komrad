@@ -77,7 +77,7 @@ const (
 const DefaultHarness = "claude"
 
 // The layout the panel lays itself out at when the config names none. The info pane opens
-// tall enough to work in without pushing the agent it is about off the screen.
+// tall enough to read a log in without pushing the agent above it off the screen.
 const (
 	DefaultSidebarSide  = SidebarSideLeft
 	DefaultSidebarWidth = 0.2
@@ -311,7 +311,7 @@ type Layout struct {
 	SidebarSide string `mapstructure:"sidebar_side"`
 	// How wide the panel's sidebar is, either a share of the popup's width below one or a whole number of columns.
 	SidebarWidth float64 `mapstructure:"sidebar_width"`
-	// Which side of the stage the info pane opens on, "below" or "above". That pane is where a record, the server log, and an editor are drawn.
+	// Which side of the stage the info pane opens on, "below" or "above". That pane is where the server log and an editor are drawn.
 	InfoSide string `mapstructure:"info_side"`
 	// How tall the info pane opens, either a share of the stage's height below one or a whole number of rows.
 	InfoHeight float64 `mapstructure:"info_height"`

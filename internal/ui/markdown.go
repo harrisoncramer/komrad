@@ -128,27 +128,15 @@ func agentFields(agent agentstore.Agent, schedule string) []recordField {
 	return fields
 }
 
-// agentMarkdown renders an agent's stored record for the stage, which is all there is of a
-// dormant agent and what a live one shows on demand, since its pane otherwise hides the
-// cwd and flags it was launched with. The values are as stored at launch.
-func agentMarkdown(agent agentstore.Agent, alive bool, schedule string) record {
-	var notice string
-	if !alive {
-		notice = "_dormant — not running_"
-	}
-
-	var footer string
+// agentMarkdown renders a dormant agent's stored record for the stage, which is all there is
+// of it while nothing is running in its name. The values are as stored at launch.
+func agentMarkdown(agent agentstore.Agent, schedule string) record {
+	footer := "Press open to resume."
 	if agent.Hidden {
-		footer = "Hidden from the list."
-	}
-	if !alive {
-		if footer != "" {
-			footer += "\n\n"
-		}
-		footer += "Press open to resume."
+		footer = "Hidden from the list.\n\n" + footer
 	}
 
-	return renderRecord(agent.Name, notice, agentFields(agent, schedule), "", footer)
+	return renderRecord(agent.Name, "_dormant — not running_", agentFields(agent, schedule), "", footer)
 }
 
 // actionMarkdown renders an action's record for the stage: its name and what its own header
