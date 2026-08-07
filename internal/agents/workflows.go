@@ -7,10 +7,19 @@ import (
 	"strings"
 
 	"weave/config"
-	"weave/internal/actions"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+)
+
+// worktreeSetupAction and worktreeCleanupAction are the built-in actions a worktree-enabled
+// workflow's setup_action and cleanup_action are pointed at. Both are shipped scripts,
+// internal/actions/builtin/_worktree_setup and _worktree_cleanup, that read the workflow's
+// worktree settings off the environment rather than off a script generated for it, so one
+// pair of actions serves every worktree-enabled workflow.
+const (
+	worktreeSetupAction   = "_worktree_setup"
+	worktreeCleanupAction = "_worktree_cleanup"
 )
 
 // ErrWorkflowHasSchedules reports that a workflow still has schedules launching
@@ -23,9 +32,9 @@ var ErrWorkflowHasSchedules = errors.New("workflow still has schedules")
 var ErrWorktreeNeedsCwd = errors.New("a worktree-enabled workflow needs a cwd naming the repo")
 
 // ErrWorktreeOwnsActions reports that a workflow turned worktree support on while also
-// naming a setup or cleanup action, which it does not need since it generates and names
-// its own.
-var ErrWorktreeOwnsActions = errors.New("a worktree-enabled workflow generates and names its own setup and cleanup actions, so both must be blank")
+// naming a setup or cleanup action, which it does not need since it points at the built-in
+// pair itself.
+var ErrWorktreeOwnsActions = errors.New("a worktree-enabled workflow points setup_action and cleanup_action at the built-in pair itself, so both must be blank")
 
 // workflowReadWriter is the part of the workflow store this service reads and writes.
 // Workflows are pure organisation, so this touches no tmux.
@@ -67,10 +76,6 @@ type WorkflowService struct {
 	// under, zero for no ceiling.
 	maxAgents int
 	notifier  parentNotifier
-	// load reads the user's config for the actions and worktrees directories a
-	// worktree-enabled workflow generates its scripts into, read per call rather than
-	// once so an edited config reaches the next create or update.
-	load configLoader
 }
 
 // WorkflowParams carries the workflow service's dependencies.
@@ -82,7 +87,6 @@ type WorkflowParams struct {
 	Tx        txRunner
 	MaxAgents int
 	Notifier  parentNotifier
-	Load      configLoader
 }
 
 // NewWorkflowService builds the service from its dependencies.
@@ -95,7 +99,6 @@ func NewWorkflowService(p WorkflowParams) *WorkflowService {
 		tx:        p.Tx,
 		maxAgents: p.MaxAgents,
 		notifier:  p.Notifier,
-		load:      p.Load,
 	}
 }
 
@@ -125,7 +128,7 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 	cfg.Worktree.BaseBranch = strings.TrimSpace(cfg.Worktree.BaseBranch)
 
 	if cfg.Worktree.Enabled {
-		if err := w.generateWorktreeScripts(&cfg); err != nil {
+		if err := setWorktreeActions(&cfg); err != nil {
 			return nil, err
 		}
 	}
@@ -141,11 +144,8 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 // UpdateWorkflow replaces a workflow's editable fields. A blank name falls back
 // to the one it already has, so the list never renders an unlabelled bucket.
 //
-// Turning worktree support on regenerates its two scripts even if nothing about the
-// worktree config changed, since a script is cheap to rewrite and this is the one path
-// that keeps it in step with an edited base branch or copy and symlink list. Turning it
-// off clears the setup and cleanup actions only when they still name the scripts this
-// workflow generated, leaving alone anything a caller pointed at something else since.
+// Turning worktree support off clears the setup and cleanup actions only when they still
+// name the built-in pair, leaving alone anything a caller pointed at something else since.
 func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg workflowstore.Config) error {
 	existing, err := w.GetWorkflow(ctx, id)
 	if err != nil {
@@ -155,7 +155,6 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 		return fmt.Errorf("%w: %q", ErrWorkflowNotFound, id)
 	}
 
-	cfg.ID = id
 	cfg.Name = strings.TrimSpace(cfg.Name)
 	if cfg.Name == "" {
 		cfg.Name = existing.Name
@@ -169,14 +168,14 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 
 	switch {
 	case cfg.Worktree.Enabled:
-		if err := w.generateWorktreeScripts(&cfg); err != nil {
+		if err := setWorktreeActions(&cfg); err != nil {
 			return err
 		}
 	case existing.Worktree.Enabled:
-		if cfg.SetupAction == worktreeSetupName(id) {
+		if cfg.SetupAction == worktreeSetupAction {
 			cfg.SetupAction = ""
 		}
-		if cfg.CleanupAction == worktreeCleanupName(id) {
+		if cfg.CleanupAction == worktreeCleanupAction {
 			cfg.CleanupAction = ""
 		}
 	}
@@ -188,12 +187,10 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	return nil
 }
 
-// generateWorktreeScripts writes the two scripts a worktree-enabled workflow points its
-// setup and cleanup actions at, naming them after cfg.ID, minted here when cfg carries
-// none yet. cfg.Cwd is the repo they are generated against, so it has to be set, and
-// cfg.SetupAction and cfg.CleanupAction have to be blank going in, since weave is about to
-// name them itself.
-func (w *WorkflowService) generateWorktreeScripts(cfg *workflowstore.Config) error {
+// setWorktreeActions points a worktree-enabled config's setup and cleanup actions at the
+// built-in pair, refusing one that already names its own since weave is about to overwrite
+// it, and one with no cwd since that is the repo the built-in scripts work against.
+func setWorktreeActions(cfg *workflowstore.Config) error {
 	if cfg.Cwd == "" {
 		return ErrWorktreeNeedsCwd
 	}
@@ -201,47 +198,8 @@ func (w *WorkflowService) generateWorktreeScripts(cfg *workflowstore.Config) err
 		return ErrWorktreeOwnsActions
 	}
 
-	if cfg.ID == "" {
-		id, err := store.NewID()
-		if err != nil {
-			return err
-		}
-
-		cfg.ID = id
-	}
-
-	loaded, err := w.load()
-	if err != nil {
-		return fmt.Errorf("failed to read the config: %w", err)
-	}
-
-	actionsDir, err := loaded.GetActionsDir()
-	if err != nil {
-		return err
-	}
-
-	worktreesDir, err := loaded.GetWorktreesDir()
-	if err != nil {
-		return err
-	}
-
-	params := worktreeScriptParams{
-		Repo:         cfg.Cwd,
-		WorktreesDir: worktreesDir,
-		BaseBranch:   cfg.Worktree.BaseBranch,
-		CopyPaths:    cfg.Worktree.CopyPaths,
-		SymlinkPaths: cfg.Worktree.SymlinkPaths,
-	}
-
-	if err := actions.WriteGenerated(actionsDir, worktreeSetupName(cfg.ID), renderWorktreeSetupScript(params)); err != nil {
-		return err
-	}
-	if err := actions.WriteGenerated(actionsDir, worktreeCleanupName(cfg.ID), renderWorktreeCleanupScript(params)); err != nil {
-		return err
-	}
-
-	cfg.SetupAction = worktreeSetupName(cfg.ID)
-	cfg.CleanupAction = worktreeCleanupName(cfg.ID)
+	cfg.SetupAction = worktreeSetupAction
+	cfg.CleanupAction = worktreeCleanupAction
 
 	return nil
 }

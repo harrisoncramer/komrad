@@ -56,7 +56,6 @@ RETURNING
 
 -- name: InsertWorkflow :one
 INSERT INTO workflows(
-    id,
     name,
     context,
     setup_action,
@@ -67,7 +66,6 @@ INSERT INTO workflows(
     worktree_symlink_paths,
     workflow_config_id)
 VALUES (
-    @id,
     @name,
     @context,
     @setup_action,

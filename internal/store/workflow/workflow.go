@@ -50,10 +50,6 @@ type Workflow struct {
 // context, the actions run around its agents' lives, and the harness, cwd, and flags
 // seeded into agents created inside it.
 type Config struct {
-	// ID is minted by Create when blank. A caller that generates the two worktree
-	// scripts before the row exists, since their names carry the workflow's id, sets
-	// this itself so the id it names them after is the one the row gets.
-	ID            string
 	Name          string
 	Context       string
 	Harness       string
@@ -155,20 +151,8 @@ func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 
 // Create inserts a workflow together with the config row holding the harness, cwd,
 // and flags new agents inside it inherit, and returns it. Both rows must land
-// together, so a caller outside a transaction gets one through InTx. The id is minted
-// here when cfg carries none, and taken as given otherwise, which is what lets a
-// caller generate something that names the id, such as the two worktree scripts,
-// before the row exists.
+// together, so a caller outside a transaction gets one through InTx.
 func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
-	if cfg.ID == "" {
-		id, err := store.NewID()
-		if err != nil {
-			return nil, err
-		}
-
-		cfg.ID = id
-	}
-
 	configID, err := s.queries.InsertWorkflowConfig(ctx, models.InsertWorkflowConfigParams{
 		Harness: cfg.Harness,
 		Cwd:     cfg.Cwd,
@@ -179,7 +163,6 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 	}
 
 	row, err := s.queries.InsertWorkflow(ctx, models.InsertWorkflowParams{
-		ID:                   cfg.ID,
 		Name:                 cfg.Name,
 		Context:              cfg.Context,
 		SetupAction:          cfg.SetupAction,

@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"weave/config"
 	"weave/internal/agents"
 	"weave/internal/storetest"
 	paginationv1 "weave/proto/gen/pagination/v1"
@@ -488,19 +487,12 @@ func service(t *testing.T) (*Service, *storetest.Stores) {
 	t.Helper()
 
 	st := storetest.Open(t)
-	actionsDir, worktreesDir := t.TempDir(), t.TempDir()
 	manager := agents.NewWorkflowService(agents.WorkflowParams{
 		Workflows: st.Workflows,
 		Agents:    st.Agents,
 		Schedules: st.Schedules,
 		Tmux:      idlePanes{},
 		Tx:        st.Pool,
-		Load: func() (*config.Config, error) {
-			return &config.Config{
-				Actions:   config.Actions{Dir: actionsDir},
-				Worktrees: config.Worktrees{Dir: worktreesDir},
-			}, nil
-		},
 	})
 
 	return NewService(st.Workflows, manager), st

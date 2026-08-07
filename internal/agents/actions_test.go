@@ -158,6 +158,90 @@ func TestRunActionPayload(t *testing.T) {
 	assert.NotContains(t, values["WEAVE_AGENT"], "transcript", "a transcript is far past what an environment holds")
 }
 
+// TestRunActionCarriesWorktreeEnvOnlyWhenEnabled covers the environment the two built-in
+// worktree actions read their config from: present, and reflecting the workflow's own
+// settings, when its worktree toggle is on, and absent entirely otherwise, since most
+// workflows are not worktrees and should not carry them.
+func TestRunActionCarriesWorktreeEnvOnlyWhenEnabled(t *testing.T) {
+	tests := []struct {
+		name     string
+		worktree workflowstore.WorktreeConfig
+		wantKeys []string
+	}{
+		{
+			name: "disabled carries none of the worktree keys",
+		},
+		{
+			name: "enabled carries all four, reflecting the workflow's own config",
+			worktree: workflowstore.WorktreeConfig{
+				Enabled:      true,
+				BaseBranch:   "develop",
+				CopyPaths:    []string{".env", "config/local.json"},
+				SymlinkPaths: []string{"node_modules"},
+			},
+			wantKeys: []string{
+				"WEAVE_WORKTREES_DIR",
+				"WEAVE_WORKTREE_BASE_BRANCH",
+				"WEAVE_WORKTREE_COPY_PATHS",
+				"WEAVE_WORKTREE_SYMLINK_PATHS",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actionsDir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(actionsDir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
+			worktreesDir := t.TempDir()
+
+			runner := &recordingRunner{}
+			service := NewActionService(ActionParams{
+				Agents: fakeAgentReader{agent: &agentstore.Agent{ID: "a1", Cwd: "/repo", WorkflowID: "w1"}},
+				Workflows: fakeWorkflowReader{workflow: &workflowstore.Workflow{
+					ID: "w1", Name: "backend", Worktree: tt.worktree,
+				}},
+				Tmux:   fakePaneOwner{},
+				Runner: runner,
+				Load: func() (*config.Config, error) {
+					cfg := config.Defaults()
+					cfg.Actions.Dir = actionsDir
+					cfg.Worktrees.Dir = worktreesDir
+
+					return cfg, nil
+				},
+			})
+
+			require.NoError(t, service.RunAction(context.Background(), "a1", "open-pr"))
+
+			values := map[string]string{}
+			for _, entry := range runner.env {
+				key, value, found := strings.Cut(entry, "=")
+				require.True(t, found)
+				values[key] = value
+			}
+
+			if len(tt.wantKeys) == 0 {
+				for _, key := range []string{"WEAVE_WORKTREES_DIR", "WEAVE_WORKTREE_BASE_BRANCH", "WEAVE_WORKTREE_COPY_PATHS", "WEAVE_WORKTREE_SYMLINK_PATHS"} {
+					_, ok := values[key]
+					assert.False(t, ok, "%s is not set for a workflow with worktree support off", key)
+				}
+
+				return
+			}
+
+			for _, key := range tt.wantKeys {
+				_, ok := values[key]
+				assert.True(t, ok, "%s is missing", key)
+			}
+
+			assert.Equal(t, worktreesDir, values["WEAVE_WORKTREES_DIR"])
+			assert.Equal(t, "develop", values["WEAVE_WORKTREE_BASE_BRANCH"])
+			assert.Equal(t, ".env\nconfig/local.json", values["WEAVE_WORKTREE_COPY_PATHS"])
+			assert.Equal(t, "node_modules", values["WEAVE_WORKTREE_SYMLINK_PATHS"])
+		})
+	}
+}
+
 // TestRunActionNamesAnArchivedWorkflow covers the label on an agent whose workflow has been
 // archived. The agent still belongs to it, and a script told nothing cannot tell that from a
 // workflow with no name.

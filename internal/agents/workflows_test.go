@@ -1,8 +1,6 @@
 package agents
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"weave/internal/store"
@@ -13,15 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// assertExecutableFileExists checks a generated action landed on disk and is runnable.
-func assertExecutableFileExists(t *testing.T, path string) {
-	t.Helper()
-
-	info, err := os.Stat(path)
-	require.NoError(t, err)
-	assert.NotZero(t, info.Mode().Perm()&0o111)
-}
 
 func TestNewWorkflow(t *testing.T) {
 	tests := []struct {
@@ -107,14 +96,14 @@ func TestUpdateWorkflow(t *testing.T) {
 }
 
 // TestNewWorkflowWithWorktree covers the validation a worktree-enabled create is held to,
-// and that enabling it writes the two generated scripts and points setup and cleanup at
-// them, both refused before anything asks the store to insert a mock of a workflow that
-// half-generated.
+// and that enabling it points setup and cleanup at the built-in pair.
 func TestNewWorkflowWithWorktree(t *testing.T) {
 	tests := []struct {
-		name      string
-		cfg       workflowstore.Config
-		wantErrIs error
+		name        string
+		cfg         workflowstore.Config
+		wantErrIs   error
+		wantSetup   string
+		wantCleanup string
 	}{
 		{
 			name:      "enabling it with no cwd is refused, since there is no repo to work against",
@@ -122,7 +111,7 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 			wantErrIs: ErrWorktreeNeedsCwd,
 		},
 		{
-			name: "enabling it alongside a setup action is refused, since weave names its own",
+			name: "enabling it alongside a setup action is refused, since it would overwrite it",
 			cfg: workflowstore.Config{
 				Name:        "backend",
 				Cwd:         "/repo",
@@ -141,55 +130,38 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 			},
 			wantErrIs: ErrWorktreeOwnsActions,
 		},
+		{
+			name: "enabling it points setup and cleanup at the built-in pair",
+			cfg: workflowstore.Config{
+				Name:     "backend",
+				Cwd:      "/repo",
+				Worktree: workflowstore.WorktreeConfig{Enabled: true, CopyPaths: []string{".env"}},
+			},
+			wantSetup:   worktreeSetupAction,
+			wantCleanup: worktreeCleanupAction,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 
-			_, err := workflowsFor(st, newFakeTmux()).NewWorkflow(t.Context(), tt.cfg)
-			require.ErrorIs(t, err, tt.wantErrIs)
+			created, err := workflowsFor(st, newFakeTmux()).NewWorkflow(t.Context(), tt.cfg)
+			if tt.wantErrIs != nil {
+				require.ErrorIs(t, err, tt.wantErrIs)
+				return
+			}
 
-			entries, readErr := os.ReadDir(st.actionsDir)
-			require.NoError(t, readErr)
-			assert.Empty(t, entries, "a refused create writes nothing into the actions directory")
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantSetup, created.SetupAction)
+			assert.Equal(t, tt.wantCleanup, created.CleanupAction)
 		})
 	}
 }
 
-// TestNewWorkflowGeneratesWorktreeScripts covers the create that succeeds: the two scripts
-// land in the actions directory named after the new workflow's own id, and setup_action and
-// cleanup_action are pointed at them.
-func TestNewWorkflowGeneratesWorktreeScripts(t *testing.T) {
-	st := newStore(t)
-
-	created, err := workflowsFor(st, newFakeTmux()).NewWorkflow(t.Context(), workflowstore.Config{
-		Name: "backend",
-		Cwd:  "/repo",
-		Worktree: workflowstore.WorktreeConfig{
-			Enabled:   true,
-			CopyPaths: []string{".env"},
-		},
-	})
-	require.NoError(t, err)
-
-	wantSetup := worktreeSetupName(created.ID)
-	wantCleanup := worktreeCleanupName(created.ID)
-	assert.Equal(t, wantSetup, created.SetupAction)
-	assert.Equal(t, wantCleanup, created.CleanupAction)
-
-	assertExecutableFileExists(t, filepath.Join(st.actionsDir, wantSetup))
-	assertExecutableFileExists(t, filepath.Join(st.actionsDir, wantCleanup))
-
-	setupScript, err := os.ReadFile(filepath.Join(st.actionsDir, wantSetup))
-	require.NoError(t, err)
-	assert.Contains(t, string(setupScript), "/repo")
-	assert.Contains(t, string(setupScript), ".env")
-}
-
 // TestUpdateWorkflowWorktree covers turning worktree support on through an update, and
 // turning it back off: off has to clear setup_action and cleanup_action when they still
-// name the generated scripts, and leave them alone when a caller has since pointed them at
+// name the built-in pair, and leave them alone when a caller has since pointed them at
 // something else.
 func TestUpdateWorkflowWorktree(t *testing.T) {
 	st := newStore(t)
@@ -207,18 +179,16 @@ func TestUpdateWorkflowWorktree(t *testing.T) {
 
 	afterEnable, err := st.GetWorkflow(t.Context(), created.ID)
 	require.NoError(t, err)
-	wantSetup := worktreeSetupName(created.ID)
-	wantCleanup := worktreeCleanupName(created.ID)
-	assert.Equal(t, wantSetup, afterEnable.SetupAction)
-	assert.Equal(t, wantCleanup, afterEnable.CleanupAction)
+	assert.Equal(t, worktreeSetupAction, afterEnable.SetupAction)
+	assert.Equal(t, worktreeCleanupAction, afterEnable.CleanupAction)
 
 	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{Name: "backend", Cwd: "/repo"})
 	require.NoError(t, err)
 
 	afterDisable, err := st.GetWorkflow(t.Context(), created.ID)
 	require.NoError(t, err)
-	assert.Empty(t, afterDisable.SetupAction, "disabling clears the generated setup action")
-	assert.Empty(t, afterDisable.CleanupAction, "disabling clears the generated cleanup action")
+	assert.Empty(t, afterDisable.SetupAction, "disabling clears the built-in setup action")
+	assert.Empty(t, afterDisable.CleanupAction, "disabling clears the built-in cleanup action")
 }
 
 // TestUpdateWorkflowWorktreeDisableKeepsAHandWrittenOverride covers a caller who pointed

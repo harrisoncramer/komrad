@@ -210,7 +210,6 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Tx:        pool,
 		MaxAgents: p.MaxAgents,
 		Notifier:  mailService,
-		Load:      loadConfig,
 	})
 	scheduleService := agents.NewScheduleService(agents.ScheduleParams{
 		Schedules: scheduleStore,

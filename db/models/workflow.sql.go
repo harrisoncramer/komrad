@@ -102,7 +102,6 @@ func (q *Queries) GetWorkflowIncludingArchived(ctx context.Context, id string) (
 
 const insertWorkflow = `-- name: InsertWorkflow :one
 INSERT INTO workflows(
-    id,
     name,
     context,
     setup_action,
@@ -121,14 +120,12 @@ VALUES (
     $6,
     $7,
     $8,
-    $9,
-    $10)
+    $9)
 RETURNING
     id, name, context, setup_action, cleanup_action, workflow_config_id, archived_at, created_at, updated_at, worktree_enabled, worktree_base_branch, worktree_copy_paths, worktree_symlink_paths
 `
 
 type InsertWorkflowParams struct {
-	ID                   string
 	Name                 string
 	Context              string
 	SetupAction          string
@@ -142,7 +139,6 @@ type InsertWorkflowParams struct {
 
 func (q *Queries) InsertWorkflow(ctx context.Context, arg InsertWorkflowParams) (*Workflow, error) {
 	row := q.db.QueryRow(ctx, insertWorkflow,
-		arg.ID,
 		arg.Name,
 		arg.Context,
 		arg.SetupAction,
