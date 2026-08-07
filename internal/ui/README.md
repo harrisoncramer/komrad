@@ -79,28 +79,18 @@ its own window is nobody else's business.
 
 ## The files
 
-The names carry the grouping, so listing the directory says what the package is made of.
+Screens, each holding its own rows, keys, and view: agents.go, with tree.go for the rows and
+the cursor, workflows.go for the keys that act on a folder header, and selection.go for the
+multi-select. Then archive.go, schedules.go, search.go, and actions.go.
 
-model.go, update.go, view.go, and popup.go are the panel itself, the three ends of the loop
-and the window it is drawn in.
+Shared concerns: api.go, filter.go, forms.go, help.go, info.go, logs.go, refresh.go, keys.go,
+clipboard.go, report.go, convert.go.
 
-screen_ is one screen each: agents, archive, schedules, search, actions. The agents screen is
-large enough to have its own parts, which are agents_tree.go for the rows and the cursor,
-agents_workflows.go for the keys that act on a folder header, and agents_selection.go for the
-multi-select.
-
-shared_ is what sits across the screens on purpose: api, filter, forms, help, info, logs,
-refresh, keys, clipboard, report, and convert.
-
-render_ is presentation that holds no panel state at all: content, list, markdown, palette,
-snippet, and style, alongside render.go itself.
+Presentation, holding no panel state at all: content.go, list.go, markdown.go, palette.go,
+render.go, snippet.go, style.go.
 
 The frame is its own package, internal/ui/layout, which owns the panes the panel lays out
 around itself and is the only thing here that talks to tmux.
-
-These are filename prefixes rather than packages on purpose. Splitting the rendering out was
-measured and rejected: thirty-eight of its sixty-eight declarations are used by the screens,
-because screens render, so the boundary would have been a wall with thirty-eight doors.
 
 ## Why the errors live in another package
 
