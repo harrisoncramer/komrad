@@ -347,7 +347,10 @@ func (e worktreeEnv) toEnv() []string {
 }
 
 // runBuiltin installs this build's builtins to a temp directory, finds name among them,
-// and runs it to completion the way weave's own action runner does.
+// and runs it to completion the way weave's own action runner does. _worktree_setup names
+// its directory through WEAVE_SETUP_DIR_FILE rather than stdout, per docs/actions.md; the
+// returned Result carries that file's content as Stdout so callers can keep asserting on it
+// the same way regardless of which builtin they ran.
 func runBuiltin(t *testing.T, name string, env worktreeEnv) (Result, error) {
 	t.Helper()
 
@@ -365,11 +368,21 @@ func runBuiltin(t *testing.T, name string, env worktreeEnv) (Result, error) {
 	}
 	require.NotNil(t, found, "%s is not a builtin action", name)
 
-	return NewRunner().RunAndWait(context.Background(), RunParams{
+	dirFile, err := os.CreateTemp(t.TempDir(), "setup-dir-*")
+	require.NoError(t, err)
+	require.NoError(t, dirFile.Close())
+
+	result, runErr := NewRunner().RunAndWait(context.Background(), RunParams{
 		Action: *found,
 		Dir:    found.GetDir(),
-		Env:    env.toEnv(),
+		Env:    append(env.toEnv(), "WEAVE_SETUP_DIR_FILE="+dirFile.Name()),
 	})
+
+	if named, readErr := os.ReadFile(dirFile.Name()); readErr == nil {
+		result.Stdout = named
+	}
+
+	return result, runErr
 }
 
 func initRepo(t *testing.T) string {

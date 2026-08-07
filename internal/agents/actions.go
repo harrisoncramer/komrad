@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -180,6 +181,12 @@ const setupTimeout = 10 * time.Minute
 
 const maxSetupDir = 4096
 
+// setupDirFileVar names the environment variable a setup or resume action is handed, pointing
+// at an empty file it may write the agent's new directory into. This is a channel of its own
+// rather than stdout, since stdout is also where a script's own output and whatever it shells
+// out to land, and any of that arriving first would otherwise be taken as the answer.
+const setupDirFileVar = "WEAVE_SETUP_DIR_FILE"
+
 // RunSetupAction runs a setup action before creating an agent.
 func (s *ActionService) RunSetupAction(ctx context.Context, agent agentstore.Agent, name string) (string, error) {
 	return s.runAwaitedAction(ctx, prepareParams{agent: agent, name: name, trigger: TriggerSetup})
@@ -195,6 +202,24 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams) (
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrSetupFailed, err)
 	}
+
+	dirFile, err := os.CreateTemp("", "weave-setup-dir-*")
+	if err != nil {
+		return "", fmt.Errorf("%w: failed to prepare a place for %s to name its directory: %w", ErrSetupFailed, p.name, err)
+	}
+	dirPath := dirFile.Name()
+	closeErr := dirFile.Close()
+	defer func() {
+		if removeErr := os.Remove(dirPath); removeErr != nil && !errors.Is(removeErr, fs.ErrNotExist) {
+			s.actionLogger(ctx, p.name, p.trigger, p.agent).LogAttrs(ctx, slog.LevelWarn,
+				"failed to remove the setup action's directory file", logging.Err(removeErr)...)
+		}
+	}()
+	if closeErr != nil {
+		return "", fmt.Errorf("%w: failed to prepare a place for %s to name its directory: %w", ErrSetupFailed, p.name, closeErr)
+	}
+
+	env = append(env, setupDirFileVar+"="+dirPath)
 
 	logger := s.actionLogger(ctx, p.name, p.trigger, p.agent)
 	logger.LogAttrs(ctx, slog.LevelInfo, "action started")
@@ -221,9 +246,14 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams) (
 		return "", fmt.Errorf("%w: %w%s", ErrSetupFailed, err, stderrDetail(result.Stderr))
 	}
 
-	answered := string(bytes.TrimSpace(result.Stdout))
+	named, err := os.ReadFile(dirPath)
+	if err != nil {
+		return "", fmt.Errorf("%w: failed to read the directory %s named: %w", ErrSetupFailed, p.name, err)
+	}
+
+	answered := string(bytes.TrimSpace(named))
 	if len(answered) > maxSetupDir {
-		return "", fmt.Errorf("%w: %s wrote %d bytes to stdout, where a directory to run in was expected. Progress belongs on stderr", ErrSetupFailed, p.name, len(answered))
+		return "", fmt.Errorf("%w: %s wrote %d bytes to %s, where a directory to run in was expected", ErrSetupFailed, p.name, len(answered), setupDirFileVar)
 	}
 
 	return answered, nil

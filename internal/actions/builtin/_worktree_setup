@@ -57,4 +57,4 @@ else
 	apply_paths "$WEAVE_WORKTREE_SYMLINK_PATHS" symlink || true
 fi
 
-echo "$tree"
+printf '%s' "$tree" >"$WEAVE_SETUP_DIR_FILE"

@@ -26,6 +26,7 @@ The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`,
 - `WEAVE_TMUX_SOCKET`, the tmux server every agent's pane lives on
 - `WEAVE_ACTIONS_DIR`, the directory the action came out of, which is how a script that cds elsewhere finds its siblings again.
 - `WEAVE_TRIGGER`, what set the action off. One of `manual`, `setup`, `resume`, or `cleanup`.
+- `WEAVE_SETUP_DIR_FILE`, only on `setup` and `resume`: an empty file the action may write the agent's new directory into. See below.
 - `WEAVE_ACTION`, this action's own name, for tagging its own log lines.
 - `WEAVE_INFO_PANE`, the panel's info pane, for a script that wants to draw something where the panel's own actions do.
 - `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup.
@@ -61,6 +62,18 @@ This action will abort and fail if it cannot execute within 1 second.
 Every [workflow](workflows.md) can name one action to run before each of its agents starts. This is the one place where the action is synchronous, as the launch waits for it.
 
 The same action runs with `WEAVE_TRIGGER=resume` if an agent is resumed later, such as when an agent is unarchived and restored.
+
+If it exits zero, weave reads `WEAVE_SETUP_DIR_FILE`, trims it, and uses that as the directory the agent runs in. Write nothing and the agent keeps the directory the workflow or the form chose. This is a file rather than stdout, so a script's own output, and whatever it shells out to, never gets mistaken for the answer:
+
+```sh
+#!/bin/sh
+set -eu
+
+tree="$HOME/trees/$WEAVE_AGENT_ID"
+echo "creating a worktree at $tree" # fine, this is just output
+
+printf '%s' "$tree" >"$WEAVE_SETUP_DIR_FILE"
+```
 
 ### As a workflow's cleanup action
 

@@ -41,7 +41,7 @@ The setup action is the part worth being precise about, because a launch waits o
 
 It runs before the tmux window is opened, since where that window opens is one of the things setup gets to decide. It blocks, with a ten minute ceiling. If it exits non-zero, the launch is abandoned: no window, no row, no agent, and the error comes back to you with whatever the script wrote on stderr. Nothing is left behind to clean up, so the cleanup action does not fire either.
 
-If it exits zero, whatever it printed on stdout, trimmed, is the directory the agent runs in. Print nothing and the agent runs in the directory the workflow or the form chose. This is why progress messages go on stderr: stdout is a directory, and a script that chats there is refused rather than taken at its word. If it prints something that is not a usable directory, the launch is abandoned and the cleanup action does fire, since setup may already have built something.
+If it exits zero, weave reads `WEAVE_SETUP_DIR_FILE`, an empty file it created and handed the script in its environment. Whatever the script wrote there, trimmed, is the directory the agent runs in. Write nothing and the agent runs in the directory the workflow or the form chose. This file is a channel of its own rather than stdout, since stdout is also where a script's own output and whatever it shells out to land, and none of that is meant to be taken as the answer. If it names something that is not a usable directory, the launch is abandoned and the cleanup action does fire, since setup may already have built something.
 
 The script gets `WEAVE_TRIGGER=setup` on a create and `WEAVE_TRIGGER=resume` when a dormant agent is coming back. Same script, both times. Resume matters because archiving an agent leaves whatever setup built alone, and a worktree can easily be gone by the time you bring the agent back. What your script does about a workspace that is still there is its own call.
 
@@ -70,7 +70,7 @@ Worktree copy paths      .env
 Worktree symlink paths   node_modules
 ```
 
-Submitting points the workflow's setup and cleanup actions at two built-in scripts, `_worktree_setup` and `_worktree_cleanup`, shipped with weave the same way `_edit_action` is rather than written out per workflow. Nothing else about the workflow's lifecycle changes: setup still blocks a launch and its stdout still names the directory the agent opens in, cleanup still runs best-effort on delete. The base branch and the two path lists live on the workflow's own row and are what those two scripts read at the moment they run; they are not settings on the actions themselves, since one pair of built-ins serves every worktree workflow.
+Submitting points the workflow's setup and cleanup actions at two built-in scripts, `_worktree_setup` and `_worktree_cleanup`, shipped with weave the same way `_edit_action` is rather than written out per workflow. Nothing else about the workflow's lifecycle changes: setup still blocks a launch and still names the directory the agent opens in, cleanup still runs best-effort on delete. The base branch and the two path lists live on the workflow's own row and are what those two scripts read at the moment they run; they are not settings on the actions themselves, since one pair of built-ins serves every worktree workflow.
 
 Setup fetches the base branch when the repo has a remote, adds the worktree at a path under your `[worktrees].dir` (`~/.local/state/weave/worktrees` unless you have configured otherwise) named after the agent's id, and applies the copy and symlink paths, one repo-relative path per line: a copy path is a file such as `.env` written into the worktree, and a symlink path is a directory such as `node_modules` linked back to the repo instead of duplicated. A path that is not in the repo is skipped with a warning on stderr rather than failing the whole setup. All of that happens only for a worktree the run itself made, so on `WEAVE_TRIGGER=resume` a worktree that is still there is left exactly as the agent left it. Cleanup removes the worktree and its branch, both best-effort, since a workflow's cleanup action must not block a delete.
 
@@ -96,10 +96,10 @@ if [ ! -d "$tree" ]; then
   git -C "$repo" worktree add -b "agent/$WEAVE_AGENT_ID" "$tree" main >&2
 fi
 
-echo "$tree"
+printf '%s' "$tree" >"$WEAVE_SETUP_DIR_FILE"
 ```
 
-Note the two rules. Everything chatty goes to stderr with `>&2`, including git's own output. The only thing on stdout is the path, and that is what the agent's pane opens in. The existence check is what makes it safe on `WEAVE_TRIGGER=resume`, where the tree is usually still there.
+Note the rule. Everything the script prints, on stdout or stderr, is just output; it can chat freely, including git's own. The only thing that decides the agent's directory is what ends up in the file named by `WEAVE_SETUP_DIR_FILE`. The existence check is what makes it safe on `WEAVE_TRIGGER=resume`, where the tree is usually still there.
 
 Then `~/.config/weave/actions/drop-worktree`:
 

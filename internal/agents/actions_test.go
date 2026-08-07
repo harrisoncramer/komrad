@@ -436,21 +436,21 @@ func TestRunSetupAction(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "one that chats on stdout is refused rather than believed",
+			name:    "one that writes too much to its dir file is refused rather than believed",
 			action:  "loud",
-			result:  runResult{stdout: strings.Repeat("a", maxSetupDir+1)},
+			result:  runResult{dirFile: strings.Repeat("a", maxSetupDir+1)},
 			wantRan: []string{"loud"},
 			wantErr: true,
 		},
 		{
-			name:    "an action that says nothing names no directory",
+			name:    "an action that names nothing names no directory",
 			action:  "install-deps",
 			wantRan: []string{"install-deps"},
 		},
 		{
-			name:    "what it writes to stdout is where the agent runs",
+			name:    "what it writes to its dir file is where the agent runs",
 			action:  "make-worktree",
-			result:  runResult{stdout: "/work/api-auth\n"},
+			result:  runResult{dirFile: "/work/api-auth\n"},
 			wantDir: "/work/api-auth",
 			wantRan: []string{"make-worktree"},
 		},
@@ -657,7 +657,7 @@ func TestSetupActionLogsBothEnds(t *testing.T) {
 		},
 		{
 			name:   "one that worked carries what it said about itself",
-			result: runResult{stdout: "/repo/.worktrees/auth\n", stderr: "cloning\n"},
+			result: runResult{dirFile: "/repo/.worktrees/auth\n", stderr: "cloning\n"},
 			wantFields: map[string]any{
 				"process.exit.code":     float64(0),
 				"weave.action.stderr":   "cloning",
@@ -1080,9 +1080,11 @@ type recordingRunner struct {
 	results map[string]runResult
 }
 
-// runResult is what the fake answers one run with.
+// runResult is what the fake answers one run with. dirFile is what the fake writes into the
+// file named by WEAVE_SETUP_DIR_FILE, standing in for what a real setup action would write
+// there itself.
 type runResult struct {
-	stdout   string
+	dirFile  string
 	stderr   string
 	exitCode int
 	err      error
@@ -1116,9 +1118,26 @@ func (r *recordingRunner) RunAndWait(_ context.Context, p actions.RunParams) (ac
 
 	answer := r.results[p.Action.Name]
 
+	if path, ok := lookupEnv(p.Env, setupDirFileVar); ok && answer.dirFile != "" {
+		if err := os.WriteFile(path, []byte(answer.dirFile), 0o644); err != nil {
+			return actions.Result{}, err
+		}
+	}
+
 	return actions.Result{
-		Stdout:   []byte(answer.stdout),
 		Stderr:   []byte(answer.stderr),
 		ExitCode: answer.exitCode,
 	}, answer.err
+}
+
+// lookupEnv finds the value of key in a process environment slice shaped "KEY=value", the
+// same form RunParams.Env carries.
+func lookupEnv(env []string, key string) (string, bool) {
+	for _, entry := range env {
+		if name, value, found := strings.Cut(entry, "="); found && name == key {
+			return value, true
+		}
+	}
+
+	return "", false
 }
