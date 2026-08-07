@@ -77,6 +77,30 @@ func TestListCookbooksUserOverridesBuiltin(t *testing.T) {
 	t.Fatal("pr-reviewer was not found")
 }
 
+// TestCookbookCommandsBrokenByAnUnrelatedMalformedCookbook documents a gap rather than a fix:
+// one malformed cookbook.toml in the user's own directory breaks list and install for every
+// cookbook, including the built-ins, since List reads the user directory before the built-in
+// one and a parse error there is returned immediately rather than skipped. Neither call ever
+// reaches the server, so no fake or real one is needed to see it happen.
+func TestCookbookCommandsBrokenByAnUnrelatedMalformedCookbook(t *testing.T) {
+	state := testApp(t, "")
+
+	cfg, err := config.Load(state.configPaths)
+	require.NoError(t, err)
+	userDir, err := cfg.GetCookbooksDir()
+	require.NoError(t, err)
+
+	broken := filepath.Join(userDir, "broken")
+	require.NoError(t, os.MkdirAll(broken, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(broken, "cookbook.toml"), []byte("not valid toml [[[\n"), 0o644))
+
+	_, err = listCookbooks(state)
+	require.Error(t, err, "BUG: an unrelated broken cookbook should not hide the built-ins from weave cookbook list")
+
+	_, err = installCookbook(context.Background(), state, "worktree-agent", "")
+	require.Error(t, err, "BUG: installing a built-in should not be broken by an unrelated cookbook sitting in the user's own directory")
+}
+
 // existingWorkflow is one row newCookbookRPCServer's list_workflows stands in for, the shape
 // requireCookbookNotInstalled reads a name and id back out of.
 type existingWorkflow struct {

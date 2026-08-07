@@ -49,6 +49,23 @@ func TestDiscoverSkipsEntriesWithoutAManifest(t *testing.T) {
 	assert.Equal(t, "real", found[0].Name)
 }
 
+// TestDiscoverAbortsOnTheFirstBadManifest documents a gap rather than a fix: one malformed
+// cookbook.toml anywhere in a directory hides every cookbook in that directory, including
+// ones that parse perfectly well, since Discover returns the parse error immediately instead
+// of skipping just the broken one the way it already skips a directory with no manifest at all.
+func TestDiscoverAbortsOnTheFirstBadManifest(t *testing.T) {
+	dir := t.TempDir()
+	writeCookbook(t, dir, "good", "a perfectly fine cookbook", "")
+
+	broken := filepath.Join(dir, "broken")
+	require.NoError(t, os.MkdirAll(broken, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(broken, manifestName), []byte("not valid toml [[[\n"), 0o644))
+
+	_, err := Discover(dir)
+	require.Error(t, err, "BUG: a broken sibling should not prevent Discover from returning the good cookbook")
+	assert.Contains(t, err.Error(), "broken")
+}
+
 // TestListUserOverridesBuiltin covers the override order List and Find both promise: a
 // cookbook in an earlier directory wins over one of the same name in a later one, which is
 // what lets a user's own directory replace a built-in.
