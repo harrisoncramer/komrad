@@ -210,12 +210,13 @@ func (s *MailService) DeleteMail(ctx context.Context, ids []string) error {
 		return fmt.Errorf("failed to look up %d mail: %w", len(ids), err)
 	}
 	if len(found) != len(ids) {
-		present := make(map[string]bool, len(found))
-		for _, mail := range found {
-			present[mail.ID] = true
-		}
+		present := xslice.KeyBy(found, func(mail mailstore.Mail) string { return mail.ID })
 
-		missing := xslice.Filter(ids, func(id string) bool { return !present[id] })
+		missing := xslice.Filter(ids, func(id string) bool {
+			_, ok := present[id]
+
+			return !ok
+		})
 
 		return fmt.Errorf("%w: %s", ErrMailNotFound, describeMissing(missing))
 	}
