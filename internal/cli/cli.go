@@ -81,7 +81,7 @@ func NewRootCommand() *cobra.Command {
 			}
 			app.harnesses = harnessRegistry
 
-			app.marks = cfg.Marks
+			app.tags = cfg.Tags
 			app.layout = cfg.Layout
 			app.logLevel = cfg.Log.Level
 			app.logViewer = cfg.Log.Viewer

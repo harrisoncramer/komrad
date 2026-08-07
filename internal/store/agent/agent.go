@@ -58,7 +58,7 @@ type Agent struct {
 	ArchivedAt       *time.Time
 	NudgedAt         *time.Time
 	Hidden           bool
-	Mark             *string
+	Tag              *string
 	Metadata         []Metadata
 	SpawnedByAgentID *string
 	CreatedAt        time.Time
@@ -373,16 +373,16 @@ func (s *Store) ClearPane(ctx context.Context, id string) error {
 	return nil
 }
 
-// SetMarks updates the mark on the given agents and returns the number changed.
-func (s *Store) SetMarks(ctx context.Context, ids []string, mark *string) (int, error) {
+// SetTags updates the tag on the given agents and returns the number changed.
+func (s *Store) SetTags(ctx context.Context, ids []string, tag *string) (int, error) {
 	storable := keepStorableIDs(ids)
 	if len(storable) == 0 {
 		return 0, nil
 	}
 
-	updated, err := s.queries.SetAgentMarks(ctx, models.SetAgentMarksParams{Ids: storable, Mark: mark})
+	updated, err := s.queries.SetAgentTags(ctx, models.SetAgentTagsParams{Ids: storable, Tag: tag})
 	if err != nil {
-		return 0, fmt.Errorf("failed to mark %d agents: %w", len(storable), err)
+		return 0, fmt.Errorf("failed to tag %d agents: %w", len(storable), err)
 	}
 
 	return len(updated), nil
@@ -644,7 +644,7 @@ func agentFromRow(agent models.Agent) Agent {
 		ArchivedAt:       agent.ArchivedAt,
 		NudgedAt:         agent.NudgedAt,
 		Hidden:           agent.IsHidden,
-		Mark:             agent.Mark,
+		Tag:              agent.Tag,
 		SpawnedByAgentID: agent.SpawnedByAgentID,
 		CreatedAt:        agent.CreatedAt,
 		UpdatedAt:        agent.UpdatedAt,

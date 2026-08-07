@@ -423,80 +423,80 @@ func TestSetStateByID(t *testing.T) {
 	}
 }
 
-// TestSetMarks covers marking, changing a mark, clearing one, and who may carry one,
+// TestSetTags covers tagging, changing a tag, clearing one, and who may carry one,
 // over one agent and over several at once. A write that silently landed on nothing
-// would leave the caller believing they had marked agents that show no mark.
-func TestSetMarks(t *testing.T) {
+// would leave the caller believing they had tagged agents that show no tag.
+func TestSetTags(t *testing.T) {
 	tests := []struct {
 		name    string
 		create  int
 		archive bool
 		ids     func(created []Agent) []string
 		// before is put on every created agent ahead of the write, so a row can start
-		// from a mark rather than from nothing.
+		// from a tag rather than from nothing.
 		before     *string
-		mark       *string
-		wantMarked int
+		tag        *string
+		wantTagged int
 	}{
 		{
 			name: "an id no agent holds",
 			ids:  func([]Agent) []string { return []string{uuid.NewString()} },
-			mark: xptr.Ptr("●"),
+			tag:  xptr.Ptr("●"),
 		},
 		{
 			name: "a value that is not an id at all",
 			ids:  func([]Agent) []string { return []string{"not-an-id"} },
-			mark: xptr.Ptr("●"),
+			tag:  xptr.Ptr("●"),
 		},
 		{
-			name:    "an archived agent, which has no listing to be marked in",
+			name:    "an archived agent, which has no listing to be tagged in",
 			create:  1,
 			archive: true,
 			ids:     func(created []Agent) []string { return []string{created[0].ID} },
-			mark:    xptr.Ptr("●"),
+			tag:     xptr.Ptr("●"),
 		},
 		{
 			name:       "a value that is not an id, which must not take the agent beside it down",
 			create:     1,
 			ids:        func(created []Agent) []string { return []string{"not-an-id", created[0].ID} },
-			mark:       xptr.Ptr("●"),
-			wantMarked: 1,
+			tag:        xptr.Ptr("●"),
+			wantTagged: 1,
 		},
 		{
 			name:       "an id nobody holds beside one somebody does",
 			create:     1,
 			ids:        func(created []Agent) []string { return []string{created[0].ID, uuid.NewString()} },
-			mark:       xptr.Ptr("●"),
-			wantMarked: 1,
+			tag:        xptr.Ptr("●"),
+			wantTagged: 1,
 		},
 		{
-			name:       "marking a live agent",
+			name:       "tagging a live agent",
 			create:     1,
 			ids:        agentIDs,
-			mark:       xptr.Ptr("●"),
-			wantMarked: 1,
+			tag:        xptr.Ptr("●"),
+			wantTagged: 1,
 		},
 		{
-			name:       "marking several at once",
+			name:       "tagging several at once",
 			create:     3,
 			ids:        agentIDs,
-			mark:       xptr.Ptr("●"),
-			wantMarked: 3,
+			tag:        xptr.Ptr("●"),
+			wantTagged: 3,
 		},
 		{
-			name:       "moving several agents from one mark to another",
+			name:       "moving several agents from one tag to another",
 			create:     2,
 			ids:        agentIDs,
 			before:     xptr.Ptr("●"),
-			mark:       xptr.Ptr("✓"),
-			wantMarked: 2,
+			tag:        xptr.Ptr("✓"),
+			wantTagged: 2,
 		},
 		{
-			name:       "clearing the marks several agents carry",
+			name:       "clearing the tags several agents carry",
 			create:     2,
 			ids:        agentIDs,
 			before:     xptr.Ptr("●"),
-			wantMarked: 2,
+			wantTagged: 2,
 		},
 	}
 
@@ -516,17 +516,17 @@ func TestSetMarks(t *testing.T) {
 				created = append(created, *got)
 			}
 			if tt.before != nil {
-				marked, err := st.SetMarks(ctx, agentIDs(created), tt.before)
+				tagged, err := st.SetTags(ctx, agentIDs(created), tt.before)
 				require.NoError(t, err)
-				require.Equal(t, len(created), marked)
+				require.Equal(t, len(created), tagged)
 			}
 			if tt.archive {
 				require.NoError(t, st.archiveByName(ctx, created[0].Name))
 			}
 
-			marked, err := st.SetMarks(ctx, tt.ids(created), tt.mark)
+			tagged, err := st.SetTags(ctx, tt.ids(created), tt.tag)
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantMarked, marked)
+			assert.Equal(t, tt.wantTagged, tagged)
 
 			carrying := 0
 			for _, agent := range created {
@@ -534,12 +534,12 @@ func TestSetMarks(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, after)
 
-				if assert.ObjectsAreEqual(tt.mark, after.Mark) {
+				if assert.ObjectsAreEqual(tt.tag, after.Tag) {
 					carrying++
 				}
 			}
 
-			assert.Equal(t, tt.wantMarked, carrying)
+			assert.Equal(t, tt.wantTagged, carrying)
 		})
 	}
 }
@@ -892,10 +892,10 @@ func TestDeleteTakesMetadata(t *testing.T) {
 	assert.Empty(t, orphaned)
 }
 
-// TestSetStateByIDKeepsTheMark pins that a state write is only a state write. The
-// mark belongs to the user and the reconciler writes state constantly, so the two
+// TestSetStateByIDKeepsTheTag pins that a state write is only a state write. The
+// tag belongs to the user and the reconciler writes state constantly, so the two
 // share a row without touching each other.
-func TestSetStateByIDKeepsTheMark(t *testing.T) {
+func TestSetStateByIDKeepsTheTag(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
@@ -904,9 +904,9 @@ func TestSetStateByIDKeepsTheMark(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, created)
 
-	marked, err := st.SetMarks(ctx, []string{created.ID}, xptr.Ptr("●"))
+	tagged, err := st.SetTags(ctx, []string{created.ID}, xptr.Ptr("●"))
 	require.NoError(t, err)
-	require.Equal(t, 1, marked)
+	require.Equal(t, 1, tagged)
 
 	require.NoError(t, st.SetStateByID(ctx, created.ID, StateWaiting))
 
@@ -914,7 +914,7 @@ func TestSetStateByIDKeepsTheMark(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, after)
 	assert.Equal(t, StateWaiting, after.State)
-	assert.Equal(t, "●", *after.Mark, "a state write leaves the user's mark standing")
+	assert.Equal(t, "●", *after.Tag, "a state write leaves the user's tag standing")
 }
 
 // TestSetStateByIDStampsOnlyOnAChange covers what state_changed_at means. The

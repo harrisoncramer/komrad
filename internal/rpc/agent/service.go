@@ -41,7 +41,7 @@ type agentReadWriter interface {
 	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, archived bool) ([]agentstore.Agent, error)
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
-	SetMarks(ctx context.Context, ids []string, mark *string) (int, error)
+	SetTags(ctx context.Context, ids []string, tag *string) (int, error)
 	SetHidden(ctx context.Context, id string, hidden bool) (bool, error)
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 	Rename(ctx context.Context, id, name string) (bool, error)
@@ -158,19 +158,19 @@ func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.Get
 	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, s.launcher.IsAgentRunning(*agent)).Agent}), nil
 }
 
-// SetMarks marks every agent named, and an unset mark clears the ones they carry. A
+// SetTags tags every agent named, and an unset tag clears the ones they carry. A
 // request that reached nothing at all is an error rather than a quiet success, which would
-// leave the caller believing in a mark it never made.
+// leave the caller believing in a tag it never made.
 //
-// One that reached some of its ids is not an error. A mark is drawn on a row and nothing
+// One that reached some of its ids is not an error. A tag is drawn on a row and nothing
 // more, and an agent archived between the caller choosing it and the write landing has no
 // row left to draw one on.
-func (s *Service) SetMarks(ctx context.Context, req *connect.Request[agentv1.SetMarksRequest]) (*connect.Response[emptypb.Empty], error) {
-	marked, err := s.agents.SetMarks(ctx, req.Msg.GetIds(), req.Msg.Mark)
+func (s *Service) SetTags(ctx context.Context, req *connect.Request[agentv1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error) {
+	tagged, err := s.agents.SetTags(ctx, req.Msg.GetIds(), req.Msg.Tag)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set the mark: %w", err))
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set the tag: %w", err))
 	}
-	if marked == 0 {
+	if tagged == 0 {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("none of the %d ids given is a live agent", len(req.Msg.GetIds())))
 	}
 
@@ -178,7 +178,7 @@ func (s *Service) SetMarks(ctx context.Context, req *connect.Request[agentv1.Set
 }
 
 // SetHidden hides an agent from the panel's sidebar or brings it back. An id matching nothing
-// is an error, for the reason it is on a mark.
+// is an error, for the reason it is on a tag.
 func (s *Service) SetHidden(ctx context.Context, req *connect.Request[agentv1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error) {
 	changed, err := s.agents.SetHidden(ctx, req.Msg.GetId(), req.Msg.GetHidden())
 	if err != nil {
@@ -192,7 +192,7 @@ func (s *Service) SetHidden(ctx context.Context, req *connect.Request[agentv1.Se
 }
 
 // SetMetadata records one fact an agent found out about its own work, or clears the key
-// when the value is unset. An id matching nothing is an error, as it is on a mark, but
+// when the value is unset. An id matching nothing is an error, as it is on a tag, but
 // clearing a key nothing held is not: the agent asked for that key to be gone and it is.
 func (s *Service) SetMetadata(ctx context.Context, req *connect.Request[agentv1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error) {
 	changed, err := s.agents.SetMetadata(ctx, agentstore.SetMetadataParams{

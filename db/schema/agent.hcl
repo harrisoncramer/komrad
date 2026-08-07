@@ -434,11 +434,11 @@ table "agents" {
     null = true
     type = timestamptz
   }
-  # The mark the user put on this agent, null when it carries none. It holds the
+  # The tag the user put on this agent, null when it carries none. It holds the
   # glyph itself, since which glyphs exist is their config and the glyph is the
   # whole meaning. Only the person writes it, never the reconciler, since what an
   # agent is doing is already in state.
-  column "mark" {
+  column "tag" {
     null = true
     type = text
   }

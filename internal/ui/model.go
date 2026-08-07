@@ -66,8 +66,8 @@ type Deps struct {
 	Schedules   schedulev1connect.ScheduleServiceClient
 	Actions     actionv1connect.ActionServiceClient
 	Keys        config.Keybindings
-	// Marks are the marks the mark key steps an agent through, in the user's order.
-	Marks []config.Mark
+	// Tags are the tags the tag key steps an agent through, in the user's order.
+	Tags []config.Tag
 	// Layout is how the popup's width is divided between the list and the stage, and how
 	// much of the stage's height the pane under it takes when something opens there.
 	Layout config.Layout
@@ -185,8 +185,8 @@ type model struct {
 	// second press that acts, the way vim's gg waits. Any other key drops it.
 	topHeld bool
 
-	keys  config.Keybindings
-	marks []config.Mark
+	keys config.Keybindings
+	tags []config.Tag
 	// logPath is the service's log and logViewer is what the log key opens it in.
 	logPath      string
 	logViewer    string
@@ -207,7 +207,7 @@ func newModel(deps Deps) model {
 		logPath:         deps.LogPath,
 		logViewer:       deps.LogViewer,
 		keys:            deps.Keys,
-		marks:           deps.Marks,
+		tags:            deps.Tags,
 		configErr:       deps.ConfigErr,
 		startupErr:      deps.StartupErr,
 		startupFindings: deps.StartupFindings,

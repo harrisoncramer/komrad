@@ -46,7 +46,7 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 		ScheduleID: s.ScheduleId,
 		CreatedAt:  created,
 		ArchivedAt: archived,
-		Mark:       s.Mark,
+		Tag:        s.Tag,
 		Hidden:     s.GetHidden(),
 		Metadata:   metadata,
 	}

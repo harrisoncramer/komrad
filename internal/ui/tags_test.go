@@ -17,149 +17,149 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// marks are the configured marks the cases below step through, each in a colour of
+// tags are the configured tags the cases below step through, each in a colour of
 // its own so a row drawing the wrong one shows up.
-var marks = []config.Mark{
+var tags = []config.Tag{
 	{Glyph: "●", Color: "#F932A1"},
 	{Glyph: "◐", Color: "#0f0"},
 	{Glyph: "✓", Color: ""},
 }
 
-// TestNextMark walks the cycle the mark key drives. One key covers every mark and
+// TestNextTag walks the cycle the tag key drives. One key covers every tag and
 // clearing, so where it goes next is the whole behaviour.
-func TestNextMark(t *testing.T) {
+func TestNextTag(t *testing.T) {
 	tests := []struct {
 		name    string
 		current *string
-		marks   []config.Mark
+		tags    []config.Tag
 		want    *string
 	}{
 		{
-			name:  "an unmarked agent with nothing configured stays unmarked",
-			marks: nil,
-			want:  nil,
+			name: "an untagged agent with nothing configured stays untagged",
+			tags: nil,
+			want: nil,
 		},
 		{
-			name:    "a marked agent with nothing configured clears",
+			name:    "a tagged agent with nothing configured clears",
 			current: xptr.Ptr("●"),
-			marks:   nil,
+			tags:    nil,
 			want:    nil,
 		},
 		{
 			name:    "a glyph the config no longer lists clears, so the key is a way back out",
 			current: xptr.Ptr("★"),
-			marks:   marks,
+			tags:    tags,
 			want:    nil,
 		},
 		{
-			name:  "an unmarked agent takes the first mark",
-			marks: marks,
-			want:  xptr.Ptr("●"),
+			name: "an untagged agent takes the first tag",
+			tags: tags,
+			want: xptr.Ptr("●"),
 		},
 		{
-			name:    "a marked agent moves along the list",
+			name:    "a tagged agent moves along the list",
 			current: xptr.Ptr("◐"),
-			marks:   marks,
+			tags:    tags,
 			want:    xptr.Ptr("✓"),
 		},
 		{
-			name:    "the last mark clears rather than wrapping around",
+			name:    "the last tag clears rather than wrapping around",
 			current: xptr.Ptr("✓"),
-			marks:   marks,
+			tags:    tags,
 			want:    nil,
 		},
 		{
-			name:    "one configured mark leaves the key a toggle",
+			name:    "one configured tag leaves the key a toggle",
 			current: xptr.Ptr("●"),
-			marks:   []config.Mark{{Glyph: "●"}},
+			tags:    []config.Tag{{Glyph: "●"}},
 			want:    nil,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, nextMark(tt.current, tt.marks))
+			assert.Equal(t, tt.want, nextTag(tt.current, tt.tags))
 		})
 	}
 }
 
-// TestMarkColor covers which colour a glyph is drawn in, including the glyphs the
+// TestTagColor covers which colour a glyph is drawn in, including the glyphs the
 // config has nothing to say about. A colour comes back as lipgloss reads it, so a
 // configured name arrives here as the index it draws as.
-func TestMarkColor(t *testing.T) {
+func TestTagColor(t *testing.T) {
 	tests := []struct {
 		name  string
 		glyph string
-		marks []config.Mark
+		tags  []config.Tag
 		want  string
 	}{
 		{
 			name:  "a glyph the config does not list falls back to the default yellow",
 			glyph: "★",
-			marks: marks,
+			tags:  tags,
 			want:  "3",
 		},
 		{
 			name:  "so does one configured with no colour of its own",
 			glyph: "✓",
-			marks: marks,
+			tags:  tags,
 			want:  "3",
 		},
 		{
 			name:  "a configured colour is the one used",
 			glyph: "●",
-			marks: marks,
+			tags:  tags,
 			want:  "#F932A1",
 		},
 		{
 			name:  "including a three-digit one",
 			glyph: "◐",
-			marks: marks,
+			tags:  tags,
 			want:  "#0f0",
 		},
 		{
 			name:  "a colour named rather than given in hex draws as its index",
 			glyph: "◆",
-			marks: []config.Mark{{Glyph: "◆", Color: "brightcyan"}},
+			tags:  []config.Tag{{Glyph: "◆", Color: "brightcyan"}},
 			want:  "14",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, string(markColor(tt.glyph, tt.marks)))
+			assert.Equal(t, tt.want, string(tagColor(tt.glyph, tt.tags)))
 		})
 	}
 }
 
-// TestMarkedMark covers what a row draws. The glyph is the mark itself, so an agent
+// TestTaggedGlyph covers what a row draws. The glyph is the tag itself, so an agent
 // carrying one the config never listed still shows it rather than vanishing. Which
-// colour it takes is TestMarkColor's business, since lipgloss only writes the escape
+// colour it takes is TestTagColor's business, since lipgloss only writes the escape
 // when it decides the terminal has a profile.
-func TestMarkedMark(t *testing.T) {
+func TestTaggedGlyph(t *testing.T) {
 	tests := []struct {
 		name string
-		mark *string
+		tag  *string
 		want string
 	}{
 		{
-			name: "an unmarked agent draws nothing",
+			name: "an untagged agent draws nothing",
 		},
 		{
-			name: "a marked agent draws its glyph",
-			mark: xptr.Ptr("●"),
+			name: "a tagged agent draws its glyph",
+			tag:  xptr.Ptr("●"),
 			want: "●",
 		},
 		{
 			name: "a glyph the config does not list still draws",
-			mark: xptr.Ptr("★"),
+			tag:  xptr.Ptr("★"),
 			want: "★",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := markGlyph(agentstore.Agent{Mark: tt.mark}, marks)
+			got := tagGlyph(agentstore.Agent{Tag: tt.tag}, tags)
 			if tt.want == "" {
 				assert.Empty(t, got)
 				return
@@ -170,66 +170,66 @@ func TestMarkedMark(t *testing.T) {
 	}
 }
 
-// TestNextSelectionMark walks the cycle over a set of agents rather than one. A selection
-// carries no single mark to step from, so where the key goes is decided by whether the
+// TestNextSelectionTag walks the cycle over a set of agents rather than one. A selection
+// carries no single tag to step from, so where the key goes is decided by whether the
 // agents in it agree.
-func TestNextSelectionMark(t *testing.T) {
+func TestNextSelectionTag(t *testing.T) {
 	tests := []struct {
 		name    string
 		current []*string
-		marks   []config.Mark
+		tags    []config.Tag
 		want    *string
 	}{
 		{
-			name:  "a selection with nothing in it has nowhere to go",
-			marks: marks,
+			name: "a selection with nothing in it has nowhere to go",
+			tags: tags,
 		},
 		{
 			name:    "nor does one with nothing configured",
 			current: []*string{xptr.Ptr("●"), nil},
 		},
 		{
-			name:    "agents that disagree collapse onto the first mark",
+			name:    "agents that disagree collapse onto the first tag",
 			current: []*string{xptr.Ptr("●"), nil},
-			marks:   marks,
+			tags:    tags,
 			want:    xptr.Ptr("●"),
 		},
 		{
 			name:    "including when none of them holds it",
 			current: []*string{xptr.Ptr("◐"), xptr.Ptr("✓")},
-			marks:   marks,
+			tags:    tags,
 			want:    xptr.Ptr("●"),
 		},
 		{
-			name:    "unmarked agents take the first mark, as one does",
+			name:    "untagged agents take the first tag, as one does",
 			current: []*string{nil, nil},
-			marks:   marks,
+			tags:    tags,
 			want:    xptr.Ptr("●"),
 		},
 		{
 			name:    "agents that agree step on together",
 			current: []*string{xptr.Ptr("◐"), xptr.Ptr("◐")},
-			marks:   marks,
+			tags:    tags,
 			want:    xptr.Ptr("✓"),
 		},
 		{
 			name:    "and clear off the end of the list rather than wrapping",
 			current: []*string{xptr.Ptr("✓"), xptr.Ptr("✓")},
-			marks:   marks,
+			tags:    tags,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, nextSelectionMark(tt.current, tt.marks))
+			assert.Equal(t, tt.want, nextSelectionTag(tt.current, tt.tags))
 		})
 	}
 }
 
-// TestMarkSelection covers the mark key while a selection is up. Every chosen agent takes
+// TestTagSelection covers the tag key while a selection is up. Every chosen agent takes
 // the same glyph in one call, and the selection stays afterwards, since a cycle nobody can
 // press twice is not one.
-func TestMarkSelection(t *testing.T) {
+func TestTagSelection(t *testing.T) {
 	tests := []struct {
 		name string
 		// carrying is what the chosen agents already hold, keyed by agent id.
@@ -237,7 +237,7 @@ func TestMarkSelection(t *testing.T) {
 		want     *string
 	}{
 		{
-			name: "unmarked agents take the first mark",
+			name: "untagged agents take the first tag",
 			want: xptr.Ptr("●"),
 		},
 		{
@@ -258,26 +258,26 @@ func TestMarkSelection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			agents := &fakeMarkAgents{}
+			agents := &fakeTagAgents{}
 			chosen := []string{"a1", "a2"}
 
 			m := selectionTree()
 			m.api = api{agents: agents}
-			m.marks = marks
+			m.tags = tags
 			m.tree.selected = selection{ids: chosen}
 
 			for i, item := range m.listing.agents {
-				if mark, ok := tt.carrying[item.agent.ID]; ok {
-					m.listing.agents[i].agent.Mark = xptr.Ptr(mark)
+				if tag, ok := tt.carrying[item.agent.ID]; ok {
+					m.listing.agents[i].agent.Tag = xptr.Ptr(tag)
 				}
 			}
 
-			next, cmd := m.updateAgents(keyMsg("m"))
-			require.NotNil(t, cmd, "the mark key is answered while a selection is up")
+			next, cmd := m.updateAgents(keyMsg("t"))
+			require.NotNil(t, cmd, "the tag key is answered while a selection is up")
 			cmd()
 
 			assert.Equal(t, chosen, agents.ids, "every chosen agent goes in one call")
-			assert.Equal(t, tt.want, agents.mark)
+			assert.Equal(t, tt.want, agents.tag)
 
 			after, ok := next.(model)
 			require.True(t, ok)
@@ -286,17 +286,17 @@ func TestMarkSelection(t *testing.T) {
 	}
 }
 
-// fakeMarkAgents records what the panel asked the service to mark. Every other method is
+// fakeTagAgents records what the panel asked the service to tag. Every other method is
 // left to the embedded nil interface, so a press reaching one panics rather than passing.
-type fakeMarkAgents struct {
+type fakeTagAgents struct {
 	agentv1connect.AgentServiceClient
-	ids  []string
-	mark *string
+	ids []string
+	tag *string
 }
 
-func (f *fakeMarkAgents) SetMarks(_ context.Context, req *connect.Request[agentv1.SetMarksRequest]) (*connect.Response[emptypb.Empty], error) {
+func (f *fakeTagAgents) SetTags(_ context.Context, req *connect.Request[agentv1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error) {
 	f.ids = req.Msg.GetIds()
-	f.mark = req.Msg.Mark
+	f.tag = req.Msg.Tag
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }

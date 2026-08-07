@@ -75,7 +75,7 @@ func panelCmd(state *app) *cobra.Command {
 				Schedules:       scheduleClient,
 				Keys:            state.keys,
 				Actions:         actionClient,
-				Marks:           state.marks,
+				Tags:            state.tags,
 				Layout:          state.layout,
 				Addr:            state.env.Addr,
 				LogPath:         logPath,

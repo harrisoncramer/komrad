@@ -110,8 +110,8 @@ func (m model) updateHoveredAgent(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	return m.withSelectedAgent(func(item agentItem) (tea.Model, tea.Cmd) {
 		switch {
-		case isBound(k, m.keys.Agents.Mark):
-			return m.markAgent(item.agent)
+		case isBound(k, m.keys.Agents.Tag):
+			return m.tagAgent(item.agent)
 		case isBound(k, m.keys.Agents.Hide):
 			return m.hideAgent(item.agent)
 		case isBound(k, m.keys.Agents.Rename):
@@ -145,8 +145,8 @@ func (m model) updateAgentsSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case isBound(k, m.keys.Agents.Quit):
 		return m, m.hide()
-	case isBound(k, m.keys.Agents.Mark):
-		return m.markSelection()
+	case isBound(k, m.keys.Agents.Tag):
+		return m.tagSelection()
 	case isBound(k, m.keys.Agents.Archive):
 		return m.archiveAgentsConfirm(chosenAgents(m.tree.selected, m.allAgentRows()))
 	case isBound(k, m.keys.Agents.ShowHidden):
@@ -311,22 +311,22 @@ func (m model) toggleHiddenAgents() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) markAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
-	next := nextMark(agent.Mark, m.marks)
+func (m model) tagAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
+	next := nextTag(agent.Tag, m.tags)
 
 	return m, m.writeCmd(
-		fmt.Sprintf("Could not mark agent %q", agent.Name),
-		func(a api) error { return a.setMarks([]string{agent.ID}, next) },
+		fmt.Sprintf("Could not tag agent %q", agent.Name),
+		func(a api) error { return a.setTags([]string{agent.ID}, next) },
 	)
 }
 
-func (m model) markSelection() (tea.Model, tea.Cmd) {
+func (m model) tagSelection() (tea.Model, tea.Cmd) {
 	ids := m.tree.selected.ids
-	next := nextSelectionMark(selectionMarks(m.tree.selected, m.allAgentRows()), m.marks)
+	next := nextSelectionTag(selectionTags(m.tree.selected, m.allAgentRows()), m.tags)
 
 	return m, m.writeCmd(
-		fmt.Sprintf("Could not mark %d agents", len(ids)),
-		func(a api) error { return a.setMarks(ids, next) },
+		fmt.Sprintf("Could not tag %d agents", len(ids)),
+		func(a api) error { return a.setTags(ids, next) },
 	)
 }
 
@@ -365,46 +365,46 @@ func (m *model) stageSelection() {
 	m.stageInfo()
 }
 
-func nextMark(current *string, marks []config.Mark) *string {
-	if len(marks) == 0 {
+func nextTag(current *string, tags []config.Tag) *string {
+	if len(tags) == 0 {
 		return nil
 	}
 
 	if current == nil {
-		return &marks[0].Glyph
+		return &tags[0].Glyph
 	}
 
-	for i, mark := range marks {
-		if mark.Glyph == *current && i+1 < len(marks) {
-			return &marks[i+1].Glyph
+	for i, tag := range tags {
+		if tag.Glyph == *current && i+1 < len(tags) {
+			return &tags[i+1].Glyph
 		}
 	}
 
 	return nil
 }
 
-// Mixed selections collapse to the first mark so their next state is deterministic.
-func nextSelectionMark(current []*string, marks []config.Mark) *string {
-	if len(marks) == 0 || len(current) == 0 {
+// Mixed selections collapse to the first tag so their next state is deterministic.
+func nextSelectionTag(current []*string, tags []config.Tag) *string {
+	if len(tags) == 0 || len(current) == 0 {
 		return nil
 	}
 
-	for _, mark := range current[1:] {
-		if !isSameMark(current[0], mark) {
-			return &marks[0].Glyph
+	for _, tag := range current[1:] {
+		if !isSameTag(current[0], tag) {
+			return &tags[0].Glyph
 		}
 	}
 
-	return nextMark(current[0], marks)
+	return nextTag(current[0], tags)
 }
 
-func selectionMarks(sel selection, rows []agentRow) []*string {
+func selectionTags(sel selection, rows []agentRow) []*string {
 	agents := chosenAgents(sel, rows)
 
-	return xslice.Map(agents, func(agent agentstore.Agent) *string { return agent.Mark })
+	return xslice.Map(agents, func(agent agentstore.Agent) *string { return agent.Tag })
 }
 
-func isSameMark(a, b *string) bool {
+func isSameTag(a, b *string) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
 	}
@@ -459,7 +459,7 @@ func (m model) agentsView() string {
 
 		name := m.filter.highlight(clipName(item.agent.Name), nameStyle(hovered, !item.alive))
 		icon := lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
-		rows = append(rows, prefix+"  "+icon+" "+name+scheduledMark(item.agent)+hiddenMark(item.agent.Hidden)+markGlyph(item.agent, m.marks))
+		rows = append(rows, prefix+"  "+icon+" "+name+scheduledMark(item.agent)+hiddenMark(item.agent.Hidden)+tagGlyph(item.agent, m.tags))
 	}
 
 	return m.listView("Agents and Workflows", rows, m.tree.cursor, below)

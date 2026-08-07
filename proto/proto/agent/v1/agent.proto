@@ -38,8 +38,8 @@ message Agent {
   optional string schedule_id = 12;
   // Whether the agent's tmux pane is still running.
   bool alive = 11;
-  // The glyph the user marked this agent with, unset when it carries no mark.
-  optional string mark = 14;
+  // The glyph the user tagged this agent with, unset when it carries no tag.
+  optional string tag = 14;
   // Whether the user has hidden this agent from the panel's sidebar. It is not a
   // deletion and says nothing about the agent, which runs and is reconciled the
   // same either way. Listings return hidden agents like any other, since only the
@@ -133,14 +133,14 @@ message GetAgentResponse {
   Agent agent = 1;
 }
 
-// SetMarksRequest puts one mark on every agent named, and an unset mark clears the
-// ones they carry. It is keyed by id rather than name because a mark outlives a
+// SetTagsRequest puts one tag on every agent named, and an unset tag clears the
+// ones they carry. It is keyed by id rather than name because a tag outlives a
 // rename, and the panel already holds the ids of the rows it is looking at.
 //
-// One mark for the whole request rather than one per agent. The panel's mark key
-// steps a selection through the configured marks together, and a request carrying a
-// glyph per id would be a way to write marks nothing on screen can produce.
-message SetMarksRequest {
+// One tag for the whole request rather than one per agent. The panel's tag key
+// steps a selection through the configured tags together, and a request carrying a
+// glyph per id would be a way to write tags nothing on screen can produce.
+message SetTagsRequest {
   repeated string ids = 1 [(buf.validate.field).repeated = {
     min_items: 1
     max_items: 100
@@ -149,9 +149,9 @@ message SetMarksRequest {
       string: {min_len: 1}
     }
   }];
-  optional string mark = 2 [(buf.validate.field).cel = {
-    id: "mark.glyph"
-    message: "a mark must be a short glyph carrying no whitespace or control characters"
+  optional string tag = 2 [(buf.validate.field).cel = {
+    id: "tag.glyph"
+    message: "a tag must be a short glyph carrying no whitespace or control characters"
     expression: "this.size() <= 16 && !this.matches('[[:space:]]|[[:cntrl:]]')"
   }];
 }
@@ -306,11 +306,11 @@ service AgentService {
       destructive: false
     };
   }
-  rpc SetMarks(SetMarksRequest) returns (google.protobuf.Empty) {
+  rpc SetTags(SetTagsRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
-      tool_name: "set_agent_marks"
-      description: "Put one mark on a list of agents, keyed by their ids, or clear the ones they carry by omitting the mark. Every id given takes the same glyph, so marking agents differently is a call each. A mark is a glyph the user reads off the row, meaning whatever they decided it means, such as needs review or dealt with. Use only the glyphs get_config returns under marks, since the panel's mark key cycles through those and can only clear anything else. Archived agents have no row to draw a mark on and are skipped, and returns not_found only when no id given reached a live agent. What an agent is currently doing is already in its state, so do not mark that."
+      tool_name: "set_agent_tags"
+      description: "Put one tag on a list of agents, keyed by their ids, or clear the ones they carry by omitting the tag. Every id given takes the same glyph, so tagging agents differently is a call each. A tag is a glyph the user reads off the row, meaning whatever they decided it means, such as needs review or dealt with. Use only the glyphs get_config returns under tags, since the panel's tag key cycles through those and can only clear anything else. Archived agents have no row to draw a tag on and are skipped, and returns not_found only when no id given reached a live agent. What an agent is currently doing is already in its state, so do not tag that."
       destructive: false
     };
   }

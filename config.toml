@@ -14,11 +14,11 @@
 default_harness = "claude"
 # How many unarchived agents may exist at once, past which a create is refused.
 max_agents      = 50
-# The marks the mark key cycles through, in order.
+# The tags the tag key cycles through, in order.
 # A colour is either one of the sixteen your terminal's own scheme maps, named as "red" or "brightred",
 # or a hex value such as "#DCA561". The panel draws itself from the sixteen,
-# so a name is what keeps a mark in the same scheme as everything around it.
-marks = [
+# so a name is what keeps a tag in the same scheme as everything around it.
+tags = [
   { glyph = "●", color = "yellow" },
   { glyph = "◐", color = "yellow" },
   { glyph = "✓", color = "yellow" },
@@ -76,9 +76,9 @@ archive     = ["z"]
 back        = ["esc"]
 # Hide the hovered agent from this list.
 hide        = ["h"]
-# Move the hovered agent to the next mark in the marks list, and past the last
-# one back to unmarked. Nothing but you ever sets a mark.
-mark        = ["m"]
+# Move the hovered agent to the next tag in the tags list, and past the last
+# one back to untagged. Nothing but you ever sets a tag.
+tag         = ["t"]
 # Start a new agent.
 new         = ["n"]
 # Attach to the hovered agent.

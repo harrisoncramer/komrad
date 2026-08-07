@@ -23,8 +23,8 @@ type app struct {
 	defaultHarness string
 	defaultFlags   map[string]string
 	maxAgents      int
-	// marks are the marks the panel's mark key steps an agent through.
-	marks []config.Mark
+	// tags are the tags the panel's tag key steps an agent through.
+	tags []config.Tag
 	// logViewer is what the panel's log key opens the log in, the user's own command.
 	logViewer string
 	// logLevel is how much the served process writes to its log, read here with the rest of
