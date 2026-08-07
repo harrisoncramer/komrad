@@ -22,20 +22,21 @@ const manifestName = "cookbook.toml"
 // ErrCookbookNotFound reports that no directory in the given set holds a cookbook by that name.
 var ErrCookbookNotFound = errors.New("cookbook not found")
 
-// Manifest is a cookbook's cookbook.toml, parsed.
+// Manifest is a cookbook's cookbook.toml, parsed. Nothing in it names the cookbook itself,
+// the workflow it creates, the schedule it arms, or the actions it installs: those all take
+// the cookbook's own name, or its own directory listing, so a manifest cannot drift from the
+// identity and the files Find and InstallActions already see.
 type Manifest struct {
 	// Description is a one-line summary shown by `weave cookbook list`.
-	Description string       `toml:"description"`
-	Workflow    WorkflowSpec `toml:"workflow"`
-	// Actions are the scripts this cookbook installs alongside its workflow, whether or not
-	// the workflow names them as its setup or cleanup action.
-	Actions  []ActionSpec  `toml:"actions"`
-	Schedule *ScheduleSpec `toml:"schedule"`
+	Description string        `toml:"description"`
+	Workflow    WorkflowSpec  `toml:"workflow"`
+	Schedule    *ScheduleSpec `toml:"schedule"`
 }
 
-// WorkflowSpec is the workflow a cookbook creates, the same fields create_workflow takes.
+// WorkflowSpec is the workflow a cookbook creates. SetupAction and CleanupAction name one of
+// the cookbook's sibling files by its bare name; InstalledActionName is what that resolves to
+// once installed.
 type WorkflowSpec struct {
-	Name          string `toml:"name"`
 	Context       string `toml:"context"`
 	Harness       string `toml:"harness"`
 	Cwd           string `toml:"cwd"`
@@ -44,18 +45,10 @@ type WorkflowSpec struct {
 	CleanupAction string `toml:"cleanup_action"`
 }
 
-// ActionSpec is one script a cookbook installs. File is the path to it, relative to the
-// cookbook's own directory, and Name is what it is written under in the actions directory,
-// which is what a workflow's setup_action or cleanup_action names.
-type ActionSpec struct {
-	Name string `toml:"name"`
-	File string `toml:"file"`
-}
-
 // ScheduleSpec is the recurring launch a cookbook arms, the same fields create_schedule takes
-// aside from the workflow it launches into, which is whichever one this cookbook just created.
+// aside from the name and the workflow it launches into, which are the cookbook's own name and
+// whichever workflow install just created.
 type ScheduleSpec struct {
-	Name       string `toml:"name"`
 	Cron       string `toml:"cron"`
 	Timezone   string `toml:"timezone"`
 	Prompt     string `toml:"prompt"`
@@ -70,26 +63,46 @@ type Cookbook struct {
 	Manifest Manifest
 }
 
-// InstallActions copies every action this cookbook declares into actionsDir, named and made
-// executable the way a hand-written action would be, and returns those names in manifest order.
+// InstalledActionName is what a sibling file is written under in the actions directory:
+// prefixed with the cookbook's own name, so two cookbooks whose scripts share a generic file
+// name like "setup" do not collide once installed.
+func (c Cookbook) InstalledActionName(file string) string {
+	return c.Name + "-" + file
+}
+
+// InstallActions copies every file in this cookbook's own directory, other than its manifest,
+// into actionsDir, named and made executable the way a hand-written action would be. Nothing
+// has to list them: a cookbook's directory works the same way the actions directory itself
+// does, where every file present is offered rather than registered. Returns those installed
+// names in directory order.
 func (c Cookbook) InstallActions(actionsDir string) ([]string, error) {
+	entries, err := os.ReadDir(c.Dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read cookbook %s: %w", c.Name, err)
+	}
+
 	if err := os.MkdirAll(actionsDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create the actions directory %s: %w", actionsDir, err)
 	}
 
-	names := make([]string, 0, len(c.Manifest.Actions))
-	for _, spec := range c.Manifest.Actions {
-		content, err := os.ReadFile(filepath.Join(c.Dir, spec.File))
-		if err != nil {
-			return nil, fmt.Errorf("failed to read %s's action file %s: %w", c.Name, spec.File, err)
+	var names []string
+	for _, entry := range entries {
+		if entry.IsDir() || entry.Name() == manifestName || strings.HasPrefix(entry.Name(), ".") {
+			continue
 		}
 
-		written := filepath.Join(actionsDir, spec.Name)
+		content, err := os.ReadFile(filepath.Join(c.Dir, entry.Name()))
+		if err != nil {
+			return nil, fmt.Errorf("failed to read %s's action file %s: %w", c.Name, entry.Name(), err)
+		}
+
+		name := c.InstalledActionName(entry.Name())
+		written := filepath.Join(actionsDir, name)
 		if err := os.WriteFile(written, content, 0o755); err != nil {
 			return nil, fmt.Errorf("failed to write action %s: %w", written, err)
 		}
 
-		names = append(names, spec.Name)
+		names = append(names, name)
 	}
 
 	return names, nil

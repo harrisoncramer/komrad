@@ -59,7 +59,7 @@ func TestListCookbooksUserOverridesBuiltin(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(userDir, "pr-reviewer"), 0o755))
 	require.NoError(t, os.WriteFile(
 		filepath.Join(userDir, "pr-reviewer", "cookbook.toml"),
-		[]byte("description = \"mine\"\n\n[workflow]\nname = \"mine\"\n"),
+		[]byte("description = \"mine\"\n"),
 		0o644,
 	))
 
@@ -144,6 +144,7 @@ func TestInstallCookbookCreatesTheWorkflowAndItsActions(t *testing.T) {
 	assert.ElementsMatch(t, []string{"worktree-agent-setup", "worktree-agent-cleanup"}, result.actions)
 	assert.Empty(t, result.scheduleName, "this cookbook arms no schedule")
 
+	assert.Equal(t, "worktree-agent", recorder.workflowRequest["name"])
 	assert.Equal(t, "worktree-agent-setup", recorder.workflowRequest["setupAction"])
 	assert.Equal(t, "worktree-agent-cleanup", recorder.workflowRequest["cleanupAction"])
 
@@ -165,7 +166,8 @@ func TestInstallCookbookArmsItsSchedule(t *testing.T) {
 	result, err := installCookbook(context.Background(), state, "triage-schedule", "")
 	require.NoError(t, err)
 
-	assert.Equal(t, "morning-triage", result.scheduleName)
+	assert.Equal(t, "triage-schedule", result.scheduleName)
+	assert.Equal(t, "triage-schedule", recorder.scheduleRequest["name"])
 	assert.Equal(t, "wf_test", recorder.scheduleRequest["workflowId"])
 	assert.Equal(t, false, recorder.scheduleRequest["enabled"])
 }
@@ -188,7 +190,7 @@ func TestInstallCookbookCwdOverride(t *testing.T) {
 // and nothing should be written or created on the way to that refusal.
 func TestInstallCookbookRefusesWhenAlreadyInstalled(t *testing.T) {
 	testServer, recorder := newCookbookRPCServer(t)
-	recorder.existingWorkflows = []existingWorkflow{{ID: "wf_existing", Name: "worktree agent"}}
+	recorder.existingWorkflows = []existingWorkflow{{ID: "wf_existing", Name: "worktree-agent"}}
 	state := testApp(t, strippedHost(t, testServer.URL))
 
 	_, err := installCookbook(context.Background(), state, "worktree-agent", "")

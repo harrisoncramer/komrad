@@ -27,36 +27,29 @@ weave cookbook install worktree-agent --cwd ~/myrepo
   Edit the workflow's context to say what your rotation actually watches, and give it a `--cwd`
   if the agent needs a working directory to look anything up from.
 - **pr-reviewer**. A workflow whose context tells the agent it is reviewing an already-open
-  pull request rather than authoring one, plus a companion `open-pr` action that opens whatever
-  URL the agent recorded on itself under `pr`.
+  pull request rather than authoring one, plus a companion `pr-reviewer-open-pr` action that
+  opens whatever URL the agent recorded on itself under `pr`.
 
 ## The manifest
 
-A cookbook is a directory holding a `cookbook.toml` and the action scripts it names as sibling
-files. The directory's own name is the cookbook's name, the one `install` takes.
+A cookbook is a directory holding a `cookbook.toml` and whatever action scripts it needs as
+sibling files. The directory's own name is the cookbook's name, the one `install` takes, and
+everything else that would otherwise need a name of its own takes that same name rather than
+spelling out a second one that could drift from it: the workflow `install` creates, the
+schedule it arms, and every installed action are all named from the cookbook's own name.
 
 ```toml
 description = "One line shown by weave cookbook list."
 
 [workflow]
-name = "worktree agent"
 context = "Whatever should be appended to every agent's system prompt."
 harness = ""
 cwd = ""
 flags = ""
-setup_action = "worktree-agent-setup"
-cleanup_action = "worktree-agent-cleanup"
-
-[[actions]]
-name = "worktree-agent-setup"
-file = "setup"
-
-[[actions]]
-name = "worktree-agent-cleanup"
-file = "cleanup"
+setup_action = "setup"
+cleanup_action = "cleanup"
 
 [schedule]
-name = "morning-triage"
 cron = "0 9 * * 1-5"
 timezone = ""
 prompt = "What the scheduled agent is told."
@@ -64,12 +57,18 @@ enabled = false
 hide_agents = false
 ```
 
-`[workflow]` takes the same fields `create_workflow` does. `[[actions]]` is zero or more
-scripts to install, each a `name` (what it is written as in your actions directory) and a
-`file` (its path relative to the cookbook's own directory). `setup_action` and
-`cleanup_action` are plain strings and typically, but not necessarily, name one of the
-installed actions. `[schedule]` is optional; when present it is armed against the workflow
-`install` just created, so its `workflow_id` is not part of the manifest.
+There is nothing to list under `actions`: every file next to `cookbook.toml`, other than the
+manifest itself, is installed, the same way your actions directory itself works, where a
+script sitting there is enough. Each is written into your actions directory as
+`<cookbook name>-<file name>`, so a file named `setup` in the `worktree-agent` cookbook
+installs as `worktree-agent-setup`; two cookbooks whose scripts share a generic file name like
+`setup` never collide once installed. `setup_action` and `cleanup_action` name one of those
+sibling files by its bare name and are resolved to the installed name when the workflow is
+created; both are optional, and a cookbook needs neither if its actions, like pr-reviewer's,
+are only ever run on demand. `[workflow]` otherwise takes the same fields `create_workflow`
+does, aside from `name`. `[schedule]` is optional; when present it is armed against the
+workflow `install` just created under the cookbook's own name, so neither its `name` nor its
+`workflow_id` are part of the manifest.
 
 ## Where they live
 
@@ -91,11 +90,11 @@ cookbook. A cookbook there overrides a built-in of the same name, which is how y
 it has one. It does not create an agent. Press `n` on the new workflow, or call `create_agent`,
 once you are ready to start one.
 
-A cookbook has no identity of its own once installed; the workflow it created is the only
-record. `install` checks the live workflows for one already named what the manifest's
-`[workflow]` would create and refuses if it finds one, so running `install` twice does not
-leave two indistinguishable workflows behind. Archive or rename the existing one first if you
-mean to install a second copy.
+A cookbook has no identity of its own once installed; the workflow it created, named for the
+cookbook itself, is the only record. `install` checks the live workflows for one already
+holding that name and refuses if it finds one, so running `install` twice does not leave two
+indistinguishable workflows behind. Archive or rename the existing one first if you mean to
+install a second copy.
 
 A cookbook cannot know your repository path or what your on-call rotation watches in advance,
 so `--cwd` overrides the manifest's own working directory at install time, and the workflow's

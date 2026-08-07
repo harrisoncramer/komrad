@@ -176,7 +176,7 @@ func installCookbook(ctx context.Context, state *app, name, cwdOverride string) 
 
 	from := caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID}
 
-	if err := requireCookbookNotInstalled(ctx, state.env.Addr, from, found.Manifest.Workflow.Name); err != nil {
+	if err := requireCookbookNotInstalled(ctx, state.env.Addr, from, found.Name); err != nil {
 		return installedCookbook{}, err
 	}
 
@@ -185,23 +185,23 @@ func installCookbook(ctx context.Context, state *app, name, cwdOverride string) 
 		return installedCookbook{}, err
 	}
 
-	workflowID, err := createCookbookWorkflow(ctx, state.env.Addr, from, found.Manifest.Workflow, cwdOverride)
+	workflowID, err := createCookbookWorkflow(ctx, state.env.Addr, from, found, cwdOverride)
 	if err != nil {
 		return installedCookbook{}, err
 	}
 
 	result := installedCookbook{
-		workflowName: found.Manifest.Workflow.Name,
+		workflowName: found.Name,
 		workflowID:   workflowID,
 		actions:      installedActions,
 	}
 
 	if found.Manifest.Schedule != nil {
-		if err := createCookbookSchedule(ctx, state.env.Addr, from, *found.Manifest.Schedule, workflowID); err != nil {
+		if err := createCookbookSchedule(ctx, state.env.Addr, from, found.Name, *found.Manifest.Schedule, workflowID); err != nil {
 			return installedCookbook{}, err
 		}
 
-		result.scheduleName = found.Manifest.Schedule.Name
+		result.scheduleName = found.Name
 	}
 
 	return result, nil
@@ -239,10 +239,11 @@ func cookbookDirs(state *app, cfg *config.Config) (userDir, builtinDir string, e
 	return userDir, builtinDir, nil
 }
 
-// requireCookbookNotInstalled refuses when a live workflow already holds workflowName, the
-// name this cookbook's manifest would create. Without this, installing the same cookbook
-// twice would leave two indistinguishable workflows behind rather than refusing outright.
-func requireCookbookNotInstalled(ctx context.Context, addr string, from caller.Caller, workflowName string) error {
+// requireCookbookNotInstalled refuses when a live workflow already holds cookbookName, the
+// name every install of this cookbook creates its workflow under. Without this, installing
+// the same cookbook twice would leave two indistinguishable workflows behind rather than
+// refusing outright.
+func requireCookbookNotInstalled(ctx context.Context, addr string, from caller.Caller, cookbookName string) error {
 	method, err := findRPCMethod("list_workflows")
 	if err != nil {
 		return err
@@ -277,7 +278,7 @@ func requireCookbookNotInstalled(ctx context.Context, addr string, from caller.C
 		}
 
 		for _, workflow := range response.Workflows {
-			if workflow.Name == workflowName {
+			if workflow.Name == cookbookName {
 				return fmt.Errorf("%w: workflow %q (%s) already exists; archive or rename it before installing again", ErrAlreadyInstalled, workflow.Name, workflow.ID)
 			}
 		}
@@ -290,27 +291,38 @@ func requireCookbookNotInstalled(ctx context.Context, addr string, from caller.C
 	}
 }
 
-// createCookbookWorkflow calls create_workflow the way rpc create-workflow would, and
-// returns the id of what was created.
-func createCookbookWorkflow(ctx context.Context, addr string, from caller.Caller, spec cookbooks.WorkflowSpec, cwdOverride string) (string, error) {
+// createCookbookWorkflow calls create_workflow the way rpc create-workflow would, named for
+// the cookbook itself with its setup and cleanup actions resolved to their installed names,
+// and returns the id of what was created.
+func createCookbookWorkflow(ctx context.Context, addr string, from caller.Caller, cookbook cookbooks.Cookbook, cwdOverride string) (string, error) {
 	method, err := findRPCMethod("create_workflow")
 	if err != nil {
 		return "", err
 	}
+
+	spec := cookbook.Manifest.Workflow
 
 	cwd := spec.Cwd
 	if cwdOverride != "" {
 		cwd = cwdOverride
 	}
 
+	var setupAction, cleanupAction string
+	if spec.SetupAction != "" {
+		setupAction = cookbook.InstalledActionName(spec.SetupAction)
+	}
+	if spec.CleanupAction != "" {
+		cleanupAction = cookbook.InstalledActionName(spec.CleanupAction)
+	}
+
 	request := map[string]any{
-		"name":          spec.Name,
+		"name":          cookbook.Name,
 		"context":       spec.Context,
 		"cwd":           cwd,
 		"flags":         spec.Flags,
 		"harness":       spec.Harness,
-		"setupAction":   spec.SetupAction,
-		"cleanupAction": spec.CleanupAction,
+		"setupAction":   setupAction,
+		"cleanupAction": cleanupAction,
 	}
 
 	payload, err := callRPC(ctx, callRPCParams{Addr: addr, Path: method.GetPath(), From: from, Request: request})
@@ -330,16 +342,17 @@ func createCookbookWorkflow(ctx context.Context, addr string, from caller.Caller
 	return response.Workflow.ID, nil
 }
 
-// createCookbookSchedule calls create_schedule the way rpc create-schedule would, arming the
-// schedule a cookbook's manifest describes against the workflow it just created.
-func createCookbookSchedule(ctx context.Context, addr string, from caller.Caller, spec cookbooks.ScheduleSpec, workflowID string) error {
+// createCookbookSchedule calls create_schedule the way rpc create-schedule would, named for
+// the cookbook itself and arming the schedule its manifest describes against the workflow
+// that was just created.
+func createCookbookSchedule(ctx context.Context, addr string, from caller.Caller, cookbookName string, spec cookbooks.ScheduleSpec, workflowID string) error {
 	method, err := findRPCMethod("create_schedule")
 	if err != nil {
 		return err
 	}
 
 	request := map[string]any{
-		"name":       spec.Name,
+		"name":       cookbookName,
 		"cron":       spec.Cron,
 		"timezone":   spec.Timezone,
 		"prompt":     spec.Prompt,

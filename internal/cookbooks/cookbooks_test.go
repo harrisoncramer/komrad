@@ -9,21 +9,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// writeCookbook writes a minimal cookbook.toml under dir/name, and an action file alongside
-// it when actionFile is not empty.
+// writeCookbook writes a minimal cookbook.toml under dir/name, and a sibling action file named
+// actionFile alongside it when actionFile is not empty.
 func writeCookbook(t *testing.T, dir, name, description, actionFile string) {
 	t.Helper()
 
 	cookbookDir := filepath.Join(dir, name)
 	require.NoError(t, os.MkdirAll(cookbookDir, 0o755))
 
-	manifest := "description = \"" + description + "\"\n\n[workflow]\nname = \"" + name + "\"\n"
+	manifest := "description = \"" + description + "\"\n"
+	require.NoError(t, os.WriteFile(filepath.Join(cookbookDir, manifestName), []byte(manifest), 0o644))
+
 	if actionFile != "" {
-		manifest += "\n[[actions]]\nname = \"" + actionFile + "\"\nfile = \"" + actionFile + "\"\n"
 		require.NoError(t, os.WriteFile(filepath.Join(cookbookDir, actionFile), []byte("#!/bin/sh\n"), 0o644))
 	}
-
-	require.NoError(t, os.WriteFile(filepath.Join(cookbookDir, manifestName), []byte(manifest), 0o644))
 }
 
 // TestDiscoverMissingDir covers a cookbooks directory nobody has written, which has to read
@@ -86,15 +85,22 @@ func TestFindReadsTheManifest(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "on-call triage", found.Manifest.Description)
-	assert.Equal(t, "triage-schedule", found.Manifest.Workflow.Name)
+}
+
+// TestInstalledActionNamePrefixesWithTheCookbookName covers two cookbooks whose action files
+// share a generic name, such as "setup", not colliding once installed.
+func TestInstalledActionNamePrefixesWithTheCookbookName(t *testing.T) {
+	cookbook := Cookbook{Name: "worktree-agent"}
+
+	assert.Equal(t, "worktree-agent-setup", cookbook.InstalledActionName("setup"))
 }
 
 // TestInstallActionsWritesExecutableFiles covers the actions a cookbook declares reaching the
-// actions directory under their own name and made runnable, since running one is an exec of a
-// path and a file without the executable bit would otherwise sit there unusable.
+// actions directory under their prefixed name and made runnable, since running one is an exec
+// of a path and a file without the executable bit would otherwise sit there unusable.
 func TestInstallActionsWritesExecutableFiles(t *testing.T) {
 	dir := t.TempDir()
-	writeCookbook(t, dir, "worktree-agent", "one worktree per agent", "worktree-agent-setup")
+	writeCookbook(t, dir, "worktree-agent", "one worktree per agent", "setup")
 
 	found, err := Find("worktree-agent", dir)
 	require.NoError(t, err)
@@ -110,20 +116,32 @@ func TestInstallActionsWritesExecutableFiles(t *testing.T) {
 	assert.NotZero(t, info.Mode().Perm()&0o111, "the installed action is executable")
 }
 
-// TestInstallActionsMissingFile covers a manifest naming a sibling file that is not there,
-// which has to name the cookbook and the missing file rather than a bare "no such file".
-func TestInstallActionsMissingFile(t *testing.T) {
+// TestInstallActionsSkipsTheManifestItself covers cookbook.toml never being offered as an
+// action alongside whatever scripts actually sit next to it.
+func TestInstallActionsSkipsTheManifestItself(t *testing.T) {
 	dir := t.TempDir()
-	cookbookDir := filepath.Join(dir, "broken")
-	require.NoError(t, os.MkdirAll(cookbookDir, 0o755))
-	manifest := "[[actions]]\nname = \"gone\"\nfile = \"gone\"\n"
-	require.NoError(t, os.WriteFile(filepath.Join(cookbookDir, manifestName), []byte(manifest), 0o644))
+	writeCookbook(t, dir, "worktree-agent", "one worktree per agent", "setup")
 
-	found, err := Find("broken", dir)
+	found, err := Find("worktree-agent", dir)
 	require.NoError(t, err)
 
-	_, err = found.InstallActions(filepath.Join(t.TempDir(), "actions"))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "broken")
-	assert.Contains(t, err.Error(), "gone")
+	installed, err := found.InstallActions(filepath.Join(t.TempDir(), "actions"))
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"worktree-agent-setup"}, installed)
+}
+
+// TestInstallActionsWithNoSiblingFiles covers a cookbook that is only a workflow and,
+// optionally, a schedule, such as triage-schedule: installing it writes nothing.
+func TestInstallActionsWithNoSiblingFiles(t *testing.T) {
+	dir := t.TempDir()
+	writeCookbook(t, dir, "triage-schedule", "on-call triage", "")
+
+	found, err := Find("triage-schedule", dir)
+	require.NoError(t, err)
+
+	installed, err := found.InstallActions(filepath.Join(t.TempDir(), "actions"))
+	require.NoError(t, err)
+
+	assert.Empty(t, installed)
 }

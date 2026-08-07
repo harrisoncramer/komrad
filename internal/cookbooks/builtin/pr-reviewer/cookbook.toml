@@ -1,15 +1,10 @@
 description = "Review an already-open pull request instead of authoring new code."
 
 [workflow]
-name = "pr reviewer"
 context = """
 You are reviewing an already-open pull request, not writing new code. The prompt names
 which one. Read it with `gh pr view <number>` and `gh pr diff <number>`, and leave
 comments with `gh pr review` or `gh pr comment` rather than pushing commits of your own.
 Record the PR url on yourself under `pr` with set_agent_metadata when you are done, so
-the open-pr action can find it.
+the pr-reviewer-open-pr action can find it.
 """
-
-[[actions]]
-name = "open-pr"
-file = "open-pr"

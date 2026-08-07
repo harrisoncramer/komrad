@@ -1,7 +1,6 @@
 description = "An on-call triage agent that reads overnight alerts every weekday morning."
 
 [workflow]
-name = "on-call triage"
 context = """
 You are the on-call triage agent. Read whatever your rotation watches for what came in
 since your last run: alerts, paging history, error trackers. Write up anything that needs
@@ -9,7 +8,6 @@ a human, and leave anything that already resolved itself alone.
 """
 
 [schedule]
-name = "morning-triage"
 cron = "0 9 * * 1-5"
 prompt = "Read the overnight alerts and write up anything that needs a human."
 enabled = false
