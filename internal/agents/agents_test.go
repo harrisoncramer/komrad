@@ -809,8 +809,6 @@ func TestNewAgentDoesNotCleanUpASetupThatRefused(t *testing.T) {
 }
 
 // TestDeleteAgentRunsWorkflowCleanup covers cleanup firing on the irreversible half only.
-// Archiving keeps whatever setup built, since restoring an agent relaunches it in the
-// directory its row records and does not run setup again.
 func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
 	tests := []struct {
 		name        string

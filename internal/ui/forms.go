@@ -312,7 +312,6 @@ func archiveAgentsForm(agents []agentstore.Agent, keys config.FormKeys) (*huh.Fo
 	field := huh.NewSelect[archiveChoice]().
 		Key("archive").
 		Title(title).
-		Description("Archiving keeps their transcripts searchable and is undone from the archive screen; deleting takes the transcripts with them and search will not find the conversations again.").
 		Value(&choice).
 		Options(
 			huh.NewOption("Archive", archiveChoiceArchive),
