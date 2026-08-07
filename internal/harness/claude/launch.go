@@ -15,20 +15,30 @@ import (
 // --strict-mcp-config, so an agent gains this server on top of whatever the user
 // has already registered instead of trading them for it.
 //
+// alwaysLoad exempts the panel from Claude's tool search, which otherwise defers every
+// MCP tool behind a lookup step while the built-in subagent tool sits in context already.
+// An agent told to spawn something then reaches for the tool it can see. These are the
+// tools weave expects on every turn, so they are the case that setting is for.
+//
 // The headers are what let the service tell one caller from another. They are written as
 // variables rather than as this agent's own ids, because Claude expands them out of the
 // environment it is launched with, which the panel has already put the ids into. That is
 // what keeps this one shared file: an agent fills in its own identity as it starts, so two
 // agents reading the same file still call back as themselves. The :- default leaves the
 // header empty rather than literal when a variable is unset.
-const mcpConfigJSON = `{"mcpServers":{"weave":{"type":"http","url":"http://%s/mcp",` +
+const mcpConfigJSON = `{"mcpServers":{"weave":{"type":"http","url":"http://%s/mcp","alwaysLoad":true,` +
 	`"headers":{"` + caller.AgentHeader + `":"${` + harness.AgentIDEnv + `:-}",` +
 	`"` + caller.SessionHeader + `":"${` + harness.SessionIDEnv + `:-}"}}}}`
 
-// settingsJSON is the settings file every agent launches with, registering the Stop hook
-// that hands an agent its weave mail as its turn ends. It is passed with --settings, which
-// layers over the user's own settings for this session alone rather than writing to them.
-const settingsJSON = `{"hooks":{"Stop":[{"hooks":[{"type":"command","command":%s}]}]}}`
+// deniedAgents are the Claude subagent types an agent weave launched may not use. A
+// subagent is a context inside this one conversation, with no pane to open, no mail
+// address, and nothing left in the panel once it returns, so a request to spawn an agent
+// is a request weave's own create_agent answers and these cannot. The read-only search
+// agents are left alone, since fanning out over a codebase is not spawning anything.
+//
+// It is a deny rather than wording in the briefing because a deny at this layer cannot be
+// argued with: a tool denied anywhere is denied everywhere.
+var deniedAgents = []string{"Agent(general-purpose)", "Agent(claude)"}
 
 // BuildCommand renders the command line that puts Claude up. It is not executed
 // directly: it is typed into a pane and parsed by the shell running there, which
@@ -58,13 +68,11 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 		command += fmt.Sprintf(" --mcp-config '%s'", path)
 	}
 
-	// A resume gets the hook too, since mail arriving is not tied to the launch that
-	// registered it. A failure to write the file drops the flag rather than the launch,
-	// which costs delivery rather than the agent.
-	if launch.HookCommand != "" {
-		if path, err := h.writeSettings(launch.HookCommand); err == nil {
-			command += fmt.Sprintf(" --settings '%s'", path)
-		}
+	// A resume gets the settings too, since neither mail arriving nor what an agent may
+	// spawn is tied to the launch that registered it. A failure to write the file drops
+	// the flag rather than the launch, which costs delivery rather than the agent.
+	if path, err := h.writeSettings(launch.HookCommand); err == nil {
+		command += fmt.Sprintf(" --settings '%s'", path)
 	}
 
 	switch {
@@ -97,6 +105,10 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 // writeSettings writes the settings file beside Claude's other state and returns its path.
 // Claude reads it as it starts and keeps no copy, so unlike the prompt temp files it stays
 // where it is rather than being removed as the command runs.
+//
+// The denied agents are written whatever else is, since they are true of an agent weave
+// launched rather than of a launch that had somewhere to point a hook. A build that could
+// not work out what to call itself registers no hook and still gets them.
 func (h *Harness) writeSettings(hookCommand string) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -108,13 +120,24 @@ func (h *Harness) writeSettings(hookCommand string) (string, error) {
 		return "", fmt.Errorf("failed to create the settings dir: %w", err)
 	}
 
-	command, err := json.Marshal(hookCommand + " hook stop")
+	settings := map[string]any{
+		"permissions": map[string]any{"deny": deniedAgents},
+	}
+	if hookCommand != "" {
+		settings["hooks"] = map[string]any{
+			"Stop": []any{map[string]any{
+				"hooks": []any{map[string]any{"type": "command", "command": hookCommand + " hook stop"}},
+			}},
+		}
+	}
+
+	body, err := json.Marshal(settings)
 	if err != nil {
-		return "", fmt.Errorf("failed to encode the hook command: %w", err)
+		return "", fmt.Errorf("failed to encode the settings: %w", err)
 	}
 
 	path := filepath.Join(dir, "weave-settings.json")
-	if err := os.WriteFile(path, []byte(fmt.Sprintf(settingsJSON, command)), 0o644); err != nil {
+	if err := os.WriteFile(path, body, 0o644); err != nil {
 		return "", fmt.Errorf("failed to write the settings: %w", err)
 	}
 

@@ -8,7 +8,7 @@ Do not hand-roll curl against the HTTP API. It skips the validation the tools ca
 
 ## Registering it
 
-Agents weave launches already have it, on every launch and every resume. For your own session:
+Agents weave launches already have it, on every launch and every resume. Their config carries `alwaysLoad`, which exempts the server from Claude's tool search: without it every weave tool is deferred behind a lookup step while the CLI's own subagent tool is already in context, and an agent told to spawn something reaches for the one it can see. The same launch denies `Agent(general-purpose)` and `Agent(claude)` so it cannot, while leaving the read-only search agents alone. For your own session:
 
     claude mcp add --transport http weave http://127.0.0.1:8787/mcp
 

@@ -73,9 +73,13 @@ type Agent struct {
 	// The branch checked out at cwd, unset when cwd is not inside a git worktree or the
 	// branch has not been read yet. Refreshed on a slow periodic pass rather than every
 	// reconcile, since reading it is a shell-out and not a tmux capture.
-	Branch        *string `protobuf:"bytes,22,opt,name=branch,proto3,oneof" json:"branch,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Branch *string `protobuf:"bytes,22,opt,name=branch,proto3,oneof" json:"branch,omitempty"`
+	// Whether cwd no longer exists on disk. Refreshed on its own slow periodic pass rather
+	// than every reconcile, since a worktree can be deleted under a running agent at any
+	// time and a row over a directory that is gone otherwise looks healthy.
+	WorktreeRemoved bool `protobuf:"varint,23,opt,name=worktree_removed,json=worktreeRemoved,proto3" json:"worktree_removed,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *Agent) Reset() {
@@ -253,6 +257,13 @@ func (x *Agent) GetBranch() string {
 		return *x.Branch
 	}
 	return ""
+}
+
+func (x *Agent) GetWorktreeRemoved() bool {
+	if x != nil {
+		return x.WorktreeRemoved
+	}
+	return false
 }
 
 // AgentMetadata is one fact an agent recorded about its own work: the issue it is
@@ -1238,7 +1249,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xd8\x05\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\x83\x06\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -1267,7 +1278,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\bmetadata\x18\x10 \x03(\v2\x17.agent.v1.AgentMetadataR\bmetadata\x12,\n" +
 	"\x0fidempotency_key\x18\x11 \x01(\tH\x03R\x0eidempotencyKey\x88\x01\x01\x122\n" +
 	"\x13spawned_by_agent_id\x18\x14 \x01(\tH\x04R\x10spawnedByAgentId\x88\x01\x01\x12\x1b\n" +
-	"\x06branch\x18\x16 \x01(\tH\x05R\x06branch\x88\x01\x01B\x0e\n" +
+	"\x06branch\x18\x16 \x01(\tH\x05R\x06branch\x88\x01\x01\x12)\n" +
+	"\x10worktree_removed\x18\x17 \x01(\bR\x0fworktreeRemovedB\x0e\n" +
 	"\f_archived_atB\x0e\n" +
 	"\f_schedule_idB\x06\n" +
 	"\x04_tagB\x12\n" +

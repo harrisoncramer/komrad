@@ -71,6 +71,7 @@ func renderAgent(stored agentstore.Agent, alive, unreadMail bool) agent {
 			IdempotencyKey:   stored.IdempotencyKey,
 			SpawnedByAgentId: stored.SpawnedByAgentID,
 			Branch:           stored.Branch,
+			WorktreeRemoved:  stored.WorktreeRemoved,
 		},
 		cursor: agentstore.Cursor{ID: stored.ID},
 	}
