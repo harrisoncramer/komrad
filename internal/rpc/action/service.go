@@ -6,7 +6,6 @@ import (
 	"errors"
 	"time"
 
-	"weave/internal/actions"
 	"weave/internal/agents"
 	actionv1 "weave/proto/gen/action/v1"
 
@@ -18,7 +17,7 @@ import (
 // actionRunner is the part of the action service the handlers drive. The handlers translate
 // and nothing more. What an action is and what it is told lives behind this.
 type actionRunner interface {
-	ListActions() ([]actions.Action, error)
+	ListActions() ([]agents.Action, error)
 	RunAction(ctx context.Context, agentID, name string) error
 	EditAction(ctx context.Context, agentID, name string) error
 }
@@ -67,10 +66,10 @@ func (s *Service) ListActions(_ context.Context, _ *connect.Request[emptypb.Empt
 func (s *Service) RunAction(ctx context.Context, req *connect.Request[actionv1.RunActionRequest]) (*connect.Response[emptypb.Empty], error) {
 	err := s.actions.RunAction(ctx, req.Msg.GetAgentId(), req.Msg.GetAction())
 	switch {
-	case errors.Is(err, agents.ErrAgentNotFound), errors.Is(err, actions.ErrActionNotFound):
+	case errors.Is(err, agents.ErrAgentNotFound), errors.Is(err, agents.ErrActionNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, err)
-	case errors.Is(err, actions.ErrNotExecutable), errors.Is(err, actions.ErrNotStartable),
-		errors.Is(err, actions.ErrDirMissing):
+	case errors.Is(err, agents.ErrActionNotExecutable), errors.Is(err, agents.ErrActionNotStartable),
+		errors.Is(err, agents.ErrActionDirMissing):
 		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -87,10 +86,10 @@ func (s *Service) RunAction(ctx context.Context, req *connect.Request[actionv1.R
 func (s *Service) EditAction(ctx context.Context, req *connect.Request[actionv1.EditActionRequest]) (*connect.Response[emptypb.Empty], error) {
 	err := s.actions.EditAction(ctx, req.Msg.GetAgentId(), req.Msg.GetAction())
 	switch {
-	case errors.Is(err, agents.ErrAgentNotFound), errors.Is(err, actions.ErrActionNotFound):
+	case errors.Is(err, agents.ErrAgentNotFound), errors.Is(err, agents.ErrActionNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, err)
-	case errors.Is(err, agents.ErrNotEditable), errors.Is(err, actions.ErrNotExecutable),
-		errors.Is(err, actions.ErrNotStartable), errors.Is(err, actions.ErrDirMissing):
+	case errors.Is(err, agents.ErrNotEditable), errors.Is(err, agents.ErrActionNotExecutable),
+		errors.Is(err, agents.ErrActionNotStartable), errors.Is(err, agents.ErrActionDirMissing):
 		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, err)

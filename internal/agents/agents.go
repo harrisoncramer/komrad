@@ -12,6 +12,7 @@ import (
 	"weave/internal/store"
 	"weave/lib/xslice"
 
+	"weave/internal/actions"
 	"weave/internal/harness"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
@@ -25,6 +26,24 @@ var ErrBadDirectory = errors.New("unusable working directory")
 var ErrTooManyAgents = errors.New("too many agents")
 var ErrAgentArchived = errors.New("agent is archived")
 var ErrSpawnerUnknown = errors.New("the spawning agent is not one this panel knows")
+
+// The refusals that come from the adapters underneath, restated here because a caller maps
+// what the service returns and should not have to reach past it to name a failure.
+var (
+	ErrHarnessUnknown      = harness.ErrNotRegistered
+	ErrActionNotFound      = actions.ErrActionNotFound
+	ErrActionNotExecutable = actions.ErrNotExecutable
+	ErrActionNotStartable  = actions.ErrNotStartable
+	ErrActionDirMissing    = actions.ErrDirMissing
+)
+
+// Action is one of the user's actions as the service reports it, and ActionHeader is what
+// the comments at the top of its file declare. They are the adapter's types under another
+// name, so a caller describes an action without depending on what runs one.
+type (
+	Action       = actions.Action
+	ActionHeader = actions.Header
+)
 
 // agentFinder is the one-method view of the agent store shared by every collaborator
 // that only ever needs to look an agent up by id.

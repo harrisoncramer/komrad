@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"weave/internal/actions"
 	"weave/internal/agents"
 	actionv1 "weave/proto/gen/action/v1"
 
@@ -32,24 +31,24 @@ func TestRunActionCodes(t *testing.T) {
 		},
 		{
 			name:     "an action the directory does not hold",
-			err:      actions.ErrActionNotFound,
+			err:      agents.ErrActionNotFound,
 			wantCode: connect.CodeNotFound,
 		},
 		{
 			name:     "a file the user has not made executable",
-			err:      actions.ErrNotExecutable,
+			err:      agents.ErrActionNotExecutable,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
 			name:     "a shebang naming an interpreter that is not there",
-			err:      actions.ErrNotStartable,
+			err:      agents.ErrActionNotStartable,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
 			// Nothing about the action is wrong, so this reads the same way a chmod does.
 			// An agent outliving the worktree it ran in is how it happens.
 			name:     "an agent whose directory has been removed from under it",
-			err:      actions.ErrDirMissing,
+			err:      agents.ErrActionDirMissing,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
@@ -112,7 +111,7 @@ func TestEditActionCodes(t *testing.T) {
 	}{
 		{
 			name:     "an action the directory does not hold",
-			err:      actions.ErrActionNotFound,
+			err:      agents.ErrActionNotFound,
 			wantCode: connect.CodeNotFound,
 		},
 		{
@@ -122,7 +121,7 @@ func TestEditActionCodes(t *testing.T) {
 		},
 		{
 			name:     "an editing action the user has not made executable",
-			err:      actions.ErrNotExecutable,
+			err:      agents.ErrActionNotExecutable,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
@@ -164,10 +163,10 @@ func TestEditActionCodes(t *testing.T) {
 // leaves the field unset rather than sending zero, which a caller would read as a run with no
 // time at all.
 func TestListActions(t *testing.T) {
-	manager := &fakeActions{listed: []actions.Action{
+	manager := &fakeActions{listed: []agents.Action{
 		{
 			Name: "open-pr", Path: "/actions/open-pr", Executable: true, Text: true,
-			Header: actions.Header{
+			Header: agents.ActionHeader{
 				Description: "Open the pull request this agent recorded.",
 				Timeout:     45 * time.Second,
 				Problems:    []string{"line 4: nope is not a directive weave knows"},
@@ -208,14 +207,14 @@ func TestListActionsFailure(t *testing.T) {
 // fakeActions stands in for the service the handlers translate for, recording what it was asked
 // to fire so a case can assert the handler passed it through unchanged.
 type fakeActions struct {
-	listed  []actions.Action
+	listed  []agents.Action
 	listErr error
 	err     error
 	agentID string
 	action  string
 }
 
-func (f *fakeActions) ListActions() ([]actions.Action, error) {
+func (f *fakeActions) ListActions() ([]agents.Action, error) {
 	if f.listErr != nil {
 		return nil, f.listErr
 	}

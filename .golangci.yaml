@@ -49,6 +49,22 @@ linters:
               desc: the panel is a client of the service, not a caller of it in process
             - pkg: weave/db
               desc: the panel holds no database connection
+        transport:
+          files:
+            # Not tests: an integration test at this layer stands the real stack up, which
+            # means constructing the adapters the handlers themselves never name.
+            - "!$test"
+            - "**/internal/rpc/**"
+            - "**/internal/mcp/**"
+          deny:
+            - pkg: weave/internal/tmux
+              desc: a handler translates and nothing more, so what tmux can do reaches it through the service
+            - pkg: weave/internal/harness
+              desc: same reason, and the service restates the refusals a handler maps on
+            - pkg: weave/internal/actions
+              desc: same reason, with agents.Action naming an action for a handler that has to describe one
+            - pkg: weave/db
+              desc: a handler holds no database connection
         stores:
           files:
             - "**/internal/store/**"
