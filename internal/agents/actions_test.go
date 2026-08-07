@@ -172,7 +172,7 @@ func TestRunActionCarriesWorktreeEnvOnlyWhenEnabled(t *testing.T) {
 			name: "disabled carries none of the worktree keys",
 		},
 		{
-			name: "enabled carries all four, reflecting the workflow's own config",
+			name: "enabled carries every worktree key, reflecting the workflow's own config",
 			worktree: workflowstore.WorktreeConfig{
 				Enabled:      true,
 				BaseBranch:   "develop",
@@ -180,6 +180,7 @@ func TestRunActionCarriesWorktreeEnvOnlyWhenEnabled(t *testing.T) {
 				SymlinkPaths: []string{"node_modules"},
 			},
 			wantKeys: []string{
+				"WEAVE_WORKTREE_REPO",
 				"WEAVE_WORKTREES_DIR",
 				"WEAVE_WORKTREE_BASE_BRANCH",
 				"WEAVE_WORKTREE_COPY_PATHS",
@@ -196,9 +197,9 @@ func TestRunActionCarriesWorktreeEnvOnlyWhenEnabled(t *testing.T) {
 
 			runner := &recordingRunner{}
 			service := NewActionService(ActionParams{
-				Agents: fakeAgentReader{agent: &agentstore.Agent{ID: "a1", Cwd: "/repo", WorkflowID: "w1"}},
+				Agents: fakeAgentReader{agent: &agentstore.Agent{ID: "a1", Cwd: "/worktrees/a1", WorkflowID: "w1"}},
 				Workflows: fakeWorkflowReader{workflow: &workflowstore.Workflow{
-					ID: "w1", Name: "backend", Worktree: tt.worktree,
+					ID: "w1", Name: "backend", Cwd: "/repo", Worktree: tt.worktree,
 				}},
 				Tmux:   fakePaneOwner{},
 				Runner: runner,
@@ -221,7 +222,7 @@ func TestRunActionCarriesWorktreeEnvOnlyWhenEnabled(t *testing.T) {
 			}
 
 			if len(tt.wantKeys) == 0 {
-				for _, key := range []string{"WEAVE_WORKTREES_DIR", "WEAVE_WORKTREE_BASE_BRANCH", "WEAVE_WORKTREE_COPY_PATHS", "WEAVE_WORKTREE_SYMLINK_PATHS"} {
+				for _, key := range []string{"WEAVE_WORKTREE_REPO", "WEAVE_WORKTREES_DIR", "WEAVE_WORKTREE_BASE_BRANCH", "WEAVE_WORKTREE_COPY_PATHS", "WEAVE_WORKTREE_SYMLINK_PATHS"} {
 					_, ok := values[key]
 					assert.False(t, ok, "%s is not set for a workflow with worktree support off", key)
 				}
@@ -234,6 +235,7 @@ func TestRunActionCarriesWorktreeEnvOnlyWhenEnabled(t *testing.T) {
 				assert.True(t, ok, "%s is missing", key)
 			}
 
+			assert.Equal(t, "/repo", values["WEAVE_WORKTREE_REPO"], "the repo is the workflow's cwd, not the worktree the agent's cwd already names")
 			assert.Equal(t, worktreesDir, values["WEAVE_WORKTREES_DIR"])
 			assert.Equal(t, "develop", values["WEAVE_WORKTREE_BASE_BRANCH"])
 			assert.Equal(t, ".env\nconfig/local.json", values["WEAVE_WORKTREE_COPY_PATHS"])

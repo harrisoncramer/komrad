@@ -2,32 +2,8 @@
 #WEAVE description="A workflow's setup action when its worktree toggle is on. Configure it from the workflow's edit form; it does not take an argument of its own."
 set -eu
 
-repo="$WEAVE_AGENT_CWD"
+repo="$WEAVE_WORKTREE_REPO"
 tree="$WEAVE_WORKTREES_DIR/$WEAVE_AGENT_ID"
-
-if [ -d "$tree" ]; then
-	echo "worktree already exists at $tree" >&2
-else
-	base="$WEAVE_WORKTREE_BASE_BRANCH"
-	if [ -z "$base" ]; then
-		base=$(git -C "$repo" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@') || true
-		if [ -z "$base" ]; then
-			base=$(git -C "$repo" rev-parse --abbrev-ref HEAD)
-		fi
-	fi
-
-	point="$base"
-	if git -C "$repo" remote get-url origin >/dev/null 2>&1; then
-		echo "fetching $base from origin" >&2
-		if git -C "$repo" fetch --quiet origin "$base" >&2; then
-			point="origin/$base"
-		fi
-	fi
-
-	mkdir -p "$WEAVE_WORKTREES_DIR"
-	echo "creating a worktree at $tree from $point" >&2
-	git -C "$repo" worktree add -B "agent/$WEAVE_AGENT_ID" "$tree" "$point" >&2
-fi
 
 apply_paths() {
 	list="$1"
@@ -51,7 +27,34 @@ apply_paths() {
 	done
 }
 
-apply_paths "$WEAVE_WORKTREE_COPY_PATHS" copy || true
-apply_paths "$WEAVE_WORKTREE_SYMLINK_PATHS" symlink || true
+if [ -d "$tree" ]; then
+	echo "worktree already exists at $tree" >&2
+else
+	base="$WEAVE_WORKTREE_BASE_BRANCH"
+	if [ -z "$base" ]; then
+		base=$(git -C "$repo" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@') || true
+		if [ -z "$base" ]; then
+			base=$(git -C "$repo" rev-parse --abbrev-ref HEAD)
+		fi
+	fi
+
+	point="$base"
+	if git -C "$repo" remote get-url origin >/dev/null 2>&1; then
+		echo "fetching $base from origin" >&2
+		if git -C "$repo" fetch --quiet origin "$base" >&2; then
+			point="origin/$base"
+		fi
+	fi
+
+	mkdir -p "$WEAVE_WORKTREES_DIR"
+	echo "creating a worktree at $tree from $point" >&2
+	git -C "$repo" worktree add -B "agent/$WEAVE_AGENT_ID" "$tree" "$point" >&2
+
+	# Only a worktree this run made is furnished. One that was already there holds
+	# whatever the agent has done to it since, and copying a directory over one that
+	# is already present nests it a level deeper every time.
+	apply_paths "$WEAVE_WORKTREE_COPY_PATHS" copy || true
+	apply_paths "$WEAVE_WORKTREE_SYMLINK_PATHS" symlink || true
+fi
 
 echo "$tree"
