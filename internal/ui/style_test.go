@@ -92,6 +92,8 @@ func rowNamed(rows []string, name string) (string, bool) {
 	}
 
 	return "", false
+}
+
 // TestFocusColours covers the accent moving between the two halves of the sidebar. Only one
 // of them has the keys, and the colour is what says which: the half that has them draws its
 // title and its cursor in the accent, and the other keeps both in place without it, its title
