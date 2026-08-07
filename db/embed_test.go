@@ -66,12 +66,10 @@ func TestMigrateConcurrently(t *testing.T) {
 
 	var wg sync.WaitGroup
 	for _, pool := range pools {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			<-start
 			errs <- Migrate(ctx, pool)
-		}()
+		})
 	}
 
 	close(start)
