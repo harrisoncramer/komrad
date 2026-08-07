@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -18,6 +19,16 @@ import (
 // under the cache directory, named for what puts it there the way the built-in actions
 // directory is.
 const builtinCookbooksSubdir = "weave-builtin-cookbooks"
+
+// listPageSize is how many workflows requireCookbookNotInstalled reads per page while
+// checking for a name collision, sized well above how many workflows anyone is likely to
+// have so the common case is one round trip.
+const listPageSize = 200
+
+// ErrAlreadyInstalled reports that a live workflow already holds the name this cookbook's
+// manifest would create. A cookbook has no identity of its own once installed; the workflow
+// it created is the only record, so its name is what a second install is checked against.
+var ErrAlreadyInstalled = errors.New("cookbook already installed")
 
 // cookbookCmd is the parent of the cookbook subcommands.
 func cookbookCmd(state *app) *cobra.Command {
@@ -160,15 +171,19 @@ func installCookbook(ctx context.Context, state *app, name, cwdOverride string) 
 		return installedCookbook{}, err
 	}
 
-	installedActions, err := found.InstallActions(actionsDir)
-	if err != nil {
-		return installedCookbook{}, err
-	}
-
 	ctx, cancel := context.WithTimeout(ctx, rpcTimeout)
 	defer cancel()
 
 	from := caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID}
+
+	if err := requireCookbookNotInstalled(ctx, state.env.Addr, from, found.Manifest.Workflow.Name); err != nil {
+		return installedCookbook{}, err
+	}
+
+	installedActions, err := found.InstallActions(actionsDir)
+	if err != nil {
+		return installedCookbook{}, err
+	}
 
 	workflowID, err := createCookbookWorkflow(ctx, state.env.Addr, from, found.Manifest.Workflow, cwdOverride)
 	if err != nil {
@@ -222,6 +237,57 @@ func cookbookDirs(state *app, cfg *config.Config) (userDir, builtinDir string, e
 	}
 
 	return userDir, builtinDir, nil
+}
+
+// requireCookbookNotInstalled refuses when a live workflow already holds workflowName, the
+// name this cookbook's manifest would create. Without this, installing the same cookbook
+// twice would leave two indistinguishable workflows behind rather than refusing outright.
+func requireCookbookNotInstalled(ctx context.Context, addr string, from caller.Caller, workflowName string) error {
+	method, err := findRPCMethod("list_workflows")
+	if err != nil {
+		return err
+	}
+
+	cursor := ""
+	for {
+		pagination := map[string]any{"limit": listPageSize}
+		if cursor != "" {
+			pagination["cursor"] = cursor
+		}
+
+		payload, err := callRPC(ctx, callRPCParams{
+			Addr:    addr,
+			Path:    method.GetPath(),
+			From:    from,
+			Request: map[string]any{"pagination": pagination},
+		})
+		if err != nil {
+			return err
+		}
+
+		var response struct {
+			Workflows []struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			} `json:"workflows"`
+			NextPageToken string `json:"nextPageToken"`
+		}
+		if err := json.Unmarshal(payload, &response); err != nil {
+			return fmt.Errorf("failed to read the workflow list: %w", err)
+		}
+
+		for _, workflow := range response.Workflows {
+			if workflow.Name == workflowName {
+				return fmt.Errorf("%w: workflow %q (%s) already exists; archive or rename it before installing again", ErrAlreadyInstalled, workflow.Name, workflow.ID)
+			}
+		}
+
+		if response.NextPageToken == "" {
+			return nil
+		}
+
+		cursor = response.NextPageToken
+	}
 }
 
 // createCookbookWorkflow calls create_workflow the way rpc create-workflow would, and

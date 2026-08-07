@@ -91,6 +91,12 @@ cookbook. A cookbook there overrides a built-in of the same name, which is how y
 it has one. It does not create an agent. Press `n` on the new workflow, or call `create_agent`,
 once you are ready to start one.
 
+A cookbook has no identity of its own once installed; the workflow it created is the only
+record. `install` checks the live workflows for one already named what the manifest's
+`[workflow]` would create and refuses if it finds one, so running `install` twice does not
+leave two indistinguishable workflows behind. Archive or rename the existing one first if you
+mean to install a second copy.
+
 A cookbook cannot know your repository path or what your on-call rotation watches in advance,
 so `--cwd` overrides the manifest's own working directory at install time, and the workflow's
 context and cron expression are yours to edit afterward with `e` on the workflow in the panel,

@@ -77,12 +77,21 @@ func TestListCookbooksUserOverridesBuiltin(t *testing.T) {
 	t.Fatal("pr-reviewer was not found")
 }
 
+// existingWorkflow is one row newCookbookRPCServer's list_workflows stands in for, the shape
+// requireCookbookNotInstalled reads a name and id back out of.
+type existingWorkflow struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 // cookbookRPCServer stands in for the service's workflow and schedule endpoints, recording
 // what create_workflow and create_schedule were called with and answering the way the real
-// handlers do.
+// handlers do. existingWorkflows is read fresh on every list_workflows call, so a test can
+// set it before calling installCookbook to simulate a cookbook already installed.
 type cookbookRPCServer struct {
-	workflowRequest map[string]any
-	scheduleRequest map[string]any
+	workflowRequest   map[string]any
+	scheduleRequest   map[string]any
+	existingWorkflows []existingWorkflow
 }
 
 func newCookbookRPCServer(t *testing.T) (*httptest.Server, *cookbookRPCServer) {
@@ -90,6 +99,8 @@ func newCookbookRPCServer(t *testing.T) (*httptest.Server, *cookbookRPCServer) {
 
 	recorder := &cookbookRPCServer{}
 
+	listMethod, err := findRPCMethod("list_workflows")
+	require.NoError(t, err)
 	workflowMethod, err := findRPCMethod("create_workflow")
 	require.NoError(t, err)
 	scheduleMethod, err := findRPCMethod("create_schedule")
@@ -98,6 +109,11 @@ func newCookbookRPCServer(t *testing.T) (*httptest.Server, *cookbookRPCServer) {
 	mux := http.NewServeMux()
 	mux.HandleFunc(server.HealthPath, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
+	})
+	mux.HandleFunc(listMethod.GetPath(), func(w http.ResponseWriter, _ *http.Request) {
+		payload, err := json.Marshal(map[string]any{"workflows": recorder.existingWorkflows})
+		require.NoError(t, err)
+		_, _ = w.Write(payload)
 	})
 	mux.HandleFunc(workflowMethod.GetPath(), func(w http.ResponseWriter, r *http.Request) {
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&recorder.workflowRequest))
@@ -165,6 +181,27 @@ func TestInstallCookbookCwdOverride(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "/repo", recorder.workflowRequest["cwd"])
+}
+
+// TestInstallCookbookRefusesWhenAlreadyInstalled covers a second install of the same
+// cookbook: it has to be refused rather than creating a second, indistinguishable workflow,
+// and nothing should be written or created on the way to that refusal.
+func TestInstallCookbookRefusesWhenAlreadyInstalled(t *testing.T) {
+	testServer, recorder := newCookbookRPCServer(t)
+	recorder.existingWorkflows = []existingWorkflow{{ID: "wf_existing", Name: "worktree agent"}}
+	state := testApp(t, strippedHost(t, testServer.URL))
+
+	_, err := installCookbook(context.Background(), state, "worktree-agent", "")
+
+	require.ErrorIs(t, err, ErrAlreadyInstalled)
+	assert.Contains(t, err.Error(), "wf_existing")
+	assert.Nil(t, recorder.workflowRequest, "create_workflow must not be called once a match is found")
+
+	cfg, err := config.Load(state.configPaths)
+	require.NoError(t, err)
+	actionsDir, err := cfg.GetActionsDir()
+	require.NoError(t, err)
+	assert.NoFileExists(t, filepath.Join(actionsDir, "worktree-agent-setup"), "its actions are not installed either")
 }
 
 // TestInstallCookbookRequiresServer covers the install being refused outright when nothing is
