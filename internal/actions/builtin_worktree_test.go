@@ -24,7 +24,7 @@ func TestBuiltinWorktreeSetup(t *testing.T) {
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
 		agentID:      "agent-a",
-		agentCwd:     repo,
+		repo:         repo,
 		worktreesDir: worktreesDir,
 		copyPaths:    []string{".env"},
 		symlinkPaths: []string{"node_modules"},
@@ -51,7 +51,7 @@ func TestBuiltinWorktreeSetup(t *testing.T) {
 func TestBuiltinWorktreeSetupIsIdempotentOnResume(t *testing.T) {
 	repo := initRepo(t)
 	worktreesDir := t.TempDir()
-	env := worktreeEnv{agentID: "agent-b", agentCwd: repo, worktreesDir: worktreesDir}
+	env := worktreeEnv{agentID: "agent-b", repo: repo, worktreesDir: worktreesDir}
 
 	first, err := runBuiltin(t, "_worktree_setup", env)
 	require.NoError(t, err, "stderr: %s", first.Stderr)
@@ -66,6 +66,74 @@ func TestBuiltinWorktreeSetupIsIdempotentOnResume(t *testing.T) {
 	listed, err := exec.Command("git", "-C", repo, "worktree", "list").Output()
 	require.NoError(t, err)
 	assert.Equal(t, 1, strings.Count(string(listed), tree), "only one worktree exists after the resume")
+}
+
+// TestBuiltinWorktreeSetupOnResumeStillWorksAgainstTheRepo covers the environment a resume
+// actually hands the setup action: the agent's cwd is the worktree by then, since setup
+// itself replaced it at creation. The repo has to come from the workflow instead, or a
+// symlink path resolves to the same file on both sides and is relinked to point at itself.
+func TestBuiltinWorktreeSetupOnResumeStillWorksAgainstTheRepo(t *testing.T) {
+	repo := initRepo(t)
+	require.NoError(t, os.WriteFile(filepath.Join(repo, ".env"), []byte("SECRET=1\n"), 0o644))
+
+	env := worktreeEnv{
+		agentID:      "agent-resume-link",
+		repo:         repo,
+		agentCwd:     repo,
+		worktreesDir: t.TempDir(),
+		symlinkPaths: []string{".env"},
+	}
+
+	first, err := runBuiltin(t, "_worktree_setup", env)
+	require.NoError(t, err, "stderr: %s", first.Stderr)
+	tree := strings.TrimSpace(string(first.Stdout))
+
+	env.agentCwd = tree
+	second, err := runBuiltin(t, "_worktree_setup", env)
+	require.NoError(t, err, "stderr: %s", second.Stderr)
+
+	link, err := os.Readlink(filepath.Join(tree, ".env"))
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(repo, ".env"), link, "the symlink still points into the repo rather than at itself")
+
+	content, err := os.ReadFile(filepath.Join(tree, ".env"))
+	require.NoError(t, err)
+	assert.Equal(t, "SECRET=1\n", string(content))
+}
+
+// TestBuiltinWorktreeSetupOnResumeLeavesAppliedPathsAlone covers the copy and symlink lists
+// being applied only to a worktree this run created. Copying a directory over one that is
+// already there nests it a level deeper every time, and an agent's own edits to a copied
+// path are its work rather than something a resume gets to overwrite.
+func TestBuiltinWorktreeSetupOnResumeLeavesAppliedPathsAlone(t *testing.T) {
+	repo := initRepo(t)
+	require.NoError(t, os.Mkdir(filepath.Join(repo, "node_modules"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "node_modules", "mod.txt"), []byte("dep\n"), 0o644))
+
+	env := worktreeEnv{
+		agentID:      "agent-resume-copy",
+		repo:         repo,
+		agentCwd:     repo,
+		worktreesDir: t.TempDir(),
+		copyPaths:    []string{"node_modules"},
+	}
+
+	first, err := runBuiltin(t, "_worktree_setup", env)
+	require.NoError(t, err, "stderr: %s", first.Stderr)
+	tree := strings.TrimSpace(string(first.Stdout))
+
+	edited := filepath.Join(tree, "node_modules", "mod.txt")
+	require.NoError(t, os.WriteFile(edited, []byte("patched\n"), 0o644))
+
+	env.agentCwd = tree
+	second, err := runBuiltin(t, "_worktree_setup", env)
+	require.NoError(t, err, "stderr: %s", second.Stderr)
+
+	assert.NoDirExists(t, filepath.Join(tree, "node_modules", "node_modules"), "a resume does not copy the directory inside itself")
+
+	content, err := os.ReadFile(edited)
+	require.NoError(t, err)
+	assert.Equal(t, "patched\n", string(content), "a resume does not overwrite what the agent changed")
 }
 
 // TestBuiltinWorktreeSetupFallsBackToTheRepoOwnBranchNotAHardcodedMain covers a repo with
@@ -83,7 +151,7 @@ func TestBuiltinWorktreeSetupFallsBackToTheRepoOwnBranchNotAHardcodedMain(t *tes
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
 		agentID:      "agent-trunk",
-		agentCwd:     dir,
+		repo:         dir,
 		worktreesDir: t.TempDir(),
 	})
 	require.NoError(t, err, "stderr: %s", result.Stderr)
@@ -97,13 +165,14 @@ func TestBuiltinWorktreeSetupFallsBackToTheRepoOwnBranchNotAHardcodedMain(t *tes
 func TestBuiltinWorktreeSetupResumesAfterTheDirectoryIsGoneButTheBranchIsNot(t *testing.T) {
 	repo := initRepo(t)
 	worktreesDir := t.TempDir()
-	env := worktreeEnv{agentID: "agent-g", agentCwd: repo, worktreesDir: worktreesDir}
+	env := worktreeEnv{agentID: "agent-g", repo: repo, agentCwd: repo, worktreesDir: worktreesDir}
 
 	first, err := runBuiltin(t, "_worktree_setup", env)
 	require.NoError(t, err, "stderr: %s", first.Stderr)
 	tree := strings.TrimSpace(string(first.Stdout))
 
 	runGit(t, repo, "worktree", "remove", "--force", tree)
+	env.agentCwd = tree
 
 	branches, err := exec.Command("git", "-C", repo, "branch", "--list", "agent/agent-g").Output()
 	require.NoError(t, err)
@@ -124,7 +193,7 @@ func TestBuiltinWorktreeSetupCopiesADirectory(t *testing.T) {
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
 		agentID:      "agent-h",
-		agentCwd:     repo,
+		repo:         repo,
 		worktreesDir: t.TempDir(),
 		copyPaths:    []string{"assets", "after.env"},
 	})
@@ -164,7 +233,7 @@ func TestBuiltinWorktreeSetupCopyMissingSourceIsNonFatal(t *testing.T) {
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
 		agentID:      "agent-c",
-		agentCwd:     repo,
+		repo:         repo,
 		worktreesDir: t.TempDir(),
 		copyPaths:    []string{"missing.env"},
 		symlinkPaths: []string{"missing-cache"},
@@ -197,7 +266,7 @@ func TestBuiltinWorktreeSetupBaseBranch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
 				agentID:      "agent-d",
-				agentCwd:     initRepo(t),
+				repo:         initRepo(t),
 				worktreesDir: t.TempDir(),
 				baseBranch:   tt.baseBranch,
 			})
@@ -216,7 +285,7 @@ func TestBuiltinWorktreeSetupFetchesFromOrigin(t *testing.T) {
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
 		agentID:      "agent-e",
-		agentCwd:     repo,
+		repo:         repo,
 		worktreesDir: t.TempDir(),
 		baseBranch:   "main",
 	})
@@ -229,7 +298,7 @@ func TestBuiltinWorktreeSetupFetchesFromOrigin(t *testing.T) {
 // exist, and cleanup removes both.
 func TestBuiltinWorktreeCleanup(t *testing.T) {
 	repo := initRepo(t)
-	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{agentID: "agent-f", agentCwd: repo, worktreesDir: t.TempDir()})
+	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{agentID: "agent-f", repo: repo, worktreesDir: t.TempDir()})
 	require.NoError(t, err, "stderr: %s", setup.Stderr)
 	tree := strings.TrimSpace(string(setup.Stdout))
 
@@ -258,6 +327,7 @@ func TestBuiltinWorktreeCleanupIsBestEffortWhenAlreadyGone(t *testing.T) {
 type worktreeEnv struct {
 	agentID      string
 	agentCwd     string
+	repo         string
 	worktreesDir string
 	baseBranch   string
 	copyPaths    []string
@@ -268,6 +338,7 @@ func (e worktreeEnv) toEnv() []string {
 	return []string{
 		"WEAVE_AGENT_ID=" + e.agentID,
 		"WEAVE_AGENT_CWD=" + e.agentCwd,
+		"WEAVE_WORKTREE_REPO=" + e.repo,
 		"WEAVE_WORKTREES_DIR=" + e.worktreesDir,
 		"WEAVE_WORKTREE_BASE_BRANCH=" + e.baseBranch,
 		"WEAVE_WORKTREE_COPY_PATHS=" + strings.Join(e.copyPaths, "\n"),
