@@ -52,3 +52,36 @@ func TestAgentsViewClipsName(t *testing.T) {
 	m.filter.setQuery("0825676")
 	assert.Len(t, m.agentRows(), 2, "the workflow header and the row that matched")
 }
+
+// TestFocusColours covers the accent moving between the two halves of the sidebar. Only one
+// of them has the keys, and the colour is what says which: the half that has them draws its
+// title and its cursor in the accent, and the other keeps both in place without it, its title
+// grey and its cursor in the terminal's own foreground.
+func TestFocusColours(t *testing.T) {
+	m := model{}
+
+	assert.Equal(t, colorAccent, m.titleStyle().GetForeground(), "the list has the keys to begin with")
+	assert.Equal(t, colorAccent, m.rowCursorStyle().GetForeground())
+	assert.Equal(t, colorMuted, titleStyleFor(false).GetForeground(), "the details title is grey under it")
+	assert.Empty(t, cursorStyleFor(false).GetForeground(), "and its cursor names no colour at all")
+
+	m.details.focused = true
+
+	assert.Equal(t, colorMuted, m.titleStyle().GetForeground(), "the accent goes with the keys")
+	assert.Empty(t, m.rowCursorStyle().GetForeground())
+	assert.Equal(t, colorAccent, titleStyleFor(true).GetForeground())
+	assert.Equal(t, colorAccent, cursorStyleFor(true).GetForeground())
+}
+
+// TestFocusKeepsTheMarkers covers what does not change with the focus: both cursors stay
+// drawn, so which row a record is about, and which field the keys would copy, are on screen
+// whichever half is being typed at.
+func TestFocusKeepsTheMarkers(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+
+	assert.Contains(t, m.detailsView(), "›", "the field cursor is drawn while the list has the keys")
+
+	m.details.focused = true
+
+	assert.Contains(t, m.agentsView(), "›", "and the row cursor while the details have them")
+}

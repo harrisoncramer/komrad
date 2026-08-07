@@ -130,7 +130,7 @@ func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, m.keys.Archive.Quit):
 		return m, m.hide()
 	case m.filter.standing() && isBound(k, m.keys.Archive.Back):
-		return m.clearFilter()
+		return m.openFilter()
 	case isBound(k, m.keys.Archive.Back):
 		return m.returnToAgents()
 	case isBound(k, m.keys.Nav.Up):
@@ -306,6 +306,7 @@ func (m model) archiveDetails() details {
 	if r.header {
 		return details{
 			id:     r.workflow.ID,
+			kind:   "Workflow",
 			title:  r.workflow.Name,
 			fields: workflowFields(r.workflow, m.archivedCount(r.workflow.ID)),
 		}
@@ -313,6 +314,7 @@ func (m model) archiveDetails() details {
 
 	return details{
 		id:     r.item.agent.ID,
+		kind:   "Agent",
 		title:  r.item.agent.Name,
 		fields: archiveFields(r.item.agent, m.scheduleName(r.item.agent)),
 	}
@@ -356,19 +358,19 @@ func (m model) archiveView() string {
 		hovered := i == m.archive.cursor
 		prefix := "  "
 		if hovered {
-			prefix = cursorStyle.Render("› ")
+			prefix = m.rowCursorStyle().Render("› ")
 		}
 		prefix = selectionGutter(!r.header && m.archive.selected.has(r.item.agent.ID)) + prefix
 
 		if r.header {
-			label := m.filter.highlight(r.workflow.Name, nameStyle(hovered, false))
+			label := m.filter.highlight(r.workflow.Name, m.nameStyle(hovered, false))
 			rows = append(rows, prefix+dimStyle.Render(workflowIcon)+" "+label+archivedTag(r.workflow))
 
 			continue
 		}
 
 		agent := r.item.agent
-		name := m.filter.highlight(clipName(agent.Name), nameStyle(hovered, true))
+		name := m.filter.highlight(clipName(agent.Name), m.nameStyle(hovered, true))
 		rows = append(rows, prefix+"  "+name+scheduledMark(agent)+tagGlyph(agent, m.tags))
 	}
 

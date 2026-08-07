@@ -183,7 +183,7 @@ func (m *model) stageDocument(markdown string) {
 }
 
 func (m model) listView(title string, rows []string, cursor int, help string) string {
-	header := headerStyle.Render(title) + "\n\n" + m.filterView()
+	header := m.titleStyle().Render(title) + "\n\n" + m.filterView()
 
 	return header + renderList(rows, cursor, m.listLines(header, help)) + help
 }
