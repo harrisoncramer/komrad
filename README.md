@@ -20,7 +20,7 @@ If you're a Neovim or Emacs user, or just enjoy working from your terminal, weav
 
 ## Quickstart
 
-1. Configure a Postgres database and set `connection.database_url` in your weave [configuration file](docs/configuration.md).
+1. Configure a Postgres database and set `connection.database_url` in your weave [configuration file](config.toml).
 2. Install weave. See [installation](docs/install.md) for the full setup guide.
 3. Press `prefix + g` to toggle the agent manager panel. Press `w` to create your first workflow, and then `a` to add your first agent.
 
