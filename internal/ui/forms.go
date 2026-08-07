@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"weave/config"
 
@@ -23,7 +24,7 @@ import (
 type formValues struct {
 	agent     *agentFormValues
 	rename    *string
-	workflow  *workflowstore.Config
+	workflow  *workflowFormValues
 	schedule  *schedulestore.Config
 	confirmed *bool
 	archive   *archiveChoice
@@ -55,6 +56,103 @@ type agentFormValues struct {
 }
 
 const inheritAction = "\x00inherit"
+
+// setupTypeWorktree and setupTypeCustom are the two answers the workflow form's setup
+// type field takes. They are exclusive by construction. A workflow generates a worktree
+// per agent, or it names its own setup and cleanup actions, never both, so the field
+// picking between them is what decides which of the two field groups is on screen.
+const (
+	setupTypeWorktree = "worktree"
+	setupTypeCustom   = "custom"
+)
+
+// workflowFormValues is what the workflow form's fields write into. It mirrors
+// workflowstore.Config with two differences. The two worktree path lists are here as
+// newline-separated text, which is what huh's text field binds, rather than as
+// workflowstore.WorktreeConfig's []string. SetupType is not a field workflowstore.Config
+// has at all, only Worktree.Enabled alongside SetupAction and CleanupAction. Both
+// differences are converted away at the form's edges.
+type workflowFormValues struct {
+	Name    string
+	Context string
+	Harness string
+	Cwd     string
+	Flags   string
+	// SetupType is setupTypeWorktree or setupTypeCustom, deciding whether the form shows
+	// the worktree fields below or the setup and cleanup action pickers instead.
+	SetupType     string
+	SetupAction   string
+	CleanupAction string
+	// WorktreeBaseBranch is blank for the repo's default branch.
+	WorktreeBaseBranch string
+	// WorktreeCopyPaths and WorktreeSymlinkPaths are one repo-relative path per line.
+	WorktreeCopyPaths    string
+	WorktreeSymlinkPaths string
+}
+
+// workflowFormValuesFrom fills the form's fields from a stored config, the newline-joined
+// text a copy or symlink list reads as when there is nothing yet to type over.
+func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
+	setupType := setupTypeCustom
+	if cfg.Worktree.Enabled {
+		setupType = setupTypeWorktree
+	}
+
+	return workflowFormValues{
+		Name:                 cfg.Name,
+		Context:              cfg.Context,
+		Harness:              cfg.Harness,
+		Cwd:                  cfg.Cwd,
+		Flags:                cfg.Flags,
+		SetupType:            setupType,
+		SetupAction:          cfg.SetupAction,
+		CleanupAction:        cfg.CleanupAction,
+		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
+		WorktreeCopyPaths:    strings.Join(cfg.Worktree.CopyPaths, "\n"),
+		WorktreeSymlinkPaths: strings.Join(cfg.Worktree.SymlinkPaths, "\n"),
+	}
+}
+
+// toConfig reads the form's fields back into the shape the workflow service takes,
+// splitting each path list on its lines and dropping the blank ones a stray newline
+// leaves behind. SetupAction and CleanupAction are sent blank under setupTypeWorktree
+// even if the form still carries a value typed in under setupTypeCustom earlier, since
+// the service names those two itself once Worktree.Enabled is set and refuses a submit
+// that also names its own.
+func (v workflowFormValues) toConfig() workflowstore.Config {
+	cfg := workflowstore.Config{
+		Name:    v.Name,
+		Context: v.Context,
+		Harness: v.Harness,
+		Cwd:     v.Cwd,
+		Flags:   v.Flags,
+		Worktree: workflowstore.WorktreeConfig{
+			Enabled:      v.SetupType == setupTypeWorktree,
+			BaseBranch:   v.WorktreeBaseBranch,
+			CopyPaths:    splitLines(v.WorktreeCopyPaths),
+			SymlinkPaths: splitLines(v.WorktreeSymlinkPaths),
+		},
+	}
+
+	if v.SetupType == setupTypeCustom {
+		cfg.SetupAction = v.SetupAction
+		cfg.CleanupAction = v.CleanupAction
+	}
+
+	return cfg
+}
+
+// splitLines is a text field's content as one entry per non-blank line, trimmed.
+func splitLines(text string) []string {
+	var lines []string
+	for line := range strings.SplitSeq(text, "\n") {
+		if trimmed := strings.TrimSpace(line); trimmed != "" {
+			lines = append(lines, trimmed)
+		}
+	}
+
+	return lines
+}
 
 // blueprintFields is the harness, directory, and flags inputs shared by the new-agent form
 // and the workflow form, since both are setting the same three things: which CLI runs, where
@@ -181,7 +279,7 @@ func (m *model) rebuildForm() tea.Cmd {
 	case m.screen == screenRename && m.values.rename != nil:
 		m.form, m.values.rename = renameForm(m.target.renameAgent.Name, *m.values.rename, m.keys.Form)
 	case m.screen == screenWorkflowForm && m.values.workflow != nil:
-		m.form, m.values.workflow = m.workflowFormFor(*m.values.workflow)
+		m.form, m.values.workflow, _ = m.workflowFormFor(*m.values.workflow)
 	case m.screen == screenScheduleForm && m.values.schedule != nil:
 		m.form, m.values.schedule = scheduleForm(*m.values.schedule, m.listing.workflows, m.keys.Form)
 	default:
@@ -335,11 +433,9 @@ func (m model) archiveAnswer() archiveChoice {
 	return *m.values.archive
 }
 
-// workflowForm asks for a name alone, which is what a rename is. It binds the same config
+// workflowForm asks for a name alone, which is what a rename is. It binds the same values
 // shape the fuller form does, so one submit path reads either.
-func workflowForm(title string, cfg workflowstore.Config, keys config.FormKeys) (*huh.Form, *workflowstore.Config) {
-	values := cfg
-
+func workflowForm(title string, values workflowFormValues, keys config.FormKeys) (*huh.Form, *workflowFormValues) {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().Key("name").Title(title).Value(&values.Name),
@@ -349,31 +445,85 @@ func workflowForm(title string, cfg workflowstore.Config, keys config.FormKeys) 
 	return form, &values
 }
 
-// workflowConfigForm collects a workflow's name, its context, its default config, and the
-// actions run around its agents' lives. The harness, dir, and flags become the blueprint
-// agents inside it start from, and every field prefills, so it serves create and edit
-// alike.
+// setupTypeKey is the key of the select field that picks setupTypeWorktree or
+// setupTypeCustom, which updateWorkflowForm looks for after every keystroke to decide
+// whether the form needs rebuilding around a change to it.
+const setupTypeKey = "setup_type"
+
+// setupTypeOptions is what the setup type field offers, worktree first since that is the
+// default for a workflow that has not chosen either yet.
+func setupTypeOptions() []huh.Option[string] {
+	return []huh.Option[string]{
+		huh.NewOption("Worktree: a git worktree per agent", setupTypeWorktree),
+		huh.NewOption("Custom: your own setup and cleanup actions", setupTypeCustom),
+	}
+}
+
+// workflowConfigForm collects a workflow's name, its context, its default config, and
+// either its worktree config or its own setup and cleanup actions, decided by the setup
+// type field. The harness, dir, and flags become the blueprint agents inside it start
+// from, and every field prefills, so it serves create and edit alike.
 //
-// available is what the actions directory holds, which the two action fields are picked
-// from rather than typed, so a name matching no file cannot be written from here.
-func workflowConfigForm(nameTitle string, cfg workflowstore.Config, available []actionChoice, keys config.FormKeys) (*huh.Form, *workflowstore.Config) {
-	values := cfg
+// available is what the actions directory holds, which the two action fields under
+// setupTypeCustom are picked from rather than typed, so a name matching no file cannot be
+// written from here.
+//
+// The fields under the setup type are appended only for whichever answer is chosen,
+// rather than both always present. huh fields have no per-field hide within one screen,
+// only a whole-group one, and this form is deliberately one group so every field is
+// reachable without a group-advance key the panel's own submit key does not drive.
+// Swapping them is what updateWorkflowForm rebuilds this form for whenever the setup type
+// changes, focusFieldIndex naming where it landed so it can put the cursor back.
+func workflowConfigForm(nameTitle string, values workflowFormValues, available []actionChoice, keys config.FormKeys) (form *huh.Form, out *workflowFormValues, focusFieldIndex int) {
+	if values.SetupType == "" {
+		values.SetupType = setupTypeWorktree
+	}
 
 	fields := append([]huh.Field{
 		huh.NewInput().Key("name").Title(nameTitle).Value(&values.Name),
-		huh.NewText().Key("context").Title("Context").Description("shared notes for this workflow; ctrl+e opens $EDITOR").Value(&values.Context),
+		huh.NewText().Key("context").Title("Context").Description("shared notes for this workflow; ctrl+e opens $EDITOR").Lines(2).Value(&values.Context),
 	}, blueprintFields("Default ", &values.Harness, &values.Cwd, &values.Flags)...)
 
+	toggleIndex := len(fields)
 	fields = append(fields,
-		huh.NewSelect[string]().Key("setup").Title("Setup action").
-			Value(&values.SetupAction).Options(actionOptions(available, cfg.SetupAction)...),
-		huh.NewSelect[string]().Key("cleanup").Title("Cleanup action").
-			Value(&values.CleanupAction).Options(actionOptions(available, cfg.CleanupAction)...),
+		// Options before Value: huh scrolls a select's viewport to the bound value's
+		// index as soon as it has both an accessor and an option list, so binding the
+		// value first, while the option list is still empty, is what keeps that scroll
+		// at zero once the real options land and custom is not the first of them.
+		huh.NewSelect[string]().Key(setupTypeKey).Title("Setup type").
+			Options(setupTypeOptions()...).Value(&values.SetupType),
 	)
 
-	form := huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
+	switch values.SetupType {
+	case setupTypeCustom:
+		fields = append(fields,
+			huh.NewSelect[string]().Key("setup").Title("Setup action").
+				Value(&values.SetupAction).Options(actionOptions(available, values.SetupAction)...),
+			huh.NewSelect[string]().Key("cleanup").Title("Cleanup action").
+				Value(&values.CleanupAction).Options(actionOptions(available, values.CleanupAction)...),
+		)
+	default:
+		fields = append(fields, worktreeDetailFields(&values)...)
+	}
 
-	return form, &values
+	built := huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
+
+	return built, &values, toggleIndex
+}
+
+// worktreeDetailFields is the branch a new worktree is built from and the two path lists
+// applied into it, present only while the toggle above them is on.
+func worktreeDetailFields(values *workflowFormValues) []huh.Field {
+	return []huh.Field{
+		huh.NewInput().Key("worktree_base_branch").Title("Worktree base branch").
+			Placeholder("repo's default branch").Value(&values.WorktreeBaseBranch),
+		huh.NewText().Key("worktree_copy_paths").Title("Worktree copy paths").
+			Description("one repo-relative path per line, copied fresh into every worktree, such as .env").
+			Lines(2).Value(&values.WorktreeCopyPaths),
+		huh.NewText().Key("worktree_symlink_paths").Title("Worktree symlink paths").
+			Description("one repo-relative path per line, symlinked back instead of duplicated, such as node_modules").
+			Lines(2).Value(&values.WorktreeSymlinkPaths),
+	}
 }
 
 // actionChoice is one action an action field may be set to

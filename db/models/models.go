@@ -32,6 +32,7 @@ type Agent struct {
 	Tag              *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	Branch           *string
 }
 
 // Key/value facts an agent recorded about its own work.
@@ -97,12 +98,24 @@ type Workflow struct {
 	ID               string
 	Name             string
 	Context          string
-	SetupAction      string
-	CleanupAction    string
 	WorkflowConfigID string
 	ArchivedAt       *time.Time
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	ActionConfigID   string
+}
+
+// The setup/cleanup actions a workflow's agents run around their lives, and the worktree config those actions can point at instead.
+type WorkflowActionConfig struct {
+	ID                   string
+	SetupAction          string
+	CleanupAction        string
+	WorktreeEnabled      bool
+	WorktreeBaseBranch   string
+	WorktreeCopyPaths    []string
+	WorktreeSymlinkPaths []string
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
 }
 
 // Default config (harness, cwd, flags) seeded into new agents of a workflow.

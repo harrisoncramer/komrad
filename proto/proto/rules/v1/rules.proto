@@ -65,4 +65,13 @@ extend buf.validate.StringRules {
     message: "must be five whitespace-separated fields, such as '0 9 * * 1-5'"
     expression: "!rule || this.split(' ').filter(f, f != '').size() == 5"
   }];
+
+  // A path relative to some other root, safe to splice into a generated script. Refuses
+  // an absolute path, a home-relative one, and anything containing a .. segment that
+  // could climb out of the root it is read against.
+  bool relative_path = 50106 [(buf.validate.predefined).cel = {
+    id: "string.relative_path"
+    message: "must be a relative path, with no leading / or ~ and no .. segment"
+    expression: "!rule || (this != '' && !this.startsWith('/') && !this.startsWith('~') && !this.contains(\"..\"))"
+  }];
 }

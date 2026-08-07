@@ -319,6 +319,13 @@ type Cookbooks struct {
 	Dir string `mapstructure:"dir"`
 }
 
+// Worktrees is where a workflow's generated git worktree setup action puts what it creates.
+type Worktrees struct {
+	// Directory generated worktrees are created under, one subdirectory per agent.
+	// Left empty this is ~/.local/state/weave/worktrees.
+	Dir string `mapstructure:"dir"`
+}
+
 // Context is the standing text every agent is started with, above whatever its workflow
 // adds. It is where what is true of your machine and how you want to be worked with goes,
 // so it does not have to be pasted into every workflow.
@@ -482,6 +489,8 @@ type Config struct {
 	Actions Actions `mapstructure:"actions"`
 	// Where `weave cookbook` finds the recipes it can install.
 	Cookbooks Cookbooks `mapstructure:"cookbooks"`
+	// Where a workflow's generated worktree setup action creates its worktrees.
+	Worktrees Worktrees `mapstructure:"worktrees"`
 	// The standing text every agent is started with, whatever workflow it is in.
 	Context Context `mapstructure:"context"`
 	// How mail between agents is delivered.
@@ -840,6 +849,24 @@ func (c Config) GetCookbooksDir() (string, error) {
 	}
 
 	return filepath.Join(home, "cookbooks"), nil
+}
+
+// GetWorktreesDir is where a generated worktree setup action creates its worktrees: the
+// configured directory, or ~/.local/state/weave/worktrees when the config names none. The
+// default is filled in here rather than into Config for the reason the actions directory's
+// is, since one machine's home directory spelled into the generated config would be wrong
+// on every other machine.
+func (c Config) GetWorktreesDir() (string, error) {
+	if dir := strings.TrimSpace(c.Worktrees.Dir); dir != "" {
+		return ExpandHome(dir), nil
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	return filepath.Join(home, ".local", "state", "weave", "worktrees"), nil
 }
 
 // GetContextFile is the standing text every agent is started with: the configured file, or

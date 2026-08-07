@@ -55,6 +55,10 @@ message Agent {
   // The agent that called create_agent to launch this one, unset for one a person started
   // from the panel.
   optional string spawned_by_agent_id = 20;
+  // The branch checked out at cwd, unset when cwd is not inside a git worktree or the
+  // branch has not been read yet. Refreshed on a slow periodic pass rather than every
+  // reconcile, since reading it is a shell-out and not a tmux capture.
+  optional string branch = 22;
 }
 
 // AgentMetadata is one fact an agent recorded about its own work: the issue it is
