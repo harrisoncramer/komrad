@@ -198,6 +198,39 @@ func TestDetailsCursorStartsAtTheTopOfAnotherRow(t *testing.T) {
 	assert.Equal(t, 0, m.detailsCursor(m.hoveredDetails()))
 }
 
+// TestDetailsKeysActOnTheFieldOnScreen covers the row changing under a focused section, which
+// a refresh does when the agent the cursor was on is archived from somewhere else: the cursor
+// lands on whatever now sits at that index. The section draws that record from its top, so the
+// next key has to move from the top and the copy key has to take the field being pointed at.
+func TestDetailsKeysActOnTheFieldOnScreen(t *testing.T) {
+	clip := &fakeClipboard{}
+	m := detailsModel(&recordingTmux{})
+	m.clip = clip
+	m.tree.placed = true
+
+	focused := send(t, m, "ctrl+t")
+	down := send(t, send(t, send(t, focused, "j"), "j"), "j")
+	require.Equal(t, 3, down.details.cursor)
+
+	down.applyRefresh(refreshResult{workflows: down.listing.workflows})
+
+	held := down.hoveredDetails()
+	require.Equal(t, "w1", held.id, "the workflow header took the archived agent's place")
+	require.Equal(t, 0, down.detailsCursor(held), "the section draws the record it swapped to from its top")
+
+	moved := send(t, down, "j")
+
+	assert.Equal(t, 1, moved.detailsCursor(moved.hoveredDetails()))
+
+	copied, cmd := down.updateDetails(keyMsg("y"))
+	panel := asModel(t, copied)
+	require.NotNil(t, cmd)
+	require.NoError(t, copyResultFrom(t, cmd).err)
+
+	assert.Equal(t, []string{held.fields[0].value}, clip.written, "the copy key takes the field on screen")
+	assert.Equal(t, 1, panel.details.flashed, "and flashes the line it took it from")
+}
+
 // TestDetailsCopyReportsAFailure covers the clipboard itself refusing the write, such as no
 // clipboard utility being on the machine's PATH.
 func TestDetailsCopyReportsAFailure(t *testing.T) {

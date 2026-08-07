@@ -119,7 +119,9 @@ func (m model) updateDetails(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.details.row = held.id
+	// The field on screen, read before anything is written, since what a key acts on is what
+	// the section is drawing rather than where the cursor was left under the last record.
+	cursor := m.detailsCursor(held)
 
 	switch {
 	// esc is taken as a literal here rather than through a screen's own back binding, which
@@ -129,18 +131,29 @@ func (m model) updateDetails(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, m.quitKeys()):
 		return m, m.hide()
 	case isBound(k, m.keys.Nav.Up):
-		m.details.cursor = max(m.detailsCursor(held)-1, 0)
+		m = m.setDetailsCursor(held, cursor-1)
 	case isBound(k, m.keys.Nav.Down):
-		m.details.cursor = min(m.detailsCursor(held)+1, len(held.fields)-1)
+		m = m.setDetailsCursor(held, cursor+1)
 	case isBound(k, m.keys.Nav.Top):
-		m.details.cursor = 0
+		m = m.setDetailsCursor(held, 0)
 	case isBound(k, m.keys.Nav.Bottom):
-		m.details.cursor = len(held.fields) - 1
+		m = m.setDetailsCursor(held, len(held.fields)-1)
 	case isBound(k, m.keys.Details.Copy):
-		return m.copyDetailsField(held)
+		return m.copyDetailsField(held, cursor)
 	}
 
 	return m, nil
+}
+
+// setDetailsCursor points the section at a field of the record it is drawing, held inside
+// that record's own fields. The record is written alongside the cursor, since the two only
+// mean anything together: a cursor under a record that is no longer there is what the
+// section reads as a row it was never set against.
+func (m model) setDetailsCursor(held details, idx int) model {
+	m.details.cursor = clampCursor(idx, len(held.fields))
+	m.details.row = held.id
+
+	return m
 }
 
 // quitKeys is the binding that closes the panel from the screen on show. Each screen binds
@@ -158,9 +171,10 @@ func (m model) quitKeys() []string {
 }
 
 // copyDetailsField copies the value the cursor names and flashes its line while the write
-// runs, the panel's only answer to a key that otherwise changes nothing on screen.
-func (m model) copyDetailsField(held details) (tea.Model, tea.Cmd) {
-	idx := m.detailsCursor(held)
+// runs, the panel's only answer to a key that otherwise changes nothing on screen. The field
+// comes from the caller, since copying does not move the cursor and so has no business
+// saying which record the cursor was set against.
+func (m model) copyDetailsField(held details, idx int) (tea.Model, tea.Cmd) {
 	m.details.flashed = idx + 1
 
 	return m, tea.Batch(m.copyCmd(held.fields[idx].value), flashRevertTick())
