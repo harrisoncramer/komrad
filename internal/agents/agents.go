@@ -378,12 +378,13 @@ func (s *AgentService) requireEveryAgent(ctx context.Context, ids []string) ([]a
 		return agents, nil
 	}
 
-	found := make(map[string]bool, len(agents))
-	for _, agent := range agents {
-		found[agent.ID] = true
-	}
+	found := xslice.KeyBy(agents, func(agent agentstore.Agent) string { return agent.ID })
 
-	missing := xslice.Filter(ids, func(id string) bool { return !found[id] })
+	missing := xslice.Filter(ids, func(id string) bool {
+		_, ok := found[id]
+
+		return !ok
+	})
 
 	return nil, fmt.Errorf("%w: %s", ErrAgentNotFound, describeMissing(missing))
 }

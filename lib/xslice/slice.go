@@ -34,3 +34,25 @@ func Count[T any](in []T, keep func(T) bool) int {
 
 	return n
 }
+
+// KeyBy indexes in by the key key returns for each element. If two elements share a key, the
+// later one wins.
+func KeyBy[T any, K comparable](in []T, key func(T) K) map[K]T {
+	out := make(map[K]T, len(in))
+	for _, v := range in {
+		out[key(v)] = v
+	}
+
+	return out
+}
+
+// GroupBy buckets the elements of in by the key key returns for each one, preserving order
+// within a bucket.
+func GroupBy[T any, K comparable](in []T, key func(T) K) map[K][]T {
+	out := make(map[K][]T)
+	for _, v := range in {
+		out[key(v)] = append(out[key(v)], v)
+	}
+
+	return out
+}
