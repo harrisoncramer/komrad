@@ -29,11 +29,11 @@ type Agent struct {
 	ArchivedAt       *time.Time
 	IsHidden         bool
 	NudgedAt         *time.Time
+	Branch           *string
+	WorktreeRemoved  bool
 	Tag              *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
-	Branch           *string
-	WorktreeRemoved  bool
 }
 
 // Key/value facts an agent recorded about its own work.
@@ -100,10 +100,10 @@ type Workflow struct {
 	Name             string
 	Context          string
 	WorkflowConfigID string
+	ActionConfigID   string
 	ArchivedAt       *time.Time
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
-	ActionConfigID   string
 }
 
 // The setup/cleanup actions a workflow's agents run around their lives, and the worktree config those actions can point at instead.

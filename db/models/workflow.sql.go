@@ -11,7 +11,7 @@ import (
 
 const getWorkflow = `-- name: GetWorkflow :one
 SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.archived_at, w.created_at, w.updated_at, w.action_config_id,
+    w.id, w.name, w.context, w.workflow_config_id, w.action_config_id, w.archived_at, w.created_at, w.updated_at,
     wc.harness,
     wc.cwd,
     wc.flags,
@@ -52,10 +52,10 @@ func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, 
 		&i.Workflow.Name,
 		&i.Workflow.Context,
 		&i.Workflow.WorkflowConfigID,
+		&i.Workflow.ActionConfigID,
 		&i.Workflow.ArchivedAt,
 		&i.Workflow.CreatedAt,
 		&i.Workflow.UpdatedAt,
-		&i.Workflow.ActionConfigID,
 		&i.Harness,
 		&i.Cwd,
 		&i.Flags,
@@ -71,7 +71,7 @@ func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, 
 
 const getWorkflowIncludingArchived = `-- name: GetWorkflowIncludingArchived :one
 SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.archived_at, w.created_at, w.updated_at, w.action_config_id,
+    w.id, w.name, w.context, w.workflow_config_id, w.action_config_id, w.archived_at, w.created_at, w.updated_at,
     wc.harness,
     wc.cwd,
     wc.flags,
@@ -111,10 +111,10 @@ func (q *Queries) GetWorkflowIncludingArchived(ctx context.Context, id string) (
 		&i.Workflow.Name,
 		&i.Workflow.Context,
 		&i.Workflow.WorkflowConfigID,
+		&i.Workflow.ActionConfigID,
 		&i.Workflow.ArchivedAt,
 		&i.Workflow.CreatedAt,
 		&i.Workflow.UpdatedAt,
-		&i.Workflow.ActionConfigID,
 		&i.Harness,
 		&i.Cwd,
 		&i.Flags,
@@ -140,7 +140,7 @@ VALUES (
     $3,
     $4)
 RETURNING
-    id, name, context, workflow_config_id, archived_at, created_at, updated_at, action_config_id
+    id, name, context, workflow_config_id, action_config_id, archived_at, created_at, updated_at
 `
 
 type InsertWorkflowParams struct {
@@ -163,10 +163,10 @@ func (q *Queries) InsertWorkflow(ctx context.Context, arg InsertWorkflowParams) 
 		&i.Name,
 		&i.Context,
 		&i.WorkflowConfigID,
+		&i.ActionConfigID,
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.ActionConfigID,
 	)
 	return &i, err
 }
@@ -241,7 +241,7 @@ func (q *Queries) InsertWorkflowConfig(ctx context.Context, arg InsertWorkflowCo
 
 const listWorkflows = `-- name: ListWorkflows :many
 SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.archived_at, w.created_at, w.updated_at, w.action_config_id,
+    w.id, w.name, w.context, w.workflow_config_id, w.action_config_id, w.archived_at, w.created_at, w.updated_at,
     wc.harness,
     wc.cwd,
     wc.flags,
@@ -288,10 +288,10 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 			&i.Workflow.Name,
 			&i.Workflow.Context,
 			&i.Workflow.WorkflowConfigID,
+			&i.Workflow.ActionConfigID,
 			&i.Workflow.ArchivedAt,
 			&i.Workflow.CreatedAt,
 			&i.Workflow.UpdatedAt,
-			&i.Workflow.ActionConfigID,
 			&i.Harness,
 			&i.Cwd,
 			&i.Flags,
@@ -314,7 +314,7 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 
 const listWorkflowsPage = `-- name: ListWorkflowsPage :many
 SELECT
-    w.id, w.name, w.context, w.workflow_config_id, w.archived_at, w.created_at, w.updated_at, w.action_config_id,
+    w.id, w.name, w.context, w.workflow_config_id, w.action_config_id, w.archived_at, w.created_at, w.updated_at,
     wc.harness,
     wc.cwd,
     wc.flags,
@@ -369,10 +369,10 @@ func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPagePa
 			&i.Workflow.Name,
 			&i.Workflow.Context,
 			&i.Workflow.WorkflowConfigID,
+			&i.Workflow.ActionConfigID,
 			&i.Workflow.ArchivedAt,
 			&i.Workflow.CreatedAt,
 			&i.Workflow.UpdatedAt,
-			&i.Workflow.ActionConfigID,
 			&i.Harness,
 			&i.Cwd,
 			&i.Flags,
