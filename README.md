@@ -8,11 +8,11 @@
 
 Weave is a terminal-based agent manager. It lets you:
 
-- Quickly create agents backed by different CLIs, like Claude or Codex
-- Build orchestrators or agent pipelines with Weave's MCP
-- Build custom actions and triggers tied to agent lifecycles
-- Group agents into workflows with common behaviors and contexts
-- Enforce agent schedules
+- Create and manage agents backed by Claude or Codex
+- Orchestrate agent pipelines with Weave's MCP
+- Build custom actions and hooks
+- Group agents into workflows with common behaviors
+- Create schedules for your agents
 
 If you're a Neovim or Emacs user, or just enjoy working from your terminal, weave is for you.
 
@@ -51,7 +51,8 @@ Weave is a terminal tool, intended for power users. It does not aspire to be a r
 
 - [workflows](docs/workflows.md): The shared templates for agents
 - [agents](docs/agents.md): The core resource of weave
-- [actions](docs/actions.md): Custom scripts or binaries that your agents can invoke
-- [schedules](docs/schedules.md): Durable schedules for running your workflows at prefined times or intervals
+- [actions](docs/actions.md): Custom scripts that your agents can invoke
+- [schedules](docs/schedules.md): Durable schedules for running your agents
 - [MCP](docs/mcp.md): Lets agents spawn or manage other agents
+- [Mail](docs/mail.md): How agents communicate with each other
 - [CLI](docs/commands.md): The CLI tool and commands
