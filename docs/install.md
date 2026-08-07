@@ -57,12 +57,6 @@ database_url = "postgres://weave:secret@localhost:5432/weave?sslmode=disable"
 
 Weave migrates the schema on the way in, so an empty database is all you create. The built-in default is the checkout's docker-compose port, `localhost:5460`, so an installed binary needs this set.
 
-```sh
-weave readonly-role
-```
-
-That creates the least-privilege login weave's [MCP](mcp.md) query tools use, and the service will not start without it. It needs `CREATEROLE`, wants the schema to exist already, and is free to run again. Use [connection.readonly_database_url](configuration.md#connectionreadonly_database_url-weave_readonly_database_url) when it needs its own password.
-
 ## Upgrading
 
 Download over the old binary. Config, database, and tmux config are untouched. The running processes keep the build they started as, so replace them too:
