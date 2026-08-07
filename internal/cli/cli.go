@@ -128,11 +128,8 @@ func NewRootCommand() *cobra.Command {
 		},
 	}
 
-	// Repeatable, and each occurrence is a layer merged over the ones before it. StringArray
-	// rather than StringSlice because StringSlice splits on commas, which would mangle a path
-	// holding one and invite a second syntax for the same thing.
-	root.PersistentFlags().StringArrayVar(&configPaths, "config", nil,
-		"path to a config TOML, repeatable, later files win over earlier ones")
+	root.PersistentFlags().StringArrayVar(&configPaths, "config", nil, "path to a config TOML, repeatable, later files win over earlier ones")
+
 	root.AddCommand(
 		doctorCmd(app),
 		panelCmd(app),
@@ -155,8 +152,6 @@ func NewRootCommand() *cobra.Command {
 }
 
 // commandsSurvivingBadConfig are the commands that still run on a config that will not parse.
-// Everything else refuses, since the file names the database now and falling back to the
-// built-in default would quietly connect somewhere else and write there.
 var commandsSurvivingBadConfig = map[string]bool{
 	"doctor":  true,
 	"version": true,
@@ -171,7 +166,6 @@ func resolveConfigPaths(flags []string) []string {
 	return config.LayerPaths()
 }
 
-// isConfigFatal reports whether a config that will not parse should stop this command.
 func isConfigFatal(cmd *cobra.Command) bool {
 	return !commandsSurvivingBadConfig[cmd.Name()]
 }
