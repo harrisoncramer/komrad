@@ -12,70 +12,24 @@ import (
 	"weave/internal/ui/layout"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-// TestInfoDefault covers the info pane's automatic open and close. It opens on an agent row
-// unless it has been dismissed, stays closed on a workflow header, which has no record of
-// its own, and is dismissed for good once the pane itself is killed rather than reopened the
-// next time an agent is hovered.
-func TestInfoDefault(t *testing.T) {
-	t.Run("an agent row opens the record below by default", func(t *testing.T) {
-		tmux := &recordingTmux{}
-		m := infoModel(tmux)
+// TestInfoStaysShut covers the pane below the stage, which nothing about the row under the
+// cursor opens. Only the log key and an action's editor put anything down there.
+func TestInfoStaysShut(t *testing.T) {
+	tmux := &recordingTmux{}
+	m := infoModel(tmux)
 
-		m.stageSelection()
+	m.stageSelection()
 
-		assert.Equal(t, infoRecord, m.info.kind)
-		assert.Equal(t, m.frame.GuestPane(), "%9", "the record never displaces the agent")
-		require.Len(t, tmux.respawns, 1)
-		assert.Contains(t, tmux.respawns[0], "less")
-		assert.Equal(t, "%2", tmux.respawnPanes[0], "the record is paged into the pane below")
-	})
-
-	t.Run("a workflow header has no record of its own to show", func(t *testing.T) {
-		tmux := &recordingTmux{}
-		m := infoModel(tmux)
-		m.tree.cursor = 0
-
-		m.stageSelection()
-
-		assert.Equal(t, infoNothing, m.info.kind)
-		assert.NotContains(t, tmux.respawnPanes, "%2", "nothing is paged into the pane below")
-	})
-
-	t.Run("moving from an agent to a header closes what was open", func(t *testing.T) {
-		tmux := &recordingTmux{}
-		m := infoModel(tmux)
-		m.stageSelection()
-		require.Equal(t, infoRecord, m.info.kind)
-
-		m.tree.cursor = 0
-		m.stageSelection()
-
-		assert.Equal(t, infoNothing, m.info.kind)
-		assert.Contains(t, tmux.killed, "%2", "the pane goes with it")
-	})
-
-	t.Run("killing the pane dismisses it for the rest of the session", func(t *testing.T) {
-		tmux := &recordingTmux{}
-		m := infoModel(tmux)
-		m.stageSelection()
-		require.Equal(t, infoRecord, m.info.kind)
-
-		tmux.deadPanes = map[string]bool{"%2": true}
-		m.reconcileInfo()
-
-		assert.Equal(t, infoNothing, m.info.kind)
-		assert.True(t, m.info.dismissed)
-
-		m.stageSelection()
-		assert.Equal(t, infoNothing, m.info.kind, "an agent row does not reopen it")
-	})
+	assert.Equal(t, infoNothing, m.info.kind)
+	assert.Equal(t, "%9", m.frame.GuestPane(), "the hovered agent has the stage to itself")
+	assert.Empty(t, tmux.belowAnchors, "nothing is split under it")
+	assert.NotContains(t, tmux.respawnPanes, "%2", "and nothing is paged into a pane below")
 }
 
-// TestAgentMarkdown covers the record the stage shows for an agent. A dormant one
-// has no pane to display, so this is all there is of it.
+// TestAgentMarkdown covers the record the stage shows for a dormant agent, which has no pane
+// to display, so this is all there is of it.
 func TestAgentMarkdown(t *testing.T) {
 	agent := agentstore.Agent{
 		ID:        "a1",
@@ -87,8 +41,9 @@ func TestAgentMarkdown(t *testing.T) {
 	}
 
 	tests := []struct {
-		name  string
-		alive bool
+		name string
+		// hidden is whether the agent is held back from the list.
+		hidden bool
 		// schedule is the name of the schedule that launched the agent, empty for
 		// one a person started.
 		schedule string
@@ -99,16 +54,14 @@ func TestAgentMarkdown(t *testing.T) {
 		wantAbsent  []string
 	}{
 		{
-			name:  "a dormant agent says so and offers the way back",
-			alive: false,
+			name: "it says it is dormant and offers the way back",
 			wantContain: []string{
 				"_dormant — not running_",
 				"Press open to resume",
 			},
 		},
 		{
-			name:  "a live agent claims no dormancy and lists its record",
-			alive: true,
+			name: "it lists what it was launched with",
 			wantContain: []string{
 				"1. agent: —",
 				"2. directory: /repo",
@@ -116,27 +69,27 @@ func TestAgentMarkdown(t *testing.T) {
 				"4. agent_id: a1",
 				"5. session_id: abc",
 			},
-			wantAbsent: []string{"dormant", "Press open to resume"},
 		},
 		{
 			name:        "an agent a schedule launched names the schedule",
-			alive:       true,
 			schedule:    "morning-ci",
 			wantContain: []string{"launched by: morning-ci"},
 		},
 		{
 			name:       "one a person started claims no schedule",
-			alive:      true,
 			wantAbsent: []string{"launched by"},
 		},
 		{
+			name:        "one held back from the list says so as well",
+			hidden:      true,
+			wantContain: []string{"Hidden from the list.", "Press open to resume"},
+		},
+		{
 			name:       "an agent that recorded nothing adds nothing for it",
-			alive:      true,
 			wantAbsent: []string{"branch", "pull"},
 		},
 		{
-			name:  "what the agent recorded is numbered in with the rest and copyable",
-			alive: true,
+			name: "what the agent recorded is numbered in with the rest and copyable",
 			metadata: []agentstore.Metadata{
 				{Key: "branch", Value: "harry/rate-limits"},
 				{Key: "pr", Value: "https://github.com/o/r/pull/312"},
@@ -152,8 +105,9 @@ func TestAgentMarkdown(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			agent := agent
 			agent.Metadata = tt.metadata
+			agent.Hidden = tt.hidden
 
-			got := agentMarkdown(agent, tt.alive, tt.schedule)
+			got := agentMarkdown(agent, tt.schedule)
 
 			for _, want := range tt.wantContain {
 				assert.Contains(t, got.markdown, want)

@@ -145,9 +145,9 @@ func TestStagedAgentExitsOnItsOwn(t *testing.T) {
 
 	assert.False(t, staged.panel.tmux.IsPaneAlive(stagePane), "the pane left in the agent's window is not left running")
 	assert.Equal(t,
-		[]string{staged.navPane, staged.panel.frame.Pane(layout.RegionStage), staged.panel.frame.Pane(layout.RegionInfo)},
+		[]string{staged.navPane, staged.panel.frame.Pane(layout.RegionStage)},
 		panesInPanel(t, staged.instance),
-		"the panel is a nav pane and a stage pane again, the now-dormant agent's info pane open by default beside it")
+		"the panel is a nav pane and a stage pane again, the now-dormant agent's record in the stage")
 }
 
 // stagedPanel is a panel over the real service with one agent staged. That is the layout
