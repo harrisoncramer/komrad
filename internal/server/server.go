@@ -69,6 +69,12 @@ const TranscriptSyncInterval = 15 * time.Second
 // on its own slow pass instead of inside the two-second reconcile loop.
 const BranchSyncInterval = 15 * time.Second
 
+// WorktreeSyncInterval is how often the service re-checks whether every live agent's cwd
+// still exists on disk. A stale removed-worktree glyph is harmless the same way a stale
+// branch label is, and each pass is a filesystem stat per agent rather than a tmux capture,
+// which is why it runs on its own slow pass instead of inside the two-second reconcile loop.
+const WorktreeSyncInterval = 15 * time.Second
+
 // Params is everything the service is built from. Every one of them is gathered before
 // this is reached, so nothing here reads a file, an environment, or a flag.
 type Params struct {
@@ -156,6 +162,8 @@ type Server struct {
 	TranscriptSync Loop
 	// BranchSync re-reads the branch checked out at every live agent's cwd.
 	BranchSync Loop
+	// WorktreeSync re-checks whether every live agent's cwd still exists on disk.
+	WorktreeSync Loop
 
 	logger        *slog.Logger
 	stopRequested chan struct{}
@@ -166,7 +174,7 @@ type Server struct {
 // loops is every background loop Start has to run, so a loop added above joins this list in
 // the same glance.
 func (s *Server) loops() []Loop {
-	return []Loop{s.ScheduleReconcile, s.Reconcile, s.MailDelivery, s.TranscriptSync, s.BranchSync}
+	return []Loop{s.ScheduleReconcile, s.Reconcile, s.MailDelivery, s.TranscriptSync, s.BranchSync, s.WorktreeSync}
 }
 
 // New builds the service. Nothing is listening and no loop is running when it returns; the
@@ -372,6 +380,11 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Name:     "branch sync",
 		Interval: BranchSyncInterval,
 		Pass:     agents.NewBranchSyncer(agentStore).Sync,
+	}
+	srv.WorktreeSync = Loop{
+		Name:     "worktree sync",
+		Interval: WorktreeSyncInterval,
+		Pass:     agents.NewWorktreeSyncer(agentStore).Sync,
 	}
 
 	return srv, nil

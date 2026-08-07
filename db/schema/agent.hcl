@@ -513,6 +513,15 @@ table "agents" {
     null = true
     type = text
   }
+  # Whether cwd no longer exists on disk, false until a periodic pass has looked and found
+  # it gone. An agent's worktree can be removed by hand, or by a cleanup action run against
+  # the wrong agent, while its pane is still open; this is how the panel tells a directory
+  # that vanished under a running agent from one it was simply never given.
+  column "worktree_removed" {
+    null    = false
+    type    = boolean
+    default = false
+  }
   # The tag the user put on this agent, null when it carries none. It holds the
   # glyph itself, since which glyphs exist is their config and the glyph is the
   # whole meaning. Only the person writes it, never the reconciler, since what an

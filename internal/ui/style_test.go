@@ -70,6 +70,60 @@ func TestAgentsViewShowsBranch(t *testing.T) {
 	assert.NotContains(t, reviewer, branchIcon)
 }
 
+// TestWorktreeRemovedMark covers the glyph shown beside an agent's row when the worktree
+// syncer has found its cwd gone: nothing for one whose cwd is still there, and just the
+// icon for one it is not.
+func TestWorktreeRemovedMark(t *testing.T) {
+	tests := []struct {
+		name    string
+		removed bool
+		want    bool
+	}{
+		{
+			name: "a cwd still on disk is drawn as nothing",
+		},
+		{
+			name:    "a cwd the syncer found gone is drawn with the icon",
+			removed: true,
+			want:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := worktreeRemovedMark(agentstore.Agent{WorktreeRemoved: tt.removed})
+			if !tt.want {
+				assert.Empty(t, got)
+				return
+			}
+
+			assert.Contains(t, got, worktreeRemovedIcon)
+		})
+	}
+}
+
+// TestAgentsViewShowsWorktreeRemoved covers the row itself: an agent the worktree syncer
+// found gone shows the icon beside its name, and one it has not draws the row without it.
+func TestAgentsViewShowsWorktreeRemoved(t *testing.T) {
+	m := model{
+		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:  config.DefaultKeybindings(),
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}}, agents: []agentItem{
+			{agent: agentstore.Agent{ID: "a1", Name: "worker", WorkflowID: "w1", WorktreeRemoved: true}},
+			{agent: agentstore.Agent{ID: "a2", Name: "reviewer", WorkflowID: "w1"}},
+		}},
+	}
+
+	rows := strings.Split(m.agentsView(), "\n")
+	worker, ok := rowNamed(rows, "worker")
+	require.True(t, ok)
+	assert.Contains(t, worker, worktreeRemovedIcon)
+
+	reviewer, ok := rowNamed(rows, "reviewer")
+	require.True(t, ok)
+	assert.NotContains(t, reviewer, worktreeRemovedIcon)
+}
+
 func TestUnreadMailMark(t *testing.T) {
 	assert.Empty(t, unreadMailMark(false))
 	assert.Contains(t, unreadMailMark(true), unreadMailIcon)
