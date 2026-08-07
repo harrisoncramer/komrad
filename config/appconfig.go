@@ -83,6 +83,9 @@ const (
 	DefaultSidebarWidth = 0.2
 	DefaultInfoSide     = InfoSideBelow
 	DefaultInfoHeight   = 0.4
+	// DefaultDetailsHeight leaves the list twice the room the record under it takes, which
+	// holds an agent's fields without the list it belongs to shrinking to a handful of rows.
+	DefaultDetailsHeight = 0.33
 )
 
 // Where each region of the panel's layout can sit.
@@ -109,6 +112,9 @@ type Keybindings struct {
 	Agents AgentsKeys `mapstructure:"agents"`
 	// The archive screen, and the key that opens it from the agents list.
 	Archive ArchiveKeys `mapstructure:"archive"`
+	// The details under the agents list: the key that hands them the cursor, and the
+	// key that copies the field it lands on.
+	Details DetailsKeys `mapstructure:"details"`
 	// The filter over whichever list is on screen, shared by every screen that
 	// draws one.
 	Filter FilterKeys `mapstructure:"filter"`
@@ -148,6 +154,16 @@ type NavKeys struct {
 type HelpKeys struct {
 	// Toggle for the keybindings
 	Toggle []string `mapstructure:"toggle"`
+}
+
+// DetailsKeys are the bindings for the details under the agents list. Focus moves the cursor
+// between the list and the record below it, and while the record holds it the shared
+// navigation keys run down its fields rather than the rows above them.
+type DetailsKeys struct {
+	// Copy the field the details cursor is on to the system clipboard.
+	Copy []string `mapstructure:"copy"`
+	// Move the cursor between the agents list and the details under it.
+	Focus []string `mapstructure:"focus"`
 }
 
 // LogsKeys is the binding that pages the background service's log. It is its own group
@@ -303,9 +319,9 @@ type Context struct {
 	File string `mapstructure:"file"`
 }
 
-// Layout is how the panel divides the popup between its own list, the stage beside it, and
-// the info pane that opens under the stage. A size below one is read as a share of what it
-// divides, and one at or above it as a count of cells.
+// Layout is how the panel divides the popup between its own list, the details under that
+// list, the stage beside them, and the info pane that opens under the stage. A size below
+// one is read as a share of what it divides, and one at or above it as a count of cells.
 type Layout struct {
 	// Which side of the popup the panel's sidebar sits on, "left" or "right".
 	SidebarSide string `mapstructure:"sidebar_side"`
@@ -315,6 +331,8 @@ type Layout struct {
 	InfoSide string `mapstructure:"info_side"`
 	// How tall the info pane opens, either a share of the stage's height below one or a whole number of rows.
 	InfoHeight float64 `mapstructure:"info_height"`
+	// How tall the details under the panel's list are, either a share of the sidebar's height below one or a whole number of rows. They never take more than half of it.
+	DetailsHeight float64 `mapstructure:"details_height"`
 }
 
 // Harness is how one agent CLI is configured.
@@ -490,10 +508,11 @@ func DefaultConnection() Connection {
 // DefaultLayout is the layout used when the config omits it.
 func DefaultLayout() Layout {
 	return Layout{
-		SidebarSide:  DefaultSidebarSide,
-		SidebarWidth: DefaultSidebarWidth,
-		InfoSide:     DefaultInfoSide,
-		InfoHeight:   DefaultInfoHeight,
+		SidebarSide:   DefaultSidebarSide,
+		SidebarWidth:  DefaultSidebarWidth,
+		InfoSide:      DefaultInfoSide,
+		InfoHeight:    DefaultInfoHeight,
+		DetailsHeight: DefaultDetailsHeight,
 	}
 }
 
@@ -581,6 +600,10 @@ func DefaultKeybindings() Keybindings {
 			Open:    []string{"Z"},
 			Quit:    []string{"ctrl+c"},
 			Restore: []string{"r"},
+		},
+		Details: DetailsKeys{
+			Copy:  []string{"y"},
+			Focus: []string{"ctrl+t"},
 		},
 		Filter: FilterKeys{
 			Open: []string{"/"},
@@ -677,6 +700,9 @@ func validateLayout(layout Layout) error {
 		return err
 	}
 	if err := validatePaneSize("layout.info_height", layout.InfoHeight); err != nil {
+		return err
+	}
+	if err := validatePaneSize("layout.details_height", layout.DetailsHeight); err != nil {
 		return err
 	}
 	if err := validateSide("layout.sidebar_side", layout.SidebarSide, SidebarSideLeft, SidebarSideRight); err != nil {
@@ -945,6 +971,9 @@ func (c *Config) normalizeZeroValues() {
 	}
 	if c.Layout.InfoHeight == 0 {
 		c.Layout.InfoHeight = DefaultInfoHeight
+	}
+	if c.Layout.DetailsHeight == 0 {
+		c.Layout.DetailsHeight = DefaultDetailsHeight
 	}
 	if strings.TrimSpace(c.Layout.SidebarSide) == "" {
 		c.Layout.SidebarSide = DefaultSidebarSide

@@ -23,6 +23,15 @@ var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one
 func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
+	// The details below hold the keys until the focus key hands them back, so what a
+	// keypress would act on is whichever half of the sidebar is drawn in the accent.
+	if m.details.focused {
+		return m.updateDetails(key)
+	}
+	if isBound(k, m.keys.Details.Focus) {
+		return m.toggleDetailsFocus()
+	}
+
 	if m.takeTopPress(k) {
 		return m.jumpCursor(0), nil
 	}
@@ -51,9 +60,6 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) updateAgentsBrowsing(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
-	if cmd, ok := m.tryCopyRecordValue(k); ok {
-		return m, cmd
-	}
 	if isBound(k, m.keys.Filter.Open) {
 		return m.openFilter()
 	}
@@ -255,6 +261,7 @@ func (m model) moveCursor(delta int) model {
 	}
 
 	m.tree.rowCursor = next
+	m.details.cursor = 0
 	m.stageSelection()
 
 	return m
@@ -267,6 +274,7 @@ func (m model) jumpCursor(idx int) model {
 	}
 
 	m.tree.rowCursor = next
+	m.details.cursor = 0
 	m.stageSelection()
 
 	return m
@@ -341,16 +349,17 @@ func (m *model) stageSelection() {
 		return
 	}
 
+	// The fields of whatever is hovered are drawn in the sidebar, so the stage is left for
+	// the text that has nowhere else to go: an agent's own pane, and the prose a workflow
+	// carries for the agents it starts.
 	switch {
 	case r.header:
-		// A workflow has no chat of its own, so its record fills the main pane instead.
-		m.stageRecord(workflowMarkdown(r.workflow, m.agentCount(r.workflow.ID)))
+		m.stagePlaceholder(workflowContextMarkdown(r.workflow))
 	case r.item.alive:
 		m.frame.ShowGuest(r.item.agent.Pane)
 		m.clearRecord()
 	default:
-		// A dormant agent has no pane to swap in, so its stored record is what the stage holds.
-		m.stageRecord(agentMarkdown(r.item.agent, m.scheduleName(r.item.agent)))
+		m.stagePlaceholder(dormantPlaceholder)
 	}
 
 	m.stageInfo()
@@ -417,8 +426,14 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 	return ""
 }
 
+// dormantPlaceholder is what the stage holds for an agent with nothing running: the fields
+// are in the sidebar, so this says only why the pane is empty and what brings it back.
+const dormantPlaceholder = "_dormant — not running_\n\nPress open to resume."
+
 func (m model) agentsView() string {
-	help := "\n" + m.renderHelp(m.agentHelp())
+	// The details and the legend are both chrome under the list, handed over together so the
+	// list's own height is measured against everything below it.
+	below := m.detailsView() + "\n" + m.renderHelp(m.agentHelp())
 
 	all := m.agentRows()
 	rows := make([]string, 0, len(all))
@@ -447,7 +462,7 @@ func (m model) agentsView() string {
 		rows = append(rows, prefix+"  "+icon+" "+name+scheduledMark(item.agent)+hiddenMark(item.agent.Hidden)+markGlyph(item.agent, m.marks))
 	}
 
-	return m.listView("Agents and Workflows", rows, m.tree.cursor, help)
+	return m.listView("Agents and Workflows", rows, m.tree.cursor, below)
 }
 
 func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {

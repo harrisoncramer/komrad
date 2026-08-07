@@ -3,7 +3,6 @@ package ui
 import (
 	"strings"
 	"testing"
-	"time"
 
 	"weave/config"
 
@@ -26,102 +25,6 @@ func TestInfoStaysShut(t *testing.T) {
 	assert.Equal(t, "%9", m.frame.GuestPane(), "the hovered agent has the stage to itself")
 	assert.Empty(t, tmux.belowAnchors, "nothing is split under it")
 	assert.NotContains(t, tmux.respawnPanes, "%2", "and nothing is paged into a pane below")
-}
-
-// TestAgentMarkdown covers the record the stage shows for a dormant agent, which has no pane
-// to display, so this is all there is of it.
-func TestAgentMarkdown(t *testing.T) {
-	agent := agentstore.Agent{
-		ID:        "a1",
-		Name:      "auth",
-		Pane:      "%9",
-		Cwd:       "/repo",
-		SessionID: "abc",
-		CreatedAt: time.Date(2026, 7, 24, 15, 4, 0, 0, time.UTC),
-	}
-
-	tests := []struct {
-		name string
-		// hidden is whether the agent is held back from the list.
-		hidden bool
-		// schedule is the name of the schedule that launched the agent, empty for
-		// one a person started.
-		schedule string
-		// metadata is what the agent recorded about its own work, empty for one that
-		// recorded nothing.
-		metadata    []agentstore.Metadata
-		wantContain []string
-		wantAbsent  []string
-	}{
-		{
-			name: "it says it is dormant and offers the way back",
-			wantContain: []string{
-				"_dormant — not running_",
-				"Press open to resume",
-			},
-		},
-		{
-			name: "it lists what it was launched with",
-			wantContain: []string{
-				"1. agent: —",
-				"2. directory: /repo",
-				"3. flags: —",
-				"4. agent_id: a1",
-				"5. session_id: abc",
-			},
-		},
-		{
-			name:        "an agent a schedule launched names the schedule",
-			schedule:    "morning-ci",
-			wantContain: []string{"launched by: morning-ci"},
-		},
-		{
-			name:       "one a person started claims no schedule",
-			wantAbsent: []string{"launched by"},
-		},
-		{
-			name:        "one held back from the list says so as well",
-			hidden:      true,
-			wantContain: []string{"Hidden from the list.", "Press open to resume"},
-		},
-		{
-			name:       "an agent that recorded nothing adds nothing for it",
-			wantAbsent: []string{"branch", "pull"},
-		},
-		{
-			name: "what the agent recorded is numbered in with the rest and copyable",
-			metadata: []agentstore.Metadata{
-				{Key: "branch", Value: "harry/rate-limits"},
-				{Key: "pr", Value: "https://github.com/o/r/pull/312"},
-			},
-			wantContain: []string{
-				"branch: harry/rate-limits",
-				"pr: https://github.com/o/r/pull/312",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			agent := agent
-			agent.Metadata = tt.metadata
-			agent.Hidden = tt.hidden
-
-			got := agentMarkdown(agent, tt.schedule)
-
-			for _, want := range tt.wantContain {
-				assert.Contains(t, got.markdown, want)
-			}
-			for _, absent := range tt.wantAbsent {
-				assert.NotContains(t, got.markdown, absent)
-			}
-
-			if len(tt.metadata) > 0 {
-				assert.Contains(t, got.values, "harry/rate-limits", "the metadata value is copyable")
-				assert.Contains(t, got.values, "https://github.com/o/r/pull/312", "the metadata value is copyable")
-			}
-		})
-	}
 }
 
 // TestWorkflowMarkdown covers the record the stage shows for a workflow. The stage is
@@ -259,10 +162,11 @@ func infoModel(tmux *recordingTmux) model {
 	frame.Attach("%0")
 
 	return model{
-		tmux:   tmux,
-		frame:  frame,
-		keys:   config.DefaultKeybindings(),
-		screen: screenAgents,
+		tmux:          tmux,
+		frame:         frame,
+		keys:          config.DefaultKeybindings(),
+		screen:        screenAgents,
+		detailsHeight: config.DefaultDetailsHeight,
 		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}, agents: []agentItem{
 			{agent: agentstore.Agent{Name: "auth", Pane: "%9", Cwd: "/repo", WorkflowID: "w1"}, alive: true},
 		}}, tree: treeState{rowCursor: rowCursor{cursor: 1}},

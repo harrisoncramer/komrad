@@ -154,6 +154,10 @@ func (m model) globalHelp() []key.Binding {
 
 // agentHelp lists the agents screen's bindings.
 func (m model) agentHelp() keyMap {
+	if m.details.focused {
+		return m.detailsHelp()
+	}
+
 	if m.tree.selected.active() {
 		hovered, _ := m.hoveredRow()
 
@@ -170,12 +174,36 @@ func (m model) agentHelp() keyMap {
 	full := slices.Concat(
 		rows,
 		m.screenHelp(),
-		[]key.Binding{m.filterBinding(), m.moveBinding(), m.jumpBinding()},
+		[]key.Binding{m.detailsBinding(), m.filterBinding(), m.moveBinding(), m.jumpBinding()},
 		m.clearFilterBinding(m.keys.Agents.Back),
 		m.globalHelp(),
 	)
 
 	return keyMap{short: []key.Binding{rows[0], m.helpBinding()}, full: full}
+}
+
+// detailsBinding is the key that hands the cursor to the details under the list. It names
+// the direction the key would go, the way the log and hide lines do.
+func (m model) detailsBinding() key.Binding {
+	desc := "details"
+	if m.details.focused {
+		desc = "back to the list"
+	}
+
+	return binding(m.keys.Details.Focus, desc)
+}
+
+// detailsHelp lists what is live while the details hold the cursor. It replaces the row
+// bindings rather than joining them, since those keys stand down in this mode: the cursor
+// is on a field rather than on the agent the field belongs to.
+func (m model) detailsHelp() keyMap {
+	copyField := binding(m.keys.Details.Copy, "copy field")
+	back := m.detailsBinding()
+
+	return keyMap{
+		short: []key.Binding{copyField, back, m.helpBinding()},
+		full:  slices.Concat([]key.Binding{copyField, back, m.moveBinding(), m.jumpBinding()}, m.globalHelp()),
+	}
 }
 
 // selectionHelp lists what is live while a selection is up, which both trees show. It
