@@ -311,12 +311,8 @@ func infoModel(tmux *recordingTmux) model {
 		frame:  frame,
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
-		tree: treeState{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []agentItem{
-				{agent: agentstore.Agent{Name: "auth", Pane: "%9", Cwd: "/repo", WorkflowID: "w1"}, alive: true},
-			},
-			rowCursor: rowCursor{cursor: 1},
-		},
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}, agents: []agentItem{
+			{agent: agentstore.Agent{Name: "auth", Pane: "%9", Cwd: "/repo", WorkflowID: "w1"}, alive: true},
+		}}, tree: treeState{rowCursor: rowCursor{cursor: 1}},
 	}
 }

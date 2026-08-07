@@ -145,6 +145,12 @@ type model struct {
 	// moves between the lists above it.
 	info infoState
 
+	// listing is what the last refresh brought back. It is the panel's rather than any one
+	// screen's: the schedule form and the archive both draw the workflows the agents list
+	// happens to have fetched, and reaching into another screen's state for them is how
+	// screens end up tangled.
+	listing listing
+
 	// The screens, each holding the rows it draws and where its cursor is.
 	tree      treeState
 	schedules scheduleState

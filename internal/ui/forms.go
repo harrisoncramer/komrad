@@ -183,7 +183,7 @@ func (m *model) rebuildForm() tea.Cmd {
 	case m.screen == screenWorkflowForm && m.values.workflow != nil:
 		m.form, m.values.workflow = m.workflowFormFor(*m.values.workflow)
 	case m.screen == screenScheduleForm && m.values.schedule != nil:
-		m.form, m.values.schedule = scheduleForm(*m.values.schedule, m.tree.workflows, m.keys.Form)
+		m.form, m.values.schedule = scheduleForm(*m.values.schedule, m.listing.workflows, m.keys.Form)
 	default:
 		return nil
 	}

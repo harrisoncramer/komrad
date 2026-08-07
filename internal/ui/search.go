@@ -289,7 +289,7 @@ func (m model) jumpToSearchHit() (tea.Model, tea.Cmd) {
 // revealAgent puts the tree's cursor on an agent, drawing the hidden ones when that is the only
 // way it has a row. An agent the tree has none for at all leaves the cursor where it was.
 func (m *model) revealAgent(id string) {
-	for _, item := range m.tree.agents {
+	for _, item := range m.listing.agents {
 		if item.agent.ID == id && item.agent.Hidden {
 			m.tree.showHidden = true
 		}

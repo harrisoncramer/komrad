@@ -382,7 +382,7 @@ func TestJumpToSearchHit(t *testing.T) {
 			m.api = api{agents: client, workflows: emptyLists{}, schedules: emptyLists{}}
 			m.screen = screenSearch
 			m.search = searchState{query: "ledger", hits: []searchHit{tt.hit}}
-			m.tree.agents[1].agent.Hidden = tt.hidden
+			m.listing.agents[1].agent.Hidden = tt.hidden
 			m.archive.agents = []agentstore.Agent{{ID: "a3", Name: "old-work", WorkflowID: "w1"}}
 
 			updated, _ := m.route(keyMsg("enter"))

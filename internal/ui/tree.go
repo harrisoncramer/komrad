@@ -11,8 +11,6 @@ import (
 // rather than either listing. Its focus is a row key, since a jump can land on either a
 // header or an agent.
 type treeState struct {
-	agents    []agentItem
-	workflows []workflowstore.Workflow
 	rowCursor
 
 	// placed says a listing has put the cursor somewhere, so the first one lands on the
@@ -81,7 +79,7 @@ func (m model) agentRows() []agentRow {
 // allAgentRows is the whole tree, filter or no filter. The selection is kept against it, so a
 // pattern narrows what is on screen without dropping agents already chosen.
 func (m model) allAgentRows() []agentRow {
-	return treeRows(m.tree.workflows, m.tree.agents, m.tree.showHidden)
+	return treeRows(m.listing.workflows, m.listing.agents, m.tree.showHidden)
 }
 
 // selectedAgent returns the agent under the cursor, or false when the cursor is on
@@ -194,11 +192,10 @@ func rowIndexOfKey(rows []agentRow, key string) int {
 
 // agentCount returns how many listed agents belong to the given workflow id.
 func (m model) agentCount(workflowID string) int {
-	return xslice.Count(m.tree.agents, func(it agentItem) bool { return it.agent.WorkflowID == workflowID })
+	return xslice.Count(m.listing.agents, func(it agentItem) bool { return it.agent.WorkflowID == workflowID })
 }
 
-// agentItem is a stored agent plus whether its tmux pane is currently alive. A dormant
-// agent has a dead pane but is kept, since it can be restored from its stored state.
+// agentItem is a stored agent plus whether its tmux pane is currently alive.
 type agentItem struct {
 	agent agentstore.Agent
 	alive bool
@@ -207,12 +204,12 @@ type agentItem struct {
 // applyWorkflows takes a freshly-listed set as the on-screen workflows. The listing sorts
 // by id, fixed at creation, so no edit can move a folder under the cursor.
 func (m *model) applyWorkflows(fresh []workflowstore.Workflow) {
-	m.tree.workflows = fresh
+	m.listing.workflows = fresh
 }
 
 // applyAgents takes a freshly-listed set as the on-screen agents.
 func (m *model) applyAgents(fresh []agentItem) {
-	m.tree.agents = fresh
+	m.listing.agents = fresh
 }
 
 // placeTreeCursor puts the cursor back on the row selected names, or as near as the rebuilt
@@ -251,4 +248,11 @@ func (m *model) placeTreeCursor(selected string) {
 
 	m.tree.placed = true
 	m.tree.selected = m.tree.selected.pruned(m.allAgentRows())
+}
+
+// listing is the agents and workflows the last refresh brought back, held once for every
+// screen that draws them.
+type listing struct {
+	agents    []agentItem
+	workflows []workflowstore.Workflow
 }

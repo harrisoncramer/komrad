@@ -112,11 +112,11 @@ func TestArchiveKeys(t *testing.T) {
 			m := archiveModel(agents, workflows, keys)
 			m.archive.cursor = tt.cursor
 			if tt.archivedFolder {
-				m.tree.workflows = nil
+				m.listing.workflows = nil
 				m.archive.workflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
 			}
 			if tt.empty {
-				m.tree.workflows, m.archive.agents = nil, nil
+				m.listing.workflows, m.archive.agents = nil, nil
 			}
 
 			updated, cmd := m.updateArchive(keyMsg(tt.key))
@@ -193,7 +193,7 @@ func TestArchiveRows(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{
 				keys:    config.DefaultKeybindings(),
-				tree:    treeState{workflows: tt.live},
+				listing: listing{workflows: tt.live},
 				archive: archiveState{agents: tt.agents, workflows: tt.archived},
 			}
 
@@ -241,7 +241,7 @@ func TestArchiveHelpSplitsOnTheRow(t *testing.T) {
 			m.archive.cursor = tt.cursor
 			m.helpExpanded = true
 			if tt.archived {
-				m.tree.workflows = nil
+				m.listing.workflows = nil
 				m.archive.workflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
 			}
 
@@ -376,7 +376,7 @@ func TestRefusedArchiveWritesAreReported(t *testing.T) {
 				config.DefaultKeybindings(),
 			)
 			if tt.onFolder {
-				m.tree.workflows = nil
+				m.listing.workflows = nil
 				m.archive.workflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
 				m.archive.cursor = 0
 			}
@@ -436,7 +436,7 @@ func TestArchiveView(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
-			m.tree.workflows = tt.live
+			m.listing.workflows = tt.live
 			m.archive = archiveState{agents: tt.agents, workflows: tt.archived}
 
 			view := ansi.Strip(m.archiveView())
@@ -542,8 +542,8 @@ func TestArchiveIsListedSeparatelyFromTheAgents(t *testing.T) {
 	assert.Equal(t, "api-refactor", got.archive.agents[0].Name)
 	require.Len(t, got.archive.workflows, 1)
 	assert.NotNil(t, got.archive.workflows[0].ArchivedAt, "an archived folder carries when it was put away")
-	assert.Empty(t, got.tree.agents, "the tree's rows are not what the archive listed")
-	assert.Empty(t, got.tree.workflows, "and the archived folder is not one of the tree's")
+	assert.Empty(t, got.listing.agents, "the tree's rows are not what the archive listed")
+	assert.Empty(t, got.listing.workflows, "and the archived folder is not one of the tree's")
 }
 
 // archiveModel builds the panel sitting on the archive with one agent archived out of a
@@ -552,13 +552,13 @@ func archiveModel(agents agentv1connect.AgentServiceClient, workflows workflowv1
 	tmux := &recordingTmux{}
 
 	return model{
-		api:    api{agents: agents, workflows: workflows, schedules: emptyLists{}},
-		tmux:   tmux,
-		popup:  NewPopupWindow(tmux, "test-session"),
-		frame:  layout.New(tmux, config.DefaultLayout()),
-		keys:   keys,
-		screen: screenArchive,
-		tree:   treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}},
+		api:     api{agents: agents, workflows: workflows, schedules: emptyLists{}},
+		tmux:    tmux,
+		popup:   NewPopupWindow(tmux, "test-session"),
+		frame:   layout.New(tmux, config.DefaultLayout()),
+		keys:    keys,
+		screen:  screenArchive,
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}},
 		archive: archiveState{
 			agents:    []agentstore.Agent{{ID: "a1", Name: "api-refactor", WorkflowID: "w1"}},
 			rowCursor: rowCursor{cursor: 1},

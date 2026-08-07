@@ -115,7 +115,7 @@ func (m *model) stageSchedule() {
 // workflowByID finds a workflow in the list the panel already polls, nil when none holds
 // that id, which means it was archived.
 func (m model) workflowByID(id string) *workflowstore.Workflow {
-	for _, w := range m.tree.workflows {
+	for _, w := range m.listing.workflows {
 		if w.ID == id {
 			return &w
 		}
@@ -145,7 +145,7 @@ func (m model) toggleSchedule() (tea.Model, tea.Cmd) {
 // newScheduleForm opens the form to create a schedule, blank except for the workflow,
 // which starts on the first in the list since one has to be chosen.
 func (m model) newScheduleForm() (tea.Model, tea.Cmd) {
-	if len(m.tree.workflows) == 0 {
+	if len(m.listing.workflows) == 0 {
 		m.report("Could not create a schedule", errNoWorkflow)
 
 		return m, nil
@@ -154,8 +154,8 @@ func (m model) newScheduleForm() (tea.Model, tea.Cmd) {
 	m.target.editSchedule = nil
 	m.form, m.values.schedule = scheduleForm(schedulestore.Config{
 		Enabled:    true,
-		WorkflowID: m.tree.workflows[0].ID,
-	}, m.tree.workflows, m.keys.Form)
+		WorkflowID: m.listing.workflows[0].ID,
+	}, m.listing.workflows, m.keys.Form)
 	m.screen = screenScheduleForm
 
 	return m, m.form.Init()
@@ -183,7 +183,7 @@ func (m model) editScheduleForm() (tea.Model, tea.Cmd) {
 		HideAgents: target.HideAgents,
 		Prompt:     target.Prompt,
 		WorkflowID: target.WorkflowID,
-	}, m.tree.workflows, m.keys.Form)
+	}, m.listing.workflows, m.keys.Form)
 	m.screen = screenScheduleForm
 
 	return m, m.form.Init()

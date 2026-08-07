@@ -96,13 +96,8 @@ func TestApplyAgents(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{
-				screen: screenAgents,
-				tree: treeState{
-					workflows: []workflowstore.Workflow{{ID: testWorkflowID, Name: "backend"}},
-					agents:    tt.start,
-					rowCursor: rowCursor{cursor: tt.cursor},
-					placed:    true,
-				},
+				screen:  screenAgents,
+				listing: listing{workflows: []workflowstore.Workflow{{ID: testWorkflowID, Name: "backend"}}, agents: tt.start}, tree: treeState{rowCursor: rowCursor{cursor: tt.cursor}, placed: true},
 				keys: config.DefaultKeybindings(),
 			}
 
@@ -111,7 +106,7 @@ func TestApplyAgents(t *testing.T) {
 			m.placeTreeCursor(was)
 
 			assert.Equal(t, screenAgents, m.screen, "the panel stays where it was")
-			assert.Len(t, m.tree.agents, tt.wantLen)
+			assert.Len(t, m.listing.agents, tt.wantLen)
 
 			if tt.wantLen == 0 {
 				// Acting on the empty list must be a safe no-op rather than an index
@@ -126,8 +121,8 @@ func TestApplyAgents(t *testing.T) {
 			require.True(t, ok, "the cursor is on an agent")
 			assert.Equal(t, tt.wantCursor, selected.agent.Name)
 
-			names := make([]string, 0, len(m.tree.agents))
-			for _, agent := range m.tree.agents {
+			names := make([]string, 0, len(m.listing.agents))
+			for _, agent := range m.listing.agents {
 				names = append(names, agent.agent.Name)
 			}
 			assert.Equal(t, tt.wantOrder, names)

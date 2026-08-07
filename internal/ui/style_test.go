@@ -33,12 +33,9 @@ func branchTree() model {
 	return model{
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
-		tree: treeState{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}},
-			agents: []agentItem{
-				{agent: agentstore.Agent{ID: "a1", Name: branchName, WorkflowID: "w1"}},
-			},
-		},
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}}, agents: []agentItem{
+			{agent: agentstore.Agent{ID: "a1", Name: branchName, WorkflowID: "w1"}},
+		}},
 	}
 }
 

@@ -61,7 +61,7 @@ func TestRefusedWriteIsReported(t *testing.T) {
 		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
-		tree: treeState{
+		listing: listing{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
 			agents:    []agentItem{{agent: agent, alive: false}},
 		},
@@ -99,11 +99,9 @@ func TestRefusedResumeIsReported(t *testing.T) {
 		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
-		tree: treeState{
+		listing: listing{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []agentItem{
-				{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateIdle, WorkflowID: "w1"}, alive: false},
-			},
+			agents:    []agentItem{{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateIdle, WorkflowID: "w1"}, alive: false}},
 		},
 	}
 	m.tree.cursor = firstAgentRowIndex(m.agentRows())
@@ -162,10 +160,16 @@ func TestSuccessfulWriteClearsTheBanner(t *testing.T) {
 		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
-		tree: treeState{
+		listing: listing{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
 			agents: []agentItem{
-				{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateIdle, WorkflowID: "w1"}},
+				{
+					agent: agentstore.Agent{
+						Name:       "api-refactor",
+						State:      agentstore.StateIdle,
+						WorkflowID: "w1",
+					},
+				},
 			},
 		},
 		banner: &errui.Banner{Summary: "Could not archive agent \"gone\"", Detail: "stale"},
@@ -195,12 +199,9 @@ func TestBannerRendersOverTheList(t *testing.T) {
 		banner: &errui.Banner{Summary: `Could not archive agent "api-refactor"`, Detail: "already archived"},
 		screen: screenAgents,
 		keys:   config.DefaultKeybindings(),
-		tree: treeState{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []agentItem{
-				{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateIdle, WorkflowID: "w1"}},
-			},
-		},
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}, agents: []agentItem{
+			{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateIdle, WorkflowID: "w1"}},
+		}},
 	}
 
 	view := m.View()
@@ -329,7 +330,7 @@ func TestConfigErrorView(t *testing.T) {
 				configErr:   errors.New("failed to parse config /home/u/.config/weave/config.toml: keybindings.list is not a setting; [keybindings] takes actions, agents, archive, filter, form, help, nav, schedules, selection, workflows"),
 				unreachable: tt.unreachable,
 				addr:        "127.0.0.1:8787",
-				tree:        treeState{agents: []agentItem{{agent: agentstore.Agent{Name: "should-not-render", State: agentstore.StateIdle}}}},
+				listing:     listing{agents: []agentItem{{agent: agentstore.Agent{Name: "should-not-render", State: agentstore.StateIdle}}}},
 			}
 
 			// The error wraps at the screen width, so the text is compared with its
@@ -400,7 +401,7 @@ func TestStartupErrorView(t *testing.T) {
 				startupErr:  errors.New("the agent server stopped during startup: failed to reach db: connection refused"),
 				unreachable: tt.unreachable,
 				addr:        "127.0.0.1:8787",
-				tree:        treeState{agents: []agentItem{{agent: agentstore.Agent{Name: "should-not-render", State: agentstore.StateIdle}}}},
+				listing:     listing{agents: []agentItem{{agent: agentstore.Agent{Name: "should-not-render", State: agentstore.StateIdle}}}},
 			}
 
 			// The error wraps at the screen width, so the text is compared with its
@@ -461,7 +462,7 @@ func TestUnreachableView(t *testing.T) {
 			m := model{
 				addr:        "127.0.0.1:8787",
 				unreachable: tt.start,
-				tree:        treeState{agents: []agentItem{{agent: agentstore.Agent{Name: "still-here", State: agentstore.StateIdle}}}},
+				listing:     listing{agents: []agentItem{{agent: agentstore.Agent{Name: "still-here", State: agentstore.StateIdle}}}},
 				frame:       layout.New(&recordingTmux{}, config.DefaultLayout()),
 			}
 

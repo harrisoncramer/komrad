@@ -63,7 +63,7 @@ func (m model) archiveHeaders() []workflowstore.Workflow {
 	}
 
 	headers := slices.Clone(m.archive.workflows)
-	for _, w := range m.tree.workflows {
+	for _, w := range m.listing.workflows {
 		// The two listings run at once, so a workflow restored between them can come back
 		// in both, and a folder drawn twice would nest its agents twice.
 		if holding[w.ID] && !archived[w.ID] {

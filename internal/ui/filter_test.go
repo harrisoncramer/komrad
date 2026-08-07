@@ -381,14 +381,10 @@ func filterModel() model {
 		frame:  layout.New(tmux, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
-		tree: treeState{
-			workflows: []workflowstore.Workflow{workflow},
-			agents: []agentItem{
-				{agent: agentstore.Agent{ID: "a1", Name: "billing", WorkflowID: "w1"}},
-				{agent: agentstore.Agent{ID: "a2", Name: "payouts", WorkflowID: "w1"}},
-			},
-			rowCursor: rowCursor{cursor: 1},
-		},
+		listing: listing{workflows: []workflowstore.Workflow{workflow}, agents: []agentItem{
+			{agent: agentstore.Agent{ID: "a1", Name: "billing", WorkflowID: "w1"}},
+			{agent: agentstore.Agent{ID: "a2", Name: "payouts", WorkflowID: "w1"}},
+		}}, tree: treeState{rowCursor: rowCursor{cursor: 1}},
 	}
 }
 

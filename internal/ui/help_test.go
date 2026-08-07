@@ -58,13 +58,9 @@ func TestHelpToggleOnSearch(t *testing.T) {
 // helpModel is a panel hovering an agent, which is the row whose help has the most on it.
 func helpModel() model {
 	return model{
-		keys:   config.DefaultKeybindings(),
-		height: 24,
-		width:  46,
-		tree: treeState{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "everything"}},
-			agents:    []agentItem{{agent: agentstore.Agent{Name: "api-refactor", WorkflowID: "w1"}}},
-			rowCursor: rowCursor{cursor: 1},
-		},
+		keys:    config.DefaultKeybindings(),
+		height:  24,
+		width:   46,
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "everything"}}, agents: []agentItem{{agent: agentstore.Agent{Name: "api-refactor", WorkflowID: "w1"}}}}, tree: treeState{rowCursor: rowCursor{cursor: 1}},
 	}
 }

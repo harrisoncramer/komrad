@@ -21,18 +21,15 @@ func hiddenTree() model {
 	return model{
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
-		tree: treeState{
-			workflows: []workflowstore.Workflow{
-				{ID: "w1", Name: "backend"},
-				{ID: "w2", Name: "frontend"},
-			},
-			agents: []agentItem{
-				{agent: agentstore.Agent{ID: "a1", Name: "auth", WorkflowID: "w1"}},
-				{agent: agentstore.Agent{ID: "a2", Name: "chore", WorkflowID: "w1", Hidden: true}},
-				{agent: agentstore.Agent{ID: "a3", Name: "sweep", WorkflowID: "w1", Hidden: true}},
-				{agent: agentstore.Agent{ID: "a4", Name: "ui", WorkflowID: "w2"}},
-			},
-		},
+		listing: listing{workflows: []workflowstore.Workflow{
+			{ID: "w1", Name: "backend"},
+			{ID: "w2", Name: "frontend"},
+		}, agents: []agentItem{
+			{agent: agentstore.Agent{ID: "a1", Name: "auth", WorkflowID: "w1"}},
+			{agent: agentstore.Agent{ID: "a2", Name: "chore", WorkflowID: "w1", Hidden: true}},
+			{agent: agentstore.Agent{ID: "a3", Name: "sweep", WorkflowID: "w1", Hidden: true}},
+			{agent: agentstore.Agent{ID: "a4", Name: "ui", WorkflowID: "w2"}},
+		}},
 	}
 }
 

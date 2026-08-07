@@ -78,7 +78,7 @@ func TestAgentRows(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := model{tree: treeState{workflows: tt.workflows, agents: tt.agents}}
+			m := model{listing: listing{workflows: tt.workflows, agents: tt.agents}}
 
 			assert.Equal(t, tt.wantRows, describeRows(m.agentRows()))
 		})
@@ -116,13 +116,10 @@ func TestHoveredWorkflow(t *testing.T) {
 
 	// rows: 0 backend header, 1 auth, 2 no-workflow header, 3 loose.
 	m := model{
-		tree: treeState{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []agentItem{
-				{agent: agentstore.Agent{Name: "auth", WorkflowID: "w1"}},
-				{agent: agentstore.Agent{Name: "loose"}},
-			},
-		},
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}, agents: []agentItem{
+			{agent: agentstore.Agent{Name: "auth", WorkflowID: "w1"}},
+			{agent: agentstore.Agent{Name: "loose"}},
+		}},
 	}
 
 	for _, tt := range tests {
@@ -252,16 +249,14 @@ func TestAvailableActionsSkipUnderscoredNames(t *testing.T) {
 // archived.
 func TestFailedWorkflowListKeepsTheTree(t *testing.T) {
 	m := model{
-		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:  config.DefaultKeybindings(),
-		tree: treeState{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}},
-		},
+		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:    config.DefaultKeybindings(),
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}}},
 	}
 
 	m.applyRefresh(refreshResult{workflowsErr: errors.New("connection reset")})
 
-	assert.Len(t, m.tree.workflows, 2, "the tree already on screen is kept")
+	assert.Len(t, m.listing.workflows, 2, "the tree already on screen is kept")
 	assert.Error(t, m.unreachable, "and the panel says the server is not answering")
 }
 
@@ -296,12 +291,12 @@ func TestApplyWorkflows(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := model{tree: treeState{workflows: tt.current}}
+			m := model{listing: listing{workflows: tt.current}}
 
 			m.applyWorkflows(tt.fresh)
 
-			names := make([]string, 0, len(m.tree.workflows))
-			for _, w := range m.tree.workflows {
+			names := make([]string, 0, len(m.listing.workflows))
+			for _, w := range m.listing.workflows {
 				names = append(names, w.Name)
 			}
 			assert.Equal(t, tt.wantNames, names)
@@ -320,12 +315,10 @@ func TestRefreshRestagesWorkflowContext(t *testing.T) {
 
 	// The cursor sits on the workflow's header, which is row 0.
 	m := model{
-		frame:  frame,
-		keys:   config.DefaultKeybindings(),
-		screen: screenAgents,
-		tree: treeState{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Context: "old notes"}},
-		},
+		frame:   frame,
+		keys:    config.DefaultKeybindings(),
+		screen:  screenAgents,
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Context: "old notes"}}},
 	}
 	m.stageSelection()
 	staged := len(tmux.respawns)
@@ -335,7 +328,7 @@ func TestRefreshRestagesWorkflowContext(t *testing.T) {
 	m, ok := updated.(model)
 	require.True(t, ok)
 
-	assert.Equal(t, "new notes", m.tree.workflows[0].Context)
+	assert.Equal(t, "new notes", m.listing.workflows[0].Context)
 	require.Greater(t, len(tmux.respawns), staged, "the edit is restaged without the cursor moving")
 
 	shown, err := os.ReadFile(filepath.Join(os.TempDir(), "weave-stage.ansi"))

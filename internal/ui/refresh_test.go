@@ -74,10 +74,10 @@ func produced(cmd tea.Cmd) []tea.Msg {
 // listing is how a slow call ends up costing the lists it has nothing to do with.
 func TestRefreshAppliesWhatAnswered(t *testing.T) {
 	m := model{
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenAgents,
-		tree:   treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}},
+		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:    config.DefaultKeybindings(),
+		screen:  screenAgents,
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}},
 	}
 
 	m.applyRefresh(refreshResult{
@@ -85,9 +85,9 @@ func TestRefreshAppliesWhatAnswered(t *testing.T) {
 		workflowsErr: errors.New("connection reset"),
 	})
 
-	assert.Len(t, m.tree.agents, 1, "the listing that answered is taken")
-	require.Len(t, m.tree.workflows, 1, "the one that did not keeps the rows it had")
-	assert.Equal(t, "api", m.tree.workflows[0].Name)
+	assert.Len(t, m.listing.agents, 1, "the listing that answered is taken")
+	require.Len(t, m.listing.workflows, 1, "the one that did not keeps the rows it had")
+	assert.Equal(t, "api", m.listing.workflows[0].Name)
 	assert.Error(t, m.unreachable, "and the panel says the server is not answering")
 }
 
@@ -97,10 +97,10 @@ func TestRefreshAppliesWhatAnswered(t *testing.T) {
 // as a keypress that did nothing.
 func TestStaleRefreshIsDropped(t *testing.T) {
 	m := model{
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenAgents,
-		tree:   treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}},
+		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:    config.DefaultKeybindings(),
+		screen:  screenAgents,
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}},
 	}
 
 	inFlight := refreshResult{
@@ -111,7 +111,7 @@ func TestStaleRefreshIsDropped(t *testing.T) {
 
 	m.applyRefresh(inFlight)
 
-	assert.Empty(t, m.tree.agents, "a pass from before the write is not what the panel shows after it")
+	assert.Empty(t, m.listing.agents, "a pass from before the write is not what the panel shows after it")
 }
 
 // TestWriteStandsTheRefreshDown covers the other half of that race. A pass started
@@ -135,10 +135,10 @@ func TestWriteStandsTheRefreshDown(t *testing.T) {
 // open on the workflow header above the agents.
 func TestFirstListingLandsOnTheFirstAgent(t *testing.T) {
 	m := model{
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenAgents,
-		tree:   treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}},
+		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:    config.DefaultKeybindings(),
+		screen:  screenAgents,
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}},
 	}
 
 	m.applyRefresh(refreshResult{
@@ -163,17 +163,12 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 		frame:  layout.New(tmux, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
-		tree: treeState{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}},
-			agents: []agentItem{{agent: agentstore.Agent{
-				ID: "old", Name: "api-refactor", WorkflowID: "w1",
-			}}},
-			rowCursor: rowCursor{cursor: 1},
-			placed:    true,
-		},
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}, agents: []agentItem{{agent: agentstore.Agent{
+			ID: "old", Name: "api-refactor", WorkflowID: "w1",
+		}}}}, tree: treeState{rowCursor: rowCursor{cursor: 1}, placed: true},
 	}
 
-	workflow := m.tree.workflows[0]
+	workflow := m.listing.workflows[0]
 	opened, _ := m.openNewAgent(&workflow)
 	m = asModel(t, opened)
 	m.values.agent.Title = "api-tests"
@@ -190,7 +185,7 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 
 	m.applyRefresh(refreshResult{
 		epoch:     m.epoch,
-		workflows: m.tree.workflows,
+		workflows: m.listing.workflows,
 		agents: []agentItem{
 			{agent: agentstore.Agent{ID: "old", Name: "api-refactor", WorkflowID: "w1"}},
 			{agent: agentstore.Agent{ID: "new", Name: "api-tests", WorkflowID: "w1"}},
@@ -208,14 +203,11 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 func TestCreatedWorkflowReceivesFocus(t *testing.T) {
 	recorder := &formRecorder{}
 	m := model{
-		api:    api{agents: recorder, workflows: recorder, actions: recorder},
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenAgents,
-		tree: treeState{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}},
-			placed:    true,
-		},
+		api:     api{agents: recorder, workflows: recorder, actions: recorder},
+		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:    config.DefaultKeybindings(),
+		screen:  screenAgents,
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}}, tree: treeState{placed: true},
 	}
 
 	opened, _ := m.newWorkflowForm()
@@ -252,15 +244,10 @@ func TestCursorHoldsItsFolderAcrossARefresh(t *testing.T) {
 		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
-		tree: treeState{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}},
-			agents: []agentItem{
-				{agent: agentstore.Agent{ID: "a1", Name: "api-refactor", WorkflowID: "w1"}},
-				{agent: agentstore.Agent{ID: "a2", Name: "infra-audit", WorkflowID: "w2"}},
-			},
-			rowCursor: rowCursor{cursor: 2},
-			placed:    true,
-		},
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}}, agents: []agentItem{
+			{agent: agentstore.Agent{ID: "a1", Name: "api-refactor", WorkflowID: "w1"}},
+			{agent: agentstore.Agent{ID: "a2", Name: "infra-audit", WorkflowID: "w2"}},
+		}}, tree: treeState{rowCursor: rowCursor{cursor: 2}, placed: true},
 	}
 
 	m.applyRefresh(refreshResult{
@@ -281,15 +268,10 @@ func TestCursorHoldsItsAgentWhenAFolderArrives(t *testing.T) {
 		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
-		tree: treeState{
-			workflows: []workflowstore.Workflow{{ID: "w2", Name: "infra"}},
-			agents: []agentItem{
-				{agent: agentstore.Agent{ID: "b1", Name: "infra-audit", WorkflowID: "w2"}},
-				{agent: agentstore.Agent{ID: "b2", Name: "infra-upgrade", WorkflowID: "w2"}},
-			},
-			rowCursor: rowCursor{cursor: 2},
-			placed:    true,
-		},
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w2", Name: "infra"}}, agents: []agentItem{
+			{agent: agentstore.Agent{ID: "b1", Name: "infra-audit", WorkflowID: "w2"}},
+			{agent: agentstore.Agent{ID: "b2", Name: "infra-upgrade", WorkflowID: "w2"}},
+		}}, tree: treeState{rowCursor: rowCursor{cursor: 2}, placed: true},
 	}
 
 	m.applyRefresh(refreshResult{
@@ -310,12 +292,10 @@ func TestCursorHoldsItsAgentWhenAFolderArrives(t *testing.T) {
 // land, so the row under the cursor has to be read before any of them do.
 func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 	m := model{
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenArchive,
-		tree: treeState{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}},
-		},
+		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:    config.DefaultKeybindings(),
+		screen:  screenArchive,
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}}},
 		archive: archiveState{
 			agents: []agentstore.Agent{
 				{ID: "x1", Name: "api-spike", WorkflowID: "w1"},

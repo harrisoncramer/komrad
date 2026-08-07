@@ -53,7 +53,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the new-agent form",
 			open: func(m model) model {
-				workflow := m.tree.workflows[0]
+				workflow := m.listing.workflows[0]
 				m.target.newAgentWorkflow = &workflow
 				m.screen = screenForm
 				prefill := agentFormValues{Harness: workflow.Harness, Dir: workflow.Cwd, Flags: workflow.Flags, SetupAction: inheritAction, CleanupAction: inheritAction}
@@ -128,7 +128,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			// has to carry the rest as they were. The service replaces every field.
 			name: "the workflow edit form",
 			open: func(m model) model {
-				target := m.tree.workflows[0]
+				target := m.listing.workflows[0]
 				m.target.editWorkflow = &target
 				m.screen = screenWorkflowForm
 				m.form, m.values.workflow = workflowConfigForm("Workflow name", workflowstore.Config{
@@ -156,7 +156,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the workflow rename form",
 			open: func(m model) model {
-				target := m.tree.workflows[0]
+				target := m.listing.workflows[0]
 				m.target.renameWorkflow = &target
 				m.screen = screenWorkflowForm
 				m.form, m.values.workflow = workflowForm("Rename \"api\" to", workflowstore.Config{}, m.keys.Form)
@@ -177,8 +177,8 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				m.screen = screenScheduleForm
 				m.form, m.values.schedule = scheduleForm(schedulestore.Config{
 					Enabled:    true,
-					WorkflowID: m.tree.workflows[0].ID,
-				}, m.tree.workflows, m.keys.Form)
+					WorkflowID: m.listing.workflows[0].ID,
+				}, m.listing.workflows, m.keys.Form)
 				m.values.schedule.Name = "sweeper"
 				m.values.schedule.Cron = "*/5 * * * *"
 				m.values.schedule.Prompt = "sweep"
@@ -207,7 +207,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				m.form, m.values.schedule = scheduleForm(schedulestore.Config{
 					Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep",
 					Enabled: true, HideAgents: true, WorkflowID: "w1",
-				}, m.tree.workflows, m.keys.Form)
+				}, m.listing.workflows, m.keys.Form)
 				m.values.schedule.Prompt = "sweep harder"
 
 				return m
@@ -223,7 +223,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		{
 			name: "the workflow archive prompt",
 			open: func(m model) model {
-				target := m.tree.workflows[0]
+				target := m.listing.workflows[0]
 				m.target.archiveWorkflow = &target
 				m.screen = screenWorkflowArchive
 				m.form, m.values.confirmed = archiveWorkflowForm(target.Name, m.keys.Form)
@@ -369,9 +369,9 @@ func TestNewAgentFormActionOverride(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			sent := &formRecorder{}
 			m := formModel(sent)
-			m.tree.workflows[0].SetupAction = "make-worktree"
-			m.tree.workflows[0].CleanupAction = "drop-worktree"
-			workflow := m.tree.workflows[0]
+			m.listing.workflows[0].SetupAction = "make-worktree"
+			m.listing.workflows[0].CleanupAction = "drop-worktree"
+			workflow := m.listing.workflows[0]
 
 			opened, _ := m.openNewAgent(&workflow)
 			m = asModel(t, opened)
@@ -435,7 +435,7 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 		{
 			name: "the new-agent form",
 			open: func(t *testing.T, m model) model {
-				workflow := m.tree.workflows[0]
+				workflow := m.listing.workflows[0]
 				opened, _ := m.openNewAgent(&workflow)
 				m = asModel(t, opened)
 				m.values.agent.Prompt = "check CI"
@@ -614,7 +614,7 @@ func TestFormResubmitsAfterARefusal(t *testing.T) {
 	sent := &formRecorder{refuse: connect.NewError(connect.CodeInvalidArgument, errors.New("bad flags"))}
 
 	m := formModel(sent)
-	workflow := m.tree.workflows[0]
+	workflow := m.listing.workflows[0]
 	opened, _ := m.openNewAgent(&workflow)
 	m = asModel(t, opened)
 	m.values.agent.Prompt = "check CI"
@@ -736,14 +736,12 @@ func formModel(sent *formRecorder) model {
 	tmux := &recordingTmux{}
 
 	return model{
-		api:   api{agents: sent, workflows: sent, schedules: sent, actions: sent},
-		tmux:  tmux,
-		popup: NewPopupWindow(tmux, "test-session"),
-		frame: layout.New(tmux, config.DefaultLayout()),
-		keys:  config.DefaultKeybindings(),
-		tree: treeState{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Harness: "claude", Cwd: "/work/api", Flags: "--model opus"}},
-		},
+		api:     api{agents: sent, workflows: sent, schedules: sent, actions: sent},
+		tmux:    tmux,
+		popup:   NewPopupWindow(tmux, "test-session"),
+		frame:   layout.New(tmux, config.DefaultLayout()),
+		keys:    config.DefaultKeybindings(),
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Harness: "claude", Cwd: "/work/api", Flags: "--model opus"}}},
 	}
 }
 
@@ -927,7 +925,7 @@ func TestFormTakesNoKeysWhileItsWriteIsInFlight(t *testing.T) {
 	sent := &formRecorder{}
 
 	m := formModel(sent)
-	workflow := m.tree.workflows[0]
+	workflow := m.listing.workflows[0]
 	opened, _ := m.openNewAgent(&workflow)
 	m = asModel(t, opened)
 	m.values.agent.Prompt = "check CI"

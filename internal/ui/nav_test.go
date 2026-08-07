@@ -98,7 +98,7 @@ func TestArchiveJumpKeys(t *testing.T) {
 
 	t.Run("jumping leaves the agents tree alone", func(t *testing.T) {
 		m := archiveSelectionTree()
-		m.tree.workflows = []workflowstore.Workflow{{ID: "w1", Name: "backend"}}
+		m.listing.workflows = []workflowstore.Workflow{{ID: "w1", Name: "backend"}}
 		m.tree.cursor = 0
 
 		after := pressArchive(t, m, keyMsg("G"))

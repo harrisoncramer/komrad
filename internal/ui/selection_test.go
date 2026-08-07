@@ -29,19 +29,16 @@ func selectionTree() model {
 	return model{
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
-		tree: treeState{
-			workflows: []workflowstore.Workflow{
-				{ID: "w1", Name: "backend"},
-				{ID: "w2", Name: "frontend"},
-			},
-			agents: []agentItem{
-				{agent: agentstore.Agent{ID: "a1", Name: "auth", WorkflowID: "w1"}},
-				{agent: agentstore.Agent{ID: "a2", Name: "api", WorkflowID: "w1"}},
-				{agent: agentstore.Agent{ID: "a3", Name: "db", WorkflowID: "w1"}},
-				{agent: agentstore.Agent{ID: "a5", Name: "sweep", WorkflowID: "w1", Hidden: true}},
-				{agent: agentstore.Agent{ID: "a4", Name: "ui", WorkflowID: "w2"}},
-			},
-		},
+		listing: listing{workflows: []workflowstore.Workflow{
+			{ID: "w1", Name: "backend"},
+			{ID: "w2", Name: "frontend"},
+		}, agents: []agentItem{
+			{agent: agentstore.Agent{ID: "a1", Name: "auth", WorkflowID: "w1"}},
+			{agent: agentstore.Agent{ID: "a2", Name: "api", WorkflowID: "w1"}},
+			{agent: agentstore.Agent{ID: "a3", Name: "db", WorkflowID: "w1"}},
+			{agent: agentstore.Agent{ID: "a5", Name: "sweep", WorkflowID: "w1", Hidden: true}},
+			{agent: agentstore.Agent{ID: "a4", Name: "ui", WorkflowID: "w2"}},
+		}},
 	}
 }
 
@@ -111,7 +108,7 @@ func TestToggleSelection(t *testing.T) {
 // read as wholly selected and put the panel in a mode holding nothing.
 func TestToggleSelectionEmptyFolder(t *testing.T) {
 	m := selectionTree()
-	m.tree.workflows = append(m.tree.workflows, workflowstore.Workflow{ID: "w3", Name: "chores"})
+	m.listing.workflows = append(m.listing.workflows, workflowstore.Workflow{ID: "w3", Name: "chores"})
 	m.tree.cursor = len(m.agentRows()) - 1
 
 	after := press(t, m, keyMsg("v"))
@@ -231,10 +228,10 @@ func TestPruneSelection(t *testing.T) {
 // three agents put away out of it. Its rows are the header at 0 and the agents at 1 to 3.
 func archiveSelectionTree() model {
 	return model{
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenArchive,
-		tree:   treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}},
+		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:    config.DefaultKeybindings(),
+		screen:  screenArchive,
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}},
 		archive: archiveState{
 			agents: []agentstore.Agent{
 				{ID: "a1", Name: "auth", WorkflowID: "w1"},
@@ -317,7 +314,7 @@ func TestArchiveSelection(t *testing.T) {
 		workflows := &fakeArchiveWorkflows{}
 		m := archiveSelectionTree()
 		m.api = api{agents: &fakeArchiveAgents{}, workflows: workflows}
-		m.tree.workflows = nil
+		m.listing.workflows = nil
 		m.archive.workflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
 		m.archive.cursor = 0
 		m.archive.selected = selection{ids: []string{"a1"}}
@@ -453,8 +450,8 @@ func TestArchiveSelectionFromTheTree(t *testing.T) {
 			m.tree.cursor = tt.cursor
 			m.tree.selected = selection{ids: tt.selected}
 
-			for i := range m.tree.agents {
-				m.tree.agents[i].agent.Pane = "%" + m.tree.agents[i].agent.ID
+			for i := range m.listing.agents {
+				m.listing.agents[i].agent.Pane = "%" + m.listing.agents[i].agent.ID
 			}
 
 			opened, _ := m.updateAgents(keyMsg("z"))

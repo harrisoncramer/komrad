@@ -266,9 +266,9 @@ func TestMarkSelection(t *testing.T) {
 			m.marks = marks
 			m.tree.selected = selection{ids: chosen}
 
-			for i, item := range m.tree.agents {
+			for i, item := range m.listing.agents {
 				if mark, ok := tt.carrying[item.agent.ID]; ok {
-					m.tree.agents[i].agent.Mark = xptr.Ptr(mark)
+					m.listing.agents[i].agent.Mark = xptr.Ptr(mark)
 				}
 			}
 

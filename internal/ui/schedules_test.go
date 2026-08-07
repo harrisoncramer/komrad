@@ -105,7 +105,7 @@ func TestScheduleKeys(t *testing.T) {
 				m.schedules.items = nil
 			}
 			if tt.noWorkflows {
-				m.tree.workflows = nil
+				m.listing.workflows = nil
 			}
 
 			updated, cmd := m.updateSchedules(keyMsg(tt.key))
@@ -446,7 +446,7 @@ func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys config.K
 		api:  api{schedules: client},
 		tmux: tmux,
 		// A schedule launches into a workflow, so the form has one to select.
-		tree: treeState{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Cwd: "/work/api"}}},
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Cwd: "/work/api"}}},
 		// The new-schedule form asks the popup which client opened it, to prefill
 		// the directory, so the panel needs one even though nothing here reads it.
 		popup:  NewPopupWindow(tmux, "test-session"),
