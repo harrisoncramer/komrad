@@ -16,7 +16,7 @@ Weave is a terminal-based agent manager. It lets you:
 
 If you're a Neovim or Emacs user, or just enjoy working from your terminal, weave is for you.
 
-<img width="1721" height="1066" alt="Screenshot 2026-08-06 at 11 10 26 PM" src="https://github.com/user-attachments/assets/032bf29a-df65-41c6-ac98-45b2429ae603" />
+<img width="2197" height="1218" alt="Screenshot 2026-08-07 at 10 34 41 AM" src="https://github.com/user-attachments/assets/e8111920-07c9-4b73-9071-c21f5e979c3c" />
 
 ## Quickstart
 
