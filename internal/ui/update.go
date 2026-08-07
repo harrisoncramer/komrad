@@ -121,6 +121,19 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.openLogs()
 	}
 
+	// The details under a list hold the keys until the focus key hands them back, so what a
+	// keypress would act on is whichever half of the sidebar is drawn in the accent. It is
+	// answered here rather than by each screen, since the section is one section wherever it
+	// is drawn.
+	if !m.isQueryOpen() && m.detailsScreen() {
+		if m.details.focused {
+			return m.updateDetails(key)
+		}
+		if isBound(key.String(), m.keys.Details.Focus) {
+			return m.toggleDetailsFocus()
+		}
+	}
+
 	switch m.screen {
 	case screenSearch:
 		return m.updateSearch(key)

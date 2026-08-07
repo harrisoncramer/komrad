@@ -188,10 +188,9 @@ type model struct {
 	keys config.Keybindings
 	tags []config.Tag
 	// logPath is the service's log and logViewer is what the log key opens it in.
-	logPath      string
-	logViewer    string
-	activeRecord record
-	// clip is how a copied record value reaches the system clipboard.
+	logPath   string
+	logViewer string
+	// clip is how a copied field reaches the system clipboard.
 	clip clipboardWriter
 }
 

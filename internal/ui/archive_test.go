@@ -450,22 +450,36 @@ func TestArchiveView(t *testing.T) {
 	}
 }
 
-// TestArchiveMarkdown covers the record in the stage. An archived agent has no pane,
-// so the record must not read as one that is merely dormant and waiting to be
-// opened.
+// TestArchiveMarkdown covers the document the stage pages for an archived agent, which has no
+// pane of its own. It must not read as one that is merely dormant and waiting to be opened.
 func TestArchiveMarkdown(t *testing.T) {
-	archivedAt := time.Date(2026, time.July, 30, 9, 0, 0, 0, time.UTC)
-	got := archiveMarkdown(agentstore.Agent{
-		Name: "api-refactor", Cwd: "/work/api", Flags: "--model opus", SessionID: "sess-1",
-		ArchivedAt: &archivedAt,
-	}, "nightly").markdown
+	got := archiveMarkdown(agentstore.Agent{Name: "api-refactor"})
 
 	assert.Contains(t, got, "api-refactor")
 	assert.Contains(t, got, "archived")
-	assert.Contains(t, got, "/work/api")
-	assert.Contains(t, got, "nightly")
-	assert.Contains(t, got, "archived: ", "the record says when it was put away")
+	assert.Contains(t, got, "Restore brings it back")
 	assert.NotContains(t, got, "dormant", "an archived agent is not one waiting to be opened")
+}
+
+// TestArchiveFields covers what the details under the list draw for an archived agent: what
+// the agents list shows for a live one, plus when it was put away.
+func TestArchiveFields(t *testing.T) {
+	archivedAt := time.Date(2026, time.July, 30, 9, 0, 0, 0, time.UTC)
+	fields := archiveFields(agentstore.Agent{
+		Name: "api-refactor", Cwd: "/work/api", Flags: "--model opus", SessionID: "sess-1",
+		ArchivedAt: &archivedAt,
+	}, "nightly")
+
+	assert.Contains(t, fields, recordField{"directory", "/work/api"})
+	assert.Contains(t, fields, recordField{"flags", "--model opus"})
+	assert.Contains(t, fields, recordField{"session_id", "sess-1"})
+	assert.Contains(t, fields, recordField{"launched by", "nightly"})
+
+	labels := make([]string, 0, len(fields))
+	for _, field := range fields {
+		labels = append(labels, field.label)
+	}
+	assert.Contains(t, labels, "archived", "the record says when it was put away")
 }
 
 // TestArchiveIsOrderedByWhenAgentsWereArchived covers the order the archive reads

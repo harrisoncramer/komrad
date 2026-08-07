@@ -33,22 +33,6 @@ func newTextContent(markdown string) layout.Content {
 	}
 }
 
-// newFlashContent is text with field's line (1-based) reversed for a moment, the brief flash
-// that confirms which field a digit key just copied. It carries no key, so it is always drawn
-// and the plain content that ends the flash is not skipped as a no-op.
-func newFlashContent(markdown string, field int) layout.Content {
-	return layout.Content{
-		Wraps: true,
-		Render: func(target layout.Target) ([]string, bool) {
-			if !writeStageFile(stageTextPath, renderFlash(markdown, target.Width, field)) {
-				return nil, false
-			}
-
-			return pagerArgv(stageTextPath, 0), true
-		},
-	}
-}
-
 // newLogContent is a log read by whatever viewer the user has configured, which lays itself out
 // and so is handed the pane as it is.
 func newLogContent(path string, argv []string) layout.Content {

@@ -7,9 +7,13 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// The details section, the block under the agents list that draws what the row above it
-// holds. It is part of the panel's own view rather than a pane of its own, so what is in it
-// can be scrolled, pointed at, and copied with the same keys as everything else here.
+// The details section, the block under a list that draws what the row above it holds. It is
+// part of the panel's own view rather than a pane of its own, so what is in it can be
+// scrolled, pointed at, and copied with the same keys as everything else here.
+//
+// Every screen that lists something draws one, and each says what its own hovered row holds.
+// The section itself is shared: one cursor, one focus, one set of keys, whichever list is
+// above it.
 
 // detailsState is the section's own cursor and whether it has the keys. The list keeps its
 // cursor while the section holds them, so the row being read stays marked as the field
@@ -17,6 +21,11 @@ import (
 type detailsState struct {
 	focused bool
 	cursor  int
+	// row is the id of the record the cursor was last moved under. The cursor starts again
+	// at the top when another row is hovered, since the field it was on belonged to that one,
+	// and this is read rather than reset per keypress so a refresh that moves rows about
+	// cannot leave the cursor pointing into a record it was never set against.
+	row string
 	// flashed is the 1-based field whose value was just copied, 0 for none. It reverts on
 	// a tick, which is the only sign the copy key registered.
 	flashed int
@@ -25,31 +34,50 @@ type detailsState struct {
 // details is what the section draws: a title and the fields under it. A row with nothing
 // to say returns no fields, which is what closes the section and drops the focus.
 type details struct {
+	// id is what the record belongs to, so the cursor can tell a new row from a redraw of
+	// the one it is already on.
+	id     string
 	title  string
 	fields []recordField
 }
 
-// hoveredDetails is what the row under the agents cursor holds. A workflow header carries
-// the defaults its agents inherit, and an agent carries what it was launched with plus
-// whatever it has since recorded about its own work.
+// hoveredDetails is what the row under the cursor of the list on screen holds. A screen that
+// lists nothing with fields of its own returns none, which closes the section.
 func (m model) hoveredDetails() details {
-	r, ok := rowAt(m.agentRows(), m.tree.cursor)
-	if !ok {
+	switch m.screen {
+	case screenAgents:
+		return m.agentsDetails()
+	case screenSchedules:
+		return m.schedulesDetails()
+	case screenArchive:
+		return m.archiveDetails()
+	default:
 		return details{}
 	}
-
-	if r.header {
-		return details{title: r.workflow.Name, fields: workflowFields(r.workflow, m.agentCount(r.workflow.ID))}
-	}
-
-	return details{title: r.item.agent.Name, fields: agentFields(r.item.agent, m.scheduleName(r.item.agent))}
 }
 
-// detailsCursor is the field the section points at, held inside the fields the row actually
-// has. A refresh can shorten a record under a cursor sitting past its new end, an agent that
-// dropped a metadata key being the ordinary way.
-func (m model) detailsCursor(fields []recordField) int {
-	return min(m.details.cursor, max(len(fields)-1, 0))
+// detailsScreen reports whether the screen on show draws a details section, which is every
+// screen that lists rows carrying fields. The search screen and the actions list are the two
+// that do not: a hit is a line of a conversation, and an action is its own description.
+func (m model) detailsScreen() bool {
+	switch m.screen {
+	case screenAgents, screenSchedules, screenArchive:
+		return true
+	default:
+		return false
+	}
+}
+
+// detailsCursor is the field the section points at: the top of a record the cursor was not
+// set against, and otherwise held inside the fields that record actually has. A refresh can
+// shorten one under a cursor sitting past its new end, an agent that dropped a metadata key
+// being the ordinary way.
+func (m model) detailsCursor(held details) int {
+	if m.details.row != held.id {
+		return 0
+	}
+
+	return min(m.details.cursor, max(len(held.fields)-1, 0))
 }
 
 // toggleDetailsFocus hands the keys to the section, or takes them back. A row with no fields
@@ -61,12 +89,14 @@ func (m model) toggleDetailsFocus() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if len(m.hoveredDetails().fields) == 0 {
+	held := m.hoveredDetails()
+	if len(held.fields) == 0 {
 		return m, nil
 	}
 
 	m.details.focused = true
 	m.details.cursor = 0
+	m.details.row = held.id
 
 	return m, nil
 }
@@ -76,43 +106,61 @@ func (m model) toggleDetailsFocus() (tea.Model, tea.Cmd) {
 // is not what is being pointed at.
 func (m model) updateDetails(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
-	fields := m.hoveredDetails().fields
+	held := m.hoveredDetails()
 
 	// A record that emptied under the cursor, which a refresh can do, leaves nothing to hold
 	// the keys for.
-	if len(fields) == 0 {
+	if len(held.fields) == 0 {
 		m.details.focused = false
 
 		return m, nil
 	}
 
+	m.details.row = held.id
+
 	switch {
-	case isBound(k, m.keys.Details.Focus), isBound(k, m.keys.Agents.Back):
+	// esc is taken as a literal here rather than through a screen's own back binding, which
+	// also carries left and h: while the section holds the keys those are movement.
+	case isBound(k, m.keys.Details.Focus), k == "esc":
 		m.details.focused = false
-	case isBound(k, m.keys.Agents.Quit):
+	case isBound(k, m.quitKeys()):
 		return m, m.hide()
 	case isBound(k, m.keys.Nav.Up):
-		m.details.cursor = max(m.detailsCursor(fields)-1, 0)
+		m.details.cursor = max(m.detailsCursor(held)-1, 0)
 	case isBound(k, m.keys.Nav.Down):
-		m.details.cursor = min(m.detailsCursor(fields)+1, len(fields)-1)
+		m.details.cursor = min(m.detailsCursor(held)+1, len(held.fields)-1)
 	case isBound(k, m.keys.Nav.Top):
 		m.details.cursor = 0
 	case isBound(k, m.keys.Nav.Bottom):
-		m.details.cursor = len(fields) - 1
+		m.details.cursor = len(held.fields) - 1
 	case isBound(k, m.keys.Details.Copy):
-		return m.copyDetailsField(fields)
+		return m.copyDetailsField(held)
 	}
 
 	return m, nil
 }
 
+// quitKeys is the binding that closes the panel from the screen on show. Each screen binds
+// its own, so the section asks which list it is under rather than answering the agents
+// list's key from wherever it is drawn.
+func (m model) quitKeys() []string {
+	switch m.screen {
+	case screenSchedules:
+		return m.keys.Schedules.Quit
+	case screenArchive:
+		return m.keys.Archive.Quit
+	default:
+		return m.keys.Agents.Quit
+	}
+}
+
 // copyDetailsField copies the value the cursor names and flashes its line while the write
 // runs, the panel's only answer to a key that otherwise changes nothing on screen.
-func (m model) copyDetailsField(fields []recordField) (tea.Model, tea.Cmd) {
-	idx := m.detailsCursor(fields)
+func (m model) copyDetailsField(held details) (tea.Model, tea.Cmd) {
+	idx := m.detailsCursor(held)
 	m.details.flashed = idx + 1
 
-	return m, tea.Batch(m.copyCmd(fields[idx].value), flashRevertTick())
+	return m, tea.Batch(m.copyCmd(held.fields[idx].value), flashRevertTick())
 }
 
 // detailsLines is how many lines the section takes, from the share of the pane the layout
@@ -153,7 +201,7 @@ func (m model) detailsView() string {
 		return ""
 	}
 
-	cursor := m.detailsCursor(held.fields)
+	cursor := m.detailsCursor(held)
 	rows := m.detailFieldRows(held.fields, cursor)
 
 	// The rule and the title are chrome the fields draw beneath, so they come out of the

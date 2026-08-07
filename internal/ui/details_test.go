@@ -1,8 +1,11 @@
 package ui
 
 import (
+	"errors"
 	"testing"
 	"time"
+
+	"weave/config"
 
 	agentstore "weave/internal/store/agent"
 
@@ -25,6 +28,18 @@ func detailsModel(tmux *recordingTmux) model {
 	return m
 }
 
+// send routes a key the way a real keypress arrives, through Update rather than into a
+// screen's own handler, since which half of the sidebar answers a key is decided above them.
+func send(t *testing.T, m model, key string) model {
+	t.Helper()
+
+	next, _ := m.Update(keyMsg(key))
+	panel, ok := next.(model)
+	require.True(t, ok)
+
+	return panel
+}
+
 // TestDetailsDrawTheHoveredRow covers the section under the list, which follows the cursor:
 // an agent shows what it was launched with and what it has recorded since, and the workflow
 // header above it shows what its agents inherit instead.
@@ -41,6 +56,7 @@ func TestDetailsDrawTheHoveredRow(t *testing.T) {
 	// counted rather than drawn, and reached by moving the cursor onto it.
 	assert.Contains(t, view, "more")
 
+	m.details.row = m.hoveredDetails().id
 	m.details.cursor = len(m.hoveredDetails().fields) - 1
 
 	// The value is clipped to the pane rather than wrapped, since the whole of it is a copy
@@ -49,7 +65,6 @@ func TestDetailsDrawTheHoveredRow(t *testing.T) {
 	assert.Contains(t, m.detailsView(), "https://github.com/o/r/pu")
 
 	m.tree.cursor = 0
-	m.details.cursor = 0
 
 	header := m.detailsView()
 
@@ -62,11 +77,11 @@ func TestDetailsDrawTheHoveredRow(t *testing.T) {
 // the top: the field it was on belongs to the row it was left on.
 func TestDetailsFollowTheCursor(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
-	m.details.cursor = 3
+	m.details.row, m.details.cursor = m.hoveredDetails().id, 3
 
 	moved := m.moveCursor(-1)
 
-	assert.Equal(t, 0, moved.details.cursor)
+	assert.Equal(t, 0, moved.detailsCursor(moved.hoveredDetails()))
 }
 
 // TestDetailsFocusTakesTheKeys covers the focus key. The list keeps its cursor while the
@@ -75,18 +90,18 @@ func TestDetailsFollowTheCursor(t *testing.T) {
 func TestDetailsFocusTakesTheKeys(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 
-	focused := press(t, m, keyMsg("ctrl+t"))
+	focused := send(t, m, "ctrl+t")
 	require.True(t, focused.details.focused)
 
-	moved := press(t, focused, keyMsg("j"))
+	moved := send(t, focused, "j")
 
 	assert.Equal(t, 1, moved.details.cursor)
 	assert.Equal(t, 1, moved.tree.cursor, "the row under the list cursor does not move")
 
-	back := press(t, moved, keyMsg("ctrl+t"))
+	back := send(t, moved, "ctrl+t")
 	require.False(t, back.details.focused)
 
-	listMoved := press(t, back, keyMsg("k"))
+	listMoved := send(t, back, "k")
 
 	assert.Equal(t, 0, listMoved.tree.cursor, "the list has the keys again")
 }
@@ -98,11 +113,11 @@ func TestDetailsCopyTheFieldUnderTheCursor(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.clip = clip
 
-	focused := press(t, m, keyMsg("ctrl+t"))
+	focused := send(t, m, "ctrl+t")
 
 	// The pr the agent recorded is the last of its fields, which is what the bottom key lands on.
-	bottom := press(t, focused, keyMsg("G"))
-	copied, cmd := bottom.updateAgents(keyMsg("y"))
+	bottom := send(t, focused, "G")
+	copied, cmd := bottom.updateDetails(keyMsg("y"))
 	panel, ok := copied.(model)
 	require.True(t, ok)
 	require.NotNil(t, cmd)
@@ -120,9 +135,9 @@ func TestDetailsCopyTheFieldUnderTheCursor(t *testing.T) {
 func TestDetailsKeysStandDownForTheRow(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 
-	focused := press(t, m, keyMsg("ctrl+t"))
+	focused := send(t, m, "ctrl+t")
 	for _, key := range []string{"z", "r", "n"} {
-		after := press(t, focused, keyMsg(key))
+		after := send(t, focused, key)
 
 		assert.Equal(t, screenAgents, after.screen, "%q opened something", key)
 		assert.Nil(t, after.form, "%q opened a form", key)
@@ -136,7 +151,7 @@ func TestDetailsFocusNeedsFieldsToPointAt(t *testing.T) {
 	m.listing = listing{}
 	m.tree = treeState{}
 
-	focused := press(t, m, keyMsg("ctrl+t"))
+	focused := send(t, m, "ctrl+t")
 
 	assert.False(t, focused.details.focused)
 	assert.Empty(t, focused.detailsView())
@@ -146,11 +161,33 @@ func TestDetailsFocusNeedsFieldsToPointAt(t *testing.T) {
 // past its new end, which is what an agent dropping a metadata key does to the section.
 func TestDetailsCursorHeldInsideTheRecord(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
-	m.details.cursor = 20
+	held := m.hoveredDetails()
+	m.details.row, m.details.cursor = held.id, 20
 
-	fields := m.hoveredDetails().fields
+	assert.Equal(t, len(held.fields)-1, m.detailsCursor(held))
+}
 
-	assert.Equal(t, len(fields)-1, m.detailsCursor(fields))
+// TestDetailsCursorStartsAtTheTopOfAnotherRow covers the cursor left partway down one
+// record while the row under it changes, which a refresh that reorders rows does without
+// anyone pressing a key. The field it was on belonged to the row it was set against.
+func TestDetailsCursorStartsAtTheTopOfAnotherRow(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.details.row, m.details.cursor = "another-agent", 4
+
+	assert.Equal(t, 0, m.detailsCursor(m.hoveredDetails()))
+}
+
+// TestDetailsCopyReportsAFailure covers the clipboard itself refusing the write, such as no
+// clipboard utility being on the machine's PATH.
+func TestDetailsCopyReportsAFailure(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.clip = &fakeClipboard{err: errors.New("no clipboard utility found")}
+
+	focused := send(t, m, "ctrl+t")
+	_, cmd := focused.updateDetails(keyMsg("y"))
+	require.NotNil(t, cmd)
+
+	assert.EqualError(t, copyResultFrom(t, cmd).err, "no clipboard utility found")
 }
 
 // TestDetailsHeightLeavesTheListRoom covers the share the layout gives the section, which is
@@ -175,6 +212,42 @@ func TestDetailsHeightLeavesTheListRoom(t *testing.T) {
 			assert.Equal(t, tt.want, m.detailsLines())
 		})
 	}
+}
+
+// TestDetailsOnTheOtherLists covers the section under the two lists that are not the agents
+// tree. Each says what its own hovered row holds, and the section itself is the same one: the
+// focus key takes the keys the same way from wherever it is drawn.
+func TestDetailsOnTheOtherLists(t *testing.T) {
+	t.Run("a schedule shows when it fires and what its runs are launched with", func(t *testing.T) {
+		m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
+		m.height, m.width = 24, 40
+		m.detailsHeight = config.DefaultDetailsHeight
+
+		view := m.detailsView()
+
+		assert.Contains(t, view, "morning-ci")
+		assert.Contains(t, view, "cron")
+		assert.Contains(t, view, "0 9 * * 1-5")
+
+		focused := send(t, m, "ctrl+t")
+
+		assert.True(t, focused.details.focused)
+	})
+
+	t.Run("an archived agent shows what it was launched with", func(t *testing.T) {
+		m := archiveModel(emptyLists{}, emptyLists{}, config.DefaultKeybindings())
+		m.height, m.width = 24, 40
+		m.detailsHeight = config.DefaultDetailsHeight
+
+		view := m.detailsView()
+
+		assert.Contains(t, view, "api-refactor")
+		assert.Contains(t, view, "agent_id")
+
+		focused := send(t, m, "ctrl+t")
+
+		assert.True(t, focused.details.focused)
+	})
 }
 
 // TestAgentFields covers what an agent shows in the section: what it was launched with,

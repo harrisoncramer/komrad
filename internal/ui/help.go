@@ -44,6 +44,10 @@ func byLabel(bindings []key.Binding) []key.Binding {
 func (m model) renderHelp(k keyMap) string {
 	// An open filter input has taken the screen's keys, so its legend replaces theirs here
 	// rather than at each screen's own help, which would otherwise be four places to forget.
+	// The details under a list take them the same way, from whichever screen drew them.
+	if m.details.focused {
+		k = m.detailsHelp()
+	}
 	if m.filter.typing {
 		k = filterHelp()
 	}
@@ -154,10 +158,6 @@ func (m model) globalHelp() []key.Binding {
 
 // agentHelp lists the agents screen's bindings.
 func (m model) agentHelp() keyMap {
-	if m.details.focused {
-		return m.detailsHelp()
-	}
-
 	if m.tree.selected.active() {
 		hovered, _ := m.hoveredRow()
 
@@ -182,8 +182,8 @@ func (m model) agentHelp() keyMap {
 	return keyMap{short: []key.Binding{rows[0], m.helpBinding()}, full: full}
 }
 
-// detailsBinding is the key that hands the cursor to the details under the list. It names
-// the direction the key would go, the way the log and hide lines do.
+// detailsBinding is the key that hands the cursor to the details under the list. It names the
+// direction the key would go, the way the log and hide lines do.
 func (m model) detailsBinding() key.Binding {
 	desc := "details"
 	if m.details.focused {
@@ -343,6 +343,7 @@ func (m model) scheduleHelp() keyMap {
 			edit,
 			binding(m.keys.Schedules.Toggle, toggle),
 			binding(m.keys.Schedules.Archive, "archive"),
+			m.detailsBinding(),
 			m.filterBinding(),
 			m.moveBinding(),
 		}, clear, m.globalHelp()),
@@ -375,7 +376,7 @@ func (m model) archiveHelp() keyMap {
 		short: short,
 		full: slices.Concat(
 			rows,
-			[]key.Binding{m.filterBinding(), m.moveBinding(), m.jumpBinding()},
+			[]key.Binding{m.detailsBinding(), m.filterBinding(), m.moveBinding(), m.jumpBinding()},
 			clear,
 			m.globalHelp(),
 		),

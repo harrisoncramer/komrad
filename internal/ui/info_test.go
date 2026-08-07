@@ -27,37 +27,40 @@ func TestInfoStaysShut(t *testing.T) {
 	assert.NotContains(t, tmux.respawnPanes, "%2", "and nothing is paged into a pane below")
 }
 
-// TestWorkflowMarkdown covers the record the stage shows for a workflow. The stage is
-// the one place a person can read the stored defaults without opening the edit form.
-func TestWorkflowMarkdown(t *testing.T) {
-	workflow := workflowstore.Workflow{
+// TestWorkflowContextMarkdown covers the document the stage pages for a workflow, which is
+// the context its agents inherit. Its fields are drawn in the details beside this.
+func TestWorkflowContextMarkdown(t *testing.T) {
+	workflow := workflowstore.Workflow{ID: "w1", Name: "api", Context: "shared notes"}
+
+	assert.Contains(t, workflowContextMarkdown(workflow), "# api")
+	assert.Contains(t, workflowContextMarkdown(workflow), "shared notes")
+
+	workflow.Context = ""
+
+	assert.Contains(t, workflowContextMarkdown(workflow), "no shared context set")
+}
+
+// TestWorkflowFields covers what the details draw for a workflow: how many agents it holds,
+// then the defaults future agents under it inherit.
+func TestWorkflowFields(t *testing.T) {
+	fields := workflowFields(workflowstore.Workflow{
 		ID:            "w1",
 		Name:          "api",
-		Context:       "shared notes",
 		Harness:       "codex",
 		Cwd:           "/repo/api",
 		Flags:         "--model opus",
 		SetupAction:   "bootstrap",
 		CleanupAction: "teardown",
-	}
+	}, 3)
 
-	got := workflowMarkdown(workflow, 3)
-
-	wantContain := []string{
-		"# api",
-		"shared notes",
-		"1. agents: 3",
-		"2. default agent: codex",
-		"3. directory: /repo/api",
-		"4. flags: --model opus",
-		"5. setup: bootstrap",
-		"6. cleanup: teardown",
-	}
-
-	for _, want := range wantContain {
-		assert.Contains(t, got.markdown, want)
-	}
-	assert.Equal(t, []string{"3", "codex", "/repo/api", "--model opus", "bootstrap", "teardown"}, got.values)
+	assert.Equal(t, []recordField{
+		{"agents", "3"},
+		{"default agent", "codex"},
+		{"directory", "/repo/api"},
+		{"flags", "--model opus"},
+		{"setup", "bootstrap"},
+		{"cleanup", "teardown"},
+	}, fields)
 }
 
 // recordingTmux records what the panel puts on its frame, so a test can tell a swapped-in

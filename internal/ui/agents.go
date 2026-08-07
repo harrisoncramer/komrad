@@ -23,15 +23,6 @@ var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one
 func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
-	// The details below hold the keys until the focus key hands them back, so what a
-	// keypress would act on is whichever half of the sidebar is drawn in the accent.
-	if m.details.focused {
-		return m.updateDetails(key)
-	}
-	if isBound(k, m.keys.Details.Focus) {
-		return m.toggleDetailsFocus()
-	}
-
 	if m.takeTopPress(k) {
 		return m.jumpCursor(0), nil
 	}
@@ -261,7 +252,6 @@ func (m model) moveCursor(delta int) model {
 	}
 
 	m.tree.rowCursor = next
-	m.details.cursor = 0
 	m.stageSelection()
 
 	return m
@@ -274,7 +264,6 @@ func (m model) jumpCursor(idx int) model {
 	}
 
 	m.tree.rowCursor = next
-	m.details.cursor = 0
 	m.stageSelection()
 
 	return m
@@ -339,11 +328,34 @@ func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	return m, m.writeCmd(failure, func(a api) error { return a.setHidden(agent, !agent.Hidden) })
 }
 
+// agentsDetails is what the row under the agents cursor holds: a workflow header carries the
+// defaults its agents inherit, and an agent carries what it was launched with plus whatever
+// it has since recorded about its own work.
+func (m model) agentsDetails() details {
+	r, ok := rowAt(m.agentRows(), m.tree.cursor)
+	if !ok {
+		return details{}
+	}
+
+	if r.header {
+		return details{
+			id:     r.workflow.ID,
+			title:  r.workflow.Name,
+			fields: workflowFields(r.workflow, m.agentCount(r.workflow.ID)),
+		}
+	}
+
+	return details{
+		id:     r.item.agent.ID,
+		title:  r.item.agent.Name,
+		fields: agentFields(r.item.agent, m.scheduleName(r.item.agent)),
+	}
+}
+
 func (m *model) stageSelection() {
 	r, ok := rowAt(m.agentRows(), m.tree.cursor)
 	if !ok {
 		m.frame.Show(layout.RegionStage, newBlankContent())
-		m.clearRecord()
 		m.stageInfo()
 
 		return
@@ -354,12 +366,11 @@ func (m *model) stageSelection() {
 	// carries for the agents it starts.
 	switch {
 	case r.header:
-		m.stagePlaceholder(workflowContextMarkdown(r.workflow))
+		m.stageDocument(workflowContextMarkdown(r.workflow))
 	case r.item.alive:
 		m.frame.ShowGuest(r.item.agent.Pane)
-		m.clearRecord()
 	default:
-		m.stagePlaceholder(dormantPlaceholder)
+		m.stageDocument(dormantPlaceholder)
 	}
 
 	m.stageInfo()
