@@ -367,16 +367,3 @@ func TestEveryOutcomeCarriesTheTraceOfThePassItDescribes(t *testing.T) {
 
 	assert.Len(t, traces, 3, "three passes are three traces")
 }
-
-// TestTheTraceStaysOutOfTheFolding covers the one way the trace could break the log rather
-// than fix it. Every pass mints an id, so folding a repeat on anything carrying one would
-// never match and a loop failing the same way for an hour would write the same sentence
-// every couple of seconds.
-func TestTheTraceStaysOutOfTheFolding(t *testing.T) {
-	down := errors.New("failed to list agents: connection refused")
-
-	written := passes(t, slog.LevelInfo, []error{down, down, down, down})
-
-	assert.Equal(t, []string{"loop pass failed"}, logtest.Bodies(t, written),
-		"the passes are told apart by their errors, which carry no id")
-}

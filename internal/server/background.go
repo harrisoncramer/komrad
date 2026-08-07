@@ -135,21 +135,20 @@ func runLoop(ctx context.Context, loop Loop, logger *slog.Logger) {
 			return
 		}
 
-		// How a pass ended is written under the pass's own id, beside whatever it said on
-		// its way. Most passes say nothing until they break, so an outcome off the trace is
-		// a failure no id reaches.
-		outcome := logging.From(traced)
+		// How a pass ended goes under the pass's own id. Most passes say nothing until they
+		// break, so the outcome is usually the only line their trace has.
+		passLogger := logging.From(traced)
 
 		switch {
 		case err == nil && failing != "":
-			outcome.LogAttrs(traced, slog.LevelInfo, "loop recovered", slog.Int(logging.Repeats, repeats))
+			passLogger.LogAttrs(traced, slog.LevelInfo, "loop recovered", slog.Int(logging.Repeats, repeats))
 			failing, repeats = "", 0
 		case err != nil && err.Error() == failing:
 			repeats++
-			outcome.LogAttrs(traced, slog.LevelDebug, "loop still failing", slog.Int(logging.Repeats, repeats))
+			passLogger.LogAttrs(traced, slog.LevelDebug, "loop still failing", slog.Int(logging.Repeats, repeats))
 		case err != nil:
 			failing, repeats = err.Error(), 1
-			outcome.LogAttrs(traced, slog.LevelError, "loop pass failed", failureAttrs(err)...)
+			passLogger.LogAttrs(traced, slog.LevelError, "loop pass failed", failureAttrs(err)...)
 		}
 
 		select {
