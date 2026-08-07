@@ -26,8 +26,8 @@ func TestProtoToAgentCarriesTheSyncedColumns(t *testing.T) {
 }
 
 // TestAgentsViewDrawsWorktreeRemovedFromTheWire covers the whole way in, from the proto a
-// listing returns to the row the panel prints. The glyph's own test builds a store agent by
-// hand, which is what let a field missing from the wire still pass it.
+// listing returns to the row the panel prints. The glyph's own test starts from a store
+// agent, so it says nothing about what the wire carried.
 func TestAgentsViewDrawsWorktreeRemovedFromTheWire(t *testing.T) {
 	m := model{
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),

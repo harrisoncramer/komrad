@@ -12,10 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestWorktreeRemovedReachesTheCaller walks the flag the whole way a person's screen does:
-// the worktree syncer writes it to the row, and a listing over the wire is the only thing
-// the panel ever sees. Nothing here builds a stored agent by hand, since a conversion that
-// drops the flag is exactly what a hand-built one cannot catch.
+// TestWorktreeRemovedReachesTheCaller covers the flag over the wire, which is all the panel
+// ever sees of it. The service and its store are real here, so nothing stands in for the
+// conversion the panel depends on.
 func TestWorktreeRemovedReachesTheCaller(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()

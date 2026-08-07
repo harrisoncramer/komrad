@@ -59,9 +59,9 @@ message Agent {
   // branch has not been read yet. Refreshed on a slow periodic pass rather than every
   // reconcile, since reading it is a shell-out and not a tmux capture.
   optional string branch = 22;
-  // Whether cwd no longer exists on disk. Read on the same slow periodic pass as the
-  // branch, since a worktree can be deleted under a running agent at any time and a row
-  // over a directory that is gone otherwise looks healthy.
+  // Whether cwd no longer exists on disk. Refreshed on its own slow periodic pass rather
+  // than every reconcile, since a worktree can be deleted under a running agent at any
+  // time and a row over a directory that is gone otherwise looks healthy.
   bool worktree_removed = 23;
 }
 

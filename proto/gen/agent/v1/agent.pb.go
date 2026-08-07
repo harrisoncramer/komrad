@@ -74,9 +74,9 @@ type Agent struct {
 	// branch has not been read yet. Refreshed on a slow periodic pass rather than every
 	// reconcile, since reading it is a shell-out and not a tmux capture.
 	Branch *string `protobuf:"bytes,22,opt,name=branch,proto3,oneof" json:"branch,omitempty"`
-	// Whether cwd no longer exists on disk. Read on the same slow periodic pass as the
-	// branch, since a worktree can be deleted under a running agent at any time and a row
-	// over a directory that is gone otherwise looks healthy.
+	// Whether cwd no longer exists on disk. Refreshed on its own slow periodic pass rather
+	// than every reconcile, since a worktree can be deleted under a running agent at any
+	// time and a row over a directory that is gone otherwise looks healthy.
 	WorktreeRemoved bool `protobuf:"varint,23,opt,name=worktree_removed,json=worktreeRemoved,proto3" json:"worktree_removed,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
