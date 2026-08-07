@@ -4,7 +4,9 @@
   <img src="docs/assets/weave.png" alt="Ultra" width="350" />
 </p>
 
-<hr>
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
+</p>
 
 Weave is a terminal-based agent manager. It lets you:
 
