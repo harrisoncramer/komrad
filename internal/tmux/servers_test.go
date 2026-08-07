@@ -20,7 +20,7 @@ func TestServersRouting(t *testing.T) {
 	managerSocket := newTestServer(t, "manager")
 
 	manager := NewClient(managerSocket)
-	host := NewHost(manager)
+	host := NewHost(manager, "")
 	servers := NewServers(manager, host)
 
 	// Nothing recorded yet, so the user's server cannot be found and every question
@@ -47,6 +47,38 @@ func TestServersRouting(t *testing.T) {
 	// The invoking client's directory is a question only the server it is attached
 	// to can answer, so it is asked of the recorded host.
 	assert.NotEmpty(t, servers.GetClientPath(""), "the recorded host answers where its client sits")
+}
+
+// TestHostFallsBackToThisServer covers reaching the user's server with weave's own server gone,
+// which is what hiding the panel after that server died looks like. The socket a previous open
+// recorded is unreadable then, and it is the only route the flag the key binding branches on is
+// cleared through, so without a fallback that flag stays set and the panel key stops working.
+func TestHostFallsBackToThisServer(t *testing.T) {
+	hostSocket := newTestServer(t, "fallback-host")
+	managerSocket := newTestServer(t, "fallback-manager")
+
+	manager := NewClient(managerSocket)
+	host := NewHost(manager, paneEnv(socketPath(t, hostSocket)))
+	host.Record(socketPath(t, hostSocket))
+
+	require.NoError(t, exec.Command("tmux", "-L", managerSocket, "kill-server").Run())
+
+	NewServers(manager, host).SetGlobal("@weave_open", "0")
+	assert.Equal(t, "0", tmuxRun(t, hostSocket, "show-option", "-gqv", "@weave_open"),
+		"the flag the key binding reads is cleared with no recorded socket to be had")
+}
+
+// TestHostDoesNotFallBackToTheManager covers the panel's own process, whose TMUX names weave's
+// own server rather than the user's. Falling back there would write the options the key binding
+// reads onto the one server nothing reads them from, which is worse than not writing them.
+func TestHostDoesNotFallBackToTheManager(t *testing.T) {
+	managerSocket := newTestServer(t, "no-fallback")
+
+	manager := NewClient(managerSocket)
+	host := NewHost(manager, paneEnv(socketPath(t, managerSocket)))
+
+	NewServers(manager, host).SetGlobal("@weave_open", "1")
+	assert.Empty(t, tmuxRun(t, managerSocket, "show-option", "-gqv", "@weave_open"))
 }
 
 // TestClientAtPath checks a client addressed by socket path reaches the same server
@@ -120,6 +152,9 @@ func newTestServer(t *testing.T, role string) string {
 
 	return socket
 }
+
+// paneEnv is a TMUX value for the server at path, the three fields tmux writes for a pane.
+func paneEnv(path string) string { return path + ",1,0" }
 
 // socketPath returns the filesystem path of a named tmux server's socket, which is
 // how the user's server is addressed.

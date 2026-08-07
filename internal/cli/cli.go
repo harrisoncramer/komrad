@@ -105,7 +105,7 @@ func NewRootCommand() *cobra.Command {
 			//  that other tmux server. This is why nothing in your regular tmux server can see weave sessions or state. To see them, run `tmux -L weave ls`
 
 			manager := tmux.NewClient(env.TmuxSocket)
-			app.host = tmux.NewHost(manager)
+			app.host = tmux.NewHost(manager, env.Tmux)
 			app.tmux = tmux.NewServers(manager, app.host)
 
 			app.popup = ui.NewPopupWindow(app.tmux, agents.ManagerSession)

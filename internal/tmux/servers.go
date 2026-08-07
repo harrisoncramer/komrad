@@ -61,12 +61,15 @@ func SessionFromEnv(value string) string {
 // and each may come from a different server.
 type Host struct {
 	manager *Client
+	// pane is the socket path this process's own TMUX names, empty outside tmux.
+	pane string
 }
 
 // NewHost returns a Host that finds the user's server through the manager's, where its
-// socket path is recorded.
-func NewHost(manager *Client) *Host {
-	return &Host{manager: manager}
+// socket path is recorded. tmuxEnv is this process's TMUX value, which names the server it
+// is a pane on.
+func NewHost(manager *Client, tmuxEnv string) *Host {
+	return &Host{manager: manager, pane: SocketFromEnv(tmuxEnv)}
 }
 
 // Record stores the socket path of the user's server, called by the open command with the
@@ -79,15 +82,37 @@ func (h *Host) Record(path string) {
 	h.manager.SetGlobal(hostSocketOption, path)
 }
 
-// client returns a client for the user's server, nil when no open has recorded one, which
-// leaves every method below doing nothing.
+// client returns a client for the user's server. The socket a previous open recorded wins,
+// since it names the server actually showing the panel, and the server this process is a pane
+// on stands in when that cannot be read.
+//
+// The fallback is what keeps the popup's open flag from getting stranded. It is recorded on
+// weave's own server, so once that server dies the flag on the user's server can no longer be
+// found, and the flag is the one thing the panel key branches on: left set, the key hides a
+// popup that is not there on every press and there is nothing left to clear it. Hide and the
+// open it interrupted are both panes on the user's server, so they can still reach it.
 func (h *Host) client() *Client {
-	path := h.manager.ShowGlobal(hostSocketOption)
-	if path == "" {
+	if path := h.manager.ShowGlobal(hostSocketOption); path != "" {
+		return NewClientAtPath(path)
+	}
+
+	return h.paneClient()
+}
+
+// paneClient is a client for the server this process is a pane on, nil outside tmux and nil
+// inside weave's own server, where the panel runs. The options the key binding reads live on
+// the user's server, so writing them on the manager's would be a write that looks like it
+// worked and is read by nobody.
+func (h *Host) paneClient() *Client {
+	if h.pane == "" {
 		return nil
 	}
 
-	return NewClientAtPath(path)
+	if manager, err := h.manager.SocketPath(); err == nil && manager == h.pane {
+		return nil
+	}
+
+	return NewClientAtPath(h.pane)
 }
 
 // GetClientPath returns a client's active pane working directory.
