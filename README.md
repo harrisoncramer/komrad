@@ -1,5 +1,7 @@
+# weave
+
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
+  <img src="docs/assets/weave.png" alt="Ultra" width="350" />
 </p>
 
 <hr>
