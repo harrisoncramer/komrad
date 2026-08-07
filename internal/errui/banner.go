@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 
+	"weave/internal/caller"
+
 	"connectrpc.com/connect"
 )
 
@@ -24,6 +26,10 @@ type Banner struct {
 	// Hint says how the banner goes away: blank means esc, except over a form, where esc
 	// backs out of the form instead.
 	Hint string
+	// Trace is the id the service logged this failure under, blank when it did not say.
+	// It is offered as the command that reads it rather than as a bare id, since knowing
+	// the id and knowing what to do with it are not the same thing.
+	Trace string
 }
 
 // bannerIndent lines the detail up under the summary, past the marker.
@@ -48,9 +54,25 @@ func (b Banner) Render(width int) string {
 	}
 
 	out.WriteString(bannerIndent + fold(detail, folded, bannerIndent) + "\n")
-	out.WriteString(Dim.Render(bannerIndent+cmp.Or(b.Hint, "esc to dismiss")) + "\n\n")
+	hint := cmp.Or(b.Hint, "esc to dismiss")
+	if b.Trace != "" {
+		hint += "  ·  weave trace " + b.Trace
+	}
+
+	out.WriteString(Dim.Render(bannerIndent+hint) + "\n\n")
 
 	return out.String()
+}
+
+// TraceOf is the id the service logged a failure under, which it returns on the error's
+// metadata, and blank for a failure that never reached the service or came back without one.
+func TraceOf(err error) string {
+	var connectErr *connect.Error
+	if errors.As(err, &connectErr) {
+		return connectErr.Meta().Get(caller.TraceHeader)
+	}
+
+	return ""
 }
 
 // Reason reduces a service error to the part worth reading: a connect error stringifies

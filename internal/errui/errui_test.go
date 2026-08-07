@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"weave/internal/caller"
+
 	"connectrpc.com/connect"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
@@ -279,4 +281,55 @@ func TestReason(t *testing.T) {
 			assert.Equal(t, tt.want, Reason(tt.err))
 		})
 	}
+}
+
+// TestTraceOf covers the id the service returns on a failure, which is what turns a banner
+// from a complaint into something a person can follow.
+func TestTraceOf(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{
+			name: "an error that never reached the service carries none",
+			err:  errors.New("dial tcp: connection refused"),
+			want: "",
+		},
+		{
+			name: "a refusal the service answered without one",
+			err:  connect.NewError(connect.CodeNotFound, errors.New("no agent has that id")),
+			want: "",
+		},
+		{
+			name: "a refusal the service traced",
+			err:  tracedError("019fd9f8-8327-7e4c-82b3-5339543f9e7e"),
+			want: "019fd9f8-8327-7e4c-82b3-5339543f9e7e",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, TraceOf(tt.err))
+		})
+	}
+}
+
+// tracedError is a refusal shaped the way the logging interceptor sends one back.
+func tracedError(trace string) error {
+	err := connect.NewError(connect.CodeInternal, errors.New("the pane was already gone"))
+	err.Meta().Set(caller.TraceHeader, trace)
+
+	return err
+}
+
+// TestBannerOffersTheTrace covers the banner naming the command that reads the failure,
+// rather than an id the reader has to know what to do with.
+func TestBannerOffersTheTrace(t *testing.T) {
+	traced := Banner{Summary: "Could not archive agent", Detail: "the pane was already gone", Trace: "abc-123"}
+	assert.Contains(t, traced.Render(80), "weave trace abc-123")
+	assert.Contains(t, traced.Render(80), "esc to dismiss", "the way out is still said")
+
+	plain := Banner{Summary: "Could not archive agent", Detail: "the pane was already gone"}
+	assert.NotContains(t, plain.Render(80), "weave trace", "a failure with no trace offers no command")
 }

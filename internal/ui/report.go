@@ -13,5 +13,9 @@ func (m *model) report(summary string, err error) {
 		return
 	}
 
-	m.banner = &errui.Banner{Summary: summary, Detail: errui.Reason(err)}
+	m.banner = &errui.Banner{
+		Summary: summary,
+		Detail:  errui.Reason(err),
+		Trace:   errui.TraceOf(err),
+	}
 }

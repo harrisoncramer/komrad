@@ -1,4 +1,4 @@
-h1:O8/VgJToPssBkQIgG3L3KI59OWpkV+lVe/vbgSGPP60=
+h1:OKEdZlHuBLOoITQl9NSJCTMdDRKFBM9rpX2w3byvXEY=
 20260727000000_initial.sql h1:owzcMjTU5jO8l1Z6RNCtolWwzOORs36gXDV1kMxSX9o=
 20260803000000_updated_at_triggers.sql h1:O6ZGmxsS3Ot7vgk30pR34f0OT4WGI8FkGe+zdlIKVDQ=
 20260803175945_agent_state_changed_at.sql h1:uO5yr6DfYelk5MzZlL2gO9qYePkZghWUN1Zjv4FfSU8=
@@ -9,3 +9,4 @@ h1:O8/VgJToPssBkQIgG3L3KI59OWpkV+lVe/vbgSGPP60=
 20260805055700_add_agent_spawned_by.sql h1:iNS3dm88LRU5XCzxCLsChJnFTkf482XCSoJoMpmVBMs=
 20260805185720_report_expired_mail_once.sql h1:feYIgDzDutf4oeLEVT05TQumBLQWMTtcgDYr330BNeQ=
 20260806220335_rename_agent_messages_to_mail.sql h1:epNqVkjEHIoKxChff3EMqLviePrqTvR/4PFe5+8sErY=
+20260806230000_stamp_mail_updated_at.sql h1:vlBSXp1E767aZgt/+dzLTG4WqUSVmXR5hehb1rgrUA8=
