@@ -118,7 +118,7 @@ func TestUpdateSearchEditsQuery(t *testing.T) {
 			want: "pos",
 		},
 		{
-			name: "the nav keys are part of the query, since this screen moves on the arrows",
+			name: "the nav keys are part of the query while the line holds them",
 			keys: []tea.KeyMsg{
 				{Type: tea.KeyRunes, Runes: []rune("j")},
 				{Type: tea.KeyRunes, Runes: []rune("k")},
@@ -132,7 +132,7 @@ func TestUpdateSearchEditsQuery(t *testing.T) {
 			m := model{
 				screen: screenSearch,
 				keys:   config.DefaultKeybindings(),
-				search: searchState{},
+				search: searchState{typing: true},
 			}
 
 			for _, key := range tt.keys {
@@ -407,20 +407,32 @@ func TestJumpToSearchHit(t *testing.T) {
 	}
 }
 
-// TestSearchEscapeLeaves covers esc on the search screen, which leaves it on the one press
-// whether or not the query found anything. The key means back everywhere else in the panel,
-// and a press that left the screen up read as the key doing nothing.
-func TestSearchEscapeLeaves(t *testing.T) {
+// TestSearchEscape covers esc on the search screen, which steps back the way it does over a
+// filtered list: the hits hand the keys to the query line, and the line leaves the screen.
+func TestSearchEscape(t *testing.T) {
 	tests := []struct {
-		name string
-		hits []searchHit
+		name       string
+		typing     bool
+		hits       []searchHit
+		wantScreen screen
+		wantTyping bool
 	}{
 		{
-			name: "esc over nothing leaves the screen",
+			name:       "esc over the hits puts the keys back in the query line",
+			hits:       hits("a", "b", "c"),
+			wantScreen: screenSearch,
+			wantTyping: true,
 		},
 		{
-			name: "esc over results leaves the screen",
-			hits: hits("a", "b", "c"),
+			name:       "esc over an empty result puts them back the same way",
+			wantScreen: screenSearch,
+			wantTyping: true,
+		},
+		{
+			name:       "esc in the query line leaves the screen",
+			typing:     true,
+			hits:       hits("a", "b", "c"),
+			wantScreen: screenAgents,
 		},
 	}
 
@@ -429,23 +441,24 @@ func TestSearchEscapeLeaves(t *testing.T) {
 			m := filterModel()
 			m.api = api{agents: &fakeSearchAgents{}, workflows: emptyLists{}, schedules: emptyLists{}}
 			m.screen = screenSearch
-			m.search = searchState{query: "ledger", hits: tt.hits}
+			m.search = searchState{typing: tt.typing, query: "ledger", hits: tt.hits}
 
 			updated, _ := m.route(keyMsg("esc"))
 			next, ok := updated.(model)
 			require.True(t, ok)
 
-			assert.Equal(t, screenAgents, next.screen)
+			assert.Equal(t, tt.wantScreen, next.screen)
+			assert.Equal(t, tt.wantTyping, next.search.typing)
 		})
 	}
 }
 
-// TestSearchQueryOwnsTheKeys covers the query line taking every key the screen is up for,
-// which is what keeps a letter bound elsewhere from acting instead of typing.
+// TestSearchQueryOwnsTheKeys covers the query line taking every key while it is being typed
+// into, which is what keeps a letter bound elsewhere from acting instead of typing.
 func TestSearchQueryOwnsTheKeys(t *testing.T) {
 	m := filterModel()
 	m.screen = screenSearch
-	m.search = searchState{query: "ledger", hits: hits("a")}
+	m.search = searchState{typing: true, query: "ledger", hits: hits("a")}
 
 	updated, _ := m.route(keyMsg("?"))
 	got, ok := updated.(model)
@@ -453,6 +466,72 @@ func TestSearchQueryOwnsTheKeys(t *testing.T) {
 
 	assert.Equal(t, "ledger?", got.search.query)
 	assert.False(t, got.helpExpanded, "the help key is typed rather than drawing the legend")
+}
+
+// TestSearchHitsTakeTheKeys covers what the hits answer once enter has closed the query line:
+// the shared navigation keys, which type while the line is open, and the two keys that hand
+// them back to it.
+func TestSearchHitsTakeTheKeys(t *testing.T) {
+	tests := []struct {
+		name       string
+		keys       []string
+		wantCursor int
+		wantTyping bool
+		wantQuery  string
+	}{
+		{
+			name:       "enter closes the line and leaves the query standing",
+			keys:       []string{"enter"},
+			wantCursor: 0,
+			wantQuery:  "ledger",
+		},
+		{
+			name:       "the nav keys run down the hits rather than typing",
+			keys:       []string{"enter", "j", "j"},
+			wantCursor: 2,
+			wantQuery:  "ledger",
+		},
+		{
+			name:       "the bottom key lands on the last hit",
+			keys:       []string{"enter", "G"},
+			wantCursor: 2,
+			wantQuery:  "ledger",
+		},
+		{
+			name:       "the top key acts on its second press",
+			keys:       []string{"enter", "G", "g", "g"},
+			wantCursor: 0,
+			wantQuery:  "ledger",
+		},
+		{
+			name:       "the filter key puts the keys back in the query line",
+			keys:       []string{"enter", "j", "/"},
+			wantCursor: 1,
+			wantTyping: true,
+			wantQuery:  "ledger",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := filterModel()
+			m.api = api{agents: &fakeSearchAgents{}, workflows: emptyLists{}, schedules: emptyLists{}}
+			m.screen = screenSearch
+			m.search = searchState{typing: true, query: "ledger", hits: hits("a", "b", "c")}
+
+			for _, k := range tt.keys {
+				updated, _ := m.route(keyMsg(k))
+				next, ok := updated.(model)
+				require.True(t, ok)
+				m = next
+			}
+
+			require.Equal(t, screenSearch, m.screen)
+			assert.Equal(t, tt.wantCursor, m.search.cursor)
+			assert.Equal(t, tt.wantTyping, m.search.typing)
+			assert.Equal(t, tt.wantQuery, m.search.query)
+		})
+	}
 }
 
 // fakeSearchAgents records the two calls opening a hit can make. The embedded interface

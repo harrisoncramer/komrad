@@ -111,7 +111,7 @@ func (m model) updateActions(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, m.keys.Actions.Quit):
 		return m, m.hide()
 	case m.filter.standing() && isBound(k, m.keys.Actions.Back):
-		return m.clearFilter()
+		return m.openFilter()
 	case isBound(k, m.keys.Actions.Back):
 		return m.returnToAgents()
 	case isBound(k, m.keys.Nav.Up):
