@@ -32,7 +32,7 @@ Weave is different from existing solutions like Conductor, Happy, or WorkMux in 
 
 Weave provides the primitives behind agentic workflows as resources that you manage directly: [workflows](docs/workflows.md), [agents](docs/agents.md), [actions](docs/actions.md), and [schedules](docs/schedules.md). It also provides an [MCP layer](docs/mcp.md) and a [CLI](docs/commands.md) so that you can have weave agents manage other agents. But it doesn't tell you how to use them: that's your call.
 
-Weave is optimized for software development with [worktrees](https://git-scm.com/docs/git-worktree), but is equally capable of handling other automations, like production incidents or triaging, or even Slack or email automations. Let weave automate the parts of your job you dislike.
+Weave is optimized for software development with [worktrees](https://git-scm.com/docs/git-worktree), but is equally capable of handling production support automations, or even Slack or email workflows. Let weave automate the parts of your job you dislike.
 
 ### It terminal (tmux) based.
 
