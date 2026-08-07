@@ -4,6 +4,11 @@
   <img src="docs/assets/weave.png" alt="Ultra" width="350" />
 </p>
 
+<p align="center">
+  <a href="https://github.com/harrisoncramer/ultra/actions/workflows/ci.yml"><img src="https://github.com/harrisoncramer/ultra/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
+</p>
+
 Weave is a terminal-based agent manager. It lets you:
 
 - Create and manage agents backed by Claude or Codex
