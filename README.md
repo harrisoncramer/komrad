@@ -1,7 +1,7 @@
-, weave
+# weave
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
+  <img src="docs/assets/weave.png" alt="Ultra" width="350" />
 </p>
 
 <hr>
@@ -15,6 +15,8 @@ Weave is a terminal-based agent manager. It lets you:
 - Enforce agent schedules
 
 If you're a Neovim or Emacs user, or just enjoy working from your terminal, weave is for you.
+
+<img width="1721" height="1066" alt="Screenshot 2026-08-06 at 11 10 26 PM" src="https://github.com/user-attachments/assets/032bf29a-df65-41c6-ac98-45b2429ae603" />
 
 ## Quickstart
 
