@@ -11,13 +11,20 @@ import (
 
 const getWorkflow = `-- name: GetWorkflow :one
 SELECT
-    w.id, w.name, w.context, w.setup_action, w.cleanup_action, w.workflow_config_id, w.archived_at, w.created_at, w.updated_at,
+    w.id, w.name, w.context, w.workflow_config_id, w.archived_at, w.created_at, w.updated_at, w.action_config_id,
     wc.harness,
     wc.cwd,
-    wc.flags
+    wc.flags,
+    ac.setup_action,
+    ac.cleanup_action,
+    ac.worktree_enabled,
+    ac.worktree_base_branch,
+    ac.worktree_copy_paths,
+    ac.worktree_symlink_paths
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
+    JOIN workflow_action_configs ac ON ac.id = w.action_config_id
 WHERE
     w.id = $1
     AND w.archived_at IS NULL
@@ -25,10 +32,16 @@ LIMIT 1
 `
 
 type GetWorkflowRow struct {
-	Workflow Workflow
-	Harness  string
-	Cwd      string
-	Flags    string
+	Workflow             Workflow
+	Harness              string
+	Cwd                  string
+	Flags                string
+	SetupAction          string
+	CleanupAction        string
+	WorktreeEnabled      bool
+	WorktreeBaseBranch   string
+	WorktreeCopyPaths    []string
+	WorktreeSymlinkPaths []string
 }
 
 func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, error) {
@@ -38,38 +51,56 @@ func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, 
 		&i.Workflow.ID,
 		&i.Workflow.Name,
 		&i.Workflow.Context,
-		&i.Workflow.SetupAction,
-		&i.Workflow.CleanupAction,
 		&i.Workflow.WorkflowConfigID,
 		&i.Workflow.ArchivedAt,
 		&i.Workflow.CreatedAt,
 		&i.Workflow.UpdatedAt,
+		&i.Workflow.ActionConfigID,
 		&i.Harness,
 		&i.Cwd,
 		&i.Flags,
+		&i.SetupAction,
+		&i.CleanupAction,
+		&i.WorktreeEnabled,
+		&i.WorktreeBaseBranch,
+		&i.WorktreeCopyPaths,
+		&i.WorktreeSymlinkPaths,
 	)
 	return &i, err
 }
 
 const getWorkflowIncludingArchived = `-- name: GetWorkflowIncludingArchived :one
 SELECT
-    w.id, w.name, w.context, w.setup_action, w.cleanup_action, w.workflow_config_id, w.archived_at, w.created_at, w.updated_at,
+    w.id, w.name, w.context, w.workflow_config_id, w.archived_at, w.created_at, w.updated_at, w.action_config_id,
     wc.harness,
     wc.cwd,
-    wc.flags
+    wc.flags,
+    ac.setup_action,
+    ac.cleanup_action,
+    ac.worktree_enabled,
+    ac.worktree_base_branch,
+    ac.worktree_copy_paths,
+    ac.worktree_symlink_paths
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
+    JOIN workflow_action_configs ac ON ac.id = w.action_config_id
 WHERE
     w.id = $1
 LIMIT 1
 `
 
 type GetWorkflowIncludingArchivedRow struct {
-	Workflow Workflow
-	Harness  string
-	Cwd      string
-	Flags    string
+	Workflow             Workflow
+	Harness              string
+	Cwd                  string
+	Flags                string
+	SetupAction          string
+	CleanupAction        string
+	WorktreeEnabled      bool
+	WorktreeBaseBranch   string
+	WorktreeCopyPaths    []string
+	WorktreeSymlinkPaths []string
 }
 
 func (q *Queries) GetWorkflowIncludingArchived(ctx context.Context, id string) (*GetWorkflowIncludingArchivedRow, error) {
@@ -79,15 +110,20 @@ func (q *Queries) GetWorkflowIncludingArchived(ctx context.Context, id string) (
 		&i.Workflow.ID,
 		&i.Workflow.Name,
 		&i.Workflow.Context,
-		&i.Workflow.SetupAction,
-		&i.Workflow.CleanupAction,
 		&i.Workflow.WorkflowConfigID,
 		&i.Workflow.ArchivedAt,
 		&i.Workflow.CreatedAt,
 		&i.Workflow.UpdatedAt,
+		&i.Workflow.ActionConfigID,
 		&i.Harness,
 		&i.Cwd,
 		&i.Flags,
+		&i.SetupAction,
+		&i.CleanupAction,
+		&i.WorktreeEnabled,
+		&i.WorktreeBaseBranch,
+		&i.WorktreeCopyPaths,
+		&i.WorktreeSymlinkPaths,
 	)
 	return &i, err
 }
@@ -96,48 +132,85 @@ const insertWorkflow = `-- name: InsertWorkflow :one
 INSERT INTO workflows(
     name,
     context,
-    setup_action,
-    cleanup_action,
-    workflow_config_id)
+    workflow_config_id,
+    action_config_id)
 VALUES (
     $1,
     $2,
     $3,
-    $4,
-    $5)
+    $4)
 RETURNING
-    id, name, context, setup_action, cleanup_action, workflow_config_id, archived_at, created_at, updated_at
+    id, name, context, workflow_config_id, archived_at, created_at, updated_at, action_config_id
 `
 
 type InsertWorkflowParams struct {
 	Name             string
 	Context          string
-	SetupAction      string
-	CleanupAction    string
 	WorkflowConfigID string
+	ActionConfigID   string
 }
 
 func (q *Queries) InsertWorkflow(ctx context.Context, arg InsertWorkflowParams) (*Workflow, error) {
 	row := q.db.QueryRow(ctx, insertWorkflow,
 		arg.Name,
 		arg.Context,
-		arg.SetupAction,
-		arg.CleanupAction,
 		arg.WorkflowConfigID,
+		arg.ActionConfigID,
 	)
 	var i Workflow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
 		&i.Context,
-		&i.SetupAction,
-		&i.CleanupAction,
 		&i.WorkflowConfigID,
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ActionConfigID,
 	)
 	return &i, err
+}
+
+const insertWorkflowActionConfig = `-- name: InsertWorkflowActionConfig :one
+INSERT INTO workflow_action_configs(
+    setup_action,
+    cleanup_action,
+    worktree_enabled,
+    worktree_base_branch,
+    worktree_copy_paths,
+    worktree_symlink_paths)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6)
+RETURNING
+    id
+`
+
+type InsertWorkflowActionConfigParams struct {
+	SetupAction          string
+	CleanupAction        string
+	WorktreeEnabled      bool
+	WorktreeBaseBranch   string
+	WorktreeCopyPaths    []string
+	WorktreeSymlinkPaths []string
+}
+
+func (q *Queries) InsertWorkflowActionConfig(ctx context.Context, arg InsertWorkflowActionConfigParams) (string, error) {
+	row := q.db.QueryRow(ctx, insertWorkflowActionConfig,
+		arg.SetupAction,
+		arg.CleanupAction,
+		arg.WorktreeEnabled,
+		arg.WorktreeBaseBranch,
+		arg.WorktreeCopyPaths,
+		arg.WorktreeSymlinkPaths,
+	)
+	var id string
+	err := row.Scan(&id)
+	return id, err
 }
 
 const insertWorkflowConfig = `-- name: InsertWorkflowConfig :one
@@ -168,13 +241,20 @@ func (q *Queries) InsertWorkflowConfig(ctx context.Context, arg InsertWorkflowCo
 
 const listWorkflows = `-- name: ListWorkflows :many
 SELECT
-    w.id, w.name, w.context, w.setup_action, w.cleanup_action, w.workflow_config_id, w.archived_at, w.created_at, w.updated_at,
+    w.id, w.name, w.context, w.workflow_config_id, w.archived_at, w.created_at, w.updated_at, w.action_config_id,
     wc.harness,
     wc.cwd,
-    wc.flags
+    wc.flags,
+    ac.setup_action,
+    ac.cleanup_action,
+    ac.worktree_enabled,
+    ac.worktree_base_branch,
+    ac.worktree_copy_paths,
+    ac.worktree_symlink_paths
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
+    JOIN workflow_action_configs ac ON ac.id = w.action_config_id
 WHERE
     w.archived_at IS NULL
 ORDER BY
@@ -182,10 +262,16 @@ ORDER BY
 `
 
 type ListWorkflowsRow struct {
-	Workflow Workflow
-	Harness  string
-	Cwd      string
-	Flags    string
+	Workflow             Workflow
+	Harness              string
+	Cwd                  string
+	Flags                string
+	SetupAction          string
+	CleanupAction        string
+	WorktreeEnabled      bool
+	WorktreeBaseBranch   string
+	WorktreeCopyPaths    []string
+	WorktreeSymlinkPaths []string
 }
 
 func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error) {
@@ -201,15 +287,20 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 			&i.Workflow.ID,
 			&i.Workflow.Name,
 			&i.Workflow.Context,
-			&i.Workflow.SetupAction,
-			&i.Workflow.CleanupAction,
 			&i.Workflow.WorkflowConfigID,
 			&i.Workflow.ArchivedAt,
 			&i.Workflow.CreatedAt,
 			&i.Workflow.UpdatedAt,
+			&i.Workflow.ActionConfigID,
 			&i.Harness,
 			&i.Cwd,
 			&i.Flags,
+			&i.SetupAction,
+			&i.CleanupAction,
+			&i.WorktreeEnabled,
+			&i.WorktreeBaseBranch,
+			&i.WorktreeCopyPaths,
+			&i.WorktreeSymlinkPaths,
 		); err != nil {
 			return nil, err
 		}
@@ -223,13 +314,20 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 
 const listWorkflowsPage = `-- name: ListWorkflowsPage :many
 SELECT
-    w.id, w.name, w.context, w.setup_action, w.cleanup_action, w.workflow_config_id, w.archived_at, w.created_at, w.updated_at,
+    w.id, w.name, w.context, w.workflow_config_id, w.archived_at, w.created_at, w.updated_at, w.action_config_id,
     wc.harness,
     wc.cwd,
-    wc.flags
+    wc.flags,
+    ac.setup_action,
+    ac.cleanup_action,
+    ac.worktree_enabled,
+    ac.worktree_base_branch,
+    ac.worktree_copy_paths,
+    ac.worktree_symlink_paths
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
+    JOIN workflow_action_configs ac ON ac.id = w.action_config_id
 WHERE ($1::boolean) =(w.archived_at IS NOT NULL)
     AND ($2::uuid IS NULL
         OR w.id < $2)
@@ -245,10 +343,16 @@ type ListWorkflowsPageParams struct {
 }
 
 type ListWorkflowsPageRow struct {
-	Workflow Workflow
-	Harness  string
-	Cwd      string
-	Flags    string
+	Workflow             Workflow
+	Harness              string
+	Cwd                  string
+	Flags                string
+	SetupAction          string
+	CleanupAction        string
+	WorktreeEnabled      bool
+	WorktreeBaseBranch   string
+	WorktreeCopyPaths    []string
+	WorktreeSymlinkPaths []string
 }
 
 func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPageParams) ([]*ListWorkflowsPageRow, error) {
@@ -264,15 +368,20 @@ func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPagePa
 			&i.Workflow.ID,
 			&i.Workflow.Name,
 			&i.Workflow.Context,
-			&i.Workflow.SetupAction,
-			&i.Workflow.CleanupAction,
 			&i.Workflow.WorkflowConfigID,
 			&i.Workflow.ArchivedAt,
 			&i.Workflow.CreatedAt,
 			&i.Workflow.UpdatedAt,
+			&i.Workflow.ActionConfigID,
 			&i.Harness,
 			&i.Cwd,
 			&i.Flags,
+			&i.SetupAction,
+			&i.CleanupAction,
+			&i.WorktreeEnabled,
+			&i.WorktreeBaseBranch,
+			&i.WorktreeCopyPaths,
+			&i.WorktreeSymlinkPaths,
 		); err != nil {
 			return nil, err
 		}
@@ -334,22 +443,44 @@ func (q *Queries) RenameWorkflow(ctx context.Context, arg RenameWorkflowParams) 
 
 const setWorkflowActions = `-- name: SetWorkflowActions :exec
 UPDATE
-    workflows
+    workflow_action_configs
 SET
     setup_action = $1,
-    cleanup_action = $2
+    cleanup_action = $2,
+    worktree_enabled = $3,
+    worktree_base_branch = $4,
+    worktree_copy_paths = $5,
+    worktree_symlink_paths = $6
 WHERE
-    id = $3
+    id =(
+        SELECT
+            action_config_id
+        FROM
+            workflows
+        WHERE
+            workflows.id = $7)
 `
 
 type SetWorkflowActionsParams struct {
-	SetupAction   string
-	CleanupAction string
-	ID            string
+	SetupAction          string
+	CleanupAction        string
+	WorktreeEnabled      bool
+	WorktreeBaseBranch   string
+	WorktreeCopyPaths    []string
+	WorktreeSymlinkPaths []string
+	WorkflowID           string
 }
 
 func (q *Queries) SetWorkflowActions(ctx context.Context, arg SetWorkflowActionsParams) error {
-	_, err := q.db.Exec(ctx, setWorkflowActions, arg.SetupAction, arg.CleanupAction, arg.ID)
+	_, err := q.db.Exec(ctx, setWorkflowActions,
+		arg.SetupAction,
+		arg.CleanupAction,
+		arg.WorktreeEnabled,
+		arg.WorktreeBaseBranch,
+		arg.WorktreeCopyPaths,
+		arg.WorktreeSymlinkPaths,
+		arg.WorkflowID,
+	)
 	return err
 }
 

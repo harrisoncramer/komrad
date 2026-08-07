@@ -32,6 +32,45 @@ message Workflow {
   string cleanup_action = 8;
   // When the workflow was archived, as an RFC 3339 timestamp, unset while it is live.
   optional string archived_at = 9;
+  // The generated git worktree per agent this workflow is set up for, disabled by
+  // default.
+  WorktreeConfig worktree = 10;
+}
+
+// WorktreeConfig turns on a generated git worktree per agent for a workflow. Turning it
+// on writes two action scripts and points the workflow's setup_action and cleanup_action
+// at them, so nothing else about a workflow's lifecycle changes for one that uses it.
+message WorktreeConfig {
+  bool enabled = 1;
+  // The branch a new worktree is built from, blank for the repo's default branch. The
+  // repo itself is the workflow's cwd, which is required when this is enabled.
+  string base_branch = 2 [(buf.validate.field).string = {
+    max_len: 255
+    [rules.v1.shell_safe]: true
+  }];
+  // Files copied fresh into every new worktree, relative to the workflow's cwd, such as
+  // .env. Rewritten on every setup run, resumes included, so an edit to the source file
+  // reaches a worktree that already exists.
+  repeated string copy_paths = 3 [(buf.validate.field).repeated = {
+    max_items: 50
+    items: {
+      string: {
+        max_len: 255
+        [rules.v1.relative_path]: true
+      }
+    }
+  }];
+  // Directories symlinked back to the workflow's cwd instead of duplicated into every
+  // worktree, such as a dependency or build cache.
+  repeated string symlink_paths = 4 [(buf.validate.field).repeated = {
+    max_items: 50
+    items: {
+      string: {
+        max_len: 255
+        [rules.v1.relative_path]: true
+      }
+    }
+  }];
 }
 
 message ListWorkflowsRequest {
@@ -87,6 +126,9 @@ message CreateWorkflowRequest {
     max_len: 255
     [rules.v1.action_name_or_blank]: true
   }];
+  // Turns on a generated git worktree per agent. When enabled, setup_action and
+  // cleanup_action must both be blank, since weave writes and names them itself.
+  WorktreeConfig worktree = 8;
 }
 
 message CreateWorkflowResponse {
@@ -128,6 +170,11 @@ message UpdateWorkflowRequest {
     max_len: 255
     [rules.v1.action_name_or_blank]: true
   }];
+  // Turns on a generated git worktree per agent. When enabled, setup_action and
+  // cleanup_action must both be blank, since weave writes and names them itself.
+  // Disabling it after it was on leaves whatever it generated in place, and clears
+  // setup_action and cleanup_action if they still name the generated scripts.
+  WorktreeConfig worktree = 9;
 }
 
 // ArchiveWorkflowRequest hides a workflow and archives the agents inside it.
@@ -162,7 +209,7 @@ service WorkflowService {
   rpc CreateWorkflow(CreateWorkflowRequest) returns (CreateWorkflowResponse) {
     option (annotation.v1.tool) = {
       tool_name: "create_workflow"
-      description: "Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. setupAction names one action from list_actions to run before each of its agents starts, which blocks and abandons the launch if it fails; cleanupAction names the one run once one of its agents is deleted. Both are blank for none."
+      description: "Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. setupAction names one action from list_actions to run before each of its agents starts, which blocks and abandons the launch if it fails; cleanupAction names the one run once one of its agents is deleted. Both are blank for none. worktree.enabled gives every agent its own git worktree off cwd instead: weave generates and names the two actions itself, so setupAction and cleanupAction must be blank when it is set."
       destructive: false
     };
   }
@@ -170,7 +217,7 @@ service WorkflowService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "update_workflow"
-      description: "Replace a workflow's name, context, directory, flags, and the actions run around its agents' lives. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context or the setup action reaches only agents spawned afterwards, since existing agents took a snapshot at launch; editing the cleanup action reaches agents already running, since it is read when it fires."
+      description: "Replace a workflow's name, context, directory, flags, and the actions run around its agents' lives. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context or the setup action reaches only agents spawned afterwards, since existing agents took a snapshot at launch; editing the cleanup action reaches agents already running, since it is read when it fires. worktree.enabled works the same way setupAction/cleanupAction do directly: weave generates and names the two actions itself, so setupAction and cleanupAction must be blank when it is set, and turning it off clears them if they still name the generated scripts."
       destructive: false
     };
   }

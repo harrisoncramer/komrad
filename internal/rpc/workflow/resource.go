@@ -43,6 +43,12 @@ func renderWorkflow(w workflowstore.Workflow) workflow {
 			SetupAction:   w.SetupAction,
 			CleanupAction: w.CleanupAction,
 			ArchivedAt:    archived,
+			Worktree: &workflowv1.WorktreeConfig{
+				Enabled:      w.Worktree.Enabled,
+				BaseBranch:   w.Worktree.BaseBranch,
+				CopyPaths:    w.Worktree.CopyPaths,
+				SymlinkPaths: w.Worktree.SymlinkPaths,
+			},
 		},
 		cursor: workflowstore.Cursor{ID: w.ID},
 	}

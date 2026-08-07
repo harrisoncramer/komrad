@@ -129,6 +129,19 @@ func hiddenTally(count int, showing bool) string {
 	return " " + dimStyle.Render(fmt.Sprintf("+%d", count))
 }
 
+const branchIcon = "⎇"
+
+// branchMark is the branch checked out at an agent's cwd, dim beside its name, for any
+// agent the branch syncer found one for, whether its worktree came from the workflow
+// toggle or a hand-written setup action.
+func branchMark(agent agentstore.Agent) string {
+	if agent.Branch == nil {
+		return ""
+	}
+
+	return " " + dimStyle.Render(branchIcon) + " "
+}
+
 func tagGlyph(agent agentstore.Agent, tags []config.Tag) string {
 	if agent.Tag == nil {
 		return ""

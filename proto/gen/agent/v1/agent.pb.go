@@ -70,8 +70,12 @@ type Agent struct {
 	// The agent that called create_agent to launch this one, unset for one a person started
 	// from the panel.
 	SpawnedByAgentId *string `protobuf:"bytes,20,opt,name=spawned_by_agent_id,json=spawnedByAgentId,proto3,oneof" json:"spawned_by_agent_id,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// The branch checked out at cwd, unset when cwd is not inside a git worktree or the
+	// branch has not been read yet. Refreshed on a slow periodic pass rather than every
+	// reconcile, since reading it is a shell-out and not a tmux capture.
+	Branch        *string `protobuf:"bytes,22,opt,name=branch,proto3,oneof" json:"branch,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Agent) Reset() {
@@ -240,6 +244,13 @@ func (x *Agent) GetIdempotencyKey() string {
 func (x *Agent) GetSpawnedByAgentId() string {
 	if x != nil && x.SpawnedByAgentId != nil {
 		return *x.SpawnedByAgentId
+	}
+	return ""
+}
+
+func (x *Agent) GetBranch() string {
+	if x != nil && x.Branch != nil {
+		return *x.Branch
 	}
 	return ""
 }
@@ -1227,7 +1238,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xb0\x05\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xd8\x05\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -1255,12 +1266,14 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x06hidden\x18\x0f \x01(\bR\x06hidden\x123\n" +
 	"\bmetadata\x18\x10 \x03(\v2\x17.agent.v1.AgentMetadataR\bmetadata\x12,\n" +
 	"\x0fidempotency_key\x18\x11 \x01(\tH\x03R\x0eidempotencyKey\x88\x01\x01\x122\n" +
-	"\x13spawned_by_agent_id\x18\x14 \x01(\tH\x04R\x10spawnedByAgentId\x88\x01\x01B\x0e\n" +
+	"\x13spawned_by_agent_id\x18\x14 \x01(\tH\x04R\x10spawnedByAgentId\x88\x01\x01\x12\x1b\n" +
+	"\x06branch\x18\x16 \x01(\tH\x05R\x06branch\x88\x01\x01B\x0e\n" +
 	"\f_archived_atB\x0e\n" +
 	"\f_schedule_idB\x06\n" +
 	"\x04_tagB\x12\n" +
 	"\x10_idempotency_keyB\x16\n" +
-	"\x14_spawned_by_agent_id\"7\n" +
+	"\x14_spawned_by_agent_idB\t\n" +
+	"\a_branch\"7\n" +
 	"\rAgentMetadata\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\"~\n" +

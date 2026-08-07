@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -18,6 +19,7 @@ import (
 	"weave/internal/tmux"
 
 	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
 )
 
 type agentGetter interface {
@@ -388,6 +390,11 @@ type actionEnvParams struct {
 func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, error) {
 	agent, dir, trigger := p.agent, p.dir, p.trigger
 
+	workflow, err := s.workflows.GetIncludingArchived(ctx, agent.WorkflowID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read workflow %q: %w", agent.WorkflowID, err)
+	}
+
 	payload := actionPayload{
 		ID:        agent.ID,
 		Name:      agent.Name,
@@ -398,7 +405,7 @@ func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, e
 		SessionID: agent.SessionID,
 		Flags:     agent.Flags,
 		Pane:      agent.Pane,
-		Workflow:  s.workflowName(ctx, agent.WorkflowID),
+		Workflow:  workflowName(workflow),
 		Hidden:    agent.Hidden,
 		Metadata:  make(map[string]string, len(agent.Metadata)),
 	}
@@ -439,16 +446,48 @@ func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, e
 		env = append(env, "PATH="+filepath.Dir(s.binPath)+string(os.PathListSeparator)+existing)
 	}
 
+	if workflow != nil && workflow.Worktree.Enabled {
+		worktreeEnv, err := s.worktreeEnv(workflow.Worktree)
+		if err != nil {
+			return nil, err
+		}
+
+		env = append(env, worktreeEnv...)
+	}
+
 	return env, nil
 }
 
-func (s *ActionService) workflowName(ctx context.Context, id string) string {
-	found, err := s.workflows.GetIncludingArchived(ctx, id)
-	if err != nil || found == nil {
+func workflowName(workflow *workflowstore.Workflow) string {
+	if workflow == nil {
 		return ""
 	}
 
-	return found.Name
+	return workflow.Name
+}
+
+// worktreeEnv is what the built-in worktree setup and cleanup actions read their config
+// from, since a workflow's worktree settings live in the database rather than in the
+// script itself. The repo they work against is not one of these: at setup time it is
+// WEAVE_AGENT_CWD, the workflow's own cwd before setup overrides it, and at cleanup time
+// the worktree's own git-common-dir names it.
+func (s *ActionService) worktreeEnv(cfg workflowstore.WorktreeConfig) ([]string, error) {
+	loaded, err := s.load()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the config: %w", err)
+	}
+
+	worktreesDir, err := loaded.GetWorktreesDir()
+	if err != nil {
+		return nil, err
+	}
+
+	return []string{
+		"WEAVE_WORKTREES_DIR=" + worktreesDir,
+		"WEAVE_WORKTREE_BASE_BRANCH=" + cfg.BaseBranch,
+		"WEAVE_WORKTREE_COPY_PATHS=" + strings.Join(cfg.CopyPaths, "\n"),
+		"WEAVE_WORKTREE_SYMLINK_PATHS=" + strings.Join(cfg.SymlinkPaths, "\n"),
+	}, nil
 }
 
 // Avoid returning invalid UTF-8 when the byte limit splits a rune.

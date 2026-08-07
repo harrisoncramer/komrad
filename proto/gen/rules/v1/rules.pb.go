@@ -70,6 +70,14 @@ var file_rules_v1_rules_proto_extTypes = []protoimpl.ExtensionInfo{
 		Tag:           "varint,50103,opt,name=cron_expression",
 		Filename:      "rules/v1/rules.proto",
 	},
+	{
+		ExtendedType:  (*validate.StringRules)(nil),
+		ExtensionType: (*bool)(nil),
+		Field:         50106,
+		Name:          "rules.v1.relative_path",
+		Tag:           "varint,50106,opt,name=relative_path",
+		Filename:      "rules/v1/rules.proto",
+	},
 }
 
 // Extension fields to validate.StringRules.
@@ -103,6 +111,12 @@ var (
 	//
 	// optional bool cron_expression = 50103;
 	E_CronExpression = &file_rules_v1_rules_proto_extTypes[5]
+	// A path relative to some other root, safe to splice into a generated script. Refuses
+	// an absolute path, a home-relative one, and anything containing a .. segment that
+	// could climb out of the root it is read against.
+	//
+	// optional bool relative_path = 50106;
+	E_RelativePath = &file_rules_v1_rules_proto_extTypes[6]
 )
 
 var File_rules_v1_rules_proto protoreflect.FileDescriptor
@@ -129,7 +143,10 @@ const file_rules_v1_rules_proto_rawDesc = "" +
 	"\x1bstring.action_name_or_blank\x12Vmust be blank or a file name, with no slash, no leading dot, and no control characters\x1ae!rule || this == '' || (!this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))R\x11actionNameOrBlank:\xe0\x01\n" +
 	"\x0fcron_expression\x12\x19.buf.validate.StringRules\x18\xb7\x87\x03 \x01(\bB\x99\x01\xc2H\x95\x01\n" +
 	"\x92\x01\n" +
-	"\x16string.cron_expression\x12?must be five whitespace-separated fields, such as '0 9 * * 1-5'\x1a7!rule || this.split(' ').filter(f, f != '').size() == 5R\x0ecronExpressionB\"Z weave/proto/gen/rules/v1;rulesv1b\beditionsp\xe8\a"
+	"\x16string.cron_expression\x12?must be five whitespace-separated fields, such as '0 9 * * 1-5'\x1a7!rule || this.split(' ').filter(f, f != '').size() == 5R\x0ecronExpression:\x84\x02\n" +
+	"\rrelative_path\x12\x19.buf.validate.StringRules\x18\xba\x87\x03 \x01(\bB\xc1\x01\xc2H\xbd\x01\n" +
+	"\xba\x01\n" +
+	"\x14string.relative_path\x12Amust be a relative path, with no leading / or ~ and no .. segment\x1a_!rule || (this != '' && !this.startsWith('/') && !this.startsWith('~') && !this.contains(\"..\"))R\frelativePathB\"Z weave/proto/gen/rules/v1;rulesv1b\beditionsp\xe8\a"
 
 var file_rules_v1_rules_proto_goTypes = []any{
 	(*validate.StringRules)(nil), // 0: buf.validate.StringRules
@@ -141,10 +158,11 @@ var file_rules_v1_rules_proto_depIdxs = []int32{
 	0, // 3: rules.v1.action_name:extendee -> buf.validate.StringRules
 	0, // 4: rules.v1.action_name_or_blank:extendee -> buf.validate.StringRules
 	0, // 5: rules.v1.cron_expression:extendee -> buf.validate.StringRules
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	0, // [0:6] is the sub-list for extension extendee
+	0, // 6: rules.v1.relative_path:extendee -> buf.validate.StringRules
+	7, // [7:7] is the sub-list for method output_type
+	7, // [7:7] is the sub-list for method input_type
+	7, // [7:7] is the sub-list for extension type_name
+	0, // [0:7] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
 }
 
@@ -160,7 +178,7 @@ func file_rules_v1_rules_proto_init() {
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_rules_v1_rules_proto_rawDesc), len(file_rules_v1_rules_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   0,
-			NumExtensions: 6,
+			NumExtensions: 7,
 			NumServices:   0,
 		},
 		GoTypes:           file_rules_v1_rules_proto_goTypes,

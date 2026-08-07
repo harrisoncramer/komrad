@@ -69,6 +69,73 @@ func TestCreateWorkflow(t *testing.T) {
 	}
 }
 
+// TestCreateWorkflowWorktree covers the worktree config round trip through the handler,
+// and the two ways enabling it is refused: no cwd to work against, and a setup or cleanup
+// action the caller named itself, which weave would otherwise silently overwrite.
+func TestCreateWorkflowWorktree(t *testing.T) {
+	tests := []struct {
+		name     string
+		req      *workflowv1.CreateWorkflowRequest
+		wantCode connect.Code
+		check    func(t *testing.T, created *workflowv1.Workflow)
+	}{
+		{
+			name: "enabling it with no cwd is refused",
+			req: &workflowv1.CreateWorkflowRequest{
+				Name:     "backend",
+				Worktree: &workflowv1.WorktreeConfig{Enabled: true},
+			},
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name: "enabling it alongside a hand-named setup action is refused",
+			req: &workflowv1.CreateWorkflowRequest{
+				Name:        "backend",
+				Cwd:         "/repo",
+				SetupAction: "hand-written",
+				Worktree:    &workflowv1.WorktreeConfig{Enabled: true},
+			},
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name: "enabling it writes the config and generates the two actions",
+			req: &workflowv1.CreateWorkflowRequest{
+				Name: "backend",
+				Cwd:  "/repo",
+				Worktree: &workflowv1.WorktreeConfig{
+					Enabled:      true,
+					BaseBranch:   "develop",
+					CopyPaths:    []string{".env"},
+					SymlinkPaths: []string{"node_modules"},
+				},
+			},
+			check: func(t *testing.T, created *workflowv1.Workflow) {
+				assert.True(t, created.GetWorktree().GetEnabled())
+				assert.Equal(t, "develop", created.GetWorktree().GetBaseBranch())
+				assert.Equal(t, []string{".env"}, created.GetWorktree().GetCopyPaths())
+				assert.Equal(t, []string{"node_modules"}, created.GetWorktree().GetSymlinkPaths())
+				assert.NotEmpty(t, created.GetSetupAction())
+				assert.NotEmpty(t, created.GetCleanupAction())
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, _ := service(t)
+
+			created, err := svc.CreateWorkflow(t.Context(), connect.NewRequest(tt.req))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+				return
+			}
+
+			require.NoError(t, err)
+			tt.check(t, created.Msg.GetWorkflow())
+		})
+	}
+}
+
 func TestGetWorkflow(t *testing.T) {
 	tests := []struct {
 		name     string
