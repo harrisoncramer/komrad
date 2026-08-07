@@ -1,9 +1,5 @@
 # Installing weave
 
-Weave runs coding agents in tmux panes on a tmux server of its own, and gives you one panel to watch them from. It all runs on your machine.
-
-Weave is one statically linked binary.
-
 ## Quick start
 
 ```sh
