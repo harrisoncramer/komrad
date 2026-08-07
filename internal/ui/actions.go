@@ -225,10 +225,10 @@ func (m model) actionsView() string {
 		hovered := i == m.actions.cursor
 		prefix := "  "
 		if hovered {
-			prefix = cursorStyle.Render("› ")
+			prefix = m.rowCursorStyle().Render("› ")
 		}
 
-		name := m.filter.highlight(action.name, nameStyle(hovered, !action.executable))
+		name := m.filter.highlight(action.name, m.nameStyle(hovered, !action.executable))
 		rows = append(rows, prefix+name)
 	}
 

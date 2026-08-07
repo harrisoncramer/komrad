@@ -270,7 +270,7 @@ func (m model) jumpToSearchHit() (tea.Model, tea.Cmd) {
 
 func (m model) searchView() string {
 	var b strings.Builder
-	b.WriteString(headerStyle.Render("Search") + "\n\n")
+	b.WriteString(m.titleStyle().Render("Search") + "\n\n")
 	query := cursorStyle.Render("/") + " " + m.search.query + cursorStyle.Render("▏")
 	b.WriteString(query + "\n\n")
 
@@ -296,7 +296,7 @@ func (m model) searchView() string {
 
 			prefix := "    "
 			if i == m.search.cursor {
-				prefix = "  " + cursorStyle.Render("› ")
+				prefix = "  " + m.rowCursorStyle().Render("› ")
 			}
 
 			b.WriteString(prefix + dimStyle.Render(renderSnippet(hit.snippet, m.width-snippetIndent)) + "\n")

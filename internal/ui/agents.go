@@ -340,6 +340,7 @@ func (m model) agentsDetails() details {
 	if r.header {
 		return details{
 			id:     r.workflow.ID,
+			kind:   "Workflow",
 			title:  r.workflow.Name,
 			fields: workflowFields(r.workflow, m.agentCount(r.workflow.ID)),
 		}
@@ -347,6 +348,7 @@ func (m model) agentsDetails() details {
 
 	return details{
 		id:     r.item.agent.ID,
+		kind:   "Agent",
 		title:  r.item.agent.Name,
 		fields: agentFields(r.item.agent, m.scheduleName(r.item.agent)),
 	}
@@ -452,12 +454,12 @@ func (m model) agentsView() string {
 		hovered := i == m.tree.cursor
 		prefix := "  "
 		if hovered {
-			prefix = cursorStyle.Render("› ")
+			prefix = m.rowCursorStyle().Render("› ")
 		}
 		prefix = selectionGutter(!r.header && m.tree.selected.has(r.item.agent.ID)) + prefix
 
 		if r.header {
-			label := m.filter.highlight(r.workflow.Name, nameStyle(hovered, false))
+			label := m.filter.highlight(r.workflow.Name, m.nameStyle(hovered, false))
 			rows = append(rows, prefix+dimStyle.Render(workflowIcon)+" "+label+hiddenTally(r.hiddenCount, m.tree.showHidden))
 			continue
 		}
@@ -468,7 +470,7 @@ func (m model) agentsView() string {
 			state = agentstore.StateIdle
 		}
 
-		name := m.filter.highlight(clipName(item.agent.Name), nameStyle(hovered, !item.alive))
+		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, !item.alive))
 		icon := lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
 		rows = append(rows, prefix+"  "+icon+" "+name+scheduledMark(item.agent)+hiddenMark(item.agent.Hidden)+tagGlyph(item.agent, m.tags))
 	}

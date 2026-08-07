@@ -96,6 +96,7 @@ func (m model) schedulesDetails() details {
 
 	return details{
 		id:     item.schedule.ID,
+		kind:   "Schedule",
 		title:  item.schedule.Name,
 		fields: scheduleFields(item.schedule, m.workflowByID(item.schedule.WorkflowID)),
 	}
@@ -269,10 +270,10 @@ func (m model) schedulesView() string {
 		selected := i == m.schedules.cursor
 		prefix := "  "
 		if selected {
-			prefix = cursorStyle.Render("› ")
+			prefix = m.rowCursorStyle().Render("› ")
 		}
 
-		name := m.filter.highlight(item.schedule.Name, nameStyle(selected, !item.schedule.Enabled))
+		name := m.filter.highlight(item.schedule.Name, m.nameStyle(selected, !item.schedule.Enabled))
 		icon := lipgloss.NewStyle().Foreground(scheduleColor(item.schedule.Enabled)).Render(scheduleIcon(item.schedule.Enabled))
 		rows = append(rows, prefix+"  "+icon+" "+name+"  "+dimStyle.Render(item.schedule.Cron))
 	}
