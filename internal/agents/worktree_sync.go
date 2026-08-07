@@ -5,9 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	agentstore "weave/internal/store/agent"
 )
+
+// worktreeStatTimeout bounds one os.Stat per agent, since this runs cooperatively with
+// every other agent's own pass and a stale NFS or FUSE mount must not stall all of them.
+const worktreeStatTimeout = 5 * time.Second
 
 // worktreeRemovedSetter is the agent store as WorktreeSyncer needs it: every live agent to
 // walk, and where it writes back what it found.
@@ -40,7 +45,7 @@ func (ws *WorktreeSyncer) Sync(ctx context.Context) error {
 
 	var failures []error
 	for _, agent := range agents {
-		removed := isCwdRemoved(agent.Cwd)
+		removed := isCwdRemoved(ctx, agent.Cwd)
 		if removed == agent.WorktreeRemoved {
 			continue
 		}
@@ -56,12 +61,26 @@ func (ws *WorktreeSyncer) Sync(ctx context.Context) error {
 // isCwdRemoved reports whether dir names a directory that used to exist but no longer does.
 // A blank dir is not removed, since no worktree was ever set, and an error other than "not
 // exist" is not treated as removed either, since it says nothing about whether dir is gone.
-func isCwdRemoved(dir string) bool {
+// The stat runs in its own goroutine so a mount that never answers times out rather than
+// blocking the rest of the pass.
+func isCwdRemoved(ctx context.Context, dir string) bool {
 	if dir == "" {
 		return false
 	}
 
-	_, err := os.Stat(dir)
+	ctx, cancel := context.WithTimeout(ctx, worktreeStatTimeout)
+	defer cancel()
 
-	return errors.Is(err, os.ErrNotExist)
+	statErr := make(chan error, 1)
+	go func() {
+		_, err := os.Stat(dir)
+		statErr <- err
+	}()
+
+	select {
+	case err := <-statErr:
+		return errors.Is(err, os.ErrNotExist)
+	case <-ctx.Done():
+		return false
+	}
 }
