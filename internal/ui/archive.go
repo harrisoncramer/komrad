@@ -130,7 +130,7 @@ func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, m.keys.Archive.Quit):
 		return m, m.hide()
 	case m.filter.standing() && isBound(k, m.keys.Archive.Back):
-		return m.clearFilter()
+		return m.openFilter()
 	case isBound(k, m.keys.Archive.Back):
 		return m.returnToAgents()
 	case isBound(k, m.keys.Nav.Up):
