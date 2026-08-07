@@ -433,7 +433,7 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 		held  func(m model) string
 	}{
 		{
-			name: "the new-agent form",
+			name: "the new-agent form, with no setup action to run",
 			open: func(t *testing.T, m model) model {
 				workflow := m.listing.workflows[0]
 				opened, _ := m.openNewAgent(&workflow)
@@ -511,6 +511,78 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 			assert.NotEqual(t, huh.StateCompleted, got.form.State, "a completed form draws as nothing, so the form is built back")
 			assert.NotEmpty(t, got.form.View())
 			assert.False(t, got.pendingForm, "and takes keys again, since the write it was waiting on has landed")
+		})
+	}
+}
+
+// TestNewAgentSubmitClosesImmediately covers the new-agent form's own submit path, which
+// closes on submit rather than holding for the write the way every other form does: a
+// setup action can run for minutes, and a person is better served by the agents list than
+// by a frozen form for that long. A workflow with a setup action also gets a pane opened
+// for it before the write goes out, closed again once a create lands and left up, showing
+// whatever the action printed, when one is refused.
+func TestNewAgentSubmitClosesImmediately(t *testing.T) {
+	tests := []struct {
+		name       string
+		refuse     error
+		wantOpen   bool
+		wantDetail string
+	}{
+		{name: "a create that lands"},
+		{
+			name:       "a setup action that fails",
+			refuse:     connect.NewError(connect.CodeFailedPrecondition, errors.New("the setup action failed: exit 7")),
+			wantOpen:   true,
+			wantDetail: "the setup action failed: exit 7",
+		},
+		{
+			name:       "a create refused before setup ever ran",
+			refuse:     connect.NewError(connect.CodeInvalidArgument, errors.New("not allowed")),
+			wantDetail: "not allowed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := &recordingTmux{}
+			sent := &formRecorder{refuse: tt.refuse}
+			m := formModel(sent)
+			m.tmux = recorder
+			m.frame = layout.New(recorder, config.DefaultLayout())
+			m.frame.Attach("%0")
+			m.listing.workflows[0].SetupAction = "make-worktree"
+
+			workflow := m.listing.workflows[0]
+			opened, _ := m.openNewAgent(&workflow)
+			m = asModel(t, opened)
+			m.values.agent.Prompt = "check CI"
+
+			updated, cmd := m.submitAgent()
+			m = asModel(t, updated)
+
+			assert.Equal(t, screenAgents, m.screen, "the form is gone the moment it was submitted")
+			assert.False(t, m.pendingForm)
+			assert.Equal(t, infoSetup, m.info.kind, "a pane opened for the setup action to stream into")
+			assert.Equal(t, "%2", recorder.infoPane)
+
+			got := settle(t, m, cmd)
+
+			if tt.refuse != nil {
+				require.NotNil(t, got.banner, "a refused create is reported")
+				assert.Equal(t, tt.wantDetail, got.banner.Detail)
+				if tt.wantOpen {
+					assert.Equal(t, infoSetup, got.info.kind, "left up so what the setup action printed can still be read")
+				} else {
+					assert.Equal(t, infoNothing, got.info.kind, "nothing ran in it, so it closes with the refusal")
+				}
+
+				return
+			}
+
+			assert.Nil(t, got.banner)
+			assert.Equal(t, infoNothing, got.info.kind, "closed once the create it was for has landed")
+			require.NotNil(t, sent.createdAgent)
+			assert.Equal(t, "%2", sent.createdAgent.GetSetupPane())
 		})
 	}
 }
@@ -602,40 +674,6 @@ func TestArchivePromptKeepsTheRecordWhenTheArchiveIsRefused(t *testing.T) {
 	require.NotNil(t, got.banner, "the refusal is reported")
 	assert.Equal(t, `Could not archive and delete agent "api-refactor"`, got.banner.Summary)
 	assert.Nil(t, sent.deletedAgents, "nothing was destroyed")
-}
-
-// TestFormResubmitsAfterARefusal covers the point of keeping the form. The fields it kept
-// are what the second attempt sends, so a refusal costs the keystroke that caused it
-// rather than the whole form.
-//
-// Both submits go through Update, which is where the panel drops the keys bound for a form
-// that is waiting. Calling the form handler directly walks around that.
-func TestFormResubmitsAfterARefusal(t *testing.T) {
-	sent := &formRecorder{refuse: connect.NewError(connect.CodeInvalidArgument, errors.New("bad flags"))}
-
-	m := formModel(sent)
-	workflow := m.listing.workflows[0]
-	opened, _ := m.openNewAgent(&workflow)
-	m = asModel(t, opened)
-	m.values.agent.Prompt = "check CI"
-	m.values.agent.Flags = "--modle opus"
-
-	attempted, cmd := m.Update(keyMsg("ctrl+s"))
-	refused := settle(t, asModel(t, attempted), cmd)
-	require.Nil(t, sent.createdAgent, "the service refused the first attempt")
-	require.False(t, refused.pendingForm, "the refusal ended the wait, so the form takes keys again")
-
-	sent.refuse = nil
-	refused.values.agent.Flags = "--model opus"
-
-	updated, cmd := refused.Update(keyMsg("ctrl+s"))
-	got := settle(t, asModel(t, updated), cmd)
-
-	require.NotNil(t, sent.createdAgent)
-	assert.Equal(t, "check CI", sent.createdAgent.GetPrompt(), "the prompt survived the refusal")
-	assert.Equal(t, "--model opus", sent.createdAgent.GetFlags(), "and the field that was fixed is what went")
-	assert.Nil(t, got.banner)
-	assert.Equal(t, screenAgents, got.screen, "the accepted write closes the form")
 }
 
 // deliver hands a message to the panel and then hands back everything it produced, the way

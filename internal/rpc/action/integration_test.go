@@ -224,8 +224,11 @@ func (stubWorkflows) GetIncludingArchived(_ context.Context, id string) (*workfl
 
 type stubPanes struct{}
 
-func (stubPanes) GetPaneOwner(string) string { return "a1" }
-func (stubPanes) GetHostSocket() string      { return "" }
-func (stubPanes) ShowGlobal(string) string   { return "" }
-func (stubPanes) GetInfoPane() string        { return "" }
-func (stubPanes) DefaultShell() string       { return "/bin/sh" }
+func (stubPanes) GetPaneOwner(string) string            { return "a1" }
+func (stubPanes) GetHostSocket() string                 { return "" }
+func (stubPanes) ShowGlobal(string) string              { return "" }
+func (stubPanes) GetInfoPane() string                   { return "" }
+func (stubPanes) DefaultShell() string                  { return "/bin/sh" }
+func (stubPanes) IsPaneAlive(string) bool               { return true }
+func (stubPanes) RespawnPane(string, string, ...string) {}
+func (stubPanes) WaitFor(context.Context, string) error { return nil }

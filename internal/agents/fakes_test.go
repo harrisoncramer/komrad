@@ -404,13 +404,15 @@ type fakeLifecycle struct {
 	resumeErr  error
 	cleanupErr error
 	setup      []string
+	setupPane  []string
 	resumed    []string
 	cleanup    []string
 	cleanupCwd []string
 }
 
-func (f *fakeLifecycle) RunSetupAction(_ context.Context, _ agentstore.Agent, name string) (string, error) {
+func (f *fakeLifecycle) RunSetupAction(_ context.Context, _ agentstore.Agent, name, pane string) (string, error) {
 	f.setup = append(f.setup, name)
+	f.setupPane = append(f.setupPane, pane)
 	if f.setupErr != nil {
 		return "", f.setupErr
 	}

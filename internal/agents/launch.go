@@ -142,7 +142,7 @@ func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawne
 	sessionID := plan.harness.MintSessionID()
 	agent := plan.agent(p, id, sessionID, plan.dir, "", spawner)
 
-	setupName, err := s.runSetup(ctx, agent, plan.setupAction)
+	setupName, err := s.runSetup(ctx, agent, plan.setupAction, p.SetupPane)
 	if err != nil {
 		return nil, err
 	}
@@ -217,12 +217,12 @@ func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawne
 	return created, nil
 }
 
-func (s *AgentService) runSetup(ctx context.Context, planned agentstore.Agent, name string) (string, error) {
+func (s *AgentService) runSetup(ctx context.Context, planned agentstore.Agent, name, pane string) (string, error) {
 	if s.lifecycle == nil || name == "" {
 		return "", nil
 	}
 
-	return s.lifecycle.RunSetupAction(ctx, planned, name)
+	return s.lifecycle.RunSetupAction(ctx, planned, name, pane)
 }
 
 func (s *AgentService) setupDir(planned, named string) (string, error) {

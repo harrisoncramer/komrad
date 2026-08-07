@@ -16,6 +16,7 @@ const (
 	// the key that closes it is decided by which file is down there rather than by which
 	// script put it there.
 	infoEdit
+	infoSetup
 )
 
 // infoState is what the frame's info pane is holding. Nothing here follows the cursor: the
@@ -66,7 +67,7 @@ func (m *model) stageInfo() {
 	switch m.info.kind {
 	case infoLogs:
 		m.frame.Show(layout.RegionInfo, newLogContent(m.logPath, logArgv(m.logViewer, m.logPath)))
-	case infoNothing, infoEdit:
+	case infoNothing, infoEdit, infoSetup:
 	}
 }
 

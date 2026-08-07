@@ -113,7 +113,7 @@ type harnessGetter interface {
 }
 
 type lifecycleActioner interface {
-	RunSetupAction(ctx context.Context, agent agentstore.Agent, name string) (string, error)
+	RunSetupAction(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error)
 	RunResumeAction(ctx context.Context, agent agentstore.Agent, name string) (string, error)
 	RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string) error
 }
@@ -218,6 +218,7 @@ type NewAgentParams struct {
 	ScheduleID     *string
 	Hidden         bool
 	IdempotencyKey string
+	SetupPane      string
 }
 
 // NewAgent creates and launches a background agent.

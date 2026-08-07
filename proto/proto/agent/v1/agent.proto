@@ -122,6 +122,8 @@ message CreateAgentRequest {
     max_len: 255
     [rules.v1.action_name_or_blank]: true
   }];
+  // Set only by the panel itself, against a pane it opened for the purpose. Leave blank.
+  string setup_pane = 10 [(buf.validate.field).string.max_len = 20];
 }
 
 message CreateAgentResponse {

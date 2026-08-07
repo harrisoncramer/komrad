@@ -197,6 +197,25 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 	assert.Equal(t, "new", selected.agent.ID)
 }
 
+// TestUnrelatedWriteDoesNotCloseTheSetupPane covers a rename or an archive landing while a
+// create's setup action is still streaming into its pane: that write's own success is not
+// the create's, so it must not tear down the pane out from under the setup action.
+func TestUnrelatedWriteDoesNotCloseTheSetupPane(t *testing.T) {
+	tmux := &recordingTmux{}
+	m := model{
+		tmux:   tmux,
+		frame:  layout.New(tmux, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenAgents,
+		info:   infoState{kind: infoSetup},
+	}
+
+	updated, _ := m.applyWrite(writeResult{summary: "Could not rename the agent"})
+	got := asModel(t, updated)
+
+	assert.Equal(t, infoSetup, got.info.kind, "a write that never touched the setup pane leaves it alone")
+}
+
 // TestCreatedWorkflowReceivesFocus covers the same for a folder. A workflow made from the
 // panel is the one the user is about to fill, so the cursor lands on its header rather than
 // staying on whatever it was hovering when the form opened.

@@ -238,6 +238,23 @@ func (c *Client) RespawnPane(pane, dir string, argv ...string) {
 	c.run("clear-history", "-t", pane)
 }
 
+func (c *Client) WaitFor(ctx context.Context, channel string) error {
+	command := slices.Concat(c.server, []string{"wait-for", channel})
+
+	cmd := exec.CommandContext(ctx, "tmux", command...)
+	cmd.WaitDelay = killDelay
+
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		return fmt.Errorf("tmux %s: %w%s", strings.Join(command, " "), err, stderrDetail(err))
+	}
+
+	return nil
+}
+
 // GetSiblingPanes gets the other panes sharing a window with the given one.
 func (c *Client) GetSiblingPanes(pane string) []string {
 	if pane == "" {

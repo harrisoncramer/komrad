@@ -28,6 +28,8 @@ import (
 // server leaves the panel usable rather than frozen.
 const requestTimeout = 10 * time.Second
 
+const createAgentTimeout = 11 * time.Minute
+
 // api holds the service clients the panel acts through. Every change goes over these, the
 // same way the MCP tools and the CLI reach them, so what a person may do from the panel
 // and what a model may do cannot drift apart. Each call below is one RPC under its own
@@ -69,12 +71,13 @@ type createAgentParams struct {
 	SetupAction   *string
 	CleanupAction *string
 	WorkflowID    string
+	SetupPane     string
 }
 
 // createAgent launches an agent and returns it as the service now holds it, since the panel
 // needs its id to focus the row the next listing brings in.
 func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), createAgentTimeout)
 	defer cancel()
 
 	resp, err := a.agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
@@ -86,6 +89,7 @@ func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
 		SetupAction:   params.SetupAction,
 		CleanupAction: params.CleanupAction,
 		WorkflowId:    params.WorkflowID,
+		SetupPane:     params.SetupPane,
 	}))
 	if err != nil {
 		return nil, err
