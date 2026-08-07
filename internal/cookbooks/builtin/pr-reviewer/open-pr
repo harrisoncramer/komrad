@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+
+url=$(printf '%s' "$WEAVE_AGENT" | jq -r '.metadata.pr // empty')
+
+if [ -z "$url" ]; then
+	tmux -L "$WEAVE_HOST_TMUX_SOCKET" display-message \
+		-c "$WEAVE_HOST_CLIENT" "no pr recorded on this agent"
+	exit 1
+fi
+
+exec open "$url"

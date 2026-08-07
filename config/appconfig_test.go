@@ -552,6 +552,12 @@ func TestConfiguredPathsExpandHome(t *testing.T) {
 			read: Config.GetActionsDir,
 		},
 		{
+			name: "a cookbooks directory under ~ resolves to the home directory",
+			file: "[cookbooks]\ndir = \"~/dotfiles/weave/cookbooks\"\n",
+			want: func(home string) string { return filepath.Join(home, "dotfiles", "weave", "cookbooks") },
+			read: Config.GetCookbooksDir,
+		},
+		{
 			name: "a context file under ~ resolves to the home directory",
 			file: "[context]\nfile = \"~/dotfiles/weave/context.md\"\n",
 			want: func(home string) string { return filepath.Join(home, "dotfiles", "weave", "context.md") },

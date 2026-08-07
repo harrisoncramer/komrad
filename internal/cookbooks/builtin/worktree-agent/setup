@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+
+repo="$WEAVE_AGENT_CWD"
+tree="$repo/.worktrees/$WEAVE_AGENT_ID"
+
+if [ ! -d "$tree" ]; then
+	git -C "$repo" fetch --quiet origin main >&2
+	git -C "$repo" worktree add --quiet -b "agent/$WEAVE_AGENT_ID" "$tree" origin/main >&2
+fi
+
+echo "$tree"

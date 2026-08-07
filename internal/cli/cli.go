@@ -139,6 +139,7 @@ func NewRootCommand() *cobra.Command {
 		hookCmd(app),
 		traceCmd(app),
 		paletteCmd(app),
+		cookbookCmd(app),
 	)
 
 	return root

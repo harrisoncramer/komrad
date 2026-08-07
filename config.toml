@@ -188,6 +188,13 @@ rename  = ["r"]
 # Actions run in the agent's directory with agent info in WEAVE_AGENT as JSON. Default is ~/.config/weave/actions.
 dir = ""
 
+# Where `weave cookbook` finds the recipes it can install.
+[cookbooks]
+# Directory for cookbooks: one subdirectory per cookbook, each holding a cookbook.toml
+# manifest and the action scripts it names. Cookbooks here override a built-in one with
+# the same name. Default is ~/.config/weave/cookbooks.
+dir = ""
+
 # The standing text every agent is started with, whatever workflow it is in.
 [context]
 # The file holding global context, read at each launch.

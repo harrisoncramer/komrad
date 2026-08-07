@@ -294,6 +294,14 @@ type Actions struct {
 	Dir string `mapstructure:"dir"`
 }
 
+// Cookbooks is where `weave cookbook` finds the recipes it can install.
+type Cookbooks struct {
+	// Directory for cookbooks: one subdirectory per cookbook, each holding a cookbook.toml
+	// manifest and the action scripts it names. Cookbooks here override a built-in one with
+	// the same name. Default is ~/.config/weave/cookbooks.
+	Dir string `mapstructure:"dir"`
+}
+
 // Context is the standing text every agent is started with, above whatever its workflow
 // adds. It is where what is true of your machine and how you want to be worked with goes,
 // so it does not have to be pasted into every workflow.
@@ -453,6 +461,8 @@ type Config struct {
 	Keybindings Keybindings `mapstructure:"keybindings"`
 	// Where the panel finds the scripts its action key runs.
 	Actions Actions `mapstructure:"actions"`
+	// Where `weave cookbook` finds the recipes it can install.
+	Cookbooks Cookbooks `mapstructure:"cookbooks"`
 	// The standing text every agent is started with, whatever workflow it is in.
 	Context Context `mapstructure:"context"`
 	// How mail between agents is delivered.
@@ -786,6 +796,23 @@ func (c Config) GetActionsDir() (string, error) {
 	}
 
 	return filepath.Join(home, "actions"), nil
+}
+
+// GetCookbooksDir is where cookbooks live: the configured directory, or
+// ~/.config/weave/cookbooks when the config names none. The default is filled in here rather
+// than filled into Config, since the generated config.toml spells every default out and one
+// machine's home directory would be wrong on every other machine.
+func (c Config) GetCookbooksDir() (string, error) {
+	if dir := strings.TrimSpace(c.Cookbooks.Dir); dir != "" {
+		return ExpandHome(dir), nil
+	}
+
+	home, err := configHome()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(home, "cookbooks"), nil
 }
 
 // GetContextFile is the standing text every agent is started with: the configured file, or

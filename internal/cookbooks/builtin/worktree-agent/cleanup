@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+
+tree="$WEAVE_AGENT_CWD"
+repo=$(dirname "$(git -C "$tree" rev-parse --git-common-dir)")
+
+git -C "$tree" worktree remove --force "$tree"
+git -C "$repo" branch -D "agent/$WEAVE_AGENT_ID" || true

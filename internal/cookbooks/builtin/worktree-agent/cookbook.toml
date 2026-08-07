@@ -1,0 +1,19 @@
+description = "One git worktree per agent, created on setup and removed on cleanup."
+
+[workflow]
+name = "worktree agent"
+context = """
+Work only inside the worktree you were started in. Your branch is already made for you;
+do not create another. Record the pull request URL on yourself under `pr` with
+set_agent_metadata once you open one.
+"""
+setup_action = "worktree-agent-setup"
+cleanup_action = "worktree-agent-cleanup"
+
+[[actions]]
+name = "worktree-agent-setup"
+file = "setup"
+
+[[actions]]
+name = "worktree-agent-cleanup"
+file = "cleanup"

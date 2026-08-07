@@ -69,6 +69,15 @@ One subcommand per RPC, named the way the [MCP](mcp.md) tools name them, so a sc
 weave rpc list-agents --compact
 ```
 
+## cookbook
+
+Installs a [cookbook](cookbooks.md): a workflow, its actions, and an optional schedule, packaged as a directory and installed by name over the same endpoints the panel and the MCP tools already call.
+
+```bash
+weave cookbook list
+weave cookbook install worktree-agent --cwd ~/myrepo
+```
+
 ## readonly-role
 
 Creates the least-privilege Postgres role the MCP query tools connect as, so the SQL a model writes is fenced by the database rather than by inspecting the query. Run it once when setting a database up. It refuses if your two database URLs name the same login.
