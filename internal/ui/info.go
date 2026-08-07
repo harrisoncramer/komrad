@@ -47,13 +47,10 @@ func (m *model) claimInfo(kind infoKind, action string) bool {
 	return true
 }
 
-// closeInfo takes away whatever the region is holding. Restaging afterward is what lets a
-// hovered agent's record open back up when a log or an edit closes on it, rather than leaving
-// the region closed until the next unrelated redraw finds it that way.
-//
-// The pane is left standing when restaging is about to fill it again. Killing it and splitting
-// a new one in its place reflows the window twice, which a CLI in the stage answers with a full
-// redraw each time and is seen as the panes stuttering.
+// closeInfo takes away whatever the region is holding, then restages so a hovered agent's
+// record can open back up. The pane is left standing when restaging is about to fill it again,
+// since killing it and splitting a new one in its place reflows the window twice, which a CLI
+// in the stage answers with a full redraw each time and shows as the panes stuttering.
 func (m model) closeInfo() model {
 	if !m.doesRestageFillInfo() {
 		m.frame.Close(layout.RegionInfo)

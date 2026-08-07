@@ -11,13 +11,10 @@ import (
 )
 
 // The panel's palette, and the two themes derived from it. Every colour is one of the
-// sixteen a terminal's own scheme maps, written as its index rather than as a hex value,
-// so the panel is drawn in whatever colours the terminal is already running instead of
-// carrying a scheme of its own. A hex value would be the same on every machine and right
-// on almost none of them.
-//
-// Body text names no colour at all. Left alone it draws in the terminal's foreground,
-// which is the one colour a scheme is certain to have got right.
+// sixteen a terminal's own scheme maps, written as its index rather than as a hex value, so
+// the panel draws in whatever colours the terminal is already running rather than a hex
+// scheme of its own that would look the same on every machine and right on almost none.
+// Body text names no colour at all, so it draws in the terminal's own foreground.
 const (
 	// colorAccent is blue: headers and the cursor.
 	colorAccent = lipgloss.Color("4")

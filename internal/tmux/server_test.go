@@ -66,10 +66,6 @@ func TestNewWindowAlongsideASameNamedWindow(t *testing.T) {
 	assert.Equal(t, []string{"weave", "agent-one"}, windowNames(t, client, "weave"))
 }
 
-// TestOpenWindowWithoutAClient covers the two ways there is no session to open into: no
-// client named at all, and one tmux does not know. Both are refused rather than left to
-// tmux, which would read the target as whatever it holds as current and put the window
-// over a session nobody named.
 // TestSessionClientWithNothingAttached covers looking for the client viewing a popup on a
 // server nobody is attached to, and on a session that is not there. Both answer nothing,
 // which is what leaves the panel saying it cannot reach the user's server rather than

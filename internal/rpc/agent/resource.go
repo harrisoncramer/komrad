@@ -102,7 +102,6 @@ func (h searchHit) Cursor() (transcriptstore.Cursor, error) {
 	return h.cursor, nil
 }
 
-// renderSearchHit renders a stored search hit into a searchHit resource.
 func renderSearchHit(hit transcriptstore.SearchHit) searchHit {
 	return searchHit{
 		SearchHit: &agentv1.SearchHit{

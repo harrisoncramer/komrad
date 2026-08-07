@@ -27,17 +27,17 @@ const (
 	serveWaitInterval = 40 * time.Millisecond
 )
 
-// stopWaitFor is how long the stop command waits for the process to go. It is longer than
-// every stage of serve's own teardown put together, since the point of asking rather than
+// stopWaitFor is how long the stop command waits for the process to go, longer than every
+// stage of serve's own teardown put together, since the point of asking rather than
 // signalling is to find out what happened.
 const stopWaitFor = 30 * time.Second
 
 // stopPollInterval is how often the address is retried while waiting.
 const stopPollInterval = 100 * time.Millisecond
 
-// ensureServerParams is what it takes to reach a server or spawn one. ConfigPaths is carried
-// because the spawned process reads the config files for itself, so leaving them out serves a
-// panel started with --config out of different files than the ones it was pointed at.
+// ensureServerParams is what it takes to reach a server or spawn one; ConfigPaths is carried
+// because the spawned process reads the config files for itself, so leaving them out would
+// serve a panel started with --config out of different files than the ones it was pointed at.
 type ensureServerParams struct {
 	Addr        string
 	Self        string
@@ -74,10 +74,9 @@ func ensureServer(params ensureServerParams) error {
 	cmd := exec.Command(params.Self, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 
-	// The log is the only place the spawned server can say anything, so failing to
-	// open it is reported rather than shrugged at. Carrying on without it would spawn
-	// a server whose output went nowhere, and the reason it died would be gone for
-	// good.
+	// The log is the only place the spawned server can say anything, so failing to open it
+	// is reported rather than shrugged at: carrying on without it would spawn a server whose
+	// output went nowhere, and the reason it died would be gone for good.
 	logFile, err := openServeLog(logPath)
 	if err != nil {
 		return err
@@ -133,7 +132,7 @@ func ensureServer(params ensureServerParams) error {
 }
 
 // replaceServer asks the build holding addr to stop, so the panel is not left talking to a
-// server whose fields, routes and enums are not the ones it was built against. The error names
+// server whose fields, routes and enums are not the ones it was built against; the error names
 // both builds, since a server that will not stop leaves the panel with nothing but this
 // sentence on screen.
 func replaceServer(addr, reported string) error {
@@ -214,8 +213,8 @@ func stopServer(addr string) (int, error) {
 }
 
 // requestStop asks the server at addr to stop and returns the pid it answered with, zero
-// when nothing was there to ask. A connection that is refused means the work is already
-// done, which is a success rather than a failure to report to whoever is reloading.
+// when nothing was there to ask; a connection that is refused means the work is already done,
+// a success rather than a failure to report to whoever is reloading.
 func requestStop(addr string) (int, error) {
 	client := &http.Client{Timeout: 5 * time.Second}
 
@@ -230,8 +229,8 @@ func requestStop(addr string) (int, error) {
 	}
 	defer func() { _ = res.Body.Close() }()
 
-	// A server too old to hold this route answers 404, which has to be said plainly. It
-	// is still running afterwards, and reporting success would have a reload carry on and
+	// A server too old to hold this route answers 404, which has to be said plainly: it is
+	// still running afterwards, and reporting success would have a reload carry on and
 	// respawn a panel against the process it meant to replace.
 	if res.StatusCode != http.StatusAccepted {
 		return 0, fmt.Errorf("the server at %s would not stop: %s", addr, res.Status)
@@ -250,8 +249,8 @@ func requestStop(addr string) (int, error) {
 	return pid, nil
 }
 
-// awaitStopped waits for the process to be gone. It watches the process rather than the
-// address because the listener closes at the top of the teardown, so an address that has
+// awaitStopped waits for the process to be gone; it watches the process rather than the
+// address, since the listener closes at the top of the teardown, so an address that has
 // stopped answering says only that the shutdown has begun.
 func awaitStopped(pid int, within time.Duration) error {
 	deadline := time.Now().Add(within)
@@ -267,7 +266,7 @@ func awaitStopped(pid int, within time.Duration) error {
 	return fmt.Errorf("the server was asked to stop and process %d is still running after %s", pid, within)
 }
 
-// isProcessAlive reports whether a process still exists. Signal zero is delivered to nothing
+// isProcessAlive reports whether a process still exists: signal zero is delivered to nothing
 // and only reports whether it could have been.
 func isProcessAlive(pid int) bool {
 	process, err := os.FindProcess(pid)

@@ -20,8 +20,8 @@ const (
 	pgDatabaseMissing = "3D000"
 )
 
-// The ways the database can be wrong. Each is a separate code because each needs a
-// different thing done, and from the panel they all look like a server that would not start.
+// The ways the database can be wrong, each its own code since each needs a different fix,
+// though from the panel they all look like a server that would not start.
 var (
 	ErrDatabaseURLInvalid = &Problem{
 		Code:    "database_url_invalid",
@@ -92,7 +92,7 @@ func Database() Check {
 	}
 }
 
-// Schema asserts the database has every migration this build ships. Being behind is not a
+// Schema asserts the database has every migration this build ships; being behind is not a
 // failure the user has to fix, since the service migrates on the way up.
 func Schema() Check {
 	return Check{
@@ -117,19 +117,16 @@ func Schema() Check {
 	}
 }
 
-// ReadOnlyLogin asserts the least-privilege login exists and can connect.
-//
-// The service opens a second pool as this login and refuses to start when it cannot, so a
-// user who has done everything else right still gets a panel that will not open. It
-// connects the way the service does, superuser refusal included, so passing here means the
-// service gets past the same call rather than something close to it.
+// ReadOnlyLogin asserts the least-privilege login exists and can connect; the service opens
+// a second pool as this login and refuses to start when it cannot, so this check connects
+// the same way the service does rather than something close to it.
 func ReadOnlyLogin() Check {
 	return Check{
 		Name:        "readonly login",
 		Description: "the MCP query tools read through a login that can only read",
 		Needs:       []string{"database"},
 		Run: func(ctx context.Context, env Env) Result {
-			// An empty url is not a missing setting the way an empty cache directory is.
+			// An empty url is not a missing setting the way an empty cache directory is:
 			// Postgres reads it as every default, so the pool would open as whoever is
 			// running weave rather than refuse.
 			if env.ReadOnlyDatabaseURL == "" {
@@ -158,10 +155,9 @@ func ReadOnlyLogin() Check {
 				)
 			}
 
-			// Both connect, so nothing else in the report says the two halves disagree.
-			// Reported rather than refused, since an address weave cannot match up may
-			// still be the same database behind a pooler or a second name for the host, and
-			// only whoever wrote the url can say.
+			// Reported rather than refused: an address weave cannot match up may still be
+			// the same database behind a pooler or a second name for the host, and only
+			// whoever wrote the url can say.
 			if where := describeStoreMismatch(env.DatabaseURL, env.ReadOnlyDatabaseURL); where != "" {
 				return warn(
 					fmt.Errorf("%w: %s", ErrReadOnlyLoginElsewhere, where),
@@ -174,9 +170,9 @@ func ReadOnlyLogin() Check {
 	}
 }
 
-// classifyDatabaseFailure names what Postgres objected to, and what to do about it. A
-// server that is not running, a password that is wrong, and a database that was never
-// created need three different things done.
+// classifyDatabaseFailure names what Postgres objected to, and what to do about it, since a
+// server that is not running, a wrong password, and a database that was never created each
+// need something different done.
 func classifyDatabaseFailure(err error, url, detail string) Result {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
@@ -190,8 +186,8 @@ func classifyDatabaseFailure(err error, url, detail string) Result {
 		}
 	}
 
-	// No mention of docker or mise. Most people who read this line installed a binary and
-	// have neither, and their Postgres is wherever they put it.
+	// No mention of docker or mise: most people who read this line installed a binary, have
+	// neither, and their Postgres is wherever they put it.
 	return fail(
 		fmt.Errorf("%w %s: %s", ErrDatabaseUnreachable, describeHostPort(url), describeNetworkReason(err)),
 		detail,
@@ -200,11 +196,9 @@ func classifyDatabaseFailure(err error, url, detail string) Result {
 }
 
 // describeStoreMismatch names the two addresses when the pair of logins does not land on
-// one database, and is empty when it does. Either url being unreadable is empty too, since
-// that is a failure of its own reported elsewhere and not a mismatch.
-//
-// The login is left out of the comparison on purpose. Two logins is the whole point of the
-// pair. What has to match is the rows they reach.
+// one database, and is empty when it does or when either url is unreadable, since that
+// failure is reported elsewhere. The login is left out of the comparison on purpose, since
+// two logins is the point of the pair and what has to match is the rows they reach.
 func describeStoreMismatch(databaseURL, readOnlyURL string) string {
 	writable, err := pgconn.ParseConfig(databaseURL)
 	if err != nil {
@@ -239,9 +233,9 @@ func describeDatabaseReason(err error) string {
 	return describeNetworkReason(err)
 }
 
-// describeNetworkReason is why the dial did not land, in the few words that say it. pgx
-// reports the whole attempt, which for a host resolving to both an IPv4 and an IPv6 address
-// is two dial errors and the connection string again. That is one fact on one row.
+// describeNetworkReason is why the dial did not land, in the few words that say it: pgx
+// reports the whole attempt, which for a host resolving to both IPv4 and IPv6 is two dial
+// errors and the connection string again, when this is one fact on one row.
 func describeNetworkReason(err error) string {
 	var opErr *net.OpError
 	if errors.As(err, &opErr) && opErr.Err != nil {

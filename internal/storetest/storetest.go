@@ -72,11 +72,9 @@ func Open(t *testing.T) *Stores {
 
 // grantReadOnly provisions the least-privilege role on this test's database and returns a
 // url that reaches it as that role. It runs after the store has migrated, so the grant
-// covers the tables the schema just created.
-//
-// The role itself is a cluster object shared by every test database, which is why the SQL
-// tolerates one already existing. Only the grants are per-database, and those are what a
-// test is exercising.
+// covers the tables the schema just created. The role itself is a cluster object shared by
+// every test database, which is why the SQL tolerates one already existing; only the
+// grants are per-database, and those are what a test is exercising.
 func grantReadOnly(t *testing.T, pool *store.Pool, dbURL string) string {
 	t.Helper()
 

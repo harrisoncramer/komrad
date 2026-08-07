@@ -1,9 +1,6 @@
-// Package logtest reads back what the service logged.
-//
-// The records are JSON so that a tool can read them, and a test is the first such tool. A
-// test that asserted on the rendered line would be asserting on the order the fields came
-// out in and on how a wrapped error happened to be quoted, neither of which is what the
-// record is for.
+// Package logtest reads back what the service logged. The records are JSON so a test can
+// read them without asserting on the order fields came out in or how a wrapped error
+// happened to be quoted, neither of which is what the record is for.
 package logtest
 
 import (

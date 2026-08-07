@@ -153,7 +153,6 @@ func (s *Store) hydrateMetadataForAgents(ctx context.Context, rows []*models.Age
 	return agents, nil
 }
 
-// hydrateMetadataForAgent is hydrateAgents for the single-row get paths.
 func (s *Store) hydrateMetadataForAgent(ctx context.Context, row *models.Agent) (*Agent, error) {
 	agents, err := s.hydrateMetadataForAgents(ctx, []*models.Agent{row})
 	if err != nil {

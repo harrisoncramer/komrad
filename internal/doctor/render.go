@@ -29,7 +29,7 @@ var statusColors = map[Status]string{
 	StatusSkip: dimColor,
 }
 
-// markers are what a status is drawn as. ASCII rather than glyphs, because this output's
+// markers are what a status is drawn as: ASCII rather than glyphs, because this output's
 // second home is a pasted issue.
 var markers = map[Status]string{
 	StatusOK:   "ok",
@@ -78,9 +78,9 @@ func WriteText(out io.Writer, report Report, color bool) error {
 	return nil
 }
 
-// describeFinding is what a check reports beside its name. Anything not ok shows the reason
-// alone, since every problem is written to stand on its own and pairing it with the
-// observation it was drawn from says the same thing twice. The observation stays in the JSON.
+// describeFinding is what a check reports beside its name; anything not ok shows the reason
+// alone, since every problem stands on its own and pairing it with the observation it was
+// drawn from would say the same thing twice. The observation stays in the JSON.
 func describeFinding(finding Finding) string {
 	if finding.Error != "" {
 		return foldToOneLine(finding.Error)
@@ -89,7 +89,7 @@ func describeFinding(finding Finding) string {
 	return foldToOneLine(finding.Detail)
 }
 
-// foldToOneLine folds a reason onto the row it has to fit on. A parser reports what it
+// foldToOneLine folds a reason onto the row it has to fit on; a parser reports what it
 // objected to over several lines, and one landing mid-table takes the columns with it.
 func foldToOneLine(text string) string {
 	return strings.Join(strings.Fields(text), " ")

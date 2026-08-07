@@ -78,7 +78,6 @@ func actionItemsFrom(listed []*actionv1.Action) []actionItem {
 	})
 }
 
-// agentItemsFrom maps listed agents to agent items, marking which panes are live.
 func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
 	return xslice.Map(listed, func(agent *agentv1.Agent) agentItem {
 		return agentItem{agent: protoToAgent(agent), alive: agent.GetAlive()}
@@ -150,8 +149,6 @@ func scheduleItemsFrom(listed []*schedulev1.Schedule) []scheduleItem {
 	})
 }
 
-// scheduleFromProto renders a listed schedule into the store type the screen is
-// written against.
 func scheduleFromProto(s *schedulev1.Schedule) schedulestore.Schedule {
 	return schedulestore.Schedule{
 		ID:         s.GetId(),

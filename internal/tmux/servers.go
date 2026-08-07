@@ -16,12 +16,9 @@ const hostSocketOption = "@weave_host_socket"
 // panel first started.
 const InvokingClientOption = "@weave_client"
 
-// InfoPaneOption holds the panel's info pane, the one an editor or a shell
-// opens in. The panel writes it before running an action, since how the panel laid itself
-// out is known nowhere else and a script filling that pane has to be told which it is.
-//
-// It lives on the manager's own server, where that pane is, rather than beside the options
-// the key binding reads on the user's.
+// InfoPaneOption holds the panel's info pane, the one an editor or a shell opens in. The
+// panel writes it before running an action, since how the panel laid itself out is known
+// nowhere else, and it lives on the manager's own server, where that pane is.
 const InfoPaneOption = "@weave_info_pane"
 
 // tmuxEnvFields is how many fields tmux writes into TMUX for a pane it spawns: the

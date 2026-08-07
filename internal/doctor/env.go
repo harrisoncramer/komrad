@@ -13,11 +13,11 @@ import (
 	"weave/lib/xslice"
 )
 
-// commandTimeout bounds any tool doctor shells out to. Everything it runs answers at once
+// commandTimeout bounds any tool doctor shells out to; everything it runs answers at once
 // or is wedged, and a doctor that hangs is worse than one reporting a timeout.
 const commandTimeout = 5 * time.Second
 
-// Env is how a check reaches the machine. Every way out is a function so a test can answer
+// Env is how a check reaches the machine; every way out is a function so a test can answer
 // for a dependency the machine running it does not have.
 type Env struct {
 	Settings
@@ -40,7 +40,7 @@ type Env struct {
 	// ConnectReadOnly opens the least-privilege login the way the service does, so what
 	// passes here is what gets the service past the same call.
 	ConnectReadOnly func(ctx context.Context, url string) error
-	// ProbeServer asks the health route who holds the listen address. It reports no error,
+	// ProbeServer asks the health route who holds the listen address; it reports no error,
 	// since every way of not answering is itself the answer.
 	ProbeServer func(ctx context.Context, addr string) ServerStatus
 }
@@ -59,7 +59,7 @@ type Settings struct {
 	// so the server whose options decide whether a launch parses.
 	TmuxSocket string
 	// InsideTmux is the user's tmux server as tmux names it in TMUX, empty when this is not
-	// running under tmux. It is a second server to ask when weave's is not up.
+	// running under tmux; it is a second server to ask when weave's is not up.
 	InsideTmux string
 	// PanelSession is the tmux session the panel runs in, which is also the session every
 	// agent gets a window in.
@@ -108,9 +108,9 @@ func NewEnv(settings Settings) Env {
 	}
 }
 
-// runOutput runs a command under the timeout and returns its trimmed stdout. What the
-// command wrote to stderr is folded into the error, since a tool that failed usually
-// explains itself there.
+// runOutput runs a command under the timeout and returns its trimmed stdout; what it wrote
+// to stderr is folded into the error, since a tool that failed usually explains itself
+// there.
 func runOutput(ctx context.Context, name string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, commandTimeout)
 	defer cancel()

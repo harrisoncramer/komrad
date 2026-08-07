@@ -39,8 +39,8 @@ type api struct {
 	actions   actionv1connect.ActionServiceClient
 }
 
-// renameAgent renames an agent by id. A blank or unchanged name is a no-op, so the form's
-// empty submit asks the service for nothing.
+// renameAgent is a no-op for a blank or unchanged name, so the form's empty submit asks
+// the service for nothing.
 func (a api) renameAgent(agent agentstore.Agent, name string) error {
 	name = strings.TrimSpace(name)
 	if name == "" || name == agent.Name {
@@ -181,7 +181,6 @@ func (a api) getSchedule(id string) (*schedulestore.Schedule, error) {
 	return &stored, nil
 }
 
-// createSchedule records a new schedule.
 func (a api) createSchedule(cfg schedulestore.Config) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()

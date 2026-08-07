@@ -11,10 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDoctorReadsTheConfigTheUserNamed covers which path the config check is made against.
-// The resolved path is always a file name, so reading it cannot tell a config nobody wrote
-// apart from one somebody named and never created, and doctor has to report those two as
-// opposite things.
+// TestDoctorReadsTheConfigTheUserNamed covers which path the config check is made against:
+// the resolved path is always a file name, so reading it cannot tell a config nobody wrote
+// apart from one somebody named and never created.
 func TestDoctorReadsTheConfigTheUserNamed(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -60,9 +59,9 @@ func TestDoctorReadsTheConfigTheUserNamed(t *testing.T) {
 }
 
 // TestDoctorSurvivesAnEmptyLayerElement covers doctor's place in commandsSurvivingBadConfig:
-// a layer list that will not resolve still has to reach a report rather than aborting RunE,
-// since a report is the whole point of the command. An empty element reaches ResolveLayers
-// this way when WEAVE_CONFIG held one, which the append idiom produces on an unset variable.
+// a layer list that will not resolve still has to reach a report rather than aborting RunE.
+// An empty element reaches ResolveLayers this way when WEAVE_CONFIG held one, which the
+// append idiom produces on an unset variable.
 func TestDoctorSurvivesAnEmptyLayerElement(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 

@@ -381,8 +381,7 @@ type recordingTmux struct {
 	splits []string
 	// anchors are the panes the stage has been split beside, which is the pane the
 	// frame believes the panel runs in.
-	anchors []string
-	// belowAnchors are the panes the info pane has been split against.
+	anchors      []string
 	belowAnchors []string
 	// resizes are the widths panes have been set to, each the pane followed by the size.
 	resizes []string

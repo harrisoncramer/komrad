@@ -132,9 +132,8 @@ func TestDefaultHarnessCheck(t *testing.T) {
 	}
 }
 
-// TestHarnessBinaryCheck covers the quietest failure weave has. A CLI that is not on PATH
-// leaves the pane printing "command not found" and going idle, which reads in the panel as
-// an agent that finished its work.
+// TestHarnessBinaryCheck covers the quietest failure weave has: a missing CLI leaves the
+// pane idle, which reads as an agent that finished.
 func TestHarnessBinaryCheck(t *testing.T) {
 	tests := []struct {
 		name       string

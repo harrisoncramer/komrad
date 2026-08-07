@@ -1378,8 +1378,6 @@ func TestRestoreCeiling(t *testing.T) {
 	require.NoError(t, err, "archiving one makes room again")
 }
 
-// TestResumeRefusesArchived covers resuming an agent that is still in the archive. The
-// pane would sit behind a row nothing lists, so it is refused and names the way out.
 // TestResumeRunsTheSetupAction covers the workflow's setup action firing again on the way
 // back up. Archive leaves whatever setup built alone and a restore only takes the row out of
 // the archive, so resume is the moment a workspace has to exist again, and a script that
@@ -1482,6 +1480,8 @@ func TestResumeWithoutASetupActionFiresNothing(t *testing.T) {
 	assert.Empty(t, lifecycle.resumed)
 }
 
+// TestResumeRefusesArchived covers resuming an agent that is still in the archive. The
+// pane would sit behind a row nothing lists, so it is refused and names the way out.
 func TestResumeRefusesArchived(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)

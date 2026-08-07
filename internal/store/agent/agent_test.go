@@ -1366,9 +1366,8 @@ func TestGetByID(t *testing.T) {
 	}
 }
 
-// TestGetByIDCarriesMetadata covers the one thing the listing this replaced did not.
-// A restore hands the agent back to whoever asked for it, and what that agent recorded
-// about its own work is part of the record.
+// TestGetByIDCarriesMetadata covers that a restore hands the agent back with what it
+// recorded about its own work, not just its stored fields.
 func TestGetByIDCarriesMetadata(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -1668,8 +1667,6 @@ type fixture struct {
 	defaultWorkflow string
 }
 
-// Get reads an agent back by name out of the default workflow, which is the scope a
-// name is unique in.
 // agentIDs is the ids of a set of agents, which is what the calls keyed on a list take.
 func agentIDs(agents []Agent) []string {
 	ids := make([]string, 0, len(agents))
@@ -1680,6 +1677,8 @@ func agentIDs(agents []Agent) []string {
 	return ids
 }
 
+// Get reads an agent back by name out of the default workflow, which is the scope a
+// name is unique in.
 func (f *fixture) Get(ctx context.Context, name string) (*Agent, error) {
 	return f.GetInWorkflow(ctx, f.defaultWorkflow, name)
 }

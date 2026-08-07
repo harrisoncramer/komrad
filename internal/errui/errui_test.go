@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestScreenSections covers the layout every screen is built from. Sections are
-// separated only when they have content, so a screen carrying no details or hints
-// does not render the blank lines they would have sat in.
+// TestScreenSections covers the layout every screen is built from: sections are separated
+// only when they have content, so a screen carrying no details or hints doesn't render the
+// blank lines they would have sat in.
 func TestScreenSections(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -54,9 +54,9 @@ func TestScreenSections(t *testing.T) {
 	}
 }
 
-// narrowPane is the width of the pane the panel runs in, the narrow half of the
-// split beside the stage. Screens are asserted against it because that is the width
-// the renderer above the panel cuts a line at.
+// narrowPane is the width of the pane the panel runs in, the narrow half of the split
+// beside the stage; screens are asserted against it since that's the width the renderer
+// above the panel cuts a line at.
 const narrowPane = 59
 
 // indent is the continuation prefix a value gets under a label that fits the column, which
@@ -67,8 +67,8 @@ var indent = strings.Repeat(" ", labelWidth)
 // which is what the startup screen draws when the doctor found something.
 const widePane = 100
 
-// TestFold covers how text is folded to a pane. It wraps rather than truncating,
-// since the useful part of a dial error is at the end.
+// TestFold covers how text is folded to a pane: it wraps rather than truncating, since the
+// useful part of a dial error is at the end.
 func TestFold(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -117,11 +117,10 @@ func TestFold(t *testing.T) {
 	}
 }
 
-// TestScreensFitTheirPane covers the whole of every screen against the pane it draws
-// into, prose and hints included. The renderer above the panel cuts a line that
-// overruns the pane rather than wrapping it, so anything unfolded loses its tail at
-// the pane edge: on a hint that is the command it was naming, and on a detail it is
-// the end of the error, which is the part saying what went wrong.
+// TestScreensFitTheirPane covers the whole of every screen against the pane it draws into,
+// prose and hints included, since the renderer above the panel cuts an overrunning line
+// rather than wrapping it, losing the tail: on a hint that's the command it was naming, and
+// on a detail it's the end of the error, the part saying what went wrong.
 func TestScreensFitTheirPane(t *testing.T) {
 	err := errors.New("the agent server stopped during startup: failed to reach db: dial tcp 127.0.0.1:5460: connect: connection refused")
 
@@ -169,9 +168,9 @@ func TestScreensFitTheirPane(t *testing.T) {
 	}
 }
 
-// TestConfig covers the screen shown when the config file will not parse. The panel
-// does not start, so this screen is all the reader gets: it has to carry the error
-// itself and name the file to go and fix.
+// TestConfig covers the screen shown when the config file won't parse: the panel doesn't
+// start, so this screen is all the reader gets, and has to carry the error itself and name
+// the file to fix.
 func TestConfig(t *testing.T) {
 	err := errors.New("failed to parse config /home/u/.config/weave/config.toml: keybindings.list is not a setting; [keybindings] takes actions, agents, archive, filter, form, help, nav, schedules, selection, workflows")
 
@@ -184,7 +183,7 @@ func TestConfig(t *testing.T) {
 	assert.Contains(t, rendered, "config.toml", "the file to go and fix is named")
 }
 
-// TestStartup covers the screen shown when the server would not start. The reason it gave
+// TestStartup covers the screen shown when the server wouldn't start: the reason it gave
 // came out of its log and is the only thing on screen saying what failed, so it has to
 // survive the render whole.
 func TestStartup(t *testing.T) {
@@ -200,9 +199,9 @@ func TestStartup(t *testing.T) {
 		"with nothing found, the command that would find something is named")
 }
 
-// TestStartupCarriesTheFindings covers the difference between this screen and a log tail.
-// The reason a server gave says what failed; the findings say which dependency is missing
-// and what repairs it, which is the only part anyone can act on.
+// TestStartupCarriesTheFindings covers the difference between this screen and a log tail:
+// the reason a server gave says what failed, while the findings say which dependency is
+// missing and what repairs it, the only part anyone can act on.
 func TestStartupCarriesTheFindings(t *testing.T) {
 	err := errors.New("the agent server stopped during startup: failed to reach db read-only")
 

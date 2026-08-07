@@ -12,33 +12,26 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// errNotText is why the editor key does nothing on a compiled program. The panel answers
-// this itself rather than asking, since the listing already says which files are text.
+// errNotText is returned when the editor key is pressed on a file that isn't text.
 var errNotText = errors.New("the file is not text, so there is nothing to edit")
 
-// actionState is the actions screen, the scripts the user has written for the panel to
-// run. The list is asked for on the way in rather than polled, since a directory does not
-// change often enough to restat every second.
-//
-// agent is the agent the screen was opened on, held here rather than read off the cursor
-// when a script is chosen, since the refresh keeps running and can move the rows underneath.
+// actionState is the actions screen: the listed actions and the agent it was opened on,
+// held here rather than read off the cursor since the refresh can move rows underneath.
 type actionState struct {
 	items  []actionItem
 	cursor int
 	agent  agentstore.Agent
 }
 
-// actionItem is one of the user's actions as the panel holds it, listed by the service since
-// the panel never touches the actions directory. Everything under the name is what the file's
-// own header declares.
+// actionItem is one of the user's actions, listed by the service since the panel never
+// touches the actions directory. Everything but the name comes from the file's own header.
 type actionItem struct {
 	name        string
 	executable  bool
 	description string
 	timeout     time.Duration
 	problems    []string
-	// text says the file is a script rather than a compiled program, which is what decides
-	// whether the editor key has anything to open.
+	// text is false for a compiled program; that decides whether the editor key opens anything.
 	text bool
 }
 
@@ -49,8 +42,7 @@ type actionsResult struct {
 	err     error
 }
 
-// enterActions opens the actions list on the hovered agent. The list arrives as a message,
-// so the screen paints empty and fills in, the way the archive does.
+// enterActions opens the actions list on the hovered agent.
 func (m model) enterActions() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedAgent()
 	if !ok {
@@ -76,8 +68,7 @@ func (m model) actionRows() []actionItem {
 	})
 }
 
-// listActionsCmd asks the service for the actions, off the render loop like every other
-// call the panel makes.
+// listActionsCmd asks the service for the actions.
 func (m model) listActionsCmd() tea.Cmd {
 	clients := m.api
 
@@ -91,13 +82,9 @@ func (m model) listActionsCmd() tea.Cmd {
 	}
 }
 
-// applyActions puts a finished listing on screen. A failed one is reported and leaves the
-// list empty rather than letting the stage claim the directory is empty when nobody could
-// read it.
-//
-// A listing that arrives after the screen was left is dropped whole, the way the refresh
-// drops a pass the panel has moved past, since it would otherwise write the stage of
-// whichever screen is up now about a list nobody is looking at.
+// applyActions puts a finished listing on screen. A listing that arrives after the screen
+// was left is dropped, and a read failure is reported and leaves the list empty rather than
+// claiming the directory has nothing in it.
 func (m *model) applyActions(result actionsResult) {
 	if m.screen != screenActions {
 		return
@@ -114,8 +101,7 @@ func (m *model) applyActions(result actionsResult) {
 	m.stageAction()
 }
 
-// updateActions drives the actions list. Nav moves the selection and restages, and run
-// fires the action under the cursor at the agent the list was opened on.
+// updateActions drives the actions list.
 func (m model) updateActions(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -152,12 +138,9 @@ func (m model) selectedAction() (actionItem, bool) {
 	return rowAt(m.actionRows(), m.actions.cursor)
 }
 
-// runSelectedAction fires the action under the cursor at the agent the list was opened on.
-// Nothing waits for it, since where its output goes is the action's to decide and whatever
-// it changes reaches the panel on the next refresh.
-//
-// The list stays where it is, so the cursor is ready to fire a second action, and a failure
-// is always from before the process started, so it banners over the row it came from.
+// runSelectedAction fires the action under the cursor at the agent the list was opened on
+// and does not wait for it. A failure here is always from before the process started, so it
+// banners over the row it came from.
 func (m model) runSelectedAction() (tea.Model, tea.Cmd) {
 	action, ok := m.selectedAction()
 	if !ok {
@@ -172,13 +155,9 @@ func (m model) runSelectedAction() (tea.Model, tea.Cmd) {
 	)
 }
 
-// editSelectedAction opens the file under the cursor in the user's editor, in the pane under
-// the stage, and takes that pane away when the key is pressed again on the same file. Moving
-// to another action and pressing the key there opens that one instead.
-//
-// The editor is opened by an action rather than by the panel, so a user who writes their own
-// gets it here and on the agents list both. The service resolves the name to a path, since
-// which of the two actions directories a name was found in is not the panel's to know.
+// editSelectedAction opens the file under the cursor in the user's editor pane. The editor
+// is itself an action, so a custom one works here and on the agents list alike; the service
+// resolves the name to a path, since it knows which of the two actions directories it's in.
 func (m model) editSelectedAction() (tea.Model, tea.Cmd) {
 	action, ok := m.selectedAction()
 	if !ok {
@@ -231,9 +210,8 @@ func (m model) stageAction() {
 	m.frame.Show(layout.RegionStage, newTextContent(actionMarkdown(action)))
 }
 
-// actionsView renders the actions list, naming the agent they would run on, since the list
-// acts on the row it was opened from rather than whatever the agents list is hovering by
-// now. A file without the executable bit is drawn dim, the way a dormant agent is.
+// actionsView renders the actions list. A file without the executable bit is drawn dim,
+// the way a dormant agent is.
 func (m model) actionsView() string {
 	help := "\n" + m.renderHelp(m.actionHelp())
 

@@ -8,13 +8,8 @@ import (
 )
 
 // TestIsConfigFatal covers which commands a config that will not parse stops. It matters
-// because the file names the database now: a command that carried on would fall back to the
-// built-in default and write to a database the user did not mean, quite possibly a stale local
-// one, with only a log line to say so.
-//
-// The three that survive each have a reason. doctor is what a broken config is diagnosed with.
-// version answers about the build and touches nothing. panel would write its error into a
-// popup tmux destroys in the same instant, so it draws a screen instead.
+// because the file names the database: a command that carried on would fall back to the
+// built-in default and could write to the wrong database, with only a log line to say so.
 func TestIsConfigFatal(t *testing.T) {
 	tests := []struct {
 		name    string

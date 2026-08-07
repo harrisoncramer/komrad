@@ -10,14 +10,9 @@ import (
 	"weave/lib/xslice"
 )
 
-// briefingDoc is what every spawned agent is told about the panel running it: what it can
-// look up rather than guess at, what the panel reads out of its pane, and where to find
-// the log when the panel is behaving oddly. It stops at what an agent needs to work under
-// weave, since most agents are working on something else entirely and how this repo builds
-// itself is no use to them. It is prose in a file rather than a string constant because
-// editing it should not mean reading around Go quoting, and it names only the tools an
-// agent would not think to go looking for. The rest of the surface is in the tool list its
-// client already has.
+// briefingDoc is what every spawned agent is told about the panel running it. It is prose in
+// a file rather than a Go string constant so editing it doesn't mean reading around
+// quoting, and it names only the tools an agent would not already have in its own tool list.
 //
 //go:embed briefing.md
 var briefingDoc string

@@ -221,12 +221,10 @@ type recordingTmux struct {
 	openWindowErr error
 	// detaches counts the sessions the popup has been closed by detaching from.
 	detaches int
-	// killed are the panes that have been torn down.
-	killed []string
+	killed   []string
 	// belowAnchors are the panes the info pane has been split beneath.
 	belowAnchors []string
-	// globals are the tmux options the panel has recorded.
-	globals map[string]string
+	globals      map[string]string
 	// infoPane is the pane the panel said it opened its info region in, which is how an
 	// action is told which pane to fill.
 	infoPane string

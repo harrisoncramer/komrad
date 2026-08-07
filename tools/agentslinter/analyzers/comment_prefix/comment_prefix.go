@@ -65,7 +65,6 @@ func doesStartWithWord(text, word string) bool {
 	return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_'
 }
 
-// funcKind returns "method" when the declaration has a receiver, otherwise "function".
 func funcKind(fn *ast.FuncDecl) string {
 	if fn.Recv != nil {
 		return "method"

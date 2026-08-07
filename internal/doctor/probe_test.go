@@ -11,12 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestProbeLeavesTheSchemaAlone is the regression that matters about this whole command.
-//
-// store.Open applies the migrations on its way in, so the ordinary way of reaching the
-// database would have doctor migrating whatever it was asked to report on. A schema check
-// that fixes the schema can never tell you it was behind, and a diagnostic run against a
-// production database must not be the thing that changes it.
+// TestProbeLeavesTheSchemaAlone is the regression that matters about this whole command:
+// store.Open applies migrations on its way in, so the ordinary way of reaching the database
+// would have doctor migrating whatever it was asked to report on, and a diagnostic run
+// against a production database must not be the thing that changes it.
 func TestProbeLeavesTheSchemaAlone(t *testing.T) {
 	url := pgtest.URL(t)
 
@@ -35,9 +33,9 @@ func TestProbeLeavesTheSchemaAlone(t *testing.T) {
 	assert.Zero(t, tables, "reading the schema created nothing, not even the migration ledger")
 }
 
-// TestProbeCannotWrite covers the other half of the promise. The read-only flag rides on the
-// connection, so a write is refused by Postgres rather than by this package remembering not
-// to send one.
+// TestProbeCannotWrite covers the other half of the promise: the read-only flag rides on
+// the connection, so a write is refused by Postgres rather than by this package remembering
+// not to send one.
 func TestProbeCannotWrite(t *testing.T) {
 	pool, err := openReadOnlyPool(t.Context(), pgtest.URL(t))
 	require.NoError(t, err)

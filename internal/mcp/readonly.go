@@ -222,7 +222,6 @@ func (d *dbTools) query(ctx context.Context, statement string) (*queryResult, er
 	}, nil
 }
 
-// normalizeValue converts the driver's raw scan values into JSON-friendly forms.
 func normalizeValue(v any) any {
 	switch t := v.(type) {
 	case nil:

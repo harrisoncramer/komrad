@@ -1,21 +1,19 @@
 package errui
 
-// Finding is one thing the doctor found wrong. It is restated here rather than imported, so
-// drawing a screen does not pull the checks and their database handles in behind it.
+// Finding is one thing the doctor found wrong, restated here rather than imported so
+// drawing a screen doesn't pull the checks and their database handles in behind it.
 type Finding struct {
 	Name   string
 	Reason string
 	Fix    string
 }
 
-// Config is shown instead of the panel when the user's config file could not be
-// read. It is a different kind of failure from the service being down: it cannot
-// fix itself, and the file it is complaining about is the one holding the keys the
-// panel would otherwise tell you to press.
+// Config is shown instead of the panel when the user's config file could not be read.
+// Unlike the service being down, it can't fix itself, and the file it's complaining about
+// is the one holding the keys the panel would otherwise tell you to press.
 //
-// It replaces printing to stderr and exiting. That wrote the message to a popup
-// tmux destroyed in the same instant, so the only way to read it was to run the
-// binary by hand.
+// Printing to stderr and exiting instead would write to a popup tmux destroys in the same
+// instant, leaving the binary run by hand as the only way to read it.
 func Config(width int, err error) string {
 	return Screen{
 		Width: width,
@@ -32,15 +30,13 @@ func Config(width int, err error) string {
 }
 
 // Startup is shown instead of the panel when the server it works through could not be
-// started.
+// started. The reason the server gave is a log tail saying what failed rather than what to
+// do about it; the doctor's findings sit alongside it, naming the dependency and the
+// command that repairs it.
 //
-// The reason the server gave is a log tail, which says what failed rather than what to do
-// about it. The doctor's findings sit alongside it and name the dependency and the command
-// that repairs it.
-//
-// It is a takeover rather than the unreachable screen because that one waits for a server
-// that is coming back. This one has nothing to wait for: the panel starts a server once,
-// and if that attempt failed nothing tries again.
+// It's a takeover rather than the unreachable screen, which waits for a server that's
+// coming back, since the panel starts a server only once and nothing retries if that
+// attempt failed.
 func Startup(width int, err error, findings []Finding) string {
 	screen := Screen{
 		Width: width,
@@ -71,16 +67,14 @@ func Startup(width int, err error, findings []Finding) string {
 	return screen.Render()
 }
 
-// Unreachable is shown in place of every other screen while the service is not
-// answering.
+// Unreachable is shown in place of every other screen while the service is not answering.
+// It takes over rather than sitting in a corner because the panel is a view onto the
+// service: with the service gone the agent list is a stale snapshot, the counts are wrong,
+// and every key that acts on an agent fails, so left on screen a dead service would read as
+// an empty store.
 //
-// It takes over rather than sitting in a corner because the panel is a view onto
-// the service. With the service gone the agent list is a stale snapshot, the counts
-// are wrong, and every key that acts on an agent fails. Left on screen, a dead
-// service reads as an empty store.
-//
-// There is nothing to press. The list keeps polling underneath, so the panel
-// returns to itself within a poll of the service coming back.
+// There is nothing to press since the list keeps polling underneath, so the panel returns
+// to itself within a poll of the service coming back.
 func Unreachable(width int, addr string, err error) string {
 	screen := Screen{
 		Width: width,

@@ -2,15 +2,9 @@ package doctor
 
 import "weave/lib/xslice"
 
-// Checks is every assertion doctor makes, in the order it reports them.
-//
-// The order is what a person reads down, so it runs from the dependencies weave cannot
-// install for itself to the ones it can: a machine with no tmux has a problem worth reading
-// before anything about a config file. It also has to be an order a dependency can be
-// declared in, since a check reads the conclusion of one listed before it.
-//
-// The list is built from the settings rather than fixed, because which agent CLIs there
-// are to check is what this build was compiled with.
+// Checks is every assertion doctor makes, in the order it reports them; the order runs from
+// the dependencies weave cannot install for itself to the ones it can, and a check can only
+// depend on one declared before it, since it reads that check's conclusion.
 func Checks(settings Settings) []Check {
 	checks := []Check{
 		TmuxBinary(),

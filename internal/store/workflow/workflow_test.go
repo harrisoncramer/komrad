@@ -285,7 +285,6 @@ func TestActionsRoundTrip(t *testing.T) {
 	}
 }
 
-// open builds a workflow store over a throwaway database.
 func open(t *testing.T) *Store {
 	t.Helper()
 

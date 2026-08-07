@@ -33,7 +33,6 @@ type queryInput struct {
 	SQL string `json:"sql" jsonschema:"A single read-only SELECT (or WITH ... SELECT) statement to execute"`
 }
 
-// registerTools installs the read-only database tools on the MCP server.
 func (d *dbTools) registerTools(server *mcpsdk.Server) {
 	mcpsdk.AddTool(server, &mcpsdk.Tool{
 		Name:        "list_tables",
@@ -84,7 +83,6 @@ func (d *dbTools) handleQuery(ctx context.Context, _ *mcpsdk.CallToolRequest, in
 	return textResult(mustJSON(res)), res, nil
 }
 
-// textResult wraps text in a successful tool result.
 func textResult(text string) *mcpsdk.CallToolResult {
 	return &mcpsdk.CallToolResult{
 		Content: []mcpsdk.Content{&mcpsdk.TextContent{Text: text}},

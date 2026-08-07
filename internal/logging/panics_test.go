@@ -49,7 +49,7 @@ func TestLogPanic(t *testing.T) {
 			LogPanic(ctx, tt.recovered)
 
 			record := logtest.Record(t, out.String())
-			assert.Equal(t, "panicked", record[bodyKey])
+			assert.Equal(t, "panicked", record[BodyKey])
 			assert.Equal(t, tt.wantType, record[ErrorType])
 			assert.Equal(t, tt.wantMessage, record[ErrorMessage])
 			assert.Contains(t, record[StackTrace], "panics_test.go",
@@ -58,9 +58,9 @@ func TestLogPanic(t *testing.T) {
 	}
 }
 
-// TestLogAndRepanic covers the guard every root defers. A call that returned normally leaves
-// nothing behind, and a panic is written down and then raised again, since the process is
-// meant to end either way and the record is all this adds.
+// TestLogAndRepanic covers the guard every root defers: a call that returns normally leaves
+// nothing behind, and a panic is written down and then raised again, since the process ends
+// either way and the record is all this adds.
 func TestLogAndRepanic(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -99,7 +99,7 @@ func TestLogAndRepanic(t *testing.T) {
 			assert.PanicsWithValue(t, "the pane went away", func() { tt.run(ctx) })
 
 			record := logtest.Record(t, out.String())
-			assert.Equal(t, "panicked", record[bodyKey])
+			assert.Equal(t, "panicked", record[BodyKey])
 			require.Contains(t, record, StackTrace)
 			assert.Contains(t, record[StackTrace], "panics_test.go",
 				"the stack is where the panic came from rather than the guard's own frames")

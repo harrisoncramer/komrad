@@ -48,7 +48,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m.route(msg)
 }
 
-// route hands a message to the screen that owns it.
 func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// A resize is recorded and then falls through rather than being consumed, since
 	// an open form lays itself out from the same message. It is taken before the

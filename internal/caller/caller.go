@@ -1,11 +1,6 @@
-// Package caller is who a request is from. What reaches the service is either the panel,
-// which is the person, or an agent the panel spawned calling back through its tools, and a
-// log that cannot tell one agent from another cannot answer which of them deleted
-// something.
-//
-// The identity travels as headers because that is the only channel there is: an agent runs
-// somebody else's CLI, and all the panel decides is the server registration it is launched
-// with, which every CLI here can be told to put a header on.
+// Package caller identifies who a request came from: the panel, or an agent calling back
+// through its tools. Identity travels as headers, since that is the only channel an agent's
+// CLI can be told to use.
 package caller
 
 import (
@@ -13,8 +8,8 @@ import (
 	"net/http"
 )
 
-// The headers an identity travels in. The trace id sits with them rather than in the
-// middleware that reads it, since anything forwarding one of these forwards all of them.
+// The headers an identity travels in; the trace id sits here too since anything forwarding
+// one of these should forward all of them.
 const (
 	// TraceHeader carries the id one request is logged under. A caller that already has
 	// one sends it, which is what makes a call that crossed two processes one search.
@@ -33,16 +28,14 @@ type Caller struct {
 	SessionID string
 }
 
-// IsKnown reports whether the request named an agent at all. A call from the panel or from a
-// person with curl is unattributed rather than wrong, and is logged without the fields
-// rather than with empty ones.
+// IsKnown reports whether the request named an agent at all; a call from the panel or curl
+// is unattributed rather than wrong, and is logged without the fields rather than empty ones.
 func (c Caller) IsKnown() bool {
 	return c.AgentID != "" || c.SessionID != ""
 }
 
-// FromHeader reads the identity a request arrived with. A value that is still a shell
-// variable is dropped, since the CLIs fill these in from the agent's environment and an
-// unexpanded one means the variable was never set.
+// FromHeader reads the identity a request arrived with, dropping any value that is still a
+// shell variable, since an unexpanded one means the CLI's environment never set it.
 func FromHeader(header http.Header) Caller {
 	return Caller{
 		AgentID:   expanded(header.Get(AgentHeader)),
@@ -71,11 +64,8 @@ func (c Caller) SetHeader(header http.Header) {
 }
 
 // Transport stamps every request a client sends with the identity and trace of the request
-// being served, so a call the service makes on somebody's behalf stays attributed to them.
-// next is the transport underneath, or the default one when nil.
-//
-// It is a transport rather than something each caller remembers to do, since the client
-// that forgets is the one whose calls read as the service talking to itself.
+// being served, so a call made on somebody's behalf stays attributed to them; next is the
+// transport underneath, or the default one when nil.
 func Transport(next http.RoundTripper) http.RoundTripper {
 	if next == nil {
 		next = http.DefaultTransport
@@ -106,8 +96,7 @@ func (f forwarding) RoundTrip(req *http.Request) (*http.Response, error) {
 	return f.next.RoundTrip(forwarded)
 }
 
-// callerKey is what the identity is held under on a context. It is an unexported type so
-// nothing outside this package can collide with it.
+// callerKey is what the identity is held under on a context.
 type callerKey struct{}
 
 // With carries the identity on a context, which is how a handler and anything it calls can

@@ -9,6 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
+	"weave/internal/caller"
 	"weave/internal/logging"
 	"weave/lib/xsync"
 )
@@ -79,14 +82,10 @@ func startBackground(ctx context.Context, runner jobRunner, loops []Loop, logger
 
 	var wg sync.WaitGroup
 	for _, loop := range loops {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			defer logging.LogAndRepanic(loopCtx)
-
 			runLoop(loopCtx, loop, logger)
-		}()
+		})
 	}
 
 	return &backgroundWork{runner: runner, stopLoops: stopLoops, loops: &wg, logger: logger}, nil
@@ -126,7 +125,9 @@ func runLoop(ctx context.Context, loop Loop, logger *slog.Logger) {
 	var repeats int
 
 	for {
-		err := runPass(ctx, loop.Pass)
+		// Traced like a request, so following one pass in the log doesn't mean reading four
+		// loops interleaved.
+		err := runPass(tracedPass(ctx, logger), loop.Pass)
 
 		if ctx.Err() != nil {
 			return
@@ -152,7 +153,15 @@ func runLoop(ctx context.Context, loop Loop, logger *slog.Logger) {
 	}
 }
 
-// Recover inside the loop goroutine so one bad pass does not stop the service.
+// tracedPass gives one pass its own trace id, on the logger every line under it writes
+// through and on the context, so a call this pass makes carries the same id onward.
+func tracedPass(ctx context.Context, logger *slog.Logger) context.Context {
+	trace := uuid.NewString()
+
+	return caller.WithTrace(logging.WithLogger(ctx, logger.With(slog.String(logging.TraceID, trace))), trace)
+}
+
+// runPass recovers here, in the loop goroutine, so one bad pass does not stop the service.
 func runPass(ctx context.Context, pass func(context.Context) error) (err error) {
 	defer func() {
 		if recovered := recover(); recovered != nil {

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/caller"
 	"weave/internal/logging"
 	"weave/internal/logtest"
 
@@ -292,4 +293,29 @@ func TestShutdownDeadlineOutlivesTheSignal(t *testing.T) {
 	at, ok := deadline.Deadline()
 	require.True(t, ok, "the stage is bounded rather than waiting forever")
 	assert.WithinDuration(t, time.Now().Add(jobStopTimeout), at, time.Second)
+}
+
+// TestEachPassIsTracedOnItsOwn covers what makes the log readable: one pass of a loop is one
+// trace, the way one request is, so following what a reconcile did is naming its id rather
+// than reading four loops interleaved. Two passes must not share an id, or the whole point
+// of following one is lost.
+func TestEachPassIsTracedOnItsOwn(t *testing.T) {
+	var out bytes.Buffer
+	logger := logging.New(&out, slog.LevelInfo)
+
+	var traces []string
+	for range 2 {
+		ctx := tracedPass(t.Context(), logger)
+
+		logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "a pass said something")
+		traces = append(traces, caller.Trace(ctx))
+	}
+
+	records := logtest.Records(t, out.String())
+	require.Len(t, records, 2)
+
+	assert.NotEmpty(t, records[0][logging.TraceID], "a pass writes under a trace")
+	assert.Equal(t, traces[0], records[0][logging.TraceID], "the id on the line is the one on the context")
+	assert.Equal(t, traces[1], records[1][logging.TraceID])
+	assert.NotEqual(t, traces[0], traces[1], "two passes are two traces")
 }

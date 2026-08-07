@@ -143,24 +143,12 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	return nil
 }
 
-// ArchiveWorkflow archives a workflow and the agents inside it. The agents go with
-// it rather than being orphaned, since every agent belongs to a workflow and there
-// is nowhere for one to be left.
-//
-// The agents' CLIs are stopped on the way, the same as archiving them by id, so nothing
-// is left generating in a pane the panel no longer lists. The panes come down before the
-// transaction rather than after, since an archive that killed them and then failed to
-// commit leaves rows the reconciler already tidies, where one that committed and then
-// died would hide a running CLI for good.
-//
-// A workflow still holding live schedules is refused. Archiving it would either
-// strand them with nowhere to run or switch them off silently, so the schedules
-// have to be turned off first, deliberately.
-//
-// The workflow row and the agent rows belong to different domains, so both
-// stores are rebound onto one transaction. Either the bucket and its agents
-// agree afterwards or nothing moved, since half of it landing would strand an
-// agent behind a workflow nothing lists.
+// ArchiveWorkflow archives a workflow and the agents inside it, since every agent belongs to
+// a workflow and none can be left behind. Panes are killed before the transaction commits, so
+// a failed commit leaves rows the reconciler can still tidy rather than hiding a live CLI for
+// good. A workflow with live schedules is refused, since archiving it would strand or
+// silently kill them; they must be turned off first. The workflow and agent rows span
+// different domains, so both are archived in one transaction to avoid a half-applied archive.
 func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error {
 	existing, err := w.GetWorkflow(ctx, id)
 	if err != nil {
@@ -202,13 +190,10 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 	return nil
 }
 
-// RestoreWorkflow brings an archived workflow back with every agent inside it, the way a
-// folder out of the trash carries its files, and returns it as stored. The agents land
-// dormant, so a folder of twelve does not start twelve CLIs.
-//
-// It is all or nothing, under the agent ceiling and against the names live agents hold,
-// since a workflow back with some of its runs would read as whole. A refusal names what
-// is in the way so the user can clear it and press restore again.
+// RestoreWorkflow brings an archived workflow back with every agent inside it, landing them
+// dormant so a folder of twelve does not start twelve CLIs. It is all or nothing, under the
+// agent ceiling and against the names live agents hold, since a partial restore would read
+// as whole; a refusal names what is in the way so the user can clear it and retry.
 func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error) {
 	existing, err := w.store.GetIncludingArchived(ctx, id)
 	if err != nil {

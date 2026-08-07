@@ -45,7 +45,7 @@ func refused() error {
 	return &net.OpError{Op: "dial", Net: "tcp", Err: errors.New("connect: connection refused")}
 }
 
-// TestDatabaseCheckTellsTheFailuresApart is the point of this check. Every one of these
+// TestDatabaseCheckTellsTheFailuresApart is the point of this check: every one of these
 // reaches the panel as the same startup error, and each needs a different thing done.
 func TestDatabaseCheckTellsTheFailuresApart(t *testing.T) {
 	tests := []struct {
@@ -107,7 +107,7 @@ func TestDatabaseCheckTellsTheFailuresApart(t *testing.T) {
 	}
 }
 
-// TestDatabaseCheckHidesThePassword covers that a report is safe to paste. The address is
+// TestDatabaseCheckHidesThePassword covers that a report is safe to paste: the address is
 // the part worth reading and the password is not part of it.
 func TestDatabaseCheckHidesThePassword(t *testing.T) {
 	result := Database().Run(t.Context(), dbEnv(fakeSchema{}, nil, nil))
@@ -118,9 +118,9 @@ func TestDatabaseCheckHidesThePassword(t *testing.T) {
 }
 
 // TestDatabaseFixAssumesNoCheckout covers that a fix is something the reader can actually
-// run. Most people who hit this installed a binary: they have no checkout, no mise, and no
-// compose file, and their Postgres is wherever they put it. So the fix names the address it
-// could not reach and stops, rather than guessing at how that Postgres is meant to start.
+// run: most people who hit this installed a binary, so they have no checkout, no mise, and
+// no compose file, and the fix names the address it could not reach rather than guessing how
+// that Postgres is meant to start.
 func TestDatabaseFixAssumesNoCheckout(t *testing.T) {
 	tests := []struct {
 		name string
@@ -200,7 +200,7 @@ func TestSchemaCheck(t *testing.T) {
 	})
 }
 
-// TestReadOnlyLoginCheck covers the login the service hard-requires. Without it serve exits
+// TestReadOnlyLoginCheck covers the login the service hard-requires: without it serve exits
 // before it listens, and the panel shows a startup error naming none of this.
 func TestReadOnlyLoginCheck(t *testing.T) {
 	t.Run("a login that works", func(t *testing.T) {

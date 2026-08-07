@@ -14,17 +14,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// openCmd is the popup entrypoint, creating the persistent manager tmux session if it is
-// not there and attaching either way. The tmux plugin runs this as the popup's -E command,
-// so it blocks until the client detaches, which closes the popup.
-//
-// The session lives on the manager's own tmux server, which the user's server knows nothing
-// about. Which server the popup came from is read out of this process's environment and
-// recorded, so the panel can reach back for the things only that server can answer.
-//
-// Arguments are accepted and ignored, so a key binding that passes something is not
-// refused. Nothing can be passed in usefully anyway, since tmux expands no format in a
-// popup's command and an unexpanded one is a comment to the shell that runs it.
+// openCmd is the popup entrypoint, creating the persistent manager tmux session if it is not
+// there and attaching either way; the tmux plugin runs this as the popup's -E command, so it
+// blocks until the client detaches, which closes the popup. The session lives on the
+// manager's own tmux server, which the user's server knows nothing about, so which server the
+// popup came from is read out of this process's environment and recorded for the panel to
+// reach back through. Arguments are accepted and ignored since tmux expands no format in a
+// popup's command, so anything passed would only be an unexpanded comment to the shell that
+// runs it.
 func openCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "open",
@@ -42,31 +39,30 @@ func openCmd(state *app) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			// Creating the session detached and attaching separately, rather than with
-			// one new-session -A, leaves room to record the user's socket between the
-			// two. A single attaching command would hold the client for as long as the
-			// popup is up.
+			// Creating the session detached and attaching separately, rather than with one
+			// new-session -A, leaves room to record the user's socket between the two; a
+			// single attaching command would hold the client for as long as the popup is up.
 			if err := ensureManagerSession(state); err != nil {
 				return err
 			}
 
-			// Recorded first, since everything below reaches the user's server through
-			// it. Rewritten on every open, so a popup from a different server or a
+			// Recorded first since everything below reaches the user's server through it,
+			// and rewritten on every open so a popup from a different server or a
 			// restarted one points the panel at the server actually showing it.
 			socket := tmux.SocketFromEnv(state.env.Tmux)
 			state.host.Record(socket)
 
-			// Record the client that opened this popup so the panel picks the
-			// right directory and client. Mark the popup shown so the binding hides
-			// it on the next press. The mark clears when the attach below returns.
+			// Records the client that opened this popup so the panel picks the right
+			// directory and client, and marks it open so the binding hides it on the next
+			// press; the mark clears when the attach below returns.
 			state.popup.SetInvokingClient(invokingClient(socket, tmux.SessionFromEnv(state.env.Tmux)))
 			state.popup.MarkOpen()
 			defer state.popup.MarkClosed()
 
-			// The manager server has its own copy of the user's key bindings, so the
-			// panel key has to be given its inside-the-popup meaning there. Done per
-			// open rather than once at creation, so changing the key takes effect
-			// without restarting the panel.
+			// The manager server has its own copy of the user's key bindings, so the panel
+			// key needs its inside-the-popup meaning bound there; done per open, rather
+			// than once at creation, so changing the key takes effect without restarting
+			// the panel.
 			state.popup.BindHide()
 
 			// The palette key is bound on that server for the same reason, and per open so a
@@ -82,8 +78,8 @@ func openCmd(state *app) *cobra.Command {
 }
 
 // attachManagerSession hands this process's terminal to the panel's session, blocking until
-// the client detaches. In a popup that is what closes it, and in a terminal it is what returns
-// the prompt.
+// the client detaches: in a popup that is what closes it, and in a terminal it is what
+// returns the prompt.
 func attachManagerSession(state *app) error {
 	attach := state.tmuxCommand("attach-session", "-t", agents.ManagerSession)
 	attach.Stdin = os.Stdin
@@ -102,14 +98,11 @@ func managerSessionRunning(state *app) bool {
 	return state.tmuxCommand("has-session", "-t", agents.ManagerSession).Run() == nil
 }
 
-// ensureManagerSession brings the manager session up detached, doing nothing when it
-// is already running. Existence is checked rather than left to new-session -A, which
-// attaches to a session it finds and would then hold the popup open before anything
-// after it ran.
-//
-// The panel runs as this session's command, so it inherits the tmux server's
-// environment rather than the popup's, which is why the session is created the way
-// buildManagerSessionArgs builds it.
+// ensureManagerSession brings the manager session up detached, doing nothing when it is
+// already running; existence is checked rather than left to new-session -A, which attaches to
+// a session it finds and would hold the popup open before anything after it ran. The panel
+// runs as this session's command, inheriting the tmux server's environment rather than the
+// popup's, which is why buildManagerSessionArgs builds the session the way it does.
 func ensureManagerSession(state *app) error {
 	if managerSessionRunning(state) {
 		return nil
@@ -125,20 +118,14 @@ func ensureManagerSession(state *app) error {
 	return nil
 }
 
-// buildManagerSessionArgs is the tmux command line that creates the manager session,
-// with self as the binary the session runs.
-//
-// A tmux server hands every session the environment it was itself started with, so a
-// server that has been up for days is still handing out some shell nobody remembers.
-// Every variable the panel and the server it spawns read is therefore forwarded with -e
-// rather than left to that. Only the open that creates the session sets them, since every
-// later one finds it already up.
-//
-// The config paths go on the command line for the same reason: the panel loads the files
-// itself, and without being told which ones it would read the default while this process
-// read whatever --config named. The resolved list is forwarded rather than the flags as
-// written, so the child is told the paths instead of working them out and the two cannot
-// disagree about what they are running on.
+// buildManagerSessionArgs is the tmux command line that creates the manager session, with
+// self as the binary the session runs. A tmux server hands every session the environment it
+// was itself started with, so variables the panel and the spawned server read are forwarded
+// with -e rather than left to whatever shell started that long-lived server; only the open
+// that creates the session sets them, since every later one finds it already up. The config
+// paths go on the command line for the same reason, forwarded as the resolved list rather
+// than the flags as written, so the panel reads the paths this process actually used instead
+// of working them out itself and disagreeing about what they're running on.
 func buildManagerSessionArgs(state *app, self string) []string {
 	args := []string{
 		"new-session", "-d", "-s", agents.ManagerSession,
@@ -158,9 +145,9 @@ func buildManagerSessionArgs(state *app, self string) []string {
 	return args
 }
 
-// tmuxCommand builds a tmux command against the manager's server with TMUX removed
-// from the environment, so tmux does not refuse it as nested. The popup runs inside
-// the user's client, which is where that variable comes from.
+// tmuxCommand builds a tmux command against the manager's server with TMUX removed from the
+// environment, so tmux does not refuse it as nested; that variable comes from the popup
+// running inside the user's client.
 func (a *app) tmuxCommand(args ...string) *exec.Cmd {
 	cmd := exec.Command("tmux", append([]string{"-L", a.env.TmuxSocket}, args...)...)
 	cmd.Env = envWithoutTmux()
@@ -174,10 +161,10 @@ func envWithoutTmux() []string {
 	return xslice.Filter(os.Environ(), func(entry string) bool { return !strings.HasPrefix(entry, "TMUX=") })
 }
 
-// invokingClient is the client viewing this popup, found by asking the user's server
-// which one is attached to the session the popup was opened from. It is asked for rather
-// than passed in because the popup's own environment names its server and session but
-// not the client, and nothing in the key binding can carry one.
+// invokingClient is the client viewing this popup, found by asking the user's server which
+// one is attached to the session the popup was opened from; it is asked for rather than
+// passed in, since the popup's own environment names its server and session but not the
+// client, and nothing in the key binding can carry one.
 func invokingClient(socket, session string) string {
 	if socket == "" || session == "" {
 		return ""

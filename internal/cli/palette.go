@@ -7,10 +7,9 @@ import (
 )
 
 // paletteCmd is the command palette: one key, a query, and whatever that query turns out to
-// mean. It is hidden because the key binding is how it is reached rather than the name.
-//
-// What it draws is a skeleton. The popup opens and closes, and nothing a query could resolve
-// to is written yet.
+// mean; it is hidden because the key binding is how it is reached rather than the name. What
+// it draws is a skeleton for now: the popup opens and closes, but nothing a query could
+// resolve to is written yet.
 func paletteCmd(*app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "palette",

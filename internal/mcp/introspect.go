@@ -80,7 +80,6 @@ ORDER BY table_name`
 	return names, nil
 }
 
-// describeTable returns the columns, foreign keys, and indexes for one table.
 func (d *dbTools) describeTable(ctx context.Context, table string) (*tableDescription, error) {
 	if !validIdentifier.MatchString(table) {
 		return nil, fmt.Errorf("invalid table name %q", table)

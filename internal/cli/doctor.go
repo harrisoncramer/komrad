@@ -18,14 +18,14 @@ import (
 	"golang.org/x/term"
 )
 
-// ErrReported marks a command that has already written the reason to its own output. main
-// prints whatever Execute hands back, so without this a report would be followed by a
-// redundant sentence saying it failed. The non-zero exit is the part that matters.
+// ErrReported marks a command that has already written the reason to its own output, so main
+// (which prints whatever Execute hands back) does not follow the report with a redundant
+// failure line; the non-zero exit is the part that matters.
 var ErrReported = errors.New("reported")
 
-// doctorCmd reports whether this machine can run weave, one line per dependency. It repairs
-// nothing, since a command that changes what it is describing cannot be run to find out
-// what is wrong.
+// doctorCmd reports whether this machine can run weave, one line per dependency; it repairs
+// nothing, since a command that changes what it is describing cannot be trusted to say what
+// is wrong.
 func doctorCmd(state *app) *cobra.Command {
 	var asJSON bool
 	var color string
@@ -68,8 +68,8 @@ func doctorCmd(state *app) *cobra.Command {
 				return err
 			}
 
-			// A failing machine exits non-zero so this scripts, and the report has
-			// already said what is wrong, so main must not print an error over it.
+			// A failing machine exits non-zero so this can gate a script; the report already
+			// said what is wrong, so main must not print an error over it.
 			if !report.Summary.Healthy {
 				return ErrReported
 			}
@@ -84,9 +84,9 @@ func doctorCmd(state *app) *cobra.Command {
 	return cmd
 }
 
-// buildDoctor is the checks and what they run against. Two callers need it, this command
-// and the panel explaining why its server would not start, and building it twice is how a
-// seam gets filled in for one of them and left nil for the other.
+// buildDoctor is the checks and what they run against; two callers need it, this command and
+// the panel explaining why its server would not start, and building it twice is what leaves
+// the seam nil for whichever caller doesn't need it.
 func (a *app) buildDoctor() (doctor.Env, []doctor.Check, error) {
 	settings, err := a.buildDoctorSettings()
 	if err != nil {
@@ -95,9 +95,8 @@ func (a *app) buildDoctor() (doctor.Env, []doctor.Check, error) {
 
 	env := doctor.NewEnv(settings)
 
-	// The paths as they were given rather than the ones they resolve to, since the loader
-	// tells a config nobody wrote apart from one somebody named and is not there, and only
-	// the unresolved list still says which of the two this is.
+	// The paths as given rather than as resolved, since only the unresolved list can tell a
+	// config nobody wrote apart from one somebody named that is not there.
 	env.LoadConfig = func() (*config.Config, error) { return config.Load(a.configPaths) }
 
 	// The same probe the panel uses to decide whether to reuse a server or replace it, so
@@ -117,13 +116,12 @@ func (a *app) buildDoctor() (doctor.Env, []doctor.Check, error) {
 }
 
 // buildDoctorSettings is what this build would run with, gathered here so no check reads a
-// file or an environment for itself. The harnesses come from the registry, so a build that
-// gains a third agent CLI gains a line in the report without this being touched.
+// file or environment for itself; harnesses come from the registry, so a build that gains a
+// third agent CLI gains a report line without this being touched.
 func (a *app) buildDoctorSettings() (doctor.Settings, error) {
-	// A layer list that will not resolve is precisely what the config check exists to
-	// report, so it is left for LoadConfig to raise there rather than aborting here: doctor
-	// is in commandsSurvivingBadConfig, and a command that aborted before running a check
-	// would never reach the report that is the whole point of running it.
+	// A layer list that will not resolve is left for LoadConfig to raise, rather than
+	// aborting here, since doctor is in commandsSurvivingBadConfig and must reach the report
+	// rather than abort before any check runs.
 	layers, err := config.ResolveLayers(a.configPaths)
 	if err != nil {
 		layers = nil
@@ -179,8 +177,8 @@ func (a *app) diagnose(ctx context.Context) []errui.Finding {
 
 	report := doctor.Run(ctx, env, checks)
 
-	// Failures only. A warning was true before the server failed to start and will be
-	// true after it works.
+	// Failures only: a warning was true before the server failed to start and will be true
+	// after it works.
 	failed := xslice.Filter(report.Findings, func(finding doctor.Finding) bool {
 		return finding.Status == doctor.StatusFail
 	})

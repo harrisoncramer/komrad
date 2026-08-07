@@ -7,11 +7,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestChecksAreWellFormed covers the wiring of the list rather than any one assertion.
-//
-// A dependency is matched by name, so a typo in one would silently run a check that was
-// meant to be skipped, and a duplicated name would make the whole mechanism read the wrong
-// check's conclusion. Neither shows up at runtime as anything but a confusing report.
+// TestChecksAreWellFormed covers the wiring of the list rather than any one assertion: a
+// typo in a dependency name would silently run a check meant to be skipped, and a duplicate
+// name would read the wrong check's conclusion, neither of which shows up at runtime as
+// more than a confusing report.
 func TestChecksAreWellFormed(t *testing.T) {
 	checks := Checks(Settings{Harnesses: []HarnessInfo{
 		{ID: "claude", Binary: "claude"},

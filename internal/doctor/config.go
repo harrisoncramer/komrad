@@ -27,11 +27,8 @@ var (
 
 // Config asserts the user's config layers parse, and names them in the order they are
 // merged. An unknown key is an error rather than a dropped line, so a typo takes the whole
-// panel down to an error screen. Having no file is the ordinary install and passes.
-//
-// Naming the layers is most of the point of this check. One file a person can read for
-// themselves, but with several the loader is the only thing that knows which one a value
-// came from, so a config that resolved to something surprising is otherwise undiagnosable.
+// panel down to an error screen; naming the layers matters because with more than one file,
+// the loader is the only thing that knows which one a value came from.
 func Config() Check {
 	return Check{
 		Name:        "config",
@@ -45,21 +42,14 @@ func Config() Check {
 				)
 			}
 
-			// Whether a file is there is not worth its own status. Both answers are correct
-			// installs, and which one this is only matters when a setting is not taking
-			// effect, so it is said rather than judged.
+			// Having no config file is a correct install too, so it is reported rather than judged.
 			return pass(describeLayers(env))
 		},
 	}
 }
 
-// describeLayers is the layer list in merge order, with any file that is not there marked so.
-// The order is the whole of what it says, since the order is what decides which file wins a
-// key the layers disagree about.
-//
-// Where each connection setting came from is reported by the check about that setting rather
-// than here, since a person asking why weave is on the wrong database is reading the database
-// line, not this one.
+// describeLayers is the layer list in merge order, with any file that is not there marked
+// so; order matters since it decides which file wins a key the layers disagree about.
 func describeLayers(env Env) string {
 	if len(env.ConfigLayers) == 0 {
 		return "no config files"
@@ -79,9 +69,9 @@ func describeLayers(env Env) string {
 	return strings.Join(described, ", ")
 }
 
-// describeSource names where a setting was resolved from, as a phrase to hang off the value it
-// explains. Empty when nothing recorded it, so a caller that did not resolve through the
-// config package prints the value alone rather than a dangling "from the".
+// describeSource names where a setting was resolved from, as a phrase to hang off the value
+// it explains, empty when nothing recorded it so the phrase does not read as a dangling
+// "from the".
 func describeSource(env Env, key string) string {
 	source, ok := env.Sources[key]
 	if !ok {
@@ -91,9 +81,9 @@ func describeSource(env Env, key string) string {
 	return " from the " + string(source)
 }
 
-// describeConfigFix is what to do about a config that would not load, which turns on whether
-// any of the layers is there at all. Telling somebody to edit a path with nothing at it sends
-// them looking for a file they never wrote.
+// describeConfigFix is what to do about a config that would not load; it checks whether any
+// layer exists, since telling somebody to edit a path with nothing at it sends them looking
+// for a file they never wrote.
 func describeConfigFix(env Env) string {
 	for _, layer := range env.ConfigLayers {
 		if env.DoesLayerExist(layer.Path) {
@@ -108,7 +98,7 @@ func describeConfigFix(env Env) string {
 	return "write " + env.ConfigLayers[0].Path + ", or drop --config to run on the defaults"
 }
 
-// DefaultHarness asserts the CLI a new agent runs is one this build knows how to run. The
+// DefaultHarness asserts the CLI a new agent runs is one this build knows how to run; the
 // config takes a name rather than a choice, so a misspelling is otherwise only found when
 // somebody tries to create an agent.
 func DefaultHarness() Check {
@@ -138,13 +128,10 @@ func DefaultHarness() Check {
 	}
 }
 
-// HarnessBinary asserts one agent CLI is on PATH, which is the quietest way weave breaks.
-// The launch is a line typed into a pane, so a CLI that is not there leaves the pane
-// printing "command not found" and going idle, and the reconciler reads idle as an agent
-// that finished.
-//
-// Only the CLI new agents actually run is a failure. Weave supports several and nobody
-// installs all of them.
+// HarnessBinary asserts one agent CLI is on PATH, the quietest way weave breaks: a missing
+// CLI leaves the pane printing "command not found" and going idle, which the reconciler
+// reads as an agent that finished. Only the CLI new agents actually run is a failure, since
+// nobody installs every harness.
 func HarnessBinary(agent HarnessInfo) Check {
 	return Check{
 		Name:        agent.ID,
@@ -172,9 +159,9 @@ func HarnessBinary(agent HarnessInfo) Check {
 	}
 }
 
-// effectiveDefaultHarness is the CLI a new agent would actually run. A config that will not
-// parse falls back to the built-in default, which is what the root command does too, so
-// this check still answers when the config is broken.
+// effectiveDefaultHarness is the CLI a new agent would actually run; a config that will not
+// parse falls back to the built-in default, same as the root command, so this check still
+// answers when the config is broken.
 func effectiveDefaultHarness(env Env) string {
 	cfg, err := env.LoadConfig()
 	if err != nil {

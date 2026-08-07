@@ -253,7 +253,6 @@ func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow,
 	return &workflow, nil
 }
 
-// workflowFromRow builds a Workflow from a workflow row and its joined config.
 func workflowFromRow(w models.Workflow, harness, cwd, flags string) Workflow {
 	return Workflow{
 		ID:            w.ID,

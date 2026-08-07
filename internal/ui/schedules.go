@@ -13,8 +13,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// scheduleState is the schedules screen, the listing it draws and which row is
-// hovered.
 type scheduleState struct {
 	items  []scheduleItem
 	cursor int
@@ -28,9 +26,8 @@ type scheduleItem struct {
 	nextRun  time.Time
 }
 
-// enterSchedules switches to the schedules view, from the agents list and after one of the
-// schedule forms closes. It is its own screen rather than part of the agents tree, since a
-// schedule is a record of future work with nothing running to stage beside it.
+// enterSchedules is its own screen rather than part of the agents tree, since a schedule is
+// a record of future work with nothing running to stage beside it.
 func (m model) enterSchedules() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenSchedules)
 	m.closeRecord()
@@ -40,8 +37,8 @@ func (m model) enterSchedules() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// scheduleRows are the schedules the list draws, the listing less whatever the filter holds
-// back. The cursor indexes these rather than the listing, so a key acts on the row it is on.
+// scheduleRows is the listing less whatever the filter holds back; the cursor indexes
+// these rather than the listing, so a key acts on the row it is on.
 func (m model) scheduleRows() []scheduleItem {
 	if m.filter.pattern == nil {
 		return m.schedules.items
@@ -52,8 +49,6 @@ func (m model) scheduleRows() []scheduleItem {
 	})
 }
 
-// updateSchedules drives the schedules list. Arrows move the selection and
-// restage, and the per-row keys act on the hovered schedule.
 func (m model) updateSchedules(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -93,13 +88,11 @@ func (m model) updateSchedules(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// selectedSchedule returns the schedule under the cursor, or false when the
-// list is empty.
 func (m model) selectedSchedule() (scheduleItem, bool) {
 	return rowAt(m.scheduleRows(), m.schedules.cursor)
 }
 
-// stageSchedule shows the hovered schedule's record in the stage. Nothing runs for a
+// stageSchedule shows the hovered schedule's record in the stage; nothing runs for a
 // schedule, so there is never a pane to swap in.
 func (m *model) stageSchedule() {
 	item, ok := m.selectedSchedule()
@@ -112,8 +105,7 @@ func (m *model) stageSchedule() {
 	m.stageRecord(scheduleMarkdown(item, m.workflowByID(item.schedule.WorkflowID)), layout.RegionStage)
 }
 
-// workflowByID finds a workflow in the list the panel already polls, nil when none holds
-// that id, which means it was archived.
+// workflowByID returns nil when none holds that id, which means it was archived.
 func (m model) workflowByID(id string) *workflowstore.Workflow {
 	for _, w := range m.listing.workflows {
 		if w.ID == id {
@@ -124,7 +116,7 @@ func (m model) workflowByID(id string) *workflowstore.Workflow {
 	return nil
 }
 
-// toggleSchedule pauses or resumes the hovered schedule. One key does both directions, so
+// toggleSchedule pauses or resumes the hovered schedule; one key does both directions, so
 // the failure message comes off the row.
 func (m model) toggleSchedule() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedSchedule()
@@ -142,8 +134,8 @@ func (m model) toggleSchedule() (tea.Model, tea.Cmd) {
 	})
 }
 
-// newScheduleForm opens the form to create a schedule, blank except for the workflow,
-// which starts on the first in the list since one has to be chosen.
+// newScheduleForm starts the workflow field on the first in the list, since one has to
+// be chosen.
 func (m model) newScheduleForm() (tea.Model, tea.Cmd) {
 	if len(m.listing.workflows) == 0 {
 		m.report("Could not create a schedule", errNoWorkflow)
@@ -161,8 +153,8 @@ func (m model) newScheduleForm() (tea.Model, tea.Cmd) {
 	return m, m.form.Init()
 }
 
-// editScheduleForm reopens the form for the hovered schedule. It refetches first, so the
-// form edits what is stored rather than what the last listing carried.
+// editScheduleForm refetches first, so the form edits what is stored rather than what the
+// last listing carried.
 func (m model) editScheduleForm() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedSchedule()
 	if !ok {
@@ -204,14 +196,10 @@ func (m model) archiveScheduleConfirm() (tea.Model, tea.Cmd) {
 	return m, m.form.Init()
 }
 
-// updateScheduleForm drives the create and edit form, submitting on the configured key or
-// on completion and aborting back to the list.
 func (m model) updateScheduleForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m.updateSubmitForm(msg, model.submitScheduleForm)
 }
 
-// submitScheduleForm applies the form, editing the target schedule or creating one. A
-// rejected cron expression comes back on the form itself, which is where it is fixed.
 func (m model) submitScheduleForm() (tea.Model, tea.Cmd) {
 	// The form writes through pointers the panel holds, so a submit with no bound values
 	// is a submit for a form that was never opened.
@@ -234,8 +222,6 @@ func (m model) submitScheduleForm() (tea.Model, tea.Cmd) {
 	return m, tea.Batch(write, m.holdForm())
 }
 
-// updateScheduleArchive drives the archive prompt. Confirming puts the schedule
-// away, and both outcomes return to the list.
 func (m model) updateScheduleArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m.updateConfirmForm(msg, confirmFormActions{
 		write: func(m model) tea.Cmd {
@@ -261,8 +247,6 @@ func (m model) updateScheduleArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
 	})
 }
 
-// schedulesView renders the list, each row a schedule with its cron expression and when it
-// next fires, which is what a person checks a schedule for.
 func (m model) schedulesView() string {
 	help := "\n" + m.renderHelp(m.scheduleHelp())
 
@@ -287,9 +271,8 @@ func (m model) schedulesView() string {
 	return m.listView("Schedules", rows, m.schedules.cursor, help)
 }
 
-// applySchedules takes a freshly-listed set as the on-screen schedules, keeping the cursor
-// on the schedule it was on, since a schedule archived from another panel shifts everything
-// below it up.
+// applySchedules keeps the cursor on the schedule it was on, since a schedule archived from
+// another panel shifts everything below it up.
 func (m *model) applySchedules(fresh []scheduleItem) {
 	selected := ""
 	if item, ok := m.selectedSchedule(); ok {

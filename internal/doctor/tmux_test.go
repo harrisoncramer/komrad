@@ -25,7 +25,7 @@ func tmuxReporting(reported string, err error) Env {
 	}
 }
 
-// TestParseTmuxVersion covers the spellings "tmux -V" comes back with. The version gates
+// TestParseTmuxVersion covers the spellings "tmux -V" comes back with; the version gates
 // whether the panel's key binding works at all, so reading one wrong either refuses a
 // machine that would have worked or accepts one that will not.
 func TestParseTmuxVersion(t *testing.T) {
@@ -237,7 +237,7 @@ func TestTmuxVersionNeedsTheBinary(t *testing.T) {
 	assert.Contains(t, TmuxVersion().Needs, TmuxBinary().Name)
 }
 
-// tmuxServers fakes the tmux servers that are up. Keys are the socket flag a call carries,
+// tmuxServers fakes the tmux servers that are up; keys are the socket flag a call carries,
 // "-L weave" for weave's own and "" for the user's, so a test says which servers answer
 // and what each one reports.
 func tmuxServers(answers map[string]string) Env {
@@ -260,9 +260,9 @@ func tmuxServers(answers map[string]string) Env {
 	}
 }
 
-// TestTmuxShellCheck covers what the option can say and which server was asked. The shell
-// decides whether an agent launches at all, and the service refuses to start over it, so a
-// wrong answer here sends someone looking at the wrong thing.
+// TestTmuxShellCheck covers what the option can say and which server was asked; the shell
+// decides whether an agent launches at all, so a wrong answer here sends someone looking at
+// the wrong thing.
 func TestTmuxShellCheck(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -322,9 +322,9 @@ func TestTmuxShellCheck(t *testing.T) {
 	}
 }
 
-// TestTmuxShellStartsNoServer covers the promise doctor makes about itself. Asking tmux for
-// an option starts a server when none is running, so the call has to be one that cannot,
-// or a diagnostic would be creating the thing it reports on.
+// TestTmuxShellStartsNoServer covers the promise doctor makes about itself: asking tmux for
+// an option starts a server when none is running, so the call has to be one that cannot, or
+// a diagnostic would be creating the thing it reports on.
 func TestTmuxShellStartsNoServer(t *testing.T) {
 	var calls [][]string
 

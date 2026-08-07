@@ -10,15 +10,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// readonlyRoleCmd provisions the least-privilege login the MCP query tools connect as.
-//
-// It is its own command rather than part of the migrations because a role is a cluster
-// object and creating one needs CREATEROLE, which is a privilege the binary should not
-// have to hold on the path every other command takes through the store.
-//
-// The role's name and password are read out of the read-only url rather than taken as
-// flags, so the credentials this creates and the credentials serve connects with are the
-// same, whether that url was set or derived from the writable one.
+// readonlyRoleCmd provisions the least-privilege login the MCP query tools connect as. It is
+// its own command rather than part of the migrations, since a role is a cluster object and
+// creating one needs CREATEROLE, a privilege the binary should not have to hold on the path
+// every other command takes through the store. The role's name and password are read out of
+// the read-only url rather than taken as flags, so the credentials this creates match what
+// serve connects with, whether that url was set or derived from the writable one.
 func readonlyRoleCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "readonly-role",

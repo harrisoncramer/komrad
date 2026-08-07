@@ -15,12 +15,10 @@ import (
 )
 
 // TestHideClearsTheOpenFlagWithoutTheManagerServer covers hiding the panel once weave's own
-// tmux server has gone, which the documented way of restarting weave produces. The flag the
-// key binding branches on lives on the user's server, so with it left set the key takes the
-// hide branch on every press and the panel becomes unreachable.
-//
-// Driven against a real tmux server, since what is being checked is which server an option
-// landed on and a fake would only report the routing back.
+// tmux server has gone; the flag the key binding branches on lives on the user's server, so
+// left set it makes the key take the hide branch on every press and the panel becomes
+// unreachable. It runs against a real tmux server, since what is checked is which server an
+// option landed on.
 func TestHideClearsTheOpenFlagWithoutTheManagerServer(t *testing.T) {
 	hostSocket := throwawaySocket(t)
 	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "-f", "/dev/null",
@@ -35,7 +33,7 @@ func TestHideClearsTheOpenFlagWithoutTheManagerServer(t *testing.T) {
 		"the panel key reads this flag, so a hide that leaves it set makes the key do nothing")
 }
 
-// hideState is the wiring the root command builds, cut down to what hide reaches. tmuxEnv
+// hideState is the wiring the root command builds, cut down to what hide reaches; tmuxEnv
 // stands in for this process's TMUX, which is what tmux sets for the pane the key binding's
 // run-shell puts hide in.
 func hideState(socket, tmuxEnv string) *app {

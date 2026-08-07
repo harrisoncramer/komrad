@@ -34,7 +34,7 @@ func withPanel(status ServerStatus, running bool) Env {
 	}
 }
 
-// TestServerCheck covers who can be on the address. Three of these four end as the same
+// TestServerCheck covers who can be on the address: three of these four end as the same
 // startup error in the panel, and the address being held by a stranger is the one that
 // leaves somebody with no idea what happened.
 func TestServerCheck(t *testing.T) {
@@ -106,11 +106,9 @@ func TestStaleServerNamesBothBuilds(t *testing.T) {
 	assert.Contains(t, result.Err.Error(), "v1.2.3")
 }
 
-// TestStaleServerFixDependsOnThePanel covers advice that was actively harmful.
-//
-// The panel calls ensureServer once, when its tmux session is created. Re-opening the popup
-// re-attaches the process already running it, so telling somebody with a live panel to stop
-// the server leaves them on the unreachable screen with nothing that will ever start one.
+// TestStaleServerFixDependsOnThePanel covers advice that would strand a live panel: the
+// panel calls ensureServer only once, when its tmux session is created, so telling somebody
+// with a live panel to stop the server leaves nothing that will ever start one again.
 func TestStaleServerFixDependsOnThePanel(t *testing.T) {
 	stale := ServerStatus{Answering: true, Ready: true, Version: "v1.0.0"}
 
@@ -144,10 +142,10 @@ func TestNotReadyWaitsRatherThanRestarts(t *testing.T) {
 	assert.NotContains(t, result.Fix, "kill")
 }
 
-// TestListenAddressIsCheckedFirst covers WEAVE_ADDR itself. Every other branch of this
+// TestListenAddressIsCheckedFirst covers WEAVE_ADDR itself: every other branch of this
 // check reads a probe, and a probe against an address nothing can bind answers the same way
-// an address nobody has started yet does, so an unbindable one would report as the ordinary
-// state of a fresh machine while the server it describes can never come up.
+// as one nobody has started yet, so an unbindable address would otherwise read as the
+// ordinary state of a fresh machine.
 func TestListenAddressIsCheckedFirst(t *testing.T) {
 	tests := []struct {
 		name     string

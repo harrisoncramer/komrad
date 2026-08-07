@@ -26,13 +26,13 @@ const (
 	StatusWarn Status = "warn"
 	// StatusFail means something will not work until it is fixed.
 	StatusFail Status = "fail"
-	// StatusSkip means the check could not be made, because something it needed
-	// failed first. It is not a pass and not a second failure.
+	// StatusSkip means the check could not be made because something it needed failed
+	// first, and is not a pass or a second failure.
 	StatusSkip Status = "skip"
 )
 
-// Problem is a named way a check can fail. The code is stable and is what a script
-// switches on, so it is part of the interface and does not change with the wording.
+// Problem is a named way a check can fail; the code is stable and is what a script
+// switches on, so it does not change with the wording.
 type Problem struct {
 	Code    string
 	Message string
@@ -40,9 +40,9 @@ type Problem struct {
 
 func (p *Problem) Error() string { return p.Message }
 
-// CodeOf returns the stable code of the problem err carries, or empty when it carries
-// none. A check wraps its sentinel to add detail, so the code is found through the chain
-// rather than off the error itself.
+// CodeOf returns the stable code of the problem err carries, or empty when it carries none;
+// a check wraps its sentinel to add detail, so the code is found through the chain rather
+// than off the error itself.
 func CodeOf(err error) string {
 	var problem *Problem
 	if errors.As(err, &problem) {
@@ -59,12 +59,12 @@ type Check struct {
 	// Description says what the dependency is for, in terms of what stops working
 	// without it, since that is what tells a reader whether to care.
 	Description string
-	// Needs names the checks that have to pass before this one can be made at all.
-	// One of them failing skips this rather than running it, so a machine with no
-	// Postgres reports that once instead of once per thing that needed it.
+	// Needs names the checks that have to pass before this one can be made at all; one
+	// of them failing skips this rather than running it, so a machine with no Postgres
+	// reports that once instead of once per thing that needed it.
 	Needs []string
-	// Run makes the assertion. It is given the env so a test can answer for a
-	// dependency the machine running the test does not have.
+	// Run makes the assertion, given the env so a test can answer for a dependency the
+	// machine running the test does not have.
 	Run func(context.Context, Env) Result
 }
 
@@ -72,7 +72,7 @@ type Check struct {
 type Result struct {
 	Status Status
 	// Detail is what was actually observed: the version, the resolved path, the
-	// address. It is filled in on success too, since half of what doctor is for is
+	// address; it is filled in on success too, since half of what doctor is for is
 	// saying which tmux and which database it found.
 	Detail string
 	// Err is the problem the check failed with, nil when it did not.
@@ -107,7 +107,7 @@ type Finding struct {
 	Description string `json:"description"`
 	Status      Status `json:"status"`
 	Detail      string `json:"detail,omitempty"`
-	// Code is the stable identifier of the problem, which a script keys on. Error is
+	// Code is the stable identifier of the problem, which a script keys on; Error is
 	// the same problem written for a person.
 	Code  string `json:"code,omitempty"`
 	Error string `json:"error,omitempty"`
@@ -131,9 +131,8 @@ type Summary struct {
 	Healthy bool `json:"healthy"`
 }
 
-// Run makes every check in order and collects the findings. Checks do not depend on each
-// other, so one that fails does not stop the rest: a machine missing three things should
-// say so once rather than over three runs.
+// Run makes every check in order and collects the findings; one failing does not stop the
+// rest, so a machine missing three things says so once rather than over three runs.
 func Run(ctx context.Context, env Env, checks []Check) Report {
 	report := Report{Findings: make([]Finding, 0, len(checks))}
 
@@ -167,11 +166,10 @@ func Run(ctx context.Context, env Env, checks []Check) Report {
 // skipped rather than run against a dependency already known to be missing.
 type conclusions map[string]Status
 
-// run makes one assertion, unless something it needs did not pass. A dependency that was
+// run makes one assertion, unless something it needs did not pass; a dependency that was
 // itself skipped skips this too, so a chain collapses to the one real failure at its head.
-//
-// A check that panics costs its own row and nothing else. The panel runs these to explain
-// why it could not start, so doctor must never be the reason nothing renders.
+// A check that panics costs only its own row, since the panel runs these to explain why it
+// could not start and must never be the reason nothing renders.
 func (c conclusions) run(ctx context.Context, env Env, check Check) (result Result) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
@@ -191,8 +189,8 @@ func (c conclusions) run(ctx context.Context, env Env, check Check) (result Resu
 	return check.Run(ctx, env)
 }
 
-// summarize counts the findings by status. Healthy means nothing failed; a warning is a
-// fact rather than a problem, so it does not make a machine unhealthy.
+// summarize counts the findings by status; healthy means nothing failed, and a warning is a
+// fact rather than a problem, so it does not count against that.
 func summarize(findings []Finding) Summary {
 	summary := Summary{Total: len(findings)}
 

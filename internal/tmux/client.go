@@ -43,7 +43,7 @@ const DefaultSocket = "default"
 
 // NewClient returns a Client bound to a tmux server by socket name, which is how the manager's own server is reached.
 func NewClient(socket string) *Client {
-	return &Client{server: []string{"-L", socket}} // The -L passes commands to a specific socket
+	return &Client{server: []string{"-L", socket}}
 }
 
 // NewClientAtPath returns a Client bound to a tmux server by socket path.
@@ -326,12 +326,9 @@ func (c *Client) ShowGlobal(name string) string {
 }
 
 // SetInfoPane records which pane the panel opened its info region in, and clears it when
-// given nothing. The panel writes it and the service reads it back for an action's
-// environment, so the two agree through tmux rather than through each other.
-//
-// It is written on the server the panel's panes live on. Servers sends SetGlobal to the
-// user's server, where the tmux key binding reads, so a pane id written there would be
-// answered by the wrong machine's option.
+// given nothing, so the panel and the service agree on it through tmux rather than through
+// each other. It is written on the server the panel's panes live on, not the user's, where
+// Servers otherwise sends SetGlobal.
 func (c *Client) SetInfoPane(pane string) {
 	c.SetGlobal(InfoPaneOption, pane)
 }

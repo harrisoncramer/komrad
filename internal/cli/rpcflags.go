@@ -199,9 +199,9 @@ func describeField(field protoreflect.FieldDescriptor) string {
 	return strings.Join(parts, ", ")
 }
 
-// request builds the body to send, starting from the raw JSON when one was given and
-// laying the flags over the top. Only a flag the caller set is written, so a field left
-// alone is absent rather than sent as a zero.
+// request builds the body to send, starting from the raw JSON when one was given and laying
+// the flags over the top; only a flag the caller set is written, so a field left alone is
+// absent rather than sent as a zero.
 func (f *requestFields) request(set *pflag.FlagSet, raw string) (map[string]any, error) {
 	body := map[string]any{}
 	if strings.TrimSpace(raw) != "" {

@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestGet covers what each way of building this binary reports. The panel reuses a server
+// TestGet covers what each way of building this binary reports; the panel reuses a server
 // only when its version matches, so what matters is that every build has one and that two
 // different builds never share it.
 func TestGet(t *testing.T) {

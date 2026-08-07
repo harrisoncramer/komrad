@@ -325,7 +325,6 @@ func TestRunActionWithTheAgentDirectoryGone(t *testing.T) {
 	assert.Equal(t, gone, payload.Cwd, "a script works out what to clean from the path itself")
 }
 
-// actionService builds the service over a temp actions directory, one agent, and one workflow.
 // TestRunSetupAction covers the two things a workflow's setup action decides about a create,
 // which are whether it happens at all and where the agent ends up running.
 func TestRunSetupAction(t *testing.T) {
@@ -886,6 +885,7 @@ func TestActionTimeouts(t *testing.T) {
 	}
 }
 
+// actionService builds the service over a temp actions directory, one agent, and one workflow.
 func actionService(t *testing.T, dir string, runner actionRunner) *ActionService {
 	t.Helper()
 

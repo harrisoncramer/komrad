@@ -59,7 +59,7 @@ func TestRunReportsEveryCheck(t *testing.T) {
 	assert.Equal(t, Summary{OK: 1, Warn: 1, Fail: 1, Total: 3}, report.Summary)
 }
 
-// TestSummaryHealth covers what makes a machine unhealthy. A warning is a fact rather than
+// TestSummaryHealth covers what makes a machine unhealthy: a warning is a fact rather than
 // a problem, and a skip is the consequence of a failure already counted.
 func TestSummaryHealth(t *testing.T) {
 	tests := []struct {
@@ -145,9 +145,9 @@ func TestProblemsAreMatchable(t *testing.T) {
 	assert.NotErrorIs(t, wrapped, ErrTmuxMissing)
 }
 
-// TestRunSurvivesACheckThatPanics covers the promise that matters on the path this is
-// actually used from. The panel runs these to explain why its server would not start, so a
-// bug in one check must cost that check's row and not the whole screen.
+// TestRunSurvivesACheckThatPanics covers the promise that matters most: the panel runs
+// these to explain why its server would not start, so a bug in one check must cost that
+// check's row and not the whole screen.
 func TestRunSurvivesACheckThatPanics(t *testing.T) {
 	report := Run(t.Context(), Env{}, []Check{
 		stub("before", pass("fine")),

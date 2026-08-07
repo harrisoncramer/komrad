@@ -11,7 +11,6 @@ import (
 // resolved from the user's config once, so nothing further down has to know what an omitted
 // key means or which of the two forms a size was written in.
 type Spec struct {
-	// sidebarOnRight puts the panel's own pane right of the stage rather than left of it.
 	sidebarOnRight bool
 	// sidebarSize is how wide the sidebar is, a column count or a percentage of the window.
 	sidebarSize string
@@ -19,7 +18,6 @@ type Spec struct {
 	// remainder to work out, so the stage takes half the window and the resize that follows
 	// settles it.
 	stageSize string
-	// infoAbove opens the info pane over it instead.
 	infoAbove bool
 	// infoSize is how tall that region opens, a row count or a percentage of the stage.
 	infoSize string

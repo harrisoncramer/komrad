@@ -11,8 +11,7 @@ import (
 )
 
 // TestFromHeader covers reading an identity off a request, including the shapes a CLI
-// produces when it has nothing to fill in. The headers are written by a config that names
-// environment variables, so what arrives depends on what the agent's environment held.
+// produces when it has nothing to fill in.
 func TestFromHeader(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -56,9 +55,8 @@ func TestFromHeader(t *testing.T) {
 	}
 }
 
-// TestSetHeaderLeavesOutWhatIsNotKnown covers writing an identity onto a call going out. An
-// empty header is an answer, and the answer it gives is wrong, so a caller that named no
-// agent writes no header at all.
+// TestSetHeaderLeavesOutWhatIsNotKnown covers writing an identity onto a call going out: a
+// caller that named no agent writes no header at all, since an empty header reads as wrong.
 func TestSetHeaderLeavesOutWhatIsNotKnown(t *testing.T) {
 	header := http.Header{}
 	Caller{AgentID: "agent-1"}.SetHeader(header)
@@ -69,8 +67,7 @@ func TestSetHeaderLeavesOutWhatIsNotKnown(t *testing.T) {
 }
 
 // TestTransportForwardsTheServedRequest covers a call the service makes on somebody's
-// behalf. It has to arrive as the agent that asked rather than as the service calling
-// itself, which is what makes both halves of one tool call findable under one id.
+// behalf, which must arrive as the agent that asked rather than as the service itself.
 func TestTransportForwardsTheServedRequest(t *testing.T) {
 	var got http.Header
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -93,8 +90,7 @@ func TestTransportForwardsTheServedRequest(t *testing.T) {
 }
 
 // TestTransportLeavesAnUnattributedCallAlone covers the panel's own calls and anything the
-// service does outside a request. There is nobody to attribute them to, so they go as they
-// were built.
+// service does outside a request, which go as they were built.
 func TestTransportLeavesAnUnattributedCallAlone(t *testing.T) {
 	var got http.Header
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -114,8 +110,7 @@ func TestTransportLeavesAnUnattributedCallAlone(t *testing.T) {
 }
 
 // TestTransportDoesNotEditTheCallersRequest covers the rule a RoundTripper works under: the
-// request belongs to whoever built it. Stamping the original would leave a retried or
-// reused request carrying the identity of whatever was being served the first time.
+// request belongs to whoever built it and must not be stamped in place.
 func TestTransportDoesNotEditTheCallersRequest(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	defer server.Close()
@@ -131,8 +126,8 @@ func TestTransportDoesNotEditTheCallersRequest(t *testing.T) {
 	assert.Empty(t, req.Header.Get(AgentHeader), "the request handed in is left as it was")
 }
 
-// TestContextCarriesTheIdentity covers what an interceptor leaves behind for the handler
-// under it, and what is there outside a request.
+// TestContextCarriesTheIdentity covers what a handler sees on its context, inside and
+// outside a request.
 func TestContextCarriesTheIdentity(t *testing.T) {
 	from := Caller{AgentID: "agent-1", SessionID: "sess-1"}
 	ctx := With(WithTrace(context.Background(), "trace-9"), from)

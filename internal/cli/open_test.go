@@ -33,10 +33,9 @@ func forwardedEnv(t *testing.T, args []string) map[string]string {
 }
 
 // TestBuildManagerSessionArgsForwardsTheEnvironment covers which variables the manager
-// session is created with. The panel and the server it spawns read their settings out of
-// that environment, and a tmux server hands every session the environment it was itself
-// started with, so a variable left out here is one that quietly keeps whatever value some
-// long-gone shell had for it.
+// session is created with; since a tmux server hands every session the environment it was
+// itself started with, a variable left out here quietly keeps whatever value some long-gone
+// shell had for it.
 func TestBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) {
 	state := &app{env: &config.Environment{
 		DatabaseURL:         "postgres://weave@db/weave",
@@ -60,7 +59,7 @@ func TestBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) {
 }
 
 // TestBuildManagerSessionArgsCarriesTheConfigPath covers the panel being told which config
-// file to read. It loads the file itself rather than being handed what this process parsed,
+// file to read: it loads the file itself rather than being handed what this process parsed,
 // so a path left off here is a panel reading the default while the caller named another.
 func TestBuildManagerSessionArgsCarriesTheConfigPath(t *testing.T) {
 	tests := []struct {

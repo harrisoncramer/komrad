@@ -331,9 +331,7 @@ func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	return m, m.writeCmd(failure, func(a api) error { return a.setHidden(agent, !agent.Hidden) })
 }
 
-// dormantPlaceholder is what the chat window shows in place of a pane for an agent with
-// none running, the record's own notice and footer word for word, so the main pane and the
-// record agree on what dormant means and how to leave it.
+// dormantPlaceholder must match the record's own dormant notice and footer word for word.
 const dormantPlaceholder = "_dormant — not running_\n\nPress open to resume."
 
 func (m *model) stageSelection() {

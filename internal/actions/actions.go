@@ -116,11 +116,9 @@ func Discover(dir string) ([]Action, error) {
 
 // RunParams is what starting an action takes.
 type RunParams struct {
-	// The information about the actual action.
 	Action Action
 	// Dir is where the process starts, and Env goes over the current environment.
 	Dir string
-	// The environment values passed to the process, from the parent environment.
 	Env []string
 	// Timeout is how long the process gets before its group is killed, and zero is no limit.
 	// It is the caller's rather than the header's, so what an undeclared one falls back to is
@@ -181,7 +179,6 @@ func (r Runner) Run(p RunParams) error {
 		return fmt.Errorf("failed to run action %s: %w: %v", p.Action.Name, ErrNotStartable, err)
 	}
 
-	// Run command in the background, send it's outcome to the Done helper.
 	go func() {
 		defer logging.LogAndRepanic(context.Background())
 		defer cancel()
@@ -308,7 +305,6 @@ func (t *tail) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// kept returns the bytes that survived the cap.
 func (t *tail) kept() []byte {
 	return t.buf.Bytes()
 }

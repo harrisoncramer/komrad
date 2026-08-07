@@ -1,8 +1,5 @@
-// Package cli builds the weave command tree and wires its dependencies.
-//
-// This file holds the root command and nothing else. Each subcommand lives in its
-// own file named for it, holding that command and only the helpers it uses. The
-// shared state lives in app.go instead.
+// Package cli builds the weave command tree and wires its dependencies. This file holds the
+// root command; each subcommand lives in its own file named for it, with shared state in app.go.
 package cli
 
 import (
@@ -24,9 +21,6 @@ import (
 // NewRootCommand builds the weave command tree. Running it with no
 // subcommand opens the panel.
 func NewRootCommand() *cobra.Command {
-
-	// The app holds basically all of our application state, which drives the CLI commands and the bubbletea models.
-	// It's state is set by the root command which precedes every other subcommand in weave.
 
 	app := &app{}
 
@@ -50,9 +44,8 @@ func NewRootCommand() *cobra.Command {
 
 			configPaths = resolveConfigPaths(configPaths)
 
-			// The files come first, since the environment resolves on top of them and a
-			// config that will not parse has to stop most commands before anything opens a
-			// database on the built-in defaults.
+			// Files load before the environment resolves on top of them, so a config that will
+			// not parse can stop most commands before the built-in defaults open a database.
 			cfg, report, err := config.LoadWithReport(configPaths)
 			if err != nil {
 				if isConfigFatal(cmd) {
@@ -76,7 +69,7 @@ func NewRootCommand() *cobra.Command {
 				TrustLaunchDirs: cfg.Harness.Codex.TrustLaunchDirs,
 			})
 			claudeHarness := claude.NewHarness(claude.NewHarnessParams{
-				ProjectsDir: claude.DefaultProjectsDir(), // TBD, let folks give different claude dir?
+				ProjectsDir: claude.DefaultProjectsDir(),
 			})
 
 			harnessRegistry, err := harness.NewRegistry(claudeHarness, codexHarness)
@@ -99,10 +92,9 @@ func NewRootCommand() *cobra.Command {
 			app.defaultHarness = cfg.DefaultHarness
 			app.maxAgents = cfg.MaxAgents
 
-			//  A tmux server is one long-lived process that owns sessions, windows, and panes. You reach it through a unix socket.
-			//  Every tmux command you run is a short-lived client process that connects to that socket.
-			//  Weave starts a second server, and connects to it with a client (called manager). Any command issued through the manager will be routed to
-			//  that other tmux server. This is why nothing in your regular tmux server can see weave sessions or state. To see them, run `tmux -L weave ls`
+			// Weave connects to its own tmux server through the manager client, so commands are
+			// routed to that socket rather than the user's own; that separation is why weave
+			// sessions are invisible to a normal tmux ls (run `tmux -L weave ls` to see them).
 
 			manager := tmux.NewClient(env.TmuxSocket)
 			app.host = tmux.NewHost(manager, env.Tmux)
@@ -112,14 +104,14 @@ func NewRootCommand() *cobra.Command {
 			contextPath, err := cfg.GetContextFile()
 			if err != nil {
 				ctx := cmd.Context()
-				// Only reached when the config directory cannot be worked out at all. Agents
-				// then start with no standing context, which is worth a line rather than a
-				// silent difference in what every agent is told.
+				// Only reached when the config directory cannot be worked out at all; agents
+				// then start with no standing context, worth a log line rather than a silent
+				// difference in what every agent is told.
 				logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "failed to resolve the context file", logging.Err(err)...)
 			}
 
 			app.contextPath = contextPath
-			app.defaultFlags = map[string]string{ // Set up default flags for the harnesses provided by the user in their config file.
+			app.defaultFlags = map[string]string{
 				claudeHarness.GetID(): cfg.Harness.Claude.Flags,
 				codexHarness.GetID():  cfg.Harness.Codex.Flags,
 			}
@@ -145,6 +137,7 @@ func NewRootCommand() *cobra.Command {
 		readonlyRoleCmd(app),
 		rpcCmd(app),
 		hookCmd(app),
+		traceCmd(app),
 		paletteCmd(app),
 	)
 

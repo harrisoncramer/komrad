@@ -18,10 +18,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeServe writes a script that stands in for the serve subcommand, logging what it
-// is given and then failing. It is used in place of the real binary so the tests
-// never need a database, and it always fails because a server that starts cleanly is
-// not what any of these cases is about.
+// fakeServe writes a script that stands in for the serve subcommand, printing the given
+// output and then failing; it is used in place of the real binary so the tests never need a
+// database, and it always fails since a server that starts cleanly is not what these cases
+// are about.
 func fakeServe(t *testing.T, output string) string {
 	t.Helper()
 
@@ -32,9 +32,9 @@ func fakeServe(t *testing.T, output string) string {
 	return path
 }
 
-// fakeServeEchoingArgs is fakeServe for the cases about what the spawned server was
-// called with. It writes its own arguments where the reason for dying would go, so the
-// command line comes back through the error the same way a failure does.
+// fakeServeEchoingArgs is fakeServe for the cases about what the spawned server was called
+// with: it writes its own arguments where the reason for dying would go, so the command line
+// comes back through the error the same way a failure does.
 func fakeServeEchoingArgs(t *testing.T) string {
 	t.Helper()
 
@@ -120,11 +120,10 @@ func freeAddr(t *testing.T) string {
 	return addr
 }
 
-// TestEnsureServerReportsWhyItDied covers that a server which exits during startup
-// is reported with the reason it logged. The reason is written to a file by a
-// process this one cannot see into, so without reading it back the caller has only
-// the address that never answered, which says nothing about an unreachable
-// database.
+// TestEnsureServerReportsWhyItDied covers that a server which exits during startup is
+// reported with the reason it logged, since the reason is written to a file by a process
+// this one cannot see into, and without reading it back the caller has only an address that
+// never answered.
 func TestEnsureServerReportsWhyItDied(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 	self := fakeServe(t, "failed to reach db: connection refused")
@@ -135,9 +134,9 @@ func TestEnsureServerReportsWhyItDied(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to reach db: connection refused")
 }
 
-// TestEnsureServerIgnoresOlderLogLines covers that only what this server wrote is
-// reported. The log is appended to across every run, so the previous run's failure
-// is sitting above the current one and would otherwise be read as the reason.
+// TestEnsureServerIgnoresOlderLogLines covers that only what this server wrote is reported:
+// the log is appended to across every run, so the previous run's failure sits above the
+// current one and would otherwise be read as the reason.
 func TestEnsureServerIgnoresOlderLogLines(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 	require.NoError(t, os.WriteFile(logPath, []byte("failed to migrate db: an older run\n"), 0o644))
@@ -151,9 +150,9 @@ func TestEnsureServerIgnoresOlderLogLines(t *testing.T) {
 	assert.NotContains(t, err.Error(), "an older run")
 }
 
-// TestEnsureServerWithoutAReason covers a server that dies saying nothing. The
-// error still has to point at the log, since a message with no reason in it and no
-// idea where to look for one is not worth reading.
+// TestEnsureServerWithoutAReason covers a server that dies saying nothing: the error still
+// has to point at the log, since a message with no reason and nowhere to look is not worth
+// reading.
 func TestEnsureServerWithoutAReason(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 	self := fakeServe(t, "")
@@ -164,9 +163,9 @@ func TestEnsureServerWithoutAReason(t *testing.T) {
 	assert.Contains(t, err.Error(), logPath)
 }
 
-// TestEnsureServerWithAnUnwritableLog covers a log that cannot be opened. Nothing
-// is spawned, since a server whose output goes nowhere is one whose failure cannot
-// be reported at all, and the reader is told which path could not be opened.
+// TestEnsureServerWithAnUnwritableLog covers a log that cannot be opened: nothing is
+// spawned, since a server whose output goes nowhere is one whose failure cannot be reported
+// at all, and the reader is told which path could not be opened.
 func TestEnsureServerWithAnUnwritableLog(t *testing.T) {
 	// A regular file where a directory is expected, so making the log's parent fails.
 	blocked := filepath.Join(t.TempDir(), "not-a-directory")
@@ -184,10 +183,9 @@ func TestEnsureServerWithAnUnwritableLog(t *testing.T) {
 	assert.Contains(t, err.Error(), logPath, "the path that could not be opened is named")
 }
 
-// TestEnsureServerCarriesTheConfigPath covers the spawned server being told which config
-// file to read. It loads the file for itself rather than being handed what this process
-// parsed, so a path left off here is a server serving out of a different file than the one
-// the caller named.
+// TestEnsureServerCarriesTheConfigPath covers the spawned server being told which config file
+// to read: it loads the file for itself rather than being handed what this process parsed, so
+// a path left off here serves out of a different file than the one the caller named.
 func TestEnsureServerCarriesTheConfigPath(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -230,7 +228,7 @@ func TestEnsureServerCarriesTheConfigPath(t *testing.T) {
 }
 
 // TestEnsureServerReusesItsOwnBuild covers that nothing is spawned when this build is already
-// serving, so opening a second panel does not start a second server. A database that is down
+// serving, so opening a second panel does not start a second server; a database that is down
 // is still this build, so it is waited for rather than replaced.
 func TestEnsureServerReusesItsOwnBuild(t *testing.T) {
 	tests := []struct {
@@ -289,7 +287,7 @@ func TestEnsureServerReplacesAnotherBuild(t *testing.T) {
 		"the server that was there is stopped and a new one started over it")
 }
 
-// TestProbeServer covers what the panel decides on. Ready is more than a bound socket, since
+// TestProbeServer covers what the panel decides on: ready is more than a bound socket, since
 // the server listens before it can reach its database.
 func TestProbeServer(t *testing.T) {
 	tests := []struct {

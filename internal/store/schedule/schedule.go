@@ -230,7 +230,6 @@ func (s *Store) CountLive(ctx context.Context, workflowID string) (int64, error)
 	return count, nil
 }
 
-// scheduleFromRow builds a Schedule from its row.
 func scheduleFromRow(s models.Schedule) Schedule {
 	return Schedule{
 		ID:         s.ID,

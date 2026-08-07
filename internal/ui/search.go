@@ -14,26 +14,22 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// searchState is the search screen, the live query with its hits and which one is
-// hovered. The query line has the keys for as long as the screen is up, taking them whole so
-// a letter bound elsewhere still types, and the arrows walk the hits under it.
 type searchState struct {
 	query  string
 	hits   []searchHit
 	cursor int
 }
 
-// searchLimit caps how many hits a query returns. The screen shows one page and offers no
-// way to ask for another, so the returned page token is ignored.
+// searchLimit caps how many hits a query returns; the screen shows one page, so the
+// returned page token is ignored.
 const searchLimit = 10
 
 // searchDebounce is how long typing has to pause before the query runs, long enough to
 // swallow a burst and short enough that a pause still feels answered immediately.
 const searchDebounce = 120 * time.Millisecond
 
-// searchHit is one result of a transcript search. The snippet carries the match wrapped in
-// the store's markers, and offset is where the turn sits in the full transcript so the
-// preview can scroll to it.
+// searchHit is one result of a transcript search; snippet carries the match wrapped in the
+// store's markers, and offset locates the turn in the full transcript for the preview.
 type searchHit struct {
 	agentID  string
 	name     string
@@ -43,8 +39,7 @@ type searchHit struct {
 }
 
 // searchSettledMsg fires once typing has paused for searchDebounce, carrying the query
-// current when the pause began, so a keystroke during the wait leaves it stale and it is
-// dropped rather than queried for.
+// current when the pause began, so a keystroke during the wait leaves it stale and dropped.
 type searchSettledMsg struct {
 	query string
 }
@@ -56,10 +51,8 @@ type searchResult struct {
 	hits  []searchHit
 }
 
-// previewResult carries a hovered hit's full transcript back for the preview. The agent id
-// and query are echoed so a response arriving after either moved on is discarded rather
-// than staged over the wrong hit, and the offset is the hit's own, so the preview centres
-// on the turn that matched rather than wherever the words first appear.
+// previewResult carries a hovered hit's transcript back for the preview; agentID and query
+// are echoed to discard stale responses, and offset centers the preview on the matched turn.
 type previewResult struct {
 	agentID string
 	query   string
@@ -67,8 +60,6 @@ type previewResult struct {
 	content string
 }
 
-// enterSearch switches to the search screen with an empty query, blanking the
-// stage until the first result is hovered.
 func (m model) enterSearch() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenSearch)
 	m.closeRecord()
@@ -81,7 +72,7 @@ func (m model) enterSearch() (tea.Model, tea.Cmd) {
 }
 
 // debounceSearchCmd waits out searchDebounce before the query runs, so a burst of typing
-// costs one request rather than one per key. A blank query clears the results at once.
+// costs one request rather than one per key.
 func (m model) debounceSearchCmd(query string) tea.Cmd {
 	if strings.TrimSpace(query) == "" {
 		return func() tea.Msg { return searchResult{query: query} }
@@ -92,8 +83,6 @@ func (m model) debounceSearchCmd(query string) tea.Cmd {
 	})
 }
 
-// runSettledSearch runs a debounced query, unless the user typed on during the wait, in
-// which case that keystroke has its own pause to sit out.
 func (m model) runSettledSearch(msg searchSettledMsg) tea.Cmd {
 	if msg.query != m.search.query {
 		return nil
@@ -103,7 +92,7 @@ func (m model) runSettledSearch(msg searchSettledMsg) tea.Cmd {
 }
 
 // searchCmd runs the query over the service off the UI goroutine, so typing never blocks
-// on the RPC. A blank query gives no hits without a call.
+// on the RPC.
 func (m model) searchCmd(query string) tea.Cmd {
 	client := m.api.agents
 
@@ -138,8 +127,8 @@ func (m model) searchCmd(query string) tea.Cmd {
 	}
 }
 
-// applySearch installs hits for the current query and returns a command to load the
-// hovered hit's transcript preview. A result for a stale query is ignored.
+// applySearch installs hits for the current query and loads the hovered hit's preview; a
+// result for a stale query is ignored.
 func (m *model) applySearch(result searchResult) tea.Cmd {
 	if result.query != m.search.query {
 		return nil
@@ -181,8 +170,8 @@ func (m model) previewCmd(hit searchHit) tea.Cmd {
 	}
 }
 
-// applyPreview stages a loaded transcript centered on the match, ignoring a
-// response that no longer matches the hovered hit or the current query.
+// applyPreview ignores a response that no longer matches the hovered hit or the current
+// query.
 func (m *model) applyPreview(result previewResult) {
 	if result.query != m.search.query {
 		return
@@ -200,7 +189,6 @@ func (m *model) applyPreview(result previewResult) {
 // the pane answers rather than sitting blank on a hit whose transcript has since gone.
 const noTranscriptMarkdown = "_no transcript yet_"
 
-// stageTranscript shows a conversation in the stage, opened at the matched line.
 func (m *model) stageTranscript(conversation string, line int) {
 	if strings.TrimSpace(conversation) == "" {
 		m.frame.Show(layout.RegionStage, newTextContent(noTranscriptMarkdown))
@@ -211,10 +199,9 @@ func (m *model) stageTranscript(conversation string, line int) {
 	m.frame.Show(layout.RegionStage, newTranscriptContent(conversation, line))
 }
 
-// updateSearch drives the search screen, which owns every key except the arrows, since a
-// configurable letter would otherwise type rather than act. esc leaves the screen outright:
-// it is the one key that means back everywhere else in the panel, and a press that only shut
-// the line over its own results read as the key doing nothing.
+// updateSearch owns every key except the arrows, since a configurable letter would
+// otherwise type rather than act; esc still leaves the screen, since it means back
+// everywhere else in the panel.
 func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -245,8 +232,6 @@ func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// moveSearchCursor steps to the next result and loads its transcript, doing nothing at either
-// end of the list.
 func (m model) moveSearchCursor(delta int) (tea.Model, tea.Cmd) {
 	next, ok := stepCursor(m.search.cursor, delta, len(m.search.hits))
 	if !ok {
@@ -258,15 +243,13 @@ func (m model) moveSearchCursor(delta int) (tea.Model, tea.Cmd) {
 	return m, m.previewCmd(m.search.hits[next])
 }
 
-// hoveredHit is the result under the cursor, or false when the query found nothing.
 func (m model) hoveredHit() (searchHit, bool) {
 	return rowAt(m.search.hits, m.search.cursor)
 }
 
-// jumpToSearchHit leaves the search on the row the hovered result belongs to, the agents tree
-// for a live conversation and the archive for one put away. Nothing is resumed or restored on
-// the way, since a search says where something is and the screen it lands on is where it is
-// acted on.
+// jumpToSearchHit lands on the agents tree for a live conversation or the archive for one
+// put away, without resuming or restoring anything, since a search only says where
+// something is.
 func (m model) jumpToSearchHit() (tea.Model, tea.Cmd) {
 	hit, ok := m.hoveredHit()
 	if !ok {
@@ -286,8 +269,6 @@ func (m model) jumpToSearchHit() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// searchView renders the search screen's own pane. The query line sits above the list of
-// matching agents, each with a one-line snippet of its match.
 func (m model) searchView() string {
 	var b strings.Builder
 	b.WriteString(headerStyle.Render("Search") + "\n\n")

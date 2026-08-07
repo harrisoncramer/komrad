@@ -12,14 +12,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestListAll covers the loop every listing pages through, which is the one place
-// a page token is followed. A caller asks for everything and has only the returned
-// slice to go on, so a listing that stopped early has to say so rather than hand
-// back the part it managed.
+// TestListAll covers the loop every listing pages through: a caller asks for
+// everything and has only the returned slice to go on, so a listing that stopped
+// early has to say so rather than hand back the part it managed.
 func TestListAll(t *testing.T) {
 	tests := []struct {
 		name string
-		// pages are the records each successive call returns. A token is handed back
+		// pages are the records each successive call returns; a token is handed back
 		// after every page but the last.
 		pages [][]string
 		// failOn, when positive, is the call that fails instead of answering.

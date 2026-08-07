@@ -242,7 +242,6 @@ func (f *Frame) claimStage() {
 	f.forget(RegionInfo)
 }
 
-// splitStage puts the stage on whichever side of the sidebar the config left for it.
 func (f *Frame) splitStage() string {
 	if f.spec.sidebarOnRight {
 		return f.tmux.SplitLeft(f.sidebar, getHomeDir(), f.spec.stageSize)

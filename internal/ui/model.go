@@ -183,9 +183,8 @@ type model struct {
 	keys  config.Keybindings
 	marks []config.Mark
 	// logPath is the service's log and logViewer is what the log key opens it in.
-	logPath   string
-	logViewer string
-	// activeRecord is whatever record is currently on screen.
+	logPath      string
+	logViewer    string
 	activeRecord record
 	// recordRegion is which region of the frame activeRecord is drawn in, so a flash and
 	// its eventual revert redraw the right one.

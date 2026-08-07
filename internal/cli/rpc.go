@@ -103,8 +103,8 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 	return cmd
 }
 
-// requireServer refuses the call when nothing is serving. Starting one as a side effect
-// would leave a daemon behind whichever command happened to run first, so bringing the
+// requireServer refuses the call when nothing is serving, since starting one as a side
+// effect would leave a daemon behind whichever command happened to run first; bringing the
 // server up stays weave start's job.
 func requireServer(addr string) error {
 	if probeServer(addr).answering {
@@ -123,7 +123,7 @@ type callRPCParams struct {
 	Request map[string]any
 }
 
-// callRPC posts the request to the service's Connect endpoint. Going over HTTP rather than
+// callRPC posts the request to the service's Connect endpoint; going over HTTP rather than
 // through a generated client per service is what lets one function serve every RPC.
 func callRPC(ctx context.Context, params callRPCParams) ([]byte, error) {
 	body, err := json.Marshal(params.Request)

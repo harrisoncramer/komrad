@@ -13,9 +13,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// archiveState is the archive screen, the same tree of folders and agents the agents
-// screen draws over what has been put away. Both listings are their own rather than a
-// filter over the tree's, which holds the live rows only. Its focus is a raw agent id
+// archiveState holds the archive's own tree and cursor. Its focus is a raw agent id
 // rather than a row key, since the archive draws no header worth landing a jump on.
 type archiveState struct {
 	agents    []agentstore.Agent
@@ -23,9 +21,8 @@ type archiveState struct {
 	rowCursor
 }
 
-// enterArchive switches to the archive, what has been put away. It is its own screen
-// rather than a section of the agents tree because an archived agent is not
-// something to act on alongside live work.
+// enterArchive is its own screen rather than a section of the agents tree, since an
+// archived agent is not something to act on alongside live work.
 func (m model) enterArchive() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenArchive)
 	m.closeRecord()
@@ -34,13 +31,12 @@ func (m model) enterArchive() (tea.Model, tea.Cmd) {
 	return m, m.refreshCmd()
 }
 
-// archiveRows is the archive's tree as it is drawn, less whatever the filter holds back.
 func (m model) archiveRows() []agentRow {
 	return m.filter.filterAgentRows(m.allArchiveRows())
 }
 
-// allArchiveRows is the whole archive. Nothing in it is alive, since archiving kills the pane,
-// and the hidden agents keep their rows, since the archive shows all it holds.
+// allArchiveRows returns every archived row, including hidden agents, since the archive
+// shows everything it holds.
 func (m model) allArchiveRows() []agentRow {
 	items := xslice.Map(m.archive.agents, func(agent agentstore.Agent) agentItem { return agentItem{agent: agent} })
 
@@ -81,11 +77,9 @@ func (m model) archiveHeaders() []workflowstore.Workflow {
 }
 
 // applyArchive takes freshly-listed sets as the on-screen archive, keeping the cursor on
-// the row selected names rather than on its index, so a row removed above it does not move
-// the selection onto something else.
-//
-// The caller reads selected before the pass starts landing, since the archive draws headers
-// for live folders too and those are replaced ahead of it.
+// the row's selected name rather than its index, so a row removed above it does not move
+// the selection onto something else. The caller must read selected before this lands, since
+// the archive's live-folder headers are replaced here too.
 func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstore.Workflow, selected string) {
 	m.archive.agents, m.archive.workflows = agents, workflows
 
@@ -112,8 +106,6 @@ func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstor
 	m.archive.cursor = clampCursor(m.archive.cursor, len(rows))
 }
 
-// updateArchive drives the archive. Nav moves the selection and restages, restore puts
-// the hovered row back in the panel, and delete asks before destroying an agent.
 func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -170,10 +162,9 @@ func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// updateArchiveSelection is what the archive still answers while a selection is up. Restore
-// and delete act on the whole selection rather than on the row under the cursor, and the
-// folder restore stands down, since a folder the cursor happens to rest on is not what the
-// user chose.
+// updateArchiveSelection acts on the whole selection rather than the row under the cursor;
+// folder restore is disabled here since a folder the cursor rests on isn't necessarily what
+// was chosen.
 func (m model) updateArchiveSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -193,8 +184,6 @@ func (m model) updateArchiveSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// moveArchiveCursor steps the archive cursor and restages what it lands on, doing nothing at
-// either end of the list.
 func (m model) moveArchiveCursor(delta int) model {
 	next, ok := m.archive.move(delta, len(m.archiveRows()))
 	if !ok {
@@ -207,8 +196,6 @@ func (m model) moveArchiveCursor(delta int) model {
 	return m
 }
 
-// jumpArchiveCursor puts the archive cursor on a row by index, clamped to the list, which is
-// how each end of it is reached.
 func (m model) jumpArchiveCursor(idx int) model {
 	next, ok := m.archive.jump(idx, len(m.archiveRows()))
 	if !ok {
@@ -233,8 +220,8 @@ func (m model) selectedArchived() (agentstore.Agent, bool) {
 }
 
 // hoveredArchivedWorkflow returns the archived workflow whose header the cursor is on. A
-// live folder's header answers false, since it is drawn here to hold the agents put away
-// out of it and there is nothing about the folder itself to bring back.
+// live folder's header answers false, since it's drawn here only to hold agents put away
+// out of it, not to be brought back itself.
 func (m model) hoveredArchivedWorkflow() (workflowstore.Workflow, bool) {
 	workflow, ok := hoveredHeader(m.archiveRows(), m.archive.cursor)
 	if !ok || workflow.ArchivedAt == nil {
@@ -245,12 +232,8 @@ func (m model) hoveredArchivedWorkflow() (workflowstore.Workflow, bool) {
 }
 
 // restoreFromArchive puts whatever the cursor is on back in the panel, dormant. A folder
-// carries the agents archived inside it, the way one out of the trash carries its files,
-// and an agent comes back on its own. Either way their conversations come back when the
-// rows are opened from the tree.
-//
-// An agent may return renamed if a live one has taken its name, and it leaves the archive
-// either way, so the list is re-read.
+// brings back the agents archived inside it; an agent comes back on its own. An agent may
+// return renamed if a live one has taken its name, so the list is re-read afterward.
 func (m model) restoreFromArchive() (tea.Model, tea.Cmd) {
 	if workflow, ok := m.hoveredArchivedWorkflow(); ok {
 		return m, m.writeCmd(
@@ -295,10 +278,9 @@ func (m model) deleteFromArchiveConfirm(agents []agentstore.Agent) (tea.Model, t
 	return m, m.form.Init()
 }
 
-// updateArchiveDelete drives the delete prompt. Confirming destroys the agent,
-// declining and aborting leave it in the archive, and all three return to the
-// archive rather than to the agents list, since that is where the key was pressed.
-// Re-entering re-reads the list, so a destroyed agent is gone from it.
+// updateArchiveDelete returns to the archive rather than the agents list, since that's
+// where the key was pressed. Re-entering re-reads the list, so a destroyed agent is gone
+// from it.
 func (m model) updateArchiveDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m.updateConfirmForm(msg, confirmFormActions{
 		write: func(m model) tea.Cmd {
@@ -349,7 +331,6 @@ func (m model) archivedCount(workflowID string) int {
 	return xslice.Count(m.archive.agents, func(agent agentstore.Agent) bool { return agent.WorkflowID == workflowID })
 }
 
-// archiveView renders the archive's own pane, the tree of what has been put away.
 func (m model) archiveView() string {
 	help := "\n" + m.renderHelp(m.archiveHelp())
 

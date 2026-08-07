@@ -9,8 +9,8 @@ import (
 	"weave/internal/harness"
 )
 
-// The ways tmux can be wrong. Each is a code a script can switch on, so the wording here
-// can change without breaking a caller.
+// The ways tmux can be wrong, each its own code so the wording can change without breaking
+// a caller that switches on it.
 var (
 	ErrTmuxMissing = &Problem{
 		Code:    "tmux_missing",
@@ -38,11 +38,11 @@ var (
 	}
 )
 
-// minTmux is the oldest tmux the panel's key binding works on. display-popup arrived in
+// minTmux is the oldest tmux the panel's key binding works on: display-popup arrived in
 // 3.2, but the binding passes it -T for the popup title, which arrived in 3.3.
 var minTmux = tmuxVersion{major: 3, minor: 3}
 
-// TmuxBinary asserts tmux is installed. The popup, the agent panes, and the manager server
+// TmuxBinary asserts tmux is installed; the popup, the agent panes, and the manager server
 // are all tmux, so nothing works without it.
 func TmuxBinary() Check {
 	return Check{
@@ -61,11 +61,10 @@ func TmuxBinary() Check {
 	}
 }
 
-// TmuxVersion asserts the installed tmux is new enough for the key binding.
-//
-// A version that will not parse is a warning rather than a failure. tmux forks spell it
-// their own way, OpenBSD's reports the OS release instead, and refusing to start against
-// one of those is worse than being wrong about a version that probably works.
+// TmuxVersion asserts the installed tmux is new enough for the key binding. A version that
+// will not parse is a warning rather than a failure, since tmux forks spell it their own
+// way and OpenBSD's reports the OS release instead, and refusing to start over one of those
+// is worse than being wrong about a version that probably works.
 func TmuxVersion() Check {
 	return Check{
 		Name:        "tmux version",
@@ -99,7 +98,7 @@ func TmuxVersion() Check {
 	}
 }
 
-// tmuxVersion is a tmux release. The letter tmux appends to a point release is dropped,
+// tmuxVersion is a tmux release; the letter tmux appends to a point release is dropped,
 // since one has never added or removed a command.
 type tmuxVersion struct {
 	major int
@@ -155,14 +154,10 @@ func parseTmuxVersion(reported string) (tmuxVersion, error) {
 }
 
 // TmuxShell asserts the shell tmux starts agent panes with can parse the command that
-// starts an agent.
-//
-// A shell that cannot parse a command substitution leaves the agent as a syntax error. The
-// service refuses to start rather than let that happen, so what a user sees is a panel that
-// will not open.
-//
-// The option is read off a server already running rather than one started to ask, since
-// starting a server would be doctor changing the machine it is describing.
+// starts an agent; a shell that cannot leaves the agent as a syntax error, which the service
+// refuses to start over, so what a user sees is a panel that will not open. The option is
+// read off a server already running rather than one started to ask, since starting a server
+// would be doctor changing the machine it is describing.
 func TmuxShell() Check {
 	return Check{
 		Name:        "tmux shell",
@@ -194,11 +189,9 @@ func TmuxShell() Check {
 }
 
 // readTmuxDefaultShell reads default-shell off whichever tmux server is already up, and
-// says which answered. No server to ask and an unset option are different facts, so the
-// first is a problem rather than an empty answer.
-//
-// Weave's own server goes first because that is where agent panes open. The user's is the
-// fallback and answers the same unless the two were configured differently.
+// says which answered; no server to ask and an unset option are different facts, so the
+// first is a problem rather than an empty answer. Weave's own server goes first since that
+// is where agent panes open, and the user's is the fallback.
 func readTmuxDefaultShell(ctx context.Context, env Env) (shell, from string, err error) {
 	servers := []struct {
 		name string

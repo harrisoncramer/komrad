@@ -57,7 +57,6 @@ const defaultPanelKey = "g"
 // the panel key.
 const paletteKeyOption = "@weave_palette_key"
 
-// defaultPaletteKey is the palette key when the user has chosen none.
 const defaultPaletteKey = "k"
 
 // The popup the palette is drawn in, wide enough for an action's description and tall enough

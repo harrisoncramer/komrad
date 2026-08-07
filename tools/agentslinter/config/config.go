@@ -8,11 +8,9 @@ type Config struct {
 }
 
 type CommentPrefixConfig struct {
-	// Whether to skip running the comment prefix linter.
 	Skip bool `json:"skip"`
 }
 
 type ForbidGetenvConfig struct {
-	// Whether to skip running the forbid getenv linter.
 	Skip bool `json:"skip"`
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// connectTimeout bounds reaching a database. A Postgres that has not answered in this long
+// connectTimeout bounds reaching a database; a Postgres that has not answered in this long
 // is one the panel would fail to start against anyway.
 const connectTimeout = 5 * time.Second
 
@@ -37,11 +37,10 @@ func readPendingMigrations(ctx context.Context, url string) ([]string, error) {
 	return db.Pending(ctx, pool)
 }
 
-// openReadOnlyPool opens the writable login without letting it write.
-//
-// This is deliberately not store.Open, which applies the migrations on the way in. Doctor
-// reports whether the schema is behind, and a check that fixed what it was measuring could
-// never report it. The flag rides on the connection, so the guarantee is Postgres's.
+// openReadOnlyPool opens the writable login without letting it write. This is deliberately
+// not store.Open, which applies migrations on the way in: a check that fixed the schema it
+// was measuring could never report it behind, so the read-only flag rides on the
+// connection, making Postgres the one enforcing it.
 func openReadOnlyPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
 	defer cancel()

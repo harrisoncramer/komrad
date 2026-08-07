@@ -9,18 +9,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// attachCmd shows the running panel in the terminal it was typed in rather than in the popup
-// the panel key opens. It is the same session either way, so the panel keeps its place and the
-// agents in it carry on.
-//
-// It refuses rather than creating the session, unlike open, because this is a second way to
-// look at a panel that is running and not a second way to start one. A command that quietly
-// brought up a service and its database connections because somebody typed it in the wrong
-// terminal is worse than a sentence saying nothing is up.
-//
-// The popup's open flag is left alone. It records whether the popup is showing, the key binding
-// reads it to choose between opening and hiding, and an attach in a terminal is neither of
-// those. Writing it here would leave the key hiding a popup that was never up.
+// attachCmd shows the running panel in the terminal it was typed in, on the same session the
+// panel key opens; it refuses rather than starting one, since this is a second way to look at
+// a running panel, not a second way to start it. It leaves the popup's open flag alone, since
+// that flag is what the panel key reads to choose between opening and hiding, and an attach in
+// a terminal is neither.
 func attachCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "attach",
@@ -40,10 +33,8 @@ func attachCmd(state *app) *cobra.Command {
 					"press the panel key, or run `weave open`, to start it")
 			}
 
-			// Only when this terminal is a pane on the user's own server, which is the one case
-			// where an attach knows a server to reach back to. Outside tmux there is nothing to
-			// record, and whatever a previous open recorded is left as it was rather than
-			// cleared, since a server that can still answer beats none at all.
+			// Only recorded when this terminal is a pane on the user's own server; outside
+			// tmux nothing is cleared, since a server that can still answer beats none at all.
 			if socket := tmux.SocketFromEnv(state.env.Tmux); socket != "" {
 				state.host.Record(socket)
 				state.popup.SetInvokingClient(invokingClient(socket, tmux.SessionFromEnv(state.env.Tmux)))

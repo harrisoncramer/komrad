@@ -1,9 +1,8 @@
-// Package errui renders the panel's errors. Every failure is built here rather than
-// formatted wherever it was noticed, so they all read the same: a red headline, prose
-// saying what it means for what is on screen, the machine detail, and dim closing hints.
-//
-// It holds the presentation and nothing about the panel's state, so what a screen says
-// cannot depend on which part of the panel built it.
+// Package errui renders the panel's errors: every failure is built here rather than
+// formatted wherever it was noticed, so they all read the same, a red headline, prose
+// saying what it means for what's on screen, the machine detail, and dim closing hints. It
+// holds the presentation and nothing about the panel's state, so what a screen says cannot
+// depend on which part of the panel built it.
 package errui
 
 import (
@@ -29,12 +28,12 @@ var (
 type Screen struct {
 	// Title is the headline, the one line saying what is wrong.
 	Title string
-	// Body explains what the failure means for the panel, one entry per paragraph. Each
-	// is folded to the width, so a paragraph is written as one string rather than broken
-	// by hand into lines that fit only one pane.
+	// Body explains what the failure means for the panel, one entry per paragraph, each
+	// folded to the width so a paragraph is written as one string rather than broken by
+	// hand into lines that fit only one pane.
 	Body []string
 	// Details are the labelled facts worth reading exactly, such as an address or the
-	// underlying error. Long values wrap under their label.
+	// underlying error, and long values wrap under their label.
 	Details []Detail
 	// Hints close the screen with what to do about it.
 	Hints []string
@@ -48,11 +47,10 @@ type Detail struct {
 	Value string
 }
 
-// Render lays the screen out, separating sections only when they have content.
-//
-// Everything is folded to the pane, prose included, because the renderer above the panel
-// cuts a line that overruns rather than wrapping it, and what is lost at the pane edge is
-// the tail of the line, which on a hint is the command it was naming.
+// Render lays the screen out, separating sections only when they have content. Everything
+// is folded to the pane, prose included, since the renderer above the panel cuts a line
+// that overruns rather than wrapping it, and what's lost at the edge is the tail of the
+// line, which on a hint is the command it was naming.
 func (s Screen) Render() string {
 	width := foldWidth(s.Width)
 
@@ -92,13 +90,13 @@ const maxWidth = 120
 // labelWidth is the column values line up in.
 const labelWidth = 9
 
-// minWidth is the narrowest anything folds to. A pane too narrow for the label column and
-// a readable value beside it would otherwise fold to a column a word wide, which reads
-// worse than a value that overruns.
+// minWidth is the narrowest anything folds to, since a pane too narrow for the label
+// column and a readable value beside it would otherwise fold to a column a word wide,
+// which reads worse than a value that overruns.
 const minWidth = 20
 
-// foldWidth is how wide a screen folds to in a pane of the given width. A pane of unknown
-// size folds at the maximum, since that is the only width worth guessing.
+// foldWidth is how wide a screen folds to in a pane of the given width; a pane of unknown
+// size folds at the maximum, since that's the only width worth guessing.
 func foldWidth(pane int) int {
 	if pane <= 0 {
 		return maxWidth
@@ -119,11 +117,10 @@ func styled(style lipgloss.Style, text string) string {
 }
 
 // fold folds text onto as many lines as it needs to sit inside width, prefixing
-// continuations with indent so they read as part of what they continue. The indent comes
-// out of the width, so a folded value stays inside the pane under its label.
-//
-// It wraps rather than truncating, since the useful part of a dial error is at the end,
-// and it breaks a word too long to fit at all, which a config path or an address is.
+// continuations with indent so they read as part of what they continue; the indent comes
+// out of the width, so a folded value stays inside the pane under its label. It wraps
+// rather than truncating, since the useful part of a dial error is at the end, and breaks
+// a word too long to fit at all, which a config path or an address often is.
 func fold(text string, width int, indent string) string {
 	body := max(width-len(indent), minWidth)
 

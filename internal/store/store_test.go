@@ -106,7 +106,6 @@ func TestUpdatedAtStamped(t *testing.T) {
 		"updated_at %s did not move past created_at %s", updatedAt, createdAt)
 }
 
-// open brings up a database of this test's own with the migrations applied.
 func open(ctx context.Context, t *testing.T) *Pool {
 	t.Helper()
 
@@ -117,7 +116,6 @@ func open(ctx context.Context, t *testing.T) *Pool {
 	return pool
 }
 
-// tableNames runs a query returning one table name per row.
 func tableNames(ctx context.Context, t *testing.T, pool *Pool, query string) []string {
 	t.Helper()
 

@@ -22,9 +22,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// / TestAgentRows checks the tree the list renders. Every workflow is a header
-// with its agents beneath it, and every agent has a workflow, so nothing trails
-// underneath outside one.
+// TestAgentRows checks the tree the list renders, where every workflow is a header
+// with its agents beneath it.
 func TestAgentRows(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -135,10 +134,9 @@ func TestHoveredWorkflow(t *testing.T) {
 	}
 }
 
-// refusingWorkflows refuses every call and counts the writes it was asked for, so a
-// test can tell a call the panel decided not to make from one the service turned
-// down. The embedded interface is nil, so any other method panics rather than
-// quietly returning a zero value.
+// refusingWorkflows refuses every call and counts the writes it was asked for, so a test
+// can tell a call the panel decided not to make from one the service turned down; the
+// embedded interface is nil, so any other method panics rather than returning a zero value.
 type refusingWorkflows struct {
 	workflowv1connect.WorkflowServiceClient
 	err    error
@@ -167,10 +165,9 @@ func (r *refusingWorkflows) ArchiveWorkflow(context.Context, *connect.Request[wo
 	return nil, r.err
 }
 
-// TestWorkflowWrites covers each write handing its error back rather than
-// discarding it, which is what leaves the form that called it something to report.
-// The last case is the one write the panel turns down itself: a blank name is a form
-// submitted empty, not a failure, so the service is never asked.
+// TestWorkflowWrites covers each write handing its error back rather than discarding it.
+// The last case never reaches the service: a blank name is treated as an empty submit, not
+// a failure.
 func TestWorkflowWrites(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -227,11 +224,8 @@ func TestWorkflowWrites(t *testing.T) {
 }
 
 // TestAvailableActionsSkipUnderscoredNames covers what the workflow form's setup and cleanup
-// fields are chosen from. A workflow naming a file that only exists to be sourced would run a
-// fragment on its own, so the picker offers the same list a person sees on the actions screen.
-//
-// What each file declares comes with it, so choosing a setup action means reading what the
-// scripts do rather than guessing from filenames.
+// fields are chosen from: files meant only to be sourced are excluded, since naming one
+// would run a fragment on its own.
 func TestAvailableActionsSkipUnderscoredNames(t *testing.T) {
 	m := model{api: api{actions: &fakeActions{}}}
 
@@ -244,9 +238,8 @@ func TestAvailableActionsSkipUnderscoredNames(t *testing.T) {
 	}, got)
 }
 
-// TestFailedWorkflowListKeepsTheTree covers a workflow list that does not answer.
-// The tree stays as it was, since blanking it would say every workflow had just been
-// archived.
+// TestFailedWorkflowListKeepsTheTree covers a workflow list that does not answer: the tree
+// stays as it was, since blanking it would say every workflow had just been archived.
 func TestFailedWorkflowListKeepsTheTree(t *testing.T) {
 	m := model{
 		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),

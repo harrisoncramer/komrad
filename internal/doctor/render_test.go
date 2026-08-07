@@ -36,7 +36,7 @@ func TestWriteTextColumnsLineUp(t *testing.T) {
 	rendered := out.String()
 
 	// The column each finding's text begins at, found by locating that finding's own
-	// rendered text in the line carrying its name. Both are known here, so this
+	// rendered text in the line carrying its name; both are known here, so this
 	// measures the layout rather than re-deriving it.
 	columns := make(map[string]int, len(report.Findings))
 	for _, finding := range report.Findings {

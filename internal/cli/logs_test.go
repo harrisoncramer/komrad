@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestServeLogTail covers how the log is folded into a reason. A dial failure spans
-// several indented lines, and the error it becomes is rendered wrapped, so it is
-// carried as one line rather than with the log's own breaks in it.
+// TestServeLogTail covers how the log is folded into a reason: a dial failure spans several
+// indented lines, and the error it becomes is rendered wrapped, so it is carried as one line
+// rather than with the log's own breaks in it.
 func TestServeLogTail(t *testing.T) {
 	dialFailure := "failed to reach db: failed to connect:\n\t[::1]:5460: dial error: connection refused\n"
 
@@ -49,9 +49,9 @@ func TestServeLogTail(t *testing.T) {
 	}
 }
 
-// TestServeLogTailIsBounded covers that a server which logged a great deal is cut
-// down to its last lines, since the error is shown on a panel screen. The cut keeps
-// the end, where the failure that stopped it is.
+// TestServeLogTailIsBounded covers that a server which logged a great deal is cut down to
+// its last lines, since the error is shown on a panel screen; the cut keeps the end, where
+// the failure that stopped it is.
 func TestServeLogTailIsBounded(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "serve.log")
 

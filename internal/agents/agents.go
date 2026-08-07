@@ -304,14 +304,9 @@ func (s *AgentService) ArchiveAgents(ctx context.Context, ids []string) error {
 	return nil
 }
 
-// notifyParents tells each agent's spawner it is gone, one piece of mail per delegate that
-// had one. A person or a tool asked for these agents to go away; a mailbox that refuses the
-// news, or a parent that went away in the same batch and no longer accepts mail, is not a
-// reason to undo that, so failures are logged rather than returned.
-//
-// A parent acting on its own delegate is skipped: it already knows, since it just did it,
-// and mailing it anyway would spend a turn reading news it made happen. Anyone else acting
-// on that delegate, including a person at the panel, still produces the notice.
+// notifyParents tells each agent's spawner it is gone. Failures are logged rather than
+// returned, since a bad mailbox shouldn't block deletion. An actor removing its own delegate
+// is skipped, since it already knows what it just did.
 func notifyParents(ctx context.Context, notifier parentNotifier, agents []agentstore.Agent, reason string) {
 	actor := caller.From(ctx).AgentID
 
@@ -339,8 +334,7 @@ func (s *AgentService) RestoreAgents(ctx context.Context, ids []string) ([]agent
 		return nil, err
 	}
 
-	// Agents that are not archived are already where a restore would put them, and asking
-	// for room for them would refuse a batch over the slots they already hold.
+	// Non-archived agents already hold their slot, so counting them again would overcount room needed.
 	archived := xslice.Filter(agents, func(agent agentstore.Agent) bool { return agent.ArchivedAt != nil })
 	if len(archived) == 0 {
 		return agents, nil

@@ -13,8 +13,8 @@ import (
 )
 
 // TestServeLoggerRejectsAnUnknownLevel covers a level the config carries that slog has no
-// answer for. It fails rather than falling back, so a misspelled level is reported instead
-// of quietly leaving the log at a verbosity nobody chose.
+// answer for: it fails rather than falling back, so a misspelled level is reported instead of
+// quietly leaving the log at a verbosity nobody chose.
 func TestServeLoggerRejectsAnUnknownLevel(t *testing.T) {
 	_, err := serveLogger("verbose")
 
@@ -56,10 +56,9 @@ func TestShutdownSignalStopsOnASignal(t *testing.T) {
 	}
 }
 
-// TestServeListensWhereEverythingElseTalks covers the address the service binds. Every
-// other command reads it out of WEAVE_ADDR, and the panel tells anyone whose server is
-// down to run "weave serve", so a serve that ignores the variable binds an address nothing
-// is looking at and the panel goes on saying the server cannot be reached.
+// TestServeListensWhereEverythingElseTalks covers the address the service binds: every
+// other command reads it out of WEAVE_ADDR, so a serve that ignores the variable binds an
+// address nothing is looking at and the panel goes on saying the server cannot be reached.
 func TestServeListensWhereEverythingElseTalks(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -88,7 +87,7 @@ func TestServeListensWhereEverythingElseTalks(t *testing.T) {
 	}
 }
 
-// TestServeAddrFlagCarriesNoDefault covers the flag itself. A default spelled into it is
+// TestServeAddrFlagCarriesNoDefault covers the flag itself: a default spelled into it is
 // indistinguishable from one the user typed, so the fallback above would never be reached.
 func TestServeAddrFlagCarriesNoDefault(t *testing.T) {
 	flag := serveCmd(&app{env: &config.Environment{Addr: "127.0.0.1:9999"}}).Flags().Lookup("addr")

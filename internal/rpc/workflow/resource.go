@@ -25,7 +25,6 @@ func (w workflow) Cursor() (workflowstore.Cursor, error) {
 	return w.cursor, nil
 }
 
-// renderWorkflow renders a stored workflow into a workflow resource.
 func renderWorkflow(w workflowstore.Workflow) workflow {
 	var archived *string
 	if w.ArchivedAt != nil {

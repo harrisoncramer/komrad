@@ -246,7 +246,6 @@ func namedDir(named string) (string, error) {
 	return dir, nil
 }
 
-// Claim the capacity slot and insert the agent in one transaction.
 func (s *AgentService) createUnderCeiling(ctx context.Context, agent agentstore.Agent) error {
 	return s.tx.InTx(ctx, func(db store.DBTX) error {
 		agentStore := agentstore.New(db)
