@@ -48,7 +48,7 @@ sidebar_width  = 0.2
 info_side      = "below"
 # How tall the info pane opens, either a share of the stage's height below one or a whole number of rows.
 info_height    = 0.4
-# How tall the details under the panel's list are, either a share of the sidebar's height below one or a whole number of rows. They never take more than half of it.
+# How tall the details under the list on screen are, either a share of the sidebar's height below one or a whole number of rows. They never take more than half of it.
 details_height = 0.33
 
 # Panel keybindings, scoped to the screen each binding acts in.
@@ -106,12 +106,12 @@ quit    = ["ctrl+c"]
 # Put the agent under the cursor back in the panel.
 restore = ["r"]
 
-# The details under the agents list: the key that hands them the cursor, and the
-# key that copies the field it lands on.
+# The details under whichever list is on screen: the key that hands them the
+# cursor, and the key that copies the field it lands on.
 [keybindings.details]
 # Copy the field the details cursor is on to the system clipboard.
 copy  = ["y"]
-# Move the cursor between the agents list and the details under it.
+# Move the cursor between the list on screen and the details under it.
 focus = ["ctrl+t"]
 
 # The filter over whichever list is on screen, shared by every screen that

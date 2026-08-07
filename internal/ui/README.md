@@ -36,9 +36,11 @@ actionState.
 
 Shared concerns are the things that sit across screens on purpose. The filter narrows
 whichever list is on screen, and there is one of it rather than one per screen, because only
-the list being looked at can be narrowed. The form owns the keys while it is up. The info
-region is what is open in the pane below, which stays put as the user moves between lists
-above it. The frame is the panel's own tmux layout.
+the list being looked at can be narrowed. The details under that list are shared for the same
+reason: one cursor and one focus, whichever list is above them, with each screen saying only
+what its own hovered row holds. The form owns the keys while it is up. The info region is
+what is open in the pane below, which stays put as the user moves between lists above it. The
+frame is the panel's own tmux layout.
 
 Panel chrome is the rest: the banner over a refused write, the errors that replace the panel,
 the keybindings, the dimensions of its own pane.
@@ -81,12 +83,11 @@ its own window is nobody else's business.
 ## The files
 
 Screens, each holding its own rows, keys, and view: agents.go, with tree.go for the rows and
-the cursor, workflows.go for the keys that act on a folder header, selection.go for the
-multi-select, and details.go for the record drawn under that list. Then archive.go,
-schedules.go, search.go, and actions.go.
+the cursor, workflows.go for the keys that act on a folder header, and selection.go for the
+multi-select. Then archive.go, schedules.go, search.go, and actions.go.
 
-Shared concerns: api.go, filter.go, forms.go, help.go, info.go, logs.go, refresh.go, keys.go,
-clipboard.go, report.go, convert.go.
+Shared concerns: api.go, details.go, filter.go, forms.go, help.go, info.go, logs.go,
+refresh.go, keys.go, clipboard.go, report.go, convert.go.
 
 Presentation, holding no panel state at all: content.go, list.go, markdown.go, palette.go,
 render.go, snippet.go, style.go.

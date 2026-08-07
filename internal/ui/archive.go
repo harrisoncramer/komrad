@@ -124,10 +124,6 @@ func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.updateArchiveSelection(key)
 	}
 
-	if cmd, ok := m.tryCopyRecordValue(k); ok {
-		return m, cmd
-	}
-
 	switch {
 	case isBound(k, m.keys.Filter.Open):
 		return m.openFilter()
@@ -299,23 +295,46 @@ func (m model) updateArchiveDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 	})
 }
 
+// archiveDetails is what the row under the archive's cursor holds. A folder here is drawn
+// only to hold the agents put away out of it, so it carries the same fields it does live.
+func (m model) archiveDetails() details {
+	r, ok := rowAt(m.archiveRows(), m.archive.cursor)
+	if !ok {
+		return details{}
+	}
+
+	if r.header {
+		return details{
+			id:     r.workflow.ID,
+			title:  r.workflow.Name,
+			fields: workflowFields(r.workflow, m.archivedCount(r.workflow.ID)),
+		}
+	}
+
+	return details{
+		id:     r.item.agent.ID,
+		title:  r.item.agent.Name,
+		fields: archiveFields(r.item.agent, m.scheduleName(r.item.agent)),
+	}
+}
+
 // stageArchive shows the hovered row's stored record in the stage. Nothing in the archive
 // is running, so there is never a pane to swap in.
 func (m *model) stageArchive() {
 	r, ok := rowAt(m.archiveRows(), m.archive.cursor)
 	if !ok {
-		m.stagePlaceholder(emptyArchiveMarkdown)
+		m.stageDocument(emptyArchiveMarkdown)
 
 		return
 	}
 
 	if r.header {
-		m.stageRecord(workflowMarkdown(r.workflow, m.archivedCount(r.workflow.ID)))
+		m.stageDocument(workflowContextMarkdown(r.workflow))
 
 		return
 	}
 
-	m.stageRecord(archiveMarkdown(r.item.agent, m.scheduleName(r.item.agent)))
+	m.stageDocument(archiveMarkdown(r.item.agent))
 }
 
 // archivedCount is how many archived agents sit under a workflow, which is what a folder
@@ -325,11 +344,11 @@ func (m model) archivedCount(workflowID string) int {
 }
 
 func (m model) archiveView() string {
-	help := "\n" + m.renderHelp(m.archiveHelp())
+	below := m.detailsView() + "\n" + m.renderHelp(m.archiveHelp())
 
 	all := m.archiveRows()
 	if len(all) == 0 {
-		return m.listView("Archive", []string{dimStyle.Render("nothing archived")}, 0, help)
+		return m.listView("Archive", []string{dimStyle.Render("nothing archived")}, 0, below)
 	}
 
 	rows := make([]string, 0, len(all))
@@ -353,5 +372,5 @@ func (m model) archiveView() string {
 		rows = append(rows, prefix+"  "+name+scheduledMark(agent)+tagGlyph(agent, m.tags))
 	}
 
-	return m.listView("Archive", rows, m.archive.cursor, help)
+	return m.listView("Archive", rows, m.archive.cursor, below)
 }

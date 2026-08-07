@@ -112,8 +112,8 @@ type Keybindings struct {
 	Agents AgentsKeys `mapstructure:"agents"`
 	// The archive screen, and the key that opens it from the agents list.
 	Archive ArchiveKeys `mapstructure:"archive"`
-	// The details under the agents list: the key that hands them the cursor, and the
-	// key that copies the field it lands on.
+	// The details under whichever list is on screen: the key that hands them the
+	// cursor, and the key that copies the field it lands on.
 	Details DetailsKeys `mapstructure:"details"`
 	// The filter over whichever list is on screen, shared by every screen that
 	// draws one.
@@ -156,13 +156,14 @@ type HelpKeys struct {
 	Toggle []string `mapstructure:"toggle"`
 }
 
-// DetailsKeys are the bindings for the details under the agents list. Focus moves the cursor
+// DetailsKeys are the bindings for the details drawn under a list. Focus moves the cursor
 // between the list and the record below it, and while the record holds it the shared
-// navigation keys run down its fields rather than the rows above them.
+// navigation keys run down its fields rather than the rows above them. The agents list, the
+// schedules, and the archive all draw one.
 type DetailsKeys struct {
 	// Copy the field the details cursor is on to the system clipboard.
 	Copy []string `mapstructure:"copy"`
-	// Move the cursor between the agents list and the details under it.
+	// Move the cursor between the list on screen and the details under it.
 	Focus []string `mapstructure:"focus"`
 }
 
@@ -331,7 +332,7 @@ type Layout struct {
 	InfoSide string `mapstructure:"info_side"`
 	// How tall the info pane opens, either a share of the stage's height below one or a whole number of rows.
 	InfoHeight float64 `mapstructure:"info_height"`
-	// How tall the details under the panel's list are, either a share of the sidebar's height below one or a whole number of rows. They never take more than half of it.
+	// How tall the details under the list on screen are, either a share of the sidebar's height below one or a whole number of rows. They never take more than half of it.
 	DetailsHeight float64 `mapstructure:"details_height"`
 }
 

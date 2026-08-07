@@ -50,10 +50,6 @@ func (m model) scheduleRows() []scheduleItem {
 func (m model) updateSchedules(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
-	if cmd, ok := m.tryCopyRecordValue(k); ok {
-		return m, cmd
-	}
-
 	switch {
 	case isBound(k, m.keys.Filter.Open):
 		return m.openFilter()
@@ -90,17 +86,32 @@ func (m model) selectedSchedule() (scheduleItem, bool) {
 	return rowAt(m.scheduleRows(), m.schedules.cursor)
 }
 
+// schedulesDetails is what the schedule under the cursor holds: when it fires, and the
+// defaults of the workflow it fires into, which is what each run is launched with.
+func (m model) schedulesDetails() details {
+	item, ok := m.selectedSchedule()
+	if !ok {
+		return details{}
+	}
+
+	return details{
+		id:     item.schedule.ID,
+		title:  item.schedule.Name,
+		fields: scheduleFields(item.schedule, m.workflowByID(item.schedule.WorkflowID)),
+	}
+}
+
 // stageSchedule shows the hovered schedule's record in the stage; nothing runs for a
 // schedule, so there is never a pane to swap in.
 func (m *model) stageSchedule() {
 	item, ok := m.selectedSchedule()
 	if !ok {
-		m.stagePlaceholder(noSchedulesMarkdown)
+		m.stageDocument(noSchedulesMarkdown)
 
 		return
 	}
 
-	m.stageRecord(scheduleMarkdown(item, m.workflowByID(item.schedule.WorkflowID)))
+	m.stageDocument(scheduleMarkdown(item))
 }
 
 // workflowByID returns nil when none holds that id, which means it was archived.
@@ -246,11 +257,11 @@ func (m model) updateScheduleArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) schedulesView() string {
-	help := "\n" + m.renderHelp(m.scheduleHelp())
+	below := m.detailsView() + "\n" + m.renderHelp(m.scheduleHelp())
 
 	all := m.scheduleRows()
 	if len(all) == 0 {
-		return m.listView("Schedules", []string{dimStyle.Render("  no schedules yet")}, 0, help)
+		return m.listView("Schedules", []string{dimStyle.Render("  no schedules yet")}, 0, below)
 	}
 
 	rows := make([]string, 0, len(all))
@@ -266,7 +277,7 @@ func (m model) schedulesView() string {
 		rows = append(rows, prefix+"  "+icon+" "+name+"  "+dimStyle.Render(item.schedule.Cron))
 	}
 
-	return m.listView("Schedules", rows, m.schedules.cursor, help)
+	return m.listView("Schedules", rows, m.schedules.cursor, below)
 }
 
 // applySchedules keeps the cursor on the schedule it was on, since a schedule archived from
