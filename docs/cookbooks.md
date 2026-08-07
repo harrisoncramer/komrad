@@ -77,14 +77,7 @@ Before it writes anything, `install` checks that the manifest parsed, that `setu
 one of those sibling files would work as an action once installed: executable, and either a
 script that opens with a shebang or a compiled program, with every `#WEAVE` header line it
 declares actually readable. That last check is the [same one](actions.md#action-metadata) a
-hand-written action goes through, since a cookbook's script and one you typed by hand are the
-same resource read the same way. A cookbook that fails any of this is refused outright rather
-than half-installed.
-
-`weave cookbook list` runs the same check on everything it finds and marks a cookbook
-`(invalid: ...)` rather than hiding it, and `weave doctor` runs it too, over your own
-directory, so a broken cookbook shows up the same way a config file that will not parse does,
-before you ever try to install anything.
+hand-written action goes through.
 
 ## Where they live
 
