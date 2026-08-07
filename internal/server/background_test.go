@@ -25,18 +25,18 @@ import (
 func passes(t *testing.T, level slog.Level, results []error) string {
 	t.Helper()
 
-	each := make([]func() error, 0, len(results))
+	each := make([]func(context.Context) error, 0, len(results))
 	for _, result := range results {
-		each = append(each, func() error { return result })
+		each = append(each, func(context.Context) error { return result })
 	}
 
 	return drive(t, level, each)
 }
 
 // drive is passes over passes that do something other than return, which is how a test
-// supplies one that panics. A result cannot express a panic, so the sequence holds the
-// passes themselves.
-func drive(t *testing.T, level slog.Level, each []func() error) string {
+// supplies one that panics or one that logs. A result cannot express either, so the
+// sequence holds the passes themselves.
+func drive(t *testing.T, level slog.Level, each []func(context.Context) error) string {
 	t.Helper()
 
 	var out bytes.Buffer
@@ -52,7 +52,7 @@ func drive(t *testing.T, level slog.Level, each []func() error) string {
 		runLoop(ctx, Loop{
 			Name:     "reconcile",
 			Interval: time.Millisecond,
-			Pass: func(context.Context) error {
+			Pass: func(ctx context.Context) error {
 				if len(remaining) == 0 {
 					cancel()
 
@@ -62,7 +62,7 @@ func drive(t *testing.T, level slog.Level, each []func() error) string {
 				pass := remaining[0]
 				remaining = remaining[1:]
 
-				return pass()
+				return pass(ctx)
 			},
 		}, logging.New(&out, level))
 	}()
@@ -141,9 +141,9 @@ func TestLoopLogsRecovery(t *testing.T) {
 // pass wrote, so the panic is taken as a failed pass and the next one runs. The stack is
 // asserted on because a panic value alone never says where it came from.
 func TestLoopSurvivesAPanickingPass(t *testing.T) {
-	written := drive(t, slog.LevelInfo, []func() error{
-		func() error { panic("assignment to entry in nil map") },
-		func() error { return nil },
+	written := drive(t, slog.LevelInfo, []func(context.Context) error{
+		func(context.Context) error { panic("assignment to entry in nil map") },
+		func(context.Context) error { return nil },
 	})
 
 	records := logtest.Records(t, written)
@@ -159,9 +159,9 @@ func TestLoopSurvivesAPanickingPass(t *testing.T) {
 // the same path a repeating error does, so a two-second loop does not write the same stack
 // a thousand times over.
 func TestLoopFoldsARepeatingPanic(t *testing.T) {
-	panics := func() error { panic("index out of range [30] with length 6") }
+	panics := func(context.Context) error { panic("index out of range [30] with length 6") }
 
-	written := drive(t, slog.LevelDebug, []func() error{panics, panics, panics})
+	written := drive(t, slog.LevelDebug, []func(context.Context) error{panics, panics, panics})
 
 	assert.Equal(t, []string{
 		"loop pass failed", "loop still failing", "loop still failing",
@@ -318,4 +318,65 @@ func TestEachPassIsTracedOnItsOwn(t *testing.T) {
 	assert.Equal(t, traces[0], records[0][logging.TraceID], "the id on the line is the one on the context")
 	assert.Equal(t, traces[1], records[1][logging.TraceID])
 	assert.NotEqual(t, traces[0], traces[1], "two passes are two traces")
+}
+
+// TestAFailedPassIsLoggedOnItsOwnTrace is what following a loop failure with weave trace
+// rests on. The failure is the pass's outcome, so it belongs on the pass's id rather than
+// beside it: an id that shows what a pass said on its way but not how it ended answers the
+// question nobody asked. It is also the only line most passes write, since the reconciler
+// and the sync loops are quiet until they break, so a failure off the trace is a failing
+// loop that --recent cannot list at all.
+func TestAFailedPassIsLoggedOnItsOwnTrace(t *testing.T) {
+	written := drive(t, slog.LevelInfo, []func(context.Context) error{
+		func(ctx context.Context) error {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "the pass said something on its way")
+
+			return errors.New("failed to list agents: connection refused")
+		},
+	})
+
+	records := logtest.Records(t, written)
+	require.Len(t, records, 2)
+
+	trace, _ := records[0][logging.TraceID].(string)
+	require.NotEmpty(t, trace, "the pass writes under a trace")
+
+	assert.Equal(t, "loop pass failed", records[1]["body"])
+	assert.Equal(t, trace, records[1][logging.TraceID], "the outcome is on the trace that produced it")
+}
+
+// TestEveryOutcomeCarriesTheTraceOfThePassItDescribes covers the other two outcomes. A
+// repeat and a recovery each describe a pass that ran under a trace of its own, so each is
+// written under that one, and none of the three shares an id with another.
+func TestEveryOutcomeCarriesTheTraceOfThePassItDescribes(t *testing.T) {
+	down := errors.New("failed to list agents")
+
+	written := passes(t, slog.LevelDebug, []error{down, down, nil})
+
+	records := logtest.Records(t, written)
+	require.Equal(t, []string{
+		"loop pass failed", "loop still failing", "loop recovered",
+	}, logtest.Bodies(t, written))
+
+	traces := map[string]bool{}
+	for _, record := range records {
+		trace, _ := record[logging.TraceID].(string)
+		require.NotEmpty(t, trace, "every outcome names the pass it describes")
+		traces[trace] = true
+	}
+
+	assert.Len(t, traces, 3, "three passes are three traces")
+}
+
+// TestTheTraceStaysOutOfTheFolding covers the one way the trace could break the log rather
+// than fix it. Every pass mints an id, so folding a repeat on anything carrying one would
+// never match and a loop failing the same way for an hour would write the same sentence
+// every couple of seconds.
+func TestTheTraceStaysOutOfTheFolding(t *testing.T) {
+	down := errors.New("failed to list agents: connection refused")
+
+	written := passes(t, slog.LevelInfo, []error{down, down, down, down})
+
+	assert.Equal(t, []string{"loop pass failed"}, logtest.Bodies(t, written),
+		"the passes are told apart by their errors, which carry no id")
 }
