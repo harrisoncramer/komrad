@@ -283,7 +283,7 @@ func requireUsableDir(dir string) error {
 }
 
 // The store must use the transaction holding the slot lock.
-func claimRoomForAgents(ctx context.Context, agents agentManager, maxAgents, want int) error {
+func claimRoomForAgents(ctx context.Context, agents agentSlots, maxAgents, want int) error {
 	if maxAgents <= 0 || want <= 0 {
 		return nil
 	}
@@ -294,7 +294,7 @@ func claimRoomForAgents(ctx context.Context, agents agentManager, maxAgents, wan
 	return requireRoomForAgents(ctx, agents, maxAgents, want)
 }
 
-func requireRoomForAgents(ctx context.Context, agents agentManager, maxAgents, want int) error {
+func requireRoomForAgents(ctx context.Context, agents agentSlots, maxAgents, want int) error {
 	if maxAgents <= 0 || want <= 0 {
 		return nil
 	}

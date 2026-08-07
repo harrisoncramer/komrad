@@ -51,6 +51,13 @@ type agentFinder interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
+// agentSlots is the room-for-one-more view of the agent store: take the lock that
+// serialises launches against each other, and count what is already running.
+type agentSlots interface {
+	LockSlots(ctx context.Context) error
+	CountLive(ctx context.Context) (int64, error)
+}
+
 // agentManager is the agent store as the service and its launch machinery use it,
 // whether held on AgentService itself or opened fresh inside a transaction.
 type agentManager interface {
