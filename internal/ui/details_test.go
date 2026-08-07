@@ -1,11 +1,13 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 	"time"
 
 	agentstore "weave/internal/store/agent"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -174,6 +176,40 @@ func TestDetailsHeightLeavesTheListRoom(t *testing.T) {
 
 			assert.Equal(t, tt.want, m.detailsLines())
 		})
+	}
+}
+
+// TestDetailsKeepsToItsHeight covers the section drawing no more lines than the share it was
+// measured for, at every pane the sweep covers and at a share configured short enough to leave
+// the fields no room at all. The list above it takes its own height out of what is left, so a
+// section that overruns pushes the legend off the bottom of the sidebar.
+func TestDetailsKeepsToItsHeight(t *testing.T) {
+	for height := 4; height <= 30; height++ {
+		m := detailsModel(&recordingTmux{})
+		m.height = height
+
+		assert.LessOrEqual(t, strings.Count(m.detailsView(), "\n"), m.detailsLines(), "pane of %d lines", height)
+	}
+
+	m := detailsModel(&recordingTmux{})
+	m.detailsHeight = 2
+
+	assert.Empty(t, m.detailsView(), "a share with no room under the title draws nothing")
+}
+
+// TestDetailsKeepsToItsWidth covers the section drawing no line wider than the pane, with a
+// metadata key wide enough to matter: the label column is drawn to the widest label, so one
+// long key pushes every line in the section past the pane rather than only its own.
+func TestDetailsKeepsToItsWidth(t *testing.T) {
+	for width := 12; width <= 80; width += 4 {
+		m := detailsModel(&recordingTmux{})
+		m.width = width
+		m.details.focused = true
+		m.listing.agents[0].agent.Metadata = []agentstore.Metadata{{Key: "hunted_through", Value: "6042eb43"}}
+
+		for _, line := range strings.Split(strings.TrimRight(m.detailsView(), "\n"), "\n") {
+			assert.LessOrEqual(t, lipgloss.Width(line), width, "pane of %d columns drew %q", width, line)
+		}
 	}
 }
 

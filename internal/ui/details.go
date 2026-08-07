@@ -131,10 +131,14 @@ func (m model) detailsLines() int {
 	return min(lines, m.height/2)
 }
 
-// detailsMinLines is the shortest the section is worth drawing: a title and a field under it.
-// A pane too short for that keeps the list instead, since a list with nowhere to stand is
+// detailsChromeLines is the rule and the title, which the fields draw beneath and which come
+// out of the section's own height rather than being drawn on top of it.
+const detailsChromeLines = 2
+
+// detailsMinLines is the shortest the section is worth drawing: the chrome and a field under
+// it. A pane too short for that keeps the list instead, since a list with nowhere to stand is
 // worse than a record that has to be read by moving the cursor.
-const detailsMinLines = 2
+const detailsMinLines = detailsChromeLines + 1
 
 // detailsView draws the section under the list: a rule, the row's title, then its fields,
 // clipped to the share of the pane the layout gives it. Fields past that share are windowed
@@ -156,9 +160,7 @@ func (m model) detailsView() string {
 	cursor := m.detailsCursor(held.fields)
 	rows := m.detailFieldRows(held.fields, cursor)
 
-	// The rule and the title are chrome the fields draw beneath, so they come out of the
-	// section's own height rather than being drawn on top of it.
-	return m.detailsRule() + m.detailsTitle(held.title) + renderList(rows, cursor, lines-2)
+	return m.detailsRule() + m.detailsTitle(held.title) + renderList(rows, cursor, lines-detailsChromeLines)
 }
 
 // detailsRule separates the section from the list above it, drawn to the pane's width. A pane
@@ -183,15 +185,20 @@ func (m model) detailsTitle(title string) string {
 }
 
 // detailFieldRows draws one line per field: its label, then its value in the room left over.
-// The value is clipped rather than wrapped, since the whole of it is a copy key away and a
+// Both are clipped rather than wrapped, since the whole of a value is a copy key away and a
 // wrapped URL would cost the fields below it their lines.
 func (m model) detailFieldRows(fields []recordField, cursor int) []string {
-	labels := labelColumn(fields)
 	rows := make([]string, 0, len(fields))
 
 	// The gutter is two columns whether it holds the cursor or not, so the labels beside it
 	// stay in one line down the section.
 	const gutter = 2
+
+	// What the label and the value share, the pane less the gutter and the space between
+	// them. The column is drawn to the widest label, so a key wider than the pane would push
+	// every line in the section past it rather than only its own.
+	room := max(m.lineWidth()-gutter-1, 2)
+	labels := min(labelColumn(fields), room-1)
 
 	for i, field := range fields {
 		prefix := "  "
@@ -199,8 +206,8 @@ func (m model) detailFieldRows(fields []recordField, cursor int) []string {
 			prefix = cursorStyle.Render("› ")
 		}
 
-		label := dimStyle.Render(padRight(field.label, labels))
-		value := clip(field.value, max(m.lineWidth()-labels-gutter-1, 1))
+		label := dimStyle.Render(padRight(clip(field.label, labels), labels))
+		value := clip(field.value, room-labels)
 		if m.details.flashed == i+1 {
 			value = flashFieldStyle.Render(value)
 		}
