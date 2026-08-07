@@ -8,6 +8,7 @@ linters:
     - unparam
     - exhaustive
     - agentslinter
+    - depguard
   settings:
     errcheck:
       # A discarded error is the same bug whether it went to _ or nowhere, so the blank
@@ -29,6 +30,64 @@ linters:
       checks:
         - all
         - -ST1000 # package comments not required on main
+    depguard:
+      # The layers, as docs/concepts.md describes them. A layer may call the one below it
+      # and may not reach past it, and the panel receives its adapters rather than
+      # importing them. These are cheap to keep and expensive to rediscover.
+      rules:
+        panel:
+          files:
+            - "**/internal/ui/**"
+          deny:
+            - pkg: weave/internal/tmux
+              desc: the panel takes what it needs of tmux as a dependency, so the option names stay in the adapter
+            - pkg: weave/internal/harness
+              desc: which CLI an agent runs is the service's business, and reaches the panel as data
+            - pkg: weave/internal/actions
+              desc: the panel lists and fires actions over the API rather than reading the directory
+            - pkg: weave/internal/agents
+              desc: the panel is a client of the service, not a caller of it in process
+            - pkg: weave/db
+              desc: the panel holds no database connection
+        stores:
+          files:
+            - "**/internal/store/**"
+          deny:
+            - pkg: weave/internal/agents
+              desc: a store holds no rules, so nothing above it belongs here
+            - pkg: weave/internal/tmux
+              desc: a store writes rows, and what is true of tmux reaches it as an argument
+            - pkg: weave/internal/harness
+              desc: same reason as tmux
+            - pkg: weave/internal/ui
+              desc: nothing below the panel may depend on it
+        adapters:
+          files:
+            - "**/internal/tmux/**"
+            - "**/internal/harness/**"
+            - "**/internal/actions/**"
+          deny:
+            - pkg: weave/internal/store
+              desc: an adapter is a seam in front of something weave does not own, and knows nothing of rows
+            - pkg: weave/internal/agents
+              desc: the service calls the adapter rather than the other way round
+            - pkg: weave/internal/ui
+              desc: same reason
+        generated-queries:
+          files:
+            - "**/*.go"
+            - "!**/internal/store/**"
+            - "!**/db/**"
+          deny:
+            - pkg: weave/db/models
+              desc: the generated queries are the store's to call, so a caller goes through the domain store
+        config:
+          files:
+            - "**/config/**"
+            - "!**/internal/**"
+          deny:
+            - pkg: weave/internal
+              desc: config is read by everything and so may depend on nothing
     exhaustive:
       check:
         - switch
