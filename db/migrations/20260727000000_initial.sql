@@ -1,5 +1,20 @@
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
+CREATE TABLE "workflow_action_configs"(
+    "id" uuid NOT NULL DEFAULT uuidv7(),
+    "setup_action" text NOT NULL DEFAULT '',
+    "cleanup_action" text NOT NULL DEFAULT '',
+    "worktree_enabled" boolean NOT NULL DEFAULT FALSE,
+    "worktree_base_branch" text NOT NULL DEFAULT '',
+    "worktree_copy_paths" text[] NOT NULL DEFAULT '{}',
+    "worktree_symlink_paths" text[] NOT NULL DEFAULT '{}',
+    "created_at" timestamptz NOT NULL DEFAULT NOW(),
+    "updated_at" timestamptz NOT NULL DEFAULT NOW(),
+    PRIMARY KEY ("id")
+);
+
+COMMENT ON TABLE "workflow_action_configs" IS 'The setup/cleanup actions a workflow''s agents run around their lives, and the worktree config those actions can point at instead.';
+
 CREATE TABLE "workflow_configs"(
     "id" uuid NOT NULL DEFAULT uuidv7(),
     "harness" text NOT NULL DEFAULT '',
@@ -16,15 +31,17 @@ CREATE TABLE "workflows"(
     "id" uuid NOT NULL DEFAULT uuidv7(),
     "name" text NOT NULL,
     "context" text NOT NULL DEFAULT '',
-    "setup_action" text NOT NULL DEFAULT '',
-    "cleanup_action" text NOT NULL DEFAULT '',
     "workflow_config_id" uuid NOT NULL,
+    "action_config_id" uuid NOT NULL,
     "archived_at" timestamptz NULL,
     "created_at" timestamptz NOT NULL DEFAULT NOW(),
     "updated_at" timestamptz NOT NULL DEFAULT NOW(),
     PRIMARY KEY ("id"),
+    CONSTRAINT "workflows_action_config_id_fkey" FOREIGN KEY ("action_config_id") REFERENCES "workflow_action_configs"("id") ON UPDATE NO ACTION ON DELETE RESTRICT,
     CONSTRAINT "workflows_workflow_config_id_fkey" FOREIGN KEY ("workflow_config_id") REFERENCES "workflow_configs"("id") ON UPDATE NO ACTION ON DELETE RESTRICT
 );
+
+CREATE INDEX "workflows_action_config_id" ON "workflows"("action_config_id");
 
 CREATE INDEX "workflows_workflow_config_id" ON "workflows"("workflow_config_id");
 
@@ -73,7 +90,8 @@ CREATE TABLE "agents"(
     "archived_at" timestamptz NULL,
     "is_hidden" boolean NOT NULL DEFAULT FALSE,
     "nudged_at" timestamptz NULL,
-    "mark" text NULL,
+    "branch" text NULL,
+    "tag" text NULL,
     "created_at" timestamptz NOT NULL DEFAULT NOW(),
     "updated_at" timestamptz NOT NULL DEFAULT NOW(),
     PRIMARY KEY ("id"),
@@ -161,41 +179,3 @@ WHERE (claimed_at IS NULL);
 CREATE INDEX "mail_reply_to" ON "mail"("reply_to");
 
 COMMENT ON TABLE "mail" IS 'One piece of mail from one agent to another, held until the recipient claims it.';
-
-CREATE OR REPLACE FUNCTION set_updated_at()
-    RETURNS TRIGGER
-    AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$
-LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION attach_updated_at_triggers()
-    RETURNS void
-    AS $$
-DECLARE
-    target text;
-BEGIN
-    FOR target IN
-    SELECT
-        c.relname
-    FROM
-        pg_class c
-        JOIN pg_namespace n ON n.oid = c.relnamespace
-        JOIN pg_attribute a ON a.attrelid = c.oid
-    WHERE
-        n.nspname = 'public'
-        AND c.relkind = 'r'
-        AND a.attname = 'updated_at'
-        AND NOT a.attisdropped LOOP
-            EXECUTE FORMAT('DROP TRIGGER IF EXISTS set_updated_at ON %I', target);
-            EXECUTE FORMAT('CREATE TRIGGER set_updated_at BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION set_updated_at()', target);
-        END LOOP;
-END;
-$$
-LANGUAGE plpgsql;
-
-SELECT
-    attach_updated_at_triggers();
