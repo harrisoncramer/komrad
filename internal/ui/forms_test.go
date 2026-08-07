@@ -583,6 +583,28 @@ func TestSetupTypeRebuildsTheForm(t *testing.T) {
 	assert.Contains(t, m.form.View(), "Worktree copy paths")
 }
 
+// TestSetupTypeSelectShowsBothOptionsOnOpen covers opening the edit form for a workflow
+// whose setup type is already custom, the non-default answer. huh scrolls a select's
+// viewport to the bound value's index as soon as it has both an accessor and an option
+// list, which hid the worktree option whenever custom was already selected until the
+// field started binding the value after the options instead of before.
+func TestSetupTypeSelectShowsBothOptionsOnOpen(t *testing.T) {
+	form, _, toggleIndex := workflowConfigForm("Workflow name", workflowFormValues{SetupType: setupTypeCustom}, nil, config.DefaultKeybindings().Form)
+	form.Init()
+	for range toggleIndex {
+		form.NextField()
+	}
+
+	view := form.View()
+	assert.Contains(t, view, "Worktree: a git worktree per agent", "the worktree option is not hidden just because custom is selected")
+	assert.Contains(t, view, "Custom: your own setup and cleanup actions")
+	assert.Less(t,
+		strings.Index(view, "Worktree: a git worktree per agent"),
+		strings.Index(view, "Custom: your own setup and cleanup actions"),
+		"worktree stays first regardless of which is selected",
+	)
+}
+
 // TestArchivePromptChoices covers the three ways the archive prompt can be answered, driven
 // by the keys that answer it. It opens on archiving, which is reversible, so a submit alone
 // never destroys anything and the choice that does is a move away.

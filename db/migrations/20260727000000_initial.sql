@@ -179,3 +179,41 @@ WHERE (claimed_at IS NULL);
 CREATE INDEX "mail_reply_to" ON "mail"("reply_to");
 
 COMMENT ON TABLE "mail" IS 'One piece of mail from one agent to another, held until the recipient claims it.';
+
+CREATE OR REPLACE FUNCTION set_updated_at()
+    RETURNS TRIGGER
+    AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$
+LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION attach_updated_at_triggers()
+    RETURNS void
+    AS $$
+DECLARE
+    target text;
+BEGIN
+    FOR target IN
+    SELECT
+        c.relname
+    FROM
+        pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        JOIN pg_attribute a ON a.attrelid = c.oid
+    WHERE
+        n.nspname = 'public'
+        AND c.relkind = 'r'
+        AND a.attname = 'updated_at'
+        AND NOT a.attisdropped LOOP
+            EXECUTE FORMAT('DROP TRIGGER IF EXISTS set_updated_at ON %I', target);
+            EXECUTE FORMAT('CREATE TRIGGER set_updated_at BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION set_updated_at()', target);
+        END LOOP;
+END;
+$$
+LANGUAGE plpgsql;
+
+SELECT
+    attach_updated_at_triggers();

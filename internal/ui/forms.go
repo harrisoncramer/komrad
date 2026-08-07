@@ -486,8 +486,12 @@ func workflowConfigForm(nameTitle string, values workflowFormValues, available [
 
 	toggleIndex := len(fields)
 	fields = append(fields,
+		// Options before Value: huh scrolls a select's viewport to the bound value's
+		// index as soon as it has both an accessor and an option list, so binding the
+		// value first, while the option list is still empty, is what keeps that scroll
+		// at zero once the real options land and custom is not the first of them.
 		huh.NewSelect[string]().Key(setupTypeKey).Title("Setup type").
-			Value(&values.SetupType).Options(setupTypeOptions()...),
+			Options(setupTypeOptions()...).Value(&values.SetupType),
 	)
 
 	switch values.SetupType {
