@@ -21,4 +21,3 @@ Each agent has a mailbox in Postgres. When agents need to send mail, they write 
 Agents check their mailboxes for any pending mail at the end of each turn. Mail is therefore not an "interrupt" activity. If you need to urgently interrupt a running agent and tell it something, you should switch into the CLI view and halt the process.
 
 If an agent is dormant when a mail item is written, it'll get "nudged" the next time it wakes up to check it's mailbox. Mail cannot be send to agents that have been archived.
-# Agents
