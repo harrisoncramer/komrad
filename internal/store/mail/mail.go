@@ -202,6 +202,18 @@ func (s *Store) ListPendingMailboxes(ctx context.Context) ([]string, error) {
 	return rows, nil
 }
 
+// ListUnreadMailboxes is every agent holding mail it could claim right now: unclaimed
+// and not yet expired. Unlike ListPendingMailboxes, a mailbox whose only mail has timed
+// out drops off this list, since read_mail could not hand that mail back either.
+func (s *Store) ListUnreadMailboxes(ctx context.Context) ([]string, error) {
+	rows, err := s.queries.ListMailboxesWithUnreadMail(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the mailboxes holding unread mail: %w", err)
+	}
+
+	return rows, nil
+}
+
 // ListExpired reports the mail that ran out of time before the recipient claimed it, and marks
 // it reported so the next call does not hand back the same mail again.
 func (s *Store) ListExpired(ctx context.Context, toAgentID string) ([]Mail, error) {

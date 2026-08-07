@@ -38,6 +38,9 @@ message Agent {
   optional string schedule_id = 12;
   // Whether the agent's tmux pane is still running.
   bool alive = 11;
+  // Whether this agent is holding mail nobody has read yet. Observed from the mailbox
+  // rather than stored, the same as alive.
+  bool unread_mail = 21;
   // The glyph the user tagged this agent with, unset when it carries no tag.
   optional string tag = 14;
   // Whether the user has hidden this agent from the panel's sidebar. It is not a

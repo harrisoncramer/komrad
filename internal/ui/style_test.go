@@ -10,6 +10,7 @@ import (
 	"weave/internal/ui/layout"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // branchName is the kind of name an agent spawned off a ticket carries: the branch it
@@ -51,4 +52,44 @@ func TestAgentsViewClipsName(t *testing.T) {
 
 	m.filter.setQuery("0825676")
 	assert.Len(t, m.agentRows(), 2, "the workflow header and the row that matched")
+}
+
+func TestUnreadMailMark(t *testing.T) {
+	assert.Empty(t, unreadMailMark(false))
+	assert.Contains(t, unreadMailMark(true), unreadMailIcon)
+}
+
+// TestAgentsViewUnreadMail covers the rendered row. The glyph is observed per agent at
+// read time rather than stored, so one agent with mail waiting draws it and the other
+// beside it, with none, does not.
+func TestAgentsViewUnreadMail(t *testing.T) {
+	m := model{
+		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:  config.DefaultKeybindings(),
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}}, agents: []agentItem{
+			{agent: agentstore.Agent{ID: "a1", Name: "waiting-on-reply", WorkflowID: "w1"}, unreadMail: true},
+			{agent: agentstore.Agent{ID: "a2", Name: "caught-up", WorkflowID: "w1"}, unreadMail: false},
+		}},
+	}
+
+	rows := strings.Split(m.agentsView(), "\n")
+	waiting, ok := rowNamed(rows, "waiting-on-reply")
+	require.True(t, ok)
+	assert.Contains(t, waiting, unreadMailIcon)
+
+	caughtUp, ok := rowNamed(rows, "caught-up")
+	require.True(t, ok)
+	assert.NotContains(t, caughtUp, unreadMailIcon)
+}
+
+// rowNamed returns the rendered row containing name, so a test can check what is drawn
+// beside one agent without depending on where it lands among the others.
+func rowNamed(rows []string, name string) (string, bool) {
+	for _, row := range rows {
+		if strings.Contains(row, name) {
+			return row, true
+		}
+	}
+
+	return "", false
 }
