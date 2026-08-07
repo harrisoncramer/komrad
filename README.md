@@ -36,7 +36,7 @@ Weave is optimized for software development with [https://git-scm.com/docs/git-w
 
 2. It terminal (tmux) based.
 
-Weave is a terminal tool, intended for power users. It does not aspire to be a remote coding environment or a standalone application. It meets you where you are: in the terminal.
+Weave is a terminal tool, intended for power users. It does not aspire to be a remote coding environment or a standalone application, and meets you in the terminal.
 
 ## Documentation
 
