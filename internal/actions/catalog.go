@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"weave/lib/xslice"
 )
 
 // ErrActionNotFound reports that no directory in the catalog holds a file by that name.
@@ -28,8 +30,7 @@ func NewCatalog() *Catalog {
 // List returns every action across dirs in name order, where an earlier dir's file wins over
 // a later one offering the same name.
 func (c *Catalog) List(dirs ...string) ([]Action, error) {
-	var found []Action
-	claimed := make(map[string]bool)
+	var all []Action
 
 	for _, dir := range dirs {
 		if dir == "" {
@@ -41,16 +42,10 @@ func (c *Catalog) List(dirs ...string) ([]Action, error) {
 			return nil, err
 		}
 
-		for _, action := range listed {
-			if claimed[action.Name] {
-				continue
-			}
-
-			claimed[action.Name] = true
-			found = append(found, action)
-		}
+		all = append(all, listed...)
 	}
 
+	found := xslice.UniqueBy(all, func(action Action) string { return action.Name })
 	slices.SortFunc(found, func(a, b Action) int { return strings.Compare(a.Name, b.Name) })
 
 	return found, nil

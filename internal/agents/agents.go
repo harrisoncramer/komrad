@@ -404,18 +404,9 @@ func agentIDs(agents []agentstore.Agent) []string {
 }
 
 func workflowIDs(agents []agentstore.Agent) []string {
-	seen := make(map[string]bool, len(agents))
+	unique := xslice.UniqueBy(agents, func(agent agentstore.Agent) string { return agent.WorkflowID })
 
-	var ids []string
-	for _, agent := range agents {
-		if seen[agent.WorkflowID] {
-			continue
-		}
-		seen[agent.WorkflowID] = true
-		ids = append(ids, agent.WorkflowID)
-	}
-
-	return ids
+	return xslice.Map(unique, func(agent agentstore.Agent) string { return agent.WorkflowID })
 }
 
 // ResumeAgent relaunches a dormant agent in its previous conversation.

@@ -56,3 +56,21 @@ func GroupBy[T any, K comparable](in []T, key func(T) K) map[K][]T {
 
 	return out
 }
+
+// UniqueBy returns the elements of in whose key is first seen, preserving order and
+// dropping any later element sharing that key.
+func UniqueBy[T any, K comparable](in []T, key func(T) K) []T {
+	seen := make(map[K]struct{}, len(in))
+	out := make([]T, 0, len(in))
+	for _, v := range in {
+		k := key(v)
+		if _, ok := seen[k]; ok {
+			continue
+		}
+
+		seen[k] = struct{}{}
+		out = append(out, v)
+	}
+
+	return out
+}

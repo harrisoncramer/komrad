@@ -61,3 +61,31 @@ func TestGroupBy(t *testing.T) {
 		})
 	}
 }
+
+func TestUniqueBy(t *testing.T) {
+	tests := []struct {
+		name string
+		in   []string
+		key  func(string) rune
+		want []string
+	}{
+		{
+			name: "empty slice yields an empty slice",
+			in:   []string{},
+			key:  func(s string) rune { return rune(s[0]) },
+			want: []string{},
+		},
+		{
+			name: "the first element with a key wins, in original order",
+			in:   []string{"apple", "avocado", "banana", "blueberry"},
+			key:  func(s string) rune { return rune(s[0]) },
+			want: []string{"apple", "banana"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, UniqueBy(tt.in, tt.key))
+		})
+	}
+}
