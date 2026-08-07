@@ -35,6 +35,9 @@ type Workflow struct {
 	// name a file in the actions directory, so nothing here can promise it still exists.
 	SetupAction   string
 	CleanupAction string
+	// Worktree is the generated git worktree per agent this workflow is set up for,
+	// disabled by default.
+	Worktree WorktreeConfig
 	// ArchivedAt is when the workflow was put away, nil while it is live. The archive draws
 	// an archived header differently from a live one, so it has to tell them apart.
 	ArchivedAt *time.Time
@@ -47,6 +50,10 @@ type Workflow struct {
 // context, the actions run around its agents' lives, and the harness, cwd, and flags
 // seeded into agents created inside it.
 type Config struct {
+	// ID is minted by Create when blank. A caller that generates the two worktree
+	// scripts before the row exists, since their names carry the workflow's id, sets
+	// this itself so the id it names them after is the one the row gets.
+	ID            string
 	Name          string
 	Context       string
 	Harness       string
@@ -54,6 +61,21 @@ type Config struct {
 	Flags         string
 	SetupAction   string
 	CleanupAction string
+	Worktree      WorktreeConfig
+}
+
+// WorktreeConfig turns on a generated git worktree per agent for a workflow. The repo it
+// works against is the workflow's own Cwd, so enabling it requires that to be set.
+type WorktreeConfig struct {
+	Enabled bool
+	// BaseBranch is the branch a new worktree is built from, blank for the repo's
+	// default branch.
+	BaseBranch string
+	// CopyPaths are files copied fresh into every new worktree, relative to Cwd.
+	CopyPaths []string
+	// SymlinkPaths are directories symlinked back to Cwd instead of duplicated into
+	// every worktree.
+	SymlinkPaths []string
 }
 
 // Store reads and writes workflows.
@@ -133,8 +155,20 @@ func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 
 // Create inserts a workflow together with the config row holding the harness, cwd,
 // and flags new agents inside it inherit, and returns it. Both rows must land
-// together, so a caller outside a transaction gets one through InTx.
+// together, so a caller outside a transaction gets one through InTx. The id is minted
+// here when cfg carries none, and taken as given otherwise, which is what lets a
+// caller generate something that names the id, such as the two worktree scripts,
+// before the row exists.
 func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
+	if cfg.ID == "" {
+		id, err := store.NewID()
+		if err != nil {
+			return nil, err
+		}
+
+		cfg.ID = id
+	}
+
 	configID, err := s.queries.InsertWorkflowConfig(ctx, models.InsertWorkflowConfigParams{
 		Harness: cfg.Harness,
 		Cwd:     cfg.Cwd,
@@ -145,11 +179,16 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 	}
 
 	row, err := s.queries.InsertWorkflow(ctx, models.InsertWorkflowParams{
-		Name:             cfg.Name,
-		Context:          cfg.Context,
-		SetupAction:      cfg.SetupAction,
-		CleanupAction:    cfg.CleanupAction,
-		WorkflowConfigID: configID,
+		ID:                   cfg.ID,
+		Name:                 cfg.Name,
+		Context:              cfg.Context,
+		SetupAction:          cfg.SetupAction,
+		CleanupAction:        cfg.CleanupAction,
+		WorktreeEnabled:      cfg.Worktree.Enabled,
+		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
+		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
+		WorktreeSymlinkPaths: orEmpty(cfg.Worktree.SymlinkPaths),
+		WorkflowConfigID:     configID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workflow %q: %w", cfg.Name, err)
@@ -190,7 +229,15 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 		return fmt.Errorf("failed to update context for workflow %q: %w", id, err)
 	}
 
-	if err := s.queries.SetWorkflowActions(ctx, models.SetWorkflowActionsParams{ID: id, SetupAction: cfg.SetupAction, CleanupAction: cfg.CleanupAction}); err != nil {
+	if err := s.queries.SetWorkflowActions(ctx, models.SetWorkflowActionsParams{
+		ID:                   id,
+		SetupAction:          cfg.SetupAction,
+		CleanupAction:        cfg.CleanupAction,
+		WorktreeEnabled:      cfg.Worktree.Enabled,
+		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
+		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
+		WorktreeSymlinkPaths: orEmpty(cfg.Worktree.SymlinkPaths),
+	}); err != nil {
 		return fmt.Errorf("failed to update actions for workflow %q: %w", id, err)
 	}
 
@@ -253,6 +300,16 @@ func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow,
 	return &workflow, nil
 }
 
+// orEmpty turns a nil slice into an empty one, since pgx encodes a nil []string as SQL
+// NULL and the column is declared NOT NULL.
+func orEmpty(paths []string) []string {
+	if paths == nil {
+		return []string{}
+	}
+
+	return paths
+}
+
 func workflowFromRow(w models.Workflow, harness, cwd, flags string) Workflow {
 	return Workflow{
 		ID:            w.ID,
@@ -263,7 +320,13 @@ func workflowFromRow(w models.Workflow, harness, cwd, flags string) Workflow {
 		Flags:         flags,
 		SetupAction:   w.SetupAction,
 		CleanupAction: w.CleanupAction,
-		ArchivedAt:    w.ArchivedAt,
-		UpdatedAt:     w.UpdatedAt,
+		Worktree: WorktreeConfig{
+			Enabled:      w.WorktreeEnabled,
+			BaseBranch:   w.WorktreeBaseBranch,
+			CopyPaths:    w.WorktreeCopyPaths,
+			SymlinkPaths: w.WorktreeSymlinkPaths,
+		},
+		ArchivedAt: w.ArchivedAt,
+		UpdatedAt:  w.UpdatedAt,
 	}
 }

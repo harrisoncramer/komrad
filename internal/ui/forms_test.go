@@ -99,7 +99,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			name: "the new-workflow form",
 			open: func(m model) model {
 				m.screen = screenWorkflowForm
-				m.form, m.values.workflow = workflowConfigForm("New workflow name", workflowstore.Config{}, []actionChoice{
+				m.form, m.values.workflow = workflowConfigForm("New workflow name", workflowFormValues{}, []actionChoice{
 					{name: "make-worktree"},
 					{name: "drop-worktree"},
 				}, m.keys.Form)
@@ -124,6 +124,31 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			},
 		},
 		{
+			name: "the new-workflow form with worktree enabled",
+			open: func(m model) model {
+				m.screen = screenWorkflowForm
+				m.form, m.values.workflow = workflowConfigForm("New workflow name", workflowFormValues{}, nil, m.keys.Form)
+				m.values.workflow.Name = "web"
+				m.values.workflow.Cwd = "/work/web"
+				m.values.workflow.WorktreeEnabled = true
+				m.values.workflow.WorktreeBaseBranch = "develop"
+				m.values.workflow.WorktreeCopyPaths = ".env\n\nconfig/local.json\n"
+				m.values.workflow.WorktreeSymlinkPaths = "node_modules"
+
+				return m
+			},
+			submit: func(m model) (tea.Model, tea.Cmd) { return m.submitWorkflowForm() },
+			check: func(t *testing.T, sent *formRecorder) {
+				require.NotNil(t, sent.createdWorkflow)
+				worktree := sent.createdWorkflow.GetWorktree()
+				require.NotNil(t, worktree)
+				assert.True(t, worktree.GetEnabled())
+				assert.Equal(t, "develop", worktree.GetBaseBranch())
+				assert.Equal(t, []string{".env", "config/local.json"}, worktree.GetCopyPaths(), "a blank line between two paths is dropped rather than sent as an entry")
+				assert.Equal(t, []string{"node_modules"}, worktree.GetSymlinkPaths())
+			},
+		},
+		{
 			// The edit form opens on what is stored, so a submit that changed one field
 			// has to carry the rest as they were. The service replaces every field.
 			name: "the workflow edit form",
@@ -131,13 +156,13 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				target := m.listing.workflows[0]
 				m.target.editWorkflow = &target
 				m.screen = screenWorkflowForm
-				m.form, m.values.workflow = workflowConfigForm("Workflow name", workflowstore.Config{
+				m.form, m.values.workflow = workflowConfigForm("Workflow name", workflowFormValuesFrom(workflowstore.Config{
 					Name:        target.Name,
 					Context:     "shared notes",
 					Cwd:         target.Cwd,
 					Flags:       target.Flags,
 					SetupAction: "make-worktree",
-				}, []actionChoice{{name: "make-worktree"}}, m.keys.Form)
+				}), []actionChoice{{name: "make-worktree"}}, m.keys.Form)
 				m.values.workflow.Cwd = "/work/api-v2"
 
 				return m
@@ -159,7 +184,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				target := m.listing.workflows[0]
 				m.target.renameWorkflow = &target
 				m.screen = screenWorkflowForm
-				m.form, m.values.workflow = workflowForm("Rename \"api\" to", workflowstore.Config{}, m.keys.Form)
+				m.form, m.values.workflow = workflowForm("Rename \"api\" to", workflowFormValues{}, m.keys.Form)
 				m.values.workflow.Name = "backend"
 
 				return m
@@ -407,7 +432,7 @@ func TestActionSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
 	assert.Contains(t, agentView, "> Same as workflow", "the setup field opens with what it inherits marked as picked")
 	assert.Contains(t, agentView, "> Same as workflow", "the cleanup field opens with what it inherits marked as picked")
 
-	workflowForm, _ := workflowConfigForm("Workflow name", workflowstore.Config{
+	workflowForm, _ := workflowConfigForm("Workflow name", workflowFormValues{
 		SetupAction:   "make-worktree",
 		CleanupAction: "drop-worktree",
 	}, available, config.DefaultKeybindings().Form)

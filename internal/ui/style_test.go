@@ -8,6 +8,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -51,4 +52,54 @@ func TestAgentsViewClipsName(t *testing.T) {
 
 	m.filter.setQuery("0825676")
 	assert.Len(t, m.agentRows(), 2, "the workflow header and the row that matched")
+}
+
+// TestBranchMark covers the git branch shown beside an agent's row: nothing for one the
+// branch syncer has not found a branch for, and the branch itself, icon included, for one
+// it has.
+func TestBranchMark(t *testing.T) {
+	tests := []struct {
+		name   string
+		branch *string
+		want   string
+	}{
+		{
+			name: "no branch found is drawn as nothing",
+		},
+		{
+			name:   "a found branch is drawn with its icon",
+			branch: xptr.Ptr("feature/worktrees"),
+			want:   " " + branchIcon + " feature/worktrees",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := branchMark(agentstore.Agent{Branch: tt.branch})
+			if tt.want == "" {
+				assert.Empty(t, got)
+				return
+			}
+
+			assert.Contains(t, got, tt.want)
+		})
+	}
+}
+
+// TestAgentsViewShowsBranch covers the row itself: an agent the branch syncer found a
+// branch for shows it beside its name, and one it has not draws the row without it.
+func TestAgentsViewShowsBranch(t *testing.T) {
+	m := model{
+		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:  config.DefaultKeybindings(),
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}}, agents: []agentItem{
+			{agent: agentstore.Agent{ID: "a1", Name: "worker", WorkflowID: "w1", Branch: xptr.Ptr("agent/a1")}},
+			{agent: agentstore.Agent{ID: "a2", Name: "reviewer", WorkflowID: "w1"}},
+		}},
+	}
+
+	view := m.agentsView()
+	assert.Contains(t, view, "worker")
+	assert.Contains(t, view, branchIcon+" agent/a1")
+	assert.Contains(t, view, "reviewer")
 }

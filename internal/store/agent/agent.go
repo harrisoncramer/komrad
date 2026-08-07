@@ -63,6 +63,9 @@ type Agent struct {
 	SpawnedByAgentID *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	// Branch is the branch checked out at Cwd, nil when Cwd is not a git worktree or has
+	// not been looked at yet. Written only by the branch syncer, never by anything else.
+	Branch *string
 }
 
 // SanitizeName maps a name to characters tmux accepts in session names.
@@ -342,6 +345,20 @@ func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
 
 	if err := s.queries.SetAgentStateByID(ctx, models.SetAgentStateByIDParams{ID: id, State: state}); err != nil {
 		return fmt.Errorf("failed to set state for id %q: %w", id, err)
+	}
+
+	return nil
+}
+
+// SetBranchByID records the branch checked out at an agent's cwd, or clears it when branch
+// is nil. Written only by the branch syncer's periodic pass.
+func (s *Store) SetBranchByID(ctx context.Context, id string, branch *string) error {
+	if !store.IsID(id) {
+		return nil
+	}
+
+	if err := s.queries.SetAgentBranchByID(ctx, models.SetAgentBranchByIDParams{ID: id, Branch: branch}); err != nil {
+		return fmt.Errorf("failed to set the branch for id %q: %w", id, err)
 	}
 
 	return nil
@@ -648,5 +665,6 @@ func agentFromRow(agent models.Agent) Agent {
 		SpawnedByAgentID: agent.SpawnedByAgentID,
 		CreatedAt:        agent.CreatedAt,
 		UpdatedAt:        agent.UpdatedAt,
+		Branch:           agent.Branch,
 	}
 }

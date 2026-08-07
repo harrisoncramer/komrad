@@ -56,16 +56,26 @@ RETURNING
 
 -- name: InsertWorkflow :one
 INSERT INTO workflows(
+    id,
     name,
     context,
     setup_action,
     cleanup_action,
+    worktree_enabled,
+    worktree_base_branch,
+    worktree_copy_paths,
+    worktree_symlink_paths,
     workflow_config_id)
 VALUES (
+    @id,
     @name,
     @context,
     @setup_action,
     @cleanup_action,
+    @worktree_enabled,
+    @worktree_base_branch,
+    @worktree_copy_paths,
+    @worktree_symlink_paths,
     @workflow_config_id)
 RETURNING
     *;
@@ -91,7 +101,11 @@ UPDATE
     workflows
 SET
     setup_action = @setup_action,
-    cleanup_action = @cleanup_action
+    cleanup_action = @cleanup_action,
+    worktree_enabled = @worktree_enabled,
+    worktree_base_branch = @worktree_base_branch,
+    worktree_copy_paths = @worktree_copy_paths,
+    worktree_symlink_paths = @worktree_symlink_paths
 WHERE
     id = @id;
 

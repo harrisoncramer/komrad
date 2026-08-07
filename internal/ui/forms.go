@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"weave/config"
 
@@ -23,7 +24,7 @@ import (
 type formValues struct {
 	agent     *agentFormValues
 	rename    *string
-	workflow  *workflowstore.Config
+	workflow  *workflowFormValues
 	schedule  *schedulestore.Config
 	confirmed *bool
 	archive   *archiveChoice
@@ -55,6 +56,78 @@ type agentFormValues struct {
 }
 
 const inheritAction = "\x00inherit"
+
+// workflowFormValues is what the workflow form's fields write into. It mirrors
+// workflowstore.Config except for the two worktree path lists, which huh's text field
+// binds as newline-separated text rather than as workflowstore.WorktreeConfig's []string,
+// converted at the form's edges instead of reshaping the store's own type to fit a widget.
+type workflowFormValues struct {
+	Name          string
+	Context       string
+	Harness       string
+	Cwd           string
+	Flags         string
+	SetupAction   string
+	CleanupAction string
+	// WorktreeEnabled turns on a generated git worktree per agent for this workflow.
+	WorktreeEnabled bool
+	// WorktreeBaseBranch is blank for the repo's default branch.
+	WorktreeBaseBranch string
+	// WorktreeCopyPaths and WorktreeSymlinkPaths are one repo-relative path per line.
+	WorktreeCopyPaths    string
+	WorktreeSymlinkPaths string
+}
+
+// workflowFormValuesFrom fills the form's fields from a stored config, the newline-joined
+// text a copy or symlink list reads as when there is nothing yet to type over.
+func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
+	return workflowFormValues{
+		Name:                 cfg.Name,
+		Context:              cfg.Context,
+		Harness:              cfg.Harness,
+		Cwd:                  cfg.Cwd,
+		Flags:                cfg.Flags,
+		SetupAction:          cfg.SetupAction,
+		CleanupAction:        cfg.CleanupAction,
+		WorktreeEnabled:      cfg.Worktree.Enabled,
+		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
+		WorktreeCopyPaths:    strings.Join(cfg.Worktree.CopyPaths, "\n"),
+		WorktreeSymlinkPaths: strings.Join(cfg.Worktree.SymlinkPaths, "\n"),
+	}
+}
+
+// toConfig reads the form's fields back into the shape the workflow service takes,
+// splitting each path list on its lines and dropping the blank ones a stray newline
+// leaves behind.
+func (v workflowFormValues) toConfig() workflowstore.Config {
+	return workflowstore.Config{
+		Name:          v.Name,
+		Context:       v.Context,
+		Harness:       v.Harness,
+		Cwd:           v.Cwd,
+		Flags:         v.Flags,
+		SetupAction:   v.SetupAction,
+		CleanupAction: v.CleanupAction,
+		Worktree: workflowstore.WorktreeConfig{
+			Enabled:      v.WorktreeEnabled,
+			BaseBranch:   v.WorktreeBaseBranch,
+			CopyPaths:    splitLines(v.WorktreeCopyPaths),
+			SymlinkPaths: splitLines(v.WorktreeSymlinkPaths),
+		},
+	}
+}
+
+// splitLines is a text field's content as one entry per non-blank line, trimmed.
+func splitLines(text string) []string {
+	var lines []string
+	for _, line := range strings.Split(text, "\n") {
+		if trimmed := strings.TrimSpace(line); trimmed != "" {
+			lines = append(lines, trimmed)
+		}
+	}
+
+	return lines
+}
 
 // blueprintFields is the harness, directory, and flags inputs shared by the new-agent form
 // and the workflow form, since both are setting the same three things: which CLI runs, where
@@ -335,11 +408,9 @@ func (m model) archiveAnswer() archiveChoice {
 	return *m.values.archive
 }
 
-// workflowForm asks for a name alone, which is what a rename is. It binds the same config
+// workflowForm asks for a name alone, which is what a rename is. It binds the same values
 // shape the fuller form does, so one submit path reads either.
-func workflowForm(title string, cfg workflowstore.Config, keys config.FormKeys) (*huh.Form, *workflowstore.Config) {
-	values := cfg
-
+func workflowForm(title string, values workflowFormValues, keys config.FormKeys) (*huh.Form, *workflowFormValues) {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().Key("name").Title(title).Value(&values.Name),
@@ -349,16 +420,17 @@ func workflowForm(title string, cfg workflowstore.Config, keys config.FormKeys) 
 	return form, &values
 }
 
-// workflowConfigForm collects a workflow's name, its context, its default config, and the
-// actions run around its agents' lives. The harness, dir, and flags become the blueprint
-// agents inside it start from, and every field prefills, so it serves create and edit
-// alike.
+// workflowConfigForm collects a workflow's name, its context, its default config, the
+// actions run around its agents' lives, and its worktree config. The harness, dir, and
+// flags become the blueprint agents inside it start from, and every field prefills, so it
+// serves create and edit alike.
 //
 // available is what the actions directory holds, which the two action fields are picked
-// from rather than typed, so a name matching no file cannot be written from here.
-func workflowConfigForm(nameTitle string, cfg workflowstore.Config, available []actionChoice, keys config.FormKeys) (*huh.Form, *workflowstore.Config) {
-	values := cfg
-
+// from rather than typed, so a name matching no file cannot be written from here. They
+// still take a value when worktree support is on, since that is what names the two scripts
+// weave generated; the workflow service refuses a submit that names anything else instead
+// of quietly overwriting it.
+func workflowConfigForm(nameTitle string, values workflowFormValues, available []actionChoice, keys config.FormKeys) (*huh.Form, *workflowFormValues) {
 	fields := append([]huh.Field{
 		huh.NewInput().Key("name").Title(nameTitle).Value(&values.Name),
 		huh.NewText().Key("context").Title("Context").Description("shared notes for this workflow; ctrl+e opens $EDITOR").Value(&values.Context),
@@ -366,14 +438,35 @@ func workflowConfigForm(nameTitle string, cfg workflowstore.Config, available []
 
 	fields = append(fields,
 		huh.NewSelect[string]().Key("setup").Title("Setup action").
-			Value(&values.SetupAction).Options(actionOptions(available, cfg.SetupAction)...),
+			Value(&values.SetupAction).Options(actionOptions(available, values.SetupAction)...),
 		huh.NewSelect[string]().Key("cleanup").Title("Cleanup action").
-			Value(&values.CleanupAction).Options(actionOptions(available, cfg.CleanupAction)...),
+			Value(&values.CleanupAction).Options(actionOptions(available, values.CleanupAction)...),
 	)
+
+	fields = append(fields, worktreeFields(&values)...)
 
 	form := huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 
 	return form, &values
+}
+
+// worktreeFields is the group that turns on a generated git worktree per agent: the toggle
+// itself, the branch a new one is built from, and the two path lists applied into it.
+// Directory is what names the repo, above these, and is required when the toggle is on.
+func worktreeFields(values *workflowFormValues) []huh.Field {
+	return []huh.Field{
+		huh.NewConfirm().Key("worktree_enabled").Title("Git worktree per agent?").
+			Description("adds one off the directory above and points setup/cleanup at the scripts weave generates for it").
+			Affirmative("Enabled").Negative("Disabled").Value(&values.WorktreeEnabled).WithButtonAlignment(lipgloss.Left),
+		huh.NewInput().Key("worktree_base_branch").Title("Worktree base branch").
+			Placeholder("repo's default branch").Value(&values.WorktreeBaseBranch),
+		huh.NewText().Key("worktree_copy_paths").Title("Worktree copy paths").
+			Description("one repo-relative path per line, copied fresh into every worktree, such as .env").
+			Value(&values.WorktreeCopyPaths),
+		huh.NewText().Key("worktree_symlink_paths").Title("Worktree symlink paths").
+			Description("one repo-relative path per line, symlinked back instead of duplicated, such as node_modules").
+			Value(&values.WorktreeSymlinkPaths),
+	}
 }
 
 // actionChoice is one action an action field may be set to

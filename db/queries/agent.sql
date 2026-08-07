@@ -236,6 +236,14 @@ SET
 WHERE
     id = @id;
 
+-- name: SetAgentBranchByID :exec
+UPDATE
+    agents
+SET
+    branch = sqlc.narg('branch')
+WHERE
+    id = @id;
+
 -- name: SetAgentSessionID :exec
 UPDATE
     agents

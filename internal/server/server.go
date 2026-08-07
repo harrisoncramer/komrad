@@ -63,6 +63,12 @@ const MailDeliveryInterval = 2 * time.Second
 // each pass re-indexes potentially large logs, so it stays off the hot path.
 const TranscriptSyncInterval = 15 * time.Second
 
+// BranchSyncInterval is how often the service re-reads the branch checked out at every
+// live agent's cwd. A stale branch label is harmless the way a stale search corpus is, and
+// each pass is a git shell-out per agent rather than a tmux capture, which is why it runs
+// on its own slow pass instead of inside the two-second reconcile loop.
+const BranchSyncInterval = 15 * time.Second
+
 // Params is everything the service is built from. Every one of them is gathered before
 // this is reached, so nothing here reads a file, an environment, or a flag.
 type Params struct {
@@ -148,6 +154,8 @@ type Server struct {
 	MailDelivery Loop
 	// TranscriptSync folds each agent's new transcript text into the search index.
 	TranscriptSync Loop
+	// BranchSync re-reads the branch checked out at every live agent's cwd.
+	BranchSync Loop
 
 	logger        *slog.Logger
 	stopRequested chan struct{}
@@ -158,7 +166,7 @@ type Server struct {
 // loops is every background loop Start has to run, so a loop added above joins this list in
 // the same glance.
 func (s *Server) loops() []Loop {
-	return []Loop{s.ScheduleReconcile, s.Reconcile, s.MailDelivery, s.TranscriptSync}
+	return []Loop{s.ScheduleReconcile, s.Reconcile, s.MailDelivery, s.TranscriptSync, s.BranchSync}
 }
 
 // New builds the service. Nothing is listening and no loop is running when it returns; the
@@ -202,6 +210,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Tx:        pool,
 		MaxAgents: p.MaxAgents,
 		Notifier:  mailService,
+		Load:      loadConfig,
 	})
 	scheduleService := agents.NewScheduleService(agents.ScheduleParams{
 		Schedules: scheduleStore,
@@ -359,6 +368,11 @@ func New(ctx context.Context, p Params) (*Server, error) {
 			Transcripts: transcriptStore,
 			Harnesses:   p.Harnesses,
 		}).Sync,
+	}
+	srv.BranchSync = Loop{
+		Name:     "branch sync",
+		Interval: BranchSyncInterval,
+		Pass:     agents.NewBranchSyncer(agentStore).Sync,
 	}
 
 	return srv, nil

@@ -97,6 +97,35 @@ table "workflows" {
     type    = text
     default = ""
   }
+  # Whether this workflow generates a git worktree for each of its agents. When true,
+  # setup_action and cleanup_action name the scripts weave generated for it rather than
+  # anything hand-written.
+  column "worktree_enabled" {
+    null    = false
+    type    = boolean
+    default = false
+  }
+  # The branch a new worktree is built from, empty for the repo's default branch. Read
+  # only when worktree_enabled is true.
+  column "worktree_base_branch" {
+    null    = false
+    type    = text
+    default = ""
+  }
+  # Files copied fresh into every new worktree, relative to cwd. Read only when
+  # worktree_enabled is true.
+  column "worktree_copy_paths" {
+    null    = false
+    type    = sql("text[]")
+    default = sql("'{}'")
+  }
+  # Directories symlinked back to cwd instead of duplicated into every worktree. Read
+  # only when worktree_enabled is true.
+  column "worktree_symlink_paths" {
+    null    = false
+    type    = sql("text[]")
+    default = sql("'{}'")
+  }
   # The workflow's default config. References workflow_configs.id.
   column "workflow_config_id" {
     null = false
@@ -433,6 +462,13 @@ table "agents" {
   column "nudged_at" {
     null = true
     type = timestamptz
+  }
+  # The branch checked out at cwd, null when cwd is not a git worktree or has not been
+  # looked at yet. Written only by a slow periodic pass, never by the reconciler, since
+  # reading it is a shell-out rather than a tmux capture.
+  column "branch" {
+    null = true
+    type = text
   }
   # The mark the user put on this agent, null when it carries none. It holds the
   # glyph itself, since which glyphs exist is their config and the glyph is the

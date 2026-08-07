@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 
+	"weave/config"
 	"weave/internal/harness"
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
@@ -274,12 +275,21 @@ func (f fakeHarnesses) GetByID(id string) (harness.Harness, error) {
 // domains without threading three handles through every helper.
 type testStore struct {
 	*storetest.Stores
+	// actionsDir and worktreesDir are temp directories a worktree-enabled workflow's
+	// generated scripts are written into, isolating a test from the developer's own
+	// ~/.config/weave/actions.
+	actionsDir   string
+	worktreesDir string
 }
 
 func newStore(t *testing.T) *testStore {
 	t.Helper()
 
-	return &testStore{Stores: storetest.Open(t)}
+	return &testStore{
+		Stores:       storetest.Open(t),
+		actionsDir:   t.TempDir(),
+		worktreesDir: t.TempDir(),
+	}
 }
 
 func (s *testStore) Close() error {
@@ -459,6 +469,12 @@ func (s *testStore) workflowServiceWithNotifier(tmux *fakeTmux, maxAgents int, n
 		Tx:        s.Pool,
 		MaxAgents: maxAgents,
 		Notifier:  notifier,
+		Load: func() (*config.Config, error) {
+			return &config.Config{
+				Actions:   config.Actions{Dir: s.actionsDir},
+				Worktrees: config.Worktrees{Dir: s.worktreesDir},
+			}, nil
+		},
 	})
 }
 

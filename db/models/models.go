@@ -32,6 +32,7 @@ type Agent struct {
 	Mark             *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	Branch           *string
 }
 
 // Key/value facts an agent recorded about its own work.
@@ -94,15 +95,19 @@ type Schedule struct {
 
 // A named bucket of related agents. Pure organization; runs nothing.
 type Workflow struct {
-	ID               string
-	Name             string
-	Context          string
-	SetupAction      string
-	CleanupAction    string
-	WorkflowConfigID string
-	ArchivedAt       *time.Time
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	ID                   string
+	Name                 string
+	Context              string
+	SetupAction          string
+	CleanupAction        string
+	WorkflowConfigID     string
+	ArchivedAt           *time.Time
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+	WorktreeEnabled      bool
+	WorktreeBaseBranch   string
+	WorktreeCopyPaths    []string
+	WorktreeSymlinkPaths []string
 }
 
 // Default config (harness, cwd, flags) seeded into new agents of a workflow.

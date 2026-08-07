@@ -49,6 +49,7 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 		Mark:       s.Mark,
 		Hidden:     s.GetHidden(),
 		Metadata:   metadata,
+		Branch:     s.Branch,
 	}
 }
 
@@ -103,6 +104,7 @@ func workflowsFrom(listed []*workflowv1.Workflow) []workflowstore.Workflow {
 			Flags:         w.GetFlags(),
 			SetupAction:   w.GetSetupAction(),
 			CleanupAction: w.GetCleanupAction(),
+			Worktree:      worktreeConfigFromProto(w.GetWorktree()),
 			ArchivedAt:    archived,
 		}
 	})
