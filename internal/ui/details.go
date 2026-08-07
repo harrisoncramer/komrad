@@ -166,9 +166,12 @@ func (m model) copyDetailsField(held details) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(m.copyCmd(held.fields[idx].value), flashRevertTick())
 }
 
-// detailsLines is how many lines the section takes, from the share of the pane the layout
-// gives it. It never takes more than half, so the list it sits under always has room to be
-// moved around in, however tall a record under the cursor is.
+// detailsLines is how many field lines the section draws, from the share of the pane the
+// layout gives it. The chrome around the fields is added on top of this rather than paid for
+// out of it, and the two together never take more than half the pane, so the list above
+// always has room to be moved around in, however tall a record under the cursor is. A pane
+// too short to fit the chrome and one field gets none at all, since a list with nowhere to
+// stand is worse than a record that has to be read by moving the cursor.
 func (m model) detailsLines() int {
 	if m.height <= 0 {
 		return 0
@@ -179,18 +182,13 @@ func (m model) detailsLines() int {
 		lines = int(float64(m.height) * m.detailsHeight)
 	}
 
-	return min(lines, m.height/2)
+	return min(lines, max(m.height/2-detailsChromeLines, 0))
 }
 
 // detailsChromeLines is what the section spends on everything that is not a field: the rule
 // that separates it from the list, the title, the blank line under the title, and the rule
 // that closes it off from the legend below.
 const detailsChromeLines = 4
-
-// detailsMinLines is the shortest the section is worth drawing: its chrome and one field
-// beneath it. A pane too short for that keeps the list instead, since a list with nowhere to
-// stand is worse than a record that has to be read by moving the cursor.
-const detailsMinLines = detailsChromeLines + 1
 
 // detailsView draws the section under the list: a rule, the row's title, then its fields,
 // clipped to the share of the pane the layout gives it. Fields past that share are windowed
@@ -205,18 +203,18 @@ func (m model) detailsView() string {
 	}
 
 	lines := m.detailsLines()
-	if lines < detailsMinLines {
+	if lines < 1 {
 		return ""
 	}
 
 	cursor := m.detailsCursor(held)
 	rows := m.detailFieldRows(held.fields, cursor)
 
-	// The rules and the title are chrome the fields draw between, so they come out of the
-	// section's own height rather than being drawn on top of it.
+	// The rules and the title are chrome drawn around the fields, on top of the height
+	// budgeted for the fields themselves rather than out of it.
 	return m.detailsRule() +
 		m.detailsTitle(held) +
-		renderList(rows, cursor, lines-detailsChromeLines) +
+		renderList(rows, cursor, lines) +
 		m.detailsRule()
 }
 

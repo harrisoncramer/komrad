@@ -47,6 +47,13 @@ func send(t *testing.T, m model, key string) model {
 func TestDetailsDrawTheHoveredRow(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 
+	// Pushed taller than the share the layout gives it, ahead of the pr field the rest of
+	// this test reads off the bottom.
+	m.listing.agents[0].agent.Metadata = append([]agentstore.Metadata{
+		{Key: "branch", Value: "harry/details-height"},
+		{Key: "issue", Value: "WEAVE-1"},
+	}, m.listing.agents[0].agent.Metadata...)
+
 	view := m.detailsView()
 
 	assert.Contains(t, view, "auth")
@@ -216,8 +223,9 @@ func TestDetailsAreDrawnBetweenTwoRules(t *testing.T) {
 	assert.True(t, strings.HasSuffix(view, strings.Repeat("─", m.width)+"\n"), "and closes on one")
 }
 
-// TestDetailsHeightLeavesTheListRoom covers the share the layout gives the section, which is
-// never more than half the pane however tall the configured share is.
+// TestDetailsHeightLeavesTheListRoom covers the field lines the layout gives the section,
+// which together with its chrome are never more than half the pane however tall the
+// configured share is.
 func TestDetailsHeightLeavesTheListRoom(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 
@@ -228,7 +236,7 @@ func TestDetailsHeightLeavesTheListRoom(t *testing.T) {
 	}{
 		{name: "a share of the pane", height: 0.25, want: 6},
 		{name: "a whole number of rows", height: 8, want: 8},
-		{name: "more than the pane holds is capped at half of it", height: 40, want: 12},
+		{name: "more than the pane holds is capped so the chrome and fields together take half of it", height: 40, want: 8},
 	}
 
 	for _, tt := range tests {
@@ -238,6 +246,32 @@ func TestDetailsHeightLeavesTheListRoom(t *testing.T) {
 			assert.Equal(t, tt.want, m.detailsLines())
 		})
 	}
+}
+
+// TestDetailsShrinksToAShortRecord covers a record shorter than the section's configured
+// share: the block draws only the fields the record has, rather than padding out to fill
+// the share it was given.
+func TestDetailsShrinksToAShortRecord(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	held := m.hoveredDetails()
+
+	require.Less(t, len(held.fields), m.detailsLines(), "the record must be shorter than the share for this to prove anything")
+
+	fieldLines := strings.Count(m.detailsView(), "\n") - detailsChromeLines
+
+	assert.Equal(t, len(held.fields), fieldLines)
+}
+
+// TestDetailsNeedsRoomForChromeAndAField covers the guard that closes the section entirely
+// when the pane cannot fit the chrome and even one field inside the half it is allowed.
+func TestDetailsNeedsRoomForChromeAndAField(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+
+	m.height = 8
+	assert.Empty(t, m.detailsView(), "half the pane cannot fit the chrome, let alone a field beside it")
+
+	m.height = 10
+	assert.NotEmpty(t, m.detailsView(), "half the pane now fits the chrome and one field")
 }
 
 // TestDetailsOnTheOtherLists covers the section under the two lists that are not the agents
