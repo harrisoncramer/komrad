@@ -55,7 +55,7 @@ func TestMailReachesAnAgentThatHadAlreadyStopped(t *testing.T) {
 		typed := instance.WaitForTyped(migrations.GetId(), 1)
 		require.Len(t, typed, 1, "the agent received exactly one line")
 		assert.Contains(t, typed[0], "read_mail")
-		assert.Contains(t, typed[0], "1 unread")
+		assert.Contains(t, typed[0], "1 piece(s) of unread mail")
 		assert.NotContains(t, typed[0], "refund column", "the mail itself stays in the panel")
 	})
 
