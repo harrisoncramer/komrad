@@ -53,7 +53,7 @@ const (
 type uiTmux interface {
 	layout.Tmux
 	GetClientPath(client string) string
-	SetPanelGlobal(name, value string)
+	SetInfoPane(pane string)
 	OpenWindow(client, name, dir string, argv ...string) error
 }
 

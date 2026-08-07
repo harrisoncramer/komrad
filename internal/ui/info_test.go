@@ -225,9 +225,11 @@ type recordingTmux struct {
 	killed []string
 	// belowAnchors are the panes the info pane has been split beneath.
 	belowAnchors []string
-	// globals are the tmux options the panel has recorded, which is how an action is told
-	// which pane the panel laid out for it.
+	// globals are the tmux options the panel has recorded.
 	globals map[string]string
+	// infoPane is the pane the panel said it opened its info region in, which is how an
+	// action is told which pane to fill.
+	infoPane string
 	// respawnPanes are the panes each respawn went to, alongside the argv in respawns.
 	respawnPanes []string
 	// deadPanes are the panes IsPaneAlive answers no for, which is how a test stands a pane
@@ -259,8 +261,8 @@ func (t *recordingTmux) SplitAbove(anchor, _, _ string) string {
 	return "%2"
 }
 
-func (t *recordingTmux) SetPanelGlobal(name, value string) {
-	t.SetGlobal(name, value)
+func (t *recordingTmux) SetInfoPane(pane string) {
+	t.infoPane = pane
 }
 
 func (t *recordingTmux) SetGlobal(name, value string) {

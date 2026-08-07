@@ -904,8 +904,8 @@ func actionService(t *testing.T, dir string, runner actionRunner) *ActionService
 			owner:      "a1",
 			hostSocket: "/tmp/host-socket",
 			shell:      "/bin/zsh",
+			infoPane:   "%3",
 			globals: map[string]string{
-				tmux.InfoPaneOption:       "%3",
 				tmux.InvokingClientOption: "/dev/ttys004",
 			},
 		},
@@ -969,13 +969,15 @@ type fakePaneOwner struct {
 	hostSocket string
 	// shell is what tmux starts a pane's process with, which a script respawning one names.
 	shell string
+	// infoPane is the pane the panel opened its info region in.
+	infoPane string
 }
 
-func (f fakePaneOwner) GetPaneOwner(string) string        { return f.owner }
-func (f fakePaneOwner) GetHostSocket() string             { return f.hostSocket }
-func (f fakePaneOwner) ShowGlobal(name string) string     { return f.globals[name] }
-func (f fakePaneOwner) GetPanelGlobal(name string) string { return f.globals[name] }
-func (f fakePaneOwner) DefaultShell() string              { return f.shell }
+func (f fakePaneOwner) GetPaneOwner(string) string    { return f.owner }
+func (f fakePaneOwner) GetHostSocket() string         { return f.hostSocket }
+func (f fakePaneOwner) ShowGlobal(name string) string { return f.globals[name] }
+func (f fakePaneOwner) GetInfoPane() string           { return f.infoPane }
+func (f fakePaneOwner) DefaultShell() string          { return f.shell }
 
 // recordingRunner stands in for starting a process, so the service's tests drive the whole path
 // without spawning anything. Only the last run's directory and environment are kept, since no

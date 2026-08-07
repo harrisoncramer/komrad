@@ -325,16 +325,20 @@ func (c *Client) ShowGlobal(name string) string {
 	return c.value("show-option", "-gqv", name)
 }
 
-// SetPanelGlobal records something about the panel's own layout, on the server the panel's
-// panes live on. Servers sends SetGlobal to the user's server, where the tmux key binding
-// reads, so a pane id written there would be answered by the wrong machine's option.
-func (c *Client) SetPanelGlobal(name, value string) {
-	c.SetGlobal(name, value)
+// SetInfoPane records which pane the panel opened its info region in, and clears it when
+// given nothing. The panel writes it and the service reads it back for an action's
+// environment, so the two agree through tmux rather than through each other.
+//
+// It is written on the server the panel's panes live on. Servers sends SetGlobal to the
+// user's server, where the tmux key binding reads, so a pane id written there would be
+// answered by the wrong machine's option.
+func (c *Client) SetInfoPane(pane string) {
+	c.SetGlobal(InfoPaneOption, pane)
 }
 
-// GetPanelGlobal reads one back, from the same server it was written on.
-func (c *Client) GetPanelGlobal(name string) string {
-	return c.ShowGlobal(name)
+// GetInfoPane reads that pane back, from the same server it was written on.
+func (c *Client) GetInfoPane() string {
+	return c.ShowGlobal(InfoPaneOption)
 }
 
 // SetSessionOption sets a session-scoped tmux option.

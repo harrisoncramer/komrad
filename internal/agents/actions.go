@@ -27,7 +27,7 @@ type agentGetter interface {
 type tmuxReader interface {
 	GetPaneOwner(pane string) string
 	GetHostSocket() string
-	GetPanelGlobal(name string) string
+	GetInfoPane() string
 	ShowGlobal(name string) string
 	DefaultShell() string
 }
@@ -427,7 +427,7 @@ func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, e
 		"WEAVE_ACTIONS_DIR=" + dir,
 		"WEAVE_TRIGGER=" + trigger,
 		"WEAVE_ACTION=" + p.action,
-		"WEAVE_INFO_PANE=" + s.tmux.GetPanelGlobal(tmux.InfoPaneOption),
+		"WEAVE_INFO_PANE=" + s.tmux.GetInfoPane(),
 		"WEAVE_HOST_TMUX_SOCKET=" + s.tmux.GetHostSocket(),
 		"WEAVE_HOST_CLIENT=" + s.tmux.ShowGlobal(tmux.InvokingClientOption),
 		"EDITOR=" + s.editor,

@@ -38,8 +38,10 @@ The stores, which hold data, are in `internal/store` and the packages beneath it
 
 Separately, adapters are in `internal/tmux`, `internal/harness`, and `internal/actions`. Each one is a seam in front of something weave does not own. For instance, the `harness` package is where the boundary between different CLI agents (Claude vs. Codex) is kept.
 
-One known violation, recorded rather than hidden: `internal/ui/info.go` imports `internal/tmux` directly instead of taking what it needs as a dependency the way the rest of
-the panel does.
+The rule that keeps this honest is that a layer names what it wants, not how it is done. The
+panel asks for `SetInfoPane`, and only `internal/tmux` knows that this is a tmux option called
+`@weave_info_pane`. An interface generic enough to take an option name would put that name
+back in the caller, which is how the layering leaks in practice.
 
 ## Postgres
 

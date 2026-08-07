@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"weave/config"
-	"weave/internal/tmux"
 	actionv1 "weave/proto/gen/action/v1"
 	"weave/proto/gen/action/v1/actionv1connect"
 
@@ -363,7 +362,7 @@ func TestEditActionKey(t *testing.T) {
 	assert.Equal(t, []string{"a1/open-pr"}, client.edited)
 	assert.Equal(t, infoEdit, got.info.kind)
 	assert.Equal(t, "open-pr", got.info.action, "the file down there is what the key closes")
-	assert.Equal(t, "%2", recorder.globals[tmux.InfoPaneOption], "the script is told which pane to fill")
+	assert.Equal(t, "%2", recorder.infoPane, "the script is told which pane to fill")
 	assert.Nil(t, got.banner)
 	assert.Empty(t, client.fired, "editing a file runs none of the user's actions")
 }

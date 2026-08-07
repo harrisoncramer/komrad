@@ -1,9 +1,6 @@
 package ui
 
-import (
-	"weave/internal/tmux"
-	"weave/internal/ui/layout"
-)
+import "weave/internal/ui/layout"
 
 // What the panel decides to put in the info pane. The layout package owns the pane
 // itself, and this is the policy above it.
@@ -42,7 +39,7 @@ func (m *model) claimInfo(kind infoKind, action string) bool {
 		return false
 	}
 
-	m.tmux.SetPanelGlobal(tmux.InfoPaneOption, pane)
+	m.tmux.SetInfoPane(pane)
 	m.frame.Claimed(layout.RegionInfo)
 	m.info.kind = kind
 	m.info.action = action
@@ -82,7 +79,7 @@ func (m model) doesRestageFillInfo() bool {
 
 // forgetInfo clears the pane option, since tmux can reuse pane ids.
 func (m *model) forgetInfo() {
-	m.tmux.SetPanelGlobal(tmux.InfoPaneOption, "")
+	m.tmux.SetInfoPane("")
 	m.info.kind = infoNothing
 	m.info.action = ""
 }
