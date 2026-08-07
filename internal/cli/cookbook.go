@@ -74,7 +74,12 @@ func cookbookListCmd(state *app) *cobra.Command {
 			}
 
 			for _, cookbook := range found {
-				if _, err := fmt.Fprintf(cmd.OutOrStdout(), "%-20s %s\n", cookbook.Name, cookbook.Manifest.Description); err != nil {
+				description := cookbook.Manifest.Description
+				if err := cookbook.Validate(); err != nil {
+					description = "(invalid: " + err.Error() + ")"
+				}
+
+				if _, err := fmt.Fprintf(cmd.OutOrStdout(), "%-20s %s\n", cookbook.Name, description); err != nil {
 					return err
 				}
 			}
@@ -169,6 +174,9 @@ func installCookbook(ctx context.Context, state *app, name, cwdOverride string) 
 	found, err := cookbooks.Find(name, userDir, builtinDir)
 	if err != nil {
 		return installedCookbook{}, err
+	}
+	if err := found.Validate(); err != nil {
+		return installedCookbook{}, fmt.Errorf("cookbook %q is invalid: %w", found.Name, err)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, rpcTimeout)

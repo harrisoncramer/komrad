@@ -34,7 +34,7 @@ func TestReadHeader(t *testing.T) {
 			name:     "comments that are not directives are only comments",
 			file:     "no-header",
 			wantText: true,
-			want:     Header{},
+			want:     Header{Shebang: true},
 		},
 		{
 			name: "a file that is not text is not scanned",
@@ -46,6 +46,7 @@ func TestReadHeader(t *testing.T) {
 			file:     "not-toml",
 			wantText: true,
 			want: Header{
+				Shebang:  true,
 				Problems: []string{`line 2: "description = just words, unquoted" is not one TOML key and value`},
 			},
 		},
@@ -54,6 +55,7 @@ func TestReadHeader(t *testing.T) {
 			file:     "unknown-directive",
 			wantText: true,
 			want: Header{
+				Shebang: true,
 				Problems: []string{
 					"line 2: descriptoin is not a directive weave knows",
 					"line 3: tools is not a directive weave knows",
@@ -68,6 +70,7 @@ func TestReadHeader(t *testing.T) {
 			wantText: true,
 			want: Header{
 				Description: "Names a duration nothing can read.",
+				Shebang:     true,
 				Problems:    []string{`line 3: "soon" is not a duration: time: invalid duration "soon"`},
 			},
 		},
@@ -77,6 +80,7 @@ func TestReadHeader(t *testing.T) {
 			wantText: true,
 			want: Header{
 				Description: "Declared in the header, where a declaration belongs.",
+				Shebang:     true,
 			},
 		},
 		{
@@ -85,6 +89,7 @@ func TestReadHeader(t *testing.T) {
 			wantText: true,
 			want: Header{
 				Description: "Says \"hello\" to the ✨ agent — em dash and all",
+				Shebang:     true,
 			},
 		},
 		{
@@ -103,6 +108,7 @@ func TestReadHeader(t *testing.T) {
 			want: Header{
 				Description: "Declares itself under a shebang.",
 				Timeout:     2 * time.Minute,
+				Shebang:     true,
 			},
 		},
 		{
@@ -112,6 +118,7 @@ func TestReadHeader(t *testing.T) {
 			want: Header{
 				Description: "Declared among ordinary comments.",
 				Timeout:     90 * time.Second,
+				Shebang:     true,
 			},
 		},
 		{
@@ -121,6 +128,7 @@ func TestReadHeader(t *testing.T) {
 			want: Header{
 				Description: "Declared in a language whose comments are slashes.",
 				Timeout:     time.Minute,
+				Shebang:     true,
 			},
 		},
 	}

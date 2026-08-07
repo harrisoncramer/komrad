@@ -49,11 +49,10 @@ func TestDiscoverSkipsEntriesWithoutAManifest(t *testing.T) {
 	assert.Equal(t, "real", found[0].Name)
 }
 
-// TestDiscoverAbortsOnTheFirstBadManifest documents a gap rather than a fix: one malformed
-// cookbook.toml anywhere in a directory hides every cookbook in that directory, including
-// ones that parse perfectly well, since Discover returns the parse error immediately instead
-// of skipping just the broken one the way it already skips a directory with no manifest at all.
-func TestDiscoverAbortsOnTheFirstBadManifest(t *testing.T) {
+// TestDiscoverKeepsTheGoodCookbookNextToABadOne covers a malformed cookbook.toml no longer
+// hiding every other cookbook in the same directory: Discover still returns the broken one,
+// with ManifestErr set, rather than aborting the whole scan.
+func TestDiscoverKeepsTheGoodCookbookNextToABadOne(t *testing.T) {
 	dir := t.TempDir()
 	writeCookbook(t, dir, "good", "a perfectly fine cookbook", "")
 
@@ -61,9 +60,17 @@ func TestDiscoverAbortsOnTheFirstBadManifest(t *testing.T) {
 	require.NoError(t, os.MkdirAll(broken, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(broken, manifestName), []byte("not valid toml [[[\n"), 0o644))
 
-	_, err := Discover(dir)
-	require.Error(t, err, "BUG: a broken sibling should not prevent Discover from returning the good cookbook")
-	assert.Contains(t, err.Error(), "broken")
+	found, err := Discover(dir)
+	require.NoError(t, err)
+	require.Len(t, found, 2)
+
+	byName := make(map[string]Cookbook, len(found))
+	for _, cookbook := range found {
+		byName[cookbook.Name] = cookbook
+	}
+
+	assert.NoError(t, byName["good"].ManifestErr)
+	assert.Error(t, byName["broken"].ManifestErr)
 }
 
 // TestListUserOverridesBuiltin covers the override order List and Find both promise: a
@@ -146,6 +153,73 @@ func TestInstallActionsSkipsTheManifestItself(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"worktree-agent-setup"}, installed)
+}
+
+// TestValidate covers what Validate does and does not object to.
+func TestValidate(t *testing.T) {
+	tests := []struct {
+		name     string
+		manifest string
+		files    map[string]string
+		wantErr  string
+	}{
+		{
+			name:     "a manifest that will not parse",
+			manifest: "not valid toml [[[\n",
+			wantErr:  "failed to parse",
+		},
+		{
+			name:     "setup_action names a file that is not there",
+			manifest: "[workflow]\nsetup_action = \"nope\"\n",
+			wantErr:  `"nope"`,
+		},
+		{
+			name:     "cleanup_action names a file that is not there",
+			manifest: "[workflow]\ncleanup_action = \"nope\"\n",
+			wantErr:  `"nope"`,
+		},
+		{
+			name:     "a sibling file with no shebang",
+			manifest: "",
+			files:    map[string]string{"notes.txt": "just some prose\n"},
+			wantErr:  "notes.txt",
+		},
+		{
+			name:     "a plain cookbook with no actions",
+			manifest: "description = \"fine\"\n",
+		},
+		{
+			name:     "setup_action naming a real sibling script",
+			manifest: "[workflow]\nsetup_action = \"setup\"\n",
+			files:    map[string]string{"setup": "#!/bin/sh\n"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			cookbookDir := filepath.Join(dir, "under-test")
+			require.NoError(t, os.MkdirAll(cookbookDir, 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(cookbookDir, manifestName), []byte(tt.manifest), 0o644))
+
+			for file, content := range tt.files {
+				require.NoError(t, os.WriteFile(filepath.Join(cookbookDir, file), []byte(content), 0o644))
+			}
+
+			found, err := Find("under-test", dir)
+			require.NoError(t, err, "Find succeeds even for a manifest that will not parse")
+
+			err = found.Validate()
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+
+				return
+			}
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
 }
 
 // TestInstallActionsWithNoSiblingFiles covers a cookbook that is only a workflow and,

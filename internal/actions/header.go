@@ -38,6 +38,10 @@ type Header struct {
 	// Timeout bounds one run of the action. Zero means the file declared none, and what that
 	// falls back to is the caller's to decide.
 	Timeout time.Duration
+	// Shebang says the file opens with #!, which is what an interpreted script needs to run
+	// at all. It is read off the same bytes scanHeader already has, not off a directive, so a
+	// text file that is not a script is told apart from one that just has no directives.
+	Shebang bool
 	// Problems are the directives that were not understood, each naming its line. A header
 	// weave cannot read is no reason to withhold an action that still runs, so these are
 	// carried for a caller to show rather than returned as an error.
@@ -69,7 +73,16 @@ func readHeader(path string) (Header, bool) {
 		return Header{}, false
 	}
 
-	return scanHeader(head[:read]), isText(head[:read])
+	header := scanHeader(head[:read])
+	header.Shebang = hasShebang(head[:read])
+
+	return header, isText(head[:read])
+}
+
+// hasShebang reports whether head opens with #!, the only place in the file the kernel
+// itself will look for one.
+func hasShebang(head []byte) bool {
+	return len(head) >= 2 && head[0] == '#' && head[1] == '!'
 }
 
 // isText reports whether the head of a file is text, deciding on a NUL byte the way less

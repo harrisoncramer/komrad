@@ -9,7 +9,6 @@ import (
 	"weave/config"
 	"weave/internal/weavetest"
 	actionv1 "weave/proto/gen/action/v1"
-	agentv1 "weave/proto/gen/agent/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
@@ -121,14 +120,10 @@ func TestCookbookInstallRefusesDuplicateAgainstRealServer(t *testing.T) {
 	require.ErrorIs(t, err, ErrAlreadyInstalled)
 }
 
-// TestCookbookInstallAcceptsAMissingSetupAction documents a gap rather than a fix: a cookbook
-// naming a setup or cleanup action with no matching sibling file installs without complaint.
-// Nothing checks the reference against what InstallActions actually wrote, and the real
-// server's own validation on setupAction only checks the string's shape (no slash, no leading
-// dot), not whether it names a real, installed file. The workflow this leaves behind points at
-// an action nobody installed, and the failure will not surface until somebody tries to launch
-// an agent into it and setup fails to find the script.
-func TestCookbookInstallAcceptsAMissingSetupAction(t *testing.T) {
+// TestCookbookInstallRefusesAMissingSetupAction covers Validate catching a setup or cleanup
+// action that names no sibling file before anything is created: no workflow, and nothing
+// written into the real actions directory.
+func TestCookbookInstallRefusesAMissingSetupAction(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 
@@ -138,26 +133,18 @@ func TestCookbookInstallAcceptsAMissingSetupAction(t *testing.T) {
 
 	state := weavetestApp(t, instance, cookbooksDir)
 
-	result, err := installCookbook(ctx, state, "broken-setup", "/repo")
-	require.NoError(t, err, "BUG: this install should be refused, since setup_action names a file that does not exist")
+	_, err := installCookbook(ctx, state, "broken-setup", "/repo")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `"nope"`)
 
-	workflow, err := instance.Workflows.GetWorkflow(ctx, connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: result.workflowID}))
+	workflows, err := instance.Workflows.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{}))
 	require.NoError(t, err)
-	assert.Equal(t, "broken-setup-nope", workflow.Msg.GetWorkflow().GetSetupAction(), "the workflow points at this name regardless")
-
-	listed, err := instance.Actions.ListActions(ctx, connect.NewRequest(&emptypb.Empty{}))
-	require.NoError(t, err)
-	for _, action := range listed.Msg.GetActions() {
-		assert.NotEqual(t, "broken-setup-nope", action.GetName(), "BUG: nothing was ever installed under the name the workflow now names")
-	}
+	assert.Empty(t, workflows.Msg.GetWorkflows(), "nothing should have been created")
 }
 
-// TestCookbookInstallShipsNonScriptFilesAsActions documents a gap rather than a fix: every
-// file next to cookbook.toml is installed as an action, whether or not it is actually a
-// script, since InstallActions no longer distinguishes them from an explicit list. A stray
-// note dropped in a cookbook's own directory is chmod +x'd and offered to the panel exactly
-// like a real action, and the failure only shows up once somebody actually runs it.
-func TestCookbookInstallShipsNonScriptFilesAsActions(t *testing.T) {
+// TestCookbookInstallRefusesNonScriptFiles covers Validate catching a sibling file with no
+// shebang before it is chmod +x'd into the real actions directory alongside genuine scripts.
+func TestCookbookInstallRefusesNonScriptFiles(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 
@@ -167,32 +154,13 @@ func TestCookbookInstallShipsNonScriptFilesAsActions(t *testing.T) {
 
 	state := weavetestApp(t, instance, cookbooksDir)
 
-	result, err := installCookbook(ctx, state, "with-notes", t.TempDir())
-	require.NoError(t, err)
-	require.Contains(t, result.actions, "with-notes-notes.txt", "BUG: a plain-text note was installed as though it were an action")
+	_, err := installCookbook(ctx, state, "with-notes", t.TempDir())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "notes.txt")
 
 	listed, err := instance.Actions.ListActions(ctx, connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
-
-	var note *actionv1.Action
 	for _, action := range listed.Msg.GetActions() {
-		if action.GetName() == "with-notes-notes.txt" {
-			note = action
-		}
+		assert.NotEqual(t, "with-notes-notes.txt", action.GetName(), "the note was never installed")
 	}
-	require.NotNil(t, note)
-	assert.True(t, note.GetExecutable(), "BUG: the executable bit was set on a file that is not a script")
-
-	agent, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
-		Prompt:     "irrelevant to this test",
-		WorkflowId: result.workflowID,
-	}))
-	require.NoError(t, err)
-
-	_, err = instance.Actions.RunAction(ctx, connect.NewRequest(&actionv1.RunActionRequest{
-		AgentId: agent.Msg.GetAgent().GetId(),
-		Action:  "with-notes-notes.txt",
-	}))
-	require.Error(t, err, "the file has no shebang, so the OS refuses to exec it, exactly what a hand-written note would do too")
-	assert.Contains(t, err.Error(), "could not be started")
 }

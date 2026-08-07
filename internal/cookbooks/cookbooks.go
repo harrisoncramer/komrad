@@ -13,6 +13,8 @@ import (
 	"slices"
 	"strings"
 
+	"weave/internal/actions"
+
 	"github.com/pelletier/go-toml/v2"
 )
 
@@ -56,11 +58,15 @@ type ScheduleSpec struct {
 	HideAgents bool   `toml:"hide_agents"`
 }
 
-// Cookbook is one manifest and the directory its action files live alongside.
+// Cookbook is one manifest and the directory its action files live alongside. ManifestErr is
+// set when cookbook.toml would not parse, in which case Manifest is zero-valued; Discover
+// still returns the cookbook rather than dropping it, so a broken one is reported by
+// Validate rather than silently missing from a listing.
 type Cookbook struct {
-	Name     string
-	Dir      string
-	Manifest Manifest
+	Name        string
+	Dir         string
+	Manifest    Manifest
+	ManifestErr error
 }
 
 // InstalledActionName is what a sibling file is written under in the actions directory:
@@ -70,33 +76,82 @@ func (c Cookbook) InstalledActionName(file string) string {
 	return c.Name + "-" + file
 }
 
+// Validate reports every reason installing this cookbook would go wrong, joined into one
+// error: a manifest that never parsed, a setup or cleanup action naming a file that is not
+// one of its siblings, and a sibling file that would not run as an action once installed. A
+// cookbook's own scripts are read the same way a real action is, since they are the same
+// resource; ValidateAsInstalled is what accounts for InstallActions always chmoding them,
+// which a file sitting in the cookbook's own directory has not been yet.
+func (c Cookbook) Validate() error {
+	if c.ManifestErr != nil {
+		return c.ManifestErr
+	}
+
+	files, err := c.actionFiles()
+	if err != nil {
+		return err
+	}
+
+	var problems []error
+	for _, action := range []string{c.Manifest.Workflow.SetupAction, c.Manifest.Workflow.CleanupAction} {
+		if action != "" && !slices.Contains(files, action) {
+			problems = append(problems, fmt.Errorf("names %q, which is not one of its sibling files", action))
+		}
+	}
+
+	for _, file := range files {
+		if err := actions.ValidateAsInstalled(filepath.Join(c.Dir, file)); err != nil {
+			problems = append(problems, fmt.Errorf("%s: %w", file, err))
+		}
+	}
+
+	return errors.Join(problems...)
+}
+
+// actionFiles is every sibling file this cookbook installs as an action: everything in its
+// own directory other than the manifest, in directory order. InstallActions and Validate
+// share this rather than each scanning the directory their own way.
+func (c Cookbook) actionFiles() ([]string, error) {
+	entries, err := os.ReadDir(c.Dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read cookbook %s: %w", c.Name, err)
+	}
+
+	var files []string
+	for _, entry := range entries {
+		if entry.IsDir() || entry.Name() == manifestName || strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
+
+		files = append(files, entry.Name())
+	}
+
+	return files, nil
+}
+
 // InstallActions copies every file in this cookbook's own directory, other than its manifest,
 // into actionsDir, named and made executable the way a hand-written action would be. Nothing
 // has to list them: a cookbook's directory works the same way the actions directory itself
 // does, where every file present is offered rather than registered. Returns those installed
 // names in directory order.
 func (c Cookbook) InstallActions(actionsDir string) ([]string, error) {
-	entries, err := os.ReadDir(c.Dir)
+	files, err := c.actionFiles()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read cookbook %s: %w", c.Name, err)
+		return nil, err
 	}
 
 	if err := os.MkdirAll(actionsDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create the actions directory %s: %w", actionsDir, err)
 	}
 
-	var names []string
-	for _, entry := range entries {
-		if entry.IsDir() || entry.Name() == manifestName || strings.HasPrefix(entry.Name(), ".") {
-			continue
-		}
-
-		content, err := os.ReadFile(filepath.Join(c.Dir, entry.Name()))
+	names := make([]string, 0, len(files))
+	for _, file := range files {
+		content, err := os.ReadFile(filepath.Join(c.Dir, file))
 		if err != nil {
-			return nil, fmt.Errorf("failed to read %s's action file %s: %w", c.Name, entry.Name(), err)
+			return nil, fmt.Errorf("failed to read %s's action file %s: %w", c.Name, file, err)
 		}
 
-		name := c.InstalledActionName(entry.Name())
+		name := c.InstalledActionName(file)
 		written := filepath.Join(actionsDir, name)
 		if err := os.WriteFile(written, content, 0o755); err != nil {
 			return nil, fmt.Errorf("failed to write action %s: %w", written, err)
@@ -110,7 +165,8 @@ func (c Cookbook) InstallActions(actionsDir string) ([]string, error) {
 
 // Discover lists the cookbooks in dir, one per subdirectory holding a cookbook.toml. A
 // directory that does not exist yields no cookbooks and no error, since not having written one
-// is the ordinary case.
+// is the ordinary case. A cookbook whose manifest will not parse is still returned, with
+// ManifestErr set, so one broken cookbook cannot hide every other one in the same directory.
 func Discover(dir string) ([]Cookbook, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -133,11 +189,8 @@ func Discover(dir string) ([]Cookbook, error) {
 		if errors.Is(err, os.ErrNotExist) {
 			continue
 		}
-		if err != nil {
-			return nil, err
-		}
 
-		found = append(found, Cookbook{Name: entry.Name(), Dir: cookbookDir, Manifest: manifest})
+		found = append(found, Cookbook{Name: entry.Name(), Dir: cookbookDir, Manifest: manifest, ManifestErr: err})
 	}
 
 	slices.SortFunc(found, func(a, b Cookbook) int { return strings.Compare(a.Name, b.Name) })

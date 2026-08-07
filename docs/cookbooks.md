@@ -70,6 +70,22 @@ does, aside from `name`. `[schedule]` is optional; when present it is armed agai
 workflow `install` just created under the cookbook's own name, so neither its `name` nor its
 `workflow_id` are part of the manifest.
 
+## Validation
+
+Before it writes anything, `install` checks that the manifest parsed, that `setup_action` and
+`cleanup_action` each name a file that actually sits next to `cookbook.toml`, and that every
+one of those sibling files would work as an action once installed: executable, and either a
+script that opens with a shebang or a compiled program, with every `#WEAVE` header line it
+declares actually readable. That last check is the [same one](actions.md#action-metadata) a
+hand-written action goes through, since a cookbook's script and one you typed by hand are the
+same resource read the same way. A cookbook that fails any of this is refused outright rather
+than half-installed.
+
+`weave cookbook list` runs the same check on everything it finds and marks a cookbook
+`(invalid: ...)` rather than hiding it, and `weave doctor` runs it too, over your own
+directory, so a broken cookbook shows up the same way a config file that will not parse does,
+before you ever try to install anything.
+
 ## Where they live
 
 Cookbooks are discovered the same way actions are: a configured directory, and this build's

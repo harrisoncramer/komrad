@@ -113,8 +113,8 @@ func TestDiscoverReadsWhatAFileDeclares(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, found, 2)
 
-	assert.Equal(t, Header{Description: "Open the pull request.", Timeout: 45 * time.Second}, found[0].Header)
-	assert.Equal(t, Header{}, found[1].Header, "a file that declares nothing carries nothing")
+	assert.Equal(t, Header{Description: "Open the pull request.", Timeout: 45 * time.Second, Shebang: true}, found[0].Header)
+	assert.Equal(t, Header{Shebang: true}, found[1].Header, "a file that declares nothing carries nothing")
 }
 
 // TestDiscoverSaysWhichFilesAreText covers the one thing about a file that is not read off

@@ -12,6 +12,8 @@ func Checks(settings Settings) []Check {
 		TmuxShell(),
 		Config(),
 		DefaultHarness(),
+		Actions(),
+		Cookbooks(),
 		Database(),
 		Schema(),
 		ReadOnlyLogin(),

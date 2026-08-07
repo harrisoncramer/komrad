@@ -54,6 +54,8 @@ weave rpc log --message 'Hello world' --action "$WEAVE_ACTION"
 
 This action will abort and fail if it cannot execute within 1 second.
 
+Listing your actions is lenient on purpose: a typo in a header comment does not hide a script that still runs. The `weave doctor` command can be used to check their validity.
+
 ## The three ways an action runs
 
 ### As a workflow's setup action

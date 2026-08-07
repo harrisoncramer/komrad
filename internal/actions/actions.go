@@ -23,6 +23,10 @@ import (
 // that fixes it.
 var ErrNotExecutable = errors.New("the file is not executable: run chmod +x on it")
 
+// ErrNotAScript is what Validate refuses a text file that does not open with a shebang with:
+// it is not a compiled program either, so nothing on the machine knows how to run it.
+var ErrNotAScript = errors.New("is text but does not start with a shebang, so nothing knows how to run it")
+
 // ErrNotStartable is what a file that would not exec is refused with, most often a shebang
 // naming an interpreter that is not installed. It is named so a caller can tell an
 // unrunnable file from something going wrong on its own side.
@@ -65,6 +69,69 @@ func (a Action) GetDir() string {
 	return filepath.Dir(a.Path)
 }
 
+// Validate reports every reason this action would not run as written, joined into one
+// error: the executable bit is unset, it is text with no shebang and so is neither a script
+// nor a compiled program, or a header directive weave could not read. It is stricter than
+// Discover on purpose: listing an action is lenient, so a comment typo does not hide one
+// that still runs, but a caller validating a file before it goes anywhere, weave doctor or a
+// cookbook install, wants to know about all of it up front.
+func (a Action) Validate() error {
+	var problems []error
+
+	if !a.Executable {
+		problems = append(problems, ErrNotExecutable)
+	}
+	if a.Text && !a.Header.Shebang {
+		problems = append(problems, ErrNotAScript)
+	}
+	for _, problem := range a.Header.Problems {
+		problems = append(problems, errors.New(problem))
+	}
+
+	return errors.Join(problems...)
+}
+
+// Describe reads path the way one entry in the actions directory would be, regardless of
+// which directory it actually sits in: whether it is a regular file, whether it is
+// executable, and what its header declares. Discover calls this once per entry, and a
+// cookbook validates a script it has not installed yet the same way, through
+// ValidateAsInstalled, since a built-in action, a user's own, and one a cookbook is about to
+// write are the same resource read the same way.
+func Describe(path string) (Action, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return Action{}, err
+	}
+	if !info.Mode().IsRegular() {
+		return Action{}, fmt.Errorf("%s is not a regular file", path)
+	}
+
+	header, text := readHeader(path)
+
+	return Action{
+		Name:       filepath.Base(path),
+		Path:       path,
+		Executable: info.Mode().Perm()&0o111 != 0,
+		Text:       text,
+		Header:     header,
+	}, nil
+}
+
+// ValidateAsInstalled reports every reason installing path as an action would not work, as
+// if it already carried the executable bit an install always sets rather than whatever
+// permission the source file happens to have. It is what a cookbook validates its own
+// scripts with before InstallActions ever runs, since those files are not executable yet.
+func ValidateAsInstalled(path string) error {
+	action, err := Describe(path)
+	if err != nil {
+		return err
+	}
+
+	action.Executable = true
+
+	return action.Validate()
+}
+
 // Runner starts actions as processes. It holds nothing, and exists so a caller can take
 // running one as an interface and stand something else in its place under test.
 type Runner struct{}
@@ -95,20 +162,12 @@ func Discover(dir string) ([]Action, error) {
 			continue
 		}
 
-		path := filepath.Join(dir, entry.Name())
-		info, err := os.Stat(path)
-		if err != nil || !info.Mode().IsRegular() {
+		action, err := Describe(filepath.Join(dir, entry.Name()))
+		if err != nil {
 			continue
 		}
 
-		header, text := readHeader(path)
-		found = append(found, Action{
-			Name:       entry.Name(),
-			Path:       path,
-			Executable: info.Mode().Perm()&0o111 != 0,
-			Text:       text,
-			Header:     header,
-		})
+		found = append(found, action)
 	}
 
 	return found, nil

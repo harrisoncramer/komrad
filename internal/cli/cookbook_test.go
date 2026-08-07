@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/internal/cookbooks"
 	"weave/internal/server"
 
 	"github.com/stretchr/testify/assert"
@@ -77,13 +78,13 @@ func TestListCookbooksUserOverridesBuiltin(t *testing.T) {
 	t.Fatal("pr-reviewer was not found")
 }
 
-// TestCookbookCommandsBrokenByAnUnrelatedMalformedCookbook documents a gap rather than a fix:
-// one malformed cookbook.toml in the user's own directory breaks list and install for every
-// cookbook, including the built-ins, since List reads the user directory before the built-in
-// one and a parse error there is returned immediately rather than skipped. Neither call ever
-// reaches the server, so no fake or real one is needed to see it happen.
-func TestCookbookCommandsBrokenByAnUnrelatedMalformedCookbook(t *testing.T) {
-	state := testApp(t, "")
+// TestCookbookCommandsSurviveAnUnrelatedMalformedCookbook covers a malformed cookbook.toml in
+// the user's own directory no longer breaking list or install for every other cookbook,
+// including the built-ins: list still shows it, marked invalid, and installing an unrelated
+// built-in is unaffected. Neither call reaches the server, so no fake or real one is needed.
+func TestCookbookCommandsSurviveAnUnrelatedMalformedCookbook(t *testing.T) {
+	testServer, _ := newCookbookRPCServer(t)
+	state := testApp(t, strippedHost(t, testServer.URL))
 
 	cfg, err := config.Load(state.configPaths)
 	require.NoError(t, err)
@@ -94,11 +95,23 @@ func TestCookbookCommandsBrokenByAnUnrelatedMalformedCookbook(t *testing.T) {
 	require.NoError(t, os.MkdirAll(broken, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(broken, "cookbook.toml"), []byte("not valid toml [[[\n"), 0o644))
 
-	_, err = listCookbooks(state)
-	require.Error(t, err, "BUG: an unrelated broken cookbook should not hide the built-ins from weave cookbook list")
+	found, err := listCookbooks(state)
+	require.NoError(t, err)
+
+	var brokenCookbook *cookbooks.Cookbook
+	for i, cookbook := range found {
+		if cookbook.Name == "broken" {
+			brokenCookbook = &found[i]
+		}
+	}
+	require.NotNil(t, brokenCookbook, "the broken cookbook is still listed rather than hidden")
+	assert.Error(t, brokenCookbook.Validate())
 
 	_, err = installCookbook(context.Background(), state, "worktree-agent", "")
-	require.Error(t, err, "BUG: installing a built-in should not be broken by an unrelated cookbook sitting in the user's own directory")
+	require.NoError(t, err, "installing an unrelated built-in is unaffected")
+
+	_, err = installCookbook(context.Background(), state, "broken", "")
+	require.Error(t, err, "installing the broken cookbook itself is refused")
 }
 
 // existingWorkflow is one row newCookbookRPCServer's list_workflows stands in for, the shape
