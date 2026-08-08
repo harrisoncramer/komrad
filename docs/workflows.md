@@ -1,39 +1,31 @@
 # Workflows
 
-A workflow is a named bucket of related agents, and the template they are created from. It runs nothing on its own. Everything it holds is either a default that gets prefilled when you create an [agent](agents.md) inside it, or something weave reads at the moment that agent starts, resumes, or is deleted.
+A workflow is a blueprint for creating agents. 
 
-Every agent belongs to exactly one workflow. There is no way to have a loose agent, which is why the panel makes you create a workflow before your first agent.
-
-TODO TODO TODO: Write workflow file.
+Every agent belongs to exactly one workflow, which is why weave makes you create a workflow before your first agent.
 
 ## What a workflow holds
 
-A name. It is a display label, not a key, so you can rename it whenever. Agent names are unique within a workflow, so two workflows can each have an agent called `auth`.
+Since agents are just CLI sessions, workflows are buckets of settings for those agents. For instance, a workflow might the agent which flags to run with (like the model to use) or the working directory, or specific actions to run on startup or deletion, relevant for worktree developmemt.
 
-Context. Free text, appended to the system prompt of every agent created inside the workflow. This is the interesting field, and there is a section on it below.
+Workflows also hold shared context. Represented as free text, this is appended to the system prompt of every agent created inside the workflow.
 
-A working directory and flags. These are the defaults prefilled into the new-agent form, and the ones a [schedule](schedules.md) uses when it fires into the workflow with nobody around to fill a form in. An agent that names its own directory or flags wins over the workflow's. The directory has to be absolute or start with `~`.
+Agents pick these up as defaults when spawned inside of a workflow, but can still override them. For instance, an agent that names its own directory or flags wins over the workflow's. 
 
-A harness. Which CLI the agents here run, `claude` or `codex`. Blank means they take whatever you configured as your default. Agents already spawned keep the harness they started on, so changing this only affects new ones.
+Which CLI the agents run is known as the "harness." Currently, `claude` and `codex` are supported. Like all settings, agents already spawned keep the harness they started on, so changing this only affects new ones.
 
-A setup type, and either a setup and cleanup action or a worktree config, depending which it is set to. Setup runs before an agent in this workflow starts, and again before a dormant one is resumed; cleanup runs once one of them is deleted. See [actions](actions.md) for how a hand-written pair is found and what it is handed, and "A worktree per agent" below for the other answer.
+## The context
 
-## Why context lives here
+Weave assembles the appended system prompt in three layers, general to specific: the standing briefing about weave itself (the MCP, how to send mail, etc), your global context file, shared across all agents, and then the workflow's context. The workflow comes last, so it reads as the final word on anything the layers above it also mention. The global file is configured under `[context]` in your [config](configuration.md).
 
-You could paste the same paragraph into every prompt. The reason not to is that the prompt is the task and the context is the ground rules, and they change on different schedules. The task is different every time. The ground rules are the same for the twentieth agent as for the first, and when they turn out to be wrong you want to fix them in one place.
-
-Weave assembles the appended system prompt in three layers, general to specific: the standing briefing about the panel itself, then your global context file, then the workflow's context. The workflow comes last, so it reads as the final word on anything the layers above it also mention. The global file is configured under `[context]` in your [config](configuration.md).
-
-What belongs in it is anything true of every agent in the group and nothing else:
+Put into global context anything true of every agent:
 
 - Repo conventions. Where things live, which generator owns which directory, how tests are run.
 - Naming rules. Branch names, commit style, what an agent should call the PR it opens.
 - Boundaries. What agents in this group are allowed to touch, and what they must leave alone.
 - Where to report. Which metadata keys to record on themselves so you can find their work later.
 
-What does not belong: anything about one specific task, and anything that changes per agent. That is what the prompt is for.
-
-The context is baked into the agent's system prompt at launch, so editing a workflow reaches only the agents spawned after the edit. Agents already running keep what they started with. The two actions are different: they are looked up when they fire, so changing the cleanup action reaches agents that are already in the pane.
+The context is baked into the agent's system prompt at launch, so editing a workflow reaches only the agents spawned after the edit. Agents already running keep what they started with.
 
 ## Setup and cleanup
 
