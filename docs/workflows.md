@@ -1,6 +1,6 @@
 # Workflows
 
-A workflow is a blueprint for creating agents. 
+Workflows are the blueprints used to create agents. 
 
 Every agent belongs to exactly one workflow, which is why weave makes you create a workflow before your first agent.
 
