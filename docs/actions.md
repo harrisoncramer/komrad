@@ -107,7 +107,7 @@ exec open "$url"
 
 ## The builtins, and replacing one
 
-Weave ships one action by default, `_edit_action`, which is what `e` runs on the actions list: it opens the script under the cursor in your editor so you can change it without leaving weave. It's told which file to open in `WEAVE_EDIT_PATH`, since the name you pressed the key on can come from either your own directory or the one weave ships. A file with no text in it is not offered, since there is nothing in a compiled program to edit.
+Weave ships some actions by default.
 
 Action names starting with underscores like these are left out of the panel's action list. Add your own `_edit_action` to replace the builtin one.
 
