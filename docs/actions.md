@@ -13,7 +13,7 @@ Actions are placed into your actions directory, which is at `~/.config/weave/act
 dir = "~/some/other/path"
 ```
 
-The directory is read on every call, so an action you write while the service is running shows up without a restart. Actions must be executable. Files that aren't will be listed in the manager panel, but not execute.
+The directory is read on every call, so an action you write while the service is running shows up without a restart. Actions must be executable. An action runs in the actions directory it was found in.
 
 ## What an action is told
 
@@ -31,13 +31,9 @@ The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`,
 - `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup.
 - `EDITOR` and `WEAVE_SHELL`
 
-`PATH` has this build's own directory placed in front, ahead of whatever the service inherited, so `weave rpc ...` calls from a script resolve to this binary even if its directory is not on your own PATH.
-
-An action runs in the actions directory it was found in.
-
 ## Action Metadata
 
-You can provide certain metadata to an action by adding _headers_ to the top of the file.
+You can configure a small set of metadata for an action by adding _headers_ to the top of the file.
 
 ```bash
 #!/bin/sh
@@ -49,8 +45,6 @@ You can provide certain metadata to an action by adding _headers_ to the top of 
 # You can also send messages to the log manually, like this:
 weave rpc log --message 'Hello world' --action "$WEAVE_ACTION"
 ```
-
-`--id` defaults to your own agent, read off `WEAVE_AGENT_ID` the same way every `weave rpc` call already does, so it only needs stating to log about a different agent. `--action` has no such default: pass `WEAVE_ACTION` explicitly to tag which action's run a line belongs to.
 
 This action will abort and fail if it cannot execute within 1 second.
 
