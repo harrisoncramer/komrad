@@ -109,6 +109,6 @@ exec open "$url"
 
 Weave ships some actions by default.
 
-Action names starting with underscores like these are left out of the panel's action list. Add your own `_edit_action` to replace the builtin one.
+Action names starting with underscores like these are left out of the panel's action list. Add your own to override the builtins.
 
 
