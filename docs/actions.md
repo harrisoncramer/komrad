@@ -17,7 +17,7 @@ An action runs in the actions directory it was found in.
 
 ## Execution
 
-Actions run at three different points in time.
+Actions run at three different moments.
 
 ### As a workflow's setup action
 
