@@ -83,45 +83,6 @@ weave rpc log --message 'Hello world' --action "$WEAVE_ACTION"
 
 This action will abort and fail if it cannot execute within 1 second.
 
-## Example: create a worktree
-
-Create an executable file called `create-worktree`:
-
-```sh
-#!/bin/sh
-set -eu
-
-repo="$HOME/code/weave"
-name=$(printf '%s' "$WEAVE_AGENT" | jq -r .name)
-tree="$repo/.worktrees/$name"
-
-weave rpc log --message "Preparing $tree" --action "$WEAVE_ACTION"
-
-if [ ! -d "$tree" ]; then
-	git -C "$repo" fetch --quiet origin main
-	git -C "$repo" worktree add --quiet -B "agent/$name" "$tree" origin/main
-fi
-
-weave rpc log --message "Prepared $tree" --action "$WEAVE_ACTION"
-```
-
-In the workflow manager, set it as a workflow's setup action.
-
-Every agent spawned under that workflow will now get a new worktree. This matching cleanup action called `cleanup-worktree` can be used to remove it when the agent is deleted:
-
-```sh
-#!/bin/sh
-set -eu
-
-repo="$HOME/code/weave"
-tree="$WEAVE_AGENT_CWD"
-
-case "$tree" in
-"$repo/.worktrees/"*) git -C "$repo" worktree remove --force "$tree" ;;
-*) weave rpc log --message "Failed to prepare $tree" --action "$WEAVE_ACTION"
-esac
-```
-
 ## Example: open the pull request an agent recorded
 
 Agents can be instructed to record their own work as metadata via the MCP, such as the URL of a pull request. This action reads it back out of the payload and opens it.
