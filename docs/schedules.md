@@ -20,13 +20,11 @@ There are a few important things to consider with weave's schedules:
 
 Disabling pauses a schedule and keeps everything. The next reconcile pass takes its timer off the queue and the panel shows no next run. Flip it back on for the next matching occurrence. Use it for anything you will want again.
 
-Archiving puts it away for good. Nothing brings an archived schedule back yet. Both leave already-launched agents alone.
-
-Hidden runs are the other switch worth knowing: `hide_agents` starts this schedule's agents hidden from the panel's sidebar. They still run, they just do not take a row, which is what makes a chatty every-fifteen-minutes job something you can leave armed.
+Archiving puts it away for good. Nothing brings an archived schedule back (yet). Both leave already-launched agents alone.
 
 ## From the CLI and MCP
 
-Same operations either way: `list_schedules`, `get_schedule`, `create_schedule`, `update_schedule`, `set_schedule_enabled`, `archive_schedule`.
+Same operations either way: `list_schedules`, `get_schedule`, and so forth. For example:
 
     weave rpc create-schedule \
       --name morning-triage \
