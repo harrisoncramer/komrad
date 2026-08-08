@@ -13,7 +13,7 @@ Actions are placed into your actions directory, which is at `~/.config/weave/act
 dir = "~/some/other/path"
 ```
 
-The directory is read on every call, so an action you write while the service is running shows up without a restart. Actions must be executable. An action runs in the actions directory it was found in.
+An action runs in the actions directory it was found in.
 
 ## Execution
 
