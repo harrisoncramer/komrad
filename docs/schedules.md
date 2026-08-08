@@ -1,7 +1,5 @@
 # Schedules
 
-TODO: Refine schedules
-
 A schedule is a durable timer that launches an [agent](agents.md) into a [workflow](workflows.md) on a cron expression. It is a row in Postgres rather than a crontab entry, and the service reconciles the table onto a job queue every ten seconds, so a schedule survives restarts.
 
 Schedules hold a name, cron expression, an optional timezone, a prompt, the workflow it fires into, whether it is enabled, and whether its agents start hidden.
