@@ -8,7 +8,7 @@ Every agent belongs to exactly one workflow, which is why weave makes you create
 
 Since agents are just CLI sessions, workflows are buckets of defualt settings for those agents. For instance, a workflow might indicate which model to use (like opus or haiku), the working directory, or specific actions to run on startup or deletion, relevant for worktree developmemt.
 
-Ultimately, each setting for an agent can be overridden at the moment when an agent is spawned; this approach provides flexibility, for instance when you'd like to use a particular workflow, but with a different model or different directory.
+Ultimately, each workflow setting for an agent can be overridden at the moment when an agent is spawned; this approach provides flexibility, for instance when you'd like to use a particular workflow, but with a different model or different directory.
 
 Workflows also hold shared context. Represented as free text, this is appended to the system prompt of every agent created inside the workflow.
 
