@@ -18,7 +18,7 @@ Which CLI the agents run is known as the "harness." Currently, `claude` and `cod
 
 Weave assembles the appended system prompt in three layers, general to specific: the standing briefing about weave itself (the MCP, how to send mail, etc), your global context file, shared across all agents, and then the workflow's context. The workflow comes last, so it reads as the final word on anything the layers above it also mention. The global file is configured under `[context]` in your [config](configuration.md).
 
-Put into global context anything true of every agent:
+This context could include general conventions, such as:
 
 - Repo conventions. Where things live, which generator owns which directory, how tests are run.
 - Naming rules. Branch names, commit style, what an agent should call the PR it opens.
