@@ -42,8 +42,6 @@ Separately, adapters are in `internal/tmux`, `internal/harness`, and `internal/a
 
 State for weave is kept in Postgres. Every agent, workflow, schedule, and message is a row, and anything that must survive a restart is written there.
 
-That state is passed to a tmux session, which holds in memory which panes exist, and which agent each belongs to. But panel memory is a cache. The panel re-lists over RPC every second and re-draws itself. The panel splits, swaps, and zooms panes for its own layout.
-
 In order to reconcile state into tmux from the database, the server runs refresh (polling) loops.
 
 The reconcile loop runs every two seconds. This loop is responsible for reconciling the state of the agent with the view in the manager panel. For instance, the agent's "thinking" state is determined based on the presence of text in the render window that looks like thinking text, not based on stop, start or other hooks, which are unreliable.
