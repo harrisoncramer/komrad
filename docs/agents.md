@@ -2,8 +2,8 @@
 
 An agent is just a CLI process, running in a tmux window and tracked by weave. Think of it as a managed claude or codex chat that you can step away from, reboot, search through, or automate. Some ideas:
 
-- A worktree agent. One workflow per repository, with a setup action that creates a git worktree and prints it, and a cleanup action that removes it. Every agent you start there gets an isolated checkout, records its branch and pull request as metadata, and takes its worktree with it when you delete it.
-- A triage agent on a schedule. A workflow pointed at your repository with context explaining what your on-call rotation cares about, and a [schedule](schedules.md) that creates an agent every weekday morning with a prompt like "read the overnight alerts and write up anything that needs a human".
+- A worktree agent. Every agent you start with weave can be configured to get an isolated checkout, and takes its worktree with it when you delete it.
+- A triage agent on a schedule. Try configuring a workflow with context explaining what your on-call rotation cares about, and a [schedule](schedules.md) that creates an agent every weekday morning with a prompt like "read the overnight alerts and write up anything that needs a human".
 - An orchestrator. An agent whose prompt is to fan work out: it calls weave's [MCP](mcp.md) to `create_agent`for each subagent, and then communicates through Weave's mail.
 
 ## Creating your first agent
