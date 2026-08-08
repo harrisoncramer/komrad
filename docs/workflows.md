@@ -12,8 +12,6 @@ Ultimately, each workflow setting for an agent can be overridden at the moment w
 
 Workflows also hold shared context. Represented as free text, this is appended to the system prompt of every agent created inside the workflow.
 
-Agents pick these up as defaults when spawned inside of a workflow, but can still override them. For instance, an agent that names its own directory or flags wins over the workflow's. 
-
 Which CLI the agents run is known as the "harness." Currently, `claude` and `codex` are supported. Like all settings, agents already spawned keep the harness they started on, so changing this only affects new ones.
 
 ## The context
