@@ -20,8 +20,6 @@ Metadata is how an agent records what a person would want to open later. It is a
 
 The panel shows those in the details under the list, after what the agent was launched with, and agents write them with `set_agent_metadata`, keyed on their own id from `WEAVE_AGENT_ID` environment variable.
 
-The details follow whichever row the cursor is on, and the schedules screen and the archive draw the same block under their own lists. Press `C-t` to move the cursor into them, then `j` and `k` to run down the fields and `y` to copy the one you land on. `C-t` again hands the keys back to the list.
-
 ## Archiving, restoring, deleting
 
 Archiving an agent (the `z` key by default) stops the agent, kills its pane, and takes it off the panel, keeping the row, the metadata, and the transcript. Archiving is the ordinary way to finish with an agent.
