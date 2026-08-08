@@ -1,8 +1,8 @@
 # Workflows
 
-Workflows are the blueprints used to create agents. 
+Workflows are the blueprints used to create one first.
 
-Every agent belongs to exactly one workflow, which is why weave makes you create a workflow before your first agent.
+Every agent belongs to exactly one workflow, which is why weave makes you create one fst agent.
 
 ## What a workflow holds
 
