@@ -15,40 +15,9 @@ dir = "~/some/other/path"
 
 The directory is read on every call, so an action you write while the service is running shows up without a restart. Actions must be executable. An action runs in the actions directory it was found in.
 
-## What an action is told
+## Execution
 
-Actions get values through the environment, over whatever the service itself is running with.
-
-The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`, `state`,`cwd`, `harness`, `session_id`, and other information about the agent. Other environment variables are:
-
-- `WEAVE_AGENT_ID` and `WEAVE_AGENT_CWD`, the two fields most scripts want.
-- `WEAVE_ADDR`, this server's address, for calling back into the API or the [CLI](commands.md).
-- `WEAVE_TMUX_SOCKET`, the tmux server every agent's pane lives on
-- `WEAVE_ACTIONS_DIR`, the directory the action came out of, which is how a script that cds elsewhere finds its siblings again.
-- `WEAVE_TRIGGER`, what set the action off. One of `manual`, `setup`, `resume`, or `cleanup`.
-- `WEAVE_ACTION`, this action's own name, for tagging its own log lines.
-- `WEAVE_INFO_PANE`, the panel's info pane, for a script that wants to draw something where the panel's own actions do.
-- `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup.
-- `EDITOR` and `WEAVE_SHELL`
-
-## Action Metadata
-
-You can configure a small set of metadata for an action by adding _headers_ to the top of the file.
-
-```bash
-#!/bin/sh
-#WEAVE description="This is my custom action"
-#WEAVE timeout="1s"
-
-# Add whatever logic you want here.
-# Failures on stdout will get captured by weave's log automatically
-# You can also send messages to the log manually, like this:
-weave rpc log --message 'Hello world' --action "$WEAVE_ACTION"
-```
-
-This action will abort and fail if it cannot execute within 1 second.
-
-## The three ways an action runs
+Actions run at three different points in time.
 
 ### As a workflow's setup action
 
@@ -80,6 +49,39 @@ weave rpc log --message 'Some custom message'
 ```
 
 Agents can also run actions, for instance to trigger external system, fire alerts, or manage the filesystem.
+
+## The Environment
+
+Actions get values through the environment, over whatever the service itself is running with.
+
+The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`, `state`,`cwd`, `harness`, `session_id`, and other information about the agent. Other environment variables are:
+
+- `WEAVE_AGENT_ID` and `WEAVE_AGENT_CWD`, the two fields most scripts want.
+- `WEAVE_ADDR`, this server's address, for calling back into the API or the [CLI](commands.md).
+- `WEAVE_TMUX_SOCKET`, the tmux server every agent's pane lives on
+- `WEAVE_ACTIONS_DIR`, the directory the action came out of, which is how a script that cds elsewhere finds its siblings again.
+- `WEAVE_TRIGGER`, what set the action off. One of `manual`, `setup`, `resume`, or `cleanup`.
+- `WEAVE_ACTION`, this action's own name, for tagging its own log lines.
+- `WEAVE_INFO_PANE`, the panel's info pane, for a script that wants to draw something where the panel's own actions do.
+- `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup.
+- `EDITOR` and `WEAVE_SHELL`
+
+## Action Metadata
+
+You can configure a small set of metadata for an action by adding _headers_ to the top of the file.
+
+```bash
+#!/bin/sh
+#WEAVE description="This is my custom action"
+#WEAVE timeout="1s"
+
+# Add whatever logic you want here.
+# Failures on stdout will get captured by weave's log automatically
+# You can also send messages to the log manually, like this:
+weave rpc log --message 'Hello world' --action "$WEAVE_ACTION"
+```
+
+This action will abort and fail if it cannot execute within 1 second.
 
 ## Example: create a worktree
 
