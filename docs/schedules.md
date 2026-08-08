@@ -34,8 +34,4 @@ Same operations either way: `list_schedules`, `get_schedule`, and so forth. For 
       --prompt "Read the issues opened since yesterday, label them, and comment on anything that looks like a duplicate." \
       --enabled
 
-Get the workflow id from `weave rpc list-workflows`. Leave `--enabled` off to write one down without arming it. Update replaces every field, so read the schedule first. To pause one without touching anything else:
-
-    weave rpc set-schedule-enabled --id "$SCHEDULE" --enabled=false
-
 A scheduled agent is not special. Same launch path, same workflow directory, flags and context, same tool surface. The only difference is that its row records the schedule that made it.
