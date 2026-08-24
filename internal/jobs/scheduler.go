@@ -165,34 +165,35 @@ func launchArgsFor(scheduleID string, cron river.PeriodicSchedule, now time.Time
 	return LaunchAgentArgs{ScheduleID: scheduleID, ScheduledFor: occurrence}, nil
 }
 
-// lateness is how long after a firing was due the job standing for it may still be built.
-// River constructs the arguments when its enqueuer gets to the schedule, which a leader
-// election, a paused process, or a machine coming out of sleep can put well after the
-// firing. An hour is beyond any of them, and bounds the walk below to sixty steps.
-const lateness = time.Hour
+// staleness is how late a firing may be and still be worth running. River works out when a
+// schedule is next due and inserts then, so an ordinary firing is only as late as the
+// enqueuer itself. What pushes a job well past its firing is a machine asleep through it,
+// and a run that stale is one nobody was around for.
+const staleness = time.Hour
 
 // skew is how far ahead of an occurrence the construction may run and still be counted
 // as standing for it, covering a firing that lands a hair before the boundary.
 const skew = 5 * time.Second
 
-// occurrenceFor names the firing a job stands for: the schedule's last occurrence at or
-// before now. It has to come from the schedule, since the clock alone cannot tell a job
+// occurrenceFor names the firing a job stands for, which is the schedule's last occurrence at
+// or before now. It has to come from the schedule, since the clock alone cannot tell a job
 // built late for one occurrence from one built early for the next, and naming the wrong one
 // either collides with the previous firing on the unique index and vanishes, or blocks the
 // firing that follows.
 //
-// It walks forward rather than back because a cron schedule can only say what comes next,
-// starting far enough behind that no plausible lateness precedes it.
+// It walks forward rather than back because a cron schedule can only say what comes next, so
+// reaching an occurrence means starting behind it. Starting a whole staleness behind is what
+// makes a late firing reachable at all, and the cutoff is what stops the walk running past
+// now onto a firing still to come.
 //
-// A schedule with nothing left to fire on reports the zero time, which is never after the
-// cutoff. Both ends of the walk stop on it and hand it back, since there is no occurrence
-// to name.
+// The zero time means there is nothing to name, and queues nothing. That covers a schedule
+// with no occurrence left, and one whose last firing is staler than this will run.
 func occurrenceFor(cron river.PeriodicSchedule, now time.Time) time.Time {
 	cutoff := now.Add(skew)
 
-	occurrence := cron.Next(now.Add(-lateness))
-	if occurrence.IsZero() {
-		return occurrence
+	occurrence := cron.Next(now.Add(-staleness))
+	if occurrence.IsZero() || occurrence.After(cutoff) {
+		return time.Time{}
 	}
 
 	for {

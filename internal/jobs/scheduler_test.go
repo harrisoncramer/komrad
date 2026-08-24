@@ -342,6 +342,39 @@ func TestOccurrenceFor(t *testing.T) {
 			want: nine,
 		},
 		{
+			// Past what is worth running, so there is nothing to name. Naming the
+			// firing still to come is what this guards against, since the run would
+			// take that firing's place and no agent would start when it arrived.
+			name: "one built later than staleness allows names nothing",
+			cron: "0 9 * * *",
+			at:   nine.Add(90 * time.Minute),
+			want: time.Time{},
+		},
+		{
+			// The far edge is exclusive, because the walk starts strictly after where
+			// it is pointed.
+			name: "and so does one built exactly a staleness late",
+			cron: "0 9 * * *",
+			at:   nine.Add(staleness),
+			want: time.Time{},
+		},
+		{
+			// A laptop shut overnight and opened the next morning. Yesterday's firing
+			// is gone rather than run hours after anyone wanted it.
+			name: "nor does a machine opened the following morning run yesterday's firing",
+			cron: "0 9 * * *",
+			at:   nine.Add(23 * time.Hour),
+			want: time.Time{},
+		},
+		{
+			// Lateness is the enqueuer's, not the schedule's, so an infrequent
+			// schedule is reached on the same window as a daily one.
+			name: "a yearly schedule built promptly names its own firing",
+			cron: "0 9 1 1 *",
+			at:   time.Date(2026, time.January, 1, 9, 30, 0, 0, time.UTC),
+			want: time.Date(2026, time.January, 1, 9, 0, 0, 0, time.UTC),
+		},
+		{
 			name: "a firing built on the boundary belongs to itself",
 			cron: "* * * * *",
 			at:   minute,
@@ -363,6 +396,29 @@ func TestOccurrenceFor(t *testing.T) {
 			assert.Equal(t, tt.want, occurrenceFor(cron, tt.at).UTC())
 		})
 	}
+}
+
+// TestLaunchArgsForStaleBuildLeavesTheNextFiringAlone covers why a stale build has to queue
+// nothing rather than take the name of the firing to come. The arguments are unique by value
+// across every terminal state, so a run wearing that name means the firing's own insert
+// carries identical arguments, collapses into it, and starts no agent. The next firing has to
+// arrive to its own name and its own idempotency key.
+func TestLaunchArgsForStaleBuildLeavesTheNextFiringAlone(t *testing.T) {
+	nine := time.Date(2026, time.August, 2, 9, 0, 0, 0, time.UTC)
+	tomorrow := nine.AddDate(0, 0, 1)
+
+	cron, err := agents.ParseCron("0 9 * * *", "UTC")
+	require.NoError(t, err)
+
+	stale, _ := launchArgsFor("s1", cron, nine.Add(3*time.Hour))
+	assert.Nil(t, stale, "a firing nobody was around for is not worth queueing")
+
+	onTime, _ := launchArgsFor("s1", cron, tomorrow.Add(time.Second))
+	args, ok := onTime.(LaunchAgentArgs)
+	require.True(t, ok, "the next firing still queues")
+
+	assert.Equal(t, tomorrow, args.ScheduledFor.UTC(), "under its own name")
+	assert.Equal(t, LaunchKey("s1", tomorrow), LaunchKey("s1", args.ScheduledFor))
 }
 
 // TestOccurrenceForNeverOccurs covers the walk over a schedule that has no occurrence.
