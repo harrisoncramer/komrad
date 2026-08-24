@@ -18,28 +18,32 @@ apply_paths() {
 			echo "worktree setup: $p not found in $repo, skipping $kind" >&2
 			continue
 		fi
-		# A fresh worktree already holds every tracked path, so copying one lands it inside the
-		# directory git just checked out and linking one replaces a checked-out file with a
-		# link to the primary checkout's copy of itself.
-		if git -C "$repo" ls-files --error-unmatch -- "$p" >/dev/null 2>&1; then
-			echo "worktree setup: $p is tracked and already in the worktree, skipping $kind" >&2
+
+		# The destination is cleared before it is applied, so a path that names something other
+		# than a place inside the worktree is refused rather than removed. The worktree's own
+		# link to the repo is inside it and would be cleared like anything else, which is what
+		# would take the worktree with it.
+		outside=
+		case "/$p/" in
+		*/../*) outside=yes ;;
+		*/.git/*) outside=yes ;;
+		*[!/.]*) ;;
+		*) outside=yes ;;
+		esac
+		if [ -n "$outside" ]; then
+			echo "worktree setup: $p is not a path inside the worktree, skipping $kind" >&2
 			continue
 		fi
-		# What is left is either ignored, which is what these lists are for, or untracked and
-		# unignored, which arrives in the worktree as new files the agent's next commit picks up.
-		# The tracked check stays ahead of this one, since a force-added ignored path is tracked.
-		# Exit 1 is the only status that means not ignored; anything else is git declining to say.
-		ignored=0
-		git -C "$repo" check-ignore -q -- "$p" || ignored=$?
-		if [ "$ignored" -eq 1 ]; then
-			echo "worktree setup: $p is not ignored by git, so it would show up as the agent's own work, skipping $kind" >&2
-			continue
-		fi
-		if [ "$ignored" -ne 0 ]; then
-			echo "worktree setup: could not tell whether git ignores $p, skipping $kind" >&2
-			continue
-		fi
+
 		mkdir -p "$(dirname "$dest")"
+
+		# git worktree add has already checked out every tracked path, so a
+		# destination that is a directory would swallow the copy or the symlink
+		# a level down instead of becoming it.
+		if ! rm -rf "$dest"; then
+			echo "worktree setup: could not clear $dest, skipping $kind of $p" >&2
+			continue
+		fi
 		if [ "$kind" = copy ]; then
 			cp -rf "$src" "$dest" || echo "worktree setup: failed to copy $p" >&2
 		else
