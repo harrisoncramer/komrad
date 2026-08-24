@@ -4,33 +4,28 @@ set -eu
 
 tree="$WEAVE_AGENT_CWD"
 branch="agent/$WEAVE_AGENT_ID"
-worktrees_dir="${WEAVE_WORKTREES_DIR-}"
 
 if [ ! -d "$tree" ] || [ ! -f "$tree/.git" ]; then
 	exit 0
 fi
+
+# Resolved once, since worktree list reports resolved paths and comparing them against an
+# unresolved one silently matches nothing on any machine whose temp or home path is a symlink.
+tree=$(cd "$tree" && pwd -P)
 
 common_dir=$(git -C "$tree" rev-parse --git-common-dir 2>/dev/null) || exit 0
 repo=$(dirname "$common_dir")
 
 # Being a worktree is not proof of being this agent's worktree: one made by hand passes the
 # check above, and the launch path reaches cleanup with the agent's cwd still set to whatever
-# the workflow named when setup never got as far as replacing it. Weave chose the path and an
-# agent cannot move itself out of it, so the path is the proof. A workflow whose toggle was
-# turned off after the agent was created hands cleanup no worktrees directory, and the branch
-# the tree is on is the only claim left; it is the weaker of the two, since an agent that
-# detaches HEAD or works on a branch of its own no longer answers to it.
-if [ -n "$worktrees_dir" ]; then
-	if [ "$tree" != "$worktrees_dir/$WEAVE_AGENT_ID" ]; then
-		echo "worktree cleanup: $tree is not $worktrees_dir/$WEAVE_AGENT_ID, so it is not this agent's to remove" >&2
-		exit 0
-	fi
-else
-	on=$(git -C "$tree" rev-parse --abbrev-ref HEAD 2>/dev/null) || exit 0
-	if [ "$on" != "$branch" ]; then
-		echo "worktree cleanup: $tree is on $on rather than $branch, so it is not this agent's to remove" >&2
-		exit 0
-	fi
+# the workflow named when setup never got as far as replacing it. Setup names the directory
+# after the agent, and nothing an agent does renames it, so the directory's own name is the
+# claim. A worktree weave did not make carries a name a human chose, never an agent id, and
+# the branch the tree is on proves nothing once an agent detaches HEAD or works on a branch
+# of its own.
+if [ "$(basename "$tree")" != "$WEAVE_AGENT_ID" ]; then
+	echo "worktree cleanup: $tree is not named after $WEAVE_AGENT_ID, so it is not this agent's to remove" >&2
+	exit 0
 fi
 
 # worktree remove --force reads a nested worktree as an ordinary untracked directory, deletes
@@ -41,7 +36,7 @@ if ! registered=$(git -C "$repo" worktree list --porcelain); then
 	exit 1
 fi
 
-nested=$(printf '%s\n' "$registered" | sed -n 's|^worktree ||p' | grep -F -x -v "$tree" | grep -F "$tree/" || true)
+nested=$(printf '%s\n' "$registered" | sed -n 's|^worktree ||p' | awk -v prefix="$tree/" 'index($0, prefix) == 1')
 if [ -n "$nested" ]; then
 	echo "worktree cleanup: $tree holds another registered worktree, so it is being left alone:" >&2
 	printf '%s\n' "$nested" >&2
@@ -61,8 +56,16 @@ if ! git -C "$repo" worktree remove --force "$tree" >&2; then
 	exit 1
 fi
 
-if ! git -C "$repo" show-ref --quiet --verify "refs/heads/$branch"; then
+# Exit 1 is the only status that means the branch is not there; anything else is a git that
+# could not answer, and deciding what to do about a branch on that basis is guesswork.
+found=0
+git -C "$repo" show-ref --quiet --verify "refs/heads/$branch" || found=$?
+if [ "$found" -eq 1 ]; then
 	exit 0
+fi
+if [ "$found" -ne 0 ]; then
+	echo "worktree cleanup: could not tell whether the branch $branch is still there, so it is being left" >&2
+	exit 1
 fi
 
 # The branch is worth keeping exactly when it is the only copy of the agent's commits.

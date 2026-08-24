@@ -28,8 +28,15 @@ apply_paths() {
 		# What is left is either ignored, which is what these lists are for, or untracked and
 		# unignored, which arrives in the worktree as new files the agent's next commit picks up.
 		# The tracked check stays ahead of this one, since a force-added ignored path is tracked.
-		if ! git -C "$repo" check-ignore -q -- "$p"; then
+		# Exit 1 is the only status that means not ignored; anything else is git declining to say.
+		ignored=0
+		git -C "$repo" check-ignore -q -- "$p" || ignored=$?
+		if [ "$ignored" -eq 1 ]; then
 			echo "worktree setup: $p is not ignored by git, so it would show up as the agent's own work, skipping $kind" >&2
+			continue
+		fi
+		if [ "$ignored" -ne 0 ]; then
+			echo "worktree setup: could not tell whether git ignores $p, skipping $kind" >&2
 			continue
 		fi
 		mkdir -p "$(dirname "$dest")"

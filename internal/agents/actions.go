@@ -506,9 +506,9 @@ func workflowName(workflow *workflowstore.Workflow) string {
 // from, since a workflow's worktree settings live in the database rather than in the
 // script itself. The repo the worktrees are added off is named outright rather than left
 // to WEAVE_AGENT_CWD, which stops being the repo the moment setup replaces it with the
-// worktree and so would be wrong every time setup runs again on a resume. Cleanup reads the
-// worktrees directory from here too: the path weave chose for an agent is what proves a
-// checkout is that agent's to remove, and the branch it happens to be on does not.
+// worktree and so would be wrong every time setup runs again on a resume. Cleanup asks for
+// none of this: a worktree's own git-common-dir names the repo it came from, and the name setup
+// gave its directory is what says whose worktree it is.
 func (s *ActionService) worktreeEnv(workflow workflowstore.Workflow) ([]string, error) {
 	loaded, err := s.load()
 	if err != nil {

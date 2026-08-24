@@ -306,12 +306,11 @@ func TestBuiltinWorktreeSetupFetchesFromOrigin(t *testing.T) {
 // exist, and cleanup removes both.
 func TestBuiltinWorktreeCleanup(t *testing.T) {
 	repo := initRepo(t)
-	worktreesDir := t.TempDir()
-	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{agentID: "agent-f", repo: repo, worktreesDir: worktreesDir})
+	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{agentID: "agent-f", repo: repo, worktreesDir: t.TempDir()})
 	require.NoError(t, err, "stderr: %s", setup.Stderr)
 	tree := strings.TrimSpace(string(setup.Stdout))
 
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-f", agentCwd: tree, worktreesDir: worktreesDir})
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-f", agentCwd: tree})
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
 
 	_, statErr := os.Stat(tree)
@@ -473,8 +472,7 @@ func TestBuiltinWorktreeCleanupRefusesAWorktreeItDoesNotOwn(t *testing.T) {
 // deleting it throws the commits away.
 func TestBuiltinWorktreeCleanupKeepsAnUnmergedBranch(t *testing.T) {
 	repo := initRepo(t)
-	worktreesDir := t.TempDir()
-	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{agentID: "agent-unmerged", repo: repo, worktreesDir: worktreesDir})
+	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{agentID: "agent-unmerged", repo: repo, worktreesDir: t.TempDir()})
 	require.NoError(t, err, "stderr: %s", setup.Stderr)
 	tree := strings.TrimSpace(string(setup.Stdout))
 
@@ -482,7 +480,7 @@ func TestBuiltinWorktreeCleanupKeepsAnUnmergedBranch(t *testing.T) {
 	runGit(t, tree, "add", "work.txt")
 	runGit(t, tree, "commit", "--quiet", "-m", "the agent's work")
 
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-unmerged", agentCwd: tree, worktreesDir: worktreesDir})
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-unmerged", agentCwd: tree})
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
 
 	assert.NoDirExists(t, tree, "the worktree still goes")
@@ -496,14 +494,13 @@ func TestBuiltinWorktreeCleanupKeepsAnUnmergedBranch(t *testing.T) {
 // keeps.
 func TestBuiltinWorktreeCleanupReportsUncommittedWorkItDestroys(t *testing.T) {
 	repo := initRepo(t)
-	worktreesDir := t.TempDir()
-	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{agentID: "agent-dirty", repo: repo, worktreesDir: worktreesDir})
+	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{agentID: "agent-dirty", repo: repo, worktreesDir: t.TempDir()})
 	require.NoError(t, err, "stderr: %s", setup.Stderr)
 	tree := strings.TrimSpace(string(setup.Stdout))
 
 	require.NoError(t, os.WriteFile(filepath.Join(tree, "scratch.txt"), []byte("unsaved\n"), 0o644))
 
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-dirty", agentCwd: tree, worktreesDir: worktreesDir})
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-dirty", agentCwd: tree})
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
 
 	assert.NoDirExists(t, tree, "a delete is not blocked by a dirty worktree")
@@ -516,15 +513,14 @@ func TestBuiltinWorktreeCleanupReportsUncommittedWorkItDestroys(t *testing.T) {
 // its files, and leaves git holding a registration for a checkout that is no longer there.
 func TestBuiltinWorktreeCleanupRefusesAWorktreeHoldingAnother(t *testing.T) {
 	repo := initRepo(t)
-	worktreesDir := t.TempDir()
-	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{agentID: "agent-nest", repo: repo, worktreesDir: worktreesDir})
+	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{agentID: "agent-nest", repo: repo, worktreesDir: t.TempDir()})
 	require.NoError(t, err, "stderr: %s", setup.Stderr)
 	tree := strings.TrimSpace(string(setup.Stdout))
 
 	inner := filepath.Join(tree, "inner")
 	runGit(t, repo, "worktree", "add", "--quiet", "-b", "inner-branch", inner)
 
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-nest", agentCwd: tree, worktreesDir: worktreesDir})
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-nest", agentCwd: tree})
 	require.Error(t, err, "the refusal is reported rather than exiting zero")
 	assert.Contains(t, string(cleanup.Stderr), "holds another registered worktree")
 
@@ -538,14 +534,13 @@ func TestBuiltinWorktreeCleanupRefusesAWorktreeHoldingAnother(t *testing.T) {
 // the branch a tree happens to be on is not one the agent has to leave alone.
 func TestBuiltinWorktreeCleanupHandlesADetachedHead(t *testing.T) {
 	repo := initRepo(t)
-	worktreesDir := t.TempDir()
-	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{agentID: "agent-detached", repo: repo, worktreesDir: worktreesDir})
+	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{agentID: "agent-detached", repo: repo, worktreesDir: t.TempDir()})
 	require.NoError(t, err, "stderr: %s", setup.Stderr)
 	tree := strings.TrimSpace(string(setup.Stdout))
 
 	runGit(t, tree, "checkout", "--quiet", "--detach", "HEAD")
 
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-detached", agentCwd: tree, worktreesDir: worktreesDir})
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-detached", agentCwd: tree})
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
 
 	assert.NoDirExists(t, tree, "a detached head is still this agent's worktree")
@@ -576,7 +571,7 @@ func TestBuiltinWorktreeCleanupDeletesABranchHoldingNothingNew(t *testing.T) {
 	require.NoError(t, err, "stderr: %s", setup.Stderr)
 	tree := strings.TrimSpace(string(setup.Stdout))
 
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-nothing-new", agentCwd: tree, worktreesDir: worktreesDir})
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-nothing-new", agentCwd: tree})
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
 
 	assert.NoDirExists(t, tree)
@@ -588,16 +583,14 @@ func TestBuiltinWorktreeCleanupDeletesABranchHoldingNothingNew(t *testing.T) {
 // nested, and reading it as one deletes the files of whatever was.
 func TestBuiltinWorktreeCleanupRefusesWhenTheWorktreeListCannotBeRead(t *testing.T) {
 	repo := initRepo(t)
-	worktreesDir := t.TempDir()
-	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{agentID: "agent-blind", repo: repo, worktreesDir: worktreesDir})
+	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{agentID: "agent-blind", repo: repo, worktreesDir: t.TempDir()})
 	require.NoError(t, err, "stderr: %s", setup.Stderr)
 	tree := strings.TrimSpace(string(setup.Stdout))
 
 	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{
-		agentID:      "agent-blind",
-		agentCwd:     tree,
-		worktreesDir: worktreesDir,
-		pathPrefix:   failingGitDir(t, "worktree list"),
+		agentID:    "agent-blind",
+		agentCwd:   tree,
+		pathPrefix: failingGitDir(t, "worktree list"),
 	})
 	require.Error(t, err, "the refusal is reported rather than exiting zero")
 

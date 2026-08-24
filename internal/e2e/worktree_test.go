@@ -156,6 +156,10 @@ func initGitRepo(t *testing.T) string {
 	require.NoErrorf(t, err, "git clone: %s", output)
 	runGitIn(t, clone, "config", "user.email", "test@weave.test")
 	runGitIn(t, clone, "config", "user.name", "weave test")
+	// The excludes file git reads when core.excludesFile is unset is a path rather than a
+	// config value, so the hermetic environment does not reach it and the developer's own
+	// ignore list would decide which copy paths a worktree gets.
+	runGitIn(t, clone, "config", "core.excludesFile", os.DevNull)
 
 	return clone
 }
