@@ -6,6 +6,7 @@ import (
 
 	"weave/internal/agents"
 	"weave/internal/storetest"
+	"weave/internal/tmux"
 	paginationv1 "weave/proto/gen/pagination/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
@@ -478,8 +479,8 @@ func TestListWorkflowsRefusesAMangledToken(t *testing.T) {
 // stops the agents inside it, and nothing these handler tests build has ever launched one.
 type idlePanes struct{}
 
-func (idlePanes) GetPaneOwners() (map[string]string, error) { return nil, nil }
-func (idlePanes) KillPane(string)                           {}
+func (idlePanes) GetPanes() (map[string]tmux.PaneStatus, error) { return nil, nil }
+func (idlePanes) KillPane(string)                               {}
 
 // The handler never sees an agent store, but deleting a workflow settles the
 // agents inside it, so those cases reach for one.

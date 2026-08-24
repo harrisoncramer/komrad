@@ -44,7 +44,7 @@ func TestQueryCarriesStderr(t *testing.T) {
 		t.Skip("tmux is not installed")
 	}
 
-	_, err := NewClient("weave-test-no-such-socket").GetPaneOwners()
+	_, err := NewClient("weave-test-no-such-socket").GetPanes()
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "list-panes", "the failing command is named")
@@ -112,4 +112,21 @@ func fakeTmux(t *testing.T, script string) string {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "tmux"), []byte(script), 0o755))
 
 	return dir
+}
+
+// TestRunsShellReadsMeasuredCommands pins the allowlist to what the CLIs actually report.
+// A pane running Claude reports its version string, because Claude sets its own process
+// title, and one running Codex reports the name of the wrapper script it was installed as.
+// Neither is the binary weave launched, so the test is only ever whether a pane is back at
+// a shell, and anything unrecognised has to read as a CLI still running.
+func TestRunsShellReadsMeasuredCommands(t *testing.T) {
+	shells := []string{"sh", "bash", "dash", "ash", "zsh", "ksh", "csh", "tcsh", "fish", "nu", "-zsh", "-bash", "-dash"}
+	for _, command := range shells {
+		assert.True(t, PaneStatus{Command: command}.RunsShell(), "%q is a shell", command)
+	}
+
+	others := []string{"2.1.241", ".codex-wrapped", "codex", "claude", "node", "cat", ""}
+	for _, command := range others {
+		assert.False(t, PaneStatus{Command: command}.RunsShell(), "%q is not a shell", command)
+	}
 }

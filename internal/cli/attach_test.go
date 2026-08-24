@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"fmt"
+	"os"
 	"os/exec"
-	"path/filepath"
+	"sync/atomic"
 	"testing"
 
 	"weave/config"
@@ -36,8 +38,9 @@ func TestAttachRefusesWithoutAPanel(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			socket := throwawaySocket(t)
 			if tt.server {
-				require.NoError(t, exec.Command("tmux", "-L", socket, "-f", "/dev/null",
-					"new-session", "-d", "-s", "something-else").Run())
+				out, err := exec.Command("tmux", "-L", socket, "-f", "/dev/null",
+					"new-session", "-d", "-s", "something-else").CombinedOutput()
+				require.NoError(t, err, "tmux: %s", out)
 			}
 
 			err := attachCmd(attachState(socket)).RunE(nil, nil)
@@ -64,6 +67,12 @@ func attachState(socket string) *app {
 	}
 }
 
+// sockets counts the servers this package has named. A name has to be this call's own, not
+// this test's: t.TempDir() numbers its directories per test, so its first is 001 in every
+// one, and two tests asking for that socket each registered a cleanup that killed the
+// other's server. The pid keeps the names apart from any other package's run.
+var sockets atomic.Int64
+
 // throwawaySocket names a tmux server of this test's own, killed on cleanup, so nothing here
 // touches the panel's server or the user's.
 func throwawaySocket(t *testing.T) string {
@@ -72,7 +81,7 @@ func throwawaySocket(t *testing.T) string {
 		t.Skip("tmux is not installed")
 	}
 
-	socket := "weave-attach-" + filepath.Base(t.TempDir())
+	socket := fmt.Sprintf("weave-attach-%d-%d", os.Getpid(), sockets.Add(1))
 	t.Cleanup(func() { _ = exec.Command("tmux", "-L", socket, "kill-server").Run() })
 
 	return socket

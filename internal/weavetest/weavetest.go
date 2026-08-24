@@ -297,11 +297,11 @@ func (i *Instance) WaitForTyped(agentID string, lines int) []string {
 func (i *Instance) GetOwnedPane(agentID string) string {
 	i.t.Helper()
 
-	owners, err := i.Tmux.Client().GetPaneOwners()
+	panes, err := i.Tmux.Client().GetPanes()
 	require.NoError(i.t, err)
 
-	for pane, owner := range owners {
-		if owner == agentID {
+	for pane, status := range panes {
+		if status.Owner == agentID {
 			return pane
 		}
 	}

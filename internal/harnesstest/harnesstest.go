@@ -9,11 +9,18 @@
 // The agent is a loop printing one line per state into its pane. What that state is comes
 // from a file the test writes, so an agent moves between working, waiting, and idle when
 // the test says so and never on its own.
+//
+// It is a shell script, but nothing runs it as a shell. Weave reads a pane whose foreground
+// program is a shell as one whose CLI has exited, which is right for every real CLI and
+// wrong for a fake made of shell. So the script is run by this test binary re-invoked with
+// one argument that means "be the agent", which is what any other CLI looks like from tmux:
+// a program of its own name holding the pane.
 package harnesstest
 
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -66,11 +73,36 @@ while IFS= read -r line; do
 done
 `
 
+// scriptShell runs the agent script as a child of this binary, so the pane's foreground
+// program stays the binary rather than becoming the shell.
+const scriptShell = "/bin/sh"
+
+// agentArg puts this binary into agent mode, which is checked before any test runs.
+const agentArg = "--weave-fake-agent"
+
+// The agent is this binary run again with the script to be, which happens before the
+// testing package sees the arguments and so cannot be a flag.
+func init() {
+	if len(os.Args) != 3 || os.Args[1] != agentArg {
+		return
+	}
+
+	agent := exec.Command(scriptShell, os.Args[2])
+	agent.Stdin, agent.Stdout, agent.Stderr = os.Stdin, os.Stdout, os.Stderr
+	if err := agent.Run(); err != nil {
+		os.Exit(1)
+	}
+
+	os.Exit(0)
+}
+
 // Harness is the fake CLI. One instance serves every agent in a test, which is why its
 // files are keyed by agent and by session rather than held on the struct.
 type Harness struct {
 	root   string
 	script string
+	// binary is this test binary, which the agents are it run again in agent mode.
+	binary string
 }
 
 // The panel reaches an agent CLI only through the interface, so a method missing here is a
@@ -91,7 +123,12 @@ func New(root string) (*Harness, error) {
 		return nil, fmt.Errorf("failed to write the fake agent script: %w", err)
 	}
 
-	return &Harness{root: root, script: script}, nil
+	binary, err := os.Executable()
+	if err != nil {
+		return nil, fmt.Errorf("failed to find the test binary the fake agents run as: %w", err)
+	}
+
+	return &Harness{root: root, script: script, binary: binary}, nil
 }
 
 // GetID is the name an agent running this harness is recorded under.
@@ -132,7 +169,7 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 		command += " FAKE_FLAGS=" + harness.QuoteArg(quoted)
 	}
 
-	return command + " sh " + harness.QuoteArg(h.script), nil
+	return command + " " + harness.QuoteArg(h.binary) + " " + agentArg + " " + harness.QuoteArg(h.script), nil
 }
 
 // ReadActivity reads the bottom of a captured frame. Only the last line the agent printed

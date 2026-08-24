@@ -113,22 +113,67 @@ func (c *Client) IsPaneInMode(pane string) bool {
 	return c.value("display-message", "-p", "-t", pane, "#{pane_in_mode}") == "1"
 }
 
-// GetPaneOwners returns every pane on the server keyed to its owner stamp.
-func (c *Client) GetPaneOwners() (map[string]string, error) {
-	out, err := c.query("list-panes", "-a", "-F", "#{pane_id} #{"+paneOwnerOption+"}")
-	if err != nil {
-		return nil, fmt.Errorf("failed to list pane owners: %w", err)
+// ClearPaneOwner takes weave's stamp off a pane, which is what a pane weave no longer
+// tracks should look like to anything reading the server.
+func (c *Client) ClearPaneOwner(pane string) error {
+	if pane == "" {
+		return errors.New("refusing to unstamp an empty pane")
 	}
 
-	owners := map[string]string{}
+	if _, err := c.query("set-option", "-p", "-u", "-t", pane, paneOwnerOption); err != nil {
+		return fmt.Errorf("failed to unstamp pane %q: %w", pane, err)
+	}
+
+	return nil
+}
+
+// PaneStatus is what one pane says about itself: the agent it is stamped for, and the
+// program in its foreground.
+type PaneStatus struct {
+	Owner   string
+	Command string
+}
+
+// shellCommands are the foreground programs that mean a pane holds nothing but the shell
+// weave typed the launch command into. The CLIs report anything but their own name here,
+// Claude its version string and Codex its wrapper script, so only a recognised shell is
+// read as a pane whose CLI has gone and everything else is taken for one still running. A
+// name missing from this list costs nothing but a dead CLI going unnoticed, which is why it
+// is generous: dash is /bin/sh on Debian, and the login forms are how Linux reports a shell
+// tmux started as one.
+var shellCommands = map[string]bool{
+	"sh": true, "-sh": true,
+	"bash": true, "-bash": true,
+	"dash": true, "-dash": true,
+	"ash": true, "-ash": true,
+	"zsh": true, "-zsh": true,
+	"ksh": true, "-ksh": true,
+	"csh": true, "-csh": true,
+	"tcsh": true, "-tcsh": true,
+	"fish": true, "-fish": true,
+	"nu": true, "-nu": true,
+}
+
+// RunsShell reports whether the pane's foreground program is a plain shell.
+func (p PaneStatus) RunsShell() bool { return shellCommands[p.Command] }
+
+// GetPanes returns every pane on the server keyed to what it says about itself.
+func (c *Client) GetPanes() (map[string]PaneStatus, error) {
+	out, err := c.query("list-panes", "-a", "-F", "#{pane_id} #{"+paneOwnerOption+"} #{pane_current_command}")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list panes: %w", err)
+	}
+
+	panes := map[string]PaneStatus{}
 	for line := range strings.SplitSeq(out, "\n") {
-		pane, owner, _ := strings.Cut(line, " ")
+		pane, rest, _ := strings.Cut(line, " ")
+		owner, command, _ := strings.Cut(rest, " ")
 		if pane != "" {
-			owners[pane] = owner
+			panes[pane] = PaneStatus{Owner: owner, Command: command}
 		}
 	}
 
-	return owners, nil
+	return panes, nil
 }
 
 // GetClientPath returns a client's active pane working directory.

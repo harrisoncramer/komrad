@@ -119,13 +119,14 @@ func TestPaneOwners(t *testing.T) {
 	require.NoError(t, client.SetPaneOwner(killed, "agent-two"))
 	client.KillPane(killed)
 
-	owners, err := client.GetPaneOwners()
+	panes, err := client.GetPanes()
 	require.NoError(t, err)
 
-	assert.Equal(t, "agent-one", owners[stamped], "a stamped pane answers to its agent")
-	assert.Empty(t, owners[bare], "an unstamped pane answers to nobody")
-	assert.NotContains(t, owners, killed, "a pane that is gone is absent rather than stale")
-	assert.Equal(t, client.GetPaneOwner(stamped), owners[stamped], "the batch agrees with the single lookup")
+	assert.Equal(t, "agent-one", panes[stamped].Owner, "a stamped pane answers to its agent")
+	assert.Empty(t, panes[bare].Owner, "an unstamped pane answers to nobody")
+	assert.NotContains(t, panes, killed, "a pane that is gone is absent rather than stale")
+	assert.Equal(t, client.GetPaneOwner(stamped), panes[stamped].Owner, "the batch agrees with the single lookup")
+	assert.True(t, panes[stamped].RunsShell(), "a pane weave opened is a shell until something is launched in it")
 }
 
 // TestSiblingPanesFindsTheRestOfTheWindow covers the panel asking what else is sitting in
