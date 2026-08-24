@@ -36,7 +36,9 @@ if ! registered=$(git -C "$repo" worktree list --porcelain); then
 	exit 1
 fi
 
-nested=$(printf '%s\n' "$registered" | sed -n 's|^worktree ||p' | awk -v prefix="$tree/" 'index($0, prefix) == 1')
+# Through the environment rather than -v, which processes escape sequences in the value and so
+# would hand awk something other than a path holding a backslash.
+nested=$(printf '%s\n' "$registered" | sed -n 's|^worktree ||p' | prefix="$tree/" awk 'index($0, ENVIRON["prefix"]) == 1')
 if [ -n "$nested" ]; then
 	echo "worktree cleanup: $tree holds another registered worktree, so it is being left alone:" >&2
 	printf '%s\n' "$nested" >&2
