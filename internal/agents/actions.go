@@ -247,15 +247,7 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams, p
 		})
 	}
 
-	finished := []slog.Attr{
-		slog.Int(logging.ExitCode, result.ExitCode),
-		slog.Int64(logging.DurationMS, elapsedMS(began)),
-	}
-	if said := bytes.TrimSpace(result.Stderr); len(said) > 0 {
-		finished = append(finished, slog.String(logging.ActionStderr, string(said)))
-	}
-
-	logger.LogAttrs(ctx, slog.LevelInfo, "action finished", finished...)
+	logger.LogAttrs(ctx, slog.LevelInfo, "action finished", finishedAction(result, began)...)
 
 	if err != nil {
 		return "", fmt.Errorf("%w: %w%s", ErrSetupFailed, err, stderrDetail(result.Stderr))
@@ -448,9 +440,7 @@ func (s *ActionService) start(ctx context.Context, p startParams) error {
 				return
 			}
 
-			logger.LogAttrs(ctx, slog.LevelInfo, "action finished",
-				slog.Int(logging.ExitCode, result.ExitCode),
-				slog.Int64(logging.DurationMS, elapsedMS(began)))
+			logger.LogAttrs(ctx, slog.LevelInfo, "action finished", finishedAction(result, began)...)
 		},
 	})
 	if err != nil {
@@ -473,6 +463,22 @@ func (s *ActionService) actionLogger(ctx context.Context, name, trigger string, 
 
 func elapsedMS(began time.Time) int64 {
 	return time.Since(began).Milliseconds()
+}
+
+// finishedAction is what a run that completed is logged with. Stderr is carried whether or
+// not the action failed, since an action that reports something and exits zero is how the
+// built-in scripts say what they declined to do, and nothing else keeps that.
+func finishedAction(result actions.Result, began time.Time) []slog.Attr {
+	attrs := []slog.Attr{
+		slog.Int(logging.ExitCode, result.ExitCode),
+		slog.Int64(logging.DurationMS, elapsedMS(began)),
+	}
+
+	if said := bytes.TrimSpace(result.Stderr); len(said) > 0 {
+		attrs = append(attrs, slog.String(logging.ActionStderr, string(said)))
+	}
+
+	return attrs
 }
 
 func failedAction(result actions.Result, err error) []slog.Attr {
@@ -649,7 +655,8 @@ func workflowName(workflow *workflowstore.Workflow) string {
 // script itself. The repo the worktrees are added off is named outright rather than left
 // to WEAVE_AGENT_CWD, which stops being the repo the moment setup replaces it with the
 // worktree and so would be wrong every time setup runs again on a resume. Cleanup asks for
-// none of this, since a worktree's own git-common-dir names the repo it came from.
+// none of this: a worktree's own git-common-dir names the repo it came from, and the name setup
+// gave its directory is what says whose worktree it is.
 func (s *ActionService) worktreeEnv(workflow workflowstore.Workflow) ([]string, error) {
 	loaded, err := s.load()
 	if err != nil {

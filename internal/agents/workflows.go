@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"weave/config"
@@ -41,6 +42,10 @@ var ErrWorktreeOwnsActions = errors.New("a worktree-enabled workflow points setu
 // scripts read the repo, base branch, and path lists off the environment, which is only
 // populated when the toggle is on, so pointed at them any other way they fail every time.
 var ErrWorktreeActionsReserved = errors.New("setup_action and cleanup_action may not name the built-in worktree pair unless worktree.enabled is set")
+
+// ErrWorktreeUnsafePath reports that a worktree copy or symlink entry is one the generated
+// setup action must not be handed.
+var ErrWorktreeUnsafePath = errors.New("a worktree copy or symlink path must be a relative path inside the repo")
 
 // workflowReadWriter is the part of the workflow store this service reads outside a
 // transaction. Create and Update are not on it. Both write across three rows, so they
@@ -135,7 +140,11 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 	cfg.Flags = strings.TrimSpace(cfg.Flags)
 	cfg.SetupAction = strings.TrimSpace(cfg.SetupAction)
 	cfg.CleanupAction = strings.TrimSpace(cfg.CleanupAction)
-	normalizeWorktreeBaseBranch(&cfg)
+	normalizeWorktree(&cfg)
+
+	if err := validateWorktreePaths(cfg); err != nil {
+		return nil, err
+	}
 
 	if cfg.Worktree.Enabled {
 		if err := setWorktreeActions(&cfg); err != nil {
@@ -184,7 +193,11 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	cfg.Flags = strings.TrimSpace(cfg.Flags)
 	cfg.SetupAction = strings.TrimSpace(cfg.SetupAction)
 	cfg.CleanupAction = strings.TrimSpace(cfg.CleanupAction)
-	normalizeWorktreeBaseBranch(&cfg)
+	normalizeWorktree(&cfg)
+
+	if err := validateWorktreePaths(cfg); err != nil {
+		return err
+	}
 
 	switch {
 	case cfg.Worktree.Enabled:
@@ -219,11 +232,69 @@ func namesReservedWorktreeAction(cfg workflowstore.Config) bool {
 	return cfg.SetupAction == worktreeSetupAction || cfg.CleanupAction == worktreeCleanupAction
 }
 
-// normalizeWorktreeBaseBranch trims the base branch. The base branch and the two path
+// normalizeWorktree trims the base branch and each path. The base branch and the two path
 // lists are kept whatever the toggle is set to, on or off, so switching it back on later
 // hands the workflow back what was there before rather than starting over blank.
-func normalizeWorktreeBaseBranch(cfg *workflowstore.Config) {
+func normalizeWorktree(cfg *workflowstore.Config) {
 	cfg.Worktree.BaseBranch = strings.TrimSpace(cfg.Worktree.BaseBranch)
+	cfg.Worktree.CopyPaths = trimPaths(cfg.Worktree.CopyPaths)
+	cfg.Worktree.SymlinkPaths = trimPaths(cfg.Worktree.SymlinkPaths)
+}
+
+// trimPaths trims each entry and drops the blank ones, since a blank line in the form's
+// textarea is a line the user left rather than a path they meant.
+func trimPaths(paths []string) []string {
+	if paths == nil {
+		return nil
+	}
+
+	kept := make([]string, 0, len(paths))
+	for _, path := range paths {
+		if trimmed := strings.TrimSpace(path); trimmed != "" {
+			kept = append(kept, trimmed)
+		}
+	}
+
+	return kept
+}
+
+// validateWorktreePaths is the second layer under the RPC rules in proto/proto/rules/v1, which
+// already hold every caller arriving over the API to a relative path. Entries are checked
+// whether or not the toggle is on, since a list stored while it is off goes live the moment
+// it is set.
+func validateWorktreePaths(cfg workflowstore.Config) error {
+	for _, list := range [][]string{cfg.Worktree.CopyPaths, cfg.Worktree.SymlinkPaths} {
+		for _, path := range list {
+			if err := validateWorktreePath(path); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func validateWorktreePath(path string) error {
+	if strings.ContainsAny(path, "\n\r") {
+		return fmt.Errorf("%w: %q holds a line break, which is what separates the entries", ErrWorktreeUnsafePath, path)
+	}
+	if filepath.IsAbs(path) || strings.HasPrefix(path, "~") {
+		return fmt.Errorf("%w: %q is not relative to the repo", ErrWorktreeUnsafePath, path)
+	}
+
+	segments := strings.Split(path, "/")
+	for _, segment := range segments {
+		if segment == ".." {
+			return fmt.Errorf("%w: %q climbs out of the repo", ErrWorktreeUnsafePath, path)
+		}
+	}
+
+	// Case-insensitively, since .GIT reaches the same directory on the filesystems weave runs on.
+	if strings.EqualFold(segments[0], ".git") {
+		return fmt.Errorf("%w: %q is the worktree's own link to the repo", ErrWorktreeUnsafePath, path)
+	}
+
+	return nil
 }
 
 // setWorktreeActions points a worktree-enabled config's setup and cleanup actions at the

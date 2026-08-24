@@ -809,6 +809,26 @@ func TestRunCleanupActionLogsUnderItsOwnTrigger(t *testing.T) {
 	assert.Equal(t, gone, got["weave.action.agent.cwd"], "the row is gone, so the record is what names the directory")
 }
 
+// TestRunCleanupActionLogsWhatAZeroExitSaid covers the only record a refusal leaves. The
+// built-in worktree cleanup exits zero when it declines to remove something, since a delete
+// must not be blocked, and nothing waits on it to read what it said; a success that dropped
+// stderr left the tree on disk with no trace of why.
+func TestRunCleanupActionLogsWhatAZeroExitSaid(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "cleanup"), []byte("#!/bin/sh\n"), 0o755))
+
+	declined := "worktree cleanup: /repo/wt is on HEAD rather than agent/a3, so it is not this agent's to remove"
+	runner := &recordingRunner{results: map[string]runResult{"cleanup": {stderr: declined}}}
+	ctx, records := loggedContext(t)
+
+	require.NoError(t, actionService(t, dir, runner).
+		RunCleanupAction(ctx, agentstore.Agent{ID: "a3", Cwd: "/repo/wt"}, "cleanup"))
+
+	got := recordFor(t, records(), "action finished")
+	assert.Equal(t, float64(0), got["process.exit.code"], "the action succeeded")
+	assert.Equal(t, declined, got["weave.action.stderr"], "what it declined to do is kept")
+}
+
 // loggedContext is a context carrying a logger writing to a buffer, and the records written
 // to it so far.
 func loggedContext(t *testing.T) (context.Context, func() []map[string]any) {

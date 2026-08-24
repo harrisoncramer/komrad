@@ -8,7 +8,7 @@ on:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: namespace-profile-harrisoncramer
 
     # The store tests run against a real Postgres rather than a fake, and
     # internal/pgtest creates a database per test off the server WEAVE_DATABASE_URL
@@ -34,12 +34,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # gen:check compares regenerated output against what is committed, so it
-      # needs the working tree to start clean, which a plain checkout gives.
-      - uses: jdx/mise-action@v2
+      - name: Use Mise
+        uses: ./.github/actions/use-mise
         with:
-          install: true
-          cache: true
+          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
 
       # The agents reconciler drives a real tmux server instead of a fake, and
       # those tests skip themselves when tmux is missing rather than failing, so
