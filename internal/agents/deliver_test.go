@@ -23,6 +23,7 @@ func TestDeliver(t *testing.T) {
 		agent     *agentstore.Agent
 		pending   int64
 		alive     bool
+		inMode    bool
 		claimed   bool
 		want      Delivery
 		wantNudge bool
@@ -64,6 +65,15 @@ func TestDeliver(t *testing.T) {
 			want:    DeliveryLater,
 		},
 		{
+			name:    "an agent whose pane the user is scrolled back in",
+			agent:   &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateIdle},
+			pending: 1,
+			alive:   true,
+			inMode:  true,
+			claimed: true,
+			want:    DeliveryLater,
+		},
+		{
 			name: "an agent already told about this stretch of sitting idle",
 			agent: &agentstore.Agent{
 				ID: "agent-a", Pane: "%1", State: agentstore.StateIdle,
@@ -99,12 +109,12 @@ func TestDeliver(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			agents := &fakeAgents{agent: tt.agent, claimed: tt.claimed}
-			panes := &fakePanes{alive: tt.alive}
+			panes := &fakePanes{alive: tt.alive, inMode: tt.inMode}
 			svc := NewDeliveryService(NewDeliveryServiceParams{
 				MailboxReader: &fakeMailboxReader{pending: tt.pending},
 				NudgeClaimer:  agents,
 				PaneReader:    panes,
-				PaneWriter:    panes,
+				PaneTyper:     panes,
 			})
 
 			got, err := svc.Deliver(t.Context(), "agent-a")
@@ -112,14 +122,15 @@ func TestDeliver(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 
 			if !tt.wantNudge {
-				assert.Empty(t, panes.typed, "nothing is typed at the agent")
+				assert.Empty(t, panes.text, "nothing is typed at the agent")
+				assert.Empty(t, panes.keys, "no key is sent to the agent")
 
 				return
 			}
 
-			require.Len(t, panes.typed, 2, "the line and the newline that submits it go separately")
-			assert.Contains(t, panes.typed[0], "read_mail")
-			assert.Equal(t, "Enter", panes.typed[1])
+			require.Len(t, panes.text, 1, "the line goes as text, so tmux does not read it as keys")
+			assert.Contains(t, panes.text[0], "read_mail")
+			assert.Equal(t, []string{"Enter"}, panes.keys, "only the newline that submits it goes as a key")
 			assert.True(t, agents.taken, "the right to type is claimed before anything is typed")
 		})
 	}
@@ -134,14 +145,39 @@ func TestDeliverReportsExpiredMail(t *testing.T) {
 		MailboxReader: mailbox,
 		NudgeClaimer:  agents,
 		PaneReader:    panes,
-		PaneWriter:    panes,
+		PaneTyper:     panes,
 	})
 
 	got, err := svc.Deliver(t.Context(), "agent-a")
 	require.NoError(t, err)
 	assert.Equal(t, DeliveryDone, got)
 	assert.True(t, mailbox.readExpired, "an empty mailbox is checked for mail that ran out of time")
-	assert.Empty(t, panes.typed)
+	assert.Empty(t, panes.text)
+}
+
+// TestDeliverKeepsTheClaimWhileThePaneIsInAMode is the whole point of asking about the
+// mode. The claim is what stops an agent being told twice for one stretch of sitting idle,
+// so spending it on keys the pane's mode eats loses the mail until it expires.
+func TestDeliverKeepsTheClaimWhileThePaneIsInAMode(t *testing.T) {
+	agents := &fakeAgents{
+		agent:   &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateIdle},
+		claimed: true,
+	}
+	panes := &fakePanes{alive: true, inMode: true}
+
+	svc := NewDeliveryService(NewDeliveryServiceParams{
+		MailboxReader: &fakeMailboxReader{pending: 1},
+		NudgeClaimer:  agents,
+		PaneReader:    panes,
+		PaneTyper:     panes,
+	})
+
+	got, err := svc.Deliver(t.Context(), "agent-a")
+	require.NoError(t, err)
+	assert.Equal(t, DeliveryLater, got)
+	assert.False(t, agents.taken, "the right to type is not spent on a pane that cannot take keys")
+	assert.Empty(t, panes.text)
+	assert.Empty(t, panes.keys)
 }
 
 type fakeMailboxReader struct {
@@ -182,14 +218,24 @@ func (f *fakeAgents) ClaimNudge(context.Context, string) (bool, error) {
 }
 
 type fakePanes struct {
-	alive bool
-	typed []string
+	alive  bool
+	inMode bool
+	text   []string
+	keys   []string
 }
 
 func (f *fakePanes) IsAgentRunning(agentstore.Agent) bool { return f.alive }
 
+func (f *fakePanes) IsPaneInMode(string) bool { return f.inMode }
+
+func (f *fakePanes) SendText(_, text string) error {
+	f.text = append(f.text, text)
+
+	return nil
+}
+
 func (f *fakePanes) SendKeys(_ string, keys ...string) error {
-	f.typed = append(f.typed, keys...)
+	f.keys = append(f.keys, keys...)
 
 	return nil
 }
@@ -203,11 +249,11 @@ func TestDeliverAllVisitsEveryMailboxHoldingMail(t *testing.T) {
 		MailboxReader: mailbox,
 		NudgeClaimer:  agents,
 		PaneReader:    panes,
-		PaneWriter:    panes,
+		PaneTyper:     panes,
 	})
 
 	require.NoError(t, svc.DeliverAll(t.Context()))
-	assert.Empty(t, panes.typed, "mailboxes belonging to no agent are left alone")
+	assert.Empty(t, panes.text, "mailboxes belonging to no agent are left alone")
 }
 
 func TestDeliverAllDoesNothingWhenNoMailIsWaiting(t *testing.T) {
@@ -218,7 +264,7 @@ func TestDeliverAllDoesNothingWhenNoMailIsWaiting(t *testing.T) {
 		MailboxReader: &fakeMailboxReader{},
 		NudgeClaimer:  agents,
 		PaneReader:    panes,
-		PaneWriter:    panes,
+		PaneTyper:     panes,
 	})
 
 	require.NoError(t, svc.DeliverAll(t.Context()))
