@@ -89,6 +89,10 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 }
 
 func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent, pane tmux.PaneStatus) {
+	if agent.State == agentstore.StateSettingUp {
+		return
+	}
+
 	if !isPaneOwnedBy(pane.Owner, agent.ID) {
 		r.forget(ctx, agent, false)
 		r.apply(ctx, agent, agentstore.StateIdle)
