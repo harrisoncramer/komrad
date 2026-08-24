@@ -43,9 +43,11 @@ jobs:
 
       # The agents reconciler drives a real tmux server instead of a fake, and
       # those tests skip themselves when tmux is missing rather than failing, so
-      # without this they would quietly not run.
+      # without this they would quietly not run. less is what the panel pages a
+      # dormant agent's placeholder into a pane with, and a runner missing it
+      # fails those tests rather than skipping them.
       - name: Install tmux
-        run: sudo apt-get update && sudo apt-get install -y tmux
+        run: sudo apt-get update && sudo apt-get install -y tmux less
 
       # go:lint builds golangci-lint from source to bundle the repo's plugin,
       # which dominates the job. The binary only changes when the plugin or its
