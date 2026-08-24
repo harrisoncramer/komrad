@@ -40,16 +40,21 @@ type Metadata struct {
 
 // Agent is a persisted background agent.
 type Agent struct {
-	ID               string
-	Name             string
-	Pane             string
-	Cwd              string
-	Flags            string
-	SetupAction      *string
-	CleanupAction    *string
-	Prompt           string
-	State            string
-	StateChangedAt   time.Time
+	ID             string
+	Name           string
+	Pane           string
+	Cwd            string
+	Flags          string
+	SetupAction    *string
+	CleanupAction  *string
+	Prompt         string
+	State          string
+	StateChangedAt time.Time
+	// StateSeenAt is when a reconcile pass last confirmed the state, which is not the same
+	// question as when the state last moved. A pass that could not read the pane leaves the
+	// state alone, so this is the only thing that says whether the state is still being
+	// observed or is simply the last thing anybody managed to see.
+	StateSeenAt      time.Time
 	Harness          string
 	SessionID        string
 	WorkflowID       string
@@ -340,7 +345,9 @@ func (s *Store) ClaimNudge(ctx context.Context, id string) (bool, error) {
 	return len(claimed) > 0, nil
 }
 
-// SetStateByID updates an agent's state by ID.
+// SetStateByID records the state a reconcile pass observed, stamping when it was seen
+// whether or not the value moved. Callers coalesce, since a stamp is worth writing far
+// less often than a pass runs.
 func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
 	if !store.IsID(id) {
 		return nil
@@ -670,6 +677,7 @@ func agentFromRow(agent models.Agent) Agent {
 		Prompt:           agent.Prompt,
 		State:            agent.State,
 		StateChangedAt:   agent.StateChangedAt,
+		StateSeenAt:      agent.StateSeenAt,
 		Harness:          agent.Harness,
 		SessionID:        agent.SessionID,
 		WorkflowID:       agent.WorkflowID,

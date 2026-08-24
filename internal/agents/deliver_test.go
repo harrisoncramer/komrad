@@ -17,6 +17,10 @@ func TestDeliver(t *testing.T) {
 	nudgedBefore := idleSince.Add(-time.Minute)
 	nudgedAfter := idleSince.Add(time.Minute)
 	archivedAt := idleSince
+	// A state is only worth deferring on while something is still confirming it, so the
+	// nonterminal rows below say when a pass last did.
+	seenNow := time.Now()
+	seenLongAgo := seenNow.Add(-stateSeenBound - time.Minute)
 
 	tests := []struct {
 		name      string
@@ -47,14 +51,30 @@ func TestDeliver(t *testing.T) {
 		},
 		{
 			name:    "an agent mid-turn, which its own stop hook will catch",
-			agent:   &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateThinking},
+			agent:   &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateThinking, StateSeenAt: seenNow},
 			pending: 1,
 			alive:   true,
 			want:    DeliverySoon,
 		},
 		{
+			name:      "an agent mid-turn that no pass has confirmed since",
+			agent:     &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateThinking, StateSeenAt: seenLongAgo},
+			pending:   1,
+			alive:     true,
+			claimed:   true,
+			want:      DeliverySoon,
+			wantNudge: true,
+		},
+		{
 			name:    "an agent sitting on a permission prompt is never typed at",
-			agent:   &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateWaiting},
+			agent:   &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateWaiting, StateSeenAt: seenNow},
+			pending: 1,
+			alive:   true,
+			want:    DeliveryLater,
+		},
+		{
+			name:    "a prompt nothing has confirmed is still left alone, since keys typed at one answer it",
+			agent:   &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateWaiting, StateSeenAt: seenLongAgo},
 			pending: 1,
 			alive:   true,
 			want:    DeliveryLater,
@@ -248,4 +268,70 @@ func TestDeliverAllDoesNothingWhenNoMailIsWaiting(t *testing.T) {
 
 	require.NoError(t, svc.DeliverAll(t.Context()))
 	assert.False(t, agents.taken)
+}
+
+// TestDeliverToAnAgentNoPassCanRead is the case the confirmation stamp exists for. An agent
+// recorded against a harness this binary does not run is skipped by every pass, which is
+// right, since nothing here can read its frame. What is not right is deferring delivery on
+// the state it was left holding: that defers on every pass until the mail runs out of time,
+// so the agent is told once instead.
+func TestDeliverToAnAgentNoPassCanRead(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+
+	require.NoError(t, st.Create(ctx, agentstore.Agent{
+		Name:    "orphan",
+		Pane:    "%1",
+		State:   agentstore.StateThinking,
+		Harness: "gemini",
+	}))
+	agent, err := st.Get(ctx, "orphan")
+	require.NoError(t, err)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+	tmux.captures["%1"] = idleFrame
+
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}}, st.Agents)
+	for range 30 {
+		require.NoError(t, rec.Reconcile(ctx))
+	}
+
+	pinned := agentByID(t, st, agent.ID)
+	assert.Equal(t, agentstore.StateThinking, pinned.State, "thirty passes read nothing, so the state stands")
+	assert.Equal(t, agent.StateSeenAt, pinned.StateSeenAt, "and none of them confirmed it")
+
+	_, err = st.Mail.Send(ctx, mailstore.SendParams{
+		FromName:  "somebody",
+		ToAgentID: agent.ID,
+		Body:      "please read this",
+		ExpiresAt: time.Now().Add(time.Hour),
+	})
+	require.NoError(t, err)
+
+	panes := &fakePanes{alive: true}
+	svc := NewDeliveryService(NewDeliveryServiceParams{
+		MailboxReader: st.Mail,
+		NudgeClaimer:  st.Agents,
+		PaneReader:    panes,
+		PaneTyper:     panes,
+	})
+
+	got, err := svc.Deliver(ctx, agent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, DeliverySoon, got, "a state confirmed a moment ago is still worth waiting on")
+	assert.Empty(t, panes.text)
+
+	backdateStateSeen(t, st, agent.ID, stateSeenBound+time.Minute)
+
+	got, err = svc.Deliver(ctx, agent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, DeliverySoon, got)
+	require.Len(t, panes.text, 1, "an unconfirmed state is not live work, so the agent is told")
+	assert.Contains(t, panes.text[0], "read_mail")
+
+	got, err = svc.Deliver(ctx, agent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, DeliveryLater, got)
+	assert.Len(t, panes.text, 1, "and told once, not once a pass")
 }
