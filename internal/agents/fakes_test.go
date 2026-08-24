@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"slices"
 	"sync"
 	"testing"
@@ -14,15 +13,19 @@ import (
 	transcriptstore "weave/internal/store/transcript"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/storetest"
+	"weave/internal/tmux"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
 type fakeTmux struct {
-	mu        sync.Mutex
-	owners    map[string]string
-	captures  map[string]string
+	mu       sync.Mutex
+	owners   map[string]string
+	captures map[string]string
+	// commands is a pane's foreground program. A pane left out reports nothing, which
+	// stands for a program weave does not recognise and so reads as a live CLI.
+	commands  map[string]string
 	clientDir string
 
 	sent           map[string][][]string
@@ -37,12 +40,14 @@ type fakeTmux struct {
 	setOwnerErr    error
 	sendKeysErr    error
 	paneOwnersErr  error
+	clearOwnerErr  error
 }
 
 func newFakeTmux() *fakeTmux {
 	return &fakeTmux{
 		owners:         map[string]string{},
 		captures:       map[string]string{},
+		commands:       map[string]string{},
 		sent:           map[string][][]string{},
 		globals:        map[string]string{},
 		newWindows:     map[string]string{},
@@ -90,7 +95,7 @@ func (f *fakeTmux) DetachSession(name string) {
 	f.detached = append(f.detached, name)
 }
 
-func (f *fakeTmux) GetPaneOwners() (map[string]string, error) {
+func (f *fakeTmux) GetPanes() (map[string]tmux.PaneStatus, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -98,7 +103,24 @@ func (f *fakeTmux) GetPaneOwners() (map[string]string, error) {
 		return nil, f.paneOwnersErr
 	}
 
-	return maps.Clone(f.owners), nil
+	panes := map[string]tmux.PaneStatus{}
+	for pane, owner := range f.owners {
+		panes[pane] = tmux.PaneStatus{Owner: owner, Command: f.commands[pane]}
+	}
+
+	return panes, nil
+}
+
+func (f *fakeTmux) ClearPaneOwner(pane string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if f.clearOwnerErr != nil {
+		return f.clearOwnerErr
+	}
+	delete(f.owners, pane)
+
+	return nil
 }
 
 func (f *fakeTmux) SetSessionOption(target, name, value string) {

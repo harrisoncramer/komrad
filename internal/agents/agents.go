@@ -10,6 +10,7 @@ import (
 	"weave/internal/caller"
 	"weave/internal/logging"
 	"weave/internal/store"
+	"weave/internal/tmux"
 	"weave/lib/xslice"
 
 	"weave/internal/actions"
@@ -76,7 +77,7 @@ type agentManager interface {
 // paneKiller is the tmux surface a workflow archive needs: which agents are still
 // running, and stopping the ones that are.
 type paneKiller interface {
-	GetPaneOwners() (map[string]string, error)
+	GetPanes() (map[string]tmux.PaneStatus, error)
 	KillPane(pane string)
 }
 
@@ -190,15 +191,15 @@ func (s *AgentService) GetRunningAgents(ctx context.Context, agents []agentstore
 }
 
 func getRunningAgents(ctx context.Context, tmux paneKiller, agents []agentstore.Agent) map[string]bool {
-	owners, err := tmux.GetPaneOwners()
+	panes, err := tmux.GetPanes()
 	if err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "failed to read pane owners, reporting every agent as not running",
+		logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "failed to read panes, reporting every agent as not running",
 			logging.Err(err)...)
 	}
 
 	running := make(map[string]bool, len(agents))
 	for _, agent := range agents {
-		running[agent.ID] = isPaneOwnedBy(owners[agent.Pane], agent.ID)
+		running[agent.ID] = isPaneOwnedBy(panes[agent.Pane].Owner, agent.ID)
 	}
 
 	return running

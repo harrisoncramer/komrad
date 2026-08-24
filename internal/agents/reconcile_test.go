@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	agentstore "weave/internal/store/agent"
 	"weave/lib/xptr"
@@ -20,10 +21,13 @@ func TestReconcileSinglePass(t *testing.T) {
 		name      string
 		fromState string
 		// owned is whether the pane recorded against the agent is still stamped with
-		// that agent's id, which is the only thing that counts as it still running.
+		// that agent's id, which is one half of it still running.
 		owned bool
-		frame string
-		want  string
+		// command is the pane's foreground program, the other half. Empty stands for a
+		// program weave does not recognise.
+		command string
+		frame   string
+		want    string
 	}{
 		{
 			name:      "a pane that is not the agent's settles thinking to idle",
@@ -85,6 +89,22 @@ func TestReconcileSinglePass(t *testing.T) {
 			frame:     busyFrame,
 			want:      agentstore.StateThinking,
 		},
+		{
+			name:      "a pane back at its shell does not demote in one pass, since a launch looks the same",
+			fromState: agentstore.StateThinking,
+			owned:     true,
+			command:   "zsh",
+			frame:     busyFrame,
+			want:      agentstore.StateThinking,
+		},
+		{
+			name:      "a foreground program weave does not recognise is taken for the CLI",
+			fromState: agentstore.StateIdle,
+			owned:     true,
+			command:   "2.1.241",
+			frame:     busyFrame,
+			want:      agentstore.StateThinking,
+		},
 	}
 
 	for _, tt := range tests {
@@ -96,6 +116,7 @@ func TestReconcileSinglePass(t *testing.T) {
 			if tt.owned {
 				tmux.owners["%1"] = agent.ID
 			}
+			tmux.commands["%1"] = tt.command
 			tmux.captures["%1"] = tt.frame
 
 			rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
@@ -103,6 +124,97 @@ func TestReconcileSinglePass(t *testing.T) {
 			assert.Equal(t, tt.want, stateOf(t, st, "agent"))
 		})
 	}
+}
+
+// TestReconcileForgetsAnAbandonedPane covers what a dormant agent leaves behind. Weave's
+// only liveness test is a pane lookup, so an agent that keeps a pane id it is not running
+// in cannot be resumed and is typed at as though it were listening.
+func TestReconcileForgetsAnAbandonedPane(t *testing.T) {
+	tests := []struct {
+		name string
+		// mine is whether the pane is stamped for this agent rather than another.
+		mine    bool
+		command string
+		// wantStamp is what the pane's own owner stamp reads afterwards.
+		wantStamp string
+	}{
+		{
+			name:      "a pane whose CLI exited is unstamped as well as forgotten",
+			mine:      true,
+			command:   "-zsh",
+			wantStamp: "",
+		},
+		{
+			name:      "a pane that belongs to another agent keeps its stamp",
+			command:   "2.1.241",
+			wantStamp: "other-agent",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			ctx := context.Background()
+			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+
+			tmux := newFakeTmux()
+			tmux.owners["%1"] = "other-agent"
+			if tt.mine {
+				tmux.owners["%1"] = agent.ID
+			}
+			tmux.commands["%1"] = tt.command
+			tmux.captures["%1"] = busyFrame
+
+			rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+			require.NoError(t, rec.Reconcile(ctx))
+			waitOutTheShellGrace(rec)
+			require.NoError(t, rec.Reconcile(ctx))
+
+			after := agentByID(t, st, agent.ID)
+			assert.Equal(t, agentstore.StateIdle, after.State)
+			assert.Empty(t, after.Pane, "the agent stops claiming a pane it is not running in")
+			assert.Equal(t, tt.wantStamp, tmux.owners["%1"])
+		})
+	}
+}
+
+// waitOutTheShellGrace moves the reconciler's clock past the grace a pane at a shell is
+// given, which is how a test reaches the verdict on the far side of it without waiting.
+func waitOutTheShellGrace(rec *Reconciler) {
+	at := time.Now().Add(reconcileShellGrace + time.Second)
+	rec.now = func() time.Time { return at }
+}
+
+// TestReconcileWaitsOutALaunch covers the window a launch opens. Weave types the launch
+// command into the pane's shell, so a pane that has just been opened is a shell holding a
+// live agent, and reading that as an exit would forget an agent while it was starting.
+func TestReconcileWaitsOutALaunch(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+	tmux.commands["%1"] = "zsh"
+	tmux.captures["%1"] = busyFrame
+
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	require.NoError(t, rec.Reconcile(ctx))
+	require.NoError(t, rec.Reconcile(ctx))
+
+	during := agentByID(t, st, agent.ID)
+	assert.Equal(t, "%1", during.Pane, "the pane is still the agent's while its CLI comes up")
+
+	// The CLI takes the pane over inside the grace, and the wait starts again from
+	// whatever the pane shows next.
+	tmux.commands["%1"] = "2.1.241"
+	waitOutTheShellGrace(rec)
+	require.NoError(t, rec.Reconcile(ctx))
+
+	after := agentByID(t, st, agent.ID)
+	assert.Equal(t, agentstore.StateThinking, after.State)
+	assert.Equal(t, "%1", after.Pane)
+	assert.Equal(t, agent.ID, tmux.owners["%1"], "the stamp is left where the launcher put it")
 }
 
 // TestReconcileLeavesTheTag pins who the tag belongs to. The reconciler writes

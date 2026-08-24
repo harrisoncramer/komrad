@@ -14,6 +14,7 @@ import (
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/storetest"
+	"weave/internal/tmux"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -343,7 +344,11 @@ func (s *stubTmux) SetPaneOwner(string, string) error { return nil }
 
 func (s *stubTmux) GetPaneOwner(string) string { return "" }
 
-func (s *stubTmux) GetPaneOwners() (map[string]string, error) { return map[string]string{}, nil }
+func (s *stubTmux) ClearPaneOwner(string) error { return nil }
+
+func (s *stubTmux) GetPanes() (map[string]tmux.PaneStatus, error) {
+	return map[string]tmux.PaneStatus{}, nil
+}
 
 func (s *stubTmux) GetClientPath(string) string { return "" }
 

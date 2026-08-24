@@ -60,7 +60,7 @@ func TestNewAgentCeilingUnderConcurrency(t *testing.T) {
 
 	// A caller refused after its window was open has to take the window with it, or the
 	// ceiling holds in the table while the panes it was counting run anyway.
-	owners, err := tmux.GetPaneOwners()
+	panes, err := tmux.GetPanes()
 	require.NoError(t, err)
-	require.Len(t, owners, ceiling)
+	require.Len(t, panes, ceiling)
 }
