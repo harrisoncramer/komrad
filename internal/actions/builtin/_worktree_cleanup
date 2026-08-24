@@ -4,6 +4,7 @@ set -eu
 
 tree="$WEAVE_AGENT_CWD"
 branch="agent/$WEAVE_AGENT_ID"
+worktrees_dir="${WEAVE_WORKTREES_DIR-}"
 
 if [ ! -d "$tree" ] || [ ! -f "$tree/.git" ]; then
 	exit 0
@@ -12,23 +13,39 @@ fi
 common_dir=$(git -C "$tree" rev-parse --git-common-dir 2>/dev/null) || exit 0
 repo=$(dirname "$common_dir")
 
-# Being a worktree is not proof of being this agent's worktree. A worktree the user made by
-# hand passes the same check above, and the launch path reaches cleanup with the agent's cwd
-# still set to whatever the workflow named when setup never got to replace it.
-on=$(git -C "$tree" rev-parse --abbrev-ref HEAD 2>/dev/null) || exit 0
-if [ "$on" != "$branch" ]; then
-	echo "worktree cleanup: $tree is on $on rather than $branch, so it is not this agent's to remove" >&2
-	exit 0
+# Being a worktree is not proof of being this agent's worktree: one made by hand passes the
+# check above, and the launch path reaches cleanup with the agent's cwd still set to whatever
+# the workflow named when setup never got as far as replacing it. Weave chose the path and an
+# agent cannot move itself out of it, so the path is the proof. A workflow whose toggle was
+# turned off after the agent was created hands cleanup no worktrees directory, and the branch
+# the tree is on is the only claim left; it is the weaker of the two, since an agent that
+# detaches HEAD or works on a branch of its own no longer answers to it.
+if [ -n "$worktrees_dir" ]; then
+	if [ "$tree" != "$worktrees_dir/$WEAVE_AGENT_ID" ]; then
+		echo "worktree cleanup: $tree is not $worktrees_dir/$WEAVE_AGENT_ID, so it is not this agent's to remove" >&2
+		exit 0
+	fi
+else
+	on=$(git -C "$tree" rev-parse --abbrev-ref HEAD 2>/dev/null) || exit 0
+	if [ "$on" != "$branch" ]; then
+		echo "worktree cleanup: $tree is on $on rather than $branch, so it is not this agent's to remove" >&2
+		exit 0
+	fi
 fi
 
 # worktree remove --force reads a nested worktree as an ordinary untracked directory, deletes
-# its files, and leaves git holding a registration for a checkout that is no longer there.
-registered=$(git -C "$repo" worktree list --porcelain | sed -n 's|^worktree ||p')
-nested=$(printf '%s\n' "$registered" | grep -F -x -v "$tree" | grep -F "$tree/" || true)
+# its files, and leaves git holding a registration for a checkout that is no longer there. A
+# listing that could not be read is not proof that there is nothing nested.
+if ! registered=$(git -C "$repo" worktree list --porcelain); then
+	echo "worktree cleanup: could not list the worktrees of $repo, so $tree is being left alone" >&2
+	exit 1
+fi
+
+nested=$(printf '%s\n' "$registered" | sed -n 's|^worktree ||p' | grep -F -x -v "$tree" | grep -F "$tree/" || true)
 if [ -n "$nested" ]; then
 	echo "worktree cleanup: $tree holds another registered worktree, so it is being left alone:" >&2
 	printf '%s\n' "$nested" >&2
-	exit 0
+	exit 1
 fi
 
 # Nobody is left to ask by the time cleanup runs and the agent's row is already going, so a
@@ -39,12 +56,23 @@ if [ -n "$dirty" ]; then
 	printf '%s\n' "$dirty" >&2
 fi
 
-git -C "$repo" worktree remove --force "$tree" || true
-
-# -d rather than -D: a branch holding commits nobody merged is the one recoverable trace of
-# what the agent did, and force deleting it throws those commits away.
-if ! refused=$(git -C "$repo" branch -d "$branch" 2>&1); then
-	if git -C "$repo" show-ref --quiet --verify "refs/heads/$branch"; then
-		echo "worktree cleanup: kept the branch $branch: $refused" >&2
-	fi
+if ! git -C "$repo" worktree remove --force "$tree" >&2; then
+	echo "worktree cleanup: could not remove $tree, so the branch $branch is being left with it" >&2
+	exit 1
 fi
+
+if ! git -C "$repo" show-ref --quiet --verify "refs/heads/$branch"; then
+	exit 0
+fi
+
+# The branch is worth keeping exactly when it is the only copy of the agent's commits.
+# Reachability answers that; merge state does not, since the branch has no upstream and so a
+# merge check measures it against the repo's HEAD alone, which reads a branch cut from origin
+# as unmerged whenever the local base is behind.
+elsewhere=$(git -C "$repo" for-each-ref --format='%(refname)' --contains "$branch" | grep -F -x -v "refs/heads/$branch" || true)
+if [ -z "$elsewhere" ]; then
+	echo "worktree cleanup: kept the branch $branch, whose commits are on no other ref" >&2
+	exit 0
+fi
+
+git -C "$repo" branch -D "$branch" >&2 || echo "worktree cleanup: could not delete the branch $branch" >&2

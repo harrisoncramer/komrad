@@ -24,6 +24,8 @@ import (
 // writes to the repo's shared git config puts every concurrent create on the same lock and
 // costs all but one of them their agent.
 func TestWorktreeAgentsAreCreatedConcurrently(t *testing.T) {
+	hermeticGit(t)
+
 	worktreesDir := t.TempDir()
 	instance := weavetest.Start(t, weavetest.Params{WorktreesDir: worktreesDir})
 	ctx := t.Context()
@@ -82,6 +84,8 @@ func TestWorktreeAgentsAreCreatedConcurrently(t *testing.T) {
 // agent that has finished its work reaches for `git push`, and a branch tracking the base it
 // was cut from refuses that outright, since the upstream's name is not the branch's.
 func TestWorktreeAgentCanPublishItsBranch(t *testing.T) {
+	hermeticGit(t)
+
 	worktreesDir := t.TempDir()
 	instance := weavetest.Start(t, weavetest.Params{WorktreesDir: worktreesDir})
 	ctx := t.Context()
@@ -105,20 +109,36 @@ func TestWorktreeAgentCanPublishItsBranch(t *testing.T) {
 	tree := agent.Msg.GetAgent().GetCwd()
 	require.DirExists(t, tree)
 
-	branch := gitOutput(t, tree, "rev-parse", "--abbrev-ref", "HEAD")
-	assert.Empty(t, gitConfig(t, tree, "branch."+branch+".merge"), "the agent's branch has no upstream to be measured against")
-	assert.Equal(t, "true", gitConfig(t, tree, "push.autoSetupRemote"), "the agent's first push creates its own remote branch")
+	branch := readGitOutput(t, tree, "rev-parse", "--abbrev-ref", "HEAD")
+	assert.Empty(t, readGitConfig(t, tree, "branch."+branch+".merge"), "the agent's branch has no upstream to be measured against")
+
+	require.NoError(t, os.WriteFile(filepath.Join(tree, "work.txt"), []byte("done\n"), 0o644))
+	runGitIn(t, tree, "add", "work.txt")
+	runGitIn(t, tree, "commit", "--quiet", "-m", "the agent's work")
+
+	// The assertion the rest of this is for: a plain push, the command an agent that has
+	// finished reaches for, with no -u and no upstream to inherit.
+	runGitIn(t, tree, "push")
+
+	assert.Equal(t, readGitOutput(t, tree, "rev-parse", "HEAD"), readGitOutput(t, tree, "rev-parse", "refs/remotes/origin/"+branch),
+		"the push created the branch's own remote")
 }
 
-// initGitRepo builds a checkout with an origin behind it, since a repo with no remote never
-// reaches the half of the setup action that builds a worktree off origin's copy of the base.
-// Git is pointed at empty global and system config for the rest of the test, so what the
-// setup action does is decided by this repo rather than by the developer's own git settings.
-func initGitRepo(t *testing.T) string {
+// hermeticGit points git at empty global and system config for the rest of the test, so what
+// the setup action does is decided by the repo in front of it rather than by whatever the
+// developer running the suite happens to have set. It is process-wide, so it is called by the
+// test itself rather than buried in a helper.
+func hermeticGit(t *testing.T) {
 	t.Helper()
 
 	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
 	t.Setenv("GIT_CONFIG_SYSTEM", os.DevNull)
+}
+
+// initGitRepo builds a checkout with an origin behind it, since a repo with no remote never
+// reaches the half of the setup action that builds a worktree off origin's copy of the base.
+func initGitRepo(t *testing.T) string {
+	t.Helper()
 
 	seed := t.TempDir()
 	runGitIn(t, seed, "init", "--quiet", "-b", "main")
@@ -147,7 +167,7 @@ func runGitIn(t *testing.T, dir string, args ...string) {
 	require.NoErrorf(t, err, "git %v: %s", args, output)
 }
 
-func gitOutput(t *testing.T, dir string, args ...string) string {
+func readGitOutput(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 
 	output, err := exec.Command("git", append([]string{"-C", dir}, args...)...).Output()
@@ -156,13 +176,18 @@ func gitOutput(t *testing.T, dir string, args ...string) string {
 	return strings.TrimSpace(string(output))
 }
 
-// gitConfig reads one config key, blank when it is unset at every scope, which is how git
-// reports an absent key rather than a failure worth ending the test on.
-func gitConfig(t *testing.T, dir, key string) string {
+// readGitConfig reads one config key, blank when the key is unset. Exit 1 is the only status
+// that means unset, so any other failure ends the test rather than reading as an absent value
+// the caller would then assert on.
+func readGitConfig(t *testing.T, dir, key string) string {
 	t.Helper()
 
 	output, err := exec.Command("git", "-C", dir, "config", "--get", key).Output()
 	if err != nil {
+		var exit *exec.ExitError
+		require.ErrorAs(t, err, &exit)
+		require.Equal(t, 1, exit.ExitCode(), "git config failed for a reason other than the key being unset: %s", exit.Stderr)
+
 		return ""
 	}
 

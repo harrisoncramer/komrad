@@ -258,16 +258,16 @@ func trimPaths(paths []string) []string {
 	return kept
 }
 
-// validateWorktreePaths refuses a copy or symlink entry the generated setup action must not
-// be handed. The entries reach that script as one newline-separated environment variable and
-// are joined to the repo path unchecked, so an entry that climbs out of the repo, names an
-// absolute path, names the worktree's own git link, or carries the newline the list is
-// separated by is refused here rather than acted on there. They are checked whether or not
-// the toggle is on, since a list stored while it is off becomes live the moment it is set.
+// validateWorktreePaths is the second layer under the RPC rules in proto/proto/rules/v1, which
+// already hold every caller arriving over the API to a relative path. Entries are checked
+// whether or not the toggle is on, since a list stored while it is off goes live the moment
+// it is set.
 func validateWorktreePaths(cfg workflowstore.Config) error {
-	for _, path := range append(append([]string{}, cfg.Worktree.CopyPaths...), cfg.Worktree.SymlinkPaths...) {
-		if err := validateWorktreePath(path); err != nil {
-			return err
+	for _, list := range [][]string{cfg.Worktree.CopyPaths, cfg.Worktree.SymlinkPaths} {
+		for _, path := range list {
+			if err := validateWorktreePath(path); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -278,17 +278,19 @@ func validateWorktreePath(path string) error {
 	if strings.ContainsAny(path, "\n\r") {
 		return fmt.Errorf("%w: %q holds a line break, which is what separates the entries", ErrWorktreeUnsafePath, path)
 	}
-	if filepath.IsAbs(path) {
-		return fmt.Errorf("%w: %q is absolute, and the entries are relative to the repo", ErrWorktreeUnsafePath, path)
+	if filepath.IsAbs(path) || strings.HasPrefix(path, "~") {
+		return fmt.Errorf("%w: %q is not relative to the repo", ErrWorktreeUnsafePath, path)
 	}
 
-	for _, segment := range strings.Split(filepath.ToSlash(path), "/") {
+	segments := strings.Split(path, "/")
+	for _, segment := range segments {
 		if segment == ".." {
 			return fmt.Errorf("%w: %q climbs out of the repo", ErrWorktreeUnsafePath, path)
 		}
 	}
 
-	if first := strings.Split(filepath.ToSlash(path), "/")[0]; first == ".git" {
+	// Case-insensitively, since .GIT reaches the same directory on the filesystems weave runs on.
+	if strings.EqualFold(segments[0], ".git") {
 		return fmt.Errorf("%w: %q is the worktree's own link to the repo", ErrWorktreeUnsafePath, path)
 	}
 
