@@ -137,11 +137,19 @@ type PaneStatus struct {
 // shellCommands are the foreground programs that mean a pane holds nothing but the shell
 // weave typed the launch command into. The CLIs report anything but their own name here,
 // Claude its version string and Codex its wrapper script, so only a recognised shell is
-// read as a pane whose CLI has gone and everything else is taken for one still running.
+// read as a pane whose CLI has gone and everything else is taken for one still running. A
+// name missing from this list costs nothing but a dead CLI going unnoticed, which is why it
+// is generous: dash is /bin/sh on Debian, and the login forms are how Linux reports a shell
+// tmux started as one.
 var shellCommands = map[string]bool{
 	"sh": true, "-sh": true,
 	"bash": true, "-bash": true,
+	"dash": true, "-dash": true,
+	"ash": true, "-ash": true,
 	"zsh": true, "-zsh": true,
+	"ksh": true, "-ksh": true,
+	"csh": true, "-csh": true,
+	"tcsh": true, "-tcsh": true,
 	"fish": true, "-fish": true,
 	"nu": true, "-nu": true,
 }

@@ -120,7 +120,7 @@ func fakeTmux(t *testing.T, script string) string {
 // Neither is the binary weave launched, so the test is only ever whether a pane is back at
 // a shell, and anything unrecognised has to read as a CLI still running.
 func TestRunsShellReadsMeasuredCommands(t *testing.T) {
-	shells := []string{"sh", "bash", "zsh", "fish", "nu", "-zsh", "-bash"}
+	shells := []string{"sh", "bash", "dash", "ash", "zsh", "ksh", "csh", "tcsh", "fish", "nu", "-zsh", "-bash", "-dash"}
 	for _, command := range shells {
 		assert.True(t, PaneStatus{Command: command}.RunsShell(), "%q is a shell", command)
 	}
