@@ -17,8 +17,7 @@ func TestDeliver(t *testing.T) {
 	nudgedBefore := idleSince.Add(-time.Minute)
 	nudgedAfter := idleSince.Add(time.Minute)
 	archivedAt := idleSince
-	// A state is only worth deferring on while something is still confirming it, so the
-	// nonterminal rows below say when a pass last did.
+
 	seenNow := time.Now()
 	seenLongAgo := seenNow.Add(-stateSeenBound - time.Minute)
 

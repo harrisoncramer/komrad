@@ -75,8 +75,6 @@ func TestAwaitStoppedWaitsForTheProcessRatherThanTheAddress(t *testing.T) {
 	require.NoError(t, awaitStopped(pid, 10*time.Second), "and the wait ends when it goes")
 }
 
-// strippedHost is a test server's address without the scheme, which is the shape the
-// commands take an address in.
 func strippedHost(t *testing.T, url string) string {
 	t.Helper()
 

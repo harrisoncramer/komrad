@@ -17,8 +17,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// tags are the configured tags the cases below step through, each in a colour of
-// its own so a row drawing the wrong one shows up.
 var tags = []config.Tag{
 	{Glyph: "●", Color: "#F932A1"},
 	{Glyph: "◐", Color: "#0f0"},
@@ -232,7 +230,7 @@ func TestNextSelectionTag(t *testing.T) {
 func TestTagSelection(t *testing.T) {
 	tests := []struct {
 		name string
-		// carrying is what the chosen agents already hold, keyed by agent id.
+
 		carrying map[string]string
 		want     *string
 	}{
@@ -286,8 +284,6 @@ func TestTagSelection(t *testing.T) {
 	}
 }
 
-// fakeTagAgents records what the panel asked the service to tag. Every other method is
-// left to the embedded nil interface, so a press reaching one panics rather than passing.
 type fakeTagAgents struct {
 	agentv1connect.AgentServiceClient
 	ids []string

@@ -1,4 +1,3 @@
-// Package workflow serves WorkflowService over ConnectRPC.
 package workflow
 
 import (
@@ -18,8 +17,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// workflowWriter is the part of the workflow service the handlers drive. The
-// handlers translate and nothing more. What a workflow may be lives behind this.
 type workflowWriter interface {
 	NewWorkflow(ctx context.Context, cfg workflowstore.Config) (*workflowstore.Workflow, error)
 	GetWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error)
@@ -28,13 +25,10 @@ type workflowWriter interface {
 	RestoreWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error)
 }
 
-// workflowLister is the read side, kept separate because listing pages straight
-// out of the store rather than through the service.
 type workflowLister interface {
 	ListPage(ctx context.Context, limit int64, cursor *workflowstore.Cursor, archived bool) ([]workflowstore.Workflow, error)
 }
 
-// Service implements workflowv1connect.WorkflowServiceHandler.
 type Service struct {
 	lister    workflowLister
 	workflows workflowWriter
@@ -130,8 +124,6 @@ func (s *Service) UpdateWorkflow(ctx context.Context, req *connect.Request[workf
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// worktreeConfigFromProto reads the request's worktree config, unset reading as disabled
-// with no fields carried, since a request naming none is not turning worktree support on.
 func worktreeConfigFromProto(w *workflowv1.WorktreeConfig) workflowstore.WorktreeConfig {
 	return workflowstore.WorktreeConfig{
 		Enabled:      w.GetEnabled(),

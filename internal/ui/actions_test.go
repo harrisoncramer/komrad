@@ -31,7 +31,7 @@ func TestActionKeys(t *testing.T) {
 
 	tests := []struct {
 		name string
-		// empty starts the screen with no actions, for the keys that act on a row.
+
 		empty      bool
 		key        string
 		wantScreen screen
@@ -228,8 +228,6 @@ func TestActionListingArrivingAfterTheScreenWasLeft(t *testing.T) {
 	m := actionsModel(client, config.DefaultKeybindings())
 	pending := m.listActionsCmd()
 
-	// The list carries a row of its own, so a listing that lands writes over something
-	// recognisable rather than filling in what was empty anyway.
 	m.actions.items = []actionItem{{name: "from-the-visit-that-ended"}}
 
 	left, _ := m.updateActions(keyMsg("esc"))
@@ -483,8 +481,6 @@ func TestActionDocumentRedrawsOnlyOnAChange(t *testing.T) {
 	assert.Contains(t, stagedDocument(t), "and say so in Slack")
 }
 
-// actionsModel builds the panel sitting on the actions list of one agent, with a runnable action
-// and one that is not executable.
 func actionsModel(client actionv1connect.ActionServiceClient, keys config.Keybindings) model {
 	tmux := &recordingTmux{}
 	frame := layout.New(tmux, config.DefaultLayout())
@@ -504,9 +500,6 @@ func actionsModel(client actionv1connect.ActionServiceClient, keys config.Keybin
 	}
 }
 
-// listedActions is what the fake service answers with. One action will run and declares
-// itself, one is waiting on a chmod and its header did not read, one is a compiled program,
-// and one is underscored, which the service offers and the list leaves out.
 func listedActions() []*actionv1.Action {
 	return []*actionv1.Action{
 		{
@@ -526,18 +519,13 @@ func listedActions() []*actionv1.Action {
 	}
 }
 
-// fakeActions answers the calls the screen makes, recording what it was asked to fire as
-// agent/action so a case can state both at once. The embedded interface is nil, so any other
-// method panics rather than quietly returning a zero value.
 type fakeActions struct {
 	actionv1connect.ActionServiceClient
-	// err refuses a run and listErr refuses a listing, which are the two things the panel
-	// has to report since neither is visible anywhere else.
+
 	err     error
 	listErr error
 	fired   []string
-	// edited is what the editor key asked to open, kept apart from fired so a case can tell
-	// a file opened from a script run.
+
 	edited []string
 }
 
@@ -567,9 +555,6 @@ func (f *fakeActions) EditAction(_ context.Context, req *connect.Request[actionv
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// stagedDocument is the text of what the stage last rendered, read back off the file the pager in
-// its pane is showing. The colours around a word sit between it and the next, so they are
-// stripped to read it.
 func stagedDocument(t *testing.T) string {
 	t.Helper()
 

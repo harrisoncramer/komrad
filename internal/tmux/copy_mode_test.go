@@ -23,8 +23,6 @@ func TestPaneInAModeTakesNoKeys(t *testing.T) {
 	pane, err := client.query("display-message", "-p", "-t", "weave:", "#{pane_id}")
 	require.NoError(t, err)
 
-	// The pane's shell is turned into something that records what it was given, so the
-	// test asserts on what the program received rather than on what the frame shows.
 	received := filepath.Join(t.TempDir(), "received")
 	require.NoError(t, client.SendText(pane, `while IFS= read -r line; do printf '%s\n' "$line" >> `+received+`; done`))
 	require.NoError(t, client.SendKeys(pane, "Enter"))
@@ -38,8 +36,6 @@ func TestPaneInAModeTakesNoKeys(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, client.IsPaneInMode(pane), "a pane scrolled back is in a mode")
 
-	// The error is reported rather than asserted on, since a refused send and an eaten key
-	// are the same failure to deliver. What the program received is what settles it.
 	if err := client.SendText(pane, "swallowed-by-the-mode"); err != nil {
 		t.Logf("tmux refused the text while the pane was in a mode: %v", err)
 	}
@@ -47,8 +43,6 @@ func TestPaneInAModeTakesNoKeys(t *testing.T) {
 		t.Logf("tmux refused the newline while the pane was in a mode: %v", err)
 	}
 
-	// Leaving the mode and getting a later line through is what says the earlier one is not
-	// merely late, since the program takes its input in order.
 	_, err = client.query("copy-mode", "-q", "-t", pane)
 	require.NoError(t, err)
 	require.NoError(t, client.SendText(pane, "after-the-mode"))
@@ -80,8 +74,6 @@ func TestSendTextDoesNotLookUpKeyNames(t *testing.T) {
 	waitForLine(t, received, "[Space]")
 }
 
-// waitForLine polls a file until it holds want, so a test never races the shell reading
-// what it was typed.
 func waitForLine(t *testing.T, path, want string) {
 	t.Helper()
 

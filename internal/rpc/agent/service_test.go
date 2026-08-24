@@ -63,17 +63,12 @@ func TestCreateAgent(t *testing.T) {
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
-			// The workflow's setup action refusing is a workflow to edit rather than
-			// anything wrong on this side, so it must not read as a server fault.
 			name:     "a setup action that refuses is a precondition, not an internal error",
 			req:      &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflow},
 			launchEr: agents.ErrSetupFailed,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
-			// Checked ahead of the directory case, which this wraps when the directory
-			// the action named is the part that was wrong. Which half of the action
-			// refused should not change the code the caller sees.
 			name:     "a setup action naming an unusable directory is the same precondition",
 			req:      &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflow},
 			launchEr: fmt.Errorf("%w: %w", agents.ErrSetupFailed, agents.ErrBadDirectory),
@@ -86,8 +81,6 @@ func TestCreateAgent(t *testing.T) {
 			wantCode: connect.CodeResourceExhausted,
 		},
 		{
-			// The workflow supplies the directory, so a request that names one and
-			// nothing else is complete.
 			name: "an omitted directory reaches the launcher empty, for the workflow to fill",
 			req:  &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflow},
 			check: func(t *testing.T, got agents.NewAgentParams) {
@@ -135,7 +128,7 @@ func TestCreateAgent(t *testing.T) {
 func TestGetAgent(t *testing.T) {
 	tests := []struct {
 		name string
-		// seed is the agent to look up, blank to look up an id nobody holds.
+
 		seed     string
 		wantCode connect.Code
 	}{
@@ -320,8 +313,7 @@ func TestListAgentsArchived(t *testing.T) {
 		name      string
 		archived  bool
 		wantNames []string
-		// wantArchivedAt is whether the listed agents carry an archive time, which is
-		// what the archive orders on and the only thing that says a row is in it.
+
 		wantArchivedAt bool
 	}{
 		{
@@ -405,7 +397,6 @@ func TestUpdateAgent(t *testing.T) {
 			svc, st := service(t)
 			ctx := t.Context()
 
-			// One workflow for both, since a name is only taken within one.
 			workflow := st.SeedWorkflow(t, workflowstore.Config{Name: "backend"})
 
 			id := "ghost"
@@ -444,8 +435,7 @@ func TestSetHidden(t *testing.T) {
 	tests := []struct {
 		name string
 		seed bool
-		// hideFirst is written before the call, so bringing an agent back has something
-		// to bring back.
+
 		hideFirst bool
 		hidden    bool
 		wantCode  connect.Code
@@ -505,10 +495,9 @@ func TestSetTags(t *testing.T) {
 	tests := []struct {
 		name string
 		seed int
-		// strays are ids nobody holds, sent alongside whatever was seeded.
+
 		strays int
-		// tagFirst is put on the seeded agents before the call, so changing and
-		// clearing a tag both have one to work from.
+
 		tagFirst *string
 		tag      *string
 		wantCode connect.Code
@@ -592,15 +581,12 @@ func TestSetMetadata(t *testing.T) {
 	tests := []struct {
 		name string
 		seed bool
-		// recordFirst is written before the call, so revising and clearing a fact both
-		// have one to work from.
+
 		recordFirst []agentstore.Metadata
 		key         string
 		value       *string
 		wantCode    connect.Code
-		// wantStored is the metadata the agent should carry afterwards, compared as
-		// stored pairs rather than protos so the ordering the store promised is what is
-		// asserted.
+
 		wantStored []agentstore.Metadata
 	}{
 		{
@@ -610,8 +596,6 @@ func TestSetMetadata(t *testing.T) {
 			wantCode: connect.CodeNotFound,
 		},
 		{
-			// The key is gone either way, so failing a request that got what it asked
-			// for would have an agent retrying a clear that already held.
 			name: "clearing a key nothing held is served, not refused",
 			seed: true,
 			key:  "pr",
@@ -1123,14 +1107,12 @@ func TestLogTagsTheAction(t *testing.T) {
 func TestSearchTranscripts(t *testing.T) {
 	tests := []struct {
 		name string
-		// turns are the seeded agent's conversation, in order.
+
 		turns []string
-		// archive puts the agent in the archive before the search, which search still
-		// reaches.
+
 		archive bool
 		query   string
-		// wantSeqs are the turns expected to match, in any order, since how two hits
-		// rank against each other is the store's business.
+
 		wantSeqs []int32
 	}{
 		{
@@ -1186,8 +1168,6 @@ func TestSearchTranscripts(t *testing.T) {
 				assert.Equal(t, "user", hit.GetRole())
 				assert.Contains(t, hit.GetSnippet(), tt.query, "the snippet holds the text that matched")
 
-				// The offset has to land on the turn the hit names, which is the only
-				// thing that makes the two fields worth sending together.
 				turn := tt.turns[hit.GetSeq()]
 				assert.Equal(t, turn, content[hit.GetContentOffset():hit.GetContentOffset()+int64(len(turn))])
 			}
@@ -1202,11 +1182,11 @@ func TestSearchTranscripts(t *testing.T) {
 func TestSearchTranscriptsScope(t *testing.T) {
 	tests := []struct {
 		name string
-		// callerIs, when set, is the agent the call arrives from, "alpha" or "beta".
+
 		callerIs string
-		// asksFor, when set, is the agent the request names.
+
 		asksFor string
-		// wantNames are the agents whose turns come back.
+
 		wantNames []string
 	}{
 		{
@@ -1275,8 +1255,6 @@ func TestSearchTranscriptsScope(t *testing.T) {
 // tools a model drives, and one that garbled or invented a token is told so rather than
 // handed the database's complaint about the value it sent.
 func TestPagedReadsRefuseAMangledToken(t *testing.T) {
-	// Base64 of {"i":"not-an-id"} and of {"r":0.5,"i":"not-an-id","s":1}, the two cursor
-	// shapes these reads mint, each carrying a string the uuid column cannot compare.
 	const (
 		listToken   = "eyJpIjoibm90LWFuLWlkIn0="
 		searchToken = "eyJyIjowLjUsImkiOiJub3QtYW4taWQiLCJzIjoxfQ=="
@@ -1367,9 +1345,9 @@ func TestSearchTranscriptsScopeSurvivesACursor(t *testing.T) {
 func TestCrossAgentReadIsRecorded(t *testing.T) {
 	tests := []struct {
 		name string
-		// callerIs, when set, is the agent the call arrives from.
+
 		callerIs string
-		// read is the call under test, against the agent named beta.
+
 		read       func(t *testing.T, svc *Service, ctx context.Context, target string)
 		wantRecord bool
 	}{
@@ -1453,10 +1431,9 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 func TestGetTranscript(t *testing.T) {
 	tests := []struct {
 		name string
-		// agentID, when set, is fetched instead of the seeded agent's own id.
+
 		agentID string
-		// turns are the seeded agent's conversation, empty for one whose log has not
-		// been read yet.
+
 		turns    []string
 		wantCode connect.Code
 		want     string
@@ -1467,8 +1444,6 @@ func TestGetTranscript(t *testing.T) {
 			wantCode: connect.CodeNotFound,
 		},
 		{
-			// The store refuses a malformed id before it reaches a query, which must
-			// read as an unknown agent rather than as a server fault.
 			name:     "and so is an id that is not an id",
 			agentID:  "not-a-uuid",
 			wantCode: connect.CodeNotFound,
@@ -1598,8 +1573,6 @@ func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 	}
 }
 
-// fakeLauncher records what a request asked for and hands back a stored agent, so
-// the handlers can be exercised without a tmux server.
 type fakeLauncher struct {
 	got        agents.NewAgentParams
 	created    *agentstore.Agent
@@ -1610,14 +1583,12 @@ type fakeLauncher struct {
 	archived   []string
 	archiveErr error
 	restored   []string
-	// restoredAgents is what a restore hands back, defaulting to the one created agent
-	// for the cases that only care that the call went through.
+
 	restoredAgents []agentstore.Agent
 	restoreErr     error
 	resumed        []string
 	resumeErr      error
-	// runningCalls counts GetRunningAgents calls, which is what holds a listing to one
-	// liveness lookup.
+
 	runningCalls int
 }
 
@@ -1693,10 +1664,6 @@ func service(t *testing.T) (*Service, *storetest.Stores) {
 	return svc, st
 }
 
-// seedTranscript stores a conversation and indexes its turns the way a sync pass
-// leaves them, blank-line separated with each turn stamped where it landed, and
-// returns the text it built. A test asserting on an offset compares against this
-// rather than counting bytes by hand.
 func seedTranscript(t *testing.T, st *storetest.Stores, agentID string, turns []string) string {
 	t.Helper()
 
@@ -1731,8 +1698,6 @@ func seedTranscript(t *testing.T, st *storetest.Stores, agentID string, turns []
 	return content.String()
 }
 
-// storedMetadata flattens a rendered agent's metadata back to stored pairs, so a
-// test states what the agent should carry without spelling out protos.
 func storedMetadata(agent *agentv1.Agent) []agentstore.Metadata {
 	if len(agent.GetMetadata()) == 0 {
 		return nil

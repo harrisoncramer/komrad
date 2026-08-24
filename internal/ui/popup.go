@@ -5,10 +5,6 @@ import (
 	"strings"
 )
 
-// popupTmux is what the popup needs from tmux, the global options it uses as flags
-// plus the ability to bind a key and detach a client. The client behind it spans two
-// tmux servers. Options are the user's, since the plugin's key binding reads them
-// there, while the session and the key bound inside the popup are the manager's.
 type popupTmux interface {
 	SetGlobal(name, value string)
 	ShowGlobal(name string) string
@@ -17,12 +13,9 @@ type popupTmux interface {
 	DetachSession(name string)
 }
 
-// PopupWindow is the popup as a window: whether it is showing, which tmux client
-// opened it, and how it hides. It is the panel's own window rather than anything
-// about agents, and it holds no application state.
 type PopupWindow struct {
 	tmux popupTmux
-	// session is the tmux session the panel runs in, the one Hide detaches from.
+
 	session string
 }
 
@@ -32,35 +25,18 @@ func NewPopupWindow(tmux popupTmux, session string) *PopupWindow {
 	return &PopupWindow{tmux: tmux, session: session}
 }
 
-// managerOpenFlag marks that the popup is currently shown, so the binding hides
-// it rather than opening a second one. The open command sets it while the popup
-// is up. Both open's own exit and hide clear it, so a stuck flag from a killed
-// or crashed open self-heals on the next hide attempt. The tmux plugin reads it.
 const managerOpenFlag = "@weave_open"
 
-// managerClientFlag holds the tmux client that opened the current popup. The open
-// command writes it on each open, and the manager reads it live, so anything that
-// needs the invoking client uses the one actually viewing the popup rather than one
-// fixed when the persistent panel first started.
 const managerClientFlag = "@weave_client"
 
-// managerKeyOption holds the user's chosen panel key. The tmux plugin reads it on
-// the user's server to bind the key there, and the popup reads the same option to
-// bind its own meaning for it inside the popup.
 const managerKeyOption = "@weave_key"
 
-// defaultPanelKey is the panel key when the user has chosen none. The plugin script
-// carries the same default, since it binds the key on the user's server.
 const defaultPanelKey = "g"
 
-// paletteKeyOption holds the user's chosen palette key, read off their own server beside
-// the panel key.
 const paletteKeyOption = "@weave_palette_key"
 
 const defaultPaletteKey = "k"
 
-// The popup the palette is drawn in, wide enough for an action's description and tall enough
-// for a list worth narrowing.
 const (
 	palettePopupWidth  = "60"
 	palettePopupHeight = "60%"
@@ -80,9 +56,6 @@ func (p *PopupWindow) BindHide() {
 	p.tmux.BindKey(key, "detach-client", "-s", p.session)
 }
 
-// BindPaletteParams is what binding the palette key takes: the binary the popup runs and the
-// config layers this process resolved, so the palette reads the files the panel was started
-// on rather than working them out again.
 type BindPaletteParams struct {
 	Self        string
 	ConfigPaths []string
@@ -100,8 +73,6 @@ func (p *PopupWindow) BindPalette(params BindPaletteParams) {
 		key = defaultPaletteKey
 	}
 
-	// -EE keeps the popup up when the command exits non-zero, so a pane holding no agent and
-	// an action that would not start say so rather than closing over the message.
 	command := []string{
 		"display-popup",
 		"-w", palettePopupWidth,
@@ -117,19 +88,12 @@ func (p *PopupWindow) BindPalette(params BindPaletteParams) {
 	p.tmux.BindKey(key, command...)
 }
 
-// panelKeyTmux is what binding the panel key on the user's own server needs. Both calls go to
-// the one server the caller chose, unlike the binds above, which span two, and both report a
-// failure, since somebody ran the command that got here and is reading what it says.
 type panelKeyTmux interface {
 	ShowGlobal(name string) string
 	SetGlobalChecked(name, value string) error
 	BindKeyChecked(key string, command ...string) error
 }
 
-// BindPanelKeyParams is what binding the panel key takes: the binary the two branches run and
-// the config layers this process resolved, since each branch is a new process that would
-// otherwise read the default files and reach a different tmux server and service than the one
-// this binding was asked for.
 type BindPanelKeyParams struct {
 	Self        string
 	ConfigPaths []string
@@ -160,17 +124,12 @@ func BindPanelKey(t panelKeyTmux, params BindPanelKeyParams) error {
 		key = defaultPanelKey
 	}
 
-	// Only when the flag has never been set, which is what an empty value means. This command
-	// is run by hand, including while the panel is up, and writing 0 over a popup that is open
-	// would make the next press stack a second one on it rather than hiding it.
 	if t.ShowGlobal(managerOpenFlag) == "" {
 		if err := t.SetGlobalChecked(managerOpenFlag, "0"); err != nil {
 			return err
 		}
 	}
 
-	// Each branch is one argument, since tmux parses an if-shell branch as a command of its
-	// own rather than reading the rest of this line as arguments.
 	hide := fmt.Sprintf("run-shell -b '%s'", panelCommand(params, "hide"))
 	open := fmt.Sprintf("display-popup -w 100%% -h 100%% -x C -y C -T ' weave ' -EE '%s'",
 		panelCommand(params, "open"))
@@ -178,9 +137,6 @@ func BindPanelKey(t panelKeyTmux, params BindPanelKeyParams) error {
 	return t.BindKeyChecked(key, "if-shell", "-F", fmt.Sprintf("#{==:#{%s},1}", managerOpenFlag), hide, open)
 }
 
-// panelCommand is the shell command one branch of the binding runs: this binary, the subcommand,
-// and the config layers behind them. Both branches carry them, since hide has to find the same
-// tmux server the popup is on and open has to reach the same service.
 func panelCommand(params BindPanelKeyParams, subcommand string) string {
 	words := []string{params.Self, subcommand}
 	for _, path := range params.ConfigPaths {

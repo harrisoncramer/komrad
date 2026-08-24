@@ -56,8 +56,6 @@ func TestPanelKeySocket(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Counted because every question here is a tmux process, and the case that needs
-			// none of them is the one this command is usually run in.
 			asked := 0
 			manager := func() string { asked++; return managerPath }
 			host := func() string { asked++; return tt.host }

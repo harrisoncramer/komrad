@@ -10,8 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fixtureDir holds one real action file per case, since a header is read off a file on disk
-// and a string in a table carries neither the shebang nor the bytes an editor would write.
 const fixtureDir = "testfiles"
 
 // TestReadHeader covers what a file is taken to declare about itself, and whether it is text
@@ -61,8 +59,6 @@ func TestReadHeader(t *testing.T) {
 			},
 		},
 		{
-			// The description still stands, since one bad line is no reason to drop the good
-			// one beside it.
 			name:     "a duration nothing can read leaves the timeout unset",
 			file:     "malformed-duration",
 			wantText: true,

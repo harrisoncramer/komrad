@@ -7,41 +7,17 @@ import (
 	"weave/internal/harness"
 )
 
-// workingLine matches Claude Code's live status line, shown only while it is busy
-// generating or running a tool. The shape is a spinner glyph, a space, a verb, and a
-// ellipsis, like "✽ Beboppin'…" or "· Cooking… (1m 50s · ↓ 5.4k tokens)". The
-// trailing timer appears only once tokens start streaming, so keying on it would leave
-// every no-timer frame undetected. The glyph is never a letter, so requiring a
-// non-letter lead excludes prose that merely ends a word with an ellipsis, and
-// excluding the tool-result "⎿", the "❯" prompt, and box rules keeps that chrome from
-// matching. workingTimer catches the parenthesised elapsed timer on its own.
 var (
 	workingLine  = regexp.MustCompile(`(?m)^\s*[^\s\p{L}⎿❯│─╭╮╰╯-]\s+\p{L}.*…`)
 	workingTimer = regexp.MustCompile(`…\s*\(\s*\d+m?\s*\d*\s*s`)
 )
 
-// waitingFooter matches the footer chrome Claude renders under any interactive
-// selection it is blocked on, which reads "Enter to select · ↑/↓ to navigate · Esc to
-// cancel". Those phrases are wording-independent, distinct from the working line's "esc
-// to interrupt", and absent from the plain input box a finished agent sits at. Keying on
-// the footer rather than the prompt's own prose keeps transcript text from being
-// mistaken for a live prompt.
 var waitingFooter = regexp.MustCompile(`(?i)esc to cancel|enter to select`)
 
-// liveRegionLines is how many lines from the bottom of a captured frame count as the
-// live UI. It has to be wide enough to hold the working status line even when a plan or
-// todo list renders under it, pushing it well up from the bottom.
 const liveRegionLines = 30
 
-// waitingRegionLines is a much tighter window for the waiting check, since the
-// selection footer replaces the input box and is the bottom-most line while a prompt is
-// up. Keeping it tight matters because the footer's phrases can appear in ordinary
-// transcript text, which the wide working window would read as a live prompt.
 const waitingRegionLines = 6
 
-// ansiSeq matches an ANSI escape sequence. The pane is captured with colors via -e, so
-// the status line comes back shredded by SGR codes, the verb split across color runs
-// and codes wedged between the ellipsis and the timer.
 var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 
 // ReadActivity reads what a captured frame says Claude is doing. Anything neither
@@ -61,9 +37,6 @@ func (h *Harness) ReadActivity(frame string) harness.Activity {
 	}
 }
 
-// tailLines returns the last n lines of a frame with ANSI escapes stripped, the region
-// where the live UI sits. Transcript prose scrolls above it and can contain any marker
-// text, so detection stays inside this window.
 func tailLines(frame string, n int) string {
 	frame = ansiSeq.ReplaceAllString(frame, "")
 	lines := strings.Split(strings.TrimRight(frame, "\n"), "\n")
@@ -74,15 +47,11 @@ func tailLines(frame string, n int) string {
 	return strings.Join(lines, "\n")
 }
 
-// doesFrameShowWork reports whether the frame's live region shows Claude actively
-// working, as opposed to sitting idle at its input prompt.
 func doesFrameShowWork(frame string) bool {
 	region := tailLines(frame, liveRegionLines)
 	return workingLine.MatchString(region) || workingTimer.MatchString(region)
 }
 
-// doesFrameShowWaiting reports whether the frame's live region shows Claude blocked on the
-// user at an interactive prompt.
 func doesFrameShowWaiting(frame string) bool {
 	return waitingFooter.MatchString(tailLines(frame, waitingRegionLines))
 }

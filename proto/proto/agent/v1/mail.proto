@@ -15,9 +15,7 @@ message Mail {
   string body = 5;
   optional string reply_to = 6;
   string created_at = 7;
-  // Unset while the mail is still waiting in the recipient's mailbox.
   optional string claimed_at = 8;
-  // Past this time, unclaimed mail is swept as expired rather than delivered.
   string expires_at = 9;
 }
 

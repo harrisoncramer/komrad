@@ -22,11 +22,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// settle delivers what a write asked for back into the model, the way the
-// bubbletea runtime does with the command an update hands back. Every write the
-// panel makes runs as a command, so a case that only pressed the key would be
-// asserting against the keypress rather than against what came of it. Messages that
-// belong to a form rather than to the panel's own loop are left alone.
 func settle(t *testing.T, m model, cmd tea.Cmd) model {
 	t.Helper()
 
@@ -46,8 +41,6 @@ func settle(t *testing.T, m model, cmd tea.Cmd) model {
 	return m
 }
 
-// produced runs a command and flattens what came out of it, since a batch is a
-// command that hands back further commands rather than a message.
 func produced(cmd tea.Cmd) []tea.Msg {
 	if cmd == nil {
 		return nil
@@ -339,10 +332,6 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 	assert.Equal(t, "infra-audit", selected.Name)
 }
 
-// emptyLists answers every listing a pass makes with nothing, so a case that settles
-// one does not have to stub the listings it is not about. The embedded interfaces are
-// nil, so a method nothing here answers panics rather than quietly returning a zero
-// value.
 type emptyLists struct {
 	agentv1connect.AgentServiceClient
 	workflowv1connect.WorkflowServiceClient

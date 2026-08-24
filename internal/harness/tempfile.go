@@ -12,8 +12,6 @@ import (
 // The file is removed by the command that reads it rather than here, since nothing on this
 // side of send-keys knows when the shell has run it.
 func WriteTempText(dir, pattern, text string) (string, error) {
-	// MkdirAll refuses an empty dir where CreateTemp takes it as the system temp directory,
-	// so a launch that names none still stages its prompt somewhere.
 	if dir != "" {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return "", fmt.Errorf("failed to create %q: %w", dir, err)

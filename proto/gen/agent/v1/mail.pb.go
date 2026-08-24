@@ -24,18 +24,16 @@ const (
 )
 
 type Mail struct {
-	state       protoimpl.MessageState `protogen:"open.v1"`
-	Id          string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	FromAgentId *string                `protobuf:"bytes,2,opt,name=from_agent_id,json=fromAgentId,proto3,oneof" json:"from_agent_id,omitempty"`
-	FromName    string                 `protobuf:"bytes,3,opt,name=from_name,json=fromName,proto3" json:"from_name,omitempty"`
-	ToAgentId   string                 `protobuf:"bytes,4,opt,name=to_agent_id,json=toAgentId,proto3" json:"to_agent_id,omitempty"`
-	Body        string                 `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
-	ReplyTo     *string                `protobuf:"bytes,6,opt,name=reply_to,json=replyTo,proto3,oneof" json:"reply_to,omitempty"`
-	CreatedAt   string                 `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// Unset while the mail is still waiting in the recipient's mailbox.
-	ClaimedAt *string `protobuf:"bytes,8,opt,name=claimed_at,json=claimedAt,proto3,oneof" json:"claimed_at,omitempty"`
-	// Past this time, unclaimed mail is swept as expired rather than delivered.
-	ExpiresAt     string `protobuf:"bytes,9,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	FromAgentId   *string                `protobuf:"bytes,2,opt,name=from_agent_id,json=fromAgentId,proto3,oneof" json:"from_agent_id,omitempty"`
+	FromName      string                 `protobuf:"bytes,3,opt,name=from_name,json=fromName,proto3" json:"from_name,omitempty"`
+	ToAgentId     string                 `protobuf:"bytes,4,opt,name=to_agent_id,json=toAgentId,proto3" json:"to_agent_id,omitempty"`
+	Body          string                 `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
+	ReplyTo       *string                `protobuf:"bytes,6,opt,name=reply_to,json=replyTo,proto3,oneof" json:"reply_to,omitempty"`
+	CreatedAt     string                 `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	ClaimedAt     *string                `protobuf:"bytes,8,opt,name=claimed_at,json=claimedAt,proto3,oneof" json:"claimed_at,omitempty"`
+	ExpiresAt     string                 `protobuf:"bytes,9,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

@@ -3,8 +3,5 @@
 set -euo pipefail
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 
-# psql runs inside the compose container so a local client install is not a
-# prerequisite. This reaches the development database only; a remote
-# DATABASE_URL is not what this container can see.
 cd "$MISE_CONFIG_ROOT"
 exec docker compose exec db psql -U weave -d weave

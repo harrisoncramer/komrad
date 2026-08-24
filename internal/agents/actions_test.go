@@ -329,8 +329,6 @@ func TestHead(t *testing.T) {
 			wantTruncated: true,
 		},
 		{
-			// The limit lands inside the third character, so the cut pulls back off it
-			// rather than handing over one byte of it.
 			name:          "a cut inside a character pulls back to the one before it",
 			s:             "日本語",
 			limit:         7,
@@ -417,7 +415,7 @@ func TestRunActionWithTheAgentDirectoryGone(t *testing.T) {
 func TestRunSetupAction(t *testing.T) {
 	tests := []struct {
 		name string
-		// action is the workflow's setup action, and result what the runner answers for it.
+
 		action  string
 		result  runResult
 		wantDir string
@@ -566,10 +564,6 @@ func TestRunInPaneStreamsToARealPane(t *testing.T) {
 		Socket: server.Socket(),
 	})
 
-	// Each case gets a pane of its own, split fresh off the keep-alive window, the way each
-	// new-agent submit splits a fresh one off the stage: the wrapper's own process is the
-	// only thing in it, and remain-on-exit is off, so tmux destroys the pane once that
-	// process ends, whichever way it ends.
 	freshPane := func(t *testing.T) string {
 		t.Helper()
 
@@ -629,8 +623,6 @@ func TestRunInPaneStreamsToARealPane(t *testing.T) {
 	})
 }
 
-// realPaneRunner backs RespawnPane and WaitFor with a real tmux server, and stubs the rest
-// of tmuxReader, which runInPane never touches.
 type realPaneRunner struct {
 	*tmux.Client
 }
@@ -655,12 +647,11 @@ func TestRunCleanupActionRefusesOneThatIsGone(t *testing.T) {
 func TestRunActionLogsWhatItDid(t *testing.T) {
 	tests := []struct {
 		name string
-		// result is what the runner answers for the action the case fires.
+
 		result    runResult
 		wantLevel string
 		wantBody  string
-		// wantFields are the record's fields and what each has to be, with a nil value for
-		// one that only has to be absent.
+
 		wantFields map[string]any
 	}{
 		{
@@ -829,8 +820,6 @@ func TestRunCleanupActionLogsWhatAZeroExitSaid(t *testing.T) {
 	assert.Equal(t, declined, got["weave.action.stderr"], "what it declined to do is kept")
 }
 
-// loggedContext is a context carrying a logger writing to a buffer, and the records written
-// to it so far.
 func loggedContext(t *testing.T) (context.Context, func() []map[string]any) {
 	t.Helper()
 
@@ -854,7 +843,6 @@ func loggedContext(t *testing.T) (context.Context, func() []map[string]any) {
 	}
 }
 
-// recordFor is the one record with that body, and a failure naming what was written instead.
 func recordFor(t *testing.T, records []map[string]any, body string) map[string]any {
 	t.Helper()
 
@@ -1082,7 +1070,6 @@ func TestActionTimeouts(t *testing.T) {
 	}
 }
 
-// actionService builds the service over a temp actions directory, one agent, and one workflow.
 func actionService(t *testing.T, dir string, runner actionRunner) *ActionService {
 	t.Helper()
 
@@ -1120,7 +1107,6 @@ func actionService(t *testing.T, dir string, runner actionRunner) *ActionService
 	})
 }
 
-// fakeAgentReader answers with one agent, and with nothing for any other id.
 type fakeAgentReader struct {
 	agent *agentstore.Agent
 }
@@ -1133,8 +1119,6 @@ func (f fakeAgentReader) GetByID(_ context.Context, id string) (*agentstore.Agen
 	return nil, nil
 }
 
-// fakeWorkflowReader answers with one workflow, which is where the payload's workflow name comes
-// from. An archived one answers the archive-tolerant read alone, the way the store does.
 type fakeWorkflowReader struct {
 	workflow *workflowstore.Workflow
 	archived bool
@@ -1156,17 +1140,15 @@ func (f fakeWorkflowReader) GetIncludingArchived(_ context.Context, id string) (
 	return nil, nil
 }
 
-// fakePaneOwner reports one owner for every pane, which is what decides whether the payload says
-// the agent is running.
 type fakePaneOwner struct {
 	owner string
-	// globals are the tmux options the panel records for an action to read.
+
 	globals map[string]string
-	// hostSocket is the user's own tmux server, which a script opening a window there needs.
+
 	hostSocket string
-	// shell is what tmux starts a pane's process with, which a script respawning one names.
+
 	shell string
-	// infoPane is the pane the panel opened its info region in.
+
 	infoPane string
 }
 
@@ -1179,13 +1161,6 @@ func (f fakePaneOwner) IsPaneAlive(string) bool               { return true }
 func (f fakePaneOwner) RespawnPane(string, string, ...string) {}
 func (f fakePaneOwner) WaitFor(context.Context, string) error { return nil }
 
-// recordingRunner stands in for starting a process, so the service's tests drive the whole path
-// without spawning anything. Only the last run's directory and environment are kept, since no
-// case inspects those of an earlier one.
-//
-// results answers a run per action name, so a case can say what a script printed and
-// whether it worked without writing one. A name with no entry succeeds silently, which is the
-// ordinary setup action that installs something and says nothing.
 type recordingRunner struct {
 	ran     []string
 	dir     string
@@ -1194,9 +1169,6 @@ type recordingRunner struct {
 	results map[string]runResult
 }
 
-// runResult is what the fake answers one run with. dirFile is what the fake writes into the
-// file named by WEAVE_SETUP_DIR_FILE, standing in for what a real setup action would write
-// there itself.
 type runResult struct {
 	dirFile  string
 	stderr   string
@@ -1244,8 +1216,6 @@ func (r *recordingRunner) RunAndWait(_ context.Context, p actions.RunParams) (ac
 	}, answer.err
 }
 
-// lookupEnv finds the value of key in a process environment slice shaped "KEY=value", the
-// same form RunParams.Env carries.
 func lookupEnv(env []string, key string) (string, bool) {
 	for _, entry := range env {
 		if name, value, found := strings.Cut(entry, "="); found && name == key {

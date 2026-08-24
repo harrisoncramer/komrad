@@ -27,26 +27,16 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Schedule is a recurring agent launch. The record is a blueprint holding the
-// prompt to run, where to run it, and how often. Each firing produces an agent
-// that records the schedule it came from, so a schedule points at no agent itself.
 type Schedule struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name  string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// A standard five-field cron expression, as written.
-	Cron string `protobuf:"bytes,3,opt,name=cron,proto3" json:"cron,omitempty"`
-	// The IANA zone the expression is read in, empty for the machine's local
-	// zone.
-	Timezone string `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
-	// False pauses the schedule. It keeps its record and stops firing.
-	Enabled bool `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// Whether the agents this schedule launches start hidden from the panel's sidebar.
-	HideAgents bool   `protobuf:"varint,8,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
-	Prompt     string `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	// The workflow this schedule launches into.
-	WorkflowId string `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
-	// When this schedule next fires, derived from the cron expression.
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Cron          string                 `protobuf:"bytes,3,opt,name=cron,proto3" json:"cron,omitempty"`
+	Timezone      string                 `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	Enabled       bool                   `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	HideAgents    bool                   `protobuf:"varint,8,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
+	Prompt        string                 `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	WorkflowId    string                 `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
 	NextRunAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=next_run_at,json=nextRunAt,proto3,oneof" json:"next_run_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -330,17 +320,14 @@ func (x *GetScheduleResponse) GetSchedule() *Schedule {
 }
 
 type CreateScheduleRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Control characters are refused rather than sanitised. A firing launches an agent
-	// under this name and the name becomes the tmux window name, so accepting one here
-	// would fail every occurrence of the schedule.
-	Name          string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Cron          string `protobuf:"bytes,2,opt,name=cron,proto3" json:"cron,omitempty"`
-	Timezone      string `protobuf:"bytes,3,opt,name=timezone,proto3" json:"timezone,omitempty"`
-	Enabled       bool   `protobuf:"varint,4,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	HideAgents    bool   `protobuf:"varint,7,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
-	Prompt        string `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	WorkflowId    string `protobuf:"bytes,6,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Cron          string                 `protobuf:"bytes,2,opt,name=cron,proto3" json:"cron,omitempty"`
+	Timezone      string                 `protobuf:"bytes,3,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	Enabled       bool                   `protobuf:"varint,4,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	HideAgents    bool                   `protobuf:"varint,7,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
+	Prompt        string                 `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	WorkflowId    string                 `protobuf:"bytes,6,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

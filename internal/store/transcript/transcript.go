@@ -1,6 +1,3 @@
-// Package transcript persists the flattened text of each agent and searches it. A
-// transcript is keyed by its agent's id, so removing an agent has to remove its transcript
-// too, which the caller composes inside one transaction.
 package transcript
 
 import (
@@ -16,15 +13,11 @@ import (
 	"weave/lib/xslice"
 )
 
-// Transcript is an agent's stored transcript, the flattened text plus how far into
-// the source JSONL the sync has consumed.
 type Transcript struct {
 	Content      string
 	SyncedOffset int64
 }
 
-// SearchHit is one turn matched by a search. ContentOffset is where that turn begins in
-// the full transcript, so the caller can scroll to it, and Rank is what results order by.
 type SearchHit struct {
 	AgentID       string
 	Name          string
@@ -36,17 +29,11 @@ type SearchHit struct {
 	Rank          float64
 }
 
-// SnippetOpen and SnippetClose wrap the matched terms inside a hit's snippet, so the
-// caller can style the match without re-running the query. They are chosen not to occur in
-// ordinary transcript prose.
 const (
 	SnippetOpen  = "\x02"
 	SnippetClose = "\x03"
 )
 
-// The shape of a search hit's snippet. Lead and width cut the plain window a
-// substring-only match falls back to, and headlineOptions shapes the window a word match
-// gets, in the form ts_headline parses. Both carry the same markers.
 const (
 	snippetLead  = 60
 	snippetWidth = 200
@@ -55,11 +42,8 @@ const (
 		",MaxWords=35,MinWords=15,MaxFragments=1"
 )
 
-// defaultSearchLimit bounds a search that asks for no limit of its own, so a caller never
-// pulls the whole corpus by omission.
 const defaultSearchLimit = 50
 
-// Store reads and writes transcripts, and searches across them.
 type Store struct {
 	queries *models.Queries
 }
@@ -87,7 +71,6 @@ func (s *Store) Get(ctx context.Context, agentID string) (Transcript, error) {
 	return Transcript{Content: row.Content, SyncedOffset: row.SyncedOffset}, nil
 }
 
-// UpsertParams is one transcript write.
 type UpsertParams struct {
 	AgentID string
 	Content string
@@ -108,8 +91,6 @@ func (s *Store) Upsert(ctx context.Context, params UpsertParams) error {
 	return nil
 }
 
-// Turn is one turn of a transcript as the syncer hands it over. Offset is where the turn
-// begins in the transcript it was appended to, which is what a hit scrolls to.
 type Turn struct {
 	Role    string
 	Content string
@@ -175,9 +156,6 @@ func (s *Store) Delete(ctx context.Context, agentIDs []string) error {
 	return nil
 }
 
-// Cursor locates a hit within one query's results. Hits sort by relevance, which two turns
-// can tie on, so the agent id and the turn's position break the tie. The rank means
-// nothing outside the query that produced it, so a cursor is only replayed against it.
 type Cursor struct {
 	Rank    float64 `json:"r"`
 	AgentID string  `json:"i"`
@@ -195,8 +173,6 @@ func (c Cursor) Validate() error {
 	return nil
 }
 
-// SearchParams is one page of a transcript search, where AgentID narrows it to one agent's
-// conversation and nil searches every one of them.
 type SearchParams struct {
 	Query   string
 	Limit   int64
@@ -212,15 +188,11 @@ type SearchParams struct {
 // database knows which lexemes it matched. A turn only the substring fallback found ranks
 // zero and arrives plain, so its literal match is marked here.
 func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, error) {
-	// Postgres refuses a NUL in a text value outright, so a query carrying one would fail
-	// the request rather than match nothing.
 	query := strings.ReplaceAll(params.Query, "\x00", "")
 	if strings.TrimSpace(query) == "" {
 		return nil, nil
 	}
 
-	// A string that is not an id matches nothing rather than failing on the uuid the
-	// column would compare it against.
 	if params.AgentID != nil && !store.IsID(*params.AgentID) {
 		return nil, nil
 	}
@@ -271,16 +243,11 @@ func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, e
 	return hits, nil
 }
 
-// likePattern turns a user query into an ILIKE pattern matching it as a literal substring,
-// escaping the wildcards so a query carrying one cannot widen its own search.
 func likePattern(query string) string {
 	escaped := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(query)
 	return "%" + escaped + "%"
 }
 
-// markMatches wraps every case-insensitive occurrence of query inside a snippet with the
-// markers. Only a substring-only hit needs this, since a word match arrives already
-// marked.
 func markMatches(snippet, query string) string {
 	if query == "" {
 		return snippet
@@ -307,13 +274,6 @@ func markMatches(snippet, query string) string {
 	return out.String()
 }
 
-// foldIndex reports where the first case-insensitive occurrence of needle begins and ends
-// in hay, as byte offsets into hay itself, and whether there was one.
-//
-// It compares rune by rune rather than searching a lowercased copy, since lowercasing does
-// not preserve byte length and the offsets would index a string the caller does not hold.
-// The Kelvin sign is the short example: three bytes that lower to a one-byte k, which
-// Postgres folds the same way, so it is a match this side really is handed.
 func foldIndex(hay, needle string) (int, int, bool) {
 	for start := 0; start < len(hay); {
 		_, width := utf8.DecodeRuneInString(hay[start:])

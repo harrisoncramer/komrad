@@ -3,10 +3,5 @@
 set -euo pipefail
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 
-# The binary does this rather than psql, for the same reason it applies the
-# migrations: one thing writes the database and it is the thing that has to
-# agree with what the code expects. Running it again is free, so docker:up
-# calls it on every start and a database whose schema has moved since catches
-# up on the tables added in between.
 cd "$MISE_CONFIG_ROOT"
 exec go run . readonly-role

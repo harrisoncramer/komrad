@@ -18,15 +18,13 @@ import (
 func TestTrustLaunchDirs(t *testing.T) {
 	tests := []struct {
 		name string
-		// enabled is whether the user asked for this at all, and existing is the config
-		// already on disk.
+
 		enabled  bool
 		existing string
 		dir      string
-		// wantTrusted is the trust level the directory should end up with, empty when it
-		// should not be listed at all.
+
 		wantTrusted string
-		// wantKept is text from the existing file that has to survive.
+
 		wantKept string
 		wantErr  string
 	}{
@@ -51,8 +49,6 @@ func TestTrustLaunchDirs(t *testing.T) {
 			wantKept:    "[mcp_servers.theirs]",
 		},
 		{
-			// Appending a table that is already there would leave the file refusing to
-			// parse, which would break codex for every directory rather than one.
 			name:        "a directory already listed is left alone rather than written twice",
 			enabled:     true,
 			existing:    "[projects.\"/repo/worktree\"]\ntrust_level = \"trusted\"\n",
@@ -60,7 +56,6 @@ func TestTrustLaunchDirs(t *testing.T) {
 			wantTrusted: "trusted",
 		},
 		{
-			// A refusal recorded by hand outranks a launch.
 			name:        "a directory the user marked untrusted stays untrusted",
 			enabled:     true,
 			existing:    "[projects.\"/repo/worktree\"]\ntrust_level = \"untrusted\"\n",
@@ -120,8 +115,6 @@ func TestTrustLaunchDirs(t *testing.T) {
 	}
 }
 
-// trustLevel reads back what a config says about one directory, and fails the test if
-// the file no longer parses at all.
 func trustLevel(t *testing.T, config []byte, dir string) string {
 	t.Helper()
 

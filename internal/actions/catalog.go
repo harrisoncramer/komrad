@@ -12,11 +12,8 @@ import (
 	"weave/lib/xslice"
 )
 
-// ErrActionNotFound reports that no directory in the catalog holds a file by that name.
 var ErrActionNotFound = errors.New("action not found")
 
-// Catalog is what actions exist across a set of directories, cached per directory against its
-// own mtime so a lookup does not mean rereading every action's file.
 type Catalog struct {
 	mu    sync.Mutex
 	cache map[string]dirScan

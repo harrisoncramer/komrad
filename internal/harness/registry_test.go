@@ -7,8 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// stub is a harness that answers to one id and nothing else. The registry only ever
-// asks for that, so the rest of the interface is unreachable here.
 type stub struct {
 	id string
 }

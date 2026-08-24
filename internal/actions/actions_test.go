@@ -53,8 +53,6 @@ func TestDiscover(t *testing.T) {
 			wantListed: false,
 		},
 		{
-			// Reading one waits for a writer that is never coming, so listing it would
-			// hang whoever reads the file rather than fail.
 			name:       "a fifo is not an action, however its mode reads",
 			entry:      "fifo",
 			wantListed: false,
@@ -154,8 +152,6 @@ func TestRunPassesTheEnvironmentAndDirectory(t *testing.T) {
 		"#!/bin/sh\n{ printf '%s\\n' \"$WEAVE_AGENT\" \"$PWD\" \"$WEAVE_TEST_INHERITED\"; } > "+out+"\n",
 	), 0o755))
 
-	// Set on this process rather than passed in, so what the script sees of it is
-	// evidence the environment around the run is inherited rather than replaced.
 	t.Setenv("WEAVE_TEST_INHERITED", "from the panel")
 
 	work := t.TempDir()
@@ -179,7 +175,7 @@ func TestRunRefusesWhatItCannotStart(t *testing.T) {
 		file     string
 		contents string
 		mode     os.FileMode
-		// wantIs is the error the refusal has to carry, nil when any failure will do.
+
 		wantIs error
 	}{
 		{
@@ -259,7 +255,7 @@ func TestRunReportsTheOutcome(t *testing.T) {
 		contents string
 		wantCode int
 		wantErr  bool
-		// wantStderr is what the tail of the captured stream has to contain.
+
 		wantStderr string
 	}{
 		{
@@ -343,7 +339,6 @@ type outcomeReport struct {
 	err    error
 }
 
-// await reads an outcome reported from the goroutine that reaped the process.
 func await(t *testing.T, reported chan outcomeReport) outcomeReport {
 	t.Helper()
 
@@ -488,17 +483,12 @@ func TestRunAndWaitKeepsTheTailOfALoudAction(t *testing.T) {
 	assert.Contains(t, string(result.Stdout), "the-last-thing", "what is kept is the end, not the start")
 }
 
-// write puts an empty file at path with the given mode, standing in for a script whose
-// contents no test reads.
 func write(t *testing.T, path string, mode os.FileMode) {
 	t.Helper()
 
 	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\n"), mode))
 }
 
-// eventually reads a file a started script is on its way to writing. Run returns as soon
-// as the process exists rather than once it has finished, so the only thing a test can do
-// is wait for what it left behind.
 func eventually(t *testing.T, path string) string {
 	t.Helper()
 

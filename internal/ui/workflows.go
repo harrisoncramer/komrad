@@ -10,9 +10,6 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-// updateHoveredWorkflow acts on the hovered folder's workflow while nav still moves the
-// tree cursor; the workflow is read once and handed to whatever the key opens, so nothing
-// holds which folder was hovered between keypresses.
 func (m model) updateHoveredWorkflow(key tea.KeyMsg, workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -52,8 +49,6 @@ func (m model) returnToAgents() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// newWorkflowForm opens the form to create a workflow: a name plus the default cwd and
-// flags that seed the agents created inside it.
 func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
 	m.target.renameWorkflow = nil
 	m.target.editWorkflow = nil
@@ -72,8 +67,6 @@ func (m model) renameWorkflowForm(workflow workflowstore.Workflow) (tea.Model, t
 	return m, m.form.Init()
 }
 
-// editWorkflowForm refetches the workflow so the form reflects what is stored, falling
-// back to the listed row if that fails.
 func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	if fresh, err := m.api.getWorkflow(workflow.ID); err == nil && fresh != nil {
 		workflow = *fresh
@@ -95,10 +88,6 @@ func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea
 	return m, m.form.Init()
 }
 
-// workflowFormFor is decided here rather than at each opener, so a refused submit can put
-// the same form back. The third return is where the setup type field landed in the built
-// form, -1 for the rename form which carries no such field. updateWorkflowForm reads it to
-// put the cursor back there after a rebuild the field itself triggered.
 func (m model) workflowFormFor(values workflowFormValues) (*huh.Form, *workflowFormValues, int) {
 	switch {
 	case m.target.renameWorkflow != nil:
@@ -112,11 +101,6 @@ func (m model) workflowFormFor(values workflowFormValues) (*huh.Form, *workflowF
 	}
 }
 
-// rebuildWorkflowForm replaces the open workflow form with a fresh one built from the
-// current values, swapping in the worktree detail fields or the action pickers to match
-// the setup type that just changed, and puts the cursor back on that field since huh has
-// no way to add or remove a field from a form already on screen without rebuilding it
-// whole.
 func (m model) rebuildWorkflowForm() (model, tea.Cmd) {
 	if m.values.workflow == nil {
 		return m, nil
@@ -135,10 +119,6 @@ func (m model) rebuildWorkflowForm() (model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-// getAvailableActions lists what the workflow form's action fields are chosen from; a
-// listing that fails leaves the fields with none plus whatever the workflow already
-// records. Shell meant to be reused by other actions is left out, since naming one would
-// only run its fragment.
 func (m model) getAvailableActions() []actionChoice {
 	listed, err := m.api.listActions()
 	if err != nil {
@@ -157,8 +137,6 @@ func (m model) getAvailableActions() []actionChoice {
 	return choices
 }
 
-// archiveWorkflowConfirm opens the archive prompt for the highlighted workflow,
-// asking whether its agents should go with it.
 func (m model) archiveWorkflowConfirm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	m.target.archiveWorkflow = &workflow
 	m.form, m.values.confirmed = archiveWorkflowForm(workflow.Name, m.keys.Form)
@@ -192,10 +170,6 @@ func (m model) updateWorkflowArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
 	})
 }
 
-// updateWorkflowForm is its own update rather than the shared updateSubmitForm, since this
-// is the one form that can grow or lose fields mid-edit. Changing the setup type between
-// worktree and custom changes what the rest of the form holds, which is checked after
-// every keystroke here and rebuilt for if it changed.
 func (m model) updateWorkflowForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), m.keys.Form.Submit) {
 		return m.submitWorkflowForm()
@@ -229,8 +203,6 @@ func (m model) updateWorkflowForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
-	// The form writes into values the panel handed it, so a submit without them is a
-	// submit for a form that was never opened.
 	if m.values.workflow == nil {
 		return m.closeForm()
 	}
@@ -240,8 +212,7 @@ func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 	var write tea.Cmd
 	switch {
 	case m.target.renameWorkflow != nil:
-		// A rename is an update carrying the fields it is not changing, since the
-		// service replaces all of them.
+
 		target := *m.target.renameWorkflow
 		if trimmed := strings.TrimSpace(values.Name); trimmed != "" && trimmed != target.Name {
 			target.Name = trimmed
@@ -271,8 +242,6 @@ func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 		write = m.createWorkflowCmd(values.toConfig())
 	}
 
-	// A rename to the name it already has writes nothing, and a form with no write has
-	// nothing to wait for.
 	if write == nil {
 		return m.closeForm()
 	}

@@ -12,16 +12,12 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// The SQLSTATEs worth telling apart. Postgres reports each as a connection failure, and
-// only the code says which one it was.
 const (
 	pgAuthFailed      = "28P01"
 	pgAuthUnspecified = "28000"
 	pgDatabaseMissing = "3D000"
 )
 
-// The ways the database can be wrong, each its own code since each needs a different fix,
-// though from the panel they all look like a server that would not start.
 var (
 	ErrDatabaseURLInvalid = &Problem{
 		Code:    "database_url_invalid",
@@ -71,8 +67,6 @@ func Database() Check {
 		Name:        "database",
 		Description: "every agent, workflow, and schedule weave knows about lives in Postgres",
 		Run: func(ctx context.Context, env Env) Result {
-			// Parsed before connecting so a malformed string is its own answer rather
-			// than a failure to reach an address that was never an address.
 			if _, err := pgconn.ParseConfig(env.DatabaseURL); err != nil {
 				return fail(
 					fmt.Errorf("%w: %w", ErrDatabaseURLInvalid, err),
@@ -126,9 +120,6 @@ func ReadOnlyLogin() Check {
 		Description: "the MCP query tools read through a login that can only read",
 		Needs:       []string{"database"},
 		Run: func(ctx context.Context, env Env) Result {
-			// An empty url is not a missing setting the way an empty cache directory is:
-			// Postgres reads it as every default, so the pool would open as whoever is
-			// running weave rather than refuse.
 			if env.ReadOnlyDatabaseURL == "" {
 				return fail(
 					ErrReadOnlyLoginUnset,
@@ -137,8 +128,6 @@ func ReadOnlyLogin() Check {
 				)
 			}
 
-			// Checked before connecting, since one login for both would connect cleanly
-			// and hand the MCP endpoint the writable role.
 			if env.ReadOnlyDatabaseURL == env.DatabaseURL {
 				return fail(
 					ErrReadOnlyLoginShared,
@@ -155,9 +144,6 @@ func ReadOnlyLogin() Check {
 				)
 			}
 
-			// Reported rather than refused: an address weave cannot match up may still be
-			// the same database behind a pooler or a second name for the host, and only
-			// whoever wrote the url can say.
 			if where := describeStoreMismatch(env.DatabaseURL, env.ReadOnlyDatabaseURL); where != "" {
 				return warn(
 					fmt.Errorf("%w: %s", ErrReadOnlyLoginElsewhere, where),
@@ -170,9 +156,6 @@ func ReadOnlyLogin() Check {
 	}
 }
 
-// classifyDatabaseFailure names what Postgres objected to, and what to do about it, since a
-// server that is not running, a wrong password, and a database that was never created each
-// need something different done.
 func classifyDatabaseFailure(err error, url, detail string) Result {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
@@ -186,8 +169,6 @@ func classifyDatabaseFailure(err error, url, detail string) Result {
 		}
 	}
 
-	// No mention of docker or mise: most people who read this line installed a binary, have
-	// neither, and their Postgres is wherever they put it.
 	return fail(
 		fmt.Errorf("%w %s: %s", ErrDatabaseUnreachable, describeHostPort(url), describeNetworkReason(err)),
 		detail,
@@ -195,10 +176,6 @@ func classifyDatabaseFailure(err error, url, detail string) Result {
 	)
 }
 
-// describeStoreMismatch names the two addresses when the pair of logins does not land on
-// one database, and is empty when it does or when either url is unreadable, since that
-// failure is reported elsewhere. The login is left out of the comparison on purpose, since
-// two logins is the point of the pair and what has to match is the rows they reach.
 func describeStoreMismatch(databaseURL, readOnlyURL string) string {
 	writable, err := pgconn.ParseConfig(databaseURL)
 	if err != nil {
@@ -218,12 +195,10 @@ func describeStoreMismatch(databaseURL, readOnlyURL string) string {
 		describeStore(writable), describeStore(readOnly))
 }
 
-// describeStore is the database a config reaches, with the login left out.
 func describeStore(cfg *pgconn.Config) string {
 	return cfg.Host + ":" + strconv.Itoa(int(cfg.Port)) + "/" + cfg.Database
 }
 
-// describeDatabaseReason is what went wrong in the words Postgres or the network used.
 func describeDatabaseReason(err error) string {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
@@ -233,9 +208,6 @@ func describeDatabaseReason(err error) string {
 	return describeNetworkReason(err)
 }
 
-// describeNetworkReason is why the dial did not land, in the few words that say it: pgx
-// reports the whole attempt, which for a host resolving to both IPv4 and IPv6 is two dial
-// errors and the connection string again, when this is one fact on one row.
 func describeNetworkReason(err error) string {
 	var opErr *net.OpError
 	if errors.As(err, &opErr) && opErr.Err != nil {
@@ -249,8 +221,6 @@ func describeNetworkReason(err error) string {
 	return err.Error()
 }
 
-// describeHostPort is where the connection was attempted, since the reason alone does not
-// name it.
 func describeHostPort(url string) string {
 	cfg, err := pgconn.ParseConfig(url)
 	if err != nil {
@@ -260,7 +230,6 @@ func describeHostPort(url string) string {
 	return "at " + cfg.Host + ":" + strconv.Itoa(int(cfg.Port))
 }
 
-// readDatabaseName is the database the url names, so a fix can say which one to create.
 func readDatabaseName(url string) string {
 	cfg, err := pgconn.ParseConfig(url)
 	if err != nil {
@@ -270,8 +239,6 @@ func readDatabaseName(url string) string {
 	return cfg.Database
 }
 
-// describeMigrationCount writes a number of migrations as a phrase, so the line reads as a
-// sentence rather than a count with a noun stuck to it.
 func describeMigrationCount(pending int) string {
 	if pending == 1 {
 		return "1 migration"

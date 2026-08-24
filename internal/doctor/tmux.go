@@ -9,8 +9,6 @@ import (
 	"weave/internal/harness"
 )
 
-// The ways tmux can be wrong, each its own code so the wording can change without breaking
-// a caller that switches on it.
 var (
 	ErrTmuxMissing = &Problem{
 		Code:    "tmux_missing",
@@ -38,8 +36,6 @@ var (
 	}
 )
 
-// minTmux is the oldest tmux the panel's key binding works on: display-popup arrived in
-// 3.2, but the binding passes it -T for the popup title, which arrived in 3.3.
 var minTmux = tmuxVersion{major: 3, minor: 3}
 
 // TmuxBinary asserts tmux is installed; the popup, the agent panes, and the manager server
@@ -51,8 +47,6 @@ func TmuxBinary() Check {
 		Run: func(_ context.Context, env Env) Result {
 			path, err := env.LookPath("tmux")
 			if err != nil {
-				// LookPath's error only restates the name, which the sentinel says
-				// better, so it is dropped rather than wrapped.
 				return fail(ErrTmuxMissing, "", "install tmux "+minTmux.String()+" or newer")
 			}
 
@@ -98,8 +92,6 @@ func TmuxVersion() Check {
 	}
 }
 
-// tmuxVersion is a tmux release; the letter tmux appends to a point release is dropped,
-// since one has never added or removed a command.
 type tmuxVersion struct {
 	major int
 	minor int
@@ -107,7 +99,6 @@ type tmuxVersion struct {
 
 func (v tmuxVersion) String() string { return strconv.Itoa(v.major) + "." + strconv.Itoa(v.minor) }
 
-// isAtLeast reports whether v is other or newer.
 func (v tmuxVersion) isAtLeast(other tmuxVersion) bool {
 	if v.major != other.major {
 		return v.major > other.major
@@ -116,11 +107,6 @@ func (v tmuxVersion) isAtLeast(other tmuxVersion) bool {
 	return v.minor >= other.minor
 }
 
-// parseTmuxVersion reads what "tmux -V" printed. Three spellings have to survive it. A
-// release is "tmux 3.3a", where the trailing letter is not part of the number. A build from
-// master is "tmux next-3.8", named for the release it heads for. OpenBSD's base tmux is
-// "tmux openbsd-7.6", which reports the OS release and nothing about tmux, so it is refused
-// rather than read as version 7.
 func parseTmuxVersion(reported string) (tmuxVersion, error) {
 	number := strings.TrimSpace(strings.TrimPrefix(reported, "tmux "))
 	number = strings.TrimPrefix(number, "next-")
@@ -135,8 +121,6 @@ func parseTmuxVersion(reported string) (tmuxVersion, error) {
 		return tmuxVersion{}, fmt.Errorf("%q does not open with a version number", reported)
 	}
 
-	// The minor runs until anything that is not a digit, which is where the point
-	// release's letter or a suffix such as "-rc" starts.
 	end := 0
 	for end < len(rest) && rest[end] >= '0' && rest[end] <= '9' {
 		end++
@@ -169,8 +153,6 @@ func TmuxShell() Check {
 				return warn(err, "")
 			}
 
-			// tmux declining to name one is not evidence of a bad shell, which is
-			// the reading RequirePOSIXShell takes too.
 			if shell == "" {
 				return pass("tmux names no default-shell, so panes take the system one")
 			}
@@ -188,10 +170,6 @@ func TmuxShell() Check {
 	}
 }
 
-// readTmuxDefaultShell reads default-shell off whichever tmux server is already up, and
-// says which answered; no server to ask and an unset option are different facts, so the
-// first is a problem rather than an empty answer. Weave's own server goes first since that
-// is where agent panes open, and the user's is the fallback.
 func readTmuxDefaultShell(ctx context.Context, env Env) (shell, from string, err error) {
 	servers := []struct {
 		name string
@@ -202,8 +180,6 @@ func readTmuxDefaultShell(ctx context.Context, env Env) (shell, from string, err
 	}
 
 	for _, server := range servers {
-		// The user's server is only asked when this is running inside it, since
-		// addressing the default socket would start one that was not there.
 		if server.args == nil && env.InsideTmux == "" {
 			continue
 		}
@@ -211,7 +187,6 @@ func readTmuxDefaultShell(ctx context.Context, env Env) (shell, from string, err
 			continue
 		}
 
-		// -q so an option that is unset comes back empty rather than as an error.
 		out, err := env.Output(ctx, "tmux", append(server.args, "show-option", "-gqv", "default-shell")...)
 		if err != nil {
 			continue

@@ -1,6 +1,3 @@
-// Package caller identifies who a request came from: the panel, or an agent calling back
-// through its tools. Identity travels as headers, since that is the only channel an agent's
-// CLI can be told to use.
 package caller
 
 import (
@@ -8,21 +5,14 @@ import (
 	"net/http"
 )
 
-// The headers an identity travels in; the trace id sits here too since anything forwarding
-// one of these should forward all of them.
 const (
-	// TraceHeader carries the id one request is logged under. A caller that already has
-	// one sends it, which is what makes a call that crossed two processes one search.
 	TraceHeader = "X-Request-Id"
-	// AgentHeader is the panel's own id for the agent making the call.
+
 	AgentHeader = "X-Weave-Agent-Id"
-	// SessionHeader is the CLI conversation that agent is running, which is what ties a
-	// call to the transcript the panel holds of what was being said around it.
+
 	SessionHeader = "X-Weave-Session-Id"
 )
 
-// Caller is the agent a request came from, zero for anything else. The panel sends none of
-// this: it is the user, and there is only one of them.
 type Caller struct {
 	AgentID   string
 	SessionID string
@@ -43,7 +33,6 @@ func FromHeader(header http.Header) Caller {
 	}
 }
 
-// expanded is the value, or empty if the CLI passed the variable through untouched.
 func expanded(value string) string {
 	if len(value) > 1 && value[0] == '$' {
 		return ""
@@ -96,7 +85,6 @@ func (f forwarding) RoundTrip(req *http.Request) (*http.Response, error) {
 	return f.next.RoundTrip(forwarded)
 }
 
-// callerKey is what the identity is held under on a context.
 type callerKey struct{}
 
 // With carries the identity on a context, which is how a handler and anything it calls can
@@ -113,8 +101,6 @@ func From(ctx context.Context) Caller {
 	return from
 }
 
-// traceKey is what the request's trace id is held under, separately from the identity,
-// since a request has one whether or not it says who it is from.
 type traceKey struct{}
 
 // WithTrace carries a request's trace id on a context.

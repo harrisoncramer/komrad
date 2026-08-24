@@ -22,28 +22,13 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// ToolAnnotation marks an RPC as reachable from the MCP server. An unannotated
-// method stays off the tool surface entirely, so exposing a method is a
-// deliberate act rather than the default.
 type ToolAnnotation struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The name of the tool as it will appear in the MCP server.
-	ToolName string `protobuf:"bytes,1,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`
-	// A description of what the tool does, and of anything a caller must know to
-	// use it correctly. This is the only guidance a model gets.
-	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
-	// MCP behavior hints surfaced to clients, described at modelcontextprotocol.io
-	// under tool annotations. All three are optional overrides. Left unset they are
-	// derived from the method's idempotency_level.
-	//   - read_only is NO_SIDE_EFFECTS
-	//   - idempotent is IDEMPOTENT or NO_SIDE_EFFECTS
-	//   - destructive defaults to true for write tools, per the MCP spec, and is
-	//     meaningful only when read_only is false. Set it false for tools that only
-	//     add or amend, so a client does not warn about work that destroys
-	//     nothing.
-	ReadOnly      *bool `protobuf:"varint,3,opt,name=read_only,json=readOnly,proto3,oneof" json:"read_only,omitempty"`
-	Destructive   *bool `protobuf:"varint,4,opt,name=destructive,proto3,oneof" json:"destructive,omitempty"`
-	Idempotent    *bool `protobuf:"varint,5,opt,name=idempotent,proto3,oneof" json:"idempotent,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ToolName      string                 `protobuf:"bytes,1,opt,name=tool_name,json=toolName,proto3" json:"tool_name,omitempty"`
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	ReadOnly      *bool                  `protobuf:"varint,3,opt,name=read_only,json=readOnly,proto3,oneof" json:"read_only,omitempty"`
+	Destructive   *bool                  `protobuf:"varint,4,opt,name=destructive,proto3,oneof" json:"destructive,omitempty"`
+	Idempotent    *bool                  `protobuf:"varint,5,opt,name=idempotent,proto3,oneof" json:"idempotent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

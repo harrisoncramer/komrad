@@ -11,16 +11,12 @@ type clipboardWriter interface {
 	WriteAll(text string) error
 }
 
-// systemClipboard is the real clipboard: pbcopy, xclip, or clip.exe, whichever the
-// platform the panel is actually running on provides.
 type systemClipboard struct{}
 
 func (systemClipboard) WriteAll(text string) error {
 	return clipboard.WriteAll(text)
 }
 
-// flashDuration is how long a copied field is held in the accent, long enough to read as a
-// deliberate flash rather than a flicker.
 const flashDuration = 300 * time.Millisecond
 
 func (m *model) copyCmd(value string) tea.Cmd {
@@ -29,7 +25,6 @@ func (m *model) copyCmd(value string) tea.Cmd {
 	}
 }
 
-// copyResult is what a clipboard write finished with.
 type copyResult struct {
 	err error
 }
@@ -44,9 +39,6 @@ func flashRevertTick() tea.Cmd {
 	return tea.Tick(flashDuration, func(time.Time) tea.Msg { return flashRevertMsg{} })
 }
 
-// restageScreen redraws whatever the current screen shows for the row or item under its own
-// cursor, the same content a screen already draws on every refresh. It is how the stage lays
-// itself out again for the room a closed info pane gives back to it.
 func (m *model) restageScreen() {
 	switch m.screen {
 	case screenAgents:
@@ -56,6 +48,5 @@ func (m *model) restageScreen() {
 	case screenArchive:
 		m.stageArchive()
 	default:
-		// Search, the actions list, and the forms put the stage to their own use.
 	}
 }

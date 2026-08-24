@@ -24,17 +24,16 @@ func TestLaunchAgentWorker(t *testing.T) {
 
 	tests := []struct {
 		name string
-		// schedule is what the store answers with, nil for one that has been
-		// deleted since the job was queued.
+
 		schedule *schedulestore.Schedule
-		// launchErr is what the agent service refuses the launch with.
+
 		launchErr error
-		// wantCancel says the job should stop rather than be retried.
+
 		wantCancel bool
 		wantErr    bool
-		// running is how many agents this schedule already has unfinished.
+
 		running int64
-		// wantLaunched says the agent service should have been asked at all.
+
 		wantLaunched bool
 	}{
 		{
@@ -52,8 +51,6 @@ func TestLaunchAgentWorker(t *testing.T) {
 			wantCancel: true,
 		},
 		{
-			// The directory will not become openable by trying again, so this stops
-			// rather than spending the retry budget on it.
 			name:         "a directory that cannot be opened cancels",
 			schedule:     &schedulestore.Schedule{ID: "s1", Name: "morning-ci", Prompt: "go", Enabled: true},
 			launchErr:    agents.ErrBadDirectory,
@@ -61,10 +58,6 @@ func TestLaunchAgentWorker(t *testing.T) {
 			wantLaunched: true,
 		},
 		{
-			// A setup action that refuses will not start working by being run again,
-			// and it is the one failure here that can have done something before it
-			// refused. Five attempts at a script that provisions a worktree and then
-			// fails is five worktrees, where cancelling leaves one.
 			name:         "a setup action that refuses cancels",
 			schedule:     &schedulestore.Schedule{ID: "s1", Name: "morning-ci", Prompt: "go", Enabled: true},
 			launchErr:    agents.ErrSetupFailed,
@@ -72,16 +65,12 @@ func TestLaunchAgentWorker(t *testing.T) {
 			wantLaunched: true,
 		},
 		{
-			// One at a time. A run that outlived its interval would otherwise be
-			// lapped by the next tick, and the pile would never drain.
 			name:       "a schedule whose last agent is still running skips this tick",
 			schedule:   &schedulestore.Schedule{ID: "s1", Name: "morning-ci", Prompt: "go", WorkflowID: "w1", Enabled: true},
 			running:    1,
 			wantCancel: true,
 		},
 		{
-			// A tmux server that is briefly gone is the common case, and it comes
-			// back, so this is left for River to retry.
 			name:         "any other failure is retried",
 			schedule:     &schedulestore.Schedule{ID: "s1", Name: "morning-ci", Prompt: "go", Enabled: true},
 			launchErr:    errors.New("no server running"),
@@ -138,8 +127,6 @@ func TestLaunchAgentParams(t *testing.T) {
 			},
 		},
 		{
-			// Nothing about where or how the agent runs is passed. The service reads
-			// that off the workflow, which is the whole reason the schedule names one.
 			name: "and nothing about the environment is passed with them",
 			schedule: schedulestore.Schedule{
 				ID: "s1", Name: "scoped", Prompt: "go", WorkflowID: "w2", Enabled: true,
@@ -150,8 +137,6 @@ func TestLaunchAgentParams(t *testing.T) {
 			},
 		},
 		{
-			// A schedule set to hide its runs starts each agent hidden, which is what
-			// lets a frequent job stay armed without filling the panel's sidebar.
 			name: "a schedule hiding its runs launches a hidden agent",
 			schedule: schedulestore.Schedule{
 				ID: "s1", Name: "sweeper", Prompt: "sweep", WorkflowID: "w1",
@@ -242,16 +227,12 @@ func TestLaunchKey(t *testing.T) {
 	}
 }
 
-// isCancel reports whether an error is River's cancellation rather than an
-// ordinary failure, which is the difference between a job that stops and one
-// that is tried again.
 func isCancel(err error) bool {
 	var cancel *river.JobCancelError
 
 	return errors.As(err, &cancel)
 }
 
-// fakeSchedules answers the one read the worker makes.
 type fakeSchedules struct {
 	schedule *schedulestore.Schedule
 }
@@ -268,8 +249,6 @@ func (f *fakeSchedules) List(context.Context) ([]schedulestore.Schedule, error) 
 	return []schedulestore.Schedule{*f.schedule}, nil
 }
 
-// fakeLauncher records what the worker asked for rather than launching
-// anything, so a test can check the parameters a schedule turned into.
 type fakeLauncher struct {
 	got   agents.NewAgentParams
 	calls int
@@ -286,8 +265,6 @@ func (f *fakeLauncher) NewAgent(_ context.Context, p agents.NewAgentParams) (*ag
 	return &agentstore.Agent{ID: "a1", Name: p.Title}, nil
 }
 
-// fakeRunning stands in for the count of a schedule's unfinished agents, which
-// is what decides whether a tick launches or is skipped.
 type fakeRunning struct {
 	count int64
 	err   error

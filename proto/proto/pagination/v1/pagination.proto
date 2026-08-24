@@ -6,14 +6,7 @@ import "buf/validate/validate.proto";
 
 option go_package = "weave/proto/gen/pagination/v1;paginationv1";
 
-// Pagination is the request half of pagination. Every list call embeds this
-// same message rather than declaring its own limit and token fields.
 message Pagination {
-  // How many records to return. Unset or zero takes the server's default. A
-  // limit above the ceiling is clamped rather than refused.
   optional int32 limit = 1 [(buf.validate.field).int32.gte = 0];
-  // The opaque token a previous response returned as next_page_token. It encodes
-  // the position of the last record on that page.
-  // An unset cursor starts at the first page.
   optional string cursor = 2 [(buf.validate.field).string.max_len = 2048];
 }

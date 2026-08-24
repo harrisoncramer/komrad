@@ -22,17 +22,10 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Pagination is the request half of pagination. Every list call embeds this
-// same message rather than declaring its own limit and token fields.
 type Pagination struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// How many records to return. Unset or zero takes the server's default. A
-	// limit above the ceiling is clamped rather than refused.
-	Limit *int32 `protobuf:"varint,1,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
-	// The opaque token a previous response returned as next_page_token. It encodes
-	// the position of the last record on that page.
-	// An unset cursor starts at the first page.
-	Cursor        *string `protobuf:"bytes,2,opt,name=cursor,proto3,oneof" json:"cursor,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Limit         *int32                 `protobuf:"varint,1,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
+	Cursor        *string                `protobuf:"bytes,2,opt,name=cursor,proto3,oneof" json:"cursor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

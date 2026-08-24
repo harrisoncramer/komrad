@@ -22,9 +22,6 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-# Collected before the loop so a failure in shell_scripts is fatal. A process
-# substitution's exit status is not the caller's, so reading it inline would carry on
-# with whatever it managed to print.
 if ! listed="$(shell_scripts)"; then
 	exit 1
 fi
@@ -34,7 +31,6 @@ while IFS= read -r script; do
 	scripts+=("$script")
 done <<<"$listed"
 
-# Finding nothing means the search is broken, not that the repo has no scripts.
 if ((${#scripts[@]} == 0)); then
 	echo "no shell scripts found, which means this check is not checking anything" >&2
 

@@ -49,9 +49,6 @@ func TestFlattenTranscript(t *testing.T) {
 			want: nil,
 		},
 		{
-			// Postgres refuses a NUL in a text value outright, and the log is written
-			// on the other side of this process, so it is dropped as the prose is read
-			// rather than at the write, where the offsets are already fixed.
 			name: "a NUL is dropped from the text it arrived in",
 			in:   `{"type":"user","message":{"content":"before\u0000after"}}`,
 			want: []harness.Turn{{Role: "user", Content: "beforeafter"}},
@@ -92,10 +89,10 @@ func TestReadLog(t *testing.T) {
 
 	tests := []struct {
 		name string
-		// body is the log on disk, and offset is where the last pass left off.
+
 		body   string
 		offset int64
-		// missing reads a path with no file at it at all.
+
 		missing      bool
 		wantTurns    []harness.Turn
 		wantConsumed int64
@@ -124,8 +121,6 @@ func TestReadLog(t *testing.T) {
 			wantConsumed: int64(len(`{"type":"user","message":{"content":"second turn"}}` + "\n")),
 		},
 		{
-			// Written while claude is mid-turn. Leaving it unconsumed is what makes the
-			// next pass read it once, whole.
 			name:         "a half-written line waits for its newline",
 			body:         firstTurn + `{"type":"user","message":{"conte`,
 			wantTurns:    []harness.Turn{{Role: "user", Content: "first turn"}},

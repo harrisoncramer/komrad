@@ -197,8 +197,6 @@ func guardedCall(t *testing.T, req *http.Request, localAddr string) (int, bool, 
 	return recorder.Code, served, out.String()
 }
 
-// createAgentCall is a call at the RPC that creates an agent, which is the one worth
-// refusing since it takes a prompt and a directory.
 func createAgentCall(host, origin, fetchSite string) *http.Request {
 	req := httptest.NewRequest(http.MethodPost, "/agent.v1.AgentService/CreateAgent",
 		strings.NewReader(`{"name":"x"}`))

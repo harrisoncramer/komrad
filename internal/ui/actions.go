@@ -12,37 +12,29 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// errNotText is returned when the editor key is pressed on a file that isn't text.
 var errNotText = errors.New("the file is not text, so there is nothing to edit")
 
-// actionState is the actions screen: the listed actions and the agent it was opened on,
-// held here rather than read off the cursor since the refresh can move rows underneath.
 type actionState struct {
 	items  []actionItem
 	cursor int
 	agent  agentstore.Agent
 }
 
-// actionItem is one of the user's actions, listed by the service since the panel never
-// touches the actions directory. Everything but the name comes from the file's own header.
 type actionItem struct {
 	name        string
 	executable  bool
 	description string
 	timeout     time.Duration
 	problems    []string
-	// text is false for a compiled program; that decides whether the editor key opens anything.
+
 	text bool
 }
 
-// actionsResult is a finished listing, its own message rather than part of the refresh
-// pass, since the pass runs every second and this is read once per visit.
 type actionsResult struct {
 	actions []actionItem
 	err     error
 }
 
-// enterActions opens the actions list on the hovered agent.
 func (m model) enterActions() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedAgent()
 	if !ok {
@@ -56,8 +48,6 @@ func (m model) enterActions() (tea.Model, tea.Cmd) {
 	return m, m.listActionsCmd()
 }
 
-// actionRows are the actions the list draws, the listing less whatever the filter holds back.
-// The cursor indexes these rather than the listing, so run fires the script it is on.
 func (m model) actionRows() []actionItem {
 	if m.filter.pattern == nil {
 		return m.actions.items
@@ -68,7 +58,6 @@ func (m model) actionRows() []actionItem {
 	})
 }
 
-// listActionsCmd asks the service for the actions.
 func (m model) listActionsCmd() tea.Cmd {
 	clients := m.api
 
@@ -82,9 +71,6 @@ func (m model) listActionsCmd() tea.Cmd {
 	}
 }
 
-// applyActions puts a finished listing on screen. A listing that arrives after the screen
-// was left is dropped, and a read failure is reported and leaves the list empty rather than
-// claiming the directory has nothing in it.
 func (m *model) applyActions(result actionsResult) {
 	if m.screen != screenActions {
 		return
@@ -101,7 +87,6 @@ func (m *model) applyActions(result actionsResult) {
 	m.stageAction()
 }
 
-// updateActions drives the actions list.
 func (m model) updateActions(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -133,14 +118,10 @@ func (m model) updateActions(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// selectedAction returns the action under the cursor, or false when there are none.
 func (m model) selectedAction() (actionItem, bool) {
 	return rowAt(m.actionRows(), m.actions.cursor)
 }
 
-// runSelectedAction fires the action under the cursor at the agent the list was opened on
-// and does not wait for it. A failure here is always from before the process started, so it
-// banners over the row it came from.
 func (m model) runSelectedAction() (tea.Model, tea.Cmd) {
 	action, ok := m.selectedAction()
 	if !ok {
@@ -155,9 +136,6 @@ func (m model) runSelectedAction() (tea.Model, tea.Cmd) {
 	)
 }
 
-// editSelectedAction opens the file under the cursor in the user's editor pane. The editor
-// is itself an action, so a custom one works here and on the agents list alike; the service
-// resolves the name to a path, since it knows which of the two actions directories it's in.
 func (m model) editSelectedAction() (tea.Model, tea.Cmd) {
 	action, ok := m.selectedAction()
 	if !ok {
@@ -184,9 +162,6 @@ func (m model) editSelectedAction() (tea.Model, tea.Cmd) {
 	return m, m.writeCmd(summary, func(a api) error { return a.editAction(agentID, name) })
 }
 
-// noActionsMarkdown is what the stage shows with nothing to list, so the pane says what an
-// action is rather than sitting blank. It names no directory, since the config is where
-// that answer lives.
 const noActionsMarkdown = "# Actions\n\n_nothing here yet_\n\n" +
 	"An action is any executable file in your actions directory, which is " +
 	"`~/.config/weave/actions` unless your config names another.\n\n" +
@@ -197,8 +172,6 @@ const noActionsMarkdown = "# Actions\n\n_nothing here yet_\n\n" +
 	"A file whose name starts with `_` is left off this list and out of the workflow form, " +
 	"which is how shell your other actions source stays out of the way.\n"
 
-// stageAction shows the action under the cursor in the stage. The service sends the start
-// of each file with the listing, so hovering costs nothing.
 func (m model) stageAction() {
 	action, ok := m.selectedAction()
 	if !ok {
@@ -210,8 +183,6 @@ func (m model) stageAction() {
 	m.frame.Show(layout.RegionStage, newTextContent(actionMarkdown(action)))
 }
 
-// actionsView renders the actions list. A file without the executable bit is drawn dim,
-// the way a dormant agent is.
 func (m model) actionsView() string {
 	help := "\n" + m.renderHelp(m.actionHelp())
 

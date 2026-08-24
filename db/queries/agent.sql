@@ -88,12 +88,10 @@ FROM
 WHERE
     archived_at IS NULL;
 
--- LockAgentSlots serializes the callers claiming room under the agent ceiling.
 -- name: LockAgentSlots :exec
 SELECT
     PG_ADVISORY_XACT_LOCK(@key::bigint);
 
--- LockAgentMetadata serializes the callers writing one agent's metadata.
 -- name: LockAgentMetadata :exec
 SELECT
     PG_ADVISORY_XACT_LOCK(HASHTEXTEXTENDED(@agent_id::text, 0));
@@ -223,9 +221,6 @@ WHERE
 RETURNING
     id;
 
--- SetAgentStateByID records what a reconcile pass observed. The state stamp only moves
--- when the value does, since it is how long the agent has held this state, while the seen
--- stamp moves every time, since it is when a pass last confirmed it.
 -- name: SetAgentStateByID :exec
 UPDATE
     agents
@@ -295,12 +290,6 @@ WHERE
 RETURNING
     id;
 
--- SetAgentMetadata records one fact against a live agent, replacing whatever
--- that key held before and leaving the agent's other keys alone. The insert
--- selects through a guard rather than naming the values outright so an id
--- belonging to no live agent writes nothing and is reported as such, instead of
--- raising a foreign key violation the handler would have to read to tell an
--- unknown agent from a real failure.
 -- name: SetAgentMetadata :many
 INSERT INTO agent_metadata(
     agent_id,
@@ -333,8 +322,6 @@ WHERE agent_id = @agent_id
 RETURNING
     agent_id;
 
--- ListAgentMetadata fetches the metadata for a whole page of agents at once, so
--- hydrating a listing costs one query rather than one per row.
 -- name: ListAgentMetadata :many
 SELECT
     agent_id,
@@ -356,8 +343,6 @@ WHERE id = ANY (@ids::uuid[]);
 DELETE FROM agent_transcripts
 WHERE agent_id = ANY (@agent_ids::uuid[]);
 
--- RenameAgent returns the row it touched so the caller can tell an id that
--- matches nothing from a rename to the name the agent already had.
 -- name: RenameAgent :many
 UPDATE
     agents
@@ -422,8 +407,6 @@ WHERE agent_id = @agent_id;
 DELETE FROM agent_transcript_chunks
 WHERE agent_id = ANY (@agent_ids::uuid[]);
 
--- NextTranscriptChunkSeq is the position the next appended turn takes, which is
--- one past the highest already stored, or zero for an agent with no turns yet.
 -- name: NextTranscriptChunkSeq :one
 SELECT
     COALESCE(MAX(seq) + 1, 0)::int AS next
@@ -432,9 +415,6 @@ FROM
 WHERE
     agent_id = @agent_id;
 
--- InsertTranscriptChunks appends turns for one agent. Copy rather than insert, so
--- a sync that folded in several turns writes them in one stream instead of a round
--- trip each.
 -- name: InsertTranscriptChunks :copyfrom
 INSERT INTO agent_transcript_chunks(
     agent_id,
@@ -449,17 +429,6 @@ VALUES (
     @content,
     @content_offset);
 
--- SearchTranscripts finds the turns matching the query, best match first. Two
--- matchers run together because they fail in opposite places. The tsquery matches
--- whole stemmed words, so it finds a turn that phrased something differently but
--- cannot match a word still being typed. The ILIKE matches any substring, so it
--- covers the half-typed word but knows nothing about word boundaries. Rank is the
--- cover density of the word match, which rewards the query's terms appearing close
--- together, and is zero for a turn only the substring found, sorting those last.
--- A word match takes its snippet from ts_headline, which marks the lexemes it
--- matched rather than a literal run, so a stemmed hit is still highlighted. A
--- substring-only match has no lexemes to mark and takes a plain window around the
--- literal occurrence, which the caller marks instead.
 -- name: SearchTranscripts :many
 WITH q AS (
     SELECT
@@ -499,17 +468,6 @@ ORDER BY
     c.seq ASC
 LIMIT @lim;
 
--- CountLiveScheduleAgents counts the agents of a schedule that are still working
--- on something, which is what tells a firing the last run has not finished.
--- Thinking and waiting are the two states that say so: one is generating, the
--- other is blocked on an answer somebody still owes it.
---
--- An idle run is not counted, whether it has finished or never got going. Idle is
--- the state a launch that died on the spot keeps for good, since the reconciler
--- only ever promotes an agent it can see working, and counting it would turn one
--- failed launch into a schedule that never fires again. A run that really is
--- starting is promoted within a reconcile interval, which is far inside the
--- shortest interval a cron expression can name.
 -- name: CountLiveScheduleAgents :one
 SELECT
     COUNT(*)

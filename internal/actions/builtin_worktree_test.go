@@ -633,9 +633,6 @@ func TestBuiltinWorktreeCleanupRefusesWhenTheWorktreeListCannotBeRead(t *testing
 	assert.NotEmpty(t, readBranchList(t, repo, "agent/agent-blind"), "nothing was removed")
 }
 
-// failingGitDir returns a directory to put at the front of PATH holding a git that fails for
-// one subcommand and is the real git for everything else, which is the only way to exercise a
-// script's handling of a git that will not answer.
 func failingGitDir(t *testing.T, failFor string) string {
 	t.Helper()
 
@@ -655,8 +652,6 @@ exec %q "$@"
 	return dir
 }
 
-// worktreeEnv is the slice of the action environment the two worktree builtins read, per
-// the contract docs/actions.md documents.
 type worktreeEnv struct {
 	agentID      string
 	agentCwd     string
@@ -665,8 +660,7 @@ type worktreeEnv struct {
 	baseBranch   string
 	copyPaths    []string
 	symlinkPaths []string
-	// pathPrefix goes at the front of PATH, so a test can put its own git in front of the
-	// real one for the length of one run.
+
 	pathPrefix string
 }
 
@@ -688,11 +682,6 @@ func (e worktreeEnv) toEnv() []string {
 	return env
 }
 
-// runBuiltin installs this build's builtins to a temp directory, finds name among them,
-// and runs it to completion the way weave's own action runner does. _worktree_setup names
-// its directory through WEAVE_SETUP_DIR_FILE rather than stdout, per docs/actions.md; the
-// returned Result carries that file's content as Stdout so callers can keep asserting on it
-// the same way regardless of which builtin they ran.
 func runBuiltin(t *testing.T, name string, env worktreeEnv) (Result, error) {
 	t.Helper()
 
@@ -711,8 +700,6 @@ func runBuiltin(t *testing.T, name string, env worktreeEnv) (Result, error) {
 	return run.result, run.err
 }
 
-// findBuiltin is the discovery half of runBuiltin, split out so a concurrent run can do it
-// once before any goroutine starts.
 func findBuiltin(dir, name string) (*Action, error) {
 	discovered, err := Discover(dir)
 	if err != nil {
@@ -728,7 +715,6 @@ func findBuiltin(dir, name string) (*Action, error) {
 	return nil, fmt.Errorf("%s is not a builtin action", name)
 }
 
-// actionRun is one call of runAction.
 type actionRun struct {
 	runner  Runner
 	action  *Action
@@ -736,8 +722,6 @@ type actionRun struct {
 	dirPath string
 }
 
-// runAction is the running half of runBuiltin, and is safe to call from a goroutine: it
-// reports what happened rather than failing the test itself.
 func runAction(run actionRun) outcome {
 	result, err := run.runner.RunAndWait(context.Background(), RunParams{
 		Action: *run.action,
@@ -752,16 +736,11 @@ func runAction(run actionRun) outcome {
 	return outcome{result: result, err: err}
 }
 
-// outcome is one concurrent builtin run, kept rather than asserted on the spot since a
-// failure has to be reported from the test's own goroutine.
 type outcome struct {
 	result Result
 	err    error
 }
 
-// runBuiltinConcurrently runs one builtin once per environment, all at the same time,
-// against whatever those environments share. Installing and discovering happen up front so
-// the goroutines do nothing but run, which is what puts them in contention.
 func runBuiltinConcurrently(t *testing.T, name string, envs []worktreeEnv) []outcome {
 	t.Helper()
 
@@ -795,9 +774,6 @@ func runBuiltinConcurrently(t *testing.T, name string, envs []worktreeEnv) []out
 	return outcomes
 }
 
-// hermeticGit points git at empty global and system config for the rest of the test, so what
-// these actions do is decided by the repo in front of them rather than by whatever the
-// developer running the suite happens to have set.
 func hermeticGit(t *testing.T) {
 	t.Helper()
 
@@ -821,8 +797,6 @@ func initRepo(t *testing.T) string {
 	return dir
 }
 
-// commitAll commits everything in dir, so a path the test just made is one git checks out
-// into a fresh worktree rather than one only the repo has.
 func commitAll(t *testing.T, dir string) {
 	t.Helper()
 
@@ -876,9 +850,6 @@ func assertIsDir(t *testing.T, path string) {
 	assert.True(t, info.IsDir())
 }
 
-// readGitConfig reads one config key as the git in that directory sees it, blank when the key
-// is unset. Exit 1 is the only status that means unset, so any other failure ends the test
-// rather than reading as an absent value the caller would then assert on.
 func readGitConfig(t *testing.T, dir, key string) string {
 	t.Helper()
 

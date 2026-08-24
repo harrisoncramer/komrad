@@ -138,8 +138,6 @@ func TestBranchSyncerSyncSkipsArchivedAgents(t *testing.T) {
 	assert.Nil(t, got.Branch, "an archived agent is not walked, so nothing writes a branch for it")
 }
 
-// gitOutput runs git in dir and returns its stdout, for a test that reads a value out of
-// the repo rather than just changing its state.
 func gitOutput(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 
@@ -150,8 +148,6 @@ func gitOutput(t *testing.T, dir string, args ...string) string {
 	return string(out)
 }
 
-// initRepo makes a throwaway git repo on a branch called main with one commit, since a
-// checkout needs history before it can be branched off.
 func initRepo(t *testing.T) string {
 	t.Helper()
 

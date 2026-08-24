@@ -1,9 +1,3 @@
-// Package codex runs OpenAI's Codex CLI as a weave harness: the config overrides it takes,
-// the chrome its TUI draws, and the rollout files it records a conversation in.
-//
-// Codex differs from Claude Code in the one way that shapes the rest. It will not be told
-// which id to file a conversation under, so the panel adopts the id Codex chose after the
-// launch rather than naming one before it exists.
 package codex
 
 import (
@@ -16,26 +10,12 @@ import (
 	"weave/internal/harness"
 )
 
-// binary is the CLI this harness runs, which is also the id an agent running it is
-// recorded under.
 const binary = "codex"
 
-// originatorEnv is what Codex calls the client that started a conversation, overridden per
-// launch so the panel can recognize its own. Codex writes it into the rollout's opening
-// record, the only place an agent's id and the conversation id Codex minted appear
-// together.
-//
-// It is marked internal by Codex and could be renamed in any release. The cost of that is
-// an agent whose transcript never syncs rather than a wrong conversation adopted, since a
-// stamp that stops arriving matches nothing.
 const originatorEnv = "CODEX_INTERNAL_ORIGINATOR_OVERRIDE"
 
-// originator is the value originatorEnv carries for an agent, prefixed rather than the bare
-// id so a rollout says which tool started it.
 func originator(agentID string) string { return "weave-" + agentID }
 
-// originatorPrefix is the assignment that goes ahead of the CLI on the command line, or
-// nothing for a launch with no agent id to stamp.
 func originatorPrefix(agentID string) string {
 	if agentID == "" {
 		return ""
@@ -44,25 +24,17 @@ func originatorPrefix(agentID string) string {
 	return fmt.Sprintf("%s=%s ", originatorEnv, harness.QuoteArg(originator(agentID)))
 }
 
-// Harness puts Codex up in a pane and reads back what happened in it.
 type Harness struct {
-	// sessionsDir is Codex's $CODEX_HOME/sessions, one rollout file per conversation under
-	// year, month, and day directories, and configPath is the config file beside it. Both
-	// are fields so a test can point them at a temp directory.
 	sessionsDir string
 	configPath  string
-	// trustLaunchDirs answers Codex's directory-trust question in advance, which it can
-	// only do by writing to the config above.
+
 	trustLaunchDirs bool
 }
 
-// NewHarnessParams configures the Codex harness. The two paths default to Codex's own locations.
 type NewHarnessParams struct {
 	SessionsDir string
 	ConfigPath  string
-	// TrustLaunchDirs records each agent's directory as trusted before launching it.
-	// Left off, an agent in a directory Codex has not seen before starts at the trust
-	// question and shows in the panel as waiting.
+
 	TrustLaunchDirs bool
 }
 
@@ -82,8 +54,6 @@ func NewHarness(opts NewHarnessParams) *Harness {
 	}
 }
 
-// The panel reaches Codex only through the interface, so a method missing here is a
-// compile error rather than a nil call on one of serve's loops.
 var _ harness.Harness = (*Harness)(nil)
 
 // GetID is the name an agent running Codex is recorded under.
@@ -107,8 +77,6 @@ func DefaultSessionsDir() string {
 	return filepath.Join(home, ".codex", "sessions")
 }
 
-// sessionMeta is the first record of a rollout, whose conversation id and originator are
-// what tie a file Codex named itself to the agent the panel launched.
 type sessionMeta struct {
 	ID         string `json:"id"`
 	Originator string `json:"originator"`
@@ -133,8 +101,6 @@ func (h *Harness) FindSession(agentID string) (string, error) {
 		return "", fmt.Errorf("failed to list codex rollouts: %w", err)
 	}
 
-	// The filename opens with the timestamp Codex wrote it at, so sorting orders the
-	// rollouts and the walk can run backwards to reach the newest first.
 	slices.Sort(paths)
 
 	want := originator(agentID)
@@ -150,8 +116,6 @@ func (h *Harness) FindSession(agentID string) (string, error) {
 	return "", nil
 }
 
-// readSessionMeta reads a rollout's opening record. A rollout is written as it goes, so a
-// file caught before its first record is complete has nothing to read yet.
 func readSessionMeta(path string) (sessionMeta, error) {
 	file, err := os.Open(path)
 	if err != nil {

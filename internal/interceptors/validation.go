@@ -1,7 +1,3 @@
-// Package interceptors holds the middleware every request passes through, so a
-// cross-cutting rule is written once rather than per resource. Most of it is ConnectRPC
-// interceptors, since most of the service is served that way. The MCP endpoint is plain
-// HTTP on the same mux, so anything that has to cover it too lives here as well.
 package interceptors
 
 import (
@@ -13,11 +9,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// validationInterceptor enforces the constraints declared on the request messages
-// in the protos, so what counts as a well-formed request lives with the schema
-// rather than being restated at the top of every handler. A violation is an
-// invalid_argument carrying protovalidate's own description of which field failed
-// and why.
 type validationInterceptor struct {
 	validator protovalidate.Validator
 }

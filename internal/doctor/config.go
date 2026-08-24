@@ -9,7 +9,6 @@ import (
 	"weave/lib/xslice"
 )
 
-// The ways the config can be wrong.
 var (
 	ErrConfigUnreadable = &Problem{
 		Code:    "config_unreadable",
@@ -42,14 +41,11 @@ func Config() Check {
 				)
 			}
 
-			// Having no config file is a correct install too, so it is reported rather than judged.
 			return pass(describeLayers(env))
 		},
 	}
 }
 
-// describeLayers is the layer list in merge order, with any file that is not there marked
-// so; order matters since it decides which file wins a key the layers disagree about.
 func describeLayers(env Env) string {
 	if len(env.ConfigLayers) == 0 {
 		return "no config files"
@@ -69,9 +65,6 @@ func describeLayers(env Env) string {
 	return strings.Join(described, ", ")
 }
 
-// describeSource names where a setting was resolved from, as a phrase to hang off the value
-// it explains, empty when nothing recorded it so the phrase does not read as a dangling
-// "from the".
 func describeSource(env Env, key string) string {
 	source, ok := env.Sources[key]
 	if !ok {
@@ -81,9 +74,6 @@ func describeSource(env Env, key string) string {
 	return " from the " + string(source)
 }
 
-// describeConfigFix is what to do about a config that would not load; it checks whether any
-// layer exists, since telling somebody to edit a path with nothing at it sends them looking
-// for a file they never wrote.
 func describeConfigFix(env Env) string {
 	for _, layer := range env.ConfigLayers {
 		if env.DoesLayerExist(layer.Path) {
@@ -159,9 +149,6 @@ func HarnessBinary(agent HarnessInfo) Check {
 	}
 }
 
-// effectiveDefaultHarness is the CLI a new agent would actually run; a config that will not
-// parse falls back to the built-in default, same as the root command, so this check still
-// answers when the config is broken.
 func effectiveDefaultHarness(env Env) string {
 	cfg, err := env.LoadConfig()
 	if err != nil {
@@ -171,7 +158,6 @@ func effectiveDefaultHarness(env Env) string {
 	return cfg.DefaultHarness
 }
 
-// listNames is the registered harness ids as a sentence fragment.
 func listNames(harnesses []HarnessInfo) string {
 	return joinWords(xslice.Map(harnesses, func(agent HarnessInfo) string { return agent.ID }))
 }

@@ -1,9 +1,3 @@
-// Package e2e drives the whole service the way a caller does, over the wire, against a
-// real database and a real tmux server.
-//
-// A scenario here is one of the panel's core workflows end to end. What it asserts on is
-// the observable surface a person or a model would read: what the API answers, what the
-// store holds, and what is running on the tmux server. Nothing reaches inside a service.
 package e2e
 
 import (
@@ -47,8 +41,6 @@ func TestAgentLifecycle(t *testing.T) {
 	assert.Equal(t, workflow.Msg.GetWorkflow().GetId(), agent.GetWorkflowId())
 	require.NotEmpty(t, agent.GetPaneId())
 
-	// The pane is stamped with the agent's own id, which is what every later pass reads
-	// to tell this agent's pane from one tmux has since reissued.
 	assert.Equal(t, agent.GetPaneId(), instance.GetOwnedPane(agent.GetId()))
 
 	t.Run("the reconciler follows what the pane shows", func(t *testing.T) {
@@ -114,8 +106,6 @@ func TestAgentLifecycle(t *testing.T) {
 		require.NotEmpty(t, back.GetPaneId())
 		assert.Equal(t, back.GetPaneId(), instance.GetOwnedPane(agent.GetId()))
 
-		// The agent records the resume in its own log, which is the only evidence from
-		// out here that the CLI was told to reopen rather than to start fresh.
 		instance.Tmux.WaitForFrame(back.GetPaneId(), "fake:")
 		instance.SyncTranscripts()
 
@@ -177,16 +167,12 @@ func TestCreateAgentRecordsSpawnedBy(t *testing.T) {
 	})
 }
 
-// liveNames is every agent on the live listing, by name, which is what most assertions
-// here are about rather than the rows themselves.
 func liveNames(t *testing.T, instance *weavetest.Instance) []string {
 	t.Helper()
 
 	return names(t, instance, false)
 }
 
-// archivedNames is the same for the archive. The two listings never mix, so a test that
-// asserts on one has to ask for the other separately.
 func archivedNames(t *testing.T, instance *weavetest.Instance) []string {
 	t.Helper()
 

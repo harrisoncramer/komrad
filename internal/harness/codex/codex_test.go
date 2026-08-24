@@ -18,8 +18,6 @@ func TestMintSessionID(t *testing.T) {
 // carries the originator that agent's launch stamped on it, which is the one thing about
 // a rollout that a Codex someone started by hand cannot accidentally match.
 func TestFindSession(t *testing.T) {
-	// rollout describes one file on disk: the id its session_meta claims, the originator
-	// that record carries, and whether the record is readable at all.
 	type rollout struct {
 		id         string
 		stamp      string

@@ -9,7 +9,6 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// Terminal style detection would compete with the panel event loop for input.
 func render(markdown string, wrap int) string {
 	options := []glamour.TermRendererOption{glamour.WithStyles(stageStyle)}
 	if wrap > 0 {
@@ -29,7 +28,6 @@ func render(markdown string, wrap int) string {
 	return rendered
 }
 
-// ANSI styling avoids terminal profile detection on the panel's input stream.
 var highlightStyle = ansi.NewStyle().Reverse(true)
 
 func highlighted(content string, line int) string {
@@ -47,7 +45,6 @@ func writeStageFile(path, content string) bool {
 	return os.WriteFile(path, []byte(content), 0o644) == nil
 }
 
-// The pager must remain running or tmux will close its pane.
 func pagerArgv(path string, line int) []string {
 	argv := []string{"less", "-R", "-X", "-Ps"}
 	if line > 1 {

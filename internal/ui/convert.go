@@ -16,10 +16,6 @@ import (
 	"weave/lib/xslice"
 )
 
-// The panel is written against the store types rather than the protos, so a listing is
-// rendered into them on the way in. What the screens hold is the store's shape, which
-// is what keeps the wire format out of them.
-
 func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 	created, _ := time.Parse(time.RFC3339, s.GetCreatedAt()) //nolint:errcheck // a timestamp that will not parse renders as the zero time
 
@@ -54,15 +50,10 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 	}
 }
 
-// isInternalAction says a file in the actions directory is shell the user keeps for other
-// actions to reuse rather than an action itself. An underscore in front of the name is how
-// they say so, and nothing the panel offers to pick carries one.
 func isInternalAction(name string) bool {
 	return strings.HasPrefix(name, "_")
 }
 
-// actionItemsFrom renders listed actions into the items the screen is written against,
-// leaving out the ones written to be sourced rather than run.
 func actionItemsFrom(listed []*actionv1.Action) []actionItem {
 	external := xslice.Filter(listed, func(action *actionv1.Action) bool {
 		return !isInternalAction(action.GetName())
@@ -86,9 +77,6 @@ func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
 	})
 }
 
-// workflowsFrom renders listed workflows into the store type the tree is written
-// against. The archive time comes with them, since the archive draws an archived folder
-// differently from a live one.
 func workflowsFrom(listed []*workflowv1.Workflow) []workflowstore.Workflow {
 	return xslice.Map(listed, func(w *workflowv1.Workflow) workflowstore.Workflow {
 		var archived *time.Time
@@ -111,16 +99,6 @@ func workflowsFrom(listed []*workflowv1.Workflow) []workflowstore.Workflow {
 	})
 }
 
-// archivedAgentsFrom renders listed agents into the store type the screen is
-// written against, most recently archived first. Liveness is not carried: archiving
-// kills the pane, so nothing in the archive is running.
-//
-// The order is applied here rather than asked of the service, whose pages are keyed
-// on the id so a page resumes exactly where the last one ended. The panel reads the
-// whole archive before it draws any of it, so sorting what came back is total, while
-// paging the service by archive time would need a second key in every cursor to
-// stay exact. A row archived before the column existed carries no time and sorts
-// below the ones that do, by id, which is the order the listing already arrived in.
 func archivedAgentsFrom(listed []*agentv1.Agent) []agentstore.Agent {
 	agents := xslice.Map(listed, protoToAgent)
 
@@ -139,8 +117,6 @@ func archivedAgentsFrom(listed []*agentv1.Agent) []agentstore.Agent {
 	return agents
 }
 
-// scheduleItemsFrom maps listed schedules into the items the list is written
-// against, carrying the next run the service derived.
 func scheduleItemsFrom(listed []*schedulev1.Schedule) []scheduleItem {
 	return xslice.Map(listed, func(s *schedulev1.Schedule) scheduleItem {
 		item := scheduleItem{schedule: scheduleFromProto(s)}

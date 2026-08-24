@@ -17,11 +17,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// rpcTimeout bounds one call, sized for creating an agent, which opens a tmux window and
-// types into it.
 const rpcTimeout = 30 * time.Second
 
-// rpcCmd is the parent of one subcommand per exposed RPC.
 func rpcCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rpc",
@@ -42,8 +39,6 @@ func rpcCmd(state *app) *cobra.Command {
 	return cmd
 }
 
-// rpcMethodCmd builds the subcommand for one RPC, taking its name, help, and flags off the
-// descriptor so nothing is written per method.
 func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 	var (
 		requestJSON string
@@ -103,9 +98,6 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 	return cmd
 }
 
-// requireServer refuses the call when nothing is serving, since starting one as a side
-// effect would leave a daemon behind whichever command happened to run first; bringing the
-// server up stays weave start's job.
 func requireServer(addr string) error {
 	if probeServer(addr).answering {
 		return nil
@@ -114,8 +106,6 @@ func requireServer(addr string) error {
 	return fmt.Errorf("nothing is serving at %s, run weave start first", addr)
 }
 
-// callRPCParams is one call: where the service is, which method, who is asking, and the
-// request body.
 type callRPCParams struct {
 	Addr    string
 	Path    string
@@ -123,8 +113,6 @@ type callRPCParams struct {
 	Request map[string]any
 }
 
-// callRPC posts the request to the service's Connect endpoint; going over HTTP rather than
-// through a generated client per service is what lets one function serve every RPC.
 func callRPC(ctx context.Context, params callRPCParams) ([]byte, error) {
 	body, err := json.Marshal(params.Request)
 	if err != nil {
@@ -137,8 +125,6 @@ func callRPC(ctx context.Context, params callRPCParams) ([]byte, error) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	// An agent running this CLI is named on the call, so its work is logged as its own
-	// rather than as an anonymous caller.
 	params.From.SetHeader(req.Header)
 
 	resp, err := http.DefaultClient.Do(req)
@@ -159,8 +145,6 @@ func callRPC(ctx context.Context, params callRPCParams) ([]byte, error) {
 	return payload, nil
 }
 
-// readRefusal turns a refusal into the message the service wrote, falling back to the
-// status when the body is not the error shape Connect sends.
 func readRefusal(payload []byte, status string) error {
 	var refusal struct {
 		Code    string `json:"code"`
@@ -182,8 +166,6 @@ func readRefusal(payload []byte, status string) error {
 	return errors.New(status)
 }
 
-// writeResponse prints what the service answered, indented unless a one-line response was
-// asked for.
 func writeResponse(out io.Writer, payload []byte, compact bool) error {
 	rendered := bytes.TrimSpace(payload)
 

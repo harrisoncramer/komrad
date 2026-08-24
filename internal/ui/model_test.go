@@ -109,8 +109,6 @@ func TestApplyAgents(t *testing.T) {
 			assert.Len(t, m.listing.agents, tt.wantLen)
 
 			if tt.wantLen == 0 {
-				// Acting on the empty list must be a safe no-op rather than an index
-				// panic, since the handlers get a selection through selectedAgent.
 				_, _ = m.updateAgents(tea.KeyMsg{Type: tea.KeyEnter})
 				assert.Equal(t, screenAgents, m.screen)
 
@@ -130,14 +128,8 @@ func TestApplyAgents(t *testing.T) {
 	}
 }
 
-// testWorkflowID is the workflow the agents in these cases belong to. Every
-// agent has one, and the tree only renders agents whose workflow is listed, so
-// the cases that care about ordering still need somewhere to hang them.
 const testWorkflowID = "w1"
 
-// items builds a list of agents from names alone, all in one workflow, for the
-// cases that only care about ordering and selection. The name doubles as the id,
-// which is what the cursor follows a row by.
 func items(names ...string) []agentItem {
 	out := make([]agentItem, 0, len(names))
 	for _, name := range names {
@@ -187,6 +179,4 @@ func TestNewModelWiresTmux(t *testing.T) {
 	}
 }
 
-// clientPath is what the fake tmux reports as the invoking client's directory,
-// which is the answer a blank directory field falls back to.
 const clientPath = "/work/from-tmux"

@@ -396,8 +396,7 @@ func TestArchiveWorkflow(t *testing.T) {
 	tests := []struct {
 		name   string
 		create bool
-		// withSchedule leaves a live schedule launching into the workflow, which is
-		// what refuses the delete.
+
 		withSchedule bool
 		wantErrIs    error
 	}{
@@ -410,9 +409,6 @@ func TestArchiveWorkflow(t *testing.T) {
 			create: true,
 		},
 		{
-			// Deleting it would leave the schedule with nowhere to run, and switching
-			// off recurring work as a side effect of tidying is not something to do
-			// quietly.
 			name:         "a workflow still scheduled into is refused",
 			create:       true,
 			withSchedule: true,
@@ -487,10 +483,9 @@ func TestArchiveWorkflow(t *testing.T) {
 func TestRestoreWorkflow(t *testing.T) {
 	tests := []struct {
 		name string
-		// archive says the workflow was archived first, the only state a restore acts on.
+
 		archive bool
-		// takeName leaves a live agent holding the archived agent's name, which the
-		// unique index would refuse as it comes back.
+
 		takeName  bool
 		wantErrIs error
 	}{
@@ -539,9 +534,7 @@ func TestRestoreWorkflow(t *testing.T) {
 			if tt.archive {
 				require.NoError(t, workflows.ArchiveWorkflow(ctx, id))
 			}
-			// The namesake goes into the archived workflow itself, which is the scope the
-			// unique index covers. It is written straight to the store, since a create
-			// through the service refuses a workflow nothing lists.
+
 			if tt.takeName {
 				require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
 					Name:       "agent",
@@ -589,8 +582,7 @@ func TestRestoreWorkflow(t *testing.T) {
 			assert.Len(t, tmux.newWindows, opened, "and nothing was started for it")
 
 			assert.Equal(t, "agent", inside[0].Name)
-			// The restore leaves pane_id alone, which only lands a dormant agent because
-			// the archive cleared it on the way in.
+
 			assert.Empty(t, inside[0].Pane, "and it comes back owning no pane")
 		})
 	}
@@ -634,7 +626,6 @@ func TestRestoreWorkflowCeiling(t *testing.T) {
 	assert.Len(t, archived, 2, "and both of its agents with it")
 }
 
-// workflowNames is the names of a listing, for asserting which workflows a read holds.
 func workflowNames(listed []workflowstore.Workflow) []string {
 	names := make([]string, 0, len(listed))
 	for _, w := range listed {

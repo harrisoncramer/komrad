@@ -5,24 +5,12 @@ import (
 	"strings"
 )
 
-// hostSocketOption records the socket path of the tmux server the user is on. It is stored
-// on the manager's own server, where the panel and the API server run, and rewritten on
-// every open, since only the open that created the session could set an environment.
 const hostSocketOption = "@weave_host_socket"
 
-// InvokingClientOption holds the tmux client that opened the current popup. The open
-// command writes it on each open, and it is read live, so anything that needs the invoking
-// client uses the one actually viewing the popup rather than one fixed when the persistent
-// panel first started.
 const InvokingClientOption = "@weave_client"
 
-// InfoPaneOption holds the panel's info pane, the one an editor or a shell opens in. The
-// panel writes it before running an action, since how the panel laid itself out is known
-// nowhere else, and it lives on the manager's own server, where that pane is.
 const InfoPaneOption = "@weave_info_pane"
 
-// tmuxEnvFields is how many fields tmux writes into TMUX for a pane it spawns: the
-// server's socket path, its pid, and the id of the session the pane belongs to.
 const tmuxEnvFields = 3
 
 // SocketFromEnv returns the socket path of the server a TMUX value names, empty when it
@@ -49,16 +37,9 @@ func SessionFromEnv(value string) string {
 	return "$" + fields[tmuxEnvFields-1]
 }
 
-// Host is the tmux server the user is on. The manager runs on a server of its own, so its
-// session cannot be attached to by accident, and that isolation cuts both ways: the
-// working directory of the client viewing the popup and the global options the key binding
-// reads live only on the user's server, and this is how they are reached.
-//
-// The socket is looked up per call rather than held, since the panel outlives many opens
-// and each may come from a different server.
 type Host struct {
 	manager *Client
-	// pane is the socket path this process's own TMUX names, empty outside tmux.
+
 	pane string
 }
 
@@ -79,15 +60,6 @@ func (h *Host) Record(path string) {
 	h.manager.SetGlobal(hostSocketOption, path)
 }
 
-// client returns a client for the user's server. The socket a previous open recorded wins,
-// since it names the server actually showing the panel, and the server this process is a pane
-// on stands in when that cannot be read.
-//
-// The fallback is what keeps the popup's open flag from getting stranded. It is recorded on
-// weave's own server, so once that server dies the flag on the user's server can no longer be
-// found, and the flag is the one thing the panel key branches on: left set, the key hides a
-// popup that is not there on every press and there is nothing left to clear it. Hide and the
-// open it interrupted are both panes on the user's server, so they can still reach it.
 func (h *Host) client() *Client {
 	if path := h.manager.ShowGlobal(hostSocketOption); path != "" {
 		return NewClientAtPath(path)
@@ -96,10 +68,6 @@ func (h *Host) client() *Client {
 	return h.paneClient()
 }
 
-// paneClient is a client for the server this process is a pane on, nil outside tmux and nil
-// inside weave's own server, where the panel runs. The options the key binding reads live on
-// the user's server, so writing them on the manager's would be a write that looks like it
-// worked and is read by nobody.
 func (h *Host) paneClient() *Client {
 	if h.pane == "" {
 		return nil
@@ -151,9 +119,6 @@ func (h *Host) ShowGlobal(name string) string {
 	return host.ShowGlobal(name)
 }
 
-// Servers is the pair of tmux servers this program uses, presented as the one client the
-// rest of it holds. Sessions, windows, and panes belong to the manager's server, while
-// global options and the invoking client's directory belong to the user's.
 type Servers struct {
 	*Client
 	host *Host

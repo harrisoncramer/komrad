@@ -16,10 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// neverOccurring are dates the calendar does not have. They parse, and then the library
-// searches five years, finds nothing, and reports the zero time. They are built straight
-// from the library rather than through agents.ParseCron, which refuses them, since what is
-// under test is what happens when one reaches the scheduler anyway.
 var neverOccurring = []string{"0 0 30 2 *", "0 0 31 2 *", "0 0 31 4 *"}
 
 // TestSchedulerReconcile covers which schedules a pass registers with River and
@@ -29,11 +25,9 @@ var neverOccurring = []string{"0 0 30 2 *", "0 0 31 2 *", "0 0 31 4 *"}
 func TestSchedulerReconcile(t *testing.T) {
 	tests := []struct {
 		name string
-		// passes are the schedule listings the reconciler sees, one per pass, so a
-		// case can show what a second pass does with what the first registered.
+
 		passes [][]schedulestore.Schedule
-		// wantAdded and wantRemoved are the schedule ids River was told about,
-		// across every pass.
+
 		wantAdded   []string
 		wantRemoved []string
 	}{
@@ -47,8 +41,6 @@ func TestSchedulerReconcile(t *testing.T) {
 			passes: [][]schedulestore.Schedule{{paused("s1", "0 9 * * *")}},
 		},
 		{
-			// The API refuses an unparseable expression, so this is a row written
-			// before a rule changed. One bad schedule must not stop the others.
 			name: "an unparseable expression is skipped, leaving the rest registered",
 			passes: [][]schedulestore.Schedule{{
 				armed("bad", "0 99 * * *"),
@@ -65,8 +57,6 @@ func TestSchedulerReconcile(t *testing.T) {
 			wantAdded: []string{"s1"},
 		},
 		{
-			// The name is not what the job fires on, so editing it must not churn
-			// the registration.
 			name: "renaming a schedule leaves its registration alone",
 			passes: [][]schedulestore.Schedule{
 				{armed("s1", "0 9 * * *")},
@@ -176,13 +166,13 @@ func TestSchedulerReconcileFailure(t *testing.T) {
 func TestSchedulerReconcileSurvivesAFailedRegistration(t *testing.T) {
 	tests := []struct {
 		name string
-		// failFor is the schedule id River refuses to register.
+
 		failFor string
-		// passes are the schedule listings the reconciler sees, one per pass.
+
 		passes [][]schedulestore.Schedule
-		// wantAdded is the ids registration was attempted for, across every pass.
+
 		wantAdded []string
-		// wantRemoved is the ids taken back off.
+
 		wantRemoved []string
 	}{
 		{
@@ -226,12 +216,10 @@ func TestSchedulerReconcileSurvivesAFailedRegistration(t *testing.T) {
 	}
 }
 
-// armed is a schedule that should be registered.
 func armed(id, cron string) schedulestore.Schedule {
 	return schedulestore.Schedule{ID: id, Name: id, Cron: cron, Enabled: true}
 }
 
-// paused is the same schedule with its switch off.
 func paused(id, cron string) schedulestore.Schedule {
 	s := armed(id, cron)
 	s.Enabled = false
@@ -239,22 +227,18 @@ func paused(id, cron string) schedulestore.Schedule {
 	return s
 }
 
-// renamed changes only the display label, which the periodic job does not read.
 func renamed(s schedulestore.Schedule, name string) schedulestore.Schedule {
 	s.Name = name
 
 	return s
 }
 
-// inZone changes the zone the expression is read in, which the periodic job
-// does read.
 func inZone(s schedulestore.Schedule, timezone string) schedulestore.Schedule {
 	s.Timezone = timezone
 
 	return s
 }
 
-// listingSchedules answers the listing each pass reads.
 type listingSchedules struct {
 	schedules []schedulestore.Schedule
 	err       error
@@ -268,13 +252,10 @@ func (l *listingSchedules) Get(context.Context, string) (*schedulestore.Schedule
 	return nil, nil
 }
 
-// recordingPeriodic stands in for River's periodic job bundle, recording what it
-// was told rather than running anything.
 type recordingPeriodic struct {
 	added   []string
 	removed []string
-	// failFor is the schedule id registration is refused for, standing in for a
-	// River that will not take one particular job.
+
 	failFor string
 }
 
@@ -302,22 +283,17 @@ func (r *recordingPeriodic) Remove(id string) {
 // one on the unique index and vanishes with nothing recorded, or takes the name of a
 // firing that has not happened yet and blocks the one that follows.
 func TestOccurrenceFor(t *testing.T) {
-	// Nine in the morning is both the hourly and the daily occurrence, so the rows
-	// below share it.
 	minute := time.Date(2026, time.July, 28, 9, 34, 0, 0, time.UTC)
 	nine := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
 
 	tests := []struct {
 		name string
 		cron string
-		// at is when the job was built, which is the firing's own moment only in the
-		// case where nothing delayed the enqueuer.
+
 		at   time.Time
 		want time.Time
 	}{
 		{
-			// A firing can land a hair before the boundary. Taking the occurrence
-			// before it would collide with a run that already happened.
 			name: "a firing built a hair early belongs to the occurrence it beat",
 			cron: "* * * * *",
 			at:   minute.Add(-2 * time.Millisecond),

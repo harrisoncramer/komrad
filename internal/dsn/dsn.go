@@ -1,8 +1,3 @@
-// Package dsn writes a Postgres connection string in a form that is safe to show.
-//
-// It is its own package because two callers need it and neither should import the other:
-// doctor prints connection strings in a report a user pastes into an issue, and the config
-// service hands the whole config back over RPC and to the MCP surface, where a model reads it.
 package dsn
 
 import (

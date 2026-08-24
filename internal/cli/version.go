@@ -6,8 +6,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// versionCmd prints which build this binary is and which one is serving, so the two can be
-// compared by hand rather than through what the panel does about it.
 func versionCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",

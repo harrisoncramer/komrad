@@ -7,11 +7,8 @@ import (
 	"strconv"
 )
 
-// maxPort is the highest port there is, so an address above it is refused rather than
-// reported as a server that is not answering.
 const maxPort = 65535
 
-// The ways the listen address can be wrong.
 var (
 	ErrServerStale = &Problem{
 		Code:    "server_stale",
@@ -35,16 +32,13 @@ var (
 	}
 )
 
-// ServerStatus is what the health route said about whoever holds the address.
 type ServerStatus struct {
-	// Answering is whether anything replied at all.
 	Answering bool
-	// Ready is whether it replied that it can reach its database, which is a stronger
-	// thing than a socket that accepts, since the server binds before it opens the store.
+
 	Ready bool
-	// Version is the build it reported, empty when the reply was not weave's health.
+
 	Version string
-	// Current is whether that build is this one.
+
 	Current bool
 }
 
@@ -57,8 +51,6 @@ func Server() Check {
 		Name:        "server",
 		Description: "the panel reads and changes agents through a local service",
 		Run: func(ctx context.Context, env Env) Result {
-			// Ahead of the probe, since an address nothing can bind answers a probe the
-			// same way an address nobody has started yet does.
 			if err := requireListenable(env.Addr); err != nil {
 				return fail(err, env.Addr, "set WEAVE_ADDR to a host and port, such as 127.0.0.1:8787")
 			}
@@ -89,8 +81,7 @@ func Server() Check {
 				)
 
 			case !status.Ready:
-				// No restart advice: the pool reconnects, so the server recovers on
-				// its own and the panel clears within a poll.
+
 				return fail(
 					fmt.Errorf("%w: %s is up but reports it cannot reach its database", ErrServerNotReady, env.Addr),
 					env.Addr,
@@ -103,10 +94,6 @@ func Server() Check {
 	}
 }
 
-// requireListenable refuses an address the service could never bind. Go's listener takes a
-// service name in place of a number, so only a port that is neither a name nor a usable
-// number is refused, plus port zero, since it binds whatever is free and leaves every
-// client looking at the port nobody got.
 func requireListenable(addr string) error {
 	_, port, err := net.SplitHostPort(addr)
 	if err != nil {
@@ -129,12 +116,6 @@ func requireListenable(addr string) error {
 	return nil
 }
 
-// describeStaleServerFix is how to get onto the current build, which depends on whether the
-// panel is up. With no panel, stopping the server is the whole fix, since the next open
-// creates the session and spawns the current build; with a panel already running,
-// ensureServer only runs once at session creation, so stopping the server strands it and
-// the fix has to kill the tmux server instead, which also costs every agent since they are
-// windows in that session.
 func describeStaleServerFix(ctx context.Context, env Env) string {
 	if !isPanelRunning(ctx, env) {
 		return "weave stop, then reopen the panel"
@@ -143,8 +124,6 @@ func describeStaleServerFix(ctx context.Context, env Env) string {
 	return "tmux -L " + env.TmuxSocket + " kill-server, then reopen the panel, which also restarts every agent"
 }
 
-// isPanelRunning reports whether the panel's tmux session is up; has-session is asked
-// rather than anything that would create a server, for the reason the shell check gives.
 func isPanelRunning(ctx context.Context, env Env) bool {
 	if env.TmuxSocket == "" || env.PanelSession == "" {
 		return false

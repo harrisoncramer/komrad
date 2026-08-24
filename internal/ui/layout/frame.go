@@ -6,9 +6,6 @@ import (
 	"weave/config"
 )
 
-// Frame is the pane each region occupies and what was last drawn in it. It drives tmux
-// directly rather than asking the service, since a keypress that moves the cursor moves the
-// frame with it and cannot pay a round trip to do it.
 type Frame struct {
 	tmux Tmux
 	spec Spec
@@ -16,16 +13,12 @@ type Frame struct {
 	sidebar string
 	stage   string
 	info    string
-	// guest is a pane somebody else owns that has been swapped into the stage, an
-	// agent's own pane being the one thing the panel shows without owning it.
+
 	guest string
 
-	// shown is what each region was last given, which content is compared against so a
-	// redraw does not restart a pager somebody is reading.
 	shown map[Region]shown
 }
 
-// shown is the key of the content written to a region and the width it was rendered for.
 type shown struct {
 	key   string
 	width int
@@ -110,7 +103,6 @@ func (f *Frame) Show(region Region, content Content) {
 
 	f.Open(region)
 
-	// The stage cannot hold a guest and a document at once.
 	if region == RegionStage {
 		f.restoreGuest()
 	}
@@ -159,8 +151,6 @@ func (f *Frame) ReleaseGuest(pane string) {
 	}
 }
 
-// isShowing reports whether a region already holds this content, laid out to the width it
-// would be drawn at now.
 func (f *Frame) isShowing(region Region, content Content, width int) bool {
 	if content.Key == "" {
 		return false
@@ -171,8 +161,6 @@ func (f *Frame) isShowing(region Region, content Content, width int) bool {
 	return was.key == content.Key && (!content.Wraps || was.width == width)
 }
 
-// getDisplayedPane is the pane on screen in the stage, which is the guest's while one is
-// swapped in.
 func (f *Frame) getDisplayedPane() string {
 	if f.guest != "" {
 		return f.guest
@@ -181,8 +169,6 @@ func (f *Frame) getDisplayedPane() string {
 	return f.stage
 }
 
-// restoreGuest puts the guest pane back where it came from, leaving the stage holding
-// nothing the frame knows about since the swap took what it drew there off screen.
 func (f *Frame) restoreGuest() {
 	if f.guest == "" {
 		return
@@ -196,8 +182,6 @@ func (f *Frame) restoreGuest() {
 	f.forget(RegionStage)
 }
 
-// reclaim clears the panes a previous panel left in the window. A pane an agent owns is broken
-// out into a window of its own rather than killed, since the agent in it is still running.
 func (f *Frame) reclaim() {
 	if f.sidebar == "" {
 		return
@@ -214,10 +198,6 @@ func (f *Frame) reclaim() {
 	}
 }
 
-// claimStage opens the stage, rebuilding it when it or the guest pane it was minding has died.
-// Whatever was drawn in it, and in the info pane against it, goes with it.
-// The sidebar is resized after every split rather than only the first, since a width stated in
-// columns is not a remainder the split itself can be asked for.
 func (f *Frame) claimStage() {
 	if f.sidebar == "" || f.hasStage() {
 		return
@@ -259,8 +239,6 @@ func (f *Frame) abandonStage() {
 	f.stage, f.guest = "", ""
 }
 
-// claimInfo opens the info pane against whatever the main one is showing, a guest pane
-// included, so the two move together.
 func (f *Frame) claimInfo() {
 	if f.stage == "" || f.IsOpen(RegionInfo) {
 		return
@@ -288,7 +266,6 @@ func (f *Frame) closeInfo() {
 
 func (f *Frame) forget(region Region) { delete(f.shown, region) }
 
-// run replaces whatever a pane is showing with a new command.
 func (f *Frame) run(pane string, argv ...string) {
 	f.tmux.RespawnPane(pane, getHomeDir(), argv...)
 }

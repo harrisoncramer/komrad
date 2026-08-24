@@ -35,8 +35,6 @@ func TestCreateAgentValidation(t *testing.T) {
 			req:  &agentv1.CreateAgentRequest{Prompt: "go", Dir: "~/repo", WorkflowId: "wf-1"},
 		},
 		{
-			// The workflow supplies the directory, which is what a caller with no
-			// view of the filesystem relies on.
 			name: "no directory is allowed, since the workflow has one",
 			req:  &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: "wf-1"},
 		},
@@ -85,16 +83,12 @@ func TestCreateAgentValidation(t *testing.T) {
 func TestRequestValidation(t *testing.T) {
 	tests := []struct {
 		name string
-		// call is the request as a client would send it. Every case aims at "alpha",
-		// the agent validatedClient seeds, so a rejection is the constraint talking
-		// and not a missing row.
+
 		call func(t *testing.T, c agentv1connect.AgentServiceClient) error
-		// wantErr says the request should be refused as invalid rather than served.
+
 		wantErr bool
 	}{
 		{
-			// The store would rewrite a name like this rather than store it, and the
-			// caller would be told it succeeded under a name it did not ask for.
 			name: "a rename to a name with a space is refused",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.UpdateAgent(t.Context(), connect.NewRequest(&agentv1.UpdateAgentRequest{Id: "id-1", Name: "my agent"}))
@@ -131,9 +125,6 @@ func TestRequestValidation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			// Word matching has no floor of its own, and the trigram fallback covers
-			// what is too short for it, so a query this brief is served rather than
-			// refused.
 			name: "a query of two characters is accepted",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.SearchTranscripts(t.Context(), connect.NewRequest(&agentv1.SearchTranscriptsRequest{Query: "ab"}))
@@ -143,8 +134,6 @@ func TestRequestValidation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			// A limit past the ceiling is clamped rather than refused, so a caller
-			// asking for more than the server will serve still gets a page.
 			name: "an oversized limit is clamped, not refused",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.SearchTranscripts(t.Context(), connect.NewRequest(&agentv1.SearchTranscriptsRequest{
@@ -277,8 +266,6 @@ func TestRequestValidation(t *testing.T) {
 					Tag: xptr.Ptr("◐"),
 				}))
 
-				// The id is nobody's, so the handler answers not_found once the tag
-				// itself has been let through.
 				if connect.CodeOf(err) == connect.CodeNotFound {
 					return nil
 				}
@@ -287,8 +274,6 @@ func TestRequestValidation(t *testing.T) {
 			},
 		},
 		{
-			// The action is written into the log as a structured attribute, the same
-			// concern that already guards the message field.
 			name: "a log action carrying a control character is refused",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				action := "run\x1b[31mred"
@@ -312,8 +297,6 @@ func TestRequestValidation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			// A key that reads differently agent to agent is not worth querying across
-			// them, which is most of why the metadata is keyed at all.
 			name: "a metadata key carrying a capital is refused",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
@@ -353,8 +336,6 @@ func TestRequestValidation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			// The value is drawn into the panel's frame, so a newline would break the
-			// row it lands in rather than fail.
 			name: "a metadata value spanning two lines is refused",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.SetMetadata(t.Context(), connect.NewRequest(&agentv1.SetMetadataRequest{
@@ -376,8 +357,6 @@ func TestRequestValidation(t *testing.T) {
 					Value: xptr.Ptr("https://linear.app/x/issue/ENG-1"),
 				}))
 
-				// The id is nobody's, so the handler answers not_found once the key and
-				// value have been let through.
 				if connect.CodeOf(err) == connect.CodeNotFound {
 					return nil
 				}
@@ -413,15 +392,11 @@ func TestRequestValidation(t *testing.T) {
 	}
 }
 
-// validatedClient serves the agent service behind the validation interceptor and
-// returns a client for it, since the constraints only run on the wire path.
 func validatedClient(t *testing.T) (agentv1connect.AgentServiceClient, *fakeLauncher) {
 	t.Helper()
 
 	svc, st, launcher := serviceWithLauncher(t)
 
-	// The mutating methods report not_found for an agent that does not exist, so
-	// the validation cases need a real one to aim at.
 	st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle})
 
 	validation, err := interceptors.NewValidation()

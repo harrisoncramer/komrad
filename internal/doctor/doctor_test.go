@@ -10,8 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// stub is a check that reports what it was told to, for the tests about how the run is
-// sequenced rather than about any one assertion.
 func stub(name string, result Result, needs ...string) Check {
 	return Check{
 		Name:        name,

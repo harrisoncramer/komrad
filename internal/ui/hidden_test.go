@@ -15,8 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// hiddenTree is the list the cases below work over, one workflow holding a listed
-// agent and two hidden ones, and a second holding nothing hidden at all.
 func hiddenTree() model {
 	return model{
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
@@ -86,7 +84,7 @@ func TestAgentRowsHidden(t *testing.T) {
 // from are not the rows it is left with.
 func TestToggleHiddenAgentsKeepsTheCursor(t *testing.T) {
 	m := hiddenTree()
-	m.tree.cursor = 3 // frontend's ui, with backend's two hidden agents away
+	m.tree.cursor = 3
 
 	shown, _ := m.toggleHiddenAgents()
 	revealed, ok := shown.(model)

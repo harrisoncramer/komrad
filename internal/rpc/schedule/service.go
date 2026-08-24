@@ -1,4 +1,3 @@
-// Package schedule serves ScheduleService over ConnectRPC.
 package schedule
 
 import (
@@ -19,9 +18,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// scheduleWriter is the part of the schedule service the handlers drive. The
-// handlers translate and nothing more. What a schedule may be lives behind
-// this.
 type scheduleWriter interface {
 	GetSchedule(ctx context.Context, id string) (*schedulestore.Schedule, error)
 	NewSchedule(ctx context.Context, cfg schedulestore.Config) (*schedulestore.Schedule, error)
@@ -30,13 +26,10 @@ type scheduleWriter interface {
 	ArchiveSchedule(ctx context.Context, id string) error
 }
 
-// scheduleLister is the read side, kept separate because listing pages straight
-// out of the store rather than through the service.
 type scheduleLister interface {
 	ListPage(ctx context.Context, limit int64, cursor *schedulestore.Cursor) ([]schedulestore.Schedule, error)
 }
 
-// Service implements schedulev1connect.ScheduleServiceHandler.
 type Service struct {
 	lister    scheduleLister
 	schedules scheduleWriter
@@ -60,8 +53,6 @@ func (s *Service) ListSchedules(ctx context.Context, req *connect.Request[schedu
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list schedules: %w", err))
 	}
 
-	// One clock for the whole page, so two rows with the same expression report
-	// the same next run rather than times a microsecond apart.
 	now := time.Now()
 
 	resources := xslice.Map(page, func(stored schedulestore.Schedule) schedule { return renderSchedule(stored, now) })
@@ -164,9 +155,6 @@ func (s *Service) ArchiveSchedule(ctx context.Context, req *connect.Request[sche
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// configFrom reads a create request into the store's config. Update builds its own
-// inline, since the two requests are separate messages that happen to carry the
-// same fields.
 func configFrom(req *schedulev1.CreateScheduleRequest) schedulestore.Config {
 	return schedulestore.Config{
 		Name:       req.GetName(),

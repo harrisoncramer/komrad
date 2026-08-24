@@ -8,27 +8,20 @@ import (
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// dbTools holds the read-only handle the MCP tools query against.
 type dbTools struct {
 	db *pgxpool.Pool
 }
 
-// listTablesInput carries no arguments, since list_tables takes none.
 type listTablesInput struct{}
 
-// listTablesResult wraps the tables in an object so the tool's structured output
-// is a record, which the MCP structuredContent schema requires (a bare array is
-// rejected).
 type listTablesResult struct {
 	Tables []tableInfo `json:"tables"`
 }
 
-// describeTableInput names the table to describe.
 type describeTableInput struct {
 	Table string `json:"table" jsonschema:"Name of the table to describe"`
 }
 
-// queryInput carries the SQL to run.
 type queryInput struct {
 	SQL string `json:"sql" jsonschema:"A single read-only SELECT (or WITH ... SELECT) statement to execute"`
 }
@@ -48,8 +41,6 @@ func (d *dbTools) registerTools(server *mcpsdk.Server) {
 		Annotations: &mcpsdk.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true},
 	}, d.handleDescribeTable)
 
-	// The description says outright that this reads every agent's conversation, since a
-	// scope filter over arbitrary SQL would be escaped by a subselect.
 	mcpsdk.AddTool(server, &mcpsdk.Tool{
 		Name:        "query",
 		Title:       "Run Read-Only Query",
@@ -89,8 +80,6 @@ func textResult(text string) *mcpsdk.CallToolResult {
 	}
 }
 
-// errorResult reports a tool-level error back to the model as text with IsError
-// set, rather than a protocol error, so the model can read what went wrong.
 func errorResult(err error) *mcpsdk.CallToolResult {
 	return &mcpsdk.CallToolResult{
 		IsError: true,

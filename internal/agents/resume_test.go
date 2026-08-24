@@ -21,13 +21,11 @@ func TestResumeDir(t *testing.T) {
 
 	tests := []struct {
 		name string
-		// cwd builds the recorded working directory from a scratch root, and may
-		// arrange for it to be missing or unmakeable.
+
 		cwd func(t *testing.T, root string) string
-		// wantDir derives the directory the restore should land in.
+
 		wantDir func(root, fallbackResumeRoot string) string
-		// wantMoved says the conversation should have been carried into the directory
-		// the agent ends up in, which only a stand-in needs.
+
 		wantMoved bool
 	}{
 		{

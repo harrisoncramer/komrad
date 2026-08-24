@@ -53,7 +53,6 @@ func TestAttachRefusesWithoutAPanel(t *testing.T) {
 	}
 }
 
-// attachState is the wiring the root command builds, cut down to what attach reaches.
 func attachState(socket string) *app {
 	manager := tmux.NewClient(socket)
 	host := tmux.NewHost(manager, "")
@@ -67,14 +66,8 @@ func attachState(socket string) *app {
 	}
 }
 
-// sockets counts the servers this package has named. A name has to be this call's own, not
-// this test's: t.TempDir() numbers its directories per test, so its first is 001 in every
-// one, and two tests asking for that socket each registered a cleanup that killed the
-// other's server. The pid keeps the names apart from any other package's run.
 var sockets atomic.Int64
 
-// throwawaySocket names a tmux server of this test's own, killed on cleanup, so nothing here
-// touches the panel's server or the user's.
 func throwawaySocket(t *testing.T) string {
 	t.Helper()
 	if _, err := exec.LookPath("tmux"); err != nil {

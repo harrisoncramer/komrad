@@ -62,8 +62,6 @@ func TestApplySearchResults(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// An empty result blanks the preview, so the model needs its stage even
-			// though nothing here draws.
 			m := model{
 				screen: screenSearch,
 				search: searchState{query: tt.query},
@@ -326,8 +324,6 @@ func TestLineAtOffset(t *testing.T) {
 	}
 }
 
-// hits builds search results from names alone, for the cases that only care
-// which results survive.
 func hits(names ...string) []searchHit {
 	out := make([]searchHit, 0, len(names))
 	for _, name := range names {
@@ -395,8 +391,6 @@ func TestJumpToSearchHit(t *testing.T) {
 
 			rows, cursor := got.agentRows(), got.tree.cursor
 			if got.screen == screenArchive {
-				// The archive is listed only while its screen is up, so the row the jump named
-				// arrives with the pass the entry asked for.
 				got.applyArchive(got.archive.agents, nil, "")
 				rows, cursor = got.archiveRows(), got.archive.cursor
 			}
@@ -534,8 +528,6 @@ func TestSearchHitsTakeTheKeys(t *testing.T) {
 	}
 }
 
-// fakeSearchAgents records the two calls opening a hit can make. The embedded interface
-// is nil, so anything else panics rather than quietly answering.
 type fakeSearchAgents struct {
 	agentv1connect.AgentServiceClient
 	restored []string

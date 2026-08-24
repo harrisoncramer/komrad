@@ -41,9 +41,6 @@ func (r iteratorForInsertTranscriptChunks) Err() error {
 	return nil
 }
 
-// InsertTranscriptChunks appends turns for one agent. Copy rather than insert, so
-// a sync that folded in several turns writes them in one stream instead of a round
-// trip each.
 func (q *Queries) InsertTranscriptChunks(ctx context.Context, arg []InsertTranscriptChunksParams) (int64, error) {
 	return q.db.CopyFrom(ctx, []string{"agent_transcript_chunks"}, []string{"agent_id", "seq", "role", "content", "content_offset"}, &iteratorForInsertTranscriptChunks{rows: arg})
 }

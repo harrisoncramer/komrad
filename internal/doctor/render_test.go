@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// sample is a report with one finding of each status, which is what the renderer has to
-// draw without the columns moving.
 func sample() Report {
 	findings := []Finding{
 		{Name: "tmux", Status: StatusOK, Detail: "/usr/bin/tmux"},
@@ -35,9 +33,6 @@ func TestWriteTextColumnsLineUp(t *testing.T) {
 	require.NoError(t, WriteText(&out, report, false))
 	rendered := out.String()
 
-	// The column each finding's text begins at, found by locating that finding's own
-	// rendered text in the line carrying its name; both are known here, so this
-	// measures the layout rather than re-deriving it.
 	columns := make(map[string]int, len(report.Findings))
 	for _, finding := range report.Findings {
 		var row string

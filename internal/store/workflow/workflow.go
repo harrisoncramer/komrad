@@ -1,9 +1,3 @@
-// Package workflow persists the named buckets agents are grouped into, the
-// workflows table and the config row holding the defaults new agents inherit.
-//
-// Deleting a workflow also has to do something about the agents inside it, and
-// those live in the agent package. The caller composes both inside one transaction
-// rather than this package reaching across.
 package workflow
 
 import (
@@ -17,38 +11,26 @@ import (
 	"weave/lib/xslice"
 )
 
-// Workflow is a named bucket of related agents. It runs nothing. Its default
-// harness, cwd, and flags are the blueprint prefilled into the new-agent form for
-// agents created inside it.
 type Workflow struct {
 	ID   string
 	Name string
-	// Context is free-text durable state for the workflow, edited by the user.
+
 	Context string
-	// Harness names the CLI agents in this workflow run, empty when they take
-	// whatever the user configured as their default.
+
 	Harness string
 	Cwd     string
 	Flags   string
-	// SetupAction names the action run before an agent in this workflow starts, and
-	// CleanupAction the one run once one is deleted. Both are blank for none, and both
-	// name a file in the actions directory, so nothing here can promise it still exists.
+
 	SetupAction   string
 	CleanupAction string
-	// Worktree is the generated git worktree per agent this workflow is set up for,
-	// disabled by default.
+
 	Worktree WorktreeConfig
-	// ArchivedAt is when the workflow was put away, nil while it is live. The archive draws
-	// an archived header differently from a live one, so it has to tell them apart.
+
 	ArchivedAt *time.Time
-	// UpdatedAt is when the row last changed, for display. The listing sorts by
-	// id instead, so an edit never moves a workflow out from under the reader.
+
 	UpdatedAt time.Time
 }
 
-// Config is the editable blueprint of a workflow. Its display label, its free-text
-// context, the actions run around its agents' lives, and the harness, cwd, and flags
-// seeded into agents created inside it.
 type Config struct {
 	Name          string
 	Context       string
@@ -60,21 +42,16 @@ type Config struct {
 	Worktree      WorktreeConfig
 }
 
-// WorktreeConfig turns on a generated git worktree per agent for a workflow. The repo it
-// works against is the workflow's own Cwd, so enabling it requires that to be set.
 type WorktreeConfig struct {
 	Enabled bool
-	// BaseBranch is the branch a new worktree is built from, blank for the repo's
-	// default branch.
+
 	BaseBranch string
-	// CopyPaths are files copied fresh into every new worktree, relative to Cwd.
+
 	CopyPaths []string
-	// SymlinkPaths are directories symlinked back to Cwd instead of duplicated into
-	// every worktree.
+
 	SymlinkPaths []string
 }
 
-// Store reads and writes workflows.
 type Store struct {
 	queries *models.Queries
 }
@@ -104,8 +81,6 @@ func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 	}), nil
 }
 
-// Cursor locates a workflow within a listing. The id is the sort key and is unique,
-// so it is the whole cursor.
 type Cursor struct {
 	ID string `json:"i"`
 }
@@ -326,8 +301,6 @@ func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow,
 	return &workflow, nil
 }
 
-// orEmpty turns a nil slice into an empty one, since pgx encodes a nil []string as SQL
-// NULL and the column is declared NOT NULL.
 func orEmpty(paths []string) []string {
 	if paths == nil {
 		return []string{}
@@ -336,14 +309,12 @@ func orEmpty(paths []string) []string {
 	return paths
 }
 
-// workflowConfigFields is what a listing or get joins in from workflow_configs.
 type workflowConfigFields struct {
 	Harness string
 	Cwd     string
 	Flags   string
 }
 
-// actionConfigFields is what a listing or get joins in from workflow_action_configs.
 type actionConfigFields struct {
 	SetupAction          string
 	CleanupAction        string

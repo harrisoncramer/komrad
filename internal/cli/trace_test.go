@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// writeLog puts a log of the shape the service writes on disk and returns its path.
 func writeLog(t *testing.T, lines ...string) string {
 	t.Helper()
 

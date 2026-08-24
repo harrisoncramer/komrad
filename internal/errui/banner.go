@@ -10,29 +10,16 @@ import (
 	"connectrpc.com/connect"
 )
 
-// Banner is a write the panel asked for and the service refused. Unlike the screens above,
-// it reports without taking the screen, since a refused write means one thing didn't
-// happen rather than putting everything on screen in doubt.
-//
-// The caller is expected to hold it until dismissed rather than show it and forget it,
-// since the panel reloads its lists after every write and a refused delete would otherwise
-// look identical to a keypress that never registered.
 type Banner struct {
-	// Summary says what the panel was trying to do, in the terms the user acted in
-	// rather than the service's.
 	Summary string
-	// Detail is the reason the service gave.
+
 	Detail string
-	// Hint says how the banner goes away: blank means esc, except over a form, where esc
-	// backs out of the form instead.
+
 	Hint string
-	// Trace is the id the service logged this failure under, blank when it did not say.
-	// It is offered as the command that reads it rather than as a bare id, since knowing
-	// the id and knowing what to do with it are not the same thing.
+
 	Trace string
 }
 
-// bannerIndent lines the detail up under the summary, past the marker.
 const bannerIndent = "  "
 
 // Render draws the banner that sits above the active screen, folded to a pane of the given
@@ -46,8 +33,6 @@ func (b Banner) Render(width int) string {
 
 	out.WriteString(styled(Red, fold("✗ "+b.Summary, folded, bannerIndent)) + "\n")
 
-	// A service that fails without saying why still has to render as something, or
-	// the banner is a red line with nothing under it.
 	detail := b.Detail
 	if detail == "" {
 		detail = "no reason given"

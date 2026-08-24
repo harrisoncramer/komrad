@@ -14,8 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// numbered builds a list of rows named for their index, so a window over them can
-// be asserted on by name rather than by counting blank strings.
 func numbered(n int) []string {
 	rows := make([]string, 0, n)
 	for i := range n {
@@ -25,8 +23,6 @@ func numbered(n int) []string {
 	return rows
 }
 
-// lines splits a rendered list into the lines it drew, dropping the trailing
-// newline every row ends with so an empty final element does not count as a line.
 func lines(rendered string) []string {
 	trimmed := strings.TrimSuffix(rendered, "\n")
 	if trimmed == "" {
@@ -107,8 +103,6 @@ func TestRenderListWindow(t *testing.T) {
 			want:   []string{"  ↑ 16 more", "row16", "row17", "row18", "row19"},
 		},
 		{
-			// A pane this short cannot both say what it cut and show the row under the
-			// cursor, so the counts are what give way.
 			name:   "a pane with room for one row spends it on the hovered row",
 			cursor: 7,
 			lines:  1,
@@ -168,8 +162,6 @@ func TestScreensFitThePane(t *testing.T) {
 		m.schedules.items = append(m.schedules.items, scheduleItem{schedule: schedulestore.Schedule{Name: name}})
 	}
 
-	// Every cursor sits on the last row, the one a list that ran off the bottom
-	// would have taken off screen with it.
 	m.tree.cursor = total
 	m.archive.cursor = total
 	m.schedules.cursor = total - 1
@@ -203,8 +195,6 @@ func TestScreensFitThePane(t *testing.T) {
 			shown.helpExpanded = true
 			view := shown.View()
 
-			// The renderer draws what follows the last newline as a line of its own, so
-			// a view ending in one is a line taller than it reads and scrolls the pane.
 			assert.NotEqual(t, "\n", view[len(view)-1:], "the view ends without a trailing newline")
 			assert.LessOrEqual(t, len(lines(view)), height)
 			assert.Contains(t, view, "agent39", "the hovered row is on screen")

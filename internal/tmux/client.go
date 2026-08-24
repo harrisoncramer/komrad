@@ -1,6 +1,3 @@
-// Package tmux wraps the tmux CLI for a single tmux server socket. Query methods
-// return output and an error. Side-effect methods are best effort, since the panel
-// closes right after and a failure is not recoverable.
 package tmux
 
 import (
@@ -17,28 +14,16 @@ import (
 	"weave/internal/logging"
 )
 
-// paneOwnerOption is the pane-scoped tmux option an agent's pane is stamped with. The @
-// prefix is what tmux reserves for user options, so it cannot collide with its own.
 const paneOwnerOption = "@weave_agent_id"
 
-// queryTimeout bounds a single tmux call. Every command here is a request and an answer
-// over a local socket, so a healthy one costs milliseconds and only a server that has
-// stopped answering trips this.
 const queryTimeout = 5 * time.Second
 
-// killDelay is how long a timed-out tmux gets after being killed before its output is
-// abandoned. Without it a daemonized server still holding the inherited stdout keeps the
-// read blocked, which is the hang the timeout was there to prevent.
 const killDelay = 100 * time.Millisecond
 
-// Client talks to one tmux server, addressed by socket name or socket path. The server
-// flags are held whole, since the two forms differ in flag as well as value.
 type Client struct {
 	server []string
 }
 
-// DefaultSocket is the socket tmux uses when nothing names one, so it is the server a
-// command run from a shell outside tmux means.
 const DefaultSocket = "default"
 
 // NewClient returns a Client bound to a tmux server by socket name, which is how the manager's own server is reached.
@@ -127,20 +112,11 @@ func (c *Client) ClearPaneOwner(pane string) error {
 	return nil
 }
 
-// PaneStatus is what one pane says about itself: the agent it is stamped for, and the
-// program in its foreground.
 type PaneStatus struct {
 	Owner   string
 	Command string
 }
 
-// shellCommands are the foreground programs that mean a pane holds nothing but the shell
-// weave typed the launch command into. The CLIs report anything but their own name here,
-// Claude its version string and Codex its wrapper script, so only a recognised shell is
-// read as a pane whose CLI has gone and everything else is taken for one still running. A
-// name missing from this list costs nothing but a dead CLI going unnoticed, which is why it
-// is generous: dash is /bin/sh on Debian, and the login forms are how Linux reports a shell
-// tmux started as one.
 var shellCommands = map[string]bool{
 	"sh": true, "-sh": true,
 	"bash": true, "-bash": true,
@@ -450,14 +426,6 @@ func (c *Client) CapturePane(pane string) string {
 	return c.value("capture-pane", "-p", "-e", "-t", pane)
 }
 
-// query runs a tmux command and returns its stdout. A failure carries the command that
-// failed and whatever tmux wrote to stderr, since an exit status on its own says neither
-// which call broke nor why, and these run on a loop where nobody is watching.
-//
-// Nobody watching is also why the call is bounded. A reconcile pass runs to completion
-// before its loop looks at its context again, so a tmux that never answers would stop
-// every agent's state being read from then on. Giving up reads as not having read rather
-// than as the pane being gone, which is what the callers already do with a failure.
 func (c *Client) query(args ...string) (string, error) {
 	command := slices.Concat(c.server, args)
 
@@ -469,9 +437,6 @@ func (c *Client) query(args ...string) (string, error) {
 
 	out, err := cmd.Output()
 
-	// Running out of time is reported ahead of the error the kill produced, which says only
-	// that something signalled the process. Whatever tmux wrote before it went is dropped,
-	// since a half-read frame answered as if it were whole is worse than no answer.
 	if err != nil && ctx.Err() != nil {
 		return "", fmt.Errorf("tmux %s: gave up waiting after %s", strings.Join(command, " "), queryTimeout)
 	}
@@ -484,8 +449,6 @@ func (c *Client) query(args ...string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// stderrDetail renders what a failed command wrote to stderr, blank when it wrote
-// nothing. Output collects it on the ExitError rather than in the error's own text.
 func stderrDetail(err error) string {
 	var exitErr *exec.ExitError
 	if !errors.As(err, &exitErr) {
@@ -500,20 +463,12 @@ func stderrDetail(err error) string {
 	return ": " + detail
 }
 
-// run performs a side-effecting tmux command. The result stays unreturned, since the
-// caller has nothing to do about it, but a failure is logged rather than dropped: silently
-// this is a pane that did not die or a key that did not bind, with nothing to read after.
 func (c *Client) run(args ...string) {
 	if _, err := c.query(args...); err != nil {
 		slog.Default().Warn("a tmux command failed", logging.Attrs(logging.Err(err))...)
 	}
 }
 
-// value runs a tmux command whose answer is a single string, returning empty when it
-// fails. The zero value is the answer these callers want, since an option that is unset
-// and a pane that is gone both read as nothing, but the failure is logged at debug so a
-// wrong answer can still be traced. It is debug rather than warn because these run per
-// agent per pass, and a tmux that is down would otherwise fill the log.
 func (c *Client) value(args ...string) string {
 	out, err := c.query(args...)
 	if err != nil {
@@ -531,7 +486,6 @@ func clientTarget(client string) []string {
 	return []string{"-c", client}
 }
 
-// paneID gets a pane target's canonical id, empty if it no longer exists.
 func (c *Client) paneID(target string) (string, error) {
 	return c.query("display-message", "-p", "-t", target, "#{pane_id}")
 }

@@ -1,5 +1,3 @@
-// Package agent serves AgentService over ConnectRPC, backed by the store and the
-// service that launches agents.
 package agent
 
 import (
@@ -25,9 +23,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// agentLauncher is the part of the agent manager the service drives. Creating an agent
-// opens a tmux window and types a command line into it, so the service delegates rather
-// than writing the record itself.
 type agentLauncher interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
 	IsAgentRunning(agent agentstore.Agent) bool
@@ -48,8 +43,6 @@ type agentReadWriter interface {
 	Rename(ctx context.Context, id, name string) (bool, error)
 }
 
-// transcriptReader is the part of the transcript store this handler reads. One RPC surface
-// covers both domains, but each store is held separately.
 type transcriptReader interface {
 	Get(ctx context.Context, agentID string) (transcriptstore.Transcript, error)
 	Search(ctx context.Context, params transcriptstore.SearchParams) ([]transcriptstore.SearchHit, error)
@@ -63,7 +56,6 @@ type mailer interface {
 	ListUnreadMailboxes(ctx context.Context) ([]string, error)
 }
 
-// Service implements agentv1connect.AgentServiceHandler.
 type Service struct {
 	agents      agentReadWriter
 	transcripts transcriptReader
@@ -263,8 +255,6 @@ func (s *Service) Log(ctx context.Context, req *connect.Request[agentv1.LogReque
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// callerScope is the agent a call is about: the one named, or the caller's own when none is,
-// the same fallback searchScope gives a search naming nobody.
 func callerScope(ctx context.Context, requested string) string {
 	if requested != "" {
 		return requested
@@ -526,9 +516,6 @@ func (s *Service) GetTranscript(ctx context.Context, req *connect.Request[agentv
 	return connect.NewResponse(&agentv1.GetTranscriptResponse{Content: tr.Content}), nil
 }
 
-// searchScope is the one agent a search is confined to, nil for a search across all of
-// them, so an agent that named nobody reads its own conversation and the panel reads
-// everyone.
 func searchScope(ctx context.Context, requested string) *string {
 	if requested != "" {
 		return &requested
@@ -542,8 +529,6 @@ func searchScope(ctx context.Context, requested string) *string {
 	return &from.AgentID
 }
 
-// logCrossAgentRead records an agent reading a conversation other than its own, which is
-// what a scoping keyed on a header a caller sets about itself leaves worth having.
 func logCrossAgentRead(ctx context.Context, target, message string) {
 	from := caller.From(ctx)
 	if from.AgentID == "" || from.AgentID == target {

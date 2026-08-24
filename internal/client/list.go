@@ -14,13 +14,8 @@ const (
 	maxPages = 50
 )
 
-// fetchPage reads one page and reports its records alongside the token for the
-// next, empty once the listing is exhausted; each listing has its own request and
-// response messages, so this is the only shape they share.
 type fetchPage[T any] func(ctx context.Context, page *paginationv1.Pagination) ([]T, string, error)
 
-// listAll follows a listing's page tokens to the end and returns everything they
-// covered; running out of pages is a failure rather than the end of the listing.
 func listAll[T any](ctx context.Context, fetch fetchPage[T]) ([]T, error) {
 	var (
 		all    []T

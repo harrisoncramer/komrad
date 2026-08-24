@@ -1,5 +1,3 @@
-// Package commentprefix contains the analyzer responsible for checking that any
-// doc comment on an exported function or method begins with the identifier name.
 package commentprefix
 
 import (
@@ -22,8 +20,6 @@ func NewAnalyzer(_ config.CommentPrefixConfig) *analysis.Analyzer {
 		Doc:  "Checks that doc comments on exported functions and methods begin with the identifier name",
 		Run: func(pass *analysis.Pass) (any, error) {
 			for _, file := range pass.Files {
-				// Test files hold exported helpers (TestXxx, BenchmarkXxx) whose
-				// comments don't describe a renamable API; skip them entirely.
 				if strings.HasSuffix(pass.Fset.File(file.Pos()).Name(), "_test.go") {
 					continue
 				}
@@ -50,8 +46,6 @@ func NewAnalyzer(_ config.CommentPrefixConfig) *analysis.Analyzer {
 	}
 }
 
-// doesStartWithWord reports whether text begins with word as a whole word, i.e. word
-// is not immediately followed by another identifier character.
 func doesStartWithWord(text, word string) bool {
 	if !strings.HasPrefix(text, word) {
 		return false

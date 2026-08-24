@@ -23,17 +23,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The unit tests in this package fake River and fake the store, so they assert
-// that the Go around the guarantees is right and say nothing about the
-// guarantees themselves. Both of them live outside Go: River's unique index over
-// a job's encoded arguments, and the partial unique index on an agent's
-// idempotency key. These run against a real River client on a real database, so
-// the claim that a firing cannot happen twice is checked rather than assumed.
-
-// newRiverClient builds a River client over a throwaway database, migrated the
-// way serve migrates it. The worker's dependencies are the package's fakes,
-// since these tests are about what the queue does with a job rather than what
-// the job does.
 func newRiverClient(t *testing.T) *river.Client[pgx.Tx] {
 	t.Helper()
 
@@ -61,10 +50,10 @@ func TestFiringIsQueuedOnce(t *testing.T) {
 
 	tests := []struct {
 		name string
-		// first and second are the two firings inserted, in order.
+
 		first  LaunchAgentArgs
 		second LaunchAgentArgs
-		// wantDuplicate says the second insert should have been swallowed.
+
 		wantDuplicate bool
 	}{
 		{
@@ -111,8 +100,7 @@ func TestFiringIsQueuedOnceAfterAnAttemptEnded(t *testing.T) {
 
 	tests := []struct {
 		name string
-		// cancel says the first attempt was cancelled, which is what the worker
-		// does for a schedule that is paused, deleted, or still running.
+
 		cancel bool
 	}{
 		{
@@ -156,10 +144,9 @@ func TestPeriodicRegistrationIsKeyedByItsId(t *testing.T) {
 
 	tests := []struct {
 		name string
-		// added are the ids registered, in order.
+
 		added []string
-		// wantAddErr says the last registration should have been refused, since two
-		// jobs under one id would leave the schedule firing after a removal.
+
 		wantAddErr bool
 	}{
 		{
@@ -209,13 +196,11 @@ func TestScheduledLaunchCreatesOneAgent(t *testing.T) {
 
 	tests := []struct {
 		name string
-		// occurrences are the firings worked, in order.
+
 		occurrences []time.Time
-		// promoteAfterFirst leaves the first launch's agent visibly working, which
-		// is what makes the next firing skip rather than launch.
+
 		promoteAfterFirst bool
-		// wantSkipped says the last firing declined to launch, which the worker
-		// reports as a cancellation rather than a failure.
+
 		wantSkipped bool
 		wantAgents  int
 	}{
@@ -282,13 +267,8 @@ func TestScheduledLaunchCreatesOneAgent(t *testing.T) {
 	}
 }
 
-// claudeHarnessID is the harness the seeded workflows run, named here so a test
-// reads the same id the registry below is built from.
 const claudeHarnessID = "claude"
 
-// newAgentService builds the real agent service over the test's stores. Only
-// tmux is stood in for, since a launch opens a window and types a command into
-// it, and neither is what these tests are about.
 func newAgentService(t *testing.T, stores *storetest.Stores) *agents.AgentService {
 	t.Helper()
 
@@ -307,9 +287,6 @@ func newAgentService(t *testing.T, stores *storetest.Stores) *agents.AgentServic
 	})
 }
 
-// promoteScheduleAgents marks a schedule's agents as visibly working, which is
-// what the reconciler would do once it saw their panes and what the next firing
-// reads to decide it has been lapped.
 func promoteScheduleAgents(t *testing.T, stores *storetest.Stores, scheduleID string) {
 	t.Helper()
 
@@ -325,9 +302,6 @@ func promoteScheduleAgents(t *testing.T, stores *storetest.Stores, scheduleID st
 	}
 }
 
-// stubTmux stands in for the tmux server a launch would touch. Every window it
-// opens is a name rather than a pane, and the command a launch types goes
-// nowhere.
 type stubTmux struct {
 	panes int
 }
@@ -354,8 +328,6 @@ func (s *stubTmux) GetClientPath(string) string { return "" }
 
 func (s *stubTmux) SendKeys(string, ...string) error { return nil }
 
-// blockingLauncher holds a launch open until the test lets it go, standing in for
-// an agent partway through being typed into its pane.
 type blockingLauncher struct {
 	started chan struct{}
 	release chan struct{}
@@ -407,8 +379,6 @@ func TestStopWaitsForALaunchInFlight(t *testing.T) {
 	stopped := make(chan error, 1)
 	go func() { stopped <- client.Stop(t.Context()) }()
 
-	// The launch is still going, so a stop that returned here would be the process
-	// walking out on it.
 	select {
 	case <-stopped:
 		t.Fatal("the stop did not wait for the launch")

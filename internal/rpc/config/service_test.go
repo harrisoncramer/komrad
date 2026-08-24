@@ -22,9 +22,7 @@ import (
 func TestGetConfig(t *testing.T) {
 	tests := []struct {
 		name string
-		// file is written to the config path before the call. An empty one writes
-		// nothing and names no path, which is how the server runs on a machine that
-		// never wrote a config.
+
 		file  string
 		check func(t *testing.T, resp *configv1.GetConfigResponse)
 	}{
@@ -160,8 +158,6 @@ func TestGetConfigKeysMatchTheFile(t *testing.T) {
 	}
 }
 
-// binding digs one binding's keys out of the blob, so a row can name the screen and
-// the binding rather than walking to them itself.
 func binding(t *testing.T, resp *configv1.GetConfigResponse, screen, name string) []any {
 	t.Helper()
 
@@ -174,8 +170,6 @@ func binding(t *testing.T, resp *configv1.GetConfigResponse, screen, name string
 	return keys
 }
 
-// lookup walks the blob to the value at a path, reporting whether every key along
-// the way was there.
 func lookup(fields map[string]any, path []string) (any, bool) {
 	var current any = fields
 
@@ -194,8 +188,6 @@ func lookup(fields map[string]any, path []string) (any, bool) {
 	return current, true
 }
 
-// harnessFlags digs one harness's configured flags out of the blob, so a row names
-// the harness rather than walking to it.
 func harnessFlags(t *testing.T, resp *configv1.GetConfigResponse, id string) any {
 	t.Helper()
 

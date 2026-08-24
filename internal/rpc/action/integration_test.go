@@ -31,9 +31,7 @@ import (
 // sees it, and the payload actually arriving in a process.
 func TestActionServiceOverHTTP(t *testing.T) {
 	dir := t.TempDir()
-	// Where the agent claims to have worked, and never created. An action fired on an agent
-	// whose worktree has already been removed has to run anyway, since tidying up after that
-	// removal is what one is for.
+
 	work := filepath.Join(t.TempDir(), "removed-worktree")
 	out := filepath.Join(dir, "payload.json")
 
@@ -41,8 +39,7 @@ func TestActionServiceOverHTTP(t *testing.T) {
 		"#!/bin/sh\nprintf '%s' \"$WEAVE_AGENT\" > payload.json\n",
 	), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "unrunnable"), []byte("#!/bin/sh\n"), 0o644))
-	// The editing action the panel's editor key reaches, written here rather than shipped, so
-	// this also covers a user's own file standing in for the built-in one.
+
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "_edit_action"), []byte(
 		"#!/bin/sh\nprintf '%s' \"$WEAVE_EDIT_PATH\" > edited.txt\n",
 	), 0o755))
@@ -100,8 +97,6 @@ func TestActionServiceOverHTTP(t *testing.T) {
 		}))
 		require.NoError(t, err)
 
-		// Firing returns as soon as the process exists rather than once it has finished, so
-		// waiting for what it left behind is the only thing a caller can do.
 		var written []byte
 		require.Eventually(t, func() bool {
 			read, err := os.ReadFile(out)
@@ -113,9 +108,7 @@ func TestActionServiceOverHTTP(t *testing.T) {
 		assert.Contains(t, string(written), `"name":"auth"`)
 		assert.Contains(t, string(written), `"workflow":"backend"`)
 		assert.Contains(t, string(written), `"pane":"%9"`)
-		// The relative write landing here is the whole of the claim: the process started
-		// among its own siblings, which is what lets one action source another, and it
-		// started at all despite the agent's own directory being gone.
+
 		assert.Contains(t, string(written), `"cwd":"`+work+`"`)
 	})
 
@@ -150,7 +143,6 @@ func TestActionServiceOverHTTP(t *testing.T) {
 	})
 }
 
-// names is what a listing holds, in the order it arrived.
 func names(listed []*actionv1.Action) []string {
 	found := make([]string, 0, len(listed))
 	for _, action := range listed {
@@ -160,9 +152,6 @@ func names(listed []*actionv1.Action) []string {
 	return found
 }
 
-// actionClient stands the service up behind a real server, with the validation interceptor the
-// panel and the MCP tools both go through, and returns a client pointed at it. work is the
-// directory the agent claims, which an action is told about and never runs in.
 func actionClient(t *testing.T, dir, work string) actionv1connect.ActionServiceClient {
 	t.Helper()
 
@@ -196,7 +185,6 @@ func actionClient(t *testing.T, dir, work string) actionv1connect.ActionServiceC
 	return actionv1connect.NewActionServiceClient(server.Client(), server.URL)
 }
 
-// stubAgents answers for one agent, so this needs no database.
 type stubAgents struct {
 	cwd string
 }

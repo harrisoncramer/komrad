@@ -10,34 +10,10 @@ import (
 	"weave/internal/harness"
 )
 
-// mcpConfigJSON is the MCP client config every agent launches with, pointing at
-// the panel's own read-only endpoint. It is passed with --mcp-config rather than
-// --strict-mcp-config, so an agent gains this server on top of whatever the user
-// has already registered instead of trading them for it.
-//
-// alwaysLoad exempts the panel from Claude's tool search, which otherwise defers every
-// MCP tool behind a lookup step while the built-in subagent tool sits in context already.
-// An agent told to spawn something then reaches for the tool it can see. These are the
-// tools weave expects on every turn, so they are the case that setting is for.
-//
-// The headers are what let the service tell one caller from another. They are written as
-// variables rather than as this agent's own ids, because Claude expands them out of the
-// environment it is launched with, which the panel has already put the ids into. That is
-// what keeps this one shared file: an agent fills in its own identity as it starts, so two
-// agents reading the same file still call back as themselves. The :- default leaves the
-// header empty rather than literal when a variable is unset.
 const mcpConfigJSON = `{"mcpServers":{"weave":{"type":"http","url":"http://%s/mcp","alwaysLoad":true,` +
 	`"headers":{"` + caller.AgentHeader + `":"${` + harness.AgentIDEnv + `:-}",` +
 	`"` + caller.SessionHeader + `":"${` + harness.SessionIDEnv + `:-}"}}}}`
 
-// deniedAgents are the Claude subagent types an agent weave launched may not use. A
-// subagent is a context inside this one conversation, with no pane to open, no mail
-// address, and nothing left in the panel once it returns, so a request to spawn an agent
-// is a request weave's own create_agent answers and these cannot. The read-only search
-// agents are left alone, since fanning out over a codebase is not spawning anything.
-//
-// It is a deny rather than wording in the briefing because a deny at this layer cannot be
-// argued with: a tool denied anywhere is denied everywhere.
 var deniedAgents = []string{"Agent(general-purpose)", "Agent(claude)"}
 
 // BuildCommand renders the command line that puts Claude up. It is not executed
@@ -49,28 +25,16 @@ var deniedAgents = []string{"Agent(general-purpose)", "Agent(claude)"}
 // prompt passed through temp files so multi-line markdown survives, removed as the
 // command runs.
 func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
-	// The agent's own ids are exported ahead of the CLI, which is both how it can name
-	// itself to the panel and how the MCP config below builds the headers it sends.
 	command := harness.EnvPrefix(launch) + binary
 
-	// Flags are data, not shell. They are split into arguments and quoted, so a flag
-	// carrying $(...), a backtick, or a semicolon reaches claude as a literal argument
-	// instead of running in the pane's shell. They can arrive over RPC, which makes this
-	// the boundary between a request and the user's machine.
 	if quoted := harness.QuoteFlags(launch.Flags); quoted != "" {
 		command += " " + quoted
 	}
 
-	// Both paths get the MCP config: the buildBriefing describing it does not survive a
-	// resume, but the tools it describes should. A failure to write it drops the flag
-	// rather than the launch.
 	if path, err := h.writeMCPConfig(launch.MCPEndpoint); err == nil {
 		command += fmt.Sprintf(" --mcp-config '%s'", path)
 	}
 
-	// A resume gets the settings too, since neither mail arriving nor what an agent may
-	// spawn is tied to the launch that registered it. A failure to write the file drops
-	// the flag rather than the launch, which costs delivery rather than the agent.
 	if path, err := h.writeSettings(launch.HookCommand); err == nil {
 		command += fmt.Sprintf(" --settings '%s'", path)
 	}
@@ -82,16 +46,13 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 		if launch.SessionID != "" {
 			command += " --session-id " + harness.QuoteArg(launch.SessionID)
 		}
-		// The appended system prompt is sourced through a temp file the shell cats in place,
-		// so arbitrary markdown needs no escaping.
+
 		if launch.Context != "" {
 			if path, err := harness.WriteTempText(launch.CacheDir, "claude-context-*.md", launch.Context); err == nil {
 				command += fmt.Sprintf(" --append-system-prompt \"$(cat '%s'; rm '%s')\"", path, path)
 			}
 		}
-		// The opening prompt is positional and --mcp-config takes a variable number of paths,
-		// so the prompt is fenced off with -- or a launch where no flag separates the two would
-		// read the prompt as another config file.
+
 		if launch.Prompt != "" {
 			if path, err := harness.WriteTempText(launch.CacheDir, "claude-prompt-*.md", launch.Prompt); err == nil {
 				command += fmt.Sprintf(" -- \"$(cat '%s'; rm '%s')\"", path, path)
@@ -102,13 +63,6 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	return command, nil
 }
 
-// writeSettings writes the settings file beside Claude's other state and returns its path.
-// Claude reads it as it starts and keeps no copy, so unlike the prompt temp files it stays
-// where it is rather than being removed as the command runs.
-//
-// The denied agents are written whatever else is, since they are true of an agent weave
-// launched rather than of a launch that had somewhere to point a hook. A build that could
-// not work out what to call itself registers no hook and still gets them.
 func (h *Harness) writeSettings(hookCommand string) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -144,10 +98,6 @@ func (h *Harness) writeSettings(hookCommand string) (string, error) {
 	return path, nil
 }
 
-// writeMCPConfig writes the MCP client config beside Claude's other state and
-// returns its path. It is rewritten on every launch so a changed listen address
-// takes effect, and unlike the prompt temp files it is not removed as the command
-// runs, since a resumed agent re-reads it at every relaunch.
 func (h *Harness) writeMCPConfig(endpoint string) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {

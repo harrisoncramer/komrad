@@ -66,18 +66,15 @@ func TestAppendTurns(t *testing.T) {
 func TestTranscriptSyncer(t *testing.T) {
 	tests := []struct {
 		name string
-		// log is the JSONL on disk before the first sync. Empty writes no file at
-		// all, standing in for an agent whose log has not appeared yet.
+
 		log string
-		// wantFirst, when set, is the content expected after the first sync, before
-		// the log changes underneath it.
+
 		wantFirst string
-		// appended and rewritten change the log between the two syncs. Setting
-		// either runs a second sync. Leaving both empty means one sync.
+
 		appended  string
 		rewritten string
 		want      string
-		// searchFor, when set, must find this agent's transcript by trigram.
+
 		searchFor string
 	}{
 		{
@@ -194,8 +191,6 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 	ctx := context.Background()
 	projects := t.TempDir()
 
-	// Seeded oldest first, so the failing agent is the newest and the walk reaches
-	// it before the one it would strand.
 	readable := seedWithSessionID(t, st, "claude-readable", "readable")
 	unsyncable := seedWithSessionID(t, st, "claude-unsyncable", "unsyncable")
 
@@ -209,8 +204,6 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
 	})
 
-	// The failure is still reported, so serve logs it rather than leaving an agent
-	// quietly never indexed.
 	err := syncer.Sync(ctx)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsyncable", "the pass names the agent it could not fold in")
@@ -224,8 +217,6 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 	assert.Empty(t, empty.Content, "the agent that failed has nothing stored")
 }
 
-// failingTranscripts refuses one agent's writes and passes every other call
-// through to the real store.
 type failingTranscripts struct {
 	transcriptReadWriter
 	failFor string
@@ -239,13 +230,8 @@ func (f failingTranscripts) Upsert(ctx context.Context, params transcriptstore.U
 	return f.transcriptReadWriter.Upsert(ctx, params)
 }
 
-// testSessionID is the claude session id every test log is keyed to. The store id
-// is generated on insert, so this only needs to be stable within a test.
 const testSessionID = "claude-abc"
 
-// seedWithSessionID inserts an agent under the given name carrying a claude session
-// id, and returns it with its generated store id, so a transcript can be keyed to
-// the right row.
 func seedWithSessionID(t *testing.T, st *testStore, sessionID, name string) agentstore.Agent {
 	t.Helper()
 	ctx := context.Background()
@@ -257,16 +243,12 @@ func seedWithSessionID(t *testing.T, st *testStore, sessionID, name string) agen
 	return *got
 }
 
-// writeLog writes an agent's JSONL log under a project subdirectory of the
-// given projects dir, the way Claude Code lays them out.
 func writeLog(t *testing.T, projectsDir, body string) string {
 	t.Helper()
 
 	return writeLogFor(t, projectsDir, testSessionID, body)
 }
 
-// writeLogFor is writeLog for a named session, which a test seeding more than one
-// agent needs.
 func writeLogFor(t *testing.T, projectsDir, sessionID, body string) string {
 	t.Helper()
 	dir := filepath.Join(projectsDir, "-some-project")
@@ -277,8 +259,6 @@ func writeLogFor(t *testing.T, projectsDir, sessionID, body string) string {
 	return path
 }
 
-// appendToLog adds to an existing log the way a running agent does, leaving
-// what is already there byte for byte.
 func appendToLog(t *testing.T, path, body string) {
 	t.Helper()
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
@@ -320,8 +300,7 @@ func TestSyncReportsAnUnknownHarness(t *testing.T) {
 func TestSyncAdoptsSessions(t *testing.T) {
 	tests := []struct {
 		name string
-		// found is what the harness reports for the agent, and held is a conversation the
-		// agent was already recorded as holding.
+
 		found string
 		held  string
 		want  string
@@ -384,8 +363,6 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, created)
 
-	// The originator is what the launch would have stamped on the rollout, which is the
-	// whole of what makes this conversation this agent's.
 	dir := filepath.Join(sessions, "2026", "07", "30")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	rollout := filepath.Join(dir, "rollout-2026-07-30T12-41-39-"+sessionID+".jsonl")
@@ -400,7 +377,6 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 		Harnesses:   mustRegistry(t, codex.NewHarness(codex.NewHarnessParams{SessionsDir: sessions})),
 	})
 
-	// The first pass adopts and reads in one go, since the rollout is already on disk.
 	require.NoError(t, syncer.Sync(ctx))
 
 	adopted, err := st.Get(ctx, "adopter")

@@ -18,13 +18,11 @@ import (
 func TestListAll(t *testing.T) {
 	tests := []struct {
 		name string
-		// pages are the records each successive call returns; a token is handed back
-		// after every page but the last.
+
 		pages [][]string
-		// failOn, when positive, is the call that fails instead of answering.
+
 		failOn int
-		// neverEnds keeps handing back a token, standing in for a server whose
-		// cursor does not retire.
+
 		neverEnds bool
 		wantErr   bool
 		want      []string
@@ -36,8 +34,6 @@ func TestListAll(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			// The records already gathered are dropped, since a caller handed a short
-			// slice and no error would read it as the whole listing.
 			name:    "a listing that fails partway",
 			pages:   [][]string{{"a"}, {"b"}},
 			failOn:  2,
@@ -99,8 +95,6 @@ func TestListAll(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 
-			// The first request carries no cursor and each one after it carries the
-			// token the page before handed back.
 			require.Len(t, cursors, len(tt.pages))
 			assert.Empty(t, cursors[0])
 			for i := 1; i < len(cursors); i++ {

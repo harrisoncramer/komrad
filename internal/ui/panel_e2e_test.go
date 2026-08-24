@@ -16,8 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// panelSession is the tmux session the panel's own window is opened in, separate from the
-// manager session the agents run in, the way the popup runs it.
 const panelSession = "panel"
 
 // TestPanelArchivesThroughTheService covers a keypress reaching the database. Every other
@@ -63,8 +61,6 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 	panel = settle(t, panel, panel.refreshCmd())
 	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(panel.agentRows()))
 
-	// The cursor sits on the agent rather than the folder it is nested under, since the
-	// same key on the header archives the whole workflow.
 	panel.tree.cursor = 1
 
 	updated, _ := panel.Update(keyMsg(keys.Agents.Archive[0]))
@@ -72,8 +68,6 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, screenAgentArchive, pressed.screen, "the key opens the confirm prompt rather than archiving outright")
 
-	// Answering the prompt is what actually archives it; the keystrokes that answer it are
-	// exercised in the prompt's own tests, not here.
 	*pressed.values.archive = archiveChoiceArchive
 	pressed.form.State = huh.StateCompleted
 	confirmed, cmd := pressed.updateAgentArchive(keyMsg("enter"))
@@ -113,8 +107,6 @@ func TestStagedAgentArchivedElsewhere(t *testing.T) {
 	assert.Equal(t, []string{staged.navPane, staged.panel.frame.Pane(layout.RegionStage)}, panesInPanel(t, staged.instance),
 		"the panel is a nav pane and a stage pane again")
 
-	// Recovering the layout is only half of it. A stage that still believes it holds the slot
-	// swaps the next agent into the window it lost, so the next agent is staged too.
 	second, err := staged.instance.Agents.CreateAgent(t.Context(), connect.NewRequest(&agentv1.CreateAgentRequest{
 		Prompt:     "rename the config keys",
 		Title:      "config",
@@ -150,9 +142,6 @@ func TestStagedAgentExitsOnItsOwn(t *testing.T) {
 		"the panel is a nav pane and a stage pane again, the now-dormant agent's record in the stage")
 }
 
-// stagedPanel is a panel over the real service with one agent staged. That is the layout
-// every case here starts from, the agent's pane swapped into the slot beside the panel and
-// the stage's own pane away in the agent's window.
 type stagedPanel struct {
 	instance   *weavetest.Instance
 	panel      model
@@ -162,7 +151,6 @@ type stagedPanel struct {
 	agentPane  string
 }
 
-// newStagedPanel stands the service up, launches one agent, and puts the panel's cursor on it.
 func newStagedPanel(t *testing.T) *stagedPanel {
 	t.Helper()
 
@@ -208,7 +196,6 @@ func newStagedPanel(t *testing.T) *stagedPanel {
 	panel = settle(t, panel, panel.refreshCmd())
 	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(panel.agentRows()))
 
-	// Row 0 is the folder the agent is nested under, so the agent itself is row 1.
 	panel.tree.cursor = 1
 	panel.stageSelection()
 	require.Equal(t, agentPane, frame.GuestPane(), "the agent's own pane is swapped into the slot")
@@ -224,7 +211,6 @@ func newStagedPanel(t *testing.T) *stagedPanel {
 	}
 }
 
-// panesInPanel is every pane in the panel's own session, in the order tmux lays them out.
 func panesInPanel(t *testing.T, instance *weavetest.Instance) []string {
 	t.Helper()
 

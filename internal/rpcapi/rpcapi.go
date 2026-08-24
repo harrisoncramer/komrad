@@ -1,6 +1,3 @@
-// Package rpcapi is the set of RPCs exposed to callers outside this process, which is
-// every method carrying a tool annotation. The MCP server turns them into tools and the
-// CLI into subcommands, and both read the surface from here so the two cannot drift.
 package rpcapi
 
 import (
@@ -19,8 +16,6 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-// files are the protos whose services are served. A service missing from here is invisible
-// outside the process whatever its methods are annotated with.
 var files = []protoreflect.FileDescriptor{
 	agentv1.File_agent_v1_agent_proto,
 	workflowv1.File_workflow_v1_workflow_proto,
@@ -29,8 +24,6 @@ var files = []protoreflect.FileDescriptor{
 	actionv1.File_action_v1_action_proto,
 }
 
-// Method is one exposed RPC: the service to address it to, the method itself, and the
-// annotation naming and describing it.
 type Method struct {
 	Service    protoreflect.ServiceDescriptor
 	Method     protoreflect.MethodDescriptor
@@ -132,8 +125,6 @@ func IsRequired(field protoreflect.FieldDescriptor) bool {
 		return true
 	}
 
-	// CEL rules are not read, since what they accept is only knowable by running them, so a
-	// field guarded solely by one is advertised as optional and refused by the server.
 	return rules.GetString().GetMinLen() > 0 || rules.GetRepeated().GetMinItems() > 0
 }
 

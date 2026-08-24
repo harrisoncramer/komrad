@@ -19,9 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// passes drives a loop through a fixed sequence of results and stops it, so a test says
-// what each pass did and nothing waits on a clock. The loop runs its first pass before
-// its first wait, so the sequence is consumed from the top.
 func passes(t *testing.T, level slog.Level, results []error) string {
 	t.Helper()
 
@@ -33,9 +30,6 @@ func passes(t *testing.T, level slog.Level, results []error) string {
 	return drive(t, level, each)
 }
 
-// drive is passes over passes that do something other than return, which is how a test
-// supplies one that panics or one that logs. A result cannot express either, so the
-// sequence holds the passes themselves.
 func drive(t *testing.T, level slog.Level, each []func(context.Context) error) string {
 	t.Helper()
 
@@ -200,8 +194,6 @@ func TestLoopSaysNothingOnceCancelled(t *testing.T) {
 	assert.Empty(t, logtest.Bodies(t, out.String()), "a pass cut short by the shutdown is not a failure")
 }
 
-// fakeRunner stands in for River and records the two things the teardown has to get
-// right: the context it was started on, and the one it was stopped with.
 type fakeRunner struct {
 	startCtx context.Context //nolint:containedctx // the point of the fake is to hold it for inspection
 	stopCtx  context.Context //nolint:containedctx // as above
@@ -261,7 +253,6 @@ func TestBackgroundStopWaitsForTheLoops(t *testing.T) {
 
 	work.stop(context.Background())
 
-	// stop waits on the loops, so nothing runs after it returns.
 	settled := passes.Load()
 	time.Sleep(10 * time.Millisecond)
 	assert.Equal(t, settled, passes.Load(), "the loop is stopped rather than still ticking")

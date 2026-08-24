@@ -17,10 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// panelOnly are the methods deliberately left off the tool surface, each because it acts on
-// the panel's own window rather than on anything a model has. EditAction opens an editor in a
-// pane of the popup, which is a person's screen. A model changing a script reads and writes
-// the file itself.
 var panelOnly = map[protoreflect.Name]bool{"EditAction": true}
 
 // TestEveryMethodIsAnnotated confirms the tool surface keeps up with the
@@ -106,13 +102,11 @@ func TestToolHints(t *testing.T) {
 func TestInputSchema(t *testing.T) {
 	tests := []struct {
 		method string
-		// wantFields is the exact schema expected for each named top-level field.
+
 		wantFields map[string]map[string]any
-		// wantNested is the same for the fields of a nested message field, keyed by
-		// the field holding it.
+
 		wantNested map[string]map[string]map[string]any
-		// wantRequired is what the schema must demand. Nil means it must demand
-		// nothing, so the tool can be called with no arguments.
+
 		wantRequired []string
 	}{
 		{

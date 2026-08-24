@@ -364,8 +364,6 @@ func TestFrameAttachLeavesAnEmptyWindowAlone(t *testing.T) {
 	assert.Empty(t, tmux.killed)
 }
 
-// newDocument is content standing in for a rendered markdown document, identified by what it
-// says and laid out to the pane it lands in.
 func newDocument(markdown string) Content {
 	return Content{
 		Key:    "text:" + markdown,
@@ -374,8 +372,6 @@ func newDocument(markdown string) Content {
 	}
 }
 
-// newProbe is content that records the target it was rendered for, so a test can assert what
-// the frame told it about the pane.
 func newProbe(key string, wraps bool, got *Target) Content {
 	return Content{
 		Key:   key,
@@ -388,34 +384,26 @@ func newProbe(key string, wraps bool, got *Target) Content {
 	}
 }
 
-// recordingTmux records what the frame does to a window rather than laying panes out. Panes are
-// handed out in the order tmux would, so the stage is %1 and the one under it %2.
 type recordingTmux struct {
-	// width is what GetPaneWidth reports for every pane, the columns content lays out to.
 	width int
-	// splits are the panes each region has been split off, each recorded as the direction it
-	// went followed by the anchor and the size tmux was given.
+
 	splits []string
-	// anchors are the panes the stage has been split beside, which is the pane the
-	// frame believes the panel runs in.
+
 	anchors      []string
 	belowAnchors []string
-	// resizes are the widths panes have been set to, each the pane followed by the size.
+
 	resizes []string
 	swaps   int
-	// respawns are the argv each pane has been filled with, alongside the panes themselves.
+
 	respawns     []string
 	respawnPanes []string
-	// siblings are the panes GetSiblingPanes reports beside the panel's own, and owners says
-	// which of them carry an agent's stamp. Together they are the window a replaced panel
-	// left behind.
+
 	siblings []string
 	owners   map[string]string
-	// broken and killed are what reclaim did with those panes.
+
 	broken []string
 	killed []string
-	// deadPanes are the panes IsPaneAlive answers no for, which is how a test stands a pane
-	// up and then takes it away.
+
 	deadPanes map[string]bool
 }
 
@@ -438,8 +426,6 @@ func (t *recordingTmux) SplitAbove(anchor, _, size string) string {
 	return t.recordSplit("above", anchor, size)
 }
 
-// recordSplit notes a split and hands back the pane tmux would, the stage when the split was
-// beside the anchor and the info pane under it when the split was above or below.
 func (t *recordingTmux) recordSplit(direction, anchor, size string) string {
 	t.splits = append(t.splits, strings.Join([]string{direction, anchor, size}, " "))
 
