@@ -7,6 +7,7 @@ import (
 	"slices"
 	"sync"
 	"testing"
+	"time"
 
 	"weave/internal/harness"
 	agentstore "weave/internal/store/agent"
@@ -557,6 +558,16 @@ func seedSpawned(t *testing.T, st *testStore, parentID string) agentstore.Agent 
 	require.NotNil(t, got)
 
 	return *got
+}
+
+// backdateStateSeen ages an agent's confirmation stamp, standing in for the minutes of
+// unreadable passes a test cannot sit through. It writes the column directly because
+// nothing in production ever moves the stamp backwards.
+func backdateStateSeen(t *testing.T, st *testStore, id string, age time.Duration) {
+	t.Helper()
+	_, err := st.Pool.GetDB().Exec(t.Context(),
+		`UPDATE agents SET state_seen_at = NOW() - $2::interval WHERE id = $1`, id, age.String())
+	require.NoError(t, err)
 }
 
 func stateOf(t *testing.T, st *testStore, name string) string {

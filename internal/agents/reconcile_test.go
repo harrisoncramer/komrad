@@ -401,3 +401,122 @@ func TestReconcileWithoutTmux(t *testing.T) {
 	assert.Equal(t, "%1", after.Pane, "the pane is kept, since nothing said it was gone")
 	assert.Equal(t, agentstore.StateThinking, after.State, "and the state stands")
 }
+
+// TestReconcileStampsWhatItConfirmed pins which passes count as having confirmed a state.
+// A pass that read the frame did, whatever it read. A pass that could not read one leaves
+// the stamp where it was, so an agent nothing can observe is never mistaken for an
+// observed one.
+func TestReconcileStampsWhatItConfirmed(t *testing.T) {
+	tests := []struct {
+		name string
+		// harness is the id recorded against the agent, which for anything the registry
+		// does not hold is a pass that reads nothing.
+		harness string
+		// passes is how many times the pass runs, since a frame that reads idle is held
+		// off by the miss count before it settles anything.
+		passes        int
+		frame         string
+		wantConfirmed bool
+	}{
+		{
+			name:          "a working frame confirms the state",
+			passes:        1,
+			frame:         busyFrame,
+			wantConfirmed: true,
+		},
+		{
+			name:          "so does a prompt",
+			passes:        1,
+			frame:         waitFrame,
+			wantConfirmed: true,
+		},
+		{
+			name:          "an idle frame confirms once it has settled the demotion",
+			passes:        reconcileMisses,
+			frame:         idleFrame,
+			wantConfirmed: true,
+		},
+		{
+			name:          "a capture that came back empty confirms nothing",
+			passes:        reconcileMisses + 1,
+			frame:         "",
+			wantConfirmed: false,
+		},
+		{
+			name:          "and neither does a harness nothing here implements",
+			harness:       "gemini",
+			passes:        reconcileMisses + 1,
+			frame:         busyFrame,
+			wantConfirmed: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			ctx := context.Background()
+
+			require.NoError(t, st.Create(ctx, agentstore.Agent{
+				Name:    "agent",
+				Pane:    "%1",
+				State:   agentstore.StateThinking,
+				Harness: tt.harness,
+			}))
+			agent, err := st.Get(ctx, "agent")
+			require.NoError(t, err)
+
+			// Aged past the coalesce interval, so a pass that confirms the state it
+			// already holds has a stamp worth writing.
+			backdateStateSeen(t, st, agent.ID, stateSeenCoalesce+time.Minute)
+			before := agentByID(t, st, agent.ID).StateSeenAt
+
+			tmux := newFakeTmux()
+			tmux.owners["%1"] = agent.ID
+			tmux.captures["%1"] = tt.frame
+
+			rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}}, st.Agents)
+			for range tt.passes {
+				require.NoError(t, rec.Reconcile(ctx))
+			}
+
+			after := agentByID(t, st, agent.ID)
+			if tt.wantConfirmed {
+				assert.True(t, after.StateSeenAt.After(before), "the pass confirmed the state")
+				assert.False(t, isStateUnconfirmed(after))
+
+				return
+			}
+
+			assert.Equal(t, before, after.StateSeenAt, "nothing read the pane, so nothing was confirmed")
+		})
+	}
+}
+
+// TestReconcileCoalescesTheConfirmationStamp covers the cost of writing the stamp at all.
+// Every pass confirms every agent it can read, so a stamp written each time would be an
+// update per agent every couple of seconds, and the panel needs the fact far less precisely
+// than that.
+func TestReconcileCoalescesTheConfirmationStamp(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+	tmux.captures["%1"] = busyFrame
+
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	for range 5 {
+		require.NoError(t, rec.Reconcile(ctx))
+	}
+
+	fresh := agentByID(t, st, agent.ID)
+	assert.Equal(t, agent.UpdatedAt, fresh.UpdatedAt, "a stamp still fresh is not worth a write")
+
+	backdateStateSeen(t, st, agent.ID, stateSeenCoalesce+time.Second)
+	require.NoError(t, rec.Reconcile(ctx))
+
+	stamped := agentByID(t, st, agent.ID)
+	assert.True(t, stamped.StateSeenAt.After(fresh.StateSeenAt), "once it has gone stale it is written")
+	assert.Equal(t, agent.StateChangedAt, stamped.StateChangedAt, "and the state itself never moved")
+}

@@ -441,6 +441,13 @@ table "agents" {
     type    = timestamptz
     default = sql("now()")
   }
+  # When a pass last read this agent's pane and confirmed the state it holds. The reconciler
+  # coalesces the write, so it is not an update per agent every couple of seconds.
+  column "state_seen_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
   # Which agent CLI this agent runs, which decides how it is launched, how its
   # state is read off its pane, and where its conversation log is found. Never
   # empty: an agent whose harness nothing implements cannot be relaunched or

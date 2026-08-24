@@ -34,6 +34,7 @@ type Agent struct {
 	Tag              *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	StateSeenAt      time.Time
 }
 
 // Key/value facts an agent recorded about its own work.

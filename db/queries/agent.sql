@@ -223,6 +223,9 @@ WHERE
 RETURNING
     id;
 
+-- SetAgentStateByID records what a reconcile pass observed. The state stamp only moves
+-- when the value does, since it is how long the agent has held this state, while the seen
+-- stamp moves every time, since it is when a pass last confirmed it.
 -- name: SetAgentStateByID :exec
 UPDATE
     agents
@@ -232,7 +235,8 @@ SET
         NOW()
     ELSE
         state_changed_at
-    END
+    END,
+    state_seen_at = NOW()
 WHERE
     id = @id;
 

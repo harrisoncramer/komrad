@@ -129,8 +129,11 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 		return DeliveryDone, nil
 	}
 
+	// Deferring on an agent mid-turn is only sound while something is still confirming it is
+	// mid-turn. A prompt is left alone whatever its age, since keys typed at one that is
+	// still up are read as the answer to it.
 	switch {
-	case agent.State == agentstore.StateThinking:
+	case agent.State == agentstore.StateThinking && !isStateUnconfirmed(*agent):
 		return DeliverySoon, nil
 	case agent.State == agentstore.StateWaiting:
 		return DeliveryLater, nil

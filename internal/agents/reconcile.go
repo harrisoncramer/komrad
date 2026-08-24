@@ -26,6 +26,19 @@ const reconcileMisses = 3
 // the CLI was still starting. Both CLIs weave ships take about a second to hold their pane.
 const reconcileShellGrace = 10 * time.Second
 
+// stateSeenCoalesce is how stale an agent's confirmation stamp must be before a pass that
+// found nothing new writes it again. Every pass confirms every agent it can read, so
+// stamping each one would be an update per agent every couple of seconds to record a fact
+// nothing needs to that precision.
+const stateSeenCoalesce = 30 * time.Second
+
+// stateSeenBound is how long a nonterminal state may go unconfirmed before it stops
+// counting as live work. Every uncertain pass is deliberately a no-op, so a harness this
+// binary does not implement, or a pane that captures empty, leaves a thinking agent
+// thinking for good. It is comfortably longer than a healthy agent's stamp can ever be,
+// which is the coalesce interval plus a pass.
+const stateSeenBound = 2 * time.Minute
+
 // paneObserver is how the reconciler watches a pane. It keys on the pane's owner stamp
 // rather than its existence, so a reissued pane id is not read as this agent still running,
 // and on the pane's foreground program, because the pane outlives the CLI launched in it.
@@ -44,7 +57,8 @@ type agentStateWriter interface {
 // Reconciler is the single source of truth for agent state. Rather than react to an agent
 // CLI's lifecycle events, which fire unreliably and miss endings like an escape interrupt,
 // it observes each agent from tmux on a timer and writes the state that implies. Reading
-// ground truth every pass means a wrong state cannot outlive the interval.
+// ground truth every pass means a wrong state cannot outlive the interval, for as long as
+// there is a frame to read: a pass that cannot read one leaves the state standing.
 type Reconciler struct {
 	tmux      paneObserver
 	harnesses harnessGetter
@@ -202,12 +216,13 @@ func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bo
 	}
 }
 
-// apply writes a state and clears the agent's miss count, doing nothing when the stored
-// state already matches.
+// apply writes the state a pass reached and clears the agent's miss count. A write is
+// still worth making when the state has not moved, since it is also what records that a
+// pass confirmed it, but only once the stored stamp has gone stale.
 func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state string) {
 	delete(r.misses, agent.ID)
 	delete(r.shells, agent.ID)
-	if agent.State == state {
+	if agent.State == state && r.now().Sub(agent.StateSeenAt) < stateSeenCoalesce {
 		return
 	}
 
@@ -218,4 +233,12 @@ func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state st
 				slog.String(logging.AgentState, state),
 			}, logging.Err(err)...)...)
 	}
+}
+
+// isStateUnconfirmed reports whether an agent's stored state is one no recent pass managed
+// to confirm. It answers only that, and says nothing about whether the state is one worth
+// acting on, which is the caller's to decide: idle is where an agent nothing can read ends
+// up anyway, so a stale confirmation of it changes nothing.
+func isStateUnconfirmed(agent agentstore.Agent) bool {
+	return time.Since(agent.StateSeenAt) > stateSeenBound
 }
