@@ -23,9 +23,10 @@ const maxMetadataKeys = 32
 const slotsLock int64 = 7_240_116
 
 const (
-	StateThinking = "thinking"
-	StateWaiting  = "waiting"
-	StateIdle     = "idle"
+	StateThinking  = "thinking"
+	StateWaiting   = "waiting"
+	StateIdle      = "idle"
+	StateSettingUp = "setting_up"
 )
 
 type Metadata struct {

@@ -128,13 +128,14 @@ func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawne
 	}
 	sessionID := plan.harness.MintSessionID()
 	agent := plan.agent(p, id, sessionID, plan.dir, "", spawner)
+	agent.State = agentstore.StateSettingUp
 
-	setupName, err := s.runSetup(ctx, agent, plan.setupAction, p.SetupPane)
-	if err != nil {
+	if err := s.createUnderCeiling(ctx, agent); err != nil {
 		return nil, err
 	}
 
 	var pane string
+	setupRan := false
 	launched := false
 	defer func() {
 		if launched {
@@ -143,8 +144,20 @@ func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawne
 		if pane != "" {
 			s.tmux.KillPane(pane)
 		}
-		s.runCleanup(ctx, agent, plan.cleanupAction)
+		if setupRan {
+			s.runCleanup(ctx, agent, plan.cleanupAction)
+		}
+		if err := s.removeAgents(ctx, []string{id}); err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to remove an agent that did not finish launching",
+				append([]slog.Attr{slog.String(logging.AgentID, id)}, logging.Err(err)...)...)
+		}
 	}()
+
+	setupName, err := s.runSetup(ctx, agent, plan.setupAction, p.SetupPane)
+	if err != nil {
+		return nil, err
+	}
+	setupRan = true
 
 	dir, err := s.setupDir(plan.dir, setupName)
 	if err != nil {
@@ -162,8 +175,8 @@ func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawne
 		return nil, fmt.Errorf("failed to stamp the pane for %q: %w", plan.name, err)
 	}
 
-	if err := s.createUnderCeiling(ctx, agent); err != nil {
-		return nil, err
+	if err := s.agents.Update(ctx, agent); err != nil {
+		return nil, fmt.Errorf("failed to record agent %q: %w", plan.name, err)
 	}
 
 	created, err := s.agents.GetInWorkflow(ctx, p.WorkflowID, plan.name)
@@ -189,10 +202,6 @@ func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawne
 	}
 
 	if err := s.launcher.launch(plan.harness, params); err != nil {
-		if deleteErr := s.removeAgents(ctx, []string{id}); deleteErr != nil {
-			return nil, fmt.Errorf("failed to launch the agent for %q (%w), and failed to clean up: %w", plan.name, err, deleteErr)
-		}
-
 		return nil, fmt.Errorf("failed to launch the agent for %q: %w", plan.name, err)
 	}
 

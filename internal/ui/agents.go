@@ -256,7 +256,7 @@ func (m model) jumpCursor(idx int) model {
 
 func (m model) openAgent() (tea.Model, tea.Cmd) {
 	return m.withSelectedAgent(func(item agentItem) (tea.Model, tea.Cmd) {
-		if item.alive {
+		if item.alive || item.agent.State == agentstore.StateSettingUp {
 			return m, nil
 		}
 
@@ -347,6 +347,8 @@ func (m *model) stageSelection() {
 	switch {
 	case r.header:
 		m.stageDocument(workflowContextMarkdown(r.workflow))
+	case r.item.agent.State == agentstore.StateSettingUp:
+		m.stageDocument(settingUpPlaceholder)
 	case r.item.alive:
 		m.frame.ShowGuest(r.item.agent.Pane)
 	default:
@@ -418,6 +420,8 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 
 const dormantPlaceholder = "_dormant — not running_\n\nPress open to resume."
 
+const settingUpPlaceholder = "_setting up…_\n\nRunning the setup action. This agent has no pane yet."
+
 func (m model) agentsView() string {
 	below := m.detailsView() + "\n" + m.renderHelp(m.agentHelp())
 
@@ -439,7 +443,7 @@ func (m model) agentsView() string {
 
 		item := r.item
 		state := item.agent.State
-		if !item.alive {
+		if !item.alive && state != agentstore.StateSettingUp {
 			state = agentstore.StateIdle
 		}
 

@@ -51,6 +51,8 @@ func stateIcon(state string) string {
 		return "!"
 	case agentstore.StateThinking:
 		return "…"
+	case agentstore.StateSettingUp:
+		return "○"
 	default:
 		return "•"
 	}
