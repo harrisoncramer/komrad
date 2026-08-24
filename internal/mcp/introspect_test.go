@@ -67,8 +67,6 @@ func TestDescribeTable(t *testing.T) {
 			wantPrimary: true,
 		},
 		{
-			// Every agent belongs to a workflow, so this is one of the columns a
-			// model can count on being there.
 			name:   "the workflow an agent belongs to is never null",
 			column: "workflow_id",
 		},

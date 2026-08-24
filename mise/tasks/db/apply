@@ -3,10 +3,5 @@
 set -euo pipefail
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 
-# The binary applies migrations, not the atlas CLI, so there is exactly one
-# thing that writes the schema and one ledger recording what it wrote. Atlas
-# authors the migration files (mise run db:migrate) and never applies them;
-# were it to, its revision table and the binary's would each hold half the
-# history and neither would agree the schema was up to date.
 cd "$MISE_CONFIG_ROOT"
 exec go run . migrate

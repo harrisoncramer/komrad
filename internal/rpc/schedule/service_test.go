@@ -17,8 +17,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// missingID is a well-formed uuid no schedule holds, for the not-found rows. A
-// malformed one would be refused before the lookup and prove something else.
 const missingID = "00000000-0000-0000-0000-000000000000"
 
 func TestCreateSchedule(t *testing.T) {
@@ -41,8 +39,6 @@ func TestCreateSchedule(t *testing.T) {
 			},
 		},
 		{
-			// A schedule carries no directory of its own. The workflow it names is
-			// what says where its agents run.
 			name: "the workflow it launches into is what it stores",
 			req: &schedulev1.CreateScheduleRequest{
 				Name: "nightly", Cron: "0 2 * * *", Prompt: "sweep", Enabled: true,
@@ -72,8 +68,6 @@ func TestCreateSchedule(t *testing.T) {
 			},
 		},
 		{
-			// Whether the runs it launches are hidden is the schedule's own field, not
-			// something about its row, so it comes back on the created schedule.
 			name: "hidden runs are stored as written",
 			req: &schedulev1.CreateScheduleRequest{
 				Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep", Enabled: true,
@@ -84,8 +78,6 @@ func TestCreateSchedule(t *testing.T) {
 			},
 		},
 		{
-			// The proto checks the shape, five fields, and the service parses it.
-			// This one is well-shaped and still meaningless.
 			name: "an unparseable expression is refused",
 			req: &schedulev1.CreateScheduleRequest{
 				Name: "broken", Cron: "99 9 * * *", Prompt: "go",
@@ -125,8 +117,6 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 	svc, workflow := service(t)
 	existing := createSchedule(t, svc, workflow, "nightly")
 
-	// A well-formed uuid no workflow holds. The database's foreign key refuses it
-	// too, but as a constraint failure, which would surface as internal.
 	const missing = "00000000-0000-0000-0000-0000000000ff"
 
 	_, err := svc.CreateSchedule(t.Context(), connect.NewRequest(&schedulev1.CreateScheduleRequest{
@@ -462,7 +452,6 @@ func TestListSchedules(t *testing.T) {
 func TestListSchedulesRefusesAMangledToken(t *testing.T) {
 	svc, _ := service(t)
 
-	// Base64 of {"i":"not-an-id"}.
 	const token = "eyJpIjoibm90LWFuLWlkIn0="
 
 	_, err := svc.ListSchedules(t.Context(), connect.NewRequest(&schedulev1.ListSchedulesRequest{
@@ -472,10 +461,6 @@ func TestListSchedulesRefusesAMangledToken(t *testing.T) {
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 }
 
-// service builds the handler over a throwaway database, the same way the
-// composition root does, and returns the workflow every schedule in the test
-// launches into. A schedule is refused unless that workflow is there to read, so
-// it is seeded rather than invented.
 func service(t *testing.T) (*Service, string) {
 	t.Helper()
 
@@ -485,8 +470,6 @@ func service(t *testing.T) (*Service, string) {
 	return NewService(st.Schedules, manager), st.SeedWorkflow(t, workflowstore.Config{Name: "schedules"}).ID
 }
 
-// createSchedule adds an armed schedule through the handler and returns its id,
-// since most rows here exist only to be acted on.
 func createSchedule(t *testing.T, svc *Service, workflow, name string) string {
 	t.Helper()
 

@@ -103,8 +103,6 @@ func TestQueryGivesUpOnWedgedTmux(t *testing.T) {
 	}
 }
 
-// fakeTmux returns a PATH holding a tmux that behaves as the given script does. The
-// absolute /bin/sleep matters, since PATH is replaced.
 func fakeTmux(t *testing.T, script string) string {
 	t.Helper()
 

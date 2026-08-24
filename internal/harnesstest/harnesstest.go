@@ -1,20 +1,3 @@
-// Package harnesstest is a harness whose agents are a shell script.
-//
-// Every test above the launcher has had to stub tmux or stub the harness, which stops the
-// one chain that matters from being exercised at all: a launch opening a pane, the
-// reconciler reading what that pane shows, the syncer reading what was said in it, and a
-// resume reopening it. A real CLI cannot be run in a test, so this is a CLI the test
-// drives directly. Everything below it stays real.
-//
-// The agent is a loop printing one line per state into its pane. What that state is comes
-// from a file the test writes, so an agent moves between working, waiting, and idle when
-// the test says so and never on its own.
-//
-// It is a shell script, but nothing runs it as a shell. Weave reads a pane whose foreground
-// program is a shell as one whose CLI has exited, which is right for every real CLI and
-// wrong for a fake made of shell. So the script is run by this test binary re-invoked with
-// one argument that means "be the agent", which is what any other CLI looks like from tmux:
-// a program of its own name holding the pane.
 package harnesstest
 
 import (
@@ -29,24 +12,16 @@ import (
 	"github.com/google/uuid"
 )
 
-// ID is the name an agent running this harness is recorded under.
 const ID = "fake"
 
-// The line the agent prints for each state. They are the fake's own chrome rather than any
-// real CLI's, so detection here is an exact match instead of the regexes a real TUI needs.
 const (
 	workingLine = "fake:working"
 	waitingLine = "fake:waiting"
 	idleLine    = "fake:idle"
 )
 
-// tailLines is how many lines from the bottom of a capture a verdict is read from. The
-// agent prints one line per tick, so anything above this is a state it has already left.
 const tailLines = 5
 
-// agentScript is the agent. It records the opening prompt as a turn, notes a resume so a
-// test can tell a reopened conversation from a fresh one, and then prints its current
-// state until the pane is killed.
 const agentScript = `#!/bin/sh
 log="$FAKE_ROOT/logs/$FAKE_SESSION.jsonl"
 state="$FAKE_ROOT/state/$WEAVE_AGENT_ID"
@@ -73,15 +48,10 @@ while IFS= read -r line; do
 done
 `
 
-// scriptShell runs the agent script as a child of this binary, so the pane's foreground
-// program stays the binary rather than becoming the shell.
 const scriptShell = "/bin/sh"
 
-// agentArg puts this binary into agent mode, which is checked before any test runs.
 const agentArg = "--weave-fake-agent"
 
-// The agent is this binary run again with the script to be, which happens before the
-// testing package sees the arguments and so cannot be a flag.
 func init() {
 	if len(os.Args) != 3 || os.Args[1] != agentArg {
 		return
@@ -96,17 +66,13 @@ func init() {
 	os.Exit(0)
 }
 
-// Harness is the fake CLI. One instance serves every agent in a test, which is why its
-// files are keyed by agent and by session rather than held on the struct.
 type Harness struct {
 	root   string
 	script string
-	// binary is this test binary, which the agents are it run again in agent mode.
+
 	binary string
 }
 
-// The panel reaches an agent CLI only through the interface, so a method missing here is a
-// compile error rather than a nil call on one of the service's loops.
 var _ harness.Harness = (*Harness)(nil)
 
 // New writes the agent script under root and returns a harness that runs it. Everything
@@ -297,8 +263,6 @@ func (h *Harness) Say(sessionID, role, content string) error {
 	return nil
 }
 
-// flatten turns the log's lines into turns. A line that is not a role and something said
-// is skipped, which is what a partial write looks like from here.
 func flatten(data []byte) []harness.Turn {
 	var turns []harness.Turn
 	for raw := range strings.SplitSeq(string(data), "\n") {

@@ -43,7 +43,6 @@ failed=()
 for STEP in "${STEPS[@]}"; do
 	gum log --level info "running $STEP"
 
-	# Unquoted on purpose: a step carries its own flags and has to word-split.
 	# shellcheck disable=SC2086
 	if ! mise run $STEP; then
 		failed+=("$STEP")

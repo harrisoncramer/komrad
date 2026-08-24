@@ -39,9 +39,6 @@ func ReadAppendOnlyLog(path string, offset int64, flatten func([]byte) []Turn) (
 	return read, nil
 }
 
-// readCompleteLines reads from offset to the end of the file and returns the whole lines
-// found there together with how many bytes they span. A trailing partial line, written
-// while the agent is mid-turn, is left unconsumed so the next pass reads it once whole.
 func readCompleteLines(path string, offset int64) ([]byte, int64, error) {
 	file, err := os.Open(path)
 	if err != nil {

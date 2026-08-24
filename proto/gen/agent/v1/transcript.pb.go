@@ -24,12 +24,10 @@ const (
 )
 
 type SearchTranscriptsRequest struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	Query      string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
-	Pagination *v1.Pagination         `protobuf:"bytes,2,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
-	// The one agent to search, defaulting to the caller's own conversation when the caller
-	// is an agent and to every conversation when it is not.
-	AgentId       *string `protobuf:"bytes,3,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Query         string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	Pagination    *v1.Pagination         `protobuf:"bytes,2,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+	AgentId       *string                `protobuf:"bytes,3,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -85,24 +83,16 @@ func (x *SearchTranscriptsRequest) GetAgentId() string {
 	return ""
 }
 
-// SearchHit is one turn of a transcript matched by a search.
 type SearchHit struct {
-	state    protoimpl.MessageState `protogen:"open.v1"`
-	AgentId  string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	Snippet  string                 `protobuf:"bytes,2,opt,name=snippet,proto3" json:"snippet,omitempty"`
-	Name     string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
-	Archived bool                   `protobuf:"varint,5,opt,name=archived,proto3" json:"archived,omitempty"`
-	// Cover density of the matched turn, higher being a better match. It compares
-	// only against the other hits for the same query and carries no meaning of its
-	// own.
-	Score float64 `protobuf:"fixed64,6,opt,name=score,proto3" json:"score,omitempty"`
-	// Position of the matched turn within the transcript, counting from zero.
-	Seq int32 `protobuf:"varint,7,opt,name=seq,proto3" json:"seq,omitempty"`
-	// Who spoke the matched turn, user or assistant.
-	Role string `protobuf:"bytes,8,opt,name=role,proto3" json:"role,omitempty"`
-	// Byte offset where the matched turn begins in the full transcript, so a caller
-	// holding that text can scroll to the hit without searching for it again.
-	ContentOffset int64 `protobuf:"varint,9,opt,name=content_offset,json=contentOffset,proto3" json:"content_offset,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	Snippet       string                 `protobuf:"bytes,2,opt,name=snippet,proto3" json:"snippet,omitempty"`
+	Name          string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
+	Archived      bool                   `protobuf:"varint,5,opt,name=archived,proto3" json:"archived,omitempty"`
+	Score         float64                `protobuf:"fixed64,6,opt,name=score,proto3" json:"score,omitempty"`
+	Seq           int32                  `protobuf:"varint,7,opt,name=seq,proto3" json:"seq,omitempty"`
+	Role          string                 `protobuf:"bytes,8,opt,name=role,proto3" json:"role,omitempty"`
+	ContentOffset int64                  `protobuf:"varint,9,opt,name=content_offset,json=contentOffset,proto3" json:"content_offset,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -290,9 +280,8 @@ func (x *GetTranscriptRequest) GetAgentId() string {
 }
 
 type GetTranscriptResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The full flattened transcript, empty when the agent has none synced yet.
-	Content       string `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Content       string                 `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

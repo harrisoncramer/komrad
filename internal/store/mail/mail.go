@@ -13,8 +13,6 @@ import (
 	"weave/lib/xslice"
 )
 
-// Cursor locates one piece of mail in a keyset page, the same shape agentstore.Cursor
-// uses: the id alone, since ids are UUIDv7 and sort in the order they were created.
 type Cursor struct {
 	ID string `json:"i"`
 }

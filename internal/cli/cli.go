@@ -1,5 +1,3 @@
-// Package cli builds the weave command tree and wires its dependencies. This file holds the
-// root command; each subcommand lives in its own file named for it, with shared state in app.go.
 package cli
 
 import (
@@ -21,7 +19,6 @@ import (
 // NewRootCommand builds the weave command tree. Running it with no
 // subcommand opens the panel.
 func NewRootCommand() *cobra.Command {
-
 	app := &app{}
 
 	var configPaths []string
@@ -41,11 +38,8 @@ func NewRootCommand() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-
 			configPaths = resolveConfigPaths(configPaths)
 
-			// Files load before the environment resolves on top of them, so a config that will
-			// not parse can stop most commands before the built-in defaults open a database.
 			cfg, report, err := config.LoadWithReport(configPaths)
 			if err != nil {
 				if isConfigFatal(cmd) {
@@ -92,10 +86,6 @@ func NewRootCommand() *cobra.Command {
 			app.defaultHarness = cfg.DefaultHarness
 			app.maxAgents = cfg.MaxAgents
 
-			// Weave connects to its own tmux server through the manager client, so commands are
-			// routed to that socket rather than the user's own; that separation is why weave
-			// sessions are invisible to a normal tmux ls (run `tmux -L weave ls` to see them).
-
 			manager := tmux.NewClient(env.TmuxSocket)
 			app.host = tmux.NewHost(manager, env.Tmux)
 			app.tmux = tmux.NewServers(manager, app.host)
@@ -104,9 +94,7 @@ func NewRootCommand() *cobra.Command {
 			contextPath, err := cfg.GetContextFile()
 			if err != nil {
 				ctx := cmd.Context()
-				// Only reached when the config directory cannot be worked out at all; agents
-				// then start with no standing context, worth a log line rather than a silent
-				// difference in what every agent is told.
+
 				logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "failed to resolve the context file", logging.Err(err)...)
 			}
 
@@ -144,7 +132,6 @@ func NewRootCommand() *cobra.Command {
 	return root
 }
 
-// commandsSurvivingBadConfig are the commands that still run on a config that will not parse.
 var commandsSurvivingBadConfig = map[string]bool{
 	"doctor":  true,
 	"version": true,

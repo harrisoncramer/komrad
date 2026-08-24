@@ -14,9 +14,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// mcpBodyPeek bounds how much of a request is read to find what it is calling. An MCP
-// call is a small JSON-RPC envelope and the tool arguments are the only part that varies,
-// so anything past this is not a call whose name is worth buffering the body to learn.
 const mcpBodyPeek = 64 << 10
 
 // NewLoggingHandler wraps an HTTP handler so every request through it is recorded, which
@@ -66,12 +63,6 @@ func NewLoggingHandler(logger *slog.Logger, next http.Handler) http.Handler {
 			slog.Int64(logging.DurationMS, time.Since(start).Milliseconds()),
 		)
 
-		// The status is the only thing that says whether it worked, since nothing below
-		// returns an error to this layer. A 5xx is the service breaking and is logged as a
-		// failure. A 4xx is the caller being told no, which is worth seeing but is not the
-		// service's failure: MCP clients probe this endpoint with a GET on every connect and
-		// are answered 405, and logging that as an error puts a red herring at the top of
-		// the file every time an agent starts.
 		level := slog.LevelInfo
 		switch {
 		case recorder.status >= http.StatusInternalServerError:
@@ -84,13 +75,6 @@ func NewLoggingHandler(logger *slog.Logger, next http.Handler) http.Handler {
 	})
 }
 
-// mcpCall is the JSON-RPC method and, for a tool call, the tool it names. The body is
-// consumed to find them and then put back for the handler, since the request is a stream
-// that can only be read once and the handler below still needs all of it.
-//
-// Anything that does not parse gives nothing rather than an error. A body that is not the
-// envelope this looks for is a request this does not know how to describe, and a line
-// naming only the path is still worth writing.
 func mcpCall(r *http.Request) (string, string) {
 	if r.Body == nil {
 		return "", ""
@@ -116,8 +100,6 @@ func mcpCall(r *http.Request) (string, string) {
 	return envelope.Method, envelope.Params.Name
 }
 
-// peekedBody is the request body with what was read to identify the call put back in front
-// of it. Closing still closes the original, which is the handler's to release.
 type peekedBody struct {
 	io.Reader
 	closer io.Closer
@@ -125,12 +107,6 @@ type peekedBody struct {
 
 func (b *peekedBody) Close() error { return b.closer.Close() }
 
-// statusRecorder remembers the status a handler wrote, which is the only thing at this
-// layer that says whether the call worked.
-//
-// Unwrap keeps the wrapper from breaking the handler under it. MCP streams its responses,
-// and a http.ResponseController asked to flush finds the real writer through this rather
-// than failing because a wrapper is in the way.
 type statusRecorder struct {
 	http.ResponseWriter
 	status  int

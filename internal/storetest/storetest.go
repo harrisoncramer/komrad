@@ -1,13 +1,3 @@
-// Package storetest hands a test the domain stores over a throwaway database.
-//
-// Every package above the store layer needs the same three lines to get going:
-// open a pool against a fresh database, register its cleanup, and build a store
-// per domain over it. This is that, once.
-//
-// The store packages' own tests cannot use it. Their tests live in the package
-// being tested and this imports those packages, so taking it would be an import
-// cycle. They keep their own opener, which builds one store rather than all of
-// them.
 package storetest
 
 import (
@@ -29,15 +19,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Stores are the domain stores over one database, plus the pool itself, which is
-// the transaction boundary the writes spanning two domains run through.
 type Stores struct {
-	// URL is the database these stores were opened against, for a test that needs
-	// a second connection to it.
 	URL string
-	// ReadOnlyURL reaches the same database as the least-privilege role, which is what
-	// the MCP tools connect as. A test that opens it exercises the grants rather than
-	// the schema alone, since a missing one shows up as a refused read.
+
 	ReadOnlyURL string
 	Pool        *store.Pool
 	Agents      *agentstore.Store
@@ -70,11 +54,6 @@ func Open(t *testing.T) *Stores {
 	}
 }
 
-// grantReadOnly provisions the least-privilege role on this test's database and returns a
-// url that reaches it as that role. It runs after the store has migrated, so the grant
-// covers the tables the schema just created. The role itself is a cluster object shared by
-// every test database, which is why the SQL tolerates one already existing; only the
-// grants are per-database, and those are what a test is exercising.
 func grantReadOnly(t *testing.T, pool *store.Pool, dbURL string) string {
 	t.Helper()
 

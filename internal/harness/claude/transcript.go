@@ -31,8 +31,6 @@ func (h *Harness) ReadLog(path string, offset int64) (harness.LogRead, error) {
 	return harness.ReadAppendOnlyLog(path, offset, flattenTranscript)
 }
 
-// transcriptLine is the part of a JSONL entry the flattener reads. Only user and
-// assistant turns carry conversation, so everything else is skipped by type.
 type transcriptLine struct {
 	Type    string `json:"type"`
 	IsMeta  bool   `json:"isMeta"`
@@ -41,16 +39,11 @@ type transcriptLine struct {
 	} `json:"message"`
 }
 
-// contentBlock is one block of a structured message. Only text blocks hold prose,
-// so tool_use, tool_result, thinking, and images are dropped.
 type contentBlock struct {
 	Type string `json:"type"`
 	Text string `json:"text"`
 }
 
-// flattenTranscript turns raw JSONL bytes into the turns worth searching, the user's
-// prompts and the assistant's prose in order. Tool calls, tool results, thinking, and
-// non-conversation entries are left out so a match reads as something actually said.
 func flattenTranscript(data []byte) []harness.Turn {
 	var turns []harness.Turn
 	for raw := range strings.SplitSeq(string(data), "\n") {
@@ -78,8 +71,6 @@ func flattenTranscript(data []byte) []harness.Turn {
 	return turns
 }
 
-// blockText extracts the prose from a message's content, which is either a plain
-// string or an array of typed blocks. Only text blocks survive.
 func blockText(content json.RawMessage) string {
 	var plain string
 	if err := json.Unmarshal(content, &plain); err == nil {

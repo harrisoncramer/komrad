@@ -1,11 +1,3 @@
-// Package store owns the database connection and the transaction boundary the domain
-// stores run inside. It holds no tables of its own; each domain owns a package beneath
-// this one.
-//
-// A write that spans domains runs through InTx, which hands the same handle to each store
-// so they commit together. That is why the stores are built over a DBTX rather than a
-// pool: the same code path serves a plain query and a transaction, and no store has to
-// reach into another's tables to stay atomic.
 package store
 
 import (
@@ -20,22 +12,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// ErrNameTaken reports that a write collided with a name already held. Every
-// unique name in this schema is scoped to live rows, so this only ever means a
-// record currently listed answers to that name, never one sitting in the archive.
 var ErrNameTaken = errors.New("name already taken")
 
-// ErrNoReadOnlyURL reports that there is no url for the read-only pool to open. Postgres
-// reads an empty string as every default, so this has to be refused by name rather than
-// connecting as whoever is running weave, on a database nobody named.
 var ErrNoReadOnlyURL = errors.New(
 	"no read-only database url: set WEAVE_READONLY_DATABASE_URL, or a DATABASE_URL one can be derived from")
 
-// DBTX is what a domain store runs its queries against, either the pool or a
-// transaction, which is what lets one be rebound onto the other.
 type DBTX = models.DBTX
 
-// Pool is the database handle the domain stores are built over.
 type Pool struct {
 	pool *pgxpool.Pool
 }
@@ -101,16 +84,6 @@ func OpenReadOnly(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-// refuseSuperuser rejects a read-only pool that has landed on a superuser, which is the one
-// case where nothing above the database holds. A superuser is exempt from the privilege
-// checks on the catalogs and on the file-reading functions, and both are reached through a
-// plain SELECT that writes nothing, so neither the read-only transaction nor any amount of
-// reading the statement will refuse them.
-//
-// Refusing rather than warning, because the privileges are the boundary and a boundary that
-// announces itself missing and carries on is not one. There is a single way to arrive here,
-// which is pointing WEAVE_READONLY_DATABASE_URL at a role somebody chose, so the answer is
-// to name the role and stop rather than to serve and hope the line is read.
 func refuseSuperuser(ctx context.Context, pool *pgxpool.Pool) error {
 	var superuser bool
 	if err := pool.QueryRow(ctx,

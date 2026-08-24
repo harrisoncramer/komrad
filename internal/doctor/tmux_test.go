@@ -10,14 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// tmuxOnPath answers for whether tmux resolves, which is all the binary check asks.
 func tmuxOnPath(path string, err error) Env {
 	return Env{
 		LookPath: func(string) (string, error) { return path, err },
 	}
 }
 
-// tmuxReporting answers for what "tmux -V" prints, for the version check.
 func tmuxReporting(reported string, err error) Env {
 	return Env{
 		LookPath: func(string) (string, error) { return "/usr/bin/tmux", nil },
@@ -237,9 +235,6 @@ func TestTmuxVersionNeedsTheBinary(t *testing.T) {
 	assert.Contains(t, TmuxVersion().Needs, TmuxBinary().Name)
 }
 
-// tmuxServers fakes the tmux servers that are up; keys are the socket flag a call carries,
-// "-L weave" for weave's own and "" for the user's, so a test says which servers answer
-// and what each one reports.
 func tmuxServers(answers map[string]string) Env {
 	return Env{
 		Settings: Settings{TmuxSocket: "weave", InsideTmux: "/tmp/tmux-501/default,1,0"},

@@ -37,12 +37,11 @@ func TestArchiveKeys(t *testing.T) {
 
 	tests := []struct {
 		name string
-		// empty starts the screen with nothing archived, for the keys that act on a row.
+
 		empty bool
-		// archivedFolder puts the workflow itself in the archive, so the header is one
-		// that can be restored rather than a live folder holding a put-away agent.
+
 		archivedFolder bool
-		// cursor is 0 on the workflow header and 1 on the agent nested under it.
+
 		cursor               int
 		key                  string
 		wantScreen           screen
@@ -64,8 +63,6 @@ func TestArchiveKeys(t *testing.T) {
 			wantRestored: []string{"a1"},
 		},
 		{
-			// Nothing is destroyed on the keypress itself. The prompt is the whole
-			// safety here, since the same key on the agents list is reversible.
 			name:       "delete opens the confirm prompt rather than destroying",
 			key:        "d",
 			cursor:     1,
@@ -79,8 +76,6 @@ func TestArchiveKeys(t *testing.T) {
 			wantRestoredWorkflow: []string{"w1"},
 		},
 		{
-			// The folder is still running, so there is nothing about it to bring back.
-			// Its agents are restored one at a time from the rows beneath it.
 			name:       "restore on a live folder's header asks for no write",
 			key:        "r",
 			wantScreen: screenArchive,
@@ -179,8 +174,6 @@ func TestArchiveRows(t *testing.T) {
 			wantRows: []string{"header:backend", "agent:auth", "header:frontend", "agent:ui", "header:infra"},
 		},
 		{
-			// The two listings run at once, so a restore landing between them can put the
-			// same folder in both. Drawn twice it would nest its agents twice.
 			name:     "a folder in both listings is drawn once",
 			live:     []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
 			archived: []workflowstore.Workflow{archivedWorkflow("w1", "backend")},
@@ -301,11 +294,6 @@ func TestArchiveDeleteConfirm(t *testing.T) {
 	}
 }
 
-// answerPrompt presses one key on the delete prompt and runs the commands the
-// form hands back, which is what bubbletea does for it on screen. The form only
-// reaches its completed state once those have run, so a test that dropped them
-// would watch a prompt that never closes. Once the prompt is off screen the answer
-// has been acted on, and what it asked for is settled the way the runtime would.
 func answerPrompt(t *testing.T, m model, key string) model {
 	t.Helper()
 
@@ -337,7 +325,7 @@ func answerPrompt(t *testing.T, m model, key string) model {
 func TestRefusedArchiveWritesAreReported(t *testing.T) {
 	tests := []struct {
 		name string
-		// onFolder puts the cursor on an archived folder's header rather than on an agent.
+
 		onFolder    bool
 		act         func(t *testing.T, m model) model
 		wantSummary string
@@ -390,7 +378,6 @@ func TestRefusedArchiveWritesAreReported(t *testing.T) {
 	}
 }
 
-// pressRestore presses restore on whatever the cursor is on and settles what it asked for.
 func pressRestore(t *testing.T, m model) model {
 	t.Helper()
 
@@ -423,7 +410,7 @@ func TestArchiveView(t *testing.T) {
 			live:   []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
 			agents: []agentstore.Agent{{ID: "a1", Name: "api-refactor", WorkflowID: "w1"}},
 			wants:  []string{"backend", "api-refactor"},
-			// The folder is still running, so nothing on its row says otherwise.
+
 			wantsAbsent: []string{"archived"},
 		},
 		{
@@ -523,12 +510,10 @@ func TestArchiveIsOrderedByWhenAgentsWereArchived(t *testing.T) {
 	}
 }
 
-// archivedProtoAgent builds a listed agent archived at the given RFC 3339 time.
 func archivedProtoAgent(name, archivedAt string) *agentv1.Agent {
 	return &agentv1.Agent{Name: name, ArchivedAt: &archivedAt}
 }
 
-// archivedProtoWorkflow builds a listed workflow archived at the given RFC 3339 time.
 func archivedProtoWorkflow(id, name, archivedAt string) *workflowv1.Workflow {
 	return &workflowv1.Workflow{Id: id, Name: name, ArchivedAt: &archivedAt}
 }
@@ -560,8 +545,6 @@ func TestArchiveIsListedSeparatelyFromTheAgents(t *testing.T) {
 	assert.Empty(t, got.listing.workflows, "and the archived folder is not one of the tree's")
 }
 
-// archiveModel builds the panel sitting on the archive with one agent archived out of a
-// workflow that is still live, the cursor on the agent rather than on the header over it.
 func archiveModel(agents agentv1connect.AgentServiceClient, workflows workflowv1connect.WorkflowServiceClient, keys config.Keybindings) model {
 	tmux := &recordingTmux{}
 
@@ -580,17 +563,12 @@ func archiveModel(agents agentv1connect.AgentServiceClient, workflows workflowv1
 	}
 }
 
-// archivedWorkflow is a workflow put away whole, which the archive draws as a header of
-// its own so it has a row to be restored from.
 func archivedWorkflow(id, name string) workflowstore.Workflow {
 	at := time.Date(2026, time.July, 30, 9, 0, 0, 0, time.UTC)
 
 	return workflowstore.Workflow{ID: id, Name: name, ArchivedAt: &at}
 }
 
-// fakeArchiveWorkflows answers the calls the archive makes for folders, recording which
-// it was asked to restore. The embedded interface is nil, so any other method panics
-// rather than quietly returning a zero value.
 type fakeArchiveWorkflows struct {
 	workflowv1connect.WorkflowServiceClient
 	mu       sync.Mutex
@@ -621,16 +599,6 @@ func (f *fakeArchiveWorkflows) RestoreWorkflow(_ context.Context, req *connect.R
 	return connect.NewResponse(&workflowv1.RestoreWorkflowResponse{}), nil
 }
 
-// fakeArchiveAgents answers the calls the archive makes, recording which agents it
-// was asked to restore and destroy and which set it listed. The embedded
-// interface is nil, so any other method panics rather than quietly returning a
-// zero value.
-//
-// A pass runs its listings at once, so what it records is guarded: the live agents
-// and the archived ones are two calls on this same fake on two goroutines.
-//
-// ResumeAgent is left off deliberately. Restoring from the archive puts the row back
-// and starts nothing, so a resume reaching here panics rather than passing.
 type fakeArchiveAgents struct {
 	agentv1connect.AgentServiceClient
 	mu             sync.Mutex

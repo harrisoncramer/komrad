@@ -17,9 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// loggedCall runs one request through the interceptor and gives back what it wrote and
-// what came out. The handler answers with whatever it is given, so a case says only what
-// it is about.
 func loggedCall(t *testing.T, level slog.Level, req connect.AnyRequest, handlerErr error) (string, connect.AnyResponse, error) {
 	t.Helper()
 
@@ -38,8 +35,6 @@ func loggedCall(t *testing.T, level slog.Level, req connect.AnyRequest, handlerE
 
 	res, err := interceptor.WrapUnary(next)(context.Background(), req)
 
-	// The handler below the interceptor has to be able to log under the same trace as the
-	// line the interceptor writes, which is the whole reason the logger is on the context.
 	require.NotNil(t, seen)
 	assert.NotEmpty(t, caller.Trace(seen), "the handler can reach the trace id")
 	assert.NotNil(t, logging.From(seen))
@@ -47,10 +42,6 @@ func loggedCall(t *testing.T, level slog.Level, req connect.AnyRequest, handlerE
 	return out.String(), res, err
 }
 
-// recordingRequest is a request with the spec and peer a test wants. connect fills those
-// in from the connection a real call arrived on, and the interface they belong to cannot
-// be implemented outside connect, so a real request is embedded and the two answers that
-// matter are given here.
 type recordingRequest struct {
 	connect.AnyRequest
 	spec connect.Spec
@@ -60,7 +51,6 @@ type recordingRequest struct {
 func (r *recordingRequest) Spec() connect.Spec { return r.spec }
 func (r *recordingRequest) Peer() connect.Peer { return r.peer }
 
-// unaryRequest builds a request for a procedure, as connect hands one to an interceptor.
 func unaryRequest(procedure, trace string) connect.AnyRequest {
 	req := connect.NewRequest(&agentv1.ListAgentsRequest{})
 	if trace != "" {

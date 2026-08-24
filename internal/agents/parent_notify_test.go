@@ -13,8 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// newNotifier builds a real mail service over a test's own store, the same type the
-// server wires in as the agent service's notifier.
 func newNotifier(st *testStore) *MailService {
 	return NewMailService(NewMailServiceParams{
 		MailReadWriter: st.Mail,

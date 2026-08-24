@@ -9,14 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// testServer starts a throwaway tmux server on its own socket and returns a Client bound
-// to it, with a session named both by the session and by its first window. That naming is
-// the panel's own: the manager session runs the binary, so tmux titles its first window
-// after it, and the two carry the same name.
-//
-// The server is killed when the test ends, so nothing outlives the run. tmux reads the
-// user's config on start, and base-index is part of what decides which indexes are free,
-// so it is left to load rather than being started with -f /dev/null.
 func testServer(t *testing.T, name string) *Client {
 	t.Helper()
 
@@ -37,8 +29,6 @@ func testServer(t *testing.T, name string) *Client {
 	return client
 }
 
-// windowNames lists the windows on a session, so a test can say what the server ended up
-// holding rather than only that a call did not error.
 func windowNames(t *testing.T, c *Client, session string) []string {
 	t.Helper()
 

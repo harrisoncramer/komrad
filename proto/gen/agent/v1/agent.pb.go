@@ -26,60 +26,32 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Agent is one background agent, as stored.
 type Agent struct {
-	state  protoimpl.MessageState `protogen:"open.v1"`
-	Id     string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name   string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Cwd    string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	Flags  string                 `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
-	Prompt string                 `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	PaneId string                 `protobuf:"bytes,6,opt,name=pane_id,json=paneId,proto3" json:"pane_id,omitempty"`
-	State  string                 `protobuf:"bytes,7,opt,name=state,proto3" json:"state,omitempty"`
-	// The conversation this agent holds, which its harness reopens when a dormant
-	// agent is restored.
-	SessionId string `protobuf:"bytes,8,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	// Which CLI this agent runs, which decides how it was launched, how its state is
-	// read off its pane, and where its conversation log is found.
-	Harness string `protobuf:"bytes,18,opt,name=harness,proto3" json:"harness,omitempty"`
-	// The workflow this agent belongs to. Every agent has one: the workflow holds
-	// the directory, flags, and shared context it started from.
-	WorkflowId string `protobuf:"bytes,9,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
-	// When the agent was first created, as an RFC 3339 timestamp, for display.
-	CreatedAt string `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// When the agent was archived, as an RFC 3339 timestamp, unset while it is live.
-	ArchivedAt *string `protobuf:"bytes,19,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
-	// The schedule that launched this agent.
-	ScheduleId *string `protobuf:"bytes,12,opt,name=schedule_id,json=scheduleId,proto3,oneof" json:"schedule_id,omitempty"`
-	// Whether the agent's tmux pane is still running.
-	Alive bool `protobuf:"varint,11,opt,name=alive,proto3" json:"alive,omitempty"`
-	// Whether this agent is holding mail nobody has read yet. Observed from the mailbox
-	// rather than stored, the same as alive.
-	UnreadMail bool `protobuf:"varint,21,opt,name=unread_mail,json=unreadMail,proto3" json:"unread_mail,omitempty"`
-	// The glyph the user tagged this agent with, unset when it carries no tag.
-	Tag *string `protobuf:"bytes,14,opt,name=tag,proto3,oneof" json:"tag,omitempty"`
-	// Whether the user has hidden this agent from the panel's sidebar. It is not a
-	// deletion and says nothing about the agent, which runs and is reconciled the
-	// same either way. Listings return hidden agents like any other, since only the
-	// panel suppresses them.
-	Hidden bool `protobuf:"varint,15,opt,name=hidden,proto3" json:"hidden,omitempty"`
-	// What the agent recorded about its own work, ordered by key.
-	Metadata []*AgentMetadata `protobuf:"bytes,16,rep,name=metadata,proto3" json:"metadata,omitempty"`
-	// The key the creator claimed this agent under, unset for one created without a claim.
-	IdempotencyKey *string `protobuf:"bytes,17,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
-	// The agent that called create_agent to launch this one, unset for one a person started
-	// from the panel.
-	SpawnedByAgentId *string `protobuf:"bytes,20,opt,name=spawned_by_agent_id,json=spawnedByAgentId,proto3,oneof" json:"spawned_by_agent_id,omitempty"`
-	// The branch checked out at cwd, unset when cwd is not inside a git worktree or the
-	// branch has not been read yet. Refreshed on a slow periodic pass rather than every
-	// reconcile, since reading it is a shell-out and not a tmux capture.
-	Branch *string `protobuf:"bytes,22,opt,name=branch,proto3,oneof" json:"branch,omitempty"`
-	// Whether cwd no longer exists on disk. Refreshed on its own slow periodic pass rather
-	// than every reconcile, since a worktree can be deleted under a running agent at any
-	// time and a row over a directory that is gone otherwise looks healthy.
-	WorktreeRemoved bool `protobuf:"varint,23,opt,name=worktree_removed,json=worktreeRemoved,proto3" json:"worktree_removed,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name             string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Cwd              string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
+	Flags            string                 `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
+	Prompt           string                 `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	PaneId           string                 `protobuf:"bytes,6,opt,name=pane_id,json=paneId,proto3" json:"pane_id,omitempty"`
+	State            string                 `protobuf:"bytes,7,opt,name=state,proto3" json:"state,omitempty"`
+	SessionId        string                 `protobuf:"bytes,8,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	Harness          string                 `protobuf:"bytes,18,opt,name=harness,proto3" json:"harness,omitempty"`
+	WorkflowId       string                 `protobuf:"bytes,9,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	CreatedAt        string                 `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	ArchivedAt       *string                `protobuf:"bytes,19,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
+	ScheduleId       *string                `protobuf:"bytes,12,opt,name=schedule_id,json=scheduleId,proto3,oneof" json:"schedule_id,omitempty"`
+	Alive            bool                   `protobuf:"varint,11,opt,name=alive,proto3" json:"alive,omitempty"`
+	UnreadMail       bool                   `protobuf:"varint,21,opt,name=unread_mail,json=unreadMail,proto3" json:"unread_mail,omitempty"`
+	Tag              *string                `protobuf:"bytes,14,opt,name=tag,proto3,oneof" json:"tag,omitempty"`
+	Hidden           bool                   `protobuf:"varint,15,opt,name=hidden,proto3" json:"hidden,omitempty"`
+	Metadata         []*AgentMetadata       `protobuf:"bytes,16,rep,name=metadata,proto3" json:"metadata,omitempty"`
+	IdempotencyKey   *string                `protobuf:"bytes,17,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
+	SpawnedByAgentId *string                `protobuf:"bytes,20,opt,name=spawned_by_agent_id,json=spawnedByAgentId,proto3,oneof" json:"spawned_by_agent_id,omitempty"`
+	Branch           *string                `protobuf:"bytes,22,opt,name=branch,proto3,oneof" json:"branch,omitempty"`
+	WorktreeRemoved  bool                   `protobuf:"varint,23,opt,name=worktree_removed,json=worktreeRemoved,proto3" json:"worktree_removed,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *Agent) Reset() {
@@ -266,9 +238,6 @@ func (x *Agent) GetWorktreeRemoved() bool {
 	return false
 }
 
-// AgentMetadata is one fact an agent recorded about its own work: the issue it is
-// implementing, the pull request it opened, the branch it is on. The keys are the
-// agent's own invention rather than a fixed set.
 type AgentMetadata struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
@@ -322,10 +291,9 @@ func (x *AgentMetadata) GetValue() string {
 }
 
 type ListAgentsRequest struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	Pagination *v1.Pagination         `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
-	// Lists the archived agents instead of the live ones.
-	Archived      bool `protobuf:"varint,2,opt,name=archived,proto3" json:"archived,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Pagination    *v1.Pagination         `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+	Archived      bool                   `protobuf:"varint,2,opt,name=archived,proto3" json:"archived,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -427,28 +395,19 @@ func (x *ListAgentsResponse) GetNextPageToken() string {
 }
 
 type CreateAgentRequest struct {
-	state  protoimpl.MessageState `protogen:"open.v1"`
-	Prompt string                 `protobuf:"bytes,1,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	// Control characters are refused rather than sanitised. The title becomes the
-	// tmux window name and tmux rejects a name containing one, so accepting it
-	// here would fail the launch instead.
-	Title string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	// Where the agent starts. Leave it empty to take the workflow's directory,
-	// which is what a caller with no view of the filesystem should do.
-	Dir   string `protobuf:"bytes,3,opt,name=dir,proto3" json:"dir,omitempty"`
-	Flags string `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
-	// The workflow to place the agent in, and where its directory and flags come
-	// from when this request leaves them empty.
-	WorkflowId string `protobuf:"bytes,5,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
-	// Which CLI to run this agent on.
-	Harness        string  `protobuf:"bytes,7,opt,name=harness,proto3" json:"harness,omitempty"`
-	IdempotencyKey *string `protobuf:"bytes,6,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
-	SetupAction    *string `protobuf:"bytes,8,opt,name=setup_action,json=setupAction,proto3,oneof" json:"setup_action,omitempty"`
-	CleanupAction  *string `protobuf:"bytes,9,opt,name=cleanup_action,json=cleanupAction,proto3,oneof" json:"cleanup_action,omitempty"`
-	// Set only by the panel itself, against a pane it opened for the purpose. Leave blank.
-	SetupPane     string `protobuf:"bytes,10,opt,name=setup_pane,json=setupPane,proto3" json:"setup_pane,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Prompt         string                 `protobuf:"bytes,1,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	Title          string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Dir            string                 `protobuf:"bytes,3,opt,name=dir,proto3" json:"dir,omitempty"`
+	Flags          string                 `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
+	WorkflowId     string                 `protobuf:"bytes,5,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	Harness        string                 `protobuf:"bytes,7,opt,name=harness,proto3" json:"harness,omitempty"`
+	IdempotencyKey *string                `protobuf:"bytes,6,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
+	SetupAction    *string                `protobuf:"bytes,8,opt,name=setup_action,json=setupAction,proto3,oneof" json:"setup_action,omitempty"`
+	CleanupAction  *string                `protobuf:"bytes,9,opt,name=cleanup_action,json=cleanupAction,proto3,oneof" json:"cleanup_action,omitempty"`
+	SetupPane      string                 `protobuf:"bytes,10,opt,name=setup_pane,json=setupPane,proto3" json:"setup_pane,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CreateAgentRequest) Reset() {
@@ -683,13 +642,6 @@ func (x *GetAgentResponse) GetAgent() *Agent {
 	return nil
 }
 
-// SetTagsRequest puts one tag on every agent named, and an unset tag clears the
-// ones they carry. It is keyed by id rather than name because a tag outlives a
-// rename, and the panel already holds the ids of the rows it is looking at.
-//
-// One tag for the whole request rather than one per agent. The panel's tag key
-// steps a selection through the configured tags together, and a request carrying a
-// glyph per id would be a way to write tags nothing on screen can produce.
 type SetTagsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
@@ -794,17 +746,11 @@ func (x *SetHiddenRequest) GetHidden() bool {
 	return false
 }
 
-// SetMetadataRequest records one fact against an agent, or clears it when the
-// value is unset.
-//
-// One key per request, and the agent's other keys are untouched. A request carrying
-// the whole map would mean an agent adding a second fact had to send back the first.
 type SetMetadataRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Key   string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	// Unset clears the key.
-	Value         *string `protobuf:"bytes,3,opt,name=value,proto3,oneof" json:"value,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Key           string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	Value         *string                `protobuf:"bytes,3,opt,name=value,proto3,oneof" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -860,16 +806,11 @@ func (x *SetMetadataRequest) GetValue() string {
 	return ""
 }
 
-// LogRequest names the agent a line of weave's log is about, and what to say. Unset id
-// defaults to the caller's own, the same fallback SearchTranscripts uses, so a running
-// action needs nothing beyond WEAVE_AGENT_ID to say it is talking about itself.
 type LogRequest struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Id      *string                `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
-	Message string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	// The action whose run this line belongs to, unset for a caller that is not one.
-	// WEAVE_ACTION carries a running action's own name for this.
-	Action        *string `protobuf:"bytes,3,opt,name=action,proto3,oneof" json:"action,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            *string                `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Action        *string                `protobuf:"bytes,3,opt,name=action,proto3,oneof" json:"action,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -925,12 +866,6 @@ func (x *LogRequest) GetAction() string {
 	return ""
 }
 
-// ArchiveAgentsRequest hides agents without destroying them. This is what the
-// panel's archive key does.
-//
-// Ids rather than a filter, in this and in the two below. A caller that named what
-// to put away by predicate could not see what it was about to act on, and the set
-// the server matched a moment later need not be the set the caller meant.
 type ArchiveAgentsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
@@ -1063,8 +998,6 @@ func (x *RestoreAgentsResponse) GetAgents() []*Agent {
 	return nil
 }
 
-// ResumeAgentRequest puts an agent's conversation back in a pane, which is what the
-// panel's open key does on a row whose pane is gone.
 type ResumeAgentRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -1153,11 +1086,6 @@ func (x *ResumeAgentResponse) GetAgent() *Agent {
 	return nil
 }
 
-// DeleteAgentsRequest removes agents for good.
-//
-// It takes fewer ids than the other two. Nothing undoes a delete, and the archive it
-// is pressed on is the one screen that can hold hundreds of rows, so the ceiling is
-// what a person can see at once rather than what the database could manage.
 type DeleteAgentsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`

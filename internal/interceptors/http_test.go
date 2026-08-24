@@ -17,8 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// servedCall puts one request through the middleware and gives back what was logged and
-// what the handler under it saw of the body.
 func servedCall(t *testing.T, body string, handler http.HandlerFunc) (string, string) {
 	t.Helper()
 
@@ -58,8 +56,6 @@ func TestHTTPLoggingNamesTheTool(t *testing.T) {
 	assert.EqualValues(t, 200, record[logging.HTTPStatus])
 	assert.Contains(t, record, logging.DurationMS)
 
-	// Reading the body to find the tool consumes a stream that can only be read once, so
-	// the handler below has to still get all of it.
 	assert.Equal(t, body, seen)
 }
 
@@ -132,8 +128,6 @@ func TestHTTPLoggingCarriesATrace(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"method":"tools/list"}`))
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// The trace is on the context as well as on the response, so anything below can log
-		// under the same id as the line this writes.
 		assert.NotEmpty(t, caller.Trace(r.Context()))
 		w.WriteHeader(http.StatusOK)
 	})
@@ -167,8 +161,6 @@ func TestHTTPLoggingNamesTheCallingAgent(t *testing.T) {
 	assert.Equal(t, "sess-1", record[logging.SessionID])
 	assert.Equal(t, "create_agent", record[logging.MCPTool])
 
-	// A tool that calls an RPC does it on the caller's behalf, so the identity has to be
-	// reachable from the handler and not only in the record written here.
 	assert.Equal(t, caller.Caller{AgentID: "agent-1", SessionID: "sess-1"}, seen)
 }
 

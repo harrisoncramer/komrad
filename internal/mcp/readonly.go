@@ -16,33 +16,17 @@ import (
 )
 
 const (
-	// maxRows bounds how many rows a single query returns. The query is wrapped
-	// with LIMIT maxRows+1 so we can tell the caller when results were truncated.
 	maxRows = 1000
-	// maxCellChars truncates any single stringified cell so one wide column cannot blow
-	// up the response, which matters because transcripts are stored whole.
+
 	maxCellChars = 2000
-	// queryTimeout is set as the context deadline and as the connection's
-	// statement_timeout, so a query that stops responding is cut off by the server rather
-	// than left running behind a caller that has given up.
+
 	queryTimeout = 15 * time.Second
 )
 
-// forbiddenPattern matches any write, DDL, or connection-state verb, rejecting the
-// statement before it reaches the database. It runs over the executable text only, with
-// literals, identifiers, and comments blanked out first, so searching transcripts for the
-// word "update" is a search rather than a rejected write.
-//
-// COPY is on the list because it is the one verb that leaves the database entirely: COPY
-// TO PROGRAM runs a shell command as the server's own user.
 var forbiddenPattern = regexp.MustCompile(`(?i)\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE|EXECUTE|CALL|MERGE|VACUUM|REINDEX|ATTACH|DETACH|PRAGMA|BEGIN|COMMIT|ROLLBACK|SET|COPY)\b`)
 
-// replaceStatement matches REPLACE only where it begins a statement, since Postgres has a
-// replace() scalar function and rejecting every use of the word would refuse an ordinary
-// string substitution.
 var replaceStatement = regexp.MustCompile(`(?i)(\A|[(;])\s*REPLACE\s+INTO\b`)
 
-// queryResult is the JSON shape returned by the query tool.
 type queryResult struct {
 	Columns   []string         `json:"columns"`
 	Rows      []map[string]any `json:"rows"`
@@ -50,9 +34,6 @@ type queryResult struct {
 	Truncated bool             `json:"truncated"`
 }
 
-// validateReadOnly checks that sql is a single SELECT or WITH statement with no write or
-// DDL verbs, returning the cleaned statement. It is defence in depth on top of the
-// read-only connection rather than the guarantee itself.
 func validateReadOnly(sql string) (string, error) {
 	trimmed := strings.TrimSpace(sql)
 	trimmed = strings.TrimSuffix(trimmed, ";")
@@ -85,10 +66,6 @@ func validateReadOnly(sql string) (string, error) {
 	return trimmed, nil
 }
 
-// stripQuoted blanks out the parts of a statement that are data rather than instruction:
-// string literals, quoted identifiers, and comments, each becoming a space so the tokens
-// around it stay apart. An unclosed quote or comment is an error, since the rest of the
-// statement would otherwise disappear into it and pass every check unread.
 func stripQuoted(statement string) (string, error) {
 	var b strings.Builder
 	b.Grow(len(statement))
@@ -134,9 +111,6 @@ func stripQuoted(statement string) (string, error) {
 	return b.String(), nil
 }
 
-// skipQuoted returns the index just past the run opened by the quote character at start. A
-// doubled quote inside the run is escaped and does not close it, which is how SQL escapes
-// both literals and identifiers.
 func skipQuoted(statement string, start int, quote byte) (int, bool) {
 	for i := start + 1; i < len(statement); i++ {
 		if statement[i] != quote {
@@ -153,13 +127,6 @@ func skipQuoted(statement string, start int, quote byte) (int, bool) {
 	return 0, false
 }
 
-// query validates that sql is a single read-only statement, then runs it under a deadline
-// with a row cap. The role's privileges are the guarantee, since they bound what a
-// statement may read rather than only what it may change; the read-only transaction and
-// the parsing above it are the other two refusals a write has to get past.
-//
-// The deadline and the row cap are neither. They bound what one query costs the pool the
-// panel shares, which is the same whatever the role is allowed to see.
 func (d *dbTools) query(ctx context.Context, statement string) (*queryResult, error) {
 	trimmed, err := validateReadOnly(statement)
 	if err != nil {
@@ -179,8 +146,6 @@ func (d *dbTools) query(ctx context.Context, statement string) (*queryResult, er
 		return nil, fmt.Errorf("set statement timeout: %w", err)
 	}
 
-	// The statement goes on its own line, or a query ending in a -- comment would swallow
-	// the closing paren and fail as incomplete input.
 	wrapped := fmt.Sprintf("SELECT * FROM (\n%s\n) AS _mcp_q LIMIT %d", trimmed, maxRows+1)
 
 	rows, err := tx.Query(ctx, wrapped)
@@ -242,8 +207,6 @@ func capString(s string) string {
 		return s
 	}
 
-	// Slicing raw bytes would split a multi-byte character and leave a replacement
-	// character at the seam.
 	cut := maxCellChars
 	for cut > 0 && !utf8.RuneStart(s[cut]) {
 		cut--
@@ -252,8 +215,6 @@ func capString(s string) string {
 	return s[:cut] + "…(truncated)"
 }
 
-// scanStrings collects a single-column result into a slice, for the introspection queries
-// that return one text column per row.
 func scanStrings(rows pgx.Rows) ([]string, error) {
 	defer rows.Close()
 
@@ -272,8 +233,6 @@ func scanStrings(rows pgx.Rows) ([]string, error) {
 	return out, nil
 }
 
-// mustJSON marshals v to indented JSON, falling back to an error message rather than
-// panicking so a marshal failure surfaces to the caller as text.
 func mustJSON(v any) string {
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {

@@ -14,8 +14,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// panelCmd runs the panel; it is hidden because it is the manager session's own command, and
-// run by hand it would put a second panel outside the session and popup it expects.
 func panelCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "panel",
@@ -31,13 +29,8 @@ func panelCmd(state *app) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Carried into the panel rather than returned, since returning ends the
-			// session and tmux tears the pane down with the message still on it.
 			logPath := state.env.LogPath()
 
-			// No server on a config that would not parse: serve refuses that config too, so
-			// spawning would fail and show the startup screen, about the server, in place of
-			// the config screen the user actually needs to fix.
 			var startupErr error
 			if state.configErr == nil {
 				startupErr = ensureServer(ensureServerParams{
@@ -48,9 +41,6 @@ func panelCmd(state *app) *cobra.Command {
 				})
 			}
 
-			// Only on failure, since the checks reach a database and a tmux server — not
-			// work to do on every open — and there is nothing to explain when the server
-			// came up.
 			var startupFindings []errui.Finding
 			if startupErr != nil {
 				startupFindings = state.diagnose(cmd.Context())
@@ -62,11 +52,8 @@ func panelCmd(state *app) *cobra.Command {
 			scheduleClient := schedulev1connect.NewScheduleServiceClient(http.DefaultClient, base)
 			actionClient := actionv1connect.NewActionServiceClient(http.DefaultClient, base)
 
-			// Drop the status bar so the panel and its stage fill the popup.
 			state.popup.SilenceStatus(agents.ManagerSession)
 
-			// Close and quit detach the popup rather than exit, so Run returns only on a
-			// real error.
 			return ui.Run(ui.Deps{
 				PopupWindow:     state.popup,
 				Tmux:            state.tmux,

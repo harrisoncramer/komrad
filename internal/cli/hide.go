@@ -4,9 +4,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// hideCmd detaches the client viewing the manager session rather than detaching the session
-// itself, since the key binding runs on the user's server and the session it would name lives
-// on the manager's.
 func hideCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "hide",

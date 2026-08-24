@@ -9,9 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// The frames below are real captures from codex-cli 0.144.4 running in a tmux pane.
-// idleFrame is the input box it sits at, with the placeholder it shows when nothing has
-// been typed and the footer naming the model and directory.
 const idleFrame = "• ls returned no files. Total: 0.\n" +
 	"────────────────────────────────────────\n" +
 	"\n" +
@@ -19,8 +16,6 @@ const idleFrame = "• ls returned no files. Total: 0.\n" +
 	"\n" +
 	"  gpt-5.6-sol default fast · /repo/worktree"
 
-// workingFrame is the live status line, which carries the timer from its first frame
-// rather than growing one once tokens stream.
 const workingFrame = "› list the files in this directory\n" +
 	"\n" +
 	"• Working (5s • esc to interrupt) · 1 background terminal running · /ps to view\n" +
@@ -28,8 +23,6 @@ const workingFrame = "› list the files in this directory\n" +
 	"› Improve documentation in @filename\n" +
 	"  gpt-5.6-sol default fast · /repo/worktree"
 
-// approvalFrame is a command Codex is blocked on. patchFrame is the same question about
-// an edit, and both close with the identical footer.
 const approvalFrame = "  Would you like to run the following command?\n" +
 	"\n" +
 	"  Environment: local\n" +
@@ -52,9 +45,6 @@ const patchFrame = "• Added note.txt (+1 -0)\n" +
 	"\n" +
 	"  Press enter to confirm or esc to cancel"
 
-// trustFrame is the question Codex asks the first time it runs in a directory, and
-// loginFrame is the sign-in screen. Both are the user's turn and both close with the
-// same wording, which is why one pattern covers all four blocking states.
 const trustFrame = "> You are in /repo/worktree\n" +
 	"\n" +
 	"  Do you trust the contents of this directory?\n" +
@@ -113,8 +103,6 @@ func TestReadActivity(t *testing.T) {
 			want:  harness.ActivityIdle,
 		},
 		{
-			// The typed prompt stays in the input box and the status line goes, which is
-			// what an escaped turn leaves behind.
 			name:  "an interrupted turn reads as finished",
 			frame: "› write a haiku about tmux\n  gpt-5.6-sol default fast · /repo/worktree",
 			want:  harness.ActivityIdle,
@@ -186,8 +174,6 @@ func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
 			frame: "The status line reads `• Working (5s • esc to interrupt)`." + strings.Repeat("\n", liveRegionLines) + idleFrame,
 		},
 		{
-			// Inside the wide work window but outside the tight waiting one, which is why
-			// the two windows are sized differently.
 			name:  "an approval phrase a dozen lines up",
 			frame: "I wrote that it says \"Press enter to confirm or esc to cancel\"." + strings.Repeat("\n", 12) + idleFrame,
 		},

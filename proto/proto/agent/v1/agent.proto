@@ -12,7 +12,6 @@ import "rules/v1/rules.proto";
 
 option go_package = "weave/proto/gen/agent/v1;agentv1";
 
-// Agent is one background agent, as stored.
 message Agent {
   string id = 1;
   string name = 2;
@@ -21,53 +20,23 @@ message Agent {
   string prompt = 5;
   string pane_id = 6;
   string state = 7;
-  // The conversation this agent holds, which its harness reopens when a dormant
-  // agent is restored.
   string session_id = 8;
-  // Which CLI this agent runs, which decides how it was launched, how its state is
-  // read off its pane, and where its conversation log is found.
   string harness = 18;
-  // The workflow this agent belongs to. Every agent has one: the workflow holds
-  // the directory, flags, and shared context it started from.
   string workflow_id = 9;
-  // When the agent was first created, as an RFC 3339 timestamp, for display.
   string created_at = 10;
-  // When the agent was archived, as an RFC 3339 timestamp, unset while it is live.
   optional string archived_at = 19;
-  // The schedule that launched this agent.
   optional string schedule_id = 12;
-  // Whether the agent's tmux pane is still running.
   bool alive = 11;
-  // Whether this agent is holding mail nobody has read yet. Observed from the mailbox
-  // rather than stored, the same as alive.
   bool unread_mail = 21;
-  // The glyph the user tagged this agent with, unset when it carries no tag.
   optional string tag = 14;
-  // Whether the user has hidden this agent from the panel's sidebar. It is not a
-  // deletion and says nothing about the agent, which runs and is reconciled the
-  // same either way. Listings return hidden agents like any other, since only the
-  // panel suppresses them.
   bool hidden = 15;
-  // What the agent recorded about its own work, ordered by key.
   repeated AgentMetadata metadata = 16;
-  // The key the creator claimed this agent under, unset for one created without a claim.
   optional string idempotency_key = 17;
-  // The agent that called create_agent to launch this one, unset for one a person started
-  // from the panel.
   optional string spawned_by_agent_id = 20;
-  // The branch checked out at cwd, unset when cwd is not inside a git worktree or the
-  // branch has not been read yet. Refreshed on a slow periodic pass rather than every
-  // reconcile, since reading it is a shell-out and not a tmux capture.
   optional string branch = 22;
-  // Whether cwd no longer exists on disk. Refreshed on its own slow periodic pass rather
-  // than every reconcile, since a worktree can be deleted under a running agent at any
-  // time and a row over a directory that is gone otherwise looks healthy.
   bool worktree_removed = 23;
 }
 
-// AgentMetadata is one fact an agent recorded about its own work: the issue it is
-// implementing, the pull request it opened, the branch it is on. The keys are the
-// agent's own invention rather than a fixed set.
 message AgentMetadata {
   string key = 1;
   string value = 2;
@@ -75,7 +44,6 @@ message AgentMetadata {
 
 message ListAgentsRequest {
   optional pagination.v1.Pagination pagination = 1;
-  // Lists the archived agents instead of the live ones.
   bool archived = 2;
 }
 
@@ -89,9 +57,6 @@ message CreateAgentRequest {
     min_len: 1
     max_len: 50000
   }];
-  // Control characters are refused rather than sanitised. The title becomes the
-  // tmux window name and tmux rejects a name containing one, so accepting it
-  // here would fail the launch instead.
   string title = 2 [
     (buf.validate.field).string.max_len = 200,
     (buf.validate.field).cel = {
@@ -100,8 +65,6 @@ message CreateAgentRequest {
       expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
     }
   ];
-  // Where the agent starts. Leave it empty to take the workflow's directory,
-  // which is what a caller with no view of the filesystem should do.
   string dir = 3 [(buf.validate.field).string = {
     max_len: 4096
     [rules.v1.absolute_path_or_blank]: true
@@ -110,10 +73,7 @@ message CreateAgentRequest {
     max_len: 500
     [rules.v1.shell_safe]: true
   }];
-  // The workflow to place the agent in, and where its directory and flags come
-  // from when this request leaves them empty.
   string workflow_id = 5 [(buf.validate.field).string.min_len = 1];
-  // Which CLI to run this agent on.
   string harness = 7 [(buf.validate.field).string = {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
@@ -130,7 +90,6 @@ message CreateAgentRequest {
     max_len: 255
     [rules.v1.action_name_or_blank]: true
   }];
-  // Set only by the panel itself, against a pane it opened for the purpose. Leave blank.
   string setup_pane = 10 [(buf.validate.field).string.max_len = 20];
 }
 
@@ -146,13 +105,6 @@ message GetAgentResponse {
   Agent agent = 1;
 }
 
-// SetTagsRequest puts one tag on every agent named, and an unset tag clears the
-// ones they carry. It is keyed by id rather than name because a tag outlives a
-// rename, and the panel already holds the ids of the rows it is looking at.
-//
-// One tag for the whole request rather than one per agent. The panel's tag key
-// steps a selection through the configured tags together, and a request carrying a
-// glyph per id would be a way to write tags nothing on screen can produce.
 message SetTagsRequest {
   repeated string ids = 1 [(buf.validate.field).repeated = {
     min_items: 1
@@ -174,11 +126,6 @@ message SetHiddenRequest {
   bool hidden = 2;
 }
 
-// SetMetadataRequest records one fact against an agent, or clears it when the
-// value is unset.
-//
-// One key per request, and the agent's other keys are untouched. A request carrying
-// the whole map would mean an agent adding a second fact had to send back the first.
 message SetMetadataRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
   string key = 2 [
@@ -189,7 +136,6 @@ message SetMetadataRequest {
       expression: "this.matches('^[a-z0-9_-]+$')"
     }
   ];
-  // Unset clears the key.
   optional string value = 3 [(buf.validate.field).cel = {
     id: "value.printable"
     message: "a metadata value must be a single line of at most 2048 characters carrying no control characters"
@@ -197,9 +143,6 @@ message SetMetadataRequest {
   }];
 }
 
-// LogRequest names the agent a line of weave's log is about, and what to say. Unset id
-// defaults to the caller's own, the same fallback SearchTranscripts uses, so a running
-// action needs nothing beyond WEAVE_AGENT_ID to say it is talking about itself.
 message LogRequest {
   optional string id = 1 [(buf.validate.field).string.min_len = 1];
   string message = 2 [
@@ -213,20 +156,12 @@ message LogRequest {
       expression: "!this.matches('[[:cntrl:]]')"
     }
   ];
-  // The action whose run this line belongs to, unset for a caller that is not one.
-  // WEAVE_ACTION carries a running action's own name for this.
   optional string action = 3 [(buf.validate.field).string = {
     max_len: 255
     [rules.v1.action_name]: true
   }];
 }
 
-// ArchiveAgentsRequest hides agents without destroying them. This is what the
-// panel's archive key does.
-//
-// Ids rather than a filter, in this and in the two below. A caller that named what
-// to put away by predicate could not see what it was about to act on, and the set
-// the server matched a moment later need not be the set the caller meant.
 message ArchiveAgentsRequest {
   repeated string ids = 1 [(buf.validate.field).repeated = {
     min_items: 1
@@ -253,8 +188,6 @@ message RestoreAgentsResponse {
   repeated Agent agents = 1;
 }
 
-// ResumeAgentRequest puts an agent's conversation back in a pane, which is what the
-// panel's open key does on a row whose pane is gone.
 message ResumeAgentRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
@@ -263,11 +196,6 @@ message ResumeAgentResponse {
   Agent agent = 1;
 }
 
-// DeleteAgentsRequest removes agents for good.
-//
-// It takes fewer ids than the other two. Nothing undoes a delete, and the archive it
-// is pressed on is the one screen that can hold hundreds of rows, so the ceiling is
-// what a person can see at once rather than what the database could manage.
 message DeleteAgentsRequest {
   repeated string ids = 1 [(buf.validate.field).repeated = {
     min_items: 1
@@ -294,9 +222,6 @@ message UpdateAgentRequest {
   ];
 }
 
-// AgentService reads and mutates the agent store. Every method carries a tool
-// annotation, which is what puts it on the MCP surface. A method without one is
-// not reachable from a model at all.
 service AgentService {
   rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;

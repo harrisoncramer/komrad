@@ -14,14 +14,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// traceScanBuffer is how long a single log line may be before it is skipped. A line carries
-// whatever an error said, and a stack trace or a script's captured stderr runs long.
 const traceScanBuffer = 1 << 20
 
-// traceCmd follows one thing weave did through the log. Everything the service writes while
-// serving a request, or while running one pass of a loop, carries the same trace id, so the
-// answer to what happened when I pressed that is one command rather than a read of four
-// files.
 func traceCmd(state *app) *cobra.Command {
 	var recent bool
 
@@ -53,17 +47,15 @@ func traceCmd(state *app) *cobra.Command {
 	return cmd
 }
 
-// logLine is one record from the service's log, in the shape this command reads it.
 type logLine struct {
 	Time    string
 	Level   string
 	Message string
 	Trace   string
-	// Fields is the whole record, since which fields a line carries depends on what wrote it.
+
 	Fields map[string]any
 }
 
-// showTrace prints every line written under one id, in the order they were written.
 func showTrace(out io.Writer, path, trace string) error {
 	var written strings.Builder
 
@@ -86,12 +78,8 @@ func showTrace(out io.Writer, path, trace string) error {
 	return writeOut(out, written.String())
 }
 
-// recentTraceLimit is how many traces --recent names. It is the tail of the log rather than
-// all of it, since the point is to find what just happened.
 const recentTraceLimit = 20
 
-// listRecentTraces names the traces the log ends with, the newest last, with what each one
-// was. A caller who knows what they did but not what it was called starts here.
 func listRecentTraces(out io.Writer, path string) error {
 	type summary struct {
 		trace string
@@ -142,8 +130,6 @@ func listRecentTraces(out io.Writer, path string) error {
 	return writeOut(out, written.String())
 }
 
-// writeOut puts a whole answer on the writer at once. Writing to a pipe somebody closed is
-// the one way this fails, which is worth reporting rather than half-printing.
 func writeOut(out io.Writer, body string) error {
 	if _, err := io.WriteString(out, body); err != nil {
 		return fmt.Errorf("failed to write the trace: %w", err)
@@ -152,7 +138,6 @@ func writeOut(out io.Writer, body string) error {
 	return nil
 }
 
-// describeTrace names what a trace was: the RPC it served, or the loop whose pass it was.
 func describeTrace(line logLine) string {
 	if method, ok := line.Fields[logging.RPCMethod].(string); ok && method != "" {
 		return method
@@ -165,8 +150,6 @@ func describeTrace(line logLine) string {
 	return ""
 }
 
-// renderTraceLine is one line as a person reads it: when, how bad, what happened, and
-// whatever else that line carried.
 func renderTraceLine(line logLine) string {
 	var out strings.Builder
 
@@ -183,8 +166,6 @@ func renderTraceLine(line logLine) string {
 	return out.String()
 }
 
-// sortedFields is what a line carried beyond the four every line has, named in a stable
-// order so two lines read down the page rather than shuffling.
 func sortedFields(fields map[string]any) []string {
 	skip := map[string]bool{
 		logging.TimestampKey: true, logging.SeverityKey: true, logging.BodyKey: true,
@@ -204,8 +185,6 @@ func sortedFields(fields map[string]any) []string {
 	return keys
 }
 
-// shortTime is the clock part of a timestamp, since every line in one trace happened in the
-// same few seconds and the date says nothing.
 func shortTime(stamp string) string {
 	if len(stamp) < 19 {
 		return stamp
@@ -214,9 +193,6 @@ func shortTime(stamp string) string {
 	return stamp[11:19]
 }
 
-// eachLogLine reads the service's log and hands over every record it can parse. A line that
-// will not parse is skipped rather than fatal: the log is appended to by a running process
-// and the last line may be half written.
 func eachLogLine(path string, visit func(logLine)) error {
 	file, err := os.Open(path)
 	if err != nil {

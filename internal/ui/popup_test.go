@@ -8,8 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// bindingTmux records the keys bound on the manager's server and answers the options a
-// binding reads off the user's.
 type bindingTmux struct {
 	globals map[string]string
 	bound   map[string][]string
@@ -35,8 +33,6 @@ func (t *bindingTmux) BindKey(key string, command ...string) {
 	t.bound[key] = command
 }
 
-// panelKeyRecorder is the user's own tmux server, the one the panel key is bound on, where
-// every call reports whether tmux took it.
 type panelKeyRecorder struct {
 	bindingTmux
 	err error
@@ -104,8 +100,6 @@ func TestBindPanelKey(t *testing.T) {
 			command, bound := tmux.bound[tt.wantKey]
 			require.True(t, bound, "the panel key is not bound")
 
-			// Binding by hand while the panel is up must not report it closed, since the next
-			// press would then stack a second popup rather than hiding the one there.
 			assert.Equal(t, tt.wantOpen, tmux.globals[managerOpenFlag])
 			assert.Equal(t, []string{
 				"if-shell", "-F", "#{==:#{@weave_open},1}",

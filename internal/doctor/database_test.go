@@ -16,14 +16,11 @@ const (
 	readOnlyURL = "postgres://weave_readonly:weave_readonly@localhost:5460/weave?sslmode=disable"
 )
 
-// fakeSchema is what a database says about its migrations.
 type fakeSchema struct {
 	pending []string
 	err     error
 }
 
-// dbEnv answers for a Postgres without one running. connectErr is what reaching the
-// writable login does, readOnlyErr what opening the least-privilege one does.
 func dbEnv(schema fakeSchema, connectErr, readOnlyErr error) Env {
 	return Env{
 		Settings:     Settings{DatabaseURL: writableURL, ReadOnlyDatabaseURL: readOnlyURL},
@@ -39,8 +36,6 @@ func dbEnv(schema fakeSchema, connectErr, readOnlyErr error) Env {
 	}
 }
 
-// refused is what a dial at an address with nothing listening comes back as, wrapped the
-// way pgx wraps it.
 func refused() error {
 	return &net.OpError{Op: "dial", Net: "tcp", Err: errors.New("connect: connection refused")}
 }

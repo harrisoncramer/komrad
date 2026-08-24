@@ -11,25 +11,15 @@ import "rules/v1/rules.proto";
 
 option go_package = "weave/proto/gen/schedule/v1;schedulev1";
 
-// Schedule is a recurring agent launch. The record is a blueprint holding the
-// prompt to run, where to run it, and how often. Each firing produces an agent
-// that records the schedule it came from, so a schedule points at no agent itself.
 message Schedule {
   string id = 1;
   string name = 2;
-  // A standard five-field cron expression, as written.
   string cron = 3;
-  // The IANA zone the expression is read in, empty for the machine's local
-  // zone.
   string timezone = 4;
-  // False pauses the schedule. It keeps its record and stops firing.
   bool enabled = 5;
-  // Whether the agents this schedule launches start hidden from the panel's sidebar.
   bool hide_agents = 8;
   string prompt = 6;
-  // The workflow this schedule launches into.
   string workflow_id = 7;
-  // When this schedule next fires, derived from the cron expression.
   optional google.protobuf.Timestamp next_run_at = 10;
 }
 
@@ -51,9 +41,6 @@ message GetScheduleResponse {
 }
 
 message CreateScheduleRequest {
-  // Control characters are refused rather than sanitised. A firing launches an agent
-  // under this name and the name becomes the tmux window name, so accepting one here
-  // would fail every occurrence of the schedule.
   string name = 1 [
     (buf.validate.field).string = {
       min_len: 1

@@ -152,8 +152,6 @@ func TestAgentsViewUnreadMail(t *testing.T) {
 	assert.NotContains(t, caughtUp, unreadMailIcon)
 }
 
-// rowNamed returns the rendered row containing name, so a test can check what is drawn
-// beside one agent without depending on where it lands among the others.
 func rowNamed(rows []string, name string) (string, bool) {
 	for _, row := range rows {
 		if strings.Contains(row, name) {

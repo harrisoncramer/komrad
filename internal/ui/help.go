@@ -9,9 +9,6 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 )
 
-// keyMap is one screen's help in both states: short is the handful worth a line while the
-// help is collapsed, and full is everything the screen binds. It satisfies help.KeyMap, so
-// bubbles renders either one from the same value.
 type keyMap struct {
 	short []key.Binding
 	full  []key.Binding
@@ -28,8 +25,6 @@ func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{byLabel(k.full)}
 }
 
-// byLabel orders a legend by what each binding does, so every screen reads alphabetically
-// however its bindings were assembled. It sorts a copy, leaving the caller's slice alone.
 func byLabel(bindings []key.Binding) []key.Binding {
 	sorted := slices.Clone(bindings)
 	slices.SortFunc(sorted, func(a, b key.Binding) int {
@@ -39,12 +34,7 @@ func byLabel(bindings []key.Binding) []key.Binding {
 	return sorted
 }
 
-// renderHelp draws a screen's help, ending in the newline every block a screen builds ends
-// in so the height budget counts it like the rest of the views.
 func (m model) renderHelp(k keyMap) string {
-	// An open filter input has taken the screen's keys, so its legend replaces theirs here
-	// rather than at each screen's own help, which would otherwise be four places to forget.
-	// The details under a list take them the same way, from whichever screen drew them.
 	if m.detailsFocused() {
 		k = m.detailsHelp()
 	}
@@ -60,9 +50,6 @@ func (m model) renderHelp(k keyMap) string {
 	return trimLines(view.View(k)) + "\n"
 }
 
-// trimLines takes the padding off the end of every line of the rendered help. bubbles pads
-// a column to its widest line, and in a narrower pane that padding wraps the lines that
-// would otherwise have fit.
 func trimLines(rendered string) string {
 	lines := strings.Split(rendered, "\n")
 	for i, line := range lines {
@@ -72,13 +59,10 @@ func trimLines(rendered string) string {
 	return strings.Join(lines, "\n")
 }
 
-// binding is one line of the help, a configured key list paired with what it does.
 func binding(keys []string, desc string) key.Binding {
 	return key.NewBinding(key.WithKeys(keys...), key.WithHelp(keyLabel(keys), desc))
 }
 
-// moveBinding is the two nav bindings as one line, since neither direction is worth a line
-// of its own.
 func (m model) moveBinding() key.Binding {
 	keys := slices.Concat(m.keys.Nav.Up, m.keys.Nav.Down)
 
@@ -88,8 +72,6 @@ func (m model) moveBinding() key.Binding {
 	)
 }
 
-// jumpBinding is the two ends-of-list keys as one line, the way the nav pair shares one. The
-// top key is drawn twice, since it is the second press that acts.
 func (m model) jumpBinding() key.Binding {
 	keys := slices.Concat(m.keys.Nav.Top, m.keys.Nav.Bottom)
 
@@ -99,7 +81,6 @@ func (m model) jumpBinding() key.Binding {
 	)
 }
 
-// doubledLabel names keys that act on their second press, each drawn as the pair it takes.
 func doubledLabel(keys []string) string {
 	pairs := make([]string, len(keys))
 	for i, k := range keys {
@@ -110,8 +91,6 @@ func doubledLabel(keys []string) string {
 	return strings.Join(pairs, "/")
 }
 
-// filterHelp is the legend under a list while the filter input is open. Everything else on the
-// screen types into the pattern, so the only keys it names are the two that close the input.
 func filterHelp() keyMap {
 	done := binding([]string{"enter"}, "keep it, then act on what is left")
 	drop := binding([]string{"esc"}, "cancel")
@@ -119,8 +98,6 @@ func filterHelp() keyMap {
 	return keyMap{short: []key.Binding{done, drop}, full: []key.Binding{done, drop}}
 }
 
-// filterBinding is the key that opens the filter input, naming the pattern already narrowing
-// the list so a press reads as editing that rather than starting over.
 func (m model) filterBinding() key.Binding {
 	if m.filter.standing() {
 		return binding(m.keys.Filter.Open, "filter: "+m.filter.query)
@@ -129,8 +106,6 @@ func (m model) filterBinding() key.Binding {
 	return binding(m.keys.Filter.Open, "filter")
 }
 
-// editFilterBinding is a screen's back key while a filter stands, since the press puts the
-// keys back in the input rather than leaving the screen. Leaving needs no line of its own.
 func (m model) editFilterBinding(keys []string) []key.Binding {
 	if !m.filter.standing() {
 		return nil
@@ -139,8 +114,6 @@ func (m model) editFilterBinding(keys []string) []key.Binding {
 	return []key.Binding{binding(keys, "edit filter")}
 }
 
-// helpBinding is the key that draws the help itself, which ends every screen's help in both
-// states and names the direction it would go.
 func (m model) helpBinding() key.Binding {
 	desc := "show help"
 	if m.helpExpanded {
@@ -150,13 +123,10 @@ func (m model) helpBinding() key.Binding {
 	return binding(m.keys.Help.Toggle, desc)
 }
 
-// globalHelp are the bindings every screen answers, which end each expanded legend rather
-// than being listed among the keys the screen binds itself.
 func (m model) globalHelp() []key.Binding {
 	return []key.Binding{binding(m.keys.Logs.Open, m.logsDesc()), m.helpBinding()}
 }
 
-// agentHelp lists the agents screen's bindings.
 func (m model) agentHelp() keyMap {
 	if m.tree.selected.active() {
 		hovered, _ := m.hoveredRow()
@@ -182,8 +152,6 @@ func (m model) agentHelp() keyMap {
 	return keyMap{short: []key.Binding{rows[0], m.helpBinding()}, full: full}
 }
 
-// detailsBinding is the key that hands the cursor to the details under the list. It names the
-// direction the key would go, the way the log and hide lines do.
 func (m model) detailsBinding() key.Binding {
 	desc := "details"
 	if m.detailsFocused() {
@@ -193,9 +161,6 @@ func (m model) detailsBinding() key.Binding {
 	return binding(m.keys.Details.Focus, desc)
 }
 
-// detailsHelp lists what is live while the details hold the cursor. It replaces the row
-// bindings rather than joining them, since those keys stand down in this mode: the cursor
-// is on a field rather than on the agent the field belongs to.
 func (m model) detailsHelp() keyMap {
 	copyField := binding(m.keys.Details.Copy, "copy field")
 	back := m.detailsBinding()
@@ -206,12 +171,6 @@ func (m model) detailsHelp() keyMap {
 	}
 }
 
-// selectionHelp lists what is live while a selection is up, which both trees show. It
-// replaces the row bindings rather than joining them, since those keys stand down in this
-// mode, and it names how many rows are held so the count is on screen without a line of its
-// own. A screen with a key of its own still live in the mode passes it as an extra.
-//
-// An empty list hands in the zero row, which carries no id and so reads as unselected.
 func (m model) selectionHelp(sel selection, hovered agentRow, extra ...key.Binding) keyMap {
 	toggleDesc := "select"
 	switch {
@@ -234,9 +193,6 @@ func (m model) selectionHelp(sel selection, hovered agentRow, extra ...key.Bindi
 	return keyMap{short: []key.Binding{toggle, clear, m.helpBinding()}, full: full}
 }
 
-// newBinding is the two create keys as one line, an agent inside the folder the cursor is in
-// and a folder of its own. They share a line the way the two nav keys do, since the legend is
-// already as tall as a short pane holds.
 func (m model) newBinding() key.Binding {
 	keys := slices.Concat(m.keys.Agents.New, m.keys.Workflows.New)
 
@@ -246,12 +202,10 @@ func (m model) newBinding() key.Binding {
 	)
 }
 
-// showHiddenBinding is the hidden toggle, which names the direction it would go.
 func (m model) showHiddenBinding() key.Binding {
 	return binding(m.keys.Agents.ShowHidden, m.showHiddenDesc())
 }
 
-// showHiddenDesc names the direction the hidden toggle would go.
 func (m model) showHiddenDesc() string {
 	if m.tree.showHidden {
 		return "put hidden away"
@@ -260,9 +214,6 @@ func (m model) showHiddenDesc() string {
 	return "show hidden"
 }
 
-// hideBinding is the two hidden keys as one line, putting the hovered agent away and drawing
-// the ones already put away. They share a line the way the two nav keys do, since a legend as
-// tall as a short pane holds has no room for one each.
 func (m model) hideBinding() key.Binding {
 	keys := slices.Concat(m.keys.Agents.Hide, m.keys.Agents.ShowHidden)
 
@@ -280,9 +231,6 @@ func (m model) hideBinding() key.Binding {
 	)
 }
 
-// archiveBinding is the two archive keys as one line, putting the hovered row away and drawing
-// the ones already put away. They share a line the way the two hidden keys do, since the screen
-// they open is the one place the key that fills it leads.
 func (m model) archiveBinding(away []string) key.Binding {
 	keys := slices.Concat(away, m.keys.Archive.Open)
 
@@ -292,8 +240,6 @@ func (m model) archiveBinding(away []string) key.Binding {
 	)
 }
 
-// rowHelp are the bindings that act on the row under the cursor, which is a
-// workflow header or an agent.
 func (m model) rowHelp() []key.Binding {
 	if _, hoveringWorkflow := m.hoveredWorkflow(); hoveringWorkflow {
 		return []key.Binding{
@@ -318,7 +264,6 @@ func (m model) rowHelp() []key.Binding {
 	}
 }
 
-// screenHelp are the screens reachable from anywhere in the tree.
 func (m model) screenHelp() []key.Binding {
 	return []key.Binding{
 		binding(m.keys.Agents.Search, "search"),
@@ -326,7 +271,6 @@ func (m model) screenHelp() []key.Binding {
 	}
 }
 
-// scheduleHelp lists the schedules screen's bindings
 func (m model) scheduleHelp() keyMap {
 	toggle := "pause"
 	if item, ok := m.selectedSchedule(); ok && !item.schedule.Enabled {
@@ -350,8 +294,6 @@ func (m model) scheduleHelp() keyMap {
 	}
 }
 
-// archiveHelp lists the archive screen's bindings, which differ by what the cursor is on
-// the way the agents screen's do.
 func (m model) archiveHelp() keyMap {
 	if m.archive.selected.active() {
 		hovered, _ := rowAt(m.archiveRows(), m.archive.cursor)
@@ -383,10 +325,6 @@ func (m model) archiveHelp() keyMap {
 	}
 }
 
-// archiveRowHelp are the bindings that act on the row under the archive's cursor. A folder
-// is restored whole and never destroyed, since nothing in the panel hard-deletes one, and
-// a live folder takes no keys at all, since it is drawn only to hold the agents put away
-// out of it.
 func (m model) archiveRowHelp() []key.Binding {
 	if _, ok := m.hoveredArchivedWorkflow(); ok {
 		return []key.Binding{
@@ -405,9 +343,6 @@ func (m model) archiveRowHelp() []key.Binding {
 	}
 }
 
-// actionEditorDesc is what the legend says the editor key would do to the row under the
-// cursor. It names the direction the key would go, the way the info and log lines do, and
-// says why it would do nothing at all on a file with no text in it.
 func (m model) actionEditorDesc() string {
 	action, ok := m.selectedAction()
 	switch {
@@ -420,7 +355,6 @@ func (m model) actionEditorDesc() string {
 	}
 }
 
-// actionHelp lists the actions screen's bindings.
 func (m model) actionHelp() keyMap {
 	runDesc := "run"
 	if action, ok := m.selectedAction(); ok && !action.executable {
@@ -441,9 +375,6 @@ func (m model) actionHelp() keyMap {
 	}
 }
 
-// searchHelp lists the search screen's bindings, which are the query line's while it holds
-// the keys and the hits' once it has handed them over. The line names only the two keys it
-// leaves alone, since everything else types.
 func (m model) searchHelp() keyMap {
 	if m.search.typing {
 		done := binding([]string{"enter"}, "keep it, then move through the hits")
@@ -464,9 +395,6 @@ func (m model) searchHelp() keyMap {
 	}
 }
 
-// keyLabel renders a binding's keys for the help text, joining them with "/" and shortening
-// "ctrl+x" to "C-x". The space bar is named rather than printed, since a literal space reads
-// as a binding that failed to load.
 func keyLabel(keys []string) string {
 	out := make([]string, len(keys))
 	for i, k := range keys {

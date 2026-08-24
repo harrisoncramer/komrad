@@ -12,8 +12,6 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
-// scheduleReadWriter is the part of the schedule store this service reads and writes. A
-// schedule is only a record until something fires it, so this touches no tmux.
 type scheduleReadWriter interface {
 	Get(ctx context.Context, id string) (*schedulestore.Schedule, error)
 	Create(ctx context.Context, cfg schedulestore.Config) (*schedulestore.Schedule, error)
@@ -22,24 +20,16 @@ type scheduleReadWriter interface {
 	Archive(ctx context.Context, id string) error
 }
 
-// ErrScheduleNotFound reports that no schedule answers to the given id.
 var ErrScheduleNotFound = errors.New("schedule not found")
 
-// ErrBadCron reports a cron expression or timezone the scheduler cannot read. The proto
-// catches a malformed string first, so reaching here means the shape was fine and the
-// parse still refused it.
 var ErrBadCron = errors.New("unreadable cron expression")
 
-// ScheduleService manages recurring agent launches. A schedule is a blueprint of an agent
-// plus a cron expression; the firing half reads these records and launches through the
-// agent service.
 type ScheduleService struct {
 	store scheduleReadWriter
-	// workflows is read to confirm a schedule launches into a workflow that is there.
+
 	workflows workflowReader
 }
 
-// ScheduleParams carries the schedule service's dependencies.
 type ScheduleParams struct {
 	Schedules scheduleReadWriter
 	Workflows workflowReader
@@ -144,13 +134,6 @@ func (s *ScheduleService) ArchiveSchedule(ctx context.Context, id string) error 
 	return nil
 }
 
-// requireWorkflow refuses a schedule whose workflow is not there to be read, since a
-// schedule takes its directory and flags off the workflow every time it fires.
-//
-// The foreign key is not enough. It reports a missing id as a constraint failure rather
-// than the caller's mistake, and it cannot catch the case that matters more: a workflow is
-// only ever archived, so an archived one still satisfies the constraint while every read of
-// it comes back empty, leaving the schedule armed and launching nothing.
 func (s *ScheduleService) requireWorkflow(ctx context.Context, workflowID string) error {
 	wf, err := s.workflows.Get(ctx, workflowID)
 	if err != nil {
@@ -163,8 +146,6 @@ func (s *ScheduleService) requireWorkflow(ctx context.Context, workflowID string
 	return nil
 }
 
-// normalize trims the config and parses the cron expression, so an unreadable one never
-// reaches the database.
 func normalize(cfg schedulestore.Config) (schedulestore.Config, error) {
 	cfg.Name = strings.TrimSpace(cfg.Name)
 	cfg.Cron = strings.TrimSpace(cfg.Cron)

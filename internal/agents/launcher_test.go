@@ -17,8 +17,7 @@ import (
 func TestLaunchTypesTheHarnessCommand(t *testing.T) {
 	tests := []struct {
 		name string
-		// commandErr makes the harness refuse to build a command line, and
-		// sendKeysErr makes tmux refuse to type it.
+
 		commandErr  error
 		sendKeysErr error
 		wantErr     string
@@ -88,13 +87,10 @@ func TestLaunchPassesWhatThePanelKnows(t *testing.T) {
 	assert.Equal(t, "id-1", launch.AgentID)
 	assert.Equal(t, "127.0.0.1:9999", launch.MCPEndpoint, "the agent is told where the panel's own server is")
 	assert.True(t, launch.Resume)
-	// The buildBriefing is handed over on a resume too. A harness that can only append a
-	// system prompt drops it, but one that can re-inject it should.
+
 	assert.Contains(t, launch.Context, "http://127.0.0.1:9999/mcp")
 }
 
-// briefedLogPath stands in for the service's log, which the launcher is handed rather than
-// finding it for itself.
 const briefedLogPath = "/var/cache/weave/weave.log"
 
 // TestAppendedSystemPrompt covers what a spawned agent is told. The buildBriefing
@@ -113,16 +109,13 @@ func TestAppendedSystemPrompt(t *testing.T) {
 				"http://127.0.0.1:9999/mcp",
 				"list_tables",
 				"agent_transcripts",
-				// The buildBriefing has to name both halves or the agent has an id it never uses
-				// and a tool it does not know to reach for.
+
 				"WEAVE_AGENT_ID",
 				"set_agent_metadata",
-				// An agent told to read the service's log is told the file this install
-				// writes, rather than a path it would have to work out for itself.
+
 				briefedLogPath,
 			},
-			// A placeholder that reached an agent would send it looking for a path or an
-			// endpoint that does not exist, which is worse than saying nothing.
+
 			wantAbsent: []string{"shared notes", mcpURLPlaceholder, logPathPlaceholder},
 		},
 		{
@@ -206,9 +199,9 @@ func TestAppendedSystemPromptDelegateBriefing(t *testing.T) {
 func TestAppendedSystemPromptGlobalContext(t *testing.T) {
 	tests := []struct {
 		name string
-		// global is written to the context file, or the file is left absent when empty.
+
 		global string
-		// missing points the launcher at a path nothing was written to.
+
 		missing         bool
 		workflowContext string
 		wantContain     []string
@@ -262,8 +255,6 @@ func TestAppendedSystemPromptGlobalContext(t *testing.T) {
 				assert.NotContains(t, prompt, absent)
 			}
 
-			// General to specific, which is what makes a workflow the last word on
-			// anything the standing text also speaks to.
 			if tt.global != "" && tt.workflowContext != "" {
 				assert.Less(t, strings.Index(prompt, tt.global), strings.Index(prompt, tt.workflowContext))
 			}

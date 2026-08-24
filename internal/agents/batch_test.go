@@ -25,8 +25,7 @@ func TestArchiveAgentsTakesTheWholeBatch(t *testing.T) {
 	backend, frontend := seedWorkflow(t, st), seedWorkflow(t, st)
 	auth := seedRunningIn(t, st, tmux, backend, "auth", "%1")
 	api := seedRunningIn(t, st, tmux, backend, "api", "%2")
-	// Dormant, so the batch covers an agent with no pane left to kill alongside two
-	// that have one.
+
 	ui := seedInWorkflow(t, st, frontend, "ui", "", agentstore.StateIdle)
 
 	require.NoError(t, manager.ArchiveAgents(ctx, []string{auth.ID, api.ID, ui.ID}))
@@ -48,7 +47,7 @@ func TestArchiveAgentsTakesTheWholeBatch(t *testing.T) {
 func TestArchiveAgentsRefusesTheWholeBatch(t *testing.T) {
 	tests := []struct {
 		name string
-		// stray is the id sent alongside the real agents.
+
 		stray string
 	}{
 		{
@@ -257,10 +256,9 @@ func TestRestoreAgentsCountsTheWholeBatchAgainstTheCeiling(t *testing.T) {
 func TestRestoreAgentsRefusesOnANameTaken(t *testing.T) {
 	tests := []struct {
 		name string
-		// liveNamesake puts a live agent called auth in the same workflow.
+
 		liveNamesake bool
-		// secondNamesake archives a second agent called auth in the same workflow, so
-		// the clash is between two agents both on their way back.
+
 		secondNamesake bool
 	}{
 		{
@@ -366,8 +364,6 @@ func TestRestoreAgentsWithNothingArchived(t *testing.T) {
 	assert.Len(t, restored, 2)
 }
 
-// seedRunningIn records an agent in a named workflow and stamps its pane, for the tests
-// that need a batch to span folders and to still have panes to kill.
 func seedRunningIn(t *testing.T, st *testStore, tmux paneStamper, workflowID, name, pane string) agentstore.Agent {
 	t.Helper()
 

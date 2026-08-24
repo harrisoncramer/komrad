@@ -41,16 +41,12 @@ if [ "${1:-}" = "--" ]; then
 	shift
 fi
 
-# Named one by one rather than through 'compose down', which in this project would also
-# stop the db service and, with -v, delete the volume holding the panel's agents.
 if [ "$stage" = "clean" ]; then
 	docker compose --profile doctor rm --stop --force \
 		doctor-bare doctor-tmux-old doctor-tmux doctor-postgres doctor-db
 	exit 0
 fi
 
-# Built for whichever architecture the daemon runs containers on, spelled the way Go
-# spells it rather than the way docker reports it.
 case "$(docker info --format '{{.Architecture}}')" in
 aarch64 | arm64) arch=arm64 ;;
 x86_64 | amd64) arch=amd64 ;;
@@ -60,14 +56,10 @@ x86_64 | amd64) arch=amd64 ;;
 	;;
 esac
 
-# Static, so it runs on an image carrying no libc it was built against. The containers
-# mount this rather than building it, so the loop is a rebuild and a rerun.
 CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -o bin/weave-linux .
 
 service="doctor-$stage"
 
-# Built as its own step so the layer log does not land on top of the report, which is the
-# only output anyone runs this for.
 docker compose --profile doctor build --quiet "$service"
 
 exec docker compose --profile doctor run --rm "$service" "$@"

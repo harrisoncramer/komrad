@@ -8,13 +8,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// serverEnv answers for whoever holds the listen address, on a machine with no panel up.
 func serverEnv(status ServerStatus) Env {
 	return withPanel(status, false)
 }
 
-// withPanel answers for the address and for whether the panel's tmux session exists, which
-// is what decides whether stopping the server repairs anything.
 func withPanel(status ServerStatus, running bool) Env {
 	return Env{
 		Settings: Settings{

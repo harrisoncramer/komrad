@@ -376,8 +376,6 @@ func TestFilterViewLine(t *testing.T) {
 	}
 }
 
-// filterModel builds a panel on the agents tree with one folder over two agents, which is the
-// smallest tree a pattern can tell apart.
 func filterModel() model {
 	tmux := &recordingTmux{}
 	workflow := workflowstore.Workflow{ID: "w1", Name: "core"}
@@ -395,7 +393,6 @@ func filterModel() model {
 	}
 }
 
-// rowNames are the names a tree draws, a folder by its own and an agent by its.
 func rowNames(rows []agentRow) []string {
 	var names []string
 	for _, r := range rows {

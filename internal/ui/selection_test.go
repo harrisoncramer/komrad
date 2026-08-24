@@ -22,9 +22,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// selectionTree is the list the cases below work over, whose rows are 0 backend, 1 auth,
-// 2 api, 3 db, 4 frontend, 5 ui. backend holds a hidden agent as well, which takes no row
-// while the hidden ones are away and so is not the folder's to select.
 func selectionTree() model {
 	return model{
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
@@ -42,7 +39,6 @@ func selectionTree() model {
 	}
 }
 
-// press sends a key to the agents screen and hands back the model it left behind.
 func press(t *testing.T, m model, key tea.KeyMsg) model {
 	t.Helper()
 
@@ -224,8 +220,6 @@ func TestPruneSelection(t *testing.T) {
 	})
 }
 
-// archiveSelectionTree is the archive the cases below work over, one live folder holding
-// three agents put away out of it. Its rows are the header at 0 and the agents at 1 to 3.
 func archiveSelectionTree() model {
 	return model{
 		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
@@ -242,7 +236,6 @@ func archiveSelectionTree() model {
 	}
 }
 
-// pressArchive sends a key to the archive and hands back the model it left behind.
 func pressArchive(t *testing.T, m model, key tea.KeyMsg) model {
 	t.Helper()
 
@@ -381,9 +374,6 @@ func TestAgentsViewGutter(t *testing.T) {
 	assert.Equal(t, lineWidth(t, rest, "db"), lineWidth(t, view, "db"), "and so does the one below it")
 }
 
-// lineWidth is the printable width of the rendered line carrying the text, which is what a
-// gutter opening beside it would change. It reads one named row rather than the whole view,
-// since the legend under the rows does differ between the two modes.
 func lineWidth(t *testing.T, view, text string) int {
 	t.Helper()
 
@@ -398,7 +388,6 @@ func lineWidth(t *testing.T, view, text string) int {
 	return 0
 }
 
-// countRows is how many of a rendered view's lines carry the marker.
 func countRows(view, marker string) int {
 	n := 0
 	for _, line := range strings.Split(view, "\n") {
@@ -478,8 +467,6 @@ func TestArchiveSelectionFromTheTree(t *testing.T) {
 	}
 }
 
-// fakeTreeAgents records the archives the tree asks for. Every other method is left to the
-// embedded nil interface, so a press reaching one panics rather than passing.
 type fakeTreeAgents struct {
 	agentv1connect.AgentServiceClient
 	archived []string

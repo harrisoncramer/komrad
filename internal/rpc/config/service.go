@@ -1,4 +1,3 @@
-// Package config serves ConfigService over ConnectRPC.
 package config
 
 import (
@@ -14,13 +13,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// loader reads the user's config file. The handler holds the loader rather than a
-// parsed config so the file is read per call. The server is spawned once and
-// outlives many panel opens, so a config edited in between would otherwise stay
-// invisible until somebody restarted it.
 type loader func() (*weaveconfig.Config, error)
 
-// Service implements configv1connect.ConfigServiceHandler.
 type Service struct {
 	load loader
 }

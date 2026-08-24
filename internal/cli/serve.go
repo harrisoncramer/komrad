@@ -38,7 +38,6 @@ func serveCmd(state *app) *cobra.Command {
 			"how it usually runs. Run it here to watch that output directly. It stops on an\n" +
 			"interrupt, or when `weave stop` asks it to.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-
 			logger, err := serveLogger(state.logLevel)
 			if err != nil {
 				return err
@@ -60,7 +59,6 @@ func serveCmd(state *app) *cobra.Command {
 				Addr:   resolveServeAddr(addr, state.env.Addr),
 			})
 
-			// Cancellation during startup is a requested shutdown, not a startup failure.
 			if err != nil && ctx.Err() != nil {
 				logger.LogAttrs(context.WithoutCancel(ctx), slog.LevelInfo, "the server stopped before it had started")
 
@@ -99,7 +97,6 @@ func serveLogger(level string) (*slog.Logger, error) {
 	return logging.New(os.Stderr, parsed), nil
 }
 
-// Releasing the handler after the first signal lets a second signal kill the process.
 func shutdownSignal(parent context.Context) (context.Context, func()) {
 	ctx, cancel := context.WithCancel(parent)
 
@@ -129,7 +126,6 @@ type serveParams struct {
 	Addr   string
 }
 
-// getStopHookBinaryPath is what an agent CLI's hooks run to reach this panel, which is this binary itself.
 func getStopHookBinaryPath(ctx context.Context) string {
 	path, err := os.Executable()
 	if err != nil {
@@ -164,7 +160,6 @@ func serve(ctx context.Context, p serveParams) error {
 	}
 	defer closeWithin(logger, "the database handles", server.Close)
 
-	// Claim the socket before starting work that would need teardown on failure.
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
@@ -202,7 +197,6 @@ func serve(ctx context.Context, p serveParams) error {
 	drain, cancelDrain := context.WithTimeout(context.WithoutCancel(ctx), httpDrainTimeout)
 	defer cancelDrain()
 
-	// Stop accepting requests before tearing down their dependencies.
 	if err := httpServer.Shutdown(drain); err != nil {
 		logger.LogAttrs(ctx, slog.LevelError, "the server would not shut down cleanly", logging.Err(err)...)
 	}

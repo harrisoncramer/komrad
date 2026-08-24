@@ -15,8 +15,6 @@ import (
 	"weave/lib/xstr"
 )
 
-// launchPlan is what NewAgent resolves before it creates anything: which harness runs the
-// agent, where it runs, what it is told, and the unique name it will hold.
 type launchPlan struct {
 	name            string
 	harness         harness.Harness
@@ -28,8 +26,6 @@ type launchPlan struct {
 	cleanupAction   string
 }
 
-// planLaunch resolves a new agent's harness, directory, flags, and setup and cleanup
-// actions, falling back from the request to the workflow to the panel's own defaults.
 func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launchPlan, error) {
 	wf, err := s.workflows.Get(ctx, p.WorkflowID)
 	if err != nil {
@@ -94,9 +90,6 @@ func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launc
 	}, nil
 }
 
-// agent builds the complete row for a launching agent. It is the single place that
-// assembles the record; callers pass in whatever they've resolved so far and get back
-// the full shape, rather than constructing a partial value and patching fields onto it.
 func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane string, spawner *agentstore.Agent) agentstore.Agent {
 	var spawnedBy *string
 	if spawner != nil {
@@ -123,18 +116,12 @@ func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane st
 	}
 }
 
-// launchAgent plans, sets up, opens a pane for, records, and starts a new agent. A failure
-// partway through unwinds only whatever actually ran: the deferred cleanup is registered
-// the moment setup has run, so it always has something to look at when it fires, and it
-// reads the pane and agent variables live rather than a snapshot taken when it was
-// registered.
 func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawner *agentstore.Agent) (*agentstore.Agent, error) {
 	plan, err := s.planLaunch(ctx, p)
 	if err != nil {
 		return nil, err
 	}
 
-	// The pane must be stamped with the agent ID before the reconciler can see it.
 	id, err := store.NewID()
 	if err != nil {
 		return nil, err
@@ -147,8 +134,6 @@ func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawne
 		return nil, err
 	}
 
-	// Setup may have created resources before any agent row exists, so a failure from
-	// here on unwinds whichever of the pane and the setup action actually ran.
 	var pane string
 	launched := false
 	defer func() {
@@ -177,7 +162,6 @@ func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawne
 		return nil, fmt.Errorf("failed to stamp the pane for %q: %w", plan.name, err)
 	}
 
-	// Claim the slot with the insert because setup cannot run inside the transaction.
 	if err := s.createUnderCeiling(ctx, agent); err != nil {
 		return nil, err
 	}
@@ -262,7 +246,6 @@ func (s *AgentService) createUnderCeiling(ctx context.Context, agent agentstore.
 	})
 }
 
-// tmux silently falls back to its default directory when it cannot enter the requested one.
 func requireUsableDir(dir string) error {
 	info, err := os.Stat(dir)
 	if err != nil {
@@ -281,7 +264,6 @@ func requireUsableDir(dir string) error {
 	return nil
 }
 
-// The store must use the transaction holding the slot lock.
 func claimRoomForAgents(ctx context.Context, agents agentSlots, maxAgents, want int) error {
 	if maxAgents <= 0 || want <= 0 {
 		return nil

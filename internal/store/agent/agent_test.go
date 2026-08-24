@@ -81,8 +81,7 @@ func TestCreateAndUpdate(t *testing.T) {
 	tests := []struct {
 		name    string
 		initial Agent
-		// update, when set, is applied to the stored agent and written back, which
-		// is the path a rename or a relaunch takes.
+
 		update    func(a *Agent)
 		wantCwd   string
 		wantFlags string
@@ -263,9 +262,9 @@ func TestArchiveAndReuse(t *testing.T) {
 	tests := []struct {
 		name    string
 		archive bool
-		// reuse writes a second agent under the same name after the archive.
+
 		reuse bool
-		// wantVisible says Get should still find the name.
+
 		wantVisible bool
 		wantLive    int
 		wantAll     int
@@ -377,9 +376,9 @@ func TestArchiveClearsPane(t *testing.T) {
 func TestSetStateByID(t *testing.T) {
 	tests := []struct {
 		name string
-		// target, when set, is written instead of the created agent's own id.
+
 		target string
-		// wantState is what the created agent should be sitting in afterwards.
+
 		wantState string
 	}{
 		{
@@ -432,8 +431,7 @@ func TestSetTags(t *testing.T) {
 		create  int
 		archive bool
 		ids     func(created []Agent) []string
-		// before is put on every created agent ahead of the write, so a row can start
-		// from a tag rather than from nothing.
+
 		before     *string
 		tag        *string
 		wantTagged int
@@ -553,7 +551,7 @@ func TestSetHidden(t *testing.T) {
 		create  bool
 		archive bool
 		id      func(created Agent) string
-		// before is written ahead of the call, so unhiding has something to undo.
+
 		before      bool
 		hidden      bool
 		wantChanged bool
@@ -640,8 +638,7 @@ func TestSetMetadata(t *testing.T) {
 		create  bool
 		archive bool
 		id      func(created Agent) string
-		// before is written ahead of the call, so a row can start from facts it
-		// already recorded rather than from nothing.
+
 		before      []Metadata
 		key         string
 		value       *string
@@ -806,9 +803,7 @@ func TestSetMetadataCeilingUnderConcurrency(t *testing.T) {
 	errs := make([]error, writers)
 
 	for i := range writers {
-
 		wg.Go(func() {
-
 			_, err := st.SetMetadata(ctx, SetMetadataParams{ID: created.ID, Key: fmt.Sprintf("racer-%d", i), Value: xptr.Ptr("v")})
 			errs[i] = err
 		})
@@ -845,8 +840,6 @@ func TestListPageHydratesMetadata(t *testing.T) {
 		ids[name] = created.ID
 	}
 
-	// Written out of alphabetical order, so the ordering below is the query's rather
-	// than an accident of insertion.
 	for key, value := range map[string]string{"pr": "https://github.com/o/r/pull/1", "branch": "harry/x"} {
 		changed, err := st.SetMetadata(ctx, SetMetadataParams{ID: ids["first"], Key: key, Value: xptr.Ptr(value)})
 		require.NoError(t, err)
@@ -950,13 +943,13 @@ func TestSetStateByIDStampsOnlyOnAChange(t *testing.T) {
 func TestRename(t *testing.T) {
 	tests := []struct {
 		name string
-		// target, when set, is renamed instead of the live agent that was created.
+
 		target string
-		// archiveOther archives the second agent, freeing the name it held.
+
 		archiveOther bool
 		to           string
 		wantErr      error
-		// wantRenamed says a row was actually touched.
+
 		wantRenamed bool
 	}{
 		{
@@ -1043,8 +1036,7 @@ func TestActiveNameExists(t *testing.T) {
 		name    string
 		create  bool
 		archive bool
-		// elsewhere files the agent under a second workflow, where the name it holds is
-		// none of the first workflow's business.
+
 		elsewhere bool
 		want      bool
 	}{
@@ -1107,11 +1099,9 @@ func TestActiveNameExists(t *testing.T) {
 func TestRestore(t *testing.T) {
 	tests := []struct {
 		name string
-		// withWorkflow files the agent under a workflow first, since a restore that
-		// dropped the assignment would strand it at the root.
+
 		withWorkflow bool
-		// hidden takes the agent out of the list before it is archived, so the restore
-		// has a flag to clear.
+
 		hidden bool
 	}{
 		{
@@ -1182,7 +1172,7 @@ func TestRestore(t *testing.T) {
 func TestDelete(t *testing.T) {
 	tests := []struct {
 		name string
-		// hard drops the row outright rather than archiving it.
+
 		hard     bool
 		wantLive int
 		wantAll  int
@@ -1305,8 +1295,7 @@ func TestDeleteByIDPicksTheArchivedRow(t *testing.T) {
 func TestGetByID(t *testing.T) {
 	tests := []struct {
 		name string
-		// lookFor is the id to look the agent up under, given the agent that was
-		// created, so a case can ask for that agent or for something that is not it.
+
 		lookFor func(created Agent) string
 		archive bool
 		wantHit bool
@@ -1506,11 +1495,11 @@ func TestIdempotencyKeyIsUnique(t *testing.T) {
 func TestCountLiveForSchedule(t *testing.T) {
 	tests := []struct {
 		name string
-		// states are the agents the schedule has already produced.
+
 		states []string
-		// archive hides every one of them, as deleting from the panel would.
+
 		archive bool
-		// lookElsewhere counts against a schedule that produced none of them.
+
 		lookElsewhere bool
 		want          int64
 	}{
@@ -1528,8 +1517,6 @@ func TestCountLiveForSchedule(t *testing.T) {
 			want:   1,
 		},
 		{
-			// Idle covers both the agent that finished and the launch that never got
-			// going, since only an agent observed working is ever moved off it.
 			name:   "an idle one does not",
 			states: []string{StateIdle},
 			want:   0,
@@ -1584,7 +1571,7 @@ func TestCountLiveForSchedule(t *testing.T) {
 func TestCountLive(t *testing.T) {
 	tests := []struct {
 		name string
-		// states are the agents to write, one per entry.
+
 		states  []string
 		hide    bool
 		archive bool
@@ -1599,7 +1586,6 @@ func TestCountLive(t *testing.T) {
 			want:   1,
 		},
 		{
-			// Idle is both the agent that finished and the dormant one whose pane is gone.
 			name:   "so does an idle one, which is still a row to be dealt with",
 			states: []string{StateIdle},
 			want:   1,
@@ -1653,21 +1639,14 @@ func TestCountLive(t *testing.T) {
 	}
 }
 
-// fixture is the agent store under test plus the workflow store the tests seed
-// through. Every agent belongs to a workflow, so one has to exist before an
-// agent can be written. The two stay separate stores, since this package never
-// reaches into the workflows table itself.
 type fixture struct {
 	*Store
 	db        store.DBTX
 	workflows *workflowstore.Store
-	// defaultWorkflow holds any agent a test writes without naming one, which is
-	// most of them: they are about names, states, and pages rather than about
-	// where an agent belongs.
+
 	defaultWorkflow string
 }
 
-// agentIDs is the ids of a set of agents, which is what the calls keyed on a list take.
 func agentIDs(agents []Agent) []string {
 	ids := make([]string, 0, len(agents))
 	for _, agent := range agents {
@@ -1683,8 +1662,6 @@ func (f *fixture) Get(ctx context.Context, name string) (*Agent, error) {
 	return f.GetInWorkflow(ctx, f.defaultWorkflow, name)
 }
 
-// archiveByName archives the agent the default workflow holds under a name, since these
-// tests seed by name and Archive is keyed by id.
 func (f *fixture) archiveByName(ctx context.Context, name string) error {
 	agent, err := f.GetInWorkflow(ctx, f.defaultWorkflow, name)
 	if err != nil {
@@ -1706,10 +1683,6 @@ func (f *fixture) Create(ctx context.Context, agent Agent) error {
 	return f.Store.Create(ctx, agent)
 }
 
-// open builds the stores over a throwaway database, with one workflow ready to
-// hold whatever the test writes. The tests run against real Postgres because
-// most of what this package does is SQL: the partial unique index on live names,
-// the keyset page, the generated ids.
 func open(t *testing.T) *fixture {
 	t.Helper()
 	p := pool(t)
@@ -1721,8 +1694,6 @@ func open(t *testing.T) *fixture {
 	return &fixture{Store: New(p.GetDB()), db: p.GetDB(), workflows: workflows, defaultWorkflow: created.ID}
 }
 
-// pool opens the database itself, for the few tests that also need another
-// domain's store or a transaction.
 func pool(t *testing.T) *store.Pool {
 	t.Helper()
 	p, err := store.Open(t.Context(), pgtest.URL(t))
@@ -1732,8 +1703,6 @@ func pool(t *testing.T) *store.Pool {
 	return p
 }
 
-// seedSchedule inserts a schedule and returns its id, for the counts that are
-// about which schedule produced an agent rather than about the schedule itself.
 func seedSchedule(t *testing.T, st *fixture) string {
 	t.Helper()
 
@@ -1754,10 +1723,9 @@ func seedSchedule(t *testing.T, st *fixture) string {
 func TestListByID(t *testing.T) {
 	tests := []struct {
 		name string
-		// create is the agents seeded, by name, before the lookup.
+
 		create []string
-		// ids picks what to look up out of the seeded agents and whatever strays the case
-		// adds of its own.
+
 		ids       func(seeded map[string]string) []string
 		wantNames []string
 	}{

@@ -45,8 +45,6 @@ func TestBuildCommand(t *testing.T) {
 			wantCommand: "WEAVE_AGENT_ID='id-1' WEAVE_SESSION_ID='sess-4' claude --session-id 'sess-4'",
 		},
 		{
-			// The appended system prompt carrying it would not, which is the whole reason
-			// it rides on the environment instead.
 			name:        "and they survive a resume",
 			launch:      harness.Launch{AgentID: "id-1", SessionID: "sess-5", Resume: true},
 			wantCommand: "WEAVE_AGENT_ID='id-1' WEAVE_SESSION_ID='sess-5' claude --resume 'sess-5'",
@@ -228,23 +226,14 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 	}
 }
 
-// mcpConfigRef matches the --mcp-config flag and the path it points at.
 var mcpConfigRef = regexp.MustCompile(` --mcp-config '([^']+)'`)
 
-// stripGeneratedFlags removes the MCP config and settings flags from a launch command,
-// so the assertions about the rest of the line are not written around paths that vary by
-// machine.
 func stripGeneratedFlags(command string) string {
 	return settingsRef.ReplaceAllString(mcpConfigRef.ReplaceAllString(command, ""), "")
 }
 
-// appendedPromptRef matches the temp file the launch command sources its
-// appended system prompt from.
 var appendedPromptRef = regexp.MustCompile(`--append-system-prompt "\$\(cat '([^']+)'`)
 
-// appendedPrompt returns the system prompt text the command appends. The shell
-// removes the file as the command runs, but a test never runs it, so the file is
-// still on disk to read.
 func appendedPrompt(t *testing.T, command string) string {
 	t.Helper()
 
@@ -296,8 +285,6 @@ func TestMCPConfigCarriesTheAgentsIdentity(t *testing.T) {
 	assert.Equal(t, "${WEAVE_AGENT_ID:-}", headers[caller.AgentHeader])
 	assert.Equal(t, "${WEAVE_SESSION_ID:-}", headers[caller.SessionHeader])
 
-	// The variables the headers name are the ones the launch exports, or every call an
-	// agent makes arrives anonymous.
 	assert.Contains(t, command, "WEAVE_AGENT_ID='agent-1'")
 	assert.Contains(t, command, "WEAVE_SESSION_ID='sess-1'")
 }
@@ -403,7 +390,6 @@ func TestBuildCommandDeniesSubagents(t *testing.T) {
 	}
 }
 
-// claudeSettings is the part of the settings file the tests read back.
 type claudeSettings struct {
 	Hooks map[string][]struct {
 		Hooks []struct {
@@ -416,7 +402,6 @@ type claudeSettings struct {
 	} `json:"permissions"`
 }
 
-// settingsPath returns the settings file a launch command points claude at.
 func settingsPath(t *testing.T, command string) string {
 	t.Helper()
 
@@ -426,7 +411,6 @@ func settingsPath(t *testing.T, command string) string {
 	return match[1]
 }
 
-// readSettings reads back the settings file a launch wrote.
 func readSettings(t *testing.T, command string) claudeSettings {
 	t.Helper()
 

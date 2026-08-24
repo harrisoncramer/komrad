@@ -22,9 +22,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// refusingAgents refuses every write and lists nothing. The embedded interface is
-// nil, so a method the test does not need panics rather than quietly returning a
-// zero value and hiding which call the code under test actually made.
 type refusingAgents struct {
 	agentv1connect.AgentServiceClient
 	err error
@@ -137,7 +134,6 @@ func TestBannerSurvivesTheFormItWasReportedFrom(t *testing.T) {
 	assert.Contains(t, view, "Rename", "the form is still on screen under the banner")
 }
 
-// acceptingAgents accepts writes, for the case where a banner should clear.
 type acceptingAgents struct {
 	agentv1connect.AgentServiceClient
 }
@@ -333,8 +329,6 @@ func TestConfigErrorView(t *testing.T) {
 				listing:     listing{agents: []agentItem{{agent: agentstore.Agent{Name: "should-not-render", State: agentstore.StateIdle}}}},
 			}
 
-			// The error wraps at the screen width, so the text is compared with its
-			// line breaks flattened away.
 			view := strings.Join(strings.Fields(m.View()), " ")
 
 			for _, want := range tt.wantContain {
@@ -404,8 +398,6 @@ func TestStartupErrorView(t *testing.T) {
 				listing:     listing{agents: []agentItem{{agent: agentstore.Agent{Name: "should-not-render", State: agentstore.StateIdle}}}},
 			}
 
-			// The error wraps at the screen width, so the text is compared with its
-			// line breaks flattened away.
 			view := strings.Join(strings.Fields(m.View()), " ")
 
 			for _, want := range tt.wantContain {

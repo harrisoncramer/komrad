@@ -8,34 +8,22 @@ import (
 	"weave/lib/xslice"
 )
 
-// Multi-select over a tree of folders and agents. Both trees the panel draws use it, so it
-// works over rows and a cursor rather than over either screen's state. What acts on a
-// selection lives with the key that does it, and this is the choosing alone.
-
-// selection is the agents chosen on one tree, held by id and sorted. Ids rather than row
-// indexes, since a listing rebuilds the tree between one keypress and the next.
 type selection struct {
 	ids []string
 }
 
-// active reports whether the screen drawing this is in multi-select mode.
 func (s selection) active() bool {
 	return len(s.ids) > 0
 }
 
-// has reports whether an agent is in the selection.
 func (s selection) has(id string) bool {
 	return slices.Contains(s.ids, id)
 }
 
-// count is how many agents are held.
 func (s selection) count() int {
 	return len(s.ids)
 }
 
-// toggle takes the row under the cursor into the selection or back out of it. A workflow
-// header is its whole folder: one not already wholly selected is taken in whole, and one
-// that is drops, so the key is a checkbox over the folder.
 func (s selection) toggle(rows []agentRow, cursor int) selection {
 	row, ok := rowAt(rows, cursor)
 	if !ok {
@@ -50,8 +38,6 @@ func (s selection) toggle(rows []agentRow, cursor int) selection {
 		return s.with(row.item.agent.ID)
 	}
 
-	// An empty folder has nothing to select, and reading it as wholly selected would put the
-	// screen into a mode with nothing in it.
 	ids := workflowAgentIDs(rows, row.workflow.ID)
 	if len(ids) == 0 {
 		return s
@@ -64,10 +50,6 @@ func (s selection) toggle(rows []agentRow, cursor int) selection {
 	return s.with(ids...)
 }
 
-// extend takes in every agent between the cursor and the nearest selected row, which is how
-// a run of agents is chosen without pressing the toggle down the whole of it. Headers inside
-// the range are passed over, since only agents are selectable. A range with no row to reach
-// back to falls back to the agent under the cursor.
 func (s selection) extend(rows []agentRow, cursor int) selection {
 	if row, ok := rowAt(rows, cursor); !ok || row.header {
 		return s
@@ -84,9 +66,6 @@ func (s selection) extend(rows []agentRow, cursor int) selection {
 	return s.with(ids...)
 }
 
-// pruned drops the agents that no longer have a row, so one archived from elsewhere or put
-// away by the hidden toggle cannot hold a screen in multi-select mode over something nobody
-// can see.
 func (s selection) pruned(rows []agentRow) selection {
 	if !s.active() {
 		return s
@@ -104,9 +83,6 @@ func (s selection) pruned(rows []agentRow) selection {
 	return selection{ids: kept}
 }
 
-// nearest is the selected row closest to the cursor, or -1 when nothing is selected. A
-// cursor sitting the same distance from a selection above and one below takes the one above,
-// so the key answers the same whichever way the cursor arrived.
 func (s selection) nearest(rows []agentRow, cursor int) int {
 	closest := -1
 	for i, r := range rows {
@@ -121,8 +97,6 @@ func (s selection) nearest(rows []agentRow, cursor int) int {
 	return closest
 }
 
-// hasAll reports whether every one of the given agents is already selected, which is what
-// makes a folder's key a toggle.
 func (s selection) hasAll(ids []string) bool {
 	for _, id := range ids {
 		if !s.has(id) {
@@ -133,9 +107,6 @@ func (s selection) hasAll(ids []string) bool {
 	return true
 }
 
-// with is the selection with ids added, sorted so one compares by what is in it rather than
-// by the order the rows were pressed in. It copies rather than appending in place, since the
-// caller still holds the value this came off.
 func (s selection) with(ids ...string) selection {
 	next := slices.Clone(s.ids)
 	for _, id := range ids {
@@ -148,7 +119,6 @@ func (s selection) with(ids ...string) selection {
 	return selection{ids: next}
 }
 
-// without is the selection with ids removed.
 func (s selection) without(ids ...string) selection {
 	next := slices.DeleteFunc(slices.Clone(s.ids), func(id string) bool {
 		return slices.Contains(ids, id)
@@ -157,11 +127,6 @@ func (s selection) without(ids ...string) selection {
 	return selection{ids: next}
 }
 
-// applySelectionKey answers a key against a selection over the given rows, reporting whether
-// it took it. Both trees route their keys through this, so the gesture cannot drift apart.
-//
-// The clear key is taken only while the mode is up, since it is the same key each screen
-// leaves by and a screen at rest should still leave.
 func (m model) applySelectionKey(k string, sel selection, rows []agentRow, cursor int) (selection, bool) {
 	switch {
 	case sel.active() && isBound(k, m.keys.Selection.Clear):
@@ -169,8 +134,7 @@ func (m model) applySelectionKey(k string, sel selection, rows []agentRow, curso
 	case isBound(k, m.keys.Selection.Toggle):
 		return sel.toggle(rows, cursor), true
 	case isBound(k, m.keys.Selection.Range):
-		// From a tree at rest a range has nothing to reach back to, so the two keys only
-		// part once the mode is up.
+
 		if !sel.active() {
 			return sel.toggle(rows, cursor), true
 		}
@@ -181,8 +145,6 @@ func (m model) applySelectionKey(k string, sel selection, rows []agentRow, curso
 	return sel, false
 }
 
-// chosenAgents are the agents a selection holds, read off the rows so they come back in the
-// order the screen draws them and an agent with no row is not acted on.
 func chosenAgents(sel selection, rows []agentRow) []agentstore.Agent {
 	chosen := xslice.Filter(rows, func(row agentRow) bool {
 		return !row.header && sel.has(row.item.agent.ID)
@@ -191,13 +153,10 @@ func chosenAgents(sel selection, rows []agentRow) []agentstore.Agent {
 	return xslice.Map(chosen, func(row agentRow) agentstore.Agent { return row.item.agent })
 }
 
-// agentIDs is the ids of a set of agents, which is what the calls keyed on a list take.
 func agentIDs(agents []agentstore.Agent) []string {
 	return xslice.Map(agents, func(agent agentstore.Agent) string { return agent.ID })
 }
 
-// describeAgents names what a key acted on, one agent by name and several by how many, so a
-// banner reads the same whether the key was pressed on a row or on a selection.
 func describeAgents(agents []agentstore.Agent) string {
 	if len(agents) == 1 {
 		return fmt.Sprintf("agent %q", agents[0].Name)
@@ -206,8 +165,6 @@ func describeAgents(agents []agentstore.Agent) string {
 	return fmt.Sprintf("%d agents", len(agents))
 }
 
-// workflowAgentIDs are the agents drawn under a folder. It reads the rows rather than a
-// listing, so an agent that is not on screen is not selected out from under the user.
 func workflowAgentIDs(rows []agentRow, workflowID string) []string {
 	var ids []string
 	for _, r := range rows {

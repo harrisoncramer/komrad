@@ -38,10 +38,8 @@ func NewLocalGuard(logger *slog.Logger, next http.Handler) http.Handler {
 	})
 }
 
-// originHeader names the page a request was sent by.
 const originHeader = "Origin"
 
-// refusal is why a request should be refused, or empty for one that should be served.
 func refusal(r *http.Request) string {
 	if isServedOnLoopback(r) && !isLoopbackHost(r.Host) {
 		return "the Host header is not a loopback address"
@@ -54,8 +52,6 @@ func refusal(r *http.Request) string {
 	return ""
 }
 
-// isServedOnLoopback reports whether the connection the request arrived on was addressed to
-// this machine.
 func isServedOnLoopback(r *http.Request) bool {
 	local, ok := r.Context().Value(http.LocalAddrContextKey).(net.Addr)
 	if !ok || local == nil {
@@ -65,7 +61,6 @@ func isServedOnLoopback(r *http.Request) bool {
 	return isLoopbackHost(local.String())
 }
 
-// isLoopbackHost reports whether a host, with or without a port, names this machine.
 func isLoopbackHost(host string) bool {
 	if hostname, _, err := net.SplitHostPort(host); err == nil {
 		host = hostname
@@ -82,7 +77,6 @@ func isLoopbackHost(host string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
-// isLoopbackOrigin reports whether an Origin header names this machine.
 func isLoopbackOrigin(origin string) bool {
 	parsed, err := url.Parse(origin)
 	if err != nil || parsed.Host == "" {

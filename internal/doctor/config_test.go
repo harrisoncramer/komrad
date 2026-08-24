@@ -11,15 +11,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// claudeAndCodex is what a stock build registers, which is what decides how many harness
-// rows the report has.
 var claudeAndCodex = []HarnessInfo{
 	{ID: "claude", Binary: "claude"},
 	{ID: "codex", Binary: "codex"},
 }
 
-// configEnv answers for a config file and a PATH without either being on disk. installed
-// lists the commands that resolve.
 func configEnv(cfg *config.Config, loadErr error, exists bool, installed ...string) Env {
 	return Env{
 		Settings: Settings{

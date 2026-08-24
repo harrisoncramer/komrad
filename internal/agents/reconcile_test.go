@@ -20,11 +20,9 @@ func TestReconcileSinglePass(t *testing.T) {
 	tests := []struct {
 		name      string
 		fromState string
-		// owned is whether the pane recorded against the agent is still stamped with
-		// that agent's id, which is one half of it still running.
+
 		owned bool
-		// command is the pane's foreground program, the other half. Empty stands for a
-		// program weave does not recognise.
+
 		command string
 		frame   string
 		want    string
@@ -132,10 +130,10 @@ func TestReconcileSinglePass(t *testing.T) {
 func TestReconcileForgetsAnAbandonedPane(t *testing.T) {
 	tests := []struct {
 		name string
-		// mine is whether the pane is stamped for this agent rather than another.
+
 		mine    bool
 		command string
-		// wantStamp is what the pane's own owner stamp reads afterwards.
+
 		wantStamp string
 	}{
 		{
@@ -178,8 +176,6 @@ func TestReconcileForgetsAnAbandonedPane(t *testing.T) {
 	}
 }
 
-// waitOutTheShellGrace moves the reconciler's clock past the grace a pane at a shell is
-// given, which is how a test reaches the verdict on the far side of it without waiting.
 func waitOutTheShellGrace(rec *Reconciler) {
 	at := time.Now().Add(reconcileShellGrace + time.Second)
 	rec.now = func() time.Time { return at }
@@ -205,8 +201,6 @@ func TestReconcileWaitsOutALaunch(t *testing.T) {
 	during := agentByID(t, st, agent.ID)
 	assert.Equal(t, "%1", during.Pane, "the pane is still the agent's while its CLI comes up")
 
-	// The CLI takes the pane over inside the grace, and the wait starts again from
-	// whatever the pane shows next.
 	tmux.commands["%1"] = "2.1.241"
 	waitOutTheShellGrace(rec)
 	require.NoError(t, rec.Reconcile(ctx))
@@ -249,18 +243,15 @@ func TestReconcileLeavesTheTag(t *testing.T) {
 func TestReconcileOverPasses(t *testing.T) {
 	tests := []struct {
 		name string
-		// passes is the frame the pane shows on each reconcile pass, one entry per
-		// pass.
+
 		passes []string
-		// archiveBeforeLast removes the agent from the listing before the final
-		// pass, standing in for one deleted while the reconciler is running.
+
 		archiveBeforeLast bool
-		// wantAfterFirst and wantBeforeLast, when set, are the states expected after
-		// the first pass and after every pass but the last.
+
 		wantAfterFirst string
 		wantBeforeLast string
 		want           string
-		// wantMisses, when set, is the miss count the agent should be left holding.
+
 		wantMisses *int
 	}{
 		{
@@ -334,8 +325,6 @@ func TestReconcileOverPasses(t *testing.T) {
 	}
 }
 
-// repeatFrame is n passes all showing the same frame, for the cases that only
-// care how many consecutive passes it takes to settle.
 func repeatFrame(frame string, n int) []string {
 	frames := make([]string, n)
 	for i := range frames {
@@ -409,11 +398,9 @@ func TestReconcileWithoutTmux(t *testing.T) {
 func TestReconcileStampsWhatItConfirmed(t *testing.T) {
 	tests := []struct {
 		name string
-		// harness is the id recorded against the agent, which for anything the registry
-		// does not hold is a pass that reads nothing.
+
 		harness string
-		// passes is how many times the pass runs, since a frame that reads idle is held
-		// off by the miss count before it settles anything.
+
 		passes        int
 		frame         string
 		wantConfirmed bool
@@ -465,8 +452,6 @@ func TestReconcileStampsWhatItConfirmed(t *testing.T) {
 			agent, err := st.Get(ctx, "agent")
 			require.NoError(t, err)
 
-			// Aged past the coalesce interval, so a pass that confirms the state it
-			// already holds has a stamp worth writing.
 			backdateStateSeen(t, st, agent.ID, stateSeenCoalesce+time.Minute)
 			before := agentByID(t, st, agent.ID).StateSeenAt
 

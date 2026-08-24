@@ -1,34 +1,13 @@
 #!/usr/bin/env bash
-# Shared helpers for mise tasks. Sourced, not run directly.
-#
-# WEAVE_DATABASE_URL is the one place the database is named. Weave reads it, and so do
-# the tests. When it is not set it falls back to the local docker-compose Postgres, so a
-# plain checkout works after `mise run docker:up` with nothing else exported.
-#
-# DATABASE_URL is then derived from it rather than read, because Atlas, sqlc's dev
-# container and psql only know that name. Deriving it means the tools and weave cannot end
-# up pointed at different databases, which is what would happen if each read its own
-# variable and only one of them was exported.
 : "${DB_PORT:=5460}"
 export DB_PORT
 export WEAVE_DATABASE_URL="${WEAVE_DATABASE_URL:-postgres://weave:weave@localhost:${DB_PORT}/weave?sslmode=disable}"
 export DATABASE_URL="$WEAVE_DATABASE_URL"
 
-# adminURL rewrites DATABASE_URL to point at the server's default database,
-# which is where a throwaway test database has to be created from since you
-# cannot create a database while connected to the one being replaced.
 adminURL() {
 	echo "${DATABASE_URL%/*}/postgres?sslmode=disable"
 }
 
-# shell_scripts lists every shell script the repo owns, one per line. The scripts
-# have no extension, so they are found by what `file` says they are rather than by
-# name.
-#
-# A missing directory is fatal rather than a warning on stderr. find keeps going and
-# reports through an exit status the pipeline below discards, so a root that gets
-# renamed would otherwise leave the linters quietly checking fewer files than they
-# claim to.
 shell_scripts() {
 	local roots=(mise/tasks internal/actions/builtin)
 

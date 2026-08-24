@@ -12,37 +12,23 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// How a row is drawn: its state, its tags, and the chrome around them. Every glyph
-// here is single-width, since an emoji one renders double in some terminals and pushes
-// the column out of line.
-
 var (
 	headerStyle = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
 	cursorStyle = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
 	dimStyle    = errui.Dim
-	// blurredHeaderStyle and blurredCursorStyle are the same two without the accent, which
-	// is what a half of the sidebar draws in while the other half holds the keys. They keep
-	// the weight, so a title is still a title and a cursor is still findable: only the
-	// colour says where a keypress would land.
+
 	blurredHeaderStyle = lipgloss.NewStyle().Foreground(colorMuted).Bold(true)
 	blurredCursorStyle = lipgloss.NewStyle().Bold(true)
 )
 
-// titleStyle is how the list's own title is drawn: in the accent while the list has the keys,
-// and grey while the details under it do.
 func (m model) titleStyle() lipgloss.Style {
 	return titleStyleFor(!m.detailsFocused())
 }
 
-// rowCursorStyle is how the marker beside the row under the list cursor is drawn. The row
-// stays marked while the details below hold the keys, since it is the row they are about, but
-// it gives up the accent to them.
 func (m model) rowCursorStyle() lipgloss.Style {
 	return cursorStyleFor(!m.detailsFocused())
 }
 
-// titleStyleFor and cursorStyleFor are the two halves of the sidebar asking the same question,
-// so a title and a cursor never disagree about which half has the keys.
 func titleStyleFor(focused bool) lipgloss.Style {
 	if focused {
 		return headerStyle
@@ -131,9 +117,6 @@ func hiddenTally(count int, showing bool) string {
 
 const branchIcon = "⎇"
 
-// branchMark is the branch checked out at an agent's cwd, dim beside its name, for any
-// agent the branch syncer found one for, whether its worktree came from the workflow
-// toggle or a hand-written setup action.
 func branchMark(agent agentstore.Agent) string {
 	if agent.Branch == nil {
 		return ""
@@ -144,9 +127,6 @@ func branchMark(agent agentstore.Agent) string {
 
 const worktreeRemovedIcon = "⊘"
 
-// worktreeRemovedMark flags an agent whose cwd the worktree syncer has found gone from
-// disk, in the same danger colour the waiting state uses, since both mean the row needs a
-// person's attention.
 func worktreeRemovedMark(agent agentstore.Agent) string {
 	if !agent.WorktreeRemoved {
 		return ""

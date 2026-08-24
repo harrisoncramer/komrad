@@ -1,7 +1,3 @@
-// Package claude runs Claude Code as a weave harness. Everything here is
-// true of that CLI and of nothing else: the flags it takes, the chrome its TUI
-// draws while it works, where it files a conversation, and the JSONL it writes
-// there.
 package claude
 
 import (
@@ -13,15 +9,9 @@ import (
 	"github.com/google/uuid"
 )
 
-// binary is the CLI this harness runs, which is also the id an agent running it is
-// recorded under.
 const binary = "claude"
 
-// Harness puts Claude Code up in a pane and reads back what happened in it.
 type Harness struct {
-	// projectsDir is Claude's ~/.claude/projects, where it writes one conversation
-	// log per session. It is a field rather than a constant so a test can point it
-	// at a temp directory instead of the user's home.
 	projectsDir string
 }
 

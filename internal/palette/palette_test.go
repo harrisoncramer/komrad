@@ -69,7 +69,6 @@ func TestTyping(t *testing.T) {
 	}
 }
 
-// press feeds keys to a model the way bubbletea would and returns what they left behind.
 func press(t *testing.T, start model, keys ...string) model {
 	t.Helper()
 

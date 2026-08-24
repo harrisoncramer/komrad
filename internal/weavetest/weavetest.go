@@ -1,14 +1,3 @@
-// Package weavetest stands the whole service up inside a test.
-//
-// Every other test in the tree picks a seam and stubs whatever is on the far side of it,
-// which leaves the behaviour that spans seams uncovered: archiving an agent kills its
-// pane, archiving a workflow takes its agents with it, a launch fires the workflow's setup
-// action, a firing lands an agent in the right bucket. An Instance is the same wiring the
-// served process is built from, over a database and a tmux server of this test's own, with
-// the agent CLI replaced by one the test drives. Nothing else is faked.
-//
-// The background loops are not started. A test steps them itself, so a state change is
-// something it asked for rather than something it waited out.
 package weavetest
 
 import (
@@ -44,51 +33,35 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// settleTimeout bounds waiting for something the test asked for to show up in a pane or in
-// the store. It is generous because it is only ever reached when something is wrong.
 const settleTimeout = 10 * time.Second
 
-// Instance is the running service and everything a test needs to drive it.
 type Instance struct {
 	t *testing.T
 
-	// The typed clients, over the wire, so every call goes through the validation
-	// interceptor and the guard the served process puts in front of its handlers.
 	Agents    agentv1connect.AgentServiceClient
 	Workflows workflowv1connect.WorkflowServiceClient
 	Schedules schedulev1connect.ScheduleServiceClient
 	Actions   actionv1connect.ActionServiceClient
 	Config    configv1connect.ConfigServiceClient
 
-	// Harness is the CLI the agents run, which the test moves between states.
 	Harness *harnesstest.Harness
-	// Tmux is the server the agent panes are opened on.
+
 	Tmux *tmuxtest.Server
-	// Stores read the same database the service writes, for asserting on what a call left
-	// behind rather than on what it returned.
+
 	Stores *storetest.Stores
-	// GetActionsDir is where the actions the config points at live, for a test that writes
-	// one.
+
 	GetActionsDir string
-	// URL is where the service is listening.
+
 	URL string
 
 	server *server.Server
 }
 
-// Params are the few things a test may want different. Everything with a zero value here
-// takes a default that suits most of them.
 type Params struct {
-	// MaxAgents is how many live agents the panel holds at once, defaulting to enough
-	// that no test hits the limit without meaning to.
 	MaxAgents int
-	// DeliveryDeadline is how long mail stays deliverable, as a Go duration. It
-	// defaults to the config's own, and a test sets it to something already past to watch
-	// mail expire without waiting.
+
 	DeliveryDeadline string
-	// WorktreesDir is where a generated worktree setup action puts its worktrees. It has
-	// to be set by any test that lets one run, since the default is under the developer's
-	// own home directory.
+
 	WorktreesDir string
 }
 
@@ -126,15 +99,11 @@ func Start(t *testing.T, p Params) *Instance {
 	configPath := filepath.Join(root, "config.toml")
 	require.NoError(t, os.WriteFile(configPath, []byte(settings), 0o600))
 
-	// Unstarted, so the address the agents are told is the one the service ends up on
-	// rather than a port guessed ahead of it.
 	httpServer := httptest.NewUnstartedServer(nil)
 	addr := httpServer.Listener.Addr().String()
 
 	manager := tmux.NewClient(tmuxServer.Socket())
 
-	// Nothing in a test reads the log, and a failing pass writes one every time it is
-	// stepped, so it goes nowhere rather than into the test's output.
 	logger := logging.New(io.Discard, slog.LevelError)
 
 	built, err := server.New(t.Context(), server.Params{

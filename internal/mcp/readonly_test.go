@@ -14,8 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// openTools builds the tools over a real migrated database opened read-only, so
-// the schema under test is the one the app actually runs.
 func openTools(t *testing.T) *dbTools {
 	t.Helper()
 
@@ -186,8 +184,6 @@ func TestValidateReadOnly(t *testing.T) {
 // row cap is the one thing a caller cannot see coming, so a truncated result
 // says so rather than reading as the whole answer.
 func TestQuery(t *testing.T) {
-	// A recursive generator is the only way to exceed the cap without seeding a
-	// thousand rows.
 	const overCap = `
 WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 1500)
 SELECT i FROM n`

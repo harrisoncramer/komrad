@@ -10,24 +10,12 @@ import "rules/v1/rules.proto";
 
 option go_package = "weave/proto/gen/action/v1;actionv1";
 
-// Action is one executable in the user's actions directory. The name is the file's
-// own name, which is what identifies it, and the fields below it are what the comments
-// at the top of the file declare about it.
 message Action {
-  // The name of the file
   string name = 1;
-  // If the action is executable (valid to run) or not.
   bool executable = 2;
-  // What the file's header says the action is for.
   string description = 3;
-  // How long one run of it gets before weave kills it. Unset means the file declared
-  // none, and what that falls back to depends on how the action was fired.
   optional google.protobuf.Duration timeout = 4;
-  // The directives in the header that could not be read, each naming its line. The
-  // lines were skipped rather than the action refused, so it still runs.
   repeated string header_problems = 5;
-  // Whether the file is text rather than a compiled program, which is what says
-  // whether it can be opened in an editor.
   bool text = 6;
 }
 
@@ -35,7 +23,6 @@ message ListActionsResponse {
   repeated Action actions = 1;
 }
 
-// RunActionRequest names the action to fire and the agent to fire it on.
 message RunActionRequest {
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
   string action = 2 [(buf.validate.field).string = {
@@ -44,8 +31,6 @@ message RunActionRequest {
   }];
 }
 
-// EditActionRequest names the action whose file to open, and the agent the editor is
-// opened beside, which is the one the panel's sidebar was opened on.
 message EditActionRequest {
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
   string action = 2 [(buf.validate.field).string = {
@@ -54,11 +39,7 @@ message EditActionRequest {
   }];
 }
 
-// ActionService lists and fires the executables the user keeps in their actions
-// directory. An action runs in that directory, with the agent it was fired on using
-// WEAVE_AGENT environment variable as JSON.
 service ActionService {
-  // The directory is read on every call, so an action written while the server runs is listed without a restart.
   rpc ListActions(google.protobuf.Empty) returns (ListActionsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
@@ -67,8 +48,6 @@ service ActionService {
     };
   }
 
-  // Fire and forget. The action is started and nothing waits for it, so this
-  // answers as soon as the process exists and never reports what it did.
   rpc RunAction(RunActionRequest) returns (google.protobuf.Empty) {
     option (annotation.v1.tool) = {
       tool_name: "run_action"
@@ -76,9 +55,5 @@ service ActionService {
     };
   }
 
-  // Open an action's file in the user's editor, in the pane the panel keeps under its
-  // stage. It is the panel's own key rather than something to offer a model, so it
-  // carries no tool annotation: a model editing a script reads and writes the file
-  // itself. A file that is not text is refused rather than opened.
   rpc EditAction(EditActionRequest) returns (google.protobuf.Empty) {}
 }

@@ -63,35 +63,26 @@ func TestWorkflowFields(t *testing.T) {
 	}, fields)
 }
 
-// recordingTmux records what the panel puts on its frame, so a test can tell a swapped-in
-// agent pane from a respawned pager preview. How the frame itself is laid out is the layout
-// package's own to cover, so nothing about splits or sizes is kept here. Every other call is
-// an inert stub.
 type recordingTmux struct {
-	// path is what GetClientPath reports, the directory the panel falls back to for
-	// a form left blank.
 	path     string
 	swaps    int
 	respawns []string
-	// width is what GetPaneWidth reports for every pane, the columns markdown renders to.
+
 	width int
-	// windows are the windows opened for the user's own client, each recorded as its
-	// directory followed by the argv it runs. openWindowErr makes the next one fail.
+
 	windows       []string
 	openWindowErr error
-	// detaches counts the sessions the popup has been closed by detaching from.
+
 	detaches int
 	killed   []string
-	// belowAnchors are the panes the info pane has been split beneath.
+
 	belowAnchors []string
 	globals      map[string]string
-	// infoPane is the pane the panel said it opened its info region in, which is how an
-	// action is told which pane to fill.
+
 	infoPane string
-	// respawnPanes are the panes each respawn went to, alongside the argv in respawns.
+
 	respawnPanes []string
-	// deadPanes are the panes IsPaneAlive answers no for, which is how a test stands a pane
-	// up and then takes it away.
+
 	deadPanes map[string]bool
 }
 
@@ -158,8 +149,6 @@ func (t *recordingTmux) RespawnPane(pane, _ string, argv ...string) {
 	t.respawnPanes = append(t.respawnPanes, pane)
 }
 
-// infoModel builds an agents model holding one live agent, with the cursor on
-// it. Row 0 is the workflow header the agent sits under, so the agent is row 1.
 func infoModel(tmux *recordingTmux) model {
 	frame := layout.New(tmux, config.DefaultLayout())
 	frame.Attach("%0")

@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// copyResultFrom runs a command returned by the copy key, which batches the clipboard write
-// with the flash's revert timer, and picks the copyResult out of it.
 func copyResultFrom(t *testing.T, cmd tea.Cmd) copyResult {
 	t.Helper()
 
@@ -28,8 +26,6 @@ func copyResultFrom(t *testing.T, cmd tea.Cmd) copyResult {
 	return copyResult{}
 }
 
-// fakeClipboard records every value written to it, so a test can assert what the copy key
-// took without touching the real system clipboard.
 type fakeClipboard struct {
 	written []string
 	err     error

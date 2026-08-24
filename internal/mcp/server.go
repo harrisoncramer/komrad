@@ -1,7 +1,3 @@
-// Package mcp exposes the panel over MCP. It serves two surfaces. Read-only SQL
-// over the agent store, so an orchestrator can ask its own questions without a
-// bespoke RPC for each one, and the agent RPCs that carry a tool annotation, which
-// is how a model spawns or changes an agent rather than only reading about one.
 package mcp
 
 import (
@@ -12,9 +8,6 @@ import (
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// NewHandlerParams configures the MCP HTTP handler. DB is the read-only handle
-// the query tools use. BaseURL is where this process serves its own Connect
-// endpoint, which the RPC-backed tools call back into.
 type NewHandlerParams struct {
 	DB      *pgxpool.Pool
 	BaseURL string

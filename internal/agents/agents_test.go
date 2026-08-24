@@ -35,8 +35,7 @@ func TestNewAgent(t *testing.T) {
 		badWorkflow bool
 		wantErrIs   error
 		wantErr     string
-		// wantPaneKilled says the window was already open when the launch failed, so
-		// tearing the agent down has to take the pane with it.
+
 		wantPaneKilled bool
 	}{
 		{
@@ -71,9 +70,6 @@ func TestNewAgent(t *testing.T) {
 			wantErr:   "failed to open a window",
 		},
 		{
-			// Without the stamp there is nothing tying the pane to the agent, so the row
-			// would claim a pane nothing can verify is still its own. That is the state
-			// this whole mechanism exists to avoid, so the launch fails instead.
 			name:           "a pane tmux refuses to stamp",
 			dir:            func(t *testing.T) string { return t.TempDir() },
 			title:          "unstamped",
@@ -82,9 +78,6 @@ func TestNewAgent(t *testing.T) {
 			wantPaneKilled: true,
 		},
 		{
-			// The row is written before the command is typed, so a launch that dies here has
-			// left one behind. It has to be taken back out or it lists as a live agent with
-			// nothing running in it.
 			name:           "a launch that never reaches the pane's shell",
 			dir:            func(t *testing.T) string { return t.TempDir() },
 			title:          "stillborn",
@@ -170,11 +163,10 @@ func TestNewAgent(t *testing.T) {
 func TestNewAgentIdempotency(t *testing.T) {
 	tests := []struct {
 		name string
-		// first and second are the keys the two calls claim.
+
 		first  string
 		second string
-		// wantSame says the second call should return the first call's agent
-		// rather than create another.
+
 		wantSame bool
 	}{
 		{
@@ -189,8 +181,6 @@ func TestNewAgentIdempotency(t *testing.T) {
 			second: "schedule:s1:2026-07-29T09:00:00Z",
 		},
 		{
-			// Two interactive creates claim nothing, so neither is the other, and
-			// the unique index has to tolerate both.
 			name: "two creates claiming no key are two agents",
 		},
 	}
@@ -239,11 +229,9 @@ func TestNewAgentIdempotency(t *testing.T) {
 func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 	tests := []struct {
 		name string
-		// spawnerName seeds a parent agent under that name and puts its id on the
-		// context as the caller; empty means the call carries no caller at all.
+
 		spawnerName string
-		// unknownSpawner puts an id on the context that names no agent at all,
-		// which is a call weave cannot attribute rather than one it should trust.
+
 		unknownSpawner bool
 		wantErrIs      error
 	}{
@@ -320,8 +308,7 @@ func TestNewAgentGetsDirectory(t *testing.T) {
 	tests := []struct {
 		name string
 		dir  string
-		// workflowCwd is the directory the enclosing workflow supplies, which is
-		// what a launch with no directory of its own takes.
+
 		workflowCwd string
 		useClient   bool
 	}{
@@ -332,8 +319,7 @@ func TestNewAgentGetsDirectory(t *testing.T) {
 		{
 			name: "what the caller asked for wins over the workflow's",
 			dir:  "~/chariot/chariot",
-			// Somewhere the test never creates, so taking it would fail rather than
-			// pass quietly.
+
 			workflowCwd: "/no/such/directory",
 		},
 		{
@@ -448,7 +434,7 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 
 	tests := []struct {
 		name string
-		// action is the workflow's setup action, and answered the directory it names.
+
 		action    string
 		answered  string
 		setupErr  error
@@ -603,7 +589,7 @@ func TestNewAgentSetupActionOverrideToNone(t *testing.T) {
 func TestNewAgentCeiling(t *testing.T) {
 	tests := []struct {
 		name string
-		// maxAgents is the configured ceiling, zero for a build that wires none.
+
 		maxAgents       int
 		existing        int
 		archiveExisting bool
@@ -697,13 +683,11 @@ func TestNewAgentCeilingAllowsARetriedLaunch(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, first)
 
-	// The ceiling of one is full, and this is the retry of the launch that filled it.
 	second, err := manager.NewAgent(t.Context(), params)
 	require.NoError(t, err)
 	require.NotNil(t, second)
 	assert.Equal(t, first.ID, second.ID, "the retry finds the agent it already created")
 
-	// A create claiming no key is a second agent, which there is no room for.
 	params.IdempotencyKey = ""
 	_, err = manager.NewAgent(t.Context(), params)
 	require.ErrorIs(t, err, ErrTooManyAgents)
@@ -715,8 +699,7 @@ func TestNewAgentCeilingAllowsARetriedLaunch(t *testing.T) {
 func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 	tests := []struct {
 		name string
-		// answered is the directory setup names, and each error below is a way the launch
-		// can refuse once the script has already run.
+
 		answered    string
 		windowErr   error
 		setOwnerErr error
@@ -959,8 +942,6 @@ func TestSetupActionOverrideToNoneWinsOverTheWorkflow(t *testing.T) {
 	assert.Empty(t, got)
 }
 
-// brokenWorkflowReader fails every read, which is what a store whose database has gone
-// away does.
 type brokenWorkflowReader struct {
 	err error
 }
@@ -982,8 +963,7 @@ func TestUniqueAgentName(t *testing.T) {
 		name   string
 		title  string
 		prompt string
-		// taken are agents seeded into the workflow the name is generated for, and
-		// takenElsewhere the same into a workflow of their own.
+
 		taken          []string
 		takenElsewhere []string
 		wantName       string
@@ -1043,7 +1023,7 @@ func TestNameTaken(t *testing.T) {
 	tests := []struct {
 		name  string
 		check string
-		// elsewhere asks about the other workflow, where the same name is free.
+
 		elsewhere bool
 		want      bool
 	}{
@@ -1089,7 +1069,7 @@ func TestArchiveAgent(t *testing.T) {
 	tests := []struct {
 		name string
 		seed string
-		// missing aims the call at an id nobody holds rather than at the seeded agent.
+
 		missing   bool
 		wantErrIs error
 	}{
@@ -1143,8 +1123,7 @@ func TestDeleteAgent(t *testing.T) {
 		name    string
 		archive bool
 		target  func(seeded agentstore.Agent) string
-		// wantPaneKilled is false for an archived agent, which gave up its pane at
-		// archive time and has none left to kill.
+
 		wantPaneKilled bool
 		wantErrIs      error
 	}{
@@ -1159,9 +1138,6 @@ func TestDeleteAgent(t *testing.T) {
 			wantPaneKilled: true,
 		},
 		{
-			// The panel's archive key is what most agents go out through, so everything
-			// reaching this path has been archived already. A delete that could not see
-			// those rows would report every agent in the archive as missing.
 			name:    "an archived agent is destroyed too",
 			archive: true,
 			target:  func(seeded agentstore.Agent) string { return seeded.ID },
@@ -1217,9 +1193,6 @@ func TestDeleteAgent(t *testing.T) {
 // must not read as running, and nothing may reach into the pane that is now
 // somebody else's.
 func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
-	// The two agents share a pane id the way rows in the panel's database do after a
-	// restart: the live one holds it because it is running there, and the dormant one
-	// because that is what its row still says.
 	const shared = "%4"
 
 	setup := func(t *testing.T) (*AgentService, *testStore, *fakeTmux, agentstore.Agent) {
@@ -1311,8 +1284,6 @@ func TestRestore(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, st.SoftDelete(ctx, "foo"))
 
-			// The namesake goes in the same workflow, since that is the scope the
-			// unique index covers.
 			if tt.reuseName {
 				require.NoError(t, st.Create(ctx, agentstore.Agent{
 					Name:       "foo",
@@ -1385,7 +1356,7 @@ func TestRestoreCeiling(t *testing.T) {
 func TestResumeRunsTheSetupAction(t *testing.T) {
 	tests := []struct {
 		name string
-		// named is the directory the action prints, empty for one that prints none.
+
 		named      string
 		resumeErr  error
 		wantWindow bool

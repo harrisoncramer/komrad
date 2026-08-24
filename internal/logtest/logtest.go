@@ -1,6 +1,3 @@
-// Package logtest reads back what the service logged. The records are JSON so a test can
-// read them without asserting on the order fields came out in or how a wrapped error
-// happened to be quoted, neither of which is what the record is for.
 package logtest
 
 import (

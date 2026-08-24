@@ -15,8 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// detailsModel builds an agents model sized like a real sidebar, its cursor on the one live
-// agent, which carries the metadata an agent records about its own work.
 func detailsModel(tmux *recordingTmux) model {
 	m := infoModel(tmux)
 	m.height, m.width = 24, 40
@@ -30,8 +28,6 @@ func detailsModel(tmux *recordingTmux) model {
 	return m
 }
 
-// send routes a key the way a real keypress arrives, through Update rather than into a
-// screen's own handler, since which half of the sidebar answers a key is decided above them.
 func send(t *testing.T, m model, key string) model {
 	t.Helper()
 
@@ -48,8 +44,6 @@ func send(t *testing.T, m model, key string) model {
 func TestDetailsDrawTheHoveredRow(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 
-	// Pushed taller than the share the layout gives it, ahead of the pr field the rest of
-	// this test reads off the bottom.
 	m.listing.agents[0].agent.Metadata = append([]agentstore.Metadata{
 		{Key: "branch", Value: "harry/details-height"},
 		{Key: "issue", Value: "WEAVE-1"},
@@ -61,15 +55,11 @@ func TestDetailsDrawTheHoveredRow(t *testing.T) {
 	assert.Contains(t, view, "directory")
 	assert.Contains(t, view, "/repo")
 
-	// The record is taller than the share the layout gives it, so what is past the end is
-	// counted rather than drawn, and reached by moving the cursor onto it.
 	assert.Contains(t, view, "more")
 
 	m.details.row = m.hoveredDetails().id
 	m.details.cursor = len(m.hoveredDetails().fields) - 1
 
-	// The value is clipped to the pane rather than wrapped, since the whole of it is a copy
-	// key away and a wrapped URL would cost the fields under it their lines.
 	assert.Contains(t, m.detailsView(), "pr")
 	assert.Contains(t, m.detailsView(), "https://github.com/o/r/pu")
 
@@ -137,7 +127,6 @@ func TestDetailsCopyTheFieldUnderTheCursor(t *testing.T) {
 
 	focused := send(t, m, "ctrl+t")
 
-	// The pr the agent recorded is the last of its fields, which is what the bottom key lands on.
 	bottom := send(t, focused, "G")
 	copied, cmd := bottom.updateDetails(keyMsg("y"))
 	panel, ok := copied.(model)
@@ -357,11 +346,9 @@ func TestAgentFields(t *testing.T) {
 
 	tests := []struct {
 		name string
-		// schedule is the name of the schedule that launched the agent, empty for one a
-		// person started.
+
 		schedule string
-		// metadata is what the agent recorded about its own work, empty for one that
-		// recorded nothing.
+
 		metadata   []agentstore.Metadata
 		wantLabels []string
 		wantValues []string
@@ -420,9 +407,6 @@ func TestAgentFields(t *testing.T) {
 	}
 }
 
-// strandedModel is a details model with a second agent under the cursor, so the list has a row
-// to move onto. The bug being covered is the list going deaf while the section holds the keys
-// off screen, which cannot be seen on a cursor already sitting at the last row.
 func strandedModel() model {
 	m := detailsModel(&recordingTmux{})
 	m.listing.agents = append(m.listing.agents, agentItem{
@@ -433,9 +417,6 @@ func strandedModel() model {
 	return m
 }
 
-// assertKeysWithTheList checks what a section holding the keys off screen got wrong, none of
-// it read off the focus itself: the list answers movement, no cursor runs down fields that are
-// not drawn, the accent stays on the list, and the legend is still the list's own.
 func assertKeysWithTheList(t *testing.T, m model) {
 	t.Helper()
 

@@ -1,9 +1,3 @@
-// Package schedule persists recurring agent launches, the schedules table and
-// the config row holding the cwd and flags each launch starts from.
-//
-// A schedule is a blueprint. It holds no pointer to the agents it has produced,
-// since it fires many times over its life. Each agent records the schedule it came
-// from, and reading that back is the agent package's job.
 package schedule
 
 import (
@@ -16,35 +10,24 @@ import (
 	"weave/internal/store"
 )
 
-// Schedule is a recurring agent launch, what to run, where, and how often.
 type Schedule struct {
 	ID   string
 	Name string
-	// Cron is a standard five-field expression, stored as the user wrote it and
-	// parsed above this layer.
+
 	Cron string
-	// Timezone is the IANA zone the expression is read in, empty for the
-	// machine's local zone.
+
 	Timezone string
-	// Enabled false pauses the schedule. It keeps its row and its history and
-	// simply stops firing.
+
 	Enabled bool
-	// HideAgents starts every agent this schedule launches hidden from the panel's
-	// list. Each launched agent takes its own copy, so hiding or showing one afterwards
-	// is that agent's business.
+
 	HideAgents bool
 	Prompt     string
-	// WorkflowID is the workflow this schedule launches into. It is where the
-	// directory, flags, and shared context each launch uses come from, read when
-	// the schedule fires rather than copied here, so a workflow that moves takes
-	// its schedules with it.
+
 	WorkflowID string
-	// UpdatedAt is when the row last changed, for display. The listing sorts by
-	// id instead, so an edit never moves a schedule out from under the reader.
+
 	UpdatedAt time.Time
 }
 
-// Config is the editable shape of a schedule, everything a caller may set.
 type Config struct {
 	Name       string
 	Cron       string
@@ -55,7 +38,6 @@ type Config struct {
 	WorkflowID string
 }
 
-// Store reads and writes schedules.
 type Store struct {
 	queries *models.Queries
 }
@@ -81,8 +63,6 @@ func (s *Store) List(ctx context.Context) ([]Schedule, error) {
 	return schedules, nil
 }
 
-// Cursor locates a schedule within a listing. The id is the sort key and is unique,
-// so it is the whole cursor.
 type Cursor struct {
 	ID string `json:"i"`
 }

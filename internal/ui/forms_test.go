@@ -42,12 +42,11 @@ import (
 func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 	tests := []struct {
 		name string
-		// open puts the form on screen with its fields carrying what a person would be
-		// looking at, the prefill plus whatever they typed into it.
+
 		open func(m model) model
-		// submit is the path the panel takes when the form is submitted.
+
 		submit func(m model) (tea.Model, tea.Cmd)
-		// check is what the service should have been sent.
+
 		check func(t *testing.T, sent *formRecorder)
 	}{
 		{
@@ -149,8 +148,6 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			},
 		},
 		{
-			// The edit form opens on what is stored, so a submit that changed one field
-			// has to carry the rest as they were. The service replaces every field.
 			name: "the workflow edit form",
 			open: func(m model) model {
 				target := m.listing.workflows[0]
@@ -222,9 +219,6 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			},
 		},
 		{
-			// The toggle sits at the bottom of the form, furthest from where a submit is
-			// likely to happen, so this is the case that would silently unhide a
-			// schedule's runs if the values were read off the cursor's trail.
 			name: "the schedule edit form",
 			open: func(m model) model {
 				m.target.editSchedule = &schedulestore.Schedule{ID: "s1", Name: "sweeper"}
@@ -449,12 +443,11 @@ func TestActionSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
 func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 	tests := []struct {
 		name string
-		// open puts the form on screen and fills it in. A case that sets the form completed
-		// is one submitted from its last field, which is the path that rebuilds.
+
 		open   func(t *testing.T, m model) model
 		submit func(m model) (tea.Model, tea.Cmd)
 		screen screen
-		// typed is what was filled in, and held reads it back off the panel afterwards.
+
 		typed string
 		held  func(m model) string
 	}{
@@ -683,7 +676,7 @@ func TestSetupTypeSelectShowsBothOptionsOnOpen(t *testing.T) {
 func TestArchivePromptChoices(t *testing.T) {
 	tests := []struct {
 		name string
-		// down is how many rows the cursor is moved before the submit.
+
 		down         int
 		wantArchived []string
 		wantDeleted  []string
@@ -766,9 +759,6 @@ func TestArchivePromptKeepsTheRecordWhenTheArchiveIsRefused(t *testing.T) {
 	assert.Nil(t, sent.deletedAgents, "nothing was destroyed")
 }
 
-// deliver hands a message to the panel and then hands back everything it produced, the way
-// the bubbletea loop does. A form reaches its submitted state through a message of its own,
-// so a key alone leaves it partway there.
 func deliver(t *testing.T, m model, msg tea.Msg) model {
 	t.Helper()
 
@@ -777,7 +767,6 @@ func deliver(t *testing.T, m model, msg tea.Msg) model {
 	return delivered(t, asModel(t, updated), cmd)
 }
 
-// delivered runs a command and hands every message it made back to the panel.
 func delivered(t *testing.T, m model, cmd tea.Cmd) model {
 	t.Helper()
 
@@ -788,7 +777,6 @@ func delivered(t *testing.T, m model, cmd tea.Cmd) model {
 	return m
 }
 
-// asModel unwraps what an update handed back, which is the panel's model in every case.
 func asModel(t *testing.T, updated tea.Model) model {
 	t.Helper()
 
@@ -858,8 +846,6 @@ func TestFormResultsAreNotWhatIsSubmitted(t *testing.T) {
 	assert.True(t, values.HideAgents)
 }
 
-// formModel builds a panel with one workflow to submit against, holding no open form.
-// Each case opens the one it is about.
 func formModel(sent *formRecorder) model {
 	tmux := &recordingTmux{}
 
@@ -873,19 +859,12 @@ func formModel(sent *formRecorder) model {
 	}
 }
 
-// formRecorder accepts every write a form makes and keeps the request it was sent, so
-// a case can assert on what reached the service rather than on how many calls it took.
-// It answers as all three clients, since a form submit lists as well as writes. The
-// embedded interfaces are nil, so a method nothing here implements panics rather than
-// quietly returning a zero value.
 type formRecorder struct {
 	agentv1connect.AgentServiceClient
 	workflowv1connect.WorkflowServiceClient
 	schedulev1connect.ScheduleServiceClient
 	actionv1connect.ActionServiceClient
 
-	// refuse is what every write answers with while it is set, which is the refusal a
-	// form has to survive.
 	refuse error
 
 	createdAgent     *agentv1.CreateAgentRequest
@@ -1067,9 +1046,6 @@ func TestFormTakesNoKeysWhileItsWriteIsInFlight(t *testing.T) {
 	assert.Equal(t, "check CI", got.values.agent.Prompt, "and the form is as it was")
 }
 
-// pump applies a message to a form and feeds back whatever the form asks for, since moving
-// between fields takes a couple of rounds. The step bound is a backstop against a form that
-// keeps asking, such as a blinking cursor.
 func pump(t *testing.T, form *huh.Form, msg tea.Msg) {
 	t.Helper()
 

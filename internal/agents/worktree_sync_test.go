@@ -105,8 +105,6 @@ func TestWorktreeSyncerSyncSkipsArchivedAgents(t *testing.T) {
 	assert.False(t, got.WorktreeRemoved, "an archived agent is not walked, so nothing writes a removal for it")
 }
 
-// removedDir returns a path inside a directory the test framework will clean up, deleted
-// immediately so it names no directory a syncer's stat call can find.
 func removedDir(t *testing.T) string {
 	t.Helper()
 

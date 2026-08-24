@@ -82,39 +82,18 @@ var file_rules_v1_rules_proto_extTypes = []protoimpl.ExtensionInfo{
 
 // Extension fields to validate.StringRules.
 var (
-	// Refuses the characters that would mean anything to a shell.
-	//
 	// optional bool shell_safe = 50100;
 	E_ShellSafe = &file_rules_v1_rules_proto_extTypes[0]
-	// A path that means the same wherever it is read from.
-	//
 	// optional bool absolute_path = 50101;
 	E_AbsolutePath = &file_rules_v1_rules_proto_extTypes[1]
-	// The same rule where blank is a meaningful answer, standing for no path
-	// chosen rather than for the root.
-	//
 	// optional bool absolute_path_or_blank = 50102;
 	E_AbsolutePathOrBlank = &file_rules_v1_rules_proto_extTypes[2]
-	// The shape of an action's file name. A file name never has a legitimate reason
-	// to carry a control character, and an action name flows into logs and the
-	// panel's own display, so this rejects them the same way message.printable does.
-	//
 	// optional bool action_name = 50104;
 	E_ActionName = &file_rules_v1_rules_proto_extTypes[3]
-	// The same rule where blank is a meaningful answer, standing for no action chosen
-	// rather than for a file with no name.
-	//
 	// optional bool action_name_or_blank = 50105;
 	E_ActionNameOrBlank = &file_rules_v1_rules_proto_extTypes[4]
-	// The shape of a cron expression, five whitespace-separated fields. Whether the
-	// fields mean anything is left to whoever parses it.
-	//
 	// optional bool cron_expression = 50103;
 	E_CronExpression = &file_rules_v1_rules_proto_extTypes[5]
-	// A path relative to some other root, safe to splice into a generated script. Refuses
-	// an absolute path, a home-relative one, and anything containing a .. segment that
-	// could climb out of the root it is read against.
-	//
 	// optional bool relative_path = 50106;
 	E_RelativePath = &file_rules_v1_rules_proto_extTypes[6]
 )

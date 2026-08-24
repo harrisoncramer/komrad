@@ -6,69 +6,43 @@ import "buf/validate/validate.proto";
 
 option go_package = "weave/proto/gen/rules/v1;rulesv1";
 
-// Predefined protovalidate rules, for the checks more than one request message
-// makes. A rule declared here is compiled and evaluated exactly like a standard
-// rule such as min_len, so a field opts into one by naming it alongside the
-// standard rules it already carries.
-//
-// This file is edition 2023 rather than proto3 because it extends StringRules,
-// which is an ordinary message rather than an options message. Proto3 allows an
-// extend block only for custom options. The messages that use these rules stay
-// proto3.
-//
-// Each expression is guarded with !rule, so setting a rule to false opts a field
-// back out of it.
 extend buf.validate.StringRules {
-  // Refuses the characters that would mean anything to a shell.
   bool shell_safe = 50100 [(buf.validate.predefined).cel = {
     id: "string.shell_safe"
     message: "must not contain shell metacharacters"
     expression: "!rule || !this.matches('[;&|<>`$\\\\\\n]')"
   }];
 
-  // A path that means the same wherever it is read from.
   bool absolute_path = 50101 [(buf.validate.predefined).cel = {
     id: "string.absolute_path"
     message: "must be an absolute path or start with ~"
     expression: "!rule || this.startsWith('/') || this.startsWith('~')"
   }];
 
-  // The same rule where blank is a meaningful answer, standing for no path
-  // chosen rather than for the root.
   bool absolute_path_or_blank = 50102 [(buf.validate.predefined).cel = {
     id: "string.absolute_path_or_blank"
     message: "must be blank, absolute, or start with ~"
     expression: "!rule || this == '' || this.startsWith('/') || this.startsWith('~')"
   }];
 
-  // The shape of an action's file name. A file name never has a legitimate reason
-  // to carry a control character, and an action name flows into logs and the
-  // panel's own display, so this rejects them the same way message.printable does.
   bool action_name = 50104 [(buf.validate.predefined).cel = {
     id: "string.action_name"
     message: "must be a file name, with no slash, no leading dot, and no control characters"
     expression: "!rule || (this != '' && !this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))"
   }];
 
-  // The same rule where blank is a meaningful answer, standing for no action chosen
-  // rather than for a file with no name.
   bool action_name_or_blank = 50105 [(buf.validate.predefined).cel = {
     id: "string.action_name_or_blank"
     message: "must be blank or a file name, with no slash, no leading dot, and no control characters"
     expression: "!rule || this == '' || (!this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))"
   }];
 
-  // The shape of a cron expression, five whitespace-separated fields. Whether the
-  // fields mean anything is left to whoever parses it.
   bool cron_expression = 50103 [(buf.validate.predefined).cel = {
     id: "string.cron_expression"
     message: "must be five whitespace-separated fields, such as '0 9 * * 1-5'"
     expression: "!rule || this.split(' ').filter(f, f != '').size() == 5"
   }];
 
-  // A path relative to some other root, safe to splice into a generated script. Refuses
-  // an absolute path, a home-relative one, and anything containing a .. segment that
-  // could climb out of the root it is read against.
   bool relative_path = 50106 [(buf.validate.predefined).cel = {
     id: "string.relative_path"
     message: "must be a relative path, with no leading / or ~ and no .. segment"

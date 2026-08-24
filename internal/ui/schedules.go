@@ -17,16 +17,11 @@ type scheduleState struct {
 	cursor int
 }
 
-// scheduleItem is a stored schedule plus when it next fires. The next run is derived by
-// the service from the cron expression rather than stored, so it arrives with the listing
-// the way an agent's liveness does.
 type scheduleItem struct {
 	schedule schedulestore.Schedule
 	nextRun  time.Time
 }
 
-// enterSchedules is its own screen rather than part of the agents tree, since a schedule is
-// a record of future work with nothing running to stage beside it.
 func (m model) enterSchedules() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenSchedules)
 	m.schedules.cursor = clampCursor(m.schedules.cursor, len(m.scheduleRows()))
@@ -35,8 +30,6 @@ func (m model) enterSchedules() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// scheduleRows is the listing less whatever the filter holds back; the cursor indexes
-// these rather than the listing, so a key acts on the row it is on.
 func (m model) scheduleRows() []scheduleItem {
 	if m.filter.pattern == nil {
 		return m.schedules.items
@@ -86,8 +79,6 @@ func (m model) selectedSchedule() (scheduleItem, bool) {
 	return rowAt(m.scheduleRows(), m.schedules.cursor)
 }
 
-// schedulesDetails is what the schedule under the cursor holds: when it fires, and the
-// defaults of the workflow it fires into, which is what each run is launched with.
 func (m model) schedulesDetails() details {
 	item, ok := m.selectedSchedule()
 	if !ok {
@@ -102,8 +93,6 @@ func (m model) schedulesDetails() details {
 	}
 }
 
-// stageSchedule shows the hovered schedule's record in the stage; nothing runs for a
-// schedule, so there is never a pane to swap in.
 func (m *model) stageSchedule() {
 	item, ok := m.selectedSchedule()
 	if !ok {
@@ -115,7 +104,6 @@ func (m *model) stageSchedule() {
 	m.stageDocument(scheduleMarkdown(item))
 }
 
-// workflowByID returns nil when none holds that id, which means it was archived.
 func (m model) workflowByID(id string) *workflowstore.Workflow {
 	for _, w := range m.listing.workflows {
 		if w.ID == id {
@@ -126,8 +114,6 @@ func (m model) workflowByID(id string) *workflowstore.Workflow {
 	return nil
 }
 
-// toggleSchedule pauses or resumes the hovered schedule; one key does both directions, so
-// the failure message comes off the row.
 func (m model) toggleSchedule() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedSchedule()
 	if !ok {
@@ -144,8 +130,6 @@ func (m model) toggleSchedule() (tea.Model, tea.Cmd) {
 	})
 }
 
-// newScheduleForm starts the workflow field on the first in the list, since one has to
-// be chosen.
 func (m model) newScheduleForm() (tea.Model, tea.Cmd) {
 	if len(m.listing.workflows) == 0 {
 		m.report("Could not create a schedule", errNoWorkflow)
@@ -163,8 +147,6 @@ func (m model) newScheduleForm() (tea.Model, tea.Cmd) {
 	return m, m.form.Init()
 }
 
-// editScheduleForm refetches first, so the form edits what is stored rather than what the
-// last listing carried.
 func (m model) editScheduleForm() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedSchedule()
 	if !ok {
@@ -191,7 +173,6 @@ func (m model) editScheduleForm() (tea.Model, tea.Cmd) {
 	return m, m.form.Init()
 }
 
-// archiveScheduleConfirm opens the archive prompt for the hovered schedule.
 func (m model) archiveScheduleConfirm() (tea.Model, tea.Cmd) {
 	item, ok := m.selectedSchedule()
 	if !ok {
@@ -211,8 +192,6 @@ func (m model) updateScheduleForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) submitScheduleForm() (tea.Model, tea.Cmd) {
-	// The form writes through pointers the panel holds, so a submit with no bound values
-	// is a submit for a form that was never opened.
 	if m.values.schedule == nil {
 		return m.closeForm()
 	}
@@ -281,8 +260,6 @@ func (m model) schedulesView() string {
 	return m.listView("Schedules", rows, m.schedules.cursor, below)
 }
 
-// applySchedules keeps the cursor on the schedule it was on, since a schedule archived from
-// another panel shifts everything below it up.
 func (m *model) applySchedules(fresh []scheduleItem) {
 	selected := ""
 	if item, ok := m.selectedSchedule(); ok {

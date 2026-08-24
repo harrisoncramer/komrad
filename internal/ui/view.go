@@ -27,8 +27,6 @@ func (m model) View() string {
 		return errui.Unreachable(m.width, m.addr, m.unreachable)
 	}
 
-	// A form waiting on its write is frozen, so it says so. It takes the banner's place,
-	// which reads as the refusal being retried.
 	var chrome string
 	switch {
 	case m.pendingForm:
@@ -37,14 +35,9 @@ func (m model) View() string {
 		chrome = m.banner.Render(m.width)
 	}
 
-	// Every block a screen builds ends in a newline, and the renderer draws what
-	// follows the last one as a line of its own. On a screen built to fill the pane
-	// that line is one too many, and the pane scrolls to make room, taking the title
-	// off the top.
 	return strings.TrimRight(chrome+m.screenView(), "\n")
 }
 
-// screenView renders whichever screen the panel is on, without the chrome above it.
 func (m model) screenView() string {
 	if m.screen.isForm() {
 		return m.form.View()

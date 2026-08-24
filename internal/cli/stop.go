@@ -4,10 +4,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// stopCmd asks a running server to stop and waits for it to be gone. It exists so a reload
-// can ask rather than signal: a signal says nothing back, leaving whoever sent it to guess
-// how long to wait and then kill on a timer, and guessing short abandons a launch partway
-// through.
 func stopCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "stop",

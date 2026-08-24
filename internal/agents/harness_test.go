@@ -19,8 +19,7 @@ import (
 func TestNewAgentGetsHarness(t *testing.T) {
 	tests := []struct {
 		name string
-		// requested is the harness the create names, and workflow is the default of
-		// the bucket it lands in.
+
 		requested string
 		workflow  string
 		want      string
@@ -46,7 +45,7 @@ func TestNewAgentGetsHarness(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			tmux := newFakeTmux()
-			// Every id is found here, so this is about which one is chosen.
+
 			service := st.agentService(agentServiceOptions{
 				tmux:      tmux,
 				harnesses: fakeHarnesses{harness: &fakeHarness{}},

@@ -24,8 +24,7 @@ type fakeTmux struct {
 	mu       sync.Mutex
 	owners   map[string]string
 	captures map[string]string
-	// commands is a pane's foreground program. A pane left out reports nothing, which
-	// stands for a program weave does not recognise and so reads as a live CLI.
+
 	commands  map[string]string
 	clientDir string
 
@@ -206,19 +205,12 @@ func (f *fakeTmux) lastKeys(target string) []string {
 	return sends[len(sends)-1]
 }
 
-// The frames these tests hand the reconciler are labels rather than any CLI's
-// chrome. Which state a real frame implies is the harness's own question, tested
-// against real captures where the detectors live, so nothing here has to be
-// reshaped when a CLI redraws its UI.
 const (
 	busyFrame = "frame: working"
 	idleFrame = "frame: idle"
 	waitFrame = "frame: waiting"
 )
 
-// testHarnessID is the harness every seeded agent names, and what the fake registry
-// is asked for. It is claude's own id so the tests that drive the real harness and
-// the tests that drive the fake seed their agents the same way.
 const testHarnessID = "claude"
 
 type fakeHarness struct {
@@ -291,10 +283,6 @@ func (f fakeHarnesses) GetByID(id string) (harness.Harness, error) {
 	return f.harness, nil
 }
 
-// testStore gathers the domain stores a test needs behind one handle, built over
-// one pool. Nothing in production holds this, since each service is still constructed
-// with only the store it depends on. It exists so a test can arrange rows across
-// domains without threading three handles through every helper.
 type testStore struct {
 	*storetest.Stores
 }
@@ -317,8 +305,6 @@ func (s *testStore) Get(ctx context.Context, name string) (*agentstore.Agent, er
 // did not name one. Every agent belongs to a workflow, and most tests here are
 // about something else entirely.
 func (s *testStore) Create(ctx context.Context, agent agentstore.Agent) error {
-	// The column is explicit on insert, so a test that did not care which CLI its
-	// agent runs would otherwise store an empty id no registry knows.
 	if agent.Harness == "" {
 		agent.Harness = testHarnessID
 	}
@@ -462,19 +448,14 @@ func (f *fakeLifecycle) RunCleanupAction(_ context.Context, agent agentstore.Age
 	return f.cleanupErr
 }
 
-// workflowService builds the workflow service over these stores.
 func (s *testStore) workflowService(tmux *fakeTmux) *WorkflowService {
 	return s.workflowServiceCapped(tmux, 0)
 }
 
-// workflowServiceCapped is the same with an agent ceiling, for the restore that has to
-// fit a whole workflow's archived agents under it.
 func (s *testStore) workflowServiceCapped(tmux *fakeTmux, maxAgents int) *WorkflowService {
 	return s.workflowServiceWithNotifier(tmux, maxAgents, nil)
 }
 
-// workflowServiceWithNotifier is the same, for a test that cares whether archiving a
-// workflow told anything outside it that a delegate was gone.
 func (s *testStore) workflowServiceWithNotifier(tmux *fakeTmux, maxAgents int, notifier parentNotifier) *WorkflowService {
 	return NewWorkflowService(WorkflowParams{
 		Workflows: s.Workflows,
@@ -487,16 +468,12 @@ func (s *testStore) workflowServiceWithNotifier(tmux *fakeTmux, maxAgents int, n
 	})
 }
 
-// seed inserts an agent in a given state and returns it with its generated id.
 func seed(t *testing.T, st *testStore, name, pane, state string) agentstore.Agent {
 	t.Helper()
 
 	return seedInWorkflow(t, st, "", name, pane, state)
 }
 
-// seedInWorkflow is the same for a test that cares which workflow the agent lands in. A
-// blank workflow gets one of its own, and the row is read back through the workflow, so
-// two agents sharing a name stay distinguishable.
 func seedInWorkflow(t *testing.T, st *testStore, workflowID, name, pane, state string) agentstore.Agent {
 	t.Helper()
 	ctx := t.Context()
@@ -519,17 +496,10 @@ func seedInWorkflow(t *testing.T, st *testStore, workflowID, name, pane, state s
 	return *got
 }
 
-// paneStamper is the one thing seedRunning needs, which both the fake and the real
-// tmux client provide, so a test against either arranges a running agent the same
-// way.
 type paneStamper interface {
 	SetPaneOwner(pane, agentID string) error
 }
 
-// seedRunning inserts an agent and stamps its pane with the id the store gave it,
-// which is what a launched agent looks like: a row, plus a pane that answers to it.
-// Seeding without the stamp describes an agent whose recorded pane is somebody
-// else's, so a test wanting a live agent has to arrange both.
 func seedRunning(t *testing.T, st *testStore, tmux paneStamper, name, pane, state string) agentstore.Agent {
 	t.Helper()
 	agent := seed(t, st, name, pane, state)
@@ -538,8 +508,6 @@ func seedRunning(t *testing.T, st *testStore, tmux paneStamper, name, pane, stat
 	return agent
 }
 
-// seedSpawned inserts a delegate named "child" on pane "%child", recording parentID as its
-// spawner, the way a real delegate launch does.
 func seedSpawned(t *testing.T, st *testStore, parentID string) agentstore.Agent {
 	t.Helper()
 	ctx := t.Context()
@@ -560,9 +528,6 @@ func seedSpawned(t *testing.T, st *testStore, parentID string) agentstore.Agent 
 	return *got
 }
 
-// backdateStateSeen ages an agent's confirmation stamp, standing in for the minutes of
-// unreadable passes a test cannot sit through. It writes the column directly because
-// nothing in production ever moves the stamp backwards.
 func backdateStateSeen(t *testing.T, st *testStore, id string, age time.Duration) {
 	t.Helper()
 	_, err := st.Pool.GetDB().Exec(t.Context(),
@@ -579,26 +544,16 @@ func stateOf(t *testing.T, st *testStore, name string) string {
 	return got.State
 }
 
-// newManager builds an agent service over the fake tmux and a real store, which
-// is what most of these tests drive.
 func newManager(tmux *fakeTmux, st *testStore, flags string) *AgentService {
 	service, _ := newManagerWithHarness(tmux, st, flags)
 
 	return service
 }
 
-// workflowsFor builds the workflow service over the same store and tmux, for the tests
-// that set an agent's workflow up before acting on the agent. The tmux is shared with the
-// manager rather than made here, since an archive that read a different one would find
-// none of the panes the test seeded.
 func workflowsFor(st *testStore, tmux *fakeTmux) *WorkflowService {
 	return st.workflowService(tmux)
 }
 
-// newManagerWithHarness is the same, handing back the harness as well, for a test
-// that asserts on what the panel asked the CLI to be started with. The launcher is
-// pointed at a fixed address so what a spawned agent is told does not depend on the
-// machine.
 func newManagerWithHarness(tmux *fakeTmux, st *testStore, flags string) (*AgentService, *fakeHarness) {
 	h := &fakeHarness{}
 
@@ -610,8 +565,6 @@ func newManagerWithHarness(tmux *fakeTmux, st *testStore, flags string) (*AgentS
 	}), h
 }
 
-// agentByID finds an agent among every row, archived ones included, since a test
-// that restores one holds its id rather than its current name.
 func agentByID(t *testing.T, st *testStore, id string) agentstore.Agent {
 	t.Helper()
 
@@ -629,9 +582,6 @@ func agentByID(t *testing.T, st *testStore, id string) agentstore.Agent {
 	return agentstore.Agent{}
 }
 
-// seedWorkflow creates a workflow and returns its id. Every agent belongs to
-// one, so a test launching an agent needs somewhere to put it even when the
-// workflow itself is beside the point.
 func seedWorkflow(t *testing.T, st *testStore) string {
 	t.Helper()
 

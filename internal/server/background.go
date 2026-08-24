@@ -18,10 +18,8 @@ import (
 
 const loopStopTimeout = 2 * time.Second
 
-// River leaves an interrupted job running until its rescuer retries it.
 const jobStopTimeout = 10 * time.Second
 
-// Loop is one pass the service re-runs on an interval.
 type Loop struct {
 	Name     string
 	Interval time.Duration
@@ -61,8 +59,6 @@ type jobRunner interface {
 	Stop(ctx context.Context) error
 }
 
-// backgroundWork is what startBackground returns and stop tears down, loops first so they
-// cannot enqueue more work while jobs drain.
 type backgroundWork struct {
 	runner    jobRunner
 	stopLoops context.CancelFunc
@@ -70,7 +66,6 @@ type backgroundWork struct {
 	logger    *slog.Logger
 }
 
-// River's startup context must survive shutdown so Stop can drain active jobs.
 func startBackground(ctx context.Context, runner jobRunner, loops []Loop, logger *slog.Logger) (*backgroundWork, error) {
 	uncancelled := context.WithoutCancel(ctx)
 
@@ -125,8 +120,6 @@ func runLoop(ctx context.Context, loop Loop, logger *slog.Logger) {
 	var repeats int
 
 	for {
-		// Traced like a request, so following one pass in the log doesn't mean reading four
-		// loops interleaved.
 		traced := tracedPass(ctx, logger)
 
 		err := runPass(traced, loop.Pass)
@@ -135,8 +128,6 @@ func runLoop(ctx context.Context, loop Loop, logger *slog.Logger) {
 			return
 		}
 
-		// How a pass ended goes under the pass's own id. Most passes say nothing until they
-		// break, so the outcome is usually the only line their trace has.
 		passLogger := logging.From(traced)
 
 		switch {
@@ -159,15 +150,12 @@ func runLoop(ctx context.Context, loop Loop, logger *slog.Logger) {
 	}
 }
 
-// tracedPass gives one pass its own trace id, on the logger every line under it writes
-// through and on the context, so a call this pass makes carries the same id onward.
 func tracedPass(ctx context.Context, logger *slog.Logger) context.Context {
 	trace := uuid.NewString()
 
 	return caller.WithTrace(logging.WithLogger(ctx, logger.With(slog.String(logging.TraceID, trace))), trace)
 }
 
-// runPass recovers here, in the loop goroutine, so one bad pass does not stop the service.
 func runPass(ctx context.Context, pass func(context.Context) error) (err error) {
 	defer func() {
 		if recovered := recover(); recovered != nil {

@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// forwardedEnv is what a tmux command line sets with -e, keyed by variable name.
 func forwardedEnv(t *testing.T, args []string) map[string]string {
 	t.Helper()
 

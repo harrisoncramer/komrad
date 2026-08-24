@@ -9,11 +9,8 @@ import (
 	"weave/lib/xslice"
 )
 
-// ErrShellUnsupported reports a pane shell that cannot parse a launch command.
 var ErrShellUnsupported = errors.New("unsupported pane shell")
 
-// posixShells are the shell basenames that parse the two POSIX forms a harness emits, a
-// command substitution and a leading VAR=value assignment.
 var posixShells = map[string]bool{
 	"ash":   true,
 	"bash":  true,

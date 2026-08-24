@@ -27,9 +27,6 @@ cd "$MISE_CONFIG_ROOT"
 
 VERSION="${WEAVE_VERSION:-v0.0.0-main.$(git rev-parse --short HEAD)}"
 
-# The four targets cross-compile from any host with CGO off, macOS included: the Go linker
-# ad-hoc signs a darwin/arm64 binary itself, which is what Apple Silicon refuses to run
-# without, so no macOS builder is involved.
 TARGETS=(
 	darwin/arm64
 	darwin/amd64
@@ -53,8 +50,6 @@ for TARGET in "${TARGETS[@]}"; do
 		-o "$out" .
 done
 
-# Named relative to dist, so a checksum file is verified from the directory holding the
-# binaries rather than only from the root of a checkout.
 cd dist
 if command -v sha256sum >/dev/null 2>&1; then
 	sha256sum weave-* >checksums.txt

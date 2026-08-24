@@ -26,7 +26,6 @@ func TestHideClearsTheOpenFlagWithoutTheManagerServer(t *testing.T) {
 	require.NoError(t, err, "tmux: %s", out)
 	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "set-option", "-g", "@weave_open", "1").Run())
 
-	// A socket name no server is listening on, which is what a killed manager server leaves.
 	state := hideState(throwawaySocket(t), hostPaneEnv(t, hostSocket))
 
 	require.NoError(t, hideCmd(state).RunE(nil, nil))
@@ -34,9 +33,6 @@ func TestHideClearsTheOpenFlagWithoutTheManagerServer(t *testing.T) {
 		"the panel key reads this flag, so a hide that leaves it set makes the key do nothing")
 }
 
-// hideState is the wiring the root command builds, cut down to what hide reaches; tmuxEnv
-// stands in for this process's TMUX, which is what tmux sets for the pane the key binding's
-// run-shell puts hide in.
 func hideState(socket, tmuxEnv string) *app {
 	manager := tmux.NewClient(socket)
 	host := tmux.NewHost(manager, tmuxEnv)
@@ -50,7 +46,6 @@ func hideState(socket, tmuxEnv string) *app {
 	}
 }
 
-// hostPaneEnv is a TMUX value naming a test server, the three fields tmux writes for a pane.
 func hostPaneEnv(t *testing.T, socket string) string {
 	t.Helper()
 

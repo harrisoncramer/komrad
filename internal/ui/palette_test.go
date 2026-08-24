@@ -56,10 +56,6 @@ func TestStageStyleRendersEveryElement(t *testing.T) {
 // escape naming a colour by index. A hex value writes the channels instead, so it would
 // look the same on every machine and take nothing from the scheme.
 func TestPaletteFollowsTheTerminal(t *testing.T) {
-	// The profile is forced to TrueColor because tests otherwise run with no terminal, where
-	// lipgloss writes no escapes and every case below would pass on an empty string. It is
-	// restored afterward since the profile is process-wide and other tests rely on lipgloss
-	// writing nothing.
 	restore := lipgloss.ColorProfile()
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
 	lipgloss.SetColorProfile(termenv.TrueColor)

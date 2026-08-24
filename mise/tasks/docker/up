@@ -7,6 +7,4 @@ cd "$MISE_CONFIG_ROOT"
 docker compose up -d --wait db
 mise run db:apply
 
-# After the migrations, so the grant covers the tables that now exist. The
-# default privileges it sets cover the ones later migrations add.
 mise run db:readonly-role

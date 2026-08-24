@@ -1,6 +1,3 @@
-// Package client holds the small pieces every caller of the service needs, so the
-// panel and the CLI read the API the same way rather than each writing its own
-// paging loop.
 package client
 
 import (

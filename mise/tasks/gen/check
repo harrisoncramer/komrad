@@ -25,9 +25,6 @@ cd "$MISE_CONFIG_ROOT"
 
 GENERATED=(config.toml db/models proto/gen docs/reference)
 
-# Staged and untracked changes count, not just unstaged ones: `git diff` alone
-# would call a staged difference clean and let real drift through on the way into
-# a commit, which is exactly when this runs.
 generated_changes() {
 	git status --porcelain -- "${GENERATED[@]}"
 }

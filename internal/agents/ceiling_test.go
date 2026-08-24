@@ -35,8 +35,6 @@ func TestNewAgentCeilingUnderConcurrency(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			// Distinct titles, so two callers losing a race for the same name is not
-			// what keeps the count down.
 			_, err := manager.NewAgent(t.Context(), NewAgentParams{
 				Title:      fmt.Sprintf("racer-%d", i),
 				Dir:        dir,
@@ -58,8 +56,6 @@ func TestNewAgentCeilingUnderConcurrency(t *testing.T) {
 		}
 	}
 
-	// A caller refused after its window was open has to take the window with it, or the
-	// ceiling holds in the table while the panes it was counting run anyway.
 	panes, err := tmux.GetPanes()
 	require.NoError(t, err)
 	require.Len(t, panes, ceiling)

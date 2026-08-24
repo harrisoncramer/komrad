@@ -25,16 +25,10 @@ const (
 )
 
 type GetConfigResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The configuration in force, keyed exactly as the user's TOML file is. It is an
-	// open blob rather than a message per setting because the Config struct in
-	// config decides the shape.
-	// The config is read on every call, so a configuration edited while the server runs is picked up without a restart.
-	Config *structpb.Struct `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
-	// Why the user's config file would not parse, unset when it did.
-	ConfigError *string `protobuf:"bytes,2,opt,name=config_error,json=configError,proto3,oneof" json:"config_error,omitempty"`
-	// The build this server is running, the same string weave version prints.
-	Version       string `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Config        *structpb.Struct       `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
+	ConfigError   *string                `protobuf:"bytes,2,opt,name=config_error,json=configError,proto3,oneof" json:"config_error,omitempty"`
+	Version       string                 `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

@@ -12,33 +12,25 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// nestingLimit is how far into a nested message flags are derived, which one level covers
-// the pagination every listing takes.
 const nestingLimit = 2
 
-// requestFields is the flags bound for one request message.
 type requestFields struct {
 	bound []boundField
-	// skipped are the fields no flag could be derived for, named in the command's help so
-	// they read as reachable through --request-json rather than as missing.
+
 	skipped []string
 }
 
-// boundField is one flag and where its value belongs in the request.
 type boundField struct {
 	flag string
 	path []string
 	read func(*pflag.FlagSet) (any, error)
 }
 
-// fieldLocation is how far into a nested message binding has walked: the JSON path the
-// value belongs at, and the flag-name parts it is reached by.
 type fieldLocation struct {
 	path []string
 	name []string
 }
 
-// descend returns the location of a field inside the message at this one.
 func (l fieldLocation) descend(field protoreflect.FieldDescriptor) fieldLocation {
 	return fieldLocation{
 		path: append(append([]string{}, l.path...), field.JSONName()),
@@ -46,7 +38,6 @@ func (l fieldLocation) descend(field protoreflect.FieldDescriptor) fieldLocation
 	}
 }
 
-// bindRequestFlags adds a flag per field of the request message and reports what it bound.
 func bindRequestFlags(cmd *cobra.Command, message protoreflect.MessageDescriptor) *requestFields {
 	fields := &requestFields{}
 	fields.bind(cmd, message, fieldLocation{})
@@ -90,8 +81,6 @@ func (f *requestFields) bind(cmd *cobra.Command, message protoreflect.MessageDes
 	}
 }
 
-// declareFlag registers the flag for one scalar field and returns how to read it back, nil
-// for a kind no flag represents.
 func declareFlag(cmd *cobra.Command, field protoreflect.FieldDescriptor, flag string) func(*pflag.FlagSet) (any, error) {
 	usage := describeField(field)
 	flags := cmd.Flags()
@@ -140,8 +129,6 @@ func declareFlag(cmd *cobra.Command, field protoreflect.FieldDescriptor, flag st
 	}
 }
 
-// declareListFlag registers the flag for a repeated scalar field, which is given more than
-// once or as one comma-separated value.
 func declareListFlag(cmd *cobra.Command, field protoreflect.FieldDescriptor, flag string) func(*pflag.FlagSet) (any, error) {
 	usage := describeField(field) + ", repeatable"
 	flags := cmd.Flags()
@@ -172,8 +159,6 @@ func declareListFlag(cmd *cobra.Command, field protoreflect.FieldDescriptor, fla
 	}
 }
 
-// describeField builds the flag's usage line out of the field's validation rules, the
-// proto comments having been stripped from the generated descriptors.
 func describeField(field protoreflect.FieldDescriptor) string {
 	parts := []string{field.Kind().String()}
 	if rpcapi.IsRequired(field) {
@@ -199,9 +184,6 @@ func describeField(field protoreflect.FieldDescriptor) string {
 	return strings.Join(parts, ", ")
 }
 
-// request builds the body to send, starting from the raw JSON when one was given and laying
-// the flags over the top; only a flag the caller set is written, so a field left alone is
-// absent rather than sent as a zero.
 func (f *requestFields) request(set *pflag.FlagSet, raw string) (map[string]any, error) {
 	body := map[string]any{}
 	if strings.TrimSpace(raw) != "" {
@@ -226,7 +208,6 @@ func (f *requestFields) request(set *pflag.FlagSet, raw string) (map[string]any,
 	return body, nil
 }
 
-// assign puts a value at its path, building the objects along the way.
 func assign(body map[string]any, path []string, value any) {
 	for _, key := range path[:len(path)-1] {
 		nested, ok := body[key].(map[string]any)
@@ -241,8 +222,6 @@ func assign(body map[string]any, path []string, value any) {
 	body[path[len(path)-1]] = value
 }
 
-// takeFirstSentence returns the opening sentence, which is what fits on a summary line
-// where the command's own help shows the description in full.
 func takeFirstSentence(text string) string {
 	text = strings.Join(strings.Fields(text), " ")
 

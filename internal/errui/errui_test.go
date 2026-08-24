@@ -56,17 +56,10 @@ func TestScreenSections(t *testing.T) {
 	}
 }
 
-// narrowPane is the width of the pane the panel runs in, the narrow half of the split
-// beside the stage; screens are asserted against it since that's the width the renderer
-// above the panel cuts a line at.
 const narrowPane = 59
 
-// indent is the continuation prefix a value gets under a label that fits the column, which
-// is what the fold tests below hand it.
 var indent = strings.Repeat(" ", labelWidth)
 
-// widePane is a popup with room for a finding's reason and its fix on their own lines,
-// which is what the startup screen draws when the doctor found something.
 const widePane = 100
 
 // TestFold covers how text is folded to a pane: it wraps rather than truncating, since the
@@ -143,8 +136,6 @@ func TestScreensFitTheirPane(t *testing.T) {
 			}}),
 		},
 		{
-			// A file with more than one key nothing answers to is reported a line per
-			// key, so the screen has to hold a detail that already has breaks in it.
 			name: "the config screen carrying a detail of several lines",
 			rendered: Config(narrowPane, errors.New(
 				"failed to parse config /home/u/.config/weave/config.toml: "+
@@ -176,8 +167,6 @@ func TestScreensFitTheirPane(t *testing.T) {
 func TestConfig(t *testing.T) {
 	err := errors.New("failed to parse config /home/u/.config/weave/config.toml: keybindings.list is not a setting; [keybindings] takes actions, agents, archive, filter, form, help, nav, schedules, selection, workflows")
 
-	// The error wraps at the screen width, so the text is compared with its line
-	// breaks flattened away.
 	rendered := strings.Join(strings.Fields(Config(narrowPane, err)), " ")
 
 	assert.Contains(t, rendered, "Your configuration could not be read")
@@ -191,8 +180,6 @@ func TestConfig(t *testing.T) {
 func TestStartup(t *testing.T) {
 	err := errors.New("the agent server stopped during startup: failed to reach db: dial tcp 127.0.0.1:5460: connect: connection refused")
 
-	// The error wraps at the screen width, so the text is compared with its line
-	// breaks flattened away.
 	rendered := strings.Join(strings.Fields(Startup(narrowPane, err, nil)), " ")
 
 	assert.Contains(t, rendered, "The agent server could not be started")
@@ -315,7 +302,6 @@ func TestTraceOf(t *testing.T) {
 	}
 }
 
-// tracedError is a refusal shaped the way the logging interceptor sends one back.
 func tracedError(trace string) error {
 	err := connect.NewError(connect.CodeInternal, errors.New("the pane was already gone"))
 	err.Meta().Set(caller.TraceHeader, trace)

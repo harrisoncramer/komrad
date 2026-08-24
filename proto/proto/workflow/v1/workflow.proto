@@ -10,47 +10,25 @@ import "rules/v1/rules.proto";
 
 option go_package = "weave/proto/gen/workflow/v1;workflowv1";
 
-// Workflow is a named bucket of related agents. It runs nothing itself. It holds
-// a label, shared context, and other information per agent.
 message Workflow {
   string id = 1;
   string name = 2;
-  // Free-text durable state the user edits. Agents created inside the workflow
-  // get it appended to their system prompt.
   string context = 3;
   string cwd = 4;
   string flags = 5;
-  // Which CLI agents in this workflow run, blank when they take the user's configured default.
   string harness = 6;
-  // The action run before an agent in this workflow starts, blank for none. It runs again
-  // before a dormant agent is resumed, which WEAVE_TRIGGER tells it apart. It blocks and a
-  // failure abandons the launch. A file in the actions directory names it, so nothing here
-  // promises it still exists.
   string setup_action = 7;
-  // The action run once an agent in this workflow is deleted, blank for none. Nothing
-  // waits on it.
   string cleanup_action = 8;
-  // When the workflow was archived, as an RFC 3339 timestamp, unset while it is live.
   optional string archived_at = 9;
-  // The generated git worktree per agent this workflow is set up for, disabled by
-  // default.
   WorktreeConfig worktree = 10;
 }
 
-// WorktreeConfig turns on a generated git worktree per agent for a workflow. Turning it
-// on writes two action scripts and points the workflow's setup_action and cleanup_action
-// at them, so nothing else about a workflow's lifecycle changes for one that uses it.
 message WorktreeConfig {
   bool enabled = 1;
-  // The branch a new worktree is built from, blank for the repo's default branch. The
-  // repo itself is the workflow's cwd, which is required when this is enabled.
   string base_branch = 2 [(buf.validate.field).string = {
     max_len: 255
     [rules.v1.shell_safe]: true
   }];
-  // Files copied fresh into every new worktree, relative to the workflow's cwd, such as
-  // .env. Rewritten on every setup run, resumes included, so an edit to the source file
-  // reaches a worktree that already exists.
   repeated string copy_paths = 3 [(buf.validate.field).repeated = {
     max_items: 50
     items: {
@@ -60,8 +38,6 @@ message WorktreeConfig {
       }
     }
   }];
-  // Directories symlinked back to the workflow's cwd instead of duplicated into every
-  // worktree, such as a dependency or build cache.
   repeated string symlink_paths = 4 [(buf.validate.field).repeated = {
     max_items: 50
     items: {
@@ -75,7 +51,6 @@ message WorktreeConfig {
 
 message ListWorkflowsRequest {
   optional pagination.v1.Pagination pagination = 1;
-  // Lists the archived workflows instead of the live ones.
   bool archived = 2;
 }
 
@@ -92,16 +67,12 @@ message GetWorkflowResponse {
   Workflow workflow = 1;
 }
 
-// CreateWorkflowRequest describes a new bucket. Only the name is required.
 message CreateWorkflowRequest {
   string name = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 200
   }];
   string context = 2 [(buf.validate.field).string.max_len = 50000];
-  // Blank means agents inside this workflow choose their own directory. When set
-  // it must be absolute or ~-prefixed, matching what creating an agent demands,
-  // since this is the value prefilled into that form.
   string cwd = 3 [(buf.validate.field).string = {
     max_len: 4096
     [rules.v1.absolute_path_or_blank]: true
@@ -110,24 +81,18 @@ message CreateWorkflowRequest {
     max_len: 500
     [rules.v1.shell_safe]: true
   }];
-  // Which CLI agents created inside this workflow run. Blank leaves them on the
-  // user's configured default.
   string harness = 5 [(buf.validate.field).string = {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
-  // The action to run before an agent in this workflow starts or is resumed, blank for none.
   string setup_action = 6 [(buf.validate.field).string = {
     max_len: 255
     [rules.v1.action_name_or_blank]: true
   }];
-  // The action to run once an agent in this workflow is deleted, blank for none.
   string cleanup_action = 7 [(buf.validate.field).string = {
     max_len: 255
     [rules.v1.action_name_or_blank]: true
   }];
-  // Turns on a generated git worktree per agent. When enabled, setup_action and
-  // cleanup_action must both be blank, since weave writes and names them itself.
   WorktreeConfig worktree = 8;
 }
 
@@ -135,9 +100,6 @@ message CreateWorkflowResponse {
   Workflow workflow = 1;
 }
 
-// UpdateWorkflowRequest replaces a workflow's editable fields. Every field is
-// sent, so an omitted one reads as cleared rather than unchanged. Fetch the
-// workflow, change what you mean to, and send it back.
 message UpdateWorkflowRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
   string name = 2 [(buf.validate.field).string = {
@@ -153,36 +115,25 @@ message UpdateWorkflowRequest {
     max_len: 500
     [rules.v1.shell_safe]: true
   }];
-  // Which CLI agents created inside this workflow run from now on. Blank leaves
-  // them on the user's configured default. Agents already spawned keep the harness
-  // they started on, which is recorded against each of them.
   string harness = 6 [(buf.validate.field).string = {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
-  // The action run before an agent in this workflow starts or is resumed, blank for none.
   string setup_action = 7 [(buf.validate.field).string = {
     max_len: 255
     [rules.v1.action_name_or_blank]: true
   }];
-  // The action run once an agent in this workflow is deleted, blank for none.
   string cleanup_action = 8 [(buf.validate.field).string = {
     max_len: 255
     [rules.v1.action_name_or_blank]: true
   }];
-  // Turns on a generated git worktree per agent. When enabled, setup_action and
-  // cleanup_action must both be blank, since weave writes and names them itself.
-  // Disabling it after it was on leaves whatever it generated in place, and clears
-  // setup_action and cleanup_action if they still name the generated scripts.
   WorktreeConfig worktree = 9;
 }
 
-// ArchiveWorkflowRequest hides a workflow and archives the agents inside it.
 message ArchiveWorkflowRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
-// RestoreWorkflowRequest brings an archived workflow back with its agents.
 message RestoreWorkflowRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }

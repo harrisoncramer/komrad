@@ -71,8 +71,6 @@ func TestQuoteFlagsNeutralisesShellSyntax(t *testing.T) {
 			want:  "'--model' '`whoami`'",
 		},
 		{
-			// A shell would treat this unterminated quote as a syntax error. The
-			// splitter simply consumes it, which yields one plain argument.
 			name:  "an unterminated quote is consumed as a delimiter",
 			flags: `--model o'pus`,
 			want:  `'--model' 'opus'`,
@@ -98,8 +96,6 @@ func TestQuoteArg(t *testing.T) {
 			want: `'opus'`,
 		},
 		{
-			// The one case single quoting cannot nest: the argument's own quote has
-			// to close, escape, and reopen.
 			name: "an embedded quote closes, escapes, and reopens",
 			arg:  `o'pus`,
 			want: `'o'\''pus'`,
@@ -145,8 +141,6 @@ func TestRequirePOSIXShell(t *testing.T) {
 			want:  true,
 		},
 		{
-			// fish reads the VAR=value prefix as a command name at every version, so the
-			// command substitution it gained in 3.4 does not make it usable here.
 			name:  "fish",
 			shell: "/usr/local/bin/fish",
 			want:  false,

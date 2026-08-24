@@ -27,15 +27,11 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-# The linter plugin lives in its own module, so it is not reached by the root
-# module's ./... and has to be listed separately.
 MODULES=(. tools/agentslinter)
 
 CONFIG="$MISE_CONFIG_ROOT/.golangci.yaml"
 BIN_PATH="$MISE_CONFIG_ROOT/local/custom-gcl"
 
-# The custom binary bundles this repo's linter plugin. Build it on demand so a
-# fresh checkout still lints with the custom analyzers enabled.
 if [ ! -x "$BIN_PATH" ]; then
 	echo "==> custom-gcl missing, building it"
 	golangci-lint custom

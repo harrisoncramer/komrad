@@ -17,10 +17,9 @@ func TestRelocate(t *testing.T) {
 
 	tests := []struct {
 		name string
-		// written places the log under the folder belonging to the original
-		// directory, which is where claude wrote it while the agent ran there.
+
 		written bool
-		// sessionID is what the caller asks to be carried.
+
 		sessionID string
 		wantMoved bool
 	}{

@@ -1,4 +1,3 @@
-// Package action serves ActionService over ConnectRPC.
 package action
 
 import (
@@ -14,15 +13,12 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// actionRunner is the part of the action service the handlers drive. The handlers translate
-// and nothing more. What an action is and what it is told lives behind this.
 type actionRunner interface {
 	ListActions() ([]agents.Action, error)
 	RunAction(ctx context.Context, agentID, name string) error
 	EditAction(ctx context.Context, agentID, name string) error
 }
 
-// Service implements actionv1connect.ActionServiceHandler.
 type Service struct {
 	actions actionRunner
 }
@@ -98,9 +94,6 @@ func (s *Service) EditAction(ctx context.Context, req *connect.Request[actionv1.
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// declaredTimeout is the timeout an action declared, and nothing for one that declared none.
-// Zero on the wire would read as a run with no time at all rather than as a file that said
-// nothing.
 func declaredTimeout(timeout time.Duration) *durationpb.Duration {
 	if timeout <= 0 {
 		return nil

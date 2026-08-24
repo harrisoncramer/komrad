@@ -33,9 +33,9 @@ func TestScheduleKeys(t *testing.T) {
 
 	tests := []struct {
 		name string
-		// empty starts the screen with no schedules, for the keys that need a row.
+
 		empty bool
-		// noWorkflows starts it with nowhere to put a new schedule.
+
 		noWorkflows  bool
 		key          string
 		wantScreen   screen
@@ -87,8 +87,6 @@ func TestScheduleKeys(t *testing.T) {
 			wantScreen: screenSchedules,
 		},
 		{
-			// A schedule launches into a workflow, so there is nothing to create
-			// against and the form would have nowhere to submit to.
 			name:         "new with no workflows reports rather than opening the form",
 			noWorkflows:  true,
 			key:          "n",
@@ -196,8 +194,6 @@ func TestScheduleFormButtonsLineUp(t *testing.T) {
 	}
 }
 
-// plain drops the colour escapes lipgloss writes, so a case can measure where on a line
-// something was drawn rather than how many bytes of styling preceded it.
 func plain(rendered string) string {
 	return colourEscape.ReplaceAllString(rendered, "")
 }
@@ -433,18 +429,15 @@ func TestEnterSchedules(t *testing.T) {
 	}
 }
 
-// scheduleModel builds a panel sitting on the schedules screen with one armed
-// schedule under the cursor, which is the state most of the cases act from.
 func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys config.Keybindings) model {
 	tmux := &recordingTmux{}
 
 	return model{
 		api:  api{schedules: client},
 		tmux: tmux,
-		// A schedule launches into a workflow, so the form has one to select.
+
 		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Cwd: "/work/api"}}},
-		// The new-schedule form asks the popup which client opened it, to prefill
-		// the directory, so the panel needs one even though nothing here reads it.
+
 		popup:  NewPopupWindow(tmux, "test-session"),
 		frame:  layout.New(tmux, config.DefaultLayout()),
 		keys:   keys,
@@ -457,8 +450,6 @@ func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys config.K
 	}
 }
 
-// scheduleItems builds a list of named schedules, for the cases that care about
-// order rather than content.
 func scheduleItems(names ...string) []scheduleItem {
 	out := make([]scheduleItem, 0, len(names))
 	for _, name := range names {
@@ -468,13 +459,6 @@ func scheduleItems(names ...string) []scheduleItem {
 	return out
 }
 
-// fakeSchedules answers every call the screen makes, counting the writes and
-// refusing them when err is set, so a test can tell a call the panel decided not to
-// make from one the service turned down. Reads keep working, since a refused write
-// is usually a rejected field rather than a server that has stopped answering, and
-// the refresh that follows every write would otherwise replace the write's error
-// with a listing one. The embedded interface is nil, so any other method panics
-// rather than quietly returning a zero value.
 type fakeSchedules struct {
 	schedulev1connect.ScheduleServiceClient
 	err    error
@@ -527,8 +511,6 @@ func (f *fakeSchedules) ArchiveSchedule(context.Context, *connect.Request[schedu
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// keyMsg builds the key message a keypress arrives as, so the cases can name a
-// key the way the config does.
 func keyMsg(key string) tea.KeyMsg {
 	if key == " " {
 		return tea.KeyMsg{Type: tea.KeySpace, Runes: []rune{' '}}
@@ -540,7 +522,6 @@ func keyMsg(key string) tea.KeyMsg {
 	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
 }
 
-// namedKeys are the non-rune keys the cases press.
 var namedKeys = map[string]tea.KeyType{
 	"esc":    tea.KeyEsc,
 	"enter":  tea.KeyEnter,
@@ -588,8 +569,6 @@ func TestScheduleName(t *testing.T) {
 			want:  "morning-ci",
 		},
 		{
-			// The row keeps its schedule id after the schedule is deleted, so this
-			// has to come back empty rather than render a dangling id.
 			name:  "a schedule since deleted maps to nothing",
 			agent: agentstore.Agent{ScheduleID: xptr.Ptr("gone")},
 		},

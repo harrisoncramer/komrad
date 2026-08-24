@@ -13,82 +13,46 @@ import (
 	workflowstore "weave/internal/store/workflow"
 )
 
-// worktreeSetupAction and worktreeCleanupAction are the built-in actions a worktree-enabled
-// workflow's setup_action and cleanup_action are pointed at. Both are shipped scripts,
-// internal/actions/builtin/_worktree_setup and _worktree_cleanup, that read the workflow's
-// worktree settings off the environment rather than off a script generated for it, so one
-// pair of actions serves every worktree-enabled workflow.
 const (
 	worktreeSetupAction   = "_worktree_setup"
 	worktreeCleanupAction = "_worktree_cleanup"
 )
 
-// ErrWorkflowHasSchedules reports that a workflow still has schedules launching
-// into it. A schedule cannot outlive its workflow, since the workflow is where its
-// directory and flags come from.
 var ErrWorkflowHasSchedules = errors.New("workflow still has schedules")
 
-// ErrWorktreeNeedsCwd reports that a workflow turned worktree support on without naming the
-// repo its worktrees are added off, which is the workflow's own cwd.
 var ErrWorktreeNeedsCwd = errors.New("a worktree-enabled workflow needs a cwd naming the repo")
 
-// ErrWorktreeOwnsActions reports that a workflow turned worktree support on while also
-// naming a setup or cleanup action, which it does not need since it points at the built-in
-// pair itself.
 var ErrWorktreeOwnsActions = errors.New("a worktree-enabled workflow points setup_action and cleanup_action at the built-in pair itself, so both must be blank")
 
-// ErrWorktreeActionsReserved reports that a workflow named the built-in worktree pair as
-// its setup or cleanup action without the toggle that makes them work. The built-in
-// scripts read the repo, base branch, and path lists off the environment, which is only
-// populated when the toggle is on, so pointed at them any other way they fail every time.
 var ErrWorktreeActionsReserved = errors.New("setup_action and cleanup_action may not name the built-in worktree pair unless worktree.enabled is set")
 
-// ErrWorktreeUnsafePath reports that a worktree copy or symlink entry is one the generated
-// setup action must not be handed.
 var ErrWorktreeUnsafePath = errors.New("a worktree copy or symlink path must be a relative path inside the repo")
 
-// workflowReadWriter is the part of the workflow store this service reads outside a
-// transaction. Create and Update are not on it. Both write across three rows, so they
-// run through InTx instead, over a store built fresh on the transaction's own handle.
 type workflowReadWriter interface {
 	List(ctx context.Context) ([]workflowstore.Workflow, error)
 	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
 	GetIncludingArchived(ctx context.Context, id string) (*workflowstore.Workflow, error)
 }
 
-// scheduleCounter answers whether anything is still scheduled into a workflow,
-// which is what stands between an archive and recurring work vanishing quietly.
 type scheduleCounter interface {
 	CountLive(ctx context.Context, workflowID string) (int64, error)
 }
 
-// workflowAgentReader reads the agents filed under a workflow, which an archive needs
-// before it writes so it knows whose CLIs to stop.
 type workflowAgentReader interface {
 	ListLiveInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
 }
 
-// WorkflowService manages the named buckets agents are grouped into. A workflow
-// runs nothing. It holds a display name, shared context injected into the agents
-// spawned inside it, and the cwd and flags those agents start from.
-//
-// Deleting one archives the agents inside it, and those rows belong to the agent
-// domain, so that write runs through a transaction the two stores share. Archiving
-// is also what stops those agents, which is why a service over pure organisation
-// holds tmux at all.
 type WorkflowService struct {
 	store     workflowReadWriter
 	agents    workflowAgentReader
 	schedules scheduleCounter
 	tmux      paneKiller
 	tx        txRunner
-	// maxAgents is the ceiling a restore has to fit the workflow's archived agents
-	// under, zero for no ceiling.
+
 	maxAgents int
 	notifier  parentNotifier
 }
 
-// WorkflowParams carries the workflow service's dependencies.
 type WorkflowParams struct {
 	Workflows workflowReadWriter
 	Agents    workflowAgentReader
@@ -225,24 +189,16 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	return nil
 }
 
-// namesReservedWorktreeAction reports whether a config names the built-in worktree pair
-// as its own setup or cleanup action, which only means anything alongside the toggle that
-// makes weave supply the environment those scripts read.
 func namesReservedWorktreeAction(cfg workflowstore.Config) bool {
 	return cfg.SetupAction == worktreeSetupAction || cfg.CleanupAction == worktreeCleanupAction
 }
 
-// normalizeWorktree trims the base branch and each path. The base branch and the two path
-// lists are kept whatever the toggle is set to, on or off, so switching it back on later
-// hands the workflow back what was there before rather than starting over blank.
 func normalizeWorktree(cfg *workflowstore.Config) {
 	cfg.Worktree.BaseBranch = strings.TrimSpace(cfg.Worktree.BaseBranch)
 	cfg.Worktree.CopyPaths = trimPaths(cfg.Worktree.CopyPaths)
 	cfg.Worktree.SymlinkPaths = trimPaths(cfg.Worktree.SymlinkPaths)
 }
 
-// trimPaths trims each entry and drops the blank ones, since a blank line in the form's
-// textarea is a line the user left rather than a path they meant.
 func trimPaths(paths []string) []string {
 	if paths == nil {
 		return nil
@@ -258,10 +214,6 @@ func trimPaths(paths []string) []string {
 	return kept
 }
 
-// validateWorktreePaths is the second layer under the RPC rules in proto/proto/rules/v1, which
-// already hold every caller arriving over the API to a relative path. Entries are checked
-// whether or not the toggle is on, since a list stored while it is off goes live the moment
-// it is set.
 func validateWorktreePaths(cfg workflowstore.Config) error {
 	for _, list := range [][]string{cfg.Worktree.CopyPaths, cfg.Worktree.SymlinkPaths} {
 		for _, path := range list {
@@ -289,7 +241,6 @@ func validateWorktreePath(path string) error {
 		}
 	}
 
-	// Case-insensitively, since .GIT reaches the same directory on the filesystems weave runs on.
 	if strings.EqualFold(segments[0], ".git") {
 		return fmt.Errorf("%w: %q is the worktree's own link to the repo", ErrWorktreeUnsafePath, path)
 	}
@@ -297,9 +248,6 @@ func validateWorktreePath(path string) error {
 	return nil
 }
 
-// setWorktreeActions points a worktree-enabled config's setup and cleanup actions at the
-// built-in pair, refusing one that already names its own since weave is about to overwrite
-// it, and one with no cwd since that is the repo the built-in scripts work against.
 func setWorktreeActions(cfg *workflowstore.Config) error {
 	if cfg.Cwd == "" {
 		return ErrWorktreeNeedsCwd
@@ -357,8 +305,6 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 		return fmt.Errorf("failed to archive workflow %q: %w", id, err)
 	}
 
-	// A delegate spawned into this workflow can have a parent sitting in another one,
-	// which archiving here would otherwise strand with no word its child is gone.
 	notifyParents(ctx, w.notifier, inside, "archived")
 
 	return nil
@@ -404,13 +350,6 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 	return w.store.Get(ctx, id)
 }
 
-// requireNamesFree refuses when the archived agents coming back would collide on a name. The
-// unique-name index covers the unarchived of one workflow, so a live agent may hold the
-// name, or two of the returning agents may hold it between them.
-//
-// A name is only taken within its own workflow, so the counting keys on both. A batch
-// restored by id can span folders, and two agents called auth in two of them are not a
-// clash.
 func requireNamesFree(ctx context.Context, agents agentManager, archived []agentstore.Agent) error {
 	returning := make(map[agentName]int, len(archived))
 	for _, agent := range archived {
@@ -448,8 +387,6 @@ func requireNamesFree(ctx context.Context, agents agentManager, archived []agent
 	return nil
 }
 
-// agentName is a name and the workflow it is unique inside, which is the pair the
-// unique-name index covers.
 type agentName struct {
 	workflowID string
 	name       string

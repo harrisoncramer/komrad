@@ -12,8 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// logsModel builds an agents model whose log key has a readable log to show, and returns
-// the path it points at.
 func logsModel(t *testing.T, tmux *recordingTmux) (model, string) {
 	t.Helper()
 
@@ -26,7 +24,6 @@ func logsModel(t *testing.T, tmux *recordingTmux) (model, string) {
 	return m, path
 }
 
-// pressLogs sends the log key and returns the panel it left.
 func pressLogs(t *testing.T, m model) model {
 	t.Helper()
 

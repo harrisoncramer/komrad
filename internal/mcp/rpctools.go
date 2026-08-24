@@ -19,26 +19,14 @@ import (
 	"weave/internal/rpcapi"
 )
 
-// callTimeout bounds a single RPC invoked through a tool. Creating an agent opens a tmux
-// window and types into it, which is the slowest thing here and still well inside this.
 const callTimeout = 30 * time.Second
 
-// rpcTools invokes the service's own Connect endpoint over loopback. Going back through
-// HTTP rather than calling the handler directly means a tool call takes the path a real
-// client takes, validation interceptor included, so the tool surface cannot drift into
-// accepting what the API rejects.
 type rpcTools struct {
 	baseURL string
 	client  *http.Client
 }
 
-// registerRPCTools adds one MCP tool per exposed method. What is exposed is rpcapi's to
-// say, so widening the tool surface is an edit to the proto rather than a side effect of
-// adding an RPC.
 func registerRPCTools(server *mcpsdk.Server, baseURL string) error {
-	// The transport carries whoever the served request is from onto the call this makes
-	// on their behalf, so an RPC reached through a tool is logged as the agent that asked
-	// for it.
 	tools := &rpcTools{
 		baseURL: strings.TrimSuffix(baseURL, "/"),
 		client:  &http.Client{Timeout: callTimeout, Transport: caller.Transport(nil)},
@@ -61,8 +49,6 @@ func registerRPCTools(server *mcpsdk.Server, baseURL string) error {
 	return nil
 }
 
-// toolHints derives the MCP behavior hints. A read-only tool leaves the destructive hint
-// unset, where the MCP spec says it carries no meaning.
 func toolHints(method protoreflect.MethodDescriptor, annotation *annotationv1.ToolAnnotation) *mcpsdk.ToolAnnotations {
 	readOnly := rpcapi.IsReadOnly(method, annotation)
 
@@ -78,18 +64,10 @@ func toolHints(method protoreflect.MethodDescriptor, annotation *annotationv1.To
 	return hints
 }
 
-// inputSchema describes a request message as JSON Schema, so a client knows which
-// arguments a tool takes. A field is required when the service would reject it
-// empty, which is what the validation rules say rather than what proto3 field
-// presence says. A blank title or flags is acceptable, and demanding them would
-// make a client send empty strings to satisfy a schema.
 func inputSchema(message protoreflect.MessageDescriptor) (map[string]any, error) {
 	return messageSchema(message, map[protoreflect.FullName]bool{})
 }
 
-// messageSchema describes one message as a JSON Schema object. enclosing holds
-// the messages already being described further up, so a message that contains
-// itself is refused rather than expanded until the schema runs out of memory.
 func messageSchema(message protoreflect.MessageDescriptor, enclosing map[protoreflect.FullName]bool) (map[string]any, error) {
 	if enclosing[message.FullName()] {
 		return nil, fmt.Errorf("message %q contains itself, which the tool schema cannot describe", message.FullName())
@@ -123,9 +101,6 @@ func messageSchema(message protoreflect.MessageDescriptor, enclosing map[protore
 	return schema, nil
 }
 
-// fieldSchema maps one field to its JSON Schema type. A repeated field becomes an
-// array of whatever one of its values is. A map is refused, since nothing here takes
-// one.
 func fieldSchema(field protoreflect.FieldDescriptor, enclosing map[protoreflect.FullName]bool) (map[string]any, error) {
 	if field.IsMap() {
 		return nil, fmt.Errorf("field %q is a map, which the tool schema does not describe yet", field.Name())
@@ -143,10 +118,6 @@ func fieldSchema(field protoreflect.FieldDescriptor, enclosing map[protoreflect.
 	return value, nil
 }
 
-// valueSchema describes one of a field's values, which for a repeated field is one
-// element rather than the list. A message becomes a nested object, which is how a
-// request carrying pagination is described. Anything else is refused loudly at startup
-// rather than advertised to a model as a type it cannot satisfy.
 func valueSchema(field protoreflect.FieldDescriptor, enclosing map[protoreflect.FullName]bool) (map[string]any, error) {
 	switch field.Kind() {
 	case protoreflect.MessageKind:
@@ -164,10 +135,6 @@ func valueSchema(field protoreflect.FieldDescriptor, enclosing map[protoreflect.
 	}
 }
 
-// handler builds the tool's invoker. It posts the arguments to the service's own
-// Connect endpoint and hands the response back as text. A non-200 is returned as
-// a tool error carrying the server's own message, so a model reads why its call
-// was refused rather than a bare status.
 func (r *rpcTools) handler(service, method string) func(context.Context, *mcpsdk.CallToolRequest, map[string]any) (*mcpsdk.CallToolResult, any, error) {
 	url := fmt.Sprintf("%s/%s/%s", r.baseURL, service, method)
 

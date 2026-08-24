@@ -9,17 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// busyFrame is a real Claude Code working line. idleFrame is the input box shown
-// when it sits at the prompt. waitFrame is the confirmation dialog. All shaped
-// after the live UI.
 const (
 	busyFrame = "· Cooking… (1m 50s · ↓ 5.4k tokens)\n───────\n❯ \n───────"
 	idleFrame = "───────────────\n❯ \n───────────────\n  -- INSERT -- ⏵⏵ bypass permissions on"
 	waitFrame = "Teleport anywhere for one day. Where?\n❯ 1. Tokyo\n  2. Patagonia\n\nEnter to select · ↑/↓ to navigate · Esc to cancel"
 )
 
-// toolBlock is a plan or todo list rendered below the status line and above the
-// input box, which pushes the status line a dozen lines up from the bottom.
 const toolBlock = "\n" +
 	"  ⎿  ◼ Schema + migration + sqlc for workflows\n" +
 	"     ◻ Store layer: Workflow type + WorkflowID + CRUD\n" +
@@ -97,9 +92,6 @@ func TestReadActivity(t *testing.T) {
 			want:  harness.ActivityWorking,
 		},
 		{
-			// Captured with -e, so the verb is split across colour runs and codes sit
-			// between the ellipsis and the timer. Detection strips them or matches
-			// nothing.
 			name:  "a line shredded by ANSI colour codes",
 			frame: "\x1b[38;5;174m✽\x1b[39m \x1b[38;5;174mFl\x1b[38;5;216mamb\x1b[38;5;174méing…\x1b[39m \x1b[38;5;246m(3m 30s · ↓\x1b[39m \x1b[38;5;246m11.6k tokens)\x1b[39m",
 			want:  harness.ActivityWorking,
@@ -151,8 +143,6 @@ func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
 			frame: "I match `Enter to select` and `Do you want`, and the timer `· Cooking… (1m 50s)`." + strings.Repeat("\n", liveRegionLines) + idleFrame,
 		},
 		{
-			// Inside the wide work window but outside the tight waiting one, which is
-			// why the two windows are sized differently.
 			name:  "waiting phrases a dozen lines up",
 			frame: `I split it so "esc to cancel" and "Enter to select" in a message do not read as a prompt.` + "\n\n\n\n\n\n\n\n\n\n───────\n❯ \n───────\n  -- INSERT --",
 		},

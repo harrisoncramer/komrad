@@ -13,8 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// missingID is a well-formed uuid no schedule holds. A malformed one would be
-// refused before the lookup and prove something else.
 const missingID = "00000000-0000-0000-0000-000000000000"
 
 func TestGet(t *testing.T) {
@@ -170,11 +168,9 @@ func TestNameTaken(t *testing.T) {
 func TestUpdate(t *testing.T) {
 	tests := []struct {
 		name string
-		// update is what replaces the schedule, with the workflow filled in by the
-		// case body since the ids are generated.
+
 		update Config
-		// moveWorkflow points the schedule at a second workflow rather than leaving
-		// it where it was created.
+
 		moveWorkflow bool
 		wantEnabled  bool
 	}{
@@ -420,18 +416,11 @@ func TestListPage(t *testing.T) {
 	}
 }
 
-// fixture is the schedule store under test plus the workflow store the tests seed
-// through, since a schedule may point at a workflow and that row has to exist
-// first. They stay separate stores, because this package never writes that table
-// itself.
 type fixture struct {
 	*Store
 	workflows *workflowstore.Store
 }
 
-// open builds the stores over a throwaway database. The tests run against real
-// Postgres because what this package does is SQL, the partial unique index on live
-// names, the keyset page, and the join to the owned config row.
 func open(t *testing.T) *fixture {
 	t.Helper()
 
@@ -442,8 +431,6 @@ func open(t *testing.T) *fixture {
 	return &fixture{Store: New(pool.GetDB()), workflows: workflowstore.New(pool.GetDB())}
 }
 
-// seed creates a schedule and returns it, since the tests need the generated id
-// rather than the fields they just wrote.
 func seed(t *testing.T, st *fixture, cfg Config) *Schedule {
 	t.Helper()
 
@@ -458,8 +445,6 @@ func seed(t *testing.T, st *fixture, cfg Config) *Schedule {
 	return created
 }
 
-// seedWorkflow creates a workflow and returns its id, for the cases about a
-// schedule that files its agents under one.
 func seedWorkflow(t *testing.T, st *fixture) string {
 	t.Helper()
 

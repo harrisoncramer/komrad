@@ -116,18 +116,12 @@ func TestWorktreeAgentCanPublishItsBranch(t *testing.T) {
 	runGitIn(t, tree, "add", "work.txt")
 	runGitIn(t, tree, "commit", "--quiet", "-m", "the agent's work")
 
-	// The assertion the rest of this is for: a plain push, the command an agent that has
-	// finished reaches for, with no -u and no upstream to inherit.
 	runGitIn(t, tree, "push")
 
 	assert.Equal(t, readGitOutput(t, tree, "rev-parse", "HEAD"), readGitOutput(t, tree, "rev-parse", "refs/remotes/origin/"+branch),
 		"the push created the branch's own remote")
 }
 
-// hermeticGit points git at empty global and system config for the rest of the test, so what
-// the setup action does is decided by the repo in front of it rather than by whatever the
-// developer running the suite happens to have set. It is process-wide, so it is called by the
-// test itself rather than buried in a helper.
 func hermeticGit(t *testing.T) {
 	t.Helper()
 
@@ -135,8 +129,6 @@ func hermeticGit(t *testing.T) {
 	t.Setenv("GIT_CONFIG_SYSTEM", os.DevNull)
 }
 
-// initGitRepo builds a checkout with an origin behind it, since a repo with no remote never
-// reaches the half of the setup action that builds a worktree off origin's copy of the base.
 func initGitRepo(t *testing.T) string {
 	t.Helper()
 
@@ -176,9 +168,6 @@ func readGitOutput(t *testing.T, dir string, args ...string) string {
 	return strings.TrimSpace(string(output))
 }
 
-// readGitConfig reads one config key, blank when the key is unset. Exit 1 is the only status
-// that means unset, so any other failure ends the test rather than reading as an absent value
-// the caller would then assert on.
 func readGitConfig(t *testing.T, dir, key string) string {
 	t.Helper()
 

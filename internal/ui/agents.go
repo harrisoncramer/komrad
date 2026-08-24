@@ -18,8 +18,6 @@ import (
 
 var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one first")
 
-// updateAgents handles the keys common to both agents-screen modes, then hands off to
-// whichever mode the tree is currently in.
 func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -46,8 +44,6 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m.updateAgentsBrowsing(key)
 }
 
-// updateAgentsBrowsing handles the agents screen when no rows are selected: screen-level
-// keys, then whatever the cursor is hovering over, then keys that act on the hovered agent.
 func (m model) updateAgentsBrowsing(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -94,8 +90,6 @@ func (m model) updateAgentsBrowsing(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m.updateHoveredAgent(key)
 }
 
-// updateHoveredAgent handles keys that act on the agent under the cursor. It is a no-op
-// when the cursor is on a workflow header rather than an agent.
 func (m model) updateHoveredAgent(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -119,8 +113,6 @@ func (m model) updateHoveredAgent(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	})
 }
 
-// withSelectedAgent runs fn against the agent under the cursor, or is a no-op when the
-// cursor is on a workflow header or the list is empty.
 func (m model) withSelectedAgent(fn func(agentItem) (tea.Model, tea.Cmd)) (tea.Model, tea.Cmd) {
 	item, ok := m.selectedAgent()
 	if !ok {
@@ -151,8 +143,6 @@ func (m model) updateAgentsSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// archiveAgentsConfirm opens the archive prompt for one or more agents. Nothing is
-// archived until the prompt is answered yes.
 func (m model) archiveAgentsConfirm(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
 	if len(agents) == 0 {
 		return m, nil
@@ -165,8 +155,6 @@ func (m model) archiveAgentsConfirm(agents []agentstore.Agent) (tea.Model, tea.C
 	return m, m.form.Init()
 }
 
-// updateAgentArchive drives the archive prompt. The answer decides whether the agents are put
-// away, put away and then destroyed, or left alone, and every outcome returns to the list.
 func (m model) updateAgentArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m.updateConfirmForm(msg, confirmFormActions{
 		write: func(m model) tea.Cmd {
@@ -215,8 +203,6 @@ func (m model) archiveAgents(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
 	)
 }
 
-// archiveAndDeleteAgents puts agents away and then destroys them, the two calls in one write
-// so a refused archive leaves the records alone rather than destroying what was never stopped.
 func (m model) archiveAndDeleteAgents(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
 	if len(agents) == 0 {
 		return m, nil
@@ -238,7 +224,6 @@ func (m model) archiveAndDeleteAgents(agents []agentstore.Agent) (tea.Model, tea
 	)
 }
 
-// A staged pane must be released before the service kills it.
 func (m model) releasePanes(agents []agentstore.Agent) {
 	for _, agent := range agents {
 		m.frame.ReleaseGuest(agent.Pane)
@@ -282,7 +267,6 @@ func (m model) openAgent() (tea.Model, tea.Cmd) {
 	})
 }
 
-// Preserve the selected row when hidden rows change the list indexes.
 func (m model) toggleHiddenAgents() (tea.Model, tea.Cmd) {
 	selected := rowKeyAt(m.agentRows(), m.tree.cursor)
 
@@ -328,9 +312,6 @@ func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	return m, m.writeCmd(failure, func(a api) error { return a.setHidden(agent, !agent.Hidden) })
 }
 
-// agentsDetails is what the row under the agents cursor holds: a workflow header carries the
-// defaults its agents inherit, and an agent carries what it was launched with plus whatever
-// it has since recorded about its own work.
 func (m model) agentsDetails() details {
 	r, ok := rowAt(m.agentRows(), m.tree.cursor)
 	if !ok {
@@ -363,9 +344,6 @@ func (m *model) stageSelection() {
 		return
 	}
 
-	// The fields of whatever is hovered are drawn in the sidebar, so the stage is left for
-	// the text that has nowhere else to go: an agent's own pane, and the prose a workflow
-	// carries for the agents it starts.
 	switch {
 	case r.header:
 		m.stageDocument(workflowContextMarkdown(r.workflow))
@@ -396,7 +374,6 @@ func nextTag(current *string, tags []config.Tag) *string {
 	return nil
 }
 
-// Mixed selections collapse to the first tag so their next state is deterministic.
 func nextSelectionTag(current []*string, tags []config.Tag) *string {
 	if len(tags) == 0 || len(current) == 0 {
 		return nil
@@ -439,13 +416,9 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 	return ""
 }
 
-// dormantPlaceholder is what the stage holds for an agent with nothing running: the fields
-// are in the sidebar, so this says only why the pane is empty and what brings it back.
 const dormantPlaceholder = "_dormant — not running_\n\nPress open to resume."
 
 func (m model) agentsView() string {
-	// The details and the legend are both chrome under the list, handed over together so the
-	// list's own height is measured against everything below it.
 	below := m.detailsView() + "\n" + m.renderHelp(m.agentHelp())
 
 	all := m.agentRows()

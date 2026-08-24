@@ -1,6 +1,3 @@
-// Package palette is the command palette, the popup a key opens over whatever the panel is
-// showing. It is a skeleton: the popup opens, takes what is typed, and closes. What a query
-// resolves to, and what acting on a result does, is not written yet.
 package palette
 
 import (
@@ -11,8 +8,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// The colours are terminal indexes rather than hex values, for the reason the panel's are:
-// the popup is drawn in whatever scheme the terminal is already running.
 const (
 	colorAccent = lipgloss.Color("4")
 	colorMuted  = lipgloss.Color("8")
@@ -34,7 +29,7 @@ func Run() error {
 
 type model struct {
 	query string
-	// height is the popup's, which is how much room the results have once there are any.
+
 	height int
 }
 

@@ -56,7 +56,6 @@ func TestHelpToggleOnSearch(t *testing.T) {
 	assert.Equal(t, "?", searched.search.query, "the key is typed instead")
 }
 
-// helpModel is a panel hovering an agent, which is the row whose help has the most on it.
 func helpModel() model {
 	return model{
 		keys:    config.DefaultKeybindings(),

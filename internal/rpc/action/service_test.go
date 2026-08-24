@@ -45,8 +45,6 @@ func TestRunActionCodes(t *testing.T) {
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
-			// Nothing about the action is wrong, so this reads the same way a chmod does.
-			// An agent outliving the worktree it ran in is how it happens.
 			name:     "an agent whose directory has been removed from under it",
 			err:      agents.ErrActionDirMissing,
 			wantCode: connect.CodeFailedPrecondition,
@@ -204,8 +202,6 @@ func TestListActionsFailure(t *testing.T) {
 	assert.Equal(t, connect.CodeInternal, connect.CodeOf(err))
 }
 
-// fakeActions stands in for the service the handlers translate for, recording what it was asked
-// to fire so a case can assert the handler passed it through unchanged.
 type fakeActions struct {
 	listed  []agents.Action
 	listErr error

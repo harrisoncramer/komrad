@@ -52,9 +52,6 @@ func TestParseCron(t *testing.T) {
 			wantErr:    true,
 		},
 		{
-			// A day the month does not have parses cleanly and then never comes
-			// round. That is worse than a syntax error, since it is stored and
-			// registered, and only found when something has to name the firing.
 			name:       "February the thirtieth",
 			expression: "0 0 30 2 *",
 			wantErr:    true,
@@ -94,8 +91,6 @@ func TestParseCron(t *testing.T) {
 // TestNextRun covers what the panel renders beside a schedule. A paused one has
 // no next run, and neither does one whose expression stopped parsing.
 func TestNextRun(t *testing.T) {
-	// A fixed instant, so the expected occurrence is stated rather than computed
-	// the same way the code under test computes it.
 	from := time.Date(2026, time.July, 27, 10, 30, 0, 0, time.UTC)
 
 	tests := []struct {
@@ -206,9 +201,6 @@ func TestNewSchedule(t *testing.T) {
 // pointing at a workflow that is not there could never launch anything and is
 // refused when it is written rather than every time it fires.
 func TestScheduleWorkflowMustExist(t *testing.T) {
-	// archiveWorkflow is the case the foreign key cannot catch. A workflow is only
-	// ever soft-deleted, so the row is still there for the constraint while every
-	// read of it comes back empty.
 	tests := []struct {
 		name            string
 		archiveWorkflow bool
@@ -234,8 +226,6 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 			ctx := t.Context()
 			svc := NewScheduleService(ScheduleParams{Schedules: st.Schedules, Workflows: st.Workflows})
 
-			// A live workflow to move an existing schedule off of, so the update case
-			// starts from a schedule that is valid.
 			live := st.SeedWorkflow(t, workflowstore.Config{Name: "backend"}).ID
 			existing, err := svc.NewSchedule(ctx, schedulestore.Config{
 				Name: "nightly", Cron: "0 9 * * *", Prompt: "go", WorkflowID: live,
@@ -280,9 +270,9 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
 	tests := []struct {
 		name string
-		// state is what the schedule's last run is sitting in.
+
 		state string
-		// frame is what its pane shows on every pass.
+
 		frame string
 		want  int64
 	}{
@@ -323,14 +313,10 @@ func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
 				WorkflowID: schedule.WorkflowID, ScheduleID: &schedule.ID,
 			})
 
-			// The pane is still stamped with the agent, which is what a CLI that
-			// exited back to its shell looks like. Only the frame says otherwise.
 			tmux := newFakeTmux()
 			tmux.owners["%1"] = run.ID
 			tmux.captures["%1"] = tt.frame
 
-			// More passes than the idle debounce needs, so whatever the reconciler is
-			// going to settle this agent on, it has settled on.
 			rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
 			for range reconcileMisses + 2 {
 				require.NoError(t, rec.Reconcile(ctx))
@@ -343,8 +329,6 @@ func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
 	}
 }
 
-// missingWorkflowID is a well-formed uuid no workflow holds, so a lookup for it
-// reaches the store and comes back empty rather than being refused for its shape.
 const missingWorkflowID = "00000000-0000-0000-0000-0000000000ff"
 
 // TestScheduleNotFound covers the ids the mutating methods refuse. An id nothing
@@ -386,6 +370,4 @@ func TestScheduleNotFound(t *testing.T) {
 	}
 }
 
-// missingScheduleID is a well-formed uuid no schedule holds. A malformed one
-// would be refused before the lookup and prove something else.
 const missingScheduleID = "00000000-0000-0000-0000-000000000000"

@@ -47,17 +47,15 @@ type actionRunner interface {
 type configLoader func() (*config.Config, error)
 
 const (
-	// TriggerManual identifies an action started directly by a person or model.
 	TriggerManual = "manual"
-	// TriggerSetup identifies an action run before an agent is created.
+
 	TriggerSetup = "setup"
-	// TriggerResume identifies a setup action rerun before an agent resumes.
+
 	TriggerResume = "resume"
-	// TriggerCleanup identifies an action run after an agent is deleted.
+
 	TriggerCleanup = "cleanup"
 )
 
-// ActionService lists and runs built-in and user-defined actions.
 type ActionService struct {
 	agents     agentGetter
 	workflows  workflowReader
@@ -73,7 +71,6 @@ type ActionService struct {
 	catalog *actions.Catalog
 }
 
-// ActionParams carries the action service's dependencies.
 type ActionParams struct {
 	Agents     agentGetter
 	Workflows  workflowReader
@@ -104,7 +101,6 @@ func NewActionService(p ActionParams) *ActionService {
 	}
 }
 
-// Exec arguments and environment variables share a kernel size limit.
 const maxActionPrompt = 16 * 1024
 
 // ListActions returns the available actions in name order.
@@ -140,7 +136,6 @@ func (s *ActionService) RunAction(ctx context.Context, agentID, name string) err
 	})
 }
 
-// ErrNotEditable reports that an action is not a text file.
 var ErrNotEditable = errors.New("the file is not text, so there is nothing to edit")
 
 const editActionName = "_edit_action"
@@ -178,17 +173,12 @@ func (s *ActionService) EditAction(ctx context.Context, agentID, name string) er
 	})
 }
 
-// ErrSetupFailed reports that an agent setup action failed.
 var ErrSetupFailed = errors.New("the setup action failed")
 
 const setupTimeout = 10 * time.Minute
 
 const maxSetupDir = 4096
 
-// setupDirFileVar names the environment variable a setup or resume action is handed, pointing
-// at an empty file it may write the agent's new directory into. This is a channel of its own
-// rather than stdout, since stdout is also where a script's own output and whatever it shells
-// out to land, and any of that arriving first would otherwise be taken as the answer.
 const setupDirFileVar = "WEAVE_SETUP_DIR_FILE"
 
 // RunSetupAction runs a setup action before creating an agent.
@@ -430,7 +420,7 @@ func (s *ActionService) start(ctx context.Context, p startParams) error {
 		Action: p.action,
 		Dir:    p.action.GetDir(),
 		Env:    p.env,
-		// Nothing is waiting, so an action that declared no timeout runs as long as it likes.
+
 		Timeout: p.action.Header.TimeoutOr(0),
 		Done: func(result actions.Result, err error) {
 			if err != nil {
@@ -465,9 +455,6 @@ func elapsedMS(began time.Time) int64 {
 	return time.Since(began).Milliseconds()
 }
 
-// finishedAction is what a run that completed is logged with. Stderr is carried whether or
-// not the action failed, since an action that reports something and exits zero is how the
-// built-in scripts say what they declined to do, and nothing else keeps that.
 func finishedAction(result actions.Result, began time.Time) []slog.Attr {
 	attrs := []slog.Attr{
 		slog.Int(logging.ExitCode, result.ExitCode),
@@ -570,7 +557,6 @@ type actionEnvParams struct {
 	action  string
 }
 
-// Actions need the managed tmux socket because pane IDs are scoped to a tmux server.
 func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, error) {
 	agent, dir, trigger := p.agent, p.dir, p.trigger
 
@@ -650,13 +636,6 @@ func workflowName(workflow *workflowstore.Workflow) string {
 	return workflow.Name
 }
 
-// worktreeEnv is what the built-in worktree setup and cleanup actions read their config
-// from, since a workflow's worktree settings live in the database rather than in the
-// script itself. The repo the worktrees are added off is named outright rather than left
-// to WEAVE_AGENT_CWD, which stops being the repo the moment setup replaces it with the
-// worktree and so would be wrong every time setup runs again on a resume. Cleanup asks for
-// none of this: a worktree's own git-common-dir names the repo it came from, and the name setup
-// gave its directory is what says whose worktree it is.
 func (s *ActionService) worktreeEnv(workflow workflowstore.Workflow) ([]string, error) {
 	loaded, err := s.load()
 	if err != nil {
@@ -679,7 +658,6 @@ func (s *ActionService) worktreeEnv(workflow workflowstore.Workflow) ([]string, 
 	}, nil
 }
 
-// Avoid returning invalid UTF-8 when the byte limit splits a rune.
 func head(s string, limit int) (string, bool) {
 	if len(s) <= limit {
 		return s, false

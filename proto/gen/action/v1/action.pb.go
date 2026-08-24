@@ -26,28 +26,16 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Action is one executable in the user's actions directory. The name is the file's
-// own name, which is what identifies it, and the fields below it are what the comments
-// at the top of the file declare about it.
 type Action struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The name of the file
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// If the action is executable (valid to run) or not.
-	Executable bool `protobuf:"varint,2,opt,name=executable,proto3" json:"executable,omitempty"`
-	// What the file's header says the action is for.
-	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	// How long one run of it gets before weave kills it. Unset means the file declared
-	// none, and what that falls back to depends on how the action was fired.
-	Timeout *durationpb.Duration `protobuf:"bytes,4,opt,name=timeout,proto3,oneof" json:"timeout,omitempty"`
-	// The directives in the header that could not be read, each naming its line. The
-	// lines were skipped rather than the action refused, so it still runs.
-	HeaderProblems []string `protobuf:"bytes,5,rep,name=header_problems,json=headerProblems,proto3" json:"header_problems,omitempty"`
-	// Whether the file is text rather than a compiled program, which is what says
-	// whether it can be opened in an editor.
-	Text          bool `protobuf:"varint,6,opt,name=text,proto3" json:"text,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Name           string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Executable     bool                   `protobuf:"varint,2,opt,name=executable,proto3" json:"executable,omitempty"`
+	Description    string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Timeout        *durationpb.Duration   `protobuf:"bytes,4,opt,name=timeout,proto3,oneof" json:"timeout,omitempty"`
+	HeaderProblems []string               `protobuf:"bytes,5,rep,name=header_problems,json=headerProblems,proto3" json:"header_problems,omitempty"`
+	Text           bool                   `protobuf:"varint,6,opt,name=text,proto3" json:"text,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Action) Reset() {
@@ -166,7 +154,6 @@ func (x *ListActionsResponse) GetActions() []*Action {
 	return nil
 }
 
-// RunActionRequest names the action to fire and the agent to fire it on.
 type RunActionRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
@@ -219,8 +206,6 @@ func (x *RunActionRequest) GetAction() string {
 	return ""
 }
 
-// EditActionRequest names the action whose file to open, and the agent the editor is
-// opened beside, which is the one the panel's sidebar was opened on.
 type EditActionRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`

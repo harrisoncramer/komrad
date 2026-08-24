@@ -1,4 +1,3 @@
-// Package plugin is the entry point golangci-lint builds into a custom binary.
 package plugin
 
 import (

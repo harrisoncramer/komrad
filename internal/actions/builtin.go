@@ -10,18 +10,12 @@ import (
 	"path/filepath"
 )
 
-// builtinRoot is the embedded directory the shipped actions are read out of. The all:
-// prefix is what carries the underscored names, which embed leaves out otherwise.
 const builtinRoot = "builtin"
 
-// markerName is the file an install leaves behind to say the directory is weave's, and is
-// a dotfile so Discover passes over it rather than offering it as an action.
 const markerName = ".weave-builtins"
 
-// ErrDirNotAbsolute is what installing into a relative path is refused with.
 var ErrDirNotAbsolute = errors.New("the directory is not an absolute path")
 
-// ErrDirNotOurs is what installing into a directory weave did not write is refused with.
 var ErrDirNotOurs = errors.New("the directory holds files weave did not write")
 
 //go:embed all:builtin
@@ -48,8 +42,6 @@ func InstallBuiltins(dir string) error {
 		return fmt.Errorf("failed to create the built-in actions directory %s: %w", dir, err)
 	}
 
-	// The marker goes down before the scripts, so an install that dies partway through still
-	// leaves the directory claimed for the next one to clear.
 	marker := filepath.Join(dir, markerName)
 	if err := os.WriteFile(marker, nil, 0o644); err != nil {
 		return fmt.Errorf("failed to write %s: %w", marker, err)
@@ -75,8 +67,6 @@ func InstallBuiltins(dir string) error {
 	return nil
 }
 
-// clearOwned empties dir, and refuses one holding anything a previous install did not put
-// there. A directory that is not there yet, or that is empty, is weave's to take.
 func clearOwned(dir string) error {
 	entries, err := os.ReadDir(dir)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -98,7 +88,6 @@ func clearOwned(dir string) error {
 	return nil
 }
 
-// hasMarker says whether a previous install claimed the directory these entries came from.
 func hasMarker(entries []fs.DirEntry) bool {
 	for _, entry := range entries {
 		if entry.Name() == markerName {

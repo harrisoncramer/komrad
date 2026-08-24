@@ -18,8 +18,7 @@ import (
 func TestUpsertAndGet(t *testing.T) {
 	tests := []struct {
 		name string
-		// writes are applied in order, so a case can show a later write landing on
-		// top of an earlier one rather than beside it.
+
 		writes      []UpsertParams
 		wantContent string
 		wantOffset  int64
@@ -100,11 +99,10 @@ func TestSearch(t *testing.T) {
 	tests := []struct {
 		name    string
 		content string
-		// reindexTo replaces the content with a second write before the search.
+
 		reindexTo string
 		archive   bool
-		// other is a second agent's transcript, for the cases that only mean
-		// something when there is something to leave out.
+
 		other        string
 		query        string
 		wantHits     int
@@ -178,10 +176,6 @@ func TestSearch(t *testing.T) {
 			wantHits: 1,
 		},
 		{
-			// The percent is punctuation to the tokenizer, so both transcripts match
-			// on the number alone. What it must not do is act as a wildcard in the
-			// fallback and widen the search further, which is what the escaping in
-			// likePattern prevents.
 			name:     "a wildcard in the query does not widen it",
 			content:  "the coverage hit 100% today",
 			other:    "the coverage hit 100 of them today",
@@ -195,18 +189,12 @@ func TestSearch(t *testing.T) {
 			wantHits: 1,
 		},
 		{
-			// Postgres refuses a NUL in a text value outright, so it is dropped
-			// before the query is sent rather than failing the request.
 			name:     "a NUL byte is dropped rather than failing the search",
 			content:  "findable text",
 			query:    "find\x00able",
 			wantHits: 1,
 		},
 		{
-			// The Kelvin sign lowercases to a plain k, three bytes to one, so
-			// Postgres matches it against ordinary text and the hit comes back
-			// ranked zero for this side to mark. The match it has to mark is one
-			// byte where the query is three.
 			name:     "a query that lowercases to fewer bytes than it was typed",
 			content:  "ok",
 			query:    "K",
@@ -340,8 +328,7 @@ func TestSearchPages(t *testing.T) {
 		seeds []seed
 		query string
 		limit int64
-		// wantNames, when set, is the order the hits must come back in. Cases whose
-		// hits all rank equally leave it unset, since the tiebreak is by id.
+
 		wantNames []string
 		wantCount int
 	}{
@@ -455,18 +442,12 @@ func TestMarkMatches(t *testing.T) {
 			want:    "talking about postg",
 		},
 		{
-			// The Kelvin sign is three bytes and lowercases to a one-byte k, so a
-			// match found by folding is shorter than the query that found it.
-			// Marking it by the query's own length would wrap the wrong run, and at
-			// the end of a window it would slice past the snippet entirely.
 			name:    "a query that folds to fewer bytes marks only the bytes it matched",
 			snippet: "ok",
 			query:   "K",
 			want:    "o" + SnippetOpen + "k" + SnippetClose,
 		},
 		{
-			// The other direction. The dotted capital I lowercases to two runes, so
-			// the match is longer than the query.
 			name:    "a query that folds to more bytes marks only the bytes it matched",
 			snippet: "bitİ",
 			query:   "tİ",
@@ -528,15 +509,10 @@ func TestLikePattern(t *testing.T) {
 	}
 }
 
-// fixture is the transcript store under test plus the agent store the tests seed
-// through. A transcript is keyed to an agent, and search joins the agents table for
-// the name and whether the agent is archived, so a hit needs a real agent behind it.
-// The two stay separate stores, so this package never writes that table itself.
 type fixture struct {
 	*Store
 	agents *agentstore.Store
-	// workflow holds the agents these tests seed. Every agent belongs to one, and
-	// none of these cases are about which.
+
 	workflow string
 }
 
@@ -553,8 +529,6 @@ func open(t *testing.T) *fixture {
 	return &fixture{Store: New(p.GetDB()), agents: agentstore.New(p.GetDB()), workflow: created.ID}
 }
 
-// seedAgent inserts an agent and returns its generated id, so a transcript can
-// be keyed to a real row the search join can find.
 func seedAgent(t *testing.T, st *fixture, name string) string {
 	t.Helper()
 	ctx := t.Context()
@@ -568,16 +542,11 @@ func seedAgent(t *testing.T, st *fixture, name string) string {
 	return got.ID
 }
 
-// seedTranscript writes an agent's transcript and indexes it as one turn, which is
-// what a sync leaves behind for a conversation that is one turn long.
 func seedTranscript(t *testing.T, st *fixture, id, content string) {
 	t.Helper()
 	seedTurns(t, st, id, content, []Turn{{Role: "user", Content: content}})
 }
 
-// layOutTurns lays turns out the way a sync does, blank-line separated, and stamps
-// each with where it landed, so a test asserting on offsets does not hand-count
-// bytes to get them.
 func layOutTurns(turns []Turn) (string, []Turn) {
 	var content strings.Builder
 
@@ -594,8 +563,6 @@ func layOutTurns(turns []Turn) (string, []Turn) {
 	return content.String(), out
 }
 
-// seedTurns writes an agent's transcript and indexes the turns making it up, for
-// the cases that care where inside a conversation a match landed.
 func seedTurns(t *testing.T, st *fixture, id, content string, turns []Turn) {
 	t.Helper()
 	ctx := t.Context()
@@ -603,7 +570,6 @@ func seedTurns(t *testing.T, st *fixture, id, content string, turns []Turn) {
 	require.NoError(t, st.AppendTurns(ctx, id, turns))
 }
 
-// agentIDs are the agents a page of hits belongs to, in the order they came back.
 func agentIDs(hits []SearchHit) []string {
 	ids := make([]string, 0, len(hits))
 	for _, hit := range hits {

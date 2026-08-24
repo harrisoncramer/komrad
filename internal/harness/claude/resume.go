@@ -38,12 +38,6 @@ func (h *Harness) Relocate(sessionID, dir string) error {
 	return nil
 }
 
-// projectFolder renders the folder name Claude files a directory's conversations
-// under, every character outside letters and digits replaced by a dash. This is the
-// only place that reproduces Claude's encoding, and it is reached only when a log
-// has to be moved between folders. Everything that reads a log globs for the
-// session id instead, so an encoding that changes upstream degrades to a resume
-// that starts fresh rather than a restore that fails.
 func projectFolder(dir string) string {
 	return strings.Map(func(r rune) rune {
 		switch {

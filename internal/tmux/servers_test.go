@@ -23,8 +23,6 @@ func TestServersRouting(t *testing.T) {
 	host := NewHost(manager, "")
 	servers := NewServers(manager, host)
 
-	// Nothing recorded yet, so the user's server cannot be found and every question
-	// about it goes unanswered rather than being asked of the wrong one.
 	assert.Empty(t, servers.GetClientPath(""), "with no host recorded there is no client to locate")
 	servers.SetGlobal("@probe", "1")
 	assert.Empty(t, manager.ShowGlobal("@probe"), "an unrecorded host is not silently the manager")
@@ -44,8 +42,6 @@ func TestServersRouting(t *testing.T) {
 	assert.NotContains(t, tmuxRun(t, hostSocket, "list-keys", "-T", "prefix"), "weave",
 		"and not on the user's, whose binding opens the popup")
 
-	// The invoking client's directory is a question only the server it is attached
-	// to can answer, so it is asked of the recorded host.
 	assert.NotEmpty(t, servers.GetClientPath(""), "the recorded host answers where its client sits")
 }
 
@@ -134,8 +130,6 @@ func TestFromEnv(t *testing.T) {
 	}
 }
 
-// newTestServer starts a private tmux server holding one session and returns its
-// socket name. It is killed on cleanup, so a test never touches the user's tmux.
 func newTestServer(t *testing.T, role string) string {
 	t.Helper()
 	if _, err := exec.LookPath("tmux"); err != nil {
@@ -145,19 +139,14 @@ func newTestServer(t *testing.T, role string) string {
 	socket := "cca-" + role + "-" + filepath.Base(t.TempDir())
 	t.Cleanup(func() { _ = exec.Command("tmux", "-L", socket, "kill-server").Run() })
 
-	// -f /dev/null keeps the user's tmux config out of it, so what a test asserts
-	// about options and bindings is only what the code under test did.
 	cmd := exec.Command("tmux", "-L", socket, "-f", "/dev/null", "new-session", "-d", "-s", role, "-c", t.TempDir())
 	require.NoError(t, cmd.Run(), "failed to start the %s tmux server", role)
 
 	return socket
 }
 
-// paneEnv is a TMUX value for the server at path, the three fields tmux writes for a pane.
 func paneEnv(path string) string { return path + ",1,0" }
 
-// socketPath returns the filesystem path of a named tmux server's socket, which is
-// how the user's server is addressed.
 func socketPath(t *testing.T, socket string) string {
 	t.Helper()
 

@@ -29,13 +29,10 @@ func TestBuildCommand(t *testing.T) {
 				"codex resume",
 				"'019fb3e7-2cb6'",
 			},
-			// The buildBriefing is the first thing said rather than a system prompt, so a
-			// resume has nothing to re-send.
+
 			wantAbsent: []string{"$(cat "},
 		},
 		{
-			// Codex names its own conversations, so a fresh launch has no id to pin and
-			// must not be handed one.
 			name:       "a fresh launch pins no id",
 			launch:     harness.Launch{Prompt: "do the thing"},
 			wantAbsent: []string{"resume", "--session-id"},
@@ -46,15 +43,11 @@ func TestBuildCommand(t *testing.T) {
 			wantContain: []string{"'-m' 'gpt-5.6' '-s' 'read-only'"},
 		},
 		{
-			// The originator goes on beside the agent's own id because it is what codex
-			// writes into the rollout, which is how that conversation is found again.
 			name:        "the agent's own id leads the line, so it reaches codex's environment",
 			launch:      harness.Launch{AgentID: "id-1", Prompt: "go"},
 			wantContain: []string{"WEAVE_AGENT_ID='id-1' CODEX_INTERNAL_ORIGINATOR_OVERRIDE='weave-id-1' codex"},
 		},
 		{
-			// It rides on the environment because it has to survive a resume, which the
-			// buildBriefing does not.
 			name:   "and it survives a resume",
 			launch: harness.Launch{AgentID: "id-1", SessionID: "sess", Resume: true},
 			wantContain: []string{
@@ -62,8 +55,6 @@ func TestBuildCommand(t *testing.T) {
 			},
 		},
 		{
-			// A launch with no agent id stamps nothing rather than an empty originator,
-			// which codex would take as the client that started the conversation.
 			name:       "a launch with no agent id stamps nothing",
 			launch:     harness.Launch{Prompt: "go"},
 			wantAbsent: []string{"CODEX_INTERNAL_ORIGINATOR_OVERRIDE"},
@@ -170,8 +161,6 @@ func TestOpeningPrompt(t *testing.T) {
 		want   string
 	}{
 		{
-			// Handing it the buildBriefing alone would have it answer the buildBriefing as though
-			// that were the task.
 			name:   "an agent created with no prompt is left unbriefed",
 			launch: harness.Launch{Context: "the buildBriefing"},
 			want:   "",
@@ -182,7 +171,6 @@ func TestOpeningPrompt(t *testing.T) {
 			want:   "do the thing",
 		},
 		{
-			// Fenced so the flattener can drop it again rather than index it.
 			name:   "the buildBriefing comes first, fenced, so the prompt reads as the task",
 			launch: harness.Launch{Context: "the buildBriefing", Prompt: "do the thing"},
 			want:   "<panel_briefing>\nthe buildBriefing\n</panel_briefing>\n\ndo the thing",
@@ -211,11 +199,8 @@ func TestOpeningPrompt(t *testing.T) {
 	}
 }
 
-// promptRef matches the temp file the launch command sources its prompt from.
 var promptRef = regexp.MustCompile(`"\$\(cat '([^']+)'`)
 
-// promptText returns the prompt the command sends. The shell removes the file as the
-// command runs, but a test never runs it, so the file is still on disk to read.
 func promptText(t *testing.T, command string) string {
 	t.Helper()
 
@@ -282,8 +267,6 @@ func TestMCPHeadersNameTheEnvironment(t *testing.T) {
 	assert.Contains(t, command,
 		`-c 'mcp_servers.weave.env_http_headers={"X-Weave-Agent-Id"="WEAVE_AGENT_ID","X-Weave-Session-Id"="WEAVE_SESSION_ID"}'`)
 
-	// The variables it names are the ones the launch exports, or every call an agent makes
-	// arrives anonymous.
 	assert.Contains(t, command, "WEAVE_AGENT_ID='agent-1'")
 	assert.Contains(t, command, "WEAVE_SESSION_ID='sess-1'")
 }

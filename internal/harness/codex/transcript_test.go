@@ -12,10 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The records below are shaped after a real rollout from codex-cli 0.144.4. Every
-// conversation opens with a session_meta, three developer turns Codex addresses to
-// itself, and a synthetic user turn carrying the environment, before anything a person
-// said appears.
 const (
 	metaRecord = `{"timestamp":"2026-07-30T12:41:39Z","type":"session_meta",` +
 		`"payload":{"id":"019fb3e7-2cb6-7ab3-86a0-51a670a33140","session_id":"019fb3e7-2cb6-7ab3-86a0-51a670a33140","cwd":"/repo/worktree"}}`
@@ -84,16 +80,11 @@ func TestFlattenRollout(t *testing.T) {
 			want: []harness.Turn{{Role: "user", Content: "how do I use trigram search"}},
 		},
 		{
-			// Postgres refuses a NUL in a text value outright, and the rollout is written
-			// on the other side of this process.
 			name: "a NUL is dropped from the text it arrived in",
 			in:   "{\"type\":\"response_item\",\"payload\":{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"be\\u0000fore\"}]}}",
 			want: []harness.Turn{{Role: "user", Content: "before"}},
 		},
 		{
-			// The buildBriefing reaches a Codex agent as a message, so it is in the rollout like
-			// anything else. Indexed, it would be the longest thing the agent ever said and
-			// would answer searches for every phrase in it.
 			name: "the panel's own buildBriefing is stripped from the turn it arrived on",
 			in:   briefedRecord,
 			want: []harness.Turn{{Role: "user", Content: "how do I use trigram search"}},
@@ -133,10 +124,10 @@ func TestReadLog(t *testing.T) {
 
 	tests := []struct {
 		name string
-		// body is the rollout on disk, and offset is where the last pass left off.
+
 		body   string
 		offset int64
-		// missing reads a path with no file at it at all.
+
 		missing      bool
 		wantTurns    []harness.Turn
 		wantConsumed int64
@@ -165,8 +156,6 @@ func TestReadLog(t *testing.T) {
 			wantConsumed: int64(len(answerRecord) + 1),
 		},
 		{
-			// Written while Codex is mid-turn. Leaving it unconsumed is what makes the next
-			// pass read it once, whole.
 			name:         "a half-written line waits for its newline",
 			body:         opening + `{"type":"response_item","payload":{"type":"mess`,
 			wantTurns:    []harness.Turn{{Role: "user", Content: "how do I use trigram search"}},
@@ -214,8 +203,6 @@ func TestGetLogPath(t *testing.T) {
 	assert.Empty(t, harnessUnderTest.GetLogPath(""), "and neither does an agent with no session")
 }
 
-// writeRollout puts a rollout where Codex would, under a year, month, and day of
-// directories with the timestamp and the session id both in the filename.
 func writeRollout(t *testing.T, sessionsDir, stamp, sessionID, body string) string {
 	t.Helper()
 

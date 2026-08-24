@@ -11,10 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// untriggered names the public tables that carry updated_at and have no trigger
-// stamping it. The trigger has to be BEFORE UPDATE and FOR EACH ROW to be the one
-// meant, so the type bits are checked rather than the name: a trigger firing AFTER
-// cannot change the row, and one firing per statement never sees it.
 const untriggered = `
 SELECT
     c.relname
@@ -42,8 +38,6 @@ WHERE
 ORDER BY
     c.relname`
 
-// stamped names the public tables that carry updated_at, whether or not anything
-// stamps it. It exists so the check above cannot pass by finding no tables at all.
 const stamped = `
 SELECT
     c.relname
@@ -86,8 +80,6 @@ func TestUpdatedAtStamped(t *testing.T) {
 	pool := open(ctx, t)
 	db := pool.GetRawPool()
 
-	// An hour back rather than now(), so the assertion rests on the trigger having run
-	// and not on two statements landing in different microseconds.
 	var id string
 	require.NoError(t, db.QueryRow(ctx, `
 		INSERT INTO workflow_configs (harness, created_at, updated_at)

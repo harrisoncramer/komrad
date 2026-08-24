@@ -28,8 +28,6 @@ func TestChecksAreWellFormed(t *testing.T) {
 		seen[check.Name] = true
 	}
 
-	// Walked after the names are collected only for the duplicate test above; a
-	// dependency has to be declared before its dependent to be concluded in time.
 	concluded := make(map[string]bool, len(checks))
 	for _, check := range checks {
 		for _, needed := range check.Needs {

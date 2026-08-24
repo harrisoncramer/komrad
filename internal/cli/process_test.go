@@ -18,10 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeServe writes a script that stands in for the serve subcommand, printing the given
-// output and then failing; it is used in place of the real binary so the tests never need a
-// database, and it always fails since a server that starts cleanly is not what these cases
-// are about.
 func fakeServe(t *testing.T, output string) string {
 	t.Helper()
 
@@ -32,9 +28,6 @@ func fakeServe(t *testing.T, output string) string {
 	return path
 }
 
-// fakeServeEchoingArgs is fakeServe for the cases about what the spawned server was called
-// with: it writes its own arguments where the reason for dying would go, so the command line
-// comes back through the error the same way a failure does.
 func fakeServeEchoingArgs(t *testing.T) string {
 	t.Helper()
 
@@ -44,16 +37,12 @@ func fakeServeEchoingArgs(t *testing.T) string {
 	return path
 }
 
-// fakeServerParams is what a stand-in server answers with, where status and body are the
-// health route and stopPid is what its stop route reports having stopped.
 type fakeServerParams struct {
 	status  int
 	body    string
 	stopPid int
 }
 
-// fakeServer stands in for whatever holds the address, answering the health route with a body
-// of the test's choosing and the stop route the way serve does.
 func fakeServer(t *testing.T, params fakeServerParams) string {
 	t.Helper()
 
@@ -66,8 +55,6 @@ func fakeServer(t *testing.T, params fakeServerParams) string {
 	})
 
 	mux.HandleFunc(server.StopPath, func(w http.ResponseWriter, _ *http.Request) {
-		// The stand-in stops by dropping its listener and this connection with it, since the
-		// caller's pool would otherwise keep answering over a socket already accepted.
 		_ = testServer.Listener.Close()
 		w.Header().Set("Connection", "close")
 
@@ -81,8 +68,6 @@ func fakeServer(t *testing.T, params fakeServerParams) string {
 	return strippedHost(t, testServer.URL)
 }
 
-// healthJSON is a health body reporting the given build, so a test can serve one that looks
-// like this build and one that does not.
 func healthJSON(t *testing.T, build string) string {
 	t.Helper()
 
@@ -92,8 +77,6 @@ func healthJSON(t *testing.T, build string) string {
 	return string(body)
 }
 
-// deadPid is the pid of a process that has already exited, so the wait after a stop ends on
-// finding it gone rather than on its own timeout.
 func deadPid(t *testing.T) int {
 	t.Helper()
 
@@ -106,8 +89,6 @@ func deadPid(t *testing.T) int {
 	return pid
 }
 
-// freeAddr returns an address nothing is listening on, so ensureServer takes its
-// spawning path rather than finding a server already up.
 func freeAddr(t *testing.T) string {
 	t.Helper()
 
@@ -167,7 +148,6 @@ func TestEnsureServerWithoutAReason(t *testing.T) {
 // spawned, since a server whose output goes nowhere is one whose failure cannot be reported
 // at all, and the reader is told which path could not be opened.
 func TestEnsureServerWithAnUnwritableLog(t *testing.T) {
-	// A regular file where a directory is expected, so making the log's parent fails.
 	blocked := filepath.Join(t.TempDir(), "not-a-directory")
 	require.NoError(t, os.WriteFile(blocked, nil, 0o644))
 

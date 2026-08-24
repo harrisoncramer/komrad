@@ -26,32 +26,18 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Workflow is a named bucket of related agents. It runs nothing itself. It holds
-// a label, shared context, and other information per agent.
 type Workflow struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name  string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// Free-text durable state the user edits. Agents created inside the workflow
-	// get it appended to their system prompt.
-	Context string `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
-	Cwd     string `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	Flags   string `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
-	// Which CLI agents in this workflow run, blank when they take the user's configured default.
-	Harness string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
-	// The action run before an agent in this workflow starts, blank for none. It runs again
-	// before a dormant agent is resumed, which WEAVE_TRIGGER tells it apart. It blocks and a
-	// failure abandons the launch. A file in the actions directory names it, so nothing here
-	// promises it still exists.
-	SetupAction string `protobuf:"bytes,7,opt,name=setup_action,json=setupAction,proto3" json:"setup_action,omitempty"`
-	// The action run once an agent in this workflow is deleted, blank for none. Nothing
-	// waits on it.
-	CleanupAction string `protobuf:"bytes,8,opt,name=cleanup_action,json=cleanupAction,proto3" json:"cleanup_action,omitempty"`
-	// When the workflow was archived, as an RFC 3339 timestamp, unset while it is live.
-	ArchivedAt *string `protobuf:"bytes,9,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
-	// The generated git worktree per agent this workflow is set up for, disabled by
-	// default.
-	Worktree      *WorktreeConfig `protobuf:"bytes,10,opt,name=worktree,proto3" json:"worktree,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Context       string                 `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
+	Cwd           string                 `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
+	Flags         string                 `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
+	Harness       string                 `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
+	SetupAction   string                 `protobuf:"bytes,7,opt,name=setup_action,json=setupAction,proto3" json:"setup_action,omitempty"`
+	CleanupAction string                 `protobuf:"bytes,8,opt,name=cleanup_action,json=cleanupAction,proto3" json:"cleanup_action,omitempty"`
+	ArchivedAt    *string                `protobuf:"bytes,9,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
+	Worktree      *WorktreeConfig        `protobuf:"bytes,10,opt,name=worktree,proto3" json:"worktree,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -156,22 +142,12 @@ func (x *Workflow) GetWorktree() *WorktreeConfig {
 	return nil
 }
 
-// WorktreeConfig turns on a generated git worktree per agent for a workflow. Turning it
-// on writes two action scripts and points the workflow's setup_action and cleanup_action
-// at them, so nothing else about a workflow's lifecycle changes for one that uses it.
 type WorktreeConfig struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Enabled bool                   `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// The branch a new worktree is built from, blank for the repo's default branch. The
-	// repo itself is the workflow's cwd, which is required when this is enabled.
-	BaseBranch string `protobuf:"bytes,2,opt,name=base_branch,json=baseBranch,proto3" json:"base_branch,omitempty"`
-	// Files copied fresh into every new worktree, relative to the workflow's cwd, such as
-	// .env. Rewritten on every setup run, resumes included, so an edit to the source file
-	// reaches a worktree that already exists.
-	CopyPaths []string `protobuf:"bytes,3,rep,name=copy_paths,json=copyPaths,proto3" json:"copy_paths,omitempty"`
-	// Directories symlinked back to the workflow's cwd instead of duplicated into every
-	// worktree, such as a dependency or build cache.
-	SymlinkPaths  []string `protobuf:"bytes,4,rep,name=symlink_paths,json=symlinkPaths,proto3" json:"symlink_paths,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Enabled       bool                   `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	BaseBranch    string                 `protobuf:"bytes,2,opt,name=base_branch,json=baseBranch,proto3" json:"base_branch,omitempty"`
+	CopyPaths     []string               `protobuf:"bytes,3,rep,name=copy_paths,json=copyPaths,proto3" json:"copy_paths,omitempty"`
+	SymlinkPaths  []string               `protobuf:"bytes,4,rep,name=symlink_paths,json=symlinkPaths,proto3" json:"symlink_paths,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -235,10 +211,9 @@ func (x *WorktreeConfig) GetSymlinkPaths() []string {
 }
 
 type ListWorkflowsRequest struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	Pagination *v1.Pagination         `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
-	// Lists the archived workflows instead of the live ones.
-	Archived      bool `protobuf:"varint,2,opt,name=archived,proto3" json:"archived,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Pagination    *v1.Pagination         `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+	Archived      bool                   `protobuf:"varint,2,opt,name=archived,proto3" json:"archived,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -427,26 +402,16 @@ func (x *GetWorkflowResponse) GetWorkflow() *Workflow {
 	return nil
 }
 
-// CreateWorkflowRequest describes a new bucket. Only the name is required.
 type CreateWorkflowRequest struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Name    string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Context string                 `protobuf:"bytes,2,opt,name=context,proto3" json:"context,omitempty"`
-	// Blank means agents inside this workflow choose their own directory. When set
-	// it must be absolute or ~-prefixed, matching what creating an agent demands,
-	// since this is the value prefilled into that form.
-	Cwd   string `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	Flags string `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
-	// Which CLI agents created inside this workflow run. Blank leaves them on the
-	// user's configured default.
-	Harness string `protobuf:"bytes,5,opt,name=harness,proto3" json:"harness,omitempty"`
-	// The action to run before an agent in this workflow starts or is resumed, blank for none.
-	SetupAction string `protobuf:"bytes,6,opt,name=setup_action,json=setupAction,proto3" json:"setup_action,omitempty"`
-	// The action to run once an agent in this workflow is deleted, blank for none.
-	CleanupAction string `protobuf:"bytes,7,opt,name=cleanup_action,json=cleanupAction,proto3" json:"cleanup_action,omitempty"`
-	// Turns on a generated git worktree per agent. When enabled, setup_action and
-	// cleanup_action must both be blank, since weave writes and names them itself.
-	Worktree      *WorktreeConfig `protobuf:"bytes,8,opt,name=worktree,proto3" json:"worktree,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Context       string                 `protobuf:"bytes,2,opt,name=context,proto3" json:"context,omitempty"`
+	Cwd           string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
+	Flags         string                 `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
+	Harness       string                 `protobuf:"bytes,5,opt,name=harness,proto3" json:"harness,omitempty"`
+	SetupAction   string                 `protobuf:"bytes,6,opt,name=setup_action,json=setupAction,proto3" json:"setup_action,omitempty"`
+	CleanupAction string                 `protobuf:"bytes,7,opt,name=cleanup_action,json=cleanupAction,proto3" json:"cleanup_action,omitempty"`
+	Worktree      *WorktreeConfig        `protobuf:"bytes,8,opt,name=worktree,proto3" json:"worktree,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -581,29 +546,17 @@ func (x *CreateWorkflowResponse) GetWorkflow() *Workflow {
 	return nil
 }
 
-// UpdateWorkflowRequest replaces a workflow's editable fields. Every field is
-// sent, so an omitted one reads as cleared rather than unchanged. Fetch the
-// workflow, change what you mean to, and send it back.
 type UpdateWorkflowRequest struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Id      string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name    string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Context string                 `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
-	Cwd     string                 `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	Flags   string                 `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
-	// Which CLI agents created inside this workflow run from now on. Blank leaves
-	// them on the user's configured default. Agents already spawned keep the harness
-	// they started on, which is recorded against each of them.
-	Harness string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
-	// The action run before an agent in this workflow starts or is resumed, blank for none.
-	SetupAction string `protobuf:"bytes,7,opt,name=setup_action,json=setupAction,proto3" json:"setup_action,omitempty"`
-	// The action run once an agent in this workflow is deleted, blank for none.
-	CleanupAction string `protobuf:"bytes,8,opt,name=cleanup_action,json=cleanupAction,proto3" json:"cleanup_action,omitempty"`
-	// Turns on a generated git worktree per agent. When enabled, setup_action and
-	// cleanup_action must both be blank, since weave writes and names them itself.
-	// Disabling it after it was on leaves whatever it generated in place, and clears
-	// setup_action and cleanup_action if they still name the generated scripts.
-	Worktree      *WorktreeConfig `protobuf:"bytes,9,opt,name=worktree,proto3" json:"worktree,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Context       string                 `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
+	Cwd           string                 `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
+	Flags         string                 `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
+	Harness       string                 `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
+	SetupAction   string                 `protobuf:"bytes,7,opt,name=setup_action,json=setupAction,proto3" json:"setup_action,omitempty"`
+	CleanupAction string                 `protobuf:"bytes,8,opt,name=cleanup_action,json=cleanupAction,proto3" json:"cleanup_action,omitempty"`
+	Worktree      *WorktreeConfig        `protobuf:"bytes,9,opt,name=worktree,proto3" json:"worktree,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -701,7 +654,6 @@ func (x *UpdateWorkflowRequest) GetWorktree() *WorktreeConfig {
 	return nil
 }
 
-// ArchiveWorkflowRequest hides a workflow and archives the agents inside it.
 type ArchiveWorkflowRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -746,7 +698,6 @@ func (x *ArchiveWorkflowRequest) GetId() string {
 	return ""
 }
 
-// RestoreWorkflowRequest brings an archived workflow back with its agents.
 type RestoreWorkflowRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`

@@ -28,8 +28,6 @@ var ErrTooManyAgents = errors.New("too many agents")
 var ErrAgentArchived = errors.New("agent is archived")
 var ErrSpawnerUnknown = errors.New("the spawning agent is not one this panel knows")
 
-// The refusals that come from the adapters underneath, restated here because a caller maps
-// what the service returns and should not have to reach past it to name a failure.
 var (
 	ErrHarnessUnknown      = harness.ErrNotRegistered
 	ErrActionNotFound      = actions.ErrActionNotFound
@@ -38,29 +36,20 @@ var (
 	ErrActionDirMissing    = actions.ErrDirMissing
 )
 
-// Action is one of the user's actions as the service reports it, and ActionHeader is what
-// the comments at the top of its file declare. They are the adapter's types under another
-// name, so a caller describes an action without depending on what runs one.
 type (
 	Action       = actions.Action
 	ActionHeader = actions.Header
 )
 
-// agentFinder is the one-method view of the agent store shared by every collaborator
-// that only ever needs to look an agent up by id.
 type agentFinder interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
-// agentSlots is the room-for-one-more view of the agent store: take the lock that
-// serialises launches against each other, and count what is already running.
 type agentSlots interface {
 	LockSlots(ctx context.Context) error
 	CountLive(ctx context.Context) (int64, error)
 }
 
-// agentManager is the agent store as the service and its launch machinery use it,
-// whether held on AgentService itself or opened fresh inside a transaction.
 type agentManager interface {
 	agentFinder
 	GetInWorkflow(ctx context.Context, workflowID, name string) (*agentstore.Agent, error)
@@ -74,15 +63,11 @@ type agentManager interface {
 	LockSlots(ctx context.Context) error
 }
 
-// paneKiller is the tmux surface a workflow archive needs: which agents are still
-// running, and stopping the ones that are.
 type paneKiller interface {
 	GetPanes() (map[string]tmux.PaneStatus, error)
 	KillPane(pane string)
 }
 
-// paneController is the tmux surface AgentService needs to launch and resume an
-// agent: paneKiller, plus opening a window and stamping who owns it.
 type paneController interface {
 	paneKiller
 	NewWindow(session, name, dir string) (string, error)
@@ -91,15 +76,10 @@ type paneController interface {
 	GetClientPath(client string) string
 }
 
-// paneWriter is how a launch types into an agent's pane. The command is
-// not executed directly: it is typed into a pane and parsed by the shell running
-// there, which is why the harness that assembles it quotes everything interpolated.
 type paneWriter interface {
 	SendKeys(target string, keys ...string) error
 }
 
-// workflowReader is the workflow store as the services over it read it: a live workflow to
-// launch into, and an archived one's blueprint to fall back on its setup and cleanup.
 type workflowReader interface {
 	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
 	GetIncludingArchived(ctx context.Context, id string) (*workflowstore.Workflow, error)
@@ -119,14 +99,10 @@ type lifecycleActioner interface {
 	RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string) error
 }
 
-// parentNotifier tells a spawning agent its delegate is gone. It is SendSystemMail
-// rather than the general SendMail so nothing outside this package, including the RPC
-// surface that builds a SendMailParams from a request on the wire, can speak as weave.
 type parentNotifier interface {
 	SendSystemMail(ctx context.Context, toAgentID, body string) (*mailstore.Mail, error)
 }
 
-// AgentService manages agent records, panes, and lifecycle actions.
 type AgentService struct {
 	tmux               paneController
 	agents             agentManager
@@ -142,7 +118,6 @@ type AgentService struct {
 	notifier           parentNotifier
 }
 
-// NewAgentServiceParams carries the agent service's dependencies.
 type NewAgentServiceParams struct {
 	Tmux               paneController
 	Agents             agentManager
@@ -205,7 +180,6 @@ func getRunningAgents(ctx context.Context, tmux paneKiller, agents []agentstore.
 	return running
 }
 
-// NewAgentParams configures a background agent to create.
 type NewAgentParams struct {
 	Client         string
 	Title          string
@@ -246,10 +220,6 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 	return s.launchAgent(ctx, p, spawner)
 }
 
-// findSpawner is the agent named on the request's caller header, or nil for a create the
-// panel itself made. Its id is recorded as the new agent's parent and its name is what the
-// delegate briefing calls it, so an id that names no agent this panel knows fails the
-// create rather than recording a reference nothing can resolve.
 func (s *AgentService) findSpawner(ctx context.Context) (*agentstore.Agent, error) {
 	id := caller.From(ctx).AgentID
 	if id == "" {
@@ -306,9 +276,6 @@ func (s *AgentService) ArchiveAgents(ctx context.Context, ids []string) error {
 	return nil
 }
 
-// notifyParents tells each agent's spawner it is gone. Failures are logged rather than
-// returned, since a bad mailbox shouldn't block deletion. An actor removing its own delegate
-// is skipped, since it already knows what it just did.
 func notifyParents(ctx context.Context, notifier parentNotifier, agents []agentstore.Agent, reason string) {
 	actor := caller.From(ctx).AgentID
 
@@ -336,7 +303,6 @@ func (s *AgentService) RestoreAgents(ctx context.Context, ids []string) ([]agent
 		return nil, err
 	}
 
-	// Non-archived agents already hold their slot, so counting them again would overcount room needed.
 	archived := xslice.Filter(agents, func(agent agentstore.Agent) bool { return agent.ArchivedAt != nil })
 	if len(archived) == 0 {
 		return agents, nil
@@ -370,7 +336,6 @@ func (s *AgentService) RestoreAgents(ctx context.Context, ids []string) ([]agent
 	return s.agents.ListByID(ctx, ids)
 }
 
-// Destructive batches are all or nothing.
 func (s *AgentService) requireEveryAgent(ctx context.Context, ids []string) ([]agentstore.Agent, error) {
 	agents, err := s.agents.ListByID(ctx, ids)
 	if err != nil {
@@ -436,7 +401,6 @@ func isPaneOwnedBy(owner, agentID string) bool {
 	return agentID != "" && owner == agentID
 }
 
-// Pane IDs can be reused, so kill only panes still stamped with their agent ID.
 func killOwnedPanes(ctx context.Context, tmux paneKiller, agents []agentstore.Agent) {
 	running := getRunningAgents(ctx, tmux, agents)
 	for _, agent := range agents {
@@ -458,7 +422,6 @@ func (s *AgentService) getByID(ctx context.Context, id string) (*agentstore.Agen
 	return agent, nil
 }
 
-// Agent rows and transcripts must be removed in one transaction.
 func (s *AgentService) removeAgents(ctx context.Context, ids []string) error {
 	return s.tx.InTx(ctx, func(db store.DBTX) error {
 		if err := agentstore.New(db).Delete(ctx, ids); err != nil {
@@ -478,7 +441,6 @@ func (s *AgentService) runResumeSetup(ctx context.Context, agent agentstore.Agen
 	return s.lifecycle.RunResumeAction(ctx, agent, name)
 }
 
-// Cleanup failures cannot prevent an agent from being deleted.
 func (s *AgentService) runCleanup(ctx context.Context, agent agentstore.Agent, name string) {
 	if s.lifecycle == nil || name == "" {
 		return

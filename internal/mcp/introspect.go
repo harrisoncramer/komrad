@@ -6,18 +6,13 @@ import (
 	"regexp"
 )
 
-// validIdentifier matches the table names we allow callers to describe. Names
-// are interpolated into a count, which takes no bound parameter, so restricting
-// them to simple identifiers keeps that safe.
 var validIdentifier = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
-// tableInfo is one row of the list_tables result.
 type tableInfo struct {
 	Name string `json:"name"`
 	Rows int64  `json:"rows"`
 }
 
-// columnInfo describes a single column of a table.
 type columnInfo struct {
 	Name       string `json:"name"`
 	Type       string `json:"type"`
@@ -26,8 +21,6 @@ type columnInfo struct {
 	PrimaryKey bool   `json:"primary_key,omitempty"`
 }
 
-// tableDescription is the describe_table result, its columns, foreign keys, and
-// indexes.
 type tableDescription struct {
 	Table       string       `json:"table"`
 	Columns     []columnInfo `json:"columns"`
@@ -35,10 +28,6 @@ type tableDescription struct {
 	Indexes     []string     `json:"indexes"`
 }
 
-// listTables returns the user tables with their row counts. Postgres keeps a
-// planner estimate, but it is only as fresh as the last analyze and reads as
-// wrong when it disagrees with a count the caller can run themselves, so each
-// table is counted. The database is small enough that this is cheap.
 func (d *dbTools) listTables(ctx context.Context) ([]tableInfo, error) {
 	names, err := d.tableNames(ctx)
 	if err != nil {
@@ -57,9 +46,6 @@ func (d *dbTools) listTables(ctx context.Context) ([]tableInfo, error) {
 	return out, nil
 }
 
-// tableNames lists the ordinary tables in the public schema. System catalogs
-// live in their own schemas and are excluded by that alone, so nothing has to be
-// filtered by name.
 func (d *dbTools) tableNames(ctx context.Context) ([]string, error) {
 	const stmt = `
 SELECT table_name
@@ -111,10 +97,6 @@ func (d *dbTools) describeTable(ctx context.Context, table string) (*tableDescri
 	}, nil
 }
 
-// describeColumns reports each column's type, nullability, default, and whether
-// it takes part in the primary key. The primary key arrives as a lateral lookup
-// against pg_index rather than a join, so a table without one still returns its
-// columns.
 func (d *dbTools) describeColumns(ctx context.Context, table string) ([]columnInfo, error) {
 	const stmt = `
 SELECT
@@ -155,8 +137,6 @@ ORDER BY c.ordinal_position`
 	return out, nil
 }
 
-// describeForeignKeys lists the table's outbound foreign keys as "column ->
-// target.column".
 func (d *dbTools) describeForeignKeys(ctx context.Context, table string) ([]string, error) {
 	const stmt = `
 SELECT
@@ -185,9 +165,6 @@ ORDER BY 1`
 	return keys, nil
 }
 
-// describeIndexes returns the CREATE INDEX statements for a table. pg_indexes
-// carries the reconstructed definition, so what comes back is the statement that
-// would recreate the index rather than a summary of it.
 func (d *dbTools) describeIndexes(ctx context.Context, table string) ([]string, error) {
 	const stmt = `
 SELECT indexdef

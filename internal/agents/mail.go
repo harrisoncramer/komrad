@@ -29,10 +29,6 @@ var ErrReplyToNotFound = errors.New("no mail holds that id")
 
 var ErrMailNotFound = errors.New("no mail holds that id, deleting nothing")
 
-// WeaveSenderName marks mail as weave's own voice rather than the panel operator's,
-// since both send with no agent id and nothing else tells them apart downstream. The stop
-// hook reads this same value to frame a lifecycle notice as something to read and act on,
-// not as an instruction from the person running the panel.
 const WeaveSenderName = "weave"
 
 type mailReadWriter interface {
@@ -46,9 +42,6 @@ type mailReadWriter interface {
 	ListUnreadMailboxes(ctx context.Context) ([]string, error)
 }
 
-// mailConfigReader is the mail policy config, read per send so editing it reaches the
-// next send rather than the next restart: how long mail stays deliverable, and how many
-// pieces of mail may pass along one reply thread.
 type mailConfigReader interface {
 	GetDeliveryDeadline() (time.Duration, error)
 	GetMaxHops() (int, error)

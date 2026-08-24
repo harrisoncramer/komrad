@@ -10,8 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// missingID is a well-formed uuid no workflow holds. A malformed one would be
-// refused before the lookup and prove something else.
 const missingID = "00000000-0000-0000-0000-000000000000"
 
 func TestGet(t *testing.T) {

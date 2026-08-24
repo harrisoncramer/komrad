@@ -19,8 +19,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// missingID is a well-formed uuid no workflow holds, for the not-found rows. A
-// malformed one would be refused before the lookup and prove something else.
 const missingID = "00000000-0000-0000-0000-000000000000"
 
 func TestCreateWorkflow(t *testing.T) {
@@ -257,8 +255,7 @@ func TestArchiveWorkflow(t *testing.T) {
 	tests := []struct {
 		name   string
 		create bool
-		// scheduled leaves a live schedule launching into the workflow, which is
-		// what refuses the archive.
+
 		scheduled bool
 		twice     bool
 		wantCode  connect.Code
@@ -465,7 +462,6 @@ func TestListWorkflows(t *testing.T) {
 func TestListWorkflowsRefusesAMangledToken(t *testing.T) {
 	svc, _ := service(t)
 
-	// Base64 of {"i":"not-an-id"}.
 	const token = "eyJpIjoibm90LWFuLWlkIn0="
 
 	_, err := svc.ListWorkflows(t.Context(), connect.NewRequest(&workflowv1.ListWorkflowsRequest{
@@ -475,15 +471,11 @@ func TestListWorkflowsRefusesAMangledToken(t *testing.T) {
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 }
 
-// idlePanes stands in for a tmux server holding no panes at all. Archiving a workflow
-// stops the agents inside it, and nothing these handler tests build has ever launched one.
 type idlePanes struct{}
 
 func (idlePanes) GetPanes() (map[string]tmux.PaneStatus, error) { return nil, nil }
 func (idlePanes) KillPane(string)                               {}
 
-// The handler never sees an agent store, but deleting a workflow settles the
-// agents inside it, so those cases reach for one.
 func service(t *testing.T) (*Service, *storetest.Stores) {
 	t.Helper()
 
@@ -499,8 +491,6 @@ func service(t *testing.T) (*Service, *storetest.Stores) {
 	return NewService(st.Workflows, manager), st
 }
 
-// createWorkflow adds a workflow through the handler and returns its id, since
-// most rows here exist only to be acted on.
 func createWorkflow(t *testing.T, svc *Service, name string) string {
 	t.Helper()
 

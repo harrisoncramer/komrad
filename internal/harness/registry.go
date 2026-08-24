@@ -7,11 +7,8 @@ import (
 	"strings"
 )
 
-// ErrNotRegistered reports a harness id nothing here implements.
 var ErrNotRegistered = errors.New("harness not registered")
 
-// Registry is every harness this binary can run, keyed by id. It is built once in
-// the main app root.
 type Registry struct {
 	harnesses map[string]Harness
 }

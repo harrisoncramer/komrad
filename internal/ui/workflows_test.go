@@ -58,8 +58,6 @@ func TestAgentRows(t *testing.T) {
 			},
 		},
 		{
-			// The workflow was deleted and the agent still points at it. There is no
-			// header to nest it under, so it is left out rather than rendered loose.
 			name: "an agent whose workflow is gone is not rendered",
 			workflows: []workflowstore.Workflow{
 				{ID: "w1", Name: "backend"},
@@ -113,7 +111,6 @@ func TestHoveredWorkflow(t *testing.T) {
 		},
 	}
 
-	// rows: 0 backend header, 1 auth, 2 no-workflow header, 3 loose.
 	m := model{
 		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}, agents: []agentItem{
 			{agent: agentstore.Agent{Name: "auth", WorkflowID: "w1"}},
@@ -134,9 +131,6 @@ func TestHoveredWorkflow(t *testing.T) {
 	}
 }
 
-// refusingWorkflows refuses every call and counts the writes it was asked for, so a test
-// can tell a call the panel decided not to make from one the service turned down; the
-// embedded interface is nil, so any other method panics rather than returning a zero value.
 type refusingWorkflows struct {
 	workflowv1connect.WorkflowServiceClient
 	err    error
@@ -306,7 +300,6 @@ func TestRefreshRestagesWorkflowContext(t *testing.T) {
 	frame := layout.New(tmux, config.DefaultLayout())
 	frame.Attach("%0")
 
-	// The cursor sits on the workflow's header, which is row 0.
 	m := model{
 		frame:   frame,
 		keys:    config.DefaultKeybindings(),
@@ -326,8 +319,7 @@ func TestRefreshRestagesWorkflowContext(t *testing.T) {
 
 	shown, err := os.ReadFile(filepath.Join(os.TempDir(), "weave-stage.ansi"))
 	require.NoError(t, err)
-	// The file holds the rendered document, where the colours around a word sit
-	// between it and the next, so the text is read back without them.
+
 	assert.Contains(t, ansi.Strip(string(shown)), "new notes")
 
 	staged = len(tmux.respawns)
@@ -338,8 +330,6 @@ func TestRefreshRestagesWorkflowContext(t *testing.T) {
 	assert.Equal(t, staged, len(tmux.respawns), "an unchanged refresh leaves the stage pane alone")
 }
 
-// describeRows flattens the tree into strings, so a case states the shape it
-// expects rather than asserting field by field.
 func describeRows(rows []agentRow) []string {
 	out := make([]string, 0, len(rows))
 	for _, row := range rows {

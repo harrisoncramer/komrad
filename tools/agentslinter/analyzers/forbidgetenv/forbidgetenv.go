@@ -1,5 +1,3 @@
-// Package forbidgetenv flags direct process-environment access so configuration
-// flows through the config package instead of bare os calls.
 package forbidgetenv
 
 import (
@@ -13,9 +11,6 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-// forbidden is the set of os functions that read a configuration value out of
-// the environment. Process-env management (Environ, Setenv, Unsetenv) is left
-// alone because spawning child processes legitimately needs it.
 var forbidden = map[string]struct{}{
 	"Getenv":    {},
 	"LookupEnv": {},
@@ -58,7 +53,6 @@ func run(pass *analysis.Pass) (any, error) {
 	return nil, nil
 }
 
-// isStdOs reports whether expr references the standard library os package.
 func isStdOs(pass *analysis.Pass, expr ast.Expr) bool {
 	ident, ok := expr.(*ast.Ident)
 	if !ok {

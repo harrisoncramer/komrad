@@ -46,15 +46,8 @@ const (
 
 // ActionServiceClient is a client for the action.v1.ActionService service.
 type ActionServiceClient interface {
-	// The directory is read on every call, so an action written while the server runs is listed without a restart.
 	ListActions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListActionsResponse], error)
-	// Fire and forget. The action is started and nothing waits for it, so this
-	// answers as soon as the process exists and never reports what it did.
 	RunAction(context.Context, *connect.Request[v1.RunActionRequest]) (*connect.Response[emptypb.Empty], error)
-	// Open an action's file in the user's editor, in the pane the panel keeps under its
-	// stage. It is the panel's own key rather than something to offer a model, so it
-	// carries no tool annotation: a model editing a script reads and writes the file
-	// itself. A file that is not text is refused rather than opened.
 	EditAction(context.Context, *connect.Request[v1.EditActionRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
@@ -115,15 +108,8 @@ func (c *actionServiceClient) EditAction(ctx context.Context, req *connect.Reque
 
 // ActionServiceHandler is an implementation of the action.v1.ActionService service.
 type ActionServiceHandler interface {
-	// The directory is read on every call, so an action written while the server runs is listed without a restart.
 	ListActions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListActionsResponse], error)
-	// Fire and forget. The action is started and nothing waits for it, so this
-	// answers as soon as the process exists and never reports what it did.
 	RunAction(context.Context, *connect.Request[v1.RunActionRequest]) (*connect.Response[emptypb.Empty], error)
-	// Open an action's file in the user's editor, in the pane the panel keeps under its
-	// stage. It is the panel's own key rather than something to offer a model, so it
-	// carries no tool annotation: a model editing a script reads and writes the file
-	// itself. A file that is not text is refused rather than opened.
 	EditAction(context.Context, *connect.Request[v1.EditActionRequest]) (*connect.Response[emptypb.Empty], error)
 }
 

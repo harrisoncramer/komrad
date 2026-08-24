@@ -1,7 +1,5 @@
 package errui
 
-// Finding is one thing the doctor found wrong, restated here rather than imported so
-// drawing a screen doesn't pull the checks and their database handles in behind it.
 type Finding struct {
 	Name   string
 	Reason string
@@ -46,8 +44,6 @@ func Startup(width int, err error, findings []Finding) string {
 		},
 	}
 
-	// Ahead of the error, since these name the dependency behind it and whichever comes
-	// first is what gets read.
 	for _, finding := range findings {
 		screen.Details = append(screen.Details, Detail{Label: finding.Name, Value: finding.Reason})
 		if finding.Fix != "" {
@@ -57,7 +53,6 @@ func Startup(width int, err error, findings []Finding) string {
 
 	screen.Details = append(screen.Details, Detail{Label: "error", Value: err.Error()})
 
-	// With nothing found, the log tail is all anyone has to act on.
 	if len(findings) == 0 {
 		screen.Hints = append(screen.Hints, "Run weave doctor for what this machine is missing.")
 	}

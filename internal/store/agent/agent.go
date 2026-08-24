@@ -1,4 +1,3 @@
-// Package agent persists background agents.
 package agent
 
 import (
@@ -17,13 +16,10 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// ErrTooManyMetadataKeys reports that an agent has reached its metadata limit.
 var ErrTooManyMetadataKeys = errors.New("too many metadata keys")
 
-// Bound agent-controlled keys to prevent an action loop from filling the table.
 const maxMetadataKeys = 32
 
-// This advisory lock key is stable and reserved for agent slot claims.
 const slotsLock int64 = 7_240_116
 
 const (
@@ -32,13 +28,11 @@ const (
 	StateIdle     = "idle"
 )
 
-// Metadata is a fact an agent records about its work.
 type Metadata struct {
 	Key   string
 	Value string
 }
 
-// Agent is a persisted background agent.
 type Agent struct {
 	ID             string
 	Name           string
@@ -50,10 +44,7 @@ type Agent struct {
 	Prompt         string
 	State          string
 	StateChangedAt time.Time
-	// StateSeenAt is when a reconcile pass last confirmed the state, which is not the same
-	// question as when the state last moved. A pass that could not read the pane leaves the
-	// state alone, so this is the only thing that says whether the state is still being
-	// observed or is simply the last thing anybody managed to see.
+
 	StateSeenAt      time.Time
 	Harness          string
 	SessionID        string
@@ -68,11 +59,9 @@ type Agent struct {
 	SpawnedByAgentID *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
-	// Branch is the branch checked out at Cwd, nil when Cwd is not a git worktree or has
-	// not been looked at yet. Written only by the branch syncer, never by anything else.
+
 	Branch *string
-	// WorktreeRemoved reports whether Cwd no longer exists on disk, false until a periodic
-	// pass has looked and found it gone. Written only by the worktree syncer.
+
 	WorktreeRemoved bool
 }
 
@@ -88,7 +77,6 @@ func SanitizeName(name string) string {
 	}, name)
 }
 
-// Store reads and writes agents.
 type Store struct {
 	queries *models.Queries
 	db      store.DBTX
@@ -113,7 +101,6 @@ func (s *Store) List(ctx context.Context) ([]Agent, error) {
 	return s.hydrateMetadataForAgents(ctx, rows)
 }
 
-// Cursor locates an agent within a paginated listing.
 type Cursor struct {
 	ID string `json:"i"`
 }
@@ -142,8 +129,6 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 	return s.hydrateMetadataForAgents(ctx, rows)
 }
 
-// hydrateMetadataForAgents is the single loader for fully hydrated agents, metadata included.
-// Every list/get method routes through it so callers never stitch metadata back in themselves.
 func (s *Store) hydrateMetadataForAgents(ctx context.Context, rows []*models.Agent) ([]Agent, error) {
 	agents := make([]Agent, 0, len(rows))
 	ids := make([]string, 0, len(rows))
@@ -443,7 +428,6 @@ func (s *Store) SetHidden(ctx context.Context, id string, hidden bool) (bool, er
 	return len(updated) > 0, nil
 }
 
-// SetMetadataParams identifies a metadata value to set or clear.
 type SetMetadataParams struct {
 	ID    string
 	Key   string
@@ -478,13 +462,10 @@ func (s *Store) SetMetadata(ctx context.Context, params SetMetadataParams) (bool
 
 	queries := models.New(tx)
 
-	// Locking here, before counting, is what keeps two callers writing different new keys
-	// from both reading the same count and both slipping past the limit.
 	if err := queries.LockAgentMetadata(ctx, params.ID); err != nil {
 		return false, fmt.Errorf("failed to lock metadata for agent %q: %w", params.ID, err)
 	}
 
-	// Existing keys remain writable after the agent reaches the key limit.
 	held, err := queries.ListAgentMetadata(ctx, []string{params.ID})
 	if err != nil {
 		return false, fmt.Errorf("failed to read metadata on agent %q: %w", params.ID, err)
@@ -660,7 +641,6 @@ func (s *Store) ListArchivedInWorkflow(ctx context.Context, workflowID string) (
 	return s.hydrateMetadataForAgents(ctx, rows)
 }
 
-// PostgreSQL rejects the entire UUID array when any element is invalid.
 func keepStorableIDs(ids []string) []string {
 	return xslice.Filter(ids, store.IsID)
 }
