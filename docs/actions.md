@@ -13,49 +13,11 @@ Actions are placed into your actions directory, which is at `~/.config/weave/act
 dir = "~/some/other/path"
 ```
 
-The directory is read on every call, so an action you write while the service is running shows up without a restart. Actions must be executable. Files that aren't will be listed in the manager panel, but not execute.
-
-## What an action is told
-
-Actions get values through the environment, over whatever the service itself is running with.
-
-The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`, `state`,`cwd`, `harness`, `session_id`, and other information about the agent. Other environment variables are:
-
-- `WEAVE_AGENT_ID` and `WEAVE_AGENT_CWD`, the two fields most scripts want.
-- `WEAVE_ADDR`, this server's address, for calling back into the API or the [CLI](commands.md).
-- `WEAVE_TMUX_SOCKET`, the tmux server every agent's pane lives on
-- `WEAVE_ACTIONS_DIR`, the directory the action came out of, which is how a script that cds elsewhere finds its siblings again.
-- `WEAVE_TRIGGER`, what set the action off. One of `manual`, `setup`, `resume`, or `cleanup`.
-- `WEAVE_SETUP_DIR_FILE`, only on `setup` and `resume`: an empty file the action may write the agent's new directory into. See below.
-- `WEAVE_ACTION`, this action's own name, for tagging its own log lines.
-- `WEAVE_INFO_PANE`, the panel's info pane, for a script that wants to draw something where the panel's own actions do.
-- `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup.
-- `EDITOR` and `WEAVE_SHELL`
-
-`PATH` has this build's own directory placed in front, ahead of whatever the service inherited, so `weave rpc ...` calls from a script resolve to this binary even if its directory is not on your own PATH.
-
 An action runs in the actions directory it was found in.
 
-## Action Metadata
+## Execution
 
-You can provide certain metadata to an action by adding _headers_ to the top of the file.
-
-```bash
-#!/bin/sh
-#WEAVE description="This is my custom action"
-#WEAVE timeout="1s"
-
-# Add whatever logic you want here.
-# Failures on stdout will get captured by weave's log automatically
-# You can also send messages to the log manually, like this:
-weave rpc log --message 'Hello world' --action "$WEAVE_ACTION"
-```
-
-`--id` defaults to your own agent, read off `WEAVE_AGENT_ID` the same way every `weave rpc` call already does, so it only needs stating to log about a different agent. `--action` has no such default: pass `WEAVE_ACTION` explicitly to tag which action's run a line belongs to.
-
-This action will abort and fail if it cannot execute within 1 second.
-
-## The three ways an action runs
+Actions run at three different moments.
 
 ### As a workflow's setup action
 
@@ -100,44 +62,38 @@ weave rpc log --message 'Some custom message'
 
 Agents can also run actions, for instance to trigger external system, fire alerts, or manage the filesystem.
 
-## Example: create a worktree
+## The Environment
 
-Create an executable file called `create-worktree`:
+Actions get values through the environment, over whatever the service itself is running with.
 
-```sh
+The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`, `state`,`cwd`, `harness`, `session_id`, and other information about the agent. Other environment variables are:
+
+- `WEAVE_AGENT_ID` and `WEAVE_AGENT_CWD`, the two fields most scripts want.
+- `WEAVE_ADDR`, this server's address, for calling back into the API or the [CLI](commands.md).
+- `WEAVE_TMUX_SOCKET`, the tmux server every agent's pane lives on
+- `WEAVE_ACTIONS_DIR`, the directory the action came out of, which is how a script that cds elsewhere finds its siblings again.
+- `WEAVE_TRIGGER`, what set the action off. One of `manual`, `setup`, `resume`, or `cleanup`.
+- `WEAVE_ACTION`, this action's own name, for tagging its own log lines.
+- `WEAVE_INFO_PANE`, the panel's info pane, for a script that wants to draw something where the panel's own actions do.
+- `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup.
+- `EDITOR` and `WEAVE_SHELL`
+
+## Action Metadata
+
+You can configure a small set of metadata for an action by adding _headers_ to the top of the file.
+
+```bash
 #!/bin/sh
-set -eu
+#WEAVE description="This is my custom action"
+#WEAVE timeout="1s"
 
-repo="$HOME/code/weave"
-name=$(printf '%s' "$WEAVE_AGENT" | jq -r .name)
-tree="$repo/.worktrees/$name"
-
-weave rpc log --message "Preparing $tree" --action "$WEAVE_ACTION"
-
-if [ ! -d "$tree" ]; then
-	git -C "$repo" fetch --quiet origin main
-	git -C "$repo" worktree add --quiet -B "agent/$name" "$tree" origin/main
-fi
-
-weave rpc log --message "Prepared $tree" --action "$WEAVE_ACTION"
+# Add whatever logic you want here.
+# Failures on stdout will get captured by weave's log automatically
+# You can also send messages to the log manually, like this:
+weave rpc log --message 'Hello world' --action "$WEAVE_ACTION"
 ```
 
-In the workflow manager, set it as a workflow's setup action.
-
-Every agent spawned under that workflow will now get a new worktree. This matching cleanup action called `cleanup-worktree` can be used to remove it when the agent is deleted:
-
-```sh
-#!/bin/sh
-set -eu
-
-repo="$HOME/code/weave"
-tree="$WEAVE_AGENT_CWD"
-
-case "$tree" in
-"$repo/.worktrees/"*) git -C "$repo" worktree remove --force "$tree" ;;
-*) weave rpc log --message "Failed to prepare $tree" --action "$WEAVE_ACTION"
-esac
-```
+This action will abort and fail if it cannot execute within 1 second.
 
 ## Example: open the pull request an agent recorded
 
@@ -163,8 +119,8 @@ exec open "$url"
 
 ## The builtins, and replacing one
 
-Weave ships one action by default, `_edit_action`, which is what `e` runs on the actions list: it opens the script under the cursor in your editor so you can change it without leaving weave. It's told which file to open in `WEAVE_EDIT_PATH`, since the name you pressed the key on can come from either your own directory or the one weave ships. A file with no text in it is not offered, since there is nothing in a compiled program to edit.
+Weave ships some actions by default.
 
-Action names starting with underscores like these are left out of the panel's action list. Add your own `_edit_action` to replace the builtin one.
+Action names starting with underscores like these are left out of the panel's action list. Add your own to override the builtins.
 
 
