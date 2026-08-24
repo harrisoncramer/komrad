@@ -10,6 +10,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 
+	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -182,7 +183,8 @@ type writeResult struct {
 	err     error
 	// written is set by a write that made something for the panel to land on, and nil for
 	// the rest.
-	written *written
+	written   *written
+	setupPane bool
 }
 
 // written is what a write that created something hands back: the tree row the next listing
@@ -239,12 +241,13 @@ func (m *model) createCmd(params createAgentParams) tea.Cmd {
 	return func() tea.Msg {
 		agent, err := clients.createAgent(params)
 		if err != nil {
-			return writeResult{summary: "Could not start the agent", err: err}
+			return writeResult{summary: "Could not start the agent", err: err, setupPane: params.SetupPane != ""}
 		}
 
 		return writeResult{
-			summary: "Could not start the agent",
-			written: &written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()},
+			summary:   "Could not start the agent",
+			written:   &written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()},
+			setupPane: params.SetupPane != "",
 		}
 	}
 }
@@ -295,6 +298,10 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		if result.written.pane != "" {
 			m.frame.ShowGuest(result.written.pane)
 		}
+	}
+
+	if result.setupPane && m.info.kind == infoSetup && connect.CodeOf(result.err) != connect.CodeFailedPrecondition {
+		m = m.closeInfo()
 	}
 
 	if m.pendingForm {

@@ -524,20 +524,41 @@ func (m model) submitAgent() (tea.Model, tea.Cmd) {
 		return m.closeForm()
 	}
 
+	setupAction := actionOverride(m.values.agent.SetupAction)
+	effectiveSetup := m.target.newAgentWorkflow.SetupAction
+	if setupAction != nil {
+		effectiveSetup = *setupAction
+	}
+
+	var pane string
+	if effectiveSetup != "" {
+		m = m.closeInfo()
+		if m.claimInfo(infoSetup, "") {
+			pane = m.frame.Pane(layout.RegionInfo)
+		}
+	}
+
 	params := createAgentParams{
 		Prompt:        m.values.agent.Prompt,
 		Title:         m.values.agent.Title,
 		Harness:       m.values.agent.Harness,
 		Dir:           m.currentDir(m.values.agent.Dir),
 		Flags:         m.values.agent.Flags,
-		SetupAction:   actionOverride(m.values.agent.SetupAction),
+		SetupAction:   setupAction,
 		CleanupAction: actionOverride(m.values.agent.CleanupAction),
 		WorkflowID:    m.target.newAgentWorkflow.ID,
+		SetupPane:     pane,
 	}
 
 	cmd := m.createCmd(params)
 
-	return m, tea.Batch(cmd, m.holdForm())
+	if pane == "" {
+		return m, tea.Batch(cmd, m.holdForm())
+	}
+
+	next, closeCmd := m.closeForm()
+
+	return next, tea.Batch(cmd, closeCmd)
 }
 
 func actionOverride(selected string) *string {

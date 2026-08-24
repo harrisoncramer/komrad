@@ -445,8 +445,10 @@ type CreateAgentRequest struct {
 	IdempotencyKey *string `protobuf:"bytes,6,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
 	SetupAction    *string `protobuf:"bytes,8,opt,name=setup_action,json=setupAction,proto3,oneof" json:"setup_action,omitempty"`
 	CleanupAction  *string `protobuf:"bytes,9,opt,name=cleanup_action,json=cleanupAction,proto3,oneof" json:"cleanup_action,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Set only by the panel itself, against a pane it opened for the purpose. Leave blank.
+	SetupPane     string `protobuf:"bytes,10,opt,name=setup_pane,json=setupPane,proto3" json:"setup_pane,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateAgentRequest) Reset() {
@@ -538,6 +540,13 @@ func (x *CreateAgentRequest) GetSetupAction() string {
 func (x *CreateAgentRequest) GetCleanupAction() string {
 	if x != nil && x.CleanupAction != nil {
 		return *x.CleanupAction
+	}
+	return ""
+}
+
+func (x *CreateAgentRequest) GetSetupPane() string {
+	if x != nil {
+		return x.SetupPane
 	}
 	return ""
 }
@@ -1298,7 +1307,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12ListAgentsResponse\x12'\n" +
 	"\x06agents\x18\x01 \x03(\v2\x0f.agent.v1.AgentR\x06agents\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"\xbb\x04\n" +
+	"\x10_next_page_token\"\xe3\x04\n" +
 	"\x12CreateAgentRequest\x12#\n" +
 	"\x06prompt\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12\x7f\n" +
 	"\x05title\x18\x02 \x01(\tBi\xbaHf\xba\x01^\n" +
@@ -1311,7 +1320,10 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x0fidempotency_key\x18\x06 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x00R\x0eidempotencyKey\x88\x01\x01\x124\n" +
 	"\fsetup_action\x18\b \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01H\x01R\vsetupAction\x88\x01\x01\x128\n" +
-	"\x0ecleanup_action\x18\t \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01H\x02R\rcleanupAction\x88\x01\x01B\x12\n" +
+	"\x0ecleanup_action\x18\t \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01H\x02R\rcleanupAction\x88\x01\x01\x12&\n" +
+	"\n" +
+	"setup_pane\x18\n" +
+	" \x01(\tB\a\xbaH\x04r\x02\x18\x14R\tsetupPaneB\x12\n" +
 	"\x10_idempotency_keyB\x0f\n" +
 	"\r_setup_actionB\x11\n" +
 	"\x0f_cleanup_action\"<\n" +

@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -33,6 +34,9 @@ type tmuxReader interface {
 	GetInfoPane() string
 	ShowGlobal(name string) string
 	DefaultShell() string
+	IsPaneAlive(pane string) bool
+	RespawnPane(pane, dir string, argv ...string)
+	WaitFor(ctx context.Context, channel string) error
 }
 
 type actionRunner interface {
@@ -188,16 +192,20 @@ const maxSetupDir = 4096
 const setupDirFileVar = "WEAVE_SETUP_DIR_FILE"
 
 // RunSetupAction runs a setup action before creating an agent.
-func (s *ActionService) RunSetupAction(ctx context.Context, agent agentstore.Agent, name string) (string, error) {
-	return s.runAwaitedAction(ctx, prepareParams{agent: agent, name: name, trigger: TriggerSetup})
+func (s *ActionService) RunSetupAction(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error) {
+	return s.runAwaitedAction(ctx, prepareParams{agent: agent, name: name, trigger: TriggerSetup}, pane)
 }
 
 // RunResumeAction reruns a setup action before resuming an agent.
 func (s *ActionService) RunResumeAction(ctx context.Context, agent agentstore.Agent, name string) (string, error) {
-	return s.runAwaitedAction(ctx, prepareParams{agent: agent, name: name, trigger: TriggerResume})
+	return s.runAwaitedAction(ctx, prepareParams{agent: agent, name: name, trigger: TriggerResume}, "")
 }
 
-func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams) (string, error) {
+func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams, pane string) (string, error) {
+	if pane != "" && pane != s.tmux.GetInfoPane() {
+		pane = ""
+	}
+
 	action, env, err := s.prepare(ctx, p)
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrSetupFailed, err)
@@ -225,12 +233,19 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams) (
 	logger.LogAttrs(ctx, slog.LevelInfo, "action started")
 	began := time.Now()
 
-	result, err := s.runner.RunAndWait(ctx, actions.RunParams{
-		Action:  action,
-		Dir:     action.GetDir(),
-		Env:     env,
-		Timeout: action.Header.TimeoutOr(setupTimeout),
-	})
+	timeout := action.Header.TimeoutOr(setupTimeout)
+
+	var result actions.Result
+	if pane != "" {
+		result, err = s.runInPane(ctx, action, env, pane, timeout)
+	} else {
+		result, err = s.runner.RunAndWait(ctx, actions.RunParams{
+			Action:  action,
+			Dir:     action.GetDir(),
+			Env:     env,
+			Timeout: timeout,
+		})
+	}
 
 	logger.LogAttrs(ctx, slog.LevelInfo, "action finished", finishedAction(result, began)...)
 
@@ -249,6 +264,139 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams) (
 	}
 
 	return answered, nil
+}
+
+const setupPaneOutputLimit = 64 << 10
+
+const setupPaneWrapper = `
+mkfifo "$6"
+tee "$5" >&2 <"$6" &
+teepid=$!
+"$1" 2>"$6"
+ec=$?
+wait "$teepid"
+rm -f "$6"
+echo "$ec" >"$4"
+tmux -L "$2" wait-for -S "$3"
+if [ "$ec" -ne 0 ]; then
+  printf '\n[setup action exited %s -- press enter to close]\n' "$ec"
+  read -r _dismiss
+fi
+`
+
+const setupPaneGaveUpWrapper = `
+printf '\n[setup action %s: gave up after %s]\n' "$1" "$2"
+exec "$3"
+`
+
+func (s *ActionService) runInPane(ctx context.Context, action actions.Action, env []string, pane string, timeout time.Duration) (actions.Result, error) {
+	if !action.Executable {
+		return actions.Result{}, fmt.Errorf("failed to run action %s: %w", action.Name, ErrActionNotExecutable)
+	}
+
+	dir := action.GetDir()
+	if info, statErr := os.Stat(dir); statErr != nil || !info.IsDir() {
+		return actions.Result{}, fmt.Errorf("failed to run action %s in %s: %w", action.Name, dir, ErrActionDirMissing)
+	}
+
+	if !s.tmux.IsPaneAlive(pane) {
+		return actions.Result{}, fmt.Errorf("failed to run action %s: %w: the pane %s is gone", action.Name, actions.ErrNotStartable, pane)
+	}
+
+	exitFile, err := os.CreateTemp("", "weave-setup-exit-")
+	if err != nil {
+		return actions.Result{}, fmt.Errorf("failed to run action %s: %w", action.Name, err)
+	}
+	exitFile.Close()
+	defer removeTemp(ctx, exitFile.Name())
+
+	errFile, err := os.CreateTemp("", "weave-setup-err-")
+	if err != nil {
+		return actions.Result{}, fmt.Errorf("failed to run action %s: %w", action.Name, err)
+	}
+	errFile.Close()
+	defer removeTemp(ctx, errFile.Name())
+
+	fifoFile, err := os.CreateTemp("", "weave-setup-fifo-")
+	if err != nil {
+		return actions.Result{}, fmt.Errorf("failed to run action %s: %w", action.Name, err)
+	}
+	fifoPath := fifoFile.Name()
+	fifoFile.Close()
+	removeTemp(ctx, fifoPath)
+	defer removeTemp(ctx, fifoPath)
+
+	channel := fmt.Sprintf("weave-setup-%s-%d", strings.TrimPrefix(pane, "%"), time.Now().UnixNano())
+
+	waitCtx := ctx
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		waitCtx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
+	argv := append([]string{"env", "-i"}, os.Environ()...)
+	argv = append(argv, env...)
+	argv = append(argv, "sh", "-c", setupPaneWrapper, "sh",
+		action.Path, s.socket, channel, exitFile.Name(), errFile.Name(), fifoPath)
+	s.tmux.RespawnPane(pane, dir, argv...)
+
+	waitErr := s.tmux.WaitFor(waitCtx, channel)
+
+	stderr, readErr := os.ReadFile(errFile.Name())
+	if readErr != nil {
+		logging.From(ctx).Warn("failed to read setup pane stderr", "path", errFile.Name(), "error", readErr)
+	}
+	stderr = tailBytes(stderr, setupPaneOutputLimit)
+
+	if waitErr != nil {
+		if waitCtx.Err() != nil {
+			shell := s.tmux.DefaultShell()
+			if shell == "" {
+				shell = "/bin/sh"
+			}
+			s.tmux.RespawnPane(pane, dir, "sh", "-c", setupPaneGaveUpWrapper, "sh", action.Name, timeout.String(), shell)
+
+			return actions.Result{Stderr: stderr, ExitCode: -1},
+				fmt.Errorf("failed to run action %s: %w: gave up after %s", action.Name, waitCtx.Err(), timeout)
+		}
+
+		return actions.Result{Stderr: stderr, ExitCode: -1},
+			fmt.Errorf("failed to run action %s: could not tell whether it finished: %w", action.Name, waitErr)
+	}
+
+	exitRaw, err := os.ReadFile(exitFile.Name())
+	if err != nil {
+		return actions.Result{Stderr: stderr, ExitCode: -1},
+			fmt.Errorf("failed to run action %s: could not read its exit status: %w", action.Name, err)
+	}
+
+	exitCode, convErr := strconv.Atoi(strings.TrimSpace(string(exitRaw)))
+	if convErr != nil {
+		return actions.Result{Stderr: stderr, ExitCode: -1},
+			fmt.Errorf("failed to run action %s: could not read its exit status: %w", action.Name, convErr)
+	}
+
+	result := actions.Result{Stderr: stderr, ExitCode: exitCode}
+	if exitCode != 0 {
+		return result, fmt.Errorf("failed to run action %s: %w: exited %d", action.Name, actions.ErrFailed, exitCode)
+	}
+
+	return result, nil
+}
+
+func removeTemp(ctx context.Context, path string) {
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		logging.From(ctx).Warn("failed to remove temp file", "path", path, "error", err)
+	}
+}
+
+func tailBytes(b []byte, limit int) []byte {
+	if len(b) <= limit {
+		return b
+	}
+
+	return b[len(b)-limit:]
 }
 
 // RunCleanupAction starts a cleanup action without waiting for it to finish.

@@ -102,6 +102,7 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 		WorkflowID:     req.Msg.GetWorkflowId(),
 		Harness:        req.Msg.GetHarness(),
 		IdempotencyKey: req.Msg.GetIdempotencyKey(),
+		SetupPane:      req.Msg.GetSetupPane(),
 	})
 	switch {
 	case errors.Is(err, agents.ErrWorkflowNotFound):

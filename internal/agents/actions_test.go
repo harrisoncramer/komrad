@@ -15,6 +15,7 @@ import (
 	"weave/internal/actions"
 	"weave/internal/logging"
 	"weave/internal/tmux"
+	"weave/internal/tmuxtest"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -466,7 +467,7 @@ func TestRunSetupAction(t *testing.T) {
 			runner := &recordingRunner{results: map[string]runResult{tt.action: tt.result}}
 			service := actionService(t, dir, runner)
 
-			got, err := service.RunSetupAction(t.Context(), agentstore.Agent{ID: "a1", Name: "auth"}, tt.action)
+			got, err := service.RunSetupAction(t.Context(), agentstore.Agent{ID: "a1", Name: "auth"}, tt.action, "")
 
 			if tt.wantErr {
 				require.ErrorIs(t, err, ErrSetupFailed)
@@ -498,7 +499,7 @@ func TestRunSetupActionTellsTheScriptWhatSetItOff(t *testing.T) {
 		{
 			name: "fired as a workflow's setup",
 			fire: func(s *ActionService, _ *recordingRunner) error {
-				_, err := s.RunSetupAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree")
+				_, err := s.RunSetupAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree", "")
 				return err
 			},
 			wantTrigger: TriggerSetup,
@@ -544,11 +545,101 @@ func TestRunSetupActionCarriesTheReason(t *testing.T) {
 		"make-worktree": {stderr: "fatal: 'api-auth' is already checked out", err: actions.ErrFailed},
 	}}
 
-	_, err := actionService(t, dir, runner).RunSetupAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree")
+	_, err := actionService(t, dir, runner).RunSetupAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree", "")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "already checked out")
 }
+
+// TestRunInPaneStreamsToARealPane drives runInPane against a real, throwaway tmux server
+// rather than a fake, since the wrapper script it respawns into a pane is shell rather than
+// Go, and a fake tmux would only ever prove the Go side calls out correctly, not that what
+// it hands tmux actually runs.
+func TestRunInPaneStreamsToARealPane(t *testing.T) {
+	server := tmuxtest.New(t)
+	server.NewSession("test")
+	server.Run("new-window", "-d", "-t", "test:")
+
+	dir := t.TempDir()
+	svc := NewActionService(ActionParams{
+		Tmux:   realPaneRunner{server.Client()},
+		Socket: server.Socket(),
+	})
+
+	// Each case gets a pane of its own, split fresh off the keep-alive window, the way each
+	// new-agent submit splits a fresh one off the stage: the wrapper's own process is the
+	// only thing in it, and remain-on-exit is off, so tmux destroys the pane once that
+	// process ends, whichever way it ends.
+	freshPane := func(t *testing.T) string {
+		t.Helper()
+
+		return server.Run("split-window", "-d", "-P", "-F", "#{pane_id}", "-t", "test:1")
+	}
+
+	t.Run("a script that succeeds", func(t *testing.T) {
+		pane := freshPane(t)
+		script := filepath.Join(dir, "ok")
+		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\necho \"working in $FOO\" >&2\n"), 0o755))
+
+		result, err := svc.runInPane(t.Context(), actions.Action{Name: "ok", Path: script, Executable: true}, []string{"FOO=api-auth"}, pane, 2*time.Second)
+
+		require.NoError(t, err)
+		assert.Equal(t, 0, result.ExitCode)
+		assert.Contains(t, string(result.Stderr), "working in api-auth", "captured alongside streaming live to the pane")
+	})
+
+	t.Run("a script that fails", func(t *testing.T) {
+		pane := freshPane(t)
+		script := filepath.Join(dir, "bad")
+		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\necho 'fatal: already checked out' >&2\nexit 7\n"), 0o755))
+
+		result, err := svc.runInPane(t.Context(), actions.Action{Name: "bad", Path: script, Executable: true}, nil, pane, 2*time.Second)
+
+		require.Error(t, err)
+		assert.ErrorIs(t, err, actions.ErrFailed)
+		assert.Equal(t, 7, result.ExitCode)
+		assert.Contains(t, string(result.Stderr), "fatal: already checked out")
+		captured := server.Run("capture-pane", "-p", "-t", pane)
+		assert.Contains(t, captured, "fatal: already checked out", "left up to read rather than only in the error")
+		assert.Contains(t, captured, "exited 7", "held open on a prompt rather than left to vanish")
+
+		server.Run("send-keys", "-t", pane, "Enter")
+	})
+
+	t.Run("a script that outlives its timeout", func(t *testing.T) {
+		pane := freshPane(t)
+		script := filepath.Join(dir, "slow")
+		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\nsleep 30\n"), 0o755))
+
+		_, err := svc.runInPane(t.Context(), actions.Action{Name: "slow", Path: script, Executable: true}, nil, pane, 200*time.Millisecond)
+
+		require.Error(t, err)
+		assert.ErrorIs(t, err, context.DeadlineExceeded)
+	})
+
+	t.Run("a pane that is already gone", func(t *testing.T) {
+		pane := freshPane(t)
+		server.Run("kill-pane", "-t", pane)
+
+		script := filepath.Join(dir, "ok")
+		_, err := svc.runInPane(t.Context(), actions.Action{Name: "ok", Path: script, Executable: true}, nil, pane, time.Second)
+
+		require.Error(t, err)
+		assert.ErrorIs(t, err, actions.ErrNotStartable)
+	})
+}
+
+// realPaneRunner backs RespawnPane and WaitFor with a real tmux server, and stubs the rest
+// of tmuxReader, which runInPane never touches.
+type realPaneRunner struct {
+	*tmux.Client
+}
+
+func (realPaneRunner) GetPaneOwner(string) string { return "" }
+func (realPaneRunner) GetHostSocket() string      { return "" }
+func (realPaneRunner) GetInfoPane() string        { return "" }
+func (realPaneRunner) ShowGlobal(string) string   { return "" }
+func (realPaneRunner) DefaultShell() string       { return "" }
 
 // TestRunCleanupActionRefusesOneThatIsGone covers a cleanup naming a script that has been
 // renamed. It reports rather than pretending, and the caller is the one that decides an agent
@@ -676,7 +767,7 @@ func TestSetupActionLogsBothEnds(t *testing.T) {
 			ctx, records := loggedContext(t)
 
 			_, err := actionService(t, dir, runner).
-				RunSetupAction(ctx, agentstore.Agent{ID: "a1", Cwd: "/repo"}, "make-worktree")
+				RunSetupAction(ctx, agentstore.Agent{ID: "a1", Cwd: "/repo"}, "make-worktree", "")
 			if tt.result.err != nil {
 				require.Error(t, err)
 			} else {
@@ -938,7 +1029,7 @@ func TestActionTimeouts(t *testing.T) {
 			name:   "a setup action that declares nothing keeps the ceiling a launch needs",
 			action: "bare",
 			fire: func(s *ActionService, name string) error {
-				_, err := s.RunSetupAction(context.Background(), agent, name)
+				_, err := s.RunSetupAction(context.Background(), agent, name, "")
 
 				return err
 			},
@@ -948,7 +1039,7 @@ func TestActionTimeouts(t *testing.T) {
 			name:   "a setup action that declares one is held to what it declared",
 			action: "declared",
 			fire: func(s *ActionService, name string) error {
-				_, err := s.RunSetupAction(context.Background(), agent, name)
+				_, err := s.RunSetupAction(context.Background(), agent, name, "")
 
 				return err
 			},
@@ -1079,11 +1170,14 @@ type fakePaneOwner struct {
 	infoPane string
 }
 
-func (f fakePaneOwner) GetPaneOwner(string) string    { return f.owner }
-func (f fakePaneOwner) GetHostSocket() string         { return f.hostSocket }
-func (f fakePaneOwner) ShowGlobal(name string) string { return f.globals[name] }
-func (f fakePaneOwner) GetInfoPane() string           { return f.infoPane }
-func (f fakePaneOwner) DefaultShell() string          { return f.shell }
+func (f fakePaneOwner) GetPaneOwner(string) string            { return f.owner }
+func (f fakePaneOwner) GetHostSocket() string                 { return f.hostSocket }
+func (f fakePaneOwner) ShowGlobal(name string) string         { return f.globals[name] }
+func (f fakePaneOwner) GetInfoPane() string                   { return f.infoPane }
+func (f fakePaneOwner) DefaultShell() string                  { return f.shell }
+func (f fakePaneOwner) IsPaneAlive(string) bool               { return true }
+func (f fakePaneOwner) RespawnPane(string, string, ...string) {}
+func (f fakePaneOwner) WaitFor(context.Context, string) error { return nil }
 
 // recordingRunner stands in for starting a process, so the service's tests drive the whole path
 // without spawning anything. Only the last run's directory and environment are kept, since no
