@@ -188,9 +188,9 @@ func (c *Client) SendKeys(target string, keys ...string) error {
 	return nil
 }
 
-// SendText types a string into a pane as text, which -l is what buys: SendKeys looks each
-// argument up as a key name first, so a word naming a key arrives as that key. It does not
-// rescue a pane in a mode, which reads literal keys through the mode's table just the same.
+// SendText types a string into a pane as text. SendKeys looks each argument up as a key name
+// first, so a word naming a key arrives as that key, and -l is what turns the lookup off. It
+// does not rescue a pane in a mode, which reads literal keys through the mode's table too.
 func (c *Client) SendText(target, text string) error {
 	if target == "" {
 		return errors.New("refusing to send text to an empty target")
