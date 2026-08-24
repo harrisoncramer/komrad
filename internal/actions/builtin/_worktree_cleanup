@@ -3,6 +3,7 @@
 set -eu
 
 tree="$WEAVE_AGENT_CWD"
+branch="agent/$WEAVE_AGENT_ID"
 
 if [ ! -d "$tree" ] || [ ! -f "$tree/.git" ]; then
 	exit 0
@@ -11,5 +12,39 @@ fi
 common_dir=$(git -C "$tree" rev-parse --git-common-dir 2>/dev/null) || exit 0
 repo=$(dirname "$common_dir")
 
+# Being a worktree is not proof of being this agent's worktree. A worktree the user made by
+# hand passes the same check above, and the launch path reaches cleanup with the agent's cwd
+# still set to whatever the workflow named when setup never got to replace it.
+on=$(git -C "$tree" rev-parse --abbrev-ref HEAD 2>/dev/null) || exit 0
+if [ "$on" != "$branch" ]; then
+	echo "worktree cleanup: $tree is on $on rather than $branch, so it is not this agent's to remove" >&2
+	exit 0
+fi
+
+# worktree remove --force reads a nested worktree as an ordinary untracked directory, deletes
+# its files, and leaves git holding a registration for a checkout that is no longer there.
+registered=$(git -C "$repo" worktree list --porcelain | sed -n 's|^worktree ||p')
+nested=$(printf '%s\n' "$registered" | grep -F -x -v "$tree" | grep -F "$tree/" || true)
+if [ -n "$nested" ]; then
+	echo "worktree cleanup: $tree holds another registered worktree, so it is being left alone:" >&2
+	printf '%s\n' "$nested" >&2
+	exit 0
+fi
+
+# Nobody is left to ask by the time cleanup runs and the agent's row is already going, so a
+# dirty worktree does not block the delete. What went with it is written down instead.
+dirty=$(git -C "$tree" status --porcelain --untracked-files=all 2>/dev/null) || dirty=""
+if [ -n "$dirty" ]; then
+	echo "worktree cleanup: removing $tree along with uncommitted changes:" >&2
+	printf '%s\n' "$dirty" >&2
+fi
+
 git -C "$repo" worktree remove --force "$tree" || true
-git -C "$repo" branch -D "agent/$WEAVE_AGENT_ID" || true
+
+# -d rather than -D: a branch holding commits nobody merged is the one recoverable trace of
+# what the agent did, and force deleting it throws those commits away.
+if ! refused=$(git -C "$repo" branch -d "$branch" 2>&1); then
+	if git -C "$repo" show-ref --quiet --verify "refs/heads/$branch"; then
+		echo "worktree cleanup: kept the branch $branch: $refused" >&2
+	fi
+fi

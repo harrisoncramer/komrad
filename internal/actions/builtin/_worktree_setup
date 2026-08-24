@@ -18,6 +18,13 @@ apply_paths() {
 			echo "worktree setup: $p not found in $repo, skipping $kind" >&2
 			continue
 		fi
+		# A fresh worktree already holds every tracked path, so copying one lands it inside
+		# the directory git just checked out and linking one replaces a checked-out file with
+		# a link to the primary checkout's copy of itself.
+		if git -C "$repo" ls-files --error-unmatch -- "$p" >/dev/null 2>&1; then
+			echo "worktree setup: $p is tracked and already in the worktree, skipping $kind" >&2
+			continue
+		fi
 		mkdir -p "$(dirname "$dest")"
 		if [ "$kind" = copy ]; then
 			cp -rf "$src" "$dest" || echo "worktree setup: failed to copy $p" >&2
@@ -48,7 +55,26 @@ else
 
 	mkdir -p "$WEAVE_WORKTREES_DIR"
 	echo "creating a worktree at $tree from $point" >&2
-	git -C "$repo" worktree add -B "agent/$WEAVE_AGENT_ID" "$tree" "$point" >&2
+
+	# --no-track leaves the branch with no upstream. Tracking the base would have git status
+	# inside the worktree measure the agent against a branch it is not on, make a plain push
+	# refuse because the upstream's name is not the branch's, and write the repo's shared
+	# config on every create, which is a lock every concurrent create then fails on.
+	if ! git -C "$repo" worktree add --no-track -B "agent/$WEAVE_AGENT_ID" "$tree" "$point" >&2; then
+		# A directory removed without telling git leaves a registration behind that still
+		# claims the branch. Pruning only after the add has failed keeps a prune off the
+		# ordinary path, where it would race the adds of the agents starting alongside this one.
+		echo "worktree setup: pruning stale worktree registrations and trying once more" >&2
+		git -C "$repo" worktree prune 2>/dev/null || true
+		git -C "$repo" worktree add --no-track -B "agent/$WEAVE_AGENT_ID" "$tree" "$point" >&2
+	fi
+
+	# What replaces that upstream: the agent's first plain push creates its own remote branch.
+	# The value is shared with the repo, so a concurrent create that loses the race to write
+	# it still ends up with it set.
+	git -C "$tree" config --get push.autoSetupRemote >/dev/null 2>&1 ||
+		git -C "$tree" config --local push.autoSetupRemote true 2>/dev/null ||
+		echo "worktree setup: could not set push.autoSetupRemote, so the first push needs -u" >&2
 
 	# Only a worktree this run made is furnished. One that was already there holds
 	# whatever the agent has done to it since, and copying a directory over one that

@@ -141,6 +141,52 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 			wantCleanup: worktreeCleanupAction,
 		},
 		{
+			name: "an absolute copy path is refused, since the lists are relative to the repo",
+			cfg: workflowstore.Config{
+				Name:     "backend",
+				Cwd:      "/repo",
+				Worktree: workflowstore.WorktreeConfig{Enabled: true, CopyPaths: []string{"/etc/passwd"}},
+			},
+			wantErrIs: ErrWorktreeUnsafePath,
+		},
+		{
+			name: "a copy path climbing out of the repo is refused",
+			cfg: workflowstore.Config{
+				Name:     "backend",
+				Cwd:      "/repo",
+				Worktree: workflowstore.WorktreeConfig{Enabled: true, CopyPaths: []string{"../../secrets"}},
+			},
+			wantErrIs: ErrWorktreeUnsafePath,
+		},
+		{
+			name: "a symlink path naming the git directory is refused, since it is the worktree's own link",
+			cfg: workflowstore.Config{
+				Name:     "backend",
+				Cwd:      "/repo",
+				Worktree: workflowstore.WorktreeConfig{Enabled: true, SymlinkPaths: []string{".git"}},
+			},
+			wantErrIs: ErrWorktreeUnsafePath,
+		},
+		{
+			name: "a path with a newline in it is refused, since a newline is what separates the entries",
+			cfg: workflowstore.Config{
+				Name:     "backend",
+				Cwd:      "/repo",
+				Worktree: workflowstore.WorktreeConfig{Enabled: true, CopyPaths: []string{".env\n../escape"}},
+			},
+			wantErrIs: ErrWorktreeUnsafePath,
+		},
+		{
+			name: "a path nested inside the repo is kept",
+			cfg: workflowstore.Config{
+				Name:     "backend",
+				Cwd:      "/repo",
+				Worktree: workflowstore.WorktreeConfig{Enabled: true, CopyPaths: []string{"config/local.env"}},
+			},
+			wantSetup:   worktreeSetupAction,
+			wantCleanup: worktreeCleanupAction,
+		},
+		{
 			name:      "naming the built-in setup action without the toggle is refused",
 			cfg:       workflowstore.Config{Name: "backend", Cwd: "/repo", SetupAction: worktreeSetupAction},
 			wantErrIs: ErrWorktreeActionsReserved,
@@ -167,6 +213,28 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 			assert.Equal(t, tt.wantCleanup, created.CleanupAction)
 		})
 	}
+}
+
+// TestUpdateWorkflowRefusesAnUnsafeWorktreePath covers the same validation on the update
+// path, since a workflow created without paths can be given them afterwards and the two
+// entry points would otherwise disagree about what a path may be.
+func TestUpdateWorkflowRefusesAnUnsafeWorktreePath(t *testing.T) {
+	st := newStore(t)
+	workflows := workflowsFor(st, newFakeTmux())
+
+	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
+		Name:     "backend",
+		Cwd:      "/repo",
+		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+	})
+	require.NoError(t, err)
+
+	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
+		Name:     "backend",
+		Cwd:      "/repo",
+		Worktree: workflowstore.WorktreeConfig{Enabled: true, SymlinkPaths: []string{"../elsewhere"}},
+	})
+	require.ErrorIs(t, err, ErrWorktreeUnsafePath)
 }
 
 // TestUpdateWorkflowWorktree covers turning worktree support on through an update, and
