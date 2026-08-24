@@ -276,7 +276,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		MailboxReader: mailStore,
 		NudgeClaimer:  agentStore,
 		PaneReader:    agentService,
-		PaneWriter:    p.Tmux,
+		PaneTyper:     p.Tmux,
 	})
 
 	// The service is the only thing that runs the queue, so it is the only thing that

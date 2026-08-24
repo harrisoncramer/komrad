@@ -102,6 +102,17 @@ func (c *Client) GetPaneOwner(pane string) string {
 	return c.value("show-options", "-p", "-qv", "-t", pane, paneOwnerOption)
 }
 
+// IsPaneInMode reports whether a pane is in one of tmux's own modes, which is what scrolling
+// back through it puts it in. Keys sent to a pane in a mode reach the mode rather than the
+// program, so this says whether the pane can be typed at.
+func (c *Client) IsPaneInMode(pane string) bool {
+	if pane == "" {
+		return false
+	}
+
+	return c.value("display-message", "-p", "-t", pane, "#{pane_in_mode}") == "1"
+}
+
 // GetPaneOwners returns every pane on the server keyed to its owner stamp.
 func (c *Client) GetPaneOwners() (map[string]string, error) {
 	out, err := c.query("list-panes", "-a", "-F", "#{pane_id} #{"+paneOwnerOption+"}")
@@ -172,6 +183,21 @@ func (c *Client) SendKeys(target string, keys ...string) error {
 
 	if _, err := c.query(append([]string{"send-keys", "-t", target}, keys...)...); err != nil {
 		return fmt.Errorf("failed to send keys to %q: %w", target, err)
+	}
+
+	return nil
+}
+
+// SendText types a string into a pane as text. SendKeys looks each argument up as a key name
+// first, so a word naming a key arrives as that key, and -l is what turns the lookup off. It
+// does not rescue a pane in a mode, which reads literal keys through the mode's table too.
+func (c *Client) SendText(target, text string) error {
+	if target == "" {
+		return errors.New("refusing to send text to an empty target")
+	}
+
+	if _, err := c.query("send-keys", "-t", target, "-l", "--", text); err != nil {
+		return fmt.Errorf("failed to send text to %q: %w", target, err)
 	}
 
 	return nil

@@ -23,8 +23,8 @@ const (
 	// one that has just been told to read.
 	DeliverySoon
 	// DeliveryLater means mail is waiting on something that may not change for a while: an
-	// agent with no pane, one sitting on a permission prompt, or one that has already been
-	// told once and has not moved since.
+	// agent with no pane, one sitting on a permission prompt, one whose pane a person is
+	// reading back through, or one that has already been told once and has not moved since.
 	DeliveryLater
 )
 
@@ -36,6 +36,14 @@ const nudgeEnterDelay = 300 * time.Millisecond
 // paneReader is how delivery finds out whether an agent's pane is still there to type into.
 type paneReader interface {
 	IsAgentRunning(agent agentstore.Agent) bool
+}
+
+// paneTyper is how the nudge gets into a pane: whether the pane will take keys at all,
+// then the line as text and the newline that submits it as a key.
+type paneTyper interface {
+	IsPaneInMode(pane string) bool
+	SendText(target, text string) error
+	SendKeys(target string, keys ...string) error
 }
 
 // nudgeClaimer reads an agent and takes the right to tell it about waiting mail.
@@ -61,7 +69,7 @@ type DeliveryService struct {
 	mailboxReader mailboxReader
 	nudgeClaimer  nudgeClaimer
 	paneReader    paneReader
-	paneWriter    paneWriter
+	paneTyper     paneTyper
 }
 
 // NewDeliveryServiceParams carries the delivery service's dependencies.
@@ -69,7 +77,7 @@ type NewDeliveryServiceParams struct {
 	MailboxReader mailboxReader
 	NudgeClaimer  nudgeClaimer
 	PaneReader    paneReader
-	PaneWriter    paneWriter
+	PaneTyper     paneTyper
 }
 
 // NewDeliveryService builds the service from its dependencies.
@@ -78,7 +86,7 @@ func NewDeliveryService(p NewDeliveryServiceParams) *DeliveryService {
 		mailboxReader: p.MailboxReader,
 		nudgeClaimer:  p.NudgeClaimer,
 		paneReader:    p.PaneReader,
-		paneWriter:    p.PaneWriter,
+		paneTyper:     p.PaneTyper,
 	}
 }
 
@@ -128,6 +136,10 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 		return DeliveryLater, nil
 	case !s.paneReader.IsAgentRunning(*agent):
 		return DeliveryLater, nil
+	case s.paneTyper.IsPaneInMode(agent.Pane):
+		// Keys sent to a pane in a mode reach the mode rather than the agent. Answering before
+		// the claim is taken is what leaves the mail to be delivered once the mode is over.
+		return DeliveryLater, nil
 	}
 
 	// The claim is what stops an agent being typed at twice for one stretch of sitting idle,
@@ -153,13 +165,13 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pending int64) error {
 	line := fmt.Sprintf("weave: %d piece(s) of unread mail, call read_mail", pending)
 
-	if err := s.paneWriter.SendKeys(agent.Pane, line); err != nil {
+	if err := s.paneTyper.SendText(agent.Pane, line); err != nil {
 		return fmt.Errorf("failed to type at agent %q: %w", agent.ID, err)
 	}
 
 	time.Sleep(nudgeEnterDelay)
 
-	if err := s.paneWriter.SendKeys(agent.Pane, "Enter"); err != nil {
+	if err := s.paneTyper.SendKeys(agent.Pane, "Enter"); err != nil {
 		return fmt.Errorf("failed to submit the nudge to agent %q: %w", agent.ID, err)
 	}
 

@@ -90,7 +90,7 @@ type paneController interface {
 	GetClientPath(client string) string
 }
 
-// paneWriter is how a launch or a delivery types into an agent's pane. The command is
+// paneWriter is how a launch types into an agent's pane. The command is
 // not executed directly: it is typed into a pane and parsed by the shell running
 // there, which is why the harness that assembles it quotes everything interpolated.
 type paneWriter interface {
